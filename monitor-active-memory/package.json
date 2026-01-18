@@ -1,0 +1,40 @@
+{
+  "name": "@abstractuic/monitor-active-memory",
+  "version": "0.1.0",
+  "description": "Shared KG + Active Memory explorer UI components for AbstractFramework clients (AbstractFlow, AbstractObserver, AbstractCode).",
+  "type": "module",
+  "author": "Laurent-Philippe Albou",
+  "license": "MIT",
+  "keywords": [
+    "abstractframework",
+    "abstractmemory",
+    "abstractruntime",
+    "abstractflow",
+    "abstractobserver",
+    "abstractcode",
+    "knowledge-graph",
+    "active-memory",
+    "react",
+    "reactflow"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lpalbou/abstractframework.git"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "reactflow": "^11.0.0"
+  },
+  "sideEffects": [
+    "*.css"
+  ]
+}
+

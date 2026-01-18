@@ -1,0 +1,133 @@
+.amx-root {
+  display: flex;
+  width: 100%;
+  min-height: 520px;
+  gap: 12px;
+}
+
+.amx-left {
+  flex: 1 1 auto;
+  min-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.amx-toolbar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.amx-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.amx-toolbar input,
+.amx-toolbar select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(0, 0, 0, 0.2);
+  color: inherit;
+}
+
+.amx-toolbar .amx-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.amx-btn {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  cursor: pointer;
+}
+
+.amx-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.amx-graph {
+  flex: 1 1 auto;
+  min-height: 420px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.amx-right {
+  flex: 0 0 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.amx-panel {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.amx-panel h3 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.amx-small {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.amx-list {
+  max-height: 240px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.amx-item {
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.18);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.amx-item .amx-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 11px;
+}
+
+.amx-active-memory {
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.amx-hl {
+  background: rgba(255, 204, 0, 0.25);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+

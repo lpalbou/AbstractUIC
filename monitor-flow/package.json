@@ -1,0 +1,36 @@
+{
+  "name": "@abstractuic/monitor-flow",
+  "version": "0.1.0",
+  "description": "Shared flow/agent monitoring UI components for AbstractFramework (used by AbstractFlow and AbstractObserver).",
+  "type": "module",
+  "author": "Laurent-Philippe Albou",
+  "license": "MIT",
+  "keywords": [
+    "abstractframework",
+    "abstractflow",
+    "abstractobserver",
+    "ui",
+    "observability",
+    "agent",
+    "react"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lpalbou/abstractframework.git"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "sideEffects": [
+    "*.css"
+  ]
+}
+

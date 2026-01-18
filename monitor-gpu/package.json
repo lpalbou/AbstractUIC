@@ -1,0 +1,38 @@
+{
+  "name": "@abstractutils/monitor-gpu",
+  "version": "0.1.0",
+  "description": "Lightweight GPU utilization histogram widget for AbstractFramework clients (polls AbstractGateway host metrics with Bearer auth).",
+  "type": "module",
+  "author": "Laurent-Philippe Albou",
+  "license": "MIT",
+  "keywords": [
+    "abstractframework",
+    "abstractgateway",
+    "gpu",
+    "monitoring",
+    "widget",
+    "histogram"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lpalbou/abstractframework.git"
+  },
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "sideEffects": false
+}
