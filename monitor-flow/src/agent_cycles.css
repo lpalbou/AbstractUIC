@@ -1,10 +1,10 @@
 /* Shared Agent Cycles monitor styles (ported from AbstractFlow run modal) */
 
 .agent-trace-panel {
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.12));
   border-radius: 10px;
   padding: 12px;
-  background: rgba(0, 0, 0, 0.12);
+  background: var(--ui-surface-1, rgba(0, 0, 0, 0.12));
   max-width: 100%;
   min-width: 0;
   overflow-x: hidden;
@@ -18,21 +18,21 @@
 }
 
 .agent-trace-title {
-  font-size: 11px;
+  font-size: var(--font-size-xs, 11px);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .agent-trace-subtitle {
-  font-size: 12px;
+  font-size: var(--font-size-sm, 12px);
   color: var(--text-secondary);
 }
 
 .agent-trace-subrun {
   margin-left: 8px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-xs, 11px);
   color: var(--text-muted);
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -43,9 +43,9 @@
   width: 20px;
   height: 20px;
   border-radius: 7px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.12));
+  background: var(--ui-surface-2, rgba(255, 255, 255, 0.03));
+  color: var(--text-muted, rgba(255, 255, 255, 0.6));
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -54,22 +54,22 @@
 }
 
 .agent-trace-copy:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.9);
+  background: var(--ui-surface-2, rgba(255, 255, 255, 0.06));
+  color: var(--text-primary, rgba(255, 255, 255, 0.9));
 }
 
 .agent-trace-open {
   padding: 6px 10px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.12));
+  background: var(--ui-surface-2, rgba(255, 255, 255, 0.04));
+  color: var(--text-primary, rgba(255, 255, 255, 0.9));
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--font-size-sm, 12px);
 }
 
 .agent-trace-open:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--ui-surface-2, rgba(255, 255, 255, 0.07));
 }
 
 .agent-trace-badges {
@@ -80,12 +80,12 @@
 }
 
 .run-metric-badge.metric-tool {
-  border: 1px solid rgba(52, 152, 219, 0.35);
-  background: rgba(52, 152, 219, 0.10);
-  color: rgba(200, 232, 255, 0.95);
+  border: 1px solid var(--info-border, rgba(52, 152, 219, 0.35));
+  background: var(--info-subtle, rgba(52, 152, 219, 0.10));
+  color: var(--text-primary, rgba(200, 232, 255, 0.95));
   border-radius: 999px;
   padding: 3px 8px;
-  font-size: 11px;
+  font-size: var(--font-size-xs, 11px);
   font-family: var(--font-mono);
   white-space: nowrap;
   max-width: 360px;
@@ -95,7 +95,7 @@
 
 .agent-trace-empty {
   padding: 10px 0 0;
-  font-size: 12px;
+  font-size: var(--font-size-sm, 12px);
   color: var(--text-muted);
 }
 
@@ -107,16 +107,16 @@
 }
 
 .agent-cycle-meta {
-  font-size: 11px;
+  font-size: var(--font-size-xs, 11px);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .agent-cycle {
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.12));
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--ui-surface-2, rgba(255, 255, 255, 0.02));
   overflow: hidden;
 }
 
@@ -138,7 +138,7 @@
 }
 
 .agent-cycle-label {
-  font-size: 11px;
+  font-size: var(--font-size-xs, 11px);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -147,7 +147,7 @@
 
 .agent-cycle-index {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--font-size-sm, 12px);
   color: var(--text-primary);
   font-weight: 800;
 }
@@ -159,7 +159,7 @@
 
 .agent-cycle-preview {
   max-width: 560px;
-  font-size: 12px;
+  font-size: var(--font-size-sm, 12px);
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -175,7 +175,7 @@
 }
 
 .agent-cycle-stage {
-  font-size: 11px;
+  font-size: var(--font-size-xs, 11px);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -187,7 +187,7 @@
 }
 
 .agent-trace-preview-inline {
-  font-size: 12px;
+  font-size: var(--font-size-sm, 12px);
   color: var(--text-secondary);
 }
 
@@ -196,7 +196,7 @@
 }
 
 .agent-observe-empty {
-  font-size: 12px;
+  font-size: var(--font-size-sm, 12px);
   color: var(--text-muted);
   padding: 6px 0 0;
 }
@@ -231,7 +231,7 @@
 
 .agent-observe-name {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--font-size-sm, 12px);
   color: var(--text-primary);
   font-weight: 800;
 }
@@ -239,7 +239,7 @@
 .agent-observe-callid {
   margin-left: auto;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-xs, 11px);
   color: var(--text-muted);
 }
 
@@ -248,7 +248,7 @@
 }
 
 .agent-cycle-others-title {
-  font-size: 11px;
+  font-size: var(--font-size-xs, 11px);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -280,7 +280,7 @@
 }
 
 .agent-trace-status {
-  font-size: 11px;
+  font-size: var(--font-size-xs, 11px);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: 800;
@@ -301,14 +301,14 @@
 
 .agent-trace-kind {
   font-weight: 800;
-  font-size: 12px;
+  font-size: var(--font-size-sm, 12px);
   color: var(--text-primary);
 }
 
 .agent-trace-node,
 .agent-trace-run {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-xs, 11px);
   color: var(--text-muted);
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -322,7 +322,7 @@
 
 .agent-trace-preview {
   padding: 0 12px 10px 12px;
-  font-size: 12px;
+  font-size: var(--font-size-sm, 12px);
   color: var(--text-secondary);
   white-space: pre-wrap;
   word-break: break-word;
@@ -351,7 +351,7 @@
   border: 1px solid var(--bg-tertiary);
   background: rgba(255, 255, 255, 0.02);
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-xs, 11px);
   padding: 4px 8px;
   border-radius: 999px;
   cursor: pointer;
@@ -370,7 +370,7 @@
 
 .run-details-output {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--font-size-sm, 12px);
   margin: 0;
   padding: 12px;
   border-radius: 10px;
@@ -415,7 +415,7 @@
 }
 
 .json-viewer__copy {
-  font-size: 11px;
+  font-size: var(--font-size-xs, 11px);
   padding: 6px 10px;
 }
 
@@ -437,7 +437,7 @@
 .json-viewer__line,
 .json-viewer__summary {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--font-size-sm, 12px);
   line-height: 1.45;
   max-width: 100%;
   min-width: 0;
@@ -491,7 +491,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  font-size: 11px;
+  font-size: var(--font-size-xs, 11px);
   color: var(--text-muted);
   font-family: var(--font-mono);
   text-transform: uppercase;
@@ -505,7 +505,7 @@
 
 .mf-msg-name {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-xs, 11px);
   color: var(--text-muted);
 }
 
@@ -520,7 +520,7 @@
 
 /* Lightweight Markdown renderer (safe React nodes, no HTML injection). */
 .mf-md {
-  font-size: 12px;
+  font-size: var(--font-size-sm, 12px);
   line-height: 1.45;
   color: var(--text-primary);
   font-family: var(--font-sans);
@@ -531,7 +531,7 @@
 .mf-md h2,
 .mf-md h3 {
   margin: 6px 0 4px 0;
-  font-size: 13px;
+  font-size: var(--font-size-md, 13px);
 }
 
 .mf-md_p {
@@ -547,7 +547,7 @@
 
 .mf-md code {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-xs, 11px);
   padding: 1px 4px;
   border-radius: 8px;
   border: 1px solid var(--bg-tertiary);
@@ -569,7 +569,7 @@
   padding: 0;
   border: none;
   background: transparent;
-  font-size: 11px;
+  font-size: var(--font-size-xs, 11px);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;

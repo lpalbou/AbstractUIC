@@ -7,6 +7,7 @@ export type JsonValue =
   | { [key: string]: JsonValue };
 
 export type MemoryScope = 'run' | 'session' | 'global' | 'all';
+export type RecallLevel = 'urgent' | 'standard' | 'deep';
 
 export interface KgAssertion {
   subject: string;
@@ -26,6 +27,7 @@ export interface KgQueryParams {
   run_id?: string;
   scope: MemoryScope;
   owner_id?: string;
+  recall_level?: RecallLevel;
   query_text?: string;
   subject?: string;
   predicate?: string;
@@ -43,6 +45,8 @@ export interface KgQueryResult {
   ok: boolean;
   count?: number;
   items?: KgAssertion[];
+  effort?: JsonValue;
+  warnings?: JsonValue;
   packets?: JsonValue[];
   packets_version?: number;
   packed_count?: number;
@@ -51,4 +55,3 @@ export interface KgQueryResult {
   estimated_tokens?: number;
   raw?: JsonValue;
 }
-

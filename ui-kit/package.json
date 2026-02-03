@@ -1,16 +1,16 @@
 {
-  "name": "@abstractuic/panel-chat",
+  "name": "@abstractuic/ui-kit",
   "version": "0.1.0",
-  "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
+  "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
   "license": "MIT",
   "keywords": [
     "abstractframework",
     "abstractuic",
-    "chat",
     "ui",
-    "react"
+    "theme",
+    "tokens"
   ],
   "repository": {
     "type": "git",
@@ -24,7 +24,6 @@
     "README.md"
   ],
   "peerDependencies": {
-    "@abstractuic/ui-kit": "workspace:*",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },

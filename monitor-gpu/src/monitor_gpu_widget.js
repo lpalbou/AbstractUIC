@@ -53,8 +53,8 @@ function _cssText() {
 .wrap.icon .top{display:none}
 .wrap.icon .bars{height:var(--monitor-gpu-bars-height,18px)}
 .top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-.label{font-size:12px;opacity:.9}
-.value{font-variant-numeric:tabular-nums;font-size:12px;opacity:.95}
+.label{font-size:var(--monitor-gpu-font-size,var(--font-size-sm,12px));opacity:.9}
+.value{font-variant-numeric:tabular-nums;font-size:var(--monitor-gpu-font-size,var(--font-size-sm,12px));opacity:.95}
 .bars{display:flex;align-items:flex-end;gap:2px;height:var(--monitor-gpu-bars-height,34px);overflow:hidden}
 .bar{flex:1;min-width:0;border-radius:2px;background:var(--monitor-gpu-bar,#4cc3ff);height:2px;opacity:.9;transition:height .25s ease, background .25s ease, opacity .25s ease}
 .bar.missing{background:var(--monitor-gpu-bar-missing,#62708a);opacity:.35}
@@ -73,13 +73,18 @@ export class MonitorGpuWidgetController {
     this._buffer = new HistoryBuffer(this._opts.historySize);
 
     this._timer = null;
+    this._timer_gen = 0;
+    this._running = false;
     this._abort = null;
+    this._resumeTimer = null;
 
     this._mounted = false;
     this._els = null;
 
     this._token = options.token;
     this._getToken = options.getToken;
+
+    this._stoppedForAuth = false;
   }
 
   get options() {
@@ -88,6 +93,11 @@ export class MonitorGpuWidgetController {
 
   set token(t) {
     this._token = t;
+    const tok = String(this._token || "").trim();
+    if (tok && this._stoppedForAuth) {
+      this._stoppedForAuth = false;
+      this.start();
+    }
   }
 
   get token() {
@@ -149,15 +159,22 @@ export class MonitorGpuWidgetController {
 
   start() {
     this.mount();
-    if (this._timer) return;
-    this._tick();
-    this._timer = setInterval(() => this._tick(), this._opts.tickMs);
+    if (this._running) return;
+    this._running = true;
+    this._timer_gen += 1;
+    void this._poll_loop(this._timer_gen);
   }
 
   stop() {
+    this._running = false;
+    this._timer_gen += 1;
     if (this._timer) {
-      clearInterval(this._timer);
+      clearTimeout(this._timer);
       this._timer = null;
+    }
+    if (this._resumeTimer) {
+      clearTimeout(this._resumeTimer);
+      this._resumeTimer = null;
     }
     if (this._abort) {
       this._abort.abort();
@@ -188,7 +205,7 @@ export class MonitorGpuWidgetController {
       this._buffer.setMaxSize(merged.historySize);
       if (this._mounted) this._rebuildBars();
     }
-    if (tickChanged && this._timer) {
+    if (tickChanged && this._running) {
       this.stop();
       this.start();
     } else if (this._mounted) {
@@ -259,14 +276,18 @@ export class MonitorGpuWidgetController {
   }
 
   async _tick() {
+    const tokenAtStart = String(this._token || "").trim();
+    const getTokenAtStart = this._getToken;
+    const requestHadAuth = Boolean(tokenAtStart) || typeof getTokenAtStart === "function";
+
     if (this._abort) this._abort.abort();
     this._abort = new AbortController();
 
     const res = await fetchHostGpuMetrics({
       baseUrl: this._opts.baseUrl,
       endpoint: this._opts.endpoint,
-      token: this._token,
-      getToken: this._getToken,
+      token: tokenAtStart,
+      getToken: getTokenAtStart,
       signal: this._abort.signal,
     });
 
@@ -277,6 +298,26 @@ export class MonitorGpuWidgetController {
     if (!res.ok) {
       this._buffer.push(null);
       this._render({ error: true });
+      if (res.status === 401 || res.status === 403) {
+        // If the request was unauthenticated (no token and no getToken) but auth became available
+        // before the 401 came back (common race when the host sets `el.token` after mount),
+        // do not permanently stop the widget. Let the poll loop continue and succeed on the next tick.
+        const tokenNow = String(this._token || "").trim();
+        const hasGetTokenNow = typeof this._getToken === "function";
+        const authNowAvailable = Boolean(tokenNow) || hasGetTokenNow;
+        if (!requestHadAuth && authNowAvailable) {
+          return;
+        }
+        this._stoppedForAuth = true;
+        this.stop();
+      } else if (res.status === 429) {
+        this.stop();
+        this._resumeTimer = setTimeout(() => {
+          this._resumeTimer = null;
+          if (!this._mounted) return;
+          this.start();
+        }, 30_000);
+      }
       return;
     }
 
@@ -288,6 +329,18 @@ export class MonitorGpuWidgetController {
 
     this._buffer.push(pct);
     this._render();
+  }
+
+  async _poll_loop(gen) {
+    if (!this._running || gen !== this._timer_gen) return;
+
+    await this._tick();
+
+    if (!this._running || gen !== this._timer_gen) return;
+    this._timer = setTimeout(() => {
+      this._timer = null;
+      void this._poll_loop(gen);
+    }, this._opts.tickMs);
   }
 }
 
@@ -314,11 +367,33 @@ export function registerMonitorGpuWidget(tagName = "monitor-gpu") {
       this._shadow = this.attachShadow ? this.attachShadow({ mode: "open" }) : null;
       const root = this._shadow || this;
       this._controller = new MonitorGpuWidgetController(root, {});
+
+      // If a property was set on the element instance before it was upgraded/defined
+      // (e.g. React rendered `<monitor-gpu>` before `customElements.define()`),
+      // it becomes an "own property" and would bypass our setters. Upgrade it.
+      this._upgradeProperty("token");
+      this._upgradeProperty("getToken");
+    }
+
+    _upgradeProperty(prop) {
+      if (!Object.prototype.hasOwnProperty.call(this, prop)) return;
+      const value = this[prop];
+      try {
+        delete this[prop];
+      } catch {
+        // ignore
+      }
+      this[prop] = value;
     }
 
     connectedCallback() {
       this._controller.setOptions(this._readAttrs());
-      this._controller.start();
+      const start = () => {
+        if (!this.isConnected) return;
+        this._controller.start();
+      };
+      if (typeof queueMicrotask === "function") queueMicrotask(start);
+      else Promise.resolve().then(start);
     }
 
     disconnectedCallback() {
