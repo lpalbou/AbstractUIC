@@ -1,4 +1,4 @@
-# @abstractutils/monitor-gpu
+# @abstractframework/monitor-gpu
 
 Small, dependency-free GPU utilization widget that renders a mini histogram and polls a secured backend endpoint.
 
@@ -8,13 +8,13 @@ In AbstractFramework deployments, the default backend endpoint is AbstractGatewa
 
 ## Install
 
-- Workspace: add a dependency on `@abstractutils/monitor-gpu`
-- npm (once published): `npm i @abstractutils/monitor-gpu`
+- Workspace: add a dependency on `@abstractframework/monitor-gpu`
+- npm (once published): `npm i @abstractframework/monitor-gpu`
 
 ## Usage (Custom Element)
 
 ```js
-import { registerMonitorGpuWidget } from "@abstractutils/monitor-gpu";
+import { registerMonitorGpuWidget } from "@abstractframework/monitor-gpu";
 
 registerMonitorGpuWidget(); // defines <monitor-gpu>
 
@@ -36,7 +36,7 @@ You can also set the non-secret options via attributes:
 ## Usage (Imperative helper)
 
 ```js
-import { createMonitorGpuWidget } from "@abstractutils/monitor-gpu";
+import { createMonitorGpuWidget } from "@abstractframework/monitor-gpu";
 
 const widget = createMonitorGpuWidget(document.querySelector("#gpu"), {
   baseUrl: "http://localhost:8080",
@@ -82,4 +82,5 @@ npm test
 ## Related docs
 
 - Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- API reference: [`docs/api.md`](../docs/api.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)

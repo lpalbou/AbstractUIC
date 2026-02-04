@@ -1,4 +1,4 @@
-# @abstractuic/monitor-flow
+# @abstractframework/monitor-flow
 
 React components to inspect **agent execution cycles** (think → act → observe) from per-effect trace records.
 
@@ -18,8 +18,8 @@ Declared in `monitor-flow/package.json`:
 
 ## Install
 
-- Workspace: add a dependency on `@abstractuic/monitor-flow`
-- npm (once published): `npm i @abstractuic/monitor-flow`
+- Workspace: add a dependency on `@abstractframework/monitor-flow`
+- npm (once published): `npm i @abstractframework/monitor-flow`
 
 ## Expected data
 
@@ -43,7 +43,7 @@ Cycles start whenever `step.effect.type === "llm_call"` (see the cycle builder i
 If you already have `TraceItem[]`, pass it directly:
 
 ```tsx
-import { AgentCyclesPanel } from "@abstractuic/monitor-flow";
+import { AgentCyclesPanel } from "@abstractframework/monitor-flow";
 
 <AgentCyclesPanel items={items} />;
 ```
@@ -51,7 +51,7 @@ import { AgentCyclesPanel } from "@abstractuic/monitor-flow";
 If you have “ledger-like” records, adapt them with `build_agent_trace`:
 
 ```tsx
-import { AgentCyclesPanel, build_agent_trace } from "@abstractuic/monitor-flow";
+import { AgentCyclesPanel, build_agent_trace } from "@abstractframework/monitor-flow";
 
 const { items } = build_agent_trace(ledgerItems, { run_id: "run_123" });
 <AgentCyclesPanel items={items} />;
@@ -59,9 +59,13 @@ const { items } = build_agent_trace(ledgerItems, { run_id: "run_123" });
 
 ## Styling
 
-The panel imports `monitor-flow/src/agent_cycles.css` and uses shared UI token CSS variables where present (see `@abstractuic/ui-kit/src/theme.css`).
+Import CSS in your app entrypoint (recommended):
+
+- `import "@abstractframework/monitor-flow/agent_cycles.css";`
+- `import "@abstractframework/ui-kit/theme.css";` (shared tokens)
 
 ## Related docs
 
 - Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- API reference: [`docs/api.md`](../docs/api.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)

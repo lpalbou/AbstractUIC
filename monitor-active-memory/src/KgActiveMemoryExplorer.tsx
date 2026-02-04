@@ -17,7 +17,6 @@ import {
   type XY,
 } from './graph';
 import type { JsonValue, KgAssertion, KgQueryParams, KgQueryResult, MemoryScope, RecallLevel } from './types';
-import './styles.css';
 
 export interface KgActiveMemoryExplorerProps {
   title?: string;

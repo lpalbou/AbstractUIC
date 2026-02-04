@@ -1,8 +1,6 @@
 import React, { useMemo, useState } from "react";
 
-import "./panel_chat.css";
-
-import { Icon, type IconName } from "@abstractuic/ui-kit";
+import { Icon, type IconName } from "@abstractframework/ui-kit";
 
 import { ChatMessageContent } from "./message_content";
 import { copyText } from "./utils";

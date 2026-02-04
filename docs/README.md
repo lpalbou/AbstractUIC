@@ -4,10 +4,21 @@ This repository is a small set of **UI packages** (React components + one Web Co
 
 ## Start here
 
-- **Getting started**: [`docs/getting-started.md`](./getting-started.md)
-- **Architecture + package boundaries**: [`docs/architecture.md`](./architecture.md)
-- **Local development**: [`docs/development.md`](./development.md)
-- **Publishing (maintainers)**: [`docs/publishing.md`](./publishing.md)
+- **Getting started**: [`getting-started.md`](./getting-started.md)
+- **API reference**: [`api.md`](./api.md)
+- **FAQ**: [`faq.md`](./faq.md)
+- **Architecture + package boundaries**: [`architecture.md`](./architecture.md)
+- **Local development**: [`development.md`](./development.md)
+- **Publishing (maintainers)**: [`publishing.md`](./publishing.md)
+- Backwards-compatible stub: [`installation.md`](./installation.md)
+
+## Repo docs / policies
+
+- Changelog: [`CHANGELOG.md`](../CHANGELOG.md)
+- Contributing: [`CONTRIBUTING.md`](../CONTRIBUTING.md)
+- Security: [`SECURITY.md`](../SECURITY.md)
+- Acknowledgments: [`ACKNOWLEDMENTS.md`](../ACKNOWLEDMENTS.md)
+- License: [`LICENSE`](../LICENSE)
 
 ## Package docs
 

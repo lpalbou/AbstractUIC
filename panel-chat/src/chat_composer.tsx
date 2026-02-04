@@ -1,7 +1,5 @@
 import React from "react";
 
-import "./panel_chat.css";
-
 export type ChatComposerProps = {
   value: string;
   onChange: (value: string) => void;
@@ -65,4 +63,3 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
     </div>
   );
 });
-

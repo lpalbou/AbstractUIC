@@ -1,13 +1,17 @@
 {
-  "name": "@abstractuic/monorepo",
-  "version": "0.1.0",
+  "name": "@abstractframework/abstractuic-monorepo",
+  "version": "0.1.1",
   "private": true,
-  "description": "AbstractUIC - UI components for AbstractFramework",
+  "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
     "ui-kit",
     "monitor-active-memory",
     "monitor-flow",
     "monitor-gpu",
     "panel-chat"
-  ]
+  ],
+  "scripts": {
+    "build": "npm -ws --if-present run build",
+    "test": "npm -ws --if-present test"
+  }
 }

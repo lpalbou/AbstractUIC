@@ -1,0 +1,25 @@
+# Security Policy
+
+We take security seriously and appreciate responsible disclosure.
+
+## Reporting a vulnerability
+
+Preferred: use GitHub’s private vulnerability reporting for this repository (Security → “Report a vulnerability”). This keeps the report private while we investigate and prepare a fix.
+
+If private reporting is not available, contact the maintainer via GitHub and **avoid creating a public issue** for sensitive reports.
+
+Please include:
+- A clear description of the issue and potential impact
+- Steps to reproduce (ideally a minimal PoC)
+- Affected package(s) and version(s) (`*/package.json`)
+- Any relevant logs, screenshots, or environment details
+
+## Disclosure expectations
+
+- Please do not publicly disclose the issue until we’ve had a chance to release a fix (or agree on a timeline).
+- Do not include secrets (tokens, private URLs, internal hostnames) in reports.
+
+## Security notes for users
+
+- `@abstractframework/monitor-gpu` supports Bearer token auth. Avoid putting tokens in URLs and prefer HTTPS in production.
+- See security notes in `monitor-gpu/README.md` and integration guidance in [`docs/getting-started.md`](./docs/getting-started.md).

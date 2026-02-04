@@ -7,10 +7,16 @@ from pathlib import Path
 FILES_IN_ORDER: list[str] = [
     "README.md",
     "docs/getting-started.md",
+    "docs/api.md",
+    "docs/faq.md",
     "docs/architecture.md",
     "docs/development.md",
     "docs/publishing.md",
     "docs/README.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "ACKNOWLEDMENTS.md",
     "docs/installation.md",
     "ui-kit/README.md",
     "panel-chat/README.md",
@@ -50,4 +56,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -1,7 +1,5 @@
 import React from "react";
 
-import "./panel_chat.css";
-
 type InlineNode = React.ReactNode;
 
 type HighlightState = {

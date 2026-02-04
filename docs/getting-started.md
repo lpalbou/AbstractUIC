@@ -5,31 +5,35 @@ AbstractUIC is a small set of **UI packages** (React components + one Web Compon
 If you’re new here, you typically:
 
 1. Pick the package(s) you need
-2. Ensure your app can **transpile TS/TSX dependencies** (React packages export `./src/index.ts`)
-3. Import the required CSS (theme tokens, and ReactFlow styles if applicable)
+2. Install them (from npm, or from source/workspaces)
+3. Import the required CSS (theme tokens + per-package styles; and ReactFlow styles if applicable)
+
+For a package-by-package export map, see [`docs/api.md`](./api.md).
 
 ## Pick a package
 
 | Package | Use when you need… | Primary exports (source of truth) |
 |---|---|---|
-| `@abstractuic/ui-kit` | Shared theme tokens + small UI primitives (selects/icons) | `ui-kit/src/index.ts` |
-| `@abstractuic/panel-chat` | Chat thread + message UI + markdown/json rendering | `panel-chat/src/index.ts` |
-| `@abstractuic/monitor-flow` | Agent “cycles” trace viewer + ledger adapter | `monitor-flow/src/index.ts` |
-| `@abstractuic/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | `monitor-active-memory/src/index.ts` |
-| `@abstractutils/monitor-gpu` | GPU utilization histogram widget (`<monitor-gpu>`) | `monitor-gpu/src/index.js` |
+| `@abstractframework/ui-kit` | Shared theme tokens + small UI primitives (selects/icons) | `ui-kit/src/index.ts` |
+| `@abstractframework/panel-chat` | Chat thread + message UI + markdown/json rendering | `panel-chat/src/index.ts` |
+| `@abstractframework/monitor-flow` | Agent “cycles” trace viewer + ledger adapter | `monitor-flow/src/index.ts` |
+| `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | `monitor-active-memory/src/index.ts` |
+| `@abstractframework/monitor-gpu` | GPU utilization histogram widget (`<monitor-gpu>`) | `monitor-gpu/src/index.js` |
 
 ## Requirements
 
 - React packages declare `react@^18` and `react-dom@^18` as peer dependencies (see each `*/package.json`).
-- `@abstractuic/monitor-active-memory` also declares `reactflow@^11` as a peer dependency.
-- React packages export TS/TSX from `src/` (see each package’s `exports` field), so your bundler must transpile them.
+- `@abstractframework/monitor-active-memory` also declares `reactflow@^11` as a peer dependency.
+- Packages are ESM (`"type": "module"`). In web apps, use a bundler that can consume ESM and CSS.
 
 ## Install / integrate
 
-This repo does not currently ship a “single install”. Common options:
+This repo does not ship a “single install”. Common options:
 
-- **Workspace** (recommended): add this repo as a workspace in your host, then depend on the packages by name.
-- **Vendor**: copy the package folder(s) you need (keep `package.json` + `src/`) and install peer deps listed in that `package.json`.
+- **npm** (recommended for external consumers): install the package(s) you need once published.
+- **Workspace / source**: add this repo as a workspace in your host, or vendor the package folder(s).
+  - Workspace: build the packages you change (`npm run build`, see [`docs/development.md`](./development.md)).
+  - Vendored sources: if you consume TypeScript sources directly, your toolchain must transpile TS/TSX dependencies.
 
 Maintainers: see [`docs/publishing.md`](./publishing.md).
 
@@ -38,10 +42,18 @@ Maintainers: see [`docs/publishing.md`](./publishing.md).
 Import theme tokens once (recommended):
 
 ```ts
-import "@abstractuic/ui-kit/src/theme.css";
+import "@abstractframework/ui-kit/theme.css";
 ```
 
-If you use `@abstractuic/monitor-active-memory`, also import ReactFlow base styles in your app:
+Import per-package styles for the packages you use:
+
+```ts
+import "@abstractframework/panel-chat/panel_chat.css";
+import "@abstractframework/monitor-flow/agent_cycles.css";
+import "@abstractframework/monitor-active-memory/styles.css";
+```
+
+If you use `@abstractframework/monitor-active-memory`, also import ReactFlow base styles in your app:
 
 ```ts
 import "reactflow/dist/style.css";
@@ -49,11 +61,11 @@ import "reactflow/dist/style.css";
 
 ## Quick examples
 
-### Chat (`@abstractuic/panel-chat`)
+### Chat (`@abstractframework/panel-chat`)
 
 ```tsx
 import React, { useState } from "react";
-import { ChatComposer, ChatThread, type ChatMessage } from "@abstractuic/panel-chat";
+import { ChatComposer, ChatThread, type ChatMessage } from "@abstractframework/panel-chat";
 
 export function ChatView() {
   const [value, setValue] = useState("");
@@ -77,10 +89,10 @@ export function ChatView() {
 }
 ```
 
-### Agent cycles (`@abstractuic/monitor-flow`)
+### Agent cycles (`@abstractframework/monitor-flow`)
 
 ```tsx
-import { AgentCyclesPanel, build_agent_trace } from "@abstractuic/monitor-flow";
+import { AgentCyclesPanel, build_agent_trace } from "@abstractframework/monitor-flow";
 
 const { items } = build_agent_trace(ledgerItems, { run_id: "run_123" });
 <AgentCyclesPanel items={items} />;
@@ -88,10 +100,10 @@ const { items } = build_agent_trace(ledgerItems, { run_id: "run_123" });
 
 Cycles are segmented when `step.effect.type === "llm_call"` (see `monitor-flow/src/AgentCyclesPanel.tsx`).
 
-### Active Memory explorer (`@abstractuic/monitor-active-memory`)
+### Active Memory explorer (`@abstractframework/monitor-active-memory`)
 
 ```tsx
-import { KgActiveMemoryExplorer, type KgAssertion } from "@abstractuic/monitor-active-memory";
+import { KgActiveMemoryExplorer, type KgAssertion } from "@abstractframework/monitor-active-memory";
 
 const items: KgAssertion[] = [];
 
@@ -104,10 +116,10 @@ const items: KgAssertion[] = [];
 />;
 ```
 
-### GPU widget (`@abstractutils/monitor-gpu`)
+### GPU widget (`@abstractframework/monitor-gpu`)
 
 ```js
-import { registerMonitorGpuWidget } from "@abstractutils/monitor-gpu";
+import { registerMonitorGpuWidget } from "@abstractframework/monitor-gpu";
 
 registerMonitorGpuWidget();
 const el = document.createElement("monitor-gpu");
@@ -119,20 +131,23 @@ el.mode = "icon"; // "full" | "icon"
 document.body.appendChild(el);
 ```
 
-## Next.js note (transpiling)
+## Next.js notes
 
-If you install these packages into `node_modules`, Next.js often needs `transpilePackages` because the React packages export TS/TSX from `src/`:
+- Import global CSS from your app entrypoint (e.g. `app/layout.tsx` or `pages/_app.tsx`), not from deep component files.
+- Client-only: several components touch browser APIs (`window`, `document`, `navigator`, `localStorage`). Render them in client components.
+- If you consume TypeScript sources directly (workspace/vendored), Next.js may need `transpilePackages`.
 
 ```js
 // next.config.js
 module.exports = {
-  transpilePackages: ["@abstractuic/ui-kit", "@abstractuic/panel-chat", "@abstractuic/monitor-flow", "@abstractuic/monitor-active-memory"],
+  transpilePackages: ["@abstractframework/ui-kit", "@abstractframework/panel-chat", "@abstractframework/monitor-flow", "@abstractframework/monitor-active-memory"],
 };
 ```
 
 ## Next docs
 
+- API reference: [`docs/api.md`](./api.md)
+- FAQ: [`docs/faq.md`](./faq.md)
 - Architecture + diagrams: [`docs/architecture.md`](./architecture.md)
 - Development workflow: [`docs/development.md`](./development.md)
 - Publishing (maintainers): [`docs/publishing.md`](./publishing.md)
-

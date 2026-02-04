@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react";
 
-import "./panel_chat.css";
-
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -171,4 +169,3 @@ export function JsonViewer(props: { value: unknown; className?: string; collapse
     </div>
   );
 }
-

@@ -1,34 +1,60 @@
 {
-  "name": "@abstractuic/panel-chat",
-  "version": "0.1.0",
+  "name": "@abstractframework/panel-chat",
+  "version": "0.1.1",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
   "license": "MIT",
   "keywords": [
     "abstractframework",
-    "abstractuic",
     "chat",
     "ui",
     "react"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/lpalbou/AbstractUIC.git"
+    "url": "https://github.com/lpalbou/AbstractUIC.git",
+    "directory": "panel-chat"
   },
+  "homepage": "https://github.com/lpalbou/AbstractUIC#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./panel_chat.css": "./src/panel_chat.css"
   },
   "files": [
-    "src",
+    "dist",
+    "src/panel_chat.css",
     "README.md"
   ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
   "peerDependencies": {
-    "@abstractuic/ui-kit": "^0.1.0",
+    "@abstractframework/ui-kit": "^0.1.1",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
+  "devDependencies": {
+    "@abstractframework/ui-kit": "^0.1.1",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "typescript": "^5.3.3"
+  },
   "sideEffects": [
     "*.css"
-  ]
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }

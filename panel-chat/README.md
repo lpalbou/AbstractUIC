@@ -1,4 +1,4 @@
-# @abstractuic/panel-chat
+# @abstractframework/panel-chat
 
 Chat UI primitives for AbstractFramework-style UIs: thread rendering, message cards, a composer, and lightweight Markdown/JSON rendering.
 
@@ -7,12 +7,12 @@ Chat UI primitives for AbstractFramework-style UIs: thread rendering, message ca
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractuic/ui-kit` (icons used by `ChatMessageCard`)
+- `@abstractframework/ui-kit` (icons used by `ChatMessageCard`)
 
 ## Install
 
-- Workspace: add a dependency on `@abstractuic/panel-chat`
-- npm (once published): `npm i @abstractuic/panel-chat`
+- Workspace: add a dependency on `@abstractframework/panel-chat`
+- npm (once published): `npm i @abstractframework/panel-chat`
 
 ## Exported API
 
@@ -27,7 +27,7 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
 
 ```tsx
 import React, { useState } from "react";
-import { ChatThread, ChatComposer, type ChatMessage } from "@abstractuic/panel-chat";
+import { ChatThread, ChatComposer, type ChatMessage } from "@abstractframework/panel-chat";
 
 export function ChatView() {
   const [value, setValue] = useState("");
@@ -53,10 +53,12 @@ Markdown is intentionally minimal and implemented in `panel-chat/src/markdown.ts
 
 ## Styling & theming
 
-- Components import `panel-chat/src/panel_chat.css`.
-- For consistent tokens (colors/typography), import `@abstractuic/ui-kit/src/theme.css` in your app.
+- Import CSS in your app entrypoint (recommended):
+  - `import "@abstractframework/panel-chat/panel_chat.css";`
+  - `import "@abstractframework/ui-kit/theme.css";` (shared tokens)
 
 ## Related docs
 
 - Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- API reference: [`docs/api.md`](../docs/api.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)

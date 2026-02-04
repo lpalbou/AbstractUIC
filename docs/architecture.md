@@ -6,20 +6,20 @@ This document stays intentionally close to the code: every claim below is backed
 
 ## High-level overview
 
-- **React packages** ship **TypeScript/TSX source** via `exports -> ./src/index.ts` (see each `package.json`).
-- **`@abstractutils/monitor-gpu`** ships **JavaScript** (`exports -> ./src/index.js`) and registers a custom element.
-- Styling is shipped as plain CSS and imported by components (for example `panel-chat/src/panel_chat.css`).
+- **React packages** ship **compiled ESM + type declarations** from `dist/` (see `exports` in each `package.json`). Source lives in `src/` and is built with `tsc`.
+- **`@abstractframework/monitor-gpu`** ships **JavaScript** (`monitor-gpu/src`) and registers a custom element.
+- Styling is shipped as plain CSS and exposed as package exports (e.g. `@abstractframework/panel-chat/panel_chat.css`).
 
 ## Package dependency graph
 
 ```mermaid
 flowchart LR
   subgraph AbstractUIC
-    UIKIT["@abstractuic/ui-kit"]
-    CHAT["@abstractuic/panel-chat"]
-    FLOW["@abstractuic/monitor-flow"]
-    AMX["@abstractuic/monitor-active-memory"]
-    GPU["@abstractutils/monitor-gpu"]
+    UIKIT["@abstractframework/ui-kit"]
+    CHAT["@abstractframework/panel-chat"]
+    FLOW["@abstractframework/monitor-flow"]
+    AMX["@abstractframework/monitor-active-memory"]
+    GPU["@abstractframework/monitor-gpu"]
   end
 
   CHAT -->|"imports Icon"| UIKIT
@@ -30,7 +30,7 @@ flowchart LR
 ```
 
 Evidence:
-- `panel-chat/src/chat_message_card.tsx` imports `Icon` from `@abstractuic/ui-kit`.
+- `panel-chat/src/chat_message_card.tsx` imports `Icon` from `@abstractframework/ui-kit`.
 - `monitor-active-memory/package.json` declares `reactflow` as a peer dependency.
 
 ## Runtime data flow
@@ -84,13 +84,16 @@ See: `monitor-gpu/src/gpu_metrics_api.js` and `monitor-gpu/src/monitor_gpu_widge
 
 ## Styling & theming
 
-- `@abstractuic/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css`.
+- `@abstractframework/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css` (exported as `@abstractframework/ui-kit/theme.css`).
 - Other packages use those variables where available, but include fallbacks (e.g. `var(--ui-border-1, rgba(...))`).
 
 See also: [`docs/getting-started.md`](./getting-started.md) for integration + required CSS.
 
 ## Related docs
 
+- Getting started: [`docs/getting-started.md`](./getting-started.md)
+- API reference: [`docs/api.md`](./api.md)
+- FAQ: [`docs/faq.md`](./faq.md)
 - Docs index: [`docs/README.md`](./README.md)
 - Development: [`docs/development.md`](./development.md)
 - Package docs: see the table in the root [`README.md`](../README.md)

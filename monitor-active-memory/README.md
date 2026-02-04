@@ -1,4 +1,4 @@
-# @abstractuic/monitor-active-memory
+# @abstractframework/monitor-active-memory
 
 ReactFlow-based explorer for **Knowledge Graph assertions** (`KgAssertion`) and the derived **Active Memory** text.
 
@@ -20,13 +20,13 @@ Declared in `monitor-active-memory/package.json`:
 
 ## Install
 
-- Workspace: add a dependency on `@abstractuic/monitor-active-memory`
-- npm (once published): `npm i @abstractuic/monitor-active-memory`
+- Workspace: add a dependency on `@abstractframework/monitor-active-memory`
+- npm (once published): `npm i @abstractframework/monitor-active-memory`
 
 ## Usage
 
 ```tsx
-import { KgActiveMemoryExplorer, type KgAssertion } from "@abstractuic/monitor-active-memory";
+import { KgActiveMemoryExplorer, type KgAssertion } from "@abstractframework/monitor-active-memory";
 
 const items: KgAssertion[] = [];
 
@@ -62,15 +62,21 @@ The component can persist per-view layouts in `localStorage` under key `abstract
 
 ## CSS
 
-- ReactFlow base styles are **not** imported by this package. In your app:
+- Import CSS in your app entrypoint (recommended):
+
+```ts
+import "@abstractframework/monitor-active-memory/styles.css";
+import "@abstractframework/ui-kit/theme.css"; // shared tokens (optional but recommended)
+```
+
+- ReactFlow base styles are **not** included. In your app:
 
 ```ts
 import "reactflow/dist/style.css";
 ```
 
-- This package imports `monitor-active-memory/src/styles.css` internally.
-
 ## Related docs
 
 - Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- API reference: [`docs/api.md`](../docs/api.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)

@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 
-import "./agent_cycles.css";
 import { JsonViewer } from "./JsonViewer";
 import { Markdown } from "./Markdown";
 

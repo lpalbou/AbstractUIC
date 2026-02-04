@@ -1,7 +1,5 @@
 import React from "react";
 
-import "./panel_chat.css";
-
 import { JsonViewer } from "./json_viewer";
 import { Markdown } from "./markdown";
 import { tryParseJson } from "./utils";
@@ -34,4 +32,3 @@ export function ChatMessageContent(props: {
     </div>
   );
 }
-

@@ -1,33 +1,59 @@
 {
-  "name": "@abstractuic/ui-kit",
-  "version": "0.1.0",
+  "name": "@abstractframework/ui-kit",
+  "version": "0.1.1",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
   "license": "MIT",
   "keywords": [
     "abstractframework",
-    "abstractuic",
     "ui",
     "theme",
-    "tokens"
+    "tokens",
+    "react"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/lpalbou/AbstractUIC.git"
+    "url": "https://github.com/lpalbou/AbstractUIC.git",
+    "directory": "ui-kit"
   },
+  "homepage": "https://github.com/lpalbou/AbstractUIC#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./theme.css": "./src/theme.css"
   },
   "files": [
-    "src",
+    "dist",
+    "src/theme.css",
     "README.md"
   ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
   "peerDependencies": {
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
+  "devDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "typescript": "^5.3.3"
+  },
   "sideEffects": [
     "*.css"
-  ]
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }

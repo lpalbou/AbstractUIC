@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import "./panel_chat.css";
-
 import { ChatMessageCard, type ChatMessage, type ChatMessageCardProps } from "./chat_message_card";
 
 export type ChatThreadProps = {
