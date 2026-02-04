@@ -33,3 +33,19 @@ export function createMonitorGpuWidget(target: HTMLElement, options?: MonitorGpu
 
 export function registerMonitorGpuWidget(tagName?: string): void;
 
+export interface MonitorGpuElement extends HTMLElement {
+  tickMs: number;
+  historySize: number;
+  endpoint: string;
+  baseUrl: string;
+  mode: MonitorGpuMode;
+
+  token: string | undefined;
+  getToken: (() => string | Promise<string>) | undefined;
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "monitor-gpu": MonitorGpuElement;
+  }
+}

@@ -1,0 +1,776 @@
+# AbstractUIC (llms-full)
+
+> Generated file. Do not edit by hand; run `python scripts/generate-llms-full.py`.
+
+## README.md
+
+# AbstractUIC
+
+Reusable UI packages for AbstractFramework clients (React components + a small Web Component).
+
+> Most React packages export **TypeScript/TSX source** via `exports -> ./src/index.ts`, so consumers must transpile them (see `docs/getting-started.md`).
+
+## Documentation
+
+- Getting started: [`docs/getting-started.md`](./docs/getting-started.md)
+- Architecture (includes diagrams): [`docs/architecture.md`](./docs/architecture.md)
+- Docs index: [`docs/README.md`](./docs/README.md)
+
+## Packages
+
+| Package | Purpose | Docs |
+|---|---|---|
+| `@abstractuic/ui-kit` | Theme tokens (CSS variables) + small UI primitives (selects/icons) | [`ui-kit/README.md`](./ui-kit/README.md) |
+| `@abstractuic/panel-chat` | Chat thread + message cards + composer + markdown/json rendering | [`panel-chat/README.md`](./panel-chat/README.md) |
+| `@abstractuic/monitor-flow` | Agent-cycle trace viewer + ledger adapter | [`monitor-flow/README.md`](./monitor-flow/README.md) |
+| `@abstractuic/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | [`monitor-active-memory/README.md`](./monitor-active-memory/README.md) |
+| `@abstractutils/monitor-gpu` | GPU utilization widget (`<monitor-gpu>`) polling a metrics endpoint | [`monitor-gpu/README.md`](./monitor-gpu/README.md) |
+
+## Context
+
+[AbstractFramework](https://github.com/lpalbou/abstractframework) is a workflow/runtime system with multiple host UX layers. AbstractUIC packages are host-driven UI building blocks used by those clients (no host imports; data + callbacks flow in from the host).
+
+## Quickstart (React)
+
+See [`docs/getting-started.md`](./docs/getting-started.md) for bundler + CSS notes. Minimal usage:
+
+```tsx
+import "@abstractuic/ui-kit/src/theme.css";
+// Only if you use @abstractuic/monitor-active-memory (ReactFlow):
+import "reactflow/dist/style.css";
+
+import { ChatThread } from "@abstractuic/panel-chat";
+import { AgentCyclesPanel } from "@abstractuic/monitor-flow";
+import { KgActiveMemoryExplorer } from "@abstractuic/monitor-active-memory";
+```
+
+## Development
+
+- React packages are typically validated via a host app that links them in a workspace (HMR).
+- GPU widget tests: `cd monitor-gpu && npm test`
+
+See [`docs/development.md`](./docs/development.md).
+
+## License
+
+MIT (see [`LICENSE`](./LICENSE)).
+
+## docs/getting-started.md
+
+# Getting Started
+
+AbstractUIC is a small set of **UI packages** (React components + one Web Component). Each top-level folder in this repo is an independently-consumable package.
+
+If you’re new here, you typically:
+
+1. Pick the package(s) you need
+2. Ensure your app can **transpile TS/TSX dependencies** (React packages export `./src/index.ts`)
+3. Import the required CSS (theme tokens, and ReactFlow styles if applicable)
+
+## Pick a package
+
+| Package | Use when you need… | Primary exports (source of truth) |
+|---|---|---|
+| `@abstractuic/ui-kit` | Shared theme tokens + small UI primitives (selects/icons) | `ui-kit/src/index.ts` |
+| `@abstractuic/panel-chat` | Chat thread + message UI + markdown/json rendering | `panel-chat/src/index.ts` |
+| `@abstractuic/monitor-flow` | Agent “cycles” trace viewer + ledger adapter | `monitor-flow/src/index.ts` |
+| `@abstractuic/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | `monitor-active-memory/src/index.ts` |
+| `@abstractutils/monitor-gpu` | GPU utilization histogram widget (`<monitor-gpu>`) | `monitor-gpu/src/index.js` |
+
+## Requirements
+
+- React packages declare `react@^18` and `react-dom@^18` as peer dependencies (see each `*/package.json`).
+- `@abstractuic/monitor-active-memory` also declares `reactflow@^11` as a peer dependency.
+- React packages export TS/TSX from `src/` (see each package’s `exports` field), so your bundler must transpile them.
+
+## Install / integrate
+
+This repo does not currently ship a “single install”. Common options:
+
+- **Workspace** (recommended): add this repo as a workspace in your host, then depend on the packages by name.
+- **Vendor**: copy the package folder(s) you need (keep `package.json` + `src/`) and install peer deps listed in that `package.json`.
+
+Maintainers: see [`docs/publishing.md`](./publishing.md).
+
+## CSS you must import
+
+Import theme tokens once (recommended):
+
+```ts
+import "@abstractuic/ui-kit/src/theme.css";
+```
+
+If you use `@abstractuic/monitor-active-memory`, also import ReactFlow base styles in your app:
+
+```ts
+import "reactflow/dist/style.css";
+```
+
+## Quick examples
+
+### Chat (`@abstractuic/panel-chat`)
+
+```tsx
+import React, { useState } from "react";
+import { ChatComposer, ChatThread, type ChatMessage } from "@abstractuic/panel-chat";
+
+export function ChatView() {
+  const [value, setValue] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  return (
+    <>
+      <ChatThread messages={messages} autoScroll />
+      <ChatComposer
+        value={value}
+        onChange={setValue}
+        onSubmit={() => {
+          const content = value.trim();
+          if (!content) return;
+          setMessages((m) => [...m, { role: "user", content }]);
+          setValue("");
+        }}
+      />
+    </>
+  );
+}
+```
+
+### Agent cycles (`@abstractuic/monitor-flow`)
+
+```tsx
+import { AgentCyclesPanel, build_agent_trace } from "@abstractuic/monitor-flow";
+
+const { items } = build_agent_trace(ledgerItems, { run_id: "run_123" });
+<AgentCyclesPanel items={items} />;
+```
+
+Cycles are segmented when `step.effect.type === "llm_call"` (see `monitor-flow/src/AgentCyclesPanel.tsx`).
+
+### Active Memory explorer (`@abstractuic/monitor-active-memory`)
+
+```tsx
+import { KgActiveMemoryExplorer, type KgAssertion } from "@abstractuic/monitor-active-memory";
+
+const items: KgAssertion[] = [];
+
+<KgActiveMemoryExplorer
+  items={items}
+  onQuery={async (params) => {
+    // Host decides how to fetch/search KG assertions.
+    return { ok: true, items: [], active_memory_text: "" };
+  }}
+/>;
+```
+
+### GPU widget (`@abstractutils/monitor-gpu`)
+
+```js
+import { registerMonitorGpuWidget } from "@abstractutils/monitor-gpu";
+
+registerMonitorGpuWidget();
+const el = document.createElement("monitor-gpu");
+el.baseUrl = "http://localhost:8080"; // optional; defaults to same-origin
+el.token = "your-gateway-token"; // or: el.getToken = async () => "..."
+el.tickMs = 1500;
+el.historySize = 20;
+el.mode = "icon"; // "full" | "icon"
+document.body.appendChild(el);
+```
+
+## Next.js note (transpiling)
+
+If you install these packages into `node_modules`, Next.js often needs `transpilePackages` because the React packages export TS/TSX from `src/`:
+
+```js
+// next.config.js
+module.exports = {
+  transpilePackages: ["@abstractuic/ui-kit", "@abstractuic/panel-chat", "@abstractuic/monitor-flow", "@abstractuic/monitor-active-memory"],
+};
+```
+
+## Next docs
+
+- Architecture + diagrams: [`docs/architecture.md`](./architecture.md)
+- Development workflow: [`docs/development.md`](./development.md)
+- Publishing (maintainers): [`docs/publishing.md`](./publishing.md)
+
+## docs/architecture.md
+
+# Architecture
+
+AbstractUIC is a **multi-package repository**: each folder at the repo root is an independently-consumable package.
+
+This document stays intentionally close to the code: every claim below is backed by a package entrypoint, type definition, or runtime contract in `src/`.
+
+## High-level overview
+
+- **React packages** ship **TypeScript/TSX source** via `exports -> ./src/index.ts` (see each `package.json`).
+- **`@abstractutils/monitor-gpu`** ships **JavaScript** (`exports -> ./src/index.js`) and registers a custom element.
+- Styling is shipped as plain CSS and imported by components (for example `panel-chat/src/panel_chat.css`).
+
+## Package dependency graph
+
+```mermaid
+flowchart LR
+  subgraph AbstractUIC
+    UIKIT["@abstractuic/ui-kit"]
+    CHAT["@abstractuic/panel-chat"]
+    FLOW["@abstractuic/monitor-flow"]
+    AMX["@abstractuic/monitor-active-memory"]
+    GPU["@abstractutils/monitor-gpu"]
+  end
+
+  CHAT -->|"imports Icon"| UIKIT
+  AMX -->|"peer dep"| ReactFlow["reactflow (peer dependency)"]
+  FLOW -->|"peer dep"| React["react / react-dom (peer dependency)"]
+  CHAT -->|"peer dep"| React
+  UIKIT -->|"peer dep"| React
+```
+
+Evidence:
+- `panel-chat/src/chat_message_card.tsx` imports `Icon` from `@abstractuic/ui-kit`.
+- `monitor-active-memory/package.json` declares `reactflow` as a peer dependency.
+
+## Runtime data flow
+
+AbstractUIC components are designed to be **host-driven**: hosts provide data and callbacks; the packages do not import host code.
+
+```mermaid
+flowchart TD
+  Host["Host app (AbstractFlow / AbstractObserver / etc.)"]
+
+  Host -->|"TraceItem[] (or build_agent_trace)"| FlowPanel["monitor-flow: AgentCyclesPanel"]
+  Host -->|"KgAssertion[] + onQuery() (optional)"| AMXPanel["monitor-active-memory: KgActiveMemoryExplorer"]
+  Host -->|"ChatMessage[] + callbacks"| ChatUI["panel-chat: ChatThread / ChatComposer / ChatMessageCard"]
+
+  Host -->|"register + attach <monitor-gpu>"| GPUWidget["monitor-gpu: <monitor-gpu>"]
+  GPUWidget -->|"GET /api/gateway/host/metrics/gpu"| Metrics["Gateway / metrics endpoint"]
+```
+
+Evidence:
+- `monitor-flow/src/AgentCyclesPanel.tsx` consumes `TraceItem[]` and groups cycles by `step.effect.type === "llm_call"`.
+- `monitor-flow/src/agent_cycles_adapter.ts` exports `build_agent_trace(...)` to adapt ledger-like records into `TraceItem[]`.
+- `monitor-active-memory/src/KgActiveMemoryExplorer.tsx` consumes `items: KgAssertion[]` and optionally calls `onQuery(params)`.
+- `monitor-gpu/src/gpu_metrics_api.js` builds/fetches the metrics URL and attaches Bearer auth headers.
+
+## Contracts & types (what you pass in)
+
+### Knowledge graph / active memory (`monitor-active-memory`)
+
+- `KgAssertion` / `KgQueryParams` / `KgQueryResult`: `monitor-active-memory/src/types.ts`
+- Graph utilities: `monitor-active-memory/src/graph.ts`
+- Main component + callback contracts: `monitor-active-memory/src/KgActiveMemoryExplorer.tsx`
+
+### Agent traces (`monitor-flow`)
+
+- `TraceItem` / `TraceStep`: `monitor-flow/src/AgentCyclesPanel.tsx`
+- Ledger adapter: `monitor-flow/src/agent_cycles_adapter.ts`
+
+### Chat (`panel-chat`)
+
+- `ChatMessage`, `ChatAttachment`, `ChatStat`: `panel-chat/src/chat_message_card.tsx`
+- `ChatThread` / `ChatComposer`: `panel-chat/src/chat_thread.tsx`, `panel-chat/src/chat_composer.tsx`
+
+### GPU metrics (`monitor-gpu`)
+
+The widget expects JSON that can be interpreted by `extractUtilizationGpuPct(payload)`:
+
+- `payload.utilization_gpu_pct` (number) **or**
+- `payload.gpus[][].utilization_gpu_pct` (numbers; averaged)
+
+See: `monitor-gpu/src/gpu_metrics_api.js` and `monitor-gpu/src/monitor_gpu_widget.js`.
+
+## Styling & theming
+
+- `@abstractuic/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css`.
+- Other packages use those variables where available, but include fallbacks (e.g. `var(--ui-border-1, rgba(...))`).
+
+See also: [`docs/getting-started.md`](./getting-started.md) for integration + required CSS.
+
+## Related docs
+
+- Docs index: [`docs/README.md`](./README.md)
+- Development: [`docs/development.md`](./development.md)
+- Package docs: see the table in the root [`README.md`](../README.md)
+
+## docs/development.md
+
+# Development
+
+This repo is intentionally lightweight: packages are meant to be edited in place and consumed by host applications.
+
+## Repo layout
+
+Each package is a folder at the repo root:
+
+- `ui-kit/`
+- `panel-chat/`
+- `monitor-flow/`
+- `monitor-active-memory/`
+- `monitor-gpu/`
+
+## Typical workflow (React packages)
+
+1. Link the package into your host app via workspaces (pnpm/yarn/npm) or `file:` dependency.
+2. Let the host bundler compile TS/TSX + CSS imports.
+3. Validate behavior in the host app (HMR).
+
+## Tests
+
+Only `@abstractutils/monitor-gpu` currently has automated tests:
+
+```bash
+cd monitor-gpu
+npm test
+```
+
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](./getting-started.md)
+- Architecture: [`docs/architecture.md`](./architecture.md)
+
+## docs/publishing.md
+
+# Publishing (Maintainers)
+
+Each folder is an npm package and can be published independently.
+
+## Pre-flight
+
+- Ensure README + docs links are correct (root `README.md` + per-package `README.md`).
+- Ensure `repository` metadata points to this repo (`https://github.com/lpalbou/AbstractUIC`).
+- Ensure peer dependency ranges are valid semver (avoid `workspace:*` in published metadata).
+
+## Suggested release steps
+
+1. Bump versions in each `*/package.json` you plan to publish.
+2. Run package tests:
+   - `cd monitor-gpu && npm test`
+3. Dry-run the package tarball (optional): `npm pack` inside each package.
+4. Publish from the package directory:
+
+```bash
+cd <package>
+npm publish --access public
+```
+
+Notes:
+- Scoped packages are private by default; `--access public` is required for public release.
+- React packages currently ship TS/TSX source (`exports -> ./src/index.ts`). If you need wider compatibility (Node/SSR without transpilation), add a build step before publishing.
+
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](./getting-started.md)
+- Architecture: [`docs/architecture.md`](./architecture.md)
+
+## docs/README.md
+
+# AbstractUIC Documentation
+
+This repository is a small set of **UI packages** (React components + one Web Component).
+
+## Start here
+
+- **Getting started**: [`docs/getting-started.md`](./getting-started.md)
+- **Architecture + package boundaries**: [`docs/architecture.md`](./architecture.md)
+- **Local development**: [`docs/development.md`](./development.md)
+- **Publishing (maintainers)**: [`docs/publishing.md`](./publishing.md)
+
+## Package docs
+
+- UI tokens + theme + common inputs: [`ui-kit/README.md`](../ui-kit/README.md)
+- Chat primitives (thread, composer, markdown/json renderers): [`panel-chat/README.md`](../panel-chat/README.md)
+- Agent-cycle trace viewer (LLM/tool/observe): [`monitor-flow/README.md`](../monitor-flow/README.md)
+- KG + Active Memory explorer (ReactFlow): [`monitor-active-memory/README.md`](../monitor-active-memory/README.md)
+- GPU widget (custom element + imperative API): [`monitor-gpu/README.md`](../monitor-gpu/README.md)
+
+## docs/installation.md
+
+# Installation & Integration
+
+This page is kept for backwards compatibility.
+
+Start here instead:
+
+- [`docs/getting-started.md`](./getting-started.md)
+
+## ui-kit/README.md
+
+# @abstractuic/ui-kit
+
+Shared theme tokens + small UI primitives used across AbstractUIC packages and host apps.
+
+This package provides:
+
+- **Theme tokens** (CSS variables + theme classes): `ui-kit/src/theme.css`
+- **Theme + typography helpers**: `applyTheme(...)`, `applyTypography(...)`
+- **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, etc.
+- **Icons**: `Icon` (used by `@abstractuic/panel-chat`)
+
+## Install / peer dependencies
+
+This is a React package with peer dependencies on `react@^18` and `react-dom@^18` (see `ui-kit/package.json`).
+
+## Install
+
+- Workspace: add a dependency on `@abstractuic/ui-kit`
+- npm (once published): `npm i @abstractuic/ui-kit`
+
+## Usage
+
+Import the theme tokens once in your app:
+
+```ts
+import "@abstractuic/ui-kit/src/theme.css";
+```
+
+Apply a theme at runtime (optional):
+
+```ts
+import { applyTheme } from "@abstractuic/ui-kit";
+
+applyTheme("dark"); // sets a `theme-*` class on <html>
+```
+
+Use UI components:
+
+```tsx
+import { ThemeSelect, Icon } from "@abstractuic/ui-kit";
+```
+
+## Exported API
+
+See `ui-kit/src/index.ts` for the authoritative export list.
+
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- Repo docs index: [`docs/README.md`](../docs/README.md)
+- Architecture: [`docs/architecture.md`](../docs/architecture.md)
+
+## panel-chat/README.md
+
+# @abstractuic/panel-chat
+
+Chat UI primitives for AbstractFramework-style UIs: thread rendering, message cards, a composer, and lightweight Markdown/JSON rendering.
+
+## Peer dependencies
+
+Declared in `panel-chat/package.json`:
+
+- `react@^18`, `react-dom@^18`
+- `@abstractuic/ui-kit` (icons used by `ChatMessageCard`)
+
+## Install
+
+- Workspace: add a dependency on `@abstractuic/panel-chat`
+- npm (once published): `npm i @abstractuic/panel-chat`
+
+## Exported API
+
+See `panel-chat/src/index.ts` for the authoritative export list. Common entry points:
+
+- Components: `ChatThread`, `ChatComposer`, `ChatMessageCard`, `ChatMessageContent`
+- Renderers: `Markdown`, `JsonViewer`
+- Types: `PanelChatMessage`, `ChatMessage`, `ChatAttachment`, `ChatStat`
+- Utils: `chatToMarkdown`, `copyText`, `downloadTextFile`, `tryParseJson`
+
+## Usage (typical)
+
+```tsx
+import React, { useState } from "react";
+import { ChatThread, ChatComposer, type ChatMessage } from "@abstractuic/panel-chat";
+
+export function ChatView() {
+  const [value, setValue] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  return (
+    <>
+      <ChatThread messages={messages} autoScroll />
+      <ChatComposer value={value} onChange={setValue} onSubmit={() => setMessages((m) => [...m, { role: "user", content: value }])} />
+    </>
+  );
+}
+```
+
+## Rendering rules
+
+`ChatMessageContent` auto-detects JSON (via `tryParseJson` in `panel-chat/src/utils.ts`) and renders:
+
+- JSON ⇒ `JsonViewer`
+- otherwise ⇒ `Markdown` (or your `renderMarkdown` override)
+
+Markdown is intentionally minimal and implemented in `panel-chat/src/markdown.tsx` (headings 1–3, code fences, lists, tables, blockquotes, hr, emphasis, and optional highlighting).
+
+## Styling & theming
+
+- Components import `panel-chat/src/panel_chat.css`.
+- For consistent tokens (colors/typography), import `@abstractuic/ui-kit/src/theme.css` in your app.
+
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- Architecture: [`docs/architecture.md`](../docs/architecture.md)
+
+## monitor-flow/README.md
+
+# @abstractuic/monitor-flow
+
+React components to inspect **agent execution cycles** (think → act → observe) from per-effect trace records.
+
+## What you get
+
+Authoritative exports live in `monitor-flow/src/index.ts`:
+
+- `AgentCyclesPanel` (+ types `TraceItem`, `TraceStep`)
+- `JsonViewer`
+- `build_agent_trace` (+ `LedgerRecordItem`, `StepRecordLike`)
+
+## Peer dependencies
+
+Declared in `monitor-flow/package.json`:
+
+- `react@^18`, `react-dom@^18`
+
+## Install
+
+- Workspace: add a dependency on `@abstractuic/monitor-flow`
+- npm (once published): `npm i @abstractuic/monitor-flow`
+
+## Expected data
+
+`AgentCyclesPanel` expects `TraceItem[]` (see `monitor-flow/src/AgentCyclesPanel.tsx`):
+
+```ts
+type TraceItem = {
+  id: string;
+  runId: string;
+  nodeId: string;
+  ts?: string;
+  status: string;
+  step: Record<string, unknown>;
+};
+```
+
+Cycles start whenever `step.effect.type === "llm_call"` (see the cycle builder in `monitor-flow/src/AgentCyclesPanel.tsx`).
+
+## Usage
+
+If you already have `TraceItem[]`, pass it directly:
+
+```tsx
+import { AgentCyclesPanel } from "@abstractuic/monitor-flow";
+
+<AgentCyclesPanel items={items} />;
+```
+
+If you have “ledger-like” records, adapt them with `build_agent_trace`:
+
+```tsx
+import { AgentCyclesPanel, build_agent_trace } from "@abstractuic/monitor-flow";
+
+const { items } = build_agent_trace(ledgerItems, { run_id: "run_123" });
+<AgentCyclesPanel items={items} />;
+```
+
+## Styling
+
+The panel imports `monitor-flow/src/agent_cycles.css` and uses shared UI token CSS variables where present (see `@abstractuic/ui-kit/src/theme.css`).
+
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- Architecture: [`docs/architecture.md`](../docs/architecture.md)
+
+## monitor-active-memory/README.md
+
+# @abstractuic/monitor-active-memory
+
+ReactFlow-based explorer for **Knowledge Graph assertions** (`KgAssertion`) and the derived **Active Memory** text.
+
+## What you get
+
+- `KgActiveMemoryExplorer` component (see `monitor-active-memory/src/KgActiveMemoryExplorer.tsx`)
+- Graph/layout utilities (see `monitor-active-memory/src/graph.ts`):
+  - `buildKgGraph`, `shortestPath`
+  - `buildKgLayout` + force-layout helpers (`initForceSimulation`, `stepForceSimulation`, …)
+- Types / contracts (see `monitor-active-memory/src/types.ts`):
+  - `KgAssertion`, `KgQueryParams`, `KgQueryResult`
+
+## Peer dependencies
+
+Declared in `monitor-active-memory/package.json`:
+
+- `react@^18`, `react-dom@^18`
+- `reactflow@^11`
+
+## Install
+
+- Workspace: add a dependency on `@abstractuic/monitor-active-memory`
+- npm (once published): `npm i @abstractuic/monitor-active-memory`
+
+## Usage
+
+```tsx
+import { KgActiveMemoryExplorer, type KgAssertion } from "@abstractuic/monitor-active-memory";
+
+const items: KgAssertion[] = [];
+
+export function MemoryView() {
+  return (
+    <KgActiveMemoryExplorer
+      title="Active Memory"
+      items={items}
+      activeMemoryText=""
+      onQuery={async (params) => {
+        // Your host decides how to fetch/search KG assertions.
+        return { ok: true, items: [], active_memory_text: "" };
+      }}
+    />
+  );
+}
+```
+
+## Key props (host integration points)
+
+Authoritative prop types live in `monitor-active-memory/src/KgActiveMemoryExplorer.tsx` (`KgActiveMemoryExplorerProps`).
+
+- `items: KgAssertion[]` (required)
+- `activeMemoryText?: string`
+- `onQuery?: (params: KgQueryParams) => Promise<KgQueryResult>` (enables the query UI)
+- `queryMode?: "override" | "replace"` (how query results interact with `items`)
+- `onItemsReplace?: (items, meta) => void` (used when `queryMode === "replace"`)
+- `onOpenSpan?` / `onOpenTranscript?` (optional host navigation hooks)
+
+## Layout persistence
+
+The component can persist per-view layouts in `localStorage` under key `abstractuic_amx_saved_layouts_v1` (see `monitor-active-memory/src/KgActiveMemoryExplorer.tsx`).
+
+## CSS
+
+- ReactFlow base styles are **not** imported by this package. In your app:
+
+```ts
+import "reactflow/dist/style.css";
+```
+
+- This package imports `monitor-active-memory/src/styles.css` internally.
+
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- Architecture: [`docs/architecture.md`](../docs/architecture.md)
+
+## monitor-gpu/README.md
+
+# @abstractutils/monitor-gpu
+
+Small, dependency-free GPU utilization widget that renders a mini histogram and polls a secured backend endpoint.
+
+In AbstractFramework deployments, the default backend endpoint is AbstractGateway:
+- `GET /api/gateway/host/metrics/gpu`
+- Auth: `Authorization: Bearer <token>`
+
+## Install
+
+- Workspace: add a dependency on `@abstractutils/monitor-gpu`
+- npm (once published): `npm i @abstractutils/monitor-gpu`
+
+## Usage (Custom Element)
+
+```js
+import { registerMonitorGpuWidget } from "@abstractutils/monitor-gpu";
+
+registerMonitorGpuWidget(); // defines <monitor-gpu>
+
+const el = document.createElement("monitor-gpu");
+el.baseUrl = "http://localhost:8080"; // optional (defaults to same-origin)
+el.token = "your-gateway-token"; // or el.getToken = async () => ...
+el.tickMs = 1500;
+el.historySize = 20;
+el.mode = "full"; // "full" | "icon"
+document.body.appendChild(el);
+```
+
+You can also set the non-secret options via attributes:
+
+```html
+<monitor-gpu base-url="http://localhost:8080" tick-ms="1500" history-size="20" mode="icon"></monitor-gpu>
+```
+
+## Usage (Imperative helper)
+
+```js
+import { createMonitorGpuWidget } from "@abstractutils/monitor-gpu";
+
+const widget = createMonitorGpuWidget(document.querySelector("#gpu"), {
+  baseUrl: "http://localhost:8080",
+  token: "your-gateway-token",
+  tickMs: 1500,
+  historySize: 20,
+});
+
+// later
+widget.destroy();
+```
+
+## Backend contract (AbstractGateway)
+
+The widget treats the GPU metrics payload as “supported” unless `supported === false` and extracts utilization via `extractUtilizationGpuPct(payload)`:
+
+- `payload.utilization_gpu_pct` (number) **or**
+- `payload.gpus[][].utilization_gpu_pct` (numbers; averaged)
+
+Minimal examples:
+
+```json
+{ "supported": true, "utilization_gpu_pct": 23.0 }
+```
+
+```json
+{ "supported": true, "gpus": [{ "utilization_gpu_pct": 10.0 }, { "utilization_gpu_pct": 36.0 }] }
+```
+
+If `supported=false`, the widget shows `N/A`.
+
+## Security notes
+- Do not pass tokens in URLs.
+- For cross-origin usage, ensure `ABSTRACTGATEWAY_ALLOWED_ORIGINS` includes your UI origin (and serve behind HTTPS in production).
+
+## Tests
+
+```bash
+cd monitor-gpu
+npm test
+```
+
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- Architecture: [`docs/architecture.md`](../docs/architecture.md)
+
+## LICENSE
+
+MIT License
+
+Copyright (c) 2026 Laurent-Philippe Albou
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

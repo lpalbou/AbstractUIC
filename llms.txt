@@ -1,0 +1,33 @@
+# AbstractUIC
+
+> Reusable UI packages for AbstractFramework clients (React components + a small Web Component).
+
+AbstractUIC is a multi-package repository. Most React packages export TypeScript/TSX source via `exports -> ./src/index.ts` and therefore require a bundler that transpiles dependencies. Styling is shipped as plain CSS imported by the components; for consistent tokens across packages, import `@abstractuic/ui-kit/src/theme.css` once in your app.
+
+Key packages:
+- `@abstractuic/ui-kit`: theme tokens + small UI primitives (selects/icons)
+- `@abstractuic/panel-chat`: chat thread/message UI + markdown/json renderers
+- `@abstractuic/monitor-flow`: agent-cycle trace viewer + ledger adapter
+- `@abstractuic/monitor-active-memory`: KG + Active Memory explorer (ReactFlow)
+- `@abstractutils/monitor-gpu`: GPU histogram widget (`<monitor-gpu>`) polling a metrics endpoint
+
+## Documentation
+
+- [Repository README](README.md): Overview, packages, and quick links
+- [Getting started](docs/getting-started.md): Pick packages, install/integrate, required CSS, quick examples
+- [Architecture](docs/architecture.md): Package boundaries + diagrams
+- [Development](docs/development.md): Local workflow and tests
+- [Publishing](docs/publishing.md): Maintainer release checklist
+- [Docs index](docs/README.md): Full docs list
+
+## Packages
+
+- [@abstractuic/ui-kit](ui-kit/README.md): Theme tokens and UI primitives
+- [@abstractuic/panel-chat](panel-chat/README.md): Chat primitives
+- [@abstractuic/monitor-flow](monitor-flow/README.md): Agent cycle trace viewer
+- [@abstractuic/monitor-active-memory](monitor-active-memory/README.md): KG/Active Memory explorer
+- [@abstractutils/monitor-gpu](monitor-gpu/README.md): GPU widget
+
+## Optional
+
+- [License](LICENSE): MIT license text

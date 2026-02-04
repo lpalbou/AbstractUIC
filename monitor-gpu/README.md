@@ -8,9 +8,8 @@ In AbstractFramework deployments, the default backend endpoint is AbstractGatewa
 
 ## Install
 
-```bash
-npm i @abstractutils/monitor-gpu
-```
+- Workspace: add a dependency on `@abstractutils/monitor-gpu`
+- npm (once published): `npm i @abstractutils/monitor-gpu`
 
 ## Usage (Custom Element)
 
@@ -24,13 +23,14 @@ el.baseUrl = "http://localhost:8080"; // optional (defaults to same-origin)
 el.token = "your-gateway-token"; // or el.getToken = async () => ...
 el.tickMs = 1500;
 el.historySize = 20;
+el.mode = "full"; // "full" | "icon"
 document.body.appendChild(el);
 ```
 
 You can also set the non-secret options via attributes:
 
 ```html
-<monitor-gpu base-url="http://localhost:8080" tick-ms="1500" history-size="20"></monitor-gpu>
+<monitor-gpu base-url="http://localhost:8080" tick-ms="1500" history-size="20" mode="icon"></monitor-gpu>
 ```
 
 ## Usage (Imperative helper)
@@ -51,10 +51,19 @@ widget.destroy();
 
 ## Backend contract (AbstractGateway)
 
-The widget expects JSON like:
+The widget treats the GPU metrics payload as “supported” unless `supported === false` and extracts utilization via `extractUtilizationGpuPct(payload)`:
+
+- `payload.utilization_gpu_pct` (number) **or**
+- `payload.gpus[][].utilization_gpu_pct` (numbers; averaged)
+
+Minimal examples:
 
 ```json
 { "supported": true, "utilization_gpu_pct": 23.0 }
+```
+
+```json
+{ "supported": true, "gpus": [{ "utilization_gpu_pct": 10.0 }, { "utilization_gpu_pct": 36.0 }] }
 ```
 
 If `supported=false`, the widget shows `N/A`.
@@ -63,3 +72,14 @@ If `supported=false`, the widget shows `N/A`.
 - Do not pass tokens in URLs.
 - For cross-origin usage, ensure `ABSTRACTGATEWAY_ALLOWED_ORIGINS` includes your UI origin (and serve behind HTTPS in production).
 
+## Tests
+
+```bash
+cd monitor-gpu
+npm test
+```
+
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- Architecture: [`docs/architecture.md`](../docs/architecture.md)

@@ -1,20 +1,76 @@
 # @abstractuic/monitor-active-memory
 
-Reusable React components to **explore Knowledge Graph (KG) assertions** and the derived **Active Memory** block.
+ReactFlow-based explorer for **Knowledge Graph assertions** (`KgAssertion`) and the derived **Active Memory** text.
 
-Designed to be used by:
-- `abstractflow/web/frontend`
-- future clients: `abstractobserver`, `abstractcode/web`, etc.
+## What you get
 
-## Key features
-- Graph view (nodes/edges derived from assertion `{subject,predicate,object}`)
-- Pattern + semantic query controls (when provided an `onQuery` callback)
-- Highlighting (matches + selected path)
-- Shortest-path search between two entities/ideas (BFS on the currently loaded graph)
-- Active Memory panel (`active_memory_text`)
+- `KgActiveMemoryExplorer` component (see `monitor-active-memory/src/KgActiveMemoryExplorer.tsx`)
+- Graph/layout utilities (see `monitor-active-memory/src/graph.ts`):
+  - `buildKgGraph`, `shortestPath`
+  - `buildKgLayout` + force-layout helpers (`initForceSimulation`, `stepForceSimulation`, …)
+- Types / contracts (see `monitor-active-memory/src/types.ts`):
+  - `KgAssertion`, `KgQueryParams`, `KgQueryResult`
 
-## Exported API
-- `KgActiveMemoryExplorer`
-- `buildKgGraph`, `shortestPath` (utilities)
-- Types: `KgAssertion`, `KgQueryParams`, `KgQueryResult`
+## Peer dependencies
 
+Declared in `monitor-active-memory/package.json`:
+
+- `react@^18`, `react-dom@^18`
+- `reactflow@^11`
+
+## Install
+
+- Workspace: add a dependency on `@abstractuic/monitor-active-memory`
+- npm (once published): `npm i @abstractuic/monitor-active-memory`
+
+## Usage
+
+```tsx
+import { KgActiveMemoryExplorer, type KgAssertion } from "@abstractuic/monitor-active-memory";
+
+const items: KgAssertion[] = [];
+
+export function MemoryView() {
+  return (
+    <KgActiveMemoryExplorer
+      title="Active Memory"
+      items={items}
+      activeMemoryText=""
+      onQuery={async (params) => {
+        // Your host decides how to fetch/search KG assertions.
+        return { ok: true, items: [], active_memory_text: "" };
+      }}
+    />
+  );
+}
+```
+
+## Key props (host integration points)
+
+Authoritative prop types live in `monitor-active-memory/src/KgActiveMemoryExplorer.tsx` (`KgActiveMemoryExplorerProps`).
+
+- `items: KgAssertion[]` (required)
+- `activeMemoryText?: string`
+- `onQuery?: (params: KgQueryParams) => Promise<KgQueryResult>` (enables the query UI)
+- `queryMode?: "override" | "replace"` (how query results interact with `items`)
+- `onItemsReplace?: (items, meta) => void` (used when `queryMode === "replace"`)
+- `onOpenSpan?` / `onOpenTranscript?` (optional host navigation hooks)
+
+## Layout persistence
+
+The component can persist per-view layouts in `localStorage` under key `abstractuic_amx_saved_layouts_v1` (see `monitor-active-memory/src/KgActiveMemoryExplorer.tsx`).
+
+## CSS
+
+- ReactFlow base styles are **not** imported by this package. In your app:
+
+```ts
+import "reactflow/dist/style.css";
+```
+
+- This package imports `monitor-active-memory/src/styles.css` internally.
+
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- Architecture: [`docs/architecture.md`](../docs/architecture.md)

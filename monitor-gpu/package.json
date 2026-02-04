@@ -15,7 +15,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/lpalbou/abstractframework.git"
+    "url": "https://github.com/lpalbou/AbstractUIC.git"
   },
   "types": "./src/index.d.ts",
   "exports": {

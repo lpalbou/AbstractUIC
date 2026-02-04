@@ -1,0 +1,13 @@
+{
+  "name": "@abstractuic/monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AbstractUIC - UI components for AbstractFramework",
+  "workspaces": [
+    "ui-kit",
+    "monitor-active-memory",
+    "monitor-flow",
+    "monitor-gpu",
+    "panel-chat"
+  ]
+}

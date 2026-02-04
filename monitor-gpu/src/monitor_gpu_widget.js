@@ -373,6 +373,7 @@ export function registerMonitorGpuWidget(tagName = "monitor-gpu") {
       // it becomes an "own property" and would bypass our setters. Upgrade it.
       this._upgradeProperty("token");
       this._upgradeProperty("getToken");
+      this._upgradeProperty("mode");
     }
 
     _upgradeProperty(prop) {
@@ -465,6 +466,14 @@ export function registerMonitorGpuWidget(tagName = "monitor-gpu") {
 
     get baseUrl() {
       return this._controller.options.baseUrl;
+    }
+
+    set mode(v) {
+      this._controller.setOptions({ mode: v });
+    }
+
+    get mode() {
+      return this._controller.options.mode;
     }
   }
 
