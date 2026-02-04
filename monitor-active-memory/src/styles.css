@@ -97,9 +97,51 @@
 .amx-graph {
   flex: 1 1 auto;
   min-height: 420px;
+  position: relative;
   border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.08));
   border-radius: 10px;
   overflow: hidden;
+}
+
+.amx-graphbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.08));
+  border-radius: 10px;
+  background: var(--ui-surface-2, rgba(255, 255, 255, 0.02));
+}
+
+.amx-graphbar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.amx-graphbar-title {
+  font-size: var(--font-size-sm, 12px);
+  opacity: 0.9;
+}
+
+.amx-graphbar select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
+  background: var(--ui-surface-3, rgba(0, 0, 0, 0.2));
+  color: inherit;
+}
+
+.amx-graphbar-spread {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.amx-graphbar-spread input[type='range'] {
+  width: 140px;
 }
 
 .amx-right {
@@ -292,7 +334,22 @@
   border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.12));
   border-radius: 10px;
   box-shadow: var(--ui-shadow-1, 0 14px 38px rgba(0, 0, 0, 0.45));
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+}
+
+.amx-graph .react-flow__controls .amx-control-legend {
+  order: 4;
+}
+
+.amx-graph .react-flow__controls .amx-control-legend-active {
+  background: var(--accent-subtle, rgba(233, 69, 96, 0.25));
+  color: var(--text-primary, rgba(255, 255, 255, 0.96));
+}
+
+.amx-graph .react-flow__controls .react-flow__controls-interactive {
+  order: 5;
 }
 
 .amx-graph .react-flow__controls button {
@@ -309,7 +366,7 @@
   color: var(--text-primary, rgba(255, 255, 255, 0.96));
 }
 
-.amx-graph .react-flow__controls button:last-child {
+.amx-graph .react-flow__controls .react-flow__controls-interactive {
   border-bottom: none;
 }
 
@@ -345,6 +402,23 @@
   flex-direction: column;
   gap: 6px;
   align-items: flex-end;
+}
+
+.amx-legend-panel {
+  background: var(--ui-code-block-bg, rgba(12, 18, 34, 0.78));
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.12));
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: var(--ui-shadow-1, 0 14px 38px rgba(0, 0, 0, 0.45));
+  backdrop-filter: blur(10px);
+  margin-left: 52px;
+  margin-bottom: 56px;
+}
+
+.amx-legend-title {
+  font-size: var(--font-size-sm, 12px);
+  opacity: 0.9;
+  margin-bottom: 8px;
 }
 
 .amx-graph .react-flow__minimap {

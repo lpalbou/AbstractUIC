@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import ReactFlow, { Background, Controls, MarkerType, MiniMap, Panel, ReactFlowProvider, type Edge, type Node, type NodeChange } from 'reactflow';
+import ReactFlow, {
+  Background,
+  ControlButton,
+  Controls,
+  MarkerType,
+  MiniMap,
+  Panel,
+  ReactFlowProvider,
+  type Edge,
+  type Node,
+  type NodeChange,
+} from 'reactflow';
 
 import {
   buildKgGraph,
@@ -53,6 +64,32 @@ function isCompactViewport(): boolean {
   } catch {
     return false;
   }
+}
+
+function LegendIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <rect x="3" y="3" width="3" height="3" rx="1" />
+      <rect x="3" y="7" width="3" height="3" rx="1" />
+      <rect x="3" y="11" width="3" height="3" rx="1" />
+      <rect x="8" y="3.5" width="6" height="2" rx="1" fill="none" strokeWidth="1.4" />
+      <rect x="8" y="7.5" width="6" height="2" rx="1" fill="none" strokeWidth="1.4" />
+      <rect x="8" y="11.5" width="6" height="2" rx="1" fill="none" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+function clampNumber(value: unknown, lo: number, hi: number, fallback: number): number {
+  const n = typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  return Math.min(hi, Math.max(lo, n));
+}
+
+function forceOptionsForSpread(spread: number): { springLength: number; repulsionStrength: number } {
+  const s = clampNumber(spread, 0.6, 2.4, 1);
+  // Keep defaults in `graph.ts` as the baseline.
+  const springLength = 240 * s;
+  const repulsionStrength = 9000 * s * s;
+  return { springLength, repulsionStrength };
 }
 
 type SavedLayoutV1 = {
@@ -324,7 +361,6 @@ function predicateSummary(assertions: KgAssertion[], opts: { maxPredicates?: num
 }
 
 export function KgActiveMemoryExplorer({
-  title,
   resetKey,
   queryMode,
   items,
@@ -382,15 +418,23 @@ export function KgActiveMemoryExplorer({
   });
   const compactViewport = miniMapDefaults.compact;
   const [showMiniMap, setShowMiniMap] = useState(miniMapDefaults.show);
+  const [showLegend, setShowLegend] = useState(false);
 
   const layoutKey = resetSig;
   const defaultLayoutSeed = useMemo(() => hashStringToSeed(layoutKey), [layoutKey]);
   const [layoutKind, setLayoutKind] = useState<KgLayoutKind>('grid');
   const [layoutSeed, setLayoutSeed] = useState<number>(defaultLayoutSeed);
   const [layoutPlaying, setLayoutPlaying] = useState(false);
+  const [layoutSpread, setLayoutSpread] = useState(1.0);
   const simRef = useRef<ForceSimulationState | null>(null);
   const pendingViewportRef = useRef<ViewportTransform | null>(null);
   const pendingFitViewRef = useRef(false);
+  const [flowEpoch, setFlowEpoch] = useState(0);
+  const graphWrapRef = useRef<HTMLDivElement | null>(null);
+  const rescueRemountsRef = useRef(0);
+  const rescueAttemptsRef = useRef(0);
+  const rescueProbeRef = useRef(0);
+  const rescueRafRef = useRef(0);
 
   const [hasSavedLayout, setHasSavedLayout] = useState(false);
   const [savedLayoutAt, setSavedLayoutAt] = useState('');
@@ -559,15 +603,18 @@ export function KgActiveMemoryExplorer({
     }
   }, [nodeIds.length, nodeIdsSig, nodePositions]);
 
-  useEffect(() => {
-    // Load saved layout for this view key (if present). Falls back to a deterministic layout.
-    setLayoutPlaying(false);
-    simRef.current = null;
-    pendingViewportRef.current = null;
-    pendingFitViewRef.current = false;
+	  useEffect(() => {
+	    // Load saved layout for this view key (if present). Falls back to a deterministic layout.
+	    setLayoutPlaying(false);
+	    simRef.current = null;
+	    pendingViewportRef.current = null;
+	    pendingFitViewRef.current = false;
+	    rescueRemountsRef.current = 0;
+	    rescueAttemptsRef.current = 0;
+	    rescueProbeRef.current = 0;
 
-    const saved = loadSavedLayout(layoutKey);
-    if (saved && Object.keys(saved.positions || {}).length) {
+	    const saved = loadSavedLayout(layoutKey);
+	    if (saved && Object.keys(saved.positions || {}).length) {
       setLayoutKind(saved.kind);
       setLayoutSeed(saved.seed);
       setHasSavedLayout(true);
@@ -603,13 +650,13 @@ export function KgActiveMemoryExplorer({
     const fallback = buildKgLayout(graph, { kind: layoutKind, seed });
     setNodePositions(fallback);
 
-    // If the user chose a force layout but hasn't saved one, auto-run a short stabilization pass.
-    if (layoutKind === 'force' && graph.nodes.length > 0 && graph.nodes.length <= 320) {
-      simRef.current = initForceSimulation(graph, { seed, positions: fallback });
-      setLayoutPlaying(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layoutKey]);
+	    // If the user chose a force layout but hasn't saved one, auto-run a short stabilization pass.
+	    if (layoutKind === 'force' && graph.nodes.length > 0 && graph.nodes.length <= 320) {
+	      simRef.current = initForceSimulation(graph, { seed, positions: fallback, ...forceOptionsForSpread(layoutSpread) });
+	      setLayoutPlaying(true);
+	    }
+	    // eslint-disable-next-line react-hooks/exhaustive-deps
+	  }, [layoutKey]);
 
   const path = useMemo(() => {
     const s = String(pathStart || '').trim();
@@ -706,16 +753,25 @@ export function KgActiveMemoryExplorer({
     setShowPackets(false);
   }, [resetSig]);
 
-  useEffect(() => {
-    if (!layoutPlaying) {
-      simRef.current = null;
-    }
-  }, [layoutPlaying]);
+	  useEffect(() => {
+	    if (!layoutPlaying) {
+	      simRef.current = null;
+	    }
+	  }, [layoutPlaying]);
 
-  useEffect(() => {
-    if (layoutKind === 'force') return;
-    if (layoutPlaying) setLayoutPlaying(false);
-  }, [layoutKind, layoutPlaying]);
+	  useEffect(() => {
+	    if (layoutKind !== 'force') return;
+	    const sim = simRef.current;
+	    if (!sim) return;
+	    const opts = forceOptionsForSpread(layoutSpread);
+	    sim.options.springLength = opts.springLength;
+	    sim.options.repulsionStrength = opts.repulsionStrength;
+	  }, [layoutKind, layoutSpread]);
+
+	  useEffect(() => {
+	    if (layoutKind === 'force') return;
+	    if (layoutPlaying) setLayoutPlaying(false);
+	  }, [layoutKind, layoutPlaying]);
 
   useEffect(() => {
     if (!layoutPlaying) return;
@@ -723,9 +779,13 @@ export function KgActiveMemoryExplorer({
     if (graph.nodes.length === 0) return;
     if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') return;
 
-    if (!simRef.current) {
-      simRef.current = initForceSimulation(graph, { seed: layoutSeed, positions: nodePositionsRef.current });
-    }
+	    if (!simRef.current) {
+	      simRef.current = initForceSimulation(graph, {
+	        seed: layoutSeed,
+	        positions: nodePositionsRef.current,
+	        ...forceOptionsForSpread(layoutSpread),
+	      });
+	    }
 
     let raf = 0;
     let lastTs = 0;
@@ -1024,8 +1084,8 @@ export function KgActiveMemoryExplorer({
     inst.fitView({ padding: 0.2, duration: 350 });
   }, [selectedNodeId]);
 
-  const applyLayoutNow = useCallback(
-    (next: { kind: KgLayoutKind; seed: number; autoPlay?: boolean }) => {
+	  const applyLayoutNow = useCallback(
+	    (next: { kind: KgLayoutKind; seed: number; autoPlay?: boolean }) => {
       const kind = next.kind;
       const seed = Math.trunc(next.seed);
       setLayoutPlaying(false);
@@ -1035,31 +1095,158 @@ export function KgActiveMemoryExplorer({
       setLayoutSeed(seed);
 
       const positions = buildKgLayout(graph, { kind, seed });
-      setNodePositions(positions);
+	      setNodePositions(positions);
 
-      if (kind === 'force' && (next.autoPlay ?? true) && graph.nodes.length > 0 && graph.nodes.length <= 320) {
-        simRef.current = initForceSimulation(graph, { seed, positions });
-        setLayoutPlaying(true);
-      }
-    },
-    [graph]
-  );
+	      if (kind === 'force' && (next.autoPlay ?? true) && graph.nodes.length > 0 && graph.nodes.length <= 320) {
+	        simRef.current = initForceSimulation(graph, { seed, positions, ...forceOptionsForSpread(layoutSpread) });
+	        setLayoutPlaying(true);
+	      }
+	    },
+	    [graph, layoutSpread]
+	  );
 
-  const toggleSimulation = useCallback(() => {
-    if (layoutKind !== 'force') return;
-    if (layoutPlaying) {
-      setLayoutPlaying(false);
-      return;
-    }
-    simRef.current = initForceSimulation(graph, { seed: layoutSeed, positions: nodePositionsRef.current });
-    setLayoutPlaying(true);
-  }, [graph, layoutKind, layoutPlaying, layoutSeed]);
+	  const toggleSimulation = useCallback(() => {
+	    if (layoutKind !== 'force') return;
+	    if (layoutPlaying) {
+	      setLayoutPlaying(false);
+	      return;
+	    }
+	    simRef.current = initForceSimulation(graph, {
+	      seed: layoutSeed,
+	      positions: nodePositionsRef.current,
+	      ...forceOptionsForSpread(layoutSpread),
+	    });
+	    setLayoutPlaying(true);
+	  }, [graph, layoutKind, layoutPlaying, layoutSeed, layoutSpread]);
 
-  const saveLayoutNow = useCallback(() => {
-    const now = new Date().toISOString();
-    const positions: Record<string, XY> = {};
-    for (const id of nodeIds) {
-      const p = nodePositionsRef.current[id];
+	  useEffect(() => {
+	    return () => {
+	      if (typeof window === 'undefined') return;
+	      if (typeof window.cancelAnimationFrame !== 'function') return;
+	      if (rescueRafRef.current) window.cancelAnimationFrame(rescueRafRef.current);
+	    };
+	  }, []);
+
+	  const isGraphViewportBlank = useCallback((): boolean | null => {
+	    const inst = flowRef.current;
+	    if (!inst || typeof inst.getViewport !== 'function') return null;
+	    if (!nodeIds.length) return null;
+	    const el = graphWrapRef.current;
+	    if (!el) return null;
+	    const rect = el.getBoundingClientRect();
+	    if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height) || rect.width < 64 || rect.height < 64) return null;
+
+	    const vp = inst.getViewport();
+	    const zoom = typeof vp?.zoom === 'number' && Number.isFinite(vp.zoom) ? vp.zoom : null;
+	    const tx = typeof vp?.x === 'number' && Number.isFinite(vp.x) ? vp.x : null;
+	    const ty = typeof vp?.y === 'number' && Number.isFinite(vp.y) ? vp.y : null;
+	    if (zoom === null || tx === null || ty === null || zoom <= 0) return null;
+
+	    const margin = 140;
+	    const maxCheck = Math.min(nodeIds.length, 180);
+	    const pos = nodePositionsRef.current;
+	    let checked = 0;
+	    let valid = 0;
+
+	    for (const id of nodeIds) {
+	      const p = pos[id];
+	      if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+	      valid += 1;
+
+	      const candidates: XY[] = [
+	        { x: p.x, y: p.y },
+	        { x: p.x + 90, y: p.y + 24 },
+	      ];
+
+	      for (const c of candidates) {
+	        const sx = c.x * zoom + tx;
+	        const sy = c.y * zoom + ty;
+	        if (sx > -margin && sx < rect.width + margin && sy > -margin && sy < rect.height + margin) return false;
+	      }
+
+	      checked++;
+	      if (checked >= maxCheck) break;
+	    }
+
+	    if (!valid) return null;
+	    return true;
+	  }, [nodeIds]);
+
+	  const scheduleViewportRescue = useCallback(
+	    (why: string) => {
+	      if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') return;
+	      if (rescueRafRef.current) return;
+	      rescueRafRef.current = window.requestAnimationFrame(() => {
+	        rescueRafRef.current = 0;
+	        const blank = isGraphViewportBlank();
+	        if (blank === null) {
+	          if (rescueProbeRef.current >= 12) return;
+	          rescueProbeRef.current += 1;
+	          window.setTimeout(() => scheduleViewportRescue(`${why}:probe`), 120);
+	          return;
+	        }
+	        if (blank !== true) {
+	          rescueProbeRef.current = 0;
+	          rescueAttemptsRef.current = 0;
+	          return;
+	        }
+	        rescueProbeRef.current = 0;
+
+	        const inst = flowRef.current;
+	        if (inst && typeof inst.fitView === 'function') {
+	          try {
+	            inst.fitView({ padding: 0.2, duration: 0 });
+	          } catch {
+	            try {
+	              inst.fitView({ padding: 0.2 });
+	            } catch {
+	              // ignore
+	            }
+	          }
+	        }
+
+	        rescueAttemptsRef.current += 1;
+	        if (rescueAttemptsRef.current >= 4 && rescueRemountsRef.current < 1) {
+	          rescueAttemptsRef.current = 0;
+	          rescueRemountsRef.current += 1;
+	          setFlowEpoch((v) => v + 1);
+	          return;
+	        }
+
+	        if (rescueAttemptsRef.current < 8) {
+	          window.setTimeout(() => scheduleViewportRescue(`${why}:retry`), 220);
+	        }
+	      });
+	    },
+	    [isGraphViewportBlank]
+	  );
+
+	  useEffect(() => {
+	    rescueAttemptsRef.current = 0;
+	    rescueRemountsRef.current = 0;
+	    rescueProbeRef.current = 0;
+	    scheduleViewportRescue('mount');
+	  }, [resetSig, scheduleViewportRescue]);
+
+	  useEffect(() => {
+	    scheduleViewportRescue('graph change');
+	  }, [nodeIdsSig, scheduleViewportRescue]);
+
+	  useEffect(() => {
+	    const el = graphWrapRef.current;
+	    if (!el) return;
+	    if (typeof window === 'undefined') return;
+	    if (typeof ResizeObserver !== 'function') return;
+	    const obs = new ResizeObserver(() => scheduleViewportRescue('resize'));
+	    obs.observe(el);
+	    return () => obs.disconnect();
+	  }, [scheduleViewportRescue]);
+
+	  const saveLayoutNow = useCallback(() => {
+	    const now = new Date().toISOString();
+	    const positions: Record<string, XY> = {};
+	    for (const id of nodeIds) {
+	      const p = nodePositionsRef.current[id];
       if (p && typeof p.x === 'number' && typeof p.y === 'number') positions[id] = { x: p.x, y: p.y };
     }
 
@@ -1337,7 +1524,7 @@ export function KgActiveMemoryExplorer({
     setSelectedEdgeId('');
   }, []);
 
-  const header = title ? `KG snapshot (${title})` : 'KG snapshot';
+	  const header = 'Search KG';
   const nodeCount = graph.nodes.length;
   const edgeCount = graph.edges.length;
   const itemCount = visibleItems.length;
@@ -1345,42 +1532,78 @@ export function KgActiveMemoryExplorer({
   return (
     <div className="amx-root">
       <div className="amx-left">
-        <div className="amx-graph" aria-label="Knowledge graph">
-          <ReactFlowProvider>
-              <ReactFlow
+        <div className="amx-graphbar" role="toolbar" aria-label="Graph layout controls">
+	          <div className="amx-graphbar-row">
+	            <span className="amx-graphbar-title">layout</span>
+	            <select value={layoutKind} onChange={(e) => setLayoutKind(normalizeLayoutKind(e.target.value, layoutKind))} disabled={!nodeIds.length}>
+	              <option value="grid">grid (deterministic)</option>
+	              <option value="radial">radial (bfs)</option>
+	              <option value="circle">circle</option>
+	              <option value="force">force (simulation)</option>
+	            </select>
+	            {layoutKind === 'force' ? (
+	              <label className="amx-graphbar-spread">
+	                <span className="amx-graphbar-title">spread</span>
+	                <input
+	                  type="range"
+	                  min="0.7"
+	                  max="2.2"
+	                  step="0.1"
+	                  value={layoutSpread}
+	                  onChange={(e) => setLayoutSpread(clampNumber(Number(e.target.value), 0.7, 2.2, 1))}
+	                />
+	                <span className="amx-small">{layoutSpread.toFixed(1)}×</span>
+	              </label>
+	            ) : null}
+	            <button type="button" className="amx-btn" onClick={() => applyLayoutNow({ kind: layoutKind, seed: layoutSeed })} disabled={!nodeIds.length}>
+	              Apply
+	            </button>
+	            <button type="button" className="amx-btn" onClick={toggleSimulation} disabled={!nodeIds.length || layoutKind !== 'force'}>
+	              {layoutPlaying ? 'Pause simulation' : 'Play simulation'}
+            </button>
+          </div>
+        </div>
+
+	        <div className="amx-graph" aria-label="Knowledge graph" ref={graphWrapRef}>
+	          <ReactFlowProvider key={flowEpoch}>
+	            <ReactFlow
                 nodes={nodes}
                 edges={edges}
                 defaultViewport={{ x: 0, y: 0, zoom: 1 }}
                 minZoom={AMX_VIEWPORT_MIN_ZOOM}
                 maxZoom={AMX_VIEWPORT_MAX_ZOOM}
-                onInit={(inst) => {
-                  flowRef.current = inst;
-                  const vp = pendingViewportRef.current;
-                  if (vp && typeof (inst as any).setViewport === 'function') {
-                    try {
-                    (inst as any).setViewport(vp, { duration: 0 });
-                  } catch {
-                    try {
-                      (inst as any).setViewport(vp);
-                    } catch {
-                      // ignore
-                    }
-                  }
-                }
-                if (pendingFitViewRef.current && typeof inst.fitView === 'function') {
-                  try {
-                    inst.fitView({ padding: 0.2, duration: 0 });
-                  } catch {
-                    try {
-                      inst.fitView({ padding: 0.2 });
-                    } catch {
-                      // ignore
-                    }
-                  }
-                }
-                pendingViewportRef.current = null;
-                pendingFitViewRef.current = false;
-              }}
+	                onInit={(inst) => {
+	                  flowRef.current = inst;
+
+	                  const vp = pendingViewportRef.current;
+	                  if (vp && typeof (inst as any).setViewport === 'function') {
+	                    try {
+	                      (inst as any).setViewport(vp, { duration: 0 });
+	                    } catch {
+	                      try {
+	                        (inst as any).setViewport(vp);
+	                      } catch {
+	                        // ignore
+	                      }
+	                    }
+	                  }
+
+	                  if (pendingFitViewRef.current && typeof inst.fitView === 'function') {
+	                    try {
+	                      inst.fitView({ padding: 0.2, duration: 0 });
+	                    } catch {
+	                      try {
+	                        inst.fitView({ padding: 0.2 });
+	                      } catch {
+	                        // ignore
+	                      }
+	                    }
+	                  }
+
+	                  pendingViewportRef.current = null;
+	                  pendingFitViewRef.current = false;
+	                  scheduleViewportRescue('init');
+	                }}
               nodesDraggable
               nodesConnectable={false}
               elementsSelectable
@@ -1397,53 +1620,73 @@ export function KgActiveMemoryExplorer({
                 setSelectedNodeId('');
                 setSelectedEdgeId('');
               }}
-            >
-              <Controls />
-              <Panel position="top-right">
-                <div className="amx-panel-toggles">
-                  <button
-                    type="button"
-                    className="amx-minimap-toggle"
-                    onClick={() => setShowMiniMap((v) => !v)}
-                    title={showMiniMap ? 'Hide minimap preview' : 'Show minimap preview'}
-                    aria-label={showMiniMap ? 'Hide minimap preview' : 'Show minimap preview'}
-                  >
-                    {showMiniMap ? 'minimap on' : 'minimap off'}
-                  </button>
-                  {layoutKind === 'force' ? (
-                    <button
-                      type="button"
-                      className="amx-minimap-toggle"
-                      onClick={toggleSimulation}
-                      title={layoutPlaying ? 'Pause force layout simulation' : 'Play force layout simulation'}
-                      aria-label={layoutPlaying ? 'Pause simulation' : 'Play simulation'}
-                    >
-                      {layoutPlaying ? 'sim pause' : 'sim play'}
-                    </button>
-                  ) : null}
-                </div>
-              </Panel>
-              {showMiniMap ? (
-                <MiniMap
-                  pannable
-                  zoomable
-                  maskColor="rgba(0,0,0,0.45)"
-                  style={{
-                    background: 'rgba(12, 18, 34, 0.88)',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    borderRadius: 10,
-                    width: compactViewport ? 120 : 160,
-                    height: compactViewport ? 80 : 110,
-                  }}
-                  nodeColor={(n) => kindColor((n.data as any)?.kind).minimap}
-                />
-              ) : null}
-              <Background gap={20} size={1} color="rgba(255,255,255,0.06)" />
-            </ReactFlow>
-          </ReactFlowProvider>
-        </div>
+	            >
+	              <Controls className="amx-flow-controls">
+	                <ControlButton
+	                  type="button"
+	                  className={`amx-control-legend ${showLegend ? 'amx-control-legend-active' : ''}`}
+	                  onClick={() => setShowLegend((v) => !v)}
+	                  title={showLegend ? 'Hide node color legend' : 'Show node color legend'}
+	                  aria-label={showLegend ? 'Hide node color legend' : 'Show node color legend'}
+	                >
+	                  <LegendIcon />
+	                </ControlButton>
+	              </Controls>
+	              <Panel position="bottom-right" className="amx-panel-bottom-right">
+	                <div className="amx-panel-toggles">
+	                  <button
+	                    type="button"
+	                    className="amx-minimap-toggle"
+	                    onClick={() => setShowMiniMap((v) => !v)}
+	                    title={showMiniMap ? 'Hide minimap preview' : 'Show minimap preview'}
+	                    aria-label={showMiniMap ? 'Hide minimap preview' : 'Show minimap preview'}
+	                  >
+	                    {showMiniMap ? 'minimap on' : 'minimap off'}
+	                  </button>
+	                </div>
+	              </Panel>
+	              {showMiniMap ? (
+	                <MiniMap
+	                  position="bottom-right"
+	                  pannable
+	                  zoomable
+	                  maskColor="rgba(0,0,0,0.45)"
+	                  style={{
+	                    background: 'rgba(12, 18, 34, 0.88)',
+	                    border: '1px solid rgba(255,255,255,0.12)',
+	                    borderRadius: 10,
+	                    width: compactViewport ? 120 : 160,
+	                    height: compactViewport ? 80 : 110,
+	                    marginBottom: 56,
+	                  }}
+	                  nodeColor={(n) => kindColor((n.data as any)?.kind).minimap}
+	                />
+	              ) : null}
+	              {showLegend ? (
+	                <Panel position="bottom-left" className="amx-legend-panel">
+	                  <div className="amx-legend-title">node colors</div>
+	                  <div className="amx-legend">
+	                    {[
+	                      { k: 'person', label: 'person' },
+	                      { k: 'org', label: 'org' },
+	                      { k: 'concept', label: 'concept' },
+	                      { k: 'claim', label: 'claim' },
+	                      { k: 'event', label: 'event' },
+	                      { k: 'doc', label: 'doc' },
+	                      { k: 'vocab', label: 'vocab' },
+	                    ].map(({ k, label }) => (
+	                      <span key={k} className="amx-legend-item" style={{ borderColor: kindColor(k).stroke }}>
+	                        {label}
+	                      </span>
+	                    ))}
+	                  </div>
+	                </Panel>
+	              ) : null}
+	              <Background gap={20} size={1} color="rgba(255,255,255,0.06)" />
+		            </ReactFlow>
+		          </ReactFlowProvider>
 
-        <details className="amx-panel amx-controls">
+	        <details className="amx-panel amx-controls">
           <summary>
             <span className="amx-controls-title">{header}</span>
             <span className="amx-small">
@@ -1710,27 +1953,10 @@ export function KgActiveMemoryExplorer({
               {expandError ? <span className="amx-small" style={{ color: 'rgba(255, 80, 80, 0.95)' }}>{expandError}</span> : null}
             </div>
 
-            <details className="amx-details">
-              <summary>node colors</summary>
-              <div className="amx-legend" style={{ marginTop: 10 }}>
-                {[
-                  { k: 'person', label: 'person' },
-                  { k: 'org', label: 'org' },
-                  { k: 'concept', label: 'concept' },
-                  { k: 'claim', label: 'claim' },
-                  { k: 'event', label: 'event' },
-                  { k: 'doc', label: 'doc' },
-                  { k: 'vocab', label: 'vocab' },
-                ].map(({ k, label }) => (
-                  <span key={k} className="amx-legend-item" style={{ borderColor: kindColor(k).stroke }}>
-                    {label}
-                  </span>
-                ))}
-              </div>
-            </details>
-          </div>
-        </details>
-      </div>
+	          </div>
+	        </details>
+	        </div>
+	      </div>
 
       <div className="amx-right">
         <div className="amx-panel">
