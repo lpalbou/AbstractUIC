@@ -8,10 +8,12 @@ import {
   forceSimulationPositions,
   hashStringToSeed,
   initForceSimulation,
+  sanitizeViewport,
   shortestPath,
   stepForceSimulation,
   type ForceSimulationState,
   type KgLayoutKind,
+  type ViewportTransform,
   type XY,
 } from './graph';
 import type { JsonValue, KgAssertion, KgQueryParams, KgQueryResult, MemoryScope, RecallLevel } from './types';
@@ -59,11 +61,14 @@ type SavedLayoutV1 = {
   kind: KgLayoutKind;
   seed: number;
   positions: Record<string, XY>;
-  viewport?: { x: number; y: number; zoom: number };
+  viewport?: ViewportTransform;
   saved_at: string;
 };
 
 const AMX_LAYOUT_STORAGE_KEY = 'abstractuic_amx_saved_layouts_v1';
+const AMX_VIEWPORT_MIN_ZOOM = 0.025;
+const AMX_VIEWPORT_MAX_ZOOM = 6;
+const AMX_VIEWPORT_MAX_ABS_TRANSLATE = 1_000_000;
 
 function safeLocalStorage(): Storage | null {
   if (typeof window === 'undefined') return null;
@@ -117,11 +122,12 @@ function loadSavedLayout(layoutKey: string): SavedLayoutV1 | null {
         if (xy) positions[String(id)] = xy;
       }
     }
-    const vpRaw = obj.viewport && typeof obj.viewport === 'object' && !Array.isArray(obj.viewport) ? (obj.viewport as any) : null;
     const viewport =
-      vpRaw && typeof vpRaw.x === 'number' && typeof vpRaw.y === 'number' && typeof vpRaw.zoom === 'number' && Number.isFinite(vpRaw.zoom)
-        ? { x: Number(vpRaw.x), y: Number(vpRaw.y), zoom: Number(vpRaw.zoom) }
-        : undefined;
+      sanitizeViewport(obj.viewport, {
+        minZoom: AMX_VIEWPORT_MIN_ZOOM,
+        maxZoom: AMX_VIEWPORT_MAX_ZOOM,
+        maxAbsTranslate: AMX_VIEWPORT_MAX_ABS_TRANSLATE,
+      }) ?? undefined;
     const saved_at = typeof obj.saved_at === 'string' && obj.saved_at.trim() ? obj.saved_at.trim() : '';
     return { version, kind, seed, positions, viewport, saved_at };
   } catch {
@@ -384,7 +390,8 @@ export function KgActiveMemoryExplorer({
   const [layoutSeed, setLayoutSeed] = useState<number>(defaultLayoutSeed);
   const [layoutPlaying, setLayoutPlaying] = useState(false);
   const simRef = useRef<ForceSimulationState | null>(null);
-  const pendingViewportRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
+  const pendingViewportRef = useRef<ViewportTransform | null>(null);
+  const pendingFitViewRef = useRef(false);
 
   const [hasSavedLayout, setHasSavedLayout] = useState(false);
   const [savedLayoutAt, setSavedLayoutAt] = useState('');
@@ -537,10 +544,28 @@ export function KgActiveMemoryExplorer({
   }, [graph, layoutKind, layoutSeed, nodeIds, nodeIdsSig]);
 
   useEffect(() => {
+    if (!pendingFitViewRef.current) return;
+    const inst = flowRef.current;
+    if (!inst || typeof inst.fitView !== 'function') return;
+    if (!nodeIds.length) return;
+    pendingFitViewRef.current = false;
+    try {
+      inst.fitView({ padding: 0.2, duration: 0 });
+    } catch {
+      try {
+        inst.fitView({ padding: 0.2 });
+      } catch {
+        // ignore
+      }
+    }
+  }, [nodeIds.length, nodeIdsSig, nodePositions]);
+
+  useEffect(() => {
     // Load saved layout for this view key (if present). Falls back to a deterministic layout.
     setLayoutPlaying(false);
     simRef.current = null;
     pendingViewportRef.current = null;
+    pendingFitViewRef.current = false;
 
     const saved = loadSavedLayout(layoutKey);
     if (saved && Object.keys(saved.positions || {}).length) {
@@ -563,6 +588,8 @@ export function KgActiveMemoryExplorer({
           }
           pendingViewportRef.current = null;
         }
+      } else {
+        pendingFitViewRef.current = true;
       }
 
       const fallback = buildKgLayout(graph, { kind: saved.kind, seed: saved.seed });
@@ -1041,9 +1068,11 @@ export function KgActiveMemoryExplorer({
     const vpObj = inst && typeof inst.toObject === 'function' ? inst.toObject() : null;
     const viewportRaw = vpObj && vpObj.viewport ? vpObj.viewport : inst && typeof inst.getViewport === 'function' ? inst.getViewport() : null;
     const viewport =
-      viewportRaw && typeof viewportRaw.x === 'number' && typeof viewportRaw.y === 'number' && typeof viewportRaw.zoom === 'number'
-        ? { x: Number(viewportRaw.x), y: Number(viewportRaw.y), zoom: Number(viewportRaw.zoom) }
-        : undefined;
+      sanitizeViewport(viewportRaw, {
+        minZoom: AMX_VIEWPORT_MIN_ZOOM,
+        maxZoom: AMX_VIEWPORT_MAX_ZOOM,
+        maxAbsTranslate: AMX_VIEWPORT_MAX_ABS_TRANSLATE,
+      }) ?? undefined;
 
     saveLayout(layoutKey, { version: 1, kind: layoutKind, seed: layoutSeed, positions, viewport, saved_at: now });
     setHasSavedLayout(true);
@@ -1061,6 +1090,7 @@ export function KgActiveMemoryExplorer({
     setHasSavedLayout(true);
     setSavedLayoutAt(saved.saved_at || '');
     pendingViewportRef.current = saved.viewport || null;
+    pendingFitViewRef.current = !saved.viewport;
 
     const fallback = buildKgLayout(graph, { kind: saved.kind, seed: saved.seed });
     setNodePositions(applyPositionsToNodes(saved.positions, fallback));
@@ -1318,17 +1348,17 @@ export function KgActiveMemoryExplorer({
       <div className="amx-left">
         <div className="amx-graph" aria-label="Knowledge graph">
           <ReactFlowProvider>
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-              minZoom={0.025}
-              maxZoom={6}
-              onInit={(inst) => {
-                flowRef.current = inst;
-                const vp = pendingViewportRef.current;
-                if (vp && typeof (inst as any).setViewport === 'function') {
-                  try {
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+                minZoom={AMX_VIEWPORT_MIN_ZOOM}
+                maxZoom={AMX_VIEWPORT_MAX_ZOOM}
+                onInit={(inst) => {
+                  flowRef.current = inst;
+                  const vp = pendingViewportRef.current;
+                  if (vp && typeof (inst as any).setViewport === 'function') {
+                    try {
                     (inst as any).setViewport(vp, { duration: 0 });
                   } catch {
                     try {
@@ -1338,7 +1368,19 @@ export function KgActiveMemoryExplorer({
                     }
                   }
                 }
+                if (pendingFitViewRef.current && typeof inst.fitView === 'function') {
+                  try {
+                    inst.fitView({ padding: 0.2, duration: 0 });
+                  } catch {
+                    try {
+                      inst.fitView({ padding: 0.2 });
+                    } catch {
+                      // ignore
+                    }
+                  }
+                }
                 pendingViewportRef.current = null;
+                pendingFitViewRef.current = false;
               }}
               nodesDraggable
               nodesConnectable={false}

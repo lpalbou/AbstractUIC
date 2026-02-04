@@ -31,6 +31,34 @@ export interface XY {
   y: number;
 }
 
+export type ViewportTransform = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+
+export function sanitizeViewport(
+  viewport: unknown,
+  opts: { minZoom?: number; maxZoom?: number; maxAbsTranslate?: number } = {}
+): ViewportTransform | null {
+  const obj = viewport && typeof viewport === 'object' && !Array.isArray(viewport) ? (viewport as any) : null;
+  if (!obj) return null;
+  const x = typeof obj.x === 'number' && Number.isFinite(obj.x) ? obj.x : null;
+  const y = typeof obj.y === 'number' && Number.isFinite(obj.y) ? obj.y : null;
+  const zoom = typeof obj.zoom === 'number' && Number.isFinite(obj.zoom) ? obj.zoom : null;
+  if (x === null || y === null || zoom === null) return null;
+
+  const maxAbs =
+    typeof opts.maxAbsTranslate === 'number' && Number.isFinite(opts.maxAbsTranslate) ? Math.abs(opts.maxAbsTranslate) : 1_000_000;
+  if (Math.abs(x) > maxAbs || Math.abs(y) > maxAbs) return null;
+
+  const minZoomRaw = typeof opts.minZoom === 'number' && Number.isFinite(opts.minZoom) ? opts.minZoom : 0.025;
+  const maxZoomRaw = typeof opts.maxZoom === 'number' && Number.isFinite(opts.maxZoom) ? opts.maxZoom : 6;
+  const lo = Math.min(minZoomRaw, maxZoomRaw);
+  const hi = Math.max(minZoomRaw, maxZoomRaw);
+  return { x, y, zoom: Math.min(hi, Math.max(lo, zoom)) };
+}
+
 function shortLabel(term: string): string {
   const s = String(term || '').trim();
   if (!s) return '';
