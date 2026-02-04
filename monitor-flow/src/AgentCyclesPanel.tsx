@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import "./agent_cycles.css";
 import { JsonViewer } from "./JsonViewer";
 import { Markdown } from "./Markdown";
 
@@ -418,12 +419,23 @@ function trace_step_time_label(item: TraceItem): string {
   }
 }
 
-function TraceStepCard({ item, label, toolDefs }: { item: TraceItem; label: string; toolDefs: Map<string, string[]> }): React.ReactElement {
+function TraceStepCard({
+  item,
+  label,
+  toolDefs,
+  defaultOpen = false,
+}: {
+  item: TraceItem;
+  label: string;
+  toolDefs: Map<string, string[]>;
+  defaultOpen?: boolean;
+}): React.ReactElement {
   const step = item.step;
   const kind = effect_type_of(step);
   const tabs = tabs_for_step(step);
   const default_tab = default_tab_for_step(step);
   const [tab, set_tab] = useState<TabId>(default_tab);
+  const [is_open, set_is_open] = useState<boolean>(Boolean(defaultOpen));
 
   const payload = payload_of(step);
   const res = result_of(step);
@@ -510,7 +522,11 @@ function TraceStepCard({ item, label, toolDefs }: { item: TraceItem; label: stri
   const badge = status === "completed" ? "OK" : status === "failed" ? "ERROR" : status === "waiting" ? "WAITING" : status.toUpperCase();
 
   return (
-    <details className={`agent-trace-entry ${status}`} open={false}>
+    <details
+      className={`agent-trace-entry ${status}`}
+      open={is_open}
+      onToggle={(e) => set_is_open((e.currentTarget as HTMLDetailsElement).open)}
+    >
       <summary className="agent-trace-summary">
         <span className={`agent-trace-status ${status}`}>{badge}</span>
         <span className="agent-cycle-stage">{label}</span>
@@ -713,7 +729,7 @@ export function AgentCyclesPanel({ items: items_in, subRunId, title, subtitle, o
                   {think_preview ? <span className="agent-cycle-preview">{think_preview}</span> : null}
                 </summary>
                 <div className="agent-cycle-body">
-                  {c.think ? <TraceStepCard item={c.think} label="think" toolDefs={tool_defs} /> : null}
+                  {c.think ? <TraceStepCard item={c.think} label="think" toolDefs={tool_defs} defaultOpen={open_by_default} /> : null}
                   {c.acts.map((a) => (
                     <TraceStepCard key={a.id} item={a} label="act" toolDefs={tool_defs} />
                   ))}
@@ -721,9 +737,10 @@ export function AgentCyclesPanel({ items: items_in, subRunId, title, subtitle, o
                   {c.others.length ? (
                     <div className="agent-cycle-others">
                       <div className="agent-cycle-others-title">other</div>
-                      {c.others.map((o) => (
-                        <TraceStepCard key={o.id} item={o} label="other" toolDefs={tool_defs} />
-                      ))}
+                      {c.others.map((o) => {
+                        const open_other_by_default = open_by_default && effect_type_of(o.step) === "answer_user";
+                        return <TraceStepCard key={o.id} item={o} label="other" toolDefs={tool_defs} defaultOpen={open_other_by_default} />;
+                      })}
                     </div>
                   ) : null}
                 </div>
