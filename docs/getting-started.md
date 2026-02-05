@@ -8,7 +8,7 @@ If you’re new here, you typically:
 2. Install them (from npm, or from source/workspaces)
 3. Import the required CSS (theme tokens + per-package styles; and ReactFlow styles if applicable)
 
-For a package-by-package export map, see [`docs/api.md`](./api.md).
+For a package-by-package export map, see the [API reference](./api.md).
 
 ## Pick a package
 
@@ -28,14 +28,32 @@ For a package-by-package export map, see [`docs/api.md`](./api.md).
 
 ## Install / integrate
 
-This repo does not ship a “single install”. Common options:
+Packages are designed to be installed **individually** (install only what you need). Common options:
 
 - **npm** (recommended for external consumers): install the package(s) you need once published.
-- **Workspace / source**: add this repo as a workspace in your host, or vendor the package folder(s).
-  - Workspace: build the packages you change (`npm run build`, see [`docs/development.md`](./development.md)).
+- **Workspace / source**: add this repo as a workspace in your host app, or vendor the package folder(s).
+  - Workspace: build the packages you change (`npm run build`, see [Development](./development.md)).
   - Vendored sources: if you consume TypeScript sources directly, your toolchain must transpile TS/TSX dependencies.
 
-Maintainers: see [`docs/publishing.md`](./publishing.md).
+Maintainers: see [Publishing](./publishing.md).
+
+### Install from npm (once published)
+
+Install only what you need:
+
+```bash
+# chat
+npm i @abstractframework/panel-chat @abstractframework/ui-kit
+
+# agent traces
+npm i @abstractframework/monitor-flow
+
+# active memory explorer (requires reactflow peer dep)
+npm i @abstractframework/monitor-active-memory reactflow
+
+# gpu widget (web component)
+npm i @abstractframework/monitor-gpu
+```
 
 ## CSS you must import
 
@@ -146,8 +164,8 @@ module.exports = {
 
 ## Next docs
 
-- API reference: [`docs/api.md`](./api.md)
-- FAQ: [`docs/faq.md`](./faq.md)
-- Architecture + diagrams: [`docs/architecture.md`](./architecture.md)
-- Development workflow: [`docs/development.md`](./development.md)
-- Publishing (maintainers): [`docs/publishing.md`](./publishing.md)
+- [API reference](./api.md)
+- [FAQ](./faq.md)
+- [Architecture](./architecture.md)
+- [Development](./development.md)
+- [Publishing (maintainers)](./publishing.md)

@@ -38,7 +38,7 @@ Reusable UI packages for AbstractFramework clients (React components + a small W
 
 ## Install
 
-There is no “all-in-one” package. Install the package(s) you need (once published):
+Packages are published independently. Install only the package(s) you need (once published):
 
 ```bash
 # chat
@@ -95,7 +95,7 @@ If you’re new here, you typically:
 2. Install them (from npm, or from source/workspaces)
 3. Import the required CSS (theme tokens + per-package styles; and ReactFlow styles if applicable)
 
-For a package-by-package export map, see [`docs/api.md`](./api.md).
+For a package-by-package export map, see the [API reference](./api.md).
 
 ## Pick a package
 
@@ -115,14 +115,32 @@ For a package-by-package export map, see [`docs/api.md`](./api.md).
 
 ## Install / integrate
 
-This repo does not ship a “single install”. Common options:
+Packages are designed to be installed **individually** (install only what you need). Common options:
 
 - **npm** (recommended for external consumers): install the package(s) you need once published.
-- **Workspace / source**: add this repo as a workspace in your host, or vendor the package folder(s).
-  - Workspace: build the packages you change (`npm run build`, see [`docs/development.md`](./development.md)).
+- **Workspace / source**: add this repo as a workspace in your host app, or vendor the package folder(s).
+  - Workspace: build the packages you change (`npm run build`, see [Development](./development.md)).
   - Vendored sources: if you consume TypeScript sources directly, your toolchain must transpile TS/TSX dependencies.
 
-Maintainers: see [`docs/publishing.md`](./publishing.md).
+Maintainers: see [Publishing](./publishing.md).
+
+### Install from npm (once published)
+
+Install only what you need:
+
+```bash
+# chat
+npm i @abstractframework/panel-chat @abstractframework/ui-kit
+
+# agent traces
+npm i @abstractframework/monitor-flow
+
+# active memory explorer (requires reactflow peer dep)
+npm i @abstractframework/monitor-active-memory reactflow
+
+# gpu widget (web component)
+npm i @abstractframework/monitor-gpu
+```
 
 ## CSS you must import
 
@@ -233,11 +251,11 @@ module.exports = {
 
 ## Next docs
 
-- API reference: [`docs/api.md`](./api.md)
-- FAQ: [`docs/faq.md`](./faq.md)
-- Architecture + diagrams: [`docs/architecture.md`](./architecture.md)
-- Development workflow: [`docs/development.md`](./development.md)
-- Publishing (maintainers): [`docs/publishing.md`](./publishing.md)
+- [API reference](./api.md)
+- [FAQ](./faq.md)
+- [Architecture](./architecture.md)
+- [Development](./development.md)
+- [Publishing (maintainers)](./publishing.md)
 
 ## docs/api.md
 
@@ -249,7 +267,7 @@ Source of truth:
 - React packages: exports in `*/src/index.ts` (compiled to `dist/` on publish; see `*/package.json`)
 - GPU widget: exports in `monitor-gpu/src/index.js` (types in `monitor-gpu/src/index.d.ts`)
 
-If you’re starting from scratch, read [`docs/getting-started.md`](./getting-started.md) first (it covers install options and required CSS imports).
+If you’re starting from scratch, read [Getting started](./getting-started.md) first (it covers install options and required CSS imports).
 
 ## Shared integration notes (React packages)
 
@@ -279,7 +297,7 @@ Key exports:
 - Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `FontScaleSelect`, `HeaderDensitySelect`
 - Icons: `Icon`, `IconName`
 
-See: `ui-kit/README.md`.
+See: [`ui-kit/README.md`](../ui-kit/README.md).
 
 ## `@abstractframework/panel-chat`
 
@@ -309,7 +327,7 @@ Utilities:
 Customization point:
 - `ChatMessageContent` supports `renderMarkdown?: (markdown: string) => React.ReactElement` (see `panel-chat/src/message_content.tsx`).
 
-See: `panel-chat/README.md` and [`docs/faq.md`](./faq.md) (search for “panel-chat”).
+See: [`panel-chat/README.md`](../panel-chat/README.md) and [FAQ](./faq.md) (search for “panel-chat”).
 
 ## `@abstractframework/monitor-flow`
 
@@ -328,7 +346,7 @@ Adapter:
 - `build_agent_trace(ledgerItems, { run_id })` to turn “ledger-like” items into `TraceItem[]` (see `monitor-flow/src/agent_cycles_adapter.ts`)
 - Types: `LedgerRecordItem`, `StepRecordLike`, `AgentTraceBuildResult`
 
-See: `monitor-flow/README.md` and [`docs/architecture.md`](./architecture.md) for the host-driven data flow.
+See: [`monitor-flow/README.md`](../monitor-flow/README.md) and [Architecture](./architecture.md) for the host-driven data flow.
 
 ## `@abstractframework/monitor-active-memory`
 
@@ -349,7 +367,7 @@ Graph/layout utilities (for advanced hosts):
 - `buildKgGraph()`, `shortestPath()`, `buildKgLayout()`
 - Force simulation helpers: `initForceSimulation()`, `stepForceSimulation()`, `forceSimulationEnergy()`, `forceSimulationPositions()`
 
-See: `monitor-active-memory/README.md` and [`docs/faq.md`](./faq.md) (search for “monitor-active-memory”).
+See: [`monitor-active-memory/README.md`](../monitor-active-memory/README.md) and [FAQ](./faq.md) (search for “monitor-active-memory”).
 
 ## `@abstractframework/monitor-gpu`
 
@@ -370,14 +388,15 @@ Low-level helpers (backend integration):
 - `buildAuthHeaders()`, `resolveBearerToken()`
 - `extractUtilizationGpuPct(payload)` (supported payload formats documented in `monitor-gpu/README.md`)
 
-See: `monitor-gpu/README.md` for the backend contract and security notes.
+See: [`monitor-gpu/README.md`](../monitor-gpu/README.md) for the backend contract and security notes.
 
 ## Related docs
 
-- Getting started: [`docs/getting-started.md`](./getting-started.md)
-- FAQ: [`docs/faq.md`](./faq.md)
-- Architecture (diagrams): [`docs/architecture.md`](./architecture.md)
-- Docs index: [`docs/README.md`](./README.md)
+- Getting started: [Getting started](./getting-started.md)
+- FAQ: [FAQ](./faq.md)
+- Architecture (diagrams): [Architecture](./architecture.md)
+- Docs index: [Docs index](./README.md)
+- Security policy: [`SECURITY.md`](../SECURITY.md)
 
 ## docs/faq.md
 
@@ -409,15 +428,15 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 
 AbstractUIC is a **multi-package repository**: each top-level folder is an npm package (see each `*/package.json`). Most packages are React components; one package (`@abstractframework/monitor-gpu`) is a dependency-free Web Component.
 
-Start here: [`docs/getting-started.md`](./getting-started.md).
+Start here: [Getting started](./getting-started.md).
 
 See also:
-- API reference: [`docs/api.md`](./api.md)
-- Architecture (diagrams): [`docs/architecture.md`](./architecture.md)
+- API reference: [API reference](./api.md)
+- Architecture (diagrams): [Architecture](./architecture.md)
 
 ## Which package should I use?
 
-Use the table in [`docs/getting-started.md`](./getting-started.md) to pick a package by use-case.
+Use the table in [Getting started](./getting-started.md) to pick a package by use-case.
 
 Authoritative exports:
 
@@ -429,7 +448,7 @@ Authoritative exports:
 
 ## Do I install a single package or multiple?
 
-There is no “all-in-one” package. Install only what you need.
+Packages are meant to be installed individually — install only what you need.
 
 Common combos:
 
@@ -441,7 +460,7 @@ Common combos:
 
 All packages are ESM (`"type": "module"`). In web apps, you typically use a bundler to handle ESM and CSS imports.
 
-If you consume TypeScript sources directly (vendored source), your toolchain must also transpile TS/TSX dependencies (example for Next.js: `transpilePackages`, see [`docs/getting-started.md`](./getting-started.md)).
+If you consume TypeScript sources directly (vendored source), your toolchain must also transpile TS/TSX dependencies (example for Next.js: `transpilePackages`, see [Getting started](./getting-started.md)).
 
 ## Do you support Next.js?
 
@@ -449,7 +468,7 @@ Yes. In practice:
 
 - import global CSS from your app entrypoint (`app/layout.tsx` or `pages/_app.tsx`)
 - client-only rendering for DOM-dependent components (see SSR question below)
-- if you consume TypeScript sources directly, use `transpilePackages` (see [`docs/getting-started.md`](./getting-started.md))
+- if you consume TypeScript sources directly, use `transpilePackages` (see [Getting started](./getting-started.md))
 
 ## Do I need to import CSS manually?
 
@@ -462,7 +481,7 @@ Usually yes:
   - `import "@abstractframework/monitor-active-memory/styles.css";`
 - If you use `@abstractframework/monitor-active-memory`, import ReactFlow base styles in your app: `import "reactflow/dist/style.css";`
 
-See: [`docs/getting-started.md`](./getting-started.md).
+See: [Getting started](./getting-started.md).
 
 ## Are these components SSR-safe?
 
@@ -554,7 +573,14 @@ See: `monitor-gpu/test/`.
 
 Each package is an npm package (has its own `package.json`). Whether a package is available on npm depends on your release process.
 
-Maintainers: see [`docs/publishing.md`](./publishing.md).
+Maintainers: see [Publishing](./publishing.md).
+
+## Related docs
+
+- Docs index: [Docs index](./README.md)
+- Getting started: [Getting started](./getting-started.md)
+- API reference: [API reference](./api.md)
+- Architecture: [Architecture](./architecture.md)
 
 ## docs/architecture.md
 
@@ -647,15 +673,15 @@ See: `monitor-gpu/src/gpu_metrics_api.js` and `monitor-gpu/src/monitor_gpu_widge
 - `@abstractframework/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css` (exported as `@abstractframework/ui-kit/theme.css`).
 - Other packages use those variables where available, but include fallbacks (e.g. `var(--ui-border-1, rgba(...))`).
 
-See also: [`docs/getting-started.md`](./getting-started.md) for integration + required CSS.
+See also: [Getting started](./getting-started.md) for integration + required CSS.
 
 ## Related docs
 
-- Getting started: [`docs/getting-started.md`](./getting-started.md)
-- API reference: [`docs/api.md`](./api.md)
-- FAQ: [`docs/faq.md`](./faq.md)
-- Docs index: [`docs/README.md`](./README.md)
-- Development: [`docs/development.md`](./development.md)
+- Getting started: [Getting started](./getting-started.md)
+- API reference: [API reference](./api.md)
+- FAQ: [FAQ](./faq.md)
+- Docs index: [Docs index](./README.md)
+- Development: [Development](./development.md)
 - Package docs: see the table in the root [`README.md`](../README.md)
 
 ## docs/development.md
@@ -703,9 +729,9 @@ python scripts/generate-llms-full.py
 ## Related docs
 
 - Contributing: [`CONTRIBUTING.md`](../CONTRIBUTING.md)
-- Getting started: [`docs/getting-started.md`](./getting-started.md)
-- Architecture: [`docs/architecture.md`](./architecture.md)
-- Docs index: [`docs/README.md`](./README.md)
+- Getting started: [Getting started](./getting-started.md)
+- Architecture: [Architecture](./architecture.md)
+- Docs index: [Docs index](./README.md)
 
 ## docs/publishing.md
 
@@ -744,8 +770,8 @@ Notes:
 
 - Changelog: [`CHANGELOG.md`](../CHANGELOG.md)
 - Contributing: [`CONTRIBUTING.md`](../CONTRIBUTING.md)
-- Getting started: [`docs/getting-started.md`](./getting-started.md)
-- Architecture: [`docs/architecture.md`](./architecture.md)
+- Getting started: [Getting started](./getting-started.md)
+- Architecture: [Architecture](./architecture.md)
 
 ## docs/README.md
 
@@ -765,7 +791,7 @@ This repository is a small set of **UI packages** (React components + one Web Co
 
 ## Repo docs / policies
 
-- Changelog: [`CHANGELOG.md`](../CHANGELOG.md)
+- Changelog: [`CHANGELOG.md`](../CHANGELOG.md) (alias: `CHANGELOD.md`)
 - Contributing: [`CONTRIBUTING.md`](../CONTRIBUTING.md)
 - Security: [`SECURITY.md`](../SECURITY.md)
 - Acknowledgments: [`ACKNOWLEDMENTS.md`](../ACKNOWLEDMENTS.md)
@@ -880,6 +906,12 @@ Please include:
 - `@abstractframework/monitor-gpu` supports Bearer token auth. Avoid putting tokens in URLs and prefer HTTPS in production.
 - See security notes in `monitor-gpu/README.md` and integration guidance in [`docs/getting-started.md`](./docs/getting-started.md).
 
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](./docs/getting-started.md)
+- API reference: [`docs/api.md`](./docs/api.md)
+- Changelog: [`CHANGELOG.md`](./CHANGELOG.md)
+
 ## CHANGELOG.md
 
 # Changelog
@@ -887,6 +919,13 @@ Please include:
 All notable changes to AbstractUIC are documented in this file.
 
 This project is a **multi-package repository**; versions are currently kept in sync across packages.
+
+## 0.1.2 - 2026-02-05
+
+### Changed
+
+- Documentation polish pass for public release (clearer entrypoints, tighter cross-links, and more actionable install guidance).
+- Version bump to reflect the documentation release across packages.
 
 ## 0.1.1 - 2026-02-04
 
@@ -909,10 +948,16 @@ This project is a **multi-package repository**; versions are currently kept in s
   - `@abstractframework/monitor-flow/agent_cycles.css`
   - `@abstractframework/monitor-active-memory/styles.css`
 - `@abstractframework/monitor-gpu` custom element supports `mode: "full" | "icon"` (runtime + types).
+- Docs are polished for first-time users (clear entrypoints, cross-links, and npm install examples).
 
 ## 0.1.0
 
 - Initial repository snapshot (packages + baseline docs).
+
+## Related docs
+
+- Docs index: [`docs/README.md`](./docs/README.md)
+- Publishing (maintainers): [`docs/publishing.md`](./docs/publishing.md)
 
 ## ACKNOWLEDMENTS.md
 
@@ -943,7 +988,7 @@ This page is kept for backwards compatibility.
 
 Start here instead:
 
-- [`docs/getting-started.md`](./getting-started.md)
+- [Getting started](./getting-started.md)
 
 ## ui-kit/README.md
 

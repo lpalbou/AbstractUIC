@@ -14,7 +14,7 @@ This repository is a small set of **UI packages** (React components + one Web Co
 
 ## Repo docs / policies
 
-- Changelog: [`CHANGELOG.md`](../CHANGELOG.md)
+- Changelog: [`CHANGELOG.md`](../CHANGELOG.md) (alias: `CHANGELOD.md`)
 - Contributing: [`CONTRIBUTING.md`](../CONTRIBUTING.md)
 - Security: [`SECURITY.md`](../SECURITY.md)
 - Acknowledgments: [`ACKNOWLEDMENTS.md`](../ACKNOWLEDMENTS.md)

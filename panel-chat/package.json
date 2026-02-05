@@ -1,6 +1,6 @@
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -39,12 +39,12 @@
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.1.1",
+    "@abstractframework/ui-kit": "^0.1.2",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.1.1",
+    "@abstractframework/ui-kit": "^0.1.2",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "@types/react": "^18.2.48",

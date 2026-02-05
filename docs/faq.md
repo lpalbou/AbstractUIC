@@ -26,15 +26,15 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 
 AbstractUIC is a **multi-package repository**: each top-level folder is an npm package (see each `*/package.json`). Most packages are React components; one package (`@abstractframework/monitor-gpu`) is a dependency-free Web Component.
 
-Start here: [`docs/getting-started.md`](./getting-started.md).
+Start here: [Getting started](./getting-started.md).
 
 See also:
-- API reference: [`docs/api.md`](./api.md)
-- Architecture (diagrams): [`docs/architecture.md`](./architecture.md)
+- API reference: [API reference](./api.md)
+- Architecture (diagrams): [Architecture](./architecture.md)
 
 ## Which package should I use?
 
-Use the table in [`docs/getting-started.md`](./getting-started.md) to pick a package by use-case.
+Use the table in [Getting started](./getting-started.md) to pick a package by use-case.
 
 Authoritative exports:
 
@@ -46,7 +46,7 @@ Authoritative exports:
 
 ## Do I install a single package or multiple?
 
-There is no “all-in-one” package. Install only what you need.
+Packages are meant to be installed individually — install only what you need.
 
 Common combos:
 
@@ -58,7 +58,7 @@ Common combos:
 
 All packages are ESM (`"type": "module"`). In web apps, you typically use a bundler to handle ESM and CSS imports.
 
-If you consume TypeScript sources directly (vendored source), your toolchain must also transpile TS/TSX dependencies (example for Next.js: `transpilePackages`, see [`docs/getting-started.md`](./getting-started.md)).
+If you consume TypeScript sources directly (vendored source), your toolchain must also transpile TS/TSX dependencies (example for Next.js: `transpilePackages`, see [Getting started](./getting-started.md)).
 
 ## Do you support Next.js?
 
@@ -66,7 +66,7 @@ Yes. In practice:
 
 - import global CSS from your app entrypoint (`app/layout.tsx` or `pages/_app.tsx`)
 - client-only rendering for DOM-dependent components (see SSR question below)
-- if you consume TypeScript sources directly, use `transpilePackages` (see [`docs/getting-started.md`](./getting-started.md))
+- if you consume TypeScript sources directly, use `transpilePackages` (see [Getting started](./getting-started.md))
 
 ## Do I need to import CSS manually?
 
@@ -79,7 +79,7 @@ Usually yes:
   - `import "@abstractframework/monitor-active-memory/styles.css";`
 - If you use `@abstractframework/monitor-active-memory`, import ReactFlow base styles in your app: `import "reactflow/dist/style.css";`
 
-See: [`docs/getting-started.md`](./getting-started.md).
+See: [Getting started](./getting-started.md).
 
 ## Are these components SSR-safe?
 
@@ -171,4 +171,11 @@ See: `monitor-gpu/test/`.
 
 Each package is an npm package (has its own `package.json`). Whether a package is available on npm depends on your release process.
 
-Maintainers: see [`docs/publishing.md`](./publishing.md).
+Maintainers: see [Publishing](./publishing.md).
+
+## Related docs
+
+- Docs index: [Docs index](./README.md)
+- Getting started: [Getting started](./getting-started.md)
+- API reference: [API reference](./api.md)
+- Architecture: [Architecture](./architecture.md)

@@ -23,3 +23,9 @@ Please include:
 
 - `@abstractframework/monitor-gpu` supports Bearer token auth. Avoid putting tokens in URLs and prefer HTTPS in production.
 - See security notes in `monitor-gpu/README.md` and integration guidance in [`docs/getting-started.md`](./docs/getting-started.md).
+
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](./docs/getting-started.md)
+- API reference: [`docs/api.md`](./docs/api.md)
+- Changelog: [`CHANGELOG.md`](./CHANGELOG.md)

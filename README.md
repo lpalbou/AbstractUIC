@@ -32,7 +32,7 @@ Reusable UI packages for AbstractFramework clients (React components + a small W
 
 ## Install
 
-There is no “all-in-one” package. Install the package(s) you need (once published):
+Packages are published independently. Install only the package(s) you need (once published):
 
 ```bash
 # chat

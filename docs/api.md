@@ -6,7 +6,7 @@ Source of truth:
 - React packages: exports in `*/src/index.ts` (compiled to `dist/` on publish; see `*/package.json`)
 - GPU widget: exports in `monitor-gpu/src/index.js` (types in `monitor-gpu/src/index.d.ts`)
 
-If you’re starting from scratch, read [`docs/getting-started.md`](./getting-started.md) first (it covers install options and required CSS imports).
+If you’re starting from scratch, read [Getting started](./getting-started.md) first (it covers install options and required CSS imports).
 
 ## Shared integration notes (React packages)
 
@@ -36,7 +36,7 @@ Key exports:
 - Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `FontScaleSelect`, `HeaderDensitySelect`
 - Icons: `Icon`, `IconName`
 
-See: `ui-kit/README.md`.
+See: [`ui-kit/README.md`](../ui-kit/README.md).
 
 ## `@abstractframework/panel-chat`
 
@@ -66,7 +66,7 @@ Utilities:
 Customization point:
 - `ChatMessageContent` supports `renderMarkdown?: (markdown: string) => React.ReactElement` (see `panel-chat/src/message_content.tsx`).
 
-See: `panel-chat/README.md` and [`docs/faq.md`](./faq.md) (search for “panel-chat”).
+See: [`panel-chat/README.md`](../panel-chat/README.md) and [FAQ](./faq.md) (search for “panel-chat”).
 
 ## `@abstractframework/monitor-flow`
 
@@ -85,7 +85,7 @@ Adapter:
 - `build_agent_trace(ledgerItems, { run_id })` to turn “ledger-like” items into `TraceItem[]` (see `monitor-flow/src/agent_cycles_adapter.ts`)
 - Types: `LedgerRecordItem`, `StepRecordLike`, `AgentTraceBuildResult`
 
-See: `monitor-flow/README.md` and [`docs/architecture.md`](./architecture.md) for the host-driven data flow.
+See: [`monitor-flow/README.md`](../monitor-flow/README.md) and [Architecture](./architecture.md) for the host-driven data flow.
 
 ## `@abstractframework/monitor-active-memory`
 
@@ -106,7 +106,7 @@ Graph/layout utilities (for advanced hosts):
 - `buildKgGraph()`, `shortestPath()`, `buildKgLayout()`
 - Force simulation helpers: `initForceSimulation()`, `stepForceSimulation()`, `forceSimulationEnergy()`, `forceSimulationPositions()`
 
-See: `monitor-active-memory/README.md` and [`docs/faq.md`](./faq.md) (search for “monitor-active-memory”).
+See: [`monitor-active-memory/README.md`](../monitor-active-memory/README.md) and [FAQ](./faq.md) (search for “monitor-active-memory”).
 
 ## `@abstractframework/monitor-gpu`
 
@@ -127,11 +127,12 @@ Low-level helpers (backend integration):
 - `buildAuthHeaders()`, `resolveBearerToken()`
 - `extractUtilizationGpuPct(payload)` (supported payload formats documented in `monitor-gpu/README.md`)
 
-See: `monitor-gpu/README.md` for the backend contract and security notes.
+See: [`monitor-gpu/README.md`](../monitor-gpu/README.md) for the backend contract and security notes.
 
 ## Related docs
 
-- Getting started: [`docs/getting-started.md`](./getting-started.md)
-- FAQ: [`docs/faq.md`](./faq.md)
-- Architecture (diagrams): [`docs/architecture.md`](./architecture.md)
-- Docs index: [`docs/README.md`](./README.md)
+- Getting started: [Getting started](./getting-started.md)
+- FAQ: [FAQ](./faq.md)
+- Architecture (diagrams): [Architecture](./architecture.md)
+- Docs index: [Docs index](./README.md)
+- Security policy: [`SECURITY.md`](../SECURITY.md)

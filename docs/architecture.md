@@ -87,13 +87,13 @@ See: `monitor-gpu/src/gpu_metrics_api.js` and `monitor-gpu/src/monitor_gpu_widge
 - `@abstractframework/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css` (exported as `@abstractframework/ui-kit/theme.css`).
 - Other packages use those variables where available, but include fallbacks (e.g. `var(--ui-border-1, rgba(...))`).
 
-See also: [`docs/getting-started.md`](./getting-started.md) for integration + required CSS.
+See also: [Getting started](./getting-started.md) for integration + required CSS.
 
 ## Related docs
 
-- Getting started: [`docs/getting-started.md`](./getting-started.md)
-- API reference: [`docs/api.md`](./api.md)
-- FAQ: [`docs/faq.md`](./faq.md)
-- Docs index: [`docs/README.md`](./README.md)
-- Development: [`docs/development.md`](./development.md)
+- Getting started: [Getting started](./getting-started.md)
+- API reference: [API reference](./api.md)
+- FAQ: [FAQ](./faq.md)
+- Docs index: [Docs index](./README.md)
+- Development: [Development](./development.md)
 - Package docs: see the table in the root [`README.md`](../README.md)

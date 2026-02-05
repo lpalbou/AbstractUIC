@@ -33,5 +33,5 @@ Notes:
 
 - Changelog: [`CHANGELOG.md`](../CHANGELOG.md)
 - Contributing: [`CONTRIBUTING.md`](../CONTRIBUTING.md)
-- Getting started: [`docs/getting-started.md`](./getting-started.md)
-- Architecture: [`docs/architecture.md`](./architecture.md)
+- Getting started: [Getting started](./getting-started.md)
+- Architecture: [Architecture](./architecture.md)

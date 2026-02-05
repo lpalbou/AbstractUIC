@@ -41,6 +41,6 @@ python scripts/generate-llms-full.py
 ## Related docs
 
 - Contributing: [`CONTRIBUTING.md`](../CONTRIBUTING.md)
-- Getting started: [`docs/getting-started.md`](./getting-started.md)
-- Architecture: [`docs/architecture.md`](./architecture.md)
-- Docs index: [`docs/README.md`](./README.md)
+- Getting started: [Getting started](./getting-started.md)
+- Architecture: [Architecture](./architecture.md)
+- Docs index: [Docs index](./README.md)
