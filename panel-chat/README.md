@@ -49,7 +49,7 @@ export function ChatView() {
 - JSON ⇒ `JsonViewer`
 - otherwise ⇒ `Markdown` (or your `renderMarkdown` override)
 
-Markdown is intentionally minimal and implemented in `panel-chat/src/markdown.tsx` (headings 1–3, code fences, lists, tables, blockquotes, hr, emphasis, and optional highlighting).
+Markdown is intentionally minimal and implemented in `panel-chat/src/markdown.tsx` (headings 1–5, code fences, lists, tables, blockquotes, hr, emphasis, and optional highlighting).
 
 ## Styling & theming
 

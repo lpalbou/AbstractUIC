@@ -1,6 +1,6 @@
 {
   "name": "@abstractframework/monitor-flow",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Shared flow/agent monitoring UI components for AbstractFramework (used by AbstractFlow and AbstractObserver).",
   "type": "module",
   "author": "Laurent-Philippe Albou",

@@ -4,6 +4,12 @@ All notable changes to AbstractUIC are documented in this file.
 
 This project is a **multi-package repository**; versions are currently kept in sync across packages.
 
+## 0.1.3 - 2026-02-05
+
+### Fixed
+
+- `@abstractframework/panel-chat` Markdown renderer now supports headings up to level 5 (`#####`) (see `panel-chat/src/markdown.tsx` + `panel-chat/src/panel_chat.css`).
+
 ## 0.1.2 - 2026-02-05
 
 ### Changed

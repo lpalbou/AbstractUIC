@@ -11,7 +11,9 @@
 
 .pc-md h1,
 .pc-md h2,
-.pc-md h3 {
+.pc-md h3,
+.pc-md h4,
+.pc-md h5 {
   margin: 10px 0 6px 0;
   font-size: var(--font-size-base, 14px);
 }

@@ -1,6 +1,6 @@
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",

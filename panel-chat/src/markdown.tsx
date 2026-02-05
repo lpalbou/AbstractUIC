@@ -197,14 +197,16 @@ export function Markdown({
       continue;
     }
 
-    const headingM = line.match(/^(#{1,3})\s+(.*)$/);
+    const headingM = line.match(/^(#{1,5})\s+(.*)$/);
     if (headingM) {
       const level = headingM[1].length;
       const content = headingM[2] || "";
       const nodes = renderInline(content, highlightState);
       if (level === 1) blocks.push(<h1 key={`h1:${i}`}>{nodes}</h1>);
       else if (level === 2) blocks.push(<h2 key={`h2:${i}`}>{nodes}</h2>);
-      else blocks.push(<h3 key={`h3:${i}`}>{nodes}</h3>);
+      else if (level === 3) blocks.push(<h3 key={`h3:${i}`}>{nodes}</h3>);
+      else if (level === 4) blocks.push(<h4 key={`h4:${i}`}>{nodes}</h4>);
+      else blocks.push(<h5 key={`h5:${i}`}>{nodes}</h5>);
       i += 1;
       continue;
     }
