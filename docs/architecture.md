@@ -2,7 +2,12 @@
 
 AbstractUIC is a **multi-package repository**: each folder at the repo root is an independently-consumable package.
 
-This document stays intentionally close to the code: every claim below is backed by a package entrypoint, type definition, or runtime contract in `src/`.
+Ecosystem context (external):
+- AbstractFramework: https://github.com/lpalbou/AbstractFramework
+- AbstractCore: https://github.com/lpalbou/abstractcore
+- AbstractRuntime: https://github.com/lpalbou/abstractruntime
+
+This document stays intentionally close to the code: package boundaries, exports, and contracts are backed by entrypoints/types in `src/` and by `exports` metadata in each `*/package.json`. Where we reference the broader AbstractFramework ecosystem (AbstractCore / AbstractRuntime), it’s for context — AbstractUIC does not import those packages directly.
 
 ## High-level overview
 
@@ -27,11 +32,12 @@ flowchart LR
   FLOW -->|"peer dep"| React["react / react-dom (peer dependency)"]
   CHAT -->|"peer dep"| React
   UIKIT -->|"peer dep"| React
+  AMX -->|"peer dep"| React
 ```
 
 Evidence:
 - `panel-chat/src/chat_message_card.tsx` imports `Icon` from `@abstractframework/ui-kit`.
-- `monitor-active-memory/package.json` declares `reactflow` as a peer dependency.
+- `monitor-active-memory/package.json` declares `reactflow` (and `react` / `react-dom`) as peer dependencies.
 
 ## Runtime data flow
 
@@ -39,14 +45,19 @@ AbstractUIC components are designed to be **host-driven**: hosts provide data an
 
 ```mermaid
 flowchart TD
+  Runtime["AbstractRuntime"]
+  Core["AbstractCore"]
   Host["Host app (AbstractFlow / AbstractObserver / etc.)"]
+
+  Runtime -->|"runs / steps / trace records"| Host
+  Core -->|"memory / KG assertions"| Host
 
   Host -->|"TraceItem[] (or build_agent_trace)"| FlowPanel["monitor-flow: AgentCyclesPanel"]
   Host -->|"KgAssertion[] + onQuery() (optional)"| AMXPanel["monitor-active-memory: KgActiveMemoryExplorer"]
   Host -->|"ChatMessage[] + callbacks"| ChatUI["panel-chat: ChatThread / ChatComposer / ChatMessageCard"]
 
   Host -->|"register + attach <monitor-gpu>"| GPUWidget["monitor-gpu: <monitor-gpu>"]
-  GPUWidget -->|"GET /api/gateway/host/metrics/gpu"| Metrics["Gateway / metrics endpoint"]
+  GPUWidget -->|"GET /api/gateway/host/metrics/gpu"| Metrics["AbstractGateway (metrics endpoint)"]
 ```
 
 Evidence:
@@ -54,6 +65,7 @@ Evidence:
 - `monitor-flow/src/agent_cycles_adapter.ts` exports `build_agent_trace(...)` to adapt ledger-like records into `TraceItem[]`.
 - `monitor-active-memory/src/KgActiveMemoryExplorer.tsx` consumes `items: KgAssertion[]` and optionally calls `onQuery(params)`.
 - `monitor-gpu/src/gpu_metrics_api.js` builds/fetches the metrics URL and attaches Bearer auth headers.
+- No direct dependency on AbstractCore/AbstractRuntime: see the absence of such dependencies in `*/package.json`.
 
 ## Contracts & types (what you pass in)
 

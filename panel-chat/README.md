@@ -12,7 +12,7 @@ Declared in `panel-chat/package.json`:
 ## Install
 
 - Workspace: add a dependency on `@abstractframework/panel-chat`
-- npm (once published): `npm i @abstractframework/panel-chat`
+- npm: `npm i @abstractframework/panel-chat`
 
 ## Exported API
 

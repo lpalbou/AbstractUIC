@@ -4,6 +4,8 @@ Thanks for helping improve AbstractUIC.
 
 AbstractUIC is a **multi-package repo**: each top-level folder is an npm package. The code is the source of truth; docs should stay anchored to exports and contracts in `src/`.
 
+This repo is part of the [AbstractFramework](https://github.com/lpalbou/AbstractFramework) ecosystem (see also: AbstractCore https://github.com/lpalbou/abstractcore and AbstractRuntime https://github.com/lpalbou/abstractruntime). Keep public contracts host-driven and avoid coupling packages to specific host implementations.
+
 ## Quick start
 
 Requirements:
@@ -44,6 +46,7 @@ When changing docs:
 - Keep language concise and user-facing.
 - Prefer “source-of-truth” references like `*/src/index.ts`, `*/src/types.ts`, or the relevant implementation file.
 - Ensure cross-links remain correct (docs should reference other relevant docs).
+- If you change public exports, update `docs/api.md` and the relevant package `README.md`.
 
 LLM docs:
 - `llms.txt` is a short index for agents.

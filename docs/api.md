@@ -8,6 +8,8 @@ Source of truth:
 
 If you’re starting from scratch, read [Getting started](./getting-started.md) first (it covers install options and required CSS imports).
 
+For ecosystem context (AbstractFramework / AbstractCore / AbstractRuntime) and the host-driven data flow, see [Architecture](./architecture.md).
+
 ## Shared integration notes (React packages)
 
 - All React packages are ESM (`"type": "module"`) and declare `react@^18` / `react-dom@^18` as peer dependencies (see each `*/package.json`).

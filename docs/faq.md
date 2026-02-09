@@ -5,6 +5,7 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 ## Contents
 
 - [What is AbstractUIC?](#what-is-abstractuic)
+- [How does this relate to AbstractCore and AbstractRuntime?](#how-does-this-relate-to-abstractcore-and-abstractruntime)
 - [Which package should I use?](#which-package-should-i-use)
 - [Do I install a single package or multiple?](#do-i-install-a-single-package-or-multiple)
 - [Why do I need a bundler / transpilation?](#why-do-i-need-a-bundler--transpilation)
@@ -31,6 +32,16 @@ Start here: [Getting started](./getting-started.md).
 See also:
 - API reference: [API reference](./api.md)
 - Architecture (diagrams): [Architecture](./architecture.md)
+
+## How does this relate to AbstractCore and AbstractRuntime?
+
+AbstractUIC is the **UI layer** for AbstractFramework host apps. It does not depend on AbstractCore/AbstractRuntime directly (see the absence of such dependencies in `*/package.json`).
+
+In practice, host apps integrate with:
+- **AbstractRuntime** (runs/steps/traces) and pass trace-like items to `@abstractframework/monitor-flow` (see `monitor-flow/src/AgentCyclesPanel.tsx`, `monitor-flow/src/agent_cycles_adapter.ts`).
+- **AbstractCore** (memory/KG types) and pass assertions/query callbacks to `@abstractframework/monitor-active-memory` (see `monitor-active-memory/src/types.ts`, `monitor-active-memory/src/KgActiveMemoryExplorer.tsx`).
+
+See also: [Architecture](./architecture.md) (data-flow diagram) and the ecosystem overview in the root [`README.md`](../README.md).
 
 ## Which package should I use?
 
@@ -83,9 +94,9 @@ See: [Getting started](./getting-started.md).
 
 ## Are these components SSR-safe?
 
-Not universally.
+Many components can be used in SSR apps, but some utilities/components reference browser APIs such as `window`, `document`, `navigator`, or `localStorage` (examples: copy-to-clipboard helpers, layout persistence, DOM measurements).
 
-Several components/utilities reference browser APIs such as `window`, `document`, `navigator`, or `localStorage` (examples: copy-to-clipboard helpers, layout persistence, DOM measurements). In SSR frameworks, render these components client-side (or behind dynamic import / “use client” boundaries).
+In SSR frameworks, render these components client-side (for example behind a dynamic import or a “use client” boundary). If you see errors like `window is not defined`, it’s a signal that a component needs to run in the browser.
 
 ## How do I theme the UI?
 
@@ -169,7 +180,13 @@ See: `monitor-gpu/test/`.
 
 ## Is this published to npm?
 
-Each package is an npm package (has its own `package.json`). Whether a package is available on npm depends on your release process.
+Yes — each folder is an independently published npm package (see `*/package.json` for package names and versions).
+
+Quick check:
+
+```bash
+npm view @abstractframework/ui-kit version
+```
 
 Maintainers: see [Publishing](./publishing.md).
 

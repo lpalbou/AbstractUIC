@@ -16,7 +16,7 @@ This is a React package with peer dependencies on `react@^18` and `react-dom@^18
 ## Install
 
 - Workspace: add a dependency on `@abstractframework/ui-kit`
-- npm (once published): `npm i @abstractframework/ui-kit`
+- npm: `npm i @abstractframework/ui-kit`
 
 ## Usage
 

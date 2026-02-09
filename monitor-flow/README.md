@@ -19,7 +19,7 @@ Declared in `monitor-flow/package.json`:
 ## Install
 
 - Workspace: add a dependency on `@abstractframework/monitor-flow`
-- npm (once published): `npm i @abstractframework/monitor-flow`
+- npm: `npm i @abstractframework/monitor-flow`
 
 ## Expected data
 

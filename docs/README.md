@@ -2,6 +2,8 @@
 
 This repository is a small set of **UI packages** (React components + one Web Component).
 
+AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/AbstractFramework) ecosystem. It is the UI layer used by host apps that typically integrate with **AbstractRuntime** and **AbstractCore** (see the ecosystem overview in the root [`README.md`](../README.md) and the data-flow diagram in [`architecture.md`](./architecture.md)).
+
 ## Start here
 
 - **Getting started**: [`getting-started.md`](./getting-started.md)
@@ -10,7 +12,7 @@ This repository is a small set of **UI packages** (React components + one Web Co
 - **Architecture + package boundaries**: [`architecture.md`](./architecture.md)
 - **Local development**: [`development.md`](./development.md)
 - **Publishing (maintainers)**: [`publishing.md`](./publishing.md)
-- Backwards-compatible stub: [`installation.md`](./installation.md)
+- Legacy stub (backwards compatibility): [`installation.md`](./installation.md)
 
 ## Repo docs / policies
 
@@ -18,6 +20,7 @@ This repository is a small set of **UI packages** (React components + one Web Co
 - Contributing: [`CONTRIBUTING.md`](../CONTRIBUTING.md)
 - Security: [`SECURITY.md`](../SECURITY.md)
 - Acknowledgments: [`ACKNOWLEDMENTS.md`](../ACKNOWLEDMENTS.md)
+- Agent-oriented docs: [`llms.txt`](../llms.txt) (index) and [`llms-full.txt`](../llms-full.txt) (generated)
 - License: [`LICENSE`](../LICENSE)
 
 ## Package docs

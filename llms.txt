@@ -1,52 +1,89 @@
 # AbstractUIC
 
-> Reusable UI packages for AbstractFramework clients (React components + a small Web Component).
+> UI packages for AbstractFramework clients: React components (ESM + CSS exports) plus a dependency-free Custom Element for GPU metrics.
 
 AbstractUIC is a **multi-package repository**: each top-level folder is an independently-consumable npm package.
 
-## Summary (source of truth)
+Ecosystem context (external):
+- AbstractFramework: https://github.com/lpalbou/AbstractFramework
+- AbstractCore: https://github.com/lpalbou/abstractcore
+- AbstractRuntime: https://github.com/lpalbou/abstractruntime
 
-- React packages ship **compiled ESM + type declarations** (built from `src/` into `dist/`; see `exports` in each `*/package.json`).
-- CSS is shipped as **explicit package exports**; import it from your app entrypoint (see `docs/getting-started.md`).
-- Primary docs entrypoints: `README.md` → `docs/getting-started.md` → `docs/api.md`.
+Important integration notes:
+- Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
+- Only `@abstractframework/monitor-gpu` performs network requests by default (polls a metrics endpoint; optional Bearer auth).
+- Always import the package CSS from your app entrypoint (especially in Next.js). Start with `docs/getting-started.md` → `docs/api.md`.
 
-## Quick commands
+Quick commands:
 
-- Install workspace deps: `npm install`
-- Build packages: `npm run build`
-- Run tests: `npm test` (only `@abstractframework/monitor-gpu` currently ships automated tests)
-- Regenerate `llms-full.txt`: `python scripts/generate-llms-full.py`
+```bash
+npm install
+npm run build
+npm test
+python scripts/generate-llms-full.py
+```
 
-Key packages:
-- `@abstractframework/ui-kit`: theme tokens + small UI primitives (selects/icons)
-- `@abstractframework/panel-chat`: chat thread/message UI + markdown/json renderers
-- `@abstractframework/monitor-flow`: agent-cycle trace viewer + ledger adapter
-- `@abstractframework/monitor-active-memory`: KG + Active Memory explorer (ReactFlow)
-- `@abstractframework/monitor-gpu`: GPU histogram widget (`<monitor-gpu>`) polling a metrics endpoint
+CSS entrypoints (import from your app entrypoint):
 
-## Documentation
+```ts
+import "@abstractframework/ui-kit/theme.css";
+import "@abstractframework/panel-chat/panel_chat.css";
+import "@abstractframework/monitor-flow/agent_cycles.css";
+import "@abstractframework/monitor-active-memory/styles.css";
+import "reactflow/dist/style.css"; // only when using monitor-active-memory
+```
 
-- [README](README.md): Overview, packages, and quick links
-- [Getting started](docs/getting-started.md): Pick packages, install/integrate, required CSS, quick examples
-- [API reference](docs/api.md): Export map per package (plus CSS entrypoints)
-- [FAQ](docs/faq.md): Common integration questions (bundling, CSS, SSR, per-package notes)
-- [Architecture](docs/architecture.md): Package boundaries + diagrams
-- [Docs index](docs/README.md): Full docs list
-- [Contributing](CONTRIBUTING.md): Dev workflow, docs expectations, and checks
-- [Security policy](SECURITY.md): Responsible vulnerability reporting
-- [Changelog](CHANGELOG.md): Notable changes by version
-- [Acknowledgments](ACKNOWLEDMENTS.md): Credits and thanks
+Peer dependencies:
+- React packages: `react@^18`, `react-dom@^18`
+- `@abstractframework/monitor-active-memory`: `reactflow@^11`
+
+If you cannot follow links, use `llms-full.txt` (generated; inlines the contents of the key docs and source-of-truth files listed below).
+
+## Start here
+
+- [README](README.md): overview, package map, ecosystem context
+- [Getting started](docs/getting-started.md): install/integrate, required CSS, quick examples, Next.js notes
+- [API reference](docs/api.md): export map per package (what to import)
+- [Architecture](docs/architecture.md): package boundaries + diagrams (incl. ecosystem data flow)
+- [FAQ](docs/faq.md): bundling/CSS/SSR and per-package notes
+- [Docs index](docs/README.md): full docs navigation
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md): Theme tokens and UI primitives
-- [@abstractframework/panel-chat](panel-chat/README.md): Chat primitives
-- [@abstractframework/monitor-flow](monitor-flow/README.md): Agent cycle trace viewer
-- [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG/Active Memory explorer
-- [@abstractframework/monitor-gpu](monitor-gpu/README.md): GPU widget
+- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens, typography helpers, selects, icons
+- [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers
+- [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
+- [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
+- [@abstractframework/monitor-gpu](monitor-gpu/README.md): GPU widget (`<monitor-gpu>`) + backend contract
+
+## Source of truth (public API)
+
+- [package.json](package.json): workspace scripts + package list
+- [ui-kit/package.json](ui-kit/package.json): published metadata (`exports`, peer deps)
+- [panel-chat/package.json](panel-chat/package.json): published metadata (`exports`, peer deps)
+- [monitor-flow/package.json](monitor-flow/package.json): published metadata (`exports`, peer deps)
+- [monitor-active-memory/package.json](monitor-active-memory/package.json): published metadata (`exports`, peer deps)
+- [monitor-gpu/package.json](monitor-gpu/package.json): published metadata (`exports`)
+- [ui-kit/src/index.ts](ui-kit/src/index.ts): exports for `@abstractframework/ui-kit`
+- [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
+- [panel-chat/src/types.ts](panel-chat/src/types.ts): `PanelChatMessage` contract
+- [panel-chat/src/message_content.tsx](panel-chat/src/message_content.tsx): JSON autodetect + Markdown override hook (`renderMarkdown`)
+- [panel-chat/src/markdown.tsx](panel-chat/src/markdown.tsx): Markdown renderer rules (minimal, no external deps)
+- [monitor-flow/src/index.ts](monitor-flow/src/index.ts): exports for `@abstractframework/monitor-flow`
+- [monitor-flow/src/agent_cycles_adapter.ts](monitor-flow/src/agent_cycles_adapter.ts): `build_agent_trace` adapter contract
+- [monitor-active-memory/src/index.ts](monitor-active-memory/src/index.ts): exports for `@abstractframework/monitor-active-memory`
+- [monitor-active-memory/src/types.ts](monitor-active-memory/src/types.ts): `KgAssertion` / `KgQueryParams` / `KgQueryResult` contracts
+- [monitor-gpu/src/index.js](monitor-gpu/src/index.js): exports for `@abstractframework/monitor-gpu`
+- [monitor-gpu/src/index.d.ts](monitor-gpu/src/index.d.ts): TS types (`MonitorGpuElement`, controller options)
+- [monitor-gpu/src/gpu_metrics_api.js](monitor-gpu/src/gpu_metrics_api.js): endpoint/auth/payload parsing contract
+- [monitor-gpu/src/monitor_gpu_widget.js](monitor-gpu/src/monitor_gpu_widget.js): custom element + controller behavior
 
 ## Optional
 
 - [Publishing (maintainers)](docs/publishing.md): Release checklist and npm publish notes
 - [Development](docs/development.md): Local workflow and tests
+- [Contributing](CONTRIBUTING.md): contribution workflow and expectations
+- [Security policy](SECURITY.md): responsible vulnerability reporting
+- [Changelog](CHANGELOG.md): notable changes by version
+- [Acknowledgments](ACKNOWLEDMENTS.md): upstream credits
 - [License](LICENSE): MIT license text

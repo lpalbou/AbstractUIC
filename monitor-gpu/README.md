@@ -9,7 +9,7 @@ In AbstractFramework deployments, the default backend endpoint is AbstractGatewa
 ## Install
 
 - Workspace: add a dependency on `@abstractframework/monitor-gpu`
-- npm (once published): `npm i @abstractframework/monitor-gpu`
+- npm: `npm i @abstractframework/monitor-gpu`
 
 ## Usage (Custom Element)
 
@@ -70,7 +70,8 @@ If `supported=false`, the widget shows `N/A`.
 
 ## Security notes
 - Do not pass tokens in URLs.
-- For cross-origin usage, ensure `ABSTRACTGATEWAY_ALLOWED_ORIGINS` includes your UI origin (and serve behind HTTPS in production).
+- Prefer HTTPS in production.
+- For cross-origin usage, configure your backend CORS policy to allow your UI origin and keep the endpoint protected (Bearer token or equivalent).
 
 ## Tests
 

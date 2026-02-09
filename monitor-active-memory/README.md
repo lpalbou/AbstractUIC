@@ -21,7 +21,7 @@ Declared in `monitor-active-memory/package.json`:
 ## Install
 
 - Workspace: add a dependency on `@abstractframework/monitor-active-memory`
-- npm (once published): `npm i @abstractframework/monitor-active-memory`
+- npm: `npm i @abstractframework/monitor-active-memory`
 
 ## Usage
 

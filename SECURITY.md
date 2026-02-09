@@ -2,6 +2,14 @@
 
 We take security seriously and appreciate responsible disclosure.
 
+## Scope
+
+This policy covers all packages in this repository (`ui-kit/`, `panel-chat/`, `monitor-flow/`, `monitor-active-memory/`, `monitor-gpu/`).
+
+Examples of issues to report:
+- Injection/XSS risks in text rendering (e.g. Markdown/JSON renderers in `panel-chat/src/markdown.tsx`, `monitor-flow/src/Markdown.tsx`)
+- Token leakage, auth header mistakes, or unsafe cross-origin usage in `@abstractframework/monitor-gpu` (`monitor-gpu/src/gpu_metrics_api.js`)
+
 ## Reporting a vulnerability
 
 Preferred: use GitHub’s private vulnerability reporting for this repository (Security → “Report a vulnerability”). This keeps the report private while we investigate and prepare a fix.

@@ -2,6 +2,100 @@
 
 > Generated file. Do not edit by hand; run `python scripts/generate-llms-full.py`.
 
+This file expands `llms.txt` into a single, offline-friendly document by inlining the contents of each linked local file (including links under `## Optional`).
+
+## llms.txt
+
+# AbstractUIC
+
+> UI packages for AbstractFramework clients: React components (ESM + CSS exports) plus a dependency-free Custom Element for GPU metrics.
+
+AbstractUIC is a **multi-package repository**: each top-level folder is an independently-consumable npm package.
+
+Ecosystem context (external):
+- AbstractFramework: https://github.com/lpalbou/AbstractFramework
+- AbstractCore: https://github.com/lpalbou/abstractcore
+- AbstractRuntime: https://github.com/lpalbou/abstractruntime
+
+Important integration notes:
+- Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
+- Only `@abstractframework/monitor-gpu` performs network requests by default (polls a metrics endpoint; optional Bearer auth).
+- Always import the package CSS from your app entrypoint (especially in Next.js). Start with `docs/getting-started.md` → `docs/api.md`.
+
+Quick commands:
+
+```bash
+npm install
+npm run build
+npm test
+python scripts/generate-llms-full.py
+```
+
+CSS entrypoints (import from your app entrypoint):
+
+```ts
+import "@abstractframework/ui-kit/theme.css";
+import "@abstractframework/panel-chat/panel_chat.css";
+import "@abstractframework/monitor-flow/agent_cycles.css";
+import "@abstractframework/monitor-active-memory/styles.css";
+import "reactflow/dist/style.css"; // only when using monitor-active-memory
+```
+
+Peer dependencies:
+- React packages: `react@^18`, `react-dom@^18`
+- `@abstractframework/monitor-active-memory`: `reactflow@^11`
+
+If you cannot follow links, use `llms-full.txt` (generated; inlines the contents of the key docs and source-of-truth files listed below).
+
+## Start here
+
+- [README](README.md): overview, package map, ecosystem context
+- [Getting started](docs/getting-started.md): install/integrate, required CSS, quick examples, Next.js notes
+- [API reference](docs/api.md): export map per package (what to import)
+- [Architecture](docs/architecture.md): package boundaries + diagrams (incl. ecosystem data flow)
+- [FAQ](docs/faq.md): bundling/CSS/SSR and per-package notes
+- [Docs index](docs/README.md): full docs navigation
+
+## Packages
+
+- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens, typography helpers, selects, icons
+- [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers
+- [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
+- [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
+- [@abstractframework/monitor-gpu](monitor-gpu/README.md): GPU widget (`<monitor-gpu>`) + backend contract
+
+## Source of truth (public API)
+
+- [package.json](package.json): workspace scripts + package list
+- [ui-kit/package.json](ui-kit/package.json): published metadata (`exports`, peer deps)
+- [panel-chat/package.json](panel-chat/package.json): published metadata (`exports`, peer deps)
+- [monitor-flow/package.json](monitor-flow/package.json): published metadata (`exports`, peer deps)
+- [monitor-active-memory/package.json](monitor-active-memory/package.json): published metadata (`exports`, peer deps)
+- [monitor-gpu/package.json](monitor-gpu/package.json): published metadata (`exports`)
+- [ui-kit/src/index.ts](ui-kit/src/index.ts): exports for `@abstractframework/ui-kit`
+- [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
+- [panel-chat/src/types.ts](panel-chat/src/types.ts): `PanelChatMessage` contract
+- [panel-chat/src/message_content.tsx](panel-chat/src/message_content.tsx): JSON autodetect + Markdown override hook (`renderMarkdown`)
+- [panel-chat/src/markdown.tsx](panel-chat/src/markdown.tsx): Markdown renderer rules (minimal, no external deps)
+- [monitor-flow/src/index.ts](monitor-flow/src/index.ts): exports for `@abstractframework/monitor-flow`
+- [monitor-flow/src/agent_cycles_adapter.ts](monitor-flow/src/agent_cycles_adapter.ts): `build_agent_trace` adapter contract
+- [monitor-active-memory/src/index.ts](monitor-active-memory/src/index.ts): exports for `@abstractframework/monitor-active-memory`
+- [monitor-active-memory/src/types.ts](monitor-active-memory/src/types.ts): `KgAssertion` / `KgQueryParams` / `KgQueryResult` contracts
+- [monitor-gpu/src/index.js](monitor-gpu/src/index.js): exports for `@abstractframework/monitor-gpu`
+- [monitor-gpu/src/index.d.ts](monitor-gpu/src/index.d.ts): TS types (`MonitorGpuElement`, controller options)
+- [monitor-gpu/src/gpu_metrics_api.js](monitor-gpu/src/gpu_metrics_api.js): endpoint/auth/payload parsing contract
+- [monitor-gpu/src/monitor_gpu_widget.js](monitor-gpu/src/monitor_gpu_widget.js): custom element + controller behavior
+
+## Optional
+
+- [Publishing (maintainers)](docs/publishing.md): Release checklist and npm publish notes
+- [Development](docs/development.md): Local workflow and tests
+- [Contributing](CONTRIBUTING.md): contribution workflow and expectations
+- [Security policy](SECURITY.md): responsible vulnerability reporting
+- [Changelog](CHANGELOG.md): notable changes by version
+- [Acknowledgments](ACKNOWLEDMENTS.md): upstream credits
+- [License](LICENSE): MIT license text
+
 ## README.md
 
 # AbstractUIC
@@ -10,6 +104,17 @@ Reusable UI packages for AbstractFramework clients (React components + a small W
 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
+AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only package that performs network requests by default is `@abstractframework/monitor-gpu` (it polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js`).
+
+## AbstractFramework ecosystem
+
+AbstractUIC is part of the broader [AbstractFramework](https://github.com/lpalbou/AbstractFramework) ecosystem:
+
+- **AbstractCore** (core logic/types): https://github.com/lpalbou/abstractcore
+- **AbstractRuntime** (runtime/orchestration): https://github.com/lpalbou/abstractruntime
+
+AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see the absence of such dependencies in `*/package.json`). Instead, host apps (AbstractFlow / AbstractObserver / etc.) integrate with those layers and pass the resulting data into these UI components (see package contracts in `monitor-flow/src/AgentCyclesPanel.tsx`, `monitor-active-memory/src/types.ts`, `panel-chat/src/types.ts`).
+
 ## Documentation
 
 - Getting started (entrypoint): [`docs/getting-started.md`](./docs/getting-started.md)
@@ -17,6 +122,7 @@ Reusable UI packages for AbstractFramework clients (React components + a small W
 - FAQ: [`docs/faq.md`](./docs/faq.md)
 - Architecture (includes diagrams): [`docs/architecture.md`](./docs/architecture.md)
 - Docs index: [`docs/README.md`](./docs/README.md)
+- Agent-oriented docs: [`llms.txt`](./llms.txt) (index) and [`llms-full.txt`](./llms-full.txt) (generated, offline-friendly)
 - Changelog: [`CHANGELOG.md`](./CHANGELOG.md) (alias: `CHANGELOD.md`)
 - Contributing: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
 - Security: [`SECURITY.md`](./SECURITY.md)
@@ -34,11 +140,11 @@ Reusable UI packages for AbstractFramework clients (React components + a small W
 
 ## Context
 
-[AbstractFramework](https://github.com/lpalbou/abstractframework) is a workflow/runtime system with multiple host UX layers. AbstractUIC packages are host-driven UI building blocks used by those clients (no host imports; data + callbacks flow in from the host).
+[AbstractFramework](https://github.com/lpalbou/AbstractFramework) is a workflow/runtime system with multiple host UX layers. AbstractUIC packages are host-driven UI building blocks used by those clients (no host imports; data + callbacks flow in from the host).
 
 ## Install
 
-Packages are published independently. Install only the package(s) you need (once published):
+Packages are published independently. Install only the package(s) you need:
 
 ```bash
 # chat
@@ -56,19 +162,13 @@ npm i @abstractframework/monitor-gpu
 
 ## Quickstart (React)
 
-See [`docs/getting-started.md`](./docs/getting-started.md) for bundler + CSS notes. Minimal usage:
+Import theme tokens once, then import the CSS for the package(s) you use (see [`docs/getting-started.md`](./docs/getting-started.md) for details and Next.js notes). Minimal example (chat):
 
 ```tsx
 import "@abstractframework/ui-kit/theme.css";
 import "@abstractframework/panel-chat/panel_chat.css";
-import "@abstractframework/monitor-flow/agent_cycles.css";
-import "@abstractframework/monitor-active-memory/styles.css";
-// Only if you use @abstractframework/monitor-active-memory (ReactFlow):
-import "reactflow/dist/style.css";
 
-import { ChatThread } from "@abstractframework/panel-chat";
-import { AgentCyclesPanel } from "@abstractframework/monitor-flow";
-import { KgActiveMemoryExplorer } from "@abstractframework/monitor-active-memory";
+import { ChatComposer, ChatThread } from "@abstractframework/panel-chat";
 ```
 
 ## Development
@@ -88,6 +188,12 @@ MIT (see [`LICENSE`](./LICENSE)).
 # Getting Started
 
 AbstractUIC is a small set of **UI packages** (React components + one Web Component). Each top-level folder in this repo is an independently-consumable package.
+
+AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/AbstractFramework) ecosystem:
+- **AbstractCore**: https://github.com/lpalbou/abstractcore
+- **AbstractRuntime**: https://github.com/lpalbou/abstractruntime
+
+Host apps typically get their data from AbstractRuntime/AbstractCore, then pass it into these UI components as props/callbacks (see the package contracts referenced throughout the docs).
 
 If you’re new here, you typically:
 
@@ -117,14 +223,14 @@ For a package-by-package export map, see the [API reference](./api.md).
 
 Packages are designed to be installed **individually** (install only what you need). Common options:
 
-- **npm** (recommended for external consumers): install the package(s) you need once published.
+- **npm** (recommended for external consumers): install the package(s) you need from the registry.
 - **Workspace / source**: add this repo as a workspace in your host app, or vendor the package folder(s).
   - Workspace: build the packages you change (`npm run build`, see [Development](./development.md)).
   - Vendored sources: if you consume TypeScript sources directly, your toolchain must transpile TS/TSX dependencies.
 
 Maintainers: see [Publishing](./publishing.md).
 
-### Install from npm (once published)
+### Install from npm
 
 Install only what you need:
 
@@ -269,6 +375,8 @@ Source of truth:
 
 If you’re starting from scratch, read [Getting started](./getting-started.md) first (it covers install options and required CSS imports).
 
+For ecosystem context (AbstractFramework / AbstractCore / AbstractRuntime) and the host-driven data flow, see [Architecture](./architecture.md).
+
 ## Shared integration notes (React packages)
 
 - All React packages are ESM (`"type": "module"`) and declare `react@^18` / `react-dom@^18` as peer dependencies (see each `*/package.json`).
@@ -398,6 +506,120 @@ See: [`monitor-gpu/README.md`](../monitor-gpu/README.md) for the backend contrac
 - Docs index: [Docs index](./README.md)
 - Security policy: [`SECURITY.md`](../SECURITY.md)
 
+## docs/architecture.md
+
+# Architecture
+
+AbstractUIC is a **multi-package repository**: each folder at the repo root is an independently-consumable package.
+
+Ecosystem context (external):
+- AbstractFramework: https://github.com/lpalbou/AbstractFramework
+- AbstractCore: https://github.com/lpalbou/abstractcore
+- AbstractRuntime: https://github.com/lpalbou/abstractruntime
+
+This document stays intentionally close to the code: package boundaries, exports, and contracts are backed by entrypoints/types in `src/` and by `exports` metadata in each `*/package.json`. Where we reference the broader AbstractFramework ecosystem (AbstractCore / AbstractRuntime), it’s for context — AbstractUIC does not import those packages directly.
+
+## High-level overview
+
+- **React packages** ship **compiled ESM + type declarations** from `dist/` (see `exports` in each `package.json`). Source lives in `src/` and is built with `tsc`.
+- **`@abstractframework/monitor-gpu`** ships **JavaScript** (`monitor-gpu/src`) and registers a custom element.
+- Styling is shipped as plain CSS and exposed as package exports (e.g. `@abstractframework/panel-chat/panel_chat.css`).
+
+## Package dependency graph
+
+```mermaid
+flowchart LR
+  subgraph AbstractUIC
+    UIKIT["@abstractframework/ui-kit"]
+    CHAT["@abstractframework/panel-chat"]
+    FLOW["@abstractframework/monitor-flow"]
+    AMX["@abstractframework/monitor-active-memory"]
+    GPU["@abstractframework/monitor-gpu"]
+  end
+
+  CHAT -->|"imports Icon"| UIKIT
+  AMX -->|"peer dep"| ReactFlow["reactflow (peer dependency)"]
+  FLOW -->|"peer dep"| React["react / react-dom (peer dependency)"]
+  CHAT -->|"peer dep"| React
+  UIKIT -->|"peer dep"| React
+  AMX -->|"peer dep"| React
+```
+
+Evidence:
+- `panel-chat/src/chat_message_card.tsx` imports `Icon` from `@abstractframework/ui-kit`.
+- `monitor-active-memory/package.json` declares `reactflow` (and `react` / `react-dom`) as peer dependencies.
+
+## Runtime data flow
+
+AbstractUIC components are designed to be **host-driven**: hosts provide data and callbacks; the packages do not import host code.
+
+```mermaid
+flowchart TD
+  Runtime["AbstractRuntime"]
+  Core["AbstractCore"]
+  Host["Host app (AbstractFlow / AbstractObserver / etc.)"]
+
+  Runtime -->|"runs / steps / trace records"| Host
+  Core -->|"memory / KG assertions"| Host
+
+  Host -->|"TraceItem[] (or build_agent_trace)"| FlowPanel["monitor-flow: AgentCyclesPanel"]
+  Host -->|"KgAssertion[] + onQuery() (optional)"| AMXPanel["monitor-active-memory: KgActiveMemoryExplorer"]
+  Host -->|"ChatMessage[] + callbacks"| ChatUI["panel-chat: ChatThread / ChatComposer / ChatMessageCard"]
+
+  Host -->|"register + attach <monitor-gpu>"| GPUWidget["monitor-gpu: <monitor-gpu>"]
+  GPUWidget -->|"GET /api/gateway/host/metrics/gpu"| Metrics["AbstractGateway (metrics endpoint)"]
+```
+
+Evidence:
+- `monitor-flow/src/AgentCyclesPanel.tsx` consumes `TraceItem[]` and groups cycles by `step.effect.type === "llm_call"`.
+- `monitor-flow/src/agent_cycles_adapter.ts` exports `build_agent_trace(...)` to adapt ledger-like records into `TraceItem[]`.
+- `monitor-active-memory/src/KgActiveMemoryExplorer.tsx` consumes `items: KgAssertion[]` and optionally calls `onQuery(params)`.
+- `monitor-gpu/src/gpu_metrics_api.js` builds/fetches the metrics URL and attaches Bearer auth headers.
+- No direct dependency on AbstractCore/AbstractRuntime: see the absence of such dependencies in `*/package.json`.
+
+## Contracts & types (what you pass in)
+
+### Knowledge graph / active memory (`monitor-active-memory`)
+
+- `KgAssertion` / `KgQueryParams` / `KgQueryResult`: `monitor-active-memory/src/types.ts`
+- Graph utilities: `monitor-active-memory/src/graph.ts`
+- Main component + callback contracts: `monitor-active-memory/src/KgActiveMemoryExplorer.tsx`
+
+### Agent traces (`monitor-flow`)
+
+- `TraceItem` / `TraceStep`: `monitor-flow/src/AgentCyclesPanel.tsx`
+- Ledger adapter: `monitor-flow/src/agent_cycles_adapter.ts`
+
+### Chat (`panel-chat`)
+
+- `ChatMessage`, `ChatAttachment`, `ChatStat`: `panel-chat/src/chat_message_card.tsx`
+- `ChatThread` / `ChatComposer`: `panel-chat/src/chat_thread.tsx`, `panel-chat/src/chat_composer.tsx`
+
+### GPU metrics (`monitor-gpu`)
+
+The widget expects JSON that can be interpreted by `extractUtilizationGpuPct(payload)`:
+
+- `payload.utilization_gpu_pct` (number) **or**
+- `payload.gpus[][].utilization_gpu_pct` (numbers; averaged)
+
+See: `monitor-gpu/src/gpu_metrics_api.js` and `monitor-gpu/src/monitor_gpu_widget.js`.
+
+## Styling & theming
+
+- `@abstractframework/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css` (exported as `@abstractframework/ui-kit/theme.css`).
+- Other packages use those variables where available, but include fallbacks (e.g. `var(--ui-border-1, rgba(...))`).
+
+See also: [Getting started](./getting-started.md) for integration + required CSS.
+
+## Related docs
+
+- Getting started: [Getting started](./getting-started.md)
+- API reference: [API reference](./api.md)
+- FAQ: [FAQ](./faq.md)
+- Docs index: [Docs index](./README.md)
+- Development: [Development](./development.md)
+- Package docs: see the table in the root [`README.md`](../README.md)
+
 ## docs/faq.md
 
 # FAQ
@@ -407,6 +629,7 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 ## Contents
 
 - [What is AbstractUIC?](#what-is-abstractuic)
+- [How does this relate to AbstractCore and AbstractRuntime?](#how-does-this-relate-to-abstractcore-and-abstractruntime)
 - [Which package should I use?](#which-package-should-i-use)
 - [Do I install a single package or multiple?](#do-i-install-a-single-package-or-multiple)
 - [Why do I need a bundler / transpilation?](#why-do-i-need-a-bundler--transpilation)
@@ -433,6 +656,16 @@ Start here: [Getting started](./getting-started.md).
 See also:
 - API reference: [API reference](./api.md)
 - Architecture (diagrams): [Architecture](./architecture.md)
+
+## How does this relate to AbstractCore and AbstractRuntime?
+
+AbstractUIC is the **UI layer** for AbstractFramework host apps. It does not depend on AbstractCore/AbstractRuntime directly (see the absence of such dependencies in `*/package.json`).
+
+In practice, host apps integrate with:
+- **AbstractRuntime** (runs/steps/traces) and pass trace-like items to `@abstractframework/monitor-flow` (see `monitor-flow/src/AgentCyclesPanel.tsx`, `monitor-flow/src/agent_cycles_adapter.ts`).
+- **AbstractCore** (memory/KG types) and pass assertions/query callbacks to `@abstractframework/monitor-active-memory` (see `monitor-active-memory/src/types.ts`, `monitor-active-memory/src/KgActiveMemoryExplorer.tsx`).
+
+See also: [Architecture](./architecture.md) (data-flow diagram) and the ecosystem overview in the root [`README.md`](../README.md).
 
 ## Which package should I use?
 
@@ -485,9 +718,9 @@ See: [Getting started](./getting-started.md).
 
 ## Are these components SSR-safe?
 
-Not universally.
+Many components can be used in SSR apps, but some utilities/components reference browser APIs such as `window`, `document`, `navigator`, or `localStorage` (examples: copy-to-clipboard helpers, layout persistence, DOM measurements).
 
-Several components/utilities reference browser APIs such as `window`, `document`, `navigator`, or `localStorage` (examples: copy-to-clipboard helpers, layout persistence, DOM measurements). In SSR frameworks, render these components client-side (or behind dynamic import / “use client” boundaries).
+In SSR frameworks, render these components client-side (for example behind a dynamic import or a “use client” boundary). If you see errors like `window is not defined`, it’s a signal that a component needs to run in the browser.
 
 ## How do I theme the UI?
 
@@ -571,7 +804,13 @@ See: `monitor-gpu/test/`.
 
 ## Is this published to npm?
 
-Each package is an npm package (has its own `package.json`). Whether a package is available on npm depends on your release process.
+Yes — each folder is an independently published npm package (see `*/package.json` for package names and versions).
+
+Quick check:
+
+```bash
+npm view @abstractframework/ui-kit version
+```
 
 Maintainers: see [Publishing](./publishing.md).
 
@@ -582,107 +821,2064 @@ Maintainers: see [Publishing](./publishing.md).
 - API reference: [API reference](./api.md)
 - Architecture: [Architecture](./architecture.md)
 
-## docs/architecture.md
+## docs/README.md
 
-# Architecture
+# AbstractUIC Documentation
 
-AbstractUIC is a **multi-package repository**: each folder at the repo root is an independently-consumable package.
+This repository is a small set of **UI packages** (React components + one Web Component).
 
-This document stays intentionally close to the code: every claim below is backed by a package entrypoint, type definition, or runtime contract in `src/`.
+AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/AbstractFramework) ecosystem. It is the UI layer used by host apps that typically integrate with **AbstractRuntime** and **AbstractCore** (see the ecosystem overview in the root [`README.md`](../README.md) and the data-flow diagram in [`architecture.md`](./architecture.md)).
 
-## High-level overview
+## Start here
 
-- **React packages** ship **compiled ESM + type declarations** from `dist/` (see `exports` in each `package.json`). Source lives in `src/` and is built with `tsc`.
-- **`@abstractframework/monitor-gpu`** ships **JavaScript** (`monitor-gpu/src`) and registers a custom element.
-- Styling is shipped as plain CSS and exposed as package exports (e.g. `@abstractframework/panel-chat/panel_chat.css`).
+- **Getting started**: [`getting-started.md`](./getting-started.md)
+- **API reference**: [`api.md`](./api.md)
+- **FAQ**: [`faq.md`](./faq.md)
+- **Architecture + package boundaries**: [`architecture.md`](./architecture.md)
+- **Local development**: [`development.md`](./development.md)
+- **Publishing (maintainers)**: [`publishing.md`](./publishing.md)
+- Legacy stub (backwards compatibility): [`installation.md`](./installation.md)
 
-## Package dependency graph
+## Repo docs / policies
 
-```mermaid
-flowchart LR
-  subgraph AbstractUIC
-    UIKIT["@abstractframework/ui-kit"]
-    CHAT["@abstractframework/panel-chat"]
-    FLOW["@abstractframework/monitor-flow"]
-    AMX["@abstractframework/monitor-active-memory"]
-    GPU["@abstractframework/monitor-gpu"]
-  end
+- Changelog: [`CHANGELOG.md`](../CHANGELOG.md) (alias: `CHANGELOD.md`)
+- Contributing: [`CONTRIBUTING.md`](../CONTRIBUTING.md)
+- Security: [`SECURITY.md`](../SECURITY.md)
+- Acknowledgments: [`ACKNOWLEDMENTS.md`](../ACKNOWLEDMENTS.md)
+- Agent-oriented docs: [`llms.txt`](../llms.txt) (index) and [`llms-full.txt`](../llms-full.txt) (generated)
+- License: [`LICENSE`](../LICENSE)
 
-  CHAT -->|"imports Icon"| UIKIT
-  AMX -->|"peer dep"| ReactFlow["reactflow (peer dependency)"]
-  FLOW -->|"peer dep"| React["react / react-dom (peer dependency)"]
-  CHAT -->|"peer dep"| React
-  UIKIT -->|"peer dep"| React
+## Package docs
+
+- UI tokens + theme + common inputs: [`ui-kit/README.md`](../ui-kit/README.md)
+- Chat primitives (thread, composer, markdown/json renderers): [`panel-chat/README.md`](../panel-chat/README.md)
+- Agent-cycle trace viewer (LLM/tool/observe): [`monitor-flow/README.md`](../monitor-flow/README.md)
+- KG + Active Memory explorer (ReactFlow): [`monitor-active-memory/README.md`](../monitor-active-memory/README.md)
+- GPU widget (custom element + imperative API): [`monitor-gpu/README.md`](../monitor-gpu/README.md)
+
+## ui-kit/README.md
+
+# @abstractframework/ui-kit
+
+Shared theme tokens + small UI primitives used across AbstractUIC packages and host apps.
+
+This package provides:
+
+- **Theme tokens** (CSS variables + theme classes): `ui-kit/src/theme.css`
+- **Theme + typography helpers**: `applyTheme(...)`, `applyTypography(...)`
+- **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, etc.
+- **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
+
+## Install / peer dependencies
+
+This is a React package with peer dependencies on `react@^18` and `react-dom@^18` (see `ui-kit/package.json`).
+
+## Install
+
+- Workspace: add a dependency on `@abstractframework/ui-kit`
+- npm: `npm i @abstractframework/ui-kit`
+
+## Usage
+
+Import the theme tokens once in your app:
+
+```ts
+import "@abstractframework/ui-kit/theme.css";
 ```
 
-Evidence:
-- `panel-chat/src/chat_message_card.tsx` imports `Icon` from `@abstractframework/ui-kit`.
-- `monitor-active-memory/package.json` declares `reactflow` as a peer dependency.
+Apply a theme at runtime (optional):
 
-## Runtime data flow
+```ts
+import { applyTheme } from "@abstractframework/ui-kit";
 
-AbstractUIC components are designed to be **host-driven**: hosts provide data and callbacks; the packages do not import host code.
-
-```mermaid
-flowchart TD
-  Host["Host app (AbstractFlow / AbstractObserver / etc.)"]
-
-  Host -->|"TraceItem[] (or build_agent_trace)"| FlowPanel["monitor-flow: AgentCyclesPanel"]
-  Host -->|"KgAssertion[] + onQuery() (optional)"| AMXPanel["monitor-active-memory: KgActiveMemoryExplorer"]
-  Host -->|"ChatMessage[] + callbacks"| ChatUI["panel-chat: ChatThread / ChatComposer / ChatMessageCard"]
-
-  Host -->|"register + attach <monitor-gpu>"| GPUWidget["monitor-gpu: <monitor-gpu>"]
-  GPUWidget -->|"GET /api/gateway/host/metrics/gpu"| Metrics["Gateway / metrics endpoint"]
+applyTheme("dark"); // sets a `theme-*` class on <html>
 ```
 
-Evidence:
-- `monitor-flow/src/AgentCyclesPanel.tsx` consumes `TraceItem[]` and groups cycles by `step.effect.type === "llm_call"`.
-- `monitor-flow/src/agent_cycles_adapter.ts` exports `build_agent_trace(...)` to adapt ledger-like records into `TraceItem[]`.
-- `monitor-active-memory/src/KgActiveMemoryExplorer.tsx` consumes `items: KgAssertion[]` and optionally calls `onQuery(params)`.
-- `monitor-gpu/src/gpu_metrics_api.js` builds/fetches the metrics URL and attaches Bearer auth headers.
+Use UI components:
 
-## Contracts & types (what you pass in)
+```tsx
+import { ThemeSelect, Icon } from "@abstractframework/ui-kit";
+```
 
-### Knowledge graph / active memory (`monitor-active-memory`)
+## Exported API
 
-- `KgAssertion` / `KgQueryParams` / `KgQueryResult`: `monitor-active-memory/src/types.ts`
-- Graph utilities: `monitor-active-memory/src/graph.ts`
-- Main component + callback contracts: `monitor-active-memory/src/KgActiveMemoryExplorer.tsx`
+See `ui-kit/src/index.ts` for the authoritative export list.
 
-### Agent traces (`monitor-flow`)
+## Related docs
 
-- `TraceItem` / `TraceStep`: `monitor-flow/src/AgentCyclesPanel.tsx`
-- Ledger adapter: `monitor-flow/src/agent_cycles_adapter.ts`
+- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- API reference: [`docs/api.md`](../docs/api.md)
+- Repo docs index: [`docs/README.md`](../docs/README.md)
+- Architecture: [`docs/architecture.md`](../docs/architecture.md)
 
-### Chat (`panel-chat`)
+## panel-chat/README.md
 
-- `ChatMessage`, `ChatAttachment`, `ChatStat`: `panel-chat/src/chat_message_card.tsx`
-- `ChatThread` / `ChatComposer`: `panel-chat/src/chat_thread.tsx`, `panel-chat/src/chat_composer.tsx`
+# @abstractframework/panel-chat
 
-### GPU metrics (`monitor-gpu`)
+Chat UI primitives for AbstractFramework-style UIs: thread rendering, message cards, a composer, and lightweight Markdown/JSON rendering.
 
-The widget expects JSON that can be interpreted by `extractUtilizationGpuPct(payload)`:
+## Peer dependencies
+
+Declared in `panel-chat/package.json`:
+
+- `react@^18`, `react-dom@^18`
+- `@abstractframework/ui-kit` (icons used by `ChatMessageCard`)
+
+## Install
+
+- Workspace: add a dependency on `@abstractframework/panel-chat`
+- npm: `npm i @abstractframework/panel-chat`
+
+## Exported API
+
+See `panel-chat/src/index.ts` for the authoritative export list. Common entry points:
+
+- Components: `ChatThread`, `ChatComposer`, `ChatMessageCard`, `ChatMessageContent`
+- Renderers: `Markdown`, `JsonViewer`
+- Types: `PanelChatMessage`, `ChatMessage`, `ChatAttachment`, `ChatStat`
+- Utils: `chatToMarkdown`, `copyText`, `downloadTextFile`, `tryParseJson`
+
+## Usage (typical)
+
+```tsx
+import React, { useState } from "react";
+import { ChatThread, ChatComposer, type ChatMessage } from "@abstractframework/panel-chat";
+
+export function ChatView() {
+  const [value, setValue] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  return (
+    <>
+      <ChatThread messages={messages} autoScroll />
+      <ChatComposer value={value} onChange={setValue} onSubmit={() => setMessages((m) => [...m, { role: "user", content: value }])} />
+    </>
+  );
+}
+```
+
+## Rendering rules
+
+`ChatMessageContent` auto-detects JSON (via `tryParseJson` in `panel-chat/src/utils.ts`) and renders:
+
+- JSON ⇒ `JsonViewer`
+- otherwise ⇒ `Markdown` (or your `renderMarkdown` override)
+
+Markdown is intentionally minimal and implemented in `panel-chat/src/markdown.tsx` (headings 1–5, code fences, lists, tables, blockquotes, hr, emphasis, and optional highlighting).
+
+## Styling & theming
+
+- Import CSS in your app entrypoint (recommended):
+  - `import "@abstractframework/panel-chat/panel_chat.css";`
+  - `import "@abstractframework/ui-kit/theme.css";` (shared tokens)
+
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- API reference: [`docs/api.md`](../docs/api.md)
+- Architecture: [`docs/architecture.md`](../docs/architecture.md)
+
+## monitor-flow/README.md
+
+# @abstractframework/monitor-flow
+
+React components to inspect **agent execution cycles** (think → act → observe) from per-effect trace records.
+
+## What you get
+
+Authoritative exports live in `monitor-flow/src/index.ts`:
+
+- `AgentCyclesPanel` (+ types `TraceItem`, `TraceStep`)
+- `JsonViewer`
+- `build_agent_trace` (+ `LedgerRecordItem`, `StepRecordLike`)
+
+## Peer dependencies
+
+Declared in `monitor-flow/package.json`:
+
+- `react@^18`, `react-dom@^18`
+
+## Install
+
+- Workspace: add a dependency on `@abstractframework/monitor-flow`
+- npm: `npm i @abstractframework/monitor-flow`
+
+## Expected data
+
+`AgentCyclesPanel` expects `TraceItem[]` (see `monitor-flow/src/AgentCyclesPanel.tsx`):
+
+```ts
+type TraceItem = {
+  id: string;
+  runId: string;
+  nodeId: string;
+  ts?: string;
+  status: string;
+  step: Record<string, unknown>;
+};
+```
+
+Cycles start whenever `step.effect.type === "llm_call"` (see the cycle builder in `monitor-flow/src/AgentCyclesPanel.tsx`).
+
+## Usage
+
+If you already have `TraceItem[]`, pass it directly:
+
+```tsx
+import { AgentCyclesPanel } from "@abstractframework/monitor-flow";
+
+<AgentCyclesPanel items={items} />;
+```
+
+If you have “ledger-like” records, adapt them with `build_agent_trace`:
+
+```tsx
+import { AgentCyclesPanel, build_agent_trace } from "@abstractframework/monitor-flow";
+
+const { items } = build_agent_trace(ledgerItems, { run_id: "run_123" });
+<AgentCyclesPanel items={items} />;
+```
+
+## Styling
+
+Import CSS in your app entrypoint (recommended):
+
+- `import "@abstractframework/monitor-flow/agent_cycles.css";`
+- `import "@abstractframework/ui-kit/theme.css";` (shared tokens)
+
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- API reference: [`docs/api.md`](../docs/api.md)
+- Architecture: [`docs/architecture.md`](../docs/architecture.md)
+
+## monitor-active-memory/README.md
+
+# @abstractframework/monitor-active-memory
+
+ReactFlow-based explorer for **Knowledge Graph assertions** (`KgAssertion`) and the derived **Active Memory** text.
+
+## What you get
+
+- `KgActiveMemoryExplorer` component (see `monitor-active-memory/src/KgActiveMemoryExplorer.tsx`)
+- Graph/layout utilities (see `monitor-active-memory/src/graph.ts`):
+  - `buildKgGraph`, `shortestPath`
+  - `buildKgLayout` + force-layout helpers (`initForceSimulation`, `stepForceSimulation`, …)
+- Types / contracts (see `monitor-active-memory/src/types.ts`):
+  - `KgAssertion`, `KgQueryParams`, `KgQueryResult`
+
+## Peer dependencies
+
+Declared in `monitor-active-memory/package.json`:
+
+- `react@^18`, `react-dom@^18`
+- `reactflow@^11`
+
+## Install
+
+- Workspace: add a dependency on `@abstractframework/monitor-active-memory`
+- npm: `npm i @abstractframework/monitor-active-memory`
+
+## Usage
+
+```tsx
+import { KgActiveMemoryExplorer, type KgAssertion } from "@abstractframework/monitor-active-memory";
+
+const items: KgAssertion[] = [];
+
+export function MemoryView() {
+  return (
+    <KgActiveMemoryExplorer
+      title="Active Memory"
+      items={items}
+      activeMemoryText=""
+      onQuery={async (params) => {
+        // Your host decides how to fetch/search KG assertions.
+        return { ok: true, items: [], active_memory_text: "" };
+      }}
+    />
+  );
+}
+```
+
+## Key props (host integration points)
+
+Authoritative prop types live in `monitor-active-memory/src/KgActiveMemoryExplorer.tsx` (`KgActiveMemoryExplorerProps`).
+
+- `items: KgAssertion[]` (required)
+- `activeMemoryText?: string`
+- `onQuery?: (params: KgQueryParams) => Promise<KgQueryResult>` (enables the query UI)
+- `queryMode?: "override" | "replace"` (how query results interact with `items`)
+- `onItemsReplace?: (items, meta) => void` (used when `queryMode === "replace"`)
+- `onOpenSpan?` / `onOpenTranscript?` (optional host navigation hooks)
+
+## Layout persistence
+
+The component can persist per-view layouts in `localStorage` under key `abstractuic_amx_saved_layouts_v1` (see `monitor-active-memory/src/KgActiveMemoryExplorer.tsx`).
+
+## CSS
+
+- Import CSS in your app entrypoint (recommended):
+
+```ts
+import "@abstractframework/monitor-active-memory/styles.css";
+import "@abstractframework/ui-kit/theme.css"; // shared tokens (optional but recommended)
+```
+
+- ReactFlow base styles are **not** included. In your app:
+
+```ts
+import "reactflow/dist/style.css";
+```
+
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- API reference: [`docs/api.md`](../docs/api.md)
+- Architecture: [`docs/architecture.md`](../docs/architecture.md)
+
+## monitor-gpu/README.md
+
+# @abstractframework/monitor-gpu
+
+Small, dependency-free GPU utilization widget that renders a mini histogram and polls a secured backend endpoint.
+
+In AbstractFramework deployments, the default backend endpoint is AbstractGateway:
+- `GET /api/gateway/host/metrics/gpu`
+- Auth: `Authorization: Bearer <token>`
+
+## Install
+
+- Workspace: add a dependency on `@abstractframework/monitor-gpu`
+- npm: `npm i @abstractframework/monitor-gpu`
+
+## Usage (Custom Element)
+
+```js
+import { registerMonitorGpuWidget } from "@abstractframework/monitor-gpu";
+
+registerMonitorGpuWidget(); // defines <monitor-gpu>
+
+const el = document.createElement("monitor-gpu");
+el.baseUrl = "http://localhost:8080"; // optional (defaults to same-origin)
+el.token = "your-gateway-token"; // or el.getToken = async () => ...
+el.tickMs = 1500;
+el.historySize = 20;
+el.mode = "full"; // "full" | "icon"
+document.body.appendChild(el);
+```
+
+You can also set the non-secret options via attributes:
+
+```html
+<monitor-gpu base-url="http://localhost:8080" tick-ms="1500" history-size="20" mode="icon"></monitor-gpu>
+```
+
+## Usage (Imperative helper)
+
+```js
+import { createMonitorGpuWidget } from "@abstractframework/monitor-gpu";
+
+const widget = createMonitorGpuWidget(document.querySelector("#gpu"), {
+  baseUrl: "http://localhost:8080",
+  token: "your-gateway-token",
+  tickMs: 1500,
+  historySize: 20,
+});
+
+// later
+widget.destroy();
+```
+
+## Backend contract (AbstractGateway)
+
+The widget treats the GPU metrics payload as “supported” unless `supported === false` and extracts utilization via `extractUtilizationGpuPct(payload)`:
 
 - `payload.utilization_gpu_pct` (number) **or**
 - `payload.gpus[][].utilization_gpu_pct` (numbers; averaged)
 
-See: `monitor-gpu/src/gpu_metrics_api.js` and `monitor-gpu/src/monitor_gpu_widget.js`.
+Minimal examples:
 
-## Styling & theming
+```json
+{ "supported": true, "utilization_gpu_pct": 23.0 }
+```
 
-- `@abstractframework/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css` (exported as `@abstractframework/ui-kit/theme.css`).
-- Other packages use those variables where available, but include fallbacks (e.g. `var(--ui-border-1, rgba(...))`).
+```json
+{ "supported": true, "gpus": [{ "utilization_gpu_pct": 10.0 }, { "utilization_gpu_pct": 36.0 }] }
+```
 
-See also: [Getting started](./getting-started.md) for integration + required CSS.
+If `supported=false`, the widget shows `N/A`.
+
+## Security notes
+- Do not pass tokens in URLs.
+- Prefer HTTPS in production.
+- For cross-origin usage, configure your backend CORS policy to allow your UI origin and keep the endpoint protected (Bearer token or equivalent).
+
+## Tests
+
+```bash
+cd monitor-gpu
+npm test
+```
 
 ## Related docs
 
+- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- API reference: [`docs/api.md`](../docs/api.md)
+- Architecture: [`docs/architecture.md`](../docs/architecture.md)
+
+## package.json
+
+{
+  "name": "@abstractframework/abstractuic-monorepo",
+  "version": "0.1.3",
+  "private": true,
+  "description": "AbstractUIC - UI packages for AbstractFramework",
+  "workspaces": [
+    "ui-kit",
+    "monitor-active-memory",
+    "monitor-flow",
+    "monitor-gpu",
+    "panel-chat"
+  ],
+  "scripts": {
+    "build": "npm -ws --if-present run build",
+    "test": "npm -ws --if-present test"
+  }
+}
+
+## ui-kit/package.json
+
+{
+  "name": "@abstractframework/ui-kit",
+  "version": "0.1.3",
+  "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
+  "type": "module",
+  "author": "Laurent-Philippe Albou",
+  "license": "MIT",
+  "keywords": [
+    "abstractframework",
+    "ui",
+    "theme",
+    "tokens",
+    "react"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lpalbou/AbstractUIC.git",
+    "directory": "ui-kit"
+  },
+  "homepage": "https://github.com/lpalbou/AbstractUIC#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./theme.css": "./src/theme.css"
+  },
+  "files": [
+    "dist",
+    "src/theme.css",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "typescript": "^5.3.3"
+  },
+  "sideEffects": [
+    "*.css"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
+## panel-chat/package.json
+
+{
+  "name": "@abstractframework/panel-chat",
+  "version": "0.1.3",
+  "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
+  "type": "module",
+  "author": "Laurent-Philippe Albou",
+  "license": "MIT",
+  "keywords": [
+    "abstractframework",
+    "chat",
+    "ui",
+    "react"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lpalbou/AbstractUIC.git",
+    "directory": "panel-chat"
+  },
+  "homepage": "https://github.com/lpalbou/AbstractUIC#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./panel_chat.css": "./src/panel_chat.css"
+  },
+  "files": [
+    "dist",
+    "src/panel_chat.css",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@abstractframework/ui-kit": "^0.1.3",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@abstractframework/ui-kit": "^0.1.3",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "typescript": "^5.3.3"
+  },
+  "sideEffects": [
+    "*.css"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
+## monitor-flow/package.json
+
+{
+  "name": "@abstractframework/monitor-flow",
+  "version": "0.1.3",
+  "description": "Shared flow/agent monitoring UI components for AbstractFramework (used by AbstractFlow and AbstractObserver).",
+  "type": "module",
+  "author": "Laurent-Philippe Albou",
+  "license": "MIT",
+  "keywords": [
+    "abstractframework",
+    "flow",
+    "agent",
+    "observability",
+    "ui",
+    "react"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lpalbou/AbstractUIC.git",
+    "directory": "monitor-flow"
+  },
+  "homepage": "https://github.com/lpalbou/AbstractUIC#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./agent_cycles.css": "./src/agent_cycles.css"
+  },
+  "files": [
+    "dist",
+    "src/agent_cycles.css",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "typescript": "^5.3.3"
+  },
+  "sideEffects": [
+    "*.css"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
+## monitor-active-memory/package.json
+
+{
+  "name": "@abstractframework/monitor-active-memory",
+  "version": "0.1.3",
+  "description": "Shared KG + Active Memory explorer UI components for AbstractFramework clients (AbstractFlow, AbstractObserver, AbstractCode).",
+  "type": "module",
+  "author": "Laurent-Philippe Albou",
+  "license": "MIT",
+  "keywords": [
+    "abstractframework",
+    "knowledge-graph",
+    "active-memory",
+    "react",
+    "reactflow"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lpalbou/AbstractUIC.git",
+    "directory": "monitor-active-memory"
+  },
+  "homepage": "https://github.com/lpalbou/AbstractUIC#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.css": "./src/styles.css"
+  },
+  "files": [
+    "dist",
+    "src/styles.css",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "reactflow": "^11.0.0"
+  },
+  "devDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "reactflow": "^11.0.0",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "typescript": "^5.3.3"
+  },
+  "sideEffects": [
+    "*.css"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
+## monitor-gpu/package.json
+
+{
+  "name": "@abstractframework/monitor-gpu",
+  "version": "0.1.3",
+  "description": "Lightweight GPU utilization histogram widget for AbstractFramework clients (polls AbstractGateway host metrics with Bearer auth).",
+  "type": "module",
+  "author": "Laurent-Philippe Albou",
+  "license": "MIT",
+  "keywords": [
+    "abstractframework",
+    "gpu",
+    "monitoring",
+    "widget",
+    "histogram"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lpalbou/AbstractUIC.git",
+    "directory": "monitor-gpu"
+  },
+  "homepage": "https://github.com/lpalbou/AbstractUIC#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "sideEffects": false
+}
+
+## ui-kit/src/index.ts
+
+export { THEMES, THEME_SPECS, applyTheme, getThemeSpec, themeClassName, type ThemeOption, type ThemeSpec } from "./theme";
+export { FONT_SCALES, HEADER_DENSITIES, applyTypography, getFontScaleSpec, getHeaderDensitySpec, type FontScaleOption, type HeaderDensityOption } from "./typography";
+export { AfSelect, type AfSelectProps, type AfSelectOption } from "./af_select";
+export { ProviderModelSelect, type ProviderModelSelectProps, type ProviderOption } from "./provider_model_select";
+export { ThemeSelect, type ThemeSelectProps } from "./theme_select";
+export { FontScaleSelect, HeaderDensitySelect, type FontScaleSelectProps, type HeaderDensitySelectProps } from "./typography_select";
+export { Icon, type IconName } from "./icon";
+
+## panel-chat/src/index.ts
+
+export { ChatMessageContent } from "./message_content";
+export { ChatComposer } from "./chat_composer";
+export { Markdown } from "./markdown";
+export { JsonViewer } from "./json_viewer";
+export { ChatMessageCard } from "./chat_message_card";
+export { ChatThread } from "./chat_thread";
+
+export type { PanelChatMessage } from "./types";
+export type { ChatAttachment, ChatMessage, ChatMessageLevel, ChatStat } from "./chat_message_card";
+export { chatToMarkdown, copyText, downloadTextFile, tryParseJson } from "./utils";
+
+## panel-chat/src/types.ts
+
+export type PanelChatMessage = {
+  id?: string;
+  role: string;
+  content: string;
+  ts?: string;
+  title?: string;
+};
+
+## panel-chat/src/message_content.tsx
+
+import React from "react";
+
+import { JsonViewer } from "./json_viewer";
+import { Markdown } from "./markdown";
+import { tryParseJson } from "./utils";
+
+export function ChatMessageContent(props: {
+  text: string;
+  className?: string;
+  renderMarkdown?: (markdown: string) => React.ReactElement;
+  jsonCollapseAfterDepth?: number;
+}): React.ReactElement {
+  const text = String(props.text ?? "");
+  const parsed = tryParseJson(text);
+  const cls = ["pc-chat-content", props.className].filter(Boolean).join(" ");
+
+  if (parsed !== null) {
+    return (
+      <div className={cls}>
+        <JsonViewer value={parsed} collapseAfterDepth={props.jsonCollapseAfterDepth} />
+      </div>
+    );
+  }
+
+  if (props.renderMarkdown) {
+    return <div className={cls}>{props.renderMarkdown(text)}</div>;
+  }
+
+  return (
+    <div className={cls}>
+      <Markdown text={text} />
+    </div>
+  );
+}
+
+## panel-chat/src/markdown.tsx
+
+import React from "react";
+
+type InlineNode = React.ReactNode;
+
+type HighlightState = {
+  needles: string[];
+  needlesLower: string[];
+  className: string;
+  id?: string;
+  hits: number;
+};
+
+function highlightInline(text: string, state: HighlightState | null): InlineNode[] {
+  const s = String(text ?? "");
+  if (!state || !state.needles.length) return [s];
+
+  const out: InlineNode[] = [];
+  const hayLower = s.toLowerCase();
+  let pos = 0;
+  while (pos < s.length) {
+    let bestStart = -1;
+    let bestNeedle = "";
+    for (let i = 0; i < state.needlesLower.length; i++) {
+      const needleLower = state.needlesLower[i];
+      if (!needleLower) continue;
+      const idx = hayLower.indexOf(needleLower, pos);
+      if (idx === -1) continue;
+      const needle = state.needles[i] || "";
+      if (!needle) continue;
+      if (bestStart === -1 || idx < bestStart || (idx === bestStart && needle.length > bestNeedle.length)) {
+        bestStart = idx;
+        bestNeedle = needle;
+      }
+    }
+
+    if (bestStart === -1 || !bestNeedle) {
+      out.push(s.slice(pos));
+      break;
+    }
+
+    if (bestStart > pos) out.push(s.slice(pos, bestStart));
+    const id = state.hits === 0 && state.id ? state.id : undefined;
+    const matchedText = s.slice(bestStart, bestStart + bestNeedle.length);
+    out.push(
+      <span key={`hl:${state.hits}`} id={id} className={state.className}>
+        {matchedText}
+      </span>
+    );
+    state.hits += 1;
+    pos = bestStart + bestNeedle.length;
+  }
+  return out;
+}
+
+function renderInline(text: string, highlight: HighlightState | null): InlineNode[] {
+  const out: InlineNode[] = [];
+  const s = String(text ?? "");
+  let i = 0;
+  let buf = "";
+
+  const flush = () => {
+    if (!buf) return;
+    for (const node of highlightInline(buf, highlight)) out.push(node);
+    buf = "";
+  };
+
+  while (i < s.length) {
+    const ch = s[i];
+
+    if (ch === "`") {
+      const j = s.indexOf("`", i + 1);
+      if (j !== -1) {
+        flush();
+        const inner = s.slice(i + 1, j);
+        out.push(<code key={`code:${i}`}>{highlight ? highlightInline(inner, highlight) : inner}</code>);
+        i = j + 1;
+        continue;
+      }
+    }
+
+    if (ch === "*" && s[i + 1] === "*") {
+      const j = s.indexOf("**", i + 2);
+      if (j !== -1) {
+        flush();
+        const inner = s.slice(i + 2, j);
+        out.push(<strong key={`bold:${i}`}>{highlight ? highlightInline(inner, highlight) : inner}</strong>);
+        i = j + 2;
+        continue;
+      }
+    }
+
+    if (ch === "*" && s[i + 1] !== "*") {
+      const j = s.indexOf("*", i + 1);
+      if (j !== -1) {
+        flush();
+        const inner = s.slice(i + 1, j);
+        out.push(<em key={`em:${i}`}>{highlight ? highlightInline(inner, highlight) : inner}</em>);
+        i = j + 1;
+        continue;
+      }
+    }
+
+    buf += ch;
+    i += 1;
+  }
+
+  flush();
+  return out;
+}
+
+function normalizeLines(text: string): string[] {
+  const s = String(text ?? "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  return s.split("\n");
+}
+
+function splitTableRow(line: string): string[] {
+  let s = String(line ?? "").trim();
+  if (!s) return [];
+  if (s.startsWith("|")) s = s.slice(1);
+  if (s.endsWith("|")) s = s.slice(0, -1);
+  return s.split("|").map((c) => String(c ?? "").trim());
+}
+
+function isTableSeparator(line: string): boolean {
+  let s = String(line ?? "").trim();
+  if (!s) return false;
+  if (s.startsWith("|")) s = s.slice(1);
+  if (s.endsWith("|")) s = s.slice(0, -1);
+  const cells = s.split("|").map((c) => String(c ?? "").trim());
+  if (cells.length < 2) return false;
+  return cells.every((c) => /^:?-{3,}:?$/.test(c));
+}
+
+export function Markdown({
+  text,
+  className,
+  highlight,
+  highlights,
+  highlightClassName,
+  highlightId,
+}: {
+  text: string;
+  className?: string;
+  highlight?: string;
+  highlights?: string[];
+  highlightClassName?: string;
+  highlightId?: string;
+}): React.ReactElement {
+  const lines = normalizeLines(text);
+  const blocks: React.ReactNode[] = [];
+  const needlesRaw: string[] = [];
+  if (Array.isArray(highlights)) needlesRaw.push(...highlights);
+  if (typeof highlight === "string" && highlight.trim()) needlesRaw.push(highlight);
+  const needles = Array.from(new Set(needlesRaw.map((s) => String(s ?? "").trim()).filter(Boolean))).filter((n) => n.length >= 4);
+  const highlightState: HighlightState | null = needles.length
+    ? {
+        needles,
+        needlesLower: needles.map((n) => n.toLowerCase()),
+        className: highlightClassName || "pc-md_hl",
+        id: highlightId,
+        hits: 0,
+      }
+    : null;
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = String(lines[i] ?? "");
+
+    if (!line.trim()) {
+      i += 1;
+      continue;
+    }
+
+    const hr = line.trim();
+    if (hr === "---" || hr === "___" || hr === "***" || /^(-{3,}|_{3,}|\*{3,})$/.test(hr)) {
+      blocks.push(<hr key={`hr:${i}`} className="pc-md_hr" />);
+      i += 1;
+      continue;
+    }
+
+    if (line.trim().startsWith("```")) {
+      const fence = line.trim();
+      const lang = fence.replace(/```/g, "").trim();
+      const codeLines: string[] = [];
+      i += 1;
+      while (i < lines.length && !String(lines[i] ?? "").trim().startsWith("```")) {
+        codeLines.push(String(lines[i] ?? ""));
+        i += 1;
+      }
+      if (i < lines.length) i += 1;
+      const code = codeLines.join("\n");
+      blocks.push(
+        <pre key={`pre:${i}`} className="pc-md_pre">
+          <code className={lang ? `language-${lang}` : undefined}>{code}</code>
+        </pre>
+      );
+      continue;
+    }
+
+    const headingM = line.match(/^(#{1,5})\s+(.*)$/);
+    if (headingM) {
+      const level = headingM[1].length;
+      const content = headingM[2] || "";
+      const nodes = renderInline(content, highlightState);
+      if (level === 1) blocks.push(<h1 key={`h1:${i}`}>{nodes}</h1>);
+      else if (level === 2) blocks.push(<h2 key={`h2:${i}`}>{nodes}</h2>);
+      else if (level === 3) blocks.push(<h3 key={`h3:${i}`}>{nodes}</h3>);
+      else if (level === 4) blocks.push(<h4 key={`h4:${i}`}>{nodes}</h4>);
+      else blocks.push(<h5 key={`h5:${i}`}>{nodes}</h5>);
+      i += 1;
+      continue;
+    }
+
+    if (line.trimStart().startsWith(">")) {
+      const quoteLines: string[] = [];
+      while (i < lines.length && String(lines[i] ?? "").trimStart().startsWith(">")) {
+        const raw = String(lines[i] ?? "");
+        const t = raw.trimStart();
+        quoteLines.push(t.replace(/^>\s?/, ""));
+        i += 1;
+      }
+      blocks.push(
+        <blockquote key={`quote:${i}`} className="pc-md_quote">
+          {quoteLines.map((q, idx) => (
+            <React.Fragment key={`q:${i}:${idx}`}>
+              {renderInline(q, highlightState)}
+              {idx < quoteLines.length - 1 ? <br /> : null}
+            </React.Fragment>
+          ))}
+        </blockquote>
+      );
+      continue;
+    }
+
+    if (line.includes("|") && i + 1 < lines.length && isTableSeparator(String(lines[i + 1] ?? ""))) {
+      const headers = splitTableRow(line);
+      const colCount = Math.max(1, headers.length);
+      const rows: string[][] = [];
+      i += 2;
+      while (i < lines.length) {
+        const rowLine = String(lines[i] ?? "");
+        if (!rowLine.trim()) break;
+        if (!rowLine.includes("|")) break;
+        const cells = splitTableRow(rowLine);
+        const normalized: string[] = [];
+        for (let c = 0; c < colCount; c++) normalized.push(cells[c] ?? "");
+        rows.push(normalized);
+        i += 1;
+      }
+      blocks.push(
+        <div key={`table:${i}`} className="pc-md_table_wrap">
+          <table className="pc-md_table">
+            <thead>
+              <tr>
+                {headers.slice(0, colCount).map((h, idx) => (
+                  <th key={`th:${i}:${idx}`}>{renderInline(h, highlightState)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, rIdx) => (
+                <tr key={`tr:${i}:${rIdx}`}>
+                  {r.map((cell, cIdx) => (
+                    <td key={`td:${i}:${rIdx}:${cIdx}`}>{renderInline(cell, highlightState)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      continue;
+    }
+
+    const isOrdered = (s: string) => /^\s*\d+\.\s+/.test(s);
+    if (isOrdered(line)) {
+      const items: string[] = [];
+      while (i < lines.length && isOrdered(String(lines[i] ?? ""))) {
+        const t = String(lines[i] ?? "");
+        items.push(t.replace(/^\s*\d+\.\s+/, ""));
+        i += 1;
+      }
+      blocks.push(
+        <ol key={`ol:${i}`} className="pc-md_ol">
+          {items.map((it, idx) => (
+            <li key={`oli:${i}:${idx}`}>{renderInline(it, highlightState)}</li>
+          ))}
+        </ol>
+      );
+      continue;
+    }
+
+    const isBullet = (s: string) => {
+      const t = s.trimStart();
+      return t.startsWith("- ") || t.startsWith("* ");
+    };
+    if (isBullet(line)) {
+      const items: string[] = [];
+      while (i < lines.length && isBullet(String(lines[i] ?? ""))) {
+        const t = String(lines[i] ?? "").trimStart();
+        items.push(t.slice(2));
+        i += 1;
+      }
+      blocks.push(
+        <ul key={`ul:${i}`} className="pc-md_ul">
+          {items.map((it, idx) => (
+            <li key={`li:${i}:${idx}`}>{renderInline(it, highlightState)}</li>
+          ))}
+        </ul>
+      );
+      continue;
+    }
+
+    const paraLines: string[] = [];
+    while (i < lines.length && String(lines[i] ?? "").trim()) {
+      paraLines.push(String(lines[i] ?? ""));
+      i += 1;
+    }
+    blocks.push(
+      <p key={`p:${i}`} className="pc-md_p">
+        {paraLines.map((pl, idx) => (
+          <React.Fragment key={`pl:${i}:${idx}`}>
+            {renderInline(pl, highlightState)}
+            {idx < paraLines.length - 1 ? <br /> : null}
+          </React.Fragment>
+        ))}
+      </p>
+    );
+  }
+
+  const cls = ["pc-md", className].filter(Boolean).join(" ");
+  return <div className={cls}>{blocks}</div>;
+}
+
+## monitor-flow/src/index.ts
+
+export { AgentCyclesPanel, type AgentCyclesPanelProps, type TraceItem, type TraceStep } from "./AgentCyclesPanel";
+export { JsonViewer } from "./JsonViewer";
+export { build_agent_trace, type AgentTraceBuildResult, type LedgerRecordItem, type StepRecordLike } from "./agent_cycles_adapter";
+
+## monitor-flow/src/agent_cycles_adapter.ts
+
+import type { TraceItem, TraceStep } from "./AgentCyclesPanel";
+
+export type StepRecordLike = {
+  run_id?: string | null;
+  step_id?: string | null;
+  node_id?: string | null;
+  status?: string | null;
+  effect?: { type?: string | null } | null;
+  started_at?: string | null;
+  ended_at?: string | null;
+};
+
+export type LedgerRecordItem<T extends StepRecordLike = StepRecordLike> = {
+  run_id: string;
+  cursor: number;
+  record: T;
+};
+
+export type AgentTraceBuildResult = {
+  run_id: string;
+  node_id: string;
+  items: TraceItem[];
+};
+
+function as_string(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function run_id_of(item: LedgerRecordItem): string {
+  return as_string(item.run_id) || as_string((item.record as any)?.run_id);
+}
+
+function node_id_of(rec: StepRecordLike): string {
+  return as_string((rec as any)?.node_id);
+}
+
+const AGENT_STAGE_SUFFIXES = new Set(["reason", "act", "observe", "thought", "think"]);
+
+function node_group_id(node_id: string): string {
+  const s = as_string(node_id);
+  if (!s.includes("::")) return s;
+  const parts = s.split("::");
+  if (parts.length < 2) return s;
+  const last = String(parts[parts.length - 1] || "").trim().toLowerCase();
+  if (!AGENT_STAGE_SUFFIXES.has(last)) return s;
+  return parts.slice(0, -1).join("::");
+}
+
+function effect_type_of(rec: StepRecordLike): string {
+  return as_string((rec as any)?.effect?.type);
+}
+
+function status_of(rec: StepRecordLike): string {
+  return as_string((rec as any)?.status) || "unknown";
+}
+
+function step_id_of(rec: StepRecordLike): string {
+  return as_string((rec as any)?.step_id);
+}
+
+function ts_of(rec: StepRecordLike): string {
+  return as_string((rec as any)?.ended_at) || as_string((rec as any)?.started_at);
+}
+
+function pick_best_node_group_id(records: StepRecordLike[]): string {
+  const llm = new Map<string, number>();
+  const tools = new Map<string, number>();
+
+  for (const r of records) {
+    const nid = node_group_id(node_id_of(r));
+    if (!nid) continue;
+    const t = effect_type_of(r);
+    if (t === "llm_call") llm.set(nid, (llm.get(nid) || 0) + 1);
+    else if (t === "tool_calls") tools.set(nid, (tools.get(nid) || 0) + 1);
+  }
+
+  const best_of = (m: Map<string, number>): string => {
+    let best = "";
+    let best_count = -1;
+    for (const [k, v] of m) {
+      if (v > best_count) {
+        best = k;
+        best_count = v;
+      }
+    }
+    return best;
+  };
+
+  return best_of(llm) || best_of(tools) || "";
+}
+
+export function build_agent_trace(items: LedgerRecordItem[], opts: { run_id: string; node_id?: string | null }): AgentTraceBuildResult {
+  const run_id = as_string(opts.run_id);
+  if (!run_id) return { run_id: "", node_id: "", items: [] };
+
+  const raw = (Array.isArray(items) ? items : [])
+    .filter((x) => x && x.record && run_id_of(x) === run_id)
+    .map((x) => ({ cursor: x.cursor, record: x.record }))
+    .sort((a, b) => (a.cursor || 0) - (b.cursor || 0));
+
+  const records = raw.map((x) => x.record);
+  const requested_node_id = node_group_id(as_string(opts.node_id));
+  const node_id = requested_node_id || pick_best_node_group_id(records);
+
+  const INTERESTING = new Set(["llm_call", "tool_calls", "ask_user", "answer_user"]);
+  let filtered = raw.filter((x) => INTERESTING.has(effect_type_of(x.record)));
+  // Only filter by node_id when explicitly requested by the caller.
+  // Auto-picking a dominant node group is useful for labeling, but filtering can
+  // accidentally drop tool_calls when workflows split LLM/tool nodes.
+  if (requested_node_id) filtered = filtered.filter((x) => node_group_id(node_id_of(x.record)) === requested_node_id);
+
+  const by_step_id = new Map<string, { cursor: number; record: StepRecordLike }>();
+  const passthrough: Array<{ cursor: number; record: StepRecordLike }> = [];
+
+  for (const item of filtered) {
+    const sid = step_id_of(item.record);
+    if (!sid) {
+      passthrough.push(item);
+      continue;
+    }
+    const prev = by_step_id.get(sid);
+    if (!prev || (item.cursor || 0) > (prev.cursor || 0)) by_step_id.set(sid, item);
+  }
+
+  const deduped = [...passthrough, ...Array.from(by_step_id.values())].sort((a, b) => (a.cursor || 0) - (b.cursor || 0));
+
+  const out: TraceItem[] = deduped.map((x) => {
+    const rec = x.record;
+    const nodeId = node_id_of(rec) || "(node?)";
+    const ts = ts_of(rec);
+    const sid = step_id_of(rec);
+    return {
+      id: `ledger:${run_id}:${x.cursor}:${sid || ""}`,
+      runId: run_id,
+      nodeId,
+      ts: ts || undefined,
+      status: status_of(rec),
+      step: rec as unknown as TraceStep,
+    };
+  });
+
+  return { run_id, node_id, items: out };
+}
+
+## monitor-active-memory/src/index.ts
+
+export { KgActiveMemoryExplorer, type KgActiveMemoryExplorerProps } from './KgActiveMemoryExplorer';
+export {
+  buildKgGraph,
+  shortestPath,
+  buildKgLayout,
+  hashStringToSeed,
+  sanitizeViewport,
+  initForceSimulation,
+  stepForceSimulation,
+  forceSimulationEnergy,
+  forceSimulationPositions,
+} from './graph';
+export type { ForceSimulationOptions, ForceSimulationState, KgLayoutKind, ViewportTransform, XY } from './graph';
+export type { JsonValue, KgAssertion, KgQueryParams, KgQueryResult, MemoryScope, RecallLevel } from './types';
+
+## monitor-active-memory/src/types.ts
+
+export type JsonValue =
+  | null
+  | string
+  | number
+  | boolean
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+export type MemoryScope = 'run' | 'session' | 'global' | 'all';
+export type RecallLevel = 'urgent' | 'standard' | 'deep';
+
+export interface KgAssertion {
+  subject: string;
+  predicate: string;
+  object: string;
+  scope?: string;
+  owner_id?: string;
+  observed_at?: string;
+  valid_from?: string | null;
+  valid_until?: string | null;
+  confidence?: number | null;
+  provenance?: Record<string, JsonValue> | null;
+  attributes?: Record<string, JsonValue> | null;
+}
+
+export interface KgQueryParams {
+  run_id?: string;
+  scope: MemoryScope;
+  owner_id?: string;
+  recall_level?: RecallLevel;
+  query_text?: string;
+  subject?: string;
+  predicate?: string;
+  object?: string;
+  since?: string;
+  until?: string;
+  active_at?: string;
+  min_score?: number;
+  limit?: number;
+  max_input_tokens?: number;
+  model?: string;
+}
+
+export interface KgQueryResult {
+  ok: boolean;
+  count?: number;
+  items?: KgAssertion[];
+  effort?: JsonValue;
+  warnings?: JsonValue;
+  packets?: JsonValue[];
+  packets_version?: number;
+  packed_count?: number;
+  active_memory_text?: string;
+  dropped?: number;
+  estimated_tokens?: number;
+  raw?: JsonValue;
+}
+
+## monitor-gpu/src/index.js
+
+export { HistoryBuffer } from "./history_buffer.js";
+export {
+  buildAuthHeaders,
+  extractUtilizationGpuPct,
+  fetchHostGpuMetrics,
+  makeGpuMetricsUrl,
+  resolveBearerToken,
+} from "./gpu_metrics_api.js";
+export { MonitorGpuWidgetController, createMonitorGpuWidget, registerMonitorGpuWidget } from "./monitor_gpu_widget.js";
+
+## monitor-gpu/src/index.d.ts
+
+export type MonitorGpuMode = "full" | "icon";
+
+export type MonitorGpuWidgetOptions = {
+  tickMs?: number | string;
+  historySize?: number | string;
+  endpoint?: string;
+  baseUrl?: string;
+  mode?: MonitorGpuMode | string;
+  token?: string;
+  getToken?: () => string | Promise<string>;
+};
+
+export class MonitorGpuWidgetController {
+  constructor(target: HTMLElement, options?: MonitorGpuWidgetOptions);
+
+  get options(): { tickMs: number; historySize: number; endpoint: string; baseUrl: string; mode: MonitorGpuMode };
+  setOptions(next: Partial<MonitorGpuWidgetOptions>): void;
+
+  start(): void;
+  stop(): void;
+  destroy(): void;
+
+  push(value: number | null): void;
+
+  get token(): string | undefined;
+  set token(token: string | undefined);
+
+  get getToken(): (() => string | Promise<string>) | undefined;
+  set getToken(getToken: (() => string | Promise<string>) | undefined);
+}
+
+export function createMonitorGpuWidget(target: HTMLElement, options?: MonitorGpuWidgetOptions): MonitorGpuWidgetController;
+
+export function registerMonitorGpuWidget(tagName?: string): void;
+
+export interface MonitorGpuElement extends HTMLElement {
+  tickMs: number;
+  historySize: number;
+  endpoint: string;
+  baseUrl: string;
+  mode: MonitorGpuMode;
+
+  token: string | undefined;
+  getToken: (() => string | Promise<string>) | undefined;
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "monitor-gpu": MonitorGpuElement;
+  }
+}
+
+## monitor-gpu/src/gpu_metrics_api.js
+
+function _isAbsoluteUrl(s) {
+  try {
+    new URL(String(s));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function makeGpuMetricsUrl({ baseUrl, endpoint }) {
+  const ep = String(endpoint || "/api/gateway/host/metrics/gpu");
+  if (_isAbsoluteUrl(ep)) {
+    return ep;
+  }
+  if (baseUrl && String(baseUrl).trim()) {
+    return new URL(ep, String(baseUrl)).toString();
+  }
+  return ep;
+}
+
+export async function resolveBearerToken({ token, getToken }) {
+  if (typeof getToken === "function") {
+    const t = await getToken();
+    return t == null ? "" : String(t);
+  }
+  return token == null ? "" : String(token);
+}
+
+export function buildAuthHeaders({ token }) {
+  const t = String(token || "").trim();
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
+export function extractUtilizationGpuPct(payload) {
+  if (!payload || typeof payload !== "object") return null;
+
+  const direct = Number(payload.utilization_gpu_pct);
+  if (Number.isFinite(direct)) return direct;
+
+  const gpus = payload.gpus;
+  if (Array.isArray(gpus) && gpus.length) {
+    const vals = gpus
+      .map((g) => Number(g && g.utilization_gpu_pct))
+      .filter((n) => Number.isFinite(n));
+    if (!vals.length) return null;
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    return avg;
+  }
+
+  return null;
+}
+
+export async function fetchHostGpuMetrics({
+  baseUrl,
+  endpoint,
+  token,
+  getToken,
+  signal,
+  fetchImpl,
+} = {}) {
+  const url = makeGpuMetricsUrl({ baseUrl, endpoint });
+  const resolvedToken = await resolveBearerToken({ token, getToken });
+
+  const f = fetchImpl || globalThis.fetch;
+  if (typeof f !== "function") {
+    return {
+      ok: false,
+      status: 0,
+      error: "fetch_unavailable",
+      payload: null,
+    };
+  }
+
+  let res;
+  try {
+    res = await f(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        ...buildAuthHeaders({ token: resolvedToken }),
+      },
+      signal,
+    });
+  } catch (e) {
+    return {
+      ok: false,
+      status: 0,
+      error: "network_error",
+      detail: e instanceof Error ? e.message : String(e),
+      payload: null,
+    };
+  }
+
+  let payload = null;
+  try {
+    payload = await res.json();
+  } catch {
+    payload = null;
+  }
+
+  return {
+    ok: res.ok,
+    status: res.status,
+    error: res.ok ? null : "http_error",
+    payload,
+  };
+}
+
+## monitor-gpu/src/monitor_gpu_widget.js
+
+import { HistoryBuffer } from "./history_buffer.js";
+import { extractUtilizationGpuPct, fetchHostGpuMetrics } from "./gpu_metrics_api.js";
+
+const DEFAULTS = Object.freeze({
+  tickMs: 1500,
+  historySize: 20,
+  endpoint: "/api/gateway/host/metrics/gpu",
+  baseUrl: "",
+  mode: "full", // "full" | "icon"
+});
+
+function _clamp01(n) {
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(1, Math.max(0, n));
+}
+
+function _clamp(n, lo, hi) {
+  if (!Number.isFinite(n)) return lo;
+  return Math.min(hi, Math.max(lo, n));
+}
+
+function _toInt(n, fallback) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return fallback;
+  return Math.floor(v);
+}
+
+function _colorForPct(pct, alpha = 1) {
+  const t = _clamp(Number(pct) / 100, 0, 1);
+  // Hue ramp: green (140) -> red (0)
+  const hue = Math.round(140 - 140 * t);
+  const a = _clamp(Number(alpha), 0, 1);
+  if (a >= 1) return `hsl(${hue} 85% 55%)`;
+  return `hsl(${hue} 85% 55% / ${a})`;
+}
+
+function _normalizeOptions(opts) {
+  const o = { ...DEFAULTS, ...(opts || {}) };
+  o.tickMs = Math.max(250, _toInt(o.tickMs, DEFAULTS.tickMs));
+  o.historySize = Math.max(1, Math.min(200, _toInt(o.historySize, DEFAULTS.historySize)));
+  o.endpoint = String(o.endpoint || DEFAULTS.endpoint);
+  o.baseUrl = String(o.baseUrl || "");
+  o.mode = String(o.mode || DEFAULTS.mode).trim().toLowerCase();
+  if (o.mode !== "icon") o.mode = "full";
+  return o;
+}
+
+function _cssText() {
+  return `
+:host{display:inline-block;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";line-height:1}
+.wrap{box-sizing:border-box;display:flex;flex-direction:column;gap:6px;padding:var(--monitor-gpu-padding,8px 10px);border:1px solid var(--monitor-gpu-border,#2a2f3a);border-radius:var(--monitor-gpu-radius,10px);background:var(--monitor-gpu-bg,#0b1020);color:var(--monitor-gpu-fg,#e7eaf0);width:var(--monitor-gpu-width,180px)}
+.wrap.icon{gap:var(--monitor-gpu-gap,4px);padding:var(--monitor-gpu-padding,4px);border-radius:var(--monitor-gpu-radius,999px);width:var(--monitor-gpu-width,30px);background:linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02)),var(--monitor-gpu-bg,#0b1020);box-shadow:0 0 14px var(--monitor-gpu-accent-glow, rgba(76,195,255,0.18))}
+.wrap.icon .top{display:none}
+.wrap.icon .bars{height:var(--monitor-gpu-bars-height,18px)}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.label{font-size:var(--monitor-gpu-font-size,var(--font-size-sm,12px));opacity:.9}
+.value{font-variant-numeric:tabular-nums;font-size:var(--monitor-gpu-font-size,var(--font-size-sm,12px));opacity:.95}
+.bars{display:flex;align-items:flex-end;gap:2px;height:var(--monitor-gpu-bars-height,34px);overflow:hidden}
+.bar{flex:1;min-width:0;border-radius:2px;background:var(--monitor-gpu-bar,#4cc3ff);height:2px;opacity:.9;transition:height .25s ease, background .25s ease, opacity .25s ease}
+.bar.missing{background:var(--monitor-gpu-bar-missing,#62708a);opacity:.35}
+.bar.error{background:var(--monitor-gpu-bar-error,#ff6b6b);opacity:.7}
+.muted{opacity:.6}
+`;
+}
+
+export class MonitorGpuWidgetController {
+  constructor(target, options = {}) {
+    if (!target || typeof target !== "object") {
+      throw new TypeError("target element is required");
+    }
+    this._target = target;
+    this._opts = _normalizeOptions(options);
+    this._buffer = new HistoryBuffer(this._opts.historySize);
+
+    this._timer = null;
+    this._timer_gen = 0;
+    this._running = false;
+    this._abort = null;
+    this._resumeTimer = null;
+
+    this._mounted = false;
+    this._els = null;
+
+    this._token = options.token;
+    this._getToken = options.getToken;
+
+    this._stoppedForAuth = false;
+  }
+
+  get options() {
+    return { ...this._opts };
+  }
+
+  set token(t) {
+    this._token = t;
+    const tok = String(this._token || "").trim();
+    if (tok && this._stoppedForAuth) {
+      this._stoppedForAuth = false;
+      this.start();
+    }
+  }
+
+  get token() {
+    return this._token;
+  }
+
+  set getToken(fn) {
+    this._getToken = fn;
+  }
+
+  get getToken() {
+    return this._getToken;
+  }
+
+  mount() {
+    if (this._mounted) return;
+    if (typeof document === "undefined") {
+      throw new Error("MonitorGpuWidget requires a browser DOM");
+    }
+
+    const root = this._target;
+    root.textContent = "";
+
+    const style = document.createElement("style");
+    style.textContent = _cssText();
+
+    const wrap = document.createElement("div");
+    wrap.className = this._opts.mode === "icon" ? "wrap icon" : "wrap";
+
+    const top = document.createElement("div");
+    top.className = "top";
+
+    const label = document.createElement("div");
+    label.className = "label";
+    label.textContent = "GPU";
+
+    const value = document.createElement("div");
+    value.className = "value muted";
+    value.textContent = "—";
+
+    top.appendChild(label);
+    top.appendChild(value);
+
+    const bars = document.createElement("div");
+    bars.className = "bars";
+
+    wrap.appendChild(top);
+    wrap.appendChild(bars);
+
+    root.appendChild(style);
+    root.appendChild(wrap);
+
+    this._els = { wrap, value, bars };
+    this._mounted = true;
+
+    this._rebuildBars();
+    this._render();
+  }
+
+  start() {
+    this.mount();
+    if (this._running) return;
+    this._running = true;
+    this._timer_gen += 1;
+    void this._poll_loop(this._timer_gen);
+  }
+
+  stop() {
+    this._running = false;
+    this._timer_gen += 1;
+    if (this._timer) {
+      clearTimeout(this._timer);
+      this._timer = null;
+    }
+    if (this._resumeTimer) {
+      clearTimeout(this._resumeTimer);
+      this._resumeTimer = null;
+    }
+    if (this._abort) {
+      this._abort.abort();
+      this._abort = null;
+    }
+  }
+
+  destroy() {
+    this.stop();
+    if (this._target && this._mounted) {
+      this._target.textContent = "";
+    }
+    this._mounted = false;
+    this._els = null;
+  }
+
+  setOptions(next) {
+    const merged = _normalizeOptions({ ...this._opts, ...(next || {}) });
+    const historyChanged = merged.historySize !== this._opts.historySize;
+    const tickChanged = merged.tickMs !== this._opts.tickMs;
+    const modeChanged = merged.mode !== this._opts.mode;
+
+    this._opts = merged;
+    if (modeChanged && this._mounted && this._els && this._els.wrap) {
+      this._els.wrap.className = merged.mode === "icon" ? "wrap icon" : "wrap";
+    }
+    if (historyChanged) {
+      this._buffer.setMaxSize(merged.historySize);
+      if (this._mounted) this._rebuildBars();
+    }
+    if (tickChanged && this._running) {
+      this.stop();
+      this.start();
+    } else if (this._mounted) {
+      this._render();
+    }
+  }
+
+  push(value) {
+    this._buffer.push(value);
+    this._render();
+  }
+
+  _rebuildBars() {
+    if (!this._els) return;
+    const { bars } = this._els;
+    bars.textContent = "";
+    for (let i = 0; i < this._opts.historySize; i += 1) {
+      const bar = document.createElement("div");
+      bar.className = "bar missing";
+      bar.style.height = "2px";
+      bars.appendChild(bar);
+    }
+  }
+
+  _render({ error = false } = {}) {
+    if (!this._els) return;
+    const { wrap, value, bars } = this._els;
+
+    const vals = this._buffer.values();
+    const last = this._buffer.last();
+    const pct = Number.isFinite(last) ? Math.max(0, Math.min(100, last)) : null;
+
+    if (pct == null) {
+      value.textContent = error ? "N/A" : "—";
+      value.classList.add("muted");
+    } else {
+      value.textContent = `${pct.toFixed(0)}%`;
+      value.classList.remove("muted");
+    }
+    if (wrap) {
+      wrap.title = pct == null ? "GPU —" : `GPU ${pct.toFixed(0)}%`;
+      if (pct == null) {
+        wrap.style.removeProperty("--monitor-gpu-accent");
+        wrap.style.removeProperty("--monitor-gpu-accent-glow");
+      } else {
+        wrap.style.setProperty("--monitor-gpu-accent", _colorForPct(pct, 0.95));
+        wrap.style.setProperty("--monitor-gpu-accent-glow", _colorForPct(pct, 0.35));
+      }
+    }
+
+    const barEls = Array.from(bars.children);
+    const missingPrefix = Math.max(0, barEls.length - vals.length);
+    const barsMaxPx = Math.max(2, bars && typeof bars.clientHeight === "number" && bars.clientHeight > 0 ? bars.clientHeight : 34);
+    for (let i = 0; i < barEls.length; i += 1) {
+      const el = barEls[i];
+      const idx = i - missingPrefix;
+      const v = idx >= 0 ? vals[idx] : null;
+      const valNum = Number.isFinite(v) ? v : null;
+      const h = valNum == null ? 0 : _clamp01(valNum / 100);
+
+      const px = Math.max(2, Math.min(barsMaxPx, Math.round(h * barsMaxPx)));
+      el.style.height = `${px}px`;
+      el.style.background = valNum == null ? "" : _colorForPct(valNum);
+      el.className = "bar";
+      if (valNum == null) el.classList.add("missing");
+      if (error) el.classList.add("error");
+    }
+  }
+
+  async _tick() {
+    const tokenAtStart = String(this._token || "").trim();
+    const getTokenAtStart = this._getToken;
+    const requestHadAuth = Boolean(tokenAtStart) || typeof getTokenAtStart === "function";
+
+    if (this._abort) this._abort.abort();
+    this._abort = new AbortController();
+
+    const res = await fetchHostGpuMetrics({
+      baseUrl: this._opts.baseUrl,
+      endpoint: this._opts.endpoint,
+      token: tokenAtStart,
+      getToken: getTokenAtStart,
+      signal: this._abort.signal,
+    });
+
+    const payload = res && res.payload;
+    const supported = payload && typeof payload === "object" ? payload.supported !== false : true;
+    const pct = extractUtilizationGpuPct(payload);
+
+    if (!res.ok) {
+      this._buffer.push(null);
+      this._render({ error: true });
+      if (res.status === 401 || res.status === 403) {
+        // If the request was unauthenticated (no token and no getToken) but auth became available
+        // before the 401 came back (common race when the host sets `el.token` after mount),
+        // do not permanently stop the widget. Let the poll loop continue and succeed on the next tick.
+        const tokenNow = String(this._token || "").trim();
+        const hasGetTokenNow = typeof this._getToken === "function";
+        const authNowAvailable = Boolean(tokenNow) || hasGetTokenNow;
+        if (!requestHadAuth && authNowAvailable) {
+          return;
+        }
+        this._stoppedForAuth = true;
+        this.stop();
+      } else if (res.status === 429) {
+        this.stop();
+        this._resumeTimer = setTimeout(() => {
+          this._resumeTimer = null;
+          if (!this._mounted) return;
+          this.start();
+        }, 30_000);
+      }
+      return;
+    }
+
+    if (!supported || pct == null) {
+      this._buffer.push(null);
+      this._render();
+      return;
+    }
+
+    this._buffer.push(pct);
+    this._render();
+  }
+
+  async _poll_loop(gen) {
+    if (!this._running || gen !== this._timer_gen) return;
+
+    await this._tick();
+
+    if (!this._running || gen !== this._timer_gen) return;
+    this._timer = setTimeout(() => {
+      this._timer = null;
+      void this._poll_loop(gen);
+    }, this._opts.tickMs);
+  }
+}
+
+export function createMonitorGpuWidget(target, options = {}) {
+  const c = new MonitorGpuWidgetController(target, options);
+  c.start();
+  return c;
+}
+
+export function registerMonitorGpuWidget(tagName = "monitor-gpu") {
+  if (typeof globalThis === "undefined") return;
+  if (typeof globalThis.customElements === "undefined") return;
+  if (globalThis.customElements.get(tagName)) return;
+
+  const HTMLElementBase = globalThis.HTMLElement || class {};
+
+  class MonitorGpuElement extends HTMLElementBase {
+    static get observedAttributes() {
+      return ["tick-ms", "history-size", "endpoint", "base-url", "mode"];
+    }
+
+    constructor() {
+      super();
+      this._shadow = this.attachShadow ? this.attachShadow({ mode: "open" }) : null;
+      const root = this._shadow || this;
+      this._controller = new MonitorGpuWidgetController(root, {});
+
+      // If a property was set on the element instance before it was upgraded/defined
+      // (e.g. React rendered `<monitor-gpu>` before `customElements.define()`),
+      // it becomes an "own property" and would bypass our setters. Upgrade it.
+      this._upgradeProperty("token");
+      this._upgradeProperty("getToken");
+      this._upgradeProperty("mode");
+    }
+
+    _upgradeProperty(prop) {
+      if (!Object.prototype.hasOwnProperty.call(this, prop)) return;
+      const value = this[prop];
+      try {
+        delete this[prop];
+      } catch {
+        // ignore
+      }
+      this[prop] = value;
+    }
+
+    connectedCallback() {
+      this._controller.setOptions(this._readAttrs());
+      const start = () => {
+        if (!this.isConnected) return;
+        this._controller.start();
+      };
+      if (typeof queueMicrotask === "function") queueMicrotask(start);
+      else Promise.resolve().then(start);
+    }
+
+    disconnectedCallback() {
+      this._controller.destroy();
+    }
+
+    attributeChangedCallback() {
+      this._controller.setOptions(this._readAttrs());
+    }
+
+    _readAttrs() {
+      const tickMs = this.getAttribute("tick-ms");
+      const historySize = this.getAttribute("history-size");
+      const endpoint = this.getAttribute("endpoint");
+      const baseUrl = this.getAttribute("base-url");
+      const mode = this.getAttribute("mode");
+      return {
+        ...(tickMs != null ? { tickMs } : {}),
+        ...(historySize != null ? { historySize } : {}),
+        ...(endpoint != null ? { endpoint } : {}),
+        ...(baseUrl != null ? { baseUrl } : {}),
+        ...(mode != null ? { mode } : {}),
+      };
+    }
+
+    set token(t) {
+      this._controller.token = t;
+    }
+
+    get token() {
+      return this._controller.token;
+    }
+
+    set getToken(fn) {
+      this._controller.getToken = fn;
+    }
+
+    get getToken() {
+      return this._controller.getToken;
+    }
+
+    set tickMs(v) {
+      this._controller.setOptions({ tickMs: v });
+    }
+
+    get tickMs() {
+      return this._controller.options.tickMs;
+    }
+
+    set historySize(v) {
+      this._controller.setOptions({ historySize: v });
+    }
+
+    get historySize() {
+      return this._controller.options.historySize;
+    }
+
+    set endpoint(v) {
+      this._controller.setOptions({ endpoint: v });
+    }
+
+    get endpoint() {
+      return this._controller.options.endpoint;
+    }
+
+    set baseUrl(v) {
+      this._controller.setOptions({ baseUrl: v });
+    }
+
+    get baseUrl() {
+      return this._controller.options.baseUrl;
+    }
+
+    set mode(v) {
+      this._controller.setOptions({ mode: v });
+    }
+
+    get mode() {
+      return this._controller.options.mode;
+    }
+  }
+
+  globalThis.customElements.define(tagName, MonitorGpuElement);
+}
+
+## docs/publishing.md
+
+# Publishing (Maintainers)
+
+Each folder is an npm package and can be published independently.
+
+## Pre-flight
+
+- Ensure README + docs links are correct (root `README.md` + per-package `README.md`).
+- Ensure `repository` metadata points to this repo (`https://github.com/lpalbou/AbstractUIC`).
+- Ensure peer dependency ranges are valid semver (avoid `workspace:*` in published metadata).
+- Ensure `dist/` is produced (React packages build via `tsc`; see each package’s `prepublishOnly`).
+
+## Suggested release steps
+
+1. Bump versions in each `*/package.json` you plan to publish (this repo currently keeps versions in sync).
+1. Update [`CHANGELOG.md`](../CHANGELOG.md) with what changed.
+1. Install workspace deps at repo root: `npm install`
+1. Build packages (optional preflight): `npm run build`
+1. Run package tests:
+   - `cd monitor-gpu && npm test`
+1. Dry-run the package tarball (optional): `npm pack` inside each package.
+1. Publish from the package directory:
+
+```bash
+cd <package>
+npm publish --access public
+```
+
+Notes:
+- Scoped packages are private by default; `--access public` is required for public release.
+- React packages publish compiled output from `dist/` and expose CSS as separate exports (see each package’s `exports`).
+
+## Related docs
+
+- Changelog: [`CHANGELOG.md`](../CHANGELOG.md)
+- Contributing: [`CONTRIBUTING.md`](../CONTRIBUTING.md)
 - Getting started: [Getting started](./getting-started.md)
-- API reference: [API reference](./api.md)
-- FAQ: [FAQ](./faq.md)
-- Docs index: [Docs index](./README.md)
-- Development: [Development](./development.md)
-- Package docs: see the table in the root [`README.md`](../README.md)
+- Architecture: [Architecture](./architecture.md)
 
 ## docs/development.md
 
@@ -733,78 +2929,6 @@ python scripts/generate-llms-full.py
 - Architecture: [Architecture](./architecture.md)
 - Docs index: [Docs index](./README.md)
 
-## docs/publishing.md
-
-# Publishing (Maintainers)
-
-Each folder is an npm package and can be published independently.
-
-## Pre-flight
-
-- Ensure README + docs links are correct (root `README.md` + per-package `README.md`).
-- Ensure `repository` metadata points to this repo (`https://github.com/lpalbou/AbstractUIC`).
-- Ensure peer dependency ranges are valid semver (avoid `workspace:*` in published metadata).
-- Ensure `dist/` is produced (React packages build via `tsc`; see each package’s `prepublishOnly`).
-
-## Suggested release steps
-
-1. Bump versions in each `*/package.json` you plan to publish (this repo currently keeps versions in sync).
-1. Update [`CHANGELOG.md`](../CHANGELOG.md) with what changed.
-1. Install workspace deps at repo root: `npm install`
-1. Build packages (optional preflight): `npm run build`
-1. Run package tests:
-   - `cd monitor-gpu && npm test`
-1. Dry-run the package tarball (optional): `npm pack` inside each package.
-1. Publish from the package directory:
-
-```bash
-cd <package>
-npm publish --access public
-```
-
-Notes:
-- Scoped packages are private by default; `--access public` is required for public release.
-- React packages publish compiled output from `dist/` and expose CSS as separate exports (see each package’s `exports`).
-
-## Related docs
-
-- Changelog: [`CHANGELOG.md`](../CHANGELOG.md)
-- Contributing: [`CONTRIBUTING.md`](../CONTRIBUTING.md)
-- Getting started: [Getting started](./getting-started.md)
-- Architecture: [Architecture](./architecture.md)
-
-## docs/README.md
-
-# AbstractUIC Documentation
-
-This repository is a small set of **UI packages** (React components + one Web Component).
-
-## Start here
-
-- **Getting started**: [`getting-started.md`](./getting-started.md)
-- **API reference**: [`api.md`](./api.md)
-- **FAQ**: [`faq.md`](./faq.md)
-- **Architecture + package boundaries**: [`architecture.md`](./architecture.md)
-- **Local development**: [`development.md`](./development.md)
-- **Publishing (maintainers)**: [`publishing.md`](./publishing.md)
-- Backwards-compatible stub: [`installation.md`](./installation.md)
-
-## Repo docs / policies
-
-- Changelog: [`CHANGELOG.md`](../CHANGELOG.md) (alias: `CHANGELOD.md`)
-- Contributing: [`CONTRIBUTING.md`](../CONTRIBUTING.md)
-- Security: [`SECURITY.md`](../SECURITY.md)
-- Acknowledgments: [`ACKNOWLEDMENTS.md`](../ACKNOWLEDMENTS.md)
-- License: [`LICENSE`](../LICENSE)
-
-## Package docs
-
-- UI tokens + theme + common inputs: [`ui-kit/README.md`](../ui-kit/README.md)
-- Chat primitives (thread, composer, markdown/json renderers): [`panel-chat/README.md`](../panel-chat/README.md)
-- Agent-cycle trace viewer (LLM/tool/observe): [`monitor-flow/README.md`](../monitor-flow/README.md)
-- KG + Active Memory explorer (ReactFlow): [`monitor-active-memory/README.md`](../monitor-active-memory/README.md)
-- GPU widget (custom element + imperative API): [`monitor-gpu/README.md`](../monitor-gpu/README.md)
-
 ## CONTRIBUTING.md
 
 # Contributing
@@ -812,6 +2936,8 @@ This repository is a small set of **UI packages** (React components + one Web Co
 Thanks for helping improve AbstractUIC.
 
 AbstractUIC is a **multi-package repo**: each top-level folder is an npm package. The code is the source of truth; docs should stay anchored to exports and contracts in `src/`.
+
+This repo is part of the [AbstractFramework](https://github.com/lpalbou/AbstractFramework) ecosystem (see also: AbstractCore https://github.com/lpalbou/abstractcore and AbstractRuntime https://github.com/lpalbou/abstractruntime). Keep public contracts host-driven and avoid coupling packages to specific host implementations.
 
 ## Quick start
 
@@ -853,6 +2979,7 @@ When changing docs:
 - Keep language concise and user-facing.
 - Prefer “source-of-truth” references like `*/src/index.ts`, `*/src/types.ts`, or the relevant implementation file.
 - Ensure cross-links remain correct (docs should reference other relevant docs).
+- If you change public exports, update `docs/api.md` and the relevant package `README.md`.
 
 LLM docs:
 - `llms.txt` is a short index for agents.
@@ -883,6 +3010,14 @@ python scripts/generate-llms-full.py
 # Security Policy
 
 We take security seriously and appreciate responsible disclosure.
+
+## Scope
+
+This policy covers all packages in this repository (`ui-kit/`, `panel-chat/`, `monitor-flow/`, `monitor-active-memory/`, `monitor-gpu/`).
+
+Examples of issues to report:
+- Injection/XSS risks in text rendering (e.g. Markdown/JSON renderers in `panel-chat/src/markdown.tsx`, `monitor-flow/src/Markdown.tsx`)
+- Token leakage, auth header mistakes, or unsafe cross-origin usage in `@abstractframework/monitor-gpu` (`monitor-gpu/src/gpu_metrics_api.js`)
 
 ## Reporting a vulnerability
 
@@ -971,6 +3106,8 @@ This project is a **multi-package repository**; versions are currently kept in s
 
 AbstractUIC is built on top of excellent open-source projects and the broader web ecosystem.
 
+AbstractUIC packages intentionally keep runtime dependencies minimal: React packages rely on peer dependencies, and the repo does not ship third-party runtime dependencies under `dependencies` in `*/package.json` (only `peerDependencies` / `devDependencies`).
+
 ## Open-source foundations (direct dependencies)
 
 - **React** + **React DOM** for UI composition (`react`, `react-dom`)
@@ -996,386 +3133,6 @@ Thanks to contributors and to the AbstractFramework community for shaping real-w
 
 - Docs index: [`docs/README.md`](./docs/README.md)
 - Contributing: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
-
-## docs/installation.md
-
-# Installation & Integration
-
-This page is kept for backwards compatibility.
-
-Start here instead:
-
-- [Getting started](./getting-started.md)
-
-## ui-kit/README.md
-
-# @abstractframework/ui-kit
-
-Shared theme tokens + small UI primitives used across AbstractUIC packages and host apps.
-
-This package provides:
-
-- **Theme tokens** (CSS variables + theme classes): `ui-kit/src/theme.css`
-- **Theme + typography helpers**: `applyTheme(...)`, `applyTypography(...)`
-- **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, etc.
-- **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
-
-## Install / peer dependencies
-
-This is a React package with peer dependencies on `react@^18` and `react-dom@^18` (see `ui-kit/package.json`).
-
-## Install
-
-- Workspace: add a dependency on `@abstractframework/ui-kit`
-- npm (once published): `npm i @abstractframework/ui-kit`
-
-## Usage
-
-Import the theme tokens once in your app:
-
-```ts
-import "@abstractframework/ui-kit/theme.css";
-```
-
-Apply a theme at runtime (optional):
-
-```ts
-import { applyTheme } from "@abstractframework/ui-kit";
-
-applyTheme("dark"); // sets a `theme-*` class on <html>
-```
-
-Use UI components:
-
-```tsx
-import { ThemeSelect, Icon } from "@abstractframework/ui-kit";
-```
-
-## Exported API
-
-See `ui-kit/src/index.ts` for the authoritative export list.
-
-## Related docs
-
-- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
-- API reference: [`docs/api.md`](../docs/api.md)
-- Repo docs index: [`docs/README.md`](../docs/README.md)
-- Architecture: [`docs/architecture.md`](../docs/architecture.md)
-
-## panel-chat/README.md
-
-# @abstractframework/panel-chat
-
-Chat UI primitives for AbstractFramework-style UIs: thread rendering, message cards, a composer, and lightweight Markdown/JSON rendering.
-
-## Peer dependencies
-
-Declared in `panel-chat/package.json`:
-
-- `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` (icons used by `ChatMessageCard`)
-
-## Install
-
-- Workspace: add a dependency on `@abstractframework/panel-chat`
-- npm (once published): `npm i @abstractframework/panel-chat`
-
-## Exported API
-
-See `panel-chat/src/index.ts` for the authoritative export list. Common entry points:
-
-- Components: `ChatThread`, `ChatComposer`, `ChatMessageCard`, `ChatMessageContent`
-- Renderers: `Markdown`, `JsonViewer`
-- Types: `PanelChatMessage`, `ChatMessage`, `ChatAttachment`, `ChatStat`
-- Utils: `chatToMarkdown`, `copyText`, `downloadTextFile`, `tryParseJson`
-
-## Usage (typical)
-
-```tsx
-import React, { useState } from "react";
-import { ChatThread, ChatComposer, type ChatMessage } from "@abstractframework/panel-chat";
-
-export function ChatView() {
-  const [value, setValue] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-
-  return (
-    <>
-      <ChatThread messages={messages} autoScroll />
-      <ChatComposer value={value} onChange={setValue} onSubmit={() => setMessages((m) => [...m, { role: "user", content: value }])} />
-    </>
-  );
-}
-```
-
-## Rendering rules
-
-`ChatMessageContent` auto-detects JSON (via `tryParseJson` in `panel-chat/src/utils.ts`) and renders:
-
-- JSON ⇒ `JsonViewer`
-- otherwise ⇒ `Markdown` (or your `renderMarkdown` override)
-
-Markdown is intentionally minimal and implemented in `panel-chat/src/markdown.tsx` (headings 1–5, code fences, lists, tables, blockquotes, hr, emphasis, and optional highlighting).
-
-## Styling & theming
-
-- Import CSS in your app entrypoint (recommended):
-  - `import "@abstractframework/panel-chat/panel_chat.css";`
-  - `import "@abstractframework/ui-kit/theme.css";` (shared tokens)
-
-## Related docs
-
-- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
-- API reference: [`docs/api.md`](../docs/api.md)
-- Architecture: [`docs/architecture.md`](../docs/architecture.md)
-
-## monitor-flow/README.md
-
-# @abstractframework/monitor-flow
-
-React components to inspect **agent execution cycles** (think → act → observe) from per-effect trace records.
-
-## What you get
-
-Authoritative exports live in `monitor-flow/src/index.ts`:
-
-- `AgentCyclesPanel` (+ types `TraceItem`, `TraceStep`)
-- `JsonViewer`
-- `build_agent_trace` (+ `LedgerRecordItem`, `StepRecordLike`)
-
-## Peer dependencies
-
-Declared in `monitor-flow/package.json`:
-
-- `react@^18`, `react-dom@^18`
-
-## Install
-
-- Workspace: add a dependency on `@abstractframework/monitor-flow`
-- npm (once published): `npm i @abstractframework/monitor-flow`
-
-## Expected data
-
-`AgentCyclesPanel` expects `TraceItem[]` (see `monitor-flow/src/AgentCyclesPanel.tsx`):
-
-```ts
-type TraceItem = {
-  id: string;
-  runId: string;
-  nodeId: string;
-  ts?: string;
-  status: string;
-  step: Record<string, unknown>;
-};
-```
-
-Cycles start whenever `step.effect.type === "llm_call"` (see the cycle builder in `monitor-flow/src/AgentCyclesPanel.tsx`).
-
-## Usage
-
-If you already have `TraceItem[]`, pass it directly:
-
-```tsx
-import { AgentCyclesPanel } from "@abstractframework/monitor-flow";
-
-<AgentCyclesPanel items={items} />;
-```
-
-If you have “ledger-like” records, adapt them with `build_agent_trace`:
-
-```tsx
-import { AgentCyclesPanel, build_agent_trace } from "@abstractframework/monitor-flow";
-
-const { items } = build_agent_trace(ledgerItems, { run_id: "run_123" });
-<AgentCyclesPanel items={items} />;
-```
-
-## Styling
-
-Import CSS in your app entrypoint (recommended):
-
-- `import "@abstractframework/monitor-flow/agent_cycles.css";`
-- `import "@abstractframework/ui-kit/theme.css";` (shared tokens)
-
-## Related docs
-
-- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
-- API reference: [`docs/api.md`](../docs/api.md)
-- Architecture: [`docs/architecture.md`](../docs/architecture.md)
-
-## monitor-active-memory/README.md
-
-# @abstractframework/monitor-active-memory
-
-ReactFlow-based explorer for **Knowledge Graph assertions** (`KgAssertion`) and the derived **Active Memory** text.
-
-## What you get
-
-- `KgActiveMemoryExplorer` component (see `monitor-active-memory/src/KgActiveMemoryExplorer.tsx`)
-- Graph/layout utilities (see `monitor-active-memory/src/graph.ts`):
-  - `buildKgGraph`, `shortestPath`
-  - `buildKgLayout` + force-layout helpers (`initForceSimulation`, `stepForceSimulation`, …)
-- Types / contracts (see `monitor-active-memory/src/types.ts`):
-  - `KgAssertion`, `KgQueryParams`, `KgQueryResult`
-
-## Peer dependencies
-
-Declared in `monitor-active-memory/package.json`:
-
-- `react@^18`, `react-dom@^18`
-- `reactflow@^11`
-
-## Install
-
-- Workspace: add a dependency on `@abstractframework/monitor-active-memory`
-- npm (once published): `npm i @abstractframework/monitor-active-memory`
-
-## Usage
-
-```tsx
-import { KgActiveMemoryExplorer, type KgAssertion } from "@abstractframework/monitor-active-memory";
-
-const items: KgAssertion[] = [];
-
-export function MemoryView() {
-  return (
-    <KgActiveMemoryExplorer
-      title="Active Memory"
-      items={items}
-      activeMemoryText=""
-      onQuery={async (params) => {
-        // Your host decides how to fetch/search KG assertions.
-        return { ok: true, items: [], active_memory_text: "" };
-      }}
-    />
-  );
-}
-```
-
-## Key props (host integration points)
-
-Authoritative prop types live in `monitor-active-memory/src/KgActiveMemoryExplorer.tsx` (`KgActiveMemoryExplorerProps`).
-
-- `items: KgAssertion[]` (required)
-- `activeMemoryText?: string`
-- `onQuery?: (params: KgQueryParams) => Promise<KgQueryResult>` (enables the query UI)
-- `queryMode?: "override" | "replace"` (how query results interact with `items`)
-- `onItemsReplace?: (items, meta) => void` (used when `queryMode === "replace"`)
-- `onOpenSpan?` / `onOpenTranscript?` (optional host navigation hooks)
-
-## Layout persistence
-
-The component can persist per-view layouts in `localStorage` under key `abstractuic_amx_saved_layouts_v1` (see `monitor-active-memory/src/KgActiveMemoryExplorer.tsx`).
-
-## CSS
-
-- Import CSS in your app entrypoint (recommended):
-
-```ts
-import "@abstractframework/monitor-active-memory/styles.css";
-import "@abstractframework/ui-kit/theme.css"; // shared tokens (optional but recommended)
-```
-
-- ReactFlow base styles are **not** included. In your app:
-
-```ts
-import "reactflow/dist/style.css";
-```
-
-## Related docs
-
-- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
-- API reference: [`docs/api.md`](../docs/api.md)
-- Architecture: [`docs/architecture.md`](../docs/architecture.md)
-
-## monitor-gpu/README.md
-
-# @abstractframework/monitor-gpu
-
-Small, dependency-free GPU utilization widget that renders a mini histogram and polls a secured backend endpoint.
-
-In AbstractFramework deployments, the default backend endpoint is AbstractGateway:
-- `GET /api/gateway/host/metrics/gpu`
-- Auth: `Authorization: Bearer <token>`
-
-## Install
-
-- Workspace: add a dependency on `@abstractframework/monitor-gpu`
-- npm (once published): `npm i @abstractframework/monitor-gpu`
-
-## Usage (Custom Element)
-
-```js
-import { registerMonitorGpuWidget } from "@abstractframework/monitor-gpu";
-
-registerMonitorGpuWidget(); // defines <monitor-gpu>
-
-const el = document.createElement("monitor-gpu");
-el.baseUrl = "http://localhost:8080"; // optional (defaults to same-origin)
-el.token = "your-gateway-token"; // or el.getToken = async () => ...
-el.tickMs = 1500;
-el.historySize = 20;
-el.mode = "full"; // "full" | "icon"
-document.body.appendChild(el);
-```
-
-You can also set the non-secret options via attributes:
-
-```html
-<monitor-gpu base-url="http://localhost:8080" tick-ms="1500" history-size="20" mode="icon"></monitor-gpu>
-```
-
-## Usage (Imperative helper)
-
-```js
-import { createMonitorGpuWidget } from "@abstractframework/monitor-gpu";
-
-const widget = createMonitorGpuWidget(document.querySelector("#gpu"), {
-  baseUrl: "http://localhost:8080",
-  token: "your-gateway-token",
-  tickMs: 1500,
-  historySize: 20,
-});
-
-// later
-widget.destroy();
-```
-
-## Backend contract (AbstractGateway)
-
-The widget treats the GPU metrics payload as “supported” unless `supported === false` and extracts utilization via `extractUtilizationGpuPct(payload)`:
-
-- `payload.utilization_gpu_pct` (number) **or**
-- `payload.gpus[][].utilization_gpu_pct` (numbers; averaged)
-
-Minimal examples:
-
-```json
-{ "supported": true, "utilization_gpu_pct": 23.0 }
-```
-
-```json
-{ "supported": true, "gpus": [{ "utilization_gpu_pct": 10.0 }, { "utilization_gpu_pct": 36.0 }] }
-```
-
-If `supported=false`, the widget shows `N/A`.
-
-## Security notes
-- Do not pass tokens in URLs.
-- For cross-origin usage, ensure `ABSTRACTGATEWAY_ALLOWED_ORIGINS` includes your UI origin (and serve behind HTTPS in production).
-
-## Tests
-
-```bash
-cd monitor-gpu
-npm test
-```
-
-## Related docs
-
-- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
-- API reference: [`docs/api.md`](../docs/api.md)
-- Architecture: [`docs/architecture.md`](../docs/architecture.md)
 
 ## LICENSE
 

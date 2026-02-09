@@ -2,6 +2,12 @@
 
 AbstractUIC is a small set of **UI packages** (React components + one Web Component). Each top-level folder in this repo is an independently-consumable package.
 
+AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/AbstractFramework) ecosystem:
+- **AbstractCore**: https://github.com/lpalbou/abstractcore
+- **AbstractRuntime**: https://github.com/lpalbou/abstractruntime
+
+Host apps typically get their data from AbstractRuntime/AbstractCore, then pass it into these UI components as props/callbacks (see the package contracts referenced throughout the docs).
+
 If you’re new here, you typically:
 
 1. Pick the package(s) you need
@@ -30,14 +36,14 @@ For a package-by-package export map, see the [API reference](./api.md).
 
 Packages are designed to be installed **individually** (install only what you need). Common options:
 
-- **npm** (recommended for external consumers): install the package(s) you need once published.
+- **npm** (recommended for external consumers): install the package(s) you need from the registry.
 - **Workspace / source**: add this repo as a workspace in your host app, or vendor the package folder(s).
   - Workspace: build the packages you change (`npm run build`, see [Development](./development.md)).
   - Vendored sources: if you consume TypeScript sources directly, your toolchain must transpile TS/TSX dependencies.
 
 Maintainers: see [Publishing](./publishing.md).
 
-### Install from npm (once published)
+### Install from npm
 
 Install only what you need:
 
