@@ -35,7 +35,7 @@ Purpose: shared **theme tokens** + small UI primitives used by other packages an
 Key exports:
 - Theme: `THEMES`, `THEME_SPECS`, `applyTheme()`, `getThemeSpec()`, `themeClassName()`
 - Typography: `FONT_SCALES`, `HEADER_DENSITIES`, `applyTypography()`, `getFontScaleSpec()`, `getHeaderDensitySpec()`
-- Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `FontScaleSelect`, `HeaderDensitySelect`
+- Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `FontScaleSelect`, `HeaderDensitySelect`, `ToolPolicyEditor`
 - Icons: `Icon`, `IconName`
 
 See: [`ui-kit/README.md`](../ui-kit/README.md).

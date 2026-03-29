@@ -5,3 +5,12 @@ export { ProviderModelSelect, type ProviderModelSelectProps, type ProviderOption
 export { ThemeSelect, type ThemeSelectProps } from "./theme_select";
 export { FontScaleSelect, HeaderDensitySelect, type FontScaleSelectProps, type HeaderDensitySelectProps } from "./typography_select";
 export { Icon, type IconName } from "./icon";
+export {
+  ToolPolicyEditor,
+  TOOL_POLICY_DEFAULTS,
+  type ToolPolicyEditorProps,
+  type ToolPolicySelection,
+  type ToolPolicyDefaults,
+  type ToolSpec,
+  type ToolApprovalMode,
+} from "./tool_policy_editor";

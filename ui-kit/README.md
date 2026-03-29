@@ -6,7 +6,7 @@ This package provides:
 
 - **Theme tokens** (CSS variables + theme classes): `ui-kit/src/theme.css`
 - **Theme + typography helpers**: `applyTheme(...)`, `applyTypography(...)`
-- **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, etc.
+- **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ToolPolicyEditor`, etc.
 - **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
 
 ## Install / peer dependencies
@@ -37,8 +37,14 @@ applyTheme("dark"); // sets a `theme-*` class on <html>
 Use UI components:
 
 ```tsx
-import { ThemeSelect, Icon } from "@abstractframework/ui-kit";
+import { ThemeSelect, Icon, ToolPolicyEditor } from "@abstractframework/ui-kit";
 ```
+
+### Tool policy editor
+
+`ToolPolicyEditor` renders the shared allowlist + approve/ask picker for gateway tools. It intentionally **does not** include a deny mode; tools are denied by removing them from the allowlist. Pass `toolMode` (and optional `toolModeLabel`/`toolModeDetail`) to surface the gateway tool execution mode in a prominent banner.
+
+The default approve/ask classification is exposed as `TOOL_POLICY_DEFAULTS` (mirrors the AbstractRuntime `ToolApprovalPolicy` defaults).
 
 ## Exported API
 
