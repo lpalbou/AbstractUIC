@@ -4,6 +4,13 @@ All notable changes to AbstractUIC are documented in this file.
 
 This project is a **multi-package repository**; versions are currently kept in sync across packages.
 
+## 0.1.5 - 2026-05-12
+
+### Fixed
+
+- Correct `/monitor-flow` package exports so published consumers can resolve the bundled `agent_cycles.css` from `dist`.
+- Use Node 24 in CI/release workflows for npm trusted publishing compatibility.
+
 ## 0.1.4 - 2026-05-12
 
 ### Fixed

@@ -1,6 +1,6 @@
 {
   "name": "@abstractframework/monitor-flow",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Shared flow/agent monitoring UI components for AbstractFramework (used by AbstractFlow and AbstractObserver).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -29,14 +29,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./agent_cycles.css": "./src/agent_cycles.css",
-    "/agent_cycles": {
-      "css": "./dist/agent_cycles.css"
-    }
+    "./agent_cycles.css": "./dist/agent_cycles.css"
   },
   "files": [
     "dist",
-    "src/agent_cycles.css",
     "README.md"
   ],
   "scripts": {
