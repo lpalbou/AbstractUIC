@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
-import { AfSelect } from "./af_select";
-import { THEME_SPECS, type ThemeSpec } from "./theme";
+import { AfSelect } from "./af_select.js";
+import { THEME_SPECS, type ThemeSpec } from "./theme.js";
 
 export type ThemeSelectProps = {
   value: string;

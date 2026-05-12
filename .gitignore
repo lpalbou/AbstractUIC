@@ -54,6 +54,7 @@ lerna-debug.log*
 .pnp
 .pnp.js
 package-lock.json
+!package-lock.json
 yarn.lock
 pnpm-lock.yaml
 

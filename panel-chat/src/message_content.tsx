@@ -1,8 +1,8 @@
 import React from "react";
 
-import { JsonViewer } from "./json_viewer";
-import { Markdown } from "./markdown";
-import { tryParseJson } from "./utils";
+import { JsonViewer } from "./json_viewer.js";
+import { Markdown } from "./markdown.js";
+import { tryParseJson } from "./utils.js";
 
 export function ChatMessageContent(props: {
   text: string;

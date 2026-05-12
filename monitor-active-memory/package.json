@@ -1,6 +1,6 @@
 {
   "name": "@abstractframework/monitor-active-memory",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Shared KG + Active Memory explorer UI components for AbstractFramework clients (AbstractFlow, AbstractObserver, AbstractCode).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -45,11 +45,11 @@
     "reactflow": "^11.0.0"
   },
   "devDependencies": {
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "reactflow": "^11.0.0",
-    "@types/react": "^18.2.48",
-    "@types/react-dom": "^18.2.18",
     "typescript": "^5.3.3"
   },
   "sideEffects": [

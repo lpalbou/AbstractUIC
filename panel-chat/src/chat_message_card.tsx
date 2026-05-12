@@ -2,8 +2,8 @@ import React, { useMemo, useState } from "react";
 
 import { Icon, type IconName } from "@abstractframework/ui-kit";
 
-import { ChatMessageContent } from "./message_content";
-import { copyText } from "./utils";
+import { ChatMessageContent } from "./message_content.js";
+import { copyText } from "./utils.js";
 
 export type ChatMessageLevel = "info" | "warn" | "error";
 

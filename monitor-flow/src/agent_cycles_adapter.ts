@@ -1,4 +1,4 @@
-import type { TraceItem, TraceStep } from "./AgentCyclesPanel";
+import type { TraceItem, TraceStep } from "./AgentCyclesPanel.js";
 
 export type StepRecordLike = {
   run_id?: string | null;

@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish-npm:
+    name: Publish npm packages
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build packages
+        run: npm run build
+
+      - name: Test packages
+        run: npm test
+
+      - name: Validate package tarballs
+        run: npm run pack:dry
+
+      - name: Validate tag version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          ROOT_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG_VERSION" != "$ROOT_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) does not match root package.json version ($ROOT_VERSION)." >&2
+            exit 1
+          fi
+          for dir in ui-kit monitor-active-memory monitor-flow monitor-gpu panel-chat; do
+            PKG_VERSION="$(node -p "require('./${dir}/package.json').version")"
+            if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+              echo "Tag version ($TAG_VERSION) does not match ${dir}/package.json version ($PKG_VERSION)." >&2
+              exit 1
+            fi
+          done
+
+      - name: Publish @abstractframework/ui-kit
+        working-directory: ui-kit
+        run: npm publish --access public --provenance
+
+      - name: Publish @abstractframework/monitor-active-memory
+        working-directory: monitor-active-memory
+        run: npm publish --access public --provenance
+
+      - name: Publish @abstractframework/monitor-flow
+        working-directory: monitor-flow
+        run: npm publish --access public --provenance
+
+      - name: Publish @abstractframework/monitor-gpu
+        working-directory: monitor-gpu
+        run: npm publish --access public --provenance
+
+      - name: Publish @abstractframework/panel-chat
+        working-directory: panel-chat
+        run: npm publish --access public --provenance

@@ -17,17 +17,19 @@ Each folder is an npm package and can be published independently.
 1. Build packages (optional preflight): `npm run build`
 1. Run package tests:
    - `cd monitor-gpu && npm test`
-1. Dry-run the package tarball (optional): `npm pack` inside each package.
-1. Publish from the package directory:
+1. Dry-run the package tarballs: `npm run pack:dry`
+1. Publish from the package directory, or use the GitHub Actions `release.yml` workflow:
 
 ```bash
 cd <package>
-npm publish --access public
+npm publish --access public --provenance
 ```
 
 Notes:
 - Scoped packages are private by default; `--access public` is required for public release.
 - React packages publish compiled output from `dist/` and expose CSS as separate exports (see each package’s `exports`).
+- npm trusted publishing should be configured for each package with repository `lpalbou/AbstractUIC`, workflow `release.yml`, and environment `npm`.
+- Publish order is `ui-kit`, then `monitor-active-memory`, `monitor-flow`, `monitor-gpu`, then `panel-chat`.
 
 ## Related docs
 

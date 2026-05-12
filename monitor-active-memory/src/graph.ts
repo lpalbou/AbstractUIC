@@ -1,6 +1,6 @@
 import type { Edge, Node } from 'reactflow';
 
-import type { KgAssertion } from './types';
+import type { KgAssertion } from './types.js';
 
 export type KgEntityKind = 'person' | 'org' | 'concept' | 'claim' | 'event' | 'doc' | 'thing' | 'vocab' | 'entity';
 

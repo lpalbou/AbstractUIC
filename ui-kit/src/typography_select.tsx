@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
-import { AfSelect } from "./af_select";
-import { FONT_SCALES, HEADER_DENSITIES, type FontScaleOption, type HeaderDensityOption } from "./typography";
+import { AfSelect } from "./af_select.js";
+import { FONT_SCALES, HEADER_DENSITIES, type FontScaleOption, type HeaderDensityOption } from "./typography.js";
 
 export type FontScaleSelectProps = {
   value: string;

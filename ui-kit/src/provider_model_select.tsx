@@ -1,5 +1,5 @@
 import React from "react";
-import { AfSelect, type AfSelectOption } from "./af_select";
+import { AfSelect, type AfSelectOption } from "./af_select.js";
 
 export type ProviderOption = {
   name: string;

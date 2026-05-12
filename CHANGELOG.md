@@ -4,6 +4,18 @@ All notable changes to AbstractUIC are documented in this file.
 
 This project is a **multi-package repository**; versions are currently kept in sync across packages.
 
+## 0.1.4 - 2026-05-12
+
+### Fixed
+
+- React package dist output is now usable as published ESM: relative runtime imports emit `.js` specifiers, and `@abstractframework/monitor-flow` copies `agent_cycles.css` into `dist`.
+- `@abstractframework/panel-chat` now targets `@abstractframework/ui-kit@^0.1.4`.
+
+### Added
+
+- GitHub Actions CI for install, build, tests, and package dry-runs.
+- GitHub Actions npm release workflow using trusted publishing/provenance, publishing packages in dependency order.
+
 ## 0.1.3 - 2026-02-05
 
 ### Fixed

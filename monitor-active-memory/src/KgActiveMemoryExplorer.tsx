@@ -26,8 +26,8 @@ import {
   type KgLayoutKind,
   type ViewportTransform,
   type XY,
-} from './graph';
-import type { JsonValue, KgAssertion, KgQueryParams, KgQueryResult, MemoryScope, RecallLevel } from './types';
+} from './graph.js';
+import type { JsonValue, KgAssertion, KgQueryParams, KgQueryResult, MemoryScope, RecallLevel } from './types.js';
 
 export interface KgActiveMemoryExplorerProps {
   title?: string;

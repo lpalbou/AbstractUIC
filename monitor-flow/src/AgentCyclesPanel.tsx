@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 
 import "./agent_cycles.css";
-import { JsonViewer } from "./JsonViewer";
-import { Markdown } from "./Markdown";
+import { JsonViewer } from "./JsonViewer.js";
+import { Markdown } from "./Markdown.js";
 
 export type TraceStep = Record<string, unknown>;
 
