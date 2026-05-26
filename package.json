@@ -1,6 +1,6 @@
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [

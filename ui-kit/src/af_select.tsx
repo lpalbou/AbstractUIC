@@ -9,6 +9,8 @@ export type AfSelectOption = {
   value: string;
   label: string;
   group?: string;
+  disabled?: boolean;
+  reason?: string;
 };
 
 export type AfSelectProps = {
@@ -25,6 +27,8 @@ export type AfSelectProps = {
   variant?: "pin" | "panel";
   className?: string;
   triggerClassName?: string;
+  customOptionLabel?: (value: string) => string;
+  validateCustomValue?: (value: string, context: { options: AfSelectOption[] }) => string | null | undefined;
   onChange: (value: string) => void;
 
   renderOption?: (opt: AfSelectOption, state: { selected: boolean; highlighted: boolean }) => React.ReactNode;
@@ -45,6 +49,8 @@ export function AfSelect({
   variant = "panel",
   className,
   triggerClassName,
+  customOptionLabel,
+  validateCustomValue,
   onChange,
   renderOption,
   renderValue,
@@ -80,8 +86,14 @@ export function AfSelect({
     if (!q) return null;
     const exists = options.some((o) => o.value === q);
     if (exists) return null;
-    return { value: q, label: `Use "${q}"` };
-  }, [allowCustom, options, search]);
+    const reason = validateCustomValue?.(q, { options }) || "";
+    return {
+      value: q,
+      label: customOptionLabel ? customOptionLabel(q) : `Use "${q}"`,
+      disabled: Boolean(reason),
+      reason,
+    };
+  }, [allowCustom, customOptionLabel, options, search, validateCustomValue]);
 
   const visibleOptions = useMemo(() => {
     if (!customOption) return filtered;
@@ -147,6 +159,8 @@ export function AfSelect({
   }, [open, searchable, value, visibleOptions]);
 
   const pick = (v: string) => {
+    const option = visibleOptions.find((o) => o.value === v);
+    if (option?.disabled) return;
     onChange(v);
     close();
   };
@@ -187,6 +201,7 @@ export function AfSelect({
 
   const showValue = Boolean(String(value || "").trim());
   const triggerText = showValue ? selectedLabel : placeholder;
+  const customError = customOption?.disabled ? customOption.reason || "Unavailable" : "";
 
   const defaultValueNode = (
     <span className={cx("af-select-value", !showValue && "af-select-value--placeholder")}>{loading ? "Loading…" : triggerText}</span>
@@ -244,6 +259,7 @@ export function AfSelect({
               style={{ position: "fixed", left: `${pos.left}px`, top: `${pos.top}px`, width: `${pos.width}px` }}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
+              onWheel={(e) => e.stopPropagation()}
               onKeyDown={onPopoverKeyDown}
               role="listbox"
               tabIndex={-1}
@@ -257,12 +273,21 @@ export function AfSelect({
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder={searchPlaceholder}
                     onKeyDown={onPopoverKeyDown}
+                    aria-invalid={Boolean(customError)}
+                    aria-describedby={customError ? "af-select-custom-error" : undefined}
                   />
+                  {customError ? (
+                    <div id="af-select-custom-error" className="af-select-custom-error" role="alert">
+                      {customError}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
               <div className="af-select-options">
-                {visibleOptions.length === 0 ? (
+                {loading && visibleOptions.length === 0 ? (
+                  <div className="af-select-empty">Loading…</div>
+                ) : visibleOptions.length === 0 ? (
                   <div className="af-select-empty">No results</div>
                 ) : (
                   visibleOptions.map((o, i) => {
@@ -278,20 +303,26 @@ export function AfSelect({
                           className={cx(
                             "af-select-option",
                             isSelected && "af-select-option--selected",
-                            isHighlighted && "af-select-option--highlighted"
+                            isHighlighted && "af-select-option--highlighted",
+                            o.disabled && "af-select-option--disabled"
                           )}
+                          title={o.disabled ? o.reason || "Unavailable" : undefined}
                           onMouseEnter={() => setHighlightIdx(i)}
                           onMouseDown={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
                           }}
                           onClick={() => pick(o.value)}
+                          aria-disabled={o.disabled ? true : undefined}
                         >
                           {renderOption ? (
                             renderOption(o, { selected: isSelected, highlighted: isHighlighted })
                           ) : (
                             <>
-                              <span className="af-select-option-label">{o.label}</span>
+                              <span className="af-select-option-label">
+                                <span>{o.label}</span>
+                                {o.reason ? <small className="af-select-option-reason">{o.reason}</small> : null}
+                              </span>
                               {isSelected ? <span className="af-select-check">✓</span> : null}
                             </>
                           )}

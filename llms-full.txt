@@ -402,7 +402,7 @@ Purpose: shared **theme tokens** + small UI primitives used by other packages an
 Key exports:
 - Theme: `THEMES`, `THEME_SPECS`, `applyTheme()`, `getThemeSpec()`, `themeClassName()`
 - Typography: `FONT_SCALES`, `HEADER_DENSITIES`, `applyTypography()`, `getFontScaleSpec()`, `getHeaderDensitySpec()`
-- Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `FontScaleSelect`, `HeaderDensitySelect`
+- Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `FontScaleSelect`, `HeaderDensitySelect`, `ToolPolicyEditor`
 - Icons: `Icon`, `IconName`
 
 See: [`ui-kit/README.md`](../ui-kit/README.md).
@@ -866,7 +866,7 @@ This package provides:
 
 - **Theme tokens** (CSS variables + theme classes): `ui-kit/src/theme.css`
 - **Theme + typography helpers**: `applyTheme(...)`, `applyTypography(...)`
-- **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, etc.
+- **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ToolPolicyEditor`, etc.
 - **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
 
 ## Install / peer dependencies
@@ -897,8 +897,14 @@ applyTheme("dark"); // sets a `theme-*` class on <html>
 Use UI components:
 
 ```tsx
-import { ThemeSelect, Icon } from "@abstractframework/ui-kit";
+import { ThemeSelect, Icon, ToolPolicyEditor } from "@abstractframework/ui-kit";
 ```
+
+### Tool policy editor
+
+`ToolPolicyEditor` renders the shared allowlist + approve/ask picker for gateway tools. It intentionally **does not** include a deny mode; tools are denied by removing them from the allowlist. Pass `toolMode` (and optional `toolModeLabel`/`toolModeDetail`) to surface the gateway tool execution mode in a prominent banner.
+
+The default approve/ask classification is exposed as `TOOL_POLICY_DEFAULTS` (mirrors the AbstractRuntime `ToolApprovalPolicy` defaults).
 
 ## Exported API
 
@@ -1231,7 +1237,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.1.3",
+  "version": "0.1.6",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -1242,8 +1248,9 @@ npm test
     "panel-chat"
   ],
   "scripts": {
-    "build": "npm -ws --if-present run build",
-    "test": "npm -ws --if-present test"
+    "build": "npm --workspaces --if-present run build",
+    "test": "npm --workspaces --if-present run test",
+    "pack:dry": "npm --workspaces --if-present pack --dry-run"
   }
 }
 
@@ -1251,7 +1258,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.1.3",
+  "version": "0.1.6",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -1295,10 +1302,10 @@ npm test
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
     "typescript": "^5.3.3"
   },
   "sideEffects": [
@@ -1313,7 +1320,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.1.3",
+  "version": "0.1.6",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -1352,16 +1359,16 @@ npm test
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.1.3",
+    "@abstractframework/ui-kit": "^0.1.6",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.1.3",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
+    "@abstractframework/ui-kit": "^0.1.6",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
     "typescript": "^5.3.3"
   },
   "sideEffects": [
@@ -1376,7 +1383,7 @@ npm test
 
 {
   "name": "@abstractframework/monitor-flow",
-  "version": "0.1.3",
+  "version": "0.1.6",
   "description": "Shared flow/agent monitoring UI components for AbstractFramework (used by AbstractFlow and AbstractObserver).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -1405,15 +1412,14 @@ npm test
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./agent_cycles.css": "./src/agent_cycles.css"
+    "./agent_cycles.css": "./dist/agent_cycles.css"
   },
   "files": [
     "dist",
-    "src/agent_cycles.css",
     "README.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp src/agent_cycles.css dist/agent_cycles.css",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
@@ -1421,10 +1427,10 @@ npm test
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
     "typescript": "^5.3.3"
   },
   "sideEffects": [
@@ -1439,7 +1445,7 @@ npm test
 
 {
   "name": "@abstractframework/monitor-active-memory",
-  "version": "0.1.3",
+  "version": "0.1.6",
   "description": "Shared KG + Active Memory explorer UI components for AbstractFramework clients (AbstractFlow, AbstractObserver, AbstractCode).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -1484,11 +1490,11 @@ npm test
     "reactflow": "^11.0.0"
   },
   "devDependencies": {
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "reactflow": "^11.0.0",
-    "@types/react": "^18.2.48",
-    "@types/react-dom": "^18.2.18",
     "typescript": "^5.3.3"
   },
   "sideEffects": [
@@ -1503,7 +1509,7 @@ npm test
 
 {
   "name": "@abstractframework/monitor-gpu",
-  "version": "0.1.3",
+  "version": "0.1.6",
   "description": "Lightweight GPU utilization histogram widget for AbstractFramework clients (polls AbstractGateway host metrics with Bearer auth).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -1547,26 +1553,35 @@ npm test
 
 ## ui-kit/src/index.ts
 
-export { THEMES, THEME_SPECS, applyTheme, getThemeSpec, themeClassName, type ThemeOption, type ThemeSpec } from "./theme";
-export { FONT_SCALES, HEADER_DENSITIES, applyTypography, getFontScaleSpec, getHeaderDensitySpec, type FontScaleOption, type HeaderDensityOption } from "./typography";
-export { AfSelect, type AfSelectProps, type AfSelectOption } from "./af_select";
-export { ProviderModelSelect, type ProviderModelSelectProps, type ProviderOption } from "./provider_model_select";
-export { ThemeSelect, type ThemeSelectProps } from "./theme_select";
-export { FontScaleSelect, HeaderDensitySelect, type FontScaleSelectProps, type HeaderDensitySelectProps } from "./typography_select";
-export { Icon, type IconName } from "./icon";
+export { THEMES, THEME_SPECS, applyTheme, getThemeSpec, themeClassName, type ThemeOption, type ThemeSpec } from "./theme.js";
+export { FONT_SCALES, HEADER_DENSITIES, applyTypography, getFontScaleSpec, getHeaderDensitySpec, type FontScaleOption, type HeaderDensityOption } from "./typography.js";
+export { AfSelect, type AfSelectProps, type AfSelectOption } from "./af_select.js";
+export { ProviderModelSelect, type ProviderModelSelectProps, type ProviderOption } from "./provider_model_select.js";
+export { ThemeSelect, type ThemeSelectProps } from "./theme_select.js";
+export { FontScaleSelect, HeaderDensitySelect, type FontScaleSelectProps, type HeaderDensitySelectProps } from "./typography_select.js";
+export { Icon, type IconName } from "./icon.js";
+export {
+  ToolPolicyEditor,
+  TOOL_POLICY_DEFAULTS,
+  type ToolPolicyEditorProps,
+  type ToolPolicySelection,
+  type ToolPolicyDefaults,
+  type ToolSpec,
+  type ToolApprovalMode,
+} from "./tool_policy_editor.js";
 
 ## panel-chat/src/index.ts
 
-export { ChatMessageContent } from "./message_content";
-export { ChatComposer } from "./chat_composer";
-export { Markdown } from "./markdown";
-export { JsonViewer } from "./json_viewer";
-export { ChatMessageCard } from "./chat_message_card";
-export { ChatThread } from "./chat_thread";
+export { ChatMessageContent } from "./message_content.js";
+export { ChatComposer } from "./chat_composer.js";
+export { Markdown } from "./markdown.js";
+export { JsonViewer } from "./json_viewer.js";
+export { ChatMessageCard } from "./chat_message_card.js";
+export { ChatThread } from "./chat_thread.js";
 
-export type { PanelChatMessage } from "./types";
-export type { ChatAttachment, ChatMessage, ChatMessageLevel, ChatStat } from "./chat_message_card";
-export { chatToMarkdown, copyText, downloadTextFile, tryParseJson } from "./utils";
+export type { PanelChatMessage } from "./types.js";
+export type { ChatAttachment, ChatMessage, ChatMessageLevel, ChatStat } from "./chat_message_card.js";
+export { chatToMarkdown, copyText, downloadTextFile, tryParseJson } from "./utils.js";
 
 ## panel-chat/src/types.ts
 
@@ -1582,9 +1597,9 @@ export type PanelChatMessage = {
 
 import React from "react";
 
-import { JsonViewer } from "./json_viewer";
-import { Markdown } from "./markdown";
-import { tryParseJson } from "./utils";
+import { JsonViewer } from "./json_viewer.js";
+import { Markdown } from "./markdown.js";
+import { tryParseJson } from "./utils.js";
 
 export function ChatMessageContent(props: {
   text: string;
@@ -1953,13 +1968,13 @@ export function Markdown({
 
 ## monitor-flow/src/index.ts
 
-export { AgentCyclesPanel, type AgentCyclesPanelProps, type TraceItem, type TraceStep } from "./AgentCyclesPanel";
-export { JsonViewer } from "./JsonViewer";
-export { build_agent_trace, type AgentTraceBuildResult, type LedgerRecordItem, type StepRecordLike } from "./agent_cycles_adapter";
+export { AgentCyclesPanel, type AgentCyclesPanelProps, type TraceItem, type TraceStep } from "./AgentCyclesPanel.js";
+export { JsonViewer } from "./JsonViewer.js";
+export { build_agent_trace, type AgentTraceBuildResult, type LedgerRecordItem, type StepRecordLike } from "./agent_cycles_adapter.js";
 
 ## monitor-flow/src/agent_cycles_adapter.ts
 
-import type { TraceItem, TraceStep } from "./AgentCyclesPanel";
+import type { TraceItem, TraceStep } from "./AgentCyclesPanel.js";
 
 export type StepRecordLike = {
   run_id?: string | null;
@@ -2105,7 +2120,7 @@ export function build_agent_trace(items: LedgerRecordItem[], opts: { run_id: str
 
 ## monitor-active-memory/src/index.ts
 
-export { KgActiveMemoryExplorer, type KgActiveMemoryExplorerProps } from './KgActiveMemoryExplorer';
+export { KgActiveMemoryExplorer, type KgActiveMemoryExplorerProps } from './KgActiveMemoryExplorer.js';
 export {
   buildKgGraph,
   shortestPath,
@@ -2116,9 +2131,9 @@ export {
   stepForceSimulation,
   forceSimulationEnergy,
   forceSimulationPositions,
-} from './graph';
-export type { ForceSimulationOptions, ForceSimulationState, KgLayoutKind, ViewportTransform, XY } from './graph';
-export type { JsonValue, KgAssertion, KgQueryParams, KgQueryResult, MemoryScope, RecallLevel } from './types';
+} from './graph.js';
+export type { ForceSimulationOptions, ForceSimulationState, KgLayoutKind, ViewportTransform, XY } from './graph.js';
+export type { JsonValue, KgAssertion, KgQueryParams, KgQueryResult, MemoryScope, RecallLevel } from './types.js';
 
 ## monitor-active-memory/src/types.ts
 
@@ -2861,17 +2876,19 @@ Each folder is an npm package and can be published independently.
 1. Build packages (optional preflight): `npm run build`
 1. Run package tests:
    - `cd monitor-gpu && npm test`
-1. Dry-run the package tarball (optional): `npm pack` inside each package.
-1. Publish from the package directory:
+1. Dry-run the package tarballs: `npm run pack:dry`
+1. Publish from the package directory, or use the GitHub Actions `release.yml` workflow:
 
 ```bash
 cd <package>
-npm publish --access public
+npm publish --access public --provenance
 ```
 
 Notes:
 - Scoped packages are private by default; `--access public` is required for public release.
 - React packages publish compiled output from `dist/` and expose CSS as separate exports (see each package’s `exports`).
+- npm trusted publishing should be configured for each package with repository `lpalbou/AbstractUIC`, workflow `release.yml`, and environment `npm`.
+- Publish order is `ui-kit`, then `monitor-active-memory`, `monitor-flow`, `monitor-gpu`, then `panel-chat`.
 
 ## Related docs
 
@@ -3055,6 +3072,35 @@ All notable changes to AbstractUIC are documented in this file.
 
 This project is a **multi-package repository**; versions are currently kept in sync across packages.
 
+## 0.1.6 - 2026-05-26
+
+### Added
+
+- UI Kit `AfSelect` supports disabled options, disabled custom values with reason text, and custom option labels for dense editor selectors.
+
+### Fixed
+
+- UI Kit select popovers stop wheel-event propagation and style disabled options plus inline custom-value validation messages.
+
+## 0.1.5 - 2026-05-12
+
+### Fixed
+
+- Correct `/monitor-flow` package exports so published consumers can resolve the bundled `agent_cycles.css` from `dist`.
+- Use Node 24 in CI/release workflows for npm trusted publishing compatibility.
+
+## 0.1.4 - 2026-05-12
+
+### Fixed
+
+- React package dist output is now usable as published ESM: relative runtime imports emit `.js` specifiers, and `@abstractframework/monitor-flow` copies `agent_cycles.css` into `dist`.
+- `@abstractframework/panel-chat` now targets `@abstractframework/ui-kit@^0.1.4`.
+
+### Added
+
+- GitHub Actions CI for install, build, tests, and package dry-runs.
+- GitHub Actions npm release workflow using trusted publishing/provenance, publishing packages in dependency order.
+
 ## 0.1.3 - 2026-02-05
 
 ### Fixed
@@ -3099,40 +3145,6 @@ This project is a **multi-package repository**; versions are currently kept in s
 
 - Docs index: [`docs/README.md`](./docs/README.md)
 - Publishing (maintainers): [`docs/publishing.md`](./docs/publishing.md)
-
-## ACKNOWLEDMENTS.md
-
-# Acknowledgments
-
-AbstractUIC is built on top of excellent open-source projects and the broader web ecosystem.
-
-AbstractUIC packages intentionally keep runtime dependencies minimal: React packages rely on peer dependencies, and the repo does not ship third-party runtime dependencies under `dependencies` in `*/package.json` (only `peerDependencies` / `devDependencies`).
-
-## Open-source foundations (direct dependencies)
-
-- **React** + **React DOM** for UI composition (`react`, `react-dom`)
-  - Used as peer dependencies by the React packages (see `ui-kit/package.json`, `panel-chat/package.json`, `monitor-flow/package.json`, `monitor-active-memory/package.json`).
-- **ReactFlow** for graph visualization (`reactflow`)
-  - Used by `@abstractframework/monitor-active-memory` (see `monitor-active-memory/package.json`).
-- **TypeScript** for authoring, type-checking, and build output (`typescript`)
-  - Used to compile React packages from `src/` into `dist/` via `tsc` (see `*/package.json` scripts and `tsconfig.base.json`).
-- **DefinitelyTyped** for TypeScript type definitions (`@types/react`, `@types/react-dom`)
-  - Used during development (see `*/package.json` dev dependencies).
-
-## Tooling and standards we rely on
-
-- **Node.js** runtime and built-in test runner (`node --test`) for `@abstractframework/monitor-gpu` tests (see `monitor-gpu/package.json`).
-- **Web Platform APIs** (Custom Elements, Shadow DOM, Fetch) for the GPU widget implementation (`monitor-gpu/src/monitor_gpu_widget.js`, `monitor-gpu/src/gpu_metrics_api.js`).
-- **Mermaid** diagrams in documentation (rendered by GitHub / Markdown tooling; see `docs/architecture.md`).
-
-## Thanks
-
-Thanks to contributors and to the AbstractFramework community for shaping real-world requirements and feedback.
-
-## Related docs
-
-- Docs index: [`docs/README.md`](./docs/README.md)
-- Contributing: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
 
 ## LICENSE
 

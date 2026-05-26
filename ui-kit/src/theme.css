@@ -1134,6 +1134,13 @@
   font-size: var(--font-size-base);
 }
 
+.af-select-custom-error {
+  margin-top: 6px;
+  color: var(--accent);
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+}
+
 .af-select-options {
   max-height: 340px;
   overflow: auto;
@@ -1175,11 +1182,35 @@
   background: var(--ui-surface-2, rgba(255, 255, 255, 0.06));
 }
 
+.af-select-option--disabled {
+  cursor: not-allowed;
+  color: var(--text-muted);
+  opacity: 0.58;
+}
+
+.af-select-option--disabled.af-select-option--highlighted {
+  background: var(--ui-surface-1, rgba(255, 255, 255, 0.04));
+}
+
 .af-select-option-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.af-select-option-label > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.af-select-option-reason {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.25;
 }
 
 .af-select-check {
