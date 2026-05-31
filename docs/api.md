@@ -36,6 +36,7 @@ Key exports:
 - Theme: `THEMES`, `THEME_SPECS`, `applyTheme()`, `getThemeSpec()`, `themeClassName()`
 - Typography: `FONT_SCALES`, `HEADER_DENSITIES`, `applyTypography()`, `getFontScaleSpec()`, `getHeaderDensitySpec()`
 - Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `FontScaleSelect`, `HeaderDensitySelect`, `ToolPolicyEditor`
+- Gateway auth UI: `GatewaySessionSignInCard` for user-token browser-session sign-in; hosts supply callbacks and keep transport/session policy.
 - Icons: `Icon`, `IconName`
 
 See: [`ui-kit/README.md`](../ui-kit/README.md).

@@ -7,6 +7,7 @@ This package provides:
 - **Theme tokens** (CSS variables + theme classes): `ui-kit/src/theme.css`
 - **Theme + typography helpers**: `applyTheme(...)`, `applyTypography(...)`
 - **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ToolPolicyEditor`, etc.
+- **Gateway session UI**: `GatewaySessionSignInCard` for the shared user/token browser-session sign-in form used by thin clients.
 - **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
 
 ## Install / peer dependencies
@@ -37,8 +38,15 @@ applyTheme("dark"); // sets a `theme-*` class on <html>
 Use UI components:
 
 ```tsx
-import { ThemeSelect, Icon, ToolPolicyEditor } from "@abstractframework/ui-kit";
+import { ThemeSelect, Icon, ToolPolicyEditor, GatewaySessionSignInCard } from "@abstractframework/ui-kit";
 ```
+
+### Gateway session sign-in
+
+`GatewaySessionSignInCard` renders the shared Gateway browser-session sign-in
+card. Host apps own the network calls and session storage; the component only
+collects Gateway URL (optional), user id, token, and remember-browser state, and
+calls the callbacks you provide.
 
 ### Tool policy editor
 

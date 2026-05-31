@@ -4,10 +4,21 @@ All notable changes to AbstractUIC are documented in this file.
 
 This project is a **multi-package repository**; versions are currently kept in sync across packages.
 
+## 0.1.7 - 2026-05-31
+
+### Added
+
+- UI Kit exports the shared Gateway browser-session sign-in card used by Gateway Console and thin clients.
+
+### Changed
+
+- Synchronized all AbstractUIC workspace package versions and updated `@abstractframework/panel-chat` to depend on `@abstractframework/ui-kit@^0.1.7`.
+
 ## 0.1.6 - 2026-05-26
 
 ### Added
 
+- UI Kit exports `GatewaySessionSignInCard`, a shared Gateway user-token browser-session sign-in card for React thin clients.
 - UI Kit `AfSelect` supports disabled options, disabled custom values with reason text, and custom option labels for dense editor selectors.
 
 ### Fixed

@@ -58,7 +58,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens, typography helpers, selects, icons
+- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens, typography helpers, selects, Gateway session sign-in card, icons
 - [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -73,6 +73,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [monitor-active-memory/package.json](monitor-active-memory/package.json): published metadata (`exports`, peer deps)
 - [monitor-gpu/package.json](monitor-gpu/package.json): published metadata (`exports`)
 - [ui-kit/src/index.ts](ui-kit/src/index.ts): exports for `@abstractframework/ui-kit`
+- [ui-kit/src/gateway_session_signin.tsx](ui-kit/src/gateway_session_signin.tsx): shared Gateway browser-session sign-in card
 - [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
 - [panel-chat/src/types.ts](panel-chat/src/types.ts): `PanelChatMessage` contract
 - [panel-chat/src/message_content.tsx](panel-chat/src/message_content.tsx): JSON autodetect + Markdown override hook (`renderMarkdown`)
@@ -132,7 +133,7 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 
 | Package | Purpose | Docs |
 |---|---|---|
-| `@abstractframework/ui-kit` | Theme tokens (CSS variables) + small UI primitives (selects/icons) | [`ui-kit/README.md`](./ui-kit/README.md) |
+| `@abstractframework/ui-kit` | Theme tokens (CSS variables), common inputs, Gateway sign-in card, and icons | [`ui-kit/README.md`](./ui-kit/README.md) |
 | `@abstractframework/panel-chat` | Chat thread + message cards + composer + markdown/json rendering | [`panel-chat/README.md`](./panel-chat/README.md) |
 | `@abstractframework/monitor-flow` | Agent-cycle trace viewer + ledger adapter | [`monitor-flow/README.md`](./monitor-flow/README.md) |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | [`monitor-active-memory/README.md`](./monitor-active-memory/README.md) |
@@ -403,6 +404,7 @@ Key exports:
 - Theme: `THEMES`, `THEME_SPECS`, `applyTheme()`, `getThemeSpec()`, `themeClassName()`
 - Typography: `FONT_SCALES`, `HEADER_DENSITIES`, `applyTypography()`, `getFontScaleSpec()`, `getHeaderDensitySpec()`
 - Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `FontScaleSelect`, `HeaderDensitySelect`, `ToolPolicyEditor`
+- Gateway auth UI: `GatewaySessionSignInCard` for user-token browser-session sign-in; hosts supply callbacks and keep transport/session policy.
 - Icons: `Icon`, `IconName`
 
 See: [`ui-kit/README.md`](../ui-kit/README.md).
@@ -867,6 +869,7 @@ This package provides:
 - **Theme tokens** (CSS variables + theme classes): `ui-kit/src/theme.css`
 - **Theme + typography helpers**: `applyTheme(...)`, `applyTypography(...)`
 - **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ToolPolicyEditor`, etc.
+- **Gateway session UI**: `GatewaySessionSignInCard` for the shared user/token browser-session sign-in form used by thin clients.
 - **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
 
 ## Install / peer dependencies
@@ -897,8 +900,15 @@ applyTheme("dark"); // sets a `theme-*` class on <html>
 Use UI components:
 
 ```tsx
-import { ThemeSelect, Icon, ToolPolicyEditor } from "@abstractframework/ui-kit";
+import { ThemeSelect, Icon, ToolPolicyEditor, GatewaySessionSignInCard } from "@abstractframework/ui-kit";
 ```
+
+### Gateway session sign-in
+
+`GatewaySessionSignInCard` renders the shared Gateway browser-session sign-in
+card. Host apps own the network calls and session storage; the component only
+collects Gateway URL (optional), user id, token, and remember-browser state, and
+calls the callbacks you provide.
 
 ### Tool policy editor
 
@@ -1237,7 +1247,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -1258,7 +1268,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -1320,7 +1330,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -1359,12 +1369,12 @@ npm test
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.1.6",
+    "@abstractframework/ui-kit": "^0.1.7",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.1.6",
+    "@abstractframework/ui-kit": "^0.1.7",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -1383,7 +1393,7 @@ npm test
 
 {
   "name": "@abstractframework/monitor-flow",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Shared flow/agent monitoring UI components for AbstractFramework (used by AbstractFlow and AbstractObserver).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -1445,7 +1455,7 @@ npm test
 
 {
   "name": "@abstractframework/monitor-active-memory",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Shared KG + Active Memory explorer UI components for AbstractFramework clients (AbstractFlow, AbstractObserver, AbstractCode).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -1509,7 +1519,7 @@ npm test
 
 {
   "name": "@abstractframework/monitor-gpu",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Lightweight GPU utilization histogram widget for AbstractFramework clients (polls AbstractGateway host metrics with Bearer auth).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -1557,6 +1567,11 @@ export { THEMES, THEME_SPECS, applyTheme, getThemeSpec, themeClassName, type The
 export { FONT_SCALES, HEADER_DENSITIES, applyTypography, getFontScaleSpec, getHeaderDensitySpec, type FontScaleOption, type HeaderDensityOption } from "./typography.js";
 export { AfSelect, type AfSelectProps, type AfSelectOption } from "./af_select.js";
 export { ProviderModelSelect, type ProviderModelSelectProps, type ProviderOption } from "./provider_model_select.js";
+export {
+  GatewaySessionSignInCard,
+  type GatewaySessionSignInCardProps,
+  type GatewaySessionStatusTone,
+} from "./gateway_session_signin.js";
 export { ThemeSelect, type ThemeSelectProps } from "./theme_select.js";
 export { FontScaleSelect, HeaderDensitySelect, type FontScaleSelectProps, type HeaderDensitySelectProps } from "./typography_select.js";
 export { Icon, type IconName } from "./icon.js";
@@ -1569,6 +1584,208 @@ export {
   type ToolSpec,
   type ToolApprovalMode,
 } from "./tool_policy_editor.js";
+
+## ui-kit/src/gateway_session_signin.tsx
+
+import React from "react";
+
+export type GatewaySessionStatusTone = "ok" | "warn" | "err";
+
+export type GatewaySessionSignInCardProps = {
+  kicker?: string;
+  title?: string;
+  description?: React.ReactNode;
+  statusLabel?: string;
+  statusTone?: GatewaySessionStatusTone;
+  tokenSourceLabel?: string;
+
+  showGatewayUrl?: boolean;
+  gatewayUrl?: string;
+  gatewayUrlPlaceholder?: string;
+  onGatewayUrlChange?: (value: string) => void;
+
+  userId: string;
+  userPlaceholder?: string;
+  onUserIdChange: (value: string) => void;
+
+  token: string;
+  tokenPlaceholder?: string;
+  showToken?: boolean;
+  onTokenChange: (value: string) => void;
+  onShowTokenChange?: (value: boolean) => void;
+
+  remember?: boolean;
+  rememberLabel?: string;
+  onRememberChange?: (value: boolean) => void;
+
+  loading?: boolean;
+  submitting?: boolean;
+  submitDisabled?: boolean;
+  submitLabel?: string;
+  submittingLabel?: string;
+  closeLabel?: string;
+  signOutLabel?: string;
+  showClose?: boolean;
+  showSignOut?: boolean;
+  error?: string;
+  className?: string;
+  onSubmit: () => void | Promise<void>;
+  onClose?: () => void;
+  onSignOut?: () => void | Promise<void>;
+};
+
+function cx(...parts: Array<string | false | null | undefined>): string {
+  return parts.filter(Boolean).join(" ");
+}
+
+export function GatewaySessionSignInCard({
+  kicker = "AbstractGateway connection",
+  title = "Connect to AbstractGateway",
+  description = "Sign in with the Gateway user token assigned by the Gateway admin.",
+  statusLabel = "Gateway token missing",
+  statusTone = "warn",
+  tokenSourceLabel = "token: missing",
+  showGatewayUrl = false,
+  gatewayUrl = "",
+  gatewayUrlPlaceholder = "http://127.0.0.1:8080",
+  onGatewayUrlChange,
+  userId,
+  userPlaceholder = "admin",
+  onUserIdChange,
+  token,
+  tokenPlaceholder = "Paste Gateway user token",
+  showToken = false,
+  onTokenChange,
+  onShowTokenChange,
+  remember = false,
+  rememberLabel = "Remember this browser",
+  onRememberChange,
+  loading = false,
+  submitting = false,
+  submitDisabled = false,
+  submitLabel = "Sign in",
+  submittingLabel = "Signing in...",
+  closeLabel = "Close",
+  signOutLabel = "Sign out",
+  showClose = false,
+  showSignOut = false,
+  error,
+  className,
+  onSubmit,
+  onClose,
+  onSignOut,
+}: GatewaySessionSignInCardProps): React.ReactElement {
+  const busy = loading || submitting;
+  const disabled = busy || submitDisabled || !String(userId || "").trim() || !String(token || "").trim();
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (disabled) return;
+    void onSubmit();
+  };
+
+  return (
+    <form className={cx("af-gateway-signin", className)} onSubmit={handleSubmit}>
+      <div className="af-gateway-signin__hero">
+        <div>
+          <div className="af-gateway-signin__kicker">{kicker}</div>
+          <h2>{title}</h2>
+          {description ? <p>{description}</p> : null}
+        </div>
+        <div className="af-gateway-signin__mark" aria-hidden="true">
+          ↔
+        </div>
+      </div>
+
+      <div className="af-gateway-signin__status-row">
+        <span className={cx("af-gateway-signin__status", `af-gateway-signin__status--${statusTone}`)}>{statusLabel}</span>
+        {tokenSourceLabel ? <span className="af-gateway-signin__source">{tokenSourceLabel}</span> : null}
+      </div>
+
+      <div className="af-gateway-signin__form">
+        {showGatewayUrl ? (
+          <>
+            <label className="af-gateway-signin__label" htmlFor="gateway-session-url">
+              Gateway URL
+            </label>
+            <input
+              id="gateway-session-url"
+              value={gatewayUrl}
+              onChange={(event) => onGatewayUrlChange?.(event.target.value)}
+              placeholder={gatewayUrlPlaceholder}
+              autoComplete="url"
+              disabled={busy}
+            />
+          </>
+        ) : null}
+
+        <label className="af-gateway-signin__label" htmlFor="gateway-session-user">
+          Gateway user
+        </label>
+        <input
+          id="gateway-session-user"
+          value={userId}
+          onChange={(event) => onUserIdChange(event.target.value)}
+          placeholder={userPlaceholder}
+          autoComplete="username"
+          disabled={busy}
+        />
+
+        <label className="af-gateway-signin__label" htmlFor="gateway-session-token">
+          Gateway token
+        </label>
+        <div className="af-gateway-signin__token-input">
+          <input
+            id="gateway-session-token"
+            type={showToken ? "text" : "password"}
+            value={token}
+            onChange={(event) => onTokenChange(event.target.value)}
+            placeholder={tokenPlaceholder}
+            autoComplete="current-password"
+            disabled={busy}
+          />
+          <button
+            className="af-gateway-signin__secondary"
+            type="button"
+            onClick={() => onShowTokenChange?.(!showToken)}
+            disabled={busy}
+          >
+            {showToken ? "Hide" : "Show"}
+          </button>
+        </div>
+
+        <label className="af-gateway-signin__label">Browser session</label>
+        <label className="af-gateway-signin__checkbox">
+          <input
+            type="checkbox"
+            checked={Boolean(remember)}
+            onChange={(event) => onRememberChange?.(event.target.checked)}
+            disabled={busy}
+          />
+          {rememberLabel}
+        </label>
+      </div>
+
+      {error ? <div className="af-gateway-signin__message af-gateway-signin__message--error">{error}</div> : null}
+
+      <div className="af-gateway-signin__actions">
+        {showClose ? (
+          <button className="af-gateway-signin__secondary" type="button" onClick={onClose} disabled={busy}>
+            {closeLabel}
+          </button>
+        ) : null}
+        {showSignOut ? (
+          <button className="af-gateway-signin__secondary" type="button" onClick={() => void onSignOut?.()} disabled={busy}>
+            {signOutLabel}
+          </button>
+        ) : null}
+        <button className="af-gateway-signin__primary" type="submit" disabled={disabled}>
+          {submitting ? submittingLabel : submitLabel}
+        </button>
+      </div>
+    </form>
+  );
+}
 
 ## panel-chat/src/index.ts
 
@@ -3072,10 +3289,21 @@ All notable changes to AbstractUIC are documented in this file.
 
 This project is a **multi-package repository**; versions are currently kept in sync across packages.
 
+## 0.1.7 - 2026-05-31
+
+### Added
+
+- UI Kit exports the shared Gateway browser-session sign-in card used by Gateway Console and thin clients.
+
+### Changed
+
+- Synchronized all AbstractUIC workspace package versions and updated `@abstractframework/panel-chat` to depend on `@abstractframework/ui-kit@^0.1.7`.
+
 ## 0.1.6 - 2026-05-26
 
 ### Added
 
+- UI Kit exports `GatewaySessionSignInCard`, a shared Gateway user-token browser-session sign-in card for React thin clients.
 - UI Kit `AfSelect` supports disabled options, disabled custom values with reason text, and custom option labels for dense editor selectors.
 
 ### Fixed

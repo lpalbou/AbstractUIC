@@ -112,6 +112,224 @@
   }
 }
 
+/* Shared Gateway browser-session sign-in card */
+.af-gateway-signin {
+  display: block;
+  width: min(760px, 100%);
+  border: 1px solid rgba(0, 210, 255, 0.20);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  background:
+    linear-gradient(135deg, rgba(18, 31, 61, 0.98), rgba(22, 20, 42, 0.98)),
+    var(--bg-secondary);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.45);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+
+.af-gateway-signin h2 {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  line-height: 1.25;
+}
+
+.af-gateway-signin p {
+  margin: 14px 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-base);
+}
+
+.af-gateway-signin input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid rgba(96, 165, 250, 0.34);
+  border-radius: var(--radius-sm);
+  background: rgba(9, 14, 29, 0.76);
+  color: var(--text-primary);
+  padding: 9px 11px;
+  font: inherit;
+}
+
+.af-gateway-signin input:focus {
+  outline: 2px solid rgba(0, 210, 255, 0.65);
+  outline-offset: 0;
+}
+
+.af-gateway-signin input[type="checkbox"] {
+  width: auto;
+  min-height: auto;
+}
+
+.af-gateway-signin button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  min-height: 38px;
+  padding: 8px 14px;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.af-gateway-signin button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.af-gateway-signin__hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 22px;
+}
+
+.af-gateway-signin__kicker {
+  margin-bottom: 8px;
+  color: rgba(0, 210, 255, 0.86);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.af-gateway-signin__mark {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 24px;
+  border: 1px solid rgba(0, 210, 255, 0.24);
+  background: linear-gradient(135deg, rgba(0, 210, 255, 0.18), rgba(233, 69, 96, 0.22));
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 32px;
+  font-weight: 900;
+}
+
+.af-gateway-signin__status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.af-gateway-signin__status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.af-gateway-signin__status--ok {
+  color: rgba(120, 255, 190, 0.95);
+  border-color: rgba(39, 174, 96, 0.36);
+}
+
+.af-gateway-signin__status--warn {
+  color: rgba(255, 210, 120, 0.95);
+  border-color: rgba(243, 156, 18, 0.36);
+}
+
+.af-gateway-signin__status--err {
+  color: rgba(255, 115, 135, 0.95);
+  border-color: rgba(233, 69, 96, 0.42);
+}
+
+.af-gateway-signin__source {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.af-gateway-signin__form {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.af-gateway-signin__label {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.af-gateway-signin__token-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.af-gateway-signin__token-input input {
+  flex: 1;
+}
+
+.af-gateway-signin__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.af-gateway-signin__message {
+  margin-top: 14px;
+  overflow-wrap: anywhere;
+}
+
+.af-gateway-signin__message--error {
+  color: rgba(255, 156, 175, 0.95);
+}
+
+.af-gateway-signin__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.af-gateway-signin__primary {
+  background: var(--accent);
+}
+
+.af-gateway-signin__secondary {
+  background: var(--bg-tertiary);
+}
+
+@media (max-width: 680px) {
+  .af-gateway-signin {
+    padding: 18px;
+  }
+
+  .af-gateway-signin__hero {
+    gap: 16px;
+  }
+
+  .af-gateway-signin__mark {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    font-size: 26px;
+  }
+
+  .af-gateway-signin__form {
+    grid-template-columns: 1fr;
+  }
+}
+
 :root.theme-light,
 :root.theme-solarized-light,
 :root.theme-catppuccin-latte,

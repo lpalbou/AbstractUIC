@@ -2,6 +2,11 @@ export { THEMES, THEME_SPECS, applyTheme, getThemeSpec, themeClassName, type The
 export { FONT_SCALES, HEADER_DENSITIES, applyTypography, getFontScaleSpec, getHeaderDensitySpec, type FontScaleOption, type HeaderDensityOption } from "./typography.js";
 export { AfSelect, type AfSelectProps, type AfSelectOption } from "./af_select.js";
 export { ProviderModelSelect, type ProviderModelSelectProps, type ProviderOption } from "./provider_model_select.js";
+export {
+  GatewaySessionSignInCard,
+  type GatewaySessionSignInCardProps,
+  type GatewaySessionStatusTone,
+} from "./gateway_session_signin.js";
 export { ThemeSelect, type ThemeSelectProps } from "./theme_select.js";
 export { FontScaleSelect, HeaderDensitySelect, type FontScaleSelectProps, type HeaderDensitySelectProps } from "./typography_select.js";
 export { Icon, type IconName } from "./icon.js";

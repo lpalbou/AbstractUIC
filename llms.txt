@@ -50,7 +50,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens, typography helpers, selects, icons
+- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens, typography helpers, selects, Gateway session sign-in card, icons
 - [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -65,6 +65,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [monitor-active-memory/package.json](monitor-active-memory/package.json): published metadata (`exports`, peer deps)
 - [monitor-gpu/package.json](monitor-gpu/package.json): published metadata (`exports`)
 - [ui-kit/src/index.ts](ui-kit/src/index.ts): exports for `@abstractframework/ui-kit`
+- [ui-kit/src/gateway_session_signin.tsx](ui-kit/src/gateway_session_signin.tsx): shared Gateway browser-session sign-in card
 - [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
 - [panel-chat/src/types.ts](panel-chat/src/types.ts): `PanelChatMessage` contract
 - [panel-chat/src/message_content.tsx](panel-chat/src/message_content.tsx): JSON autodetect + Markdown override hook (`renderMarkdown`)

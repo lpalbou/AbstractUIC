@@ -1,6 +1,6 @@
 {
   "name": "@abstractframework/monitor-active-memory",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Shared KG + Active Memory explorer UI components for AbstractFramework clients (AbstractFlow, AbstractObserver, AbstractCode).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
