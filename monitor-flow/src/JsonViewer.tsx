@@ -1,4 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+const FOLDED_DEPTH = 2;
+const UNFOLDED_DEPTH = Number.MAX_SAFE_INTEGER;
+
+type JsonExpansionMode = "folded" | "unfolded";
 
 function is_json_object(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -56,10 +61,15 @@ function Token({
   return <span className={`json-token ${kind}`}>{children}</span>;
 }
 
-function JsonStringValue(props: { value: string }): React.ReactElement {
+function JsonStringValue(props: { value: string; expansion_mode: JsonExpansionMode; expansion_version: number }): React.ReactElement {
   const rendered = JSON.stringify(props.value);
   const collapsible = rendered.length > 96 || rendered.includes("\\n") || rendered.includes("\\r") || rendered.includes("\\t");
-  const [open, set_open] = useState(!collapsible);
+  const [open, set_open] = useState(!collapsible || props.expansion_mode === "unfolded");
+
+  useEffect(() => {
+    if (!collapsible) return;
+    set_open(props.expansion_mode === "unfolded");
+  }, [collapsible, props.expansion_mode, props.expansion_version]);
 
   if (!collapsible) return <Token kind="string">{rendered}</Token>;
 
@@ -86,9 +96,9 @@ function JsonStringValue(props: { value: string }): React.ReactElement {
   );
 }
 
-function render_primitive(value: unknown): React.ReactElement {
+function render_primitive(value: unknown, expansion_mode: JsonExpansionMode, expansion_version: number): React.ReactElement {
   if (value === null) return <Token kind="null">null</Token>;
-  if (typeof value === "string") return <JsonStringValue value={value} />;
+  if (typeof value === "string") return <JsonStringValue value={value} expansion_mode={expansion_mode} expansion_version={expansion_version} />;
   if (typeof value === "number") return <Token kind="number">{String(value)}</Token>;
   if (typeof value === "boolean") return <Token kind="boolean">{value ? "true" : "false"}</Token>;
   return <Token kind="string">{JSON.stringify(String(value))}</Token>;
@@ -105,11 +115,13 @@ type JsonNodeProps = {
   value: unknown;
   depth: number;
   collapse_after_depth: number;
+  expansion_mode: JsonExpansionMode;
+  expansion_version: number;
   trailing_comma: boolean;
 };
 
 function JsonNode(props: JsonNodeProps): React.ReactElement {
-  const { label, value, depth, collapse_after_depth, trailing_comma } = props;
+  const { label, value, depth, collapse_after_depth, expansion_mode, expansion_version, trailing_comma } = props;
   const indent_px = depth * 14;
 
   const is_object = is_json_object(value);
@@ -117,6 +129,10 @@ function JsonNode(props: JsonNodeProps): React.ReactElement {
   const is_container = is_object || is_array;
   const default_open = depth < collapse_after_depth;
   const [open, set_open] = useState(default_open);
+
+  useEffect(() => {
+    set_open(default_open);
+  }, [default_open, expansion_version]);
 
   const prefix = label ? (
     <>
@@ -129,7 +145,7 @@ function JsonNode(props: JsonNodeProps): React.ReactElement {
     return (
       <div className="json-viewer__line" style={{ paddingLeft: indent_px }}>
         {prefix}
-        {render_primitive(value)}
+        {render_primitive(value, expansion_mode, expansion_version)}
         {trailing_comma ? "," : ""}
       </div>
     );
@@ -174,6 +190,8 @@ function JsonNode(props: JsonNodeProps): React.ReactElement {
                     value={e.value}
                     depth={depth + 1}
                     collapse_after_depth={collapse_after_depth}
+                    expansion_mode={expansion_mode}
+                    expansion_version={expansion_version}
                     trailing_comma={!is_last}
                   />
                 );
@@ -192,7 +210,8 @@ function JsonNode(props: JsonNodeProps): React.ReactElement {
 
 export function JsonViewer(props: { value: unknown; className?: string; collapseAfterDepth?: number; showCopy?: boolean }): React.ReactElement {
   const { value, className, showCopy = true } = props;
-  const collapse_after_depth = Number.isFinite(props.collapseAfterDepth ?? NaN) ? Number(props.collapseAfterDepth) : 3;
+  const [expansion, set_expansion] = useState<{ mode: JsonExpansionMode; version: number }>({ mode: "folded", version: 0 });
+  const collapse_after_depth = expansion.mode === "unfolded" ? UNFOLDED_DEPTH : FOLDED_DEPTH;
 
   const display_value = useMemo(() => {
     if (typeof value === "string") return try_parse_json_string(value);
@@ -202,18 +221,44 @@ export function JsonViewer(props: { value: unknown; className?: string; collapse
   const copy_value = useMemo(() => copy_string_for_json(value), [value]);
   const cls = ["json-viewer", "run-details-output", className].filter(Boolean).join(" ");
 
+  useEffect(() => {
+    set_expansion((prev) => ({ mode: "folded", version: prev.version + 1 }));
+  }, [display_value]);
+
+  const toggle_expansion = () => {
+    set_expansion((prev) => ({
+      mode: prev.mode === "unfolded" ? "folded" : "unfolded",
+      version: prev.version + 1,
+    }));
+  };
+
   return (
     <div className={cls}>
-      {showCopy ? (
-        <div className="json-viewer__toolbar">
+      <div className="json-viewer__toolbar">
+        <button
+          type="button"
+          className="modal-button json-viewer__toggle-all"
+          onClick={toggle_expansion}
+          aria-expanded={expansion.mode === "unfolded"}
+        >
+          {expansion.mode === "unfolded" ? "Fold all" : "Unfold all"}
+        </button>
+        {showCopy ? (
           <button type="button" className="modal-button json-viewer__copy" onClick={() => void copy_text(copy_value)}>
             Copy
           </button>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
       <div className="json-viewer__tree" role="tree" aria-label="JSON viewer">
-        <JsonNode value={display_value} depth={0} collapse_after_depth={collapse_after_depth} trailing_comma={false} />
+        <JsonNode
+          value={display_value}
+          depth={0}
+          collapse_after_depth={collapse_after_depth}
+          expansion_mode={expansion.mode}
+          expansion_version={expansion.version}
+          trailing_comma={false}
+        />
       </div>
     </div>
   );
