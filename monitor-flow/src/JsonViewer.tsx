@@ -56,9 +56,39 @@ function Token({
   return <span className={`json-token ${kind}`}>{children}</span>;
 }
 
+function JsonStringValue(props: { value: string }): React.ReactElement {
+  const rendered = JSON.stringify(props.value);
+  const collapsible = rendered.length > 96 || rendered.includes("\\n") || rendered.includes("\\r") || rendered.includes("\\t");
+  const [open, set_open] = useState(!collapsible);
+
+  if (!collapsible) return <Token kind="string">{rendered}</Token>;
+
+  return (
+    <span className={`json-string ${open ? "open" : "collapsed"}`}>
+      <button
+        type="button"
+        className="json-string__toggle"
+        onClick={() => set_open((v) => !v)}
+        aria-label={open ? "Collapse string value" : "Expand string value"}
+        aria-expanded={open}
+      >
+        {open ? "▾" : "▸"}
+      </button>
+      {open ? (
+        <span className="json-token string json-string__value">{rendered}</span>
+      ) : (
+        <button type="button" className="json-string__preview" onClick={() => set_open(true)} aria-label="Expand string value">
+          <span className="json-token string json-string__preview_text">{rendered}</span>
+          <span className="json-string__suffix">(...)</span>
+        </button>
+      )}
+    </span>
+  );
+}
+
 function render_primitive(value: unknown): React.ReactElement {
   if (value === null) return <Token kind="null">null</Token>;
-  if (typeof value === "string") return <Token kind="string">{JSON.stringify(value)}</Token>;
+  if (typeof value === "string") return <JsonStringValue value={value} />;
   if (typeof value === "number") return <Token kind="number">{String(value)}</Token>;
   if (typeof value === "boolean") return <Token kind="boolean">{value ? "true" : "false"}</Token>;
   return <Token kind="string">{JSON.stringify(String(value))}</Token>;
@@ -188,4 +218,3 @@ export function JsonViewer(props: { value: unknown; className?: string; collapse
     </div>
   );
 }
-

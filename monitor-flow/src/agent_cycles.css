@@ -401,6 +401,7 @@
   max-width: 100%;
   box-sizing: border-box;
   min-width: 0;
+  overflow-x: hidden;
 }
 
 .json-viewer__toolbar {
@@ -420,10 +421,13 @@
 }
 
 .json-viewer__tree {
-  white-space: pre-wrap;
+  white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
   max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 .json-viewer__details,
@@ -468,6 +472,62 @@
 
 .json-viewer__children {
   margin-top: 2px;
+}
+
+.json-string {
+  display: inline-flex;
+  align-items: flex-start;
+  max-width: 100%;
+  min-width: 0;
+  vertical-align: top;
+}
+
+.json-string__toggle,
+.json-string__preview {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+}
+
+.json-string__toggle {
+  flex: 0 0 auto;
+  width: 14px;
+  margin-right: 2px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.json-string__preview {
+  display: inline-grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  min-width: 0;
+  max-width: 100%;
+  cursor: pointer;
+  text-align: left;
+}
+
+.json-string__preview_text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.json-string__suffix {
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+.json-string__value {
+  min-width: 0;
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* LLM message rendering (System/User tabs) */

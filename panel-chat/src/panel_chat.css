@@ -115,6 +115,7 @@
 .pc-json-viewer {
   min-width: 0;
   max-width: 100%;
+  overflow-x: hidden;
 }
 
 .pc-json-viewer__toolbar {
@@ -141,15 +142,21 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: var(--font-size-sm, 12px);
   line-height: 1.35;
-  overflow-x: auto;
+  overflow-x: hidden;
+  overflow-y: visible;
   max-width: 100%;
+  min-width: 0;
   padding: 6px 0;
 }
 
 .pc-json-viewer__line,
 .pc-json-viewer__summary {
-  white-space: pre;
+  white-space: normal;
   overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .pc-json-viewer__summary {
@@ -177,6 +184,62 @@
 
 .pc-json-token.string {
   color: #ce9178;
+}
+
+.pc-json-string {
+  display: inline-flex;
+  align-items: flex-start;
+  max-width: 100%;
+  min-width: 0;
+  vertical-align: top;
+}
+
+.pc-json-string__toggle,
+.pc-json-string__preview {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+}
+
+.pc-json-string__toggle {
+  flex: 0 0 auto;
+  width: 14px;
+  margin-right: 2px;
+  color: var(--ui-text-muted, rgba(255, 255, 255, 0.55));
+  cursor: pointer;
+}
+
+.pc-json-string__preview {
+  display: inline-grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  min-width: 0;
+  max-width: 100%;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pc-json-string__preview_text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.pc-json-string__suffix {
+  color: var(--ui-text-muted, rgba(255, 255, 255, 0.55));
+  margin-left: 2px;
+}
+
+.pc-json-string__value {
+  min-width: 0;
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .pc-json-token.number {
