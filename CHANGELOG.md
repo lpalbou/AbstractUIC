@@ -4,6 +4,16 @@ All notable changes to AbstractUIC are documented in this file.
 
 This project is a **multi-package repository**; versions are currently kept in sync across packages.
 
+## 0.1.8 - 2026-06-14
+
+### Fixed
+
+- Improved the shared JSON viewer used by `@abstractframework/monitor-flow` and
+  `@abstractframework/panel-chat` with a better default fold depth, fold-all
+  controls, and correct wrapping for long structured output.
+- Extended `@abstractframework/panel-chat` Markdown rendering so links and
+  images render as first-class rich content instead of plain text.
+
 ## 0.1.7 - 2026-05-31
 
 ### Added

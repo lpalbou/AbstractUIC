@@ -52,6 +52,13 @@ function highlightInline(text: string, state: HighlightState | null): InlineNode
   return out;
 }
 
+function safeHref(href: string): string | undefined {
+  const value = String(href || "").trim();
+  if (!value) return undefined;
+  if (/^(https?:|mailto:|tel:|#|\/)/i.test(value)) return value;
+  return undefined;
+}
+
 function renderInline(text: string, highlight: HighlightState | null): InlineNode[] {
   const out: InlineNode[] = [];
   const s = String(text ?? "");
@@ -66,6 +73,49 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
 
   while (i < s.length) {
     const ch = s[i];
+
+    if (ch === "!" && s[i + 1] === "[") {
+      const labelEnd = s.indexOf("]", i + 2);
+      if (labelEnd !== -1 && s[labelEnd + 1] === "(") {
+        const hrefEnd = s.indexOf(")", labelEnd + 2);
+        if (hrefEnd !== -1) {
+          const alt = s.slice(i + 2, labelEnd);
+          const src = safeHref(s.slice(labelEnd + 2, hrefEnd));
+          if (src) {
+            flush();
+            out.push(
+              <span key={`img:${i}`} className="pc-md_image_inline">
+                <img className="pc-md_img" src={src} alt={alt} loading="lazy" />
+                {alt ? <span className="pc-md_img_caption">{highlight ? highlightInline(alt, highlight) : alt}</span> : null}
+              </span>
+            );
+            i = hrefEnd + 1;
+            continue;
+          }
+        }
+      }
+    }
+
+    if (ch === "[") {
+      const labelEnd = s.indexOf("]", i + 1);
+      if (labelEnd !== -1 && s[labelEnd + 1] === "(") {
+        const hrefEnd = s.indexOf(")", labelEnd + 2);
+        if (hrefEnd !== -1) {
+          const label = s.slice(i + 1, labelEnd);
+          const href = safeHref(s.slice(labelEnd + 2, hrefEnd));
+          if (href) {
+            flush();
+            out.push(
+              <a key={`link:${i}`} className="pc-md_link" href={href} target={href.startsWith("#") || href.startsWith("/") ? undefined : "_blank"} rel="noreferrer">
+                {renderInline(label, highlight)}
+              </a>
+            );
+            i = hrefEnd + 1;
+            continue;
+          }
+        }
+      }
+    }
 
     if (ch === "`") {
       const j = s.indexOf("`", i + 1);
@@ -176,6 +226,22 @@ export function Markdown({
       blocks.push(<hr key={`hr:${i}`} className="pc-md_hr" />);
       i += 1;
       continue;
+    }
+
+    const imageM = line.match(/^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$/);
+    if (imageM) {
+      const src = safeHref(imageM[2] || "");
+      if (src) {
+        const alt = imageM[1] || "";
+        blocks.push(
+          <figure key={`figure:${i}`} className="pc-md_figure">
+            <img className="pc-md_img" src={src} alt={alt} loading="lazy" />
+            {alt ? <figcaption>{renderInline(alt, highlightState)}</figcaption> : null}
+          </figure>
+        );
+        i += 1;
+        continue;
+      }
     }
 
     if (line.trim().startsWith("```")) {

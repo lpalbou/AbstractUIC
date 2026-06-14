@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-const FOLDED_DEPTH = 2;
+const FOLDED_DEPTH = 3;
 const UNFOLDED_DEPTH = Number.MAX_SAFE_INTEGER;
 
 type JsonExpansionMode = "folded" | "unfolded";
