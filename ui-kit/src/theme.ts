@@ -9,6 +9,11 @@ export const THEME_SPECS: ThemeSpec[] = [
   // Dark (grouped by similarity)
   { id: "dark", label: "Dark (Abstract)", group: "dark", swatches: ["#1a1a2e", "#16213e", "#0f3460", "#e94560", "#60a5fa", "#27ae60"] },
 
+  // The Observer entity app's palette (contributed 2026-07-10 so kit
+  // components rendered inside it — sign-in card, pickers — match its
+  // chrome instead of wearing another app's colors).
+  { id: "observer-night", label: "Observer Night", group: "dark", swatches: ["#0b0f14", "#10161e", "#161e28", "#e8a54a", "#6ea8d8", "#7bc98c"] },
+
   { id: "catppuccin-mocha", label: "Catppuccin Mocha", group: "dark", swatches: ["#1e1e2e", "#181825", "#313244", "#cba6f7", "#89b4fa", "#a6e3a1"] },
   { id: "catppuccin-macchiato", label: "Catppuccin Macchiato", group: "dark", swatches: ["#24273a", "#1e2030", "#363a4f", "#c6a0f6", "#8aadf4", "#a6da95"] },
   { id: "catppuccin-frappe", label: "Catppuccin Frappe", group: "dark", swatches: ["#303446", "#292c3c", "#414559", "#ca9ee6", "#8caaee", "#a6d189"] },

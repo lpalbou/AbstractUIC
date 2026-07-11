@@ -32,6 +32,12 @@ type ToolCall = {
   args: Record<string, unknown>;
 };
 
+/* Styling contract with agent_cycles.css: the stage label doubles as the
+ * `data-stage` attribute the per-stage tint rules key on. Keep it a closed
+ * union so a display rename can't silently detach the tint ("other" is
+ * deliberately untinted). */
+type StageLabel = "think" | "act" | "observe" | "other";
+
 type AgentCycle = {
   id: string;
   index: number;
@@ -426,7 +432,7 @@ function TraceStepCard({
   defaultOpen = false,
 }: {
   item: TraceItem;
-  label: string;
+  label: StageLabel;
   toolDefs: Map<string, string[]>;
   defaultOpen?: boolean;
 }): React.ReactElement {
@@ -529,7 +535,7 @@ function TraceStepCard({
     >
       <summary className="agent-trace-summary">
         <span className={`agent-trace-status ${status}`}>{badge}</span>
-        <span className="agent-cycle-stage">{label}</span>
+        <span className="agent-cycle-stage" data-stage={label}>{label}</span>
         <span className="agent-trace-kind">{kind}</span>
         {time_label ? <span className="agent-trace-node">{time_label}</span> : null}
         {node ? <span className="agent-trace-node">{node}</span> : null}
@@ -560,7 +566,7 @@ function ObserveCard({ acts }: { acts: TraceItem[] }): React.ReactElement {
     <details className={`agent-trace-entry ${status}`} open={false}>
       <summary className="agent-trace-summary">
         <span className={`agent-trace-status ${status}`}>{failed.length ? "ERROR" : "OK"}</span>
-        <span className="agent-cycle-stage">observe</span>
+        <span className="agent-cycle-stage" data-stage="observe">observe</span>
         <span className="agent-trace-kind">OBSERVATIONS</span>
         <span className="agent-trace-preview-inline">{header}</span>
       </summary>

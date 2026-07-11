@@ -80,8 +80,8 @@
 }
 
 .run-metric-badge.metric-tool {
-  border: 1px solid var(--info-border, rgba(52, 152, 219, 0.35));
-  background: var(--info-subtle, rgba(52, 152, 219, 0.10));
+  border: 1px solid var(--info-border, rgba(96, 165, 250, 0.35));
+  background: var(--info-subtle, rgba(96, 165, 250, 0.10));
   color: var(--text-primary, rgba(200, 232, 255, 0.95));
   border-radius: 999px;
   padding: 3px 8px;
@@ -179,11 +179,40 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--ui-pill-border, rgba(255, 255, 255, 0.12));
+  background: var(--ui-pill-bg, rgba(255, 255, 255, 0.03));
   color: var(--text-secondary);
   padding: 3px 8px;
   border-radius: 999px;
+}
+
+/* Agentic observability: tint the think → act → observe loop so each stage is
+ * recognizable at a glance (think=info, act=warning, observe=success). Owned
+ * here (not per-app) so every consumer of AgentCyclesPanel — flow's run modal,
+ * observer, abstractcode — renders the same loop the same way. `data-stage`
+ * values are a component contract: think | act | observe | other ("other"
+ * deliberately keeps the neutral pill). Fallback literals mirror the ui-kit
+ * :root token values for hosts that don't load theme.css. Text mixes 45% hue /
+ * 55% --text-primary: at 55% hue, muted palettes (nord, the pastel lights)
+ * fall below the 4.5:1 AA floor for this 11px bold text (2026-07-11
+ * adversarial find); 45% keeps the tint visible and recovers AA. Color is an
+ * enhancement only — the pill text itself names the stage. */
+.agent-cycle-stage[data-stage="think"] {
+  border-color: var(--info-border, rgba(96, 165, 250, 0.35));
+  background: var(--info-subtle, rgba(96, 165, 250, 0.12));
+  color: color-mix(in srgb, var(--info, #60a5fa) 45%, var(--text-primary, #eee));
+}
+
+.agent-cycle-stage[data-stage="act"] {
+  border-color: var(--warning-border, rgba(243, 156, 18, 0.35));
+  background: var(--warning-subtle, rgba(243, 156, 18, 0.12));
+  color: color-mix(in srgb, var(--warning, #f39c12) 45%, var(--text-primary, #eee));
+}
+
+.agent-cycle-stage[data-stage="observe"] {
+  border-color: var(--success-border, rgba(39, 174, 96, 0.35));
+  background: var(--success-subtle, rgba(39, 174, 96, 0.12));
+  color: color-mix(in srgb, var(--success, #27ae60) 45%, var(--text-primary, #eee));
 }
 
 .agent-trace-preview-inline {

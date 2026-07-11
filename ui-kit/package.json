@@ -37,6 +37,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "test": "node scripts/check_theme_tokens.mjs",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {

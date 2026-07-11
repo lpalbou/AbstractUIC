@@ -4,6 +4,39 @@ All notable changes to AbstractUIC are documented in this file.
 
 This project is a **multi-package repository**; versions are currently kept in sync across packages.
 
+## Unreleased
+
+### Added
+
+- `@abstractframework/monitor-flow` `AgentCyclesPanel` now owns the per-stage
+  tinting of the agent think → act → observe loop (think=info, act=warning,
+  observe=success), keyed on a `data-stage` attribute contract typed as a
+  closed union in the component. Previously the tint CSS lived in AbstractFlow
+  only, so other consumers (Observer, AbstractCode) rendered the loop as
+  undifferentiated gray pills. Stage text mixes 45% hue / 55% `--text-primary`
+  so muted palettes (Nord, pastel light themes) keep ≥4.5:1 contrast at 11px.
+- UI Kit ships the `observer-night` theme (the Observer entity app's warm
+  amber / deep blue-black palette) so kit components rendered inside the
+  entity view match its chrome.
+- UI Kit theme token integrity guard (`ui-kit/scripts/check_theme_tokens.mjs`,
+  wired as the workspace `test` script): every theme that redefines a base
+  semantic color must define hue-matched `-subtle`/`-border` derivatives —
+  pins the leak class found by the 2026-07-11 adversarial review.
+
+### Fixed
+
+- `theme-solarized-light` was the only theme missing the semantic
+  `--*-subtle`/`--*-border` token set, so the default dark theme's blue-family
+  rgba values leaked into its cream palette wherever those tokens are consumed
+  (stage pills, tool badges, ToolPolicyEditor states).
+- Default (`:root`) `--success/--warning/--error` subtle + border literals
+  carried Tailwind hues that did not match the base colors; aligned to one hue
+  family per color role. `monitor-flow` fallback literals aligned to the same
+  values (the tool badge previously carried a third, unrelated blue).
+- `monitor-flow` base stage pill derives from `--ui-pill-bg`/`--ui-pill-border`
+  theme tokens instead of hardcoded white-alpha values, restoring correct
+  rendering on light themes.
+
 ## 0.1.8 - 2026-06-14
 
 ### Fixed

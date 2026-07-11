@@ -54,19 +54,20 @@
   --ui-border-2: rgba(255, 255, 255, 0.14);
   --ui-shadow-1: 0 10px 30px rgba(0, 0, 0, 0.35);
 
-  /* Semantic tints */
+  /* Semantic tints (hue-matched to the base colors above — subtle/border
+   * variants must never drift to a different hue family than their base) */
   --accent-subtle: rgba(233, 69, 96, 0.12);
   --info-subtle: rgba(96, 165, 250, 0.12);
-  --success-subtle: rgba(34, 197, 94, 0.12);
-  --warning-subtle: rgba(245, 158, 11, 0.12);
-  --error-subtle: rgba(239, 68, 68, 0.12);
+  --success-subtle: rgba(39, 174, 96, 0.12);
+  --warning-subtle: rgba(243, 156, 18, 0.12);
+  --error-subtle: rgba(231, 76, 60, 0.12);
 
   /* Semantic borders (used for selection + pills) */
   --accent-border: rgba(233, 69, 96, 0.35);
   --info-border: rgba(96, 165, 250, 0.35);
-  --success-border: rgba(34, 197, 94, 0.35);
-  --warning-border: rgba(245, 158, 11, 0.35);
-  --error-border: rgba(239, 68, 68, 0.35);
+  --success-border: rgba(39, 174, 96, 0.35);
+  --warning-border: rgba(243, 156, 18, 0.35);
+  --error-border: rgba(231, 76, 60, 0.35);
   --muted-border: rgba(148, 163, 184, 0.22);
 
   /* Chips / badges */
@@ -793,6 +794,22 @@
   --border-default: rgba(7, 54, 66, 0.18);
   --border-accent: rgba(38, 139, 210, 0.35);
 
+  /* Semantic tints/borders must follow the theme's own hues: without these,
+   * the dark :root defaults (blue-family rgba) leak into a cream theme and
+   * clash with the solarized palette (2026-07-11 adversarial find). */
+  --accent-subtle: rgba(38, 139, 210, 0.10);
+  --info-subtle: rgba(42, 161, 152, 0.10);
+  --success-subtle: rgba(133, 153, 0, 0.10);
+  --warning-subtle: rgba(181, 137, 0, 0.10);
+  --error-subtle: rgba(220, 50, 47, 0.10);
+
+  --accent-border: rgba(38, 139, 210, 0.30);
+  --info-border: rgba(42, 161, 152, 0.30);
+  --success-border: rgba(133, 153, 0, 0.30);
+  --warning-border: rgba(181, 137, 0, 0.30);
+  --error-border: rgba(220, 50, 47, 0.30);
+  --muted-border: rgba(7, 54, 66, 0.18);
+
   --ui-overlay-bg: rgba(7, 54, 66, 0.04);
   --ui-overlay-bg-hover: rgba(7, 54, 66, 0.06);
   --ui-overlay-border: rgba(7, 54, 66, 0.14);
@@ -807,6 +824,36 @@
   --ui-code-border: rgba(7, 54, 66, 0.14);
   --ui-code-block-bg: rgba(7, 54, 66, 0.04);
   --ui-code-block-border: rgba(7, 54, 66, 0.14);
+}
+
+/* The Observer entity app's palette (contributed 2026-07-10): warm amber
+ * accent over a deep blue-black field — kit components rendered inside the
+ * entity view (sign-in card, pickers) match its chrome with this theme. */
+:root.theme-observer-night {
+  --bg-primary: #0b0f14;
+  --bg-secondary: #10161e;
+  --bg-tertiary: #161e28;
+  --text-primary: #d7dee8;
+  --text-secondary: #8593a5;
+  --text-muted: #5a6578;
+  --accent: #e8a54a;
+  --success: #7bc98c;
+  --warning: #e0af68;
+  --error: #d9705a;
+  --info: #6ea8d8;
+
+  --accent-subtle: rgba(232, 165, 74, 0.12);
+  --info-subtle: rgba(110, 168, 216, 0.12);
+  --success-subtle: rgba(123, 201, 140, 0.12);
+  --warning-subtle: rgba(224, 175, 104, 0.12);
+  --error-subtle: rgba(217, 112, 90, 0.12);
+
+  --accent-border: rgba(232, 165, 74, 0.35);
+  --info-border: rgba(110, 168, 216, 0.35);
+  --success-border: rgba(123, 201, 140, 0.35);
+  --warning-border: rgba(224, 175, 104, 0.35);
+  --error-border: rgba(217, 112, 90, 0.35);
+  --border-accent: rgba(232, 165, 74, 0.55);
 }
 
 :root.theme-tokyo-night {
