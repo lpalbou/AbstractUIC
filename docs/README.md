@@ -7,6 +7,8 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 ## Start here
 
 - **Getting started**: [`getting-started.md`](./getting-started.md)
+- **Adoption guide** (which shared component for which job + the contracts): [`adoption-guide.md`](./adoption-guide.md)
+- **Theming & design tokens** (adopt the shared look and feel): [`theming.md`](./theming.md)
 - **API reference**: [`api.md`](./api.md)
 - **FAQ**: [`faq.md`](./faq.md)
 - **Architecture + package boundaries**: [`architecture.md`](./architecture.md)
@@ -16,10 +18,10 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 ## Repo docs / policies
 
-- Changelog: [`CHANGELOG.md`](../CHANGELOG.md) (alias: `CHANGELOD.md`)
+- Changelog: [`CHANGELOG.md`](../CHANGELOG.md)
 - Contributing: [`CONTRIBUTING.md`](../CONTRIBUTING.md)
 - Security: [`SECURITY.md`](../SECURITY.md)
-- Acknowledgments: [`ACKNOWLEDMENTS.md`](../ACKNOWLEDMENTS.md)
+- Acknowledgments: [`ACKNOWLEDGMENTS.md`](../ACKNOWLEDGMENTS.md)
 - Agent-oriented docs: [`llms.txt`](../llms.txt) (index) and [`llms-full.txt`](../llms-full.txt) (generated)
 - License: [`LICENSE`](../LICENSE)
 

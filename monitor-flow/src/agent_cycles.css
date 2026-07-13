@@ -242,7 +242,7 @@
 .agent-observe-result {
   border: 1px solid var(--bg-tertiary);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--ui-surface-1, rgba(255, 255, 255, 0.02));
   overflow: hidden;
 }
 
@@ -289,7 +289,7 @@
 .agent-trace-entry {
   border: 1px solid var(--bg-tertiary);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--ui-surface-1, rgba(255, 255, 255, 0.02));
   overflow: hidden;
 }
 
@@ -380,7 +380,7 @@
 
 .agent-trace-tab {
   border: 1px solid var(--bg-tertiary);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--ui-surface-1, rgba(255, 255, 255, 0.02));
   color: var(--text-secondary);
   font-size: var(--font-size-xs, 11px);
   padding: 4px 8px;
@@ -389,13 +389,13 @@
 }
 
 .agent-trace-tab:hover {
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: var(--ui-border-2, rgba(255, 255, 255, 0.25));
   color: var(--text-primary);
 }
 
 .agent-trace-tab.active {
-  border-color: rgba(255, 255, 255, 0.35);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--ui-border-2, rgba(255, 255, 255, 0.35));
+  background: var(--ui-overlay-bg-hover, rgba(255, 255, 255, 0.06));
   color: var(--text-primary);
 }
 
@@ -406,7 +406,7 @@
   padding: 12px;
   border-radius: 10px;
   border: 1px solid var(--bg-tertiary);
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--ui-code-block-bg, rgba(0, 0, 0, 0.25));
   color: var(--text-primary);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -587,7 +587,7 @@
   border: 1px solid var(--bg-tertiary);
   border-radius: 10px;
   padding: 10px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--ui-surface-1, rgba(255, 255, 255, 0.02));
   min-width: 0;
 }
 
@@ -656,7 +656,7 @@
   padding: 1px 4px;
   border-radius: 8px;
   border: 1px solid var(--bg-tertiary);
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--ui-code-block-bg, rgba(0, 0, 0, 0.25));
 }
 
 .mf-md_pre {
@@ -664,7 +664,7 @@
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--bg-tertiary);
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--ui-code-block-bg, rgba(0, 0, 0, 0.25));
   overflow: auto;
   max-width: 100%;
   box-sizing: border-box;

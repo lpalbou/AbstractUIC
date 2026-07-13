@@ -495,8 +495,17 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
 
     const is_same = tts_playback.key === key;
     if (is_same && tts_playback.status === "playing") {
-      const off = Math.max(0, engine.ctx.currentTime - Number(tts_started_at_ref.current || 0));
-      tts_offset_ref.current = off;
+      // Compute the offset ONLY while a source is actually playing. During
+      // stream starvation (index past the buffered tail, no source) the
+      // started_at timestamp is stale from the finished segment — computing
+      // an offset from it grows unbounded and, applied to the NEXT segment
+      // on resume, skips nearly all of it (adversary P1, 2026-07-13).
+      if (tts_source_ref.current) {
+        const off = Math.max(0, engine.ctx.currentTime - Number(tts_started_at_ref.current || 0));
+        tts_offset_ref.current = off;
+      } else {
+        tts_offset_ref.current = 0; // starved: next segment plays from its start
+      }
       tts_paused_ref.current = true;
       stop_tts_source();
       set_tts_playback({ key, status: "paused" });
@@ -508,6 +517,11 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       if (tts_segments_ref.current.length > 0) {
         set_error?.("");
         tts_paused_ref.current = false;
+        // Render "playing" even when resume lands in a starved window (index
+        // past the buffered tail): playback auto-continues the moment the
+        // next segment arrives, and a stuck "paused" label over auto-playing
+        // audio is the dishonest render (adversary find).
+        set_tts_playback({ key, status: "playing" });
         start_stream_segment(key, tts_stream_gen_ref.current);
         return;
       }
@@ -535,6 +549,11 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
 
     stop_tts_source();
     tts_stream_gen_ref.current += 1;
+    // Non-stream requests ride the same generation guard: a stop_tts (or a
+    // newer toggle) mid-decode bumps the generation and this request's
+    // results — including its error — are dropped instead of resurrecting
+    // state or surfacing a stale failure (adversary find 2026-07-13).
+    const gen = tts_stream_gen_ref.current;
     tts_segments_ref.current = [];
     tts_seg_idx_ref.current = 0;
     tts_stream_done_ref.current = true;
@@ -550,15 +569,16 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
 
     try {
       const bytes = await tts!(t);
-      if (tts_loading_key_ref.current !== key) return; // stale response
+      if (tts_loading_key_ref.current !== key || tts_stream_gen_ref.current !== gen) return; // stale response
 
       const buffer = await decodeAudio(engine.ctx, bytes);
-      if (tts_loading_key_ref.current !== key) return; // stale response
+      if (tts_loading_key_ref.current !== key || tts_stream_gen_ref.current !== gen) return; // stale response
       tts_buffer_ref.current = buffer;
       tts_offset_ref.current = 0;
 
       await start_tts_playback(key, buffer, 0);
     } catch (e: any) {
+      if (tts_stream_gen_ref.current !== gen) return; // superseded/stopped: swallow the stale failure
       if (tts_loading_key_ref.current === key) {
         tts_loading_key_ref.current = "";
         tts_key_ref.current = "";
@@ -570,6 +590,9 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
 
   const [voice_ptt_recording, set_voice_ptt_recording] = useState<boolean>(false);
   const [voice_ptt_busy, set_voice_ptt_busy] = useState<boolean>(false);
+  // Busy twin readable from callbacks bound renders ago (the recorder's
+  // onstop) — the state value in those closures is stale (adversary find).
+  const voice_ptt_busy_ref = useRef(false);
   const voice_ptt_stream_ref = useRef<MediaStream | null>(null);
   const voice_ptt_recorder_ref = useRef<MediaRecorder | null>(null);
   const voice_ptt_chunks_ref = useRef<BlobPart[]>([]);
@@ -605,7 +628,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   async function transcribe_voice_blob(blob: Blob, mime: string): Promise<void> {
     set_error?.("");
     if (!blob || !blob.size) return;
-    if (voice_ptt_busy) return;
+    if (voice_ptt_busy_ref.current) return;
 
     const transcribe = opts_ref.current.transcribe;
     if (typeof transcribe !== "function") {
@@ -613,6 +636,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       return;
     }
 
+    voice_ptt_busy_ref.current = true;
     set_voice_ptt_busy(true);
     try {
       const text = String((await transcribe(blob, mime)) || "").trim();
@@ -620,6 +644,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     } catch (e: any) {
       set_error?.(String(e?.message || e || "Transcription failed"));
     } finally {
+      voice_ptt_busy_ref.current = false;
       set_voice_ptt_busy(false);
     }
   }
@@ -630,7 +655,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       set_error?.("Voice recording is not supported in this browser (MediaRecorder/getUserMedia unavailable).");
       return;
     }
-    if (voice_ptt_busy) return;
+    if (voice_ptt_busy_ref.current) return;
     if (voice_ptt_recording || voice_ptt_recorder_ref.current) return;
 
     voice_ptt_chunks_ref.current = [];

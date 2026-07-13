@@ -22,6 +22,7 @@ flowchart LR
   subgraph AbstractUIC
     UIKIT["@abstractframework/ui-kit"]
     CHAT["@abstractframework/panel-chat"]
+    APPSRV["@abstractframework/app-server"]
     FLOW["@abstractframework/monitor-flow"]
     AMX["@abstractframework/monitor-active-memory"]
     GPU["@abstractframework/monitor-gpu"]
@@ -33,6 +34,7 @@ flowchart LR
   CHAT -->|"peer dep"| React
   UIKIT -->|"peer dep"| React
   AMX -->|"peer dep"| React
+  APPSRV -->|"node:http only (no deps)"| Node["Node.js >= 18"]
 ```
 
 Evidence:
@@ -94,10 +96,40 @@ The widget expects JSON that can be interpreted by `extractUtilizationGpuPct(pay
 
 See: `monitor-gpu/src/gpu_metrics_api.js` and `monitor-gpu/src/monitor_gpu_widget.js`.
 
+## Gateway connection flow (`app-server` + `ui-kit`)
+
+Apps that talk to an AbstractGateway use the shared two-part connection surface: the
+`app-server` session proxy on the app's own origin, and the `ui-kit` modal + hook in the
+browser. The browser never holds the Gateway token.
+
+```mermaid
+sequenceDiagram
+  participant B as Browser (useGatewayConnection + GatewayConnectModal)
+  participant A as App server (createGatewaySessionProxy)
+  participant G as AbstractGateway
+
+  B->>A: GET /api/connection/gateway (boot probe)
+  A-->>B: { connected: false }
+  Note over B: hook resolves "disconnected" → modal auto-opens
+  B->>A: POST /api/connection/gateway { url, user, token }
+  A->>G: verify token (/me)
+  G-->>A: principal
+  A-->>B: Set-Cookie (HttpOnly session + CSRF) — token discarded
+  Note over B: sign-in success → modal self-closes
+  B->>A: /api/gateway/* (cookies + x-abstract-csrf)
+  A->>G: proxied with server-held session
+```
+
+- Contract details (auto-open rules, blocking vs dismissable, probe-once): see the
+  [Adoption guide](./adoption-guide.md) and `ui-kit/README.md`.
+- Evidence: `app-server/src/gateway_session_proxy.js`, `ui-kit/src/use_gateway_connection.ts`,
+  `ui-kit/src/gateway_connect_modal.tsx`.
+
 ## Styling & theming
 
-- `@abstractframework/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css` (exported as `@abstractframework/ui-kit/theme.css`).
+- `@abstractframework/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css` (exported as `@abstractframework/ui-kit/theme.css`) — 21 themes; see [Theming](./theming.md) for the token vocabulary and adoption rules.
 - Other packages use those variables where available, but include fallbacks (e.g. `var(--ui-border-1, rgba(...))`).
+- Non-CSS consumers can use the generated `ui-kit/palette_seeds.json` (4-token reduction per theme).
 
 See also: [Getting started](./getting-started.md) for integration + required CSS.
 

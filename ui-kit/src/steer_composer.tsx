@@ -18,7 +18,7 @@
  * H5 rite; the error detail renders verbatim (the contract says the refusal
  * text IS the operator guidance).
  */
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 export type SteerSubmitResult = { accepted: boolean; duplicate: boolean; seq: number };
 
@@ -149,6 +149,16 @@ export function SteerComposer(props: SteerComposerProps): React.ReactElement {
   const [status, setStatus] = useState<SteerStatus>({ kind: "idle" });
   const sendingRef = useRef(false);
 
+  // A "Queued (seq N)" badge must never survive a run switch — it would
+  // claim run B was steered when run A was (adversary find 2026-07-14).
+  // The generation also guards in-flight sends: a result from run A's send
+  // never stamps run B's UI.
+  const runGen = useRef(0);
+  useEffect(() => {
+    runGen.current += 1;
+    setStatus({ kind: "idle" });
+  }, [props.runId]);
+
   const canSend = !props.disabled && text.trim().length > 0 && status.kind !== "sending";
 
   const deliveryNote = useMemo(() => {
@@ -160,11 +170,13 @@ export function SteerComposer(props: SteerComposerProps): React.ReactElement {
     const guidance = text.trim();
     if (!guidance || sendingRef.current || props.disabled) return;
     sendingRef.current = true;
+    const gen = runGen.current;
     setStatus({ kind: "sending" });
     try {
       const result = props.submit
         ? await props.submit(props.runId, guidance)
         : await submitSteer({ runId: props.runId, guidance, commandsPath: props.commandsPath });
+      if (runGen.current !== gen) return; // run switched mid-flight: never stamp the new run's UI
       // A 200 with accepted:false is a REFUSAL, not a queue — saying
       // "Queued" over it would lie (adversary find 2026-07-13).
       if (!result.accepted && !result.duplicate) {
@@ -175,7 +187,7 @@ export function SteerComposer(props: SteerComposerProps): React.ReactElement {
       setText("");
       props.onSent?.({ ...result, guidance });
     } catch (e) {
-      setStatus({ kind: "error", detail: String((e as Error)?.message || e) });
+      if (runGen.current === gen) setStatus({ kind: "error", detail: String((e as Error)?.message || e) });
     } finally {
       sendingRef.current = false;
     }
@@ -196,7 +208,7 @@ export function SteerComposer(props: SteerComposerProps): React.ReactElement {
           className="af-steer__input"
           value={text}
           rows={2}
-          placeholder={props.placeholder || "Steer this run — guidance lands in its inbox…"}
+          placeholder={props.placeholder || "Steer this run…"}
           aria-label={props.ariaLabel || "Steer message"}
           disabled={props.disabled || status.kind === "sending"}
           onChange={(e) => {

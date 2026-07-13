@@ -121,6 +121,13 @@ export function GatewayConnectModal(props: GatewayConnectModalProps): React.Reac
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<GatewayConnectionState | null>(null);
+  // Self-close belt (B5): if a consumer's onClose is a no-op (blocking apps
+  // often pass one), the modal still leaves the screen after a successful
+  // sign-in. Reset when the consumer cycles isOpen.
+  const [selfClosed, setSelfClosed] = useState(false);
+  useEffect(() => {
+    if (!props.isOpen) setSelfClosed(false);
+  }, [props.isOpen]);
   const [gatewayUrl, setGatewayUrl] = useState(props.defaultGatewayUrl || "http://127.0.0.1:8080");
   const [userId, setUserId] = useState("admin");
   const [token, setToken] = useState("");
@@ -142,8 +149,13 @@ export function GatewayConnectModal(props: GatewayConnectModalProps): React.Reac
   const initialStatusConsumed = useRef(false);
   useEffect(() => {
     if (!props.isOpen) return;
-    if (!initialStatusConsumed.current && props.initialStatus !== undefined && props.initialStatus !== null) {
-      initialStatusConsumed.current = true;
+    const isFirstOpen = !initialStatusConsumed.current;
+    // Mark consumption on the FIRST open unconditionally: an open during
+    // the loading phase (seed still null) must not shift seed consumption
+    // to the SECOND open — later opens always probe fresh (B5 reviewer F5,
+    // 2026-07-14).
+    initialStatusConsumed.current = true;
+    if (isFirstOpen && props.initialStatus !== undefined && props.initialStatus !== null) {
       const s = props.initialStatus;
       applyStatus(s);
       if (typeof s.gateway_url === "string" && s.gateway_url.trim()) setGatewayUrl(normalizeGatewayUrl(s.gateway_url));
@@ -168,13 +180,19 @@ export function GatewayConnectModal(props: GatewayConnectModalProps): React.Reac
   useEffect(() => {
     if (!props.isOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !props.blocking) props.onClose();
+      // Consumed-event convention (unified-top-bar contract statement 11):
+      // ESC closes the TOPMOST layer only. The modal is the top layer, so it
+      // consumes the event; already-consumed events belong to a layer above.
+      if (e.key === "Escape" && !e.defaultPrevented && !props.blocking) {
+        e.preventDefault();
+        props.onClose();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [props.isOpen, props.blocking, props.onClose]);
 
-  if (!props.isOpen) return null;
+  if (!props.isOpen || selfClosed) return null;
 
   const handleSignIn = async () => {
     setSaving(true);
@@ -189,7 +207,13 @@ export function GatewayConnectModal(props: GatewayConnectModalProps): React.Reac
       );
       applyStatus(s);
       setToken("");
-      setNotice("Signed in.");
+      // B5 (operator incident 2026-07-13): after a SUCCESSFUL sign-in the APP
+      // is the confirmation — the modal closes itself (both variants; blocking
+      // gates dismissal while signed out, never after success). The stay-open
+      // behavior is sign-OUT's design, and applying it here parked a "Signed
+      // in." modal over every app whose consumer didn't wire the close.
+      setSelfClosed(true);
+      props.onClose();
     } catch (e) {
       setError(String((e as Error)?.message || e));
     } finally {

@@ -138,7 +138,9 @@
 .pc-md_quote {
   margin: 10px 0;
   padding: 10px 12px;
-  border-left: 3px solid rgba(96, 165, 250, 0.55);
+  /* Info-toned quote bar rides the theme (a hardcoded light-blue washed out
+   * on light themes — theme audit 2026-07-13). */
+  border-left: 3px solid var(--info, rgba(96, 165, 250, 0.55));
   border-radius: 10px;
   background: var(--ui-surface-1, rgba(0, 0, 0, 0.18));
 }
@@ -174,10 +176,11 @@
 .pc-md_hl {
   border-radius: 6px;
   padding: 0 3px;
-  border: 1px solid rgba(251, 191, 36, 0.30);
-  background: rgba(251, 191, 36, 0.10);
-  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.10), 0 10px 30px rgba(0, 0, 0, 0.50);
-  color: rgba(251, 191, 36, 0.98);
+  /* Warning-toned highlight rides the theme; the hardcoded amber was
+   * near-invisible on light themes (theme audit 2026-07-13). */
+  border: 1px solid var(--warning-border, rgba(251, 191, 36, 0.30));
+  background: var(--warning-subtle, rgba(251, 191, 36, 0.10));
+  color: var(--warning, rgba(251, 191, 36, 0.98));
 }
 
 /* JSON viewer */
@@ -342,13 +345,22 @@
   background: var(--ui-surface-1, rgba(0, 0, 0, 0.18));
   color: var(--text-primary, rgba(255, 255, 255, 0.92));
   outline: none;
+  /* Bare textareas fall to the UA's monospace form font — the app stack must
+   * be explicit (operator fix 2026-07-13: "the font is terrible"). */
+  font-family: var(--font-sans, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
   font-size: var(--font-size-md, 13px);
   line-height: 1.35;
 }
 
+.pc-composer__textarea::placeholder {
+  color: var(--text-muted, #666);
+  opacity: 1; /* Firefox dims placeholders by default — one look everywhere */
+}
+
 .pc-composer__textarea:focus {
-  border-color: rgba(96, 165, 250, 0.35);
-  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.12);
+  /* Accent-toned focus ring rides the theme (theme audit 2026-07-13). */
+  border-color: var(--accent-border, rgba(96, 165, 250, 0.35));
+  box-shadow: 0 0 0 2px var(--accent-subtle, rgba(96, 165, 250, 0.12));
 }
 
 /* Prevent iOS Safari auto-zoom on focus (needs >= 16px). */
@@ -376,6 +388,82 @@
 /* Chat thread + message cards                                         */
 /* ------------------------------------------------------------------ */
 
+/* --- AssistantPanel (the shared app assistant; unified top-bar plan) --- */
+
+.pc-assistant {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.pc-assistant__thread {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  gap: 10px;
+}
+
+.pc-assistant__composer {
+  border-top: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
+  padding: 10px 12px;
+}
+
+.pc-assistant__empty {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 8px;
+}
+
+.pc-assistant__empty-text {
+  color: var(--text-muted, #888);
+  font-size: var(--font-size-sm, 12px);
+  line-height: 1.5;
+}
+
+.pc-assistant__suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.pc-assistant__suggestion {
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.12));
+  border-radius: 999px;
+  padding: 5px 12px;
+  background: var(--ui-overlay-bg, rgba(0, 0, 0, 0.16));
+  color: var(--text-secondary, #aaa);
+  font: inherit;
+  font-size: var(--font-size-sm, 12px);
+  cursor: pointer;
+  text-align: left;
+}
+
+.pc-assistant__suggestion:hover:not(:disabled) {
+  color: var(--text-primary, #eee);
+  border-color: var(--ui-border-2, rgba(255, 255, 255, 0.2));
+}
+
+.pc-assistant__suggestion:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pc-assistant__blocked {
+  border: 1px solid var(--warning-border, rgba(251, 191, 36, 0.3));
+  border-radius: var(--radius-md, 8px);
+  background: var(--warning-subtle, rgba(251, 191, 36, 0.1));
+  color: var(--warning, #fbbf24);
+  font-size: var(--font-size-sm, 12px);
+  padding: 8px 10px;
+}
+
 .pc-chat-thread {
   display: flex;
   flex-direction: column;
@@ -383,6 +471,9 @@
   min-width: 0;
   max-width: 100%;
   overflow: auto;
+  /* Scrolling the thread must never chain into the page/drawer behind it
+   * (design adversary B). */
+  overscroll-behavior: contain;
   padding-right: 4px;
 }
 
@@ -621,7 +712,7 @@
   padding: 1px 6px;
   border-radius: 999px;
   border: 1px solid var(--ui-border-2, rgba(255, 255, 255, 0.14));
-  background: rgba(148, 163, 184, 0.08);
+  background: var(--ui-pill-bg, rgba(148, 163, 184, 0.08));
   color: var(--text-secondary, rgba(255, 255, 255, 0.80));
   flex: 0 0 auto;
 }

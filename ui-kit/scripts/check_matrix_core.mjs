@@ -49,7 +49,7 @@ function payload_fixture() {
     schema_version: 1,
     phases: [
       { id: "visit", label: "Visit" },
-      { id: "own_time", label: "Own time", hint: "brake = enabled + grant" },
+      { id: "personal", label: "Personal", hint: "brake = enabled + grant" },
       { id: "sleep", label: "Sleep" },
     ],
     sections: [
@@ -61,7 +61,7 @@ function payload_fixture() {
             id: "web_search",
             cells: {
               visit: cell(),
-              own_time: cell(),
+              personal: cell(),
               sleep: cell(),
             },
           },
@@ -69,7 +69,7 @@ function payload_fixture() {
             id: "write_file",
             cells: {
               visit: cell(),
-              own_time: cell(),
+              personal: cell(),
               sleep: cell({
                 resolved_value: false,
                 availability: "structurally_unavailable",
@@ -93,7 +93,7 @@ function payload_fixture() {
                 trust_state: "requires_review",
                 reason: "unverified skill: scripts present",
               }),
-              own_time: cell({
+              personal: cell({
                 resolved_value: false,
                 availability: "trust_gated",
                 trust_state: "blocked",
@@ -179,7 +179,7 @@ function payload_fixture() {
   check("requires_review interactive", review.interactive === true);
   check("requires_review flagged as approval act", review.approval_required === true);
 
-  const blocked = resolveCellView(payload, [], "skills", "coredoc", "own_time");
+  const blocked = resolveCellView(payload, [], "skills", "coredoc", "personal");
   check("trust blocked not interactive", blocked.interactive === false);
 
   const absent = resolveCellView(payload, [], "skills", "coredoc", "sleep");
@@ -215,7 +215,7 @@ function payload_fixture() {
   // Structural resolution wins regardless of the operator word, so clearing
   // is KNOWABLE — but structurally blocked cells are not interactive anyway;
   // model the knowable case with provenance=default:
-  const view_default = resolveCellView(v.payload, [{ section: "tools", item: "web_search", phase: "own_time", op: "clear" }], "tools", "web_search", "own_time");
+  const view_default = resolveCellView(v.payload, [{ section: "tools", item: "web_search", phase: "personal", op: "clear" }], "tools", "web_search", "personal");
   check("clear on default-resolved cell shows the known default", view_default.effective_value === true);
 }
 
@@ -263,7 +263,7 @@ function payload_fixture() {
   const before = [...patches];
   patches = applyCellAction(payload, patches, { section: "tools", item: "write_file", phase: "sleep", op: "grant" });
   check("act on structural cell refused", patches.length === before.length);
-  patches = applyCellAction(payload, patches, { section: "skills", item: "coredoc", phase: "own_time", op: "grant" });
+  patches = applyCellAction(payload, patches, { section: "skills", item: "coredoc", phase: "personal", op: "grant" });
   check("act on blocked cell refused", patches.length === before.length);
   patches = applyCellAction(payload, patches, { section: "skills", item: "coredoc", phase: "sleep", op: "grant" });
   check("act on absent cell refused", patches.length === before.length);
@@ -304,7 +304,7 @@ function payload_fixture() {
   const stale = [
     { section: "tools", item: "uninstalled_tool", phase: "visit", op: "deny" }, // item gone
     { section: "tools", item: "write_file", phase: "sleep", op: "grant" },      // structural now
-    { section: "skills", item: "coredoc", phase: "own_time", op: "grant" },     // trust-blocked
+    { section: "skills", item: "coredoc", phase: "personal", op: "grant" },     // trust-blocked
     { section: "tools", item: "web_search", phase: "visit", op: "deny" },       // live
     { section: "tools", item: "web_search", phase: "visit", op: "grant" },      // duplicate (first wins)
   ];

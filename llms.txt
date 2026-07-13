@@ -43,15 +43,18 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 - [README](README.md): overview, package map, ecosystem context
 - [Getting started](docs/getting-started.md): install/integrate, required CSS, quick examples, Next.js notes
+- [Adoption guide](docs/adoption-guide.md): which shared component for which job + the cross-app contracts (connection surface, server truth, labeled fallbacks)
+- [Theming](docs/theming.md): design-token vocabulary, 21-theme system, adoption/migration rules for host apps
 - [API reference](docs/api.md): export map per package (what to import)
-- [Architecture](docs/architecture.md): package boundaries + diagrams (incl. ecosystem data flow)
+- [Architecture](docs/architecture.md): package boundaries + diagrams (incl. ecosystem data flow and the gateway connection flow)
 - [FAQ](docs/faq.md): bundling/CSS/SSR and per-package notes
 - [Docs index](docs/README.md): full docs navigation
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens, typography helpers, selects, Gateway session sign-in card, icons
+- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk)
 - [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers
+- [@abstractframework/app-server](app-server/src/index.js): Node gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
 - [@abstractframework/monitor-gpu](monitor-gpu/README.md): GPU widget (`<monitor-gpu>`) + backend contract
@@ -66,6 +69,10 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [monitor-gpu/package.json](monitor-gpu/package.json): published metadata (`exports`)
 - [ui-kit/src/index.ts](ui-kit/src/index.ts): exports for `@abstractframework/ui-kit`
 - [ui-kit/src/gateway_session_signin.tsx](ui-kit/src/gateway_session_signin.tsx): shared Gateway browser-session sign-in card
+- [ui-kit/src/use_gateway_connection.ts](ui-kit/src/use_gateway_connection.ts): the connection state machine hook (probe/auto-open/self-close contract)
+- [ui-kit/palette_seeds.json](ui-kit/palette_seeds.json): generated 4-token palette per theme (for non-CSS consumers)
+- [app-server/src/gateway_session_proxy.js](app-server/src/gateway_session_proxy.js): gateway session proxy (cookie exchange, CSRF, URL pinning)
+- [app-server/src/index.d.ts](app-server/src/index.d.ts): TS types for `createGatewaySessionProxy`
 - [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
 - [panel-chat/src/types.ts](panel-chat/src/types.ts): `PanelChatMessage` contract
 - [panel-chat/src/message_content.tsx](panel-chat/src/message_content.tsx): JSON autodetect + Markdown override hook (`renderMarkdown`)
@@ -86,5 +93,5 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Contributing](CONTRIBUTING.md): contribution workflow and expectations
 - [Security policy](SECURITY.md): responsible vulnerability reporting
 - [Changelog](CHANGELOG.md): notable changes by version
-- [Acknowledgments](ACKNOWLEDMENTS.md): upstream credits
+- [Acknowledgments](ACKNOWLEDGMENTS.md): upstream credits
 - [License](LICENSE): MIT license text

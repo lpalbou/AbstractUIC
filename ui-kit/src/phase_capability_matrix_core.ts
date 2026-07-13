@@ -83,7 +83,7 @@ export type MatrixSection = {
 export type MatrixPhase = {
   id: string;
   label?: string;
-  /** Optional server-supplied hint (e.g. own_time "brake = enabled + grant"). */
+  /** Optional server-supplied hint (e.g. the personal phase's "brake = enabled + grant"). */
   hint?: string;
 };
 

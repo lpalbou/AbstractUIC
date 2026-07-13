@@ -22,6 +22,7 @@
 
 import * as http from "node:http";
 import * as https from "node:https";
+import { timingSafeEqual as cryptoTimingSafeEqual } from "node:crypto";
 
 const TRUE_VALUES = new Set(["1", "true", "yes", "y", "on"]);
 const HOP_BY_HOP_HEADERS = new Set([
@@ -111,11 +112,29 @@ function sendJson(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
+// Connection-endpoint bodies are tiny (a token + url); an unbounded buffer
+// would let one client balloon memory (adversary find 2026-07-13).
+const MAX_CONNECTION_BODY_BYTES = 64 * 1024;
+
 function readRequestJson(req) {
   return new Promise((resolve) => {
     const chunks = [];
-    req.on("data", (chunk) => chunks.push(chunk));
+    let size = 0;
+    let overflow = false;
+    req.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > MAX_CONNECTION_BODY_BYTES) {
+        overflow = true;
+        chunks.length = 0;
+        return;
+      }
+      if (!overflow) chunks.push(chunk);
+    });
     req.on("end", () => {
+      if (overflow) {
+        resolve({});
+        return;
+      }
       try {
         const raw = Buffer.concat(chunks).toString("utf8");
         resolve(raw ? JSON.parse(raw) : {});
@@ -125,6 +144,14 @@ function readRequestJson(req) {
     });
     req.on("error", () => resolve({}));
   });
+}
+
+/** Constant-time string equality for credential comparison. */
+function timingSafeEqualStr(a, b) {
+  const ab = Buffer.from(String(a || ""), "utf8");
+  const bb = Buffer.from(String(b || ""), "utf8");
+  if (ab.length !== bb.length) return false;
+  return cryptoTimingSafeEqual(ab, bb);
 }
 
 function mutatingMethod(method) {
@@ -202,9 +229,36 @@ export function createGatewaySessionProxy(options) {
     return h === "localhost" || h === "localhost.localdomain" || h === "::1" || h.startsWith("127.");
   }
 
+  /**
+   * True only when the request's real transport peer is the loopback
+   * interface. This reads req.socket.remoteAddress — the connection's actual
+   * source, which the client CANNOT forge — NOT the Host header, which it
+   * can. IPv4-mapped IPv6 (::ffff:127.0.0.1) is unwrapped. This is the SSRF
+   * gate: a LAN peer sending `Host: localhost` against an all-interfaces
+   * bind must NOT unlock browser-supplied gateway URLs (security report
+   * entity c1768, live-exposed per agency c1770; endorsed by continuum
+   * c1769 whose hub proxy carries the operator's seat key on the same port).
+   */
+  function isLoopbackPeer(req) {
+    let addr = String(req?.socket?.remoteAddress || "").trim().toLowerCase();
+    if (!addr) return false;
+    if (addr.startsWith("::ffff:")) addr = addr.slice(7); // IPv4-mapped IPv6
+    return addr === "::1" || addr === "127.0.0.1" || addr.startsWith("127.");
+  }
+
   function remoteConfigAllowed(req) {
+    // Explicit operator opt-in wins (deployments behind their own access
+    // control).
     if (anyEnvBool(REMOTE_CONFIG_ENVS)) return true;
-    return isLoopbackHostname(requestHostname(req));
+    // When proxy headers are trusted, the socket peer is the reverse proxy,
+    // not the client — a loopback-by-socket check would unlock remote-config
+    // for EVERY forwarded client (code's mirror point, c1772). Such
+    // deployments must set the explicit opt-in above; there is no
+    // socket-derived unlock behind a trusted proxy.
+    if (anyEnvBool(TRUST_PROXY_ENVS)) return false;
+    // Otherwise the ONLY unlock is a genuine loopback PEER — the Host header
+    // is never trusted for this decision.
+    return isLoopbackPeer(req);
   }
 
   function remoteConfigDenial(req) {
@@ -422,7 +476,9 @@ export function createGatewaySessionProxy(options) {
     }
     if (mutatingMethod(req.method)) {
       const presented = String(req.headers[APP_CSRF_HEADER] || req.headers[CANONICAL_CSRF_HEADER] || "").trim();
-      if (!session.csrfToken || presented !== session.csrfToken) {
+      // Constant-time compare: token equality must not leak match length
+      // through timing (adversary find 2026-07-13; local origin, cheap belt).
+      if (!session.csrfToken || !timingSafeEqualStr(presented, session.csrfToken)) {
         sendJson(res, 403, { detail: "Gateway browser session CSRF token missing or invalid", reason_code: "csrf_required" });
         return;
       }
@@ -437,6 +493,10 @@ export function createGatewaySessionProxy(options) {
     // The gateway must never see the browser's cookies or any client-supplied
     // Authorization header — the server-held session is the only credential.
     const headers = { ...req.headers, host: backend.url.host };
+    // Hop-by-hop headers are connection-scoped and must not be forwarded on
+    // the upstream leg either (response side already strips them —
+    // adversary find 2026-07-13 closed the request side).
+    for (const h of HOP_BY_HOP_HEADERS) delete headers[h];
     delete headers.cookie;
     // Node lowercases incoming header names, but keep both spellings for any
     // non-node caller of this helper (observer DM 2026-07-12, flow's belt).

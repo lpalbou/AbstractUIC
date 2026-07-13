@@ -2,6 +2,7 @@ export { THEMES, THEME_SPECS, applyTheme, getThemeSpec, themeClassName, type The
 export { FONT_SCALES, HEADER_DENSITIES, applyTypography, getFontScaleSpec, getHeaderDensitySpec, type FontScaleOption, type HeaderDensityOption } from "./typography.js";
 export { AfSelect, type AfSelectProps, type AfSelectOption } from "./af_select.js";
 export { ProviderModelSelect, type ProviderModelSelectProps, type ProviderOption } from "./provider_model_select.js";
+export { ProviderModelPicker, type ProviderModelPickerProps, type ProviderModelPickerValue } from "./provider_model_picker.js";
 export {
   GatewaySessionSignInCard,
   type GatewaySessionSignInCardProps,
@@ -62,9 +63,17 @@ export {
   type GatewayConnectionState,
 } from "./gateway_connect_modal.js";
 export {
+  useGatewayConnection,
+  isGatewayConnected,
+  type GatewayConnection,
+  type GatewayConnectionPhase,
+  type UseGatewayConnectionOptions,
+} from "./use_gateway_connection.js";
+export {
   SteerComposer,
   submitSteer,
   readGatewayCsrfToken,
+  readGatewayCsrfTokens,
   type SteerComposerProps,
   type SteerSubmitResult,
 } from "./steer_composer.js";
@@ -76,4 +85,14 @@ export {
   type DisclosureListHandle,
 } from "./disclosure_list.js";
 export { AfChip, AfChipButton, afChipHue, type AfChipProps, type AfChipButtonProps, type AfChipTone } from "./af_chip.js";
+export { AfDrawer, type AfDrawerProps } from "./af_drawer.js";
+export { AfTopBarActions, type AfTopBarActionsProps } from "./af_top_bar_actions.js";
+export {
+  AfAppearanceDialog,
+  useAppearanceSettings,
+  appearanceStorageKey,
+  APPEARANCE_DEFAULTS,
+  type AppearanceSettings,
+  type AfAppearanceDialogProps,
+} from "./appearance.js";
 export { useGatewayVoice, streamTtsJsonl, type GatewayVoice, type GatewayVoiceOptions, type TtsPlaybackStatus } from "./use_gateway_voice.js";

@@ -35,7 +35,12 @@ export type IconName =
   | "agent"
   | "playCircle"
   | "list"
-  | "gear";
+  | "gear"
+  // Unified top-bar glyphs (consensus plan 2026-07-13; flow's local
+  // IconSparkle/IconContrast absorbed).
+  | "sparkle"
+  | "contrast"
+  | "logout";
 
 /** Icons drawn on continuum's 16x16 grid (stroke 1.4) vs the kit's 24-grid (stroke 2). */
 const GRID_16: ReadonlySet<IconName> = new Set(["board", "inbox", "server", "agent", "playCircle", "list", "gear"]);
@@ -271,6 +276,28 @@ function paths(name: IconName): React.ReactNode {
           <path d="M11.1 11.1l1.4 1.4" />
           <path d="M12.5 3.5l-1.4 1.4" />
           <path d="M4.9 11.1l-1.4 1.4" />
+        </>
+      );
+    case "sparkle":
+      return (
+        <>
+          <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+          <path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" />
+        </>
+      );
+    case "contrast":
+      return (
+        <>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none" />
+        </>
+      );
+    case "logout":
+      return (
+        <>
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <path d="M16 17l5-5-5-5" />
+          <path d="M21 12H9" />
         </>
       );
     default:

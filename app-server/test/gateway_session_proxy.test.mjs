@@ -55,6 +55,14 @@ function startStubGateway() {
 
 function startAppServer(proxy) {
   const server = http.createServer((req, res) => {
+    // Test hook: the server binds to 127.0.0.1, so the real socket peer is
+    // always loopback. To exercise the non-loopback SSRF gate deterministically,
+    // an `x-test-peer` header spoofs the transport peer address the proxy
+    // reads (req.socket.remoteAddress) — simulating a LAN client.
+    const spoofPeer = req.headers["x-test-peer"];
+    if (spoofPeer) {
+      Object.defineProperty(req.socket, "remoteAddress", { value: String(spoofPeer), configurable: true });
+    }
     const pathname = new URL(req.url, "http://local").pathname;
     if (proxy.handle(req, res, pathname)) return;
     res.writeHead(200, { "Content-Type": "text/plain" });
@@ -170,43 +178,39 @@ let cookieHeader = "";
 
 // ----------------------------------------------- URL pinning (browser cannot redirect)
 {
-  const evil = await call(appPort, "/api/gateway/echo", {
-    headers: { Cookie: `${cookieHeader.replace(/testapp_gateway_url=[^;]+/, "testapp_gateway_url=http%3A%2F%2F127.0.0.1%3A1")}` },
+  // Dev posture: a genuine LOOPBACK peer may point the cookie at another
+  // loopback gateway (the cookie URL is honored). Points at the stub itself
+  // so the proxied call still succeeds.
+  const loopbackCookie = cookieHeader.replace(
+    /testapp_gateway_url=[^;]+/,
+    `testapp_gateway_url=${encodeURIComponent(`http://127.0.0.1:${gwPort}`)}`
+  );
+  const devOk = await call(appPort, "/api/gateway/echo", { headers: { Cookie: loopbackCookie } });
+  check("loopback peer honors cookie gateway URL (dev posture)", devOk.status === 200 && devOk.json?.session === "sess-1");
+
+  // SSRF GATE (entity c1768): a NON-loopback peer that spoofs `Host: localhost`
+  // must NOT unlock the cookie-supplied gateway URL — the proxy pins to the
+  // server default and never relays to the attacker origin. The peer address
+  // is the connection's real source (unforgeable); the Host header is not
+  // consulted for this decision.
+  const attack = await call(appPort, "/api/gateway/echo", {
+    headers: {
+      Cookie: cookieHeader.replace(/testapp_gateway_url=[^;]+/, "testapp_gateway_url=http%3A%2F%2Fevil%3A1"),
+      Host: "localhost", // spoofed — must be ignored
+      "x-test-peer": "192.168.1.50", // real LAN peer
+    },
   });
-  // Loopback host: cookie URL is allowed by the loopback rule — the pin test
-  // is the DEFAULT non-loopback posture. fetch/undici refuses to override the
-  // Host header, so spoof it with a raw http request.
-  const pinned = await new Promise((resolve) => {
-    const req = http.request(
-      {
-        hostname: "127.0.0.1",
-        port: appPort,
-        path: "/api/gateway/echo",
-        method: "GET",
-        headers: {
-          Cookie: cookieHeader.replace(/testapp_gateway_url=[^;]+/, "testapp_gateway_url=http%3A%2F%2Fevil%3A1"),
-          Host: "app.example.com",
-        },
-      },
-      (res) => {
-        const chunks = [];
-        res.on("data", (c) => chunks.push(c));
-        res.on("end", () => {
-          let json = null;
-          try {
-            json = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-          } catch {
-            json = null;
-          }
-          resolve({ status: res.statusCode, json });
-        });
-      }
-    );
-    req.on("error", () => resolve({ status: 0, json: null }));
-    req.end();
+  // Pinned to the (reachable) default stub, so the call succeeds with the
+  // server session — proving the attacker URL was dropped, not relayed.
+  check("non-loopback peer + spoofed Host: localhost → cookie URL IGNORED (SSRF gate)", attack.status === 200 && attack.json?.session === "sess-1");
+
+  // POST gateway_url change from a non-loopback peer is refused outright.
+  const attackPost = await call(appPort, "/api/connection/gateway", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-test-peer": "192.168.1.50", Host: "localhost" },
+    body: JSON.stringify({ gateway_user_id: "admin", gateway_token: "good-token", gateway_url: "http://evil:1" }),
   });
-  check("non-loopback host ignores cookie URL (pinned to default)", pinned.status === 200 && pinned.json?.session === "sess-1");
-  check("loopback probe still succeeded (dev posture)", evil.status === 0 || evil.status === 502 || evil.status === 200);
+  check("non-loopback peer cannot POST a remote gateway_url (403)", attackPost.status === 403);
 }
 
 // ------------------------------------------------------------------ sign out

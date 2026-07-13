@@ -170,7 +170,24 @@ function DisclosureListInner<T>(
 
   const moveFocus = (from: string | null, delta: number) => {
     if (focusableRows.length === 0) return;
-    const idx = from ? focusableRows.findIndex((r) => r.key === from) : -1;
+    let idx = from ? focusableRows.findIndex((r) => r.key === from) : -1;
+    if (idx < 0 && from) {
+      // Keydown can originate on a NON-selectable row (click-focused static
+      // row): move to its nearest focusable neighbor in the delta direction
+      // instead of jumping to the list's first/last (adversary find).
+      const fullIdx = rows.findIndex((r) => r.key === from);
+      if (fullIdx >= 0) {
+        for (let j = fullIdx + delta; j >= 0 && j < rows.length; j += delta) {
+          if (rows[j].selectable !== false) {
+            const neighbor = rows[j];
+            focusRow(neighbor.key);
+            select(neighbor);
+            return;
+          }
+        }
+        return; // no focusable neighbor in that direction
+      }
+    }
     const next = idx < 0 ? (delta > 0 ? 0 : focusableRows.length - 1) : Math.min(Math.max(idx + delta, 0), focusableRows.length - 1);
     const row = focusableRows[next];
     if (!row || row.key === from) return;
@@ -235,16 +252,25 @@ function DisclosureListInner<T>(
     if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
       const now = Date.now();
       const state = typeaheadRef.current;
-      state.buffer = now - state.at > 600 ? e.key : state.buffer + e.key;
+      const extending = now - state.at <= 600;
+      state.buffer = extending ? state.buffer + e.key : e.key;
       state.at = now;
       const needle = state.buffer.toLowerCase();
       const startIdx = focusableRows.findIndex((r) => r.key === row.key);
-      const ordered = [...focusableRows.slice(startIdx + 1), ...focusableRows.slice(0, startIdx + 1)];
+      // A GROWING buffer keeps the current row while it still matches
+      // ("ca" → "cas" must not hop to a later "cas…" sibling — adversary
+      // find); a fresh single-char press searches from the NEXT row (the
+      // standard cycle-through-initials behavior).
+      const ordered = extending
+        ? [...focusableRows.slice(startIdx), ...focusableRows.slice(0, startIdx)]
+        : [...focusableRows.slice(startIdx + 1), ...focusableRows.slice(0, startIdx + 1)];
       const hit = ordered.find((r) => r.textValue.toLowerCase().startsWith(needle));
       if (hit) {
         e.preventDefault();
-        focusRow(hit.key);
-        select(hit);
+        if (hit.key !== row.key) {
+          focusRow(hit.key);
+          select(hit);
+        }
       }
     }
   };

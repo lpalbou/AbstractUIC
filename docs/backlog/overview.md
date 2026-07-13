@@ -15,7 +15,7 @@ carries its own code-reality citations.
 
 ## Counts
 - Planned: 10 (0001-0008, 0014, 0019)
-- Proposed: 9 (0009-0013, 0015-0018)
+- Proposed: 16 (0009-0013, 0015-0018, 0020-0026)
 - Completed: 0
 - Deprecated: 0
 - Recurrent: 1 (backlog hygiene)
@@ -57,6 +57,13 @@ carries its own code-reality citations.
 | 0016 | abstractcode tool_picker → ToolPolicyEditor | abstractcode | Fourth tool-selection surface; abstractcode seat opt-in |
 | 0017 | AttachmentDropZone | flow, observer, abstractcode | Two of three consumers opt in; injected uploader |
 | 0018 | CopyButton / useCopied | all three apps + kit internals | Any consumer opts in; candidate to ride 0011 |
+| 0020 | AfMultiSelect absorption | continuum, observer, abstractcode/web | New census evidence supersedes the 2026-07-11 anti-rec; consumers opt in |
+| 0021 | Delete-the-forks wave (5 forks, kit ships all) | flow×3, observer, continuum | Consumer import swaps only; asks filed per app |
+| 0022 | Pin/node color tokens (--pin-*) | flow (179 hex), observer legend (drifted) | Flow + observer accept token consumption |
+| 0023 | Gateway console consumes kit theme | gateway console.py | Gateway seat accepts serving mechanism (supersedes-in-part 0012's scope) |
+| 0024 | entity.css tokenization | abstractentity | Entity seat opt-in; observer-night values already in kit |
+| 0025 | Non-visual gateway-client sibling package | observer, abstractcode/web, continuum (~2,100 dup lines) | Cross-seat decision; NOT ui-kit (no React/CSS) |
+| 0026 | Cognition wave monitor (monitor-cognition) | prototype live (untracked/cognition-monitor, 3 forms) | Operator picks a direction from the test page |
 
 ## Process
 - Items follow the four-digit global-ID convention (`NNNN_snake_case.md`);
@@ -71,6 +78,22 @@ carries its own code-reality citations.
   vendor attribution; degraded paths labeled #FALLBACK.
 
 ## Planning notes
+- 2026-07-13 (evening): operator-directed two-adversary wave (themes/aesthetics
+  + framework-wide ownership census). THEME HALF executed same-day, not filed:
+  full WCAG contrast audit over all 20 theme blocks found 62 failing pairs →
+  every one fixed hue-preserving (18 themes touched; worst: everforest-light 7,
+  solarized-dark 6; two themes had accent===success — disambiguated with
+  in-family hues); subtle/border rgba twins synced (63); per-theme syntax
+  overrides added for nord/gruvbox/dracula/everforest-dark/solarized-dark;
+  audit installed as `scripts/audit_theme_contrast.mjs` (report + --strict
+  gate at 3.0 floor, wired into npm test); panel-chat quote/highlight/focus
+  literals + agent_cycles white-alpha literals tokenized. CENSUS HALF filed as
+  0020-0025. Census also reconfirmed 0010 (Monaco renderer twins) and 0011
+  (modal shell, high variance) with fresh evidence; continuum lacking theme
+  switching noted as their cheapest unification win (their lane). Styling
+  heterogeneity ranking for the unification push: gateway console (no kit
+  consumption) > entity (own vocabulary) > flow/observer/code (partial) >
+  continuum (tokenized, no switching).
 - 2026-07-12: census gap-check (third adversary pass over previously
   uncovered ground) added 0015-0018; checked-clean list recorded there:
   settings panels, connection orbs, tab bars, accordions, empty states,

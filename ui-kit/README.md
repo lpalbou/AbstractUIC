@@ -98,3 +98,94 @@ maintainer's 2026-07-12 ruling:
 - **Probe once**: apps that probe at boot pass the result to the modal via
   `initialStatus` so opening it does not re-probe; the modal refreshes
   itself after sign-in/out (those change the answer).
+- **The state machine is code, not prose (B5, 2026-07-13)**: use
+  `useGatewayConnection({ appName, variant: "blocking" | "dismissable" })`
+  and spread `modalProps` into `GatewayConnectModal`. The hook owns the
+  whole contract — probe once at boot, auto-open only on a RESOLVED
+  disconnect, close on sign-in success (the modal also self-closes; after a
+  successful sign-in the APP is the confirmation, never a parked modal),
+  stay open on sign-out, re-arm per signed-out episode. Do not hand-roll
+  this machine in apps; the drift is exactly what shipped the
+  signed-in-but-modal-parked bug across consumers.
+
+## Unified top-right corner (plans/unified-top-bar.md)
+
+Every app renders the same upper-right cluster (operator directive
+2026-07-13): assistant button → appearance button → app extras →
+Disconnect pill, always rightmost.
+
+```tsx
+const conn = useGatewayConnection({ appName: "My App", variant: "dismissable" });
+const [appearance, setAppearance] = useAppearanceSettings("my-app", { legacyKey: "myapp_ui_v1" });
+
+<AfTopBarActions
+  assistant={{ open: drawerOpen, onToggle: () => setDrawerOpen((v) => !v) }}
+  appearance={{ onOpen: () => setAppearanceOpen(true) }}
+  connection={{ phase: conn.phase, signingOut: conn.signingOut,
+                onConnect: conn.openModal, onDisconnect: () => void conn.signOut() }}
+/>
+<AfDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} label="Assistant" title="Assistant">
+  <AssistantPanel ask={myTransport} blockedNotice={conn.connected ? undefined : "Connect to use the assistant."} />
+</AfDrawer>
+<AfAppearanceDialog open={appearanceOpen} onClose={() => setAppearanceOpen(false)}
+                    value={appearance} onChange={setAppearance} />
+<GatewayConnectModal {...conn.modalProps} />
+```
+
+Rules (the behavior contract lives in the consensus doc):
+
+- The connection pill renders the hook's PHASE (three states) — never a
+  boolean. `signingOut`/`signOutError` are the in-flight/error channels.
+- `AfDrawer` is non-modal and KEEPS ITS CHILDREN MOUNTED when closed
+  (`display:none` + `inert`) — drawers host long-running work. ESC follows
+  the consumed-event convention (`defaultPrevented`); the connect modal
+  sits above drawers (z-order tokens `--z-drawer` < `--z-connect-modal` <
+  `--z-popover`).
+- `AssistantPanel` (in `@abstractframework/panel-chat`) never fetches: the
+  `ask(question, {signal, history})` transport is injected and may return a
+  Promise or an AsyncIterable of deltas. Docs Q&A must never route through
+  entity chat (a visit is billable and forms memories).
+- Appearance persistence is per app via `useAppearanceSettings(appId)`
+  (key `af_appearance_<appId>_v1`, migrates a `legacyKey` once); storage
+  failures degrade to in-memory silently.
+
+### CSS public API (non-React consumers)
+
+The `.af-topbar-*` and `.af-drawer-*` families are stable public API — a
+server-rendered page (the gateway console) can render its own HTML to them:
+
+```html
+<div class="af-topbar" role="group" aria-label="App actions">
+  <button class="af-topbar__btn" aria-label="Open assistant">…svg…</button>
+  <button class="af-topbar__btn" aria-label="Appearance">…svg…</button>
+  <button class="af-topbar__pill af-topbar__pill--connected">
+    <span class="af-topbar__dot af-topbar__dot--connected"></span>
+    <span class="af-topbar__pill-label">Disconnect</span>
+  </button>
+</div>
+<div class="af-drawer af-drawer--open" role="complementary" style="width:420px">
+  <div class="af-drawer__header">
+    <div class="af-drawer__title">Assistant</div>
+    <div class="af-drawer__header-actions"><button class="af-drawer__close">×</button></div>
+  </div>
+  <div class="af-drawer__body">…</div>
+</div>
+```
+
+Pill modifiers: `--connected | --disconnected | --loading` (dot matches).
+Closed drawer = remove `--open`, set `display:none`.
+
+## DisclosureList integration notes
+
+- **Global keyboard handlers must yield to the list** (flow's integration
+  find, c1343): if your app has window-level arrow-key navigation, gate it
+  on `document.activeElement` not being inside `.af-disclosure`, or every
+  arrow press double-moves (once in your handler, once in the list's roving
+  tabindex).
+- **Theming the chevron: exclude the spacer** (flow's specificity find,
+  c1355): consumer-scoped rules (`.your-scope .af-disclosure__chevron`)
+  outweigh the kit's spacer transparency and paint a phantom button on
+  non-expandable rows. Theme via
+  `.af-disclosure__chevron:not(.af-disclosure__chevron--spacer)` — the kit
+  keeps unthemed consumers safe, but a consumer restyle must carry the
+  `:not()`.

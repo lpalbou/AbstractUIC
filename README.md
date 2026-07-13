@@ -18,22 +18,25 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 ## Documentation
 
 - Getting started (entrypoint): [`docs/getting-started.md`](./docs/getting-started.md)
+- Adoption guide (which component for which job): [`docs/adoption-guide.md`](./docs/adoption-guide.md)
+- Theming & design tokens: [`docs/theming.md`](./docs/theming.md)
 - API reference: [`docs/api.md`](./docs/api.md)
 - FAQ: [`docs/faq.md`](./docs/faq.md)
 - Architecture (includes diagrams): [`docs/architecture.md`](./docs/architecture.md)
 - Docs index: [`docs/README.md`](./docs/README.md)
 - Agent-oriented docs: [`llms.txt`](./llms.txt) (index) and [`llms-full.txt`](./llms-full.txt) (generated, offline-friendly)
-- Changelog: [`CHANGELOG.md`](./CHANGELOG.md) (alias: `CHANGELOD.md`)
+- Changelog: [`CHANGELOG.md`](./CHANGELOG.md)
 - Contributing: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
 - Security: [`SECURITY.md`](./SECURITY.md)
-- Acknowledgments: [`ACKNOWLEDMENTS.md`](./ACKNOWLEDMENTS.md)
+- Acknowledgments: [`ACKNOWLEDGMENTS.md`](./ACKNOWLEDGMENTS.md)
 
 ## Packages
 
 | Package | Purpose | Docs |
 |---|---|---|
-| `@abstractframework/ui-kit` | Theme tokens (CSS variables), common inputs, Gateway sign-in card, and icons | [`ui-kit/README.md`](./ui-kit/README.md) |
+| `@abstractframework/ui-kit` | Theme tokens (21 themes), inputs (`AfSelect`, provider/model pickers), Gateway connect modal + connection hook, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk) | [`ui-kit/README.md`](./ui-kit/README.md) |
 | `@abstractframework/panel-chat` | Chat thread + message cards + composer + markdown/json rendering | [`panel-chat/README.md`](./panel-chat/README.md) |
+| `@abstractframework/app-server` | Node gateway-session proxy for app servers (token → HttpOnly cookie exchange, CSRF, URL pinning) | [`docs/adoption-guide.md`](./docs/adoption-guide.md) |
 | `@abstractframework/monitor-flow` | Agent-cycle trace viewer + ledger adapter | [`monitor-flow/README.md`](./monitor-flow/README.md) |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | [`monitor-active-memory/README.md`](./monitor-active-memory/README.md) |
 | `@abstractframework/monitor-gpu` | GPU utilization widget (`<monitor-gpu>`) polling a metrics endpoint | [`monitor-gpu/README.md`](./monitor-gpu/README.md) |

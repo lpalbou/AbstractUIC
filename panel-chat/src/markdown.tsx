@@ -336,7 +336,9 @@ export function Markdown({
     }
 
     const hr = line.trim();
-    if (hr === "---" || hr === "___" || hr === "***" || /^(-{3,}|_{3,}|\*{3,})$/.test(hr)) {
+    // CommonMark thematic breaks tolerate interior spaces ("- - -", "* * *");
+    // without this, "- - -" parsed as a bullet list (adversary find).
+    if (/^([-_*])(\s*\1){2,}$/.test(hr)) {
       blocks.push(<hr key={`hr:${i}`} className="pc-md_hr" />);
       i += 1;
       continue;
@@ -477,6 +479,11 @@ export function Markdown({
 
     const paraLines: string[] = [];
     while (i < lines.length && String(lines[i] ?? "").trim()) {
+      // A list interrupts a paragraph (CommonMark): "intro line:\n- a\n- b"
+      // with no blank line is one of the most common assistant emissions —
+      // swallowing the bullets into the paragraph rendered them as "- a<br/>"
+      // prose (adversary find 2026-07-14).
+      if (paraLines.length > 0 && parseListItemLine(String(lines[i] ?? ""))) break;
       paraLines.push(String(lines[i] ?? ""));
       i += 1;
     }

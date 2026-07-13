@@ -40,7 +40,13 @@ const out_path = join(here, "..", "palette_seeds.json");
 const SEED_TOKENS = {
   primary: "--accent",
   surface: "--bg-primary",
-  secondary: "--bg-secondary",
+  // secondary maps to --info, NOT --bg-secondary: the TUI consumer's
+  // "secondary" is a bright second ACCENT (footer/help hue, pinned ≥3.9:1
+  // against surface), while --bg-secondary is a raised background —
+  // parity on a background token was unsatisfiable by construction
+  // (adversary HOLD verdict, 2026-07-14; remapped before any consumer
+  // wrote a parity test).
+  secondary: "--info",
   muted: "--text-muted",
 };
 

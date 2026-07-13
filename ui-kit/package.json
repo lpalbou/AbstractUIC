@@ -39,7 +39,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs",
+    "test": "node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs && node scripts/audit_theme_contrast.mjs --strict",
     "prepublishOnly": "npm test"
   },
   "peerDependencies": {

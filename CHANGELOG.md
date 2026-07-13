@@ -65,6 +65,196 @@ This project is a **multi-package repository**; versions are currently kept in s
 
 ### Fixed
 
+- Theme contrast wave (operator directive 2026-07-13 18:30, fable5 themes
+  adversary + mechanical WCAG audit over all 20 theme blocks): 62 failing
+  token pairs fixed hue-preserving across 18 themes — muted text unreadable
+  on cards (18 themes, worst tokyo-night 2.35:1 and everforest-light 2.42:1),
+  status colors under 4.5:1 on cards (nord error 2.46:1, rose-pine-dawn
+  warning 2.23:1, solarized-light success/warning/info ~3.1:1, and more),
+  light-theme text-secondary misses, and per-theme syntax overrides for the
+  five dark themes whose lighter code backgrounds dropped the shared
+  VSCode-dark set under 4.5:1 (nord, gruvbox, dracula, everforest-dark,
+  solarized-dark). Both everforest themes had accent === success (actions
+  indistinguishable from confirmations) — accents moved to in-family aqua
+  hues. All `*-subtle`/`*-border` rgba twins re-synced to the new base
+  colors (63 declarations; the token-integrity guard caught the follow-
+  through). Palette seeds regenerated. New guard:
+  `ui-kit/scripts/audit_theme_contrast.mjs` (full report + `--strict` gate
+  failing under 3.0 or on duplicate roles) wired into `npm test`.
+- Consumer literal tokenization (theme audit follow-through): panel-chat's
+  quote bar, attention highlight, and composer focus ring now ride
+  `--info`/`--warning-*`/`--accent-*` (the hardcoded blues/ambers washed out
+  on light themes); monitor-flow's white-alpha overlays and code-block
+  background now ride `--ui-surface-1`/`--ui-border-2`/
+  `--ui-overlay-bg-hover`/`--ui-code-block-bg` (10 declarations).
+
+### Documentation
+
+- Coredoc refresh (operator directive 2026-07-13 18:30): two new deep dives —
+  `docs/theming.md` (token vocabulary, 21-theme system, adoption/migration
+  rules for host apps, palette seeds, guard scripts) and
+  `docs/adoption-guide.md` (which shared component for which job, the
+  cross-app contracts: connection surface, server-truth rendering, labeled
+  fallbacks, absorption protocol, versioning discipline). README package
+  table now includes `app-server` and the current ui-kit inventory;
+  `docs/api.md` export maps refreshed (connection hook, matrix core, steer,
+  disclosure, chips, voice, ProviderModelPicker, app-server section);
+  `docs/architecture.md` gained the gateway connection sequence diagram and
+  app-server in the dependency graph; `llms.txt` updated and `llms-full.txt`
+  regenerated (all local links verified; fixed the misspelled
+  ACKNOWLEDGMENTS links).
+
+### Added
+
+- Unified top-right corner (operator directive 2026-07-13 20:02; consensus
+  plan `plans/unified-top-bar.md` on the hub fs after 3 fable5 design
+  adversaries + 3 owner discussion cycles): `AfTopBarActions` (assistant →
+  appearance → extras → Disconnect pill; renders the connection hook's
+  3-state phase, never a boolean), `AfDrawer` (right-edge, non-modal,
+  keep-alive — closed = display:none + inert, never unmounted; layered ESC
+  via the consumed-event convention; `topOffset` for below-header layouts;
+  full-width under 680px), `AfAppearanceDialog` + `useAppearanceSettings`
+  (theme + font scale + header density; per-app key
+  `af_appearance_<appId>_v1` with one-time legacy migration; storage
+  failures degrade silently to in-memory), `AssistantPanel` (in
+  panel-chat — the dependency direction forbids a ui-kit chat panel):
+  injected `ask(question, {signal, history})` transport supporting
+  Promise or streaming AsyncIterable, `#FALLBACK` error cards in-thread,
+  blocked-state notice while disconnected, suggestions/empty state. Icons:
+  `sparkle`, `contrast`, `logout`. Z-order tokens `--z-drawer` <
+  `--z-connect-modal` < `--z-popover` (connect overlay now consumes the
+  token). Hook hardening from the design adversaries: `signingOut` +
+  `signOutError` channels on `useGatewayConnection` (a dead app-server no
+  longer swallows a failed sign-out silently) and the connect modal's ESC
+  honors `defaultPrevented`. The `.af-topbar-*`/`.af-drawer-*` class
+  families are documented public API for non-React consumers (gateway
+  console). Live-verified 7/7 in headless Chrome (cluster render, assistant
+  ask round-trip, theme switch + persistence, disconnect→modal-reopens,
+  drawer state surviving disconnect).
+
+- `ProviderModelPicker` (operator directive 2026-07-13 17:28, absorbed from
+  continuum's kit-shaped copy per the c1551 ask; flow's PropertiesPanel
+  carries the original pattern): mode toggle where "Gateway default" is the
+  DEFAULT (empty provider+model = the gateway picks per task; zero discovery
+  traffic) and Custom cascades provider → models. Transport is injected
+  (`fetchProviders`/`fetchModels`) so each app wraps its own proxy path; a
+  generation counter drops stale async results (a slow models fetch for
+  provider A never lands after picking provider B); configured-but-
+  undiscovered provider/model values stay selectable; degraded discovery
+  renders a labeled `#FALLBACK` line. Presentational half reuses
+  `ProviderModelSelect` (searchable `AfSelect`s). `.af-pmp` styles ride the
+  shared transition/reduced-motion block.
+
+### Security
+
+- `@abstractframework/app-server` gateway session proxy: the local-vs-remote
+  safety gate (which unlocks browser-supplied gateway URLs) derived from the
+  client-controlled `Host` header — a LAN peer reaching an all-interfaces
+  bind could send `Host: localhost`, unlock the remote-config path, and make
+  the proxy relay `http.request` to an attacker-chosen origin with the
+  browser's session/CSRF cookies attached (SSRF + session-scoped request
+  forgery; HIGH, reported by entity c1768, confirmed live-exposed fleet-wide
+  by agency c1770, amplified in continuum's hub proxy per c1769). Fixed: the
+  gate now derives from `req.socket.remoteAddress` — the connection's real
+  transport peer, which the client cannot forge (IPv4-mapped IPv6
+  unwrapped); `x-forwarded-host` stays behind the existing trusted-proxy
+  opt-in. Explicit `*_ALLOW_REMOTE_BROWSER_GATEWAY_CONFIG` still wins for
+  deployments behind their own access control. Regression tests: a
+  non-loopback peer spoofing `Host: localhost` gets the cookie gateway URL
+  ignored (pinned to default, not relayed) and cannot POST a remote
+  `gateway_url` (403); a genuine loopback peer keeps the dev posture. App
+  owners should also default-bind 127.0.0.1 in their launchers (per-app
+  precondition close).
+
+### Fixed
+
+- Late-adversary fold (2026-07-14 — nine adversaries whose full reports
+  landed after their trail salvages; the six findings the trails had NOT
+  carried): `useGatewayConnection.signOut` now invalidates pre-signout
+  probes FIRST (a stale "connected" answer landing after the DELETE made
+  the follow-up probe's true signed-out answer the one dropped — phantom
+  connected over cleared cookies); `SteerComposer` resets status on
+  `runId` change and generation-guards in-flight sends (a "Queued (seq N)"
+  badge could survive a run switch and stamp the wrong run); the connect
+  modal marks its `initialStatus` seed consumed on the FIRST open
+  unconditionally (an open during the loading phase shifted seed
+  consumption to the second open, resurrecting the stale-seed class);
+  markdown paragraphs are now interrupted by list lines (CommonMark —
+  "intro:\n- a\n- b" with no blank line rendered the bullets as prose);
+  `palette_seeds.json` `secondary` remapped `--bg-secondary` → `--info`
+  (the TUI consumer's "secondary" is a bright second accent; parity on a
+  background token was unsatisfiable — remapped before any consumer wrote
+  a parity test, artifact regenerated); `.af-chip` gained a neutral
+  default `--af-chip-hue` (class-only consumers rendered borderless).
+
+- Design review wave (2026-07-13, two fable5 design adversaries — aesthetics
+  + layout/responsiveness — plus a whole-package code/logic audit; several
+  died mid-report, findings salvaged from trails and all folded):
+  AESTHETICS — kit buttons gained hover/active feedback (sign-in, steer
+  send, critical actions; panel-chat already had it — the inconsistency read
+  cheap); one shared 120ms micro-transition across interactive kit
+  components with a prefers-reduced-motion guard; sign-in card weight
+  discipline (labels 800→600, buttons 800→700 — six elements at 800 left no
+  hierarchy); critical dialog title base→lg (must outrank the consequence
+  box). LAYOUT — sign-in form's fixed 150px label column collapses to
+  stacked labels under 520px (drawers left ~180px for the gateway URL);
+  tool-policy control row stacks under 520px; modal/dialog max-heights use
+  dvh with vh fallback (mobile URL bars); iOS coarse-pointer inputs clamp to
+  ≥16px (focus auto-zoom at 375px); critical-dialog fact values wrap
+  (overflow-wrap) instead of escaping; select options clamp to the real
+  viewport; overscroll-behavior: contain on modal/dialog/options/thread
+  scrollers; panel select trigger height→min-height (font-scale growth).
+  CODE/LOGIC (whole-package audit) — voice: pause during stream starvation
+  computed a garbage offset from a stale timestamp and skipped most of the
+  next segment on resume (offset now only computed while a source plays);
+  resume during starvation renders "playing" (audio auto-continues — a stuck
+  "paused" label was dishonest); the non-stream TTS path joined the
+  generation guard (a stop mid-decode can no longer resurrect state or
+  surface a stale error); PTT busy guard reads through a ref (stale closure
+  in recorder onstop). Connection hook: onStatusChange reads through a ref
+  (in-flight refresh delivered to a callback one render behind). Proxy:
+  request-side hop-by-hop headers stripped (response side already was),
+  connection-endpoint bodies capped at 64KB, CSRF comparison is
+  constant-time. Markdown: spaced thematic breaks ("- - -") render as hr,
+  not a list. DisclosureList: keydown on a non-selectable row moves to the
+  NEAREST focusable neighbor (was jumping to first/last); a growing
+  typeahead buffer keeps the current row while it still matches. Recorded,
+  not built: --header-density is not consumed by the newer components
+  (design decision pending); the select positioner's available-space
+  max-height lives TSX-side.
+- Input/placeholder font harmonization (operator fix 2026-07-13, verbatim
+  "the grey text you show in the input panel at the bottom … the font is
+  terrible"): the chat composer textarea fell to the browser's default
+  monospace form font because no `font-family` was set — it (and every kit
+  input found by the same sweep) now uses the app stack explicitly
+  (`--font-sans`; the typed-confirm phrase input gets `--font-mono`
+  deliberately), and a kit-wide `::placeholder` rule renders placeholders at
+  `--text-muted` with full opacity (Firefox dims by default). The
+  SteerComposer default placeholder shortened ("Steer this run…" — delivery
+  semantics live in the status line, not the placeholder).
+- B5 login/auth contract (operator bug wave 2026-07-13, uic lead): after a
+  SUCCESSFUL sign-in the connect modal now closes itself (self-close belt
+  survives no-op `onClose` consumers) — the stay-open behavior was
+  sign-OUT's design and, applied to sign-in, parked a "Signed in." modal
+  over the app in every consumer that didn't wire the close. New
+  `useGatewayConnection` hook makes the whole connection state machine
+  shared code instead of per-app prose: probe-once boot, auto-open only on
+  RESOLVED disconnect (never unknown/loading, never over a live session),
+  close on the transition to connected (a connected→connected status echo
+  from an explicitly opened modal never closes it), stay-open on sign-out,
+  re-arm per signed-out episode, `initialStatus` dedupe threading.
+  Live-verified end-to-end in headless Chrome against the test-app + stub
+  gateway: signed-out boot auto-opens → real modal sign-in → modal closes
+  itself + app renders → reload shows the app with no modal → sign-out
+  keeps the modal open (4/4 transitions). Adversary folds (state-machine
+  audit): the hook's `onClose` reads phase through a ref — in the sign-in
+  batch the render-closure phase was stale ("disconnected") and silently
+  marked the episode dismissed, killing the NEXT session expiry's auto-open
+  (the one transition the happy-path chrome run cannot see); a status
+  generation counter drops stale in-flight probe answers so a slow probe
+  started before a sign-in can never overwrite the connected status.
+  Consumer folds: `signOut()` verb (observer's settings-page datum) and the
+  synchronous-delivery pin on `refresh()`.
 - Adversarial-review folds on the component wave (2026-07-13, four fable5
   audits): `DisclosureList` row ids can no longer throw on lone-surrogate
   row keys (code-point fallback) and scroll-on-select now fires when a
