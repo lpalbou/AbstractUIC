@@ -1,0 +1,264 @@
+/*
+ * GatewayConnectModal: the shared connect/disconnect surface for apps sitting
+ * behind the @abstractframework/app-server session proxy.
+ *
+ * Extracted 2026-07-12 from AbstractFlow's GatewayConnectionModal (the design
+ * the maintainer endorsed) onto the standardized /api/connection/gateway
+ * contract, so every app gets the same modal instead of a per-app wrapper.
+ * Sign-out (flow's, improved): stays in the modal with a clear signed-out
+ * status instead of closing, so the user SEES the disconnect took effect and
+ * can immediately sign back in.
+ */
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { GatewaySessionSignInCard } from "./gateway_session_signin.js";
+
+export type GatewayConnectionState = {
+  ok: boolean;
+  gateway_url: string;
+  has_session: boolean;
+  gateway?: {
+    ok?: boolean;
+    error?: string;
+    detail?: string;
+    principal?: { user_id?: string; runtime_id?: string; admin?: boolean };
+  };
+};
+
+export async function fetchGatewayConnection(connectionPath = "/api/connection/gateway"): Promise<GatewayConnectionState> {
+  const res = await fetch(connectionPath);
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = data && typeof data === "object" && (data as any).detail ? String((data as any).detail) : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data as GatewayConnectionState;
+}
+
+export async function signInGateway(
+  payload: { gateway_url?: string; gateway_user_id: string; gateway_token: string; persist?: boolean },
+  connectionPath = "/api/connection/gateway"
+): Promise<GatewayConnectionState> {
+  const res = await fetch(connectionPath, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = data && typeof data === "object" && (data as any).detail ? String((data as any).detail) : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data as GatewayConnectionState;
+}
+
+export async function signOutGateway(connectionPath = "/api/connection/gateway"): Promise<void> {
+  const res = await fetch(connectionPath, { method: "DELETE" });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    const msg = data && typeof data === "object" && (data as any).detail ? String((data as any).detail) : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+}
+
+/** Strip wrapping quotes/JSON-encoding pasted around a URL, drop trailing slashes. Client twin of app-server's helper (vector-tested there); the SERVER re-normalizes authoritatively — this copy only improves what the user sees. */
+export function normalizeGatewayUrl(value: string): string {
+  let raw = String(value || "").trim();
+  for (let i = 0; i < 2 && raw; i += 1) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === "string" && parsed !== raw) {
+        raw = parsed.trim();
+        continue;
+      }
+    } catch {
+      // Not JSON — try quote-pair cleanup below.
+    }
+    const first = raw[0];
+    const last = raw[raw.length - 1];
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+      raw = raw.slice(1, -1).trim();
+      continue;
+    }
+    break;
+  }
+  return raw.replace(/\/+$/, "");
+}
+
+export function gatewayStatusBadge(status: GatewayConnectionState | null): { label: string; tone: "ok" | "warn" | "err" } {
+  if (!status) return { label: "Signed out", tone: "warn" };
+  if (!status.has_session) return { label: "Signed out", tone: "warn" };
+  const gw = status.gateway || {};
+  const user = gw.principal?.user_id;
+  const runtime = gw.principal?.runtime_id;
+  if (gw.ok && user) return { label: `Signed in as ${user}${runtime ? ` · runtime ${runtime}` : ""}`, tone: "ok" };
+  if (gw.ok) return { label: "Signed in", tone: "ok" };
+  const err = gw.error || gw.detail;
+  if (typeof err === "string" && err.trim()) return { label: "Session rejected — sign in again", tone: "err" };
+  return { label: "Sign in required", tone: "err" };
+}
+
+export type GatewayConnectModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  /** Blocking mode: no close/sign-out affordances (first-run sign-in). */
+  blocking?: boolean;
+  appName?: string;
+  connectionPath?: string;
+  defaultGatewayUrl?: string;
+  /**
+   * Probe dedupe (10-15s connect incident fold, 2026-07-13): apps that
+   * already probed /api/connection/gateway at boot pass the result here so
+   * opening the modal does not re-probe. The modal still refreshes after
+   * sign-in/out (those change the answer); omit the prop to keep the
+   * open-time probe.
+   */
+  initialStatus?: GatewayConnectionState | null;
+  onStatusChange?: (status: GatewayConnectionState | null) => void;
+};
+
+export function GatewayConnectModal(props: GatewayConnectModalProps): React.ReactElement | null {
+  const connectionPath = props.connectionPath || "/api/connection/gateway";
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<GatewayConnectionState | null>(null);
+  const [gatewayUrl, setGatewayUrl] = useState(props.defaultGatewayUrl || "http://127.0.0.1:8080");
+  const [userId, setUserId] = useState("admin");
+  const [token, setToken] = useState("");
+  const [showToken, setShowToken] = useState(false);
+  const [persist, setPersist] = useState(true);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const badge = useMemo(() => gatewayStatusBadge(status), [status]);
+
+  const applyStatus = (s: GatewayConnectionState | null) => {
+    setStatus(s);
+    props.onStatusChange?.(s);
+  };
+
+  // The seed is honored ONCE: on the first open it is seconds old (the boot
+  // probe); on a REOPEN it may predate a sign-out made elsewhere, so later
+  // opens always probe fresh (adversary find 2026-07-13).
+  const initialStatusConsumed = useRef(false);
+  useEffect(() => {
+    if (!props.isOpen) return;
+    if (!initialStatusConsumed.current && props.initialStatus !== undefined && props.initialStatus !== null) {
+      initialStatusConsumed.current = true;
+      const s = props.initialStatus;
+      applyStatus(s);
+      if (typeof s.gateway_url === "string" && s.gateway_url.trim()) setGatewayUrl(normalizeGatewayUrl(s.gateway_url));
+      const principal = s.gateway?.principal;
+      if (principal?.user_id) setUserId(principal.user_id);
+      return;
+    }
+    setLoading(true);
+    setError("");
+    fetchGatewayConnection(connectionPath)
+      .then((s) => {
+        applyStatus(s);
+        if (typeof s.gateway_url === "string" && s.gateway_url.trim()) setGatewayUrl(normalizeGatewayUrl(s.gateway_url));
+        const principal = s.gateway?.principal;
+        if (principal?.user_id) setUserId(principal.user_id);
+      })
+      .catch((e) => setError(`Failed to load connection status: ${String((e as Error)?.message || e)}`))
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.isOpen]);
+
+  useEffect(() => {
+    if (!props.isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !props.blocking) props.onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [props.isOpen, props.blocking, props.onClose]);
+
+  if (!props.isOpen) return null;
+
+  const handleSignIn = async () => {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const normalized = normalizeGatewayUrl(gatewayUrl);
+      setGatewayUrl(normalized);
+      const s = await signInGateway(
+        { gateway_url: normalized, gateway_user_id: userId, gateway_token: token, persist },
+        connectionPath
+      );
+      applyStatus(s);
+      setToken("");
+      setNotice("Signed in.");
+    } catch (e) {
+      setError(String((e as Error)?.message || e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await signOutGateway(connectionPath);
+      setToken("");
+      // Stay open with a visible signed-out state (the improved disconnect):
+      // the user SEES the sign-out took effect and can sign back in at once.
+      const s = await fetchGatewayConnection(connectionPath).catch(() => null);
+      applyStatus(s);
+      setNotice("Signed out. This browser no longer holds a gateway session.");
+    } catch (e) {
+      setError(String((e as Error)?.message || e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="af-connect-overlay"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (!props.blocking && e.target === e.currentTarget) props.onClose();
+      }}
+    >
+      <div className="af-connect-modal" role="dialog" aria-modal="true" aria-label="Gateway connection">
+        <GatewaySessionSignInCard
+          kicker={`${props.appName || "AbstractFramework"} connection`}
+          title="Connect this browser to AbstractGateway"
+          description="Sign in with a Gateway user token. The app exchanges it for an HTTP-only browser session and never stores the raw token."
+          statusLabel={badge.label}
+          statusTone={badge.tone}
+          tokenSourceLabel={status?.has_session ? "token: browser session" : "token: missing"}
+          showGatewayUrl
+          gatewayUrl={gatewayUrl}
+          onGatewayUrlChange={(value: string) => setGatewayUrl(value)}
+          userId={userId}
+          onUserIdChange={setUserId}
+          token={token}
+          tokenPlaceholder={status?.has_session ? "(browser session already signed in)" : "Paste Gateway user token"}
+          showToken={showToken}
+          onTokenChange={setToken}
+          onShowTokenChange={setShowToken}
+          remember={persist}
+          rememberLabel="Keep this browser signed in"
+          onRememberChange={setPersist}
+          loading={loading}
+          submitting={saving}
+          submittingLabel="Signing in..."
+          showClose={!props.blocking}
+          onClose={props.onClose}
+          showSignOut={!props.blocking && Boolean(status?.has_session)}
+          onSignOut={handleSignOut}
+          error={error}
+          message={notice}
+          onSubmit={handleSignIn}
+        />
+      </div>
+    </div>
+  );
+}
+
+export default GatewayConnectModal;

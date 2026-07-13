@@ -1,0 +1,42 @@
+{
+  "name": "@abstractframework/app-server",
+  "version": "0.1.8",
+  "description": "Server-side helpers for AbstractFramework thin-client apps: the app-origin gateway session proxy (first-party cookies, CSRF, Authorization-strip, server-pinned gateway URL).",
+  "type": "module",
+  "author": "Laurent-Philippe Albou",
+  "license": "MIT",
+  "keywords": [
+    "abstractframework",
+    "gateway",
+    "session",
+    "proxy"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lpalbou/AbstractUIC.git",
+    "directory": "app-server"
+  },
+  "homepage": "https://github.com/lpalbou/AbstractUIC#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node test/gateway_session_proxy.test.mjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

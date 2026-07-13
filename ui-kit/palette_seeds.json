@@ -1,0 +1,138 @@
+{
+  "generated_from": "ui-kit/src/theme.css",
+  "generator": "ui-kit/scripts/generate_palette_seeds.mjs",
+  "token_map": {
+    "primary": "--accent",
+    "surface": "--bg-primary",
+    "secondary": "--bg-secondary",
+    "muted": "--text-muted"
+  },
+  "themes": {
+    "dark": {
+      "primary": "#e94560",
+      "surface": "#1a1a2e",
+      "secondary": "#16213e",
+      "muted": "#666666"
+    },
+    "observer-night": {
+      "primary": "#e8a54a",
+      "surface": "#0b0f14",
+      "secondary": "#10161e",
+      "muted": "#5a6578"
+    },
+    "catppuccin-mocha": {
+      "primary": "#cba6f7",
+      "surface": "#1e1e2e",
+      "secondary": "#181825",
+      "muted": "#6c7086"
+    },
+    "catppuccin-macchiato": {
+      "primary": "#c6a0f6",
+      "surface": "#24273a",
+      "secondary": "#1e2030",
+      "muted": "#8087a2"
+    },
+    "catppuccin-frappe": {
+      "primary": "#ca9ee6",
+      "surface": "#303446",
+      "secondary": "#292c3c",
+      "muted": "#838ba7"
+    },
+    "rose-pine": {
+      "primary": "#c4a7e7",
+      "surface": "#191724",
+      "secondary": "#1f1d2e",
+      "muted": "#6e6a86"
+    },
+    "rose-pine-moon": {
+      "primary": "#c4a7e7",
+      "surface": "#232136",
+      "secondary": "#2a273f",
+      "muted": "#6e6a86"
+    },
+    "tokyo-night": {
+      "primary": "#7aa2f7",
+      "surface": "#1a1b26",
+      "secondary": "#24283b",
+      "muted": "#565f89"
+    },
+    "nord": {
+      "primary": "#88c0d0",
+      "surface": "#2e3440",
+      "secondary": "#3b4252",
+      "muted": "#81a1c1"
+    },
+    "one-dark": {
+      "primary": "#61afef",
+      "surface": "#282c34",
+      "secondary": "#21252b",
+      "muted": "#5c6370"
+    },
+    "dracula": {
+      "primary": "#ff79c6",
+      "surface": "#282a36",
+      "secondary": "#343746",
+      "muted": "#6272a4"
+    },
+    "monokai": {
+      "primary": "#66d9ef",
+      "surface": "#272822",
+      "secondary": "#2d2e27",
+      "muted": "#75715e"
+    },
+    "gruvbox": {
+      "primary": "#fe8019",
+      "surface": "#282828",
+      "secondary": "#3c3836",
+      "muted": "#928374"
+    },
+    "solarized-dark": {
+      "primary": "#268bd2",
+      "surface": "#002b36",
+      "secondary": "#073642",
+      "muted": "#657b83"
+    },
+    "everforest-dark": {
+      "primary": "#a7c080",
+      "surface": "#2b3339",
+      "secondary": "#323c41",
+      "muted": "#859289"
+    },
+    "catppuccin-latte": {
+      "primary": "#8839ef",
+      "surface": "#eff1f5",
+      "secondary": "#e6e9ef",
+      "muted": "#9ca0b0"
+    },
+    "rose-pine-dawn": {
+      "primary": "#907aa9",
+      "surface": "#faf4ed",
+      "secondary": "#fffaf3",
+      "muted": "#9893a5"
+    },
+    "one-light": {
+      "primary": "#4078f2",
+      "surface": "#fafafa",
+      "secondary": "#ffffff",
+      "muted": "#a0a1a7"
+    },
+    "everforest-light": {
+      "primary": "#4f8f5a",
+      "surface": "#fdf6e3",
+      "secondary": "#fffbef",
+      "muted": "#9da9a0"
+    },
+    "solarized-light": {
+      "primary": "#268bd2",
+      "surface": "#fdf6e3",
+      "secondary": "#eee8d5",
+      "muted": "#657b83"
+    },
+    "light": {
+      "primary": "#e94560",
+      "surface": "#f7f7fb",
+      "secondary": "#ffffff",
+      "muted": "#64748b"
+    }
+  }
+}

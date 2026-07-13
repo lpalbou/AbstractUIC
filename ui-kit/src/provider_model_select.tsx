@@ -111,11 +111,12 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
           clearable={allow_gateway_default}
           variant="panel"
           triggerClassName={props.selectClassName}
+          ariaLabel={provider_label}
           onChange={(next_provider) => props.onChange({ provider: String(next_provider || "").trim(), model: "" })}
         />
         {props.loadingProviders ? <div className="mono muted" style={{ fontSize: "12px", marginTop: "6px" }}>Loading providers…</div> : null}
         {props.providerError ? (
-          <div className="mono" style={{ color: "rgba(239, 68, 68, 0.9)", fontSize: "12px", marginTop: "6px" }}>
+          <div className="mono" style={{ color: "var(--error)", fontSize: "12px", marginTop: "6px" }}>
             {props.providerError}
           </div>
         ) : null}
@@ -134,11 +135,12 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
           clearable={allow_gateway_default}
           variant="panel"
           triggerClassName={props.selectClassName}
+          ariaLabel={model_label}
           onChange={(next_model) => props.onChange({ provider: provider_value, model: String(next_model || "").trim() })}
         />
         {props.loadingModels ? <div className="mono muted" style={{ fontSize: "12px", marginTop: "6px" }}>Loading models…</div> : null}
         {props.modelError ? (
-          <div className="mono" style={{ color: "rgba(239, 68, 68, 0.9)", fontSize: "12px", marginTop: "6px" }}>
+          <div className="mono" style={{ color: "var(--error)", fontSize: "12px", marginTop: "6px" }}>
             {props.modelError}
           </div>
         ) : null}

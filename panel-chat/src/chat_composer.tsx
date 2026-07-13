@@ -42,10 +42,17 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
         disabled={disabled}
         autoFocus={Boolean(props.autoFocus)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            props.onSubmit();
-          }
+          if (e.key !== "Enter" || e.shiftKey) return;
+          // Committing an IME composition with Enter must never send the
+          // message (CJK input); nativeEvent.isComposing covers the commit
+          // keystroke itself, keyCode 229 covers older engines.
+          if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+          e.preventDefault();
+          // Enter honors the same gate as the Send button — the busy/empty
+          // contract is the component's, not something every consumer must
+          // re-implement around a keyboard side door.
+          if (!can_submit) return;
+          props.onSubmit();
         }}
       />
 

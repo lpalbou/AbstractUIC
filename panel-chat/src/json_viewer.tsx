@@ -194,17 +194,41 @@ function JsonNode(props: JsonNodeProps): React.ReactElement {
   );
 }
 
+function tryParseJsonString(value: string): unknown {
+  const trimmed = value.trim();
+  if (!trimmed) return value;
+  if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
+    try {
+      return JSON.parse(trimmed) as unknown;
+    } catch {
+      return value;
+    }
+  }
+  return value;
+}
+
 export function JsonViewer(props: { value: unknown; className?: string; collapseAfterDepth?: number; showCopy?: boolean }): React.ReactElement {
   const { value, className, showCopy = true } = props;
   const [expansion, setExpansion] = useState<{ mode: JsonExpansionMode; version: number }>({ mode: "folded", version: 0 });
-  const collapseAfterDepth = expansion.mode === "unfolded" ? UNFOLDED_DEPTH : FOLDED_DEPTH;
+  // collapseAfterDepth is the consumer's folded-mode depth; it was accepted
+  // and silently ignored until 2026-07-11 (adversary find) — honor it.
+  const foldedDepth =
+    typeof props.collapseAfterDepth === "number" && (Number.isFinite(props.collapseAfterDepth) || props.collapseAfterDepth === Infinity) && props.collapseAfterDepth >= 0
+      ? (props.collapseAfterDepth === Infinity ? Number.MAX_SAFE_INTEGER : Math.trunc(props.collapseAfterDepth))
+      : FOLDED_DEPTH;
+  const collapseAfterDepth = expansion.mode === "unfolded" ? UNFOLDED_DEPTH : foldedDepth;
+
+  // A string value that IS serialized JSON renders as its parsed tree
+  // (parity with the monitor-flow/flow viewers; copy still copies the
+  // original string verbatim).
+  const displayValue = useMemo(() => (typeof value === "string" ? tryParseJsonString(value) : value), [value]);
 
   const copyValue = useMemo(() => copyStringForJson(value), [value]);
   const cls = ["pc-json-viewer", className].filter(Boolean).join(" ");
 
   useEffect(() => {
     setExpansion((prev) => ({ mode: "folded", version: prev.version + 1 }));
-  }, [value]);
+  }, [displayValue]);
 
   const toggleExpansion = () => {
     setExpansion((prev) => ({
@@ -233,7 +257,7 @@ export function JsonViewer(props: { value: unknown; className?: string; collapse
 
       <div className="pc-json-viewer__tree" role="tree" aria-label="JSON viewer">
         <JsonNode
-          value={value}
+          value={displayValue}
           depth={0}
           collapseAfterDepth={collapseAfterDepth}
           expansionMode={expansion.mode}

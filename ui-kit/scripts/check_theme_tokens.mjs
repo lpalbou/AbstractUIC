@@ -17,7 +17,22 @@
  *      base color exactly (one hue family per color role — the 0114 lesson
  *      applied at the kit layer).
  *
- * Dependency-free by design: run with `node scripts/check_theme_tokens.mjs`.
+ * Dependency-free by design: run with `node scripts/check_theme_tokens.mjs`
+ * (optionally passing a candidate CSS file path).
+ *
+ * Notes for theme authors:
+ * - Invariant B only compares mechanically-comparable pairs (#hex base vs
+ *   rgba() derivative). A derivative expressed via var()/color-mix() skips B
+ *   deliberately — that is the escape hatch if a theme ever needs a derived
+ *   tint decoupled from its base hue.
+ * - Declarations inside conditional at-rules (@supports/@media) that target
+ *   :root merge into the default bucket; a conditional block redefining
+ *   SEMANTIC tokens could mask a coverage gap in the unconditional block.
+ *   Keep semantic tokens out of conditional blocks (only --bg-card lives
+ *   there today).
+ * - Known non-coverage (accepted): themes defining a derivative in a wrong
+ *   hue WITHOUT redefining the base; --border-accent; light themes omitting
+ *   the surface sets (--ui-pill-, --ui-chip-, --ui-code- families).
  */
 
 import { readFileSync } from "node:fs";
@@ -30,6 +45,22 @@ const css_path = process.argv[2] || join(here, "..", "src", "theme.css");
 const css = readFileSync(css_path, "utf8");
 
 const SEMANTIC = ["accent", "info", "success", "warning", "error"];
+
+/* Entity-semantic vocabulary (c594 contract with observer): the names are the
+ * contract, values may tune per theme. This list is the contract MINIMUM;
+ * the effective required set is this union whatever `--entity-*` names the
+ * default :root actually declares, so widening the vocabulary in :root
+ * automatically widens the coverage requirement for every light theme (and
+ * removing a contract name from :root fails loudly). */
+const ENTITY_TOKENS_MIN = [
+  "--entity-identity",
+  "--entity-memory",
+  "--entity-diary",
+  "--entity-standing",
+  "--entity-scar",
+  "--entity-bond",
+  "--entity-accent",
+];
 
 /** Strip comments so commented-out declarations never count. */
 const stripped = css.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -48,7 +79,9 @@ function collect_blocks(source) {
     const selectors = match[1].split(",").map((s) => s.trim()).filter(Boolean);
     const body = match[2];
     const decls = new Map();
-    const decl_re = /(--[a-z0-9-]+)\s*:\s*([^;]+);/gi;
+    // Custom properties plus `color-scheme` (the light/dark marker invariant C
+    // keys on — it is a normal property, not a custom one).
+    const decl_re = /(--[a-z0-9-]+|color-scheme)\s*:\s*([^;]+);/gi;
     let d;
     while ((d = decl_re.exec(body)) !== null) {
       decls.set(d[1].trim(), d[2].trim());
@@ -121,10 +154,81 @@ for (const [theme, decls] of themes) {
   }
 }
 
+// Invariant C — entity-semantic vocabulary coverage.
+//   C1: the dark default (:root) carries at least the contract minimum set.
+//   C2: every LIGHT theme carries the FULL effective set (grouped light block
+//       or its own) — a partial set mixes dark values into a light palette
+//       exactly like the solarized-light leak. "Light" = a color-scheme value
+//       containing "light" (covers `light` and `light dark`), OR membership
+//       in theme.ts's `group: "light"` (invariant D closes the gap where a
+//       new light theme forgets to declare color-scheme at all).
+//   C3: ANY theme block touching one --entity-* token must define the full
+//       effective set (all-or-nothing — partial overrides mix palettes).
+const root_decls = themes.get(":root (default)") || new Map();
+const entity_tokens = new Set(ENTITY_TOKENS_MIN);
+for (const key of root_decls.keys()) {
+  if (key.startsWith("--entity-")) entity_tokens.add(key);
+}
+for (const token of ENTITY_TOKENS_MIN) {
+  if (!root_decls.has(token)) {
+    failures.push(`:root (default): missing entity-semantic token ${token} (the c594 vocabulary is a full-set contract).`);
+  }
+}
+
+// Invariant D — theme.ts is a second source of "which themes are light"; a
+// light theme registered there but missing `color-scheme: light` in CSS would
+// silently skip C2 while inheriting dark entity values AND dark UA widgets.
+const theme_ts_path = join(dirname(css_path), "theme.ts");
+let ts_light_ids = [];
+try {
+  const ts = readFileSync(theme_ts_path, "utf8");
+  const spec_re = /id:\s*"([a-z0-9-]+)"[^}]*group:\s*"light"/g;
+  let m;
+  while ((m = spec_re.exec(ts)) !== null) ts_light_ids.push(`theme-${m[1]}`);
+} catch {
+  // theme.ts beside the css is the repo layout; a custom argv[2] candidate
+  // file may not have one — skip D rather than fail on layout.
+  ts_light_ids = [];
+}
+
+const is_light_theme = (theme, decls) => {
+  const scheme = (decls.get("color-scheme") || "").trim();
+  if (scheme.includes("light")) return true;
+  return ts_light_ids.includes(theme);
+};
+
+for (const [theme, decls] of themes) {
+  if (theme === ":root (default)") continue;
+  const light = is_light_theme(theme, decls);
+  const touches_entity = [...decls.keys()].some((k) => k.startsWith("--entity-"));
+  if (!light && !touches_entity) continue;
+  for (const token of entity_tokens) {
+    if (!decls.has(token)) {
+      failures.push(
+        light
+          ? `${theme}: light theme missing ${token} — the dark default value would leak into a light palette.`
+          : `${theme}: defines some --entity-* tokens but not ${token} — partial overrides mix palettes (all-or-nothing).`
+      );
+    }
+  }
+}
+
+for (const id of ts_light_ids) {
+  const decls = themes.get(id);
+  if (!decls) {
+    failures.push(`${id}: registered as group "light" in theme.ts but has no CSS block defining tokens.`);
+    continue;
+  }
+  const scheme = (decls.get("color-scheme") || "").trim();
+  if (!scheme.includes("light")) {
+    failures.push(`${id}: registered as group "light" in theme.ts but its CSS never sets color-scheme: light (UA widgets render dark).`);
+  }
+}
+
 if (failures.length > 0) {
   console.error(`theme token integrity: ${failures.length} failure(s)\n`);
   for (const f of failures) console.error(`  - ${f}`);
   process.exit(1);
 }
 
-console.log(`theme token integrity: OK (${themes.size} theme blocks checked, invariants A+B hold)`);
+console.log(`theme token integrity: OK (${themes.size} theme blocks checked, invariants A+B+C+D hold)`);

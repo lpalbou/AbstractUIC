@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon, type IconName } from "@abstractframework/ui-kit";
 
@@ -48,8 +48,11 @@ function _role_ui(m: ChatMessage): RoleUI {
     return { label: String(m.title || "").trim() || "Feature request", icon: "check", variant: "report_feature" };
   }
 
-  if (role === "user") return { label: "You", icon: "user", variant: "user" };
-  if (role === "assistant") return { label: "Agent", icon: "bot", variant: "assistant" };
+  // Speaker identity over role literal (operator fix 2026-07-13): hosts pass
+  // the speaker's name/handle as message.title (entity chat passes the entity
+  // name); the role words are only the fallback when no identity was supplied.
+  if (role === "user") return { label: String(m.title || "").trim() || "You", icon: "user", variant: "user" };
+  if (role === "assistant") return { label: String(m.title || "").trim() || "Agent", icon: "bot", variant: "assistant" };
 
   const sys_label = String(m.title || "").trim() || (lvl === "error" ? "Error" : lvl === "warn" ? "Warning" : "System");
   const sys_icon: IconName = lvl === "error" ? "error" : lvl === "warn" ? "warning" : "info";
@@ -73,9 +76,21 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
   const m = props.message;
   const role_ui = useMemo(() => _role_ui(m), [m.kind, m.level, m.role, m.title]);
   const ts = String(m.ts || "").trim();
-  const time_label = ts ? new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+  const time_label = useMemo(() => {
+    if (!ts) return "";
+    const d = new Date(ts);
+    // A malformed timestamp must render as no timestamp, never "Invalid Date".
+    if (!Number.isFinite(d.getTime())) return "";
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }, [ts]);
 
   const [copy_state, set_copy_state] = useState<"idle" | "copied" | "failed">("idle");
+  const copy_timer = useRef<number | null>(null);
+  useEffect(() => {
+    return () => {
+      if (copy_timer.current !== null) window.clearTimeout(copy_timer.current);
+    };
+  }, []);
 
   const can_speak = typeof props.onSpeakToggle === "function" && role_ui.variant === "assistant" && Boolean(String(m.content || "").trim());
   const speak_state = can_speak ? props.getSpeakState?.(m) || "idle" : "idle";
@@ -123,7 +138,8 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
               onClick={async () => {
                 const ok = await copyText(String(m.content || ""));
                 set_copy_state(ok ? "copied" : "failed");
-                window.setTimeout(() => set_copy_state("idle"), 900);
+                if (copy_timer.current !== null) window.clearTimeout(copy_timer.current);
+                copy_timer.current = window.setTimeout(() => set_copy_state("idle"), 900);
               }}
             >
               <Icon name="copy" size={22} />

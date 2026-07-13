@@ -4,6 +4,7 @@
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
+    "app-server",
     "ui-kit",
     "monitor-active-memory",
     "monitor-flow",

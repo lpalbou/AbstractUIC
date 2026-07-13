@@ -163,6 +163,120 @@ function normalizeLines(text: string): string[] {
   return s.split("\n");
 }
 
+/*
+ * Nested lists (operator fix 2026-07-13): the old renderer flattened every
+ * list region into ONE <ol> or <ul> — a document mixing `1.` items with
+ * indented `-` sub-bullets rendered flat, and a marker switch mid-region was
+ * swallowed into the wrong list type. Lists are now built as a real tree
+ * from indentation (tabs count as 4), with mixed markers handled:
+ * deeper indent nests under the previous item; a marker-type switch at the
+ * SAME indent closes the current list and starts a sibling of the same
+ * parent.
+ */
+type ListItemLine = { indent: number; ordered: boolean; start: number; content: string };
+
+function parseListItemLine(line: string): ListItemLine | null {
+  const s = String(line ?? "");
+  // Bullets: -, *, + ; ordered: 1. or 1) (CommonMark's two ordered forms).
+  const m = s.match(/^([ \t]*)(?:([-*+])|(\d{1,9})[.)])\s+(.*)$/);
+  if (!m) return null;
+  const indent = m[1].replace(/\t/g, "    ").length;
+  return {
+    indent,
+    ordered: Boolean(m[3]),
+    start: m[3] ? Math.max(1, parseInt(m[3], 10) || 1) : 1,
+    content: m[4] ?? "",
+  };
+}
+
+type ListNode = { ordered: boolean; start: number; items: ListItem[] };
+type ListItem = { content: string; children: ListNode[] };
+
+function buildListTree(itemLines: string[]): ListNode[] {
+  const entries: ListItemLine[] = [];
+  for (const raw of itemLines) {
+    const item = parseListItemLine(raw);
+    if (item) {
+      entries.push(item);
+    } else if (entries.length > 0 && raw.trim()) {
+      // Indented continuation line: part of the previous item's text.
+      entries[entries.length - 1].content += ` ${raw.trim()}`;
+    }
+  }
+
+  const roots: ListNode[] = [];
+  const stack: { indent: number; node: ListNode }[] = [];
+
+  for (const e of entries) {
+    while (stack.length > 0 && e.indent < stack[stack.length - 1].indent) stack.pop();
+
+    let top = stack.length > 0 ? stack[stack.length - 1] : null;
+
+    if (top && e.indent > top.indent) {
+      // Deeper indent: nest a new list under the previous item.
+      const parentItems = top.node.items;
+      const parent = parentItems[parentItems.length - 1];
+      if (parent) {
+        const node: ListNode = { ordered: e.ordered, start: e.start, items: [] };
+        parent.children.push(node);
+        stack.push({ indent: e.indent, node });
+        top = stack[stack.length - 1];
+      }
+      // No parent item can only happen on a malformed first entry — fall
+      // through and treat it as a same-level item of the top list.
+    } else if (top && top.node.ordered !== e.ordered) {
+      // Marker switch at the same indent: close this list, open a sibling
+      // under the same parent (or as a new root).
+      stack.pop();
+      const up = stack.length > 0 ? stack[stack.length - 1] : null;
+      const node: ListNode = { ordered: e.ordered, start: e.start, items: [] };
+      if (up) {
+        const parentItems = up.node.items;
+        const parent = parentItems[parentItems.length - 1];
+        if (parent) parent.children.push(node);
+        else up.node.items.push({ content: "", children: [node] });
+      } else {
+        roots.push(node);
+      }
+      stack.push({ indent: e.indent, node });
+      top = stack[stack.length - 1];
+    }
+
+    if (!top) {
+      const node: ListNode = { ordered: e.ordered, start: e.start, items: [] };
+      roots.push(node);
+      stack.push({ indent: e.indent, node });
+      top = stack[stack.length - 1];
+    }
+
+    top.node.items.push({ content: e.content, children: [] });
+  }
+
+  return roots;
+}
+
+function renderListNode(node: ListNode, highlight: HighlightState | null, key: string): React.ReactElement {
+  const children = node.items.map((it, idx) => (
+    <li key={`${key}:li:${idx}`}>
+      {renderInline(it.content, highlight)}
+      {it.children.map((child, cIdx) => renderListNode(child, highlight, `${key}:${idx}:${cIdx}`))}
+    </li>
+  ));
+  return node.ordered ? (
+    <ol key={key} className="pc-md_ol" start={node.start !== 1 ? node.start : undefined}>
+      {children}
+    </ol>
+  ) : (
+    <ul key={key} className="pc-md_ul">
+      {children}
+    </ul>
+  );
+}
+
+function renderListRegion(itemLines: string[], highlight: HighlightState | null, keyBase: string): React.ReactNode[] {
+  return buildListTree(itemLines).map((root, idx) => renderListNode(root, highlight, `${keyBase}:${idx}`));
+}
+
 function splitTableRow(line: string): string[] {
   let s = String(line ?? "").trim();
   if (!s) return [];
@@ -338,42 +452,26 @@ export function Markdown({
       continue;
     }
 
-    const isOrdered = (s: string) => /^\s*\d+\.\s+/.test(s);
-    if (isOrdered(line)) {
-      const items: string[] = [];
-      while (i < lines.length && isOrdered(String(lines[i] ?? ""))) {
-        const t = String(lines[i] ?? "");
-        items.push(t.replace(/^\s*\d+\.\s+/, ""));
-        i += 1;
+    if (parseListItemLine(line)) {
+      const itemLines: string[] = [];
+      // A list region is consecutive list-item lines plus indented
+      // continuation lines; a blank line still ends the block (unchanged
+      // paragraph semantics elsewhere in this renderer). A fence line ends
+      // the region too — folding ``` into an item's text garbled code blocks
+      // inside lists (adversary find 2026-07-13); breaking lets the fence
+      // handler render it, and any following items start a fresh region.
+      while (i < lines.length) {
+        const cur = String(lines[i] ?? "");
+        if (!cur.trim()) break;
+        if (cur.trimStart().startsWith("```")) break;
+        if (parseListItemLine(cur) || /^\s{2,}\S/.test(cur)) {
+          itemLines.push(cur);
+          i += 1;
+          continue;
+        }
+        break;
       }
-      blocks.push(
-        <ol key={`ol:${i}`} className="pc-md_ol">
-          {items.map((it, idx) => (
-            <li key={`oli:${i}:${idx}`}>{renderInline(it, highlightState)}</li>
-          ))}
-        </ol>
-      );
-      continue;
-    }
-
-    const isBullet = (s: string) => {
-      const t = s.trimStart();
-      return t.startsWith("- ") || t.startsWith("* ");
-    };
-    if (isBullet(line)) {
-      const items: string[] = [];
-      while (i < lines.length && isBullet(String(lines[i] ?? ""))) {
-        const t = String(lines[i] ?? "").trimStart();
-        items.push(t.slice(2));
-        i += 1;
-      }
-      blocks.push(
-        <ul key={`ul:${i}`} className="pc-md_ul">
-          {items.map((it, idx) => (
-            <li key={`li:${i}:${idx}`}>{renderInline(it, highlightState)}</li>
-          ))}
-        </ul>
-      );
+      blocks.push(<React.Fragment key={`list:${i}`}>{renderListRegion(itemLines, highlightState, `list:${i}`)}</React.Fragment>);
       continue;
     }
 

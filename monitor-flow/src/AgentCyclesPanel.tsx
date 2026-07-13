@@ -38,6 +38,10 @@ type ToolCall = {
  * deliberately untinted). */
 type StageLabel = "think" | "act" | "observe" | "other";
 
+/* ObserveCard's stage rides the same contract even though it renders its own
+ * summary row (typed so a union rename can't strand the attribute literal). */
+const OBSERVE_STAGE: StageLabel = "observe";
+
 type AgentCycle = {
   id: string;
   index: number;
@@ -566,7 +570,7 @@ function ObserveCard({ acts }: { acts: TraceItem[] }): React.ReactElement {
     <details className={`agent-trace-entry ${status}`} open={false}>
       <summary className="agent-trace-summary">
         <span className={`agent-trace-status ${status}`}>{failed.length ? "ERROR" : "OK"}</span>
-        <span className="agent-cycle-stage" data-stage="observe">observe</span>
+        <span className="agent-cycle-stage" data-stage={OBSERVE_STAGE}>{OBSERVE_STAGE}</span>
         <span className="agent-trace-kind">OBSERVATIONS</span>
         <span className="agent-trace-preview-inline">{header}</span>
       </summary>

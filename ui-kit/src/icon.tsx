@@ -25,7 +25,20 @@ export type IconName =
   | "chevronDown"
   | "chevronRight"
   | "trash"
-  | "send";
+  | "send"
+  // Nav glyphs contributed by continuum (2026-07-13, commons c1126) — drawn
+  // on a 16-grid with 1.4 stroke; the kit renders them from their native
+  // viewBox so the paths stay verbatim (no lossy 24-grid rescale).
+  | "board"
+  | "inbox"
+  | "server"
+  | "agent"
+  | "playCircle"
+  | "list"
+  | "gear";
+
+/** Icons drawn on continuum's 16x16 grid (stroke 1.4) vs the kit's 24-grid (stroke 2). */
+const GRID_16: ReadonlySet<IconName> = new Set(["board", "inbox", "server", "agent", "playCircle", "list", "gear"]);
 
 function paths(name: IconName): React.ReactNode {
   switch (name) {
@@ -196,6 +209,70 @@ function paths(name: IconName): React.ReactNode {
           <path d="M22 2L15 22l-4-9-9-4 20-7z" />
         </>
       );
+    case "board":
+      return (
+        <>
+          <rect x="1.5" y="2" width="3.6" height="12" rx="1" />
+          <rect x="6.2" y="2" width="3.6" height="8.5" rx="1" />
+          <rect x="10.9" y="2" width="3.6" height="5.5" rx="1" />
+        </>
+      );
+    case "inbox":
+      return (
+        <>
+          <path d="M2 9.5 L4 3.5 h8 l2 6" />
+          <path d="M2 9.5 v3 h12 v-3" />
+          <path d="M2 9.5 h3.4 l1 1.6 h3.2 l1-1.6 H14" />
+        </>
+      );
+    case "server":
+      return (
+        <>
+          <rect x="2" y="2.5" width="12" height="4.6" rx="1.2" />
+          <rect x="2" y="8.9" width="12" height="4.6" rx="1.2" />
+          <circle cx="4.6" cy="4.8" r="0.8" fill="currentColor" stroke="none" />
+          <circle cx="4.6" cy="11.2" r="0.8" fill="currentColor" stroke="none" />
+        </>
+      );
+    case "agent":
+      return (
+        <>
+          <rect x="3" y="4.5" width="10" height="8" rx="2" />
+          <path d="M8 4.5V2.2" />
+          <circle cx="8" cy="1.8" r="0.9" fill="currentColor" stroke="none" />
+          <circle cx="5.8" cy="8.4" r="0.9" fill="currentColor" stroke="none" />
+          <circle cx="10.2" cy="8.4" r="0.9" fill="currentColor" stroke="none" />
+        </>
+      );
+    case "playCircle":
+      return (
+        <>
+          <circle cx="8" cy="8" r="6.2" />
+          <path d="M6.5 5.6 L11 8 L6.5 10.4 Z" fill="currentColor" stroke="none" />
+        </>
+      );
+    case "list":
+      return (
+        <>
+          <path d="M2.5 4h11" />
+          <path d="M2.5 8h11" />
+          <path d="M2.5 12h7" />
+        </>
+      );
+    case "gear":
+      return (
+        <>
+          <circle cx="8" cy="8" r="2.2" />
+          <path d="M8 1.6v2" />
+          <path d="M8 12.4v2" />
+          <path d="M1.6 8h2" />
+          <path d="M12.4 8h2" />
+          <path d="M3.5 3.5l1.4 1.4" />
+          <path d="M11.1 11.1l1.4 1.4" />
+          <path d="M12.5 3.5l-1.4 1.4" />
+          <path d="M4.9 11.1l-1.4 1.4" />
+        </>
+      );
     default:
       return null;
   }
@@ -213,15 +290,16 @@ export function Icon({
   title?: string;
 } & Omit<React.SVGProps<SVGSVGElement>, "children">): React.ReactElement {
   const aria_hidden = title ? undefined : true;
+  const is16 = GRID_16.has(name);
 
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 24 24"
+      viewBox={is16 ? "0 0 16 16" : "0 0 24 24"}
       fill="none"
       stroke="currentColor"
-      strokeWidth={2}
+      strokeWidth={is16 ? 1.4 : 2}
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}

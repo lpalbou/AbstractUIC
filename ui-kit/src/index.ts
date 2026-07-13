@@ -19,3 +19,61 @@ export {
   type ToolSpec,
   type ToolApprovalMode,
 } from "./tool_policy_editor.js";
+export {
+  MATRIX_SCHEMA_VERSION,
+  validateMatrixPayload,
+  resolveCellView,
+  applyCellAction,
+  reconcilePatches,
+  serializeCellPatches,
+  type MatrixPayload,
+  type MatrixPhase,
+  type MatrixSection,
+  type MatrixItem,
+  type MatrixCell,
+  type MatrixCellView,
+  type MatrixCellControl,
+  type MatrixCellOp,
+  type MatrixCellPatch,
+  type MatrixPatchDocument,
+  type MatrixAvailability,
+  type MatrixProvenance,
+  type MatrixTrustState,
+  type MatrixValidation,
+} from "./phase_capability_matrix_core.js";
+export { PhaseCapabilityMatrix, type PhaseCapabilityMatrixProps } from "./phase_capability_matrix.js";
+export {
+  resolveCriticalActionGate,
+  normalizeCriticalActionFacts,
+  type CriticalActionFact,
+  type CriticalActionFacts,
+  type CriticalActionGate,
+  type CriticalActionGateInput,
+} from "./critical_action_core.js";
+export { CriticalActionDialog, type CriticalActionDialogProps } from "./critical_action_dialog.js";
+export {
+  GatewayConnectModal,
+  fetchGatewayConnection,
+  signInGateway,
+  signOutGateway,
+  gatewayStatusBadge,
+  normalizeGatewayUrl,
+  type GatewayConnectModalProps,
+  type GatewayConnectionState,
+} from "./gateway_connect_modal.js";
+export {
+  SteerComposer,
+  submitSteer,
+  readGatewayCsrfToken,
+  type SteerComposerProps,
+  type SteerSubmitResult,
+} from "./steer_composer.js";
+export {
+  DisclosureList,
+  type DisclosureRow,
+  type DisclosureSelection,
+  type DisclosureListProps,
+  type DisclosureListHandle,
+} from "./disclosure_list.js";
+export { AfChip, AfChipButton, afChipHue, type AfChipProps, type AfChipButtonProps, type AfChipTone } from "./af_chip.js";
+export { useGatewayVoice, streamTtsJsonl, type GatewayVoice, type GatewayVoiceOptions, type TtsPlaybackStatus } from "./use_gateway_voice.js";

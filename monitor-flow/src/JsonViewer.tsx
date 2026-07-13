@@ -208,10 +208,25 @@ function JsonNode(props: JsonNodeProps): React.ReactElement {
   );
 }
 
+/*
+ * TEMPORARY twin of panel-chat's JsonViewer (backlog 0003): this file becomes
+ * `export { JsonViewer } from "@abstractframework/panel-chat"` the moment the
+ * flow app adds the panel-chat dependency + alias (commons c859 ask 1) — flow
+ * consumes this package's src live, so swapping first would break its build.
+ * Until then the behavioral contract is kept identical by hand; do not let
+ * the twins diverge (the accepted-but-ignored collapseAfterDepth bug shipped
+ * twice because of this exact fork).
+ */
 export function JsonViewer(props: { value: unknown; className?: string; collapseAfterDepth?: number; showCopy?: boolean }): React.ReactElement {
   const { value, className, showCopy = true } = props;
   const [expansion, set_expansion] = useState<{ mode: JsonExpansionMode; version: number }>({ mode: "folded", version: 0 });
-  const collapse_after_depth = expansion.mode === "unfolded" ? UNFOLDED_DEPTH : FOLDED_DEPTH;
+  // Honor the consumer's folded-mode depth (accepted-but-ignored until the
+  // 2026-07-11 adversary find).
+  const folded_depth =
+    typeof props.collapseAfterDepth === "number" && (Number.isFinite(props.collapseAfterDepth) || props.collapseAfterDepth === Infinity) && props.collapseAfterDepth >= 0
+      ? (props.collapseAfterDepth === Infinity ? Number.MAX_SAFE_INTEGER : Math.trunc(props.collapseAfterDepth))
+      : FOLDED_DEPTH;
+  const collapse_after_depth = expansion.mode === "unfolded" ? UNFOLDED_DEPTH : folded_depth;
 
   const display_value = useMemo(() => {
     if (typeof value === "string") return try_parse_json_string(value);
@@ -219,7 +234,9 @@ export function JsonViewer(props: { value: unknown; className?: string; collapse
   }, [value]);
 
   const copy_value = useMemo(() => copy_string_for_json(value), [value]);
-  const cls = ["json-viewer", "run-details-output", className].filter(Boolean).join(" ");
+  // "run-details-output" (a flow-app class) deliberately removed: a kit
+  // component must not carry one consumer's vocabulary (adversary find).
+  const cls = ["json-viewer", className].filter(Boolean).join(" ");
 
   useEffect(() => {
     set_expansion((prev) => ({ mode: "folded", version: prev.version + 1 }));
@@ -237,14 +254,14 @@ export function JsonViewer(props: { value: unknown; className?: string; collapse
       <div className="json-viewer__toolbar">
         <button
           type="button"
-          className="modal-button json-viewer__toggle-all"
+          className="json-viewer__btn json-viewer__toggle-all"
           onClick={toggle_expansion}
           aria-expanded={expansion.mode === "unfolded"}
         >
           {expansion.mode === "unfolded" ? "Fold all" : "Unfold all"}
         </button>
         {showCopy ? (
-          <button type="button" className="modal-button json-viewer__copy" onClick={() => void copy_text(copy_value)}>
+          <button type="button" className="json-viewer__btn json-viewer__copy" onClick={() => void copy_text(copy_value)}>
             Copy
           </button>
         ) : null}

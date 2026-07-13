@@ -54,6 +54,34 @@
   --ui-border-2: rgba(255, 255, 255, 0.14);
   --ui-shadow-1: 0 10px 30px rgba(0, 0, 0, 0.35);
 
+  /* Entity-semantic tokens (one visual language for summoned-entity surfaces
+   * across the entity app, gateway console, and flow — c594 contract).
+   * Dark values are the shipped truth operators learned in the Observer
+   * entity view (abstractobserver/src/entity/entity.css); the light-theme
+   * variants live in the grouped light block below. Named for MEANING, not
+   * color — values may tune per theme, the vocabulary is the contract.
+   * Consumption rule: these are MARK colors (node rings, lanes, diamonds,
+   * chrome); as text they clear 4.5:1 only on primary/secondary surfaces
+   * (scar reads below AA as text on several dark themes) — entity-colored
+   * labels pair the mark with --text-primary text, and identity/bond/accent
+   * are one warm family: never color-alone coding between them. */
+  /* Code/JSON syntax tokens (dark set = the VSCode-dark palette the shared
+   * JSON viewers shipped as literals; promoted to tokens 2026-07-11 so light
+   * themes can override — the literals stay as fallbacks in component CSS
+   * for consumers loading components without theme.css). */
+  --syntax-key: #9cdcfe;
+  --syntax-string: #ce9178;
+  --syntax-number: #b5cea8;
+  --syntax-keyword: #569cd6;
+
+  --entity-identity: #e7b45a;
+  --entity-memory: #6ea8d8;
+  --entity-diary: #7bc98c;
+  --entity-standing: #c084dd;
+  --entity-scar: #e05555;
+  --entity-bond: #f0c060;
+  --entity-accent: #e8a54a;
+
   /* Semantic tints (hue-matched to the base colors above — subtle/border
    * variants must never drift to a different hue family than their base) */
   --accent-subtle: rgba(233, 69, 96, 0.12);
@@ -114,16 +142,24 @@
 }
 
 /* Shared Gateway browser-session sign-in card */
+.af-gateway-signin,
+.af-gateway-signin *,
+.af-gateway-signin *::before,
+.af-gateway-signin *::after {
+  /* The card must not depend on a host app's global box-sizing reset
+   * (found by the bare test-app render 2026-07-12: content-box hosts got a
+   * clipped card). */
+  box-sizing: border-box;
+}
+
 .af-gateway-signin {
   display: block;
   width: min(760px, 100%);
-  border: 1px solid rgba(0, 210, 255, 0.20);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   border-radius: var(--radius-md);
   padding: 24px;
-  background:
-    linear-gradient(135deg, rgba(18, 31, 61, 0.98), rgba(22, 20, 42, 0.98)),
-    var(--bg-secondary);
-  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.45);
+  background: var(--bg-card, var(--bg-secondary));
+  box-shadow: var(--ui-shadow-1);
   color: var(--text-primary);
   font-family: var(--font-sans);
 }
@@ -143,16 +179,16 @@
 .af-gateway-signin input {
   width: 100%;
   min-height: 40px;
-  border: 1px solid rgba(96, 165, 250, 0.34);
+  border: 1px solid var(--ui-border-2);
   border-radius: var(--radius-sm);
-  background: rgba(9, 14, 29, 0.76);
+  background: var(--ui-overlay-bg);
   color: var(--text-primary);
   padding: 9px 11px;
   font: inherit;
 }
 
 .af-gateway-signin input:focus {
-  outline: 2px solid rgba(0, 210, 255, 0.65);
+  outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
   outline-offset: 0;
 }
 
@@ -166,7 +202,7 @@
   border-radius: var(--radius-sm);
   min-height: 38px;
   padding: 8px 14px;
-  color: #fff;
+  color: var(--text-primary);
   font: inherit;
   font-weight: 800;
   cursor: pointer;
@@ -187,7 +223,7 @@
 
 .af-gateway-signin__kicker {
   margin-bottom: 8px;
-  color: rgba(0, 210, 255, 0.86);
+  color: var(--accent);
   font-size: var(--font-size-xs);
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -201,9 +237,9 @@
   place-items: center;
   flex: 0 0 auto;
   border-radius: 24px;
-  border: 1px solid rgba(0, 210, 255, 0.24);
-  background: linear-gradient(135deg, rgba(0, 210, 255, 0.18), rgba(233, 69, 96, 0.22));
-  color: rgba(255, 255, 255, 0.86);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, transparent), color-mix(in srgb, var(--error) 20%, transparent));
+  color: var(--text-primary);
   font-size: 32px;
   font-weight: 900;
 }
@@ -224,23 +260,23 @@
   border-radius: 999px;
   font-size: var(--font-size-xs);
   font-weight: 800;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--ui-overlay-border);
+  background: var(--ui-overlay-bg);
 }
 
 .af-gateway-signin__status--ok {
-  color: rgba(120, 255, 190, 0.95);
-  border-color: rgba(39, 174, 96, 0.36);
+  color: var(--success);
+  border-color: var(--success-border);
 }
 
 .af-gateway-signin__status--warn {
-  color: rgba(255, 210, 120, 0.95);
-  border-color: rgba(243, 156, 18, 0.36);
+  color: var(--warning);
+  border-color: var(--warning-border);
 }
 
 .af-gateway-signin__status--err {
-  color: rgba(255, 115, 135, 0.95);
-  border-color: rgba(233, 69, 96, 0.42);
+  color: var(--error);
+  border-color: var(--error-border);
 }
 
 .af-gateway-signin__source {
@@ -291,7 +327,36 @@
 }
 
 .af-gateway-signin__message--error {
-  color: rgba(255, 156, 175, 0.95);
+  color: var(--error);
+}
+
+.af-gateway-signin__message--ok {
+  color: var(--success);
+}
+
+/* Shared gateway connect modal (GatewayConnectModal).
+ * CONTRACT (maintainer 2026-07-12): the connection surface is a CENTERED
+ * MODAL over a dimmed + BLURRED backdrop, and the Gateway URL is always
+ * visible (the modal passes showGatewayUrl). Apps must use
+ * GatewayConnectModal for connect/disconnect UX; embedding the bare card is
+ * for already-modal contexts only and must keep the URL visible. */
+.af-connect-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1000;
+}
+
+.af-connect-modal {
+  width: min(760px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
 }
 
 .af-gateway-signin__actions {
@@ -302,8 +367,16 @@
   flex-wrap: wrap;
 }
 
+/* Accent-tinted surface + theme text, NOT solid accent + inverted text:
+ * mid-saturation accents (light themes' blues) sit at ~3.5:1 against BOTH
+ * white and near-black, so a solid-accent button mathematically cannot hold
+ * 4.5:1 label contrast across 21 themes (measured 2026-07-12: 7 themes
+ * failed, incl. the default). The tint keeps the accent identity; the label
+ * keeps every theme's own body-text contrast. */
 .af-gateway-signin__primary {
-  background: var(--accent);
+  background: color-mix(in srgb, var(--accent) 22%, var(--ui-overlay-bg));
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 .af-gateway-signin__secondary {
@@ -338,6 +411,31 @@
 :root.theme-one-light,
 :root.theme-everforest-light {
   color-scheme: light;
+
+  /* Entity-semantic tokens, light variants: same hue identities as the dark
+   * set (identity/bond/accent stay warm golds, memory blue, diary green,
+   * standing purple, scar red), darkened so each holds ≥4.5:1 against every
+   * light theme's PRIMARY and SECONDARY backgrounds (measured worst cases
+   * #ffffff and solarized #eee8d5) and ≥3:1 as non-text marks on tertiary
+   * surfaces. Bond keeps ≥1.2x luminance separation from identity so the
+   * warm-gold pair survives red-green color-vision deficiency (the dark pair
+   * separates by luminance too). A scar that vanishes on light would break
+   * the one-visual-language goal (c529). */
+  --entity-identity: #7d5c0e;
+  --entity-memory: #2a6396;
+  --entity-diary: #2a7340;
+  --entity-standing: #8f44b3;
+  --entity-scar: #b23230;
+  --entity-bond: #66530d;
+  --entity-accent: #8f5a0e;
+
+  /* Code/JSON syntax tokens, light variants: dark enough to hold ≥4.5:1 on
+   * every light theme's primary/secondary backgrounds (worst cases #ffffff
+   * and solarized #eee8d5). Same role identities as the dark set. */
+  --syntax-key: #0451a5;
+  --syntax-string: #a31515;
+  --syntax-number: #096b47;
+  --syntax-keyword: #6f42c1;
 }
 
 :root.theme-light {
@@ -490,18 +588,18 @@
 }
 
 .af-tool-policy__mode.is-warn {
-  border-color: color-mix(in srgb, #f59e0b 50%, transparent);
-  background: color-mix(in srgb, #f59e0b 12%, var(--ui-overlay-bg));
+  border-color: color-mix(in srgb, var(--warning) 50%, transparent);
+  background: color-mix(in srgb, var(--warning) 12%, var(--ui-overlay-bg));
 }
 
 .af-tool-policy__mode.is-danger {
-  border-color: color-mix(in srgb, #ef4444 55%, transparent);
-  background: color-mix(in srgb, #ef4444 14%, var(--ui-overlay-bg));
+  border-color: color-mix(in srgb, var(--error) 55%, transparent);
+  background: color-mix(in srgb, var(--error) 14%, var(--ui-overlay-bg));
 }
 
 .af-tool-policy__mode.is-info {
-  border-color: color-mix(in srgb, #38bdf8 50%, transparent);
-  background: color-mix(in srgb, #38bdf8 12%, var(--ui-overlay-bg));
+  border-color: color-mix(in srgb, var(--info) 50%, transparent);
+  background: color-mix(in srgb, var(--info) 12%, var(--ui-overlay-bg));
 }
 
 .af-tool-policy__note {
@@ -1290,11 +1388,17 @@
 
 .af-select {
   display: inline-flex;
+  position: relative; /* anchors the sibling clear button */
 }
 
 .af-select--panel {
   display: flex;
   width: 100%;
+}
+
+/* Reserve room for the clear button so it never overlaps the value/caret. */
+.af-select-trigger--clearable {
+  padding-right: 44px;
 }
 
 .af-select--pin {
@@ -1343,6 +1447,10 @@
   color: var(--text-secondary);
 }
 
+/* Legacy in-trigger clear span — kept UNCHANGED while AbstractFlow's fork
+ * still renders it (the fork loads this CSS live; restyling the shared class
+ * would rewire it from under them — adversary find 2026-07-12). Deleted when
+ * the fork deletes (backlog 0001). */
 .af-select-clear {
   display: inline-flex;
   width: 16px;
@@ -1354,7 +1462,30 @@
   cursor: pointer;
 }
 
-.af-select-clear:hover {
+/* The kit component's clear affordance: a real focusable button, SIBLING of
+ * the trigger (a role=button span nested inside the trigger <button> was
+ * invalid interactive nesting and could never receive keyboard focus). */
+.af-select-clear-btn {
+  position: absolute;
+  right: 26px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.af-select-clear:hover,
+.af-select-clear-btn:hover {
   color: var(--text-primary);
   background: var(--ui-overlay-bg-hover, rgba(255, 255, 255, 0.08));
 }
@@ -1401,7 +1532,7 @@
 
 .af-select-custom-error {
   margin-top: 6px;
-  color: var(--accent);
+  color: var(--error);
   font-size: var(--font-size-xs);
   line-height: 1.35;
 }
@@ -1531,4 +1662,628 @@
   border-radius: 3px;
   border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+/* Phase capability matrix (entity config object: phases x tools/skills/mcp) */
+.af-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--ui-border-1);
+  background: var(--ui-surface-1);
+  box-shadow: var(--ui-shadow-1);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+
+.af-matrix__header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.af-matrix__title {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.af-matrix__subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.af-matrix__pending-note {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--warning);
+}
+
+.af-matrix__refusal {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--error-border);
+  background: var(--error-subtle);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.af-matrix__scroll {
+  overflow-x: auto;
+}
+
+.af-matrix__table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--font-size-sm);
+}
+
+.af-matrix__phase {
+  text-align: left;
+  padding: 6px 10px;
+  vertical-align: bottom;
+}
+
+.af-matrix__phase-label {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-primary);
+}
+
+.af-matrix__phase-hint {
+  display: block;
+  font-size: var(--font-size-xxs);
+  font-weight: 500;
+  color: var(--text-muted);
+  max-width: 180px;
+}
+
+.af-matrix__section-label {
+  text-align: left;
+  padding: 12px 10px 4px;
+  font-size: var(--font-size-xxs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--ui-border-1);
+}
+
+.af-matrix__item {
+  text-align: left;
+  padding: 6px 10px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.af-matrix__cell-td {
+  padding: 4px 6px;
+  border-top: 1px solid var(--ui-border-1);
+}
+
+.af-matrix__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 132px;
+}
+
+.af-matrix__cell.is-absent,
+.af-matrix__cell.is-unavailable {
+  align-items: flex-start;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.af-matrix__cell-mark {
+  font-weight: 700;
+}
+
+.af-matrix__cell-note {
+  font-size: var(--font-size-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.af-matrix__cell-reason {
+  font-size: var(--font-size-xxs);
+  color: var(--text-secondary);
+}
+
+.af-matrix__cell.is-review {
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--warning-border);
+  background: var(--warning-subtle);
+}
+
+.af-matrix__approve-btn {
+  align-self: flex-start;
+  padding: 3px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--warning-border);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.af-matrix__approve-btn:hover:not(:disabled) {
+  background: var(--warning-subtle);
+}
+
+.af-matrix__tristate {
+  display: inline-flex;
+  background: var(--ui-overlay-bg);
+  border: 1px solid var(--ui-overlay-border);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  gap: 2px;
+}
+
+.af-matrix__tri-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xxs);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: calc(var(--radius-md) - 2px);
+  cursor: pointer;
+}
+
+.af-matrix__tri-btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.af-matrix__tri-btn.is-active.is-grant {
+  background: var(--success-subtle);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--success-border);
+}
+
+.af-matrix__tri-btn.is-active.is-deny {
+  background: var(--error-subtle);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--error-border);
+}
+
+.af-matrix__tri-btn.is-active.is-clear {
+  background: var(--ui-overlay-bg-hover);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--ui-border-2);
+}
+
+.af-matrix__cell-meta {
+  display: inline-flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: var(--font-size-xxs);
+  color: var(--text-muted);
+}
+
+.af-matrix__prov.is-operator {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.af-matrix__standing {
+  color: var(--warning);
+  font-weight: 600;
+  cursor: help;
+}
+
+.af-matrix__cell.is-indeterminate .af-matrix__value-mark {
+  color: var(--warning);
+  font-style: italic;
+}
+
+.af-matrix__cell.is-pending .af-matrix__prov {
+  color: var(--warning);
+  font-weight: 700;
+}
+
+.af-matrix__empty {
+  padding: 8px 10px;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* Critical action dialog (server blast-radius facts required) */
+.af-critical__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.af-critical {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--error-border);
+  background: var(--bg-card, var(--bg-secondary));
+  box-shadow: var(--ui-shadow-1);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+
+.af-critical__title {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.af-critical__consequence {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--error-border);
+  background: var(--error-subtle);
+}
+
+.af-critical__facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 14px;
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.af-critical__facts dt {
+  color: var(--text-muted);
+}
+
+.af-critical__facts dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.af-critical__fallback {
+  font-size: var(--font-size-sm);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--warning-border);
+  background: var(--warning-subtle);
+  color: var(--text-primary);
+}
+
+.af-critical__phrase {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.af-critical__phrase input {
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ui-border-2);
+  background: var(--ui-overlay-bg);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.af-critical__error {
+  font-size: var(--font-size-sm);
+  color: var(--error);
+}
+
+.af-critical__disabled-reason {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.af-critical__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.af-critical__actions button {
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.af-critical__actions button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.af-critical__cancel {
+  border: 1px solid var(--ui-border-2);
+  background: var(--ui-overlay-bg);
+  color: var(--text-primary);
+}
+
+.af-critical__confirm {
+  border: 1px solid var(--error-border);
+  background: var(--error-subtle);
+  color: var(--text-primary);
+}
+
+.af-critical__confirm.is-degraded {
+  border-color: var(--warning-border);
+  background: var(--warning-subtle);
+}
+
+/* Steer composer (hooks H4 — speak to a live run) */
+.af-steer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.af-steer__row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.af-steer__input {
+  flex: 1;
+  resize: vertical;
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ui-border-2);
+  background: var(--ui-overlay-bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.af-steer__input:focus {
+  outline: none;
+  border-color: var(--accent-border);
+}
+
+.af-steer__send {
+  align-self: flex-end;
+  padding: 7px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--accent-border);
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.af-steer__send:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.af-steer__status {
+  min-height: 16px;
+  font-size: var(--font-size-xs);
+}
+
+.af-steer__hint {
+  color: var(--text-muted);
+}
+
+.af-steer__ok {
+  color: var(--success);
+}
+
+.af-steer__err {
+  color: var(--error);
+}
+
+/* Disclosure list (dual-key selection tree; flat rows with depth) */
+.af-disclosure {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.af-disclosure--empty {
+  padding: 12px;
+}
+
+.af-disclosure__empty {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.af-disclosure__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  /* Depth indent rides a var so rows stay flat DOM. */
+  padding-left: calc(8px + var(--af-disclosure-depth, 0) * 16px);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  min-width: 0;
+}
+
+.af-disclosure__row:hover {
+  background: var(--ui-overlay-bg);
+}
+
+.af-disclosure__row:focus-visible {
+  outline: none;
+  border-color: var(--accent-border);
+}
+
+.af-disclosure__row--selected {
+  background: var(--accent-subtle);
+  border-color: var(--accent-border);
+}
+
+/* Same-entity echo: subtle wash only — never the selection ring. */
+.af-disclosure__row[data-entity-selected] {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.af-disclosure__row--static {
+  cursor: default;
+  color: var(--text-secondary);
+}
+
+.af-disclosure__chevron {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.af-disclosure__chevron:hover {
+  color: var(--text-primary);
+  background: var(--ui-overlay-bg);
+}
+
+.af-disclosure__chevron--spacer {
+  cursor: default;
+  pointer-events: none;
+}
+
+.af-disclosure__content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Amendment (b): muted name-collision hint after the main content. */
+.af-disclosure__hint {
+  flex: none;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* Amendment (c): badge-rail helper — overflow fades instead of wrapping,
+ * with padding reserved so the fade never eats the last badge's edge. */
+.af-disclosure__rail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  padding-right: 14px;
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 14px), transparent);
+  mask-image: linear-gradient(to right, black calc(100% - 14px), transparent);
+}
+
+/* Chips (AfChip / AfChipButton) — one derivation recipe from --af-chip-hue.
+ * Text mixes 45% hue / 55% --text-primary (the measured AA recipe); no
+ * filled variant exists by contract. */
+.af-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--af-chip-hue) 35%, transparent);
+  background: color-mix(in srgb, var(--af-chip-hue) 12%, transparent);
+  color: color-mix(in srgb, var(--af-chip-hue) 45%, var(--text-primary) 55%);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.af-chip--sm {
+  padding: 0 6px;
+  font-size: var(--font-size-xxs);
+}
+
+.af-chip__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.af-chip--button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.af-chip--button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--af-chip-hue) 20%, transparent);
+}
+
+.af-chip--button:focus-visible {
+  outline: 2px solid var(--accent-border);
+  outline-offset: 1px;
+}
+
+.af-chip--button[aria-pressed="true"],
+.af-chip--button[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--af-chip-hue) 22%, transparent);
+  border-color: color-mix(in srgb, var(--af-chip-hue) 55%, transparent);
+}
+
+.af-chip--button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.af-chip__remove {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  margin-right: -3px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.af-chip__remove:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--af-chip-hue) 25%, transparent);
 }

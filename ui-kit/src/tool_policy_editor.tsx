@@ -8,6 +8,13 @@ export type ToolSpec = {
   description?: string;
   toolset?: string;
   when_to_use?: string;
+  /**
+   * Server-declared approval default for this tool ("approve" | "ask").
+   * When present it is authoritative; the kit's TOOL_POLICY_DEFAULTS mirror
+   * is only the labeled fallback for gateways that do not serve defaults yet
+   * (client-copied defaults rot — prefer server truth).
+   */
+  default_approval?: ToolApprovalMode;
 };
 
 export type ToolApprovalMode = "approve" | "ask";
@@ -38,7 +45,9 @@ export type ToolPolicyEditorProps = {
   className?: string;
 };
 
-// Mirrors AbstractRuntime ToolApprovalPolicy defaults (keep in sync).
+// #FALLBACK mirror of AbstractRuntime ToolApprovalPolicy defaults — used only
+// when a tool arrives WITHOUT a server-declared default_approval. Known drift
+// risk (client-copied defaults rot); gateways should serve per-tool defaults.
 export const TOOL_POLICY_DEFAULTS: ToolPolicyDefaults = {
   autoApprove: [
     "list_files",
@@ -78,6 +87,8 @@ function normalize_tools(items: ToolSpec[]): ToolSpec[] {
       description: typeof it.description === "string" ? it.description : undefined,
       toolset: typeof it.toolset === "string" ? it.toolset : undefined,
       when_to_use: typeof it.when_to_use === "string" ? it.when_to_use : undefined,
+      default_approval:
+        it.default_approval === "approve" || it.default_approval === "ask" ? it.default_approval : undefined,
     });
   }
   out.sort((a, b) => {
@@ -89,9 +100,11 @@ function normalize_tools(items: ToolSpec[]): ToolSpec[] {
   return out;
 }
 
-function default_mode_for(name: string, defaults: ToolPolicyDefaults): ToolApprovalMode {
-  if (defaults.requireApproval.includes(name)) return "ask";
-  if (defaults.autoApprove.includes(name)) return "approve";
+function default_mode_for(tool: ToolSpec, defaults: ToolPolicyDefaults): ToolApprovalMode {
+  // Server-declared default wins; the local mirror is the labeled fallback.
+  if (tool.default_approval) return tool.default_approval;
+  if (defaults.requireApproval.includes(tool.name)) return "ask";
+  if (defaults.autoApprove.includes(tool.name)) return "approve";
   return "ask";
 }
 
@@ -263,7 +276,7 @@ export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactEleme
       <div className="af-tool-policy__list">
         {filtered.map((tool) => {
           const is_checked = effective_selected.has(tool.name);
-          const approval = props.value?.approval?.[tool.name] || default_mode_for(tool.name, defaults);
+          const approval = props.value?.approval?.[tool.name] || default_mode_for(tool, defaults);
           return (
             <div key={tool.name} className={`af-tool-row ${is_checked ? "is-enabled" : ""}`.trim()}>
               <label className="af-tool-row__check">

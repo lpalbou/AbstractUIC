@@ -81,7 +81,7 @@
 
 .run-metric-badge.metric-tool {
   border: 1px solid var(--info-border, rgba(96, 165, 250, 0.35));
-  background: var(--info-subtle, rgba(96, 165, 250, 0.10));
+  background: var(--info-subtle, rgba(96, 165, 250, 0.12));
   color: var(--text-primary, rgba(200, 232, 255, 0.95));
   border-radius: 999px;
   padding: 3px 8px;
@@ -195,8 +195,10 @@
  * :root token values for hosts that don't load theme.css. Text mixes 45% hue /
  * 55% --text-primary: at 55% hue, muted palettes (nord, the pastel lights)
  * fall below the 4.5:1 AA floor for this 11px bold text (2026-07-11
- * adversarial find); 45% keeps the tint visible and recovers AA. Color is an
- * enhancement only — the pill text itself names the stage. */
+ * adversarial find); 45% keeps the tint visible and recovers AA on Nord-class
+ * palettes. The lowest-contrast pastel themes (everforest-light) stay limited
+ * by their own --text-primary ceiling (<5:1) at ANY tint ratio — color is an
+ * enhancement only, the pill text itself names the stage. */
 .agent-cycle-stage[data-stage="think"] {
   border-color: var(--info-border, rgba(96, 165, 250, 0.35));
   background: var(--info-subtle, rgba(96, 165, 250, 0.12));
@@ -418,11 +420,11 @@
 }
 
 /* JSON viewer (for Raw/Trace tabs) */
-.json-token.key { color: #9cdcfe; }
-.json-token.string { color: #ce9178; }
-.json-token.number { color: #b5cea8; }
-.json-token.boolean { color: #569cd6; }
-.json-token.null { color: #569cd6; opacity: 0.9; font-style: italic; }
+.json-token.key { color: var(--syntax-key, #9cdcfe); }
+.json-token.string { color: var(--syntax-string, #ce9178); }
+.json-token.number { color: var(--syntax-number, #b5cea8); }
+.json-token.boolean { color: var(--syntax-keyword, #569cd6); }
+.json-token.null { color: var(--syntax-keyword, #569cd6); opacity: 0.9; font-style: italic; }
 
 .json-viewer {
   white-space: normal;
@@ -442,13 +444,25 @@
   gap: 6px;
   margin-bottom: 8px;
   padding-bottom: 6px;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+  background: linear-gradient(to bottom, var(--bg-secondary, rgba(0, 0, 0, 0.55)), transparent);
 }
 
-.json-viewer__copy,
-.json-viewer__toggle-all {
+/* Package-owned toolbar buttons ("modal-button" was a flow-app class: the
+ * toolbar rendered as unstyled UA buttons in every other consumer). */
+.json-viewer__btn {
+  appearance: none;
+  font: inherit;
   font-size: var(--font-size-xs, 11px);
   padding: 6px 10px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--ui-border-2, rgba(255, 255, 255, 0.14));
+  background: var(--ui-overlay-bg, rgba(0, 0, 0, 0.18));
+  color: var(--text-primary, rgba(255, 255, 255, 0.92));
+  cursor: pointer;
+}
+
+.json-viewer__btn:hover {
+  background: var(--ui-overlay-bg-hover, rgba(255, 255, 255, 0.08));
 }
 
 .json-viewer__tree {

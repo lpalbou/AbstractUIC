@@ -39,6 +39,8 @@ export type GatewaySessionSignInCardProps = {
   showClose?: boolean;
   showSignOut?: boolean;
   error?: string;
+  /** Success/info notice rendered where errors render (e.g. "Signed out."). */
+  message?: string;
   className?: string;
   onSubmit: () => void | Promise<void>;
   onClose?: () => void;
@@ -81,6 +83,7 @@ export function GatewaySessionSignInCard({
   showClose = false,
   showSignOut = false,
   error,
+  message,
   className,
   onSubmit,
   onClose,
@@ -178,6 +181,7 @@ export function GatewaySessionSignInCard({
       </div>
 
       {error ? <div className="af-gateway-signin__message af-gateway-signin__message--error">{error}</div> : null}
+      {!error && message ? <div className="af-gateway-signin__message af-gateway-signin__message--ok">{message}</div> : null}
 
       <div className="af-gateway-signin__actions">
         {showClose ? (

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 
 import { JsonViewer } from "./json_viewer.js";
 import { Markdown } from "./markdown.js";
@@ -11,7 +11,10 @@ export function ChatMessageContent(props: {
   jsonCollapseAfterDepth?: number;
 }): React.ReactElement {
   const text = String(props.text ?? "");
-  const parsed = tryParseJson(text);
+  // Memoized on text: an unmemoized parse gives the viewer a new object
+  // identity per parent render, re-folding a tree the user expanded
+  // (adversary find 2026-07-12).
+  const parsed = useMemo(() => tryParseJson(text), [text]);
   const cls = ["pc-chat-content", props.className].filter(Boolean).join(" ");
 
   if (parsed !== null) {

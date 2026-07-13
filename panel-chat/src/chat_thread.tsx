@@ -38,11 +38,21 @@ export function ChatThread(props: ChatThreadProps): React.ReactElement {
     return () => el.removeEventListener("scroll", on_scroll);
   }, [auto, threshold]);
 
+  // Re-stick on CONTENT growth, not just message count: a streaming answer
+  // mutates a message's content and grows below the fold. ANY message's
+  // growth moves the bottom (tool/status cards update in place too), so the
+  // signature sums every content length.
+  const content_signature = useMemo(() => {
+    let total = 0;
+    for (const m of msgs) total += String(m.content ?? "").length;
+    return `${msgs.length}:${total}`;
+  }, [msgs]);
+
   useEffect(() => {
     if (!auto) return;
     if (!stick) return;
     bottom_ref.current?.scrollIntoView({ block: "end" });
-  }, [auto, stick, msgs.length]);
+  }, [auto, stick, content_signature]);
 
   return (
     <div ref={list_ref} className={["pc-chat-thread", props.className].filter(Boolean).join(" ")}>

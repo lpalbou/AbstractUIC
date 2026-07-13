@@ -28,17 +28,19 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./theme.css": "./src/theme.css"
+    "./theme.css": "./src/theme.css",
+    "./palette_seeds.json": "./palette_seeds.json"
   },
   "files": [
     "dist",
     "src/theme.css",
+    "palette_seeds.json",
     "README.md"
   ],
   "scripts": {
     "build": "tsc",
-    "test": "node scripts/check_theme_tokens.mjs",
-    "prepublishOnly": "npm run build"
+    "test": "node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs",
+    "prepublishOnly": "npm test"
   },
   "peerDependencies": {
     "react": "^18.0.0",
