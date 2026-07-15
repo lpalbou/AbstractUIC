@@ -107,6 +107,13 @@ maintainer's 2026-07-12 ruling:
   stay open on sign-out, re-arm per signed-out episode. Do not hand-roll
   this machine in apps; the drift is exactly what shipped the
   signed-in-but-modal-parked bug across consumers.
+- **Mid-session losses don't auto-open (continuum c2528, 2026-07-16)**:
+  under `dismissable`, only boot-resolved disconnects and sign-out episodes
+  auto-open the modal. A LIVE session resolving away mid-use (expiry,
+  gateway restart, one transient probe blip) surfaces through the pill/badge
+  instead of a screen-covering modal over whatever the operator is typing.
+  Opt back into the old behavior per app with `autoOpenMidSession: true`.
+  Blocking apps always auto-open (no offline surface exists).
 
 ## Unified top-right corner (plans/unified-top-bar.md)
 
@@ -189,3 +196,16 @@ Closed drawer = remove `--open`, set `display:none`.
   `.af-disclosure__chevron:not(.af-disclosure__chevron--spacer)` — the kit
   keeps unthemed consumers safe, but a consumer restyle must carry the
   `:not()`.
+
+
+### Theme-system ownership (operator directive 2026-07-15)
+
+The kit OWNS the theme system for every AbstractFramework UI: `theme.css`
+(21 themes), `THEME_SPECS`, `useAppearanceSettings` (per-app persistence +
+no-flash first paint), and the switcher surfaces (`AfAppearanceDialog`,
+`ThemeSelect`, `TypographySelect`, `FontScaleSelect`, `HeaderDensitySelect`).
+Apps never fork these. Compliance tiers: (1) React apps import theme.css +
+the hook + the dialog; (2) non-npm surfaces serve a GENERATED verbatim copy
+drift-pinned in their own suite (the gateway console pattern —
+`console_theme_sync.py`); (3) native surfaces (Qt) are out of scope.
+Adoption matrix + orchestration: docs/backlog/planned/0026 (uic tree).

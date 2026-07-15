@@ -109,3 +109,5 @@ carries its own code-reality citations.
   MultiSelect unification, toast system, run-history component,
   ProviderModelSelect-for-flow, arming-panel-before-endpoint) are not
   re-litigated without new evidence.
+
+- [completed/0026_theme_system_universal_adoption.md](completed/0026_theme_system_universal_adoption.md) — theme system kit ownership + universal adoption (operator directive 2026-07-15; COMPLETE same-day — matrix FULL on every row)

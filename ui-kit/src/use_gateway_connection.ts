@@ -13,6 +13,10 @@
  *    loading state, never over a live session. A thrown probe (app-origin
  *    server unreachable) is UNKNOWN, not resolved: no auto-open (the proxy
  *    answers 200 with ok:false when the GATEWAY is down, which IS resolved).
+ *  - Under dismissable, only BOOT and SIGN-OUT episodes auto-open; a live
+ *    session resolving away mid-use does not (opt back in with
+ *    autoOpenMidSession) — continuum c2528: one transient probe blip popped
+ *    the modal over the operator's typing. Blocking apps always auto-open.
  *  - Sign-in success closes the modal (the modal also self-closes; both
  *    paths converge here through onStatusChange).
  *  - Sign-out / session loss re-arms the auto-open: each new signed-out
@@ -36,6 +40,17 @@ export type UseGatewayConnectionOptions = {
    * the app keeps a badge/banner as re-entry (e.g. continuum).
    */
   variant?: "blocking" | "dismissable";
+  /**
+   * Mid-session auto-open policy (dismissable only; continuum's reload
+   * adversary, 2026-07-16). When a LIVE session resolves away mid-use
+   * (expiry, gateway restart, transient blip), a screen-covering modal over
+   * whatever the operator is typing is a thin trigger — the app's
+   * badge/banner is the re-entry instead. Default false: only boot-resolved
+   * disconnects and post-signOut episodes auto-open. Pass true to restore
+   * the old always-auto-open behavior. Blocking apps always auto-open (they
+   * have no offline surface to fall back to).
+   */
+  autoOpenMidSession?: boolean;
   appName?: string;
   defaultGatewayUrl?: string;
   onStatusChange?: (status: GatewayConnectionState | null) => void;
@@ -89,6 +104,11 @@ export function useGatewayConnection(options?: UseGatewayConnectionOptions): Gat
   // behind (the voice hook's opts_ref lesson; adversary find 2026-07-13).
   const onStatusChangeRef = useRef(opts.onStatusChange);
   onStatusChangeRef.current = opts.onStatusChange;
+  // applyStatus stays dependency-free; policy inputs read through refs.
+  const variantRef = useRef(variant);
+  variantRef.current = variant;
+  const autoOpenMidSessionRef = useRef(Boolean(opts.autoOpenMidSession));
+  autoOpenMidSessionRef.current = Boolean(opts.autoOpenMidSession);
 
   const [status, setStatus] = useState<GatewayConnectionState | null>(null);
   const [phase, setPhase] = useState<GatewayConnectionPhase>("loading");
@@ -107,6 +127,16 @@ export function useGatewayConnection(options?: UseGatewayConnectionOptions): Gat
   // phase still reads "disconnected" and would mark the episode dismissed —
   // silently killing the NEXT expiry's auto-open (adversary F1).
   const phaseRef = useRef<GatewayConnectionPhase>("loading");
+  // How the CURRENT signed-out episode began (continuum c2528 ask 2):
+  // "boot" (never had a session this load), "mid" (a live session resolved
+  // away mid-use), "signout" (the machine's own signOut()). Decided once at
+  // episode START and held through subsequent disconnected deliveries —
+  // otherwise a retry probe would re-classify a suppressed mid episode as
+  // boot-like and open the modal anyway.
+  const episodeOrigin = useRef<"none" | "boot" | "mid" | "signout">("none");
+  // True while signOut()'s follow-up probe delivers, so its episode
+  // classifies as "signout", not "mid".
+  const explicitSignOut = useRef(false);
   // Status generation: every applied status invalidates in-flight probes so
   // a slow probe started BEFORE a sign-in cannot land after it and overwrite
   // the connected status with a stale signed-out answer (adversary F2).
@@ -121,11 +151,25 @@ export function useGatewayConnection(options?: UseGatewayConnectionOptions): Gat
       setPhase("connected");
       phaseRef.current = "connected";
       dismissedThisEpisode.current = false;
+      episodeOrigin.current = "none";
       if (!wasConnected.current) setModalOpen(false); // sign-in success: the app is the confirmation
     } else if (s !== null) {
+      const priorPhase = phaseRef.current;
       setPhase("disconnected");
       phaseRef.current = "disconnected";
-      if (!dismissedThisEpisode.current) setModalOpen(true); // resolved disconnect
+      if (priorPhase !== "disconnected") {
+        episodeOrigin.current = explicitSignOut.current ? "signout" : priorPhase === "connected" ? "mid" : "boot";
+      }
+      // Resolved disconnect: auto-open policy (continuum c2528 ask 2).
+      // Blocking apps always auto-open (no offline surface exists). Under
+      // dismissable, boot and sign-out episodes auto-open once; a live
+      // session resolving away MID-USE only auto-opens when the app opts in
+      // via autoOpenMidSession — a blip-triggered modal landing over
+      // whatever the operator is typing was continuum's live failure; the
+      // app's badge/banner is the re-entry.
+      const policyAllows =
+        variantRef.current === "blocking" || episodeOrigin.current !== "mid" || autoOpenMidSessionRef.current;
+      if (!dismissedThisEpisode.current && policyAllows) setModalOpen(true);
     }
     if (s !== null) wasConnected.current = nowConnected;
     // s === null: unknown (probe threw) — never auto-open over unknown.
@@ -173,7 +217,15 @@ export function useGatewayConnection(options?: UseGatewayConnectionOptions): Gat
       // real state; the error channel reports the failed ACT.
       failed = String(e?.message || e || "Sign-out request failed");
     }
-    await refresh();
+    // The follow-up probe's disconnected delivery is a SIGN-OUT episode, not
+    // a mid-session loss — applyStatus runs synchronously inside refresh(),
+    // so the flag is visible exactly for that delivery.
+    explicitSignOut.current = true;
+    try {
+      await refresh();
+    } finally {
+      explicitSignOut.current = false;
+    }
     setSignOutError(failed);
     setSigningOut(false);
   }, [connectionPath, refresh]);

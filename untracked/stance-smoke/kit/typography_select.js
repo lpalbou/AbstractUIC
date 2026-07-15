@@ -1,0 +1,21 @@
+import { jsx as _jsx } from "react/jsx-runtime";
+import { useMemo } from "react";
+import { AfSelect } from "./af_select.js";
+import { FONT_SCALES, HEADER_DENSITIES } from "./typography.js";
+export function FontScaleSelect(props) {
+    const scales = props.scales && props.scales.length ? props.scales : FONT_SCALES;
+    const variant = props.variant || "panel";
+    const options = useMemo(() => {
+        return scales.map((s) => ({ value: s.id, label: s.label }));
+    }, [scales]);
+    return (_jsx(AfSelect, { value: props.value, options: options, placeholder: props.placeholder || "Font size…", disabled: props.disabled === true, searchable: false, allowCustom: false, clearable: false, variant: variant, className: props.className, triggerClassName: props.triggerClassName, onChange: (next) => props.onChange(String(next || "").trim()) }));
+}
+export function HeaderDensitySelect(props) {
+    const densities = props.densities && props.densities.length ? props.densities : HEADER_DENSITIES;
+    const variant = props.variant || "panel";
+    const options = useMemo(() => {
+        return densities.map((d) => ({ value: d.id, label: d.label }));
+    }, [densities]);
+    return (_jsx(AfSelect, { value: props.value, options: options, placeholder: props.placeholder || "Header size…", disabled: props.disabled === true, searchable: false, allowCustom: false, clearable: false, variant: variant, className: props.className, triggerClassName: props.triggerClassName, onChange: (next) => props.onChange(String(next || "").trim()) }));
+}
+export default FontScaleSelect;

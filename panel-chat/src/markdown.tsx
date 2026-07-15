@@ -105,8 +105,14 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
           const href = safeHref(s.slice(labelEnd + 2, hrefEnd));
           if (href) {
             flush();
+            // "/" links open in a NEW TAB like absolute links (continuum's
+            // reload adversary, 2026-07-16): this renderer draws AGENT-authored
+            // text, so a root-relative href is not a client-router route — in
+            // an SPA consumer a same-tab "/" click unloads the whole app to
+            // the SPA fallback (full reload, state gone). Only "#" fragment
+            // anchors stay same-tab (hash changes never unload).
             out.push(
-              <a key={`link:${i}`} className="pc-md_link" href={href} target={href.startsWith("#") || href.startsWith("/") ? undefined : "_blank"} rel="noreferrer">
+              <a key={`link:${i}`} className="pc-md_link" href={href} target={href.startsWith("#") ? undefined : "_blank"} rel="noreferrer">
                 {renderInline(label, highlight)}
               </a>
             );

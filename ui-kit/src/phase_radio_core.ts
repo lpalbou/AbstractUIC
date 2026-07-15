@@ -9,8 +9,12 @@
  * gateway-DERIVED wire payloads verbatim; a library import would turn spec
  * versioning into lockstep UI releases. This module carries only the ruled
  * KEYS and their display defaults; anything outside the ruled set
- * normalizes to null and the radio honestly renders no position pushed
- * (the awake-idle open question in the spec).
+ * normalizes to null and the radio honestly renders no position pushed.
+ * RULED (laurent 2026-07-15 17:28, spec v4 / decision:no-awake-idle-node):
+ * AWAKE is a STATE, never a phase — an alive entity is always in exactly
+ * one of the four; a null here is a runtime COVERAGE GAP ("between phases —
+ * the runtime has not settled it yet"), never a fifth position. The radio's
+ * no-position rendering is therefore the correct honest display for it.
  */
 
 export const RULED_PHASES = ["visit", "work", "personal", "sleep"] as const;

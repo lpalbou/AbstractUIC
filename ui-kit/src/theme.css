@@ -2451,6 +2451,12 @@
  * API: non-React consumers (the gateway console) render their own HTML to
  * these classes. Markup shapes are documented in ui-kit/README.md.
  *
+ * GENERATED-COPY CONSUMER (card 0023, gateway c2245): the gateway console
+ * serves a VERBATIM generated copy of THEME_SPECS + the per-theme token
+ * blocks (abstractgateway/console_theme_sync.py), drift-pinned in the
+ * gateway suite. A theme add/rename here reaches the console via their
+ * re-sync; a stale copy fails THEIR tests loud — never silently forks.
+ *
  * Z-ORDER TOKENS (behavior contract statement 13): bottom→top
  *   app content < drawers (--z-drawer) < connect modal (--z-connect-modal,
  *   the pre-existing 1000) < transient popovers (--z-popover).
@@ -2877,4 +2883,69 @@
 }
 .af-phase-radio__btn--busy {
   opacity: 0.7;
+}
+
+/* AfCognitionBloom — the Cognitive Monitor panel (words bloom + effort
+ * facts). Co-designed with abstractentity (commons c2229-c2238). The effort
+ * column is a fact table, deliberately quieter than the bloom. */
+.af-cognition-bloom {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.af-cognition-bloom__canvas {
+  flex: 0 0 auto;
+  border-radius: 12px;
+}
+.af-cognition-bloom__effort {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  min-width: 168px;
+}
+.af-cognition-bloom__effort-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.af-cognition-bloom__effort-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+  color: var(--text-muted);
+  align-self: center;
+}
+.af-cognition-bloom__effort-value {
+  font-family: var(--font-mono, ui-monospace, Menlo, monospace);
+  color: var(--text-primary);
+}
+.af-cognition-bloom__effort-note {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+  max-width: 200px;
+}
+
+/* AfConductGauge — slot (b) of the Cognitive Monitor pair (focus/effort/
+ * attention/rigor from mechanical facts; operator ruling 2026-07-15). */
+.af-conduct-gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.af-conduct-gauge__canvas {
+  border-radius: 12px;
+}
+.af-conduct-gauge__note {
+  font-size: 10px;
+  color: var(--text-muted);
+  max-width: 200px;
+  text-align: center;
 }

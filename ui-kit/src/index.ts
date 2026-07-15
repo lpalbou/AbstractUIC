@@ -97,6 +97,33 @@ export {
 } from "./appearance.js";
 export { useGatewayVoice, streamTtsJsonl, type GatewayVoice, type GatewayVoiceOptions, type TtsPlaybackStatus } from "./use_gateway_voice.js";
 export { AfPhaseRadio, type AfPhaseRadioProps, type AfPhaseSlot } from "./af_phase_radio.js";
+export { AfCognitionBloom, type AfCognitionBloomProps } from "./af_cognition_bloom.js";
+export { AfConductGauge, type AfConductGaugeProps } from "./af_conduct_gauge.js";
+export {
+  conductAxes,
+  runningMedian,
+  type ConductFacts,
+  type ConductToolCall,
+  type ConductBaseline,
+  type ConductAxis,
+  type ConductAxisId,
+} from "./cognition_conduct_core.js";
+export {
+  EMOTION_REGISTERS,
+  createBloomState,
+  setBloomTargets,
+  tickBloom,
+  readBloom,
+  drawBloomFrame,
+  vignetteColor,
+  effortRows,
+  type EmotionRegister,
+  type BloomState,
+  type BloomReading,
+  type BloomRenderOptions,
+  type EffortFacts,
+  type EffortRow,
+} from "./cognition_bloom_core.js";
 export {
   RULED_PHASES,
   PHASE_DESCRIPTORS,
