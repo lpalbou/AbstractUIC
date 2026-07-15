@@ -117,6 +117,13 @@ export type AfChipButtonProps = ChipCommonProps & {
   expanded?: boolean;
   disabled?: boolean;
   ariaLabel?: string;
+  /**
+   * Roving-tabindex support (flow's ask, commons c2186): hosts embedding the
+   * chip inside a composite widget (DisclosureList rows) must set inner
+   * controls to tabIndex=-1. A passthrough beats the display:contents
+   * wrapper-ref workaround it replaces.
+   */
+  tabIndex?: number;
 };
 
 export function AfChipButton(props: AfChipButtonProps): React.ReactElement {
@@ -131,6 +138,7 @@ export function AfChipButton(props: AfChipButtonProps): React.ReactElement {
       aria-expanded={typeof props.expanded === "boolean" ? props.expanded : undefined}
       aria-label={props.ariaLabel}
       disabled={props.disabled}
+      tabIndex={props.tabIndex}
     >
       <span className="af-chip__label">{props.children}</span>
     </button>

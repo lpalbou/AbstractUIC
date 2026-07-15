@@ -477,6 +477,16 @@
   padding-right: 4px;
 }
 
+/* .pc-chat-item family — the shared dialogue-bubble recipe.
+ * CONSUMERS BEYOND THIS PACKAGE (notify in the ship note on any class rename
+ * or geometry change to this block):
+ *   - abstractgateway console.py VENDORS this block onto console vars
+ *     (their test_vendored_pc_chat_class_set_is_pinned greps the class set —
+ *     a rename here fails their suite loud instead of half-styling, c2174);
+ *   - entity + flow consume it via the package import.
+ * The corner-cut signature (user: bottom-right, assistant: bottom-left) and
+ * the variant vocabulary (user/assistant/status/warn/error/report_*) are the
+ * contract surface. */
 .pc-chat-item {
   position: relative;
   border-radius: 12px;

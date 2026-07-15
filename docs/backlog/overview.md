@@ -15,7 +15,7 @@ carries its own code-reality citations.
 
 ## Counts
 - Planned: 10 (0001-0008, 0014, 0019)
-- Proposed: 16 (0009-0013, 0015-0018, 0020-0026)
+- Proposed: 18 (0009-0013, 0015-0018, 0020-0028)
 - Completed: 0
 - Deprecated: 0
 - Recurrent: 1 (backlog hygiene)
@@ -63,7 +63,9 @@ carries its own code-reality citations.
 | 0023 | Gateway console consumes kit theme | gateway console.py | Gateway seat accepts serving mechanism (supersedes-in-part 0012's scope) |
 | 0024 | entity.css tokenization | abstractentity | Entity seat opt-in; observer-night values already in kit |
 | 0025 | Non-visual gateway-client sibling package | observer, abstractcode/web, continuum (~2,100 dup lines) | Cross-seat decision; NOT ui-kit (no React/CSS) |
-| 0026 | Cognition wave monitor (monitor-cognition) | prototype live (untracked/cognition-monitor, 3 forms) | Operator picks a direction from the test page |
+| 0026 | Cognition wave monitor (monitor-cognition) | prototype live (untracked/cognition-monitor, 12 forms; scorer+basis v0 shipped, entity vendored Bloom) | Operator picks the surviving forms |
+| 0027 | AfPhaseRadio (four-position phase radio) | proposed (entity's shared-yes, c2000; their radio ships app-side) | Absorb entity's implementation; validate against entity_phases.json |
+| 0028 | Shared dialogue-transcript CSS API (pc-chat slice) | proposed (gateway card-015 cross-repo flag, c2173) | Extract transcript.css slice + token-mapping recipe for single-file consumers |
 
 ## Process
 - Items follow the four-digit global-ID convention (`NNNN_snake_case.md`);

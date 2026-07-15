@@ -25,6 +25,7 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Badges / chips / toggles | `AfChip`, `AfChipButton` | Tone variants with AA-derived colors; custom hues via `var(--token)` |
 | Icons | `Icon` | ~40 glyphs, 24-grid and 16-grid families |
 | Chat UI (thread, cards, composer) | `@abstractframework/panel-chat` | Markdown with real nested lists; JSON auto-detect; `message.title` names the speaker |
+| App assistant (docs Q&A drawer) | `AssistantPanel` (panel-chat) in `AfDrawer` via `AfTopBarActions` | Transport injected. THE shared transport (docs-qa@0.1.0, tenant_catalog): `POST /runs/start {registry_scope:"tenant_catalog", bundle_id:"docs-qa", bundle_version:"0.1.0", flow_id:"docsqa001", input_data:{question, history, docs:<llms.txt text>, app}}`, answer on `output.response` — grounded on YOUR docs only, cites sections, says honestly when docs don't answer. `import docs from "./llms.txt?raw"` remains the recommended docs source (build-time, versioned) |
 | Markdown / JSON rendering | `Markdown`, `JsonViewer` (panel-chat) | Also exported standalone |
 | TTS playback + push-to-talk | `useGatewayVoice` (+ `streamTtsJsonl`) | Injected `tts`/`tts_stream`/`transcribe` functions; streaming with pause/resume |
 | Agent cycle traces | `AgentCyclesPanel` + `build_agent_trace` (monitor-flow) | Adapter turns ledger-like records into `TraceItem[]` |
@@ -51,6 +52,13 @@ one closed a real cross-app incident class.
 - **Use the hook**: `useGatewayConnection({ appName, variant })` owns this machine (probe once at
   boot, auto-open rules, self-close on sign-in, stay-open on sign-out, re-arm per episode).
   Spread its `modalProps` into `GatewayConnectModal`. Hand-rolled variants drift.
+- **Remote-config gating is socket-peer authority, not Host-header** (SSRF fix, 2026-07-14): the
+  app-server proxy decides local-vs-remote from `req.socket.remoteAddress` — a spoofed
+  `Host: localhost` from a LAN peer no longer unlocks anything, and a genuine loopback peer
+  passes the transport gate regardless of its Host header (it then fails on auth if the target
+  is unreachable). **If your app pinned Host-header 403s in tests, those pins are now inverted**
+  — rewrite them to the socket-peer contract (observer hit exactly this; remote-peer behavior is
+  live-verified on real non-loopback binds by entity, observer, and continuum).
 
 ### Server truth renders, clients never re-derive
 

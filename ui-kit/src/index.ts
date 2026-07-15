@@ -96,3 +96,12 @@ export {
   type AfAppearanceDialogProps,
 } from "./appearance.js";
 export { useGatewayVoice, streamTtsJsonl, type GatewayVoice, type GatewayVoiceOptions, type TtsPlaybackStatus } from "./use_gateway_voice.js";
+export { AfPhaseRadio, type AfPhaseRadioProps, type AfPhaseSlot } from "./af_phase_radio.js";
+export {
+  RULED_PHASES,
+  PHASE_DESCRIPTORS,
+  normalizePhase,
+  reconcilePhaseList,
+  type AfPhase,
+  type PhaseDescriptor,
+} from "./phase_radio_core.js";

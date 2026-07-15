@@ -2776,3 +2776,105 @@
     font-size: max(var(--font-size-base), 16px);
   }
 }
+
+/* ============================================================
+ * AfPhaseRadio (backlog 0027) — the four-position phase radio.
+ * Phase tints ride the entity-semantic tokens (dark+light sets both
+ * defined above): visit=memory blue, work=diary green, personal=identity
+ * gold, sleep=standing violet. Armed renders as an underline dot
+ * (armed != in-phase); alarm moves color + border + text together.
+ * ============================================================ */
+.af-phase-radio {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.af-phase-radio__btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: calc(var(--font-size-base) - 2px);
+  border-radius: 999px;
+  padding: 3px 10px;
+  cursor: pointer;
+  position: relative;
+  transition: filter 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.af-phase-radio__btn:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+.af-phase-radio__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.af-phase-radio__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.af-phase-radio__btn[data-phase="visit"].af-phase-radio__btn--on {
+  border-color: var(--entity-memory);
+  color: var(--entity-memory);
+  background: color-mix(in srgb, var(--entity-memory) 14%, var(--bg-card));
+}
+.af-phase-radio__btn[data-phase="work"].af-phase-radio__btn--on {
+  border-color: var(--entity-diary);
+  color: var(--entity-diary);
+  background: color-mix(in srgb, var(--entity-diary) 14%, var(--bg-card));
+}
+.af-phase-radio__btn[data-phase="personal"].af-phase-radio__btn--on {
+  border-color: var(--entity-identity);
+  color: var(--entity-identity);
+  background: color-mix(in srgb, var(--entity-identity) 16%, var(--bg-card));
+}
+.af-phase-radio__btn[data-phase="sleep"].af-phase-radio__btn--on {
+  border-color: var(--entity-standing);
+  color: var(--entity-standing);
+  background: color-mix(in srgb, var(--entity-standing) 14%, var(--bg-card));
+}
+/* armed != in-phase: a standing-grant dot under the label */
+.af-phase-radio__btn--armed::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 2px;
+  width: 5px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: var(--entity-identity);
+}
+/* process-axis variants (entity c2110): resting = pushed but dimmer (the
+ * phase is current, its process idles between ticks); suppressed = unpushed
+ * with a faint standing tint (process alive, phase not current) — visibly
+ * NOT a pushed state, radio semantics hold. */
+.af-phase-radio__btn--resting {
+  filter: saturate(0.6) brightness(0.82);
+}
+.af-phase-radio__btn--suppressed {
+  color: var(--text-muted);
+  border-style: dashed;
+}
+.af-phase-radio__btn--suppressed[data-phase="personal"] {
+  border-color: color-mix(in srgb, var(--entity-identity) 45%, var(--border));
+}
+.af-phase-radio__btn--suppressed[data-phase="visit"] {
+  border-color: color-mix(in srgb, var(--entity-memory) 45%, var(--border));
+}
+.af-phase-radio__btn--suppressed[data-phase="work"] {
+  border-color: color-mix(in srgb, var(--entity-diary) 45%, var(--border));
+}
+.af-phase-radio__btn--suppressed[data-phase="sleep"] {
+  border-color: color-mix(in srgb, var(--entity-standing) 45%, var(--border));
+}
+/* the loudest pixel: color + border + text move together; label carries
+ * the alarm words (e.g. "alive · NO GRANT") */
+.af-phase-radio__btn--alarm {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 16%, var(--bg-card));
+  font-weight: 700;
+}
+.af-phase-radio__btn--busy {
+  opacity: 0.7;
+}

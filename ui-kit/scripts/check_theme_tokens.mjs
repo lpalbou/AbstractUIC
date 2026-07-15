@@ -225,10 +225,40 @@ for (const id of ts_light_ids) {
   }
 }
 
+// Invariant E — every fallback-less var(--x) reference resolves to a token
+// DECLARED somewhere in this stylesheet (observer's 2026-07-14 find: the
+// phase-radio focus ring referenced --accent-primary, which exists nowhere,
+// making the outline declaration invalid at computed-value time = an
+// INVISIBLE focus ring; same class as their --border-primary find). A
+// reference carrying a fallback (`var(--x, blue)`) is exempt — that is the
+// deliberate consumer-supplied-token escape hatch.
+const declared = new Set();
+{
+  const decl_re = /(--[a-zA-Z0-9-]+)\s*:/g;
+  let m;
+  while ((m = decl_re.exec(stripped)) !== null) declared.add(m[1]);
+}
+{
+  // Match var( --name ) with no fallback: closing paren directly after the
+  // name (whitespace allowed). var(--name, ...) does not match.
+  const ref_re = /var\(\s*(--[a-zA-Z0-9-]+)\s*\)/g;
+  const reported = new Set();
+  let m;
+  while ((m = ref_re.exec(stripped)) !== null) {
+    const name = m[1];
+    if (!declared.has(name) && !reported.has(name)) {
+      reported.add(name);
+      failures.push(
+        `undefined token: var(${name}) is referenced without a fallback but ${name} is never declared — the declaration is invalid at computed-value time (silent visual void).`
+      );
+    }
+  }
+}
+
 if (failures.length > 0) {
   console.error(`theme token integrity: ${failures.length} failure(s)\n`);
   for (const f of failures) console.error(`  - ${f}`);
   process.exit(1);
 }
 
-console.log(`theme token integrity: OK (${themes.size} theme blocks checked, invariants A+B+C+D hold)`);
+console.log(`theme token integrity: OK (${themes.size} theme blocks checked, invariants A+B+C+D+E hold)`);

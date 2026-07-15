@@ -43,6 +43,70 @@ calm-warm vs distress vs repair moments render distinctly across all three forms
   panel-chat); provenance label default-on; RAF hygiene (visibility pause, dt clamp,
   StrictMode-safe handles).
 
+## v3 distinctiveness wave + v3.2 mindset widgets (2026-07-14)
+
+Operator watched the v2 replay: "not enough distinctive movement to notice." Root
+cause MEASURED: raw qwen3 embeddings are anisotropic (mean pairwise cos 0.41) —
+contrast scores compressed + correlated. Second adversary round (signal + perception):
+
+- **Scoring pipeline (kept)**: anisotropy whitening (all-but-top-1: pairwise cos
+  0.41→−0.05, channel spread ×1.35–1.55) → axes = PC1 of the paired anchor
+  differences (Bolukbasi construction) → Löwdin orthogonalization (killed the
+  measured warmth/tension r=−0.85 mirror; max inter-axis |cos| = 0.000) →
+  median/MAD spread-normalize. Movement (mean |Δ|/utterance) rose ~0.15→0.60-0.90.
+  Plus "current" = conversation PC1 (the data's own most distinctive axis).
+- **Rendering ruling (operator, 2026-07-14 01:10)**: v3's sawtooth/square waveforms,
+  under-damped overshoot, and transition flashes REVERTED — "smooth curves, always";
+  amplitude + continuity + aesthetics. Scoring stayed. Cold poles keep per-channel
+  hues (the gray-collapse fix survives the revert).
+- **Mindset register (v3.2, operator: "smile, cry, fear, surprise, anxiety,
+  discovery — things we can read on faces")**: eight emotion prototypes
+  (joy/discovery/surprise/anxiety/fear/sadness/calm/tenderness), each the whitened
+  centroid of ~5 first-person anchors; per-utterance-centered relative similarity,
+  positive part, p85-scaled. Three NEW widgets: V4 Aura (circumplex orb — blend
+  color, mood-leaning position, arousal-paced breath), V5 River (emotion braid over
+  time, tanh-compressed), V6 Bloom (petal flower, shape-readable flinch/smile).
+  Verified reads: distress→fear 95%, gratitude→tenderness 97%, closing→calm 91%.
+- **Named limitation**: speech ABOUT fear reads as fear (comfort u16 → fear 84%) —
+  N=1 stance-vs-topic; queued attack = qwen3 instructed re-embedding (adversary A).
+- **Parked with measurements**: turning angle (flat ~118°±8 at utterance rate),
+  recurrence/return (max 0.36, sparse + semantically right — "dream ← wonder");
+  candidates for a live monitor over longer histories.
+
+## v3.3 — twelve forms (operator round 3, 2026-07-14 02:21)
+
+Operator read of the six: Bloom + Aura most readable, River plain, channel forms
+too abstract. Directive: six MORE, two mandated 3D variants, research-grounded.
+Shipped (research: EmotionScope/emotion-qwen orb mappings; ISD 2024 speed↔arousal
+validation; syuzhet/Reagan story arcs; Emosaic VAD→color; Chernoff-face lineage):
+V7 Iso Scope (isometric volumetric ridges), V8 Wave Field (3D water surface,
+top-right camera), V9 Visage (minimal face — mouth=valence, eyes=arousal,
+brows=worry/fear, tear=deep sadness), V10 Arc (story-shape journey), V11
+Murmuration (flock character), V12 Aurora (additive light curtains). All twelve
+share one spring state; chrome-verified at five moments incl. a full-journey
+playback (arc/river/iso show the whole conversation's shape).
+
+## Live-use lane (entity first consumer, c1791→c1825)
+
+Entity app is the first consumer (their harvest adapter turns Castor's real
+utterance text — visit replies, diary via the operator door, episode verbatims —
+into the sample shape; reply-only + sealed-diary-never-read test-pinned on their
+side). Delivery ruling (c1807): kit function + shipped frozen basis + INJECTED
+embed() — no bespoke gateway endpoint. SHIPPED (c1825):
+
+- `cognition_scorer.js` — framework-free live scorer; consumes `basis_vN.json`;
+  M1 refusals (embedder-id mismatch, wrong dim) throw loudly; wandering is the
+  one session-relative output (reset() per conversation).
+- `data/basis_v0.json` — frozen basis v0.1.0 (qwen3-embedding-0.6b @1024,
+  whitening mean+PC1, Löwdin axes, med/MAD norms, emotion protos + p85 scale),
+  provenance-labeled `calibrated_on: {curated_arc: 20, castor_utterances: 0}`.
+- `test_scorer.mjs` — JS↔python parity on shipped fixtures (1e-6), refusals,
+  session-state reset. Green.
+- Corpus pull ruling (c1824): operator-driven client-side via entity's adapter
+  (marker-first — diary reads must land in Castor's replay stream; their privacy
+  filters are already the tested product). Basis v1 re-cut on real text when the
+  pull lands; every re-cut = version bump + visible label, never silent.
+
 ## Promotion criteria
 
 1. Operator picks a direction (one form or a mode prop) from the test page.

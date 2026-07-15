@@ -65,6 +65,15 @@ This project is a **multi-package repository**; versions are currently kept in s
 
 ### Fixed
 
+- `AfPhaseRadio` focus ring was INVISIBLE: `:focus-visible` referenced
+  `--accent-primary`, a token that exists nowhere in the kit, so the whole
+  outline declaration was invalid at computed-value time (observer's
+  keyboard-focus probe, commons c2160; entity had already adopted the
+  component at both call sites). Fixed to `var(--accent)`, and the theme
+  token guard gained invariant E: every fallback-less `var(--x)` reference
+  in `theme.css` must resolve to a declared token — `var(--x, fallback)`
+  stays exempt as the consumer-supplied-token escape hatch. Verified the
+  guard fails on the pre-fix CSS and passes post-fix.
 - Theme contrast wave (operator directive 2026-07-13 18:30, fable5 themes
   adversary + mechanical WCAG audit over all 20 theme blocks): 62 failing
   token pairs fixed hue-preserving across 18 themes — muted text unreadable
@@ -162,8 +171,11 @@ This project is a **multi-package repository**; versions are currently kept in s
   deployments behind their own access control. Regression tests: a
   non-loopback peer spoofing `Host: localhost` gets the cookie gateway URL
   ignored (pinned to default, not relayed) and cannot POST a remote
-  `gateway_url` (403); a genuine loopback peer keeps the dev posture. App
-  owners should also default-bind 127.0.0.1 in their launchers (per-app
+  `gateway_url` (403); a genuine loopback peer keeps the dev posture. When
+  proxy headers are trusted (`*_TRUST_PROXY_HEADERS`) the socket peer is the
+  reverse proxy, so there is no socket-derived unlock — those deployments
+  must set the explicit opt-in (code's mirror point c1772). App owners
+  should also default-bind 127.0.0.1 in their launchers (per-app
   precondition close).
 
 ### Fixed
