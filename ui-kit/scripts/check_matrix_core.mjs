@@ -159,6 +159,27 @@ function payload_fixture() {
 
   const float_v = validateMatrixPayload({ ...payload_fixture(), schema_version: 1.5 });
   check("float 1.5 accepted as major 1 (floor gate, intended)", float_v.ok === true);
+
+  // 0008 F20: booleans refuse non-boolean PRESENCE loudly like the enums do —
+  // a serializer emitting "true" must never silently read as false (the
+  // operator's stored word would render as "Default").
+  const str_assigned = payload_fixture();
+  str_assigned.sections[0].items[0].cells.visit.assigned = "true";
+  const sa = validateMatrixPayload(str_assigned);
+  check("string 'true' assigned refuses", sa.ok === false);
+  check("boolean refusal names the field", !sa.ok && sa.reason.includes("assigned"));
+
+  const num_resolved = payload_fixture();
+  num_resolved.sections[0].items[0].cells.visit.resolved_value = 1;
+  check("numeric resolved_value refuses", validateMatrixPayload(num_resolved).ok === false);
+
+  const str_exec = payload_fixture();
+  str_exec.sections[0].items[0].cells.sleep.executable = "false";
+  check("string executable refuses", validateMatrixPayload(str_exec).ok === false);
+
+  const absent_bools = payload_fixture();
+  delete absent_bools.sections[0].items[0].cells.visit.assigned;
+  check("absent booleans keep defaults (validates)", validateMatrixPayload(absent_bools).ok === true);
 }
 
 // ---------------------------------------------------------------- cell views
@@ -313,6 +334,19 @@ function payload_fixture() {
   check("reconcile keeps the live patch (first wins on dupes)", reconciled[0].item === "web_search" && reconciled[0].op === "deny");
   const doc = serializeCellPatches(payload, stale);
   check("serialize filters orphans/dupes from the wire", doc.patches.length === 1 && doc.patches[0].op === "deny");
+
+  // 0008: externally supplied patch lists validate op ∈ {grant,deny,clear} —
+  // an op outside the enum (restored draft, broken caller) never reaches the
+  // wire, and a malformed entry never crashes the filter.
+  const bad_ops = [
+    { section: "tools", item: "web_search", phase: "visit", op: "frobnicate" },
+    null,
+    { section: "tools", item: "web_search", phase: "personal", op: "deny" },
+  ];
+  const filtered_ops = reconcilePatches(payload, bad_ops);
+  check("unknown op filtered, valid kept", filtered_ops.length === 1 && filtered_ops[0].op === "deny" && filtered_ops[0].phase === "personal");
+  const doc2 = serializeCellPatches(payload, bad_ops);
+  check("unknown op never reaches the wire", doc2.patches.length === 1 && doc2.patches[0].op === "deny");
 }
 
 // ----------------------------------------------------------- critical action

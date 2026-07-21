@@ -1,5 +1,5 @@
 import React from "react";
-import { type ConductAxis, type ConductBaseline, type ConductFacts, type ConductToolCall } from "./cognition_conduct_core";
+import { type ConductAxis, type ConductBaseline, type ConductFacts, type ConductToolCall } from "./cognition_conduct_core.js";
 export interface AfConductGaugeProps {
     facts: ConductFacts | null | undefined;
     tools?: ConductToolCall[] | null;

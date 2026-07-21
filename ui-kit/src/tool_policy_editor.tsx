@@ -159,10 +159,34 @@ export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactEleme
 
   const [filter, setFilter] = useState("");
 
-  const selected = useMemo(() => {
+  // The FULL selection as given, unknown names included (trimmed, deduped).
+  // Writes are based on this list: tools not yet loaded (async discovery
+  // still running) must never be pruned by an unrelated click — an early
+  // act used to erase prior selections (0008, adversary F21).
+  const selected_all = useMemo(() => {
     const raw = Array.isArray(props.value?.selected) ? props.value.selected : [];
-    return raw.map((n) => String(n || "").trim()).filter((n) => n && all_names_set.has(n));
-  }, [props.value?.selected, all_names_set]);
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const n of raw) {
+      const name = String(n || "").trim();
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      out.push(name);
+    }
+    return out;
+  }, [props.value?.selected]);
+
+  // Display view: only names the loaded tool list can render.
+  const selected = useMemo(
+    () => selected_all.filter((n) => all_names_set.has(n)),
+    [selected_all, all_names_set]
+  );
+
+  // Names we must carry through every write without ever rendering them.
+  const unknown_selected = useMemo(
+    () => selected_all.filter((n) => !all_names_set.has(n)),
+    [selected_all, all_names_set]
+  );
 
   const mode = props.value?.mode === "custom" ? "custom" : "all";
 
@@ -184,7 +208,7 @@ export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactEleme
 
   const toggle_mode = (next: "all" | "custom") => {
     if (disabled) return;
-    on_change({ ...props.value, mode: next, selected });
+    on_change({ ...props.value, mode: next, selected: selected_all });
   };
 
   const toggle_tool = (name: string, enabled: boolean) => {
@@ -192,7 +216,7 @@ export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactEleme
     const set = new Set(selected);
     if (enabled) set.add(name);
     else set.delete(name);
-    on_change({ ...props.value, selected: Array.from(set), mode: "custom" });
+    on_change({ ...props.value, selected: [...unknown_selected, ...Array.from(set)], mode: "custom" });
   };
 
   const set_approval = (name: string, mode_value: ToolApprovalMode) => {
@@ -204,12 +228,15 @@ export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactEleme
 
   const select_all = () => {
     if (disabled) return;
-    on_change({ ...props.value, selected: Array.from(all_names), mode: "custom" });
+    on_change({ ...props.value, selected: [...unknown_selected, ...all_names], mode: "custom" });
   };
 
   const select_none = () => {
     if (disabled) return;
-    on_change({ ...props.value, selected: [], mode: "custom" });
+    // "None" clears what the user can SEE; names still awaiting discovery
+    // are preserved — they were never rendered, so erasing them here would
+    // destroy choices invisibly (they become uncheckable once loaded).
+    on_change({ ...props.value, selected: [...unknown_selected], mode: "custom" });
   };
 
   const selected_count = effective_selected.size;
@@ -230,12 +257,15 @@ export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactEleme
       </div>
 
       <div className="af-tool-policy__controls">
-        <div className="af-tool-policy__segmented" role="tablist" aria-label="Tool allowlist mode">
+        {/* A two-state mode switch, not tabs: group + aria-pressed (0008 a11y
+         * fix — tablist here promised tab semantics AT users never got). */}
+        <div className="af-tool-policy__segmented" role="group" aria-label="Tool allowlist mode">
           <button
             type="button"
             className={`af-tool-policy__seg-btn ${mode === "all" ? "is-active" : ""}`.trim()}
             onClick={() => toggle_mode("all")}
             disabled={disabled}
+            aria-pressed={mode === "all"}
           >
             All tools
           </button>
@@ -244,6 +274,7 @@ export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactEleme
             className={`af-tool-policy__seg-btn ${mode === "custom" ? "is-active" : ""}`.trim()}
             onClick={() => toggle_mode("custom")}
             disabled={disabled}
+            aria-pressed={mode === "custom"}
           >
             Custom allowlist
           </button>
@@ -267,6 +298,7 @@ export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactEleme
         <input
           type="text"
           placeholder="Filter tools..."
+          aria-label="Filter tools"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           disabled={disabled}
@@ -285,6 +317,7 @@ export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactEleme
                   checked={is_checked}
                   disabled={disabled || mode !== "custom"}
                   onChange={(e) => toggle_tool(tool.name, e.target.checked)}
+                  aria-label={`Enable ${tool.name}`}
                 />
               </label>
               <div className="af-tool-row__meta">
@@ -300,6 +333,7 @@ export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactEleme
                   value={approval}
                   disabled={disabled || !is_checked}
                   onChange={(e) => set_approval(tool.name, e.target.value as ToolApprovalMode)}
+                  aria-label={`Approval mode for ${tool.name}`}
                 >
                   <option value="approve">Approve</option>
                   <option value="ask">Ask</option>

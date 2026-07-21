@@ -1,5 +1,48 @@
 export type MonitorGpuMode = "full" | "icon";
 
+/** Bounded numeric history (null = missed sample). Values clamp to [1, 1000]. */
+export class HistoryBuffer {
+  constructor(maxSize?: number | string);
+
+  get maxSize(): number;
+  get size(): number;
+
+  setMaxSize(maxSize: number | string): void;
+  clear(): void;
+  push(value: number | null | undefined): void;
+  values(): Array<number | null>;
+  last(): number | null;
+}
+
+export function makeGpuMetricsUrl(args: { baseUrl?: string; endpoint?: string }): string;
+
+export function resolveBearerToken(args: {
+  token?: string;
+  getToken?: () => string | Promise<string>;
+}): Promise<string>;
+
+export function buildAuthHeaders(args: { token?: string }): { Authorization?: string };
+
+/** Reads utilization_gpu_pct directly or averages per-GPU entries; null when absent. */
+export function extractUtilizationGpuPct(payload: unknown): number | null;
+
+export type GpuMetricsResult = {
+  ok: boolean;
+  status: number;
+  error: "fetch_unavailable" | "network_error" | "http_error" | null;
+  detail?: string;
+  payload: unknown;
+};
+
+export function fetchHostGpuMetrics(args?: {
+  baseUrl?: string;
+  endpoint?: string;
+  token?: string;
+  getToken?: () => string | Promise<string>;
+  signal?: AbortSignal;
+  fetchImpl?: typeof fetch;
+}): Promise<GpuMetricsResult>;
+
 export type MonitorGpuWidgetOptions = {
   tickMs?: number | string;
   historySize?: number | string;

@@ -27,7 +27,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
  * keep working; only the pixels changed.
  */
 import { useEffect, useRef } from "react";
-import { conductAxes, } from "./cognition_conduct_core";
+import { conductAxes, } from "./cognition_conduct_core.js";
 const ACT_CAP = 10;
 const ATT_CAP = 12;
 const FORMED_CAP = 5;

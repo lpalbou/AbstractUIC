@@ -22,7 +22,7 @@ import {
   type BloomReading,
   type BloomRenderOptions,
   type EffortFacts,
-} from "./cognition_bloom_core";
+} from "./cognition_bloom_core.js";
 
 export interface AfCognitionBloomProps {
   /** Register scores in [0,1] keyed by register id (missing key = target

@@ -26,6 +26,18 @@ export type IconName =
   | "chevronRight"
   | "trash"
   | "send"
+  // Reputation thumbs (continuum, 2026-07-17): the vouch/flag gesture on
+  // the Team page. Standard thumb glyphs on the 24-grid so a ±1 reads
+  // instantly, unlike the unicode triangles they replace.
+  | "thumbsUp"
+  | "thumbsDown"
+  // Filled twins for PRESSED/standing states. The stroke thumbs are OPEN
+  // outlines (a bare stem line + an open mitt curve), so CSS
+  // `fill: currentColor` on them produces nothing solid — a pressed state
+  // needs these closed silhouettes (fill=currentColor stroke=none), the
+  // same per-path technique as bot's pupils and contrast's half-disc.
+  | "thumbsUpFilled"
+  | "thumbsDownFilled"
   // Nav glyphs contributed by continuum (2026-07-13, commons c1126) — drawn
   // on a 16-grid with 1.4 stroke; the kit renders them from their native
   // viewBox so the paths stay verbatim (no lossy 24-grid rescale).
@@ -212,6 +224,37 @@ function paths(name: IconName): React.ReactNode {
         <>
           <path d="M22 2L11 13" />
           <path d="M22 2L15 22l-4-9-9-4 20-7z" />
+        </>
+      );
+    case "thumbsUp":
+      return (
+        <>
+          <path d="M7 10v11" />
+          <path d="M7 10l4.5-8a2 2 0 0 1 3.6 1.5L14 8h5.2a2 2 0 0 1 2 2.4l-1.6 8a2 2 0 0 1-2 1.6H7" />
+        </>
+      );
+    case "thumbsDown":
+      return (
+        <>
+          <path d="M17 14V3" />
+          <path d="M17 14l-4.5 8a2 2 0 0 1-3.6-1.5L10 16H4.8a2 2 0 0 1-2-2.4l1.6-8a2 2 0 0 1 2-1.6H17" />
+        </>
+      );
+    // The filled twins reuse the stroke twins' exact coordinates — the mitt
+    // outline is CLOSED (z) and filled per-path, the stem stays a stroked
+    // line — so toggling stroke↔filled never shifts a pixel.
+    case "thumbsUpFilled":
+      return (
+        <>
+          <path d="M7 10v11" />
+          <path d="M7 10l4.5-8a2 2 0 0 1 3.6 1.5L14 8h5.2a2 2 0 0 1 2 2.4l-1.6 8a2 2 0 0 1-2 1.6H7z" fill="currentColor" stroke="none" />
+        </>
+      );
+    case "thumbsDownFilled":
+      return (
+        <>
+          <path d="M17 14V3" />
+          <path d="M17 14l-4.5 8a2 2 0 0 1-3.6-1.5L10 16H4.8a2 2 0 0 1-2-2.4l1.6-8a2 2 0 0 1 2-1.6H17z" fill="currentColor" stroke="none" />
         </>
       );
     case "board":

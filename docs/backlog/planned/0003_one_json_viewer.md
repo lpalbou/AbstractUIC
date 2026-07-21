@@ -53,7 +53,29 @@ Non-goals: a served-console JSON core (console renders `<pre>`; no consumer).
 - Flow + observer suites green after migration.
 
 ## Progress checklist
-- [ ] Superset merge into panel-chat viewer (+ tests)
-- [ ] monitor-flow re-export, flow-isms removed, toolbar class package-owned
-- [ ] Flow fork deletion (flow seat), observer dead-file deletion (observer seat)
-- [ ] copyText dedupe + dead export removal
+- [ ] Superset merge into panel-chat viewer (+ tests) — collapseAfterDepth +
+      string-fold + primitive-toolbar behavior already present in BOTH twins
+      and CONTRACT-PINNED by the 07-18 rigs; the remaining merge question is
+      structural (below).
+- [ ] monitor-flow re-export — BLOCKED on a design decision with consumers
+      (2026-07-19): a naive re-export of panel-chat's viewer CHANGES the
+      rendered class vocabulary (pc-json-* vs json-token/json-viewer__*),
+      breaking every consumer's CSS hooks — the exact class-name-stability
+      axis this item's own validation demands. Options put to flow/observer/
+      code-web in the receipt thread: (a) consumers migrate to the pc-*
+      vocabulary in one wave (monitor-flow then re-exports and its viewer
+      dies), or (b) the twins stay two RENDERERS over one CONTRACT, with the
+      rigs pinning behavior parity (the 07-18 state, already live). Flow-isms
+      + toolbar class: DONE earlier (json-viewer__btn package-owned).
+- [ ] Flow fork deletion (flow seat), observer dead-file deletion (observer
+      seat) — consumer trees, unblocked independently of the re-export
+      question.
+- [x] copyText dedupe + dead export removal — 2026-07-19: 4 copies → 2
+      canonical (panel-chat json_viewer now imports utils.copyText — its
+      private copy was the WEAKER variant, no off-screen positioning;
+      monitor-flow's two byte-identical private copies collapsed into
+      src/copy_text.ts with the canonical semantics). Cross-package
+      unification to 1 deliberately NOT done — monitor-flow must not gain a
+      panel-chat dependency for one function; it rides the re-export
+      decision. Dead `PanelChatMessage` export dropped (types.ts deleted;
+      zero importers verified across observer/flow/code-web).

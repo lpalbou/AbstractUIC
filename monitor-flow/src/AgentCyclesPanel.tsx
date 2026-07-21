@@ -1,8 +1,13 @@
 import { useMemo, useState } from "react";
 
-import "./agent_cycles.css";
+// CSS is a host-imported package export (family rule, decided 2026-07-17
+// c2831/c2833): hosts import "@abstractframework/monitor-flow/agent_cycles.css".
+// The old self-import broke bundler-less ESM consumers and contradicted the
+// documented contract; removed after all three consumers (flow, observer,
+// abstractcode/web) shipped their explicit import.
 import { JsonViewer } from "./JsonViewer.js";
 import { Markdown } from "./Markdown.js";
+import { copy_text } from "./copy_text.js";
 
 export type TraceStep = Record<string, unknown>;
 
@@ -62,20 +67,7 @@ export type AgentCyclesPanelProps = {
   defaultOpenLatest?: boolean;
 };
 
-async function copy_text(text: string): Promise<void> {
-  const value = String(text || "");
-  if (!value) return;
-  try {
-    await navigator.clipboard.writeText(value);
-  } catch {
-    const el = document.createElement("textarea");
-    el.value = value;
-    document.body.appendChild(el);
-    el.select();
-    document.execCommand("copy");
-    document.body.removeChild(el);
-  }
-}
+// copy_text lives in copy_text.ts (0003 dedupe).
 
 function as_record(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object") return null;

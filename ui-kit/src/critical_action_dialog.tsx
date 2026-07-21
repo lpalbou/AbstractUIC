@@ -68,12 +68,15 @@ export function CriticalActionDialog(props: CriticalActionDialogProps): React.Re
   }, [props.open]);
 
   // Escape-to-cancel + Tab containment (keyboard/AT users must not land
-  // behind the scrim of an irreversible-action dialog).
+  // behind the scrim of an irreversible-action dialog). Escape is gated on
+  // !busy: while the action runs the Cancel button is disabled, and an
+  // irreversible-action surface must not keep a keyboard side-door to the
+  // same (refused) dismissal (0008 fix, adversary F14).
   useEffect(() => {
     if (!props.open) return;
     const on_key = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        props.onCancel();
+        if (props.busy !== true) props.onCancel();
         return;
       }
       if (e.key !== "Tab") return;
@@ -96,7 +99,7 @@ export function CriticalActionDialog(props: CriticalActionDialogProps): React.Re
     };
     window.addEventListener("keydown", on_key);
     return () => window.removeEventListener("keydown", on_key);
-  }, [props.open, props.onCancel]);
+  }, [props.open, props.onCancel, props.busy]);
 
   // Normalize BEFORE render: server JSON, not the TS type, is the truth here.
   const facts = useMemo(() => normalizeCriticalActionFacts(props.facts), [props.facts]);
@@ -112,7 +115,12 @@ export function CriticalActionDialog(props: CriticalActionDialogProps): React.Re
   });
 
   return (
-    <div className="af-critical__overlay" role="presentation" onClick={props.onCancel}>
+    <div
+      className="af-critical__overlay"
+      role="presentation"
+      /* Scrim click is the same dismissal as Escape/Cancel: gated on !busy. */
+      onClick={props.busy === true ? undefined : props.onCancel}
+    >
       <div
         ref={card_ref}
         className={`af-critical ${props.className || ""}`.trim()}

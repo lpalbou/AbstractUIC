@@ -6,6 +6,106 @@ This project is a **multi-package repository**; versions are currently kept in s
 
 ## Unreleased
 
+### Changed (2026-07-19 — backlog 0003 dedupe half)
+
+- One clipboard helper per package (was four copies): panel-chat's
+  `json_viewer` now imports the canonical `utils.copyText` (its private copy
+  was the weaker variant — no off-screen textarea positioning, no result);
+  monitor-flow's two byte-identical private copies collapsed into
+  `src/copy_text.ts` with the canonical semantics. Cross-package unification
+  deliberately deferred: monitor-flow must not gain a panel-chat dependency
+  for one function — it rides the 0003 one-source viewer decision.
+- panel-chat: dead `PanelChatMessage` type export removed (`types.ts`
+  deleted). Zero importers across observer/flow/abstractcode-web verified;
+  `ChatMessage` (chat_message_card) is the live message type.
+
+### Added (2026-07-18 — backlog 0006 test rigs; 0008 closed)
+
+- panel-chat and monitor-flow now have real test rigs, so the root
+  `npm test` reaches ALL SIX workspaces: `panel-chat/scripts/check_panel_chat.mjs`
+  (markdown table/list/fence pins — including the three table pins migrated
+  in from continuum's suite — the JsonViewer collapseAfterDepth
+  measurable-fold contract, ChatMessageCard timestamp guard and
+  title-over-role) and `monitor-flow/scripts/check_monitor_flow.mjs`
+  (build_agent_trace ordering/dedup/grouping incl. the
+  auto-label-never-filters regression, the JsonViewer twin contract, and the
+  package-owned toolbar-class stability assertion). Both run against the
+  compiled dist via react-dom/server renderToStaticMarkup — existing
+  devDependencies only, no jsdom.
+- `ui-kit/scripts/check_matrix_wrapper.mjs` in the kit gate: the
+  PhaseCapabilityMatrix WRAPPER's DOM decisions are now pinned (labeled
+  refusal view that renders no grant state, requires_review approval control
+  with an accessible act label, trust-blocked cells render zero buttons,
+  absent mark, tristate aria-pressed, pending-count note, orphaned patches
+  never count as unsaved changes).
+
+### Fixed (2026-07-18)
+
+- ui-kit: `af_cognition_bloom.tsx` imported `./cognition_bloom_core` WITHOUT
+  the `.js` extension — bare-Node ESM consumers of the kit dist crashed with
+  ERR_MODULE_NOT_FOUND on any import that reached the index re-exports
+  (bundlers resolve extensionless specifiers, which is why every prior gate
+  was green). Found by the new panel-chat rig's first run — the exact
+  publish-only breakage class 0007 named.
+- monitor-active-memory: the KG explorer's graph canvas is now FORCED-DARK
+  BY DECLARATION (backlog 0008 decision): `.amx-graph` carries its own dark
+  ground (#0c1222, color-scheme dark) so the dark-space node/edge/label
+  literals never sit on a light host surface; the panel chrome around the
+  canvas consumes theme tokens (error/warning text, divider) with the prior
+  literals as fallbacks.
+
+### Fixed (2026-07-17 — backlog 0007/0008 targeted fixes)
+
+- Packaging (0007): the four React packages (`ui-kit`, `panel-chat`,
+  `monitor-flow`, `monitor-active-memory`) now declare a `default` condition
+  in their `exports` maps (monitor-gpu precedent) so CJS-context consumers
+  (`require()`, Jest without ESM) resolve instead of
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`. Verified by createRequire resolution
+  against all five packages.
+- Packaging (0007): `monitor-gpu/src/index.d.ts` now declares the FULL
+  runtime export surface — `HistoryBuffer`, `makeGpuMetricsUrl`,
+  `resolveBearerToken`, `buildAuthHeaders`, `extractUtilizationGpuPct`,
+  `fetchHostGpuMetrics` (+ `GpuMetricsResult`) were exported but undeclared,
+  so TS consumers got compile errors on working runtime imports. Verified by
+  a strict tsc check importing all nine symbols.
+- `PhaseCapabilityMatrix` core (0008, F20): `assigned`/`resolved_value`/
+  `executable` now refuse non-boolean PRESENCE loudly like the enum fields do
+  (a serializer emitting `"true"` silently read as false — the operator's
+  stored word rendered as "Default" and the no-op collapse misfired); absent
+  keys keep their defaults. `reconcilePatches`/`serializeCellPatches` validate
+  `op ∈ {grant, deny, clear}` and drop malformed entries so externally
+  supplied patch lists (restored drafts, broken callers) never reach the wire
+  with an unknown op. New seeded-bug checks in `check_matrix_core.mjs`.
+- `CriticalActionDialog` (0008, F14): Escape and scrim-click are now gated on
+  `!busy` — while the action runs the Cancel button is disabled, and an
+  irreversible-action surface must not keep a keyboard/pointer side-door to
+  the same refused dismissal.
+- `ToolPolicyEditor` (0008, F10/F21): checkbox rows, approval selects and the
+  filter input carry accessible names (forty anonymous checkboxes before);
+  the segmented mode switch is a `role="group"` with `aria-pressed` buttons
+  (was `role="tablist"` misuse); and selection writes never prune names for
+  tools not yet loaded — an early click before async tool discovery completed
+  used to erase prior selections (Select none clears only what the user can
+  see; undiscovered names are preserved).
+- monitor-flow CSS contract (0007, closed same evening): `AgentCyclesPanel`
+  no longer self-imports `agent_cycles.css` — the ONE family rule holds
+  (hosts import CSS as an explicit package export). Decided with the flow
+  seat (option a); removal landed only after all three consumers (flow,
+  observer, abstractcode/web) shipped their explicit import with receipts,
+  so no consumer ever rendered unstyled. Fixes bundler-less ESM consumption
+  of the panel (a bare CSS import in dist was a syntax error outside
+  bundlers).
+- panel-chat markdown (continuum-contributed, owner-reviewed): a table
+  header+separator now interrupts a paragraph (GitHub behavior, same rule as
+  the existing list interrupt) — assistant status tables emitted directly
+  after a prose line rendered as piped prose before. Regression pins live in
+  continuum's suite until panel-chat grows its rig (0006 notes the
+  migration).
+- ui-kit `Icon` (continuum-contributed, owner-reviewed): `thumbsUpFilled`/
+  `thumbsDownFilled` closed-silhouette twins for pressed/standing vote
+  states — coordinates byte-identical to the stroke thumbs so toggling never
+  shifts a pixel; open stroke outlines can never solidify via CSS fill.
+
 ### Added
 
 - UI Kit `SteerComposer`: the shared "speak to a live run" input (hooks plan

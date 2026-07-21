@@ -32,7 +32,7 @@ import {
   type ConductBaseline,
   type ConductFacts,
   type ConductToolCall,
-} from "./cognition_conduct_core";
+} from "./cognition_conduct_core.js";
 
 export interface AfConductGaugeProps {
   facts: ConductFacts | null | undefined;

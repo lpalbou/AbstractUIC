@@ -121,6 +121,8 @@ const TRUST_STATES: MatrixTrustState[] = ["attachable", "requires_review", "bloc
 
 const PROVENANCES: MatrixProvenance[] = ["default", "operator", "structural"];
 
+const VALID_OPS: MatrixCellOp[] = ["grant", "deny", "clear"];
+
 /**
  * Object keys that collide with the JS prototype chain. A hostile payload
  * declaring a phase named "__proto__" would otherwise write through the
@@ -145,6 +147,17 @@ function validate_cell(raw: unknown, where: string): { ok: true; cell: MatrixCel
       return { ok: false, reason: `${where}: trust_gated cell without a valid trust_state ("${ts}")` };
     }
     trust_state = ts as MatrixTrustState;
+  }
+  // Booleans refuse non-boolean PRESENCE loudly, like the enums above do:
+  // a serializer emitting "true" (string) must never silently read as false —
+  // the operator's stored word would render as "Default" and the no-op
+  // collapse in applyCellAction would misfire (0008, adversary F20). Absent
+  // keys keep their documented defaults.
+  for (const key of ["assigned", "resolved_value", "executable"] as const) {
+    const v = raw[key];
+    if (v !== undefined && typeof v !== "boolean") {
+      return { ok: false, reason: `${where}: "${key}" is present but not a boolean` };
+    }
   }
   return {
     ok: true,
@@ -443,6 +456,11 @@ export function reconcilePatches(
   const seen = new Set<string>();
   const out: MatrixCellPatch[] = [];
   for (const p of patches) {
+    // Externally supplied lists (restored drafts, test fixtures, broken
+    // callers) are validated like server payloads: an op outside the enum
+    // must never reach the wire (0008 — applyCellAction only mints valid
+    // ops, so dropping here matches this filter's orphan-drop contract).
+    if (!is_record(p) || !VALID_OPS.includes(p.op as MatrixCellOp)) continue;
     const key = `${p.section}\u0000${p.item}\u0000${p.phase}`;
     if (seen.has(key)) continue; // first wins, matching pending_for's read
     seen.add(key);

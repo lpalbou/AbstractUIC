@@ -101,6 +101,16 @@
   border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.08));
   border-radius: 10px;
   overflow: hidden;
+  /* FORCED-DARK BY DECLARATION (backlog 0008 item 4, decided 2026-07-18):
+   * the graph canvas is dark-space by design — node/edge/label/minimap
+   * colors are literals tuned for a dark ground (see kindColor in
+   * KgActiveMemoryExplorer.tsx). Before this rule the pane had NO background
+   * of its own, so on light host themes the white labels sat on the host's
+   * light surface (the adversary's "white labels on light canvas" find).
+   * The pane now carries its own dark ground on every theme; the panel
+   * chrome AROUND it stays token-driven and theme-aware. */
+  background: #0c1222;
+  color-scheme: dark;
 }
 
 .amx-graphbar {

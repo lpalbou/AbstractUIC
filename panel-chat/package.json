@@ -25,7 +25,8 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./panel_chat.css": "./src/panel_chat.css"
   },
@@ -36,7 +37,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm test",
+    "test": "npm run build && node scripts/check_panel_chat.mjs"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.1.8",

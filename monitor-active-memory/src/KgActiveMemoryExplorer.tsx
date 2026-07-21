@@ -1949,8 +1949,8 @@ export function KgActiveMemoryExplorer({
               ) : (
                 <span className="amx-small">showing: step output</span>
               )}
-              {queryError ? <span className="amx-small" style={{ color: 'rgba(255, 80, 80, 0.95)' }}>{queryError}</span> : null}
-              {expandError ? <span className="amx-small" style={{ color: 'rgba(255, 80, 80, 0.95)' }}>{expandError}</span> : null}
+              {queryError ? <span className="amx-small" style={{ color: 'var(--error, rgba(255, 80, 80, 0.95))' }}>{queryError}</span> : null}
+              {expandError ? <span className="amx-small" style={{ color: 'var(--error, rgba(255, 80, 80, 0.95))' }}>{expandError}</span> : null}
             </div>
 
 	          </div>
@@ -1979,7 +1979,7 @@ export function KgActiveMemoryExplorer({
             const text = typeof w === 'string' ? w : Array.isArray(w) ? w.map((x) => String(x)).join(' · ') : JSON.stringify(w);
             if (!text || !text.trim()) return null;
             return (
-              <div className="amx-small" style={{ marginBottom: 8, color: 'rgba(255, 180, 90, 0.95)' }}>
+              <div className="amx-small" style={{ marginBottom: 8, color: 'var(--warning, rgba(255, 180, 90, 0.95))' }}>
                 {text}
               </div>
             );
@@ -2032,7 +2032,7 @@ export function KgActiveMemoryExplorer({
               </div>
             );
           })()}
-          <div style={{ marginTop: 14, marginBottom: 12, borderTop: '1px solid rgba(255,255,255,0.08)' }} />
+          <div style={{ marginTop: 14, marginBottom: 12, borderTop: '1px solid var(--ui-border-1, rgba(255,255,255,0.08))' }} />
           <div className="amx-small" style={{ marginBottom: 8, fontWeight: 700, opacity: 0.9 }}>
             Inspect
           </div>

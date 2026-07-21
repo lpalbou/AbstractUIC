@@ -1,0 +1,14 @@
+uic receipt (continue-to-work window): backlog 0006 test-rig half + 0008 fully CLOSED; one real packaging bug found and fixed by the new rig's first run. Full root gate green across all six workspaces.
+
+SHIPPED:
+1) panel-chat test rig (scripts/check_panel_chat.mjs): markdown pins — blank-line table, paragraph-interrupting table, pipe-in-prose stays prose (continuum's 3 pins MIGRATED IN from their suite per the 0006 note), list-interrupts-paragraph, fence blocks; JsonViewer collapseAfterDepth measurable-fold CONTRACT (0003's validation item: default vs 0 vs Infinity must render differently — the shipped bug made them identical; junk values fall back); ChatMessageCard timestamp guard (never "Invalid Date") + title-over-role. Runs against compiled dist via react-dom/server renderToStaticMarkup — existing devDeps, no jsdom.
+
+2) monitor-flow test rig (scripts/check_monitor_flow.mjs): build_agent_trace ordering/dedup/grouping (feeds flow+observer+abstractcode/web) incl. the auto-picked-label-never-FILTERS regression the source comments name; JsonViewer twin contract; package-owned toolbar-class stability. Root npm test now reaches 6 of 6 workspaces (was 3).
+
+3) ui-kit matrix WRAPPER smoke checks (scripts/check_matrix_wrapper.mjs, in the gate): labeled refusal view renders NO grant state; requires_review renders the approval act with an accessible label; trust-blocked cells render ZERO buttons; absent mark; tristate aria-pressed; pending-count note; orphaned patches never count as unsaved. Directly relevant to the skills grid gateway/entity will hard-pin: the wrapper's DOM decisions are now executable contract, same as the payload validator.
+
+4) THE RIG'S FIRST CATCH, fixed: ui-kit af_cognition_bloom.tsx imported ./cognition_bloom_core WITHOUT the .js extension — bare-Node ESM consumers of the kit dist crashed (ERR_MODULE_NOT_FOUND) on anything reaching the index re-exports. Bundlers resolve extensionless, so every prior gate was green — the exact publish-only class 0007 named, caught by running the dist under bare node for the first time.
+
+5) 0008 item 4 closed with a DECISION: the KG explorer's graph canvas is FORCED-DARK BY DECLARATION (the spec's offered option) — the real defect was the pane having NO ground of its own, so white labels sat on light host surfaces; .amx-graph now carries its own dark ground on every theme, and the panel chrome AROUND the canvas consumes tokens (--error/--warning/--ui-border-1, literals kept as fallbacks).
+
+BOOKKEEPING: 0007 + 0008 moved to completed/ (5 completed total); 0006 checklist updated honestly (rigs done; invariant F + swatch parity remain open and are now the item's whole scope); overview counts + priority bands re-based (next: 0003 one-source JsonViewer merge). CHANGELOG updated. Claim row update + decision:monitor-flow-css-contract store record still owed — MCP session remains down since yesterday's hub bounce (this posts via CLI); both land at reconnect.

@@ -2949,3 +2949,67 @@
   max-width: 200px;
   text-align: center;
 }
+
+/* AfMemoryHintChip — G1 render half: a memory hint carrying its book-entry
+ * key renders as a click-to-open affordance (rule zero: no resolve-on-
+ * display; plans/improving-entity-capabilities.md, uic section). */
+.af-memory-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+.af-memory-hint__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  max-width: 100%;
+}
+.af-memory-hint__btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.af-memory-hint__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.af-memory-hint__btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.af-memory-hint--text {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.af-memory-hint__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+.af-memory-hint__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.af-memory-hint__id,
+.af-memory-hint__cmd {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.af-memory-hint__act {
+  color: var(--accent);
+  flex: none;
+}
+.af-memory-hint__err {
+  font-size: 11px;
+  color: var(--danger, #e05555);
+}

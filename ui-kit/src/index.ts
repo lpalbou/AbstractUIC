@@ -99,6 +99,7 @@ export { useGatewayVoice, streamTtsJsonl, type GatewayVoice, type GatewayVoiceOp
 export { AfPhaseRadio, type AfPhaseRadioProps, type AfPhaseSlot } from "./af_phase_radio.js";
 export { AfCognitionBloom, type AfCognitionBloomProps } from "./af_cognition_bloom.js";
 export { AfConductGauge, type AfConductGaugeProps } from "./af_conduct_gauge.js";
+export { AfMemoryHintChip, type AfMemoryHintChipProps } from "./af_memory_hint_chip.js";
 export {
   conductAxes,
   runningMedian,

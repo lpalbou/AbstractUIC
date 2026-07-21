@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { copyText } from "./utils.js";
+
 const FOLDED_DEPTH = 3;
 const UNFOLDED_DEPTH = Number.MAX_SAFE_INTEGER;
 
@@ -23,20 +25,9 @@ function copyStringForJson(value: unknown): string {
   }
 }
 
-async function copyText(text: string): Promise<void> {
-  const value = String(text || "");
-  if (!value) return;
-  try {
-    await navigator.clipboard.writeText(value);
-  } catch {
-    const el = document.createElement("textarea");
-    el.value = value;
-    document.body.appendChild(el);
-    el.select();
-    document.execCommand("copy");
-    document.body.removeChild(el);
-  }
-}
+// copyText lives in utils.ts (0003 dedupe: this file carried its own weaker
+// copy — no off-screen positioning, no result — while the card already
+// imported the shared one).
 
 function Token({
   kind,

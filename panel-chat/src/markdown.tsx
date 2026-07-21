@@ -490,7 +490,16 @@ export function Markdown({
       // swallowing the bullets into the paragraph rendered them as "- a<br/>"
       // prose (adversary find 2026-07-14).
       if (paraLines.length > 0 && parseListItemLine(String(lines[i] ?? ""))) break;
-      paraLines.push(String(lines[i] ?? ""));
+      // A TABLE interrupts a paragraph the same way (GitHub behavior):
+      // "intro line:\n| a | b |\n|---|---|" with no blank line is the
+      // standard assistant status-table emission — swallowing the header
+      // row rendered whole tables as piped prose (operator report
+      // 2026-07-17, continuum dm 67; only blank-line-preceded tables ever
+      // parsed). Same header+separator test as the block branch, so the
+      // break hands the lines to it verbatim.
+      const cur_line = String(lines[i] ?? "");
+      if (paraLines.length > 0 && cur_line.includes("|") && i + 1 < lines.length && isTableSeparator(String(lines[i + 1] ?? ""))) break;
+      paraLines.push(cur_line);
       i += 1;
     }
     blocks.push(

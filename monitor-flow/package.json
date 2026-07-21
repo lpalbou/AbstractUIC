@@ -27,7 +27,8 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./agent_cycles.css": "./dist/agent_cycles.css"
   },
@@ -37,7 +38,8 @@
   ],
   "scripts": {
     "build": "tsc && cp src/agent_cycles.css dist/agent_cycles.css",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm test",
+    "test": "npm run build && node scripts/check_monitor_flow.mjs"
   },
   "peerDependencies": {
     "react": "^18.0.0",

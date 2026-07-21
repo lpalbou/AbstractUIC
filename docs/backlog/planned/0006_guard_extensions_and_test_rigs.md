@@ -27,6 +27,12 @@ have no test script at all.
 - Pure-function candidates already isolated: panel-chat markdown parser,
   monitor-flow `build_agent_trace` (dedup/ordering feeds 3 apps), theme.ts
   applyTheme class handling.
+- Pins waiting to migrate IN (2026-07-17): continuum holds 3 renderer pins
+  for panel-chat's markdown table parsing (blank-line table, paragraph-
+  interrupting table, pipe-in-prose stays prose) in THEIR suite
+  (abstractcontinuum src/ui/markdown_render.test.tsx) because panel-chat has
+  no rig — move them into the panel-chat test script when it exists
+  (continuum dm, owner-review 2026-07-17).
 
 ## Problem
 The guard cannot catch the bug classes we just paid for, and three of five
@@ -48,7 +54,26 @@ Each new invariant verified to FAIL on the pre-0002-fix file states (seeded
 bugs), pass after — the check_theme_tokens precedent.
 
 ## Progress checklist
-- [ ] Invariant E (consumption resolution)
-- [ ] Invariant F (literal positions)
-- [ ] Swatch parity check
-- [ ] panel-chat + monitor-flow test scripts and first rigs
+- [x] Invariant E (consumption resolution) — live in check_theme_tokens.mjs
+      (invariants A-E hold in the gate; caught its first real bug within days
+      of landing: the AfMemoryHintChip draft's undeclared tokens, 2026-07-16)
+- [ ] Invariant F (literal positions) — not built (no literal-position scan in
+      any script as of 2026-07-18)
+- [ ] Swatch parity check — theme.ts swatches still unchecked against
+      theme.css values (generate_palette_seeds checks palette_seeds.json
+      parity, a different artifact)
+- [x] panel-chat + monitor-flow test scripts and first rigs — 2026-07-18:
+      `panel-chat/scripts/check_panel_chat.mjs` (markdown table/list/fence
+      pins incl. continuum's 3 migrated table pins; JsonViewer
+      collapseAfterDepth measurable-fold contract; ChatMessageCard date guard
+      + title-over-role) and `monitor-flow/scripts/check_monitor_flow.mjs`
+      (build_agent_trace dedup/ordering/grouping incl. the
+      auto-label-never-filters regression; JsonViewer twin contract;
+      package-owned toolbar class stability). Both run against COMPILED dist
+      via react-dom/server renderToStaticMarkup (existing devDeps, no jsdom);
+      wired as each package's `test` script, so the root `npm test` now
+      reaches 6 of 6 workspaces. The panel-chat rig's first run caught a REAL
+      packaging bug: ui-kit's af_cognition_bloom.tsx imported
+      ./cognition_bloom_core WITHOUT the .js extension — bare-Node ESM
+      consumers of the kit dist crashed on module resolution (bundlers
+      resolve extensionless, which is why every prior gate was green).

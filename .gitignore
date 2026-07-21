@@ -134,3 +134,9 @@ dmypy.json
 # Local configuration
 config.local.*
 *.local
+
+# Compiled twins must never sit beside TS sources (stale-shadow hazard
+# for src-aliasing consumers; continuum c2544 2026-07-16). dist/ is the
+# one compiled surface.
+ui-kit/src/*.js
+panel-chat/src/*.js

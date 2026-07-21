@@ -69,7 +69,12 @@ export interface ConductAxis {
 
 /** Read/check-shaped call names (verification-SHAPED — the deeds-lane
  * vocabulary; a name match is never a truth claim). */
-const VERIFY_SHAPED = /^(read_|list_|search_|get_|fetch_|skim_|head_|stat_|check_|verify_|analyze_|open_|diary_list|diary_read)/;
+// Verification-SHAPED call names. Word-boundary match, not prefix-anchored
+// (entity dm#56: `web_search` — the single most common lookup on live
+// entities — missed the old ^search_ prefix rule, so a 10-search turn
+// read RIG 0/10 "verify-shaped"). A verb counts wherever it sits in the
+// snake_case name; write/act verbs never match by construction.
+const VERIFY_SHAPED = /(^|_)(read|list|search|get|fetch|skim|head|stat|check|verify|analyze|open|lookup|query|probe)(_|$)/;
 
 const rel = (v: number, med: number | undefined): number | null =>
   typeof med === "number" && med > 0 ? Math.max(0, Math.min(1, v / (2 * med))) : null;
