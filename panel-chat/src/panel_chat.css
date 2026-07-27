@@ -464,6 +464,13 @@
   padding: 8px 10px;
 }
 
+/* @transcript-slice:start — everything between these markers is extracted
+ * verbatim into the generated `transcript.css` package export (backlog 0028;
+ * gateway card-015 P2-7). Edit HERE only; the slice regenerates via
+ * scripts/extract_transcript_slice.mjs and the test gate fails on drift.
+ * Keep this region self-contained: transcript classes only (.pc-chat-thread
+ * + the .pc-chat-item family). .pc-chat-content/markdown/JSON stay OUT —
+ * single-file consumers own their content styling. */
 .pc-chat-thread {
   display: flex;
   flex-direction: column;
@@ -787,3 +794,4 @@
 .pc-chat-stat-label {
   font-family: var(--font-mono, ui-monospace, monospace);
 }
+/* @transcript-slice:end */

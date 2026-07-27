@@ -1,0 +1,380 @@
+/*
+ * transcript.css — the standalone dialogue-transcript slice of
+ * @abstractframework/panel-chat (GENERATED — DO NOT EDIT).
+ *
+ * Source of truth: src/panel_chat.css between the @transcript-slice markers.
+ * Regenerate: node scripts/extract_transcript_slice.mjs
+ * Drift pin: the package test fails if this file differs from the source.
+ *
+ * WHAT THIS IS: the .pc-chat-thread + .pc-chat-item bubble family ONLY —
+ * no React, no markdown/JSON content styles (single-file consumers own
+ * their content styling). The class vocabulary and the corner-cut
+ * signature (user: bottom-right, assistant: bottom-left) are the contract
+ * surface; renames are breaking changes flagged to the consumer list.
+ *
+ * CONSUMERS: entity + flow (package import of the full panel_chat.css);
+ * abstractgateway console.py (vendors this recipe onto console vars — their
+ * class-set pin test greps the vocabulary, c2174); future single-file
+ * surfaces import or copy THIS file.
+ *
+ * TOKEN CONTRACT (derived from the slice — every custom property consumed;
+ * all carry fallbacks so the file works without theme.css, and map cleanly
+ * onto a console's own vars: --ui-border-1 → your border var, etc.):
+ *   --accent
+ *   --accent-border
+ *   --accent-subtle
+ *   --error
+ *   --error-border
+ *   --error-subtle
+ *   --font-mono
+ *   --font-size-base
+ *   --font-size-md
+ *   --font-size-sm
+ *   --font-size-xs
+ *   --font-size-xxs
+ *   --info
+ *   --info-border
+ *   --info-subtle
+ *   --radius-sm
+ *   --success
+ *   --success-border
+ *   --success-subtle
+ *   --text-muted
+ *   --text-primary
+ *   --text-secondary
+ *   --ui-border-1
+ *   --ui-border-2
+ *   --ui-overlay-bg-hover
+ *   --ui-pill-bg
+ *   --ui-surface-1
+ *   --ui-surface-2
+ *   --warning
+ *   --warning-border
+ *   --warning-subtle
+ *
+ * CLASS SET (31): pc-chat-attachment-chip, pc-chat-attachment-name, pc-chat-attachment-target, pc-chat-attachment-target--client, pc-chat-attachment-target--repo, pc-chat-attachment-target--server, pc-chat-attachments, pc-chat-avatar, pc-chat-body, pc-chat-header, pc-chat-header-actions, pc-chat-header-spacer, pc-chat-icon-btn, pc-chat-icon-btn--copied, pc-chat-icon-btn--failed, pc-chat-item, pc-chat-item--assistant, pc-chat-item--error, pc-chat-item--report_bug, pc-chat-item--report_feature, pc-chat-item--status, pc-chat-item--user, pc-chat-item--warn, pc-chat-role, pc-chat-stat, pc-chat-stat--clickable, pc-chat-stat-icon, pc-chat-stat-label, pc-chat-stats, pc-chat-thread, pc-chat-time
+ */
+
+.pc-chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: auto;
+  /* Scrolling the thread must never chain into the page/drawer behind it
+   * (design adversary B). */
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+
+/* .pc-chat-item family — the shared dialogue-bubble recipe.
+ * CONSUMERS BEYOND THIS PACKAGE (notify in the ship note on any class rename
+ * or geometry change to this block):
+ *   - abstractgateway console.py VENDORS this block onto console vars
+ *     (their test_vendored_pc_chat_class_set_is_pinned greps the class set —
+ *     a rename here fails their suite loud instead of half-styling, c2174);
+ *   - entity + flow consume it via the package import.
+ * The corner-cut signature (user: bottom-right, assistant: bottom-left) and
+ * the variant vocabulary (user/assistant/status/warn/error/report_*) are the
+ * contract surface. */
+.pc-chat-item {
+  position: relative;
+  border-radius: 12px;
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
+  background: var(--ui-surface-1, rgba(0, 0, 0, 0.18));
+  padding: 12px 14px;
+  max-width: min(92%, 86ch);
+}
+
+.pc-chat-item--user {
+  align-self: flex-end;
+  background: var(--info-subtle, rgba(96, 165, 250, 0.10));
+  border-color: var(--info-border, rgba(96, 165, 250, 0.30));
+  border-bottom-right-radius: var(--radius-sm, 6px);
+}
+
+.pc-chat-item--assistant {
+  align-self: flex-start;
+  background: var(--accent-subtle, rgba(233, 69, 96, 0.10));
+  border-color: var(--accent-border, rgba(233, 69, 96, 0.30));
+  border-bottom-left-radius: var(--radius-sm, 6px);
+}
+
+.pc-chat-item--status {
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
+  background: var(--ui-surface-2, rgba(255, 255, 255, 0.06));
+  border-color: var(--ui-border-1, rgba(255, 255, 255, 0.10));
+}
+
+.pc-chat-item--warn {
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
+  background: linear-gradient(135deg, var(--warning-subtle, rgba(243, 156, 18, 0.12)) 0%, rgba(0, 0, 0, 0.04) 100%);
+  border-color: var(--warning-border, rgba(243, 156, 18, 0.30));
+}
+
+.pc-chat-item--error {
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
+  background: linear-gradient(135deg, var(--error-subtle, rgba(231, 76, 60, 0.12)) 0%, rgba(0, 0, 0, 0.04) 100%);
+  border-color: var(--error-border, rgba(231, 76, 60, 0.30));
+}
+
+.pc-chat-item--report_bug {
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
+  background: linear-gradient(135deg, var(--error-subtle, rgba(231, 76, 60, 0.12)) 0%, rgba(0, 0, 0, 0.04) 100%);
+  border-color: var(--error-border, rgba(231, 76, 60, 0.30));
+}
+
+.pc-chat-item--report_feature {
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
+  background: linear-gradient(135deg, var(--success-subtle, rgba(39, 174, 96, 0.12)) 0%, rgba(0, 0, 0, 0.04) 100%);
+  border-color: var(--success-border, rgba(39, 174, 96, 0.30));
+}
+
+.pc-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+
+.pc-chat-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--ui-surface-2, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
+  color: var(--text-secondary, rgba(255, 255, 255, 0.70));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.pc-chat-item--user .pc-chat-avatar {
+  background: var(--info-subtle, rgba(96, 165, 250, 0.10));
+  border-color: var(--info-border, rgba(96, 165, 250, 0.30));
+  color: var(--info, rgba(96, 165, 250, 0.95));
+}
+
+.pc-chat-item--assistant .pc-chat-avatar {
+  background: var(--accent-subtle, rgba(233, 69, 96, 0.10));
+  border-color: var(--accent-border, rgba(233, 69, 96, 0.30));
+  color: var(--accent, rgba(233, 69, 96, 0.95));
+}
+
+.pc-chat-item--warn .pc-chat-avatar,
+.pc-chat-item--report_bug .pc-chat-avatar {
+  background: var(--warning-subtle, rgba(243, 156, 18, 0.12));
+  border-color: var(--warning-border, rgba(243, 156, 18, 0.30));
+  color: var(--warning, rgba(243, 156, 18, 0.95));
+}
+
+.pc-chat-item--error .pc-chat-avatar {
+  background: var(--error-subtle, rgba(231, 76, 60, 0.12));
+  border-color: var(--error-border, rgba(231, 76, 60, 0.30));
+  color: var(--error, rgba(231, 76, 60, 0.95));
+}
+
+.pc-chat-item--report_feature .pc-chat-avatar {
+  background: var(--success-subtle, rgba(39, 174, 96, 0.12));
+  border-color: var(--success-border, rgba(39, 174, 96, 0.30));
+  color: var(--success, rgba(39, 174, 96, 0.95));
+}
+
+.pc-chat-role {
+  font-weight: 650;
+  font-size: var(--font-size-md, 13px);
+  color: var(--text-primary, rgba(255, 255, 255, 0.92));
+  min-width: 0;
+}
+
+.pc-chat-header-spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pc-chat-time {
+  font-size: var(--font-size-xs, 11px);
+  color: var(--text-muted, rgba(255, 255, 255, 0.55));
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.pc-chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pc-chat-icon-btn {
+  opacity: 0.75;
+  transition: background 150ms ease, color 150ms ease, opacity 150ms ease, transform 150ms ease;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.80));
+  cursor: pointer;
+}
+
+.pc-chat-icon-btn svg {
+  display: block;
+}
+
+.pc-chat-icon-btn:hover {
+  opacity: 1;
+  background: var(--ui-overlay-bg-hover, rgba(255, 255, 255, 0.08));
+  color: var(--text-primary, rgba(255, 255, 255, 0.92));
+  transform: translateY(-0.5px);
+}
+
+.pc-chat-icon-btn--copied {
+  opacity: 1;
+  background: var(--success-subtle, rgba(39, 174, 96, 0.12));
+  color: var(--success, rgba(39, 174, 96, 0.95));
+}
+
+.pc-chat-icon-btn--failed {
+  opacity: 1;
+  background: var(--error-subtle, rgba(231, 76, 60, 0.12));
+  color: var(--error, rgba(231, 76, 60, 0.95));
+}
+
+.pc-chat-body {
+  font-size: var(--font-size-base, 14px);
+  line-height: 1.55;
+  color: var(--text-primary, rgba(255, 255, 255, 0.92));
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pc-chat-attachments {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pc-chat-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
+  background: var(--ui-surface-2, rgba(255, 255, 255, 0.06));
+  color: var(--text-secondary, rgba(255, 255, 255, 0.75));
+  cursor: pointer;
+  max-width: 100%;
+  transition: all 150ms ease;
+}
+
+.pc-chat-attachment-chip:hover:not(:disabled) {
+  border-color: var(--accent-border, rgba(233, 69, 96, 0.35));
+  background: var(--accent-subtle, rgba(233, 69, 96, 0.10));
+  color: var(--text-primary, rgba(255, 255, 255, 0.92));
+}
+
+.pc-chat-attachment-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pc-chat-attachment-name {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--font-size-sm, 12px);
+}
+
+.pc-chat-attachment-target {
+  font-size: var(--font-size-xxs, 10px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--ui-border-2, rgba(255, 255, 255, 0.14));
+  background: var(--ui-pill-bg, rgba(148, 163, 184, 0.08));
+  color: var(--text-secondary, rgba(255, 255, 255, 0.80));
+  flex: 0 0 auto;
+}
+
+.pc-chat-attachment-target--server {
+  border-color: var(--info-border, rgba(96, 165, 250, 0.30));
+  background: var(--info-subtle, rgba(96, 165, 250, 0.10));
+  color: var(--info, rgba(96, 165, 250, 0.95));
+}
+
+.pc-chat-attachment-target--client {
+  border-color: var(--accent-border, rgba(233, 69, 96, 0.30));
+  background: var(--accent-subtle, rgba(233, 69, 96, 0.10));
+  color: var(--accent, rgba(233, 69, 96, 0.95));
+}
+
+.pc-chat-attachment-target--repo {
+  border-color: var(--success-border, rgba(39, 174, 96, 0.30));
+  background: var(--success-subtle, rgba(39, 174, 96, 0.10));
+  color: var(--success, rgba(39, 174, 96, 0.95));
+}
+
+.pc-chat-stats {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: var(--font-size-sm, 12px);
+  color: var(--text-muted, rgba(255, 255, 255, 0.60));
+}
+
+.pc-chat-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
+  background: var(--ui-surface-2, rgba(255, 255, 255, 0.06));
+  color: var(--text-secondary, rgba(255, 255, 255, 0.80));
+  cursor: default;
+}
+
+.pc-chat-stat:disabled {
+  opacity: 1;
+}
+
+.pc-chat-stat--clickable {
+  cursor: pointer;
+}
+
+.pc-chat-stat--clickable:hover {
+  border-color: var(--ui-border-2, rgba(255, 255, 255, 0.14));
+  background: var(--ui-overlay-bg-hover, rgba(255, 255, 255, 0.10));
+  color: var(--text-primary, rgba(255, 255, 255, 0.92));
+}
+
+.pc-chat-stat-icon {
+  opacity: 0.8;
+}
+
+.pc-chat-stat-label {
+  font-family: var(--font-mono, ui-monospace, monospace);
+}

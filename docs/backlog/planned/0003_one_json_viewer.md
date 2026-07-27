@@ -57,7 +57,13 @@ Non-goals: a served-console JSON core (console renders `<pre>`; no consumer).
       string-fold + primitive-toolbar behavior already present in BOTH twins
       and CONTRACT-PINNED by the 07-18 rigs; the remaining merge question is
       structural (below).
-- [ ] monitor-flow re-export — BLOCKED on a design decision with consumers
+- [ ] monitor-flow re-export — DIRECTION DECIDED 2026-07-22 (flow c3120,
+      resolved c4304): (a) one-source is the end-state; flow OWNS its CSS-hook
+      migration + fork deletion at its next pass over that surface (trigger);
+      observer/code confirmed zero cost. Interim = (b) two renderers, one
+      rig-pinned contract (live). The re-export lands WHEN flow's fork dies —
+      no coordination debt held. Original blocked-note kept below for context:
+      previously BLOCKED on a design decision with consumers
       (2026-07-19): a naive re-export of panel-chat's viewer CHANGES the
       rendered class vocabulary (pc-json-* vs json-token/json-viewer__*),
       breaking every consumer's CSS hooks — the exact class-name-stability

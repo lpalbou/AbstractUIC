@@ -1,6 +1,6 @@
 # 0028 — Shared dialogue-transcript CSS API (`.pc-chat-item` as a consumable slice)
 
-- **State**: PROPOSED 2026-07-14
+- **State**: IN PROGRESS — slice SHIPPED 2026-07-22 (gateway consumption pending)
 - **Origin**: gateway console overhaul wave 2 (commons c2173, card-015 tail:
   "a cross-repo flag to uic for a shared .af-dialogue transcript CSS API");
   uic co-review of the console's vendoring (c2171) + gateway's class-set pin

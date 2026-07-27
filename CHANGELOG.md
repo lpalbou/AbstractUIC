@@ -6,6 +6,18 @@ This project is a **multi-package repository**; versions are currently kept in s
 
 ## Unreleased
 
+### Added (2026-07-22 — backlog 0028 / gateway card-015)
+
+- `@abstractframework/panel-chat` exports `./transcript.css`: the standalone
+  dialogue-transcript slice (`.pc-chat-thread` + the `.pc-chat-item` bubble
+  family — 31 classes, no React, no content styles). GENERATED, never forked:
+  `scripts/extract_transcript_slice.mjs` extracts the marked region of
+  `panel_chat.css` verbatim and prepends a machine-derived token contract
+  (every consumed custom property, all with fallbacks — the file works
+  themeless and maps onto console vars); the package test gate runs `--check`
+  and fails on drift. Single-file consumers (gateway console, future embeds)
+  vendor THIS file instead of hand-copying the block.
+
 ### Changed (2026-07-19 — backlog 0003 dedupe half)
 
 - One clipboard helper per package (was four copies): panel-chat's
