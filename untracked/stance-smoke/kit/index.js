@@ -24,6 +24,7 @@ export { useGatewayVoice, streamTtsJsonl } from "./use_gateway_voice.js";
 export { AfPhaseRadio } from "./af_phase_radio.js";
 export { AfCognitionBloom } from "./af_cognition_bloom.js";
 export { AfConductGauge } from "./af_conduct_gauge.js";
-export { conductAxes, runningMedian, } from "./cognition_conduct_core.js";
+export { AfMemoryHintChip } from "./af_memory_hint_chip.js";
+export { conductAxes, isVerifyShaped, runningMedian, } from "./cognition_conduct_core.js";
 export { EMOTION_REGISTERS, createBloomState, setBloomTargets, tickBloom, readBloom, drawBloomFrame, vignetteColor, effortRows, } from "./cognition_bloom_core.js";
 export { RULED_PHASES, PHASE_DESCRIPTORS, normalizePhase, reconcilePhaseList, } from "./phase_radio_core.js";

@@ -44,6 +44,7 @@ const AVAILABILITIES = [
 ];
 const TRUST_STATES = ["attachable", "requires_review", "blocked"];
 const PROVENANCES = ["default", "operator", "structural"];
+const VALID_OPS = ["grant", "deny", "clear"];
 /**
  * Object keys that collide with the JS prototype chain. A hostile payload
  * declaring a phase named "__proto__" would otherwise write through the
@@ -68,6 +69,17 @@ function validate_cell(raw, where) {
             return { ok: false, reason: `${where}: trust_gated cell without a valid trust_state ("${ts}")` };
         }
         trust_state = ts;
+    }
+    // Booleans refuse non-boolean PRESENCE loudly, like the enums above do:
+    // a serializer emitting "true" (string) must never silently read as false —
+    // the operator's stored word would render as "Default" and the no-op
+    // collapse in applyCellAction would misfire (0008, adversary F20). Absent
+    // keys keep their documented defaults.
+    for (const key of ["assigned", "resolved_value", "executable"]) {
+        const v = raw[key];
+        if (v !== undefined && typeof v !== "boolean") {
+            return { ok: false, reason: `${where}: "${key}" is present but not a boolean` };
+        }
     }
     return {
         ok: true,
@@ -300,6 +312,12 @@ export function reconcilePatches(payload, patches) {
     const seen = new Set();
     const out = [];
     for (const p of patches) {
+        // Externally supplied lists (restored drafts, test fixtures, broken
+        // callers) are validated like server payloads: an op outside the enum
+        // must never reach the wire (0008 — applyCellAction only mints valid
+        // ops, so dropping here matches this filter's orphan-drop contract).
+        if (!is_record(p) || !VALID_OPS.includes(p.op))
+            continue;
         const key = `${p.section}\u0000${p.item}\u0000${p.phase}`;
         if (seen.has(key))
             continue; // first wins, matching pending_for's read

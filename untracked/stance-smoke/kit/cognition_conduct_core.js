@@ -26,7 +26,18 @@
  */
 /** Read/check-shaped call names (verification-SHAPED — the deeds-lane
  * vocabulary; a name match is never a truth claim). */
-const VERIFY_SHAPED = /^(read_|list_|search_|get_|fetch_|skim_|head_|stat_|check_|verify_|analyze_|open_|diary_list|diary_read)/;
+// Verification-SHAPED call names. Word-boundary match, not prefix-anchored
+// (entity dm#56: `web_search` — the single most common lookup on live
+// entities — missed the old ^search_ prefix rule, so a 10-search turn
+// read RIG 0/10 "verify-shaped"). A verb counts wherever it sits in the
+// snake_case name; write/act verbs never match by construction.
+const VERIFY_SHAPED = /(^|_)(read|list|search|get|fetch|skim|head|stat|check|verify|analyze|open|lookup|query|probe)(_|$)/;
+/** Whether one call NAME is verification-shaped (the RIG vocabulary) —
+ * exported so renderers can mark the individual calls (the stance's ringed
+ * stroke tips) with the SAME rule the share is computed from. */
+export function isVerifyShaped(name) {
+    return VERIFY_SHAPED.test(name || "");
+}
 const rel = (v, med) => typeof med === "number" && med > 0 ? Math.max(0, Math.min(1, v / (2 * med))) : null;
 function fmtMs(ms) {
     if (ms < 1000)
@@ -43,7 +54,7 @@ export function conductAxes(facts, tools, baseline) {
     {
         const has = typeof f.think_ms === "number" || typeof f.tokens_out === "number";
         if (!has) {
-            axes.push({ id: "effort", code: "EFF", label: "effort", color: "#e7b45a", value: null, text: "—", reason: "no timing/volume fact this turn" });
+            axes.push({ id: "effort", code: "EFF", label: "effort", color: "#e7b45a", value: null, text: "—", short: "—", reason: "no timing/volume fact this turn" });
         }
         else {
             const parts = [];
@@ -56,48 +67,54 @@ export function conductAxes(facts, tools, baseline) {
                 typeof f.think_ms === "number" ? fmtMs(f.think_ms) : null,
                 typeof f.tokens_out === "number" ? `${Math.round(f.tokens_out)}tk` : null,
             ].filter(Boolean).join(" · ");
+            const short = typeof f.think_ms === "number" ? fmtMs(f.think_ms) : `${Math.round(f.tokens_out)}tk`;
             axes.push(usable.length
-                ? { id: "effort", code: "EFF", label: "effort", color: "#e7b45a", value: usable.reduce((a, x) => a + x, 0) / usable.length, text }
-                : { id: "effort", code: "EFF", label: "effort", color: "#e7b45a", value: null, text, reason: "first turns — no session baseline yet" });
+                ? { id: "effort", code: "EFF", label: "effort", color: "#e7b45a", value: usable.reduce((a, x) => a + x, 0) / usable.length, text, short }
+                : { id: "effort", code: "EFF", label: "effort", color: "#e7b45a", value: null, text, short, reason: "first turns — no session baseline yet" });
         }
     }
     // ACT — tool rounds/calls (+ failure ticks)
     {
-        const rounds = typeof f.tool_rounds === "number" ? f.tool_rounds : t.length ? undefined : undefined;
+        const rounds = typeof f.tool_rounds === "number" ? f.tool_rounds : undefined;
         const calls = t.length;
         const fails = t.filter((x) => x.ok === false).length;
         if (rounds === undefined && calls === 0) {
-            axes.push({ id: "action", code: "ACT", label: "action", color: "#5eead4", value: typeof f.tool_rounds === "number" ? 0 : null, text: typeof f.tool_rounds === "number" ? "no tools this turn" : "—", reason: typeof f.tool_rounds === "number" ? undefined : "no tool facts this turn" });
+            // Reachable only with NO tool fact at all: a present-but-zero
+            // tool_rounds is a number, so the honest zero ("0 rounds", value 0)
+            // renders through the else branch below.
+            axes.push({ id: "action", code: "ACT", label: "action", color: "#5eead4", value: null, text: "—", short: "—", reason: "no tool facts this turn" });
         }
         else {
             const v = rel(rounds ?? calls, b.tool_rounds);
             const text = `${rounds ?? calls} round${(rounds ?? calls) === 1 ? "" : "s"}${calls ? ` · ${calls} call${calls === 1 ? "" : "s"}` : ""}${fails ? ` · ${fails} fail` : ""}`;
+            const short = `${rounds ?? calls}${fails ? `·${fails}✕` : ""}`;
             axes.push(v !== null
-                ? { id: "action", code: "ACT", label: "action", color: "#5eead4", value: v, text, marks: fails }
-                : { id: "action", code: "ACT", label: "action", color: "#5eead4", value: null, text, reason: "first turns — no session baseline yet", marks: fails });
+                ? { id: "action", code: "ACT", label: "action", color: "#5eead4", value: v, text, short, marks: fails }
+                : { id: "action", code: "ACT", label: "action", color: "#5eead4", value: null, text, short, reason: "first turns — no session baseline yet", marks: fails });
         }
     }
     // ATT — memories recalled (+ formed)
     {
         if (typeof f.memories_recalled !== "number") {
-            axes.push({ id: "attention", code: "ATT", label: "attention", color: "#6ea8d8", value: null, text: "—", reason: "no recall fact this turn" });
+            axes.push({ id: "attention", code: "ATT", label: "attention", color: "#6ea8d8", value: null, text: "—", short: "—", reason: "no recall fact this turn" });
         }
         else {
             const v = rel(f.memories_recalled, b.memories_recalled);
-            const formed = typeof f.memories_formed === "number" && f.memories_formed > 0 ? ` · +${f.memories_formed} formed` : "";
-            const text = `${f.memories_recalled} recalled${formed}`;
+            const formedN = typeof f.memories_formed === "number" && f.memories_formed > 0 ? f.memories_formed : 0;
+            const text = `${f.memories_recalled} recalled${formedN ? ` · +${formedN} formed` : ""}`;
+            const short = `${f.memories_recalled}${formedN ? `+${formedN}` : ""}`;
             axes.push(v !== null
-                ? { id: "attention", code: "ATT", label: "attention", color: "#6ea8d8", value: v, text }
-                : { id: "attention", code: "ATT", label: "attention", color: "#6ea8d8", value: null, text, reason: "first turns — no session baseline yet" });
+                ? { id: "attention", code: "ATT", label: "attention", color: "#6ea8d8", value: v, text, short }
+                : { id: "attention", code: "ATT", label: "attention", color: "#6ea8d8", value: null, text, short, reason: "first turns — no session baseline yet" });
         }
     }
     // RIG — verification-shaped share of calls + retry-after-failure
     {
         if (!t.length) {
-            axes.push({ id: "rigor", code: "RIG", label: "rigor", color: "#c084dd", value: null, text: "no calls to read", reason: "rigor reads call names — zero calls this turn" });
+            axes.push({ id: "rigor", code: "RIG", label: "rigor", color: "#c084dd", value: null, text: "no calls to read", short: "—", reason: "rigor reads call names — zero calls this turn" });
         }
         else {
-            const verify = t.filter((x) => VERIFY_SHAPED.test(x.name || "")).length;
+            const verify = t.filter((x) => isVerifyShaped(x.name)).length;
             let retries = 0;
             for (let i = 1; i < t.length; i++) {
                 if (t[i - 1].ok === false && t[i].name === t[i - 1].name)
@@ -105,7 +122,7 @@ export function conductAxes(facts, tools, baseline) {
             }
             const share = verify / t.length;
             const text = `${verify}/${t.length} verify-shaped${retries ? ` · ${retries} retr${retries === 1 ? "y" : "ies"}` : ""}`;
-            axes.push({ id: "rigor", code: "RIG", label: "rigor", color: "#c084dd", value: share, text, marks: retries });
+            axes.push({ id: "rigor", code: "RIG", label: "rigor", color: "#c084dd", value: share, text, short: `${verify}/${t.length}`, marks: retries });
         }
     }
     return axes;

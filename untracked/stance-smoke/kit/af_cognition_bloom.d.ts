@@ -1,5 +1,5 @@
 import React from "react";
-import { type BloomReading, type BloomRenderOptions, type EffortFacts } from "./cognition_bloom_core";
+import { type BloomReading, type BloomRenderOptions, type EffortFacts } from "./cognition_bloom_core.js";
 export interface AfCognitionBloomProps {
     /** Register scores in [0,1] keyed by register id (missing key = target
      * unchanged; explicit 0 lowers the petal — absent is not zero). */

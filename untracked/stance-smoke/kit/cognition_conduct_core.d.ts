@@ -56,11 +56,19 @@ export interface ConductAxis {
     value: number | null;
     /** Short human value text ("4.2s · 380tk", "3 rounds · 1 fail", "—"). */
     text: string;
+    /** COMPACT value for an always-visible legend ("4.2s", "3·1✕", "12+2",
+     * "2/3", "—") — the entity operator's "the other reads are NEVER shown"
+     * finding: motion/alignment encodings need a static numeric channel. */
+    short: string;
     /** Present when the arc is null — the reason, rendered not hidden. */
     reason?: string;
     /** Extra marks (failure ticks, formed count). */
     marks?: number;
 }
+/** Whether one call NAME is verification-shaped (the RIG vocabulary) —
+ * exported so renderers can mark the individual calls (the stance's ringed
+ * stroke tips) with the SAME rule the share is computed from. */
+export declare function isVerifyShaped(name: string | null | undefined): boolean;
 export declare function conductAxes(facts: ConductFacts | null | undefined, tools: ConductToolCall[] | null | undefined, baseline: ConductBaseline | null | undefined): ConductAxis[];
 /** Running-median helper for consumers building session baselines: returns
  * the median of the last `window` finite values. */

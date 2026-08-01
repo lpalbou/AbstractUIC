@@ -102,6 +102,7 @@ export { AfConductGauge, type AfConductGaugeProps } from "./af_conduct_gauge.js"
 export { AfMemoryHintChip, type AfMemoryHintChipProps } from "./af_memory_hint_chip.js";
 export {
   conductAxes,
+  isVerifyShaped,
   runningMedian,
   type ConductFacts,
   type ConductToolCall,

@@ -11,12 +11,20 @@
  *   EFF effort    — breath vigor: the spine sways/breathes harder on
  *                   hard-working turns (vs the session's own median);
  *                   always a small idle breath, so quiet turns stay alive.
+ *                   v2.1: the HEAD's size also scales with effort — a
+ *                   static read (the entity operator's finding: motion-only
+ *                   EFF was invisible in practice and vanished entirely
+ *                   under prefers-reduced-motion).
  *   ACT action    — hands: one stroke fanning right per tool call
  *                   (subitizable literal counts), red tip = failed call.
  *   ATT attention — roots: one filament drooping left per memory recalled;
  *                   green buds at the spine base = memories formed.
  *   RIG rigor     — alignment: high verify-shaped share = a straight,
  *                   orderly spine; low rigor with many acts = askew segments.
+ *                   v2.1: each verify-shaped call ALSO rings its stroke tip
+ *                   violet — rigor becomes countable like ACT/ATT (real tool
+ *                   vocabularies cluster at share≈1, where alignment alone
+ *                   draws literally nothing distinctive).
  *
  * Pre-attentive channels only: count (subitizing), size/vigor, alignment/
  * disorder, color. HONESTY RULES unchanged from v1: absent fact = dashed
@@ -28,6 +36,7 @@
 import React, { useEffect, useRef } from "react";
 import {
   conductAxes,
+  isVerifyShaped,
   type ConductAxis,
   type ConductBaseline,
   type ConductFacts,
@@ -66,7 +75,7 @@ function hash01(k: number): number {
 type StanceTargets = {
   breath: number; // 0..1 effort share (0 when unreadable)
   effortNull: boolean;
-  strokes: { fail: boolean }[];
+  strokes: { fail: boolean; verify: boolean }[];
   actNull: boolean;
   fils: number; // filament count (capped)
   attOverflow: number;
@@ -85,7 +94,7 @@ function targetsFrom(facts: ConductFacts | null | undefined, tools: ConductToolC
   const att = byId("attention");
   const rig = byId("rigor");
   const f = facts || {};
-  const calls = tools.slice(0, ACT_CAP).map((t) => ({ fail: t.ok === false }));
+  const calls = tools.slice(0, ACT_CAP).map((t) => ({ fail: t.ok === false, verify: isVerifyShaped(t.name) }));
   const recalled = typeof f.memories_recalled === "number" ? Math.max(0, Math.round(f.memories_recalled)) : 0;
   const formed = typeof f.memories_formed === "number" ? Math.max(0, Math.round(f.memories_formed)) : 0;
   return {
@@ -198,6 +207,7 @@ const COL = {
   fail: "#e05555",
   att: "#6ea8d8",
   bud: "#7bd88a",
+  rig: "#c084dd",
   hint: "rgba(148,163,184,0.35)",
   label: "rgba(148,163,184,0.7)",
 };
@@ -315,6 +325,15 @@ function drawStance(
         ctx.beginPath();
         ctx.arc(x2, y2, Math.max(1.6, R * 0.014), 0, Math.PI * 2);
         ctx.fill();
+      } else if (t.strokes[i].verify) {
+        // RIG made countable (v2.1): a violet ring on each verify-shaped
+        // call's tip — the same isVerifyShaped rule the share is computed
+        // from, so the drawing and the RIG number can never disagree.
+        ctx.strokeStyle = COL.rig;
+        ctx.lineWidth = Math.max(1, R * 0.008);
+        ctx.beginPath();
+        ctx.arc(x2, y2, Math.max(1.8, R * 0.016), 0, Math.PI * 2);
+        ctx.stroke();
       }
     }
   }
@@ -337,11 +356,13 @@ function drawStance(
   ctx.beginPath();
   pts.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
   ctx.stroke();
-  // head: a small node whose size breathes with effort
+  // head: a node whose BASE SIZE scales with effort (v2.1 static read —
+  // survives prefers-reduced-motion, where time is pinned and the breath
+  // channel is gone) and whose pulse still breathes with it.
   const head = pts[0];
   ctx.fillStyle = t.effortNull ? COL.spineFaint : COL.spine;
   ctx.beginPath();
-  ctx.arc(head.x, head.y - R * 0.012, Math.max(2.5, R * 0.026) * (1 + 0.18 * Math.sin(time * Math.PI * 2 * breathHz)) , 0, Math.PI * 2);
+  ctx.arc(head.x, head.y - R * 0.012, Math.max(2.5, R * (0.02 + 0.024 * s.breath)) * (1 + 0.18 * Math.sin(time * Math.PI * 2 * breathHz)), 0, Math.PI * 2);
   ctx.fill();
   // ground line
   ctx.strokeStyle = "rgba(148,163,184,0.25)";

@@ -42,13 +42,17 @@ export function CriticalActionDialog(props) {
         };
     }, [props.open]);
     // Escape-to-cancel + Tab containment (keyboard/AT users must not land
-    // behind the scrim of an irreversible-action dialog).
+    // behind the scrim of an irreversible-action dialog). Escape is gated on
+    // !busy: while the action runs the Cancel button is disabled, and an
+    // irreversible-action surface must not keep a keyboard side-door to the
+    // same (refused) dismissal (0008 fix, adversary F14).
     useEffect(() => {
         if (!props.open)
             return;
         const on_key = (e) => {
             if (e.key === "Escape") {
-                props.onCancel();
+                if (props.busy !== true)
+                    props.onCancel();
                 return;
             }
             if (e.key !== "Tab")
@@ -75,7 +79,7 @@ export function CriticalActionDialog(props) {
         };
         window.addEventListener("keydown", on_key);
         return () => window.removeEventListener("keydown", on_key);
-    }, [props.open, props.onCancel]);
+    }, [props.open, props.onCancel, props.busy]);
     // Normalize BEFORE render: server JSON, not the TS type, is the truth here.
     const facts = useMemo(() => normalizeCriticalActionFacts(props.facts), [props.facts]);
     if (!props.open)
@@ -87,7 +91,9 @@ export function CriticalActionDialog(props) {
         typedText: typed,
         busy: props.busy === true,
     });
-    return (_jsx("div", { className: "af-critical__overlay", role: "presentation", onClick: props.onCancel, children: _jsxs("div", { ref: card_ref, className: `af-critical ${props.className || ""}`.trim(), role: "dialog", "aria-modal": "true", "aria-label": props.title, onClick: (e) => e.stopPropagation(), children: [_jsx("div", { className: "af-critical__title", children: props.title }), facts ? (_jsxs(_Fragment, { children: [_jsx("div", { className: "af-critical__consequence", children: facts.consequence }), facts.facts.length > 0 ? (_jsx("dl", { className: "af-critical__facts", children: facts.facts.map((f, i) => (_jsxs(React.Fragment, { children: [_jsx("dt", { children: f.label }), _jsx("dd", { children: f.value })] }, `${f.label}-${i}`))) })) : null] })) : (_jsxs("div", { className: "af-critical__fallback", children: ["#FALLBACK: the server did not supply blast-radius facts for this action.", props.allowDegradedProceed
+    return (_jsx("div", { className: "af-critical__overlay", role: "presentation", 
+        /* Scrim click is the same dismissal as Escape/Cancel: gated on !busy. */
+        onClick: props.busy === true ? undefined : props.onCancel, children: _jsxs("div", { ref: card_ref, className: `af-critical ${props.className || ""}`.trim(), role: "dialog", "aria-modal": "true", "aria-label": props.title, onClick: (e) => e.stopPropagation(), children: [_jsx("div", { className: "af-critical__title", children: props.title }), facts ? (_jsxs(_Fragment, { children: [_jsx("div", { className: "af-critical__consequence", children: facts.consequence }), facts.facts.length > 0 ? (_jsx("dl", { className: "af-critical__facts", children: facts.facts.map((f, i) => (_jsxs(React.Fragment, { children: [_jsx("dt", { children: f.label }), _jsx("dd", { children: f.value })] }, `${f.label}-${i}`))) })) : null] })) : (_jsxs("div", { className: "af-critical__fallback", children: ["#FALLBACK: the server did not supply blast-radius facts for this action.", props.allowDegradedProceed
                             ? " Proceeding is possible but degraded — the consequences are unverified."
                             : " Confirmation is disabled."] })), props.children, props.confirmPhrase ? (_jsxs("label", { className: "af-critical__phrase", children: [_jsxs("span", { children: ["Type ", _jsx("code", { children: props.confirmPhrase }), " to confirm"] }), _jsx("input", { type: "text", value: typed, onChange: (e) => setTyped(e.target.value), disabled: props.busy === true, autoFocus: true })] })) : null, props.error ? _jsx("div", { className: "af-critical__error", children: props.error }) : null, !gate.confirmEnabled && gate.disabledReason && !props.error ? (_jsx("div", { className: "af-critical__disabled-reason", children: gate.disabledReason })) : null, _jsxs("div", { className: "af-critical__actions", children: [_jsx("button", { type: "button", className: "af-critical__cancel", onClick: props.onCancel, disabled: props.busy === true, autoFocus: !props.confirmPhrase, children: "Cancel" }), _jsx("button", { type: "button", className: `af-critical__confirm ${gate.degraded ? "is-degraded" : ""}`.trim(), onClick: props.onConfirm, disabled: !gate.confirmEnabled, children: props.busy ? "Working…" : gate.degraded && gate.degradedLabel ? gate.degradedLabel : props.actionLabel })] })] }) }));
 }

@@ -14,7 +14,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
  * DOM 3-letter codes via labels={false}; codes ship in the core registers.
  */
 import { useEffect, useRef } from "react";
-import { createBloomState, drawBloomFrame, effortRows, setBloomTargets, tickBloom, } from "./cognition_bloom_core";
+import { createBloomState, drawBloomFrame, effortRows, setBloomTargets, tickBloom, } from "./cognition_bloom_core.js";
 export function AfCognitionBloom(props) {
     const canvasRef = useRef(null);
     const stateRef = useRef(createBloomState());

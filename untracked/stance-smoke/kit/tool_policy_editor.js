@@ -106,10 +106,27 @@ export function ToolPolicyEditor(props) {
     const all_names = useMemo(() => tools.map((t) => t.name), [tools]);
     const all_names_set = useMemo(() => new Set(all_names), [all_names]);
     const [filter, setFilter] = useState("");
-    const selected = useMemo(() => {
+    // The FULL selection as given, unknown names included (trimmed, deduped).
+    // Writes are based on this list: tools not yet loaded (async discovery
+    // still running) must never be pruned by an unrelated click — an early
+    // act used to erase prior selections (0008, adversary F21).
+    const selected_all = useMemo(() => {
         const raw = Array.isArray(props.value?.selected) ? props.value.selected : [];
-        return raw.map((n) => String(n || "").trim()).filter((n) => n && all_names_set.has(n));
-    }, [props.value?.selected, all_names_set]);
+        const seen = new Set();
+        const out = [];
+        for (const n of raw) {
+            const name = String(n || "").trim();
+            if (!name || seen.has(name))
+                continue;
+            seen.add(name);
+            out.push(name);
+        }
+        return out;
+    }, [props.value?.selected]);
+    // Display view: only names the loaded tool list can render.
+    const selected = useMemo(() => selected_all.filter((n) => all_names_set.has(n)), [selected_all, all_names_set]);
+    // Names we must carry through every write without ever rendering them.
+    const unknown_selected = useMemo(() => selected_all.filter((n) => !all_names_set.has(n)), [selected_all, all_names_set]);
     const mode = props.value?.mode === "custom" ? "custom" : "all";
     const filtered = useMemo(() => {
         const q = filter.trim().toLowerCase();
@@ -128,7 +145,7 @@ export function ToolPolicyEditor(props) {
     const toggle_mode = (next) => {
         if (disabled)
             return;
-        on_change({ ...props.value, mode: next, selected });
+        on_change({ ...props.value, mode: next, selected: selected_all });
     };
     const toggle_tool = (name, enabled) => {
         if (disabled)
@@ -138,7 +155,7 @@ export function ToolPolicyEditor(props) {
             set.add(name);
         else
             set.delete(name);
-        on_change({ ...props.value, selected: Array.from(set), mode: "custom" });
+        on_change({ ...props.value, selected: [...unknown_selected, ...Array.from(set)], mode: "custom" });
     };
     const set_approval = (name, mode_value) => {
         if (disabled)
@@ -150,18 +167,21 @@ export function ToolPolicyEditor(props) {
     const select_all = () => {
         if (disabled)
             return;
-        on_change({ ...props.value, selected: Array.from(all_names), mode: "custom" });
+        on_change({ ...props.value, selected: [...unknown_selected, ...all_names], mode: "custom" });
     };
     const select_none = () => {
         if (disabled)
             return;
-        on_change({ ...props.value, selected: [], mode: "custom" });
+        // "None" clears what the user can SEE; names still awaiting discovery
+        // are preserved — they were never rendered, so erasing them here would
+        // destroy choices invisibly (they become uncheckable once loaded).
+        on_change({ ...props.value, selected: [...unknown_selected], mode: "custom" });
     };
     const selected_count = effective_selected.size;
-    return (_jsxs("div", { className: `af-tool-policy ${props.className || ""}`.trim(), children: [_jsxs("div", { className: "af-tool-policy__header", children: [_jsx("div", { className: "af-tool-policy__title", children: title }), _jsx("div", { className: "af-tool-policy__subtitle", children: subtitle }), tool_mode ? (_jsxs("div", { className: `af-tool-policy__mode is-${tool_mode.tone}`, children: [_jsx("div", { className: "af-tool-policy__mode-badge", children: "Tool mode" }), _jsx("div", { className: "af-tool-policy__mode-value", children: tool_mode.label }), _jsx("div", { className: "af-tool-policy__mode-detail", children: tool_mode.detail })] })) : null, note ? _jsx("div", { className: "af-tool-policy__note", children: note }) : null] }), _jsxs("div", { className: "af-tool-policy__controls", children: [_jsxs("div", { className: "af-tool-policy__segmented", role: "tablist", "aria-label": "Tool allowlist mode", children: [_jsx("button", { type: "button", className: `af-tool-policy__seg-btn ${mode === "all" ? "is-active" : ""}`.trim(), onClick: () => toggle_mode("all"), disabled: disabled, children: "All tools" }), _jsx("button", { type: "button", className: `af-tool-policy__seg-btn ${mode === "custom" ? "is-active" : ""}`.trim(), onClick: () => toggle_mode("custom"), disabled: disabled, children: "Custom allowlist" })] }), _jsxs("div", { className: "af-tool-policy__count", children: [selected_count, " / ", all_names.length, " enabled"] }), _jsxs("div", { className: "af-tool-policy__bulk", children: [_jsx("button", { type: "button", onClick: select_all, disabled: disabled || mode !== "custom", children: "Select all" }), _jsx("button", { type: "button", onClick: select_none, disabled: disabled || mode !== "custom", children: "Select none" })] })] }), _jsx("div", { className: "af-tool-policy__filter", children: _jsx("input", { type: "text", placeholder: "Filter tools...", value: filter, onChange: (e) => setFilter(e.target.value), disabled: disabled }) }), _jsxs("div", { className: "af-tool-policy__list", children: [filtered.map((tool) => {
+    return (_jsxs("div", { className: `af-tool-policy ${props.className || ""}`.trim(), children: [_jsxs("div", { className: "af-tool-policy__header", children: [_jsx("div", { className: "af-tool-policy__title", children: title }), _jsx("div", { className: "af-tool-policy__subtitle", children: subtitle }), tool_mode ? (_jsxs("div", { className: `af-tool-policy__mode is-${tool_mode.tone}`, children: [_jsx("div", { className: "af-tool-policy__mode-badge", children: "Tool mode" }), _jsx("div", { className: "af-tool-policy__mode-value", children: tool_mode.label }), _jsx("div", { className: "af-tool-policy__mode-detail", children: tool_mode.detail })] })) : null, note ? _jsx("div", { className: "af-tool-policy__note", children: note }) : null] }), _jsxs("div", { className: "af-tool-policy__controls", children: [_jsxs("div", { className: "af-tool-policy__segmented", role: "group", "aria-label": "Tool allowlist mode", children: [_jsx("button", { type: "button", className: `af-tool-policy__seg-btn ${mode === "all" ? "is-active" : ""}`.trim(), onClick: () => toggle_mode("all"), disabled: disabled, "aria-pressed": mode === "all", children: "All tools" }), _jsx("button", { type: "button", className: `af-tool-policy__seg-btn ${mode === "custom" ? "is-active" : ""}`.trim(), onClick: () => toggle_mode("custom"), disabled: disabled, "aria-pressed": mode === "custom", children: "Custom allowlist" })] }), _jsxs("div", { className: "af-tool-policy__count", children: [selected_count, " / ", all_names.length, " enabled"] }), _jsxs("div", { className: "af-tool-policy__bulk", children: [_jsx("button", { type: "button", onClick: select_all, disabled: disabled || mode !== "custom", children: "Select all" }), _jsx("button", { type: "button", onClick: select_none, disabled: disabled || mode !== "custom", children: "Select none" })] })] }), _jsx("div", { className: "af-tool-policy__filter", children: _jsx("input", { type: "text", placeholder: "Filter tools...", "aria-label": "Filter tools", value: filter, onChange: (e) => setFilter(e.target.value), disabled: disabled }) }), _jsxs("div", { className: "af-tool-policy__list", children: [filtered.map((tool) => {
                         const is_checked = effective_selected.has(tool.name);
                         const approval = props.value?.approval?.[tool.name] || default_mode_for(tool, defaults);
-                        return (_jsxs("div", { className: `af-tool-row ${is_checked ? "is-enabled" : ""}`.trim(), children: [_jsx("label", { className: "af-tool-row__check", children: _jsx("input", { type: "checkbox", checked: is_checked, disabled: disabled || mode !== "custom", onChange: (e) => toggle_tool(tool.name, e.target.checked) }) }), _jsxs("div", { className: "af-tool-row__meta", children: [_jsxs("div", { className: "af-tool-row__title", children: [_jsx("span", { className: "af-tool-row__name", children: tool.name }), tool.toolset ? _jsx("span", { className: "af-tool-row__badge", children: tool.toolset }) : null] }), tool.description ? _jsx("div", { className: "af-tool-row__desc", children: tool.description }) : null, tool.when_to_use ? _jsx("div", { className: "af-tool-row__hint", children: tool.when_to_use }) : null] }), _jsx("div", { className: "af-tool-row__approval", children: _jsxs("select", { value: approval, disabled: disabled || !is_checked, onChange: (e) => set_approval(tool.name, e.target.value), children: [_jsx("option", { value: "approve", children: "Approve" }), _jsx("option", { value: "ask", children: "Ask" })] }) })] }, tool.name));
+                        return (_jsxs("div", { className: `af-tool-row ${is_checked ? "is-enabled" : ""}`.trim(), children: [_jsx("label", { className: "af-tool-row__check", children: _jsx("input", { type: "checkbox", checked: is_checked, disabled: disabled || mode !== "custom", onChange: (e) => toggle_tool(tool.name, e.target.checked), "aria-label": `Enable ${tool.name}` }) }), _jsxs("div", { className: "af-tool-row__meta", children: [_jsxs("div", { className: "af-tool-row__title", children: [_jsx("span", { className: "af-tool-row__name", children: tool.name }), tool.toolset ? _jsx("span", { className: "af-tool-row__badge", children: tool.toolset }) : null] }), tool.description ? _jsx("div", { className: "af-tool-row__desc", children: tool.description }) : null, tool.when_to_use ? _jsx("div", { className: "af-tool-row__hint", children: tool.when_to_use }) : null] }), _jsx("div", { className: "af-tool-row__approval", children: _jsxs("select", { value: approval, disabled: disabled || !is_checked, onChange: (e) => set_approval(tool.name, e.target.value), "aria-label": `Approval mode for ${tool.name}`, children: [_jsx("option", { value: "approve", children: "Approve" }), _jsx("option", { value: "ask", children: "Ask" })] }) })] }, tool.name));
                     }), !filtered.length ? _jsx("div", { className: "af-tool-policy__empty", children: "No tools match the filter." }) : null] })] }));
 }
 export default ToolPolicyEditor;

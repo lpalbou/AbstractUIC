@@ -53,6 +53,17 @@ function paths(name) {
             return (_jsxs(_Fragment, { children: [_jsx("path", { d: "M3 6h18" }), _jsx("path", { d: "M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" }), _jsx("path", { d: "M6 6l1 16h10l1-16" }), _jsx("path", { d: "M10 11v6" }), _jsx("path", { d: "M14 11v6" })] }));
         case "send":
             return (_jsxs(_Fragment, { children: [_jsx("path", { d: "M22 2L11 13" }), _jsx("path", { d: "M22 2L15 22l-4-9-9-4 20-7z" })] }));
+        case "thumbsUp":
+            return (_jsxs(_Fragment, { children: [_jsx("path", { d: "M7 10v11" }), _jsx("path", { d: "M7 10l4.5-8a2 2 0 0 1 3.6 1.5L14 8h5.2a2 2 0 0 1 2 2.4l-1.6 8a2 2 0 0 1-2 1.6H7" })] }));
+        case "thumbsDown":
+            return (_jsxs(_Fragment, { children: [_jsx("path", { d: "M17 14V3" }), _jsx("path", { d: "M17 14l-4.5 8a2 2 0 0 1-3.6-1.5L10 16H4.8a2 2 0 0 1-2-2.4l1.6-8a2 2 0 0 1 2-1.6H17" })] }));
+        // The filled twins reuse the stroke twins' exact coordinates — the mitt
+        // outline is CLOSED (z) and filled per-path, the stem stays a stroked
+        // line — so toggling stroke↔filled never shifts a pixel.
+        case "thumbsUpFilled":
+            return (_jsxs(_Fragment, { children: [_jsx("path", { d: "M7 10v11" }), _jsx("path", { d: "M7 10l4.5-8a2 2 0 0 1 3.6 1.5L14 8h5.2a2 2 0 0 1 2 2.4l-1.6 8a2 2 0 0 1-2 1.6H7z", fill: "currentColor", stroke: "none" })] }));
+        case "thumbsDownFilled":
+            return (_jsxs(_Fragment, { children: [_jsx("path", { d: "M17 14V3" }), _jsx("path", { d: "M17 14l-4.5 8a2 2 0 0 1-3.6-1.5L10 16H4.8a2 2 0 0 1-2-2.4l1.6-8a2 2 0 0 1 2-1.6H17z", fill: "currentColor", stroke: "none" })] }));
         case "board":
             return (_jsxs(_Fragment, { children: [_jsx("rect", { x: "1.5", y: "2", width: "3.6", height: "12", rx: "1" }), _jsx("rect", { x: "6.2", y: "2", width: "3.6", height: "8.5", rx: "1" }), _jsx("rect", { x: "10.9", y: "2", width: "3.6", height: "5.5", rx: "1" })] }));
         case "inbox":

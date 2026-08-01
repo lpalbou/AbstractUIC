@@ -24,7 +24,8 @@ export { useGatewayVoice, streamTtsJsonl, type GatewayVoice, type GatewayVoiceOp
 export { AfPhaseRadio, type AfPhaseRadioProps, type AfPhaseSlot } from "./af_phase_radio.js";
 export { AfCognitionBloom, type AfCognitionBloomProps } from "./af_cognition_bloom.js";
 export { AfConductGauge, type AfConductGaugeProps } from "./af_conduct_gauge.js";
-export { conductAxes, runningMedian, type ConductFacts, type ConductToolCall, type ConductBaseline, type ConductAxis, type ConductAxisId, } from "./cognition_conduct_core.js";
+export { AfMemoryHintChip, type AfMemoryHintChipProps } from "./af_memory_hint_chip.js";
+export { conductAxes, isVerifyShaped, runningMedian, type ConductFacts, type ConductToolCall, type ConductBaseline, type ConductAxis, type ConductAxisId, } from "./cognition_conduct_core.js";
 export { EMOTION_REGISTERS, createBloomState, setBloomTargets, tickBloom, readBloom, drawBloomFrame, vignetteColor, effortRows, type EmotionRegister, type BloomState, type BloomReading, type BloomRenderOptions, type EffortFacts, type EffortRow, } from "./cognition_bloom_core.js";
 export { RULED_PHASES, PHASE_DESCRIPTORS, normalizePhase, reconcilePhaseList, type AfPhase, type PhaseDescriptor, } from "./phase_radio_core.js";
 //# sourceMappingURL=index.d.ts.map

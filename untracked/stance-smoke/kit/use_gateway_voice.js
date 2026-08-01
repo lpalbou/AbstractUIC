@@ -24,8 +24,17 @@
  * mime negotiation (webm/opus → mp4 → ogg), stale-response guards keyed on
  * the loading key, global pointerup stop while recording, idempotent stop,
  * full unmount cleanup.
+ *
+ * STABILITY CONTRACT (entity c2584 P0, 2026-07-16): every returned function
+ * has a STABLE identity (useCallback([]), state read through ref twins) and
+ * every state write goes through a shallow-equal guard — an idle stop_tts()
+ * is a true no-op. Before this, fresh-per-render identities plus an
+ * unconditional idle setState turned the textbook consumer shape
+ * `useEffect(() => { if (!x) stop_tts(); }, [x, stop_tts])` into a
+ * synchronous commit loop (measured: 105,449 commits/10s — the operator's
+ * page-wide "blinking"). Dep-array consumers must stay safe by construction.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 /**
  * Transport helper for the gateway streaming TTS endpoint
  * (`POST /api/gateway/runs/{run_id}/voice/tts/stream`, JSON-Lines): parses
@@ -191,6 +200,15 @@ export function useGatewayVoice(opts) {
     const tts_supported = useMemo(() => supportsTtsWebAudio() && (typeof opts.tts === "function" || typeof opts.tts_stream === "function"), [opts.tts, opts.tts_stream]);
     const voice_ptt_supported = useMemo(() => supportsMediaRecorder() && typeof opts.transcribe === "function", [opts.transcribe]);
     const [tts_playback, set_tts_playback] = useState({ key: "", status: "idle" });
+    // Ref twin (read from the stable callbacks) + shallow-equal write guard:
+    // idle→idle (any unchanged pair) must NOT schedule a render — the
+    // unconditional `{key:"",status:"idle"}` write was half of the c2584
+    // commit loop (a new object every call defeats React's Object.is bail).
+    const tts_playback_ref = useRef(tts_playback);
+    const apply_tts_playback = useCallback((next) => {
+        tts_playback_ref.current = next;
+        set_tts_playback((prev) => (prev.key === next.key && prev.status === next.status ? prev : next));
+    }, []);
     const tts_key_ref = useRef("");
     const tts_loading_key_ref = useRef("");
     const tts_ctx_ref = useRef(null);
@@ -238,7 +256,7 @@ export function useGatewayVoice(opts) {
             return null;
         }
     };
-    const stop_tts_source = () => {
+    const stop_tts_source = useCallback(() => {
         const src = tts_source_ref.current;
         tts_source_ref.current = null;
         if (!src)
@@ -261,8 +279,10 @@ export function useGatewayVoice(opts) {
         catch {
             // ignore
         }
-    };
-    const stop_tts = () => {
+    }, []);
+    // Stable identity (c2584 ask 1): touches only refs + the guarded setter, so
+    // an idle stop is a full no-op — safe in any consumer dep array.
+    const stop_tts = useCallback(() => {
         stop_tts_source();
         tts_stream_gen_ref.current += 1; // invalidates any in-flight stream loop
         tts_segments_ref.current = [];
@@ -274,8 +294,8 @@ export function useGatewayVoice(opts) {
         tts_buffer_ref.current = null;
         tts_offset_ref.current = 0;
         tts_started_at_ref.current = 0;
-        set_tts_playback({ key: "", status: "idle" });
-    };
+        apply_tts_playback({ key: "", status: "idle" });
+    }, [stop_tts_source, apply_tts_playback]);
     useEffect(() => {
         return () => {
             stop_tts();
@@ -326,10 +346,10 @@ export function useGatewayVoice(opts) {
             tts_offset_ref.current = 0;
             tts_started_at_ref.current = 0;
             tts_key_ref.current = "";
-            set_tts_playback({ key: "", status: "idle" });
+            apply_tts_playback({ key: "", status: "idle" });
         };
         source.start(0, off);
-        set_tts_playback({ key, status: "playing" });
+        apply_tts_playback({ key, status: "playing" });
     };
     /**
      * Streaming playback: play the segment at tts_seg_idx from tts_offset,
@@ -351,7 +371,7 @@ export function useGatewayVoice(opts) {
                 tts_key_ref.current = "";
                 tts_offset_ref.current = 0;
                 tts_started_at_ref.current = 0;
-                set_tts_playback({ key: "", status: "idle" });
+                apply_tts_playback({ key: "", status: "idle" });
             }
             return;
         }
@@ -384,7 +404,7 @@ export function useGatewayVoice(opts) {
             // ignore
         }
         source.start(0, off);
-        set_tts_playback({ key, status: "playing" });
+        apply_tts_playback({ key, status: "playing" });
     };
     const start_tts_stream = async (key, text, streamFn) => {
         const engine = ensure_tts_webaudio();
@@ -403,7 +423,7 @@ export function useGatewayVoice(opts) {
         tts_started_at_ref.current = 0;
         tts_key_ref.current = key;
         tts_loading_key_ref.current = key;
-        set_tts_playback({ key, status: "loading" });
+        apply_tts_playback({ key, status: "loading" });
         set_error?.("");
         let prelude = null;
         try {
@@ -458,13 +478,16 @@ export function useGatewayVoice(opts) {
             stop_tts();
         }
     };
-    const toggle_tts = async (msg_key, text) => {
+    // Stable identity (c2584 ask 1): options through opts_ref (call-time
+    // fresh), playback state through its ref twin — never the render closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const toggle_tts = useCallback(async (msg_key, text) => {
         const key = String(msg_key || "").trim();
         const t = String(text || "").trim();
         if (!key || !t)
             return;
-        const tts = opts.tts;
-        const tts_stream = opts.tts_stream;
+        const tts = opts_ref.current.tts;
+        const tts_stream = opts_ref.current.tts_stream;
         if (typeof tts !== "function" && typeof tts_stream !== "function") {
             set_error?.("TTS is not available.");
             return;
@@ -474,8 +497,9 @@ export function useGatewayVoice(opts) {
             set_error?.("TTS playback is not supported in this browser.");
             return;
         }
-        const is_same = tts_playback.key === key;
-        if (is_same && tts_playback.status === "playing") {
+        const playback = tts_playback_ref.current;
+        const is_same = playback.key === key;
+        if (is_same && playback.status === "playing") {
             // Compute the offset ONLY while a source is actually playing. During
             // stream starvation (index past the buffered tail, no source) the
             // started_at timestamp is stale from the finished segment — computing
@@ -490,10 +514,10 @@ export function useGatewayVoice(opts) {
             }
             tts_paused_ref.current = true;
             stop_tts_source();
-            set_tts_playback({ key, status: "paused" });
+            apply_tts_playback({ key, status: "paused" });
             return;
         }
-        if (is_same && tts_playback.status === "paused") {
+        if (is_same && playback.status === "paused") {
             // Streaming resume: continue from the paused position in the segment
             // queue (buffering may have advanced while paused).
             if (tts_segments_ref.current.length > 0) {
@@ -503,7 +527,7 @@ export function useGatewayVoice(opts) {
                 // past the buffered tail): playback auto-continues the moment the
                 // next segment arrives, and a stuck "paused" label over auto-playing
                 // audio is the dishonest render (adversary find).
-                set_tts_playback({ key, status: "playing" });
+                apply_tts_playback({ key, status: "playing" });
                 start_stream_segment(key, tts_stream_gen_ref.current);
                 return;
             }
@@ -516,13 +540,13 @@ export function useGatewayVoice(opts) {
                 }
                 catch (e) {
                     set_error?.(String(e?.message || e || "TTS play failed"));
-                    set_tts_playback({ key: "", status: "idle" });
+                    apply_tts_playback({ key: "", status: "idle" });
                 }
                 return;
             }
             // fall through to regenerate if buffer missing
         }
-        if (is_same && tts_playback.status === "loading")
+        if (is_same && playback.status === "loading")
             return;
         // Streaming preferred: speak on the first synthesized segment.
         if (typeof tts_stream === "function") {
@@ -545,7 +569,7 @@ export function useGatewayVoice(opts) {
         tts_started_at_ref.current = 0;
         tts_key_ref.current = key;
         tts_loading_key_ref.current = key;
-        set_tts_playback({ key, status: "loading" });
+        apply_tts_playback({ key, status: "loading" });
         set_error?.("");
         try {
             const bytes = await tts(t);
@@ -564,13 +588,24 @@ export function useGatewayVoice(opts) {
             if (tts_loading_key_ref.current === key) {
                 tts_loading_key_ref.current = "";
                 tts_key_ref.current = "";
-                set_tts_playback({ key: "", status: "idle" });
+                apply_tts_playback({ key: "", status: "idle" });
             }
             set_error?.(String(e?.message || e || "TTS failed"));
         }
-    };
+    }, []);
     const [voice_ptt_recording, set_voice_ptt_recording] = useState(false);
     const [voice_ptt_busy, set_voice_ptt_busy] = useState(false);
+    // Recording ref twin + supported ref twin: the stable PTT callbacks read
+    // current values at call time instead of freezing first-render closures.
+    const voice_ptt_recording_ref = useRef(false);
+    const voice_ptt_supported_ref = useRef(voice_ptt_supported);
+    voice_ptt_supported_ref.current = voice_ptt_supported;
+    // One write path keeps the ref twin and the state in lockstep (boolean
+    // setState already bails on equal values; the ref is for stable callbacks).
+    const apply_recording = useCallback((v) => {
+        voice_ptt_recording_ref.current = v;
+        set_voice_ptt_recording((prev) => (prev === v ? prev : v));
+    }, []);
     // Busy twin readable from callbacks bound renders ago (the recorder's
     // onstop) — the state value in those closures is stale (adversary find).
     const voice_ptt_busy_ref = useRef(false);
@@ -632,15 +667,16 @@ export function useGatewayVoice(opts) {
             set_voice_ptt_busy(false);
         }
     }
-    async function start_voice_ptt_recording() {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const start_voice_ptt_recording = useCallback(async () => {
         set_error?.("");
-        if (!voice_ptt_supported) {
+        if (!voice_ptt_supported_ref.current) {
             set_error?.("Voice recording is not supported in this browser (MediaRecorder/getUserMedia unavailable).");
             return;
         }
         if (voice_ptt_busy_ref.current)
             return;
-        if (voice_ptt_recording || voice_ptt_recorder_ref.current)
+        if (voice_ptt_recording_ref.current || voice_ptt_recorder_ref.current)
             return;
         voice_ptt_chunks_ref.current = [];
         try {
@@ -663,7 +699,7 @@ export function useGatewayVoice(opts) {
                 set_error?.("Recording failed.");
             };
             rec.onstop = () => {
-                set_voice_ptt_recording(false);
+                apply_recording(false);
                 stop_voice_ptt_tracks();
                 voice_ptt_recorder_ref.current = null;
                 try {
@@ -675,29 +711,30 @@ export function useGatewayVoice(opts) {
                 }
             };
             rec.start();
-            set_voice_ptt_recording(true);
+            apply_recording(true);
         }
         catch (e) {
             stop_voice_ptt_tracks();
             voice_ptt_recorder_ref.current = null;
-            set_voice_ptt_recording(false);
+            apply_recording(false);
             const msg = String(e?.message || e || "Failed to access microphone");
             set_error?.(msg.toLowerCase().includes("permission") ? `Microphone permission denied: ${msg}` : msg);
         }
-    }
-    function stop_voice_ptt_recording() {
+    }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const stop_voice_ptt_recording = useCallback(() => {
         const rec = voice_ptt_recorder_ref.current;
-        if (!voice_ptt_recording || !rec)
+        if (!voice_ptt_recording_ref.current || !rec)
             return;
         voice_ptt_recorder_ref.current = null; // idempotency: prevent double-stop on global handlers
-        set_voice_ptt_recording(false);
+        apply_recording(false);
         try {
             rec.stop();
         }
         catch (e) {
             set_error?.(String(e?.message || e || "Failed to stop recording"));
         }
-    }
+    }, []);
     useEffect(() => {
         if (!voice_ptt_recording)
             return;
