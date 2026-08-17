@@ -29,6 +29,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 - UI tokens + theme + common inputs: [`ui-kit/README.md`](../ui-kit/README.md)
 - Chat primitives (thread, composer, markdown/json renderers): [`panel-chat/README.md`](../panel-chat/README.md)
+- App-origin Gateway session proxy: [`app-server/README.md`](../app-server/README.md)
 - Agent-cycle trace viewer (LLM/tool/observe): [`monitor-flow/README.md`](../monitor-flow/README.md)
 - KG + Active Memory explorer (ReactFlow): [`monitor-active-memory/README.md`](../monitor-active-memory/README.md)
 - GPU widget (custom element + imperative API): [`monitor-gpu/README.md`](../monitor-gpu/README.md)
