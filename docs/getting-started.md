@@ -25,6 +25,7 @@ For a package-by-package export map, see the [API reference](./api.md).
 | `@abstractframework/monitor-flow` | Agent “cycles” trace viewer + ledger adapter | `monitor-flow/src/index.ts` |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | `monitor-active-memory/src/index.ts` |
 | `@abstractframework/monitor-gpu` | GPU utilization histogram widget (`<monitor-gpu>`) | `monitor-gpu/src/index.js` |
+| `@abstractframework/monitor-memory` | Host RAM + device memory meter widget (`<monitor-memory>`) | `monitor-memory/src/index.js` |
 
 ## Requirements
 
@@ -59,6 +60,9 @@ npm i @abstractframework/monitor-active-memory reactflow
 
 # gpu widget (web component)
 npm i @abstractframework/monitor-gpu
+
+# host memory widget (web component)
+npm i @abstractframework/monitor-memory
 ```
 
 ## CSS you must import
@@ -151,6 +155,20 @@ el.baseUrl = "http://localhost:8080"; // optional; defaults to same-origin
 el.token = "your-gateway-token"; // or: el.getToken = async () => "..."
 el.tickMs = 1500;
 el.historySize = 20;
+el.mode = "icon"; // "full" | "icon"
+document.body.appendChild(el);
+```
+
+### Host memory widget (`@abstractframework/monitor-memory`)
+
+```js
+import { registerMonitorMemoryWidget } from "@abstractframework/monitor-memory";
+
+registerMonitorMemoryWidget();
+const el = document.createElement("monitor-memory");
+el.baseUrl = "http://localhost:8080"; // optional; defaults to same-origin
+el.token = "your-gateway-token"; // or: el.getToken = async () => "..."
+el.tickMs = 5000; // minimum 1000
 el.mode = "icon"; // "full" | "icon"
 document.body.appendChild(el);
 ```

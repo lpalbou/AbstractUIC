@@ -1,6 +1,6 @@
 # AbstractUIC
 
-> UI packages for AbstractFramework clients: React components (ESM + CSS exports) plus a dependency-free Custom Element for GPU metrics.
+> UI packages for AbstractFramework clients: React components (ESM + CSS exports) plus dependency-free Custom Elements for GPU and host memory metrics.
 
 AbstractUIC is a **multi-package repository**: each top-level folder is an independently-consumable npm package.
 
@@ -11,7 +11,7 @@ Ecosystem context (external):
 
 Important integration notes:
 - Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
-- Only `@abstractframework/monitor-gpu` performs network requests by default (polls a metrics endpoint; optional Bearer auth).
+- Only `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` perform network requests by default (each polls a metrics endpoint; optional Bearer auth).
 - Always import the package CSS from your app entrypoint (especially in Next.js). Start with `docs/getting-started.md` → `docs/api.md`.
 
 Quick commands:
@@ -58,6 +58,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
 - [@abstractframework/monitor-gpu](monitor-gpu/README.md): GPU widget (`<monitor-gpu>`) + backend contract
+- [@abstractframework/monitor-memory](monitor-memory/README.md): host RAM + device memory widget (`<monitor-memory>`) + backend contract
 
 ## Source of truth (public API)
 
@@ -85,6 +86,11 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [monitor-gpu/src/index.d.ts](monitor-gpu/src/index.d.ts): TS types (`MonitorGpuElement`, controller options)
 - [monitor-gpu/src/gpu_metrics_api.js](monitor-gpu/src/gpu_metrics_api.js): endpoint/auth/payload parsing contract
 - [monitor-gpu/src/monitor_gpu_widget.js](monitor-gpu/src/monitor_gpu_widget.js): custom element + controller behavior
+- [monitor-memory/package.json](monitor-memory/package.json): published metadata (`exports`)
+- [monitor-memory/src/index.js](monitor-memory/src/index.js): exports for `@abstractframework/monitor-memory`
+- [monitor-memory/src/index.d.ts](monitor-memory/src/index.d.ts): TS types (`MonitorMemoryElement`, controller options)
+- [monitor-memory/src/memory_metrics_api.js](monitor-memory/src/memory_metrics_api.js): endpoint/auth/payload parsing contract
+- [monitor-memory/src/monitor_memory_widget.js](monitor-memory/src/monitor_memory_widget.js): custom element + controller behavior
 
 ## Optional
 

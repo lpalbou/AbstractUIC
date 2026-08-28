@@ -12,7 +12,7 @@ This document stays intentionally close to the code: package boundaries, exports
 ## High-level overview
 
 - **React packages** ship **compiled ESM + type declarations** from `dist/` (see `exports` in each `package.json`). Source lives in `src/` and is built with `tsc`.
-- **`@abstractframework/monitor-gpu`** ships **JavaScript** (`monitor-gpu/src`) and registers a custom element.
+- **`@abstractframework/monitor-gpu`** and **`@abstractframework/monitor-memory`** ship **JavaScript** (`monitor-gpu/src`, `monitor-memory/src`) and register custom elements.
 - Styling is shipped as plain CSS and exposed as package exports (e.g. `@abstractframework/panel-chat/panel_chat.css`).
 
 ## Package dependency graph
@@ -26,6 +26,7 @@ flowchart LR
     FLOW["@abstractframework/monitor-flow"]
     AMX["@abstractframework/monitor-active-memory"]
     GPU["@abstractframework/monitor-gpu"]
+    MEM["@abstractframework/monitor-memory"]
   end
 
   CHAT -->|"imports Icon"| UIKIT
@@ -59,14 +60,17 @@ flowchart TD
   Host -->|"ChatMessage[] + callbacks"| ChatUI["panel-chat: ChatThread / ChatComposer / ChatMessageCard"]
 
   Host -->|"register + attach <monitor-gpu>"| GPUWidget["monitor-gpu: <monitor-gpu>"]
-  GPUWidget -->|"GET /api/gateway/host/metrics/gpu"| Metrics["AbstractGateway (metrics endpoint)"]
+  GPUWidget -->|"GET /api/gateway/host/metrics/gpu"| Metrics["AbstractGateway (metrics endpoints)"]
+
+  Host -->|"register + attach <monitor-memory>"| MemWidget["monitor-memory: <monitor-memory>"]
+  MemWidget -->|"GET /api/gateway/host/metrics/memory"| Metrics
 ```
 
 Evidence:
 - `monitor-flow/src/AgentCyclesPanel.tsx` consumes `TraceItem[]` and groups cycles by `step.effect.type === "llm_call"`.
 - `monitor-flow/src/agent_cycles_adapter.ts` exports `build_agent_trace(...)` to adapt ledger-like records into `TraceItem[]`.
 - `monitor-active-memory/src/KgActiveMemoryExplorer.tsx` consumes `items: KgAssertion[]` and optionally calls `onQuery(params)`.
-- `monitor-gpu/src/gpu_metrics_api.js` builds/fetches the metrics URL and attaches Bearer auth headers.
+- `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js` build/fetch the metrics URLs and attach Bearer auth headers.
 - No direct dependency on AbstractCore/AbstractRuntime: see the absence of such dependencies in `*/package.json`.
 
 ## Contracts & types (what you pass in)
@@ -95,6 +99,17 @@ The widget expects JSON that can be interpreted by `extractUtilizationGpuPct(pay
 - `payload.gpus[][].utilization_gpu_pct` (numbers; averaged)
 
 See: `monitor-gpu/src/gpu_metrics_api.js` and `monitor-gpu/src/monitor_gpu_widget.js`.
+
+### Host memory metrics (`monitor-memory`)
+
+The widget expects JSON that can be interpreted by `extractMemoryUsage(payload)` — the memory object directly or nested under `memory`:
+
+- `ram.percent`, or `ram.used_bytes` / `ram.total_bytes` (used derivable from `total_bytes - available_bytes`)
+- `device.backend` + `device.allocated_bytes` / `device.total_bytes` (allocated derivable from `total_bytes - free_bytes`)
+
+A `404` or `supported: false` reply marks the endpoint unsupported and stops polling.
+
+See: `monitor-memory/src/memory_metrics_api.js` and `monitor-memory/src/monitor_memory_widget.js`.
 
 ## Gateway connection flow (`app-server` + `ui-kit`)
 

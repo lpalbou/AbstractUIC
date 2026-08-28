@@ -1,10 +1,10 @@
 # AbstractUIC
 
-Reusable UI packages for AbstractFramework clients (React components + a small Web Component).
+Reusable UI packages for AbstractFramework clients (React components + small Web Components).
 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
-AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only package that performs network requests by default is `@abstractframework/monitor-gpu` (it polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js`).
+AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`).
 
 ## AbstractFramework ecosystem
 
@@ -40,6 +40,7 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 | `@abstractframework/monitor-flow` | Agent-cycle trace viewer + ledger adapter | [`monitor-flow/README.md`](./monitor-flow/README.md) |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | [`monitor-active-memory/README.md`](./monitor-active-memory/README.md) |
 | `@abstractframework/monitor-gpu` | GPU utilization widget (`<monitor-gpu>`) polling a metrics endpoint | [`monitor-gpu/README.md`](./monitor-gpu/README.md) |
+| `@abstractframework/monitor-memory` | Host RAM + device memory widget (`<monitor-memory>`) polling a metrics endpoint | [`monitor-memory/README.md`](./monitor-memory/README.md) |
 
 ## Context
 
@@ -62,6 +63,9 @@ npm i @abstractframework/monitor-active-memory reactflow
 # gpu widget (web component)
 npm i @abstractframework/monitor-gpu
 
+# host memory widget (web component)
+npm i @abstractframework/monitor-memory
+
 # app-origin gateway session proxy
 npm i @abstractframework/app-server
 ```
@@ -80,7 +84,7 @@ import { ChatComposer, ChatThread } from "@abstractframework/panel-chat";
 ## Development
 
 - Install + build workspaces: `npm install && npm run build`
-- Run tests: `npm test` (only `@abstractframework/monitor-gpu` currently ships automated tests)
+- Run tests: `npm test` (runs each workspace's test rig)
 - React packages are typically validated via a host app that links them in a workspace (HMR).
 
 See [`docs/development.md`](./docs/development.md).

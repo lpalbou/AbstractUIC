@@ -6,6 +6,22 @@ This project is a **multi-package repository**; versions are currently kept in s
 
 ## Unreleased
 
+### Added (2026-08-27)
+
+- New package `@abstractframework/monitor-memory` (v0.1.8, in sync with the
+  monorepo): a dependency-free `<monitor-memory>` Custom Element plus an
+  imperative controller that renders compact host RAM + device (GPU/
+  accelerator) memory meters and polls a Bearer-secured metrics endpoint
+  (default `GET /api/gateway/host/metrics/memory`, tick 5000 ms, minimum
+  1000 ms; `full` and `icon` modes). `extractMemoryUsage` accepts flat or
+  `memory`-nested payloads and reads RAM percent (or derives it from
+  used/total bytes) and device allocated/total bytes. Honest degradation: a
+  404 or `supported:false` reply shows `N/A` and stops polling (changing the
+  endpoint clears the verdict and resumes); 401/403 stops until a token is
+  set; 429 backs off 30 s. Ships `node --test` coverage
+  (`monitor-memory/test/`), registered in the root workspaces, and themable
+  via `--monitor-memory-*` CSS custom properties.
+
 ### Added (2026-07-22 — backlog 0028 / gateway card-015)
 
 - `@abstractframework/panel-chat` exports `./transcript.css`: the standalone

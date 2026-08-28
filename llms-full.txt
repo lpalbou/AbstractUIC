@@ -8,7 +8,7 @@ This file expands `llms.txt` into a single, offline-friendly document by inlinin
 
 # AbstractUIC
 
-> UI packages for AbstractFramework clients: React components (ESM + CSS exports) plus a dependency-free Custom Element for GPU metrics.
+> UI packages for AbstractFramework clients: React components (ESM + CSS exports) plus dependency-free Custom Elements for GPU and host memory metrics.
 
 AbstractUIC is a **multi-package repository**: each top-level folder is an independently-consumable npm package.
 
@@ -19,7 +19,7 @@ Ecosystem context (external):
 
 Important integration notes:
 - Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
-- Only `@abstractframework/monitor-gpu` performs network requests by default (polls a metrics endpoint; optional Bearer auth).
+- Only `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` perform network requests by default (each polls a metrics endpoint; optional Bearer auth).
 - Always import the package CSS from your app entrypoint (especially in Next.js). Start with `docs/getting-started.md` → `docs/api.md`.
 
 Quick commands:
@@ -66,6 +66,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
 - [@abstractframework/monitor-gpu](monitor-gpu/README.md): GPU widget (`<monitor-gpu>`) + backend contract
+- [@abstractframework/monitor-memory](monitor-memory/README.md): host RAM + device memory widget (`<monitor-memory>`) + backend contract
 
 ## Source of truth (public API)
 
@@ -93,6 +94,11 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [monitor-gpu/src/index.d.ts](monitor-gpu/src/index.d.ts): TS types (`MonitorGpuElement`, controller options)
 - [monitor-gpu/src/gpu_metrics_api.js](monitor-gpu/src/gpu_metrics_api.js): endpoint/auth/payload parsing contract
 - [monitor-gpu/src/monitor_gpu_widget.js](monitor-gpu/src/monitor_gpu_widget.js): custom element + controller behavior
+- [monitor-memory/package.json](monitor-memory/package.json): published metadata (`exports`)
+- [monitor-memory/src/index.js](monitor-memory/src/index.js): exports for `@abstractframework/monitor-memory`
+- [monitor-memory/src/index.d.ts](monitor-memory/src/index.d.ts): TS types (`MonitorMemoryElement`, controller options)
+- [monitor-memory/src/memory_metrics_api.js](monitor-memory/src/memory_metrics_api.js): endpoint/auth/payload parsing contract
+- [monitor-memory/src/monitor_memory_widget.js](monitor-memory/src/monitor_memory_widget.js): custom element + controller behavior
 
 ## Optional
 
@@ -108,11 +114,11 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 # AbstractUIC
 
-Reusable UI packages for AbstractFramework clients (React components + a small Web Component).
+Reusable UI packages for AbstractFramework clients (React components + small Web Components).
 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
-AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only package that performs network requests by default is `@abstractframework/monitor-gpu` (it polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js`).
+AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`).
 
 ## AbstractFramework ecosystem
 
@@ -144,10 +150,11 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 |---|---|---|
 | `@abstractframework/ui-kit` | Theme tokens (21 themes), inputs (`AfSelect`, provider/model pickers), Gateway connect modal + connection hook, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk) | [`ui-kit/README.md`](./ui-kit/README.md) |
 | `@abstractframework/panel-chat` | Chat thread + message cards + composer + markdown/json rendering | [`panel-chat/README.md`](./panel-chat/README.md) |
-| `@abstractframework/app-server` | Node gateway-session proxy for app servers (token → HttpOnly cookie exchange, CSRF, URL pinning) | [`docs/adoption-guide.md`](./docs/adoption-guide.md) |
+| `@abstractframework/app-server` | Node gateway-session proxy for app servers (token → HttpOnly cookie exchange, CSRF, URL pinning) | [`app-server/README.md`](./app-server/README.md) |
 | `@abstractframework/monitor-flow` | Agent-cycle trace viewer + ledger adapter | [`monitor-flow/README.md`](./monitor-flow/README.md) |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | [`monitor-active-memory/README.md`](./monitor-active-memory/README.md) |
 | `@abstractframework/monitor-gpu` | GPU utilization widget (`<monitor-gpu>`) polling a metrics endpoint | [`monitor-gpu/README.md`](./monitor-gpu/README.md) |
+| `@abstractframework/monitor-memory` | Host RAM + device memory widget (`<monitor-memory>`) polling a metrics endpoint | [`monitor-memory/README.md`](./monitor-memory/README.md) |
 
 ## Context
 
@@ -169,6 +176,12 @@ npm i @abstractframework/monitor-active-memory reactflow
 
 # gpu widget (web component)
 npm i @abstractframework/monitor-gpu
+
+# host memory widget (web component)
+npm i @abstractframework/monitor-memory
+
+# app-origin gateway session proxy
+npm i @abstractframework/app-server
 ```
 
 ## Quickstart (React)
@@ -185,7 +198,7 @@ import { ChatComposer, ChatThread } from "@abstractframework/panel-chat";
 ## Development
 
 - Install + build workspaces: `npm install && npm run build`
-- Run tests: `npm test` (only `@abstractframework/monitor-gpu` currently ships automated tests)
+- Run tests: `npm test` (runs each workspace's test rig)
 - React packages are typically validated via a host app that links them in a workspace (HMR).
 
 See [`docs/development.md`](./docs/development.md).
@@ -223,6 +236,7 @@ For a package-by-package export map, see the [API reference](./api.md).
 | `@abstractframework/monitor-flow` | Agent “cycles” trace viewer + ledger adapter | `monitor-flow/src/index.ts` |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | `monitor-active-memory/src/index.ts` |
 | `@abstractframework/monitor-gpu` | GPU utilization histogram widget (`<monitor-gpu>`) | `monitor-gpu/src/index.js` |
+| `@abstractframework/monitor-memory` | Host RAM + device memory meter widget (`<monitor-memory>`) | `monitor-memory/src/index.js` |
 
 ## Requirements
 
@@ -257,6 +271,9 @@ npm i @abstractframework/monitor-active-memory reactflow
 
 # gpu widget (web component)
 npm i @abstractframework/monitor-gpu
+
+# host memory widget (web component)
+npm i @abstractframework/monitor-memory
 ```
 
 ## CSS you must import
@@ -353,6 +370,20 @@ el.mode = "icon"; // "full" | "icon"
 document.body.appendChild(el);
 ```
 
+### Host memory widget (`@abstractframework/monitor-memory`)
+
+```js
+import { registerMonitorMemoryWidget } from "@abstractframework/monitor-memory";
+
+registerMonitorMemoryWidget();
+const el = document.createElement("monitor-memory");
+el.baseUrl = "http://localhost:8080"; // optional; defaults to same-origin
+el.token = "your-gateway-token"; // or: el.getToken = async () => "..."
+el.tickMs = 5000; // minimum 1000
+el.mode = "icon"; // "full" | "icon"
+document.body.appendChild(el);
+```
+
 ## Next.js notes
 
 - Import global CSS from your app entrypoint (e.g. `app/layout.tsx` or `pages/_app.tsx`), not from deep component files.
@@ -403,11 +434,13 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Badges / chips / toggles | `AfChip`, `AfChipButton` | Tone variants with AA-derived colors; custom hues via `var(--token)` |
 | Icons | `Icon` | ~40 glyphs, 24-grid and 16-grid families |
 | Chat UI (thread, cards, composer) | `@abstractframework/panel-chat` | Markdown with real nested lists; JSON auto-detect; `message.title` names the speaker |
+| App assistant (docs Q&A drawer) | `AssistantPanel` (panel-chat) in `AfDrawer` via `AfTopBarActions` | Transport injected. THE shared transport (docs-qa@0.1.0, tenant_catalog): `POST /runs/start {registry_scope:"tenant_catalog", bundle_id:"docs-qa", bundle_version:"0.1.0", flow_id:"docsqa001", input_data:{question, history, docs:<llms.txt text>, app}}`, answer on `output.response` — grounded on YOUR docs only, cites sections, says honestly when docs don't answer. `import docs from "./llms.txt?raw"` remains the recommended docs source (build-time, versioned) |
 | Markdown / JSON rendering | `Markdown`, `JsonViewer` (panel-chat) | Also exported standalone |
 | TTS playback + push-to-talk | `useGatewayVoice` (+ `streamTtsJsonl`) | Injected `tts`/`tts_stream`/`transcribe` functions; streaming with pause/resume |
 | Agent cycle traces | `AgentCyclesPanel` + `build_agent_trace` (monitor-flow) | Adapter turns ledger-like records into `TraceItem[]` |
 | KG / active-memory explorer | `KgActiveMemoryExplorer` (monitor-active-memory) | ReactFlow peer dep |
 | GPU utilization widget | `<monitor-gpu>` (monitor-gpu) | Dependency-free custom element |
+| Host RAM + device memory widget | `<monitor-memory>` (monitor-memory) | Dependency-free custom element |
 
 ## Contracts you must follow
 
@@ -429,6 +462,13 @@ one closed a real cross-app incident class.
 - **Use the hook**: `useGatewayConnection({ appName, variant })` owns this machine (probe once at
   boot, auto-open rules, self-close on sign-in, stay-open on sign-out, re-arm per episode).
   Spread its `modalProps` into `GatewayConnectModal`. Hand-rolled variants drift.
+- **Remote-config gating is socket-peer authority, not Host-header** (SSRF fix, 2026-07-14): the
+  app-server proxy decides local-vs-remote from `req.socket.remoteAddress` — a spoofed
+  `Host: localhost` from a LAN peer no longer unlocks anything, and a genuine loopback peer
+  passes the transport gate regardless of its Host header (it then fails on auth if the target
+  is unreachable). **If your app pinned Host-header 403s in tests, those pins are now inverted**
+  — rewrite them to the socket-peer contract (observer hit exactly this; remote-peer behavior is
+  live-verified on real non-loopback binds by entity, observer, and continuum).
 
 ### Server truth renders, clients never re-derive
 
@@ -567,7 +607,9 @@ Guidance:
 Typical path, one surface at a time:
 
 1. Import `@abstractframework/ui-kit/theme.css` in the app entrypoint and call
-   `applyTheme(...)` (persist the choice; the kit's `ThemeSelect` handles it).
+   `applyTheme(...)`. `ThemeSelect` is a controlled picker (value + onChange);
+   persisting the choice is the app's job (a per-app storage key — see the
+   adoption guide's appearance section).
 2. Map your local variables to kit tokens (e.g. your `--bg` → `--bg-primary`, `--fg` →
    `--text-primary`) — alias first (`--bg: var(--bg-primary)`), then migrate usages and delete
    the aliases.
@@ -608,6 +650,7 @@ This page is a **practical map** of what each package exports and how you typica
 Source of truth:
 - React packages: exports in `*/src/index.ts` (compiled to `dist/` on publish; see `*/package.json`)
 - GPU widget: exports in `monitor-gpu/src/index.js` (types in `monitor-gpu/src/index.d.ts`)
+- Host memory widget: exports in `monitor-memory/src/index.js` (types in `monitor-memory/src/index.d.ts`)
 
 If you’re starting from scratch, read [Getting started](./getting-started.md) first (it covers install options and required CSS imports).
 
@@ -757,6 +800,27 @@ Low-level helpers (backend integration):
 
 See: [`monitor-gpu/README.md`](../monitor-gpu/README.md) for the backend contract and security notes.
 
+## `@abstractframework/monitor-memory`
+
+Purpose: dependency-free host RAM + device (GPU/accelerator) memory meter implemented as a **Custom Element**.
+
+- Primary exports: `monitor-memory/src/index.js`
+- Types: `monitor-memory/src/index.d.ts`
+
+Registration + custom element:
+- `registerMonitorMemoryWidget()` defines `<monitor-memory>` (see `monitor-memory/src/monitor_memory_widget.js`)
+- `MonitorMemoryElement` typing is declared in `monitor-memory/src/index.d.ts` (includes `mode: "full" | "icon"`)
+
+Imperative controller:
+- `createMonitorMemoryWidget(target, options)` returns `MonitorMemoryWidgetController` (start/stop/destroy; update options; `unsupported` verdict)
+
+Low-level helpers (backend integration):
+- `makeMemoryMetricsUrl()`, `fetchHostMemoryMetrics()`
+- `buildAuthHeaders()`, `resolveBearerToken()`
+- `extractMemoryUsage(payload)` (supported payload formats documented in `monitor-memory/README.md`)
+
+See: [`monitor-memory/README.md`](../monitor-memory/README.md) for the backend contract, unsupported-endpoint behavior, and security notes.
+
 ## Related docs
 
 - Getting started: [Getting started](./getting-started.md)
@@ -781,7 +845,7 @@ This document stays intentionally close to the code: package boundaries, exports
 ## High-level overview
 
 - **React packages** ship **compiled ESM + type declarations** from `dist/` (see `exports` in each `package.json`). Source lives in `src/` and is built with `tsc`.
-- **`@abstractframework/monitor-gpu`** ships **JavaScript** (`monitor-gpu/src`) and registers a custom element.
+- **`@abstractframework/monitor-gpu`** and **`@abstractframework/monitor-memory`** ship **JavaScript** (`monitor-gpu/src`, `monitor-memory/src`) and register custom elements.
 - Styling is shipped as plain CSS and exposed as package exports (e.g. `@abstractframework/panel-chat/panel_chat.css`).
 
 ## Package dependency graph
@@ -795,6 +859,7 @@ flowchart LR
     FLOW["@abstractframework/monitor-flow"]
     AMX["@abstractframework/monitor-active-memory"]
     GPU["@abstractframework/monitor-gpu"]
+    MEM["@abstractframework/monitor-memory"]
   end
 
   CHAT -->|"imports Icon"| UIKIT
@@ -828,14 +893,17 @@ flowchart TD
   Host -->|"ChatMessage[] + callbacks"| ChatUI["panel-chat: ChatThread / ChatComposer / ChatMessageCard"]
 
   Host -->|"register + attach <monitor-gpu>"| GPUWidget["monitor-gpu: <monitor-gpu>"]
-  GPUWidget -->|"GET /api/gateway/host/metrics/gpu"| Metrics["AbstractGateway (metrics endpoint)"]
+  GPUWidget -->|"GET /api/gateway/host/metrics/gpu"| Metrics["AbstractGateway (metrics endpoints)"]
+
+  Host -->|"register + attach <monitor-memory>"| MemWidget["monitor-memory: <monitor-memory>"]
+  MemWidget -->|"GET /api/gateway/host/metrics/memory"| Metrics
 ```
 
 Evidence:
 - `monitor-flow/src/AgentCyclesPanel.tsx` consumes `TraceItem[]` and groups cycles by `step.effect.type === "llm_call"`.
 - `monitor-flow/src/agent_cycles_adapter.ts` exports `build_agent_trace(...)` to adapt ledger-like records into `TraceItem[]`.
 - `monitor-active-memory/src/KgActiveMemoryExplorer.tsx` consumes `items: KgAssertion[]` and optionally calls `onQuery(params)`.
-- `monitor-gpu/src/gpu_metrics_api.js` builds/fetches the metrics URL and attaches Bearer auth headers.
+- `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js` build/fetch the metrics URLs and attach Bearer auth headers.
 - No direct dependency on AbstractCore/AbstractRuntime: see the absence of such dependencies in `*/package.json`.
 
 ## Contracts & types (what you pass in)
@@ -864,6 +932,17 @@ The widget expects JSON that can be interpreted by `extractUtilizationGpuPct(pay
 - `payload.gpus[][].utilization_gpu_pct` (numbers; averaged)
 
 See: `monitor-gpu/src/gpu_metrics_api.js` and `monitor-gpu/src/monitor_gpu_widget.js`.
+
+### Host memory metrics (`monitor-memory`)
+
+The widget expects JSON that can be interpreted by `extractMemoryUsage(payload)` — the memory object directly or nested under `memory`:
+
+- `ram.percent`, or `ram.used_bytes` / `ram.total_bytes` (used derivable from `total_bytes - available_bytes`)
+- `device.backend` + `device.allocated_bytes` / `device.total_bytes` (allocated derivable from `total_bytes - free_bytes`)
+
+A `404` or `supported: false` reply marks the endpoint unsupported and stops polling.
+
+See: `monitor-memory/src/memory_metrics_api.js` and `monitor-memory/src/monitor_memory_widget.js`.
 
 ## Gateway connection flow (`app-server` + `ui-kit`)
 
@@ -940,7 +1019,7 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 
 ## What is AbstractUIC?
 
-AbstractUIC is a **multi-package repository**: each top-level folder is an npm package (see each `*/package.json`). Most packages are React components; one package (`@abstractframework/monitor-gpu`) is a dependency-free Web Component.
+AbstractUIC is a **multi-package repository**: each top-level folder is an npm package (see each `*/package.json`). Most packages are React components; two packages (`@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory`) are dependency-free Web Components.
 
 Start here: [Getting started](./getting-started.md).
 
@@ -969,6 +1048,7 @@ Authoritative exports:
 - `@abstractframework/monitor-flow`: `monitor-flow/src/index.ts`
 - `@abstractframework/monitor-active-memory`: `monitor-active-memory/src/index.ts`
 - `@abstractframework/monitor-gpu`: `monitor-gpu/src/index.js`
+- `@abstractframework/monitor-memory`: `monitor-memory/src/index.js`
 
 ## Do I install a single package or multiple?
 
@@ -1084,14 +1164,13 @@ Source of truth: `monitor-gpu/src/gpu_metrics_api.js` (`buildAuthHeaders`) and `
 
 ## Where are the tests?
 
-Only `@abstractframework/monitor-gpu` currently includes automated tests:
+Each workspace ships its own test rig; run them all from the repo root:
 
 ```bash
-cd monitor-gpu
 npm test
 ```
 
-See: `monitor-gpu/test/`.
+Or a single package's, e.g. `cd monitor-gpu && npm test` (see `monitor-gpu/test/`, `monitor-memory/test/`).
 
 ## Is this published to npm?
 
@@ -1145,9 +1224,11 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 - UI tokens + theme + common inputs: [`ui-kit/README.md`](../ui-kit/README.md)
 - Chat primitives (thread, composer, markdown/json renderers): [`panel-chat/README.md`](../panel-chat/README.md)
+- App-origin Gateway session proxy: [`app-server/README.md`](../app-server/README.md)
 - Agent-cycle trace viewer (LLM/tool/observe): [`monitor-flow/README.md`](../monitor-flow/README.md)
 - KG + Active Memory explorer (ReactFlow): [`monitor-active-memory/README.md`](../monitor-active-memory/README.md)
 - GPU widget (custom element + imperative API): [`monitor-gpu/README.md`](../monitor-gpu/README.md)
+- Host memory widget (custom element + imperative API): [`monitor-memory/README.md`](../monitor-memory/README.md)
 
 ## ui-kit/README.md
 
@@ -1260,6 +1341,80 @@ maintainer's 2026-07-12 ruling:
   stay open on sign-out, re-arm per signed-out episode. Do not hand-roll
   this machine in apps; the drift is exactly what shipped the
   signed-in-but-modal-parked bug across consumers.
+- **Mid-session losses don't auto-open (continuum c2528, 2026-07-16)**:
+  under `dismissable`, only boot-resolved disconnects and sign-out episodes
+  auto-open the modal. A LIVE session resolving away mid-use (expiry,
+  gateway restart, one transient probe blip) surfaces through the pill/badge
+  instead of a screen-covering modal over whatever the operator is typing.
+  Opt back into the old behavior per app with `autoOpenMidSession: true`.
+  Blocking apps always auto-open (no offline surface exists).
+
+## Unified top-right corner (plans/unified-top-bar.md)
+
+Every app renders the same upper-right cluster (operator directive
+2026-07-13): assistant button → appearance button → app extras →
+Disconnect pill, always rightmost.
+
+```tsx
+const conn = useGatewayConnection({ appName: "My App", variant: "dismissable" });
+const [appearance, setAppearance] = useAppearanceSettings("my-app", { legacyKey: "myapp_ui_v1" });
+
+<AfTopBarActions
+  assistant={{ open: drawerOpen, onToggle: () => setDrawerOpen((v) => !v) }}
+  appearance={{ onOpen: () => setAppearanceOpen(true) }}
+  connection={{ phase: conn.phase, signingOut: conn.signingOut,
+                onConnect: conn.openModal, onDisconnect: () => void conn.signOut() }}
+/>
+<AfDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} label="Assistant" title="Assistant">
+  <AssistantPanel ask={myTransport} blockedNotice={conn.connected ? undefined : "Connect to use the assistant."} />
+</AfDrawer>
+<AfAppearanceDialog open={appearanceOpen} onClose={() => setAppearanceOpen(false)}
+                    value={appearance} onChange={setAppearance} />
+<GatewayConnectModal {...conn.modalProps} />
+```
+
+Rules (the behavior contract lives in the consensus doc):
+
+- The connection pill renders the hook's PHASE (three states) — never a
+  boolean. `signingOut`/`signOutError` are the in-flight/error channels.
+- `AfDrawer` is non-modal and KEEPS ITS CHILDREN MOUNTED when closed
+  (`display:none` + `inert`) — drawers host long-running work. ESC follows
+  the consumed-event convention (`defaultPrevented`); the connect modal
+  sits above drawers (z-order tokens `--z-drawer` < `--z-connect-modal` <
+  `--z-popover`).
+- `AssistantPanel` (in `@abstractframework/panel-chat`) never fetches: the
+  `ask(question, {signal, history})` transport is injected and may return a
+  Promise or an AsyncIterable of deltas. Docs Q&A must never route through
+  entity chat (a visit is billable and forms memories).
+- Appearance persistence is per app via `useAppearanceSettings(appId)`
+  (key `af_appearance_<appId>_v1`, migrates a `legacyKey` once); storage
+  failures degrade to in-memory silently.
+
+### CSS public API (non-React consumers)
+
+The `.af-topbar-*` and `.af-drawer-*` families are stable public API — a
+server-rendered page (the gateway console) can render its own HTML to them:
+
+```html
+<div class="af-topbar" role="group" aria-label="App actions">
+  <button class="af-topbar__btn" aria-label="Open assistant">…svg…</button>
+  <button class="af-topbar__btn" aria-label="Appearance">…svg…</button>
+  <button class="af-topbar__pill af-topbar__pill--connected">
+    <span class="af-topbar__dot af-topbar__dot--connected"></span>
+    <span class="af-topbar__pill-label">Disconnect</span>
+  </button>
+</div>
+<div class="af-drawer af-drawer--open" role="complementary" style="width:420px">
+  <div class="af-drawer__header">
+    <div class="af-drawer__title">Assistant</div>
+    <div class="af-drawer__header-actions"><button class="af-drawer__close">×</button></div>
+  </div>
+  <div class="af-drawer__body">…</div>
+</div>
+```
+
+Pill modifiers: `--connected | --disconnected | --loading` (dot matches).
+Closed drawer = remove `--open`, set `display:none`.
 
 ## DisclosureList integration notes
 
@@ -1275,6 +1430,19 @@ maintainer's 2026-07-12 ruling:
   `.af-disclosure__chevron:not(.af-disclosure__chevron--spacer)` — the kit
   keeps unthemed consumers safe, but a consumer restyle must carry the
   `:not()`.
+
+
+### Theme-system ownership (operator directive 2026-07-15)
+
+The kit OWNS the theme system for every AbstractFramework UI: `theme.css`
+(21 themes), `THEME_SPECS`, `useAppearanceSettings` (per-app persistence +
+no-flash first paint), and the switcher surfaces (`AfAppearanceDialog`,
+`ThemeSelect`, `TypographySelect`, `FontScaleSelect`, `HeaderDensitySelect`).
+Apps never fork these. Compliance tiers: (1) React apps import theme.css +
+the hook + the dialog; (2) non-npm surfaces serve a GENERATED verbatim copy
+drift-pinned in their own suite (the gateway console pattern —
+`console_theme_sync.py`); (3) native surfaces (Qt) are out of scope.
+Adoption matrix + orchestration: docs/backlog/planned/0026 (uic tree).
 
 ## panel-chat/README.md
 
@@ -1596,6 +1764,105 @@ npm test
 - API reference: [`docs/api.md`](../docs/api.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)
 
+## monitor-memory/README.md
+
+# @abstractframework/monitor-memory
+
+Small, dependency-free host memory widget that renders compact RAM + device (GPU/accelerator) meters and polls a secured backend endpoint.
+
+In AbstractFramework deployments, the default backend endpoint is AbstractGateway:
+- `GET /api/gateway/host/metrics/memory`
+- Auth: `Authorization: Bearer <token>`
+
+## Install
+
+- Workspace: add a dependency on `@abstractframework/monitor-memory`
+- npm: `npm i @abstractframework/monitor-memory`
+
+## Usage (Custom Element)
+
+```js
+import { registerMonitorMemoryWidget } from "@abstractframework/monitor-memory";
+
+registerMonitorMemoryWidget(); // defines <monitor-memory>
+
+const el = document.createElement("monitor-memory");
+el.baseUrl = "http://localhost:8080"; // optional (defaults to same-origin)
+el.token = "your-gateway-token"; // or el.getToken = async () => ...
+el.tickMs = 5000; // minimum 1000
+el.mode = "full"; // "full" | "icon"
+document.body.appendChild(el);
+```
+
+You can also set the non-secret options via attributes:
+
+```html
+<monitor-memory base-url="http://localhost:8080" tick-ms="5000" mode="icon" endpoint="/api/gateway/host/metrics/memory"></monitor-memory>
+```
+
+## Usage (Imperative helper)
+
+```js
+import { createMonitorMemoryWidget } from "@abstractframework/monitor-memory";
+
+const widget = createMonitorMemoryWidget(document.querySelector("#mem"), {
+  baseUrl: "http://localhost:8080",
+  token: "your-gateway-token",
+  tickMs: 5000,
+});
+
+// later
+widget.destroy();
+```
+
+## Backend contract (AbstractGateway)
+
+The widget extracts usage via `extractMemoryUsage(payload)`. It accepts the memory object directly or nested under a `memory` key (as Gateway's `/host/state` payload does):
+
+- RAM: `ram.percent`, or derived from `ram.used_bytes` / `ram.total_bytes`
+  (with `used_bytes` itself derivable from `total_bytes - available_bytes`)
+- Device: `device.backend` plus `device.allocated_bytes` / `device.total_bytes`
+  (with `allocated_bytes` derivable from `total_bytes - free_bytes`)
+
+Minimal example:
+
+```json
+{ "supported": true, "ram": { "percent": 62.0 }, "device": { "backend": "mps", "allocated_bytes": 8589934592, "total_bytes": 34359738368 } }
+```
+
+A payload with no usable memory numbers renders as missing meters rather than fake values.
+
+## Unsupported and degraded endpoints
+
+- A `404` response or a payload with `supported: false` marks the endpoint
+  unsupported: the widget shows `N/A` and stops polling instead of re-asking a
+  route that does not serve memory metrics. Changing `endpoint`/`base-url`
+  clears that verdict and resumes polling.
+- `401`/`403` stops polling until a token is provided; setting `token` resumes.
+- `429` backs off for 30 seconds before resuming.
+
+## Theming
+
+Layout and colors can be tuned with CSS custom properties on the host element, all prefixed `--monitor-memory-*` (for example `--monitor-memory-width`, `--monitor-memory-bar-height`, `--monitor-memory-bg`, `--monitor-memory-border`, `--monitor-memory-radius`, `--monitor-memory-padding`). Meter fills use a green-to-red ramp by usage.
+
+## Security notes
+- Do not pass tokens in URLs.
+- Prefer HTTPS in production.
+- For cross-origin usage, configure your backend CORS policy to allow your UI origin and keep the endpoint protected (Bearer token or equivalent).
+
+## Tests
+
+```bash
+cd monitor-memory
+npm test
+```
+
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- API reference: [`docs/api.md`](../docs/api.md)
+- Architecture: [`docs/architecture.md`](../docs/architecture.md)
+
 ## package.json
 
 {
@@ -1609,6 +1876,7 @@ npm test
     "monitor-active-memory",
     "monitor-flow",
     "monitor-gpu",
+    "monitor-memory",
     "panel-chat"
   ],
   "scripts": {
@@ -1648,7 +1916,8 @@ npm test
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./theme.css": "./src/theme.css",
     "./palette_seeds.json": "./palette_seeds.json"
@@ -1661,7 +1930,7 @@ npm test
   ],
   "scripts": {
     "build": "tsc",
-    "test": "node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/audit_theme_contrast.mjs --strict",
     "prepublishOnly": "npm test"
   },
   "peerDependencies": {
@@ -1712,18 +1981,22 @@ npm test
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
-    "./panel_chat.css": "./src/panel_chat.css"
+    "./panel_chat.css": "./src/panel_chat.css",
+    "./transcript.css": "./transcript.css"
   },
   "files": [
     "dist",
     "src/panel_chat.css",
+    "transcript.css",
     "README.md"
   ],
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm test",
+    "test": "npm run build && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.1.8",
@@ -1777,7 +2050,8 @@ npm test
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./agent_cycles.css": "./dist/agent_cycles.css"
   },
@@ -1787,7 +2061,8 @@ npm test
   ],
   "scripts": {
     "build": "tsc && cp src/agent_cycles.css dist/agent_cycles.css",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm test",
+    "test": "npm run build && node scripts/check_monitor_flow.mjs"
   },
   "peerDependencies": {
     "react": "^18.0.0",
@@ -1838,7 +2113,8 @@ npm test
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./styles.css": "./src/styles.css"
   },
@@ -2007,7 +2283,55 @@ export {
   type DisclosureListHandle,
 } from "./disclosure_list.js";
 export { AfChip, AfChipButton, afChipHue, type AfChipProps, type AfChipButtonProps, type AfChipTone } from "./af_chip.js";
+export { AfDrawer, type AfDrawerProps } from "./af_drawer.js";
+export { AfTopBarActions, type AfTopBarActionsProps } from "./af_top_bar_actions.js";
+export {
+  AfAppearanceDialog,
+  useAppearanceSettings,
+  appearanceStorageKey,
+  APPEARANCE_DEFAULTS,
+  type AppearanceSettings,
+  type AfAppearanceDialogProps,
+} from "./appearance.js";
 export { useGatewayVoice, streamTtsJsonl, type GatewayVoice, type GatewayVoiceOptions, type TtsPlaybackStatus } from "./use_gateway_voice.js";
+export { AfPhaseRadio, type AfPhaseRadioProps, type AfPhaseSlot } from "./af_phase_radio.js";
+export { AfCognitionBloom, type AfCognitionBloomProps } from "./af_cognition_bloom.js";
+export { AfConductGauge, type AfConductGaugeProps } from "./af_conduct_gauge.js";
+export { AfMemoryHintChip, type AfMemoryHintChipProps } from "./af_memory_hint_chip.js";
+export {
+  conductAxes,
+  isVerifyShaped,
+  runningMedian,
+  type ConductFacts,
+  type ConductToolCall,
+  type ConductBaseline,
+  type ConductAxis,
+  type ConductAxisId,
+} from "./cognition_conduct_core.js";
+export {
+  EMOTION_REGISTERS,
+  createBloomState,
+  setBloomTargets,
+  tickBloom,
+  readBloom,
+  drawBloomFrame,
+  vignetteColor,
+  effortRows,
+  type EmotionRegister,
+  type BloomState,
+  type BloomReading,
+  type BloomRenderOptions,
+  type EffortFacts,
+  type EffortRow,
+} from "./cognition_bloom_core.js";
+export {
+  RULED_PHASES,
+  PHASE_DESCRIPTORS,
+  normalizePhase,
+  reconcilePhaseList,
+  type AfPhase,
+  type PhaseDescriptor,
+} from "./phase_radio_core.js";
 
 ## ui-kit/src/gateway_session_signin.tsx
 
@@ -2232,6 +2556,10 @@ export function GatewaySessionSignInCard({
  *    loading state, never over a live session. A thrown probe (app-origin
  *    server unreachable) is UNKNOWN, not resolved: no auto-open (the proxy
  *    answers 200 with ok:false when the GATEWAY is down, which IS resolved).
+ *  - Under dismissable, only BOOT and SIGN-OUT episodes auto-open; a live
+ *    session resolving away mid-use does not (opt back in with
+ *    autoOpenMidSession) — continuum c2528: one transient probe blip popped
+ *    the modal over the operator's typing. Blocking apps always auto-open.
  *  - Sign-in success closes the modal (the modal also self-closes; both
  *    paths converge here through onStatusChange).
  *  - Sign-out / session loss re-arms the auto-open: each new signed-out
@@ -2255,6 +2583,17 @@ export type UseGatewayConnectionOptions = {
    * the app keeps a badge/banner as re-entry (e.g. continuum).
    */
   variant?: "blocking" | "dismissable";
+  /**
+   * Mid-session auto-open policy (dismissable only; continuum's reload
+   * adversary, 2026-07-16). When a LIVE session resolves away mid-use
+   * (expiry, gateway restart, transient blip), a screen-covering modal over
+   * whatever the operator is typing is a thin trigger — the app's
+   * badge/banner is the re-entry instead. Default false: only boot-resolved
+   * disconnects and post-signOut episodes auto-open. Pass true to restore
+   * the old always-auto-open behavior. Blocking apps always auto-open (they
+   * have no offline surface to fall back to).
+   */
+  autoOpenMidSession?: boolean;
   appName?: string;
   defaultGatewayUrl?: string;
   onStatusChange?: (status: GatewayConnectionState | null) => void;
@@ -2265,6 +2604,13 @@ export type GatewayConnection = {
   phase: GatewayConnectionPhase;
   connected: boolean;
   modalOpen: boolean;
+  /** True while a signOut() is in flight (unified-top-bar behavior contract
+   * statement 5: the Disconnect pill needs an in-flight state). */
+  signingOut: boolean;
+  /** Set when the last signOut()'s server call FAILED (the session may still
+   * be live); cleared on the next signOut/refresh that succeeds. Never
+   * silent — contract statement 5. */
+  signOutError: string | null;
   /** Explicit user entry (settings button, badge click) — always allowed. */
   openModal: () => void;
   /** Re-probe on demand (e.g. after an app-level 401). */
@@ -2301,6 +2647,11 @@ export function useGatewayConnection(options?: UseGatewayConnectionOptions): Gat
   // behind (the voice hook's opts_ref lesson; adversary find 2026-07-13).
   const onStatusChangeRef = useRef(opts.onStatusChange);
   onStatusChangeRef.current = opts.onStatusChange;
+  // applyStatus stays dependency-free; policy inputs read through refs.
+  const variantRef = useRef(variant);
+  variantRef.current = variant;
+  const autoOpenMidSessionRef = useRef(Boolean(opts.autoOpenMidSession));
+  autoOpenMidSessionRef.current = Boolean(opts.autoOpenMidSession);
 
   const [status, setStatus] = useState<GatewayConnectionState | null>(null);
   const [phase, setPhase] = useState<GatewayConnectionPhase>("loading");
@@ -2319,6 +2670,16 @@ export function useGatewayConnection(options?: UseGatewayConnectionOptions): Gat
   // phase still reads "disconnected" and would mark the episode dismissed —
   // silently killing the NEXT expiry's auto-open (adversary F1).
   const phaseRef = useRef<GatewayConnectionPhase>("loading");
+  // How the CURRENT signed-out episode began (continuum c2528 ask 2):
+  // "boot" (never had a session this load), "mid" (a live session resolved
+  // away mid-use), "signout" (the machine's own signOut()). Decided once at
+  // episode START and held through subsequent disconnected deliveries —
+  // otherwise a retry probe would re-classify a suppressed mid episode as
+  // boot-like and open the modal anyway.
+  const episodeOrigin = useRef<"none" | "boot" | "mid" | "signout">("none");
+  // True while signOut()'s follow-up probe delivers, so its episode
+  // classifies as "signout", not "mid".
+  const explicitSignOut = useRef(false);
   // Status generation: every applied status invalidates in-flight probes so
   // a slow probe started BEFORE a sign-in cannot land after it and overwrite
   // the connected status with a stale signed-out answer (adversary F2).
@@ -2333,11 +2694,25 @@ export function useGatewayConnection(options?: UseGatewayConnectionOptions): Gat
       setPhase("connected");
       phaseRef.current = "connected";
       dismissedThisEpisode.current = false;
+      episodeOrigin.current = "none";
       if (!wasConnected.current) setModalOpen(false); // sign-in success: the app is the confirmation
     } else if (s !== null) {
+      const priorPhase = phaseRef.current;
       setPhase("disconnected");
       phaseRef.current = "disconnected";
-      if (!dismissedThisEpisode.current) setModalOpen(true); // resolved disconnect
+      if (priorPhase !== "disconnected") {
+        episodeOrigin.current = explicitSignOut.current ? "signout" : priorPhase === "connected" ? "mid" : "boot";
+      }
+      // Resolved disconnect: auto-open policy (continuum c2528 ask 2).
+      // Blocking apps always auto-open (no offline surface exists). Under
+      // dismissable, boot and sign-out episodes auto-open once; a live
+      // session resolving away MID-USE only auto-opens when the app opts in
+      // via autoOpenMidSession — a blip-triggered modal landing over
+      // whatever the operator is typing was continuum's live failure; the
+      // app's badge/banner is the re-entry.
+      const policyAllows =
+        variantRef.current === "blocking" || episodeOrigin.current !== "mid" || autoOpenMidSessionRef.current;
+      if (!dismissedThisEpisode.current && policyAllows) setModalOpen(true);
     }
     if (s !== null) wasConnected.current = nowConnected;
     // s === null: unknown (probe threw) — never auto-open over unknown.
@@ -2362,13 +2737,40 @@ export function useGatewayConnection(options?: UseGatewayConnectionOptions): Gat
     }
   }, [connectionPath, applyStatus]);
 
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
+
   const signOut = useCallback(async () => {
+    setSigningOut(true);
+    setSignOutError(null);
+    // Invalidate the pre-signout world FIRST: a probe started before this
+    // sign-out may carry a stale "connected" answer; if it landed after the
+    // DELETE it would apply (bumping the gen) and the follow-up probe's
+    // TRUE signed-out answer would be the one dropped — a phantom
+    // connected state over cleared cookies (production audit P1,
+    // 2026-07-14).
+    statusGen.current += 1;
+    let failed: string | null = null;
     try {
       await signOutGateway(connectionPath);
-    } catch {
-      // Best-effort: the follow-up probe reports the real state either way.
+    } catch (e: any) {
+      // A dead app-server means the session may STILL BE LIVE server-side —
+      // swallowing this silently left the user believing they signed out
+      // (design adversary C, 2026-07-13). The follow-up probe reports the
+      // real state; the error channel reports the failed ACT.
+      failed = String(e?.message || e || "Sign-out request failed");
     }
-    await refresh();
+    // The follow-up probe's disconnected delivery is a SIGN-OUT episode, not
+    // a mid-session loss — applyStatus runs synchronously inside refresh(),
+    // so the flag is visible exactly for that delivery.
+    explicitSignOut.current = true;
+    try {
+      await refresh();
+    } finally {
+      explicitSignOut.current = false;
+    }
+    setSignOutError(failed);
+    setSigningOut(false);
   }, [connectionPath, refresh]);
 
   const booted = useRef(false);
@@ -2418,6 +2820,8 @@ export function useGatewayConnection(options?: UseGatewayConnectionOptions): Gat
     phase,
     connected: phase === "connected",
     modalOpen,
+    signingOut,
+    signOutError,
     openModal,
     refresh,
     signOut,
@@ -2435,134 +2839,134 @@ export default useGatewayConnection;
   "token_map": {
     "primary": "--accent",
     "surface": "--bg-primary",
-    "secondary": "--bg-secondary",
+    "secondary": "--info",
     "muted": "--text-muted"
   },
   "themes": {
     "dark": {
       "primary": "#e94560",
       "surface": "#1a1a2e",
-      "secondary": "#16213e",
+      "secondary": "#60a5fa",
       "muted": "#666666"
     },
     "observer-night": {
       "primary": "#e8a54a",
       "surface": "#0b0f14",
-      "secondary": "#10161e",
-      "muted": "#5a6578"
+      "secondary": "#6ea8d8",
+      "muted": "#748096"
     },
     "catppuccin-mocha": {
       "primary": "#cba6f7",
       "surface": "#1e1e2e",
-      "secondary": "#181825",
-      "muted": "#6c7086"
+      "secondary": "#89b4fa",
+      "muted": "#7e8297"
     },
     "catppuccin-macchiato": {
       "primary": "#c6a0f6",
       "surface": "#24273a",
-      "secondary": "#1e2030",
+      "secondary": "#8aadf4",
       "muted": "#8087a2"
     },
     "catppuccin-frappe": {
       "primary": "#ca9ee6",
       "surface": "#303446",
-      "secondary": "#292c3c",
-      "muted": "#838ba7"
+      "secondary": "#8caaee",
+      "muted": "#8c93ad"
     },
     "rose-pine": {
       "primary": "#c4a7e7",
       "surface": "#191724",
-      "secondary": "#1f1d2e",
-      "muted": "#6e6a86"
+      "secondary": "#3d90b1",
+      "muted": "#88859e"
     },
     "rose-pine-moon": {
       "primary": "#c4a7e7",
       "surface": "#232136",
-      "secondary": "#2a273f",
-      "muted": "#6e6a86"
+      "secondary": "#459bbd",
+      "muted": "#9390a7"
     },
     "tokyo-night": {
       "primary": "#7aa2f7",
       "surface": "#1a1b26",
-      "secondary": "#24283b",
-      "muted": "#565f89"
+      "secondary": "#2ac3de",
+      "muted": "#878fb4"
     },
     "nord": {
       "primary": "#88c0d0",
       "surface": "#2e3440",
-      "secondary": "#3b4252",
-      "muted": "#81a1c1"
+      "secondary": "#9bb0cb",
+      "muted": "#99b3cd"
     },
     "one-dark": {
       "primary": "#61afef",
       "surface": "#282c34",
-      "secondary": "#21252b",
-      "muted": "#5c6370"
+      "secondary": "#c678dd",
+      "muted": "#848c9a"
     },
     "dracula": {
       "primary": "#ff79c6",
       "surface": "#282a36",
-      "secondary": "#343746",
-      "muted": "#6272a4"
+      "secondary": "#8be9fd",
+      "muted": "#96a0c2"
     },
     "monokai": {
       "primary": "#66d9ef",
       "surface": "#272822",
-      "secondary": "#2d2e27",
-      "muted": "#75715e"
+      "secondary": "#a1efe4",
+      "muted": "#9a9581"
     },
     "gruvbox": {
       "primary": "#fe8019",
       "surface": "#282828",
-      "secondary": "#3c3836",
-      "muted": "#928374"
+      "secondary": "#89a99d",
+      "muted": "#ada296"
     },
     "solarized-dark": {
       "primary": "#268bd2",
       "surface": "#002b36",
-      "secondary": "#073642",
-      "muted": "#657b83"
+      "secondary": "#2ca9a0",
+      "muted": "#879ca3"
     },
     "everforest-dark": {
-      "primary": "#a7c080",
+      "primary": "#83c092",
       "surface": "#2b3339",
-      "secondary": "#323c41",
-      "muted": "#859289"
+      "secondary": "#7fbbb3",
+      "muted": "#9da8a0"
     },
     "catppuccin-latte": {
       "primary": "#8839ef",
       "surface": "#eff1f5",
-      "secondary": "#e6e9ef",
-      "muted": "#9ca0b0"
+      "secondary": "#1e66f5",
+      "muted": "#6f758b"
     },
     "rose-pine-dawn": {
       "primary": "#907aa9",
       "surface": "#faf4ed",
-      "secondary": "#fffaf3",
-      "muted": "#9893a5"
+      "secondary": "#497e88",
+      "muted": "#787289"
     },
     "one-light": {
       "primary": "#4078f2",
       "surface": "#fafafa",
-      "secondary": "#ffffff",
-      "muted": "#a0a1a7"
+      "secondary": "#a626a4",
+      "muted": "#74757d"
     },
     "everforest-light": {
-      "primary": "#4f8f5a",
+      "primary": "#2e8f6a",
       "surface": "#fdf6e3",
-      "secondary": "#fffbef",
-      "muted": "#9da9a0"
+      "secondary": "#317ca5",
+      "muted": "#6b7a6f"
     },
     "solarized-light": {
       "primary": "#268bd2",
       "surface": "#fdf6e3",
-      "secondary": "#eee8d5",
-      "muted": "#657b83"
+      "secondary": "#228179",
+      "muted": "#637880"
     },
     "light": {
       "primary": "#e94560",
       "surface": "#f7f7fb",
-      "secondary": "#ffffff",
+      "secondary": "#2563eb",
       "muted": "#64748b"
     }
   }
@@ -2801,9 +3205,36 @@ export function createGatewaySessionProxy(options) {
     return h === "localhost" || h === "localhost.localdomain" || h === "::1" || h.startsWith("127.");
   }
 
+  /**
+   * True only when the request's real transport peer is the loopback
+   * interface. This reads req.socket.remoteAddress — the connection's actual
+   * source, which the client CANNOT forge — NOT the Host header, which it
+   * can. IPv4-mapped IPv6 (::ffff:127.0.0.1) is unwrapped. This is the SSRF
+   * gate: a LAN peer sending `Host: localhost` against an all-interfaces
+   * bind must NOT unlock browser-supplied gateway URLs (security report
+   * entity c1768, live-exposed per agency c1770; endorsed by continuum
+   * c1769 whose hub proxy carries the operator's seat key on the same port).
+   */
+  function isLoopbackPeer(req) {
+    let addr = String(req?.socket?.remoteAddress || "").trim().toLowerCase();
+    if (!addr) return false;
+    if (addr.startsWith("::ffff:")) addr = addr.slice(7); // IPv4-mapped IPv6
+    return addr === "::1" || addr === "127.0.0.1" || addr.startsWith("127.");
+  }
+
   function remoteConfigAllowed(req) {
+    // Explicit operator opt-in wins (deployments behind their own access
+    // control).
     if (anyEnvBool(REMOTE_CONFIG_ENVS)) return true;
-    return isLoopbackHostname(requestHostname(req));
+    // When proxy headers are trusted, the socket peer is the reverse proxy,
+    // not the client — a loopback-by-socket check would unlock remote-config
+    // for EVERY forwarded client (code's mirror point, c1772). Such
+    // deployments must set the explicit opt-in above; there is no
+    // socket-derived unlock behind a trusted proxy.
+    if (anyEnvBool(TRUST_PROXY_ENVS)) return false;
+    // Otherwise the ONLY unlock is a genuine loopback PEER — the Host header
+    // is never trusted for this decision.
+    return isLoopbackPeer(req);
   }
 
   function remoteConfigDenial(req) {
@@ -3143,25 +3574,16 @@ export function createGatewaySessionProxy(options: GatewaySessionProxyOptions): 
 ## panel-chat/src/index.ts
 
 export { ChatMessageContent } from "./message_content.js";
+export { AssistantPanel } from "./assistant_panel.js";
+export type { AssistantPanelProps, AssistantAsk, AssistantAskContext } from "./assistant_panel.js";
 export { ChatComposer } from "./chat_composer.js";
 export { Markdown } from "./markdown.js";
 export { JsonViewer } from "./json_viewer.js";
 export { ChatMessageCard } from "./chat_message_card.js";
 export { ChatThread } from "./chat_thread.js";
 
-export type { PanelChatMessage } from "./types.js";
 export type { ChatAttachment, ChatMessage, ChatMessageLevel, ChatStat } from "./chat_message_card.js";
 export { chatToMarkdown, copyText, downloadTextFile, tryParseJson } from "./utils.js";
-
-## panel-chat/src/types.ts
-
-export type PanelChatMessage = {
-  id?: string;
-  role: string;
-  content: string;
-  ts?: string;
-  title?: string;
-};
 
 ## panel-chat/src/message_content.tsx
 
@@ -3312,8 +3734,14 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
           const href = safeHref(s.slice(labelEnd + 2, hrefEnd));
           if (href) {
             flush();
+            // "/" links open in a NEW TAB like absolute links (continuum's
+            // reload adversary, 2026-07-16): this renderer draws AGENT-authored
+            // text, so a root-relative href is not a client-router route — in
+            // an SPA consumer a same-tab "/" click unloads the whole app to
+            // the SPA fallback (full reload, state gone). Only "#" fragment
+            // anchors stay same-tab (hash changes never unload).
             out.push(
-              <a key={`link:${i}`} className="pc-md_link" href={href} target={href.startsWith("#") || href.startsWith("/") ? undefined : "_blank"} rel="noreferrer">
+              <a key={`link:${i}`} className="pc-md_link" href={href} target={href.startsWith("#") ? undefined : "_blank"} rel="noreferrer">
                 {renderInline(label, highlight)}
               </a>
             );
@@ -3686,7 +4114,21 @@ export function Markdown({
 
     const paraLines: string[] = [];
     while (i < lines.length && String(lines[i] ?? "").trim()) {
-      paraLines.push(String(lines[i] ?? ""));
+      // A list interrupts a paragraph (CommonMark): "intro line:\n- a\n- b"
+      // with no blank line is one of the most common assistant emissions —
+      // swallowing the bullets into the paragraph rendered them as "- a<br/>"
+      // prose (adversary find 2026-07-14).
+      if (paraLines.length > 0 && parseListItemLine(String(lines[i] ?? ""))) break;
+      // A TABLE interrupts a paragraph the same way (GitHub behavior):
+      // "intro line:\n| a | b |\n|---|---|" with no blank line is the
+      // standard assistant status-table emission — swallowing the header
+      // row rendered whole tables as piped prose (operator report
+      // 2026-07-17, continuum dm 67; only blank-line-preceded tables ever
+      // parsed). Same header+separator test as the block branch, so the
+      // break hands the lines to it verbatim.
+      const cur_line = String(lines[i] ?? "");
+      if (paraLines.length > 0 && cur_line.includes("|") && i + 1 < lines.length && isTableSeparator(String(lines[i + 1] ?? ""))) break;
+      paraLines.push(cur_line);
       i += 1;
     }
     blocks.push(
@@ -3949,6 +4391,49 @@ export { MonitorGpuWidgetController, createMonitorGpuWidget, registerMonitorGpuW
 ## monitor-gpu/src/index.d.ts
 
 export type MonitorGpuMode = "full" | "icon";
+
+/** Bounded numeric history (null = missed sample). Values clamp to [1, 1000]. */
+export class HistoryBuffer {
+  constructor(maxSize?: number | string);
+
+  get maxSize(): number;
+  get size(): number;
+
+  setMaxSize(maxSize: number | string): void;
+  clear(): void;
+  push(value: number | null | undefined): void;
+  values(): Array<number | null>;
+  last(): number | null;
+}
+
+export function makeGpuMetricsUrl(args: { baseUrl?: string; endpoint?: string }): string;
+
+export function resolveBearerToken(args: {
+  token?: string;
+  getToken?: () => string | Promise<string>;
+}): Promise<string>;
+
+export function buildAuthHeaders(args: { token?: string }): { Authorization?: string };
+
+/** Reads utilization_gpu_pct directly or averages per-GPU entries; null when absent. */
+export function extractUtilizationGpuPct(payload: unknown): number | null;
+
+export type GpuMetricsResult = {
+  ok: boolean;
+  status: number;
+  error: "fetch_unavailable" | "network_error" | "http_error" | null;
+  detail?: string;
+  payload: unknown;
+};
+
+export function fetchHostGpuMetrics(args?: {
+  baseUrl?: string;
+  endpoint?: string;
+  token?: string;
+  getToken?: () => string | Promise<string>;
+  signal?: AbortSignal;
+  fetchImpl?: typeof fetch;
+}): Promise<GpuMetricsResult>;
 
 export type MonitorGpuWidgetOptions = {
   tickMs?: number | string;
@@ -4594,6 +5079,839 @@ export function registerMonitorGpuWidget(tagName = "monitor-gpu") {
   globalThis.customElements.define(tagName, MonitorGpuElement);
 }
 
+## monitor-memory/package.json
+
+{
+  "name": "@abstractframework/monitor-memory",
+  "version": "0.1.8",
+  "description": "Compact host RAM + device memory meter widget for AbstractFramework clients (polls AbstractGateway host memory metrics with Bearer auth).",
+  "type": "module",
+  "author": "Laurent-Philippe Albou",
+  "license": "MIT",
+  "keywords": [
+    "abstractframework",
+    "memory",
+    "ram",
+    "monitoring",
+    "widget",
+    "meter"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lpalbou/AbstractUIC.git",
+    "directory": "monitor-memory"
+  },
+  "homepage": "https://github.com/lpalbou/AbstractUIC#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "sideEffects": false
+}
+
+## monitor-memory/src/index.js
+
+export {
+  buildAuthHeaders,
+  extractMemoryUsage,
+  fetchHostMemoryMetrics,
+  makeMemoryMetricsUrl,
+  resolveBearerToken,
+} from "./memory_metrics_api.js";
+export {
+  MonitorMemoryWidgetController,
+  createMonitorMemoryWidget,
+  registerMonitorMemoryWidget,
+} from "./monitor_memory_widget.js";
+
+## monitor-memory/src/index.d.ts
+
+export type MonitorMemoryMode = "full" | "icon";
+
+export function makeMemoryMetricsUrl(args?: { baseUrl?: string; endpoint?: string }): string;
+
+export function resolveBearerToken(args?: {
+  token?: string;
+  getToken?: () => string | Promise<string>;
+}): Promise<string>;
+
+export function buildAuthHeaders(args?: { token?: string }): { Authorization?: string };
+
+export type MemoryUsagePart = {
+  /** Backend name for device memory (e.g. "cuda", "mps"); empty for RAM. */
+  backend?: string;
+  usedBytes: number | null;
+  totalBytes: number | null;
+  pct: number;
+};
+
+export type MemoryUsage = {
+  ram: MemoryUsagePart | null;
+  device: MemoryUsagePart | null;
+};
+
+/**
+ * Reads RAM + device memory usage from a host memory metrics payload
+ * (either the memory object itself or a payload nesting it under `memory`).
+ * Returns null when no usable numbers are present.
+ */
+export function extractMemoryUsage(payload: unknown): MemoryUsage | null;
+
+export type MemoryMetricsResult = {
+  ok: boolean;
+  status: number;
+  error: "fetch_unavailable" | "network_error" | "http_error" | null;
+  detail?: string;
+  payload: unknown;
+};
+
+export function fetchHostMemoryMetrics(args?: {
+  baseUrl?: string;
+  endpoint?: string;
+  token?: string;
+  getToken?: () => string | Promise<string>;
+  signal?: AbortSignal;
+  fetchImpl?: typeof fetch;
+}): Promise<MemoryMetricsResult>;
+
+export type MonitorMemoryWidgetOptions = {
+  tickMs?: number | string;
+  endpoint?: string;
+  baseUrl?: string;
+  mode?: MonitorMemoryMode | string;
+  token?: string;
+  getToken?: () => string | Promise<string>;
+};
+
+export class MonitorMemoryWidgetController {
+  constructor(target: HTMLElement | ShadowRoot, options?: MonitorMemoryWidgetOptions);
+
+  get options(): { tickMs: number; endpoint: string; baseUrl: string; mode: MonitorMemoryMode };
+  /** True once the endpoint answered 404 or `supported:false`; polling stays stopped. */
+  get unsupported(): boolean;
+  setOptions(next: Partial<MonitorMemoryWidgetOptions>): void;
+
+  start(): void;
+  stop(): void;
+  destroy(): void;
+
+  push(usage: MemoryUsage | null): void;
+
+  get token(): string | undefined;
+  set token(token: string | undefined);
+
+  get getToken(): (() => string | Promise<string>) | undefined;
+  set getToken(getToken: (() => string | Promise<string>) | undefined);
+}
+
+export function createMonitorMemoryWidget(
+  target: HTMLElement | ShadowRoot,
+  options?: MonitorMemoryWidgetOptions
+): MonitorMemoryWidgetController;
+
+export function registerMonitorMemoryWidget(tagName?: string): void;
+
+export interface MonitorMemoryElement extends HTMLElement {
+  tickMs: number;
+  endpoint: string;
+  baseUrl: string;
+  mode: MonitorMemoryMode;
+
+  token: string | undefined;
+  getToken: (() => string | Promise<string>) | undefined;
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "monitor-memory": MonitorMemoryElement;
+  }
+}
+
+## monitor-memory/src/memory_metrics_api.js
+
+function _isAbsoluteUrl(s) {
+  try {
+    new URL(String(s));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function makeMemoryMetricsUrl({ baseUrl, endpoint } = {}) {
+  const ep = String(endpoint || "/api/gateway/host/metrics/memory");
+  if (_isAbsoluteUrl(ep)) {
+    return ep;
+  }
+  if (baseUrl && String(baseUrl).trim()) {
+    return new URL(ep, String(baseUrl)).toString();
+  }
+  return ep;
+}
+
+export async function resolveBearerToken({ token, getToken } = {}) {
+  if (typeof getToken === "function") {
+    const t = await getToken();
+    return t == null ? "" : String(t);
+  }
+  return token == null ? "" : String(token);
+}
+
+export function buildAuthHeaders({ token } = {}) {
+  const t = String(token || "").trim();
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
+function _num(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function _clampPct(n) {
+  return Math.min(100, Math.max(0, n));
+}
+
+function _obj(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
+/**
+ * Reads RAM and device (GPU/accelerator) memory usage from a host memory
+ * metrics payload. Accepts either the memory object directly or a payload
+ * nesting it under `memory` (as `/host/state` does). Returns null when the
+ * payload carries no usable memory numbers.
+ */
+export function extractMemoryUsage(payload) {
+  const top = _obj(payload);
+  if (!top) return null;
+  const root = _obj(top.memory) || top;
+
+  let ram = null;
+  const ramRaw = _obj(root.ram);
+  if (ramRaw) {
+    const totalBytes = _num(ramRaw.total_bytes);
+    const availableBytes = _num(ramRaw.available_bytes);
+    let usedBytes = _num(ramRaw.used_bytes);
+    if (usedBytes == null && totalBytes != null && availableBytes != null) {
+      usedBytes = Math.max(0, totalBytes - availableBytes);
+    }
+    let pct = _num(ramRaw.percent);
+    if (pct == null && usedBytes != null && totalBytes != null && totalBytes > 0) {
+      pct = (usedBytes / totalBytes) * 100;
+    }
+    if (pct != null) {
+      ram = { usedBytes, totalBytes, pct: _clampPct(pct) };
+    }
+  }
+
+  let device = null;
+  const deviceRaw = _obj(root.device);
+  if (deviceRaw) {
+    const backend = typeof deviceRaw.backend === "string" ? deviceRaw.backend : "";
+    const totalBytes = _num(deviceRaw.total_bytes);
+    const freeBytes = _num(deviceRaw.free_bytes);
+    let usedBytes = _num(deviceRaw.allocated_bytes);
+    if (usedBytes == null && totalBytes != null && freeBytes != null) {
+      usedBytes = Math.max(0, totalBytes - freeBytes);
+    }
+    if (usedBytes != null && totalBytes != null && totalBytes > 0) {
+      device = { backend, usedBytes, totalBytes, pct: _clampPct((usedBytes / totalBytes) * 100) };
+    }
+  }
+
+  if (!ram && !device) return null;
+  return { ram, device };
+}
+
+export async function fetchHostMemoryMetrics({
+  baseUrl,
+  endpoint,
+  token,
+  getToken,
+  signal,
+  fetchImpl,
+} = {}) {
+  const url = makeMemoryMetricsUrl({ baseUrl, endpoint });
+  const resolvedToken = await resolveBearerToken({ token, getToken });
+
+  const f = fetchImpl || globalThis.fetch;
+  if (typeof f !== "function") {
+    return {
+      ok: false,
+      status: 0,
+      error: "fetch_unavailable",
+      payload: null,
+    };
+  }
+
+  let res;
+  try {
+    res = await f(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        ...buildAuthHeaders({ token: resolvedToken }),
+      },
+      signal,
+    });
+  } catch (e) {
+    return {
+      ok: false,
+      status: 0,
+      error: "network_error",
+      detail: e instanceof Error ? e.message : String(e),
+      payload: null,
+    };
+  }
+
+  let payload = null;
+  try {
+    payload = await res.json();
+  } catch {
+    payload = null;
+  }
+
+  return {
+    ok: res.ok,
+    status: res.status,
+    error: res.ok ? null : "http_error",
+    payload,
+  };
+}
+
+## monitor-memory/src/monitor_memory_widget.js
+
+import { extractMemoryUsage, fetchHostMemoryMetrics } from "./memory_metrics_api.js";
+
+const DEFAULTS = Object.freeze({
+  tickMs: 5000,
+  endpoint: "/api/gateway/host/metrics/memory",
+  baseUrl: "",
+  mode: "full", // "full" | "icon"
+});
+
+function _clamp(n, lo, hi) {
+  if (!Number.isFinite(n)) return lo;
+  return Math.min(hi, Math.max(lo, n));
+}
+
+function _toInt(n, fallback) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return fallback;
+  return Math.floor(v);
+}
+
+function _colorForPct(pct, alpha = 1) {
+  const t = _clamp(Number(pct) / 100, 0, 1);
+  // Hue ramp: green (140) -> red (0)
+  const hue = Math.round(140 - 140 * t);
+  const a = _clamp(Number(alpha), 0, 1);
+  if (a >= 1) return `hsl(${hue} 85% 55%)`;
+  return `hsl(${hue} 85% 55% / ${a})`;
+}
+
+function _normalizeOptions(opts) {
+  const o = { ...DEFAULTS, ...(opts || {}) };
+  o.tickMs = Math.max(1000, _toInt(o.tickMs, DEFAULTS.tickMs));
+  o.endpoint = String(o.endpoint || DEFAULTS.endpoint);
+  o.baseUrl = String(o.baseUrl || "");
+  o.mode = String(o.mode || DEFAULTS.mode).trim().toLowerCase();
+  if (o.mode !== "icon") o.mode = "full";
+  return o;
+}
+
+function _cssText() {
+  return `
+:host{display:inline-block;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";line-height:1}
+.wrap{box-sizing:border-box;display:flex;flex-direction:column;gap:6px;padding:var(--monitor-memory-padding,8px 10px);border:1px solid var(--monitor-memory-border,#2a2f3a);border-radius:var(--monitor-memory-radius,10px);background:var(--monitor-memory-bg,#0b1020);color:var(--monitor-memory-fg,#e7eaf0);width:var(--monitor-memory-width,180px)}
+.wrap.icon{gap:var(--monitor-memory-gap,3px);padding:var(--monitor-memory-padding,4px);border-radius:var(--monitor-memory-radius,999px);width:var(--monitor-memory-width,30px);background:linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02)),var(--monitor-memory-bg,#0b1020);box-shadow:0 0 14px var(--monitor-memory-accent-glow, rgba(76,195,255,0.18))}
+.wrap.icon .top{display:none}
+.wrap.icon .tag{display:none}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.label{font-size:var(--monitor-memory-font-size,var(--font-size-sm,12px));opacity:.9}
+.value{font-variant-numeric:tabular-nums;font-size:var(--monitor-memory-font-size,var(--font-size-sm,12px));opacity:.95}
+.meters{display:flex;flex-direction:column;gap:var(--monitor-memory-gap,3px)}
+.meter{display:flex;align-items:center;gap:6px}
+.tag{width:26px;flex:none;font-size:10px;letter-spacing:.04em;opacity:.65;text-transform:uppercase}
+.track{position:relative;flex:1;min-width:0;height:var(--monitor-memory-bar-height,5px);border-radius:999px;background:var(--monitor-memory-track,rgba(255,255,255,0.12));overflow:hidden}
+.fill{position:absolute;inset:0 auto 0 0;width:0;border-radius:999px;background:var(--monitor-memory-bar,#4cc3ff);transition:width .3s ease, background .3s ease, opacity .3s ease}
+.meter.missing .fill{width:100%;background:var(--monitor-memory-bar-missing,#62708a);opacity:.25}
+.meter.error .fill{background:var(--monitor-memory-bar-error,#ff6b6b);opacity:.7}
+.muted{opacity:.6}
+`;
+}
+
+export class MonitorMemoryWidgetController {
+  constructor(target, options = {}) {
+    if (!target || typeof target !== "object") {
+      throw new TypeError("target element is required");
+    }
+    this._target = target;
+    this._opts = _normalizeOptions(options);
+
+    this._timer = null;
+    this._timer_gen = 0;
+    this._running = false;
+    this._abort = null;
+    this._resumeTimer = null;
+
+    this._mounted = false;
+    this._els = null;
+
+    this._token = options.token;
+    this._getToken = options.getToken;
+
+    this._stoppedForAuth = false;
+    this._unsupported = false;
+    this._last = null; // { ram, device } | null
+  }
+
+  get options() {
+    return { ...this._opts };
+  }
+
+  get unsupported() {
+    return this._unsupported;
+  }
+
+  set token(t) {
+    this._token = t;
+    const tok = String(this._token || "").trim();
+    if (tok && this._stoppedForAuth) {
+      this._stoppedForAuth = false;
+      // A retained reference can set a token AFTER the element left the DOM
+      // (isConnected === false on a detached shadow root/host): do not restart
+      // polling into a dead target. Non-DOM targets (no isConnected) still work.
+      if (this._target && this._target.isConnected === false) return;
+      this.start();
+    }
+  }
+
+  get token() {
+    return this._token;
+  }
+
+  set getToken(fn) {
+    this._getToken = fn;
+  }
+
+  get getToken() {
+    return this._getToken;
+  }
+
+  mount() {
+    if (this._mounted) return;
+    if (typeof document === "undefined") {
+      throw new Error("MonitorMemoryWidget requires a browser DOM");
+    }
+
+    const root = this._target;
+    root.textContent = "";
+
+    const style = document.createElement("style");
+    style.textContent = _cssText();
+
+    const wrap = document.createElement("div");
+    wrap.className = this._opts.mode === "icon" ? "wrap icon" : "wrap";
+
+    const top = document.createElement("div");
+    top.className = "top";
+
+    const label = document.createElement("div");
+    label.className = "label";
+    label.textContent = "MEM";
+
+    const value = document.createElement("div");
+    value.className = "value muted";
+    value.textContent = "—";
+
+    top.appendChild(label);
+    top.appendChild(value);
+
+    const meters = document.createElement("div");
+    meters.className = "meters";
+
+    const makeMeter = (tagText) => {
+      const meter = document.createElement("div");
+      meter.className = "meter missing";
+      const tag = document.createElement("div");
+      tag.className = "tag";
+      tag.textContent = tagText;
+      const track = document.createElement("div");
+      track.className = "track";
+      const fill = document.createElement("div");
+      fill.className = "fill";
+      track.appendChild(fill);
+      meter.appendChild(tag);
+      meter.appendChild(track);
+      meters.appendChild(meter);
+      return { meter, tag, fill };
+    };
+
+    const ram = makeMeter("RAM");
+    const device = makeMeter("DEV");
+
+    wrap.appendChild(top);
+    wrap.appendChild(meters);
+
+    root.appendChild(style);
+    root.appendChild(wrap);
+
+    this._els = { wrap, value, ram, device };
+    this._mounted = true;
+
+    this._render();
+  }
+
+  start() {
+    this.mount();
+    if (this._unsupported) return;
+    if (this._running) return;
+    this._running = true;
+    this._timer_gen += 1;
+    void this._poll_loop(this._timer_gen);
+  }
+
+  stop() {
+    this._running = false;
+    this._timer_gen += 1;
+    if (this._timer) {
+      clearTimeout(this._timer);
+      this._timer = null;
+    }
+    if (this._resumeTimer) {
+      clearTimeout(this._resumeTimer);
+      this._resumeTimer = null;
+    }
+    if (this._abort) {
+      this._abort.abort();
+      this._abort = null;
+    }
+  }
+
+  destroy() {
+    this.stop();
+    if (this._target && this._mounted) {
+      this._target.textContent = "";
+    }
+    this._mounted = false;
+    this._els = null;
+  }
+
+  setOptions(next) {
+    const merged = _normalizeOptions({ ...this._opts, ...(next || {}) });
+    const tickChanged = merged.tickMs !== this._opts.tickMs;
+    const modeChanged = merged.mode !== this._opts.mode;
+    const endpointChanged = merged.endpoint !== this._opts.endpoint || merged.baseUrl !== this._opts.baseUrl;
+
+    this._opts = merged;
+    if (modeChanged && this._mounted && this._els && this._els.wrap) {
+      this._els.wrap.className = merged.mode === "icon" ? "wrap icon" : "wrap";
+    }
+    if (endpointChanged && this._unsupported) {
+      // A different endpoint may well be supported: forget the verdict AND
+      // resume polling — the 404/supported:false stop was for the old route,
+      // and without a restart the widget would stay dead forever.
+      this._unsupported = false;
+      if (this._mounted) this.start();
+    }
+    if (tickChanged && this._running) {
+      this.stop();
+      this.start();
+    } else if (this._mounted) {
+      this._render();
+    }
+  }
+
+  push(usage) {
+    this._last = usage && typeof usage === "object" ? usage : null;
+    this._render();
+  }
+
+  _renderMeter(els, part, { error = false } = {}) {
+    const pct = part && Number.isFinite(part.pct) ? _clamp(part.pct, 0, 100) : null;
+    els.meter.className = "meter";
+    if (pct == null) {
+      els.meter.classList.add("missing");
+      els.fill.style.width = "100%";
+      els.fill.style.background = "";
+    } else {
+      els.fill.style.width = `${pct.toFixed(0)}%`;
+      els.fill.style.background = _colorForPct(pct);
+    }
+    if (error) els.meter.classList.add("error");
+  }
+
+  _render({ error = false } = {}) {
+    if (!this._els) return;
+    const { wrap, value, ram, device } = this._els;
+
+    const usage = this._last;
+    const ramPart = usage ? usage.ram : null;
+    const devicePart = usage ? usage.device : null;
+    const ramPct = ramPart && Number.isFinite(ramPart.pct) ? _clamp(ramPart.pct, 0, 100) : null;
+
+    if (this._unsupported) {
+      value.textContent = "N/A";
+      value.classList.add("muted");
+    } else if (ramPct == null) {
+      value.textContent = error ? "N/A" : "—";
+      value.classList.add("muted");
+    } else {
+      value.textContent = `${ramPct.toFixed(0)}%`;
+      value.classList.remove("muted");
+    }
+
+    if (wrap) {
+      const devicePct = devicePart && Number.isFinite(devicePart.pct) ? _clamp(devicePart.pct, 0, 100) : null;
+      const backend = devicePart && devicePart.backend ? String(devicePart.backend) : "device";
+      const parts = [];
+      if (ramPct != null) parts.push(`RAM ${ramPct.toFixed(0)}%`);
+      if (devicePct != null) parts.push(`${backend} ${devicePct.toFixed(0)}%`);
+      wrap.title = this._unsupported
+        ? "Host memory metrics unavailable"
+        : parts.length
+          ? parts.join(" · ")
+          : "Memory —";
+      if (ramPct == null) {
+        wrap.style.removeProperty("--monitor-memory-accent-glow");
+      } else {
+        wrap.style.setProperty("--monitor-memory-accent-glow", _colorForPct(ramPct, 0.35));
+      }
+      if (device && device.tag) {
+        device.tag.textContent = devicePart && devicePart.backend ? String(devicePart.backend).slice(0, 4) : "DEV";
+      }
+    }
+
+    this._renderMeter(ram, ramPart, { error });
+    this._renderMeter(device, devicePart, { error });
+  }
+
+  _markUnsupported() {
+    this._unsupported = true;
+    this._last = null;
+    this.stop();
+    this._render();
+  }
+
+  async _tick() {
+    const tokenAtStart = String(this._token || "").trim();
+    const getTokenAtStart = this._getToken;
+    const requestHadAuth = Boolean(tokenAtStart) || typeof getTokenAtStart === "function";
+
+    if (this._abort) this._abort.abort();
+    this._abort = new AbortController();
+
+    const res = await fetchHostMemoryMetrics({
+      baseUrl: this._opts.baseUrl,
+      endpoint: this._opts.endpoint,
+      token: tokenAtStart,
+      getToken: getTokenAtStart,
+      signal: this._abort.signal,
+    });
+
+    const payload = res && res.payload;
+    const supported = payload && typeof payload === "object" ? payload.supported !== false : true;
+
+    if (!res.ok) {
+      if (res.status === 404) {
+        // The gateway does not expose host memory metrics: be honest and stop
+        // polling instead of hammering a route that will never exist.
+        this._markUnsupported();
+        return;
+      }
+      this._last = null;
+      this._render({ error: true });
+      if (res.status === 401 || res.status === 403) {
+        // If the request was unauthenticated (no token and no getToken) but auth became available
+        // before the 401 came back (common race when the host sets `el.token` after mount),
+        // do not permanently stop the widget. Let the poll loop continue and succeed on the next tick.
+        const tokenNow = String(this._token || "").trim();
+        const hasGetTokenNow = typeof this._getToken === "function";
+        const authNowAvailable = Boolean(tokenNow) || hasGetTokenNow;
+        if (!requestHadAuth && authNowAvailable) {
+          return;
+        }
+        this._stoppedForAuth = true;
+        this.stop();
+      } else if (res.status === 429) {
+        this.stop();
+        this._resumeTimer = setTimeout(() => {
+          this._resumeTimer = null;
+          if (!this._mounted) return;
+          this.start();
+        }, 30_000);
+      }
+      return;
+    }
+
+    if (!supported) {
+      // The host answered but explicitly reports memory metrics unsupported:
+      // stop polling rather than re-asking every tick.
+      this._markUnsupported();
+      return;
+    }
+
+    const usage = extractMemoryUsage(payload);
+    this._last = usage;
+    this._render();
+  }
+
+  async _poll_loop(gen) {
+    if (!this._running || gen !== this._timer_gen) return;
+
+    await this._tick();
+
+    if (!this._running || gen !== this._timer_gen) return;
+    this._timer = setTimeout(() => {
+      this._timer = null;
+      void this._poll_loop(gen);
+    }, this._opts.tickMs);
+  }
+}
+
+export function createMonitorMemoryWidget(target, options = {}) {
+  const c = new MonitorMemoryWidgetController(target, options);
+  c.start();
+  return c;
+}
+
+export function registerMonitorMemoryWidget(tagName = "monitor-memory") {
+  if (typeof globalThis === "undefined") return;
+  if (typeof globalThis.customElements === "undefined") return;
+  if (globalThis.customElements.get(tagName)) return;
+
+  const HTMLElementBase = globalThis.HTMLElement || class {};
+
+  class MonitorMemoryElement extends HTMLElementBase {
+    static get observedAttributes() {
+      return ["tick-ms", "endpoint", "base-url", "mode"];
+    }
+
+    constructor() {
+      super();
+      this._shadow = this.attachShadow ? this.attachShadow({ mode: "open" }) : null;
+      const root = this._shadow || this;
+      this._controller = new MonitorMemoryWidgetController(root, {});
+
+      // If a property was set on the element instance before it was upgraded/defined
+      // (e.g. React rendered `<monitor-memory>` before `customElements.define()`),
+      // it becomes an "own property" and would bypass our setters. Upgrade it.
+      this._upgradeProperty("token");
+      this._upgradeProperty("getToken");
+      this._upgradeProperty("mode");
+    }
+
+    _upgradeProperty(prop) {
+      if (!Object.prototype.hasOwnProperty.call(this, prop)) return;
+      const value = this[prop];
+      try {
+        delete this[prop];
+      } catch {
+        // ignore
+      }
+      this[prop] = value;
+    }
+
+    connectedCallback() {
+      this._controller.setOptions(this._readAttrs());
+      const start = () => {
+        if (!this.isConnected) return;
+        this._controller.start();
+      };
+      if (typeof queueMicrotask === "function") queueMicrotask(start);
+      else Promise.resolve().then(start);
+    }
+
+    disconnectedCallback() {
+      this._controller.destroy();
+    }
+
+    attributeChangedCallback() {
+      this._controller.setOptions(this._readAttrs());
+    }
+
+    _readAttrs() {
+      const tickMs = this.getAttribute("tick-ms");
+      const endpoint = this.getAttribute("endpoint");
+      const baseUrl = this.getAttribute("base-url");
+      const mode = this.getAttribute("mode");
+      return {
+        ...(tickMs != null ? { tickMs } : {}),
+        ...(endpoint != null ? { endpoint } : {}),
+        ...(baseUrl != null ? { baseUrl } : {}),
+        ...(mode != null ? { mode } : {}),
+      };
+    }
+
+    set token(t) {
+      this._controller.token = t;
+    }
+
+    get token() {
+      return this._controller.token;
+    }
+
+    set getToken(fn) {
+      this._controller.getToken = fn;
+    }
+
+    get getToken() {
+      return this._controller.getToken;
+    }
+
+    set tickMs(v) {
+      this._controller.setOptions({ tickMs: v });
+    }
+
+    get tickMs() {
+      return this._controller.options.tickMs;
+    }
+
+    set endpoint(v) {
+      this._controller.setOptions({ endpoint: v });
+    }
+
+    get endpoint() {
+      return this._controller.options.endpoint;
+    }
+
+    set baseUrl(v) {
+      this._controller.setOptions({ baseUrl: v });
+    }
+
+    get baseUrl() {
+      return this._controller.options.baseUrl;
+    }
+
+    set mode(v) {
+      this._controller.setOptions({ mode: v });
+    }
+
+    get mode() {
+      return this._controller.options.mode;
+    }
+  }
+
+  globalThis.customElements.define(tagName, MonitorMemoryElement);
+}
+
 ## docs/publishing.md
 
 # Publishing (Maintainers)
@@ -4614,7 +5932,7 @@ Each folder is an npm package and can be published independently.
 1. Install workspace deps at repo root: `npm install`
 1. Build packages (optional preflight): `npm run build`
 1. Run package tests:
-   - `cd monitor-gpu && npm test`
+   - `npm test` (root; runs every workspace's tests)
 1. Dry-run the package tarballs: `npm run pack:dry`
 1. Publish from the package directory, or use the GitHub Actions `release.yml` workflow:
 
@@ -4627,7 +5945,7 @@ Notes:
 - Scoped packages are private by default; `--access public` is required for public release.
 - React packages publish compiled output from `dist/` and expose CSS as separate exports (see each package’s `exports`).
 - npm trusted publishing should be configured for each package with repository `lpalbou/AbstractUIC`, workflow `release.yml`, and environment `npm`.
-- Publish order is `ui-kit`, then `monitor-active-memory`, `monitor-flow`, `monitor-gpu`, then `panel-chat`.
+- Publish order is `ui-kit`, then `monitor-active-memory`, `monitor-flow`, `monitor-gpu`, `monitor-memory`, then `panel-chat`.
 
 ## Related docs
 
@@ -4651,6 +5969,7 @@ Each package is a folder at the repo root:
 - `monitor-flow/`
 - `monitor-active-memory/`
 - `monitor-gpu/`
+- `monitor-memory/`
 
 ## Typical workflow (React packages)
 
@@ -4662,10 +5981,16 @@ Each package is a folder at the repo root:
 
 ## Tests
 
-Only `@abstractframework/monitor-gpu` currently has automated tests:
+Run every workspace's test rig from the repo root:
 
 ```bash
-cd monitor-gpu
+npm test
+```
+
+Or a single package's, e.g.:
+
+```bash
+cd monitor-memory
 npm test
 ```
 
@@ -4813,6 +6138,134 @@ This project is a **multi-package repository**; versions are currently kept in s
 
 ## Unreleased
 
+### Added (2026-08-27)
+
+- New package `@abstractframework/monitor-memory` (v0.1.8, in sync with the
+  monorepo): a dependency-free `<monitor-memory>` Custom Element plus an
+  imperative controller that renders compact host RAM + device (GPU/
+  accelerator) memory meters and polls a Bearer-secured metrics endpoint
+  (default `GET /api/gateway/host/metrics/memory`, tick 5000 ms, minimum
+  1000 ms; `full` and `icon` modes). `extractMemoryUsage` accepts flat or
+  `memory`-nested payloads and reads RAM percent (or derives it from
+  used/total bytes) and device allocated/total bytes. Honest degradation: a
+  404 or `supported:false` reply shows `N/A` and stops polling (changing the
+  endpoint clears the verdict and resumes); 401/403 stops until a token is
+  set; 429 backs off 30 s. Ships `node --test` coverage
+  (`monitor-memory/test/`), registered in the root workspaces, and themable
+  via `--monitor-memory-*` CSS custom properties.
+
+### Added (2026-07-22 — backlog 0028 / gateway card-015)
+
+- `@abstractframework/panel-chat` exports `./transcript.css`: the standalone
+  dialogue-transcript slice (`.pc-chat-thread` + the `.pc-chat-item` bubble
+  family — 31 classes, no React, no content styles). GENERATED, never forked:
+  `scripts/extract_transcript_slice.mjs` extracts the marked region of
+  `panel_chat.css` verbatim and prepends a machine-derived token contract
+  (every consumed custom property, all with fallbacks — the file works
+  themeless and maps onto console vars); the package test gate runs `--check`
+  and fails on drift. Single-file consumers (gateway console, future embeds)
+  vendor THIS file instead of hand-copying the block.
+
+### Changed (2026-07-19 — backlog 0003 dedupe half)
+
+- One clipboard helper per package (was four copies): panel-chat's
+  `json_viewer` now imports the canonical `utils.copyText` (its private copy
+  was the weaker variant — no off-screen textarea positioning, no result);
+  monitor-flow's two byte-identical private copies collapsed into
+  `src/copy_text.ts` with the canonical semantics. Cross-package unification
+  deliberately deferred: monitor-flow must not gain a panel-chat dependency
+  for one function — it rides the 0003 one-source viewer decision.
+- panel-chat: dead `PanelChatMessage` type export removed (`types.ts`
+  deleted). Zero importers across observer/flow/abstractcode-web verified;
+  `ChatMessage` (chat_message_card) is the live message type.
+
+### Added (2026-07-18 — backlog 0006 test rigs; 0008 closed)
+
+- panel-chat and monitor-flow now have real test rigs, so the root
+  `npm test` reaches ALL SIX workspaces: `panel-chat/scripts/check_panel_chat.mjs`
+  (markdown table/list/fence pins — including the three table pins migrated
+  in from continuum's suite — the JsonViewer collapseAfterDepth
+  measurable-fold contract, ChatMessageCard timestamp guard and
+  title-over-role) and `monitor-flow/scripts/check_monitor_flow.mjs`
+  (build_agent_trace ordering/dedup/grouping incl. the
+  auto-label-never-filters regression, the JsonViewer twin contract, and the
+  package-owned toolbar-class stability assertion). Both run against the
+  compiled dist via react-dom/server renderToStaticMarkup — existing
+  devDependencies only, no jsdom.
+- `ui-kit/scripts/check_matrix_wrapper.mjs` in the kit gate: the
+  PhaseCapabilityMatrix WRAPPER's DOM decisions are now pinned (labeled
+  refusal view that renders no grant state, requires_review approval control
+  with an accessible act label, trust-blocked cells render zero buttons,
+  absent mark, tristate aria-pressed, pending-count note, orphaned patches
+  never count as unsaved changes).
+
+### Fixed (2026-07-18)
+
+- ui-kit: `af_cognition_bloom.tsx` imported `./cognition_bloom_core` WITHOUT
+  the `.js` extension — bare-Node ESM consumers of the kit dist crashed with
+  ERR_MODULE_NOT_FOUND on any import that reached the index re-exports
+  (bundlers resolve extensionless specifiers, which is why every prior gate
+  was green). Found by the new panel-chat rig's first run — the exact
+  publish-only breakage class 0007 named.
+- monitor-active-memory: the KG explorer's graph canvas is now FORCED-DARK
+  BY DECLARATION (backlog 0008 decision): `.amx-graph` carries its own dark
+  ground (#0c1222, color-scheme dark) so the dark-space node/edge/label
+  literals never sit on a light host surface; the panel chrome around the
+  canvas consumes theme tokens (error/warning text, divider) with the prior
+  literals as fallbacks.
+
+### Fixed (2026-07-17 — backlog 0007/0008 targeted fixes)
+
+- Packaging (0007): the four React packages (`ui-kit`, `panel-chat`,
+  `monitor-flow`, `monitor-active-memory`) now declare a `default` condition
+  in their `exports` maps (monitor-gpu precedent) so CJS-context consumers
+  (`require()`, Jest without ESM) resolve instead of
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`. Verified by createRequire resolution
+  against all five packages.
+- Packaging (0007): `monitor-gpu/src/index.d.ts` now declares the FULL
+  runtime export surface — `HistoryBuffer`, `makeGpuMetricsUrl`,
+  `resolveBearerToken`, `buildAuthHeaders`, `extractUtilizationGpuPct`,
+  `fetchHostGpuMetrics` (+ `GpuMetricsResult`) were exported but undeclared,
+  so TS consumers got compile errors on working runtime imports. Verified by
+  a strict tsc check importing all nine symbols.
+- `PhaseCapabilityMatrix` core (0008, F20): `assigned`/`resolved_value`/
+  `executable` now refuse non-boolean PRESENCE loudly like the enum fields do
+  (a serializer emitting `"true"` silently read as false — the operator's
+  stored word rendered as "Default" and the no-op collapse misfired); absent
+  keys keep their defaults. `reconcilePatches`/`serializeCellPatches` validate
+  `op ∈ {grant, deny, clear}` and drop malformed entries so externally
+  supplied patch lists (restored drafts, broken callers) never reach the wire
+  with an unknown op. New seeded-bug checks in `check_matrix_core.mjs`.
+- `CriticalActionDialog` (0008, F14): Escape and scrim-click are now gated on
+  `!busy` — while the action runs the Cancel button is disabled, and an
+  irreversible-action surface must not keep a keyboard/pointer side-door to
+  the same refused dismissal.
+- `ToolPolicyEditor` (0008, F10/F21): checkbox rows, approval selects and the
+  filter input carry accessible names (forty anonymous checkboxes before);
+  the segmented mode switch is a `role="group"` with `aria-pressed` buttons
+  (was `role="tablist"` misuse); and selection writes never prune names for
+  tools not yet loaded — an early click before async tool discovery completed
+  used to erase prior selections (Select none clears only what the user can
+  see; undiscovered names are preserved).
+- monitor-flow CSS contract (0007, closed same evening): `AgentCyclesPanel`
+  no longer self-imports `agent_cycles.css` — the ONE family rule holds
+  (hosts import CSS as an explicit package export). Decided with the flow
+  seat (option a); removal landed only after all three consumers (flow,
+  observer, abstractcode/web) shipped their explicit import with receipts,
+  so no consumer ever rendered unstyled. Fixes bundler-less ESM consumption
+  of the panel (a bare CSS import in dist was a syntax error outside
+  bundlers).
+- panel-chat markdown (continuum-contributed, owner-reviewed): a table
+  header+separator now interrupts a paragraph (GitHub behavior, same rule as
+  the existing list interrupt) — assistant status tables emitted directly
+  after a prose line rendered as piped prose before. Regression pins live in
+  continuum's suite until panel-chat grows its rig (0006 notes the
+  migration).
+- ui-kit `Icon` (continuum-contributed, owner-reviewed): `thumbsUpFilled`/
+  `thumbsDownFilled` closed-silhouette twins for pressed/standing vote
+  states — coordinates byte-identical to the stroke thumbs so toggling never
+  shifts a pixel; open stroke outlines can never solidify via CSS fill.
+
 ### Added
 
 - UI Kit `SteerComposer`: the shared "speak to a live run" input (hooks plan
@@ -4870,7 +6323,83 @@ This project is a **multi-package repository**; versions are currently kept in s
   is wired into the ui-kit `test` chain so the committed artifact can never
   drift from `theme.css`.
 
+### Fixed
+
+- `AfPhaseRadio` focus ring was INVISIBLE: `:focus-visible` referenced
+  `--accent-primary`, a token that exists nowhere in the kit, so the whole
+  outline declaration was invalid at computed-value time (observer's
+  keyboard-focus probe, commons c2160; entity had already adopted the
+  component at both call sites). Fixed to `var(--accent)`, and the theme
+  token guard gained invariant E: every fallback-less `var(--x)` reference
+  in `theme.css` must resolve to a declared token — `var(--x, fallback)`
+  stays exempt as the consumer-supplied-token escape hatch. Verified the
+  guard fails on the pre-fix CSS and passes post-fix.
+- Theme contrast wave (operator directive 2026-07-13 18:30, fable5 themes
+  adversary + mechanical WCAG audit over all 20 theme blocks): 62 failing
+  token pairs fixed hue-preserving across 18 themes — muted text unreadable
+  on cards (18 themes, worst tokyo-night 2.35:1 and everforest-light 2.42:1),
+  status colors under 4.5:1 on cards (nord error 2.46:1, rose-pine-dawn
+  warning 2.23:1, solarized-light success/warning/info ~3.1:1, and more),
+  light-theme text-secondary misses, and per-theme syntax overrides for the
+  five dark themes whose lighter code backgrounds dropped the shared
+  VSCode-dark set under 4.5:1 (nord, gruvbox, dracula, everforest-dark,
+  solarized-dark). Both everforest themes had accent === success (actions
+  indistinguishable from confirmations) — accents moved to in-family aqua
+  hues. All `*-subtle`/`*-border` rgba twins re-synced to the new base
+  colors (63 declarations; the token-integrity guard caught the follow-
+  through). Palette seeds regenerated. New guard:
+  `ui-kit/scripts/audit_theme_contrast.mjs` (full report + `--strict` gate
+  failing under 3.0 or on duplicate roles) wired into `npm test`.
+- Consumer literal tokenization (theme audit follow-through): panel-chat's
+  quote bar, attention highlight, and composer focus ring now ride
+  `--info`/`--warning-*`/`--accent-*` (the hardcoded blues/ambers washed out
+  on light themes); monitor-flow's white-alpha overlays and code-block
+  background now ride `--ui-surface-1`/`--ui-border-2`/
+  `--ui-overlay-bg-hover`/`--ui-code-block-bg` (10 declarations).
+
+### Documentation
+
+- Coredoc refresh (operator directive 2026-07-13 18:30): two new deep dives —
+  `docs/theming.md` (token vocabulary, 21-theme system, adoption/migration
+  rules for host apps, palette seeds, guard scripts) and
+  `docs/adoption-guide.md` (which shared component for which job, the
+  cross-app contracts: connection surface, server-truth rendering, labeled
+  fallbacks, absorption protocol, versioning discipline). README package
+  table now includes `app-server` and the current ui-kit inventory;
+  `docs/api.md` export maps refreshed (connection hook, matrix core, steer,
+  disclosure, chips, voice, ProviderModelPicker, app-server section);
+  `docs/architecture.md` gained the gateway connection sequence diagram and
+  app-server in the dependency graph; `llms.txt` updated and `llms-full.txt`
+  regenerated (all local links verified; fixed the misspelled
+  ACKNOWLEDGMENTS links).
+
 ### Added
+
+- Unified top-right corner (operator directive 2026-07-13 20:02; consensus
+  plan `plans/unified-top-bar.md` on the hub fs after 3 fable5 design
+  adversaries + 3 owner discussion cycles): `AfTopBarActions` (assistant →
+  appearance → extras → Disconnect pill; renders the connection hook's
+  3-state phase, never a boolean), `AfDrawer` (right-edge, non-modal,
+  keep-alive — closed = display:none + inert, never unmounted; layered ESC
+  via the consumed-event convention; `topOffset` for below-header layouts;
+  full-width under 680px), `AfAppearanceDialog` + `useAppearanceSettings`
+  (theme + font scale + header density; per-app key
+  `af_appearance_<appId>_v1` with one-time legacy migration; storage
+  failures degrade silently to in-memory), `AssistantPanel` (in
+  panel-chat — the dependency direction forbids a ui-kit chat panel):
+  injected `ask(question, {signal, history})` transport supporting
+  Promise or streaming AsyncIterable, `#FALLBACK` error cards in-thread,
+  blocked-state notice while disconnected, suggestions/empty state. Icons:
+  `sparkle`, `contrast`, `logout`. Z-order tokens `--z-drawer` <
+  `--z-connect-modal` < `--z-popover` (connect overlay now consumes the
+  token). Hook hardening from the design adversaries: `signingOut` +
+  `signOutError` channels on `useGatewayConnection` (a dead app-server no
+  longer swallows a failed sign-out silently) and the connect modal's ESC
+  honors `defaultPrevented`. The `.af-topbar-*`/`.af-drawer-*` class
+  families are documented public API for non-React consumers (gateway
+  console). Live-verified 7/7 in headless Chrome (cluster render, assistant
+  ask round-trip, theme switch + persistence, disconnect→modal-reopens,
+  drawer state surviving disconnect).
 
 - `ProviderModelPicker` (operator directive 2026-07-13 17:28, absorbed from
   continuum's kit-shaped copy per the c1551 ask; flow's PropertiesPanel
@@ -4885,7 +6414,50 @@ This project is a **multi-package repository**; versions are currently kept in s
   `ProviderModelSelect` (searchable `AfSelect`s). `.af-pmp` styles ride the
   shared transition/reduced-motion block.
 
+### Security
+
+- `@abstractframework/app-server` gateway session proxy: the local-vs-remote
+  safety gate (which unlocks browser-supplied gateway URLs) derived from the
+  client-controlled `Host` header — a LAN peer reaching an all-interfaces
+  bind could send `Host: localhost`, unlock the remote-config path, and make
+  the proxy relay `http.request` to an attacker-chosen origin with the
+  browser's session/CSRF cookies attached (SSRF + session-scoped request
+  forgery; HIGH, reported by entity c1768, confirmed live-exposed fleet-wide
+  by agency c1770, amplified in continuum's hub proxy per c1769). Fixed: the
+  gate now derives from `req.socket.remoteAddress` — the connection's real
+  transport peer, which the client cannot forge (IPv4-mapped IPv6
+  unwrapped); `x-forwarded-host` stays behind the existing trusted-proxy
+  opt-in. Explicit `*_ALLOW_REMOTE_BROWSER_GATEWAY_CONFIG` still wins for
+  deployments behind their own access control. Regression tests: a
+  non-loopback peer spoofing `Host: localhost` gets the cookie gateway URL
+  ignored (pinned to default, not relayed) and cannot POST a remote
+  `gateway_url` (403); a genuine loopback peer keeps the dev posture. When
+  proxy headers are trusted (`*_TRUST_PROXY_HEADERS`) the socket peer is the
+  reverse proxy, so there is no socket-derived unlock — those deployments
+  must set the explicit opt-in (code's mirror point c1772). App owners
+  should also default-bind 127.0.0.1 in their launchers (per-app
+  precondition close).
+
 ### Fixed
+
+- Late-adversary fold (2026-07-14 — nine adversaries whose full reports
+  landed after their trail salvages; the six findings the trails had NOT
+  carried): `useGatewayConnection.signOut` now invalidates pre-signout
+  probes FIRST (a stale "connected" answer landing after the DELETE made
+  the follow-up probe's true signed-out answer the one dropped — phantom
+  connected over cleared cookies); `SteerComposer` resets status on
+  `runId` change and generation-guards in-flight sends (a "Queued (seq N)"
+  badge could survive a run switch and stamp the wrong run); the connect
+  modal marks its `initialStatus` seed consumed on the FIRST open
+  unconditionally (an open during the loading phase shifted seed
+  consumption to the second open, resurrecting the stale-seed class);
+  markdown paragraphs are now interrupted by list lines (CommonMark —
+  "intro:\n- a\n- b" with no blank line rendered the bullets as prose);
+  `palette_seeds.json` `secondary` remapped `--bg-secondary` → `--info`
+  (the TUI consumer's "secondary" is a bright second accent; parity on a
+  background token was unsatisfiable — remapped before any consumer wrote
+  a parity test, artifact regenerated); `.af-chip` gained a neutral
+  default `--af-chip-hue` (class-only consumers rendered borderless).
 
 - Design review wave (2026-07-13, two fable5 design adversaries — aesthetics
   + layout/responsiveness — plus a whole-package code/logic audit; several

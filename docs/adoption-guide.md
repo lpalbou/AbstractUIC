@@ -31,6 +31,7 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Agent cycle traces | `AgentCyclesPanel` + `build_agent_trace` (monitor-flow) | Adapter turns ledger-like records into `TraceItem[]` |
 | KG / active-memory explorer | `KgActiveMemoryExplorer` (monitor-active-memory) | ReactFlow peer dep |
 | GPU utilization widget | `<monitor-gpu>` (monitor-gpu) | Dependency-free custom element |
+| Host RAM + device memory widget | `<monitor-memory>` (monitor-memory) | Dependency-free custom element |
 
 ## Contracts you must follow
 

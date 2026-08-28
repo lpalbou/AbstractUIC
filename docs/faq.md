@@ -25,7 +25,7 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 
 ## What is AbstractUIC?
 
-AbstractUIC is a **multi-package repository**: each top-level folder is an npm package (see each `*/package.json`). Most packages are React components; one package (`@abstractframework/monitor-gpu`) is a dependency-free Web Component.
+AbstractUIC is a **multi-package repository**: each top-level folder is an npm package (see each `*/package.json`). Most packages are React components; two packages (`@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory`) are dependency-free Web Components.
 
 Start here: [Getting started](./getting-started.md).
 
@@ -54,6 +54,7 @@ Authoritative exports:
 - `@abstractframework/monitor-flow`: `monitor-flow/src/index.ts`
 - `@abstractframework/monitor-active-memory`: `monitor-active-memory/src/index.ts`
 - `@abstractframework/monitor-gpu`: `monitor-gpu/src/index.js`
+- `@abstractframework/monitor-memory`: `monitor-memory/src/index.js`
 
 ## Do I install a single package or multiple?
 
@@ -169,14 +170,13 @@ Source of truth: `monitor-gpu/src/gpu_metrics_api.js` (`buildAuthHeaders`) and `
 
 ## Where are the tests?
 
-Only `@abstractframework/monitor-gpu` currently includes automated tests:
+Each workspace ships its own test rig; run them all from the repo root:
 
 ```bash
-cd monitor-gpu
 npm test
 ```
 
-See: `monitor-gpu/test/`.
+Or a single package's, e.g. `cd monitor-gpu && npm test` (see `monitor-gpu/test/`, `monitor-memory/test/`).
 
 ## Is this published to npm?
 

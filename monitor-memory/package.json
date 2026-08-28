@@ -1,0 +1,43 @@
+{
+  "name": "@abstractframework/monitor-memory",
+  "version": "0.1.8",
+  "description": "Compact host RAM + device memory meter widget for AbstractFramework clients (polls AbstractGateway host memory metrics with Bearer auth).",
+  "type": "module",
+  "author": "Laurent-Philippe Albou",
+  "license": "MIT",
+  "keywords": [
+    "abstractframework",
+    "memory",
+    "ram",
+    "monitoring",
+    "widget",
+    "meter"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lpalbou/AbstractUIC.git",
+    "directory": "monitor-memory"
+  },
+  "homepage": "https://github.com/lpalbou/AbstractUIC#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "sideEffects": false
+}

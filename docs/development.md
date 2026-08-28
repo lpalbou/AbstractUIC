@@ -11,6 +11,7 @@ Each package is a folder at the repo root:
 - `monitor-flow/`
 - `monitor-active-memory/`
 - `monitor-gpu/`
+- `monitor-memory/`
 
 ## Typical workflow (React packages)
 
@@ -22,10 +23,16 @@ Each package is a folder at the repo root:
 
 ## Tests
 
-Only `@abstractframework/monitor-gpu` currently has automated tests:
+Run every workspace's test rig from the repo root:
 
 ```bash
-cd monitor-gpu
+npm test
+```
+
+Or a single package's, e.g.:
+
+```bash
+cd monitor-memory
 npm test
 ```
 

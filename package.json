@@ -9,6 +9,7 @@
     "monitor-active-memory",
     "monitor-flow",
     "monitor-gpu",
+    "monitor-memory",
     "panel-chat"
   ],
   "scripts": {

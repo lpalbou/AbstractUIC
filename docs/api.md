@@ -5,6 +5,7 @@ This page is a **practical map** of what each package exports and how you typica
 Source of truth:
 - React packages: exports in `*/src/index.ts` (compiled to `dist/` on publish; see `*/package.json`)
 - GPU widget: exports in `monitor-gpu/src/index.js` (types in `monitor-gpu/src/index.d.ts`)
+- Host memory widget: exports in `monitor-memory/src/index.js` (types in `monitor-memory/src/index.d.ts`)
 
 If you’re starting from scratch, read [Getting started](./getting-started.md) first (it covers install options and required CSS imports).
 
@@ -153,6 +154,27 @@ Low-level helpers (backend integration):
 - `extractUtilizationGpuPct(payload)` (supported payload formats documented in `monitor-gpu/README.md`)
 
 See: [`monitor-gpu/README.md`](../monitor-gpu/README.md) for the backend contract and security notes.
+
+## `@abstractframework/monitor-memory`
+
+Purpose: dependency-free host RAM + device (GPU/accelerator) memory meter implemented as a **Custom Element**.
+
+- Primary exports: `monitor-memory/src/index.js`
+- Types: `monitor-memory/src/index.d.ts`
+
+Registration + custom element:
+- `registerMonitorMemoryWidget()` defines `<monitor-memory>` (see `monitor-memory/src/monitor_memory_widget.js`)
+- `MonitorMemoryElement` typing is declared in `monitor-memory/src/index.d.ts` (includes `mode: "full" | "icon"`)
+
+Imperative controller:
+- `createMonitorMemoryWidget(target, options)` returns `MonitorMemoryWidgetController` (start/stop/destroy; update options; `unsupported` verdict)
+
+Low-level helpers (backend integration):
+- `makeMemoryMetricsUrl()`, `fetchHostMemoryMetrics()`
+- `buildAuthHeaders()`, `resolveBearerToken()`
+- `extractMemoryUsage(payload)` (supported payload formats documented in `monitor-memory/README.md`)
+
+See: [`monitor-memory/README.md`](../monitor-memory/README.md) for the backend contract, unsupported-endpoint behavior, and security notes.
 
 ## Related docs
 
