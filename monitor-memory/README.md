@@ -53,8 +53,60 @@ The widget extracts usage via `extractMemoryUsage(payload)`. It accepts the memo
 
 - RAM: `ram.percent`, or derived from `ram.used_bytes` / `ram.total_bytes`
   (with `used_bytes` itself derivable from `total_bytes - available_bytes`)
-- Device: `device.backend` plus `device.allocated_bytes` / `device.total_bytes`
-  (with `allocated_bytes` derivable from `total_bytes - free_bytes`)
+- Device: `device.backend` plus, in preference order,
+  - used: `device.host_in_use_bytes` (accelerator heap across all processes) →
+    `device.allocated_bytes` (PROCESS-LOCAL; derivable from `total_bytes - free_bytes`)
+  - ceiling: `device.wired_limit_bytes` (the real accelerator limit) → `device.total_bytes`
+
+  `allocated_bytes` is process-local and reads `0` on Apple silicon while tens of
+  GB are resident in another process, so the across-processes figure always wins
+  when present. The returned device part carries `scope`, plus a ready-to-render
+  `label` and `note`:
+
+  | `scope` | `label` | source |
+  |---|---|---|
+  | `"all_processes"` | `Accelerator heap · <backend> (all processes)` | `host_in_use_bytes` |
+  | `"process"` | `Accelerator heap · <backend> (this process only)` | `allocated_bytes` |
+
+  `<backend>` is `device.backend` (`metal`, `cuda`, `mps`); an unknown/empty
+  backend renders as the literal `device`. The `note` is always
+  `memory-mapped GGUF weights are not counted here`, and the widget attaches it
+  as the accelerator meter's `title` tooltip.
+
+### Byte formatting: binary math, binary labels
+
+`formatBytes(bytes)` is exported and is what the widget's tooltip uses. It is
+**binary** (IEC): `B` / `KiB` / `MiB` / `GiB` / `TiB`, one decimal place,
+dividing by 1024. Memory is binary wherever it is configured or reported — a
+128 GiB Mac reads 137,438,953,472 bytes exactly, and
+`sysctl iogpu.wired_limit_mb=110000` lands on 115,343,360,000 = 107.4 GiB.
+
+It is byte-identical to the formatters in the AbstractGateway web console, the
+gateway console-TUI, abstractcode-tui and abstractflow, so the same payload
+renders the same string on every surface. It used to not be: three surfaces
+divided by 1024 and LABELLED the result `GB`, while the web console divided by
+1e9 — one 89,986,353,824-byte GGUF read `83.8 GB` in the TUIs and `89.99 GB` on
+the web. Non-finite or negative input returns `""`, never a fabricated `0 B`.
+
+### What the accelerator meter is (and is not)
+
+The second meter is **accelerator-heap memory**: driver-allocated accelerator
+buffers, counted across processes (MLX, and MLX-engine servers such as LM
+Studio). Its ceiling is the accelerator-heap ceiling (`wired_limit_bytes`, else
+`device.total_bytes`).
+
+It is **not** the machine's total memory use. **RAM is the primary system
+meter** — it stays first, and it is the meter to read as "how full is this
+machine".
+
+**Memory-mapped GGUF/llama.cpp weights do NOT appear in the accelerator
+figure.** llama.cpp maps the `.gguf` from disk and wraps those pages with
+`newBufferWithBytesNoCopy`: they are file-backed, no-copy buffers that never
+become driver-allocated accelerator memory. They show up instead as the serving
+process's RSS and as the model's own reported weight size. A fully offloaded
+90 GB GGUF can therefore sit beside an accelerator figure of well under 1 GB,
+and an itemized model total routinely exceeds this figure — that is the normal
+GGUF case, not an inconsistency.
 
 Minimal example:
 

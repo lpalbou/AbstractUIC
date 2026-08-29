@@ -9,9 +9,52 @@ export function resolveBearerToken(args?: {
 
 export function buildAuthHeaders(args?: { token?: string }): { Authorization?: string };
 
+/** The accelerator caveat shipped with every device part. */
+export const ACCELERATOR_NOTE: "memory-mapped GGUF weights are not counted here";
+
+/**
+ * Human-readable byte size: BINARY math with BINARY labels
+ * (`B`/`KiB`/`MiB`/`GiB`/`TiB`, one decimal place). Byte-identical to the
+ * gateway console, console-tui, abstractcode-tui and abstractflow, so the same
+ * payload reads the same on every surface. Returns "" for non-finite or
+ * negative input.
+ */
+export function formatBytes(value: number | null | undefined): string;
+
+/**
+ * Builds the scoped accelerator label, e.g.
+ * `Accelerator heap · metal (all processes)`. An empty/unknown backend renders
+ * as the literal `device`.
+ */
+export function acceleratorLabel(
+  backend: string | null | undefined,
+  scope: MemoryUsageScope | string | null | undefined
+): string;
+
+/**
+ * Which reading the accelerator figure is: "all_processes" = accelerator-heap
+ * memory driver-allocated across every process (device.host_in_use_bytes),
+ * "process" = the process-local allocation (device.allocated_bytes), which can
+ * read 0 while the accelerator is full. Neither is the machine's memory use.
+ */
+export type MemoryUsageScope = "all_processes" | "process";
+
 export type MemoryUsagePart = {
-  /** Backend name for device memory (e.g. "cuda", "mps"); empty for RAM. */
+  /** Backend name for device memory (e.g. "metal", "cuda", "mps"); empty for RAM. */
   backend?: string;
+  /** Scope of the device figure. Absent for RAM. */
+  scope?: MemoryUsageScope;
+  /**
+   * Ready-to-render scoped label for the device figure, e.g.
+   * `Accelerator heap · metal (all processes)` or
+   * `Accelerator heap · metal (this process only)`. Absent for RAM.
+   */
+  label?: string;
+  /**
+   * The caveat to show with the device figure (tooltip/sub-line):
+   * `memory-mapped GGUF weights are not counted here`. Absent for RAM.
+   */
+  note?: string;
   usedBytes: number | null;
   totalBytes: number | null;
   pct: number;

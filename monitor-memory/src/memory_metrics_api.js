@@ -44,6 +44,61 @@ function _obj(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
 
+const _KiB = 1024;
+const _MiB = 1024 * _KiB;
+const _GiB = 1024 * _MiB;
+const _TiB = 1024 * _GiB;
+
+/**
+ * Human-readable byte size: BINARY math with BINARY labels (IEC).
+ *
+ * Byte-identical to the gateway console (`_fmtBytes`), console-tui and
+ * abstractcode-tui (`human_bytes`) and abstractflow (`formatBytes`) — the same
+ * byte count must read the same string on every surface that shows this
+ * payload. Memory is binary wherever it is configured or reported: the host
+ * this widget was built against reads 137,438,953,472 B = 128.0 GiB exactly,
+ * and `sysctl iogpu.wired_limit_mb=110000` lands on 115,343,360,000 B =
+ * 107.4 GiB. Do not switch to 1e9 "because GB": three surfaces already divided
+ * by 1024 and only LABELLED it `GB`, which is how one 89,986,353,824 B GGUF
+ * came to read `89.99 GB` on the web console and `83.8 GB` in the TUIs.
+ *
+ * Returns "" for non-finite or negative input, so callers can fall back to
+ * their own placeholder rather than print a fake number.
+ */
+export function formatBytes(value) {
+  // Deliberately NOT `Number(value)`: `Number(null)` is 0, and a widget that
+  // renders a missing figure as `0 B` is inventing a measurement. Same guard,
+  // same rejections as abstractflow's `formatBytes`.
+  const n = value;
+  if (typeof n !== "number" || !Number.isFinite(n) || n < 0) return "";
+  if (n < _KiB) return `${n} B`;
+  if (n < _MiB) return `${(n / _KiB).toFixed(1)} KiB`;
+  if (n < _GiB) return `${(n / _MiB).toFixed(1)} MiB`;
+  if (n < _TiB) return `${(n / _GiB).toFixed(1)} GiB`;
+  return `${(n / _TiB).toFixed(1)} TiB`;
+}
+
+/**
+ * The accelerator figure counts driver-allocated accelerator buffers. It is
+ * BLIND to memory-mapped GGUF/llama.cpp weights: llama.cpp mmaps the `.gguf`
+ * and wraps the pages with `newBufferWithBytesNoCopy`, so they never become
+ * driver-allocated accelerator memory. Every surface must ship this note with
+ * the figure.
+ */
+export const ACCELERATOR_NOTE = "memory-mapped GGUF weights are not counted here";
+
+/**
+ * Builds the scoped accelerator label. The scope words are exactly
+ * `all processes` and `this process only`. Never reword them into anything
+ * that reads as whole-system usage — this figure does not measure that, and
+ * RAM (the first meter) is the machine's memory meter.
+ */
+export function acceleratorLabel(backend, scope) {
+  const name = String(backend || "").trim() || "device";
+  const suffix = scope === "process" ? "this process only" : "all processes";
+  return `Accelerator heap · ${name} (${suffix})`;
+}
+
 /**
  * Reads RAM and device (GPU/accelerator) memory usage from a host memory
  * metrics payload. Accepts either the memory object directly or a payload
@@ -76,15 +131,37 @@ export function extractMemoryUsage(payload) {
   let device = null;
   const deviceRaw = _obj(root.device);
   if (deviceRaw) {
+    // `allocated_bytes` is PROCESS-LOCAL: on Apple silicon it reads 0 while
+    // tens of GB are resident in another process, so a widget trusting it
+    // paints an empty bar next to a full accelerator. `host_in_use_bytes`
+    // counts driver-allocated accelerator buffers across ALL processes and
+    // `wired_limit_bytes` is the real accelerator-heap ceiling (`total_bytes`
+    // is the whole unified pool, not what the accelerator may take). Both win
+    // whenever present. Neither figure is the machine's memory use: `scope`,
+    // `label` and `note` carry the honest scope so no caller has to
+    // reconstruct it (and none may present this as whole-system usage).
     const backend = typeof deviceRaw.backend === "string" ? deviceRaw.backend : "";
-    const totalBytes = _num(deviceRaw.total_bytes);
+    const hostInUseBytes = _num(deviceRaw.host_in_use_bytes);
+    const wiredLimitBytes = _num(deviceRaw.wired_limit_bytes);
+    const deviceTotalBytes = _num(deviceRaw.total_bytes);
     const freeBytes = _num(deviceRaw.free_bytes);
-    let usedBytes = _num(deviceRaw.allocated_bytes);
-    if (usedBytes == null && totalBytes != null && freeBytes != null) {
-      usedBytes = Math.max(0, totalBytes - freeBytes);
+    let processBytes = _num(deviceRaw.allocated_bytes);
+    if (processBytes == null && deviceTotalBytes != null && freeBytes != null) {
+      processBytes = Math.max(0, deviceTotalBytes - freeBytes);
     }
+    const scope = hostInUseBytes == null ? "process" : "all_processes";
+    const usedBytes = hostInUseBytes == null ? processBytes : hostInUseBytes;
+    const totalBytes = wiredLimitBytes == null ? deviceTotalBytes : wiredLimitBytes;
     if (usedBytes != null && totalBytes != null && totalBytes > 0) {
-      device = { backend, usedBytes, totalBytes, pct: _clampPct((usedBytes / totalBytes) * 100) };
+      device = {
+        backend,
+        scope,
+        label: acceleratorLabel(backend, scope),
+        note: ACCELERATOR_NOTE,
+        usedBytes,
+        totalBytes,
+        pct: _clampPct((usedBytes / totalBytes) * 100),
+      };
     }
   }
 

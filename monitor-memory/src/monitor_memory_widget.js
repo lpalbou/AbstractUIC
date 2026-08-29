@@ -1,4 +1,4 @@
-import { extractMemoryUsage, fetchHostMemoryMetrics } from "./memory_metrics_api.js";
+import { acceleratorLabel, extractMemoryUsage, fetchHostMemoryMetrics, formatBytes } from "./memory_metrics_api.js";
 
 const DEFAULTS = Object.freeze({
   tickMs: 5000,
@@ -282,9 +282,31 @@ export class MonitorMemoryWidgetController {
     if (wrap) {
       const devicePct = devicePart && Number.isFinite(devicePart.pct) ? _clamp(devicePart.pct, 0, 100) : null;
       const backend = devicePart && devicePart.backend ? String(devicePart.backend) : "device";
+      // The accelerator figure names its SCOPE: `all processes` is every
+      // process's driver-allocated accelerator memory, `this process only` is
+      // the process-local reading that can sit at 0% while the accelerator is
+      // full. Neither is the machine's memory use — RAM (first meter) is. The
+      // extractor ships the exact label; fall back to rebuilding it only for a
+      // hand-pushed part that predates the field.
+      const deviceLabel = devicePart
+        ? devicePart.label
+          ? String(devicePart.label)
+          : acceleratorLabel(backend, devicePart.scope)
+        : "";
+      // A percentage alone cannot be checked against anything: the operator
+      // reads `62%` and cannot tell whether the machine has 16 GiB or 128 GiB
+      // left. Ship the bytes beside it, in the SAME binary spelling every other
+      // surface uses (`formatBytes`), so a number read here matches the number
+      // read in the console, the TUIs and abstractflow for the same payload.
+      const sized = (pct, part) => {
+        const used = part ? formatBytes(part.usedBytes) : "";
+        const total = part ? formatBytes(part.totalBytes) : "";
+        if (!used || !total) return `${pct.toFixed(0)}%`;
+        return `${pct.toFixed(0)}% (${used} / ${total})`;
+      };
       const parts = [];
-      if (ramPct != null) parts.push(`RAM ${ramPct.toFixed(0)}%`);
-      if (devicePct != null) parts.push(`${backend} ${devicePct.toFixed(0)}%`);
+      if (ramPct != null) parts.push(`RAM ${sized(ramPct, ramPart)}`);
+      if (devicePct != null) parts.push(`${deviceLabel} ${sized(devicePct, devicePart)}`);
       wrap.title = this._unsupported
         ? "Host memory metrics unavailable"
         : parts.length
@@ -297,6 +319,13 @@ export class MonitorMemoryWidgetController {
       }
       if (device && device.tag) {
         device.tag.textContent = devicePart && devicePart.backend ? String(devicePart.backend).slice(0, 4) : "DEV";
+      }
+      if (device && device.meter) {
+        // The caveat has to ride ON the accelerator meter: hovering a child
+        // overrides the wrap tooltip, and in icon mode the meter IS the hover
+        // target. Without it a reader reads the bar as "everything resident",
+        // which memory-mapped GGUF weights are not.
+        device.meter.title = devicePart && devicePart.note ? String(devicePart.note) : "";
       }
     }
 
