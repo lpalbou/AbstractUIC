@@ -6,6 +6,8 @@ This project is a **multi-package repository**; versions are currently kept in s
 
 ## Unreleased
 
+## 0.1.9 - 2026-08-29
+
 ### Added (2026-08-27)
 
 - New package `@abstractframework/monitor-memory` (v0.1.8, in sync with the

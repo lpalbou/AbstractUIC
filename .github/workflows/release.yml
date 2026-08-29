@@ -7,7 +7,7 @@ on:
       - "v*"
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -47,7 +47,7 @@ jobs:
             echo "Tag version ($TAG_VERSION) does not match root package.json version ($ROOT_VERSION)." >&2
             exit 1
           fi
-          for dir in ui-kit monitor-active-memory monitor-flow monitor-gpu panel-chat; do
+          for dir in ui-kit monitor-active-memory monitor-flow monitor-gpu monitor-memory panel-chat; do
             PKG_VERSION="$(node -p "require('./${dir}/package.json').version")"
             if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
               echo "Tag version ($TAG_VERSION) does not match ${dir}/package.json version ($PKG_VERSION)." >&2
@@ -109,3 +109,50 @@ jobs:
           else
             npm publish --access public --provenance
           fi
+
+      # Published last: monitor-memory has no dependents, so it cannot hold back
+      # the packages above. It has never been published, and trusted publishing
+      # cannot create a package name (npm/cli#8544) — the first publish must be
+      # made with an access token, after which the trusted publisher is
+      # configured for it. Until that bootstrap happens, warn and skip.
+      - name: Publish @abstractframework/monitor-memory
+        working-directory: monitor-memory
+        run: |
+          PKG_NAME="$(node -p "require('./package.json').name")"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if npm view "${PKG_NAME}@${PKG_VERSION}" version >/dev/null 2>&1; then
+            echo "${PKG_NAME}@${PKG_VERSION} is already published; skipping."
+          elif ! npm view "${PKG_NAME}" version >/dev/null 2>&1; then
+            echo "::warning::${PKG_NAME} does not exist on the registry yet, so trusted publishing cannot publish it. Publish it once with an access token and configure its trusted publisher, then this step takes over."
+          else
+            npm publish --access public --provenance
+          fi
+
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "Release ${GITHUB_REF_NAME} already exists; skipping."
+            exit 0
+          fi
+          VERSION="${GITHUB_REF_NAME#v}"
+          NOTES_FILE="$(mktemp)"
+          awk -v heading="## ${VERSION}" '
+            index($0, heading) == 1 &&
+              (length($0) == length(heading) || substr($0, length(heading) + 1, 1) == " ") {
+              capture = 1
+              next
+            }
+            capture && index($0, "## ") == 1 { exit }
+            capture { print }
+          ' CHANGELOG.md > "$NOTES_FILE"
+          if [ ! -s "$NOTES_FILE" ]; then
+            echo "No CHANGELOG.md section found for ${VERSION}." >&2
+            exit 1
+          fi
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file "$NOTES_FILE" \
+            --verify-tag

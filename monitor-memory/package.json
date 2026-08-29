@@ -1,6 +1,6 @@
 {
   "name": "@abstractframework/monitor-memory",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Compact host RAM + device memory meter widget for AbstractFramework clients (polls AbstractGateway host memory metrics with Bearer auth).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
