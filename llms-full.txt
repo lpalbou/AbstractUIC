@@ -682,6 +682,10 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Theme: `THEMES`, `THEME_SPECS`, `applyTheme()`, `getThemeSpec()`, `themeClassName()` — see [Theming](./theming.md)
 - Typography: `FONT_SCALES`, `HEADER_DENSITIES`, `applyTypography()`, `getFontScaleSpec()`, `getHeaderDensitySpec()`
 - Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker` (gateway-default mode + provider→models cascade, injected transports), `FontScaleSelect`, `HeaderDensitySelect`, `ToolPolicyEditor`
+- MTP: `SpeculationSelect`, `speculationCapability()`, `normalizeSpeculationValue()`,
+  `speculationSelection()`, `speculationFromSelection()` and `SpeculationValue` /
+  `SpeculationCapability` types. Enable `ProviderModelPicker`'s `enableSpeculation` for text
+  routes; its injected `fetchModelCapabilities(model, provider)` returns the Gateway payload.
 - Gateway connection: `GatewayConnectModal` + `useGatewayConnection()` (the connection state machine: boot probe, auto-open on resolved disconnect, self-close on sign-in), plus helpers `fetchGatewayConnection()`, `signInGateway()`, `signOutGateway()`, `gatewayStatusBadge()`, `normalizeGatewayUrl()`; `GatewaySessionSignInCard` is the underlying form card.
 - Phase capability matrix: `PhaseCapabilityMatrix` + a framework-free core (`validateMatrixPayload()`, `resolveCellView()`, `applyCellAction()`, `reconcilePatches()`, `serializeCellPatches()`)
 - Critical actions: `CriticalActionDialog` + core (`resolveCriticalActionGate()`, `normalizeCriticalActionFacts()`)
@@ -691,6 +695,13 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Icons: `Icon`, `IconName` (~40 glyphs, 24-grid and 16-grid families)
 
 See: [`ui-kit/README.md`](../ui-kit/README.md) and the [Adoption guide](./adoption-guide.md).
+
+`SpeculationSelect` consumes `execution.speculation` from the host capability payload. It
+offers inheritance (`undefined`), Off (`false`), and only advertised depths. Explicit depths
+serialize as `{mode: "native_mtp", num_draft_tokens: n, require_acceleration: true}`. It shows
+readiness/reload reasons and preserves unavailable saved choices; it never infers support
+from model names, performs network requests, downloads artifacts, or loads a model. Hosts
+own persistence and provider/model/endpoint-scoped discovery.
 
 ## `@abstractframework/panel-chat`
 
@@ -1288,6 +1299,19 @@ calls the callbacks you provide.
 
 The default approve/ask classification is exposed as `TOOL_POLICY_DEFAULTS` (mirrors the AbstractRuntime `ToolApprovalPolicy` defaults).
 
+### Native MTP control
+
+`SpeculationSelect` is the shared inheritance / Off / depth selector. Pass the execution
+host's complete model-capability payload as `capabilities`; only depths advertised under
+`execution.speculation.supported_depths` are offered. Missing capability data is shown as
+unknown, not guessed from a model name. Saved unavailable selections remain visible.
+
+`ProviderModelPicker` includes this control when `enableSpeculation` is true; supply its
+usual provider-aware capability transport. The `speculation` value is absent for inheritance,
+`false` for Off, or a native-MTP object with `require_acceleration: true` for an explicit
+depth. Apps own preference storage and omit inherited values from requests. Neither
+component loads models or downloads heads. See the [API reference](../docs/api.md).
+
 ## Exported API
 
 See `ui-kit/src/index.ts` for the authoritative export list.
@@ -1467,6 +1491,8 @@ Declared in `panel-chat/package.json`:
 See `panel-chat/src/index.ts` for the authoritative export list. Common entry points:
 
 - Components: `ChatThread`, `ChatComposer`, `ChatMessageCard`, `ChatMessageContent`
+- Controlled workflow surface: `WorkflowChat` and the `WorkflowInteraction` union
+- Transport-injected runtime: `WorkflowSessionController`, `useWorkflowSession`, and `WorkflowTransport`
 - Renderers: `Markdown`, `JsonViewer`
 - Types: `PanelChatMessage`, `ChatMessage`, `ChatAttachment`, `ChatStat`
 - Utils: `chatToMarkdown`, `copyText`, `downloadTextFile`, `tryParseJson`
@@ -1489,6 +1515,51 @@ export function ChatView() {
   );
 }
 ```
+
+## Workflow chat
+
+`WorkflowChat` is a controlled, presentation-only surface for hosts that own
+their own gateway/workflow protocol. Supply `messages`, `draft`,
+`onDraftChange`, and async `onSend`; the component retains the draft when a
+send fails and presents an actionable retry. `busy` and `onCancel` add a stop
+control. `disabled` gives observers a read-only transcript without hiding a
+pending interaction.
+
+Use `interaction` for a pending `WorkflowInteraction`: `ask-user` supports
+choices and optional free text, `tool-approval` provides approve/deny actions,
+and `event-wait` sends a host-defined payload. The callbacks are injected: the
+component never fetches, polls, or resumes a workflow itself.
+
+`renderMarkdown` is passed through to each `ChatThread` message card. Use it
+when the host owns a sanitizer or a richer Markdown renderer; the chat surface
+does not make a separate unsafe rendering path.
+
+The composer is controlled. Clear `draft` in the host only after `onSend`
+resolves; a rejected callback retains it and the component offers a retry.
+Set `sendWhileBusy` to permit an explicit queue/steer mode during a running
+workflow while retaining the Stop control. Otherwise `busy` disables sending.
+
+For hosts that need a reusable gateway-facing controller, `WorkflowSessionController`
+and `useWorkflowSession` consume an injected `WorkflowTransport`. They retain no
+gateway URL, bearer token, or browser persistence. Pass a non-secret `authScopeKey`
+that changes on sign-in/out or account switching to reset the controller safely.
+
+`useWorkflowSession({ transport, runId, authScopeKey })` returns `{ controller,
+snapshot }`. `transport` owns requests, SSE parsing, and ephemeral credentials;
+the controller owns no URL, header, localStorage, or bearer token. The snapshot
+contains lifecycle `status`, optional workflow-provided `displayStatus`, folded
+messages, records, a pending raw wait, and connection/error state. Render
+`workflowPendingInteraction(snapshot)`, not the raw `snapshot.interaction`: a
+tool approval the controller has already granted under the host's
+`toolApprovalPolicy` (or an accepted Allow) sets `snapshot.toolApprovalGranted`,
+is presented as running tools, and must not show an approval card. See
+[`examples/workflow_assistant.tsx`](examples/workflow_assistant.tsx) for a small
+embedded consumer that maps raw waits to `WorkflowInteraction`. Its required
+`onSend(message)` prop remains host-owned: it may start, steer, or durably queue
+a turn, but the shared component never invents an event or command vocabulary.
+Event waits use `resolveWorkflowEventTarget(rawWait, records, run)` to recover
+the exact canonical scope from matching ledger evidence; an ambiguous wait is
+shown as unavailable rather than guessed.
 
 ## Rendering rules
 
@@ -1821,8 +1892,60 @@ The widget extracts usage via `extractMemoryUsage(payload)`. It accepts the memo
 
 - RAM: `ram.percent`, or derived from `ram.used_bytes` / `ram.total_bytes`
   (with `used_bytes` itself derivable from `total_bytes - available_bytes`)
-- Device: `device.backend` plus `device.allocated_bytes` / `device.total_bytes`
-  (with `allocated_bytes` derivable from `total_bytes - free_bytes`)
+- Device: `device.backend` plus, in preference order,
+  - used: `device.host_in_use_bytes` (accelerator heap across all processes) →
+    `device.allocated_bytes` (PROCESS-LOCAL; derivable from `total_bytes - free_bytes`)
+  - ceiling: `device.wired_limit_bytes` (the real accelerator limit) → `device.total_bytes`
+
+  `allocated_bytes` is process-local and reads `0` on Apple silicon while tens of
+  GB are resident in another process, so the across-processes figure always wins
+  when present. The returned device part carries `scope`, plus a ready-to-render
+  `label` and `note`:
+
+  | `scope` | `label` | source |
+  |---|---|---|
+  | `"all_processes"` | `Accelerator heap · <backend> (all processes)` | `host_in_use_bytes` |
+  | `"process"` | `Accelerator heap · <backend> (this process only)` | `allocated_bytes` |
+
+  `<backend>` is `device.backend` (`metal`, `cuda`, `mps`); an unknown/empty
+  backend renders as the literal `device`. The `note` is always
+  `memory-mapped GGUF weights are not counted here`, and the widget attaches it
+  as the accelerator meter's `title` tooltip.
+
+### Byte formatting: binary math, binary labels
+
+`formatBytes(bytes)` is exported and is what the widget's tooltip uses. It is
+**binary** (IEC): `B` / `KiB` / `MiB` / `GiB` / `TiB`, one decimal place,
+dividing by 1024. Memory is binary wherever it is configured or reported — a
+128 GiB Mac reads 137,438,953,472 bytes exactly, and
+`sysctl iogpu.wired_limit_mb=110000` lands on 115,343,360,000 = 107.4 GiB.
+
+It is byte-identical to the formatters in the AbstractGateway web console, the
+gateway console-TUI, abstractcode-tui and abstractflow, so the same payload
+renders the same string on every surface. It used to not be: three surfaces
+divided by 1024 and LABELLED the result `GB`, while the web console divided by
+1e9 — one 89,986,353,824-byte GGUF read `83.8 GB` in the TUIs and `89.99 GB` on
+the web. Non-finite or negative input returns `""`, never a fabricated `0 B`.
+
+### What the accelerator meter is (and is not)
+
+The second meter is **accelerator-heap memory**: driver-allocated accelerator
+buffers, counted across processes (MLX, and MLX-engine servers such as LM
+Studio). Its ceiling is the accelerator-heap ceiling (`wired_limit_bytes`, else
+`device.total_bytes`).
+
+It is **not** the machine's total memory use. **RAM is the primary system
+meter** — it stays first, and it is the meter to read as "how full is this
+machine".
+
+**Memory-mapped GGUF/llama.cpp weights do NOT appear in the accelerator
+figure.** llama.cpp maps the `.gguf` from disk and wraps those pages with
+`newBufferWithBytesNoCopy`: they are file-backed, no-copy buffers that never
+become driver-allocated accelerator memory. They show up instead as the serving
+process's RSS and as the model's own reported weight size. A fully offloaded
+90 GB GGUF can therefore sit beside an accelerator figure of well under 1 GB,
+and an itemized model total routinely exceeds this figure — that is the normal
+GGUF case, not an inconsistency.
 
 Minimal example:
 
@@ -1867,7 +1990,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.1.8",
+  "version": "0.1.10",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -1890,7 +2013,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.1.8",
+  "version": "0.1.10",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -1931,7 +2054,8 @@ npm test
   "scripts": {
     "build": "tsc",
     "test": "node scripts/check_no_src_twins.mjs && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/audit_theme_contrast.mjs --strict",
-    "prepublishOnly": "npm test"
+    "test:speculation": "npm run build && node scripts/check_speculation.mjs",
+    "prepublishOnly": "npm test && npm run test:speculation"
   },
   "peerDependencies": {
     "react": "^18.0.0",
@@ -1956,7 +2080,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.1.8",
+  "version": "0.1.16",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -1989,6 +2113,7 @@ npm test
   },
   "files": [
     "dist",
+    "examples",
     "src/panel_chat.css",
     "transcript.css",
     "README.md"
@@ -1996,15 +2121,15 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs"
+    "test": "npm run build && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.1.8",
+    "@abstractframework/ui-kit": "^0.1.10",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.1.8",
+    "@abstractframework/ui-kit": "^0.1.10",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -2023,7 +2148,7 @@ npm test
 
 {
   "name": "@abstractframework/monitor-flow",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Shared flow/agent monitoring UI components for AbstractFramework (used by AbstractFlow and AbstractObserver).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -2087,7 +2212,7 @@ npm test
 
 {
   "name": "@abstractframework/monitor-active-memory",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Shared KG + Active Memory explorer UI components for AbstractFramework clients (AbstractFlow, AbstractObserver, AbstractCode).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -2152,7 +2277,7 @@ npm test
 
 {
   "name": "@abstractframework/monitor-gpu",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Lightweight GPU utilization histogram widget for AbstractFramework clients (polls AbstractGateway host metrics with Bearer auth).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -2201,6 +2326,8 @@ export { FONT_SCALES, HEADER_DENSITIES, applyTypography, getFontScaleSpec, getHe
 export { AfSelect, type AfSelectProps, type AfSelectOption } from "./af_select.js";
 export { ProviderModelSelect, type ProviderModelSelectProps, type ProviderOption } from "./provider_model_select.js";
 export { ProviderModelPicker, type ProviderModelPickerProps, type ProviderModelPickerValue } from "./provider_model_picker.js";
+export { SpeculationSelect } from "./speculation_select.js";
+export { normalizeSpeculationValue, speculationCapability, speculationSelection, speculationFromSelection, type SpeculationValue, type SpeculationCapability } from "./speculation_control.js";
 export {
   GatewaySessionSignInCard,
   type GatewaySessionSignInCardProps,
@@ -2324,6 +2451,7 @@ export {
   type EffortFacts,
   type EffortRow,
 } from "./cognition_bloom_core.js";
+export { VoiceSettings, type VoicePreferences, type VoiceCatalog } from "./voice_settings.js";
 export {
   RULED_PHASES,
   PHASE_DESCRIPTORS,
@@ -3581,9 +3709,55 @@ export { Markdown } from "./markdown.js";
 export { JsonViewer } from "./json_viewer.js";
 export { ChatMessageCard } from "./chat_message_card.js";
 export { ChatThread } from "./chat_thread.js";
+export { ToolActivity, ToolActivityGroup, toolArguments, toolPreview } from "./tool_activity.js";
+export { workflowProgress, type WorkflowProgress } from "./workflow_progress.js";
+export { WorkflowChat } from "./workflow_chat.js";
+export {
+  DragPresence,
+  dragCarriesFiles,
+  draggedFileCount,
+  dropZoneLabel,
+  droppedFiles,
+  folderRefusal,
+  pastedFileName,
+  pastedFiles,
+  type DroppedFiles,
+} from "./file_drop.js";
+export { WorkflowInteractionPanel } from "./workflow_interaction.js";
+export { WorkflowSessionController, workflowPendingInteraction } from "./workflow_runtime.js";
+export { useWorkflowSession } from "./use_workflow_session.js";
+export { resolveWorkflowEventTarget } from "./event_target.js";
 
 export type { ChatAttachment, ChatMessage, ChatMessageLevel, ChatStat } from "./chat_message_card.js";
+export type {
+  WorkflowChatProps,
+} from "./workflow_chat.js";
+export type {
+  WorkflowInteraction,
+  WorkflowInteractionChoice,
+  WorkflowAskUserInteraction,
+  WorkflowToolApprovalInteraction,
+  WorkflowEventWaitInteraction,
+  WorkflowInteractionPanelProps,
+} from "./workflow_interaction.js";
+export type {
+  GatewayCommand,
+  ServerRecord,
+  WorkflowConnection,
+  WorkflowRecord,
+  WorkflowSessionSnapshot,
+  WorkflowTransport,
+  WorkflowWaitInteraction,
+  WorkflowApprovalTarget,
+  WorkflowToolApprovalPolicy,
+  WorkflowStopPhase,
+  WorkflowStopState,
+} from "./workflow_runtime.js";
+export type { UseWorkflowSessionOptions, WorkflowSessionHook } from "./use_workflow_session.js";
+export type { WorkflowEventScope, WorkflowEventTarget, WorkflowEventTargetResolution } from "./event_target.js";
 export { chatToMarkdown, copyText, downloadTextFile, tryParseJson } from "./utils.js";
+export { workflowEvidence, foldWorkflowTools, historyRecords, type WorkflowStatistics, type WorkflowToolActivity, type WorkflowModelCall, type WorkflowSpeculation } from "./workflow_evidence.js";
+export { statDetail, StatDetailPanel, type StatDetail, type StatDetailKind, type StatDetailSection } from "./stat_detail.js";
 
 ## panel-chat/src/message_content.tsx
 
@@ -5083,7 +5257,7 @@ export function registerMonitorGpuWidget(tagName = "monitor-gpu") {
 
 {
   "name": "@abstractframework/monitor-memory",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Compact host RAM + device memory meter widget for AbstractFramework clients (polls AbstractGateway host memory metrics with Bearer auth).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -5114,7 +5288,8 @@ export function registerMonitorGpuWidget(tagName = "monitor-gpu") {
     }
   },
   "files": [
-    "src"
+    "src",
+    "README.md"
   ],
   "scripts": {
     "test": "node --test"
@@ -5128,9 +5303,12 @@ export function registerMonitorGpuWidget(tagName = "monitor-gpu") {
 ## monitor-memory/src/index.js
 
 export {
+  ACCELERATOR_NOTE,
+  acceleratorLabel,
   buildAuthHeaders,
   extractMemoryUsage,
   fetchHostMemoryMetrics,
+  formatBytes,
   makeMemoryMetricsUrl,
   resolveBearerToken,
 } from "./memory_metrics_api.js";
@@ -5153,9 +5331,52 @@ export function resolveBearerToken(args?: {
 
 export function buildAuthHeaders(args?: { token?: string }): { Authorization?: string };
 
+/** The accelerator caveat shipped with every device part. */
+export const ACCELERATOR_NOTE: "memory-mapped GGUF weights are not counted here";
+
+/**
+ * Human-readable byte size: BINARY math with BINARY labels
+ * (`B`/`KiB`/`MiB`/`GiB`/`TiB`, one decimal place). Byte-identical to the
+ * gateway console, console-tui, abstractcode-tui and abstractflow, so the same
+ * payload reads the same on every surface. Returns "" for non-finite or
+ * negative input.
+ */
+export function formatBytes(value: number | null | undefined): string;
+
+/**
+ * Builds the scoped accelerator label, e.g.
+ * `Accelerator heap · metal (all processes)`. An empty/unknown backend renders
+ * as the literal `device`.
+ */
+export function acceleratorLabel(
+  backend: string | null | undefined,
+  scope: MemoryUsageScope | string | null | undefined
+): string;
+
+/**
+ * Which reading the accelerator figure is: "all_processes" = accelerator-heap
+ * memory driver-allocated across every process (device.host_in_use_bytes),
+ * "process" = the process-local allocation (device.allocated_bytes), which can
+ * read 0 while the accelerator is full. Neither is the machine's memory use.
+ */
+export type MemoryUsageScope = "all_processes" | "process";
+
 export type MemoryUsagePart = {
-  /** Backend name for device memory (e.g. "cuda", "mps"); empty for RAM. */
+  /** Backend name for device memory (e.g. "metal", "cuda", "mps"); empty for RAM. */
   backend?: string;
+  /** Scope of the device figure. Absent for RAM. */
+  scope?: MemoryUsageScope;
+  /**
+   * Ready-to-render scoped label for the device figure, e.g.
+   * `Accelerator heap · metal (all processes)` or
+   * `Accelerator heap · metal (this process only)`. Absent for RAM.
+   */
+  label?: string;
+  /**
+   * The caveat to show with the device figure (tooltip/sub-line):
+   * `memory-mapped GGUF weights are not counted here`. Absent for RAM.
+   */
+  note?: string;
   usedBytes: number | null;
   totalBytes: number | null;
   pct: number;
@@ -5291,6 +5512,61 @@ function _obj(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
 
+const _KiB = 1024;
+const _MiB = 1024 * _KiB;
+const _GiB = 1024 * _MiB;
+const _TiB = 1024 * _GiB;
+
+/**
+ * Human-readable byte size: BINARY math with BINARY labels (IEC).
+ *
+ * Byte-identical to the gateway console (`_fmtBytes`), console-tui and
+ * abstractcode-tui (`human_bytes`) and abstractflow (`formatBytes`) — the same
+ * byte count must read the same string on every surface that shows this
+ * payload. Memory is binary wherever it is configured or reported: the host
+ * this widget was built against reads 137,438,953,472 B = 128.0 GiB exactly,
+ * and `sysctl iogpu.wired_limit_mb=110000` lands on 115,343,360,000 B =
+ * 107.4 GiB. Do not switch to 1e9 "because GB": three surfaces already divided
+ * by 1024 and only LABELLED it `GB`, which is how one 89,986,353,824 B GGUF
+ * came to read `89.99 GB` on the web console and `83.8 GB` in the TUIs.
+ *
+ * Returns "" for non-finite or negative input, so callers can fall back to
+ * their own placeholder rather than print a fake number.
+ */
+export function formatBytes(value) {
+  // Deliberately NOT `Number(value)`: `Number(null)` is 0, and a widget that
+  // renders a missing figure as `0 B` is inventing a measurement. Same guard,
+  // same rejections as abstractflow's `formatBytes`.
+  const n = value;
+  if (typeof n !== "number" || !Number.isFinite(n) || n < 0) return "";
+  if (n < _KiB) return `${n} B`;
+  if (n < _MiB) return `${(n / _KiB).toFixed(1)} KiB`;
+  if (n < _GiB) return `${(n / _MiB).toFixed(1)} MiB`;
+  if (n < _TiB) return `${(n / _GiB).toFixed(1)} GiB`;
+  return `${(n / _TiB).toFixed(1)} TiB`;
+}
+
+/**
+ * The accelerator figure counts driver-allocated accelerator buffers. It is
+ * BLIND to memory-mapped GGUF/llama.cpp weights: llama.cpp mmaps the `.gguf`
+ * and wraps the pages with `newBufferWithBytesNoCopy`, so they never become
+ * driver-allocated accelerator memory. Every surface must ship this note with
+ * the figure.
+ */
+export const ACCELERATOR_NOTE = "memory-mapped GGUF weights are not counted here";
+
+/**
+ * Builds the scoped accelerator label. The scope words are exactly
+ * `all processes` and `this process only`. Never reword them into anything
+ * that reads as whole-system usage — this figure does not measure that, and
+ * RAM (the first meter) is the machine's memory meter.
+ */
+export function acceleratorLabel(backend, scope) {
+  const name = String(backend || "").trim() || "device";
+  const suffix = scope === "process" ? "this process only" : "all processes";
+  return `Accelerator heap · ${name} (${suffix})`;
+}
+
 /**
  * Reads RAM and device (GPU/accelerator) memory usage from a host memory
  * metrics payload. Accepts either the memory object directly or a payload
@@ -5323,15 +5599,37 @@ export function extractMemoryUsage(payload) {
   let device = null;
   const deviceRaw = _obj(root.device);
   if (deviceRaw) {
+    // `allocated_bytes` is PROCESS-LOCAL: on Apple silicon it reads 0 while
+    // tens of GB are resident in another process, so a widget trusting it
+    // paints an empty bar next to a full accelerator. `host_in_use_bytes`
+    // counts driver-allocated accelerator buffers across ALL processes and
+    // `wired_limit_bytes` is the real accelerator-heap ceiling (`total_bytes`
+    // is the whole unified pool, not what the accelerator may take). Both win
+    // whenever present. Neither figure is the machine's memory use: `scope`,
+    // `label` and `note` carry the honest scope so no caller has to
+    // reconstruct it (and none may present this as whole-system usage).
     const backend = typeof deviceRaw.backend === "string" ? deviceRaw.backend : "";
-    const totalBytes = _num(deviceRaw.total_bytes);
+    const hostInUseBytes = _num(deviceRaw.host_in_use_bytes);
+    const wiredLimitBytes = _num(deviceRaw.wired_limit_bytes);
+    const deviceTotalBytes = _num(deviceRaw.total_bytes);
     const freeBytes = _num(deviceRaw.free_bytes);
-    let usedBytes = _num(deviceRaw.allocated_bytes);
-    if (usedBytes == null && totalBytes != null && freeBytes != null) {
-      usedBytes = Math.max(0, totalBytes - freeBytes);
+    let processBytes = _num(deviceRaw.allocated_bytes);
+    if (processBytes == null && deviceTotalBytes != null && freeBytes != null) {
+      processBytes = Math.max(0, deviceTotalBytes - freeBytes);
     }
+    const scope = hostInUseBytes == null ? "process" : "all_processes";
+    const usedBytes = hostInUseBytes == null ? processBytes : hostInUseBytes;
+    const totalBytes = wiredLimitBytes == null ? deviceTotalBytes : wiredLimitBytes;
     if (usedBytes != null && totalBytes != null && totalBytes > 0) {
-      device = { backend, usedBytes, totalBytes, pct: _clampPct((usedBytes / totalBytes) * 100) };
+      device = {
+        backend,
+        scope,
+        label: acceleratorLabel(backend, scope),
+        note: ACCELERATOR_NOTE,
+        usedBytes,
+        totalBytes,
+        pct: _clampPct((usedBytes / totalBytes) * 100),
+      };
     }
   }
 
@@ -5397,7 +5695,7 @@ export async function fetchHostMemoryMetrics({
 
 ## monitor-memory/src/monitor_memory_widget.js
 
-import { extractMemoryUsage, fetchHostMemoryMetrics } from "./memory_metrics_api.js";
+import { acceleratorLabel, extractMemoryUsage, fetchHostMemoryMetrics, formatBytes } from "./memory_metrics_api.js";
 
 const DEFAULTS = Object.freeze({
   tickMs: 5000,
@@ -5681,9 +5979,31 @@ export class MonitorMemoryWidgetController {
     if (wrap) {
       const devicePct = devicePart && Number.isFinite(devicePart.pct) ? _clamp(devicePart.pct, 0, 100) : null;
       const backend = devicePart && devicePart.backend ? String(devicePart.backend) : "device";
+      // The accelerator figure names its SCOPE: `all processes` is every
+      // process's driver-allocated accelerator memory, `this process only` is
+      // the process-local reading that can sit at 0% while the accelerator is
+      // full. Neither is the machine's memory use — RAM (first meter) is. The
+      // extractor ships the exact label; fall back to rebuilding it only for a
+      // hand-pushed part that predates the field.
+      const deviceLabel = devicePart
+        ? devicePart.label
+          ? String(devicePart.label)
+          : acceleratorLabel(backend, devicePart.scope)
+        : "";
+      // A percentage alone cannot be checked against anything: the operator
+      // reads `62%` and cannot tell whether the machine has 16 GiB or 128 GiB
+      // left. Ship the bytes beside it, in the SAME binary spelling every other
+      // surface uses (`formatBytes`), so a number read here matches the number
+      // read in the console, the TUIs and abstractflow for the same payload.
+      const sized = (pct, part) => {
+        const used = part ? formatBytes(part.usedBytes) : "";
+        const total = part ? formatBytes(part.totalBytes) : "";
+        if (!used || !total) return `${pct.toFixed(0)}%`;
+        return `${pct.toFixed(0)}% (${used} / ${total})`;
+      };
       const parts = [];
-      if (ramPct != null) parts.push(`RAM ${ramPct.toFixed(0)}%`);
-      if (devicePct != null) parts.push(`${backend} ${devicePct.toFixed(0)}%`);
+      if (ramPct != null) parts.push(`RAM ${sized(ramPct, ramPart)}`);
+      if (devicePct != null) parts.push(`${deviceLabel} ${sized(devicePct, devicePart)}`);
       wrap.title = this._unsupported
         ? "Host memory metrics unavailable"
         : parts.length
@@ -5696,6 +6016,13 @@ export class MonitorMemoryWidgetController {
       }
       if (device && device.tag) {
         device.tag.textContent = devicePart && devicePart.backend ? String(devicePart.backend).slice(0, 4) : "DEV";
+      }
+      if (device && device.meter) {
+        // The caveat has to ride ON the accelerator meter: hovering a child
+        // overrides the wrap tooltip, and in icon mode the meter IS the hover
+        // target. Without it a reader reads the bar as "everything resident",
+        // which memory-mapped GGUF weights are not.
+        device.meter.title = devicePart && devicePart.note ? String(devicePart.note) : "";
       }
     }
 
@@ -5927,14 +6254,36 @@ Each folder is an npm package and can be published independently.
 
 ## Suggested release steps
 
-1. Bump versions in each `*/package.json` you plan to publish (this repo currently keeps versions in sync).
-1. Update [`CHANGELOG.md`](../CHANGELOG.md) with what changed.
-1. Install workspace deps at repo root: `npm install`
+The tagged workflow does the publishing; these steps prepare the tag it needs.
+
+1. Bump the version of each package that changed (packages are versioned
+   independently; an unchanged package keeps its published version):
+   `npm version <x.y.z> -w <package> --no-git-tag-version`. Then bump the private
+   root `package.json` to the release version; the tag names the root version.
+1. Bump the `@abstractframework/ui-kit` range in `panel-chat/package.json`
+   (`peerDependencies` + `devDependencies`) — `npm version` does not touch it.
+1. Promote the `## Unreleased` section of [`CHANGELOG.md`](../CHANGELOG.md) to
+   `## <x.y.z> - <YYYY-MM-DD>`. The release workflow reads this exact heading to
+   build the GitHub release notes, so the version and format must match.
 1. Build packages (optional preflight): `npm run build`
 1. Run package tests:
    - `npm test` (root; runs every workspace's tests)
 1. Dry-run the package tarballs: `npm run pack:dry`
-1. Publish from the package directory, or use the GitHub Actions `release.yml` workflow:
+1. Commit, then push the commit **before** the tag so CI runs on it.
+1. Tag and push: `git tag v<x.y.z> && git push origin v<x.y.z>`
+
+Pushing a `v*` tag runs `release.yml`, which re-runs build/test/pack, verifies
+the tag matches the root `package.json` version, publishes every package whose
+version is not yet on npm (a version already on the registry is skipped), and
+creates the GitHub release. A tag whose version does not match the committed root
+`package.json` fails the `Validate tag version` step and publishes
+nothing — retag the bumped commit rather than editing the tag's history.
+
+`workflow_dispatch` runs the same job without the tag-version check and skips any
+version already on the registry; it is the repair path for a partially completed
+release.
+
+To publish a single package by hand:
 
 ```bash
 cd <package>
@@ -5945,7 +6294,30 @@ Notes:
 - Scoped packages are private by default; `--access public` is required for public release.
 - React packages publish compiled output from `dist/` and expose CSS as separate exports (see each package’s `exports`).
 - npm trusted publishing should be configured for each package with repository `lpalbou/AbstractUIC`, workflow `release.yml`, and environment `npm`.
-- Publish order is `ui-kit`, then `monitor-active-memory`, `monitor-flow`, `monitor-gpu`, `monitor-memory`, then `panel-chat`.
+- Publish order is `ui-kit`, then `monitor-active-memory`, `monitor-flow`,
+  `monitor-gpu`, `panel-chat`, then `app-server` and `monitor-memory`. The last two
+  have no dependents in this repository, so they go last to keep a first-time
+  bootstrap (below) off the critical path.
+
+## Bootstrapping a brand-new package
+
+npm trusted publishing cannot create a package name — configuring a trusted
+publisher requires the package to already exist
+([`npm trust` prerequisites](https://docs.npmjs.com/cli/v11/commands/npm-trust/),
+[npm/cli#8544](https://github.com/npm/cli/issues/8544)). So the first publish of
+a new package must be token-authenticated:
+
+1. `npm login` (or export a granular access token with publish rights).
+1. `cd <package> && npm publish --access public`
+1. On npmjs.com, open the package's settings → Trusted Publisher and add
+   repository `lpalbou/AbstractUIC`, workflow `release.yml`, environment `npm`.
+   Configurations created after 2026-05-20 must explicitly allow an action, so
+   select "publish" (`npm trust github <package> --repo lpalbou/AbstractUIC
+   --file release.yml --env npm --allow-publish`).
+
+For a package that does not exist on the registry yet, `release.yml` still
+attempts the publish (so the registry's answer is in the log) and turns a refusal
+into a warning instead of failing the release.
 
 ## Related docs
 
@@ -6134,9 +6506,92 @@ Please include:
 
 All notable changes to AbstractUIC are documented in this file.
 
-This project is a **multi-package repository**; versions are currently kept in sync across packages.
+This project is a **multi-package repository**. Since 0.1.10 each package is versioned
+independently: a package is bumped only when it changes. A release heading names the
+repository tag (the private root `package.json` version) and lists the package versions it
+ships.
 
 ## Unreleased
+
+## 0.1.10 - 2026-09-23
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.1.10 | updated |
+| `@abstractframework/panel-chat` | 0.1.16 | updated (requires `ui-kit` `^0.1.10`) |
+| `@abstractframework/app-server` | 0.1.9 | first npm publish |
+| `@abstractframework/monitor-memory` | 0.1.9 | first npm publish |
+| `@abstractframework/monitor-flow` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-gpu` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-active-memory` | 0.1.9 | unchanged |
+
+### ui-kit 0.1.10
+
+- Added: `SpeculationSelect` and the pure native-MTP helpers
+  (`speculationCapability()`, `normalizeSpeculationValue()`, `speculationSelection()`,
+  `speculationFromSelection()`, `SpeculationValue`, `SpeculationCapability`). The selector is
+  driven by the host's model-capability payload (`execution.speculation`): inheritance,
+  explicit Off and only the advertised depths are offered; readiness and unavailable saved
+  selections stay visible; nothing is inferred from model names.
+- Added: `ProviderModelPicker` accepts `enableSpeculation` to show the speculation control for
+  text routes, using its injected capability transport.
+- Added: `VoiceSettings`, a catalog-driven voice preferences form (provider, model, voice,
+  profile, speed, quality preset, instructions) with an injected catalog transport.
+- Changed: `useGatewayVoice` exposes `cancel_voice_ptt_recording()` to discard a recording,
+  pending microphone permission or transcription when its owner changes, and a superseded
+  text-to-speech stream no longer starts playing late.
+
+### panel-chat 0.1.16
+
+- Added: `WorkflowChat`, a controlled, presentation-only chat surface for workflow hosts
+  (`messages`, `draft`, async `onSend` with retained draft and retry on failure, `busy` /
+  `onCancel` Stop control, `sendWhileBusy`, read-only `disabled` mode, `renderMarkdown`), and
+  `WorkflowInteractionPanel` for pending `ask-user`, `tool-approval` and `event-wait`
+  interactions.
+- Added: `WorkflowSessionController` and `useWorkflowSession`, a gateway-facing controller
+  that consumes an injected `WorkflowTransport` and keeps no URL, credential or browser
+  persistence; `authScopeKey` resets it on sign-in changes. See
+  [`panel-chat/examples/workflow_assistant.tsx`](panel-chat/examples/workflow_assistant.tsx).
+- Added: granted tool approvals are running work, not a question. Under a standing
+  permission (or an accepted Allow) `snapshot.toolApprovalGranted` is set, the batch's tools
+  are presented as running and `workflowProgress` reports "Running N tools".
+  `workflowPendingInteraction(snapshot)` returns the wait a host should render as a question.
+- Added: Stop states from ledger evidence. `WorkflowSessionSnapshot.stop`
+  (`WorkflowStopState`) reports `stopping`, `stopped` (root cancelled and every started model
+  call terminated) or `forced` (gateway kill switch); `WorkflowChat` `stopState` shows
+  "Stopping…" and then the outcome where the Stop button was.
+- Added: drag-and-drop and paste to attach. `WorkflowChat` `onFiles(files)` and
+  `attachments`; a drop zone over the composer; folders, drops outside the chat and a
+  disabled chat are refused with a visible message; pasted screenshots and files attach
+  (Office selections still paste as text); a polite live region announces the target.
+  `ChatComposer` gains `leading`, `overlay` and `onPaste`; pure helpers are exported from
+  `file_drop.ts` (`DragPresence`, `droppedFiles`, `pastedFiles`, `folderRefusal`, …).
+- Added: structured detail panels for the message-card chips (tokens / tools / time) via
+  `StatDetailPanel` and the pure `statDetail(kind, statistics)`: per-call token and cache
+  figures, measured time-to-first-token, prefill and generation rates, speculation, tool
+  batches and failure classes. Absent metrics read "not reported", never 0.
+- Added: `workflowEvidence`, `foldWorkflowTools`, `historyRecords`, `ToolActivity`,
+  `ToolActivityGroup`, `workflowProgress` and `resolveWorkflowEventTarget` (event waits
+  recover their canonical scope from ledger evidence; an ambiguous wait is shown as
+  unavailable rather than guessed).
+- Fixed: the duration chip's prompt-processing line pairs each call's prompt time with the
+  tokens it actually processed, so a prompt-cache hit no longer shows a rate computed over
+  restored tokens.
+- Changed: the `@abstractframework/ui-kit` peer range is now `^0.1.10`.
+
+### app-server 0.1.9 and monitor-memory 0.1.9
+
+- First publication on npm of `@abstractframework/app-server` (the app-origin gateway session
+  proxy, `createGatewaySessionProxy`) and `@abstractframework/monitor-memory` (host memory
+  meter web component). Apps no longer need a `file:` reference to this repository.
+- monitor-memory's tarball now includes its README.
+
+### Release process
+
+- The release workflow publishes `app-server`, checks the tag against the root version only
+  (packages are versioned independently) and skips versions already on npm.
+
+## 0.1.9 - 2026-08-29
 
 ### Added (2026-08-27)
 

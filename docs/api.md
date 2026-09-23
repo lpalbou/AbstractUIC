@@ -37,6 +37,10 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Theme: `THEMES`, `THEME_SPECS`, `applyTheme()`, `getThemeSpec()`, `themeClassName()` — see [Theming](./theming.md)
 - Typography: `FONT_SCALES`, `HEADER_DENSITIES`, `applyTypography()`, `getFontScaleSpec()`, `getHeaderDensitySpec()`
 - Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker` (gateway-default mode + provider→models cascade, injected transports), `FontScaleSelect`, `HeaderDensitySelect`, `ToolPolicyEditor`
+- MTP: `SpeculationSelect`, `speculationCapability()`, `normalizeSpeculationValue()`,
+  `speculationSelection()`, `speculationFromSelection()` and `SpeculationValue` /
+  `SpeculationCapability` types. Enable `ProviderModelPicker`'s `enableSpeculation` for text
+  routes; its injected `fetchModelCapabilities(model, provider)` returns the Gateway payload.
 - Gateway connection: `GatewayConnectModal` + `useGatewayConnection()` (the connection state machine: boot probe, auto-open on resolved disconnect, self-close on sign-in), plus helpers `fetchGatewayConnection()`, `signInGateway()`, `signOutGateway()`, `gatewayStatusBadge()`, `normalizeGatewayUrl()`; `GatewaySessionSignInCard` is the underlying form card.
 - Phase capability matrix: `PhaseCapabilityMatrix` + a framework-free core (`validateMatrixPayload()`, `resolveCellView()`, `applyCellAction()`, `reconcilePatches()`, `serializeCellPatches()`)
 - Critical actions: `CriticalActionDialog` + core (`resolveCriticalActionGate()`, `normalizeCriticalActionFacts()`)
@@ -46,6 +50,13 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Icons: `Icon`, `IconName` (~40 glyphs, 24-grid and 16-grid families)
 
 See: [`ui-kit/README.md`](../ui-kit/README.md) and the [Adoption guide](./adoption-guide.md).
+
+`SpeculationSelect` consumes `execution.speculation` from the host capability payload. It
+offers inheritance (`undefined`), Off (`false`), and only advertised depths. Explicit depths
+serialize as `{mode: "native_mtp", num_draft_tokens: n, require_acceleration: true}`. It shows
+readiness/reload reasons and preserves unavailable saved choices; it never infers support
+from model names, performs network requests, downloads artifacts, or loads a model. Hosts
+own persistence and provider/model/endpoint-scoped discovery.
 
 ## `@abstractframework/panel-chat`
 

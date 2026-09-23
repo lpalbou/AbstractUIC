@@ -3,6 +3,8 @@ export { FONT_SCALES, HEADER_DENSITIES, applyTypography, getFontScaleSpec, getHe
 export { AfSelect, type AfSelectProps, type AfSelectOption } from "./af_select.js";
 export { ProviderModelSelect, type ProviderModelSelectProps, type ProviderOption } from "./provider_model_select.js";
 export { ProviderModelPicker, type ProviderModelPickerProps, type ProviderModelPickerValue } from "./provider_model_picker.js";
+export { SpeculationSelect } from "./speculation_select.js";
+export { normalizeSpeculationValue, speculationCapability, speculationSelection, speculationFromSelection, type SpeculationValue, type SpeculationCapability } from "./speculation_control.js";
 export {
   GatewaySessionSignInCard,
   type GatewaySessionSignInCardProps,
@@ -126,6 +128,7 @@ export {
   type EffortFacts,
   type EffortRow,
 } from "./cognition_bloom_core.js";
+export { VoiceSettings, type VoicePreferences, type VoiceCatalog } from "./voice_settings.js";
 export {
   RULED_PHASES,
   PHASE_DESCRIPTORS,

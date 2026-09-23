@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { ChatMessageCard, type ChatMessage, type ChatMessageCardProps } from "./chat_message_card.js";
+import { ToolActivityGroup } from "./tool_activity.js";
 
 export type ChatThreadProps = {
   messages: ChatMessage[];
@@ -8,6 +9,11 @@ export type ChatThreadProps = {
   empty?: React.ReactNode;
   autoScroll?: boolean;
   autoScrollThresholdPx?: number;
+  /** Optional content after messages, kept inside the same scroll surface. */
+  after?: React.ReactNode;
+  /** A stable identity for `after`, so newly presented content can follow
+   * normal auto-scroll intent without treating arbitrary React nodes as data. */
+  afterKey?: string | number | null;
   messageProps?: Omit<ChatMessageCardProps, "message">;
 };
 
@@ -25,6 +31,15 @@ export function ChatThread(props: ChatThreadProps): React.ReactElement {
   const [stick, set_stick] = useState(true);
 
   const msgs = useMemo(() => (Array.isArray(props.messages) ? props.messages : []), [props.messages]);
+  const groups = useMemo(() => {
+    const out: ChatMessage[][] = [];
+    for (const message of msgs) {
+      const last = out[out.length - 1];
+      if (message.toolActivity && last?.[0]?.toolActivity && last[0].runId === message.runId) last.push(message);
+      else out.push([message]);
+    }
+    return out;
+  }, [msgs]);
 
   useEffect(() => {
     if (!auto) return;
@@ -45,21 +60,27 @@ export function ChatThread(props: ChatThreadProps): React.ReactElement {
   const content_signature = useMemo(() => {
     let total = 0;
     for (const m of msgs) total += String(m.content ?? "").length;
-    return `${msgs.length}:${total}`;
-  }, [msgs]);
+    return `${msgs.length}:${total}:${String(props.afterKey ?? "")}`;
+  }, [msgs, props.afterKey]);
 
   useEffect(() => {
     if (!auto) return;
     if (!stick) return;
-    bottom_ref.current?.scrollIntoView({ block: "end" });
+    // Own only this scroll surface. scrollIntoView also scrolls enclosing
+    // hidden-overflow app shells, moving headers offscreen after tool growth.
+    const list = list_ref.current;
+    if (list) list.scrollTop = list.scrollHeight;
   }, [auto, stick, content_signature]);
 
   return (
     <div ref={list_ref} className={["pc-chat-thread", props.className].filter(Boolean).join(" ")}>
       {!msgs.length ? props.empty || null : null}
-      {msgs.map((m, idx) => (
-        <ChatMessageCard key={String(m.id || "") || String(m.ts || "") + ":" + String(m.role || "") + ":" + idx} message={m} {...(props.messageProps || {})} />
-      ))}
+      {groups.map((group, idx) => {
+        const m = group[0];
+        const key = String(m.id || "") || String(m.ts || "") + ":" + String(m.role || "") + ":" + idx;
+        return m.toolActivity ? <ToolActivityGroup key={key} tools={group.map(message => message.toolActivity!)} showCopy={props.messageProps?.showCopy} /> : <ChatMessageCard key={key} message={m} {...(props.messageProps || {})} />;
+      })}
+      {props.after}
       <div ref={bottom_ref} />
     </div>
   );

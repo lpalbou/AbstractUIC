@@ -13,8 +13,10 @@ Each folder is an npm package and can be published independently.
 
 The tagged workflow does the publishing; these steps prepare the tag it needs.
 
-1. Bump every version in lockstep (this repo keeps versions in sync):
-   `npm version <x.y.z> --workspaces --include-workspace-root --no-git-tag-version`
+1. Bump the version of each package that changed (packages are versioned
+   independently; an unchanged package keeps its published version):
+   `npm version <x.y.z> -w <package> --no-git-tag-version`. Then bump the private
+   root `package.json` to the release version; the tag names the root version.
 1. Bump the `@abstractframework/ui-kit` range in `panel-chat/package.json`
    (`peerDependencies` + `devDependencies`) — `npm version` does not touch it.
 1. Promote the `## Unreleased` section of [`CHANGELOG.md`](../CHANGELOG.md) to
@@ -28,9 +30,10 @@ The tagged workflow does the publishing; these steps prepare the tag it needs.
 1. Tag and push: `git tag v<x.y.z> && git push origin v<x.y.z>`
 
 Pushing a `v*` tag runs `release.yml`, which re-runs build/test/pack, verifies
-the tag matches the root version and every published package's version, publishes
-to npm, and creates the GitHub release. A tag whose version does not match the
-committed `package.json` files fails the `Validate tag version` step and publishes
+the tag matches the root `package.json` version, publishes every package whose
+version is not yet on npm (a version already on the registry is skipped), and
+creates the GitHub release. A tag whose version does not match the committed root
+`package.json` fails the `Validate tag version` step and publishes
 nothing — retag the bumped commit rather than editing the tag's history.
 
 `workflow_dispatch` runs the same job without the tag-version check and skips any
@@ -49,10 +52,9 @@ Notes:
 - React packages publish compiled output from `dist/` and expose CSS as separate exports (see each package’s `exports`).
 - npm trusted publishing should be configured for each package with repository `lpalbou/AbstractUIC`, workflow `release.yml`, and environment `npm`.
 - Publish order is `ui-kit`, then `monitor-active-memory`, `monitor-flow`,
-  `monitor-gpu`, `panel-chat`, then `monitor-memory`. `monitor-memory` is
-  dependency-free, so it goes last to keep its bootstrap (below) off the critical path.
-- `app-server` is a workspace and is version-bumped with the others, but it is
-  not published to npm and has no step in `release.yml`.
+  `monitor-gpu`, `panel-chat`, then `app-server` and `monitor-memory`. The last two
+  have no dependents in this repository, so they go last to keep a first-time
+  bootstrap (below) off the critical path.
 
 ## Bootstrapping a brand-new package
 
@@ -70,8 +72,9 @@ a new package must be token-authenticated:
    select "publish" (`npm trust github <package> --repo lpalbou/AbstractUIC
    --file release.yml --env npm --allow-publish`).
 
-Until this is done for `@abstractframework/monitor-memory`, its step in
-`release.yml` emits a warning and skips rather than failing the release.
+For a package that does not exist on the registry yet, `release.yml` still
+attempts the publish (so the registry's answer is in the log) and turns a refusal
+into a warning instead of failing the release.
 
 ## Related docs
 

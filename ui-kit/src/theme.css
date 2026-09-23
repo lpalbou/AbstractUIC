@@ -3013,3 +3013,9 @@
   font-size: 11px;
   color: var(--danger, #e05555);
 }
+.af-voice-settings { display: grid; gap: 20px; color: var(--text-primary); }
+.af-voice-settings > p { color: var(--text-secondary); font-size: 13px; line-height: 1.6; margin: 0; }
+.af-voice-settings > label { display: grid; gap: 8px; font-size: 13px; }
+.af-voice-settings select, .af-voice-settings textarea { border: 1px solid var(--border-default); background: var(--bg-input, var(--bg-primary)); color: var(--text-primary); border-radius: 8px; padding: 10px; font: inherit; min-width: 0; }
+.af-voice-settings > button { justify-self: start; background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border-default); border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+.af-pmp__reasoning { display: grid; gap: 8px; margin-top: 16px; font-size: 13px; }

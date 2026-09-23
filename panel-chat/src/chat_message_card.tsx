@@ -4,6 +4,9 @@ import { Icon, type IconName } from "@abstractframework/ui-kit";
 
 import { ChatMessageContent } from "./message_content.js";
 import { copyText } from "./utils.js";
+import { ToolActivity } from "./tool_activity.js";
+import type { WorkflowStatistics, WorkflowToolActivity } from "./workflow_evidence.js";
+import { StatChip, statDetail, type StatDetail } from "./stat_detail.js";
 
 export type ChatMessageLevel = "info" | "warn" | "error";
 
@@ -15,6 +18,9 @@ export type ChatMessage = {
   title?: string;
   level?: ChatMessageLevel;
   kind?: string; // e.g. report_bug, report_feature
+  toolActivity?: WorkflowToolActivity;
+  statistics?: WorkflowStatistics;
+  runId?: string;
 };
 
 export type ChatAttachment = {
@@ -32,7 +38,28 @@ export type ChatStat = {
   title?: string;
   icon?: React.ReactNode;
   onClick?: () => void;
+  /** Structured detail (tokens / time / tools). When present the chip opens
+   *  a hover/focus panel instead of a native one-line `title`. */
+  detail?: StatDetail;
 };
+
+/** The workflow stat chips (2026-09-22 rework). The native `title` held one
+ *  or two lines ("Input: 5,996 · Output: 423"); the ledger carries the cache
+ *  split, measured TTFT, generation rate, speculation and per-tool timing.
+ *  `statDetail` (pure, see stat_detail.tsx) folds them into sections; the
+ *  chip renders them as a structured panel. Absent metrics read "not
+ *  reported", never 0. */
+function workflowStats(metrics: WorkflowStatistics): ChatStat[] {
+  const tokens = metrics.totalTokens !== undefined ? statDetail("tokens", metrics) : null;
+  const tools = statDetail("tools", metrics);
+  const time = metrics.durationMs !== undefined ? statDetail("time", metrics) : null;
+  return [
+    ...(tokens ? [{ label: `${metrics.totalTokens!.toLocaleString()} tokens`, detail: tokens }] : []),
+    { label: `${metrics.toolCalls} ${metrics.toolCalls === 1 ? "tool" : "tools"}`, detail: tools },
+    ...(metrics.changedFiles.length ? [{ label: `${metrics.changedFiles.length} ${metrics.changedFiles.length === 1 ? "file" : "files"} changed`, title: metrics.changedFiles.join("\n") }] : []),
+    ...(time ? [{ label: `${(metrics.durationMs! / 1000).toFixed(metrics.durationMs! < 10000 ? 1 : 0)}s`, detail: time }] : []),
+  ];
+}
 
 type RoleUI = { label: string; icon: IconName; variant: string };
 
@@ -106,7 +133,13 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
   const show_copy = props.showCopy !== false;
 
   const attachments = Array.isArray(props.attachments) ? props.attachments : [];
-  const stats = Array.isArray(props.stats) ? props.stats : [];
+  const metrics = m.statistics;
+  const stats: ChatStat[] = useMemo(
+    () => (Array.isArray(props.stats) ? props.stats : metrics ? workflowStats(metrics) : []),
+    [props.stats, metrics],
+  );
+
+  if (m.toolActivity) return <ToolActivity tool={m.toolActivity} showCopy={props.showCopy} />;
 
   return (
     <div className={["pc-chat-item", `pc-chat-item--${role_ui.variant}`, props.className].filter(Boolean).join(" ")}>
@@ -182,20 +215,22 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
           {stats.slice(0, 12).map((s, idx) => {
             const label = String(s.label || "").trim();
             if (!label) return null;
+            if (s.detail)
+              return <StatChip key={s.id || `${label}:${idx}`} label={label} detail={s.detail} icon={s.icon} onClick={s.onClick} />;
             const title = String(s.title || "").trim();
             const clickable = typeof s.onClick === "function";
+            const StatElement = clickable ? "button" : "span";
             return (
-              <button
+              <StatElement
                 key={s.id || `${label}:${idx}`}
-                type="button"
+                {...(clickable ? { type: "button" as const } : {})}
                 className={["pc-chat-stat", clickable ? "pc-chat-stat--clickable" : ""].filter(Boolean).join(" ")}
                 title={title || undefined}
                 onClick={clickable ? () => s.onClick?.() : undefined}
-                disabled={!clickable}
               >
                 {s.icon ? <span className="pc-chat-stat-icon" aria-hidden="true">{s.icon}</span> : null}
                 <span className="pc-chat-stat-label">{label}</span>
-              </button>
+              </StatElement>
             );
           })}
         </div>

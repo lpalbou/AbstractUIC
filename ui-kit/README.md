@@ -54,6 +54,19 @@ calls the callbacks you provide.
 
 The default approve/ask classification is exposed as `TOOL_POLICY_DEFAULTS` (mirrors the AbstractRuntime `ToolApprovalPolicy` defaults).
 
+### Native MTP control
+
+`SpeculationSelect` is the shared inheritance / Off / depth selector. Pass the execution
+host's complete model-capability payload as `capabilities`; only depths advertised under
+`execution.speculation.supported_depths` are offered. Missing capability data is shown as
+unknown, not guessed from a model name. Saved unavailable selections remain visible.
+
+`ProviderModelPicker` includes this control when `enableSpeculation` is true; supply its
+usual provider-aware capability transport. The `speculation` value is absent for inheritance,
+`false` for Off, or a native-MTP object with `require_acceleration: true` for an explicit
+depth. Apps own preference storage and omit inherited values from requests. Neither
+component loads models or downloads heads. See the [API reference](../docs/api.md).
+
 ## Exported API
 
 See `ui-kit/src/index.ts` for the authoritative export list.

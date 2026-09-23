@@ -47,13 +47,8 @@ jobs:
             echo "Tag version ($TAG_VERSION) does not match root package.json version ($ROOT_VERSION)." >&2
             exit 1
           fi
-          for dir in ui-kit monitor-active-memory monitor-flow monitor-gpu monitor-memory panel-chat; do
-            PKG_VERSION="$(node -p "require('./${dir}/package.json').version")"
-            if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
-              echo "Tag version ($TAG_VERSION) does not match ${dir}/package.json version ($PKG_VERSION)." >&2
-              exit 1
-            fi
-          done
+          # Package versions are independent (a package is only bumped when it
+          # changes); the tag names the monorepo release, i.e. the root version.
 
       - name: Publish @abstractframework/ui-kit
         working-directory: ui-kit
@@ -110,23 +105,30 @@ jobs:
             npm publish --access public --provenance
           fi
 
-      # Published last: monitor-memory has no dependents, so it cannot hold back
-      # the packages above. It has never been published, and trusted publishing
-      # cannot create a package name (npm/cli#8544) — the first publish must be
-      # made with an access token, after which the trusted publisher is
-      # configured for it. Until that bootstrap happens, warn and skip.
-      - name: Publish @abstractframework/monitor-memory
-        working-directory: monitor-memory
+      # Published last: these packages have no dependents inside this repo, so
+      # they cannot hold back the packages above. npm trusted publishing cannot
+      # create a package name (npm/cli#8544): a package that does not exist on
+      # the registry yet must be published once with an access token, after
+      # which its trusted publisher is configured and this step takes over.
+      # The publish is still attempted so the registry's exact answer is in
+      # the log; a refusal of a first-time publish is a warning, not a failure.
+      - name: Publish @abstractframework/app-server and monitor-memory
         run: |
-          PKG_NAME="$(node -p "require('./package.json').name")"
-          PKG_VERSION="$(node -p "require('./package.json').version")"
-          if npm view "${PKG_NAME}@${PKG_VERSION}" version >/dev/null 2>&1; then
-            echo "${PKG_NAME}@${PKG_VERSION} is already published; skipping."
-          elif ! npm view "${PKG_NAME}" version >/dev/null 2>&1; then
-            echo "::warning::${PKG_NAME} does not exist on the registry yet, so trusted publishing cannot publish it. Publish it once with an access token and configure its trusted publisher, then this step takes over."
-          else
-            npm publish --access public --provenance
-          fi
+          for dir in app-server monitor-memory; do
+            PKG_NAME="$(node -p "require('./${dir}/package.json').name")"
+            PKG_VERSION="$(node -p "require('./${dir}/package.json').version")"
+            if npm view "${PKG_NAME}@${PKG_VERSION}" version >/dev/null 2>&1; then
+              echo "${PKG_NAME}@${PKG_VERSION} is already published; skipping."
+            elif npm view "${PKG_NAME}" version >/dev/null 2>&1; then
+              (cd "${dir}" && npm publish --access public --provenance)
+            elif ! OUT="$(cd "${dir}" && npm publish --access public --provenance 2>&1)"; then
+              echo "$OUT"
+              ERR="$(printf '%s\n' "$OUT" | grep -E 'npm (error|ERR)' | head -3 | tr '\n' ' ')"
+              echo "::warning::${PKG_NAME}@${PKG_VERSION} first-time publish refused by the registry: ${ERR}"
+            else
+              echo "$OUT"
+            fi
+          done
 
       - name: Create GitHub release
         if: startsWith(github.ref, 'refs/tags/v')

@@ -2,9 +2,90 @@
 
 All notable changes to AbstractUIC are documented in this file.
 
-This project is a **multi-package repository**; versions are currently kept in sync across packages.
+This project is a **multi-package repository**. Since 0.1.10 each package is versioned
+independently: a package is bumped only when it changes. A release heading names the
+repository tag (the private root `package.json` version) and lists the package versions it
+ships.
 
 ## Unreleased
+
+## 0.1.10 - 2026-09-23
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.1.10 | updated |
+| `@abstractframework/panel-chat` | 0.1.16 | updated (requires `ui-kit` `^0.1.10`) |
+| `@abstractframework/app-server` | 0.1.9 | first npm publish |
+| `@abstractframework/monitor-memory` | 0.1.9 | first npm publish |
+| `@abstractframework/monitor-flow` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-gpu` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-active-memory` | 0.1.9 | unchanged |
+
+### ui-kit 0.1.10
+
+- Added: `SpeculationSelect` and the pure native-MTP helpers
+  (`speculationCapability()`, `normalizeSpeculationValue()`, `speculationSelection()`,
+  `speculationFromSelection()`, `SpeculationValue`, `SpeculationCapability`). The selector is
+  driven by the host's model-capability payload (`execution.speculation`): inheritance,
+  explicit Off and only the advertised depths are offered; readiness and unavailable saved
+  selections stay visible; nothing is inferred from model names.
+- Added: `ProviderModelPicker` accepts `enableSpeculation` to show the speculation control for
+  text routes, using its injected capability transport.
+- Added: `VoiceSettings`, a catalog-driven voice preferences form (provider, model, voice,
+  profile, speed, quality preset, instructions) with an injected catalog transport.
+- Changed: `useGatewayVoice` exposes `cancel_voice_ptt_recording()` to discard a recording,
+  pending microphone permission or transcription when its owner changes, and a superseded
+  text-to-speech stream no longer starts playing late.
+
+### panel-chat 0.1.16
+
+- Added: `WorkflowChat`, a controlled, presentation-only chat surface for workflow hosts
+  (`messages`, `draft`, async `onSend` with retained draft and retry on failure, `busy` /
+  `onCancel` Stop control, `sendWhileBusy`, read-only `disabled` mode, `renderMarkdown`), and
+  `WorkflowInteractionPanel` for pending `ask-user`, `tool-approval` and `event-wait`
+  interactions.
+- Added: `WorkflowSessionController` and `useWorkflowSession`, a gateway-facing controller
+  that consumes an injected `WorkflowTransport` and keeps no URL, credential or browser
+  persistence; `authScopeKey` resets it on sign-in changes. See
+  [`panel-chat/examples/workflow_assistant.tsx`](panel-chat/examples/workflow_assistant.tsx).
+- Added: granted tool approvals are running work, not a question. Under a standing
+  permission (or an accepted Allow) `snapshot.toolApprovalGranted` is set, the batch's tools
+  are presented as running and `workflowProgress` reports "Running N tools".
+  `workflowPendingInteraction(snapshot)` returns the wait a host should render as a question.
+- Added: Stop states from ledger evidence. `WorkflowSessionSnapshot.stop`
+  (`WorkflowStopState`) reports `stopping`, `stopped` (root cancelled and every started model
+  call terminated) or `forced` (gateway kill switch); `WorkflowChat` `stopState` shows
+  "Stopping…" and then the outcome where the Stop button was.
+- Added: drag-and-drop and paste to attach. `WorkflowChat` `onFiles(files)` and
+  `attachments`; a drop zone over the composer; folders, drops outside the chat and a
+  disabled chat are refused with a visible message; pasted screenshots and files attach
+  (Office selections still paste as text); a polite live region announces the target.
+  `ChatComposer` gains `leading`, `overlay` and `onPaste`; pure helpers are exported from
+  `file_drop.ts` (`DragPresence`, `droppedFiles`, `pastedFiles`, `folderRefusal`, …).
+- Added: structured detail panels for the message-card chips (tokens / tools / time) via
+  `StatDetailPanel` and the pure `statDetail(kind, statistics)`: per-call token and cache
+  figures, measured time-to-first-token, prefill and generation rates, speculation, tool
+  batches and failure classes. Absent metrics read "not reported", never 0.
+- Added: `workflowEvidence`, `foldWorkflowTools`, `historyRecords`, `ToolActivity`,
+  `ToolActivityGroup`, `workflowProgress` and `resolveWorkflowEventTarget` (event waits
+  recover their canonical scope from ledger evidence; an ambiguous wait is shown as
+  unavailable rather than guessed).
+- Fixed: the duration chip's prompt-processing line pairs each call's prompt time with the
+  tokens it actually processed, so a prompt-cache hit no longer shows a rate computed over
+  restored tokens.
+- Changed: the `@abstractframework/ui-kit` peer range is now `^0.1.10`.
+
+### app-server 0.1.9 and monitor-memory 0.1.9
+
+- First publication on npm of `@abstractframework/app-server` (the app-origin gateway session
+  proxy, `createGatewaySessionProxy`) and `@abstractframework/monitor-memory` (host memory
+  meter web component). Apps no longer need a `file:` reference to this repository.
+- monitor-memory's tarball now includes its README.
+
+### Release process
+
+- The release workflow publishes `app-server`, checks the tag against the root version only
+  (packages are versioned independently) and skips versions already on npm.
 
 ## 0.1.9 - 2026-08-29
 

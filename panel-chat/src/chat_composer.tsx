@@ -5,6 +5,8 @@ export type ChatComposerProps = {
   onChange: (value: string) => void;
   onSubmit: () => void;
   placeholder?: string;
+  /** Accessible name for the message field. Falls back to its placeholder. */
+  ariaLabel?: string;
   disabled?: boolean;
   busy?: boolean;
   rows?: number;
@@ -15,6 +17,11 @@ export type ChatComposerProps = {
   sendLabel?: string;
   busyLabel?: string;
   actions?: React.ReactNode;
+  /** Rendered inside the composer box above the textarea (e.g. attachment chips). */
+  leading?: React.ReactNode;
+  /** Absolutely positioned layer over the composer box (e.g. a drop zone). */
+  overlay?: React.ReactNode;
+  onPaste?: React.ClipboardEventHandler<HTMLTextAreaElement>;
 };
 
 export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerProps>(function ChatComposer(
@@ -28,6 +35,7 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
 
   return (
     <div className={["pc-composer", props.className].filter(Boolean).join(" ")}>
+      {props.leading}
       <textarea
         ref={ref}
         className={["pc-composer__textarea", props.textareaClassName].filter(Boolean).join(" ")}
@@ -39,8 +47,10 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
         autoCapitalize="off"
         autoComplete="off"
         placeholder={props.placeholder || ""}
+        aria-label={props.ariaLabel || props.placeholder || "Message"}
         disabled={disabled}
         autoFocus={Boolean(props.autoFocus)}
+        onPaste={props.onPaste}
         onKeyDown={(e) => {
           if (e.key !== "Enter" || e.shiftKey) return;
           // Committing an IME composition with Enter must never send the
@@ -67,6 +77,7 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
           {busy ? props.busyLabel || "Thinking…" : props.sendLabel || "Send"}
         </button>
       </div>
+      {props.overlay}
     </div>
   );
 });

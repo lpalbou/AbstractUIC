@@ -20,13 +20,15 @@
  * TOKEN CONTRACT (derived from the slice — every custom property consumed;
  * all carry fallbacks so the file works without theme.css, and map cleanly
  * onto a console's own vars: --ui-border-1 → your border var, etc.):
- *   --accent
+ *   --accent   (NO fallback — theme.css required)
  *   --accent-border
  *   --accent-subtle
- *   --error
+ *   --bg-secondary
+ *   --error   (NO fallback — theme.css required)
  *   --error-border
  *   --error-subtle
- *   --font-mono
+ *   --font-mono   (NO fallback — theme.css required)
+ *   --font-sans   (NO fallback — theme.css required)
  *   --font-size-base
  *   --font-size-md
  *   --font-size-sm
@@ -36,23 +38,25 @@
  *   --info-border
  *   --info-subtle
  *   --radius-sm
- *   --success
+ *   --success   (NO fallback — theme.css required)
  *   --success-border
  *   --success-subtle
  *   --text-muted
- *   --text-primary
- *   --text-secondary
- *   --ui-border-1
+ *   --text-primary   (NO fallback — theme.css required)
+ *   --text-secondary   (NO fallback — theme.css required)
+ *   --tool-state   (NO fallback — theme.css required)
+ *   --ui-border-1   (NO fallback — theme.css required)
  *   --ui-border-2
- *   --ui-overlay-bg-hover
+ *   --ui-overlay-bg-hover   (NO fallback — theme.css required)
  *   --ui-pill-bg
- *   --ui-surface-1
+ *   --ui-shadow-1
+ *   --ui-surface-1   (NO fallback — theme.css required)
  *   --ui-surface-2
- *   --warning
+ *   --warning   (NO fallback — theme.css required)
  *   --warning-border
  *   --warning-subtle
  *
- * CLASS SET (31): pc-chat-attachment-chip, pc-chat-attachment-name, pc-chat-attachment-target, pc-chat-attachment-target--client, pc-chat-attachment-target--repo, pc-chat-attachment-target--server, pc-chat-attachments, pc-chat-avatar, pc-chat-body, pc-chat-header, pc-chat-header-actions, pc-chat-header-spacer, pc-chat-icon-btn, pc-chat-icon-btn--copied, pc-chat-icon-btn--failed, pc-chat-item, pc-chat-item--assistant, pc-chat-item--error, pc-chat-item--report_bug, pc-chat-item--report_feature, pc-chat-item--status, pc-chat-item--user, pc-chat-item--warn, pc-chat-role, pc-chat-stat, pc-chat-stat--clickable, pc-chat-stat-icon, pc-chat-stat-label, pc-chat-stats, pc-chat-thread, pc-chat-time
+ * CLASS SET (68): pc-chat-attachment-chip, pc-chat-attachment-name, pc-chat-attachment-target, pc-chat-attachment-target--client, pc-chat-attachment-target--repo, pc-chat-attachment-target--server, pc-chat-attachments, pc-chat-avatar, pc-chat-body, pc-chat-header, pc-chat-header-actions, pc-chat-header-spacer, pc-chat-icon-btn, pc-chat-icon-btn--copied, pc-chat-icon-btn--failed, pc-chat-item, pc-chat-item--assistant, pc-chat-item--error, pc-chat-item--report_bug, pc-chat-item--report_feature, pc-chat-item--status, pc-chat-item--user, pc-chat-item--warn, pc-chat-role, pc-chat-stat, pc-chat-stat--clickable, pc-chat-stat--detail, pc-chat-stat-icon, pc-chat-stat-label, pc-chat-stats, pc-chat-thread, pc-chat-time, pc-stat-detail, pc-stat-detail-foot, pc-stat-detail-head, pc-stat-detail-heading, pc-stat-detail-headline, pc-stat-detail-hint, pc-stat-detail-note, pc-stat-detail-rows, pc-stat-detail-section, pc-stat-detail-table, pc-stat-detail-title, pc-stat-detail-value, pc-stat-detail-value--absent, pc-tool-activity, pc-tool-activity--completed, pc-tool-activity--failed, pc-tool-activity--running, pc-tool-activity--waiting, pc-tool-activity__chevron, pc-tool-activity__detail, pc-tool-activity__detail-heading, pc-tool-activity__duration, pc-tool-activity__error, pc-tool-activity__key, pc-tool-activity__output, pc-tool-activity__parameters, pc-tool-activity__preview, pc-tool-activity__state-icon, pc-tool-activity__status, pc-tool-activity__summary, pc-tool-group, pc-tool-group__completed, pc-tool-group__failed, pc-tool-group__heading, pc-tool-group__running, pc-tool-group__waiting
  */
 
 .pc-chat-thread {
@@ -217,6 +221,59 @@
   gap: 8px;
 }
 
+@media (hover: hover) {
+  .pc-chat-header-actions { opacity: 0; transition: opacity 120ms ease; }
+  .pc-chat-item:hover .pc-chat-header-actions,
+  .pc-chat-item:focus-within .pc-chat-header-actions { opacity: 1; }
+}
+.pc-tool-group { min-width: 0; flex-shrink: 0; margin: 8px 0 12px; border: 1px solid var(--ui-border-1); border-radius: 10px; overflow: hidden; background: var(--ui-surface-1); }
+.pc-tool-group__heading { display: flex; align-items: center; gap: 8px; padding: 10px 12px; color: var(--text-secondary); font-size: 11px; border-bottom: 1px solid var(--ui-border-1); }
+.pc-tool-group__heading strong { color: var(--text-primary); font-weight: 600; }
+.pc-tool-group__heading > div { flex: 1; }
+.pc-tool-group__completed { color: var(--success); }
+.pc-tool-group__failed { color: var(--error); }
+.pc-tool-group__waiting { color: var(--warning); }
+.pc-tool-group__running { color: var(--accent); }
+.pc-tool-activity { --tool-state: var(--text-secondary); min-width: 0; color: var(--text-primary); font-size: 12px; }
+.pc-tool-activity + .pc-tool-activity { border-top: 1px solid var(--ui-border-1); }
+.pc-tool-activity--completed { --tool-state: var(--success); }
+.pc-tool-activity--failed { --tool-state: var(--error); }
+.pc-tool-activity--running { --tool-state: var(--accent); }
+.pc-tool-activity--waiting { --tool-state: var(--warning); }
+.pc-tool-activity__summary { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 42px; padding: 8px 12px; box-sizing: border-box; list-style: none; cursor: pointer; }
+.pc-tool-activity__summary::-webkit-details-marker { display: none; }
+.pc-tool-activity__summary:hover { background: var(--ui-overlay-bg-hover); }
+.pc-tool-activity__summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.pc-tool-activity__summary strong { font-family: var(--font-mono); font-size: 12px; font-weight: 600; }
+.pc-tool-activity__state-icon { display: inline-flex; color: var(--tool-state); }
+.pc-tool-activity__status { color: var(--tool-state); font-size: 11px; font-weight: 500; }
+.pc-tool-activity__duration { font: 11px var(--font-mono); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.pc-tool-activity__preview { min-width: 60px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-secondary); font: 12px var(--font-mono); }
+.pc-tool-activity__key { color: var(--text-secondary); opacity: .8; font: 10px var(--font-sans); text-transform: uppercase; margin-right: 7px; }
+.pc-tool-activity__chevron { display: inline-flex; color: var(--text-secondary); }
+.pc-tool-activity[open] .pc-tool-activity__chevron { transform: rotate(90deg); }
+.pc-tool-activity__error { flex-basis: 100%; padding-left: 23px; color: var(--error); font-size: 12px; line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-tool-activity__detail { border-top: 1px solid var(--ui-border-1); padding: 12px 16px 16px 35px; background: var(--ui-surface-2, var(--ui-surface-1)); }
+.pc-tool-activity__detail h4 { margin: 0 0 8px; font: 600 11px var(--font-sans); color: var(--text-secondary); text-transform: uppercase; letter-spacing: .06em; }
+.pc-tool-activity__detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pc-tool-activity__detail-heading button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--text-secondary); font: 11px var(--font-sans); cursor: pointer; padding: 4px; }
+.pc-tool-activity__parameters { display: grid; grid-template-columns: minmax(75px, auto) minmax(0, 1fr); gap: 6px 16px; margin: 0 0 16px; font-size: 12px; }
+.pc-tool-activity__parameters dt { color: var(--text-secondary); font-family: var(--font-mono); overflow-wrap: anywhere; }
+.pc-tool-activity__parameters dd { margin: 0; min-width: 0; max-height: 240px; overflow: auto; }
+.pc-tool-activity code, .pc-tool-activity pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.6 var(--font-mono); }
+.pc-tool-activity__output { margin: 0; max-height: 300px; overflow: auto; }
+.pc-tool-activity--running .pc-tool-activity__state-icon { animation: pc-tool-spin 1.5s linear infinite; }
+@keyframes pc-tool-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pc-tool-activity--running .pc-tool-activity__state-icon { animation: none; } }
+@media (max-width: 600px) {
+  .pc-tool-activity__preview { flex-basis: calc(100% - 25px); order: 6; margin-left: 23px; }
+  .pc-tool-activity__status { margin-left: auto; }
+  .pc-tool-activity__error { order: 7; }
+  .pc-tool-activity__parameters { grid-template-columns: 1fr; gap: 3px; }
+  .pc-tool-activity__parameters dd { margin-bottom: 6px; }
+  .pc-tool-group__heading { flex-wrap: wrap; }
+}
+
 .pc-chat-icon-btn {
   opacity: 0.75;
   transition: background 150ms ease, color 150ms ease, opacity 150ms ease, transform 150ms ease;
@@ -377,4 +434,150 @@
 
 .pc-chat-stat-label {
   font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+/* Stat chip detail panel (0.1.11): opens on hover/focus, rendered in a body
+   portal with position: fixed, so it needs an OPAQUE surface of its own. */
+.pc-chat-stat--detail {
+  cursor: help;
+}
+
+.pc-chat-stat--detail:hover,
+.pc-chat-stat--detail:focus-visible {
+  border-color: var(--ui-border-2, rgba(255, 255, 255, 0.14));
+  color: var(--text-primary, rgba(255, 255, 255, 0.92));
+  outline: none;
+}
+
+.pc-stat-detail {
+  z-index: 10000;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 260px;
+  max-width: min(440px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ui-border-2, rgba(255, 255, 255, 0.14));
+  background: var(--bg-secondary, #16213e);
+  box-shadow: var(--ui-shadow-1, 0 10px 30px rgba(0, 0, 0, 0.35));
+  color: var(--text-secondary, rgba(255, 255, 255, 0.80));
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: var(--font-size-sm, 12px);
+  line-height: 1.45;
+  pointer-events: auto;
+}
+
+.pc-stat-detail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
+}
+
+.pc-stat-detail-title {
+  font-weight: 600;
+  color: var(--text-primary, rgba(255, 255, 255, 0.92));
+}
+
+.pc-stat-detail-headline {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--text-primary, rgba(255, 255, 255, 0.92));
+}
+
+.pc-stat-detail-section {
+  padding-top: 6px;
+}
+
+.pc-stat-detail-heading {
+  margin-bottom: 2px;
+  font-size: var(--font-size-xs, 11px);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted, rgba(255, 255, 255, 0.58));
+}
+
+.pc-stat-detail-rows {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 14px;
+  row-gap: 1px;
+  margin: 0;
+}
+
+.pc-stat-detail-rows dt {
+  color: var(--text-muted, rgba(255, 255, 255, 0.58));
+}
+
+.pc-stat-detail-rows dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 6px;
+}
+
+.pc-stat-detail-value {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary, rgba(255, 255, 255, 0.92));
+}
+
+.pc-stat-detail-value--absent {
+  font-family: inherit;
+  font-style: italic;
+  color: var(--text-muted, rgba(255, 255, 255, 0.58));
+}
+
+.pc-stat-detail-hint {
+  font-size: var(--font-size-xs, 11px);
+  color: var(--text-muted, rgba(255, 255, 255, 0.58));
+}
+
+.pc-stat-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-xs, 11px);
+}
+
+.pc-stat-detail-table th {
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-weight: 500;
+  text-align: right;
+  color: var(--text-muted, rgba(255, 255, 255, 0.58));
+  border-bottom: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
+  padding: 2px 0 2px 10px;
+}
+
+.pc-stat-detail-table td {
+  text-align: right;
+  padding: 1px 0 1px 10px;
+  color: var(--text-primary, rgba(255, 255, 255, 0.92));
+  white-space: nowrap;
+}
+
+.pc-stat-detail-table th:first-child,
+.pc-stat-detail-table td:first-child {
+  text-align: left;
+  padding-left: 0;
+}
+
+.pc-stat-detail-note {
+  margin: 4px 0 0;
+  font-size: var(--font-size-xs, 11px);
+  color: var(--text-muted, rgba(255, 255, 255, 0.58));
+}
+
+.pc-stat-detail-foot {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
+  font-size: var(--font-size-xs, 11px);
+  color: var(--text-muted, rgba(255, 255, 255, 0.58));
 }

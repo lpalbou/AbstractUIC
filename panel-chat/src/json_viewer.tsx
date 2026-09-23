@@ -241,7 +241,7 @@ export function JsonViewer(props: { value: unknown; className?: string; collapse
         </button>
         {showCopy ? (
           <button type="button" className="pc-btn pc-json-viewer__copy" onClick={() => void copyText(copyValue)}>
-            Copy
+            Copy JSON
           </button>
         ) : null}
       </div>
