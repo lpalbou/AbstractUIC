@@ -1,3 +1,0 @@
-[console_scripts]
-abstractgateway = abstractgateway.cli:main
-abstractgateway-config = abstractgateway.config_cli:main

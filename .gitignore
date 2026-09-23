@@ -140,3 +140,24 @@ config.local.*
 # one compiled surface.
 ui-kit/src/*.js
 panel-chat/src/*.js
+
+# ---------------------------------------------------------------------------
+# Agent harness and local tooling
+#
+# This repository is worked on with coding agents, and their configuration
+# embeds absolute local paths, hook commands, seat identities and API keys.
+# None of it belongs in a public repository.
+# ---------------------------------------------------------------------------
+.claude/
+.codex/
+.cursor/
+.agora/
+.abstractcode/
+.mcp.json
+CLAUDE.md
+AGENTS.md
+abstractcode-export-*.md
+
+# Local scratch space and virtualenvs
+untracked/
+.venv/

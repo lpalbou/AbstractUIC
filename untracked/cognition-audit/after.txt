@@ -1,8 +1,0 @@
-screenshot_tail           joy=0.000 disc=0.000 surp=0.000 anxi=0.000 fear=0.000 sadn=0.000 calm=0.000 tend=0.000  top=joy  maxSim=0.061 evidence=0.000
-reconstructed_full        joy=0.000 disc=0.000 surp=0.000 anxi=0.000 fear=0.000 sadn=0.000 calm=0.000 tend=0.000  top=joy  maxSim=0.066 evidence=0.000
-weather_summary_sentence  joy=0.000 disc=0.000 surp=0.000 anxi=0.000 fear=0.000 sadn=0.000 calm=0.000 tend=0.000  top=joy  maxSim=0.101 evidence=0.000
-neutral_meeting           joy=0.000 disc=0.000 surp=0.000 anxi=0.000 fear=0.000 sadn=0.000 calm=0.000 tend=0.000  top=joy  maxSim=0.139 evidence=0.000
-storm_caution             joy=0.000 disc=0.000 surp=0.000 anxi=0.267 fear=0.473 sadn=0.098 calm=0.000 tend=0.000  top=fear  maxSim=0.224 evidence=0.537
-fearful_control           joy=0.000 disc=0.000 surp=0.000 anxi=0.988 fear=0.998 sadn=0.907 calm=0.000 tend=0.000  top=fear  maxSim=0.572 evidence=1.000
-joy_control               joy=1.000 disc=0.157 surp=0.102 anxi=0.000 fear=0.000 sadn=0.000 calm=0.000 tend=0.000  top=joy  maxSim=0.679 evidence=1.000
-performed_calm            joy=0.896 disc=0.000 surp=0.000 anxi=0.000 fear=0.000 sadn=0.000 calm=0.998 tend=0.000  top=calm  maxSim=0.543 evidence=1.000
