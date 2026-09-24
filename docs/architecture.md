@@ -7,13 +7,57 @@ Ecosystem context (external):
 - AbstractCore: https://github.com/lpalbou/abstractcore
 - AbstractRuntime: https://github.com/lpalbou/abstractruntime
 
-This document stays intentionally close to the code: package boundaries, exports, and contracts are backed by entrypoints/types in `src/` and by `exports` metadata in each `*/package.json`. Where we reference the broader AbstractFramework ecosystem (AbstractCore / AbstractRuntime), it’s for context — AbstractUIC does not import those packages directly.
+This document stays intentionally close to the code: package boundaries, exports, and contracts are backed by entrypoints/types in `src/` and by `exports` metadata in each `*/package.json`. References to the broader AbstractFramework ecosystem (AbstractCore / AbstractRuntime) are for context — AbstractUIC does not import those packages directly.
 
 ## High-level overview
 
 - **React packages** ship **compiled ESM + type declarations** from `dist/` (see `exports` in each `package.json`). Source lives in `src/` and is built with `tsc`.
 - **`@abstractframework/monitor-gpu`** and **`@abstractframework/monitor-memory`** ship **JavaScript** (`monitor-gpu/src`, `monitor-memory/src`) and register custom elements.
+- **`@abstractframework/app-server`** ships Node.js JavaScript (`app-server/src`) with no runtime dependencies.
 - Styling is shipped as plain CSS and exposed as package exports (e.g. `@abstractframework/panel-chat/panel_chat.css`).
+- **Console islands** are a repository build output of `ui-kit` (`ui-kit/islands/`), not an npm export: one self-contained script for pages that are not React apps. See [Console islands](./console-islands.md).
+
+## Packages and their consumers
+
+The AbstractFramework apps consume the packages from npm (or as workspace links). The
+AbstractGateway console is served from Python without an npm build, so it vendors generated
+copies of the kit instead: the theme stylesheet and the console islands bundle.
+
+```mermaid
+flowchart LR
+  subgraph UIC["AbstractUIC packages"]
+    UIKIT["ui-kit<br/>components + theme.css"]
+    ISL["ui-kit console islands<br/>af-console-islands.js<br/>(repository build output)"]
+    CHAT["panel-chat"]
+    APPSRV["app-server"]
+    MON["monitor-flow / monitor-active-memory<br/>monitor-gpu / monitor-memory"]
+  end
+
+  UIKIT -->|"build_islands.mjs (esbuild)"| ISL
+
+  subgraph Apps["AbstractFramework apps (React)"]
+    FLOWAPP["AbstractFlow"]
+    CODE["AbstractCode web"]
+    CONT["AbstractContinuum"]
+    ENT["AbstractEntity"]
+    OBS["AbstractObserver"]
+  end
+
+  subgraph GW["AbstractGateway console (HTML served from Python)"]
+    CONSOLE["console page"]
+  end
+
+  UIKIT --> FLOWAPP & CODE & CONT & ENT & OBS
+  CHAT --> CODE & CONT & ENT & OBS
+  MON --> FLOWAPP & CODE & OBS
+  APPSRV -->|"app server (Node)"| CONT & ENT & OBS
+  UIKIT -->|"theme.css (vendored copy)"| CONSOLE
+  ISL -->|"window.AfConsoleIslands (vendored copy)"| CONSOLE
+```
+
+Monitor usage per app: AbstractFlow uses all four monitors; AbstractCode web uses
+`monitor-flow` and `monitor-gpu`; AbstractObserver uses `monitor-flow`, `monitor-active-memory`
+and `monitor-gpu`.
 
 ## Package dependency graph
 
@@ -140,6 +184,33 @@ sequenceDiagram
 - Evidence: `app-server/src/gateway_session_proxy.js`, `ui-kit/src/use_gateway_connection.ts`,
   `ui-kit/src/gateway_connect_modal.tsx`.
 
+## Console islands (`ui-kit`)
+
+The console islands expose the kit's `AfTopBarActions` and `AfAppearanceDialog` to a page that
+is not a React app, through a prop-driven global API.
+
+```mermaid
+flowchart LR
+  SRC["ui-kit/src/*<br/>AfTopBarActions, AfAppearanceDialog,<br/>theme.ts, typography.ts"]
+  ENTRY["ui-kit/islands/console_islands.tsx"]
+  BUILD["scripts/build_islands.mjs<br/>(esbuild, IIFE, React bundled)"]
+  OUT["islands/dist/af-console-islands.js"]
+  CHECK["scripts/check_islands.mjs<br/>(npm test)"]
+  PAGE["Host page<br/>script tag + theme.css"]
+  API["window.AfConsoleIslands<br/>mountTopBar / mountAppearance / applyAppearance"]
+
+  SRC --> ENTRY --> BUILD --> OUT
+  OUT --> CHECK
+  OUT --> PAGE --> API
+```
+
+- The host owns all state and calls `handle.update(props)` when it changes.
+- `apiVersion` (`"1"`) versions the island API; `kitVersion` records the `ui-kit` version the
+  bundle was built from.
+- The bundle carries no CSS; the host also serves `theme.css`.
+
+Details, API and examples: [Console islands](./console-islands.md).
+
 ## Styling & theming
 
 - `@abstractframework/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css` (exported as `@abstractframework/ui-kit/theme.css`) — 21 themes; see [Theming](./theming.md) for the token vocabulary and adoption rules.
@@ -152,7 +223,10 @@ See also: [Getting started](./getting-started.md) for integration + required CSS
 
 - Getting started: [Getting started](./getting-started.md)
 - API reference: [API reference](./api.md)
+- Console islands: [Console islands](./console-islands.md)
+- Theming: [Theming](./theming.md)
 - FAQ: [FAQ](./faq.md)
+- Troubleshooting: [Troubleshooting](./troubleshooting.md)
 - Docs index: [Docs index](./README.md)
 - Development: [Development](./development.md)
 - Package docs: see the table in the root [`README.md`](../README.md)

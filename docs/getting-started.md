@@ -1,6 +1,6 @@
 # Getting Started
 
-AbstractUIC is a small set of **UI packages** (React components + one Web Component). Each top-level folder in this repo is an independently-consumable package.
+AbstractUIC is a small set of **UI packages** (React components, two Web Components and a Node.js Gateway session proxy). Each top-level folder in this repo is an independently-consumable package.
 
 AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/AbstractFramework) ecosystem:
 - **AbstractCore**: https://github.com/lpalbou/abstractcore
@@ -20,12 +20,16 @@ For a package-by-package export map, see the [API reference](./api.md).
 
 | Package | Use when you need… | Primary exports (source of truth) |
 |---|---|---|
-| `@abstractframework/ui-kit` | Shared theme tokens + small UI primitives (selects/icons) | `ui-kit/src/index.ts` |
+| `@abstractframework/ui-kit` | Shared theme tokens, inputs, Gateway connection UI, app chrome (top bar, drawer, appearance) | `ui-kit/src/index.ts` |
 | `@abstractframework/panel-chat` | Chat thread + message UI + markdown/json rendering | `panel-chat/src/index.ts` |
 | `@abstractframework/monitor-flow` | Agent “cycles” trace viewer + ledger adapter | `monitor-flow/src/index.ts` |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | `monitor-active-memory/src/index.ts` |
 | `@abstractframework/monitor-gpu` | GPU utilization histogram widget (`<monitor-gpu>`) | `monitor-gpu/src/index.js` |
 | `@abstractframework/monitor-memory` | Host RAM + device memory meter widget (`<monitor-memory>`) | `monitor-memory/src/index.js` |
+| `@abstractframework/app-server` | Node.js app server that fronts an AbstractGateway with HttpOnly session cookies | `app-server/src/index.js` |
+
+For a page that is not a React app, the kit's top bar and appearance dialog are also available as
+[console islands](./console-islands.md), a script built from a repository checkout.
 
 ## Requirements
 
@@ -63,6 +67,9 @@ npm i @abstractframework/monitor-gpu
 
 # host memory widget (web component)
 npm i @abstractframework/monitor-memory
+
+# app-origin gateway session proxy (Node.js)
+npm i @abstractframework/app-server
 ```
 
 ## CSS you must import
@@ -189,7 +196,9 @@ module.exports = {
 ## Next docs
 
 - [API reference](./api.md)
+- [Adoption guide](./adoption-guide.md)
 - [FAQ](./faq.md)
+- [Troubleshooting](./troubleshooting.md) (setup and first-run problems)
 - [Architecture](./architecture.md)
 - [Development](./development.md)
 - [Publishing (maintainers)](./publishing.md)

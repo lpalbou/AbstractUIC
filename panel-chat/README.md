@@ -19,10 +19,14 @@ Declared in `panel-chat/package.json`:
 See `panel-chat/src/index.ts` for the authoritative export list. Common entry points:
 
 - Components: `ChatThread`, `ChatComposer`, `ChatMessageCard`, `ChatMessageContent`
+- App assistant: `AssistantPanel` (injected `ask` transport; see below)
 - Controlled workflow surface: `WorkflowChat` and the `WorkflowInteraction` union
 - Transport-injected runtime: `WorkflowSessionController`, `useWorkflowSession`, and `WorkflowTransport`
 - Renderers: `Markdown`, `JsonViewer`
-- Types: `PanelChatMessage`, `ChatMessage`, `ChatAttachment`, `ChatStat`
+- Tool and run evidence: `ToolActivity`, `ToolActivityGroup`, `toolArguments`, `toolPreview`,
+  `workflowProgress`, `workflowEvidence`, `foldWorkflowTools`, `historyRecords`,
+  `statDetail`, `StatDetailPanel`
+- Types: `ChatMessage`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat`
 - Utils: `chatToMarkdown`, `copyText`, `downloadTextFile`, `tryParseJson`
 
 ## Usage (typical)
@@ -43,6 +47,16 @@ export function ChatView() {
   );
 }
 ```
+
+## App assistant
+
+`AssistantPanel` is the docs Q&A surface an app places in the kit's `AfDrawer`
+(opened from `AfTopBarActions`). It never fetches: pass an `ask(question, { signal, history })`
+transport that returns a `Promise<string>` or an `AsyncIterable<string>` of deltas. Optional
+props: `assistantName`, `suggestions`, `emptyState`, `placeholder`, `blockedNotice` (disables
+the composer and shows the notice, e.g. while disconnected) and a controlled
+`messages` / `onMessagesChange` pair. See the
+[Adoption guide](../docs/adoption-guide.md) for the shared docs Q&A transport.
 
 ## Workflow chat
 
@@ -109,3 +123,4 @@ Markdown is intentionally minimal and implemented in `panel-chat/src/markdown.ts
 - Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
 - API reference: [`docs/api.md`](../docs/api.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)
+- Troubleshooting: [`docs/troubleshooting.md`](../docs/troubleshooting.md)

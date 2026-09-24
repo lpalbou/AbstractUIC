@@ -6,6 +6,7 @@ Source of truth:
 - React packages: exports in `*/src/index.ts` (compiled to `dist/` on publish; see `*/package.json`)
 - GPU widget: exports in `monitor-gpu/src/index.js` (types in `monitor-gpu/src/index.d.ts`)
 - Host memory widget: exports in `monitor-memory/src/index.js` (types in `monitor-memory/src/index.d.ts`)
+- Gateway session proxy: exports in `app-server/src/index.js` (types in `app-server/src/index.d.ts`)
 
 If you’re starting from scratch, read [Getting started](./getting-started.md) first (it covers install options and required CSS imports).
 
@@ -46,10 +47,23 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Critical actions: `CriticalActionDialog` + core (`resolveCriticalActionGate()`, `normalizeCriticalActionFacts()`)
 - Run steering: `SteerComposer` + `submitSteer()` (idempotent command ids, CSRF candidates)
 - Lists & badges: `DisclosureList` (tree list, roving tabindex), `AfChip` / `AfChipButton`
-- Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`
+- App chrome: `AfTopBarActions` (assistant → appearance → extras → connection pill), `AfDrawer` (non-modal, keeps children mounted), `AfAppearanceDialog` + `useAppearanceSettings()` / `appearanceStorageKey()` / `APPEARANCE_DEFAULTS`
+- CSRF helpers: `readGatewayCsrfToken()`, `readGatewayCsrfTokens()`
+- Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`; `VoiceSettings` (catalog-driven voice preferences form)
+- Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
 - Icons: `Icon`, `IconName` (~40 glyphs, 24-grid and 16-grid families)
+- Palette seeds: `@abstractframework/ui-kit/palette_seeds.json` (generated 4-token palette per theme)
 
 See: [`ui-kit/README.md`](../ui-kit/README.md) and the [Adoption guide](./adoption-guide.md).
+
+### Console islands (repository build, not an npm export)
+
+`ui-kit/islands/console_islands.tsx` builds into `ui-kit/islands/dist/af-console-islands.js`, a
+self-contained script that defines `window.AfConsoleIslands` (`apiVersion` `"1"`, `kitVersion`,
+`themes`, `fontScales`, `headerDensities`, `mountTopBar(el, props)`,
+`mountAppearance(el, props)`, `applyAppearance(settings)`). Build it with
+`npm run build:islands -w @abstractframework/ui-kit`. It is not included in the npm tarball.
+Full reference: [Console islands](./console-islands.md).
 
 `SpeculationSelect` consumes `execution.speculation` from the host capability payload. It
 offers inheritance (`undefined`), Off (`false`), and only advertised depths. Explicit depths
@@ -66,6 +80,9 @@ Purpose: chat-thread UI primitives with lightweight Markdown/JSON rendering.
 - CSS: `@abstractframework/panel-chat/panel_chat.css` (file: `panel-chat/src/panel_chat.css`)
 
 Components:
+- `AssistantPanel` (docs Q&A surface with an injected `ask(question, { signal, history })` transport returning a Promise or an AsyncIterable of deltas; never fetches)
+- `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
+- `ToolActivity`, `ToolActivityGroup` (tool-call rendering), `StatDetailPanel` + `statDetail()` (token/time/tool statistics)
 - `ChatThread` (thread container; renders a list of messages)
 - `ChatMessageCard` (single message rendering; `message.title` names the speaker — assistants
   render their entity/agent name when provided, falling back to "Agent")
@@ -78,12 +95,12 @@ Renderers:
 - `JsonViewer` (collapsible tree; honors `collapseAfterDepth`; auto-parses JSON strings)
 
 Types:
-- `PanelChatMessage` (generic message model used by `ChatThread`)
-- `ChatMessage`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
+- `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`), `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
 
 Utilities:
 - `tryParseJson()` (drives JSON autodetection in `ChatMessageContent`)
 - `chatToMarkdown()`, `copyText()`, `downloadTextFile()`
+- Workflow evidence: `workflowProgress()`, `workflowEvidence()`, `foldWorkflowTools()`, `historyRecords()`, `toolArguments()`, `toolPreview()`
 
 Customization point:
 - `ChatMessageContent` supports `renderMarkdown?: (markdown: string) => React.ReactElement` (see `panel-chat/src/message_content.tsx`).
@@ -192,5 +209,7 @@ See: [`monitor-memory/README.md`](../monitor-memory/README.md) for the backend c
 - Getting started: [Getting started](./getting-started.md)
 - FAQ: [FAQ](./faq.md)
 - Architecture (diagrams): [Architecture](./architecture.md)
+- Console islands: [Console islands](./console-islands.md)
+- Troubleshooting: [Troubleshooting](./troubleshooting.md)
 - Docs index: [Docs index](./README.md)
 - Security policy: [`SECURITY.md`](../SECURITY.md)

@@ -85,8 +85,8 @@ Typical path, one surface at a time:
 
 1. Import `@abstractframework/ui-kit/theme.css` in the app entrypoint and call
    `applyTheme(...)`. `ThemeSelect` is a controlled picker (value + onChange);
-   persisting the choice is the app's job (a per-app storage key — see the
-   adoption guide's appearance section).
+   persisting the choice is the app's job; `useAppearanceSettings(appId)` stores it under a
+   per-app key (see [`ui-kit/README.md`](../ui-kit/README.md#unified-top-right-corner)).
 2. Map your local variables to kit tokens (e.g. your `--bg` → `--bg-primary`, `--fg` →
    `--text-primary`) — alias first (`--bg: var(--bg-primary)`), then migrate usages and delete
    the aliases.
@@ -117,3 +117,4 @@ Both run in the package test chain, so a published `ui-kit` cannot drift silentl
 - Component inventory for app developers: [Adoption guide](./adoption-guide.md)
 - API surface: [API reference](./api.md)
 - Package README: [`ui-kit/README.md`](../ui-kit/README.md)
+- Non-React pages: [Console islands](./console-islands.md)

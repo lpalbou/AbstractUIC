@@ -1,23 +1,32 @@
 # @abstractframework/ui-kit
 
-Shared theme tokens + small UI primitives used across AbstractUIC packages and host apps.
+Shared theme tokens and UI components for AbstractFramework apps. The kit owns the theme system
+used by every AbstractFramework UI and the shared app chrome (connection surface, top-right
+action cluster, drawer, appearance dialog).
 
 This package provides:
 
-- **Theme tokens** (CSS variables + theme classes): `ui-kit/src/theme.css`
-- **Theme + typography helpers**: `applyTheme(...)`, `applyTypography(...)`
-- **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ToolPolicyEditor`, etc.
-- **Gateway session UI**: `GatewaySessionSignInCard` for the shared user/token browser-session sign-in form used by thin clients.
+- **Theme tokens** (CSS variables + 21 theme classes): `@abstractframework/ui-kit/theme.css`
+- **Theme + typography helpers**: `applyTheme(...)`, `applyTypography(...)`, `THEME_SPECS`
+- **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker`,
+  `SpeculationSelect`, `ToolPolicyEditor`, `VoiceSettings`
+- **Gateway connection UI**: `GatewayConnectModal`, `useGatewayConnection()`,
+  `GatewaySessionSignInCard`
+- **App chrome**: `AfTopBarActions`, `AfDrawer`, `AfAppearanceDialog` + `useAppearanceSettings()`
+- **Run and policy surfaces**: `PhaseCapabilityMatrix`, `CriticalActionDialog`, `SteerComposer`,
+  `DisclosureList`, `AfChip`, `AfPhaseRadio`, cognition gauges
+- **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk)
 - **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
-
-## Install / peer dependencies
-
-This is a React package with peer dependencies on `react@^18` and `react-dom@^18` (see `ui-kit/package.json`).
+- **Palette seeds**: `@abstractframework/ui-kit/palette_seeds.json` for non-CSS consumers
+- **Console islands** (repository build, not in the npm package): the kit components as one
+  script for pages that are not React apps — see [Console islands](#console-islands)
 
 ## Install
 
-- Workspace: add a dependency on `@abstractframework/ui-kit`
 - npm: `npm i @abstractframework/ui-kit`
+- Workspace: add a dependency on `@abstractframework/ui-kit`
+
+Peer dependencies: `react@^18` and `react-dom@^18`.
 
 ## Usage
 
@@ -38,101 +47,76 @@ applyTheme("dark"); // sets a `theme-*` class on <html>
 Use UI components:
 
 ```tsx
-import { ThemeSelect, Icon, ToolPolicyEditor, GatewaySessionSignInCard } from "@abstractframework/ui-kit";
+import { ThemeSelect, Icon, ToolPolicyEditor, GatewayConnectModal } from "@abstractframework/ui-kit";
 ```
+
+The authoritative export list is `ui-kit/src/index.ts`; the grouped map is in the
+[API reference](../docs/api.md#abstractframeworkui-kit).
 
 ### Gateway session sign-in
 
-`GatewaySessionSignInCard` renders the shared Gateway browser-session sign-in
-card. Host apps own the network calls and session storage; the component only
-collects Gateway URL (optional), user id, token, and remember-browser state, and
-calls the callbacks you provide.
+`GatewaySessionSignInCard` renders the shared Gateway browser-session sign-in card. Host apps
+own the network calls and session storage; the component only collects the Gateway URL
+(optional), user id, token and remember-browser state, and calls the callbacks you provide.
+Most apps use it through `GatewayConnectModal` (below).
 
 ### Tool policy editor
 
-`ToolPolicyEditor` renders the shared allowlist + approve/ask picker for gateway tools. It intentionally **does not** include a deny mode; tools are denied by removing them from the allowlist. Pass `toolMode` (and optional `toolModeLabel`/`toolModeDetail`) to surface the gateway tool execution mode in a prominent banner.
+`ToolPolicyEditor` renders the shared allowlist + approve/ask picker for gateway tools. It has no
+deny mode: a tool is denied by removing it from the allowlist. Pass `toolMode` (and optional
+`toolModeLabel` / `toolModeDetail`) to surface the gateway tool execution mode in a banner.
 
-The default approve/ask classification is exposed as `TOOL_POLICY_DEFAULTS` (mirrors the AbstractRuntime `ToolApprovalPolicy` defaults).
+The default approve/ask classification is exposed as `TOOL_POLICY_DEFAULTS` (mirrors the
+AbstractRuntime `ToolApprovalPolicy` defaults).
 
 ### Native MTP control
 
-`SpeculationSelect` is the shared inheritance / Off / depth selector. Pass the execution
-host's complete model-capability payload as `capabilities`; only depths advertised under
+`SpeculationSelect` is the shared inheritance / Off / depth selector. Pass the execution host's
+complete model-capability payload as `capabilities`; only depths advertised under
 `execution.speculation.supported_depths` are offered. Missing capability data is shown as
 unknown, not guessed from a model name. Saved unavailable selections remain visible.
 
-`ProviderModelPicker` includes this control when `enableSpeculation` is true; supply its
-usual provider-aware capability transport. The `speculation` value is absent for inheritance,
-`false` for Off, or a native-MTP object with `require_acceleration: true` for an explicit
-depth. Apps own preference storage and omit inherited values from requests. Neither
-component loads models or downloads heads. See the [API reference](../docs/api.md).
-
-## Exported API
-
-See `ui-kit/src/index.ts` for the authoritative export list.
-
-## Related docs
-
-- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
-- API reference: [`docs/api.md`](../docs/api.md)
-- Repo docs index: [`docs/README.md`](../docs/README.md)
-- Architecture: [`docs/architecture.md`](../docs/architecture.md)
-
+`ProviderModelPicker` includes this control when `enableSpeculation` is true; supply its usual
+provider-aware capability transport. The `speculation` value is absent for inheritance, `false`
+for Off, or a native-MTP object with `require_acceleration: true` for an explicit depth. Apps own
+preference storage and omit inherited values from requests. Neither component loads models or
+downloads heads.
 
 ## Gateway connection surface contract
 
-Use `GatewayConnectModal` for connect/disconnect UX (pairs with
-`@abstractframework/app-server`'s session proxy). The contract, per the
-maintainer's 2026-07-12 ruling:
+Use `GatewayConnectModal` for connect/disconnect UX. It pairs with the session proxy in
+`@abstractframework/app-server`.
 
-- It is a **centered modal** over a dimmed + blurred backdrop (the kit's
-  `.af-connect-overlay` provides both) — never an inline settings block.
-- The **Gateway URL is always visible** (the modal passes `showGatewayUrl`).
-  If you embed `GatewaySessionSignInCard` inside your own modal, you must
-  pass `showGatewayUrl` yourself.
-- **Tokens never rest client-side**: the proxy exchanges the token for
-  HttpOnly cookies. Do not add localStorage/bearer fallbacks in apps.
-- **Auto-open on disconnect (maintainer ruling 2026-07-12)**: when the app
-  RESOLVES disconnected, the connect modal IS the first screen — never a
-  banner pointing at a Connect button. Never auto-open over the
-  unknown/loading state or a live session; a later sign-out re-arms it.
-  One knob per app: BLOCKING (no dismiss — apps with no offline surface,
-  e.g. flow) vs DISMISSABLE once per signed-out episode (apps with a
-  degraded-but-usable surface keep the banner/badge as re-entry, e.g.
-  continuum). Both variants are live consumers of this contract.
-- **Connected state flips on probe-ok, never on data (10-15s connect
-  incident, 2026-07-13)**: the session probe (`/api/connection/gateway`,
-  one upstream `/me` echo, sub-millisecond on localhost) is the ONLY gate
-  for leaving "Connecting…". Data fetches (runs/bundles/tools/providers
-  lists) fill their surfaces in AFTER the flip, in parallel — a slow list
-  must degrade its own panel, never pin first paint. The measured whale
-  was a serialized runs listing (2.2-7.9s) gating an app's connected
-  state while every stack request answered in <1ms.
-- **Probe once**: apps that probe at boot pass the result to the modal via
-  `initialStatus` so opening it does not re-probe; the modal refreshes
-  itself after sign-in/out (those change the answer).
-- **The state machine is code, not prose (B5, 2026-07-13)**: use
-  `useGatewayConnection({ appName, variant: "blocking" | "dismissable" })`
-  and spread `modalProps` into `GatewayConnectModal`. The hook owns the
-  whole contract — probe once at boot, auto-open only on a RESOLVED
-  disconnect, close on sign-in success (the modal also self-closes; after a
-  successful sign-in the APP is the confirmation, never a parked modal),
-  stay open on sign-out, re-arm per signed-out episode. Do not hand-roll
-  this machine in apps; the drift is exactly what shipped the
-  signed-in-but-modal-parked bug across consumers.
-- **Mid-session losses don't auto-open (continuum c2528, 2026-07-16)**:
-  under `dismissable`, only boot-resolved disconnects and sign-out episodes
-  auto-open the modal. A LIVE session resolving away mid-use (expiry,
-  gateway restart, one transient probe blip) surfaces through the pill/badge
-  instead of a screen-covering modal over whatever the operator is typing.
-  Opt back into the old behavior per app with `autoOpenMidSession: true`.
-  Blocking apps always auto-open (no offline surface exists).
+- It is a **centered modal** over a dimmed, blurred backdrop (the kit's `.af-connect-overlay`
+  provides both), never an inline settings block.
+- The **Gateway URL is always visible** (the modal passes `showGatewayUrl`). If you embed
+  `GatewaySessionSignInCard` inside your own modal, pass `showGatewayUrl` yourself.
+- **Tokens never rest client-side**: the proxy exchanges the token for HttpOnly cookies. Do not
+  add localStorage or bearer-token fallbacks in apps.
+- **Auto-open on a resolved disconnect**: when the app resolves as disconnected, the connect
+  modal is the first screen. It never auto-opens over the loading state or a live session; a
+  later sign-out re-arms it. Choose one variant per app: `blocking` (no dismiss; apps with no
+  offline surface) or `dismissable` (dismissable once per signed-out episode; apps with a
+  degraded-but-usable surface keep a banner or badge as re-entry).
+- **Connected follows the session probe, not data**: the session probe
+  (`/api/connection/gateway`) is the only gate for leaving "Connecting…". Data fetches fill their
+  panels in after the flip, in parallel, so a slow list degrades its own panel rather than first
+  paint.
+- **Probe once**: apps that probe at boot pass the result to the modal via `initialStatus` so
+  opening it does not re-probe; the modal refreshes itself after sign-in or sign-out.
+- **Use the hook**: `useGatewayConnection({ appName, variant: "blocking" | "dismissable" })` owns
+  the whole state machine (probe once at boot, auto-open only on a resolved disconnect, close on
+  sign-in success, stay open on sign-out, re-arm per signed-out episode). Spread its
+  `modalProps` into `GatewayConnectModal` rather than re-implementing the machine.
+- **Mid-session losses do not auto-open** under `dismissable`: only boot-resolved disconnects and
+  sign-out episodes open the modal. A live session that drops mid-use (expiry, gateway restart, a
+  transient probe failure) surfaces through the pill or badge. Opt into auto-opening with
+  `autoOpenMidSession: true`. `blocking` apps always auto-open.
 
-## Unified top-right corner (plans/unified-top-bar.md)
+## Unified top-right corner
 
-Every app renders the same upper-right cluster (operator directive
-2026-07-13): assistant button → appearance button → app extras →
-Disconnect pill, always rightmost.
+Every app renders the same upper-right cluster: assistant button → appearance button → app
+extras → connection pill, always rightmost.
 
 ```tsx
 const conn = useGatewayConnection({ appName: "My App", variant: "dismissable" });
@@ -152,32 +136,30 @@ const [appearance, setAppearance] = useAppearanceSettings("my-app", { legacyKey:
 <GatewayConnectModal {...conn.modalProps} />
 ```
 
-Rules (the behavior contract lives in the consensus doc):
+Rules:
 
-- The connection pill renders the hook's PHASE (three states) — never a
-  boolean. `signingOut`/`signOutError` are the in-flight/error channels.
-- `AfDrawer` is non-modal and KEEPS ITS CHILDREN MOUNTED when closed
-  (`display:none` + `inert`) — drawers host long-running work. ESC follows
-  the consumed-event convention (`defaultPrevented`); the connect modal
-  sits above drawers (z-order tokens `--z-drawer` < `--z-connect-modal` <
-  `--z-popover`).
+- The connection pill renders the hook's `phase` (`loading` | `connected` | `disconnected`),
+  never a boolean. `signingOut` / `signOutError` are the in-flight and error channels.
+- `AfDrawer` is non-modal and keeps its children mounted when closed (`display:none` + `inert`),
+  so drawers can host long-running work. ESC handling respects `defaultPrevented`; the connect
+  modal sits above drawers (z-order tokens `--z-drawer` < `--z-connect-modal` < `--z-popover`).
 - `AssistantPanel` (in `@abstractframework/panel-chat`) never fetches: the
-  `ask(question, {signal, history})` transport is injected and may return a
-  Promise or an AsyncIterable of deltas. Docs Q&A must never route through
-  entity chat (a visit is billable and forms memories).
-- Appearance persistence is per app via `useAppearanceSettings(appId)`
-  (key `af_appearance_<appId>_v1`, migrates a `legacyKey` once); storage
-  failures degrade to in-memory silently.
+  `ask(question, { signal, history })` transport is injected and may return a Promise or an
+  AsyncIterable of deltas.
+- Appearance persistence is per app via `useAppearanceSettings(appId)` (key
+  `af_appearance_<appId>_v1`, migrates a `legacyKey` once); storage failures fall back to
+  in-memory state.
 
 ### CSS public API (non-React consumers)
 
-The `.af-topbar-*` and `.af-drawer-*` families are stable public API — a
-server-rendered page (the gateway console) can render its own HTML to them:
+The `.af-topbar-*` and `.af-drawer-*` class families are stable public API, so a server-rendered
+page can render its own HTML against them:
 
 ```html
 <div class="af-topbar" role="group" aria-label="App actions">
   <button class="af-topbar__btn" aria-label="Open assistant">…svg…</button>
   <button class="af-topbar__btn" aria-label="Appearance">…svg…</button>
+  <span class="af-topbar__identity" title="Signed in as alice">alice</span>
   <button class="af-topbar__pill af-topbar__pill--connected">
     <span class="af-topbar__dot af-topbar__dot--connected"></span>
     <span class="af-topbar__pill-label">Disconnect</span>
@@ -192,33 +174,61 @@ server-rendered page (the gateway console) can render its own HTML to them:
 </div>
 ```
 
-Pill modifiers: `--connected | --disconnected | --loading` (dot matches).
-Closed drawer = remove `--open`, set `display:none`.
+- Pill modifiers: `--connected | --disconnected | --loading` (the dot matches).
+- `.af-topbar__identity` is a quiet one-line text item (secondary color, ellipsized past 24
+  characters), for example the signed-in identity.
+- Closed drawer: remove `--open` and set `display:none`.
+
+## Console islands
+
+A page that is not a React app can mount the real `AfTopBarActions` and `AfAppearanceDialog`
+through the console islands: one self-contained script (React included) that defines
+`window.AfConsoleIslands` with `mountTopBar(el, props)`, `mountAppearance(el, props)` and
+`applyAppearance(settings)`. The AbstractGateway console uses it.
+
+The bundle is built from a repository checkout and is **not** part of the npm package:
+
+```bash
+npm run build:islands -w @abstractframework/ui-kit   # writes ui-kit/islands/dist/af-console-islands.js
+node ui-kit/scripts/check_islands.mjs                # rebuilds and verifies the API
+```
+
+The page must also load `theme.css`. API, props and examples: [Console islands](../docs/console-islands.md).
 
 ## DisclosureList integration notes
 
-- **Global keyboard handlers must yield to the list** (flow's integration
-  find, c1343): if your app has window-level arrow-key navigation, gate it
-  on `document.activeElement` not being inside `.af-disclosure`, or every
-  arrow press double-moves (once in your handler, once in the list's roving
+- **Window-level keyboard handlers must yield to the list**: if your app has window-level
+  arrow-key navigation, skip it while `document.activeElement` is inside `.af-disclosure`;
+  otherwise each arrow press moves twice (once in your handler, once in the list's roving
   tabindex).
-- **Theming the chevron: exclude the spacer** (flow's specificity find,
-  c1355): consumer-scoped rules (`.your-scope .af-disclosure__chevron`)
-  outweigh the kit's spacer transparency and paint a phantom button on
-  non-expandable rows. Theme via
-  `.af-disclosure__chevron:not(.af-disclosure__chevron--spacer)` — the kit
-  keeps unthemed consumers safe, but a consumer restyle must carry the
-  `:not()`.
+- **Theming the chevron: exclude the spacer**: consumer-scoped rules such as
+  `.your-scope .af-disclosure__chevron` outweigh the kit's spacer transparency and paint a
+  button on non-expandable rows. Theme via
+  `.af-disclosure__chevron:not(.af-disclosure__chevron--spacer)`.
 
+## Theme system
 
-### Theme-system ownership (operator directive 2026-07-15)
+The kit owns the theme system for every AbstractFramework UI: `theme.css` (21 themes),
+`THEME_SPECS`, `useAppearanceSettings` (per-app persistence + no-flash first paint), and the
+switcher surfaces (`AfAppearanceDialog`, `ThemeSelect`, `FontScaleSelect`,
+`HeaderDensitySelect`). Apps use these rather than forking them:
 
-The kit OWNS the theme system for every AbstractFramework UI: `theme.css`
-(21 themes), `THEME_SPECS`, `useAppearanceSettings` (per-app persistence +
-no-flash first paint), and the switcher surfaces (`AfAppearanceDialog`,
-`ThemeSelect`, `TypographySelect`, `FontScaleSelect`, `HeaderDensitySelect`).
-Apps never fork these. Compliance tiers: (1) React apps import theme.css +
-the hook + the dialog; (2) non-npm surfaces serve a GENERATED verbatim copy
-drift-pinned in their own suite (the gateway console pattern —
-`console_theme_sync.py`); (3) native surfaces (Qt) are out of scope.
-Adoption matrix + orchestration: docs/backlog/planned/0026 (uic tree).
+1. React apps import `theme.css`, the hook and the dialog.
+2. Surfaces that cannot install npm packages (the AbstractGateway console) serve a generated,
+   verbatim copy of `theme.css` checked against the kit in their own test suite, and mount the
+   [console islands](#console-islands) for the interactive controls.
+3. Native (Qt) surfaces are out of scope; terminals and other non-CSS consumers can use
+   `palette_seeds.json`.
+
+See [Theming](../docs/theming.md) for the token vocabulary and adoption rules.
+
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- API reference: [`docs/api.md`](../docs/api.md)
+- Adoption guide: [`docs/adoption-guide.md`](../docs/adoption-guide.md)
+- Theming: [`docs/theming.md`](../docs/theming.md)
+- Console islands: [`docs/console-islands.md`](../docs/console-islands.md)
+- Architecture: [`docs/architecture.md`](../docs/architecture.md)
+- Troubleshooting: [`docs/troubleshooting.md`](../docs/troubleshooting.md)
+- Repo docs index: [`docs/README.md`](../docs/README.md)

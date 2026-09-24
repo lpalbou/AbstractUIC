@@ -4,11 +4,12 @@ We take security seriously and appreciate responsible disclosure.
 
 ## Scope
 
-This policy covers all packages in this repository (`ui-kit/`, `panel-chat/`, `monitor-flow/`, `monitor-active-memory/`, `monitor-gpu/`).
+This policy covers all packages in this repository (`ui-kit/` including the console islands, `panel-chat/`, `app-server/`, `monitor-flow/`, `monitor-active-memory/`, `monitor-gpu/`, `monitor-memory/`).
 
 Examples of issues to report:
 - Injection/XSS risks in text rendering (e.g. Markdown/JSON renderers in `panel-chat/src/markdown.tsx`, `monitor-flow/src/Markdown.tsx`)
-- Token leakage, auth header mistakes, or unsafe cross-origin usage in `@abstractframework/monitor-gpu` (`monitor-gpu/src/gpu_metrics_api.js`)
+- Token leakage, auth header mistakes, or unsafe cross-origin usage in `@abstractframework/monitor-gpu` / `@abstractframework/monitor-memory` (`*/src/*_metrics_api.js`)
+- Session, cookie, CSRF or Gateway URL pinning issues in `@abstractframework/app-server` (`app-server/src/gateway_session_proxy.js`)
 
 ## Reporting a vulnerability
 
@@ -29,7 +30,8 @@ Please include:
 
 ## Security notes for users
 
-- `@abstractframework/monitor-gpu` supports Bearer token auth. Avoid putting tokens in URLs and prefer HTTPS in production.
+- `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` support Bearer token auth. Avoid putting tokens in URLs and prefer HTTPS in production.
+- `@abstractframework/app-server` keeps the Gateway token server-side (HttpOnly session cookies + CSRF); do not add browser-side token storage in apps.
 - See security notes in `monitor-gpu/README.md` and integration guidance in [`docs/getting-started.md`](./docs/getting-started.md).
 
 ## Related docs

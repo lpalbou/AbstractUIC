@@ -35,8 +35,7 @@ app code or fetch on their own (injected transports are the pattern where networ
 
 ## Contracts you must follow
 
-These are the rules that keep app behavior consistent framework-wide. They exist because each
-one closed a real cross-app incident class.
+These rules keep app behavior consistent across the framework.
 
 ### Gateway connection surface
 
@@ -53,13 +52,12 @@ one closed a real cross-app incident class.
 - **Use the hook**: `useGatewayConnection({ appName, variant })` owns this machine (probe once at
   boot, auto-open rules, self-close on sign-in, stay-open on sign-out, re-arm per episode).
   Spread its `modalProps` into `GatewayConnectModal`. Hand-rolled variants drift.
-- **Remote-config gating is socket-peer authority, not Host-header** (SSRF fix, 2026-07-14): the
-  app-server proxy decides local-vs-remote from `req.socket.remoteAddress` — a spoofed
-  `Host: localhost` from a LAN peer no longer unlocks anything, and a genuine loopback peer
-  passes the transport gate regardless of its Host header (it then fails on auth if the target
-  is unreachable). **If your app pinned Host-header 403s in tests, those pins are now inverted**
-  — rewrite them to the socket-peer contract (observer hit exactly this; remote-peer behavior is
-  live-verified on real non-loopback binds by entity, observer, and continuum).
+- **Remote Gateway configuration is decided by the socket peer, not the Host header**: the
+  app-server proxy decides local-vs-remote from `req.socket.remoteAddress`. A `Host: localhost`
+  header from a LAN peer does not unlock browser-supplied Gateway URLs, and a genuine loopback
+  peer passes regardless of its Host header. Behind a trusted reverse proxy, remote
+  configuration requires the explicit opt-in (`ABSTRACTGATEWAY_ALLOW_REMOTE_BROWSER_GATEWAY_CONFIG`
+  or the app-prefixed variant). Tests of this gate should assert on the socket peer.
 
 ### Server truth renders, clients never re-derive
 
@@ -70,8 +68,8 @@ missing, render the labeled degraded state (`#FALLBACK`) — do not compute a cl
 ### Degradations are labeled
 
 When a discovery/fetch fails, components render a visible `#FALLBACK …` line rather than
-crashing or silently emptying. Keep that convention in your app surfaces too: the label is what
-makes fleet-level debugging possible.
+crashing or silently emptying. Keep that convention in your app surfaces too: the label makes
+degraded states easy to spot and diagnose.
 
 ### Styling
 
@@ -85,23 +83,20 @@ The kit absorbs proven app components rather than speculating:
 1. **Build kit-shaped locally** if you need something now: no app business logic, payload-driven
    props, tokens-only styling, snake_case file names. Say so in your tree (a header comment
    naming the absorption intent helps).
-2. **File the ask** in the shared channel with the props shape and the file path of your copy.
-3. **The kit ships the shared version** (same-day for small components is the working precedent),
-   usually generalizing transports into injected functions and absorbing the best variant of
-   each feature.
-4. **Delete your copy on adoption** — one source wins; forks are the drift the kit exists to kill.
-
-Recent absorptions that followed this path: `useGatewayVoice` (from two app copies),
-`ProviderModelPicker` (from continuum's copy + flow's pattern), the seven 16-grid icons, the
-gateway session proxy (from two apps' `cli.js`).
+2. **Open a request** (a GitHub issue on AbstractUIC) with the props shape and the file path of
+   your copy.
+3. **The kit ships the shared version**, usually generalizing transports into injected functions
+   and absorbing the best variant of each feature.
+4. **Delete your copy on adoption** so one source remains.
 
 ## Versioning discipline
 
-- Pin the kit version and rebuild your bundle when you bump it — a stale built bundle serving
-  old kit JS is the most common "the fix didn't ship" cause. A hard reload is required in open
-  tabs after a rebuild.
+- Pin the kit version and rebuild your bundle when you bump it: a previously built bundle keeps
+  serving the old kit code. Hard-reload open tabs after a rebuild.
 - `npm test` in `ui-kit` runs the full guard chain (build, matrix cores, theme tokens, palette
-  seeds parity); the publish hook runs the same chain.
+  seeds parity, theme contrast, console islands); the publish hook runs the same chain.
+- Pages that vendor the [console islands](./console-islands.md) bundle rebuild and re-vendor it
+  when the kit changes.
 
 ## Related docs
 
@@ -109,3 +104,5 @@ gateway session proxy (from two apps' `cli.js`).
 - [Theming](./theming.md) — token vocabulary + migration path
 - [API reference](./api.md) — export maps per package
 - [Architecture](./architecture.md) — package boundaries + data flow
+- [Console islands](./console-islands.md) — the kit components for non-React pages
+- [Troubleshooting](./troubleshooting.md) — symptoms and fixes

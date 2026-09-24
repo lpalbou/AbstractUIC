@@ -8,7 +8,7 @@ This file expands `llms.txt` into a single, offline-friendly document by inlinin
 
 # AbstractUIC
 
-> UI packages for AbstractFramework clients: React components (ESM + CSS exports) plus dependency-free Custom Elements for GPU and host memory metrics.
+> UI packages for AbstractFramework clients: React components (ESM + CSS exports), dependency-free Custom Elements for GPU and host memory metrics, a Node.js Gateway session proxy, and `ui-kit` console islands (a script build of the kit components for non-React pages).
 
 AbstractUIC is a **multi-package repository**: each top-level folder is an independently-consumable npm package.
 
@@ -54,15 +54,17 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Adoption guide](docs/adoption-guide.md): which shared component for which job + the cross-app contracts (connection surface, server truth, labeled fallbacks)
 - [Theming](docs/theming.md): design-token vocabulary, 21-theme system, adoption/migration rules for host apps
 - [API reference](docs/api.md): export map per package (what to import)
-- [Architecture](docs/architecture.md): package boundaries + diagrams (incl. ecosystem data flow and the gateway connection flow)
+- [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, console islands build, ecosystem data flow, gateway connection flow)
 - [FAQ](docs/faq.md): bundling/CSS/SSR and per-package notes
+- [Troubleshooting](docs/troubleshooting.md): symptoms, checks and fixes (unstyled components, SSR errors, widget polling, app-server 401/403, stale islands bundle)
+- [Console islands](docs/console-islands.md): `window.AfConsoleIslands` (mountTopBar / mountAppearance / applyAppearance) for pages that are not React apps; repository build, not in the npm package
 - [Docs index](docs/README.md): full docs navigation
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk)
-- [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers
-- [@abstractframework/app-server](app-server/src/index.js): Node gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning; no runtime deps)
+- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / appearance dialog, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk)
+- [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat
+- [@abstractframework/app-server](app-server/README.md): Node gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
 - [@abstractframework/monitor-gpu](monitor-gpu/README.md): GPU widget (`<monitor-gpu>`) + backend contract
@@ -79,11 +81,15 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [ui-kit/src/index.ts](ui-kit/src/index.ts): exports for `@abstractframework/ui-kit`
 - [ui-kit/src/gateway_session_signin.tsx](ui-kit/src/gateway_session_signin.tsx): shared Gateway browser-session sign-in card
 - [ui-kit/src/use_gateway_connection.ts](ui-kit/src/use_gateway_connection.ts): the connection state machine hook (probe/auto-open/self-close contract)
+- [ui-kit/islands/console_islands.tsx](ui-kit/islands/console_islands.tsx): console islands entry and `AfConsoleIslands` API
+- [ui-kit/scripts/build_islands.mjs](ui-kit/scripts/build_islands.mjs): islands bundle build (`--check` detects a stale bundle)
 - [ui-kit/palette_seeds.json](ui-kit/palette_seeds.json): generated 4-token palette per theme (for non-CSS consumers)
 - [app-server/src/gateway_session_proxy.js](app-server/src/gateway_session_proxy.js): gateway session proxy (cookie exchange, CSRF, URL pinning)
+- [app-server/package.json](app-server/package.json): published metadata (`exports`)
+- [app-server/src/index.js](app-server/src/index.js): exports for `@abstractframework/app-server`
 - [app-server/src/index.d.ts](app-server/src/index.d.ts): TS types for `createGatewaySessionProxy`
 - [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
-- [panel-chat/src/types.ts](panel-chat/src/types.ts): `PanelChatMessage` contract
+- [panel-chat/src/chat_message_card.tsx](panel-chat/src/chat_message_card.tsx): `ChatMessage` / `ChatAttachment` / `ChatStat` contracts
 - [panel-chat/src/message_content.tsx](panel-chat/src/message_content.tsx): JSON autodetect + Markdown override hook (`renderMarkdown`)
 - [panel-chat/src/markdown.tsx](panel-chat/src/markdown.tsx): Markdown renderer rules (minimal, no external deps)
 - [monitor-flow/src/index.ts](monitor-flow/src/index.ts): exports for `@abstractframework/monitor-flow`
@@ -105,6 +111,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Publishing (maintainers)](docs/publishing.md): Release checklist and npm publish notes
 - [Development](docs/development.md): Local workflow and tests
 - [Contributing](CONTRIBUTING.md): contribution workflow and expectations
+- [Code of conduct](CODE_OF_CONDUCT.md): expected behavior and reporting
 - [Security policy](SECURITY.md): responsible vulnerability reporting
 - [Changelog](CHANGELOG.md): notable changes by version
 - [Acknowledgments](ACKNOWLEDGMENTS.md): upstream credits
@@ -114,7 +121,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 # AbstractUIC
 
-Reusable UI packages for AbstractFramework clients (React components + small Web Components).
+Reusable UI packages for AbstractFramework clients: React components, small Web Components, a Node.js Gateway session proxy, and console islands for pages that are not React apps.
 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
@@ -127,7 +134,7 @@ AbstractUIC is part of the broader [AbstractFramework](https://github.com/lpalbo
 - **AbstractCore** (core logic/types): https://github.com/lpalbou/abstractcore
 - **AbstractRuntime** (runtime/orchestration): https://github.com/lpalbou/abstractruntime
 
-AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see the absence of such dependencies in `*/package.json`). Instead, host apps (AbstractFlow / AbstractObserver / etc.) integrate with those layers and pass the resulting data into these UI components (see package contracts in `monitor-flow/src/AgentCyclesPanel.tsx`, `monitor-active-memory/src/types.ts`, `panel-chat/src/types.ts`).
+AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see the absence of such dependencies in `*/package.json`). Instead, host apps (AbstractFlow / AbstractObserver / etc.) integrate with those layers and pass the resulting data into these UI components (see package contracts in `monitor-flow/src/AgentCyclesPanel.tsx`, `monitor-active-memory/src/types.ts`, `panel-chat/src/chat_message_card.tsx`).
 
 ## Documentation
 
@@ -137,10 +144,13 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 - API reference: [`docs/api.md`](./docs/api.md)
 - FAQ: [`docs/faq.md`](./docs/faq.md)
 - Architecture (includes diagrams): [`docs/architecture.md`](./docs/architecture.md)
+- Troubleshooting: [`docs/troubleshooting.md`](./docs/troubleshooting.md)
+- Console islands (kit components for non-React pages): [`docs/console-islands.md`](./docs/console-islands.md)
 - Docs index: [`docs/README.md`](./docs/README.md)
 - Agent-oriented docs: [`llms.txt`](./llms.txt) (index) and [`llms-full.txt`](./llms-full.txt) (generated, offline-friendly)
 - Changelog: [`CHANGELOG.md`](./CHANGELOG.md)
 - Contributing: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
+- Code of conduct: [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md)
 - Security: [`SECURITY.md`](./SECURITY.md)
 - Acknowledgments: [`ACKNOWLEDGMENTS.md`](./ACKNOWLEDGMENTS.md)
 
@@ -148,8 +158,8 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 
 | Package | Purpose | Docs |
 |---|---|---|
-| `@abstractframework/ui-kit` | Theme tokens (21 themes), inputs (`AfSelect`, provider/model pickers), Gateway connect modal + connection hook, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk) | [`ui-kit/README.md`](./ui-kit/README.md) |
-| `@abstractframework/panel-chat` | Chat thread + message cards + composer + markdown/json rendering | [`panel-chat/README.md`](./panel-chat/README.md) |
+| `@abstractframework/ui-kit` | Theme tokens (21 themes), inputs (`AfSelect`, provider/model pickers), Gateway connect modal + connection hook, top bar / drawer / appearance dialog, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk); console islands for non-React pages (repository build) | [`ui-kit/README.md`](./ui-kit/README.md) |
+| `@abstractframework/panel-chat` | Chat thread + message cards + composer + markdown/json rendering, app assistant panel, workflow chat | [`panel-chat/README.md`](./panel-chat/README.md) |
 | `@abstractframework/app-server` | Node gateway-session proxy for app servers (token → HttpOnly cookie exchange, CSRF, URL pinning) | [`app-server/README.md`](./app-server/README.md) |
 | `@abstractframework/monitor-flow` | Agent-cycle trace viewer + ledger adapter | [`monitor-flow/README.md`](./monitor-flow/README.md) |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | [`monitor-active-memory/README.md`](./monitor-active-memory/README.md) |
@@ -211,7 +221,7 @@ MIT (see [`LICENSE`](./LICENSE)).
 
 # Getting Started
 
-AbstractUIC is a small set of **UI packages** (React components + one Web Component). Each top-level folder in this repo is an independently-consumable package.
+AbstractUIC is a small set of **UI packages** (React components, two Web Components and a Node.js Gateway session proxy). Each top-level folder in this repo is an independently-consumable package.
 
 AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/AbstractFramework) ecosystem:
 - **AbstractCore**: https://github.com/lpalbou/abstractcore
@@ -231,12 +241,16 @@ For a package-by-package export map, see the [API reference](./api.md).
 
 | Package | Use when you need… | Primary exports (source of truth) |
 |---|---|---|
-| `@abstractframework/ui-kit` | Shared theme tokens + small UI primitives (selects/icons) | `ui-kit/src/index.ts` |
+| `@abstractframework/ui-kit` | Shared theme tokens, inputs, Gateway connection UI, app chrome (top bar, drawer, appearance) | `ui-kit/src/index.ts` |
 | `@abstractframework/panel-chat` | Chat thread + message UI + markdown/json rendering | `panel-chat/src/index.ts` |
 | `@abstractframework/monitor-flow` | Agent “cycles” trace viewer + ledger adapter | `monitor-flow/src/index.ts` |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | `monitor-active-memory/src/index.ts` |
 | `@abstractframework/monitor-gpu` | GPU utilization histogram widget (`<monitor-gpu>`) | `monitor-gpu/src/index.js` |
 | `@abstractframework/monitor-memory` | Host RAM + device memory meter widget (`<monitor-memory>`) | `monitor-memory/src/index.js` |
+| `@abstractframework/app-server` | Node.js app server that fronts an AbstractGateway with HttpOnly session cookies | `app-server/src/index.js` |
+
+For a page that is not a React app, the kit's top bar and appearance dialog are also available as
+[console islands](./console-islands.md), a script built from a repository checkout.
 
 ## Requirements
 
@@ -274,6 +288,9 @@ npm i @abstractframework/monitor-gpu
 
 # host memory widget (web component)
 npm i @abstractframework/monitor-memory
+
+# app-origin gateway session proxy (Node.js)
+npm i @abstractframework/app-server
 ```
 
 ## CSS you must import
@@ -400,7 +417,9 @@ module.exports = {
 ## Next docs
 
 - [API reference](./api.md)
+- [Adoption guide](./adoption-guide.md)
 - [FAQ](./faq.md)
+- [Troubleshooting](./troubleshooting.md) (setup and first-run problems)
 - [Architecture](./architecture.md)
 - [Development](./development.md)
 - [Publishing (maintainers)](./publishing.md)
@@ -444,8 +463,7 @@ app code or fetch on their own (injected transports are the pattern where networ
 
 ## Contracts you must follow
 
-These are the rules that keep app behavior consistent framework-wide. They exist because each
-one closed a real cross-app incident class.
+These rules keep app behavior consistent across the framework.
 
 ### Gateway connection surface
 
@@ -462,13 +480,12 @@ one closed a real cross-app incident class.
 - **Use the hook**: `useGatewayConnection({ appName, variant })` owns this machine (probe once at
   boot, auto-open rules, self-close on sign-in, stay-open on sign-out, re-arm per episode).
   Spread its `modalProps` into `GatewayConnectModal`. Hand-rolled variants drift.
-- **Remote-config gating is socket-peer authority, not Host-header** (SSRF fix, 2026-07-14): the
-  app-server proxy decides local-vs-remote from `req.socket.remoteAddress` — a spoofed
-  `Host: localhost` from a LAN peer no longer unlocks anything, and a genuine loopback peer
-  passes the transport gate regardless of its Host header (it then fails on auth if the target
-  is unreachable). **If your app pinned Host-header 403s in tests, those pins are now inverted**
-  — rewrite them to the socket-peer contract (observer hit exactly this; remote-peer behavior is
-  live-verified on real non-loopback binds by entity, observer, and continuum).
+- **Remote Gateway configuration is decided by the socket peer, not the Host header**: the
+  app-server proxy decides local-vs-remote from `req.socket.remoteAddress`. A `Host: localhost`
+  header from a LAN peer does not unlock browser-supplied Gateway URLs, and a genuine loopback
+  peer passes regardless of its Host header. Behind a trusted reverse proxy, remote
+  configuration requires the explicit opt-in (`ABSTRACTGATEWAY_ALLOW_REMOTE_BROWSER_GATEWAY_CONFIG`
+  or the app-prefixed variant). Tests of this gate should assert on the socket peer.
 
 ### Server truth renders, clients never re-derive
 
@@ -479,8 +496,8 @@ missing, render the labeled degraded state (`#FALLBACK`) — do not compute a cl
 ### Degradations are labeled
 
 When a discovery/fetch fails, components render a visible `#FALLBACK …` line rather than
-crashing or silently emptying. Keep that convention in your app surfaces too: the label is what
-makes fleet-level debugging possible.
+crashing or silently emptying. Keep that convention in your app surfaces too: the label makes
+degraded states easy to spot and diagnose.
 
 ### Styling
 
@@ -494,23 +511,20 @@ The kit absorbs proven app components rather than speculating:
 1. **Build kit-shaped locally** if you need something now: no app business logic, payload-driven
    props, tokens-only styling, snake_case file names. Say so in your tree (a header comment
    naming the absorption intent helps).
-2. **File the ask** in the shared channel with the props shape and the file path of your copy.
-3. **The kit ships the shared version** (same-day for small components is the working precedent),
-   usually generalizing transports into injected functions and absorbing the best variant of
-   each feature.
-4. **Delete your copy on adoption** — one source wins; forks are the drift the kit exists to kill.
-
-Recent absorptions that followed this path: `useGatewayVoice` (from two app copies),
-`ProviderModelPicker` (from continuum's copy + flow's pattern), the seven 16-grid icons, the
-gateway session proxy (from two apps' `cli.js`).
+2. **Open a request** (a GitHub issue on AbstractUIC) with the props shape and the file path of
+   your copy.
+3. **The kit ships the shared version**, usually generalizing transports into injected functions
+   and absorbing the best variant of each feature.
+4. **Delete your copy on adoption** so one source remains.
 
 ## Versioning discipline
 
-- Pin the kit version and rebuild your bundle when you bump it — a stale built bundle serving
-  old kit JS is the most common "the fix didn't ship" cause. A hard reload is required in open
-  tabs after a rebuild.
+- Pin the kit version and rebuild your bundle when you bump it: a previously built bundle keeps
+  serving the old kit code. Hard-reload open tabs after a rebuild.
 - `npm test` in `ui-kit` runs the full guard chain (build, matrix cores, theme tokens, palette
-  seeds parity); the publish hook runs the same chain.
+  seeds parity, theme contrast, console islands); the publish hook runs the same chain.
+- Pages that vendor the [console islands](./console-islands.md) bundle rebuild and re-vendor it
+  when the kit changes.
 
 ## Related docs
 
@@ -518,6 +532,8 @@ gateway session proxy (from two apps' `cli.js`).
 - [Theming](./theming.md) — token vocabulary + migration path
 - [API reference](./api.md) — export maps per package
 - [Architecture](./architecture.md) — package boundaries + data flow
+- [Console islands](./console-islands.md) — the kit components for non-React pages
+- [Troubleshooting](./troubleshooting.md) — symptoms and fixes
 
 ## docs/theming.md
 
@@ -608,8 +624,8 @@ Typical path, one surface at a time:
 
 1. Import `@abstractframework/ui-kit/theme.css` in the app entrypoint and call
    `applyTheme(...)`. `ThemeSelect` is a controlled picker (value + onChange);
-   persisting the choice is the app's job (a per-app storage key — see the
-   adoption guide's appearance section).
+   persisting the choice is the app's job; `useAppearanceSettings(appId)` stores it under a
+   per-app key (see [`ui-kit/README.md`](../ui-kit/README.md#unified-top-right-corner)).
 2. Map your local variables to kit tokens (e.g. your `--bg` → `--bg-primary`, `--fg` →
    `--text-primary`) — alias first (`--bg: var(--bg-primary)`), then migrate usages and delete
    the aliases.
@@ -640,6 +656,7 @@ Both run in the package test chain, so a published `ui-kit` cannot drift silentl
 - Component inventory for app developers: [Adoption guide](./adoption-guide.md)
 - API surface: [API reference](./api.md)
 - Package README: [`ui-kit/README.md`](../ui-kit/README.md)
+- Non-React pages: [Console islands](./console-islands.md)
 
 ## docs/api.md
 
@@ -651,6 +668,7 @@ Source of truth:
 - React packages: exports in `*/src/index.ts` (compiled to `dist/` on publish; see `*/package.json`)
 - GPU widget: exports in `monitor-gpu/src/index.js` (types in `monitor-gpu/src/index.d.ts`)
 - Host memory widget: exports in `monitor-memory/src/index.js` (types in `monitor-memory/src/index.d.ts`)
+- Gateway session proxy: exports in `app-server/src/index.js` (types in `app-server/src/index.d.ts`)
 
 If you’re starting from scratch, read [Getting started](./getting-started.md) first (it covers install options and required CSS imports).
 
@@ -691,10 +709,23 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Critical actions: `CriticalActionDialog` + core (`resolveCriticalActionGate()`, `normalizeCriticalActionFacts()`)
 - Run steering: `SteerComposer` + `submitSteer()` (idempotent command ids, CSRF candidates)
 - Lists & badges: `DisclosureList` (tree list, roving tabindex), `AfChip` / `AfChipButton`
-- Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`
+- App chrome: `AfTopBarActions` (assistant → appearance → extras → connection pill), `AfDrawer` (non-modal, keeps children mounted), `AfAppearanceDialog` + `useAppearanceSettings()` / `appearanceStorageKey()` / `APPEARANCE_DEFAULTS`
+- CSRF helpers: `readGatewayCsrfToken()`, `readGatewayCsrfTokens()`
+- Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`; `VoiceSettings` (catalog-driven voice preferences form)
+- Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
 - Icons: `Icon`, `IconName` (~40 glyphs, 24-grid and 16-grid families)
+- Palette seeds: `@abstractframework/ui-kit/palette_seeds.json` (generated 4-token palette per theme)
 
 See: [`ui-kit/README.md`](../ui-kit/README.md) and the [Adoption guide](./adoption-guide.md).
+
+### Console islands (repository build, not an npm export)
+
+`ui-kit/islands/console_islands.tsx` builds into `ui-kit/islands/dist/af-console-islands.js`, a
+self-contained script that defines `window.AfConsoleIslands` (`apiVersion` `"1"`, `kitVersion`,
+`themes`, `fontScales`, `headerDensities`, `mountTopBar(el, props)`,
+`mountAppearance(el, props)`, `applyAppearance(settings)`). Build it with
+`npm run build:islands -w @abstractframework/ui-kit`. It is not included in the npm tarball.
+Full reference: [Console islands](./console-islands.md).
 
 `SpeculationSelect` consumes `execution.speculation` from the host capability payload. It
 offers inheritance (`undefined`), Off (`false`), and only advertised depths. Explicit depths
@@ -711,6 +742,9 @@ Purpose: chat-thread UI primitives with lightweight Markdown/JSON rendering.
 - CSS: `@abstractframework/panel-chat/panel_chat.css` (file: `panel-chat/src/panel_chat.css`)
 
 Components:
+- `AssistantPanel` (docs Q&A surface with an injected `ask(question, { signal, history })` transport returning a Promise or an AsyncIterable of deltas; never fetches)
+- `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
+- `ToolActivity`, `ToolActivityGroup` (tool-call rendering), `StatDetailPanel` + `statDetail()` (token/time/tool statistics)
 - `ChatThread` (thread container; renders a list of messages)
 - `ChatMessageCard` (single message rendering; `message.title` names the speaker — assistants
   render their entity/agent name when provided, falling back to "Agent")
@@ -723,12 +757,12 @@ Renderers:
 - `JsonViewer` (collapsible tree; honors `collapseAfterDepth`; auto-parses JSON strings)
 
 Types:
-- `PanelChatMessage` (generic message model used by `ChatThread`)
-- `ChatMessage`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
+- `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`), `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
 
 Utilities:
 - `tryParseJson()` (drives JSON autodetection in `ChatMessageContent`)
 - `chatToMarkdown()`, `copyText()`, `downloadTextFile()`
+- Workflow evidence: `workflowProgress()`, `workflowEvidence()`, `foldWorkflowTools()`, `historyRecords()`, `toolArguments()`, `toolPreview()`
 
 Customization point:
 - `ChatMessageContent` supports `renderMarkdown?: (markdown: string) => React.ReactElement` (see `panel-chat/src/message_content.tsx`).
@@ -837,6 +871,8 @@ See: [`monitor-memory/README.md`](../monitor-memory/README.md) for the backend c
 - Getting started: [Getting started](./getting-started.md)
 - FAQ: [FAQ](./faq.md)
 - Architecture (diagrams): [Architecture](./architecture.md)
+- Console islands: [Console islands](./console-islands.md)
+- Troubleshooting: [Troubleshooting](./troubleshooting.md)
 - Docs index: [Docs index](./README.md)
 - Security policy: [`SECURITY.md`](../SECURITY.md)
 
@@ -851,13 +887,57 @@ Ecosystem context (external):
 - AbstractCore: https://github.com/lpalbou/abstractcore
 - AbstractRuntime: https://github.com/lpalbou/abstractruntime
 
-This document stays intentionally close to the code: package boundaries, exports, and contracts are backed by entrypoints/types in `src/` and by `exports` metadata in each `*/package.json`. Where we reference the broader AbstractFramework ecosystem (AbstractCore / AbstractRuntime), it’s for context — AbstractUIC does not import those packages directly.
+This document stays intentionally close to the code: package boundaries, exports, and contracts are backed by entrypoints/types in `src/` and by `exports` metadata in each `*/package.json`. References to the broader AbstractFramework ecosystem (AbstractCore / AbstractRuntime) are for context — AbstractUIC does not import those packages directly.
 
 ## High-level overview
 
 - **React packages** ship **compiled ESM + type declarations** from `dist/` (see `exports` in each `package.json`). Source lives in `src/` and is built with `tsc`.
 - **`@abstractframework/monitor-gpu`** and **`@abstractframework/monitor-memory`** ship **JavaScript** (`monitor-gpu/src`, `monitor-memory/src`) and register custom elements.
+- **`@abstractframework/app-server`** ships Node.js JavaScript (`app-server/src`) with no runtime dependencies.
 - Styling is shipped as plain CSS and exposed as package exports (e.g. `@abstractframework/panel-chat/panel_chat.css`).
+- **Console islands** are a repository build output of `ui-kit` (`ui-kit/islands/`), not an npm export: one self-contained script for pages that are not React apps. See [Console islands](./console-islands.md).
+
+## Packages and their consumers
+
+The AbstractFramework apps consume the packages from npm (or as workspace links). The
+AbstractGateway console is served from Python without an npm build, so it vendors generated
+copies of the kit instead: the theme stylesheet and the console islands bundle.
+
+```mermaid
+flowchart LR
+  subgraph UIC["AbstractUIC packages"]
+    UIKIT["ui-kit<br/>components + theme.css"]
+    ISL["ui-kit console islands<br/>af-console-islands.js<br/>(repository build output)"]
+    CHAT["panel-chat"]
+    APPSRV["app-server"]
+    MON["monitor-flow / monitor-active-memory<br/>monitor-gpu / monitor-memory"]
+  end
+
+  UIKIT -->|"build_islands.mjs (esbuild)"| ISL
+
+  subgraph Apps["AbstractFramework apps (React)"]
+    FLOWAPP["AbstractFlow"]
+    CODE["AbstractCode web"]
+    CONT["AbstractContinuum"]
+    ENT["AbstractEntity"]
+    OBS["AbstractObserver"]
+  end
+
+  subgraph GW["AbstractGateway console (HTML served from Python)"]
+    CONSOLE["console page"]
+  end
+
+  UIKIT --> FLOWAPP & CODE & CONT & ENT & OBS
+  CHAT --> CODE & CONT & ENT & OBS
+  MON --> FLOWAPP & CODE & OBS
+  APPSRV -->|"app server (Node)"| CONT & ENT & OBS
+  UIKIT -->|"theme.css (vendored copy)"| CONSOLE
+  ISL -->|"window.AfConsoleIslands (vendored copy)"| CONSOLE
+```
+
+Monitor usage per app: AbstractFlow uses all four monitors; AbstractCode web uses
+`monitor-flow` and `monitor-gpu`; AbstractObserver uses `monitor-flow`, `monitor-active-memory`
+and `monitor-gpu`.
 
 ## Package dependency graph
 
@@ -984,6 +1064,33 @@ sequenceDiagram
 - Evidence: `app-server/src/gateway_session_proxy.js`, `ui-kit/src/use_gateway_connection.ts`,
   `ui-kit/src/gateway_connect_modal.tsx`.
 
+## Console islands (`ui-kit`)
+
+The console islands expose the kit's `AfTopBarActions` and `AfAppearanceDialog` to a page that
+is not a React app, through a prop-driven global API.
+
+```mermaid
+flowchart LR
+  SRC["ui-kit/src/*<br/>AfTopBarActions, AfAppearanceDialog,<br/>theme.ts, typography.ts"]
+  ENTRY["ui-kit/islands/console_islands.tsx"]
+  BUILD["scripts/build_islands.mjs<br/>(esbuild, IIFE, React bundled)"]
+  OUT["islands/dist/af-console-islands.js"]
+  CHECK["scripts/check_islands.mjs<br/>(npm test)"]
+  PAGE["Host page<br/>script tag + theme.css"]
+  API["window.AfConsoleIslands<br/>mountTopBar / mountAppearance / applyAppearance"]
+
+  SRC --> ENTRY --> BUILD --> OUT
+  OUT --> CHECK
+  OUT --> PAGE --> API
+```
+
+- The host owns all state and calls `handle.update(props)` when it changes.
+- `apiVersion` (`"1"`) versions the island API; `kitVersion` records the `ui-kit` version the
+  bundle was built from.
+- The bundle carries no CSS; the host also serves `theme.css`.
+
+Details, API and examples: [Console islands](./console-islands.md).
+
 ## Styling & theming
 
 - `@abstractframework/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css` (exported as `@abstractframework/ui-kit/theme.css`) — 21 themes; see [Theming](./theming.md) for the token vocabulary and adoption rules.
@@ -996,7 +1103,10 @@ See also: [Getting started](./getting-started.md) for integration + required CSS
 
 - Getting started: [Getting started](./getting-started.md)
 - API reference: [API reference](./api.md)
+- Console islands: [Console islands](./console-islands.md)
+- Theming: [Theming](./theming.md)
 - FAQ: [FAQ](./faq.md)
+- Troubleshooting: [Troubleshooting](./troubleshooting.md)
 - Docs index: [Docs index](./README.md)
 - Development: [Development](./development.md)
 - Package docs: see the table in the root [`README.md`](../README.md)
@@ -1025,12 +1135,13 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 - [monitor-active-memory: Does it persist layouts?](#monitor-active-memory-does-it-persist-layouts)
 - [monitor-gpu: What backend payload does it expect?](#monitor-gpu-what-backend-payload-does-it-expect)
 - [monitor-gpu: How do I set auth and CORS safely?](#monitor-gpu-how-do-i-set-auth-and-cors-safely)
+- [Can I use the kit components on a page that is not a React app?](#can-i-use-the-kit-components-on-a-page-that-is-not-a-react-app)
 - [Where are the tests?](#where-are-the-tests)
 - [Is this published to npm?](#is-this-published-to-npm)
 
 ## What is AbstractUIC?
 
-AbstractUIC is a **multi-package repository**: each top-level folder is an npm package (see each `*/package.json`). Most packages are React components; two packages (`@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory`) are dependency-free Web Components.
+AbstractUIC is a **multi-package repository**: each top-level folder is an npm package (see each `*/package.json`). Most packages are React components; two packages (`@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory`) are dependency-free Web Components, and `@abstractframework/app-server` is a Node.js Gateway session proxy.
 
 Start here: [Getting started](./getting-started.md).
 
@@ -1060,6 +1171,7 @@ Authoritative exports:
 - `@abstractframework/monitor-active-memory`: `monitor-active-memory/src/index.ts`
 - `@abstractframework/monitor-gpu`: `monitor-gpu/src/index.js`
 - `@abstractframework/monitor-memory`: `monitor-memory/src/index.js`
+- `@abstractframework/app-server`: `app-server/src/index.js`
 
 ## Do I install a single package or multiple?
 
@@ -1173,6 +1285,13 @@ Source of truth: `monitor-gpu/src/gpu_metrics_api.js` and `monitor-gpu/src/monit
 
 Source of truth: `monitor-gpu/src/gpu_metrics_api.js` (`buildAuthHeaders`) and `monitor-gpu/src/monitor_gpu_widget.js`.
 
+## Can I use the kit components on a page that is not a React app?
+
+Yes, in two ways:
+
+- **Console islands**: build `ui-kit/islands/dist/af-console-islands.js` from a repository checkout and load it with a `<script>` tag; `window.AfConsoleIslands` mounts the real top bar and appearance dialog with a prop-driven API. It is not part of the npm package. See [Console islands](./console-islands.md).
+- **CSS only**: the `.af-topbar-*` and `.af-drawer-*` classes in `theme.css` are stable public API for server-rendered HTML (see [`ui-kit/README.md`](../ui-kit/README.md#css-public-api-non-react-consumers)).
+
 ## Where are the tests?
 
 Each workspace ships its own test rig; run them all from the repo root:
@@ -1201,31 +1320,384 @@ Maintainers: see [Publishing](./publishing.md).
 - Getting started: [Getting started](./getting-started.md)
 - API reference: [API reference](./api.md)
 - Architecture: [Architecture](./architecture.md)
+- Troubleshooting: [Troubleshooting](./troubleshooting.md)
+
+## docs/troubleshooting.md
+
+# Troubleshooting
+
+Symptom-first fixes for common AbstractUIC integration problems. Each entry names what you see,
+how to confirm the cause, and the fix. For conceptual questions see the [FAQ](./faq.md); for
+setup see [Getting started](./getting-started.md).
+
+## Components render unstyled or with the wrong colors
+
+**Symptom:** buttons, selects or chat cards appear as plain browser controls, or colors do not
+follow the selected theme.
+
+**Cause:** the CSS exports were not imported. Packages ship CSS separately from JavaScript.
+
+**Fix:** import the theme tokens once and the stylesheet of each package you use, from your app
+entrypoint:
+
+```ts
+import "@abstractframework/ui-kit/theme.css";
+import "@abstractframework/panel-chat/panel_chat.css";
+import "@abstractframework/monitor-flow/agent_cycles.css";
+import "@abstractframework/monitor-active-memory/styles.css";
+import "reactflow/dist/style.css"; // only with monitor-active-memory
+```
+
+**Verify:** the `<html>` element carries a `theme-*` class after `applyTheme(...)`, and
+`getComputedStyle(document.documentElement).getPropertyValue("--bg-primary")` is not empty.
+
+See: [Getting started](./getting-started.md#css-you-must-import), [Theming](./theming.md).
+
+## `window is not defined` / `document is not defined` during server rendering
+
+**Cause:** some components and helpers touch browser APIs (`window`, `document`, `navigator`,
+`localStorage`).
+
+**Fix:** render those components on the client only (a `"use client"` boundary or a dynamic
+import with SSR disabled in Next.js).
+
+See: [FAQ: Are these components SSR-safe?](./faq.md#are-these-components-ssr-safe),
+[Getting started: Next.js notes](./getting-started.md#nextjs-notes).
+
+## `Module not found: reactflow` or a blank Active Memory explorer
+
+**Cause:** `@abstractframework/monitor-active-memory` declares `reactflow@^11` as a peer
+dependency; it is not installed automatically, and its base styles are separate.
+
+**Fix:** `npm i reactflow@^11` and import `reactflow/dist/style.css` in your app entrypoint.
+
+See: [`monitor-active-memory/README.md`](../monitor-active-memory/README.md).
+
+## A kit fix does not show up in your app
+
+**Symptom:** you upgraded `@abstractframework/ui-kit` (or another package) but the browser still
+shows the old behavior.
+
+**Checks:** `npm ls @abstractframework/ui-kit` shows the version you expect; your built bundle
+was produced after the upgrade.
+
+**Fix:** rebuild your app bundle after every kit upgrade, then hard-reload open tabs. A
+previously built bundle keeps serving the old kit code.
+
+See: [Adoption guide: Versioning discipline](./adoption-guide.md#versioning-discipline).
+
+## `<monitor-gpu>` or `<monitor-memory>` shows `N/A` or stops updating
+
+**Causes and checks:**
+
+- `401`/`403` from the metrics endpoint: the widget stops polling until a token is provided. Set
+  `el.token` (or `el.getToken`); polling resumes.
+- `404`, or a payload with `supported: false` (`<monitor-memory>`): the endpoint is marked
+  unsupported and polling stops. Point `baseUrl`/`endpoint` at a host that serves the metrics;
+  changing it resumes polling.
+- `429` (`<monitor-memory>`): the widget backs off for 30 seconds.
+- Cross-origin requests blocked in the browser console: allow your UI origin in the backend CORS
+  policy.
+
+**Verify:** call the endpoint yourself with the same token, for example
+`curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/gateway/host/metrics/memory`.
+
+See: [`monitor-gpu/README.md`](../monitor-gpu/README.md),
+[`monitor-memory/README.md`](../monitor-memory/README.md).
+
+## The app-server proxy answers `403` or `401`
+
+- `403` with `reason_code: "csrf_required"` on a mutating request: send the CSRF token from the
+  `<appId>_gateway_csrf` cookie in the `x-<appId>-csrf` or `x-abstract-csrf` header. The ui-kit
+  helpers (`submitSteer`, `readGatewayCsrfTokens`) do this for you.
+- `403` "Browser-supplied Gateway URL changes are disabled for this non-local host": a
+  non-loopback client tried to sign in to a Gateway URL other than the server's
+  `defaultGatewayUrl`. Use the server-configured URL, or, behind your own access control, set
+  `ABSTRACTGATEWAY_ALLOW_REMOTE_BROWSER_GATEWAY_CONFIG=1` (or the app-prefixed variant).
+- `401` "Gateway sign-in required": the browser has no session cookie yet; sign in through
+  `GatewayConnectModal` (`POST /api/connection/gateway`).
+
+See: [`app-server/README.md`](../app-server/README.md),
+[Architecture: Gateway connection flow](./architecture.md#gateway-connection-flow-app-server--ui-kit).
+
+## Console islands: `islands bundle is stale` or `AfConsoleIslands` is undefined
+
+- `node ui-kit/scripts/build_islands.mjs --check` prints `islands bundle is stale`: the bundle on
+  disk no longer matches the kit sources. Rebuild with
+  `npm run build:islands -w @abstractframework/ui-kit`, then re-vendor it in the consumer.
+- `window.AfConsoleIslands` is undefined in the page: the script was not loaded, or loaded after
+  the code that uses it. Load `af-console-islands.js` with a plain `<script>` tag before your
+  page script.
+- `AfConsoleIslands: mount target missing`: the element passed to `mountTopBar` /
+  `mountAppearance` does not exist yet; mount after the DOM is ready.
+- Islands render but look unstyled: the bundle ships no CSS; load the kit's `theme.css` too.
+- The bundle is missing after `npm install @abstractframework/ui-kit`: the islands are built
+  from a repository checkout and are not part of the npm package.
+
+**Verify:** `node ui-kit/scripts/check_islands.mjs` prints `check_islands: OK (...)`.
+
+See: [Console islands](./console-islands.md).
+
+## `npm test` fails in `ui-kit`
+
+The `ui-kit` test chain runs guard scripts before and after the build. The first failing
+script names the problem, for example:
+
+- `generate_palette_seeds.mjs --check`: `palette_seeds.json` is out of date with `theme.css`;
+  run `node ui-kit/scripts/generate_palette_seeds.mjs` and commit the result.
+- `check_theme_tokens.mjs`: a theme block is missing a token the components use; add it to
+  every theme in `theme.css`.
+- `check_islands.mjs`: see the console islands entry above.
+
+See: [Theming: Guard scripts](./theming.md#guard-scripts), [Development](./development.md).
+
+## Still stuck?
+
+Open an issue on [GitHub](https://github.com/lpalbou/AbstractUIC/issues) with the package names
+and versions (`npm ls @abstractframework/<package>`), the browser or Node version, and the exact
+error. Report security problems privately as described in [`SECURITY.md`](../SECURITY.md).
+
+## Related docs
+
+- [Getting started](./getting-started.md)
+- [FAQ](./faq.md)
+- [API reference](./api.md)
+- [Architecture](./architecture.md)
+- [Docs index](./README.md)
+
+## docs/console-islands.md
+
+# Console Islands (`@abstractframework/ui-kit`)
+
+The console islands let a page that is **not a React app** mount the kit's real React
+components. They are built from `@abstractframework/ui-kit` sources into one self-contained
+browser script that defines a small global API, `window.AfConsoleIslands`.
+
+The AbstractGateway console (HTML served from Python) is the consumer: it uses the islands for
+its top-right action cluster (connect/disconnect pill, appearance button, extras) and its
+appearance dialog (theme, font scale, header density), so the console renders the same
+components as the React apps.
+
+This page is a deep dive for the `ui-kit` package. For the package overview see
+[`ui-kit/README.md`](../ui-kit/README.md); for how the islands fit among the other packages and
+their consumers see [Architecture](./architecture.md).
+
+## What the islands are (and are not)
+
+- **A build output, not an npm export.** The bundle, `ui-kit/islands/dist/af-console-islands.js`,
+  is produced from the repository and is not part of the published `@abstractframework/ui-kit`
+  tarball. If you install the package from npm, you get the React components, `theme.css` and
+  `palette_seeds.json`; build the islands from a checkout of this repository.
+- **Self-contained.** The bundle is a minified IIFE that includes React 18 and React DOM. The page
+  needs no module loader and no other script: load it with a plain `<script>` tag.
+- **JavaScript only.** The bundle ships no CSS. The page must also load the kit stylesheet
+  (`ui-kit/src/theme.css`), which styles the `af-topbar__*` cluster, the appearance dialog and
+  every theme.
+- **Prop-driven.** The host owns all state. Each mount returns a handle; call `update(props)`
+  whenever your state changes. No React knowledge is needed on the host side.
+
+Source files:
+
+| File | Role |
+| --- | --- |
+| `ui-kit/islands/console_islands.tsx` | Entry point and API (`mountTopBar`, `mountAppearance`, `applyAppearance`) |
+| `ui-kit/islands/tsconfig.json` | Type-check configuration for the entry (`noEmit`) |
+| `ui-kit/scripts/build_islands.mjs` | esbuild bundler; writes `islands/dist/af-console-islands.js` |
+| `ui-kit/scripts/check_islands.mjs` | Rebuilds the bundle and verifies it loads as a plain script |
+
+## Build and check
+
+From the repository root, install the workspace dependencies once (`npm install`; `esbuild` is a
+`ui-kit` dev dependency), then:
+
+```bash
+# Build the bundle into ui-kit/islands/dist/af-console-islands.js
+npm run build:islands -w @abstractframework/ui-kit
+
+# Fail if the bundle on disk differs from a fresh build
+node ui-kit/scripts/build_islands.mjs --check
+
+# Rebuild, then load the bundle in a sandbox and verify its API
+node ui-kit/scripts/check_islands.mjs
+```
+
+`npm test` in `ui-kit` (and therefore the root `npm test`) type-checks the islands entry
+(`tsc -p islands/tsconfig.json`) and runs `check_islands.mjs`. The check verifies that:
+
+- evaluating the bundle defines `AfConsoleIslands`;
+- `mountTopBar`, `mountAppearance` and `applyAppearance` are functions;
+- `apiVersion` is `"1"` and `kitVersion` equals the `ui-kit` `package.json` version;
+- `themes` has one entry per theme in `THEME_SPECS`;
+- the bundle starts with the `/*! @abstractframework/ui-kit <version> console islands` banner.
+
+## Loading the bundle
+
+```html
+<link rel="stylesheet" href="/static/theme.css" />
+<div id="topbar"></div>
+<div id="appearance"></div>
+<script src="/static/af-console-islands.js"></script>
+<script>
+  const islands = window.AfConsoleIslands;
+  console.log(islands.apiVersion, islands.kitVersion); // "1", e.g. "0.1.11"
+</script>
+```
+
+Serve both files from your own origin; the paths above are examples.
+
+## API reference (`apiVersion` "1")
+
+`window.AfConsoleIslands` exposes:
+
+| Member | Type | Description |
+| --- | --- | --- |
+| `apiVersion` | `"1"` | Islands API contract version |
+| `kitVersion` | `string` | `ui-kit` version the bundle was built from |
+| `themes` | `ThemeSpec[]` | The kit's theme list (`THEME_SPECS`) |
+| `fontScales` | array | `FONT_SCALES` options |
+| `headerDensities` | array | `HEADER_DENSITIES` options |
+| `mountTopBar(el, props)` | `IslandHandle` | Mounts `AfTopBarActions` into `el` |
+| `mountAppearance(el, props)` | `IslandHandle` | Mounts `AfAppearanceDialog` into `el` |
+| `applyAppearance(settings)` | `void` | Applies a theme and typography settings to the document |
+
+Every mount returns `{ update(props), unmount() }`. Mounting into a missing element throws
+`AfConsoleIslands: mount target missing`.
+
+### `mountTopBar(el, props)`
+
+Renders the shared top-right cluster: assistant button, appearance button, extras, then the
+connection pill (always rightmost).
+
+```ts
+type TopBarIslandProps = {
+  assistant?: { open: boolean; onToggle: () => void; label?: string } | null; // omit/null hides it
+  appearance?: { onOpen: () => void; label?: string } | null;                 // omit/null hides it
+  extras?: Array<{
+    id: string;          // becomes the element id
+    label: string;       // aria-label / tooltip
+    icon?: IconName;     // defaults to "settings"
+    text?: string;       // plain text instead of an icon button (e.g. the signed-in identity)
+    hidden?: boolean;
+    pressed?: boolean;   // sets aria-pressed and the active style
+    onClick?: () => void;
+  }>;
+  connection: {
+    phase: "loading" | "connected" | "disconnected";
+    signingOut?: boolean;
+    onConnect: () => void;
+    onDisconnect: () => void;
+  };
+};
+```
+
+A text extra renders as `<span class="af-topbar__identity">`: one line, secondary text color,
+ellipsized past 24 characters.
+
+### `mountAppearance(el, props)`
+
+Renders the shared appearance dialog (theme, font scale, header density).
+
+```ts
+type AppearanceIslandProps = {
+  open: boolean;
+  value: { theme: string; font_scale: string; header_density: string };
+  onChange: (next: { theme: string; font_scale: string; header_density: string }) => void;
+  onClose: () => void;
+  title?: string;
+  note?: string;
+};
+```
+
+The dialog does not persist anything: store `value` yourself, then call
+`applyAppearance(next)` and `handle.update({ ...props, value: next })` from `onChange`.
+
+### `applyAppearance(settings)`
+
+Applies the kit theme class to `<html>` (`applyTheme`, default `"dark"`) and the typography
+settings (`applyTypography`). Accepts a partial `{ theme, font_scale, header_density }`.
+
+## Example
+
+```js
+const islands = window.AfConsoleIslands;
+let appearance = { theme: "dark", font_scale: "md", header_density: "standard" };
+islands.applyAppearance(appearance);
+
+let dialogProps;
+const dialog = islands.mountAppearance(document.getElementById("appearance"), (dialogProps = {
+  open: false,
+  value: appearance,
+  onClose: () => dialog.update((dialogProps = { ...dialogProps, open: false })),
+  onChange: (next) => {
+    appearance = next;
+    islands.applyAppearance(next);
+    dialog.update((dialogProps = { ...dialogProps, value: next }));
+  },
+}));
+
+const topBar = islands.mountTopBar(document.getElementById("topbar"), {
+  appearance: { onOpen: () => dialog.update((dialogProps = { ...dialogProps, open: true })) },
+  extras: [{ id: "identity", label: "Signed in as alice", text: "alice" }],
+  connection: { phase: "connected", onConnect: () => {}, onDisconnect: () => signOut() },
+});
+
+// Later, when the session state changes:
+topBar.update({
+  connection: { phase: "disconnected", onConnect: () => openSignIn(), onDisconnect: () => {} },
+});
+```
+
+Use the values in `islands.fontScales` and `islands.headerDensities` for valid
+`font_scale` / `header_density` ids.
+
+## Versioning
+
+- `apiVersion` changes only when the island API changes incompatibly; check it before mounting.
+- `kitVersion` identifies the `ui-kit` release the bundle was built from. Rebuild the bundle
+  after upgrading the kit sources; a consumer that vendors the bundle should rebuild and re-vendor
+  it whenever any kit source that feeds it changes (`ui-kit/src/*`, `ui-kit/islands/*`,
+  `ui-kit/scripts/build_islands.mjs`).
+
+## Related docs
+
+- [Architecture](./architecture.md): packages, consumers and the islands build path
+- [API reference](./api.md): `AfTopBarActions`, `AfAppearanceDialog` and the theme helpers
+- [Theming](./theming.md): theme tokens and the `theme.css` stylesheet the islands rely on
+- [Troubleshooting](./troubleshooting.md): stale or missing islands bundle
+- [`ui-kit/README.md`](../ui-kit/README.md): package overview and the `af-topbar` CSS API
 
 ## docs/README.md
 
 # AbstractUIC Documentation
 
-This repository is a small set of **UI packages** (React components + one Web Component).
+AbstractUIC is a set of **UI packages** for AbstractFramework clients: React components, two
+dependency-free Web Components (`<monitor-gpu>`, `<monitor-memory>`), a Node.js Gateway session
+proxy, and the `ui-kit` console islands for pages that are not React apps.
 
-AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/AbstractFramework) ecosystem. It is the UI layer used by host apps that typically integrate with **AbstractRuntime** and **AbstractCore** (see the ecosystem overview in the root [`README.md`](../README.md) and the data-flow diagram in [`architecture.md`](./architecture.md)).
+AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/AbstractFramework) ecosystem. It is the UI layer used by host apps that typically integrate with **AbstractRuntime** and **AbstractCore** (see the ecosystem overview in the root [`README.md`](../README.md) and the diagrams in [`architecture.md`](./architecture.md)).
 
 ## Start here
 
-- **Getting started**: [`getting-started.md`](./getting-started.md)
-- **Adoption guide** (which shared component for which job + the contracts): [`adoption-guide.md`](./adoption-guide.md)
-- **Theming & design tokens** (adopt the shared look and feel): [`theming.md`](./theming.md)
-- **API reference**: [`api.md`](./api.md)
-- **FAQ**: [`faq.md`](./faq.md)
-- **Architecture + package boundaries**: [`architecture.md`](./architecture.md)
-- **Local development**: [`development.md`](./development.md)
-- **Publishing (maintainers)**: [`publishing.md`](./publishing.md)
-- Legacy stub (backwards compatibility): [`installation.md`](./installation.md)
+- **Getting started**: [`getting-started.md`](./getting-started.md) — install, required CSS imports, first examples, Next.js notes
+- **API reference**: [`api.md`](./api.md) — export map per package
+- **Architecture**: [`architecture.md`](./architecture.md) — package boundaries, consumers, data flow and the Gateway connection flow (with diagrams)
+- **FAQ**: [`faq.md`](./faq.md) — recurring questions and limits
+- **Troubleshooting**: [`troubleshooting.md`](./troubleshooting.md) — symptoms, checks and fixes
+
+## Topic deep dives
+
+- **Adoption guide**: [`adoption-guide.md`](./adoption-guide.md) — which shared component for which job, and the contracts apps follow
+- **Theming & design tokens**: [`theming.md`](./theming.md) — token vocabulary, the 21 themes, migration rules for host apps
+- **Console islands**: [`console-islands.md`](./console-islands.md) — the `window.AfConsoleIslands` bundle built from `ui-kit` for non-React pages (AbstractGateway console): API, build and check
+- **Local development**: [`development.md`](./development.md) — workspace build, tests, docs regeneration
+- **Publishing (maintainers)**: [`publishing.md`](./publishing.md) — versioning, tag-driven release workflow, first publish of a new package
+- Legacy stub (kept for old links): [`installation.md`](./installation.md) — points to Getting started
 
 ## Repo docs / policies
 
 - Changelog: [`CHANGELOG.md`](../CHANGELOG.md)
 - Contributing: [`CONTRIBUTING.md`](../CONTRIBUTING.md)
+- Code of conduct: [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md)
 - Security: [`SECURITY.md`](../SECURITY.md)
 - Acknowledgments: [`ACKNOWLEDGMENTS.md`](../ACKNOWLEDGMENTS.md)
 - Agent-oriented docs: [`llms.txt`](../llms.txt) (index) and [`llms-full.txt`](../llms-full.txt) (generated)
@@ -1233,8 +1705,8 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 ## Package docs
 
-- UI tokens + theme + common inputs: [`ui-kit/README.md`](../ui-kit/README.md)
-- Chat primitives (thread, composer, markdown/json renderers): [`panel-chat/README.md`](../panel-chat/README.md)
+- UI tokens, themes, inputs, Gateway connection UI, top bar/drawer/appearance, console islands: [`ui-kit/README.md`](../ui-kit/README.md)
+- Chat primitives (thread, composer, markdown/json renderers, assistant panel, workflow chat): [`panel-chat/README.md`](../panel-chat/README.md)
 - App-origin Gateway session proxy: [`app-server/README.md`](../app-server/README.md)
 - Agent-cycle trace viewer (LLM/tool/observe): [`monitor-flow/README.md`](../monitor-flow/README.md)
 - KG + Active Memory explorer (ReactFlow): [`monitor-active-memory/README.md`](../monitor-active-memory/README.md)
@@ -1245,24 +1717,33 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 # @abstractframework/ui-kit
 
-Shared theme tokens + small UI primitives used across AbstractUIC packages and host apps.
+Shared theme tokens and UI components for AbstractFramework apps. The kit owns the theme system
+used by every AbstractFramework UI and the shared app chrome (connection surface, top-right
+action cluster, drawer, appearance dialog).
 
 This package provides:
 
-- **Theme tokens** (CSS variables + theme classes): `ui-kit/src/theme.css`
-- **Theme + typography helpers**: `applyTheme(...)`, `applyTypography(...)`
-- **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ToolPolicyEditor`, etc.
-- **Gateway session UI**: `GatewaySessionSignInCard` for the shared user/token browser-session sign-in form used by thin clients.
+- **Theme tokens** (CSS variables + 21 theme classes): `@abstractframework/ui-kit/theme.css`
+- **Theme + typography helpers**: `applyTheme(...)`, `applyTypography(...)`, `THEME_SPECS`
+- **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker`,
+  `SpeculationSelect`, `ToolPolicyEditor`, `VoiceSettings`
+- **Gateway connection UI**: `GatewayConnectModal`, `useGatewayConnection()`,
+  `GatewaySessionSignInCard`
+- **App chrome**: `AfTopBarActions`, `AfDrawer`, `AfAppearanceDialog` + `useAppearanceSettings()`
+- **Run and policy surfaces**: `PhaseCapabilityMatrix`, `CriticalActionDialog`, `SteerComposer`,
+  `DisclosureList`, `AfChip`, `AfPhaseRadio`, cognition gauges
+- **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk)
 - **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
-
-## Install / peer dependencies
-
-This is a React package with peer dependencies on `react@^18` and `react-dom@^18` (see `ui-kit/package.json`).
+- **Palette seeds**: `@abstractframework/ui-kit/palette_seeds.json` for non-CSS consumers
+- **Console islands** (repository build, not in the npm package): the kit components as one
+  script for pages that are not React apps — see [Console islands](#console-islands)
 
 ## Install
 
-- Workspace: add a dependency on `@abstractframework/ui-kit`
 - npm: `npm i @abstractframework/ui-kit`
+- Workspace: add a dependency on `@abstractframework/ui-kit`
+
+Peer dependencies: `react@^18` and `react-dom@^18`.
 
 ## Usage
 
@@ -1283,101 +1764,76 @@ applyTheme("dark"); // sets a `theme-*` class on <html>
 Use UI components:
 
 ```tsx
-import { ThemeSelect, Icon, ToolPolicyEditor, GatewaySessionSignInCard } from "@abstractframework/ui-kit";
+import { ThemeSelect, Icon, ToolPolicyEditor, GatewayConnectModal } from "@abstractframework/ui-kit";
 ```
+
+The authoritative export list is `ui-kit/src/index.ts`; the grouped map is in the
+[API reference](../docs/api.md#abstractframeworkui-kit).
 
 ### Gateway session sign-in
 
-`GatewaySessionSignInCard` renders the shared Gateway browser-session sign-in
-card. Host apps own the network calls and session storage; the component only
-collects Gateway URL (optional), user id, token, and remember-browser state, and
-calls the callbacks you provide.
+`GatewaySessionSignInCard` renders the shared Gateway browser-session sign-in card. Host apps
+own the network calls and session storage; the component only collects the Gateway URL
+(optional), user id, token and remember-browser state, and calls the callbacks you provide.
+Most apps use it through `GatewayConnectModal` (below).
 
 ### Tool policy editor
 
-`ToolPolicyEditor` renders the shared allowlist + approve/ask picker for gateway tools. It intentionally **does not** include a deny mode; tools are denied by removing them from the allowlist. Pass `toolMode` (and optional `toolModeLabel`/`toolModeDetail`) to surface the gateway tool execution mode in a prominent banner.
+`ToolPolicyEditor` renders the shared allowlist + approve/ask picker for gateway tools. It has no
+deny mode: a tool is denied by removing it from the allowlist. Pass `toolMode` (and optional
+`toolModeLabel` / `toolModeDetail`) to surface the gateway tool execution mode in a banner.
 
-The default approve/ask classification is exposed as `TOOL_POLICY_DEFAULTS` (mirrors the AbstractRuntime `ToolApprovalPolicy` defaults).
+The default approve/ask classification is exposed as `TOOL_POLICY_DEFAULTS` (mirrors the
+AbstractRuntime `ToolApprovalPolicy` defaults).
 
 ### Native MTP control
 
-`SpeculationSelect` is the shared inheritance / Off / depth selector. Pass the execution
-host's complete model-capability payload as `capabilities`; only depths advertised under
+`SpeculationSelect` is the shared inheritance / Off / depth selector. Pass the execution host's
+complete model-capability payload as `capabilities`; only depths advertised under
 `execution.speculation.supported_depths` are offered. Missing capability data is shown as
 unknown, not guessed from a model name. Saved unavailable selections remain visible.
 
-`ProviderModelPicker` includes this control when `enableSpeculation` is true; supply its
-usual provider-aware capability transport. The `speculation` value is absent for inheritance,
-`false` for Off, or a native-MTP object with `require_acceleration: true` for an explicit
-depth. Apps own preference storage and omit inherited values from requests. Neither
-component loads models or downloads heads. See the [API reference](../docs/api.md).
-
-## Exported API
-
-See `ui-kit/src/index.ts` for the authoritative export list.
-
-## Related docs
-
-- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
-- API reference: [`docs/api.md`](../docs/api.md)
-- Repo docs index: [`docs/README.md`](../docs/README.md)
-- Architecture: [`docs/architecture.md`](../docs/architecture.md)
-
+`ProviderModelPicker` includes this control when `enableSpeculation` is true; supply its usual
+provider-aware capability transport. The `speculation` value is absent for inheritance, `false`
+for Off, or a native-MTP object with `require_acceleration: true` for an explicit depth. Apps own
+preference storage and omit inherited values from requests. Neither component loads models or
+downloads heads.
 
 ## Gateway connection surface contract
 
-Use `GatewayConnectModal` for connect/disconnect UX (pairs with
-`@abstractframework/app-server`'s session proxy). The contract, per the
-maintainer's 2026-07-12 ruling:
+Use `GatewayConnectModal` for connect/disconnect UX. It pairs with the session proxy in
+`@abstractframework/app-server`.
 
-- It is a **centered modal** over a dimmed + blurred backdrop (the kit's
-  `.af-connect-overlay` provides both) — never an inline settings block.
-- The **Gateway URL is always visible** (the modal passes `showGatewayUrl`).
-  If you embed `GatewaySessionSignInCard` inside your own modal, you must
-  pass `showGatewayUrl` yourself.
-- **Tokens never rest client-side**: the proxy exchanges the token for
-  HttpOnly cookies. Do not add localStorage/bearer fallbacks in apps.
-- **Auto-open on disconnect (maintainer ruling 2026-07-12)**: when the app
-  RESOLVES disconnected, the connect modal IS the first screen — never a
-  banner pointing at a Connect button. Never auto-open over the
-  unknown/loading state or a live session; a later sign-out re-arms it.
-  One knob per app: BLOCKING (no dismiss — apps with no offline surface,
-  e.g. flow) vs DISMISSABLE once per signed-out episode (apps with a
-  degraded-but-usable surface keep the banner/badge as re-entry, e.g.
-  continuum). Both variants are live consumers of this contract.
-- **Connected state flips on probe-ok, never on data (10-15s connect
-  incident, 2026-07-13)**: the session probe (`/api/connection/gateway`,
-  one upstream `/me` echo, sub-millisecond on localhost) is the ONLY gate
-  for leaving "Connecting…". Data fetches (runs/bundles/tools/providers
-  lists) fill their surfaces in AFTER the flip, in parallel — a slow list
-  must degrade its own panel, never pin first paint. The measured whale
-  was a serialized runs listing (2.2-7.9s) gating an app's connected
-  state while every stack request answered in <1ms.
-- **Probe once**: apps that probe at boot pass the result to the modal via
-  `initialStatus` so opening it does not re-probe; the modal refreshes
-  itself after sign-in/out (those change the answer).
-- **The state machine is code, not prose (B5, 2026-07-13)**: use
-  `useGatewayConnection({ appName, variant: "blocking" | "dismissable" })`
-  and spread `modalProps` into `GatewayConnectModal`. The hook owns the
-  whole contract — probe once at boot, auto-open only on a RESOLVED
-  disconnect, close on sign-in success (the modal also self-closes; after a
-  successful sign-in the APP is the confirmation, never a parked modal),
-  stay open on sign-out, re-arm per signed-out episode. Do not hand-roll
-  this machine in apps; the drift is exactly what shipped the
-  signed-in-but-modal-parked bug across consumers.
-- **Mid-session losses don't auto-open (continuum c2528, 2026-07-16)**:
-  under `dismissable`, only boot-resolved disconnects and sign-out episodes
-  auto-open the modal. A LIVE session resolving away mid-use (expiry,
-  gateway restart, one transient probe blip) surfaces through the pill/badge
-  instead of a screen-covering modal over whatever the operator is typing.
-  Opt back into the old behavior per app with `autoOpenMidSession: true`.
-  Blocking apps always auto-open (no offline surface exists).
+- It is a **centered modal** over a dimmed, blurred backdrop (the kit's `.af-connect-overlay`
+  provides both), never an inline settings block.
+- The **Gateway URL is always visible** (the modal passes `showGatewayUrl`). If you embed
+  `GatewaySessionSignInCard` inside your own modal, pass `showGatewayUrl` yourself.
+- **Tokens never rest client-side**: the proxy exchanges the token for HttpOnly cookies. Do not
+  add localStorage or bearer-token fallbacks in apps.
+- **Auto-open on a resolved disconnect**: when the app resolves as disconnected, the connect
+  modal is the first screen. It never auto-opens over the loading state or a live session; a
+  later sign-out re-arms it. Choose one variant per app: `blocking` (no dismiss; apps with no
+  offline surface) or `dismissable` (dismissable once per signed-out episode; apps with a
+  degraded-but-usable surface keep a banner or badge as re-entry).
+- **Connected follows the session probe, not data**: the session probe
+  (`/api/connection/gateway`) is the only gate for leaving "Connecting…". Data fetches fill their
+  panels in after the flip, in parallel, so a slow list degrades its own panel rather than first
+  paint.
+- **Probe once**: apps that probe at boot pass the result to the modal via `initialStatus` so
+  opening it does not re-probe; the modal refreshes itself after sign-in or sign-out.
+- **Use the hook**: `useGatewayConnection({ appName, variant: "blocking" | "dismissable" })` owns
+  the whole state machine (probe once at boot, auto-open only on a resolved disconnect, close on
+  sign-in success, stay open on sign-out, re-arm per signed-out episode). Spread its
+  `modalProps` into `GatewayConnectModal` rather than re-implementing the machine.
+- **Mid-session losses do not auto-open** under `dismissable`: only boot-resolved disconnects and
+  sign-out episodes open the modal. A live session that drops mid-use (expiry, gateway restart, a
+  transient probe failure) surfaces through the pill or badge. Opt into auto-opening with
+  `autoOpenMidSession: true`. `blocking` apps always auto-open.
 
-## Unified top-right corner (plans/unified-top-bar.md)
+## Unified top-right corner
 
-Every app renders the same upper-right cluster (operator directive
-2026-07-13): assistant button → appearance button → app extras →
-Disconnect pill, always rightmost.
+Every app renders the same upper-right cluster: assistant button → appearance button → app
+extras → connection pill, always rightmost.
 
 ```tsx
 const conn = useGatewayConnection({ appName: "My App", variant: "dismissable" });
@@ -1397,32 +1853,30 @@ const [appearance, setAppearance] = useAppearanceSettings("my-app", { legacyKey:
 <GatewayConnectModal {...conn.modalProps} />
 ```
 
-Rules (the behavior contract lives in the consensus doc):
+Rules:
 
-- The connection pill renders the hook's PHASE (three states) — never a
-  boolean. `signingOut`/`signOutError` are the in-flight/error channels.
-- `AfDrawer` is non-modal and KEEPS ITS CHILDREN MOUNTED when closed
-  (`display:none` + `inert`) — drawers host long-running work. ESC follows
-  the consumed-event convention (`defaultPrevented`); the connect modal
-  sits above drawers (z-order tokens `--z-drawer` < `--z-connect-modal` <
-  `--z-popover`).
+- The connection pill renders the hook's `phase` (`loading` | `connected` | `disconnected`),
+  never a boolean. `signingOut` / `signOutError` are the in-flight and error channels.
+- `AfDrawer` is non-modal and keeps its children mounted when closed (`display:none` + `inert`),
+  so drawers can host long-running work. ESC handling respects `defaultPrevented`; the connect
+  modal sits above drawers (z-order tokens `--z-drawer` < `--z-connect-modal` < `--z-popover`).
 - `AssistantPanel` (in `@abstractframework/panel-chat`) never fetches: the
-  `ask(question, {signal, history})` transport is injected and may return a
-  Promise or an AsyncIterable of deltas. Docs Q&A must never route through
-  entity chat (a visit is billable and forms memories).
-- Appearance persistence is per app via `useAppearanceSettings(appId)`
-  (key `af_appearance_<appId>_v1`, migrates a `legacyKey` once); storage
-  failures degrade to in-memory silently.
+  `ask(question, { signal, history })` transport is injected and may return a Promise or an
+  AsyncIterable of deltas.
+- Appearance persistence is per app via `useAppearanceSettings(appId)` (key
+  `af_appearance_<appId>_v1`, migrates a `legacyKey` once); storage failures fall back to
+  in-memory state.
 
 ### CSS public API (non-React consumers)
 
-The `.af-topbar-*` and `.af-drawer-*` families are stable public API — a
-server-rendered page (the gateway console) can render its own HTML to them:
+The `.af-topbar-*` and `.af-drawer-*` class families are stable public API, so a server-rendered
+page can render its own HTML against them:
 
 ```html
 <div class="af-topbar" role="group" aria-label="App actions">
   <button class="af-topbar__btn" aria-label="Open assistant">…svg…</button>
   <button class="af-topbar__btn" aria-label="Appearance">…svg…</button>
+  <span class="af-topbar__identity" title="Signed in as alice">alice</span>
   <button class="af-topbar__pill af-topbar__pill--connected">
     <span class="af-topbar__dot af-topbar__dot--connected"></span>
     <span class="af-topbar__pill-label">Disconnect</span>
@@ -1437,36 +1891,64 @@ server-rendered page (the gateway console) can render its own HTML to them:
 </div>
 ```
 
-Pill modifiers: `--connected | --disconnected | --loading` (dot matches).
-Closed drawer = remove `--open`, set `display:none`.
+- Pill modifiers: `--connected | --disconnected | --loading` (the dot matches).
+- `.af-topbar__identity` is a quiet one-line text item (secondary color, ellipsized past 24
+  characters), for example the signed-in identity.
+- Closed drawer: remove `--open` and set `display:none`.
+
+## Console islands
+
+A page that is not a React app can mount the real `AfTopBarActions` and `AfAppearanceDialog`
+through the console islands: one self-contained script (React included) that defines
+`window.AfConsoleIslands` with `mountTopBar(el, props)`, `mountAppearance(el, props)` and
+`applyAppearance(settings)`. The AbstractGateway console uses it.
+
+The bundle is built from a repository checkout and is **not** part of the npm package:
+
+```bash
+npm run build:islands -w @abstractframework/ui-kit   # writes ui-kit/islands/dist/af-console-islands.js
+node ui-kit/scripts/check_islands.mjs                # rebuilds and verifies the API
+```
+
+The page must also load `theme.css`. API, props and examples: [Console islands](../docs/console-islands.md).
 
 ## DisclosureList integration notes
 
-- **Global keyboard handlers must yield to the list** (flow's integration
-  find, c1343): if your app has window-level arrow-key navigation, gate it
-  on `document.activeElement` not being inside `.af-disclosure`, or every
-  arrow press double-moves (once in your handler, once in the list's roving
+- **Window-level keyboard handlers must yield to the list**: if your app has window-level
+  arrow-key navigation, skip it while `document.activeElement` is inside `.af-disclosure`;
+  otherwise each arrow press moves twice (once in your handler, once in the list's roving
   tabindex).
-- **Theming the chevron: exclude the spacer** (flow's specificity find,
-  c1355): consumer-scoped rules (`.your-scope .af-disclosure__chevron`)
-  outweigh the kit's spacer transparency and paint a phantom button on
-  non-expandable rows. Theme via
-  `.af-disclosure__chevron:not(.af-disclosure__chevron--spacer)` — the kit
-  keeps unthemed consumers safe, but a consumer restyle must carry the
-  `:not()`.
+- **Theming the chevron: exclude the spacer**: consumer-scoped rules such as
+  `.your-scope .af-disclosure__chevron` outweigh the kit's spacer transparency and paint a
+  button on non-expandable rows. Theme via
+  `.af-disclosure__chevron:not(.af-disclosure__chevron--spacer)`.
 
+## Theme system
 
-### Theme-system ownership (operator directive 2026-07-15)
+The kit owns the theme system for every AbstractFramework UI: `theme.css` (21 themes),
+`THEME_SPECS`, `useAppearanceSettings` (per-app persistence + no-flash first paint), and the
+switcher surfaces (`AfAppearanceDialog`, `ThemeSelect`, `FontScaleSelect`,
+`HeaderDensitySelect`). Apps use these rather than forking them:
 
-The kit OWNS the theme system for every AbstractFramework UI: `theme.css`
-(21 themes), `THEME_SPECS`, `useAppearanceSettings` (per-app persistence +
-no-flash first paint), and the switcher surfaces (`AfAppearanceDialog`,
-`ThemeSelect`, `TypographySelect`, `FontScaleSelect`, `HeaderDensitySelect`).
-Apps never fork these. Compliance tiers: (1) React apps import theme.css +
-the hook + the dialog; (2) non-npm surfaces serve a GENERATED verbatim copy
-drift-pinned in their own suite (the gateway console pattern —
-`console_theme_sync.py`); (3) native surfaces (Qt) are out of scope.
-Adoption matrix + orchestration: docs/backlog/planned/0026 (uic tree).
+1. React apps import `theme.css`, the hook and the dialog.
+2. Surfaces that cannot install npm packages (the AbstractGateway console) serve a generated,
+   verbatim copy of `theme.css` checked against the kit in their own test suite, and mount the
+   [console islands](#console-islands) for the interactive controls.
+3. Native (Qt) surfaces are out of scope; terminals and other non-CSS consumers can use
+   `palette_seeds.json`.
+
+See [Theming](../docs/theming.md) for the token vocabulary and adoption rules.
+
+## Related docs
+
+- Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
+- API reference: [`docs/api.md`](../docs/api.md)
+- Adoption guide: [`docs/adoption-guide.md`](../docs/adoption-guide.md)
+- Theming: [`docs/theming.md`](../docs/theming.md)
+- Console islands: [`docs/console-islands.md`](../docs/console-islands.md)
+- Architecture: [`docs/architecture.md`](../docs/architecture.md)
+- Troubleshooting: [`docs/troubleshooting.md`](../docs/troubleshooting.md)
+- Repo docs index: [`docs/README.md`](../docs/README.md)
 
 ## panel-chat/README.md
 
@@ -1491,10 +1973,14 @@ Declared in `panel-chat/package.json`:
 See `panel-chat/src/index.ts` for the authoritative export list. Common entry points:
 
 - Components: `ChatThread`, `ChatComposer`, `ChatMessageCard`, `ChatMessageContent`
+- App assistant: `AssistantPanel` (injected `ask` transport; see below)
 - Controlled workflow surface: `WorkflowChat` and the `WorkflowInteraction` union
 - Transport-injected runtime: `WorkflowSessionController`, `useWorkflowSession`, and `WorkflowTransport`
 - Renderers: `Markdown`, `JsonViewer`
-- Types: `PanelChatMessage`, `ChatMessage`, `ChatAttachment`, `ChatStat`
+- Tool and run evidence: `ToolActivity`, `ToolActivityGroup`, `toolArguments`, `toolPreview`,
+  `workflowProgress`, `workflowEvidence`, `foldWorkflowTools`, `historyRecords`,
+  `statDetail`, `StatDetailPanel`
+- Types: `ChatMessage`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat`
 - Utils: `chatToMarkdown`, `copyText`, `downloadTextFile`, `tryParseJson`
 
 ## Usage (typical)
@@ -1515,6 +2001,16 @@ export function ChatView() {
   );
 }
 ```
+
+## App assistant
+
+`AssistantPanel` is the docs Q&A surface an app places in the kit's `AfDrawer`
+(opened from `AfTopBarActions`). It never fetches: pass an `ask(question, { signal, history })`
+transport that returns a `Promise<string>` or an `AsyncIterable<string>` of deltas. Optional
+props: `assistantName`, `suggestions`, `emptyState`, `placeholder`, `blockedNotice` (disables
+the composer and shows the notice, e.g. while disconnected) and a controlled
+`messages` / `onMessagesChange` pair. See the
+[Adoption guide](../docs/adoption-guide.md) for the shared docs Q&A transport.
 
 ## Workflow chat
 
@@ -1581,10 +2077,105 @@ Markdown is intentionally minimal and implemented in `panel-chat/src/markdown.ts
 - Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
 - API reference: [`docs/api.md`](../docs/api.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)
+- Troubleshooting: [`docs/troubleshooting.md`](../docs/troubleshooting.md)
 
-## app-server/src/index.js
+## app-server/README.md
 
-export { createGatewaySessionProxy, normalizeGatewayUrl } from "./gateway_session_proxy.js";
+# @abstractframework/app-server
+
+Server-side helpers for AbstractFramework thin-client apps.
+
+Today this package exports the app-origin Gateway session proxy used by browser
+clients that must talk to an `AbstractGateway` without storing bearer tokens in
+the browser.
+
+## Install
+
+- Workspace: add `@abstractframework/app-server`
+- npm: `npm i @abstractframework/app-server`
+
+## What it exports
+
+- `createGatewaySessionProxy(options)`
+- `normalizeGatewayUrl(value)`
+
+See `app-server/src/index.d.ts` for the authoritative type surface.
+
+## When to use it
+
+Use this package when your app serves a browser UI on its own origin and wants
+to front an `AbstractGateway` through first-party cookies instead of direct
+browser-held tokens.
+
+The proxy's contract is:
+
+- `GET /api/connection/gateway` returns the current browser-session status.
+- `POST /api/connection/gateway` exchanges a Gateway user/token for an
+  HttpOnly session cookie plus a JS-readable CSRF twin.
+- `DELETE /api/connection/gateway` signs the browser session out.
+- Proxied `/api/*` traffic strips browser-supplied `Authorization` and cookie
+  headers, reattaches the server-held session, and pins the upstream Gateway
+  URL server-side.
+
+The browser never needs to persist the Gateway token.
+
+## Minimal usage
+
+```js
+import http from "node:http";
+
+import { createGatewaySessionProxy } from "@abstractframework/app-server";
+
+const gatewayProxy = createGatewaySessionProxy({
+  appId: "my-app",
+  defaultGatewayUrl: process.env.ABSTRACTGATEWAY_URL || "http://127.0.0.1:8080",
+});
+
+const server = http.createServer(async (req, res) => {
+  const pathname = new URL(req.url || "/", "http://127.0.0.1").pathname;
+  if (gatewayProxy.handle(req, res, pathname)) return;
+
+  if (pathname === "/healthz") {
+    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("ok");
+    return;
+  }
+
+  res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+  res.end("not found");
+});
+
+server.listen(3000);
+```
+
+## Browser pairing
+
+This package is the server-side half of the shared connection surface described
+in:
+
+- `@abstractframework/ui-kit` `GatewayConnectModal`
+- `@abstractframework/ui-kit` `useGatewayConnection(...)`
+
+That pairing gives apps a shared browser UX and one server-side session model.
+
+## Scope boundary
+
+`@abstractframework/app-server` is intentionally `AbstractGateway`-specific
+today. It is the honest package to use when the browser app is talking to a
+Gateway-backed session surface. If a different product needs a generic
+same-origin browser shell with different upstream auth or transport semantics,
+that contract should be named by that product rather than silently inherited
+through this package.
+
+## Development
+
+- Run the package test directly: `npm --workspace app-server test`
+
+## Related docs
+
+- Root overview: `../README.md`
+- Architecture: `../docs/architecture.md`
+- Adoption guide: `../docs/adoption-guide.md`
 
 ## monitor-flow/README.md
 
@@ -1990,7 +2581,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -2013,7 +2604,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -2053,7 +2644,8 @@ npm test
   ],
   "scripts": {
     "build": "tsc",
-    "test": "node scripts/check_no_src_twins.mjs && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/audit_theme_contrast.mjs --strict",
+    "build:islands": "node scripts/build_islands.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -2064,6 +2656,7 @@ npm test
   "devDependencies": {
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
+    "esbuild": "^0.25.12",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "typescript": "^5.3.3"
@@ -2959,6 +3552,204 @@ export function useGatewayConnection(options?: UseGatewayConnectionOptions): Gat
 
 export default useGatewayConnection;
 
+## ui-kit/islands/console_islands.tsx
+
+// Console islands — the kit's REAL React components for hosts that are not
+// React apps (the AbstractGateway console is HTML served from Python).
+//
+// Operator order (2026-09-24, gateway mission L): "reuse the widgets from
+// abstractuic for the theme selector and connect/disconnect". The console
+// must not re-draw the top-right cluster or the appearance dialog by hand:
+// it mounts THESE components as islands. `scripts/build_islands.mjs` bundles
+// this entry (React included) into ONE self-contained IIFE that defines
+// `window.AfConsoleIslands`; the gateway vendors that file through its
+// generated `console_islands.py` and drift-pins it against this source.
+//
+// The API is deliberately tiny and prop-driven: the host owns all state and
+// re-calls `update(props)` whenever it changes (no React knowledge needed).
+import React from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { AfTopBarActions } from "../src/af_top_bar_actions.js";
+import { AfAppearanceDialog, type AppearanceSettings } from "../src/appearance.js";
+import { Icon, type IconName } from "../src/icon.js";
+import { THEME_SPECS, applyTheme } from "../src/theme.js";
+import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typography.js";
+import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
+
+declare const __KIT_VERSION__: string;
+
+export const ISLANDS_API_VERSION = "1";
+
+export type IslandExtraAction = {
+  id: string;
+  label: string;
+  icon?: IconName;
+  /** Plain text shown instead of an icon button (e.g. the signed-in identity). */
+  text?: string;
+  hidden?: boolean;
+  pressed?: boolean;
+  onClick?: () => void;
+};
+
+export type TopBarIslandProps = {
+  assistant?: { open: boolean; onToggle: () => void; label?: string } | null;
+  appearance?: { onOpen: () => void; label?: string } | null;
+  extras?: IslandExtraAction[];
+  connection: {
+    phase: GatewayConnectionPhase;
+    signingOut?: boolean;
+    onConnect: () => void;
+    onDisconnect: () => void;
+  };
+};
+
+export type AppearanceIslandProps = {
+  open: boolean;
+  value: AppearanceSettings;
+  onChange: (next: AppearanceSettings) => void;
+  onClose: () => void;
+  title?: string;
+  note?: string;
+};
+
+export type IslandHandle<P> = { update: (props: P) => void; unmount: () => void };
+
+function extrasNode(extras: IslandExtraAction[] | undefined): React.ReactNode {
+  const visible = (extras || []).filter((x) => x && !x.hidden);
+  if (!visible.length) return null;
+  return (
+    <>
+      {visible.map((x) =>
+        x.text !== undefined ? (
+          <span key={x.id} id={x.id} className="af-topbar__identity" title={x.label}>
+            {x.text}
+          </span>
+        ) : (
+          <button
+            key={x.id}
+            id={x.id}
+            type="button"
+            className={`af-topbar__btn${x.pressed ? " is-active" : ""}`}
+            aria-label={x.label}
+            title={x.label}
+            aria-pressed={x.pressed === undefined ? undefined : x.pressed}
+            onClick={x.onClick}
+          >
+            <Icon name={x.icon || "settings"} size={16} />
+          </button>
+        ),
+      )}
+    </>
+  );
+}
+
+function TopBarIsland(props: TopBarIslandProps): React.ReactElement {
+  return (
+    <AfTopBarActions
+      assistant={props.assistant || undefined}
+      appearance={props.appearance || undefined}
+      extraActions={extrasNode(props.extras)}
+      connection={props.connection}
+    />
+  );
+}
+
+function mount<P>(el: Element, render: (props: P) => React.ReactElement, props: P): IslandHandle<P> {
+  if (!el) throw new Error("AfConsoleIslands: mount target missing");
+  const root: Root = createRoot(el);
+  root.render(render(props));
+  return {
+    update(next: P) {
+      root.render(render(next));
+    },
+    unmount() {
+      root.unmount();
+    },
+  };
+}
+
+export function mountTopBar(el: Element, props: TopBarIslandProps): IslandHandle<TopBarIslandProps> {
+  return mount(el, (p) => <TopBarIsland {...p} />, props);
+}
+
+export function mountAppearance(el: Element, props: AppearanceIslandProps): IslandHandle<AppearanceIslandProps> {
+  return mount(el, (p) => <AfAppearanceDialog {...p} />, props);
+}
+
+/** The kit's own theme + typography application (root class + CSS vars). */
+export function applyAppearance(settings: Partial<AppearanceSettings>): void {
+  applyTheme(String(settings.theme || "dark"));
+  applyTypography({ font_scale: settings.font_scale, header_density: settings.header_density });
+}
+
+const api = {
+  apiVersion: ISLANDS_API_VERSION,
+  kitVersion: typeof __KIT_VERSION__ === "string" ? __KIT_VERSION__ : "unknown",
+  themes: THEME_SPECS,
+  fontScales: FONT_SCALES,
+  headerDensities: HEADER_DENSITIES,
+  mountTopBar,
+  mountAppearance,
+  applyAppearance,
+};
+
+(globalThis as unknown as { AfConsoleIslands: typeof api }).AfConsoleIslands = api;
+
+export default api;
+
+## ui-kit/scripts/build_islands.mjs
+
+#!/usr/bin/env node
+// Build the console islands bundle: ONE self-contained, minified IIFE
+// (React + the kit components) that defines `window.AfConsoleIslands`.
+// Consumed by abstractgateway's console (console_islands_sync.py vendors the
+// output into its generated console_islands.py and drift-pins it).
+//
+//   node scripts/build_islands.mjs            # writes islands/dist/af-console-islands.js
+//   node scripts/build_islands.mjs --check    # rebuilds in memory, fails if dist is stale
+import { build } from "esbuild";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const kitDir = join(dirname(fileURLToPath(import.meta.url)), "..");
+const pkg = JSON.parse(readFileSync(join(kitDir, "package.json"), "utf8"));
+const outFile = join(kitDir, "islands", "dist", "af-console-islands.js");
+
+const result = await build({
+  entryPoints: [join(kitDir, "islands", "console_islands.tsx")],
+  bundle: true,
+  format: "iife",
+  platform: "browser",
+  target: ["es2020", "safari15"],
+  minify: true,
+  legalComments: "none",
+  write: false,
+  charset: "utf8",
+  jsx: "automatic",
+  define: {
+    "process.env.NODE_ENV": '"production"',
+    __KIT_VERSION__: JSON.stringify(pkg.version),
+  },
+  // Only relative kit sources + react/react-dom; resolved from the workspace.
+  nodePaths: [join(kitDir, "node_modules"), join(kitDir, "..", "node_modules")],
+});
+const banner = `/*! @abstractframework/ui-kit ${pkg.version} console islands (React 18, MIT) */\n`;
+const code = banner + result.outputFiles[0].text;
+
+if (process.argv.includes("--check")) {
+  const current = existsSync(outFile) ? readFileSync(outFile, "utf8") : "";
+  if (current !== code) {
+    console.error(`islands bundle is stale: run \`node scripts/build_islands.mjs\` (${outFile})`);
+    process.exit(1);
+  }
+  console.log(`islands bundle up to date (${code.length} bytes)`);
+} else {
+  mkdirSync(dirname(outFile), { recursive: true });
+  writeFileSync(outFile, code);
+  console.log(`wrote ${outFile} (${code.length} bytes)`);
+}
+
 ## ui-kit/palette_seeds.json
 
 {
@@ -3667,6 +4458,55 @@ export function createGatewaySessionProxy(options) {
   };
 }
 
+## app-server/package.json
+
+{
+  "name": "@abstractframework/app-server",
+  "version": "0.1.9",
+  "description": "Server-side helpers for AbstractFramework thin-client apps: the app-origin gateway session proxy (first-party cookies, CSRF, Authorization-strip, server-pinned gateway URL).",
+  "type": "module",
+  "author": "Laurent-Philippe Albou",
+  "license": "MIT",
+  "keywords": [
+    "abstractframework",
+    "gateway",
+    "session",
+    "proxy"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lpalbou/AbstractUIC.git",
+    "directory": "app-server"
+  },
+  "homepage": "https://github.com/lpalbou/AbstractUIC#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node test/gateway_session_proxy.test.mjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
+## app-server/src/index.js
+
+export { createGatewaySessionProxy, normalizeGatewayUrl } from "./gateway_session_proxy.js";
+
 ## app-server/src/index.d.ts
 
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -3758,6 +4598,251 @@ export type { WorkflowEventScope, WorkflowEventTarget, WorkflowEventTargetResolu
 export { chatToMarkdown, copyText, downloadTextFile, tryParseJson } from "./utils.js";
 export { workflowEvidence, foldWorkflowTools, historyRecords, type WorkflowStatistics, type WorkflowToolActivity, type WorkflowModelCall, type WorkflowSpeculation } from "./workflow_evidence.js";
 export { statDetail, StatDetailPanel, type StatDetail, type StatDetailKind, type StatDetailSection } from "./stat_detail.js";
+
+## panel-chat/src/chat_message_card.tsx
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
+
+import { Icon, type IconName } from "@abstractframework/ui-kit";
+
+import { ChatMessageContent } from "./message_content.js";
+import { copyText } from "./utils.js";
+import { ToolActivity } from "./tool_activity.js";
+import type { WorkflowStatistics, WorkflowToolActivity } from "./workflow_evidence.js";
+import { StatChip, statDetail, type StatDetail } from "./stat_detail.js";
+
+export type ChatMessageLevel = "info" | "warn" | "error";
+
+export type ChatMessage = {
+  id?: string;
+  role: string;
+  content: string;
+  ts?: string;
+  title?: string;
+  level?: ChatMessageLevel;
+  kind?: string; // e.g. report_bug, report_feature
+  toolActivity?: WorkflowToolActivity;
+  statistics?: WorkflowStatistics;
+  runId?: string;
+};
+
+export type ChatAttachment = {
+  id?: string;
+  label: string;
+  target?: string; // client/server/repo/etc
+  title?: string;
+  disabled?: boolean;
+  onClick?: () => void;
+};
+
+export type ChatStat = {
+  id?: string;
+  label: string;
+  title?: string;
+  icon?: React.ReactNode;
+  onClick?: () => void;
+  /** Structured detail (tokens / time / tools). When present the chip opens
+   *  a hover/focus panel instead of a native one-line `title`. */
+  detail?: StatDetail;
+};
+
+/** The workflow stat chips (2026-09-22 rework). The native `title` held one
+ *  or two lines ("Input: 5,996 · Output: 423"); the ledger carries the cache
+ *  split, measured TTFT, generation rate, speculation and per-tool timing.
+ *  `statDetail` (pure, see stat_detail.tsx) folds them into sections; the
+ *  chip renders them as a structured panel. Absent metrics read "not
+ *  reported", never 0. */
+function workflowStats(metrics: WorkflowStatistics): ChatStat[] {
+  const tokens = metrics.totalTokens !== undefined ? statDetail("tokens", metrics) : null;
+  const tools = statDetail("tools", metrics);
+  const time = metrics.durationMs !== undefined ? statDetail("time", metrics) : null;
+  return [
+    ...(tokens ? [{ label: `${metrics.totalTokens!.toLocaleString()} tokens`, detail: tokens }] : []),
+    { label: `${metrics.toolCalls} ${metrics.toolCalls === 1 ? "tool" : "tools"}`, detail: tools },
+    ...(metrics.changedFiles.length ? [{ label: `${metrics.changedFiles.length} ${metrics.changedFiles.length === 1 ? "file" : "files"} changed`, title: metrics.changedFiles.join("\n") }] : []),
+    ...(time ? [{ label: `${(metrics.durationMs! / 1000).toFixed(metrics.durationMs! < 10000 ? 1 : 0)}s`, detail: time }] : []),
+  ];
+}
+
+type RoleUI = { label: string; icon: IconName; variant: string };
+
+function _role_ui(m: ChatMessage): RoleUI {
+  const role = String(m.role || "").trim().toLowerCase() || "system";
+  const kind = String(m.kind || "").trim().toLowerCase();
+  const lvl = String(m.level || "").trim().toLowerCase();
+
+  if (role === "system" && kind === "report_bug") {
+    return { label: String(m.title || "").trim() || "Bug report", icon: "warning", variant: "report_bug" };
+  }
+  if (role === "system" && kind === "report_feature") {
+    return { label: String(m.title || "").trim() || "Feature request", icon: "check", variant: "report_feature" };
+  }
+
+  // Speaker identity over role literal (operator fix 2026-07-13): hosts pass
+  // the speaker's name/handle as message.title (entity chat passes the entity
+  // name); the role words are only the fallback when no identity was supplied.
+  if (role === "user") return { label: String(m.title || "").trim() || "You", icon: "user", variant: "user" };
+  if (role === "assistant") return { label: String(m.title || "").trim() || "Agent", icon: "bot", variant: "assistant" };
+
+  const sys_label = String(m.title || "").trim() || (lvl === "error" ? "Error" : lvl === "warn" ? "Warning" : "System");
+  const sys_icon: IconName = lvl === "error" ? "error" : lvl === "warn" ? "warning" : "info";
+  const sys_variant = lvl === "error" ? "error" : lvl === "warn" ? "warn" : "status";
+  return { label: sys_label, icon: sys_icon, variant: sys_variant };
+}
+
+export type ChatMessageCardProps = {
+  message: ChatMessage;
+  className?: string;
+  renderMarkdown?: (markdown: string) => React.ReactElement;
+  attachments?: ChatAttachment[];
+  stats?: ChatStat[];
+  onSpeakToggle?: (message: ChatMessage) => void;
+  getSpeakState?: (message: ChatMessage) => "idle" | "loading" | "playing" | "paused";
+  showCopy?: boolean;
+  jsonCollapseAfterDepth?: number;
+};
+
+export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement {
+  const m = props.message;
+  const role_ui = useMemo(() => _role_ui(m), [m.kind, m.level, m.role, m.title]);
+  const ts = String(m.ts || "").trim();
+  const time_label = useMemo(() => {
+    if (!ts) return "";
+    const d = new Date(ts);
+    // A malformed timestamp must render as no timestamp, never "Invalid Date".
+    if (!Number.isFinite(d.getTime())) return "";
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }, [ts]);
+
+  const [copy_state, set_copy_state] = useState<"idle" | "copied" | "failed">("idle");
+  const copy_timer = useRef<number | null>(null);
+  useEffect(() => {
+    return () => {
+      if (copy_timer.current !== null) window.clearTimeout(copy_timer.current);
+    };
+  }, []);
+
+  const can_speak = typeof props.onSpeakToggle === "function" && role_ui.variant === "assistant" && Boolean(String(m.content || "").trim());
+  const speak_state = can_speak ? props.getSpeakState?.(m) || "idle" : "idle";
+  const speak_icon: IconName = speak_state === "loading" ? "loader" : speak_state === "playing" ? "pause" : "speaker";
+  const speak_title =
+    speak_state === "loading"
+      ? "Generating audio…"
+      : speak_state === "playing"
+        ? "Pause"
+        : speak_state === "paused"
+          ? "Resume"
+          : "Speak (TTS)";
+  const show_copy = props.showCopy !== false;
+
+  const attachments = Array.isArray(props.attachments) ? props.attachments : [];
+  const metrics = m.statistics;
+  const stats: ChatStat[] = useMemo(
+    () => (Array.isArray(props.stats) ? props.stats : metrics ? workflowStats(metrics) : []),
+    [props.stats, metrics],
+  );
+
+  if (m.toolActivity) return <ToolActivity tool={m.toolActivity} showCopy={props.showCopy} />;
+
+  return (
+    <div className={["pc-chat-item", `pc-chat-item--${role_ui.variant}`, props.className].filter(Boolean).join(" ")}>
+      <div className="pc-chat-header">
+        <div className="pc-chat-avatar" aria-hidden="true">
+          <Icon name={role_ui.icon} size={14} />
+        </div>
+        <span className="pc-chat-role">{role_ui.label}</span>
+        <span className="pc-chat-header-spacer" />
+        {time_label ? <span className="pc-chat-time">{time_label}</span> : null}
+        <div className="pc-chat-header-actions">
+          {can_speak ? (
+            <button
+              className="pc-chat-icon-btn"
+              type="button"
+              aria-label={speak_title}
+              title={speak_title}
+              onClick={() => props.onSpeakToggle?.(m)}
+            >
+              <Icon name={speak_icon} size={22} />
+            </button>
+          ) : null}
+          {show_copy ? (
+            <button
+              className={`pc-chat-icon-btn ${copy_state !== "idle" ? `pc-chat-icon-btn--${copy_state}` : ""}`.trim()}
+              type="button"
+              aria-label="Copy message"
+              title={copy_state === "idle" ? "Copy" : copy_state === "copied" ? "Copied" : "Copy failed"}
+              onClick={async () => {
+                const ok = await copyText(String(m.content || ""));
+                set_copy_state(ok ? "copied" : "failed");
+                if (copy_timer.current !== null) window.clearTimeout(copy_timer.current);
+                copy_timer.current = window.setTimeout(() => set_copy_state("idle"), 900);
+              }}
+            >
+              <Icon name="copy" size={22} />
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="pc-chat-body">
+        <ChatMessageContent text={String(m.content || "")} renderMarkdown={props.renderMarkdown} jsonCollapseAfterDepth={props.jsonCollapseAfterDepth} />
+      </div>
+
+      {attachments.length ? (
+        <div className="pc-chat-attachments" aria-label="Attachments">
+          {attachments.slice(0, 24).map((a, idx) => {
+            const label = String(a.label || "").trim() || "attachment";
+            const target = String(a.target || "").trim();
+            const title = String(a.title || "").trim();
+            const disabled = Boolean(a.disabled) || typeof a.onClick !== "function";
+            return (
+              <button
+                key={a.id || `${label}:${idx}`}
+                type="button"
+                className="pc-chat-attachment-chip"
+                title={title || label}
+                onClick={disabled ? undefined : a.onClick}
+                disabled={disabled}
+              >
+                <Icon name="paperclip" size={14} />
+                {target ? <span className={`pc-chat-attachment-target pc-chat-attachment-target--${target}`}>{target}</span> : null}
+                <span className="pc-chat-attachment-name">{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {stats.length ? (
+        <div className="pc-chat-stats" aria-label="Stats">
+          {stats.slice(0, 12).map((s, idx) => {
+            const label = String(s.label || "").trim();
+            if (!label) return null;
+            if (s.detail)
+              return <StatChip key={s.id || `${label}:${idx}`} label={label} detail={s.detail} icon={s.icon} onClick={s.onClick} />;
+            const title = String(s.title || "").trim();
+            const clickable = typeof s.onClick === "function";
+            const StatElement = clickable ? "button" : "span";
+            return (
+              <StatElement
+                key={s.id || `${label}:${idx}`}
+                {...(clickable ? { type: "button" as const } : {})}
+                className={["pc-chat-stat", clickable ? "pc-chat-stat--clickable" : ""].filter(Boolean).join(" ")}
+                title={title || undefined}
+                onClick={clickable ? () => s.onClick?.() : undefined}
+              >
+                {s.icon ? <span className="pc-chat-stat-icon" aria-hidden="true">{s.icon}</span> : null}
+                <span className="pc-chat-stat-label">{label}</span>
+              </StatElement>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export default ChatMessageCard;
 
 ## panel-chat/src/message_content.tsx
 
@@ -6336,8 +7421,9 @@ This repo is intentionally lightweight. Most React packages build with `tsc` int
 
 Each package is a folder at the repo root:
 
-- `ui-kit/`
+- `ui-kit/` (also holds the console islands sources in `ui-kit/islands/`)
 - `panel-chat/`
+- `app-server/`
 - `monitor-flow/`
 - `monitor-active-memory/`
 - `monitor-gpu/`
@@ -6350,6 +7436,18 @@ Each package is a folder at the repo root:
    - one-off: `cd <package> && npm run build`
    - watch: `cd <package> && npm run build -- --watch`
 3. Consume the package from your host app (workspace link / file dependency / published package) and validate behavior.
+
+## Console islands
+
+The `ui-kit` console islands bundle is built separately from the package build:
+
+```bash
+npm run build:islands -w @abstractframework/ui-kit
+node ui-kit/scripts/check_islands.mjs
+```
+
+The output (`ui-kit/islands/dist/`) is ignored by git and excluded from the npm tarball. See
+[Console islands](./console-islands.md).
 
 ## Tests
 
@@ -6380,6 +7478,7 @@ python scripts/generate-llms-full.py
 - Contributing: [`CONTRIBUTING.md`](../CONTRIBUTING.md)
 - Getting started: [Getting started](./getting-started.md)
 - Architecture: [Architecture](./architecture.md)
+- Troubleshooting: [Troubleshooting](./troubleshooting.md)
 - Docs index: [Docs index](./README.md)
 
 ## CONTRIBUTING.md
@@ -6408,7 +7507,7 @@ Build all packages that provide a build script:
 npm run build
 ```
 
-Run tests (only `@abstractframework/monitor-gpu` currently has automated tests):
+Run every workspace's tests (each package has its own test rig; `ui-kit` also runs its guard scripts and the console islands check):
 
 ```bash
 npm test
@@ -6455,7 +7554,39 @@ python scripts/generate-llms-full.py
 
 - Docs index: [`docs/README.md`](./docs/README.md)
 - Architecture (diagrams): [`docs/architecture.md`](./docs/architecture.md)
+- API reference: [`docs/api.md`](./docs/api.md)
+- Changelog: [`CHANGELOG.md`](./CHANGELOG.md)
+- Code of conduct: [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md)
 - Publishing (maintainers): [`docs/publishing.md`](./docs/publishing.md)
+- Security policy: [`SECURITY.md`](./SECURITY.md)
+
+## CODE_OF_CONDUCT.md
+
+# Code of Conduct
+
+AbstractUIC follows the [Contributor Covenant](https://www.contributor-covenant.org/version/2/1/code_of_conduct/),
+version 2.1.
+
+## Our standards
+
+Be respectful, constructive and inclusive in issues, pull requests, discussions and any other
+project space. Harassment, personal attacks, discriminatory language and publishing others'
+private information are not acceptable.
+
+## Reporting
+
+Report unacceptable behavior privately to the maintainer through GitHub
+([@lpalbou](https://github.com/lpalbou)). Reports are handled confidentially. For security
+vulnerabilities, follow [`SECURITY.md`](./SECURITY.md) instead.
+
+## Enforcement
+
+The maintainer may remove, edit or reject contributions that do not follow this code of conduct,
+and may temporarily or permanently restrict participation in project spaces.
+
+## Related docs
+
+- Contributing: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
 - Security policy: [`SECURITY.md`](./SECURITY.md)
 
 ## SECURITY.md
@@ -6466,11 +7597,12 @@ We take security seriously and appreciate responsible disclosure.
 
 ## Scope
 
-This policy covers all packages in this repository (`ui-kit/`, `panel-chat/`, `monitor-flow/`, `monitor-active-memory/`, `monitor-gpu/`).
+This policy covers all packages in this repository (`ui-kit/` including the console islands, `panel-chat/`, `app-server/`, `monitor-flow/`, `monitor-active-memory/`, `monitor-gpu/`, `monitor-memory/`).
 
 Examples of issues to report:
 - Injection/XSS risks in text rendering (e.g. Markdown/JSON renderers in `panel-chat/src/markdown.tsx`, `monitor-flow/src/Markdown.tsx`)
-- Token leakage, auth header mistakes, or unsafe cross-origin usage in `@abstractframework/monitor-gpu` (`monitor-gpu/src/gpu_metrics_api.js`)
+- Token leakage, auth header mistakes, or unsafe cross-origin usage in `@abstractframework/monitor-gpu` / `@abstractframework/monitor-memory` (`*/src/*_metrics_api.js`)
+- Session, cookie, CSRF or Gateway URL pinning issues in `@abstractframework/app-server` (`app-server/src/gateway_session_proxy.js`)
 
 ## Reporting a vulnerability
 
@@ -6491,7 +7623,8 @@ Please include:
 
 ## Security notes for users
 
-- `@abstractframework/monitor-gpu` supports Bearer token auth. Avoid putting tokens in URLs and prefer HTTPS in production.
+- `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` support Bearer token auth. Avoid putting tokens in URLs and prefer HTTPS in production.
+- `@abstractframework/app-server` keeps the Gateway token server-side (HttpOnly session cookies + CSRF); do not add browser-side token storage in apps.
 - See security notes in `monitor-gpu/README.md` and integration guidance in [`docs/getting-started.md`](./docs/getting-started.md).
 
 ## Related docs
@@ -6512,6 +7645,46 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## Unreleased
+
+### Documentation
+
+- Added: [Console islands](docs/console-islands.md) (the `window.AfConsoleIslands` API, build and
+  check commands, and how pages load the bundle), [Troubleshooting](docs/troubleshooting.md) and
+  `CODE_OF_CONDUCT.md`.
+- Changed: the architecture page shows which AbstractFramework apps consume each package and how
+  the islands bundle is built; the API reference lists the app chrome (`AfTopBarActions`,
+  `AfDrawer`, `AfAppearanceDialog`), `AssistantPanel` and the workflow chat exports; the
+  `ui-kit` and `panel-chat` READMEs cover the console islands and `AssistantPanel`.
+
+## 0.1.11 - 2026-09-24
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.1.11 | updated |
+| `@abstractframework/panel-chat` | 0.1.16 | unchanged |
+| `@abstractframework/app-server` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-memory` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-flow` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-gpu` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-active-memory` | 0.1.9 | unchanged |
+
+### ui-kit 0.1.11
+
+- Added: console islands. `islands/console_islands.tsx` wraps the kit's
+  `AfTopBarActions` and `AfAppearanceDialog` (with `ThemeSelect`) in a tiny
+  prop-driven API (`window.AfConsoleIslands.mountTopBar(el, props)`,
+  `mountAppearance(el, props)`, `applyAppearance(settings)`, each mount
+  returning `{update, unmount}`) for hosts that are not React apps.
+  `npm run build:islands` (`scripts/build_islands.mjs`, esbuild, new dev
+  dependency) bundles it with React into one self-contained IIFE,
+  `islands/dist/af-console-islands.js`; `npm test` type-checks the entry and
+  runs `scripts/check_islands.mjs` (build + load as a plain script + API and
+  theme-list checks). The AbstractGateway console vendors this bundle and
+  checks it against the kit sources. The bundle is a build output and is
+  not part of the npm tarball; the islands sources ship in the repository
+  only. See [Console islands](docs/console-islands.md).
+- Added: `.af-topbar__identity`, the quiet one-line style for a plain-text
+  extra in the top bar (the signed-in identity).
 
 ## 0.1.10 - 2026-09-23
 
@@ -7219,12 +8392,14 @@ AbstractUIC packages intentionally keep runtime dependencies minimal: React pack
   - Used by `@abstractframework/monitor-active-memory` (see `monitor-active-memory/package.json`).
 - **TypeScript** for authoring, type-checking, and build output (`typescript`)
   - Used to compile React packages from `src/` into `dist/` via `tsc` (see `*/package.json` scripts and `tsconfig.base.json`).
+- **esbuild** for bundling the `ui-kit` console islands (`esbuild`)
+  - Dev dependency of `@abstractframework/ui-kit` (see `ui-kit/scripts/build_islands.mjs`).
 - **DefinitelyTyped** for TypeScript type definitions (`@types/react`, `@types/react-dom`)
   - Used during development (see `*/package.json` dev dependencies).
 
 ## Tooling and standards we rely on
 
-- **Node.js** runtime and built-in test runner (`node --test`) for `@abstractframework/monitor-gpu` tests (see `monitor-gpu/package.json`).
+- **Node.js** runtime and built-in test runner (`node --test`) for package tests (see each `*/package.json`).
 - **Web Platform APIs** (Custom Elements, Shadow DOM, Fetch) for the GPU widget implementation (`monitor-gpu/src/monitor_gpu_widget.js`, `monitor-gpu/src/gpu_metrics_api.js`).
 - **Mermaid** diagrams in documentation (rendered by GitHub / Markdown tooling; see `docs/architecture.md`).
 

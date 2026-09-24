@@ -12,12 +12,14 @@ AbstractUIC packages intentionally keep runtime dependencies minimal: React pack
   - Used by `@abstractframework/monitor-active-memory` (see `monitor-active-memory/package.json`).
 - **TypeScript** for authoring, type-checking, and build output (`typescript`)
   - Used to compile React packages from `src/` into `dist/` via `tsc` (see `*/package.json` scripts and `tsconfig.base.json`).
+- **esbuild** for bundling the `ui-kit` console islands (`esbuild`)
+  - Dev dependency of `@abstractframework/ui-kit` (see `ui-kit/scripts/build_islands.mjs`).
 - **DefinitelyTyped** for TypeScript type definitions (`@types/react`, `@types/react-dom`)
   - Used during development (see `*/package.json` dev dependencies).
 
 ## Tooling and standards we rely on
 
-- **Node.js** runtime and built-in test runner (`node --test`) for `@abstractframework/monitor-gpu` tests (see `monitor-gpu/package.json`).
+- **Node.js** runtime and built-in test runner (`node --test`) for package tests (see each `*/package.json`).
 - **Web Platform APIs** (Custom Elements, Shadow DOM, Fetch) for the GPU widget implementation (`monitor-gpu/src/monitor_gpu_widget.js`, `monitor-gpu/src/gpu_metrics_api.js`).
 - **Mermaid** diagrams in documentation (rendered by GitHub / Markdown tooling; see `docs/architecture.md`).
 

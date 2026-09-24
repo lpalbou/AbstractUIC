@@ -9,6 +9,16 @@ ships.
 
 ## Unreleased
 
+### Documentation
+
+- Added: [Console islands](docs/console-islands.md) (the `window.AfConsoleIslands` API, build and
+  check commands, and how pages load the bundle), [Troubleshooting](docs/troubleshooting.md) and
+  `CODE_OF_CONDUCT.md`.
+- Changed: the architecture page shows which AbstractFramework apps consume each package and how
+  the islands bundle is built; the API reference lists the app chrome (`AfTopBarActions`,
+  `AfDrawer`, `AfAppearanceDialog`), `AssistantPanel` and the workflow chat exports; the
+  `ui-kit` and `panel-chat` READMEs cover the console islands and `AssistantPanel`.
+
 ## 0.1.11 - 2026-09-24
 
 | Package | Version | Change |
@@ -32,10 +42,10 @@ ships.
   dependency) bundles it with React into one self-contained IIFE,
   `islands/dist/af-console-islands.js`; `npm test` type-checks the entry and
   runs `scripts/check_islands.mjs` (build + load as a plain script + API and
-  theme-list pins). The AbstractGateway console vendors this bundle
-  (`console_islands_sync.py`) and drift-pins it against the kit sources.
-  The bundle is a build output (gitignored) and is not part of the npm
-  tarball; the islands sources ship in the repository only.
+  theme-list checks). The AbstractGateway console vendors this bundle and
+  checks it against the kit sources. The bundle is a build output and is
+  not part of the npm tarball; the islands sources ship in the repository
+  only. See [Console islands](docs/console-islands.md).
 - Added: `.af-topbar__identity`, the quiet one-line style for a plain-text
   extra in the top bar (the signed-in identity).
 

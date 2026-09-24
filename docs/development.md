@@ -6,8 +6,9 @@ This repo is intentionally lightweight. Most React packages build with `tsc` int
 
 Each package is a folder at the repo root:
 
-- `ui-kit/`
+- `ui-kit/` (also holds the console islands sources in `ui-kit/islands/`)
 - `panel-chat/`
+- `app-server/`
 - `monitor-flow/`
 - `monitor-active-memory/`
 - `monitor-gpu/`
@@ -20,6 +21,18 @@ Each package is a folder at the repo root:
    - one-off: `cd <package> && npm run build`
    - watch: `cd <package> && npm run build -- --watch`
 3. Consume the package from your host app (workspace link / file dependency / published package) and validate behavior.
+
+## Console islands
+
+The `ui-kit` console islands bundle is built separately from the package build:
+
+```bash
+npm run build:islands -w @abstractframework/ui-kit
+node ui-kit/scripts/check_islands.mjs
+```
+
+The output (`ui-kit/islands/dist/`) is ignored by git and excluded from the npm tarball. See
+[Console islands](./console-islands.md).
 
 ## Tests
 
@@ -50,4 +63,5 @@ python scripts/generate-llms-full.py
 - Contributing: [`CONTRIBUTING.md`](../CONTRIBUTING.md)
 - Getting started: [Getting started](./getting-started.md)
 - Architecture: [Architecture](./architecture.md)
+- Troubleshooting: [Troubleshooting](./troubleshooting.md)
 - Docs index: [Docs index](./README.md)

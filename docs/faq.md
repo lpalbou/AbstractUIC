@@ -20,12 +20,13 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 - [monitor-active-memory: Does it persist layouts?](#monitor-active-memory-does-it-persist-layouts)
 - [monitor-gpu: What backend payload does it expect?](#monitor-gpu-what-backend-payload-does-it-expect)
 - [monitor-gpu: How do I set auth and CORS safely?](#monitor-gpu-how-do-i-set-auth-and-cors-safely)
+- [Can I use the kit components on a page that is not a React app?](#can-i-use-the-kit-components-on-a-page-that-is-not-a-react-app)
 - [Where are the tests?](#where-are-the-tests)
 - [Is this published to npm?](#is-this-published-to-npm)
 
 ## What is AbstractUIC?
 
-AbstractUIC is a **multi-package repository**: each top-level folder is an npm package (see each `*/package.json`). Most packages are React components; two packages (`@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory`) are dependency-free Web Components.
+AbstractUIC is a **multi-package repository**: each top-level folder is an npm package (see each `*/package.json`). Most packages are React components; two packages (`@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory`) are dependency-free Web Components, and `@abstractframework/app-server` is a Node.js Gateway session proxy.
 
 Start here: [Getting started](./getting-started.md).
 
@@ -55,6 +56,7 @@ Authoritative exports:
 - `@abstractframework/monitor-active-memory`: `monitor-active-memory/src/index.ts`
 - `@abstractframework/monitor-gpu`: `monitor-gpu/src/index.js`
 - `@abstractframework/monitor-memory`: `monitor-memory/src/index.js`
+- `@abstractframework/app-server`: `app-server/src/index.js`
 
 ## Do I install a single package or multiple?
 
@@ -168,6 +170,13 @@ Source of truth: `monitor-gpu/src/gpu_metrics_api.js` and `monitor-gpu/src/monit
 
 Source of truth: `monitor-gpu/src/gpu_metrics_api.js` (`buildAuthHeaders`) and `monitor-gpu/src/monitor_gpu_widget.js`.
 
+## Can I use the kit components on a page that is not a React app?
+
+Yes, in two ways:
+
+- **Console islands**: build `ui-kit/islands/dist/af-console-islands.js` from a repository checkout and load it with a `<script>` tag; `window.AfConsoleIslands` mounts the real top bar and appearance dialog with a prop-driven API. It is not part of the npm package. See [Console islands](./console-islands.md).
+- **CSS only**: the `.af-topbar-*` and `.af-drawer-*` classes in `theme.css` are stable public API for server-rendered HTML (see [`ui-kit/README.md`](../ui-kit/README.md#css-public-api-non-react-consumers)).
+
 ## Where are the tests?
 
 Each workspace ships its own test rig; run them all from the repo root:
@@ -196,3 +205,4 @@ Maintainers: see [Publishing](./publishing.md).
 - Getting started: [Getting started](./getting-started.md)
 - API reference: [API reference](./api.md)
 - Architecture: [Architecture](./architecture.md)
+- Troubleshooting: [Troubleshooting](./troubleshooting.md)

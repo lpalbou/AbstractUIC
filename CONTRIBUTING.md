@@ -22,7 +22,7 @@ Build all packages that provide a build script:
 npm run build
 ```
 
-Run tests (only `@abstractframework/monitor-gpu` currently has automated tests):
+Run every workspace's tests (each package has its own test rig; `ui-kit` also runs its guard scripts and the console islands check):
 
 ```bash
 npm test
@@ -69,5 +69,8 @@ python scripts/generate-llms-full.py
 
 - Docs index: [`docs/README.md`](./docs/README.md)
 - Architecture (diagrams): [`docs/architecture.md`](./docs/architecture.md)
+- API reference: [`docs/api.md`](./docs/api.md)
+- Changelog: [`CHANGELOG.md`](./CHANGELOG.md)
+- Code of conduct: [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md)
 - Publishing (maintainers): [`docs/publishing.md`](./docs/publishing.md)
 - Security policy: [`SECURITY.md`](./SECURITY.md)

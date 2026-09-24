@@ -1,6 +1,6 @@
 # AbstractUIC
 
-Reusable UI packages for AbstractFramework clients (React components + small Web Components).
+Reusable UI packages for AbstractFramework clients: React components, small Web Components, a Node.js Gateway session proxy, and console islands for pages that are not React apps.
 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
@@ -13,7 +13,7 @@ AbstractUIC is part of the broader [AbstractFramework](https://github.com/lpalbo
 - **AbstractCore** (core logic/types): https://github.com/lpalbou/abstractcore
 - **AbstractRuntime** (runtime/orchestration): https://github.com/lpalbou/abstractruntime
 
-AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see the absence of such dependencies in `*/package.json`). Instead, host apps (AbstractFlow / AbstractObserver / etc.) integrate with those layers and pass the resulting data into these UI components (see package contracts in `monitor-flow/src/AgentCyclesPanel.tsx`, `monitor-active-memory/src/types.ts`, `panel-chat/src/types.ts`).
+AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see the absence of such dependencies in `*/package.json`). Instead, host apps (AbstractFlow / AbstractObserver / etc.) integrate with those layers and pass the resulting data into these UI components (see package contracts in `monitor-flow/src/AgentCyclesPanel.tsx`, `monitor-active-memory/src/types.ts`, `panel-chat/src/chat_message_card.tsx`).
 
 ## Documentation
 
@@ -23,10 +23,13 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 - API reference: [`docs/api.md`](./docs/api.md)
 - FAQ: [`docs/faq.md`](./docs/faq.md)
 - Architecture (includes diagrams): [`docs/architecture.md`](./docs/architecture.md)
+- Troubleshooting: [`docs/troubleshooting.md`](./docs/troubleshooting.md)
+- Console islands (kit components for non-React pages): [`docs/console-islands.md`](./docs/console-islands.md)
 - Docs index: [`docs/README.md`](./docs/README.md)
 - Agent-oriented docs: [`llms.txt`](./llms.txt) (index) and [`llms-full.txt`](./llms-full.txt) (generated, offline-friendly)
 - Changelog: [`CHANGELOG.md`](./CHANGELOG.md)
 - Contributing: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
+- Code of conduct: [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md)
 - Security: [`SECURITY.md`](./SECURITY.md)
 - Acknowledgments: [`ACKNOWLEDGMENTS.md`](./ACKNOWLEDGMENTS.md)
 
@@ -34,8 +37,8 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 
 | Package | Purpose | Docs |
 |---|---|---|
-| `@abstractframework/ui-kit` | Theme tokens (21 themes), inputs (`AfSelect`, provider/model pickers), Gateway connect modal + connection hook, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk) | [`ui-kit/README.md`](./ui-kit/README.md) |
-| `@abstractframework/panel-chat` | Chat thread + message cards + composer + markdown/json rendering | [`panel-chat/README.md`](./panel-chat/README.md) |
+| `@abstractframework/ui-kit` | Theme tokens (21 themes), inputs (`AfSelect`, provider/model pickers), Gateway connect modal + connection hook, top bar / drawer / appearance dialog, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk); console islands for non-React pages (repository build) | [`ui-kit/README.md`](./ui-kit/README.md) |
+| `@abstractframework/panel-chat` | Chat thread + message cards + composer + markdown/json rendering, app assistant panel, workflow chat | [`panel-chat/README.md`](./panel-chat/README.md) |
 | `@abstractframework/app-server` | Node gateway-session proxy for app servers (token → HttpOnly cookie exchange, CSRF, URL pinning) | [`app-server/README.md`](./app-server/README.md) |
 | `@abstractframework/monitor-flow` | Agent-cycle trace viewer + ledger adapter | [`monitor-flow/README.md`](./monitor-flow/README.md) |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | [`monitor-active-memory/README.md`](./monitor-active-memory/README.md) |
