@@ -9,6 +9,36 @@ ships.
 
 ## Unreleased
 
+## 0.1.11 - 2026-09-24
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.1.11 | updated |
+| `@abstractframework/panel-chat` | 0.1.16 | unchanged |
+| `@abstractframework/app-server` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-memory` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-flow` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-gpu` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-active-memory` | 0.1.9 | unchanged |
+
+### ui-kit 0.1.11
+
+- Added: console islands. `islands/console_islands.tsx` wraps the kit's
+  `AfTopBarActions` and `AfAppearanceDialog` (with `ThemeSelect`) in a tiny
+  prop-driven API (`window.AfConsoleIslands.mountTopBar(el, props)`,
+  `mountAppearance(el, props)`, `applyAppearance(settings)`, each mount
+  returning `{update, unmount}`) for hosts that are not React apps.
+  `npm run build:islands` (`scripts/build_islands.mjs`, esbuild, new dev
+  dependency) bundles it with React into one self-contained IIFE,
+  `islands/dist/af-console-islands.js`; `npm test` type-checks the entry and
+  runs `scripts/check_islands.mjs` (build + load as a plain script + API and
+  theme-list pins). The AbstractGateway console vendors this bundle
+  (`console_islands_sync.py`) and drift-pins it against the kit sources.
+  The bundle is a build output (gitignored) and is not part of the npm
+  tarball; the islands sources ship in the repository only.
+- Added: `.af-topbar__identity`, the quiet one-line style for a plain-text
+  extra in the top bar (the signed-in identity).
+
 ## 0.1.10 - 2026-09-23
 
 | Package | Version | Change |

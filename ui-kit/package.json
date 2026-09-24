@@ -1,6 +1,6 @@
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -40,7 +40,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "node scripts/check_no_src_twins.mjs && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/audit_theme_contrast.mjs --strict",
+    "build:islands": "node scripts/build_islands.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -51,6 +52,7 @@
   "devDependencies": {
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
+    "esbuild": "^0.25.12",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "typescript": "^5.3.3"

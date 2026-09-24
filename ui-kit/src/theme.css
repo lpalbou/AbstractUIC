@@ -2550,6 +2550,18 @@
   background: var(--warning);
 }
 
+/* Plain-text extra in the cluster (e.g. the signed-in identity rendered by
+ * the console islands' `extras: [{ text }]`): quiet, one line, ellipsized. */
+.af-topbar__identity {
+  font-size: var(--font-size-sm, 12px);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 4px;
+}
+
 /* --- AfDrawer (right-edge, non-modal, keep-alive) --- */
 
 .af-drawer {
