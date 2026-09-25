@@ -12,7 +12,10 @@ This package provides:
   `SpeculationSelect`, `ToolPolicyEditor`, `VoiceSettings`
 - **Gateway connection UI**: `GatewayConnectModal`, `useGatewayConnection()`,
   `GatewaySessionSignInCard`
-- **App chrome**: `AfTopBarActions`, `AfDrawer`, `AfAppearanceDialog` + `useAppearanceSettings()`
+- **App chrome**: `AfTopBarActions`, `AfDrawer`, `AfAppearanceDialog` + `useAppearanceSettings()`,
+  `AfAboutDialog`
+- **Identity**: `appIdentity(id, version)`, `frameworkIdentity()`, `aboutRows(...)` — the
+  AbstractFramework facts every About screen shows
 - **Run and policy surfaces**: `PhaseCapabilityMatrix`, `CriticalActionDialog`, `SteerComposer`,
   `DisclosureList`, `AfChip`, `AfPhaseRadio`, cognition gauges
 - **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk)
@@ -115,8 +118,8 @@ Use `GatewayConnectModal` for connect/disconnect UX. It pairs with the session p
 
 ## Unified top-right corner
 
-Every app renders the same upper-right cluster: assistant button → appearance button → app
-extras → connection pill, always rightmost.
+Every app renders the same upper-right cluster: assistant button → appearance button → About
+button → app extras → connection pill, always rightmost.
 
 ```tsx
 const conn = useGatewayConnection({ appName: "My App", variant: "dismissable" });
@@ -125,6 +128,7 @@ const [appearance, setAppearance] = useAppearanceSettings("my-app", { legacyKey:
 <AfTopBarActions
   assistant={{ open: drawerOpen, onToggle: () => setDrawerOpen((v) => !v) }}
   appearance={{ onOpen: () => setAppearanceOpen(true) }}
+  about={{ identity: appIdentity("abstractflow", APP_VERSION) }}
   connection={{ phase: conn.phase, signingOut: conn.signingOut,
                 onConnect: conn.openModal, onDisconnect: () => void conn.signOut() }}
 />
@@ -149,6 +153,38 @@ Rules:
 - Appearance persistence is per app via `useAppearanceSettings(appId)` (key
   `af_appearance_<appId>_v1`, migrates a `legacyKey` once); storage failures fall back to
   in-memory state.
+
+## About dialog and identity
+
+Every AbstractFramework app shows the same About facts: the app name and version, "Part of
+AbstractFramework", the author, the copyright and licence line, and links to the website, source,
+documentation, issue tracker and feedback page, plus the contact e-mail. They come from one
+canonical descriptor that the kit ships as `abstractframework_identity.json`; the rows match the
+Python `abstractcore.utils.identity.about_fields`, so web, desktop and terminal apps agree.
+
+Add About to the top bar with one prop:
+
+```tsx
+import { AfTopBarActions, appIdentity } from "@abstractframework/ui-kit";
+
+const identity = appIdentity("abstractflow", APP_VERSION); // throws for an unknown id
+
+<AfTopBarActions
+  about={{ identity, extraRows: gatewayRows, onOpen: refreshGatewayRows }}
+  connection={...}
+/>
+```
+
+- `appIdentity(id, version)` takes the distribution name in lower case (`knownAppIds()` lists
+  them) and your app's own version. An unknown id throws: an app must not invent identity facts.
+- `extraRows` is an array of `[label, value]` pairs appended after the standard rows, for example
+  the versions reported by the gateway's `GET /api/gateway/about`. The kit never fetches versions;
+  `onOpen` runs each time the dialog opens, which is a good moment to refresh them.
+- The dialog opens external links in a new tab (`rel="noopener noreferrer"`), shows the contact
+  address as text with a `mailto:` link, and closes on Escape, a click outside, or Close.
+- Use `<AfAboutDialog open onClose identity extraRows />` directly when your About entry lives
+  somewhere else (a menu, a settings page), and `aboutRows(identity, extra)` when you render the
+  rows yourself.
 
 ### CSS public API (non-React consumers)
 
@@ -181,10 +217,11 @@ page can render its own HTML against them:
 
 ## Console islands
 
-A page that is not a React app can mount the real `AfTopBarActions` and `AfAppearanceDialog`
-through the console islands: one self-contained script (React included) that defines
-`window.AfConsoleIslands` with `mountTopBar(el, props)`, `mountAppearance(el, props)` and
-`applyAppearance(settings)`. The AbstractGateway console uses it.
+A page that is not a React app can mount the real `AfTopBarActions`, `AfAppearanceDialog` and
+`AfAboutDialog` through the console islands: one self-contained script (React included) that defines
+`window.AfConsoleIslands` with `mountTopBar(el, props)`, `mountAppearance(el, props)`,
+`mountAbout(el, props)`, `appIdentity(id, version)` and `applyAppearance(settings)`. The
+AbstractGateway console uses it.
 
 The bundle is built from a repository checkout and is **not** part of the npm package:
 

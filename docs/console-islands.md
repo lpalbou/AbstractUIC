@@ -5,8 +5,8 @@ components. They are built from `@abstractframework/ui-kit` sources into one sel
 browser script that defines a small global API, `window.AfConsoleIslands`.
 
 The AbstractGateway console (HTML served from Python) is the consumer: it uses the islands for
-its top-right action cluster (connect/disconnect pill, appearance button, extras) and its
-appearance dialog (theme, font scale, header density), so the console renders the same
+its top-right action cluster (connect/disconnect pill, appearance button, About button, extras),
+its appearance dialog (theme, font scale, header density) and its About dialog, so the console renders the same
 components as the React apps.
 
 This page is a deep dive for the `ui-kit` package. For the package overview see
@@ -31,7 +31,7 @@ Source files:
 
 | File | Role |
 | --- | --- |
-| `ui-kit/islands/console_islands.tsx` | Entry point and API (`mountTopBar`, `mountAppearance`, `applyAppearance`) |
+| `ui-kit/islands/console_islands.tsx` | Entry point and API (`mountTopBar`, `mountAppearance`, `mountAbout`, `appIdentity`, `applyAppearance`) |
 | `ui-kit/islands/tsconfig.json` | Type-check configuration for the entry (`noEmit`) |
 | `ui-kit/scripts/build_islands.mjs` | esbuild bundler; writes `islands/dist/af-console-islands.js` |
 | `ui-kit/scripts/check_islands.mjs` | Rebuilds the bundle and verifies it loads as a plain script |
@@ -56,7 +56,8 @@ node ui-kit/scripts/check_islands.mjs
 (`tsc -p islands/tsconfig.json`) and runs `check_islands.mjs`. The check verifies that:
 
 - evaluating the bundle defines `AfConsoleIslands`;
-- `mountTopBar`, `mountAppearance` and `applyAppearance` are functions;
+- `mountTopBar`, `mountAppearance`, `mountAbout`, `appIdentity` and `applyAppearance` are
+  functions, and `appIdentity` returns the gateway's identity and throws for an unknown id;
 - `apiVersion` is `"1"` and `kitVersion` equals the `ui-kit` `package.json` version;
 - `themes` has one entry per theme in `THEME_SPECS`;
 - the bundle starts with the `/*! @abstractframework/ui-kit <version> console islands` banner.
@@ -70,7 +71,7 @@ node ui-kit/scripts/check_islands.mjs
 <script src="/static/af-console-islands.js"></script>
 <script>
   const islands = window.AfConsoleIslands;
-  console.log(islands.apiVersion, islands.kitVersion); // "1", e.g. "0.1.11"
+  console.log(islands.apiVersion, islands.kitVersion); // "1", e.g. "0.1.12"
 </script>
 ```
 
@@ -89,6 +90,8 @@ Serve both files from your own origin; the paths above are examples.
 | `headerDensities` | array | `HEADER_DENSITIES` options |
 | `mountTopBar(el, props)` | `IslandHandle` | Mounts `AfTopBarActions` into `el` |
 | `mountAppearance(el, props)` | `IslandHandle` | Mounts `AfAppearanceDialog` into `el` |
+| `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
+| `appIdentity(id, version)` | `AppIdentity` | Identity facts for an AbstractFramework app; throws for an unknown id (kit 0.1.12+) |
 | `applyAppearance(settings)` | `void` | Applies a theme and typography settings to the document |
 
 Every mount returns `{ update(props), unmount() }`. Mounting into a missing element throws
@@ -103,6 +106,12 @@ connection pill (always rightmost).
 type TopBarIslandProps = {
   assistant?: { open: boolean; onToggle: () => void; label?: string } | null; // omit/null hides it
   appearance?: { onOpen: () => void; label?: string } | null;                 // omit/null hides it
+  about?: {                                                                   // omit/null hides it (kit 0.1.12+)
+    identity: AppIdentity;               // from islands.appIdentity("abstractgateway", version)
+    extraRows?: Array<[string, string]>; // e.g. package versions from GET /about
+    onOpen?: () => void;                 // runs each time the About dialog opens
+    label?: string;
+  } | null;
   extras?: Array<{
     id: string;          // becomes the element id
     label: string;       // aria-label / tooltip
@@ -141,6 +150,32 @@ type AppearanceIslandProps = {
 
 The dialog does not persist anything: store `value` yourself, then call
 `applyAppearance(next)` and `handle.update({ ...props, value: next })` from `onChange`.
+
+### `mountAbout(el, props)`
+
+Renders the shared About dialog: the application name and version, "Part of AbstractFramework",
+author, copyright and licence, website, source, documentation, "Report an issue", "Give feedback"
+and the contact e-mail, followed by your `extraRows`. Links open in a new tab.
+
+```ts
+type AboutIslandProps = {
+  open: boolean;
+  onClose: () => void;
+  identity: AppIdentity;               // islands.appIdentity("abstractgateway", version)
+  extraRows?: Array<[string, string]>; // e.g. [["abstractcore", "2.15.2"]]
+  title?: string;                      // defaults to "About <app name>"
+};
+```
+
+Use `mountAbout` when your About entry lives outside the top bar. When you pass `about` to
+`mountTopBar`, the cluster renders the About button and owns the dialog itself, so you do not
+need `mountAbout`.
+
+### `appIdentity(id, version)`
+
+Returns `{ id, name, version, website, repo, docs, issues, feedback }` for an AbstractFramework
+application id (`"abstractgateway"`, `"abstractflow"`, …). It throws for an id the kit does not
+know, so a typo fails loudly instead of rendering invented facts.
 
 ### `applyAppearance(settings)`
 
@@ -184,6 +219,9 @@ Use the values in `islands.fontScales` and `islands.headerDensities` for valid
 ## Versioning
 
 - `apiVersion` changes only when the island API changes incompatibly; check it before mounting.
+  Additive members keep the same `apiVersion` and are marked with the kit version that
+  introduced them (for example `mountAbout`, kit 0.1.12); check `kitVersion` if you load a bundle
+  you did not build yourself.
 - `kitVersion` identifies the `ui-kit` release the bundle was built from. Rebuild the bundle
   after upgrading the kit sources; a consumer that vendors the bundle should rebuild and re-vendor
   it whenever any kit source that feeds it changes (`ui-kit/src/*`, `ui-kit/islands/*`,

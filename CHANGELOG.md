@@ -9,6 +9,22 @@ ships.
 
 ## Unreleased
 
+### ui-kit 0.1.12 (unreleased)
+
+- Added: one About dialog for every AbstractFramework app. `AfAboutDialog` shows the application
+  name and version, "Part of AbstractFramework", author, copyright and licence, website, source,
+  documentation, "Report an issue", "Give feedback" and the contact e-mail, plus app-specific
+  `extraRows` (for example gateway package versions). Links open in a new tab; Escape, a click
+  outside or Close dismisses it.
+- Added: `AfTopBarActions` accepts `about={{ identity, extraRows?, onOpen?, label? }}` and renders
+  an About button between the appearance button and the app extras.
+- Added: identity helpers `appIdentity(id, version)` (throws for an unknown application id),
+  `frameworkIdentity()`, `knownAppIds()` and `aboutRows(identity, extra?)`, backed by the
+  AbstractFramework identity descriptor shipped with the kit. The rows match the Python
+  `abstractcore.utils.identity.about_fields`.
+- Added: console islands `mountAbout(el, props)`, `appIdentity(id, version)` and an `about` prop
+  on `mountTopBar`. `apiVersion` stays `"1"` (additive change).
+
 ### Documentation
 
 - Added: [Console islands](docs/console-islands.md) (the `window.AfConsoleIslands` API, build and
