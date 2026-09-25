@@ -32,6 +32,11 @@ ships.
   `frameworkIdentity()`, `knownAppIds()` and `aboutRows(identity, extra?)`, backed by the
   AbstractFramework identity descriptor shipped with the kit. The rows match the Python
   `abstractcore.utils.identity.about_fields`.
+- Added: `gatewayVersionRows(payload | { error })` and the `GatewayAboutPayload` type: the
+  connected gateway's About rows (`Gateway`, `Gateway framework`, then `Gateway package <name>`
+  sorted by name), or one `Gateway: unavailable (<reason>)` row when the version is not available.
+- Added: `AfAboutDialog` keeps Tab and Shift+Tab inside the dialog while it is open and names
+  itself by its title (`aria-labelledby`).
 - Added: console islands `mountAbout(el, props)`, `appIdentity(id, version)` and an `about` prop
   on `mountTopBar`. `apiVersion` stays `"1"` (additive change).
 

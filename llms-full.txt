@@ -710,7 +710,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Run steering: `SteerComposer` + `submitSteer()` (idempotent command ids, CSRF candidates)
 - Lists & badges: `DisclosureList` (tree list, roving tabindex), `AfChip` / `AfChipButton`
 - App chrome: `AfTopBarActions` (assistant → appearance → about → extras → connection pill; `about={{ identity, extraRows?, onOpen?, label? }}` adds the About button and dialog), `AfDrawer` (non-modal, keeps children mounted), `AfAppearanceDialog` + `useAppearanceSettings()` / `appearanceStorageKey()` / `APPEARANCE_DEFAULTS`, `AfAboutDialog`
-- Identity: `appIdentity(id, version): AppIdentity` (throws on an unknown id), `frameworkIdentity(): FrameworkIdentity`, `knownAppIds()`, `aboutRows(identity, extra?): AboutRow[]` (the ordered About rows, same as the Python `abstractcore.utils.identity.about_fields`); types `AppIdentity`, `FrameworkIdentity`, `AboutRow`. See [About dialog and identity](../ui-kit/README.md#about-dialog-and-identity)
+- Identity: `appIdentity(id, version): AppIdentity` (throws on an unknown id), `frameworkIdentity(): FrameworkIdentity`, `knownAppIds()`, `aboutRows(identity, extra?): AboutRow[]` (the ordered About rows, same as the Python `abstractcore.utils.identity.about_fields`), `gatewayVersionRows(payload | { error }): AboutRow[]` (the connected gateway's version rows from `GET /api/gateway/about`); types `AppIdentity`, `FrameworkIdentity`, `AboutRow`, `GatewayAboutPayload`. See [About dialog and identity](../ui-kit/README.md#about-dialog-and-identity)
 - CSRF helpers: `readGatewayCsrfToken()`, `readGatewayCsrfTokens()`
 - Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`; `VoiceSettings` (catalog-driven voice preferences form)
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
@@ -1924,9 +1924,15 @@ Python `abstractcore.utils.identity.about_fields`, so web, desktop and terminal 
 Add About to the top bar with one prop:
 
 ```tsx
-import { AfTopBarActions, appIdentity } from "@abstractframework/ui-kit";
+import { AfTopBarActions, appIdentity, gatewayVersionRows, type AboutRow } from "@abstractframework/ui-kit";
 
 const identity = appIdentity("abstractflow", APP_VERSION); // throws for an unknown id
+const [gatewayRows, setGatewayRows] = useState<AboutRow[]>([]);
+const refreshGatewayRows = () =>
+  fetchJson("/api/gateway/about").then(
+    (body) => setGatewayRows(gatewayVersionRows(body)),
+    (err) => setGatewayRows(gatewayVersionRows({ error: String(err?.message || err) })),
+  );
 
 <AfTopBarActions
   about={{ identity, extraRows: gatewayRows, onOpen: refreshGatewayRows }}
@@ -1936,11 +1942,18 @@ const identity = appIdentity("abstractflow", APP_VERSION); // throws for an unkn
 
 - `appIdentity(id, version)` takes the distribution name in lower case (`knownAppIds()` lists
   them) and your app's own version. An unknown id throws: an app must not invent identity facts.
-- `extraRows` is an array of `[label, value]` pairs appended after the standard rows, for example
-  the versions reported by the gateway's `GET /api/gateway/about`. The kit never fetches versions;
-  `onOpen` runs each time the dialog opens, which is a good moment to refresh them.
+- `extraRows` is an array of `[label, value]` pairs appended after the standard rows. For the
+  connected gateway, build them with `gatewayVersionRows(...)` from the body of
+  `GET /api/gateway/about`, or from `{ error }` when the request fails. The kit never fetches
+  versions; `onOpen` runs each time the dialog opens, which is a good moment to refresh them.
+- `gatewayVersionRows` gives every app the same rows: `Gateway` (`AbstractGateway <version>`),
+  `Gateway framework` (`AbstractFramework <version>`, or `not installed on the gateway host`), then
+  `Gateway package <name>` for each other reported package, sorted by name (packages without a
+  version are left out). On an error, or a body without an `abstractgateway` version, it returns
+  the single row `Gateway` → `unavailable (<reason>)`.
 - The dialog opens external links in a new tab (`rel="noopener noreferrer"`), shows the contact
-  address as text with a `mailto:` link, and closes on Escape, a click outside, or Close.
+  address as text with a `mailto:` link, keeps Tab and Shift+Tab inside the dialog while it is
+  open, and closes on Escape, a click outside, or Close.
 - Use `<AfAboutDialog open onClose identity extraRows />` directly when your About entry lives
   somewhere else (a menu, a settings page), and `aboutRows(identity, extra)` when you render the
   rows yourself.
@@ -3096,9 +3109,11 @@ export {
   appIdentity,
   knownAppIds,
   aboutRows,
+  gatewayVersionRows,
   type FrameworkIdentity,
   type AppIdentity,
   type AboutRow,
+  type GatewayAboutPayload,
 } from "./identity.js";
 export { AfAboutDialog, type AfAboutDialogProps } from "./about.js";
 export {
@@ -7830,6 +7845,11 @@ ships.
   `frameworkIdentity()`, `knownAppIds()` and `aboutRows(identity, extra?)`, backed by the
   AbstractFramework identity descriptor shipped with the kit. The rows match the Python
   `abstractcore.utils.identity.about_fields`.
+- Added: `gatewayVersionRows(payload | { error })` and the `GatewayAboutPayload` type: the
+  connected gateway's About rows (`Gateway`, `Gateway framework`, then `Gateway package <name>`
+  sorted by name), or one `Gateway: unavailable (<reason>)` row when the version is not available.
+- Added: `AfAboutDialog` keeps Tab and Shift+Tab inside the dialog while it is open and names
+  itself by its title (`aria-labelledby`).
 - Added: console islands `mountAbout(el, props)`, `appIdentity(id, version)` and an `about` prop
   on `mountTopBar`. `apiVersion` stays `"1"` (additive change).
 

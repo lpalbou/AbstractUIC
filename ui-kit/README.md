@@ -165,9 +165,15 @@ Python `abstractcore.utils.identity.about_fields`, so web, desktop and terminal 
 Add About to the top bar with one prop:
 
 ```tsx
-import { AfTopBarActions, appIdentity } from "@abstractframework/ui-kit";
+import { AfTopBarActions, appIdentity, gatewayVersionRows, type AboutRow } from "@abstractframework/ui-kit";
 
 const identity = appIdentity("abstractflow", APP_VERSION); // throws for an unknown id
+const [gatewayRows, setGatewayRows] = useState<AboutRow[]>([]);
+const refreshGatewayRows = () =>
+  fetchJson("/api/gateway/about").then(
+    (body) => setGatewayRows(gatewayVersionRows(body)),
+    (err) => setGatewayRows(gatewayVersionRows({ error: String(err?.message || err) })),
+  );
 
 <AfTopBarActions
   about={{ identity, extraRows: gatewayRows, onOpen: refreshGatewayRows }}
@@ -177,11 +183,18 @@ const identity = appIdentity("abstractflow", APP_VERSION); // throws for an unkn
 
 - `appIdentity(id, version)` takes the distribution name in lower case (`knownAppIds()` lists
   them) and your app's own version. An unknown id throws: an app must not invent identity facts.
-- `extraRows` is an array of `[label, value]` pairs appended after the standard rows, for example
-  the versions reported by the gateway's `GET /api/gateway/about`. The kit never fetches versions;
-  `onOpen` runs each time the dialog opens, which is a good moment to refresh them.
+- `extraRows` is an array of `[label, value]` pairs appended after the standard rows. For the
+  connected gateway, build them with `gatewayVersionRows(...)` from the body of
+  `GET /api/gateway/about`, or from `{ error }` when the request fails. The kit never fetches
+  versions; `onOpen` runs each time the dialog opens, which is a good moment to refresh them.
+- `gatewayVersionRows` gives every app the same rows: `Gateway` (`AbstractGateway <version>`),
+  `Gateway framework` (`AbstractFramework <version>`, or `not installed on the gateway host`), then
+  `Gateway package <name>` for each other reported package, sorted by name (packages without a
+  version are left out). On an error, or a body without an `abstractgateway` version, it returns
+  the single row `Gateway` → `unavailable (<reason>)`.
 - The dialog opens external links in a new tab (`rel="noopener noreferrer"`), shows the contact
-  address as text with a `mailto:` link, and closes on Escape, a click outside, or Close.
+  address as text with a `mailto:` link, keeps Tab and Shift+Tab inside the dialog while it is
+  open, and closes on Escape, a click outside, or Close.
 - Use `<AfAboutDialog open onClose identity extraRows />` directly when your About entry lives
   somewhere else (a menu, a settings page), and `aboutRows(identity, extra)` when you render the
   rows yourself.
