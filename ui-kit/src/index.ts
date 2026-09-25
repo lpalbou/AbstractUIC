@@ -94,9 +94,11 @@ export {
   appIdentity,
   knownAppIds,
   aboutRows,
+  gatewayVersionRows,
   type FrameworkIdentity,
   type AppIdentity,
   type AboutRow,
+  type GatewayAboutPayload,
 } from "./identity.js";
 export { AfAboutDialog, type AfAboutDialogProps } from "./about.js";
 export {

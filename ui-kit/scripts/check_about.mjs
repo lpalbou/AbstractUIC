@@ -25,7 +25,8 @@ const dist = (f) => join(here, "..", "dist", f);
 const descriptor = JSON.parse(readFileSync(join(here, "..", "src", "abstractframework_identity.json"), "utf8"));
 
 const kit = await import(dist("index.js"));
-const { appIdentity, frameworkIdentity, knownAppIds, aboutRows, AfAboutDialog, AfTopBarActions } = kit;
+const { appIdentity, frameworkIdentity, knownAppIds, aboutRows, gatewayVersionRows, AfAboutDialog, AfTopBarActions } = kit;
+const { trapTabKey } = await import(dist("about.js"));
 
 let failures = 0;
 let checks = 0;
@@ -39,7 +40,7 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 // --- exports exist (a missing export must fail, not skip) -------------------
-for (const [name, fn] of Object.entries({ appIdentity, frameworkIdentity, knownAppIds, aboutRows, AfAboutDialog, AfTopBarActions })) {
+for (const [name, fn] of Object.entries({ appIdentity, frameworkIdentity, knownAppIds, aboutRows, gatewayVersionRows, AfAboutDialog, AfTopBarActions, trapTabKey })) {
   check(`export ${name}`, typeof fn === "function", typeof fn);
 }
 
@@ -89,6 +90,55 @@ for (const bad of ["abstractnope", "", "toString", "__proto__", "AbstractFlow"])
   check(`unknown id ${JSON.stringify(bad)} throws`, threw);
 }
 
+// --- gatewayVersionRows (A-9: one format for every app) ----------------------
+{
+  const full = gatewayVersionRows({
+    abstractgateway: "0.4.3",
+    abstractframework: "0.3.3",
+    packages: { abstractruntime: "0.4.33", abstractcore: "2.15.2", abstractgateway: "0.4.3", abstractframework: "0.3.3", abstractvoice: null, abstractmemory: "", abstractagent: "0.2.0" },
+  });
+  check("gateway rows: full payload", eq(full, [
+    ["Gateway", "AbstractGateway 0.4.3"],
+    ["Gateway framework", "AbstractFramework 0.3.3"],
+    ["Gateway package abstractagent", "0.2.0"],
+    ["Gateway package abstractcore", "2.15.2"],
+    ["Gateway package abstractruntime", "0.4.33"],
+  ]), JSON.stringify(full));
+  check("gateway rows: never print null/undefined", !JSON.stringify(full).includes("null") && !JSON.stringify(full).includes("undefined"));
+  const noFw = gatewayVersionRows({ abstractgateway: "0.4.3", abstractframework: null });
+  check("gateway rows: framework missing", eq(noFw, [["Gateway", "AbstractGateway 0.4.3"], ["Gateway framework", "not installed on the gateway host"]]), JSON.stringify(noFw));
+  check("gateway rows: framework absent key", eq(gatewayVersionRows({ abstractgateway: "0.4.3" }), noFw));
+  check("gateway rows: error", eq(gatewayVersionRows({ error: "HTTP 503" }), [["Gateway", "unavailable (HTTP 503)"]]));
+  check("gateway rows: empty error", eq(gatewayVersionRows({ error: "" }), [["Gateway", "unavailable (unknown error)"]]));
+  const noGw = [["Gateway", "unavailable (the gateway did not report its version)"]];
+  check("gateway rows: payload without abstractgateway", eq(gatewayVersionRows({ abstractframework: "0.3.3", packages: { abstractcore: "2.15.2" } }), noGw));
+  check("gateway rows: null abstractgateway", eq(gatewayVersionRows({ abstractgateway: null }), noGw));
+  check("gateway rows: non-object input", eq(gatewayVersionRows(null), noGw));
+  check("gateway rows: sorted by code point", eq(gatewayVersionRows({ abstractgateway: "1", packages: { b: "1", a: "2", B: "3" } }).slice(2).map(([l]) => l), ["Gateway package B", "Gateway package a", "Gateway package b"]));
+  check("gateway rows compose with aboutRows", aboutRows(appIdentity("abstractflow", "1"), full).length === 15);
+}
+
+// --- AfAboutDialog focus trap (Tab / Shift+Tab stay inside) -------------------
+{
+  const focused = [];
+  const el = (name) => ({ name, focus() { focused.push(name); } });
+  const first = el("first"), mid = el("mid"), last = el("last"), outside = el("outside");
+  const card = { querySelectorAll: () => [first, mid, last], contains: (x) => x === first || x === mid || x === last };
+  const key = (k, shift = false) => { const e = { key: k, shiftKey: shift, prevented: false, preventDefault() { this.prevented = true; } }; return e; };
+  let e = key("Tab"); trapTabKey(e, card, last);
+  check("trap: Tab on last wraps to first", e.prevented && focused.at(-1) === "first");
+  e = key("Tab", true); trapTabKey(e, card, first);
+  check("trap: Shift+Tab on first wraps to last", e.prevented && focused.at(-1) === "last");
+  const n = focused.length; e = key("Tab"); trapTabKey(e, card, mid);
+  check("trap: Tab in the middle is native", !e.prevented && focused.length === n);
+  e = key("Tab"); trapTabKey(e, card, outside);
+  check("trap: focus outside is pulled back in", e.prevented && focused.at(-1) === "first");
+  e = key("Tab"); trapTabKey(e, { querySelectorAll: () => [], contains: () => false }, outside);
+  check("trap: no focusables still blocks Tab", e.prevented);
+  e = key("Enter"); trapTabKey(e, card, last);
+  check("trap: other keys ignored", !e.prevented);
+}
+
 // --- AfAboutDialog -------------------------------------------------------------
 const noop = () => {};
 const dialog = (props) => renderToStaticMarkup(React.createElement(AfAboutDialog, { open: true, onClose: noop, ...props }));
@@ -96,6 +146,8 @@ for (const id of appIds) {
   const ident = appIdentity(id, "1.2.3");
   const html = dialog({ identity: ident, extraRows: [["Gateway", "0.4.3"]] });
   check(`${id}: dialog role`, html.includes('role="dialog"') && html.includes('aria-modal="true"'));
+  const labelledBy = (html.match(/aria-labelledby="([^"]+)"/) || [])[1];
+  check(`${id}: aria-labelledby points at the title`, !!labelledBy && html.includes(`id="${labelledBy}">About ${esc(ident.name)}<`), labelledBy);
   check(`${id}: dialog title`, html.includes(`About ${esc(ident.name)}`));
   for (const [label, value] of aboutRows(ident, [["Gateway", "0.4.3"]])) {
     check(`${id}: row label ${label}`, html.includes(`>${esc(label)}</dt>`), label);

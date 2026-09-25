@@ -98,3 +98,52 @@ export function aboutRows(identity: AppIdentity, extra?: ReadonlyArray<readonly 
   for (const [label, value] of extra || []) rows.push([String(label), String(value)]);
   return rows;
 }
+
+/** Body of the gateway's `GET /api/gateway/about` (no secrets, no paths). */
+export type GatewayAboutPayload = {
+  abstractframework?: string | null;
+  abstractgateway: string;
+  packages?: Record<string, string | null>;
+};
+
+function versionText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * About rows describing the connected gateway, formatted the same way in
+ * every app (append them to `aboutRows` / pass them as `extraRows`):
+ *
+ *   ["Gateway", "AbstractGateway <v>"]
+ *   ["Gateway framework", "AbstractFramework <v>" | "not installed on the gateway host"]
+ *   ["Gateway package <name>", "<v>"]   // every other package, sorted by name;
+ *                                        // missing/empty versions are skipped
+ *
+ * Pass `{ error }` when the request failed: the result is exactly one row,
+ * ["Gateway", "unavailable (<error>)"]. A payload without an `abstractgateway`
+ * version gives the same single row. The kit does not fetch: the app calls
+ * `GET /api/gateway/about` and hands over the parsed body or its error.
+ */
+export function gatewayVersionRows(input: GatewayAboutPayload | { error: string }): AboutRow[] {
+  const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+  if ("error" in raw) {
+    const reason = String(raw.error ?? "").trim() || "unknown error";
+    return [["Gateway", `unavailable (${reason})`]];
+  }
+  const gateway = versionText(raw.abstractgateway);
+  if (!gateway) return [["Gateway", "unavailable (the gateway did not report its version)"]];
+  const framework = versionText(raw.abstractframework);
+  const rows: AboutRow[] = [
+    ["Gateway", `AbstractGateway ${gateway}`],
+    ["Gateway framework", framework ? `AbstractFramework ${framework}` : "not installed on the gateway host"],
+  ];
+  const packages = raw.packages && typeof raw.packages === "object" ? (raw.packages as Record<string, unknown>) : {};
+  const names = Object.keys(packages)
+    .filter((name) => name !== "abstractgateway" && name !== "abstractframework")
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  for (const name of names) {
+    const v = versionText(packages[name]);
+    if (v) rows.push([`Gateway package ${name}`, v]);
+  }
+  return rows;
+}
