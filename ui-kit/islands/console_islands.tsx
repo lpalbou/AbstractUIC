@@ -15,6 +15,8 @@ import React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { AfTopBarActions } from "../src/af_top_bar_actions.js";
 import { AfAppearanceDialog, type AppearanceSettings } from "../src/appearance.js";
+import { AfAboutDialog } from "../src/about.js";
+import { appIdentity, type AppIdentity } from "../src/identity.js";
 import { Icon, type IconName } from "../src/icon.js";
 import { THEME_SPECS, applyTheme } from "../src/theme.js";
 import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typography.js";
@@ -22,6 +24,8 @@ import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
 
 declare const __KIT_VERSION__: string;
 
+// Changes only when the island API changes INCOMPATIBLY (docs/console-islands.md
+// "Versioning"). Additive members (mountAbout, appIdentity: kit 0.1.12) keep "1".
 export const ISLANDS_API_VERSION = "1";
 
 export type IslandExtraAction = {
@@ -38,6 +42,8 @@ export type IslandExtraAction = {
 export type TopBarIslandProps = {
   assistant?: { open: boolean; onToggle: () => void; label?: string } | null;
   appearance?: { onOpen: () => void; label?: string } | null;
+  /** The About button + dialog, owned by the cluster (omit/null hides it). */
+  about?: { identity: AppIdentity; extraRows?: Array<[string, string]>; onOpen?: () => void; label?: string } | null;
   extras?: IslandExtraAction[];
   connection: {
     phase: GatewayConnectionPhase;
@@ -54,6 +60,16 @@ export type AppearanceIslandProps = {
   onClose: () => void;
   title?: string;
   note?: string;
+};
+
+export type AboutIslandProps = {
+  open: boolean;
+  onClose: () => void;
+  /** From `AfConsoleIslands.appIdentity("abstractgateway", version)`. */
+  identity: AppIdentity;
+  /** App-specific rows, e.g. `[["abstractgateway", "0.4.3"]]` from `GET /about`. */
+  extraRows?: Array<[string, string]>;
+  title?: string;
 };
 
 export type IslandHandle<P> = { update: (props: P) => void; unmount: () => void };
@@ -92,6 +108,7 @@ function TopBarIsland(props: TopBarIslandProps): React.ReactElement {
     <AfTopBarActions
       assistant={props.assistant || undefined}
       appearance={props.appearance || undefined}
+      about={props.about || undefined}
       extraActions={extrasNode(props.extras)}
       connection={props.connection}
     />
@@ -120,6 +137,10 @@ export function mountAppearance(el: Element, props: AppearanceIslandProps): Isla
   return mount(el, (p) => <AfAppearanceDialog {...p} />, props);
 }
 
+export function mountAbout(el: Element, props: AboutIslandProps): IslandHandle<AboutIslandProps> {
+  return mount(el, (p) => <AfAboutDialog {...p} />, props);
+}
+
 /** The kit's own theme + typography application (root class + CSS vars). */
 export function applyAppearance(settings: Partial<AppearanceSettings>): void {
   applyTheme(String(settings.theme || "dark"));
@@ -134,6 +155,8 @@ const api = {
   headerDensities: HEADER_DENSITIES,
   mountTopBar,
   mountAppearance,
+  mountAbout,
+  appIdentity,
   applyAppearance,
 };
 

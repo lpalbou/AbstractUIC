@@ -2,7 +2,8 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "rootDir": ".."
+    "rootDir": "..",
+    "resolveJsonModule": true
   },
   "include": ["console_islands.tsx"]
 }
