@@ -2,12 +2,14 @@
 // (plans/unified-top-bar.md, operator directive 2026-07-13 20:02).
 //
 // Enforced order (behavior contract statement 1): assistant → appearance →
-// [app extras] → Disconnect pill, always rightmost. The connection half
+// about → [app extras] → Disconnect pill, always rightmost. The connection half
 // consumes useGatewayConnection's PHASE — three states, never a boolean
 // (a boolean flashes "Connect" over a live session during the boot probe;
 // code/web's hosted token exchange made this load-bearing, c1645).
-import React from "react";
+import React, { useState } from "react";
+import { AfAboutDialog } from "./about.js";
 import { Icon } from "./icon.js";
+import type { AppIdentity } from "./identity.js";
 import type { GatewayConnectionPhase } from "./use_gateway_connection.js";
 
 export type AfTopBarActionsProps = {
@@ -22,7 +24,20 @@ export type AfTopBarActionsProps = {
     onOpen: () => void;
     label?: string;
   };
-  /** App-specific actions rendered between appearance and the connection pill. */
+  /**
+   * Omit to hide the About button. With it, the cluster renders an "About"
+   * button that opens the shared AfAboutDialog (the cluster owns the open
+   * state). `extraRows` are app-specific rows such as gateway versions (the
+   * kit never fetches them); `onOpen` fires each time the dialog opens, e.g.
+   * to refresh those versions.
+   */
+  about?: {
+    identity: AppIdentity;
+    extraRows?: ReadonlyArray<readonly [string, string]>;
+    onOpen?: () => void;
+    label?: string;
+  };
+  /** App-specific actions rendered between about and the connection pill. */
   extraActions?: React.ReactNode;
   connection: {
     phase: GatewayConnectionPhase;
@@ -40,6 +55,8 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
   const { connection } = props;
   const phase = connection.phase;
   const signingOut = connection.signingOut === true;
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const about = props.about;
 
   const pillLabel = signingOut
     ? "Signing out…"
@@ -78,6 +95,22 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
         </button>
       ) : null}
 
+      {about ? (
+        <button
+          type="button"
+          className="af-topbar__btn af-topbar__btn--about"
+          aria-label={about.label || `About ${about.identity.name}`}
+          title={about.label || "About"}
+          aria-haspopup="dialog"
+          onClick={() => {
+            setAboutOpen(true);
+            about.onOpen?.();
+          }}
+        >
+          <Icon name="info" size={16} />
+        </button>
+      ) : null}
+
       {props.extraActions}
 
       <button
@@ -91,6 +124,15 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
         <span className={`af-topbar__dot af-topbar__dot--${phase}`} aria-hidden="true" />
         <span className="af-topbar__pill-label">{pillLabel}</span>
       </button>
+
+      {about ? (
+        <AfAboutDialog
+          open={aboutOpen}
+          onClose={() => setAboutOpen(false)}
+          identity={about.identity}
+          extraRows={about.extraRows}
+        />
+      ) : null}
     </div>
   );
 }

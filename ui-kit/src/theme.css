@@ -2727,6 +2727,53 @@
   filter: brightness(1.12);
 }
 
+/* --- AfAboutDialog (reuses the .af-appearance shell) --- */
+
+.af-about__rows {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 14px;
+  margin: 0;
+}
+
+.af-about__row {
+  display: contents;
+}
+
+@media (max-width: 520px) {
+  .af-about__rows {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .af-about__value {
+    margin-bottom: 8px;
+  }
+}
+
+.af-about__label {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.af-about__value {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-sm);
+}
+
+.af-about__link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.af-about__link:hover,
+.af-about__link:focus-visible {
+  text-decoration: underline;
+}
+
 /* ---------------------------------------------------------------------
  * Kit-wide interaction polish (design adversaries A+B, 2026-07-13)
  * ------------------------------------------------------------------- */

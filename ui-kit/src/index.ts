@@ -90,6 +90,16 @@ export { AfChip, AfChipButton, afChipHue, type AfChipProps, type AfChipButtonPro
 export { AfDrawer, type AfDrawerProps } from "./af_drawer.js";
 export { AfTopBarActions, type AfTopBarActionsProps } from "./af_top_bar_actions.js";
 export {
+  frameworkIdentity,
+  appIdentity,
+  knownAppIds,
+  aboutRows,
+  type FrameworkIdentity,
+  type AppIdentity,
+  type AboutRow,
+} from "./identity.js";
+export { AfAboutDialog, type AfAboutDialogProps } from "./about.js";
+export {
   AfAppearanceDialog,
   useAppearanceSettings,
   appearanceStorageKey,
