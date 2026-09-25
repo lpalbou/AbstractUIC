@@ -18,6 +18,14 @@
  *    server-side (a browser must not be able to redirect the proxy).
  *  - SSE/EventSource rides the same origin cookies (EventSource cannot carry
  *    Bearer headers — this proxy IS how authenticated live tails work).
+ *  - Every request this proxy sends to the gateway on behalf of a browser
+ *    carries `X-Forwarded-For: <socket peer of the browser connection>`,
+ *    OVERWRITING any client-supplied value (never appended, never passed
+ *    through). The gateway trusts that header only from its loopback proxy
+ *    and uses it to decide whether the browser runs on the gateway's machine
+ *    (contract A-2, 2026-09-25). A request whose socket peer is unknown is
+ *    refused rather than forwarded without the header (the gateway would
+ *    otherwise see only the loopback proxy and call it "this machine").
  */
 
 import * as http from "node:http";
@@ -246,6 +254,17 @@ export function createGatewaySessionProxy(options) {
     return addr === "::1" || addr === "127.0.0.1" || addr.startsWith("127.");
   }
 
+  /**
+   * The browser connection's real transport peer (req.socket.remoteAddress),
+   * IPv4-mapped IPv6 unwrapped, or "" when unknown. Headers are never read:
+   * a client-supplied X-Forwarded-For must not reach the gateway.
+   */
+  function socketPeerAddress(req) {
+    let addr = String(req?.socket?.remoteAddress || "").trim().toLowerCase();
+    if (addr.startsWith("::ffff:") && addr.includes(".")) addr = addr.slice(7);
+    return addr;
+  }
+
   function remoteConfigAllowed(req) {
     // Explicit operator opt-in wins (deployments behind their own access
     // control).
@@ -364,6 +383,11 @@ export function createGatewaySessionProxy(options) {
   }
 
   async function handleConnectionApi(req, res) {
+    const peer = socketPeerAddress(req);
+    if (!peer) {
+      sendJson(res, 400, { detail: "Cannot determine the client address of this connection" });
+      return;
+    }
     if (req.method === "GET") {
       const session = browserSession(req);
       if (!session.sessionId) {
@@ -378,7 +402,7 @@ export function createGatewaySessionProxy(options) {
       const checked = await gatewayRequest(session.gatewayUrl, {
         method: "GET",
         path: "/api/gateway/me",
-        headers: { Accept: "application/json", "X-AbstractGateway-Session": session.sessionId },
+        headers: { Accept: "application/json", "X-AbstractGateway-Session": session.sessionId, "X-Forwarded-For": peer },
       });
       sendJson(res, 200, {
         ok: checked.ok,
@@ -407,7 +431,12 @@ export function createGatewaySessionProxy(options) {
         {
           method: "POST",
           path: "/api/gateway/session/login",
-          headers: { Accept: "application/json", "Content-Type": "application/json", "Content-Length": String(body.length) },
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "Content-Length": String(body.length),
+            "X-Forwarded-For": peer,
+          },
         },
         body
       );
@@ -442,6 +471,7 @@ export function createGatewaySessionProxy(options) {
               "Content-Length": String(body.length),
               "X-AbstractGateway-Session": session.sessionId,
               "X-AbstractGateway-CSRF": session.csrfToken,
+              "X-Forwarded-For": peer,
             },
             timeout: 2000,
           },
@@ -474,6 +504,11 @@ export function createGatewaySessionProxy(options) {
       sendJson(res, 401, { detail: "Gateway sign-in required" });
       return;
     }
+    const peer = socketPeerAddress(req);
+    if (!peer) {
+      sendJson(res, 400, { detail: "Cannot determine the client address of this connection" });
+      return;
+    }
     if (mutatingMethod(req.method)) {
       const presented = String(req.headers[APP_CSRF_HEADER] || req.headers[CANONICAL_CSRF_HEADER] || "").trim();
       // Constant-time compare: token equality must not leak match length
@@ -502,9 +537,16 @@ export function createGatewaySessionProxy(options) {
     // non-node caller of this helper (observer DM 2026-07-12, flow's belt).
     delete headers.authorization;
     delete headers.Authorization;
-    delete headers["x-forwarded-for"];
-    delete headers["x-forwarded-host"];
-    delete headers["x-forwarded-proto"];
+    // Forwarding headers: drop every client-supplied spelling (any case,
+    // plus the RFC 7239 `Forwarded` header), then set X-Forwarded-For to the
+    // socket peer — overwrite, never append (contract A-2).
+    for (const k of Object.keys(headers)) {
+      const lk = k.toLowerCase();
+      if (lk === "x-forwarded-for" || lk === "x-forwarded-host" || lk === "x-forwarded-proto" || lk === "x-real-ip" || lk === "forwarded") {
+        delete headers[k];
+      }
+    }
+    headers["x-forwarded-for"] = peer;
     headers["x-abstractgateway-session"] = session.sessionId;
     if (mutatingMethod(req.method)) headers["x-abstractgateway-csrf"] = session.csrfToken;
     const proxyReq = backend.client.request(

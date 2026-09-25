@@ -2,9 +2,15 @@ import assert from "node:assert/strict";
 import * as http from "node:http";
 import { createGatewaySessionProxy, normalizeGatewayUrl } from "../src/index.js";
 
+/** X-Forwarded-For the stub gateway saw on its last login / me / logout call. */
+const gatewaySawXff = { login: undefined, me: undefined, logout: undefined };
+
 /** Minimal stub gateway implementing login/logout/me + an echo API route. */
 function startStubGateway() {
   const server = http.createServer((req, res) => {
+    if (req.url === "/api/gateway/session/login") gatewaySawXff.login = req.headers["x-forwarded-for"] ?? null;
+    if (req.url === "/api/gateway/me") gatewaySawXff.me = req.headers["x-forwarded-for"] ?? null;
+    if (req.url === "/api/gateway/session/logout") gatewaySawXff.logout = req.headers["x-forwarded-for"] ?? null;
     const chunks = [];
     req.on("data", (c) => chunks.push(c));
     req.on("end", () => {
@@ -45,6 +51,10 @@ function startStubGateway() {
           csrf: req.headers["x-abstractgateway-csrf"] || null,
           authorization: req.headers.authorization || null,
           cookie: req.headers.cookie || null,
+          xff: req.headers["x-forwarded-for"] ?? null,
+          xffCount: req.rawHeaders.filter((h, i) => i % 2 === 0 && h.toLowerCase() === "x-forwarded-for").length,
+          forwarded: req.headers.forwarded ?? null,
+          xRealIp: req.headers["x-real-ip"] ?? null,
         });
       }
       send(404, { detail: "not found" });
@@ -158,6 +168,53 @@ let cookieHeader = "";
   check("browser cookies never reach the gateway", r.json.cookie === null);
 }
 
+// ------------------------- X-Forwarded-For = socket peer, OVERWRITTEN (contract A-2)
+// Runs before any x-test-peer spoof so the first request's peer is the real
+// loopback socket.
+{
+  gatewaySawXff.login = gatewaySawXff.me = undefined;
+  const probe = await call(appPort, "/api/connection/gateway", {
+    headers: { Cookie: cookieHeader, "X-Forwarded-For": "203.0.113.9" },
+  });
+  check("probe (/me) carries the socket peer as X-Forwarded-For", probe.status === 200 && gatewaySawXff.me === "127.0.0.1", String(gatewaySawXff.me));
+
+  const local = await call(appPort, "/api/gateway/echo", {
+    headers: { Cookie: cookieHeader, "X-Forwarded-For": "203.0.113.9, 198.51.100.4", Forwarded: "for=203.0.113.9", "X-Real-IP": "203.0.113.9" },
+  });
+  check("real loopback peer: spoofed XFF replaced by 127.0.0.1", local.status === 200 && local.json.xff === "127.0.0.1", JSON.stringify(local.json));
+  check("exactly one X-Forwarded-For reaches the gateway", local.json.xffCount === 1, String(local.json.xffCount));
+  check("client Forwarded / X-Real-IP stripped", local.json.forwarded === null && local.json.xRealIp === null);
+
+  const lan = await call(appPort, "/api/gateway/echo", {
+    headers: { Cookie: cookieHeader, "X-Forwarded-For": "127.0.0.1", "x-test-peer": "192.168.1.50" },
+  });
+  check("LAN peer spoofing XFF=127.0.0.1: gateway sees 192.168.1.50", lan.status === 200 && lan.json.xff === "192.168.1.50", JSON.stringify(lan.json));
+
+  const mapped = await call(appPort, "/api/gateway/echo", {
+    headers: { Cookie: cookieHeader, "x-test-peer": "::ffff:10.0.0.7" },
+  });
+  check("IPv4-mapped IPv6 peer unwrapped", mapped.json?.xff === "10.0.0.7", JSON.stringify(mapped.json));
+
+  const v6 = await call(appPort, "/api/gateway/echo", {
+    headers: { Cookie: cookieHeader, "x-test-peer": "fe80::1", "X-Forwarded-For": "::1" },
+  });
+  check("IPv6 peer forwarded as-is, spoofed ::1 dropped", v6.json?.xff === "fe80::1", JSON.stringify(v6.json));
+
+  const login = await call(appPort, "/api/connection/gateway", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Forwarded-For": "127.0.0.1", "x-test-peer": "192.168.1.51" },
+    body: JSON.stringify({ gateway_user_id: "admin", gateway_token: "good-token" }),
+  });
+  check("sign-in call carries the socket peer as X-Forwarded-For", login.status === 200 && gatewaySawXff.login === "192.168.1.51", String(gatewaySawXff.login));
+
+  // Unknown socket peer: refused, never forwarded without the header.
+  const fakeReq = { method: "GET", url: "/api/gateway/echo", headers: { cookie: cookieHeader, "x-forwarded-for": "127.0.0.1" }, socket: {} };
+  let status = 0;
+  const fakeRes = { headersSent: false, writeHead(code) { status = code; }, setHeader() {}, end() {}, on() {} };
+  proxy.proxyApiRequest(fakeReq, fakeRes);
+  check("unknown socket peer: 400, not proxied", status === 400, String(status));
+}
+
 // -------------------------------------------------- mutating call: CSRF enforced
 {
   const noCsrf = await call(appPort, "/api/gateway/echo", { method: "POST", headers: { Cookie: cookieHeader } });
@@ -215,8 +272,12 @@ let cookieHeader = "";
 
 // ------------------------------------------------------------------ sign out
 {
-  const r = await call(appPort, "/api/connection/gateway", { method: "DELETE", headers: { Cookie: cookieHeader } });
+  const r = await call(appPort, "/api/connection/gateway", {
+    method: "DELETE",
+    headers: { Cookie: cookieHeader, "X-Forwarded-For": "127.0.0.1", "x-test-peer": "192.168.1.52" },
+  });
   check("sign out: 200", r.status === 200 && r.json.ok === true);
+  check("sign-out call carries the socket peer as X-Forwarded-For", gatewaySawXff.logout === "192.168.1.52", String(gatewaySawXff.logout));
   const setCookies = r.headers.getSetCookie ? r.headers.getSetCookie() : [r.headers.get("set-cookie")];
   check("cookies cleared (Max-Age=0 ×3)", setCookies.length === 3 && setCookies.every((c) => /Max-Age=0/.test(c)));
 }
@@ -286,4 +347,4 @@ if (failures > 0) {
   console.error(`\ngateway_session_proxy: ${failures} failure(s)`);
   process.exit(1);
 }
-console.log("gateway_session_proxy: OK (probe, sign-in/out, cookie flags, CSRF, strip, pinning, passthrough)");
+console.log("gateway_session_proxy: OK (probe, sign-in/out, cookie flags, CSRF, strip, pinning, X-Forwarded-For overwrite, passthrough)");
