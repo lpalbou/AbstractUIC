@@ -33,6 +33,13 @@ The proxy's contract is:
 - Proxied `/api/*` traffic strips browser-supplied `Authorization` and cookie
   headers, reattaches the server-held session, and pins the upstream Gateway
   URL server-side.
+- Every call the proxy makes to the Gateway for a browser (proxied `/api/*`,
+  sign-in, sign-out, the status probe) sets `X-Forwarded-For` to the browser
+  connection's socket address. A client-supplied `X-Forwarded-For`,
+  `Forwarded` or `X-Real-IP` header is replaced, never passed through or
+  appended, so the Gateway can tell whether the browser runs on its own
+  machine. Behind your own reverse proxy, the value is the reverse proxy's
+  address.
 
 The browser never needs to persist the Gateway token.
 

@@ -9,6 +9,16 @@ ships.
 
 ## Unreleased
 
+### app-server 0.1.10 (unreleased)
+
+- Changed: every request the gateway session proxy sends to the Gateway on behalf of a browser
+  (proxied `/api/*` calls, sign-in, sign-out and the status probe) carries
+  `X-Forwarded-For: <socket address of the browser connection>`. A client-supplied
+  `X-Forwarded-For` is replaced, never passed through or appended; client `Forwarded` and
+  `X-Real-IP` headers are dropped. The Gateway trusts this header only from a loopback proxy and
+  uses it to tell whether the browser runs on the Gateway's machine. A connection whose socket
+  address is unknown is refused with 400.
+
 ### ui-kit 0.1.12 (unreleased)
 
 - Added: one About dialog for every AbstractFramework app. `AfAboutDialog` shows the application

@@ -118,7 +118,9 @@ connection surface — pairs with `GatewayConnectModal`/`useGatewayConnection`).
 - What it does: exchanges a Gateway user token for HttpOnly session cookies
   (`POST /api/connection/gateway`), proxies `/api/gateway/*` with the server-held session,
   enforces CSRF on mutating requests, pins the Gateway URL for non-loopback clients, and strips
-  credential-bearing headers in both directions. Tokens never rest in the browser.
+  credential-bearing headers in both directions. Tokens never rest in the browser. Every call
+  to the Gateway carries `X-Forwarded-For` set to the browser connection's socket address
+  (client-supplied forwarding headers are replaced, never passed through).
 - Tests: `node --test app-server/test/gateway_session_proxy.test.mjs` (dependency-free; includes
   a stub gateway).
 

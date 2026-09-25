@@ -780,7 +780,9 @@ connection surface — pairs with `GatewayConnectModal`/`useGatewayConnection`).
 - What it does: exchanges a Gateway user token for HttpOnly session cookies
   (`POST /api/connection/gateway`), proxies `/api/gateway/*` with the server-held session,
   enforces CSRF on mutating requests, pins the Gateway URL for non-loopback clients, and strips
-  credential-bearing headers in both directions. Tokens never rest in the browser.
+  credential-bearing headers in both directions. Tokens never rest in the browser. Every call
+  to the Gateway carries `X-Forwarded-For` set to the browser connection's socket address
+  (client-supplied forwarding headers are replaced, never passed through).
 - Tests: `node --test app-server/test/gateway_session_proxy.test.mjs` (dependency-free; includes
   a stub gateway).
 
@@ -2193,6 +2195,13 @@ The proxy's contract is:
 - Proxied `/api/*` traffic strips browser-supplied `Authorization` and cookie
   headers, reattaches the server-held session, and pins the upstream Gateway
   URL server-side.
+- Every call the proxy makes to the Gateway for a browser (proxied `/api/*`,
+  sign-in, sign-out, the status probe) sets `X-Forwarded-For` to the browser
+  connection's socket address. A client-supplied `X-Forwarded-For`,
+  `Forwarded` or `X-Real-IP` header is replaced, never passed through or
+  appended, so the Gateway can tell whether the browser runs on its own
+  machine. Behind your own reverse proxy, the value is the reverse proxy's
+  address.
 
 The browser never needs to persist the Gateway token.
 
@@ -4023,6 +4032,14 @@ if (process.argv.includes("--check")) {
  *    server-side (a browser must not be able to redirect the proxy).
  *  - SSE/EventSource rides the same origin cookies (EventSource cannot carry
  *    Bearer headers — this proxy IS how authenticated live tails work).
+ *  - Every request this proxy sends to the gateway on behalf of a browser
+ *    carries `X-Forwarded-For: <socket peer of the browser connection>`,
+ *    OVERWRITING any client-supplied value (never appended, never passed
+ *    through). The gateway trusts that header only from its loopback proxy
+ *    and uses it to decide whether the browser runs on the gateway's machine
+ *    (contract A-2, 2026-09-25). A request whose socket peer is unknown is
+ *    refused rather than forwarded without the header (the gateway would
+ *    otherwise see only the loopback proxy and call it "this machine").
  */
 
 import * as http from "node:http";
@@ -4251,6 +4268,17 @@ export function createGatewaySessionProxy(options) {
     return addr === "::1" || addr === "127.0.0.1" || addr.startsWith("127.");
   }
 
+  /**
+   * The browser connection's real transport peer (req.socket.remoteAddress),
+   * IPv4-mapped IPv6 unwrapped, or "" when unknown. Headers are never read:
+   * a client-supplied X-Forwarded-For must not reach the gateway.
+   */
+  function socketPeerAddress(req) {
+    let addr = String(req?.socket?.remoteAddress || "").trim().toLowerCase();
+    if (addr.startsWith("::ffff:") && addr.includes(".")) addr = addr.slice(7);
+    return addr;
+  }
+
   function remoteConfigAllowed(req) {
     // Explicit operator opt-in wins (deployments behind their own access
     // control).
@@ -4369,6 +4397,11 @@ export function createGatewaySessionProxy(options) {
   }
 
   async function handleConnectionApi(req, res) {
+    const peer = socketPeerAddress(req);
+    if (!peer) {
+      sendJson(res, 400, { detail: "Cannot determine the client address of this connection" });
+      return;
+    }
     if (req.method === "GET") {
       const session = browserSession(req);
       if (!session.sessionId) {
@@ -4383,7 +4416,7 @@ export function createGatewaySessionProxy(options) {
       const checked = await gatewayRequest(session.gatewayUrl, {
         method: "GET",
         path: "/api/gateway/me",
-        headers: { Accept: "application/json", "X-AbstractGateway-Session": session.sessionId },
+        headers: { Accept: "application/json", "X-AbstractGateway-Session": session.sessionId, "X-Forwarded-For": peer },
       });
       sendJson(res, 200, {
         ok: checked.ok,
@@ -4412,7 +4445,12 @@ export function createGatewaySessionProxy(options) {
         {
           method: "POST",
           path: "/api/gateway/session/login",
-          headers: { Accept: "application/json", "Content-Type": "application/json", "Content-Length": String(body.length) },
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "Content-Length": String(body.length),
+            "X-Forwarded-For": peer,
+          },
         },
         body
       );
@@ -4447,6 +4485,7 @@ export function createGatewaySessionProxy(options) {
               "Content-Length": String(body.length),
               "X-AbstractGateway-Session": session.sessionId,
               "X-AbstractGateway-CSRF": session.csrfToken,
+              "X-Forwarded-For": peer,
             },
             timeout: 2000,
           },
@@ -4479,6 +4518,11 @@ export function createGatewaySessionProxy(options) {
       sendJson(res, 401, { detail: "Gateway sign-in required" });
       return;
     }
+    const peer = socketPeerAddress(req);
+    if (!peer) {
+      sendJson(res, 400, { detail: "Cannot determine the client address of this connection" });
+      return;
+    }
     if (mutatingMethod(req.method)) {
       const presented = String(req.headers[APP_CSRF_HEADER] || req.headers[CANONICAL_CSRF_HEADER] || "").trim();
       // Constant-time compare: token equality must not leak match length
@@ -4507,9 +4551,16 @@ export function createGatewaySessionProxy(options) {
     // non-node caller of this helper (observer DM 2026-07-12, flow's belt).
     delete headers.authorization;
     delete headers.Authorization;
-    delete headers["x-forwarded-for"];
-    delete headers["x-forwarded-host"];
-    delete headers["x-forwarded-proto"];
+    // Forwarding headers: drop every client-supplied spelling (any case,
+    // plus the RFC 7239 `Forwarded` header), then set X-Forwarded-For to the
+    // socket peer — overwrite, never append (contract A-2).
+    for (const k of Object.keys(headers)) {
+      const lk = k.toLowerCase();
+      if (lk === "x-forwarded-for" || lk === "x-forwarded-host" || lk === "x-forwarded-proto" || lk === "x-real-ip" || lk === "forwarded") {
+        delete headers[k];
+      }
+    }
+    headers["x-forwarded-for"] = peer;
     headers["x-abstractgateway-session"] = session.sessionId;
     if (mutatingMethod(req.method)) headers["x-abstractgateway-csrf"] = session.csrfToken;
     const proxyReq = backend.client.request(
@@ -4572,7 +4623,7 @@ export function createGatewaySessionProxy(options) {
 
 {
   "name": "@abstractframework/app-server",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Server-side helpers for AbstractFramework thin-client apps: the app-origin gateway session proxy (first-party cookies, CSRF, Authorization-strip, server-pinned gateway URL).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -7755,6 +7806,16 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## Unreleased
+
+### app-server 0.1.10 (unreleased)
+
+- Changed: every request the gateway session proxy sends to the Gateway on behalf of a browser
+  (proxied `/api/*` calls, sign-in, sign-out and the status probe) carries
+  `X-Forwarded-For: <socket address of the browser connection>`. A client-supplied
+  `X-Forwarded-For` is replaced, never passed through or appended; client `Forwarded` and
+  `X-Real-IP` headers are dropped. The Gateway trusts this header only from a loopback proxy and
+  uses it to tell whether the browser runs on the Gateway's machine. A connection whose socket
+  address is unknown is refused with 400.
 
 ### ui-kit 0.1.12 (unreleased)
 

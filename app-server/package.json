@@ -1,6 +1,6 @@
 {
   "name": "@abstractframework/app-server",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Server-side helpers for AbstractFramework thin-client apps: the app-origin gateway session proxy (first-party cookies, CSRF, Authorization-strip, server-pinned gateway URL).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
