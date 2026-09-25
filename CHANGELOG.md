@@ -35,6 +35,9 @@ ships.
 - Added: `gatewayVersionRows(payload | { error })` and the `GatewayAboutPayload` type: the
   connected gateway's About rows (`Gateway`, `Gateway framework`, then `Gateway package <name>`
   sorted by name), or one `Gateway: unavailable (<reason>)` row when the version is not available.
+- Added: in `AfAboutDialog`, every `http(s)://` URL inside a row value is a link (new tab,
+  `rel="noopener noreferrer"`), including the framework website in "Part of"; only the Contact row
+  is a `mailto:` link. Same rules as the Python `abstractcore.utils.identity.about_html`.
 - Added: `AfAboutDialog` keeps Tab and Shift+Tab inside the dialog while it is open and names
   itself by its title (`aria-labelledby`).
 - Added: console islands `mountAbout(el, props)`, `appIdentity(id, version)` and an `about` prop

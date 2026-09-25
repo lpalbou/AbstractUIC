@@ -192,9 +192,12 @@ const refreshGatewayRows = () =>
   `Gateway package <name>` for each other reported package, sorted by name (packages without a
   version are left out). On an error, or a body without an `abstractgateway` version, it returns
   the single row `Gateway` → `unavailable (<reason>)`.
-- The dialog opens external links in a new tab (`rel="noopener noreferrer"`), shows the contact
-  address as text with a `mailto:` link, keeps Tab and Shift+Tab inside the dialog while it is
-  open, and closes on Escape, a click outside, or Close.
+- The dialog turns every `http://` or `https://` URL in a row into a link that opens in a new tab
+  (`rel="noopener noreferrer"`), including the framework website in "Part of"; the rest of the
+  value stays text. Only the Contact row is a `mailto:` link, so a value such as
+  `basic-agent@0.1.0:main` shows as plain text.
+- The dialog keeps Tab and Shift+Tab inside itself while it is open, and closes on Escape, a click
+  outside, or Close.
 - Use `<AfAboutDialog open onClose identity extraRows />` directly when your About entry lives
   somewhere else (a menu, a settings page), and `aboutRows(identity, extra)` when you render the
   rows yourself.

@@ -24,10 +24,6 @@ export type AfAboutDialogProps = {
   title?: string;
 };
 
-function isUrl(value: string): boolean {
-  return value.startsWith("http://") || value.startsWith("https://");
-}
-
 const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
 /** Tab / Shift+Tab containment inside `card` (exported for the kit checks). */
@@ -52,26 +48,44 @@ export function trapTabKey(e: Pick<KeyboardEvent, "key" | "shiftKey" | "preventD
   }
 }
 
-function isEmail(value: string): boolean {
-  return value.includes("@") && !value.includes(" ") && !isUrl(value);
+// Same rule as the Python `about_html` (`_URL_RE`): every http(s) URL inside a
+// value is a link, the rest stays text; ONLY the "Contact" row is a mailto
+// (a value such as `basic-agent@0.1.0:main` is plain text).
+const URL_RE = /https?:\/\/[^\s<>"]+/g;
+
+/** Split a row value into text and link parts (exported for the kit checks). */
+export function aboutValueParts(label: string, value: string): Array<{ text: string; href?: string }> {
+  if (label === "Contact") return [{ text: value, href: `mailto:${value}` }];
+  const parts: Array<{ text: string; href?: string }> = [];
+  let last = 0;
+  for (const m of value.matchAll(URL_RE)) {
+    const at = m.index ?? 0;
+    if (at > last) parts.push({ text: value.slice(last, at) });
+    parts.push({ text: m[0], href: m[0] });
+    last = at + m[0].length;
+  }
+  if (last < value.length || parts.length === 0) parts.push({ text: value.slice(last) });
+  return parts;
 }
 
-function RowValue({ value }: { value: string }): React.ReactElement {
-  if (isUrl(value)) {
-    return (
-      <a className="af-about__link" href={value} target="_blank" rel="noopener noreferrer">
-        {value}
-      </a>
-    );
-  }
-  if (isEmail(value)) {
-    return (
-      <a className="af-about__link" href={`mailto:${value}`}>
-        {value}
-      </a>
-    );
-  }
-  return <span>{value}</span>;
+function RowValue({ label, value }: { label: string; value: string }): React.ReactElement {
+  return (
+    <span>
+      {aboutValueParts(label, value).map((part, i) =>
+        part.href === undefined ? (
+          <React.Fragment key={i}>{part.text}</React.Fragment>
+        ) : part.href.startsWith("mailto:") ? (
+          <a key={i} className="af-about__link" href={part.href}>
+            {part.text}
+          </a>
+        ) : (
+          <a key={i} className="af-about__link" href={part.href} target="_blank" rel="noopener noreferrer">
+            {part.text}
+          </a>
+        ),
+      )}
+    </span>
+  );
 }
 
 /** The shared About dialog (controlled: the app owns `open`). */
@@ -129,7 +143,7 @@ export function AfAboutDialog(props: AfAboutDialogProps): React.ReactElement | n
             <div className="af-about__row" key={`${i}:${label}`}>
               <dt className="af-about__label">{label}</dt>
               <dd className="af-about__value">
-                <RowValue value={value} />
+                <RowValue label={label} value={value} />
               </dd>
             </div>
           ))}

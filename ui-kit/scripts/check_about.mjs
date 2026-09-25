@@ -26,7 +26,7 @@ const descriptor = JSON.parse(readFileSync(join(here, "..", "src", "abstractfram
 
 const kit = await import(dist("index.js"));
 const { appIdentity, frameworkIdentity, knownAppIds, aboutRows, gatewayVersionRows, AfAboutDialog, AfTopBarActions } = kit;
-const { trapTabKey } = await import(dist("about.js"));
+const { trapTabKey, aboutValueParts } = await import(dist("about.js"));
 
 let failures = 0;
 let checks = 0;
@@ -40,7 +40,7 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 // --- exports exist (a missing export must fail, not skip) -------------------
-for (const [name, fn] of Object.entries({ appIdentity, frameworkIdentity, knownAppIds, aboutRows, gatewayVersionRows, AfAboutDialog, AfTopBarActions, trapTabKey })) {
+for (const [name, fn] of Object.entries({ appIdentity, frameworkIdentity, knownAppIds, aboutRows, gatewayVersionRows, AfAboutDialog, AfTopBarActions, trapTabKey, aboutValueParts })) {
   check(`export ${name}`, typeof fn === "function", typeof fn);
 }
 
@@ -153,6 +153,8 @@ for (const id of appIds) {
     check(`${id}: row label ${label}`, html.includes(`>${esc(label)}</dt>`), label);
     if (value.startsWith("https://")) {
       check(`${id}: link ${label}`, html.includes(`href="${esc(value)}" target="_blank" rel="noopener noreferrer">${esc(value)}</a>`), value);
+    } else if (label === "Part of") {
+      check(`${id}: Part of = text + framework link`, html.includes(`<dd class="af-about__value"><span>${esc(fw.name)} — <a class="af-about__link" href="${esc(fw.website)}" target="_blank" rel="noopener noreferrer">${esc(fw.website)}</a></span></dd>`), value);
     } else if (label === "Contact") {
       check(`${id}: mailto`, html.includes(`href="mailto:${esc(value)}">${esc(value)}</a>`), value);
     } else {
@@ -161,6 +163,22 @@ for (const id of appIds) {
   }
   const labels = [...html.matchAll(/<dt class="af-about__label">([^<]*)<\/dt>/g)].map((m) => m[1]);
   check(`${id}: row order`, eq(labels, aboutRows(ident, [["Gateway", "0.4.3"]]).map(([l]) => esc(l))), JSON.stringify(labels));
+}
+// Value rendering (mirrors Python about_html/_render_value): mailto ONLY for
+// Contact; every http(s) URL inside any other value is a link.
+{
+  const ref = "basic-agent@0.1.0:main";
+  const html = dialog({ identity: appIdentity("abstractflow", "1"), extraRows: [["Default workflow", ref], ["Note", "see https://a.example/x?y=1 and http://b.example now"], ["Mail-like", "someone@example.com"]] });
+  check("package ref with @ is plain text", html.includes(`<span>${esc(ref)}</span>`) && !html.includes(`mailto:${ref}`));
+  check("e-mail-looking extra row is NOT a mailto", html.includes("<span>someone@example.com</span>") && !html.includes("mailto:someone@example.com"));
+  check("exactly one mailto (Contact)", (html.match(/href="mailto:/g) || []).length === 1);
+  check("URLs inside text become links, text kept", html.includes('<span>see <a class="af-about__link" href="https://a.example/x?y=1" target="_blank" rel="noopener noreferrer">https://a.example/x?y=1</a> and <a class="af-about__link" href="http://b.example" target="_blank" rel="noopener noreferrer">http://b.example</a> now</span>'), html);
+  check("every non-mailto link opens in a new tab with noopener", [...html.matchAll(/<a [^>]*>/g)].every(([a]) => a.includes('href="mailto:') || (a.includes('target="_blank"') && a.includes('rel="noopener noreferrer"'))));
+  check("parts: plain", eq(aboutValueParts("X", ref), [{ text: ref }]));
+  check("parts: empty value", eq(aboutValueParts("X", ""), [{ text: "" }]));
+  check("parts: Contact", eq(aboutValueParts("Contact", "contact@abstractframework.ai"), [{ text: "contact@abstractframework.ai", href: "mailto:contact@abstractframework.ai" }]));
+  check("parts: Part of", eq(aboutValueParts("Part of", "AbstractFramework — https://abstractframework.ai"), [{ text: "AbstractFramework — " }, { text: "https://abstractframework.ai", href: "https://abstractframework.ai" }]));
+  check("parts: URL stops at quote/angle", eq(aboutValueParts("X", 'a https://x.y/"b'), [{ text: "a " }, { text: "https://x.y/", href: "https://x.y/" }, { text: '"b' }]));
 }
 check("dialog closed renders nothing", renderToStaticMarkup(React.createElement(AfAboutDialog, { open: false, onClose: noop, identity: appIdentity("abstractflow", "1") })) === "");
 check("dialog custom title", dialog({ identity: appIdentity("abstractflow", "1"), title: "About this app" }).includes("About this app"));
