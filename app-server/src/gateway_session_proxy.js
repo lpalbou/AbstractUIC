@@ -26,6 +26,10 @@
  *    (contract A-2, 2026-09-25). A request whose socket peer is unknown is
  *    refused rather than forwarded without the header (the gateway would
  *    otherwise see only the loopback proxy and call it "this machine").
+ *  - Every gateway-bound request also carries
+ *    `X-AbstractFramework-App-Proxy: <appId>` (any client-supplied value is
+ *    dropped): the gateway's same-machine fail-safe keys on this marker to
+ *    know the request came through an app proxy (REVIEW/09).
  */
 
 import * as http from "node:http";
@@ -192,6 +196,8 @@ export function createGatewaySessionProxy(options) {
   // 2026-07-12: silently dropping them flips the loopback/remote-config
   // gate behind reverse proxies).
   const APP_ENV = appId.toUpperCase().replace(/-/g, "_");
+  // Marker the gateway keys its same-machine fail-safe on (REVIEW/09).
+  const APP_PROXY_HEADER = "X-AbstractFramework-App-Proxy";
 
   const DEFAULT_GATEWAY_URL =
     normalizeGatewayUrl(opts.defaultGatewayUrl || process.env.ABSTRACTGATEWAY_URL || "") || "http://127.0.0.1:8080";
@@ -402,7 +408,7 @@ export function createGatewaySessionProxy(options) {
       const checked = await gatewayRequest(session.gatewayUrl, {
         method: "GET",
         path: "/api/gateway/me",
-        headers: { Accept: "application/json", "X-AbstractGateway-Session": session.sessionId, "X-Forwarded-For": peer },
+        headers: { Accept: "application/json", "X-AbstractGateway-Session": session.sessionId, "X-Forwarded-For": peer, [APP_PROXY_HEADER]: appId },
       });
       sendJson(res, 200, {
         ok: checked.ok,
@@ -436,6 +442,7 @@ export function createGatewaySessionProxy(options) {
             "Content-Type": "application/json",
             "Content-Length": String(body.length),
             "X-Forwarded-For": peer,
+            [APP_PROXY_HEADER]: appId,
           },
         },
         body
@@ -472,6 +479,7 @@ export function createGatewaySessionProxy(options) {
               "X-AbstractGateway-Session": session.sessionId,
               "X-AbstractGateway-CSRF": session.csrfToken,
               "X-Forwarded-For": peer,
+              [APP_PROXY_HEADER]: appId,
             },
             timeout: 2000,
           },
@@ -538,15 +546,17 @@ export function createGatewaySessionProxy(options) {
     delete headers.authorization;
     delete headers.Authorization;
     // Forwarding headers: drop every client-supplied spelling (any case,
-    // plus the RFC 7239 `Forwarded` header), then set X-Forwarded-For to the
-    // socket peer — overwrite, never append (contract A-2).
+    // plus the RFC 7239 `Forwarded` header and the app-proxy marker), then
+    // set X-Forwarded-For to the socket peer — overwrite, never append
+    // (contract A-2) — and the marker to this proxy's appId (REVIEW/09).
     for (const k of Object.keys(headers)) {
       const lk = k.toLowerCase();
-      if (lk === "x-forwarded-for" || lk === "x-forwarded-host" || lk === "x-forwarded-proto" || lk === "x-real-ip" || lk === "forwarded") {
+      if (lk === "x-forwarded-for" || lk === "x-forwarded-host" || lk === "x-forwarded-proto" || lk === "x-real-ip" || lk === "forwarded" || lk === "x-abstractframework-app-proxy") {
         delete headers[k];
       }
     }
     headers["x-forwarded-for"] = peer;
+    headers["x-abstractframework-app-proxy"] = appId;
     headers["x-abstractgateway-session"] = session.sessionId;
     if (mutatingMethod(req.method)) headers["x-abstractgateway-csrf"] = session.csrfToken;
     const proxyReq = backend.client.request(

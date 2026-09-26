@@ -40,6 +40,10 @@ The proxy's contract is:
   appended, so the Gateway can tell whether the browser runs on its own
   machine. Behind your own reverse proxy, the value is the reverse proxy's
   address.
+- Every call to the Gateway also carries `X-AbstractFramework-App-Proxy: <appId>`
+  (the `appId` you pass to `createGatewaySessionProxy`, which is required). A
+  client-supplied value of that header is dropped. The Gateway uses it to tell
+  requests that come through an app server from direct clients.
 
 The browser never needs to persist the Gateway token.
 

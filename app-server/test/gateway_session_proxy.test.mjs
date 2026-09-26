@@ -4,10 +4,13 @@ import { createGatewaySessionProxy, normalizeGatewayUrl } from "../src/index.js"
 
 /** X-Forwarded-For the stub gateway saw on its last login / me / logout call. */
 const gatewaySawXff = { login: undefined, me: undefined, logout: undefined };
+/** X-AbstractFramework-App-Proxy the stub gateway saw, per route. */
+const gatewaySawMarker = {};
 
 /** Minimal stub gateway implementing login/logout/me + an echo API route. */
 function startStubGateway() {
   const server = http.createServer((req, res) => {
+    gatewaySawMarker[req.url.split("?")[0]] = req.headers["x-abstractframework-app-proxy"] ?? null;
     if (req.url === "/api/gateway/session/login") gatewaySawXff.login = req.headers["x-forwarded-for"] ?? null;
     if (req.url === "/api/gateway/me") gatewaySawXff.me = req.headers["x-forwarded-for"] ?? null;
     if (req.url === "/api/gateway/session/logout") gatewaySawXff.logout = req.headers["x-forwarded-for"] ?? null;
@@ -55,6 +58,8 @@ function startStubGateway() {
           xffCount: req.rawHeaders.filter((h, i) => i % 2 === 0 && h.toLowerCase() === "x-forwarded-for").length,
           forwarded: req.headers.forwarded ?? null,
           xRealIp: req.headers["x-real-ip"] ?? null,
+          marker: req.headers["x-abstractframework-app-proxy"] ?? null,
+          markerCount: req.rawHeaders.filter((h, i) => i % 2 === 0 && h.toLowerCase() === "x-abstractframework-app-proxy").length,
         });
       }
       send(404, { detail: "not found" });
@@ -207,6 +212,16 @@ let cookieHeader = "";
   });
   check("sign-in call carries the socket peer as X-Forwarded-For", login.status === 200 && gatewaySawXff.login === "192.168.1.51", String(gatewaySawXff.login));
 
+  // App-proxy marker (REVIEW/09): always this proxy's appId, client value dropped.
+  const spoofMarker = await call(appPort, "/api/gateway/echo", {
+    headers: { Cookie: cookieHeader, "X-AbstractFramework-App-Proxy": "assistant" },
+  });
+  check("proxied call: marker = appId, spoofed value dropped", spoofMarker.json?.marker === "testapp" && spoofMarker.json?.markerCount === 1, JSON.stringify(spoofMarker.json));
+  const noMarker = await call(appPort, "/api/gateway/echo", { headers: { Cookie: cookieHeader } });
+  check("proxied call without client marker still carries it", noMarker.json?.marker === "testapp");
+  check("status probe (/me) carries the marker", gatewaySawMarker["/api/gateway/me"] === "testapp", String(gatewaySawMarker["/api/gateway/me"]));
+  check("sign-in carries the marker", gatewaySawMarker["/api/gateway/session/login"] === "testapp", String(gatewaySawMarker["/api/gateway/session/login"]));
+
   // Unknown socket peer: refused, never forwarded without the header.
   const fakeReq = { method: "GET", url: "/api/gateway/echo", headers: { cookie: cookieHeader, "x-forwarded-for": "127.0.0.1" }, socket: {} };
   let status = 0;
@@ -278,6 +293,7 @@ let cookieHeader = "";
   });
   check("sign out: 200", r.status === 200 && r.json.ok === true);
   check("sign-out call carries the socket peer as X-Forwarded-For", gatewaySawXff.logout === "192.168.1.52", String(gatewaySawXff.logout));
+  check("sign-out carries the marker", gatewaySawMarker["/api/gateway/session/logout"] === "testapp", String(gatewaySawMarker["/api/gateway/session/logout"]));
   const setCookies = r.headers.getSetCookie ? r.headers.getSetCookie() : [r.headers.get("set-cookie")];
   check("cookies cleared (Max-Age=0 ×3)", setCookies.length === 3 && setCookies.every((c) => /Max-Age=0/.test(c)));
 }
@@ -316,7 +332,7 @@ let cookieHeader = "";
   check("proxied Set-Cookie stripped", echoed.status === 200 && !echoed.headers.get("set-cookie"));
 
   // SSE/chunked passthrough: chunks arrive, no content-length, right type.
-  const sse = await fetch(`http://127.0.0.1:${appPort}/api/gateway/stream`, { headers: { Cookie: cookieHeader } });
+  const sse = await fetch(`http://127.0.0.1:${appPort}/api/gateway/stream`, { headers: { Cookie: cookieHeader, "X-AbstractFramework-App-Proxy": "spoofed" } });
   check("SSE content-type preserved", (sse.headers.get("content-type") || "").includes("text/event-stream"));
   const reader = sse.body.getReader();
   let received = "";
@@ -326,6 +342,7 @@ let cookieHeader = "";
     received += Buffer.from(value).toString("utf8");
   }
   check("SSE chunks stream through the proxy", received.includes("data: one") && received.includes("data: two"));
+  check("SSE request carries the marker (spoofed value dropped)", gatewaySawMarker["/api/gateway/stream"] === "testapp", String(gatewaySawMarker["/api/gateway/stream"]));
   reader.cancel().catch(() => {});
 
   // Per-app trust-proxy env derived from appId (P1-1 parity): with it set,
@@ -337,6 +354,7 @@ let cookieHeader = "";
   check("per-app TRUST_PROXY env honored (gate reads x-forwarded-host)", sess.gatewayUrl === `http://127.0.0.1:${gwPort}`);
   delete process.env.TESTAPP_TRUST_PROXY_HEADERS;
 
+  check("missing appId refused", (() => { try { createGatewaySessionProxy({}); return false; } catch (e) { return /appId is required/.test(String(e.message)); } })());
   check("bad appId refused", (() => { try { createGatewaySessionProxy({ appId: "bad app!" }); return false; } catch { return true; } })());
 }
 
@@ -347,4 +365,4 @@ if (failures > 0) {
   console.error(`\ngateway_session_proxy: ${failures} failure(s)`);
   process.exit(1);
 }
-console.log("gateway_session_proxy: OK (probe, sign-in/out, cookie flags, CSRF, strip, pinning, X-Forwarded-For overwrite, passthrough)");
+console.log("gateway_session_proxy: OK (probe, sign-in/out, cookie flags, CSRF, strip, pinning, X-Forwarded-For overwrite, app-proxy marker, passthrough)");

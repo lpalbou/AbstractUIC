@@ -18,6 +18,8 @@ ships.
   `X-Real-IP` headers are dropped. The Gateway trusts this header only from a loopback proxy and
   uses it to tell whether the browser runs on the Gateway's machine. A connection whose socket
   address is unknown is refused with 400.
+- Added: every request the proxy sends to the Gateway carries
+  `X-AbstractFramework-App-Proxy: <appId>`; a client-supplied value of that header is dropped.
 
 ### ui-kit 0.1.12 (unreleased)
 
