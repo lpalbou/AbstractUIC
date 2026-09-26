@@ -5,7 +5,7 @@
  * when a run streams its replies (`_runtime.stream`). They carry NO `id:`
  * line: they are volatile and never move the ledger cursor.
  *
- *   event: llm.delta      data: {kind, run_id, root_run_id, parent_run_id, node_id, call_id, seq, text, channel, snapshot, truncated?}
+ *   event: llm.delta      data: {kind, run_id, root_run_id, parent_run_id, node_id, call_id, seq, text, channel, snapshot}
  *   event: llm.delta_end  data: {kind, run_id, root_run_id, parent_run_id, node_id, call_id, seq, reason, detail?}
  *
  * `run_id` is the run that called the model; a stream subscribed to a root
@@ -20,7 +20,8 @@
  * `call_id`), including calls that ran without streaming, so an end for a
  * call that sent no delta is normal. `reason: "unavailable"` says why a call
  * was not streamed (`detail`). `<think>` blocks are already split out by the
- * server into the `reasoning` channel. Extra fields are tolerated and ignored.
+ * server into the `reasoning` channel. Extra fields (such as a legacy
+ * `truncated`) are tolerated and ignored.
  */
 
 export type LlmDeltaChannel = "content" | "reasoning";
@@ -37,8 +38,6 @@ export type LlmDelta = {
   text: string;
   channel: LlmDeltaChannel;
   snapshot: boolean;
-  /** True when the gateway says older text of this call was dropped. */
-  truncated?: boolean;
 };
 
 export type LlmDeltaEndReason = "completed" | "failed" | "cancelled" | "unavailable";
@@ -117,14 +116,12 @@ export function validateLlmDeltaEvent(value: unknown, eventName?: string): LlmDe
   if (typeof row.text !== "string") bad("text is not a string");
   if (row.channel !== "content" && row.channel !== "reasoning") bad(`unknown channel ${JSON.stringify(row.channel)}`);
   if (typeof row.snapshot !== "boolean") bad("snapshot is not a boolean");
-  if (row.truncated !== undefined && typeof row.truncated !== "boolean") bad("truncated is not a boolean");
   return {
     kind: LLM_DELTA_EVENT,
     ...common,
     text: row.text as string,
     channel: row.channel as LlmDeltaChannel,
     snapshot: row.snapshot as boolean,
-    ...(row.truncated === true ? { truncated: true } : {}),
   };
 }
 

@@ -84,7 +84,7 @@ Purpose: chat-thread UI primitives with lightweight Markdown/JSON rendering.
 Components:
 - `AssistantPanel` (docs Q&A surface with an injected `ask(question, { signal, history })` transport returning a Promise or an AsyncIterable of deltas; never fetches)
 - `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions; `streamReplies?: "gateway_default" | "on" | "off"`); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
-- Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry). See [panel-chat README](../panel-chat/README.md#live-replies-streaming)
+- Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry); controller option `liveRenderIntervalMs` (default 60). See [panel-chat README](../panel-chat/README.md#live-replies-streaming)
 - `ToolActivity`, `ToolActivityGroup` (tool-call rendering), `StatDetailPanel` + `statDetail()` (token/time/tool statistics)
 - `ChatThread` (thread container; renders a list of messages)
 - `ChatMessageCard` (single message rendering; `message.title` names the speaker — assistants
@@ -94,7 +94,9 @@ Components:
 
 Renderers:
 - `Markdown` (lightweight Markdown with real nested lists, marker progression, fenced code
-  blocks incl. inside lists; see `panel-chat/src/markdown.tsx`)
+  blocks incl. inside lists; `images?: "inline" | "link"` + `inlineImage?(src)`, default rule
+  `sameOriginImage()`; see `panel-chat/src/markdown.tsx`). `ChatMessageCard` uses `images="link"`
+  for every message except the user's own.
 - `JsonViewer` (collapsible tree; honors `collapseAfterDepth`; auto-parses JSON strings)
 
 Types:

@@ -57,7 +57,7 @@
  *   --warning-border
  *   --warning-subtle
  *
- * CLASS SET (74): pc-chat-attachment-chip, pc-chat-attachment-name, pc-chat-attachment-target, pc-chat-attachment-target--client, pc-chat-attachment-target--repo, pc-chat-attachment-target--server, pc-chat-attachments, pc-chat-avatar, pc-chat-body, pc-chat-header, pc-chat-header-actions, pc-chat-header-spacer, pc-chat-icon-btn, pc-chat-icon-btn--copied, pc-chat-icon-btn--failed, pc-chat-item, pc-chat-item--assistant, pc-chat-item--error, pc-chat-item--report_bug, pc-chat-item--report_feature, pc-chat-item--status, pc-chat-item--user, pc-chat-item--warn, pc-chat-live-caption, pc-chat-live-dot, pc-chat-live-indicator, pc-chat-live-truncated, pc-chat-role, pc-chat-stat, pc-chat-stat--clickable, pc-chat-stat--detail, pc-chat-stat-icon, pc-chat-stat-label, pc-chat-stats, pc-chat-thinking, pc-chat-thinking-body, pc-chat-thread, pc-chat-time, pc-stat-detail, pc-stat-detail-foot, pc-stat-detail-head, pc-stat-detail-heading, pc-stat-detail-headline, pc-stat-detail-hint, pc-stat-detail-note, pc-stat-detail-rows, pc-stat-detail-section, pc-stat-detail-table, pc-stat-detail-title, pc-stat-detail-value, pc-stat-detail-value--absent, pc-tool-activity, pc-tool-activity--completed, pc-tool-activity--failed, pc-tool-activity--running, pc-tool-activity--waiting, pc-tool-activity__chevron, pc-tool-activity__detail, pc-tool-activity__detail-heading, pc-tool-activity__duration, pc-tool-activity__error, pc-tool-activity__key, pc-tool-activity__output, pc-tool-activity__parameters, pc-tool-activity__preview, pc-tool-activity__state-icon, pc-tool-activity__status, pc-tool-activity__summary, pc-tool-group, pc-tool-group__completed, pc-tool-group__failed, pc-tool-group__heading, pc-tool-group__running, pc-tool-group__waiting
+ * CLASS SET (73): pc-chat-attachment-chip, pc-chat-attachment-name, pc-chat-attachment-target, pc-chat-attachment-target--client, pc-chat-attachment-target--repo, pc-chat-attachment-target--server, pc-chat-attachments, pc-chat-avatar, pc-chat-body, pc-chat-header, pc-chat-header-actions, pc-chat-header-spacer, pc-chat-icon-btn, pc-chat-icon-btn--copied, pc-chat-icon-btn--failed, pc-chat-item, pc-chat-item--assistant, pc-chat-item--error, pc-chat-item--report_bug, pc-chat-item--report_feature, pc-chat-item--status, pc-chat-item--user, pc-chat-item--warn, pc-chat-live-caption, pc-chat-live-dot, pc-chat-live-indicator, pc-chat-role, pc-chat-stat, pc-chat-stat--clickable, pc-chat-stat--detail, pc-chat-stat-icon, pc-chat-stat-label, pc-chat-stats, pc-chat-thinking, pc-chat-thinking-body, pc-chat-thread, pc-chat-time, pc-stat-detail, pc-stat-detail-foot, pc-stat-detail-head, pc-stat-detail-heading, pc-stat-detail-headline, pc-stat-detail-hint, pc-stat-detail-note, pc-stat-detail-rows, pc-stat-detail-section, pc-stat-detail-table, pc-stat-detail-title, pc-stat-detail-value, pc-stat-detail-value--absent, pc-tool-activity, pc-tool-activity--completed, pc-tool-activity--failed, pc-tool-activity--running, pc-tool-activity--waiting, pc-tool-activity__chevron, pc-tool-activity__detail, pc-tool-activity__detail-heading, pc-tool-activity__duration, pc-tool-activity__error, pc-tool-activity__key, pc-tool-activity__output, pc-tool-activity__parameters, pc-tool-activity__preview, pc-tool-activity__state-icon, pc-tool-activity__status, pc-tool-activity__summary, pc-tool-group, pc-tool-group__completed, pc-tool-group__failed, pc-tool-group__heading, pc-tool-group__running, pc-tool-group__waiting
  */
 
 .pc-chat-thread {
@@ -346,13 +346,6 @@
   font-size: var(--font-size-xs, 11px);
   color: var(--text-muted, rgba(255, 255, 255, 0.55));
   font-family: var(--font-mono, ui-monospace, monospace);
-}
-
-.pc-chat-live-truncated {
-  margin-bottom: 6px;
-  font-size: var(--font-size-xs, 11px);
-  font-style: italic;
-  color: var(--text-muted, rgba(255, 255, 255, 0.55));
 }
 
 .pc-chat-thinking {

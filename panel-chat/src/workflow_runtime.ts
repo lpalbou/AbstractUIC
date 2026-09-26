@@ -113,7 +113,19 @@ type LiveReply = {
   text: string;
   reasoning: string;
   seq: { content: number; reasoning: number };
-  truncated: boolean;
+};
+
+export type WorkflowSessionControllerOptions = {
+  onAuthError?: (error: unknown) => void;
+  clientId?: string;
+  /**
+   * Minimum time between two re-renders of live (streamed) reply text, in
+   * milliseconds. Default 60: every frame still updates the reply state, but
+   * the transcript (and its Markdown) is re-rendered at most this often; the
+   * latest text is always rendered at the end of the interval. 0 renders every
+   * frame.
+   */
+  liveRenderIntervalMs?: number;
 };
 
 const EMPTY: WorkflowSessionSnapshot = {
@@ -271,8 +283,16 @@ export class WorkflowSessionController {
   /** Calls whose live reply has ended (delta_end, terminal llm_call record,
    * or the run's assistant message): later deltas for them are ignored. */
   private closedLiveCalls = new Set<string>();
+  private liveDirty = new Set<string>();
+  private liveRenderTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastLiveRender = -Infinity;
+  private readonly liveRenderIntervalMs: number;
 
-  public constructor(private readonly transport: WorkflowTransport, private readonly options: { onAuthError?: (error: unknown) => void; clientId?: string } = {}) {}
+  public constructor(private readonly transport: WorkflowTransport, private readonly options: WorkflowSessionControllerOptions = {}) {
+    const interval = options.liveRenderIntervalMs ?? 60;
+    if (typeof interval !== "number" || !Number.isFinite(interval) || interval < 0) throw new Error(`liveRenderIntervalMs must be a non-negative number of milliseconds, got ${JSON.stringify(options.liveRenderIntervalMs)}`);
+    this.liveRenderIntervalMs = interval;
+  }
 
   subscribe(listener: Subscriber): () => void { this.subscribers.add(listener); return () => this.subscribers.delete(listener); }
   getSnapshot(): WorkflowSessionSnapshot { return this.snapshot; }
@@ -288,7 +308,8 @@ export class WorkflowSessionController {
     this.controller = null;
     this.rootRunId = ""; this.cursors.clear(); this.seenRecords.clear(); this.seenMessages.clear(); this.watchedRuns.clear(); this.childCatchUpAttempts.clear(); this.runStates.clear(); this.historicalRuns.clear(); this.historicalRunFailures.clear(); this.commandIds.clear();
     this.toolActivities.clear(); this.historicalEvidence.clear(); this.approvedWaits.clear(); this.grantedToolWaits.clear();
-    this.liveReplies.clear(); this.closedLiveCalls.clear();
+    this.liveReplies.clear(); this.closedLiveCalls.clear(); this.liveDirty.clear(); this.lastLiveRender = -Infinity;
+    if (this.liveRenderTimer) { clearTimeout(this.liveRenderTimer); this.liveRenderTimer = null; }
     this.set({ ...EMPTY });
   }
 
@@ -597,7 +618,17 @@ export class WorkflowSessionController {
     }
   }
 
+  /** Follow one run's stream until it ends or this controller stops
+   * following it; either way no live reply that stream delivered survives. */
   private async watch(runId: string, generation: number): Promise<void> {
+    try {
+      await this.followStream(runId, generation);
+    } finally {
+      if (this.live(generation)) this.closeLiveRepliesVia(runId);
+    }
+  }
+
+  private async followStream(runId: string, generation: number): Promise<void> {
     let attempt = 0;
     while (this.live(generation) && !terminal(statusOf(this.runStates.get(runId) || null))) {
       const after = this.cursors.get(runId) || 0;
@@ -961,8 +992,10 @@ export class WorkflowSessionController {
       this.closeLiveReply(key, event.reason === "completed" ? undefined : event.reason);
       return;
     }
-    if (this.closedLiveCalls.has(key) || terminal(statusOf(this.runStates.get(event.run_id) || null))) return;
-    const reply = this.liveReplies.get(key) || { runId: event.run_id, callId: event.call_id, nodeId: event.node_id || "", via: streamRunId, text: "", reasoning: "", seq: { content: -1, reasoning: -1 }, truncated: false };
+    // A finished run (or finished turn) takes no live text: its closed-call
+    // keys are pruned when it ends, so this check is what keeps them closed.
+    if (this.closedLiveCalls.has(key) || this.runEnded(event.run_id) || this.runEnded(this.rootRunId)) return;
+    const reply = this.liveReplies.get(key) || { runId: event.run_id, callId: event.call_id, nodeId: event.node_id || "", via: streamRunId, text: "", reasoning: "", seq: { content: -1, reasoning: -1 } };
     const field = event.channel === "reasoning" ? "reasoning" : "text";
     const last = reply.seq[event.channel];
     if (event.snapshot) {
@@ -974,12 +1007,33 @@ export class WorkflowSessionController {
     }
     reply.seq[event.channel] = event.seq;
     reply.via = streamRunId;
-    if (event.truncated) reply.truncated = true;
     this.liveReplies.set(key, reply);
-    const message = this.liveMessage(reply);
-    const index = this.snapshot.messages.findIndex((item) => item.id === message.id);
+    this.liveDirty.add(key);
+    this.scheduleLiveRender();
+  }
+
+  private runEnded(runId: string): boolean { return terminal(statusOf(this.runStates.get(runId) || null)); }
+
+  /** Render changed live replies now, or at the end of the current interval. */
+  private scheduleLiveRender(): void {
+    if (this.liveRenderTimer) return;
+    const wait = this.lastLiveRender + this.liveRenderIntervalMs - Date.now();
+    if (wait <= 0) { this.renderLiveReplies(); return; }
+    this.liveRenderTimer = setTimeout(() => { this.liveRenderTimer = null; this.renderLiveReplies(); }, wait);
+  }
+
+  private renderLiveReplies(): void {
+    this.lastLiveRender = Date.now();
+    if (!this.liveDirty.size) return;
     const messages = [...this.snapshot.messages];
-    if (index < 0) messages.push(message); else messages[index] = message;
+    for (const key of this.liveDirty) {
+      const reply = this.liveReplies.get(key);
+      if (!reply) continue;
+      const message = this.liveMessage(reply);
+      const index = messages.findIndex((item) => item.id === message.id);
+      if (index < 0) messages.push(message); else messages[index] = message;
+    }
+    this.liveDirty.clear();
     this.set({ ...this.snapshot, messages });
   }
 
@@ -987,7 +1041,7 @@ export class WorkflowSessionController {
     const subAgent = reply.runId !== this.rootRunId;
     return {
       id: `live:${reply.runId}:${reply.callId}`, role: "assistant", content: reply.text, runId: reply.runId,
-      live: { callId: reply.callId, reasoning: reply.reasoning, truncated: reply.truncated, ...(subAgent ? { caption: `sub-agent · ${reply.nodeId || reply.runId}` } : {}) },
+      live: { callId: reply.callId, reasoning: reply.reasoning, ...(subAgent ? { caption: `sub-agent · ${reply.nodeId || reply.runId}` } : {}) },
     };
   }
 
@@ -998,6 +1052,7 @@ export class WorkflowSessionController {
     const reply = this.liveReplies.get(key);
     if (!reply) return;
     this.liveReplies.delete(key);
+    this.liveDirty.delete(key);
     const id = `live:${reply.runId}:${reply.callId}`;
     const index = this.snapshot.messages.findIndex((item) => item.id === id);
     if (index < 0) return;
@@ -1021,11 +1076,33 @@ export class WorkflowSessionController {
     for (const reply of [...this.liveReplies.values()]) if (reply.runId === runId) this.closeLiveReply(`${reply.runId}:${reply.callId}`);
   }
 
+  /** Close the live replies a stream delivered (the controller stopped following it). */
+  private closeLiveRepliesVia(streamRunId: string, reason?: "failed" | "cancelled"): void {
+    for (const reply of [...this.liveReplies.values()]) if (reply.via === streamRunId || reply.runId === streamRunId) this.closeLiveReply(`${reply.runId}:${reply.callId}`, reason);
+  }
+
+  /**
+   * A run reached a terminal state: close its live replies (for the root, every
+   * live reply of the turn, sub-agents included) whether or not their
+   * `llm.delta_end` arrived, then forget its closed-call keys. Later frames for
+   * it are refused by the terminal-run check in `ingestDelta`.
+   */
+  private endLiveRepliesOfRun(runId: string, status: string): void {
+    const reason = status === "failed" || status === "cancelled" ? status : undefined;
+    if (runId === this.rootRunId) {
+      for (const reply of [...this.liveReplies.values()]) this.closeLiveReply(`${reply.runId}:${reply.callId}`, reason);
+      this.closedLiveCalls.clear();
+      return;
+    }
+    this.closeLiveRepliesVia(runId, reason);
+    for (const key of [...this.closedLiveCalls]) if (key.startsWith(`${runId}:`)) this.closedLiveCalls.delete(key);
+  }
+
   /** Forget (without closing) the live replies a stream delivered; its
    * reconnect snapshots bring the current text back. */
   private dropLiveRepliesVia(streamRunId: string): void {
     const dropped = new Set<string>();
-    for (const [key, reply] of this.liveReplies) if (reply.via === streamRunId) { this.liveReplies.delete(key); dropped.add(`live:${reply.runId}:${reply.callId}`); }
+    for (const [key, reply] of this.liveReplies) if (reply.via === streamRunId) { this.liveReplies.delete(key); this.liveDirty.delete(key); dropped.add(`live:${reply.runId}:${reply.callId}`); }
     if (dropped.size) this.set({ ...this.snapshot, messages: this.snapshot.messages.filter((message) => !dropped.has(String(message.id))) });
   }
 
@@ -1042,6 +1119,7 @@ export class WorkflowSessionController {
 
   private updateRunState(runId: string, run: ServerRecord): void {
     this.runStates.set(runId, run);
+    if (terminal(statusOf(run))) this.endLiveRepliesOfRun(runId, statusOf(run));
     if (runId !== this.rootRunId) {
       if (terminal(statusOf(run)) && this.snapshot.interaction?.runId === runId) this.set({ ...this.snapshot, interaction: null });
       return;

@@ -107,6 +107,10 @@
   gap: 6px;
 }
 
+.pc-md_image_link {
+  overflow-wrap: anywhere;
+}
+
 .pc-md_image_inline {
   display: grid;
   gap: 5px;
@@ -1124,13 +1128,6 @@
   font-size: var(--font-size-xs, 11px);
   color: var(--text-muted, rgba(255, 255, 255, 0.55));
   font-family: var(--font-mono, ui-monospace, monospace);
-}
-
-.pc-chat-live-truncated {
-  margin-bottom: 6px;
-  font-size: var(--font-size-xs, 11px);
-  font-style: italic;
-  color: var(--text-muted, rgba(255, 255, 255, 0.55));
 }
 
 .pc-chat-thinking {

@@ -59,6 +59,33 @@ function safeHref(href: string): string | undefined {
   return undefined;
 }
 
+/** Which images a `Markdown` render loads; null = every image (`images="inline"`). */
+let inlineImagePolicy: ((src: string) => boolean) | null = null;
+
+/**
+ * Default rule for `images="link"`: an image loads only from the page's own
+ * origin — a root-relative path (such as a gateway workspace content route
+ * behind the app's proxy) or an absolute URL with the current origin.
+ * Protocol-relative (`//host/…`) and every other host become links.
+ */
+export function sameOriginImage(src: string): boolean {
+  const value = String(src || "").trim();
+  if (value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\")) return true;
+  if (!/^https?:\/\//i.test(value)) return false;
+  const origin = typeof window !== "undefined" ? window.location?.origin : undefined;
+  if (!origin || origin === "null") return false;
+  try { return new URL(value).origin === origin; } catch { return false; }
+}
+
+/** An image the policy refuses: a plain link, never a request. */
+function imageLink(key: string, src: string, alt: string): React.ReactElement {
+  return (
+    <a key={key} className="pc-md_link pc-md_image_link" href={src} target="_blank" rel="noopener noreferrer">
+      {`image: ${alt || src}`}
+    </a>
+  );
+}
+
 function renderInline(text: string, highlight: HighlightState | null): InlineNode[] {
   const out: InlineNode[] = [];
   const s = String(text ?? "");
@@ -81,6 +108,12 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
         if (hrefEnd !== -1) {
           const alt = s.slice(i + 2, labelEnd);
           const src = safeHref(s.slice(labelEnd + 2, hrefEnd));
+          if (src && inlineImagePolicy && !inlineImagePolicy(src)) {
+            flush();
+            out.push(imageLink(`img:${i}`, src, alt));
+            i = hrefEnd + 1;
+            continue;
+          }
           if (src) {
             flush();
             out.push(
@@ -301,21 +334,44 @@ function isTableSeparator(line: string): boolean {
   return cells.every((c) => /^:?-{3,}:?$/.test(c));
 }
 
-export function Markdown({
-  text,
-  className,
-  highlight,
-  highlights,
-  highlightClassName,
-  highlightId,
-}: {
+export type MarkdownImages = "inline" | "link";
+
+export type MarkdownProps = {
   text: string;
   className?: string;
   highlight?: string;
   highlights?: string[];
   highlightClassName?: string;
   highlightId?: string;
-}): React.ReactElement {
+  /**
+   * `"inline"` (default for `Markdown`) loads every image. `"link"` loads
+   * only images `inlineImage(src)` accepts (default `sameOriginImage`) and
+   * shows every other one as a link "image: <alt>", so text written by a
+   * model cannot make the browser fetch a remote URL. Chat messages use
+   * `"link"` for assistant and system messages.
+   */
+  images?: MarkdownImages;
+  inlineImage?: (src: string) => boolean;
+};
+
+export function Markdown(props: MarkdownProps): React.ReactElement {
+  const previous = inlineImagePolicy;
+  inlineImagePolicy = props.images === "link" ? props.inlineImage || sameOriginImage : null;
+  try {
+    return renderMarkdown(props);
+  } finally {
+    inlineImagePolicy = previous;
+  }
+}
+
+function renderMarkdown({
+  text,
+  className,
+  highlight,
+  highlights,
+  highlightClassName,
+  highlightId,
+}: MarkdownProps): React.ReactElement {
   const lines = normalizeLines(text);
   const blocks: React.ReactNode[] = [];
   const needlesRaw: string[] = [];
@@ -353,6 +409,11 @@ export function Markdown({
     const imageM = line.match(/^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$/);
     if (imageM) {
       const src = safeHref(imageM[2] || "");
+      if (src && inlineImagePolicy && !inlineImagePolicy(src)) {
+        blocks.push(<p key={`p:${i}`} className="pc-md_p">{imageLink(`img:${i}`, src, imageM[1] || "")}</p>);
+        i += 1;
+        continue;
+      }
       if (src) {
         const alt = imageM[1] || "";
         blocks.push(

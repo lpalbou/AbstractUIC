@@ -120,11 +120,16 @@ the whole text so far) and `llm.delta_end` (the model call ended). They carry no
 - One bubble per model call (`live:<runId>:<callId>` in `snapshot.messages`,
   with a `live` field). Reasoning is shown in a collapsed "Thinking" block,
   never mixed into the reply text. A reply from a sub-run carries a
-  "sub-agent · <node>" caption. If the gateway reports that earlier text was
-  dropped, the bubble says "Earlier text was dropped by the gateway."
+  "sub-agent · <node>" caption. The text is re-rendered at most every 60 ms
+  (`liveRenderIntervalMs` controller option; 0 renders every frame); the
+  latest text always lands at the end of the interval.
 - The bubble goes away when the call's ledger record or the run's assistant
   message arrives, so a reply is never shown twice, and it never comes back for
   that call. A call that failed or was cancelled leaves a short note instead.
+  When the root run ends in any state (even with no output and no
+  `llm.delta_end`), every live bubble of the turn closes, sub-agents included;
+  when a sub-run ends, its bubbles close. When the controller stops following
+  a stream (sign-out, reconnect limit), the bubbles it delivered close too.
   A call the gateway could not stream (`reason: "unavailable"`) adds one note
   per run and cause, for example "This reply is not streamed: this step asks
   the model for structured output."
@@ -152,6 +157,16 @@ const input = { prompt, _runtime: { ...streamRepliesRuntime(streamReplies) } };
 
 - JSON ⇒ `JsonViewer`
 - otherwise ⇒ `Markdown` (or your `renderMarkdown` override)
+
+Images in chat messages: `ChatMessageCard` renders the Markdown of every
+message except the user's own with `images="link"`. An image then loads only
+when `inlineImage(src)` accepts it — by default `sameOriginImage`: a
+root-relative path (for example a gateway workspace content route behind the
+app's proxy) or an absolute URL on the page's own origin. Every other image,
+including `//host/…`, is shown as a link "image: <alt>" and never fetched, so
+model-written text cannot make the browser call a remote URL. Pass
+`images="inline"` (or your own `inlineImage`) through `messageProps` to change
+it. `Markdown` used on its own keeps `images="inline"` as its default.
 
 Markdown is intentionally minimal and implemented in `panel-chat/src/markdown.tsx` (headings 1–5, code fences, lists, tables, blockquotes, hr, emphasis, and optional highlighting).
 

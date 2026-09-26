@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 
 import { JsonViewer } from "./json_viewer.js";
-import { Markdown } from "./markdown.js";
+import { Markdown, type MarkdownImages } from "./markdown.js";
 import { tryParseJson } from "./utils.js";
 
 export function ChatMessageContent(props: {
@@ -9,6 +9,9 @@ export function ChatMessageContent(props: {
   className?: string;
   renderMarkdown?: (markdown: string) => React.ReactElement;
   jsonCollapseAfterDepth?: number;
+  /** Passed to `Markdown` (default `"inline"` here; chat cards pass `"link"` for non-user messages). */
+  images?: MarkdownImages;
+  inlineImage?: (src: string) => boolean;
 }): React.ReactElement {
   const text = String(props.text ?? "");
   // Memoized on text: an unmemoized parse gives the viewer a new object
@@ -31,7 +34,7 @@ export function ChatMessageContent(props: {
 
   return (
     <div className={cls}>
-      <Markdown text={text} />
+      <Markdown text={text} images={props.images} inlineImage={props.inlineImage} />
     </div>
   );
 }

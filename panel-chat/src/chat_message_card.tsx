@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Icon, type IconName } from "@abstractframework/ui-kit";
 
 import { ChatMessageContent } from "./message_content.js";
+import type { MarkdownImages } from "./markdown.js";
 import { copyText } from "./utils.js";
 import { ToolActivity } from "./tool_activity.js";
 import type { WorkflowStatistics, WorkflowToolActivity } from "./workflow_evidence.js";
@@ -24,8 +25,7 @@ export type ChatMessage = {
   /**
    * Present while this assistant reply is still being streamed by the model
    * (see `WorkflowSessionController`). The card shows a streaming indicator,
-   * the model's reasoning in a collapsed "Thinking" block and, when the
-   * gateway dropped the start of a long reply, an explicit line saying so.
+   * and the model's reasoning in a collapsed "Thinking" block.
    */
   live?: ChatLiveReply;
 };
@@ -35,8 +35,6 @@ export type ChatLiveReply = {
   callId: string;
   /** Reasoning text, shown collapsed and never mixed into `content`. */
   reasoning: string;
-  /** The gateway says earlier text of this reply was dropped. */
-  truncated: boolean;
   /** Who is writing, when it is not the conversation's own agent (e.g. "sub-agent · researcher"). */
   caption?: string;
 };
@@ -115,6 +113,15 @@ export type ChatMessageCardProps = {
   getSpeakState?: (message: ChatMessage) => "idle" | "loading" | "playing" | "paused";
   showCopy?: boolean;
   jsonCollapseAfterDepth?: number;
+  /**
+   * Image loading in the message's Markdown. Default: `"link"` for every
+   * message except the user's own (model- and workflow-written text cannot
+   * make the browser fetch a remote URL; only images `inlineImage` accepts,
+   * by default same-origin ones, load), `"inline"` for user messages.
+   * Ignored when `renderMarkdown` is set (the host renderer decides).
+   */
+  images?: MarkdownImages;
+  inlineImage?: (src: string) => boolean;
 };
 
 export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement {
@@ -210,7 +217,6 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         </div>
       </div>
 
-      {live?.truncated ? <div className="pc-chat-live-truncated" role="note">Earlier text was dropped by the gateway.</div> : null}
       {live?.reasoning ? (
         <details className="pc-chat-thinking">
           <summary>Thinking</summary>
@@ -220,7 +226,13 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
 
       {!live || String(m.content || "").trim() ? (
         <div className="pc-chat-body">
-          <ChatMessageContent text={String(m.content || "")} renderMarkdown={props.renderMarkdown} jsonCollapseAfterDepth={props.jsonCollapseAfterDepth} />
+          <ChatMessageContent
+            text={String(m.content || "")}
+            renderMarkdown={props.renderMarkdown}
+            jsonCollapseAfterDepth={props.jsonCollapseAfterDepth}
+            images={props.images || (role_ui.variant === "user" ? "inline" : "link")}
+            inlineImage={props.inlineImage}
+          />
         </div>
       ) : null}
 

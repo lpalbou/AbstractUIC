@@ -11,6 +11,8 @@ export type UseWorkflowSessionOptions = {
    * in/out or account switching; never pass a bearer token here. */
   authScopeKey?: string | number | null;
   toolApprovalPolicy?: WorkflowToolApprovalPolicy | null;
+  /** See `WorkflowSessionControllerOptions.liveRenderIntervalMs` (default 60 ms). */
+  liveRenderIntervalMs?: number;
 };
 
 /** React lifecycle wrapper.  The controller remains independently testable. */
@@ -18,8 +20,8 @@ export type WorkflowSessionHook = { controller: WorkflowSessionController; snaps
 
 export function useWorkflowSession(options: UseWorkflowSessionOptions): WorkflowSessionHook {
   const controller = useMemo(
-    () => new WorkflowSessionController(options.transport, { onAuthError: options.onAuthError, clientId: options.clientId }),
-    [options.transport, options.onAuthError, options.clientId, options.authScopeKey],
+    () => new WorkflowSessionController(options.transport, { onAuthError: options.onAuthError, clientId: options.clientId, ...(options.liveRenderIntervalMs !== undefined ? { liveRenderIntervalMs: options.liveRenderIntervalMs } : {}) }),
+    [options.transport, options.onAuthError, options.clientId, options.authScopeKey, options.liveRenderIntervalMs],
   );
   const snapshot = useSyncExternalStore(
     (listener) => controller.subscribe(listener),

@@ -23,15 +23,26 @@ ships.
 
 ### panel-chat 0.1.17 (unreleased)
 
+- Changed (affects every consumer): images in chat messages written by the model or a workflow
+  (assistant and system messages, final and live) no longer load from other sites.
+  `ChatMessageCard` renders their Markdown with the new `images="link"` mode: an image loads only
+  when it is same-origin (a root-relative path such as a gateway workspace content route, or an
+  absolute URL on the page's origin); every other image, including `//host/…`, shows as a link
+  "image: <alt>". The user's own messages and `Markdown` used on its own keep inline images. Opt
+  back in with `messageProps={{ images: "inline" }}` or a custom `inlineImage(src)`. New exports:
+  `sameOriginImage()`, `MarkdownImages`, `MarkdownProps`.
 - Added: live replies. When a run streams its model replies, `WorkflowSessionController` shows
   each model call as a growing assistant bubble (`live:<runId>:<callId>`) with a "streaming"
-  indicator, the model's reasoning in a collapsed "Thinking" block, a "sub-agent · <node>"
-  caption for sub-runs, and "Earlier text was dropped by the gateway." when the gateway says so.
-  The call's ledger record or the run's assistant message replaces the bubble (never two copies,
-  never recreated); a failed or cancelled call leaves a short note; a call the gateway could not
-  stream adds one note per run and cause. Each stream reconnect clears its live bubbles before the
-  gateway's snapshots. Out-of-order and duplicate frames are dropped; malformed frames show an
-  error.
+  indicator, the model's reasoning in a collapsed "Thinking" block and a "sub-agent · <node>"
+  caption for sub-runs. The call's ledger record or the run's assistant message replaces the
+  bubble (never two copies, never recreated); a failed or cancelled call leaves a short note; a
+  call the gateway could not stream adds one note per run and cause. When the root run ends in any
+  state every live bubble of the turn closes (sub-agents included), a sub-run's end closes its
+  own, and a stream the controller stops following closes the bubbles it delivered. Each stream
+  reconnect clears its live bubbles before the gateway's snapshots. Out-of-order and duplicate
+  frames are dropped; malformed frames show an error; a `truncated` field is ignored. Live text is
+  re-rendered at most every 60 ms (controller option `liveRenderIntervalMs`, also on
+  `useWorkflowSession`; 0 renders every frame).
 - Added: `WorkflowTransport.streamLedger` takes an optional sixth argument
   `onDelta(event: LlmDelta | LlmDeltaEnd)`. Host SSE readers pass the `llm.delta` and
   `llm.delta_end` frames to it, never to `onStep`, and never move the ledger cursor with them.
@@ -39,7 +50,7 @@ ships.
 - Added: `llmDeltaFromSse()`, `validateLlmDeltaEvent()`, `isLlmDeltaEnd()`,
   `describeStreamUnavailable()`, `streamRepliesRuntime()` and the `LlmDelta`, `LlmDeltaEnd`,
   `LlmDeltaEvent`, `LlmDeltaChannel`, `LlmDeltaEndReason`, `LlmStreamUnavailableDetail`,
-  `StreamRepliesMode` and `ChatLiveReply` types.
+  `StreamRepliesMode`, `ChatLiveReply` and `WorkflowSessionControllerOptions` types.
 - Added: `WorkflowChat` `streamReplies?: "gateway_default" | "on" | "off"`; hosts map it to the
   run input with `streamRepliesRuntime()` (`_runtime.stream: true` / `false` / unset).
 
