@@ -261,6 +261,43 @@ for (const reason of ["failed", "cancelled"]) {
   h.controller.dispose();
 }
 
+// A reinvoked call (stray kill; the run goes on under `<step_id>:reinvoke`):
+// neutral "reply restarted" note, first bubble dropped, the new call streams.
+{
+  const h = await loaded();
+  h.push(root, delta(1, "first attempt"));
+  h.push(root, end(2, "cancelled", { detail: "reinvoked" }));
+  let msgs = h.controller.getSnapshot().messages;
+  assert.equal(liveOf(h.controller).length, 0, "the first bubble is dropped"); ok();
+  const note = msgs.find((m) => m.id === `live-end:${root}:call-1`);
+  assert.match(note.content, /^Reply restarted/); ok();
+  assert.equal(note.level, "info"); ok();
+  assert.doesNotMatch(note.content, /stopped|cancelled/, "a restart is not a stop"); ok();
+  h.push(root, delta(1, "second attempt", { call_id: "call-1:reinvoke" }));
+  assert.deepEqual(liveOf(h.controller).map((m) => [m.id, m.content]), [[`live:${root}:call-1:reinvoke`, "second attempt"]]); ok();
+  h.push(root, delta(3, "late", { snapshot: true }));
+  assert.equal(liveOf(h.controller).length, 1, "the first call never comes back"); ok();
+  h.controller.dispose();
+}
+{
+  // The call's cancelled record removed the bubble first: the note still appears, once.
+  const h = await loaded();
+  h.push(root, delta(1, "first attempt"));
+  h.step(root, llmCall(1, "cancelled"));
+  assert.equal(liveOf(h.controller).length, 0); ok();
+  h.push(root, end(2, "cancelled", { detail: "reinvoked" }));
+  h.push(root, end(2, "cancelled", { detail: "reinvoked" }));
+  assert.equal(h.controller.getSnapshot().messages.filter((m) => /^Reply restarted/.test(m.content)).length, 1); ok();
+  // A reinvoked end for a call that never showed text adds nothing.
+  h.push(root, end(0, "cancelled", { call_id: "silent", detail: "reinvoked" }));
+  assert.equal(h.controller.getSnapshot().messages.filter((m) => /^Reply restarted/.test(m.content)).length, 1); ok();
+  // Other cancelled ends are unchanged.
+  h.push(root, delta(1, "x", { call_id: "call-2" }));
+  h.push(root, end(2, "cancelled", { call_id: "call-2" }));
+  assert.match(h.controller.getSnapshot().messages.find((m) => m.id === `live-end:${root}:call-2`).content, /was cancelled/); ok();
+  h.controller.dispose();
+}
+
 // (S-2 b) Never recreate a bubble for a call whose record or reply is here.
 {
   const h = await loaded();

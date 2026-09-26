@@ -283,6 +283,8 @@ export class WorkflowSessionController {
   /** Calls whose live reply has ended (delta_end, terminal llm_call record,
    * or the run's assistant message): later deltas for them are ignored. */
   private closedLiveCalls = new Set<string>();
+  /** Calls that showed a live bubble (pruned with `closedLiveCalls`). */
+  private shownLiveCalls = new Set<string>();
   private liveDirty = new Set<string>();
   private liveRenderTimer: ReturnType<typeof setTimeout> | null = null;
   private lastLiveRender = -Infinity;
@@ -308,7 +310,7 @@ export class WorkflowSessionController {
     this.controller = null;
     this.rootRunId = ""; this.cursors.clear(); this.seenRecords.clear(); this.seenMessages.clear(); this.watchedRuns.clear(); this.childCatchUpAttempts.clear(); this.runStates.clear(); this.historicalRuns.clear(); this.historicalRunFailures.clear(); this.commandIds.clear();
     this.toolActivities.clear(); this.historicalEvidence.clear(); this.approvedWaits.clear(); this.grantedToolWaits.clear();
-    this.liveReplies.clear(); this.closedLiveCalls.clear(); this.liveDirty.clear(); this.lastLiveRender = -Infinity;
+    this.liveReplies.clear(); this.closedLiveCalls.clear(); this.shownLiveCalls.clear(); this.liveDirty.clear(); this.lastLiveRender = -Infinity;
     if (this.liveRenderTimer) { clearTimeout(this.liveRenderTimer); this.liveRenderTimer = null; }
     this.set({ ...EMPTY });
   }
@@ -989,6 +991,9 @@ export class WorkflowSessionController {
     const key = `${event.run_id}:${event.call_id}`;
     if (isLlmDeltaEnd(event)) {
       if (event.reason === "unavailable") { this.noteStreamUnavailable(event); return; }
+      // A stray kill made the runtime run the call again under a new call id
+      // (`<step_id>:reinvoke`): the run goes on, so this is not a stop.
+      if (event.reason === "cancelled" && event.detail === "reinvoked") { this.closeLiveReply(key, "restarted"); return; }
       this.closeLiveReply(key, event.reason === "completed" ? undefined : event.reason);
       return;
     }
@@ -1032,6 +1037,7 @@ export class WorkflowSessionController {
       const message = this.liveMessage(reply);
       const index = messages.findIndex((item) => item.id === message.id);
       if (index < 0) messages.push(message); else messages[index] = message;
+      this.shownLiveCalls.add(key);
     }
     this.liveDirty.clear();
     this.set({ ...this.snapshot, messages });
@@ -1047,22 +1053,36 @@ export class WorkflowSessionController {
 
   /** End a live reply: remove its bubble, or replace it with a short note
    * when the stream ended because the call failed or was cancelled. */
-  private closeLiveReply(key: string, reason?: "failed" | "cancelled"): void {
+  private closeLiveReply(key: string, reason?: "failed" | "cancelled" | "restarted"): void {
     this.closedLiveCalls.add(key);
     const reply = this.liveReplies.get(key);
-    if (!reply) return;
+    if (!reply) {
+      // The call's durable record may already have removed the bubble; the
+      // user saw text vanish, so a restart still gets its note.
+      if (reason === "restarted" && this.shownLiveCalls.has(key)) this.addMessage(this.restartNote(key));
+      return;
+    }
     this.liveReplies.delete(key);
     this.liveDirty.delete(key);
     const id = `live:${reply.runId}:${reply.callId}`;
     const index = this.snapshot.messages.findIndex((item) => item.id === id);
     if (index < 0) return;
     const messages = [...this.snapshot.messages];
-    if (reason) {
+    if (reason === "restarted") {
+      const note = this.restartNote(key);
+      this.seenMessages.add(String(note.id));
+      messages[index] = note;
+    } else if (reason) {
       const noteId = `live-end:${reply.runId}:${reply.callId}`;
       this.seenMessages.add(noteId);
       messages[index] = { id: noteId, role: "system", level: "warn", title: "Reply", runId: reply.runId, content: reason === "failed" ? "The reply stopped because the model call failed." : "The reply stopped because the model call was cancelled." };
     } else messages.splice(index, 1);
     this.set({ ...this.snapshot, messages });
+  }
+
+  private restartNote(key: string): ChatMessage {
+    const runId = key.slice(0, key.indexOf(":"));
+    return { id: `live-end:${key}`, role: "system", level: "info", title: "Reply", runId, content: "Reply restarted: the model call was interrupted and is running again." };
   }
 
   /** A call ran without streaming: one note per run and cause, never a bubble. */
@@ -1091,11 +1111,12 @@ export class WorkflowSessionController {
     const reason = status === "failed" || status === "cancelled" ? status : undefined;
     if (runId === this.rootRunId) {
       for (const reply of [...this.liveReplies.values()]) this.closeLiveReply(`${reply.runId}:${reply.callId}`, reason);
-      this.closedLiveCalls.clear();
+      this.closedLiveCalls.clear(); this.shownLiveCalls.clear();
       return;
     }
     this.closeLiveRepliesVia(runId, reason);
     for (const key of [...this.closedLiveCalls]) if (key.startsWith(`${runId}:`)) this.closedLiveCalls.delete(key);
+    for (const key of [...this.shownLiveCalls]) if (key.startsWith(`${runId}:`)) this.shownLiveCalls.delete(key);
   }
 
   /** Forget (without closing) the live replies a stream delivered; its

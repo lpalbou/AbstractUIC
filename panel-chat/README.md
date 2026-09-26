@@ -137,6 +137,10 @@ the whole text so far) and `llm.delta_end` (the model call ended). They carry no
 - The bubble goes away when the call's ledger record or the run's assistant
   message arrives, so a reply is never shown twice, and it never comes back for
   that call. A call that failed or was cancelled leaves a short note instead.
+  A call the runtime had to run again (`llm.delta_end` with `reason:
+  "cancelled"`, `detail: "reinvoked"`) is not a stop: its bubble is replaced by
+  "Reply restarted: the model call was interrupted and is running again.", and
+  the new call (`<step_id>:reinvoke`) streams in its own bubble.
   When the root run ends in any state (even with no output and no
   `llm.delta_end`), every live bubble of the turn closes, sub-agents included;
   when a sub-run ends, its bubbles close. When the controller stops following

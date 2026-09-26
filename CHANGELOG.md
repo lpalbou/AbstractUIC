@@ -36,6 +36,8 @@ ships.
   indicator, the model's reasoning in a collapsed "Thinking" block and a "sub-agent · <node>"
   caption for sub-runs. The call's ledger record or the run's assistant message replaces the
   bubble (never two copies, never recreated); a failed or cancelled call leaves a short note; a
+  call the runtime ran again (`reason: "cancelled"`, `detail: "reinvoked"`) leaves a neutral
+  "Reply restarted" note and its new call streams in a new bubble; a
   call the gateway could not stream adds one note per run and cause. When the root run ends in any
   state every live bubble of the turn closes (sub-agents included), a sub-run's end closes its
   own, and a stream the controller stops following closes the bubbles it delivered. Each stream
