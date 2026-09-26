@@ -84,7 +84,8 @@ Purpose: chat-thread UI primitives with lightweight Markdown/JSON rendering.
 Components:
 - `AssistantPanel` (docs Q&A surface with an injected `ask(question, { signal, history })` transport returning a Promise or an AsyncIterable of deltas; never fetches)
 - `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions; `streamReplies?: "gateway_default" | "on" | "off"`); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
-- Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry); controller option `liveRenderIntervalMs` (default 60). See [panel-chat README](../panel-chat/README.md#live-replies-streaming)
+- Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry), the event-name constants `LLM_DELTA_EVENT` / `LLM_DELTA_END_EVENT`; types `LlmDelta`, `LlmDeltaEnd`, `LlmDeltaEvent`, `LlmDeltaChannel`, `LlmDeltaEndReason`, `LlmStreamUnavailableDetail`, `StreamRepliesMode`; controller option `liveRenderIntervalMs` (default 60, also on `useWorkflowSession`). See [panel-chat README](../panel-chat/README.md#live-replies-streaming)
+- File drop and paste: `WorkflowChat`'s `onFiles(files)` turns on the drop zone and paste-to-attach (folders are refused with a visible message); the pure helpers behind it are exported too: `dragCarriesFiles()`, `draggedFileCount()`, `dropZoneLabel()`, `droppedFiles()`, `folderRefusal()`, `pastedFileName()`, `pastedFiles()`, `DragPresence` (see `panel-chat/src/file_drop.ts`)
 - `ToolActivity`, `ToolActivityGroup` (tool-call rendering), `StatDetailPanel` + `statDetail()` (token/time/tool statistics)
 - `ChatThread` (thread container; renders a list of messages)
 - `ChatMessageCard` (single message rendering; `message.title` names the speaker — assistants
@@ -95,12 +96,12 @@ Components:
 Renderers:
 - `Markdown` (lightweight Markdown with real nested lists, marker progression, fenced code
   blocks incl. inside lists; `images?: "inline" | "link"` + `inlineImage?(src)`, default rule
-  `sameOriginImage()`; see `panel-chat/src/markdown.tsx`). `ChatMessageCard` uses `images="link"`
+  `sameOriginImage()` (exported); types `MarkdownProps`, `MarkdownImages`; see `panel-chat/src/markdown.tsx`). `ChatMessageCard` uses `images="link"`
   for every message except the user's own.
 - `JsonViewer` (collapsible tree; honors `collapseAfterDepth`; auto-parses JSON strings)
 
 Types:
-- `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`; optional `live: ChatLiveReply` marks a reply still being streamed), `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
+- `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`; optional `live: ChatLiveReply` (`callId`, `reasoning`, `caption?`) marks a reply still being streamed), `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
 
 Utilities:
 - `tryParseJson()` (drives JSON autodetection in `ChatMessageContent`)
@@ -124,9 +125,17 @@ connection surface — pairs with `GatewayConnectModal`/`useGatewayConnection`).
   credential-bearing headers in both directions. Tokens never rest in the browser. Every call
   to the Gateway carries `X-Forwarded-For` set to the browser connection's socket address
   (client-supplied forwarding headers are replaced, never passed through) and
-  `X-AbstractFramework-App-Proxy: <appId>` (a client-supplied value is dropped).
-- Tests: `node --test app-server/test/gateway_session_proxy.test.mjs` (dependency-free; includes
-  a stub gateway).
+  `X-AbstractFramework-App-Proxy: <appId>` (a client-supplied value is dropped). A connection
+  whose socket address cannot be determined gets `400`.
+- Options (`GatewaySessionProxyOptions`): `appId` (required, `[a-z0-9-]+`; names the cookies and
+  the `x-<appId>-csrf` header), `defaultGatewayUrl` (else `ABSTRACTGATEWAY_URL`, else
+  `http://127.0.0.1:8080`), `connectionPath` (default `/api/connection/gateway`), `proxyPrefix`
+  (default `/api/`), `gatewayTimeoutMs` (default 4000), and `allowRemoteConfigEnvVars` /
+  `allowUrlCookieEnvVars` / `trustProxyEnvVars` (extra environment variable names honored beside
+  the built-in `ABSTRACTGATEWAY_*` and `<APPID>_*` ones). See
+  [`app-server/README.md`](../app-server/README.md#options).
+- Tests: `npm --workspace app-server test` (dependency-free; runs
+  `app-server/test/gateway_session_proxy.test.mjs` against a stub gateway).
 
 See: [Adoption guide](./adoption-guide.md) for the full connection-surface contract.
 

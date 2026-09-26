@@ -20,13 +20,21 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
 
 - Components: `ChatThread`, `ChatComposer`, `ChatMessageCard`, `ChatMessageContent`
 - App assistant: `AssistantPanel` (injected `ask` transport; see below)
-- Controlled workflow surface: `WorkflowChat` and the `WorkflowInteraction` union
-- Transport-injected runtime: `WorkflowSessionController`, `useWorkflowSession`, and `WorkflowTransport`
-- Renderers: `Markdown`, `JsonViewer`
+- Controlled workflow surface: `WorkflowChat`, `WorkflowInteractionPanel` and the `WorkflowInteraction` union
+- Transport-injected runtime: `WorkflowSessionController`, `useWorkflowSession`, `WorkflowTransport`,
+  `workflowPendingInteraction`, `resolveWorkflowEventTarget`
+- Live replies: `llmDeltaFromSse`, `validateLlmDeltaEvent`, `isLlmDeltaEnd`,
+  `describeStreamUnavailable`, `streamRepliesRuntime`, `LLM_DELTA_EVENT`, `LLM_DELTA_END_EVENT`
+  (see [Live replies](#live-replies-streaming))
+- File drop and paste: `onFiles` on `WorkflowChat`; helpers `droppedFiles`, `pastedFiles`,
+  `folderRefusal`, `dragCarriesFiles`, `draggedFileCount`, `dropZoneLabel`, `pastedFileName`,
+  `DragPresence`
+- Renderers: `Markdown` (with `sameOriginImage` as the default image rule for `images="link"`), `JsonViewer`
 - Tool and run evidence: `ToolActivity`, `ToolActivityGroup`, `toolArguments`, `toolPreview`,
   `workflowProgress`, `workflowEvidence`, `foldWorkflowTools`, `historyRecords`,
   `statDetail`, `StatDetailPanel`
-- Types: `ChatMessage`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat`
+- Types: `ChatMessage`, `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat`,
+  `LlmDelta`, `LlmDeltaEnd`, `StreamRepliesMode`, `WorkflowSessionSnapshot`
 - Utils: `chatToMarkdown`, `copyText`, `downloadTextFile`, `tryParseJson`
 
 ## Usage (typical)
@@ -65,7 +73,10 @@ their own gateway/workflow protocol. Supply `messages`, `draft`,
 `onDraftChange`, and async `onSend`; the component retains the draft when a
 send fails and presents an actionable retry. `busy` and `onCancel` add a stop
 control. `disabled` gives observers a read-only transcript without hiding a
-pending interaction.
+pending interaction. `onFiles(files)` turns on dropping files on the chat and
+pasting them into the message field; folders are refused with a visible
+message, and upload, size policy and attachment chips (`attachments`) stay with
+the host.
 
 Use `interaction` for a pending `WorkflowInteraction`: `ask-user` supports
 choices and optional free text, `tool-approval` provides approve/deny actions,

@@ -15,6 +15,9 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 - [How do I theme the UI?](#how-do-i-theme-the-ui)
 - [panel-chat: How do I plug in my own Markdown renderer?](#panel-chat-how-do-i-plug-in-my-own-markdown-renderer)
 - [panel-chat: How is JSON detected?](#panel-chat-how-is-json-detected)
+- [panel-chat: How do I show replies while the model writes them?](#panel-chat-how-do-i-show-replies-while-the-model-writes-them)
+- [panel-chat: Why do images in assistant messages show as links?](#panel-chat-why-do-images-in-assistant-messages-show-as-links)
+- [ui-kit: How do I add the About dialog?](#ui-kit-how-do-i-add-the-about-dialog)
 - [monitor-flow: What trace format does AgentCyclesPanel expect?](#monitor-flow-what-trace-format-does-agentcyclespanel-expect)
 - [monitor-active-memory: How does querying work?](#monitor-active-memory-how-does-querying-work)
 - [monitor-active-memory: Does it persist layouts?](#monitor-active-memory-does-it-persist-layouts)
@@ -129,6 +132,36 @@ Source of truth: `panel-chat/src/message_content.tsx` (`renderMarkdown?: (markdo
 
 Source of truth: `panel-chat/src/message_content.tsx` and `panel-chat/src/utils.ts`.
 
+## panel-chat: How do I show replies while the model writes them?
+
+Pass the Gateway's `llm.delta` / `llm.delta_end` frames to the `onDelta` argument of your
+transport's `streamLedger`, and put the user's choice in the start-run input with
+`streamRepliesRuntime(mode)` (`_runtime.stream`). `WorkflowSessionController` then shows a live
+bubble per model call and replaces it with the final message. A transport without `onDelta`
+still works; replies appear when complete.
+
+See: [panel-chat live replies](../panel-chat/README.md#live-replies-streaming) and
+[Architecture: Live replies](./architecture.md#live-replies-panel-chat).
+
+## panel-chat: Why do images in assistant messages show as links?
+
+`ChatMessageCard` renders assistant and system messages with `images="link"`: an image loads only
+when `inlineImage(src)` accepts it, by default `sameOriginImage` (a root-relative path or a URL
+on the page's own origin). Other images show as a link "image: <alt>", so model-written text
+cannot make the browser fetch a remote URL. To change it, pass `images: "inline"` or your own
+`inlineImage` through `messageProps`.
+
+Source of truth: `panel-chat/src/markdown.tsx` and `panel-chat/src/chat_message_card.tsx`.
+
+## ui-kit: How do I add the About dialog?
+
+Pass `about={{ identity: appIdentity("<app id>", APP_VERSION), extraRows, onOpen }}` to
+`AfTopBarActions`. Build `extraRows` for the connected Gateway with `gatewayVersionRows(body)`
+from `GET /api/gateway/about`, or `gatewayVersionRows(null, reason)` when the request fails.
+`knownAppIds()` lists the accepted ids.
+
+See: [`ui-kit/README.md`](../ui-kit/README.md#about-dialog-and-identity).
+
 ## monitor-flow: What trace format does AgentCyclesPanel expect?
 
 `AgentCyclesPanel` consumes `TraceItem[]` and starts a new cycle when `step.effect.type === "llm_call"`.
@@ -174,7 +207,7 @@ Source of truth: `monitor-gpu/src/gpu_metrics_api.js` (`buildAuthHeaders`) and `
 
 Yes, in two ways:
 
-- **Console islands**: build `ui-kit/islands/dist/af-console-islands.js` from a repository checkout and load it with a `<script>` tag; `window.AfConsoleIslands` mounts the real top bar and appearance dialog with a prop-driven API. It is not part of the npm package. See [Console islands](./console-islands.md).
+- **Console islands**: build `ui-kit/islands/dist/af-console-islands.js` from a repository checkout and load it with a `<script>` tag; `window.AfConsoleIslands` mounts the real top bar, appearance dialog and About dialog with a prop-driven API. It is not part of the npm package. See [Console islands](./console-islands.md).
 - **CSS only**: the `.af-topbar-*` and `.af-drawer-*` classes in `theme.css` are stable public API for server-rendered HTML (see [`ui-kit/README.md`](../ui-kit/README.md#css-public-api-non-react-consumers)).
 
 ## Where are the tests?
@@ -185,7 +218,7 @@ Each workspace ships its own test rig; run them all from the repo root:
 npm test
 ```
 
-Or a single package's, e.g. `cd monitor-gpu && npm test` (see `monitor-gpu/test/`, `monitor-memory/test/`).
+Or a single package's, e.g. `npm --workspace monitor-gpu test` (see `monitor-gpu/test/`, `monitor-memory/test/`, `app-server/test/` and the `scripts/check_*.mjs` checks in `ui-kit/` and `panel-chat/`).
 
 ## Is this published to npm?
 

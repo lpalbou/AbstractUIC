@@ -47,6 +47,9 @@ flowchart LR
     CONSOLE["console page"]
   end
 
+  IDDESC["AbstractFramework identity descriptor<br/>(AbstractFramework repo: identity/abstractframework.json)"]
+  IDDESC -->|"byte-identical copy<br/>ui-kit/src/abstractframework_identity.json"| UIKIT
+
   UIKIT --> FLOWAPP & CODE & CONT & ENT & OBS
   CHAT --> CODE & CONT & ENT & OBS
   MON --> FLOWAPP & CODE & OBS
@@ -55,7 +58,8 @@ flowchart LR
   ISL -->|"window.AfConsoleIslands (vendored copy)"| CONSOLE
 ```
 
-Monitor usage per app: AbstractFlow uses all four monitors; AbstractCode web uses
+Every app renders its About dialog from the kit (`AfTopBarActions` `about` prop, or
+`mountAbout` / the `about` prop of `mountTopBar` in the console). Monitor usage per app: AbstractFlow uses all four monitors; AbstractCode web uses
 `monitor-flow` and `monitor-gpu`; AbstractObserver uses `monitor-flow`, `monitor-active-memory`
 and `monitor-gpu`.
 
@@ -73,7 +77,7 @@ flowchart LR
     MEM["@abstractframework/monitor-memory"]
   end
 
-  CHAT -->|"imports Icon"| UIKIT
+  CHAT -->|"peer dep (imports Icon)"| UIKIT
   AMX -->|"peer dep"| ReactFlow["reactflow (peer dependency)"]
   FLOW -->|"peer dep"| React["react / react-dom (peer dependency)"]
   CHAT -->|"peer dep"| React
@@ -83,7 +87,7 @@ flowchart LR
 ```
 
 Evidence:
-- `panel-chat/src/chat_message_card.tsx` imports `Icon` from `@abstractframework/ui-kit`.
+- `panel-chat/src/chat_message_card.tsx` imports `Icon` from `@abstractframework/ui-kit`, declared as a peer dependency in `panel-chat/package.json`.
 - `monitor-active-memory/package.json` declares `reactflow` (and `react` / `react-dom`) as peer dependencies.
 
 ## Runtime data flow
@@ -132,8 +136,10 @@ Evidence:
 
 ### Chat (`panel-chat`)
 
-- `ChatMessage`, `ChatAttachment`, `ChatStat`: `panel-chat/src/chat_message_card.tsx`
+- `ChatMessage`, `ChatAttachment`, `ChatStat`, `ChatLiveReply`: `panel-chat/src/chat_message_card.tsx`
 - `ChatThread` / `ChatComposer`: `panel-chat/src/chat_thread.tsx`, `panel-chat/src/chat_composer.tsx`
+- `WorkflowTransport` / `WorkflowSessionController`: `panel-chat/src/workflow_runtime.ts`
+- Live-reply events (`LlmDelta`, `LlmDeltaEnd`) and `streamRepliesRuntime`: `panel-chat/src/llm_delta.ts`
 
 ### GPU metrics (`monitor-gpu`)
 
@@ -176,28 +182,96 @@ sequenceDiagram
   A-->>B: Set-Cookie (HttpOnly session + CSRF) — token discarded
   Note over B: sign-in success → modal self-closes
   B->>A: /api/gateway/* (cookies + x-abstract-csrf)
-  A->>G: proxied with server-held session
+  A->>G: proxied with server-held session<br/>X-Forwarded-For: socket peer, X-AbstractFramework-App-Proxy: appId
 ```
+
+- Every request the proxy sends to the Gateway (the status probe, sign-in, sign-out and proxied
+  `/api/*` calls) carries `X-Forwarded-For` set to the browser connection's socket address and
+  `X-AbstractFramework-App-Proxy: <appId>`. Client-supplied forwarding headers and markers are
+  replaced or dropped, never passed through, so the Gateway can tell whether the browser runs on
+  its own machine. A connection whose socket address is unknown is refused with `400`.
 
 - Contract details (auto-open rules, blocking vs dismissable, probe-once): see the
   [Adoption guide](./adoption-guide.md) and `ui-kit/README.md`.
 - Evidence: `app-server/src/gateway_session_proxy.js`, `ui-kit/src/use_gateway_connection.ts`,
   `ui-kit/src/gateway_connect_modal.tsx`.
 
-## Console islands (`ui-kit`)
+## Live replies (`panel-chat`)
 
-The console islands expose the kit's `AfTopBarActions` and `AfAppearanceDialog` to a page that
-is not a React app, through a prop-driven global API.
+When a run streams its model replies, the Gateway adds `llm.delta` and `llm.delta_end` events to
+the run's ledger stream. The host transport hands them to `WorkflowSessionController`, which
+shows one growing assistant bubble per model call until the durable ledger record replaces it.
+
+```mermaid
+sequenceDiagram
+  participant H as Host app (start-run input)
+  participant G as AbstractGateway (run ledger SSE)
+  participant T as Host WorkflowTransport.streamLedger
+  participant C as WorkflowSessionController
+  participant V as ChatThread / WorkflowChat
+
+  H->>G: POST /runs/start { input_data: { _runtime: streamRepliesRuntime(mode) } }
+  G-->>T: ledger records (id: cursor)
+  T->>C: onStep(record) (moves the cursor)
+  G-->>T: llm.delta / llm.delta_end (no id:)
+  T->>C: onDelta(event) (never moves the cursor)
+  C->>V: one live bubble per model call (ChatMessage.live)
+  G-->>T: llm_call ledger record or final answer
+  T->>C: onStep(record)
+  C->>V: live bubble removed, final message shown once
+```
+
+- `streamReplies` on `WorkflowChat` holds the host's "Stream replies" choice; the host maps it
+  to `_runtime.stream` with `streamRepliesRuntime(mode)` (`"gateway_default"` leaves the key
+  unset so the Gateway setting decides).
+- A transport that does not pass `onDelta` keeps working: each reply appears when it is
+  complete.
+- Rules for bubbles (reconnect, sub-runs, failed or unavailable calls, render interval): see
+  [`panel-chat/README.md`](../panel-chat/README.md#live-replies-streaming).
+
+## About dialog and identity (`ui-kit`)
+
+Every AbstractFramework app shows the same About facts. They come from one descriptor that the
+kit ships as `ui-kit/src/abstractframework_identity.json`, a byte-identical copy of the
+AbstractFramework repository's `identity/abstractframework.json`. The kit never fetches: the app
+fetches the connected Gateway's versions and formats them with `gatewayVersionRows`.
 
 ```mermaid
 flowchart LR
-  SRC["ui-kit/src/*<br/>AfTopBarActions, AfAppearanceDialog,<br/>theme.ts, typography.ts"]
+  DESC["abstractframework_identity.json<br/>(vendored descriptor)"]
+  ID["appIdentity(id, version)<br/>frameworkIdentity() / knownAppIds()"]
+  ROWS["aboutRows(identity, extra)"]
+  GWROWS["gatewayVersionRows(payload | null, error?)"]
+  ABOUTAPI["GET /api/gateway/about<br/>(fetched by the app)"]
+  DLG["AfAboutDialog<br/>(focus trap, links, Contact mailto)"]
+  TOP["AfTopBarActions about={...}"]
+  ISL["console islands<br/>mountAbout / mountTopBar about"]
+
+  DESC --> ID --> ROWS --> DLG
+  ABOUTAPI --> GWROWS -->|"extraRows"| DLG
+  TOP --> DLG
+  ISL --> DLG
+```
+
+- The rows match the Python twins in AbstractCore (`abstractcore.utils.identity.about_fields`
+  and `gateway_version_rows`); the shared fixture
+  `ui-kit/scripts/fixtures/gateway_version_rows.json` pins both sides.
+- Details and examples: [`ui-kit/README.md`](../ui-kit/README.md#about-dialog-and-identity).
+
+## Console islands (`ui-kit`)
+
+The console islands expose the kit's `AfTopBarActions`, `AfAppearanceDialog` and
+`AfAboutDialog` to a page that is not a React app, through a prop-driven global API.
+
+```mermaid
+flowchart LR
+  SRC["ui-kit/src/*<br/>AfTopBarActions, AfAppearanceDialog, AfAboutDialog,<br/>identity.ts, theme.ts, typography.ts"]
   ENTRY["ui-kit/islands/console_islands.tsx"]
   BUILD["scripts/build_islands.mjs<br/>(esbuild, IIFE, React bundled)"]
   OUT["islands/dist/af-console-islands.js"]
   CHECK["scripts/check_islands.mjs<br/>(npm test)"]
   PAGE["Host page<br/>script tag + theme.css"]
-  API["window.AfConsoleIslands<br/>mountTopBar / mountAppearance / applyAppearance"]
+  API["window.AfConsoleIslands<br/>mountTopBar / mountAppearance / mountAbout<br/>appIdentity / applyAppearance"]
 
   SRC --> ENTRY --> BUILD --> OUT
   OUT --> CHECK

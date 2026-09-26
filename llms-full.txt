@@ -54,17 +54,17 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Adoption guide](docs/adoption-guide.md): which shared component for which job + the cross-app contracts (connection surface, server truth, labeled fallbacks)
 - [Theming](docs/theming.md): design-token vocabulary, 21-theme system, adoption/migration rules for host apps
 - [API reference](docs/api.md): export map per package (what to import)
-- [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, console islands build, ecosystem data flow, gateway connection flow)
+- [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, ecosystem data flow, gateway connection flow, live replies, About/identity flow, console islands build)
 - [FAQ](docs/faq.md): bundling/CSS/SSR and per-package notes
-- [Troubleshooting](docs/troubleshooting.md): symptoms, checks and fixes (unstyled components, SSR errors, widget polling, app-server 401/403, stale islands bundle)
+- [Troubleshooting](docs/troubleshooting.md): symptoms, checks and fixes (unstyled components, SSR errors, widget polling, app-server 400/401/403, live replies, images shown as links, stale islands bundle)
 - [Console islands](docs/console-islands.md): `window.AfConsoleIslands` (mountTopBar / mountAppearance / mountAbout / appIdentity / applyAppearance) for pages that are not React apps; repository build, not in the npm package
 - [Docs index](docs/README.md): full docs navigation
 
 ## Packages
 
 - [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / appearance dialog, About dialog + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk)
-- [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat
-- [@abstractframework/app-server](app-server/README.md): Node gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning; no runtime deps)
+- [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat, live replies (`llm.delta`)
+- [@abstractframework/app-server](app-server/README.md): Node gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
 - [@abstractframework/monitor-gpu](monitor-gpu/README.md): GPU widget (`<monitor-gpu>`) + backend contract
@@ -79,6 +79,8 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [monitor-active-memory/package.json](monitor-active-memory/package.json): published metadata (`exports`, peer deps)
 - [monitor-gpu/package.json](monitor-gpu/package.json): published metadata (`exports`)
 - [ui-kit/src/index.ts](ui-kit/src/index.ts): exports for `@abstractframework/ui-kit`
+- [ui-kit/src/identity.ts](ui-kit/src/identity.ts): identity helpers (`appIdentity`, `aboutRows`, `gatewayVersionRows`)
+- [ui-kit/src/about.tsx](ui-kit/src/about.tsx): `AfAboutDialog`
 - [ui-kit/src/gateway_session_signin.tsx](ui-kit/src/gateway_session_signin.tsx): shared Gateway browser-session sign-in card
 - [ui-kit/src/use_gateway_connection.ts](ui-kit/src/use_gateway_connection.ts): the connection state machine hook (probe/auto-open/self-close contract)
 - [ui-kit/islands/console_islands.tsx](ui-kit/islands/console_islands.tsx): console islands entry and `AfConsoleIslands` API
@@ -110,7 +112,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 ## Optional
 
 - [Publishing (maintainers)](docs/publishing.md): Release checklist and npm publish notes
-- [Development](docs/development.md): Local workflow and tests
+- [Development](docs/development.md): Local workflow, tests and contracts shared with other repositories
 - [Contributing](CONTRIBUTING.md): contribution workflow and expectations
 - [Code of conduct](CODE_OF_CONDUCT.md): expected behavior and reporting
 - [Security policy](SECURITY.md): responsible vulnerability reporting
@@ -159,9 +161,9 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 
 | Package | Purpose | Docs |
 |---|---|---|
-| `@abstractframework/ui-kit` | Theme tokens (21 themes), inputs (`AfSelect`, provider/model pickers), Gateway connect modal + connection hook, top bar / drawer / appearance dialog, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk); console islands for non-React pages (repository build) | [`ui-kit/README.md`](./ui-kit/README.md) |
-| `@abstractframework/panel-chat` | Chat thread + message cards + composer + markdown/json rendering, app assistant panel, workflow chat | [`panel-chat/README.md`](./panel-chat/README.md) |
-| `@abstractframework/app-server` | Node gateway-session proxy for app servers (token → HttpOnly cookie exchange, CSRF, URL pinning) | [`app-server/README.md`](./app-server/README.md) |
+| `@abstractframework/ui-kit` | Theme tokens (21 themes), inputs (`AfSelect`, provider/model pickers), Gateway connect modal + connection hook, top bar / drawer / appearance dialog, About dialog + AbstractFramework identity helpers, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk); console islands for non-React pages (repository build) | [`ui-kit/README.md`](./ui-kit/README.md) |
+| `@abstractframework/panel-chat` | Chat thread + message cards + composer + markdown/json rendering, app assistant panel, workflow chat with live (streamed) replies | [`panel-chat/README.md`](./panel-chat/README.md) |
+| `@abstractframework/app-server` | Node gateway-session proxy for app servers (token → HttpOnly cookie exchange, CSRF, URL pinning, forwarded client address) | [`app-server/README.md`](./app-server/README.md) |
 | `@abstractframework/monitor-flow` | Agent-cycle trace viewer + ledger adapter | [`monitor-flow/README.md`](./monitor-flow/README.md) |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | [`monitor-active-memory/README.md`](./monitor-active-memory/README.md) |
 | `@abstractframework/monitor-gpu` | GPU utilization widget (`<monitor-gpu>`) polling a metrics endpoint | [`monitor-gpu/README.md`](./monitor-gpu/README.md) |
@@ -445,6 +447,7 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Server-side session proxy | `@abstractframework/app-server` (`createGatewaySessionProxy`) | Token→HttpOnly-cookie exchange, CSRF, URL pinning; tokens never rest client-side |
 | Searchable select / combobox | `AfSelect` | Keyboard nav + ARIA built in; `variant="panel"` for forms |
 | Provider + model pickers | `ProviderModelPicker` (mode toggle + cascade) or `ProviderModelSelect` (plain pair) | Picker's "Gateway default" mode is the default; transports injected (`fetchProviders`/`fetchModels`) |
+| App top bar + About | `AfTopBarActions` with `about={{ identity: appIdentity(id, version), extraRows, onOpen }}` (or `AfAboutDialog` directly) | Identity facts come from the kit's descriptor; format the connected Gateway's versions with `gatewayVersionRows` — never hand-write About rows |
 | Theme/typography pickers | `ThemeSelect`, `FontScaleSelect`, `HeaderDensitySelect` | Persisted user settings; see [Theming](./theming.md) |
 | Tool allowlist + approval editor | `ToolPolicyEditor` | Server-declared `default_approval` wins; `TOOL_POLICY_DEFAULTS` is the labeled fallback |
 | Phase × capability grid | `PhaseCapabilityMatrix` (+ framework-free core) | Payload-driven: render the server's `MatrixPayload`, never re-derive policy client-side |
@@ -454,6 +457,7 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Badges / chips / toggles | `AfChip`, `AfChipButton` | Tone variants with AA-derived colors; custom hues via `var(--token)` |
 | Icons | `Icon` | ~40 glyphs, 24-grid and 16-grid families |
 | Chat UI (thread, cards, composer) | `@abstractframework/panel-chat` | Markdown with real nested lists; JSON auto-detect; `message.title` names the speaker |
+| Live (streamed) replies | `WorkflowSessionController` / `useWorkflowSession` + a transport whose `streamLedger` passes `onDelta`; `WorkflowChat` `streamReplies` + `streamRepliesRuntime()` | Deltas never move the ledger cursor; the ledger record replaces the live bubble. See [panel-chat live replies](../panel-chat/README.md#live-replies-streaming) |
 | App assistant (docs Q&A drawer) | `AssistantPanel` (panel-chat) in `AfDrawer` via `AfTopBarActions` | Transport injected. THE shared transport (docs-qa@0.1.0, tenant_catalog): `POST /runs/start {registry_scope:"tenant_catalog", bundle_id:"docs-qa", bundle_version:"0.1.0", flow_id:"docsqa001", input_data:{question, history, docs:<llms.txt text>, app}}`, answer on `output.response` — grounded on YOUR docs only, cites sections, says honestly when docs don't answer. `import docs from "./llms.txt?raw"` remains the recommended docs source (build-time, versioned) |
 | Markdown / JSON rendering | `Markdown`, `JsonViewer` (panel-chat) | Also exported standalone |
 | TTS playback + push-to-talk | `useGatewayVoice` (+ `streamTtsJsonl`) | Injected `tts`/`tts_stream`/`transcribe` functions; streaming with pause/resume |
@@ -487,6 +491,17 @@ These rules keep app behavior consistent across the framework.
   peer passes regardless of its Host header. Behind a trusted reverse proxy, remote
   configuration requires the explicit opt-in (`ABSTRACTGATEWAY_ALLOW_REMOTE_BROWSER_GATEWAY_CONFIG`
   or the app-prefixed variant). Tests of this gate should assert on the socket peer.
+- **The Gateway sees the real browser address**: the app-server proxy sets `X-Forwarded-For` to
+  the browser connection's socket address and adds `X-AbstractFramework-App-Proxy: <appId>` on
+  every Gateway-bound request; client-supplied values are replaced or dropped. An app that runs
+  its own proxy follows the same rules.
+
+### About dialog
+
+- Every app shows the same About facts through the kit: `appIdentity(id, version)` with the
+  app's real version (an unknown id throws), plus `gatewayVersionRows(payload | null, error?)`
+  for the connected Gateway (fetched from `GET /api/gateway/about` when the dialog opens).
+- See [`ui-kit/README.md`](../ui-kit/README.md#about-dialog-and-identity).
 
 ### Server truth renders, clients never re-derive
 
@@ -523,7 +538,8 @@ The kit absorbs proven app components rather than speculating:
 - Pin the kit version and rebuild your bundle when you bump it: a previously built bundle keeps
   serving the old kit code. Hard-reload open tabs after a rebuild.
 - `npm test` in `ui-kit` runs the full guard chain (build, matrix cores, theme tokens, palette
-  seeds parity, theme contrast, console islands); the publish hook runs the same chain.
+  seeds parity, About and identity checks, theme contrast, console islands); the publish hook
+  runs the same chain.
 - Pages that vendor the [console islands](./console-islands.md) bundle rebuild and re-vendor it
   when the kit changes.
 
@@ -747,7 +763,8 @@ Purpose: chat-thread UI primitives with lightweight Markdown/JSON rendering.
 Components:
 - `AssistantPanel` (docs Q&A surface with an injected `ask(question, { signal, history })` transport returning a Promise or an AsyncIterable of deltas; never fetches)
 - `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions; `streamReplies?: "gateway_default" | "on" | "off"`); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
-- Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry); controller option `liveRenderIntervalMs` (default 60). See [panel-chat README](../panel-chat/README.md#live-replies-streaming)
+- Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry), the event-name constants `LLM_DELTA_EVENT` / `LLM_DELTA_END_EVENT`; types `LlmDelta`, `LlmDeltaEnd`, `LlmDeltaEvent`, `LlmDeltaChannel`, `LlmDeltaEndReason`, `LlmStreamUnavailableDetail`, `StreamRepliesMode`; controller option `liveRenderIntervalMs` (default 60, also on `useWorkflowSession`). See [panel-chat README](../panel-chat/README.md#live-replies-streaming)
+- File drop and paste: `WorkflowChat`'s `onFiles(files)` turns on the drop zone and paste-to-attach (folders are refused with a visible message); the pure helpers behind it are exported too: `dragCarriesFiles()`, `draggedFileCount()`, `dropZoneLabel()`, `droppedFiles()`, `folderRefusal()`, `pastedFileName()`, `pastedFiles()`, `DragPresence` (see `panel-chat/src/file_drop.ts`)
 - `ToolActivity`, `ToolActivityGroup` (tool-call rendering), `StatDetailPanel` + `statDetail()` (token/time/tool statistics)
 - `ChatThread` (thread container; renders a list of messages)
 - `ChatMessageCard` (single message rendering; `message.title` names the speaker — assistants
@@ -758,12 +775,12 @@ Components:
 Renderers:
 - `Markdown` (lightweight Markdown with real nested lists, marker progression, fenced code
   blocks incl. inside lists; `images?: "inline" | "link"` + `inlineImage?(src)`, default rule
-  `sameOriginImage()`; see `panel-chat/src/markdown.tsx`). `ChatMessageCard` uses `images="link"`
+  `sameOriginImage()` (exported); types `MarkdownProps`, `MarkdownImages`; see `panel-chat/src/markdown.tsx`). `ChatMessageCard` uses `images="link"`
   for every message except the user's own.
 - `JsonViewer` (collapsible tree; honors `collapseAfterDepth`; auto-parses JSON strings)
 
 Types:
-- `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`; optional `live: ChatLiveReply` marks a reply still being streamed), `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
+- `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`; optional `live: ChatLiveReply` (`callId`, `reasoning`, `caption?`) marks a reply still being streamed), `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
 
 Utilities:
 - `tryParseJson()` (drives JSON autodetection in `ChatMessageContent`)
@@ -787,9 +804,17 @@ connection surface — pairs with `GatewayConnectModal`/`useGatewayConnection`).
   credential-bearing headers in both directions. Tokens never rest in the browser. Every call
   to the Gateway carries `X-Forwarded-For` set to the browser connection's socket address
   (client-supplied forwarding headers are replaced, never passed through) and
-  `X-AbstractFramework-App-Proxy: <appId>` (a client-supplied value is dropped).
-- Tests: `node --test app-server/test/gateway_session_proxy.test.mjs` (dependency-free; includes
-  a stub gateway).
+  `X-AbstractFramework-App-Proxy: <appId>` (a client-supplied value is dropped). A connection
+  whose socket address cannot be determined gets `400`.
+- Options (`GatewaySessionProxyOptions`): `appId` (required, `[a-z0-9-]+`; names the cookies and
+  the `x-<appId>-csrf` header), `defaultGatewayUrl` (else `ABSTRACTGATEWAY_URL`, else
+  `http://127.0.0.1:8080`), `connectionPath` (default `/api/connection/gateway`), `proxyPrefix`
+  (default `/api/`), `gatewayTimeoutMs` (default 4000), and `allowRemoteConfigEnvVars` /
+  `allowUrlCookieEnvVars` / `trustProxyEnvVars` (extra environment variable names honored beside
+  the built-in `ABSTRACTGATEWAY_*` and `<APPID>_*` ones). See
+  [`app-server/README.md`](../app-server/README.md#options).
+- Tests: `npm --workspace app-server test` (dependency-free; runs
+  `app-server/test/gateway_session_proxy.test.mjs` against a stub gateway).
 
 See: [Adoption guide](./adoption-guide.md) for the full connection-surface contract.
 
@@ -936,6 +961,9 @@ flowchart LR
     CONSOLE["console page"]
   end
 
+  IDDESC["AbstractFramework identity descriptor<br/>(AbstractFramework repo: identity/abstractframework.json)"]
+  IDDESC -->|"byte-identical copy<br/>ui-kit/src/abstractframework_identity.json"| UIKIT
+
   UIKIT --> FLOWAPP & CODE & CONT & ENT & OBS
   CHAT --> CODE & CONT & ENT & OBS
   MON --> FLOWAPP & CODE & OBS
@@ -944,7 +972,8 @@ flowchart LR
   ISL -->|"window.AfConsoleIslands (vendored copy)"| CONSOLE
 ```
 
-Monitor usage per app: AbstractFlow uses all four monitors; AbstractCode web uses
+Every app renders its About dialog from the kit (`AfTopBarActions` `about` prop, or
+`mountAbout` / the `about` prop of `mountTopBar` in the console). Monitor usage per app: AbstractFlow uses all four monitors; AbstractCode web uses
 `monitor-flow` and `monitor-gpu`; AbstractObserver uses `monitor-flow`, `monitor-active-memory`
 and `monitor-gpu`.
 
@@ -962,7 +991,7 @@ flowchart LR
     MEM["@abstractframework/monitor-memory"]
   end
 
-  CHAT -->|"imports Icon"| UIKIT
+  CHAT -->|"peer dep (imports Icon)"| UIKIT
   AMX -->|"peer dep"| ReactFlow["reactflow (peer dependency)"]
   FLOW -->|"peer dep"| React["react / react-dom (peer dependency)"]
   CHAT -->|"peer dep"| React
@@ -972,7 +1001,7 @@ flowchart LR
 ```
 
 Evidence:
-- `panel-chat/src/chat_message_card.tsx` imports `Icon` from `@abstractframework/ui-kit`.
+- `panel-chat/src/chat_message_card.tsx` imports `Icon` from `@abstractframework/ui-kit`, declared as a peer dependency in `panel-chat/package.json`.
 - `monitor-active-memory/package.json` declares `reactflow` (and `react` / `react-dom`) as peer dependencies.
 
 ## Runtime data flow
@@ -1021,8 +1050,10 @@ Evidence:
 
 ### Chat (`panel-chat`)
 
-- `ChatMessage`, `ChatAttachment`, `ChatStat`: `panel-chat/src/chat_message_card.tsx`
+- `ChatMessage`, `ChatAttachment`, `ChatStat`, `ChatLiveReply`: `panel-chat/src/chat_message_card.tsx`
 - `ChatThread` / `ChatComposer`: `panel-chat/src/chat_thread.tsx`, `panel-chat/src/chat_composer.tsx`
+- `WorkflowTransport` / `WorkflowSessionController`: `panel-chat/src/workflow_runtime.ts`
+- Live-reply events (`LlmDelta`, `LlmDeltaEnd`) and `streamRepliesRuntime`: `panel-chat/src/llm_delta.ts`
 
 ### GPU metrics (`monitor-gpu`)
 
@@ -1065,28 +1096,96 @@ sequenceDiagram
   A-->>B: Set-Cookie (HttpOnly session + CSRF) — token discarded
   Note over B: sign-in success → modal self-closes
   B->>A: /api/gateway/* (cookies + x-abstract-csrf)
-  A->>G: proxied with server-held session
+  A->>G: proxied with server-held session<br/>X-Forwarded-For: socket peer, X-AbstractFramework-App-Proxy: appId
 ```
+
+- Every request the proxy sends to the Gateway (the status probe, sign-in, sign-out and proxied
+  `/api/*` calls) carries `X-Forwarded-For` set to the browser connection's socket address and
+  `X-AbstractFramework-App-Proxy: <appId>`. Client-supplied forwarding headers and markers are
+  replaced or dropped, never passed through, so the Gateway can tell whether the browser runs on
+  its own machine. A connection whose socket address is unknown is refused with `400`.
 
 - Contract details (auto-open rules, blocking vs dismissable, probe-once): see the
   [Adoption guide](./adoption-guide.md) and `ui-kit/README.md`.
 - Evidence: `app-server/src/gateway_session_proxy.js`, `ui-kit/src/use_gateway_connection.ts`,
   `ui-kit/src/gateway_connect_modal.tsx`.
 
-## Console islands (`ui-kit`)
+## Live replies (`panel-chat`)
 
-The console islands expose the kit's `AfTopBarActions` and `AfAppearanceDialog` to a page that
-is not a React app, through a prop-driven global API.
+When a run streams its model replies, the Gateway adds `llm.delta` and `llm.delta_end` events to
+the run's ledger stream. The host transport hands them to `WorkflowSessionController`, which
+shows one growing assistant bubble per model call until the durable ledger record replaces it.
+
+```mermaid
+sequenceDiagram
+  participant H as Host app (start-run input)
+  participant G as AbstractGateway (run ledger SSE)
+  participant T as Host WorkflowTransport.streamLedger
+  participant C as WorkflowSessionController
+  participant V as ChatThread / WorkflowChat
+
+  H->>G: POST /runs/start { input_data: { _runtime: streamRepliesRuntime(mode) } }
+  G-->>T: ledger records (id: cursor)
+  T->>C: onStep(record) (moves the cursor)
+  G-->>T: llm.delta / llm.delta_end (no id:)
+  T->>C: onDelta(event) (never moves the cursor)
+  C->>V: one live bubble per model call (ChatMessage.live)
+  G-->>T: llm_call ledger record or final answer
+  T->>C: onStep(record)
+  C->>V: live bubble removed, final message shown once
+```
+
+- `streamReplies` on `WorkflowChat` holds the host's "Stream replies" choice; the host maps it
+  to `_runtime.stream` with `streamRepliesRuntime(mode)` (`"gateway_default"` leaves the key
+  unset so the Gateway setting decides).
+- A transport that does not pass `onDelta` keeps working: each reply appears when it is
+  complete.
+- Rules for bubbles (reconnect, sub-runs, failed or unavailable calls, render interval): see
+  [`panel-chat/README.md`](../panel-chat/README.md#live-replies-streaming).
+
+## About dialog and identity (`ui-kit`)
+
+Every AbstractFramework app shows the same About facts. They come from one descriptor that the
+kit ships as `ui-kit/src/abstractframework_identity.json`, a byte-identical copy of the
+AbstractFramework repository's `identity/abstractframework.json`. The kit never fetches: the app
+fetches the connected Gateway's versions and formats them with `gatewayVersionRows`.
 
 ```mermaid
 flowchart LR
-  SRC["ui-kit/src/*<br/>AfTopBarActions, AfAppearanceDialog,<br/>theme.ts, typography.ts"]
+  DESC["abstractframework_identity.json<br/>(vendored descriptor)"]
+  ID["appIdentity(id, version)<br/>frameworkIdentity() / knownAppIds()"]
+  ROWS["aboutRows(identity, extra)"]
+  GWROWS["gatewayVersionRows(payload | null, error?)"]
+  ABOUTAPI["GET /api/gateway/about<br/>(fetched by the app)"]
+  DLG["AfAboutDialog<br/>(focus trap, links, Contact mailto)"]
+  TOP["AfTopBarActions about={...}"]
+  ISL["console islands<br/>mountAbout / mountTopBar about"]
+
+  DESC --> ID --> ROWS --> DLG
+  ABOUTAPI --> GWROWS -->|"extraRows"| DLG
+  TOP --> DLG
+  ISL --> DLG
+```
+
+- The rows match the Python twins in AbstractCore (`abstractcore.utils.identity.about_fields`
+  and `gateway_version_rows`); the shared fixture
+  `ui-kit/scripts/fixtures/gateway_version_rows.json` pins both sides.
+- Details and examples: [`ui-kit/README.md`](../ui-kit/README.md#about-dialog-and-identity).
+
+## Console islands (`ui-kit`)
+
+The console islands expose the kit's `AfTopBarActions`, `AfAppearanceDialog` and
+`AfAboutDialog` to a page that is not a React app, through a prop-driven global API.
+
+```mermaid
+flowchart LR
+  SRC["ui-kit/src/*<br/>AfTopBarActions, AfAppearanceDialog, AfAboutDialog,<br/>identity.ts, theme.ts, typography.ts"]
   ENTRY["ui-kit/islands/console_islands.tsx"]
   BUILD["scripts/build_islands.mjs<br/>(esbuild, IIFE, React bundled)"]
   OUT["islands/dist/af-console-islands.js"]
   CHECK["scripts/check_islands.mjs<br/>(npm test)"]
   PAGE["Host page<br/>script tag + theme.css"]
-  API["window.AfConsoleIslands<br/>mountTopBar / mountAppearance / applyAppearance"]
+  API["window.AfConsoleIslands<br/>mountTopBar / mountAppearance / mountAbout<br/>appIdentity / applyAppearance"]
 
   SRC --> ENTRY --> BUILD --> OUT
   OUT --> CHECK
@@ -1139,6 +1238,9 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 - [How do I theme the UI?](#how-do-i-theme-the-ui)
 - [panel-chat: How do I plug in my own Markdown renderer?](#panel-chat-how-do-i-plug-in-my-own-markdown-renderer)
 - [panel-chat: How is JSON detected?](#panel-chat-how-is-json-detected)
+- [panel-chat: How do I show replies while the model writes them?](#panel-chat-how-do-i-show-replies-while-the-model-writes-them)
+- [panel-chat: Why do images in assistant messages show as links?](#panel-chat-why-do-images-in-assistant-messages-show-as-links)
+- [ui-kit: How do I add the About dialog?](#ui-kit-how-do-i-add-the-about-dialog)
 - [monitor-flow: What trace format does AgentCyclesPanel expect?](#monitor-flow-what-trace-format-does-agentcyclespanel-expect)
 - [monitor-active-memory: How does querying work?](#monitor-active-memory-how-does-querying-work)
 - [monitor-active-memory: Does it persist layouts?](#monitor-active-memory-does-it-persist-layouts)
@@ -1253,6 +1355,36 @@ Source of truth: `panel-chat/src/message_content.tsx` (`renderMarkdown?: (markdo
 
 Source of truth: `panel-chat/src/message_content.tsx` and `panel-chat/src/utils.ts`.
 
+## panel-chat: How do I show replies while the model writes them?
+
+Pass the Gateway's `llm.delta` / `llm.delta_end` frames to the `onDelta` argument of your
+transport's `streamLedger`, and put the user's choice in the start-run input with
+`streamRepliesRuntime(mode)` (`_runtime.stream`). `WorkflowSessionController` then shows a live
+bubble per model call and replaces it with the final message. A transport without `onDelta`
+still works; replies appear when complete.
+
+See: [panel-chat live replies](../panel-chat/README.md#live-replies-streaming) and
+[Architecture: Live replies](./architecture.md#live-replies-panel-chat).
+
+## panel-chat: Why do images in assistant messages show as links?
+
+`ChatMessageCard` renders assistant and system messages with `images="link"`: an image loads only
+when `inlineImage(src)` accepts it, by default `sameOriginImage` (a root-relative path or a URL
+on the page's own origin). Other images show as a link "image: <alt>", so model-written text
+cannot make the browser fetch a remote URL. To change it, pass `images: "inline"` or your own
+`inlineImage` through `messageProps`.
+
+Source of truth: `panel-chat/src/markdown.tsx` and `panel-chat/src/chat_message_card.tsx`.
+
+## ui-kit: How do I add the About dialog?
+
+Pass `about={{ identity: appIdentity("<app id>", APP_VERSION), extraRows, onOpen }}` to
+`AfTopBarActions`. Build `extraRows` for the connected Gateway with `gatewayVersionRows(body)`
+from `GET /api/gateway/about`, or `gatewayVersionRows(null, reason)` when the request fails.
+`knownAppIds()` lists the accepted ids.
+
+See: [`ui-kit/README.md`](../ui-kit/README.md#about-dialog-and-identity).
+
 ## monitor-flow: What trace format does AgentCyclesPanel expect?
 
 `AgentCyclesPanel` consumes `TraceItem[]` and starts a new cycle when `step.effect.type === "llm_call"`.
@@ -1298,7 +1430,7 @@ Source of truth: `monitor-gpu/src/gpu_metrics_api.js` (`buildAuthHeaders`) and `
 
 Yes, in two ways:
 
-- **Console islands**: build `ui-kit/islands/dist/af-console-islands.js` from a repository checkout and load it with a `<script>` tag; `window.AfConsoleIslands` mounts the real top bar and appearance dialog with a prop-driven API. It is not part of the npm package. See [Console islands](./console-islands.md).
+- **Console islands**: build `ui-kit/islands/dist/af-console-islands.js` from a repository checkout and load it with a `<script>` tag; `window.AfConsoleIslands` mounts the real top bar, appearance dialog and About dialog with a prop-driven API. It is not part of the npm package. See [Console islands](./console-islands.md).
 - **CSS only**: the `.af-topbar-*` and `.af-drawer-*` classes in `theme.css` are stable public API for server-rendered HTML (see [`ui-kit/README.md`](../ui-kit/README.md#css-public-api-non-react-consumers)).
 
 ## Where are the tests?
@@ -1309,7 +1441,7 @@ Each workspace ships its own test rig; run them all from the repo root:
 npm test
 ```
 
-Or a single package's, e.g. `cd monitor-gpu && npm test` (see `monitor-gpu/test/`, `monitor-memory/test/`).
+Or a single package's, e.g. `npm --workspace monitor-gpu test` (see `monitor-gpu/test/`, `monitor-memory/test/`, `app-server/test/` and the `scripts/check_*.mjs` checks in `ui-kit/` and `panel-chat/`).
 
 ## Is this published to npm?
 
@@ -1414,7 +1546,12 @@ See: [Adoption guide: Versioning discipline](./adoption-guide.md#versioning-disc
 See: [`monitor-gpu/README.md`](../monitor-gpu/README.md),
 [`monitor-memory/README.md`](../monitor-memory/README.md).
 
-## The app-server proxy answers `403` or `401`
+## The app-server proxy answers `400`, `403` or `401`
+
+- `400` "Cannot determine the client address of this connection": the proxy could not read the
+  browser connection's socket address, which it must forward to the Gateway. This happens when
+  the request object passed to `handle(req, res)` is not a real Node.js `http` request (for
+  example a framework adapter that drops `req.socket`). Pass the original `IncomingMessage`.
 
 - `403` with `reason_code: "csrf_required"` on a mutating request: send the CSRF token from the
   `<appId>_gateway_csrf` cookie in the `x-<appId>-csrf` or `x-abstract-csrf` header. The ui-kit
@@ -1426,8 +1563,31 @@ See: [`monitor-gpu/README.md`](../monitor-gpu/README.md),
 - `401` "Gateway sign-in required": the browser has no session cookie yet; sign in through
   `GatewayConnectModal` (`POST /api/connection/gateway`).
 
-See: [`app-server/README.md`](../app-server/README.md),
+See: [`app-server/README.md`](../app-server/README.md#options),
 [Architecture: Gateway connection flow](./architecture.md#gateway-connection-flow-app-server--ui-kit).
+
+## Live replies do not appear (replies show only when complete)
+
+- Your transport's `streamLedger` does not pass the sixth argument `onDelta`, or routes the
+  `llm.delta` / `llm.delta_end` frames to `onStep`. Pass them to `onDelta` (use
+  `llmDeltaFromSse(eventName, data)`) and never move the ledger cursor with them.
+- The run did not ask for streaming: `_runtime.stream` is `false`, or unset while the Gateway
+  default is off. Build the start-run input with `streamRepliesRuntime(mode)`.
+- The chat shows "This reply is not streamed: …": the Gateway reported that this call could not
+  stream (for example structured output). The reply appears when complete; no fix is needed.
+
+**Verify:** watch the run's ledger stream in the browser's network panel; `llm.delta` events
+should arrive while the model writes.
+
+See: [panel-chat live replies](../panel-chat/README.md#live-replies-streaming),
+[Architecture: Live replies](./architecture.md#live-replies-panel-chat).
+
+## Images in assistant messages show as "image: …" links
+
+This is the default: `ChatMessageCard` loads images in assistant and system messages only from
+the page's own origin (`sameOriginImage`). Serve the image through your app's origin (for
+example behind the app-server proxy), or pass `images: "inline"` or your own `inlineImage(src)`
+through `messageProps`. See the [FAQ entry](./faq.md#panel-chat-why-do-images-in-assistant-messages-show-as-links).
 
 ## Console islands: `islands bundle is stale` or `AfConsoleIslands` is undefined
 
@@ -1437,8 +1597,8 @@ See: [`app-server/README.md`](../app-server/README.md),
 - `window.AfConsoleIslands` is undefined in the page: the script was not loaded, or loaded after
   the code that uses it. Load `af-console-islands.js` with a plain `<script>` tag before your
   page script.
-- `AfConsoleIslands: mount target missing`: the element passed to `mountTopBar` /
-  `mountAppearance` does not exist yet; mount after the DOM is ready.
+- `AfConsoleIslands: mount target missing`: the element passed to `mountTopBar`,
+  `mountAppearance` or `mountAbout` does not exist yet; mount after the DOM is ready.
 - Islands render but look unstyled: the bundle ships no CSS; load the kit's `theme.css` too.
 - The bundle is missing after `npm install @abstractframework/ui-kit`: the islands are built
   from a repository checkout and are not part of the npm package.
@@ -1456,6 +1616,11 @@ script names the problem, for example:
   run `node ui-kit/scripts/generate_palette_seeds.mjs` and commit the result.
 - `check_theme_tokens.mjs`: a theme block is missing a token the components use; add it to
   every theme in `theme.css`.
+- `check_about.mjs`: the identity helpers, the About dialog or the shared fixture
+  `scripts/fixtures/gateway_version_rows.json` disagree. When the AbstractFramework identity
+  descriptor changes, copy it byte for byte into `ui-kit/src/abstractframework_identity.json`;
+  when the gateway rows change, update the helper and the fixture together with the Python twin
+  in AbstractCore.
 - `check_islands.mjs`: see the console islands entry above.
 
 See: [Theming: Guard scripts](./theming.md#guard-scripts), [Development](./development.md).
@@ -1727,7 +1892,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 - **Getting started**: [`getting-started.md`](./getting-started.md) — install, required CSS imports, first examples, Next.js notes
 - **API reference**: [`api.md`](./api.md) — export map per package
-- **Architecture**: [`architecture.md`](./architecture.md) — package boundaries, consumers, data flow and the Gateway connection flow (with diagrams)
+- **Architecture**: [`architecture.md`](./architecture.md) — package boundaries, consumers, data flow, the Gateway connection flow, live replies and the About/identity flow (with diagrams)
 - **FAQ**: [`faq.md`](./faq.md) — recurring questions and limits
 - **Troubleshooting**: [`troubleshooting.md`](./troubleshooting.md) — symptoms, checks and fixes
 
@@ -1736,7 +1901,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 - **Adoption guide**: [`adoption-guide.md`](./adoption-guide.md) — which shared component for which job, and the contracts apps follow
 - **Theming & design tokens**: [`theming.md`](./theming.md) — token vocabulary, the 21 themes, migration rules for host apps
 - **Console islands**: [`console-islands.md`](./console-islands.md) — the `window.AfConsoleIslands` bundle built from `ui-kit` for non-React pages (AbstractGateway console): API, build and check
-- **Local development**: [`development.md`](./development.md) — workspace build, tests, docs regeneration
+- **Local development**: [`development.md`](./development.md) — workspace build, tests, contracts shared with other repositories, docs regeneration
 - **Publishing (maintainers)**: [`publishing.md`](./publishing.md) — versioning, tag-driven release workflow, first publish of a new package
 - Legacy stub (kept for old links): [`installation.md`](./installation.md) — points to Getting started
 
@@ -1752,8 +1917,8 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 ## Package docs
 
-- UI tokens, themes, inputs, Gateway connection UI, top bar/drawer/appearance, console islands: [`ui-kit/README.md`](../ui-kit/README.md)
-- Chat primitives (thread, composer, markdown/json renderers, assistant panel, workflow chat): [`panel-chat/README.md`](../panel-chat/README.md)
+- UI tokens, themes, inputs, Gateway connection UI, top bar/drawer/appearance, About dialog and identity, console islands: [`ui-kit/README.md`](../ui-kit/README.md)
+- Chat primitives (thread, composer, markdown/json renderers, assistant panel, workflow chat, live replies): [`panel-chat/README.md`](../panel-chat/README.md)
 - App-origin Gateway session proxy: [`app-server/README.md`](../app-server/README.md)
 - Agent-cycle trace viewer (LLM/tool/observe): [`monitor-flow/README.md`](../monitor-flow/README.md)
 - KG + Active Memory explorer (ReactFlow): [`monitor-active-memory/README.md`](../monitor-active-memory/README.md)
@@ -1778,8 +1943,9 @@ This package provides:
   `GatewaySessionSignInCard`
 - **App chrome**: `AfTopBarActions`, `AfDrawer`, `AfAppearanceDialog` + `useAppearanceSettings()`,
   `AfAboutDialog`
-- **Identity**: `appIdentity(id, version)`, `frameworkIdentity()`, `aboutRows(...)` — the
-  AbstractFramework facts every About screen shows
+- **Identity**: `appIdentity(id, version)`, `frameworkIdentity()`, `knownAppIds()`,
+  `aboutRows(...)`, `gatewayVersionRows(...)` — the AbstractFramework facts every About screen
+  shows
 - **Run and policy surfaces**: `PhaseCapabilityMatrix`, `CriticalActionDialog`, `SteerComposer`,
   `DisclosureList`, `AfChip`, `AfPhaseRadio`, cognition gauges
 - **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk)
@@ -1923,7 +2089,9 @@ Rules:
 Every AbstractFramework app shows the same About facts: the app name and version, "Part of
 AbstractFramework", the author, the copyright and licence line, and links to the website, source,
 documentation, issue tracker and feedback page, plus the contact e-mail. They come from one
-canonical descriptor that the kit ships as `abstractframework_identity.json`; the rows match the
+canonical descriptor that the kit ships as `abstractframework_identity.json` (a byte-identical
+copy of `identity/abstractframework.json` in the
+[AbstractFramework repository](https://github.com/lpalbou/AbstractFramework)); the rows match the
 Python `abstractcore.utils.identity.about_fields`, so web, desktop and terminal apps agree.
 
 Add About to the top bar with one prop:
@@ -1958,7 +2126,8 @@ const refreshGatewayRows = () =>
   `abstractgateway` version, like a failed request, gives the single row
   `Gateway` → `unavailable (<reason>)`. The error is its own argument, so a body that contains an
   `error` field is still read as a normal body. The rows match the Python
-  `abstractcore.utils.identity.gateway_version_rows(payload, error)`.
+  `abstractcore.utils.identity.gateway_version_rows(payload, error)`; both sides are checked
+  against the shared fixture `scripts/fixtures/gateway_version_rows.json`.
 - The dialog turns every `http://` or `https://` URL in a row into a link that opens in a new tab
   (`rel="noopener noreferrer"`), including the framework website in "Part of"; the rest of the
   value stays text. Only the Contact row is a `mailto:` link, so a value such as
@@ -2077,13 +2246,21 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
 
 - Components: `ChatThread`, `ChatComposer`, `ChatMessageCard`, `ChatMessageContent`
 - App assistant: `AssistantPanel` (injected `ask` transport; see below)
-- Controlled workflow surface: `WorkflowChat` and the `WorkflowInteraction` union
-- Transport-injected runtime: `WorkflowSessionController`, `useWorkflowSession`, and `WorkflowTransport`
-- Renderers: `Markdown`, `JsonViewer`
+- Controlled workflow surface: `WorkflowChat`, `WorkflowInteractionPanel` and the `WorkflowInteraction` union
+- Transport-injected runtime: `WorkflowSessionController`, `useWorkflowSession`, `WorkflowTransport`,
+  `workflowPendingInteraction`, `resolveWorkflowEventTarget`
+- Live replies: `llmDeltaFromSse`, `validateLlmDeltaEvent`, `isLlmDeltaEnd`,
+  `describeStreamUnavailable`, `streamRepliesRuntime`, `LLM_DELTA_EVENT`, `LLM_DELTA_END_EVENT`
+  (see [Live replies](#live-replies-streaming))
+- File drop and paste: `onFiles` on `WorkflowChat`; helpers `droppedFiles`, `pastedFiles`,
+  `folderRefusal`, `dragCarriesFiles`, `draggedFileCount`, `dropZoneLabel`, `pastedFileName`,
+  `DragPresence`
+- Renderers: `Markdown` (with `sameOriginImage` as the default image rule for `images="link"`), `JsonViewer`
 - Tool and run evidence: `ToolActivity`, `ToolActivityGroup`, `toolArguments`, `toolPreview`,
   `workflowProgress`, `workflowEvidence`, `foldWorkflowTools`, `historyRecords`,
   `statDetail`, `StatDetailPanel`
-- Types: `ChatMessage`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat`
+- Types: `ChatMessage`, `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat`,
+  `LlmDelta`, `LlmDeltaEnd`, `StreamRepliesMode`, `WorkflowSessionSnapshot`
 - Utils: `chatToMarkdown`, `copyText`, `downloadTextFile`, `tryParseJson`
 
 ## Usage (typical)
@@ -2122,7 +2299,10 @@ their own gateway/workflow protocol. Supply `messages`, `draft`,
 `onDraftChange`, and async `onSend`; the component retains the draft when a
 send fails and presents an actionable retry. `busy` and `onCancel` add a stop
 control. `disabled` gives observers a read-only transcript without hiding a
-pending interaction.
+pending interaction. `onFiles(files)` turns on dropping files on the chat and
+pasting them into the message field; folders are refused with a visible
+message, and upload, size policy and attachment chips (`attachments`) stay with
+the host.
 
 Use `interaction` for a pending `WorkflowInteraction`: `ask-user` supports
 choices and optional free text, `tool-approval` provides approve/deny actions,
@@ -2246,9 +2426,9 @@ Markdown is intentionally minimal and implemented in `panel-chat/src/markdown.ts
 
 Server-side helpers for AbstractFramework thin-client apps.
 
-Today this package exports the app-origin Gateway session proxy used by browser
-clients that must talk to an `AbstractGateway` without storing bearer tokens in
-the browser.
+This package exports the app-origin Gateway session proxy used by browser
+clients that talk to an `AbstractGateway` without storing bearer tokens in the
+browser.
 
 ## Install
 
@@ -2288,6 +2468,8 @@ The proxy's contract is:
   (the `appId` you pass to `createGatewaySessionProxy`, which is required). A
   client-supplied value of that header is dropped. The Gateway uses it to tell
   requests that come through an app server from direct clients.
+- A connection whose socket address cannot be determined is refused with `400`
+  ("Cannot determine the client address of this connection").
 
 The browser never needs to persist the Gateway token.
 
@@ -2320,6 +2502,32 @@ const server = http.createServer(async (req, res) => {
 server.listen(3000);
 ```
 
+## Options
+
+`createGatewaySessionProxy(options)` accepts (types: `GatewaySessionProxyOptions` in
+`src/index.d.ts`):
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `appId` | required | Short id matching `[a-z0-9-]+`. Names the cookies (`<appId>_gateway_session`, `<appId>_gateway_csrf`, `<appId>_gateway_url`), the app CSRF header `x-<appId>-csrf` (the shared `x-abstract-csrf` is always accepted too) and the `X-AbstractFramework-App-Proxy` value. |
+| `defaultGatewayUrl` | `ABSTRACTGATEWAY_URL`, else `http://127.0.0.1:8080` | The server-pinned Gateway URL. |
+| `connectionPath` | `/api/connection/gateway` | Session status, sign-in and sign-out endpoint. |
+| `proxyPrefix` | `/api/` | Everything under it, except `connectionPath`, is proxied to the Gateway. |
+| `gatewayTimeoutMs` | `4000` | Timeout for the proxy's own calls to the Gateway (status probe, sign-in, sign-out). |
+| `allowRemoteConfigEnvVars`, `allowUrlCookieEnvVars`, `trustProxyEnvVars` | none | Extra environment variable names honored beside the built-in ones below. |
+
+Environment switches (each accepts a truthy value such as `1`), with `<APPID>` the upper-cased
+`appId` (`-` becomes `_`):
+
+- `ABSTRACTGATEWAY_ALLOW_REMOTE_BROWSER_GATEWAY_CONFIG` / `<APPID>_ALLOW_REMOTE_BROWSER_GATEWAY_CONFIG`:
+  let non-loopback browsers choose a Gateway URL other than `defaultGatewayUrl`.
+- `<APPID>_ALLOW_BROWSER_GATEWAY_URL_COOKIE`: honor the browser's Gateway URL cookie (also
+  enabled by the remote-config switch).
+- `ABSTRACTGATEWAY_TRUST_PROXY_HEADERS` / `<APPID>_TRUST_PROXY_HEADERS`: declare that your app
+  runs behind a reverse proxy you control. The socket peer is then the reverse proxy, so a
+  loopback peer no longer unlocks browser-supplied Gateway URLs (set the remote-config switch
+  explicitly if you need them), and the request host is read from `X-Forwarded-Host`.
+
 ## Browser pairing
 
 This package is the server-side half of the shared connection surface described
@@ -2332,12 +2540,11 @@ That pairing gives apps a shared browser UX and one server-side session model.
 
 ## Scope boundary
 
-`@abstractframework/app-server` is intentionally `AbstractGateway`-specific
-today. It is the honest package to use when the browser app is talking to a
-Gateway-backed session surface. If a different product needs a generic
-same-origin browser shell with different upstream auth or transport semantics,
-that contract should be named by that product rather than silently inherited
-through this package.
+`@abstractframework/app-server` is specific to `AbstractGateway`. Use it when
+your browser app talks to a Gateway-backed session surface. A product that
+needs a generic same-origin browser shell with different upstream auth or
+transport semantics should define its own contract rather than reuse this
+package.
 
 ## Development
 
@@ -2345,9 +2552,11 @@ through this package.
 
 ## Related docs
 
-- Root overview: `../README.md`
-- Architecture: `../docs/architecture.md`
-- Adoption guide: `../docs/adoption-guide.md`
+- Root overview: [`README.md`](../README.md)
+- API reference: [`docs/api.md`](../docs/api.md#abstractframeworkapp-server)
+- Architecture: [`docs/architecture.md`](../docs/architecture.md#gateway-connection-flow-app-server--ui-kit)
+- Adoption guide: [`docs/adoption-guide.md`](../docs/adoption-guide.md)
+- Troubleshooting: [`docs/troubleshooting.md`](../docs/troubleshooting.md)
 
 ## monitor-flow/README.md
 
@@ -3237,6 +3446,327 @@ export {
   type AfPhase,
   type PhaseDescriptor,
 } from "./phase_radio_core.js";
+
+## ui-kit/src/identity.ts
+
+// Framework and application identity for "About" screens.
+//
+// One canonical descriptor (`identity/abstractframework.json` in the
+// AbstractFramework repository) is vendored here BYTE-IDENTICAL as
+// `abstractframework_identity.json` (root `scripts/check_identity_sync.py`
+// fails on drift). Every AbstractFramework app renders the same facts, in the
+// same order, as the Python `abstractcore.utils.identity.about_fields` — the
+// rows below mirror that function exactly.
+//
+// Versions are deliberately NOT looked up here: the app passes its own
+// version, and gateway/package versions arrive as `extra` rows (for example
+// from `GET /api/gateway/about`).
+import descriptor from "./abstractframework_identity.json" with { type: "json" };
+
+export type FrameworkIdentity = {
+  name: string;
+  website: string;
+  github_org: string;
+  author: string;
+  years: string;
+  license: string;
+  copyright: string;
+  contact_email: string;
+};
+
+export type AppIdentity = {
+  /** Distribution name in lower case, e.g. "abstractflow". */
+  id: string;
+  name: string;
+  version: string;
+  website: string;
+  repo: string;
+  docs: string;
+  issues: string;
+  feedback: string;
+};
+
+/** One About row: `[label, value]`. */
+export type AboutRow = [label: string, value: string];
+
+type AppEntry = Omit<AppIdentity, "id" | "version">;
+type Descriptor = { schema: string; framework: FrameworkIdentity; apps: Record<string, AppEntry> };
+
+const DESCRIPTOR = descriptor as Descriptor;
+
+/** The framework-wide facts (name, website, author, licence, contact). */
+export function frameworkIdentity(): FrameworkIdentity {
+  return { ...DESCRIPTOR.framework };
+}
+
+/** Every application id the descriptor knows, sorted. */
+export function knownAppIds(): string[] {
+  return Object.keys(DESCRIPTOR.apps).sort();
+}
+
+/**
+ * Identity of one application. `id` is the distribution name in lower case
+ * ("abstractflow"); `version` is the app's own version string.
+ * Throws for an id the descriptor does not know: callers must not invent
+ * identity facts.
+ */
+export function appIdentity(id: string, version: string): AppIdentity {
+  const raw = Object.prototype.hasOwnProperty.call(DESCRIPTOR.apps, id) ? DESCRIPTOR.apps[id] : undefined;
+  if (!raw) {
+    throw new Error(`appIdentity: unknown application id "${id}" (known: ${knownAppIds().join(", ")})`);
+  }
+  return {
+    id,
+    name: raw.name,
+    version,
+    website: raw.website,
+    repo: raw.repo,
+    docs: raw.docs,
+    issues: raw.issues,
+    feedback: raw.feedback,
+  };
+}
+
+/**
+ * The ordered rows every About screen shows, then `extra` app-specific rows
+ * (for example gateway package versions). Same rows, same order, as the
+ * Python `about_fields`.
+ */
+export function aboutRows(identity: AppIdentity, extra?: ReadonlyArray<readonly [string, string]>): AboutRow[] {
+  const fw = DESCRIPTOR.framework;
+  const rows: AboutRow[] = [
+    ["Application", `${identity.name} ${identity.version}`],
+    ["Part of", `${fw.name} — ${fw.website}`],
+    ["Author", `${fw.author} (${fw.years})`],
+    ["Copyright", fw.copyright],
+    ["Website", identity.website],
+    ["Source", identity.repo],
+    ["Documentation", identity.docs],
+    ["Report an issue", identity.issues],
+    ["Give feedback", identity.feedback],
+    ["Contact", fw.contact_email],
+  ];
+  for (const [label, value] of extra || []) rows.push([String(label), String(value)]);
+  return rows;
+}
+
+/** Body of the gateway's `GET /api/gateway/about` (no secrets, no paths). */
+export type GatewayAboutPayload = {
+  abstractframework?: string | null;
+  abstractgateway: string;
+  packages?: Record<string, string | null>;
+};
+
+/** Only a non-empty string is a version; numbers, booleans and null are "not reported". */
+function versionText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * About rows describing the connected gateway, formatted the same way in
+ * every app (append them to `aboutRows` / pass them as `extraRows`):
+ *
+ *   ["Gateway", "AbstractGateway <v>"]
+ *   ["Gateway framework", "AbstractFramework <v>" | "not installed on the gateway host"]
+ *   ["Gateway package <name>", "<v>"]   // every other package, sorted by name;
+ *                                        // entries without a string version are skipped
+ *
+ * `payload` is the parsed body of `GET /api/gateway/about`. When the request
+ * failed, pass `null` and the reason as `error`: the result is exactly one
+ * row, ["Gateway", "unavailable (<error>)"]. A payload without a string
+ * `abstractgateway` version gives the same single row. The error is a
+ * separate argument so a gateway body that happens to carry an `error` field
+ * is never mistaken for a failure. The kit does not fetch. Same rows as the
+ * Python `abstractcore.utils.identity.gateway_version_rows(payload, error)`.
+ */
+export function gatewayVersionRows(payload: GatewayAboutPayload | null, error?: string): AboutRow[] {
+  if (error !== undefined && error !== null) {
+    const reason = String(error).trim() || "unknown error";
+    return [["Gateway", `unavailable (${reason})`]];
+  }
+  const raw = (payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {}) as Record<string, unknown>;
+  const gateway = versionText(raw.abstractgateway);
+  if (!gateway) return [["Gateway", "unavailable (the gateway did not report its version)"]];
+  const framework = versionText(raw.abstractframework);
+  const rows: AboutRow[] = [
+    ["Gateway", `AbstractGateway ${gateway}`],
+    ["Gateway framework", framework ? `AbstractFramework ${framework}` : "not installed on the gateway host"],
+  ];
+  const packages =
+    raw.packages && typeof raw.packages === "object" && !Array.isArray(raw.packages) ? (raw.packages as Record<string, unknown>) : {};
+  const names = Object.keys(packages)
+    .filter((name) => name !== "abstractgateway" && name !== "abstractframework")
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  for (const name of names) {
+    const v = versionText(packages[name]);
+    if (v) rows.push([`Gateway package ${name}`, v]);
+  }
+  return rows;
+}
+
+## ui-kit/src/about.tsx
+
+// AfAboutDialog — the one About dialog every AbstractFramework web app shows.
+//
+// The rows come from `aboutRows` (identity.ts), which mirrors the Python
+// `abstractcore.utils.identity.about_fields`, so the web apps, the desktop
+// assistant and the terminal UIs all state the same facts in the same order.
+// Same dialog shell as AfAppearanceDialog (overlay, Escape closes, click
+// outside closes), themed through the kit tokens in theme.css. It is a true
+// modal: Tab / Shift+Tab cycle inside the dialog (aria-modal contract).
+import React, { useEffect, useId, useRef } from "react";
+import { aboutRows, type AppIdentity } from "./identity.js";
+
+export type AfAboutDialogProps = {
+  open: boolean;
+  onClose: () => void;
+  /** From `appIdentity(id, version)`. */
+  identity: AppIdentity;
+  /**
+   * App-specific rows appended after the standard ones, e.g. the versions the
+   * connected gateway reports (`GET /api/gateway/about`). The kit never fetches
+   * versions itself: the app passes what it knows.
+   */
+  extraRows?: ReadonlyArray<readonly [string, string]>;
+  /** Defaults to "About <app name>". */
+  title?: string;
+};
+
+const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+
+/** Tab / Shift+Tab containment inside `card` (exported for the kit checks). */
+export function trapTabKey(e: Pick<KeyboardEvent, "key" | "shiftKey" | "preventDefault">, card: HTMLElement | null, active: Element | null): void {
+  if (e.key !== "Tab" || !card) return;
+  const focusables = Array.from(card.querySelectorAll<HTMLElement>(FOCUSABLE));
+  if (focusables.length === 0) {
+    e.preventDefault();
+    return;
+  }
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  const inside = !!active && card.contains(active);
+  if (e.shiftKey) {
+    if (active === first || !inside) {
+      e.preventDefault();
+      last.focus();
+    }
+  } else if (active === last || !inside) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+// Same rule as the Python `about_html` (`_URL_RE`): every http(s) URL inside a
+// value is a link, the rest stays text; ONLY the "Contact" row is a mailto
+// (a value such as `basic-agent@0.1.0:main` is plain text).
+const URL_RE = /https?:\/\/[^\s<>"]+/g;
+
+/** Split a row value into text and link parts (exported for the kit checks). */
+export function aboutValueParts(label: string, value: string): Array<{ text: string; href?: string }> {
+  if (label === "Contact") return [{ text: value, href: `mailto:${value}` }];
+  const parts: Array<{ text: string; href?: string }> = [];
+  let last = 0;
+  for (const m of value.matchAll(URL_RE)) {
+    const at = m.index ?? 0;
+    if (at > last) parts.push({ text: value.slice(last, at) });
+    parts.push({ text: m[0], href: m[0] });
+    last = at + m[0].length;
+  }
+  if (last < value.length || parts.length === 0) parts.push({ text: value.slice(last) });
+  return parts;
+}
+
+function RowValue({ label, value }: { label: string; value: string }): React.ReactElement {
+  return (
+    <span>
+      {aboutValueParts(label, value).map((part, i) =>
+        part.href === undefined ? (
+          <React.Fragment key={i}>{part.text}</React.Fragment>
+        ) : part.href.startsWith("mailto:") ? (
+          <a key={i} className="af-about__link" href={part.href}>
+            {part.text}
+          </a>
+        ) : (
+          <a key={i} className="af-about__link" href={part.href} target="_blank" rel="noopener noreferrer">
+            {part.text}
+          </a>
+        ),
+      )}
+    </span>
+  );
+}
+
+/** The shared About dialog (controlled: the app owns `open`). */
+export function AfAboutDialog(props: AfAboutDialogProps): React.ReactElement | null {
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const titleId = useId();
+  // Latest onClose without re-running the open effect: an inline onClose
+  // must not move focus back and forth on every parent re-render.
+  const onCloseRef = useRef(props.onClose);
+  onCloseRef.current = props.onClose;
+
+  // Keyed on `open` only: focus the Close button on open, Escape closes, Tab
+  // stays inside the dialog, focus returns to the opener on close.
+  useEffect(() => {
+    if (!props.open) return;
+    const restore = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      trapTabKey(e, cardRef.current, document.activeElement);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      if (restore && typeof restore.focus === "function") restore.focus();
+    };
+  }, [props.open]);
+
+  if (!props.open) return null;
+
+  const title = props.title || `About ${props.identity.name}`;
+  const rows = aboutRows(props.identity, props.extraRows);
+
+  return (
+    <div className="af-appearance-overlay af-about-overlay" onClick={props.onClose} role="presentation">
+      <div
+        ref={cardRef}
+        className="af-appearance af-about"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="af-appearance__title" id={titleId}>
+          {title}
+        </div>
+        <dl className="af-about__rows">
+          {rows.map(([label, value], i) => (
+            <div className="af-about__row" key={`${i}:${label}`}>
+              <dt className="af-about__label">{label}</dt>
+              <dd className="af-about__value">
+                <RowValue label={label} value={value} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <div className="af-appearance__actions">
+          <button ref={closeRef} type="button" className="af-appearance__close" onClick={props.onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default AfAboutDialog;
 
 ## ui-kit/src/gateway_session_signin.tsx
 
@@ -8030,9 +8560,24 @@ npm test
 Or a single package's, e.g.:
 
 ```bash
-cd monitor-memory
-npm test
+npm --workspace monitor-memory test
 ```
+
+The React packages test with small Node scripts (`ui-kit/scripts/check_*.mjs`,
+`panel-chat/scripts/check_*.mjs`), run in order by each package's `npm test`; the first failing
+script names the problem. `app-server` and the Web Components have a `test/` folder.
+
+### Shared contracts with other repositories
+
+Some checks pin behavior that other AbstractFramework repositories share:
+
+- `ui-kit/src/abstractframework_identity.json` is a byte-identical copy of
+  `identity/abstractframework.json` in the AbstractFramework repository, which verifies every
+  vendored copy. Update it by copying the file, never by editing it here.
+- `ui-kit/scripts/fixtures/gateway_version_rows.json` holds the cases that
+  `gatewayVersionRows` and its Python twin `abstractcore.utils.identity.gateway_version_rows`
+  must both satisfy (`ui-kit/scripts/check_about.mjs` runs them). Change the helper, the fixture
+  and the Python twin together.
 
 ## Docs (when you change behavior)
 
@@ -8296,6 +8841,10 @@ ships.
   the islands bundle is built; the API reference lists the app chrome (`AfTopBarActions`,
   `AfDrawer`, `AfAppearanceDialog`), `AssistantPanel` and the workflow chat exports; the
   `ui-kit` and `panel-chat` READMEs cover the console islands and `AssistantPanel`.
+- Changed: the architecture page adds diagrams for live replies and the About/identity flow; the
+  `app-server` README documents the proxy options and environment switches; the API reference,
+  FAQ, troubleshooting and adoption guide cover live replies, same-origin images in chat, the
+  About dialog and the forwarded client address.
 
 ## 0.1.11 - 2026-09-24
 

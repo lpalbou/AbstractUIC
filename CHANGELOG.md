@@ -89,6 +89,10 @@ ships.
   the islands bundle is built; the API reference lists the app chrome (`AfTopBarActions`,
   `AfDrawer`, `AfAppearanceDialog`), `AssistantPanel` and the workflow chat exports; the
   `ui-kit` and `panel-chat` READMEs cover the console islands and `AssistantPanel`.
+- Changed: the architecture page adds diagrams for live replies and the About/identity flow; the
+  `app-server` README documents the proxy options and environment switches; the API reference,
+  FAQ, troubleshooting and adoption guide cover live replies, same-origin images in chat, the
+  About dialog and the forwarded client address.
 
 ## 0.1.11 - 2026-09-24
 

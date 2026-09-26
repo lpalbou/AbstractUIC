@@ -14,8 +14,9 @@ This package provides:
   `GatewaySessionSignInCard`
 - **App chrome**: `AfTopBarActions`, `AfDrawer`, `AfAppearanceDialog` + `useAppearanceSettings()`,
   `AfAboutDialog`
-- **Identity**: `appIdentity(id, version)`, `frameworkIdentity()`, `aboutRows(...)` — the
-  AbstractFramework facts every About screen shows
+- **Identity**: `appIdentity(id, version)`, `frameworkIdentity()`, `knownAppIds()`,
+  `aboutRows(...)`, `gatewayVersionRows(...)` — the AbstractFramework facts every About screen
+  shows
 - **Run and policy surfaces**: `PhaseCapabilityMatrix`, `CriticalActionDialog`, `SteerComposer`,
   `DisclosureList`, `AfChip`, `AfPhaseRadio`, cognition gauges
 - **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk)
@@ -159,7 +160,9 @@ Rules:
 Every AbstractFramework app shows the same About facts: the app name and version, "Part of
 AbstractFramework", the author, the copyright and licence line, and links to the website, source,
 documentation, issue tracker and feedback page, plus the contact e-mail. They come from one
-canonical descriptor that the kit ships as `abstractframework_identity.json`; the rows match the
+canonical descriptor that the kit ships as `abstractframework_identity.json` (a byte-identical
+copy of `identity/abstractframework.json` in the
+[AbstractFramework repository](https://github.com/lpalbou/AbstractFramework)); the rows match the
 Python `abstractcore.utils.identity.about_fields`, so web, desktop and terminal apps agree.
 
 Add About to the top bar with one prop:
@@ -194,7 +197,8 @@ const refreshGatewayRows = () =>
   `abstractgateway` version, like a failed request, gives the single row
   `Gateway` → `unavailable (<reason>)`. The error is its own argument, so a body that contains an
   `error` field is still read as a normal body. The rows match the Python
-  `abstractcore.utils.identity.gateway_version_rows(payload, error)`.
+  `abstractcore.utils.identity.gateway_version_rows(payload, error)`; both sides are checked
+  against the shared fixture `scripts/fixtures/gateway_version_rows.json`.
 - The dialog turns every `http://` or `https://` URL in a row into a link that opens in a new tab
   (`rel="noopener noreferrer"`), including the framework website in "Part of"; the rest of the
   value stays text. Only the Contact row is a `mailto:` link, so a value such as

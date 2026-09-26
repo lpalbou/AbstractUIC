@@ -16,6 +16,7 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Server-side session proxy | `@abstractframework/app-server` (`createGatewaySessionProxy`) | Token→HttpOnly-cookie exchange, CSRF, URL pinning; tokens never rest client-side |
 | Searchable select / combobox | `AfSelect` | Keyboard nav + ARIA built in; `variant="panel"` for forms |
 | Provider + model pickers | `ProviderModelPicker` (mode toggle + cascade) or `ProviderModelSelect` (plain pair) | Picker's "Gateway default" mode is the default; transports injected (`fetchProviders`/`fetchModels`) |
+| App top bar + About | `AfTopBarActions` with `about={{ identity: appIdentity(id, version), extraRows, onOpen }}` (or `AfAboutDialog` directly) | Identity facts come from the kit's descriptor; format the connected Gateway's versions with `gatewayVersionRows` — never hand-write About rows |
 | Theme/typography pickers | `ThemeSelect`, `FontScaleSelect`, `HeaderDensitySelect` | Persisted user settings; see [Theming](./theming.md) |
 | Tool allowlist + approval editor | `ToolPolicyEditor` | Server-declared `default_approval` wins; `TOOL_POLICY_DEFAULTS` is the labeled fallback |
 | Phase × capability grid | `PhaseCapabilityMatrix` (+ framework-free core) | Payload-driven: render the server's `MatrixPayload`, never re-derive policy client-side |
@@ -25,6 +26,7 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Badges / chips / toggles | `AfChip`, `AfChipButton` | Tone variants with AA-derived colors; custom hues via `var(--token)` |
 | Icons | `Icon` | ~40 glyphs, 24-grid and 16-grid families |
 | Chat UI (thread, cards, composer) | `@abstractframework/panel-chat` | Markdown with real nested lists; JSON auto-detect; `message.title` names the speaker |
+| Live (streamed) replies | `WorkflowSessionController` / `useWorkflowSession` + a transport whose `streamLedger` passes `onDelta`; `WorkflowChat` `streamReplies` + `streamRepliesRuntime()` | Deltas never move the ledger cursor; the ledger record replaces the live bubble. See [panel-chat live replies](../panel-chat/README.md#live-replies-streaming) |
 | App assistant (docs Q&A drawer) | `AssistantPanel` (panel-chat) in `AfDrawer` via `AfTopBarActions` | Transport injected. THE shared transport (docs-qa@0.1.0, tenant_catalog): `POST /runs/start {registry_scope:"tenant_catalog", bundle_id:"docs-qa", bundle_version:"0.1.0", flow_id:"docsqa001", input_data:{question, history, docs:<llms.txt text>, app}}`, answer on `output.response` — grounded on YOUR docs only, cites sections, says honestly when docs don't answer. `import docs from "./llms.txt?raw"` remains the recommended docs source (build-time, versioned) |
 | Markdown / JSON rendering | `Markdown`, `JsonViewer` (panel-chat) | Also exported standalone |
 | TTS playback + push-to-talk | `useGatewayVoice` (+ `streamTtsJsonl`) | Injected `tts`/`tts_stream`/`transcribe` functions; streaming with pause/resume |
@@ -58,6 +60,17 @@ These rules keep app behavior consistent across the framework.
   peer passes regardless of its Host header. Behind a trusted reverse proxy, remote
   configuration requires the explicit opt-in (`ABSTRACTGATEWAY_ALLOW_REMOTE_BROWSER_GATEWAY_CONFIG`
   or the app-prefixed variant). Tests of this gate should assert on the socket peer.
+- **The Gateway sees the real browser address**: the app-server proxy sets `X-Forwarded-For` to
+  the browser connection's socket address and adds `X-AbstractFramework-App-Proxy: <appId>` on
+  every Gateway-bound request; client-supplied values are replaced or dropped. An app that runs
+  its own proxy follows the same rules.
+
+### About dialog
+
+- Every app shows the same About facts through the kit: `appIdentity(id, version)` with the
+  app's real version (an unknown id throws), plus `gatewayVersionRows(payload | null, error?)`
+  for the connected Gateway (fetched from `GET /api/gateway/about` when the dialog opens).
+- See [`ui-kit/README.md`](../ui-kit/README.md#about-dialog-and-identity).
 
 ### Server truth renders, clients never re-derive
 
@@ -94,7 +107,8 @@ The kit absorbs proven app components rather than speculating:
 - Pin the kit version and rebuild your bundle when you bump it: a previously built bundle keeps
   serving the old kit code. Hard-reload open tabs after a rebuild.
 - `npm test` in `ui-kit` runs the full guard chain (build, matrix cores, theme tokens, palette
-  seeds parity, theme contrast, console islands); the publish hook runs the same chain.
+  seeds parity, About and identity checks, theme contrast, console islands); the publish hook
+  runs the same chain.
 - Pages that vendor the [console islands](./console-islands.md) bundle rebuild and re-vendor it
   when the kit changes.
 

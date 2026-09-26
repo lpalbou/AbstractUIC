@@ -79,7 +79,12 @@ See: [Adoption guide: Versioning discipline](./adoption-guide.md#versioning-disc
 See: [`monitor-gpu/README.md`](../monitor-gpu/README.md),
 [`monitor-memory/README.md`](../monitor-memory/README.md).
 
-## The app-server proxy answers `403` or `401`
+## The app-server proxy answers `400`, `403` or `401`
+
+- `400` "Cannot determine the client address of this connection": the proxy could not read the
+  browser connection's socket address, which it must forward to the Gateway. This happens when
+  the request object passed to `handle(req, res)` is not a real Node.js `http` request (for
+  example a framework adapter that drops `req.socket`). Pass the original `IncomingMessage`.
 
 - `403` with `reason_code: "csrf_required"` on a mutating request: send the CSRF token from the
   `<appId>_gateway_csrf` cookie in the `x-<appId>-csrf` or `x-abstract-csrf` header. The ui-kit
@@ -91,8 +96,31 @@ See: [`monitor-gpu/README.md`](../monitor-gpu/README.md),
 - `401` "Gateway sign-in required": the browser has no session cookie yet; sign in through
   `GatewayConnectModal` (`POST /api/connection/gateway`).
 
-See: [`app-server/README.md`](../app-server/README.md),
+See: [`app-server/README.md`](../app-server/README.md#options),
 [Architecture: Gateway connection flow](./architecture.md#gateway-connection-flow-app-server--ui-kit).
+
+## Live replies do not appear (replies show only when complete)
+
+- Your transport's `streamLedger` does not pass the sixth argument `onDelta`, or routes the
+  `llm.delta` / `llm.delta_end` frames to `onStep`. Pass them to `onDelta` (use
+  `llmDeltaFromSse(eventName, data)`) and never move the ledger cursor with them.
+- The run did not ask for streaming: `_runtime.stream` is `false`, or unset while the Gateway
+  default is off. Build the start-run input with `streamRepliesRuntime(mode)`.
+- The chat shows "This reply is not streamed: …": the Gateway reported that this call could not
+  stream (for example structured output). The reply appears when complete; no fix is needed.
+
+**Verify:** watch the run's ledger stream in the browser's network panel; `llm.delta` events
+should arrive while the model writes.
+
+See: [panel-chat live replies](../panel-chat/README.md#live-replies-streaming),
+[Architecture: Live replies](./architecture.md#live-replies-panel-chat).
+
+## Images in assistant messages show as "image: …" links
+
+This is the default: `ChatMessageCard` loads images in assistant and system messages only from
+the page's own origin (`sameOriginImage`). Serve the image through your app's origin (for
+example behind the app-server proxy), or pass `images: "inline"` or your own `inlineImage(src)`
+through `messageProps`. See the [FAQ entry](./faq.md#panel-chat-why-do-images-in-assistant-messages-show-as-links).
 
 ## Console islands: `islands bundle is stale` or `AfConsoleIslands` is undefined
 
@@ -102,8 +130,8 @@ See: [`app-server/README.md`](../app-server/README.md),
 - `window.AfConsoleIslands` is undefined in the page: the script was not loaded, or loaded after
   the code that uses it. Load `af-console-islands.js` with a plain `<script>` tag before your
   page script.
-- `AfConsoleIslands: mount target missing`: the element passed to `mountTopBar` /
-  `mountAppearance` does not exist yet; mount after the DOM is ready.
+- `AfConsoleIslands: mount target missing`: the element passed to `mountTopBar`,
+  `mountAppearance` or `mountAbout` does not exist yet; mount after the DOM is ready.
 - Islands render but look unstyled: the bundle ships no CSS; load the kit's `theme.css` too.
 - The bundle is missing after `npm install @abstractframework/ui-kit`: the islands are built
   from a repository checkout and are not part of the npm package.
@@ -121,6 +149,11 @@ script names the problem, for example:
   run `node ui-kit/scripts/generate_palette_seeds.mjs` and commit the result.
 - `check_theme_tokens.mjs`: a theme block is missing a token the components use; add it to
   every theme in `theme.css`.
+- `check_about.mjs`: the identity helpers, the About dialog or the shared fixture
+  `scripts/fixtures/gateway_version_rows.json` disagree. When the AbstractFramework identity
+  descriptor changes, copy it byte for byte into `ui-kit/src/abstractframework_identity.json`;
+  when the gateway rows change, update the helper and the fixture together with the Python twin
+  in AbstractCore.
 - `check_islands.mjs`: see the console islands entry above.
 
 See: [Theming: Guard scripts](./theming.md#guard-scripts), [Development](./development.md).
