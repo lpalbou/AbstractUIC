@@ -21,6 +21,24 @@ export type ChatMessage = {
   toolActivity?: WorkflowToolActivity;
   statistics?: WorkflowStatistics;
   runId?: string;
+  /**
+   * Present while this assistant reply is still being streamed by the model
+   * (see `WorkflowSessionController`). The card shows a streaming indicator,
+   * the model's reasoning in a collapsed "Thinking" block and, when the
+   * gateway dropped the start of a long reply, an explicit line saying so.
+   */
+  live?: ChatLiveReply;
+};
+
+/** Streaming state of a live assistant reply. `content` holds the visible text only. */
+export type ChatLiveReply = {
+  callId: string;
+  /** Reasoning text, shown collapsed and never mixed into `content`. */
+  reasoning: string;
+  /** The gateway says earlier text of this reply was dropped. */
+  truncated: boolean;
+  /** Who is writing, when it is not the conversation's own agent (e.g. "sub-agent · researcher"). */
+  caption?: string;
 };
 
 export type ChatAttachment = {
@@ -119,7 +137,8 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
     };
   }, []);
 
-  const can_speak = typeof props.onSpeakToggle === "function" && role_ui.variant === "assistant" && Boolean(String(m.content || "").trim());
+  const live = m.live;
+  const can_speak = !live && typeof props.onSpeakToggle === "function" && role_ui.variant === "assistant" && Boolean(String(m.content || "").trim());
   const speak_state = can_speak ? props.getSpeakState?.(m) || "idle" : "idle";
   const speak_icon: IconName = speak_state === "loading" ? "loader" : speak_state === "playing" ? "pause" : "speaker";
   const speak_title =
@@ -142,12 +161,22 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
   if (m.toolActivity) return <ToolActivity tool={m.toolActivity} showCopy={props.showCopy} />;
 
   return (
-    <div className={["pc-chat-item", `pc-chat-item--${role_ui.variant}`, props.className].filter(Boolean).join(" ")}>
+    <div
+      className={["pc-chat-item", `pc-chat-item--${role_ui.variant}`, live ? "pc-chat-item--live" : "", props.className].filter(Boolean).join(" ")}
+      {...(live ? { "aria-busy": true } : {})}
+    >
       <div className="pc-chat-header">
         <div className="pc-chat-avatar" aria-hidden="true">
           <Icon name={role_ui.icon} size={14} />
         </div>
         <span className="pc-chat-role">{role_ui.label}</span>
+        {live ? (
+          <span className="pc-chat-live-indicator" title="The reply is still being written">
+            <span className="pc-chat-live-dot" aria-hidden="true" />
+            streaming
+          </span>
+        ) : null}
+        {live?.caption ? <span className="pc-chat-live-caption">{live.caption}</span> : null}
         <span className="pc-chat-header-spacer" />
         {time_label ? <span className="pc-chat-time">{time_label}</span> : null}
         <div className="pc-chat-header-actions">
@@ -181,9 +210,19 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         </div>
       </div>
 
-      <div className="pc-chat-body">
-        <ChatMessageContent text={String(m.content || "")} renderMarkdown={props.renderMarkdown} jsonCollapseAfterDepth={props.jsonCollapseAfterDepth} />
-      </div>
+      {live?.truncated ? <div className="pc-chat-live-truncated" role="note">Earlier text was dropped by the gateway.</div> : null}
+      {live?.reasoning ? (
+        <details className="pc-chat-thinking">
+          <summary>Thinking</summary>
+          <div className="pc-chat-thinking-body">{live.reasoning}</div>
+        </details>
+      ) : null}
+
+      {!live || String(m.content || "").trim() ? (
+        <div className="pc-chat-body">
+          <ChatMessageContent text={String(m.content || "")} renderMarkdown={props.renderMarkdown} jsonCollapseAfterDepth={props.jsonCollapseAfterDepth} />
+        </div>
+      ) : null}
 
       {attachments.length ? (
         <div className="pc-chat-attachments" aria-label="Attachments">

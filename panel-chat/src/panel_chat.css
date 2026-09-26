@@ -1100,6 +1100,60 @@
   overflow-wrap: anywhere;
 }
 
+/* Live (streaming) assistant reply */
+.pc-chat-live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs, 11px);
+  color: var(--text-muted, rgba(255, 255, 255, 0.55));
+}
+
+.pc-chat-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent, rgba(120, 170, 255, 0.9));
+  animation: pc-live-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pc-live-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .pc-chat-live-dot { animation: none; } }
+
+.pc-chat-live-caption {
+  font-size: var(--font-size-xs, 11px);
+  color: var(--text-muted, rgba(255, 255, 255, 0.55));
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.pc-chat-live-truncated {
+  margin-bottom: 6px;
+  font-size: var(--font-size-xs, 11px);
+  font-style: italic;
+  color: var(--text-muted, rgba(255, 255, 255, 0.55));
+}
+
+.pc-chat-thinking {
+  margin-bottom: 8px;
+  font-size: var(--font-size-sm, 12px);
+  color: var(--text-muted, rgba(255, 255, 255, 0.55));
+}
+
+.pc-chat-thinking > summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.pc-chat-thinking-body {
+  margin-top: 6px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border, rgba(255, 255, 255, 0.12));
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 16em;
+  overflow-y: auto;
+}
+
 .pc-chat-attachments {
   margin-top: 10px;
   display: flex;

@@ -7,6 +7,7 @@ import type { ChatMessage, ChatMessageCardProps } from "./chat_message_card.js";
 import { ChatThread } from "./chat_thread.js";
 import { DragPresence, dragCarriesFiles, draggedFileCount, dropZoneLabel, droppedFiles, folderRefusal, pastedFiles } from "./file_drop.js";
 import { WorkflowInteractionPanel, type WorkflowInteraction } from "./workflow_interaction.js";
+import type { StreamRepliesMode } from "./llm_delta.js";
 
 export type WorkflowChatProps = {
   /** Fully controlled transcript. The host owns message persistence and identity. */
@@ -56,6 +57,16 @@ export type WorkflowChatProps = {
   placeholder?: string;
   className?: string;
   messageProps?: Omit<ChatMessageCardProps, "message">;
+  /**
+   * The host's "Stream replies" choice. The widget does not start runs: the
+   * host maps it into the start-run input with `streamRepliesRuntime(mode)`
+   * — `"on"` → `_runtime.stream: true`, `"off"` → `_runtime.stream: false`,
+   * `"gateway_default"` (or omitted) → `_runtime.stream` left unset so the
+   * gateway's `agents.streaming_default` decides. Live replies arrive through
+   * the transport's `onDelta`; messages carrying `live` render as a streaming
+   * bubble whatever this value is. Exposed on the root as `data-stream-replies`.
+   */
+  streamReplies?: StreamRepliesMode;
 };
 
 function messageFor(error: unknown): string {
@@ -303,6 +314,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
       ref={sectionRef}
       className={["pc-workflow-chat", drag ? "pc-workflow-chat--dragging" : "", drag?.over ? "pc-workflow-chat--drag-over" : "", props.className].filter(Boolean).join(" ")}
       aria-label="Workflow chat"
+      data-stream-replies={props.streamReplies || "gateway_default"}
     >
       {props.header ? <header className="pc-workflow-chat__header">{props.header}</header> : null}
       <div className="pc-workflow-chat__transcript">

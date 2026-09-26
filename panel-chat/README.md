@@ -103,6 +103,49 @@ Event waits use `resolveWorkflowEventTarget(rawWait, records, run)` to recover
 the exact canonical scope from matching ledger evidence; an ambiguous wait is
 shown as unavailable rather than guessed.
 
+### Live replies (streaming)
+
+When a run streams its model replies, the gateway sends two extra events on the
+run's ledger stream: `llm.delta` (a piece of reply text, or with `snapshot: true`
+the whole text so far) and `llm.delta_end` (the model call ended). They carry no
+`id:` line. The controller shows them as a growing assistant bubble:
+
+- To receive them, the host transport passes these frames to the optional sixth
+  argument of `streamLedger(runId, after, onStep, signal, onOpen, onDelta)` and
+  never to `onStep`. They must not move the ledger cursor or the `Last-Event-ID`
+  used to reconnect. `llmDeltaFromSse(eventName, data)` returns the validated
+  event for a delta frame, `null` for any other frame, and throws for a
+  malformed one. A transport that does not pass `onDelta` keeps working: each
+  reply then appears when it is complete.
+- One bubble per model call (`live:<runId>:<callId>` in `snapshot.messages`,
+  with a `live` field). Reasoning is shown in a collapsed "Thinking" block,
+  never mixed into the reply text. A reply from a sub-run carries a
+  "sub-agent · <node>" caption. If the gateway reports that earlier text was
+  dropped, the bubble says "Earlier text was dropped by the gateway."
+- The bubble goes away when the call's ledger record or the run's assistant
+  message arrives, so a reply is never shown twice, and it never comes back for
+  that call. A call that failed or was cancelled leaves a short note instead.
+  A call the gateway could not stream (`reason: "unavailable"`) adds one note
+  per run and cause, for example "This reply is not streamed: this step asks
+  the model for structured output."
+- Each reconnect clears the live bubbles of that stream; the gateway's
+  snapshots bring the current text back.
+
+`WorkflowChat` renders a live bubble with a small "streaming" indicator. Its
+`streamReplies` prop (`"gateway_default"`, `"on"` or `"off"`) holds the host's
+"Stream replies" choice; the widget does not start runs, so the host puts it in
+the start-run input with `streamRepliesRuntime(mode)`:
+
+| `streamReplies` | Run input |
+| --- | --- |
+| `"on"` | `_runtime.stream: true` |
+| `"off"` | `_runtime.stream: false` |
+| `"gateway_default"` (or omitted) | `_runtime.stream` not set: the gateway setting `agents.streaming_default` decides |
+
+```ts
+const input = { prompt, _runtime: { ...streamRepliesRuntime(streamReplies) } };
+```
+
 ## Rendering rules
 
 `ChatMessageContent` auto-detects JSON (via `tryParseJson` in `panel-chat/src/utils.ts`) and renders:

@@ -21,6 +21,28 @@ ships.
 - Added: every request the proxy sends to the Gateway carries
   `X-AbstractFramework-App-Proxy: <appId>`; a client-supplied value of that header is dropped.
 
+### panel-chat 0.1.17 (unreleased)
+
+- Added: live replies. When a run streams its model replies, `WorkflowSessionController` shows
+  each model call as a growing assistant bubble (`live:<runId>:<callId>`) with a "streaming"
+  indicator, the model's reasoning in a collapsed "Thinking" block, a "sub-agent · <node>"
+  caption for sub-runs, and "Earlier text was dropped by the gateway." when the gateway says so.
+  The call's ledger record or the run's assistant message replaces the bubble (never two copies,
+  never recreated); a failed or cancelled call leaves a short note; a call the gateway could not
+  stream adds one note per run and cause. Each stream reconnect clears its live bubbles before the
+  gateway's snapshots. Out-of-order and duplicate frames are dropped; malformed frames show an
+  error.
+- Added: `WorkflowTransport.streamLedger` takes an optional sixth argument
+  `onDelta(event: LlmDelta | LlmDeltaEnd)`. Host SSE readers pass the `llm.delta` and
+  `llm.delta_end` frames to it, never to `onStep`, and never move the ledger cursor with them.
+  Existing transports keep working (replies then appear when complete).
+- Added: `llmDeltaFromSse()`, `validateLlmDeltaEvent()`, `isLlmDeltaEnd()`,
+  `describeStreamUnavailable()`, `streamRepliesRuntime()` and the `LlmDelta`, `LlmDeltaEnd`,
+  `LlmDeltaEvent`, `LlmDeltaChannel`, `LlmDeltaEndReason`, `LlmStreamUnavailableDetail`,
+  `StreamRepliesMode` and `ChatLiveReply` types.
+- Added: `WorkflowChat` `streamReplies?: "gateway_default" | "on" | "off"`; hosts map it to the
+  run input with `streamRepliesRuntime()` (`_runtime.stream: true` / `false` / unset).
+
 ### ui-kit 0.1.12 (unreleased)
 
 - Added: one About dialog for every AbstractFramework app. `AfAboutDialog` shows the application

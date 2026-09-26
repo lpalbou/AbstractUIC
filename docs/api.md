@@ -83,7 +83,8 @@ Purpose: chat-thread UI primitives with lightweight Markdown/JSON rendering.
 
 Components:
 - `AssistantPanel` (docs Q&A surface with an injected `ask(question, { signal, history })` transport returning a Promise or an AsyncIterable of deltas; never fetches)
-- `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
+- `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions; `streamReplies?: "gateway_default" | "on" | "off"`); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
+- Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry). See [panel-chat README](../panel-chat/README.md#live-replies-streaming)
 - `ToolActivity`, `ToolActivityGroup` (tool-call rendering), `StatDetailPanel` + `statDetail()` (token/time/tool statistics)
 - `ChatThread` (thread container; renders a list of messages)
 - `ChatMessageCard` (single message rendering; `message.title` names the speaker — assistants
@@ -97,7 +98,7 @@ Renderers:
 - `JsonViewer` (collapsible tree; honors `collapseAfterDepth`; auto-parses JSON strings)
 
 Types:
-- `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`), `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
+- `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`; optional `live: ChatLiveReply` marks a reply still being streamed), `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
 
 Utilities:
 - `tryParseJson()` (drives JSON autodetection in `ChatMessageContent`)

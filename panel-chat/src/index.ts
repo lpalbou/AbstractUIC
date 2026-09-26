@@ -24,8 +24,24 @@ export { WorkflowInteractionPanel } from "./workflow_interaction.js";
 export { WorkflowSessionController, workflowPendingInteraction } from "./workflow_runtime.js";
 export { useWorkflowSession } from "./use_workflow_session.js";
 export { resolveWorkflowEventTarget } from "./event_target.js";
+export {
+  LLM_DELTA_EVENT,
+  LLM_DELTA_END_EVENT,
+  isLlmDeltaEnd,
+  llmDeltaFromSse,
+  describeStreamUnavailable,
+  streamRepliesRuntime,
+  validateLlmDeltaEvent,
+  type LlmDelta,
+  type LlmDeltaChannel,
+  type LlmDeltaEnd,
+  type LlmDeltaEndReason,
+  type LlmDeltaEvent,
+  type LlmStreamUnavailableDetail,
+  type StreamRepliesMode,
+} from "./llm_delta.js";
 
-export type { ChatAttachment, ChatMessage, ChatMessageLevel, ChatStat } from "./chat_message_card.js";
+export type { ChatAttachment, ChatLiveReply, ChatMessage, ChatMessageLevel, ChatStat } from "./chat_message_card.js";
 export type {
   WorkflowChatProps,
 } from "./workflow_chat.js";

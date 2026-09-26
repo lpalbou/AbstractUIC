@@ -90,6 +90,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [app-server/src/index.d.ts](app-server/src/index.d.ts): TS types for `createGatewaySessionProxy`
 - [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
 - [panel-chat/src/chat_message_card.tsx](panel-chat/src/chat_message_card.tsx): `ChatMessage` / `ChatAttachment` / `ChatStat` contracts
+- [panel-chat/src/llm_delta.ts](panel-chat/src/llm_delta.ts): live-reply events (`llm.delta` / `llm.delta_end`), SSE dispatch helper, `streamRepliesRuntime`
 - [panel-chat/src/message_content.tsx](panel-chat/src/message_content.tsx): JSON autodetect + Markdown override hook (`renderMarkdown`)
 - [panel-chat/src/markdown.tsx](panel-chat/src/markdown.tsx): Markdown renderer rules (minimal, no external deps)
 - [monitor-flow/src/index.ts](monitor-flow/src/index.ts): exports for `@abstractframework/monitor-flow`
@@ -745,7 +746,8 @@ Purpose: chat-thread UI primitives with lightweight Markdown/JSON rendering.
 
 Components:
 - `AssistantPanel` (docs Q&A surface with an injected `ask(question, { signal, history })` transport returning a Promise or an AsyncIterable of deltas; never fetches)
-- `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
+- `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions; `streamReplies?: "gateway_default" | "on" | "off"`); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
+- Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry). See [panel-chat README](../panel-chat/README.md#live-replies-streaming)
 - `ToolActivity`, `ToolActivityGroup` (tool-call rendering), `StatDetailPanel` + `statDetail()` (token/time/tool statistics)
 - `ChatThread` (thread container; renders a list of messages)
 - `ChatMessageCard` (single message rendering; `message.title` names the speaker — assistants
@@ -759,7 +761,7 @@ Renderers:
 - `JsonViewer` (collapsible tree; honors `collapseAfterDepth`; auto-parses JSON strings)
 
 Types:
-- `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`), `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
+- `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`; optional `live: ChatLiveReply` marks a reply still being streamed), `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
 
 Utilities:
 - `tryParseJson()` (drives JSON autodetection in `ChatMessageContent`)
@@ -2156,6 +2158,49 @@ Event waits use `resolveWorkflowEventTarget(rawWait, records, run)` to recover
 the exact canonical scope from matching ledger evidence; an ambiguous wait is
 shown as unavailable rather than guessed.
 
+### Live replies (streaming)
+
+When a run streams its model replies, the gateway sends two extra events on the
+run's ledger stream: `llm.delta` (a piece of reply text, or with `snapshot: true`
+the whole text so far) and `llm.delta_end` (the model call ended). They carry no
+`id:` line. The controller shows them as a growing assistant bubble:
+
+- To receive them, the host transport passes these frames to the optional sixth
+  argument of `streamLedger(runId, after, onStep, signal, onOpen, onDelta)` and
+  never to `onStep`. They must not move the ledger cursor or the `Last-Event-ID`
+  used to reconnect. `llmDeltaFromSse(eventName, data)` returns the validated
+  event for a delta frame, `null` for any other frame, and throws for a
+  malformed one. A transport that does not pass `onDelta` keeps working: each
+  reply then appears when it is complete.
+- One bubble per model call (`live:<runId>:<callId>` in `snapshot.messages`,
+  with a `live` field). Reasoning is shown in a collapsed "Thinking" block,
+  never mixed into the reply text. A reply from a sub-run carries a
+  "sub-agent · <node>" caption. If the gateway reports that earlier text was
+  dropped, the bubble says "Earlier text was dropped by the gateway."
+- The bubble goes away when the call's ledger record or the run's assistant
+  message arrives, so a reply is never shown twice, and it never comes back for
+  that call. A call that failed or was cancelled leaves a short note instead.
+  A call the gateway could not stream (`reason: "unavailable"`) adds one note
+  per run and cause, for example "This reply is not streamed: this step asks
+  the model for structured output."
+- Each reconnect clears the live bubbles of that stream; the gateway's
+  snapshots bring the current text back.
+
+`WorkflowChat` renders a live bubble with a small "streaming" indicator. Its
+`streamReplies` prop (`"gateway_default"`, `"on"` or `"off"`) holds the host's
+"Stream replies" choice; the widget does not start runs, so the host puts it in
+the start-run input with `streamRepliesRuntime(mode)`:
+
+| `streamReplies` | Run input |
+| --- | --- |
+| `"on"` | `_runtime.stream: true` |
+| `"off"` | `_runtime.stream: false` |
+| `"gateway_default"` (or omitted) | `_runtime.stream` not set: the gateway setting `agents.streaming_default` decides |
+
+```ts
+const input = { prompt, _runtime: { ...streamRepliesRuntime(streamReplies) } };
+```
+
 ## Rendering rules
 
 `ChatMessageContent` auto-detects JSON (via `tryParseJson` in `panel-chat/src/utils.ts`) and renders:
@@ -2783,7 +2828,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -2824,7 +2869,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs"
+    "test": "npm run build && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.1.10",
@@ -4764,8 +4809,24 @@ export { WorkflowInteractionPanel } from "./workflow_interaction.js";
 export { WorkflowSessionController, workflowPendingInteraction } from "./workflow_runtime.js";
 export { useWorkflowSession } from "./use_workflow_session.js";
 export { resolveWorkflowEventTarget } from "./event_target.js";
+export {
+  LLM_DELTA_EVENT,
+  LLM_DELTA_END_EVENT,
+  isLlmDeltaEnd,
+  llmDeltaFromSse,
+  describeStreamUnavailable,
+  streamRepliesRuntime,
+  validateLlmDeltaEvent,
+  type LlmDelta,
+  type LlmDeltaChannel,
+  type LlmDeltaEnd,
+  type LlmDeltaEndReason,
+  type LlmDeltaEvent,
+  type LlmStreamUnavailableDetail,
+  type StreamRepliesMode,
+} from "./llm_delta.js";
 
-export type { ChatAttachment, ChatMessage, ChatMessageLevel, ChatStat } from "./chat_message_card.js";
+export type { ChatAttachment, ChatLiveReply, ChatMessage, ChatMessageLevel, ChatStat } from "./chat_message_card.js";
 export type {
   WorkflowChatProps,
 } from "./workflow_chat.js";
@@ -4821,6 +4882,24 @@ export type ChatMessage = {
   toolActivity?: WorkflowToolActivity;
   statistics?: WorkflowStatistics;
   runId?: string;
+  /**
+   * Present while this assistant reply is still being streamed by the model
+   * (see `WorkflowSessionController`). The card shows a streaming indicator,
+   * the model's reasoning in a collapsed "Thinking" block and, when the
+   * gateway dropped the start of a long reply, an explicit line saying so.
+   */
+  live?: ChatLiveReply;
+};
+
+/** Streaming state of a live assistant reply. `content` holds the visible text only. */
+export type ChatLiveReply = {
+  callId: string;
+  /** Reasoning text, shown collapsed and never mixed into `content`. */
+  reasoning: string;
+  /** The gateway says earlier text of this reply was dropped. */
+  truncated: boolean;
+  /** Who is writing, when it is not the conversation's own agent (e.g. "sub-agent · researcher"). */
+  caption?: string;
 };
 
 export type ChatAttachment = {
@@ -4919,7 +4998,8 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
     };
   }, []);
 
-  const can_speak = typeof props.onSpeakToggle === "function" && role_ui.variant === "assistant" && Boolean(String(m.content || "").trim());
+  const live = m.live;
+  const can_speak = !live && typeof props.onSpeakToggle === "function" && role_ui.variant === "assistant" && Boolean(String(m.content || "").trim());
   const speak_state = can_speak ? props.getSpeakState?.(m) || "idle" : "idle";
   const speak_icon: IconName = speak_state === "loading" ? "loader" : speak_state === "playing" ? "pause" : "speaker";
   const speak_title =
@@ -4942,12 +5022,22 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
   if (m.toolActivity) return <ToolActivity tool={m.toolActivity} showCopy={props.showCopy} />;
 
   return (
-    <div className={["pc-chat-item", `pc-chat-item--${role_ui.variant}`, props.className].filter(Boolean).join(" ")}>
+    <div
+      className={["pc-chat-item", `pc-chat-item--${role_ui.variant}`, live ? "pc-chat-item--live" : "", props.className].filter(Boolean).join(" ")}
+      {...(live ? { "aria-busy": true } : {})}
+    >
       <div className="pc-chat-header">
         <div className="pc-chat-avatar" aria-hidden="true">
           <Icon name={role_ui.icon} size={14} />
         </div>
         <span className="pc-chat-role">{role_ui.label}</span>
+        {live ? (
+          <span className="pc-chat-live-indicator" title="The reply is still being written">
+            <span className="pc-chat-live-dot" aria-hidden="true" />
+            streaming
+          </span>
+        ) : null}
+        {live?.caption ? <span className="pc-chat-live-caption">{live.caption}</span> : null}
         <span className="pc-chat-header-spacer" />
         {time_label ? <span className="pc-chat-time">{time_label}</span> : null}
         <div className="pc-chat-header-actions">
@@ -4981,9 +5071,19 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         </div>
       </div>
 
-      <div className="pc-chat-body">
-        <ChatMessageContent text={String(m.content || "")} renderMarkdown={props.renderMarkdown} jsonCollapseAfterDepth={props.jsonCollapseAfterDepth} />
-      </div>
+      {live?.truncated ? <div className="pc-chat-live-truncated" role="note">Earlier text was dropped by the gateway.</div> : null}
+      {live?.reasoning ? (
+        <details className="pc-chat-thinking">
+          <summary>Thinking</summary>
+          <div className="pc-chat-thinking-body">{live.reasoning}</div>
+        </details>
+      ) : null}
+
+      {!live || String(m.content || "").trim() ? (
+        <div className="pc-chat-body">
+          <ChatMessageContent text={String(m.content || "")} renderMarkdown={props.renderMarkdown} jsonCollapseAfterDepth={props.jsonCollapseAfterDepth} />
+        </div>
+      ) : null}
 
       {attachments.length ? (
         <div className="pc-chat-attachments" aria-label="Attachments">
@@ -5040,6 +5140,188 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
 }
 
 export default ChatMessageCard;
+
+## panel-chat/src/llm_delta.ts
+
+/**
+ * Live model-reply deltas on the gateway's run ledger stream.
+ *
+ * The gateway sends two extra SSE event names on `GET /runs/{id}/ledger/stream`
+ * when a run streams its replies (`_runtime.stream`). They carry NO `id:`
+ * line: they are volatile and never move the ledger cursor.
+ *
+ *   event: llm.delta      data: {kind, run_id, root_run_id, parent_run_id, node_id, call_id, seq, text, channel, snapshot, truncated?}
+ *   event: llm.delta_end  data: {kind, run_id, root_run_id, parent_run_id, node_id, call_id, seq, reason, detail?}
+ *
+ * `run_id` is the run that called the model; a stream subscribed to a root
+ * run also carries its sub-runs' deltas (`parent_run_id` is null for a root).
+ *
+ * `call_id` is the `step_id` of the run's `llm_call` ledger step. A
+ * `snapshot: true` delta (sent on subscribe/reconnect, or when the gateway
+ * coalesced frames for a slow reader) carries the whole text so far for its
+ * channel. The durable `llm_call` terminal record (written before the
+ * `llm.delta_end`) and the run's assistant message replace the live text.
+ * There is one `llm.delta_end` per model-call attempt (a retry gets a fresh
+ * `call_id`), including calls that ran without streaming, so an end for a
+ * call that sent no delta is normal. `reason: "unavailable"` says why a call
+ * was not streamed (`detail`). `<think>` blocks are already split out by the
+ * server into the `reasoning` channel. Extra fields are tolerated and ignored.
+ */
+
+export type LlmDeltaChannel = "content" | "reasoning";
+
+export type LlmDelta = {
+  kind?: "llm.delta";
+  run_id: string;
+  root_run_id?: string;
+  /** Null (or absent) for a root run's own model call. */
+  parent_run_id?: string | null;
+  node_id?: string;
+  call_id: string;
+  seq: number;
+  text: string;
+  channel: LlmDeltaChannel;
+  snapshot: boolean;
+  /** True when the gateway says older text of this call was dropped. */
+  truncated?: boolean;
+};
+
+export type LlmDeltaEndReason = "completed" | "failed" | "cancelled" | "unavailable";
+
+/** Why a call was not streamed (`reason: "unavailable"`); other strings may appear. */
+export type LlmStreamUnavailableDetail = "structured_output" | "remote_core" | "provider_cannot_stream" | "sink_error" | "usage_unavailable";
+
+export type LlmDeltaEnd = {
+  kind?: "llm.delta_end";
+  run_id: string;
+  root_run_id?: string;
+  parent_run_id?: string | null;
+  node_id?: string;
+  call_id: string;
+  seq: number;
+  reason: LlmDeltaEndReason;
+  /** Present with `reason: "unavailable"`. */
+  detail?: LlmStreamUnavailableDetail | string;
+};
+
+export type LlmDeltaEvent = LlmDelta | LlmDeltaEnd;
+
+export const LLM_DELTA_EVENT = "llm.delta" as const;
+export const LLM_DELTA_END_EVENT = "llm.delta_end" as const;
+
+function record(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function nonEmpty(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+function seqOf(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+/** True for a validated `llm.delta_end` payload (as opposed to an `llm.delta`). */
+export function isLlmDeltaEnd(event: LlmDeltaEvent): event is LlmDeltaEnd {
+  return "reason" in event;
+}
+
+/**
+ * Validate one delta payload (the parsed `data:` of an `llm.delta` or
+ * `llm.delta_end` frame). Throws an Error naming the problem for a payload
+ * that does not match the contract; it never guesses a missing field.
+ */
+export function validateLlmDeltaEvent(value: unknown, eventName?: string): LlmDeltaEvent {
+  const row = record(value);
+  const kind = row?.kind;
+  const label = eventName || (typeof kind === "string" && kind ? kind : row && "reason" in row ? LLM_DELTA_END_EVENT : LLM_DELTA_EVENT);
+  const bad = (why: string): never => { throw new Error(`Malformed ${label} event from the gateway: ${why}`); };
+  if (eventName !== undefined && eventName !== LLM_DELTA_EVENT && eventName !== LLM_DELTA_END_EVENT) bad(`unknown event name ${JSON.stringify(eventName)}`);
+  if (!row) return bad("the payload is not an object");
+  if (kind !== undefined && kind !== LLM_DELTA_EVENT && kind !== LLM_DELTA_END_EVENT) bad(`unknown kind ${JSON.stringify(kind)}`);
+  if (kind !== undefined && eventName !== undefined && kind !== eventName) bad(`kind ${JSON.stringify(kind)} does not match the event name`);
+  if (!nonEmpty(row.run_id)) bad("run_id is missing");
+  if (!nonEmpty(row.call_id)) bad("call_id is missing");
+  if (!seqOf(row.seq)) bad("seq is not a non-negative integer");
+  const isEnd = (eventName || kind) ? (eventName || kind) === LLM_DELTA_END_EVENT : "reason" in row;
+  if (row.root_run_id !== undefined && !nonEmpty(row.root_run_id)) bad("root_run_id is not a run id");
+  if (row.parent_run_id !== undefined && row.parent_run_id !== null && !nonEmpty(row.parent_run_id)) bad("parent_run_id is neither a run id nor null");
+  const common = {
+    run_id: row.run_id as string,
+    ...(nonEmpty(row.root_run_id) ? { root_run_id: row.root_run_id } : {}),
+    ...(row.parent_run_id !== undefined ? { parent_run_id: row.parent_run_id as string | null } : {}),
+    ...(nonEmpty(row.node_id) ? { node_id: row.node_id } : {}),
+    call_id: row.call_id as string,
+    seq: row.seq as number,
+  };
+  if (isEnd) {
+    if (!["completed", "failed", "cancelled", "unavailable"].includes(String(row.reason))) bad(`unknown reason ${JSON.stringify(row.reason)}`);
+    if (row.detail !== undefined && row.detail !== null && typeof row.detail !== "string") bad("detail is not a string");
+    return { kind: LLM_DELTA_END_EVENT, ...common, reason: row.reason as LlmDeltaEndReason, ...(nonEmpty(row.detail) ? { detail: row.detail } : {}) };
+  }
+  if (typeof row.text !== "string") bad("text is not a string");
+  if (row.channel !== "content" && row.channel !== "reasoning") bad(`unknown channel ${JSON.stringify(row.channel)}`);
+  if (typeof row.snapshot !== "boolean") bad("snapshot is not a boolean");
+  if (row.truncated !== undefined && typeof row.truncated !== "boolean") bad("truncated is not a boolean");
+  return {
+    kind: LLM_DELTA_EVENT,
+    ...common,
+    text: row.text as string,
+    channel: row.channel as LlmDeltaChannel,
+    snapshot: row.snapshot as boolean,
+    ...(row.truncated === true ? { truncated: true } : {}),
+  };
+}
+
+/**
+ * For host SSE readers: turn one received frame into a delta event, or
+ * `null` when the frame is not a delta (then it is a ledger item, handled as
+ * before). `data` may be the raw `data:` string or an already parsed value.
+ *
+ *   const delta = llmDeltaFromSse(frame.event, frame.data);
+ *   if (delta) { onDelta?.(delta); continue; } // never touch the ledger cursor
+ *
+ * Throws for a malformed delta frame (see `validateLlmDeltaEvent`).
+ */
+export function llmDeltaFromSse(eventName: string, data: unknown): LlmDeltaEvent | null {
+  if (eventName !== LLM_DELTA_EVENT && eventName !== LLM_DELTA_END_EVENT) return null;
+  let value = data;
+  if (typeof data === "string") {
+    try { value = JSON.parse(data); } catch { throw new Error(`Malformed ${eventName} event from the gateway: data is not JSON`); }
+  }
+  return validateLlmDeltaEvent(value, eventName);
+}
+
+/** The widget's "Stream replies" choice. */
+export type StreamRepliesMode = "gateway_default" | "on" | "off";
+
+/**
+ * The run-input `_runtime` entries for a `StreamRepliesMode`:
+ * `"on"` → `{ stream: true }`, `"off"` → `{ stream: false }`,
+ * `"gateway_default"` → `{}` (leave `_runtime.stream` unset so the gateway's
+ * `agents.streaming_default` setting decides). Merge the result into the
+ * `_runtime` object of the start-run input.
+ */
+export function streamRepliesRuntime(mode: StreamRepliesMode): { stream?: boolean } {
+  if (mode === "on") return { stream: true };
+  if (mode === "off") return { stream: false };
+  if (mode === "gateway_default") return {};
+  throw new Error(`Unknown streamReplies mode ${JSON.stringify(mode)}; use "gateway_default", "on" or "off"`);
+}
+
+const UNAVAILABLE_REASONS: Record<LlmStreamUnavailableDetail, string> = {
+  structured_output: "this step asks the model for structured output",
+  remote_core: "the model runs on a remote AbstractCore server",
+  provider_cannot_stream: "the model provider cannot stream",
+  sink_error: "the gateway could not relay the live text",
+  usage_unavailable: "the provider does not report token usage while streaming",
+};
+
+/** One line explaining an `llm.delta_end` with `reason: "unavailable"`. */
+export function describeStreamUnavailable(detail?: string): string {
+  const why = detail ? UNAVAILABLE_REASONS[detail as LlmStreamUnavailableDetail] || `the gateway reported "${detail}"` : "the gateway gave no reason";
+  return `This reply is not streamed: ${why}. It appears when it is complete.`;
+}
 
 ## panel-chat/src/message_content.tsx
 
@@ -7854,6 +8136,28 @@ ships.
   address is unknown is refused with 400.
 - Added: every request the proxy sends to the Gateway carries
   `X-AbstractFramework-App-Proxy: <appId>`; a client-supplied value of that header is dropped.
+
+### panel-chat 0.1.17 (unreleased)
+
+- Added: live replies. When a run streams its model replies, `WorkflowSessionController` shows
+  each model call as a growing assistant bubble (`live:<runId>:<callId>`) with a "streaming"
+  indicator, the model's reasoning in a collapsed "Thinking" block, a "sub-agent · <node>"
+  caption for sub-runs, and "Earlier text was dropped by the gateway." when the gateway says so.
+  The call's ledger record or the run's assistant message replaces the bubble (never two copies,
+  never recreated); a failed or cancelled call leaves a short note; a call the gateway could not
+  stream adds one note per run and cause. Each stream reconnect clears its live bubbles before the
+  gateway's snapshots. Out-of-order and duplicate frames are dropped; malformed frames show an
+  error.
+- Added: `WorkflowTransport.streamLedger` takes an optional sixth argument
+  `onDelta(event: LlmDelta | LlmDeltaEnd)`. Host SSE readers pass the `llm.delta` and
+  `llm.delta_end` frames to it, never to `onStep`, and never move the ledger cursor with them.
+  Existing transports keep working (replies then appear when complete).
+- Added: `llmDeltaFromSse()`, `validateLlmDeltaEvent()`, `isLlmDeltaEnd()`,
+  `describeStreamUnavailable()`, `streamRepliesRuntime()` and the `LlmDelta`, `LlmDeltaEnd`,
+  `LlmDeltaEvent`, `LlmDeltaChannel`, `LlmDeltaEndReason`, `LlmStreamUnavailableDetail`,
+  `StreamRepliesMode` and `ChatLiveReply` types.
+- Added: `WorkflowChat` `streamReplies?: "gateway_default" | "on" | "off"`; hosts map it to the
+  run input with `streamRepliesRuntime()` (`_runtime.stream: true` / `false` / unset).
 
 ### ui-kit 0.1.12 (unreleased)
 

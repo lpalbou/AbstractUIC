@@ -6,6 +6,7 @@
  */
 import type { ChatMessage } from "./chat_message_card.js";
 import { foldWorkflowTools, workflowEvidence, historyRecords, type WorkflowToolActivity } from "./workflow_evidence.js";
+import { describeStreamUnavailable, isLlmDeltaEnd, validateLlmDeltaEvent, type LlmDelta, type LlmDeltaEnd } from "./llm_delta.js";
 
 export type ServerRecord = Record<string, unknown>;
 
@@ -28,8 +29,16 @@ export type WorkflowTransport = {
    * Resolve when the source closes; call onStep in strictly received order.
    * `onOpen` is optional for existing transports. Invoke it only after the
    * stream response is genuinely usable, never as an auth/connect intent.
+   *
+   * `onDelta` is optional (transports written before live replies keep
+   * working; the chat then shows each reply when it is complete). A transport
+   * that supports live replies dispatches every SSE frame named `llm.delta`
+   * or `llm.delta_end` to `onDelta` with its parsed `data:` payload
+   * (`llmDeltaFromSse(event, data)` does the name check and validation) and
+   * never to `onStep`. Those frames carry no `id:` and must not move the
+   * ledger cursor or the `Last-Event-ID` used to reconnect.
    */
-  streamLedger(runId: string, after: number, onStep: (item: unknown) => void, signal: AbortSignal, onOpen?: () => void): Promise<void>;
+  streamLedger(runId: string, after: number, onStep: (item: unknown) => void, signal: AbortSignal, onOpen?: () => void, onDelta?: (event: LlmDelta | LlmDeltaEnd) => void): Promise<void>;
   submitCommand(command: GatewayCommand, signal?: AbortSignal): Promise<unknown>;
 };
 
@@ -92,6 +101,20 @@ export function workflowPendingInteraction(snapshot: Pick<WorkflowSessionSnapsho
 }
 
 type Subscriber = () => void;
+
+/** One model reply being streamed, keyed by `${runId}:${callId}`. Sequence
+ * numbers are tracked per channel; -1 means nothing received yet. `via` is
+ * the run whose stream delivered it (a root stream also carries sub-runs). */
+type LiveReply = {
+  runId: string;
+  callId: string;
+  nodeId: string;
+  via: string;
+  text: string;
+  reasoning: string;
+  seq: { content: number; reasoning: number };
+  truncated: boolean;
+};
 
 const EMPTY: WorkflowSessionSnapshot = {
   messages: [], records: [], run: null, interaction: null,
@@ -243,6 +266,11 @@ export class WorkflowSessionController {
   private stopFollowing = false;
   private openLlmSteps = new Set<string>();
   private forcedStop: ServerRecord | null = null;
+  /** Live (streamed) replies still open, keyed by `${runId}:${callId}`. */
+  private liveReplies = new Map<string, LiveReply>();
+  /** Calls whose live reply has ended (delta_end, terminal llm_call record,
+   * or the run's assistant message): later deltas for them are ignored. */
+  private closedLiveCalls = new Set<string>();
 
   public constructor(private readonly transport: WorkflowTransport, private readonly options: { onAuthError?: (error: unknown) => void; clientId?: string } = {}) {}
 
@@ -260,6 +288,7 @@ export class WorkflowSessionController {
     this.controller = null;
     this.rootRunId = ""; this.cursors.clear(); this.seenRecords.clear(); this.seenMessages.clear(); this.watchedRuns.clear(); this.childCatchUpAttempts.clear(); this.runStates.clear(); this.historicalRuns.clear(); this.historicalRunFailures.clear(); this.commandIds.clear();
     this.toolActivities.clear(); this.historicalEvidence.clear(); this.approvedWaits.clear(); this.grantedToolWaits.clear();
+    this.liveReplies.clear(); this.closedLiveCalls.clear();
     this.set({ ...EMPTY });
   }
 
@@ -582,11 +611,18 @@ export class WorkflowSessionController {
           // received ledger item is the evidence this actual stream healed.
           this.set({ ...this.snapshot, connection: "connected", error: null });
         };
+        // Every (re)connect starts from the gateway's snapshots: drop the live
+        // text this stream delivered before, so nothing is shown twice.
+        this.dropLiveRepliesVia(runId);
         await this.transport.streamLedger(runId, after, (item) => {
           if (!this.live(generation)) return;
           markStreamConnected();
           this.ingestItem(runId, item);
-        }, this.controller!.signal, markStreamConnected);
+        }, this.controller!.signal, markStreamConnected, (event) => {
+          if (!this.live(generation)) return;
+          markStreamConnected();
+          this.ingestDelta(runId, event);
+        });
         if (!this.live(generation)) return;
         await this.catchUp(runId, generation);
         if (!this.live(generation)) return;
@@ -818,6 +854,8 @@ export class WorkflowSessionController {
         const stepKey = `${runId}:${stepId}`;
         if (recStatus === "started") { this.openLlmSteps.add(stepKey); changed = true; }
         else if (["completed", "failed", "cancelled", "waiting"].includes(recStatus)) changed = this.openLlmSteps.delete(stepKey) || changed;
+        // The durable record of the call replaces its live text.
+        if (["completed", "failed", "cancelled"].includes(recStatus)) this.closeLiveReply(stepKey);
       }
     }
     if (effectType === "emit_event" && recStatus === "completed") {
@@ -898,10 +936,97 @@ export class WorkflowSessionController {
   /** Session history is a fallback; durable answer_user and terminal output
    * are authoritative. Suppress only an exact duplicate for the same run. */
   private addRunAssistantMessage(runId: string, message: ChatMessage): void {
+    // The durable reply replaces any live text of the same run: never two copies.
+    this.closeLiveRepliesOfRun(runId);
     const answerPrefix = `answer:${runId}:`;
     const finalId = `final:${runId}`;
     if (this.snapshot.messages.some((existing) => existing.role === "assistant" && existing.content === message.content && (existing.id === finalId || String(existing.id || "").startsWith(answerPrefix)))) return;
     this.addMessage(message);
+  }
+
+  /**
+   * Fold one `llm.delta` / `llm.delta_end` event delivered by the stream of
+   * `streamRunId`. A snapshot replaces the channel's text (unless it is older
+   * than what is shown); a live delta is appended only when its `seq` is
+   * higher than the last one of its channel, so duplicates and out-of-order
+   * frames are dropped. A call whose durable record or reply is already here
+   * never gets a bubble again. A malformed event is reported as an error.
+   */
+  private ingestDelta(streamRunId: string, raw: unknown): void {
+    let event: LlmDelta | LlmDeltaEnd;
+    try { event = validateLlmDeltaEvent(raw); } catch (error) { this.fail(error, false); return; }
+    const key = `${event.run_id}:${event.call_id}`;
+    if (isLlmDeltaEnd(event)) {
+      if (event.reason === "unavailable") { this.noteStreamUnavailable(event); return; }
+      this.closeLiveReply(key, event.reason === "completed" ? undefined : event.reason);
+      return;
+    }
+    if (this.closedLiveCalls.has(key) || terminal(statusOf(this.runStates.get(event.run_id) || null))) return;
+    const reply = this.liveReplies.get(key) || { runId: event.run_id, callId: event.call_id, nodeId: event.node_id || "", via: streamRunId, text: "", reasoning: "", seq: { content: -1, reasoning: -1 }, truncated: false };
+    const field = event.channel === "reasoning" ? "reasoning" : "text";
+    const last = reply.seq[event.channel];
+    if (event.snapshot) {
+      if (event.seq < last) return;
+      reply[field] = event.text;
+    } else {
+      if (event.seq <= last) return;
+      reply[field] += event.text;
+    }
+    reply.seq[event.channel] = event.seq;
+    reply.via = streamRunId;
+    if (event.truncated) reply.truncated = true;
+    this.liveReplies.set(key, reply);
+    const message = this.liveMessage(reply);
+    const index = this.snapshot.messages.findIndex((item) => item.id === message.id);
+    const messages = [...this.snapshot.messages];
+    if (index < 0) messages.push(message); else messages[index] = message;
+    this.set({ ...this.snapshot, messages });
+  }
+
+  private liveMessage(reply: LiveReply): ChatMessage {
+    const subAgent = reply.runId !== this.rootRunId;
+    return {
+      id: `live:${reply.runId}:${reply.callId}`, role: "assistant", content: reply.text, runId: reply.runId,
+      live: { callId: reply.callId, reasoning: reply.reasoning, truncated: reply.truncated, ...(subAgent ? { caption: `sub-agent · ${reply.nodeId || reply.runId}` } : {}) },
+    };
+  }
+
+  /** End a live reply: remove its bubble, or replace it with a short note
+   * when the stream ended because the call failed or was cancelled. */
+  private closeLiveReply(key: string, reason?: "failed" | "cancelled"): void {
+    this.closedLiveCalls.add(key);
+    const reply = this.liveReplies.get(key);
+    if (!reply) return;
+    this.liveReplies.delete(key);
+    const id = `live:${reply.runId}:${reply.callId}`;
+    const index = this.snapshot.messages.findIndex((item) => item.id === id);
+    if (index < 0) return;
+    const messages = [...this.snapshot.messages];
+    if (reason) {
+      const noteId = `live-end:${reply.runId}:${reply.callId}`;
+      this.seenMessages.add(noteId);
+      messages[index] = { id: noteId, role: "system", level: "warn", title: "Reply", runId: reply.runId, content: reason === "failed" ? "The reply stopped because the model call failed." : "The reply stopped because the model call was cancelled." };
+    } else messages.splice(index, 1);
+    this.set({ ...this.snapshot, messages });
+  }
+
+  /** A call ran without streaming: one note per run and cause, never a bubble. */
+  private noteStreamUnavailable(event: LlmDeltaEnd): void {
+    const key = `${event.run_id}:${event.call_id}`;
+    this.closeLiveReply(key);
+    this.addMessage({ id: `stream-unavailable:${event.run_id}:${event.detail || "unknown"}`, role: "system", level: "info", title: "Reply", runId: event.run_id, content: describeStreamUnavailable(event.detail) });
+  }
+
+  private closeLiveRepliesOfRun(runId: string): void {
+    for (const reply of [...this.liveReplies.values()]) if (reply.runId === runId) this.closeLiveReply(`${reply.runId}:${reply.callId}`);
+  }
+
+  /** Forget (without closing) the live replies a stream delivered; its
+   * reconnect snapshots bring the current text back. */
+  private dropLiveRepliesVia(streamRunId: string): void {
+    const dropped = new Set<string>();
+    for (const [key, reply] of this.liveReplies) if (reply.via === streamRunId) { this.liveReplies.delete(key); dropped.add(`live:${reply.runId}:${reply.callId}`); }
+    if (dropped.size) this.set({ ...this.snapshot, messages: this.snapshot.messages.filter((message) => !dropped.has(String(message.id))) });
   }
 
   private fail(error: unknown, setConnection = true): void {
@@ -936,6 +1061,7 @@ export class WorkflowSessionController {
   }
 
   private upsertFinal(runId: string, content: string, ts?: string): void {
+    this.closeLiveRepliesOfRun(runId);
     const id = `final:${runId}`;
     this.seenMessages.add(id);
     const message: ChatMessage = { id, role: "assistant", content, ts, runId, statistics: workflowEvidence(this.snapshot.records).statistics };

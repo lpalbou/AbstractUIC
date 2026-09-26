@@ -82,6 +82,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [app-server/src/index.d.ts](app-server/src/index.d.ts): TS types for `createGatewaySessionProxy`
 - [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
 - [panel-chat/src/chat_message_card.tsx](panel-chat/src/chat_message_card.tsx): `ChatMessage` / `ChatAttachment` / `ChatStat` contracts
+- [panel-chat/src/llm_delta.ts](panel-chat/src/llm_delta.ts): live-reply events (`llm.delta` / `llm.delta_end`), SSE dispatch helper, `streamRepliesRuntime`
 - [panel-chat/src/message_content.tsx](panel-chat/src/message_content.tsx): JSON autodetect + Markdown override hook (`renderMarkdown`)
 - [panel-chat/src/markdown.tsx](panel-chat/src/markdown.tsx): Markdown renderer rules (minimal, no external deps)
 - [monitor-flow/src/index.ts](monitor-flow/src/index.ts): exports for `@abstractframework/monitor-flow`
