@@ -172,7 +172,7 @@ const [gatewayRows, setGatewayRows] = useState<AboutRow[]>([]);
 const refreshGatewayRows = () =>
   fetchJson("/api/gateway/about").then(
     (body) => setGatewayRows(gatewayVersionRows(body)),
-    (err) => setGatewayRows(gatewayVersionRows({ error: String(err?.message || err) })),
+    (err) => setGatewayRows(gatewayVersionRows(null, String(err?.message || err))),
   );
 
 <AfTopBarActions
@@ -184,14 +184,17 @@ const refreshGatewayRows = () =>
 - `appIdentity(id, version)` takes the distribution name in lower case (`knownAppIds()` lists
   them) and your app's own version. An unknown id throws: an app must not invent identity facts.
 - `extraRows` is an array of `[label, value]` pairs appended after the standard rows. For the
-  connected gateway, build them with `gatewayVersionRows(...)` from the body of
-  `GET /api/gateway/about`, or from `{ error }` when the request fails. The kit never fetches
+  connected gateway, build them with `gatewayVersionRows(body)` from the body of
+  `GET /api/gateway/about`, or with `gatewayVersionRows(null, reason)` when the request fails. The kit never fetches
   versions; `onOpen` runs each time the dialog opens, which is a good moment to refresh them.
 - `gatewayVersionRows` gives every app the same rows: `Gateway` (`AbstractGateway <version>`),
   `Gateway framework` (`AbstractFramework <version>`, or `not installed on the gateway host`), then
-  `Gateway package <name>` for each other reported package, sorted by name (packages without a
-  version are left out). On an error, or a body without an `abstractgateway` version, it returns
-  the single row `Gateway` → `unavailable (<reason>)`.
+  `Gateway package <name>` for each other reported package, sorted by name. Only string values
+  count as versions: packages without one are left out, and a body without a string
+  `abstractgateway` version, like a failed request, gives the single row
+  `Gateway` → `unavailable (<reason>)`. The error is its own argument, so a body that contains an
+  `error` field is still read as a normal body. The rows match the Python
+  `abstractcore.utils.identity.gateway_version_rows(payload, error)`.
 - The dialog turns every `http://` or `https://` URL in a row into a link that opens in a new tab
   (`rel="noopener noreferrer"`), including the framework website in "Part of"; the rest of the
   value stays text. Only the Contact row is a `mailto:` link, so a value such as

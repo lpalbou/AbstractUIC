@@ -32,9 +32,11 @@ ships.
   `frameworkIdentity()`, `knownAppIds()` and `aboutRows(identity, extra?)`, backed by the
   AbstractFramework identity descriptor shipped with the kit. The rows match the Python
   `abstractcore.utils.identity.about_fields`.
-- Added: `gatewayVersionRows(payload | { error })` and the `GatewayAboutPayload` type: the
-  connected gateway's About rows (`Gateway`, `Gateway framework`, then `Gateway package <name>`
-  sorted by name), or one `Gateway: unavailable (<reason>)` row when the version is not available.
+- Added: `gatewayVersionRows(payload, error?)` and the `GatewayAboutPayload` type: the connected
+  gateway's About rows (`Gateway`, `Gateway framework`, then `Gateway package <name>` sorted by
+  name), or one `Gateway: unavailable (<reason>)` row when the request failed or the gateway did
+  not report a version. Only string values count as versions. The rows match the Python
+  `abstractcore.utils.identity.gateway_version_rows`.
 - Added: in `AfAboutDialog`, every `http(s)://` URL inside a row value is a link (new tab,
   `rel="noopener noreferrer"`), including the framework website in "Part of"; only the Contact row
   is a `mailto:` link. Same rules as the Python `abstractcore.utils.identity.about_html`.

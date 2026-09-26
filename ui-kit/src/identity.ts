@@ -106,6 +106,7 @@ export type GatewayAboutPayload = {
   packages?: Record<string, string | null>;
 };
 
+/** Only a non-empty string is a version; numbers, booleans and null are "not reported". */
 function versionText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -117,19 +118,22 @@ function versionText(value: unknown): string {
  *   ["Gateway", "AbstractGateway <v>"]
  *   ["Gateway framework", "AbstractFramework <v>" | "not installed on the gateway host"]
  *   ["Gateway package <name>", "<v>"]   // every other package, sorted by name;
- *                                        // missing/empty versions are skipped
+ *                                        // entries without a string version are skipped
  *
- * Pass `{ error }` when the request failed: the result is exactly one row,
- * ["Gateway", "unavailable (<error>)"]. A payload without an `abstractgateway`
- * version gives the same single row. The kit does not fetch: the app calls
- * `GET /api/gateway/about` and hands over the parsed body or its error.
+ * `payload` is the parsed body of `GET /api/gateway/about`. When the request
+ * failed, pass `null` and the reason as `error`: the result is exactly one
+ * row, ["Gateway", "unavailable (<error>)"]. A payload without a string
+ * `abstractgateway` version gives the same single row. The error is a
+ * separate argument so a gateway body that happens to carry an `error` field
+ * is never mistaken for a failure. The kit does not fetch. Same rows as the
+ * Python `abstractcore.utils.identity.gateway_version_rows(payload, error)`.
  */
-export function gatewayVersionRows(input: GatewayAboutPayload | { error: string }): AboutRow[] {
-  const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
-  if ("error" in raw) {
-    const reason = String(raw.error ?? "").trim() || "unknown error";
+export function gatewayVersionRows(payload: GatewayAboutPayload | null, error?: string): AboutRow[] {
+  if (error !== undefined && error !== null) {
+    const reason = String(error).trim() || "unknown error";
     return [["Gateway", `unavailable (${reason})`]];
   }
+  const raw = (payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {}) as Record<string, unknown>;
   const gateway = versionText(raw.abstractgateway);
   if (!gateway) return [["Gateway", "unavailable (the gateway did not report its version)"]];
   const framework = versionText(raw.abstractframework);
@@ -137,7 +141,8 @@ export function gatewayVersionRows(input: GatewayAboutPayload | { error: string 
     ["Gateway", `AbstractGateway ${gateway}`],
     ["Gateway framework", framework ? `AbstractFramework ${framework}` : "not installed on the gateway host"],
   ];
-  const packages = raw.packages && typeof raw.packages === "object" ? (raw.packages as Record<string, unknown>) : {};
+  const packages =
+    raw.packages && typeof raw.packages === "object" && !Array.isArray(raw.packages) ? (raw.packages as Record<string, unknown>) : {};
   const names = Object.keys(packages)
     .filter((name) => name !== "abstractgateway" && name !== "abstractframework")
     .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));

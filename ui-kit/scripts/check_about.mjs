@@ -90,30 +90,28 @@ for (const bad of ["abstractnope", "", "toString", "__proto__", "AbstractFlow"])
   check(`unknown id ${JSON.stringify(bad)} throws`, threw);
 }
 
-// --- gatewayVersionRows (A-9: one format for every app) ----------------------
+// --- gatewayVersionRows(payload, error?) (A-9; parity with the Python twin) ---
 {
+  // Shared fixture: the same 13 cases the Python
+  // abstractcore.utils.identity.gateway_version_rows must satisfy (expected
+  // rows were produced by the Python twin).
+  const fixture = JSON.parse(readFileSync(join(here, "fixtures", "gateway_version_rows.json"), "utf8"));
+  check("parity fixture has the 13 shared cases", Array.isArray(fixture.cases) && fixture.cases.length === 13, String(fixture.cases?.length));
+  for (const c of fixture.cases) {
+    const got = "error" in c ? gatewayVersionRows(c.payload, c.error) : gatewayVersionRows(c.payload);
+    check(`parity: ${c.name}`, eq(got, c.expected), JSON.stringify(got));
+  }
+
   const full = gatewayVersionRows({
     abstractgateway: "0.4.3",
     abstractframework: "0.3.3",
     packages: { abstractruntime: "0.4.33", abstractcore: "2.15.2", abstractgateway: "0.4.3", abstractframework: "0.3.3", abstractvoice: null, abstractmemory: "", abstractagent: "0.2.0" },
   });
-  check("gateway rows: full payload", eq(full, [
-    ["Gateway", "AbstractGateway 0.4.3"],
-    ["Gateway framework", "AbstractFramework 0.3.3"],
-    ["Gateway package abstractagent", "0.2.0"],
-    ["Gateway package abstractcore", "2.15.2"],
-    ["Gateway package abstractruntime", "0.4.33"],
-  ]), JSON.stringify(full));
   check("gateway rows: never print null/undefined", !JSON.stringify(full).includes("null") && !JSON.stringify(full).includes("undefined"));
-  const noFw = gatewayVersionRows({ abstractgateway: "0.4.3", abstractframework: null });
-  check("gateway rows: framework missing", eq(noFw, [["Gateway", "AbstractGateway 0.4.3"], ["Gateway framework", "not installed on the gateway host"]]), JSON.stringify(noFw));
-  check("gateway rows: framework absent key", eq(gatewayVersionRows({ abstractgateway: "0.4.3" }), noFw));
-  check("gateway rows: error", eq(gatewayVersionRows({ error: "HTTP 503" }), [["Gateway", "unavailable (HTTP 503)"]]));
-  check("gateway rows: empty error", eq(gatewayVersionRows({ error: "" }), [["Gateway", "unavailable (unknown error)"]]));
-  const noGw = [["Gateway", "unavailable (the gateway did not report its version)"]];
-  check("gateway rows: payload without abstractgateway", eq(gatewayVersionRows({ abstractframework: "0.3.3", packages: { abstractcore: "2.15.2" } }), noGw));
-  check("gateway rows: null abstractgateway", eq(gatewayVersionRows({ abstractgateway: null }), noGw));
-  check("gateway rows: non-object input", eq(gatewayVersionRows(null), noGw));
+  check("gateway rows: error argument wins over a payload", eq(gatewayVersionRows({ abstractgateway: "0.4.3" }, "HTTP 503"), [["Gateway", "unavailable (HTTP 503)"]]));
+  check("gateway rows: error field inside a payload is ignored", gatewayVersionRows({ abstractgateway: "0.4.3", error: "boom" })[0][1] === "AbstractGateway 0.4.3");
+  check("gateway rows: undefined error = no error", gatewayVersionRows({ abstractgateway: "1" }, undefined)[0][1] === "AbstractGateway 1");
+  check("gateway rows: boolean gateway version not reported", eq(gatewayVersionRows({ abstractgateway: true }), [["Gateway", "unavailable (the gateway did not report its version)"]]));
   check("gateway rows: sorted by code point", eq(gatewayVersionRows({ abstractgateway: "1", packages: { b: "1", a: "2", B: "3" } }).slice(2).map(([l]) => l), ["Gateway package B", "Gateway package a", "Gateway package b"]));
   check("gateway rows compose with aboutRows", aboutRows(appIdentity("abstractflow", "1"), full).length === 15);
 }
