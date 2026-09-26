@@ -2966,7 +2966,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -8763,9 +8763,19 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## Unreleased
+## 0.1.12 - 2026-09-26
 
-### app-server 0.1.10 (unreleased)
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.1.12 | updated |
+| `@abstractframework/panel-chat` | 0.1.17 | updated (requires `ui-kit` `^0.1.10`) |
+| `@abstractframework/app-server` | 0.1.10 | updated |
+| `@abstractframework/monitor-memory` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-flow` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-gpu` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-active-memory` | 0.1.9 | unchanged |
+
+### app-server 0.1.10
 
 - Changed: every request the gateway session proxy sends to the Gateway on behalf of a browser
   (proxied `/api/*` calls, sign-in, sign-out and the status probe) carries
@@ -8777,7 +8787,7 @@ ships.
 - Added: every request the proxy sends to the Gateway carries
   `X-AbstractFramework-App-Proxy: <appId>`; a client-supplied value of that header is dropped.
 
-### panel-chat 0.1.17 (unreleased)
+### panel-chat 0.1.17
 
 - Changed (affects every consumer): images in chat messages written by the model or a workflow
   (assistant and system messages, final and live) no longer load from other sites.
@@ -8812,7 +8822,7 @@ ships.
 - Added: `WorkflowChat` `streamReplies?: "gateway_default" | "on" | "off"`; hosts map it to the
   run input with `streamRepliesRuntime()` (`_runtime.stream: true` / `false` / unset).
 
-### ui-kit 0.1.12 (unreleased)
+### ui-kit 0.1.12
 
 - Added: one About dialog for every AbstractFramework app. `AfAboutDialog` shows the application
   name and version, "Part of AbstractFramework", author, copyright and licence, website, source,
