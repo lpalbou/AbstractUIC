@@ -14,7 +14,7 @@ packaging). Full findings are distilled into the items below; each item
 carries its own code-reality citations.
 
 ## Counts
-- Planned: 7 (0001, 0003-0006, 0014, 0019)
+- Planned: 8 (0001, 0003-0006, 0014, 0019, 0029)
 - Proposed: 17 (0009-0013, 0015-0018, 0020-0022, 0024-0028)
 - Completed: 5 (0002, 0007, 0008, 0023, 0026-theme-adoption)
 - Deprecated: 0
@@ -34,6 +34,9 @@ carries its own code-reality citations.
 4. **0014** entity-creation modal family / **0019** app-server — re-validate
    scope with gateway/continuum before building (the console + Team page
    waves may have absorbed parts).
+5. **0029** Automations v1 presentation half (client module,
+   `AutomationPanel`, fixtures) — startable now from the PLAN's contract F
+   fixtures; final fixtures follow the shipped gateway routes.
 
 ### Reality-audit note (2026-07-17, seat respawn)
 The corrupted-session era (07-13 → 07-16) landed most of the 07-11 planned
@@ -53,6 +56,7 @@ merge, or missing test rigs) — see each item's checklist.
 | 0006 | guard extensions + test rigs | ui-kit scripts + workspaces | Token-consumption + literal + swatch invariants; test scripts for 3 packages |
 | 0014 | entity-creation modal module family | ui-kit (framework-free) | 2-tab console modal; gateway c872/c879 seam; capabilities tab gated on served inventory |
 | 0019 | gateway session-proxy server module | new node package | LAURENT-DIRECTED: one auth proxy for 3 cli.js copies + the entity app; observer contract verbatim |
+| 0029 | Automations: client module, `AutomationPanel`, fixtures | ui-kit + panel-chat | Mission U / contract G of Automations v1; Observer adopts the kit panel, Assistant pins to checksum-shared fixtures |
 
 ## Proposed ledger (promotion criteria in each item)
 | ID | Item | Consumers today | Blocked on |
@@ -78,7 +82,8 @@ merge, or missing test rigs) — see each item's checklist.
 
 ## Process
 - Items follow the four-digit global-ID convention (`NNNN_snake_case.md`);
-  next free number: 0020.
+  next free number: 0030 (0026 is used twice — completed theme adoption
+  and proposed cognition monitor — kept as history, not renumbered).
 - Completion: append `## Completion report` (date, outcome, validation), move
   to `completed/`, update this ledger in the same pass.
 - Deprecation: append `## Deprecation report` with the reason; move to
@@ -89,6 +94,10 @@ merge, or missing test rigs) — see each item's checklist.
   vendor attribution; degraded paths labeled #FALLBACK.
 
 ## Planning notes
+- 2026-09-26: 0029 filed (planned) for the Automations v1 wave, mission U
+  (design: untracked/design/automations-PLAN.md + operator rulings; v1 apps
+  are Observer and Assistant only). Hygiene: the "next free number" line was
+  stale at 0020 and is now 0030.
 - 2026-07-13 (evening): operator-directed two-adversary wave (themes/aesthetics
   + framework-wide ownership census). THEME HALF executed same-day, not filed:
   full WCAG contrast audit over all 20 theme blocks found 62 failing pairs →
