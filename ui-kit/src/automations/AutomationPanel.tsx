@@ -21,6 +21,9 @@ import {
   formatUtc,
   isApiError,
   mintUuid,
+  parseEventPayload,
+  WAIT_KIND_LABELS,
+  waitToolCalls,
   occurrenceViews,
   pickFocusTarget,
   parseDuration,
@@ -43,6 +46,7 @@ import type {
   ContextMode,
   JsonObject,
   OccurrenceRow,
+  OccurrenceWait,
   TriggerSourceEntry,
   TriggerSource,
 } from "./types.js";
@@ -355,6 +359,8 @@ export type OccurrencePairProps = {
   discussOpen: boolean;
   onOpenRun(runId: string): void;
   onAnswerWait(runId: string, waitKey: string, payload: JsonObject): void;
+  /** An answer the panel could not send (e.g. an `event` payload that is not JSON). */
+  onWaitError?(message: string): void;
   onDiscussOpen(index: number): void;
   onDiscussCancel(): void;
   onDiscussSubmit(index: number, prompt: string): void;
@@ -363,6 +369,120 @@ export type OccurrencePairProps = {
 function fieldValue(form: HTMLFormElement, name: string): string {
   const el = form.elements.namedItem(name) as { value?: string } | null;
   return el && typeof el.value === "string" ? el.value.trim() : "";
+}
+
+export type WaitAnswerFormProps = {
+  wait: OccurrenceWait;
+  busy: boolean;
+  idBase: string;
+  onAnswerWait(runId: string, waitKey: string, payload: JsonObject): void;
+  onWaitError?(message: string): void;
+};
+
+/**
+ * One typed wait (decision D1). The answer payload follows `wait.kind`, never
+ * the prompt text: `ask_user` → `{response}`, `tool_approval` →
+ * `{approved}`, `event` → `{payload}`. An unknown kind is shown, not answered.
+ */
+export function WaitAnswerForm(p: WaitAnswerFormProps): React.ReactElement {
+  const w = p.wait;
+  const promptId = `${p.idBase}-${w.run_id}-${w.wait_key}-prompt`;
+  const answer = (payload: JsonObject) => p.onAnswerWait(w.run_id, w.wait_key, payload);
+  const head = (fallback: string) => (
+    <p className="af-auto-wait__prompt" id={promptId}>
+      <span className="af-auto-wait__kind">{WAIT_KIND_LABELS[w.kind] ?? "Waiting"}</span> {w.prompt ?? fallback}
+    </p>
+  );
+  if (w.kind === "tool_approval") {
+    const calls = waitToolCalls(w);
+    return (
+      <div className="af-auto-wait af-auto-wait--tool_approval" role="group" data-wait-key={w.wait_key} data-wait-kind={w.kind} aria-labelledby={promptId}>
+        {head("A tool call needs your approval.")}
+        {calls && calls.length ? (
+          <ul className="af-auto-wait__calls" aria-label="Tool calls to approve">
+            {calls.map((c, i) => (
+              <li key={c.call_id ?? `${c.name}:${i}`} data-tool={c.name}>
+                <code className="af-auto-wait__tool">{c.name}</code>
+                <pre className="af-auto-wait__args">{JSON.stringify(c.arguments, null, 2)}</pre>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="af-auto__hint">The gateway did not list the tool calls; open the run to see them before approving.</p>
+        )}
+        <div className="af-auto__row">
+          <button type="button" className="af-auto__btn af-auto__btn--primary" data-action="wait-approve" disabled={p.busy} onClick={() => answer({ approved: true })}>
+            Approve
+          </button>
+          <button type="button" className="af-auto__btn af-auto__btn--danger" data-action="wait-deny" disabled={p.busy} onClick={() => answer({ approved: false })}>
+            Deny
+          </button>
+        </div>
+      </div>
+    );
+  }
+  if (w.kind === "event") {
+    return (
+      <form
+        className="af-auto-wait af-auto-wait--event"
+        data-wait-key={w.wait_key}
+        data-wait-kind={w.kind}
+        aria-labelledby={promptId}
+        onSubmit={(e) => {
+          e.preventDefault();
+          const parsed = parseEventPayload(fieldValue(e.currentTarget, "payload"));
+          if (parsed.ok) answer({ payload: parsed.payload });
+          else p.onWaitError?.(parsed.error);
+        }}
+      >
+        {head("The run waits for an event.")}
+        <textarea name="payload" rows={3} aria-label="Event payload (JSON)" placeholder='{"key": "value"}' disabled={p.busy} />
+        <div className="af-auto__row">
+          <button type="submit" className="af-auto__btn af-auto__btn--primary" data-action="wait-send-event" disabled={p.busy}>
+            Send event
+          </button>
+        </div>
+      </form>
+    );
+  }
+  if (w.kind === "ask_user") {
+    return (
+      <form
+        className="af-auto-wait af-auto-wait--ask_user"
+        data-wait-key={w.wait_key}
+        data-wait-kind={w.kind}
+        aria-labelledby={promptId}
+        onSubmit={(e) => {
+          e.preventDefault();
+          const v = fieldValue(e.currentTarget, "response");
+          if (v) answer({ response: v });
+        }}
+      >
+        {head("The run is waiting for your input.")}
+        {w.choices && w.choices.length ? (
+          <div className="af-auto__row" role="group" aria-label="Choices">
+            {w.choices.map((c) => (
+              <button key={c} type="button" className="af-auto__btn" data-action="wait-choice" disabled={p.busy} onClick={() => answer({ response: c })}>
+                {c}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <div className="af-auto__row">
+          <input name="response" aria-label="Your answer" placeholder="Your answer" disabled={p.busy} />
+          <button type="submit" className="af-auto__btn af-auto__btn--primary" data-action="wait-answer" disabled={p.busy}>
+            Answer
+          </button>
+        </div>
+      </form>
+    );
+  }
+  return (
+    <div className="af-auto-wait" role="group" data-wait-key={w.wait_key} data-wait-kind={String(w.kind)} aria-labelledby={promptId}>
+      {head("The run is waiting.")}
+      <p className="af-auto__hint">This kind of wait ({String(w.kind)}) cannot be answered here; open the run.</p>
+    </div>
+  );
 }
 
 export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
@@ -413,41 +533,9 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
             ))}
           </ul>
         ) : null}
-        {row.waits.map((w) => {
-          const promptId = `${idBase}-${w.wait_key}-prompt`;
-          return (
-            <form
-              key={w.wait_key}
-              className="af-auto-wait"
-              data-wait-key={w.wait_key}
-              aria-labelledby={promptId}
-              onSubmit={(e) => {
-                e.preventDefault();
-                const v = fieldValue(e.currentTarget, "response");
-                if (v) p.onAnswerWait(w.run_id, w.wait_key, { response: v });
-              }}
-            >
-              <p className="af-auto-wait__prompt" id={promptId}>
-                {w.prompt ?? "The run is waiting for your input."}
-              </p>
-              {w.choices && w.choices.length ? (
-                <div className="af-auto__row" role="group" aria-label="Choices">
-                  {w.choices.map((c) => (
-                    <button key={c} type="button" className="af-auto__btn" data-action="wait-choice" disabled={p.busy} onClick={() => p.onAnswerWait(w.run_id, w.wait_key, { response: c })}>
-                      {c}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-              <div className="af-auto__row">
-                <input name="response" aria-label="Your answer" placeholder="Your answer" disabled={p.busy} />
-                <button type="submit" className="af-auto__btn af-auto__btn--primary" data-action="wait-answer" disabled={p.busy}>
-                  Answer
-                </button>
-              </div>
-            </form>
-          );
-        })}
+        {row.waits.map((w) => (
+          <WaitAnswerForm key={`${w.run_id}:${w.wait_key}`} wait={w} busy={p.busy} idBase={idBase} onAnswerWait={p.onAnswerWait} onWaitError={p.onWaitError} />
+        ))}
       </div>
       <div className="af-auto-occ__foot">
         <details className="af-auto-occ__details">
@@ -672,7 +760,10 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
             ))}
             {att.waits.map((w) => (
               <li key={`${w.run_id}:${w.wait_key}`} className="af-auto__attention-item af-auto__attention-item--wait">
-                <span className="af-auto-badge af-auto-badge--waiting">Waiting for you</span> <span className="af-auto-turn__muted">#{w.index}</span>
+                <span className="af-auto-badge af-auto-badge--waiting" data-wait-kind={w.kind}>
+                  {WAIT_KIND_LABELS[w.kind] ?? "Waiting for you"}
+                </span>{" "}
+                <span className="af-auto-turn__muted">#{w.index}</span>
                 {w.prompt ? <div>{w.prompt}</div> : null}
               </li>
             ))}
@@ -700,6 +791,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
                   setLocalError(null);
                   props.onAnswerWait(runId, waitKey, payload).then(() => setNotice("Answer sent."), report);
                 }}
+                onWaitError={(message) => setLocalError({ status: 0, code: "invalid_payload", message })}
                 onDiscussOpen={setDiscussAt}
                 onDiscussCancel={() => {
                   setDiscussAt(null);

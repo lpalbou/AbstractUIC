@@ -101,18 +101,21 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("failure block only on the failed pair", chunks.filter((c, i) => i !== 4).every((c) => !c.includes("af-auto-failure")));
   const noFailure = panel({ summary: mail, occurrences: occ.map((o) => { const { failure, ...rest } = o; return rest; }) });
   check("a failed row without `failure` still says it failed", noFailure.includes("No answer: the run failed.") && !noFailure.includes("af-auto-failure"));
-  const w = occ.find((o) => o.index === 7).waits[0];
+  const w = occ.find((o) => o.index === 7).waits.find((x) => x.kind === "ask_user");
+  const tw = occ.find((o) => o.index === 7).waits.find((x) => x.kind === "tool_approval");
   check("#7 badged Waiting for you", chunks[6].includes(">Waiting for you<"));
   check("#7 wait prompt rendered", chunks[6].includes(esc(w.prompt)));
   check("#7 one button per choice", w.choices.every((c) => chunks[6].includes(`data-action="wait-choice">${esc(c)}</button>`)));
   check("#7 free-text answer control, labelled", chunks[6].includes('aria-label="Your answer"') && chunks[6].includes('data-action="wait-answer"'));
-  check("wait form labelled by its prompt", /<form class="af-auto-wait" data-wait-key="ask_user:reply-landlord" aria-labelledby="[^"]+-prompt"/.test(chunks[6]));
+  check("ask_user wait form labelled by its prompt", /<form class="af-auto-wait af-auto-wait--ask_user" data-wait-key="ask_user:reply-landlord" data-wait-kind="ask_user" aria-labelledby="[^"]+-prompt"/.test(chunks[6]));
+  check("tool_approval wait: group labelled, kind label, tool call listed with its arguments", chunks[6].includes('data-wait-kind="tool_approval"') && chunks[6].includes(">Approval needed</span>") && chunks[6].includes(`<code class="af-auto-wait__tool">${tw.details[0].name}</code>`) && chunks[6].includes(esc(JSON.stringify(tw.details[0].arguments, null, 2))));
+  check("tool_approval wait: Approve and Deny, no free text", enabled(chunks[6], "wait-approve") && enabled(chunks[6], "wait-deny") && (chunks[6].match(/aria-label="Your answer"/g) || []).length === 1);
   check("no wait controls on other occurrences", chunks.filter((c, i) => i !== 6).every((c) => !c.includes("af-auto-wait")));
   check("every pair has an expandable ledger link", chunks.every((c) => c.includes("<details class=\"af-auto-occ__details\"><summary>Run details</summary>") && c.includes('data-action="open-run"') && /href="\/api\/gateway\/runs\/[0-9a-f-]{36}\/ledger"/.test(c)));
   check("Discuss labelled as a forked session with a read-only workspace", mailHtml.includes(`>${esc(DISCUSS_LABEL)}</button>`) && DISCUSS_LABEL === "Discuss — forked session, read-only workspace");
   check("Discuss disabled on the waiting occurrence only", chunks.every((c, i) => (/data-action="discuss" disabled=""/.test(c)) === (i === 6)));
   check("header: every 30 minutes (UTC), growing, next run", mailHtml.includes(">every 30 minutes (UTC)</dd>") && mailHtml.includes("Growing — each run sees the previous runs") && mailHtml.includes(">2026-09-27 07:00 UTC</dd>"));
-  check("header: attention 2 unseen + 1 waiting, notable", mailHtml.includes('class="is-notable">2 unseen · 1 waiting for you</dd>'));
+  check("header: attention 2 unseen + 2 waiting, notable", mailHtml.includes('class="is-notable">2 unseen · 2 waiting for you</dd>'));
   check("attention strip lists both items oldest first", mailHtml.indexOf('data-cursor="att1:1"') > 0 && mailHtml.indexOf('data-cursor="att1:2"') > mailHtml.indexOf('data-cursor="att1:1"'));
   check("attention strip lists the pending wait", mailHtml.includes("af-auto__attention-item--wait"));
   check("controls: pause enabled; run now disabled while an occurrence waits; stop current enabled", enabled(mailHtml, "pause") && !enabled(mailHtml, "run_now") && enabled(mailHtml, "stop_current"));
@@ -293,7 +296,9 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
 {
   const target = { flow_id: "@default", interface: "abstractcode.agent.v1" };
   const r = kit.buildCreateRequest({ prompt: "Check ACME share price\nNotify if it moved 2%.", when: { kind: "every", amount: 5, unit: "m" }, context: "independent" }, { target, requestId: "req-1" });
-  check("every 5 minutes, first run now", r.ok && eq(r.body, { request_id: "req-1", title: "Check ACME share price", target: { flow_id: "@default", interface: "abstractcode.agent.v1", input_data: { prompt: "Check ACME share price\nNotify if it moved 2%." } }, trigger: { source_id: "schedule", source_version: 1, config: { every: "5m" } }, context: { mode: "independent" } }), JSON.stringify(r));
+  check("every 5 minutes, first run now", r.ok && eq(r.body, { request_id: "req-1", title: "Check ACME share price", target: { flow_id: "@default", interface: "abstractcode.agent.v1", input_data: { prompt: "Check ACME share price\nNotify if it moved 2%." } }, trigger: { source_id: "schedule", source_version: 1, config: { every: "5m" } }, context: { mode: "independent" }, policy: { tool_approval: "auto" } }), JSON.stringify(r));
+  const askPolicy = kit.buildCreateRequest({ prompt: "x", when: { kind: "every", amount: 5, unit: "m" }, context: "independent", toolApproval: "ask" }, { target, requestId: "r" });
+  check("D1: toolApproval ask → policy.tool_approval ask", askPolicy.ok && eq(askPolicy.body.policy, { tool_approval: "ask" }));
   const g = kit.buildCreateRequest({ prompt: "Triage", when: { kind: "every", amount: 30, unit: "m" }, context: "growing", title: "Inbox triage", startAt: "2026-09-27T04:00", count: 48, until: "2026-09-28T04:00" }, { target: { bundle_ref: "inbox@1.0.0", flow_id: "main", input_data: { folder: "INBOX" } }, requestId: "req-2" });
   check("advanced: start/count/until as UTC, input_data merged", g.ok && eq(g.body.trigger.config, { every: "30m", start_at: "2026-09-27T04:00:00Z", count: 48, until: "2026-09-28T04:00:00Z" }) && eq(g.body.target.input_data, { folder: "INBOX", prompt: "Triage" }) && g.body.context.mode === "growing" && g.body.title === "Inbox triage");
   const once = kit.buildCreateRequest({ prompt: "Ping", when: { kind: "once", at: "2026-09-28T08:00" }, context: "independent" }, { target, requestId: "r" });
@@ -505,6 +510,58 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   await submit();
   await submit();
   check("dialog: after success the same request is a new action", bodies[3].request_id === "req-2" && bodies[4].request_id === "req-3");
+}
+
+// --- D1: typed waits — the answer payload follows `kind`, never the text -------------------
+{
+  const row7 = occ.find((o) => o.index === 7);
+  const tw = row7.waits.find((x) => x.kind === "tool_approval");
+  const got = [];
+  const errs = [];
+  const form = (wait) => parts.WaitAnswerForm({ wait, busy: false, idBase: "b", onAnswerWait: (r, k, p) => got.push([r, k, p]), onWaitError: (m) => errs.push(m) });
+  const t = form(tw);
+  byAction(t, "wait-approve")[0].props.onClick();
+  check("D1: Approve → {approved: true} on the tool wait's own run", eq(got.at(-1), [tw.run_id, tw.wait_key, { approved: true }]));
+  byAction(t, "wait-deny")[0].props.onClick();
+  check("D1: Deny → {approved: false}", eq(got.at(-1), [tw.run_id, tw.wait_key, { approved: false }]));
+  check("D1: waitToolCalls parses the fixture details", eq(kit.waitToolCalls(tw), tw.details));
+  check("D1: waitToolCalls rejects malformed details", kit.waitToolCalls({ kind: "tool_approval", details: [{ arguments: {} }] }) === null && kit.waitToolCalls({ kind: "tool_approval", details: { name: "x" } }) === null);
+  check("D1: waitToolCalls is null for other kinds", kit.waitToolCalls({ kind: "ask_user", details: tw.details }) === null);
+  const noDetails = renderToStaticMarkup(form({ ...tw, details: undefined }));
+  check("D1: tool wait without details says so, still answerable", noDetails.includes("did not list the tool calls") && noDetails.includes('data-action="wait-approve"'));
+  // A text that LOOKS like an approval question on an ask_user wait stays {response}.
+  const lookalike = { run_id: row7.run_id, wait_key: "k", kind: "ask_user", reason: "user", prompt: "Approve tool call send_email?", choices: ["Approve"] };
+  byAction(form(lookalike), "wait-choice")[0].props.onClick();
+  check("D1: never inferred from text — an ask_user asking to 'Approve' answers {response}", eq(got.at(-1), [row7.run_id, "k", { response: "Approve" }]));
+  check("D1: ask_user has no Approve/Deny", byAction(form(lookalike), "wait-approve").length === 0);
+  const ev = { run_id: row7.run_id, wait_key: "event:price", kind: "event", reason: "event", prompt: "Waiting for the price feed" };
+  const evForm = find(form(ev), (n) => n.type === "form")[0];
+  const sub = (v) => ({ preventDefault() {}, currentTarget: { elements: { namedItem: (k) => (k === "payload" ? { value: v } : null) } } });
+  evForm.props.onSubmit(sub(' {"price": 101.5} '));
+  check("D1: event → {payload: parsed JSON}", eq(got.at(-1), [row7.run_id, "event:price", { payload: { price: 101.5 } }]));
+  const n = got.length;
+  evForm.props.onSubmit(sub("price=101"));
+  check("D1: event with invalid JSON sends nothing and reports", got.length === n && errs.length === 1 && errs[0].includes("not valid JSON"));
+  check("D1: event form has a labelled JSON field", renderToStaticMarkup(form(ev)).includes('aria-label="Event payload (JSON)"'));
+  const unknown = renderToStaticMarkup(form({ ...ev, kind: "webhook" }));
+  check("D1: unknown kind is shown, not answered", unknown.includes("cannot be answered here") && !/data-action="wait-/.test(unknown));
+  check("D1: attention strip labels waits by kind", mailHtml.includes('data-wait-kind="tool_approval">Approval needed</span>') && mailHtml.includes('data-wait-kind="ask_user">Question for you</span>'));
+  // Dialog: policy default auto with the consent line; ask on request.
+  const dlgHtml = renderToStaticMarkup(React.createElement(AfScheduleDialog, { open: true, onClose() {}, target: null, onSubmit() {}, newRequestId: () => "r", targetTools: ["fetch_url", "execute_command"] }));
+  check("D1: dialog defaults to Run without asking", /checked="" value="auto"\/> Run without asking/.test(dlgHtml));
+  check("D1: dialog states the consent line with the tool list", dlgHtml.includes(`${esc(kit.TOOL_APPROVAL_CONSENT)}: fetch_url, execute_command.`) && kit.TOOL_APPROVAL_CONSENT === "Tools run without asking (you approve them now by creating this automation)");
+  check("D1: dialog offers Ask", dlgHtml.includes('value="ask"/> Ask me before each tool call'));
+  const bodies = [];
+  const h = harness(AfScheduleDialog, false);
+  const dprops = { open: true, onClose() {}, target: { flow_id: "@default", interface: "abstractcode.agent.v1" }, newRequestId: () => "rq", onSubmit: (b) => { bodies.push(b); return Promise.resolve(); } };
+  find(h.render(dprops), (x) => x.type === "textarea")[0].props.onChange({ target: { value: "Monitor memory" } });
+  find(h.render(dprops), (x) => x.type === "form")[0].props.onSubmit({ preventDefault() {} });
+  check("D1: dialog submits policy.tool_approval auto by default", bodies[0] && eq(bodies[0].policy, { tool_approval: "auto" }));
+  find(h.render(dprops), (x) => x.type === "input" && x.props.value === "ask")[0].props.onChange();
+  find(h.render(dprops), (x) => x.type === "form")[0].props.onSubmit({ preventDefault() {} });
+  check("D1: dialog submits ask when chosen", bodies[1] && eq(bodies[1].policy, { tool_approval: "ask" }));
+  const askHtml = renderToStaticMarkup(h.render(dprops));
+  check("D1: consent line hidden under ask", !askHtml.includes(esc(kit.TOOL_APPROVAL_CONSENT)));
 }
 
 // --- CSS ships in theme.css ------------------------------------------------------------------

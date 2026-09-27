@@ -24,7 +24,10 @@ occurrence pages are newest first by index; `OccurrenceRow.trigger.summary` read
 `schedule: every 30 minutes (UTC), tick 5` / `manual: run now (<command_id>)`; the `schedule@1`
 envelope payload is `{tick, scheduled_at, coalesced?: {first_tick, last_tick, missed_count}}`
 (`fired_at` is on the envelope); failed rows carry `failure: {reason_code, message, attempts}`
-(the `reason_code` value in the fixture, `tool_error`, is illustrative).
+(the `reason_code` value in the fixture, `tool_error`, is illustrative). Waits are typed (decision D1):
+`kind: "ask_user" | "tool_approval" | "event"`, `details` on a `tool_approval` wait = the tool calls
+`[{name, arguments, call_id?}]`; the inbox triage's waiting occurrence #7 holds an `ask_user` wait on its
+own run and a `tool_approval` wait on its agent sub-run, and `attention.waits` carries both.
 
 ## Checksum rule
 

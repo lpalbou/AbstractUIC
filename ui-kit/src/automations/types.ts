@@ -74,7 +74,18 @@ export type AttentionItem = {
   /** `att1:<seq>` — acknowledge THIS (the last displayed item), never the summary's latest. */
   cursor: string;
 };
-export type AttentionWait = { run_id: string; wait_key: string; index: number; prompt?: string };
+/**
+ * Waits are TYPED (decision D1); clients choose the answer payload by `kind`,
+ * never from the prompt text:
+ * - `ask_user` → `{response: string}` (a choice or free text)
+ * - `tool_approval` → `{approved: boolean}`; `details` = the tool calls to approve
+ * - `event` → `{payload: JSON}`
+ */
+export type WaitKind = "ask_user" | "tool_approval" | "event";
+/** One tool call awaiting approval (`details` of a `tool_approval` wait). */
+export type ToolCallToApprove = { name: string; arguments: JsonObject; call_id?: string };
+export type WaitAnswer = { response: string } | { approved: boolean; tool_ids?: string[] } | { payload: Json };
+export type AttentionWait = { run_id: string; wait_key: string; index: number; kind: WaitKind; prompt?: string; details?: Json };
 export type AutomationAttention = {
   pending_waits: number;
   unread: boolean;
@@ -115,7 +126,7 @@ export type AutomationSummary = {
 };
 
 export type OccurrenceArtifact = { artifact_id: string; name: string; mime_type: string; url: string };
-export type OccurrenceWait = { run_id: string; wait_key: string; reason: string; prompt?: string; choices?: string[] };
+export type OccurrenceWait = { run_id: string; wait_key: string; kind: WaitKind; reason: string; prompt?: string; choices?: string[]; details?: Json };
 /** Why an occurrence failed, after its last attempt (the gateway emits it on failed rows). */
 export type OccurrenceFailure = { reason_code: string; message: string; attempts: number };
 export type OccurrenceRow = {
@@ -159,6 +170,7 @@ export type AutomationDefinition = {
     misfire: "coalesce";
     failure: "continue";
     retry: { max_attempts: number; backoff: { initial: Duration; factor: number; max: Duration } };
+    tool_approval: ToolApprovalPolicy;
   };
   session_id: string;
   workspace_root: string;
@@ -173,6 +185,12 @@ export type AutomationTarget =
   | { flow_id: "@default"; interface: string; input_data?: JsonObject };
 
 export type RetryPolicy = { max_attempts?: number; backoff?: { initial?: Duration; factor?: number; max?: Duration } };
+/**
+ * Decision D1: `"auto"` (default) = tools run without asking — creating the
+ * automation is the consent; `"ask"` = each tool call waits for approval.
+ */
+export type ToolApprovalPolicy = "auto" | "ask";
+export type AutomationPolicyInput = { retry?: RetryPolicy; tool_approval?: ToolApprovalPolicy };
 
 /** Body of `POST /api/gateway/automations`. */
 export type CreateAutomationRequest = {
@@ -181,7 +199,7 @@ export type CreateAutomationRequest = {
   target: AutomationTarget;
   trigger: TriggerSpec;
   context?: { mode: ContextMode };
-  policy?: { retry?: RetryPolicy };
+  policy?: AutomationPolicyInput;
 };
 export type CreateAutomationResponse = { automation_id: string; revision: number; summary: AutomationSummary };
 
@@ -191,7 +209,7 @@ export type AutomationChanges = {
   target?: AutomationTarget;
   trigger?: TriggerSpec;
   context?: { mode: ContextMode };
-  policy?: { retry?: RetryPolicy };
+  policy?: AutomationPolicyInput;
 };
 
 export type DiscussResponse = { session_id: string; run_id: string; session_kind: "discussion" };

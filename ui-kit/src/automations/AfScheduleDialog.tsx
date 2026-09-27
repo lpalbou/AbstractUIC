@@ -19,9 +19,10 @@ import {
   SCHEDULE_PRESETS,
   schedulePreview,
   mintUuid,
+  TOOL_APPROVAL_CONSENT,
   type ScheduleForm,
 } from "./panel_core.js";
-import type { ApiError, AutomationTarget, ContextMode, CreateAutomationRequest } from "./types.js";
+import type { ApiError, AutomationTarget, ContextMode, CreateAutomationRequest, ToolApprovalPolicy } from "./types.js";
 
 export type AfScheduleDialogProps = {
   open: boolean;
@@ -31,6 +32,8 @@ export type AfScheduleDialogProps = {
   /** Slot for the host's workflow picker (it sets `target`). */
   workflowPicker?: React.ReactNode;
   initialPrompt?: string;
+  /** The target's tool names, listed under the consent line (from the host's picker). */
+  targetTools?: string[];
   initialTitle?: string;
   onSubmit(body: CreateAutomationRequest): void | Promise<unknown>;
   busy?: boolean;
@@ -59,6 +62,7 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
   const [unit, setUnit] = useState<UnitKey>("h");
   const [onceAt, setOnceAt] = useState("");
   const [context, setContext] = useState<ContextMode>("independent");
+  const [toolApproval, setToolApproval] = useState<ToolApprovalPolicy>("auto");
   const [title, setTitle] = useState(props.initialTitle ?? "");
   const [startAt, setStartAt] = useState("");
   const [count, setCount] = useState("");
@@ -93,6 +97,7 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
     prompt,
     when: kind === "once" ? { kind: "once", at: onceAt } : { kind: "every", amount: Number(amount), unit },
     context,
+    toolApproval,
     title,
     ...(kind === "every" && startAt ? { startAt } : {}),
     ...(kind === "every" && count.trim() ? { count: Number(count) } : {}),
@@ -197,6 +202,24 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
             <label>
               <input type="radio" name={id("ctx")} value="growing" checked={context === "growing"} onChange={() => setContext("growing")} /> Growing — each run sees the previous runs
             </label>
+          </fieldset>
+
+          <fieldset className="af-auto__field" data-field="tool-approval">
+            <legend>Tools</legend>
+            <label>
+              <input type="radio" name={id("tools")} value="auto" checked={toolApproval === "auto"} onChange={() => setToolApproval("auto")} /> Run without asking
+            </label>
+            <label>
+              <input type="radio" name={id("tools")} value="ask" checked={toolApproval === "ask"} onChange={() => setToolApproval("ask")} /> Ask me before each tool call (the run waits for you)
+            </label>
+            {toolApproval === "auto" ? (
+              <p className="af-schedule__consent" data-consent="true">
+                {TOOL_APPROVAL_CONSENT}
+                {props.targetTools && props.targetTools.length ? `: ${props.targetTools.join(", ")}.` : "."}
+              </p>
+            ) : (
+              <p className="af-auto__hint">Each tool call waits for your approval in the automation's timeline.</p>
+            )}
           </fieldset>
 
           <details className="af-schedule__advanced">

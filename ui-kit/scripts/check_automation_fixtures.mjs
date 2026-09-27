@@ -112,7 +112,9 @@ const Notify = t.nullable({ title: t.nonempty, body: t.str });
 const ScheduleConfig = { start_at: t.opt(t.ts), every: t.opt(t.duration), until: t.opt(t.ts), count: t.opt(t.pos), anchor: t.opt(t.ts) };
 const TriggerBinding = { binding_id: t.uuid, source_id: t.nonempty, source_version: t.pos, config: t.object };
 const AttentionItem = { kind: t.lit("notify", "failure"), automation_id: t.uuid, run_id: t.uuid, index: t.pos, at: t.ts, title: t.nonempty, body: t.opt(t.str), cursor: t.re(/^att1:\d+$/) };
-const AttentionWait = { run_id: t.uuid, wait_key: t.nonempty, index: t.pos, prompt: t.opt(t.str) };
+const WaitKind = t.lit("ask_user", "tool_approval", "event");
+const anyJson = () => true;
+const AttentionWait = { run_id: t.uuid, wait_key: t.nonempty, index: t.pos, kind: WaitKind, prompt: t.opt(t.str), details: t.opt(anyJson) };
 const AutomationSummary = {
   automation_id: t.uuid,
   title: (v) => (typeof v === "string" && v.length > 0 && v.length <= 120) || "title 1..120",
@@ -142,7 +144,7 @@ const OccurrenceRow = {
   notify: Notify,
   failure: t.opt({ reason_code: t.nonempty, message: t.nonempty, attempts: t.pos }),
   artifacts: t.arr({ artifact_id: t.nonempty, name: t.nonempty, mime_type: t.nonempty, url: t.re(/^\/api\/gateway\//) }),
-  waits: t.arr({ run_id: t.uuid, wait_key: t.nonempty, reason: t.nonempty, prompt: t.opt(t.str), choices: t.opt(t.arr(t.nonempty)) }),
+  waits: t.arr({ run_id: t.uuid, wait_key: t.nonempty, kind: WaitKind, reason: t.nonempty, prompt: t.opt(t.str), choices: t.opt(t.arr(t.nonempty)), details: t.opt(anyJson) }),
   ledger_url: t.re(/^\/api\/gateway\/runs\/[0-9a-f-]{36}\/ledger$/),
   workspace_url: t.opt(t.re(/^\/api\/gateway\//)),
 };
@@ -214,7 +216,7 @@ check("list: three automations", list.length === 3);
 const byTitle = Object.fromEntries(list.map((s) => [s.title, s]));
 const news = byTitle["AI news monitor"], mail = byTitle["Inbox triage"], jour = byTitle["Weekly journal monitor"];
 check("list: news monitor every 8h independent active", news && news.trigger.config.every === "8h" && news.context_mode === "independent" && news.status === "active");
-check("list: inbox triage every 30m growing with a pending wait", mail && mail.trigger.config.every === "30m" && mail.context_mode === "growing" && mail.attention.pending_waits === 1 && mail.attention.waits.length === 1);
+check("list: inbox triage every 30m growing with typed pending waits (ask_user + tool_approval)", mail && mail.trigger.config.every === "30m" && mail.context_mode === "growing" && mail.attention.pending_waits === 2 && eq(mail.attention.waits.map((w) => w.kind), ["ask_user", "tool_approval"]));
 check("list: weekly journal monitor every 7d, paused", jour && jour.trigger.config.every === "7d" && jour.status === "paused" && !("next_fire_at" in jour));
 for (const s of list) {
   check(`${s.title}: unread == unseen_count > 0`, s.attention.unread === s.attention.unseen_count > 0);
@@ -233,7 +235,8 @@ const kinds = {
   retried: occ.some((o) => o.status === "completed" && o.attempts > 1),
   manual: occ.some((o) => o.trigger.source_id === "manual" && o.user_turn.startsWith("[Trigger manual@1 ")),
   failed: occ.some((o) => o.status === "failed" && o.attempts === 3),
-  waiting: occ.some((o) => o.status === "waiting" && o.waits.length === 1 && Array.isArray(o.waits[0].choices) && !("finished_at" in o)),
+  waiting: occ.some((o) => o.status === "waiting" && !("finished_at" in o) && o.waits.some((w) => w.kind === "ask_user" && Array.isArray(w.choices))),
+  "tool_approval wait with details": occ.some((o) => o.waits.some((w) => w.kind === "tool_approval" && Array.isArray(w.details) && w.details.length > 0)),
 };
 for (const [k, v] of Object.entries(kinds)) check(`occurrences cover ${k}`, v);
 const failedRows = occ.filter((o) => o.status === "failed");
@@ -250,11 +253,20 @@ for (const o of occ) {
   }
   check(`occurrence #${o.index}: user_turn is the rendered trigger line`, o.user_turn.startsWith(`[Trigger ${o.trigger.source_id}@1 · occurrence ${o.index} · fired ${o.fired_at}]\n`));
   check(`occurrence #${o.index}: ledger_url names its run`, o.ledger_url === `/api/gateway/runs/${o.run_id}/ledger`);
-  for (const w of o.waits) check(`occurrence #${o.index}: wait run_id is the occurrence run`, w.run_id === o.run_id);
+  for (const w of o.waits) {
+    // A flow-level question waits on the occurrence run; a tool approval may wait on a descendant (the agent sub-run).
+    if (w.kind === "ask_user") check(`occurrence #${o.index}: ask_user wait is on the occurrence run`, w.run_id === o.run_id);
+    if (w.kind === "tool_approval") {
+      check(`occurrence #${o.index}: tool_approval wait on a descendant run`, w.run_id !== o.run_id);
+      shape(`occurrence #${o.index} tool_approval details`, w.details, t.arr({ name: t.nonempty, arguments: t.object, call_id: t.opt(t.nonempty) }));
+      check(`occurrence #${o.index}: tool_approval has no choices`, !("choices" in w));
+    }
+  }
 }
 const last = occ.reduce((a, b) => (b.index > a.index ? b : a));
 check("inbox summary.last_occurrence is the newest occurrence", mail.last_occurrence.run_id === last.run_id && mail.last_occurrence.index === last.index);
-check("inbox summary waits == the waiting occurrence's wait", eq(mail.attention.waits, last.waits.map((w) => ({ run_id: w.run_id, wait_key: w.wait_key, index: last.index, prompt: w.prompt }))));
+check("inbox summary waits == the waiting occurrence's typed waits", eq(mail.attention.waits, last.waits.map((w) => ({ run_id: w.run_id, wait_key: w.wait_key, index: last.index, kind: w.kind, prompt: w.prompt, ...(w.details !== undefined ? { details: w.details } : {}) }))));
+check("inbox pending_waits counts every wait", mail.attention.pending_waits === last.waits.length);
 
 const att = fx["attention.json"].items;
 check("attention.json == inbox summary attention items (same page)", eq(att, mail.attention.items));

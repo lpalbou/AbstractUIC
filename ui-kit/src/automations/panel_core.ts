@@ -11,7 +11,12 @@ import type {
   CreateAutomationRequest,
   JsonObject,
   OccurrenceRow,
+  Json,
+  OccurrenceWait,
+  AttentionWait,
   ScheduleConfig,
+  ToolApprovalPolicy,
+  ToolCallToApprove,
   TriggerBinding,
 } from "./types.js";
 
@@ -207,6 +212,7 @@ export const API_ERROR_TEXT: Record<string, string> = {
   unsupported_feature: "The gateway does not support this yet.",
   unknown_trigger_source: "The gateway does not know this trigger source.",
   invalid_response: "The gateway gave an unexpected answer.",
+  invalid_payload: "That answer could not be sent.",
 };
 
 /** One visible sentence per error code, plus the server's own message. */
@@ -258,6 +264,8 @@ export type ScheduleForm = {
   prompt: string;
   when: ScheduleWhen;
   context: ContextMode;
+  /** `"auto"` (default): tools run without asking; `"ask"`: each tool call waits for approval. */
+  toolApproval?: ToolApprovalPolicy;
   /** Advanced (all optional). Datetimes are `YYYY-MM-DDTHH:MM` read as UTC. */
   title?: string;
   startAt?: string;
@@ -350,9 +358,49 @@ export function buildCreateRequest(
       target,
       trigger: { source_id: "schedule", source_version: 1, config: config as JsonObject },
       context: { mode: form.context },
+      policy: { tool_approval: form.toolApproval ?? "auto" },
     },
   };
 }
+
+/** The consent line shown wherever an automation is created with `tool_approval: "auto"` (decision D1). */
+export const TOOL_APPROVAL_CONSENT = "Tools run without asking (you approve them now by creating this automation)";
+
+// --- typed waits (decision D1) ---------------------------------------------------
+
+/**
+ * The tool calls of a `tool_approval` wait, validated structurally
+ * (`[{name, arguments, call_id?}]`); null for another kind or malformed details.
+ */
+export function waitToolCalls(wait: Pick<OccurrenceWait | AttentionWait, "kind" | "details">): ToolCallToApprove[] | null {
+  if (wait.kind !== "tool_approval" || !Array.isArray(wait.details)) return null;
+  const out: ToolCallToApprove[] = [];
+  for (const c of wait.details as Json[]) {
+    if (!c || typeof c !== "object" || Array.isArray(c)) return null;
+    const call = c as { [k: string]: Json };
+    if (typeof call.name !== "string" || !call.arguments || typeof call.arguments !== "object" || Array.isArray(call.arguments)) return null;
+    if (call.call_id !== undefined && typeof call.call_id !== "string") return null;
+    out.push({ name: call.name, arguments: call.arguments as JsonObject, ...(typeof call.call_id === "string" ? { call_id: call.call_id } : {}) });
+  }
+  return out;
+}
+
+/** An `event` wait's answer from the typed JSON text: `{payload}` or the parse error. */
+export function parseEventPayload(text: string): { ok: true; payload: Json } | { ok: false; error: string } {
+  const t = text.trim();
+  if (!t) return { ok: false, error: "Enter a JSON payload." };
+  try {
+    return { ok: true, payload: JSON.parse(t) as Json };
+  } catch (e) {
+    return { ok: false, error: `The payload is not valid JSON (${e instanceof Error ? e.message : String(e)}).` };
+  }
+}
+
+export const WAIT_KIND_LABELS: Record<string, string> = {
+  ask_user: "Question for you",
+  tool_approval: "Approval needed",
+  event: "Waiting for an event",
+};
 
 // --- retry-safe ids (one per user action) ------------------------------------
 

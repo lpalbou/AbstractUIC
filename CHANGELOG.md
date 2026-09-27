@@ -24,6 +24,12 @@ ships.
   closes, acknowledges attention only after `/seen` succeeds, and mints one id per user action (reused when the
   same action is retried after a transport failure). Types `OccurrenceFailure`, `ScheduleEventPayload`,
   `ManualEventPayload`; helpers `ActionIds`, `SeenAckTracker`, `isDefinitiveError`.
+- Added: typed waits — `AutomationPanel` answers by `kind`: `ask_user` → `{response}`, `tool_approval` → tool calls
+  listed with Approve / Deny (`{approved}`), `event` → a JSON payload (`{payload}`). `AfScheduleDialog` and
+  `buildCreateRequest` send `policy.tool_approval` ("auto" by default, with the consent line "Tools run without
+  asking (you approve them now by creating this automation)"; "ask" on request). Types `WaitKind`,
+  `ToolCallToApprove`, `WaitAnswer`, `ToolApprovalPolicy`; helpers `waitToolCalls`, `parseEventPayload`,
+  `TOOL_APPROVAL_CONSENT`, `WAIT_KIND_LABELS`.
 - Added: canonical fixtures `ui-kit/scripts/fixtures/automations/*.json` with `CHECKSUMS.sha256`, and the
   `check_automation_fixtures`, `check_automation_client` and `check_automation_panel` checks in `npm test`.
 

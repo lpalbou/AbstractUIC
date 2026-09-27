@@ -3261,3 +3261,8 @@
 }
 .af-auto__reasons { display: flex; flex-direction: column; gap: 2px; margin: 0; color: var(--text-muted); font-size: var(--font-size-xs); }
 .af-auto-failure { padding: 4px 8px; border-left: 2px solid var(--error); overflow-wrap: anywhere; }
+.af-auto-wait__kind { font-weight: 700; color: var(--text-secondary); }
+.af-auto-wait__calls { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.af-auto-wait__tool { font-family: var(--font-mono); font-weight: 700; }
+.af-auto-wait__args { margin: 2px 0 0; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--ui-code-block-bg, var(--bg-secondary)); font-family: var(--font-mono); font-size: var(--font-size-xs); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 12em; overflow: auto; }
+.af-schedule__consent { margin: 0; color: var(--text-secondary); }

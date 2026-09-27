@@ -27,6 +27,15 @@ render server truth and forward intent through callbacks.
   it waits for a person. Quiet occurrences stay visible, subdued and unbadged.
 - **Context** — *independent*: each run starts fresh. *growing*: each run sees the
   previous runs, like turns of one conversation.
+- **Typed waits** — every wait carries `kind`, and the answer follows the kind,
+  never the prompt text: `ask_user` → `{response}` (a choice or free text),
+  `tool_approval` → `{approved: true|false}` (its `details` list the tool calls
+  `[{name, arguments, call_id?}]`), `event` → `{payload}` (JSON).
+- **Tool approval policy** — `policy.tool_approval` is `"auto"` by default:
+  an unattended run cannot ask a person every tick, so the tools run without
+  asking and creating the automation is the consent. `"ask"` makes every tool
+  call wait for approval in the timeline. Flow-level `ask_user` questions wait
+  for a person in both modes.
 - **Trigger envelope** — a `schedule@1` occurrence's envelope payload is
   `{tick, scheduled_at, coalesced?: {first_tick, last_tick, missed_count}}`
   (`ScheduleEventPayload`); `fired_at` is on the envelope itself. `manual@1`
@@ -144,12 +153,16 @@ What it renders:
   call is retried on the next render that brings a new summary (your next poll),
   never in a loop.
 - **Occurrences** — one chat pair each; quiet ones subdued, notified / failed /
-  waiting ones badged. A failed pair shows its `failure` (`reason_code`,
+  waiting ones badged. Waits render by `kind`: `ask_user` with its choices and
+  a free-text answer (`{response}`); `tool_approval` with the tool calls and
+  their arguments listed and **Approve** / **Deny** (`{approved: true|false}`);
+  `event` with a JSON payload field (`{payload}`; invalid JSON is refused with
+  a message); an unknown kind is shown with "open the run", never answered. The
+  attention strip labels waits the same way ("Approval needed", "Question for
+  you"). A failed pair shows its `failure` (`reason_code`,
   message, "after N attempts") when the gateway sends it. The trigger line shows
   `trigger.summary` as the gateway words it (`schedule: every 8 hours (UTC),
-  tick 12`, `manual: run now (<command_id>)`). A waiting occurrence shows its prompt, one button per
-  choice and a free-text answer; both call `onAnswerWait(runId, waitKey,
-  {response})`. Each pair has "Run details" (run id, attempts, `onOpenRun`,
+  tick 12`, `manual: run now (<command_id>)`). Each pair has "Run details" (run id, attempts, `onOpenRun`,
   ledger link, workspace link) and **Discuss — forked session, read-only
   workspace**. Discuss needs the `discuss` capability, is off for legacy rows,
   and is available once the occurrence has finished (also on an archived
@@ -179,6 +192,10 @@ shown with the Gateway's own message.
 - **When (UTC)** — Repeat every N minutes / hours / days (presets from every 5
   minutes to every 7 days), or Once at a UTC date and time.
 - **Context** — Independent or Growing.
+- **Tools** — "Run without asking" (default, `policy.tool_approval: "auto"`),
+  shown with the consent line "Tools run without asking (you approve them now
+  by creating this automation)" followed by `targetTools` when the host passes
+  the target's tool names; or "Ask me before each tool call" (`"ask"`).
 - **Advanced** — title (default: the task's first line), first run at, stop
   after N runs, stop at.
 
