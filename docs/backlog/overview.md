@@ -56,7 +56,7 @@ merge, or missing test rigs) — see each item's checklist.
 | 0006 | guard extensions + test rigs | ui-kit scripts + workspaces | Token-consumption + literal + swatch invariants; test scripts for 3 packages |
 | 0014 | entity-creation modal module family | ui-kit (framework-free) | 2-tab console modal; gateway c872/c879 seam; capabilities tab gated on served inventory |
 | 0019 | gateway session-proxy server module | new node package | LAURENT-DIRECTED: one auth proxy for 3 cli.js copies + the entity app; observer contract verbatim |
-| 0029 | Automations: client module, `AutomationPanel`, fixtures | ui-kit + panel-chat | Mission U / contract G of Automations v1; Observer adopts the kit panel, Assistant pins to checksum-shared fixtures |
+| 0029 | Automations: client module, `AutomationPanel`, fixtures | ui-kit + panel-chat | Mission U / contract G of Automations v1; Observer adopts the kit panel, Assistant pins to byte-identical shared fixtures. Contracts pass 2026-09-27: see the item's section and root `untracked/design/automations-CONTRACTS.md`. |
 
 ## Proposed ledger (promotion criteria in each item)
 | ID | Item | Consumers today | Blocked on |

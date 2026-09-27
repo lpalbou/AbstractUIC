@@ -259,3 +259,13 @@ Qt and pins itself to the fixtures through the checksum copy.
 - [ ] Fixtures regenerated from the shipped gateway; Assistant copy registered
 - [ ] Observer consumption confirmed by mission O
 - [ ] Docs + CHANGELOG; version bumps staged
+
+## Contracts pass (2026-09-27)
+
+Final contracts: untracked/design/automations-CONTRACTS.md (root repo; rev 2 with Astra turn-6 amendments 1–11). They supersede the contract text copied above; earlier text is kept as history. Concrete changes for this item:
+
+- `ApiError.code` comes from `detail.reason_code`; `errors.json` adds 401 `unauthorized`, 403 `forbidden`, 422 `invalid_request`; `cursor_expired` removed.
+- New canonical fixture `attention.json` (a `Page<AttentionItem>`, oldest unseen first); summaries carry `attention.unseen_count/items/waits`, `attempts`, `notify:null|{title,body}`. The five+1 fixtures are byte-shared with the Assistant; the root seat adds one sync group per file.
+- `onSeen` receives the cursor of the last DISPLAYED attention item, never the summary's latest.
+- Client drops `changed_since`; `listAttention` added; base path `/api/gateway`.
+- Cadence text is fixed-interval ("every 24 hours"), never "daily at HH:MM local"; Discuss labelled "forked session, read-only workspace".
