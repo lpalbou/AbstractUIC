@@ -653,7 +653,7 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
             }}
           >
             <p className="af-auto__hint">
-              Starts a new session that forks this automation at #{row.index} with its full history (runs 1–{row.index}). It works in its own writable workspace; the automation's files are mounted read-only, and nothing flows back into the automation.
+              Starts a new session that forks this automation at #{row.index} with its full history (runs 1–{row.index}). It works in its own writable workspace; the automation's files are mounted read-only for the file tools (shell commands are not sandboxed), and nothing is written back into the automation's session.
             </p>
             <textarea name="prompt" rows={3} aria-label="Your message" placeholder="Ask about this result…" required />
             <div className="af-auto__row">

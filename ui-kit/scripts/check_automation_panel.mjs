@@ -250,7 +250,7 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   dform.props.onSubmit(fakeSubmit("Draft the reply to Clara.", "prompt"));
   check("discuss submit → onDiscuss(2, prompt)", eq(got.at(-1), ["discuss", 2, "Draft the reply to Clara."]));
   const dhtml = renderToStaticMarkup(open2);
-  check("discuss form: fork at #N with full history, own writable workspace, automation files read-only, nothing flows back", dhtml.includes("forks this automation at #2 with its full history (runs 1–2)") && dhtml.includes("its own writable workspace") && dhtml.includes("the automation&#x27;s files are mounted read-only") && dhtml.includes("nothing flows back into the automation") && dhtml.includes(`aria-label="${esc(DISCUSS_LABEL)}, from occurrence 2"`), dhtml.slice(0, 400));
+  check("discuss form help text is the exact shared sentence (file-tools-only mount; shell not sandboxed)", dhtml.includes(esc("Starts a new session that forks this automation at #2 with its full history (runs 1–2). It works in its own writable workspace; the automation's files are mounted read-only for the file tools (shell commands are not sandboxed), and nothing is written back into the automation's session.")) && dhtml.includes(`aria-label="${esc(DISCUSS_LABEL)}, from occurrence 2"`), dhtml.slice(0, 400));
 }
 
 // --- revise -------------------------------------------------------------------------------

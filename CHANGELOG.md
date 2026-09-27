@@ -17,7 +17,8 @@ ships.
   in the panel), each disabled control with a visible reason; its runs as chat pairs, quiet runs
   subdued and notified, failed (reason, message, attempts) and waiting runs badged; Discuss forks
   the automation at a run with its full history, in its own writable workspace with the
-  automation's files mounted read-only (`DiscussResponse.workspace_root` / `mounted_workspace`). Attention is acknowledged up to the last displayed
+  automation's files mounted read-only for the file tools — shell commands are not sandboxed by
+  the mount (`DiscussResponse.workspace_root` / `mounted_workspace`). Attention is acknowledged up to the last displayed
   item, after `/seen` succeeds.
 - Added: `AutomationPanel` renders user turns, answers, notify bodies, wait prompts, attention
   bodies and the definition's task through its `renderText` prop — pass the chat's renderer from

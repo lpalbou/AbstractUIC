@@ -41,8 +41,13 @@ in the architecture page; for the export list in context, see the [API reference
   prompt text (see [Answering a wait](#answering-a-wait)).
 - **Discuss** — forks the automation at one occurrence: a new session carrying the automation's
   whole timeline (runs 1..N). It works in its own writable workspace; the automation's folder is
-  mounted read-only, and nothing flows back into the automation. The response names both folders
-  (`workspace_root`, `mounted_workspace`).
+  mounted read-only **for the file tools only** — shell commands (`execute_command`, …) are not
+  sandboxed by the mount and could change the automation's folder. Nothing is written back into
+  the automation's session. The response names both folders (`workspace_root`,
+  `mounted_workspace`). The panel's help text says the same: "Starts a new session that forks
+  this automation at #N with its full history (runs 1–N). It works in its own writable workspace;
+  the automation's files are mounted read-only for the file tools (shell commands are not
+  sandboxed), and nothing is written back into the automation's session."
 - **Trigger envelope** — a `schedule@1` run's envelope payload is `{tick, scheduled_at,
   coalesced?: {first_tick, last_tick, missed_count}}` (`ScheduleEventPayload`; `coalesced`
   appears when missed ticks were folded into one run); `fired_at` is on the envelope itself.
