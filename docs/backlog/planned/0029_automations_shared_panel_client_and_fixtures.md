@@ -253,12 +253,12 @@ Qt and pins itself to the fixtures through the checksum copy.
 - 0027 / `AfAboutDialog` (server-truth-renders and vendored-fixture precedent)
 
 ## Progress checklist
-- [ ] Contract F types + client module + fixture validation check
-- [ ] `automation_panel_core.ts` + `AutomationPanel` + check script
-- [ ] panel-chat `ScheduleThisAction` / `FromAutomationBadge` + check
+- [x] Contract F types + client module + fixture validation check
+- [x] `automation_panel_core.ts` + `AutomationPanel` + check script (as `src/automations/panel_core.ts`)
+- [x] panel-chat `ScheduleThisAction` / `FromAutomationBadge` + check
 - [ ] Fixtures regenerated from the shipped gateway; Assistant copy registered
 - [ ] Observer consumption confirmed by mission O
-- [ ] Docs + CHANGELOG; version bumps staged
+- [ ] Docs + CHANGELOG; version bumps staged (docs/automations.md + CHANGELOG Unreleased done 2026-09-27; bumps await the operator)
 
 ## Contracts pass (2026-09-27)
 
@@ -269,3 +269,14 @@ Final contracts: untracked/design/automations-CONTRACTS.md (root repo; rev 2 wit
 - `onSeen` receives the cursor of the last DISPLAYED attention item, never the summary's latest.
 - Client drops `changed_since`; `listAttention` added; base path `/api/gateway`.
 - Cadence text is fixed-interval ("every 24 hours"), never "daily at HH:MM local"; Discuss labelled "forked session, read-only workspace".
+
+## Progress (2026-09-27, mission U)
+
+Implemented from contract F/G (rev 2), local commits, no version bump. Files: `ui-kit/src/automations/`
+(`types.ts`, `client.ts`, `panel_core.ts`, `AutomationPanel.tsx`, `AfScheduleDialog.tsx`), fixtures
+`ui-kit/scripts/fixtures/automations/` (+ `CHECKSUMS.sha256`, `README.md`), checks
+`check_automation_{fixtures,client,panel}.mjs` and panel-chat `check_automation_badges.mjs` in `npm test`,
+`docs/automations.md`. Path note: the orchestrator's mission brief placed the client at
+`src/automations/client.ts` (contract G text: `src/automations_client.ts`); consumers import from the kit index,
+so the export names are the seam. Remaining: regenerate fixtures from the shipped gateway (G), the Assistant's
+vendored copy + root sync groups (A, root), Observer adoption (O).

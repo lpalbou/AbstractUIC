@@ -7,6 +7,26 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## Unreleased
+
+### ui-kit
+
+- Added: Automations v1 — `createAutomationsClient()` (one method per Gateway `/api/gateway/automations` and
+  `/api/gateway/trigger-sources` route, injected `fetch`, errors thrown as `AutomationApiError` with `code` =
+  `detail.reason_code`, no polling and no `changed_since`), `AutomationPanel` (definition and controls, run now
+  while paused, in-page archive confirmation, revise, occurrences as chat pairs with quiet ticks subdued and
+  failures / waits / notify prominent, answer a waiting occurrence, discuss as a forked session with a read-only
+  workspace, attention acknowledged up to the last displayed item) and `AfScheduleDialog` (fixed UTC intervals
+  such as "every 24 hours (UTC)", or once at a UTC time; independent or growing context). See
+  [docs/automations.md](docs/automations.md).
+- Added: canonical fixtures `ui-kit/scripts/fixtures/automations/*.json` with `CHECKSUMS.sha256`, and the
+  `check_automation_fixtures`, `check_automation_client` and `check_automation_panel` checks in `npm test`.
+
+### panel-chat
+
+- Added: `ScheduleThisAction` ("Schedule this…" for a chat header slot) and `FromAutomationBadge`
+  ("from automation <title> · #<n>"). Standalone; they perform no requests.
+
 ## 0.1.12 - 2026-09-26
 
 | Package | Version | Change |

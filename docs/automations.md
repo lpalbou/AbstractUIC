@@ -1,0 +1,189 @@
+# Automations (v1)
+
+An **automation** runs a workflow on a trigger — "every 8 hours", "every 30
+minutes", "once at 2026-09-28 08:00 UTC", or by hand — and keeps every run
+readable as a chat. The Gateway owns the execution (its `/api/gateway/automations`
+routes, backed by AbstractRuntime); AbstractUIC ships the shared presentation:
+
+| Piece | Package | What it does |
+| --- | --- | --- |
+| `createAutomationsClient()` | `ui-kit` | One method per Gateway route; injected `fetch`; typed errors |
+| `AutomationPanel` | `ui-kit` | One automation: definition, controls, occurrences as chat pairs |
+| `AfScheduleDialog` | `ui-kit` | Create an automation; builds the `POST /automations` body |
+| `ScheduleThisAction` | `panel-chat` | "Schedule this…" button for a chat header slot |
+| `FromAutomationBadge` | `panel-chat` | "from automation <title> · #<n>" marker for a message or session |
+| Canonical fixtures | `ui-kit/scripts/fixtures/automations/` | The shared wire shapes every client tests against |
+
+Nothing here schedules, polls or executes. The host fetches, the components
+render server truth and forward intent through callbacks.
+
+## Vocabulary
+
+- **Occurrence** — one run of the automation (a child run). It reads as two chat
+  turns: the **trigger turn** (`[Trigger schedule@1 · occurrence 3 · fired …]`
+  followed by the task) and the **answer turn**.
+- **Quiet / notable** — occurrences are quiet by default. One is notable only
+  when its output carries `notify`, when it failed after its last retry, or when
+  it waits for a person. Quiet occurrences stay visible, subdued and unbadged.
+- **Context** — *independent*: each run starts fresh. *growing*: each run sees the
+  previous runs, like turns of one conversation.
+- **Schedules are fixed UTC intervals.** `schedule@1` knows `start_at`, `every`
+  (`^[1-9][0-9]*[smhd]$`), `until`, `count`. Every UI says "every 24 hours
+  (UTC)", never "daily at 08:00 local": there is no time zone in v1.
+- **Discuss** — starts a *forked* session seeded with the automation's
+  conversation up to an occurrence. It never writes back into the automation,
+  and the automation's workspace is mounted read-only.
+
+## Client
+
+```ts
+import { createAutomationsClient, AutomationApiError } from "@abstractframework/ui-kit";
+
+const automations = createAutomationsClient({
+  fetch: (url, init) => fetch(url, { ...init, credentials: "include" }),
+  baseUrl: "",                        // same origin; or "http://127.0.0.1:8080"
+  headers: () => ({ "x-abstract-csrf": csrfToken }),
+});
+
+const page = await automations.listAutomations({ limit: 50 });
+const occ = await automations.listOccurrences(page.items[0].automation_id, { limit: 20 });
+await automations.sendAutomationCommand(id, { type: "automation.run_now" });
+```
+
+| Method | Route |
+| --- | --- |
+| `listAutomations({status?, cursor?, limit?})` | `GET /api/gateway/automations` |
+| `getAutomation(id)` | `GET /api/gateway/automations/{id}` |
+| `createAutomation(body)` | `POST /api/gateway/automations` |
+| `reviseAutomation(id, {changes, expected_revision?, command_id?})` | `PATCH /api/gateway/automations/{id}` |
+| `sendAutomationCommand(id, {type, payload?, command_id?})` | `POST /api/gateway/automations/{id}/commands` |
+| `listOccurrences(id, {cursor?, limit?})` | `GET /api/gateway/automations/{id}/occurrences` |
+| `listAttention(id, {cursor?, limit?})` | `GET /api/gateway/automations/{id}/attention` |
+| `discuss(id, {occurrence_index, prompt, request_id?})` | `POST /api/gateway/automations/{id}/discuss` |
+| `markSeen(id, attentionCursor)` | `POST /api/gateway/automations/{id}/seen` |
+| `listTriggerSources()` | `GET /api/gateway/trigger-sources` |
+
+- `command_id` / `request_id` are minted with `crypto.randomUUID()` (or
+  `options.newId`) only when you do not pass one. Pass the same id to retry a
+  request safely.
+- Command types: `automation.pause`, `automation.resume`, `automation.run_now`,
+  `automation.stop_current`, `automation.archive`. Revise goes through
+  `reviseAutomation`.
+- **Polling**: v1 has no change cursor. Poll complete pages; the client never
+  sends `changed_since` (the Gateway answers it with 422 `unsupported_feature`).
+- **Errors**: every non-2xx carries `{"detail": {"reason_code", "message",
+  "field"?, "command_id"?}}` and is thrown as `AutomationApiError` (`status`,
+  `code` = `reason_code`, `message`, `field?`, `command_id?`). A non-2xx without
+  that envelope, or a 2xx that is not a JSON object, throws with
+  `code: "invalid_response"`. Transport failures propagate unchanged.
+  `parseApiError(status, body)` is exported for hosts with their own transport.
+
+| HTTP | `reason_code` |
+| --- | --- |
+| 401 / 403 | `unauthorized`, `forbidden` |
+| 404 | `automation_not_found` (also another principal's automation), `occurrence_not_found` |
+| 409 | `revision_conflict`, `automation_busy`, `invalid_state`, `identity_conflict` |
+| 422 | `invalid_request` (incl. malformed JSON), `invalid_definition`, `unsupported_feature`, `unknown_trigger_source` |
+
+## AutomationPanel
+
+```tsx
+import { AutomationPanel } from "@abstractframework/ui-kit";
+import "@abstractframework/ui-kit/theme.css";
+
+<AutomationPanel
+  summary={summary}                 // AutomationSummary (from the list page)
+  occurrences={rows}                // OccurrenceRow[] (any page order; rendered oldest first)
+  triggerSources={sources}          // GET /trigger-sources items
+  busy={pending}
+  error={lastError}                 // ApiError | undefined
+  onCommand={(type, payload) => automations.sendAutomationCommand(id, { type, payload })}
+  onRevise={(changes, rev) => automations.reviseAutomation(id, { changes, expected_revision: rev ?? undefined })}
+  onDiscuss={(index, prompt) => automations.discuss(id, { occurrence_index: index, prompt })}
+  onSeen={(cursor) => automations.markSeen(id, cursor).then(() => undefined)}
+  onLoadMore={loadOlderPage}
+  onOpenRun={(runId) => openLedger(runId)}
+  onAnswerWait={(runId, waitKey, payload) => resumeWait(runId, waitKey, payload)}
+/>
+```
+
+What it renders:
+
+- **Header** — title, status, trigger summary ("every 8 hours (UTC)"), context
+  mode, next run, run count, attention ("2 unseen · 1 waiting for you"),
+  revision, a legacy marker for old `scheduled:*` roots. A trigger source the
+  Gateway does not list (or lists `available:false`) is stated.
+- **Controls** — Pause / Resume, Run now, Stop current, Revise…, Archive….
+  `summary.capabilities` says what the principal may do; the status says what
+  applies now. Run now stays enabled while paused (it runs once and the
+  automation stays paused). Stop current is enabled while an occurrence runs or
+  waits. Archive asks for confirmation inside the panel. `busy` disables all.
+- **Revise** — title, interval, context; only changed fields are sent, with
+  `expected_revision`. A new interval keeps the rest of the schedule.
+- **Attention** — the unseen notify/failure items and the pending waits. After
+  showing them the panel calls `onSeen(cursor)` with the **last displayed**
+  item's cursor, never `summary.attention.cursor`, so items it did not show stay
+  unseen.
+- **Occurrences** — one chat pair each; quiet ones subdued, notified / failed /
+  waiting ones badged. A waiting occurrence shows its prompt, one button per
+  choice and a free-text answer; both call `onAnswerWait(runId, waitKey,
+  {response})`. Each pair has "Run details" (run id, attempts, `onOpenRun`,
+  ledger link, workspace link) and **Discuss — forked session, read-only
+  workspace**. "Load earlier occurrences" appears while fewer rows than
+  `occurrence_count` are loaded.
+
+Every error code maps to one sentence (`apiErrorText()` / `API_ERROR_TEXT`),
+shown with the Gateway's own message.
+
+## AfScheduleDialog
+
+```tsx
+<AfScheduleDialog
+  open={open}
+  onClose={() => setOpen(false)}
+  workflowPicker={<MyWorkflowPicker onChange={setTarget} />}
+  target={target}                     // {bundle_ref, flow_id} | {flow_id:"@default", interface}
+  initialPrompt={chatPrompt}
+  onSubmit={(body) => automations.createAutomation(body)}
+  busy={creating}
+  error={createError}
+/>
+```
+
+- **What** — the host's picker (slot) and the task prompt (sent as
+  `target.input_data.prompt`).
+- **When (UTC)** — Repeat every N minutes / hours / days (presets from every 5
+  minutes to every 7 days), or Once at a UTC date and time.
+- **Context** — Independent or Growing.
+- **Advanced** — title (default: the task's first line), first run at, stop
+  after N runs, stop at.
+
+The request id is minted once per opening, so a retry after an error is
+idempotent. The pure builder is exported as `buildCreateRequest(form, {target,
+requestId})`.
+
+## panel-chat pieces
+
+```tsx
+import { ScheduleThisAction, FromAutomationBadge } from "@abstractframework/panel-chat";
+
+<WorkflowChat header={<ScheduleThisAction seed={{ prompt, target }} onSchedule={openScheduleDialog} />} … />
+<FromAutomationBadge title="Inbox triage" index={7} onOpen={() => openAutomation(id)} />
+```
+
+Neither performs requests. No v1 host wires them yet.
+
+## Fixture contract
+
+`ui-kit/scripts/fixtures/automations/` holds `list.json`, `occurrences.json`,
+`attention.json`, `trigger-sources.json`, `commands.json` and `errors.json`: the
+shared shapes of the Gateway routes (see its `README.md`). The Observer reads
+these files through its source alias; the Assistant vendors byte-identical
+copies, and the root `scripts/check_identity_sync.py` fails on drift.
+`CHECKSUMS.sha256` pins the bytes; `node ui-kit/scripts/check_automation_fixtures.mjs
+--write` regenerates it after an intended change.
+
+Checks (part of `npm test`): `check_automation_fixtures.mjs` (shapes, coverage,
+checksums), `check_automation_client.mjs` (paths, bodies, errors),
+`check_automation_panel.mjs` (render + handlers + pure rules), and panel-chat's
+`check_automation_badges.mjs`.
