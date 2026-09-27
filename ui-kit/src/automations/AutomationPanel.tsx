@@ -1,0 +1,586 @@
+// AutomationPanel — one automation, rendered from server truth (contract G).
+//
+// Controlled: the host fetches (see ./client.ts) and passes the summary, the
+// occurrences and `busy`; the panel forwards intent through the callbacks and
+// holds only view state (which form is open). Occurrences read as a chat: a
+// trigger/task turn and an answer turn per occurrence. Quiet ticks stay visible
+// but subdued; failures, human waits and explicit `notify` are prominent.
+//
+// The pieces below the panel (header, controls bar, revise form, occurrence
+// pair) are hook-free so scripts/check_automation_panel.mjs can render them in
+// any state and invoke their handlers without a DOM.
+import React, { useEffect, useId, useRef, useState } from "react";
+import {
+  apiErrorText,
+  attentionAckCursor,
+  attentionLabel,
+  automationControls,
+  CONTROL_COMMANDS,
+  contextLabel,
+  formatUtc,
+  isApiError,
+  occurrenceViews,
+  parseDuration,
+  reviseChanges,
+  reviseFormFrom,
+  STATUS_LABELS,
+  triggerSummary,
+  type ControlId,
+  type OccurrenceView,
+  type ReviseForm,
+} from "./panel_core.js";
+import type {
+  ApiError,
+  AutomationChanges,
+  AutomationDefinition,
+  AutomationSummary,
+  CommandReceipt,
+  ContextMode,
+  JsonObject,
+  OccurrenceRow,
+  TriggerSourceEntry,
+  TriggerSource,
+} from "./types.js";
+
+export type AutomationPanelProps = {
+  summary: AutomationSummary;
+  definition?: AutomationDefinition;
+  occurrences: OccurrenceRow[];
+  triggerSources: Array<TriggerSource | TriggerSourceEntry>;
+  busy: boolean;
+  error?: ApiError;
+  onRevise(changes: AutomationChanges, expectedRevision: number | null): Promise<CommandReceipt>;
+  /** `type` is the full command type, e.g. `automation.run_now`. */
+  onCommand(type: string, payload?: JsonObject): Promise<CommandReceipt>;
+  onDiscuss(index: number, prompt: string): Promise<{ session_id: string; run_id: string }>;
+  /** Receives the cursor of the last DISPLAYED attention item. */
+  onSeen(attentionCursor: string): Promise<void>;
+  onLoadMore(): void;
+  onOpenRun(runId: string): void;
+  /** `payload` is `{response: string}` (a choice or free text). */
+  onAnswerWait(runId: string, waitKey: string, payload: JsonObject): Promise<void>;
+  className?: string;
+};
+
+export const DISCUSS_LABEL = "Discuss — forked session, read-only workspace";
+
+function toApiError(e: unknown): ApiError {
+  if (isApiError(e)) return e;
+  const message = e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : String(e);
+  return { status: 0, code: "client_error", message };
+}
+
+// --- header ----------------------------------------------------------------------
+
+/**
+ * The trigger source this gateway reports for the binding, or why it cannot
+ * run: missing from `GET /trigger-sources`, or listed `available:false`.
+ */
+export function triggerSourceProblem(summary: AutomationSummary, sources: Array<TriggerSource | TriggerSourceEntry>): string | null {
+  const t = summary.trigger;
+  const src = sources.find((x) => x.id === t.source_id && x.version === t.source_version);
+  if (!src) return `This gateway does not list the trigger source ${t.source_id}@${t.source_version}.`;
+  if ("available" in src && src.available === false) return `Trigger source ${t.source_id}@${t.source_version} is unavailable${src.unavailable_reason ? `: ${src.unavailable_reason}` : "."}`;
+  return null;
+}
+
+export function AutomationHeader(props: { summary: AutomationSummary; triggerSources: Array<TriggerSource | TriggerSourceEntry>; titleId?: string }): React.ReactElement {
+  const s = props.summary;
+  const problem = triggerSourceProblem(s, props.triggerSources);
+  const next = s.next_fire_at ? formatUtc(s.next_fire_at) : s.status === "paused" ? "none while paused" : "none scheduled";
+  return (
+    <header className="af-auto__head">
+      <div className="af-auto__titlebar">
+        <h2 className="af-auto__title" id={props.titleId}>
+          {s.title}
+        </h2>
+        <span className={`af-auto__status af-auto__status--${s.status}`}>{STATUS_LABELS[s.status] ?? s.status}</span>
+        {s.legacy ? <span className="af-auto__legacy">Legacy schedule</span> : null}
+      </div>
+      <dl className="af-auto__facts">
+        <dt>When</dt>
+        <dd data-fact="trigger">
+          {triggerSummary(s.trigger)}
+          {problem ? (
+            <span className="af-auto__warn" role="note">
+              {" "}
+              {problem}
+            </span>
+          ) : null}
+        </dd>
+        <dt>Context</dt>
+        <dd data-fact="context">{contextLabel(s.context_mode)}</dd>
+        <dt>Next run</dt>
+        <dd data-fact="next">{next}</dd>
+        <dt>Runs</dt>
+        <dd data-fact="count">{s.occurrence_count}</dd>
+        <dt>Attention</dt>
+        <dd data-fact="attention" className={s.attention.unread || s.attention.pending_waits ? "is-notable" : undefined}>
+          {attentionLabel(s)}
+        </dd>
+        {s.revision !== null ? (
+          <>
+            <dt>Revision</dt>
+            <dd data-fact="revision">{s.revision}</dd>
+          </>
+        ) : null}
+      </dl>
+    </header>
+  );
+}
+
+// --- controls ----------------------------------------------------------------------
+
+export type AutomationControlsBarProps = {
+  summary: AutomationSummary;
+  occurrences: OccurrenceRow[];
+  busy: boolean;
+  confirmingArchive: boolean;
+  reviseOpen: boolean;
+  onCommand(type: string): void;
+  onToggleRevise(): void;
+  onAskArchive(): void;
+  onCancelArchive(): void;
+};
+
+export function AutomationControlsBar(p: AutomationControlsBarProps): React.ReactElement {
+  const c = automationControls(p.summary, p.occurrences, p.busy);
+  const btn = (id: ControlId, label: string, onClick: () => void, extra?: { pressed?: boolean; danger?: boolean }) => (
+    <button
+      key={id}
+      type="button"
+      className={`af-auto__btn${extra?.danger ? " af-auto__btn--danger" : ""}`}
+      data-action={id}
+      disabled={!c[id].enabled}
+      title={c[id].reason}
+      aria-pressed={extra?.pressed}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="af-auto__controls-wrap">
+      <div className="af-auto__controls" role="toolbar" aria-label="Automation controls">
+        {p.summary.status === "paused"
+          ? btn("resume", "Resume", () => p.onCommand(CONTROL_COMMANDS.resume))
+          : btn("pause", "Pause", () => p.onCommand(CONTROL_COMMANDS.pause))}
+        {btn("run_now", "Run now", () => p.onCommand(CONTROL_COMMANDS.run_now))}
+        {btn("stop_current", "Stop current", () => p.onCommand(CONTROL_COMMANDS.stop_current))}
+        {btn("revise", "Revise…", p.onToggleRevise, { pressed: p.reviseOpen })}
+        {btn("archive", "Archive…", p.onAskArchive, { danger: true })}
+      </div>
+      {p.summary.status === "paused" && c.run_now.enabled ? (
+        <p className="af-auto__hint">Paused: scheduled runs are skipped. Run now works and keeps it paused.</p>
+      ) : null}
+      {p.confirmingArchive ? (
+        <div className="af-auto__confirm" role="group" aria-label="Confirm archive">
+          <p>
+            Archive “{p.summary.title}”? Its history stays readable; it will not run again. The current run, if any, finishes.
+          </p>
+          <div className="af-auto__row">
+            <button type="button" className="af-auto__btn af-auto__btn--danger" data-action="archive-confirm" disabled={!c.archive.enabled} onClick={() => p.onCommand(CONTROL_COMMANDS.archive)}>
+              Archive
+            </button>
+            <button type="button" className="af-auto__btn" data-action="archive-cancel" onClick={p.onCancelArchive}>
+              Keep it
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// --- revise ------------------------------------------------------------------------
+
+const UNIT_OPTIONS: Array<[string, string]> = [
+  ["m", "minutes"],
+  ["h", "hours"],
+  ["d", "days"],
+];
+
+/** Read the revise form's fields (uncontrolled inputs) into a `ReviseForm`. */
+export function readReviseForm(form: { elements: { namedItem(name: string): unknown } }, fallback: ReviseForm): ReviseForm {
+  const val = (name: string): string | null => {
+    const el = form.elements.namedItem(name) as { value?: string } | null;
+    return el && typeof el.value === "string" ? el.value : null;
+  };
+  const amount = val("every_amount");
+  const unit = val("every_unit");
+  const every = amount !== null && unit !== null ? `${amount.trim()}${unit}` : fallback.every;
+  const ctx = form.elements.namedItem("context") as { value?: string } | null;
+  const context = (ctx && (ctx.value === "growing" || ctx.value === "independent") ? ctx.value : fallback.context) as ContextMode;
+  return { title: val("title") ?? fallback.title, every, context };
+}
+
+export type AutomationReviseFormProps = {
+  summary: AutomationSummary;
+  busy: boolean;
+  errors: string[];
+  onSubmit(form: ReviseForm): void;
+  onCancel(): void;
+};
+
+export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactElement {
+  const initial = reviseFormFrom(p.summary);
+  const d = initial.every ? parseDuration(initial.every) : null;
+  const units = d && d.unit === "s" ? [["s", "seconds"] as [string, string], ...UNIT_OPTIONS] : UNIT_OPTIONS;
+  const base = `af-auto-revise-${p.summary.automation_id}`;
+  return (
+    <form
+      className="af-auto__revise"
+      aria-label="Revise automation"
+      onSubmit={(e) => {
+        e.preventDefault();
+        p.onSubmit(readReviseForm(e.currentTarget, initial));
+      }}
+    >
+      <label className="af-auto__field" htmlFor={`${base}-title`}>
+        <span>Title</span>
+        <input id={`${base}-title`} name="title" defaultValue={initial.title} maxLength={120} required />
+      </label>
+      {d ? (
+        <fieldset className="af-auto__field">
+          <legend>Repeat every (UTC)</legend>
+          <div className="af-auto__row">
+            <input name="every_amount" type="number" min={1} step={1} defaultValue={d.amount} aria-label="Interval amount" />
+            <select name="every_unit" defaultValue={d.unit} aria-label="Interval unit">
+              {units.map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </div>
+        </fieldset>
+      ) : (
+        <p className="af-auto__hint">This trigger has no interval to revise.</p>
+      )}
+      <fieldset className="af-auto__field">
+        <legend>Context</legend>
+        <label>
+          <input type="radio" name="context" value="independent" defaultChecked={initial.context === "independent"} /> Independent — each run starts fresh
+        </label>
+        <label>
+          <input type="radio" name="context" value="growing" defaultChecked={initial.context === "growing"} /> Growing — each run sees the previous runs
+        </label>
+      </fieldset>
+      <p className="af-auto__hint">Changes apply from the next run; a new interval never fires past ticks.</p>
+      {p.errors.length ? (
+        <ul className="af-auto__form-errors" role="alert">
+          {p.errors.map((e) => (
+            <li key={e}>{e}</li>
+          ))}
+        </ul>
+      ) : null}
+      <div className="af-auto__row">
+        <button type="submit" className="af-auto__btn af-auto__btn--primary" data-action="revise-submit" disabled={p.busy}>
+          Save revision
+        </button>
+        <button type="button" className="af-auto__btn" data-action="revise-cancel" onClick={p.onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// --- occurrences -----------------------------------------------------------------
+
+export type OccurrencePairProps = {
+  view: OccurrenceView;
+  busy: boolean;
+  discussOpen: boolean;
+  onOpenRun(runId: string): void;
+  onAnswerWait(runId: string, waitKey: string, payload: JsonObject): void;
+  onDiscussOpen(index: number): void;
+  onDiscussCancel(): void;
+  onDiscussSubmit(index: number, prompt: string): void;
+};
+
+function fieldValue(form: HTMLFormElement, name: string): string {
+  const el = form.elements.namedItem(name) as { value?: string } | null;
+  return el && typeof el.value === "string" ? el.value.trim() : "";
+}
+
+export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
+  const { row, tone, badge, statusText } = p.view;
+  const idBase = `af-auto-occ-${row.run_id}`;
+  const empty =
+    tone === "failed" ? "No answer: the run failed." : tone === "waiting" ? "Waiting for your answer." : tone === "running" ? "Running…" : "No answer.";
+  return (
+    <li className={`af-auto-occ af-auto-occ--${tone}`} data-index={row.index} data-tone={tone} aria-labelledby={`${idBase}-h`}>
+      <div className="af-auto-turn af-auto-turn--trigger" data-turn="trigger">
+        <div className="af-auto-turn__meta" id={`${idBase}-h`}>
+          <span className="af-auto-turn__index">#{row.index}</span> · {row.trigger.summary} · fired {formatUtc(row.fired_at)}
+        </div>
+        <div className="af-auto-turn__text">{row.user_turn}</div>
+      </div>
+      <div className="af-auto-turn af-auto-turn--answer" data-turn="answer">
+        <div className="af-auto-turn__meta">
+          {badge ? <span className={`af-auto-badge af-auto-badge--${tone}`}>{badge}</span> : null}
+          <span className="af-auto-turn__status">{statusText}</span>
+          {row.finished_at ? <span> · {formatUtc(row.finished_at)}</span> : null}
+        </div>
+        {row.notify ? (
+          <div className="af-auto-notify" data-notify="true">
+            <strong>{row.notify.title}</strong>
+            {row.notify.body ? <span> — {row.notify.body}</span> : null}
+          </div>
+        ) : null}
+        {row.answer ? <div className="af-auto-turn__text">{row.answer}</div> : <div className="af-auto-turn__empty">{empty}</div>}
+        {row.artifacts.length ? (
+          <ul className="af-auto-artifacts" aria-label="Artifacts">
+            {row.artifacts.map((a) => (
+              <li key={a.artifact_id}>
+                <a href={a.url} target="_blank" rel="noopener noreferrer">
+                  {a.name}
+                </a>{" "}
+                <span className="af-auto-turn__muted">{a.mime_type}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {row.waits.map((w) => {
+          const promptId = `${idBase}-${w.wait_key}-prompt`;
+          return (
+            <form
+              key={w.wait_key}
+              className="af-auto-wait"
+              data-wait-key={w.wait_key}
+              aria-labelledby={promptId}
+              onSubmit={(e) => {
+                e.preventDefault();
+                const v = fieldValue(e.currentTarget, "response");
+                if (v) p.onAnswerWait(w.run_id, w.wait_key, { response: v });
+              }}
+            >
+              <p className="af-auto-wait__prompt" id={promptId}>
+                {w.prompt ?? "The run is waiting for your input."}
+              </p>
+              {w.choices && w.choices.length ? (
+                <div className="af-auto__row" role="group" aria-label="Choices">
+                  {w.choices.map((c) => (
+                    <button key={c} type="button" className="af-auto__btn" data-action="wait-choice" disabled={p.busy} onClick={() => p.onAnswerWait(w.run_id, w.wait_key, { response: c })}>
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <div className="af-auto__row">
+                <input name="response" aria-label="Your answer" placeholder="Your answer" disabled={p.busy} />
+                <button type="submit" className="af-auto__btn af-auto__btn--primary" data-action="wait-answer" disabled={p.busy}>
+                  Answer
+                </button>
+              </div>
+            </form>
+          );
+        })}
+      </div>
+      <div className="af-auto-occ__foot">
+        <details className="af-auto-occ__details">
+          <summary>Run details</summary>
+          <dl className="af-auto__facts">
+            <dt>Run</dt>
+            <dd>
+              <code>{row.run_id}</code>
+            </dd>
+            <dt>Attempts</dt>
+            <dd>{row.attempts}</dd>
+          </dl>
+          <div className="af-auto__row">
+            <button type="button" className="af-auto__btn" data-action="open-run" onClick={() => p.onOpenRun(row.run_id)}>
+              Open run ledger
+            </button>
+            <a className="af-auto__link" href={row.ledger_url} target="_blank" rel="noopener noreferrer">
+              Ledger (JSON)
+            </a>
+            {row.workspace_url ? (
+              <a className="af-auto__link" href={row.workspace_url} target="_blank" rel="noopener noreferrer">
+                Workspace
+              </a>
+            ) : null}
+          </div>
+        </details>
+        {p.discussOpen ? (
+          <form
+            className="af-auto-discuss"
+            aria-label={`${DISCUSS_LABEL}, from occurrence ${row.index}`}
+            onSubmit={(e) => {
+              e.preventDefault();
+              const v = fieldValue(e.currentTarget, "prompt");
+              if (v) p.onDiscussSubmit(row.index, v);
+            }}
+          >
+            <p className="af-auto__hint">
+              Starts a new session seeded with this automation's conversation up to #{row.index}. It never changes the automation; the workspace is mounted read-only.
+            </p>
+            <textarea name="prompt" rows={3} aria-label="Your message" placeholder="Ask about this result…" required />
+            <div className="af-auto__row">
+              <button type="submit" className="af-auto__btn af-auto__btn--primary" data-action="discuss-submit" disabled={p.busy}>
+                Start discussion
+              </button>
+              <button type="button" className="af-auto__btn" data-action="discuss-cancel" onClick={p.onDiscussCancel}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button type="button" className="af-auto__btn af-auto__btn--quiet" data-action="discuss" disabled={p.busy || !p.view.canDiscuss} onClick={() => p.onDiscussOpen(row.index)}>
+            {DISCUSS_LABEL}
+          </button>
+        )}
+      </div>
+    </li>
+  );
+}
+
+// --- the panel ---------------------------------------------------------------------
+
+export function AutomationPanel(props: AutomationPanelProps): React.ReactElement {
+  const { summary, busy } = props;
+  const titleId = useId();
+  const [reviseOpen, setReviseOpen] = useState(false);
+  const [reviseErrors, setReviseErrors] = useState<string[]>([]);
+  const [confirmingArchive, setConfirmingArchive] = useState(false);
+  const [discussAt, setDiscussAt] = useState<number | null>(null);
+  const [localError, setLocalError] = useState<ApiError | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const report = (e: unknown) => setLocalError(toApiError(e));
+  const act = (p: Promise<unknown>, done: string, after?: () => void) => {
+    setLocalError(null);
+    setNotice(null);
+    p.then(() => {
+      setNotice(done);
+      after?.();
+    }, report);
+  };
+
+  // Acknowledge the attention items this panel displays — the LAST displayed
+  // item's cursor, once per (automation, cursor).
+  const ack = attentionAckCursor(summary);
+  const onSeenRef = useRef(props.onSeen);
+  onSeenRef.current = props.onSeen;
+  const acked = useRef<string | null>(null);
+  useEffect(() => {
+    if (!ack) return;
+    const key = `${summary.automation_id}|${ack}`;
+    if (acked.current === key) return;
+    acked.current = key;
+    onSeenRef.current(ack).catch(report);
+  }, [summary.automation_id, ack]);
+
+  const views = occurrenceViews(props.occurrences);
+  const more = summary.occurrence_count - props.occurrences.length;
+  const shownError = localError ?? props.error ?? null;
+  const errText = shownError ? apiErrorText(shownError) : null;
+  const att = summary.attention;
+
+  return (
+    <section className={`af-auto${props.className ? ` ${props.className}` : ""}`} aria-labelledby={titleId} aria-busy={busy}>
+      <AutomationHeader summary={summary} triggerSources={props.triggerSources} titleId={titleId} />
+      <AutomationControlsBar
+        summary={summary}
+        occurrences={props.occurrences}
+        busy={busy}
+        confirmingArchive={confirmingArchive}
+        reviseOpen={reviseOpen}
+        onCommand={(type) =>
+          act(props.onCommand(type), type === CONTROL_COMMANDS.archive ? "Archive requested." : "Command sent.", () => {
+            if (type === CONTROL_COMMANDS.archive) setConfirmingArchive(false);
+          })
+        }
+        onToggleRevise={() => {
+          setReviseErrors([]);
+          setReviseOpen(!reviseOpen);
+        }}
+        onAskArchive={() => setConfirmingArchive(true)}
+        onCancelArchive={() => setConfirmingArchive(false)}
+      />
+      {reviseOpen ? (
+        <AutomationReviseForm
+          summary={summary}
+          busy={busy}
+          errors={reviseErrors}
+          onCancel={() => setReviseOpen(false)}
+          onSubmit={(form) => {
+            const changes = reviseChanges(summary, form);
+            if (changes === null) {
+              setReviseErrors(["Nothing changed."]);
+              return;
+            }
+            if ("errors" in changes) {
+              setReviseErrors(changes.errors as string[]);
+              return;
+            }
+            setReviseErrors([]);
+            act(props.onRevise(changes, summary.revision), "Revision sent; it applies from the next run.", () => setReviseOpen(false));
+          }}
+        />
+      ) : null}
+      {errText ? (
+        <div className="af-auto__error" role="alert" data-code={shownError?.code}>
+          <strong>{errText.title}</strong> <span>{errText.detail}</span>
+        </div>
+      ) : null}
+      {notice ? (
+        <div className="af-auto__notice" role="status">
+          {notice}
+        </div>
+      ) : null}
+      {att.items.length || att.waits.length ? (
+        <section className="af-auto__attention" aria-label="Needs attention">
+          <ul>
+            {att.items.map((it) => (
+              <li key={it.cursor} className={`af-auto__attention-item af-auto__attention-item--${it.kind}`} data-cursor={it.cursor}>
+                <span className={`af-auto-badge af-auto-badge--${it.kind === "failure" ? "failed" : "notified"}`}>{it.kind === "failure" ? "Failed" : "Notified"}</span>{" "}
+                <strong>{it.title}</strong> <span className="af-auto-turn__muted">#{it.index} · {formatUtc(it.at)}</span>
+                {it.body ? <div>{it.body}</div> : null}
+              </li>
+            ))}
+            {att.waits.map((w) => (
+              <li key={`${w.run_id}:${w.wait_key}`} className="af-auto__attention-item af-auto__attention-item--wait">
+                <span className="af-auto-badge af-auto-badge--waiting">Waiting for you</span> <span className="af-auto-turn__muted">#{w.index}</span>
+                {w.prompt ? <div>{w.prompt}</div> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {more > 0 ? (
+        <button type="button" className="af-auto__btn af-auto__more" data-action="load-more" disabled={busy} onClick={props.onLoadMore}>
+          Load earlier occurrences ({more} more)
+        </button>
+      ) : null}
+      {views.length ? (
+        <ol className="af-auto__timeline" aria-label="Occurrences">
+          {views.map((v) => (
+            <OccurrencePair
+              key={v.row.run_id}
+              view={v}
+              busy={busy}
+              discussOpen={discussAt === v.row.index}
+              onOpenRun={props.onOpenRun}
+              onAnswerWait={(runId, waitKey, payload) => act(props.onAnswerWait(runId, waitKey, payload), "Answer sent.")}
+              onDiscussOpen={setDiscussAt}
+              onDiscussCancel={() => setDiscussAt(null)}
+              onDiscussSubmit={(index, prompt) => {
+                setLocalError(null);
+                props.onDiscuss(index, prompt).then((r) => {
+                  setDiscussAt(null);
+                  setNotice(`Discussion started (session ${r.session_id}).`);
+                }, report);
+              }}
+            />
+          ))}
+        </ol>
+      ) : (
+        <p className="af-auto__empty">No occurrences yet.</p>
+      )}
+    </section>
+  );
+}
+
+export default AutomationPanel;
