@@ -3226,7 +3226,7 @@
 }
 .af-auto-turn__meta { color: var(--text-muted); font-size: var(--font-size-xs); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .af-auto-turn__index { font-weight: 700; color: var(--text-secondary); }
-.af-auto-turn__text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.af-auto-turn__text { overflow-wrap: anywhere; }
 .af-auto-turn__empty { color: var(--text-muted); font-style: italic; }
 .af-auto-badge--failed { border-color: var(--error-border); background: var(--error-subtle); }
 .af-auto-badge--waiting { border-color: var(--warning-border); background: var(--warning-subtle); }
@@ -3270,3 +3270,10 @@
 .af-auto__definition > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .af-auto__definition[open] > .af-auto__facts { margin-top: 6px; }
 .af-auto__json { margin: 4px 0 0; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--ui-code-block-bg, var(--bg-secondary)); font-family: var(--font-mono); font-size: var(--font-size-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
+.af-auto-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.af-auto-turn__text,
+.af-auto-notify__body,
+.af-auto__attention-body,
+.af-auto-wait__prompt { min-width: 0; overflow-wrap: anywhere; }
+.af-auto-turn__text > .pc-chat-content > .pc-md > :first-child,
+.af-auto-wait__prompt .pc-md > :first-child { margin-top: 0; }

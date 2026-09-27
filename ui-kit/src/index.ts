@@ -236,5 +236,5 @@ export {
   type ScheduleForm,
   type ScheduleWhen,
 } from "./automations/panel_core.js";
-export { AutomationPanel, DISCUSS_LABEL, type AutomationPanelProps } from "./automations/AutomationPanel.js";
+export { AutomationPanel, DISCUSS_LABEL, plainTextRenderer, type AutomationPanelProps, type RenderText } from "./automations/AutomationPanel.js";
 export { AfScheduleDialog, type AfScheduleDialogProps } from "./automations/AfScheduleDialog.js";

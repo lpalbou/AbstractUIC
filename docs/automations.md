@@ -49,6 +49,23 @@ in the architecture page; for the export list in context, see the [API reference
 
 ## AutomationPanel
 
+Occurrence text is rendered with the **same renderer as the chat** (Markdown with tables and
+code, JSON autodetect, remote images as links): the user turn, the answer, notify bodies, wait
+prompts, attention bodies and the definition's task. ui-kit cannot import panel-chat
+(panel-chat depends on ui-kit), so the panel takes a `renderText(text)` prop and panel-chat
+ships the pairing. Use one of:
+
+```tsx
+import { AutomationPanelWithMarkdown, automationRenderers } from "@abstractframework/panel-chat";
+
+<AutomationPanelWithMarkdown {...props} />              // the panel with the chat renderer wired
+<AutomationPanel {...automationRenderers} {...props} />  // same thing, spread onto the kit panel
+```
+
+Without `renderText` the panel falls back to escaped plain text and marks itself
+`data-text-rendering="unformatted"` (each block `data-unformatted="true"`), so a host that
+forgot the renderer is visible in the DOM.
+
 ```tsx
 import { AutomationPanel } from "@abstractframework/ui-kit";
 import "@abstractframework/ui-kit/theme.css";
@@ -69,12 +86,14 @@ import "@abstractframework/ui-kit/theme.css";
   onLoadMore={loadOlderPage}
   onOpenRun={(runId) => openLedger(runId)}
   onAnswerWait={(runId, waitKey, payload) => resumeWait(runId, waitKey, payload)}
+  {...automationRenderers}          // from @abstractframework/panel-chat: the chat's renderer
 />
 ```
 
 The panel is controlled: it holds only view state (which form is open, the last notice) and
 renders what you pass. Optional props: `definition` (the `definition` of `GET /automations/{id}`;
-when given, the panel adds a collapsed "Definition" block), `newId` (the id source for retry-safe ids, default
+when given, the panel adds a collapsed "Definition" block), `renderText` (required in practice;
+see above), `newId` (the id source for retry-safe ids, default
 `crypto.randomUUID`) and `className`.
 
 ### What it shows
@@ -295,6 +314,10 @@ import { ScheduleThisAction, FromAutomationBadge } from "@abstractframework/pane
 
 Neither piece performs requests or holds state.
 
+- `AutomationPanelWithMarkdown` (`AutomationPanelWithMarkdownProps` = `AutomationPanelProps`
+  without `renderText`), `automationRenderers` (`{renderText}`) and `renderAutomationText(text)`
+  wire the kit's `AutomationPanel` to the chat renderer (`ChatMessageContent`, images as links).
+
 ## Fixtures contract
 
 `ui-kit/scripts/fixtures/automations/` holds the Gateway's wire shapes that every automations
@@ -343,7 +366,8 @@ coverage, checksums), `check_automation_client.mjs` (paths, bodies, error parsin
 From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
 
 - **Components**: `AutomationPanel` (`AutomationPanelProps`), `AfScheduleDialog`
-  (`AfScheduleDialogProps`), `DISCUSS_LABEL`.
+  (`AfScheduleDialogProps`), `DISCUSS_LABEL`, `plainTextRenderer` (the fallback), type
+  `RenderText`.
 - **Client**: `createAutomationsClient()`, `AutomationApiError`, `parseApiError()`,
   `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`; types `AutomationsClient`,
   `AutomationsClientOptions`, `ListAutomationsQuery`, `PageQuery`.

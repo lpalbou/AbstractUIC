@@ -80,3 +80,9 @@ export {
   type ScheduleThisActionProps,
   type FromAutomationBadgeProps,
 } from "./automation_badges.js";
+export {
+  AutomationPanelWithMarkdown,
+  automationRenderers,
+  renderAutomationText,
+  type AutomationPanelWithMarkdownProps,
+} from "./automation_markdown.js";

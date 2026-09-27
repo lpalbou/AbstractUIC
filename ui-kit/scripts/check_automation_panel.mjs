@@ -123,7 +123,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("controls: pause enabled; run now disabled while an occurrence waits; stop current enabled", enabled(mailHtml, "pause") && !enabled(mailHtml, "run_now") && enabled(mailHtml, "stop_current"));
   check("controls: resume not offered while active", button(mailHtml, "resume") === null);
   check("controls: labelled toolbar", mailHtml.includes('role="toolbar" aria-label="Automation controls"'));
-  check("section labelled by the title, aria-busy false", /<section class="af-auto" aria-labelledby="([^"]+)" aria-busy="false">/.test(mailHtml) && /<h2 class="af-auto__title" id="[^"]+" tabindex="-1">Inbox triage<\/h2>/.test(mailHtml));
+  check("section labelled by the title, aria-busy false", /<section class="af-auto" aria-labelledby="([^"]+)" aria-busy="false" data-text-rendering="unformatted">/.test(mailHtml) && /<h2 class="af-auto__title" id="[^"]+" tabindex="-1">Inbox triage<\/h2>/.test(mailHtml));
   check("all occurrences loaded → no load-more", button(mailHtml, "load-more") === null);
 }
 
@@ -604,6 +604,40 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   check("definition: tool approval ask + new revision", ask.includes('data-def="tool_approval">Ask before each tool call (ask)') && ask.includes("Definition (revision 3)"));
   check("definition: absent prop → no block", !panel({ summary: news, occurrences: [] }).includes("af-auto__definition"));
   check("definition: placed right after the header", html.indexOf("</header>") < html.indexOf("af-auto__definition") && html.indexOf("af-auto__definition") < html.indexOf('role="toolbar"'));
+}
+
+// --- text rendering seam (operator ruling: the SHARED chat renderer, never plain text) -------
+{
+  const r2 = occ.find((o) => o.index === 2);
+  check("fixture #2 answer is markdown (heading + table + fenced JSON)", r2.answer.includes("## ") && r2.answer.includes("|---|") && r2.answer.includes("```json"));
+  // Without a renderer: escaped plain text, visibly marked for the host.
+  check("no renderText → section marked unformatted", mailHtml.includes('data-text-rendering="unformatted"'));
+  check("no renderText → fallback blocks marked data-unformatted", (mailHtml.match(/<div class="af-auto-text" data-unformatted="true">/g) || []).length >= 7);
+  const evil = panel({ summary: mail, occurrences: [{ ...r2, answer: "<script>alert(1)</script> **x**" }] });
+  check("fallback escapes markup (no script element)", !evil.includes("<script>") && evil.includes("&lt;script&gt;alert(1)&lt;/script&gt;"));
+  // With a renderer: every text field goes through it.
+  const seen = [];
+  const spy = (text) => { seen.push(text); return React.createElement("div", { className: "spy-rendered" }, "R"); };
+  const definition = { schema_version: 1, revision: 1, title: mail.title, controller: { bundle_ref: "abstractframework.automation-controller@1.0.0", flow_id: "controller" },
+    target: { workflow_id: "basic-agent@0.1.0:main", bundle_ref: "basic-agent@0.1.0", flow_id: "main", input_data: { prompt: "Triage my **inbox**." } },
+    trigger: mail.trigger, context: { mode: "growing", growing: {} }, policy: { serial: true, misfire: "coalesce", failure: "continue", retry: { max_attempts: 3, backoff: { initial: "30s", factor: 2, max: "10m" } }, tool_approval: "auto" },
+    session_id: "s", workspace_root: "/w", created_at: mail.trigger.config.start_at, archived_at: null };
+  const rich = panel({ summary: mail, occurrences: occ, definition, renderText: spy });
+  const want = [
+    ...occ.map((o) => o.user_turn),
+    ...occ.filter((o) => o.answer).map((o) => o.answer),
+    ...occ.filter((o) => o.notify && o.notify.body).map((o) => o.notify.body),
+    ...occ.flatMap((o) => o.waits).filter((w) => w.prompt).map((w) => w.prompt),
+    ...mail.attention.items.filter((i) => i.body).map((i) => i.body),
+    ...mail.attention.waits.filter((w) => w.prompt).map((w) => w.prompt),
+    "Triage my **inbox**.",
+  ];
+  check("renderText gets every user_turn, answer, notify body, wait prompt, attention body and the definition task", want.every((t) => seen.includes(t)), JSON.stringify(want.filter((t) => !seen.includes(t)).slice(0, 2)));
+  check("the ask_user wait prompt itself goes through renderText", /<div class="af-auto-wait__prompt" id="[^"]+"><span class="af-auto-wait__kind">Question for you<\/span><div class="spy-rendered">R<\/div><\/div>/.test(rich));
+  check("renderText output is what the panel shows", (rich.match(/class="spy-rendered"/g) || []).length === seen.length);
+  check("with renderText → section marked rich, nothing unformatted", rich.includes('data-text-rendering="rich"') && !rich.includes("data-unformatted"));
+  check("the answer is never ALSO printed raw", !rich.includes("|---|") && !rich.includes("## 2 emails"));
+  check("export plainTextRenderer", typeof kit.plainTextRenderer === "function");
 }
 
 // --- CSS ships in theme.css ------------------------------------------------------------------

@@ -18,6 +18,10 @@ ships.
   subdued and notified, failed (reason, message, attempts) and waiting runs badged; Discuss as a
   forked session with a read-only workspace. Attention is acknowledged up to the last displayed
   item, after `/seen` succeeds.
+- Added: `AutomationPanel` renders user turns, answers, notify bodies, wait prompts, attention
+  bodies and the definition's task through its `renderText` prop — pass the chat's renderer from
+  panel-chat. Without it the panel shows escaped plain text and marks itself
+  `data-text-rendering="unformatted"`.
 - Added: typed wait answers in `AutomationPanel` — `ask_user` → `{response}` (choices or free
   text), `tool_approval` → the tool calls with their arguments and Approve / Deny
   (`{approved}`), `event` → a JSON payload (`{payload}`); other kinds point to the run.
@@ -42,6 +46,10 @@ ships.
 - Added: `ScheduleThisAction` ("Schedule this…" for a chat header slot; hands the host a
   `ScheduleSeed`) and `FromAutomationBadge` ("from automation <title> · #<n>"). Neither performs
   requests.
+- Added: `AutomationPanelWithMarkdown`, `automationRenderers` and `renderAutomationText` — the
+  ui-kit `AutomationPanel` wired to the chat's renderer (`ChatMessageContent`: Markdown tables and
+  code, JSON, remote images as links), so automation runs read exactly like chats. Needs the
+  ui-kit release that ships `AutomationPanel`.
 
 ## 0.1.12 - 2026-09-26
 

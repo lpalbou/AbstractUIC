@@ -79,10 +79,35 @@ export type AutomationPanelProps = {
   onAnswerWait(runId: string, waitKey: string, payload: JsonObject): Promise<void>;
   /** Id source for the per-action ids (default `crypto.randomUUID`). */
   newId?: () => string;
+  /**
+   * Required in practice: the shared chat renderer (panel-chat
+   * `automationRenderers.renderText`). Without it the panel shows plain text
+   * and carries `data-text-rendering="unformatted"`.
+   */
+  renderText?: RenderText;
   className?: string;
 };
 
 export const DISCUSS_LABEL = "Discuss — forked session, read-only workspace";
+
+/**
+ * Renders model/user text (occurrence turns, wait prompts, notify and
+ * attention bodies, the definition's task). Hosts pass the SHARED chat
+ * renderer — panel-chat's `automationRenderers.renderText` (or use
+ * `AutomationPanelWithMarkdown`) — so automations read exactly like chats.
+ * ui-kit cannot import panel-chat (panel-chat depends on ui-kit).
+ */
+export type RenderText = (text: string) => React.ReactNode;
+
+/**
+ * Fallback when no renderer is passed: escaped plain text, marked
+ * `data-unformatted="true"` so a host that forgot the shared renderer notices.
+ */
+export const plainTextRenderer: RenderText = (text) => (
+  <div className="af-auto-text" data-unformatted="true">
+    {text}
+  </div>
+);
 
 function toApiError(e: unknown): ApiError {
   if (isApiError(e)) return e;
@@ -156,8 +181,10 @@ export function AutomationHeader(props: { summary: AutomationSummary; triggerSou
  * and collapsed: target workflow, trigger config, context, policy (incl.
  * tool approval) and revision.
  */
-export function AutomationDefinitionBlock(props: { definition: AutomationDefinition }): React.ReactElement {
+export function AutomationDefinitionBlock(props: { definition: AutomationDefinition; renderText?: RenderText }): React.ReactElement {
   const d = props.definition;
+  const render = props.renderText ?? plainTextRenderer;
+  const task = (d.target.input_data as { prompt?: unknown }).prompt;
   const retry = d.policy.retry;
   const approval = d.policy.tool_approval;
   return (
@@ -168,6 +195,12 @@ export function AutomationDefinitionBlock(props: { definition: AutomationDefinit
         <dd data-def="target">
           <code>{d.target.workflow_id}</code>
         </dd>
+        {typeof task === "string" && task ? (
+          <>
+            <dt>Task</dt>
+            <dd data-def="prompt">{render(task)}</dd>
+          </>
+        ) : null}
         <dt>Trigger</dt>
         <dd data-def="trigger">
           {d.trigger.source_id}@{d.trigger.source_version} · {triggerSummary(d.trigger)}
@@ -406,6 +439,7 @@ export type OccurrencePairProps = {
   onDiscussOpen(index: number): void;
   onDiscussCancel(): void;
   onDiscussSubmit(index: number, prompt: string): void;
+  renderText?: RenderText;
 };
 
 function fieldValue(form: HTMLFormElement, name: string): string {
@@ -419,6 +453,7 @@ export type WaitAnswerFormProps = {
   idBase: string;
   onAnswerWait(runId: string, waitKey: string, payload: JsonObject): void;
   onWaitError?(message: string): void;
+  renderText?: RenderText;
 };
 
 /**
@@ -430,10 +465,12 @@ export function WaitAnswerForm(p: WaitAnswerFormProps): React.ReactElement {
   const w = p.wait;
   const promptId = `${p.idBase}-${w.run_id}-${w.wait_key}-prompt`;
   const answer = (payload: JsonObject) => p.onAnswerWait(w.run_id, w.wait_key, payload);
+  const render = p.renderText ?? plainTextRenderer;
   const head = (fallback: string) => (
-    <p className="af-auto-wait__prompt" id={promptId}>
-      <span className="af-auto-wait__kind">{WAIT_KIND_LABELS[w.kind] ?? "Waiting"}</span> {w.prompt ?? fallback}
-    </p>
+    <div className="af-auto-wait__prompt" id={promptId}>
+      <span className="af-auto-wait__kind">{WAIT_KIND_LABELS[w.kind] ?? "Waiting"}</span>
+      {w.prompt ? render(w.prompt) : <span> {fallback}</span>}
+    </div>
   );
   if (w.kind === "tool_approval") {
     const calls = waitToolCalls(w);
@@ -530,6 +567,7 @@ export function WaitAnswerForm(p: WaitAnswerFormProps): React.ReactElement {
 export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
   const { row, tone, badge, statusText } = p.view;
   const idBase = `af-auto-occ-${row.run_id}`;
+  const render = p.renderText ?? plainTextRenderer;
   const discussOk = p.discuss.enabled && p.view.canDiscuss && !p.busy;
   const discussWhy = !p.discuss.enabled ? p.discuss.reason ?? "Not available." : !p.view.canDiscuss ? "Available once this occurrence finishes." : null;
   const empty =
@@ -540,7 +578,7 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
         <div className="af-auto-turn__meta" id={`${idBase}-h`}>
           <span className="af-auto-turn__index">#{row.index}</span> · {row.trigger.summary} · fired {formatUtc(row.fired_at)}
         </div>
-        <div className="af-auto-turn__text">{row.user_turn}</div>
+        <div className="af-auto-turn__text">{render(row.user_turn)}</div>
       </div>
       <div className="af-auto-turn af-auto-turn--answer" data-turn="answer">
         <div className="af-auto-turn__meta">
@@ -551,7 +589,7 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
         {row.notify ? (
           <div className="af-auto-notify" data-notify="true">
             <strong>{row.notify.title}</strong>
-            {row.notify.body ? <span> — {row.notify.body}</span> : null}
+            {row.notify.body ? <div className="af-auto-notify__body">{render(row.notify.body)}</div> : null}
           </div>
         ) : null}
         {row.failure ? (
@@ -562,7 +600,7 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
             </span>
           </div>
         ) : null}
-        {row.answer ? <div className="af-auto-turn__text">{row.answer}</div> : <div className="af-auto-turn__empty">{empty}</div>}
+        {row.answer ? <div className="af-auto-turn__text">{render(row.answer)}</div> : <div className="af-auto-turn__empty">{empty}</div>}
         {row.artifacts.length ? (
           <ul className="af-auto-artifacts" aria-label="Artifacts">
             {row.artifacts.map((a) => (
@@ -576,7 +614,7 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
           </ul>
         ) : null}
         {row.waits.map((w) => (
-          <WaitAnswerForm key={`${w.run_id}:${w.wait_key}`} wait={w} busy={p.busy} idBase={idBase} onAnswerWait={p.onAnswerWait} onWaitError={p.onWaitError} />
+          <WaitAnswerForm key={`${w.run_id}:${w.wait_key}`} wait={w} busy={p.busy} idBase={idBase} onAnswerWait={p.onAnswerWait} onWaitError={p.onWaitError} renderText={p.renderText} />
         ))}
       </div>
       <div className="af-auto-occ__foot">
@@ -655,6 +693,7 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
 
 export function AutomationPanel(props: AutomationPanelProps): React.ReactElement {
   const { summary, busy } = props;
+  const render = props.renderText ?? plainTextRenderer;
   const titleId = useId();
   const rootRef = useRef<HTMLElement | null>(null);
   const [reviseOpen, setReviseOpen] = useState(false);
@@ -724,9 +763,9 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
   const att = summary.attention;
 
   return (
-    <section ref={rootRef} className={`af-auto${props.className ? ` ${props.className}` : ""}`} aria-labelledby={titleId} aria-busy={busy}>
+    <section ref={rootRef} className={`af-auto${props.className ? ` ${props.className}` : ""}`} aria-labelledby={titleId} aria-busy={busy} data-text-rendering={props.renderText ? "rich" : "unformatted"}>
       <AutomationHeader summary={summary} triggerSources={props.triggerSources} titleId={titleId} />
-      {props.definition ? <AutomationDefinitionBlock definition={props.definition} /> : null}
+      {props.definition ? <AutomationDefinitionBlock definition={props.definition} renderText={render} /> : null}
       <AutomationControlsBar
         summary={summary}
         occurrences={props.occurrences}
@@ -798,7 +837,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
               <li key={it.cursor} className={`af-auto__attention-item af-auto__attention-item--${it.kind}`} data-cursor={it.cursor}>
                 <span className={`af-auto-badge af-auto-badge--${it.kind === "failure" ? "failed" : "notified"}`}>{it.kind === "failure" ? "Failed" : "Notified"}</span>{" "}
                 <strong>{it.title}</strong> <span className="af-auto-turn__muted">#{it.index} · {formatUtc(it.at)}</span>
-                {it.body ? <div>{it.body}</div> : null}
+                {it.body ? <div className="af-auto__attention-body">{render(it.body)}</div> : null}
               </li>
             ))}
             {att.waits.map((w) => (
@@ -807,7 +846,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
                   {WAIT_KIND_LABELS[w.kind] ?? "Waiting for you"}
                 </span>{" "}
                 <span className="af-auto-turn__muted">#{w.index}</span>
-                {w.prompt ? <div>{w.prompt}</div> : null}
+                {w.prompt ? <div className="af-auto__attention-body">{render(w.prompt)}</div> : null}
               </li>
             ))}
           </ul>
@@ -828,6 +867,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
                 view={v}
                 busy={busy}
                 discuss={controls.discuss}
+                renderText={render}
                 discussOpen={discussAt === v.row.index}
                 onOpenRun={props.onOpenRun}
                 onAnswerWait={(runId, waitKey, payload) => {
