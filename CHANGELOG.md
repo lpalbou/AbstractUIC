@@ -46,6 +46,10 @@ ships.
 - Added: `ScheduleThisAction` ("Schedule this…" for a chat header slot; hands the host a
   `ScheduleSeed`) and `FromAutomationBadge` ("from automation <title> · #<n>"). Neither performs
   requests.
+- Fixed: `Markdown` — a `## heading`, a code fence or a `>` quote on the line right after text
+  (no blank line) now starts its own block, as in CommonMark, instead of staying literal text in
+  the paragraph. Chat messages and automation trigger turns (`[Trigger …]` + the task) both
+  benefit; lists and tables already interrupted a paragraph.
 - Added: `AutomationPanelWithMarkdown`, `automationRenderers` and `renderAutomationText` — the
   ui-kit `AutomationPanel` wired to the chat's renderer (`ChatMessageContent`: Markdown tables and
   code, JSON, remote images as links), so automation runs read exactly like chats. Needs the

@@ -334,6 +334,17 @@ function isTableSeparator(line: string): boolean {
   return cells.every((c) => /^:?-{3,}:?$/.test(c));
 }
 
+// Block starts shared by the block branches and the paragraph loop, so what
+// opens a block also interrupts a paragraph (CommonMark: ATX headings, code
+// fences and block quotes interrupt a paragraph; no blank line needed).
+const HEADING_RE = /^(#{1,5})\s+(.*)$/;
+function isFenceLine(line: string): boolean {
+  return line.trim().startsWith("```");
+}
+function isQuoteLine(line: string): boolean {
+  return line.trimStart().startsWith(">");
+}
+
 export type MarkdownImages = "inline" | "link";
 
 export type MarkdownProps = {
@@ -427,7 +438,7 @@ function renderMarkdown({
       }
     }
 
-    if (line.trim().startsWith("```")) {
+    if (isFenceLine(line)) {
       const fence = line.trim();
       const lang = fence.replace(/```/g, "").trim();
       const codeLines: string[] = [];
@@ -446,7 +457,7 @@ function renderMarkdown({
       continue;
     }
 
-    const headingM = line.match(/^(#{1,5})\s+(.*)$/);
+    const headingM = line.match(HEADING_RE);
     if (headingM) {
       const level = headingM[1].length;
       const content = headingM[2] || "";
@@ -460,7 +471,7 @@ function renderMarkdown({
       continue;
     }
 
-    if (line.trimStart().startsWith(">")) {
+    if (isQuoteLine(line)) {
       const quoteLines: string[] = [];
       while (i < lines.length && String(lines[i] ?? "").trimStart().startsWith(">")) {
         const raw = String(lines[i] ?? "");
@@ -559,6 +570,12 @@ function renderMarkdown({
       // parsed). Same header+separator test as the block branch, so the
       // break hands the lines to it verbatim.
       const cur_line = String(lines[i] ?? "");
+      // An ATX heading, a code fence or a block quote interrupts a paragraph
+      // too (CommonMark). The automation trigger turn is exactly
+      // "[Trigger …]\n## Task…" and echo answers repeat it; the chat's own
+      // "intro:\n```json" and "note\n> quote" emissions had the same defect
+      // (rendered as literal "##" / backticks / "&gt;" prose).
+      if (paraLines.length > 0 && (HEADING_RE.test(cur_line) || isFenceLine(cur_line) || isQuoteLine(cur_line))) break;
       if (paraLines.length > 0 && cur_line.includes("|") && i + 1 < lines.length && isTableSeparator(String(lines[i + 1] ?? ""))) break;
       paraLines.push(cur_line);
       i += 1;

@@ -37,6 +37,13 @@ const pair7 = html.split('<li class="af-auto-occ ').find((c) => c.includes('data
 assert.ok(/<div class="af-auto-wait__prompt" id="[^"]+"><span class="af-auto-wait__kind">Question for you<\/span><div class="pc-chat-content">/.test(pair7), "ask_user prompt rendered by the chat renderer");
 assert.ok(/<div class="af-auto__attention-body"><div class="pc-chat-content">/.test(html), "attention bodies rendered by the chat renderer");
 
+// Every trigger turn is "[Trigger …]\n## heading…" (no blank line): the heading is an element.
+const trigTurns = [...html.matchAll(/data-turn="trigger">[\s\S]*?<\/div><\/div><\/div>/g)].map((m) => m[0]);
+assert.ok(occ.every((o) => /^\[Trigger [^\]]+\]\n## /.test(o.user_turn)), "fixture trigger turns have the heading-after-a-line shape");
+assert.equal((html.match(/<h2>Inbox triage<\/h2>/g) || []).length, occ.length, "one rendered heading per trigger turn");
+assert.ok(!/## Inbox triage/.test(html), "no literal '## ' left in trigger turns");
+assert.ok(html.includes("Set <code>notify</code> when something is urgent."), "inline code in the task renders");
+
 // Sanitised like chat messages.
 const evil = { ...occ.find((o) => o.index === 2), answer: "# t\n\n<script>alert(1)</script> <img src=x onerror=alert(1)> [x](javascript:alert(1)) ![i](https://evil.example/p.png)" };
 const bad = renderToStaticMarkup(React.createElement(AutomationPanelWithMarkdown, { ...base, occurrences: [evil] }));

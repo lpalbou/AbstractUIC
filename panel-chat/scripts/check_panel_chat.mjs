@@ -23,6 +23,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const dist = (f) => join(here, "..", "dist", f);
 
 const { Markdown } = await import(dist("markdown.js"));
+const { ChatMessageContent } = await import(dist("message_content.js"));
 const { JsonViewer } = await import(dist("json_viewer.js"));
 const { ChatMessageCard } = await import(dist("chat_message_card.js"));
 const { StatChip, StatDetailPanel, statDetail } = await import(dist("stat_detail.js"));
@@ -126,6 +127,27 @@ const render = (el, props) => renderToStaticMarkup(React.createElement(el, props
   const list = render(Markdown, { text: "intro line:\n- alpha\n- beta" });
   check("list interrupts a paragraph", count(list, "<li") === 2);
   check("bullets not swallowed as '- a<br/>' prose", !list.includes("- alpha"));
+
+  // A heading, a fence and a quote directly after a line interrupt the
+  // paragraph (CommonMark) — the automation trigger-turn shape.
+  const trig = render(Markdown, { text: "[Trigger schedule@1 · occurrence 3 · fired 2026-09-27T05:00:00.412307+00:00]\n## Market check\nLook up the price." });
+  check("heading directly after a line renders as a heading", trig.includes("<h2>Market check</h2>") && !trig.includes("## "), trig);
+  check("the line before the heading stays prose", /<p class="pc-md_p">\[Trigger schedule@1 · occurrence 3 · fired [^<]*\]<\/p><h2>/.test(trig));
+  check("prose after the heading is its own paragraph", trig.includes("<h2>Market check</h2><p class=\"pc-md_p\">Look up the price.</p>"));
+  const fenceAfter = render(Markdown, { text: "result:\n```json\n{\"a\": 1}\n```\nafter" });
+  check("fence directly after a line renders a code block", fenceAfter.includes('<pre class="pc-md_pre"><code class="language-json">{&quot;a&quot;: 1}</code></pre>') && !fenceAfter.includes("`json"), fenceAfter);
+  check("text after the fence is prose", fenceAfter.includes('<p class="pc-md_p">after</p>'));
+  const quoteAfter = render(Markdown, { text: "note\n> quoted" });
+  check("quote directly after a line renders a blockquote", quoteAfter.includes('<blockquote class="pc-md_quote">quoted</blockquote>') && !quoteAfter.includes("&gt;"), quoteAfter);
+  const listAfter = render(Markdown, { text: "[Trigger manual@1]\n- a\n1. b" });
+  check("list directly after a line still interrupts (no regression)", count(listAfter, "<li") === 2 && listAfter.includes("<ul") && listAfter.includes("<ol"));
+  const hashes = render(Markdown, { text: "Ticket #12 is open\n#hashtag without space\nC# rocks" });
+  check("'#' inside prose or without a space stays prose", !hashes.includes("<h") && count(hashes, "<br/>") === 2, hashes);
+  // The chat's own messages go through the same code.
+  const chatMsg = render(ChatMessageContent, { text: "Done.\n## Summary\n- one\n```sh\nls\n```" });
+  check("chat message: heading, list and fence after a line are elements", chatMsg.includes("<h2>Summary</h2>") && chatMsg.includes("<li>one</li>") && chatMsg.includes('<code class="language-sh">ls</code>'), chatMsg);
+  const setext = render(Markdown, { text: "line one\nline two" });
+  check("plain multi-line prose stays one paragraph", count(setext, "<p") === 1 && setext.includes("line one<br/>line two"));
 
   // Fence handling stays block-shaped.
   const fence = render(Markdown, { text: "before\n\n```js\nconst x = 1;\n```" });
