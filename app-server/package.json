@@ -1,7 +1,7 @@
 {
   "name": "@abstractframework/app-server",
   "version": "0.1.10",
-  "description": "Server-side helpers for AbstractFramework thin-client apps: the app-origin gateway session proxy (first-party cookies, CSRF, Authorization-strip, server-pinned gateway URL).",
+  "description": "Server-side helpers for AbstractFramework thin-client apps: serving under the gateway's /apps/<id>/ (base path, forwarded client address, identity header), the shared launch flags, the local gateway pointer, and the app-origin gateway session proxy (first-party cookies, CSRF, Authorization-strip, server-pinned gateway URL).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
   "license": "MIT",
@@ -34,7 +34,7 @@
     "README.md"
   ],
   "scripts": {
-    "test": "node test/gateway_session_proxy.test.mjs"
+    "test": "node test/gateway_session_proxy.test.mjs && node test/mount.test.mjs && node test/flags_and_pointer.test.mjs"
   },
   "engines": {
     "node": ">=18.0.0"

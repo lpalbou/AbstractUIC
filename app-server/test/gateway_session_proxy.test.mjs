@@ -178,15 +178,24 @@ let cookieHeader = "";
 // loopback socket.
 {
   gatewaySawXff.login = gatewaySawXff.me = undefined;
-  const probe = await call(appPort, "/api/connection/gateway", {
+  const probe = await call(appPort, "/api/connection/gateway", { headers: { Cookie: cookieHeader } });
+  check("probe (/me) carries the socket peer as X-Forwarded-For", probe.status === 200 && gatewaySawXff.me === "127.0.0.1", String(gatewaySawXff.me));
+
+  // A loopback peer is the gateway's /apps/<id>/ proxy (apps bind
+  // 127.0.0.1): the address it forwarded IS the browser (mount.js
+  // requestContext: the right-most non-loopback X-Forwarded-For entry).
+  const probeFwd = await call(appPort, "/api/connection/gateway", {
     headers: { Cookie: cookieHeader, "X-Forwarded-For": "203.0.113.9" },
   });
-  check("probe (/me) carries the socket peer as X-Forwarded-For", probe.status === 200 && gatewaySawXff.me === "127.0.0.1", String(gatewaySawXff.me));
+  check("probe from the loopback proxy carries the forwarded client", probeFwd.status === 200 && gatewaySawXff.me === "203.0.113.9", String(gatewaySawXff.me));
 
   const local = await call(appPort, "/api/gateway/echo", {
     headers: { Cookie: cookieHeader, "X-Forwarded-For": "203.0.113.9, 198.51.100.4", Forwarded: "for=203.0.113.9", "X-Real-IP": "203.0.113.9" },
   });
-  check("real loopback peer: spoofed XFF replaced by 127.0.0.1", local.status === 200 && local.json.xff === "127.0.0.1", JSON.stringify(local.json));
+  check("loopback proxy: XFF rewritten to ONE value, the right-most client", local.status === 200 && local.json.xff === "198.51.100.4", JSON.stringify(local.json));
+
+  const bad = await call(appPort, "/api/gateway/echo", { headers: { Cookie: cookieHeader, "X-Forwarded-For": "not-an-ip" } });
+  check("loopback proxy: a malformed X-Forwarded-For is refused 400", bad.status === 400, String(bad.status));
   check("exactly one X-Forwarded-For reaches the gateway", local.json.xffCount === 1, String(local.json.xffCount));
   check("client Forwarded / X-Real-IP stripped", local.json.forwarded === null && local.json.xRealIp === null);
 
