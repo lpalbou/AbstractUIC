@@ -2,8 +2,8 @@
 
 ## Metadata
 - Created: 2026-09-26
-- Status: Planned
-- Completed: N/A
+- Status: Completed — UNRELEASED (local commits on `main`; ui-kit still 0.1.12, panel-chat 0.1.17; the release is in the framework wave, root backlog 0941)
+- Completed: 2026-09-27
 - Area: ui-kit (client module, `AutomationPanel`, fixtures) + panel-chat (header-slot action, badge)
 - Design: untracked/design/automations-PLAN.md (2026-09-26)
 - Mission: U (abstractuic) of the Automations v1 wave; owns contract G
@@ -256,9 +256,9 @@ Qt and pins itself to the fixtures through the checksum copy.
 - [x] Contract F types + client module + fixture validation check
 - [x] `automation_panel_core.ts` + `AutomationPanel` + check script (as `src/automations/panel_core.ts`)
 - [x] panel-chat `ScheduleThisAction` / `FromAutomationBadge` + check
-- [ ] Fixtures regenerated from the shipped gateway; Assistant copy registered
-- [ ] Observer consumption confirmed by mission O
-- [ ] Docs + CHANGELOG; version bumps staged (docs/automations.md + CHANGELOG Unreleased done 2026-09-27; bumps await the operator)
+- [x] Fixtures regenerated from the shipped gateway (`a9b73ab`, gateway 5161785 / runtime b000036); Assistant copy re-vendored (abstractassistant `d142d00`) and registered in the root identity sync (`cf71688`)
+- [x] Observer consumption confirmed by mission O (abstractobserver `56af9b4`…`9685fe0`, review 54)
+- [x] Docs + CHANGELOG (`708921c`, `704f18d`); version bumps NOT staged: they belong to the release wave (root 0941)
 
 ## Contracts pass (2026-09-27)
 
@@ -280,3 +280,47 @@ Implemented from contract F/G (rev 2), local commits, no version bump. Files: `u
 `src/automations/client.ts` (contract G text: `src/automations_client.ts`); consumers import from the kit index,
 so the export names are the seam. Remaining: regenerate fixtures from the shipped gateway (G), the Assistant's
 vendored copy + root sync groups (A, root), Observer adoption (O).
+
+## Completion report (2026-09-27)
+
+**Status: completed — UNRELEASED.** Local commits on `main`, no version bump, not pushed. Umbrella record:
+abstractframework backlog 0928 (completed); release: root 0941.
+
+**Commits:** `9da01a0` … `1eb6d82` (8 commits).
+- **`9da01a0`:** the client, `AutomationPanel`, `AfScheduleDialog` and the canonical fixtures.
+- **`5a559db`:** panel-chat `ScheduleThisAction` + `FromAutomationBadge`.
+- **`708921c`:** docs.
+- **`b70db16`:** review 42 F1–F7.
+- **`2081d6a`:** decision D1.
+  - Waits carry `kind` + `details`; `tool_approval` details are `[{name, arguments, call_id?}]`.
+  - `WaitAnswerForm` answers by kind.
+  - `buildCreateRequest` always sends `policy.tool_approval`, with the consent line `TOOL_APPROVAL_CONSENT`.
+- **`a9b73ab`:** fixtures regenerated from real gateway output (gateway `5161785`, runtime `b000036`), curated.
+- **`704f18d`:** docs (panel, dialog, client, fixtures).
+- **`1eb6d82`:** the panel renders the optional definition as a collapsed block (so `policy.tool_approval` is visible
+  after creation, answering job 48's note); the `onAnswerWait` comment names the payload per wait kind.
+
+**Tests** (in `npm test`): `check_automation_fixtures`, `check_automation_client` and `check_automation_panel` in
+ui-kit, plus panel-chat `check_automation_badges`. Job 48 counted 151 / 114 / 216 checks at `2081d6a`, with mutations
+3/3 RED.
+
+**Reviews** (root `untracked/missions-2026-09-25/REVIEW/42-uikit-automation-panel.md`):
+- **42 GO.** F1 (the schedule envelope shape) was decided as `{tick, scheduled_at, coalesced?}`. F2 (`failure`), F3
+  (summary wording), F4 (Discuss gated on the `discuss` capability), F5 (a11y), F6 (seen retried on failure) and F7 (one
+  `command_id` per user action) were fixed in `b70db16`.
+- **Job 48 GO.**
+
+**Consumers:** the Observer adopts the kit panel through its source aliases (abstractobserver 0002). The Assistant
+vendors the six fixtures byte-identically (abstractassistant 0852). The gateway console re-vendored the kit theme and
+islands at `1eb6d82` (gateway `ea71638`).
+
+**Residuals:**
+- **R52-2.** `parseEventPayload` (`ui-kit/src/automations/panel_core.ts:389`) still accepts non-object JSON (`5`, `[1]`,
+  `null`), which the gateway refuses with 422. It should refuse before sending (the gateway settled J48-1 as "object
+  only").
+- **Consent wording** (review 45 addendum). `TOOL_APPROVAL_CONSENT` reads "Tools run without asking…". The review asked
+  it to say that tools can run commands and send messages.
+- **Revise from a row.** The Observer asked for a prop that opens the panel's Revise form from a row; it is open.
+  `ledger_url` / `workspace_url` are gateway-relative (fine in same-origin session mode).
+- **Wait kind.** A wait with no `kind` renders "(undefined)" in its hint (job 48, cosmetic).
+- **Local time.** The date/time pickers are UTC-labelled; showing the local equivalent is a suggestion from review 42.

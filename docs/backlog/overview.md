@@ -14,9 +14,9 @@ packaging). Full findings are distilled into the items below; each item
 carries its own code-reality citations.
 
 ## Counts
-- Planned: 8 (0001, 0003-0006, 0014, 0019, 0029)
+- Planned: 7 (0001, 0003-0006, 0014, 0019)
 - Proposed: 17 (0009-0013, 0015-0018, 0020-0022, 0024-0028)
-- Completed: 5 (0002, 0007, 0008, 0023, 0026-theme-adoption)
+- Completed: 6 (0002, 0007, 0008, 0023, 0026-theme-adoption, 0029)
 - Deprecated: 0
 - Recurrent: 1 (backlog hygiene)
 
@@ -34,9 +34,11 @@ carries its own code-reality citations.
 4. **0014** entity-creation modal family / **0019** app-server — re-validate
    scope with gateway/continuum before building (the console + Team page
    waves may have absorbed parts).
-5. **0029** Automations v1 presentation half (client module,
-   `AutomationPanel`, fixtures) — startable now from the PLAN's contract F
-   fixtures; final fixtures follow the shipped gateway routes.
+5. **0029** Automations v1 is DONE (completed 2026-09-27, unreleased). What
+   is left of it: R52-2 (`parseEventPayload` must refuse non-objects), the
+   consent wording, and a Revise-from-row prop for the Observer (see the
+   item's residuals). The ui-kit/panel-chat minor release is step 3 of the
+   framework wave (root backlog 0941).
 
 ### Reality-audit note (2026-07-17, seat respawn)
 The corrupted-session era (07-13 → 07-16) landed most of the 07-11 planned
@@ -56,7 +58,6 @@ merge, or missing test rigs) — see each item's checklist.
 | 0006 | guard extensions + test rigs | ui-kit scripts + workspaces | Token-consumption + literal + swatch invariants; test scripts for 3 packages |
 | 0014 | entity-creation modal module family | ui-kit (framework-free) | 2-tab console modal; gateway c872/c879 seam; capabilities tab gated on served inventory |
 | 0019 | gateway session-proxy server module | new node package | LAURENT-DIRECTED: one auth proxy for 3 cli.js copies + the entity app; observer contract verbatim |
-| 0029 | Automations: client module, `AutomationPanel`, fixtures | ui-kit + panel-chat | Mission U / contract G of Automations v1; Observer adopts the kit panel, Assistant pins to byte-identical shared fixtures. Contracts pass 2026-09-27: see the item's section and root `untracked/design/automations-CONTRACTS.md`. |
 
 ## Proposed ledger (promotion criteria in each item)
 | ID | Item | Consumers today | Blocked on |
@@ -94,6 +95,9 @@ merge, or missing test rigs) — see each item's checklist.
   vendor attribution; degraded paths labeled #FALLBACK.
 
 ## Planning notes
+- 2026-09-27: 0029 completed and UNRELEASED (`9da01a0`…`1eb6d82`; reviews
+  42 and 48 GO; fixtures regenerated from real gateway output in `a9b73ab`);
+  moved to `completed/`.
 - 2026-09-26: 0029 filed (planned) for the Automations v1 wave, mission U
   (design: untracked/design/automations-PLAN.md + operator rulings; v1 apps
   are Observer and Assistant only). Hygiene: the "next free number" line was
@@ -129,6 +133,7 @@ merge, or missing test rigs) — see each item's checklist.
   re-litigated without new evidence.
 
 ## Completed ledger
+- [completed/0029_automations_shared_panel_client_and_fixtures.md](completed/0029_automations_shared_panel_client_and_fixtures.md) — Automations v1: `createAutomationsClient`, `AutomationPanel`, `AfScheduleDialog`, typed waits / tool-approval policy (D1), canonical fixtures from real gateway output, panel-chat `ScheduleThisAction` / `FromAutomationBadge` (completed 2026-09-27, UNRELEASED; reviews 42/48 GO)
 - [completed/0007_packaging_exports_and_types.md](completed/0007_packaging_exports_and_types.md) — packaging: default conditions ×4, monitor-gpu d.ts completeness, monitor-flow CSS contract (one family rule; receipts c2775/c2901)
 - [completed/0008_small_component_fixes.md](completed/0008_small_component_fixes.md) — matrix strictness + wrapper smoke tests, dialog busy-escape, ToolPolicyEditor a11y/no-prune, KG forced-dark declaration (closed 2026-07-18)
 - [completed/0002_light_theme_css_repair_phantom_tokens.md](completed/0002_light_theme_css_repair_phantom_tokens.md) — light-theme CSS repair (syntax token set, phantom tokens, sign-in card, toolbar class, error color; landed 07-13→07-16, tree-verified + moved 2026-07-17)
