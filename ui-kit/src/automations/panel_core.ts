@@ -95,10 +95,36 @@ export const CONTROL_COMMANDS: Record<Exclude<ControlId, "revise" | "discuss">, 
 
 const IN_PROGRESS = new Set(["running", "waiting", "backoff"]);
 
-/** True while an occurrence is running or waiting (server: `pending_occurrence ≠ null`). */
-export function occurrenceInProgress(summary: AutomationSummary, occurrences: OccurrenceRow[] = []): boolean {
-  if (summary.last_occurrence && IN_PROGRESS.has(summary.last_occurrence.status)) return true;
-  return occurrences.some((o) => IN_PROGRESS.has(o.status));
+/**
+ * True while an occurrence is in flight — from the server's
+ * `summary.current_occurrence` only (its `pending_occurrence`), never inferred
+ * from `last_occurrence` or the rows. Legacy rows (no field) → false.
+ */
+export function occurrenceInProgress(summary: AutomationSummary, _occurrences: OccurrenceRow[] = []): boolean {
+  return summary.current_occurrence != null;
+}
+
+/** "Run #7 running", "Run #7 starting", "Run #7 waiting to retry (attempt 2)"; null when nothing is in flight. */
+export function currentOccurrenceLabel(summary: AutomationSummary): string | null {
+  const c = summary.current_occurrence;
+  if (!c) return null;
+  const attempt = c.attempt > 1 ? ` (attempt ${c.attempt})` : "";
+  if (c.status === "backoff") return `Run #${c.index} waiting to retry (attempt ${c.attempt + 1})`;
+  if (c.status === "admitted") return `Run #${c.index} starting${attempt}`;
+  return `Run #${c.index} running${attempt}`;
+}
+
+/** "in 25 min", "in 3 h 5 min", "in 2 d 4 h", "due now" — from `next_fire_at` only. */
+export function relativeIn(ts: string, nowMs: number): string {
+  const t = Date.parse(ts);
+  if (Number.isNaN(t)) return "";
+  const min = Math.round((t - nowMs) / 60000);
+  if (min <= 0) return "due now";
+  if (min < 60) return `in ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `in ${h} h${min % 60 ? ` ${min % 60} min` : ""}`;
+  const d = Math.floor(h / 24);
+  return `in ${d} d${h % 24 ? ` ${h % 24} h` : ""}`;
 }
 
 /**

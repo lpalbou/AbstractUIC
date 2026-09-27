@@ -105,7 +105,11 @@ see above), `newId` (the id source for retry-safe ids, default
 ### What it shows
 
 - **Header** — title, status, trigger ("every 8 hours (UTC)", "once at 2026-09-28 08:00 UTC",
-  "manual runs only"), context, next run ("none while paused" when paused), run count, attention
+  "manual runs only"), context, "Now: Run #7 running" (only from `summary.current_occurrence`,
+  never inferred from the last occurrence; "starting" while admitted, "waiting to retry" in
+  backoff), next run as "2026-09-27 07:00 UTC (in 25 min)" (only from `next_fire_at`, which an
+  active scheduled automation carries even while a run is in progress; "none while paused" when
+  paused), run count, the automation's workspace folder (`workspace_root`), attention
   ("2 unseen · 1 waiting for you"), revision, and a "Legacy schedule" marker for rows the Gateway
   projects from older `scheduled:*` roots. When the Gateway does not list the automation's trigger
   source, or lists it with `available: false`, the header says so.
@@ -134,8 +138,8 @@ you may do; the status says what applies at this moment:
 | --- | --- | --- |
 | Pause | status `active` | `automation.pause` |
 | Resume | status `paused` | `automation.resume` |
-| Run now | status `active` or `paused`, and no run in progress | `automation.run_now` (while paused it runs once; the automation stays paused) |
-| Stop current | a run is running, waiting or backing off | `automation.stop_current` |
+| Run now | status `active` or `paused`, and `current_occurrence` is `null` | `automation.run_now` (while paused it runs once; the automation stays paused) |
+| Stop current | `current_occurrence` is not `null` (admitted, running — including waiting for you — or backing off) | `automation.stop_current` |
 | Revise… | always (subject to capability and status below) | `onRevise(changes, revision)` |
 | Archive… | always (subject to capability and status below) | `automation.archive`, after an in-panel confirmation |
 

@@ -122,7 +122,9 @@ const AutomationSummary = {
   status: t.lit("active", "paused", "completed", "failed", "archived"),
   trigger: TriggerBinding,
   context_mode: t.lit("independent", "growing"),
+  workspace_root: t.opt(t.re(/^\//)),
   next_fire_at: t.opt(t.ts),
+  current_occurrence: t.opt(t.nullable({ index: t.pos, run_id: t.uuid, attempt: t.pos, status: t.lit("admitted", "running", "backoff") })),
   occurrence_count: t.nonneg,
   last_occurrence: t.opt({ run_id: t.uuid, index: t.pos, status: t.nonempty, attempts: t.pos, fired_at: t.ts, finished_at: t.opt(t.ts), excerpt: t.str, notify: Notify }),
   attention: { pending_waits: t.nonneg, unread: t.bool, unseen_count: t.nonneg, cursor: t.re(/^att1:\d+$/), items: t.arr(AttentionItem, 20), waits: t.arr(AttentionWait, 20) },
@@ -248,6 +250,15 @@ const news = byTitle["AI news monitor"], mail = byTitle["Inbox triage"], jour = 
 for (const s of list.filter((x) => !x.legacy)) check(`${s.title}: trigger config key order is the gateway's (start_at, anchor, every…)`, eq(Object.keys(s.trigger.config).slice(0, 3), ["start_at", "anchor", "every"]));
 check("list: news monitor every 8h independent active", news && news.trigger.config.every === "8h" && news.context_mode === "independent" && news.status === "active");
 check("list: inbox triage every 30m growing with typed pending waits (ask_user + tool_approval)", mail && mail.trigger.config.every === "30m" && mail.context_mode === "growing" && mail.attention.pending_waits === 2 && eq(mail.attention.waits.map((w) => w.kind), ["ask_user", "tool_approval"]));
+for (const s of list.filter((x) => !x.legacy)) {
+  check(`${s.title}: workspace_root (gateway session folder of the automation)`, typeof s.workspace_root === "string" && s.workspace_root.includes(`/workspaces/session-automation-${s.automation_id.slice(0, 8)}`), s.workspace_root);
+  check(`${s.title}: current_occurrence always present (object or null)`, "current_occurrence" in s);
+  check(`${s.title}: next_fire_at iff active + scheduled`, ("next_fire_at" in s) === (s.status === "active" && s.trigger.source_id === "schedule"));
+  check(`${s.title}: gateway key order (context_mode, workspace_root, next_fire_at?, current_occurrence, occurrence_count)`, eq(Object.keys(s).filter((k) => ["context_mode", "workspace_root", "next_fire_at", "current_occurrence", "occurrence_count"].includes(k)), ["context_mode", "workspace_root", ...("next_fire_at" in s ? ["next_fire_at"] : []), "current_occurrence", "occurrence_count"]));
+}
+check("legacy row: no current_occurrence (the gateway does not project one)", !("current_occurrence" in legacy));
+check("one active row runs an occurrence AND carries next_fire_at", list.some((s) => s.status === "active" && s.current_occurrence && s.next_fire_at));
+check("paused rows: current_occurrence null, no next_fire_at", list.filter((s) => s.status === "paused").every((s) => s.current_occurrence === null && !("next_fire_at" in s)));
 check("list: weekly journal monitor every 7d, paused", jour && jour.trigger.config.every === "7d" && jour.status === "paused" && !("next_fire_at" in jour));
 for (const s of list) {
   check(`${s.title}: unread == unseen_count > 0`, s.attention.unread === s.attention.unseen_count > 0);
@@ -297,6 +308,7 @@ for (const o of occ) {
   }
 }
 const last = occ.reduce((a, b) => (b.index > a.index ? b : a));
+check("inbox current_occurrence = the waiting occurrence (running, attempt 1)", eq(mail.current_occurrence, { index: last.index, run_id: last.run_id, attempt: 1, status: "running" }));
 check("inbox summary.last_occurrence is the newest occurrence", mail.last_occurrence.run_id === last.run_id && mail.last_occurrence.index === last.index);
 check("inbox summary waits == the waiting occurrence's typed waits + index", eq(mail.attention.waits, last.waits.map((w) => ({ ...w, index: last.index }))));
 check("inbox pending_waits counts every wait", mail.attention.pending_waits === last.waits.length);
@@ -326,6 +338,7 @@ const ids = new Set(list.map((s) => s.automation_id));
 const automationCmds = cmds.filter((c) => c.request.path.startsWith("/api/gateway/automations/") && /\/commands$|[0-9a-f]$/.test(c.request.path));
 check("commands cover every automation command type + revise", eq([...new Set(automationCmds.map((c) => c.request.body.type ?? "revise"))].sort(), ["automation.archive", "automation.pause", "automation.resume", "automation.run_now", "automation.stop_current", "revise"]));
 const disc = cmds.find((c) => c.request.path.endsWith("/discuss"));
+check("discuss: mounted_workspace = the automation's workspace_root", disc && disc.response.mounted_workspace === mail.workspace_root);
 check("discuss: own writable workspace differs from the mounted automation folder", disc && disc.response.workspace_root !== disc.response.mounted_workspace && disc.response.mounted_workspace.includes(mail.automation_id.slice(0, 8)));
 check("commands cover seen and discuss", cmds.some((c) => c.request.path.endsWith("/seen")) && cmds.some((c) => c.request.path.endsWith("/discuss")));
 for (const c of automationCmds) {

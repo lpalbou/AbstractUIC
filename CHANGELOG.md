@@ -20,6 +20,11 @@ ships.
   automation's files mounted read-only for the file tools — shell commands are not sandboxed by
   the mount (`DiscussResponse.workspace_root` / `mounted_workspace`). Attention is acknowledged up to the last displayed
   item, after `/seen` succeeds.
+- Added: `AutomationSummary.workspace_root`, `current_occurrence` (`CurrentOccurrence`: index, run id,
+  attempt, `admitted` / `running` / `backoff`, or `null`) and `next_fire_at` also while a run is in
+  progress. The panel shows "Run #N running" only from `current_occurrence` (Stop current / Run now
+  follow it, never the last occurrence), the next run with "in …" only from `next_fire_at`
+  (`nowMs` prop for the clock), and the workspace folder.
 - Added: `AutomationPanel` renders user turns, answers, notify bodies, wait prompts, attention
   bodies and the definition's task through its `renderText` prop — pass the chat's renderer from
   panel-chat. Without it the panel shows escaped plain text and marks itself

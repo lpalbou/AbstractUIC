@@ -109,13 +109,24 @@ export type LastOccurrence = {
   notify: Notify | null;
 };
 
+/** The occurrence in flight (`admitted` → `running`; `backoff` between retry attempts). */
+export type CurrentOccurrence = { index: number; run_id: string; attempt: number; status: "admitted" | "running" | "backoff" };
+
 export type AutomationSummary = {
   automation_id: string;
   title: string;
   status: AutomationStatus;
   trigger: TriggerBinding;
   context_mode: ContextMode;
+  /** The automation's folder (= `definition.workspace_root`). Legacy rows carry it only when the wrapper recorded one. */
+  workspace_root?: string;
+  /**
+   * Next scheduled fire time of an ACTIVE scheduled automation — also while an
+   * occurrence runs. Absent for paused, archived, manual-only or exhausted ones.
+   */
   next_fire_at?: Timestamp;
+  /** Always present on automation rows (`null` when nothing is in flight); absent on legacy rows. */
+  current_occurrence?: CurrentOccurrence | null;
   occurrence_count: number;
   last_occurrence?: LastOccurrence;
   attention: AutomationAttention;

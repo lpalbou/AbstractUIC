@@ -20,6 +20,8 @@ import {
   contextLabel,
   formatUtc,
   isApiError,
+  currentOccurrenceLabel,
+  relativeIn,
   mintUuid,
   parseEventPayload,
   WAIT_KIND_LABELS,
@@ -85,6 +87,8 @@ export type AutomationPanelProps = {
    * and carries `data-text-rendering="unformatted"`.
    */
   renderText?: RenderText;
+  /** Clock for "next in …" (ms since epoch); default `Date.now()`. */
+  nowMs?: number;
   className?: string;
 };
 
@@ -129,10 +133,15 @@ export function triggerSourceProblem(summary: AutomationSummary, sources: Array<
   return null;
 }
 
-export function AutomationHeader(props: { summary: AutomationSummary; triggerSources: Array<TriggerSource | TriggerSourceEntry>; titleId?: string }): React.ReactElement {
+export function AutomationHeader(props: { summary: AutomationSummary; triggerSources: Array<TriggerSource | TriggerSourceEntry>; titleId?: string; nowMs?: number }): React.ReactElement {
   const s = props.summary;
+  const current = currentOccurrenceLabel(s);
   const problem = triggerSourceProblem(s, props.triggerSources);
-  const next = s.next_fire_at ? formatUtc(s.next_fire_at) : s.status === "paused" ? "none while paused" : "none scheduled";
+  const next = s.next_fire_at
+    ? `${formatUtc(s.next_fire_at)} (${relativeIn(s.next_fire_at, props.nowMs ?? Date.now())})`
+    : s.status === "paused"
+      ? "none while paused"
+      : "none scheduled";
   return (
     <header className="af-auto__head">
       <div className="af-auto__titlebar">
@@ -155,10 +164,26 @@ export function AutomationHeader(props: { summary: AutomationSummary; triggerSou
         </dd>
         <dt>Context</dt>
         <dd data-fact="context">{contextLabel(s.context_mode)}</dd>
+        {current ? (
+          <>
+            <dt>Now</dt>
+            <dd data-fact="current" className="is-notable">
+              {current}
+            </dd>
+          </>
+        ) : null}
         <dt>Next run</dt>
         <dd data-fact="next">{next}</dd>
         <dt>Runs</dt>
         <dd data-fact="count">{s.occurrence_count}</dd>
+        {s.workspace_root ? (
+          <>
+            <dt>Workspace</dt>
+            <dd data-fact="workspace">
+              <code>{s.workspace_root}</code>
+            </dd>
+          </>
+        ) : null}
         <dt>Attention</dt>
         <dd data-fact="attention" className={s.attention.unread || s.attention.pending_waits ? "is-notable" : undefined}>
           {attentionLabel(s)}
@@ -764,7 +789,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
 
   return (
     <section ref={rootRef} className={`af-auto${props.className ? ` ${props.className}` : ""}`} aria-labelledby={titleId} aria-busy={busy} data-text-rendering={props.renderText ? "rich" : "unformatted"}>
-      <AutomationHeader summary={summary} triggerSources={props.triggerSources} titleId={titleId} />
+      <AutomationHeader summary={summary} triggerSources={props.triggerSources} titleId={titleId} nowMs={props.nowMs} />
       {props.definition ? <AutomationDefinitionBlock definition={props.definition} renderText={render} /> : null}
       <AutomationControlsBar
         summary={summary}

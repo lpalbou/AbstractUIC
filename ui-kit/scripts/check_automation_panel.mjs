@@ -53,7 +53,8 @@ const rec = (name) => (...args) => {
   return Promise.resolve(name === "onDiscuss" ? { session_id: "s", run_id: "r" } : name === "onSeen" || name === "onAnswerWait" ? undefined : { command_id: "c", accepted: true, duplicate: false, seq: 1 });
 };
 const handlers = { onRevise: rec("onRevise"), onCommand: rec("onCommand"), onDiscuss: rec("onDiscuss"), onSeen: rec("onSeen"), onLoadMore: rec("onLoadMore"), onOpenRun: rec("onOpenRun"), onAnswerWait: rec("onAnswerWait") };
-const panel = (props) => renderToStaticMarkup(React.createElement(AutomationPanel, { triggerSources: sources, occurrences: [], busy: false, ...handlers, ...props }));
+const NOW = Date.parse("2026-09-27T06:35:00Z");
+const panel = (props) => renderToStaticMarkup(React.createElement(AutomationPanel, { triggerSources: sources, occurrences: [], busy: false, nowMs: NOW, ...handlers, ...props }));
 
 // Tiny element-tree helpers for the hook-free pieces.
 function walk(node, visit) {
@@ -117,7 +118,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("Discuss labelled as a fork at this occurrence (own workspace, automation files read-only)", mailHtml.includes(`>${esc(DISCUSS_LABEL)}</button>`) && DISCUSS_LABEL === "Discuss — fork at this occurrence (own workspace, automation files read-only)");
   check("no stale 'read-only workspace' wording", !mailHtml.includes("read-only workspace") && !mailHtml.includes("forked session"));
   check("Discuss disabled on the waiting occurrence only", chunks.every((c, i) => (/data-action="discuss" disabled=""/.test(c)) === (i === 6)));
-  check("header: every 30 minutes (UTC), growing, next run", mailHtml.includes(">every 30 minutes (UTC)</dd>") && mailHtml.includes("Growing — each run sees the previous runs") && mailHtml.includes(">2026-09-27 07:00 UTC</dd>"));
+  check("header: every 30 minutes (UTC), growing, next run", mailHtml.includes(">every 30 minutes (UTC)</dd>") && mailHtml.includes("Growing — each run sees the previous runs") && mailHtml.includes('data-fact="next">2026-09-27 07:00 UTC (in 25 min)</dd>'));
   check("header: attention 2 unseen + 2 waiting, notable", mailHtml.includes('class="is-notable">2 unseen · 2 waiting for you</dd>'));
   check("attention strip lists both items oldest first", mailHtml.indexOf('data-cursor="att1:1"') > 0 && mailHtml.indexOf('data-cursor="att1:2"') > mailHtml.indexOf('data-cursor="att1:1"'));
   check("attention strip lists the pending wait", mailHtml.includes("af-auto__attention-item--wait"));
@@ -133,11 +134,30 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   const html = panel({ summary: news, occurrences: [] });
   check("news: every 8 hours (UTC)", html.includes(">every 8 hours (UTC)</dd>"));
   check("news: independent", html.includes("Independent — each run starts fresh"));
-  check("news: next run", html.includes(">2026-09-27 08:00 UTC</dd>"));
+  check("news: next run (absolute + relative, from next_fire_at)", html.includes('data-fact="next">2026-09-27 08:00 UTC (in 1 h 25 min)</dd>'));
+  check("news: nothing in flight → no 'Now' fact", !html.includes('data-fact="current"'));
+  check("news: workspace shown", html.includes(`data-fact="workspace"><code>${news.workspace_root}</code>`));
   check("news: attention quiet", html.includes('data-fact="attention">nothing new</dd>') && !html.includes("af-auto__attention\""));
   check("news: pause + run now enabled, stop current disabled", enabled(html, "pause") && enabled(html, "run_now") && !enabled(html, "stop_current"));
   check("news: load more (6 more)", enabled(html, "load-more") && html.includes("Load earlier occurrences (6 more)"));
   check("news: no occurrences text", html.includes("No occurrences yet."));
+}
+
+// --- current_occurrence / next_fire_at (runtime 64ee72a) --------------------------------------
+{
+  check("mail: 'Run #7 running' from current_occurrence", mailHtml.includes('<dt>Now</dt><dd data-fact="current" class="is-notable">Run #7 running</dd>'));
+  check("mail: next run shown WHILE an occurrence runs (active + scheduled)", mailHtml.includes('data-fact="next">2026-09-27 07:00 UTC (in 25 min)'));
+  // Never inferred from last_occurrence: a waiting last occurrence with current_occurrence null shows nothing in flight.
+  const stale = panel({ summary: { ...mail, current_occurrence: null }, occurrences: [] });
+  check("no 'Now' when current_occurrence is null, even if last_occurrence is waiting", mail.last_occurrence.status === "waiting" && !stale.includes('data-fact="current"'));
+  check("controls follow current_occurrence, not last_occurrence (run now on, stop off)", enabled(stale, "run_now") && !enabled(stale, "stop_current"));
+  const flying = panel({ summary: { ...news, current_occurrence: { index: 7, run_id: news.last_occurrence.run_id, attempt: 2, status: "backoff" } }, occurrences: [] });
+  check("in-flight occurrence on a row whose last occurrence is completed → Now + stop enabled", flying.includes(">Run #7 waiting to retry (attempt 3)</dd>") && enabled(flying, "stop_current") && !enabled(flying, "run_now"));
+  const L = kit.currentOccurrenceLabel;
+  check("labels: running / starting / attempt / none", L(mail) === "Run #7 running" && L({ current_occurrence: { index: 3, run_id: "r", attempt: 1, status: "admitted" } }) === "Run #3 starting" && L({ current_occurrence: { index: 3, run_id: "r", attempt: 2, status: "running" } }) === "Run #3 running (attempt 2)" && L(news) === null && L({}) === null);
+  const R = kit.relativeIn;
+  check("relativeIn: min / h / d / due", R("2026-09-27T06:36:00Z", NOW) === "in 1 min" && R("2026-09-27T09:35:00Z", NOW) === "in 3 h" && R("2026-09-29T08:35:00Z", NOW) === "in 2 d 2 h" && R("2026-09-27T06:00:00Z", NOW) === "due now");
+  check("paused: no next run time, no Now", jour.current_occurrence === null && panel({ summary: jour }).includes('data-fact="next">none while paused</dd>'));
 }
 
 // --- Journal (paused): run now while paused ------------------------------------------
