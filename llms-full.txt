@@ -1825,15 +1825,38 @@ in the architecture page; for the export list in context, see the [API reference
   Questions a flow asks with `ask_user` wait for a person in both modes.
 - **Typed waits** — every wait carries a `kind`, and the answer follows the kind, never the
   prompt text (see [Answering a wait](#answering-a-wait)).
-- **Discuss** — starts a *forked* session seeded with the automation's conversation up to one
-  occurrence. It never writes back into the automation, and the automation's workspace is mounted
-  read-only in the discussion.
+- **Discuss** — forks the automation at one occurrence: a new session carrying the automation's
+  whole timeline (runs 1..N). It works in its own writable workspace; the automation's folder is
+  mounted read-only **for the file tools only** — shell commands (`execute_command`, …) are not
+  sandboxed by the mount and could change the automation's folder. Nothing is written back into
+  the automation's session. The response names both folders (`workspace_root`,
+  `mounted_workspace`). The panel's help text says the same: "Starts a new session that forks
+  this automation at #N with its full history (runs 1–N). It works in its own writable workspace;
+  the automation's files are mounted read-only for the file tools (shell commands are not
+  sandboxed), and nothing is written back into the automation's session."
 - **Trigger envelope** — a `schedule@1` run's envelope payload is `{tick, scheduled_at,
   coalesced?: {first_tick, last_tick, missed_count}}` (`ScheduleEventPayload`; `coalesced`
   appears when missed ticks were folded into one run); `fired_at` is on the envelope itself.
   A `manual@1` run carries `{command_id}` (`ManualEventPayload`).
 
 ## AutomationPanel
+
+Occurrence text is rendered with the **same renderer as the chat** (Markdown with tables and
+code, JSON autodetect, remote images as links): the user turn, the answer, notify bodies, wait
+prompts, attention bodies and the definition's task. ui-kit cannot import panel-chat
+(panel-chat depends on ui-kit), so the panel takes a `renderText(text)` prop and panel-chat
+ships the pairing. Use one of:
+
+```tsx
+import { AutomationPanelWithMarkdown, automationRenderers } from "@abstractframework/panel-chat";
+
+<AutomationPanelWithMarkdown {...props} />              // the panel with the chat renderer wired
+<AutomationPanel {...automationRenderers} {...props} />  // same thing, spread onto the kit panel
+```
+
+Without `renderText` the panel falls back to escaped plain text and marks itself
+`data-text-rendering="unformatted"` (each block `data-unformatted="true"`), so a host that
+forgot the renderer is visible in the DOM.
 
 ```tsx
 import { AutomationPanel } from "@abstractframework/ui-kit";
@@ -1855,21 +1878,30 @@ import "@abstractframework/ui-kit/theme.css";
   onLoadMore={loadOlderPage}
   onOpenRun={(runId) => openLedger(runId)}
   onAnswerWait={(runId, waitKey, payload) => resumeWait(runId, waitKey, payload)}
+  {...automationRenderers}          // from @abstractframework/panel-chat: the chat's renderer
 />
 ```
 
 The panel is controlled: it holds only view state (which form is open, the last notice) and
-renders what you pass. Optional props: `definition` (an `AutomationDefinition` you already hold;
-the panel renders from `summary`), `newId` (the id source for retry-safe ids, default
+renders what you pass. Optional props: `definition` (the `definition` of `GET /automations/{id}`;
+when given, the panel adds a collapsed "Definition" block), `renderText` (required in practice;
+see above), `newId` (the id source for retry-safe ids, default
 `crypto.randomUUID`) and `className`.
 
 ### What it shows
 
 - **Header** — title, status, trigger ("every 8 hours (UTC)", "once at 2026-09-28 08:00 UTC",
-  "manual runs only"), context, next run ("none while paused" when paused), run count, attention
+  "manual runs only"), context, "Now: Run #7 running" (only from `summary.current_occurrence`,
+  never inferred from the last occurrence; "starting" while admitted, "waiting to retry" in
+  backoff), next run as "2026-09-27 07:00 UTC (in 25 min)" (only from `next_fire_at`, which an
+  active scheduled automation carries even while a run is in progress; "none while paused" when
+  paused), run count, the automation's workspace folder (`workspace_root`), attention
   ("2 unseen · 1 waiting for you"), revision, and a "Legacy schedule" marker for rows the Gateway
   projects from older `scheduled:*` roots. When the Gateway does not list the automation's trigger
   source, or lists it with `available: false`, the header says so.
+- **Definition** (only with the `definition` prop) — a collapsed "Definition (revision N)"
+  block: target workflow, trigger source and config, context, tools (`tool_approval` auto / ask),
+  retry policy and revision.
 - **Needs attention** — the unseen notify and failure items, then the pending waits, labelled by
   kind ("Question for you", "Approval needed", "Waiting for an event").
 - **Occurrences** — one chat pair per run, oldest first. Quiet runs are subdued; notified, failed,
@@ -1892,8 +1924,8 @@ you may do; the status says what applies at this moment:
 | --- | --- | --- |
 | Pause | status `active` | `automation.pause` |
 | Resume | status `paused` | `automation.resume` |
-| Run now | status `active` or `paused`, and no run in progress | `automation.run_now` (while paused it runs once; the automation stays paused) |
-| Stop current | a run is running, waiting or backing off | `automation.stop_current` |
+| Run now | status `active` or `paused`, and `current_occurrence` is `null` | `automation.run_now` (while paused it runs once; the automation stays paused) |
+| Stop current | `current_occurrence` is not `null` (admitted, running — including waiting for you — or backing off) | `automation.stop_current` |
 | Revise… | always (subject to capability and status below) | `onRevise(changes, revision)` |
 | Archive… | always (subject to capability and status below) | `automation.archive`, after an in-panel confirmation |
 
@@ -1904,7 +1936,8 @@ An occurrence is in progress."), linked to the button with `aria-describedby`.
 - **Revise** edits the title, the interval and the context. Only changed fields are sent, with
   `expected_revision`; a new interval keeps the rest of the schedule. The change applies from the
   next run.
-- **Discuss — forked session, read-only workspace** needs the `discuss` capability, is off for
+- **Discuss — fork at this occurrence (own workspace, automation files read-only)** needs the
+  `discuss` capability, is off for
   legacy rows, and is available once the run has finished (also on an archived automation).
 - When the archive confirmation, the revise form or a discuss form closes, focus returns to the
   control that opened it (else to the notice, else to the title).
@@ -2021,7 +2054,7 @@ id source; default `crypto.randomUUID`).
 | `sendAutomationCommand(id, {type, payload?, command_id?})` | `POST /api/gateway/automations/{id}/commands` |
 | `listOccurrences(id, {cursor?, limit?})` | `GET /api/gateway/automations/{id}/occurrences` |
 | `listAttention(id, {cursor?, limit?})` | `GET /api/gateway/automations/{id}/attention` |
-| `discuss(id, {occurrence_index, prompt, request_id?})` | `POST /api/gateway/automations/{id}/discuss` |
+| `discuss(id, {occurrence_index, prompt, request_id?})` | `POST /api/gateway/automations/{id}/discuss` → `{session_id, run_id, session_kind: "discussion", workspace_root, mounted_workspace}` |
 | `markSeen(id, attentionCursor)` | `POST /api/gateway/automations/{id}/seen` |
 | `listTriggerSources()` | `GET /api/gateway/trigger-sources` |
 
@@ -2078,6 +2111,10 @@ import { ScheduleThisAction, FromAutomationBadge } from "@abstractframework/pane
 
 Neither piece performs requests or holds state.
 
+- `AutomationPanelWithMarkdown` (`AutomationPanelWithMarkdownProps` = `AutomationPanelProps`
+  without `renderText`), `automationRenderers` (`{renderText}`) and `renderAutomationText(text)`
+  wire the kit's `AutomationPanel` to the chat renderer (`ChatMessageContent`, images as links).
+
 ## Fixtures contract
 
 `ui-kit/scripts/fixtures/automations/` holds the Gateway's wire shapes that every automations
@@ -2126,7 +2163,8 @@ coverage, checksums), `check_automation_client.mjs` (paths, bodies, error parsin
 From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
 
 - **Components**: `AutomationPanel` (`AutomationPanelProps`), `AfScheduleDialog`
-  (`AfScheduleDialogProps`), `DISCUSS_LABEL`.
+  (`AfScheduleDialogProps`), `DISCUSS_LABEL`, `plainTextRenderer` (the fallback), type
+  `RenderText`.
 - **Client**: `createAutomationsClient()`, `AutomationApiError`, `parseApiError()`,
   `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`; types `AutomationsClient`,
   `AutomationsClientOptions`, `ListAutomationsQuery`, `PageQuery`.
@@ -3495,7 +3533,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -3518,7 +3556,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -3587,7 +3625,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -3628,15 +3666,15 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs"
+    "test": "npm run build && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.1.10",
+    "@abstractframework/ui-kit": "^0.1.13",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.1.10",
+    "@abstractframework/ui-kit": "^0.1.13",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -3995,6 +4033,7 @@ export type {
   AutomationTarget,
   CommandReceipt,
   ContextMode,
+  CurrentOccurrence,
   CreateAutomationRequest,
   CreateAutomationResponse,
   DiscussResponse,
@@ -4050,6 +4089,8 @@ export {
   automationControls,
   buildCreateRequest,
   contextLabel,
+  currentOccurrenceLabel,
+  relativeIn,
   formatUtc,
   intervalLabel,
   isApiError,
@@ -4066,7 +4107,7 @@ export {
   type ScheduleForm,
   type ScheduleWhen,
 } from "./automations/panel_core.js";
-export { AutomationPanel, DISCUSS_LABEL, type AutomationPanelProps } from "./automations/AutomationPanel.js";
+export { AutomationPanel, DISCUSS_LABEL, plainTextRenderer, type AutomationPanelProps, type RenderText } from "./automations/AutomationPanel.js";
 export { AfScheduleDialog, type AfScheduleDialogProps } from "./automations/AfScheduleDialog.js";
 
 ## ui-kit/src/identity.ts
@@ -5001,13 +5042,24 @@ export type LastOccurrence = {
   notify: Notify | null;
 };
 
+/** The occurrence in flight (`admitted` → `running`; `backoff` between retry attempts). */
+export type CurrentOccurrence = { index: number; run_id: string; attempt: number; status: "admitted" | "running" | "backoff" };
+
 export type AutomationSummary = {
   automation_id: string;
   title: string;
   status: AutomationStatus;
   trigger: TriggerBinding;
   context_mode: ContextMode;
+  /** The automation's folder (= `definition.workspace_root`). Legacy rows carry it only when the wrapper recorded one. */
+  workspace_root?: string;
+  /**
+   * Next scheduled fire time of an ACTIVE scheduled automation — also while an
+   * occurrence runs. Absent for paused, archived, manual-only or exhausted ones.
+   */
   next_fire_at?: Timestamp;
+  /** Always present on automation rows (`null` when nothing is in flight); absent on legacy rows. */
+  current_occurrence?: CurrentOccurrence | null;
   occurrence_count: number;
   last_occurrence?: LastOccurrence;
   attention: AutomationAttention;
@@ -5105,7 +5157,12 @@ export type AutomationChanges = {
   policy?: AutomationPolicyInput;
 };
 
-export type DiscussResponse = { session_id: string; run_id: string; session_kind: "discussion" };
+/**
+ * `POST …/discuss`: a fork at the occurrence carrying the automation's whole
+ * timeline 1..N. `workspace_root` = the discussion's OWN writable folder;
+ * `mounted_workspace` = the automation's folder, mounted READ-ONLY.
+ */
+export type DiscussResponse = { session_id: string; run_id: string; session_kind: "discussion"; workspace_root: string; mounted_workspace: string };
 
 export type ApiErrorCode =
   | "unauthorized"
@@ -5389,10 +5446,36 @@ export const CONTROL_COMMANDS: Record<Exclude<ControlId, "revise" | "discuss">, 
 
 const IN_PROGRESS = new Set(["running", "waiting", "backoff"]);
 
-/** True while an occurrence is running or waiting (server: `pending_occurrence ≠ null`). */
-export function occurrenceInProgress(summary: AutomationSummary, occurrences: OccurrenceRow[] = []): boolean {
-  if (summary.last_occurrence && IN_PROGRESS.has(summary.last_occurrence.status)) return true;
-  return occurrences.some((o) => IN_PROGRESS.has(o.status));
+/**
+ * True while an occurrence is in flight — from the server's
+ * `summary.current_occurrence` only (its `pending_occurrence`), never inferred
+ * from `last_occurrence` or the rows. Legacy rows (no field) → false.
+ */
+export function occurrenceInProgress(summary: AutomationSummary, _occurrences: OccurrenceRow[] = []): boolean {
+  return summary.current_occurrence != null;
+}
+
+/** "Run #7 running", "Run #7 starting", "Run #7 waiting to retry (attempt 2)"; null when nothing is in flight. */
+export function currentOccurrenceLabel(summary: AutomationSummary): string | null {
+  const c = summary.current_occurrence;
+  if (!c) return null;
+  const attempt = c.attempt > 1 ? ` (attempt ${c.attempt})` : "";
+  if (c.status === "backoff") return `Run #${c.index} waiting to retry (attempt ${c.attempt + 1})`;
+  if (c.status === "admitted") return `Run #${c.index} starting${attempt}`;
+  return `Run #${c.index} running${attempt}`;
+}
+
+/** "in 25 min", "in 3 h 5 min", "in 2 d 4 h", "due now" — from `next_fire_at` only. */
+export function relativeIn(ts: string, nowMs: number): string {
+  const t = Date.parse(ts);
+  if (Number.isNaN(t)) return "";
+  const min = Math.round((t - nowMs) / 60000);
+  if (min <= 0) return "due now";
+  if (min < 60) return `in ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `in ${h} h${min % 60 ? ` ${min % 60} min` : ""}`;
+  const d = Math.floor(h / 24);
+  return `in ${d} d${h % 24 ? ` ${h % 24} h` : ""}`;
 }
 
 /**
@@ -6963,6 +7046,12 @@ export {
   type ScheduleThisActionProps,
   type FromAutomationBadgeProps,
 } from "./automation_badges.js";
+export {
+  AutomationPanelWithMarkdown,
+  automationRenderers,
+  renderAutomationText,
+  type AutomationPanelWithMarkdownProps,
+} from "./automation_markdown.js";
 
 ## panel-chat/src/chat_message_card.tsx
 
@@ -7901,6 +7990,17 @@ function isTableSeparator(line: string): boolean {
   return cells.every((c) => /^:?-{3,}:?$/.test(c));
 }
 
+// Block starts shared by the block branches and the paragraph loop, so what
+// opens a block also interrupts a paragraph (CommonMark: ATX headings, code
+// fences and block quotes interrupt a paragraph; no blank line needed).
+const HEADING_RE = /^(#{1,5})\s+(.*)$/;
+function isFenceLine(line: string): boolean {
+  return line.trim().startsWith("```");
+}
+function isQuoteLine(line: string): boolean {
+  return line.trimStart().startsWith(">");
+}
+
 export type MarkdownImages = "inline" | "link";
 
 export type MarkdownProps = {
@@ -7994,7 +8094,7 @@ function renderMarkdown({
       }
     }
 
-    if (line.trim().startsWith("```")) {
+    if (isFenceLine(line)) {
       const fence = line.trim();
       const lang = fence.replace(/```/g, "").trim();
       const codeLines: string[] = [];
@@ -8013,7 +8113,7 @@ function renderMarkdown({
       continue;
     }
 
-    const headingM = line.match(/^(#{1,5})\s+(.*)$/);
+    const headingM = line.match(HEADING_RE);
     if (headingM) {
       const level = headingM[1].length;
       const content = headingM[2] || "";
@@ -8027,7 +8127,7 @@ function renderMarkdown({
       continue;
     }
 
-    if (line.trimStart().startsWith(">")) {
+    if (isQuoteLine(line)) {
       const quoteLines: string[] = [];
       while (i < lines.length && String(lines[i] ?? "").trimStart().startsWith(">")) {
         const raw = String(lines[i] ?? "");
@@ -8126,6 +8226,12 @@ function renderMarkdown({
       // parsed). Same header+separator test as the block branch, so the
       // break hands the lines to it verbatim.
       const cur_line = String(lines[i] ?? "");
+      // An ATX heading, a code fence or a block quote interrupts a paragraph
+      // too (CommonMark). The automation trigger turn is exactly
+      // "[Trigger …]\n## Task…" and echo answers repeat it; the chat's own
+      // "intro:\n```json" and "note\n> quote" emissions had the same defect
+      // (rendered as literal "##" / backticks / "&gt;" prose).
+      if (paraLines.length > 0 && (HEADING_RE.test(cur_line) || isFenceLine(cur_line) || isQuoteLine(cur_line))) break;
       if (paraLines.length > 0 && cur_line.includes("|") && i + 1 < lines.length && isTableSeparator(String(lines[i + 1] ?? ""))) break;
       paraLines.push(cur_line);
       i += 1;
@@ -10404,17 +10510,38 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## Unreleased
+## 0.1.13 - 2026-09-27
 
-### ui-kit
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.1.13 | updated |
+| `@abstractframework/panel-chat` | 0.1.18 | updated (requires `ui-kit` `^0.1.13`) |
+| `@abstractframework/app-server` | 0.1.10 | unchanged |
+| `@abstractframework/monitor-memory` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-flow` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-gpu` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-active-memory` | 0.1.9 | unchanged |
+
+### ui-kit 0.1.13
 
 - Added: `AutomationPanel` shows and manages one AbstractGateway automation — its trigger
   ("every 8 hours (UTC)"), context, next run, run count and attention; Pause / Resume, Run now
   (also while paused; the automation stays paused), Stop current, Revise… and Archive… (confirmed
   in the panel), each disabled control with a visible reason; its runs as chat pairs, quiet runs
-  subdued and notified, failed (reason, message, attempts) and waiting runs badged; Discuss as a
-  forked session with a read-only workspace. Attention is acknowledged up to the last displayed
+  subdued and notified, failed (reason, message, attempts) and waiting runs badged; Discuss forks
+  the automation at a run with its full history, in its own writable workspace with the
+  automation's files mounted read-only for the file tools — shell commands are not sandboxed by
+  the mount (`DiscussResponse.workspace_root` / `mounted_workspace`). Attention is acknowledged up to the last displayed
   item, after `/seen` succeeds.
+- Added: `AutomationSummary.workspace_root`, `current_occurrence` (`CurrentOccurrence`: index, run id,
+  attempt, `admitted` / `running` / `backoff`, or `null`) and `next_fire_at` also while a run is in
+  progress. The panel shows "Run #N running" only from `current_occurrence` (Stop current / Run now
+  follow it, never the last occurrence), the next run with "in …" only from `next_fire_at`
+  (`nowMs` prop for the clock), and the workspace folder.
+- Added: `AutomationPanel` renders user turns, answers, notify bodies, wait prompts, attention
+  bodies and the definition's task through its `renderText` prop — pass the chat's renderer from
+  panel-chat. Without it the panel shows escaped plain text and marks itself
+  `data-text-rendering="unformatted"`.
 - Added: typed wait answers in `AutomationPanel` — `ask_user` → `{response}` (choices or free
   text), `tool_approval` → the tool calls with their arguments and Approve / Deny
   (`{approved}`), `event` → a JSON payload (`{payload}`); other kinds point to the run.
@@ -10434,11 +10561,20 @@ ships.
   `check_automation_fixtures`, `check_automation_client` and `check_automation_panel` checks in
   `npm test`. AbstractAssistant vendors byte-identical copies.
 
-### panel-chat
+### panel-chat 0.1.18
 
+- Changed: the `@abstractframework/ui-kit` peer range is now `^0.1.13` (the automation
+  components below import `AutomationPanel`, which ships in ui-kit 0.1.13).
 - Added: `ScheduleThisAction` ("Schedule this…" for a chat header slot; hands the host a
   `ScheduleSeed`) and `FromAutomationBadge` ("from automation <title> · #<n>"). Neither performs
   requests.
+- Fixed: `Markdown` — a `## heading`, a code fence or a `>` quote on the line right after text
+  (no blank line) now starts its own block, as in CommonMark, instead of staying literal text in
+  the paragraph. Chat messages and automation trigger turns (`[Trigger …]` + the task) both
+  benefit; lists and tables already interrupted a paragraph.
+- Added: `AutomationPanelWithMarkdown`, `automationRenderers` and `renderAutomationText` — the
+  ui-kit `AutomationPanel` wired to the chat's renderer (`ChatMessageContent`: Markdown tables and
+  code, JSON, remote images as links), so automation runs read exactly like chats.
 
 ## 0.1.12 - 2026-09-26
 

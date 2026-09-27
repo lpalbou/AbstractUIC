@@ -7,9 +7,19 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## Unreleased
+## 0.1.13 - 2026-09-27
 
-### ui-kit
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.1.13 | updated |
+| `@abstractframework/panel-chat` | 0.1.18 | updated (requires `ui-kit` `^0.1.13`) |
+| `@abstractframework/app-server` | 0.1.10 | unchanged |
+| `@abstractframework/monitor-memory` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-flow` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-gpu` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-active-memory` | 0.1.9 | unchanged |
+
+### ui-kit 0.1.13
 
 - Added: `AutomationPanel` shows and manages one AbstractGateway automation — its trigger
   ("every 8 hours (UTC)"), context, next run, run count and attention; Pause / Resume, Run now
@@ -48,8 +58,10 @@ ships.
   `check_automation_fixtures`, `check_automation_client` and `check_automation_panel` checks in
   `npm test`. AbstractAssistant vendors byte-identical copies.
 
-### panel-chat
+### panel-chat 0.1.18
 
+- Changed: the `@abstractframework/ui-kit` peer range is now `^0.1.13` (the automation
+  components below import `AutomationPanel`, which ships in ui-kit 0.1.13).
 - Added: `ScheduleThisAction` ("Schedule this…" for a chat header slot; hands the host a
   `ScheduleSeed`) and `FromAutomationBadge` ("from automation <title> · #<n>"). Neither performs
   requests.
@@ -59,8 +71,7 @@ ships.
   benefit; lists and tables already interrupted a paragraph.
 - Added: `AutomationPanelWithMarkdown`, `automationRenderers` and `renderAutomationText` — the
   ui-kit `AutomationPanel` wired to the chat's renderer (`ChatMessageContent`: Markdown tables and
-  code, JSON, remote images as links), so automation runs read exactly like chats. Needs the
-  ui-kit release that ships `AutomationPanel`.
+  code, JSON, remote images as links), so automation runs read exactly like chats.
 
 ## 0.1.12 - 2026-09-26
 
