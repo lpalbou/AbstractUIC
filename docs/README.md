@@ -10,7 +10,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 - **Getting started**: [`getting-started.md`](./getting-started.md) — install, required CSS imports, first examples, Next.js notes
 - **API reference**: [`api.md`](./api.md) — export map per package
-- **Architecture**: [`architecture.md`](./architecture.md) — package boundaries, consumers, data flow, the Gateway connection flow, live replies and the About/identity flow (with diagrams)
+- **Architecture**: [`architecture.md`](./architecture.md) — package boundaries, consumers, data flow, the Gateway connection flow, live replies, the About/identity flow and the automations flow (with diagrams)
 - **FAQ**: [`faq.md`](./faq.md) — recurring questions and limits
 - **Troubleshooting**: [`troubleshooting.md`](./troubleshooting.md) — symptoms, checks and fixes
 
@@ -18,7 +18,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 - **Adoption guide**: [`adoption-guide.md`](./adoption-guide.md) — which shared component for which job, and the contracts apps follow
 - **Theming & design tokens**: [`theming.md`](./theming.md) — token vocabulary, the 21 themes, migration rules for host apps
-- **Automations**: [`automations.md`](./automations.md) — the Automations v1 client, `AutomationPanel`, `AfScheduleDialog`, the panel-chat schedule action and badge, and the canonical fixtures
+- **Automations**: [`automations.md`](./automations.md) — show and manage AbstractGateway automations: `AutomationPanel` (controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` and its tool-approval consent line, `createAutomationsClient()` and its error model, retry-safe ids, the panel-chat schedule action and badge, the canonical fixtures and how to regenerate them, and the export list
 - **Console islands**: [`console-islands.md`](./console-islands.md) — the `window.AfConsoleIslands` bundle built from `ui-kit` for non-React pages (AbstractGateway console): API, build and check
 - **Local development**: [`development.md`](./development.md) — workspace build, tests, contracts shared with other repositories, docs regeneration
 - **Publishing (maintainers)**: [`publishing.md`](./publishing.md) — versioning, tag-driven release workflow, first publish of a new package
@@ -36,7 +36,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 ## Package docs
 
-- UI tokens, themes, inputs, Gateway connection UI, top bar/drawer/appearance, About dialog and identity, console islands: [`ui-kit/README.md`](../ui-kit/README.md)
+- UI tokens, themes, inputs, Gateway connection UI, top bar/drawer/appearance, About dialog and identity, automations, console islands: [`ui-kit/README.md`](../ui-kit/README.md)
 - Chat primitives (thread, composer, markdown/json renderers, assistant panel, workflow chat, live replies): [`panel-chat/README.md`](../panel-chat/README.md)
 - App-origin Gateway session proxy: [`app-server/README.md`](../app-server/README.md)
 - Agent-cycle trace viewer (LLM/tool/observe): [`monitor-flow/README.md`](../monitor-flow/README.md)

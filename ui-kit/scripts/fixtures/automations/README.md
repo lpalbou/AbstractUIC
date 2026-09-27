@@ -1,18 +1,15 @@
-# Automations v1 — canonical fixtures
+# Automations — canonical fixtures
 
-These six files are **the shared shape** of the gateway's Automations v1 façade
-(contract F of `automations-CONTRACTS.md` rev 2, resolution C13, decision D1).
-Every v1 client tests against the same bytes.
+These six files are **the shared shape** of the AbstractGateway Automations routes. Every
+automations client (the kit, AbstractObserver, AbstractAssistant) tests against the same bytes.
+The reader-facing guide is [`docs/automations.md`](../../../../docs/automations.md#fixtures-contract).
 
-**Generated from real gateway output at abstractgateway 5161785 / abstractruntime
-b000036, curated** (the Observer's end-to-end captures,
-`untracked/missions-2026-09-27/E2E/observer-captures/`, 2026-09-27). Every field,
-key order and value format is the gateway's: timestamps `2026-09-27T04:00:00.412307+00:00`,
-wait keys `user:<run_id>:ask` / `tool_approval:<run_id>:tools:<hash>`, `reason: "user"` on
-every human wait (`kind` carries the type), `failure: {reason_code: "occurrence_failed", message,
-attempts}`, capabilities per status, the repeat receipt `accepted: false, duplicate: true`.
-The scenario is curated: the three automations of the brief (their ids, texts and times are
-chosen, not captured) plus the real legacy row.
+**Generated from real Gateway output, curated.** Every field, key order and value format is the
+Gateway's: timestamps `2026-09-27T04:00:00.412307+00:00`, wait keys `user:<run_id>:ask` /
+`tool_approval:<run_id>:tools:<hash>`, `reason: "user"` on every human wait (`kind` carries the
+type), `failure: {reason_code: "occurrence_failed", message, attempts}`, capabilities per status,
+the repeat receipt `accepted: false, duplicate: true`. The scenario is curated: three automations
+whose ids, texts and times are chosen for readability, plus a captured legacy row.
 
 | File | Route it exemplifies | Content |
 | --- | --- | --- |
@@ -31,7 +28,7 @@ client and panel do not read them.
 `CHECKSUMS.sha256` holds the SHA-256 of each JSON file (`sha256sum` format).
 `node scripts/check_automation_fixtures.mjs` fails when a file's bytes no longer
 match; after an intended change run it with `--write`, then update every
-vendored copy (the Assistant's `tests/fixtures/automations/`) byte for byte.
-The root `scripts/check_identity_sync.py` compares the copies against these
+vendored copy (the Assistant's `tests/basic/fixtures/automations/`) byte for byte.
+The AbstractFramework repository's `scripts/check_identity_sync.py` compares the copies against these
 canonical files, one group per file. A fixture change is a contract change:
-announce it to the Observer and Assistant seats.
+tell the AbstractObserver and AbstractAssistant maintainers.

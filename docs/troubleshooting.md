@@ -140,6 +140,47 @@ through `messageProps`. See the [FAQ entry](./faq.md#panel-chat-why-do-images-in
 
 See: [Console islands](./console-islands.md).
 
+## Automations: the panel shows an error or a control stays disabled
+
+- **A control is disabled.** The reason is printed under the controls ("Run now: An occurrence is
+  in progress."). Controls follow `summary.capabilities` and the status: Pause needs `active`,
+  Resume needs `paused`, Run now needs no run in progress, Stop current needs one, and an archived
+  or legacy automation offers no controls. Pass `busy={false}` once your request settles.
+- **"The automation changed since this view loaded."** (`revision_conflict`): another client
+  revised it. Reload the summary and submit the revision again.
+- **"An occurrence is already running or queued."** (`automation_busy`): wait for the current run,
+  or use Stop current.
+- **"This request id was already used for a different request."** (`identity_conflict`): your
+  host reused a `command_id` or `request_id` for a different body. Forward the id the panel or
+  dialog passes, and let the client mint one when you have none.
+- **"The gateway gave an unexpected answer."** (`invalid_response`): the answer was not the
+  Gateway's JSON, for example an HTML page from a wrong `baseUrl` or a proxy that does not forward
+  `/api/gateway/automations`. Open the request in the browser's network panel and check its URL
+  and body.
+- **"Sign in to the gateway to manage automations."** (`unauthorized`): the browser session has no
+  Gateway credentials; sign in through the connection modal (see the `app-server` entry above).
+- **`crypto.randomUUID is unavailable`**: the page runs outside a secure context (plain `http://`
+  on a host other than `localhost`). Serve it over HTTPS or pass `newId` to
+  `createAutomationsClient()`, `newId` to `AutomationPanel` and `newRequestId` to
+  `AfScheduleDialog`.
+- **Attention stays unseen.** The panel acknowledges the last displayed item only after `onSeen`
+  resolves; make `onSeen` return the `markSeen` promise and pass a new `summary` object on each
+  poll so a failed acknowledgement is retried.
+
+See: [Automations](./automations.md).
+
+## Automations: `check_automation_fixtures` or the identity sync check fails
+
+- `CHECKSUMS.sha256 matches the fixture bytes`: a fixture file changed. If the change is intended,
+  run `node ui-kit/scripts/check_automation_fixtures.mjs --write`; otherwise restore the file.
+- A shape or coverage failure names the file and the field: fixtures must keep the Gateway's exact
+  fields (unknown keys are rejected) and cover every error code, command type and trigger source.
+- `scripts/check_identity_sync.py` in the AbstractFramework repository reports an automations
+  fixture: copy the six JSON files and `CHECKSUMS.sha256` byte for byte into AbstractAssistant's
+  `tests/basic/fixtures/automations/`.
+
+See: [Automations: Fixtures contract](./automations.md#fixtures-contract).
+
 ## `npm test` fails in `ui-kit`
 
 The `ui-kit` test chain runs guard scripts before and after the build. The first failing
@@ -155,6 +196,8 @@ script names the problem, for example:
   when the gateway rows change, update the helper and the fixture together with the Python twin
   in AbstractCore.
 - `check_islands.mjs`: see the console islands entry above.
+- `check_automation_fixtures.mjs`, `check_automation_client.mjs`, `check_automation_panel.mjs`:
+  see the automations entries above.
 
 See: [Theming: Guard scripts](./theming.md#guard-scripts), [Development](./development.md).
 
@@ -169,5 +212,6 @@ error. Report security problems privately as described in [`SECURITY.md`](../SEC
 - [Getting started](./getting-started.md)
 - [FAQ](./faq.md)
 - [API reference](./api.md)
+- [Automations](./automations.md)
 - [Architecture](./architecture.md)
 - [Docs index](./README.md)

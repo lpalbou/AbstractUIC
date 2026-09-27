@@ -11,34 +11,37 @@ ships.
 
 ### ui-kit
 
-- Added: Automations v1 — `createAutomationsClient()` (one method per Gateway `/api/gateway/automations` and
-  `/api/gateway/trigger-sources` route, injected `fetch`, errors thrown as `AutomationApiError` with `code` =
-  `detail.reason_code`, no polling and no `changed_since`), `AutomationPanel` (definition and controls, run now
-  while paused, in-page archive confirmation, revise, occurrences as chat pairs with quiet ticks subdued and
-  failures / waits / notify prominent, answer a waiting occurrence, discuss as a forked session with a read-only
-  workspace, attention acknowledged up to the last displayed item) and `AfScheduleDialog` (fixed UTC intervals
-  such as "every 24 hours (UTC)", or once at a UTC time; independent or growing context). See
-  [docs/automations.md](docs/automations.md).
-- Added: `AutomationPanel` shows an occurrence's `failure` (reason, message, attempts), gates Discuss on the
-  `discuss` capability, gives every disabled control a visible reason, returns focus to the opener when a form
-  closes, acknowledges attention only after `/seen` succeeds, and mints one id per user action (reused when the
-  same action is retried after a transport failure). Types `OccurrenceFailure`, `ScheduleEventPayload`,
-  `ManualEventPayload`; helpers `ActionIds`, `SeenAckTracker`, `isDefinitiveError`.
-- Added: typed waits — `AutomationPanel` answers by `kind`: `ask_user` → `{response}`, `tool_approval` → tool calls
-  listed with Approve / Deny (`{approved}`), `event` → a JSON payload (`{payload}`). `AfScheduleDialog` and
-  `buildCreateRequest` send `policy.tool_approval` ("auto" by default, with the consent line "Tools run without
-  asking (you approve them now by creating this automation)"; "ask" on request). Types `WaitKind`,
-  `ToolCallToApprove`, `WaitAnswer`, `ToolApprovalPolicy`; helpers `waitToolCalls`, `parseEventPayload`,
-  `TOOL_APPROVAL_CONSENT`, `WAIT_KIND_LABELS`.
-- Changed: the automation fixtures are generated from real Gateway output (curated); `AttentionWait` carries
-  `reason` and `choices?` like the Gateway's pending waits.
-- Added: canonical fixtures `ui-kit/scripts/fixtures/automations/*.json` with `CHECKSUMS.sha256`, and the
-  `check_automation_fixtures`, `check_automation_client` and `check_automation_panel` checks in `npm test`.
+- Added: `AutomationPanel` shows and manages one AbstractGateway automation — its trigger
+  ("every 8 hours (UTC)"), context, next run, run count and attention; Pause / Resume, Run now
+  (also while paused; the automation stays paused), Stop current, Revise… and Archive… (confirmed
+  in the panel), each disabled control with a visible reason; its runs as chat pairs, quiet runs
+  subdued and notified, failed (reason, message, attempts) and waiting runs badged; Discuss as a
+  forked session with a read-only workspace. Attention is acknowledged up to the last displayed
+  item, after `/seen` succeeds.
+- Added: typed wait answers in `AutomationPanel` — `ask_user` → `{response}` (choices or free
+  text), `tool_approval` → the tool calls with their arguments and Approve / Deny
+  (`{approved}`), `event` → a JSON payload (`{payload}`); other kinds point to the run.
+- Added: `AfScheduleDialog` creates an automation: the task, a fixed UTC interval (presets from
+  every 5 minutes to every 7 days) or one UTC date and time, independent or growing context, and
+  tool approval — "Run without asking" by default, with the consent line "Tools run without
+  asking (you approve them now by creating this automation)", or "Ask me before each tool call".
+- Added: `createAutomationsClient()` — one method per `/api/gateway/automations` and
+  `/api/gateway/trigger-sources` route, injected `fetch`, Gateway errors thrown as
+  `AutomationApiError` (`code` = `reason_code`), unexpected answers as `invalid_response`.
+- Added: retry-safe ids — the panel and the dialog mint one `command_id` / `request_id` per user
+  action and reuse it when the same action is retried after a transport failure (`ActionIds`).
+- Added: the pure presentation rules, wait helpers and contract types behind these components; the
+  full list is in [docs/automations.md](docs/automations.md#exports).
+- Added: canonical automation fixtures `ui-kit/scripts/fixtures/automations/*.json`, generated
+  from real Gateway output and pinned by `CHECKSUMS.sha256`, with the
+  `check_automation_fixtures`, `check_automation_client` and `check_automation_panel` checks in
+  `npm test`. AbstractAssistant vendors byte-identical copies.
 
 ### panel-chat
 
-- Added: `ScheduleThisAction` ("Schedule this…" for a chat header slot) and `FromAutomationBadge`
-  ("from automation <title> · #<n>"). Standalone; they perform no requests.
+- Added: `ScheduleThisAction` ("Schedule this…" for a chat header slot; hands the host a
+  `ScheduleSeed`) and `FromAutomationBadge` ("from automation <title> · #<n>"). Neither performs
+  requests.
 
 ## 0.1.12 - 2026-09-26
 

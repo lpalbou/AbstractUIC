@@ -20,7 +20,7 @@ For a package-by-package export map, see the [API reference](./api.md).
 
 | Package | Use when you need… | Primary exports (source of truth) |
 |---|---|---|
-| `@abstractframework/ui-kit` | Shared theme tokens, inputs, Gateway connection UI, app chrome (top bar, drawer, appearance) | `ui-kit/src/index.ts` |
+| `@abstractframework/ui-kit` | Shared theme tokens, inputs, Gateway connection UI, app chrome (top bar, drawer, appearance), automations panel + schedule dialog + client ([Automations](./automations.md)) | `ui-kit/src/index.ts` |
 | `@abstractframework/panel-chat` | Chat thread + message UI + markdown/json rendering | `panel-chat/src/index.ts` |
 | `@abstractframework/monitor-flow` | Agent “cycles” trace viewer + ledger adapter | `monitor-flow/src/index.ts` |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | `monitor-active-memory/src/index.ts` |
@@ -197,6 +197,7 @@ module.exports = {
 
 - [API reference](./api.md)
 - [Adoption guide](./adoption-guide.md)
+- [Automations](./automations.md)
 - [FAQ](./faq.md)
 - [Troubleshooting](./troubleshooting.md) (setup and first-run problems)
 - [Architecture](./architecture.md)

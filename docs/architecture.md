@@ -140,6 +140,14 @@ Evidence:
 - `ChatThread` / `ChatComposer`: `panel-chat/src/chat_thread.tsx`, `panel-chat/src/chat_composer.tsx`
 - `WorkflowTransport` / `WorkflowSessionController`: `panel-chat/src/workflow_runtime.ts`
 - Live-reply events (`LlmDelta`, `LlmDeltaEnd`) and `streamRepliesRuntime`: `panel-chat/src/llm_delta.ts`
+- Automation chat pieces (`ScheduleSeed`, `ScheduleThisAction`, `FromAutomationBadge`): `panel-chat/src/automation_badges.tsx`
+
+### Automations (`ui-kit`)
+
+- Wire shapes of the Gateway automation routes (`AutomationSummary`, `OccurrenceRow`, `CreateAutomationRequest`, …): `ui-kit/src/automations/types.ts`
+- Client and error envelope parsing: `ui-kit/src/automations/client.ts`
+- Pure presentation rules (controls, occurrence tones, labels, create body, retry-safe ids): `ui-kit/src/automations/panel_core.ts`
+- Canonical examples: `ui-kit/scripts/fixtures/automations/*.json`
 
 ### GPU metrics (`monitor-gpu`)
 
@@ -285,6 +293,51 @@ flowchart LR
 
 Details, API and examples: [Console islands](./console-islands.md).
 
+## Automations (`ui-kit` + `panel-chat`)
+
+Apps show and manage AbstractGateway automations with the shared kit pieces. The host owns the
+fetching: it calls the Gateway through `createAutomationsClient()` (with its own `fetch`, usually
+through the `app-server` proxy), passes the results to `AutomationPanel`, and forwards the
+panel's callbacks back to the client. Wait answers go through the Gateway's command route. The
+canonical fixtures pin the wire shapes that the kit, AbstractObserver and AbstractAssistant test
+against.
+
+```mermaid
+flowchart LR
+  subgraph Apps["Host apps"]
+    OBS["AbstractObserver<br/>Automations page"]
+    CHATHOST["Chat host<br/>WorkflowChat header"]
+    ASSIST["AbstractAssistant (Qt)<br/>own UI, vendored fixtures"]
+  end
+
+  subgraph Kit["AbstractUIC"]
+    PANEL["ui-kit AutomationPanel<br/>controls, runs as chat pairs, typed waits"]
+    DIALOG["ui-kit AfScheduleDialog<br/>builds the create body"]
+    CLIENT["ui-kit createAutomationsClient()<br/>injected fetch, AutomationApiError"]
+    PCHAT["panel-chat ScheduleThisAction<br/>FromAutomationBadge"]
+    FIX["ui-kit fixtures<br/>scripts/fixtures/automations/*.json"]
+  end
+
+  subgraph GW["AbstractGateway"]
+    AUTO["/api/gateway/automations<br/>list, detail, create, revise, commands,<br/>occurrences, attention, discuss, seen"]
+    SRC["/api/gateway/trigger-sources"]
+    CMD["/api/gateway/commands<br/>(resume a wait)"]
+  end
+
+  OBS -->|"summary, occurrences, callbacks"| PANEL
+  CHATHOST --> PCHAT
+  PCHAT -->|"onSchedule(seed)"| DIALOG
+  PANEL -->|"onCommand / onRevise / onDiscuss / onSeen"| CLIENT
+  DIALOG -->|"onSubmit(body)"| CLIENT
+  CLIENT --> AUTO
+  CLIENT --> SRC
+  PANEL -->|"onAnswerWait (host)"| CMD
+  FIX -.->|"shapes checked by"| CLIENT
+  FIX -.->|"byte-identical copies"| ASSIST
+```
+
+Details, props, the error model and the fixtures contract: [Automations](./automations.md).
+
 ## Styling & theming
 
 - `@abstractframework/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css` (exported as `@abstractframework/ui-kit/theme.css`) — 21 themes; see [Theming](./theming.md) for the token vocabulary and adoption rules.
@@ -298,6 +351,7 @@ See also: [Getting started](./getting-started.md) for integration + required CSS
 - Getting started: [Getting started](./getting-started.md)
 - API reference: [API reference](./api.md)
 - Console islands: [Console islands](./console-islands.md)
+- Automations: [Automations](./automations.md)
 - Theming: [Theming](./theming.md)
 - FAQ: [FAQ](./faq.md)
 - Troubleshooting: [Troubleshooting](./troubleshooting.md)

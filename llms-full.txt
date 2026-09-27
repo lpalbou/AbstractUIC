@@ -54,16 +54,17 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Adoption guide](docs/adoption-guide.md): which shared component for which job + the cross-app contracts (connection surface, server truth, labeled fallbacks)
 - [Theming](docs/theming.md): design-token vocabulary, 21-theme system, adoption/migration rules for host apps
 - [API reference](docs/api.md): export map per package (what to import)
-- [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, ecosystem data flow, gateway connection flow, live replies, About/identity flow, console islands build)
+- [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, ecosystem data flow, gateway connection flow, live replies, About/identity flow, automations flow, console islands build)
 - [FAQ](docs/faq.md): bundling/CSS/SSR and per-package notes
 - [Troubleshooting](docs/troubleshooting.md): symptoms, checks and fixes (unstyled components, SSR errors, widget polling, app-server 400/401/403, live replies, images shown as links, stale islands bundle)
+- [Automations](docs/automations.md): show and manage AbstractGateway automations — `AutomationPanel` (controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (fixed UTC intervals, tool-approval consent line), `createAutomationsClient()` and its error model, retry-safe ids, panel-chat `ScheduleThisAction` / `FromAutomationBadge`, the canonical fixtures and the export list
 - [Console islands](docs/console-islands.md): `window.AfConsoleIslands` (mountTopBar / mountAppearance / mountAbout / appIdentity / applyAppearance) for pages that are not React apps; repository build, not in the npm package
 - [Docs index](docs/README.md): full docs navigation
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / appearance dialog, About dialog + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk)
-- [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat, live replies (`llm.delta`)
+- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / appearance dialog, About dialog + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel + schedule dialog + client
+- [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat, live replies (`llm.delta`), ScheduleThisAction + FromAutomationBadge
 - [@abstractframework/app-server](app-server/README.md): Node gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -83,6 +84,10 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [ui-kit/src/about.tsx](ui-kit/src/about.tsx): `AfAboutDialog`
 - [ui-kit/src/gateway_session_signin.tsx](ui-kit/src/gateway_session_signin.tsx): shared Gateway browser-session sign-in card
 - [ui-kit/src/use_gateway_connection.ts](ui-kit/src/use_gateway_connection.ts): the connection state machine hook (probe/auto-open/self-close contract)
+- [ui-kit/src/automations/types.ts](ui-kit/src/automations/types.ts): wire shapes of the Gateway automation routes (`AutomationSummary`, `OccurrenceRow`, typed waits, `CreateAutomationRequest`, `ApiError`)
+- [ui-kit/src/automations/client.ts](ui-kit/src/automations/client.ts): `createAutomationsClient()`, `AutomationApiError`, error envelope parsing
+- [ui-kit/src/automations/panel_core.ts](ui-kit/src/automations/panel_core.ts): pure rules (controls, occurrence tones, labels, create body, wait helpers, retry-safe ids)
+- [ui-kit/scripts/fixtures/automations/README.md](ui-kit/scripts/fixtures/automations/README.md): the canonical automation fixtures and their checksum rule
 - [ui-kit/islands/console_islands.tsx](ui-kit/islands/console_islands.tsx): console islands entry and `AfConsoleIslands` API
 - [ui-kit/scripts/build_islands.mjs](ui-kit/scripts/build_islands.mjs): islands bundle build (`--check` detects a stale bundle)
 - [ui-kit/palette_seeds.json](ui-kit/palette_seeds.json): generated 4-token palette per theme (for non-CSS consumers)
@@ -92,6 +97,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [app-server/src/index.d.ts](app-server/src/index.d.ts): TS types for `createGatewaySessionProxy`
 - [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
 - [panel-chat/src/chat_message_card.tsx](panel-chat/src/chat_message_card.tsx): `ChatMessage` / `ChatAttachment` / `ChatStat` contracts
+- [panel-chat/src/automation_badges.tsx](panel-chat/src/automation_badges.tsx): `ScheduleThisAction` and `FromAutomationBadge`
 - [panel-chat/src/llm_delta.ts](panel-chat/src/llm_delta.ts): live-reply events (`llm.delta` / `llm.delta_end`), SSE dispatch helper, `streamRepliesRuntime`
 - [panel-chat/src/message_content.tsx](panel-chat/src/message_content.tsx): JSON autodetect + Markdown override hook (`renderMarkdown`)
 - [panel-chat/src/markdown.tsx](panel-chat/src/markdown.tsx): Markdown renderer rules (minimal, no external deps)
@@ -128,7 +134,7 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
-AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`).
+AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
 
 ## AbstractFramework ecosystem
 
@@ -149,6 +155,7 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 - Architecture (includes diagrams): [`docs/architecture.md`](./docs/architecture.md)
 - Troubleshooting: [`docs/troubleshooting.md`](./docs/troubleshooting.md)
 - Console islands (kit components for non-React pages): [`docs/console-islands.md`](./docs/console-islands.md)
+- Automations (panel, schedule dialog, client, fixtures): [`docs/automations.md`](./docs/automations.md)
 - Docs index: [`docs/README.md`](./docs/README.md)
 - Agent-oriented docs: [`llms.txt`](./llms.txt) (index) and [`llms-full.txt`](./llms-full.txt) (generated, offline-friendly)
 - Changelog: [`CHANGELOG.md`](./CHANGELOG.md)
@@ -161,8 +168,8 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 
 | Package | Purpose | Docs |
 |---|---|---|
-| `@abstractframework/ui-kit` | Theme tokens (21 themes), inputs (`AfSelect`, provider/model pickers), Gateway connect modal + connection hook, top bar / drawer / appearance dialog, About dialog + AbstractFramework identity helpers, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk); console islands for non-React pages (repository build) | [`ui-kit/README.md`](./ui-kit/README.md) |
-| `@abstractframework/panel-chat` | Chat thread + message cards + composer + markdown/json rendering, app assistant panel, workflow chat with live (streamed) replies | [`panel-chat/README.md`](./panel-chat/README.md) |
+| `@abstractframework/ui-kit` | Theme tokens (21 themes), inputs (`AfSelect`, provider/model pickers), Gateway connect modal + connection hook, top bar / drawer / appearance dialog, About dialog + AbstractFramework identity helpers, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel + schedule dialog + typed Gateway client; console islands for non-React pages (repository build) | [`ui-kit/README.md`](./ui-kit/README.md) |
+| `@abstractframework/panel-chat` | Chat thread + message cards + composer + markdown/json rendering, app assistant panel, workflow chat with live (streamed) replies, "Schedule this…" action and "from automation" badge | [`panel-chat/README.md`](./panel-chat/README.md) |
 | `@abstractframework/app-server` | Node gateway-session proxy for app servers (token → HttpOnly cookie exchange, CSRF, URL pinning, forwarded client address) | [`app-server/README.md`](./app-server/README.md) |
 | `@abstractframework/monitor-flow` | Agent-cycle trace viewer + ledger adapter | [`monitor-flow/README.md`](./monitor-flow/README.md) |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | [`monitor-active-memory/README.md`](./monitor-active-memory/README.md) |
@@ -244,7 +251,7 @@ For a package-by-package export map, see the [API reference](./api.md).
 
 | Package | Use when you need… | Primary exports (source of truth) |
 |---|---|---|
-| `@abstractframework/ui-kit` | Shared theme tokens, inputs, Gateway connection UI, app chrome (top bar, drawer, appearance) | `ui-kit/src/index.ts` |
+| `@abstractframework/ui-kit` | Shared theme tokens, inputs, Gateway connection UI, app chrome (top bar, drawer, appearance), automations panel + schedule dialog + client ([Automations](./automations.md)) | `ui-kit/src/index.ts` |
 | `@abstractframework/panel-chat` | Chat thread + message UI + markdown/json rendering | `panel-chat/src/index.ts` |
 | `@abstractframework/monitor-flow` | Agent “cycles” trace viewer + ledger adapter | `monitor-flow/src/index.ts` |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | `monitor-active-memory/src/index.ts` |
@@ -421,6 +428,7 @@ module.exports = {
 
 - [API reference](./api.md)
 - [Adoption guide](./adoption-guide.md)
+- [Automations](./automations.md)
 - [FAQ](./faq.md)
 - [Troubleshooting](./troubleshooting.md) (setup and first-run problems)
 - [Architecture](./architecture.md)
@@ -731,6 +739,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - CSRF helpers: `readGatewayCsrfToken()`, `readGatewayCsrfTokens()`
 - Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`; `VoiceSettings` (catalog-driven voice preferences form)
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
+- Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation on a fixed UTC interval or once), `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
 - Icons: `Icon`, `IconName` (~40 glyphs, 24-grid and 16-grid families)
 - Palette seeds: `@abstractframework/ui-kit/palette_seeds.json` (generated 4-token palette per theme)
 
@@ -771,6 +780,7 @@ Components:
   render their entity/agent name when provided, falling back to "Agent")
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
+- Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
 
 Renderers:
 - `Markdown` (lightweight Markdown with real nested lists, marker progression, fenced code
@@ -906,6 +916,7 @@ See: [`monitor-memory/README.md`](../monitor-memory/README.md) for the backend c
 - FAQ: [FAQ](./faq.md)
 - Architecture (diagrams): [Architecture](./architecture.md)
 - Console islands: [Console islands](./console-islands.md)
+- Automations: [Automations](./automations.md)
 - Troubleshooting: [Troubleshooting](./troubleshooting.md)
 - Docs index: [Docs index](./README.md)
 - Security policy: [`SECURITY.md`](../SECURITY.md)
@@ -1054,6 +1065,14 @@ Evidence:
 - `ChatThread` / `ChatComposer`: `panel-chat/src/chat_thread.tsx`, `panel-chat/src/chat_composer.tsx`
 - `WorkflowTransport` / `WorkflowSessionController`: `panel-chat/src/workflow_runtime.ts`
 - Live-reply events (`LlmDelta`, `LlmDeltaEnd`) and `streamRepliesRuntime`: `panel-chat/src/llm_delta.ts`
+- Automation chat pieces (`ScheduleSeed`, `ScheduleThisAction`, `FromAutomationBadge`): `panel-chat/src/automation_badges.tsx`
+
+### Automations (`ui-kit`)
+
+- Wire shapes of the Gateway automation routes (`AutomationSummary`, `OccurrenceRow`, `CreateAutomationRequest`, …): `ui-kit/src/automations/types.ts`
+- Client and error envelope parsing: `ui-kit/src/automations/client.ts`
+- Pure presentation rules (controls, occurrence tones, labels, create body, retry-safe ids): `ui-kit/src/automations/panel_core.ts`
+- Canonical examples: `ui-kit/scripts/fixtures/automations/*.json`
 
 ### GPU metrics (`monitor-gpu`)
 
@@ -1199,6 +1218,51 @@ flowchart LR
 
 Details, API and examples: [Console islands](./console-islands.md).
 
+## Automations (`ui-kit` + `panel-chat`)
+
+Apps show and manage AbstractGateway automations with the shared kit pieces. The host owns the
+fetching: it calls the Gateway through `createAutomationsClient()` (with its own `fetch`, usually
+through the `app-server` proxy), passes the results to `AutomationPanel`, and forwards the
+panel's callbacks back to the client. Wait answers go through the Gateway's command route. The
+canonical fixtures pin the wire shapes that the kit, AbstractObserver and AbstractAssistant test
+against.
+
+```mermaid
+flowchart LR
+  subgraph Apps["Host apps"]
+    OBS["AbstractObserver<br/>Automations page"]
+    CHATHOST["Chat host<br/>WorkflowChat header"]
+    ASSIST["AbstractAssistant (Qt)<br/>own UI, vendored fixtures"]
+  end
+
+  subgraph Kit["AbstractUIC"]
+    PANEL["ui-kit AutomationPanel<br/>controls, runs as chat pairs, typed waits"]
+    DIALOG["ui-kit AfScheduleDialog<br/>builds the create body"]
+    CLIENT["ui-kit createAutomationsClient()<br/>injected fetch, AutomationApiError"]
+    PCHAT["panel-chat ScheduleThisAction<br/>FromAutomationBadge"]
+    FIX["ui-kit fixtures<br/>scripts/fixtures/automations/*.json"]
+  end
+
+  subgraph GW["AbstractGateway"]
+    AUTO["/api/gateway/automations<br/>list, detail, create, revise, commands,<br/>occurrences, attention, discuss, seen"]
+    SRC["/api/gateway/trigger-sources"]
+    CMD["/api/gateway/commands<br/>(resume a wait)"]
+  end
+
+  OBS -->|"summary, occurrences, callbacks"| PANEL
+  CHATHOST --> PCHAT
+  PCHAT -->|"onSchedule(seed)"| DIALOG
+  PANEL -->|"onCommand / onRevise / onDiscuss / onSeen"| CLIENT
+  DIALOG -->|"onSubmit(body)"| CLIENT
+  CLIENT --> AUTO
+  CLIENT --> SRC
+  PANEL -->|"onAnswerWait (host)"| CMD
+  FIX -.->|"shapes checked by"| CLIENT
+  FIX -.->|"byte-identical copies"| ASSIST
+```
+
+Details, props, the error model and the fixtures contract: [Automations](./automations.md).
+
 ## Styling & theming
 
 - `@abstractframework/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css` (exported as `@abstractframework/ui-kit/theme.css`) — 21 themes; see [Theming](./theming.md) for the token vocabulary and adoption rules.
@@ -1212,6 +1276,7 @@ See also: [Getting started](./getting-started.md) for integration + required CSS
 - Getting started: [Getting started](./getting-started.md)
 - API reference: [API reference](./api.md)
 - Console islands: [Console islands](./console-islands.md)
+- Automations: [Automations](./automations.md)
 - Theming: [Theming](./theming.md)
 - FAQ: [FAQ](./faq.md)
 - Troubleshooting: [Troubleshooting](./troubleshooting.md)
@@ -1241,6 +1306,10 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 - [panel-chat: How do I show replies while the model writes them?](#panel-chat-how-do-i-show-replies-while-the-model-writes-them)
 - [panel-chat: Why do images in assistant messages show as links?](#panel-chat-why-do-images-in-assistant-messages-show-as-links)
 - [ui-kit: How do I add the About dialog?](#ui-kit-how-do-i-add-the-about-dialog)
+- [Automations: Does the kit poll or schedule anything?](#automations-does-the-kit-poll-or-schedule-anything)
+- [Automations: Why are schedules fixed UTC intervals?](#automations-why-are-schedules-fixed-utc-intervals)
+- [Automations: Why do tools run without asking by default?](#automations-why-do-tools-run-without-asking-by-default)
+- [Automations: How are wait answers sent?](#automations-how-are-wait-answers-sent)
 - [monitor-flow: What trace format does AgentCyclesPanel expect?](#monitor-flow-what-trace-format-does-agentcyclespanel-expect)
 - [monitor-active-memory: How does querying work?](#monitor-active-memory-how-does-querying-work)
 - [monitor-active-memory: Does it persist layouts?](#monitor-active-memory-does-it-persist-layouts)
@@ -1385,6 +1454,35 @@ from `GET /api/gateway/about`, or `gatewayVersionRows(null, reason)` when the re
 
 See: [`ui-kit/README.md`](../ui-kit/README.md#about-dialog-and-identity).
 
+## Automations: Does the kit poll or schedule anything?
+
+No. AbstractGateway schedules and runs automations. The kit renders what your host passes and
+reports intent through callbacks; `createAutomationsClient()` sends a request only when you call
+one of its methods, through the `fetch` you inject. Poll complete pages at the interval your app
+needs: the Automations API has no change cursor. See [Automations](./automations.md).
+
+## Automations: Why are schedules fixed UTC intervals?
+
+The `schedule@1` trigger source counts fixed intervals (`every: "24h"`) from a UTC start, with
+no time zone and no calendar rules. The kit words every schedule that way ("every 24 hours
+(UTC)") so the label matches what runs. Use **Once at…** in `AfScheduleDialog` for a single UTC
+date and time.
+
+## Automations: Why do tools run without asking by default?
+
+An unattended automation cannot ask a person at every tick, so `policy.tool_approval` defaults
+to `"auto"`: creating the automation is the consent, and `AfScheduleDialog` states it in the
+consent line "Tools run without asking (you approve them now by creating this automation)".
+Choose "Ask me before each tool call" (`"ask"`) to make every tool call wait for your approval
+in the automation's timeline.
+
+## Automations: How are wait answers sent?
+
+`AutomationPanel` calls `onAnswerWait(runId, waitKey, payload)` with the payload the wait's
+`kind` expects (`{response}`, `{approved}` or `{payload}`); your host resumes the wait through the
+Gateway's `POST /api/gateway/commands` (`type: "resume"`). See
+[Answering a wait](./automations.md#answering-a-wait).
+
 ## monitor-flow: What trace format does AgentCyclesPanel expect?
 
 `AgentCyclesPanel` consumes `TraceItem[]` and starts a new cycle when `step.effect.type === "llm_call"`.
@@ -1461,6 +1559,7 @@ Maintainers: see [Publishing](./publishing.md).
 - Getting started: [Getting started](./getting-started.md)
 - API reference: [API reference](./api.md)
 - Architecture: [Architecture](./architecture.md)
+- Automations: [Automations](./automations.md)
 - Troubleshooting: [Troubleshooting](./troubleshooting.md)
 
 ## docs/troubleshooting.md
@@ -1607,6 +1706,47 @@ through `messageProps`. See the [FAQ entry](./faq.md#panel-chat-why-do-images-in
 
 See: [Console islands](./console-islands.md).
 
+## Automations: the panel shows an error or a control stays disabled
+
+- **A control is disabled.** The reason is printed under the controls ("Run now: An occurrence is
+  in progress."). Controls follow `summary.capabilities` and the status: Pause needs `active`,
+  Resume needs `paused`, Run now needs no run in progress, Stop current needs one, and an archived
+  or legacy automation offers no controls. Pass `busy={false}` once your request settles.
+- **"The automation changed since this view loaded."** (`revision_conflict`): another client
+  revised it. Reload the summary and submit the revision again.
+- **"An occurrence is already running or queued."** (`automation_busy`): wait for the current run,
+  or use Stop current.
+- **"This request id was already used for a different request."** (`identity_conflict`): your
+  host reused a `command_id` or `request_id` for a different body. Forward the id the panel or
+  dialog passes, and let the client mint one when you have none.
+- **"The gateway gave an unexpected answer."** (`invalid_response`): the answer was not the
+  Gateway's JSON, for example an HTML page from a wrong `baseUrl` or a proxy that does not forward
+  `/api/gateway/automations`. Open the request in the browser's network panel and check its URL
+  and body.
+- **"Sign in to the gateway to manage automations."** (`unauthorized`): the browser session has no
+  Gateway credentials; sign in through the connection modal (see the `app-server` entry above).
+- **`crypto.randomUUID is unavailable`**: the page runs outside a secure context (plain `http://`
+  on a host other than `localhost`). Serve it over HTTPS or pass `newId` to
+  `createAutomationsClient()`, `newId` to `AutomationPanel` and `newRequestId` to
+  `AfScheduleDialog`.
+- **Attention stays unseen.** The panel acknowledges the last displayed item only after `onSeen`
+  resolves; make `onSeen` return the `markSeen` promise and pass a new `summary` object on each
+  poll so a failed acknowledgement is retried.
+
+See: [Automations](./automations.md).
+
+## Automations: `check_automation_fixtures` or the identity sync check fails
+
+- `CHECKSUMS.sha256 matches the fixture bytes`: a fixture file changed. If the change is intended,
+  run `node ui-kit/scripts/check_automation_fixtures.mjs --write`; otherwise restore the file.
+- A shape or coverage failure names the file and the field: fixtures must keep the Gateway's exact
+  fields (unknown keys are rejected) and cover every error code, command type and trigger source.
+- `scripts/check_identity_sync.py` in the AbstractFramework repository reports an automations
+  fixture: copy the six JSON files and `CHECKSUMS.sha256` byte for byte into AbstractAssistant's
+  `tests/basic/fixtures/automations/`.
+
+See: [Automations: Fixtures contract](./automations.md#fixtures-contract).
+
 ## `npm test` fails in `ui-kit`
 
 The `ui-kit` test chain runs guard scripts before and after the build. The first failing
@@ -1622,6 +1762,8 @@ script names the problem, for example:
   when the gateway rows change, update the helper and the fixture together with the Python twin
   in AbstractCore.
 - `check_islands.mjs`: see the console islands entry above.
+- `check_automation_fixtures.mjs`, `check_automation_client.mjs`, `check_automation_panel.mjs`:
+  see the automations entries above.
 
 See: [Theming: Guard scripts](./theming.md#guard-scripts), [Development](./development.md).
 
@@ -1636,7 +1778,388 @@ error. Report security problems privately as described in [`SECURITY.md`](../SEC
 - [Getting started](./getting-started.md)
 - [FAQ](./faq.md)
 - [API reference](./api.md)
+- [Automations](./automations.md)
 - [Architecture](./architecture.md)
+- [Docs index](./README.md)
+
+## docs/automations.md
+
+# Automations
+
+An **automation** runs a workflow on a trigger — "every 8 hours", "every 30 minutes", "once at
+2026-09-28 08:00 UTC", or by hand — and keeps every run readable as a chat. AbstractGateway owns
+the execution (its `/api/gateway/automations` routes, backed by AbstractRuntime). AbstractUIC
+ships the shared presentation and the typed client that every app uses to show and manage
+automations:
+
+| Piece | Package | What it does |
+| --- | --- | --- |
+| `AutomationPanel` | `ui-kit` | One automation: its definition, its controls, its runs as chat pairs, and the answers to runs that wait for you |
+| `AfScheduleDialog` | `ui-kit` | Creates an automation; builds the `POST /api/gateway/automations` body |
+| `createAutomationsClient()` | `ui-kit` | One method per Gateway automation route; injected `fetch`; typed errors |
+| `ScheduleThisAction` | `panel-chat` | A "Schedule this…" button for a chat header slot |
+| `FromAutomationBadge` | `panel-chat` | A "from automation <title> · #<n>" marker for a message or session |
+| Canonical fixtures | `ui-kit/scripts/fixtures/automations/` | The Gateway's wire shapes that every client tests against |
+
+The components never schedule, poll or execute anything. Your host fetches with the client,
+passes server truth to the components, and forwards the intent they report through callbacks.
+For how the pieces connect to the Gateway, see the [Automations flow](./architecture.md#automations-ui-kit--panel-chat)
+in the architecture page; for the export list in context, see the [API reference](./api.md).
+
+## Concepts
+
+- **Occurrence** — one run of the automation (a child run). It reads as two chat turns: the
+  **trigger turn** (the trigger line, such as `schedule: every 8 hours (UTC), tick 12`, followed
+  by the task) and the **answer turn**.
+- **Quiet and notable runs** — runs are quiet by default. A run is notable when its output
+  carries `notify`, when it failed after its last retry, or when it waits for a person. Quiet
+  runs stay visible, subdued and unbadged.
+- **Context** — *independent*: each run starts fresh. *growing*: each run sees the previous
+  runs, like turns of one conversation.
+- **Fixed UTC intervals** — `schedule@1` knows `start_at`, `every` (`^[1-9][0-9]*[smhd]$`),
+  `until` and `count`. Every label reads "every 24 hours (UTC)", never "daily at 08:00 local":
+  schedules carry no time zone. Without `every`, the automation runs once at `start_at`.
+- **Tool approval** — `policy.tool_approval` is `"auto"` by default: an unattended run cannot
+  ask a person at every tick, so its tools run without asking, and creating the automation is the
+  consent. `"ask"` makes every tool call wait for approval in the automation's timeline.
+  Questions a flow asks with `ask_user` wait for a person in both modes.
+- **Typed waits** — every wait carries a `kind`, and the answer follows the kind, never the
+  prompt text (see [Answering a wait](#answering-a-wait)).
+- **Discuss** — starts a *forked* session seeded with the automation's conversation up to one
+  occurrence. It never writes back into the automation, and the automation's workspace is mounted
+  read-only in the discussion.
+- **Trigger envelope** — a `schedule@1` run's envelope payload is `{tick, scheduled_at,
+  coalesced?: {first_tick, last_tick, missed_count}}` (`ScheduleEventPayload`; `coalesced`
+  appears when missed ticks were folded into one run); `fired_at` is on the envelope itself.
+  A `manual@1` run carries `{command_id}` (`ManualEventPayload`).
+
+## AutomationPanel
+
+```tsx
+import { AutomationPanel } from "@abstractframework/ui-kit";
+import "@abstractframework/ui-kit/theme.css";
+
+<AutomationPanel
+  summary={summary}                 // AutomationSummary (a row of the list page)
+  occurrences={rows}                // OccurrenceRow[] (any page order; rendered oldest first)
+  triggerSources={sources}          // items of GET /api/gateway/trigger-sources
+  busy={pending}
+  error={lastError}                 // ApiError | undefined
+  onCommand={(type, payload, meta) =>
+    automations.sendAutomationCommand(id, { type: type as AutomationCommandType, payload, command_id: meta?.command_id })}
+  onRevise={(changes, rev, meta) =>
+    automations.reviseAutomation(id, { changes, expected_revision: rev ?? undefined, command_id: meta?.command_id })}
+  onDiscuss={(index, prompt, meta) =>
+    automations.discuss(id, { occurrence_index: index, prompt, request_id: meta?.request_id })}
+  onSeen={(cursor) => automations.markSeen(id, cursor).then(() => undefined)}
+  onLoadMore={loadOlderPage}
+  onOpenRun={(runId) => openLedger(runId)}
+  onAnswerWait={(runId, waitKey, payload) => resumeWait(runId, waitKey, payload)}
+/>
+```
+
+The panel is controlled: it holds only view state (which form is open, the last notice) and
+renders what you pass. Optional props: `definition` (an `AutomationDefinition` you already hold;
+the panel renders from `summary`), `newId` (the id source for retry-safe ids, default
+`crypto.randomUUID`) and `className`.
+
+### What it shows
+
+- **Header** — title, status, trigger ("every 8 hours (UTC)", "once at 2026-09-28 08:00 UTC",
+  "manual runs only"), context, next run ("none while paused" when paused), run count, attention
+  ("2 unseen · 1 waiting for you"), revision, and a "Legacy schedule" marker for rows the Gateway
+  projects from older `scheduled:*` roots. When the Gateway does not list the automation's trigger
+  source, or lists it with `available: false`, the header says so.
+- **Needs attention** — the unseen notify and failure items, then the pending waits, labelled by
+  kind ("Question for you", "Approval needed", "Waiting for an event").
+- **Occurrences** — one chat pair per run, oldest first. Quiet runs are subdued; notified, failed,
+  waiting and running runs carry a badge ("Notified", "Failed after 3 attempts", "Waiting for you",
+  "Running"). A run that succeeded after retries reads "completed after 2 attempts". A failed run
+  shows its `failure` (`reason_code`, message, "after N attempts"). The answer turn lists the
+  run's artifacts. Each pair has **Run details** (run id, attempts, "Open run ledger" through
+  `onOpenRun`, the ledger JSON link, the workspace link when the Gateway sends one).
+- **Paused** — a hint reads "Paused: scheduled runs are skipped. Run now works and keeps it
+  paused."
+- **Load earlier occurrences** appears while fewer rows than `summary.occurrence_count` are
+  loaded; it calls `onLoadMore`.
+
+### Controls
+
+Pause / Resume, Run now, Stop current, Revise… and Archive…. `summary.capabilities` says what
+you may do; the status says what applies at this moment:
+
+| Control | Enabled when | Sends |
+| --- | --- | --- |
+| Pause | status `active` | `automation.pause` |
+| Resume | status `paused` | `automation.resume` |
+| Run now | status `active` or `paused`, and no run in progress | `automation.run_now` (while paused it runs once; the automation stays paused) |
+| Stop current | a run is running, waiting or backing off | `automation.stop_current` |
+| Revise… | always (subject to capability and status below) | `onRevise(changes, revision)` |
+| Archive… | always (subject to capability and status below) | `automation.archive`, after an in-panel confirmation |
+
+Every control is disabled while `busy`, on a legacy row, without the matching capability, or on
+an archived automation. Each disabled control shows its reason next to the controls ("Run now:
+An occurrence is in progress."), linked to the button with `aria-describedby`.
+
+- **Revise** edits the title, the interval and the context. Only changed fields are sent, with
+  `expected_revision`; a new interval keeps the rest of the schedule. The change applies from the
+  next run.
+- **Discuss — forked session, read-only workspace** needs the `discuss` capability, is off for
+  legacy rows, and is available once the run has finished (also on an archived automation).
+- When the archive confirmation, the revise form or a discuss form closes, focus returns to the
+  control that opened it (else to the notice, else to the title).
+
+### Attention and `/seen`
+
+After showing the attention items, the panel calls `onSeen(cursor)` with the cursor of the **last
+displayed** item, never `summary.attention.cursor`, so items it did not show stay unseen. A
+cursor counts as acknowledged only after `onSeen` resolves. A failed call is retried on the next
+render that brings a new `summary` object (your next poll), never in a loop.
+
+### Answering a wait
+
+The panel renders each wait by its `kind` and calls `onAnswerWait(runId, waitKey, payload)` with
+the payload that kind expects:
+
+| `kind` | What the panel shows | `payload` |
+| --- | --- | --- |
+| `ask_user` | The question, one button per choice, and a free-text answer | `{response: "<choice or text>"}` |
+| `tool_approval` | The tool calls with their arguments (`details`: `[{name, arguments, call_id?}]`), **Approve** and **Deny** | `{approved: true}` or `{approved: false}` |
+| `event` | A JSON payload field; invalid JSON is refused with a message | `{payload: <JSON>}` |
+| any other | The wait, with "open the run"; it is not answered here | — |
+
+The Gateway resumes a wait through `POST /api/gateway/commands` with `type: "resume"` and
+`payload: {wait_key, payload}` on the waiting run; `commands.json` in the fixtures holds the
+exact request for each kind. After the host's promise resolves the panel shows "Answer sent.";
+a rejection is shown as an error.
+
+### Retry-safe ids
+
+The panel mints **one id per user action** and passes it as the last callback argument:
+`{command_id}` for `onCommand` and `onRevise`, `{request_id}` for `onDiscuss`. Forward it to
+the client. When a request fails in transport (no Gateway answer, or an answer that is not the
+error envelope), the same action again reuses the same id, so the Gateway answers idempotently
+(a repeat returns `accepted: false, duplicate: true`). After a success or a Gateway error the
+next click is a new action with a new id. The same rule is exported as `ActionIds` (with
+`isDefinitiveError`) for hosts that build their own controls.
+
+### Errors
+
+Every error code maps to one sentence (`apiErrorText()` / `API_ERROR_TEXT`), shown with the
+Gateway's own message, for example `revision_conflict` → "The automation changed since this view
+loaded. Reload it, then try again."
+
+## AfScheduleDialog
+
+```tsx
+import { AfScheduleDialog } from "@abstractframework/ui-kit";
+
+<AfScheduleDialog
+  open={open}
+  onClose={() => setOpen(false)}
+  workflowPicker={<MyWorkflowPicker onChange={setTarget} />}
+  target={target}                     // {bundle_ref, flow_id} | {flow_id: "@default", interface}
+  targetTools={toolNames}             // optional: listed under the consent line
+  initialPrompt={chatPrompt}
+  onSubmit={(body) => automations.createAutomation(body)}
+  busy={creating}
+  error={createError}
+/>
+```
+
+The dialog is modal (focus trapped, Escape closes, focus returns to the opener) and holds these
+sections:
+
+- **What** — your workflow picker (a slot; it sets `target`) and the task, sent as
+  `target.input_data.prompt`.
+- **When (UTC)** — **Repeat** every N minutes, hours or days, with presets from "every 5
+  minutes" to "every 7 days", or **Once at…** a UTC date and time. A preview line reads, for
+  example, "Runs every 24 hours (UTC), first run now."
+- **Context** — Independent or Growing.
+- **Tools** — "Run without asking" (the default, `policy.tool_approval: "auto"`) shows the
+  consent line **"Tools run without asking (you approve them now by creating this automation)"**,
+  followed by the `targetTools` names when you pass them. "Ask me before each tool call"
+  (`"ask"`) makes every tool call wait for approval in the automation's timeline.
+- **Advanced** — title (default: the task's first line, at most 120 characters), first run at,
+  stop after N runs, stop at. Date fields are read as UTC.
+
+Submitting calls `onSubmit(body)` with a complete `CreateAutomationRequest`. The dialog mints one
+`request_id` per distinct request body: retrying the same request after a transport failure
+reuses it; an edited request, or a request after a definitive answer, gets a new id (reusing an
+id with a different body would be an `identity_conflict`). Return the client's promise from
+`onSubmit` so the dialog can tell a transport failure from an answer. The same builder is
+exported as `buildCreateRequest(form, {target, requestId})`, which returns `{ok: true, body}` or
+`{ok: false, errors}`; `TOOL_APPROVAL_CONSENT` holds the consent line for hosts with their own
+create UI.
+
+## The client
+
+```ts
+import { createAutomationsClient, AutomationApiError } from "@abstractframework/ui-kit";
+
+const automations = createAutomationsClient({
+  fetch: (url, init) => fetch(url, { ...init, credentials: "include" }),
+  baseUrl: "",                        // same origin; or "http://127.0.0.1:8080"
+  headers: () => ({ "x-abstract-csrf": csrfToken }),
+});
+
+const page = await automations.listAutomations({ limit: 50 });
+const occ = await automations.listOccurrences(page.items[0].automation_id, { limit: 20 });
+await automations.sendAutomationCommand(id, { type: "automation.run_now" });
+```
+
+Options: `fetch` (required; `window.fetch`, a proxy-aware wrapper or a test stub), `baseUrl`
+(default `""`, same origin), `headers()` (auth or CSRF headers per request) and `newId()` (the
+id source; default `crypto.randomUUID`).
+
+| Method | Route |
+| --- | --- |
+| `listAutomations({status?, cursor?, limit?})` | `GET /api/gateway/automations` |
+| `getAutomation(id)` | `GET /api/gateway/automations/{id}` |
+| `createAutomation(body)` | `POST /api/gateway/automations` |
+| `reviseAutomation(id, {changes, expected_revision?, command_id?})` | `PATCH /api/gateway/automations/{id}` |
+| `sendAutomationCommand(id, {type, payload?, command_id?})` | `POST /api/gateway/automations/{id}/commands` |
+| `listOccurrences(id, {cursor?, limit?})` | `GET /api/gateway/automations/{id}/occurrences` |
+| `listAttention(id, {cursor?, limit?})` | `GET /api/gateway/automations/{id}/attention` |
+| `discuss(id, {occurrence_index, prompt, request_id?})` | `POST /api/gateway/automations/{id}/discuss` |
+| `markSeen(id, attentionCursor)` | `POST /api/gateway/automations/{id}/seen` |
+| `listTriggerSources()` | `GET /api/gateway/trigger-sources` |
+
+- **Ids**: `command_id` and `request_id` are minted only when you do not pass one. Pass the same
+  id to retry a request safely.
+- **Command types**: `automation.pause`, `automation.resume`, `automation.run_now`,
+  `automation.stop_current`, `automation.archive`. Revisions go through `reviseAutomation`.
+- **Polling**: the Automations API has no change cursor. Poll complete pages; the client never
+  sends `changed_since`.
+- **Wait answers** are not part of this client: send them through your existing Gateway command
+  path (see [Answering a wait](#answering-a-wait)).
+
+### Error handling
+
+Every non-2xx answer from the Gateway carries `{"detail": {"reason_code", "message", "field"?,
+"command_id"?}}`. The client throws it as an `AutomationApiError` with `status`, `code` (the
+`reason_code`), `message`, and `field` / `command_id` when present:
+
+```ts
+try {
+  await automations.reviseAutomation(id, { changes, expected_revision: summary.revision ?? undefined });
+} catch (e) {
+  if (e instanceof AutomationApiError && e.code === "revision_conflict") reload();
+  else throw e;
+}
+```
+
+- A non-2xx answer without that envelope, or a 2xx answer that is not a JSON object, throws an
+  `AutomationApiError` with `code: "invalid_response"` — never a silent success.
+- Transport failures (the `fetch` promise rejects) propagate unchanged.
+- `parseApiError(status, body)` is exported for hosts with their own transport.
+
+| HTTP | `reason_code` |
+| --- | --- |
+| 401 / 403 | `unauthorized`, `forbidden` |
+| 404 | `automation_not_found` (also for another principal's automation), `occurrence_not_found` |
+| 409 | `revision_conflict`, `automation_busy`, `invalid_state`, `identity_conflict` |
+| 422 | `invalid_request` (including malformed JSON), `invalid_definition`, `unsupported_feature`, `unknown_trigger_source` |
+
+## panel-chat pieces
+
+```tsx
+import { ScheduleThisAction, FromAutomationBadge } from "@abstractframework/panel-chat";
+
+<WorkflowChat header={<ScheduleThisAction seed={{ prompt, target }} onSchedule={openScheduleDialog} />} … />
+<FromAutomationBadge title="Inbox triage" index={7} onOpen={() => openAutomation(id)} />
+```
+
+- `ScheduleThisAction` hands `onSchedule(seed)` the `ScheduleSeed` you gave it (`prompt`,
+  `title`, `target`, all optional); open `AfScheduleDialog` with it. Props: `disabled`, `label`
+  (default "Schedule this…"), `className`.
+- `FromAutomationBadge` reads "from automation <title> · #<index>" (`fromAutomationText()`
+  builds the same string); with `onOpen` it renders as a button.
+
+Neither piece performs requests or holds state.
+
+## Fixtures contract
+
+`ui-kit/scripts/fixtures/automations/` holds the Gateway's wire shapes that every automations
+client tests against:
+
+| File | Route | Content |
+| --- | --- | --- |
+| `list.json` | `GET /api/gateway/automations` | Three automations (active growing, active independent, paused) and a legacy row |
+| `occurrences.json` | `GET …/{id}/occurrences` | Quiet runs, a notify with an artifact, a success after a retry, a manual run, a failure after 3 attempts, and a run waiting on an `ask_user` and a `tool_approval` wait |
+| `attention.json` | `GET …/{id}/attention` | Unseen items, oldest first |
+| `trigger-sources.json` | `GET /api/gateway/trigger-sources` | `schedule@1` and `manual@1` |
+| `commands.json` | revise, `…/commands`, `…/seen`, `…/discuss`, `POST /api/gateway/commands` | Exact request and response per route, including a duplicate command and the wait answers by kind |
+| `errors.json` | every automation route | The error bodies with their HTTP status, covering every contract error code |
+
+The files are generated from real Gateway output and curated: ids, texts and times form one
+readable scenario, while every field, key order and value format (timestamps such as
+`2026-09-27T04:00:00.412307+00:00`, wait keys, receipts) is the Gateway's. `formatUtc()` shows
+such a timestamp as `2026-09-27 04:00 UTC` and accepts the `Z` form too. The folder's
+`README.md` details each file.
+
+**Who reads them.** The kit's checks run against these bytes. AbstractObserver reads them from
+its sibling checkout (its checks and its development stub server). AbstractAssistant vendors
+byte-identical copies in `tests/basic/fixtures/automations/`, and the AbstractFramework
+repository's `scripts/check_identity_sync.py` fails when a copy drifts. `CHECKSUMS.sha256` pins
+the bytes of the six JSON files.
+
+**Regenerating them.** A fixture change is a contract change for every client:
+
+1. Capture the routes' answers from a running AbstractGateway (every route above, including the
+   error answers), and curate the scenario without changing any field, key order or value format.
+2. Run `node ui-kit/scripts/check_automation_fixtures.mjs --write` to rewrite
+   `CHECKSUMS.sha256`, then `npm --workspace ui-kit test`. The check rejects unknown keys,
+   requires every error code, command type and trigger source as well as quiet, notified,
+   failed, waiting, manual and retried runs, and verifies cross-file consistency.
+3. Copy the six JSON files and `CHECKSUMS.sha256` into AbstractAssistant's
+   `tests/basic/fixtures/automations/`, then run `python scripts/check_identity_sync.py` from the
+   AbstractFramework repository.
+
+**Checks** (part of `npm test`): `ui-kit/scripts/check_automation_fixtures.mjs` (shapes,
+coverage, checksums), `check_automation_client.mjs` (paths, bodies, error parsing),
+`check_automation_panel.mjs` (rendering, handlers and the pure rules), and panel-chat's
+`scripts/check_automation_badges.mjs`.
+
+## Exports
+
+From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
+
+- **Components**: `AutomationPanel` (`AutomationPanelProps`), `AfScheduleDialog`
+  (`AfScheduleDialogProps`), `DISCUSS_LABEL`.
+- **Client**: `createAutomationsClient()`, `AutomationApiError`, `parseApiError()`,
+  `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`; types `AutomationsClient`,
+  `AutomationsClientOptions`, `ListAutomationsQuery`, `PageQuery`.
+- **Presentation rules** (pure functions, no React): `automationControls()`
+  (`ControlId`, `ControlState`), `CONTROL_COMMANDS`, `occurrenceViews()` (`OccurrenceView`,
+  `OccurrenceTone`), `attentionAckCursor()`, `attentionLabel()`, `triggerSummary()`,
+  `scheduleLabel()`, `intervalLabel()`, `contextLabel()`, `formatUtc()`, `parseDuration()`,
+  `reviseChanges()` (`ReviseForm`), `buildCreateRequest()` (`ScheduleForm`, `ScheduleWhen`),
+  `SCHEDULE_PRESETS`, `TOOL_APPROVAL_CONSENT`.
+- **Waits**: `waitToolCalls()`, `parseEventPayload()`, `WAIT_KIND_LABELS`.
+- **Errors**: `apiErrorText()`, `API_ERROR_TEXT`, `isApiError()`.
+- **Retry-safe ids and acknowledgement**: `ActionIds`, `isDefinitiveError()`, `SeenAckTracker`.
+- **Contract types**: `AutomationSummary`, `AutomationDetail`, `AutomationDefinition`,
+  `AutomationStatus`, `AutomationAttention`, `AttentionItem`, `AttentionWait`,
+  `LastOccurrence`, `OccurrenceRow`, `OccurrenceWait`, `OccurrenceFailure`,
+  `OccurrenceArtifact`, `Notify`, `WaitKind`, `WaitAnswer`, `ToolCallToApprove`,
+  `ToolApprovalPolicy`, `AutomationPolicyInput`, `RetryPolicy`, `ContextMode`,
+  `AutomationTarget`, `AutomationChanges`, `AutomationCommandType`, `CommandReceipt`,
+  `CreateAutomationRequest`, `CreateAutomationResponse`, `DiscussResponse`, `TriggerBinding`,
+  `TriggerSpec`, `TriggerEnvelope`, `TriggerSource`, `TriggerSourceEntry`,
+  `TriggerSourceKind`, `ScheduleConfig`, `ScheduleEventPayload`, `ManualEventPayload`,
+  `Duration`, `Timestamp`, `Page`, `ApiError`, `ApiErrorCode`.
+
+From `@abstractframework/panel-chat` (source: `panel-chat/src/automation_badges.tsx`):
+`ScheduleThisAction` (`ScheduleThisActionProps`, `ScheduleSeed`), `FromAutomationBadge`
+(`FromAutomationBadgeProps`), `fromAutomationText()`.
+
+## Related docs
+
+- [Architecture: Automations](./architecture.md#automations-ui-kit--panel-chat) — how the apps, the kit and the Gateway routes connect
+- [API reference](./api.md) — the export map per package
+- [FAQ](./faq.md#automations-does-the-kit-poll-or-schedule-anything) and [Troubleshooting](./troubleshooting.md#automations-the-panel-shows-an-error-or-a-control-stays-disabled)
+- [Development: shared contracts](./development.md#shared-contracts-with-other-repositories)
 - [Docs index](./README.md)
 
 ## docs/console-islands.md
@@ -1892,7 +2415,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 - **Getting started**: [`getting-started.md`](./getting-started.md) — install, required CSS imports, first examples, Next.js notes
 - **API reference**: [`api.md`](./api.md) — export map per package
-- **Architecture**: [`architecture.md`](./architecture.md) — package boundaries, consumers, data flow, the Gateway connection flow, live replies and the About/identity flow (with diagrams)
+- **Architecture**: [`architecture.md`](./architecture.md) — package boundaries, consumers, data flow, the Gateway connection flow, live replies, the About/identity flow and the automations flow (with diagrams)
 - **FAQ**: [`faq.md`](./faq.md) — recurring questions and limits
 - **Troubleshooting**: [`troubleshooting.md`](./troubleshooting.md) — symptoms, checks and fixes
 
@@ -1900,6 +2423,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 - **Adoption guide**: [`adoption-guide.md`](./adoption-guide.md) — which shared component for which job, and the contracts apps follow
 - **Theming & design tokens**: [`theming.md`](./theming.md) — token vocabulary, the 21 themes, migration rules for host apps
+- **Automations**: [`automations.md`](./automations.md) — show and manage AbstractGateway automations: `AutomationPanel` (controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` and its tool-approval consent line, `createAutomationsClient()` and its error model, retry-safe ids, the panel-chat schedule action and badge, the canonical fixtures and how to regenerate them, and the export list
 - **Console islands**: [`console-islands.md`](./console-islands.md) — the `window.AfConsoleIslands` bundle built from `ui-kit` for non-React pages (AbstractGateway console): API, build and check
 - **Local development**: [`development.md`](./development.md) — workspace build, tests, contracts shared with other repositories, docs regeneration
 - **Publishing (maintainers)**: [`publishing.md`](./publishing.md) — versioning, tag-driven release workflow, first publish of a new package
@@ -1917,7 +2441,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 ## Package docs
 
-- UI tokens, themes, inputs, Gateway connection UI, top bar/drawer/appearance, About dialog and identity, console islands: [`ui-kit/README.md`](../ui-kit/README.md)
+- UI tokens, themes, inputs, Gateway connection UI, top bar/drawer/appearance, About dialog and identity, automations, console islands: [`ui-kit/README.md`](../ui-kit/README.md)
 - Chat primitives (thread, composer, markdown/json renderers, assistant panel, workflow chat, live replies): [`panel-chat/README.md`](../panel-chat/README.md)
 - App-origin Gateway session proxy: [`app-server/README.md`](../app-server/README.md)
 - Agent-cycle trace viewer (LLM/tool/observe): [`monitor-flow/README.md`](../monitor-flow/README.md)
@@ -1949,6 +2473,8 @@ This package provides:
 - **Run and policy surfaces**: `PhaseCapabilityMatrix`, `CriticalActionDialog`, `SteerComposer`,
   `DisclosureList`, `AfChip`, `AfPhaseRadio`, cognition gauges
 - **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk)
+- **Automations**: `AutomationPanel`, `AfScheduleDialog`, `createAutomationsClient()` and the
+  canonical Gateway fixtures — see [Automations](../docs/automations.md)
 - **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
 - **Palette seeds**: `@abstractframework/ui-kit/palette_seeds.json` for non-CSS consumers
 - **Console islands** (repository build, not in the npm package): the kit components as one
@@ -2218,6 +2744,7 @@ See [Theming](../docs/theming.md) for the token vocabulary and adoption rules.
 - Adoption guide: [`docs/adoption-guide.md`](../docs/adoption-guide.md)
 - Theming: [`docs/theming.md`](../docs/theming.md)
 - Console islands: [`docs/console-islands.md`](../docs/console-islands.md)
+- Automations: [`docs/automations.md`](../docs/automations.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)
 - Troubleshooting: [`docs/troubleshooting.md`](../docs/troubleshooting.md)
 - Repo docs index: [`docs/README.md`](../docs/README.md)
@@ -2262,6 +2789,8 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
 - Types: `ChatMessage`, `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat`,
   `LlmDelta`, `LlmDeltaEnd`, `StreamRepliesMode`, `WorkflowSessionSnapshot`
 - Utils: `chatToMarkdown`, `copyText`, `downloadTextFile`, `tryParseJson`
+- Automations: `ScheduleThisAction` (a "Schedule this…" button for a chat header slot) and
+  `FromAutomationBadge` — see [Automations](../docs/automations.md#panel-chat-pieces)
 
 ## Usage (typical)
 
@@ -3030,7 +3559,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -3099,7 +3628,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs"
+    "test": "npm run build && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.1.10",
@@ -3450,6 +3979,95 @@ export {
   type AfPhase,
   type PhaseDescriptor,
 } from "./phase_radio_core.js";
+export type {
+  ApiError,
+  ApiErrorCode,
+  AttentionItem,
+  AttentionWait,
+  AutomationAttention,
+  AutomationChanges,
+  AutomationCommandType,
+  AutomationDefinition,
+  AutomationDetail,
+  AutomationPolicyInput,
+  AutomationStatus,
+  AutomationSummary,
+  AutomationTarget,
+  CommandReceipt,
+  ContextMode,
+  CreateAutomationRequest,
+  CreateAutomationResponse,
+  DiscussResponse,
+  Duration,
+  LastOccurrence,
+  ManualEventPayload,
+  Notify,
+  OccurrenceArtifact,
+  OccurrenceFailure,
+  OccurrenceRow,
+  OccurrenceWait,
+  Page,
+  RetryPolicy,
+  ScheduleConfig,
+  ScheduleEventPayload,
+  Timestamp,
+  ToolApprovalPolicy,
+  ToolCallToApprove,
+  TriggerBinding,
+  TriggerEnvelope,
+  TriggerSource,
+  TriggerSourceEntry,
+  TriggerSourceKind,
+  TriggerSpec,
+  WaitAnswer,
+  WaitKind,
+} from "./automations/types.js";
+export {
+  AUTOMATIONS_PATH,
+  TRIGGER_SOURCES_PATH,
+  AutomationApiError,
+  createAutomationsClient,
+  parseApiError,
+  type AutomationsClient,
+  type AutomationsClientOptions,
+  type ListAutomationsQuery,
+  type PageQuery,
+} from "./automations/client.js";
+export {
+  API_ERROR_TEXT,
+  ActionIds,
+  SeenAckTracker,
+  isDefinitiveError,
+  TOOL_APPROVAL_CONSENT,
+  WAIT_KIND_LABELS,
+  waitToolCalls,
+  parseEventPayload,
+  CONTROL_COMMANDS,
+  SCHEDULE_PRESETS,
+  apiErrorText,
+  attentionAckCursor,
+  attentionLabel,
+  automationControls,
+  buildCreateRequest,
+  contextLabel,
+  formatUtc,
+  intervalLabel,
+  isApiError,
+  occurrenceViews,
+  parseDuration,
+  reviseChanges,
+  scheduleLabel,
+  triggerSummary,
+  type ControlId,
+  type ControlState,
+  type OccurrenceTone,
+  type OccurrenceView,
+  type ReviseForm,
+  type ScheduleForm,
+  type ScheduleWhen,
+} from "./automations/panel_core.js";
+export { AutomationPanel, DISCUSS_LABEL, type AutomationPanelProps } from "./automations/AutomationPanel.js";
+export { AfScheduleDialog, type AfScheduleDialogProps } from "./automations/AfScheduleDialog.js";
 
 ## ui-kit/src/identity.ts
 
@@ -4269,6 +4887,935 @@ export function useGatewayConnection(options?: UseGatewayConnectionOptions): Gat
 }
 
 export default useGatewayConnection;
+
+## ui-kit/src/automations/types.ts
+
+// Automations v1 — wire shapes of the gateway façade (contract F, CONTRACTS rev 2)
+// and the panel's error type (contract G). Transcribed, not invented: the
+// canonical examples are `ui-kit/scripts/fixtures/automations/*.json`, and
+// `scripts/check_automation_fixtures.mjs` validates them against the key sets
+// below (unknown fields are rejected there, as the contract requires).
+
+/** `^[1-9][0-9]*[smhd]$` — fixed UTC interval (s=1, m=60, h=3600, d=86400 s; no DST). */
+export type Duration = string;
+/** UTC RFC3339 timestamp. The gateway emits `2026-09-27T08:00:00.412307+00:00`; `Z` is accepted too. */
+export type Timestamp = string;
+export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+export type JsonObject = { [key: string]: Json };
+
+export type Page<T> = { items: T[]; next_cursor: string | null };
+
+/** `schedule@1` configuration. Without `every` the automation runs once at `start_at`. */
+export type ScheduleConfig = {
+  start_at?: Timestamp;
+  every?: Duration;
+  until?: Timestamp;
+  count?: number;
+  anchor?: Timestamp;
+};
+
+export type TriggerBinding = { binding_id: string; source_id: string; source_version: number; config: JsonObject };
+/** A trigger as a client writes it (the server mints `binding_id`). */
+export type TriggerSpec = { source_id: string; source_version: number; config: JsonObject };
+export type TriggerEnvelope = {
+  event_id: string;
+  source_id: string;
+  source_version: number;
+  fired_at: Timestamp;
+  payload: JsonObject;
+  binding_id: string;
+};
+
+/**
+ * `schedule@1` envelope payload (the runtime's shape; `fired_at` is on the
+ * envelope itself). `coalesced` is present when missed ticks were folded
+ * into this admission.
+ */
+export type ScheduleEventPayload = {
+  tick: number;
+  scheduled_at: Timestamp;
+  coalesced?: { first_tick: number; last_tick: number; missed_count: number };
+};
+/** `manual@1` envelope payload. */
+export type ManualEventPayload = { command_id: string };
+
+export type TriggerSourceKind = "time" | "manual" | "event";
+export type TriggerSource = {
+  id: string;
+  version: number;
+  label: string;
+  config_schema: JsonObject;
+  event_schema: JsonObject;
+  capabilities: { kind: TriggerSourceKind };
+};
+/** A row of `GET /api/gateway/trigger-sources`. */
+export type TriggerSourceEntry = TriggerSource & { available: boolean; unavailable_reason?: string };
+
+export type AutomationStatus = "active" | "paused" | "completed" | "failed" | "archived";
+export type ContextMode = "independent" | "growing";
+export type Notify = { title: string; body: string };
+
+export type AttentionItem = {
+  kind: "notify" | "failure";
+  automation_id: string;
+  run_id: string;
+  index: number;
+  at: Timestamp;
+  title: string;
+  body?: string;
+  /** `att1:<seq>` — acknowledge THIS (the last displayed item), never the summary's latest. */
+  cursor: string;
+};
+/**
+ * Waits are TYPED (decision D1); clients choose the answer payload by `kind`,
+ * never from the prompt text:
+ * - `ask_user` → `{response: string}` (a choice or free text)
+ * - `tool_approval` → `{approved: boolean}`; `details` = the tool calls to approve
+ * - `event` → `{payload: JSON}`
+ */
+export type WaitKind = "ask_user" | "tool_approval" | "event";
+/** One tool call awaiting approval (`details` of a `tool_approval` wait). */
+export type ToolCallToApprove = { name: string; arguments: JsonObject; call_id?: string };
+export type WaitAnswer = { response: string } | { approved: boolean; tool_ids?: string[] } | { payload: Json };
+/** A pending wait as the summary lists it (the occurrence's wait plus its `index`). */
+export type AttentionWait = { run_id: string; wait_key: string; kind: WaitKind; reason: string; index: number; prompt?: string; choices?: string[]; details?: Json };
+export type AutomationAttention = {
+  pending_waits: number;
+  unread: boolean;
+  unseen_count: number;
+  cursor: string;
+  /** At most 20, OLDEST unseen first. */
+  items: AttentionItem[];
+  /** At most 20. */
+  waits: AttentionWait[];
+};
+
+export type LastOccurrence = {
+  run_id: string;
+  index: number;
+  status: string;
+  attempts: number;
+  fired_at: Timestamp;
+  finished_at?: Timestamp;
+  excerpt: string;
+  notify: Notify | null;
+};
+
+export type AutomationSummary = {
+  automation_id: string;
+  title: string;
+  status: AutomationStatus;
+  trigger: TriggerBinding;
+  context_mode: ContextMode;
+  next_fire_at?: Timestamp;
+  occurrence_count: number;
+  last_occurrence?: LastOccurrence;
+  attention: AutomationAttention;
+  legacy: boolean;
+  revision: number | null;
+  updated_at: Timestamp;
+  capabilities: string[];
+  session_kind: "automation";
+};
+
+export type OccurrenceArtifact = { artifact_id: string; name: string; mime_type: string; url: string };
+export type OccurrenceWait = { run_id: string; wait_key: string; kind: WaitKind; reason: string; prompt?: string; choices?: string[]; details?: Json };
+/** Why an occurrence failed, after its last attempt (the gateway emits it on failed rows). */
+export type OccurrenceFailure = { reason_code: string; message: string; attempts: number };
+export type OccurrenceRow = {
+  run_id: string;
+  index: number;
+  attempts: number;
+  fired_at: Timestamp;
+  finished_at?: Timestamp;
+  status: string;
+  trigger: { source_id: string; summary: string };
+  user_turn: string;
+  answer: string;
+  notify: Notify | null;
+  failure?: OccurrenceFailure;
+  artifacts: OccurrenceArtifact[];
+  waits: OccurrenceWait[];
+  ledger_url: string;
+  workspace_url?: string;
+};
+
+export type CommandReceipt = { command_id: string; accepted: boolean; duplicate: boolean; seq: number };
+
+export type AutomationCommandType =
+  | "automation.pause"
+  | "automation.resume"
+  | "automation.run_now"
+  | "automation.stop_current"
+  | "automation.archive";
+
+/** Contract A `_meta.automation` (the latest committed revision). */
+export type AutomationDefinition = {
+  schema_version: 1;
+  revision: number;
+  title: string;
+  controller: { bundle_ref: string; flow_id: string };
+  target: { workflow_id: string; bundle_ref: string; flow_id: string; input_data: JsonObject };
+  trigger: TriggerBinding;
+  context: { mode: ContextMode; growing: JsonObject };
+  policy: {
+    serial: true;
+    misfire: "coalesce";
+    failure: "continue";
+    retry: { max_attempts: number; backoff: { initial: Duration; factor: number; max: Duration } };
+    tool_approval: ToolApprovalPolicy;
+  };
+  session_id: string;
+  workspace_root: string;
+  created_at: Timestamp;
+  archived_at: Timestamp | null;
+};
+export type AutomationDetail = { definition: AutomationDefinition; active_revision: number; summary: AutomationSummary };
+
+/** Create target: a concrete bundle flow, or the server-resolved default agent. */
+export type AutomationTarget =
+  | { bundle_ref: string; flow_id: string; input_data?: JsonObject }
+  | { flow_id: "@default"; interface: string; input_data?: JsonObject };
+
+export type RetryPolicy = { max_attempts?: number; backoff?: { initial?: Duration; factor?: number; max?: Duration } };
+/**
+ * Decision D1: `"auto"` (default) = tools run without asking — creating the
+ * automation is the consent; `"ask"` = each tool call waits for approval.
+ */
+export type ToolApprovalPolicy = "auto" | "ask";
+export type AutomationPolicyInput = { retry?: RetryPolicy; tool_approval?: ToolApprovalPolicy };
+
+/** Body of `POST /api/gateway/automations`. */
+export type CreateAutomationRequest = {
+  request_id: string;
+  title: string;
+  target: AutomationTarget;
+  trigger: TriggerSpec;
+  context?: { mode: ContextMode };
+  policy?: AutomationPolicyInput;
+};
+export type CreateAutomationResponse = { automation_id: string; revision: number; summary: AutomationSummary };
+
+/** `changes` of `PATCH /api/gateway/automations/{id}`. */
+export type AutomationChanges = {
+  title?: string;
+  target?: AutomationTarget;
+  trigger?: TriggerSpec;
+  context?: { mode: ContextMode };
+  policy?: AutomationPolicyInput;
+};
+
+export type DiscussResponse = { session_id: string; run_id: string; session_kind: "discussion" };
+
+export type ApiErrorCode =
+  | "unauthorized"
+  | "forbidden"
+  | "automation_not_found"
+  | "occurrence_not_found"
+  | "revision_conflict"
+  | "automation_busy"
+  | "invalid_state"
+  | "identity_conflict"
+  | "invalid_request"
+  | "invalid_definition"
+  | "unsupported_feature"
+  | "unknown_trigger_source";
+
+/** Contract G. `code` = `detail.reason_code` of the error envelope. */
+export type ApiError = { status: number; code: string; message: string; field?: string; command_id?: string };
+
+## ui-kit/src/automations/client.ts
+
+// Automations v1 client — one method per gateway route (contract F).
+//
+// Transport-agnostic: the host injects `fetch` (and any auth/CSRF headers), so
+// the same module serves a browser app behind the app-server proxy, a direct
+// gateway URL, or a test stub. No React, no CSS, no timers: callers poll FULL
+// pages themselves (v1 has no change cursor; `changed_since` is never sent).
+//
+// Every non-2xx answer must carry the automation error envelope
+// `{"detail": {"reason_code", "message", "field"?, "command_id"?}}` and is
+// thrown as an `AutomationApiError` whose `code` is `detail.reason_code`. A
+// non-2xx without that envelope, or a 2xx that is not JSON, throws
+// `invalid_response` — never a silent success.
+import type {
+  ApiError,
+  AutomationChanges,
+  AutomationCommandType,
+  AutomationDetail,
+  AutomationStatus,
+  AutomationSummary,
+  AttentionItem,
+  CommandReceipt,
+  CreateAutomationRequest,
+  CreateAutomationResponse,
+  DiscussResponse,
+  JsonObject,
+  OccurrenceRow,
+  Page,
+  TriggerSourceEntry,
+} from "./types.js";
+
+export const AUTOMATIONS_PATH = "/api/gateway/automations";
+export const TRIGGER_SOURCES_PATH = "/api/gateway/trigger-sources";
+
+export class AutomationApiError extends Error implements ApiError {
+  readonly status: number;
+  readonly code: string;
+  readonly field?: string;
+  readonly command_id?: string;
+  constructor(error: ApiError) {
+    super(error.message);
+    this.name = "AutomationApiError";
+    this.status = error.status;
+    this.code = error.code;
+    if (error.field !== undefined) this.field = error.field;
+    if (error.command_id !== undefined) this.command_id = error.command_id;
+  }
+}
+
+/**
+ * Parse an error body into an `ApiError`. Only the contract envelope yields
+ * its `reason_code`; any other shape is `invalid_response` (status kept).
+ */
+export function parseApiError(status: number, body: unknown): ApiError {
+  const detail = body && typeof body === "object" ? (body as { detail?: unknown }).detail : undefined;
+  if (detail && typeof detail === "object" && !Array.isArray(detail)) {
+    const d = detail as Record<string, unknown>;
+    if (typeof d.reason_code === "string" && d.reason_code && typeof d.message === "string") {
+      const out: ApiError = { status, code: d.reason_code, message: d.message };
+      if (typeof d.field === "string") out.field = d.field;
+      if (typeof d.command_id === "string") out.command_id = d.command_id;
+      return out;
+    }
+  }
+  return { status, code: "invalid_response", message: `The gateway answered HTTP ${status} without an automation error envelope.` };
+}
+
+export type AutomationsClientOptions = {
+  /** Injected transport (window.fetch, a proxy-aware wrapper, or a test stub). */
+  fetch: (input: string, init?: RequestInit) => Promise<Response>;
+  /** Origin prefix before `/api/gateway/…`; "" (default) = same origin. */
+  baseUrl?: string;
+  /** Extra headers per request (auth, CSRF). */
+  headers?: () => Record<string, string>;
+  /** Id source for `command_id` / `request_id` when the caller gives none. */
+  newId?: () => string;
+};
+
+export type ListAutomationsQuery = { status?: AutomationStatus; cursor?: string; limit?: number };
+export type PageQuery = { cursor?: string; limit?: number };
+
+export type AutomationsClient = {
+  listAutomations(query?: ListAutomationsQuery): Promise<Page<AutomationSummary>>;
+  getAutomation(automationId: string): Promise<AutomationDetail>;
+  createAutomation(body: CreateAutomationRequest): Promise<CreateAutomationResponse>;
+  reviseAutomation(
+    automationId: string,
+    request: { changes: AutomationChanges; expected_revision?: number; command_id?: string },
+  ): Promise<CommandReceipt>;
+  sendAutomationCommand(
+    automationId: string,
+    request: { type: AutomationCommandType; payload?: JsonObject; command_id?: string },
+  ): Promise<CommandReceipt>;
+  listOccurrences(automationId: string, query?: PageQuery): Promise<Page<OccurrenceRow>>;
+  discuss(automationId: string, request: { occurrence_index: number; prompt: string; request_id?: string }): Promise<DiscussResponse>;
+  markSeen(automationId: string, attentionCursor: string): Promise<{ attention_cursor: string }>;
+  listAttention(automationId: string, query?: PageQuery): Promise<Page<AttentionItem>>;
+  listTriggerSources(): Promise<{ items: TriggerSourceEntry[] }>;
+};
+
+function query(params: Record<string, string | number | undefined>): string {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v !== undefined) q.set(k, String(v));
+  const s = q.toString();
+  return s ? `?${s}` : "";
+}
+
+function defaultId(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (!c || typeof c.randomUUID !== "function") throw new Error("automations client: crypto.randomUUID is unavailable; pass options.newId");
+  return c.randomUUID();
+}
+
+export function createAutomationsClient(options: AutomationsClientOptions): AutomationsClient {
+  const base = (options.baseUrl ?? "").replace(/\/+$/, "");
+  const newId = options.newId ?? defaultId;
+  const one = (id: string) => `${AUTOMATIONS_PATH}/${encodeURIComponent(id)}`;
+
+  async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const headers: Record<string, string> = { accept: "application/json", ...(options.headers ? options.headers() : {}) };
+    const init: RequestInit = { method, headers };
+    if (body !== undefined) {
+      headers["content-type"] = "application/json";
+      init.body = JSON.stringify(body);
+    }
+    const res = await options.fetch(`${base}${path}`, init);
+    const text = await res.text();
+    let data: unknown = undefined;
+    let parsed = false;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+        parsed = true;
+      } catch {
+        parsed = false;
+      }
+    }
+    if (!res.ok) throw new AutomationApiError(parseApiError(res.status, data));
+    if (!parsed || data === null || typeof data !== "object") {
+      throw new AutomationApiError({ status: res.status, code: "invalid_response", message: `The gateway answered ${method} ${path} with a body that is not a JSON object.` });
+    }
+    return data as T;
+  }
+
+  return {
+    listAutomations: (q = {}) => call("GET", `${AUTOMATIONS_PATH}${query({ status: q.status, cursor: q.cursor, limit: q.limit })}`),
+    getAutomation: (id) => call("GET", one(id)),
+    createAutomation: (body) => call("POST", AUTOMATIONS_PATH, body),
+    reviseAutomation: (id, r) =>
+      call("PATCH", one(id), {
+        command_id: r.command_id ?? newId(),
+        ...(r.expected_revision !== undefined ? { expected_revision: r.expected_revision } : {}),
+        changes: r.changes,
+      }),
+    sendAutomationCommand: (id, r) =>
+      call("POST", `${one(id)}/commands`, { command_id: r.command_id ?? newId(), type: r.type, ...(r.payload !== undefined ? { payload: r.payload } : {}) }),
+    listOccurrences: (id, q = {}) => call("GET", `${one(id)}/occurrences${query({ cursor: q.cursor, limit: q.limit })}`),
+    discuss: (id, r) =>
+      call("POST", `${one(id)}/discuss`, { request_id: r.request_id ?? newId(), occurrence_index: r.occurrence_index, prompt: r.prompt }),
+    markSeen: (id, cursor) => call("POST", `${one(id)}/seen`, { attention_cursor: cursor }),
+    listAttention: (id, q = {}) => call("GET", `${one(id)}/attention${query({ cursor: q.cursor, limit: q.limit })}`),
+    listTriggerSources: () => call("GET", TRIGGER_SOURCES_PATH),
+  };
+}
+
+## ui-kit/src/automations/panel_core.ts
+
+// Pure presentation rules for the automation panel and the schedule dialog
+// (the kit's `*_core.ts` pattern: no React, checked directly by
+// scripts/check_automation_panel.mjs). Everything here reads STRUCTURE only —
+// statuses, notify objects, waits, config fields — never model prose.
+import type {
+  ApiError,
+  AutomationChanges,
+  AutomationSummary,
+  AutomationTarget,
+  ContextMode,
+  CreateAutomationRequest,
+  JsonObject,
+  OccurrenceRow,
+  Json,
+  OccurrenceWait,
+  AttentionWait,
+  ScheduleConfig,
+  ToolApprovalPolicy,
+  ToolCallToApprove,
+  TriggerBinding,
+} from "./types.js";
+
+export const DURATION_RE = /^([1-9][0-9]*)([smhd])$/;
+export type DurationUnit = "s" | "m" | "h" | "d";
+const UNIT_WORDS: Record<DurationUnit, [string, string]> = {
+  s: ["second", "seconds"],
+  m: ["minute", "minutes"],
+  h: ["hour", "hours"],
+  d: ["day", "days"],
+};
+
+export function parseDuration(value: unknown): { amount: number; unit: DurationUnit } | null {
+  if (typeof value !== "string") return null;
+  const m = DURATION_RE.exec(value);
+  return m ? { amount: Number(m[1]), unit: m[2] as DurationUnit } : null;
+}
+
+/** "every 8 hours" / "every hour" — fixed UTC intervals, never calendar wording. */
+export function intervalLabel(every: string): string {
+  const d = parseDuration(every);
+  if (!d) return `every ${every}`;
+  const [one, many] = UNIT_WORDS[d.unit];
+  return d.amount === 1 ? `every ${one}` : `every ${d.amount} ${many}`;
+}
+
+/** `2026-09-27T08:00:00Z` → `2026-09-27 08:00 UTC` (seconds shown only when non-zero). */
+export function formatUtc(ts: string | undefined | null): string {
+  if (!ts) return "";
+  const t = Date.parse(ts);
+  if (Number.isNaN(t)) return ts;
+  const iso = new Date(t).toISOString();
+  const secs = iso.slice(17, 19);
+  return `${iso.slice(0, 10)} ${iso.slice(11, 16)}${secs === "00" ? "" : `:${secs}`} UTC`;
+}
+
+/** `schedule@1` config → "every 8 hours (UTC)", "once at 2026-09-27 08:00 UTC", + bounds. */
+export function scheduleLabel(config: ScheduleConfig | JsonObject): string {
+  const c = config as ScheduleConfig;
+  if (typeof c.every !== "string") return c.start_at ? `once at ${formatUtc(c.start_at)}` : "once, now";
+  const parts = [`${intervalLabel(c.every)} (UTC)`];
+  if (typeof c.count === "number") parts.push(`${c.count} ${c.count === 1 ? "run" : "runs"} max`);
+  if (typeof c.until === "string") parts.push(`until ${formatUtc(c.until)}`);
+  return parts.join(" · ");
+}
+
+export function triggerSummary(trigger: Pick<TriggerBinding, "source_id" | "source_version" | "config">): string {
+  if (trigger.source_id === "schedule" && trigger.source_version === 1) return scheduleLabel(trigger.config);
+  if (trigger.source_id === "manual" && trigger.source_version === 1) return "manual runs only";
+  return `${trigger.source_id}@${trigger.source_version}`;
+}
+
+export function contextLabel(mode: ContextMode): string {
+  return mode === "growing" ? "Growing — each run sees the previous runs" : "Independent — each run starts fresh";
+}
+
+export const STATUS_LABELS: Record<string, string> = {
+  active: "Active",
+  paused: "Paused",
+  completed: "Completed",
+  failed: "Failed",
+  archived: "Archived",
+};
+
+// --- controls ---------------------------------------------------------------
+
+export type ControlId = "pause" | "resume" | "run_now" | "stop_current" | "revise" | "archive" | "discuss";
+export type ControlState = { enabled: boolean; reason?: string };
+export const CONTROL_COMMANDS: Record<Exclude<ControlId, "revise" | "discuss">, string> = {
+  pause: "automation.pause",
+  resume: "automation.resume",
+  run_now: "automation.run_now",
+  stop_current: "automation.stop_current",
+  archive: "automation.archive",
+};
+
+const IN_PROGRESS = new Set(["running", "waiting", "backoff"]);
+
+/** True while an occurrence is running or waiting (server: `pending_occurrence ≠ null`). */
+export function occurrenceInProgress(summary: AutomationSummary, occurrences: OccurrenceRow[] = []): boolean {
+  if (summary.last_occurrence && IN_PROGRESS.has(summary.last_occurrence.status)) return true;
+  return occurrences.some((o) => IN_PROGRESS.has(o.status));
+}
+
+/**
+ * Which controls are enabled. The server decides what the principal may do
+ * (`summary.capabilities`); the status decides which of them apply now. Run
+ * now stays enabled while paused (it does not resume). `busy` disables all.
+ * Discuss needs the `discuss` capability and is off for legacy rows; it stays
+ * available on an archived automation (its history is kept).
+ */
+export function automationControls(
+  summary: AutomationSummary,
+  occurrences: OccurrenceRow[] = [],
+  busy = false,
+): Record<ControlId, ControlState> {
+  const caps = new Set(summary.capabilities);
+  const st = summary.status;
+  const running = occurrenceInProgress(summary, occurrences);
+  const gate = (id: ControlId, ok: boolean, reason: string): ControlState => {
+    if (busy) return { enabled: false, reason: "Working…" };
+    if (summary.legacy) return { enabled: false, reason: "Legacy schedule: managed with its existing controls." };
+    if (!caps.has(id)) return { enabled: false, reason: "Not permitted for this automation." };
+    if (st === "archived") return { enabled: false, reason: "Archived: history is kept, nothing runs." };
+    return ok ? { enabled: true } : { enabled: false, reason };
+  };
+  const live = st === "active" || st === "paused";
+  return {
+    pause: gate("pause", st === "active", st === "paused" ? "Already paused." : "The automation has ended."),
+    resume: gate("resume", st === "paused", st === "active" ? "Already running on schedule." : "The automation has ended."),
+    run_now: gate("run_now", live && !running, running ? "An occurrence is in progress." : "The automation has ended."),
+    stop_current: gate("stop_current", running, "Nothing is running."),
+    revise: gate("revise", true, ""),
+    archive: gate("archive", true, ""),
+    discuss: busy
+      ? { enabled: false, reason: "Working…" }
+      : summary.legacy
+        ? { enabled: false, reason: "Legacy schedule: discussion is not available." }
+        : caps.has("discuss")
+          ? { enabled: true }
+          : { enabled: false, reason: "Discussion is not permitted for this automation." },
+  };
+}
+
+// --- occurrences as chat pairs -------------------------------------------------
+
+export type OccurrenceTone = "quiet" | "notified" | "failed" | "waiting" | "running";
+export type OccurrenceView = {
+  row: OccurrenceRow;
+  tone: OccurrenceTone;
+  /** Failures, waits and explicit notify are notable; everything else is quiet. */
+  notable: boolean;
+  badge: string | null;
+  statusText: string;
+  canDiscuss: boolean;
+};
+
+export function occurrenceTone(row: OccurrenceRow): OccurrenceTone {
+  if (row.status === "failed") return "failed";
+  if (row.waits.length > 0 || row.status === "waiting") return "waiting";
+  if (row.notify !== null) return "notified";
+  if (row.status === "running" || row.status === "backoff") return "running";
+  return "quiet";
+}
+
+/** Chronological (oldest first) chat pairs, whatever the page order. */
+export function occurrenceViews(rows: OccurrenceRow[]): OccurrenceView[] {
+  return [...rows]
+    .sort((a, b) => a.index - b.index)
+    .map((row) => {
+      const tone = occurrenceTone(row);
+      const attempts = `${row.attempts} ${row.attempts === 1 ? "attempt" : "attempts"}`;
+      const badge =
+        tone === "failed" ? `Failed after ${attempts}` : tone === "waiting" ? "Waiting for you" : tone === "notified" ? "Notified" : tone === "running" ? "Running" : null;
+      const statusText = row.status === "completed" && row.attempts > 1 ? `completed after ${attempts}` : row.status;
+      return { row, tone, notable: tone === "failed" || tone === "waiting" || tone === "notified", badge, statusText, canDiscuss: !IN_PROGRESS.has(row.status) };
+    });
+}
+
+// --- attention ---------------------------------------------------------------
+
+/**
+ * The cursor to acknowledge after showing `summary.attention.items`: the LAST
+ * DISPLAYED item's, never `attention.cursor` (items beyond the 20 shown stay
+ * unseen). Null when nothing is displayed.
+ */
+export function attentionAckCursor(summary: AutomationSummary): string | null {
+  const items = summary.attention.items;
+  return items.length ? items[items.length - 1].cursor : null;
+}
+
+export function attentionLabel(summary: AutomationSummary): string {
+  const a = summary.attention;
+  const parts: string[] = [];
+  if (a.unseen_count > 0) parts.push(`${a.unseen_count} unseen`);
+  if (a.pending_waits > 0) parts.push(`${a.pending_waits} waiting for you`);
+  return parts.length ? parts.join(" · ") : "nothing new";
+}
+
+// --- errors ------------------------------------------------------------------
+
+export const API_ERROR_TEXT: Record<string, string> = {
+  unauthorized: "Sign in to the gateway to manage automations.",
+  forbidden: "You are not allowed to do this with automations.",
+  automation_not_found: "This automation does not exist (or is not yours).",
+  occurrence_not_found: "That occurrence does not exist.",
+  revision_conflict: "The automation changed since this view loaded. Reload it, then try again.",
+  automation_busy: "An occurrence is already running or queued. Wait for it to finish.",
+  invalid_state: "The automation's current state does not allow this.",
+  identity_conflict: "This request id was already used for a different request.",
+  invalid_request: "The gateway rejected the request as malformed.",
+  invalid_definition: "The automation definition is not valid.",
+  unsupported_feature: "The gateway does not support this yet.",
+  unknown_trigger_source: "The gateway does not know this trigger source.",
+  invalid_response: "The gateway gave an unexpected answer.",
+  invalid_payload: "That answer could not be sent.",
+};
+
+/** One visible sentence per error code, plus the server's own message. */
+export function apiErrorText(error: ApiError): { title: string; detail: string } {
+  return { title: API_ERROR_TEXT[error.code] ?? `The gateway refused the request (${error.code}).`, detail: error.message };
+}
+
+export function isApiError(value: unknown): value is ApiError {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.status === "number" && typeof v.code === "string" && typeof v.message === "string";
+}
+
+// --- revise ------------------------------------------------------------------
+
+export type ReviseForm = { title: string; every: string | null; context: ContextMode };
+
+export function reviseFormFrom(summary: AutomationSummary): ReviseForm {
+  const every = summary.trigger.source_id === "schedule" ? (summary.trigger.config as ScheduleConfig).every : undefined;
+  return { title: summary.title, every: typeof every === "string" ? every : null, context: summary.context_mode };
+}
+
+/**
+ * Only the fields that changed. A new interval keeps the rest of the schedule
+ * config (the server mints a new binding and re-anchors so no past tick fires).
+ * Returns `{errors}` when the form is invalid, `null` when nothing changed.
+ */
+export function reviseChanges(summary: AutomationSummary, form: ReviseForm): AutomationChanges | null | { errors: string[] } {
+  const errors: string[] = [];
+  const changes: AutomationChanges = {};
+  const title = form.title.trim();
+  if (!title) errors.push("Title is required.");
+  else if (title.length > 120) errors.push("Title is at most 120 characters.");
+  else if (title !== summary.title) changes.title = title;
+  const before = reviseFormFrom(summary);
+  if (form.every !== before.every && form.every !== null) {
+    if (!parseDuration(form.every)) errors.push("Interval must be a whole number of minutes, hours or days.");
+    else changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config: { ...summary.trigger.config, every: form.every } };
+  }
+  if (form.context !== summary.context_mode) changes.context = { mode: form.context };
+  if (errors.length) return { errors };
+  return Object.keys(changes).length ? changes : null;
+}
+
+// --- schedule dialog -----------------------------------------------------------
+
+export type ScheduleWhen = { kind: "once"; at: string } | { kind: "every"; amount: number; unit: "m" | "h" | "d" };
+export type ScheduleForm = {
+  prompt: string;
+  when: ScheduleWhen;
+  context: ContextMode;
+  /** `"auto"` (default): tools run without asking; `"ask"`: each tool call waits for approval. */
+  toolApproval?: ToolApprovalPolicy;
+  /** Advanced (all optional). Datetimes are `YYYY-MM-DDTHH:MM` read as UTC. */
+  title?: string;
+  startAt?: string;
+  count?: number;
+  until?: string;
+};
+
+export const SCHEDULE_PRESETS: ReadonlyArray<{ label: string; when: ScheduleWhen }> = [
+  { label: "every 5 minutes", when: { kind: "every", amount: 5, unit: "m" } },
+  { label: "every 30 minutes", when: { kind: "every", amount: 30, unit: "m" } },
+  { label: "every hour", when: { kind: "every", amount: 1, unit: "h" } },
+  { label: "every 8 hours", when: { kind: "every", amount: 8, unit: "h" } },
+  { label: "every 24 hours", when: { kind: "every", amount: 24, unit: "h" } },
+  { label: "every 7 days", when: { kind: "every", amount: 7, unit: "d" } },
+];
+
+/** `YYYY-MM-DDTHH:MM[:SS]` (a datetime-local value) read as UTC → RFC3339, or null. */
+export function utcFromLocalInput(value: string | undefined): string | null {
+  if (!value) return null;
+  const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(:\d{2})?$/.exec(value.trim());
+  if (!m) return null;
+  const ts = `${m[1]}T${m[2]}${m[3] ?? ":00"}Z`;
+  return Number.isNaN(Date.parse(ts)) ? null : ts;
+}
+
+/** Default title: the prompt's first line, at most 120 characters. */
+export function defaultTitle(prompt: string): string {
+  const first = prompt.trim().split("\n")[0].trim();
+  return first.length > 120 ? `${first.slice(0, 119)}…` : first;
+}
+
+export function scheduleConfigFrom(form: ScheduleForm): { config: ScheduleConfig; errors: string[] } {
+  const errors: string[] = [];
+  const config: ScheduleConfig = {};
+  if (form.when.kind === "once") {
+    const at = utcFromLocalInput(form.when.at);
+    if (!at) errors.push("Pick the date and time (UTC) to run once.");
+    else config.start_at = at;
+    return { config, errors };
+  }
+  const n = form.when.amount;
+  if (!Number.isInteger(n) || n < 1) errors.push("The interval must be a whole number of at least 1.");
+  else config.every = `${n}${form.when.unit}`;
+  if (form.startAt) {
+    const s = utcFromLocalInput(form.startAt);
+    if (!s) errors.push("First run must be a date and time (UTC).");
+    else config.start_at = s;
+  }
+  if (form.count !== undefined) {
+    if (!Number.isInteger(form.count) || form.count < 1) errors.push("Maximum runs must be a whole number of at least 1.");
+    else config.count = form.count;
+  }
+  if (form.until) {
+    const u = utcFromLocalInput(form.until);
+    if (!u) errors.push("Stop at must be a date and time (UTC).");
+    else config.until = u;
+  }
+  return { config, errors };
+}
+
+/** Human line under the When section, e.g. "every 24 hours (UTC), first run now". */
+export function schedulePreview(form: ScheduleForm): string {
+  const { config, errors } = scheduleConfigFrom(form);
+  if (errors.length) return "";
+  const label = scheduleLabel(config);
+  if (form.when.kind === "once") return label;
+  return `${label}, first run ${config.start_at ? `at ${formatUtc(config.start_at)}` : "now"}`;
+}
+
+/** The `POST /api/gateway/automations` body, or the reasons it cannot be built yet. */
+export function buildCreateRequest(
+  form: ScheduleForm,
+  opts: { target: AutomationTarget | null | undefined; requestId: string },
+): { ok: true; body: CreateAutomationRequest } | { ok: false; errors: string[] } {
+  const errors: string[] = [];
+  if (!opts.target) errors.push("Choose what to run.");
+  const prompt = form.prompt.trim();
+  if (!prompt) errors.push("Write the task to run.");
+  const title = (form.title ?? "").trim() || defaultTitle(prompt);
+  if (title.length > 120) errors.push("Title is at most 120 characters.");
+  const { config, errors: whenErrors } = scheduleConfigFrom(form);
+  errors.push(...whenErrors);
+  if (errors.length || !opts.target) return { ok: false, errors };
+  const target = { ...opts.target, input_data: { ...(opts.target.input_data ?? {}), prompt } } as AutomationTarget;
+  return {
+    ok: true,
+    body: {
+      request_id: opts.requestId,
+      title,
+      target,
+      trigger: { source_id: "schedule", source_version: 1, config: config as JsonObject },
+      context: { mode: form.context },
+      policy: { tool_approval: form.toolApproval ?? "auto" },
+    },
+  };
+}
+
+/** The consent line shown wherever an automation is created with `tool_approval: "auto"` (decision D1). */
+export const TOOL_APPROVAL_CONSENT = "Tools run without asking (you approve them now by creating this automation)";
+
+// --- typed waits (decision D1) ---------------------------------------------------
+
+/**
+ * The tool calls of a `tool_approval` wait, validated structurally
+ * (`[{name, arguments, call_id?}]`); null for another kind or malformed details.
+ */
+export function waitToolCalls(wait: Pick<OccurrenceWait | AttentionWait, "kind" | "details">): ToolCallToApprove[] | null {
+  if (wait.kind !== "tool_approval" || !Array.isArray(wait.details)) return null;
+  const out: ToolCallToApprove[] = [];
+  for (const c of wait.details as Json[]) {
+    if (!c || typeof c !== "object" || Array.isArray(c)) return null;
+    const call = c as { [k: string]: Json };
+    if (typeof call.name !== "string" || !call.arguments || typeof call.arguments !== "object" || Array.isArray(call.arguments)) return null;
+    if (call.call_id !== undefined && typeof call.call_id !== "string") return null;
+    out.push({ name: call.name, arguments: call.arguments as JsonObject, ...(typeof call.call_id === "string" ? { call_id: call.call_id } : {}) });
+  }
+  return out;
+}
+
+/** An `event` wait's answer from the typed JSON text: `{payload}` or the parse error. */
+export function parseEventPayload(text: string): { ok: true; payload: Json } | { ok: false; error: string } {
+  const t = text.trim();
+  if (!t) return { ok: false, error: "Enter a JSON payload." };
+  try {
+    return { ok: true, payload: JSON.parse(t) as Json };
+  } catch (e) {
+    return { ok: false, error: `The payload is not valid JSON (${e instanceof Error ? e.message : String(e)}).` };
+  }
+}
+
+export const WAIT_KIND_LABELS: Record<string, string> = {
+  ask_user: "Question for you",
+  tool_approval: "Approval needed",
+  event: "Waiting for an event",
+};
+
+// --- retry-safe ids (one per user action) ------------------------------------
+
+/**
+ * One id per user action. `idFor(signature)` returns the id already minted
+ * for that exact action while its outcome is unknown (a transport failure),
+ * so a retry reuses it and the gateway answers idempotently. A definitive
+ * answer (success, or an error the gateway returned) settles it: the next
+ * action gets a new id.
+ */
+export class ActionIds {
+  private open = new Map<string, string>();
+  constructor(private readonly mint: () => string) {}
+  idFor(signature: string): string {
+    let id = this.open.get(signature);
+    if (id === undefined) {
+      id = this.mint();
+      this.open.set(signature, id);
+    }
+    return id;
+  }
+  /** `outcome` = the resolved value or the thrown error of the request. */
+  settle(signature: string, outcome: { ok: true } | { ok: false; error: unknown }): void {
+    if (outcome.ok || isDefinitiveError(outcome.error)) this.open.delete(signature);
+  }
+}
+
+/** A gateway-returned error is definitive; a transport failure or an unreadable answer is not. */
+export function isDefinitiveError(error: unknown): boolean {
+  return isApiError(error) && error.status > 0 && error.code !== "invalid_response";
+}
+
+export function mintUuid(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (!c || typeof c.randomUUID !== "function") throw new Error("crypto.randomUUID is unavailable; pass newId");
+  return c.randomUUID();
+}
+
+// --- /seen acknowledgement ------------------------------------------------------
+
+/**
+ * Acknowledge a cursor only after `/seen` succeeded. A failed call is retried
+ * on the next render that carries new data (`token` = the summary object the
+ * host passed), never in a loop on the panel's own error re-render.
+ */
+export class SeenAckTracker {
+  private acked: string | null = null;
+  private inflight: string | null = null;
+  private failedKey: string | null = null;
+  private failedToken: unknown = undefined;
+  /** The key to send now, or null. Marks it in flight. */
+  next(key: string | null, token: unknown): string | null {
+    if (!key || key === this.acked || key === this.inflight) return null;
+    if (key === this.failedKey && token === this.failedToken) return null;
+    this.inflight = key;
+    return key;
+  }
+  succeeded(key: string): void {
+    if (this.inflight === key) this.inflight = null;
+    this.acked = key;
+    this.failedKey = null;
+  }
+  failed(key: string, token: unknown): void {
+    if (this.inflight === key) this.inflight = null;
+    this.failedKey = key;
+    this.failedToken = token;
+  }
+  get acknowledged(): string | null {
+    return this.acked;
+  }
+}
+
+// --- focus after a form closes ----------------------------------------------------
+
+type Focusable = { focus(): void; disabled?: boolean };
+/** The first enabled element matching one of `selectors` (in order) under `root`. */
+export function pickFocusTarget(root: { querySelector(sel: string): unknown } | null, selectors: string[]): Focusable | null {
+  if (!root) return null;
+  for (const sel of selectors) {
+    const el = root.querySelector(sel) as Focusable | null;
+    if (el && el.disabled !== true && typeof el.focus === "function") return el;
+  }
+  return null;
+}
+
+## ui-kit/scripts/fixtures/automations/README.md
+
+# Automations — canonical fixtures
+
+These six files are **the shared shape** of the AbstractGateway Automations routes. Every
+automations client (the kit, AbstractObserver, AbstractAssistant) tests against the same bytes.
+The reader-facing guide is [`docs/automations.md`](../../../../docs/automations.md#fixtures-contract).
+
+**Generated from real Gateway output, curated.** Every field, key order and value format is the
+Gateway's: timestamps `2026-09-27T04:00:00.412307+00:00`, wait keys `user:<run_id>:ask` /
+`tool_approval:<run_id>:tools:<hash>`, `reason: "user"` on every human wait (`kind` carries the
+type), `failure: {reason_code: "occurrence_failed", message, attempts}`, capabilities per status,
+the repeat receipt `accepted: false, duplicate: true`. The scenario is curated: three automations
+whose ids, texts and times are chosen for readability, plus a captured legacy row.
+
+| File | Route it exemplifies | Content |
+| --- | --- | --- |
+| `list.json` | `GET /api/gateway/automations` | `Page<AutomationSummary>`: inbox triage (every 30 min, growing, active, two unseen attention items, an `ask_user` and a `tool_approval` wait), AI news monitor (every 8 h, independent, active), weekly journal monitor (every 7 days, paused), and the captured legacy `scheduled:*` row last (`capabilities: ["legacy"]`, `revision: null`, `binding_id` = its root run id) |
+| `occurrences.json` | `GET …/{id}/occurrences` | `Page<OccurrenceRow>` of the inbox triage, newest first: quiet ticks, a `notify` with an artifact, a success after a retry, a manual run, a failure after 3 attempts (with `failure`), a waiting occurrence with an `ask_user` wait (choices) on its own run and a `tool_approval` wait (`details` = the tool calls) on its agent sub-run |
+| `attention.json` | `GET …/{id}/attention` | `Page<AttentionItem>` of the inbox triage, oldest unseen first (a notify, and a failure titled "<title> failed" whose body is the failure message) |
+| `trigger-sources.json` | `GET /api/gateway/trigger-sources` | verbatim capture: `schedule@1` and `manual@1` |
+| `commands.json` | revise, `…/commands`, `…/seen`, `…/discuss`, `POST /api/gateway/commands` (wait answers) | exact request (method, path, body) and response per route: revise, every `automation.*` command, a repeat (duplicate), seen, discuss, and the wait answers by kind (`{response}` for `ask_user`, `{approved}` for `tool_approval`) |
+| `errors.json` | every automation route | the captured error bodies **verbatim** (request, status, body) for 401 and every 404/409/422, including busy, archived and both resume-payload mismatches; 403 `forbidden` is the only hand-written body (the capture ran with user auth off) |
+
+Not included: `GET …/{id}` (detail) and the `automations` capabilities descriptor — the kit's
+client and panel do not read them.
+
+## Checksum rule
+
+`CHECKSUMS.sha256` holds the SHA-256 of each JSON file (`sha256sum` format).
+`node scripts/check_automation_fixtures.mjs` fails when a file's bytes no longer
+match; after an intended change run it with `--write`, then update every
+vendored copy (the Assistant's `tests/basic/fixtures/automations/`) byte for byte.
+The AbstractFramework repository's `scripts/check_identity_sync.py` compares the copies against these
+canonical files, one group per file. A fixture change is a contract change:
+tell the AbstractObserver and AbstractAssistant maintainers.
 
 ## ui-kit/islands/console_islands.tsx
 
@@ -5408,6 +6955,14 @@ export type { WorkflowEventScope, WorkflowEventTarget, WorkflowEventTargetResolu
 export { chatToMarkdown, copyText, downloadTextFile, tryParseJson } from "./utils.js";
 export { workflowEvidence, foldWorkflowTools, historyRecords, type WorkflowStatistics, type WorkflowToolActivity, type WorkflowModelCall, type WorkflowSpeculation } from "./workflow_evidence.js";
 export { statDetail, StatDetailPanel, type StatDetail, type StatDetailKind, type StatDetailSection } from "./stat_detail.js";
+export {
+  ScheduleThisAction,
+  FromAutomationBadge,
+  fromAutomationText,
+  type ScheduleSeed,
+  type ScheduleThisActionProps,
+  type FromAutomationBadgeProps,
+} from "./automation_badges.js";
 
 ## panel-chat/src/chat_message_card.tsx
 
@@ -5704,6 +7259,87 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
 }
 
 export default ChatMessageCard;
+
+## panel-chat/src/automation_badges.tsx
+
+// Automations v1 — two standalone chat pieces (no requests, no state).
+//
+// - ScheduleThisAction: a "Schedule this…" button for a chat header slot
+//   (e.g. `WorkflowChat`'s `header`). It hands the host a seed (the chat's
+//   target and prompt); the host opens its create flow (ui-kit
+//   `AfScheduleDialog`) and sends the request.
+// - FromAutomationBadge: marks a message or session that an automation
+//   produced: "from automation <title> · #<index>", optionally clickable.
+import React from "react";
+import { Icon } from "@abstractframework/ui-kit";
+
+/** What the host knows about the chat being scheduled (all optional). */
+export type ScheduleSeed = {
+  prompt?: string;
+  title?: string;
+  /** The chat's target, in the create-request shape (`{bundle_ref, flow_id}` or `{flow_id:"@default", interface}`). */
+  target?: { flow_id: string; bundle_ref?: string; interface?: string; input_data?: Record<string, unknown> };
+};
+
+export type ScheduleThisActionProps = {
+  seed: ScheduleSeed;
+  onSchedule(seed: ScheduleSeed): void;
+  disabled?: boolean;
+  /** Defaults to "Schedule this…". */
+  label?: string;
+  className?: string;
+};
+
+export function ScheduleThisAction(props: ScheduleThisActionProps): React.ReactElement {
+  const label = props.label ?? "Schedule this…";
+  return (
+    <button
+      type="button"
+      className={`pc-btn pc-schedule-this${props.className ? ` ${props.className}` : ""}`}
+      disabled={props.disabled}
+      aria-label={label}
+      title="Run this task on a schedule"
+      onClick={() => props.onSchedule(props.seed)}
+    >
+      <Icon name="history" size={14} />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+export type FromAutomationBadgeProps = {
+  /** The automation's title. */
+  title: string;
+  /** Occurrence index, when the message belongs to one occurrence. */
+  index?: number;
+  /** Open the automation (makes the badge a button). */
+  onOpen?(): void;
+  className?: string;
+};
+
+/** "from automation <title> · #<index>". */
+export function fromAutomationText(title: string, index?: number): string {
+  return `from automation ${title}${typeof index === "number" ? ` · #${index}` : ""}`;
+}
+
+export function FromAutomationBadge(props: FromAutomationBadgeProps): React.ReactElement {
+  const text = fromAutomationText(props.title, props.index);
+  const cls = `pc-from-automation${props.className ? ` ${props.className}` : ""}`;
+  if (props.onOpen) {
+    return (
+      <button type="button" className={`${cls} pc-from-automation--button`} onClick={props.onOpen} title="Open the automation">
+        <Icon name="history" size={12} />
+        <span>{text}</span>
+      </button>
+    );
+  }
+  return (
+    <span className={cls}>
+      <Icon name="history" size={12} />
+      <span>{text}</span>
+    </span>
+  );
+}
 
 ## panel-chat/src/llm_delta.ts
 
@@ -8582,6 +10218,11 @@ Some checks pin behavior that other AbstractFramework repositories share:
   `gatewayVersionRows` and its Python twin `abstractcore.utils.identity.gateway_version_rows`
   must both satisfy (`ui-kit/scripts/check_about.mjs` runs them). Change the helper, the fixture
   and the Python twin together.
+- `ui-kit/scripts/fixtures/automations/*.json` are the canonical Gateway automation shapes.
+  AbstractObserver reads them from its sibling checkout; AbstractAssistant vendors byte-identical
+  copies that the AbstractFramework repository's `scripts/check_identity_sync.py` verifies. After
+  an intended change, run `node ui-kit/scripts/check_automation_fixtures.mjs --write` and copy
+  the files; see [Automations: Fixtures contract](./automations.md#fixtures-contract).
 
 ## Docs (when you change behavior)
 
@@ -8762,6 +10403,42 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## Unreleased
+
+### ui-kit
+
+- Added: `AutomationPanel` shows and manages one AbstractGateway automation — its trigger
+  ("every 8 hours (UTC)"), context, next run, run count and attention; Pause / Resume, Run now
+  (also while paused; the automation stays paused), Stop current, Revise… and Archive… (confirmed
+  in the panel), each disabled control with a visible reason; its runs as chat pairs, quiet runs
+  subdued and notified, failed (reason, message, attempts) and waiting runs badged; Discuss as a
+  forked session with a read-only workspace. Attention is acknowledged up to the last displayed
+  item, after `/seen` succeeds.
+- Added: typed wait answers in `AutomationPanel` — `ask_user` → `{response}` (choices or free
+  text), `tool_approval` → the tool calls with their arguments and Approve / Deny
+  (`{approved}`), `event` → a JSON payload (`{payload}`); other kinds point to the run.
+- Added: `AfScheduleDialog` creates an automation: the task, a fixed UTC interval (presets from
+  every 5 minutes to every 7 days) or one UTC date and time, independent or growing context, and
+  tool approval — "Run without asking" by default, with the consent line "Tools run without
+  asking (you approve them now by creating this automation)", or "Ask me before each tool call".
+- Added: `createAutomationsClient()` — one method per `/api/gateway/automations` and
+  `/api/gateway/trigger-sources` route, injected `fetch`, Gateway errors thrown as
+  `AutomationApiError` (`code` = `reason_code`), unexpected answers as `invalid_response`.
+- Added: retry-safe ids — the panel and the dialog mint one `command_id` / `request_id` per user
+  action and reuse it when the same action is retried after a transport failure (`ActionIds`).
+- Added: the pure presentation rules, wait helpers and contract types behind these components; the
+  full list is in [docs/automations.md](docs/automations.md#exports).
+- Added: canonical automation fixtures `ui-kit/scripts/fixtures/automations/*.json`, generated
+  from real Gateway output and pinned by `CHECKSUMS.sha256`, with the
+  `check_automation_fixtures`, `check_automation_client` and `check_automation_panel` checks in
+  `npm test`. AbstractAssistant vendors byte-identical copies.
+
+### panel-chat
+
+- Added: `ScheduleThisAction` ("Schedule this…" for a chat header slot; hands the host a
+  `ScheduleSeed`) and `FromAutomationBadge` ("from automation <title> · #<n>"). Neither performs
+  requests.
 
 ## 0.1.12 - 2026-09-26
 

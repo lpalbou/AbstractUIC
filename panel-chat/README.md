@@ -36,6 +36,8 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
 - Types: `ChatMessage`, `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat`,
   `LlmDelta`, `LlmDeltaEnd`, `StreamRepliesMode`, `WorkflowSessionSnapshot`
 - Utils: `chatToMarkdown`, `copyText`, `downloadTextFile`, `tryParseJson`
+- Automations: `ScheduleThisAction` (a "Schedule this…" button for a chat header slot) and
+  `FromAutomationBadge` — see [Automations](../docs/automations.md#panel-chat-pieces)
 
 ## Usage (typical)
 

@@ -63,6 +63,11 @@ Some checks pin behavior that other AbstractFramework repositories share:
   `gatewayVersionRows` and its Python twin `abstractcore.utils.identity.gateway_version_rows`
   must both satisfy (`ui-kit/scripts/check_about.mjs` runs them). Change the helper, the fixture
   and the Python twin together.
+- `ui-kit/scripts/fixtures/automations/*.json` are the canonical Gateway automation shapes.
+  AbstractObserver reads them from its sibling checkout; AbstractAssistant vendors byte-identical
+  copies that the AbstractFramework repository's `scripts/check_identity_sync.py` verifies. After
+  an intended change, run `node ui-kit/scripts/check_automation_fixtures.mjs --write` and copy
+  the files; see [Automations: Fixtures contract](./automations.md#fixtures-contract).
 
 ## Docs (when you change behavior)
 

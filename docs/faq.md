@@ -18,6 +18,10 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 - [panel-chat: How do I show replies while the model writes them?](#panel-chat-how-do-i-show-replies-while-the-model-writes-them)
 - [panel-chat: Why do images in assistant messages show as links?](#panel-chat-why-do-images-in-assistant-messages-show-as-links)
 - [ui-kit: How do I add the About dialog?](#ui-kit-how-do-i-add-the-about-dialog)
+- [Automations: Does the kit poll or schedule anything?](#automations-does-the-kit-poll-or-schedule-anything)
+- [Automations: Why are schedules fixed UTC intervals?](#automations-why-are-schedules-fixed-utc-intervals)
+- [Automations: Why do tools run without asking by default?](#automations-why-do-tools-run-without-asking-by-default)
+- [Automations: How are wait answers sent?](#automations-how-are-wait-answers-sent)
 - [monitor-flow: What trace format does AgentCyclesPanel expect?](#monitor-flow-what-trace-format-does-agentcyclespanel-expect)
 - [monitor-active-memory: How does querying work?](#monitor-active-memory-how-does-querying-work)
 - [monitor-active-memory: Does it persist layouts?](#monitor-active-memory-does-it-persist-layouts)
@@ -162,6 +166,35 @@ from `GET /api/gateway/about`, or `gatewayVersionRows(null, reason)` when the re
 
 See: [`ui-kit/README.md`](../ui-kit/README.md#about-dialog-and-identity).
 
+## Automations: Does the kit poll or schedule anything?
+
+No. AbstractGateway schedules and runs automations. The kit renders what your host passes and
+reports intent through callbacks; `createAutomationsClient()` sends a request only when you call
+one of its methods, through the `fetch` you inject. Poll complete pages at the interval your app
+needs: the Automations API has no change cursor. See [Automations](./automations.md).
+
+## Automations: Why are schedules fixed UTC intervals?
+
+The `schedule@1` trigger source counts fixed intervals (`every: "24h"`) from a UTC start, with
+no time zone and no calendar rules. The kit words every schedule that way ("every 24 hours
+(UTC)") so the label matches what runs. Use **Once at…** in `AfScheduleDialog` for a single UTC
+date and time.
+
+## Automations: Why do tools run without asking by default?
+
+An unattended automation cannot ask a person at every tick, so `policy.tool_approval` defaults
+to `"auto"`: creating the automation is the consent, and `AfScheduleDialog` states it in the
+consent line "Tools run without asking (you approve them now by creating this automation)".
+Choose "Ask me before each tool call" (`"ask"`) to make every tool call wait for your approval
+in the automation's timeline.
+
+## Automations: How are wait answers sent?
+
+`AutomationPanel` calls `onAnswerWait(runId, waitKey, payload)` with the payload the wait's
+`kind` expects (`{response}`, `{approved}` or `{payload}`); your host resumes the wait through the
+Gateway's `POST /api/gateway/commands` (`type: "resume"`). See
+[Answering a wait](./automations.md#answering-a-wait).
+
 ## monitor-flow: What trace format does AgentCyclesPanel expect?
 
 `AgentCyclesPanel` consumes `TraceItem[]` and starts a new cycle when `step.effect.type === "llm_call"`.
@@ -238,4 +271,5 @@ Maintainers: see [Publishing](./publishing.md).
 - Getting started: [Getting started](./getting-started.md)
 - API reference: [API reference](./api.md)
 - Architecture: [Architecture](./architecture.md)
+- Automations: [Automations](./automations.md)
 - Troubleshooting: [Troubleshooting](./troubleshooting.md)

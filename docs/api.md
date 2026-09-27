@@ -52,7 +52,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - CSRF helpers: `readGatewayCsrfToken()`, `readGatewayCsrfTokens()`
 - Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`; `VoiceSettings` (catalog-driven voice preferences form)
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
-- Automations: `createAutomationsClient()` (+ `AutomationApiError`, `parseApiError()`, `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`), `AutomationPanel` (+ `DISCUSS_LABEL`), `AfScheduleDialog`, pure rules (`automationControls()`, `occurrenceViews()`, `attentionAckCursor()`, `scheduleLabel()`, `triggerSummary()`, `reviseChanges()`, `buildCreateRequest()`, `apiErrorText()`, …) and the contract types (`AutomationSummary`, `OccurrenceRow`, `AttentionItem`, `TriggerSourceEntry`, `CommandReceipt`, `CreateAutomationRequest`, `ApiError`, …). See [Automations](./automations.md)
+- Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation on a fixed UTC interval or once), `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
 - Icons: `Icon`, `IconName` (~40 glyphs, 24-grid and 16-grid families)
 - Palette seeds: `@abstractframework/ui-kit/palette_seeds.json` (generated 4-token palette per theme)
 
@@ -93,7 +93,7 @@ Components:
   render their entity/agent name when provided, falling back to "Agent")
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
-- Automations: `ScheduleThisAction` ("Schedule this…" header action; hands `onSchedule(seed)` its `ScheduleSeed`), `FromAutomationBadge` (+ `fromAutomationText()`). See [Automations](./automations.md)
+- Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
 
 Renderers:
 - `Markdown` (lightweight Markdown with real nested lists, marker progression, fenced code
@@ -229,6 +229,7 @@ See: [`monitor-memory/README.md`](../monitor-memory/README.md) for the backend c
 - FAQ: [FAQ](./faq.md)
 - Architecture (diagrams): [Architecture](./architecture.md)
 - Console islands: [Console islands](./console-islands.md)
+- Automations: [Automations](./automations.md)
 - Troubleshooting: [Troubleshooting](./troubleshooting.md)
 - Docs index: [Docs index](./README.md)
 - Security policy: [`SECURITY.md`](../SECURITY.md)

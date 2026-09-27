@@ -46,16 +46,17 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Adoption guide](docs/adoption-guide.md): which shared component for which job + the cross-app contracts (connection surface, server truth, labeled fallbacks)
 - [Theming](docs/theming.md): design-token vocabulary, 21-theme system, adoption/migration rules for host apps
 - [API reference](docs/api.md): export map per package (what to import)
-- [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, ecosystem data flow, gateway connection flow, live replies, About/identity flow, console islands build)
+- [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, ecosystem data flow, gateway connection flow, live replies, About/identity flow, automations flow, console islands build)
 - [FAQ](docs/faq.md): bundling/CSS/SSR and per-package notes
 - [Troubleshooting](docs/troubleshooting.md): symptoms, checks and fixes (unstyled components, SSR errors, widget polling, app-server 400/401/403, live replies, images shown as links, stale islands bundle)
+- [Automations](docs/automations.md): show and manage AbstractGateway automations — `AutomationPanel` (controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (fixed UTC intervals, tool-approval consent line), `createAutomationsClient()` and its error model, retry-safe ids, panel-chat `ScheduleThisAction` / `FromAutomationBadge`, the canonical fixtures and the export list
 - [Console islands](docs/console-islands.md): `window.AfConsoleIslands` (mountTopBar / mountAppearance / mountAbout / appIdentity / applyAppearance) for pages that are not React apps; repository build, not in the npm package
 - [Docs index](docs/README.md): full docs navigation
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / appearance dialog, About dialog + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk)
-- [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat, live replies (`llm.delta`)
+- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / appearance dialog, About dialog + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel + schedule dialog + client
+- [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat, live replies (`llm.delta`), ScheduleThisAction + FromAutomationBadge
 - [@abstractframework/app-server](app-server/README.md): Node gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -75,6 +76,10 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [ui-kit/src/about.tsx](ui-kit/src/about.tsx): `AfAboutDialog`
 - [ui-kit/src/gateway_session_signin.tsx](ui-kit/src/gateway_session_signin.tsx): shared Gateway browser-session sign-in card
 - [ui-kit/src/use_gateway_connection.ts](ui-kit/src/use_gateway_connection.ts): the connection state machine hook (probe/auto-open/self-close contract)
+- [ui-kit/src/automations/types.ts](ui-kit/src/automations/types.ts): wire shapes of the Gateway automation routes (`AutomationSummary`, `OccurrenceRow`, typed waits, `CreateAutomationRequest`, `ApiError`)
+- [ui-kit/src/automations/client.ts](ui-kit/src/automations/client.ts): `createAutomationsClient()`, `AutomationApiError`, error envelope parsing
+- [ui-kit/src/automations/panel_core.ts](ui-kit/src/automations/panel_core.ts): pure rules (controls, occurrence tones, labels, create body, wait helpers, retry-safe ids)
+- [ui-kit/scripts/fixtures/automations/README.md](ui-kit/scripts/fixtures/automations/README.md): the canonical automation fixtures and their checksum rule
 - [ui-kit/islands/console_islands.tsx](ui-kit/islands/console_islands.tsx): console islands entry and `AfConsoleIslands` API
 - [ui-kit/scripts/build_islands.mjs](ui-kit/scripts/build_islands.mjs): islands bundle build (`--check` detects a stale bundle)
 - [ui-kit/palette_seeds.json](ui-kit/palette_seeds.json): generated 4-token palette per theme (for non-CSS consumers)
@@ -84,6 +89,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [app-server/src/index.d.ts](app-server/src/index.d.ts): TS types for `createGatewaySessionProxy`
 - [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
 - [panel-chat/src/chat_message_card.tsx](panel-chat/src/chat_message_card.tsx): `ChatMessage` / `ChatAttachment` / `ChatStat` contracts
+- [panel-chat/src/automation_badges.tsx](panel-chat/src/automation_badges.tsx): `ScheduleThisAction` and `FromAutomationBadge`
 - [panel-chat/src/llm_delta.ts](panel-chat/src/llm_delta.ts): live-reply events (`llm.delta` / `llm.delta_end`), SSE dispatch helper, `streamRepliesRuntime`
 - [panel-chat/src/message_content.tsx](panel-chat/src/message_content.tsx): JSON autodetect + Markdown override hook (`renderMarkdown`)
 - [panel-chat/src/markdown.tsx](panel-chat/src/markdown.tsx): Markdown renderer rules (minimal, no external deps)

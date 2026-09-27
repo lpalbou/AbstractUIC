@@ -20,6 +20,8 @@ This package provides:
 - **Run and policy surfaces**: `PhaseCapabilityMatrix`, `CriticalActionDialog`, `SteerComposer`,
   `DisclosureList`, `AfChip`, `AfPhaseRadio`, cognition gauges
 - **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk)
+- **Automations**: `AutomationPanel`, `AfScheduleDialog`, `createAutomationsClient()` and the
+  canonical Gateway fixtures — see [Automations](../docs/automations.md)
 - **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
 - **Palette seeds**: `@abstractframework/ui-kit/palette_seeds.json` for non-CSS consumers
 - **Console islands** (repository build, not in the npm package): the kit components as one
@@ -289,6 +291,7 @@ See [Theming](../docs/theming.md) for the token vocabulary and adoption rules.
 - Adoption guide: [`docs/adoption-guide.md`](../docs/adoption-guide.md)
 - Theming: [`docs/theming.md`](../docs/theming.md)
 - Console islands: [`docs/console-islands.md`](../docs/console-islands.md)
+- Automations: [`docs/automations.md`](../docs/automations.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)
 - Troubleshooting: [`docs/troubleshooting.md`](../docs/troubleshooting.md)
 - Repo docs index: [`docs/README.md`](../docs/README.md)
