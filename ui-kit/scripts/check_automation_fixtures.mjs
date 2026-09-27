@@ -175,7 +175,7 @@ const ROUTES = [
   [/^\/api\/gateway\/automations\/[0-9a-f-]{36}$/, "PATCH", ReviseBody, Receipt],
   [/^\/api\/gateway\/automations\/[0-9a-f-]{36}\/commands$/, "POST", CommandBody, Receipt],
   [/^\/api\/gateway\/automations\/[0-9a-f-]{36}\/seen$/, "POST", { attention_cursor: t.re(/^att1:\d+$/) }, { attention_cursor: t.re(/^att1:\d+$/) }],
-  [/^\/api\/gateway\/automations\/[0-9a-f-]{36}\/discuss$/, "POST", { request_id: t.nonempty, occurrence_index: t.pos, prompt: t.nonempty }, { session_id: t.re(/^discussion-session:/), run_id: t.uuid, session_kind: t.lit("discussion") }],
+  [/^\/api\/gateway\/automations\/[0-9a-f-]{36}\/discuss$/, "POST", { request_id: t.nonempty, occurrence_index: t.pos, prompt: t.nonempty }, { session_id: t.re(/^discussion-session:/), run_id: t.uuid, session_kind: t.lit("discussion"), workspace_root: t.re(/^\//), mounted_workspace: t.re(/^\//) }],
   [/^\/api\/gateway\/commands$/, "POST", ResumeBody, { accepted: t.bool, duplicate: t.bool, seq: t.nonneg }],
 ];
 for (const [i, c] of fx["commands.json"].items.entries()) {
@@ -325,6 +325,8 @@ check("commands: the repeat receipt is the gateway's (accepted:false, duplicate:
 const ids = new Set(list.map((s) => s.automation_id));
 const automationCmds = cmds.filter((c) => c.request.path.startsWith("/api/gateway/automations/") && /\/commands$|[0-9a-f]$/.test(c.request.path));
 check("commands cover every automation command type + revise", eq([...new Set(automationCmds.map((c) => c.request.body.type ?? "revise"))].sort(), ["automation.archive", "automation.pause", "automation.resume", "automation.run_now", "automation.stop_current", "revise"]));
+const disc = cmds.find((c) => c.request.path.endsWith("/discuss"));
+check("discuss: own writable workspace differs from the mounted automation folder", disc && disc.response.workspace_root !== disc.response.mounted_workspace && disc.response.mounted_workspace.includes(mail.automation_id.slice(0, 8)));
 check("commands cover seen and discuss", cmds.some((c) => c.request.path.endsWith("/seen")) && cmds.some((c) => c.request.path.endsWith("/discuss")));
 for (const c of automationCmds) {
   const m = /^\/api\/gateway\/automations\/([0-9a-f-]{36})(\/commands)?$/.exec(c.request.path);

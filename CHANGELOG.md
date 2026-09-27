@@ -15,8 +15,9 @@ ships.
   ("every 8 hours (UTC)"), context, next run, run count and attention; Pause / Resume, Run now
   (also while paused; the automation stays paused), Stop current, Revise… and Archive… (confirmed
   in the panel), each disabled control with a visible reason; its runs as chat pairs, quiet runs
-  subdued and notified, failed (reason, message, attempts) and waiting runs badged; Discuss as a
-  forked session with a read-only workspace. Attention is acknowledged up to the last displayed
+  subdued and notified, failed (reason, message, attempts) and waiting runs badged; Discuss forks
+  the automation at a run with its full history, in its own writable workspace with the
+  automation's files mounted read-only (`DiscussResponse.workspace_root` / `mounted_workspace`). Attention is acknowledged up to the last displayed
   item, after `/seen` succeeds.
 - Added: `AutomationPanel` renders user turns, answers, notify bodies, wait prompts, attention
   bodies and the definition's task through its `renderText` prop — pass the chat's renderer from

@@ -114,7 +114,8 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("tool_approval wait: Approve and Deny, no free text", enabled(chunks[6], "wait-approve") && enabled(chunks[6], "wait-deny") && (chunks[6].match(/aria-label="Your answer"/g) || []).length === 1);
   check("no wait controls on other occurrences", chunks.filter((c, i) => i !== 6).every((c) => !c.includes("af-auto-wait")));
   check("every pair has an expandable ledger link", chunks.every((c) => c.includes("<details class=\"af-auto-occ__details\"><summary>Run details</summary>") && c.includes('data-action="open-run"') && /href="\/api\/gateway\/runs\/[0-9a-f-]{36}\/ledger"/.test(c)));
-  check("Discuss labelled as a forked session with a read-only workspace", mailHtml.includes(`>${esc(DISCUSS_LABEL)}</button>`) && DISCUSS_LABEL === "Discuss — forked session, read-only workspace");
+  check("Discuss labelled as a fork at this occurrence (own workspace, automation files read-only)", mailHtml.includes(`>${esc(DISCUSS_LABEL)}</button>`) && DISCUSS_LABEL === "Discuss — fork at this occurrence (own workspace, automation files read-only)");
+  check("no stale 'read-only workspace' wording", !mailHtml.includes("read-only workspace") && !mailHtml.includes("forked session"));
   check("Discuss disabled on the waiting occurrence only", chunks.every((c, i) => (/data-action="discuss" disabled=""/.test(c)) === (i === 6)));
   check("header: every 30 minutes (UTC), growing, next run", mailHtml.includes(">every 30 minutes (UTC)</dd>") && mailHtml.includes("Growing — each run sees the previous runs") && mailHtml.includes(">2026-09-27 07:00 UTC</dd>"));
   check("header: attention 2 unseen + 2 waiting, notable", mailHtml.includes('class="is-notable">2 unseen · 2 waiting for you</dd>'));
@@ -249,7 +250,7 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   dform.props.onSubmit(fakeSubmit("Draft the reply to Clara.", "prompt"));
   check("discuss submit → onDiscuss(2, prompt)", eq(got.at(-1), ["discuss", 2, "Draft the reply to Clara."]));
   const dhtml = renderToStaticMarkup(open2);
-  check("discuss form says fork + read-only + never changes the automation", dhtml.includes("never changes the automation") && dhtml.includes("read-only") && dhtml.includes(`aria-label="${esc(DISCUSS_LABEL)}, from occurrence 2"`));
+  check("discuss form: fork at #N with full history, own writable workspace, automation files read-only, nothing flows back", dhtml.includes("forks this automation at #2 with its full history (runs 1–2)") && dhtml.includes("its own writable workspace") && dhtml.includes("the automation&#x27;s files are mounted read-only") && dhtml.includes("nothing flows back into the automation") && dhtml.includes(`aria-label="${esc(DISCUSS_LABEL)}, from occurrence 2"`), dhtml.slice(0, 400));
 }
 
 // --- revise -------------------------------------------------------------------------------

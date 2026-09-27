@@ -39,9 +39,10 @@ in the architecture page; for the export list in context, see the [API reference
   Questions a flow asks with `ask_user` wait for a person in both modes.
 - **Typed waits** — every wait carries a `kind`, and the answer follows the kind, never the
   prompt text (see [Answering a wait](#answering-a-wait)).
-- **Discuss** — starts a *forked* session seeded with the automation's conversation up to one
-  occurrence. It never writes back into the automation, and the automation's workspace is mounted
-  read-only in the discussion.
+- **Discuss** — forks the automation at one occurrence: a new session carrying the automation's
+  whole timeline (runs 1..N). It works in its own writable workspace; the automation's folder is
+  mounted read-only, and nothing flows back into the automation. The response names both folders
+  (`workspace_root`, `mounted_workspace`).
 - **Trigger envelope** — a `schedule@1` run's envelope payload is `{tick, scheduled_at,
   coalesced?: {first_tick, last_tick, missed_count}}` (`ScheduleEventPayload`; `coalesced`
   appears when missed ticks were folded into one run); `fired_at` is on the envelope itself.
@@ -140,7 +141,8 @@ An occurrence is in progress."), linked to the button with `aria-describedby`.
 - **Revise** edits the title, the interval and the context. Only changed fields are sent, with
   `expected_revision`; a new interval keeps the rest of the schedule. The change applies from the
   next run.
-- **Discuss — forked session, read-only workspace** needs the `discuss` capability, is off for
+- **Discuss — fork at this occurrence (own workspace, automation files read-only)** needs the
+  `discuss` capability, is off for
   legacy rows, and is available once the run has finished (also on an archived automation).
 - When the archive confirmation, the revise form or a discuss form closes, focus returns to the
   control that opened it (else to the notice, else to the title).
@@ -257,7 +259,7 @@ id source; default `crypto.randomUUID`).
 | `sendAutomationCommand(id, {type, payload?, command_id?})` | `POST /api/gateway/automations/{id}/commands` |
 | `listOccurrences(id, {cursor?, limit?})` | `GET /api/gateway/automations/{id}/occurrences` |
 | `listAttention(id, {cursor?, limit?})` | `GET /api/gateway/automations/{id}/attention` |
-| `discuss(id, {occurrence_index, prompt, request_id?})` | `POST /api/gateway/automations/{id}/discuss` |
+| `discuss(id, {occurrence_index, prompt, request_id?})` | `POST /api/gateway/automations/{id}/discuss` → `{session_id, run_id, session_kind: "discussion", workspace_root, mounted_workspace}` |
 | `markSeen(id, attentionCursor)` | `POST /api/gateway/automations/{id}/seen` |
 | `listTriggerSources()` | `GET /api/gateway/trigger-sources` |
 

@@ -67,7 +67,7 @@ export type AutomationPanelProps = {
   onRevise(changes: AutomationChanges, expectedRevision: number | null, meta?: { command_id: string }): Promise<CommandReceipt>;
   /** `type` is the full command type, e.g. `automation.run_now`. */
   onCommand(type: string, payload?: JsonObject, meta?: { command_id: string }): Promise<CommandReceipt>;
-  onDiscuss(index: number, prompt: string, meta?: { request_id: string }): Promise<{ session_id: string; run_id: string }>;
+  onDiscuss(index: number, prompt: string, meta?: { request_id: string }): Promise<{ session_id: string; run_id: string; workspace_root?: string; mounted_workspace?: string }>;
   /** Receives the cursor of the last DISPLAYED attention item. */
   onSeen(attentionCursor: string): Promise<void>;
   onLoadMore(): void;
@@ -88,7 +88,7 @@ export type AutomationPanelProps = {
   className?: string;
 };
 
-export const DISCUSS_LABEL = "Discuss — forked session, read-only workspace";
+export const DISCUSS_LABEL = "Discuss — fork at this occurrence (own workspace, automation files read-only)";
 
 /**
  * Renders model/user text (occurrence turns, wait prompts, notify and
@@ -653,7 +653,7 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
             }}
           >
             <p className="af-auto__hint">
-              Starts a new session seeded with this automation's conversation up to #{row.index}. It never changes the automation; the workspace is mounted read-only.
+              Starts a new session that forks this automation at #{row.index} with its full history (runs 1–{row.index}). It works in its own writable workspace; the automation's files are mounted read-only, and nothing flows back into the automation.
             </p>
             <textarea name="prompt" rows={3} aria-label="Your message" placeholder="Ask about this result…" required />
             <div className="af-auto__row">

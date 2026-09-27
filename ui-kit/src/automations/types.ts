@@ -213,7 +213,12 @@ export type AutomationChanges = {
   policy?: AutomationPolicyInput;
 };
 
-export type DiscussResponse = { session_id: string; run_id: string; session_kind: "discussion" };
+/**
+ * `POST …/discuss`: a fork at the occurrence carrying the automation's whole
+ * timeline 1..N. `workspace_root` = the discussion's OWN writable folder;
+ * `mounted_workspace` = the automation's folder, mounted READ-ONLY.
+ */
+export type DiscussResponse = { session_id: string; run_id: string; session_kind: "discussion"; workspace_root: string; mounted_workspace: string };
 
 export type ApiErrorCode =
   | "unauthorized"
