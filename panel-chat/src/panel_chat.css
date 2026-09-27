@@ -1412,3 +1412,43 @@
   color: var(--text-muted, rgba(255, 255, 255, 0.58));
 }
 /* @transcript-slice:end */
+
+/* Automations v1: "Schedule this…" header action + "from automation" badge */
+.pc-schedule-this {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pc-schedule-this:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.pc-from-automation {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--info-border, rgba(96, 165, 250, 0.35));
+  background: var(--info-subtle, rgba(96, 165, 250, 0.12));
+  color: var(--text-primary, inherit);
+  font: inherit;
+  font-size: var(--font-size-xs, 11px);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.pc-from-automation--button {
+  cursor: pointer;
+}
+
+.pc-from-automation--button:hover {
+  filter: brightness(1.12);
+}
+
+.pc-from-automation--button:focus-visible {
+  outline: 2px solid var(--accent, currentColor);
+  outline-offset: 2px;
+}

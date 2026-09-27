@@ -72,3 +72,11 @@ export type { WorkflowEventScope, WorkflowEventTarget, WorkflowEventTargetResolu
 export { chatToMarkdown, copyText, downloadTextFile, tryParseJson } from "./utils.js";
 export { workflowEvidence, foldWorkflowTools, historyRecords, type WorkflowStatistics, type WorkflowToolActivity, type WorkflowModelCall, type WorkflowSpeculation } from "./workflow_evidence.js";
 export { statDetail, StatDetailPanel, type StatDetail, type StatDetailKind, type StatDetailSection } from "./stat_detail.js";
+export {
+  ScheduleThisAction,
+  FromAutomationBadge,
+  fromAutomationText,
+  type ScheduleSeed,
+  type ScheduleThisActionProps,
+  type FromAutomationBadgeProps,
+} from "./automation_badges.js";
