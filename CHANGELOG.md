@@ -19,6 +19,11 @@ ships.
   workspace, attention acknowledged up to the last displayed item) and `AfScheduleDialog` (fixed UTC intervals
   such as "every 24 hours (UTC)", or once at a UTC time; independent or growing context). See
   [docs/automations.md](docs/automations.md).
+- Added: `AutomationPanel` shows an occurrence's `failure` (reason, message, attempts), gates Discuss on the
+  `discuss` capability, gives every disabled control a visible reason, returns focus to the opener when a form
+  closes, acknowledges attention only after `/seen` succeeds, and mints one id per user action (reused when the
+  same action is retried after a transport failure). Types `OccurrenceFailure`, `ScheduleEventPayload`,
+  `ManualEventPayload`; helpers `ActionIds`, `SeenAckTracker`, `isDefinitiveError`.
 - Added: canonical fixtures `ui-kit/scripts/fixtures/automations/*.json` with `CHECKSUMS.sha256`, and the
   `check_automation_fixtures`, `check_automation_client` and `check_automation_panel` checks in `npm test`.
 

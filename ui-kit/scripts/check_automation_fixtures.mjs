@@ -140,6 +140,7 @@ const OccurrenceRow = {
   user_turn: t.nonempty,
   answer: t.str,
   notify: Notify,
+  failure: t.opt({ reason_code: t.nonempty, message: t.nonempty, attempts: t.pos }),
   artifacts: t.arr({ artifact_id: t.nonempty, name: t.nonempty, mime_type: t.nonempty, url: t.re(/^\/api\/gateway\//) }),
   waits: t.arr({ run_id: t.uuid, wait_key: t.nonempty, reason: t.nonempty, prompt: t.opt(t.str), choices: t.opt(t.arr(t.nonempty)) }),
   ledger_url: t.re(/^\/api\/gateway\/runs\/[0-9a-f-]{36}\/ledger$/),
@@ -201,6 +202,10 @@ check("trigger sources: schedule@1 and manual@1", eq(sources.map((s) => `${s.id}
 const sched = sources.find((s) => s.id === "schedule");
 check("schedule@1 schema: the five config fields, closed", eq(Object.keys(sched.config_schema.properties).sort(), ["anchor", "count", "every", "start_at", "until"]) && sched.config_schema.additionalProperties === false);
 check("schedule@1 schema: duration pattern", sched.config_schema.properties.every.pattern === "^[1-9][0-9]*[smhd]$");
+// Decided (review 42 F1): the envelope payload is the runtime's {tick, scheduled_at, coalesced?}; fired_at is on the envelope.
+check("schedule@1 event payload = {tick, scheduled_at, coalesced?}", eq(Object.keys(sched.event_schema.properties).sort(), ["coalesced", "scheduled_at", "tick"]) && eq(sched.event_schema.required, ["tick", "scheduled_at"]) && sched.event_schema.additionalProperties === false);
+check("schedule@1 coalesced = {first_tick, last_tick, missed_count}", eq(Object.keys(sched.event_schema.properties.coalesced.properties).sort(), ["first_tick", "last_tick", "missed_count"]) && eq(sched.event_schema.properties.coalesced.required, ["first_tick", "last_tick", "missed_count"]));
+check("schedule@1 payload has no fired_at / scheduled_for / coalesced_from", !["fired_at", "scheduled_for", "coalesced_from"].some((k) => k in sched.event_schema.properties));
 check("schedule@1 schema: no tz field in v1", !("tz" in sched.config_schema.properties) && !("timezone" in sched.config_schema.properties));
 check("manual@1 schema: empty closed config", eq(sources.find((s) => s.id === "manual").config_schema, { type: "object", additionalProperties: false, properties: {} }));
 
@@ -231,7 +236,18 @@ const kinds = {
   waiting: occ.some((o) => o.status === "waiting" && o.waits.length === 1 && Array.isArray(o.waits[0].choices) && !("finished_at" in o)),
 };
 for (const [k, v] of Object.entries(kinds)) check(`occurrences cover ${k}`, v);
+const failedRows = occ.filter((o) => o.status === "failed");
+check("a failed row carries `failure`", failedRows.length > 0 && failedRows.every((o) => o.failure && o.failure.attempts === o.attempts));
+check("`failure` only on failed rows", occ.filter((o) => o.status !== "failed").every((o) => !("failure" in o)));
+const startMs = Date.parse(mail.trigger.config.start_at);
 for (const o of occ) {
+  // Decided wording (review 42 F3).
+  if (o.trigger.source_id === "schedule") {
+    const tick = (Date.parse(o.fired_at) - startMs) / 1800000;
+    check(`occurrence #${o.index}: summary "schedule: every 30 minutes (UTC), tick ${tick}"`, o.trigger.summary === `schedule: every 30 minutes (UTC), tick ${tick}`, o.trigger.summary);
+  } else {
+    check(`occurrence #${o.index}: summary "manual: run now (<command_id>)"`, /^manual: run now \([^()\s]+\)$/.test(o.trigger.summary), o.trigger.summary);
+  }
   check(`occurrence #${o.index}: user_turn is the rendered trigger line`, o.user_turn.startsWith(`[Trigger ${o.trigger.source_id}@1 · occurrence ${o.index} · fired ${o.fired_at}]\n`));
   check(`occurrence #${o.index}: ledger_url names its run`, o.ledger_url === `/api/gateway/runs/${o.run_id}/ledger`);
   for (const w of o.waits) check(`occurrence #${o.index}: wait run_id is the occurrence run`, w.run_id === o.run_id);

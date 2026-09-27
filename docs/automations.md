@@ -27,6 +27,10 @@ render server truth and forward intent through callbacks.
   it waits for a person. Quiet occurrences stay visible, subdued and unbadged.
 - **Context** — *independent*: each run starts fresh. *growing*: each run sees the
   previous runs, like turns of one conversation.
+- **Trigger envelope** — a `schedule@1` occurrence's envelope payload is
+  `{tick, scheduled_at, coalesced?: {first_tick, last_tick, missed_count}}`
+  (`ScheduleEventPayload`); `fired_at` is on the envelope itself. `manual@1`
+  carries `{command_id}`.
 - **Schedules are fixed UTC intervals.** `schedule@1` knows `start_at`, `every`
   (`^[1-9][0-9]*[smhd]$`), `until`, `count`. Every UI says "every 24 hours
   (UTC)", never "daily at 08:00 local": there is no time zone in v1.
@@ -97,9 +101,9 @@ import "@abstractframework/ui-kit/theme.css";
   triggerSources={sources}          // GET /trigger-sources items
   busy={pending}
   error={lastError}                 // ApiError | undefined
-  onCommand={(type, payload) => automations.sendAutomationCommand(id, { type, payload })}
-  onRevise={(changes, rev) => automations.reviseAutomation(id, { changes, expected_revision: rev ?? undefined })}
-  onDiscuss={(index, prompt) => automations.discuss(id, { occurrence_index: index, prompt })}
+  onCommand={(type, payload, meta) => automations.sendAutomationCommand(id, { type, payload, command_id: meta?.command_id })}
+  onRevise={(changes, rev, meta) => automations.reviseAutomation(id, { changes, expected_revision: rev ?? undefined, command_id: meta?.command_id })}
+  onDiscuss={(index, prompt, meta) => automations.discuss(id, { occurrence_index: index, prompt, request_id: meta?.request_id })}
   onSeen={(cursor) => automations.markSeen(id, cursor).then(() => undefined)}
   onLoadMore={loadOlderPage}
   onOpenRun={(runId) => openLedger(runId)}
@@ -118,18 +122,38 @@ What it renders:
   applies now. Run now stays enabled while paused (it runs once and the
   automation stays paused). Stop current is enabled while an occurrence runs or
   waits. Archive asks for confirmation inside the panel. `busy` disables all.
+  Every disabled control has a visible reason ("Run now: An occurrence is in
+  progress."), linked to the button with `aria-describedby`.
+- **Retry-safe ids** — the panel mints ONE id per user action and passes it as
+  the last callback argument (`{command_id}` for `onCommand` / `onRevise`,
+  `{request_id}` for `onDiscuss`). When the request failed in transport (no
+  gateway answer), the same click again reuses that id, so the gateway answers
+  idempotently; after a success or a gateway error the next click is a new
+  action with a new id. Forward the id to the client. The dialog does the same
+  for `request_id`, per distinct request body (an edited request never reuses
+  an id, which would be an `identity_conflict`).
+- **Focus** — when the archive confirmation, the revise form or a discuss form
+  closes, focus returns to the control that opened it (else the notice, else
+  the title).
 - **Revise** — title, interval, context; only changed fields are sent, with
   `expected_revision`. A new interval keeps the rest of the schedule.
 - **Attention** — the unseen notify/failure items and the pending waits. After
   showing them the panel calls `onSeen(cursor)` with the **last displayed**
   item's cursor, never `summary.attention.cursor`, so items it did not show stay
-  unseen.
+  unseen. A cursor counts as acknowledged only after `onSeen` resolves; a failed
+  call is retried on the next render that brings a new summary (your next poll),
+  never in a loop.
 - **Occurrences** — one chat pair each; quiet ones subdued, notified / failed /
-  waiting ones badged. A waiting occurrence shows its prompt, one button per
+  waiting ones badged. A failed pair shows its `failure` (`reason_code`,
+  message, "after N attempts") when the gateway sends it. The trigger line shows
+  `trigger.summary` as the gateway words it (`schedule: every 8 hours (UTC),
+  tick 12`, `manual: run now (<command_id>)`). A waiting occurrence shows its prompt, one button per
   choice and a free-text answer; both call `onAnswerWait(runId, waitKey,
   {response})`. Each pair has "Run details" (run id, attempts, `onOpenRun`,
   ledger link, workspace link) and **Discuss — forked session, read-only
-  workspace**. "Load earlier occurrences" appears while fewer rows than
+  workspace**. Discuss needs the `discuss` capability, is off for legacy rows,
+  and is available once the occurrence has finished (also on an archived
+  automation). "Load earlier occurrences" appears while fewer rows than
   `occurrence_count` are loaded.
 
 Every error code maps to one sentence (`apiErrorText()` / `API_ERROR_TEXT`),

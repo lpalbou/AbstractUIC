@@ -78,9 +78,9 @@ export const STATUS_LABELS: Record<string, string> = {
 
 // --- controls ---------------------------------------------------------------
 
-export type ControlId = "pause" | "resume" | "run_now" | "stop_current" | "revise" | "archive";
+export type ControlId = "pause" | "resume" | "run_now" | "stop_current" | "revise" | "archive" | "discuss";
 export type ControlState = { enabled: boolean; reason?: string };
-export const CONTROL_COMMANDS: Record<Exclude<ControlId, "revise">, string> = {
+export const CONTROL_COMMANDS: Record<Exclude<ControlId, "revise" | "discuss">, string> = {
   pause: "automation.pause",
   resume: "automation.resume",
   run_now: "automation.run_now",
@@ -100,6 +100,8 @@ export function occurrenceInProgress(summary: AutomationSummary, occurrences: Oc
  * Which controls are enabled. The server decides what the principal may do
  * (`summary.capabilities`); the status decides which of them apply now. Run
  * now stays enabled while paused (it does not resume). `busy` disables all.
+ * Discuss needs the `discuss` capability and is off for legacy rows; it stays
+ * available on an archived automation (its history is kept).
  */
 export function automationControls(
   summary: AutomationSummary,
@@ -124,6 +126,13 @@ export function automationControls(
     stop_current: gate("stop_current", running, "Nothing is running."),
     revise: gate("revise", true, ""),
     archive: gate("archive", true, ""),
+    discuss: busy
+      ? { enabled: false, reason: "Working…" }
+      : summary.legacy
+        ? { enabled: false, reason: "Legacy schedule: discussion is not available." }
+        : caps.has("discuss")
+          ? { enabled: true }
+          : { enabled: false, reason: "Discussion is not permitted for this automation." },
   };
 }
 
@@ -343,4 +352,88 @@ export function buildCreateRequest(
       context: { mode: form.context },
     },
   };
+}
+
+// --- retry-safe ids (one per user action) ------------------------------------
+
+/**
+ * One id per user action. `idFor(signature)` returns the id already minted
+ * for that exact action while its outcome is unknown (a transport failure),
+ * so a retry reuses it and the gateway answers idempotently. A definitive
+ * answer (success, or an error the gateway returned) settles it: the next
+ * action gets a new id.
+ */
+export class ActionIds {
+  private open = new Map<string, string>();
+  constructor(private readonly mint: () => string) {}
+  idFor(signature: string): string {
+    let id = this.open.get(signature);
+    if (id === undefined) {
+      id = this.mint();
+      this.open.set(signature, id);
+    }
+    return id;
+  }
+  /** `outcome` = the resolved value or the thrown error of the request. */
+  settle(signature: string, outcome: { ok: true } | { ok: false; error: unknown }): void {
+    if (outcome.ok || isDefinitiveError(outcome.error)) this.open.delete(signature);
+  }
+}
+
+/** A gateway-returned error is definitive; a transport failure or an unreadable answer is not. */
+export function isDefinitiveError(error: unknown): boolean {
+  return isApiError(error) && error.status > 0 && error.code !== "invalid_response";
+}
+
+export function mintUuid(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (!c || typeof c.randomUUID !== "function") throw new Error("crypto.randomUUID is unavailable; pass newId");
+  return c.randomUUID();
+}
+
+// --- /seen acknowledgement ------------------------------------------------------
+
+/**
+ * Acknowledge a cursor only after `/seen` succeeded. A failed call is retried
+ * on the next render that carries new data (`token` = the summary object the
+ * host passed), never in a loop on the panel's own error re-render.
+ */
+export class SeenAckTracker {
+  private acked: string | null = null;
+  private inflight: string | null = null;
+  private failedKey: string | null = null;
+  private failedToken: unknown = undefined;
+  /** The key to send now, or null. Marks it in flight. */
+  next(key: string | null, token: unknown): string | null {
+    if (!key || key === this.acked || key === this.inflight) return null;
+    if (key === this.failedKey && token === this.failedToken) return null;
+    this.inflight = key;
+    return key;
+  }
+  succeeded(key: string): void {
+    if (this.inflight === key) this.inflight = null;
+    this.acked = key;
+    this.failedKey = null;
+  }
+  failed(key: string, token: unknown): void {
+    if (this.inflight === key) this.inflight = null;
+    this.failedKey = key;
+    this.failedToken = token;
+  }
+  get acknowledged(): string | null {
+    return this.acked;
+  }
+}
+
+// --- focus after a form closes ----------------------------------------------------
+
+type Focusable = { focus(): void; disabled?: boolean };
+/** The first enabled element matching one of `selectors` (in order) under `root`. */
+export function pickFocusTarget(root: { querySelector(sel: string): unknown } | null, selectors: string[]): Focusable | null {
+  if (!root) return null;
+  for (const sel of selectors) {
+    const el = root.querySelector(sel) as Focusable | null;
+    if (el && el.disabled !== true && typeof el.focus === "function") return el;
+  }
+  return null;
 }

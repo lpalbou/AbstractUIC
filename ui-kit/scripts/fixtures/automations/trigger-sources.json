@@ -10,28 +10,24 @@
         "properties": {
           "start_at": {
             "type": "string",
-            "format": "date-time",
-            "description": "First tick (UTC). Defaults to now."
+            "format": "date-time"
           },
           "every": {
             "type": "string",
-            "pattern": "^[1-9][0-9]*[smhd]$",
-            "description": "Fixed UTC interval: s, m, h or d. Without it the automation runs once at start_at."
+            "format": "duration",
+            "pattern": "^[1-9][0-9]*[smhd]$"
           },
           "until": {
             "type": "string",
-            "format": "date-time",
-            "description": "Exclusive end (UTC)."
+            "format": "date-time"
           },
           "count": {
             "type": "integer",
-            "minimum": 1,
-            "description": "Maximum scheduled occurrences."
+            "minimum": 1
           },
           "anchor": {
             "type": "string",
-            "format": "date-time",
-            "description": "Grid anchor; v1 requires anchor = start_at."
+            "format": "date-time"
           }
         }
       },

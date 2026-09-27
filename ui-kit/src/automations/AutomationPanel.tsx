@@ -15,17 +15,22 @@ import {
   attentionAckCursor,
   attentionLabel,
   automationControls,
+  ActionIds,
   CONTROL_COMMANDS,
   contextLabel,
   formatUtc,
   isApiError,
+  mintUuid,
   occurrenceViews,
+  pickFocusTarget,
   parseDuration,
   reviseChanges,
   reviseFormFrom,
+  SeenAckTracker,
   STATUS_LABELS,
   triggerSummary,
   type ControlId,
+  type ControlState,
   type OccurrenceView,
   type ReviseForm,
 } from "./panel_core.js";
@@ -49,16 +54,24 @@ export type AutomationPanelProps = {
   triggerSources: Array<TriggerSource | TriggerSourceEntry>;
   busy: boolean;
   error?: ApiError;
-  onRevise(changes: AutomationChanges, expectedRevision: number | null): Promise<CommandReceipt>;
+  /**
+   * The trailing `meta` carries the ONE id the panel minted for this user
+   * action; it is reused when the user retries after a transport failure.
+   * Pass it to the client (`command_id` / `request_id`) so retries are
+   * idempotent.
+   */
+  onRevise(changes: AutomationChanges, expectedRevision: number | null, meta?: { command_id: string }): Promise<CommandReceipt>;
   /** `type` is the full command type, e.g. `automation.run_now`. */
-  onCommand(type: string, payload?: JsonObject): Promise<CommandReceipt>;
-  onDiscuss(index: number, prompt: string): Promise<{ session_id: string; run_id: string }>;
+  onCommand(type: string, payload?: JsonObject, meta?: { command_id: string }): Promise<CommandReceipt>;
+  onDiscuss(index: number, prompt: string, meta?: { request_id: string }): Promise<{ session_id: string; run_id: string }>;
   /** Receives the cursor of the last DISPLAYED attention item. */
   onSeen(attentionCursor: string): Promise<void>;
   onLoadMore(): void;
   onOpenRun(runId: string): void;
   /** `payload` is `{response: string}` (a choice or free text). */
   onAnswerWait(runId: string, waitKey: string, payload: JsonObject): Promise<void>;
+  /** Id source for the per-action ids (default `crypto.randomUUID`). */
+  newId?: () => string;
   className?: string;
 };
 
@@ -91,7 +104,7 @@ export function AutomationHeader(props: { summary: AutomationSummary; triggerSou
   return (
     <header className="af-auto__head">
       <div className="af-auto__titlebar">
-        <h2 className="af-auto__title" id={props.titleId}>
+        <h2 className="af-auto__title" id={props.titleId} tabIndex={-1}>
           {s.title}
         </h2>
         <span className={`af-auto__status af-auto__status--${s.status}`}>{STATUS_LABELS[s.status] ?? s.status}</span>
@@ -141,10 +154,47 @@ export type AutomationControlsBarProps = {
   onToggleRevise(): void;
   onAskArchive(): void;
   onCancelArchive(): void;
+  /** Prefix for the ids of the visible "why disabled" texts. */
+  idBase?: string;
 };
+
+const CONTROL_LABELS: Record<ControlId, string> = {
+  pause: "Pause",
+  resume: "Resume",
+  run_now: "Run now",
+  stop_current: "Stop current",
+  revise: "Revise",
+  archive: "Archive",
+  discuss: "Discuss",
+};
+
+/**
+ * Visible reasons for disabled controls, one line per distinct reason
+ * ("Run now, Stop current: Nothing is running."), each with an id the
+ * disabled buttons reference through `aria-describedby`.
+ */
+export function disabledReasons(controls: Record<ControlId, ControlState>, shown: ControlId[], idBase: string): { lines: Array<{ id: string; text: string }>; describedBy: Partial<Record<ControlId, string>> } {
+  const byReason = new Map<string, ControlId[]>();
+  for (const id of shown) {
+    const st = controls[id];
+    if (st.enabled) continue;
+    const reason = st.reason ?? "Not available now.";
+    byReason.set(reason, [...(byReason.get(reason) ?? []), id]);
+  }
+  const lines: Array<{ id: string; text: string }> = [];
+  const describedBy: Partial<Record<ControlId, string>> = {};
+  [...byReason.entries()].forEach(([reason, ids], i) => {
+    const id = `${idBase}-why-${i}`;
+    lines.push({ id, text: `${ids.map((c) => CONTROL_LABELS[c]).join(", ")}: ${reason}` });
+    for (const c of ids) describedBy[c] = id;
+  });
+  return { lines, describedBy };
+}
 
 export function AutomationControlsBar(p: AutomationControlsBarProps): React.ReactElement {
   const c = automationControls(p.summary, p.occurrences, p.busy);
+  const shown: ControlId[] = [p.summary.status === "paused" ? "resume" : "pause", "run_now", "stop_current", "revise", "archive"];
+  const why = disabledReasons(c, shown, p.idBase ?? `af-auto-${p.summary.automation_id}`);
   const btn = (id: ControlId, label: string, onClick: () => void, extra?: { pressed?: boolean; danger?: boolean }) => (
     <button
       key={id}
@@ -152,7 +202,7 @@ export function AutomationControlsBar(p: AutomationControlsBarProps): React.Reac
       className={`af-auto__btn${extra?.danger ? " af-auto__btn--danger" : ""}`}
       data-action={id}
       disabled={!c[id].enabled}
-      title={c[id].reason}
+      aria-describedby={why.describedBy[id]}
       aria-pressed={extra?.pressed}
       onClick={onClick}
     >
@@ -170,6 +220,15 @@ export function AutomationControlsBar(p: AutomationControlsBarProps): React.Reac
         {btn("revise", "Revise…", p.onToggleRevise, { pressed: p.reviseOpen })}
         {btn("archive", "Archive…", p.onAskArchive, { danger: true })}
       </div>
+      {why.lines.length ? (
+        <p className="af-auto__reasons">
+          {why.lines.map((l) => (
+            <span key={l.id} id={l.id}>
+              {l.text}
+            </span>
+          ))}
+        </p>
+      ) : null}
       {p.summary.status === "paused" && c.run_now.enabled ? (
         <p className="af-auto__hint">Paused: scheduled runs are skipped. Run now works and keeps it paused.</p>
       ) : null}
@@ -291,6 +350,8 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
 export type OccurrencePairProps = {
   view: OccurrenceView;
   busy: boolean;
+  /** `automationControls(...).discuss` — the capability / legacy gate. */
+  discuss: ControlState;
   discussOpen: boolean;
   onOpenRun(runId: string): void;
   onAnswerWait(runId: string, waitKey: string, payload: JsonObject): void;
@@ -307,8 +368,10 @@ function fieldValue(form: HTMLFormElement, name: string): string {
 export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
   const { row, tone, badge, statusText } = p.view;
   const idBase = `af-auto-occ-${row.run_id}`;
+  const discussOk = p.discuss.enabled && p.view.canDiscuss && !p.busy;
+  const discussWhy = !p.discuss.enabled ? p.discuss.reason ?? "Not available." : !p.view.canDiscuss ? "Available once this occurrence finishes." : null;
   const empty =
-    tone === "failed" ? "No answer: the run failed." : tone === "waiting" ? "Waiting for your answer." : tone === "running" ? "Running…" : "No answer.";
+    tone === "failed" ? (row.failure ? "No answer." : "No answer: the run failed.") : tone === "waiting" ? "Waiting for your answer." : tone === "running" ? "Running…" : "No answer.";
   return (
     <li className={`af-auto-occ af-auto-occ--${tone}`} data-index={row.index} data-tone={tone} aria-labelledby={`${idBase}-h`}>
       <div className="af-auto-turn af-auto-turn--trigger" data-turn="trigger">
@@ -327,6 +390,14 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
           <div className="af-auto-notify" data-notify="true">
             <strong>{row.notify.title}</strong>
             {row.notify.body ? <span> — {row.notify.body}</span> : null}
+          </div>
+        ) : null}
+        {row.failure ? (
+          <div className="af-auto-failure" data-failure={row.failure.reason_code}>
+            <strong>{row.failure.reason_code}</strong>: {row.failure.message}{" "}
+            <span className="af-auto-turn__muted">
+              (after {row.failure.attempts} {row.failure.attempts === 1 ? "attempt" : "attempts"})
+            </span>
           </div>
         ) : null}
         {row.answer ? <div className="af-auto-turn__text">{row.answer}</div> : <div className="af-auto-turn__empty">{empty}</div>}
@@ -427,9 +498,23 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
             </div>
           </form>
         ) : (
-          <button type="button" className="af-auto__btn af-auto__btn--quiet" data-action="discuss" disabled={p.busy || !p.view.canDiscuss} onClick={() => p.onDiscussOpen(row.index)}>
-            {DISCUSS_LABEL}
-          </button>
+          <>
+            <button
+              type="button"
+              className="af-auto__btn af-auto__btn--quiet"
+              data-action="discuss"
+              disabled={!discussOk}
+              aria-describedby={discussWhy ? `${idBase}-discuss-why` : undefined}
+              onClick={() => p.onDiscussOpen(row.index)}
+            >
+              {DISCUSS_LABEL}
+            </button>
+            {discussWhy ? (
+              <span className="af-auto__reasons" id={`${idBase}-discuss-why`}>
+                {discussWhy}
+              </span>
+            ) : null}
+          </>
         )}
       </div>
     </li>
@@ -441,37 +526,67 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
 export function AutomationPanel(props: AutomationPanelProps): React.ReactElement {
   const { summary, busy } = props;
   const titleId = useId();
+  const rootRef = useRef<HTMLElement | null>(null);
   const [reviseOpen, setReviseOpen] = useState(false);
   const [reviseErrors, setReviseErrors] = useState<string[]>([]);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
   const [discussAt, setDiscussAt] = useState<number | null>(null);
   const [localError, setLocalError] = useState<ApiError | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Where focus goes once a form or confirmation closes (its focused control
+  // unmounts): the control that opened it, else the notice, else the title.
+  const [focusAfter, setFocusAfter] = useState<string[] | null>(null);
+  useEffect(() => {
+    if (!focusAfter) return;
+    pickFocusTarget(rootRef.current, [...focusAfter, ".af-auto__notice", ".af-auto__title"])?.focus();
+    setFocusAfter(null);
+  }, [focusAfter]);
+
+  // ONE id per user action, reused when the same action is retried after a
+  // transport failure (see ActionIds).
+  const idsRef = useRef<ActionIds | null>(null);
+  if (!idsRef.current) idsRef.current = new ActionIds(props.newId ?? mintUuid);
+  const ids = idsRef.current;
 
   const report = (e: unknown) => setLocalError(toApiError(e));
-  const act = (p: Promise<unknown>, done: string, after?: () => void) => {
+  const act = <T,>(signature: string, run: (id: string) => Promise<T>, done: (value: T) => void) => {
     setLocalError(null);
     setNotice(null);
-    p.then(() => {
-      setNotice(done);
-      after?.();
-    }, report);
+    run(ids.idFor(signature)).then(
+      (value) => {
+        ids.settle(signature, { ok: true });
+        done(value);
+      },
+      (error) => {
+        ids.settle(signature, { ok: false, error });
+        report(error);
+      },
+    );
   };
 
-  // Acknowledge the attention items this panel displays — the LAST displayed
-  // item's cursor, once per (automation, cursor).
+  // Acknowledge the attention items this panel displays: the LAST displayed
+  // item's cursor, recorded only once `/seen` succeeded; a failure is retried
+  // on the next render that brings a new summary.
   const ack = attentionAckCursor(summary);
   const onSeenRef = useRef(props.onSeen);
   onSeenRef.current = props.onSeen;
-  const acked = useRef<string | null>(null);
+  const seenRef = useRef<SeenAckTracker | null>(null);
+  if (!seenRef.current) seenRef.current = new SeenAckTracker();
   useEffect(() => {
-    if (!ack) return;
-    const key = `${summary.automation_id}|${ack}`;
-    if (acked.current === key) return;
-    acked.current = key;
-    onSeenRef.current(ack).catch(report);
-  }, [summary.automation_id, ack]);
+    const tracker = seenRef.current as SeenAckTracker;
+    const key = ack ? `${summary.automation_id}|${ack}` : null;
+    if (!ack || !tracker.next(key, summary)) return;
+    const token = summary;
+    onSeenRef.current(ack).then(
+      () => tracker.succeeded(key as string),
+      (e) => {
+        tracker.failed(key as string, token);
+        report(e);
+      },
+    );
+  });
 
+  const controls = automationControls(summary, props.occurrences, busy);
   const views = occurrenceViews(props.occurrences);
   const more = summary.occurrence_count - props.occurrences.length;
   const shownError = localError ?? props.error ?? null;
@@ -479,7 +594,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
   const att = summary.attention;
 
   return (
-    <section className={`af-auto${props.className ? ` ${props.className}` : ""}`} aria-labelledby={titleId} aria-busy={busy}>
+    <section ref={rootRef} className={`af-auto${props.className ? ` ${props.className}` : ""}`} aria-labelledby={titleId} aria-busy={busy}>
       <AutomationHeader summary={summary} triggerSources={props.triggerSources} titleId={titleId} />
       <AutomationControlsBar
         summary={summary}
@@ -487,9 +602,14 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
         busy={busy}
         confirmingArchive={confirmingArchive}
         reviseOpen={reviseOpen}
+        idBase={`${titleId}-ctl`}
         onCommand={(type) =>
-          act(props.onCommand(type), type === CONTROL_COMMANDS.archive ? "Archive requested." : "Command sent.", () => {
-            if (type === CONTROL_COMMANDS.archive) setConfirmingArchive(false);
+          act(`command:${type}`, (command_id) => props.onCommand(type, undefined, { command_id }), () => {
+            if (type === CONTROL_COMMANDS.archive) {
+              setConfirmingArchive(false);
+              setNotice("Archive requested.");
+              setFocusAfter(['[data-action="archive"]']);
+            } else setNotice("Command sent.");
           })
         }
         onToggleRevise={() => {
@@ -497,14 +617,20 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
           setReviseOpen(!reviseOpen);
         }}
         onAskArchive={() => setConfirmingArchive(true)}
-        onCancelArchive={() => setConfirmingArchive(false)}
+        onCancelArchive={() => {
+          setConfirmingArchive(false);
+          setFocusAfter(['[data-action="archive"]']);
+        }}
       />
       {reviseOpen ? (
         <AutomationReviseForm
           summary={summary}
           busy={busy}
           errors={reviseErrors}
-          onCancel={() => setReviseOpen(false)}
+          onCancel={() => {
+            setReviseOpen(false);
+            setFocusAfter(['[data-action="revise"]']);
+          }}
           onSubmit={(form) => {
             const changes = reviseChanges(summary, form);
             if (changes === null) {
@@ -516,7 +642,11 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
               return;
             }
             setReviseErrors([]);
-            act(props.onRevise(changes, summary.revision), "Revision sent; it applies from the next run.", () => setReviseOpen(false));
+            act(`revise:${summary.revision}:${JSON.stringify(changes)}`, (command_id) => props.onRevise(changes, summary.revision, { command_id }), () => {
+              setNotice("Revision sent; it applies from the next run.");
+              setReviseOpen(false);
+              setFocusAfter(['[data-action="revise"]']);
+            });
           }}
         />
       ) : null}
@@ -526,7 +656,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
         </div>
       ) : null}
       {notice ? (
-        <div className="af-auto__notice" role="status">
+        <div className="af-auto__notice" role="status" tabIndex={-1}>
           {notice}
         </div>
       ) : null}
@@ -556,25 +686,35 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
       ) : null}
       {views.length ? (
         <ol className="af-auto__timeline" aria-label="Occurrences">
-          {views.map((v) => (
-            <OccurrencePair
-              key={v.row.run_id}
-              view={v}
-              busy={busy}
-              discussOpen={discussAt === v.row.index}
-              onOpenRun={props.onOpenRun}
-              onAnswerWait={(runId, waitKey, payload) => act(props.onAnswerWait(runId, waitKey, payload), "Answer sent.")}
-              onDiscussOpen={setDiscussAt}
-              onDiscussCancel={() => setDiscussAt(null)}
-              onDiscussSubmit={(index, prompt) => {
-                setLocalError(null);
-                props.onDiscuss(index, prompt).then((r) => {
+          {views.map((v) => {
+            const rowSel = `[data-index="${v.row.index}"]`;
+            return (
+              <OccurrencePair
+                key={v.row.run_id}
+                view={v}
+                busy={busy}
+                discuss={controls.discuss}
+                discussOpen={discussAt === v.row.index}
+                onOpenRun={props.onOpenRun}
+                onAnswerWait={(runId, waitKey, payload) => {
+                  setLocalError(null);
+                  props.onAnswerWait(runId, waitKey, payload).then(() => setNotice("Answer sent."), report);
+                }}
+                onDiscussOpen={setDiscussAt}
+                onDiscussCancel={() => {
                   setDiscussAt(null);
-                  setNotice(`Discussion started (session ${r.session_id}).`);
-                }, report);
-              }}
-            />
-          ))}
+                  setFocusAfter([`${rowSel} [data-action="discuss"]`]);
+                }}
+                onDiscussSubmit={(index, prompt) =>
+                  act(`discuss:${index}:${prompt}`, (request_id) => props.onDiscuss(index, prompt, { request_id }), (r) => {
+                    setDiscussAt(null);
+                    setNotice(`Discussion started (session ${r.session_id}).`);
+                    setFocusAfter([`${rowSel} [data-action="discuss"]`]);
+                  })
+                }
+              />
+            );
+          })}
         </ol>
       ) : (
         <p className="af-auto__empty">No occurrences yet.</p>

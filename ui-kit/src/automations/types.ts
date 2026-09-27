@@ -34,6 +34,19 @@ export type TriggerEnvelope = {
   binding_id: string;
 };
 
+/**
+ * `schedule@1` envelope payload (the runtime's shape; `fired_at` is on the
+ * envelope itself). `coalesced` is present when missed ticks were folded
+ * into this admission.
+ */
+export type ScheduleEventPayload = {
+  tick: number;
+  scheduled_at: Timestamp;
+  coalesced?: { first_tick: number; last_tick: number; missed_count: number };
+};
+/** `manual@1` envelope payload. */
+export type ManualEventPayload = { command_id: string };
+
 export type TriggerSourceKind = "time" | "manual" | "event";
 export type TriggerSource = {
   id: string;
@@ -103,6 +116,8 @@ export type AutomationSummary = {
 
 export type OccurrenceArtifact = { artifact_id: string; name: string; mime_type: string; url: string };
 export type OccurrenceWait = { run_id: string; wait_key: string; reason: string; prompt?: string; choices?: string[] };
+/** Why an occurrence failed, after its last attempt (the gateway emits it on failed rows). */
+export type OccurrenceFailure = { reason_code: string; message: string; attempts: number };
 export type OccurrenceRow = {
   run_id: string;
   index: number;
@@ -114,6 +129,7 @@ export type OccurrenceRow = {
   user_turn: string;
   answer: string;
   notify: Notify | null;
+  failure?: OccurrenceFailure;
   artifacts: OccurrenceArtifact[];
   waits: OccurrenceWait[];
   ledger_url: string;

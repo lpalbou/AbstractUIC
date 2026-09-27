@@ -18,11 +18,13 @@ hand-authored from the contract until the gateway ships the routes; then they
 are regenerated from observed gateway output, and any difference is raised to
 the gateway seat rather than papered over.
 
-Field choices the contract leaves open (confirm with the gateway seat):
-`capabilities` lists the command suffixes the principal may issue plus
-`discuss`; `OccurrenceRow.trigger.summary` is the fixed-interval label
-(`every 30 minutes (UTC)`, `manual run`); schedule event payloads are
-`{tick, scheduled_at, coalesced?}`.
+Decided after the contract (binding for G/O/A; `automations-MISSIONS.md`, review 42):
+`capabilities` = the command suffixes the row accepts plus `discuss` (legacy rows: `["legacy"]`);
+occurrence pages are newest first by index; `OccurrenceRow.trigger.summary` reads
+`schedule: every 30 minutes (UTC), tick 5` / `manual: run now (<command_id>)`; the `schedule@1`
+envelope payload is `{tick, scheduled_at, coalesced?: {first_tick, last_tick, missed_count}}`
+(`fired_at` is on the envelope); failed rows carry `failure: {reason_code, message, attempts}`
+(the `reason_code` value in the fixture, `tool_error`, is illustrative).
 
 ## Checksum rule
 

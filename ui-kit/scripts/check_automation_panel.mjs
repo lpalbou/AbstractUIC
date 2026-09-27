@@ -93,8 +93,14 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   for (const i of [1, 3, 4, 6]) check(`quiet #${i} carries no badge`, !chunks[i - 1].includes("af-auto-badge"));
   check("#2 badged Notified with its notify title + artifact link", chunks[1].includes("af-auto-badge--notified\">Notified<") && chunks[1].includes("<strong>2 urgent emails</strong>") && chunks[1].includes('href="/api/gateway/runs/') && chunks[1].includes("triage-2026-09-27T0430Z.md"));
   check("#3 says completed after 2 attempts", chunks[2].includes("completed after 2 attempts"));
-  check("#4 is the manual run", chunks[3].includes("manual run") && chunks[3].includes("[Trigger manual@1 · occurrence 4"));
-  check("#5 badged Failed after 3 attempts", chunks[4].includes(">Failed after 3 attempts<") && chunks[4].includes("No answer: the run failed."));
+  check("#4 is the manual run (decided summary wording)", chunks[3].includes("manual: run now (cmd-7c1e2f40-run-now)") && chunks[3].includes("[Trigger manual@1 · occurrence 4"));
+  check("scheduled pairs show the decided summary wording", chunks[0].includes("schedule: every 30 minutes (UTC), tick 0") && chunks[6].includes("schedule: every 30 minutes (UTC), tick 5"));
+  check("#5 badged Failed after 3 attempts", chunks[4].includes(">Failed after 3 attempts<"));
+  const f5 = occ.find((o) => o.index === 5).failure;
+  check("#5 renders its failure: reason_code, message, after N attempts", chunks[4].includes(`<div class="af-auto-failure" data-failure="${f5.reason_code}"><strong>${f5.reason_code}</strong>: ${esc(f5.message)}`) && chunks[4].includes(`(after ${f5.attempts} attempts)`));
+  check("failure block only on the failed pair", chunks.filter((c, i) => i !== 4).every((c) => !c.includes("af-auto-failure")));
+  const noFailure = panel({ summary: mail, occurrences: occ.map((o) => { const { failure, ...rest } = o; return rest; }) });
+  check("a failed row without `failure` still says it failed", noFailure.includes("No answer: the run failed.") && !noFailure.includes("af-auto-failure"));
   const w = occ.find((o) => o.index === 7).waits[0];
   check("#7 badged Waiting for you", chunks[6].includes(">Waiting for you<"));
   check("#7 wait prompt rendered", chunks[6].includes(esc(w.prompt)));
@@ -112,7 +118,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("controls: pause enabled; run now disabled while an occurrence waits; stop current enabled", enabled(mailHtml, "pause") && !enabled(mailHtml, "run_now") && enabled(mailHtml, "stop_current"));
   check("controls: resume not offered while active", button(mailHtml, "resume") === null);
   check("controls: labelled toolbar", mailHtml.includes('role="toolbar" aria-label="Automation controls"'));
-  check("section labelled by the title, aria-busy false", /<section class="af-auto" aria-labelledby="([^"]+)" aria-busy="false">/.test(mailHtml) && /<h2 class="af-auto__title" id="[^"]+">Inbox triage<\/h2>/.test(mailHtml));
+  check("section labelled by the title, aria-busy false", /<section class="af-auto" aria-labelledby="([^"]+)" aria-busy="false">/.test(mailHtml) && /<h2 class="af-auto__title" id="[^"]+" tabindex="-1">Inbox triage<\/h2>/.test(mailHtml));
   check("all occurrences loaded → no load-more", button(mailHtml, "load-more") === null);
 }
 
@@ -207,6 +213,7 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
     OccurrencePair({
       view: views.find((v) => v.row.index === index),
       busy: false,
+      discuss: { enabled: true },
       discussOpen: false,
       onOpenRun: (r) => got.push(["open", r]),
       onAnswerWait: (r, k, p) => got.push(["answer", r, k, p]),
@@ -313,9 +320,196 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   check("dialog closed renders nothing", renderToStaticMarkup(React.createElement(AfScheduleDialog, { open: false, onClose() {}, target: null, onSubmit() {} })) === "");
 }
 
+// --- F4: Discuss honours the `discuss` capability and legacy -------------------------------
+{
+  const discussEnabled = (html) => [...html.matchAll(/<button[^>]*data-action="discuss"[^>]*>/g)].map((m) => !/ disabled=""/.test(m[0]));
+  const nocap = panel({ summary: { ...mail, capabilities: mail.capabilities.filter((c) => c !== "discuss") }, occurrences: occ });
+  check("no `discuss` capability → every Discuss disabled", discussEnabled(nocap).every((e) => !e) && discussEnabled(nocap).length === 7);
+  check("no `discuss` capability → visible reason", nocap.includes("Discussion is not permitted for this automation."));
+  const legacyRows = panel({ summary: { ...mail, legacy: true, revision: null, capabilities: ["legacy"] }, occurrences: occ });
+  check("legacy → every Discuss disabled with a reason", discussEnabled(legacyRows).every((e) => !e) && legacyRows.includes("Legacy schedule: discussion is not available."));
+  const archivedRows = panel({ summary: { ...mail, status: "archived" }, occurrences: occ });
+  check("archived keeps Discuss on finished occurrences", eq(discussEnabled(archivedRows), [true, true, true, true, true, true, false]));
+  check("waiting row: Discuss reason is visible", mailHtml.includes(">Available once this occurrence finishes.</span>"));
+}
+
+// --- F5: visible reasons for disabled controls (aria-describedby) --------------------------
+{
+  const html = panel({ summary: mail, occurrences: occ });
+  const b = button(html, "run_now");
+  const ref = (/aria-describedby="([^"]+)"/.exec(b) || [])[1];
+  check("disabled Run now references a reason", !!ref, b);
+  check("…and the reason is visible text", ref && new RegExp(`<span id="${ref.replace(/[:]/g, "\\:")}">Run now: An occurrence is in progress.</span>`).test(html), ref);
+  check("enabled controls carry no reason", !/aria-describedby/.test(button(html, "pause")) && !/aria-describedby/.test(button(html, "revise")));
+  check("no `title` as the only explanation", !/<button[^>]*data-action="run_now"[^>]*title=/.test(html));
+  const busy = panel({ summary: news, occurrences: [], busy: true });
+  check("busy: one shared reason line for all controls", busy.includes("Pause, Run now, Stop current, Revise, Archive: Working…"));
+  const fake = (sel) => ({ querySelector: (q) => sel[q] ?? null });
+  const mk = (name, disabled = false) => ({ name, disabled, focus() {} });
+  const { pickFocusTarget } = await import(join(here, "..", "dist", "automations", "panel_core.js"));
+  check("pickFocusTarget skips a disabled opener → notice", pickFocusTarget(fake({ a: mk("a", true), b: mk("b") }), ["a", "b"]).name === "b");
+  check("pickFocusTarget: none → null", pickFocusTarget(fake({}), ["a"]) === null && pickFocusTarget(null, ["a"]) === null);
+  check("title is a focus fallback", /<h2 class="af-auto__title" id="[^"]+" tabindex="-1">/.test(html));
+}
+
+// --- F6 / F7 pure trackers ------------------------------------------------------------------
+{
+  const t = new kit.SeenAckTracker();
+  const s1 = {}, s2 = {}, s3 = {};
+  check("seen: first render sends", t.next("A|att1:2", s1) === "A|att1:2");
+  check("seen: in flight → not resent", t.next("A|att1:2", s1) === null);
+  t.failed("A|att1:2", s1);
+  check("seen: failure NOT acknowledged", t.acknowledged === null);
+  check("seen: same summary after the failure → no retry loop", t.next("A|att1:2", s1) === null);
+  check("seen: next render with a new summary → retried", t.next("A|att1:2", s2) === "A|att1:2");
+  t.succeeded("A|att1:2");
+  check("seen: acknowledged only after success", t.acknowledged === "A|att1:2" && t.next("A|att1:2", s3) === null);
+  check("seen: a newer cursor is sent", t.next("A|att1:3", s3) === "A|att1:3");
+  let k = 0;
+  const ids = new kit.ActionIds(() => `id-${++k}`);
+  const a = ids.idFor("command:automation.run_now");
+  ids.settle("command:automation.run_now", { ok: false, error: new TypeError("Failed to fetch") });
+  check("ids: transport failure → retry reuses the id", ids.idFor("command:automation.run_now") === a);
+  ids.settle("command:automation.run_now", { ok: false, error: { status: 0, code: "invalid_response", message: "x" } });
+  check("ids: unreadable answer → still reused", ids.idFor("command:automation.run_now") === a);
+  ids.settle("command:automation.run_now", { ok: true });
+  const b2 = ids.idFor("command:automation.run_now");
+  check("ids: after success → a new action gets a new id", b2 !== a);
+  ids.settle("command:automation.run_now", { ok: false, error: kit.parseApiError(409, { detail: { reason_code: "automation_busy", message: "busy" } }) });
+  check("ids: after a gateway answer (409) → new id", ids.idFor("command:automation.run_now") !== b2);
+  check("ids: distinct actions never share an id", ids.idFor("command:automation.pause") !== ids.idFor("command:automation.run_now"));
+}
+
+// --- hook harness: the panel's own wiring (F5, F6, F7) ---------------------------------------
+// Drives the real AutomationPanel / AfScheduleDialog with a minimal hooks
+// dispatcher (React 18 internals) so state, effects and handlers run in node.
+function harness(Component, runEffects = true) {
+  const internals = React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+  const slots = [];
+  let i = 0;
+  const D = {
+    useState(init) { const k = i++; if (!(k in slots)) slots[k] = { v: typeof init === "function" ? init() : init }; const c = slots[k]; return [c.v, (nv) => { c.v = typeof nv === "function" ? nv(c.v) : nv; }]; },
+    useRef(init) { const k = i++; if (!(k in slots)) slots[k] = { current: init }; return slots[k]; },
+    useId() { const k = i++; if (!(k in slots)) slots[k] = `:h${k}:`; return slots[k]; },
+    useEffect(fn, deps) { const k = i++; const prev = slots[k]; if (!prev || !deps || deps.some((d, j) => !Object.is(d, prev.deps[j]))) { slots[k] = { deps }; pending.push(fn); } },
+  };
+  let pending = [];
+  return {
+    render(props, root) {
+      i = 0; pending = [];
+      internals.ReactCurrentDispatcher.current = D;
+      let tree;
+      try { tree = Component(props); } finally { internals.ReactCurrentDispatcher.current = null; }
+      if (root && tree && tree.ref) tree.ref.current = root;
+      if (runEffects) for (const fn of pending) fn();
+      return tree;
+    },
+  };
+}
+const flush = () => new Promise((r) => setTimeout(r, 0));
+{
+  // F7: one command_id per user action, reused on retry after a transport failure.
+  const seen = [];
+  const sent = [];
+  let mode = "transport";
+  let n = 0;
+  const props = {
+    summary: jour, occurrences: [], triggerSources: sources, busy: false, ...handlers,
+    newId: () => `cmd-${++n}`,
+    onSeen: async (c) => { seen.push(c); },
+    onCommand: (type, payload, meta) => { sent.push([type, payload, meta]); return mode === "transport" ? Promise.reject(new TypeError("Failed to fetch")) : mode === "busy" ? Promise.reject(kit.parseApiError(409, { detail: { reason_code: "automation_busy", message: "b" } })) : Promise.resolve({ command_id: meta.command_id, accepted: true, duplicate: false, seq: 1 }); },
+  };
+  const h = harness(AutomationPanel);
+  const click = async (action) => { byAction(h.render(props), action)[0].props.onClick(); await flush(); };
+  await click("run_now");
+  await click("run_now");
+  check("F7: retry after a transport failure reuses the command_id", sent.length === 2 && sent[0][2].command_id === "cmd-1" && sent[1][2].command_id === "cmd-1", JSON.stringify(sent));
+  check("F7: onCommand(type, undefined, {command_id})", sent[0][0] === "automation.run_now" && sent[0][1] === undefined);
+  mode = "ok";
+  await click("run_now");
+  await click("run_now");
+  check("F7: after success the next click is a new action", sent[2][2].command_id === "cmd-1" && sent[3][2].command_id === "cmd-2", JSON.stringify(sent.map((x) => x[2].command_id)));
+  mode = "busy";
+  await click("run_now");
+  await click("run_now");
+  check("F7: after a gateway 409 the next click gets a new id", sent[4][2].command_id !== sent[5][2].command_id);
+}
+{
+  // F6: /seen acknowledged only after success; retried on the next render with a new summary.
+  const calls6 = [];
+  let fail = true;
+  const props = { summary: mail, occurrences: occ, triggerSources: sources, busy: false, ...handlers, newId: () => "x", onSeen: (c) => { calls6.push(c); return fail ? Promise.reject(new TypeError("offline")) : Promise.resolve(); } };
+  const h = harness(AutomationPanel);
+  h.render(props);
+  await flush();
+  h.render(props);
+  await flush();
+  check("F6: failed /seen is not retried on the same summary (no loop)", eq(calls6, ["att1:2"]), JSON.stringify(calls6));
+  fail = false;
+  const again = { ...props, summary: { ...mail } };
+  h.render(again);
+  await flush();
+  check("F6: retried on the next render with a new summary", eq(calls6, ["att1:2", "att1:2"]));
+  h.render({ ...props, summary: { ...mail } });
+  await flush();
+  check("F6: once acknowledged, not sent again", calls6.length === 2);
+}
+{
+  // F5: focus moves back to the opener when archive / revise / discuss close.
+  const asked = [];
+  const focused = [];
+  const root = { querySelector: (q) => { asked.push(q); return q.includes("data-action") ? { disabled: false, focus: () => focused.push(q) } : null; } };
+  const props = { summary: jour, occurrences: occ, triggerSources: sources, busy: false, ...handlers, newId: () => "x", onCommand: async () => ({}), onRevise: async () => ({}), onDiscuss: async () => ({ session_id: "s", run_id: "r" }) };
+  const h = harness(AutomationPanel);
+  byAction(h.render(props, root), "archive")[0].props.onClick();
+  byAction(h.render(props, root), "archive-cancel")[0].props.onClick();
+  h.render(props, root);
+  check("F5: archive cancel → focus the Archive control", focused.at(-1) === '[data-action="archive"]', JSON.stringify(focused));
+  byAction(h.render(props, root), "archive")[0].props.onClick();
+  byAction(h.render(props, root), "archive-confirm")[0].props.onClick();
+  await flush();
+  h.render(props, root);
+  check("F5: archive confirmed → focus moves (opener, else notice, else title)", focused.at(-1) === '[data-action="archive"]' && focused.length === 2);
+  byAction(h.render(props, root), "revise")[0].props.onClick();
+  byAction(h.render(props, root), "revise-cancel")[0].props.onClick();
+  h.render(props, root);
+  check("F5: revise cancel → focus the Revise control", focused.at(-1) === '[data-action="revise"]');
+  byAction(h.render(props, root), "discuss").find((n) => !n.props.disabled).props.onClick();
+  byAction(h.render(props, root), "discuss-cancel")[0].props.onClick();
+  h.render(props, root);
+  check("F5: discuss cancel → focus that row's Discuss", focused.at(-1) === '[data-index="1"] [data-action="discuss"]', focused.at(-1));
+  const none = { querySelector: (q) => (asked.push(q), q === ".af-auto__title" ? { focus: () => focused.push("title") } : null) };
+  byAction(h.render(props, none), "revise")[0].props.onClick();
+  byAction(h.render(props, none), "revise-cancel")[0].props.onClick();
+  h.render(props, none);
+  check("F5: fallback to the title when the opener is gone", focused.at(-1) === "title");
+  check("F5: fallback order = opener, notice, title", eq(asked.slice(-3), ['[data-action="revise"]', ".af-auto__notice", ".af-auto__title"]), JSON.stringify(asked.slice(-3)));
+}
+{
+  // F7 in the dialog: one request_id per distinct request.
+  let n = 0;
+  const bodies = [];
+  let outcome = "transport";
+  const props = { open: true, onClose() {}, target: { flow_id: "@default", interface: "abstractcode.agent.v1" }, newRequestId: () => `req-${++n}`, onSubmit: (b) => { bodies.push(b); return outcome === "transport" ? Promise.reject(new TypeError("offline")) : Promise.resolve({}); } };
+  const h = harness(AfScheduleDialog, false);
+  const textarea = (tree) => find(tree, (x) => x.type === "textarea")[0];
+  const submit = async () => { find(h.render(props), (x) => x.type === "form")[0].props.onSubmit({ preventDefault() {} }); await flush(); };
+  textarea(h.render(props)).props.onChange({ target: { value: "Monitor memory usage every 2 minutes" } });
+  await submit();
+  await submit();
+  check("dialog: retry after a transport failure reuses request_id", bodies.length === 2 && bodies[0].request_id === "req-1" && bodies[1].request_id === "req-1", JSON.stringify(bodies.map((b) => b.request_id)));
+  textarea(h.render(props)).props.onChange({ target: { value: "Monitor memory usage every 5 minutes" } });
+  await submit();
+  check("dialog: an edited request gets a new request_id (no identity_conflict)", bodies[2].request_id === "req-2");
+  outcome = "ok";
+  await submit();
+  await submit();
+  check("dialog: after success the same request is a new action", bodies[3].request_id === "req-2" && bodies[4].request_id === "req-3");
+}
+
 // --- CSS ships in theme.css ------------------------------------------------------------------
 const css = readFileSync(join(here, "..", "src", "theme.css"), "utf8");
-for (const cls of [".af-auto", ".af-auto-occ--quiet", ".af-auto-occ--failed", ".af-auto-occ--waiting", ".af-auto-occ--notified", ".af-auto-turn--trigger", ".af-auto__confirm", ".af-auto-wait", ".af-schedule"]) {
+for (const cls of [".af-auto__reasons", ".af-auto-failure", ".af-auto", ".af-auto-occ--quiet", ".af-auto-occ--failed", ".af-auto-occ--waiting", ".af-auto-occ--notified", ".af-auto-turn--trigger", ".af-auto__confirm", ".af-auto-wait", ".af-schedule"]) {
   check(`css ${cls}`, css.includes(`${cls} {`) || css.includes(`${cls},`));
 }
 

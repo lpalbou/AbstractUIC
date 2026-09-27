@@ -6,15 +6,19 @@
 //
 // Wording is fixed-interval UTC ("every 24 hours (UTC)"), never calendar
 // wording such as "daily at 08:00 local": schedule@1 has no time zone.
-// The request id is minted once per opening, so a retry after a failure
-// reuses it and the gateway answers idempotently.
+// ONE request id per distinct request: a retry of the same request after a
+// transport failure reuses it (the gateway answers idempotently); an edited
+// request, or one after a definitive answer, gets a new id (never an
+// identity_conflict from reusing an id with a different body).
 import React, { useEffect, useId, useRef, useState } from "react";
 import { trapTabKey } from "../about.js";
 import {
+  ActionIds,
   apiErrorText,
   buildCreateRequest,
   SCHEDULE_PRESETS,
   schedulePreview,
+  mintUuid,
   type ScheduleForm,
 } from "./panel_core.js";
 import type { ApiError, AutomationTarget, ContextMode, CreateAutomationRequest } from "./types.js";
@@ -31,19 +35,15 @@ export type AfScheduleDialogProps = {
   onSubmit(body: CreateAutomationRequest): void | Promise<unknown>;
   busy?: boolean;
   error?: ApiError;
-  /** Id source for `request_id` (default `crypto.randomUUID`). */
+  /**
+   * Id source for `request_id` (default `crypto.randomUUID`). Return a
+   * Promise from `onSubmit` so a transport failure keeps the id for a retry.
+   */
   newRequestId?: () => string;
   title?: string;
 };
 
 type UnitKey = "m" | "h" | "d";
-
-function mintId(fn?: () => string): string {
-  if (fn) return fn();
-  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (!c || typeof c.randomUUID !== "function") throw new Error("AfScheduleDialog: crypto.randomUUID is unavailable; pass newRequestId");
-  return c.randomUUID();
-}
 
 export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactElement | null {
   const titleId = useId();
@@ -64,13 +64,11 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
   const [count, setCount] = useState("");
   const [until, setUntil] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
-  const requestId = useRef<string | null>(null);
+  const idsRef = useRef<ActionIds | null>(null);
+  if (!idsRef.current) idsRef.current = new ActionIds(() => (props.newRequestId ?? mintUuid)());
 
   useEffect(() => {
-    if (!props.open) {
-      requestId.current = null;
-      return;
-    }
+    if (!props.open) return;
     const restore = document.activeElement as HTMLElement | null;
     firstRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -107,14 +105,19 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!requestId.current) requestId.current = mintId(props.newRequestId);
-    const built = buildCreateRequest(form, { target: props.target, requestId: requestId.current });
-    if (!built.ok) {
-      setErrors(built.errors);
+    const probe = buildCreateRequest(form, { target: props.target, requestId: "" });
+    if (!probe.ok) {
+      setErrors(probe.errors);
       return;
     }
     setErrors([]);
-    void props.onSubmit(built.body);
+    const ids = idsRef.current as ActionIds;
+    const signature = JSON.stringify(probe.body);
+    const body = { ...probe.body, request_id: ids.idFor(signature) };
+    Promise.resolve(props.onSubmit(body)).then(
+      () => ids.settle(signature, { ok: true }),
+      (error) => ids.settle(signature, { ok: false, error }),
+    );
   };
 
   return (
