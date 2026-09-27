@@ -3266,3 +3266,7 @@
 .af-auto-wait__tool { font-family: var(--font-mono); font-weight: 700; }
 .af-auto-wait__args { margin: 2px 0 0; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--ui-code-block-bg, var(--bg-secondary)); font-family: var(--font-mono); font-size: var(--font-size-xs); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 12em; overflow: auto; }
 .af-schedule__consent { margin: 0; color: var(--text-secondary); }
+.af-auto__definition > summary { cursor: pointer; color: var(--text-secondary); font-size: var(--font-size-xs); }
+.af-auto__definition > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.af-auto__definition[open] > .af-auto__facts { margin-top: 6px; }
+.af-auto__json { margin: 4px 0 0; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--ui-code-block-bg, var(--bg-secondary)); font-family: var(--font-mono); font-size: var(--font-size-xs); white-space: pre-wrap; overflow-wrap: anywhere; }

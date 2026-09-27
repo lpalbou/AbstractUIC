@@ -73,8 +73,8 @@ import "@abstractframework/ui-kit/theme.css";
 ```
 
 The panel is controlled: it holds only view state (which form is open, the last notice) and
-renders what you pass. Optional props: `definition` (an `AutomationDefinition` you already hold;
-the panel renders from `summary`), `newId` (the id source for retry-safe ids, default
+renders what you pass. Optional props: `definition` (the `definition` of `GET /automations/{id}`;
+when given, the panel adds a collapsed "Definition" block), `newId` (the id source for retry-safe ids, default
 `crypto.randomUUID`) and `className`.
 
 ### What it shows
@@ -84,6 +84,9 @@ the panel renders from `summary`), `newId` (the id source for retry-safe ids, de
   ("2 unseen · 1 waiting for you"), revision, and a "Legacy schedule" marker for rows the Gateway
   projects from older `scheduled:*` roots. When the Gateway does not list the automation's trigger
   source, or lists it with `available: false`, the header says so.
+- **Definition** (only with the `definition` prop) — a collapsed "Definition (revision N)"
+  block: target workflow, trigger source and config, context, tools (`tool_approval` auto / ask),
+  retry policy and revision.
 - **Needs attention** — the unseen notify and failure items, then the pending waits, labelled by
   kind ("Question for you", "Approval needed", "Waiting for an event").
 - **Occurrences** — one chat pair per run, oldest first. Quiet runs are subdued; notified, failed,

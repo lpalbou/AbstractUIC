@@ -580,9 +580,35 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   check("real tool_approval wait has no prompt → the panel's own sentence", !("prompt" in tw) && mailHtml.includes("A tool call needs your approval."));
 }
 
+// --- definition block (the optional `definition` prop is rendered) ----------------------------
+{
+  // Shape of GET /automations/{id} → definition as the gateway returns it (capture at 5161785).
+  const definition = {
+    schema_version: 1, revision: 1, title: news.title,
+    controller: { bundle_ref: "abstractframework.automation-controller@1.0.0", flow_id: "controller" },
+    target: { workflow_id: "basic-agent@0.1.0:main", bundle_ref: "basic-agent@0.1.0", flow_id: "main", input_data: { prompt: "Search the AI news." } },
+    trigger: news.trigger, context: { mode: "independent", growing: {} },
+    policy: { serial: true, misfire: "coalesce", failure: "continue", retry: { max_attempts: 3, backoff: { initial: "30s", factor: 2, max: "10m" } }, tool_approval: "auto" },
+    session_id: "s", workspace_root: "/w", created_at: "2026-09-25T08:00:00.108652+00:00", archived_at: null,
+  };
+  const html = panel({ summary: news, occurrences: [], definition });
+  const block = (html.match(/<details class="af-auto__definition"[\s\S]*?<\/details>/) || [""])[0];
+  check("definition: collapsed details block with its revision", block.startsWith('<details class="af-auto__definition" data-definition-revision="1"><summary>Definition (revision 1)</summary>'));
+  check("definition: target workflow", block.includes('data-def="target"><code>basic-agent@0.1.0:main</code>'));
+  check("definition: trigger source + label + config", block.includes('data-def="trigger">schedule@1 · every 8 hours (UTC)') && block.includes(esc(JSON.stringify(news.trigger.config, null, 2))));
+  check("definition: context", block.includes('data-def="context">Independent — each run starts fresh'));
+  check("definition: tool approval auto", block.includes('data-def="tool_approval">Run without asking (auto)'));
+  check("definition: retry policy", block.includes('data-def="retry">3 attempts, backoff 30s ×2 up to 10m'));
+  check("definition: revision", block.includes('data-def="revision">1</dd>'));
+  const ask = panel({ summary: news, occurrences: [], definition: { ...definition, revision: 3, policy: { ...definition.policy, tool_approval: "ask" } } });
+  check("definition: tool approval ask + new revision", ask.includes('data-def="tool_approval">Ask before each tool call (ask)') && ask.includes("Definition (revision 3)"));
+  check("definition: absent prop → no block", !panel({ summary: news, occurrences: [] }).includes("af-auto__definition"));
+  check("definition: placed right after the header", html.indexOf("</header>") < html.indexOf("af-auto__definition") && html.indexOf("af-auto__definition") < html.indexOf('role="toolbar"'));
+}
+
 // --- CSS ships in theme.css ------------------------------------------------------------------
 const css = readFileSync(join(here, "..", "src", "theme.css"), "utf8");
-for (const cls of [".af-auto__reasons", ".af-auto-failure", ".af-auto", ".af-auto-occ--quiet", ".af-auto-occ--failed", ".af-auto-occ--waiting", ".af-auto-occ--notified", ".af-auto-turn--trigger", ".af-auto__confirm", ".af-auto-wait", ".af-schedule"]) {
+for (const cls of [".af-auto__definition > summary", ".af-auto__json", ".af-auto__reasons", ".af-auto-failure", ".af-auto", ".af-auto-occ--quiet", ".af-auto-occ--failed", ".af-auto-occ--waiting", ".af-auto-occ--notified", ".af-auto-turn--trigger", ".af-auto__confirm", ".af-auto-wait", ".af-schedule"]) {
   check(`css ${cls}`, css.includes(`${cls} {`) || css.includes(`${cls},`));
 }
 

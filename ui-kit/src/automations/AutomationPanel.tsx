@@ -72,7 +72,10 @@ export type AutomationPanelProps = {
   onSeen(attentionCursor: string): Promise<void>;
   onLoadMore(): void;
   onOpenRun(runId: string): void;
-  /** `payload` is `{response: string}` (a choice or free text). */
+  /**
+   * `payload` follows the wait's `kind`: `ask_user` → `{response}` (a choice or
+   * free text), `tool_approval` → `{approved: true|false}`, `event` → `{payload}`.
+   */
   onAnswerWait(runId: string, waitKey: string, payload: JsonObject): Promise<void>;
   /** Id source for the per-action ids (default `crypto.randomUUID`). */
   newId?: () => string;
@@ -143,6 +146,45 @@ export function AutomationHeader(props: { summary: AutomationSummary; triggerSou
         ) : null}
       </dl>
     </header>
+  );
+}
+
+// --- definition ------------------------------------------------------------------
+
+/**
+ * The committed definition (`GET /automations/{id}` → `definition`), compact
+ * and collapsed: target workflow, trigger config, context, policy (incl.
+ * tool approval) and revision.
+ */
+export function AutomationDefinitionBlock(props: { definition: AutomationDefinition }): React.ReactElement {
+  const d = props.definition;
+  const retry = d.policy.retry;
+  const approval = d.policy.tool_approval;
+  return (
+    <details className="af-auto__definition" data-definition-revision={d.revision}>
+      <summary>Definition (revision {d.revision})</summary>
+      <dl className="af-auto__facts">
+        <dt>Target</dt>
+        <dd data-def="target">
+          <code>{d.target.workflow_id}</code>
+        </dd>
+        <dt>Trigger</dt>
+        <dd data-def="trigger">
+          {d.trigger.source_id}@{d.trigger.source_version} · {triggerSummary(d.trigger)}
+          <pre className="af-auto__json">{JSON.stringify(d.trigger.config, null, 2)}</pre>
+        </dd>
+        <dt>Context</dt>
+        <dd data-def="context">{contextLabel(d.context.mode)}</dd>
+        <dt>Tools</dt>
+        <dd data-def="tool_approval">{approval === "ask" ? "Ask before each tool call (ask)" : approval === "auto" ? "Run without asking (auto)" : String(approval)}</dd>
+        <dt>Retries</dt>
+        <dd data-def="retry">
+          {retry.max_attempts} {retry.max_attempts === 1 ? "attempt" : "attempts"}, backoff {retry.backoff.initial} ×{retry.backoff.factor} up to {retry.backoff.max}
+        </dd>
+        <dt>Revision</dt>
+        <dd data-def="revision">{d.revision}</dd>
+      </dl>
+    </details>
   );
 }
 
@@ -684,6 +726,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
   return (
     <section ref={rootRef} className={`af-auto${props.className ? ` ${props.className}` : ""}`} aria-labelledby={titleId} aria-busy={busy}>
       <AutomationHeader summary={summary} triggerSources={props.triggerSources} titleId={titleId} />
+      {props.definition ? <AutomationDefinitionBlock definition={props.definition} /> : null}
       <AutomationControlsBar
         summary={summary}
         occurrences={props.occurrences}
