@@ -30,6 +30,8 @@ ships.
   asking (you approve them now by creating this automation)"; "ask" on request). Types `WaitKind`,
   `ToolCallToApprove`, `WaitAnswer`, `ToolApprovalPolicy`; helpers `waitToolCalls`, `parseEventPayload`,
   `TOOL_APPROVAL_CONSENT`, `WAIT_KIND_LABELS`.
+- Changed: the automation fixtures are generated from real Gateway output (curated); `AttentionWait` carries
+  `reason` and `choices?` like the Gateway's pending waits.
 - Added: canonical fixtures `ui-kit/scripts/fixtures/automations/*.json` with `CHECKSUMS.sha256`, and the
   `check_automation_fixtures`, `check_automation_client` and `check_automation_panel` checks in `npm test`.
 

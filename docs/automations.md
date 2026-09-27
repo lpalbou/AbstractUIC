@@ -216,9 +216,13 @@ Neither performs requests. No v1 host wires them yet.
 
 ## Fixture contract
 
+Timestamps arrive as the gateway emits them (`2026-09-27T04:00:00.412307+00:00`);
+`formatUtc()` shows them as `2026-09-27 04:00 UTC` (and accepts the `Z` form).
+
 `ui-kit/scripts/fixtures/automations/` holds `list.json`, `occurrences.json`,
 `attention.json`, `trigger-sources.json`, `commands.json` and `errors.json`: the
-shared shapes of the Gateway routes (see its `README.md`). The Observer reads
+shared shapes of the Gateway routes, generated from real Gateway output and
+curated (see its `README.md`). The Observer reads
 these files through its source alias; the Assistant vendors byte-identical
 copies, and the root `scripts/check_identity_sync.py` fails on drift.
 `CHECKSUMS.sha256` pins the bytes; `node ui-kit/scripts/check_automation_fixtures.mjs

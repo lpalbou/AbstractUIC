@@ -56,7 +56,8 @@ const fx = Object.fromEntries(FILES.map((f) => [f, load(f)]));
 for (const f of FILES) check(`${f} ends with one newline`, readFileSync(join(dir, f), "utf8").endsWith("}\n"));
 
 // --- shape DSL ----------------------------------------------------------------------
-const TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
+const TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+const GATEWAY_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}\+00:00$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const DURATION = /^[1-9][0-9]*[smhd]$/;
 const t = {
@@ -114,7 +115,7 @@ const TriggerBinding = { binding_id: t.uuid, source_id: t.nonempty, source_versi
 const AttentionItem = { kind: t.lit("notify", "failure"), automation_id: t.uuid, run_id: t.uuid, index: t.pos, at: t.ts, title: t.nonempty, body: t.opt(t.str), cursor: t.re(/^att1:\d+$/) };
 const WaitKind = t.lit("ask_user", "tool_approval", "event");
 const anyJson = () => true;
-const AttentionWait = { run_id: t.uuid, wait_key: t.nonempty, index: t.pos, kind: WaitKind, prompt: t.opt(t.str), details: t.opt(anyJson) };
+const AttentionWait = { run_id: t.uuid, wait_key: t.nonempty, kind: WaitKind, reason: t.nonempty, index: t.pos, prompt: t.opt(t.str), choices: t.opt(t.arr(t.nonempty)), details: t.opt(anyJson) };
 const AutomationSummary = {
   automation_id: t.uuid,
   title: (v) => (typeof v === "string" && v.length > 0 && v.length <= 120) || "title 1..120",
@@ -166,14 +167,25 @@ shape("list.json", fx["list.json"], Page(AutomationSummary));
 shape("occurrences.json", fx["occurrences.json"], Page(OccurrenceRow));
 shape("attention.json", fx["attention.json"], Page(AttentionItem));
 shape("trigger-sources.json", fx["trigger-sources.json"], { items: t.arr(TriggerSourceEntry) });
-shape("errors.json", fx["errors.json"], { items: t.arr({ status: t.lit(401, 403, 404, 409, 422), body: { detail: ErrorDetail } }) });
+shape("errors.json", fx["errors.json"], { items: t.arr({ name: t.nonempty, request: { method: t.lit("GET", "POST", "PATCH"), path: t.re(/^\/api\/gateway\//), body: t.nullable(t.object) }, status: t.lit(401, 403, 404, 409, 422), body: { detail: ErrorDetail } }) });
 const CommandBody = { command_id: t.nonempty, type: t.lit("automation.pause", "automation.resume", "automation.run_now", "automation.stop_current", "automation.archive"), payload: t.opt(t.object) };
 const ReviseBody = { command_id: t.nonempty, expected_revision: t.opt(t.pos), changes: { title: t.opt(t.nonempty), target: t.opt(t.object), trigger: t.opt({ source_id: t.nonempty, source_version: t.pos, config: t.object }), context: t.opt({ mode: t.lit("independent", "growing") }), policy: t.opt(t.object) } };
+const ResumeBody = { command_id: t.nonempty, run_id: t.uuid, type: t.lit("resume"), payload: { wait_key: t.nonempty, payload: t.object }, client_id: t.opt(t.nonempty) };
+const ROUTES = [
+  [/^\/api\/gateway\/automations\/[0-9a-f-]{36}$/, "PATCH", ReviseBody, Receipt],
+  [/^\/api\/gateway\/automations\/[0-9a-f-]{36}\/commands$/, "POST", CommandBody, Receipt],
+  [/^\/api\/gateway\/automations\/[0-9a-f-]{36}\/seen$/, "POST", { attention_cursor: t.re(/^att1:\d+$/) }, { attention_cursor: t.re(/^att1:\d+$/) }],
+  [/^\/api\/gateway\/automations\/[0-9a-f-]{36}\/discuss$/, "POST", { request_id: t.nonempty, occurrence_index: t.pos, prompt: t.nonempty }, { session_id: t.re(/^discussion-session:/), run_id: t.uuid, session_kind: t.lit("discussion") }],
+  [/^\/api\/gateway\/commands$/, "POST", ResumeBody, { accepted: t.bool, duplicate: t.bool, seq: t.nonneg }],
+];
 for (const [i, c] of fx["commands.json"].items.entries()) {
-  shape(`commands.json[${i}] envelope`, c, { name: t.nonempty, request: { method: t.lit("POST", "PATCH"), path: t.nonempty, body: t.object }, status: t.lit(200), response: Receipt });
-  if (c.request.method === "PATCH") shape(`commands.json[${i}] revise body`, c.request.body, ReviseBody);
-  else shape(`commands.json[${i}] command body`, c.request.body, CommandBody);
-  check(`commands.json[${i}] receipt echoes command_id`, c.response.command_id === c.request.body.command_id);
+  shape(`commands.json[${i}] envelope`, c, { name: t.nonempty, request: { method: t.lit("POST", "PATCH"), path: t.nonempty, body: t.object }, status: t.lit(200), response: t.object });
+  const route = ROUTES.find(([re, m]) => re.test(c.request.path) && m === c.request.method);
+  check(`commands.json[${i}] (${c.name}) is a known route`, !!route, `${c.request.method} ${c.request.path}`);
+  if (!route) continue;
+  shape(`commands.json[${i}] (${c.name}) request`, c.request.body, route[2]);
+  shape(`commands.json[${i}] (${c.name}) response`, c.response, route[3]);
+  if (route[3] === Receipt) check(`commands.json[${i}] receipt echoes command_id`, c.response.command_id === c.request.body.command_id);
 }
 for (const s of fx["list.json"].items) {
   if (s.trigger.source_id === "schedule") shape(`schedule config of ${s.title}`, s.trigger.config, ScheduleConfig);
@@ -195,7 +207,10 @@ const CODES = {
   unknown_trigger_source: 422,
 };
 const errItems = fx["errors.json"].items;
-check("errors.json: exactly one body per contract code", eq(errItems.map((e) => e.body.detail.reason_code).sort(), Object.keys(CODES).sort()), JSON.stringify(errItems.map((e) => e.body.detail.reason_code)));
+const seenCodes = new Set(errItems.map((e) => e.body.detail.reason_code));
+check("errors.json: every contract code has a body", Object.keys(CODES).every((c) => seenCodes.has(c)), JSON.stringify([...seenCodes]));
+check("errors.json: no code outside the contract", [...seenCodes].every((c) => c in CODES));
+check("errors.json: both resume-payload mismatches (by kind)", ["tool_approval", "ask_user"].every((k) => errItems.some((e) => e.request.path === "/api/gateway/commands" && e.body.detail.reason_code === "invalid_request" && e.body.detail.message.includes(`waits for ${k}`))));
 for (const e of errItems) check(`errors.json: ${e.body.detail.reason_code} is HTTP ${CODES[e.body.detail.reason_code]}`, e.status === CODES[e.body.detail.reason_code], String(e.status));
 check("errors.json: no cursor_expired (removed in rev 2)", !JSON.stringify(errItems).includes("cursor_expired"));
 
@@ -212,9 +227,25 @@ check("schedule@1 schema: no tz field in v1", !("tz" in sched.config_schema.prop
 check("manual@1 schema: empty closed config", eq(sources.find((s) => s.id === "manual").config_schema, { type: "object", additionalProperties: false, properties: {} }));
 
 const list = fx["list.json"].items;
-check("list: three automations", list.length === 3);
+check("list: three automations + the legacy row, legacy last", list.length === 4 && list.filter((s) => s.legacy).length === 1 && list[3].legacy === true);
+const legacy = list[3];
+check("legacy row: capabilities [legacy], revision null, binding_id + last_occurrence", eq(legacy.capabilities, ["legacy"]) && legacy.revision === null && UUID.test(legacy.trigger.binding_id) && !!legacy.last_occurrence);
+for (const s of list) {
+  const want = s.legacy ? ["legacy"] : ["archived", "completed", "failed"].includes(s.status) ? ["discuss"] : ["revise", "pause", "resume", "run_now", "stop_current", "archive", "discuss"];
+  check(`${s.title}: capabilities are the gateway's for status ${s.status}`, eq(s.capabilities, want), JSON.stringify(s.capabilities));
+}
+// Gateway timestamp format everywhere in the responses (microseconds, +00:00).
+const stamps = [];
+const collect = (v, k) => {
+  if (Array.isArray(v)) return v.forEach((x) => collect(x, k));
+  if (v && typeof v === "object") return Object.entries(v).forEach(([kk, vv]) => collect(vv, kk));
+  if (typeof v === "string" && ["fired_at", "finished_at", "at", "updated_at", "next_fire_at", "start_at", "anchor", "until"].includes(k)) stamps.push(v);
+};
+collect([fx["list.json"], fx["occurrences.json"], fx["attention.json"]]);
+check("every response timestamp is in the gateway format (.ffffff+00:00)", stamps.length > 30 && stamps.every((v) => GATEWAY_TS.test(v)), stamps.find((v) => !GATEWAY_TS.test(v)));
 const byTitle = Object.fromEntries(list.map((s) => [s.title, s]));
 const news = byTitle["AI news monitor"], mail = byTitle["Inbox triage"], jour = byTitle["Weekly journal monitor"];
+for (const s of list.filter((x) => !x.legacy)) check(`${s.title}: trigger config key order is the gateway's (start_at, anchor, every…)`, eq(Object.keys(s.trigger.config).slice(0, 3), ["start_at", "anchor", "every"]));
 check("list: news monitor every 8h independent active", news && news.trigger.config.every === "8h" && news.context_mode === "independent" && news.status === "active");
 check("list: inbox triage every 30m growing with typed pending waits (ask_user + tool_approval)", mail && mail.trigger.config.every === "30m" && mail.context_mode === "growing" && mail.attention.pending_waits === 2 && eq(mail.attention.waits.map((w) => w.kind), ["ask_user", "tool_approval"]));
 check("list: weekly journal monitor every 7d, paused", jour && jour.trigger.config.every === "7d" && jour.status === "paused" && !("next_fire_at" in jour));
@@ -240,7 +271,8 @@ const kinds = {
 };
 for (const [k, v] of Object.entries(kinds)) check(`occurrences cover ${k}`, v);
 const failedRows = occ.filter((o) => o.status === "failed");
-check("a failed row carries `failure`", failedRows.length > 0 && failedRows.every((o) => o.failure && o.failure.attempts === o.attempts));
+check("a failed row carries the gateway's `failure`", failedRows.length > 0 && failedRows.every((o) => o.failure && o.failure.reason_code === "occurrence_failed" && o.failure.attempts === o.attempts));
+check("failure attention body = the failure message, title '<automation> failed'", failedRows.every((o) => { const a = fx["attention.json"].items.find((x) => x.index === o.index); return a && a.kind === "failure" && a.body === o.failure.message && a.title === `${mail.title} failed`; }));
 check("`failure` only on failed rows", occ.filter((o) => o.status !== "failed").every((o) => !("failure" in o)));
 const startMs = Date.parse(mail.trigger.config.start_at);
 for (const o of occ) {
@@ -255,7 +287,8 @@ for (const o of occ) {
   check(`occurrence #${o.index}: ledger_url names its run`, o.ledger_url === `/api/gateway/runs/${o.run_id}/ledger`);
   for (const w of o.waits) {
     // A flow-level question waits on the occurrence run; a tool approval may wait on a descendant (the agent sub-run).
-    if (w.kind === "ask_user") check(`occurrence #${o.index}: ask_user wait is on the occurrence run`, w.run_id === o.run_id);
+    check(`occurrence #${o.index}: ${w.kind} wait reason is "user" (kind carries the type)`, w.reason === "user");
+    if (w.kind === "ask_user") check(`occurrence #${o.index}: ask_user wait is on the occurrence run`, w.run_id === o.run_id && w.wait_key === `user:${o.run_id}:ask`);
     if (w.kind === "tool_approval") {
       check(`occurrence #${o.index}: tool_approval wait on a descendant run`, w.run_id !== o.run_id);
       shape(`occurrence #${o.index} tool_approval details`, w.details, t.arr({ name: t.nonempty, arguments: t.object, call_id: t.opt(t.nonempty) }));
@@ -265,7 +298,7 @@ for (const o of occ) {
 }
 const last = occ.reduce((a, b) => (b.index > a.index ? b : a));
 check("inbox summary.last_occurrence is the newest occurrence", mail.last_occurrence.run_id === last.run_id && mail.last_occurrence.index === last.index);
-check("inbox summary waits == the waiting occurrence's typed waits", eq(mail.attention.waits, last.waits.map((w) => ({ run_id: w.run_id, wait_key: w.wait_key, index: last.index, kind: w.kind, prompt: w.prompt, ...(w.details !== undefined ? { details: w.details } : {}) }))));
+check("inbox summary waits == the waiting occurrence's typed waits + index", eq(mail.attention.waits, last.waits.map((w) => ({ ...w, index: last.index }))));
 check("inbox pending_waits counts every wait", mail.attention.pending_waits === last.waits.length);
 
 const att = fx["attention.json"].items;
@@ -280,10 +313,20 @@ for (const a of att) {
 check("no quiet occurrence has an attention item", occ.filter((o) => o.notify === null && o.status !== "failed").every((o) => !att.some((a) => a.index === o.index)));
 
 const cmds = fx["commands.json"].items;
+const allWaits = occ.flatMap((o) => o.waits);
+const ANSWER = { ask_user: ["response"], tool_approval: ["approved"], event: ["payload"] };
+const resumes = cmds.filter((c) => c.request.path === "/api/gateway/commands");
+check("commands: a resume for each pending wait kind in the fixtures", eq([...new Set(resumes.map((c) => allWaits.find((w) => w.wait_key === c.request.body.payload.wait_key)?.kind))].sort(), [...new Set(allWaits.map((w) => w.kind))].sort()));
+for (const c of resumes) {
+  const w = allWaits.find((x) => x.wait_key === c.request.body.payload.wait_key);
+  check(`resume "${c.name}": run_id + answer keys follow the wait's kind`, !!w && c.request.body.run_id === w.run_id && eq(Object.keys(c.request.body.payload.payload), ANSWER[w.kind]));
+}
+check("commands: the repeat receipt is the gateway's (accepted:false, duplicate:true)", cmds.some((c) => c.response.duplicate === true && c.response.accepted === false));
 const ids = new Set(list.map((s) => s.automation_id));
-check("commands cover every automation command type + revise", eq([...new Set(cmds.map((c) => c.request.body.type ?? "revise"))].sort(), ["automation.archive", "automation.pause", "automation.resume", "automation.run_now", "automation.stop_current", "revise"]));
-check("commands include a duplicate receipt", cmds.some((c) => c.response.duplicate === true));
-for (const c of cmds) {
+const automationCmds = cmds.filter((c) => c.request.path.startsWith("/api/gateway/automations/") && /\/commands$|[0-9a-f]$/.test(c.request.path));
+check("commands cover every automation command type + revise", eq([...new Set(automationCmds.map((c) => c.request.body.type ?? "revise"))].sort(), ["automation.archive", "automation.pause", "automation.resume", "automation.run_now", "automation.stop_current", "revise"]));
+check("commands cover seen and discuss", cmds.some((c) => c.request.path.endsWith("/seen")) && cmds.some((c) => c.request.path.endsWith("/discuss")));
+for (const c of automationCmds) {
   const m = /^\/api\/gateway\/automations\/([0-9a-f-]{36})(\/commands)?$/.exec(c.request.path);
   check(`command ${c.name}: path names a listed automation`, m && ids.has(m[1]), c.request.path);
   check(`command ${c.name}: PATCH on the automation, POST on /commands`, m && (c.request.method === "PATCH") === !m[2]);

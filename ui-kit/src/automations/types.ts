@@ -6,7 +6,7 @@
 
 /** `^[1-9][0-9]*[smhd]$` — fixed UTC interval (s=1, m=60, h=3600, d=86400 s; no DST). */
 export type Duration = string;
-/** UTC RFC3339 timestamp, e.g. `2026-09-27T08:00:00Z`. */
+/** UTC RFC3339 timestamp. The gateway emits `2026-09-27T08:00:00.412307+00:00`; `Z` is accepted too. */
 export type Timestamp = string;
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type JsonObject = { [key: string]: Json };
@@ -85,7 +85,8 @@ export type WaitKind = "ask_user" | "tool_approval" | "event";
 /** One tool call awaiting approval (`details` of a `tool_approval` wait). */
 export type ToolCallToApprove = { name: string; arguments: JsonObject; call_id?: string };
 export type WaitAnswer = { response: string } | { approved: boolean; tool_ids?: string[] } | { payload: Json };
-export type AttentionWait = { run_id: string; wait_key: string; index: number; kind: WaitKind; prompt?: string; details?: Json };
+/** A pending wait as the summary lists it (the occurrence's wait plus its `index`). */
+export type AttentionWait = { run_id: string; wait_key: string; kind: WaitKind; reason: string; index: number; prompt?: string; choices?: string[]; details?: Json };
 export type AutomationAttention = {
   pending_waits: number;
   unread: boolean;

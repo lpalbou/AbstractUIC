@@ -43,10 +43,13 @@ let n = 0;
 const newId = () => `gen-${++n}`;
 
 const list = fx("list.json");
-const [news, mail, jour] = list.items;
+const byTitle = Object.fromEntries(list.items.map((s) => [s.title, s]));
+const news = byTitle["AI news monitor"], mail = byTitle["Inbox triage"], jour = byTitle["Weekly journal monitor"];
 
 // --- commands.json: exact requests -----------------------------------------------------
-for (const c of fx("commands.json").items) {
+const clientRoutes = fx("commands.json").items.filter((c) => c.request.path.startsWith("/api/gateway/automations/"));
+check("commands.json: every client route present (revise, commands, seen, discuss)", ["PATCH", "/commands", "/seen", "/discuss"].every((k) => clientRoutes.some((c) => (k === "PATCH" ? c.request.method === k : c.request.path.endsWith(k)))));
+for (const c of clientRoutes) {
   const s = stub(() => ({ status: 200, body: c.response }));
   const client = createAutomationsClient({ fetch: s.fetch, newId });
   const id = c.request.path.split("/")[4];
@@ -54,7 +57,11 @@ for (const c of fx("commands.json").items) {
   const got =
     c.request.method === "PATCH"
       ? await client.reviseAutomation(id, { changes: b.changes, expected_revision: b.expected_revision, command_id: b.command_id })
-      : await client.sendAutomationCommand(id, { type: b.type, command_id: b.command_id });
+      : c.request.path.endsWith("/seen")
+        ? await client.markSeen(id, b.attention_cursor)
+        : c.request.path.endsWith("/discuss")
+          ? await client.discuss(id, { occurrence_index: b.occurrence_index, prompt: b.prompt, request_id: b.request_id })
+          : await client.sendAutomationCommand(id, { type: b.type, command_id: b.command_id });
   const call = s.calls[0];
   check(`${c.name}: method`, call.method === c.request.method, call.method);
   check(`${c.name}: path`, call.url === c.request.path, call.url);

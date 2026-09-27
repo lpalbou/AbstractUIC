@@ -42,7 +42,9 @@ const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, 
 for (const [name, v] of Object.entries({ AutomationPanel, AfScheduleDialog, AutomationControlsBar, AutomationReviseForm, OccurrencePair, AutomationHeader })) check(`export ${name}`, typeof v === "function");
 
 const list = fx("list.json").items;
-const [news, mail, jour] = list;
+const byTitle = Object.fromEntries(list.map((s) => [s.title, s]));
+const news = byTitle["AI news monitor"], mail = byTitle["Inbox triage"], jour = byTitle["Weekly journal monitor"];
+const legacyRow = list.find((s) => s.legacy);
 const occ = fx("occurrences.json").items;
 const sources = fx("trigger-sources.json").items;
 const calls = [];
@@ -91,9 +93,9 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
     check(`pair ${i + 1}: trigger turn then answer turn`, t > 0 && a > t);
   });
   for (const i of [1, 3, 4, 6]) check(`quiet #${i} carries no badge`, !chunks[i - 1].includes("af-auto-badge"));
-  check("#2 badged Notified with its notify title + artifact link", chunks[1].includes("af-auto-badge--notified\">Notified<") && chunks[1].includes("<strong>2 urgent emails</strong>") && chunks[1].includes('href="/api/gateway/runs/') && chunks[1].includes("triage-2026-09-27T0430Z.md"));
+  check("#2 badged Notified with its notify title + artifact link", chunks[1].includes("af-auto-badge--notified\">Notified<") && chunks[1].includes("<strong>2 urgent emails</strong>") && chunks[1].includes('href="/api/gateway/runs/') && chunks[1].includes("triage-2026-09-27.md"));
   check("#3 says completed after 2 attempts", chunks[2].includes("completed after 2 attempts"));
-  check("#4 is the manual run (decided summary wording)", chunks[3].includes("manual: run now (cmd-7c1e2f40-run-now)") && chunks[3].includes("[Trigger manual@1 · occurrence 4"));
+  check("#4 is the manual run (decided summary wording)", chunks[3].includes(esc(occ.find((o) => o.index === 4).trigger.summary)) && /manual: run now \([0-9a-f-]{36}\)/.test(chunks[3]) && chunks[3].includes("[Trigger manual@1 · occurrence 4"));
   check("scheduled pairs show the decided summary wording", chunks[0].includes("schedule: every 30 minutes (UTC), tick 0") && chunks[6].includes("schedule: every 30 minutes (UTC), tick 5"));
   check("#5 badged Failed after 3 attempts", chunks[4].includes(">Failed after 3 attempts<"));
   const f5 = occ.find((o) => o.index === 5).failure;
@@ -107,7 +109,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("#7 wait prompt rendered", chunks[6].includes(esc(w.prompt)));
   check("#7 one button per choice", w.choices.every((c) => chunks[6].includes(`data-action="wait-choice">${esc(c)}</button>`)));
   check("#7 free-text answer control, labelled", chunks[6].includes('aria-label="Your answer"') && chunks[6].includes('data-action="wait-answer"'));
-  check("ask_user wait form labelled by its prompt", /<form class="af-auto-wait af-auto-wait--ask_user" data-wait-key="ask_user:reply-landlord" data-wait-kind="ask_user" aria-labelledby="[^"]+-prompt"/.test(chunks[6]));
+  check("ask_user wait form labelled by its prompt", chunks[6].includes(`<form class="af-auto-wait af-auto-wait--ask_user" data-wait-key="${w.wait_key}" data-wait-kind="ask_user" aria-labelledby="`));
   check("tool_approval wait: group labelled, kind label, tool call listed with its arguments", chunks[6].includes('data-wait-kind="tool_approval"') && chunks[6].includes(">Approval needed</span>") && chunks[6].includes(`<code class="af-auto-wait__tool">${tw.details[0].name}</code>`) && chunks[6].includes(esc(JSON.stringify(tw.details[0].arguments, null, 2))));
   check("tool_approval wait: Approve and Deny, no free text", enabled(chunks[6], "wait-approve") && enabled(chunks[6], "wait-deny") && (chunks[6].match(/aria-label="Your answer"/g) || []).length === 1);
   check("no wait controls on other occurrences", chunks.filter((c, i) => i !== 6).every((c) => !c.includes("af-auto-wait")));
@@ -562,6 +564,20 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   check("D1: dialog submits ask when chosen", bodies[1] && eq(bodies[1].policy, { tool_approval: "ask" }));
   const askHtml = renderToStaticMarkup(h.render(dprops));
   check("D1: consent line hidden under ask", !askHtml.includes(esc(kit.TOOL_APPROVAL_CONSENT)));
+}
+
+// --- real gateway formats ----------------------------------------------------------------------
+{
+  check("formatUtc: gateway +00:00 with microseconds", kit.formatUtc("2026-09-27T10:14:55.865625+00:00") === "2026-09-27 10:14:55 UTC");
+  check("formatUtc: whole minute with microseconds", kit.formatUtc("2026-09-27T07:00:00.412307+00:00") === "2026-09-27 07:00 UTC");
+  check("formatUtc: Z form still works", kit.formatUtc("2026-09-27T08:00:00Z") === "2026-09-27 08:00 UTC");
+  check("formatUtc: other offsets normalised to UTC", kit.formatUtc("2026-09-27T10:00:00.000000+02:00") === "2026-09-27 08:00 UTC");
+  check("fixture fired_at renders as UTC", mailHtml.includes("fired 2026-09-27 04:00 UTC"));
+  const leg = panel({ summary: legacyRow, occurrences: [] });
+  check("real legacy row: marker, every control disabled with the legacy reason", leg.includes("Legacy schedule") && ["pause", "run_now", "stop_current", "revise", "archive"].every((a) => !enabled(leg, a)) && leg.includes("Legacy schedule: managed with its existing controls."));
+  check("real legacy row: every hour (UTC), no revision", leg.includes(">every hour (UTC)</dd>") && !leg.includes('data-fact="revision"'));
+  const tw = occ.find((o) => o.index === 7).waits.find((x) => x.kind === "tool_approval");
+  check("real tool_approval wait has no prompt → the panel's own sentence", !("prompt" in tw) && mailHtml.includes("A tool call needs your approval."));
 }
 
 // --- CSS ships in theme.css ------------------------------------------------------------------
