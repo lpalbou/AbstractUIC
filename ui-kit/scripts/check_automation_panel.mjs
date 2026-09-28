@@ -484,8 +484,8 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   const ref = (/aria-describedby="([^"]+)"/.exec(b) || [])[1];
   check("disabled Run now references a reason", !!ref, b);
   check("…and the reason is VISIBLE, compact and muted (tooltips on disabled buttons are unreliable)", ref && new RegExp(`<p class="af-auto__reasons"><svg[^]*?</svg><span id="${ref.replace(/[:]/g, "\\:")}">Run now: An occurrence is in progress.</span>`).test(html) && !/af-auto__reasons af-auto__sr-only/.test(html), ref);
-  check("enabled controls carry no reason", !/aria-describedby/.test(button(html, "pause")) && !/aria-describedby/.test(button(html, "edit")) && !/title=/.test(button(html, "pause")));
-  check("the disabled control's reason is also its tooltip", /<button[^>]*data-action="run_now"[^>]*title="An occurrence is in progress."/.test(html));
+  check("enabled controls carry no reason", !/aria-describedby/.test(button(html, "pause")) && !/aria-describedby/.test(button(html, "edit")) && !/title="(Already|Nothing|Working)/.test(button(html, "pause")));
+  check("the disabled control's reason is also its tooltip (first line, then the hint)", /<button[^>]*data-action="run_now"[^>]*title="An occurrence is in progress.\n/.test(html));
   const busy = panel({ summary: news, occurrences: [], busy: true });
   check("busy: one shared reason line for all controls", busy.includes("Pause, Run now, Stop current, Edit, Archive: Working…"));
   const fake = (sel) => ({ querySelector: (q) => sel[q] ?? null });
@@ -859,6 +859,46 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   check("with renderText → section marked rich, nothing unformatted", rich.includes('data-text-rendering="rich"') && !rich.includes("data-unformatted"));
   check("the answer is never ALSO printed raw", !rich.includes("|---|") && !rich.includes("## 2 emails"));
   check("export plainTextRenderer", typeof kit.plainTextRenderer === "function");
+}
+
+// --- Control hints: ONE canonical definition (operator 2026-09-28, "Run now" tooltip) ----------
+{
+  const { CONTROL_HINTS, CONTROL_LABELS, CONTROL_ICONS, RUN_NOW_GLYPH, RUN_NOW_ONE_LINE, RUN_NOW_NEXT_RUN_LINE, RUN_NOW_GROWING_LINE, controlHint, Icon } = kit;
+  const spec = JSON.parse(readFileSync(join(here, "..", "src", "automations", "automation_controls.json"), "utf8"));
+  const ids = ["pause", "resume", "run_now", "stop_current", "revise", "archive", "discuss"];
+  check("hints: exported", typeof controlHint === "function" && CONTROL_HINTS && RUN_NOW_GLYPH && typeof RUN_NOW_ONE_LINE === "string");
+  check("hints: one per control, no more", eq(Object.keys(CONTROL_HINTS).sort(), [...ids].sort()) && eq(Object.keys(CONTROL_LABELS).sort(), [...ids].sort()));
+  check("hints/labels/lines ARE the canonical automation_controls.json", eq(CONTROL_HINTS, spec.hints) && eq(CONTROL_LABELS, spec.labels) && RUN_NOW_ONE_LINE === spec.run_now_one_line && RUN_NOW_NEXT_RUN_LINE === spec.run_now_next_run_line && RUN_NOW_GROWING_LINE === spec.run_now_growing_line);
+  // The runtime facts the Run now hint states (abstractruntime 0.7.1 commands/controller/schedule + tests).
+  const rn = CONTROL_HINTS.run_now;
+  check("run now hint: runs now instead of later", rn.startsWith("Run it once now, without waiting for the schedule."));
+  check("run now hint: the next scheduled run keeps its time, or follows this run", rn.includes("the next scheduled run keeps its time, or starts right after this run if its time comes first"));
+  check("run now hint: no run-limit count, allowed while paused, refused while busy", rn.includes("Does not count toward a run limit.") && rn.includes("Works while paused; it stays paused.") && rn.includes("Not available while a run is in progress."));
+  // Dynamic parts.
+  const active = { ...news, status: "active", context_mode: "independent", next_fire_at: "2026-09-27T08:00:00.108652+00:00" };
+  check("controlHint(run_now) adds the next scheduled time (formatUtc)", controlHint("run_now", active) === `${rn}\nNext scheduled run: 2026-09-27 08:00 UTC.`, controlHint("run_now", active));
+  check("controlHint(run_now) adds the Growing line only for growing", controlHint("run_now", { ...active, context_mode: "growing" }).endsWith(`\n${RUN_NOW_GROWING_LINE}`) && !controlHint("run_now", active).includes("Growing"));
+  check("controlHint(run_now) without next_fire_at (paused/manual) = the static hint", controlHint("run_now", { ...active, next_fire_at: undefined }) === rn);
+  check("controlHint(other) = its static hint", ids.filter((i) => i !== "run_now").every((i) => controlHint(i, active) === CONTROL_HINTS[i]));
+  // The bar: every control's tooltip and aria-description is its hint.
+  const html = panel({ summary: active, occurrences: [] });
+  const b = button(html, "run_now");
+  const want = esc(controlHint("run_now", active));
+  check("Run now button: title = hint", b && b.includes(`title="${want}"`), b);
+  check("Run now button: aria-description = hint", b && b.includes(`aria-description="${want}"`), b);
+  check("every bar control carries its hint", [["pause", "pause"], ["stop_current", "stop_current"], ["edit", "revise"], ["archive", "archive"]].every(([a, id]) => (button(html, a) || "").includes(`aria-description="${esc(CONTROL_HINTS[id])}"`)));
+  const pausedHtml = panel({ summary: { ...active, status: "paused", next_fire_at: undefined }, occurrences: [] });
+  check("resume carries its hint", (button(pausedHtml, "resume") || "").includes(`title="${esc(CONTROL_HINTS.resume)}"`));
+  const occHtml = panel({ summary: mail, occurrences: occ });
+  check("Discuss carries its hint", (button(occHtml, "discuss") || "").includes(`title="${esc(CONTROL_HINTS.discuss)}"`));
+  // The icon: the kit's playCircle, and the vendorable glyph is exactly what <Icon> draws.
+  check("run now icon is the shared playCircle", CONTROL_ICONS.run_now === "playCircle" && RUN_NOW_GLYPH.name === "playCircle");
+  const iconSvg = renderToStaticMarkup(React.createElement(Icon, { name: "playCircle" }));
+  const inner = (/^<svg[^>]*>([^]*)<\/svg>$/.exec(iconSvg) || [])[1];
+  check("RUN_NOW_GLYPH.svg is <Icon name=playCircle>'s markup", inner === RUN_NOW_GLYPH.svg, `${inner} vs ${RUN_NOW_GLYPH.svg}`);
+  check("RUN_NOW_GLYPH viewBox/stroke match <Icon>", iconSvg.includes(`viewBox="${RUN_NOW_GLYPH.view_box}"`) && iconSvg.includes(`stroke-width="${RUN_NOW_GLYPH.stroke_width}"`));
+  const btnMarkup = (new RegExp(`<button[^>]*data-action="run_now"[^>]*>([^]*?)</button>`).exec(html) || [])[1] || "";
+  check("the Run now button draws that glyph", btnMarkup.includes(RUN_NOW_GLYPH.svg));
 }
 
 // --- CSS ships in theme.css ------------------------------------------------------------------

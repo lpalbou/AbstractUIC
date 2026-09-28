@@ -7,6 +7,26 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## Unreleased
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.1.16 (not bumped yet) | updated |
+
+### ui-kit: one shared "Run now" hint and glyph
+
+- Added: every automation control carries a tooltip (`title`) and `aria-description` saying what
+  it does (`CONTROL_HINTS`, `controlHint(id, summary)`). Run now's says it runs once now instead of
+  waiting, that the next scheduled run keeps its time (or starts right after this run if its time
+  comes first), that it does not count toward a run limit, works while paused (which stays paused)
+  and is not available while a run is in progress; with the summary it adds the next scheduled
+  time and, for a Growing automation, that later runs see it in their history. A disabled
+  control's tooltip keeps its reason as the first line.
+- Added: `ui-kit/src/automations/automation_controls.json`, the one canonical file for the
+  controls' names, hints, `RUN_NOW_ONE_LINE` and the run-now glyph (`RUN_NOW_GLYPH`, the
+  `playCircle` markup). `CONTROL_LABELS` and `CONTROL_HINTS` read it; clients that cannot import
+  the kit vendor it byte-identical (root `scripts/check_identity_sync.py`).
+
 ## 0.1.15 - 2026-09-28
 
 | Package | Version | Change |

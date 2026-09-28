@@ -12,6 +12,7 @@
 // any state and invoke their handlers without a DOM.
 import React, { useEffect, useId, useRef, useState } from "react";
 import { Icon, type IconName } from "../icon.js";
+import controlsSpec from "./automation_controls.json" with { type: "json" };
 import {
   apiErrorText,
   attentionAckCursor,
@@ -405,27 +406,76 @@ export type AutomationControlsBarProps = {
   idBase?: string;
 };
 
-/** One name per action, everywhere (operator 2026-09-28: "Edit", never "Revise"). */
-export const CONTROL_LABELS: Record<ControlId, string> = {
-  pause: "Pause",
-  resume: "Resume",
-  run_now: "Run now",
-  stop_current: "Stop current",
-  revise: "Edit",
-  archive: "Archive",
-  discuss: "Discuss",
+/**
+ * The automation controls' names, hints and run-now glyph, in ONE canonical
+ * file: `automation_controls.json` (next to this module). Clients that cannot
+ * import the kit (the Qt Assistant, AbstractCode's terminal client) vendor it
+ * byte-identical; the root `scripts/check_identity_sync.py` fails on drift.
+ */
+type AutomationControlsSpec = {
+  labels: Record<ControlId, string>;
+  hints: Record<ControlId, string>;
+  run_now_next_run_line: string;
+  run_now_growing_line: string;
+  run_now_one_line: string;
+  icons: { run_now: { name: IconName; view_box: string; stroke_width: number; svg: string } };
 };
+const SPEC = controlsSpec as AutomationControlsSpec;
+
+/** One name per action, everywhere (operator 2026-09-28: "Edit", never "Revise"). */
+export const CONTROL_LABELS: Record<ControlId, string> = SPEC.labels;
 
 /** The kit icon of each control (the same glyphs in every client's rows and panels). */
 export const CONTROL_ICONS: Record<ControlId, IconName> = {
   pause: "pause",
   resume: "play",
-  run_now: "playCircle",
+  run_now: SPEC.icons.run_now.name,
   stop_current: "stop",
   revise: "edit",
   archive: "archive",
   discuss: "chat",
 };
+
+/**
+ * What each control does: the tooltip (`title`) and `aria-description` of the
+ * control in every client (operator 2026-09-28: "a tooltip explaining it will
+ * run the automated task rather than later - and the effect it has or not on
+ * the next scheduled run"). Lines are separated by "\n".
+ *
+ * Every sentence is the runtime's behaviour (abstractruntime 0.7.1
+ * `automations/commands.py` `_decide`, `automations/controller.py`
+ * `wait_decision`/`admit`, `triggers/schedule.py` `admit`/`rearm`), checked
+ * against its tests: a manual run never moves the schedule cursor nor counts
+ * toward `count`; a tick that falls due during it is admitted as soon as it
+ * ends (coalesced, never dropped); it is refused while an occurrence is in
+ * flight (no queue) and allowed while paused (it stays paused).
+ */
+export const CONTROL_HINTS: Record<ControlId, string> = SPEC.hints;
+
+/** Run now in one line (terminal key-hint/help rows). */
+export const RUN_NOW_ONE_LINE: string = SPEC.run_now_one_line;
+
+/** The run-now glyph as SVG markup, for clients that draw it without React (it IS `<Icon name="playCircle">`). */
+export const RUN_NOW_GLYPH: Readonly<{ name: IconName; view_box: string; stroke_width: number; svg: string }> = SPEC.icons.run_now;
+
+/** The run-now line added when the summary carries `next_fire_at` ("{time}" = `formatUtc`). */
+export const RUN_NOW_NEXT_RUN_LINE: string = SPEC.run_now_next_run_line;
+/** The run-now line added for a Growing-context automation (a manual run is a turn of its session). */
+export const RUN_NOW_GROWING_LINE: string = SPEC.run_now_growing_line;
+
+/**
+ * A control's hint for this automation: `CONTROL_HINTS[id]`, plus, for Run
+ * now, the next scheduled time when the server reports one and the Growing
+ * line when the automation replays its history.
+ */
+export function controlHint(id: ControlId, summary?: Pick<AutomationSummary, "next_fire_at" | "context_mode">): string {
+  const lines = [CONTROL_HINTS[id]];
+  if (id === "run_now" && summary) {
+    if (summary.next_fire_at) lines.push(RUN_NOW_NEXT_RUN_LINE.replace("{time}", formatUtc(summary.next_fire_at)));
+    if (summary.context_mode === "growing") lines.push(RUN_NOW_GROWING_LINE);
+  }
+  return lines.join("\n");
+}
 
 /**
  * Reasons for disabled controls, one line per distinct reason
@@ -466,21 +516,25 @@ export function AutomationControlsBar(p: AutomationControlsBarProps): React.Reac
   const c = automationControls(p.summary, p.occurrences, p.busy);
   const shown: ControlId[] = [p.summary.status === "paused" ? "resume" : "pause", "run_now", "stop_current", "revise", "archive"];
   const why = disabledReasons(c, shown, p.idBase ?? `af-auto-${p.summary.automation_id}`);
-  const btn = (id: ControlId, onClick: () => void, extra?: { pressed?: boolean; danger?: boolean; action?: string; label?: string }) => (
+  const btn = (id: ControlId, onClick: () => void, extra?: { pressed?: boolean; danger?: boolean; action?: string; label?: string }) => {
+    const hint = controlHint(id, p.summary);
+    return (
     <button
       key={id}
       type="button"
       className={`af-auto__btn${extra?.danger ? " af-auto__btn--danger" : ""}`}
       data-action={extra?.action ?? id}
       disabled={!c[id].enabled}
-      title={c[id].enabled ? undefined : c[id].reason}
+      title={c[id].enabled ? hint : `${c[id].reason}\n${hint}`}
+      aria-description={hint}
       aria-describedby={why.describedBy[id]}
       aria-pressed={extra?.pressed}
       onClick={onClick}
     >
       <IconLabel icon={CONTROL_ICONS[id]} label={extra?.label ?? CONTROL_LABELS[id]} />
     </button>
-  );
+    );
+  };
   return (
     <div className="af-auto__controls-wrap">
       <div className="af-auto__actionbar">
@@ -936,6 +990,8 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
               className="af-auto__btn af-auto__btn--quiet"
               data-action="discuss"
               disabled={!discussOk}
+              title={CONTROL_HINTS.discuss}
+              aria-description={CONTROL_HINTS.discuss}
               aria-describedby={discussWhy ? `${idBase}-discuss-why` : undefined}
               onClick={() => p.onDiscussOpen(row.index)}
             >
