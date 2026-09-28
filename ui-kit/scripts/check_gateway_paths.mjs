@@ -15,6 +15,11 @@ assert.equal(joinBaseUrl(undefined, "api/x"), "api/x");
 assert.equal(joinBaseUrl("http://127.0.0.1:18896", "api/x"), "http://127.0.0.1:18896/api/x");
 assert.equal(joinBaseUrl("https://host/gw//", "api/x"), "https://host/gw/api/x", "prefix kept, trailing slashes folded");
 assert.throws(() => joinBaseUrl("http://h", "/api/x"), /relative path/);
+const { gatewayResourcePath } = kit;
+assert.equal(gatewayResourcePath("/api/gateway/runs/r1/ledger"), "api/gateway/runs/r1/ledger", "server's gateway-rooted URL → the app-relative path");
+assert.equal(gatewayResourcePath("/api/gateway/runs/r1/artifacts/a/content?x=1"), "api/gateway/runs/r1/artifacts/a/content?x=1");
+for (const bad of ["https://evil.example/api/gateway/x", "//evil.example/api/gateway/x", "api/gateway/x", "/api/gatewayx/y", "/api/gateway/", "/assets/x.js", ""])
+  assert.throws(() => gatewayResourcePath(bad), /Not a gateway API path/, `refused: ${bad || "(empty)"}`);
 const at = (p) => new URL(p, "https://host/apps/observer/").href;
 assert.equal(at(GATEWAY_CONNECTION_PATH), "https://host/apps/observer/api/connection/gateway", "resolves under the app's base path");
 

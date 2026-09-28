@@ -63,6 +63,28 @@ assert.ok(!/href="javascript:/i.test(bad), "no javascript: link");
 assert.ok(!bad.includes('src="https://evil.example') && bad.includes('href="https://evil.example/p.png"'), "remote image is a link, never fetched");
 assert.ok(bad.includes('href="https://evil.example/trigger.png"'), "the trigger turn (a user-role card) also shows remote images as links");
 
+// Gateway links (ledger JSON, artifacts) are never raw hrefs; with the host's fetchGateway they
+// become buttons that open through it.
+assert.ok(!/href="\/api\//.test(html) && !html.includes('data-action="open-ledger-json"'), "no fetchGateway → no gateway links at all");
+const fetched = [];
+const fetchGateway = async (path) => (fetched.push(path), new Response("{}", { headers: { "content-type": "application/json" } }));
+const withFetch = renderToStaticMarkup(React.createElement(AutomationPanelWithMarkdown, { ...base, fetchGateway }));
+assert.equal((withFetch.match(/data-action="open-ledger-json"/g) || []).length, occ.length, "one ledger button per run");
+assert.ok(withFetch.includes('data-action="open-artifact"') && !/href="\/api\//.test(withFetch), "artifact buttons, still no raw href");
+const el = AutomationPanelWithMarkdown({ ...base, fetchGateway });
+globalThis.window = { open() {}, setTimeout: () => 0 };
+const realCreate = URL.createObjectURL;
+URL.createObjectURL = () => "blob:x";
+await el.props.onOpenResource({ kind: "ledger", url: occ[0].ledger_url, name: "l.json", runId: occ[0].run_id });
+URL.createObjectURL = realCreate;
+delete globalThis.window;
+assert.deepEqual(fetched, [occ[0].ledger_url.slice(1)], "the wrapper opens a resource through fetchGateway at the app-relative path");
+const own = [];
+const hostOwn = AutomationPanelWithMarkdown({ ...base, fetchGateway, onOpenResource: (r) => void own.push(r) });
+hostOwn.props.onOpenResource({ kind: "artifact", url: "u", name: "n", runId: "r" });
+assert.equal(own.length, 1, "a host's own onOpenResource wins over fetchGateway");
+assert.ok(!("fetchGateway" in el.props), "fetchGateway is not forwarded to the kit panel");
+
 // The spread helper and the wrapper produce the same markup.
 const spread = renderToStaticMarkup(React.createElement(kit.AutomationPanel, { ...base, ...automationRenderers }));
 assert.equal(spread, html, "<AutomationPanel {...automationRenderers}> == <AutomationPanelWithMarkdown>");

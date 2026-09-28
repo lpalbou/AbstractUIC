@@ -105,6 +105,17 @@ export type AutomationPanelProps = {
    * to the JSON route carries no bearer token and shows no files.
    */
   onOpenWorkspace?(runId: string): void;
+  /**
+   * Opens a file the gateway links in its data — a run's ledger JSON, an
+   * artifact — through the host's credentials (panel-chat
+   * `openGatewayResource(fetchGateway, resource.url, …)`, or
+   * `AutomationPanelWithMarkdown`'s `fetchGateway`). The panel never renders
+   * those server URLs as raw links (they are rooted at the gateway and would
+   * bypass the app's session and proxy); without this prop artifacts show as
+   * plain names and there is no ledger JSON link. A rejection is shown as
+   * the panel's error.
+   */
+  onOpenResource?(resource: GatewayResource): Promise<void> | void;
   /** Clock for "next in …" (ms since epoch); default `Date.now()`. */
   nowMs?: number;
   className?: string;
@@ -134,6 +145,17 @@ export function AutomationStateLabel(props: { status: AutomationStatus | string;
     </span>
   );
 }
+
+/** A file the gateway links in its data, handed to `onOpenResource`. `url` is the server's string, gateway-rooted (map it with ui-kit `gatewayResourcePath`). */
+export type GatewayResource = {
+  kind: "ledger" | "artifact";
+  url: string;
+  /** File name to save it under ("run-<id>-ledger.json", the artifact's name). */
+  name: string;
+  /** The artifact's declared type (artifacts only). */
+  mimeType?: string;
+  runId: string;
+};
 
 /** One occurrence turn handed to `renderTurn`. */
 export type AutomationTurn = {
@@ -543,6 +565,8 @@ export type OccurrencePairProps = {
   renderTurn?: RenderTurn;
   /** See `AutomationPanelProps.onOpenWorkspace` (called with this occurrence's run id). */
   onOpenWorkspace?(runId: string): void;
+  /** See `AutomationPanelProps.onOpenResource`. */
+  onOpenResource?(resource: GatewayResource): void;
 };
 
 function fieldValue(form: HTMLFormElement, name: string): string {
@@ -711,9 +735,18 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
           <ul className="af-auto-artifacts" aria-label="Artifacts">
             {row.artifacts.map((a) => (
               <li key={a.artifact_id}>
-                <a href={a.url} target="_blank" rel="noopener noreferrer">
-                  {a.name}
-                </a>{" "}
+                {p.onOpenResource ? (
+                  <button
+                    type="button"
+                    className="af-auto__linkbtn"
+                    data-action="open-artifact"
+                    onClick={() => p.onOpenResource?.({ kind: "artifact", url: a.url, name: a.name, mimeType: a.mime_type, runId: row.run_id })}
+                  >
+                    <Icon name="file" size={13} className="af-auto__btn-icon" /> {a.name}
+                  </button>
+                ) : (
+                  <span className="af-auto-artifact__name">{a.name}</span>
+                )}{" "}
                 <span className="af-auto-turn__muted">{a.mime_type}</span>
               </li>
             ))}
@@ -738,9 +771,16 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
             <button type="button" className="af-auto__btn" data-action="open-run" onClick={() => p.onOpenRun(row.run_id)}>
               Open run ledger
             </button>
-            <a className="af-auto__link" href={row.ledger_url} target="_blank" rel="noopener noreferrer">
-              Ledger (JSON)
-            </a>
+            {p.onOpenResource ? (
+              <button
+                type="button"
+                className="af-auto__btn"
+                data-action="open-ledger-json"
+                onClick={() => p.onOpenResource?.({ kind: "ledger", url: row.ledger_url, name: `run-${row.run_id}-ledger.json`, runId: row.run_id })}
+              >
+                Ledger (JSON)
+              </button>
+            ) : null}
             {row.workspace_url && p.onOpenWorkspace ? (
               <button type="button" className="af-auto__btn" data-action="open-workspace" title="Browse this run's folder" onClick={() => p.onOpenWorkspace?.(row.run_id)}>
                 <Icon name="folder" size={13} className="af-auto__btn-icon" /> Workspace
@@ -976,6 +1016,18 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
                 renderText={render}
                 renderTurn={props.renderTurn}
                 onOpenWorkspace={props.onOpenWorkspace}
+                onOpenResource={
+                  props.onOpenResource
+                    ? (resource) => {
+                        setLocalError(null);
+                        try {
+                          Promise.resolve(props.onOpenResource?.(resource)).catch(report);
+                        } catch (e) {
+                          report(e);
+                        }
+                      }
+                    : undefined
+                }
                 discussOpen={discussAt === v.row.index}
                 onOpenRun={props.onOpenRun}
                 onAnswerWait={(runId, waitKey, payload) => {

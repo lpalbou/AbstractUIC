@@ -22,6 +22,17 @@ ships.
   `GATEWAY_CONNECTION_PATH`, `gatewayApiPath(route)` and `joinBaseUrl(baseUrl, path)` (both refuse
   a rooted argument). `createAutomationsClient({ baseUrl })` joins with it: "" keeps requests
   relative to the page; `http://host:8080` and `https://host/prefix/` prefix them.
+- Changed: links the kit rendered straight from gateway data are gone. `AutomationPanel` no longer
+  renders `ledger_url` or `artifacts[].url` as hrefs (they are rooted at the gateway and bypassed
+  the app's session under `/apps/<id>/` and a standalone app's proxy). Added `onOpenResource(resource)`
+  (`GatewayResource`: `kind` ledger/artifact, the server's `url`, `name`, `mimeType`, `runId`):
+  artifact names and a **Ledger (JSON)** button call it; without it artifacts are plain names and
+  there is no ledger JSON button. Added ui-kit `gatewayResourcePath(serverUrl)` (gateway-rooted →
+  app-relative; anything else throws), panel-chat `openGatewayResource(fetchGateway, url,
+  { name, mode? })` (fetch through the host, open with `tabOpenPlan`) and `deliverBlob(blob, name,
+  mode)`, and `AutomationPanelWithMarkdown`'s `fetchGateway` prop, which wires
+  `onOpenResource` through it. The contract fixtures are unchanged: the gateway keeps sending
+  rooted paths; the client maps them.
 - Added: `scripts/check_relative_urls.mjs`, run last by the root `npm test`: fails on any
   root-absolute same-origin literal (`/api/`, `/assets/`, `/apps/`) in the sources and built
   output of ui-kit (incl. the console islands bundle), panel-chat and the monitors, and when a

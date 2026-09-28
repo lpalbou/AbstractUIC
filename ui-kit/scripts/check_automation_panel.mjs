@@ -94,7 +94,8 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
     check(`pair ${i + 1}: trigger turn then answer turn`, t > 0 && a > t);
   });
   for (const i of [1, 3, 4, 6]) check(`quiet #${i} carries no badge`, !chunks[i - 1].includes("af-auto-badge"));
-  check("#2 badged Notified with its notify title + artifact link", chunks[1].includes("af-auto-badge--notified\">Notified<") && chunks[1].includes("<strong>2 urgent emails</strong>") && chunks[1].includes('href="/api/gateway/runs/') && chunks[1].includes("triage-2026-09-27.md"));
+  check("#2 badged Notified with its notify title + artifact (a plain name: no host opener given)", chunks[1].includes("af-auto-badge--notified\">Notified<") && chunks[1].includes("<strong>2 urgent emails</strong>") && chunks[1].includes('<span class="af-auto-artifact__name">triage-2026-09-27.md</span>'));
+  check("no server-supplied gateway URL is ever an href (ledger, artifact, workspace)", !/href="\/api\//.test(mailHtml) && !mailHtml.includes('data-action="open-ledger-json"'));
   check("#3 says completed after 2 attempts", chunks[2].includes("completed after 2 attempts"));
   check("#4 is the manual run (decided summary wording)", chunks[3].includes(esc(occ.find((o) => o.index === 4).trigger.summary)) && /manual: run now \([0-9a-f-]{36}\)/.test(chunks[3]) && chunks[3].includes("[Trigger manual@1 · occurrence 4"));
   check("scheduled pairs show the decided summary wording", chunks[0].includes("schedule: every 30 minutes (UTC), tick 0") && chunks[6].includes("schedule: every 30 minutes (UTC), tick 5"));
@@ -114,7 +115,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("tool_approval wait: group labelled, kind label, tool call listed with its arguments", chunks[6].includes('data-wait-kind="tool_approval"') && chunks[6].includes(">Approval needed</span>") && chunks[6].includes(`<code class="af-auto-wait__tool">${tw.details[0].name}</code>`) && chunks[6].includes(esc(JSON.stringify(tw.details[0].arguments, null, 2))));
   check("tool_approval wait: Approve and Deny, no free text", enabled(chunks[6], "wait-approve") && enabled(chunks[6], "wait-deny") && (chunks[6].match(/aria-label="Your answer"/g) || []).length === 1);
   check("no wait controls on other occurrences", chunks.filter((c, i) => i !== 6).every((c) => !c.includes("af-auto-wait")));
-  check("every pair has an expandable ledger link", chunks.every((c) => c.includes("<details class=\"af-auto-occ__details\"><summary>Run details</summary>") && c.includes('data-action="open-run"') && /href="\/api\/gateway\/runs\/[0-9a-f-]{36}\/ledger"/.test(c)));
+  check("every pair has expandable run details with Open run ledger (and no raw ledger href)", chunks.every((c) => c.includes("<details class=\"af-auto-occ__details\"><summary>Run details</summary>") && c.includes('data-action="open-run"') && !/href="\/api\//.test(c)));
   check("Discuss labelled as a fork at this occurrence (own workspace, automation files read-only)", mailHtml.includes(`>${esc(DISCUSS_LABEL)}</button>`) && DISCUSS_LABEL === "Discuss — fork at this occurrence (own workspace, automation files read-only)");
   check("no stale 'read-only workspace' wording", !mailHtml.includes("read-only workspace") && !mailHtml.includes("forked session"));
   check("Discuss disabled on the waiting occurrence only", chunks.every((c, i) => (/data-action="discuss" disabled=""/.test(c)) === (i === 6)));
@@ -320,6 +321,27 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   check("run details: no Workspace button when the gateway reports none", byAction(noUrlPair, "open-workspace").length === 0);
   const full = panel({ summary: mail, occurrences: occ, onOpenWorkspace() {} });
   check("panel threads onOpenWorkspace to the header and every run with a workspace", (full.match(/data-action="open-workspace"/g) || []).length === 1 + occ.filter((o) => o.workspace_url).length);
+}
+
+// --- onOpenResource: gateway files open through the host, never as raw hrefs ------------------
+{
+  const opened = [];
+  const views = kit.occurrenceViews(occ);
+  const row2 = occ.find((o) => o.index === 2);
+  const art = row2.artifacts[0];
+  const mk = (extra) =>
+    OccurrencePair({ view: views.find((v) => v.row.index === 2), busy: false, discuss: { enabled: true }, discussOpen: false, onOpenRun() {}, onAnswerWait() {}, onDiscussOpen() {}, onDiscussCancel() {}, onDiscussSubmit() {}, ...extra });
+  const bare = renderToStaticMarkup(mk({}));
+  check("without onOpenResource: artifact is a plain name, no ledger JSON link, no href", bare.includes(`<span class="af-auto-artifact__name">${art.name}</span>`) && !bare.includes("open-ledger-json") && !bare.includes("open-artifact") && !/<a [^>]*href=/.test(bare));
+  const tree = mk({ onOpenResource: (r) => opened.push(r) });
+  const html = renderToStaticMarkup(tree);
+  check("with onOpenResource: buttons, still no href", byAction(tree, "open-artifact").length === 1 && byAction(tree, "open-ledger-json").length === 1 && !/<a [^>]*href=/.test(html));
+  byAction(tree, "open-artifact")[0].props.onClick();
+  byAction(tree, "open-ledger-json")[0].props.onClick();
+  check("artifact → onOpenResource(the server's url, name, type, run)", eq(opened[0], { kind: "artifact", url: art.url, name: art.name, mimeType: art.mime_type, runId: row2.run_id }), JSON.stringify(opened[0]));
+  check("ledger → onOpenResource(the server's ledger_url, a file name)", eq(opened[1], { kind: "ledger", url: row2.ledger_url, name: `run-${row2.run_id}-ledger.json`, runId: row2.run_id }), JSON.stringify(opened[1]));
+  const full = panel({ summary: mail, occurrences: occ, onOpenResource() {} });
+  check("panel threads onOpenResource to every run (one ledger button each) and every artifact", (full.match(/data-action="open-ledger-json"/g) || []).length === occ.length && (full.match(/data-action="open-artifact"/g) || []).length === occ.reduce((n, o) => n + o.artifacts.length, 0) && !/href="\/api\//.test(full));
 }
 
 // --- renderTurn: occurrence turns through the host's chat card ---------------------------------

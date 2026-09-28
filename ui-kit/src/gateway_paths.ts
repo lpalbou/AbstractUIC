@@ -34,3 +34,19 @@ export function joinBaseUrl(baseUrl: string | undefined, path: string): string {
   while (b.endsWith("/")) b = b.slice(0, -1);
   return b ? `${b}/${p}` : p;
 }
+
+/**
+ * A URL the gateway itself sends in its data (a run's ledger URL, an
+ * artifact's content URL — rooted at the GATEWAY's origin, i.e. the API path
+ * with a leading slash) mapped to the relative path the app requests through
+ * its own proxy / base URL ("api/gateway/runs/{id}/ledger"). Never render the server string as an
+ * href: under /apps/<id>/ it would bypass the app's credentials, and a
+ * standalone app's proxy. Anything that is not a gateway API path throws.
+ */
+export function gatewayResourcePath(serverUrl: string): string {
+  const u = String(serverUrl || "");
+  const root = `/${GATEWAY_API_PATH}/`;
+  if (!u.startsWith(root) || u.length === root.length)
+    throw new Error(`Not a gateway API path: ${JSON.stringify(u)} (expected ${JSON.stringify(root)}…).`);
+  return u.slice(1);
+}

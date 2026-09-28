@@ -16,7 +16,7 @@
 // listing parser comes from AbstractCode web (`workspace/session_files.tsx`).
 import React, { useCallback, useEffect, useState } from "react";
 
-import { Icon, gatewayApiPath } from "@abstractframework/ui-kit";
+import { Icon, gatewayApiPath, gatewayResourcePath } from "@abstractframework/ui-kit";
 
 /**
  * A gateway request with the host's credentials. `path` is RELATIVE,
@@ -200,7 +200,12 @@ export function tabOpenPlan(contentType: string): { mode: "open"; type: string }
   return { mode: "download" };
 }
 
-function deliverBlob(blob: Blob, name: string, mode: "open" | "download"): void {
+/**
+ * Hand fetched bytes to the user: "open" shows them in a new tab when
+ * `tabOpenPlan` allows it (active content as its source text), otherwise, and
+ * for "download", saves them under `name`.
+ */
+export function deliverBlob(blob: Blob, name: string, mode: "open" | "download"): void {
   const plan = mode === "open" ? tabOpenPlan(blob.type) : ({ mode: "download" } as const);
   const safe = plan.mode === "open" && plan.type !== blob.type ? new Blob([blob], { type: plan.type }) : blob;
   const url = URL.createObjectURL(safe);
@@ -216,6 +221,24 @@ function deliverBlob(blob: Blob, name: string, mode: "open" | "download"): void 
   }
   // The opened tab / download holds its own reference by then.
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+/**
+ * Open (or download) a file the gateway links in its data — a run's ledger
+ * JSON, an artifact's content URL — through the host's credentials. The
+ * server's gateway-rooted URL is mapped to the relative path the app's proxy
+ * or base URL serves (ui-kit `gatewayResourcePath`; anything else throws),
+ * fetched with `fetchGateway`, and shown with the same safe rule as workspace
+ * files (`tabOpenPlan`).
+ */
+export async function openGatewayResource(
+  fetchGateway: GatewayFetch,
+  serverUrl: string,
+  options: { name: string; mode?: "open" | "download"; signal?: AbortSignal },
+): Promise<void> {
+  const r = await fetchGateway(gatewayResourcePath(serverUrl), { signal: options.signal });
+  if (!r.ok) throw await gatewayResponseError(r, `${options.name} could not be read`);
+  deliverBlob(await r.blob(), options.name, options.mode ?? "open");
 }
 
 export type WorkspaceBrowserProps = {

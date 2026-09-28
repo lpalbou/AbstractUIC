@@ -703,7 +703,7 @@ For ecosystem context (AbstractFramework / AbstractCore / AbstractRuntime) and t
 
 - All React packages are ESM (`"type": "module"`) and declare `react@^18` / `react-dom@^18` as peer dependencies (see each `*/package.json`).
 - **CSS is shipped as a separate export and must be imported by the host app** (do this in your app entrypoint, especially for Next.js).
-- **Same-origin requests use RELATIVE paths** (`api/gateway/…`, `api/connection/gateway`), so an app served under a base path (AbstractGateway's `/apps/<id>/`, a reverse-proxy prefix) reaches its own server. The page URL must end with `/` (the app servers' mounts guarantee it). The one source is ui-kit's `gateway_paths.ts`: `GATEWAY_API_PATH`, `GATEWAY_CONNECTION_PATH`, `gatewayApiPath(route)` and `joinBaseUrl(baseUrl, path)`. Every requesting piece keeps an explicit override: `connectionPath` (`GatewayConnectModal`, `useGatewayConnection`, `fetchGatewayConnection` / `signInGateway` / `signOutGateway`), `commandsPath` (`SteerComposer`, `submitSteer`), `baseUrl` (`createAutomationsClient`, the monitors' `base-url`), `endpoint` (monitors) and `fetchGateway` (panel-chat `WorkspaceBrowser`). `scripts/check_relative_urls.mjs` (run by the root `npm test`) fails on any root-absolute same-origin literal in the browser packages' sources and builds.
+- **Same-origin requests use RELATIVE paths** (`api/gateway/…`, `api/connection/gateway`), so an app served under a base path (AbstractGateway's `/apps/<id>/`, a reverse-proxy prefix) reaches its own server. The page URL must end with `/` (the app servers' mounts guarantee it). The one source is ui-kit's `gateway_paths.ts`: `GATEWAY_API_PATH`, `GATEWAY_CONNECTION_PATH`, `gatewayApiPath(route)`, `joinBaseUrl(baseUrl, path)` and `gatewayResourcePath(serverUrl)` (a gateway-rooted URL from the gateway's data, e.g. an automation's `ledger_url` or artifact URL, mapped to the app-relative path; open it with panel-chat `openGatewayResource(fetchGateway, url, { name, mode? })`, never as a raw href). Every requesting piece keeps an explicit override: `connectionPath` (`GatewayConnectModal`, `useGatewayConnection`, `fetchGatewayConnection` / `signInGateway` / `signOutGateway`), `commandsPath` (`SteerComposer`, `submitSteer`), `baseUrl` (`createAutomationsClient`, the monitors' `base-url`), `endpoint` (monitors) and `fetchGateway` (panel-chat `WorkspaceBrowser`). `scripts/check_relative_urls.mjs` (run by the root `npm test`) fails on any root-absolute same-origin literal in the browser packages' sources and builds.
 
 CSS entrypoints (files live in each package’s `src/`):
 
@@ -1900,6 +1900,7 @@ import "@abstractframework/ui-kit/theme.css";
   onOpenRun={(runId) => openLedger(runId)}
   onAnswerWait={(runId, waitKey, payload) => resumeWait(runId, waitKey, payload)}
   onOpenWorkspace={(runId) => showFolder(runId)}  // e.g. panel-chat's WorkspaceBrowser for that run
+  onOpenResource={(r) => openGatewayResource(fetchGateway, r.url, { name: r.name })}  // ledger JSON, artifacts
   {...automationRenderers}          // from @abstractframework/panel-chat: the chat's rendering
 />
 ```
@@ -1907,7 +1908,8 @@ import "@abstractframework/ui-kit/theme.css";
 The panel is controlled: it holds only view state (which form is open, the last notice) and
 renders what you pass. Optional props: `definition` (the `definition` of `GET /automations/{id}`;
 when given, the panel adds a collapsed "Definition" block), `renderText` and `renderTurn`
-(required in practice; see above), `onOpenWorkspace(runId)` (see below), `newId` (the id source for retry-safe ids, default
+(required in practice; see above), `onOpenWorkspace(runId)` and `onOpenResource(resource)` (see
+below), `newId` (the id source for retry-safe ids, default
 `crypto.randomUUID`) and `className`.
 
 ### What it shows
@@ -1934,10 +1936,20 @@ when given, the panel adds a collapsed "Definition" block), `renderText` and `re
   "Running"). A run that succeeded after retries reads "completed after 2 attempts". A failed run
   shows its `failure` (`reason_code`, message, "after N attempts"). The answer turn lists the
   run's artifacts. Each pair has **Run details** (run id, attempts, "Open run ledger" through
-  `onOpenRun`, the ledger JSON link, and a **Workspace** button calling
+  `onOpenRun`, a **Ledger (JSON)** button, and a **Workspace** button calling
   `onOpenWorkspace(run_id)` when the Gateway reports a workspace for the run and the host passes
-  the prop). There is no bare link to the workspace route: it returns JSON and carries no bearer
-  token, so it failed in token mode.
+  the prop).
+- **Gateway links are never raw hrefs.** The Gateway sends `ledger_url`, `workspace_url` and
+  `artifacts[].url` rooted at ITS origin (`/api/gateway/runs/…`); as links they would bypass an
+  app's credentials under `/apps/<id>/` and a standalone app's proxy (and fail in token mode). The
+  artifact names and the Ledger (JSON) button call `onOpenResource(resource)`
+  (`GatewayResource`: `kind` "ledger" / "artifact", the server's `url`, a file `name`,
+  `mimeType`, `runId`); a rejection shows as the panel's error. Without the prop, artifacts are
+  plain names and there is no ledger JSON button. panel-chat's `openGatewayResource(fetchGateway,
+  url, { name, mode? })` is the implementation: ui-kit `gatewayResourcePath(url)` maps the
+  server string to the app-relative path (anything that is not a gateway API path throws), the
+  host's `fetchGateway` fetches it, and `tabOpenPlan` decides how it opens (HTML and other active
+  content as source text). `AutomationPanelWithMarkdown` wires it when given `fetchGateway`.
 - **Paused** — a hint reads "Paused: scheduled runs are skipped. Run now works and keeps it
   paused."
 - **Load earlier occurrences** appears while fewer rows than `summary.occurrence_count` are
@@ -4060,7 +4072,7 @@ export {
 export { ThemeSelect, type ThemeSelectProps } from "./theme_select.js";
 export { FontScaleSelect, HeaderDensitySelect, type FontScaleSelectProps, type HeaderDensitySelectProps } from "./typography_select.js";
 export { Icon, type IconName } from "./icon.js";
-export { GATEWAY_API_PATH, GATEWAY_CONNECTION_PATH, gatewayApiPath, joinBaseUrl } from "./gateway_paths.js";
+export { GATEWAY_API_PATH, GATEWAY_CONNECTION_PATH, gatewayApiPath, gatewayResourcePath, joinBaseUrl } from "./gateway_paths.js";
 export {
   ToolPolicyEditor,
   TOOL_POLICY_DEFAULTS,
@@ -4296,6 +4308,7 @@ export {
   plainTextRenderer,
   type AutomationPanelProps,
   type AutomationTurn,
+  type GatewayResource,
   type RenderText,
   type RenderTurn,
 } from "./automations/AutomationPanel.js";
@@ -7408,6 +7421,8 @@ export { presentInteraction, type InteractionController, type PresentInteraction
 export {
   WorkspaceBrowser,
   WorkspaceBrowserView,
+  deliverBlob,
+  openGatewayResource,
   formatBytes,
   gatewayResponseError,
   listWorkspaceFolder,
@@ -10903,6 +10918,17 @@ ships.
   `GATEWAY_CONNECTION_PATH`, `gatewayApiPath(route)` and `joinBaseUrl(baseUrl, path)` (both refuse
   a rooted argument). `createAutomationsClient({ baseUrl })` joins with it: "" keeps requests
   relative to the page; `http://host:8080` and `https://host/prefix/` prefix them.
+- Changed: links the kit rendered straight from gateway data are gone. `AutomationPanel` no longer
+  renders `ledger_url` or `artifacts[].url` as hrefs (they are rooted at the gateway and bypassed
+  the app's session under `/apps/<id>/` and a standalone app's proxy). Added `onOpenResource(resource)`
+  (`GatewayResource`: `kind` ledger/artifact, the server's `url`, `name`, `mimeType`, `runId`):
+  artifact names and a **Ledger (JSON)** button call it; without it artifacts are plain names and
+  there is no ledger JSON button. Added ui-kit `gatewayResourcePath(serverUrl)` (gateway-rooted →
+  app-relative; anything else throws), panel-chat `openGatewayResource(fetchGateway, url,
+  { name, mode? })` (fetch through the host, open with `tabOpenPlan`) and `deliverBlob(blob, name,
+  mode)`, and `AutomationPanelWithMarkdown`'s `fetchGateway` prop, which wires
+  `onOpenResource` through it. The contract fixtures are unchanged: the gateway keeps sending
+  rooted paths; the client maps them.
 - Added: `scripts/check_relative_urls.mjs`, run last by the root `npm test`: fails on any
   root-absolute same-origin literal (`/api/`, `/assets/`, `/apps/`) in the sources and built
   output of ui-kit (incl. the console islands bundle), panel-chat and the monitors, and when a

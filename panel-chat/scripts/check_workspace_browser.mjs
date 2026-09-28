@@ -102,6 +102,42 @@ for (const t of ["text/html", "text/html; charset=utf-8", "image/svg+xml", "appl
 for (const t of ["image/png", "image/jpeg", "application/pdf", "text/plain", "application/json"]) assert.deepEqual(tabOpenPlan(t), { mode: "open", type: t }, `${t} opens as is`);
 for (const t of ["application/octet-stream", "", "application/zip", "video/mp4"]) assert.deepEqual(tabOpenPlan(t), { mode: "download" }, `${t || "(none)"} is downloaded`);
 
+// --- openGatewayResource: server links opened through the host, safely -----------------------
+{
+  const tabs = [];
+  const saved = [];
+  globalThis.window = { open: (url, target, features) => void tabs.push({ url, target, features }), setTimeout: () => 0 };
+  globalThis.document = {
+    createElement: () => ({ click() { saved.push({ href: this.href, download: this.download }); }, remove() {} }),
+    body: { appendChild() {} },
+  };
+  const blobs = [];
+  const realCreate = URL.createObjectURL;
+  URL.createObjectURL = (b) => (blobs.push(b), `blob:test/${blobs.length}`);
+  const asked = [];
+  const host = async (path, init) => {
+    asked.push(path);
+    if (path === "api/gateway/runs/r1/ledger") return new Response('{"steps": []}', { headers: { "content-type": "application/json" } });
+    if (path === "api/gateway/runs/r1/artifacts/a1/content") return new Response("<script>steal()</script>", { headers: { "content-type": "text/html" } });
+    return new Response(JSON.stringify({ detail: "Artifact not found" }), { status: 404 });
+  };
+  await pc.openGatewayResource(host, "/api/gateway/runs/r1/ledger", { name: "run-r1-ledger.json" });
+  assert.deepEqual(asked, ["api/gateway/runs/r1/ledger"], "the server's rooted URL is fetched as the app-relative path, through the host");
+  assert.equal(blobs[0].type, "application/json");
+  assert.deepEqual(tabs[0], { url: "blob:test/1", target: "_blank", features: "noopener" }, "JSON opens in a tab");
+  await pc.openGatewayResource(host, "/api/gateway/runs/r1/artifacts/a1/content", { name: "report.html" });
+  assert.equal(blobs[1].type, "text/plain;charset=utf-8", "a model-written HTML artifact opens as its source, never as a page on the app's origin");
+  await pc.openGatewayResource(host, "/api/gateway/runs/r1/ledger", { name: "run-r1-ledger.json", mode: "download" });
+  assert.deepEqual(saved[0], { href: "blob:test/3", download: "run-r1-ledger.json" }, "download saves under the given name");
+  await assert.rejects(() => pc.openGatewayResource(host, "/api/gateway/runs/r1/artifacts/zz/content", { name: "x.md" }), { message: "x.md could not be read (HTTP 404): Artifact not found" });
+  const before = asked.length;
+  await assert.rejects(() => pc.openGatewayResource(host, "https://evil.example/api/gateway/x", { name: "x" }), /Not a gateway API path/);
+  assert.equal(asked.length, before, "a non-gateway URL is refused before any request");
+  URL.createObjectURL = realCreate;
+  delete globalThis.window;
+  delete globalThis.document;
+}
+
 // --- the view ------------------------------------------------------------------------------
 function walk(node, visit) {
   if (node === null || node === undefined || typeof node === "boolean") return;

@@ -92,6 +92,8 @@ export { presentInteraction, type InteractionController, type PresentInteraction
 export {
   WorkspaceBrowser,
   WorkspaceBrowserView,
+  deliverBlob,
+  openGatewayResource,
   formatBytes,
   gatewayResponseError,
   listWorkspaceFolder,

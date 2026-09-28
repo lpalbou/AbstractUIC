@@ -97,6 +97,7 @@ import "@abstractframework/ui-kit/theme.css";
   onOpenRun={(runId) => openLedger(runId)}
   onAnswerWait={(runId, waitKey, payload) => resumeWait(runId, waitKey, payload)}
   onOpenWorkspace={(runId) => showFolder(runId)}  // e.g. panel-chat's WorkspaceBrowser for that run
+  onOpenResource={(r) => openGatewayResource(fetchGateway, r.url, { name: r.name })}  // ledger JSON, artifacts
   {...automationRenderers}          // from @abstractframework/panel-chat: the chat's rendering
 />
 ```
@@ -104,7 +105,8 @@ import "@abstractframework/ui-kit/theme.css";
 The panel is controlled: it holds only view state (which form is open, the last notice) and
 renders what you pass. Optional props: `definition` (the `definition` of `GET /automations/{id}`;
 when given, the panel adds a collapsed "Definition" block), `renderText` and `renderTurn`
-(required in practice; see above), `onOpenWorkspace(runId)` (see below), `newId` (the id source for retry-safe ids, default
+(required in practice; see above), `onOpenWorkspace(runId)` and `onOpenResource(resource)` (see
+below), `newId` (the id source for retry-safe ids, default
 `crypto.randomUUID`) and `className`.
 
 ### What it shows
@@ -131,10 +133,20 @@ when given, the panel adds a collapsed "Definition" block), `renderText` and `re
   "Running"). A run that succeeded after retries reads "completed after 2 attempts". A failed run
   shows its `failure` (`reason_code`, message, "after N attempts"). The answer turn lists the
   run's artifacts. Each pair has **Run details** (run id, attempts, "Open run ledger" through
-  `onOpenRun`, the ledger JSON link, and a **Workspace** button calling
+  `onOpenRun`, a **Ledger (JSON)** button, and a **Workspace** button calling
   `onOpenWorkspace(run_id)` when the Gateway reports a workspace for the run and the host passes
-  the prop). There is no bare link to the workspace route: it returns JSON and carries no bearer
-  token, so it failed in token mode.
+  the prop).
+- **Gateway links are never raw hrefs.** The Gateway sends `ledger_url`, `workspace_url` and
+  `artifacts[].url` rooted at ITS origin (`/api/gateway/runs/…`); as links they would bypass an
+  app's credentials under `/apps/<id>/` and a standalone app's proxy (and fail in token mode). The
+  artifact names and the Ledger (JSON) button call `onOpenResource(resource)`
+  (`GatewayResource`: `kind` "ledger" / "artifact", the server's `url`, a file `name`,
+  `mimeType`, `runId`); a rejection shows as the panel's error. Without the prop, artifacts are
+  plain names and there is no ledger JSON button. panel-chat's `openGatewayResource(fetchGateway,
+  url, { name, mode? })` is the implementation: ui-kit `gatewayResourcePath(url)` maps the
+  server string to the app-relative path (anything that is not a gateway API path throws), the
+  host's `fetchGateway` fetches it, and `tabOpenPlan` decides how it opens (HTML and other active
+  content as source text). `AutomationPanelWithMarkdown` wires it when given `fetchGateway`.
 - **Paused** — a hint reads "Paused: scheduled runs are skipped. Run now works and keeps it
   paused."
 - **Load earlier occurrences** appears while fewer rows than `summary.occurrence_count` are
