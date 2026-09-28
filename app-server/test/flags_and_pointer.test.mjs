@@ -6,6 +6,7 @@
  */
 import assert from "node:assert/strict";
 import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -75,6 +76,37 @@ check("a symlinked pointer is refused", () => {
   copyFileSync(join(FIXTURES, "valid.json"), target);
   symlinkSync(target, gatewayPointerPath(h));
   assert.match(readGatewayPointer({ home: h }).reason, /symbolic link/);
+});
+
+check("a FIFO planted at the pointer path is refused, never waited on (O_NONBLOCK)", () => {
+  if (process.platform === "win32") return;
+  const h = home(null);
+  const mk = spawnSync("mkfifo", ["-m", "600", gatewayPointerPath(h)]);
+  assert.equal(mk.status, 0, `mkfifo failed: ${mk.stderr}`);
+  // In a child with a timeout: a blocking open on a FIFO with no writer hangs forever.
+  const src = new URL("../src/index.js", import.meta.url).href;
+  const code = `import(${JSON.stringify(src)}).then((m) => { process.stdout.write(JSON.stringify(m.readGatewayPointer({ home: ${JSON.stringify(h)} }))); });`;
+  const r = spawnSync(process.execPath, ["--input-type=module", "-e", code], { timeout: 5000, encoding: "utf8" });
+  assert.notEqual(r.signal, "SIGTERM", "reading a FIFO pointer hung (killed after 5 s)");
+  assert.equal(r.status, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.ok, false);
+  assert.match(out.reason, /not a regular file/);
+});
+
+check("a pointer over 64 KiB is refused unread, labelled with the limit", () => {
+  const h = home(null);
+  const big = JSON.stringify({ schema: 1, url: "http://127.0.0.1:8082", pad: "x".repeat(70 * 1024) });
+  writeFileSync(gatewayPointerPath(h), big, { mode: 0o600 });
+  chmodSync(gatewayPointerPath(h), 0o600);
+  const r = readGatewayPointer({ home: h });
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /larger than 64 KiB/);
+  // Just under the limit is still read.
+  const h2 = home(null);
+  writeFileSync(gatewayPointerPath(h2), JSON.stringify({ ...JSON.parse(readFileSync(join(FIXTURES, "valid.json"), "utf8")), pad: "x".repeat(60 * 1024) }), { mode: 0o600 });
+  chmodSync(gatewayPointerPath(h2), 0o600);
+  assert.equal(readGatewayPointer({ home: h2 }).ok, true);
 });
 
 check("a pointer other users can write is refused (group or world write bit)", () => {

@@ -11,7 +11,7 @@
  * 127.0.0.1 / ::1 / localhost with nothing after the port, and (POSIX) the
  * file is a regular file (not a symlink) owned by the current user and
  * writable by nobody else (no group/world write bit). The checks run on the
- * OPENED file (O_NOFOLLOW, then fstat), so the file cannot be swapped
+ * OPENED file (O_NOFOLLOW | O_NONBLOCK, then fstat; at most 64 KiB), so the file cannot be swapped
  * between the check and the read. A malformed or refused
  * file is ignored with ONE visible warning; it never throws.
  *
@@ -51,6 +51,9 @@ function refused(path, reason) {
  * or {ok: false, reason, path, warning?} ("missing" carries no warning).
  * options: {home, path, getuid (tests), platform (tests)}.
  */
+/** Largest pointer file a reader accepts (a real one is a few hundred bytes). */
+export const POINTER_MAX_BYTES = 64 * 1024;
+
 export function readGatewayPointer(options = {}) {
   const path = options.path || gatewayPointerPath(options.home || homedir());
   const platform = options.platform || process.platform;
@@ -58,7 +61,9 @@ export function readGatewayPointer(options = {}) {
   let fd;
   try {
     // O_NOFOLLOW: a symlink is refused by the open itself (ELOOP), never followed.
-    fd = openSync(path, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW || 0));
+    // O_NONBLOCK: a FIFO (or device) planted at the path cannot hang the open;
+    // the regular-file check below then refuses it.
+    fd = openSync(path, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW || 0) | (fsConstants.O_NONBLOCK || 0));
   } catch (err) {
     if (err && err.code === "ENOENT") return { ok: false, reason: "missing", path };
     if (err && (err.code === "ELOOP" || err.code === "EMLINK")) return refused(path, "it is a symbolic link");
@@ -68,6 +73,8 @@ export function readGatewayPointer(options = {}) {
   try {
     const st = fstatSync(fd);
     if (!st.isFile()) return refused(path, "it is not a regular file");
+    // A pointer is a few hundred bytes: never read an unbounded file.
+    if (st.size > POINTER_MAX_BYTES) return refused(path, `it is larger than 64 KiB (${st.size} bytes)`);
     if (platform !== "win32") {
       if (getuid && st.uid !== getuid()) return refused(path, "it belongs to another user");
       if (st.mode & 0o022) return refused(path, `other users can write it (mode ${(st.mode & 0o777).toString(8)})`);

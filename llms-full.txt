@@ -3244,8 +3244,10 @@ The gateway's `serve` and the installer write
 this computer's installed gateway listens (no token, no liveness).
 `readGatewayPointer()` believes it only when `schema` is 1, the url is
 http(s) on `127.0.0.1`, `[::1]` or `localhost` with nothing after the port, and
-(POSIX) the file is a regular file owned by the current user; otherwise it is
-ignored with ONE warning (a missing file is silent).
+(POSIX) the file is a regular file owned by the current user (opened without
+following a symlink and without blocking, so a FIFO is refused, never waited on)
+and at most 64 KiB; otherwise it is ignored with ONE warning (a missing file is
+silent).
 
 `resolveGatewayUrl({flag, env, savedUrl})` applies the one precedence:
 
@@ -7839,7 +7841,7 @@ export function parseAppFlagsOrExit(argv, options = {}) {
  * 127.0.0.1 / ::1 / localhost with nothing after the port, and (POSIX) the
  * file is a regular file (not a symlink) owned by the current user and
  * writable by nobody else (no group/world write bit). The checks run on the
- * OPENED file (O_NOFOLLOW, then fstat), so the file cannot be swapped
+ * OPENED file (O_NOFOLLOW | O_NONBLOCK, then fstat; at most 64 KiB), so the file cannot be swapped
  * between the check and the read. A malformed or refused
  * file is ignored with ONE visible warning; it never throws.
  *
@@ -7879,6 +7881,9 @@ function refused(path, reason) {
  * or {ok: false, reason, path, warning?} ("missing" carries no warning).
  * options: {home, path, getuid (tests), platform (tests)}.
  */
+/** Largest pointer file a reader accepts (a real one is a few hundred bytes). */
+export const POINTER_MAX_BYTES = 64 * 1024;
+
 export function readGatewayPointer(options = {}) {
   const path = options.path || gatewayPointerPath(options.home || homedir());
   const platform = options.platform || process.platform;
@@ -7886,7 +7891,9 @@ export function readGatewayPointer(options = {}) {
   let fd;
   try {
     // O_NOFOLLOW: a symlink is refused by the open itself (ELOOP), never followed.
-    fd = openSync(path, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW || 0));
+    // O_NONBLOCK: a FIFO (or device) planted at the path cannot hang the open;
+    // the regular-file check below then refuses it.
+    fd = openSync(path, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW || 0) | (fsConstants.O_NONBLOCK || 0));
   } catch (err) {
     if (err && err.code === "ENOENT") return { ok: false, reason: "missing", path };
     if (err && (err.code === "ELOOP" || err.code === "EMLINK")) return refused(path, "it is a symbolic link");
@@ -7896,6 +7903,8 @@ export function readGatewayPointer(options = {}) {
   try {
     const st = fstatSync(fd);
     if (!st.isFile()) return refused(path, "it is not a regular file");
+    // A pointer is a few hundred bytes: never read an unbounded file.
+    if (st.size > POINTER_MAX_BYTES) return refused(path, `it is larger than 64 KiB (${st.size} bytes)`);
     if (platform !== "win32") {
       if (getuid && st.uid !== getuid()) return refused(path, "it belongs to another user");
       if (st.mode & 0o022) return refused(path, `other users can write it (mode ${(st.mode & 0o777).toString(8)})`);
@@ -8000,7 +8009,7 @@ export function createGatewayUrlResolver(options = {}) {
 
 {
   "name": "@abstractframework/app-server",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "Server-side helpers for AbstractFramework thin-client apps: serving under the gateway's /apps/<id>/ (base path, forwarded client address, identity header), the shared launch flags, the local gateway pointer, and the app-origin gateway session proxy (first-party cookies, CSRF, Authorization-strip, server-pinned gateway URL).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -12439,11 +12448,19 @@ ships.
 | --- | --- | --- |
 | `@abstractframework/ui-kit` | 0.1.15 | updated |
 | `@abstractframework/panel-chat` | 0.1.19 | unchanged (its `^0.1.14` range takes ui-kit 0.1.15; `AutomationPanelWithMarkdown` passes the new props through) |
-| `@abstractframework/app-server` | 0.1.11 | unchanged |
+| `@abstractframework/app-server` | 0.1.12 | updated (pointer reader hardening) |
 | `@abstractframework/monitor-memory` | 0.1.10 | unchanged |
 | `@abstractframework/monitor-gpu` | 0.1.10 | unchanged |
 | `@abstractframework/monitor-flow` | 0.1.9 | unchanged |
 | `@abstractframework/monitor-active-memory` | 0.1.9 | unchanged |
+
+### app-server 0.1.12
+
+- Fixed: the local gateway pointer reader (`readGatewayPointer`) opens with `O_NONBLOCK`, so a
+  FIFO planted at `~/.abstractframework/gateway.json` is refused as "not a regular file" instead
+  of hanging the app's launch; and it refuses a file over 64 KiB unread ("it is larger than 64
+  KiB (N bytes)"; `POINTER_MAX_BYTES`) — a pointer is a few hundred bytes. Same rules as the
+  Python readers (AbstractAssistant, AbstractCode).
 
 ### ui-kit 0.1.15: AutomationPanel — Edit edits
 

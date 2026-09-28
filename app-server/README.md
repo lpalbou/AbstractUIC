@@ -152,8 +152,10 @@ The gateway's `serve` and the installer write
 this computer's installed gateway listens (no token, no liveness).
 `readGatewayPointer()` believes it only when `schema` is 1, the url is
 http(s) on `127.0.0.1`, `[::1]` or `localhost` with nothing after the port, and
-(POSIX) the file is a regular file owned by the current user; otherwise it is
-ignored with ONE warning (a missing file is silent).
+(POSIX) the file is a regular file owned by the current user (opened without
+following a symlink and without blocking, so a FIFO is refused, never waited on)
+and at most 64 KiB; otherwise it is ignored with ONE warning (a missing file is
+silent).
 
 `resolveGatewayUrl({flag, env, savedUrl})` applies the one precedence:
 

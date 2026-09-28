@@ -13,11 +13,19 @@ ships.
 | --- | --- | --- |
 | `@abstractframework/ui-kit` | 0.1.15 | updated |
 | `@abstractframework/panel-chat` | 0.1.19 | unchanged (its `^0.1.14` range takes ui-kit 0.1.15; `AutomationPanelWithMarkdown` passes the new props through) |
-| `@abstractframework/app-server` | 0.1.11 | unchanged |
+| `@abstractframework/app-server` | 0.1.12 | updated (pointer reader hardening) |
 | `@abstractframework/monitor-memory` | 0.1.10 | unchanged |
 | `@abstractframework/monitor-gpu` | 0.1.10 | unchanged |
 | `@abstractframework/monitor-flow` | 0.1.9 | unchanged |
 | `@abstractframework/monitor-active-memory` | 0.1.9 | unchanged |
+
+### app-server 0.1.12
+
+- Fixed: the local gateway pointer reader (`readGatewayPointer`) opens with `O_NONBLOCK`, so a
+  FIFO planted at `~/.abstractframework/gateway.json` is refused as "not a regular file" instead
+  of hanging the app's launch; and it refuses a file over 64 KiB unread ("it is larger than 64
+  KiB (N bytes)"; `POINTER_MAX_BYTES`) — a pointer is a few hundred bytes. Same rules as the
+  Python readers (AbstractAssistant, AbstractCode).
 
 ### ui-kit 0.1.15: AutomationPanel — Edit edits
 
