@@ -2,7 +2,7 @@ import { acceleratorLabel, extractMemoryUsage, fetchHostMemoryMetrics, formatByt
 
 const DEFAULTS = Object.freeze({
   tickMs: 5000,
-  endpoint: "/api/gateway/host/metrics/memory",
+  endpoint: "api/gateway/host/metrics/memory",
   baseUrl: "",
   mode: "full", // "full" | "icon"
 });

@@ -3,7 +3,7 @@
 Small, dependency-free host memory widget that renders compact RAM + device (GPU/accelerator) meters and polls a secured backend endpoint.
 
 In AbstractFramework deployments, the default backend endpoint is AbstractGateway:
-- `GET /api/gateway/host/metrics/memory`
+- `GET /api/gateway/host/metrics/memory` — the widget's default `endpoint` is the RELATIVE `api/gateway/host/metrics/memory`: resolved under the page's base path (an app served at `/apps/<id>/`) or under `base-url` when set.
 - Auth: `Authorization: Bearer <token>`
 
 ## Install

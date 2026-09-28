@@ -28,9 +28,11 @@ const {
 } = pc;
 
 // --- routes -----------------------------------------------------------------------------
-assert.equal(workspaceInfoUrl("a/b c"), "/api/gateway/runs/a%2Fb%20c/workspace");
-assert.equal(workspaceFilesUrl("r1", "notes/2026 09"), "/api/gateway/runs/r1/workspace/files?path=notes%2F2026+09&recursive=false");
-assert.equal(workspaceContentUrl("r1", "a&b.md"), "/api/gateway/runs/r1/workspace/content?path=a%26b.md");
+// RELATIVE: apps are served under a base path (the gateway's /apps/<id>/).
+assert.equal(workspaceInfoUrl("a/b c"), "api/gateway/runs/a%2Fb%20c/workspace");
+assert.equal(workspaceFilesUrl("r1", "notes/2026 09"), "api/gateway/runs/r1/workspace/files?path=notes%2F2026+09&recursive=false");
+assert.equal(workspaceContentUrl("r1", "a&b.md"), "api/gateway/runs/r1/workspace/content?path=a%26b.md");
+assert.equal(new URL(workspaceInfoUrl("r1"), "https://host/apps/observer/").href, "https://host/apps/observer/api/gateway/runs/r1/workspace", "resolves under the app's base path");
 
 // --- listing parser: malformed is an error, never an empty folder -------------------------
 const good = { path: "notes", entries: [{ name: "b.md", path: "notes/b.md", type: "file", size_bytes: 2048 }, { name: "a", path: "notes/a", type: "dir" }], truncated: false, hidden: { blocked: 2, outside_links: 1 } };

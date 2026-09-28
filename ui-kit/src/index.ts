@@ -13,6 +13,7 @@ export {
 export { ThemeSelect, type ThemeSelectProps } from "./theme_select.js";
 export { FontScaleSelect, HeaderDensitySelect, type FontScaleSelectProps, type HeaderDensitySelectProps } from "./typography_select.js";
 export { Icon, type IconName } from "./icon.js";
+export { GATEWAY_API_PATH, GATEWAY_CONNECTION_PATH, gatewayApiPath, joinBaseUrl } from "./gateway_paths.js";
 export {
   ToolPolicyEditor,
   TOOL_POLICY_DEFAULTS,

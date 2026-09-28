@@ -16,12 +16,14 @@
 // listing parser comes from AbstractCode web (`workspace/session_files.tsx`).
 import React, { useCallback, useEffect, useState } from "react";
 
-import { Icon } from "@abstractframework/ui-kit";
+import { Icon, gatewayApiPath } from "@abstractframework/ui-kit";
 
 /**
- * A gateway-relative request with the host's credentials. `path` starts with
- * `/api/gateway/…`; the host joins it to its gateway base URL and adds its
- * auth (bearer header or `credentials: "same-origin"`). Returns the raw
+ * A gateway request with the host's credentials. `path` is RELATIVE,
+ * "api/gateway/…" (ui-kit `gatewayApiPath`): a same-origin host passes it to
+ * `fetch` as is (it resolves under the app's base path) with
+ * `credentials: "same-origin"`; a direct-URL host joins it to its gateway
+ * base URL (ui-kit `joinBaseUrl`) and adds its bearer header. Returns the raw
  * Response; non-2xx answers are turned into errors here.
  */
 export type GatewayFetch = (path: string, init?: RequestInit) => Promise<Response>;
@@ -48,7 +50,7 @@ export type WorkspaceListing = {
   hidden?: { outside_links?: number; blocked?: number; other?: number };
 };
 
-const runPath = (runId: string) => `/api/gateway/runs/${encodeURIComponent(runId)}/workspace`;
+const runPath = (runId: string) => gatewayApiPath(`runs/${encodeURIComponent(runId)}/workspace`);
 
 export function workspaceInfoUrl(runId: string): string {
   return runPath(runId);

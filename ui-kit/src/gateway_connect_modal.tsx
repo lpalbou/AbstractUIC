@@ -11,6 +11,7 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { GatewaySessionSignInCard } from "./gateway_session_signin.js";
+import { GATEWAY_CONNECTION_PATH } from "./gateway_paths.js";
 
 export type GatewayConnectionState = {
   ok: boolean;
@@ -24,7 +25,7 @@ export type GatewayConnectionState = {
   };
 };
 
-export async function fetchGatewayConnection(connectionPath = "/api/connection/gateway"): Promise<GatewayConnectionState> {
+export async function fetchGatewayConnection(connectionPath = GATEWAY_CONNECTION_PATH): Promise<GatewayConnectionState> {
   const res = await fetch(connectionPath);
   const data = await res.json().catch(() => null);
   if (!res.ok) {
@@ -36,7 +37,7 @@ export async function fetchGatewayConnection(connectionPath = "/api/connection/g
 
 export async function signInGateway(
   payload: { gateway_url?: string; gateway_user_id: string; gateway_token: string; persist?: boolean },
-  connectionPath = "/api/connection/gateway"
+  connectionPath = GATEWAY_CONNECTION_PATH
 ): Promise<GatewayConnectionState> {
   const res = await fetch(connectionPath, {
     method: "POST",
@@ -51,7 +52,7 @@ export async function signInGateway(
   return data as GatewayConnectionState;
 }
 
-export async function signOutGateway(connectionPath = "/api/connection/gateway"): Promise<void> {
+export async function signOutGateway(connectionPath = GATEWAY_CONNECTION_PATH): Promise<void> {
   const res = await fetch(connectionPath, { method: "DELETE" });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
@@ -117,7 +118,7 @@ export type GatewayConnectModalProps = {
 };
 
 export function GatewayConnectModal(props: GatewayConnectModalProps): React.ReactElement | null {
-  const connectionPath = props.connectionPath || "/api/connection/gateway";
+  const connectionPath = props.connectionPath || GATEWAY_CONNECTION_PATH;
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<GatewayConnectionState | null>(null);

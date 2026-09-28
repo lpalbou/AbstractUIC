@@ -16,6 +16,7 @@ For ecosystem context (AbstractFramework / AbstractCore / AbstractRuntime) and t
 
 - All React packages are ESM (`"type": "module"`) and declare `react@^18` / `react-dom@^18` as peer dependencies (see each `*/package.json`).
 - **CSS is shipped as a separate export and must be imported by the host app** (do this in your app entrypoint, especially for Next.js).
+- **Same-origin requests use RELATIVE paths** (`api/gateway/…`, `api/connection/gateway`), so an app served under a base path (AbstractGateway's `/apps/<id>/`, a reverse-proxy prefix) reaches its own server. The page URL must end with `/` (the app servers' mounts guarantee it). The one source is ui-kit's `gateway_paths.ts`: `GATEWAY_API_PATH`, `GATEWAY_CONNECTION_PATH`, `gatewayApiPath(route)` and `joinBaseUrl(baseUrl, path)`. Every requesting piece keeps an explicit override: `connectionPath` (`GatewayConnectModal`, `useGatewayConnection`, `fetchGatewayConnection` / `signInGateway` / `signOutGateway`), `commandsPath` (`SteerComposer`, `submitSteer`), `baseUrl` (`createAutomationsClient`, the monitors' `base-url`), `endpoint` (monitors) and `fetchGateway` (panel-chat `WorkspaceBrowser`). `scripts/check_relative_urls.mjs` (run by the root `npm test`) fails on any root-absolute same-origin literal in the browser packages' sources and builds.
 
 CSS entrypoints (files live in each package’s `src/`):
 

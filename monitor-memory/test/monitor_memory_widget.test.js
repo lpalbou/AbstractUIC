@@ -41,7 +41,7 @@ const notFound = async () => ({
 test("controller normalizes options with honest defaults", () => {
   const c = new MonitorMemoryWidgetController({}, {});
   assert.equal(c.options.tickMs, 5000);
-  assert.equal(c.options.endpoint, "/api/gateway/host/metrics/memory");
+  assert.equal(c.options.endpoint, "api/gateway/host/metrics/memory");
   assert.equal(c.options.mode, "full");
 
   c.setOptions({ tickMs: 10, mode: "icon" });

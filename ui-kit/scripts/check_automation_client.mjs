@@ -26,7 +26,7 @@ function check(name, cond, detail) {
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 check("exports", typeof createAutomationsClient === "function" && typeof AutomationApiError === "function");
-check("paths", AUTOMATIONS_PATH === "/api/gateway/automations" && TRIGGER_SOURCES_PATH === "/api/gateway/trigger-sources");
+check("paths are RELATIVE (apps are served under a base path)", AUTOMATIONS_PATH === "api/gateway/automations" && TRIGGER_SOURCES_PATH === "api/gateway/trigger-sources");
 
 /** Stub transport: records calls, answers `reply(url, init)` → {status, body|text}. */
 function stub(reply = () => ({ status: 200, body: {} })) {
@@ -64,7 +64,8 @@ for (const c of clientRoutes) {
           : await client.sendAutomationCommand(id, { type: b.type, command_id: b.command_id });
   const call = s.calls[0];
   check(`${c.name}: method`, call.method === c.request.method, call.method);
-  check(`${c.name}: path`, call.url === c.request.path, call.url);
+  // The fixture records the gateway's own route (rooted); the client asks for it RELATIVE to the app's base.
+  check(`${c.name}: path (relative form of the gateway route)`, !call.url.startsWith("/") && `/${call.url}` === c.request.path, call.url);
   check(`${c.name}: body (exact, key order included)`, eq(call.body, b), JSON.stringify(call.body));
   check(`${c.name}: receipt returned`, eq(got, c.response));
   check(`${c.name}: JSON content-type`, call.headers["content-type"] === "application/json");
@@ -117,7 +118,17 @@ for (const c of clientRoutes) {
   // Automation ids are path-encoded (a hostile id cannot traverse routes).
   const s = stub();
   await createAutomationsClient({ fetch: s.fetch, newId }).getAutomation("../runs");
-  check("id is URL-encoded", s.calls[0].url === "/api/gateway/automations/..%2Fruns", s.calls[0].url);
+  check("id is URL-encoded", s.calls[0].url === "api/gateway/automations/..%2Fruns", s.calls[0].url);
+  check("no baseUrl → relative URL, resolved under the app's base path", new URL(s.calls[0].url, "https://host/apps/observer/").href === "https://host/apps/observer/api/gateway/automations/..%2Fruns");
+}
+{
+  // A base URL with a path prefix keeps it.
+  const s = stub(() => ({ status: 200, body: { items: [] } }));
+  await createAutomationsClient({ fetch: s.fetch, newId, baseUrl: "https://host/gw/" }).listTriggerSources();
+  check("baseUrl with a prefix keeps the prefix", s.calls[0].url === "https://host/gw/api/gateway/trigger-sources", s.calls[0].url);
+  const bare = stub(() => ({ status: 200, body: { items: [] } }));
+  await createAutomationsClient({ fetch: bare.fetch, newId, baseUrl: "http://127.0.0.1:18896" }).listTriggerSources();
+  check("baseUrl without a trailing slash is joined with one", bare.calls[0].url === "http://127.0.0.1:18896/api/gateway/trigger-sources", bare.calls[0].url);
 }
 {
   // Default id source is crypto.randomUUID.

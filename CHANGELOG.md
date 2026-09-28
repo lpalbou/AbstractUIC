@@ -9,6 +9,24 @@ ships.
 
 ## Unreleased
 
+### All browser packages: relative same-origin URLs
+
+- Changed: every same-origin default is RELATIVE — `api/connection/gateway`,
+  `api/gateway/commands`, `api/gateway/automations`, `api/gateway/trigger-sources`,
+  `api/gateway/runs/{id}/workspace…`, `api/gateway/host/metrics/{gpu,memory}` — never rooted at
+  `/`. Apps are now served under a base path (AbstractGateway's `/apps/<id>/`); a rooted default
+  escaped the app's base and missed its server. Hosts that relied on the old rooted defaults pass
+  the explicit override (`connectionPath`, `commandsPath`, `baseUrl`, `endpoint`,
+  `fetchGateway`). The page URL must end with `/`.
+- Added: ui-kit `gateway_paths.ts`, the one source: `GATEWAY_API_PATH`,
+  `GATEWAY_CONNECTION_PATH`, `gatewayApiPath(route)` and `joinBaseUrl(baseUrl, path)` (both refuse
+  a rooted argument). `createAutomationsClient({ baseUrl })` joins with it: "" keeps requests
+  relative to the page; `http://host:8080` and `https://host/prefix/` prefix them.
+- Added: `scripts/check_relative_urls.mjs`, run last by the root `npm test`: fails on any
+  root-absolute same-origin literal (`/api/`, `/assets/`, `/apps/`) in the sources and built
+  output of ui-kit (incl. the console islands bundle), panel-chat and the monitors, and when a
+  build directory is missing. No allowlist.
+
 ### ui-kit
 
 - Added: `AutomationStateLabel` renders an automation's state as the word then an icon

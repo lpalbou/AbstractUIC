@@ -4,7 +4,7 @@ import { extractUtilizationGpuPct, fetchHostGpuMetrics } from "./gpu_metrics_api
 const DEFAULTS = Object.freeze({
   tickMs: 1500,
   historySize: 20,
-  endpoint: "/api/gateway/host/metrics/gpu",
+  endpoint: "api/gateway/host/metrics/gpu",
   baseUrl: "",
   mode: "full", // "full" | "icon"
 });

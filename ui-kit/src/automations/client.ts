@@ -10,6 +10,7 @@
 // thrown as an `AutomationApiError` whose `code` is `detail.reason_code`. A
 // non-2xx without that envelope, or a 2xx that is not JSON, throws
 // `invalid_response` — never a silent success.
+import { gatewayApiPath, joinBaseUrl } from "../gateway_paths.js";
 import type {
   ApiError,
   AutomationChanges,
@@ -28,8 +29,9 @@ import type {
   TriggerSourceEntry,
 } from "./types.js";
 
-export const AUTOMATIONS_PATH = "/api/gateway/automations";
-export const TRIGGER_SOURCES_PATH = "/api/gateway/trigger-sources";
+/** Relative (see gateway_paths.ts): resolved under the page's base, or under `baseUrl`. */
+export const AUTOMATIONS_PATH = gatewayApiPath("automations");
+export const TRIGGER_SOURCES_PATH = gatewayApiPath("trigger-sources");
 
 export class AutomationApiError extends Error implements ApiError {
   readonly status: number;
@@ -67,7 +69,7 @@ export function parseApiError(status: number, body: unknown): ApiError {
 export type AutomationsClientOptions = {
   /** Injected transport (window.fetch, a proxy-aware wrapper, or a test stub). */
   fetch: (input: string, init?: RequestInit) => Promise<Response>;
-  /** Origin prefix before `/api/gateway/…`; "" (default) = same origin. */
+  /** Base URL the relative API paths are joined to ("http://host:8080", "https://host/prefix/"); "" (default) = relative to the page. */
   baseUrl?: string;
   /** Extra headers per request (auth, CSRF). */
   headers?: () => Record<string, string>;
@@ -111,7 +113,6 @@ function defaultId(): string {
 }
 
 export function createAutomationsClient(options: AutomationsClientOptions): AutomationsClient {
-  const base = (options.baseUrl ?? "").replace(/\/+$/, "");
   const newId = options.newId ?? defaultId;
   const one = (id: string) => `${AUTOMATIONS_PATH}/${encodeURIComponent(id)}`;
 
@@ -122,7 +123,7 @@ export function createAutomationsClient(options: AutomationsClientOptions): Auto
       headers["content-type"] = "application/json";
       init.body = JSON.stringify(body);
     }
-    const res = await options.fetch(`${base}${path}`, init);
+    const res = await options.fetch(joinBaseUrl(options.baseUrl, path), init);
     const text = await res.text();
     let data: unknown = undefined;
     let parsed = false;

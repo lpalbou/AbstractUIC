@@ -12,7 +12,9 @@ import {
 } from "../src/memory_metrics_api.js";
 
 test("makeMemoryMetricsUrl defaults to the gateway host memory endpoint", () => {
-  assert.equal(makeMemoryMetricsUrl(), "/api/gateway/host/metrics/memory");
+  // RELATIVE: resolved under the app's base path (apps are served under /apps/<id>/).
+  assert.equal(makeMemoryMetricsUrl(), "api/gateway/host/metrics/memory");
+  assert.equal(new URL(makeMemoryMetricsUrl(), "https://host/apps/observer/").href, "https://host/apps/observer/api/gateway/host/metrics/memory");
   assert.equal(
     makeMemoryMetricsUrl({ baseUrl: "http://localhost:8080" }),
     "http://localhost:8080/api/gateway/host/metrics/memory",
