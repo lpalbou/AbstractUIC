@@ -2,7 +2,8 @@
 //
 // Controlled: the host fetches (see ./client.ts) and passes the summary, the
 // occurrences and `busy`; the panel forwards intent through the callbacks and
-// holds only view state (which form is open). Occurrences read as a chat: a
+// holds only view state (which form is open; the Edit form can also be
+// driven by the host through `editOpen` / `onEditOpenChange`). Occurrences read as a chat: a
 // trigger/task turn and an answer turn per occurrence. Quiet ticks stay visible
 // but subdued; failures, human waits and explicit `notify` are prominent.
 //
@@ -38,6 +39,7 @@ import {
   type ControlId,
   type ControlState,
   type OccurrenceView,
+  type ReviseDefinition,
   type ReviseForm,
 } from "./panel_core.js";
 import type {
@@ -53,6 +55,7 @@ import type {
   OccurrenceWait,
   TriggerSourceEntry,
   TriggerSource,
+  ToolApprovalPolicy,
 } from "./types.js";
 
 export type AutomationPanelProps = {
@@ -118,6 +121,16 @@ export type AutomationPanelProps = {
   onOpenResource?(resource: GatewayResource): Promise<void> | void;
   /** Clock for "next in …" (ms since epoch); default `Date.now()`. */
   nowMs?: number;
+  /**
+   * Controlled Edit form. When `editOpen` is given the panel shows its Edit
+   * form exactly when it is `true` (a host's own "Edit" control can open it
+   * directly) and asks for changes through `onEditOpenChange` — the panel's
+   * Edit button asks `true`, Cancel and a successful save ask `false`.
+   * Opening the form focuses its first field. Omit both and the panel keeps
+   * this state itself (the Edit button toggles the form).
+   */
+  editOpen?: boolean;
+  onEditOpenChange?(open: boolean): void;
   className?: string;
 };
 
@@ -200,6 +213,24 @@ function toApiError(e: unknown): ApiError {
 // --- header ----------------------------------------------------------------------
 
 /**
+ * A long path that wraps at its separators ("/", "-", "_") instead of mid-word
+ * or off the edge: the text is unchanged (copy/paste gives the exact path).
+ */
+export function WrappingPath(props: { path: string }): React.ReactElement {
+  const parts = props.path.split(/(?<=[/\\_-])/);
+  return (
+    <code className="af-auto__path-text">
+      {parts.map((part, i) => (
+        <React.Fragment key={i}>
+          {part}
+          {i < parts.length - 1 ? <wbr /> : null}
+        </React.Fragment>
+      ))}
+    </code>
+  );
+}
+
+/**
  * The trigger source this gateway reports for the binding, or why it cannot
  * run: missing from `GET /trigger-sources`, or listed `available:false`.
  */
@@ -267,16 +298,21 @@ export function AutomationHeader(props: {
               {props.onOpenWorkspace ? (
                 <button
                   type="button"
-                  className="af-auto__icon-btn"
+                  className="af-auto__path"
                   data-action="open-workspace"
-                  title="Browse the automation's folder"
-                  aria-label="Browse the automation's folder"
+                  title={`Browse the automation's folder\n${s.workspace_root}`}
+                  aria-label={`Browse the automation's folder ${s.workspace_root}`}
                   onClick={() => props.onOpenWorkspace?.(s.automation_id)}
                 >
-                  <Icon name="folder" size={14} />
+                  <Icon name="folder" size={14} className="af-auto__path-icon" />
+                  <WrappingPath path={s.workspace_root} />
                 </button>
-              ) : null}
-              <code>{s.workspace_root}</code>
+              ) : (
+                <span className="af-auto__path af-auto__path--static">
+                  <Icon name="folder" size={14} className="af-auto__path-icon" />
+                  <WrappingPath path={s.workspace_root} />
+                </span>
+              )}
             </dd>
           </>
         ) : null}
@@ -298,19 +334,25 @@ export function AutomationHeader(props: {
 // --- definition ------------------------------------------------------------------
 
 /**
- * The committed definition (`GET /automations/{id}` → `definition`), compact
- * and collapsed: target workflow, trigger config, context, policy (incl.
+ * The committed definition (`GET /automations/{id}` → `definition`) as a
+ * card right under the controls, collapsed by default (`open` to start
+ * expanded): target workflow, task, trigger config, context, policy (incl.
  * tool approval) and revision.
  */
-export function AutomationDefinitionBlock(props: { definition: AutomationDefinition; renderText?: RenderText }): React.ReactElement {
+export function AutomationDefinitionBlock(props: { definition: AutomationDefinition; renderText?: RenderText; open?: boolean }): React.ReactElement {
   const d = props.definition;
   const render = props.renderText ?? plainTextRenderer;
   const task = (d.target.input_data as { prompt?: unknown }).prompt;
   const retry = d.policy.retry;
   const approval = d.policy.tool_approval;
   return (
-    <details className="af-auto__definition" data-definition-revision={d.revision}>
-      <summary>Definition (revision {d.revision})</summary>
+    <details className="af-auto__definition" data-definition-revision={d.revision} open={props.open}>
+      <summary>
+        <Icon name="chevronRight" size={14} className="af-auto__definition-chevron" />
+        <Icon name="file" size={14} />
+        <span className="af-auto__definition-title">Definition</span>
+        <span className="af-auto__definition-meta">revision {d.revision}</span>
+      </summary>
       <dl className="af-auto__facts">
         <dt>Target</dt>
         <dd data-def="target">
@@ -349,29 +391,47 @@ export type AutomationControlsBarProps = {
   occurrences: OccurrenceRow[];
   busy: boolean;
   confirmingArchive: boolean;
+  /** The Edit form is open (the Edit button reads pressed). */
   reviseOpen: boolean;
   onCommand(type: string): void;
+  /** The Edit button. */
   onToggleRevise(): void;
   onAskArchive(): void;
   onCancelArchive(): void;
-  /** Prefix for the ids of the visible "why disabled" texts. */
+  /** Feedback on the last action, shown next to the buttons until dismissed. */
+  notice?: string | null;
+  onDismissNotice?(): void;
+  /** Prefix for the ids of the "why disabled" texts. */
   idBase?: string;
 };
 
-const CONTROL_LABELS: Record<ControlId, string> = {
+/** One name per action, everywhere (operator 2026-09-28: "Edit", never "Revise"). */
+export const CONTROL_LABELS: Record<ControlId, string> = {
   pause: "Pause",
   resume: "Resume",
   run_now: "Run now",
   stop_current: "Stop current",
-  revise: "Revise",
+  revise: "Edit",
   archive: "Archive",
   discuss: "Discuss",
 };
 
+/** The kit icon of each control (the same glyphs in every client's rows and panels). */
+export const CONTROL_ICONS: Record<ControlId, IconName> = {
+  pause: "pause",
+  resume: "play",
+  run_now: "playCircle",
+  stop_current: "stop",
+  revise: "edit",
+  archive: "archive",
+  discuss: "chat",
+};
+
 /**
- * Visible reasons for disabled controls, one line per distinct reason
+ * Reasons for disabled controls, one line per distinct reason
  * ("Run now, Stop current: Nothing is running."), each with an id the
- * disabled buttons reference through `aria-describedby`.
+ * disabled buttons reference through `aria-describedby`. The bar keeps them
+ * for assistive tech and as the buttons' tooltips, not as visible text.
  */
 export function disabledReasons(controls: Record<ControlId, ControlState>, shown: ControlId[], idBase: string): { lines: Array<{ id: string; text: string }>; describedBy: Partial<Record<ControlId, string>> } {
   const byReason = new Map<string, ControlId[]>();
@@ -391,37 +451,61 @@ export function disabledReasons(controls: Record<ControlId, ControlState>, shown
   return { lines, describedBy };
 }
 
+/** A button's content: its kit icon, then its label. */
+function IconLabel(props: { icon: IconName; label: string }): React.ReactElement {
+  return (
+    <>
+      <Icon name={props.icon} size={14} className="af-auto__btn-icon" />
+      <span>{props.label}</span>
+    </>
+  );
+}
+
 export function AutomationControlsBar(p: AutomationControlsBarProps): React.ReactElement {
   const c = automationControls(p.summary, p.occurrences, p.busy);
   const shown: ControlId[] = [p.summary.status === "paused" ? "resume" : "pause", "run_now", "stop_current", "revise", "archive"];
   const why = disabledReasons(c, shown, p.idBase ?? `af-auto-${p.summary.automation_id}`);
-  const btn = (id: ControlId, label: string, onClick: () => void, extra?: { pressed?: boolean; danger?: boolean }) => (
+  const btn = (id: ControlId, onClick: () => void, extra?: { pressed?: boolean; danger?: boolean; action?: string; label?: string }) => (
     <button
       key={id}
       type="button"
       className={`af-auto__btn${extra?.danger ? " af-auto__btn--danger" : ""}`}
-      data-action={id}
+      data-action={extra?.action ?? id}
       disabled={!c[id].enabled}
+      title={c[id].enabled ? undefined : c[id].reason}
       aria-describedby={why.describedBy[id]}
       aria-pressed={extra?.pressed}
       onClick={onClick}
     >
-      {label}
+      <IconLabel icon={CONTROL_ICONS[id]} label={extra?.label ?? CONTROL_LABELS[id]} />
     </button>
   );
   return (
     <div className="af-auto__controls-wrap">
-      <div className="af-auto__controls" role="toolbar" aria-label="Automation controls">
-        {p.summary.status === "paused"
-          ? btn("resume", "Resume", () => p.onCommand(CONTROL_COMMANDS.resume))
-          : btn("pause", "Pause", () => p.onCommand(CONTROL_COMMANDS.pause))}
-        {btn("run_now", "Run now", () => p.onCommand(CONTROL_COMMANDS.run_now))}
-        {btn("stop_current", "Stop current", () => p.onCommand(CONTROL_COMMANDS.stop_current))}
-        {btn("revise", "Revise…", p.onToggleRevise, { pressed: p.reviseOpen })}
-        {btn("archive", "Archive…", p.onAskArchive, { danger: true })}
+      <div className="af-auto__actionbar">
+        <div className="af-auto__controls" role="toolbar" aria-label="Automation controls">
+          {p.summary.status === "paused" ? btn("resume", () => p.onCommand(CONTROL_COMMANDS.resume)) : btn("pause", () => p.onCommand(CONTROL_COMMANDS.pause))}
+          {btn("run_now", () => p.onCommand(CONTROL_COMMANDS.run_now))}
+          {btn("stop_current", () => p.onCommand(CONTROL_COMMANDS.stop_current))}
+          {btn("revise", p.onToggleRevise, { pressed: p.reviseOpen, action: "edit" })}
+          {btn("archive", p.onAskArchive, { danger: true, label: "Archive…" })}
+        </div>
+        <span className={`af-auto__notice${p.notice ? " af-auto__notice--on" : ""}`} role="status" tabIndex={-1}>
+          {p.notice ? (
+            <>
+              <Icon name="check" size={13} />
+              <span className="af-auto__notice-text">{p.notice}</span>
+              {p.onDismissNotice ? (
+                <button type="button" className="af-auto__icon-btn af-auto__icon-btn--bare" data-action="dismiss-notice" aria-label="Dismiss" title="Dismiss" onClick={p.onDismissNotice}>
+                  <Icon name="x" size={12} />
+                </button>
+              ) : null}
+            </>
+          ) : null}
+        </span>
       </div>
       {why.lines.length ? (
-        <p className="af-auto__reasons">
+        <p className="af-auto__reasons af-auto__sr-only">
           {why.lines.map((l) => (
             <span key={l.id} id={l.id}>
               {l.text}
@@ -439,10 +523,10 @@ export function AutomationControlsBar(p: AutomationControlsBarProps): React.Reac
           </p>
           <div className="af-auto__row">
             <button type="button" className="af-auto__btn af-auto__btn--danger" data-action="archive-confirm" disabled={!c.archive.enabled} onClick={() => p.onCommand(CONTROL_COMMANDS.archive)}>
-              Archive
+              <IconLabel icon="archive" label="Archive" />
             </button>
             <button type="button" className="af-auto__btn" data-action="archive-cancel" onClick={p.onCancelArchive}>
-              Keep it
+              <IconLabel icon="x" label="Keep it" />
             </button>
           </div>
         </div>
@@ -459,7 +543,7 @@ const UNIT_OPTIONS: Array<[string, string]> = [
   ["d", "days"],
 ];
 
-/** Read the revise form's fields (uncontrolled inputs) into a `ReviseForm`. */
+/** Read the Edit form's fields (uncontrolled inputs) into a `ReviseForm`. */
 export function readReviseForm(form: { elements: { namedItem(name: string): unknown } }, fallback: ReviseForm): ReviseForm {
   const val = (name: string): string | null => {
     const el = form.elements.namedItem(name) as { value?: string } | null;
@@ -470,35 +554,56 @@ export function readReviseForm(form: { elements: { namedItem(name: string): unkn
   const every = amount !== null && unit !== null ? `${amount.trim()}${unit}` : fallback.every;
   const ctx = form.elements.namedItem("context") as { value?: string } | null;
   const context = (ctx && (ctx.value === "growing" || ctx.value === "independent") ? ctx.value : fallback.context) as ContextMode;
-  return { title: val("title") ?? fallback.title, every, context };
+  const prompt = val("prompt");
+  const tools = form.elements.namedItem("tool_approval") as { value?: string } | null;
+  const toolApproval = (tools && (tools.value === "auto" || tools.value === "ask") ? tools.value : fallback.toolApproval ?? null) as ToolApprovalPolicy | null;
+  return { title: val("title") ?? fallback.title, every, context, prompt: prompt ?? fallback.prompt ?? null, toolApproval };
 }
 
 export type AutomationReviseFormProps = {
   summary: AutomationSummary;
+  /** The committed definition: with it the form also edits the task (`input_data.prompt`) and tool approval. */
+  definition?: ReviseDefinition | null;
   busy: boolean;
   errors: string[];
   onSubmit(form: ReviseForm): void;
   onCancel(): void;
 };
 
+/** The Edit form: everything `PATCH /automations/{id}` can change that this kit knows how to show, prefilled. */
 export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactElement {
-  const initial = reviseFormFrom(p.summary);
+  const initial = reviseFormFrom(p.summary, p.definition);
   const d = initial.every ? parseDuration(initial.every) : null;
   const units = d && d.unit === "s" ? [["s", "seconds"] as [string, string], ...UNIT_OPTIONS] : UNIT_OPTIONS;
   const base = `af-auto-revise-${p.summary.automation_id}`;
   return (
     <form
       className="af-auto__revise"
-      aria-label="Revise automation"
+      aria-labelledby={`${base}-heading`}
       onSubmit={(e) => {
         e.preventDefault();
         p.onSubmit(readReviseForm(e.currentTarget, initial));
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          p.onCancel();
+        }
+      }}
     >
+      <h3 className="af-auto__form-title" id={`${base}-heading`}>
+        <Icon name="edit" size={14} /> Edit automation
+      </h3>
       <label className="af-auto__field" htmlFor={`${base}-title`}>
         <span>Title</span>
         <input id={`${base}-title`} name="title" defaultValue={initial.title} maxLength={120} required />
       </label>
+      {initial.prompt !== null && initial.prompt !== undefined ? (
+        <label className="af-auto__field" htmlFor={`${base}-prompt`}>
+          <span>Task</span>
+          <textarea id={`${base}-prompt`} name="prompt" defaultValue={initial.prompt} rows={Math.min(10, Math.max(3, initial.prompt.split("\n").length + 1))} required />
+        </label>
+      ) : null}
       {d ? (
         <fieldset className="af-auto__field">
           <legend>Repeat every (UTC)</legend>
@@ -514,7 +619,7 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
           </div>
         </fieldset>
       ) : (
-        <p className="af-auto__hint">This trigger has no interval to revise.</p>
+        <p className="af-auto__hint">This trigger has no interval to change.</p>
       )}
       <fieldset className="af-auto__field">
         <legend>Context</legend>
@@ -525,6 +630,17 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
           <input type="radio" name="context" value="growing" defaultChecked={initial.context === "growing"} /> Growing — each run sees the previous runs
         </label>
       </fieldset>
+      {initial.toolApproval ? (
+        <fieldset className="af-auto__field">
+          <legend>Tools</legend>
+          <label>
+            <input type="radio" name="tool_approval" value="auto" defaultChecked={initial.toolApproval === "auto"} /> Run without asking
+          </label>
+          <label>
+            <input type="radio" name="tool_approval" value="ask" defaultChecked={initial.toolApproval === "ask"} /> Ask before each tool call
+          </label>
+        </fieldset>
+      ) : null}
       <p className="af-auto__hint">Changes apply from the next run; a new interval never fires past ticks.</p>
       {p.errors.length ? (
         <ul className="af-auto__form-errors" role="alert">
@@ -534,11 +650,11 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
         </ul>
       ) : null}
       <div className="af-auto__row">
-        <button type="submit" className="af-auto__btn af-auto__btn--primary" data-action="revise-submit" disabled={p.busy}>
-          Save revision
+        <button type="submit" className="af-auto__btn af-auto__btn--primary" data-action="edit-save" disabled={p.busy}>
+          <IconLabel icon="check" label="Save changes" />
         </button>
-        <button type="button" className="af-auto__btn" data-action="revise-cancel" onClick={p.onCancel}>
-          Cancel
+        <button type="button" className="af-auto__btn" data-action="edit-cancel" onClick={p.onCancel}>
+          <IconLabel icon="x" label="Cancel" />
         </button>
       </div>
     </form>
@@ -618,10 +734,10 @@ export function WaitAnswerForm(p: WaitAnswerFormProps): React.ReactElement {
         )}
         <div className="af-auto__row">
           <button type="button" className="af-auto__btn af-auto__btn--primary" data-action="wait-approve" disabled={p.busy} onClick={() => answer({ approved: true })}>
-            Approve
+            <IconLabel icon="check" label="Approve" />
           </button>
           <button type="button" className="af-auto__btn af-auto__btn--danger" data-action="wait-deny" disabled={p.busy} onClick={() => answer({ approved: false })}>
-            Deny
+            <IconLabel icon="x" label="Deny" />
           </button>
         </div>
       </div>
@@ -645,7 +761,7 @@ export function WaitAnswerForm(p: WaitAnswerFormProps): React.ReactElement {
         <textarea name="payload" rows={3} aria-label="Event payload (JSON)" placeholder='{"key": "value"}' disabled={p.busy} />
         <div className="af-auto__row">
           <button type="submit" className="af-auto__btn af-auto__btn--primary" data-action="wait-send-event" disabled={p.busy}>
-            Send event
+            <IconLabel icon="send" label="Send event" />
           </button>
         </div>
       </form>
@@ -677,7 +793,7 @@ export function WaitAnswerForm(p: WaitAnswerFormProps): React.ReactElement {
         <div className="af-auto__row">
           <input name="response" aria-label="Your answer" placeholder="Your answer" disabled={p.busy} />
           <button type="submit" className="af-auto__btn af-auto__btn--primary" data-action="wait-answer" disabled={p.busy}>
-            Answer
+            <IconLabel icon="send" label="Answer" />
           </button>
         </div>
       </form>
@@ -769,7 +885,7 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
           </dl>
           <div className="af-auto__row">
             <button type="button" className="af-auto__btn" data-action="open-run" onClick={() => p.onOpenRun(row.run_id)}>
-              Open run ledger
+              <IconLabel icon="list" label="Open run ledger" />
             </button>
             {p.onOpenResource ? (
               <button
@@ -778,12 +894,12 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
                 data-action="open-ledger-json"
                 onClick={() => p.onOpenResource?.({ kind: "ledger", url: row.ledger_url, name: `run-${row.run_id}-ledger.json`, runId: row.run_id })}
               >
-                Ledger (JSON)
+                <IconLabel icon="file" label="Ledger (JSON)" />
               </button>
             ) : null}
             {row.workspace_url && p.onOpenWorkspace ? (
               <button type="button" className="af-auto__btn" data-action="open-workspace" title="Browse this run's folder" onClick={() => p.onOpenWorkspace?.(row.run_id)}>
-                <Icon name="folder" size={13} className="af-auto__btn-icon" /> Workspace
+                <IconLabel icon="folder" label="Workspace" />
               </button>
             ) : null}
           </div>
@@ -804,10 +920,10 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
             <textarea name="prompt" rows={3} aria-label="Your message" placeholder="Ask about this result…" required />
             <div className="af-auto__row">
               <button type="submit" className="af-auto__btn af-auto__btn--primary" data-action="discuss-submit" disabled={p.busy}>
-                Start discussion
+                <IconLabel icon="send" label="Start discussion" />
               </button>
               <button type="button" className="af-auto__btn" data-action="discuss-cancel" onClick={p.onDiscussCancel}>
-                Cancel
+                <IconLabel icon="x" label="Cancel" />
               </button>
             </div>
           </form>
@@ -821,7 +937,7 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
               aria-describedby={discussWhy ? `${idBase}-discuss-why` : undefined}
               onClick={() => p.onDiscussOpen(row.index)}
             >
-              {DISCUSS_LABEL}
+              <IconLabel icon={CONTROL_ICONS.discuss} label={DISCUSS_LABEL} />
             </button>
             {discussWhy ? (
               <span className="af-auto__reasons" id={`${idBase}-discuss-why`}>
@@ -837,17 +953,53 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
 
 // --- the panel ---------------------------------------------------------------------
 
+/** How long an action's feedback stays next to the buttons. */
+export const NOTICE_MS = 5000;
+
+const COMMAND_NOTICES: Record<string, string> = {
+  [CONTROL_COMMANDS.pause]: "Pause sent.",
+  [CONTROL_COMMANDS.resume]: "Resume sent.",
+  [CONTROL_COMMANDS.run_now]: "Run requested.",
+  [CONTROL_COMMANDS.stop_current]: "Stop sent.",
+};
+
 export function AutomationPanel(props: AutomationPanelProps): React.ReactElement {
   const { summary, busy } = props;
   const render = props.renderText ?? plainTextRenderer;
   const titleId = useId();
   const rootRef = useRef<HTMLElement | null>(null);
-  const [reviseOpen, setReviseOpen] = useState(false);
+  // The Edit form: controlled by the host when it passes `editOpen`.
+  const [ownEditOpen, setOwnEditOpen] = useState(false);
+  const controlled = props.editOpen !== undefined;
+  // Never on an automation that cannot be edited (archived, legacy, not permitted),
+  // whatever the host asks; `busy` does not close it (a save in flight keeps it).
+  const editable = automationControls(summary, props.occurrences, false).revise.enabled;
+  const reviseOpen = editable && (controlled ? props.editOpen === true : ownEditOpen);
+  const onEditOpenChangeRef = useRef(props.onEditOpenChange);
+  onEditOpenChangeRef.current = props.onEditOpenChange;
+  const setReviseOpen = (open: boolean) => {
+    if (!controlled) setOwnEditOpen(open);
+    onEditOpenChangeRef.current?.(open);
+  };
   const [reviseErrors, setReviseErrors] = useState<string[]>([]);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
   const [discussAt, setDiscussAt] = useState<number | null>(null);
   const [localError, setLocalError] = useState<ApiError | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Action feedback is brief: it clears itself (or on dismiss).
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), NOTICE_MS);
+    return () => clearTimeout(t);
+  }, [notice]);
+  // Opening the Edit form (from the Edit button or the host) focuses its first field.
+  useEffect(() => {
+    if (!reviseOpen) return;
+    setReviseErrors([]);
+    const field = pickFocusTarget(rootRef.current, ['.af-auto__revise [name="title"]']);
+    field?.focus();
+    (field as { scrollIntoView?: (o: object) => void } | null)?.scrollIntoView?.({ block: "nearest" });
+  }, [reviseOpen, summary.automation_id]);
   // Where focus goes once a form or confirmation closes (its focused control
   // unmounts): the control that opened it, else the notice, else the title.
   const [focusAfter, setFocusAfter] = useState<string[] | null>(null);
@@ -911,13 +1063,14 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
   return (
     <section ref={rootRef} className={`af-auto${props.className ? ` ${props.className}` : ""}`} aria-labelledby={titleId} aria-busy={busy} data-text-rendering={props.renderText ? "rich" : "unformatted"}>
       <AutomationHeader summary={summary} triggerSources={props.triggerSources} titleId={titleId} nowMs={props.nowMs} onOpenWorkspace={props.onOpenWorkspace} />
-      {props.definition ? <AutomationDefinitionBlock definition={props.definition} renderText={render} /> : null}
       <AutomationControlsBar
         summary={summary}
         occurrences={props.occurrences}
         busy={busy}
         confirmingArchive={confirmingArchive}
         reviseOpen={reviseOpen}
+        notice={notice}
+        onDismissNotice={() => setNotice(null)}
         idBase={`${titleId}-ctl`}
         onCommand={(type) =>
           act(`command:${type}`, (command_id) => props.onCommand(type, undefined, { command_id }), () => {
@@ -925,7 +1078,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
               setConfirmingArchive(false);
               setNotice("Archive requested.");
               setFocusAfter(['[data-action="archive"]']);
-            } else setNotice("Command sent.");
+            } else setNotice(COMMAND_NOTICES[type] ?? "Command sent.");
           })
         }
         onToggleRevise={() => {
@@ -941,14 +1094,15 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
       {reviseOpen ? (
         <AutomationReviseForm
           summary={summary}
+          definition={props.definition}
           busy={busy}
           errors={reviseErrors}
           onCancel={() => {
             setReviseOpen(false);
-            setFocusAfter(['[data-action="revise"]']);
+            setFocusAfter(['[data-action="edit"]']);
           }}
           onSubmit={(form) => {
-            const changes = reviseChanges(summary, form);
+            const changes = reviseChanges(summary, form, props.definition);
             if (changes === null) {
               setReviseErrors(["Nothing changed."]);
               return;
@@ -959,21 +1113,26 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
             }
             setReviseErrors([]);
             act(`revise:${summary.revision}:${JSON.stringify(changes)}`, (command_id) => props.onRevise(changes, summary.revision, { command_id }), () => {
-              setNotice("Revision sent; it applies from the next run.");
+              setNotice("Saved; applies from the next run.");
               setReviseOpen(false);
-              setFocusAfter(['[data-action="revise"]']);
+              setFocusAfter(['[data-action="edit"]']);
             });
           }}
         />
+      ) : props.definition ? (
+        <AutomationDefinitionBlock definition={props.definition} renderText={render} />
       ) : null}
       {errText ? (
         <div className="af-auto__error" role="alert" data-code={shownError?.code}>
-          <strong>{errText.title}</strong> <span>{errText.detail}</span>
-        </div>
-      ) : null}
-      {notice ? (
-        <div className="af-auto__notice" role="status" tabIndex={-1}>
-          {notice}
+          <Icon name="error" size={14} className="af-auto__btn-icon" />
+          <span className="af-auto__error-text">
+            <strong>{errText.title}</strong> <span>{errText.detail}</span>
+          </span>
+          {localError ? (
+            <button type="button" className="af-auto__icon-btn af-auto__icon-btn--bare" data-action="dismiss-error" aria-label="Dismiss" title="Dismiss" onClick={() => setLocalError(null)}>
+              <Icon name="x" size={12} />
+            </button>
+          ) : null}
         </div>
       ) : null}
       {att.items.length || att.waits.length ? (
@@ -1000,7 +1159,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
       ) : null}
       {more > 0 ? (
         <button type="button" className="af-auto__btn af-auto__more" data-action="load-more" disabled={busy} onClick={props.onLoadMore}>
-          Load earlier occurrences ({more} more)
+          <IconLabel icon="history" label={`Load earlier occurrences (${more} more)`} />
         </button>
       ) : null}
       {views.length ? (

@@ -57,7 +57,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, ecosystem data flow, gateway connection flow, live replies, About/identity flow, automations flow, console islands build)
 - [FAQ](docs/faq.md): bundling/CSS/SSR and per-package notes
 - [Troubleshooting](docs/troubleshooting.md): symptoms, checks and fixes (unstyled components, SSR errors, widget polling, app-server 400/401/403, live replies, images shown as links, stale islands bundle)
-- [Automations](docs/automations.md): show and manage AbstractGateway automations — `AutomationPanel` (controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (fixed UTC intervals, tool-approval consent line), `createAutomationsClient()` and its error model, retry-safe ids, panel-chat `ScheduleThisAction` / `FromAutomationBadge`, the canonical fixtures and the export list
+- [Automations](docs/automations.md): show and manage AbstractGateway automations — `AutomationPanel` (icon controls, an Edit form a host can open through `editOpen`, runs as chat pairs, typed wait answers), `AfScheduleDialog` (fixed UTC intervals, tool-approval consent line), `createAutomationsClient()` and its error model, retry-safe ids, panel-chat `ScheduleThisAction` / `FromAutomationBadge`, the canonical fixtures and the export list
 - [Console islands](docs/console-islands.md): `window.AfConsoleIslands` (mountTopBar / mountAppearance / mountAbout / appIdentity / applyAppearance) for pages that are not React apps; repository build, not in the npm package
 - [Docs index](docs/README.md): full docs navigation
 
@@ -1908,15 +1908,18 @@ import "@abstractframework/ui-kit/theme.css";
   onAnswerWait={(runId, waitKey, payload) => resumeWait(runId, waitKey, payload)}
   onOpenWorkspace={(runId) => showFolder(runId)}  // e.g. panel-chat's WorkspaceBrowser for that run
   onOpenResource={(r) => openGatewayResource(fetchGateway, r.url, { name: r.name })}  // ledger JSON, artifacts
+  editOpen={editing}                // optional: the host drives the Edit form (e.g. a list row's Edit)
+  onEditOpenChange={setEditing}
   {...automationRenderers}          // from @abstractframework/panel-chat: the chat's rendering
 />
 ```
 
 The panel is controlled: it holds only view state (which form is open, the last notice) and
 renders what you pass. Optional props: `definition` (the `definition` of `GET /automations/{id}`;
-when given, the panel adds a collapsed "Definition" block), `renderText` and `renderTurn`
-(required in practice; see above), `onOpenWorkspace(runId)` and `onOpenResource(resource)` (see
-below), `newId` (the id source for retry-safe ids, default
+when given, the panel adds a collapsed "Definition" card and the Edit form also edits the task
+and tool approval), `renderText` and `renderTurn` (required in practice; see above),
+`onOpenWorkspace(runId)` and `onOpenResource(resource)` (see below), `editOpen` /
+`onEditOpenChange(open)` (see [Edit](#edit)), `newId` (the id source for retry-safe ids, default
 `crypto.randomUUID`) and `className`.
 
 ### What it shows
@@ -1927,15 +1930,17 @@ below), `newId` (the id source for retry-safe ids, default
   never inferred from the last occurrence; "starting" while admitted, "waiting to retry" in
   backoff), next run as "2026-09-27 07:00 UTC (in 25 min)" (only from `next_fire_at`, which an
   active scheduled automation carries even while a run is in progress; "none while paused" when
-  paused), run count, the automation's workspace folder (`workspace_root`, with a folder button
-  calling `onOpenWorkspace(automation_id)` when that prop is given — an automation's id is its
+  paused), run count, the automation's workspace folder (`workspace_root`: a folder icon and the
+  whole path, wrapping at its `/`, `-` and `_` separators; the whole chip is a button calling
+  `onOpenWorkspace(automation_id)` when that prop is given — an automation's id is its
   controller run), attention
   ("2 unseen · 1 waiting for you"), revision, and a "Legacy schedule" marker for rows the Gateway
   projects from older `scheduled:*` roots. When the Gateway does not list the automation's trigger
   source, or lists it with `available: false`, the header says so.
-- **Definition** (only with the `definition` prop) — a collapsed "Definition (revision N)"
-  block: target workflow, trigger source and config, context, tools (`tool_approval` auto / ask),
-  retry policy and revision.
+- **Definition** (only with the `definition` prop) — a collapsed card right under the controls
+  ("Definition · revision N", one click to open): target workflow, task, trigger source and
+  config, context, tools (`tool_approval` auto / ask), retry policy and revision. The Edit form
+  takes its place while it is open.
 - **Needs attention** — the unseen notify and failure items, then the pending waits, labelled by
   kind ("Question for you", "Approval needed", "Waiting for an event").
 - **Occurrences** — one chat pair per run, oldest first. Quiet runs are subdued; notified, failed,
@@ -1964,8 +1969,10 @@ below), `newId` (the id source for retry-safe ids, default
 
 ### Controls
 
-Pause / Resume, Run now, Stop current, Revise… and Archive…. `summary.capabilities` says what
-you may do; the status says what applies at this moment:
+Pause / Resume, Run now, Stop current, Edit and Archive…, each an icon then its label
+(`CONTROL_LABELS`, `CONTROL_ICONS` — hosts use the same names and glyphs for their own row
+actions). `summary.capabilities` says what you may do (the Edit control is the `revise`
+capability); the status says what applies at this moment:
 
 | Control | Enabled when | Sends |
 | --- | --- | --- |
@@ -1973,21 +1980,45 @@ you may do; the status says what applies at this moment:
 | Resume | status `paused` | `automation.resume` |
 | Run now | status `active` or `paused`, and `current_occurrence` is `null` | `automation.run_now` (while paused it runs once; the automation stays paused) |
 | Stop current | `current_occurrence` is not `null` (admitted, running — including waiting for you — or backing off) | `automation.stop_current` |
-| Revise… | always (subject to capability and status below) | `onRevise(changes, revision)` |
+| Edit | always (subject to capability and status below) | opens the Edit form; Save calls `onRevise(changes, revision)` |
 | Archive… | always (subject to capability and status below) | `automation.archive`, after an in-panel confirmation |
 
 Every control is disabled while `busy`, on a legacy row, without the matching capability, or on
-an archived automation. Each disabled control shows its reason next to the controls ("Run now:
-An occurrence is in progress."), linked to the button with `aria-describedby`.
+an archived automation. A disabled control's reason ("An occurrence is in progress.") is its
+tooltip and, for assistive tech, text linked with `aria-describedby`; it is not a visible line
+under the buttons.
 
-- **Revise** edits the title, the interval and the context. Only changed fields are sent, with
-  `expected_revision`; a new interval keeps the rest of the schedule. The change applies from the
-  next run.
+The result of an action ("Pause sent.", "Run requested.", "Saved; applies from the next run.")
+shows next to the buttons for `NOTICE_MS` (5 s) with a dismiss control, then clears. Errors stay
+until dismissed or replaced.
+
 - **Discuss — fork at this occurrence (own workspace, automation files read-only)** needs the
   `discuss` capability, is off for
   legacy rows, and is available once the run has finished (also on an archived automation).
-- When the archive confirmation, the revise form or a discuss form closes, focus returns to the
+- When the archive confirmation, the Edit form or a discuss form closes, focus returns to the
   control that opened it (else to the notice, else to the title).
+
+### Edit
+
+The Edit control opens a form prefilled from the automation, with its first field focused:
+
+| Field | From | Sent as |
+| --- | --- | --- |
+| Title | `summary.title` | `changes.title` |
+| Task | `definition.target.input_data.prompt` (only with `definition`, when it is text) | `changes.target`: the definition's `bundle_ref` and `flow_id`, its `input_data` with the new `prompt` (the Gateway re-applies its run protections) |
+| Repeat every (UTC) | the schedule's `every` (only for an interval schedule) | `changes.trigger` with the rest of the schedule config kept |
+| Context | `summary.context_mode` | `changes.context` |
+| Tools | `definition.policy.tool_approval` (only with `definition`) | `changes.policy.tool_approval` |
+
+Save sends only the changed fields, once, with `expected_revision` (a stale revision is refused
+with `revision_conflict`), then closes the form; Cancel or Escape closes it. The workspace folder
+is the Gateway's and is not editable. The change applies from the next run.
+
+By default the panel keeps the form's open state itself. A host that has its own Edit control (a
+list row, a menu) passes `editOpen` and `onEditOpenChange`: the form is open exactly while
+`editOpen` is `true`; the panel's Edit button asks `onEditOpenChange(true)`, and Cancel and a
+successful save ask `onEditOpenChange(false)`. The form never opens on an automation that cannot
+be edited (archived, legacy, or without the `revise` capability), whatever `editOpen` says.
 
 ### Attention and `/seen`
 
@@ -2218,7 +2249,8 @@ coverage, checksums), `check_automation_client.mjs` (paths, bodies, error parsin
 From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
 
 - **Components**: `AutomationPanel` (`AutomationPanelProps`), `AutomationStateLabel` (state
-  word then icon), `AfScheduleDialog` (`AfScheduleDialogProps`), `DISCUSS_LABEL`,
+  word then icon), `AfScheduleDialog` (`AfScheduleDialogProps`), `CONTROL_LABELS` and
+  `CONTROL_ICONS` (each control's name and kit icon), `DISCUSS_LABEL`,
   `STATUS_LABELS`, `STATUS_ICONS`, `plainTextRenderer` (the fallback), types `RenderText`,
   `RenderTurn`, `AutomationTurn`.
 - **Client**: `createAutomationsClient()`, `AutomationApiError`, `parseApiError()`,
@@ -2228,7 +2260,7 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   (`ControlId`, `ControlState`), `CONTROL_COMMANDS`, `occurrenceViews()` (`OccurrenceView`,
   `OccurrenceTone`), `attentionAckCursor()`, `attentionLabel()`, `triggerSummary()`,
   `scheduleLabel()`, `intervalLabel()`, `contextLabel()`, `formatUtc()`, `parseDuration()`,
-  `reviseChanges()` (`ReviseForm`), `buildCreateRequest()` (`ScheduleForm`, `ScheduleWhen`),
+  `reviseFormFrom()` and `reviseChanges()` (`ReviseForm`, `ReviseDefinition`), `buildCreateRequest()` (`ScheduleForm`, `ScheduleWhen`),
   `SCHEDULE_PRESETS`, `TOOL_APPROVAL_CONSENT`.
 - **Waits**: `waitToolCalls()`, `parseEventPayload()`, `WAIT_KIND_LABELS`.
 - **Errors**: `apiErrorText()`, `API_ERROR_TEXT`, `isApiError()`.
@@ -3113,7 +3145,13 @@ The rules an app follows:
    loopback). Forwarded headers are believed ONLY from a loopback socket peer;
    from any other peer they are ignored. Every app-local privileged check (a
    folder reveal, opening something on the host, a browser-chosen gateway URL)
-   uses `clientIsLoopback`. The session proxy below already does.
+   uses `clientIsLoopback`, and only that field. It is true only when the
+   client address is loopback AND the request names a loopback host
+   (`hostIsLoopback`: the `Host` header, and the `X-Forwarded-Host` the gateway
+   sends, are `localhost`, `*.localhost`, `::1` or a `127.x` IP literal). A
+   DNS-rebinding page, a hostile name resolving to 127.0.0.1 that can add
+   `X-Forwarded-*` headers itself, is therefore never local. The session proxy
+   below uses the same field.
 3. **Generate URLs under the base path.** Assets and fetches use RELATIVE URLs
    (`assets/app.js`, `api/...`; build with a relative base, e.g. Vite
    `base: "./"`); `injectShell` puts `<base href="<basePath>/">` first in
@@ -3121,10 +3159,23 @@ The rules an app follows:
    redirects use `appPath(ctx.basePath, "/x")`. A service worker registers
    relative to the base.
 4. **Cookies at `Path=<basePath>/`** (`serializeCookie(name, value, {basePath})`),
-   read with `parseCookies` (first value wins: the browser sends the most
-   specific path first, so a `Path=/apps/<id>/` cookie beats a `Path=/` one
-   left by the same app at its own port on the same host).
-5. **Refuse, do not guess.** A malformed `X-Forwarded-*` from a loopback peer
+   read with `parseCookies`. With two cookies of the same name, the first value
+   wins: browsers send a longer-Path cookie first, so a `Path=/apps/<id>/`
+   cookie is read before a `Path=/` one left by the same app at its own port
+   on the same host. This chooses which value the app reads. It is not
+   isolation (next point).
+5. **One origin, one trust domain.** Every app mounted under the gateway's
+   `/apps/*` and the gateway console share ONE origin
+   (`https://gateway.example.com`). A script running in one app can request
+   another app's paths (`/apps/flow/...`), read the responses, and call the
+   gateway's API with whatever session the browser holds. Cookie `Path` scoping
+   decides which cookie a request carries by default; it does not stop such a
+   script. So every app served there must be trusted as much as the console
+   itself: never render untrusted HTML or scripts, keep model output out of the
+   DOM as markup, and do not add third-party script origins. The gateway's
+   per-app session gate, cookie filtering and cross-origin refusal protect
+   against OTHER origins, not against a compromised app on the same one.
+6. **Refuse, do not guess.** A malformed `X-Forwarded-*` from a loopback peer
    or an unknown socket peer is a 400 (`MountRequestError`); the base path is
    `""` or `/seg/seg` with unreserved characters only, never `.` or `..`.
 
@@ -4309,12 +4360,14 @@ export {
   occurrenceViews,
   parseDuration,
   reviseChanges,
+  reviseFormFrom,
   scheduleLabel,
   triggerSummary,
   type ControlId,
   type ControlState,
   type OccurrenceTone,
   type OccurrenceView,
+  type ReviseDefinition,
   type ReviseForm,
   type ScheduleForm,
   type ScheduleWhen,
@@ -4322,6 +4375,8 @@ export {
 export {
   AutomationPanel,
   AutomationStateLabel,
+  CONTROL_ICONS,
+  CONTROL_LABELS,
   DISCUSS_LABEL,
   STATUS_ICONS,
   plainTextRenderer,
@@ -5205,6 +5260,19 @@ export function gatewayResourcePath(serverUrl: string): string {
   const root = `/${GATEWAY_API_PATH}/`;
   if (!u.startsWith(root) || u.length === root.length)
     throw new Error(`Not a gateway API path: ${JSON.stringify(u)} (expected ${JSON.stringify(root)}…).`);
+  // The path must stay under the API: no "." / ".." segment (plain or
+  // percent-encoded, %2e/%2E), no encoded slash or backslash (%2f, %5c) and
+  // no backslash, any of which a browser or proxy may normalise into a step
+  // out of the base (".." would reach the app's own routes, or the gateway
+  // console on a shared origin).
+  const pathPart = u.slice(root.length).split(/[?#]/, 1)[0];
+  if (/\\|%2f|%5c/i.test(pathPart))
+    throw new Error(`Not a gateway API path: ${JSON.stringify(u)} (encoded slash or backslash).`);
+  for (const segment of pathPart.split("/")) {
+    const plain = segment.replace(/%2e/gi, ".");
+    if (plain === "." || plain === "..")
+      throw new Error(`Not a gateway API path: ${JSON.stringify(u)} (a "." or ".." segment).`);
+  }
   return u.slice(1);
 }
 
@@ -5885,31 +5953,66 @@ export function isApiError(value: unknown): value is ApiError {
 
 // --- revise ------------------------------------------------------------------
 
-export type ReviseForm = { title: string; every: string | null; context: ContextMode };
+/**
+ * The Edit form's values. `prompt` and `toolApproval` exist only when the
+ * committed definition is known (`GET /automations/{id}` → `definition`) and
+ * its target carries a text `input_data.prompt`; otherwise they are `null`
+ * and the form does not offer them.
+ */
+export type ReviseForm = {
+  title: string;
+  every: string | null;
+  context: ContextMode;
+  prompt?: string | null;
+  toolApproval?: ToolApprovalPolicy | null;
+};
 
-export function reviseFormFrom(summary: AutomationSummary): ReviseForm {
+/** The committed definition fields the Edit form reads (a subset of `AutomationDefinition`). */
+export type ReviseDefinition = {
+  target: { bundle_ref: string; flow_id: string; input_data: JsonObject };
+  policy: { tool_approval: ToolApprovalPolicy };
+};
+
+export function reviseFormFrom(summary: AutomationSummary, definition?: ReviseDefinition | null): ReviseForm {
   const every = summary.trigger.source_id === "schedule" ? (summary.trigger.config as ScheduleConfig).every : undefined;
-  return { title: summary.title, every: typeof every === "string" ? every : null, context: summary.context_mode };
+  const prompt = definition ? (definition.target.input_data as { prompt?: unknown }).prompt : undefined;
+  return {
+    title: summary.title,
+    every: typeof every === "string" ? every : null,
+    context: summary.context_mode,
+    prompt: typeof prompt === "string" ? prompt : null,
+    toolApproval: definition ? definition.policy.tool_approval : null,
+  };
 }
 
 /**
  * Only the fields that changed. A new interval keeps the rest of the schedule
  * config (the server mints a new binding and re-anchors so no past tick fires).
+ * A new task keeps the definition's target (`bundle_ref`, `flow_id`) and the
+ * rest of its `input_data`; the gateway re-applies its run protections to it
+ * (`PATCH /automations/{id}` resolves `changes.target` like a creation). A new
+ * tool approval sends `policy.tool_approval` only (the server merges policy).
  * Returns `{errors}` when the form is invalid, `null` when nothing changed.
  */
-export function reviseChanges(summary: AutomationSummary, form: ReviseForm): AutomationChanges | null | { errors: string[] } {
+export function reviseChanges(summary: AutomationSummary, form: ReviseForm, definition?: ReviseDefinition | null): AutomationChanges | null | { errors: string[] } {
   const errors: string[] = [];
   const changes: AutomationChanges = {};
   const title = form.title.trim();
   if (!title) errors.push("Title is required.");
   else if (title.length > 120) errors.push("Title is at most 120 characters.");
   else if (title !== summary.title) changes.title = title;
-  const before = reviseFormFrom(summary);
+  const before = reviseFormFrom(summary, definition);
   if (form.every !== before.every && form.every !== null) {
     if (!parseDuration(form.every)) errors.push("Interval must be a whole number of minutes, hours or days.");
     else changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config: { ...summary.trigger.config, every: form.every } };
   }
   if (form.context !== summary.context_mode) changes.context = { mode: form.context };
+  if (definition && typeof before.prompt === "string" && typeof form.prompt === "string" && form.prompt.trim() !== before.prompt.trim()) {
+    const prompt = form.prompt.trim();
+    if (!prompt) errors.push("Task is required.");
+    else changes.target = { bundle_ref: definition.target.bundle_ref, flow_id: definition.target.flow_id, input_data: { ...definition.target.input_data, prompt } };
+  }
+  if (definition && form.toolApproval && form.toolApproval !== before.toolApproval) changes.policy = { tool_approval: form.toolApproval };
   if (errors.length) return { errors };
   return Object.keys(changes).length ? changes : null;
 }
@@ -6588,7 +6691,7 @@ import * as https from "node:https";
 import { timingSafeEqual as cryptoTimingSafeEqual } from "node:crypto";
 
 import { createGatewayUrlResolver } from "./gateway_pointer.js";
-import { MountRequestError, isLoopbackAddress, isLoopbackHostname, parseCookies, requestContext, serializeCookie } from "./mount.js";
+import { MountRequestError, parseCookies, requestContext, serializeCookie } from "./mount.js";
 
 const TRUE_VALUES = new Set(["1", "true", "yes", "y", "on"]);
 const HOP_BY_HOP_HEADERS = new Set([
@@ -6797,21 +6900,6 @@ export function createGatewaySessionProxy(options) {
     return requestContext(req).clientAddress;
   }
 
-  /**
-   * True only when the BROWSER is on this machine (its clientAddress is
-   * loopback). This is the SSRF gate: a LAN peer sending `Host: localhost`
-   * against an all-interfaces bind must NOT unlock browser-supplied gateway
-   * URLs (security report entity c1768), and neither may a remote browser
-   * reaching the app through the gateway's loopback proxy.
-   */
-  function isLoopbackPeer(req) {
-    try {
-      return isLoopbackAddress(clientAddress(req));
-    } catch {
-      return false;
-    }
-  }
-
   function remoteConfigAllowed(req) {
     // Explicit operator opt-in wins (deployments behind their own access
     // control).
@@ -6822,22 +6910,15 @@ export function createGatewaySessionProxy(options) {
     // deployments must set the explicit opt-in above; there is no
     // socket-derived unlock behind a trusted proxy.
     if (anyEnvBool(TRUST_PROXY_ENVS)) return false;
-    // Otherwise the unlock needs a genuine loopback CLIENT (the socket peer,
-    // or the address the gateway's loopback proxy forwarded) AND a loopback
-    // HOST. DNS rebinding: a page at a hostile name that resolves to
-    // 127.0.0.1 reaches this server over a loopback socket with its own Host
-    // header, and as a same-origin script it can add X-Forwarded-* headers
-    // too. So the raw Host must name loopback, and so must X-Forwarded-Host
-    // when a loopback peer sends one (the gateway sends the browser's host).
-    if (!isLoopbackPeer(req)) return false;
-    if (!isLoopbackHostname(firstHeaderValue(req?.headers?.host))) return false;
-    const forwardedHost = req?.headers?.["x-forwarded-host"];
-    if (forwardedHost !== undefined && !isLoopbackHostname(firstHeaderValue(forwardedHost))) return false;
-    return true;
-  }
-
-  function firstHeaderValue(value) {
-    return String(Array.isArray(value) ? value[0] : value || "").split(",", 1)[0].trim();
+    // Otherwise only a browser on this machine: requestContext's
+    // clientIsLoopback (a loopback client address AND a loopback Host, so a
+    // DNS-rebinding page is refused). One rule, the same field every
+    // app-local privileged check reads.
+    try {
+      return requestContext(req).clientIsLoopback;
+    } catch {
+      return false;
+    }
   }
 
   function remoteConfigDenial(req) {
@@ -7333,7 +7414,7 @@ const CONTEXTS = new WeakMap();
 /**
  * Who is asking and where the app is mounted, for ONE request.
  *
- * Returns {clientAddress, clientIsLoopback, basePath, proto, host, forwarded}:
+ * Returns {clientAddress, clientIsLoopback, hostIsLoopback, basePath, proto, host, forwarded}:
  *  - clientAddress: the browser's address. From a loopback socket peer, the
  *    X-Forwarded-For client (right-most non-loopback entry) when the header
  *    is present, else the peer; from any other peer, the peer itself.
@@ -7342,6 +7423,13 @@ const CONTEXTS = new WeakMap();
  *  - proto: "https" when a loopback peer says X-Forwarded-Proto: https.
  *  - host: X-Forwarded-Host from a loopback peer, else the Host header.
  *  - forwarded: a loopback peer sent any X-Forwarded-* header.
+ *  - hostIsLoopback: the raw Host header names loopback (localhost,
+ *    *.localhost, ::1 or a 127.x IP literal, never a DNS name), and so does
+ *    X-Forwarded-Host when a loopback peer sent one.
+ *  - clientIsLoopback: the browser is on this machine — a loopback
+ *    clientAddress AND hostIsLoopback (a DNS-rebinding page, which names its
+ *    own host, is never local). THE field for every app-local privileged
+ *    check.
  * Throws MountRequestError (status 400) for an unknown socket peer or a
  * malformed forwarded header from a loopback peer. Memoized per request.
  */
@@ -7353,8 +7441,10 @@ export function requestContext(req) {
   let clientAddress = peer;
   let basePath = "";
   let proto = "http";
-  let host = String(headerValue(req, "host") || "");
+  const rawHost = String(headerValue(req, "host") || "");
+  let host = rawHost;
   let forwarded = false;
+  let forwardedHost;
   if (isLoopbackAddress(peer)) {
     const xff = headerValue(req, "x-forwarded-for");
     const prefix = headerValue(req, "x-forwarded-prefix");
@@ -7372,11 +7462,19 @@ export function requestContext(req) {
       const h = xfHost.split(",", 1)[0].trim();
       if (!HOST_RE.test(h)) throw new MountRequestError(`Invalid X-Forwarded-Host: ${JSON.stringify(h.slice(0, 64))}`);
       host = h;
+      forwardedHost = h;
     }
   }
+  // DNS rebinding: a page at a hostile name that resolves to 127.0.0.1
+  // reaches this server over a loopback socket with ITS Host header, and as
+  // a same-origin script it can add X-Forwarded-* headers too. A request is
+  // "from this machine" only when the host it names is loopback as well: the
+  // raw Host, and the X-Forwarded-Host a loopback peer (the gateway) sent.
+  const hostIsLoopback = isLoopbackHostname(rawHost) && (forwardedHost === undefined || isLoopbackHostname(forwardedHost));
   const ctx = Object.freeze({
     clientAddress,
-    clientIsLoopback: isLoopbackAddress(clientAddress),
+    clientIsLoopback: isLoopbackAddress(clientAddress) && hostIsLoopback,
+    hostIsLoopback,
     basePath,
     proto,
     host,
@@ -7429,9 +7527,11 @@ export function serializeCookie(name, value, options = {}) {
 
 /**
  * Cookies of a request (or a raw Cookie header), FIRST value wins. Browsers
- * send the cookie with the longest Path first, so the app's own
- * `Path=/apps/<id>/` cookie beats a `Path=/` cookie of the same name left
- * by the app on the same host at its own port. Values are URL-decoded.
+ * send cookies with a longer Path before those with a shorter one (RFC 6265
+ * 5.4, a SHOULD that every current browser follows), so the app's own
+ * `Path=/apps/<id>/` cookie comes before a `Path=/` cookie of the same name.
+ * This picks WHICH value an app reads; it is not isolation: every app under
+ * the gateway shares one origin (see the README). Values are URL-decoded.
  */
 export function parseCookies(reqOrHeader) {
   const header = typeof reqOrHeader === "string" ? reqOrHeader : headerValue(reqOrHeader, "cookie") || "";
@@ -7732,7 +7832,10 @@ export function parseAppFlagsOrExit(argv, options = {}) {
  *
  * A reader believes it only when: `schema` is 1, the url is http(s) on
  * 127.0.0.1 / ::1 / localhost with nothing after the port, and (POSIX) the
- * file is a regular file owned by the current user. A malformed or refused
+ * file is a regular file (not a symlink) owned by the current user and
+ * writable by nobody else (no group/world write bit). The checks run on the
+ * OPENED file (O_NOFOLLOW, then fstat), so the file cannot be swapped
+ * between the check and the read. A malformed or refused
  * file is ignored with ONE visible warning; it never throws.
  *
  * The URL an app talks to, in order:
@@ -7744,7 +7847,7 @@ export function parseAppFlagsOrExit(argv, options = {}) {
  *   5. http://127.0.0.1:8080.
  */
 
-import { lstatSync, readFileSync } from "node:fs";
+import { closeSync, constants as fsConstants, fstatSync, openSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -7773,20 +7876,34 @@ function refused(path, reason) {
  */
 export function readGatewayPointer(options = {}) {
   const path = options.path || gatewayPointerPath(options.home || homedir());
-  let st;
-  try {
-    st = lstatSync(path);
-  } catch (err) {
-    if (err && err.code === "ENOENT") return { ok: false, reason: "missing", path };
-    return refused(path, `cannot read it (${err?.code || err?.message || err})`);
-  }
-  if (!st.isFile()) return refused(path, "it is not a regular file");
   const platform = options.platform || process.platform;
   const getuid = options.getuid || (typeof process.getuid === "function" ? () => process.getuid() : null);
-  if (platform !== "win32" && getuid && st.uid !== getuid()) return refused(path, "it belongs to another user");
+  let fd;
+  try {
+    // O_NOFOLLOW: a symlink is refused by the open itself (ELOOP), never followed.
+    fd = openSync(path, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW || 0));
+  } catch (err) {
+    if (err && err.code === "ENOENT") return { ok: false, reason: "missing", path };
+    if (err && (err.code === "ELOOP" || err.code === "EMLINK")) return refused(path, "it is a symbolic link");
+    return refused(path, `cannot read it (${err?.code || err?.message || err})`);
+  }
+  let text;
+  try {
+    const st = fstatSync(fd);
+    if (!st.isFile()) return refused(path, "it is not a regular file");
+    if (platform !== "win32") {
+      if (getuid && st.uid !== getuid()) return refused(path, "it belongs to another user");
+      if (st.mode & 0o022) return refused(path, `other users can write it (mode ${(st.mode & 0o777).toString(8)})`);
+    }
+    text = readFileSync(fd, "utf8");
+  } catch (err) {
+    return refused(path, `cannot read it (${err?.code || err?.message || err})`);
+  } finally {
+    closeSync(fd);
+  }
   let data;
   try {
-    data = JSON.parse(readFileSync(path, "utf8"));
+    data = JSON.parse(text);
   } catch (err) {
     return refused(path, `it is not valid JSON (${String(err?.message || err).slice(0, 120)})`);
   }
@@ -7854,9 +7971,10 @@ export function resolveGatewayUrl(options = {}) {
 /**
  * A resolver a long-running server keeps: `current()` is the URL now;
  * `refresh()` re-reads the pointer (call it when a connection to the
- * current URL fails) and returns true when the URL changed. Only a URL that
- * came from the pointer or the built-in default moves: a flag, the
- * environment or a saved login stays what the person chose.
+ * current URL fails) and returns true when the URL changed. A flag or the
+ * environment never moves. A saved login stays what the person chose,
+ * except a saved old built-in http://127.0.0.1:8080, which follows the
+ * pointer like the default does (resolveGatewayUrl step 3).
  */
 export function createGatewayUrlResolver(options = {}) {
   let resolved = resolveGatewayUrl(options);
@@ -7997,7 +8115,10 @@ export class MountRequestError extends Error {
 export type RequestContext = Readonly<{
   /** The browser's address (X-Forwarded-For from a loopback peer, else the socket peer). */
   clientAddress: string;
+  /** The browser is on this machine: a loopback clientAddress AND hostIsLoopback (never a DNS-rebinding page). */
   clientIsLoopback: boolean;
+  /** The raw Host (and X-Forwarded-Host from a loopback peer) name loopback: localhost, *.localhost, ::1, 127.x literal. */
+  hostIsLoopback: boolean;
   /** "" or the validated X-Forwarded-Prefix, e.g. "/apps/flow" (no trailing slash). */
   basePath: string;
   proto: "http" | "https";
@@ -9514,6 +9635,9 @@ export function sameOriginImage(src: string): boolean {
   if (!value) return false;
   const pageBase = typeof document !== "undefined" && document.baseURI ? document.baseURI : null;
   // No document: resolve against a sentinel origin; only a source that stays on it is relative.
+  // A value that starts with a scheme is never relative: "http:evil.com/x.png" would
+  // resolve as a path on an http: sentinel, yet on the real page it may name another host.
+  if (pageBase === null && /^[a-z][a-z0-9+.-]*:/i.test(value)) return false;
   const base = pageBase ?? SENTINEL_BASE;
   let origin: string;
   let resolved: URL;
@@ -12304,6 +12428,48 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.1.15 - unreleased
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.1.15 | updated |
+| `@abstractframework/panel-chat` | 0.1.19 | unchanged (its `^0.1.14` range takes ui-kit 0.1.15; `AutomationPanelWithMarkdown` passes the new props through) |
+| `@abstractframework/app-server` | 0.1.11 | unchanged |
+| `@abstractframework/monitor-memory` | 0.1.10 | unchanged |
+| `@abstractframework/monitor-gpu` | 0.1.10 | unchanged |
+| `@abstractframework/monitor-flow` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-active-memory` | 0.1.9 | unchanged |
+
+### ui-kit 0.1.15: AutomationPanel — Edit edits
+
+Operator report 2026-09-28 (Observer 0.1.14): "when i click 'edit' … it does NOTHING. i have to
+go to the right and click revise… edit => i can edit right now."
+
+- Added: `editOpen` / `onEditOpenChange(open)` on `AutomationPanel` (optional, controlled). A host
+  with its own Edit control opens the panel's Edit form directly; the panel's Edit button asks
+  `onEditOpenChange(true)`, Cancel/Escape and a successful save ask `false`. Opening focuses the
+  form's first field. Without the props the panel keeps the state itself, as before. The form
+  never opens on an automation that cannot be edited (archived, legacy, no `revise` capability).
+- Changed: the Revise control is **Edit** everywhere (`data-action="edit"`; the form's buttons
+  `edit-save` "Save changes" / `edit-cancel` "Cancel"). The `revise` capability and `onRevise`
+  are unchanged.
+- Added: with the `definition` prop the Edit form also edits the **task**
+  (`target.input_data.prompt`, sent as `changes.target` = the definition's `bundle_ref` /
+  `flow_id` and its `input_data` with the new prompt) and **tool approval**
+  (`changes.policy.tool_approval`). `reviseFormFrom(summary, definition?)` and
+  `reviseChanges(summary, form, definition?)` take the definition; type `ReviseDefinition`.
+- Added: every panel action button is a kit icon then its label (controls, Edit form, archive
+  confirmation, wait answers, run details, Discuss, load earlier). `CONTROL_LABELS` and
+  `CONTROL_ICONS` are exported so hosts name and draw their row actions the same way.
+- Changed: action feedback shows next to the buttons for `NOTICE_MS` (5 s) with a dismiss
+  control, then clears (was a line left under the panel). The panel's own errors are dismissible.
+  Disabled-control reasons are the buttons' tooltips and screen-reader text (still linked with
+  `aria-describedby`), no longer a visible line under the buttons.
+- Changed: the workspace fact is one control — folder icon + the whole path, wrapping at its
+  separators, the whole chip opening `onOpenWorkspace`.
+- Changed: the Definition is a card right under the controls ("Definition · revision N"); the
+  Edit form takes its place while open.
+
 ## 0.1.14 - 2026-09-28
 
 | Package | Version | Change |
@@ -12362,6 +12528,17 @@ ships.
   `Secure` cookie flag follows `X-Forwarded-Proto` from a loopback peer only. The app's own CSRF
   headers (`x-<appId>-csrf`, `x-abstract-csrf`) are checked locally and never forwarded to the
   Gateway.
+- Security: `requestContext(req).clientIsLoopback` — THE field for every app-local privileged
+  check — is true only when the client address is loopback AND the request names a loopback host
+  (new `hostIsLoopback`: the raw `Host`, and `X-Forwarded-Host` from a loopback peer, are
+  `localhost`, `*.localhost`, `::1` or a `127.x` IP literal, never a DNS name). A socket from
+  127.0.0.1 with `Host: evil.example` (DNS rebinding) is not local. The session proxy's
+  browser-chosen-URL rule reads the same field. Also exported: `isLoopbackHostname`.
+- Security: the pointer reader opens the file with `O_NOFOLLOW` and checks the OPENED file
+  (`fstat`: a regular file owned by the current user, no group/world write bit), so a symlink is
+  refused and the file cannot be swapped between the check and the read.
+- Docs: apps under the gateway's `/apps/*` and the gateway console share ONE origin, one trust
+  domain: cookie `Path` scoping picks which cookie a request carries, it is not isolation.
 
 ### ui-kit 0.1.14
 
@@ -12374,7 +12551,9 @@ ships.
   app's proxy). Added `onOpenResource(resource)` (`GatewayResource`: `kind` ledger/artifact, the
   server's `url`, `name`, `mimeType`, `runId`): artifact names and a **Ledger (JSON)** button call
   it; without it artifacts are plain names and there is no ledger JSON button. Added
-  `gatewayResourcePath(serverUrl)` (gateway-rooted → app-relative; anything else throws). The
+  `gatewayResourcePath(serverUrl)` (gateway-rooted → app-relative; anything else throws, as does a
+  `.`/`..` segment, plain or percent-encoded, and an encoded slash or backslash, so a server
+  string cannot step out of the API base). The
   contract fixtures are unchanged: the gateway keeps sending rooted paths; the client maps them.
 - Added: `AutomationStateLabel` renders an automation's state as the word then an icon
   ("Active ▶", "Paused ⏸"; Completed, Failed and Archived likewise) — the one rendering every
@@ -12423,7 +12602,9 @@ ships.
   the page's own origin, so it works for an app mounted at `/apps/<id>/` without the host
   rewriting paths to absolute URLs. Protocol-relative `//host` and `/\host`, other origins and
   ports, and `javascript:` / `data:` / `blob:` / `file:` sources stay links (or are dropped).
-  `Markdown` now parses relative image sources (links keep their existing rule).
+  `Markdown` now parses relative image sources (links keep their existing rule). Without a
+  document (server rendering), a source that starts with a scheme (`http:evil.com/x.png`) is
+  refused: it is never a relative path.
 
 ### monitor-gpu 0.1.10 and monitor-memory 0.1.10
 

@@ -98,15 +98,18 @@ import "@abstractframework/ui-kit/theme.css";
   onAnswerWait={(runId, waitKey, payload) => resumeWait(runId, waitKey, payload)}
   onOpenWorkspace={(runId) => showFolder(runId)}  // e.g. panel-chat's WorkspaceBrowser for that run
   onOpenResource={(r) => openGatewayResource(fetchGateway, r.url, { name: r.name })}  // ledger JSON, artifacts
+  editOpen={editing}                // optional: the host drives the Edit form (e.g. a list row's Edit)
+  onEditOpenChange={setEditing}
   {...automationRenderers}          // from @abstractframework/panel-chat: the chat's rendering
 />
 ```
 
 The panel is controlled: it holds only view state (which form is open, the last notice) and
 renders what you pass. Optional props: `definition` (the `definition` of `GET /automations/{id}`;
-when given, the panel adds a collapsed "Definition" block), `renderText` and `renderTurn`
-(required in practice; see above), `onOpenWorkspace(runId)` and `onOpenResource(resource)` (see
-below), `newId` (the id source for retry-safe ids, default
+when given, the panel adds a collapsed "Definition" card and the Edit form also edits the task
+and tool approval), `renderText` and `renderTurn` (required in practice; see above),
+`onOpenWorkspace(runId)` and `onOpenResource(resource)` (see below), `editOpen` /
+`onEditOpenChange(open)` (see [Edit](#edit)), `newId` (the id source for retry-safe ids, default
 `crypto.randomUUID`) and `className`.
 
 ### What it shows
@@ -117,15 +120,17 @@ below), `newId` (the id source for retry-safe ids, default
   never inferred from the last occurrence; "starting" while admitted, "waiting to retry" in
   backoff), next run as "2026-09-27 07:00 UTC (in 25 min)" (only from `next_fire_at`, which an
   active scheduled automation carries even while a run is in progress; "none while paused" when
-  paused), run count, the automation's workspace folder (`workspace_root`, with a folder button
-  calling `onOpenWorkspace(automation_id)` when that prop is given — an automation's id is its
+  paused), run count, the automation's workspace folder (`workspace_root`: a folder icon and the
+  whole path, wrapping at its `/`, `-` and `_` separators; the whole chip is a button calling
+  `onOpenWorkspace(automation_id)` when that prop is given — an automation's id is its
   controller run), attention
   ("2 unseen · 1 waiting for you"), revision, and a "Legacy schedule" marker for rows the Gateway
   projects from older `scheduled:*` roots. When the Gateway does not list the automation's trigger
   source, or lists it with `available: false`, the header says so.
-- **Definition** (only with the `definition` prop) — a collapsed "Definition (revision N)"
-  block: target workflow, trigger source and config, context, tools (`tool_approval` auto / ask),
-  retry policy and revision.
+- **Definition** (only with the `definition` prop) — a collapsed card right under the controls
+  ("Definition · revision N", one click to open): target workflow, task, trigger source and
+  config, context, tools (`tool_approval` auto / ask), retry policy and revision. The Edit form
+  takes its place while it is open.
 - **Needs attention** — the unseen notify and failure items, then the pending waits, labelled by
   kind ("Question for you", "Approval needed", "Waiting for an event").
 - **Occurrences** — one chat pair per run, oldest first. Quiet runs are subdued; notified, failed,
@@ -154,8 +159,10 @@ below), `newId` (the id source for retry-safe ids, default
 
 ### Controls
 
-Pause / Resume, Run now, Stop current, Revise… and Archive…. `summary.capabilities` says what
-you may do; the status says what applies at this moment:
+Pause / Resume, Run now, Stop current, Edit and Archive…, each an icon then its label
+(`CONTROL_LABELS`, `CONTROL_ICONS` — hosts use the same names and glyphs for their own row
+actions). `summary.capabilities` says what you may do (the Edit control is the `revise`
+capability); the status says what applies at this moment:
 
 | Control | Enabled when | Sends |
 | --- | --- | --- |
@@ -163,21 +170,45 @@ you may do; the status says what applies at this moment:
 | Resume | status `paused` | `automation.resume` |
 | Run now | status `active` or `paused`, and `current_occurrence` is `null` | `automation.run_now` (while paused it runs once; the automation stays paused) |
 | Stop current | `current_occurrence` is not `null` (admitted, running — including waiting for you — or backing off) | `automation.stop_current` |
-| Revise… | always (subject to capability and status below) | `onRevise(changes, revision)` |
+| Edit | always (subject to capability and status below) | opens the Edit form; Save calls `onRevise(changes, revision)` |
 | Archive… | always (subject to capability and status below) | `automation.archive`, after an in-panel confirmation |
 
 Every control is disabled while `busy`, on a legacy row, without the matching capability, or on
-an archived automation. Each disabled control shows its reason next to the controls ("Run now:
-An occurrence is in progress."), linked to the button with `aria-describedby`.
+an archived automation. A disabled control's reason ("An occurrence is in progress.") is its
+tooltip and, for assistive tech, text linked with `aria-describedby`; it is not a visible line
+under the buttons.
 
-- **Revise** edits the title, the interval and the context. Only changed fields are sent, with
-  `expected_revision`; a new interval keeps the rest of the schedule. The change applies from the
-  next run.
+The result of an action ("Pause sent.", "Run requested.", "Saved; applies from the next run.")
+shows next to the buttons for `NOTICE_MS` (5 s) with a dismiss control, then clears. Errors stay
+until dismissed or replaced.
+
 - **Discuss — fork at this occurrence (own workspace, automation files read-only)** needs the
   `discuss` capability, is off for
   legacy rows, and is available once the run has finished (also on an archived automation).
-- When the archive confirmation, the revise form or a discuss form closes, focus returns to the
+- When the archive confirmation, the Edit form or a discuss form closes, focus returns to the
   control that opened it (else to the notice, else to the title).
+
+### Edit
+
+The Edit control opens a form prefilled from the automation, with its first field focused:
+
+| Field | From | Sent as |
+| --- | --- | --- |
+| Title | `summary.title` | `changes.title` |
+| Task | `definition.target.input_data.prompt` (only with `definition`, when it is text) | `changes.target`: the definition's `bundle_ref` and `flow_id`, its `input_data` with the new `prompt` (the Gateway re-applies its run protections) |
+| Repeat every (UTC) | the schedule's `every` (only for an interval schedule) | `changes.trigger` with the rest of the schedule config kept |
+| Context | `summary.context_mode` | `changes.context` |
+| Tools | `definition.policy.tool_approval` (only with `definition`) | `changes.policy.tool_approval` |
+
+Save sends only the changed fields, once, with `expected_revision` (a stale revision is refused
+with `revision_conflict`), then closes the form; Cancel or Escape closes it. The workspace folder
+is the Gateway's and is not editable. The change applies from the next run.
+
+By default the panel keeps the form's open state itself. A host that has its own Edit control (a
+list row, a menu) passes `editOpen` and `onEditOpenChange`: the form is open exactly while
+`editOpen` is `true`; the panel's Edit button asks `onEditOpenChange(true)`, and Cancel and a
+successful save ask `onEditOpenChange(false)`. The form never opens on an automation that cannot
+be edited (archived, legacy, or without the `revise` capability), whatever `editOpen` says.
 
 ### Attention and `/seen`
 
@@ -408,7 +439,8 @@ coverage, checksums), `check_automation_client.mjs` (paths, bodies, error parsin
 From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
 
 - **Components**: `AutomationPanel` (`AutomationPanelProps`), `AutomationStateLabel` (state
-  word then icon), `AfScheduleDialog` (`AfScheduleDialogProps`), `DISCUSS_LABEL`,
+  word then icon), `AfScheduleDialog` (`AfScheduleDialogProps`), `CONTROL_LABELS` and
+  `CONTROL_ICONS` (each control's name and kit icon), `DISCUSS_LABEL`,
   `STATUS_LABELS`, `STATUS_ICONS`, `plainTextRenderer` (the fallback), types `RenderText`,
   `RenderTurn`, `AutomationTurn`.
 - **Client**: `createAutomationsClient()`, `AutomationApiError`, `parseApiError()`,
@@ -418,7 +450,7 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   (`ControlId`, `ControlState`), `CONTROL_COMMANDS`, `occurrenceViews()` (`OccurrenceView`,
   `OccurrenceTone`), `attentionAckCursor()`, `attentionLabel()`, `triggerSummary()`,
   `scheduleLabel()`, `intervalLabel()`, `contextLabel()`, `formatUtc()`, `parseDuration()`,
-  `reviseChanges()` (`ReviseForm`), `buildCreateRequest()` (`ScheduleForm`, `ScheduleWhen`),
+  `reviseFormFrom()` and `reviseChanges()` (`ReviseForm`, `ReviseDefinition`), `buildCreateRequest()` (`ScheduleForm`, `ScheduleWhen`),
   `SCHEDULE_PRESETS`, `TOOL_APPROVAL_CONSENT`.
 - **Waits**: `waitToolCalls()`, `parseEventPayload()`, `WAIT_KIND_LABELS`.
 - **Errors**: `apiErrorText()`, `API_ERROR_TEXT`, `isApiError()`.
