@@ -215,6 +215,7 @@ export {
   parseEventPayload,
   CONTROL_COMMANDS,
   SCHEDULE_PRESETS,
+  STATUS_LABELS,
   apiErrorText,
   attentionAckCursor,
   attentionLabel,
@@ -239,5 +240,15 @@ export {
   type ScheduleForm,
   type ScheduleWhen,
 } from "./automations/panel_core.js";
-export { AutomationPanel, DISCUSS_LABEL, plainTextRenderer, type AutomationPanelProps, type RenderText } from "./automations/AutomationPanel.js";
+export {
+  AutomationPanel,
+  AutomationStateLabel,
+  DISCUSS_LABEL,
+  STATUS_ICONS,
+  plainTextRenderer,
+  type AutomationPanelProps,
+  type AutomationTurn,
+  type RenderText,
+  type RenderTurn,
+} from "./automations/AutomationPanel.js";
 export { AfScheduleDialog, type AfScheduleDialogProps } from "./automations/AfScheduleDialog.js";

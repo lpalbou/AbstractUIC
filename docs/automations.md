@@ -55,20 +55,24 @@ in the architecture page; for the export list in context, see the [API reference
 
 ## AutomationPanel
 
-Occurrence text is rendered with the **same renderer as the chat** (Markdown with tables and
-code, JSON autodetect, remote images as links): the user turn, the answer, notify bodies, wait
-prompts, attention bodies and the definition's task. ui-kit cannot import panel-chat
-(panel-chat depends on ui-kit), so the panel takes a `renderText(text)` prop and panel-chat
-ships the pairing. Use one of:
+Occurrences read as a **chat**: each run's trigger turn and answer turn is the shared
+`ChatMessageCard` (a user card titled "Trigger", an assistant card titled "Automation", with the
+card's copy button), and every other text — notify bodies, wait prompts, attention bodies, the
+definition's task — goes through the same content renderer as the chat (Markdown with tables and
+code, JSON autodetect, remote images as links). ui-kit cannot import panel-chat (panel-chat
+depends on ui-kit), so the panel takes two seams, `renderTurn(turn)` and `renderText(text)`, and
+panel-chat ships the pairing. Use one of:
 
 ```tsx
 import { AutomationPanelWithMarkdown, automationRenderers } from "@abstractframework/panel-chat";
 
-<AutomationPanelWithMarkdown {...props} />              // the panel with the chat renderer wired
+<AutomationPanelWithMarkdown {...props} />              // the panel with the chat rendering wired
 <AutomationPanel {...automationRenderers} {...props} />  // same thing, spread onto the kit panel
 ```
 
-Without `renderText` the panel falls back to escaped plain text and marks itself
+`renderTurn` receives an `AutomationTurn`: `{kind: "trigger" | "answer", role: "user" |
+"assistant", text, index, runId}`; without it a turn's text goes through `renderText`. Without
+`renderText` the panel falls back to escaped plain text and marks itself
 `data-text-rendering="unformatted"` (each block `data-unformatted="true"`), so a host that
 forgot the renderer is visible in the DOM.
 
@@ -92,24 +96,28 @@ import "@abstractframework/ui-kit/theme.css";
   onLoadMore={loadOlderPage}
   onOpenRun={(runId) => openLedger(runId)}
   onAnswerWait={(runId, waitKey, payload) => resumeWait(runId, waitKey, payload)}
-  {...automationRenderers}          // from @abstractframework/panel-chat: the chat's renderer
+  onOpenWorkspace={(runId) => showFolder(runId)}  // e.g. panel-chat's WorkspaceBrowser for that run
+  {...automationRenderers}          // from @abstractframework/panel-chat: the chat's rendering
 />
 ```
 
 The panel is controlled: it holds only view state (which form is open, the last notice) and
 renders what you pass. Optional props: `definition` (the `definition` of `GET /automations/{id}`;
-when given, the panel adds a collapsed "Definition" block), `renderText` (required in practice;
-see above), `newId` (the id source for retry-safe ids, default
+when given, the panel adds a collapsed "Definition" block), `renderText` and `renderTurn`
+(required in practice; see above), `onOpenWorkspace(runId)` (see below), `newId` (the id source for retry-safe ids, default
 `crypto.randomUUID`) and `className`.
 
 ### What it shows
 
-- **Header** — title, status, trigger ("every 8 hours (UTC)", "once at 2026-09-28 08:00 UTC",
+- **Header** — title, state as a word then an icon ("Active ▶", "Paused ⏸"; Completed,
+  Failed and Archived likewise — `AutomationStateLabel`, the one rendering every client uses), trigger ("every 8 hours (UTC)", "once at 2026-09-28 08:00 UTC",
   "manual runs only"), context, "Now: Run #7 running" (only from `summary.current_occurrence`,
   never inferred from the last occurrence; "starting" while admitted, "waiting to retry" in
   backoff), next run as "2026-09-27 07:00 UTC (in 25 min)" (only from `next_fire_at`, which an
   active scheduled automation carries even while a run is in progress; "none while paused" when
-  paused), run count, the automation's workspace folder (`workspace_root`), attention
+  paused), run count, the automation's workspace folder (`workspace_root`, with a folder button
+  calling `onOpenWorkspace(automation_id)` when that prop is given — an automation's id is its
+  controller run), attention
   ("2 unseen · 1 waiting for you"), revision, and a "Legacy schedule" marker for rows the Gateway
   projects from older `scheduled:*` roots. When the Gateway does not list the automation's trigger
   source, or lists it with `available: false`, the header says so.
@@ -123,7 +131,10 @@ see above), `newId` (the id source for retry-safe ids, default
   "Running"). A run that succeeded after retries reads "completed after 2 attempts". A failed run
   shows its `failure` (`reason_code`, message, "after N attempts"). The answer turn lists the
   run's artifacts. Each pair has **Run details** (run id, attempts, "Open run ledger" through
-  `onOpenRun`, the ledger JSON link, the workspace link when the Gateway sends one).
+  `onOpenRun`, the ledger JSON link, and a **Workspace** button calling
+  `onOpenWorkspace(run_id)` when the Gateway reports a workspace for the run and the host passes
+  the prop). There is no bare link to the workspace route: it returns JSON and carries no bearer
+  token, so it failed in token mode.
 - **Paused** — a hint reads "Paused: scheduled runs are skipped. Run now works and keeps it
   paused."
 - **Load earlier occurrences** appears while fewer rows than `summary.occurrence_count` are
@@ -326,8 +337,16 @@ import { ScheduleThisAction, FromAutomationBadge } from "@abstractframework/pane
 Neither piece performs requests or holds state.
 
 - `AutomationPanelWithMarkdown` (`AutomationPanelWithMarkdownProps` = `AutomationPanelProps`
-  without `renderText`), `automationRenderers` (`{renderText}`) and `renderAutomationText(text)`
-  wire the kit's `AutomationPanel` to the chat renderer (`ChatMessageContent`, images as links).
+  without `renderText` / `renderTurn`), `automationRenderers` (`{renderText, renderTurn}`),
+  `renderAutomationText(text)` and `renderAutomationTurn(turn)` (+ `AUTOMATION_TURN_TITLES`)
+  wire the kit's `AutomationPanel` to the chat (`ChatMessageCard` per turn,
+  `ChatMessageContent` for other text, images as links).
+- `WorkspaceBrowser` browses a run's folder on the gateway host (list, open, download) through
+  the host's credentialed `fetchGateway(path, init)`; give it `runId = automation_id` for the
+  automation's folder, a discussion's run id for the discussion's own folder. See
+  [API: panel-chat](./api.md#abstractframeworkpanel-chat).
+- `presentInteraction(wait, controller, options?)` turns a discussion's pending wait into the
+  `WorkflowChat` control (tool approval, question, event).
 
 ## Fixtures contract
 
@@ -370,15 +389,16 @@ the bytes of the six JSON files.
 **Checks** (part of `npm test`): `ui-kit/scripts/check_automation_fixtures.mjs` (shapes,
 coverage, checksums), `check_automation_client.mjs` (paths, bodies, error parsing),
 `check_automation_panel.mjs` (rendering, handlers and the pure rules), and panel-chat's
-`scripts/check_automation_badges.mjs`.
+`scripts/check_automation_badges.mjs` and `check_automation_markdown.mjs`.
 
 ## Exports
 
 From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
 
-- **Components**: `AutomationPanel` (`AutomationPanelProps`), `AfScheduleDialog`
-  (`AfScheduleDialogProps`), `DISCUSS_LABEL`, `plainTextRenderer` (the fallback), type
-  `RenderText`.
+- **Components**: `AutomationPanel` (`AutomationPanelProps`), `AutomationStateLabel` (state
+  word then icon), `AfScheduleDialog` (`AfScheduleDialogProps`), `DISCUSS_LABEL`,
+  `STATUS_LABELS`, `STATUS_ICONS`, `plainTextRenderer` (the fallback), types `RenderText`,
+  `RenderTurn`, `AutomationTurn`.
 - **Client**: `createAutomationsClient()`, `AutomationApiError`, `parseApiError()`,
   `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`; types `AutomationsClient`,
   `AutomationsClientOptions`, `ListAutomationsQuery`, `PageQuery`.
@@ -402,9 +422,11 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `TriggerSourceKind`, `ScheduleConfig`, `ScheduleEventPayload`, `ManualEventPayload`,
   `Duration`, `Timestamp`, `Page`, `ApiError`, `ApiErrorCode`.
 
-From `@abstractframework/panel-chat` (source: `panel-chat/src/automation_badges.tsx`):
-`ScheduleThisAction` (`ScheduleThisActionProps`, `ScheduleSeed`), `FromAutomationBadge`
-(`FromAutomationBadgeProps`), `fromAutomationText()`.
+From `@abstractframework/panel-chat` (sources: `panel-chat/src/automation_badges.tsx`,
+`automation_markdown.tsx`): `ScheduleThisAction` (`ScheduleThisActionProps`, `ScheduleSeed`),
+`FromAutomationBadge` (`FromAutomationBadgeProps`), `fromAutomationText()`,
+`AutomationPanelWithMarkdown`, `automationRenderers`, `renderAutomationText()`,
+`renderAutomationTurn()`, `AUTOMATION_TURN_TITLES`.
 
 ## Related docs
 

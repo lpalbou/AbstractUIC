@@ -136,7 +136,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("news: independent", html.includes("Independent — each run starts fresh"));
   check("news: next run (absolute + relative, from next_fire_at)", html.includes('data-fact="next">2026-09-27 08:00 UTC (in 1 h 25 min)</dd>'));
   check("news: nothing in flight → no 'Now' fact", !html.includes('data-fact="current"'));
-  check("news: workspace shown", html.includes(`data-fact="workspace"><code>${news.workspace_root}</code>`));
+  check("news: workspace shown (no folder control without onOpenWorkspace)", html.includes(`data-fact="workspace" class="af-auto__workspace"><code>${news.workspace_root}</code>`) && button(html, "open-workspace") === null);
   check("news: attention quiet", html.includes('data-fact="attention">nothing new</dd>') && !html.includes("af-auto__attention\""));
   check("news: pause + run now enabled, stop current disabled", enabled(html, "pause") && enabled(html, "run_now") && !enabled(html, "stop_current"));
   check("news: load more (6 more)", enabled(html, "load-more") && html.includes("Load earlier occurrences (6 more)"));
@@ -168,7 +168,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("journal: RUN NOW ENABLED WHILE PAUSED", enabled(html, "run_now"));
   check("journal: paused hint says run now keeps it paused", html.includes("Run now works and keeps it paused."));
   check("journal: next run none while paused", html.includes(">none while paused</dd>"));
-  check("journal: status chip Paused", html.includes('af-auto__status--paused">Paused<'));
+  check("journal: status chip reads the word Paused then the pause icon", html.includes('af-auto__status--paused" data-state="paused"><span class="af-auto__status-word">Paused</span><svg'));
   check("journal: revise + archive enabled", enabled(html, "revise") && enabled(html, "archive"));
 }
 
@@ -271,6 +271,77 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   check("discuss submit → onDiscuss(2, prompt)", eq(got.at(-1), ["discuss", 2, "Draft the reply to Clara."]));
   const dhtml = renderToStaticMarkup(open2);
   check("discuss form help text is the exact shared sentence (file-tools-only mount; shell not sandboxed)", dhtml.includes(esc("Starts a new session that forks this automation at #2 with its full history (runs 1–2). It works in its own writable workspace; the automation's files are mounted read-only for the file tools (shell commands are not sandboxed), and nothing is written back into the automation's session.")) && dhtml.includes(`aria-label="${esc(DISCUSS_LABEL)}, from occurrence 2"`), dhtml.slice(0, 400));
+}
+
+// --- state label: WORD then ICON, one rendering for every client (operator 2026-09-28) --------
+{
+  const { AutomationStateLabel, STATUS_LABELS, STATUS_ICONS, Icon } = kit;
+  check("exports STATUS_LABELS / STATUS_ICONS / AutomationStateLabel", typeof AutomationStateLabel === "function" && STATUS_LABELS && STATUS_ICONS);
+  const want = { active: ["Active", "play"], paused: ["Paused", "pause"], completed: ["Completed", "check"], failed: ["Failed", "error"], archived: ["Archived", "archive"] };
+  for (const [status, [word, icon]] of Object.entries(want)) {
+    const html = renderToStaticMarkup(React.createElement(AutomationStateLabel, { status }));
+    const iconHtml = renderToStaticMarkup(React.createElement(Icon, { name: icon, size: 11, className: "af-auto__status-icon" }));
+    check(`state ${status}: "${word}" then the ${icon} icon`, STATUS_LABELS[status] === word && STATUS_ICONS[status] === icon && html === `<span class="af-auto__status af-auto__status--${status}" data-state="${status}"><span class="af-auto__status-word">${word}</span>${iconHtml}</span>`, html);
+  }
+  const odd = renderToStaticMarkup(React.createElement(AutomationStateLabel, { status: "hibernating" }));
+  check("unknown state: raw word, no icon", odd.includes(">hibernating</span></span>") && !odd.includes("<svg"));
+  check("panel header uses the label (Active + play icon)", mailHtml.includes('<span class="af-auto__status-word">Active</span><svg'));
+}
+
+// --- kit icons added for automations: drawn, distinct, 24-grid -------------------------------
+{
+  const names = ["play", "stop", "folder", "file", "archive", "clock"];
+  const svgs = names.map((name) => renderToStaticMarkup(React.createElement(kit.Icon, { name })));
+  svgs.forEach((svg, i) => check(`icon ${names[i]} draws on the 24-grid`, /<(path|rect|circle)\b/.test(svg) && svg.includes('viewBox="0 0 24 24"'), svg));
+  check("new icons are distinct from each other and from pause/history", new Set([...svgs, ...["pause", "history"].map((name) => renderToStaticMarkup(React.createElement(kit.Icon, { name })))]).size === names.length + 2);
+}
+
+// --- onOpenWorkspace: the folder controls (never a bare JSON link) ---------------------------------
+{
+  const opened = [];
+  const hdr = AutomationHeader({ summary: news, triggerSources: sources, nowMs: NOW, onOpenWorkspace: (id) => opened.push(id) });
+  const hbtn = byAction(hdr, "open-workspace");
+  check("header: folder button on the Workspace fact", hbtn.length === 1 && find(hbtn[0], (n) => n.type === "svg").length === 1 && hbtn[0].props["aria-label"] === "Browse the automation's folder");
+  hbtn[0].props.onClick();
+  check("header folder → onOpenWorkspace(automation_id)", eq(opened, [news.automation_id]));
+  const views = kit.occurrenceViews(occ);
+  const row2 = occ.find((o) => o.index === 2);
+  const mk = (extra) =>
+    OccurrencePair({ view: views.find((v) => v.row.index === 2), busy: false, discuss: { enabled: true }, discussOpen: false, onOpenRun() {}, onAnswerWait() {}, onDiscussOpen() {}, onDiscussCancel() {}, onDiscussSubmit() {}, ...extra });
+  const bare = renderToStaticMarkup(mk({}));
+  check("run details: no workspace control without onOpenWorkspace, and no bare JSON link", row2.workspace_url && !bare.includes('data-action="open-workspace"') && !bare.includes(`href="${row2.workspace_url}"`));
+  const withWs = mk({ onOpenWorkspace: (id) => opened.push(id) });
+  const rbtn = byAction(withWs, "open-workspace");
+  check("run details: Workspace button with a folder icon", rbtn.length === 1 && find(rbtn[0], (n) => n.type === "svg").length === 1);
+  rbtn[0].props.onClick();
+  check("run Workspace → onOpenWorkspace(occurrence run_id)", eq(opened.at(-1), row2.run_id));
+  const noUrl = views.find((v) => v.row.index === 2);
+  const noUrlPair = OccurrencePair({ view: { ...noUrl, row: { ...noUrl.row, workspace_url: null } }, busy: false, discuss: { enabled: true }, discussOpen: false, onOpenRun() {}, onAnswerWait() {}, onDiscussOpen() {}, onDiscussCancel() {}, onDiscussSubmit() {}, onOpenWorkspace() {} });
+  check("run details: no Workspace button when the gateway reports none", byAction(noUrlPair, "open-workspace").length === 0);
+  const full = panel({ summary: mail, occurrences: occ, onOpenWorkspace() {} });
+  check("panel threads onOpenWorkspace to the header and every run with a workspace", (full.match(/data-action="open-workspace"/g) || []).length === 1 + occ.filter((o) => o.workspace_url).length);
+}
+
+// --- renderTurn: occurrence turns through the host's chat card ---------------------------------
+{
+  const turns = [];
+  const renderTurn = (t) => {
+    turns.push(t);
+    return React.createElement("article", { className: "stub-card", "data-role": t.role, "data-kind": t.kind }, t.text.slice(0, 12));
+  };
+  const views = kit.occurrenceViews(occ);
+  const row2 = occ.find((o) => o.index === 2);
+  const html = renderToStaticMarkup(OccurrencePair({ view: views.find((v) => v.row.index === 2), busy: false, discuss: { enabled: true }, discussOpen: false, onOpenRun() {}, onAnswerWait() {}, onDiscussOpen() {}, onDiscussCancel() {}, onDiscussSubmit() {}, renderTurn, renderText: () => React.createElement("i", null, "TEXT") }));
+  check("renderTurn gets the trigger turn (user) then the answer turn (assistant)", eq(turns, [
+    { kind: "trigger", role: "user", text: row2.user_turn, index: 2, runId: row2.run_id },
+    { kind: "answer", role: "assistant", text: row2.answer, index: 2, runId: row2.run_id },
+  ]), JSON.stringify(turns));
+  check("turn cards replace the text renderer; meta line kept; card class set", (html.match(/af-auto-turn__text"><article class="stub-card"/g) || []).length === 2 && !html.includes('af-auto-turn__text"><i>TEXT</i>') && html.includes('class="af-auto-turn af-auto-turn--trigger af-auto-turn--card" data-turn="trigger"><div class="af-auto-turn__meta"'));
+  const plain = renderToStaticMarkup(OccurrencePair({ view: views.find((v) => v.row.index === 2), busy: false, discuss: { enabled: true }, discussOpen: false, onOpenRun() {}, onAnswerWait() {}, onDiscussOpen() {}, onDiscussCancel() {}, onDiscussSubmit() {}, renderText: () => React.createElement("i", null, "TEXT") }));
+  check("without renderTurn: text renderer, no card class", (plain.match(/af-auto-turn__text"><i>TEXT<\/i>/g) || []).length === 2 && !plain.includes("af-auto-turn--card"));
+  turns.length = 0;
+  const full = panel({ summary: mail, occurrences: occ, renderTurn });
+  check("panel threads renderTurn to every occurrence (one trigger turn each, one answer turn per answer)", turns.filter((t) => t.kind === "trigger").length === occ.length && turns.filter((t) => t.kind === "answer").length === occ.filter((o) => o.answer).length && full.includes("stub-card"));
 }
 
 // --- revise -------------------------------------------------------------------------------

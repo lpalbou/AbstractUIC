@@ -7,6 +7,44 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## Unreleased
+
+### ui-kit
+
+- Added: `AutomationStateLabel` renders an automation's state as the word then an icon
+  ("Active ▶", "Paused ⏸"; Completed, Failed and Archived likewise) — the one rendering every
+  client uses (operator requirement 2026-09-28). `STATUS_LABELS` (the words) and `STATUS_ICONS`
+  (the icons) are exported. `AutomationPanel`'s header uses it instead of the bare word.
+- Added: icons `play`, `stop`, `folder`, `file`, `archive` and `clock` (24-grid, stroke 2;
+  `play` and `stop` solid like `pause`).
+- Added: `AutomationPanel` `onOpenWorkspace(runId)`: a folder button on the header's Workspace
+  fact (called with the automation id, which is its controller run) and a **Workspace** button in
+  each run's details (called with that run's id). Changed: the run details no longer link to the
+  raw workspace route — that link showed JSON and failed in token mode (no bearer token); without
+  `onOpenWorkspace` no folder control is shown.
+- Added: `AutomationPanel` `renderTurn(turn)` seam (`AutomationTurn`: `kind` trigger/answer,
+  `role`, `text`, `index`, `runId`; type `RenderTurn`), so a host renders each occurrence turn as
+  its chat message card; without it the turn's text goes through `renderText` as before.
+
+### panel-chat
+
+- Changed: `AutomationPanelWithMarkdown` / `automationRenderers` render each occurrence turn as
+  the shared `ChatMessageCard` (a user card titled "Trigger", an assistant card titled
+  "Automation", with the copy button; remote images as links on both). New exports
+  `renderAutomationTurn()` and `AUTOMATION_TURN_TITLES`; `automationRenderers` is now
+  `{renderText, renderTurn}`.
+- Added: `WorkspaceBrowser` (moved from AbstractObserver): browse a run's folder on the gateway
+  host — breadcrumbs, folders first, sizes, entries hidden by the gateway's rules counted — and
+  open or download files, fetched through the host's credentialed `fetchGateway(path, init)`
+  (works in token mode and on a remote gateway). HTML, SVG, XML and other text open as plain
+  text: a blob URL runs with the app's origin, so a model-written page must never execute
+  there. `onSelectFile` / `selectedPath` let a host with its own preview (AbstractCode) use it.
+  Hook-free `WorkspaceBrowserView` and helpers (`loadWorkspaceView`, `parseWorkspaceListing`
+  — malformed answers fail loudly — `tabOpenPlan`, URL builders and formatters) are exported.
+- Added: `presentInteraction(wait, controller, options?)` (moved from AbstractCode web): the one
+  mapping from a runtime wait to the `WorkflowChat` control — tool approval (Allow all only with
+  `options.onPermissionsAll`), question, event wait (refused when it cannot be routed).
+
 ## 0.1.13 - 2026-09-27
 
 | Package | Version | Change |

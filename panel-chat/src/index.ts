@@ -81,8 +81,36 @@ export {
   type FromAutomationBadgeProps,
 } from "./automation_badges.js";
 export {
+  AUTOMATION_TURN_TITLES,
   AutomationPanelWithMarkdown,
   automationRenderers,
   renderAutomationText,
+  renderAutomationTurn,
   type AutomationPanelWithMarkdownProps,
 } from "./automation_markdown.js";
+export { presentInteraction, type InteractionController, type PresentInteractionOptions } from "./present_interaction.js";
+export {
+  WorkspaceBrowser,
+  WorkspaceBrowserView,
+  formatBytes,
+  gatewayResponseError,
+  listWorkspaceFolder,
+  loadRunWorkspace,
+  loadWorkspaceView,
+  parseWorkspaceListing,
+  readWorkspaceFile,
+  sortWorkspaceEntries,
+  tabOpenPlan,
+  workspaceContentUrl,
+  workspaceCrumbs,
+  workspaceFilesUrl,
+  workspaceHiddenNote,
+  workspaceInfoUrl,
+  workspaceParent,
+  type GatewayFetch,
+  type RunWorkspace,
+  type WorkspaceBrowserProps,
+  type WorkspaceBrowserViewProps,
+  type WorkspaceEntry,
+  type WorkspaceListing,
+} from "./workspace_browser.js";

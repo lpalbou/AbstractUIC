@@ -463,7 +463,7 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Steer a live run | `SteerComposer` (+ `submitSteer`) | Idempotent `command_id`, CSRF-token candidates, honest `accepted:false` handling |
 | Expandable tree/list panes | `DisclosureList` | Dual-key selection, path-keyed expansion, `role=tree` keyboard nav, badge rail |
 | Badges / chips / toggles | `AfChip`, `AfChipButton` | Tone variants with AA-derived colors; custom hues via `var(--token)` |
-| Icons | `Icon` | ~40 glyphs, 24-grid and 16-grid families |
+| Icons | `Icon` | ~45 glyphs, 24-grid and 16-grid families |
 | Chat UI (thread, cards, composer) | `@abstractframework/panel-chat` | Markdown with real nested lists; JSON auto-detect; `message.title` names the speaker |
 | Live (streamed) replies | `WorkflowSessionController` / `useWorkflowSession` + a transport whose `streamLedger` passes `onDelta`; `WorkflowChat` `streamReplies` + `streamRepliesRuntime()` | Deltas never move the ledger cursor; the ledger record replaces the live bubble. See [panel-chat live replies](../panel-chat/README.md#live-replies-streaming) |
 | App assistant (docs Q&A drawer) | `AssistantPanel` (panel-chat) in `AfDrawer` via `AfTopBarActions` | Transport injected. THE shared transport (docs-qa@0.1.0, tenant_catalog): `POST /runs/start {registry_scope:"tenant_catalog", bundle_id:"docs-qa", bundle_version:"0.1.0", flow_id:"docsqa001", input_data:{question, history, docs:<llms.txt text>, app}}`, answer on `output.response` — grounded on YOUR docs only, cites sections, says honestly when docs don't answer. `import docs from "./llms.txt?raw"` remains the recommended docs source (build-time, versioned) |
@@ -740,7 +740,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`; `VoiceSettings` (catalog-driven voice preferences form)
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
 - Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation on a fixed UTC interval or once), `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
-- Icons: `Icon`, `IconName` (~40 glyphs, 24-grid and 16-grid families)
+- Icons: `Icon`, `IconName` (~45 glyphs, 24-grid and 16-grid families; `play`, `stop`, `folder`, `file`, `archive`, `clock` added for automations)
 - Palette seeds: `@abstractframework/ui-kit/palette_seeds.json` (generated 4-token palette per theme)
 
 See: [`ui-kit/README.md`](../ui-kit/README.md) and the [Adoption guide](./adoption-guide.md).
@@ -781,6 +781,8 @@ Components:
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
+- `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow all enabled tools" only with `onPermissionsAll`), question (`ask_user`, choices and free text) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. Types `PresentInteractionOptions`, `InteractionController`
+- `WorkspaceBrowser` — a run's folder on the gateway host through the CONTRACTS §W routes (`GET /runs/{id}/workspace`, `/workspace/files`, `/workspace/content`): breadcrumbs, folders first, sizes, "N entries hidden by the gateway's workspace rules", Open / Download per file (fetched with the host's credentials, never linked; HTML, SVG, XML and other text open as plain text because a blob URL runs with the app's origin), or `onSelectFile` + `selectedPath` for a host preview. Props: `fetchGateway(path, init)` (the host joins the gateway-relative path to its base URL and adds its auth), `runId` (an automation's id browses the automation's folder), `title`, `note?`, `onClose?`, `refreshKey?`, `className?`. Hook-free `WorkspaceBrowserView` and helpers: `loadWorkspaceView()`, `loadRunWorkspace()`, `listWorkspaceFolder()`, `readWorkspaceFile()`, `parseWorkspaceListing()` (malformed answers throw), `gatewayResponseError()`, `tabOpenPlan()`, `workspaceInfoUrl()` / `workspaceFilesUrl()` / `workspaceContentUrl()`, `workspaceCrumbs()`, `workspaceParent()`, `sortWorkspaceEntries()`, `workspaceHiddenNote()`, `formatBytes()`; types `GatewayFetch`, `RunWorkspace`, `WorkspaceEntry`, `WorkspaceListing`, `WorkspaceBrowserProps`, `WorkspaceBrowserViewProps`
 
 Renderers:
 - `Markdown` (lightweight Markdown with real nested lists, marker progression, fenced code
@@ -1841,20 +1843,24 @@ in the architecture page; for the export list in context, see the [API reference
 
 ## AutomationPanel
 
-Occurrence text is rendered with the **same renderer as the chat** (Markdown with tables and
-code, JSON autodetect, remote images as links): the user turn, the answer, notify bodies, wait
-prompts, attention bodies and the definition's task. ui-kit cannot import panel-chat
-(panel-chat depends on ui-kit), so the panel takes a `renderText(text)` prop and panel-chat
-ships the pairing. Use one of:
+Occurrences read as a **chat**: each run's trigger turn and answer turn is the shared
+`ChatMessageCard` (a user card titled "Trigger", an assistant card titled "Automation", with the
+card's copy button), and every other text — notify bodies, wait prompts, attention bodies, the
+definition's task — goes through the same content renderer as the chat (Markdown with tables and
+code, JSON autodetect, remote images as links). ui-kit cannot import panel-chat (panel-chat
+depends on ui-kit), so the panel takes two seams, `renderTurn(turn)` and `renderText(text)`, and
+panel-chat ships the pairing. Use one of:
 
 ```tsx
 import { AutomationPanelWithMarkdown, automationRenderers } from "@abstractframework/panel-chat";
 
-<AutomationPanelWithMarkdown {...props} />              // the panel with the chat renderer wired
+<AutomationPanelWithMarkdown {...props} />              // the panel with the chat rendering wired
 <AutomationPanel {...automationRenderers} {...props} />  // same thing, spread onto the kit panel
 ```
 
-Without `renderText` the panel falls back to escaped plain text and marks itself
+`renderTurn` receives an `AutomationTurn`: `{kind: "trigger" | "answer", role: "user" |
+"assistant", text, index, runId}`; without it a turn's text goes through `renderText`. Without
+`renderText` the panel falls back to escaped plain text and marks itself
 `data-text-rendering="unformatted"` (each block `data-unformatted="true"`), so a host that
 forgot the renderer is visible in the DOM.
 
@@ -1878,24 +1884,28 @@ import "@abstractframework/ui-kit/theme.css";
   onLoadMore={loadOlderPage}
   onOpenRun={(runId) => openLedger(runId)}
   onAnswerWait={(runId, waitKey, payload) => resumeWait(runId, waitKey, payload)}
-  {...automationRenderers}          // from @abstractframework/panel-chat: the chat's renderer
+  onOpenWorkspace={(runId) => showFolder(runId)}  // e.g. panel-chat's WorkspaceBrowser for that run
+  {...automationRenderers}          // from @abstractframework/panel-chat: the chat's rendering
 />
 ```
 
 The panel is controlled: it holds only view state (which form is open, the last notice) and
 renders what you pass. Optional props: `definition` (the `definition` of `GET /automations/{id}`;
-when given, the panel adds a collapsed "Definition" block), `renderText` (required in practice;
-see above), `newId` (the id source for retry-safe ids, default
+when given, the panel adds a collapsed "Definition" block), `renderText` and `renderTurn`
+(required in practice; see above), `onOpenWorkspace(runId)` (see below), `newId` (the id source for retry-safe ids, default
 `crypto.randomUUID`) and `className`.
 
 ### What it shows
 
-- **Header** — title, status, trigger ("every 8 hours (UTC)", "once at 2026-09-28 08:00 UTC",
+- **Header** — title, state as a word then an icon ("Active ▶", "Paused ⏸"; Completed,
+  Failed and Archived likewise — `AutomationStateLabel`, the one rendering every client uses), trigger ("every 8 hours (UTC)", "once at 2026-09-28 08:00 UTC",
   "manual runs only"), context, "Now: Run #7 running" (only from `summary.current_occurrence`,
   never inferred from the last occurrence; "starting" while admitted, "waiting to retry" in
   backoff), next run as "2026-09-27 07:00 UTC (in 25 min)" (only from `next_fire_at`, which an
   active scheduled automation carries even while a run is in progress; "none while paused" when
-  paused), run count, the automation's workspace folder (`workspace_root`), attention
+  paused), run count, the automation's workspace folder (`workspace_root`, with a folder button
+  calling `onOpenWorkspace(automation_id)` when that prop is given — an automation's id is its
+  controller run), attention
   ("2 unseen · 1 waiting for you"), revision, and a "Legacy schedule" marker for rows the Gateway
   projects from older `scheduled:*` roots. When the Gateway does not list the automation's trigger
   source, or lists it with `available: false`, the header says so.
@@ -1909,7 +1919,10 @@ see above), `newId` (the id source for retry-safe ids, default
   "Running"). A run that succeeded after retries reads "completed after 2 attempts". A failed run
   shows its `failure` (`reason_code`, message, "after N attempts"). The answer turn lists the
   run's artifacts. Each pair has **Run details** (run id, attempts, "Open run ledger" through
-  `onOpenRun`, the ledger JSON link, the workspace link when the Gateway sends one).
+  `onOpenRun`, the ledger JSON link, and a **Workspace** button calling
+  `onOpenWorkspace(run_id)` when the Gateway reports a workspace for the run and the host passes
+  the prop). There is no bare link to the workspace route: it returns JSON and carries no bearer
+  token, so it failed in token mode.
 - **Paused** — a hint reads "Paused: scheduled runs are skipped. Run now works and keeps it
   paused."
 - **Load earlier occurrences** appears while fewer rows than `summary.occurrence_count` are
@@ -2112,8 +2125,16 @@ import { ScheduleThisAction, FromAutomationBadge } from "@abstractframework/pane
 Neither piece performs requests or holds state.
 
 - `AutomationPanelWithMarkdown` (`AutomationPanelWithMarkdownProps` = `AutomationPanelProps`
-  without `renderText`), `automationRenderers` (`{renderText}`) and `renderAutomationText(text)`
-  wire the kit's `AutomationPanel` to the chat renderer (`ChatMessageContent`, images as links).
+  without `renderText` / `renderTurn`), `automationRenderers` (`{renderText, renderTurn}`),
+  `renderAutomationText(text)` and `renderAutomationTurn(turn)` (+ `AUTOMATION_TURN_TITLES`)
+  wire the kit's `AutomationPanel` to the chat (`ChatMessageCard` per turn,
+  `ChatMessageContent` for other text, images as links).
+- `WorkspaceBrowser` browses a run's folder on the gateway host (list, open, download) through
+  the host's credentialed `fetchGateway(path, init)`; give it `runId = automation_id` for the
+  automation's folder, a discussion's run id for the discussion's own folder. See
+  [API: panel-chat](./api.md#abstractframeworkpanel-chat).
+- `presentInteraction(wait, controller, options?)` turns a discussion's pending wait into the
+  `WorkflowChat` control (tool approval, question, event).
 
 ## Fixtures contract
 
@@ -2156,15 +2177,16 @@ the bytes of the six JSON files.
 **Checks** (part of `npm test`): `ui-kit/scripts/check_automation_fixtures.mjs` (shapes,
 coverage, checksums), `check_automation_client.mjs` (paths, bodies, error parsing),
 `check_automation_panel.mjs` (rendering, handlers and the pure rules), and panel-chat's
-`scripts/check_automation_badges.mjs`.
+`scripts/check_automation_badges.mjs` and `check_automation_markdown.mjs`.
 
 ## Exports
 
 From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
 
-- **Components**: `AutomationPanel` (`AutomationPanelProps`), `AfScheduleDialog`
-  (`AfScheduleDialogProps`), `DISCUSS_LABEL`, `plainTextRenderer` (the fallback), type
-  `RenderText`.
+- **Components**: `AutomationPanel` (`AutomationPanelProps`), `AutomationStateLabel` (state
+  word then icon), `AfScheduleDialog` (`AfScheduleDialogProps`), `DISCUSS_LABEL`,
+  `STATUS_LABELS`, `STATUS_ICONS`, `plainTextRenderer` (the fallback), types `RenderText`,
+  `RenderTurn`, `AutomationTurn`.
 - **Client**: `createAutomationsClient()`, `AutomationApiError`, `parseApiError()`,
   `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`; types `AutomationsClient`,
   `AutomationsClientOptions`, `ListAutomationsQuery`, `PageQuery`.
@@ -2188,9 +2210,11 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `TriggerSourceKind`, `ScheduleConfig`, `ScheduleEventPayload`, `ManualEventPayload`,
   `Duration`, `Timestamp`, `Page`, `ApiError`, `ApiErrorCode`.
 
-From `@abstractframework/panel-chat` (source: `panel-chat/src/automation_badges.tsx`):
-`ScheduleThisAction` (`ScheduleThisActionProps`, `ScheduleSeed`), `FromAutomationBadge`
-(`FromAutomationBadgeProps`), `fromAutomationText()`.
+From `@abstractframework/panel-chat` (sources: `panel-chat/src/automation_badges.tsx`,
+`automation_markdown.tsx`): `ScheduleThisAction` (`ScheduleThisActionProps`, `ScheduleSeed`),
+`FromAutomationBadge` (`FromAutomationBadgeProps`), `fromAutomationText()`,
+`AutomationPanelWithMarkdown`, `automationRenderers`, `renderAutomationText()`,
+`renderAutomationTurn()`, `AUTOMATION_TURN_TITLES`.
 
 ## Related docs
 
@@ -3666,7 +3690,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs"
+    "test": "npm run build && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.1.13",
@@ -4083,6 +4107,7 @@ export {
   parseEventPayload,
   CONTROL_COMMANDS,
   SCHEDULE_PRESETS,
+  STATUS_LABELS,
   apiErrorText,
   attentionAckCursor,
   attentionLabel,
@@ -4107,7 +4132,17 @@ export {
   type ScheduleForm,
   type ScheduleWhen,
 } from "./automations/panel_core.js";
-export { AutomationPanel, DISCUSS_LABEL, plainTextRenderer, type AutomationPanelProps, type RenderText } from "./automations/AutomationPanel.js";
+export {
+  AutomationPanel,
+  AutomationStateLabel,
+  DISCUSS_LABEL,
+  STATUS_ICONS,
+  plainTextRenderer,
+  type AutomationPanelProps,
+  type AutomationTurn,
+  type RenderText,
+  type RenderTurn,
+} from "./automations/AutomationPanel.js";
 export { AfScheduleDialog, type AfScheduleDialogProps } from "./automations/AfScheduleDialog.js";
 
 ## ui-kit/src/identity.ts
@@ -7047,11 +7082,39 @@ export {
   type FromAutomationBadgeProps,
 } from "./automation_badges.js";
 export {
+  AUTOMATION_TURN_TITLES,
   AutomationPanelWithMarkdown,
   automationRenderers,
   renderAutomationText,
+  renderAutomationTurn,
   type AutomationPanelWithMarkdownProps,
 } from "./automation_markdown.js";
+export { presentInteraction, type InteractionController, type PresentInteractionOptions } from "./present_interaction.js";
+export {
+  WorkspaceBrowser,
+  WorkspaceBrowserView,
+  formatBytes,
+  gatewayResponseError,
+  listWorkspaceFolder,
+  loadRunWorkspace,
+  loadWorkspaceView,
+  parseWorkspaceListing,
+  readWorkspaceFile,
+  sortWorkspaceEntries,
+  tabOpenPlan,
+  workspaceContentUrl,
+  workspaceCrumbs,
+  workspaceFilesUrl,
+  workspaceHiddenNote,
+  workspaceInfoUrl,
+  workspaceParent,
+  type GatewayFetch,
+  type RunWorkspace,
+  type WorkspaceBrowserProps,
+  type WorkspaceBrowserViewProps,
+  type WorkspaceEntry,
+  type WorkspaceListing,
+} from "./workspace_browser.js";
 
 ## panel-chat/src/chat_message_card.tsx
 
@@ -10509,6 +10572,44 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## Unreleased
+
+### ui-kit
+
+- Added: `AutomationStateLabel` renders an automation's state as the word then an icon
+  ("Active ▶", "Paused ⏸"; Completed, Failed and Archived likewise) — the one rendering every
+  client uses (operator requirement 2026-09-28). `STATUS_LABELS` (the words) and `STATUS_ICONS`
+  (the icons) are exported. `AutomationPanel`'s header uses it instead of the bare word.
+- Added: icons `play`, `stop`, `folder`, `file`, `archive` and `clock` (24-grid, stroke 2;
+  `play` and `stop` solid like `pause`).
+- Added: `AutomationPanel` `onOpenWorkspace(runId)`: a folder button on the header's Workspace
+  fact (called with the automation id, which is its controller run) and a **Workspace** button in
+  each run's details (called with that run's id). Changed: the run details no longer link to the
+  raw workspace route — that link showed JSON and failed in token mode (no bearer token); without
+  `onOpenWorkspace` no folder control is shown.
+- Added: `AutomationPanel` `renderTurn(turn)` seam (`AutomationTurn`: `kind` trigger/answer,
+  `role`, `text`, `index`, `runId`; type `RenderTurn`), so a host renders each occurrence turn as
+  its chat message card; without it the turn's text goes through `renderText` as before.
+
+### panel-chat
+
+- Changed: `AutomationPanelWithMarkdown` / `automationRenderers` render each occurrence turn as
+  the shared `ChatMessageCard` (a user card titled "Trigger", an assistant card titled
+  "Automation", with the copy button; remote images as links on both). New exports
+  `renderAutomationTurn()` and `AUTOMATION_TURN_TITLES`; `automationRenderers` is now
+  `{renderText, renderTurn}`.
+- Added: `WorkspaceBrowser` (moved from AbstractObserver): browse a run's folder on the gateway
+  host — breadcrumbs, folders first, sizes, entries hidden by the gateway's rules counted — and
+  open or download files, fetched through the host's credentialed `fetchGateway(path, init)`
+  (works in token mode and on a remote gateway). HTML, SVG, XML and other text open as plain
+  text: a blob URL runs with the app's origin, so a model-written page must never execute
+  there. `onSelectFile` / `selectedPath` let a host with its own preview (AbstractCode) use it.
+  Hook-free `WorkspaceBrowserView` and helpers (`loadWorkspaceView`, `parseWorkspaceListing`
+  — malformed answers fail loudly — `tabOpenPlan`, URL builders and formatters) are exported.
+- Added: `presentInteraction(wait, controller, options?)` (moved from AbstractCode web): the one
+  mapping from a runtime wait to the `WorkflowChat` control — tool approval (Allow all only with
+  `options.onPermissionsAll`), question, event wait (refused when it cannot be routed).
 
 ## 0.1.13 - 2026-09-27
 

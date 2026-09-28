@@ -10,6 +10,7 @@
 // pair) are hook-free so scripts/check_automation_panel.mjs can render them in
 // any state and invoke their handlers without a DOM.
 import React, { useEffect, useId, useRef, useState } from "react";
+import { Icon, type IconName } from "../icon.js";
 import {
   apiErrorText,
   attentionAckCursor,
@@ -43,6 +44,7 @@ import type {
   ApiError,
   AutomationChanges,
   AutomationDefinition,
+  AutomationStatus,
   AutomationSummary,
   CommandReceipt,
   ContextMode,
@@ -87,10 +89,64 @@ export type AutomationPanelProps = {
    * and carries `data-text-rendering="unformatted"`.
    */
   renderText?: RenderText;
+  /**
+   * Renders one occurrence turn (trigger or answer) as a chat message. Hosts
+   * pass the SHARED chat card — panel-chat `automationRenderers.renderTurn`
+   * (or use `AutomationPanelWithMarkdown`) — so an automation's transcript
+   * reads exactly like a chat. Without it the turn's text goes through
+   * `renderText`.
+   */
+  renderTurn?: RenderTurn;
+  /**
+   * Opens a run's folder (the host's workspace browser; a local app may open
+   * it in the file manager). Called with the automation id (= its controller
+   * run) from the header's Workspace fact, and with an occurrence's run id
+   * from its run details. Without it no folder control is shown: a bare link
+   * to the JSON route carries no bearer token and shows no files.
+   */
+  onOpenWorkspace?(runId: string): void;
   /** Clock for "next in …" (ms since epoch); default `Date.now()`. */
   nowMs?: number;
   className?: string;
 };
+
+/** Icon shown AFTER each state word ("Active ▶", "Paused ⏸"; operator 2026-09-28). */
+export const STATUS_ICONS: Record<AutomationStatus, IconName> = {
+  active: "play",
+  paused: "pause",
+  completed: "check",
+  failed: "error",
+  archived: "archive",
+};
+
+/**
+ * An automation's state as WORD then ICON — the one rendering every client
+ * uses. The word is the accessible text; the icon is decorative. A state
+ * this kit does not know shows its raw value and no icon.
+ */
+export function AutomationStateLabel(props: { status: AutomationStatus | string; className?: string; iconSize?: number }): React.ReactElement {
+  const status = String(props.status);
+  const icon = (STATUS_ICONS as Record<string, IconName | undefined>)[status];
+  return (
+    <span className={`af-auto__status af-auto__status--${status}${props.className ? ` ${props.className}` : ""}`} data-state={status}>
+      <span className="af-auto__status-word">{STATUS_LABELS[status] ?? status}</span>
+      {icon ? <Icon name={icon} size={props.iconSize ?? 11} className="af-auto__status-icon" /> : null}
+    </span>
+  );
+}
+
+/** One occurrence turn handed to `renderTurn`. */
+export type AutomationTurn = {
+  /** `trigger`: the message the trigger sent (role user); `answer`: the run's reply (role assistant). */
+  kind: "trigger" | "answer";
+  role: "user" | "assistant";
+  text: string;
+  /** The occurrence index (#N) and its run. */
+  index: number;
+  runId: string;
+};
+
+export type RenderTurn = (turn: AutomationTurn) => React.ReactNode;
 
 export const DISCUSS_LABEL = "Discuss — fork at this occurrence (own workspace, automation files read-only)";
 
@@ -133,7 +189,13 @@ export function triggerSourceProblem(summary: AutomationSummary, sources: Array<
   return null;
 }
 
-export function AutomationHeader(props: { summary: AutomationSummary; triggerSources: Array<TriggerSource | TriggerSourceEntry>; titleId?: string; nowMs?: number }): React.ReactElement {
+export function AutomationHeader(props: {
+  summary: AutomationSummary;
+  triggerSources: Array<TriggerSource | TriggerSourceEntry>;
+  titleId?: string;
+  nowMs?: number;
+  onOpenWorkspace?(runId: string): void;
+}): React.ReactElement {
   const s = props.summary;
   const current = currentOccurrenceLabel(s);
   const problem = triggerSourceProblem(s, props.triggerSources);
@@ -148,7 +210,7 @@ export function AutomationHeader(props: { summary: AutomationSummary; triggerSou
         <h2 className="af-auto__title" id={props.titleId} tabIndex={-1}>
           {s.title}
         </h2>
-        <span className={`af-auto__status af-auto__status--${s.status}`}>{STATUS_LABELS[s.status] ?? s.status}</span>
+        <AutomationStateLabel status={s.status} />
         {s.legacy ? <span className="af-auto__legacy">Legacy schedule</span> : null}
       </div>
       <dl className="af-auto__facts">
@@ -179,7 +241,19 @@ export function AutomationHeader(props: { summary: AutomationSummary; triggerSou
         {s.workspace_root ? (
           <>
             <dt>Workspace</dt>
-            <dd data-fact="workspace">
+            <dd data-fact="workspace" className="af-auto__workspace">
+              {props.onOpenWorkspace ? (
+                <button
+                  type="button"
+                  className="af-auto__icon-btn"
+                  data-action="open-workspace"
+                  title="Browse the automation's folder"
+                  aria-label="Browse the automation's folder"
+                  onClick={() => props.onOpenWorkspace?.(s.automation_id)}
+                >
+                  <Icon name="folder" size={14} />
+                </button>
+              ) : null}
               <code>{s.workspace_root}</code>
             </dd>
           </>
@@ -465,6 +539,10 @@ export type OccurrencePairProps = {
   onDiscussCancel(): void;
   onDiscussSubmit(index: number, prompt: string): void;
   renderText?: RenderText;
+  /** See `AutomationPanelProps.renderTurn`. */
+  renderTurn?: RenderTurn;
+  /** See `AutomationPanelProps.onOpenWorkspace` (called with this occurrence's run id). */
+  onOpenWorkspace?(runId: string): void;
 };
 
 function fieldValue(form: HTMLFormElement, name: string): string {
@@ -595,17 +673,20 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
   const render = p.renderText ?? plainTextRenderer;
   const discussOk = p.discuss.enabled && p.view.canDiscuss && !p.busy;
   const discussWhy = !p.discuss.enabled ? p.discuss.reason ?? "Not available." : !p.view.canDiscuss ? "Available once this occurrence finishes." : null;
+  const turn = (kind: AutomationTurn["kind"], text: string) =>
+    p.renderTurn ? p.renderTurn({ kind, role: kind === "trigger" ? "user" : "assistant", text, index: row.index, runId: row.run_id }) : render(text);
+  const turnClass = p.renderTurn ? " af-auto-turn--card" : "";
   const empty =
     tone === "failed" ? (row.failure ? "No answer." : "No answer: the run failed.") : tone === "waiting" ? "Waiting for your answer." : tone === "running" ? "Running…" : "No answer.";
   return (
     <li className={`af-auto-occ af-auto-occ--${tone}`} data-index={row.index} data-tone={tone} aria-labelledby={`${idBase}-h`}>
-      <div className="af-auto-turn af-auto-turn--trigger" data-turn="trigger">
+      <div className={`af-auto-turn af-auto-turn--trigger${turnClass}`} data-turn="trigger">
         <div className="af-auto-turn__meta" id={`${idBase}-h`}>
           <span className="af-auto-turn__index">#{row.index}</span> · {row.trigger.summary} · fired {formatUtc(row.fired_at)}
         </div>
-        <div className="af-auto-turn__text">{render(row.user_turn)}</div>
+        <div className="af-auto-turn__text">{turn("trigger", row.user_turn)}</div>
       </div>
-      <div className="af-auto-turn af-auto-turn--answer" data-turn="answer">
+      <div className={`af-auto-turn af-auto-turn--answer${turnClass}`} data-turn="answer">
         <div className="af-auto-turn__meta">
           {badge ? <span className={`af-auto-badge af-auto-badge--${tone}`}>{badge}</span> : null}
           <span className="af-auto-turn__status">{statusText}</span>
@@ -625,7 +706,7 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
             </span>
           </div>
         ) : null}
-        {row.answer ? <div className="af-auto-turn__text">{render(row.answer)}</div> : <div className="af-auto-turn__empty">{empty}</div>}
+        {row.answer ? <div className="af-auto-turn__text">{turn("answer", row.answer)}</div> : <div className="af-auto-turn__empty">{empty}</div>}
         {row.artifacts.length ? (
           <ul className="af-auto-artifacts" aria-label="Artifacts">
             {row.artifacts.map((a) => (
@@ -660,10 +741,10 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
             <a className="af-auto__link" href={row.ledger_url} target="_blank" rel="noopener noreferrer">
               Ledger (JSON)
             </a>
-            {row.workspace_url ? (
-              <a className="af-auto__link" href={row.workspace_url} target="_blank" rel="noopener noreferrer">
-                Workspace
-              </a>
+            {row.workspace_url && p.onOpenWorkspace ? (
+              <button type="button" className="af-auto__btn" data-action="open-workspace" title="Browse this run's folder" onClick={() => p.onOpenWorkspace?.(row.run_id)}>
+                <Icon name="folder" size={13} className="af-auto__btn-icon" /> Workspace
+              </button>
             ) : null}
           </div>
         </details>
@@ -789,7 +870,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
 
   return (
     <section ref={rootRef} className={`af-auto${props.className ? ` ${props.className}` : ""}`} aria-labelledby={titleId} aria-busy={busy} data-text-rendering={props.renderText ? "rich" : "unformatted"}>
-      <AutomationHeader summary={summary} triggerSources={props.triggerSources} titleId={titleId} nowMs={props.nowMs} />
+      <AutomationHeader summary={summary} triggerSources={props.triggerSources} titleId={titleId} nowMs={props.nowMs} onOpenWorkspace={props.onOpenWorkspace} />
       {props.definition ? <AutomationDefinitionBlock definition={props.definition} renderText={render} /> : null}
       <AutomationControlsBar
         summary={summary}
@@ -893,6 +974,8 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
                 busy={busy}
                 discuss={controls.discuss}
                 renderText={render}
+                renderTurn={props.renderTurn}
+                onOpenWorkspace={props.onOpenWorkspace}
                 discussOpen={discussAt === v.row.index}
                 onOpenRun={props.onOpenRun}
                 onAnswerWait={(runId, waitKey, payload) => {
