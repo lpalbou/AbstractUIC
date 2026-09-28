@@ -7,13 +7,19 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## Unreleased
+## 0.1.16 - 2026-09-28
 
 | Package | Version | Change |
 | --- | --- | --- |
-| `@abstractframework/ui-kit` | 0.1.16 (not bumped yet) | updated |
+| `@abstractframework/ui-kit` | 0.1.16 | updated |
+| `@abstractframework/panel-chat` | 0.1.19 | unchanged (its `^0.1.14` range takes ui-kit 0.1.16; `AutomationPanelWithMarkdown` renders the kit's panel, so it shows the new hints) |
+| `@abstractframework/app-server` | 0.1.12 | unchanged |
+| `@abstractframework/monitor-memory` | 0.1.10 | unchanged |
+| `@abstractframework/monitor-gpu` | 0.1.10 | unchanged |
+| `@abstractframework/monitor-flow` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-active-memory` | 0.1.9 | unchanged |
 
-### ui-kit: one shared "Run now" hint and glyph
+### ui-kit 0.1.16: one shared "Run now" hint and glyph
 
 - Added: every automation control carries a tooltip (`title`) and `aria-description` saying what
   it does (`CONTROL_HINTS`, `controlHint(id, summary)`). Run now's says it runs once now instead of
