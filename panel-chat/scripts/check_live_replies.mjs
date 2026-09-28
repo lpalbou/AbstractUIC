@@ -498,6 +498,29 @@ for (const [status, output] of [["failed", null], ["cancelled", null], ["complet
   assert.match(renderToStaticMarkup(React.createElement(Markdown, { text: md })), remoteImg, "Markdown alone keeps its inline default"); ok();
   assert.doesNotMatch(renderToStaticMarkup(React.createElement(Markdown, { text: md, images: "link", inlineImage: () => false })), /<img/); ok();
   assert.equal(sameOriginImage("/x.png"), true); assert.equal(sameOriginImage("//evil/x.png"), false); assert.equal(sameOriginImage("https://evil/x.png"), false); ok();
+  // Relative paths (the kit's own "api/gateway/…") are same-origin; resolved against document.baseURI.
+  const rel = "api/gateway/runs/r1/workspace/content?path=a.png";
+  const refusedAlways = ["//evil/x.png", "/\\evil/x.png", "\\\\evil/x.png", "https://evil.example/x.png", "javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:image/png;base64,AAAA", "blob:https://host/abc", "", "   "];
+  assert.equal(sameOriginImage(rel), true, "no document: a relative path is same-origin"); ok();
+  for (const bad of refusedAlways) assert.equal(sameOriginImage(bad), false, `no document: refused ${JSON.stringify(bad)}`); ok();
+  const withBase = (baseURI, fn) => { globalThis.document = { baseURI }; try { fn(); } finally { delete globalThis.document; } };
+  withBase("https://host.example/apps/code/", () => {
+    assert.equal(sameOriginImage(rel), true, "mounted at /apps/code/: relative api path"); ok();
+    assert.equal(sameOriginImage("./out/chart.png"), true); ok();
+    assert.equal(sameOriginImage("/x.png"), true, "root-relative still same-origin"); ok();
+    assert.equal(sameOriginImage("https://host.example/apps/code/api/gateway/runs/r1/workspace/content?path=a.png"), true, "absolute URL on the page's origin"); ok();
+    assert.equal(sameOriginImage("http://host.example/x.png"), false, "another scheme is another origin"); ok();
+    assert.equal(sameOriginImage("https://host.example:8443/x.png"), false, "another port is another origin"); ok();
+    for (const bad of refusedAlways) assert.equal(sameOriginImage(bad), false, `mounted: refused ${JSON.stringify(bad)}`); ok();
+    const html = renderToStaticMarkup(React.createElement(ChatMessageCard, { message: { id: "m", role: "assistant", content: `![plot](${rel})\n\n![x](https://evil.example/t.gif)` } }));
+    assert.match(html, /<img[^>]+src="api\/gateway\/runs\/r1\/workspace\/content\?path=a\.png"/, "a relative workspace image renders inline in an assistant message"); ok();
+    assert.doesNotMatch(html, /<img[^>]+src="https:\/\/evil/); ok();
+    const inline = renderToStaticMarkup(React.createElement(Markdown, { text: "see ![a](api/gateway/runs/r1/workspace/content?path=b.png) and ![j](javascript:alert(1)) and ![d](data:image/png;base64,AAAA)", images: "link" }));
+    assert.match(inline, /<img[^>]+src="api\/gateway\/runs\/r1\/workspace\/content\?path=b\.png"/, "inline relative image loads"); ok();
+    assert.doesNotMatch(inline, /src="(javascript|data):|href="(javascript|data):/i, "javascript:/data: sources never become an img or a link"); ok();
+  });
+  withBase("about:blank", () => { assert.equal(sameOriginImage(rel), false, "about:blank page: a relative source cannot resolve"); ok(); });
+  withBase("file:///Users/me/app/", () => { assert.equal(sameOriginImage(rel), false, "file: page: only http(s) images load"); assert.equal(sameOriginImage("file:///etc/passwd"), false); ok(); });
   for (const name of ["llmDeltaFromSse", "validateLlmDeltaEvent", "isLlmDeltaEnd", "streamRepliesRuntime", "describeStreamUnavailable"]) assert.equal(typeof api[name], "function", name);
   ok();
 }

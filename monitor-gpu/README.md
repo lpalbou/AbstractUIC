@@ -3,7 +3,7 @@
 Small, dependency-free GPU utilization widget that renders a mini histogram and polls a secured backend endpoint.
 
 In AbstractFramework deployments, the default backend endpoint is AbstractGateway:
-- `GET /api/gateway/host/metrics/gpu`
+- `GET /api/gateway/host/metrics/gpu` — the widget's default `endpoint` is the RELATIVE `api/gateway/host/metrics/gpu`: resolved under the page's base path (an app served at `/apps/<id>/`) or under `base-url` when set.
 - Auth: `Authorization: Bearer <token>`
 
 ## Install

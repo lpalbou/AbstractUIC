@@ -463,7 +463,7 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Steer a live run | `SteerComposer` (+ `submitSteer`) | Idempotent `command_id`, CSRF-token candidates, honest `accepted:false` handling |
 | Expandable tree/list panes | `DisclosureList` | Dual-key selection, path-keyed expansion, `role=tree` keyboard nav, badge rail |
 | Badges / chips / toggles | `AfChip`, `AfChipButton` | Tone variants with AA-derived colors; custom hues via `var(--token)` |
-| Icons | `Icon` | ~40 glyphs, 24-grid and 16-grid families |
+| Icons | `Icon` | ~45 glyphs, 24-grid and 16-grid families |
 | Chat UI (thread, cards, composer) | `@abstractframework/panel-chat` | Markdown with real nested lists; JSON auto-detect; `message.title` names the speaker |
 | Live (streamed) replies | `WorkflowSessionController` / `useWorkflowSession` + a transport whose `streamLedger` passes `onDelta`; `WorkflowChat` `streamReplies` + `streamRepliesRuntime()` | Deltas never move the ledger cursor; the ledger record replaces the live bubble. See [panel-chat live replies](../panel-chat/README.md#live-replies-streaming) |
 | App assistant (docs Q&A drawer) | `AssistantPanel` (panel-chat) in `AfDrawer` via `AfTopBarActions` | Transport injected. THE shared transport (docs-qa@0.1.0, tenant_catalog): `POST /runs/start {registry_scope:"tenant_catalog", bundle_id:"docs-qa", bundle_version:"0.1.0", flow_id:"docsqa001", input_data:{question, history, docs:<llms.txt text>, app}}`, answer on `output.response` — grounded on YOUR docs only, cites sections, says honestly when docs don't answer. `import docs from "./llms.txt?raw"` remains the recommended docs source (build-time, versioned) |
@@ -703,6 +703,7 @@ For ecosystem context (AbstractFramework / AbstractCore / AbstractRuntime) and t
 
 - All React packages are ESM (`"type": "module"`) and declare `react@^18` / `react-dom@^18` as peer dependencies (see each `*/package.json`).
 - **CSS is shipped as a separate export and must be imported by the host app** (do this in your app entrypoint, especially for Next.js).
+- **Same-origin requests use RELATIVE paths** (`api/gateway/…`, `api/connection/gateway`), so an app served under a base path (AbstractGateway's `/apps/<id>/`, a reverse-proxy prefix) reaches its own server. The page URL must end with `/` (the app servers' mounts guarantee it). The one source is ui-kit's `gateway_paths.ts`: `GATEWAY_API_PATH`, `GATEWAY_CONNECTION_PATH`, `gatewayApiPath(route)`, `joinBaseUrl(baseUrl, path)` and `gatewayResourcePath(serverUrl)` (a gateway-rooted URL from the gateway's data, e.g. an automation's `ledger_url` or artifact URL, mapped to the app-relative path; open it with panel-chat `openGatewayResource(fetchGateway, url, { name, mode? })`, never as a raw href). Every requesting piece keeps an explicit override: `connectionPath` (`GatewayConnectModal`, `useGatewayConnection`, `fetchGatewayConnection` / `signInGateway` / `signOutGateway`), `commandsPath` (`SteerComposer`, `submitSteer`), `baseUrl` (`createAutomationsClient`, the monitors' `base-url`), `endpoint` (monitors) and `fetchGateway` (panel-chat `WorkspaceBrowser`). `scripts/check_relative_urls.mjs` (run by the root `npm test`) fails on any root-absolute same-origin literal in the browser packages' sources and builds.
 
 CSS entrypoints (files live in each package’s `src/`):
 
@@ -740,7 +741,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`; `VoiceSettings` (catalog-driven voice preferences form)
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
 - Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation on a fixed UTC interval or once), `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
-- Icons: `Icon`, `IconName` (~40 glyphs, 24-grid and 16-grid families)
+- Icons: `Icon`, `IconName` (~45 glyphs, 24-grid and 16-grid families; `play`, `stop`, `folder`, `file`, `archive`, `clock` added for automations)
 - Palette seeds: `@abstractframework/ui-kit/palette_seeds.json` (generated 4-token palette per theme)
 
 See: [`ui-kit/README.md`](../ui-kit/README.md) and the [Adoption guide](./adoption-guide.md).
@@ -781,6 +782,8 @@ Components:
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
+- `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow all enabled tools" only with `onPermissionsAll`), question (`ask_user`, choices and free text) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. Types `PresentInteractionOptions`, `InteractionController`
+- `WorkspaceBrowser` — a run's folder on the gateway host through the CONTRACTS §W routes (`GET /runs/{id}/workspace`, `/workspace/files`, `/workspace/content`): breadcrumbs, folders first, sizes, "N entries hidden by the gateway's workspace rules", Open / Download per file (fetched with the host's credentials, never linked; HTML, SVG, XML and other text open as plain text because a blob URL runs with the app's origin), or `onSelectFile` + `selectedPath` for a host preview. Props: `fetchGateway(path, init)` (the host joins the gateway-relative path to its base URL and adds its auth), `runId` (an automation's id browses the automation's folder), `title`, `note?`, `onClose?`, `refreshKey?`, `className?`. Hook-free `WorkspaceBrowserView` and helpers: `loadWorkspaceView()`, `loadRunWorkspace()`, `listWorkspaceFolder()`, `readWorkspaceFile()`, `parseWorkspaceListing()` (malformed answers throw), `gatewayResponseError()`, `tabOpenPlan()`, `workspaceInfoUrl()` / `workspaceFilesUrl()` / `workspaceContentUrl()`, `workspaceCrumbs()`, `workspaceParent()`, `sortWorkspaceEntries()`, `workspaceHiddenNote()`, `formatBytes()`; types `GatewayFetch`, `RunWorkspace`, `WorkspaceEntry`, `WorkspaceListing`, `WorkspaceBrowserProps`, `WorkspaceBrowserViewProps`
 
 Renderers:
 - `Markdown` (lightweight Markdown with real nested lists, marker progression, fenced code
@@ -804,16 +807,30 @@ See: [`panel-chat/README.md`](../panel-chat/README.md) and [FAQ](./faq.md) (sear
 
 ## `@abstractframework/app-server`
 
-Purpose: Node.js **gateway session proxy** for app servers (the server-side half of the
-connection surface — pairs with `GatewayConnectModal`/`useGatewayConnection`).
+Purpose: the server side every browser app shares: serving under the gateway's
+`/apps/<id>/` (mount), the launch flags, the local gateway pointer, and the **gateway session
+proxy** (the server-side half of the connection surface — pairs with
+`GatewayConnectModal`/`useGatewayConnection`).
 
-- Exports: `createGatewaySessionProxy(options)`, `normalizeGatewayUrl()` (see `app-server/src/index.js`, types in `app-server/src/index.d.ts`)
+- Mount: `createMountedHandler({appId}, handler)`, `requestContext(req)` →
+  `{clientAddress, clientIsLoopback, basePath, proto, host, forwarded}` (forwarded headers
+  believed from a loopback peer only), `injectShell(html, {basePath, config})`,
+  `appPath`, `cookiePath`, `serializeCookie`, `parseCookies` (first value wins),
+  `setIdentityHeader` (`X-AbstractFramework-App: <id>; mount=1`), `rejectUpgrade`,
+  `validateBasePath`, `MountRequestError`. See
+  [`app-server/README.md`](../app-server/README.md#serving-under-the-gateway-appsid).
+- Flags: `parseAppFlags` / `parseAppFlagsOrExit` (`--gateway-url` with `--gateway`/`--url`
+  aliases, `--port`, `--host`, `--help`; env only as legacy alias).
+- Gateway pointer: `resolveGatewayUrl`, `createGatewayUrlResolver`, `readGatewayPointer`
+  (`~/.abstractframework/gateway.json`; shared cases in
+  `ui-kit/scripts/fixtures/gateway_pointer/`).
+- Session proxy: `createGatewaySessionProxy(options)`, `normalizeGatewayUrl()` (see `app-server/src/index.js`, types in `app-server/src/index.d.ts`)
 - What it does: exchanges a Gateway user token for HttpOnly session cookies
   (`POST /api/connection/gateway`), proxies `/api/gateway/*` with the server-held session,
   enforces CSRF on mutating requests, pins the Gateway URL for non-loopback clients, and strips
   credential-bearing headers in both directions. Tokens never rest in the browser. Every call
-  to the Gateway carries `X-Forwarded-For` set to the browser connection's socket address
-  (client-supplied forwarding headers are replaced, never passed through) and
+  to the Gateway carries `X-Forwarded-For` set to the browser's address
+  (`requestContext(req).clientAddress`; written once, never appended) and
   `X-AbstractFramework-App-Proxy: <appId>` (a client-supplied value is dropped). A connection
   whose socket address cannot be determined gets `400`.
 - Options (`GatewaySessionProxyOptions`): `appId` (required, `[a-z0-9-]+`; names the cookies and
@@ -824,7 +841,7 @@ connection surface — pairs with `GatewayConnectModal`/`useGatewayConnection`).
   the built-in `ABSTRACTGATEWAY_*` and `<APPID>_*` ones). See
   [`app-server/README.md`](../app-server/README.md#options).
 - Tests: `npm --workspace app-server test` (dependency-free; runs
-  `app-server/test/gateway_session_proxy.test.mjs` against a stub gateway).
+  the session proxy, mount and flags/pointer tests against stub gateways and the fixture app).
 
 See: [Adoption guide](./adoption-guide.md) for the full connection-surface contract.
 
@@ -1438,8 +1455,9 @@ See: [panel-chat live replies](../panel-chat/README.md#live-replies-streaming) a
 ## panel-chat: Why do images in assistant messages show as links?
 
 `ChatMessageCard` renders assistant and system messages with `images="link"`: an image loads only
-when `inlineImage(src)` accepts it, by default `sameOriginImage` (a root-relative path or a URL
-on the page's own origin). Other images show as a link "image: <alt>", so model-written text
+when `inlineImage(src)` accepts it, by default `sameOriginImage` (a relative path such as the kit's
+`api/gateway/…` workspace routes, a root-relative path, or a URL on the page's own origin, each
+resolved against `document.baseURI`; `//host`, other origins and non-http(s) schemes never load). Other images show as a link "image: <alt>", so model-written text
 cannot make the browser fetch a remote URL. To change it, pass `images: "inline"` or your own
 `inlineImage` through `messageProps`.
 
@@ -1841,20 +1859,24 @@ in the architecture page; for the export list in context, see the [API reference
 
 ## AutomationPanel
 
-Occurrence text is rendered with the **same renderer as the chat** (Markdown with tables and
-code, JSON autodetect, remote images as links): the user turn, the answer, notify bodies, wait
-prompts, attention bodies and the definition's task. ui-kit cannot import panel-chat
-(panel-chat depends on ui-kit), so the panel takes a `renderText(text)` prop and panel-chat
-ships the pairing. Use one of:
+Occurrences read as a **chat**: each run's trigger turn and answer turn is the shared
+`ChatMessageCard` (a user card titled "Trigger", an assistant card titled "Automation", with the
+card's copy button), and every other text — notify bodies, wait prompts, attention bodies, the
+definition's task — goes through the same content renderer as the chat (Markdown with tables and
+code, JSON autodetect, remote images as links). ui-kit cannot import panel-chat (panel-chat
+depends on ui-kit), so the panel takes two seams, `renderTurn(turn)` and `renderText(text)`, and
+panel-chat ships the pairing. Use one of:
 
 ```tsx
 import { AutomationPanelWithMarkdown, automationRenderers } from "@abstractframework/panel-chat";
 
-<AutomationPanelWithMarkdown {...props} />              // the panel with the chat renderer wired
+<AutomationPanelWithMarkdown {...props} />              // the panel with the chat rendering wired
 <AutomationPanel {...automationRenderers} {...props} />  // same thing, spread onto the kit panel
 ```
 
-Without `renderText` the panel falls back to escaped plain text and marks itself
+`renderTurn` receives an `AutomationTurn`: `{kind: "trigger" | "answer", role: "user" |
+"assistant", text, index, runId}`; without it a turn's text goes through `renderText`. Without
+`renderText` the panel falls back to escaped plain text and marks itself
 `data-text-rendering="unformatted"` (each block `data-unformatted="true"`), so a host that
 forgot the renderer is visible in the DOM.
 
@@ -1878,24 +1900,30 @@ import "@abstractframework/ui-kit/theme.css";
   onLoadMore={loadOlderPage}
   onOpenRun={(runId) => openLedger(runId)}
   onAnswerWait={(runId, waitKey, payload) => resumeWait(runId, waitKey, payload)}
-  {...automationRenderers}          // from @abstractframework/panel-chat: the chat's renderer
+  onOpenWorkspace={(runId) => showFolder(runId)}  // e.g. panel-chat's WorkspaceBrowser for that run
+  onOpenResource={(r) => openGatewayResource(fetchGateway, r.url, { name: r.name })}  // ledger JSON, artifacts
+  {...automationRenderers}          // from @abstractframework/panel-chat: the chat's rendering
 />
 ```
 
 The panel is controlled: it holds only view state (which form is open, the last notice) and
 renders what you pass. Optional props: `definition` (the `definition` of `GET /automations/{id}`;
-when given, the panel adds a collapsed "Definition" block), `renderText` (required in practice;
-see above), `newId` (the id source for retry-safe ids, default
+when given, the panel adds a collapsed "Definition" block), `renderText` and `renderTurn`
+(required in practice; see above), `onOpenWorkspace(runId)` and `onOpenResource(resource)` (see
+below), `newId` (the id source for retry-safe ids, default
 `crypto.randomUUID`) and `className`.
 
 ### What it shows
 
-- **Header** — title, status, trigger ("every 8 hours (UTC)", "once at 2026-09-28 08:00 UTC",
+- **Header** — title, state as a word then an icon ("Active ▶", "Paused ⏸"; Completed,
+  Failed and Archived likewise — `AutomationStateLabel`, the one rendering every client uses), trigger ("every 8 hours (UTC)", "once at 2026-09-28 08:00 UTC",
   "manual runs only"), context, "Now: Run #7 running" (only from `summary.current_occurrence`,
   never inferred from the last occurrence; "starting" while admitted, "waiting to retry" in
   backoff), next run as "2026-09-27 07:00 UTC (in 25 min)" (only from `next_fire_at`, which an
   active scheduled automation carries even while a run is in progress; "none while paused" when
-  paused), run count, the automation's workspace folder (`workspace_root`), attention
+  paused), run count, the automation's workspace folder (`workspace_root`, with a folder button
+  calling `onOpenWorkspace(automation_id)` when that prop is given — an automation's id is its
+  controller run), attention
   ("2 unseen · 1 waiting for you"), revision, and a "Legacy schedule" marker for rows the Gateway
   projects from older `scheduled:*` roots. When the Gateway does not list the automation's trigger
   source, or lists it with `available: false`, the header says so.
@@ -1909,7 +1937,20 @@ see above), `newId` (the id source for retry-safe ids, default
   "Running"). A run that succeeded after retries reads "completed after 2 attempts". A failed run
   shows its `failure` (`reason_code`, message, "after N attempts"). The answer turn lists the
   run's artifacts. Each pair has **Run details** (run id, attempts, "Open run ledger" through
-  `onOpenRun`, the ledger JSON link, the workspace link when the Gateway sends one).
+  `onOpenRun`, a **Ledger (JSON)** button, and a **Workspace** button calling
+  `onOpenWorkspace(run_id)` when the Gateway reports a workspace for the run and the host passes
+  the prop).
+- **Gateway links are never raw hrefs.** The Gateway sends `ledger_url`, `workspace_url` and
+  `artifacts[].url` rooted at ITS origin (`/api/gateway/runs/…`); as links they would bypass an
+  app's credentials under `/apps/<id>/` and a standalone app's proxy (and fail in token mode). The
+  artifact names and the Ledger (JSON) button call `onOpenResource(resource)`
+  (`GatewayResource`: `kind` "ledger" / "artifact", the server's `url`, a file `name`,
+  `mimeType`, `runId`); a rejection shows as the panel's error. Without the prop, artifacts are
+  plain names and there is no ledger JSON button. panel-chat's `openGatewayResource(fetchGateway,
+  url, { name, mode? })` is the implementation: ui-kit `gatewayResourcePath(url)` maps the
+  server string to the app-relative path (anything that is not a gateway API path throws), the
+  host's `fetchGateway` fetches it, and `tabOpenPlan` decides how it opens (HTML and other active
+  content as source text). `AutomationPanelWithMarkdown` wires it when given `fetchGateway`.
 - **Paused** — a hint reads "Paused: scheduled runs are skipped. Run now works and keeps it
   paused."
 - **Load earlier occurrences** appears while fewer rows than `summary.occurrence_count` are
@@ -2112,8 +2153,16 @@ import { ScheduleThisAction, FromAutomationBadge } from "@abstractframework/pane
 Neither piece performs requests or holds state.
 
 - `AutomationPanelWithMarkdown` (`AutomationPanelWithMarkdownProps` = `AutomationPanelProps`
-  without `renderText`), `automationRenderers` (`{renderText}`) and `renderAutomationText(text)`
-  wire the kit's `AutomationPanel` to the chat renderer (`ChatMessageContent`, images as links).
+  without `renderText` / `renderTurn`), `automationRenderers` (`{renderText, renderTurn}`),
+  `renderAutomationText(text)` and `renderAutomationTurn(turn)` (+ `AUTOMATION_TURN_TITLES`)
+  wire the kit's `AutomationPanel` to the chat (`ChatMessageCard` per turn,
+  `ChatMessageContent` for other text, images as links).
+- `WorkspaceBrowser` browses a run's folder on the gateway host (list, open, download) through
+  the host's credentialed `fetchGateway(path, init)`; give it `runId = automation_id` for the
+  automation's folder, a discussion's run id for the discussion's own folder. See
+  [API: panel-chat](./api.md#abstractframeworkpanel-chat).
+- `presentInteraction(wait, controller, options?)` turns a discussion's pending wait into the
+  `WorkflowChat` control (tool approval, question, event).
 
 ## Fixtures contract
 
@@ -2156,15 +2205,16 @@ the bytes of the six JSON files.
 **Checks** (part of `npm test`): `ui-kit/scripts/check_automation_fixtures.mjs` (shapes,
 coverage, checksums), `check_automation_client.mjs` (paths, bodies, error parsing),
 `check_automation_panel.mjs` (rendering, handlers and the pure rules), and panel-chat's
-`scripts/check_automation_badges.mjs`.
+`scripts/check_automation_badges.mjs` and `check_automation_markdown.mjs`.
 
 ## Exports
 
 From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
 
-- **Components**: `AutomationPanel` (`AutomationPanelProps`), `AfScheduleDialog`
-  (`AfScheduleDialogProps`), `DISCUSS_LABEL`, `plainTextRenderer` (the fallback), type
-  `RenderText`.
+- **Components**: `AutomationPanel` (`AutomationPanelProps`), `AutomationStateLabel` (state
+  word then icon), `AfScheduleDialog` (`AfScheduleDialogProps`), `DISCUSS_LABEL`,
+  `STATUS_LABELS`, `STATUS_ICONS`, `plainTextRenderer` (the fallback), types `RenderText`,
+  `RenderTurn`, `AutomationTurn`.
 - **Client**: `createAutomationsClient()`, `AutomationApiError`, `parseApiError()`,
   `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`; types `AutomationsClient`,
   `AutomationsClientOptions`, `ListAutomationsQuery`, `PageQuery`.
@@ -2188,9 +2238,11 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `TriggerSourceKind`, `ScheduleConfig`, `ScheduleEventPayload`, `ManualEventPayload`,
   `Duration`, `Timestamp`, `Page`, `ApiError`, `ApiErrorCode`.
 
-From `@abstractframework/panel-chat` (source: `panel-chat/src/automation_badges.tsx`):
-`ScheduleThisAction` (`ScheduleThisActionProps`, `ScheduleSeed`), `FromAutomationBadge`
-(`FromAutomationBadgeProps`), `fromAutomationText()`.
+From `@abstractframework/panel-chat` (sources: `panel-chat/src/automation_badges.tsx`,
+`automation_markdown.tsx`): `ScheduleThisAction` (`ScheduleThisActionProps`, `ScheduleSeed`),
+`FromAutomationBadge` (`FromAutomationBadgeProps`), `fromAutomationText()`,
+`AutomationPanelWithMarkdown`, `automationRenderers`, `renderAutomationText()`,
+`renderAutomationTurn()`, `AUTOMATION_TURN_TITLES`.
 
 ## Related docs
 
@@ -2968,10 +3020,12 @@ const input = { prompt, _runtime: { ...streamRepliesRuntime(streamReplies) } };
 
 Images in chat messages: `ChatMessageCard` renders the Markdown of every
 message except the user's own with `images="link"`. An image then loads only
-when `inlineImage(src)` accepts it — by default `sameOriginImage`: a
-root-relative path (for example a gateway workspace content route behind the
-app's proxy) or an absolute URL on the page's own origin. Every other image,
-including `//host/…`, is shown as a link "image: <alt>" and never fetched, so
+when `inlineImage(src)` accepts it — by default `sameOriginImage`: the source
+resolved against `document.baseURI` must be http(s) on the page's own origin,
+so a relative path (the kit's own `api/gateway/…` workspace content route,
+which resolves under an app mounted at `/apps/<id>/`), a root-relative path
+or an absolute same-origin URL loads. Every other image, including `//host/…`,
+`javascript:` and `data:`, is shown as a link "image: <alt>" and never fetched, so
 model-written text cannot make the browser call a remote URL. Pass
 `images="inline"` (or your own `inlineImage`) through `messageProps` to change
 it. `Markdown` used on its own keeps `images="inline"` as its default.
@@ -2997,9 +3051,16 @@ Markdown is intentionally minimal and implemented in `panel-chat/src/markdown.ts
 
 Server-side helpers for AbstractFramework thin-client apps.
 
-This package exports the app-origin Gateway session proxy used by browser
-clients that talk to an `AbstractGateway` without storing bearer tokens in the
-browser.
+This package gives every AbstractFramework browser app the same server side:
+
+- **serving under the gateway's `/apps/<id>/`** (`mount.js`): the base path,
+  the browser's real address, cookie paths and the identity header;
+- **the launch flags** (`flags.js`): `--gateway-url`, `--port`, `--host`,
+  `--help`;
+- **"where is my gateway"** (`gateway_pointer.js`): the local gateway pointer
+  `~/.abstractframework/gateway.json` and the one URL precedence;
+- **the app-origin Gateway session proxy** used by browser clients that talk
+  to an `AbstractGateway` without storing bearer tokens in the browser.
 
 ## Install
 
@@ -3008,10 +3069,137 @@ browser.
 
 ## What it exports
 
-- `createGatewaySessionProxy(options)`
-- `normalizeGatewayUrl(value)`
+- Mount (serving under `/apps/<id>/`): `createMountedHandler`, `requestContext`,
+  `injectShell`, `appPath`, `cookiePath`, `serializeCookie`, `parseCookies`,
+  `setIdentityHeader`, `identityHeaderValue`, `rejectUpgrade`,
+  `validateBasePath`, `isLoopbackAddress`, `socketPeerAddress`,
+  `MountRequestError`, `APP_IDENTITY_HEADER`, `FORWARDED_PREFIX_HEADER`
+- Flags: `parseAppFlags`, `parseAppFlagsOrExit`, `appUsage`, `FlagError`
+- Gateway pointer: `resolveGatewayUrl`, `createGatewayUrlResolver`,
+  `readGatewayPointer`, `gatewayPointerPath`, `POINTER_SCHEMA`,
+  `BUILTIN_GATEWAY_URL`
+- Session proxy: `createGatewaySessionProxy(options)`, `normalizeGatewayUrl(value)`
 
 See `app-server/src/index.d.ts` for the authoritative type surface.
+
+## Serving under the gateway (`/apps/<id>/`)
+
+The gateway serves every browser app THROUGH itself at `/apps/<id>/`: one
+port and one tunnel for the console, the API and every app. The app binds
+`127.0.0.1` and the gateway relays to it, stripping the prefix and sending:
+
+| Header | Value |
+|---|---|
+| `X-Forwarded-Prefix` | `/apps/<id>` |
+| `X-Forwarded-For` | the browser's address (written by the gateway, never passed through) |
+| `X-Forwarded-Proto`, `X-Forwarded-Host` | what the browser used |
+| `Cookie` | the app's own cookies only (`<appId>_*`) |
+
+The rules an app follows:
+
+1. **Announce it.** Every response carries
+   `X-AbstractFramework-App: <id>; mount=1` (`<id>` is the gateway's catalog id:
+   `observer`, `continuum`, `code`, `entity`, `flow`). The gateway serves ONLY
+   an app that announces it: without the rules below, an app behind the
+   gateway would read every visitor as local. `createMountedHandler` sets it.
+2. **Decide "who is asking" with `requestContext(req).clientAddress`**, never
+   `req.socket.remoteAddress` (behind the gateway the socket peer is always
+   loopback). Forwarded headers are believed ONLY from a loopback socket peer;
+   from any other peer they are ignored. Every app-local privileged check (a
+   folder reveal, opening something on the host, a browser-chosen gateway URL)
+   uses `clientIsLoopback`. The session proxy below already does.
+3. **Generate URLs under the base path.** Assets and fetches use RELATIVE URLs
+   (`assets/app.js`, `api/...`; build with a relative base, e.g. Vite
+   `base: "./"`); `injectShell` puts `<base href="<basePath>/">` first in
+   `<head>` and `base_path` in `window.__ABSTRACT_UI_CONFIG__`. Server-side
+   redirects use `appPath(ctx.basePath, "/x")`. A service worker registers
+   relative to the base.
+4. **Cookies at `Path=<basePath>/`** (`serializeCookie(name, value, {basePath})`),
+   read with `parseCookies` (first value wins: the browser sends the most
+   specific path first, so a `Path=/apps/<id>/` cookie beats a `Path=/` one
+   left by the same app at its own port on the same host).
+5. **Refuse, do not guess.** A malformed `X-Forwarded-*` from a loopback peer
+   or an unknown socket peer is a 400 (`MountRequestError`); the base path is
+   `""` or `/seg/seg` with unreserved characters only, never `.` or `..`.
+
+```js
+import http from "node:http";
+import {
+  createGatewaySessionProxy, createMountedHandler, injectShell, parseAppFlagsOrExit,
+  requestContext, rejectUpgrade,
+} from "@abstractframework/app-server";
+
+const flags = parseAppFlagsOrExit(process.argv.slice(2), {
+  appName: "AbstractObserver", command: "abstractobserver",
+  envPrefix: "ABSTRACTOBSERVER", defaultPort: 3001,
+  extra: { "monitor-gpu": { type: "boolean", help: "Show the GPU monitor." } },
+});
+const proxy = createGatewaySessionProxy({ appId: "abstractobserver", defaultGatewayUrl: flags.gatewayUrl });
+
+const server = http.createServer(createMountedHandler({ appId: "observer" }, (req, res, ctx) => {
+  const p = new URL(req.url, "http://app.invalid").pathname;
+  if (p === "/api/local/reveal" && !ctx.clientIsLoopback) { res.writeHead(403); res.end(); return; }
+  if (proxy.handle(req, res, p)) return;
+  if (p === "/" || p === "/index.html") {
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(injectShell(indexHtml, { basePath: ctx.basePath, config: { gateway_url: proxy.defaultGatewayUrl } }));
+    return;
+  }
+  // ... static files, SPA fallback
+}));
+server.on("upgrade", (req, socket, head) => {
+  let ctx;
+  try { ctx = requestContext(req); } catch (err) { return rejectUpgrade(socket, 400, err.message); }
+  // ... ctx.clientAddress is the browser; the identity header goes on the 101 too
+});
+server.listen(flags.port, flags.host);
+```
+
+`test/fixtures/mount_app.mjs` is a complete, runnable mount-capable app (page,
+asset, session proxy, SSE, WebSocket echo) used by this package's tests and by
+the gateway's end-to-end test.
+
+## Launch flags
+
+`parseAppFlags(argv, options)` / `parseAppFlagsOrExit(argv, options)` (prints
+`--help` and exits 0; prints a bad flag and exits 2):
+
+- `--gateway-url <url>` (aliases `--gateway`, `--url`), `--port <n>`,
+  `--host <addr>` (default `127.0.0.1`), `--help`/`-h`, plus the app's own
+  `extra` flags (`{name: {type: "boolean" | "string", help, metavar}}`).
+  `--name value` and `--name=value` both work; an unknown flag, a missing value
+  or a bad port/URL throws `FlagError`.
+- Environment variables are LEGACY aliases only, below every flag: `PORT`,
+  `HOST`, `<envPrefix>_GATEWAY_URL`, `ABSTRACTGATEWAY_URL`.
+- Returns `{help, usage, port, host, gatewayUrl, gatewayUrlSource, extra}`;
+  `gatewayUrlSource` is `flag`, `env:<NAME>`, `saved`, `pointer` or `default`.
+  Pass the app's saved login URL as `savedUrl`.
+
+## Where is my gateway (`~/.abstractframework/gateway.json`)
+
+The gateway's `serve` and the installer write
+`{"schema": 1, "url", "port", "data_dir", "updated_at", "written_by"}` where
+this computer's installed gateway listens (no token, no liveness).
+`readGatewayPointer()` believes it only when `schema` is 1, the url is
+http(s) on `127.0.0.1`, `[::1]` or `localhost` with nothing after the port, and
+(POSIX) the file is a regular file owned by the current user; otherwise it is
+ignored with ONE warning (a missing file is silent).
+
+`resolveGatewayUrl({flag, env, savedUrl})` applies the one precedence:
+
+1. the launch flag;
+2. the legacy environment, in the order given;
+3. the saved login, except a saved `http://127.0.0.1:8080` (the old built-in
+   default), which the pointer replaces;
+4. the pointer's `url`;
+5. `http://127.0.0.1:8080`.
+
+`createGatewayUrlResolver(options)` keeps that answer for a long-running
+server: `current()`, and `refresh()` (re-reads the pointer; the session proxy
+calls it when a connection to the gateway is refused, so a running app
+follows the gateway onto a new port). A flag or environment choice never
+moves. The shared reader case table for every language is
+`ui-kit/scripts/fixtures/gateway_pointer/cases.json`.
 
 ## When to use it
 
@@ -3029,12 +3217,15 @@ The proxy's contract is:
   headers, reattaches the server-held session, and pins the upstream Gateway
   URL server-side.
 - Every call the proxy makes to the Gateway for a browser (proxied `/api/*`,
-  sign-in, sign-out, the status probe) sets `X-Forwarded-For` to the browser
-  connection's socket address. A client-supplied `X-Forwarded-For`,
-  `Forwarded` or `X-Real-IP` header is replaced, never passed through or
-  appended, so the Gateway can tell whether the browser runs on its own
-  machine. Behind your own reverse proxy, the value is the reverse proxy's
-  address.
+  sign-in, sign-out, the status probe) sets `X-Forwarded-For` to the
+  browser's address: `requestContext(req).clientAddress` (the socket peer,
+  or, from a loopback peer such as the gateway's `/apps/<id>/` proxy, the
+  address it forwarded). The header is written once, never appended, so the
+  Gateway can tell whether the browser runs on its own machine. From a
+  non-loopback peer a client-supplied `X-Forwarded-For`, `Forwarded` or
+  `X-Real-IP` is ignored.
+- Mounted under a base path, the session cookies carry `Path=<basePath>/`;
+  sign-out clears both that path and `/`.
 - Every call to the Gateway also carries `X-AbstractFramework-App-Proxy: <appId>`
   (the `appId` you pass to `createGatewaySessionProxy`, which is required). A
   client-supplied value of that header is dropped. The Gateway uses it to tell
@@ -3081,11 +3272,21 @@ server.listen(3000);
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `appId` | required | Short id matching `[a-z0-9-]+`. Names the cookies (`<appId>_gateway_session`, `<appId>_gateway_csrf`, `<appId>_gateway_url`), the app CSRF header `x-<appId>-csrf` (the shared `x-abstract-csrf` is always accepted too) and the `X-AbstractFramework-App-Proxy` value. |
-| `defaultGatewayUrl` | `ABSTRACTGATEWAY_URL`, else `http://127.0.0.1:8080` | The server-pinned Gateway URL. |
+| `defaultGatewayUrl` | `ABSTRACTGATEWAY_URL` (legacy), else the local gateway pointer, else `http://127.0.0.1:8080` | The server-pinned Gateway URL: a string (e.g. `flags.gatewayUrl`) or a resolver from `createGatewayUrlResolver()`. |
 | `connectionPath` | `/api/connection/gateway` | Session status, sign-in and sign-out endpoint. |
 | `proxyPrefix` | `/api/` | Everything under it, except `connectionPath`, is proxied to the Gateway. |
 | `gatewayTimeoutMs` | `4000` | Timeout for the proxy's own calls to the Gateway (status probe, sign-in, sign-out). |
 | `allowRemoteConfigEnvVars`, `allowUrlCookieEnvVars`, `trustProxyEnvVars` | none | Extra environment variable names honored beside the built-in ones below. |
+
+Without a switch, a browser may choose a Gateway URL other than `defaultGatewayUrl` (or have
+its URL cookie honoured) only when it is on this machine: its address
+(`requestContext(req).clientAddress`) is loopback AND the `Host` header names loopback
+(`localhost`, `*.localhost`, `::1` or a `127.x` IP literal, never a DNS name), and so does
+`X-Forwarded-Host` when the gateway's loopback proxy sends one. A DNS-rebinding page (a hostile
+name resolving to 127.0.0.1, which can add `X-Forwarded-*` headers itself) is refused. The
+`Secure` cookie flag follows `X-Forwarded-Proto: https` from a loopback peer only. The app's own
+CSRF headers (`x-<appId>-csrf`, `x-abstract-csrf`) are checked here and never sent to the
+Gateway, which gets its own `X-AbstractGateway-CSRF`.
 
 Environment switches (each accepts a truthy value such as `1`), with `<APPID>` the upper-cased
 `appId` (`-` becomes `_`):
@@ -3119,7 +3320,9 @@ package.
 
 ## Development
 
-- Run the package test directly: `npm --workspace app-server test`
+- Run the package tests directly: `npm --workspace app-server test`
+  (`gateway_session_proxy`, `mount` with the fixture app, `flags_and_pointer`
+  against the shared pointer cases; every test uses a scratch home).
 
 ## Related docs
 
@@ -3295,7 +3498,7 @@ import "reactflow/dist/style.css";
 Small, dependency-free GPU utilization widget that renders a mini histogram and polls a secured backend endpoint.
 
 In AbstractFramework deployments, the default backend endpoint is AbstractGateway:
-- `GET /api/gateway/host/metrics/gpu`
+- `GET /api/gateway/host/metrics/gpu` — the widget's default `endpoint` is the RELATIVE `api/gateway/host/metrics/gpu`: resolved under the page's base path (an app served at `/apps/<id>/`) or under `base-url` when set.
 - Auth: `Authorization: Bearer <token>`
 
 ## Install
@@ -3385,7 +3588,7 @@ npm test
 Small, dependency-free host memory widget that renders compact RAM + device (GPU/accelerator) meters and polls a secured backend endpoint.
 
 In AbstractFramework deployments, the default backend endpoint is AbstractGateway:
-- `GET /api/gateway/host/metrics/memory`
+- `GET /api/gateway/host/metrics/memory` — the widget's default `endpoint` is the RELATIVE `api/gateway/host/metrics/memory`: resolved under the page's base path (an app served at `/apps/<id>/`) or under `base-url` when set.
 - Auth: `Authorization: Bearer <token>`
 
 ## Install
@@ -3547,8 +3750,9 @@ npm test
   ],
   "scripts": {
     "build": "npm --workspaces --if-present run build",
-    "test": "npm --workspaces --if-present run test",
-    "pack:dry": "npm --workspaces --if-present pack --dry-run"
+    "test": "npm --workspaces --if-present run test && node scripts/check_relative_urls.mjs",
+    "pack:dry": "npm --workspaces --if-present pack --dry-run",
+    "check:urls": "node scripts/check_relative_urls.mjs"
   }
 }
 
@@ -3597,7 +3801,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -3666,7 +3870,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.1.13",
@@ -3881,6 +4085,7 @@ export {
 export { ThemeSelect, type ThemeSelectProps } from "./theme_select.js";
 export { FontScaleSelect, HeaderDensitySelect, type FontScaleSelectProps, type HeaderDensitySelectProps } from "./typography_select.js";
 export { Icon, type IconName } from "./icon.js";
+export { GATEWAY_API_PATH, GATEWAY_CONNECTION_PATH, gatewayApiPath, gatewayResourcePath, joinBaseUrl } from "./gateway_paths.js";
 export {
   ToolPolicyEditor,
   TOOL_POLICY_DEFAULTS,
@@ -4083,6 +4288,7 @@ export {
   parseEventPayload,
   CONTROL_COMMANDS,
   SCHEDULE_PRESETS,
+  STATUS_LABELS,
   apiErrorText,
   attentionAckCursor,
   attentionLabel,
@@ -4107,7 +4313,18 @@ export {
   type ScheduleForm,
   type ScheduleWhen,
 } from "./automations/panel_core.js";
-export { AutomationPanel, DISCUSS_LABEL, plainTextRenderer, type AutomationPanelProps, type RenderText } from "./automations/AutomationPanel.js";
+export {
+  AutomationPanel,
+  AutomationStateLabel,
+  DISCUSS_LABEL,
+  STATUS_ICONS,
+  plainTextRenderer,
+  type AutomationPanelProps,
+  type AutomationTurn,
+  type GatewayResource,
+  type RenderText,
+  type RenderTurn,
+} from "./automations/AutomationPanel.js";
 export { AfScheduleDialog, type AfScheduleDialogProps } from "./automations/AfScheduleDialog.js";
 
 ## ui-kit/src/identity.ts
@@ -4648,7 +4865,7 @@ export function GatewaySessionSignInCard({
  * connected flag → auto-open decision → close-on-status) and they drifted —
  * the README contract lived in prose. This hook IS the contract:
  *
- *  - Probe ONCE at boot (`/api/connection/gateway`); phase is "loading"
+ *  - Probe ONCE at boot (the app server's connection route, `GATEWAY_CONNECTION_PATH`); phase is "loading"
  *    until the probe RESOLVES. connected = ok && has_session (server truth).
  *  - Auto-open the modal only on a RESOLVED disconnect — never over the
  *    loading state, never over a live session. A thrown probe (app-origin
@@ -4669,6 +4886,7 @@ export function GatewaySessionSignInCard({
  * `connected`/`status`; app-local connection machines get deleted.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { GATEWAY_CONNECTION_PATH } from "./gateway_paths.js";
 import { fetchGatewayConnection, signOutGateway, type GatewayConnectionState } from "./gateway_connect_modal.js";
 
 export type GatewayConnectionPhase = "loading" | "connected" | "disconnected";
@@ -4738,7 +4956,7 @@ export function isGatewayConnected(status: GatewayConnectionState | null): boole
 
 export function useGatewayConnection(options?: UseGatewayConnectionOptions): GatewayConnection {
   const opts = options || {};
-  const connectionPath = opts.connectionPath || "/api/connection/gateway";
+  const connectionPath = opts.connectionPath || GATEWAY_CONNECTION_PATH;
   const variant = opts.variant || "dismissable";
   // Callbacks fire from async work started renders ago (an in-flight
   // refresh) — read the latest through a ref so delivery is never one render
@@ -5195,6 +5413,7 @@ export type ApiError = { status: number; code: string; message: string; field?: 
 // thrown as an `AutomationApiError` whose `code` is `detail.reason_code`. A
 // non-2xx without that envelope, or a 2xx that is not JSON, throws
 // `invalid_response` — never a silent success.
+import { gatewayApiPath, joinBaseUrl } from "../gateway_paths.js";
 import type {
   ApiError,
   AutomationChanges,
@@ -5213,8 +5432,9 @@ import type {
   TriggerSourceEntry,
 } from "./types.js";
 
-export const AUTOMATIONS_PATH = "/api/gateway/automations";
-export const TRIGGER_SOURCES_PATH = "/api/gateway/trigger-sources";
+/** Relative (see gateway_paths.ts): resolved under the page's base, or under `baseUrl`. */
+export const AUTOMATIONS_PATH = gatewayApiPath("automations");
+export const TRIGGER_SOURCES_PATH = gatewayApiPath("trigger-sources");
 
 export class AutomationApiError extends Error implements ApiError {
   readonly status: number;
@@ -5252,7 +5472,7 @@ export function parseApiError(status: number, body: unknown): ApiError {
 export type AutomationsClientOptions = {
   /** Injected transport (window.fetch, a proxy-aware wrapper, or a test stub). */
   fetch: (input: string, init?: RequestInit) => Promise<Response>;
-  /** Origin prefix before `/api/gateway/…`; "" (default) = same origin. */
+  /** Base URL the relative API paths are joined to ("http://host:8080", "https://host/prefix/"); "" (default) = relative to the page. */
   baseUrl?: string;
   /** Extra headers per request (auth, CSRF). */
   headers?: () => Record<string, string>;
@@ -5296,7 +5516,6 @@ function defaultId(): string {
 }
 
 export function createAutomationsClient(options: AutomationsClientOptions): AutomationsClient {
-  const base = (options.baseUrl ?? "").replace(/\/+$/, "");
   const newId = options.newId ?? defaultId;
   const one = (id: string) => `${AUTOMATIONS_PATH}/${encodeURIComponent(id)}`;
 
@@ -5307,7 +5526,7 @@ export function createAutomationsClient(options: AutomationsClientOptions): Auto
       headers["content-type"] = "application/json";
       init.body = JSON.stringify(body);
     }
-    const res = await options.fetch(`${base}${path}`, init);
+    const res = await options.fetch(joinBaseUrl(options.baseUrl, path), init);
     const text = await res.text();
     let data: unknown = undefined;
     let parsed = false;
@@ -6285,7 +6504,9 @@ if (process.argv.includes("--check")) {
  *  - SSE/EventSource rides the same origin cookies (EventSource cannot carry
  *    Bearer headers — this proxy IS how authenticated live tails work).
  *  - Every request this proxy sends to the gateway on behalf of a browser
- *    carries `X-Forwarded-For: <socket peer of the browser connection>`,
+ *    carries `X-Forwarded-For: <the browser's address>` — the connection's
+ *    socket peer, or, behind the gateway's `/apps/<id>/` proxy (a loopback
+ *    peer), the address it forwarded (mount.js `requestContext`),
  *    OVERWRITING any client-supplied value (never appended, never passed
  *    through). The gateway trusts that header only from its loopback proxy
  *    and uses it to decide whether the browser runs on the gateway's machine
@@ -6296,11 +6517,17 @@ if (process.argv.includes("--check")) {
  *    `X-AbstractFramework-App-Proxy: <appId>` (any client-supplied value is
  *    dropped): the gateway's same-machine fail-safe keys on this marker to
  *    know the request came through an app proxy (REVIEW/09).
+ *  - Mounted under a base path (`X-Forwarded-Prefix` from a loopback peer),
+ *    the session cookies carry `Path=<basePath>/`; with two cookies of the
+ *    same name the first (most specific path) wins.
  */
 
 import * as http from "node:http";
 import * as https from "node:https";
 import { timingSafeEqual as cryptoTimingSafeEqual } from "node:crypto";
+
+import { createGatewayUrlResolver } from "./gateway_pointer.js";
+import { MountRequestError, isLoopbackAddress, isLoopbackHostname, parseCookies, requestContext, serializeCookie } from "./mount.js";
 
 const TRUE_VALUES = new Set(["1", "true", "yes", "y", "on"]);
 const HOP_BY_HOP_HEADERS = new Set([
@@ -6347,23 +6574,6 @@ export function normalizeGatewayUrl(value) {
     break;
   }
   return raw.replace(/\/+$/, "");
-}
-
-function parseCookies(req) {
-  const out = {};
-  for (const part of String(req?.headers?.cookie || "").split(";")) {
-    const idx = part.indexOf("=");
-    if (idx < 0) continue;
-    const key = part.slice(0, idx).trim();
-    const value = part.slice(idx + 1).trim();
-    if (!key) continue;
-    try {
-      out[key] = decodeURIComponent(value);
-    } catch {
-      out[key] = value;
-    }
-  }
-  return out;
 }
 
 function cookieValueFromSetCookie(rawHeaders, name) {
@@ -6441,7 +6651,10 @@ function mutatingMethod(method) {
  *  - appId (REQUIRED): short id, e.g. "abstractflow" — prefixes cookies and
  *    the app CSRF header (`x-<appId>-csrf`); the canonical `x-abstract-csrf`
  *    header is always accepted too, so shared UI components work everywhere.
- *  - defaultGatewayUrl: server-pinned gateway (default http://127.0.0.1:8080).
+ *  - defaultGatewayUrl: server-pinned gateway: a URL string, or a resolver
+ *    from createGatewayUrlResolver() (re-read when a connection fails).
+ *    Default: ABSTRACTGATEWAY_URL (legacy), else the local gateway pointer,
+ *    else http://127.0.0.1:8080.
  *  - connectionPath: default "/api/connection/gateway".
  *  - proxyPrefix: default "/api/" (everything under it except connectionPath
  *    proxies to the gateway).
@@ -6465,8 +6678,16 @@ export function createGatewaySessionProxy(options) {
   // Marker the gateway keys its same-machine fail-safe on (REVIEW/09).
   const APP_PROXY_HEADER = "X-AbstractFramework-App-Proxy";
 
-  const DEFAULT_GATEWAY_URL =
-    normalizeGatewayUrl(opts.defaultGatewayUrl || process.env.ABSTRACTGATEWAY_URL || "") || "http://127.0.0.1:8080";
+  const gatewayUrlResolver =
+    opts.defaultGatewayUrl && typeof opts.defaultGatewayUrl === "object"
+      ? opts.defaultGatewayUrl
+      : opts.defaultGatewayUrl
+        ? { current: () => normalizeGatewayUrl(opts.defaultGatewayUrl), refresh: () => false }
+        : createGatewayUrlResolver({ env: [["ABSTRACTGATEWAY_URL", process.env.ABSTRACTGATEWAY_URL]] });
+  if (typeof gatewayUrlResolver.current !== "function" || typeof gatewayUrlResolver.refresh !== "function") {
+    throw new Error("createGatewaySessionProxy: defaultGatewayUrl must be a URL string or a resolver {current(), refresh()}");
+  }
+  const defaultGatewayUrl = () => normalizeGatewayUrl(gatewayUrlResolver.current()) || "http://127.0.0.1:8080";
   const CONNECTION_PATH = String(opts.connectionPath || "/api/connection/gateway");
   const PROXY_PREFIX = String(opts.proxyPrefix || "/api/");
   const TIMEOUT_MS = Number.isFinite(opts.gatewayTimeoutMs) ? opts.gatewayTimeoutMs : 4000;
@@ -6504,37 +6725,30 @@ export function createGatewaySessionProxy(options) {
     return raw.toLowerCase();
   }
 
-  function isLoopbackHostname(hostname) {
-    const h = String(hostname || "").trim().toLowerCase();
-    return h === "localhost" || h === "localhost.localdomain" || h === "::1" || h.startsWith("127.");
+  /**
+   * The browser's address: the connection's socket peer, or, from a
+   * loopback peer (the gateway's `/apps/<id>/` proxy), the address it
+   * forwarded in X-Forwarded-For (mount.js `requestContext`). Never the Host
+   * header. Throws MountRequestError for an unknown peer or a malformed
+   * forwarded header.
+   */
+  function clientAddress(req) {
+    return requestContext(req).clientAddress;
   }
 
   /**
-   * True only when the request's real transport peer is the loopback
-   * interface. This reads req.socket.remoteAddress — the connection's actual
-   * source, which the client CANNOT forge — NOT the Host header, which it
-   * can. IPv4-mapped IPv6 (::ffff:127.0.0.1) is unwrapped. This is the SSRF
-   * gate: a LAN peer sending `Host: localhost` against an all-interfaces
-   * bind must NOT unlock browser-supplied gateway URLs (security report
-   * entity c1768, live-exposed per agency c1770; endorsed by continuum
-   * c1769 whose hub proxy carries the operator's seat key on the same port).
+   * True only when the BROWSER is on this machine (its clientAddress is
+   * loopback). This is the SSRF gate: a LAN peer sending `Host: localhost`
+   * against an all-interfaces bind must NOT unlock browser-supplied gateway
+   * URLs (security report entity c1768), and neither may a remote browser
+   * reaching the app through the gateway's loopback proxy.
    */
   function isLoopbackPeer(req) {
-    let addr = String(req?.socket?.remoteAddress || "").trim().toLowerCase();
-    if (!addr) return false;
-    if (addr.startsWith("::ffff:")) addr = addr.slice(7); // IPv4-mapped IPv6
-    return addr === "::1" || addr === "127.0.0.1" || addr.startsWith("127.");
-  }
-
-  /**
-   * The browser connection's real transport peer (req.socket.remoteAddress),
-   * IPv4-mapped IPv6 unwrapped, or "" when unknown. Headers are never read:
-   * a client-supplied X-Forwarded-For must not reach the gateway.
-   */
-  function socketPeerAddress(req) {
-    let addr = String(req?.socket?.remoteAddress || "").trim().toLowerCase();
-    if (addr.startsWith("::ffff:") && addr.includes(".")) addr = addr.slice(7);
-    return addr;
+    try {
+      return isLoopbackAddress(clientAddress(req));
+    } catch {
+      return false;
+    }
   }
 
   function remoteConfigAllowed(req) {
@@ -6547,9 +6761,22 @@ export function createGatewaySessionProxy(options) {
     // deployments must set the explicit opt-in above; there is no
     // socket-derived unlock behind a trusted proxy.
     if (anyEnvBool(TRUST_PROXY_ENVS)) return false;
-    // Otherwise the ONLY unlock is a genuine loopback PEER — the Host header
-    // is never trusted for this decision.
-    return isLoopbackPeer(req);
+    // Otherwise the unlock needs a genuine loopback CLIENT (the socket peer,
+    // or the address the gateway's loopback proxy forwarded) AND a loopback
+    // HOST. DNS rebinding: a page at a hostile name that resolves to
+    // 127.0.0.1 reaches this server over a loopback socket with its own Host
+    // header, and as a same-origin script it can add X-Forwarded-* headers
+    // too. So the raw Host must name loopback, and so must X-Forwarded-Host
+    // when a loopback peer sends one (the gateway sends the browser's host).
+    if (!isLoopbackPeer(req)) return false;
+    if (!isLoopbackHostname(firstHeaderValue(req?.headers?.host))) return false;
+    const forwardedHost = req?.headers?.["x-forwarded-host"];
+    if (forwardedHost !== undefined && !isLoopbackHostname(firstHeaderValue(forwardedHost))) return false;
+    return true;
+  }
+
+  function firstHeaderValue(value) {
+    return String(Array.isArray(value) ? value[0] : value || "").split(",", 1)[0].trim();
   }
 
   function remoteConfigDenial(req) {
@@ -6560,32 +6787,39 @@ export function createGatewaySessionProxy(options) {
     );
   }
 
+  /** Secure cookies when the browser used https: X-Forwarded-Proto is
+   * believed from a loopback peer only (mount.js requestContext), like every
+   * other forwarded header. */
   function cookieSecure(req) {
-    return String(req?.headers?.["x-forwarded-proto"] || "").trim().toLowerCase() === "https" ? "; Secure" : "";
+    return requestContext(req).proto === "https";
   }
 
   function setSessionCookies(res, req, gatewayUrl, sessionId, csrfToken, persist) {
-    const secure = cookieSecure(req);
-    const maxAge = persist ? "; Max-Age=2592000" : "";
-    const attrs = `; Path=/; HttpOnly; SameSite=Lax${secure}${maxAge}`;
-    const csrfAttrs = `; Path=/; SameSite=Lax${secure}${maxAge}`;
+    const common = { basePath: requestContext(req).basePath, secure: cookieSecure(req), maxAge: persist ? 2592000 : undefined };
     res.setHeader("Set-Cookie", [
-      `${URL_COOKIE}=${encodeURIComponent(gatewayUrl)}${attrs}`,
-      `${SESSION_COOKIE}=${encodeURIComponent(sessionId)}${attrs}`,
-      `${CSRF_COOKIE}=${encodeURIComponent(csrfToken)}${csrfAttrs}`,
+      serializeCookie(URL_COOKIE, gatewayUrl, { ...common, httpOnly: true }),
+      serializeCookie(SESSION_COOKIE, sessionId, { ...common, httpOnly: true }),
+      serializeCookie(CSRF_COOKIE, csrfToken, common),
     ]);
   }
 
   function clearSessionCookies(res, req) {
+    const { basePath } = requestContext(req);
     const secure = cookieSecure(req);
-    res.setHeader("Set-Cookie", [
-      `${URL_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`,
-      `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`,
-      `${CSRF_COOKIE}=; Path=/; SameSite=Lax; Max-Age=0${secure}`,
-    ]);
+    // Mounted: clear the Path=/ twins too (left by the app at its own port
+    // on the same host), or they would win again once these are gone.
+    const paths = basePath ? [`${basePath}/`, "/"] : ["/"];
+    const out = [];
+    for (const path of paths) {
+      out.push(serializeCookie(URL_COOKIE, "", { path, httpOnly: true, secure, maxAge: 0 }));
+      out.push(serializeCookie(SESSION_COOKIE, "", { path, httpOnly: true, secure, maxAge: 0 }));
+      out.push(serializeCookie(CSRF_COOKIE, "", { path, secure, maxAge: 0 }));
+    }
+    res.setHeader("Set-Cookie", out);
   }
 
   function browserSession(req) {
+    const DEFAULT_GATEWAY_URL = defaultGatewayUrl();
     const cookies = parseCookies(req);
     const cookieUrl = normalizeGatewayUrl(cookies[URL_COOKIE] || "");
     // The URL cookie is honored only where browser-supplied gateway URLs are
@@ -6600,13 +6834,25 @@ export function createGatewaySessionProxy(options) {
   }
 
   function resolveBackend(gatewayUrl) {
-    const backend = new URL(String(gatewayUrl || DEFAULT_GATEWAY_URL).trim());
+    const backend = new URL(String(gatewayUrl || defaultGatewayUrl()).trim());
     if (!backend.port) backend.port = backend.protocol === "https:" ? "443" : "80";
     return {
       url: backend,
       origin: `${backend.protocol}//${backend.host}`,
       client: backend.protocol === "https:" ? https : http,
     };
+  }
+
+  /** A refused connection re-reads the local gateway pointer, so a
+   * long-running app follows the gateway onto a new port (backlog 0943). */
+  function noteConnectionError(err) {
+    if (err && (err.code === "ECONNREFUSED" || err.code === "ECONNRESET" || err.code === "EHOSTUNREACH")) {
+      try {
+        gatewayUrlResolver.refresh();
+      } catch {
+        // a resolver failure is not the request's failure
+      }
+    }
   }
 
   function gatewayRequest(gatewayUrl, requestOptions, body) {
@@ -6646,20 +6892,30 @@ export function createGatewaySessionProxy(options) {
         req.destroy();
         resolve({ ok: false, status: 0, payload: { detail: "Gateway request timed out" }, origin: backend?.origin });
       });
-      req.on("error", (err) =>
-        resolve({ ok: false, status: 0, payload: { detail: String(err?.message || err) }, origin: backend?.origin })
-      );
+      req.on("error", (err) => {
+        noteConnectionError(err);
+        resolve({ ok: false, status: 0, payload: { detail: String(err?.message || err) }, origin: backend?.origin });
+      });
       if (body) req.write(body);
       req.end();
     });
   }
 
-  async function handleConnectionApi(req, res) {
-    const peer = socketPeerAddress(req);
-    if (!peer) {
-      sendJson(res, 400, { detail: "Cannot determine the client address of this connection" });
-      return;
+  /** The browser's address, or null after answering 400. */
+  function clientAddressOr400(req, res) {
+    try {
+      return clientAddress(req);
+    } catch (err) {
+      if (!(err instanceof MountRequestError)) throw err;
+      sendJson(res, err.status || 400, { detail: err.message });
+      return null;
     }
+  }
+
+  async function handleConnectionApi(req, res) {
+    const peer = clientAddressOr400(req, res);
+    if (!peer) return;
+    const DEFAULT_GATEWAY_URL = defaultGatewayUrl();
     if (req.method === "GET") {
       const session = browserSession(req);
       if (!session.sessionId) {
@@ -6773,14 +7029,11 @@ export function createGatewaySessionProxy(options) {
   }
 
   function proxyApiRequest(req, res) {
+    const peer = clientAddressOr400(req, res);
+    if (!peer) return;
     const session = browserSession(req);
     if (!session.sessionId) {
       sendJson(res, 401, { detail: "Gateway sign-in required" });
-      return;
-    }
-    const peer = socketPeerAddress(req);
-    if (!peer) {
-      sendJson(res, 400, { detail: "Cannot determine the client address of this connection" });
       return;
     }
     if (mutatingMethod(req.method)) {
@@ -6817,9 +7070,15 @@ export function createGatewaySessionProxy(options) {
     // (contract A-2) — and the marker to this proxy's appId (REVIEW/09).
     for (const k of Object.keys(headers)) {
       const lk = k.toLowerCase();
-      if (lk === "x-forwarded-for" || lk === "x-forwarded-host" || lk === "x-forwarded-proto" || lk === "x-real-ip" || lk === "forwarded" || lk === "x-abstractframework-app-proxy") {
+      if (lk === "x-forwarded-for" || lk === "x-forwarded-host" || lk === "x-forwarded-proto" || lk === "x-forwarded-prefix" || lk === "x-real-ip" || lk === "forwarded" || lk === "x-abstractframework-app-proxy") {
         delete headers[k];
       }
+    }
+    // App-local CSRF headers stay here: the gateway gets its own
+    // (x-abstractgateway-csrf, below), never the app's.
+    for (const k of Object.keys(headers)) {
+      const lk = k.toLowerCase();
+      if (lk === APP_CSRF_HEADER || lk === CANONICAL_CSRF_HEADER) delete headers[k];
     }
     headers["x-forwarded-for"] = peer;
     headers["x-abstractframework-app-proxy"] = appId;
@@ -6837,6 +7096,7 @@ export function createGatewaySessionProxy(options) {
       }
     );
     proxyReq.on("error", (err) => {
+      noteConnectionError(err);
       if (res.headersSent) {
         res.destroy();
         return;
@@ -6874,7 +7134,9 @@ export function createGatewaySessionProxy(options) {
     handleConnectionApi,
     proxyApiRequest,
     browserSession,
-    defaultGatewayUrl: DEFAULT_GATEWAY_URL,
+    get defaultGatewayUrl() {
+      return defaultGatewayUrl();
+    },
     connectionPath: CONNECTION_PATH,
     cookieNames: { url: URL_COOKIE, session: SESSION_COOKIE, csrf: CSRF_COOKIE },
     csrfHeaderNames: [APP_CSRF_HEADER, CANONICAL_CSRF_HEADER],
@@ -6886,7 +7148,7 @@ export function createGatewaySessionProxy(options) {
 {
   "name": "@abstractframework/app-server",
   "version": "0.1.10",
-  "description": "Server-side helpers for AbstractFramework thin-client apps: the app-origin gateway session proxy (first-party cookies, CSRF, Authorization-strip, server-pinned gateway URL).",
+  "description": "Server-side helpers for AbstractFramework thin-client apps: serving under the gateway's /apps/<id>/ (base path, forwarded client address, identity header), the shared launch flags, the local gateway pointer, and the app-origin gateway session proxy (first-party cookies, CSRF, Authorization-strip, server-pinned gateway URL).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
   "license": "MIT",
@@ -6919,7 +7181,7 @@ export function createGatewaySessionProxy(options) {
     "README.md"
   ],
   "scripts": {
-    "test": "node test/gateway_session_proxy.test.mjs"
+    "test": "node test/gateway_session_proxy.test.mjs && node test/mount.test.mjs && node test/flags_and_pointer.test.mjs"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -6929,6 +7191,34 @@ export function createGatewaySessionProxy(options) {
 ## app-server/src/index.js
 
 export { createGatewaySessionProxy, normalizeGatewayUrl } from "./gateway_session_proxy.js";
+export {
+  APP_IDENTITY_HEADER,
+  FORWARDED_PREFIX_HEADER,
+  MountRequestError,
+  appPath,
+  cookiePath,
+  createMountedHandler,
+  identityHeaderValue,
+  injectShell,
+  isLoopbackAddress,
+  isLoopbackHostname,
+  parseCookies,
+  rejectUpgrade,
+  requestContext,
+  serializeCookie,
+  setIdentityHeader,
+  socketPeerAddress,
+  validateBasePath,
+} from "./mount.js";
+export { FlagError, appUsage, parseAppFlags, parseAppFlagsOrExit } from "./flags.js";
+export {
+  BUILTIN_GATEWAY_URL,
+  POINTER_SCHEMA,
+  createGatewayUrlResolver,
+  gatewayPointerPath,
+  readGatewayPointer,
+  resolveGatewayUrl,
+} from "./gateway_pointer.js";
 
 ## app-server/src/index.d.ts
 
@@ -6939,7 +7229,8 @@ export function normalizeGatewayUrl(value: string): string;
 export type GatewaySessionProxyOptions = {
   /** Short app id (e.g. "abstractflow"); prefixes cookies + the app CSRF header. */
   appId: string;
-  defaultGatewayUrl?: string;
+  /** A URL, or a resolver re-read when a connection fails. Default: ABSTRACTGATEWAY_URL (legacy) > pointer > 8080. */
+  defaultGatewayUrl?: string | { current(): string; refresh(): boolean };
   connectionPath?: string;
   proxyPrefix?: string;
   allowRemoteConfigEnvVars?: string[];
@@ -6961,6 +7252,111 @@ export type GatewaySessionProxy = {
 };
 
 export function createGatewaySessionProxy(options: GatewaySessionProxyOptions): GatewaySessionProxy;
+
+// ---- Serving under the gateway's /apps/<id>/ (mount.js) -------------------
+
+export const APP_IDENTITY_HEADER: "X-AbstractFramework-App";
+export const FORWARDED_PREFIX_HEADER: "X-Forwarded-Prefix";
+
+/** A request to refuse (status 400): malformed forwarded header or unknown client address. */
+export class MountRequestError extends Error {
+  status: number;
+  constructor(message: string, status?: number);
+}
+
+export type RequestContext = Readonly<{
+  /** The browser's address (X-Forwarded-For from a loopback peer, else the socket peer). */
+  clientAddress: string;
+  clientIsLoopback: boolean;
+  /** "" or the validated X-Forwarded-Prefix, e.g. "/apps/flow" (no trailing slash). */
+  basePath: string;
+  proto: "http" | "https";
+  host: string;
+  /** A loopback peer sent X-Forwarded-* headers. */
+  forwarded: boolean;
+}>;
+
+export function isLoopbackAddress(addr: string): boolean;
+/** `localhost`, `*.localhost`, `::1` or a 127.x IP literal (never a DNS name). */
+export function isLoopbackHostname(host: string): boolean;
+export function socketPeerAddress(req: IncomingMessage): string;
+export function validateBasePath(raw: string | undefined | null): string;
+/** Memoized per request. Throws MountRequestError. */
+export function requestContext(req: IncomingMessage): RequestContext;
+export function identityHeaderValue(appId: string): string;
+export function setIdentityHeader(res: ServerResponse, appId: string): void;
+export function appPath(basePath: string, path?: string): string;
+export function cookiePath(basePath: string): string;
+export function serializeCookie(
+  name: string,
+  value: string,
+  options?: { basePath?: string; path?: string; httpOnly?: boolean; secure?: boolean; maxAge?: number; sameSite?: "Lax" | "Strict" | "None" }
+): string;
+/** First value wins (the most specific cookie Path is sent first). */
+export function parseCookies(reqOrHeader: IncomingMessage | string): Record<string, string>;
+export function injectShell(html: string, options?: { basePath?: string; config?: Record<string, unknown> }): string;
+export function createMountedHandler(
+  options: { appId: string },
+  handler: (req: IncomingMessage, res: ServerResponse, ctx: RequestContext) => void
+): (req: IncomingMessage, res: ServerResponse) => void;
+export function rejectUpgrade(socket: import("node:net").Socket | import("node:stream").Duplex, status: number, message?: string): void;
+
+// ---- Launch flags (flags.js) -----------------------------------------------
+
+export class FlagError extends Error {}
+
+export type AppFlagSpec = { type: "boolean" | "string"; help?: string; metavar?: string };
+
+export type AppFlagsOptions = {
+  appName?: string;
+  command?: string;
+  /** Legacy env prefix: "<PREFIX>_GATEWAY_URL". */
+  envPrefix?: string;
+  defaultPort: number;
+  defaultHost?: string;
+  extra?: Record<string, AppFlagSpec>;
+  env?: Record<string, string | undefined>;
+  savedUrl?: string;
+  home?: string;
+  warn?: (message: string) => void;
+};
+
+export type AppFlags = {
+  help: boolean;
+  usage: string;
+  port: number;
+  host: string;
+  gatewayUrl: string;
+  gatewayUrlSource: GatewayUrlSource;
+  extra: Record<string, string | boolean | undefined>;
+};
+
+export function parseAppFlags(argv: readonly string[], options: AppFlagsOptions): AppFlags;
+export function parseAppFlagsOrExit(argv: readonly string[], options: AppFlagsOptions): AppFlags;
+export function appUsage(options: AppFlagsOptions): string;
+
+// ---- Local gateway pointer (gateway_pointer.js, backlog 0943) -------------
+
+export const POINTER_SCHEMA: 1;
+export const BUILTIN_GATEWAY_URL: "http://127.0.0.1:8080";
+export type GatewayUrlSource = "flag" | `env:${string}` | "saved" | "pointer" | "default";
+
+export type GatewayPointer =
+  | { ok: true; url: string; port: number; data_dir: string | null; written_by: string | null; updated_at: string | null; path: string }
+  | { ok: false; reason: string; path: string; warning?: string };
+
+export function gatewayPointerPath(home?: string): string;
+export function readGatewayPointer(options?: { home?: string; path?: string; getuid?: () => number; platform?: string }): GatewayPointer;
+export function resolveGatewayUrl(options?: {
+  flag?: string;
+  env?: Array<[string, string | undefined]>;
+  savedUrl?: string;
+  home?: string;
+  warn?: (message: string) => void;
+}): { url: string; source: GatewayUrlSource };
+
+export type GatewayUrlResolver = { current(): string; source(): GatewayUrlSource; refresh(): boolean };
+export function createGatewayUrlResolver(options?: Parameters<typeof resolveGatewayUrl>[0]): GatewayUrlResolver;
 
 ## panel-chat/src/index.ts
 
@@ -7047,11 +7443,41 @@ export {
   type FromAutomationBadgeProps,
 } from "./automation_badges.js";
 export {
+  AUTOMATION_TURN_TITLES,
   AutomationPanelWithMarkdown,
   automationRenderers,
   renderAutomationText,
+  renderAutomationTurn,
   type AutomationPanelWithMarkdownProps,
 } from "./automation_markdown.js";
+export { presentInteraction, type InteractionController, type PresentInteractionOptions } from "./present_interaction.js";
+export {
+  WorkspaceBrowser,
+  WorkspaceBrowserView,
+  deliverBlob,
+  openGatewayResource,
+  formatBytes,
+  gatewayResponseError,
+  listWorkspaceFolder,
+  loadRunWorkspace,
+  loadWorkspaceView,
+  parseWorkspaceListing,
+  readWorkspaceFile,
+  sortWorkspaceEntries,
+  tabOpenPlan,
+  workspaceContentUrl,
+  workspaceCrumbs,
+  workspaceFilesUrl,
+  workspaceHiddenNote,
+  workspaceInfoUrl,
+  workspaceParent,
+  type GatewayFetch,
+  type RunWorkspace,
+  type WorkspaceBrowserProps,
+  type WorkspaceBrowserViewProps,
+  type WorkspaceEntry,
+  type WorkspaceListing,
+} from "./workspace_browser.js";
 
 ## panel-chat/src/chat_message_card.tsx
 
@@ -7715,22 +8141,59 @@ function safeHref(href: string): string | undefined {
   return undefined;
 }
 
+/** Resolves relative sources when no page is available (server rendering). */
+const SENTINEL_BASE = "http://same-origin.invalid/";
+
+/**
+ * A relative reference ("api/gateway/…", "./out/a.png"): one the URL parser
+ * resolves onto the base's own origin with http(s). Schemes (`javascript:`,
+ * `data:`), protocol-relative `//host` and `/\host` all resolve elsewhere.
+ */
+function isRelativeReference(value: string): boolean {
+  try {
+    const resolved = new URL(value, SENTINEL_BASE);
+    return resolved.protocol === "http:" && resolved.origin === new URL(SENTINEL_BASE).origin;
+  } catch {
+    return false;
+  }
+}
+
+/** An image source the renderer may use: a safe href, or a relative reference (the kit's own "api/gateway/…" routes). */
+function safeImageSrc(src: string): string | undefined {
+  const value = String(src || "").trim();
+  return safeHref(value) ?? (value && isRelativeReference(value) ? value : undefined);
+}
+
 /** Which images a `Markdown` render loads; null = every image (`images="inline"`). */
 let inlineImagePolicy: ((src: string) => boolean) | null = null;
 
 /**
  * Default rule for `images="link"`: an image loads only from the page's own
- * origin — a root-relative path (such as a gateway workspace content route
- * behind the app's proxy) or an absolute URL with the current origin.
- * Protocol-relative (`//host/…`) and every other host become links.
+ * origin. The source is resolved like the browser resolves it — against
+ * `document.baseURI` — so a RELATIVE path (the kit's own "api/gateway/…"
+ * workspace content route, which resolves under an app mounted at
+ * /apps/<id>/), a root-relative path and an absolute URL with the page's
+ * origin all load. Protocol-relative (`//host/…`, `/\host`), another origin,
+ * and every non-http(s) scheme (`javascript:`, `data:`, `blob:`, …) become
+ * links. Without a document (server rendering), a source that resolves to
+ * no other origin — i.e. a relative one — counts as same-origin.
  */
 export function sameOriginImage(src: string): boolean {
   const value = String(src || "").trim();
-  if (value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\")) return true;
-  if (!/^https?:\/\//i.test(value)) return false;
-  const origin = typeof window !== "undefined" ? window.location?.origin : undefined;
-  if (!origin || origin === "null") return false;
-  try { return new URL(value).origin === origin; } catch { return false; }
+  if (!value) return false;
+  const pageBase = typeof document !== "undefined" && document.baseURI ? document.baseURI : null;
+  // No document: resolve against a sentinel origin; only a source that stays on it is relative.
+  const base = pageBase ?? SENTINEL_BASE;
+  let origin: string;
+  let resolved: URL;
+  try {
+    origin = new URL(base).origin;
+    resolved = new URL(value, base);
+  } catch {
+    return false;
+  }
+  if (resolved.protocol !== "http:" && resolved.protocol !== "https:") return false;
+  return resolved.origin === origin;
 }
 
 /** An image the policy refuses: a plain link, never a request. */
@@ -7763,7 +8226,7 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
         const hrefEnd = s.indexOf(")", labelEnd + 2);
         if (hrefEnd !== -1) {
           const alt = s.slice(i + 2, labelEnd);
-          const src = safeHref(s.slice(labelEnd + 2, hrefEnd));
+          const src = safeImageSrc(s.slice(labelEnd + 2, hrefEnd));
           if (src && inlineImagePolicy && !inlineImagePolicy(src)) {
             flush();
             out.push(imageLink(`img:${i}`, src, alt));
@@ -8075,7 +8538,7 @@ function renderMarkdown({
 
     const imageM = line.match(/^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$/);
     if (imageM) {
-      const src = safeHref(imageM[2] || "");
+      const src = safeImageSrc(imageM[2] || "");
       if (src && inlineImagePolicy && !inlineImagePolicy(src)) {
         blocks.push(<p key={`p:${i}`} className="pc-md_p">{imageLink(`img:${i}`, src, imageM[1] || "")}</p>);
         i += 1;
@@ -8602,7 +9065,7 @@ function _isAbsoluteUrl(s) {
 }
 
 export function makeGpuMetricsUrl({ baseUrl, endpoint }) {
-  const ep = String(endpoint || "/api/gateway/host/metrics/gpu");
+  const ep = String(endpoint || "api/gateway/host/metrics/gpu");
   if (_isAbsoluteUrl(ep)) {
     return ep;
   }
@@ -8708,7 +9171,7 @@ import { extractUtilizationGpuPct, fetchHostGpuMetrics } from "./gpu_metrics_api
 const DEFAULTS = Object.freeze({
   tickMs: 1500,
   historySize: 20,
-  endpoint: "/api/gateway/host/metrics/gpu",
+  endpoint: "api/gateway/host/metrics/gpu",
   baseUrl: "",
   mode: "full", // "full" | "icon"
 });
@@ -9407,7 +9870,7 @@ function _isAbsoluteUrl(s) {
 }
 
 export function makeMemoryMetricsUrl({ baseUrl, endpoint } = {}) {
-  const ep = String(endpoint || "/api/gateway/host/metrics/memory");
+  const ep = String(endpoint || "api/gateway/host/metrics/memory");
   if (_isAbsoluteUrl(ep)) {
     return ep;
   }
@@ -9630,7 +10093,7 @@ import { acceleratorLabel, extractMemoryUsage, fetchHostMemoryMetrics, formatByt
 
 const DEFAULTS = Object.freeze({
   tickMs: 5000,
-  endpoint: "/api/gateway/host/metrics/memory",
+  endpoint: "api/gateway/host/metrics/memory",
   baseUrl: "",
   mode: "full", // "full" | "icon"
 });
@@ -10509,6 +10972,83 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## Unreleased
+
+### All browser packages: relative same-origin URLs
+
+- Changed: every same-origin default is RELATIVE — `api/connection/gateway`,
+  `api/gateway/commands`, `api/gateway/automations`, `api/gateway/trigger-sources`,
+  `api/gateway/runs/{id}/workspace…`, `api/gateway/host/metrics/{gpu,memory}` — never rooted at
+  `/`. Apps are now served under a base path (AbstractGateway's `/apps/<id>/`); a rooted default
+  escaped the app's base and missed its server. Hosts that relied on the old rooted defaults pass
+  the explicit override (`connectionPath`, `commandsPath`, `baseUrl`, `endpoint`,
+  `fetchGateway`). The page URL must end with `/`.
+- Added: ui-kit `gateway_paths.ts`, the one source: `GATEWAY_API_PATH`,
+  `GATEWAY_CONNECTION_PATH`, `gatewayApiPath(route)` and `joinBaseUrl(baseUrl, path)` (both refuse
+  a rooted argument). `createAutomationsClient({ baseUrl })` joins with it: "" keeps requests
+  relative to the page; `http://host:8080` and `https://host/prefix/` prefix them.
+- Changed: links the kit rendered straight from gateway data are gone. `AutomationPanel` no longer
+  renders `ledger_url` or `artifacts[].url` as hrefs (they are rooted at the gateway and bypassed
+  the app's session under `/apps/<id>/` and a standalone app's proxy). Added `onOpenResource(resource)`
+  (`GatewayResource`: `kind` ledger/artifact, the server's `url`, `name`, `mimeType`, `runId`):
+  artifact names and a **Ledger (JSON)** button call it; without it artifacts are plain names and
+  there is no ledger JSON button. Added ui-kit `gatewayResourcePath(serverUrl)` (gateway-rooted →
+  app-relative; anything else throws), panel-chat `openGatewayResource(fetchGateway, url,
+  { name, mode? })` (fetch through the host, open with `tabOpenPlan`) and `deliverBlob(blob, name,
+  mode)`, and `AutomationPanelWithMarkdown`'s `fetchGateway` prop, which wires
+  `onOpenResource` through it. The contract fixtures are unchanged: the gateway keeps sending
+  rooted paths; the client maps them.
+- Added: `scripts/check_relative_urls.mjs`, run last by the root `npm test`: fails on any
+  root-absolute same-origin literal (`/api/`, `/assets/`, `/apps/`) in the sources and built
+  output of ui-kit (incl. the console islands bundle), panel-chat and the monitors, and when a
+  build directory is missing. No allowlist.
+
+### panel-chat: images
+
+- Fixed: `sameOriginImage` (the default image rule for `images="link"`, used by
+  `ChatMessageCard`) accepts RELATIVE paths such as the kit's own `api/gateway/…` workspace content
+  routes: a source is resolved against `document.baseURI` and loads only when it is http(s) on
+  the page's own origin, so it works for an app mounted at `/apps/<id>/` without the host
+  rewriting paths to absolute URLs. Protocol-relative `//host` and `/\host`, other origins and
+  ports, and `javascript:` / `data:` / `blob:` / `file:` sources stay links (or are dropped).
+  `Markdown` now parses relative image sources (links keep their existing rule).
+
+### ui-kit
+
+- Added: `AutomationStateLabel` renders an automation's state as the word then an icon
+  ("Active ▶", "Paused ⏸"; Completed, Failed and Archived likewise) — the one rendering every
+  client uses (operator requirement 2026-09-28). `STATUS_LABELS` (the words) and `STATUS_ICONS`
+  (the icons) are exported. `AutomationPanel`'s header uses it instead of the bare word.
+- Added: icons `play`, `stop`, `folder`, `file`, `archive` and `clock` (24-grid, stroke 2;
+  `play` and `stop` solid like `pause`).
+- Added: `AutomationPanel` `onOpenWorkspace(runId)`: a folder button on the header's Workspace
+  fact (called with the automation id, which is its controller run) and a **Workspace** button in
+  each run's details (called with that run's id). Changed: the run details no longer link to the
+  raw workspace route — that link showed JSON and failed in token mode (no bearer token); without
+  `onOpenWorkspace` no folder control is shown.
+- Added: `AutomationPanel` `renderTurn(turn)` seam (`AutomationTurn`: `kind` trigger/answer,
+  `role`, `text`, `index`, `runId`; type `RenderTurn`), so a host renders each occurrence turn as
+  its chat message card; without it the turn's text goes through `renderText` as before.
+
+### panel-chat
+
+- Changed: `AutomationPanelWithMarkdown` / `automationRenderers` render each occurrence turn as
+  the shared `ChatMessageCard` (a user card titled "Trigger", an assistant card titled
+  "Automation", with the copy button; remote images as links on both). New exports
+  `renderAutomationTurn()` and `AUTOMATION_TURN_TITLES`; `automationRenderers` is now
+  `{renderText, renderTurn}`.
+- Added: `WorkspaceBrowser` (moved from AbstractObserver): browse a run's folder on the gateway
+  host — breadcrumbs, folders first, sizes, entries hidden by the gateway's rules counted — and
+  open or download files, fetched through the host's credentialed `fetchGateway(path, init)`
+  (works in token mode and on a remote gateway). HTML, SVG, XML and other text open as plain
+  text: a blob URL runs with the app's origin, so a model-written page must never execute
+  there. `onSelectFile` / `selectedPath` let a host with its own preview (AbstractCode) use it.
+  Hook-free `WorkspaceBrowserView` and helpers (`loadWorkspaceView`, `parseWorkspaceListing`
+  — malformed answers fail loudly — `tabOpenPlan`, URL builders and formatters) are exported.
+- Added: `presentInteraction(wait, controller, options?)` (moved from AbstractCode web): the one
+  mapping from a runtime wait to the `WorkflowChat` control — tool approval (Allow all only with
+  `options.onPermissionsAll`), question, event wait (refused when it cannot be routed).
 
 ## 0.1.13 - 2026-09-27
 

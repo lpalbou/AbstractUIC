@@ -19,6 +19,7 @@
  * text IS the operator guidance).
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { gatewayApiPath } from "./gateway_paths.js";
 
 export type SteerSubmitResult = { accepted: boolean; duplicate: boolean; seq: number };
 
@@ -81,7 +82,7 @@ export async function submitSteer(opts: {
   commandsPath?: string;
   csrfToken?: string;
 }): Promise<SteerSubmitResult> {
-  const path = opts.commandsPath || "/api/gateway/commands";
+  const path = opts.commandsPath || gatewayApiPath("commands");
   // Same command_id across retries: the door's idempotency key means a
   // csrf-retry can never queue the steer twice.
   const commandId = newCommandId();

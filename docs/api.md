@@ -16,6 +16,7 @@ For ecosystem context (AbstractFramework / AbstractCore / AbstractRuntime) and t
 
 - All React packages are ESM (`"type": "module"`) and declare `react@^18` / `react-dom@^18` as peer dependencies (see each `*/package.json`).
 - **CSS is shipped as a separate export and must be imported by the host app** (do this in your app entrypoint, especially for Next.js).
+- **Same-origin requests use RELATIVE paths** (`api/gateway/…`, `api/connection/gateway`), so an app served under a base path (AbstractGateway's `/apps/<id>/`, a reverse-proxy prefix) reaches its own server. The page URL must end with `/` (the app servers' mounts guarantee it). The one source is ui-kit's `gateway_paths.ts`: `GATEWAY_API_PATH`, `GATEWAY_CONNECTION_PATH`, `gatewayApiPath(route)`, `joinBaseUrl(baseUrl, path)` and `gatewayResourcePath(serverUrl)` (a gateway-rooted URL from the gateway's data, e.g. an automation's `ledger_url` or artifact URL, mapped to the app-relative path; open it with panel-chat `openGatewayResource(fetchGateway, url, { name, mode? })`, never as a raw href). Every requesting piece keeps an explicit override: `connectionPath` (`GatewayConnectModal`, `useGatewayConnection`, `fetchGatewayConnection` / `signInGateway` / `signOutGateway`), `commandsPath` (`SteerComposer`, `submitSteer`), `baseUrl` (`createAutomationsClient`, the monitors' `base-url`), `endpoint` (monitors) and `fetchGateway` (panel-chat `WorkspaceBrowser`). `scripts/check_relative_urls.mjs` (run by the root `npm test`) fails on any root-absolute same-origin literal in the browser packages' sources and builds.
 
 CSS entrypoints (files live in each package’s `src/`):
 
@@ -53,7 +54,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`; `VoiceSettings` (catalog-driven voice preferences form)
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
 - Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation on a fixed UTC interval or once), `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
-- Icons: `Icon`, `IconName` (~40 glyphs, 24-grid and 16-grid families)
+- Icons: `Icon`, `IconName` (~45 glyphs, 24-grid and 16-grid families; `play`, `stop`, `folder`, `file`, `archive`, `clock` added for automations)
 - Palette seeds: `@abstractframework/ui-kit/palette_seeds.json` (generated 4-token palette per theme)
 
 See: [`ui-kit/README.md`](../ui-kit/README.md) and the [Adoption guide](./adoption-guide.md).
@@ -94,6 +95,8 @@ Components:
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
+- `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow all enabled tools" only with `onPermissionsAll`), question (`ask_user`, choices and free text) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. Types `PresentInteractionOptions`, `InteractionController`
+- `WorkspaceBrowser` — a run's folder on the gateway host through the CONTRACTS §W routes (`GET /runs/{id}/workspace`, `/workspace/files`, `/workspace/content`): breadcrumbs, folders first, sizes, "N entries hidden by the gateway's workspace rules", Open / Download per file (fetched with the host's credentials, never linked; HTML, SVG, XML and other text open as plain text because a blob URL runs with the app's origin), or `onSelectFile` + `selectedPath` for a host preview. Props: `fetchGateway(path, init)` (the host joins the gateway-relative path to its base URL and adds its auth), `runId` (an automation's id browses the automation's folder), `title`, `note?`, `onClose?`, `refreshKey?`, `className?`. Hook-free `WorkspaceBrowserView` and helpers: `loadWorkspaceView()`, `loadRunWorkspace()`, `listWorkspaceFolder()`, `readWorkspaceFile()`, `parseWorkspaceListing()` (malformed answers throw), `gatewayResponseError()`, `tabOpenPlan()`, `workspaceInfoUrl()` / `workspaceFilesUrl()` / `workspaceContentUrl()`, `workspaceCrumbs()`, `workspaceParent()`, `sortWorkspaceEntries()`, `workspaceHiddenNote()`, `formatBytes()`; types `GatewayFetch`, `RunWorkspace`, `WorkspaceEntry`, `WorkspaceListing`, `WorkspaceBrowserProps`, `WorkspaceBrowserViewProps`
 
 Renderers:
 - `Markdown` (lightweight Markdown with real nested lists, marker progression, fenced code
@@ -117,16 +120,30 @@ See: [`panel-chat/README.md`](../panel-chat/README.md) and [FAQ](./faq.md) (sear
 
 ## `@abstractframework/app-server`
 
-Purpose: Node.js **gateway session proxy** for app servers (the server-side half of the
-connection surface — pairs with `GatewayConnectModal`/`useGatewayConnection`).
+Purpose: the server side every browser app shares: serving under the gateway's
+`/apps/<id>/` (mount), the launch flags, the local gateway pointer, and the **gateway session
+proxy** (the server-side half of the connection surface — pairs with
+`GatewayConnectModal`/`useGatewayConnection`).
 
-- Exports: `createGatewaySessionProxy(options)`, `normalizeGatewayUrl()` (see `app-server/src/index.js`, types in `app-server/src/index.d.ts`)
+- Mount: `createMountedHandler({appId}, handler)`, `requestContext(req)` →
+  `{clientAddress, clientIsLoopback, basePath, proto, host, forwarded}` (forwarded headers
+  believed from a loopback peer only), `injectShell(html, {basePath, config})`,
+  `appPath`, `cookiePath`, `serializeCookie`, `parseCookies` (first value wins),
+  `setIdentityHeader` (`X-AbstractFramework-App: <id>; mount=1`), `rejectUpgrade`,
+  `validateBasePath`, `MountRequestError`. See
+  [`app-server/README.md`](../app-server/README.md#serving-under-the-gateway-appsid).
+- Flags: `parseAppFlags` / `parseAppFlagsOrExit` (`--gateway-url` with `--gateway`/`--url`
+  aliases, `--port`, `--host`, `--help`; env only as legacy alias).
+- Gateway pointer: `resolveGatewayUrl`, `createGatewayUrlResolver`, `readGatewayPointer`
+  (`~/.abstractframework/gateway.json`; shared cases in
+  `ui-kit/scripts/fixtures/gateway_pointer/`).
+- Session proxy: `createGatewaySessionProxy(options)`, `normalizeGatewayUrl()` (see `app-server/src/index.js`, types in `app-server/src/index.d.ts`)
 - What it does: exchanges a Gateway user token for HttpOnly session cookies
   (`POST /api/connection/gateway`), proxies `/api/gateway/*` with the server-held session,
   enforces CSRF on mutating requests, pins the Gateway URL for non-loopback clients, and strips
   credential-bearing headers in both directions. Tokens never rest in the browser. Every call
-  to the Gateway carries `X-Forwarded-For` set to the browser connection's socket address
-  (client-supplied forwarding headers are replaced, never passed through) and
+  to the Gateway carries `X-Forwarded-For` set to the browser's address
+  (`requestContext(req).clientAddress`; written once, never appended) and
   `X-AbstractFramework-App-Proxy: <appId>` (a client-supplied value is dropped). A connection
   whose socket address cannot be determined gets `400`.
 - Options (`GatewaySessionProxyOptions`): `appId` (required, `[a-z0-9-]+`; names the cookies and
@@ -137,7 +154,7 @@ connection surface — pairs with `GatewayConnectModal`/`useGatewayConnection`).
   the built-in `ABSTRACTGATEWAY_*` and `<APPID>_*` ones). See
   [`app-server/README.md`](../app-server/README.md#options).
 - Tests: `npm --workspace app-server test` (dependency-free; runs
-  `app-server/test/gateway_session_proxy.test.mjs` against a stub gateway).
+  the session proxy, mount and flags/pointer tests against stub gateways and the fixture app).
 
 See: [Adoption guide](./adoption-guide.md) for the full connection-surface contract.
 

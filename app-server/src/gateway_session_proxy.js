@@ -19,7 +19,9 @@
  *  - SSE/EventSource rides the same origin cookies (EventSource cannot carry
  *    Bearer headers — this proxy IS how authenticated live tails work).
  *  - Every request this proxy sends to the gateway on behalf of a browser
- *    carries `X-Forwarded-For: <socket peer of the browser connection>`,
+ *    carries `X-Forwarded-For: <the browser's address>` — the connection's
+ *    socket peer, or, behind the gateway's `/apps/<id>/` proxy (a loopback
+ *    peer), the address it forwarded (mount.js `requestContext`),
  *    OVERWRITING any client-supplied value (never appended, never passed
  *    through). The gateway trusts that header only from its loopback proxy
  *    and uses it to decide whether the browser runs on the gateway's machine
@@ -30,11 +32,17 @@
  *    `X-AbstractFramework-App-Proxy: <appId>` (any client-supplied value is
  *    dropped): the gateway's same-machine fail-safe keys on this marker to
  *    know the request came through an app proxy (REVIEW/09).
+ *  - Mounted under a base path (`X-Forwarded-Prefix` from a loopback peer),
+ *    the session cookies carry `Path=<basePath>/`; with two cookies of the
+ *    same name the first (most specific path) wins.
  */
 
 import * as http from "node:http";
 import * as https from "node:https";
 import { timingSafeEqual as cryptoTimingSafeEqual } from "node:crypto";
+
+import { createGatewayUrlResolver } from "./gateway_pointer.js";
+import { MountRequestError, isLoopbackAddress, isLoopbackHostname, parseCookies, requestContext, serializeCookie } from "./mount.js";
 
 const TRUE_VALUES = new Set(["1", "true", "yes", "y", "on"]);
 const HOP_BY_HOP_HEADERS = new Set([
@@ -81,23 +89,6 @@ export function normalizeGatewayUrl(value) {
     break;
   }
   return raw.replace(/\/+$/, "");
-}
-
-function parseCookies(req) {
-  const out = {};
-  for (const part of String(req?.headers?.cookie || "").split(";")) {
-    const idx = part.indexOf("=");
-    if (idx < 0) continue;
-    const key = part.slice(0, idx).trim();
-    const value = part.slice(idx + 1).trim();
-    if (!key) continue;
-    try {
-      out[key] = decodeURIComponent(value);
-    } catch {
-      out[key] = value;
-    }
-  }
-  return out;
 }
 
 function cookieValueFromSetCookie(rawHeaders, name) {
@@ -175,7 +166,10 @@ function mutatingMethod(method) {
  *  - appId (REQUIRED): short id, e.g. "abstractflow" — prefixes cookies and
  *    the app CSRF header (`x-<appId>-csrf`); the canonical `x-abstract-csrf`
  *    header is always accepted too, so shared UI components work everywhere.
- *  - defaultGatewayUrl: server-pinned gateway (default http://127.0.0.1:8080).
+ *  - defaultGatewayUrl: server-pinned gateway: a URL string, or a resolver
+ *    from createGatewayUrlResolver() (re-read when a connection fails).
+ *    Default: ABSTRACTGATEWAY_URL (legacy), else the local gateway pointer,
+ *    else http://127.0.0.1:8080.
  *  - connectionPath: default "/api/connection/gateway".
  *  - proxyPrefix: default "/api/" (everything under it except connectionPath
  *    proxies to the gateway).
@@ -199,8 +193,16 @@ export function createGatewaySessionProxy(options) {
   // Marker the gateway keys its same-machine fail-safe on (REVIEW/09).
   const APP_PROXY_HEADER = "X-AbstractFramework-App-Proxy";
 
-  const DEFAULT_GATEWAY_URL =
-    normalizeGatewayUrl(opts.defaultGatewayUrl || process.env.ABSTRACTGATEWAY_URL || "") || "http://127.0.0.1:8080";
+  const gatewayUrlResolver =
+    opts.defaultGatewayUrl && typeof opts.defaultGatewayUrl === "object"
+      ? opts.defaultGatewayUrl
+      : opts.defaultGatewayUrl
+        ? { current: () => normalizeGatewayUrl(opts.defaultGatewayUrl), refresh: () => false }
+        : createGatewayUrlResolver({ env: [["ABSTRACTGATEWAY_URL", process.env.ABSTRACTGATEWAY_URL]] });
+  if (typeof gatewayUrlResolver.current !== "function" || typeof gatewayUrlResolver.refresh !== "function") {
+    throw new Error("createGatewaySessionProxy: defaultGatewayUrl must be a URL string or a resolver {current(), refresh()}");
+  }
+  const defaultGatewayUrl = () => normalizeGatewayUrl(gatewayUrlResolver.current()) || "http://127.0.0.1:8080";
   const CONNECTION_PATH = String(opts.connectionPath || "/api/connection/gateway");
   const PROXY_PREFIX = String(opts.proxyPrefix || "/api/");
   const TIMEOUT_MS = Number.isFinite(opts.gatewayTimeoutMs) ? opts.gatewayTimeoutMs : 4000;
@@ -238,37 +240,30 @@ export function createGatewaySessionProxy(options) {
     return raw.toLowerCase();
   }
 
-  function isLoopbackHostname(hostname) {
-    const h = String(hostname || "").trim().toLowerCase();
-    return h === "localhost" || h === "localhost.localdomain" || h === "::1" || h.startsWith("127.");
+  /**
+   * The browser's address: the connection's socket peer, or, from a
+   * loopback peer (the gateway's `/apps/<id>/` proxy), the address it
+   * forwarded in X-Forwarded-For (mount.js `requestContext`). Never the Host
+   * header. Throws MountRequestError for an unknown peer or a malformed
+   * forwarded header.
+   */
+  function clientAddress(req) {
+    return requestContext(req).clientAddress;
   }
 
   /**
-   * True only when the request's real transport peer is the loopback
-   * interface. This reads req.socket.remoteAddress — the connection's actual
-   * source, which the client CANNOT forge — NOT the Host header, which it
-   * can. IPv4-mapped IPv6 (::ffff:127.0.0.1) is unwrapped. This is the SSRF
-   * gate: a LAN peer sending `Host: localhost` against an all-interfaces
-   * bind must NOT unlock browser-supplied gateway URLs (security report
-   * entity c1768, live-exposed per agency c1770; endorsed by continuum
-   * c1769 whose hub proxy carries the operator's seat key on the same port).
+   * True only when the BROWSER is on this machine (its clientAddress is
+   * loopback). This is the SSRF gate: a LAN peer sending `Host: localhost`
+   * against an all-interfaces bind must NOT unlock browser-supplied gateway
+   * URLs (security report entity c1768), and neither may a remote browser
+   * reaching the app through the gateway's loopback proxy.
    */
   function isLoopbackPeer(req) {
-    let addr = String(req?.socket?.remoteAddress || "").trim().toLowerCase();
-    if (!addr) return false;
-    if (addr.startsWith("::ffff:")) addr = addr.slice(7); // IPv4-mapped IPv6
-    return addr === "::1" || addr === "127.0.0.1" || addr.startsWith("127.");
-  }
-
-  /**
-   * The browser connection's real transport peer (req.socket.remoteAddress),
-   * IPv4-mapped IPv6 unwrapped, or "" when unknown. Headers are never read:
-   * a client-supplied X-Forwarded-For must not reach the gateway.
-   */
-  function socketPeerAddress(req) {
-    let addr = String(req?.socket?.remoteAddress || "").trim().toLowerCase();
-    if (addr.startsWith("::ffff:") && addr.includes(".")) addr = addr.slice(7);
-    return addr;
+    try {
+      return isLoopbackAddress(clientAddress(req));
+    } catch {
+      return false;
+    }
   }
 
   function remoteConfigAllowed(req) {
@@ -281,9 +276,22 @@ export function createGatewaySessionProxy(options) {
     // deployments must set the explicit opt-in above; there is no
     // socket-derived unlock behind a trusted proxy.
     if (anyEnvBool(TRUST_PROXY_ENVS)) return false;
-    // Otherwise the ONLY unlock is a genuine loopback PEER — the Host header
-    // is never trusted for this decision.
-    return isLoopbackPeer(req);
+    // Otherwise the unlock needs a genuine loopback CLIENT (the socket peer,
+    // or the address the gateway's loopback proxy forwarded) AND a loopback
+    // HOST. DNS rebinding: a page at a hostile name that resolves to
+    // 127.0.0.1 reaches this server over a loopback socket with its own Host
+    // header, and as a same-origin script it can add X-Forwarded-* headers
+    // too. So the raw Host must name loopback, and so must X-Forwarded-Host
+    // when a loopback peer sends one (the gateway sends the browser's host).
+    if (!isLoopbackPeer(req)) return false;
+    if (!isLoopbackHostname(firstHeaderValue(req?.headers?.host))) return false;
+    const forwardedHost = req?.headers?.["x-forwarded-host"];
+    if (forwardedHost !== undefined && !isLoopbackHostname(firstHeaderValue(forwardedHost))) return false;
+    return true;
+  }
+
+  function firstHeaderValue(value) {
+    return String(Array.isArray(value) ? value[0] : value || "").split(",", 1)[0].trim();
   }
 
   function remoteConfigDenial(req) {
@@ -294,32 +302,39 @@ export function createGatewaySessionProxy(options) {
     );
   }
 
+  /** Secure cookies when the browser used https: X-Forwarded-Proto is
+   * believed from a loopback peer only (mount.js requestContext), like every
+   * other forwarded header. */
   function cookieSecure(req) {
-    return String(req?.headers?.["x-forwarded-proto"] || "").trim().toLowerCase() === "https" ? "; Secure" : "";
+    return requestContext(req).proto === "https";
   }
 
   function setSessionCookies(res, req, gatewayUrl, sessionId, csrfToken, persist) {
-    const secure = cookieSecure(req);
-    const maxAge = persist ? "; Max-Age=2592000" : "";
-    const attrs = `; Path=/; HttpOnly; SameSite=Lax${secure}${maxAge}`;
-    const csrfAttrs = `; Path=/; SameSite=Lax${secure}${maxAge}`;
+    const common = { basePath: requestContext(req).basePath, secure: cookieSecure(req), maxAge: persist ? 2592000 : undefined };
     res.setHeader("Set-Cookie", [
-      `${URL_COOKIE}=${encodeURIComponent(gatewayUrl)}${attrs}`,
-      `${SESSION_COOKIE}=${encodeURIComponent(sessionId)}${attrs}`,
-      `${CSRF_COOKIE}=${encodeURIComponent(csrfToken)}${csrfAttrs}`,
+      serializeCookie(URL_COOKIE, gatewayUrl, { ...common, httpOnly: true }),
+      serializeCookie(SESSION_COOKIE, sessionId, { ...common, httpOnly: true }),
+      serializeCookie(CSRF_COOKIE, csrfToken, common),
     ]);
   }
 
   function clearSessionCookies(res, req) {
+    const { basePath } = requestContext(req);
     const secure = cookieSecure(req);
-    res.setHeader("Set-Cookie", [
-      `${URL_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`,
-      `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`,
-      `${CSRF_COOKIE}=; Path=/; SameSite=Lax; Max-Age=0${secure}`,
-    ]);
+    // Mounted: clear the Path=/ twins too (left by the app at its own port
+    // on the same host), or they would win again once these are gone.
+    const paths = basePath ? [`${basePath}/`, "/"] : ["/"];
+    const out = [];
+    for (const path of paths) {
+      out.push(serializeCookie(URL_COOKIE, "", { path, httpOnly: true, secure, maxAge: 0 }));
+      out.push(serializeCookie(SESSION_COOKIE, "", { path, httpOnly: true, secure, maxAge: 0 }));
+      out.push(serializeCookie(CSRF_COOKIE, "", { path, secure, maxAge: 0 }));
+    }
+    res.setHeader("Set-Cookie", out);
   }
 
   function browserSession(req) {
+    const DEFAULT_GATEWAY_URL = defaultGatewayUrl();
     const cookies = parseCookies(req);
     const cookieUrl = normalizeGatewayUrl(cookies[URL_COOKIE] || "");
     // The URL cookie is honored only where browser-supplied gateway URLs are
@@ -334,13 +349,25 @@ export function createGatewaySessionProxy(options) {
   }
 
   function resolveBackend(gatewayUrl) {
-    const backend = new URL(String(gatewayUrl || DEFAULT_GATEWAY_URL).trim());
+    const backend = new URL(String(gatewayUrl || defaultGatewayUrl()).trim());
     if (!backend.port) backend.port = backend.protocol === "https:" ? "443" : "80";
     return {
       url: backend,
       origin: `${backend.protocol}//${backend.host}`,
       client: backend.protocol === "https:" ? https : http,
     };
+  }
+
+  /** A refused connection re-reads the local gateway pointer, so a
+   * long-running app follows the gateway onto a new port (backlog 0943). */
+  function noteConnectionError(err) {
+    if (err && (err.code === "ECONNREFUSED" || err.code === "ECONNRESET" || err.code === "EHOSTUNREACH")) {
+      try {
+        gatewayUrlResolver.refresh();
+      } catch {
+        // a resolver failure is not the request's failure
+      }
+    }
   }
 
   function gatewayRequest(gatewayUrl, requestOptions, body) {
@@ -380,20 +407,30 @@ export function createGatewaySessionProxy(options) {
         req.destroy();
         resolve({ ok: false, status: 0, payload: { detail: "Gateway request timed out" }, origin: backend?.origin });
       });
-      req.on("error", (err) =>
-        resolve({ ok: false, status: 0, payload: { detail: String(err?.message || err) }, origin: backend?.origin })
-      );
+      req.on("error", (err) => {
+        noteConnectionError(err);
+        resolve({ ok: false, status: 0, payload: { detail: String(err?.message || err) }, origin: backend?.origin });
+      });
       if (body) req.write(body);
       req.end();
     });
   }
 
-  async function handleConnectionApi(req, res) {
-    const peer = socketPeerAddress(req);
-    if (!peer) {
-      sendJson(res, 400, { detail: "Cannot determine the client address of this connection" });
-      return;
+  /** The browser's address, or null after answering 400. */
+  function clientAddressOr400(req, res) {
+    try {
+      return clientAddress(req);
+    } catch (err) {
+      if (!(err instanceof MountRequestError)) throw err;
+      sendJson(res, err.status || 400, { detail: err.message });
+      return null;
     }
+  }
+
+  async function handleConnectionApi(req, res) {
+    const peer = clientAddressOr400(req, res);
+    if (!peer) return;
+    const DEFAULT_GATEWAY_URL = defaultGatewayUrl();
     if (req.method === "GET") {
       const session = browserSession(req);
       if (!session.sessionId) {
@@ -507,14 +544,11 @@ export function createGatewaySessionProxy(options) {
   }
 
   function proxyApiRequest(req, res) {
+    const peer = clientAddressOr400(req, res);
+    if (!peer) return;
     const session = browserSession(req);
     if (!session.sessionId) {
       sendJson(res, 401, { detail: "Gateway sign-in required" });
-      return;
-    }
-    const peer = socketPeerAddress(req);
-    if (!peer) {
-      sendJson(res, 400, { detail: "Cannot determine the client address of this connection" });
       return;
     }
     if (mutatingMethod(req.method)) {
@@ -551,9 +585,15 @@ export function createGatewaySessionProxy(options) {
     // (contract A-2) — and the marker to this proxy's appId (REVIEW/09).
     for (const k of Object.keys(headers)) {
       const lk = k.toLowerCase();
-      if (lk === "x-forwarded-for" || lk === "x-forwarded-host" || lk === "x-forwarded-proto" || lk === "x-real-ip" || lk === "forwarded" || lk === "x-abstractframework-app-proxy") {
+      if (lk === "x-forwarded-for" || lk === "x-forwarded-host" || lk === "x-forwarded-proto" || lk === "x-forwarded-prefix" || lk === "x-real-ip" || lk === "forwarded" || lk === "x-abstractframework-app-proxy") {
         delete headers[k];
       }
+    }
+    // App-local CSRF headers stay here: the gateway gets its own
+    // (x-abstractgateway-csrf, below), never the app's.
+    for (const k of Object.keys(headers)) {
+      const lk = k.toLowerCase();
+      if (lk === APP_CSRF_HEADER || lk === CANONICAL_CSRF_HEADER) delete headers[k];
     }
     headers["x-forwarded-for"] = peer;
     headers["x-abstractframework-app-proxy"] = appId;
@@ -571,6 +611,7 @@ export function createGatewaySessionProxy(options) {
       }
     );
     proxyReq.on("error", (err) => {
+      noteConnectionError(err);
       if (res.headersSent) {
         res.destroy();
         return;
@@ -608,7 +649,9 @@ export function createGatewaySessionProxy(options) {
     handleConnectionApi,
     proxyApiRequest,
     browserSession,
-    defaultGatewayUrl: DEFAULT_GATEWAY_URL,
+    get defaultGatewayUrl() {
+      return defaultGatewayUrl();
+    },
     connectionPath: CONNECTION_PATH,
     cookieNames: { url: URL_COOKIE, session: SESSION_COOKIE, csrf: CSRF_COOKIE },
     csrfHeaderNames: [APP_CSRF_HEADER, CANONICAL_CSRF_HEADER],

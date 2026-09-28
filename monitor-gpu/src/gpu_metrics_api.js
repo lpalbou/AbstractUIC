@@ -8,7 +8,7 @@ function _isAbsoluteUrl(s) {
 }
 
 export function makeGpuMetricsUrl({ baseUrl, endpoint }) {
-  const ep = String(endpoint || "/api/gateway/host/metrics/gpu");
+  const ep = String(endpoint || "api/gateway/host/metrics/gpu");
   if (_isAbsoluteUrl(ep)) {
     return ep;
   }

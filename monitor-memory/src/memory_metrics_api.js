@@ -8,7 +8,7 @@ function _isAbsoluteUrl(s) {
 }
 
 export function makeMemoryMetricsUrl({ baseUrl, endpoint } = {}) {
-  const ep = String(endpoint || "/api/gateway/host/metrics/memory");
+  const ep = String(endpoint || "api/gateway/host/metrics/memory");
   if (_isAbsoluteUrl(ep)) {
     return ep;
   }

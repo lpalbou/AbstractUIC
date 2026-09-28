@@ -52,7 +52,16 @@ export type IconName =
   // IconSparkle/IconContrast absorbed).
   | "sparkle"
   | "contrast"
-  | "logout";
+  | "logout"
+  // Automations (2026-09-28): state words carry an icon ("Active ▶",
+  // "Paused ⏸") and the workspace facts a folder, in every client. 24-grid,
+  // stroke 2; play/stop are solid like pause so the three read as one set.
+  | "play"
+  | "stop"
+  | "folder"
+  | "file"
+  | "archive"
+  | "clock";
 
 /** Icons drawn on continuum's 16x16 grid (stroke 1.4) vs the kit's 24-grid (stroke 2). */
 const GRID_16: ReadonlySet<IconName> = new Set(["board", "inbox", "server", "agent", "playCircle", "list", "gear"]);
@@ -341,6 +350,35 @@ function paths(name: IconName): React.ReactNode {
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
           <path d="M16 17l5-5-5-5" />
           <path d="M21 12H9" />
+        </>
+      );
+    case "play":
+      return <path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z" fill="currentColor" stroke="none" />;
+    case "stop":
+      return <rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor" stroke="none" />;
+    case "folder":
+      return <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />;
+    case "file":
+      return (
+        <>
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <path d="M14 2v6h6" />
+        </>
+      );
+    case "archive":
+      return (
+        <>
+          <rect x="2" y="3" width="20" height="5" rx="1" />
+          <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+          <path d="M10 12h4" />
+        </>
+      );
+    case "clock":
+      // A plain clock face (hands at 12 and 3); `history` keeps its own glyph.
+      return (
+        <>
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 6v6h4" />
         </>
       );
     default:

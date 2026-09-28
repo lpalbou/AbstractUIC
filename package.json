@@ -14,7 +14,8 @@
   ],
   "scripts": {
     "build": "npm --workspaces --if-present run build",
-    "test": "npm --workspaces --if-present run test",
-    "pack:dry": "npm --workspaces --if-present pack --dry-run"
+    "test": "npm --workspaces --if-present run test && node scripts/check_relative_urls.mjs",
+    "pack:dry": "npm --workspaces --if-present pack --dry-run",
+    "check:urls": "node scripts/check_relative_urls.mjs"
   }
 }

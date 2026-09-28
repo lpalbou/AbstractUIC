@@ -1,24 +1,57 @@
 // Automations v1 — the ui-kit AutomationPanel wired to the SHARED chat
-// renderer. ui-kit cannot import panel-chat (panel-chat depends on ui-kit),
-// so the panel takes a `renderText` seam; this module is the one pairing
-// hosts use, so an automation's turns read exactly like a chat's
-// (`ChatMessageContent`: JSON autodetect + Markdown with tables and code;
-// remote images shown as links, as for assistant messages).
+// rendering. ui-kit cannot import panel-chat (panel-chat depends on ui-kit),
+// so the panel takes two seams; this module is the one pairing hosts use:
+// - `renderTurn`: each occurrence turn (the trigger's message, the run's
+//   answer) is a `ChatMessageCard`, so an automation's transcript reads
+//   exactly like a chat (same card, header, copy button, content renderer);
+// - `renderText`: every other text (wait prompts, notify and attention
+//   bodies, the definition's task) goes through `ChatMessageContent` (JSON
+//   autodetect + Markdown with tables and code).
+// Remote images are links everywhere: automation text is model- or
+// workflow-written, never the user's own.
 import React from "react";
-import { AutomationPanel, type AutomationPanelProps } from "@abstractframework/ui-kit";
+import { AutomationPanel, type AutomationPanelProps, type AutomationTurn, type GatewayResource } from "@abstractframework/ui-kit";
+import { ChatMessageCard } from "./chat_message_card.js";
 import { ChatMessageContent } from "./message_content.js";
+import { openGatewayResource, type GatewayFetch } from "./workspace_browser.js";
 
-/** The chat's renderer for automation text (turns, prompts, bodies). */
+/** The chat's renderer for automation text (prompts, bodies). */
 export function renderAutomationText(text: string): React.ReactElement {
   return <ChatMessageContent text={text} images="link" />;
 }
 
+/** Speaker shown on each turn's card: the trigger sent the message; the automation answered. */
+export const AUTOMATION_TURN_TITLES: Record<AutomationTurn["kind"], string> = { trigger: "Trigger", answer: "Automation" };
+
+/** One occurrence turn as the shared chat card. */
+export function renderAutomationTurn(turn: AutomationTurn): React.ReactElement {
+  return (
+    <ChatMessageCard
+      message={{ id: `${turn.runId}:${turn.kind}`, role: turn.role, content: turn.text, title: AUTOMATION_TURN_TITLES[turn.kind], runId: turn.runId }}
+      images="link"
+    />
+  );
+}
+
 /** Spread into `AutomationPanel`: `<AutomationPanel {...automationRenderers} … />`. */
-export const automationRenderers: { renderText: (text: string) => React.ReactElement } = { renderText: renderAutomationText };
+export const automationRenderers: {
+  renderText: (text: string) => React.ReactElement;
+  renderTurn: (turn: AutomationTurn) => React.ReactElement;
+} = { renderText: renderAutomationText, renderTurn: renderAutomationTurn };
 
-export type AutomationPanelWithMarkdownProps = Omit<AutomationPanelProps, "renderText">;
+export type AutomationPanelWithMarkdownProps = Omit<AutomationPanelProps, "renderText" | "renderTurn"> & {
+  /**
+   * The host's credentialed gateway request. When given (and `onOpenResource`
+   * is not), the ledger JSON and artifact links open through it
+   * (`openGatewayResource`); without either, the panel shows no such links.
+   */
+  fetchGateway?: GatewayFetch;
+};
 
-/** `AutomationPanel` with the shared chat renderer already wired. */
+/** `AutomationPanel` with the shared chat rendering already wired. */
 export function AutomationPanelWithMarkdown(props: AutomationPanelWithMarkdownProps): React.ReactElement {
-  return <AutomationPanel {...props} renderText={renderAutomationText} />;
+  const { fetchGateway, ...rest } = props;
+  const onOpenResource =
+    rest.onOpenResource ?? (fetchGateway ? (r: GatewayResource) => openGatewayResource(fetchGateway, r.url, { name: r.name }) : undefined);
+  return <AutomationPanel {...rest} onOpenResource={onOpenResource} {...automationRenderers} />;
 }

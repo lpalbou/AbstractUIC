@@ -7,6 +7,83 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## Unreleased
+
+### All browser packages: relative same-origin URLs
+
+- Changed: every same-origin default is RELATIVE — `api/connection/gateway`,
+  `api/gateway/commands`, `api/gateway/automations`, `api/gateway/trigger-sources`,
+  `api/gateway/runs/{id}/workspace…`, `api/gateway/host/metrics/{gpu,memory}` — never rooted at
+  `/`. Apps are now served under a base path (AbstractGateway's `/apps/<id>/`); a rooted default
+  escaped the app's base and missed its server. Hosts that relied on the old rooted defaults pass
+  the explicit override (`connectionPath`, `commandsPath`, `baseUrl`, `endpoint`,
+  `fetchGateway`). The page URL must end with `/`.
+- Added: ui-kit `gateway_paths.ts`, the one source: `GATEWAY_API_PATH`,
+  `GATEWAY_CONNECTION_PATH`, `gatewayApiPath(route)` and `joinBaseUrl(baseUrl, path)` (both refuse
+  a rooted argument). `createAutomationsClient({ baseUrl })` joins with it: "" keeps requests
+  relative to the page; `http://host:8080` and `https://host/prefix/` prefix them.
+- Changed: links the kit rendered straight from gateway data are gone. `AutomationPanel` no longer
+  renders `ledger_url` or `artifacts[].url` as hrefs (they are rooted at the gateway and bypassed
+  the app's session under `/apps/<id>/` and a standalone app's proxy). Added `onOpenResource(resource)`
+  (`GatewayResource`: `kind` ledger/artifact, the server's `url`, `name`, `mimeType`, `runId`):
+  artifact names and a **Ledger (JSON)** button call it; without it artifacts are plain names and
+  there is no ledger JSON button. Added ui-kit `gatewayResourcePath(serverUrl)` (gateway-rooted →
+  app-relative; anything else throws), panel-chat `openGatewayResource(fetchGateway, url,
+  { name, mode? })` (fetch through the host, open with `tabOpenPlan`) and `deliverBlob(blob, name,
+  mode)`, and `AutomationPanelWithMarkdown`'s `fetchGateway` prop, which wires
+  `onOpenResource` through it. The contract fixtures are unchanged: the gateway keeps sending
+  rooted paths; the client maps them.
+- Added: `scripts/check_relative_urls.mjs`, run last by the root `npm test`: fails on any
+  root-absolute same-origin literal (`/api/`, `/assets/`, `/apps/`) in the sources and built
+  output of ui-kit (incl. the console islands bundle), panel-chat and the monitors, and when a
+  build directory is missing. No allowlist.
+
+### panel-chat: images
+
+- Fixed: `sameOriginImage` (the default image rule for `images="link"`, used by
+  `ChatMessageCard`) accepts RELATIVE paths such as the kit's own `api/gateway/…` workspace content
+  routes: a source is resolved against `document.baseURI` and loads only when it is http(s) on
+  the page's own origin, so it works for an app mounted at `/apps/<id>/` without the host
+  rewriting paths to absolute URLs. Protocol-relative `//host` and `/\host`, other origins and
+  ports, and `javascript:` / `data:` / `blob:` / `file:` sources stay links (or are dropped).
+  `Markdown` now parses relative image sources (links keep their existing rule).
+
+### ui-kit
+
+- Added: `AutomationStateLabel` renders an automation's state as the word then an icon
+  ("Active ▶", "Paused ⏸"; Completed, Failed and Archived likewise) — the one rendering every
+  client uses (operator requirement 2026-09-28). `STATUS_LABELS` (the words) and `STATUS_ICONS`
+  (the icons) are exported. `AutomationPanel`'s header uses it instead of the bare word.
+- Added: icons `play`, `stop`, `folder`, `file`, `archive` and `clock` (24-grid, stroke 2;
+  `play` and `stop` solid like `pause`).
+- Added: `AutomationPanel` `onOpenWorkspace(runId)`: a folder button on the header's Workspace
+  fact (called with the automation id, which is its controller run) and a **Workspace** button in
+  each run's details (called with that run's id). Changed: the run details no longer link to the
+  raw workspace route — that link showed JSON and failed in token mode (no bearer token); without
+  `onOpenWorkspace` no folder control is shown.
+- Added: `AutomationPanel` `renderTurn(turn)` seam (`AutomationTurn`: `kind` trigger/answer,
+  `role`, `text`, `index`, `runId`; type `RenderTurn`), so a host renders each occurrence turn as
+  its chat message card; without it the turn's text goes through `renderText` as before.
+
+### panel-chat
+
+- Changed: `AutomationPanelWithMarkdown` / `automationRenderers` render each occurrence turn as
+  the shared `ChatMessageCard` (a user card titled "Trigger", an assistant card titled
+  "Automation", with the copy button; remote images as links on both). New exports
+  `renderAutomationTurn()` and `AUTOMATION_TURN_TITLES`; `automationRenderers` is now
+  `{renderText, renderTurn}`.
+- Added: `WorkspaceBrowser` (moved from AbstractObserver): browse a run's folder on the gateway
+  host — breadcrumbs, folders first, sizes, entries hidden by the gateway's rules counted — and
+  open or download files, fetched through the host's credentialed `fetchGateway(path, init)`
+  (works in token mode and on a remote gateway). HTML, SVG, XML and other text open as plain
+  text: a blob URL runs with the app's origin, so a model-written page must never execute
+  there. `onSelectFile` / `selectedPath` let a host with its own preview (AbstractCode) use it.
+  Hook-free `WorkspaceBrowserView` and helpers (`loadWorkspaceView`, `parseWorkspaceListing`
+  — malformed answers fail loudly — `tabOpenPlan`, URL builders and formatters) are exported.
+- Added: `presentInteraction(wait, controller, options?)` (moved from AbstractCode web): the one
+  mapping from a runtime wait to the `WorkflowChat` control — tool approval (Allow all only with
+  `options.onPermissionsAll`), question, event wait (refused when it cannot be routed).
+
 ## 0.1.13 - 2026-09-27
 
 | Package | Version | Change |

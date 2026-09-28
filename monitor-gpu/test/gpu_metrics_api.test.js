@@ -3,6 +3,12 @@ import assert from "node:assert/strict";
 
 import { buildAuthHeaders, extractUtilizationGpuPct, fetchHostGpuMetrics, makeGpuMetricsUrl } from "../src/gpu_metrics_api.js";
 
+test("makeGpuMetricsUrl defaults to a RELATIVE endpoint (apps are served under a base path)", () => {
+  assert.equal(makeGpuMetricsUrl({}), "api/gateway/host/metrics/gpu");
+  assert.equal(makeGpuMetricsUrl({ baseUrl: "http://localhost:8080" }), "http://localhost:8080/api/gateway/host/metrics/gpu");
+  assert.equal(new URL(makeGpuMetricsUrl({}), "https://host/apps/observer/").href, "https://host/apps/observer/api/gateway/host/metrics/gpu");
+});
+
 test("makeGpuMetricsUrl uses baseUrl + relative endpoint", () => {
   const url = makeGpuMetricsUrl({
     baseUrl: "http://localhost:8080",

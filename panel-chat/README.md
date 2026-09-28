@@ -177,10 +177,12 @@ const input = { prompt, _runtime: { ...streamRepliesRuntime(streamReplies) } };
 
 Images in chat messages: `ChatMessageCard` renders the Markdown of every
 message except the user's own with `images="link"`. An image then loads only
-when `inlineImage(src)` accepts it — by default `sameOriginImage`: a
-root-relative path (for example a gateway workspace content route behind the
-app's proxy) or an absolute URL on the page's own origin. Every other image,
-including `//host/…`, is shown as a link "image: <alt>" and never fetched, so
+when `inlineImage(src)` accepts it — by default `sameOriginImage`: the source
+resolved against `document.baseURI` must be http(s) on the page's own origin,
+so a relative path (the kit's own `api/gateway/…` workspace content route,
+which resolves under an app mounted at `/apps/<id>/`), a root-relative path
+or an absolute same-origin URL loads. Every other image, including `//host/…`,
+`javascript:` and `data:`, is shown as a link "image: <alt>" and never fetched, so
 model-written text cannot make the browser call a remote URL. Pass
 `images="inline"` (or your own `inlineImage`) through `messageProps` to change
 it. `Markdown` used on its own keeps `images="inline"` as its default.

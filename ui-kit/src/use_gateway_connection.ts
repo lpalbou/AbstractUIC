@@ -7,7 +7,7 @@
  * connected flag → auto-open decision → close-on-status) and they drifted —
  * the README contract lived in prose. This hook IS the contract:
  *
- *  - Probe ONCE at boot (`/api/connection/gateway`); phase is "loading"
+ *  - Probe ONCE at boot (the app server's connection route, `GATEWAY_CONNECTION_PATH`); phase is "loading"
  *    until the probe RESOLVES. connected = ok && has_session (server truth).
  *  - Auto-open the modal only on a RESOLVED disconnect — never over the
  *    loading state, never over a live session. A thrown probe (app-origin
@@ -28,6 +28,7 @@
  * `connected`/`status`; app-local connection machines get deleted.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { GATEWAY_CONNECTION_PATH } from "./gateway_paths.js";
 import { fetchGatewayConnection, signOutGateway, type GatewayConnectionState } from "./gateway_connect_modal.js";
 
 export type GatewayConnectionPhase = "loading" | "connected" | "disconnected";
@@ -97,7 +98,7 @@ export function isGatewayConnected(status: GatewayConnectionState | null): boole
 
 export function useGatewayConnection(options?: UseGatewayConnectionOptions): GatewayConnection {
   const opts = options || {};
-  const connectionPath = opts.connectionPath || "/api/connection/gateway";
+  const connectionPath = opts.connectionPath || GATEWAY_CONNECTION_PATH;
   const variant = opts.variant || "dismissable";
   // Callbacks fire from async work started renders ago (an in-flight
   // refresh) — read the latest through a ref so delivery is never one render
