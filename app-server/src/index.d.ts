@@ -53,6 +53,8 @@ export type RequestContext = Readonly<{
 }>;
 
 export function isLoopbackAddress(addr: string): boolean;
+/** `localhost`, `*.localhost`, `::1` or a 127.x IP literal (never a DNS name). */
+export function isLoopbackHostname(host: string): boolean;
 export function socketPeerAddress(req: IncomingMessage): string;
 export function validateBasePath(raw: string | undefined | null): string;
 /** Memoized per request. Throws MountRequestError. */

@@ -9,6 +9,7 @@ export {
   identityHeaderValue,
   injectShell,
   isLoopbackAddress,
+  isLoopbackHostname,
   parseCookies,
   rejectUpgrade,
   requestContext,

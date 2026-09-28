@@ -42,7 +42,7 @@ import * as https from "node:https";
 import { timingSafeEqual as cryptoTimingSafeEqual } from "node:crypto";
 
 import { createGatewayUrlResolver } from "./gateway_pointer.js";
-import { MountRequestError, isLoopbackAddress, parseCookies, requestContext, serializeCookie } from "./mount.js";
+import { MountRequestError, isLoopbackAddress, isLoopbackHostname, parseCookies, requestContext, serializeCookie } from "./mount.js";
 
 const TRUE_VALUES = new Set(["1", "true", "yes", "y", "on"]);
 const HOP_BY_HOP_HEADERS = new Set([
@@ -240,11 +240,6 @@ export function createGatewaySessionProxy(options) {
     return raw.toLowerCase();
   }
 
-  function isLoopbackHostname(hostname) {
-    const h = String(hostname || "").trim().toLowerCase();
-    return h === "localhost" || h === "localhost.localdomain" || h === "::1" || h.startsWith("127.");
-  }
-
   /**
    * The browser's address: the connection's socket peer, or, from a
    * loopback peer (the gateway's `/apps/<id>/` proxy), the address it
@@ -281,9 +276,22 @@ export function createGatewaySessionProxy(options) {
     // deployments must set the explicit opt-in above; there is no
     // socket-derived unlock behind a trusted proxy.
     if (anyEnvBool(TRUST_PROXY_ENVS)) return false;
-    // Otherwise the ONLY unlock is a genuine loopback PEER — the Host header
-    // is never trusted for this decision.
-    return isLoopbackPeer(req);
+    // Otherwise the unlock needs a genuine loopback CLIENT (the socket peer,
+    // or the address the gateway's loopback proxy forwarded) AND a loopback
+    // HOST. DNS rebinding: a page at a hostile name that resolves to
+    // 127.0.0.1 reaches this server over a loopback socket with its own Host
+    // header, and as a same-origin script it can add X-Forwarded-* headers
+    // too. So the raw Host must name loopback, and so must X-Forwarded-Host
+    // when a loopback peer sends one (the gateway sends the browser's host).
+    if (!isLoopbackPeer(req)) return false;
+    if (!isLoopbackHostname(firstHeaderValue(req?.headers?.host))) return false;
+    const forwardedHost = req?.headers?.["x-forwarded-host"];
+    if (forwardedHost !== undefined && !isLoopbackHostname(firstHeaderValue(forwardedHost))) return false;
+    return true;
+  }
+
+  function firstHeaderValue(value) {
+    return String(Array.isArray(value) ? value[0] : value || "").split(",", 1)[0].trim();
   }
 
   function remoteConfigDenial(req) {
@@ -294,8 +302,11 @@ export function createGatewaySessionProxy(options) {
     );
   }
 
+  /** Secure cookies when the browser used https: X-Forwarded-Proto is
+   * believed from a loopback peer only (mount.js requestContext), like every
+   * other forwarded header. */
   function cookieSecure(req) {
-    return requestContext(req).proto === "https" || String(req?.headers?.["x-forwarded-proto"] || "").trim().toLowerCase() === "https";
+    return requestContext(req).proto === "https";
   }
 
   function setSessionCookies(res, req, gatewayUrl, sessionId, csrfToken, persist) {
@@ -577,6 +588,12 @@ export function createGatewaySessionProxy(options) {
       if (lk === "x-forwarded-for" || lk === "x-forwarded-host" || lk === "x-forwarded-proto" || lk === "x-forwarded-prefix" || lk === "x-real-ip" || lk === "forwarded" || lk === "x-abstractframework-app-proxy") {
         delete headers[k];
       }
+    }
+    // App-local CSRF headers stay here: the gateway gets its own
+    // (x-abstractgateway-csrf, below), never the app's.
+    for (const k of Object.keys(headers)) {
+      const lk = k.toLowerCase();
+      if (lk === APP_CSRF_HEADER || lk === CANONICAL_CSRF_HEADER) delete headers[k];
     }
     headers["x-forwarded-for"] = peer;
     headers["x-abstractframework-app-proxy"] = appId;

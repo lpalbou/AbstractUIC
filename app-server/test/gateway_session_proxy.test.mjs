@@ -52,6 +52,8 @@ function startStubGateway() {
           method: req.method,
           session: req.headers["x-abstractgateway-session"] || null,
           csrf: req.headers["x-abstractgateway-csrf"] || null,
+          appCsrf: req.headers["x-testapp-csrf"] ?? null,
+          canonicalCsrf: req.headers["x-abstract-csrf"] ?? null,
           authorization: req.headers.authorization || null,
           cookie: req.headers.cookie || null,
           xff: req.headers["x-forwarded-for"] ?? null,
@@ -75,6 +77,8 @@ function startAppServer(proxy) {
     // an `x-test-peer` header spoofs the transport peer address the proxy
     // reads (req.socket.remoteAddress) — simulating a LAN client.
     const spoofPeer = req.headers["x-test-peer"];
+    // Per request, never sticky: a keep-alive socket must not keep a spoof.
+    delete req.socket.remoteAddress;
     if (spoofPeer) {
       Object.defineProperty(req.socket, "remoteAddress", { value: String(spoofPeer), configurable: true });
     }
@@ -249,12 +253,14 @@ let cookieHeader = "";
     headers: { Cookie: cookieHeader, "x-testapp-csrf": "csrf-1" },
   });
   check("mutating with app CSRF header: forwarded + gateway csrf attached", appHeader.status === 200 && appHeader.json.csrf === "csrf-1");
+  check("the app's own CSRF header never reaches the gateway", appHeader.json.appCsrf === null, JSON.stringify(appHeader.json));
 
   const canonical = await call(appPort, "/api/gateway/echo", {
     method: "POST",
     headers: { Cookie: cookieHeader, "x-abstract-csrf": "csrf-1" },
   });
   check("canonical x-abstract-csrf accepted too", canonical.status === 200 && canonical.json.csrf === "csrf-1");
+  check("the canonical app CSRF header never reaches the gateway", canonical.json.canonicalCsrf === null, JSON.stringify(canonical.json));
 }
 
 // ----------------------------------------------- URL pinning (browser cannot redirect)
@@ -292,6 +298,52 @@ let cookieHeader = "";
     body: JSON.stringify({ gateway_user_id: "admin", gateway_token: "good-token", gateway_url: "http://evil:1" }),
   });
   check("non-loopback peer cannot POST a remote gateway_url (403)", attackPost.status === 403);
+}
+
+// ---------------------------------- DNS rebinding + forwarded-proto (review 2026-09-28)
+{
+  // http.request, not fetch: the test must choose the Host header.
+  const raw = (path, { method = "GET", headers = {}, body } = {}) =>
+    new Promise((resolve, reject) => {
+      const req = http.request({ host: "127.0.0.1", port: appPort, path, method, headers, agent: false }, (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf8");
+          let json = null;
+          try { json = JSON.parse(text); } catch { json = null; }
+          resolve({ status: res.statusCode, json, setCookie: [].concat(res.headers["set-cookie"] || []) });
+        });
+      });
+      req.on("error", reject);
+      if (body) req.write(body);
+      req.end();
+    });
+  const other = JSON.stringify({ gateway_user_id: "admin", gateway_token: "good-token", gateway_url: `http://localhost:${gwPort}` });
+  const post = (headers) => raw("/api/connection/gateway", { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: other });
+
+  const home = await post({ Host: `127.0.0.1:${appPort}` });
+  check("loopback peer + loopback Host may choose another gateway URL", home.status === 200, JSON.stringify(home.json));
+  const rebound = await post({ Host: `evil.example:${appPort}` });
+  check("DNS rebinding: loopback peer + a foreign Host cannot choose the gateway URL (403)", rebound.status === 403, String(rebound.status));
+  const dnsName = await post({ Host: `127.0.0.1.evil.example:${appPort}` });
+  check("a DNS name starting with 127. is not a loopback host", dnsName.status === 403, String(dnsName.status));
+  const spoofed = await post({ Host: `evil.example:${appPort}`, "X-Forwarded-Host": "127.0.0.1", "X-Forwarded-For": "127.0.0.1" });
+  check("DNS rebinding + self-added X-Forwarded-*: still 403", spoofed.status === 403, String(spoofed.status));
+  const viaGateway = await post({ Host: `127.0.0.1:${appPort}`, "X-Forwarded-Host": "evil.example:8080", "X-Forwarded-For": "127.0.0.1" });
+  check("through the gateway from a foreign host name: 403", viaGateway.status === 403, String(viaGateway.status));
+  const localViaGateway = await post({ Host: `127.0.0.1:${appPort}`, "X-Forwarded-Host": "localhost:8080", "X-Forwarded-For": "127.0.0.1" });
+  check("through the gateway from localhost: allowed", localViaGateway.status === 200, JSON.stringify(localViaGateway.json));
+
+  const plain = JSON.stringify({ gateway_user_id: "admin", gateway_token: "good-token" });
+  const lanHttps = await raw("/api/connection/gateway", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-forwarded-proto": "https", "x-test-peer": "192.168.1.60" },
+    body: plain,
+  });
+  check("X-Forwarded-Proto from a NON-loopback peer is not believed (no Secure)", lanHttps.status === 200 && lanHttps.setCookie.length === 3 && lanHttps.setCookie.every((c) => !/; Secure/.test(c)), lanHttps.setCookie.join(" | "));
+  const loopHttps = await raw("/api/connection/gateway", { method: "POST", headers: { "Content-Type": "application/json", "x-forwarded-proto": "https" }, body: plain });
+  check("X-Forwarded-Proto https from the loopback proxy => Secure", loopHttps.setCookie.length === 3 && loopHttps.setCookie.every((c) => /; Secure/.test(c)), loopHttps.setCookie.join(" | "));
 }
 
 // ------------------------------------------------------------------ sign out

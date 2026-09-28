@@ -58,6 +58,19 @@ export function isLoopbackAddress(addr) {
   return isIP(a) === 4 && a.startsWith("127.");
 }
 
+/**
+ * A Host header value (or bare host name) that names THIS machine's loopback:
+ * `localhost`, `*.localhost`, `::1` or a 127.x IP LITERAL — never a DNS name
+ * that merely starts with "127." (DNS rebinding points any name at 127.0.0.1).
+ */
+export function isLoopbackHostname(host) {
+  let h = String(host || "").trim().toLowerCase();
+  if (h.startsWith("[")) h = h.slice(1).split("]", 1)[0];
+  else if ((h.match(/:/g) || []).length === 1) h = h.split(":")[0];
+  if (h === "localhost" || h.endsWith(".localhost") || h === "::1") return true;
+  return isIP(h) === 4 && h.startsWith("127.");
+}
+
 /** The connection's real transport peer (never a header), IPv4-mapped IPv6
  * unwrapped; "" when unknown. */
 export function socketPeerAddress(req) {
