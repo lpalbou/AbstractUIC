@@ -3,8 +3,6 @@
 // automation discussions, …) so a tool approval, a question or an event wait
 // looks and answers the same everywhere. Moved here from AbstractCode web
 // (`workspace/interaction.tsx`), which the Observer had copied in part.
-import React from "react";
-
 import { resolveWorkflowEventTarget } from "./event_target.js";
 import { JsonViewer } from "./json_viewer.js";
 import { ToolActivityGroup } from "./tool_activity.js";
