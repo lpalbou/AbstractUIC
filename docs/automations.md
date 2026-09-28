@@ -174,9 +174,10 @@ capability); the status says what applies at this moment:
 | Archive… | always (subject to capability and status below) | `automation.archive`, after an in-panel confirmation |
 
 Every control is disabled while `busy`, on a legacy row, without the matching capability, or on
-an archived automation. A disabled control's reason ("An occurrence is in progress.") is its
-tooltip and, for assistive tech, text linked with `aria-describedby`; it is not a visible line
-under the buttons.
+an archived automation. The reasons show as one compact muted line under the buttons ("Run
+now, Stop current: Nothing is running. · …"), linked to each disabled button with
+`aria-describedby` and repeated as its tooltip (a tooltip alone is unreliable on a disabled
+button).
 
 The result of an action ("Pause sent.", "Run requested.", "Saved; applies from the next run.")
 shows next to the buttons for `NOTICE_MS` (5 s) with a dismiss control, then clears. Errors stay
@@ -200,9 +201,13 @@ The Edit control opens a form prefilled from the automation, with its first fiel
 | Context | `summary.context_mode` | `changes.context` |
 | Tools | `definition.policy.tool_approval` (only with `definition`) | `changes.policy.tool_approval` |
 
-Save sends only the changed fields, once, with `expected_revision` (a stale revision is refused
-with `revision_conflict`), then closes the form; Cancel or Escape closes it. The workspace folder
-is the Gateway's and is not editable. The change applies from the next run.
+The form works on the automation as it was when the form opened: a refresh meanwhile (a host's
+poll) changes neither its values nor what Save compares against. Save sends only the fields
+changed since the form opened, once, with THAT revision as `expected_revision`, so a concurrent
+change by another client is refused (`revision_conflict`, "The automation changed since this view
+loaded…") instead of silently reverted; close and reopen the form to edit the new version. A
+successful save closes the form; Cancel or Escape closes it. The workspace folder is the Gateway's
+and is not editable. The change applies from the next run.
 
 By default the panel keeps the form's open state itself. A host that has its own Edit control (a
 list row, a menu) passes `editOpen` and `onEditOpenChange`: the form is open exactly while

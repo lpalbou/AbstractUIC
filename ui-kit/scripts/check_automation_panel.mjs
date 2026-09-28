@@ -483,7 +483,7 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   const b = button(html, "run_now");
   const ref = (/aria-describedby="([^"]+)"/.exec(b) || [])[1];
   check("disabled Run now references a reason", !!ref, b);
-  check("…and the reason is text for assistive tech (operator 2026-09-28: not a line left under the buttons)", ref && new RegExp(`<p class="af-auto__reasons af-auto__sr-only"><span id="${ref.replace(/[:]/g, "\\:")}">Run now: An occurrence is in progress.</span>`).test(html), ref);
+  check("…and the reason is VISIBLE, compact and muted (tooltips on disabled buttons are unreliable)", ref && new RegExp(`<p class="af-auto__reasons"><svg[^]*?</svg><span id="${ref.replace(/[:]/g, "\\:")}">Run now: An occurrence is in progress.</span>`).test(html) && !/af-auto__reasons af-auto__sr-only/.test(html), ref);
   check("enabled controls carry no reason", !/aria-describedby/.test(button(html, "pause")) && !/aria-describedby/.test(button(html, "edit")) && !/title=/.test(button(html, "pause")));
   check("the disabled control's reason is also its tooltip", /<button[^>]*data-action="run_now"[^>]*title="An occurrence is in progress."/.test(html));
   const busy = panel({ summary: news, occurrences: [], busy: true });
@@ -757,6 +757,33 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   const own = { ...props, editOpen: undefined, onEditOpenChange: undefined };
   byAction(h2.render(own, root), "edit")[0].props.onClick();
   check("uncontrolled: Edit opens the form", renderToStaticMarkup(h2.render(own, root)).includes('class="af-auto__revise"'));
+
+  // Gate blocker 2026-09-28: a refresh while the form is open must not turn a save into a silent revert.
+  // Another client renames the automation (revision +1); the host's 30 s poll re-renders the panel with
+  // the new summary/definition; the user saves a task change. The diff base and expected_revision are
+  // the ones the form OPENED with: no title change is sent, and the old revision makes the gateway
+  // refuse with revision_conflict instead of reverting the rename.
+  const staleSent = [];
+  const h3 = harness(AutomationPanel);
+  const base3 = { ...props, editOpen: true, onEditOpenChange() {}, newId: () => "cmd-stale",
+    onRevise: (changes, expected, meta) => { staleSent.push({ changes, expected, meta }); return Promise.resolve({ command_id: meta.command_id, accepted: true, duplicate: false, seq: 1 }); } };
+  h3.render(base3, root);
+  const renamed = { ...jour, title: "Renamed elsewhere", revision: jour.revision + 1 };
+  const refreshed = { ...base3, summary: renamed, definition: { ...definition, title: "Renamed elsewhere", revision: jour.revision + 1 } };
+  const tree3 = h3.render(refreshed, root);
+  const form3 = find(tree3, (n) => n.type === "form")[0];
+  const titleInput = find(tree3, (n) => n.type === "input" && n.props.name === "title")[0];
+  check("an open form keeps the values it opened with across a refresh", titleInput && titleInput.props.defaultValue === jour.title, titleInput && titleInput.props.defaultValue);
+  const vals3 = { title: jour.title, every_amount: "7", every_unit: "d", context: jour.context_mode, prompt: "Summarise the week, briefly.", tool_approval: "auto" };
+  form3.props.onSubmit({ preventDefault() {}, currentTarget: { elements: { namedItem: (k) => (k in vals3 ? { value: vals3[k] } : null) } } });
+  await flush();
+  check("save after a concurrent rename: expected_revision is the revision the form opened with", staleSent.length === 1 && staleSent[0].expected === jour.revision, JSON.stringify(staleSent));
+  check("save after a concurrent rename: no title change (the rename is not reverted)", staleSent.length === 1 && !("title" in staleSent[0].changes) && staleSent[0].changes.target && staleSent[0].changes.target.input_data.prompt === "Summarise the week, briefly.", JSON.stringify(staleSent));
+  // Closing and reopening takes a fresh snapshot.
+  h3.render({ ...refreshed, editOpen: false }, root);
+  const reopened = h3.render(refreshed, root);
+  const t4 = find(reopened, (n) => n.type === "input" && n.props.name === "title")[0];
+  check("reopening the form starts from the current automation", t4 && t4.props.defaultValue === "Renamed elsewhere");
 }
 
 // --- real gateway formats ----------------------------------------------------------------------
@@ -836,7 +863,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 
 // --- CSS ships in theme.css ------------------------------------------------------------------
 const css = readFileSync(join(here, "..", "src", "theme.css"), "utf8");
-for (const cls of [".af-auto__path", ".af-auto__sr-only", ".af-auto__notice--on", ".af-auto__actionbar", ".af-auto__definition-chevron", ".af-auto__definition > summary", ".af-auto__json", ".af-auto__reasons", ".af-auto-failure", ".af-auto", ".af-auto-occ--quiet", ".af-auto-occ--failed", ".af-auto-occ--waiting", ".af-auto-occ--notified", ".af-auto-turn--trigger", ".af-auto__confirm", ".af-auto-wait", ".af-schedule"]) {
+for (const cls of [".af-auto__path", ".af-auto__notice--on", ".af-auto__actionbar", ".af-auto__definition-chevron", ".af-auto__definition > summary", ".af-auto__json", ".af-auto__reasons", ".af-auto-failure", ".af-auto", ".af-auto-occ--quiet", ".af-auto-occ--failed", ".af-auto-occ--waiting", ".af-auto-occ--notified", ".af-auto-turn--trigger", ".af-auto__confirm", ".af-auto-wait", ".af-schedule"]) {
   check(`css ${cls}`, css.includes(`${cls} {`) || css.includes(`${cls},`));
 }
 

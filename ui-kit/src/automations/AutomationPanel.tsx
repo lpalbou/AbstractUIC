@@ -430,8 +430,9 @@ export const CONTROL_ICONS: Record<ControlId, IconName> = {
 /**
  * Reasons for disabled controls, one line per distinct reason
  * ("Run now, Stop current: Nothing is running."), each with an id the
- * disabled buttons reference through `aria-describedby`. The bar keeps them
- * for assistive tech and as the buttons' tooltips, not as visible text.
+ * disabled buttons reference through `aria-describedby`. The bar shows them as
+ * one compact muted line (also the buttons' tooltips): a tooltip alone is
+ * unreliable on a disabled button.
  */
 export function disabledReasons(controls: Record<ControlId, ControlState>, shown: ControlId[], idBase: string): { lines: Array<{ id: string; text: string }>; describedBy: Partial<Record<ControlId, string>> } {
   const byReason = new Map<string, ControlId[]>();
@@ -505,7 +506,8 @@ export function AutomationControlsBar(p: AutomationControlsBarProps): React.Reac
         </span>
       </div>
       {why.lines.length ? (
-        <p className="af-auto__reasons af-auto__sr-only">
+        <p className="af-auto__reasons">
+          <Icon name="info" size={12} className="af-auto__reasons-icon" />
           {why.lines.map((l) => (
             <span key={l.id} id={l.id}>
               {l.text}
@@ -975,6 +977,15 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
   // whatever the host asks; `busy` does not close it (a save in flight keeps it).
   const editable = automationControls(summary, props.occurrences, false).revise.enabled;
   const reviseOpen = editable && (controlled ? props.editOpen === true : ownEditOpen);
+  // The automation AS THE FORM OPENED IT: the form's values, the diff base and
+  // expected_revision all come from this snapshot, never from a summary a poll
+  // refreshed meanwhile. A concurrent change (another client renamed it) then
+  // makes the save a 409 revision_conflict instead of a silent revert.
+  const editBaseRef = useRef<{ summary: AutomationSummary; definition?: AutomationDefinition } | null>(null);
+  if (!reviseOpen) editBaseRef.current = null;
+  else if (!editBaseRef.current || editBaseRef.current.summary.automation_id !== summary.automation_id)
+    editBaseRef.current = { summary, definition: props.definition };
+  const editBase = editBaseRef.current;
   const onEditOpenChangeRef = useRef(props.onEditOpenChange);
   onEditOpenChangeRef.current = props.onEditOpenChange;
   const setReviseOpen = (open: boolean) => {
@@ -1091,10 +1102,10 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
           setFocusAfter(['[data-action="archive"]']);
         }}
       />
-      {reviseOpen ? (
+      {reviseOpen && editBase ? (
         <AutomationReviseForm
-          summary={summary}
-          definition={props.definition}
+          summary={editBase.summary}
+          definition={editBase.definition}
           busy={busy}
           errors={reviseErrors}
           onCancel={() => {
@@ -1102,7 +1113,8 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
             setFocusAfter(['[data-action="edit"]']);
           }}
           onSubmit={(form) => {
-            const changes = reviseChanges(summary, form, props.definition);
+            const base = editBase.summary;
+            const changes = reviseChanges(base, form, editBase.definition);
             if (changes === null) {
               setReviseErrors(["Nothing changed."]);
               return;
@@ -1112,7 +1124,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
               return;
             }
             setReviseErrors([]);
-            act(`revise:${summary.revision}:${JSON.stringify(changes)}`, (command_id) => props.onRevise(changes, summary.revision, { command_id }), () => {
+            act(`revise:${base.revision}:${JSON.stringify(changes)}`, (command_id) => props.onRevise(changes, base.revision, { command_id }), () => {
               setNotice("Saved; applies from the next run.");
               setReviseOpen(false);
               setFocusAfter(['[data-action="edit"]']);

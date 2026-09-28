@@ -42,8 +42,13 @@ go to the right and click revise… edit => i can edit right now."
   `CONTROL_ICONS` are exported so hosts name and draw their row actions the same way.
 - Changed: action feedback shows next to the buttons for `NOTICE_MS` (5 s) with a dismiss
   control, then clears (was a line left under the panel). The panel's own errors are dismissible.
-  Disabled-control reasons are the buttons' tooltips and screen-reader text (still linked with
-  `aria-describedby`), no longer a visible line under the buttons.
+  Disabled-control reasons are one compact muted line (reasons joined by "·") and each disabled
+  button's tooltip, still linked with `aria-describedby`.
+- Fixed (release gate): the Edit form snapshots the automation when it opens. Its values, the
+  diff base and `expected_revision` come from that snapshot, so a poll refreshing the panel after
+  another client renamed the automation no longer turns a save into a silent revert of the rename
+  (`changes.title` = the old title with the NEW revision); the save is refused with
+  `revision_conflict` instead.
 - Changed: the workspace fact is one control — folder icon + the whole path, wrapping at its
   separators, the whole chip opening `onOpenWorkspace`.
 - Changed: the Definition is a card right under the controls ("Definition · revision N"); the
