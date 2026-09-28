@@ -33,7 +33,7 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 
 ## What is AbstractUIC?
 
-AbstractUIC is a **multi-package repository**: each top-level folder is an npm package (see each `*/package.json`). Most packages are React components; two packages (`@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory`) are dependency-free Web Components, and `@abstractframework/app-server` is a Node.js Gateway session proxy.
+AbstractUIC is a **multi-package repository**: each top-level folder is an npm package (see each `*/package.json`). Most packages are React components; two packages (`@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory`) are dependency-free Web Components, and `@abstractframework/app-server` is the Node.js server side for apps (mount under `/apps/<id>/`, launch flags, gateway pointer, Gateway session proxy).
 
 Start here: [Getting started](./getting-started.md).
 

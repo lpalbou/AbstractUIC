@@ -26,7 +26,7 @@ For a package-by-package export map, see the [API reference](./api.md).
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | `monitor-active-memory/src/index.ts` |
 | `@abstractframework/monitor-gpu` | GPU utilization histogram widget (`<monitor-gpu>`) | `monitor-gpu/src/index.js` |
 | `@abstractframework/monitor-memory` | Host RAM + device memory meter widget (`<monitor-memory>`) | `monitor-memory/src/index.js` |
-| `@abstractframework/app-server` | Node.js app server that fronts an AbstractGateway with HttpOnly session cookies | `app-server/src/index.js` |
+| `@abstractframework/app-server` | Node.js server side for apps: serving under the gateway's `/apps/<id>/`, launch flags, the local gateway pointer, and the AbstractGateway session proxy (HttpOnly session cookies) | `app-server/src/index.js` |
 
 For a page that is not a React app, the kit's top bar and appearance dialog are also available as
 [console islands](./console-islands.md), a script built from a repository checkout.

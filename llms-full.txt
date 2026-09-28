@@ -64,8 +64,8 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 ## Packages
 
 - [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / appearance dialog, About dialog + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel + schedule dialog + client
-- [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat, live replies (`llm.delta`), ScheduleThisAction + FromAutomationBadge
-- [@abstractframework/app-server](app-server/README.md): Node gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
+- [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat, live replies (`llm.delta`), ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser, presentInteraction
+- [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
 - [@abstractframework/monitor-gpu](monitor-gpu/README.md): GPU widget (`<monitor-gpu>`) + backend contract
@@ -84,6 +84,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [ui-kit/src/about.tsx](ui-kit/src/about.tsx): `AfAboutDialog`
 - [ui-kit/src/gateway_session_signin.tsx](ui-kit/src/gateway_session_signin.tsx): shared Gateway browser-session sign-in card
 - [ui-kit/src/use_gateway_connection.ts](ui-kit/src/use_gateway_connection.ts): the connection state machine hook (probe/auto-open/self-close contract)
+- [ui-kit/src/gateway_paths.ts](ui-kit/src/gateway_paths.ts): relative same-origin routes (`gatewayApiPath`, `joinBaseUrl`, `gatewayResourcePath`)
 - [ui-kit/src/automations/types.ts](ui-kit/src/automations/types.ts): wire shapes of the Gateway automation routes (`AutomationSummary`, `OccurrenceRow`, typed waits, `CreateAutomationRequest`, `ApiError`)
 - [ui-kit/src/automations/client.ts](ui-kit/src/automations/client.ts): `createAutomationsClient()`, `AutomationApiError`, error envelope parsing
 - [ui-kit/src/automations/panel_core.ts](ui-kit/src/automations/panel_core.ts): pure rules (controls, occurrence tones, labels, create body, wait helpers, retry-safe ids)
@@ -92,12 +93,17 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [ui-kit/scripts/build_islands.mjs](ui-kit/scripts/build_islands.mjs): islands bundle build (`--check` detects a stale bundle)
 - [ui-kit/palette_seeds.json](ui-kit/palette_seeds.json): generated 4-token palette per theme (for non-CSS consumers)
 - [app-server/src/gateway_session_proxy.js](app-server/src/gateway_session_proxy.js): gateway session proxy (cookie exchange, CSRF, URL pinning)
+- [app-server/src/mount.js](app-server/src/mount.js): serving under `/apps/<id>/` (`createMountedHandler`, `requestContext`, `injectShell`, cookies, identity header)
+- [app-server/src/flags.js](app-server/src/flags.js): shared launch flags (`parseAppFlags`)
+- [app-server/src/gateway_pointer.js](app-server/src/gateway_pointer.js): local gateway pointer reader and the gateway URL precedence
 - [app-server/package.json](app-server/package.json): published metadata (`exports`)
 - [app-server/src/index.js](app-server/src/index.js): exports for `@abstractframework/app-server`
-- [app-server/src/index.d.ts](app-server/src/index.d.ts): TS types for `createGatewaySessionProxy`
+- [app-server/src/index.d.ts](app-server/src/index.d.ts): TS types for the app-server exports
 - [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
 - [panel-chat/src/chat_message_card.tsx](panel-chat/src/chat_message_card.tsx): `ChatMessage` / `ChatAttachment` / `ChatStat` contracts
 - [panel-chat/src/automation_badges.tsx](panel-chat/src/automation_badges.tsx): `ScheduleThisAction` and `FromAutomationBadge`
+- [panel-chat/src/workspace_browser.tsx](panel-chat/src/workspace_browser.tsx): `WorkspaceBrowser`, `openGatewayResource`, `tabOpenPlan`
+- [panel-chat/src/present_interaction.tsx](panel-chat/src/present_interaction.tsx): `presentInteraction` (runtime wait → `WorkflowChat` control)
 - [panel-chat/src/llm_delta.ts](panel-chat/src/llm_delta.ts): live-reply events (`llm.delta` / `llm.delta_end`), SSE dispatch helper, `streamRepliesRuntime`
 - [panel-chat/src/message_content.tsx](panel-chat/src/message_content.tsx): JSON autodetect + Markdown override hook (`renderMarkdown`)
 - [panel-chat/src/markdown.tsx](panel-chat/src/markdown.tsx): Markdown renderer rules (minimal, no external deps)
@@ -170,7 +176,7 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 |---|---|---|
 | `@abstractframework/ui-kit` | Theme tokens (21 themes), inputs (`AfSelect`, provider/model pickers), Gateway connect modal + connection hook, top bar / drawer / appearance dialog, About dialog + AbstractFramework identity helpers, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel + schedule dialog + typed Gateway client; console islands for non-React pages (repository build) | [`ui-kit/README.md`](./ui-kit/README.md) |
 | `@abstractframework/panel-chat` | Chat thread + message cards + composer + markdown/json rendering, app assistant panel, workflow chat with live (streamed) replies, "Schedule this…" action and "from automation" badge | [`panel-chat/README.md`](./panel-chat/README.md) |
-| `@abstractframework/app-server` | Node gateway-session proxy for app servers (token → HttpOnly cookie exchange, CSRF, URL pinning, forwarded client address) | [`app-server/README.md`](./app-server/README.md) |
+| `@abstractframework/app-server` | Node server side for apps: serving under the gateway's `/apps/<id>/`, shared launch flags, local gateway pointer, gateway-session proxy (token → HttpOnly cookie exchange, CSRF, URL pinning, forwarded client address) | [`app-server/README.md`](./app-server/README.md) |
 | `@abstractframework/monitor-flow` | Agent-cycle trace viewer + ledger adapter | [`monitor-flow/README.md`](./monitor-flow/README.md) |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | [`monitor-active-memory/README.md`](./monitor-active-memory/README.md) |
 | `@abstractframework/monitor-gpu` | GPU utilization widget (`<monitor-gpu>`) polling a metrics endpoint | [`monitor-gpu/README.md`](./monitor-gpu/README.md) |
@@ -257,7 +263,7 @@ For a package-by-package export map, see the [API reference](./api.md).
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | `monitor-active-memory/src/index.ts` |
 | `@abstractframework/monitor-gpu` | GPU utilization histogram widget (`<monitor-gpu>`) | `monitor-gpu/src/index.js` |
 | `@abstractframework/monitor-memory` | Host RAM + device memory meter widget (`<monitor-memory>`) | `monitor-memory/src/index.js` |
-| `@abstractframework/app-server` | Node.js app server that fronts an AbstractGateway with HttpOnly session cookies | `app-server/src/index.js` |
+| `@abstractframework/app-server` | Node.js server side for apps: serving under the gateway's `/apps/<id>/`, launch flags, the local gateway pointer, and the AbstractGateway session proxy (HttpOnly session cookies) | `app-server/src/index.js` |
 
 For a page that is not a React app, the kit's top bar and appearance dialog are also available as
 [console islands](./console-islands.md), a script built from a repository checkout.
@@ -1338,7 +1344,7 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 
 ## What is AbstractUIC?
 
-AbstractUIC is a **multi-package repository**: each top-level folder is an npm package (see each `*/package.json`). Most packages are React components; two packages (`@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory`) are dependency-free Web Components, and `@abstractframework/app-server` is a Node.js Gateway session proxy.
+AbstractUIC is a **multi-package repository**: each top-level folder is an npm package (see each `*/package.json`). Most packages are React components; two packages (`@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory`) are dependency-free Web Components, and `@abstractframework/app-server` is the Node.js server side for apps (mount under `/apps/<id>/`, launch flags, gateway pointer, Gateway session proxy).
 
 Start here: [Getting started](./getting-started.md).
 
@@ -3736,7 +3742,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -3760,7 +3766,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -3829,7 +3835,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -3873,12 +3879,12 @@ npm test
     "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.1.13",
+    "@abstractframework/ui-kit": "^0.1.14",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.1.13",
+    "@abstractframework/ui-kit": "^0.1.14",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -4026,7 +4032,7 @@ npm test
 
 {
   "name": "@abstractframework/monitor-gpu",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Lightweight GPU utilization histogram widget for AbstractFramework clients (polls AbstractGateway host metrics with Bearer auth).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -5146,6 +5152,61 @@ export function useGatewayConnection(options?: UseGatewayConnectionOptions): Gat
 }
 
 export default useGatewayConnection;
+
+## ui-kit/src/gateway_paths.ts
+
+// Same-origin API paths — ONE place, and RELATIVE ("api/…", never rooted at
+// "/"). Apps are served under a base path (the gateway's /apps/<id>/, a
+// reverse-proxy prefix), so a same-origin request must resolve under the
+// page's own base: from https://host/apps/observer/ the path
+// "api/gateway/runs" reaches https://host/apps/observer/api/gateway/runs,
+// which that app's server proxies to the gateway. A host whose API lives
+// elsewhere passes an explicit path or base URL (every component and client
+// that makes a request has that override).
+//
+// Relative paths assume the page URL is its base folder (ends with "/"),
+// as the app servers' mounts guarantee.
+
+/** Prefix of the gateway's API routes, as the app-origin proxy exposes them. */
+export const GATEWAY_API_PATH = "api/gateway";
+
+/** The app server's gateway connection route (session status, sign-in, sign-out). */
+export const GATEWAY_CONNECTION_PATH = "api/connection/gateway";
+
+/** `gatewayApiPath("runs/x/workspace")` → "api/gateway/runs/x/workspace" (relative). */
+export function gatewayApiPath(route: string): string {
+  const r = String(route || "");
+  if (r.startsWith("/")) throw new Error(`gatewayApiPath takes a route relative to the gateway API, got ${JSON.stringify(r)}.`);
+  return r ? `${GATEWAY_API_PATH}/${r}` : GATEWAY_API_PATH;
+}
+
+/**
+ * Join a base URL and a relative path. An empty base keeps the path relative
+ * to the page; "http://host:8080" or "https://host/prefix/" prefix it.
+ */
+export function joinBaseUrl(baseUrl: string | undefined, path: string): string {
+  const p = String(path || "");
+  if (p.startsWith("/")) throw new Error(`joinBaseUrl takes a relative path, got ${JSON.stringify(p)}.`);
+  let b = String(baseUrl ?? "");
+  while (b.endsWith("/")) b = b.slice(0, -1);
+  return b ? `${b}/${p}` : p;
+}
+
+/**
+ * A URL the gateway itself sends in its data (a run's ledger URL, an
+ * artifact's content URL — rooted at the GATEWAY's origin, i.e. the API path
+ * with a leading slash) mapped to the relative path the app requests through
+ * its own proxy / base URL ("api/gateway/runs/{id}/ledger"). Never render the server string as an
+ * href: under /apps/<id>/ it would bypass the app's credentials, and a
+ * standalone app's proxy. Anything that is not a gateway API path throws.
+ */
+export function gatewayResourcePath(serverUrl: string): string {
+  const u = String(serverUrl || "");
+  const root = `/${GATEWAY_API_PATH}/`;
+  if (!u.startsWith(root) || u.length === root.length)
+    throw new Error(`Not a gateway API path: ${JSON.stringify(u)} (expected ${JSON.stringify(root)}…).`);
+  return u.slice(1);
+}
 
 ## ui-kit/src/automations/types.ts
 
@@ -7143,11 +7204,680 @@ export function createGatewaySessionProxy(options) {
   };
 }
 
+## app-server/src/mount.js
+
+/**
+ * Serving an app under a base path, behind the gateway (`/apps/<id>/`).
+ *
+ * The gateway serves every browser app THROUGH itself at `/apps/<id>/`
+ * (one port, one tunnel): it strips the prefix, and sends the app
+ *   X-Forwarded-Prefix: /apps/<id>
+ *   X-Forwarded-For:    <the browser's address, as the gateway saw it>
+ *   X-Forwarded-Proto / X-Forwarded-Host: what the browser used.
+ * The app itself binds 127.0.0.1, so those headers can only come from a
+ * process on this machine. They are believed ONLY when the socket peer is
+ * loopback; from any other peer they are ignored and the socket peer is the
+ * client. Everything an app decides about "who is asking" (a folder reveal,
+ * a browser-supplied gateway URL, the X-Forwarded-For it sends the gateway)
+ * reads `requestContext(req).clientAddress`, never `req.socket.remoteAddress`:
+ * behind the gateway the socket peer is ALWAYS loopback.
+ *
+ * An app announces that it can be mounted with one response header on
+ * every response:
+ *   X-AbstractFramework-App: <id>; mount=1
+ * The gateway proxies only apps that announce it (an older app, which would
+ * read every visitor as local, is never exposed through `/apps/<id>/`).
+ */
+
+import { isIP } from "node:net";
+
+export const APP_IDENTITY_HEADER = "X-AbstractFramework-App";
+export const FORWARDED_PREFIX_HEADER = "X-Forwarded-Prefix";
+
+const APP_ID_RE = /^[a-z0-9][a-z0-9-]{0,62}$/;
+// One path segment of a base path: unreserved characters only (RFC 3986),
+// never "." or "..".
+const SEGMENT_RE = /^[A-Za-z0-9._~-]+$/;
+const MAX_BASE_PATH = 256;
+const HOST_RE = /^(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)(:\d{1,5})?$/;
+
+/** A request the app must refuse (400): a malformed forwarded header, or a
+ * connection whose client address cannot be known. */
+export class MountRequestError extends Error {
+  constructor(message, status = 400) {
+    super(message);
+    this.name = "MountRequestError";
+    this.status = status;
+  }
+}
+
+function unwrapMapped(addr) {
+  let a = String(addr || "").trim().toLowerCase();
+  if (a.startsWith("[") && a.endsWith("]")) a = a.slice(1, -1);
+  if (a.startsWith("::ffff:") && a.includes(".")) a = a.slice(7);
+  return a;
+}
+
+/** True for 127.0.0.0/8, ::1 and their IPv4-mapped spellings. */
+export function isLoopbackAddress(addr) {
+  const a = unwrapMapped(addr);
+  if (!a) return false;
+  if (a === "::1") return true;
+  return isIP(a) === 4 && a.startsWith("127.");
+}
+
+/**
+ * A Host header value (or bare host name) that names THIS machine's loopback:
+ * `localhost`, `*.localhost`, `::1` or a 127.x IP LITERAL — never a DNS name
+ * that merely starts with "127." (DNS rebinding points any name at 127.0.0.1).
+ */
+export function isLoopbackHostname(host) {
+  let h = String(host || "").trim().toLowerCase();
+  if (h.startsWith("[")) h = h.slice(1).split("]", 1)[0];
+  else if ((h.match(/:/g) || []).length === 1) h = h.split(":")[0];
+  if (h === "localhost" || h.endsWith(".localhost") || h === "::1") return true;
+  return isIP(h) === 4 && h.startsWith("127.");
+}
+
+/** The connection's real transport peer (never a header), IPv4-mapped IPv6
+ * unwrapped; "" when unknown. */
+export function socketPeerAddress(req) {
+  return unwrapMapped(req?.socket?.remoteAddress || "");
+}
+
+/**
+ * A base path as the app uses it: "" (served at the root) or "/a/b" — no
+ * trailing slash, every segment unreserved characters, never "." or "..",
+ * at most 256 characters. Throws MountRequestError otherwise.
+ */
+export function validateBasePath(raw) {
+  const value = String(raw ?? "").trim();
+  if (value === "" || value === "/") return "";
+  const bad = () => new MountRequestError(`Invalid ${FORWARDED_PREFIX_HEADER}: ${JSON.stringify(value.slice(0, 80))}`);
+  if (value.length > MAX_BASE_PATH || !value.startsWith("/")) throw bad();
+  const trimmed = value.endsWith("/") ? value.slice(0, -1) : value;
+  const segments = trimmed.slice(1).split("/");
+  for (const seg of segments) {
+    if (!SEGMENT_RE.test(seg) || seg === "." || seg === "..") throw bad();
+  }
+  return trimmed;
+}
+
+function headerValue(req, name) {
+  const v = req?.headers?.[name];
+  if (Array.isArray(v)) return v.length ? String(v[0]) : undefined;
+  return v === undefined ? undefined : String(v);
+}
+
+function forwardedClient(xff) {
+  const hosts = String(xff)
+    .split(",")
+    .map((h) => h.trim())
+    .filter(Boolean);
+  if (!hosts.length) throw new MountRequestError("Invalid X-Forwarded-For: empty");
+  const addrs = hosts.map((h) => {
+    const a = unwrapMapped(h);
+    if (!isIP(a)) throw new MountRequestError(`Invalid X-Forwarded-For entry: ${JSON.stringify(h.slice(0, 64))}`);
+    return a;
+  });
+  // The gateway's own derivation (security/same_machine.effective_peer):
+  // the right-most entry that is not loopback; all loopback: the left-most.
+  for (let i = addrs.length - 1; i >= 0; i -= 1) {
+    if (!isLoopbackAddress(addrs[i])) return addrs[i];
+  }
+  return addrs[0];
+}
+
+const CONTEXTS = new WeakMap();
+
+/**
+ * Who is asking and where the app is mounted, for ONE request.
+ *
+ * Returns {clientAddress, clientIsLoopback, basePath, proto, host, forwarded}:
+ *  - clientAddress: the browser's address. From a loopback socket peer, the
+ *    X-Forwarded-For client (right-most non-loopback entry) when the header
+ *    is present, else the peer; from any other peer, the peer itself.
+ *  - basePath: "" or the validated X-Forwarded-Prefix ("/apps/flow"), read
+ *    from a loopback peer only.
+ *  - proto: "https" when a loopback peer says X-Forwarded-Proto: https.
+ *  - host: X-Forwarded-Host from a loopback peer, else the Host header.
+ *  - forwarded: a loopback peer sent any X-Forwarded-* header.
+ * Throws MountRequestError (status 400) for an unknown socket peer or a
+ * malformed forwarded header from a loopback peer. Memoized per request.
+ */
+export function requestContext(req) {
+  const cached = CONTEXTS.get(req);
+  if (cached) return cached;
+  const peer = socketPeerAddress(req);
+  if (!peer) throw new MountRequestError("Cannot determine the client address of this connection");
+  let clientAddress = peer;
+  let basePath = "";
+  let proto = "http";
+  let host = String(headerValue(req, "host") || "");
+  let forwarded = false;
+  if (isLoopbackAddress(peer)) {
+    const xff = headerValue(req, "x-forwarded-for");
+    const prefix = headerValue(req, "x-forwarded-prefix");
+    const xfProto = headerValue(req, "x-forwarded-proto");
+    const xfHost = headerValue(req, "x-forwarded-host");
+    forwarded = [xff, prefix, xfProto, xfHost].some((v) => v !== undefined);
+    if (xff !== undefined) clientAddress = forwardedClient(xff);
+    if (prefix !== undefined) basePath = validateBasePath(prefix);
+    if (xfProto !== undefined) {
+      const p = xfProto.split(",", 1)[0].trim().toLowerCase();
+      if (p !== "http" && p !== "https") throw new MountRequestError(`Invalid X-Forwarded-Proto: ${JSON.stringify(p.slice(0, 16))}`);
+      proto = p;
+    }
+    if (xfHost !== undefined) {
+      const h = xfHost.split(",", 1)[0].trim();
+      if (!HOST_RE.test(h)) throw new MountRequestError(`Invalid X-Forwarded-Host: ${JSON.stringify(h.slice(0, 64))}`);
+      host = h;
+    }
+  }
+  const ctx = Object.freeze({
+    clientAddress,
+    clientIsLoopback: isLoopbackAddress(clientAddress),
+    basePath,
+    proto,
+    host,
+    forwarded,
+  });
+  CONTEXTS.set(req, ctx);
+  return ctx;
+}
+
+/** The identity header value: "<id>; mount=1". */
+export function identityHeaderValue(appId) {
+  const id = String(appId || "").trim();
+  if (!APP_ID_RE.test(id)) throw new Error(`app id ${JSON.stringify(id)} must match [a-z0-9][a-z0-9-]* (the gateway's /apps/<id>/)`);
+  return `${id}; mount=1`;
+}
+
+/** Set the identity header on a response (before writeHead). */
+export function setIdentityHeader(res, appId) {
+  res.setHeader(APP_IDENTITY_HEADER, identityHeaderValue(appId));
+}
+
+/** An app-absolute path under the base path: appPath("/apps/flow", "/x?y") -> "/apps/flow/x?y". */
+export function appPath(basePath, path = "/") {
+  const p = String(path || "/");
+  if (!p.startsWith("/") || p.startsWith("//")) throw new Error(`appPath: ${JSON.stringify(p)} must be a path starting with one "/"`);
+  return `${validateBasePath(basePath)}${p}`;
+}
+
+/** The Path attribute for the app's cookies: "<basePath>/", or "/" at the root. */
+export function cookiePath(basePath) {
+  const b = validateBasePath(basePath);
+  return b ? `${b}/` : "/";
+}
+
+/**
+ * One Set-Cookie value. options: {basePath, httpOnly, secure, maxAge,
+ * sameSite ("Lax" default), path (overrides basePath)}.
+ */
+export function serializeCookie(name, value, options = {}) {
+  const n = String(name || "");
+  if (!/^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/.test(n)) throw new Error(`serializeCookie: invalid cookie name ${JSON.stringify(n)}`);
+  const parts = [`${n}=${encodeURIComponent(String(value ?? ""))}`];
+  parts.push(`Path=${options.path !== undefined ? String(options.path) : cookiePath(options.basePath || "")}`);
+  if (options.httpOnly) parts.push("HttpOnly");
+  parts.push(`SameSite=${options.sameSite || "Lax"}`);
+  if (options.secure) parts.push("Secure");
+  if (options.maxAge !== undefined && options.maxAge !== null) parts.push(`Max-Age=${Math.trunc(Number(options.maxAge))}`);
+  return parts.join("; ");
+}
+
+/**
+ * Cookies of a request (or a raw Cookie header), FIRST value wins. Browsers
+ * send the cookie with the longest Path first, so the app's own
+ * `Path=/apps/<id>/` cookie beats a `Path=/` cookie of the same name left
+ * by the app on the same host at its own port. Values are URL-decoded.
+ */
+export function parseCookies(reqOrHeader) {
+  const header = typeof reqOrHeader === "string" ? reqOrHeader : headerValue(reqOrHeader, "cookie") || "";
+  const out = {};
+  for (const part of header.split(";")) {
+    const idx = part.indexOf("=");
+    if (idx < 0) continue;
+    const key = part.slice(0, idx).trim();
+    if (!key || Object.prototype.hasOwnProperty.call(out, key)) continue;
+    const value = part.slice(idx + 1).trim();
+    try {
+      out[key] = decodeURIComponent(value);
+    } catch {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+function escapeAttr(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function scriptJson(value) {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
+/**
+ * The app's HTML page, ready for its base path: a `<base href="<basePath>/">`
+ * as the first element of <head> (every RELATIVE asset and fetch URL then
+ * resolves under the base path), then
+ * `window.__ABSTRACT_UI_CONFIG__ = Object.assign(..., {...config, base_path})`.
+ * An existing <base> element is an error (one base per page).
+ */
+export function injectShell(html, { basePath = "", config = {} } = {}) {
+  const page = String(html ?? "");
+  const base = validateBasePath(basePath);
+  if (/<base[\s>]/i.test(page)) throw new Error("injectShell: the page already has a <base> element");
+  const marker = "window.__ABSTRACT_UI_CONFIG__";
+  const cfg = { ...(config || {}), base_path: base };
+  const snippet =
+    `<base href="${escapeAttr(base ? `${base}/` : "/")}">` +
+    `<script>${marker}=Object.assign(${marker}||{},${scriptJson(cfg)});</script>`;
+  const head = /<head(\s[^>]*)?>/i.exec(page);
+  if (head) return page.slice(0, head.index + head[0].length) + snippet + page.slice(head.index + head[0].length);
+  const htmlTag = /<html(\s[^>]*)?>/i.exec(page);
+  if (htmlTag) return page.slice(0, htmlTag.index + htmlTag[0].length) + `<head>${snippet}</head>` + page.slice(htmlTag.index + htmlTag[0].length);
+  return `<head>${snippet}</head>${page}`;
+}
+
+function refuse(res, err) {
+  const body = JSON.stringify({ ok: false, detail: String(err?.message || err) });
+  res.writeHead(err?.status || 400, { "Content-Type": "application/json; charset=utf-8", "Content-Length": Buffer.byteLength(body) });
+  res.end(body);
+}
+
+/**
+ * Wrap an app's request handler: every response carries the identity
+ * header, the request context is computed once (a malformed forwarded
+ * header or an unknown peer is answered 400 before the handler runs), and
+ * the handler receives it: handler(req, res, ctx).
+ */
+export function createMountedHandler({ appId } = {}, handler) {
+  const identity = identityHeaderValue(appId);
+  if (typeof handler !== "function") throw new Error("createMountedHandler: handler must be a function");
+  return function mountedHandler(req, res) {
+    res.setHeader(APP_IDENTITY_HEADER, identity);
+    let ctx;
+    try {
+      ctx = requestContext(req);
+    } catch (err) {
+      if (err instanceof MountRequestError) return refuse(res, err);
+      throw err;
+    }
+    return handler(req, res, ctx);
+  };
+}
+
+/**
+ * Refuse a WebSocket upgrade on its raw socket (the `upgrade` event has no
+ * response object): writes a plain HTTP response and closes.
+ */
+export function rejectUpgrade(socket, status, message) {
+  const text = String(message || "Bad Request");
+  const reason = { 400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found" }[status] || "Error";
+  try {
+    socket.write(
+      `HTTP/1.1 ${status} ${reason}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: ${Buffer.byteLength(text)}\r\nConnection: close\r\n\r\n${text}`
+    );
+  } finally {
+    socket.destroy();
+  }
+}
+
+## app-server/src/flags.js
+
+/**
+ * The launch flags every AbstractFramework browser app takes, parsed once.
+ *
+ *   --gateway-url <url>   the gateway this app talks to (aliases: --gateway, --url)
+ *   --port <n>            the port the app listens on
+ *   --host <addr>         the address the app listens on (default 127.0.0.1:
+ *                         the gateway serves the app at /apps/<id>/)
+ *   --help, -h            print the usage and exit
+ * plus the app's own flags (`extra`). `--name value` and `--name=value` both
+ * work; an unknown flag or a missing value is an error, never ignored.
+ *
+ * Environment variables are LEGACY aliases only, below every flag:
+ * PORT, HOST, <APP>_GATEWAY_URL, ABSTRACTGATEWAY_URL. With no flag and no
+ * environment, the gateway URL comes from the app's saved login and the
+ * local gateway pointer (gateway_pointer.js), then http://127.0.0.1:8080.
+ */
+
+import { resolveGatewayUrl } from "./gateway_pointer.js";
+
+export class FlagError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "FlagError";
+  }
+}
+
+const GATEWAY_ALIASES = ["--gateway-url", "--gateway", "--url"];
+
+function isValidPort(n) {
+  return Number.isInteger(n) && n >= 1 && n <= 65535;
+}
+
+function checkUrl(flag, value) {
+  let u;
+  try {
+    u = new URL(value);
+  } catch {
+    throw new FlagError(`${flag}: ${JSON.stringify(value)} is not a URL (e.g. http://127.0.0.1:8080)`);
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") throw new FlagError(`${flag}: ${JSON.stringify(value)} must start with http:// or https://`);
+  return value.replace(/\/+$/, "");
+}
+
+/**
+ * options:
+ *   appName      shown in the usage ("AbstractFlow")
+ *   command      the program name in the usage ("abstractflow")
+ *   envPrefix    the legacy env prefix ("ABSTRACTFLOW" -> ABSTRACTFLOW_GATEWAY_URL)
+ *   defaultPort  the app's usual port (required)
+ *   defaultHost  default "127.0.0.1"
+ *   extra        {name: {type: "boolean"|"string", help, metavar?}} the app's own flags
+ *   env          process.env by default (tests)
+ *   savedUrl     the app's saved login URL, if any
+ *   home, warn, pointer  passed to resolveGatewayUrl
+ * Returns {help, usage, port, host, gatewayUrl, gatewayUrlSource, extra: {name: value}}.
+ * Throws FlagError.
+ */
+export function parseAppFlags(argv, options = {}) {
+  const env = options.env || process.env;
+  const extraSpec = options.extra || {};
+  if (!isValidPort(Number(options.defaultPort))) throw new Error("parseAppFlags: defaultPort is required");
+  const values = {};
+  const extra = {};
+  for (const [name, spec] of Object.entries(extraSpec)) extra[name] = spec.type === "boolean" ? false : undefined;
+  let help = false;
+  const args = Array.from(argv || []);
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = String(args[i]);
+    if (arg === "--help" || arg === "-h") {
+      help = true;
+      continue;
+    }
+    if (!arg.startsWith("--")) throw new FlagError(`Unexpected argument ${JSON.stringify(arg)} (see --help)`);
+    const eq = arg.indexOf("=");
+    const name = eq >= 0 ? arg.slice(0, eq) : arg;
+    const inline = eq >= 0 ? arg.slice(eq + 1) : undefined;
+    const takeValue = () => {
+      if (inline !== undefined) return inline;
+      const next = args[i + 1];
+      if (next === undefined || String(next).startsWith("--")) throw new FlagError(`${name} needs a value (see --help)`);
+      i += 1;
+      return String(next);
+    };
+    if (GATEWAY_ALIASES.includes(name)) {
+      values.gatewayUrl = checkUrl(name, takeValue().trim());
+    } else if (name === "--port") {
+      const raw = takeValue().trim();
+      const n = Number(raw);
+      if (!/^\d+$/.test(raw) || !isValidPort(n)) throw new FlagError(`--port: ${JSON.stringify(raw)} is not a port (1-65535)`);
+      values.port = n;
+    } else if (name === "--host") {
+      const h = takeValue().trim();
+      if (!h) throw new FlagError("--host needs an address");
+      values.host = h;
+    } else if (Object.prototype.hasOwnProperty.call(extraSpec, name.slice(2))) {
+      const key = name.slice(2);
+      if (extraSpec[key].type === "boolean") {
+        if (inline !== undefined) throw new FlagError(`${name} takes no value`);
+        extra[key] = true;
+      } else {
+        extra[key] = takeValue();
+      }
+    } else {
+      throw new FlagError(`Unknown option ${name} (see --help)`);
+    }
+  }
+
+  let port = values.port;
+  if (port === undefined && env.PORT !== undefined && String(env.PORT).trim() !== "") {
+    const n = Number(String(env.PORT).trim());
+    if (!isValidPort(n)) throw new FlagError(`PORT=${JSON.stringify(env.PORT)} is not a port (1-65535)`);
+    port = n;
+  }
+  const host = values.host || String(env.HOST || "").trim() || options.defaultHost || "127.0.0.1";
+  const envNames = [];
+  if (options.envPrefix) envNames.push(`${options.envPrefix}_GATEWAY_URL`);
+  envNames.push("ABSTRACTGATEWAY_URL");
+  const envPairs = envNames.map((n) => [n, env[n]]);
+  for (const [n, v] of envPairs) if (v !== undefined && String(v).trim()) checkUrl(n, String(v).trim());
+  const resolved = resolveGatewayUrl({
+    flag: values.gatewayUrl,
+    env: envPairs,
+    savedUrl: options.savedUrl,
+    home: options.home,
+    warn: options.warn,
+    pointer: options.pointer,
+  });
+  return {
+    help,
+    usage: appUsage(options),
+    port: port ?? Number(options.defaultPort),
+    host,
+    gatewayUrl: resolved.url,
+    gatewayUrlSource: resolved.source,
+    extra,
+  };
+}
+
+/** The usage text for --help. */
+export function appUsage(options = {}) {
+  const cmd = options.command || "app";
+  const lines = [
+    `${options.appName || cmd}`,
+    "",
+    `Usage: ${cmd} [options]`,
+    "",
+    "Options:",
+    "  --gateway-url <url>  The gateway to talk to (aliases: --gateway, --url).",
+    "                       Default: the gateway installed on this computer",
+    "                       (~/.abstractframework/gateway.json), else http://127.0.0.1:8080.",
+    `  --port <n>           The port to listen on (default ${options.defaultPort}).`,
+    `  --host <addr>        The address to listen on (default ${options.defaultHost || "127.0.0.1"}).`,
+    "                       The gateway serves this app at /apps/<id>/: keep it on 127.0.0.1.",
+  ];
+  for (const [name, spec] of Object.entries(options.extra || {})) {
+    const left = spec.type === "boolean" ? `--${name}` : `--${name} <${spec.metavar || "value"}>`;
+    lines.push(`  ${left.padEnd(20)} ${spec.help || ""}`);
+  }
+  lines.push("  --help, -h           Show this help.");
+  lines.push("");
+  lines.push(
+    `Environment (legacy aliases, below the flags): PORT, HOST${options.envPrefix ? `, ${options.envPrefix}_GATEWAY_URL` : ""}, ABSTRACTGATEWAY_URL.`
+  );
+  return lines.join("\n");
+}
+
+/**
+ * parseAppFlags for a program's entry point: prints the usage and exits 0 on
+ * --help, prints the error and exits 2 on a bad flag.
+ */
+export function parseAppFlagsOrExit(argv, options = {}) {
+  try {
+    const flags = parseAppFlags(argv, options);
+    if (flags.help) {
+      process.stdout.write(`${flags.usage}\n`);
+      process.exit(0);
+    }
+    return flags;
+  } catch (err) {
+    if (err instanceof FlagError) {
+      process.stderr.write(`${options.command || "app"}: ${err.message}\n`);
+      process.exit(2);
+    }
+    throw err;
+  }
+}
+
+## app-server/src/gateway_pointer.js
+
+/**
+ * "Where is my gateway": the local gateway pointer file (root backlog 0943).
+ *
+ * `~/.abstractframework/gateway.json` records where THIS computer's installed
+ * gateway listens. The installer and `abstractgateway serve` write it:
+ *   {"schema": 1, "url": "http://127.0.0.1:8081", "port": 8081,
+ *    "data_dir": "...", "updated_at": "...", "written_by": "installer|serve"}
+ * It holds no token and no liveness information.
+ *
+ * A reader believes it only when: `schema` is 1, the url is http(s) on
+ * 127.0.0.1 / ::1 / localhost with nothing after the port, and (POSIX) the
+ * file is a regular file owned by the current user. A malformed or refused
+ * file is ignored with ONE visible warning; it never throws.
+ *
+ * The URL an app talks to, in order:
+ *   1. the explicit launch flag (`--gateway-url`);
+ *   2. the legacy environment (`<APP>_GATEWAY_URL`, then `ABSTRACTGATEWAY_URL`);
+ *   3. the app's saved login, except a saved URL equal to the old built-in
+ *      http://127.0.0.1:8080, which the pointer's URL replaces;
+ *   4. the pointer's url;
+ *   5. http://127.0.0.1:8080.
+ */
+
+import { lstatSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
+export const POINTER_SCHEMA = 1;
+export const BUILTIN_GATEWAY_URL = "http://127.0.0.1:8080";
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "[::1]", "localhost"]);
+
+/** `~/.abstractframework/gateway.json` (`%USERPROFILE%\.abstractframework\gateway.json` on Windows). */
+export function gatewayPointerPath(home = homedir()) {
+  return join(home, ".abstractframework", "gateway.json");
+}
+
+function normalizeUrl(value) {
+  return String(value || "").trim().replace(/\/+$/, "");
+}
+
+function refused(path, reason) {
+  return { ok: false, reason, path, warning: `Ignoring the gateway pointer ${path}: ${reason}.` };
+}
+
+/**
+ * Read and check the pointer. Returns
+ *   {ok: true, url, port, data_dir, written_by, updated_at, path}
+ * or {ok: false, reason, path, warning?} ("missing" carries no warning).
+ * options: {home, path, getuid (tests), platform (tests)}.
+ */
+export function readGatewayPointer(options = {}) {
+  const path = options.path || gatewayPointerPath(options.home || homedir());
+  let st;
+  try {
+    st = lstatSync(path);
+  } catch (err) {
+    if (err && err.code === "ENOENT") return { ok: false, reason: "missing", path };
+    return refused(path, `cannot read it (${err?.code || err?.message || err})`);
+  }
+  if (!st.isFile()) return refused(path, "it is not a regular file");
+  const platform = options.platform || process.platform;
+  const getuid = options.getuid || (typeof process.getuid === "function" ? () => process.getuid() : null);
+  if (platform !== "win32" && getuid && st.uid !== getuid()) return refused(path, "it belongs to another user");
+  let data;
+  try {
+    data = JSON.parse(readFileSync(path, "utf8"));
+  } catch (err) {
+    return refused(path, `it is not valid JSON (${String(err?.message || err).slice(0, 120)})`);
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data)) return refused(path, "it is not a JSON object");
+  if (data.schema !== POINTER_SCHEMA) return refused(path, `unknown schema ${JSON.stringify(data.schema)} (this reader knows ${POINTER_SCHEMA})`);
+  let url;
+  try {
+    url = new URL(String(data.url || ""));
+  } catch {
+    return refused(path, `url ${JSON.stringify(data.url)} is not a URL`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return refused(path, `url ${url.href} is not http(s)`);
+  if (!LOOPBACK_HOSTS.has(url.hostname.toLowerCase())) return refused(path, `url ${url.href} is not on this computer (127.0.0.1, ::1 or localhost only)`);
+  if (url.username || url.password || (url.pathname && url.pathname !== "/") || url.search || url.hash) {
+    return refused(path, `url ${url.href} must be scheme://host:port only`);
+  }
+  return {
+    ok: true,
+    url: `${url.protocol}//${url.host}`,
+    port: Number(url.port || (url.protocol === "https:" ? 443 : 80)),
+    data_dir: typeof data.data_dir === "string" ? data.data_dir : null,
+    written_by: typeof data.written_by === "string" ? data.written_by : null,
+    updated_at: typeof data.updated_at === "string" ? data.updated_at : null,
+    path,
+  };
+}
+
+const WARNED = new Set();
+
+function warnOnce(warn, message) {
+  if (!message || WARNED.has(message)) return;
+  WARNED.add(message);
+  warn(message);
+}
+
+/**
+ * The gateway URL by the precedence above. options:
+ *   {flag, env: [[name, value], ...] in precedence order, savedUrl, home,
+ *    warn (default console.warn), pointer: {getuid, platform} (tests)}
+ * Returns {url, source: "flag"|"env:<NAME>"|"saved"|"pointer"|"default"}.
+ */
+export function resolveGatewayUrl(options = {}) {
+  const warn = options.warn || ((m) => console.warn(`[abstractframework] ${m}`));
+  const flag = normalizeUrl(options.flag);
+  if (flag) return { url: flag, source: "flag" };
+  for (const [name, value] of options.env || []) {
+    const v = normalizeUrl(value);
+    if (v) return { url: v, source: `env:${name}` };
+  }
+  let pointer = null;
+  const readPointer = () => {
+    if (pointer) return pointer;
+    pointer = readGatewayPointer({ home: options.home, ...(options.pointer || {}) });
+    if (!pointer.ok && pointer.warning) warnOnce(warn, pointer.warning);
+    return pointer;
+  };
+  const saved = normalizeUrl(options.savedUrl);
+  if (saved && saved !== BUILTIN_GATEWAY_URL) return { url: saved, source: "saved" };
+  const p = readPointer();
+  if (p.ok) return { url: p.url, source: "pointer" };
+  if (saved) return { url: saved, source: "saved" };
+  return { url: BUILTIN_GATEWAY_URL, source: "default" };
+}
+
+/**
+ * A resolver a long-running server keeps: `current()` is the URL now;
+ * `refresh()` re-reads the pointer (call it when a connection to the
+ * current URL fails) and returns true when the URL changed. Only a URL that
+ * came from the pointer or the built-in default moves: a flag, the
+ * environment or a saved login stays what the person chose.
+ */
+export function createGatewayUrlResolver(options = {}) {
+  let resolved = resolveGatewayUrl(options);
+  return {
+    current: () => resolved.url,
+    source: () => resolved.source,
+    refresh() {
+      if (resolved.source !== "pointer" && resolved.source !== "default" && resolved.source !== "saved") return false;
+      const next = resolveGatewayUrl(options);
+      const changed = next.url !== resolved.url;
+      resolved = next;
+      return changed;
+    },
+  };
+}
+
 ## app-server/package.json
 
 {
   "name": "@abstractframework/app-server",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Server-side helpers for AbstractFramework thin-client apps: serving under the gateway's /apps/<id>/ (base path, forwarded client address, identity header), the shared launch flags, the local gateway pointer, and the app-origin gateway session proxy (first-party cookies, CSRF, Authorization-strip, server-pinned gateway URL).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -7854,6 +8584,607 @@ export function FromAutomationBadge(props: FromAutomationBadgeProps): React.Reac
       <span>{text}</span>
     </span>
   );
+}
+
+## panel-chat/src/workspace_browser.tsx
+
+// The web equivalent of "open the folder": browse a run's workspace on the
+// gateway host and open or download its files through the gateway's workspace
+// routes (CONTRACTS §W): `GET /runs/{id}/workspace` (where),
+// `/workspace/files?path=` (one folder) and `/workspace/content?path=` (one
+// file). The gateway applies the caller's workspace policy and deny lists to
+// every entry and read; this view shows what it serves and says how many
+// entries it kept out.
+//
+// Works on any machine with the host's own credentials: files are FETCHED
+// through the host's `GatewayFetch` (bearer token or session cookie), never
+// linked (a bare link carries no bearer token). An automation's id is its
+// controller run id, so `runId = automation_id` browses the automation's
+// folder.
+//
+// Moved here from the Observer (`ui/workspace_browser.tsx`); the strict
+// listing parser comes from AbstractCode web (`workspace/session_files.tsx`).
+import React, { useCallback, useEffect, useState } from "react";
+
+import { Icon, gatewayApiPath, gatewayResourcePath } from "@abstractframework/ui-kit";
+
+/**
+ * A gateway request with the host's credentials. `path` is RELATIVE,
+ * "api/gateway/…" (ui-kit `gatewayApiPath`): a same-origin host passes it to
+ * `fetch` as is (it resolves under the app's base path) with
+ * `credentials: "same-origin"`; a direct-URL host joins it to its gateway
+ * base URL (ui-kit `joinBaseUrl`) and adds its bearer header. Returns the raw
+ * Response; non-2xx answers are turned into errors here.
+ */
+export type GatewayFetch = (path: string, init?: RequestInit) => Promise<Response>;
+
+/** `GET /runs/{id}/workspace`. */
+export type RunWorkspace = {
+  run_id?: string;
+  workspace_root: string;
+  kind?: string;
+  session_id?: string | null;
+  exists: boolean;
+  host?: { hostname?: string; caller_is_this_machine?: boolean };
+  /** `POST /runs/{id}/workspace/open` works (admin, same machine, folder exists). */
+  open_supported?: boolean;
+};
+
+export type WorkspaceEntry = { name: string; path: string; type: "file" | "dir"; size_bytes?: number; mtime?: string | number };
+
+/** `GET /runs/{id}/workspace/files`. `hidden` counts what the deny rules kept out. */
+export type WorkspaceListing = {
+  path: string;
+  entries: WorkspaceEntry[];
+  truncated: boolean;
+  hidden?: { outside_links?: number; blocked?: number; other?: number };
+};
+
+const runPath = (runId: string) => gatewayApiPath(`runs/${encodeURIComponent(runId)}/workspace`);
+
+export function workspaceInfoUrl(runId: string): string {
+  return runPath(runId);
+}
+
+export function workspaceFilesUrl(runId: string, path: string): string {
+  return `${runPath(runId)}/files?${new URLSearchParams({ path, recursive: "false" })}`;
+}
+
+export function workspaceContentUrl(runId: string, path: string): string {
+  return `${runPath(runId)}/content?${new URLSearchParams({ path })}`;
+}
+
+/** `What failed (HTTP 404): <the gateway's detail>` — the gateway's own reason, never a generic failure. */
+export async function gatewayResponseError(response: Response, what: string): Promise<Error> {
+  let reason = "";
+  try {
+    const text = await response.text();
+    try {
+      const body = JSON.parse(text);
+      const detail = body?.detail ?? body?.error ?? body?.message;
+      reason = typeof detail === "string" ? detail : detail && typeof detail.message === "string" ? detail.message : text;
+    } catch {
+      reason = text;
+    }
+  } catch {
+    reason = "";
+  }
+  return new Error(`${what} (HTTP ${response.status}): ${reason.trim() || response.statusText || "no reason given"}`);
+}
+
+/**
+ * Validate a `/workspace/files` answer. A malformed or older response is an
+ * error, never an empty folder.
+ */
+export function parseWorkspaceListing(data: unknown, directory: string): WorkspaceListing {
+  const body = data && typeof data === "object" && !Array.isArray(data) ? (data as Record<string, unknown>) : null;
+  const fail = (why: string): never => {
+    throw new Error(`Unexpected /workspace/files response from the gateway: ${why}.`);
+  };
+  if (!body) return fail("not an object");
+  if (!Array.isArray(body.entries)) fail("no `entries` list");
+  if (typeof body.truncated !== "boolean") fail("no `truncated` flag");
+  const entries = (body.entries as unknown[]).map((raw, index) => {
+    const row = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+    if (typeof row.name !== "string" || typeof row.path !== "string" || (row.type !== "file" && row.type !== "dir"))
+      fail(`entry ${index + 1} lacks a name, path or file/dir type`);
+    return row as unknown as WorkspaceEntry;
+  });
+  const hidden = body.hidden && typeof body.hidden === "object" && !Array.isArray(body.hidden) ? (body.hidden as WorkspaceListing["hidden"]) : undefined;
+  return { path: typeof body.path === "string" ? body.path : directory, entries, truncated: body.truncated as boolean, ...(hidden ? { hidden } : {}) };
+}
+
+/** `GET /runs/{id}/workspace`. */
+export async function loadRunWorkspace(fetchGateway: GatewayFetch, runId: string, signal?: AbortSignal): Promise<RunWorkspace> {
+  const r = await fetchGateway(workspaceInfoUrl(runId), { signal });
+  if (!r.ok) throw await gatewayResponseError(r, "The workspace is not available");
+  const body = await r.json();
+  if (!body || typeof body.workspace_root !== "string" || typeof body.exists !== "boolean")
+    throw new Error("Unexpected /workspace response from the gateway: no `workspace_root` / `exists`.");
+  return body as RunWorkspace;
+}
+
+/** `GET /runs/{id}/workspace/files?path=` (one folder, validated). */
+export async function listWorkspaceFolder(fetchGateway: GatewayFetch, runId: string, path: string, signal?: AbortSignal): Promise<WorkspaceListing> {
+  const r = await fetchGateway(workspaceFilesUrl(runId, path), { signal });
+  if (!r.ok) throw await gatewayResponseError(r, "The folder could not be listed");
+  return parseWorkspaceListing(await r.json(), path);
+}
+
+/** `GET /runs/{id}/workspace/content?path=`: one file's bytes, with the host's credentials. */
+export async function readWorkspaceFile(fetchGateway: GatewayFetch, runId: string, path: string, signal?: AbortSignal): Promise<Blob> {
+  const r = await fetchGateway(workspaceContentUrl(runId, path), { signal });
+  if (!r.ok) throw await gatewayResponseError(r, "The file could not be read");
+  return await r.blob();
+}
+
+/**
+ * Where the run's folder is and, when it exists, one folder of it: what the
+ * browser shows (the stateful `WorkspaceBrowser` loads exactly this).
+ */
+export async function loadWorkspaceView(
+  fetchGateway: GatewayFetch,
+  runId: string,
+  path: string,
+  signal?: AbortSignal,
+): Promise<{ where: RunWorkspace; listing: WorkspaceListing | null }> {
+  const where = await loadRunWorkspace(fetchGateway, runId, signal);
+  return { where, listing: where.exists ? await listWorkspaceFolder(fetchGateway, runId, path, signal) : null };
+}
+
+/** Breadcrumb of a workspace-relative folder: [{label, path}], root first. */
+export function workspaceCrumbs(path: string): Array<{ label: string; path: string }> {
+  const parts = String(path || "").split("/").filter(Boolean);
+  const out = [{ label: "Workspace", path: "" }];
+  parts.forEach((part, i) => out.push({ label: part, path: parts.slice(0, i + 1).join("/") }));
+  return out;
+}
+
+/** The parent of a workspace-relative folder ("" for the top folder). */
+export function workspaceParent(path: string): string {
+  return String(path || "").split("/").filter(Boolean).slice(0, -1).join("/");
+}
+
+export function formatBytes(n: number | undefined): string {
+  if (typeof n !== "number" || !Number.isFinite(n) || n < 0) return "";
+  if (n < 1024) return `${n} B`;
+  const units = ["KiB", "MiB", "GiB", "TiB"];
+  let v = n / 1024;
+  let u = 0;
+  while (v >= 1024 && u < units.length - 1) {
+    v /= 1024;
+    u += 1;
+  }
+  return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${units[u]}`;
+}
+
+/** Folders first, then files, each by name. */
+export function sortWorkspaceEntries(entries: WorkspaceEntry[]): WorkspaceEntry[] {
+  return [...entries].sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === "dir" ? -1 : 1));
+}
+
+/** "2 entries hidden by the gateway's workspace rules; the list is truncated" — or "" when neither. */
+export function workspaceHiddenNote(listing: Pick<WorkspaceListing, "hidden" | "truncated">): string {
+  const h = listing.hidden || {};
+  const n = Number(h.blocked || 0) + Number(h.outside_links || 0) + Number(h.other || 0);
+  const parts: string[] = [];
+  if (n > 0) parts.push(`${n} ${n === 1 ? "entry" : "entries"} hidden by the gateway's workspace rules`);
+  if (listing.truncated) parts.push("the list is truncated");
+  return parts.join("; ");
+}
+
+/** Types a browser tab may render as they are (no script can run in them). */
+const TAB_SAFE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif", "image/bmp", "application/pdf", "text/plain", "application/json"]);
+
+/**
+ * How a fetched file opens in a new tab. A blob URL runs with THIS app's
+ * origin, so a workspace file written by a model must never execute there:
+ * an HTML, SVG, XML or script file (and any other text) opens as plain text
+ * (its source); a type a tab cannot show safely is downloaded instead.
+ */
+export function tabOpenPlan(contentType: string): { mode: "open"; type: string } | { mode: "download" } {
+  const type = String(contentType || "").split(";", 1)[0].trim().toLowerCase();
+  if (TAB_SAFE_TYPES.has(type)) return { mode: "open", type };
+  if (type.startsWith("text/") || type.endsWith("+xml") || type.endsWith("+json") || type.endsWith("/xml") || type.endsWith("/javascript") || type.endsWith("/x-yaml") || type.endsWith("/toml"))
+    return { mode: "open", type: "text/plain;charset=utf-8" };
+  return { mode: "download" };
+}
+
+/**
+ * Hand fetched bytes to the user: "open" shows them in a new tab when
+ * `tabOpenPlan` allows it (active content as its source text), otherwise, and
+ * for "download", saves them under `name`.
+ */
+export function deliverBlob(blob: Blob, name: string, mode: "open" | "download"): void {
+  const plan = mode === "open" ? tabOpenPlan(blob.type) : ({ mode: "download" } as const);
+  const safe = plan.mode === "open" && plan.type !== blob.type ? new Blob([blob], { type: plan.type }) : blob;
+  const url = URL.createObjectURL(safe);
+  if (plan.mode === "open") {
+    window.open(url, "_blank", "noopener");
+  } else {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+  // The opened tab / download holds its own reference by then.
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+/**
+ * Open (or download) a file the gateway links in its data — a run's ledger
+ * JSON, an artifact's content URL — through the host's credentials. The
+ * server's gateway-rooted URL is mapped to the relative path the app's proxy
+ * or base URL serves (ui-kit `gatewayResourcePath`; anything else throws),
+ * fetched with `fetchGateway`, and shown with the same safe rule as workspace
+ * files (`tabOpenPlan`).
+ */
+export async function openGatewayResource(
+  fetchGateway: GatewayFetch,
+  serverUrl: string,
+  options: { name: string; mode?: "open" | "download"; signal?: AbortSignal },
+): Promise<void> {
+  const r = await fetchGateway(gatewayResourcePath(serverUrl), { signal: options.signal });
+  if (!r.ok) throw await gatewayResponseError(r, `${options.name} could not be read`);
+  deliverBlob(await r.blob(), options.name, options.mode ?? "open");
+}
+
+export type WorkspaceBrowserProps = {
+  /** The host's gateway request (credentials included). */
+  fetchGateway: GatewayFetch;
+  /** A run whose workspace is the folder to browse (an automation's id is its controller run). */
+  runId: string;
+  /** "Automation files", "Discussion files", … */
+  title: string;
+  /** One line under the title (e.g. "Mounted read-only for the discussion"). */
+  note?: string;
+  onClose?: () => void;
+  /**
+   * Select a file instead of offering Open/Download on it (a host with its
+   * own preview, e.g. AbstractCode's). `selectedPath` marks the selection.
+   */
+  onSelectFile?: (entry: WorkspaceEntry) => void;
+  selectedPath?: string;
+  /** Changes whenever the host knows files changed (e.g. a run finished): the folder is re-listed. */
+  refreshKey?: string | number;
+  className?: string;
+};
+
+/** Stateful browser: loads where the folder is and one level at a time. */
+export function WorkspaceBrowser(props: WorkspaceBrowserProps): React.ReactElement {
+  const { fetchGateway, runId } = props;
+  // Location and loaded data are keyed by the run they belong to, so a new
+  // run starts at its top folder and never shows the previous run's files.
+  const [loc, setLoc] = useState({ runId, path: "" });
+  const path = loc.runId === runId ? loc.path : "";
+  const [data, setData] = useState<{ runId: string; where: RunWorkspace; listing: WorkspaceListing | null } | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(Boolean(runId));
+  const [fileBusy, setFileBusy] = useState("");
+  const [revision, setRevision] = useState(0);
+
+  useEffect(() => {
+    if (!runId) return;
+    const abort = new AbortController();
+    setLoading(true);
+    setError("");
+    void (async () => {
+      try {
+        const view = await loadWorkspaceView(fetchGateway, runId, path, abort.signal);
+        if (!abort.signal.aborted) setData({ runId, ...view });
+      } catch (e: any) {
+        if (!abort.signal.aborted) setError(String(e?.message || e));
+      } finally {
+        if (!abort.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => abort.abort();
+  }, [fetchGateway, runId, path, revision, props.refreshKey]);
+  const current = data && data.runId === runId ? data : null;
+
+  const onFile = useCallback(
+    async (entry: WorkspaceEntry, mode: "open" | "download") => {
+      setFileBusy(entry.path);
+      setError("");
+      try {
+        deliverBlob(await readWorkspaceFile(fetchGateway, runId, entry.path), entry.name, mode);
+      } catch (e: any) {
+        setError(String(e?.message || e));
+      } finally {
+        setFileBusy("");
+      }
+    },
+    [fetchGateway, runId],
+  );
+
+  return (
+    <WorkspaceBrowserView
+      title={props.title}
+      note={props.note}
+      where={current?.where ?? null}
+      path={path}
+      listing={current?.listing ?? null}
+      error={error}
+      loading={loading}
+      fileBusy={fileBusy}
+      selectedPath={props.selectedPath}
+      className={props.className}
+      onNavigate={(p) => setLoc({ runId, path: p })}
+      onRefresh={() => setRevision((n) => n + 1)}
+      onFile={props.onSelectFile ? undefined : (entry, mode) => void onFile(entry, mode)}
+      onSelectFile={props.onSelectFile}
+      onClose={props.onClose}
+    />
+  );
+}
+
+export type WorkspaceBrowserViewProps = {
+  title: string;
+  note?: string;
+  where: RunWorkspace | null;
+  path: string;
+  listing: WorkspaceListing | null;
+  error: string;
+  loading: boolean;
+  fileBusy: string;
+  selectedPath?: string;
+  className?: string;
+  onNavigate(path: string): void;
+  onRefresh(): void;
+  /** Open / Download buttons per file (when the host has no preview of its own). */
+  onFile?(entry: WorkspaceEntry, mode: "open" | "download"): void;
+  /** The file name selects the file (a host preview). */
+  onSelectFile?(entry: WorkspaceEntry): void;
+  onClose?: () => void;
+};
+
+/** The hook-free view (checks render it in any state). */
+export function WorkspaceBrowserView(p: WorkspaceBrowserViewProps): React.ReactElement {
+  const note = p.listing ? workspaceHiddenNote(p.listing) : "";
+  const hostname = p.where?.host?.hostname;
+  return (
+    <section className={`pc-ws${p.className ? ` ${p.className}` : ""}`} aria-label={p.title} data-workspace-root={p.where?.workspace_root || undefined}>
+      <header className="pc-ws__head">
+        <span className="pc-ws__title">
+          <Icon name="folder" size={15} /> {p.title}
+        </span>
+        <span className="pc-ws__spacer" />
+        <button type="button" className="pc-ws__icon-btn" data-action="refresh-folder" onClick={p.onRefresh} disabled={p.loading} title="Refresh" aria-label="Refresh the folder">
+          <Icon name="refresh" size={14} />
+        </button>
+        {p.onClose ? (
+          <button type="button" className="pc-ws__icon-btn" data-action="close-folder" onClick={p.onClose} title="Close" aria-label="Close the file browser">
+            <Icon name="x" size={14} />
+          </button>
+        ) : null}
+      </header>
+      {p.where ? (
+        <div className="pc-ws__root">
+          <code>{p.where.workspace_root}</code>
+          {hostname && p.where.host?.caller_is_this_machine !== true ? <span className="pc-ws__muted"> on the gateway host {hostname}</span> : null}
+        </div>
+      ) : null}
+      {p.note ? <div className="pc-ws__muted">{p.note}</div> : null}
+      <nav className="pc-ws__crumbs" aria-label="Folder">
+        {workspaceCrumbs(p.path).map((c, i, all) =>
+          i === all.length - 1 ? (
+            <span key={c.path} aria-current="page">
+              {c.label}
+            </span>
+          ) : (
+            <React.Fragment key={c.path}>
+              <button type="button" className="pc-ws__crumb" onClick={() => p.onNavigate(c.path)}>
+                {c.label}
+              </button>
+              <span className="pc-ws__muted"> / </span>
+            </React.Fragment>
+          ),
+        )}
+      </nav>
+      {p.error ? (
+        <div className="pc-ws__error" role="alert">
+          {p.error}
+        </div>
+      ) : null}
+      {p.loading && !p.listing ? <div className="pc-ws__muted" role="status">Loading…</div> : null}
+      {p.where && !p.where.exists ? <div className="pc-ws__muted">The folder does not exist yet: nothing has been written.</div> : null}
+      {p.listing ? (
+        p.listing.entries.length ? (
+          <ul className="pc-ws__entries">
+            {sortWorkspaceEntries(p.listing.entries).map((e) => (
+              <li key={e.path} className={`pc-ws__entry${p.selectedPath === e.path ? " is-selected" : ""}`} data-type={e.type} data-path={e.path}>
+                {e.type === "dir" ? (
+                  <button type="button" className="pc-ws__name" data-action="open-dir" onClick={() => p.onNavigate(e.path)}>
+                    <Icon name="folder" size={14} /> {e.name}/
+                  </button>
+                ) : (
+                  <>
+                    {p.onSelectFile ? (
+                      <button type="button" className="pc-ws__name" data-action="select-file" aria-pressed={p.selectedPath === e.path} onClick={() => p.onSelectFile?.(e)}>
+                        <Icon name="file" size={14} /> {e.name}
+                      </button>
+                    ) : (
+                      <span className="pc-ws__name">
+                        <Icon name="file" size={14} /> {e.name}
+                      </span>
+                    )}
+                    <span className="pc-ws__size">{formatBytes(e.size_bytes)}</span>
+                    {p.onFile ? (
+                      <>
+                        <button type="button" className="pc-ws__btn" data-action="open-file" disabled={p.fileBusy === e.path} onClick={() => p.onFile?.(e, "open")}>
+                          Open
+                        </button>
+                        <button
+                          type="button"
+                          className="pc-ws__icon-btn"
+                          data-action="download-file"
+                          disabled={p.fileBusy === e.path}
+                          onClick={() => p.onFile?.(e, "download")}
+                          title={`Download ${e.name}`}
+                          aria-label={`Download ${e.name}`}
+                        >
+                          <Icon name="download" size={14} />
+                        </button>
+                      </>
+                    ) : null}
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="pc-ws__muted">This folder is empty.</div>
+        )
+      ) : null}
+      {note ? (
+        <div className="pc-ws__muted" data-hidden-note="true">
+          {note}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+## panel-chat/src/present_interaction.tsx
+
+// Runtime waits → the controls `WorkflowChat` / `WorkflowInteractionPanel`
+// render. One mapping for every client (AbstractCode web, the Observer's
+// automation discussions, …) so a tool approval, a question or an event wait
+// looks and answers the same everywhere. Moved here from AbstractCode web
+// (`workspace/interaction.tsx`), which the Observer had copied in part.
+import { resolveWorkflowEventTarget } from "./event_target.js";
+import { JsonViewer } from "./json_viewer.js";
+import { ToolActivityGroup } from "./tool_activity.js";
+import type { WorkflowInteraction } from "./workflow_interaction.js";
+import type { ServerRecord, WorkflowRecord, WorkflowSessionController, WorkflowWaitInteraction } from "./workflow_runtime.js";
+
+export type PresentInteractionOptions = {
+  /** The session's records: an event wait is routed from them (`resolveWorkflowEventTarget`). */
+  records?: WorkflowRecord[];
+  /** The run the wait belongs to, when the host has it. */
+  currentRun?: ServerRecord | null;
+  /**
+   * Offer "Allow all enabled tools" on a tool approval: approves the batch,
+   * then the host switches its tool policy to all (`permissions: all`).
+   * Omit it and only Allow once / Deny are offered.
+   */
+  onPermissionsAll?: () => Promise<void>;
+};
+
+/** The controller methods the controls call. */
+export type InteractionController = Pick<WorkflowSessionController, "approve" | "approveWithPolicyChange" | "resume" | "emitEvent">;
+
+/**
+ * Converts a runtime wait into a control, or null when the wait is not one a
+ * person answers here (e.g. a subworkflow wait: never a question).
+ */
+export function presentInteraction(
+  raw: WorkflowWaitInteraction | null,
+  controller: InteractionController,
+  options: PresentInteractionOptions = {},
+): WorkflowInteraction | null {
+  if (!raw) return null;
+  const wait = raw.wait as Record<string, any>;
+  const id = `${raw.runId}:${wait.wait_key}:${raw.stepId || ""}`;
+  const details = wait.details || {};
+  if (details.mode === "approval_required" || details.kind === "tool_approval") {
+    const calls: any[] = Array.isArray(details.tool_calls) ? details.tool_calls : [];
+    const target = { runId: raw.runId, waitKey: String(wait.wait_key || ""), stepId: raw.stepId };
+    const names = [...new Set(calls.map((call: any) => String(call?.name || "tool")))];
+    const onPermissionsAll = options.onPermissionsAll;
+    return {
+      id,
+      kind: "tool-approval",
+      title: `${calls.length || "Requested"} ${calls.length === 1 ? "action needs" : "actions need"} permission`,
+      toolName: names.join(", ") || "the requested tools",
+      description: "Review the targets below. Allow once approves this batch only.",
+      detail: (
+        <div className="pc-approval-summary">
+          <ToolActivityGroup
+            tools={calls.map((call: any, index: number) => ({
+              id: String(call?.call_id || call?.id || index),
+              runId: raw.runId,
+              name: call?.name || "Tool",
+              arguments: call?.arguments,
+              status: "waiting" as const,
+            }))}
+          />
+          <details>
+            <summary>Review full tool arguments (JSON)</summary>
+            <JsonViewer value={calls.length ? calls : details} />
+          </details>
+        </div>
+      ),
+      approveLabel: "Allow once",
+      denyLabel: "Deny",
+      approveAllLabel: onPermissionsAll ? "Allow all enabled tools" : undefined,
+      approveAllDescription: onPermissionsAll
+        ? "Sets permissions: all for this Gateway account, including future turns. Unchecked tools stay unavailable; explicit Ask overrides and Gateway restrictions remain enforced. Questions still need your answer."
+        : undefined,
+      onApproveAll: onPermissionsAll
+        ? async () => {
+            await controller.approveWithPolicyChange(target, () => {
+              void onPermissionsAll();
+            });
+          }
+        : undefined,
+      onApprove: async () => {
+        await controller.approve(true, target);
+      },
+      onDeny: async () => {
+        await controller.approve(false, target);
+      },
+    };
+  }
+  if (wait.reason === "user" || wait.reason === "ask_user")
+    return {
+      id,
+      kind: "ask-user",
+      title: "A question for you",
+      prompt: String(wait.prompt || details.prompt || "How would you like to continue?"),
+      allowFreeText: wait.allow_free_text !== false,
+      choices: (Array.isArray(wait.choices) ? wait.choices : []).map((choice: any) =>
+        typeof choice === "object" && choice !== null
+          ? {
+              id: String(choice.value ?? choice.id ?? choice.label),
+              label: String(choice.label ?? choice.text ?? choice.value ?? choice.id),
+              description: choice.description,
+            }
+          : { id: String(choice), label: String(choice) },
+      ),
+      onSubmit: async (answer) => {
+        await controller.resume(answer);
+      },
+    };
+  const key = String(wait.wait_key || "");
+  if (wait.reason === "event" || key.startsWith("evt:")) {
+    const routing = resolveWorkflowEventTarget(raw, options.records || [], options.currentRun ?? null);
+    const target = routing.target;
+    const eventName = target?.name || "";
+    return {
+      id,
+      kind: "event-wait",
+      title: target ? "Waiting for an event" : "Event routing unavailable",
+      eventName,
+      prompt: String(wait.prompt || `This workflow will continue when “${eventName || "its trigger"}” arrives.`),
+      description: target ? "You can also send the expected event here." : `This event cannot be sent safely. ${routing.error}`,
+      initialPayload: "{}",
+      payloadLabel: "Event data (JSON)",
+      sendLabel: "Send event",
+      onSend: async (text) => {
+        if (!target) throw new Error(routing.error);
+        const payload = JSON.parse(text || "{}");
+        const event: Record<string, unknown> = { name: target.name, scope: target.scope, payload };
+        if (target.scope === "session") event.session_id = target.scopeId;
+        else if (target.scope === "workflow") event.workflow_id = target.scopeId;
+        else if (target.scope === "run") event.run_id = target.scopeId;
+        await controller.emitEvent(event);
+      },
+    };
+  }
+  return null;
 }
 
 ## panel-chat/src/llm_delta.ts
@@ -9651,7 +10982,7 @@ export function registerMonitorGpuWidget(tagName = "monitor-gpu") {
 
 {
   "name": "@abstractframework/monitor-memory",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Compact host RAM + device memory meter widget for AbstractFramework clients (polls AbstractGateway host memory metrics with Bearer auth).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -10973,55 +12304,84 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## Unreleased
+## 0.1.14 - 2026-09-28
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.1.14 | updated |
+| `@abstractframework/panel-chat` | 0.1.19 | updated (requires `ui-kit` `^0.1.14`) |
+| `@abstractframework/app-server` | 0.1.11 | updated |
+| `@abstractframework/monitor-memory` | 0.1.10 | updated |
+| `@abstractframework/monitor-gpu` | 0.1.10 | updated |
+| `@abstractframework/monitor-flow` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-active-memory` | 0.1.9 | unchanged |
 
 ### All browser packages: relative same-origin URLs
 
-- Changed: every same-origin default is RELATIVE — `api/connection/gateway`,
-  `api/gateway/commands`, `api/gateway/automations`, `api/gateway/trigger-sources`,
-  `api/gateway/runs/{id}/workspace…`, `api/gateway/host/metrics/{gpu,memory}` — never rooted at
-  `/`. Apps are now served under a base path (AbstractGateway's `/apps/<id>/`); a rooted default
-  escaped the app's base and missed its server. Hosts that relied on the old rooted defaults pass
-  the explicit override (`connectionPath`, `commandsPath`, `baseUrl`, `endpoint`,
-  `fetchGateway`). The page URL must end with `/`.
-- Added: ui-kit `gateway_paths.ts`, the one source: `GATEWAY_API_PATH`,
+- Changed (affects hosts that relied on rooted defaults): every same-origin default is RELATIVE —
+  `api/connection/gateway`, `api/gateway/commands`, `api/gateway/automations`,
+  `api/gateway/trigger-sources`, `api/gateway/runs/{id}/workspace…`,
+  `api/gateway/host/metrics/{gpu,memory}` — never rooted at `/`. Apps are now served under a base
+  path (AbstractGateway's `/apps/<id>/`); a rooted default escaped the app's base and missed its
+  server. Hosts that relied on the old rooted defaults pass the explicit override
+  (`connectionPath`, `commandsPath`, `baseUrl`, `endpoint`, `fetchGateway`). The page URL must end
+  with `/`.
+- Added: `scripts/check_relative_urls.mjs`, run last by the root `npm test` (and `npm run
+  check:urls`): fails on any root-absolute same-origin literal (`/api/`, `/assets/`, `/apps/`) in
+  the sources and built output of ui-kit (incl. the console islands bundle), panel-chat and the
+  monitors, and when a build directory is missing. No allowlist.
+
+### app-server 0.1.11
+
+- Added: serving under the gateway's `/apps/<id>/` (`mount.js`): `createMountedHandler` (sets the
+  `X-AbstractFramework-App: <id>; mount=1` identity header the gateway requires before it serves
+  an app), `requestContext(req)` (base path from `X-Forwarded-Prefix`, the browser's address from
+  `X-Forwarded-For`, proto and host — believed ONLY from a loopback socket peer; a malformed
+  forwarded header or an unknown peer is a 400 `MountRequestError`), `injectShell` (`<base href>`
+  and `base_path` in `window.__ABSTRACT_UI_CONFIG__`), `appPath`, `cookiePath`,
+  `serializeCookie` / `parseCookies` (cookies at `Path=<basePath>/`, first value wins),
+  `rejectUpgrade` and helpers. `test/fixtures/mount_app.mjs` is a runnable mount-capable app.
+- Added: the shared launch flags (`parseAppFlags`, `parseAppFlagsOrExit`, `appUsage`,
+  `FlagError`): `--gateway-url <url>` (aliases `--gateway`, `--url`), `--port`, `--host` (default
+  `127.0.0.1`), `--help`, plus app-specific flags. Environment variables are legacy aliases below
+  every flag.
+- Added: the local gateway pointer reader (`readGatewayPointer`, `resolveGatewayUrl`,
+  `createGatewayUrlResolver`, `gatewayPointerPath`): `~/.abstractframework/gateway.json`
+  (schema 1, loopback URL only, owned by the current user) and the one precedence — flag, legacy
+  environment, saved login (except the old built-in `http://127.0.0.1:8080`), pointer, built-in
+  default. Reader cases are shared by every language in
+  `ui-kit/scripts/fixtures/gateway_pointer/` (pinned by `CHECKSUMS.sha256`).
+- Changed: `createGatewaySessionProxy` — `defaultGatewayUrl` accepts a resolver; without one the
+  proxy uses `ABSTRACTGATEWAY_URL` (legacy), else the pointer, else `http://127.0.0.1:8080`, and
+  re-reads the pointer when the gateway refuses a connection. `X-Forwarded-For` to the Gateway is
+  the browser's address (behind the gateway's loopback proxy, the address it forwarded). Mounted
+  under a base path, session cookies carry `Path=<basePath>/`; sign-out clears that path and `/`.
+- Security: a browser may choose its own Gateway URL (or have its URL cookie honoured) only when
+  its address is loopback AND the `Host` header names loopback (and `X-Forwarded-Host`, when a
+  loopback proxy sends one) — a DNS-rebinding page resolving to 127.0.0.1 is refused. The
+  `Secure` cookie flag follows `X-Forwarded-Proto` from a loopback peer only. The app's own CSRF
+  headers (`x-<appId>-csrf`, `x-abstract-csrf`) are checked locally and never forwarded to the
+  Gateway.
+
+### ui-kit 0.1.14
+
+- Added: `gateway_paths.ts`, the one source for same-origin routes: `GATEWAY_API_PATH`,
   `GATEWAY_CONNECTION_PATH`, `gatewayApiPath(route)` and `joinBaseUrl(baseUrl, path)` (both refuse
   a rooted argument). `createAutomationsClient({ baseUrl })` joins with it: "" keeps requests
   relative to the page; `http://host:8080` and `https://host/prefix/` prefix them.
-- Changed: links the kit rendered straight from gateway data are gone. `AutomationPanel` no longer
-  renders `ledger_url` or `artifacts[].url` as hrefs (they are rooted at the gateway and bypassed
-  the app's session under `/apps/<id>/` and a standalone app's proxy). Added `onOpenResource(resource)`
-  (`GatewayResource`: `kind` ledger/artifact, the server's `url`, `name`, `mimeType`, `runId`):
-  artifact names and a **Ledger (JSON)** button call it; without it artifacts are plain names and
-  there is no ledger JSON button. Added ui-kit `gatewayResourcePath(serverUrl)` (gateway-rooted →
-  app-relative; anything else throws), panel-chat `openGatewayResource(fetchGateway, url,
-  { name, mode? })` (fetch through the host, open with `tabOpenPlan`) and `deliverBlob(blob, name,
-  mode)`, and `AutomationPanelWithMarkdown`'s `fetchGateway` prop, which wires
-  `onOpenResource` through it. The contract fixtures are unchanged: the gateway keeps sending
-  rooted paths; the client maps them.
-- Added: `scripts/check_relative_urls.mjs`, run last by the root `npm test`: fails on any
-  root-absolute same-origin literal (`/api/`, `/assets/`, `/apps/`) in the sources and built
-  output of ui-kit (incl. the console islands bundle), panel-chat and the monitors, and when a
-  build directory is missing. No allowlist.
-
-### panel-chat: images
-
-- Fixed: `sameOriginImage` (the default image rule for `images="link"`, used by
-  `ChatMessageCard`) accepts RELATIVE paths such as the kit's own `api/gateway/…` workspace content
-  routes: a source is resolved against `document.baseURI` and loads only when it is http(s) on
-  the page's own origin, so it works for an app mounted at `/apps/<id>/` without the host
-  rewriting paths to absolute URLs. Protocol-relative `//host` and `/\host`, other origins and
-  ports, and `javascript:` / `data:` / `blob:` / `file:` sources stay links (or are dropped).
-  `Markdown` now parses relative image sources (links keep their existing rule).
-
-### ui-kit
-
+- Changed: `AutomationPanel` no longer renders `ledger_url` or `artifacts[].url` as hrefs (they
+  are rooted at the gateway and bypassed the app's session under `/apps/<id>/` and a standalone
+  app's proxy). Added `onOpenResource(resource)` (`GatewayResource`: `kind` ledger/artifact, the
+  server's `url`, `name`, `mimeType`, `runId`): artifact names and a **Ledger (JSON)** button call
+  it; without it artifacts are plain names and there is no ledger JSON button. Added
+  `gatewayResourcePath(serverUrl)` (gateway-rooted → app-relative; anything else throws). The
+  contract fixtures are unchanged: the gateway keeps sending rooted paths; the client maps them.
 - Added: `AutomationStateLabel` renders an automation's state as the word then an icon
   ("Active ▶", "Paused ⏸"; Completed, Failed and Archived likewise) — the one rendering every
-  client uses (operator requirement 2026-09-28). `STATUS_LABELS` (the words) and `STATUS_ICONS`
-  (the icons) are exported. `AutomationPanel`'s header uses it instead of the bare word.
+  client uses. `STATUS_LABELS` (the words) and `STATUS_ICONS` (the icons) are exported.
+  `AutomationPanel`'s header uses it instead of the bare word.
 - Added: icons `play`, `stop`, `folder`, `file`, `archive` and `clock` (24-grid, stroke 2;
-  `play` and `stop` solid like `pause`).
+  `play` and `stop` solid like `pause`). The console islands bundle includes them.
 - Added: `AutomationPanel` `onOpenWorkspace(runId)`: a folder button on the header's Workspace
   fact (called with the automation id, which is its controller run) and a **Workspace** button in
   each run's details (called with that run's id). Changed: the run details no longer link to the
@@ -11030,14 +12390,22 @@ ships.
 - Added: `AutomationPanel` `renderTurn(turn)` seam (`AutomationTurn`: `kind` trigger/answer,
   `role`, `text`, `index`, `runId`; type `RenderTurn`), so a host renders each occurrence turn as
   its chat message card; without it the turn's text goes through `renderText` as before.
+- Added: canonical gateway pointer fixtures `scripts/fixtures/gateway_pointer/` (`cases.json`,
+  valid / malformed / non-loopback / wrong-schema files, `CHECKSUMS.sha256`): the case table every
+  pointer reader tests against (app-server here; other apps vendor byte-identical copies).
 
-### panel-chat
+### panel-chat 0.1.19
 
+- Changed: the `@abstractframework/ui-kit` peer range is now `^0.1.14` (`renderTurn`,
+  `onOpenResource`, `gatewayResourcePath` and the new icons ship in ui-kit 0.1.14).
 - Changed: `AutomationPanelWithMarkdown` / `automationRenderers` render each occurrence turn as
   the shared `ChatMessageCard` (a user card titled "Trigger", an assistant card titled
   "Automation", with the copy button; remote images as links on both). New exports
   `renderAutomationTurn()` and `AUTOMATION_TURN_TITLES`; `automationRenderers` is now
-  `{renderText, renderTurn}`.
+  `{renderText, renderTurn}`. `AutomationPanelWithMarkdown` takes a `fetchGateway` prop, which
+  wires `onOpenResource` through `openGatewayResource`.
+- Added: `openGatewayResource(fetchGateway, url, { name, mode? })` (fetch a gateway resource
+  through the host, open it with `tabOpenPlan`) and `deliverBlob(blob, name, mode)`.
 - Added: `WorkspaceBrowser` (moved from AbstractObserver): browse a run's folder on the gateway
   host — breadcrumbs, folders first, sizes, entries hidden by the gateway's rules counted — and
   open or download files, fetched through the host's credentialed `fetchGateway(path, init)`
@@ -11049,6 +12417,19 @@ ships.
 - Added: `presentInteraction(wait, controller, options?)` (moved from AbstractCode web): the one
   mapping from a runtime wait to the `WorkflowChat` control — tool approval (Allow all only with
   `options.onPermissionsAll`), question, event wait (refused when it cannot be routed).
+- Fixed: `sameOriginImage` (the default image rule for `images="link"`, used by
+  `ChatMessageCard`) accepts RELATIVE paths such as the kit's own `api/gateway/…` workspace content
+  routes: a source is resolved against `document.baseURI` and loads only when it is http(s) on
+  the page's own origin, so it works for an app mounted at `/apps/<id>/` without the host
+  rewriting paths to absolute URLs. Protocol-relative `//host` and `/\host`, other origins and
+  ports, and `javascript:` / `data:` / `blob:` / `file:` sources stay links (or are dropped).
+  `Markdown` now parses relative image sources (links keep their existing rule).
+
+### monitor-gpu 0.1.10 and monitor-memory 0.1.10
+
+- Changed: the default `endpoint` is the RELATIVE `api/gateway/host/metrics/gpu` /
+  `api/gateway/host/metrics/memory`, resolved under the page's base path (an app served at
+  `/apps/<id>/`) or under `base-url` when set. Pass an explicit `endpoint` to keep a rooted path.
 
 ## 0.1.13 - 2026-09-27
 

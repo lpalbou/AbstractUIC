@@ -7,55 +7,84 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## Unreleased
+## 0.1.14 - 2026-09-28
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.1.14 | updated |
+| `@abstractframework/panel-chat` | 0.1.19 | updated (requires `ui-kit` `^0.1.14`) |
+| `@abstractframework/app-server` | 0.1.11 | updated |
+| `@abstractframework/monitor-memory` | 0.1.10 | updated |
+| `@abstractframework/monitor-gpu` | 0.1.10 | updated |
+| `@abstractframework/monitor-flow` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-active-memory` | 0.1.9 | unchanged |
 
 ### All browser packages: relative same-origin URLs
 
-- Changed: every same-origin default is RELATIVE — `api/connection/gateway`,
-  `api/gateway/commands`, `api/gateway/automations`, `api/gateway/trigger-sources`,
-  `api/gateway/runs/{id}/workspace…`, `api/gateway/host/metrics/{gpu,memory}` — never rooted at
-  `/`. Apps are now served under a base path (AbstractGateway's `/apps/<id>/`); a rooted default
-  escaped the app's base and missed its server. Hosts that relied on the old rooted defaults pass
-  the explicit override (`connectionPath`, `commandsPath`, `baseUrl`, `endpoint`,
-  `fetchGateway`). The page URL must end with `/`.
-- Added: ui-kit `gateway_paths.ts`, the one source: `GATEWAY_API_PATH`,
+- Changed (affects hosts that relied on rooted defaults): every same-origin default is RELATIVE —
+  `api/connection/gateway`, `api/gateway/commands`, `api/gateway/automations`,
+  `api/gateway/trigger-sources`, `api/gateway/runs/{id}/workspace…`,
+  `api/gateway/host/metrics/{gpu,memory}` — never rooted at `/`. Apps are now served under a base
+  path (AbstractGateway's `/apps/<id>/`); a rooted default escaped the app's base and missed its
+  server. Hosts that relied on the old rooted defaults pass the explicit override
+  (`connectionPath`, `commandsPath`, `baseUrl`, `endpoint`, `fetchGateway`). The page URL must end
+  with `/`.
+- Added: `scripts/check_relative_urls.mjs`, run last by the root `npm test` (and `npm run
+  check:urls`): fails on any root-absolute same-origin literal (`/api/`, `/assets/`, `/apps/`) in
+  the sources and built output of ui-kit (incl. the console islands bundle), panel-chat and the
+  monitors, and when a build directory is missing. No allowlist.
+
+### app-server 0.1.11
+
+- Added: serving under the gateway's `/apps/<id>/` (`mount.js`): `createMountedHandler` (sets the
+  `X-AbstractFramework-App: <id>; mount=1` identity header the gateway requires before it serves
+  an app), `requestContext(req)` (base path from `X-Forwarded-Prefix`, the browser's address from
+  `X-Forwarded-For`, proto and host — believed ONLY from a loopback socket peer; a malformed
+  forwarded header or an unknown peer is a 400 `MountRequestError`), `injectShell` (`<base href>`
+  and `base_path` in `window.__ABSTRACT_UI_CONFIG__`), `appPath`, `cookiePath`,
+  `serializeCookie` / `parseCookies` (cookies at `Path=<basePath>/`, first value wins),
+  `rejectUpgrade` and helpers. `test/fixtures/mount_app.mjs` is a runnable mount-capable app.
+- Added: the shared launch flags (`parseAppFlags`, `parseAppFlagsOrExit`, `appUsage`,
+  `FlagError`): `--gateway-url <url>` (aliases `--gateway`, `--url`), `--port`, `--host` (default
+  `127.0.0.1`), `--help`, plus app-specific flags. Environment variables are legacy aliases below
+  every flag.
+- Added: the local gateway pointer reader (`readGatewayPointer`, `resolveGatewayUrl`,
+  `createGatewayUrlResolver`, `gatewayPointerPath`): `~/.abstractframework/gateway.json`
+  (schema 1, loopback URL only, owned by the current user) and the one precedence — flag, legacy
+  environment, saved login (except the old built-in `http://127.0.0.1:8080`), pointer, built-in
+  default. Reader cases are shared by every language in
+  `ui-kit/scripts/fixtures/gateway_pointer/` (pinned by `CHECKSUMS.sha256`).
+- Changed: `createGatewaySessionProxy` — `defaultGatewayUrl` accepts a resolver; without one the
+  proxy uses `ABSTRACTGATEWAY_URL` (legacy), else the pointer, else `http://127.0.0.1:8080`, and
+  re-reads the pointer when the gateway refuses a connection. `X-Forwarded-For` to the Gateway is
+  the browser's address (behind the gateway's loopback proxy, the address it forwarded). Mounted
+  under a base path, session cookies carry `Path=<basePath>/`; sign-out clears that path and `/`.
+- Security: a browser may choose its own Gateway URL (or have its URL cookie honoured) only when
+  its address is loopback AND the `Host` header names loopback (and `X-Forwarded-Host`, when a
+  loopback proxy sends one) — a DNS-rebinding page resolving to 127.0.0.1 is refused. The
+  `Secure` cookie flag follows `X-Forwarded-Proto` from a loopback peer only. The app's own CSRF
+  headers (`x-<appId>-csrf`, `x-abstract-csrf`) are checked locally and never forwarded to the
+  Gateway.
+
+### ui-kit 0.1.14
+
+- Added: `gateway_paths.ts`, the one source for same-origin routes: `GATEWAY_API_PATH`,
   `GATEWAY_CONNECTION_PATH`, `gatewayApiPath(route)` and `joinBaseUrl(baseUrl, path)` (both refuse
   a rooted argument). `createAutomationsClient({ baseUrl })` joins with it: "" keeps requests
   relative to the page; `http://host:8080` and `https://host/prefix/` prefix them.
-- Changed: links the kit rendered straight from gateway data are gone. `AutomationPanel` no longer
-  renders `ledger_url` or `artifacts[].url` as hrefs (they are rooted at the gateway and bypassed
-  the app's session under `/apps/<id>/` and a standalone app's proxy). Added `onOpenResource(resource)`
-  (`GatewayResource`: `kind` ledger/artifact, the server's `url`, `name`, `mimeType`, `runId`):
-  artifact names and a **Ledger (JSON)** button call it; without it artifacts are plain names and
-  there is no ledger JSON button. Added ui-kit `gatewayResourcePath(serverUrl)` (gateway-rooted →
-  app-relative; anything else throws), panel-chat `openGatewayResource(fetchGateway, url,
-  { name, mode? })` (fetch through the host, open with `tabOpenPlan`) and `deliverBlob(blob, name,
-  mode)`, and `AutomationPanelWithMarkdown`'s `fetchGateway` prop, which wires
-  `onOpenResource` through it. The contract fixtures are unchanged: the gateway keeps sending
-  rooted paths; the client maps them.
-- Added: `scripts/check_relative_urls.mjs`, run last by the root `npm test`: fails on any
-  root-absolute same-origin literal (`/api/`, `/assets/`, `/apps/`) in the sources and built
-  output of ui-kit (incl. the console islands bundle), panel-chat and the monitors, and when a
-  build directory is missing. No allowlist.
-
-### panel-chat: images
-
-- Fixed: `sameOriginImage` (the default image rule for `images="link"`, used by
-  `ChatMessageCard`) accepts RELATIVE paths such as the kit's own `api/gateway/…` workspace content
-  routes: a source is resolved against `document.baseURI` and loads only when it is http(s) on
-  the page's own origin, so it works for an app mounted at `/apps/<id>/` without the host
-  rewriting paths to absolute URLs. Protocol-relative `//host` and `/\host`, other origins and
-  ports, and `javascript:` / `data:` / `blob:` / `file:` sources stay links (or are dropped).
-  `Markdown` now parses relative image sources (links keep their existing rule).
-
-### ui-kit
-
+- Changed: `AutomationPanel` no longer renders `ledger_url` or `artifacts[].url` as hrefs (they
+  are rooted at the gateway and bypassed the app's session under `/apps/<id>/` and a standalone
+  app's proxy). Added `onOpenResource(resource)` (`GatewayResource`: `kind` ledger/artifact, the
+  server's `url`, `name`, `mimeType`, `runId`): artifact names and a **Ledger (JSON)** button call
+  it; without it artifacts are plain names and there is no ledger JSON button. Added
+  `gatewayResourcePath(serverUrl)` (gateway-rooted → app-relative; anything else throws). The
+  contract fixtures are unchanged: the gateway keeps sending rooted paths; the client maps them.
 - Added: `AutomationStateLabel` renders an automation's state as the word then an icon
   ("Active ▶", "Paused ⏸"; Completed, Failed and Archived likewise) — the one rendering every
-  client uses (operator requirement 2026-09-28). `STATUS_LABELS` (the words) and `STATUS_ICONS`
-  (the icons) are exported. `AutomationPanel`'s header uses it instead of the bare word.
+  client uses. `STATUS_LABELS` (the words) and `STATUS_ICONS` (the icons) are exported.
+  `AutomationPanel`'s header uses it instead of the bare word.
 - Added: icons `play`, `stop`, `folder`, `file`, `archive` and `clock` (24-grid, stroke 2;
-  `play` and `stop` solid like `pause`).
+  `play` and `stop` solid like `pause`). The console islands bundle includes them.
 - Added: `AutomationPanel` `onOpenWorkspace(runId)`: a folder button on the header's Workspace
   fact (called with the automation id, which is its controller run) and a **Workspace** button in
   each run's details (called with that run's id). Changed: the run details no longer link to the
@@ -64,14 +93,22 @@ ships.
 - Added: `AutomationPanel` `renderTurn(turn)` seam (`AutomationTurn`: `kind` trigger/answer,
   `role`, `text`, `index`, `runId`; type `RenderTurn`), so a host renders each occurrence turn as
   its chat message card; without it the turn's text goes through `renderText` as before.
+- Added: canonical gateway pointer fixtures `scripts/fixtures/gateway_pointer/` (`cases.json`,
+  valid / malformed / non-loopback / wrong-schema files, `CHECKSUMS.sha256`): the case table every
+  pointer reader tests against (app-server here; other apps vendor byte-identical copies).
 
-### panel-chat
+### panel-chat 0.1.19
 
+- Changed: the `@abstractframework/ui-kit` peer range is now `^0.1.14` (`renderTurn`,
+  `onOpenResource`, `gatewayResourcePath` and the new icons ship in ui-kit 0.1.14).
 - Changed: `AutomationPanelWithMarkdown` / `automationRenderers` render each occurrence turn as
   the shared `ChatMessageCard` (a user card titled "Trigger", an assistant card titled
   "Automation", with the copy button; remote images as links on both). New exports
   `renderAutomationTurn()` and `AUTOMATION_TURN_TITLES`; `automationRenderers` is now
-  `{renderText, renderTurn}`.
+  `{renderText, renderTurn}`. `AutomationPanelWithMarkdown` takes a `fetchGateway` prop, which
+  wires `onOpenResource` through `openGatewayResource`.
+- Added: `openGatewayResource(fetchGateway, url, { name, mode? })` (fetch a gateway resource
+  through the host, open it with `tabOpenPlan`) and `deliverBlob(blob, name, mode)`.
 - Added: `WorkspaceBrowser` (moved from AbstractObserver): browse a run's folder on the gateway
   host — breadcrumbs, folders first, sizes, entries hidden by the gateway's rules counted — and
   open or download files, fetched through the host's credentialed `fetchGateway(path, init)`
@@ -83,6 +120,19 @@ ships.
 - Added: `presentInteraction(wait, controller, options?)` (moved from AbstractCode web): the one
   mapping from a runtime wait to the `WorkflowChat` control — tool approval (Allow all only with
   `options.onPermissionsAll`), question, event wait (refused when it cannot be routed).
+- Fixed: `sameOriginImage` (the default image rule for `images="link"`, used by
+  `ChatMessageCard`) accepts RELATIVE paths such as the kit's own `api/gateway/…` workspace content
+  routes: a source is resolved against `document.baseURI` and loads only when it is http(s) on
+  the page's own origin, so it works for an app mounted at `/apps/<id>/` without the host
+  rewriting paths to absolute URLs. Protocol-relative `//host` and `/\host`, other origins and
+  ports, and `javascript:` / `data:` / `blob:` / `file:` sources stay links (or are dropped).
+  `Markdown` now parses relative image sources (links keep their existing rule).
+
+### monitor-gpu 0.1.10 and monitor-memory 0.1.10
+
+- Changed: the default `endpoint` is the RELATIVE `api/gateway/host/metrics/gpu` /
+  `api/gateway/host/metrics/memory`, resolved under the page's base path (an app served at
+  `/apps/<id>/`) or under `base-url` when set. Pass an explicit `endpoint` to keep a rooted path.
 
 ## 0.1.13 - 2026-09-27
 
