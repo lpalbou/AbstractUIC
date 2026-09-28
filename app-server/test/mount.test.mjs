@@ -164,6 +164,11 @@ function startStubGateway() {
   const seen = [];
   const server = http.createServer((req, res) => {
     seen.push({ url: req.url, xff: req.headers["x-forwarded-for"], session: req.headers["x-abstractgateway-session"] || null });
+    if (req.url === "/api/gateway/session/login") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ session: { session_id: "sess-m", csrf_token: "csrf-m" } }));
+      return;
+    }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, url: req.url, xff: req.headers["x-forwarded-for"] }));
   });
@@ -221,7 +226,9 @@ const home = mkdtempSync(join(tmpdir(), "app-server-mount-home-"));
 const stub = await startStubGateway();
 const appPort = await freePort();
 const child = spawn(process.execPath, [join(HERE, "fixtures", "mount_app.mjs"), "--port", String(appPort), "--gateway-url", `http://127.0.0.1:${stub.port}`], {
-  env: { PATH: process.env.PATH, HOME: home },
+  // A dead port as the legacy env: the flag must win, and nothing this test
+  // does can ever reach a real gateway (8080) if it did not.
+  env: { PATH: process.env.PATH, HOME: home, ABSTRACTGATEWAY_URL: "http://127.0.0.1:9", ABSTRACTOBSERVER_GATEWAY_URL: "http://127.0.0.1:9" },
   stdio: ["ignore", "pipe", "pipe"],
 });
 let childOut = "";
@@ -283,6 +290,15 @@ await checkAsync("fixture: the session proxy forwards the BROWSER's address to t
 });
 
 await checkAsync("fixture: sign-in cookies carry Path=<base>/ ; sign-out clears both paths", async () => {
+  const signIn = await request(appPort, "/api/connection/gateway", {
+    method: "POST",
+    headers: { ...GW, "content-type": "application/json" },
+    body: JSON.stringify({ gateway_user_id: "admin", gateway_token: "t" }),
+  });
+  const set = [].concat(signIn.headers["set-cookie"] || []);
+  assert.equal(signIn.status, 200, signIn.text);
+  assert.equal(set.length, 3, set.join(" | "));
+  assert.ok(set.every((c) => c.includes("; Path=/apps/observer/;")), set.join(" | "));
   const r = await request(appPort, "/api/connection/gateway", { method: "DELETE", headers: GW });
   const cookies = [].concat(r.headers["set-cookie"] || []);
   assert.ok(cookies.some((c) => c.startsWith("abstractobserver_gateway_session=;") && c.includes("Path=/apps/observer/")), cookies.join(" | "));
