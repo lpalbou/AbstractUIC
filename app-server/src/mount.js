@@ -125,7 +125,7 @@ const CONTEXTS = new WeakMap();
 /**
  * Who is asking and where the app is mounted, for ONE request.
  *
- * Returns {clientAddress, clientIsLoopback, basePath, proto, host, forwarded}:
+ * Returns {clientAddress, clientIsLoopback, hostIsLoopback, basePath, proto, host, forwarded}:
  *  - clientAddress: the browser's address. From a loopback socket peer, the
  *    X-Forwarded-For client (right-most non-loopback entry) when the header
  *    is present, else the peer; from any other peer, the peer itself.
@@ -134,6 +134,13 @@ const CONTEXTS = new WeakMap();
  *  - proto: "https" when a loopback peer says X-Forwarded-Proto: https.
  *  - host: X-Forwarded-Host from a loopback peer, else the Host header.
  *  - forwarded: a loopback peer sent any X-Forwarded-* header.
+ *  - hostIsLoopback: the raw Host header names loopback (localhost,
+ *    *.localhost, ::1 or a 127.x IP literal, never a DNS name), and so does
+ *    X-Forwarded-Host when a loopback peer sent one.
+ *  - clientIsLoopback: the browser is on this machine — a loopback
+ *    clientAddress AND hostIsLoopback (a DNS-rebinding page, which names its
+ *    own host, is never local). THE field for every app-local privileged
+ *    check.
  * Throws MountRequestError (status 400) for an unknown socket peer or a
  * malformed forwarded header from a loopback peer. Memoized per request.
  */
@@ -145,8 +152,10 @@ export function requestContext(req) {
   let clientAddress = peer;
   let basePath = "";
   let proto = "http";
-  let host = String(headerValue(req, "host") || "");
+  const rawHost = String(headerValue(req, "host") || "");
+  let host = rawHost;
   let forwarded = false;
+  let forwardedHost;
   if (isLoopbackAddress(peer)) {
     const xff = headerValue(req, "x-forwarded-for");
     const prefix = headerValue(req, "x-forwarded-prefix");
@@ -164,11 +173,19 @@ export function requestContext(req) {
       const h = xfHost.split(",", 1)[0].trim();
       if (!HOST_RE.test(h)) throw new MountRequestError(`Invalid X-Forwarded-Host: ${JSON.stringify(h.slice(0, 64))}`);
       host = h;
+      forwardedHost = h;
     }
   }
+  // DNS rebinding: a page at a hostile name that resolves to 127.0.0.1
+  // reaches this server over a loopback socket with ITS Host header, and as
+  // a same-origin script it can add X-Forwarded-* headers too. A request is
+  // "from this machine" only when the host it names is loopback as well: the
+  // raw Host, and the X-Forwarded-Host a loopback peer (the gateway) sent.
+  const hostIsLoopback = isLoopbackHostname(rawHost) && (forwardedHost === undefined || isLoopbackHostname(forwardedHost));
   const ctx = Object.freeze({
     clientAddress,
-    clientIsLoopback: isLoopbackAddress(clientAddress),
+    clientIsLoopback: isLoopbackAddress(clientAddress) && hostIsLoopback,
+    hostIsLoopback,
     basePath,
     proto,
     host,
@@ -221,9 +238,11 @@ export function serializeCookie(name, value, options = {}) {
 
 /**
  * Cookies of a request (or a raw Cookie header), FIRST value wins. Browsers
- * send the cookie with the longest Path first, so the app's own
- * `Path=/apps/<id>/` cookie beats a `Path=/` cookie of the same name left
- * by the app on the same host at its own port. Values are URL-decoded.
+ * send cookies with a longer Path before those with a shorter one (RFC 6265
+ * 5.4, a SHOULD that every current browser follows), so the app's own
+ * `Path=/apps/<id>/` cookie comes before a `Path=/` cookie of the same name.
+ * This picks WHICH value an app reads; it is not isolation: every app under
+ * the gateway shares one origin (see the README). Values are URL-decoded.
  */
 export function parseCookies(reqOrHeader) {
   const header = typeof reqOrHeader === "string" ? reqOrHeader : headerValue(reqOrHeader, "cookie") || "";

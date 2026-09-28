@@ -9,7 +9,10 @@
  *
  * A reader believes it only when: `schema` is 1, the url is http(s) on
  * 127.0.0.1 / ::1 / localhost with nothing after the port, and (POSIX) the
- * file is a regular file owned by the current user. A malformed or refused
+ * file is a regular file (not a symlink) owned by the current user and
+ * writable by nobody else (no group/world write bit). The checks run on the
+ * OPENED file (O_NOFOLLOW, then fstat), so the file cannot be swapped
+ * between the check and the read. A malformed or refused
  * file is ignored with ONE visible warning; it never throws.
  *
  * The URL an app talks to, in order:
@@ -21,7 +24,7 @@
  *   5. http://127.0.0.1:8080.
  */
 
-import { lstatSync, readFileSync } from "node:fs";
+import { closeSync, constants as fsConstants, fstatSync, openSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -50,20 +53,34 @@ function refused(path, reason) {
  */
 export function readGatewayPointer(options = {}) {
   const path = options.path || gatewayPointerPath(options.home || homedir());
-  let st;
-  try {
-    st = lstatSync(path);
-  } catch (err) {
-    if (err && err.code === "ENOENT") return { ok: false, reason: "missing", path };
-    return refused(path, `cannot read it (${err?.code || err?.message || err})`);
-  }
-  if (!st.isFile()) return refused(path, "it is not a regular file");
   const platform = options.platform || process.platform;
   const getuid = options.getuid || (typeof process.getuid === "function" ? () => process.getuid() : null);
-  if (platform !== "win32" && getuid && st.uid !== getuid()) return refused(path, "it belongs to another user");
+  let fd;
+  try {
+    // O_NOFOLLOW: a symlink is refused by the open itself (ELOOP), never followed.
+    fd = openSync(path, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW || 0));
+  } catch (err) {
+    if (err && err.code === "ENOENT") return { ok: false, reason: "missing", path };
+    if (err && (err.code === "ELOOP" || err.code === "EMLINK")) return refused(path, "it is a symbolic link");
+    return refused(path, `cannot read it (${err?.code || err?.message || err})`);
+  }
+  let text;
+  try {
+    const st = fstatSync(fd);
+    if (!st.isFile()) return refused(path, "it is not a regular file");
+    if (platform !== "win32") {
+      if (getuid && st.uid !== getuid()) return refused(path, "it belongs to another user");
+      if (st.mode & 0o022) return refused(path, `other users can write it (mode ${(st.mode & 0o777).toString(8)})`);
+    }
+    text = readFileSync(fd, "utf8");
+  } catch (err) {
+    return refused(path, `cannot read it (${err?.code || err?.message || err})`);
+  } finally {
+    closeSync(fd);
+  }
   let data;
   try {
-    data = JSON.parse(readFileSync(path, "utf8"));
+    data = JSON.parse(text);
   } catch (err) {
     return refused(path, `it is not valid JSON (${String(err?.message || err).slice(0, 120)})`);
   }
@@ -131,9 +148,10 @@ export function resolveGatewayUrl(options = {}) {
 /**
  * A resolver a long-running server keeps: `current()` is the URL now;
  * `refresh()` re-reads the pointer (call it when a connection to the
- * current URL fails) and returns true when the URL changed. Only a URL that
- * came from the pointer or the built-in default moves: a flag, the
- * environment or a saved login stays what the person chose.
+ * current URL fails) and returns true when the URL changed. A flag or the
+ * environment never moves. A saved login stays what the person chose,
+ * except a saved old built-in http://127.0.0.1:8080, which follows the
+ * pointer like the default does (resolveGatewayUrl step 3).
  */
 export function createGatewayUrlResolver(options = {}) {
   let resolved = resolveGatewayUrl(options);

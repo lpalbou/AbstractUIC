@@ -5,7 +5,7 @@
  * scratch home: no test reads or writes the real ~/.abstractframework.
  */
 import assert from "node:assert/strict";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,7 +30,10 @@ function home(pointerFile) {
   n += 1;
   const h = join(scratch, `home${n}`);
   mkdirSync(join(h, ".abstractframework"), { recursive: true });
-  if (pointerFile) copyFileSync(join(FIXTURES, pointerFile), gatewayPointerPath(h));
+  if (pointerFile) {
+    copyFileSync(join(FIXTURES, pointerFile), gatewayPointerPath(h));
+    chmodSync(gatewayPointerPath(h), 0o600); // as the writers leave it, whatever this machine's umask
+  }
   return h;
 }
 
@@ -71,17 +74,36 @@ check("a symlinked pointer is refused", () => {
   const target = join(scratch, "elsewhere.json");
   copyFileSync(join(FIXTURES, "valid.json"), target);
   symlinkSync(target, gatewayPointerPath(h));
-  assert.match(readGatewayPointer({ home: h }).reason, /regular file/);
+  assert.match(readGatewayPointer({ home: h }).reason, /symbolic link/);
+});
+
+check("a pointer other users can write is refused (group or world write bit)", () => {
+  for (const mode of [0o620, 0o602, 0o666]) {
+    const h = home("valid.json");
+    chmodSync(gatewayPointerPath(h), mode);
+    const r = readGatewayPointer({ home: h, platform: "linux" });
+    assert.equal(r.ok, false, mode.toString(8));
+    assert.match(r.reason, /other users can write it/);
+  }
+  const h = home("valid.json");
+  chmodSync(gatewayPointerPath(h), 0o644);
+  assert.equal(readGatewayPointer({ home: h }).ok, true, "readable by others is fine: no secret in it");
+});
+
+check("a directory in the pointer's place is refused", () => {
+  const h = home(null);
+  mkdirSync(gatewayPointerPath(h));
+  assert.equal(readGatewayPointer({ home: h }).ok, false);
 });
 
 check("url with a path, credentials or a non-http scheme is refused", () => {
   for (const url of ["http://127.0.0.1:8081/x", "http://u:p@127.0.0.1:8081", "ftp://127.0.0.1:8081", "http://[::2]:8081", "http://127.0.0.1.evil.example:8081"]) {
     const h = home(null);
-    writeFileSync(gatewayPointerPath(h), JSON.stringify({ schema: 1, url, port: 8081 }));
+    writeFileSync(gatewayPointerPath(h), JSON.stringify({ schema: 1, url, port: 8081 }), { mode: 0o600 });
     assert.equal(readGatewayPointer({ home: h }).ok, false, url);
   }
   const h = home(null);
-  writeFileSync(gatewayPointerPath(h), JSON.stringify({ schema: 1, url: "http://[::1]:8082/", port: 8082 }));
+  writeFileSync(gatewayPointerPath(h), JSON.stringify({ schema: 1, url: "http://[::1]:8082/", port: 8082 }), { mode: 0o600 });
   assert.equal(readGatewayPointer({ home: h }).url, "http://[::1]:8082");
 });
 

@@ -42,7 +42,7 @@ import * as https from "node:https";
 import { timingSafeEqual as cryptoTimingSafeEqual } from "node:crypto";
 
 import { createGatewayUrlResolver } from "./gateway_pointer.js";
-import { MountRequestError, isLoopbackAddress, isLoopbackHostname, parseCookies, requestContext, serializeCookie } from "./mount.js";
+import { MountRequestError, parseCookies, requestContext, serializeCookie } from "./mount.js";
 
 const TRUE_VALUES = new Set(["1", "true", "yes", "y", "on"]);
 const HOP_BY_HOP_HEADERS = new Set([
@@ -251,21 +251,6 @@ export function createGatewaySessionProxy(options) {
     return requestContext(req).clientAddress;
   }
 
-  /**
-   * True only when the BROWSER is on this machine (its clientAddress is
-   * loopback). This is the SSRF gate: a LAN peer sending `Host: localhost`
-   * against an all-interfaces bind must NOT unlock browser-supplied gateway
-   * URLs (security report entity c1768), and neither may a remote browser
-   * reaching the app through the gateway's loopback proxy.
-   */
-  function isLoopbackPeer(req) {
-    try {
-      return isLoopbackAddress(clientAddress(req));
-    } catch {
-      return false;
-    }
-  }
-
   function remoteConfigAllowed(req) {
     // Explicit operator opt-in wins (deployments behind their own access
     // control).
@@ -276,22 +261,15 @@ export function createGatewaySessionProxy(options) {
     // deployments must set the explicit opt-in above; there is no
     // socket-derived unlock behind a trusted proxy.
     if (anyEnvBool(TRUST_PROXY_ENVS)) return false;
-    // Otherwise the unlock needs a genuine loopback CLIENT (the socket peer,
-    // or the address the gateway's loopback proxy forwarded) AND a loopback
-    // HOST. DNS rebinding: a page at a hostile name that resolves to
-    // 127.0.0.1 reaches this server over a loopback socket with its own Host
-    // header, and as a same-origin script it can add X-Forwarded-* headers
-    // too. So the raw Host must name loopback, and so must X-Forwarded-Host
-    // when a loopback peer sends one (the gateway sends the browser's host).
-    if (!isLoopbackPeer(req)) return false;
-    if (!isLoopbackHostname(firstHeaderValue(req?.headers?.host))) return false;
-    const forwardedHost = req?.headers?.["x-forwarded-host"];
-    if (forwardedHost !== undefined && !isLoopbackHostname(firstHeaderValue(forwardedHost))) return false;
-    return true;
-  }
-
-  function firstHeaderValue(value) {
-    return String(Array.isArray(value) ? value[0] : value || "").split(",", 1)[0].trim();
+    // Otherwise only a browser on this machine: requestContext's
+    // clientIsLoopback (a loopback client address AND a loopback Host, so a
+    // DNS-rebinding page is refused). One rule, the same field every
+    // app-local privileged check reads.
+    try {
+      return requestContext(req).clientIsLoopback;
+    } catch {
+      return false;
+    }
   }
 
   function remoteConfigDenial(req) {

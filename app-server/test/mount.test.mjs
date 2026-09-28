@@ -66,13 +66,29 @@ check("base path validation", () => {
 check("forwarded headers are believed from a loopback peer only", () => {
   const fwd = { "x-forwarded-for": "203.0.113.5", "x-forwarded-prefix": "/apps/flow", "x-forwarded-proto": "https", "x-forwarded-host": "gw.example:443", host: "127.0.0.1:3005" };
   const viaGateway = requestContext(fakeReq("127.0.0.1", fwd));
-  assert.deepEqual({ ...viaGateway }, { clientAddress: "203.0.113.5", clientIsLoopback: false, basePath: "/apps/flow", proto: "https", host: "gw.example:443", forwarded: true });
+  assert.deepEqual({ ...viaGateway }, { clientAddress: "203.0.113.5", clientIsLoopback: false, hostIsLoopback: false, basePath: "/apps/flow", proto: "https", host: "gw.example:443", forwarded: true });
   const lan = requestContext(fakeReq("192.168.1.9", fwd));
-  assert.deepEqual({ ...lan }, { clientAddress: "192.168.1.9", clientIsLoopback: false, basePath: "", proto: "http", host: "127.0.0.1:3005", forwarded: false });
+  assert.deepEqual({ ...lan }, { clientAddress: "192.168.1.9", clientIsLoopback: false, hostIsLoopback: true, basePath: "", proto: "http", host: "127.0.0.1:3005", forwarded: false });
   const direct = requestContext(fakeReq("::ffff:127.0.0.1", { host: "127.0.0.1:3005" }));
   assert.equal(direct.clientAddress, "127.0.0.1");
   assert.equal(direct.clientIsLoopback, true);
   assert.equal(direct.basePath, "");
+});
+
+check("DNS rebinding: a loopback socket naming a foreign host is NOT local", () => {
+  const rebound = requestContext(fakeReq("127.0.0.1", { host: "evil.example:3001" }));
+  assert.equal(rebound.clientIsLoopback, false);
+  assert.equal(rebound.hostIsLoopback, false);
+  assert.equal(requestContext(fakeReq("127.0.0.1", { host: "127.0.0.1.evil.example:3001" })).clientIsLoopback, false, "a DNS name starting 127. is not loopback");
+  const spoof = requestContext(fakeReq("127.0.0.1", { host: "evil.example:3001", "x-forwarded-host": "127.0.0.1", "x-forwarded-for": "127.0.0.1" }));
+  assert.equal(spoof.clientIsLoopback, false, "self-added forwarded headers do not help");
+  const viaGatewayFromForeignName = requestContext(fakeReq("127.0.0.1", { host: "127.0.0.1:3001", "x-forwarded-host": "evil.example:8080", "x-forwarded-for": "127.0.0.1" }));
+  assert.equal(viaGatewayFromForeignName.clientIsLoopback, false, "the gateway reached under a foreign name");
+  for (const host of ["127.0.0.1:3001", "localhost:3001", "[::1]:3001", "app.localhost"]) {
+    assert.equal(requestContext(fakeReq("127.0.0.1", { host })).clientIsLoopback, true, host);
+  }
+  assert.equal(requestContext(fakeReq("127.0.0.1", { host: "127.0.0.1:3001", "x-forwarded-host": "localhost:8080", "x-forwarded-for": "::1" })).clientIsLoopback, true, "a local browser through the gateway");
+  assert.equal(requestContext(fakeReq("127.0.0.1", {})).clientIsLoopback, false, "no Host at all is not local");
 });
 
 check("X-Forwarded-For: right-most non-loopback entry; all loopback = left-most", () => {

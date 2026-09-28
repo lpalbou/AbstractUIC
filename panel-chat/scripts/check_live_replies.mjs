@@ -502,6 +502,9 @@ for (const [status, output] of [["failed", null], ["cancelled", null], ["complet
   const rel = "api/gateway/runs/r1/workspace/content?path=a.png";
   const refusedAlways = ["//evil/x.png", "/\\evil/x.png", "\\\\evil/x.png", "https://evil.example/x.png", "javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:image/png;base64,AAAA", "blob:https://host/abc", "", "   "];
   assert.equal(sameOriginImage(rel), true, "no document: a relative path is same-origin"); ok();
+  for (const schemeRelative of ["http:evil.com/x.png", "HTTP:evil.com/x.png", "https:evil.com/x.png", "http:/evil.com/x.png", "ftp:x"])
+    assert.equal(sameOriginImage(schemeRelative), false, `no document: a value with a scheme is refused ${JSON.stringify(schemeRelative)}`);
+  ok();
   for (const bad of refusedAlways) assert.equal(sameOriginImage(bad), false, `no document: refused ${JSON.stringify(bad)}`); ok();
   const withBase = (baseURI, fn) => { globalThis.document = { baseURI }; try { fn(); } finally { delete globalThis.document; } };
   withBase("https://host.example/apps/code/", () => {

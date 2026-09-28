@@ -48,5 +48,18 @@ export function gatewayResourcePath(serverUrl: string): string {
   const root = `/${GATEWAY_API_PATH}/`;
   if (!u.startsWith(root) || u.length === root.length)
     throw new Error(`Not a gateway API path: ${JSON.stringify(u)} (expected ${JSON.stringify(root)}…).`);
+  // The path must stay under the API: no "." / ".." segment (plain or
+  // percent-encoded, %2e/%2E), no encoded slash or backslash (%2f, %5c) and
+  // no backslash, any of which a browser or proxy may normalise into a step
+  // out of the base (".." would reach the app's own routes, or the gateway
+  // console on a shared origin).
+  const pathPart = u.slice(root.length).split(/[?#]/, 1)[0];
+  if (/\\|%2f|%5c/i.test(pathPart))
+    throw new Error(`Not a gateway API path: ${JSON.stringify(u)} (encoded slash or backslash).`);
+  for (const segment of pathPart.split("/")) {
+    const plain = segment.replace(/%2e/gi, ".");
+    if (plain === "." || plain === "..")
+      throw new Error(`Not a gateway API path: ${JSON.stringify(u)} (a "." or ".." segment).`);
+  }
   return u.slice(1);
 }

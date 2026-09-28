@@ -58,7 +58,13 @@ The rules an app follows:
    loopback). Forwarded headers are believed ONLY from a loopback socket peer;
    from any other peer they are ignored. Every app-local privileged check (a
    folder reveal, opening something on the host, a browser-chosen gateway URL)
-   uses `clientIsLoopback`. The session proxy below already does.
+   uses `clientIsLoopback`, and only that field. It is true only when the
+   client address is loopback AND the request names a loopback host
+   (`hostIsLoopback`: the `Host` header, and the `X-Forwarded-Host` the gateway
+   sends, are `localhost`, `*.localhost`, `::1` or a `127.x` IP literal). A
+   DNS-rebinding page, a hostile name resolving to 127.0.0.1 that can add
+   `X-Forwarded-*` headers itself, is therefore never local. The session proxy
+   below uses the same field.
 3. **Generate URLs under the base path.** Assets and fetches use RELATIVE URLs
    (`assets/app.js`, `api/...`; build with a relative base, e.g. Vite
    `base: "./"`); `injectShell` puts `<base href="<basePath>/">` first in
@@ -66,10 +72,23 @@ The rules an app follows:
    redirects use `appPath(ctx.basePath, "/x")`. A service worker registers
    relative to the base.
 4. **Cookies at `Path=<basePath>/`** (`serializeCookie(name, value, {basePath})`),
-   read with `parseCookies` (first value wins: the browser sends the most
-   specific path first, so a `Path=/apps/<id>/` cookie beats a `Path=/` one
-   left by the same app at its own port on the same host).
-5. **Refuse, do not guess.** A malformed `X-Forwarded-*` from a loopback peer
+   read with `parseCookies`. With two cookies of the same name, the first value
+   wins: browsers send a longer-Path cookie first, so a `Path=/apps/<id>/`
+   cookie is read before a `Path=/` one left by the same app at its own port
+   on the same host. This chooses which value the app reads. It is not
+   isolation (next point).
+5. **One origin, one trust domain.** Every app mounted under the gateway's
+   `/apps/*` and the gateway console share ONE origin
+   (`https://gateway.example.com`). A script running in one app can request
+   another app's paths (`/apps/flow/...`), read the responses, and call the
+   gateway's API with whatever session the browser holds. Cookie `Path` scoping
+   decides which cookie a request carries by default; it does not stop such a
+   script. So every app served there must be trusted as much as the console
+   itself: never render untrusted HTML or scripts, keep model output out of the
+   DOM as markup, and do not add third-party script origins. The gateway's
+   per-app session gate, cookie filtering and cross-origin refusal protect
+   against OTHER origins, not against a compromised app on the same one.
+6. **Refuse, do not guess.** A malformed `X-Forwarded-*` from a loopback peer
    or an unknown socket peer is a 400 (`MountRequestError`); the base path is
    `""` or `/seg/seg` with unreserved characters only, never `.` or `..`.
 

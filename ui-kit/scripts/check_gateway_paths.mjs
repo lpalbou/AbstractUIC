@@ -20,6 +20,14 @@ assert.equal(gatewayResourcePath("/api/gateway/runs/r1/ledger"), "api/gateway/ru
 assert.equal(gatewayResourcePath("/api/gateway/runs/r1/artifacts/a/content?x=1"), "api/gateway/runs/r1/artifacts/a/content?x=1");
 for (const bad of ["https://evil.example/api/gateway/x", "//evil.example/api/gateway/x", "api/gateway/x", "/api/gatewayx/y", "/api/gateway/", "/assets/x.js", ""])
   assert.throws(() => gatewayResourcePath(bad), /Not a gateway API path/, `refused: ${bad || "(empty)"}`);
+for (const escape of [
+  "/api/gateway/../../console", "/api/gateway/runs/../../x", "/api/gateway/./runs", "/api/gateway/..",
+  "/api/gateway/%2e%2e/x", "/api/gateway/%2E%2E/x", "/api/gateway/.%2e/x", "/api/gateway/%2e./x", "/api/gateway/%2e/x",
+  "/api/gateway/runs%2f..%2f..%2fconsole", "/api/gateway/runs%2F..", "/api/gateway/runs%5c..%5cx", "/api/gateway/runs\\..\\x",
+])
+  assert.throws(() => gatewayResourcePath(escape), /Not a gateway API path/, `cannot escape the base: ${escape}`);
+assert.equal(gatewayResourcePath("/api/gateway/runs/r1/artifacts/a.b/content?path=../x"), "api/gateway/runs/r1/artifacts/a.b/content?path=../x", "dots in a name or in the query are not segments");
+assert.equal(gatewayResourcePath("/api/gateway/runs/r..1/ledger"), "api/gateway/runs/r..1/ledger");
 const at = (p) => new URL(p, "https://host/apps/observer/").href;
 assert.equal(at(GATEWAY_CONNECTION_PATH), "https://host/apps/observer/api/connection/gateway", "resolves under the app's base path");
 

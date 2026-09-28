@@ -65,6 +65,17 @@ ships.
   `Secure` cookie flag follows `X-Forwarded-Proto` from a loopback peer only. The app's own CSRF
   headers (`x-<appId>-csrf`, `x-abstract-csrf`) are checked locally and never forwarded to the
   Gateway.
+- Security: `requestContext(req).clientIsLoopback` — THE field for every app-local privileged
+  check — is true only when the client address is loopback AND the request names a loopback host
+  (new `hostIsLoopback`: the raw `Host`, and `X-Forwarded-Host` from a loopback peer, are
+  `localhost`, `*.localhost`, `::1` or a `127.x` IP literal, never a DNS name). A socket from
+  127.0.0.1 with `Host: evil.example` (DNS rebinding) is not local. The session proxy's
+  browser-chosen-URL rule reads the same field. Also exported: `isLoopbackHostname`.
+- Security: the pointer reader opens the file with `O_NOFOLLOW` and checks the OPENED file
+  (`fstat`: a regular file owned by the current user, no group/world write bit), so a symlink is
+  refused and the file cannot be swapped between the check and the read.
+- Docs: apps under the gateway's `/apps/*` and the gateway console share ONE origin, one trust
+  domain: cookie `Path` scoping picks which cookie a request carries, it is not isolation.
 
 ### ui-kit 0.1.14
 
@@ -77,7 +88,9 @@ ships.
   app's proxy). Added `onOpenResource(resource)` (`GatewayResource`: `kind` ledger/artifact, the
   server's `url`, `name`, `mimeType`, `runId`): artifact names and a **Ledger (JSON)** button call
   it; without it artifacts are plain names and there is no ledger JSON button. Added
-  `gatewayResourcePath(serverUrl)` (gateway-rooted → app-relative; anything else throws). The
+  `gatewayResourcePath(serverUrl)` (gateway-rooted → app-relative; anything else throws, as does a
+  `.`/`..` segment, plain or percent-encoded, and an encoded slash or backslash, so a server
+  string cannot step out of the API base). The
   contract fixtures are unchanged: the gateway keeps sending rooted paths; the client maps them.
 - Added: `AutomationStateLabel` renders an automation's state as the word then an icon
   ("Active ▶", "Paused ⏸"; Completed, Failed and Archived likewise) — the one rendering every
@@ -126,7 +139,9 @@ ships.
   the page's own origin, so it works for an app mounted at `/apps/<id>/` without the host
   rewriting paths to absolute URLs. Protocol-relative `//host` and `/\host`, other origins and
   ports, and `javascript:` / `data:` / `blob:` / `file:` sources stay links (or are dropped).
-  `Markdown` now parses relative image sources (links keep their existing rule).
+  `Markdown` now parses relative image sources (links keep their existing rule). Without a
+  document (server rendering), a source that starts with a scheme (`http:evil.com/x.png`) is
+  refused: it is never a relative path.
 
 ### monitor-gpu 0.1.10 and monitor-memory 0.1.10
 

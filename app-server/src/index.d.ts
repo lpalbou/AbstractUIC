@@ -43,7 +43,10 @@ export class MountRequestError extends Error {
 export type RequestContext = Readonly<{
   /** The browser's address (X-Forwarded-For from a loopback peer, else the socket peer). */
   clientAddress: string;
+  /** The browser is on this machine: a loopback clientAddress AND hostIsLoopback (never a DNS-rebinding page). */
   clientIsLoopback: boolean;
+  /** The raw Host (and X-Forwarded-Host from a loopback peer) name loopback: localhost, *.localhost, ::1, 127.x literal. */
+  hostIsLoopback: boolean;
   /** "" or the validated X-Forwarded-Prefix, e.g. "/apps/flow" (no trailing slash). */
   basePath: string;
   proto: "http" | "https";

@@ -101,6 +101,9 @@ export function sameOriginImage(src: string): boolean {
   if (!value) return false;
   const pageBase = typeof document !== "undefined" && document.baseURI ? document.baseURI : null;
   // No document: resolve against a sentinel origin; only a source that stays on it is relative.
+  // A value that starts with a scheme is never relative: "http:evil.com/x.png" would
+  // resolve as a path on an http: sentinel, yet on the real page it may name another host.
+  if (pageBase === null && /^[a-z][a-z0-9+.-]*:/i.test(value)) return false;
   const base = pageBase ?? SENTINEL_BASE;
   let origin: string;
   let resolved: URL;
