@@ -18,6 +18,7 @@ const sources = fx("trigger-sources.json").items;
 const { AutomationPanelWithMarkdown, automationRenderers, renderAutomationText } = pc;
 for (const [n, v] of Object.entries({ AutomationPanelWithMarkdown, renderAutomationText })) assert.equal(typeof v, "function", `export ${n}`);
 assert.equal(automationRenderers.renderText, renderAutomationText, "automationRenderers.renderText is the shared renderer");
+assert.equal(automationRenderers.renderTurn, pc.renderAutomationTurn, "automationRenderers.renderTurn is the shared chat card");
 
 const noop = async () => ({});
 const base = { summary: mail, occurrences: occ, triggerSources: sources, busy: false, onRevise: noop, onCommand: noop, onDiscuss: async () => ({ session_id: "s", run_id: "r" }), onSeen: async () => {}, onLoadMore() {}, onOpenRun() {}, onAnswerWait: async () => {}, newId: () => "x" };
@@ -44,13 +45,23 @@ assert.equal((html.match(/<h2>Inbox triage<\/h2>/g) || []).length, occ.length, "
 assert.ok(!/## Inbox triage/.test(html), "no literal '## ' left in trigger turns");
 assert.ok(html.includes("Set <code>notify</code> when something is urgent."), "inline code in the task renders");
 
+// Occurrence turns are the SHARED chat card (ChatMessageCard): trigger = user card titled "Trigger",
+// answer = assistant card titled "Automation", each with the card's copy button.
+const cards = html.match(/<div class="pc-chat-item pc-chat-item--(user|assistant)"><div class="pc-chat-header">/g) || [];
+assert.equal(cards.length, occ.length + occ.filter((o) => o.answer).length, "one card per trigger turn and per answer");
+const trigCards = html.match(/af-auto-turn--card" data-turn="trigger"><div class="af-auto-turn__meta"[\s\S]*?<div class="af-auto-turn__text"><div class="pc-chat-item pc-chat-item--user"><div class="pc-chat-header"><div class="pc-chat-avatar" aria-hidden="true"><svg[\s\S]*?<\/svg><\/div><span class="pc-chat-role">Trigger<\/span>/g) || [];
+assert.equal(trigCards.length, occ.length, "every trigger turn is a user card titled Trigger");
+assert.ok(/data-turn="answer">[\s\S]*?<div class="af-auto-turn__text"><div class="pc-chat-item pc-chat-item--assistant">[\s\S]*?<span class="pc-chat-role">Automation<\/span>/.test(pair2), "the answer is an assistant card titled Automation");
+assert.equal((pair2.match(/aria-label="Copy message"/g) || []).length, 2, "both turn cards carry the chat copy button");
+
 // Sanitised like chat messages.
-const evil = { ...occ.find((o) => o.index === 2), answer: "# t\n\n<script>alert(1)</script> <img src=x onerror=alert(1)> [x](javascript:alert(1)) ![i](https://evil.example/p.png)" };
+const evil = { ...occ.find((o) => o.index === 2), user_turn: "[Trigger x]\n![t](https://evil.example/trigger.png)", answer: "# t\n\n<script>alert(1)</script> <img src=x onerror=alert(1)> [x](javascript:alert(1)) ![i](https://evil.example/p.png)" };
 const bad = renderToStaticMarkup(React.createElement(AutomationPanelWithMarkdown, { ...base, occurrences: [evil] }));
 assert.ok(!/<script/i.test(bad), "no script element");
 assert.ok(!/<[a-z][^>]*\son[a-z]+=/i.test(bad) && bad.includes("&lt;img src=x onerror=alert(1)&gt;"), "no event-handler attribute (raw HTML shown as text)");
 assert.ok(!/href="javascript:/i.test(bad), "no javascript: link");
 assert.ok(!bad.includes('src="https://evil.example') && bad.includes('href="https://evil.example/p.png"'), "remote image is a link, never fetched");
+assert.ok(bad.includes('href="https://evil.example/trigger.png"'), "the trigger turn (a user-role card) also shows remote images as links");
 
 // The spread helper and the wrapper produce the same markup.
 const spread = renderToStaticMarkup(React.createElement(kit.AutomationPanel, { ...base, ...automationRenderers }));
