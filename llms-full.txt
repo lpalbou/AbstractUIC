@@ -1455,8 +1455,9 @@ See: [panel-chat live replies](../panel-chat/README.md#live-replies-streaming) a
 ## panel-chat: Why do images in assistant messages show as links?
 
 `ChatMessageCard` renders assistant and system messages with `images="link"`: an image loads only
-when `inlineImage(src)` accepts it, by default `sameOriginImage` (a root-relative path or a URL
-on the page's own origin). Other images show as a link "image: <alt>", so model-written text
+when `inlineImage(src)` accepts it, by default `sameOriginImage` (a relative path such as the kit's
+`api/gateway/…` workspace routes, a root-relative path, or a URL on the page's own origin, each
+resolved against `document.baseURI`; `//host`, other origins and non-http(s) schemes never load). Other images show as a link "image: <alt>", so model-written text
 cannot make the browser fetch a remote URL. To change it, pass `images: "inline"` or your own
 `inlineImage` through `messageProps`.
 
@@ -3019,10 +3020,12 @@ const input = { prompt, _runtime: { ...streamRepliesRuntime(streamReplies) } };
 
 Images in chat messages: `ChatMessageCard` renders the Markdown of every
 message except the user's own with `images="link"`. An image then loads only
-when `inlineImage(src)` accepts it — by default `sameOriginImage`: a
-root-relative path (for example a gateway workspace content route behind the
-app's proxy) or an absolute URL on the page's own origin. Every other image,
-including `//host/…`, is shown as a link "image: <alt>" and never fetched, so
+when `inlineImage(src)` accepts it — by default `sameOriginImage`: the source
+resolved against `document.baseURI` must be http(s) on the page's own origin,
+so a relative path (the kit's own `api/gateway/…` workspace content route,
+which resolves under an app mounted at `/apps/<id>/`), a root-relative path
+or an absolute same-origin URL loads. Every other image, including `//host/…`,
+`javascript:` and `data:`, is shown as a link "image: <alt>" and never fetched, so
 model-written text cannot make the browser call a remote URL. Pass
 `images="inline"` (or your own `inlineImage`) through `messageProps` to change
 it. `Markdown` used on its own keeps `images="inline"` as its default.
@@ -6514,7 +6517,7 @@ import * as https from "node:https";
 import { timingSafeEqual as cryptoTimingSafeEqual } from "node:crypto";
 
 import { createGatewayUrlResolver } from "./gateway_pointer.js";
-import { MountRequestError, isLoopbackAddress, parseCookies, requestContext, serializeCookie } from "./mount.js";
+import { MountRequestError, isLoopbackAddress, isLoopbackHostname, parseCookies, requestContext, serializeCookie } from "./mount.js";
 
 const TRUE_VALUES = new Set(["1", "true", "yes", "y", "on"]);
 const HOP_BY_HOP_HEADERS = new Set([
@@ -6753,9 +6756,22 @@ export function createGatewaySessionProxy(options) {
     // deployments must set the explicit opt-in above; there is no
     // socket-derived unlock behind a trusted proxy.
     if (anyEnvBool(TRUST_PROXY_ENVS)) return false;
-    // Otherwise the ONLY unlock is a genuine loopback PEER — the Host header
-    // is never trusted for this decision.
-    return isLoopbackPeer(req);
+    // Otherwise the unlock needs a genuine loopback CLIENT (the socket peer,
+    // or the address the gateway's loopback proxy forwarded) AND a loopback
+    // HOST. DNS rebinding: a page at a hostile name that resolves to
+    // 127.0.0.1 reaches this server over a loopback socket with its own Host
+    // header, and as a same-origin script it can add X-Forwarded-* headers
+    // too. So the raw Host must name loopback, and so must X-Forwarded-Host
+    // when a loopback peer sends one (the gateway sends the browser's host).
+    if (!isLoopbackPeer(req)) return false;
+    if (!isLoopbackHostname(firstHeaderValue(req?.headers?.host))) return false;
+    const forwardedHost = req?.headers?.["x-forwarded-host"];
+    if (forwardedHost !== undefined && !isLoopbackHostname(firstHeaderValue(forwardedHost))) return false;
+    return true;
+  }
+
+  function firstHeaderValue(value) {
+    return String(Array.isArray(value) ? value[0] : value || "").split(",", 1)[0].trim();
   }
 
   function remoteConfigDenial(req) {
@@ -6766,8 +6782,11 @@ export function createGatewaySessionProxy(options) {
     );
   }
 
+  /** Secure cookies when the browser used https: X-Forwarded-Proto is
+   * believed from a loopback peer only (mount.js requestContext), like every
+   * other forwarded header. */
   function cookieSecure(req) {
-    return requestContext(req).proto === "https" || String(req?.headers?.["x-forwarded-proto"] || "").trim().toLowerCase() === "https";
+    return requestContext(req).proto === "https";
   }
 
   function setSessionCookies(res, req, gatewayUrl, sessionId, csrfToken, persist) {
@@ -7050,6 +7069,12 @@ export function createGatewaySessionProxy(options) {
         delete headers[k];
       }
     }
+    // App-local CSRF headers stay here: the gateway gets its own
+    // (x-abstractgateway-csrf, below), never the app's.
+    for (const k of Object.keys(headers)) {
+      const lk = k.toLowerCase();
+      if (lk === APP_CSRF_HEADER || lk === CANONICAL_CSRF_HEADER) delete headers[k];
+    }
     headers["x-forwarded-for"] = peer;
     headers["x-abstractframework-app-proxy"] = appId;
     headers["x-abstractgateway-session"] = session.sessionId;
@@ -7171,6 +7196,7 @@ export {
   identityHeaderValue,
   injectShell,
   isLoopbackAddress,
+  isLoopbackHostname,
   parseCookies,
   rejectUpgrade,
   requestContext,
@@ -7246,6 +7272,8 @@ export type RequestContext = Readonly<{
 }>;
 
 export function isLoopbackAddress(addr: string): boolean;
+/** `localhost`, `*.localhost`, `::1` or a 127.x IP literal (never a DNS name). */
+export function isLoopbackHostname(host: string): boolean;
 export function socketPeerAddress(req: IncomingMessage): string;
 export function validateBasePath(raw: string | undefined | null): string;
 /** Memoized per request. Throws MountRequestError. */
@@ -8108,22 +8136,59 @@ function safeHref(href: string): string | undefined {
   return undefined;
 }
 
+/** Resolves relative sources when no page is available (server rendering). */
+const SENTINEL_BASE = "http://same-origin.invalid/";
+
+/**
+ * A relative reference ("api/gateway/…", "./out/a.png"): one the URL parser
+ * resolves onto the base's own origin with http(s). Schemes (`javascript:`,
+ * `data:`), protocol-relative `//host` and `/\host` all resolve elsewhere.
+ */
+function isRelativeReference(value: string): boolean {
+  try {
+    const resolved = new URL(value, SENTINEL_BASE);
+    return resolved.protocol === "http:" && resolved.origin === new URL(SENTINEL_BASE).origin;
+  } catch {
+    return false;
+  }
+}
+
+/** An image source the renderer may use: a safe href, or a relative reference (the kit's own "api/gateway/…" routes). */
+function safeImageSrc(src: string): string | undefined {
+  const value = String(src || "").trim();
+  return safeHref(value) ?? (value && isRelativeReference(value) ? value : undefined);
+}
+
 /** Which images a `Markdown` render loads; null = every image (`images="inline"`). */
 let inlineImagePolicy: ((src: string) => boolean) | null = null;
 
 /**
  * Default rule for `images="link"`: an image loads only from the page's own
- * origin — a root-relative path (such as a gateway workspace content route
- * behind the app's proxy) or an absolute URL with the current origin.
- * Protocol-relative (`//host/…`) and every other host become links.
+ * origin. The source is resolved like the browser resolves it — against
+ * `document.baseURI` — so a RELATIVE path (the kit's own "api/gateway/…"
+ * workspace content route, which resolves under an app mounted at
+ * /apps/<id>/), a root-relative path and an absolute URL with the page's
+ * origin all load. Protocol-relative (`//host/…`, `/\host`), another origin,
+ * and every non-http(s) scheme (`javascript:`, `data:`, `blob:`, …) become
+ * links. Without a document (server rendering), a source that resolves to
+ * no other origin — i.e. a relative one — counts as same-origin.
  */
 export function sameOriginImage(src: string): boolean {
   const value = String(src || "").trim();
-  if (value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\")) return true;
-  if (!/^https?:\/\//i.test(value)) return false;
-  const origin = typeof window !== "undefined" ? window.location?.origin : undefined;
-  if (!origin || origin === "null") return false;
-  try { return new URL(value).origin === origin; } catch { return false; }
+  if (!value) return false;
+  const pageBase = typeof document !== "undefined" && document.baseURI ? document.baseURI : null;
+  // No document: resolve against a sentinel origin; only a source that stays on it is relative.
+  const base = pageBase ?? SENTINEL_BASE;
+  let origin: string;
+  let resolved: URL;
+  try {
+    origin = new URL(base).origin;
+    resolved = new URL(value, base);
+  } catch {
+    return false;
+  }
+  if (resolved.protocol !== "http:" && resolved.protocol !== "https:") return false;
+  return resolved.origin === origin;
 }
 
 /** An image the policy refuses: a plain link, never a request. */
@@ -8156,7 +8221,7 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
         const hrefEnd = s.indexOf(")", labelEnd + 2);
         if (hrefEnd !== -1) {
           const alt = s.slice(i + 2, labelEnd);
-          const src = safeHref(s.slice(labelEnd + 2, hrefEnd));
+          const src = safeImageSrc(s.slice(labelEnd + 2, hrefEnd));
           if (src && inlineImagePolicy && !inlineImagePolicy(src)) {
             flush();
             out.push(imageLink(`img:${i}`, src, alt));
@@ -8468,7 +8533,7 @@ function renderMarkdown({
 
     const imageM = line.match(/^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$/);
     if (imageM) {
-      const src = safeHref(imageM[2] || "");
+      const src = safeImageSrc(imageM[2] || "");
       if (src && inlineImagePolicy && !inlineImagePolicy(src)) {
         blocks.push(<p key={`p:${i}`} className="pc-md_p">{imageLink(`img:${i}`, src, imageM[1] || "")}</p>);
         i += 1;
@@ -10933,6 +10998,16 @@ ships.
   root-absolute same-origin literal (`/api/`, `/assets/`, `/apps/`) in the sources and built
   output of ui-kit (incl. the console islands bundle), panel-chat and the monitors, and when a
   build directory is missing. No allowlist.
+
+### panel-chat: images
+
+- Fixed: `sameOriginImage` (the default image rule for `images="link"`, used by
+  `ChatMessageCard`) accepts RELATIVE paths such as the kit's own `api/gateway/…` workspace content
+  routes: a source is resolved against `document.baseURI` and loads only when it is http(s) on
+  the page's own origin, so it works for an app mounted at `/apps/<id>/` without the host
+  rewriting paths to absolute URLs. Protocol-relative `//host` and `/\host`, other origins and
+  ports, and `javascript:` / `data:` / `blob:` / `file:` sources stay links (or are dropped).
+  `Markdown` now parses relative image sources (links keep their existing rule).
 
 ### ui-kit
 

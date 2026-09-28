@@ -38,6 +38,16 @@ ships.
   output of ui-kit (incl. the console islands bundle), panel-chat and the monitors, and when a
   build directory is missing. No allowlist.
 
+### panel-chat: images
+
+- Fixed: `sameOriginImage` (the default image rule for `images="link"`, used by
+  `ChatMessageCard`) accepts RELATIVE paths such as the kit's own `api/gateway/…` workspace content
+  routes: a source is resolved against `document.baseURI` and loads only when it is http(s) on
+  the page's own origin, so it works for an app mounted at `/apps/<id>/` without the host
+  rewriting paths to absolute URLs. Protocol-relative `//host` and `/\host`, other origins and
+  ports, and `javascript:` / `data:` / `blob:` / `file:` sources stay links (or are dropped).
+  `Markdown` now parses relative image sources (links keep their existing rule).
+
 ### ui-kit
 
 - Added: `AutomationStateLabel` renders an automation's state as the word then an icon

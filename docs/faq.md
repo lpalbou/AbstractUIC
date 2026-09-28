@@ -150,8 +150,9 @@ See: [panel-chat live replies](../panel-chat/README.md#live-replies-streaming) a
 ## panel-chat: Why do images in assistant messages show as links?
 
 `ChatMessageCard` renders assistant and system messages with `images="link"`: an image loads only
-when `inlineImage(src)` accepts it, by default `sameOriginImage` (a root-relative path or a URL
-on the page's own origin). Other images show as a link "image: <alt>", so model-written text
+when `inlineImage(src)` accepts it, by default `sameOriginImage` (a relative path such as the kit's
+`api/gateway/…` workspace routes, a root-relative path, or a URL on the page's own origin, each
+resolved against `document.baseURI`; `//host`, other origins and non-http(s) schemes never load). Other images show as a link "image: <alt>", so model-written text
 cannot make the browser fetch a remote URL. To change it, pass `images: "inline"` or your own
 `inlineImage` through `messageProps`.
 

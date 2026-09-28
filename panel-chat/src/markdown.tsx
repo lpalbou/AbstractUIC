@@ -59,22 +59,59 @@ function safeHref(href: string): string | undefined {
   return undefined;
 }
 
+/** Resolves relative sources when no page is available (server rendering). */
+const SENTINEL_BASE = "http://same-origin.invalid/";
+
+/**
+ * A relative reference ("api/gateway/…", "./out/a.png"): one the URL parser
+ * resolves onto the base's own origin with http(s). Schemes (`javascript:`,
+ * `data:`), protocol-relative `//host` and `/\host` all resolve elsewhere.
+ */
+function isRelativeReference(value: string): boolean {
+  try {
+    const resolved = new URL(value, SENTINEL_BASE);
+    return resolved.protocol === "http:" && resolved.origin === new URL(SENTINEL_BASE).origin;
+  } catch {
+    return false;
+  }
+}
+
+/** An image source the renderer may use: a safe href, or a relative reference (the kit's own "api/gateway/…" routes). */
+function safeImageSrc(src: string): string | undefined {
+  const value = String(src || "").trim();
+  return safeHref(value) ?? (value && isRelativeReference(value) ? value : undefined);
+}
+
 /** Which images a `Markdown` render loads; null = every image (`images="inline"`). */
 let inlineImagePolicy: ((src: string) => boolean) | null = null;
 
 /**
  * Default rule for `images="link"`: an image loads only from the page's own
- * origin — a root-relative path (such as a gateway workspace content route
- * behind the app's proxy) or an absolute URL with the current origin.
- * Protocol-relative (`//host/…`) and every other host become links.
+ * origin. The source is resolved like the browser resolves it — against
+ * `document.baseURI` — so a RELATIVE path (the kit's own "api/gateway/…"
+ * workspace content route, which resolves under an app mounted at
+ * /apps/<id>/), a root-relative path and an absolute URL with the page's
+ * origin all load. Protocol-relative (`//host/…`, `/\host`), another origin,
+ * and every non-http(s) scheme (`javascript:`, `data:`, `blob:`, …) become
+ * links. Without a document (server rendering), a source that resolves to
+ * no other origin — i.e. a relative one — counts as same-origin.
  */
 export function sameOriginImage(src: string): boolean {
   const value = String(src || "").trim();
-  if (value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\")) return true;
-  if (!/^https?:\/\//i.test(value)) return false;
-  const origin = typeof window !== "undefined" ? window.location?.origin : undefined;
-  if (!origin || origin === "null") return false;
-  try { return new URL(value).origin === origin; } catch { return false; }
+  if (!value) return false;
+  const pageBase = typeof document !== "undefined" && document.baseURI ? document.baseURI : null;
+  // No document: resolve against a sentinel origin; only a source that stays on it is relative.
+  const base = pageBase ?? SENTINEL_BASE;
+  let origin: string;
+  let resolved: URL;
+  try {
+    origin = new URL(base).origin;
+    resolved = new URL(value, base);
+  } catch {
+    return false;
+  }
+  if (resolved.protocol !== "http:" && resolved.protocol !== "https:") return false;
+  return resolved.origin === origin;
 }
 
 /** An image the policy refuses: a plain link, never a request. */
@@ -107,7 +144,7 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
         const hrefEnd = s.indexOf(")", labelEnd + 2);
         if (hrefEnd !== -1) {
           const alt = s.slice(i + 2, labelEnd);
-          const src = safeHref(s.slice(labelEnd + 2, hrefEnd));
+          const src = safeImageSrc(s.slice(labelEnd + 2, hrefEnd));
           if (src && inlineImagePolicy && !inlineImagePolicy(src)) {
             flush();
             out.push(imageLink(`img:${i}`, src, alt));
@@ -419,7 +456,7 @@ function renderMarkdown({
 
     const imageM = line.match(/^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$/);
     if (imageM) {
-      const src = safeHref(imageM[2] || "");
+      const src = safeImageSrc(imageM[2] || "");
       if (src && inlineImagePolicy && !inlineImagePolicy(src)) {
         blocks.push(<p key={`p:${i}`} className="pc-md_p">{imageLink(`img:${i}`, src, imageM[1] || "")}</p>);
         i += 1;
