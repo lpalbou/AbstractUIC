@@ -3115,7 +3115,29 @@
 /* State = WORD then ICON ("Active ▶"); the icon inherits the word's color. */
 .af-auto__status { display: inline-flex; align-items: center; gap: 4px; }
 .af-auto__status-icon { flex: none; }
-.af-auto__workspace { display: flex; align-items: center; gap: 6px; }
+.af-auto__workspace { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* Workspace: folder icon + path that wraps at its separators; the whole chip opens the browser. */
+.af-auto__path {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 3px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ui-border-2);
+  background: var(--ui-overlay-bg);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.af-auto__path:hover { border-color: var(--accent-border); background: var(--ui-overlay-bg-hover); }
+.af-auto__path:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.af-auto__path--static { cursor: default; }
+.af-auto__path--static:hover { border-color: var(--ui-border-2); background: var(--ui-overlay-bg); }
+.af-auto__path-icon { flex: none; margin-top: 1px; color: var(--text-secondary); }
+.af-auto__path-text { font-family: var(--font-mono); font-size: var(--font-size-xs); line-height: 1.45; overflow-wrap: normal; word-break: normal; min-width: 0; }
 .af-auto__icon-btn {
   flex: none;
   display: inline-flex;
@@ -3130,7 +3152,45 @@
 }
 .af-auto__icon-btn:hover { color: var(--text-primary); background: var(--ui-overlay-bg); }
 .af-auto__icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.af-auto__btn-icon { vertical-align: -2px; }
+.af-auto__btn-icon { flex: none; vertical-align: -2px; }
+.af-auto__icon-btn--bare { border: none; padding: 2px; }
+/* Visible only to assistive tech (the disabled buttons' reasons; also their tooltips). */
+.af-auto__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+/* The committed definition: a card under the controls, one click away. */
+.af-auto__definition {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ui-border-2);
+  background: var(--ui-overlay-bg);
+}
+.af-auto__definition > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.af-auto__definition > summary::-webkit-details-marker { display: none; }
+.af-auto__definition > summary:hover { color: var(--text-primary); }
+.af-auto__definition > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-md); }
+.af-auto__definition-chevron { transition: transform 120ms ease; }
+.af-auto__definition[open] > summary .af-auto__definition-chevron { transform: rotate(90deg); }
+.af-auto__definition-title { color: var(--text-primary); }
+.af-auto__definition-meta { color: var(--text-muted); font-weight: 500; font-size: var(--font-size-xs); }
+.af-auto__definition > .af-auto__facts { padding: 2px 12px 12px; }
+.af-auto__form-title { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--font-size-md); font-weight: 700; }
 /* Turns rendered as shared chat cards (renderTurn): the card is the bubble. */
 .af-auto-turn--card.af-auto-turn--trigger { padding: 0; background: none; }
 .af-auto__facts {
@@ -3144,9 +3204,13 @@
 .af-auto__facts dd.is-notable { font-weight: 700; }
 .af-auto__warn { color: var(--warning); }
 .af-auto__controls-wrap { display: flex; flex-direction: column; gap: 8px; }
+.af-auto__actionbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .af-auto__controls,
 .af-auto__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .af-auto__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 5px 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--ui-border-2);
@@ -3183,6 +3247,9 @@
   background: var(--bg-secondary);
 }
 .af-auto__confirm { border-color: var(--error-border); background: var(--error-subtle); }
+.af-auto__revise { border-color: var(--accent-border); gap: 12px; }
+.af-auto__revise textarea { width: 100%; box-sizing: border-box; resize: vertical; line-height: 1.45; }
+.af-auto__revise fieldset.af-auto__field > label { display: flex; align-items: center; gap: 6px; }
 .af-auto__confirm p { margin: 0; }
 .af-auto__field { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .af-auto__field > legend,
@@ -3205,12 +3272,24 @@
 .af-schedule input[type="number"] { width: 6em; }
 .af-auto__form-errors { margin: 0; padding-left: 18px; color: var(--error); }
 .af-auto__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   padding: 8px 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--error-border);
   background: var(--error-subtle);
 }
-.af-auto__notice { color: var(--text-secondary); font-size: var(--font-size-xs); }
+.af-auto__notice { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: var(--font-size-xs); }
+.af-auto__notice--on {
+  padding: 3px 6px 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--success-border);
+  background: var(--success-subtle);
+  color: var(--text-primary);
+  animation: af-auto-notice-in 160ms ease-out;
+}
+@keyframes af-auto-notice-in { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
 .af-auto__attention ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .af-auto__attention-item {
   padding: 6px 10px;
@@ -3279,8 +3358,11 @@
 .af-schedule__advanced { display: flex; flex-direction: column; gap: 8px; }
 .af-schedule__advanced[open] > .af-auto__field { margin-top: 8px; }
 @media (prefers-reduced-motion: reduce) {
-  .af-auto__btn { transition: none; }
+  .af-auto__btn,
+  .af-auto__definition-chevron { transition: none; }
+  .af-auto__notice--on { animation: none; }
 }
+.af-auto__error-text { flex: 1; min-width: 0; }
 @media (max-width: 520px) {
   .af-auto__facts { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .af-auto-turn--trigger { max-width: 100%; }

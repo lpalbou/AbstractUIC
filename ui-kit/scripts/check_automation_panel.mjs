@@ -116,7 +116,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("tool_approval wait: Approve and Deny, no free text", enabled(chunks[6], "wait-approve") && enabled(chunks[6], "wait-deny") && (chunks[6].match(/aria-label="Your answer"/g) || []).length === 1);
   check("no wait controls on other occurrences", chunks.filter((c, i) => i !== 6).every((c) => !c.includes("af-auto-wait")));
   check("every pair has expandable run details with Open run ledger (and no raw ledger href)", chunks.every((c) => c.includes("<details class=\"af-auto-occ__details\"><summary>Run details</summary>") && c.includes('data-action="open-run"') && !/href="\/api\//.test(c)));
-  check("Discuss labelled as a fork at this occurrence (own workspace, automation files read-only)", mailHtml.includes(`>${esc(DISCUSS_LABEL)}</button>`) && DISCUSS_LABEL === "Discuss — fork at this occurrence (own workspace, automation files read-only)");
+  check("Discuss labelled as a fork at this occurrence (own workspace, automation files read-only)", mailHtml.includes(`<span>${esc(DISCUSS_LABEL)}</span></button>`) && DISCUSS_LABEL === "Discuss — fork at this occurrence (own workspace, automation files read-only)");
   check("no stale 'read-only workspace' wording", !mailHtml.includes("read-only workspace") && !mailHtml.includes("forked session"));
   check("Discuss disabled on the waiting occurrence only", chunks.every((c, i) => (/data-action="discuss" disabled=""/.test(c)) === (i === 6)));
   check("header: every 30 minutes (UTC), growing, next run", mailHtml.includes(">every 30 minutes (UTC)</dd>") && mailHtml.includes("Growing — each run sees the previous runs") && mailHtml.includes('data-fact="next">2026-09-27 07:00 UTC (in 25 min)</dd>'));
@@ -137,7 +137,9 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("news: independent", html.includes("Independent — each run starts fresh"));
   check("news: next run (absolute + relative, from next_fire_at)", html.includes('data-fact="next">2026-09-27 08:00 UTC (in 1 h 25 min)</dd>'));
   check("news: nothing in flight → no 'Now' fact", !html.includes('data-fact="current"'));
-  check("news: workspace shown (no folder control without onOpenWorkspace)", html.includes(`data-fact="workspace" class="af-auto__workspace"><code>${news.workspace_root}</code>`) && button(html, "open-workspace") === null);
+  const ws = (/<dd data-fact="workspace"[^]*?<\/dd>/.exec(html) || [""])[0];
+  check("news: workspace shown, folder icon + whole path (no control without onOpenWorkspace)", ws.startsWith('<dd data-fact="workspace" class="af-auto__workspace"><span class="af-auto__path af-auto__path--static"><svg') && ws.replace(/<[^>]+>/g, "") === news.workspace_root && button(html, "open-workspace") === null);
+  check("news: the path wraps at its separators (<wbr> after each /), text unchanged", ws.includes("/<wbr/>") && ws.includes("-<wbr/>"));
   check("news: attention quiet", html.includes('data-fact="attention">nothing new</dd>') && !html.includes("af-auto__attention\""));
   check("news: pause + run now enabled, stop current disabled", enabled(html, "pause") && enabled(html, "run_now") && !enabled(html, "stop_current"));
   check("news: load more (6 more)", enabled(html, "load-more") && html.includes("Load earlier occurrences (6 more)"));
@@ -170,12 +172,12 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("journal: paused hint says run now keeps it paused", html.includes("Run now works and keeps it paused."));
   check("journal: next run none while paused", html.includes(">none while paused</dd>"));
   check("journal: status chip reads the word Paused then the pause icon", html.includes('af-auto__status--paused" data-state="paused"><span class="af-auto__status-word">Paused</span><svg'));
-  check("journal: revise + archive enabled", enabled(html, "revise") && enabled(html, "archive"));
+  check("journal: edit + archive enabled", enabled(html, "edit") && enabled(html, "archive"));
 }
 
 // --- busy / archived / legacy / capabilities / unknown source ---------------------------
 {
-  const ids = ["pause", "run_now", "stop_current", "revise", "archive"];
+  const ids = ["pause", "run_now", "stop_current", "edit", "archive"];
   const busy = panel({ summary: mail, occurrences: occ, busy: true });
   check("busy: every control disabled", ids.every((a) => !enabled(busy, a)));
   check("busy: aria-busy", busy.includes('aria-busy="true"'));
@@ -215,10 +217,10 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   const j = bar(jour);
   byAction(j, "resume")[0].props.onClick();
   byAction(j, "run_now")[0].props.onClick();
-  byAction(j, "revise")[0].props.onClick();
+  byAction(j, "edit")[0].props.onClick();
   byAction(j, "archive")[0].props.onClick();
   check("resume → automation.resume; run now → automation.run_now", eq(cmds, ["automation.resume", "automation.run_now"]), JSON.stringify(cmds));
-  check("revise toggles the form; archive only ASKS (no command yet)", toggled === 1 && asked === 1 && cmds.length === 2);
+  check("Edit toggles the form; archive only ASKS (no command yet)", toggled === 1 && asked === 1 && cmds.length === 2);
   const confirm = bar(jour, { confirmingArchive: true });
   check("archive confirmation is in the page", byAction(confirm, "archive-confirm").length === 1 && renderToStaticMarkup(confirm).includes("Its history stays readable"));
   byAction(confirm, "archive-cancel")[0].props.onClick();
@@ -302,7 +304,7 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   const opened = [];
   const hdr = AutomationHeader({ summary: news, triggerSources: sources, nowMs: NOW, onOpenWorkspace: (id) => opened.push(id) });
   const hbtn = byAction(hdr, "open-workspace");
-  check("header: folder button on the Workspace fact", hbtn.length === 1 && find(hbtn[0], (n) => n.type === "svg").length === 1 && hbtn[0].props["aria-label"] === "Browse the automation's folder");
+  check("header: folder button on the Workspace fact", hbtn.length === 1 && find(hbtn[0], (n) => n.type === "svg").length === 1 && hbtn[0].props["aria-label"] === `Browse the automation's folder ${news.workspace_root}`);
   hbtn[0].props.onClick();
   check("header folder → onOpenWorkspace(automation_id)", eq(opened, [news.automation_id]));
   const views = kit.occurrenceViews(occ);
@@ -378,11 +380,32 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   const submitted = [];
   const f = AutomationReviseForm({ summary: news, busy: false, errors: [], onSubmit: (v) => submitted.push(v), onCancel() {} });
   const html = renderToStaticMarkup(f);
-  check("revise form: title, interval, context fields labelled", html.includes('aria-label="Revise automation"') && html.includes('name="title"') && html.includes('aria-label="Interval amount"') && html.includes('<legend>Repeat every (UTC)</legend>') && html.includes('value="growing"'));
+  check("edit form: headed Edit automation; title, interval, context fields labelled", /<form class="af-auto__revise" aria-labelledby="([^"]+)"><h3 class="af-auto__form-title" id="\1"><svg[^]*<\/svg> Edit automation<\/h3>/.test(html) && html.includes('name="title"') && html.includes('aria-label="Interval amount"') && html.includes('<legend>Repeat every (UTC)</legend>') && html.includes('value="growing"'));
   const formEl = find(f, (n) => n.type === "form")[0];
   const vals = { title: "News (6h)", every_amount: "6", every_unit: "h", context: "growing" };
   formEl.props.onSubmit({ preventDefault() {}, currentTarget: { elements: { namedItem: (k) => (k in vals ? { value: vals[k] } : null) } } });
-  check("revise form reads its fields", eq(submitted[0], { title: "News (6h)", every: "6h", context: "growing" }), JSON.stringify(submitted[0]));
+  check("edit form reads its fields", eq(submitted[0], { title: "News (6h)", every: "6h", context: "growing", prompt: null, toolApproval: null }), JSON.stringify(submitted[0]));
+  check("edit form without a definition offers no task / tools", !html.includes('name="prompt"') && !html.includes('name="tool_approval"'));
+  check("edit form: Save changes + Cancel, with icons; never 'revision'", /data-action="edit-save"[^>]*><svg[^]*?<span>Save changes<\/span>/.test(html) && /data-action="edit-cancel"[^>]*><svg[^]*?<span>Cancel<\/span>/.test(html) && !/Revis|revision/.test(html));
+  // With the committed definition: the task and tool approval are editable too.
+  const def = { target: { workflow_id: "basic-agent@0.1.0:main", bundle_ref: "basic-agent@0.1.0", flow_id: "main", input_data: { prompt: "Search the AI news.", provider: "p", model: "m" } }, policy: { tool_approval: "auto" } };
+  const sub2 = [];
+  const f2 = AutomationReviseForm({ summary: news, definition: def, busy: false, errors: [], onSubmit: (v) => sub2.push(v), onCancel() {} });
+  const html2 = renderToStaticMarkup(f2);
+  check("edit form + definition: task prefilled, tools radios", /<textarea[^>]*name="prompt"[^>]*>Search the AI news.<\/textarea>/.test(html2) && /name="tool_approval" checked="" value="auto"/.test(html2) && html2.includes('value="ask"'));
+  const vals2 = { title: news.title, every_amount: "8", every_unit: "h", context: "independent", prompt: "Search the AI news, twice.", tool_approval: "ask" };
+  find(f2, (n) => n.type === "form")[0].props.onSubmit({ preventDefault() {}, currentTarget: { elements: { namedItem: (k) => (k in vals2 ? { value: vals2[k] } : null) } } });
+  check("edit form + definition reads task and tools", sub2[0].prompt === "Search the AI news, twice." && sub2[0].toolApproval === "ask", JSON.stringify(sub2[0]));
+  const ch = kit.reviseChanges(news, sub2[0], def);
+  check("new task → changes.target = the definition's target, input_data kept, prompt replaced", eq(ch.target, { bundle_ref: "basic-agent@0.1.0", flow_id: "main", input_data: { prompt: "Search the AI news, twice.", provider: "p", model: "m" } }), JSON.stringify(ch));
+  check("new tool approval → changes.policy.tool_approval only", eq(ch.policy, { tool_approval: "ask" }) && eq(Object.keys(ch).sort(), ["policy", "target"]));
+  check("same task (whitespace aside) → no target change", kit.reviseChanges(news, { ...kit.reviseFormFrom(news, def), prompt: " Search the AI news. " }, def) === null);
+  check("blank task rejected", eq(kit.reviseChanges(news, { ...kit.reviseFormFrom(news, def), prompt: "  " }, def), { errors: ["Task is required."] }));
+  check("no definition → prompt/tools ignored", kit.reviseChanges(news, { ...kit.reviseFormFrom(news), prompt: "x", toolApproval: "ask" }) === null);
+  let escaped = 0;
+  const f3 = AutomationReviseForm({ summary: news, definition: def, busy: false, errors: [], onSubmit() {}, onCancel: () => escaped++ });
+  find(f3, (n) => n.type === "form")[0].props.onKeyDown({ key: "Escape", preventDefault() {} });
+  check("Escape in the edit form cancels it", escaped === 1);
 }
 
 // --- attention ack: the last DISPLAYED item, never the summary's latest -----------------
@@ -460,11 +483,11 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   const b = button(html, "run_now");
   const ref = (/aria-describedby="([^"]+)"/.exec(b) || [])[1];
   check("disabled Run now references a reason", !!ref, b);
-  check("…and the reason is visible text", ref && new RegExp(`<span id="${ref.replace(/[:]/g, "\\:")}">Run now: An occurrence is in progress.</span>`).test(html), ref);
-  check("enabled controls carry no reason", !/aria-describedby/.test(button(html, "pause")) && !/aria-describedby/.test(button(html, "revise")));
-  check("no `title` as the only explanation", !/<button[^>]*data-action="run_now"[^>]*title=/.test(html));
+  check("…and the reason is text for assistive tech (operator 2026-09-28: not a line left under the buttons)", ref && new RegExp(`<p class="af-auto__reasons af-auto__sr-only"><span id="${ref.replace(/[:]/g, "\\:")}">Run now: An occurrence is in progress.</span>`).test(html), ref);
+  check("enabled controls carry no reason", !/aria-describedby/.test(button(html, "pause")) && !/aria-describedby/.test(button(html, "edit")) && !/title=/.test(button(html, "pause")));
+  check("the disabled control's reason is also its tooltip", /<button[^>]*data-action="run_now"[^>]*title="An occurrence is in progress."/.test(html));
   const busy = panel({ summary: news, occurrences: [], busy: true });
-  check("busy: one shared reason line for all controls", busy.includes("Pause, Run now, Stop current, Revise, Archive: Working…"));
+  check("busy: one shared reason line for all controls", busy.includes("Pause, Run now, Stop current, Edit, Archive: Working…"));
   const fake = (sel) => ({ querySelector: (q) => sel[q] ?? null });
   const mk = (name, disabled = false) => ({ name, disabled, focus() {} });
   const { pickFocusTarget } = await import(join(here, "..", "dist", "automations", "panel_core.js"));
@@ -591,20 +614,20 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   await flush();
   h.render(props, root);
   check("F5: archive confirmed → focus moves (opener, else notice, else title)", focused.at(-1) === '[data-action="archive"]' && focused.length === 2);
-  byAction(h.render(props, root), "revise")[0].props.onClick();
-  byAction(h.render(props, root), "revise-cancel")[0].props.onClick();
+  byAction(h.render(props, root), "edit")[0].props.onClick();
+  byAction(h.render(props, root), "edit-cancel")[0].props.onClick();
   h.render(props, root);
-  check("F5: revise cancel → focus the Revise control", focused.at(-1) === '[data-action="revise"]');
+  check("F5: edit cancel → focus the Edit control", focused.at(-1) === '[data-action="edit"]');
   byAction(h.render(props, root), "discuss").find((n) => !n.props.disabled).props.onClick();
   byAction(h.render(props, root), "discuss-cancel")[0].props.onClick();
   h.render(props, root);
   check("F5: discuss cancel → focus that row's Discuss", focused.at(-1) === '[data-index="1"] [data-action="discuss"]', focused.at(-1));
   const none = { querySelector: (q) => (asked.push(q), q === ".af-auto__title" ? { focus: () => focused.push("title") } : null) };
-  byAction(h.render(props, none), "revise")[0].props.onClick();
-  byAction(h.render(props, none), "revise-cancel")[0].props.onClick();
+  byAction(h.render(props, none), "edit")[0].props.onClick();
+  byAction(h.render(props, none), "edit-cancel")[0].props.onClick();
   h.render(props, none);
   check("F5: fallback to the title when the opener is gone", focused.at(-1) === "title");
-  check("F5: fallback order = opener, notice, title", eq(asked.slice(-3), ['[data-action="revise"]', ".af-auto__notice", ".af-auto__title"]), JSON.stringify(asked.slice(-3)));
+  check("F5: fallback order = opener, notice, title", eq(asked.slice(-3), ['[data-action="edit"]', ".af-auto__notice", ".af-auto__title"]), JSON.stringify(asked.slice(-3)));
 }
 {
   // F7 in the dialog: one request_id per distinct request.
@@ -680,6 +703,62 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   check("D1: consent line hidden under ask", !askHtml.includes(esc(kit.TOOL_APPROVAL_CONSENT)));
 }
 
+// --- Edit (operator 2026-09-28): one name, icons, opened by the host, saved in place ----------
+{
+  check("CONTROL_LABELS: the revise control is called Edit", kit.CONTROL_LABELS.revise === "Edit" && !Object.values(kit.CONTROL_LABELS).some((l) => /revis/i.test(l)));
+  check("CONTROL_ICONS: one kit icon per control", eq(Object.keys(kit.CONTROL_ICONS).sort(), Object.keys(kit.CONTROL_LABELS).sort()) && Object.values(kit.CONTROL_ICONS).every((n) => typeof n === "string" && n));
+  const html = panel({ summary: mail, occurrences: occ });
+  const toolbar = (/<div class="af-auto__controls" role="toolbar"[^]*?<\/div>/.exec(html) || [""])[0];
+  const btns = [...toolbar.matchAll(/<button\b[^>]*>[^]*?<\/button>/g)].map((m) => m[0]);
+  check("every control button starts with its icon, then its label", btns.length === 5 && btns.every((b) => /^<button\b[^>]*><svg\b[^]*<\/svg><span>[^<]+<\/span><\/button>$/.test(b)), btns.join("\n"));
+  check("the Edit control reads Edit (data-action=edit)", /data-action="edit"[^>]*><svg[^]*?<span>Edit<\/span>/.test(toolbar) && !/Revise/.test(html));
+  const allButtons = [...html.matchAll(/<button\b[^>]*>[^]*?<\/button>/g)].map((m) => m[0]).filter((b) => !/data-action="wait-choice"/.test(b));
+  check("every action button in the panel carries an icon (wait choices are the choice text)", allButtons.every((b) => /^<button\b[^>]*>(<svg\b|<span[^>]*><svg\b)/.test(b) || /af-auto__linkbtn/.test(b)), allButtons.filter((b) => !/^<button\b[^>]*><svg\b/.test(b)).join("\n").slice(0, 400));
+
+  // Controlled: the host opens the form; the panel asks through onEditOpenChange.
+  const definition = { schema_version: 1, revision: jour.revision, title: jour.title, controller: { bundle_ref: "c@1", flow_id: "controller" },
+    target: { workflow_id: "basic-agent@0.1.0:main", bundle_ref: "basic-agent@0.1.0", flow_id: "main", input_data: { prompt: "Summarise the week." } },
+    trigger: jour.trigger, context: { mode: jour.context_mode, growing: {} }, policy: { serial: true, misfire: "coalesce", failure: "continue", retry: { max_attempts: 3, backoff: { initial: "30s", factor: 2, max: "10m" } }, tool_approval: "auto" },
+    session_id: "s", workspace_root: "/w", created_at: "2026-09-25T08:00:00Z", archived_at: null };
+  check("editOpen=true → the form is open, prefilled (title, task)", /class="af-auto__revise"/.test(panel({ summary: jour, definition, editOpen: true })) && panel({ summary: jour, definition, editOpen: true }).includes(">Summarise the week.</textarea>"));
+  check("editOpen=true → the Edit control reads pressed", /data-action="edit"[^>]*aria-pressed="true"/.test(panel({ summary: jour, definition, editOpen: true })));
+  check("editOpen=false → no form", !panel({ summary: jour, definition, editOpen: false }).includes('class="af-auto__revise"'));
+  check("editOpen=true on an archived automation → no form", !panel({ summary: { ...jour, status: "archived" }, definition, editOpen: true }).includes('class="af-auto__revise"'));
+  check("editOpen=true while busy keeps the form (a save in flight)", panel({ summary: jour, definition, editOpen: true, busy: true }).includes('class="af-auto__revise"'));
+
+  const asked = [];
+  const revised = [];
+  const focused = [];
+  const root = { querySelector: (q) => (q === '.af-auto__revise [name="title"]' ? { disabled: false, focus: () => focused.push(q), scrollIntoView() {} } : null) };
+  const props = { summary: jour, definition, occurrences: [], triggerSources: sources, busy: false, ...handlers, newId: () => "cmd-e1",
+    editOpen: false, onEditOpenChange: (o) => asked.push(o),
+    onRevise: (changes, expected, meta) => { revised.push({ changes, expected, meta }); return Promise.resolve({ command_id: meta.command_id, accepted: true, duplicate: false, seq: 1 }); } };
+  const h = harness(AutomationPanel);
+  byAction(h.render(props, root), "edit")[0].props.onClick();
+  check("controlled: the Edit button asks the host to open (and does not open by itself)", eq(asked, [true]) && !renderToStaticMarkup(h.render(props, root)).includes('class="af-auto__revise"'));
+  const open = { ...props, editOpen: true };
+  const tree = h.render(open, root);
+  check("opening focuses the form's first field", focused.includes('.af-auto__revise [name="title"]'));
+  const vals = { title: jour.title, every_amount: "7", every_unit: "d", context: jour.context_mode, prompt: "Summarise the week in three bullets.", tool_approval: "auto" };
+  find(tree, (n) => n.type === "form")[0].props.onSubmit({ preventDefault() {}, currentTarget: { elements: { namedItem: (k) => (k in vals ? { value: vals[k] } : null) } } });
+  await flush();
+  check("Save → ONE onRevise(changes, expected_revision = summary.revision, {command_id})", revised.length === 1 && revised[0].expected === jour.revision && revised[0].meta.command_id === "cmd-e1" && eq(revised[0].changes, { target: { bundle_ref: "basic-agent@0.1.0", flow_id: "main", input_data: { prompt: "Summarise the week in three bullets." } } }), JSON.stringify(revised));
+  check("…then asks the host to close the form", eq(asked, [true, false]));
+  const after = renderToStaticMarkup(h.render(open, root));
+  check("…and says so next to the buttons, with a dismiss control", /<span class="af-auto__notice af-auto__notice--on" role="status" tabindex="-1"><svg[^]*<span class="af-auto__notice-text">Saved; applies from the next run.<\/span><button[^>]*data-action="dismiss-notice"/.test(after));
+  byAction(h.render(open, root), "dismiss-notice")[0].props.onClick();
+  check("dismiss clears the notice (the live region stays, empty)", /<span class="af-auto__notice" role="status" tabindex="-1"><\/span>/.test(renderToStaticMarkup(h.render(open, root))));
+  byAction(h.render(open, root), "edit-cancel")[0].props.onClick();
+  check("Cancel asks the host to close", eq(asked, [true, false, false]));
+  check("NOTICE_MS: action feedback is brief", typeof parts.NOTICE_MS === "number" && parts.NOTICE_MS > 0 && parts.NOTICE_MS <= 8000);
+
+  // Uncontrolled (no editOpen): the Edit button toggles the panel's own form.
+  const h2 = harness(AutomationPanel);
+  const own = { ...props, editOpen: undefined, onEditOpenChange: undefined };
+  byAction(h2.render(own, root), "edit")[0].props.onClick();
+  check("uncontrolled: Edit opens the form", renderToStaticMarkup(h2.render(own, root)).includes('class="af-auto__revise"'));
+}
+
 // --- real gateway formats ----------------------------------------------------------------------
 {
   check("formatUtc: gateway +00:00 with microseconds", kit.formatUtc("2026-09-27T10:14:55.865625+00:00") === "2026-09-27 10:14:55 UTC");
@@ -688,7 +767,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   check("formatUtc: other offsets normalised to UTC", kit.formatUtc("2026-09-27T10:00:00.000000+02:00") === "2026-09-27 08:00 UTC");
   check("fixture fired_at renders as UTC", mailHtml.includes("fired 2026-09-27 04:00 UTC"));
   const leg = panel({ summary: legacyRow, occurrences: [] });
-  check("real legacy row: marker, every control disabled with the legacy reason", leg.includes("Legacy schedule") && ["pause", "run_now", "stop_current", "revise", "archive"].every((a) => !enabled(leg, a)) && leg.includes("Legacy schedule: managed with its existing controls."));
+  check("real legacy row: marker, every control disabled with the legacy reason", leg.includes("Legacy schedule") && ["pause", "run_now", "stop_current", "edit", "archive"].every((a) => !enabled(leg, a)) && leg.includes("Legacy schedule: managed with its existing controls."));
   check("real legacy row: every hour (UTC), no revision", leg.includes(">every hour (UTC)</dd>") && !leg.includes('data-fact="revision"'));
   const tw = occ.find((o) => o.index === 7).waits.find((x) => x.kind === "tool_approval");
   check("real tool_approval wait has no prompt → the panel's own sentence", !("prompt" in tw) && mailHtml.includes("A tool call needs your approval."));
@@ -707,7 +786,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   };
   const html = panel({ summary: news, occurrences: [], definition });
   const block = (html.match(/<details class="af-auto__definition"[\s\S]*?<\/details>/) || [""])[0];
-  check("definition: collapsed details block with its revision", block.startsWith('<details class="af-auto__definition" data-definition-revision="1"><summary>Definition (revision 1)</summary>'));
+  check("definition: collapsed card, chevron + icon + 'Definition' + its revision", /^<details class="af-auto__definition" data-definition-revision="1"><summary><svg[^]*?<\/svg><svg[^]*?<\/svg><span class="af-auto__definition-title">Definition<\/span><span class="af-auto__definition-meta">revision 1<\/span><\/summary>/.test(block), block.slice(0, 300));
   check("definition: target workflow", block.includes('data-def="target"><code>basic-agent@0.1.0:main</code>'));
   check("definition: trigger source + label + config", block.includes('data-def="trigger">schedule@1 · every 8 hours (UTC)') && block.includes(esc(JSON.stringify(news.trigger.config, null, 2))));
   check("definition: context", block.includes('data-def="context">Independent — each run starts fresh'));
@@ -715,9 +794,10 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   check("definition: retry policy", block.includes('data-def="retry">3 attempts, backoff 30s ×2 up to 10m'));
   check("definition: revision", block.includes('data-def="revision">1</dd>'));
   const ask = panel({ summary: news, occurrences: [], definition: { ...definition, revision: 3, policy: { ...definition.policy, tool_approval: "ask" } } });
-  check("definition: tool approval ask + new revision", ask.includes('data-def="tool_approval">Ask before each tool call (ask)') && ask.includes("Definition (revision 3)"));
+  check("definition: tool approval ask + new revision", ask.includes('data-def="tool_approval">Ask before each tool call (ask)') && ask.includes('<span class="af-auto__definition-meta">revision 3</span>'));
   check("definition: absent prop → no block", !panel({ summary: news, occurrences: [] }).includes("af-auto__definition"));
-  check("definition: placed right after the header", html.indexOf("</header>") < html.indexOf("af-auto__definition") && html.indexOf("af-auto__definition") < html.indexOf('role="toolbar"'));
+  check("definition: right under the controls (one click away)", html.indexOf("</header>") < html.indexOf('role="toolbar"') && html.indexOf('role="toolbar"') < html.indexOf("af-auto__definition") && html.indexOf("af-auto__definition") < html.indexOf("af-auto__timeline") + (html.includes("af-auto__timeline") ? 0 : html.length));
+  check("definition: replaced by the Edit form while it is open", !panel({ summary: news, occurrences: [], definition, editOpen: true }).includes('class="af-auto__definition"') && panel({ summary: news, occurrences: [], definition, editOpen: true }).includes('class="af-auto__revise"'));
 }
 
 // --- text rendering seam (operator ruling: the SHARED chat renderer, never plain text) -------
@@ -756,7 +836,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 
 // --- CSS ships in theme.css ------------------------------------------------------------------
 const css = readFileSync(join(here, "..", "src", "theme.css"), "utf8");
-for (const cls of [".af-auto__definition > summary", ".af-auto__json", ".af-auto__reasons", ".af-auto-failure", ".af-auto", ".af-auto-occ--quiet", ".af-auto-occ--failed", ".af-auto-occ--waiting", ".af-auto-occ--notified", ".af-auto-turn--trigger", ".af-auto__confirm", ".af-auto-wait", ".af-schedule"]) {
+for (const cls of [".af-auto__path", ".af-auto__sr-only", ".af-auto__notice--on", ".af-auto__actionbar", ".af-auto__definition-chevron", ".af-auto__definition > summary", ".af-auto__json", ".af-auto__reasons", ".af-auto-failure", ".af-auto", ".af-auto-occ--quiet", ".af-auto-occ--failed", ".af-auto-occ--waiting", ".af-auto-occ--notified", ".af-auto-turn--trigger", ".af-auto__confirm", ".af-auto-wait", ".af-schedule"]) {
   check(`css ${cls}`, css.includes(`${cls} {`) || css.includes(`${cls},`));
 }
 

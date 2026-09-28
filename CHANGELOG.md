@@ -7,6 +7,48 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.1.15 - unreleased
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.1.15 | updated |
+| `@abstractframework/panel-chat` | 0.1.19 | unchanged (its `^0.1.14` range takes ui-kit 0.1.15; `AutomationPanelWithMarkdown` passes the new props through) |
+| `@abstractframework/app-server` | 0.1.11 | unchanged |
+| `@abstractframework/monitor-memory` | 0.1.10 | unchanged |
+| `@abstractframework/monitor-gpu` | 0.1.10 | unchanged |
+| `@abstractframework/monitor-flow` | 0.1.9 | unchanged |
+| `@abstractframework/monitor-active-memory` | 0.1.9 | unchanged |
+
+### ui-kit 0.1.15: AutomationPanel — Edit edits
+
+Operator report 2026-09-28 (Observer 0.1.14): "when i click 'edit' … it does NOTHING. i have to
+go to the right and click revise… edit => i can edit right now."
+
+- Added: `editOpen` / `onEditOpenChange(open)` on `AutomationPanel` (optional, controlled). A host
+  with its own Edit control opens the panel's Edit form directly; the panel's Edit button asks
+  `onEditOpenChange(true)`, Cancel/Escape and a successful save ask `false`. Opening focuses the
+  form's first field. Without the props the panel keeps the state itself, as before. The form
+  never opens on an automation that cannot be edited (archived, legacy, no `revise` capability).
+- Changed: the Revise control is **Edit** everywhere (`data-action="edit"`; the form's buttons
+  `edit-save` "Save changes" / `edit-cancel` "Cancel"). The `revise` capability and `onRevise`
+  are unchanged.
+- Added: with the `definition` prop the Edit form also edits the **task**
+  (`target.input_data.prompt`, sent as `changes.target` = the definition's `bundle_ref` /
+  `flow_id` and its `input_data` with the new prompt) and **tool approval**
+  (`changes.policy.tool_approval`). `reviseFormFrom(summary, definition?)` and
+  `reviseChanges(summary, form, definition?)` take the definition; type `ReviseDefinition`.
+- Added: every panel action button is a kit icon then its label (controls, Edit form, archive
+  confirmation, wait answers, run details, Discuss, load earlier). `CONTROL_LABELS` and
+  `CONTROL_ICONS` are exported so hosts name and draw their row actions the same way.
+- Changed: action feedback shows next to the buttons for `NOTICE_MS` (5 s) with a dismiss
+  control, then clears (was a line left under the panel). The panel's own errors are dismissible.
+  Disabled-control reasons are the buttons' tooltips and screen-reader text (still linked with
+  `aria-describedby`), no longer a visible line under the buttons.
+- Changed: the workspace fact is one control — folder icon + the whole path, wrapping at its
+  separators, the whole chip opening `onOpenWorkspace`.
+- Changed: the Definition is a card right under the controls ("Definition · revision N"); the
+  Edit form takes its place while open.
+
 ## 0.1.14 - 2026-09-28
 
 | Package | Version | Change |

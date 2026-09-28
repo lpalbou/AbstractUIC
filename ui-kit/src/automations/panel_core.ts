@@ -254,31 +254,66 @@ export function isApiError(value: unknown): value is ApiError {
 
 // --- revise ------------------------------------------------------------------
 
-export type ReviseForm = { title: string; every: string | null; context: ContextMode };
+/**
+ * The Edit form's values. `prompt` and `toolApproval` exist only when the
+ * committed definition is known (`GET /automations/{id}` → `definition`) and
+ * its target carries a text `input_data.prompt`; otherwise they are `null`
+ * and the form does not offer them.
+ */
+export type ReviseForm = {
+  title: string;
+  every: string | null;
+  context: ContextMode;
+  prompt?: string | null;
+  toolApproval?: ToolApprovalPolicy | null;
+};
 
-export function reviseFormFrom(summary: AutomationSummary): ReviseForm {
+/** The committed definition fields the Edit form reads (a subset of `AutomationDefinition`). */
+export type ReviseDefinition = {
+  target: { bundle_ref: string; flow_id: string; input_data: JsonObject };
+  policy: { tool_approval: ToolApprovalPolicy };
+};
+
+export function reviseFormFrom(summary: AutomationSummary, definition?: ReviseDefinition | null): ReviseForm {
   const every = summary.trigger.source_id === "schedule" ? (summary.trigger.config as ScheduleConfig).every : undefined;
-  return { title: summary.title, every: typeof every === "string" ? every : null, context: summary.context_mode };
+  const prompt = definition ? (definition.target.input_data as { prompt?: unknown }).prompt : undefined;
+  return {
+    title: summary.title,
+    every: typeof every === "string" ? every : null,
+    context: summary.context_mode,
+    prompt: typeof prompt === "string" ? prompt : null,
+    toolApproval: definition ? definition.policy.tool_approval : null,
+  };
 }
 
 /**
  * Only the fields that changed. A new interval keeps the rest of the schedule
  * config (the server mints a new binding and re-anchors so no past tick fires).
+ * A new task keeps the definition's target (`bundle_ref`, `flow_id`) and the
+ * rest of its `input_data`; the gateway re-applies its run protections to it
+ * (`PATCH /automations/{id}` resolves `changes.target` like a creation). A new
+ * tool approval sends `policy.tool_approval` only (the server merges policy).
  * Returns `{errors}` when the form is invalid, `null` when nothing changed.
  */
-export function reviseChanges(summary: AutomationSummary, form: ReviseForm): AutomationChanges | null | { errors: string[] } {
+export function reviseChanges(summary: AutomationSummary, form: ReviseForm, definition?: ReviseDefinition | null): AutomationChanges | null | { errors: string[] } {
   const errors: string[] = [];
   const changes: AutomationChanges = {};
   const title = form.title.trim();
   if (!title) errors.push("Title is required.");
   else if (title.length > 120) errors.push("Title is at most 120 characters.");
   else if (title !== summary.title) changes.title = title;
-  const before = reviseFormFrom(summary);
+  const before = reviseFormFrom(summary, definition);
   if (form.every !== before.every && form.every !== null) {
     if (!parseDuration(form.every)) errors.push("Interval must be a whole number of minutes, hours or days.");
     else changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config: { ...summary.trigger.config, every: form.every } };
   }
   if (form.context !== summary.context_mode) changes.context = { mode: form.context };
+  if (definition && typeof before.prompt === "string" && typeof form.prompt === "string" && form.prompt.trim() !== before.prompt.trim()) {
+    const prompt = form.prompt.trim();
+    if (!prompt) errors.push("Task is required.");
+    else changes.target = { bundle_ref: definition.target.bundle_ref, flow_id: definition.target.flow_id, input_data: { ...definition.target.input_data, prompt } };
+  }
+  if (definition && form.toolApproval && form.toolApproval !== before.toolApproval) changes.policy = { tool_approval: form.toolApproval };
   if (errors.length) return { errors };
   return Object.keys(changes).length ? changes : null;
 }
