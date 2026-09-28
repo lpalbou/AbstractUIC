@@ -117,16 +117,30 @@ See: [`panel-chat/README.md`](../panel-chat/README.md) and [FAQ](./faq.md) (sear
 
 ## `@abstractframework/app-server`
 
-Purpose: Node.js **gateway session proxy** for app servers (the server-side half of the
-connection surface — pairs with `GatewayConnectModal`/`useGatewayConnection`).
+Purpose: the server side every browser app shares: serving under the gateway's
+`/apps/<id>/` (mount), the launch flags, the local gateway pointer, and the **gateway session
+proxy** (the server-side half of the connection surface — pairs with
+`GatewayConnectModal`/`useGatewayConnection`).
 
-- Exports: `createGatewaySessionProxy(options)`, `normalizeGatewayUrl()` (see `app-server/src/index.js`, types in `app-server/src/index.d.ts`)
+- Mount: `createMountedHandler({appId}, handler)`, `requestContext(req)` →
+  `{clientAddress, clientIsLoopback, basePath, proto, host, forwarded}` (forwarded headers
+  believed from a loopback peer only), `injectShell(html, {basePath, config})`,
+  `appPath`, `cookiePath`, `serializeCookie`, `parseCookies` (first value wins),
+  `setIdentityHeader` (`X-AbstractFramework-App: <id>; mount=1`), `rejectUpgrade`,
+  `validateBasePath`, `MountRequestError`. See
+  [`app-server/README.md`](../app-server/README.md#serving-under-the-gateway-appsid).
+- Flags: `parseAppFlags` / `parseAppFlagsOrExit` (`--gateway-url` with `--gateway`/`--url`
+  aliases, `--port`, `--host`, `--help`; env only as legacy alias).
+- Gateway pointer: `resolveGatewayUrl`, `createGatewayUrlResolver`, `readGatewayPointer`
+  (`~/.abstractframework/gateway.json`; shared cases in
+  `ui-kit/scripts/fixtures/gateway_pointer/`).
+- Session proxy: `createGatewaySessionProxy(options)`, `normalizeGatewayUrl()` (see `app-server/src/index.js`, types in `app-server/src/index.d.ts`)
 - What it does: exchanges a Gateway user token for HttpOnly session cookies
   (`POST /api/connection/gateway`), proxies `/api/gateway/*` with the server-held session,
   enforces CSRF on mutating requests, pins the Gateway URL for non-loopback clients, and strips
   credential-bearing headers in both directions. Tokens never rest in the browser. Every call
-  to the Gateway carries `X-Forwarded-For` set to the browser connection's socket address
-  (client-supplied forwarding headers are replaced, never passed through) and
+  to the Gateway carries `X-Forwarded-For` set to the browser's address
+  (`requestContext(req).clientAddress`; written once, never appended) and
   `X-AbstractFramework-App-Proxy: <appId>` (a client-supplied value is dropped). A connection
   whose socket address cannot be determined gets `400`.
 - Options (`GatewaySessionProxyOptions`): `appId` (required, `[a-z0-9-]+`; names the cookies and
@@ -137,7 +151,7 @@ connection surface — pairs with `GatewayConnectModal`/`useGatewayConnection`).
   the built-in `ABSTRACTGATEWAY_*` and `<APPID>_*` ones). See
   [`app-server/README.md`](../app-server/README.md#options).
 - Tests: `npm --workspace app-server test` (dependency-free; runs
-  `app-server/test/gateway_session_proxy.test.mjs` against a stub gateway).
+  the session proxy, mount and flags/pointer tests against stub gateways and the fixture app).
 
 See: [Adoption guide](./adoption-guide.md) for the full connection-surface contract.
 
