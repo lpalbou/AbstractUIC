@@ -3278,6 +3278,16 @@ server.listen(3000);
 | `gatewayTimeoutMs` | `4000` | Timeout for the proxy's own calls to the Gateway (status probe, sign-in, sign-out). |
 | `allowRemoteConfigEnvVars`, `allowUrlCookieEnvVars`, `trustProxyEnvVars` | none | Extra environment variable names honored beside the built-in ones below. |
 
+Without a switch, a browser may choose a Gateway URL other than `defaultGatewayUrl` (or have
+its URL cookie honoured) only when it is on this machine: its address
+(`requestContext(req).clientAddress`) is loopback AND the `Host` header names loopback
+(`localhost`, `*.localhost`, `::1` or a `127.x` IP literal, never a DNS name), and so does
+`X-Forwarded-Host` when the gateway's loopback proxy sends one. A DNS-rebinding page (a hostile
+name resolving to 127.0.0.1, which can add `X-Forwarded-*` headers itself) is refused. The
+`Secure` cookie flag follows `X-Forwarded-Proto: https` from a loopback peer only. The app's own
+CSRF headers (`x-<appId>-csrf`, `x-abstract-csrf`) are checked here and never sent to the
+Gateway, which gets its own `X-AbstractGateway-CSRF`.
+
 Environment switches (each accepts a truthy value such as `1`), with `<APPID>` the upper-cased
 `appId` (`-` becomes `_`):
 
@@ -6713,11 +6723,6 @@ export function createGatewaySessionProxy(options) {
     if (raw.startsWith("[")) return raw.slice(1).split("]", 1)[0].trim().toLowerCase();
     if ((raw.match(/:/g) || []).length === 1) return raw.split(":")[0].trim().toLowerCase();
     return raw.toLowerCase();
-  }
-
-  function isLoopbackHostname(hostname) {
-    const h = String(hostname || "").trim().toLowerCase();
-    return h === "localhost" || h === "localhost.localdomain" || h === "::1" || h.startsWith("127.");
   }
 
   /**
