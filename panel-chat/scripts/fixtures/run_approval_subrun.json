@@ -1,0 +1,591 @@
+{
+ "$comment": "Captured 2026-09-29 from a live gateway (basic-agent@0.0.5, \"create a snake webgame and open it\"), redacted: workspace path, file content, executor policy and 264 emit_event records removed; llm_call payloads minimized. Root parked on subworkflow:<child>; child parked on tool_approval (write_file). The waiting record's effect.payload.tool_calls is the ledger's $slim marker exactly as the gateway serves it (GET /ledger, history_bundle and the SSE tail all read the stored record).",
+ "root_run": {
+  "run_id": "f22e414b-3eee-4ae2-85cf-89b2c04e327c",
+  "status": "waiting",
+  "waiting": {
+   "reason": "subworkflow",
+   "wait_key": "subworkflow:7880ff49-66bc-4069-82e0-5d00b4c15a7c",
+   "until": null,
+   "prompt": null,
+   "choices": null,
+   "allow_free_text": true,
+   "details": {
+    "sub_run_id": "7880ff49-66bc-4069-82e0-5d00b4c15a7c",
+    "sub_workflow_id": "visual_react_agent_basic-agent_0_0_5_81795ea9_node-2",
+    "async": true,
+    "include_traces": true
+   }
+  },
+  "parent_run_id": null,
+  "session_id": "23638080-975f-40c2-a588-8d05e395a949",
+  "workflow_id": "basic-agent@0.0.5:81795ea9",
+  "paused": false,
+  "current_node": "node-2",
+  "output": null,
+  "error": null,
+  "created_at": "2026-09-29T20:09:22.298746+00:00",
+  "updated_at": "2026-09-29T20:09:22.309548+00:00"
+ },
+ "child_run": {
+  "run_id": "7880ff49-66bc-4069-82e0-5d00b4c15a7c",
+  "status": "waiting",
+  "waiting": {
+   "reason": "user",
+   "wait_key": "tool_approval:7880ff49-66bc-4069-82e0-5d00b4c15a7c:act:327f61c572d7e685d9e2c2b2582ee3f5",
+   "until": null,
+   "prompt": null,
+   "choices": null,
+   "allow_free_text": true,
+   "details": {
+    "mode": "approval_required",
+    "tool_calls": [
+     {
+      "name": "write_file",
+      "arguments": {
+       "file_path": "/workspace/snake.html",
+       "content": "<!DOCTYPE html><html><body><canvas id=\"snake\"></canvas><script>/* snake game (fixture: content shortened) */</script></body></html>"
+      },
+      "call_id": "call_1",
+      "runtime_call_id": "rtcall_327f61c572d7e685d9e2c2b2582ee3f5_1"
+     }
+    ],
+    "executor": {
+     "kind": "tool_approval"
+    }
+   }
+  },
+  "parent_run_id": "f22e414b-3eee-4ae2-85cf-89b2c04e327c",
+  "session_id": "23638080-975f-40c2-a588-8d05e395a949",
+  "workflow_id": "visual_react_agent_basic-agent_0_0_5_81795ea9_node-2",
+  "paused": false,
+  "current_node": "act",
+  "output": null,
+  "error": null,
+  "created_at": "2026-09-29T20:09:22.309280+00:00",
+  "updated_at": "2026-09-29T20:12:23.445803+00:00"
+ },
+ "sibling_run": {
+  "run_id": "ab24b31c-54e2-4bce-bb59-0b56069abfab",
+  "status": "completed",
+  "waiting": null,
+  "parent_run_id": "f22e414b-3eee-4ae2-85cf-89b2c04e327c",
+  "session_id": "23638080-975f-40c2-a588-8d05e395a949",
+  "workflow_id": "basic-agent@0.0.5:15f19f7f",
+  "paused": false,
+  "output": {
+   "response": "status subflow done"
+  }
+ },
+ "bundle": {
+  "version": 1,
+  "root_run_id": "f22e414b-3eee-4ae2-85cf-89b2c04e327c",
+  "run": {
+   "run_id": "f22e414b-3eee-4ae2-85cf-89b2c04e327c",
+   "status": "waiting",
+   "waiting": {
+    "reason": "subworkflow",
+    "wait_key": "subworkflow:7880ff49-66bc-4069-82e0-5d00b4c15a7c",
+    "until": null,
+    "prompt": null,
+    "choices": null,
+    "allow_free_text": true,
+    "details": {
+     "sub_run_id": "7880ff49-66bc-4069-82e0-5d00b4c15a7c",
+     "sub_workflow_id": "visual_react_agent_basic-agent_0_0_5_81795ea9_node-2",
+     "async": true,
+     "include_traces": true
+    }
+   },
+   "parent_run_id": null,
+   "session_id": "23638080-975f-40c2-a588-8d05e395a949",
+   "workflow_id": "basic-agent@0.0.5:81795ea9",
+   "paused": false,
+   "current_node": "node-2",
+   "output": null,
+   "error": null,
+   "created_at": "2026-09-29T20:09:22.298746+00:00",
+   "updated_at": "2026-09-29T20:09:22.309548+00:00"
+  },
+  "input_data": {
+   "prompt": "create a snake webgame and open it"
+  },
+  "ledgers": {
+   "f22e414b-3eee-4ae2-85cf-89b2c04e327c": {
+    "run_id": "f22e414b-3eee-4ae2-85cf-89b2c04e327c",
+    "total": 5,
+    "cursor_start": 1,
+    "cursor_end": 5,
+    "items": [
+     {
+      "cursor": 1,
+      "record": {
+       "run_id": "f22e414b-3eee-4ae2-85cf-89b2c04e327c",
+       "step_id": "ae6c1921-6571-4714-8dbe-633bc8e7b64f",
+       "node_id": "node-4",
+       "status": "started",
+       "effect": {
+        "type": "start_subworkflow",
+        "payload": {
+         "type": "start_subworkflow",
+         "workflow_id": "basic-agent@0.0.5:15f19f7f",
+         "vars": {
+          "state": "Thinking..."
+         },
+         "async": true,
+         "wait": true,
+         "resume_to_node": "node-2"
+        },
+        "result_key": "_temp.effects.node-4"
+       },
+       "result": null,
+       "error": null,
+       "started_at": "2026-09-29T20:09:22.305311+00:00",
+       "ended_at": null,
+       "idempotency_key": "e03c78354f60af59c47a998628f60c1e",
+       "attempt": 1
+      }
+     },
+     {
+      "cursor": 2,
+      "record": {
+       "run_id": "f22e414b-3eee-4ae2-85cf-89b2c04e327c",
+       "step_id": "ae6c1921-6571-4714-8dbe-633bc8e7b64f",
+       "node_id": "node-4",
+       "status": "waiting",
+       "effect": {
+        "type": "start_subworkflow",
+        "payload": {
+         "type": "start_subworkflow",
+         "workflow_id": "basic-agent@0.0.5:15f19f7f",
+         "vars": {
+          "state": "Thinking..."
+         },
+         "async": true,
+         "wait": true,
+         "resume_to_node": "node-2"
+        },
+        "result_key": "_temp.effects.node-4"
+       },
+       "result": {
+        "wait": {
+         "reason": "subworkflow",
+         "wait_key": "subworkflow:ab24b31c-54e2-4bce-bb59-0b56069abfab",
+         "until": null,
+         "resume_to_node": "node-2",
+         "result_key": "_temp.effects.node-4",
+         "prompt": null,
+         "choices": null,
+         "allow_free_text": true,
+         "details": {
+          "sub_run_id": "ab24b31c-54e2-4bce-bb59-0b56069abfab",
+          "sub_workflow_id": "basic-agent@0.0.5:15f19f7f",
+          "async": true,
+          "include_traces": false
+         }
+        }
+       },
+       "error": null,
+       "started_at": "2026-09-29T20:09:22.305311+00:00",
+       "ended_at": "2026-09-29T20:09:22.305895+00:00",
+       "idempotency_key": "e03c78354f60af59c47a998628f60c1e",
+       "attempt": 1
+      }
+     },
+     {
+      "cursor": 3,
+      "record": {
+       "run_id": "f22e414b-3eee-4ae2-85cf-89b2c04e327c",
+       "step_id": "14b513fd-ff44-4c80-8b34-b34ee8f3fb65",
+       "node_id": "node-4",
+       "status": "completed",
+       "effect": {
+        "type": "resume",
+        "payload": {
+         "wait_reason": "subworkflow",
+         "wait_key": "subworkflow:ab24b31c-54e2-4bce-bb59-0b56069abfab",
+         "resume_to_node": "node-2",
+         "result_key": "_temp.effects.node-4",
+         "payload": {
+          "sub_run_id": "ab24b31c-54e2-4bce-bb59-0b56069abfab",
+          "output": {
+           "state": "Thinking...",
+           "post_delay": 0,
+           "success": true
+          }
+         }
+        },
+        "result_key": null
+       },
+       "result": {
+        "resumed": true
+       },
+       "error": null,
+       "started_at": "2026-09-29T20:09:22.308689+00:00",
+       "ended_at": "2026-09-29T20:09:22.308691+00:00",
+       "idempotency_key": null,
+       "attempt": 1
+      }
+     },
+     {
+      "cursor": 4,
+      "record": {
+       "run_id": "f22e414b-3eee-4ae2-85cf-89b2c04e327c",
+       "step_id": "bf17b84a-a655-4dcd-a999-5a11b0c21a27",
+       "node_id": "node-2",
+       "status": "started",
+       "effect": {
+        "type": "start_subworkflow",
+        "payload": {
+         "workflow_id": "visual_react_agent_basic-agent_0_0_5_81795ea9_node-2",
+         "vars": {
+          "context": {
+           "task": "create a snake webgame and open it",
+           "messages": []
+          },
+          "scratchpad": {
+           "iteration": 0,
+           "max_iterations": 20
+          },
+          "_runtime": {
+           "inbox": [],
+           "provider": "mlx",
+           "model": "Jundot/Qwen3.8-27B-oQ4e-mtp",
+           "allowed_tools": [
+            "edit_file",
+            "analyze_code",
+            "execute_command",
+            "fetch_url",
+            "list_files",
+            "read_file",
+            "search_files",
+            "web_search",
+            "write_file"
+           ],
+           "prompt_cache": {
+            "enabled": true,
+            "version": 1
+           }
+          },
+          "_temp": {},
+          "_limits": {
+           "max_iterations": 20,
+           "current_iteration": 0,
+           "max_tokens": 262144,
+           "max_output_tokens": 131072,
+           "max_input_tokens": null,
+           "estimated_tokens_used": 0,
+           "max_history_messages": -1,
+           "warn_iterations_pct": 80,
+           "warn_tokens_pct": 80
+          }
+         },
+         "async": true,
+         "wait": true,
+         "include_traces": true
+        },
+        "result_key": "_temp.agent.node-2.sub"
+       },
+       "result": null,
+       "error": null,
+       "started_at": "2026-09-29T20:09:22.309084+00:00",
+       "ended_at": null,
+       "idempotency_key": "07e834b923055efe153a020588028ab3",
+       "attempt": 1
+      }
+     },
+     {
+      "cursor": 5,
+      "record": {
+       "run_id": "f22e414b-3eee-4ae2-85cf-89b2c04e327c",
+       "step_id": "bf17b84a-a655-4dcd-a999-5a11b0c21a27",
+       "node_id": "node-2",
+       "status": "waiting",
+       "effect": {
+        "type": "start_subworkflow",
+        "payload": {
+         "workflow_id": "visual_react_agent_basic-agent_0_0_5_81795ea9_node-2",
+         "vars": {
+          "context": {
+           "task": "create a snake webgame and open it",
+           "messages": []
+          },
+          "scratchpad": {
+           "iteration": 0,
+           "max_iterations": 20
+          },
+          "_runtime": {
+           "inbox": [],
+           "provider": "mlx",
+           "model": "Jundot/Qwen3.8-27B-oQ4e-mtp",
+           "allowed_tools": [
+            "edit_file",
+            "analyze_code",
+            "execute_command",
+            "fetch_url",
+            "list_files",
+            "read_file",
+            "search_files",
+            "web_search",
+            "write_file"
+           ],
+           "prompt_cache": {
+            "enabled": true,
+            "version": 1
+           }
+          },
+          "_temp": {},
+          "_limits": {
+           "max_iterations": 20,
+           "current_iteration": 0,
+           "max_tokens": 262144,
+           "max_output_tokens": 131072,
+           "max_input_tokens": null,
+           "estimated_tokens_used": 0,
+           "max_history_messages": -1,
+           "warn_iterations_pct": 80,
+           "warn_tokens_pct": 80
+          }
+         },
+         "async": true,
+         "wait": true,
+         "include_traces": true
+        },
+        "result_key": "_temp.agent.node-2.sub"
+       },
+       "result": {
+        "wait": {
+         "reason": "subworkflow",
+         "wait_key": "subworkflow:7880ff49-66bc-4069-82e0-5d00b4c15a7c",
+         "until": null,
+         "resume_to_node": "node-2",
+         "result_key": "_temp.agent.node-2.sub",
+         "prompt": null,
+         "choices": null,
+         "allow_free_text": true,
+         "details": {
+          "sub_run_id": "7880ff49-66bc-4069-82e0-5d00b4c15a7c",
+          "sub_workflow_id": "visual_react_agent_basic-agent_0_0_5_81795ea9_node-2",
+          "async": true,
+          "include_traces": true
+         }
+        }
+       },
+       "error": null,
+       "started_at": "2026-09-29T20:09:22.309084+00:00",
+       "ended_at": "2026-09-29T20:09:22.309417+00:00",
+       "idempotency_key": "07e834b923055efe153a020588028ab3",
+       "attempt": 1
+      }
+     }
+    ]
+   },
+   "7880ff49-66bc-4069-82e0-5d00b4c15a7c": {
+    "run_id": "7880ff49-66bc-4069-82e0-5d00b4c15a7c",
+    "total": 4,
+    "cursor_start": 1,
+    "cursor_end": 4,
+    "items": [
+     {
+      "cursor": 1,
+      "record": {
+       "run_id": "7880ff49-66bc-4069-82e0-5d00b4c15a7c",
+       "step_id": "81dfa506-65c4-45e9-bb04-782cf5e055f7",
+       "node_id": "reason",
+       "status": "started",
+       "effect": {
+        "type": "llm_call",
+        "payload": {
+         "messages": [
+          {
+           "role": "user",
+           "content": "create a snake webgame and open it"
+          }
+         ]
+        },
+        "result_key": "_temp.llm_response"
+       },
+       "result": null,
+       "error": null,
+       "started_at": "2026-09-29T20:09:22.310797+00:00",
+       "ended_at": null,
+       "idempotency_key": "174f5251f46422aa660db6e5cdaa4649",
+       "attempt": 1
+      }
+     },
+     {
+      "cursor": 2,
+      "record": {
+       "run_id": "7880ff49-66bc-4069-82e0-5d00b4c15a7c",
+       "step_id": "81dfa506-65c4-45e9-bb04-782cf5e055f7",
+       "node_id": "reason",
+       "status": "completed",
+       "effect": {
+        "type": "llm_call",
+        "payload": {
+         "messages": {
+          "$slim": {
+           "v": 1,
+           "kind": "started_payload_field",
+           "step_id": "81dfa506-65c4-45e9-bb04-782cf5e055f7",
+           "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+           "bytes": 1,
+           "field": "messages"
+          }
+         }
+        },
+        "result_key": "_temp.llm_response"
+       },
+       "result": {
+        "content": "",
+        "tool_calls": [
+         {
+          "name": "write_file"
+         }
+        ]
+       },
+       "error": null,
+       "started_at": "2026-09-29T20:09:22.310797+00:00",
+       "ended_at": "2026-09-29T20:12:23.420124+00:00",
+       "idempotency_key": "174f5251f46422aa660db6e5cdaa4649",
+       "attempt": 1
+      }
+     },
+     {
+      "cursor": 3,
+      "record": {
+       "run_id": "7880ff49-66bc-4069-82e0-5d00b4c15a7c",
+       "step_id": "263a07ea-a8c9-4ebb-a03c-87afc76ea60b",
+       "node_id": "act",
+       "status": "started",
+       "effect": {
+        "type": "tool_calls",
+        "payload": {
+         "tool_calls": [
+          {
+           "name": "write_file",
+           "arguments": {
+            "file_path": "/workspace/snake.html",
+            "content": "<!DOCTYPE html><html><body><canvas id=\"snake\"></canvas><script>/* snake game (fixture: content shortened) */</script></body></html>"
+           },
+           "call_id": "call_1",
+           "runtime_call_id": "rtcall_327f61c572d7e685d9e2c2b2582ee3f5_1"
+          }
+         ],
+         "allowed_tools": [
+          "analyze_code",
+          "edit_file",
+          "execute_command",
+          "fetch_url",
+          "list_files",
+          "read_file",
+          "search_files",
+          "web_search",
+          "write_file"
+         ],
+         "act_seq": 1
+        },
+        "result_key": "_temp.tool_results"
+       },
+       "result": null,
+       "error": null,
+       "started_at": "2026-09-29T20:12:23.443595+00:00",
+       "ended_at": null,
+       "idempotency_key": "327f61c572d7e685d9e2c2b2582ee3f5",
+       "attempt": 1
+      }
+     },
+     {
+      "cursor": 4,
+      "record": {
+       "run_id": "7880ff49-66bc-4069-82e0-5d00b4c15a7c",
+       "step_id": "263a07ea-a8c9-4ebb-a03c-87afc76ea60b",
+       "node_id": "act",
+       "status": "waiting",
+       "effect": {
+        "type": "tool_calls",
+        "payload": {
+         "tool_calls": {
+          "$slim": {
+           "v": 1,
+           "kind": "started_payload_field",
+           "step_id": "263a07ea-a8c9-4ebb-a03c-87afc76ea60b",
+           "sha256": "c799d1dc9b744fbdfbce16d5980a33ee7ce20f1e7b2d728ea10826d4625e9feb",
+           "bytes": 7649,
+           "field": "tool_calls"
+          }
+         },
+         "allowed_tools": [
+          "analyze_code",
+          "edit_file",
+          "execute_command",
+          "fetch_url",
+          "list_files",
+          "read_file",
+          "search_files",
+          "web_search",
+          "write_file"
+         ],
+         "act_seq": 1
+        },
+        "result_key": "_temp.tool_results"
+       },
+       "result": {
+        "wait": {
+         "reason": "user",
+         "wait_key": "tool_approval:7880ff49-66bc-4069-82e0-5d00b4c15a7c:act:327f61c572d7e685d9e2c2b2582ee3f5",
+         "until": null,
+         "resume_to_node": "observe",
+         "result_key": "_temp.tool_results",
+         "prompt": null,
+         "choices": null,
+         "allow_free_text": true,
+         "details": {
+          "mode": "approval_required",
+          "tool_calls": [
+           {
+            "name": "write_file",
+            "arguments": {
+             "file_path": "/workspace/snake.html",
+             "content": "<!DOCTYPE html><html><body><canvas id=\"snake\"></canvas><script>/* snake game (fixture: content shortened) */</script></body></html>"
+            },
+            "call_id": "call_1",
+            "runtime_call_id": "rtcall_327f61c572d7e685d9e2c2b2582ee3f5_1"
+           }
+          ],
+          "executor": {
+           "kind": "tool_approval"
+          }
+         }
+        }
+       },
+       "error": null,
+       "started_at": "2026-09-29T20:12:23.443595+00:00",
+       "ended_at": "2026-09-29T20:12:23.445447+00:00",
+       "idempotency_key": "327f61c572d7e685d9e2c2b2582ee3f5",
+       "attempt": 1
+      }
+     }
+    ]
+   },
+   "ab24b31c-54e2-4bce-bb59-0b56069abfab": {
+    "run_id": "ab24b31c-54e2-4bce-bb59-0b56069abfab",
+    "total": 0,
+    "cursor_start": 1,
+    "cursor_end": 0,
+    "items": []
+   }
+  },
+  "session": {
+   "session_id": "23638080-975f-40c2-a588-8d05e395a949",
+   "turns": [
+    {
+     "run_id": "f22e414b-3eee-4ae2-85cf-89b2c04e327c",
+     "prompt": "create a snake webgame and open it",
+     "status": "waiting"
+    }
+   ]
+  },
+  "warnings": []
+ }
+}

@@ -195,7 +195,14 @@ export function foldWorkflowTools(
     effect = obj(rec.effect);
   if (effect.type !== "tool_calls") return [];
   const result = obj(rec.result),
-    calls = rows(obj(effect.payload).tool_calls),
+    payloadCalls = rows(obj(effect.payload).tool_calls),
+    // A WAITING record's payload field can be the ledger's `$slim` pointer to
+    // the STARTED record (runtime ledger dedup, written by the store: every
+    // read path serves it that way). The wait itself carries the same calls,
+    // so a parked batch still folds — as waiting, with its arguments — when
+    // the payload holds no calls. Payload calls stay first: they carry the
+    // runtime call ids the completed record's results are matched by.
+    calls = payloadCalls.length || rec.status !== "waiting" ? payloadCalls : rows(obj(obj(result.wait).details).tool_calls),
     results = rows(result.results);
   const source = calls.length ? calls : results;
   const changed: WorkflowToolActivity[] = [];

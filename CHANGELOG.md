@@ -7,6 +7,35 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.1.17 - 2026-09-29
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/panel-chat` | 0.1.20 | updated |
+
+### panel-chat 0.1.20: the approval gate is the same in every client
+
+- Fixed: a conversation whose root run is parked on its agent loop (`subworkflow:<child>`) while
+  that child asks for a tool approval showed the gate only in the client that started the turn.
+  A client opening the same conversation later (`WorkflowSessionController.load`) folded the
+  child's waiting record from the history bundle, then replaced it with the root's own durable
+  wait — a delegation, never a question — so it showed "Running a tool write_file", a Steer
+  composer and no Allow/Deny, while the run waited (operator report, 2026-09-29, a remote
+  Safari vs. the gateway machine's Safari and a phone on the same run). A delegation wait now
+  never displaces a person-facing wait (`interactionWith`), a child's durable `waiting`
+  (`GET /runs/{child}`) is adopted when the bundle's window or a reconnect lost the record
+  (`adoptDurableWait`), and a wait a ledger `resume` record already answered is never re-opened
+  from a snapshot read in between (the runtime appends the record before it saves the run).
+- Fixed: the transcript's tool row for a parked batch read "Running" when the waiting record's
+  `effect.payload.tool_calls` was the ledger's `$slim` pointer to the STARTED record (the store
+  writes it that way; `GET /ledger`, the history bundle and the SSE tail all serve it). The fold
+  now takes the calls from the wait itself when the payload holds none, so the row says
+  "Approval needed" in every client.
+- Added: `scripts/check_approval_sync.mjs` (in `npm test`) with a redacted live capture
+  (`scripts/fixtures/run_approval_subrun.json`): a fresh client, the originating client across the
+  root lifecycle poll, durable state alone, a replayed root delegation record, another client's
+  resume clearing the gate, and the `$slim` fold — red before this fix.
+
 ## 0.1.16 - 2026-09-28
 
 | Package | Version | Change |

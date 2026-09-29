@@ -220,6 +220,18 @@ function waitFromRecord(record: ServerRecord): ServerRecord | null {
   return object(result?.wait);
 }
 
+/** A `subworkflow:` wait delegates the turn to a child run (a basic-agent
+ * root parked on its agent loop). It is never a question for a person; the
+ * question, if any, is that child's own wait. */
+function delegationWait(wait: ServerRecord | null | undefined): boolean {
+  if (!wait) return false;
+  return text(wait.reason) === "subworkflow" || text(wait.wait_key).startsWith("subworkflow:");
+}
+
+function sameWait(a: WorkflowWaitInteraction | null, b: WorkflowWaitInteraction): boolean {
+  return Boolean(a && a.runId === b.runId && text(a.wait.wait_key) === text(b.wait.wait_key));
+}
+
 function effect(record: ServerRecord): ServerRecord { return object(record.effect) || {}; }
 
 function runIdFrom(record: ServerRecord, fallback: string): string {
@@ -268,6 +280,12 @@ export class WorkflowSessionController {
   /** Tool-approval occurrences this client has sent `approved: true` for
    * (automatic: at dispatch; manual: after acknowledgement). */
   private grantedToolWaits = new Set<string>();
+  /** `${runId}:${wait_key}` of waits a ledger `resume` record has answered
+   * (any client's). The runtime appends that record BEFORE it saves the run
+   * without its wait, so a run snapshot read in between still says
+   * "waiting" for a decision already made: durable adoption skips these
+   * until a new waiting record (a new occurrence) arrives for the key. */
+  private resolvedWaits = new Set<string>();
   private approvalEpoch = 0;
   private toolApprovalPolicy: WorkflowToolApprovalPolicy | null = null;
   private toolApprovalSuspended = false;
@@ -309,7 +327,7 @@ export class WorkflowSessionController {
     this.controller?.abort();
     this.controller = null;
     this.rootRunId = ""; this.cursors.clear(); this.seenRecords.clear(); this.seenMessages.clear(); this.watchedRuns.clear(); this.childCatchUpAttempts.clear(); this.runStates.clear(); this.historicalRuns.clear(); this.historicalRunFailures.clear(); this.commandIds.clear();
-    this.toolActivities.clear(); this.historicalEvidence.clear(); this.approvedWaits.clear(); this.grantedToolWaits.clear();
+    this.toolActivities.clear(); this.historicalEvidence.clear(); this.approvedWaits.clear(); this.grantedToolWaits.clear(); this.resolvedWaits.clear();
     this.liveReplies.clear(); this.closedLiveCalls.clear(); this.shownLiveCalls.clear(); this.liveDirty.clear(); this.lastLiveRender = -Infinity;
     if (this.liveRenderTimer) { clearTimeout(this.liveRenderTimer); this.liveRenderTimer = null; }
     this.set({ ...EMPTY });
@@ -337,12 +355,17 @@ export class WorkflowSessionController {
       // the end even when GET /runs wins the initial request race.
       await this.ingestHistory(history, id, generation);
       if (!this.live(generation)) return;
+      // The root's durable wait is authoritative for the ROOT. When it is a
+      // delegation (`subworkflow:<child>`), the decision a person must make
+      // lives on the child: its waiting record, folded from the bundle above,
+      // stays the interaction (see `interactionWith`); the child's own run
+      // snapshot re-asserts it below even when the bundle's window lost it.
       this.set({
         ...this.snapshot,
         run: liveRun,
         status: runStatus,
         loading: false,
-        ...(currentWait && !terminal(runStatus) ? { interaction: { runId: id, wait: currentWait, ...(this.snapshot.interaction?.runId === id && text(this.snapshot.interaction.wait.wait_key) === text(currentWait.wait_key) ? { stepId: this.snapshot.interaction.stepId } : {}) } } : {}),
+        ...(currentWait && !terminal(runStatus) ? { interaction: this.interactionWith({ runId: id, wait: currentWait }) } : {}),
       });
       if (liveRun) this.updateRunState(id, liveRun);
       if (currentWait) for (const child of subRunIds({ result: { wait: currentWait } })) if (child !== id) void this.catchUpAndWatch(child, generation);
@@ -476,6 +499,42 @@ export class WorkflowSessionController {
 
   private occurrenceKey(interaction: WorkflowWaitInteraction): string {
     return `${interaction.runId}:${text(interaction.wait.wait_key)}${interaction.stepId ? `:${interaction.stepId}` : ""}`;
+  }
+
+  /**
+   * The interaction to show once `candidate` is observed. A wait a person can
+   * answer (tool approval, question, event) replaces what is shown: the latest
+   * evidence wins, as before. A delegation wait (`subworkflow:<child>`: the
+   * root parked on its agent loop) never displaces a person-facing wait — the
+   * root's wait says "the child is working", the child's says what must be
+   * decided. Every client rebuilds the same gate from the same durable state
+   * whichever order it reads it in (2026-09-29: a fresh client showed
+   * "Running a tool" for a turn parked on the child's write_file approval).
+   * Same run and key without a step id (a run snapshot) keeps the occurrence
+   * the ledger record established.
+   */
+  private interactionWith(candidate: WorkflowWaitInteraction): WorkflowWaitInteraction {
+    const current = this.snapshot.interaction;
+    if (current && delegationWait(candidate.wait) && !delegationWait(current.wait)) return current;
+    if (current && sameWait(current, candidate) && candidate.stepId === undefined && current.stepId !== undefined) return { ...candidate, stepId: current.stepId };
+    return candidate;
+  }
+
+  /**
+   * A run's durable wait (`GET /runs/{id}.waiting`) is the gate a client that
+   * never received the ledger record must still show: the bundle's tail
+   * window can drop it, a stream can reconnect past it. Ledger records keep
+   * their precedence (`foldRecord`); this fills what durable state proves and
+   * never re-opens a wait the ledger already resolved.
+   */
+  private adoptDurableWait(runId: string, run: ServerRecord): void {
+    const wait = object(run.waiting);
+    if (!wait || statusOf(run) !== "waiting" || delegationWait(wait) || terminal(this.snapshot.status)) return;
+    if (this.resolvedWaits.has(`${runId}:${text(wait.wait_key)}`)) return;
+    const next = this.interactionWith({ runId, wait });
+    const current = this.snapshot.interaction;
+    if (current && sameWait(current, next) && current.stepId === next.stepId) return;
+    this.set({ ...this.snapshot, interaction: next });
   }
 
   /** Whether the automatic approver answers `interaction` in `snapshot`
@@ -868,13 +927,21 @@ export class WorkflowSessionController {
     // shows a covered batch's calls as "need approval" without the wait
     // that lets presentation mark them granted/running.
     const waiting = waitFromRecord(record);
-    if (recStatus === "waiting" && waiting && !terminal(this.snapshot.status) && !terminal(statusOf(this.runStates.get(runId) || null))) this.set({ ...this.snapshot, interaction: { runId, wait: waiting, ...(text(record.step_id) ? { stepId: text(record.step_id) } : {}) } });
+    if (recStatus === "waiting" && waiting && !terminal(this.snapshot.status) && !terminal(statusOf(this.runStates.get(runId) || null))) {
+      // A new waiting record is a new occurrence: a snapshot may adopt it again.
+      this.resolvedWaits.delete(`${runId}:${text(waiting.wait_key)}`);
+      this.set({ ...this.snapshot, interaction: this.interactionWith({ runId, wait: waiting, ...(text(record.step_id) ? { stepId: text(record.step_id) } : {}) }) });
+    }
     if (effectType === "tool_calls") for (const tool of foldWorkflowTools(this.toolActivities, { runId, cursor: this.cursors.get(runId) || 0, record })) this.upsertTool(tool);
     // Only a ledger-confirmed resume/completion clears this UI gate.  A 202
     // command acceptance alone is intentionally not enough.
-    if (effectType === "resume" && result?.resumed === true && this.snapshot.interaction?.runId === runId) {
-      this.set({ ...this.snapshot, interaction: null });
-      void this.refreshRunState(runId, this.generation);
+    if (effectType === "resume" && result?.resumed === true) {
+      const resumedKey = text(object(eff.payload)?.wait_key);
+      if (resumedKey) this.resolvedWaits.add(`${runId}:${resumedKey}`);
+      if (this.snapshot.interaction?.runId === runId) {
+        this.set({ ...this.snapshot, interaction: null });
+        void this.refreshRunState(runId, this.generation);
+      }
     }
   }
 
@@ -1143,6 +1210,7 @@ export class WorkflowSessionController {
     if (terminal(statusOf(run))) this.endLiveRepliesOfRun(runId, statusOf(run));
     if (runId !== this.rootRunId) {
       if (terminal(statusOf(run)) && this.snapshot.interaction?.runId === runId) this.set({ ...this.snapshot, interaction: null });
+      else this.adoptDurableWait(runId, run);
       return;
     }
     const status = statusOf(run);
@@ -1156,6 +1224,7 @@ export class WorkflowSessionController {
       if (content) this.upsertFinal(runId, content, recordTimestamp(run));
     }
     this.set({ ...this.snapshot, run, status, ...(done ? { interaction: null, autoApproveTools: false, displayStatus: "" } : {}) });
+    if (!done) this.adoptDurableWait(runId, run);
     if (this.stopRequested || this.forcedStop) this.recomputeStop();
   }
 
