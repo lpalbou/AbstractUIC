@@ -1080,11 +1080,12 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
 /** How long an action's feedback stays next to the buttons. */
 export const NOTICE_MS = 5000;
 
+// A notice names the NEW STATE (operator rule 2026-09-30), never the command that was sent.
 const COMMAND_NOTICES: Record<string, string> = {
-  [CONTROL_COMMANDS.pause]: "Pause sent.",
-  [CONTROL_COMMANDS.resume]: "Resume sent.",
+  [CONTROL_COMMANDS.pause]: "Automation paused.",
+  [CONTROL_COMMANDS.resume]: "Automation active.",
   [CONTROL_COMMANDS.run_now]: "Run requested.",
-  [CONTROL_COMMANDS.stop_current]: "Stop sent.",
+  [CONTROL_COMMANDS.stop_current]: "Stop requested.",
 };
 
 export function AutomationPanel(props: AutomationPanelProps): React.ReactElement {
