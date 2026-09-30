@@ -113,7 +113,7 @@ export function GatewaySessionSignInCard({
 
       <div className="af-gateway-signin__status-row">
         <span className={cx("af-gateway-signin__status", `af-gateway-signin__status--${statusTone}`)}>{statusLabel}</span>
-        {tokenSourceLabel ? <span className="af-gateway-signin__source">{tokenSourceLabel}</span> : null}
+        {/* One pill per state (DESIGN §3): a "token: …" caption is never rendered, even when an app still passes tokenSourceLabel. */}
       </div>
 
       <div className="af-gateway-signin__form">

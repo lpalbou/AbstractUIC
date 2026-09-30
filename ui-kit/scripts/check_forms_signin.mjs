@@ -114,6 +114,8 @@ const cardHtml = renderToStaticMarkup(
 check("React card: no 'Browser session' pseudo-label", !cardHtml.includes("Browser session"), cardHtml);
 check("React card: default ONE neutral pill 'Not signed in'", /af-gateway-signin__status af-gateway-signin__status--neutral">Not signed in</.test(cardHtml), cardHtml.slice(0, 600));
 check("React card: no duplicate source caption by default", !cardHtml.includes("af-gateway-signin__source"));
+check("React card: the caption is never rendered even when an app passes tokenSourceLabel", !renderToStaticMarkup(React.createElement(GatewaySessionSignInCard, { userId: "admin", onUserIdChange() {}, token: "", onTokenChange() {}, onSubmit() {}, tokenSourceLabel: "token: missing" })).includes("af-gateway-signin__source"));
+check("sign-in card: the hero mark is hidden on cards narrower than 480px", /@container af-signin \(max-width: 479\.98px\)\s*\{\s*\.af-gateway-signin__mark\s*\{\s*display: none;/.test(css));
 check("React card: remember checkbox kept", cardHtml.includes("Remember this browser"));
 const modalSrc = readFileSync(join(root, "src", "gateway_connect_modal.tsx"), "utf8");
 check("connect modal: no 'token: ...' caption beside the pill", !/tokenSourceLabel=/.test(modalSrc));
