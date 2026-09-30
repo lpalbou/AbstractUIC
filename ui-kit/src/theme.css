@@ -43,6 +43,11 @@
   --font-size-body: var(--font-size-base);
   --font-size-input: var(--font-size-md);
   --font-size-code: var(--font-size-sm);
+  /* Select arrow drawn on touch, where native select appearance is off
+   * (see the RESPONSIVE LAYER). In the base token block so consoles that
+   * sync only :root tokens receive it by name; mid-grey reads on light and
+   * dark themes alike, so no per-theme variant. */
+  --af-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238a93a3' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 
   --line-height-base: 1.5;
 
@@ -3969,10 +3974,6 @@ html {
  * pointer) is untouched. An app rule that sets the `background` SHORTHAND
  * on a select erases the chevron: use background-color, or re-assert
  * `background-image: var(--af-select-chevron)` in that rule. */
-:root {
-  --af-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238a93a3' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-}
-
 @media (pointer: coarse) {
   select:not([multiple]):where(:not([size]), [size="1"]) {
     -webkit-appearance: none;

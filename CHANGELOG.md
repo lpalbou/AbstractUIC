@@ -21,6 +21,8 @@ ships.
 - Fixed: `.af-disclosure__content` clips on the inline axis only on touch, so an interactive chip's
   44 px hit area is no longer cut (a tap just above/below the chip selected the row); the disclosure
   chevron gets a 44 px `::after` hit area.
+- Added: `--af-select-chevron` lives in the base (first) `:root` token block, so the gateway and core
+  consoles, whose theme sync copies only that block, receive it by name.
 - Added: `check_responsive.mjs` section H (red on the 0.3.1 CSS: 4 failures).
 
 ## 0.3.1 - Unreleased (branch feat/responsive, kit round 2)
