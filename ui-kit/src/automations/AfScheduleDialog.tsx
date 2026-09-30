@@ -50,7 +50,7 @@ export type AfScheduleDialogProps = {
   busy?: boolean;
   error?: ApiError;
   /**
-   * Id source for `request_id` (default `crypto.randomUUID`). Return a
+   * Id source for `request_id` (default `randomId()`: crypto.randomUUID, else getRandomValues). Return a
    * Promise from `onSubmit` so a transport failure keeps the id for a retry.
    */
   newRequestId?: () => string;

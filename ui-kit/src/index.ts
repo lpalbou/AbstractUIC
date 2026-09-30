@@ -310,3 +310,4 @@ export {
 } from "./automations/email_fields.js";
 export { AfSwitch, afSwitchIsActionable, afSwitchNextState, type AfSwitchProps } from "./af_switch.js";
 export { findVerbToggleLabels, type VerbToggleHit } from "./state_toggle_lint.js";
+export { randomId, uuidV4FromBytes } from "./random_id.js";

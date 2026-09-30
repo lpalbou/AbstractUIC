@@ -3,6 +3,7 @@
 // scripts/check_automation_panel.mjs). Everything here reads STRUCTURE only —
 // statuses, notify objects, waits, config fields — never model prose.
 import controlsSpec from "./automation_controls.json" with { type: "json" };
+import { randomId } from "../random_id.js";
 import type {
   ApiError,
   AutomationChanges,
@@ -759,9 +760,7 @@ export function isDefinitiveError(error: unknown): boolean {
 }
 
 export function mintUuid(): string {
-  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (!c || typeof c.randomUUID !== "function") throw new Error("crypto.randomUUID is unavailable; pass newId");
-  return c.randomUUID();
+  return randomId();
 }
 
 // --- /seen acknowledgement ------------------------------------------------------

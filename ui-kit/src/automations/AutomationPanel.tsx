@@ -94,7 +94,7 @@ export type AutomationPanelProps = {
    * free text), `tool_approval` → `{approved: true|false}`, `event` → `{payload}`.
    */
   onAnswerWait(runId: string, waitKey: string, payload: JsonObject): Promise<void>;
-  /** Id source for the per-action ids (default `crypto.randomUUID`). */
+  /** Id source for the per-action ids (default `randomId()`: crypto.randomUUID, else getRandomValues). */
   newId?: () => string;
   /**
    * Required in practice: the shared chat renderer (panel-chat
