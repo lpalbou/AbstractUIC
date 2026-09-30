@@ -7,170 +7,122 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## 0.3.2 - Unreleased (branch feat/responsive, kit rounds 3-4)
+## 0.3.2 - 2026-09-30
+
+Responsive layout for every AbstractFramework browser app: the shared components adapt to phones,
+tablets, resized windows and narrow panes, with 44 px touch targets and 16 px form text on touch
+screens, while a regular desktop window renders as before.
 
 | Package | Version | Change |
 | --- | --- | --- |
-| `@abstractframework/ui-kit` | 0.3.2 | updated (patch: WebKit native selects, disclosure hit areas, pinch guard, keyboard-aware sheets, tool-policy touch sizes, guards) |
-| `@abstractframework/panel-chat` | 0.2.1 | unchanged CSS/JS; adds the `check_responsive.mjs` guard to its test (not republished) |
+| `@abstractframework/ui-kit` | 0.3.2 | updated (minor: responsive layer) |
+| `@abstractframework/panel-chat` | 0.2.1 | updated (minor: responsive layer); accepts ui-kit `^0.1.14 \|\| ^0.2.0 \|\| ^0.3.0` |
+| `@abstractframework/monitor-active-memory` | 0.2.1 | updated (minor: container-based layout, touch sizes) |
+
+Who is affected: every app that imports `@abstractframework/ui-kit/theme.css` or
+`@abstractframework/panel-chat/panel_chat.css` (AbstractCode, AbstractObserver, AbstractFlow,
+AbstractEntity, AbstractContinuum) and the pages that copy the kit's tokens (the AbstractGateway and
+AbstractCore consoles).
 
 ### ui-kit 0.3.2
 
-- Fixed: native `<select>` elements reach 44 px on touch in WebKit / iOS Safari (it ignores
-  `min-height` on a native-appearance select): on coarse pointers single-choice selects get
-  `appearance: none`, `min-height: var(--tap-min)`, the 16 px input font, `max-width: 100%` and a
-  redrawn chevron (`--af-select-chevron`), at (0,1,1) specificity so apps' element-level resets do not
-  erase the chevron and their class-scoped rules still win; list boxes keep the native look (16 px font).
-  Kit selects (`.af-auto`, `.af-schedule`, `.af-appearance`, `.af-tool-policy`, `.af-voice-settings`)
-  restate the chevron, padding, height and font over their own class rules.
-- Fixed: `.af-disclosure__content` clips on the inline axis only on touch, so an interactive chip's
-  44 px hit area is no longer cut (a tap just above/below the chip selected the row); the disclosure
-  chevron gets a 44 px `::after` hit area.
-- Fixed: `installViewportVars()` ignored `visualViewport.scale`: a 2x pinch-zoom halved `--vv-height`
-  and reported a 426 px `--keyboard-inset` with no keyboard, shrinking app shells. A pinch-zoomed page
-  (scale > 1.01) now keeps the layout viewport height and no inset; the keyboard at scale 1 keeps its
-  inset (offsetTop honoured). The rule is exported as `viewportVarsFrom()`; `check_viewport_vars.mjs`
-  pins 7 cases.
-- Fixed: kit sheets (sign-in, critical, appearance, about, schedule, `.af-sheet`) and centred dialog
-  overlays pad the bottom by `--keyboard-inset`, sheets are `border-box`, and `.af-drawer` sits above the
-  keyboard (`bottom: var(--keyboard-inset)`), so pinned action rows and drawer composers stay visible
-  with the keyboard up.
-- Added: `--af-select-chevron` lives in the base (first) `:root` token block, so the gateway and core
-  consoles, whose theme sync copies only that block, receive it by name.
-- Fixed: the tool policy editor on touch: the filter box reaches 44 px (it was 36 px) and the
-  per-tool approval selects 44 px / 16 px (28 px / 11 px; covered by the select rule).
-- Added: `check_responsive.mjs` sections H-J: WebKit select rule, chevron token in the first `:root`,
-  disclosure clip, keyboard-inset surfaces, and BLOCK PRESENCE. The general coarse-pointer touch block
-  and the bottom-sheet dialog rule are resolved per selector (overlay `align-items: flex-end` +
-  keyboard padding; dialog `width`/`max-height: 100%`, `border-box`, square bottom corners; sticky
-  actions). Deleting either block fails (24 / 34 failures). `check_viewport_vars.mjs` pins the pinch rule.
+- Added: one breakpoint contract, used as literal values because CSS variables cannot appear in
+  `@media`:
+  - `xs` below 480 px, `sm` below 768 px, `md` below 1024 px, `lg` below 1440 px, `xl` from 1440 px,
+    all as max-width queries ending in `.98px`;
+  - the `short` axis `(max-height: 500px)` for phone landscape;
+  - `(pointer: coarse)` for touch.
 
-### monitor-active-memory 0.2.1
-
-- Fixed: the explorer's selects (`.amx-toolbar-grid select`, `.amx-graphbar select`) set
-  `background-color` instead of the `background` shorthand, which erased the kit's touch chevron
-  (ui-kit 0.3.2 `--af-select-chevron`). On coarse pointers they keep 32 px of right padding for it and
-  the 16 px input font. Desktop is unchanged (pixel-identical at 1512x982).
-
-### panel-chat (0.2.1, unchanged)
-
-- Added: `scripts/check_responsive.mjs` in `npm test`. It pins the pc-thread / pc-composer / pc-chat
-  containers (also in the generated `transcript.css`), the 360 px desktop-safe container thresholds
-  and named viewport breakpoints, 44 px touch targets (approval/workflow buttons, `.pc-btn`, icon
-  buttons, JSON viewer toggles and lines), the 16 px composer input, the composer auto-grow cap and
-  the safe-area composer padding. It is red on 0.1.21 (28 failures) and on the round-1 CSS (7).
-- Docs: README no longer says a 420 px drawer behaves like a phone (the narrow layouts fire below
-  360 px of pane width).
-
-## 0.3.1 - Unreleased (branch feat/responsive, kit round 2)
-
-| Package | Version | Change |
-| --- | --- | --- |
-| `@abstractframework/ui-kit` | 0.3.1 | updated (patch: touch-target and touch-text fixes measured by the apps) |
-| `@abstractframework/panel-chat` | 0.2.1 | updated (patch: JSON viewer touch targets); peer range unchanged |
-| `@abstractframework/monitor-active-memory` | 0.2.0 | updated (minor: container-based layout, touch sizes) |
-
-### ui-kit 0.3.1
-
-- Fixed: touch minimums now apply to INTERACTIVE boxes only. Chips (`.af-chip--button`,
-  `.af-chip__remove`) keep their pill geometry and get an invisible 44 px `::after` hit area (a
-  44 px-tall chip read as an oval button); non-interactive chips, badges, pills and facts get none.
-- Fixed: on coarse pointers the About dialog links, link-styled buttons (`.af-auto__linkbtn`, the
-  email notice link), checkbox/radio rows (sign-in "Keep this browser signed in", `.af-email__check`,
-  every `label > input[type=checkbox|radio]` in `.af-auto` / `.af-schedule`, `.af-tool-row__check`)
-  are 44 px rows; the top-bar pill is at least 44x44.
-- Fixed: the `AfSelect` panel trigger (also in the model settings' MTP depth) uses `--control-h` on
-  touch; the `.af-select--panel` 34 px pin had higher specificity. Pin selects (`.af-select--pin`,
-  canvas nodes) are exempt.
-- Changed: on touch the automations panel, the critical dialog's consequence / fallback statement
-  and the About links use `--font-size-body` (14 px floor; apps may override the token, see
-  DESIGN.md §2.3). Secondary lines stay `--font-size-sm`.
-- Fixed: desktop panes keep the 0.2.0 look. Container rules now fire only where the 0.2.0 layout
-  genuinely broke: the automations panel's definition grid and buttons stack below 400 px (was 520 px:
-  a 470 px Code pane lost its two-column grid); the sign-in form stacks below 320 px of card content
-  width (was 560/680 px: it stacked inside a 420 px desktop drawer), plus a `767.98px` viewport rule so
-  phones keep the stacked form they had in 0.2.0. Verified pixel-identical to 0.2.0 at 1512x982 with the
-  automation panel at 470/420 px and the sign-in card in a 420 px drawer.
-- Added: `check_responsive.mjs` sections F and G (interactive-only minimums, select, chips hit area,
-  44 px rows, primary text), red on the 0.3.0 CSS.
+  In JavaScript: `AF_BREAKPOINTS`, `AF_MEDIA` and `useAfMedia(query)`.
+- Added: responsive tokens on `:root`:
+  - spacing: `--space-1..6`, `--gutter`;
+  - touch and density: `--tap-min` and `--control-h` (32 px, 44 px on touch), `--row-pad-y`,
+    `--row-pad-x`, `--control-pad-x`;
+  - viewport: `--vh-full` (`100dvh` with a `100vh` fallback), `--safe-top/right/bottom/left`,
+    `--keyboard-inset`;
+  - widths: `--content-max`, `--reading-max`, `--form-max`, `--drawer-w`;
+  - text: `--font-size-2xl`, `--font-size-body`, `--font-size-input`, `--font-size-code`;
+  - `--af-select-chevron`, in the base `:root` block.
+- Added: on touch screens, body text is at least 14 px, form fields 16 px (so iOS does not zoom on
+  focus) and code 12 px, whatever the user's font scale. `data-density="dense|comfortable"` on
+  `<html>` overrides the density tokens.
+- Added: `installViewportVars()` mirrors the visual viewport into `--vv-height` and
+  `--keyboard-inset`. This covers the on-screen keyboard, which `dvh` does not track on iOS. A
+  pinch-zoomed page keeps its full height. The rule is exported as `viewportVarsFrom()`.
+- Added: `html { text-size-adjust: 100% }`, so mobile browsers do not inflate text.
+- Changed: `--font-size-xl` is fluid (`clamp(16px, 14px + 0.4vw, 18px)` × `--font-scale`). It
+  reaches 18 px from about 1000 px wide; sizes up to `--font-size-lg` are unchanged.
+- Changed: the kit's dialogs (connect/sign-in, critical action, appearance, about, schedule) respect
+  the safe areas. Below 768 px wide or 500 px tall they become bottom sheets with the action row
+  pinned to the bottom, and they stay above the on-screen keyboard. `.af-sheet-overlay` / `.af-sheet`
+  give app dialogs the same behaviour.
+- Changed: `AfDrawer` is full width below 768 px, respects the safe areas and stays above the
+  keyboard. New props: `side="left"` and `backdrop`, which adds a dimmed backdrop that closes the
+  drawer on tap.
+- Changed: components adapt to the pane they sit in (container queries), so the same component works
+  in a narrow desktop pane and on a phone. The narrow layouts start only where the desktop layout no
+  longer fits:
+  - sign-in form: below 320 px of card content width, and below 768 px of viewport;
+  - automations panel: below 400 px;
+  - dialog label grids: below 480 px;
+  - tool policy controls: below 520 px.
+- Changed: on touch screens every interactive kit control is at least 44 px, and icon buttons are
+  44 px in both axes. Chips keep their pill shape with an invisible 44 px hit area. Checkbox and radio
+  labels, About links and link buttons are 44 px rows. Pin selects inside canvas nodes are exempt.
+- Changed: on touch screens, single-choice native `<select>` elements drop the native appearance, so
+  WebKit honours the 44 px height and 16 px font, and they show the `--af-select-chevron` arrow.
+  List boxes (`multiple`, `size > 1`) keep the native look.
+- Changed: on touch screens the automations panel, the critical dialog's main statement and the About
+  links use `--font-size-body`. The top-bar connection pill keeps only its status dot below 480 px;
+  its accessible name is unchanged.
+- Added: `.af-table-wrap` (horizontal scroll for tables).
 
 ### panel-chat 0.2.1
 
-- Fixed: on coarse pointers the JSON viewer's disclosure lines are padded to 44 px rows and its
-  string toggles are 44x44 (only interactive lines grow).
-- Fixed: desktop panes keep the 0.2.0 look. The transcript, composer and approval-card container
-  rules fire below 360 px of pane width (were 420/560 px, which changed a 420 px desktop drawer); the
-  approval buttons no longer stretch between 360 and 560 px. Phones keep 0.2.0's stacked tool rows
-  through the `479.98px` viewport fallback.
+- Changed: the chat thread (`pc-thread`), the composer (`pc-composer`) and the workflow chat and
+  assistant panel (`pc-chat`) are query containers:
+  - below 360 px of pane width, bubbles use the full width, tool rows stack and approval buttons
+    stack full width;
+  - on phones, tool rows also stack below 480 px of viewport;
+  - bubbles cap at `--reading-max`.
 
-### monitor-active-memory 0.2.0
+  The generated `transcript.css` carries the same thread rules; its class set is unchanged.
+- Changed: `ChatComposer` passes `rows` as `--pc-composer-rows`. The textarea grows with its content
+  (CSS `field-sizing: content`) from `rows` lines up to 40 % of the viewport, and the composer clears
+  the home indicator.
+- Changed: on touch screens the composer textarea is at least 16 px. Buttons, icon buttons, tool rows,
+  workspace rows and the JSON viewer's expandable lines and toggles are at least 44 px.
+- Changed: the workspace browser and JSON viewer scroll or wrap inside their pane. Markdown table
+  cells no longer break words mid-token; a narrow table scrolls in its wrapper.
 
-- Changed: a `.amx-host` query container wraps the explorer; `.amx-left { min-width: 420px }` is gone
-  (`min-width: 0`); the graph / details split stacks below 820 px of the explorer's own width (was a
-  1080 px viewport query) and the toolbar grid below 560 px (was 720 px).
-- Fixed: the floating controls panel's grid uses `minmax(0, 1fr)` columns with full-width fields and
-  wrapping labels, so no label extends past the panel (open or closed); the open panel is a query
-  container (`amx-controls`) that stacks its grids below 420 px.
-- Changed: 44 px controls and 16 px fields on coarse pointers.
+### monitor-active-memory 0.2.1
 
-## 0.3.0 - Unreleased (branch feat/responsive)
+- Changed: the explorer lays out by its own width through a `.amx-host` query container:
+  - the graph and details stack below 820 px;
+  - the controls grid stacks below 560 px, and the floating controls panel below 420 px;
+  - no fixed minimum width.
+- Changed: on touch screens, controls are 44 px and fields 16 px. The explorer's selects set
+  `background-color`, so the kit's touch chevron shows.
 
-| Package | Version | Change |
-| --- | --- | --- |
-| `@abstractframework/ui-kit` | 0.3.0 | updated (minor: responsive layer) |
-| `@abstractframework/panel-chat` | 0.2.0 | updated (minor: responsive layer); accepts ui-kit `^0.1.14 \|\| ^0.2.0 \|\| ^0.3.0` |
+### Migration notes
 
-### ui-kit 0.3.0: responsive layer (responsive workstream 2026-09-30)
-
-- Added: one breakpoint contract for every app — `xs` < 480, `sm` < 768, `md` < 1024, `lg` < 1440,
-  `xl` >= 1440 (max-width queries ending in `.98px`), the `short` axis `(max-height: 500px)` and
-  `touch` `(pointer: coarse)`; JS `AF_BREAKPOINTS`, `AF_MEDIA`, `useAfMedia(query)`.
-- Added: tokens `--font-size-2xl`, `--font-size-body`, `--font-size-input`, `--font-size-code`,
-  `--space-1..6`, `--gutter`, `--tap-min`, `--control-h`, `--row-pad-y`, `--row-pad-x`,
-  `--control-pad-x`, `--vh-full`, `--safe-top/right/bottom/left`, `--keyboard-inset`,
-  `--content-max`, `--reading-max`, `--form-max`, `--drawer-w`. On coarse pointers `--tap-min` is
-  44 px and body / input / code text never go below 14 / 16 / 12 px whatever the font scale;
-  `data-density="dense|comfortable"` on `<html>` overrides the density tokens.
-- Added: `installViewportVars()` mirrors the visual viewport into `--vv-height` and
-  `--keyboard-inset` (the iOS keyboard, which `dvh` does not track).
-- Added: `html { text-size-adjust: 100% }` — no mobile text inflation when a layout is wider than
-  the phone (the cause of Observer's oversized text on phones).
-- Changed: `--font-size-xl` is fluid (`clamp(16px, 14px + 0.4vw, 18px)` × `--font-scale`); it
-  reaches 18 px at about 1000 px wide, so desktop windows are unchanged. Sizes up to `lg` stay fixed.
-- Changed: the kit's dialogs (connect/sign-in, critical action, appearance, about, schedule) pad
-  the safe areas and become bottom sheets below 768 px or under 500 px tall, with the action row
-  pinned to the bottom; below 480 px their actions stack full width.
-- Changed: the sign-in card, the dialogs, the automations panel and the tool policy editor adapt
-  to their own width through container queries (`af-signin`, `af-dialog`, `af-auto`,
-  `af-tool-policy`); the old `520px` / `680px` viewport queries are gone (the sign-in form now
-  stacks inside a 420 px drawer on a desktop too).
-- Changed: `AfDrawer` is full width below 768 px (was 680 px) and pads the safe areas; added
-  `side="left"`, `backdrop` (a dimmed backdrop that closes the drawer on tap) and the
-  `.af-drawer-backdrop` / `.af-drawer--left` / `.af-drawer--offset` classes; `.af-drawer__body`
-  is a query container (`af-drawer`).
-- Changed: on coarse pointers every kit control reaches 44 px (icon buttons in both axes) and the
-  automation form's fields use 16 px text (iOS no longer zooms on focus); the connection pill keeps
-  only its dot below 480 px (its accessible name is unchanged).
-- Added: `.af-table-wrap`, `.af-sheet-overlay` / `.af-sheet` helpers; `scripts/check_responsive.mjs`
-  pins the breakpoint set, tokens, touch floors and containers (red on 0.2.0's theme.css).
-
-### panel-chat 0.2.0: responsive layer
-
-- Changed: `.pc-chat-thread` is a query container (`pc-thread`): below 560 px of thread width the
-  tool rows stack (was a 600 px viewport query, kept as a 480 px fallback outside a thread);
-  below 420 px bubbles use the full width. Bubbles cap at `--reading-max` (86ch fallback).
-  The generated `transcript.css` carries the same change (class set unchanged).
-- Changed: `.pc-workflow-chat` / `.pc-assistant` are containers (`pc-chat`): approval and
-  ask-user buttons share the row below 560 px and stack full width below 360 px; long details wrap.
-- Changed: `ChatComposer` passes `rows` as `--pc-composer-rows`; the textarea grows with its
-  content (CSS `field-sizing: content`) from `rows` lines up to 40 % of the viewport. The
-  composer is a container (`pc-composer`); its action row wraps; the composer clears the home
-  indicator (`--safe-bottom`).
-- Changed: on coarse pointers the composer textarea is at least 16 px (it used `--font-size-lg`)
-  and buttons, icon buttons, tool rows and workspace rows reach 44 px.
-- Changed: `.pc-ws__entries` and `.pc-json-viewer__tree` scroll or wrap inside their pane.
-- Changed: Markdown table cells use `overflow-wrap: break-word`, so a narrow table scrolls in
-  its wrapper instead of breaking words mid-token.
+- Apps that tested with the pre-release `file:` tarballs relock to the registry versions:
+  `@abstractframework/ui-kit@^0.3.2`, `@abstractframework/panel-chat@^0.2.1`, and
+  `@abstractframework/monitor-active-memory@^0.2.1` where used.
+- The new tokens are additive; no token was renamed or removed. `--font-size-lg` and below keep
+  their values.
+- Touch sizes apply only under `(pointer: coarse)`, and narrow layouts only below the thresholds
+  above. A desktop window, including a 420 px drawer or a ~470 px pane, keeps the previous layout.
+- A container element needs its width from its parent (block, stretch or `flex: 1`). Inside a
+  shrink-to-fit parent it collapses to zero width.
+- Call `installViewportVars()` once at startup if your app has a bottom composer or a fixed bottom
+  bar. Use `height: var(--vh-full)` for full-height shells.
+- On touch screens, an app rule that sets the `background` shorthand on a `<select>` hides the kit's
+  arrow. Use `background-color`, or add `background-image: var(--af-select-chevron)`.
+- Keep `var(--tap-min)` and `var(--font-size-input)` when you override the height or font of a kit
+  control; app CSS loads later and wins.
+- Pages that copy the kit's tokens (AbstractGateway console, AbstractCore console) re-sync to
+  0.3.2 to receive the new tokens by name.
 
 ## 0.2.0 - 2026-09-30
 
@@ -789,7 +741,7 @@ go to the right and click revise… edit => i can edit right now."
   measurable-fold contract, ChatMessageCard timestamp guard and
   title-over-role) and `monitor-flow/scripts/check_monitor_flow.mjs`
   (build_agent_trace ordering/dedup/grouping incl. the
-  auto-label-never-filters regression, the JsonViewer twin contract, and the
+  auto-label-never-filters rule, the JsonViewer twin contract, and the
   package-owned toolbar-class stability assertion). Both run against the
   compiled dist via react-dom/server renderToStaticMarkup — existing
   devDependencies only, no jsdom.
@@ -859,7 +811,7 @@ go to the right and click revise… edit => i can edit right now."
 - panel-chat markdown (continuum-contributed, owner-reviewed): a table
   header+separator now interrupts a paragraph (GitHub behavior, same rule as
   the existing list interrupt) — assistant status tables emitted directly
-  after a prose line rendered as piped prose before. Regression pins live in
+  after a prose line renders as a table. Tests for this live in
   continuum's suite until panel-chat grows its rig (0006 notes the
   migration).
 - ui-kit `Icon` (continuum-contributed, owner-reviewed): `thumbsUpFilled`/
@@ -908,9 +860,8 @@ go to the right and click revise… edit => i can edit right now."
   (`audio_b64` segments, terminal done/cancelled, error events thrown).
 - UI Kit `GatewayConnectModal` `initialStatus` prop: apps that probed the
   connection at boot seed the modal so opening it does not re-probe (the
-  modal still refreshes after sign-in/out). Part of the 10-15s connect
-  incident fold; the README connection contract now also pins the rule the
-  incident proved — connected state flips on probe-ok, data fetches fill in
+  modal still refreshes after sign-in/out). The README connection contract
+  states the rule: connected state flips on probe-ok, data fetches fill in
   AFTER and never gate first paint.
 - UI Kit `palette_seeds.json`: generated 4-token reduction of every kit theme
   (`name → {primary, surface, secondary, muted}` hex) derived from
@@ -935,8 +886,7 @@ go to the right and click revise… edit => i can edit right now."
   in `theme.css` must resolve to a declared token — `var(--x, fallback)`
   stays exempt as the consumer-supplied-token escape hatch. Verified the
   guard fails on the pre-fix CSS and passes post-fix.
-- Theme contrast wave (operator directive 2026-07-13 18:30, fable5 themes
-  adversary + mechanical WCAG audit over all 20 theme blocks): 62 failing
+- Theme contrast (WCAG audit over all 20 theme blocks): 62 failing
   token pairs fixed hue-preserving across 18 themes — muted text unreadable
   on cards (18 themes, worst tokyo-night 2.35:1 and everforest-light 2.42:1),
   status colors under 4.5:1 on cards (nord error 2.46:1, rose-pine-dawn
@@ -976,9 +926,7 @@ go to the right and click revise… edit => i can edit right now."
 
 ### Added
 
-- Unified top-right corner (operator directive 2026-07-13 20:02; consensus
-  plan `plans/unified-top-bar.md` on the hub fs after 3 fable5 design
-  adversaries + 3 owner discussion cycles): `AfTopBarActions` (assistant →
+- Unified top-right corner: `AfTopBarActions` (assistant →
   appearance → extras → Disconnect pill; renders the connection hook's
   3-state phase, never a boolean), `AfDrawer` (right-edge, non-modal,
   keep-alive — closed = display:none + inert, never unmounted; layered ESC
@@ -993,7 +941,7 @@ go to the right and click revise… edit => i can edit right now."
   blocked-state notice while disconnected, suggestions/empty state. Icons:
   `sparkle`, `contrast`, `logout`. Z-order tokens `--z-drawer` <
   `--z-connect-modal` < `--z-popover` (connect overlay now consumes the
-  token). Hook hardening from the design adversaries: `signingOut` +
+  token). Hook hardening: `signingOut` +
   `signOutError` channels on `useGatewayConnection` (a dead app-server no
   longer swallows a failed sign-out silently) and the connect modal's ESC
   honors `defaultPrevented`. The `.af-topbar-*`/`.af-drawer-*` class
@@ -1029,7 +977,7 @@ go to the right and click revise… edit => i can edit right now."
   transport peer, which the client cannot forge (IPv4-mapped IPv6
   unwrapped); `x-forwarded-host` stays behind the existing trusted-proxy
   opt-in. Explicit `*_ALLOW_REMOTE_BROWSER_GATEWAY_CONFIG` still wins for
-  deployments behind their own access control. Regression tests: a
+  deployments behind their own access control. Tests: a
   non-loopback peer spoofing `Host: localhost` gets the cookie gateway URL
   ignored (pinned to default, not relayed) and cannot POST a remote
   `gateway_url` (403); a genuine loopback peer keeps the dev posture. When
@@ -1041,9 +989,7 @@ go to the right and click revise… edit => i can edit right now."
 
 ### Fixed
 
-- Late-adversary fold (2026-07-14 — nine adversaries whose full reports
-  landed after their trail salvages; the six findings the trails had NOT
-  carried): `useGatewayConnection.signOut` now invalidates pre-signout
+- Connection and component fixes: `useGatewayConnection.signOut` invalidates pre-signout
   probes FIRST (a stale "connected" answer landing after the DELETE made
   the follow-up probe's true signed-out answer the one dropped — phantom
   connected over cleared cookies); `SteerComposer` resets status on
@@ -1060,9 +1006,8 @@ go to the right and click revise… edit => i can edit right now."
   a parity test, artifact regenerated); `.af-chip` gained a neutral
   default `--af-chip-hue` (class-only consumers rendered borderless).
 
-- Design review wave (2026-07-13, two fable5 design adversaries — aesthetics
-  + layout/responsiveness — plus a whole-package code/logic audit; several
-  died mid-report, findings salvaged from trails and all folded):
+- Design and layout review (aesthetics, layout/responsiveness and a
+  whole-package code/logic audit):
   AESTHETICS — kit buttons gained hover/active feedback (sign-in, steer
   send, critical actions; panel-chat already had it — the inconsistency read
   cheap); one shared 120ms micro-transition across interactive kit
@@ -1095,9 +1040,7 @@ go to the right and click revise… edit => i can edit right now."
   not built: --header-density is not consumed by the newer components
   (design decision pending); the select positioner's available-space
   max-height lives TSX-side.
-- Input/placeholder font harmonization (operator fix 2026-07-13, verbatim
-  "the grey text you show in the input panel at the bottom … the font is
-  terrible"): the chat composer textarea fell to the browser's default
+- Input/placeholder font harmonization: the chat composer textarea fell to the browser's default
   monospace form font because no `font-family` was set — it (and every kit
   input found by the same sweep) now uses the app stack explicitly
   (`--font-sans`; the typed-confirm phrase input gets `--font-mono`
@@ -1119,8 +1062,7 @@ go to the right and click revise… edit => i can edit right now."
   Live-verified end-to-end in headless Chrome against the test-app + stub
   gateway: signed-out boot auto-opens → real modal sign-in → modal closes
   itself + app renders → reload shows the app with no modal → sign-out
-  keeps the modal open (4/4 transitions). Adversary folds (state-machine
-  audit): the hook's `onClose` reads phase through a ref — in the sign-in
+  keeps the modal open (4/4 transitions). State-machine fixes: the hook's `onClose` reads phase through a ref — in the sign-in
   batch the render-closure phase was stale ("disconnected") and silently
   marked the episode dismissed, killing the NEXT session expiry's auto-open
   (the one transition the happy-path chrome run cannot see); a status
@@ -1128,8 +1070,7 @@ go to the right and click revise… edit => i can edit right now."
   started before a sign-in can never overwrite the connected status.
   Consumer folds: `signOut()` verb (observer's settings-page datum) and the
   synchronous-delivery pin on `refresh()`.
-- Adversarial-review folds on the component wave (2026-07-13, four fable5
-  audits): `DisclosureList` row ids can no longer throw on lone-surrogate
+- Component review fixes: `DisclosureList` row ids can no longer throw on lone-surrogate
   row keys (code-point fallback) and scroll-on-select now fires when a
   selected row is revealed later; `SteerComposer` treats a 200 with
   `accepted:false` as a refusal (never "Queued") and `submitSteer` retries
@@ -1146,8 +1087,7 @@ go to the right and click revise… edit => i can edit right now."
   `margin-inline-start` (RTL); ui-kit `prepublishOnly` runs the full test
   chain so a stale `palette_seeds.json` or token violation can never
   publish.
-- Panel Chat markdown renderer now builds REAL nested lists (operator
-  incident 2026-07-13, entity chat screenshot): the old list path flattened
+- Panel Chat markdown renderer builds real nested lists: the old list path flattened
   every region into one `<ol>`/`<ul>`, so documents mixing `1.` items with
   indented `-` sub-bullets rendered flat and a marker switch mid-region was
   swallowed into the wrong list type. Lists are parsed into a tree
@@ -1189,7 +1129,7 @@ go to the right and click revise… edit => i can edit right now."
 - Dependency-free node test suite for both cores
   (`ui-kit/scripts/check_matrix_core.mjs`, 68 assertions) wired into the
   ui-kit `test` script; runs against the compiled `dist` artifact the
-  consumers actually import. Pins the adversarial-review findings: stale
+  consumers actually import. It pins: stale
   patches are reconciled out after a payload refresh (and filtered from the
   wire), a pending clear on an operator-resolved cell displays as honestly
   indeterminate rather than a guessed "off", restating a stored word
@@ -1213,7 +1153,7 @@ go to the right and click revise… edit => i can edit right now."
 - UI Kit theme token integrity guard (`ui-kit/scripts/check_theme_tokens.mjs`,
   wired as the workspace `test` script): every theme that redefines a base
   semantic color must define hue-matched `-subtle`/`-border` derivatives —
-  pins the leak class found by the 2026-07-11 adversarial review.
+  keeps a theme from inheriting another palette's derived tints.
 - Entity-semantic tokens (`--entity-identity/-memory/-diary/-standing/-scar/
   -bond/-accent`) join the UI Kit as the one source for summoned-entity
   surfaces (c594 contract with the observer seat). Dark values adopt the

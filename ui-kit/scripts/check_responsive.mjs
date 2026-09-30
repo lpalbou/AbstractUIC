@@ -96,7 +96,7 @@ for (const sel of [".af-about__link", ".af-gateway-signin__checkbox", ".af-email
 
 // G. primary reading text in kit surfaces opts into --font-size-body on touch.
 for (const sel of [".af-auto", ".af-critical__consequence", ".af-critical__fallback", ".af-about__link"]) {
-  if (!coarse_has(sel, /font-size:\s*var\(--font-size-body\)/)) fail(`coarse: ${sel} must use --font-size-body (primary reading text, DESIGN.md §2.3)`);
+  if (!coarse_has(sel, /font-size:\s*var\(--font-size-body\)/)) fail(`coarse: ${sel} must use --font-size-body (primary reading text, docs/responsive.md)`);
 }
 
 // H. kit round 3: native selects are sizeable in WebKit only without the
@@ -110,7 +110,7 @@ if (!/select:not\(\[multiple\]\):where\(:not\(\[size\]\), \[size="1"\]\)\s*\{[^}
 if (!coarse_has(".af-disclosure__content", /overflow-x:\s*clip/)) fail("coarse: .af-disclosure__content must clip on x only (overflow:hidden clips the chip hit area)");
 if (!coarse_has(".af-disclosure__chevron:not(.af-disclosure__chevron--spacer)::after", /width:\s*max\(100%,\s*var\(--tap-min\)\)/)) fail("coarse: the disclosure chevron needs a 44px ::after hit area");
 
-// I. fixed bottom surfaces follow --keyboard-inset (DESIGN §4.3; reviewer A).
+// I. fixed bottom surfaces follow --keyboard-inset (docs/responsive.md).
 if (!/@media \(max-width: 767\.98px\), \(max-height: 500px\)\s*\{[\s\S]*?padding: var\(--safe-top\) 0 var\(--keyboard-inset, 0px\);/.test(css)) fail("sheet overlays must pad the bottom by --keyboard-inset (pinned actions under the keyboard)");
 if (!/\.af-drawer \{[^}]*bottom: var\(--keyboard-inset, 0px\)/.test(css)) fail(".af-drawer must sit above the keyboard (bottom: var(--keyboard-inset, 0px))");
 

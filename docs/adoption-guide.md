@@ -87,7 +87,9 @@ degraded states easy to spot and diagnose.
 ### Styling
 
 Consume the theme tokens; never hardcode palette colors. The full rules live in
-[Theming](./theming.md).
+[Theming](./theming.md). For phones, tablets and narrow panes, use the shared breakpoints, touch
+sizes and viewport helpers described in [Responsive layout](./responsive.md), and keep
+`var(--tap-min)` and `var(--font-size-input)` when you override a kit control's height or font.
 
 ## Requesting a component (or absorbing yours)
 

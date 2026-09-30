@@ -7,7 +7,7 @@ Chat UI primitives for AbstractFramework-style UIs: thread rendering, message ca
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` `^0.1.14 || ^0.2.0 || ^0.3.0` (icons used by `ChatMessageCard`; 0.3.0 for the responsive tokens)
+- `@abstractframework/ui-kit` `^0.1.14 || ^0.2.0 || ^0.3.0` (icons used by `ChatMessageCard`; 0.3 provides the responsive tokens)
 
 ## Install
 
@@ -194,15 +194,24 @@ Markdown is intentionally minimal and implemented in `panel-chat/src/markdown.ts
 - Import CSS in your app entrypoint (recommended):
   - `import "@abstractframework/panel-chat/panel_chat.css";`
   - `import "@abstractframework/ui-kit/theme.css";` (shared tokens)
-- Responsive (0.2.0): `.pc-chat-thread` (`pc-thread`), `.pc-composer` (`pc-composer`) and
-  `.pc-workflow-chat` / `.pc-assistant` (`pc-chat`) are query containers, so the transcript,
-  tool rows, approval buttons and composer adapt to the pane they sit in. The narrow layouts fire
-  below 360 px of pane (content) width only, so a 420 px desktop drawer keeps the regular layout;
-  phones keep stacked tool rows through a `479.98px` viewport fallback. The composer textarea grows with its content from `rows` lines
-  (CSS `field-sizing`) up to 40 % of the viewport; controls reach 44 px and the textarea 16 px on
-  touch. Tokens come from ui-kit 0.3.0 (`--tap-min`, `--vh-full`, `--safe-bottom`,
-  `--reading-max`, `--font-size-input`); every use has a fallback, so ui-kit 0.2.x still works.
-  A container needs its width from its parent (block, stretch or `flex: 1`).
+
+### Responsive layout
+
+- The chat thread (`pc-thread`), composer (`pc-composer`) and workflow chat / assistant panel
+  (`pc-chat`) are query containers, so they adapt to the pane they sit in:
+  - below 360 px of pane width, bubbles use the full width, tool rows stack and approval buttons
+    stack full width;
+  - on phones, tool rows also stack below 480 px of viewport;
+  - a 420 px desktop drawer keeps the regular layout.
+- The composer textarea grows with its content from `rows` lines (CSS `field-sizing`) up to 40 % of
+  the viewport, and the composer clears the home indicator.
+- On touch screens, buttons, icon buttons, tool rows, workspace rows and the JSON viewer's expandable
+  lines are at least 44 px, and the composer textarea uses 16 px text.
+- The tokens come from ui-kit 0.3 (`--tap-min`, `--vh-full`, `--safe-bottom`, `--reading-max`,
+  `--font-size-input`). Every use has a fallback, so ui-kit 0.2 still renders.
+- A container needs its width from its parent (block layout, stretch or `flex: 1`).
+
+See [Responsive layout](../docs/responsive.md). `scripts/check_responsive.mjs` pins these rules.
 
 ## Related docs
 

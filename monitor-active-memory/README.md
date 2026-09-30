@@ -75,6 +75,17 @@ import "@abstractframework/ui-kit/theme.css"; // shared tokens (optional but rec
 import "reactflow/dist/style.css";
 ```
 
+## Responsive layout
+
+The explorer lays out by its own width. The root is wrapped in a `.amx-host` query container:
+
+- the graph and the details column sit side by side from 820 px and stack below;
+- the controls grid stacks below 560 px, and inside the floating controls panel below 420 px;
+- there is no fixed minimum width, so the explorer fits a phone or a narrow pane.
+
+Give the explorer's parent a height: `.amx-host` fills it. On touch screens the controls are 44 px
+and the fields use 16 px text. See [Responsive layout](../docs/responsive.md).
+
 ## Related docs
 
 - Getting started: [`docs/getting-started.md`](../docs/getting-started.md)

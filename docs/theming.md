@@ -118,3 +118,4 @@ Both run in the package test chain, so a published `ui-kit` cannot drift silentl
 - API surface: [API reference](./api.md)
 - Package README: [`ui-kit/README.md`](../ui-kit/README.md)
 - Non-React pages: [Console islands](./console-islands.md)
+- Breakpoints, touch sizes and the responsive tokens: [Responsive layout](./responsive.md)

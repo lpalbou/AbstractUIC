@@ -3457,7 +3457,7 @@
  *
  * Breakpoints — CSS variables cannot be used in @media, so these literal
  * values are the contract (mirrored in src/responsive.ts AF_BREAKPOINTS/
- * AF_MEDIA and untracked/responsive/DESIGN.md):
+ * AF_MEDIA and docs/responsive.md):
  *   xs  < 480   (max-width: 479.98px)   phone portrait
  *   sm  < 768   (max-width: 767.98px)   phone landscape / small tablet
  *   md  < 1024  (max-width: 1023.98px)  tablet portrait, narrow window
@@ -3575,7 +3575,7 @@ html {
   container: af-drawer / inline-size;
 }
 
-/* --- Generic helpers (documented in DESIGN.md) --- */
+/* --- Generic helpers (documented in docs/responsive.md) --- */
 .af-table-wrap {
   max-width: 100%;
   overflow-x: auto;
@@ -3918,7 +3918,7 @@ html {
 
   /* The automations panel is READING text: on touch it opts into the role
    * token (14px floor). An app that keeps dense touch text overrides
-   * --font-size-body on its own root and the panel follows (DESIGN.md §2.3). */
+   * --font-size-body on its own root and the panel follows (docs/responsive.md, Font sizes). */
   .af-auto {
     font-size: var(--font-size-body);
   }

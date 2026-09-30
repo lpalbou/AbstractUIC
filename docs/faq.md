@@ -13,6 +13,7 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 - [Do I need to import CSS manually?](#do-i-need-to-import-css-manually)
 - [Are these components SSR-safe?](#are-these-components-ssr-safe)
 - [How do I theme the UI?](#how-do-i-theme-the-ui)
+- [How do I make my app work on phones and tablets?](#how-do-i-make-my-app-work-on-phones-and-tablets)
 - [panel-chat: How do I plug in my own Markdown renderer?](#panel-chat-how-do-i-plug-in-my-own-markdown-renderer)
 - [panel-chat: How is JSON detected?](#panel-chat-how-is-json-detected)
 - [panel-chat: How do I show replies while the model writes them?](#panel-chat-how-do-i-show-replies-while-the-model-writes-them)
@@ -120,6 +121,23 @@ applyTheme("dark"); // applies a `theme-*` class to <html>
 ```
 
 See: `ui-kit/src/theme.ts` and `ui-kit/src/theme.css`.
+
+## How do I make my app work on phones and tablets?
+
+The kit and chat components already adapt:
+
+- on touch screens they use 44 px targets and 16 px form text;
+- below 768 px wide their dialogs become bottom sheets;
+- inside narrow panes they switch to their compact layout.
+
+For your own shell:
+
+1. Declare `viewport-fit=cover` in the viewport meta tag.
+2. Call `installViewportVars()` once and use `height: var(--vh-full)`.
+3. Turn sidebars into `AfDrawer` below 1024 px.
+4. Use the shared breakpoints (480 / 768 / 1024 / 1440 px).
+
+See [Responsive layout](./responsive.md).
 
 ## panel-chat: How do I plug in my own Markdown renderer?
 

@@ -286,34 +286,40 @@ switcher surfaces (`AfAppearanceDialog`, `ThemeSelect`, `FontScaleSelect`,
 
 See [Theming](../docs/theming.md) for the token vocabulary and adoption rules.
 
-## Responsive layout (0.3.0)
+## Responsive layout
 
-`theme.css` carries one responsive contract for every app (desktop-first; a regular desktop
-window renders as before):
+`theme.css` adapts the kit components to phones, tablets, resized windows and narrow panes. A
+regular desktop window keeps the desktop look.
 
-- **Breakpoints** (literal values; CSS variables cannot be used in `@media`):
-  `xs` `(max-width: 479.98px)`, `sm` `(max-width: 767.98px)`, `md` `(max-width: 1023.98px)`,
-  `lg` `(max-width: 1439.98px)`, `xl` `(min-width: 1440px)`, plus `short` `(max-height: 500px)`
-  (phone landscape) and `touch` `(pointer: coarse)`. JS: `AF_BREAKPOINTS`, `AF_MEDIA`,
-  `useAfMedia(query)`.
-- **Tokens**: `--font-size-2xl` (fluid headings: `--font-size-xl`/`-2xl` use `clamp()` × `--font-scale`;
-  sizes up to `lg` stay fixed), `--font-size-body` / `-input` / `-code` (touch floors 14 / 16 / 12 px),
-  `--space-1..6`, `--gutter`, `--tap-min` / `--control-h` (32 px, 44 px on touch),
-  `--row-pad-y/x`, `--control-pad-x` (density; `data-density="dense|comfortable"` on `<html>`
-  overrides), `--vh-full` (`100dvh` with a `100vh` fallback), `--safe-top/right/bottom/left`,
-  `--keyboard-inset` / `--vv-height` (set by `installViewportVars()`), `--content-max`,
-  `--reading-max`, `--form-max`, `--drawer-w`.
-- **Components**: dialogs become bottom sheets below 768 px or under 500 px tall, with their
-  action row pinned; `AfDrawer` is full width below 768 px, pads the safe areas and gains
-  `side="left"` and `backdrop`; kit controls reach 44 px and inputs 16 px on touch; the
-  connection pill keeps only its dot below 480 px; the sign-in card, dialogs, automations and
-  tool policy editor are query containers (`af-signin`, `af-dialog`, `af-auto`,
-  `af-tool-policy`; `.af-drawer__body` is `af-drawer`) so they adapt to their pane.
-- **Helpers**: `.af-table-wrap` (horizontal scroll), `.af-sheet-overlay` / `.af-sheet` (an app
-  dialog that follows the same sheet rules).
+- **Breakpoints** (literal values, desktop-first):
+  - `xs` `(max-width: 479.98px)`, `sm` `(max-width: 767.98px)`, `md` `(max-width: 1023.98px)`,
+    `lg` `(max-width: 1439.98px)`, `xl` `(min-width: 1440px)`;
+  - `(max-height: 500px)` for phone landscape and `(pointer: coarse)` for touch;
+  - in JavaScript: `AF_BREAKPOINTS`, `AF_MEDIA`, `useAfMedia(query)`.
+- **Touch sizes**: on touch screens every interactive kit control is at least 44 px
+  (`--tap-min`) and form fields use 16 px text (`--font-size-input`), so iOS does not zoom on focus.
+  Native single-choice selects drop the native appearance there and show the
+  `--af-select-chevron` arrow. Interactive chips keep their shape with an invisible 44 px hit area.
+- **Sheets and drawers**:
+  - below 768 px wide or 500 px tall the kit dialogs become bottom sheets with the action row pinned,
+    and they stay above the on-screen keyboard;
+  - `.af-sheet-overlay` / `.af-sheet` give app dialogs the same behaviour;
+  - `AfDrawer` is full width below 768 px and accepts `side="left"` and `backdrop`.
+- **Container queries**: the sign-in card (`af-signin`), dialogs (`af-dialog`), automations
+  (`af-auto`), tool policy editor (`af-tool-policy`) and drawer body (`af-drawer`) adapt to their
+  own width. The narrow layouts start only where the desktop layout no longer fits.
+- **Viewport helpers**: `installViewportVars()` keeps `--vv-height` and `--keyboard-inset` in step
+  with the visual viewport (the on-screen keyboard; a pinch-zoomed page keeps its full height).
+  `--vh-full` and `--safe-*` cover full-height shells and the notch.
+- **Tokens**: `--space-1..6`, `--gutter`, `--tap-min`, `--control-h`, density tokens
+  (`data-density` on `<html>`), `--content-max`, `--reading-max`, `--form-max`, `--drawer-w`, and the
+  text roles `--font-size-body` / `-input` / `-code` / `-2xl`.
+- **Font sizes**: the user's font scale comes first, then the 16 px form-field floor, then your app's
+  own density, then the kit's touch floors. The kit applies those floors only to its own reading
+  surfaces.
 
-`scripts/check_responsive.mjs` pins the breakpoint set, the tokens, the touch floors and the
-containers.
+See [Responsive layout](../docs/responsive.md) for the full contract and how to adopt it in your
+app. `scripts/check_responsive.mjs` and `scripts/check_viewport_vars.mjs` pin it.
 
 ## Related docs
 

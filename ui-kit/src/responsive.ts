@@ -1,10 +1,10 @@
 // Responsive contract shared by every AbstractFramework browser app
-// (responsive workstream 2026-09-30; DESIGN.md sections 1 and 4).
+// (responsive workstream 2026-09-30; docs/responsive.md).
 //
 // CSS custom properties cannot be used inside @media, so the breakpoint
 // VALUES are the contract: theme.css, the apps and the gateway console use
 // these literal numbers. Keep this file, theme.css's "Responsive tokens"
-// block and the design document in lockstep.
+// block and docs/responsive.md in lockstep.
 import { useEffect, useState } from "react";
 
 /** Upper bounds (exclusive, CSS px) of the named width ranges; xl is >= lg. */

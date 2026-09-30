@@ -180,6 +180,24 @@ el.mode = "icon"; // "full" | "icon"
 document.body.appendChild(el);
 ```
 
+## Phones and tablets
+
+The kit components adapt to small screens and touch input on their own. For your app shell, declare
+the viewport and call the viewport helper once:
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+```
+
+```ts
+import { installViewportVars } from "@abstractframework/ui-kit";
+
+installViewportVars(); // keeps --vv-height and --keyboard-inset in step with the on-screen keyboard
+```
+
+Use `height: var(--vh-full)` for full-height layouts. The breakpoints, touch sizes and adoption rules
+are in [Responsive layout](./responsive.md).
+
 ## Next.js notes
 
 - Import global CSS from your app entrypoint (e.g. `app/layout.tsx` or `pages/_app.tsx`), not from deep component files.
@@ -197,6 +215,7 @@ module.exports = {
 
 - [API reference](./api.md)
 - [Adoption guide](./adoption-guide.md)
+- [Responsive layout](./responsive.md)
 - [Automations](./automations.md)
 - [FAQ](./faq.md)
 - [Troubleshooting](./troubleshooting.md) (setup and first-run problems)
