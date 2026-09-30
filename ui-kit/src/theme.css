@@ -926,7 +926,7 @@
 @container af-tool-policy (max-width: 359.98px) {
   /* Scoped to beat the base .af-tool-row rule, which comes later in the file. */
   .af-tool-policy .af-tool-row {
-    grid-template-columns: 24px minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
   .af-tool-policy .af-tool-row__approval {
@@ -1035,7 +1035,9 @@
   display: grid;
   /* minmax(0, 1fr): a long tool name must shrink its column, never push the
    * approval select past the row edge. */
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  /* auto: the first column is the tool's switch (34 px track; 44 px on touch), never a fixed 24 px
+   * that let the switch overlap the name (apps-1 finding 23:15). */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   /* Never shrink inside the scrolling list: the touch min-height replaces
    * min-height:auto, which would otherwise let a row shrink below its content. */
   flex-shrink: 0;
@@ -1051,9 +1053,9 @@
   border-color: var(--accent-border);
 }
 
-.af-tool-row__check input {
-  width: 16px;
-  height: 16px;
+.af-tool-row__check {
+  display: inline-flex;
+  align-items: center;
 }
 
 .af-tool-row__title {

@@ -164,6 +164,7 @@ for (const f of files) {
   const all = renderToStaticMarkup(React.createElement(kitAll.ToolPolicyEditor, { tools, value: { mode: "all" }, onChange() {} }));
   check("tool policy: outside Custom the switches are unavailable with the reason", /data-action="tool-enabled"[^>]*aria-disabled="true"/.test(all) && all.includes("Choose Custom to pick tools one by one."));
   const native = renderToStaticMarkup(React.createElement(kitAll.AfSwitchInput, { label: "Email me the result", name: "notify_email", defaultChecked: true }));
+  check("tool policy: the switch column sizes to the switch (auto), never a fixed 24px", /\.af-tool-row \{[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\) auto/.test(css) && !/\.af-tool-row \{[^}]*grid-template-columns:\s*24px/.test(css));
   check("AfSwitchInput: native checkbox with role=switch inside the switch markup", /<label class="af-switch af-switch--native"[^>]*><input type="checkbox" role="switch" class="af-switch__input" name="notify_email" checked=""/.test(native) && native.includes('class="af-switch__track"'));
 }
 
