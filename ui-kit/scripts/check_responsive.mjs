@@ -114,6 +114,52 @@ if (!coarse_has(".af-disclosure__chevron:not(.af-disclosure__chevron--spacer)::a
 if (!/@media \(max-width: 767\.98px\), \(max-height: 500px\)\s*\{[\s\S]*?padding: var\(--safe-top\) 0 var\(--keyboard-inset, 0px\);/.test(css)) fail("sheet overlays must pad the bottom by --keyboard-inset (pinned actions under the keyboard)");
 if (!/\.af-drawer \{[^}]*bottom: var\(--keyboard-inset, 0px\)/.test(css)) fail(".af-drawer must sit above the keyboard (bottom: var(--keyboard-inset, 0px))");
 
+// J. block presence (reviewer B): deleting the general coarse-pointer touch
+// block or the bottom-sheet dialog rule must fail. Declarations are RESOLVED
+// per selector (every rule whose selector list names it, in the block), so
+// splitting or reordering rules passes but dropping a property does not.
+const blocks_of = (re) => {
+  const out = [];
+  for (const m of css.matchAll(re)) {
+    let i = m.index + m[0].length, depth = 1;
+    while (depth && i < css.length) { if (css[i] === "{") depth += 1; else if (css[i] === "}") depth -= 1; i += 1; }
+    out.push(css.slice(m.index + m[0].length, i - 1));
+  }
+  return out.join("\n");
+};
+const resolve = (block, sel) => {
+  const decls = {};
+  for (const r of block.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (!r[1].split(",").map((x) => x.trim()).includes(sel)) continue;
+    for (const d of r[2].matchAll(/([a-z-]+)\s*:\s*([^;]+);/g)) decls[d[1]] = d[2].trim();
+  }
+  return decls;
+};
+const coarse_all = blocks_of(/@media\s*\(pointer:\s*coarse\)\s*\{/g);
+for (const sel of [".af-gateway-signin button", ".af-gateway-signin input:not([type=\"checkbox\"])", ".af-steer__send", ".af-critical__actions button", ".af-auto__btn", ".af-tool-policy__filter input", ".af-appearance__close", ".af-phase-radio__btn"]) {
+  if (resolve(coarse_all, sel)["min-height"] !== "var(--tap-min)") fail(`coarse touch block: ${sel} must resolve min-height: var(--tap-min)`);
+}
+for (const sel of [".af-topbar__btn", ".af-drawer__close"]) {
+  const d = resolve(coarse_all, sel);
+  if (d["min-width"] !== "var(--tap-min)" || d["min-height"] !== "var(--tap-min)") fail(`coarse touch block: icon button ${sel} must be tap-min in both axes`);
+}
+const sheet = blocks_of(/@media \(max-width: 767\.98px\), \(max-height: 500px\)\s*\{/g);
+if (!sheet) fail("bottom-sheet block @media (max-width: 767.98px), (max-height: 500px) is missing");
+for (const sel of [".af-connect-overlay", ".af-critical__overlay", ".af-appearance-overlay", ".af-sheet-overlay"]) {
+  const d = resolve(sheet, sel);
+  if (d["align-items"] !== "flex-end") fail(`sheet mode: ${sel} must align its dialog to the bottom (align-items: flex-end), got ${d["align-items"]}`);
+  if (!/var\(--keyboard-inset/.test(d["padding"] || "")) fail(`sheet mode: ${sel} must pad the bottom by --keyboard-inset`);
+}
+for (const sel of [".af-connect-modal", ".af-appearance", ".af-critical", ".af-sheet"]) {
+  const d = resolve(sheet, sel);
+  const want = { width: "100%", "max-height": "100%", "box-sizing": "border-box", "border-bottom-left-radius": "0", "border-bottom-right-radius": "0" };
+  for (const [k, v] of Object.entries(want)) if (d[k] !== v) fail(`sheet mode: ${sel} must resolve ${k}: ${v} (got ${d[k]})`);
+}
+for (const sel of [".af-gateway-signin__actions", ".af-appearance__actions", ".af-critical__actions"]) {
+  const d = resolve(sheet, sel);
+  if (d.position !== "sticky" || d.bottom !== "0") fail(`sheet mode: ${sel} must be pinned (position: sticky; bottom: 0)`);
+}
+
 // E. containers
 for (const [sel, name] of [[".af-gateway-signin", "af-signin"], [".af-appearance", "af-dialog"], [".af-auto", "af-auto"], [".af-tool-policy", "af-tool-policy"], [".af-drawer__body", "af-drawer"]]) {
   const re = new RegExp(`${sel.replace(/[.]/g, "\\.")}\\s*\\{[^}]*container:\\s*${name}\\s*/\\s*inline-size`);

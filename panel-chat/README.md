@@ -196,8 +196,9 @@ Markdown is intentionally minimal and implemented in `panel-chat/src/markdown.ts
   - `import "@abstractframework/ui-kit/theme.css";` (shared tokens)
 - Responsive (0.2.0): `.pc-chat-thread` (`pc-thread`), `.pc-composer` (`pc-composer`) and
   `.pc-workflow-chat` / `.pc-assistant` (`pc-chat`) are query containers, so the transcript,
-  tool rows, approval buttons and composer adapt to the pane they sit in (a 420 px drawer on a
-  desktop behaves like a phone). The composer textarea grows with its content from `rows` lines
+  tool rows, approval buttons and composer adapt to the pane they sit in. The narrow layouts fire
+  below 360 px of pane (content) width only, so a 420 px desktop drawer keeps the regular layout;
+  phones keep stacked tool rows through a `479.98px` viewport fallback. The composer textarea grows with its content from `rows` lines
   (CSS `field-sizing`) up to 40 % of the viewport; controls reach 44 px and the textarea 16 px on
   touch. Tokens come from ui-kit 0.3.0 (`--tap-min`, `--vh-full`, `--safe-bottom`,
   `--reading-max`, `--font-size-input`); every use has a fallback, so ui-kit 0.2.x still works.
