@@ -313,5 +313,5 @@ export {
 export { AfSwitch, AfSwitchInput, afSwitchIsActionable, afSwitchNextState, type AfSwitchProps } from "./af_switch.js";
 export { findVerbToggleLabels, type VerbToggleHit } from "./state_toggle_lint.js";
 export { randomId, uuidV4FromBytes, insecureContextReason } from "./random_id.js";
-export { checkLabelScale, LABEL_SCALE_SELECTOR, type LabelScaleHit, type LabelScaleOptions, HELPER_SCALE_SELECTOR } from "./label_scale.js";
+export { checkLabelScale, LABEL_SCALE_SELECTOR, type LabelScaleHit, type LabelScaleOptions, HELPER_SCALE_SELECTOR, HELPER_MIN_PX, HELPER_MIN_TOUCH_PX, HELPER_TOUCH_MEDIA } from "./label_scale.js";
 export { AfTabs, afTabsNextIndex, type AfTab, type AfTabsProps } from "./af_tabs.js";

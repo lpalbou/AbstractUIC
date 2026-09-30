@@ -25,8 +25,12 @@ export type LabelScaleOptions = {
   maxFontSizePx?: number;
   /** Heaviest allowed computed font-weight (default 600). */
   maxWeight?: number;
-  /** Smallest allowed computed font-size in px for helper text (default 13; DESIGN §3 / §12.1). */
+  /** Smallest allowed computed font-size in px for helper text (default: HELPER_MIN_PX 13 on desktop, HELPER_MIN_TOUCH_PX 14 on touch). */
   minHelperFontSizePx?: number;
+  /** Apply the touch helper floor (14 px). Default: `matchMedia(HELPER_TOUCH_MEDIA).matches` where available, else false. */
+  touch?: boolean;
+  /** matchMedia source for the touch default (default globalThis.matchMedia). */
+  matchMedia?: (query: string) => { matches: boolean };
   /** Helper-text elements checked against the lower bound (default HELPER_SCALE_SELECTOR). */
   helperSelector?: string;
   /** Elements to check (default LABEL_SCALE_SELECTOR). */
@@ -48,8 +52,15 @@ export const LABEL_SCALE_SELECTOR = [
   "[data-af-caption]",
 ].join(", ");
 
-/** Helper text: switch descriptions and reasons, form help, field hints. Never below 13 px. */
-export const HELPER_SCALE_SELECTOR = [".af-switch__desc", ".af-switch__reason", ".af-form__help", ".af-field-help", "[data-af-help]"].join(", ");
+/** Helper text: switch descriptions and reasons, form help, field hints. Never below 13 px (14 px on touch). */
+export const HELPER_SCALE_SELECTOR = [".af-switch__desc", ".af-switch__reason", ".af-form__help", ".af-field-help", ".af-modal__footer-note", ".af-row-legend", "[data-af-help]"].join(", ");
+
+/** Helper-text floor on a desktop pointer (px). */
+export const HELPER_MIN_PX = 13;
+/** Helper-text floor on touch (px): the kit's --af-helper-size under HELPER_TOUCH_MEDIA. */
+export const HELPER_MIN_TOUCH_PX = 14;
+/** Where the touch floor applies: a coarse pointer or a viewport under the md breakpoint (theme.css mirrors this query). */
+export const HELPER_TOUCH_MEDIA = "(pointer: coarse), (max-width: 1023.98px)";
 
 function weightOf(value: string): number {
   const v = String(value || "").trim().toLowerCase();
@@ -65,14 +76,16 @@ function describe(el: Element): string {
   return cls ? `${tag}.${cls.split(/\s+/).join(".")}` : tag;
 }
 
-/** Every label / `.af-switch__label` / field caption under `root` rendered above 15px or heavier than 600, and every helper text under 13px. */
+/** Every label / `.af-switch__label` / field caption under `root` rendered above 15px or heavier than 600, and every helper text under 13px (14px on touch). */
 export function checkLabelScale(root: ParentNode, options: LabelScaleOptions = {}): LabelScaleHit[] {
   const maxSize = options.maxFontSizePx ?? 15;
   const maxWeight = options.maxWeight ?? 600;
   const cs =
     options.getComputedStyle ??
     ((el: Element) => (globalThis as unknown as { getComputedStyle: (e: Element) => CSSStyleDeclaration }).getComputedStyle(el));
-  const minHelper = options.minHelperFontSizePx ?? 13;
+  const mm = options.matchMedia ?? (globalThis as unknown as { matchMedia?: (q: string) => { matches: boolean } }).matchMedia;
+  const touch = options.touch ?? (typeof mm === "function" ? !!mm.call(globalThis, HELPER_TOUCH_MEDIA).matches : false);
+  const minHelper = options.minHelperFontSizePx ?? (touch ? HELPER_MIN_TOUCH_PX : HELPER_MIN_PX);
   const hits: LabelScaleHit[] = [];
   const visible = (el: Element) => options.includeHidden || typeof (el as HTMLElement).getClientRects !== "function" || (el as HTMLElement).getClientRects().length > 0;
   const nodes = Array.from(root.querySelectorAll(options.selector ?? LABEL_SCALE_SELECTOR));
@@ -85,7 +98,7 @@ export function checkLabelScale(root: ParentNode, options: LabelScaleOptions = {
       hits.push({ element: el, selector: describe(el), text: String(el.textContent || "").trim().slice(0, 80), fontSize, fontWeight });
     }
   }
-  // Too SMALL is a defect too: helper text under 13 px is unreadable on a phone.
+  // Too SMALL is a defect too: helper text under 13 px (14 px on touch) is unreadable on a phone.
   for (const el of Array.from(root.querySelectorAll(options.helperSelector ?? HELPER_SCALE_SELECTOR))) {
     if (!visible(el)) continue;
     if (el.classList && el.classList.contains("af-switch__reason--hidden")) continue;

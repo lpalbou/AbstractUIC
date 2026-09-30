@@ -24,7 +24,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
 const kit = await import(join(root, "dist", "index.js"));
-const { GatewaySessionSignInCard, AfTabs, afTabsNextIndex, checkLabelScale, LABEL_SCALE_SELECTOR, HELPER_SCALE_SELECTOR } = kit;
+const { GatewaySessionSignInCard, AfTabs, afTabsNextIndex, checkLabelScale, LABEL_SCALE_SELECTOR, HELPER_SCALE_SELECTOR, HELPER_MIN_PX, HELPER_MIN_TOUCH_PX, HELPER_TOUCH_MEDIA } = kit;
 
 let failures = 0;
 let checks = 0;
@@ -174,6 +174,21 @@ check("checkLabelScale queries the helper selector too", seenSelectors[1] === HE
 check("checkLabelScale reports size + weight + selector", hits[0].fontSize === 20 && hits[1].fontWeight === 700 && hits[0].selector === "label.big");
 check("checkLabelScale default selector covers labels, switch labels and captions", ["label", ".af-switch__label", ".af-form__label", ".af-gateway-signin__label", ".af-gateway-signin__checkbox"].every((s) => seenSelector.split(", ").includes(s)) && seenSelector === LABEL_SCALE_SELECTOR);
 check("includeHidden checks unrendered elements too", checkLabelScale(fakeRoot, { getComputedStyle: (e) => e._s, includeHidden: true }).length === 6);
+// Touch floor (round 2): 13.5 px helper text passes on desktop, fails on touch; the default follows matchMedia(HELPER_TOUCH_MEDIA).
+{
+  const touchEls = [el("help-13", "13px", "400"), el("help-13.5", "13.5px", "400"), el("help-14", "14px", "400")];
+  const touchRoot = { querySelectorAll: (sel) => (sel === HELPER_SCALE_SELECTOR ? touchEls : []) };
+  const gs = (e) => e._s;
+  const names = (hs) => JSON.stringify(hs.map((h) => h.text));
+  check("helper floors are 13 px desktop / 14 px touch", HELPER_MIN_PX === 13 && HELPER_MIN_TOUCH_PX === 14 && HELPER_TOUCH_MEDIA === "(pointer: coarse), (max-width: 1023.98px)");
+  check("desktop: only helper text under 13 px is flagged", names(checkLabelScale(touchRoot, { getComputedStyle: gs, touch: false })) === "[]", names(checkLabelScale(touchRoot, { getComputedStyle: gs, touch: false })));
+  check("touch: helper text under 14 px is flagged (13 and 13.5 px)", names(checkLabelScale(touchRoot, { getComputedStyle: gs, touch: true })) === '["help-13","help-13.5"]', names(checkLabelScale(touchRoot, { getComputedStyle: gs, touch: true })));
+  const asked = [];
+  const mmTouch = (q) => (asked.push(q), { matches: true });
+  check("the touch default comes from matchMedia(HELPER_TOUCH_MEDIA)", names(checkLabelScale(touchRoot, { getComputedStyle: gs, matchMedia: mmTouch })) === '["help-13","help-13.5"]' && asked[0] === HELPER_TOUCH_MEDIA, JSON.stringify(asked));
+  check("no matchMedia match -> desktop floor", names(checkLabelScale(touchRoot, { getComputedStyle: gs, matchMedia: () => ({ matches: false }) })) === "[]");
+  check("helper selector covers the modal footer note and the row legend", HELPER_SCALE_SELECTOR.split(", ").includes(".af-modal__footer-note") && HELPER_SCALE_SELECTOR.split(", ").includes(".af-row-legend"));
+}
 // The kit's own label rules stay inside the scale (static: no px sizes above 15, no weight above 600).
 for (const sel of [".af-gateway-signin__label", ".af-gateway-signin__checkbox", ".af-form__label", ".af-switch__label", '.af-switch[aria-checked="true"] .af-switch__label', ".af-switch"]) {
   const d = resolve(topLevel(css), sel);
