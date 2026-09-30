@@ -48,9 +48,7 @@ export function afModalFocusables(root: ParentNode): HTMLElement[] {
   const all = Array.from(root.querySelectorAll<HTMLElement>(AF_MODAL_FOCUSABLE));
   return all.filter((el) => {
     if (typeof el.closest === "function" && el.closest("[hidden], [inert], [aria-hidden='true']")) return false;
-    if (typeof el.getClientRects === "function" && el.getClientRects().length === 0 && typeof window !== "undefined" && window.navigator && !/jsdom/i.test(window.navigator.userAgent || "")) {
-      return false;
-    }
+    if (typeof el.getClientRects === "function" && el.getClientRects().length === 0) return false;
     return true;
   });
 }

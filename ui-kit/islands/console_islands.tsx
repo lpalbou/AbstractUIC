@@ -18,6 +18,7 @@ import { AfAppearanceDialog, type AppearanceSettings } from "../src/appearance.j
 import { AfAboutDialog } from "../src/about.js";
 import { appIdentity, type AppIdentity } from "../src/identity.js";
 import { Icon, type IconName } from "../src/icon.js";
+import { bindAfModal } from "../src/af_modal_core.js";
 import { THEME_SPECS, applyTheme } from "../src/theme.js";
 import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typography.js";
 import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
@@ -141,6 +142,16 @@ export function mountAbout(el: Element, props: AboutIslandProps): IslandHandle<A
   return mount(el, (p) => <AfAboutDialog {...p} />, props);
 }
 
+/**
+ * Make a plain-HTML `.af-modal-backdrop` behave as a modal (focus in + trap +
+ * return, Escape / backdrop click -> onClose, page scroll lock) until the
+ * returned release() is called. Markup contract: docs/modal.md. Additive
+ * member (kit 0.3.3): apiVersion stays "1".
+ */
+export function bindModal(backdrop: HTMLElement, options: { onClose: () => void; closeOnEscape?: boolean; closeOnBackdrop?: boolean; initialFocus?: HTMLElement | null }): () => void {
+  return bindAfModal(backdrop, options);
+}
+
 /** The kit's own theme + typography application (root class + CSS vars). */
 export function applyAppearance(settings: Partial<AppearanceSettings>): void {
   applyTheme(String(settings.theme || "dark"));
@@ -156,6 +167,7 @@ const api = {
   mountTopBar,
   mountAppearance,
   mountAbout,
+  bindModal,
   appIdentity,
   applyAppearance,
 };
