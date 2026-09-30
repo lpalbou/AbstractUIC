@@ -4834,6 +4834,7 @@ html.af-modal-open body {
 }
 
 .af-modal {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   width: min(960px, calc(100vw - 32px));
@@ -4963,6 +4964,10 @@ html.af-modal-open body {
     flex: 1 0 auto;
     overflow: visible;
     padding: 16px calc(16px + var(--safe-right)) 16px calc(16px + var(--safe-left));
+  }
+
+  .af-modal__footer-note {
+    flex-basis: 100%;
   }
 
   .af-modal__footer {
@@ -5100,7 +5105,9 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 .af-nav-group__caption {
   margin: 0;
   padding: 0 10px 4px;
-  color: var(--text-muted);
+  /* Secondary, not --text-muted: 11 px text needs the stronger of the two
+   * to stay legible (muted sits near 3:1 in several dark themes). */
+  color: var(--text-secondary);
   font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 0.08em;

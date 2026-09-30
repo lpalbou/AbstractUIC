@@ -80,7 +80,7 @@ const rt = mediaBody("(prefers-reduced-transparency: reduce)", ".af-modal-backdr
 const rtd = decls(rt && ruleBody(".af-modal-backdrop", "\n" + rt));
 check("reduced transparency: no blur, solid denser dim", rtd["backdrop-filter"] === "none" && rtd["-webkit-backdrop-filter"] === "none" && rtd.background === "rgba(0, 0, 0, 0.72)", JSON.stringify(rtd));
 const md = decls(ruleBody(".af-modal"));
-check("modal width min(960px, 100vw - 32px)", md.width === "min(960px, calc(100vw - 32px))", md.width);
+check("modal width min(960px, 100vw - 32px), border-box (the border is inside the 960)", md.width === "min(960px, calc(100vw - 32px))" && md["box-sizing"] === "border-box", JSON.stringify([md.width, md["box-sizing"]]));
 check("modal max-height 90vh/90dvh", /max-height: 90vh;\s*max-height: 90dvh;/.test(ruleBody(".af-modal") || ""));
 check("modal is a flex column with a solid surface", md.display === "flex" && md["flex-direction"] === "column" && md.background === "var(--bg-secondary)", JSON.stringify(md));
 const body = decls(ruleBody(".af-modal__body"));
@@ -98,6 +98,7 @@ if (sheet) {
   const sf = decls(ruleBody(".af-modal__footer", "\n" + sheet));
   check("phone: header pinned + clears the notch", sh.position === "sticky" && /var\(--safe-top\)/.test(sh.padding || ""), JSON.stringify(sh));
   check("phone: footer pinned + clears the home indicator", sf.position === "sticky" && /var\(--safe-bottom\)/.test(sf.padding || ""), JSON.stringify(sf));
+  check("phone: the footer note takes its own line (buttons never squeezed)", decls(ruleBody(".af-modal__footer-note", "\n" + sheet))["flex-basis"] === "100%");
   check("phone: backdrop has no gutter", decls(ruleBody(".af-modal-backdrop", "\n" + sheet)).padding === "0");
 }
 check("touch: close button is a 44 px target", /@media \(pointer: coarse\) \{\s*\.af-modal__close \{\s*width: var\(--tap-min\);\s*height: var\(--tap-min\);/.test(flat));
@@ -262,7 +263,7 @@ check("a <tr> never doubles the wash", /tr\.af-row--admin,\s*tr\.af-row--user,\s
 const chip = decls(ruleBody(".af-kind-chip"));
 check(".af-kind-chip text is --af-row-text (never the tint)", chip.color === "var(--af-row-text, var(--text-primary))", JSON.stringify(chip));
 const cap = decls(ruleBody(".af-nav-group__caption"));
-check(".af-nav-group__caption: small uppercase muted caption", cap["text-transform"] === "uppercase" && cap.color === "var(--text-muted)" && cap["font-size"] === "var(--font-size-xs)" && Number(cap["font-weight"]) <= 600, JSON.stringify(cap));
+check(".af-nav-group__caption: small uppercase caption in the secondary text colour", cap["text-transform"] === "uppercase" && cap.color === "var(--text-secondary)" && cap["font-size"] === "var(--font-size-xs)" && Number(cap["font-weight"]) <= 600, JSON.stringify(cap));
 check(".af-nav-group + .af-nav-group spacing", !!ruleBody(".af-nav-group + .af-nav-group"));
 const foot = decls(ruleBody(".af-nav-footer"));
 check(".af-nav-footer pins to the bottom of a flex column", foot["margin-top"] === "auto" && /var\(--safe-bottom\)/.test(foot.padding || ""), JSON.stringify(foot));
