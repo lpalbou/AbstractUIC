@@ -746,7 +746,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - CSRF helpers: `readGatewayCsrfToken()`, `readGatewayCsrfTokens()`
 - Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`; `VoiceSettings` (catalog-driven voice preferences form)
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
-- Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation on a fixed UTC interval or once), `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
+- Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation on a fixed UTC interval, once, or when an email arrives; "Email me the result" and allowed recipients), the email fields `AfEmailTriggerFields` / `AfEmailOptionsFields` / `AfEmailSetupNotice`, `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
 - Icons: `Icon`, `IconName` (~45 glyphs, 24-grid and 16-grid families; `play`, `stop`, `folder`, `file`, `archive`, `clock` added for automations)
 - Palette seeds: `@abstractframework/ui-kit/palette_seeds.json` (generated 4-token palette per theme)
 
@@ -2109,6 +2109,8 @@ import { AfScheduleDialog } from "@abstractframework/ui-kit";
   onSubmit={(body) => automations.createAutomation(body)}
   busy={creating}
   error={createError}
+  emailStatus={myEmail}               // automations.getMyEmail(); null/undefined = not set up
+  onOpenMyEmail={() => openConsole("users")}  // optional: makes "open My email" a button
 />
 ```
 
@@ -2118,13 +2120,16 @@ sections:
 - **What** — your workflow picker (a slot; it sets `target`) and the task, sent as
   `target.input_data.prompt`.
 - **When (UTC)** — **Repeat** every N minutes, hours or days, with presets from "every 5
-  minutes" to "every 7 days", or **Once at…** a UTC date and time. A preview line reads, for
-  example, "Runs every 24 hours (UTC), first run now."
+  minutes" to "every 7 days", **Once at…** a UTC date and time, or **When an email arrives**
+  (see [Email automations](#email-automations)). A preview line reads, for example, "Runs every
+  24 hours (UTC), first run now."
 - **Context** — Independent or Growing.
 - **Tools** — "Run without asking" (the default, `policy.tool_approval: "auto"`) shows the
   consent line **"Tools run without asking (you approve them now by creating this automation)"**,
   followed by the `targetTools` names when you pass them. "Ask me before each tool call"
   (`"ask"`) makes every tool call wait for approval in the automation's timeline.
+- **Email** — **Email me the result** and **May send email without asking to** (see
+  [Email automations](#email-automations)).
 - **Advanced** — title (default: the task's first line, at most 120 characters), first run at,
   stop after N runs, stop at. Date fields are read as UTC.
 
@@ -2136,6 +2141,46 @@ id with a different body would be an `identity_conflict`). Return the client's p
 exported as `buildCreateRequest(form, {target, requestId})`, which returns `{ok: true, body}` or
 `{ok: false, errors}`; `TOOL_APPROVAL_CONSENT` holds the consent line for hosts with their own
 create UI.
+
+### Email automations
+
+The Gateway reads each user's own mailbox (framework backlog 0992; runtime trigger
+`email.received@1`). The dialog offers three email options, and only when
+`GET /api/gateway/me/email` (`automations.getMyEmail()`, passed as `emailStatus`) reports
+`effective_enabled: true` — the account is connected, the user's own switch is on and an
+administrator allows it. Otherwise the options are disabled and the dialog shows **"Email isn't
+set up — open My email"**; with `onOpenMyEmail` the last words are a button (the Gateway console's
+My email is in its Users tab, `/console#users`). An unknown status (not loaded, or the call
+failed) counts as not set up, and nothing email-shaped is ever sent without a usable account.
+
+- **When an email arrives** — the trigger `{source_id: "email.received", source_version: 1}`.
+  Typed filters only, no patterns: from these addresses (`filter.from_in`), from these domains
+  (`from_domain_in`), sent to these addresses (`to_in`), subject contains (`subject_contains`, one
+  literal line) and attachments any / only with / only without (`has_attachment`). List fields
+  take commas or new lines; each entry is checked as a plain address or domain and a wrong entry
+  is named. **Check for new mail every** defaults to 1 hour when the target runs a model
+  (`uses_model: true`, the dialog's default; `targetUsesModel={false}` for a model-free target
+  gives 60 s); the shortest interval is 60 seconds, and the dialog states that rule. **At most
+  this many emails per run** (`max_batch`, 1–1000, default 100): the rest wait for the next run.
+  Each email is read once by the automation; mail that arrived before it was created, or while it
+  was paused, is not processed. The Tools section adds that incoming mail is data, never
+  instructions, and that link-opening tools (`fetch_url`, `browser_probe`) always ask.
+- **Email me the result** — `notify: {channels: ["console", "email"]}`: a run that notifies you,
+  or fails for good, is also emailed to you. Off sends no `notify` (the default, console only).
+- **May send email without asking to** — **Only me** (the default; nothing is sent, the server
+  default is `policy.email_allowed_recipients: ["self"]`) or **Me and these addresses**
+  (`["self", ...addresses]`). Sending to anyone else waits for approval, and the account's
+  recipient policy in My email still applies.
+
+The Edit form offers the same interval (for an email trigger), **Email me the result** and the
+allowed recipients when the host passes the committed definition; without a usable account an
+option already on can be turned off, never on. A new interval drops the old `start_at`, so the
+revised trigger starts from now and never re-reads mail. The definition card lists **Notify** and
+**May email**. Hosts with their own create form (the Observer's Launch → Automate) render the same
+fields with `AfEmailTriggerFields`, `AfEmailOptionsFields` and `AfEmailSetupNotice`, and build the
+body with `buildCreateRequest({..., trigger: "email", email, notifyEmail, emailRecipients})`. The
+words live in `automation_controls.json` under `email` (`EMAIL_TEXT`), which the Assistant and the
+Code TUI vendor byte for byte.
 
 ## The client
 
@@ -2169,6 +2214,7 @@ id source; default `crypto.randomUUID`).
 | `discuss(id, {occurrence_index, prompt, request_id?})` | `POST /api/gateway/automations/{id}/discuss` → `{session_id, run_id, session_kind: "discussion", workspace_root, mounted_workspace}` |
 | `markSeen(id, attentionCursor)` | `POST /api/gateway/automations/{id}/seen` |
 | `listTriggerSources()` | `GET /api/gateway/trigger-sources` |
+| `getMyEmail()` | `GET /api/gateway/me/email` → `MyEmailStatus` (`configured`, `effective_enabled`, `address`, …; never a secret) |
 
 - **Ids**: `command_id` and `request_id` are minted only when you do not pass one. Pass the same
   id to retry a request safely.
@@ -2283,14 +2329,15 @@ coverage, checksums), `check_automation_client.mjs` (paths, bodies, error parsin
 From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
 
 - **Components**: `AutomationPanel` (`AutomationPanelProps`), `AutomationStateLabel` (state
-  word then icon), `AfScheduleDialog` (`AfScheduleDialogProps`), `CONTROL_LABELS`,
+  word then icon), `AfScheduleDialog` (`AfScheduleDialogProps`), `AfEmailSetupNotice`,
+  `AfEmailTriggerFields`, `AfEmailOptionsFields` (with their `…Props`), `CONTROL_LABELS`,
   `CONTROL_ICONS` and `CONTROL_HINTS` (each control's name, kit icon and tooltip),
   `controlHint()`, `RUN_NOW_ONE_LINE`, `RUN_NOW_NEXT_RUN_LINE`, `RUN_NOW_GROWING_LINE`,
   `RUN_NOW_GLYPH`, `DISCUSS_LABEL`,
   `STATUS_LABELS`, `STATUS_ICONS`, `plainTextRenderer` (the fallback), types `RenderText`,
   `RenderTurn`, `AutomationTurn`.
 - **Client**: `createAutomationsClient()`, `AutomationApiError`, `parseApiError()`,
-  `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`; types `AutomationsClient`,
+  `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`, `MY_EMAIL_PATH`; types `AutomationsClient`,
   `AutomationsClientOptions`, `ListAutomationsQuery`, `PageQuery`.
 - **Presentation rules** (pure functions, no React): `automationControls()`
   (`ControlId`, `ControlState`), `CONTROL_COMMANDS`, `occurrenceViews()` (`OccurrenceView`,
@@ -2298,6 +2345,15 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `scheduleLabel()`, `intervalLabel()`, `contextLabel()`, `formatUtc()`, `parseDuration()`,
   `reviseFormFrom()` and `reviseChanges()` (`ReviseForm`, `ReviseDefinition`), `buildCreateRequest()` (`ScheduleForm`, `ScheduleWhen`),
   `SCHEDULE_PRESETS`, `TOOL_APPROVAL_CONSENT`.
+- **Email** (pure): `emailUsable()`, `emailTriggerConfigFrom()` (`EmailTriggerForm`,
+  `EmailAttachmentFilter`, `DEFAULT_EMAIL_TRIGGER_FORM`), `emailTriggerLabel()`,
+  `isEmailTrigger()`, `emailDefaultEvery()`, `emailAllowedRecipientsFrom()`,
+  `emailRecipientsFormFrom()`, `emailRecipientsLabel()` (`EmailRecipientsForm`,
+  `DEFAULT_EMAIL_RECIPIENTS`), `notifyFor()`, `notifyEmails()`, `notifyLabel()`,
+  `parseEntryList()`, `isPlainAddress()`, `isPlainDomain()`, `EMAIL_TEXT`,
+  `EMAIL_TRIGGER_SOURCE_ID`, `EMAIL_TRIGGER_SOURCE_VERSION`, `EMAIL_DEFAULT_EVERY_MODEL`,
+  `EMAIL_DEFAULT_EVERY_NO_MODEL`, `EMAIL_MIN_EVERY_SECONDS`, `EMAIL_DEFAULT_MAX_BATCH`,
+  `EMAIL_MAX_BATCH`.
 - **Waits**: `waitToolCalls()`, `parseEventPayload()`, `WAIT_KIND_LABELS`.
 - **Errors**: `apiErrorText()`, `API_ERROR_TEXT`, `isApiError()`.
 - **Retry-safe ids and acknowledgement**: `ActionIds`, `isDefinitiveError()`, `SeenAckTracker`.
@@ -2310,6 +2366,8 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `CreateAutomationRequest`, `CreateAutomationResponse`, `DiscussResponse`, `TriggerBinding`,
   `TriggerSpec`, `TriggerEnvelope`, `TriggerSource`, `TriggerSourceEntry`,
   `TriggerSourceKind`, `ScheduleConfig`, `ScheduleEventPayload`, `ManualEventPayload`,
+  `EmailReceivedConfig`, `EmailFilter`, `EmailEventPayload`, `AutomationNotify`,
+  `NotifyChannel`, `MyEmailStatus`,
   `Duration`, `Timestamp`, `Page`, `ApiError`, `ApiErrorCode`.
 
 From `@abstractframework/panel-chat` (sources: `panel-chat/src/automation_badges.tsx`,
@@ -3831,7 +3889,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -3855,7 +3913,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.1.16",
+  "version": "0.2.0",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -3896,7 +3954,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -3924,7 +3982,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.1.19",
+  "version": "0.1.21",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -3965,15 +4023,15 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.1.14",
+    "@abstractframework/ui-kit": "^0.1.14 || ^0.2.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.1.14",
+    "@abstractframework/ui-kit": "^0.1.14 || ^0.2.0",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -4329,6 +4387,12 @@ export type {
   AutomationDetail,
   AutomationPolicyInput,
   AutomationStatus,
+  AutomationNotify,
+  EmailEventPayload,
+  EmailFilter,
+  EmailReceivedConfig,
+  MyEmailStatus,
+  NotifyChannel,
   AutomationSummary,
   AutomationTarget,
   CommandReceipt,
@@ -4363,6 +4427,7 @@ export type {
 } from "./automations/types.js";
 export {
   AUTOMATIONS_PATH,
+  MY_EMAIL_PATH,
   TRIGGER_SOURCES_PATH,
   AutomationApiError,
   createAutomationsClient,
@@ -4390,6 +4455,33 @@ export {
   automationControls,
   buildCreateRequest,
   contextLabel,
+  DEFAULT_EMAIL_RECIPIENTS,
+  DEFAULT_EMAIL_TRIGGER_FORM,
+  EMAIL_DEFAULT_EVERY_MODEL,
+  EMAIL_DEFAULT_EVERY_NO_MODEL,
+  EMAIL_DEFAULT_MAX_BATCH,
+  EMAIL_MAX_BATCH,
+  EMAIL_MIN_EVERY_SECONDS,
+  EMAIL_TEXT,
+  EMAIL_TRIGGER_SOURCE_ID,
+  EMAIL_TRIGGER_SOURCE_VERSION,
+  emailAllowedRecipientsFrom,
+  emailDefaultEvery,
+  emailRecipientsFormFrom,
+  emailRecipientsLabel,
+  emailTriggerConfigFrom,
+  emailTriggerLabel,
+  emailUsable,
+  isEmailTrigger,
+  isPlainAddress,
+  isPlainDomain,
+  notifyEmails,
+  notifyFor,
+  notifyLabel,
+  parseEntryList,
+  type EmailAttachmentFilter,
+  type EmailRecipientsForm,
+  type EmailTriggerForm,
   currentOccurrenceLabel,
   relativeIn,
   formatUtc,
@@ -4431,6 +4523,14 @@ export {
   type RenderTurn,
 } from "./automations/AutomationPanel.js";
 export { AfScheduleDialog, type AfScheduleDialogProps } from "./automations/AfScheduleDialog.js";
+export {
+  AfEmailOptionsFields,
+  AfEmailSetupNotice,
+  AfEmailTriggerFields,
+  type AfEmailOptionsFieldsProps,
+  type AfEmailSetupNoticeProps,
+  type AfEmailTriggerFieldsProps,
+} from "./automations/email_fields.js";
 
 ## ui-kit/src/identity.ts
 
@@ -5371,6 +5471,37 @@ export type ScheduleEventPayload = {
 /** `manual@1` envelope payload. */
 export type ManualEventPayload = { command_id: string };
 
+/**
+ * `email.received@1` typed filter (framework backlog 0992 B4): membership and
+ * one literal substring only — no expressions, no regex. Every field is
+ * optional; an absent field does not filter.
+ */
+export type EmailFilter = {
+  from_in?: string[];
+  from_domain_in?: string[];
+  to_in?: string[];
+  subject_contains?: string;
+  has_attachment?: boolean;
+};
+/**
+ * `email.received@1` configuration. `every` is the batch interval (at most
+ * one occurrence per `every`, carrying the matching mail received since the
+ * previous one, up to `max_batch`). Defaults: `uses_model` true → `every`
+ * "1h"; false → "60s"; `every` is at least "60s". The server stamps
+ * `start_at` (mail that arrived before is never processed).
+ */
+export type EmailReceivedConfig = {
+  account?: "self";
+  folder?: string;
+  uses_model?: boolean;
+  every?: Duration;
+  max_batch?: number;
+  start_at?: Timestamp;
+  filter?: EmailFilter;
+};
+/** `email.received@1` envelope payload (metadata only; bodies ride the occurrence's inputs). */
+export type EmailEventPayload = { count: number; event_ids: string[]; messages: JsonObject[]; first_seq?: number; last_seq?: number; content_trust?: "untrusted" };
+
 export type TriggerSourceKind = "time" | "manual" | "event";
 export type TriggerSource = {
   id: string;
@@ -5492,9 +5623,13 @@ export type AutomationCommandType =
   | "automation.stop_current"
   | "automation.archive";
 
-/** Contract A `_meta.automation` (the latest committed revision). */
+/** Where an automation's attention items are delivered (definition v2; default `["console"]`). */
+export type NotifyChannel = "console" | "email";
+export type AutomationNotify = { channels: NotifyChannel[] };
+
+/** Contract A `_meta.automation` (the latest committed revision). v1 definitions read with the v2 defaults. */
 export type AutomationDefinition = {
-  schema_version: 1;
+  schema_version: 1 | 2;
   revision: number;
   title: string;
   controller: { bundle_ref: string; flow_id: string };
@@ -5507,7 +5642,11 @@ export type AutomationDefinition = {
     failure: "continue";
     retry: { max_attempts: number; backoff: { initial: Duration; factor: number; max: Duration } };
     tool_approval: ToolApprovalPolicy;
+    /** Recipients an occurrence may email without an approval wait: "self" and exact addresses (v2; default ["self"]). */
+    email_allowed_recipients?: string[];
   };
+  /** v2; absent on a v1 definition (= `{channels: ["console"]}`). */
+  notify?: AutomationNotify;
   session_id: string;
   workspace_root: string;
   created_at: Timestamp;
@@ -5526,7 +5665,13 @@ export type RetryPolicy = { max_attempts?: number; backoff?: { initial?: Duratio
  * automation is the consent; `"ask"` = each tool call waits for approval.
  */
 export type ToolApprovalPolicy = "auto" | "ask";
-export type AutomationPolicyInput = { retry?: RetryPolicy; tool_approval?: ToolApprovalPolicy };
+/**
+ * `email_allowed_recipients` (framework backlog 0992 B5): "self" (the user's
+ * registered address) and exact addresses an occurrence may email without an
+ * approval wait; default `["self"]`. Everyone else waits for approval, and the
+ * account's own recipient policy (My email) still applies on top.
+ */
+export type AutomationPolicyInput = { retry?: RetryPolicy; tool_approval?: ToolApprovalPolicy; email_allowed_recipients?: string[] };
 
 /** Body of `POST /api/gateway/automations`. */
 export type CreateAutomationRequest = {
@@ -5536,6 +5681,7 @@ export type CreateAutomationRequest = {
   trigger: TriggerSpec;
   context?: { mode: ContextMode };
   policy?: AutomationPolicyInput;
+  notify?: AutomationNotify;
 };
 export type CreateAutomationResponse = { automation_id: string; revision: number; summary: AutomationSummary };
 
@@ -5546,6 +5692,23 @@ export type AutomationChanges = {
   trigger?: TriggerSpec;
   context?: { mode: ContextMode };
   policy?: AutomationPolicyInput;
+  notify?: AutomationNotify;
+};
+
+/**
+ * `GET /api/gateway/me/email` — the signed-in user's own email account (never
+ * a secret). The kit reads only what decides whether email options can be
+ * offered: `effective_enabled` = configured AND the user's switch AND the
+ * administrator's switch.
+ */
+export type MyEmailStatus = {
+  configured: boolean;
+  enabled?: boolean;
+  admin_enabled?: boolean;
+  effective_enabled: boolean;
+  address?: string;
+  admin_disabled?: { cause: string; fix: string };
+  [key: string]: unknown;
 };
 
 /**
@@ -5600,6 +5763,7 @@ import type {
   CreateAutomationResponse,
   DiscussResponse,
   JsonObject,
+  MyEmailStatus,
   OccurrenceRow,
   Page,
   TriggerSourceEntry,
@@ -5608,6 +5772,8 @@ import type {
 /** Relative (see gateway_paths.ts): resolved under the page's base, or under `baseUrl`. */
 export const AUTOMATIONS_PATH = gatewayApiPath("automations");
 export const TRIGGER_SOURCES_PATH = gatewayApiPath("trigger-sources");
+/** The signed-in user's own email account (framework backlog 0992 C2). */
+export const MY_EMAIL_PATH = gatewayApiPath("me/email");
 
 export class AutomationApiError extends Error implements ApiError {
   readonly status: number;
@@ -5673,6 +5839,12 @@ export type AutomationsClient = {
   markSeen(automationId: string, attentionCursor: string): Promise<{ attention_cursor: string }>;
   listAttention(automationId: string, query?: PageQuery): Promise<Page<AttentionItem>>;
   listTriggerSources(): Promise<{ items: TriggerSourceEntry[] }>;
+  /**
+   * `GET /api/gateway/me/email`: whether the user has a usable email account
+   * (decides whether the form offers "When an email arrives", "Email me the
+   * result" and allowed recipients). Never carries a secret.
+   */
+  getMyEmail(): Promise<MyEmailStatus>;
 };
 
 function query(params: Record<string, string | number | undefined>): string {
@@ -5736,6 +5908,7 @@ export function createAutomationsClient(options: AutomationsClientOptions): Auto
     markSeen: (id, cursor) => call("POST", `${one(id)}/seen`, { attention_cursor: cursor }),
     listAttention: (id, q = {}) => call("GET", `${one(id)}/attention${query({ cursor: q.cursor, limit: q.limit })}`),
     listTriggerSources: () => call("GET", TRIGGER_SOURCES_PATH),
+    getMyEmail: () => call("GET", MY_EMAIL_PATH),
   };
 }
 
@@ -5745,9 +5918,14 @@ export function createAutomationsClient(options: AutomationsClientOptions): Auto
 // (the kit's `*_core.ts` pattern: no React, checked directly by
 // scripts/check_automation_panel.mjs). Everything here reads STRUCTURE only —
 // statuses, notify objects, waits, config fields — never model prose.
+import controlsSpec from "./automation_controls.json" with { type: "json" };
 import type {
   ApiError,
   AutomationChanges,
+  AutomationNotify,
+  EmailFilter,
+  EmailReceivedConfig,
+  MyEmailStatus,
   AutomationSummary,
   AutomationTarget,
   ContextMode,
@@ -5809,6 +5987,7 @@ export function scheduleLabel(config: ScheduleConfig | JsonObject): string {
 export function triggerSummary(trigger: Pick<TriggerBinding, "source_id" | "source_version" | "config">): string {
   if (trigger.source_id === "schedule" && trigger.source_version === 1) return scheduleLabel(trigger.config);
   if (trigger.source_id === "manual" && trigger.source_version === 1) return "manual runs only";
+  if (isEmailTrigger(trigger)) return emailTriggerLabel(trigger.config);
   return `${trigger.source_id}@${trigger.source_version}`;
 }
 
@@ -5823,6 +6002,203 @@ export const STATUS_LABELS: Record<string, string> = {
   failed: "Failed",
   archived: "Archived",
 };
+
+// --- email.received@1 (framework backlog 0992 WP6) ---------------------------------
+
+/** Wording shared with the clients that vendor `automation_controls.json` (the Assistant, the Code TUI). */
+export const EMAIL_TEXT: Readonly<Record<string, string>> = (controlsSpec as { email: Record<string, string> }).email;
+export const EMAIL_TRIGGER_SOURCE_ID = "email.received";
+export const EMAIL_TRIGGER_SOURCE_VERSION = 1;
+/** `uses_model` true (the default: the target runs a model on new mail) → one run an hour at most. */
+export const EMAIL_DEFAULT_EVERY_MODEL = "1h";
+/** `uses_model` false (fetch + typed filters, no model) → checked every 60 s. */
+export const EMAIL_DEFAULT_EVERY_NO_MODEL = "60s";
+export const EMAIL_MIN_EVERY_SECONDS = 60;
+export const EMAIL_DEFAULT_MAX_BATCH = 100;
+export const EMAIL_MAX_BATCH = 1000;
+/** The runtime's caps (`triggers/email_received.py`). */
+export const EMAIL_MAX_FILTER_ENTRIES = 200;
+export const EMAIL_MAX_SUBJECT_CONTAINS = 200;
+export const EMAIL_MAX_ALLOWED_RECIPIENTS = 50;
+
+export function isEmailTrigger(trigger: Pick<TriggerBinding, "source_id" | "source_version"> | null | undefined): boolean {
+  return !!trigger && trigger.source_id === EMAIL_TRIGGER_SOURCE_ID && trigger.source_version === EMAIL_TRIGGER_SOURCE_VERSION;
+}
+
+/**
+ * True only when the user's account can be used now (`GET /me/email` →
+ * `effective_enabled`: connected, the user's switch on, allowed by the
+ * administrator). Unknown (null / not loaded / the call failed) is NOT usable:
+ * the form then shows "Email isn't set up — open My email" instead of the
+ * email options.
+ */
+export function emailUsable(status: MyEmailStatus | null | undefined): boolean {
+  return !!status && status.effective_enabled === true;
+}
+
+/**
+ * Entries of a typed list field: split on commas, semicolons and white space,
+ * trimmed, lower-cased, de-duplicated (order kept). Structure only — the
+ * entries are then checked one by one as plain addresses or domains.
+ */
+export function parseEntryList(text: string | null | undefined): string[] {
+  const out: string[] = [];
+  for (const raw of String(text ?? "").split(/[\s,;]+/)) {
+    const e = raw.trim().toLowerCase();
+    if (e && !out.includes(e)) out.push(e);
+  }
+  return out;
+}
+
+const ADDRESS_FORBIDDEN = /[\s<>,;:"()[\]]/;
+/** `name@example.test` — the runtime's plain-address rule (one "@", no display name, no brackets). */
+export function isPlainAddress(value: string): boolean {
+  const a = value.trim().toLowerCase();
+  const at = a.indexOf("@");
+  if (at <= 0 || at === a.length - 1) return false;
+  const domain = a.slice(at + 1);
+  return !domain.includes("@") && !ADDRESS_FORBIDDEN.test(a);
+}
+/** `example.test` — the runtime's domain rule (no "@", at least one dot, no pattern characters). */
+export function isPlainDomain(value: string): boolean {
+  const d = value.trim().toLowerCase();
+  return !!d && !d.includes("@") && d.includes(".") && !d.startsWith(".") && !d.endsWith(".") && !/[\s<>,;:"()[\]/*]/.test(d);
+}
+
+export type EmailAttachmentFilter = "any" | "yes" | "no";
+/** The "When an email arrives" fields. List fields are the raw text the user typed. */
+export type EmailTriggerForm = {
+  /** Does the target run a model on new mail? Decides the default interval (1 h vs 60 s). */
+  usesModel: boolean;
+  /** `null` = the default for `usesModel`. */
+  every: { amount: number; unit: "m" | "h" | "d" } | null;
+  /** `null` = the default (100). */
+  maxBatch: number | null;
+  fromIn: string;
+  fromDomainIn: string;
+  toIn: string;
+  subjectContains: string;
+  hasAttachment: EmailAttachmentFilter;
+};
+export const DEFAULT_EMAIL_TRIGGER_FORM: EmailTriggerForm = {
+  usesModel: true,
+  every: null,
+  maxBatch: null,
+  fromIn: "",
+  fromDomainIn: "",
+  toIn: "",
+  subjectContains: "",
+  hasAttachment: "any",
+};
+
+/** "1h" when the target runs a model, else "60s". */
+export function emailDefaultEvery(usesModel: boolean): string {
+  return usesModel ? EMAIL_DEFAULT_EVERY_MODEL : EMAIL_DEFAULT_EVERY_NO_MODEL;
+}
+
+function durationSeconds(every: string): number | null {
+  const d = parseDuration(every);
+  if (!d) return null;
+  return d.amount * { s: 1, m: 60, h: 3600, d: 86400 }[d.unit];
+}
+
+function listField(text: string, label: string, ok: (v: string) => boolean, kind: string, errors: string[]): string[] | null {
+  const items = parseEntryList(text);
+  if (!items.length) return null;
+  const bad = items.filter((v) => !ok(v));
+  if (bad.length) errors.push(`${label}: ${bad.join(", ")} ${bad.length === 1 ? "is not" : "are not"} ${kind}.`);
+  if (items.length > EMAIL_MAX_FILTER_ENTRIES) errors.push(`${label}: at most ${EMAIL_MAX_FILTER_ENTRIES} entries.`);
+  return items;
+}
+
+/** The `email.received@1` config (explicit `uses_model`, `every`, `max_batch`; `filter` only when set), or the reasons it is invalid. */
+export function emailTriggerConfigFrom(form: EmailTriggerForm): { config: EmailReceivedConfig; errors: string[] } {
+  const errors: string[] = [];
+  const config: EmailReceivedConfig = { uses_model: form.usesModel };
+  if (form.every === null) config.every = emailDefaultEvery(form.usesModel);
+  else if (!Number.isInteger(form.every.amount) || form.every.amount < 1) errors.push("The check interval must be a whole number of at least 1.");
+  else config.every = `${form.every.amount}${form.every.unit}`;
+  if (config.every !== undefined && (durationSeconds(config.every) ?? 0) < EMAIL_MIN_EVERY_SECONDS) errors.push("The check interval is at least 60 seconds.");
+  if (form.maxBatch === null) config.max_batch = EMAIL_DEFAULT_MAX_BATCH;
+  else if (!Number.isInteger(form.maxBatch) || form.maxBatch < 1 || form.maxBatch > EMAIL_MAX_BATCH) errors.push(`At most this many emails per run: a whole number from 1 to ${EMAIL_MAX_BATCH}.`);
+  else config.max_batch = form.maxBatch;
+  const filter: EmailFilter = {};
+  const fromIn = listField(form.fromIn, EMAIL_TEXT.from_in, isPlainAddress, "an email address", errors);
+  if (fromIn) filter.from_in = fromIn;
+  const domains = listField(form.fromDomainIn, EMAIL_TEXT.from_domain_in, isPlainDomain, "a domain like example.com", errors);
+  if (domains) filter.from_domain_in = domains;
+  const toIn = listField(form.toIn, EMAIL_TEXT.to_in, isPlainAddress, "an email address", errors);
+  if (toIn) filter.to_in = toIn;
+  const subject = form.subjectContains.trim();
+  if (subject) {
+    if (subject.length > EMAIL_MAX_SUBJECT_CONTAINS || /[\r\n]/.test(subject)) errors.push(`${EMAIL_TEXT.subject_contains}: one line of at most ${EMAIL_MAX_SUBJECT_CONTAINS} characters.`);
+    else filter.subject_contains = subject;
+  }
+  if (form.hasAttachment === "yes") filter.has_attachment = true;
+  else if (form.hasAttachment === "no") filter.has_attachment = false;
+  if (Object.keys(filter).length) config.filter = filter;
+  return { config, errors };
+}
+
+/** "when an email arrives · from a@x.test, x.test · subject contains “invoice” · checked every hour · up to 100 per run". */
+export function emailTriggerLabel(config: EmailReceivedConfig | JsonObject): string {
+  const c = config as EmailReceivedConfig;
+  const f = (c.filter ?? {}) as EmailFilter;
+  const parts = ["when an email arrives"];
+  const from = [...(f.from_in ?? []), ...(f.from_domain_in ?? [])];
+  if (from.length) parts.push(`from ${from.join(", ")}`);
+  if (f.to_in && f.to_in.length) parts.push(`to ${f.to_in.join(", ")}`);
+  if (typeof f.subject_contains === "string" && f.subject_contains) parts.push(`subject contains “${f.subject_contains}”`);
+  if (f.has_attachment === true) parts.push("with attachments");
+  if (f.has_attachment === false) parts.push("without attachments");
+  const every = typeof c.every === "string" ? c.every : emailDefaultEvery(c.uses_model !== false);
+  parts.push(`checked ${intervalLabel(every)}`);
+  const batch = typeof c.max_batch === "number" ? c.max_batch : EMAIL_DEFAULT_MAX_BATCH;
+  parts.push(`up to ${batch} per run`);
+  return parts.join(" · ");
+}
+
+/** Allowed recipients as the form holds them. */
+export type EmailRecipientsForm = { mode: "self" | "list"; addresses: string };
+export const DEFAULT_EMAIL_RECIPIENTS: EmailRecipientsForm = { mode: "self", addresses: "" };
+
+/**
+ * `policy.email_allowed_recipients` from the form: `["self"]` for "only me",
+ * `["self", ...addresses]` for "me and these addresses" (at least one).
+ */
+export function emailAllowedRecipientsFrom(form: EmailRecipientsForm): { recipients: string[]; errors: string[] } {
+  if (form.mode === "self") return { recipients: ["self"], errors: [] };
+  const errors: string[] = [];
+  const items = parseEntryList(form.addresses).filter((a) => a !== "self");
+  if (!items.length) errors.push("Name at least one address the automation may email, or choose Only me.");
+  const bad = items.filter((a) => !isPlainAddress(a));
+  if (bad.length) errors.push(`${EMAIL_TEXT.recipients_list}: ${bad.join(", ")} ${bad.length === 1 ? "is not an email address" : "are not email addresses"}.`);
+  if (items.length + 1 > EMAIL_MAX_ALLOWED_RECIPIENTS) errors.push(`At most ${EMAIL_MAX_ALLOWED_RECIPIENTS - 1} addresses.`);
+  return { recipients: ["self", ...items], errors };
+}
+
+/** The form's view of a stored `email_allowed_recipients` (absent = only me). */
+export function emailRecipientsFormFrom(list: string[] | null | undefined): EmailRecipientsForm {
+  const extra = (list ?? []).filter((a) => a !== "self");
+  return extra.length ? { mode: "list", addresses: extra.join(", ") } : { mode: "self", addresses: "" };
+}
+
+/** "Only me" / "Me and boss@example.test". */
+export function emailRecipientsLabel(list: string[] | null | undefined): string {
+  const extra = (list ?? ["self"]).filter((a) => a !== "self");
+  return extra.length ? `Me and ${extra.join(", ")}` : "Only me";
+}
+
+/** `notify` for "Email me the result": `["console", "email"]` when on, the default `["console"]` when off. */
+export function notifyFor(emailMe: boolean): AutomationNotify {
+  return { channels: emailMe ? ["console", "email"] : ["console"] };
+}
+export function notifyEmails(notify: AutomationNotify | null | undefined): boolean {
+  return !!notify && Array.isArray(notify.channels) && notify.channels.includes("email");
+}
+export function notifyLabel(notify: AutomationNotify | null | undefined): string {
+  return notifyEmails(notify) ? "In the console and by email" : "In the console";
+}
 
 // --- controls ---------------------------------------------------------------
 
@@ -6009,16 +6385,22 @@ export type ReviseForm = {
   context: ContextMode;
   prompt?: string | null;
   toolApproval?: ToolApprovalPolicy | null;
+  /** "Email me the result" (`notify.channels` has "email"); `null` without a definition. */
+  notifyEmail?: boolean | null;
+  /** `policy.email_allowed_recipients`; `null` without a definition. */
+  emailRecipients?: EmailRecipientsForm | null;
 };
 
 /** The committed definition fields the Edit form reads (a subset of `AutomationDefinition`). */
 export type ReviseDefinition = {
   target: { bundle_ref: string; flow_id: string; input_data: JsonObject };
-  policy: { tool_approval: ToolApprovalPolicy };
+  policy: { tool_approval: ToolApprovalPolicy; email_allowed_recipients?: string[] };
+  notify?: AutomationNotify;
 };
 
 export function reviseFormFrom(summary: AutomationSummary, definition?: ReviseDefinition | null): ReviseForm {
-  const every = summary.trigger.source_id === "schedule" ? (summary.trigger.config as ScheduleConfig).every : undefined;
+  const t = summary.trigger;
+  const every = t.source_id === "schedule" || isEmailTrigger(t) ? (t.config as { every?: unknown }).every : undefined;
   const prompt = definition ? (definition.target.input_data as { prompt?: unknown }).prompt : undefined;
   return {
     title: summary.title,
@@ -6026,16 +6408,21 @@ export function reviseFormFrom(summary: AutomationSummary, definition?: ReviseDe
     context: summary.context_mode,
     prompt: typeof prompt === "string" ? prompt : null,
     toolApproval: definition ? definition.policy.tool_approval : null,
+    notifyEmail: definition ? notifyEmails(definition.notify) : null,
+    emailRecipients: definition ? emailRecipientsFormFrom(definition.policy.email_allowed_recipients) : null,
   };
 }
 
 /**
- * Only the fields that changed. A new interval keeps the rest of the schedule
- * config (the server mints a new binding and re-anchors so no past tick fires).
- * A new task keeps the definition's target (`bundle_ref`, `flow_id`) and the
- * rest of its `input_data`; the gateway re-applies its run protections to it
+ * Only the fields that changed. A new interval keeps the rest of the trigger
+ * config (the server mints a new binding and re-anchors so no past tick
+ * fires); for `email.received@1` the old `start_at` is dropped so the new
+ * binding starts from now and never re-reads mail. A new task keeps the
+ * definition's target (`bundle_ref`, `flow_id`) and the rest of its
+ * `input_data`; the gateway re-applies its run protections to it
  * (`PATCH /automations/{id}` resolves `changes.target` like a creation). A new
- * tool approval sends `policy.tool_approval` only (the server merges policy).
+ * tool approval or allowed-recipient list sends only that `policy` field (the
+ * server merges policy); "Email me the result" sends `notify`.
  * Returns `{errors}` when the form is invalid, `null` when nothing changed.
  */
 export function reviseChanges(summary: AutomationSummary, form: ReviseForm, definition?: ReviseDefinition | null): AutomationChanges | null | { errors: string[] } {
@@ -6047,8 +6434,14 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
   else if (title !== summary.title) changes.title = title;
   const before = reviseFormFrom(summary, definition);
   if (form.every !== before.every && form.every !== null) {
+    const email = isEmailTrigger(summary.trigger);
     if (!parseDuration(form.every)) errors.push("Interval must be a whole number of minutes, hours or days.");
-    else changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config: { ...summary.trigger.config, every: form.every } };
+    else if (email && (durationSeconds(form.every) ?? 0) < EMAIL_MIN_EVERY_SECONDS) errors.push("The check interval is at least 60 seconds.");
+    else {
+      const config: JsonObject = { ...summary.trigger.config, every: form.every };
+      if (email) delete config.start_at;
+      changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config };
+    }
   }
   if (form.context !== summary.context_mode) changes.context = { mode: form.context };
   if (definition && typeof before.prompt === "string" && typeof form.prompt === "string" && form.prompt.trim() !== before.prompt.trim()) {
@@ -6057,6 +6450,13 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
     else changes.target = { bundle_ref: definition.target.bundle_ref, flow_id: definition.target.flow_id, input_data: { ...definition.target.input_data, prompt } };
   }
   if (definition && form.toolApproval && form.toolApproval !== before.toolApproval) changes.policy = { tool_approval: form.toolApproval };
+  if (definition && typeof form.notifyEmail === "boolean" && form.notifyEmail !== before.notifyEmail) changes.notify = notifyFor(form.notifyEmail);
+  if (definition && form.emailRecipients) {
+    const next = emailAllowedRecipientsFrom(form.emailRecipients);
+    const prev = emailAllowedRecipientsFrom(before.emailRecipients ?? DEFAULT_EMAIL_RECIPIENTS).recipients;
+    if (next.errors.length) errors.push(...next.errors);
+    else if (JSON.stringify(next.recipients) !== JSON.stringify(prev)) changes.policy = { ...(changes.policy ?? {}), email_allowed_recipients: next.recipients };
+  }
   if (errors.length) return { errors };
   return Object.keys(changes).length ? changes : null;
 }
@@ -6066,6 +6466,14 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
 export type ScheduleWhen = { kind: "once"; at: string } | { kind: "every"; amount: number; unit: "m" | "h" | "d" };
 export type ScheduleForm = {
   prompt: string;
+  /** `"schedule"` (default): `when` decides; `"email"`: `email.received@1` from `email` (then `when` is ignored). */
+  trigger?: "schedule" | "email";
+  /** The "When an email arrives" fields (default `DEFAULT_EMAIL_TRIGGER_FORM`). */
+  email?: EmailTriggerForm;
+  /** "Email me the result": `notify.channels` `["console", "email"]`. Off (default) sends no `notify` (the server default, console). */
+  notifyEmail?: boolean;
+  /** Allowed recipients; "only me" (default) sends nothing (the server default, `["self"]`). */
+  emailRecipients?: EmailRecipientsForm;
   when: ScheduleWhen;
   context: ContextMode;
   /** `"auto"` (default): tools run without asking; `"ask"`: each tool call waits for approval. */
@@ -6132,6 +6540,10 @@ export function scheduleConfigFrom(form: ScheduleForm): { config: ScheduleConfig
 
 /** Human line under the When section, e.g. "every 24 hours (UTC), first run now". */
 export function schedulePreview(form: ScheduleForm): string {
+  if (form.trigger === "email") {
+    const built = emailTriggerConfigFrom(form.email ?? DEFAULT_EMAIL_TRIGGER_FORM);
+    return built.errors.length ? "" : emailTriggerLabel(built.config);
+  }
   const { config, errors } = scheduleConfigFrom(form);
   if (errors.length) return "";
   const label = scheduleLabel(config);
@@ -6150,21 +6562,25 @@ export function buildCreateRequest(
   if (!prompt) errors.push("Write the task to run.");
   const title = (form.title ?? "").trim() || defaultTitle(prompt);
   if (title.length > 120) errors.push("Title is at most 120 characters.");
-  const { config, errors: whenErrors } = scheduleConfigFrom(form);
-  errors.push(...whenErrors);
+  const email = form.trigger === "email";
+  const built = email ? emailTriggerConfigFrom(form.email ?? DEFAULT_EMAIL_TRIGGER_FORM) : scheduleConfigFrom(form);
+  errors.push(...built.errors);
+  const recipients = form.emailRecipients && form.emailRecipients.mode === "list" ? emailAllowedRecipientsFrom(form.emailRecipients) : null;
+  if (recipients) errors.push(...recipients.errors);
   if (errors.length || !opts.target) return { ok: false, errors };
   const target = { ...opts.target, input_data: { ...(opts.target.input_data ?? {}), prompt } } as AutomationTarget;
-  return {
-    ok: true,
-    body: {
-      request_id: opts.requestId,
-      title,
-      target,
-      trigger: { source_id: "schedule", source_version: 1, config: config as JsonObject },
-      context: { mode: form.context },
-      policy: { tool_approval: form.toolApproval ?? "auto" },
-    },
+  const body: CreateAutomationRequest = {
+    request_id: opts.requestId,
+    title,
+    target,
+    trigger: email
+      ? { source_id: EMAIL_TRIGGER_SOURCE_ID, source_version: EMAIL_TRIGGER_SOURCE_VERSION, config: built.config as JsonObject }
+      : { source_id: "schedule", source_version: 1, config: built.config as JsonObject },
+    context: { mode: form.context },
+    policy: { tool_approval: form.toolApproval ?? "auto", ...(recipients ? { email_allowed_recipients: recipients.recipients } : {}) },
   };
+  if (form.notifyEmail === true) body.notify = notifyFor(true);
+  return { ok: true, body };
 }
 
 /** The consent line shown wherever an automation is created with `tool_approval: "auto"` (decision D1). */
@@ -12478,6 +12894,75 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## Unreleased
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.2.0 | updated (minor: email automations) |
+| `@abstractframework/panel-chat` | 0.1.21 | peer range only: accepts ui-kit `^0.1.14 \|\| ^0.2.0` |
+
+### ui-kit 0.2.0: email automations in the shared form (framework backlog 0992 WP6)
+
+- Added: **When an email arrives** in `AfScheduleDialog` — the runtime trigger `email.received@1`
+  with typed filters only (from these addresses / domains, sent to these addresses, subject
+  contains, attachments), **Check for new mail every** (1 hour by default when the target runs a
+  model, 60 s without one — `targetUsesModel`; never under 60 s, and the dialog states the rule)
+  and **At most this many emails per run** (`max_batch`, 1–1000, default 100). List entries are
+  checked as plain addresses or domains and a wrong entry is named.
+- Added: **Email me the result** (`notify.channels: ["console", "email"]`) and **May send email
+  without asking to: Only me / Me and these addresses** (`policy.email_allowed_recipients`,
+  `["self", ...]`). Defaults send nothing (the server defaults: console, `["self"]`).
+- Added: the options are offered only when `GET /api/gateway/me/email` reports
+  `effective_enabled`; otherwise the dialog and the Edit form show **"Email isn't set up — open My
+  email"** (`emailStatus`, `onOpenMyEmail`), and nothing email-shaped is sent. The client gains
+  `getMyEmail()` (`MY_EMAIL_PATH`).
+- Added: the Edit form edits an email trigger's interval (the old `start_at` is dropped so the
+  revised trigger never re-reads mail), Email me the result and the allowed recipients; the
+  definition card lists Notify and May email; `triggerSummary` reads email triggers.
+- Added: `AfEmailTriggerFields`, `AfEmailOptionsFields`, `AfEmailSetupNotice` for hosts with their
+  own create form, the pure rules (`emailTriggerConfigFrom`, `emailAllowedRecipientsFrom`,
+  `notifyFor`, `emailUsable`, …) and the types (`EmailReceivedConfig`, `EmailFilter`,
+  `AutomationNotify`, `MyEmailStatus`; `AutomationDefinition.schema_version` 1 | 2).
+- Changed: `automation_controls.json` gains an `email` section (the form's words, `EMAIL_TEXT`);
+  the Assistant and the Code TUI vendor it byte for byte. `ReviseForm` gains `notifyEmail` and
+  `emailRecipients` (`null` without a definition).
+- Added: `scripts/check_automation_email.mjs` (in `npm test`), red before this change.
+
+### panel-chat 0.1.21: accepts ui-kit 0.2.0
+
+- Changed: the `@abstractframework/ui-kit` peer (and dev) range is `^0.1.14 || ^0.2.0`; with the
+  old `^0.1.14` an app installing ui-kit 0.2.0 next to panel-chat 0.1.20 fails npm's peer check.
+  No code change.
+
+## 0.1.17 - 2026-09-29
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/panel-chat` | 0.1.20 | updated |
+
+### panel-chat 0.1.20: the approval gate is the same in every client
+
+- Fixed: a conversation whose root run is parked on its agent loop (`subworkflow:<child>`) while
+  that child asks for a tool approval showed the gate only in the client that started the turn.
+  A client opening the same conversation later (`WorkflowSessionController.load`) folded the
+  child's waiting record from the history bundle, then replaced it with the root's own durable
+  wait — a delegation, never a question — so it showed "Running a tool write_file", a Steer
+  composer and no Allow/Deny, while the run waited (operator report, 2026-09-29, a remote
+  Safari vs. the gateway machine's Safari and a phone on the same run). A delegation wait now
+  never displaces a person-facing wait (`interactionWith`), a child's durable `waiting`
+  (`GET /runs/{child}`) is adopted when the bundle's window or a reconnect lost the record
+  (`adoptDurableWait`), and a wait a ledger `resume` record already answered is never re-opened
+  from a snapshot read in between (the runtime appends the record before it saves the run).
+- Fixed: the transcript's tool row for a parked batch read "Running" when the waiting record's
+  `effect.payload.tool_calls` was the ledger's `$slim` pointer to the STARTED record (the store
+  writes it that way; `GET /ledger`, the history bundle and the SSE tail all serve it). The fold
+  now takes the calls from the wait itself when the payload holds none, so the row says
+  "Approval needed" in every client.
+- Added: `scripts/check_approval_sync.mjs` (in `npm test`) with a redacted live capture
+  (`scripts/fixtures/run_approval_subrun.json`): a fresh client, the originating client across the
+  root lifecycle poll, durable state alone, a replayed root delegation record, another client's
+  resume clearing the gate, and the `$slim` fold — red before this fix.
 
 ## 0.1.16 - 2026-09-28
 

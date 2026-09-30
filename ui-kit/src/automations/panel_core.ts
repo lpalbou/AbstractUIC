@@ -2,9 +2,14 @@
 // (the kit's `*_core.ts` pattern: no React, checked directly by
 // scripts/check_automation_panel.mjs). Everything here reads STRUCTURE only —
 // statuses, notify objects, waits, config fields — never model prose.
+import controlsSpec from "./automation_controls.json" with { type: "json" };
 import type {
   ApiError,
   AutomationChanges,
+  AutomationNotify,
+  EmailFilter,
+  EmailReceivedConfig,
+  MyEmailStatus,
   AutomationSummary,
   AutomationTarget,
   ContextMode,
@@ -66,6 +71,7 @@ export function scheduleLabel(config: ScheduleConfig | JsonObject): string {
 export function triggerSummary(trigger: Pick<TriggerBinding, "source_id" | "source_version" | "config">): string {
   if (trigger.source_id === "schedule" && trigger.source_version === 1) return scheduleLabel(trigger.config);
   if (trigger.source_id === "manual" && trigger.source_version === 1) return "manual runs only";
+  if (isEmailTrigger(trigger)) return emailTriggerLabel(trigger.config);
   return `${trigger.source_id}@${trigger.source_version}`;
 }
 
@@ -80,6 +86,203 @@ export const STATUS_LABELS: Record<string, string> = {
   failed: "Failed",
   archived: "Archived",
 };
+
+// --- email.received@1 (framework backlog 0992 WP6) ---------------------------------
+
+/** Wording shared with the clients that vendor `automation_controls.json` (the Assistant, the Code TUI). */
+export const EMAIL_TEXT: Readonly<Record<string, string>> = (controlsSpec as { email: Record<string, string> }).email;
+export const EMAIL_TRIGGER_SOURCE_ID = "email.received";
+export const EMAIL_TRIGGER_SOURCE_VERSION = 1;
+/** `uses_model` true (the default: the target runs a model on new mail) → one run an hour at most. */
+export const EMAIL_DEFAULT_EVERY_MODEL = "1h";
+/** `uses_model` false (fetch + typed filters, no model) → checked every 60 s. */
+export const EMAIL_DEFAULT_EVERY_NO_MODEL = "60s";
+export const EMAIL_MIN_EVERY_SECONDS = 60;
+export const EMAIL_DEFAULT_MAX_BATCH = 100;
+export const EMAIL_MAX_BATCH = 1000;
+/** The runtime's caps (`triggers/email_received.py`). */
+export const EMAIL_MAX_FILTER_ENTRIES = 200;
+export const EMAIL_MAX_SUBJECT_CONTAINS = 200;
+export const EMAIL_MAX_ALLOWED_RECIPIENTS = 50;
+
+export function isEmailTrigger(trigger: Pick<TriggerBinding, "source_id" | "source_version"> | null | undefined): boolean {
+  return !!trigger && trigger.source_id === EMAIL_TRIGGER_SOURCE_ID && trigger.source_version === EMAIL_TRIGGER_SOURCE_VERSION;
+}
+
+/**
+ * True only when the user's account can be used now (`GET /me/email` →
+ * `effective_enabled`: connected, the user's switch on, allowed by the
+ * administrator). Unknown (null / not loaded / the call failed) is NOT usable:
+ * the form then shows "Email isn't set up — open My email" instead of the
+ * email options.
+ */
+export function emailUsable(status: MyEmailStatus | null | undefined): boolean {
+  return !!status && status.effective_enabled === true;
+}
+
+/**
+ * Entries of a typed list field: split on commas, semicolons and white space,
+ * trimmed, lower-cased, de-duplicated (order kept). Structure only — the
+ * entries are then checked one by one as plain addresses or domains.
+ */
+export function parseEntryList(text: string | null | undefined): string[] {
+  const out: string[] = [];
+  for (const raw of String(text ?? "").split(/[\s,;]+/)) {
+    const e = raw.trim().toLowerCase();
+    if (e && !out.includes(e)) out.push(e);
+  }
+  return out;
+}
+
+const ADDRESS_FORBIDDEN = /[\s<>,;:"()[\]]/;
+/** `name@example.test` — the runtime's plain-address rule (one "@", no display name, no brackets). */
+export function isPlainAddress(value: string): boolean {
+  const a = value.trim().toLowerCase();
+  const at = a.indexOf("@");
+  if (at <= 0 || at === a.length - 1) return false;
+  const domain = a.slice(at + 1);
+  return !domain.includes("@") && !ADDRESS_FORBIDDEN.test(a);
+}
+/** `example.test` — the runtime's domain rule (no "@", at least one dot, no pattern characters). */
+export function isPlainDomain(value: string): boolean {
+  const d = value.trim().toLowerCase();
+  return !!d && !d.includes("@") && d.includes(".") && !d.startsWith(".") && !d.endsWith(".") && !/[\s<>,;:"()[\]/*]/.test(d);
+}
+
+export type EmailAttachmentFilter = "any" | "yes" | "no";
+/** The "When an email arrives" fields. List fields are the raw text the user typed. */
+export type EmailTriggerForm = {
+  /** Does the target run a model on new mail? Decides the default interval (1 h vs 60 s). */
+  usesModel: boolean;
+  /** `null` = the default for `usesModel`. */
+  every: { amount: number; unit: "m" | "h" | "d" } | null;
+  /** `null` = the default (100). */
+  maxBatch: number | null;
+  fromIn: string;
+  fromDomainIn: string;
+  toIn: string;
+  subjectContains: string;
+  hasAttachment: EmailAttachmentFilter;
+};
+export const DEFAULT_EMAIL_TRIGGER_FORM: EmailTriggerForm = {
+  usesModel: true,
+  every: null,
+  maxBatch: null,
+  fromIn: "",
+  fromDomainIn: "",
+  toIn: "",
+  subjectContains: "",
+  hasAttachment: "any",
+};
+
+/** "1h" when the target runs a model, else "60s". */
+export function emailDefaultEvery(usesModel: boolean): string {
+  return usesModel ? EMAIL_DEFAULT_EVERY_MODEL : EMAIL_DEFAULT_EVERY_NO_MODEL;
+}
+
+function durationSeconds(every: string): number | null {
+  const d = parseDuration(every);
+  if (!d) return null;
+  return d.amount * { s: 1, m: 60, h: 3600, d: 86400 }[d.unit];
+}
+
+function listField(text: string, label: string, ok: (v: string) => boolean, kind: string, errors: string[]): string[] | null {
+  const items = parseEntryList(text);
+  if (!items.length) return null;
+  const bad = items.filter((v) => !ok(v));
+  if (bad.length) errors.push(`${label}: ${bad.join(", ")} ${bad.length === 1 ? "is not" : "are not"} ${kind}.`);
+  if (items.length > EMAIL_MAX_FILTER_ENTRIES) errors.push(`${label}: at most ${EMAIL_MAX_FILTER_ENTRIES} entries.`);
+  return items;
+}
+
+/** The `email.received@1` config (explicit `uses_model`, `every`, `max_batch`; `filter` only when set), or the reasons it is invalid. */
+export function emailTriggerConfigFrom(form: EmailTriggerForm): { config: EmailReceivedConfig; errors: string[] } {
+  const errors: string[] = [];
+  const config: EmailReceivedConfig = { uses_model: form.usesModel };
+  if (form.every === null) config.every = emailDefaultEvery(form.usesModel);
+  else if (!Number.isInteger(form.every.amount) || form.every.amount < 1) errors.push("The check interval must be a whole number of at least 1.");
+  else config.every = `${form.every.amount}${form.every.unit}`;
+  if (config.every !== undefined && (durationSeconds(config.every) ?? 0) < EMAIL_MIN_EVERY_SECONDS) errors.push("The check interval is at least 60 seconds.");
+  if (form.maxBatch === null) config.max_batch = EMAIL_DEFAULT_MAX_BATCH;
+  else if (!Number.isInteger(form.maxBatch) || form.maxBatch < 1 || form.maxBatch > EMAIL_MAX_BATCH) errors.push(`At most this many emails per run: a whole number from 1 to ${EMAIL_MAX_BATCH}.`);
+  else config.max_batch = form.maxBatch;
+  const filter: EmailFilter = {};
+  const fromIn = listField(form.fromIn, EMAIL_TEXT.from_in, isPlainAddress, "an email address", errors);
+  if (fromIn) filter.from_in = fromIn;
+  const domains = listField(form.fromDomainIn, EMAIL_TEXT.from_domain_in, isPlainDomain, "a domain like example.com", errors);
+  if (domains) filter.from_domain_in = domains;
+  const toIn = listField(form.toIn, EMAIL_TEXT.to_in, isPlainAddress, "an email address", errors);
+  if (toIn) filter.to_in = toIn;
+  const subject = form.subjectContains.trim();
+  if (subject) {
+    if (subject.length > EMAIL_MAX_SUBJECT_CONTAINS || /[\r\n]/.test(subject)) errors.push(`${EMAIL_TEXT.subject_contains}: one line of at most ${EMAIL_MAX_SUBJECT_CONTAINS} characters.`);
+    else filter.subject_contains = subject;
+  }
+  if (form.hasAttachment === "yes") filter.has_attachment = true;
+  else if (form.hasAttachment === "no") filter.has_attachment = false;
+  if (Object.keys(filter).length) config.filter = filter;
+  return { config, errors };
+}
+
+/** "when an email arrives · from a@x.test, x.test · subject contains “invoice” · checked every hour · up to 100 per run". */
+export function emailTriggerLabel(config: EmailReceivedConfig | JsonObject): string {
+  const c = config as EmailReceivedConfig;
+  const f = (c.filter ?? {}) as EmailFilter;
+  const parts = ["when an email arrives"];
+  const from = [...(f.from_in ?? []), ...(f.from_domain_in ?? [])];
+  if (from.length) parts.push(`from ${from.join(", ")}`);
+  if (f.to_in && f.to_in.length) parts.push(`to ${f.to_in.join(", ")}`);
+  if (typeof f.subject_contains === "string" && f.subject_contains) parts.push(`subject contains “${f.subject_contains}”`);
+  if (f.has_attachment === true) parts.push("with attachments");
+  if (f.has_attachment === false) parts.push("without attachments");
+  const every = typeof c.every === "string" ? c.every : emailDefaultEvery(c.uses_model !== false);
+  parts.push(`checked ${intervalLabel(every)}`);
+  const batch = typeof c.max_batch === "number" ? c.max_batch : EMAIL_DEFAULT_MAX_BATCH;
+  parts.push(`up to ${batch} per run`);
+  return parts.join(" · ");
+}
+
+/** Allowed recipients as the form holds them. */
+export type EmailRecipientsForm = { mode: "self" | "list"; addresses: string };
+export const DEFAULT_EMAIL_RECIPIENTS: EmailRecipientsForm = { mode: "self", addresses: "" };
+
+/**
+ * `policy.email_allowed_recipients` from the form: `["self"]` for "only me",
+ * `["self", ...addresses]` for "me and these addresses" (at least one).
+ */
+export function emailAllowedRecipientsFrom(form: EmailRecipientsForm): { recipients: string[]; errors: string[] } {
+  if (form.mode === "self") return { recipients: ["self"], errors: [] };
+  const errors: string[] = [];
+  const items = parseEntryList(form.addresses).filter((a) => a !== "self");
+  if (!items.length) errors.push("Name at least one address the automation may email, or choose Only me.");
+  const bad = items.filter((a) => !isPlainAddress(a));
+  if (bad.length) errors.push(`${EMAIL_TEXT.recipients_list}: ${bad.join(", ")} ${bad.length === 1 ? "is not an email address" : "are not email addresses"}.`);
+  if (items.length + 1 > EMAIL_MAX_ALLOWED_RECIPIENTS) errors.push(`At most ${EMAIL_MAX_ALLOWED_RECIPIENTS - 1} addresses.`);
+  return { recipients: ["self", ...items], errors };
+}
+
+/** The form's view of a stored `email_allowed_recipients` (absent = only me). */
+export function emailRecipientsFormFrom(list: string[] | null | undefined): EmailRecipientsForm {
+  const extra = (list ?? []).filter((a) => a !== "self");
+  return extra.length ? { mode: "list", addresses: extra.join(", ") } : { mode: "self", addresses: "" };
+}
+
+/** "Only me" / "Me and boss@example.test". */
+export function emailRecipientsLabel(list: string[] | null | undefined): string {
+  const extra = (list ?? ["self"]).filter((a) => a !== "self");
+  return extra.length ? `Me and ${extra.join(", ")}` : "Only me";
+}
+
+/** `notify` for "Email me the result": `["console", "email"]` when on, the default `["console"]` when off. */
+export function notifyFor(emailMe: boolean): AutomationNotify {
+  return { channels: emailMe ? ["console", "email"] : ["console"] };
+}
+export function notifyEmails(notify: AutomationNotify | null | undefined): boolean {
+  return !!notify && Array.isArray(notify.channels) && notify.channels.includes("email");
+}
+export function notifyLabel(notify: AutomationNotify | null | undefined): string {
+  return notifyEmails(notify) ? "In the console and by email" : "In the console";
+}
 
 // --- controls ---------------------------------------------------------------
 
@@ -266,16 +469,22 @@ export type ReviseForm = {
   context: ContextMode;
   prompt?: string | null;
   toolApproval?: ToolApprovalPolicy | null;
+  /** "Email me the result" (`notify.channels` has "email"); `null` without a definition. */
+  notifyEmail?: boolean | null;
+  /** `policy.email_allowed_recipients`; `null` without a definition. */
+  emailRecipients?: EmailRecipientsForm | null;
 };
 
 /** The committed definition fields the Edit form reads (a subset of `AutomationDefinition`). */
 export type ReviseDefinition = {
   target: { bundle_ref: string; flow_id: string; input_data: JsonObject };
-  policy: { tool_approval: ToolApprovalPolicy };
+  policy: { tool_approval: ToolApprovalPolicy; email_allowed_recipients?: string[] };
+  notify?: AutomationNotify;
 };
 
 export function reviseFormFrom(summary: AutomationSummary, definition?: ReviseDefinition | null): ReviseForm {
-  const every = summary.trigger.source_id === "schedule" ? (summary.trigger.config as ScheduleConfig).every : undefined;
+  const t = summary.trigger;
+  const every = t.source_id === "schedule" || isEmailTrigger(t) ? (t.config as { every?: unknown }).every : undefined;
   const prompt = definition ? (definition.target.input_data as { prompt?: unknown }).prompt : undefined;
   return {
     title: summary.title,
@@ -283,16 +492,21 @@ export function reviseFormFrom(summary: AutomationSummary, definition?: ReviseDe
     context: summary.context_mode,
     prompt: typeof prompt === "string" ? prompt : null,
     toolApproval: definition ? definition.policy.tool_approval : null,
+    notifyEmail: definition ? notifyEmails(definition.notify) : null,
+    emailRecipients: definition ? emailRecipientsFormFrom(definition.policy.email_allowed_recipients) : null,
   };
 }
 
 /**
- * Only the fields that changed. A new interval keeps the rest of the schedule
- * config (the server mints a new binding and re-anchors so no past tick fires).
- * A new task keeps the definition's target (`bundle_ref`, `flow_id`) and the
- * rest of its `input_data`; the gateway re-applies its run protections to it
+ * Only the fields that changed. A new interval keeps the rest of the trigger
+ * config (the server mints a new binding and re-anchors so no past tick
+ * fires); for `email.received@1` the old `start_at` is dropped so the new
+ * binding starts from now and never re-reads mail. A new task keeps the
+ * definition's target (`bundle_ref`, `flow_id`) and the rest of its
+ * `input_data`; the gateway re-applies its run protections to it
  * (`PATCH /automations/{id}` resolves `changes.target` like a creation). A new
- * tool approval sends `policy.tool_approval` only (the server merges policy).
+ * tool approval or allowed-recipient list sends only that `policy` field (the
+ * server merges policy); "Email me the result" sends `notify`.
  * Returns `{errors}` when the form is invalid, `null` when nothing changed.
  */
 export function reviseChanges(summary: AutomationSummary, form: ReviseForm, definition?: ReviseDefinition | null): AutomationChanges | null | { errors: string[] } {
@@ -304,8 +518,14 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
   else if (title !== summary.title) changes.title = title;
   const before = reviseFormFrom(summary, definition);
   if (form.every !== before.every && form.every !== null) {
+    const email = isEmailTrigger(summary.trigger);
     if (!parseDuration(form.every)) errors.push("Interval must be a whole number of minutes, hours or days.");
-    else changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config: { ...summary.trigger.config, every: form.every } };
+    else if (email && (durationSeconds(form.every) ?? 0) < EMAIL_MIN_EVERY_SECONDS) errors.push("The check interval is at least 60 seconds.");
+    else {
+      const config: JsonObject = { ...summary.trigger.config, every: form.every };
+      if (email) delete config.start_at;
+      changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config };
+    }
   }
   if (form.context !== summary.context_mode) changes.context = { mode: form.context };
   if (definition && typeof before.prompt === "string" && typeof form.prompt === "string" && form.prompt.trim() !== before.prompt.trim()) {
@@ -314,6 +534,13 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
     else changes.target = { bundle_ref: definition.target.bundle_ref, flow_id: definition.target.flow_id, input_data: { ...definition.target.input_data, prompt } };
   }
   if (definition && form.toolApproval && form.toolApproval !== before.toolApproval) changes.policy = { tool_approval: form.toolApproval };
+  if (definition && typeof form.notifyEmail === "boolean" && form.notifyEmail !== before.notifyEmail) changes.notify = notifyFor(form.notifyEmail);
+  if (definition && form.emailRecipients) {
+    const next = emailAllowedRecipientsFrom(form.emailRecipients);
+    const prev = emailAllowedRecipientsFrom(before.emailRecipients ?? DEFAULT_EMAIL_RECIPIENTS).recipients;
+    if (next.errors.length) errors.push(...next.errors);
+    else if (JSON.stringify(next.recipients) !== JSON.stringify(prev)) changes.policy = { ...(changes.policy ?? {}), email_allowed_recipients: next.recipients };
+  }
   if (errors.length) return { errors };
   return Object.keys(changes).length ? changes : null;
 }
@@ -323,6 +550,14 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
 export type ScheduleWhen = { kind: "once"; at: string } | { kind: "every"; amount: number; unit: "m" | "h" | "d" };
 export type ScheduleForm = {
   prompt: string;
+  /** `"schedule"` (default): `when` decides; `"email"`: `email.received@1` from `email` (then `when` is ignored). */
+  trigger?: "schedule" | "email";
+  /** The "When an email arrives" fields (default `DEFAULT_EMAIL_TRIGGER_FORM`). */
+  email?: EmailTriggerForm;
+  /** "Email me the result": `notify.channels` `["console", "email"]`. Off (default) sends no `notify` (the server default, console). */
+  notifyEmail?: boolean;
+  /** Allowed recipients; "only me" (default) sends nothing (the server default, `["self"]`). */
+  emailRecipients?: EmailRecipientsForm;
   when: ScheduleWhen;
   context: ContextMode;
   /** `"auto"` (default): tools run without asking; `"ask"`: each tool call waits for approval. */
@@ -389,6 +624,10 @@ export function scheduleConfigFrom(form: ScheduleForm): { config: ScheduleConfig
 
 /** Human line under the When section, e.g. "every 24 hours (UTC), first run now". */
 export function schedulePreview(form: ScheduleForm): string {
+  if (form.trigger === "email") {
+    const built = emailTriggerConfigFrom(form.email ?? DEFAULT_EMAIL_TRIGGER_FORM);
+    return built.errors.length ? "" : emailTriggerLabel(built.config);
+  }
   const { config, errors } = scheduleConfigFrom(form);
   if (errors.length) return "";
   const label = scheduleLabel(config);
@@ -407,21 +646,25 @@ export function buildCreateRequest(
   if (!prompt) errors.push("Write the task to run.");
   const title = (form.title ?? "").trim() || defaultTitle(prompt);
   if (title.length > 120) errors.push("Title is at most 120 characters.");
-  const { config, errors: whenErrors } = scheduleConfigFrom(form);
-  errors.push(...whenErrors);
+  const email = form.trigger === "email";
+  const built = email ? emailTriggerConfigFrom(form.email ?? DEFAULT_EMAIL_TRIGGER_FORM) : scheduleConfigFrom(form);
+  errors.push(...built.errors);
+  const recipients = form.emailRecipients && form.emailRecipients.mode === "list" ? emailAllowedRecipientsFrom(form.emailRecipients) : null;
+  if (recipients) errors.push(...recipients.errors);
   if (errors.length || !opts.target) return { ok: false, errors };
   const target = { ...opts.target, input_data: { ...(opts.target.input_data ?? {}), prompt } } as AutomationTarget;
-  return {
-    ok: true,
-    body: {
-      request_id: opts.requestId,
-      title,
-      target,
-      trigger: { source_id: "schedule", source_version: 1, config: config as JsonObject },
-      context: { mode: form.context },
-      policy: { tool_approval: form.toolApproval ?? "auto" },
-    },
+  const body: CreateAutomationRequest = {
+    request_id: opts.requestId,
+    title,
+    target,
+    trigger: email
+      ? { source_id: EMAIL_TRIGGER_SOURCE_ID, source_version: EMAIL_TRIGGER_SOURCE_VERSION, config: built.config as JsonObject }
+      : { source_id: "schedule", source_version: 1, config: built.config as JsonObject },
+    context: { mode: form.context },
+    policy: { tool_approval: form.toolApproval ?? "auto", ...(recipients ? { email_allowed_recipients: recipients.recipients } : {}) },
   };
+  if (form.notifyEmail === true) body.notify = notifyFor(true);
+  return { ok: true, body };
 }
 
 /** The consent line shown wherever an automation is created with `tool_approval: "auto"` (decision D1). */

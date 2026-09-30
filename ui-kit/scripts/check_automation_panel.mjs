@@ -384,7 +384,7 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   const formEl = find(f, (n) => n.type === "form")[0];
   const vals = { title: "News (6h)", every_amount: "6", every_unit: "h", context: "growing" };
   formEl.props.onSubmit({ preventDefault() {}, currentTarget: { elements: { namedItem: (k) => (k in vals ? { value: vals[k] } : null) } } });
-  check("edit form reads its fields", eq(submitted[0], { title: "News (6h)", every: "6h", context: "growing", prompt: null, toolApproval: null }), JSON.stringify(submitted[0]));
+  check("edit form reads its fields", eq(submitted[0], { title: "News (6h)", every: "6h", context: "growing", prompt: null, toolApproval: null, notifyEmail: null, emailRecipients: null }), JSON.stringify(submitted[0]));
   check("edit form without a definition offers no task / tools", !html.includes('name="prompt"') && !html.includes('name="tool_approval"'));
   check("edit form: Save changes + Cancel, with icons; never 'revision'", /data-action="edit-save"[^>]*><svg[^]*?<span>Save changes<\/span>/.test(html) && /data-action="edit-cancel"[^>]*><svg[^]*?<span>Cancel<\/span>/.test(html) && !/Revis|revision/.test(html));
   // With the committed definition: the task and tool approval are editable too.

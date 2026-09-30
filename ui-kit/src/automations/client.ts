@@ -24,6 +24,7 @@ import type {
   CreateAutomationResponse,
   DiscussResponse,
   JsonObject,
+  MyEmailStatus,
   OccurrenceRow,
   Page,
   TriggerSourceEntry,
@@ -32,6 +33,8 @@ import type {
 /** Relative (see gateway_paths.ts): resolved under the page's base, or under `baseUrl`. */
 export const AUTOMATIONS_PATH = gatewayApiPath("automations");
 export const TRIGGER_SOURCES_PATH = gatewayApiPath("trigger-sources");
+/** The signed-in user's own email account (framework backlog 0992 C2). */
+export const MY_EMAIL_PATH = gatewayApiPath("me/email");
 
 export class AutomationApiError extends Error implements ApiError {
   readonly status: number;
@@ -97,6 +100,12 @@ export type AutomationsClient = {
   markSeen(automationId: string, attentionCursor: string): Promise<{ attention_cursor: string }>;
   listAttention(automationId: string, query?: PageQuery): Promise<Page<AttentionItem>>;
   listTriggerSources(): Promise<{ items: TriggerSourceEntry[] }>;
+  /**
+   * `GET /api/gateway/me/email`: whether the user has a usable email account
+   * (decides whether the form offers "When an email arrives", "Email me the
+   * result" and allowed recipients). Never carries a secret.
+   */
+  getMyEmail(): Promise<MyEmailStatus>;
 };
 
 function query(params: Record<string, string | number | undefined>): string {
@@ -160,5 +169,6 @@ export function createAutomationsClient(options: AutomationsClientOptions): Auto
     markSeen: (id, cursor) => call("POST", `${one(id)}/seen`, { attention_cursor: cursor }),
     listAttention: (id, q = {}) => call("GET", `${one(id)}/attention${query({ cursor: q.cursor, limit: q.limit })}`),
     listTriggerSources: () => call("GET", TRIGGER_SOURCES_PATH),
+    getMyEmail: () => call("GET", MY_EMAIL_PATH),
   };
 }

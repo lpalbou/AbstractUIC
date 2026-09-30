@@ -1,7 +1,11 @@
 // AfScheduleDialog — create an automation: What (the host's workflow picker +
 // the task prompt), When (`schedule@1`: once at a UTC time, or every N
-// minutes/hours/days), Context (independent / growing), Advanced (first run,
-// max runs, stop at, title). It builds the `POST /api/gateway/automations`
+// minutes/hours/days; or `email.received@1`: when an email arrives, with typed
+// filters, a check interval and a max batch), Context (independent /
+// growing), Tools, Email (email me the result, allowed recipients — offered
+// only when `GET /me/email` says the account is usable, otherwise "Email
+// isn't set up — open My email"), Advanced (first run, max runs, stop at,
+// title). It builds the `POST /api/gateway/automations`
 // body and hands it to `onSubmit`; the host sends it (see ./client.ts).
 //
 // Wording is fixed-interval UTC ("every 24 hours (UTC)"), never calendar
@@ -12,17 +16,24 @@
 // identity_conflict from reusing an id with a different body).
 import React, { useEffect, useId, useRef, useState } from "react";
 import { trapTabKey } from "../about.js";
+import { AfEmailOptionsFields, AfEmailSetupNotice, AfEmailTriggerFields } from "./email_fields.js";
 import {
   ActionIds,
   apiErrorText,
   buildCreateRequest,
+  DEFAULT_EMAIL_RECIPIENTS,
+  DEFAULT_EMAIL_TRIGGER_FORM,
+  EMAIL_TEXT,
+  emailUsable,
+  type EmailRecipientsForm,
+  type EmailTriggerForm,
   SCHEDULE_PRESETS,
   schedulePreview,
   mintUuid,
   TOOL_APPROVAL_CONSENT,
   type ScheduleForm,
 } from "./panel_core.js";
-import type { ApiError, AutomationTarget, ContextMode, CreateAutomationRequest, ToolApprovalPolicy } from "./types.js";
+import type { ApiError, AutomationTarget, ContextMode, CreateAutomationRequest, MyEmailStatus, ToolApprovalPolicy } from "./types.js";
 
 export type AfScheduleDialogProps = {
   open: boolean;
@@ -44,6 +55,17 @@ export type AfScheduleDialogProps = {
    */
   newRequestId?: () => string;
   title?: string;
+  /**
+   * `GET /api/gateway/me/email` (the client's `getMyEmail()`). Email options
+   * are offered only when it says the account is usable; null/undefined
+   * (unknown, not loaded, or the call failed) shows "Email isn't set up —
+   * open My email" instead.
+   */
+  emailStatus?: MyEmailStatus | null;
+  /** Opens the gateway console's My email; without it "open My email" is plain text. */
+  onOpenMyEmail?: () => void;
+  /** Does the target run a model on new mail? (default true: an hourly check by default; false: every 60 s). */
+  targetUsesModel?: boolean;
 };
 
 type UnitKey = "m" | "h" | "d";
@@ -57,7 +79,10 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
   onCloseRef.current = props.onClose;
 
   const [prompt, setPrompt] = useState(props.initialPrompt ?? "");
-  const [kind, setKind] = useState<"every" | "once">("every");
+  const [kind, setKind] = useState<"every" | "once" | "email">("every");
+  const [email, setEmail] = useState<EmailTriggerForm>(DEFAULT_EMAIL_TRIGGER_FORM);
+  const [notifyEmail, setNotifyEmail] = useState(false);
+  const [recipients, setRecipients] = useState<EmailRecipientsForm>(DEFAULT_EMAIL_RECIPIENTS);
   const [amount, setAmount] = useState("24");
   const [unit, setUnit] = useState<UnitKey>("h");
   const [onceAt, setOnceAt] = useState("");
@@ -93,15 +118,23 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
 
   if (!props.open) return null;
 
+  const usable = emailUsable(props.emailStatus);
+  // Email options exist only with a usable account: nothing email-shaped is sent otherwise.
+  const emailKind = kind === "email" && usable;
+  // An email choice made while the account was usable falls back to Repeat if it stops being usable.
+  const shownKind = kind === "email" && !usable ? "every" : kind;
   const form: ScheduleForm = {
     prompt,
     when: kind === "once" ? { kind: "once", at: onceAt } : { kind: "every", amount: Number(amount), unit },
+    ...(emailKind ? { trigger: "email" as const, email: { ...email, usesModel: props.targetUsesModel !== false } } : {}),
+    ...(usable && notifyEmail ? { notifyEmail: true } : {}),
+    ...(usable && recipients.mode === "list" ? { emailRecipients: recipients } : {}),
     context,
     toolApproval,
     title,
-    ...(kind === "every" && startAt ? { startAt } : {}),
-    ...(kind === "every" && count.trim() ? { count: Number(count) } : {}),
-    ...(kind === "every" && until ? { until } : {}),
+    ...(shownKind === "every" && startAt ? { startAt } : {}),
+    ...(shownKind === "every" && count.trim() ? { count: Number(count) } : {}),
+    ...(shownKind === "every" && until ? { until } : {}),
   };
   const preview = schedulePreview(form);
   const busy = props.busy === true;
@@ -146,13 +179,19 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
             <legend>When (UTC)</legend>
             <div className="af-auto__row" role="radiogroup" aria-label="Schedule kind">
               <label>
-                <input type="radio" name={id("kind")} value="every" checked={kind === "every"} onChange={() => setKind("every")} /> Repeat
+                <input type="radio" name={id("kind")} value="every" checked={shownKind === "every"} onChange={() => setKind("every")} /> Repeat
               </label>
               <label>
                 <input type="radio" name={id("kind")} value="once" checked={kind === "once"} onChange={() => setKind("once")} /> Once at…
               </label>
+              <label>
+                <input type="radio" name={id("kind")} value="email" checked={emailKind} disabled={!usable} onChange={() => setKind("email")} /> {EMAIL_TEXT.trigger_label}
+              </label>
             </div>
-            {kind === "every" ? (
+            {!usable ? <AfEmailSetupNotice status={props.emailStatus} onOpenMyEmail={props.onOpenMyEmail} /> : null}
+            {emailKind ? (
+              <AfEmailTriggerFields value={{ ...email, usesModel: props.targetUsesModel !== false }} onChange={setEmail} idBase={base} />
+            ) : shownKind === "every" ? (
               <>
                 <div className="af-auto__row af-schedule__presets" role="group" aria-label="Presets">
                   {SCHEDULE_PRESETS.map((p) =>
@@ -190,7 +229,7 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
               </label>
             )}
             <p className="af-schedule__preview" aria-live="polite" data-preview="true">
-              {preview ? `Runs ${preview}.` : "Incomplete schedule."}
+              {preview ? `Runs ${preview}.` : emailKind ? "Incomplete email trigger." : "Incomplete schedule."}
             </p>
           </fieldset>
 
@@ -212,6 +251,11 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
             <label>
               <input type="radio" name={id("tools")} value="ask" checked={toolApproval === "ask"} onChange={() => setToolApproval("ask")} /> Ask me before each tool call (the run waits for you)
             </label>
+            {emailKind ? (
+              <p className="af-auto__hint" data-email-rule="untrusted">
+                {EMAIL_TEXT.untrusted_hint}
+              </p>
+            ) : null}
             {toolApproval === "auto" ? (
               <p className="af-schedule__consent" data-consent="true">
                 {TOOL_APPROVAL_CONSENT}
@@ -222,13 +266,26 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
             )}
           </fieldset>
 
+          <fieldset className="af-auto__field" data-field="email">
+            <legend>Email</legend>
+            {!usable ? <AfEmailSetupNotice status={props.emailStatus} onOpenMyEmail={props.onOpenMyEmail} /> : null}
+            <AfEmailOptionsFields
+              notifyEmail={usable && notifyEmail}
+              onNotifyEmailChange={setNotifyEmail}
+              recipients={usable ? recipients : DEFAULT_EMAIL_RECIPIENTS}
+              onRecipientsChange={setRecipients}
+              disabled={!usable}
+              idBase={base}
+            />
+          </fieldset>
+
           <details className="af-schedule__advanced">
             <summary>Advanced</summary>
             <label className="af-auto__field" htmlFor={id("title")}>
               <span>Title</span>
               <input id={id("title")} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder="Defaults to the task's first line" />
             </label>
-            {kind === "every" ? (
+            {shownKind === "every" ? (
               <>
                 <label className="af-auto__field" htmlFor={id("start")}>
                   <span>First run at (UTC; empty = now)</span>

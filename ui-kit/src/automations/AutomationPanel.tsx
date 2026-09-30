@@ -12,6 +12,7 @@
 // any state and invoke their handlers without a DOM.
 import React, { useEffect, useId, useRef, useState } from "react";
 import { Icon, type IconName } from "../icon.js";
+import { AfEmailSetupNotice } from "./email_fields.js";
 import controlsSpec from "./automation_controls.json" with { type: "json" };
 import {
   apiErrorText,
@@ -21,6 +22,11 @@ import {
   ActionIds,
   CONTROL_COMMANDS,
   contextLabel,
+  EMAIL_TEXT,
+  emailRecipientsLabel,
+  emailUsable,
+  isEmailTrigger,
+  notifyLabel,
   formatUtc,
   isApiError,
   currentOccurrenceLabel,
@@ -52,6 +58,7 @@ import type {
   CommandReceipt,
   ContextMode,
   JsonObject,
+  MyEmailStatus,
   OccurrenceRow,
   OccurrenceWait,
   TriggerSourceEntry,
@@ -132,6 +139,14 @@ export type AutomationPanelProps = {
    */
   editOpen?: boolean;
   onEditOpenChange?(open: boolean): void;
+  /**
+   * `GET /api/gateway/me/email` (the client's `getMyEmail()`): the Edit form
+   * offers "Email me the result" and allowed recipients only when the account
+   * is usable (an option already on can still be turned off); otherwise it
+   * shows "Email isn't set up — open My email".
+   */
+  emailStatus?: MyEmailStatus | null;
+  onOpenMyEmail?: () => void;
   className?: string;
 };
 
@@ -374,6 +389,10 @@ export function AutomationDefinitionBlock(props: { definition: AutomationDefinit
         <dd data-def="context">{contextLabel(d.context.mode)}</dd>
         <dt>Tools</dt>
         <dd data-def="tool_approval">{approval === "ask" ? "Ask before each tool call (ask)" : approval === "auto" ? "Run without asking (auto)" : String(approval)}</dd>
+        <dt>Notify</dt>
+        <dd data-def="notify">{notifyLabel(d.notify)}</dd>
+        <dt>May email</dt>
+        <dd data-def="email_allowed_recipients">{emailRecipientsLabel(d.policy.email_allowed_recipients)}</dd>
         <dt>Retries</dt>
         <dd data-def="retry">
           {retry.max_attempts} {retry.max_attempts === 1 ? "attempt" : "attempts"}, backoff {retry.backoff.initial} ×{retry.backoff.factor} up to {retry.backoff.max}
@@ -613,7 +632,13 @@ export function readReviseForm(form: { elements: { namedItem(name: string): unkn
   const prompt = val("prompt");
   const tools = form.elements.namedItem("tool_approval") as { value?: string } | null;
   const toolApproval = (tools && (tools.value === "auto" || tools.value === "ask") ? tools.value : fallback.toolApproval ?? null) as ToolApprovalPolicy | null;
-  return { title: val("title") ?? fallback.title, every, context, prompt: prompt ?? fallback.prompt ?? null, toolApproval };
+  const notifyEl = form.elements.namedItem("notify_email") as { checked?: boolean } | null;
+  const notifyEmail = notifyEl && typeof notifyEl.checked === "boolean" ? notifyEl.checked : fallback.notifyEmail ?? null;
+  const rcpt = form.elements.namedItem("email_recipients") as { value?: string } | null;
+  const list = val("email_recipient_list");
+  const emailRecipients =
+    rcpt && (rcpt.value === "self" || rcpt.value === "list") ? { mode: rcpt.value as "self" | "list", addresses: list ?? "" } : fallback.emailRecipients ?? null;
+  return { title: val("title") ?? fallback.title, every, context, prompt: prompt ?? fallback.prompt ?? null, toolApproval, notifyEmail, emailRecipients };
 }
 
 export type AutomationReviseFormProps = {
@@ -624,6 +649,9 @@ export type AutomationReviseFormProps = {
   errors: string[];
   onSubmit(form: ReviseForm): void;
   onCancel(): void;
+  /** See `AutomationPanelProps.emailStatus`. */
+  emailStatus?: MyEmailStatus | null;
+  onOpenMyEmail?: () => void;
 };
 
 /** The Edit form: everything `PATCH /automations/{id}` can change that this kit knows how to show, prefilled. */
@@ -632,6 +660,8 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
   const d = initial.every ? parseDuration(initial.every) : null;
   const units = d && d.unit === "s" ? [["s", "seconds"] as [string, string], ...UNIT_OPTIONS] : UNIT_OPTIONS;
   const base = `af-auto-revise-${p.summary.automation_id}`;
+  const usable = emailUsable(p.emailStatus);
+  const emailTrigger = isEmailTrigger(p.summary.trigger);
   return (
     <form
       className="af-auto__revise"
@@ -662,7 +692,7 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
       ) : null}
       {d ? (
         <fieldset className="af-auto__field">
-          <legend>Repeat every (UTC)</legend>
+          <legend>{emailTrigger ? EMAIL_TEXT.every_label : "Repeat every (UTC)"}</legend>
           <div className="af-auto__row">
             <input name="every_amount" type="number" min={1} step={1} defaultValue={d.amount} aria-label="Interval amount" />
             <select name="every_unit" defaultValue={d.unit} aria-label="Interval unit">
@@ -673,6 +703,7 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
               ))}
             </select>
           </div>
+          {emailTrigger ? <p className="af-auto__hint" data-email-rule="interval">{EMAIL_TEXT.interval_rule}</p> : null}
         </fieldset>
       ) : (
         <p className="af-auto__hint">This trigger has no interval to change.</p>
@@ -695,6 +726,28 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
           <label>
             <input type="radio" name="tool_approval" value="ask" defaultChecked={initial.toolApproval === "ask"} /> Ask before each tool call
           </label>
+        </fieldset>
+      ) : null}
+      {initial.notifyEmail !== null && initial.notifyEmail !== undefined && initial.emailRecipients ? (
+        <fieldset className="af-auto__field" data-field="email">
+          <legend>Email</legend>
+          {!usable ? <AfEmailSetupNotice status={p.emailStatus} onOpenMyEmail={p.onOpenMyEmail} /> : null}
+          <label className="af-email__check">
+            {/* Without a usable account an option already on can still be turned off, never on. */}
+            <input type="checkbox" name="notify_email" defaultChecked={initial.notifyEmail} disabled={!usable && !initial.notifyEmail} /> {EMAIL_TEXT.notify_label}
+          </label>
+          <p className="af-auto__hint">{EMAIL_TEXT.notify_hint}</p>
+          <fieldset className="af-auto__field" data-field="email-recipients">
+            <legend>{EMAIL_TEXT.recipients_legend}</legend>
+            <label>
+              <input type="radio" name="email_recipients" value="self" defaultChecked={initial.emailRecipients.mode === "self"} /> {EMAIL_TEXT.recipients_self}
+            </label>
+            <label>
+              <input type="radio" name="email_recipients" value="list" defaultChecked={initial.emailRecipients.mode === "list"} disabled={!usable && initial.emailRecipients.mode !== "list"} /> {EMAIL_TEXT.recipients_list}
+            </label>
+            <textarea name="email_recipient_list" aria-label={EMAIL_TEXT.recipients_list} rows={2} spellCheck={false} defaultValue={initial.emailRecipients.addresses} disabled={!usable && initial.emailRecipients.mode !== "list"} />
+            <p className="af-auto__hint">{EMAIL_TEXT.recipients_hint}</p>
+          </fieldset>
         </fieldset>
       ) : null}
       <p className="af-auto__hint">Changes apply from the next run; a new interval never fires past ticks.</p>
@@ -1164,6 +1217,8 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
           definition={editBase.definition}
           busy={busy}
           errors={reviseErrors}
+          emailStatus={props.emailStatus}
+          onOpenMyEmail={props.onOpenMyEmail}
           onCancel={() => {
             setReviseOpen(false);
             setFocusAfter(['[data-action="edit"]']);

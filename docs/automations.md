@@ -299,6 +299,8 @@ import { AfScheduleDialog } from "@abstractframework/ui-kit";
   onSubmit={(body) => automations.createAutomation(body)}
   busy={creating}
   error={createError}
+  emailStatus={myEmail}               // automations.getMyEmail(); null/undefined = not set up
+  onOpenMyEmail={() => openConsole("users")}  // optional: makes "open My email" a button
 />
 ```
 
@@ -308,13 +310,16 @@ sections:
 - **What** — your workflow picker (a slot; it sets `target`) and the task, sent as
   `target.input_data.prompt`.
 - **When (UTC)** — **Repeat** every N minutes, hours or days, with presets from "every 5
-  minutes" to "every 7 days", or **Once at…** a UTC date and time. A preview line reads, for
-  example, "Runs every 24 hours (UTC), first run now."
+  minutes" to "every 7 days", **Once at…** a UTC date and time, or **When an email arrives**
+  (see [Email automations](#email-automations)). A preview line reads, for example, "Runs every
+  24 hours (UTC), first run now."
 - **Context** — Independent or Growing.
 - **Tools** — "Run without asking" (the default, `policy.tool_approval: "auto"`) shows the
   consent line **"Tools run without asking (you approve them now by creating this automation)"**,
   followed by the `targetTools` names when you pass them. "Ask me before each tool call"
   (`"ask"`) makes every tool call wait for approval in the automation's timeline.
+- **Email** — **Email me the result** and **May send email without asking to** (see
+  [Email automations](#email-automations)).
 - **Advanced** — title (default: the task's first line, at most 120 characters), first run at,
   stop after N runs, stop at. Date fields are read as UTC.
 
@@ -326,6 +331,46 @@ id with a different body would be an `identity_conflict`). Return the client's p
 exported as `buildCreateRequest(form, {target, requestId})`, which returns `{ok: true, body}` or
 `{ok: false, errors}`; `TOOL_APPROVAL_CONSENT` holds the consent line for hosts with their own
 create UI.
+
+### Email automations
+
+The Gateway reads each user's own mailbox (framework backlog 0992; runtime trigger
+`email.received@1`). The dialog offers three email options, and only when
+`GET /api/gateway/me/email` (`automations.getMyEmail()`, passed as `emailStatus`) reports
+`effective_enabled: true` — the account is connected, the user's own switch is on and an
+administrator allows it. Otherwise the options are disabled and the dialog shows **"Email isn't
+set up — open My email"**; with `onOpenMyEmail` the last words are a button (the Gateway console's
+My email is in its Users tab, `/console#users`). An unknown status (not loaded, or the call
+failed) counts as not set up, and nothing email-shaped is ever sent without a usable account.
+
+- **When an email arrives** — the trigger `{source_id: "email.received", source_version: 1}`.
+  Typed filters only, no patterns: from these addresses (`filter.from_in`), from these domains
+  (`from_domain_in`), sent to these addresses (`to_in`), subject contains (`subject_contains`, one
+  literal line) and attachments any / only with / only without (`has_attachment`). List fields
+  take commas or new lines; each entry is checked as a plain address or domain and a wrong entry
+  is named. **Check for new mail every** defaults to 1 hour when the target runs a model
+  (`uses_model: true`, the dialog's default; `targetUsesModel={false}` for a model-free target
+  gives 60 s); the shortest interval is 60 seconds, and the dialog states that rule. **At most
+  this many emails per run** (`max_batch`, 1–1000, default 100): the rest wait for the next run.
+  Each email is read once by the automation; mail that arrived before it was created, or while it
+  was paused, is not processed. The Tools section adds that incoming mail is data, never
+  instructions, and that link-opening tools (`fetch_url`, `browser_probe`) always ask.
+- **Email me the result** — `notify: {channels: ["console", "email"]}`: a run that notifies you,
+  or fails for good, is also emailed to you. Off sends no `notify` (the default, console only).
+- **May send email without asking to** — **Only me** (the default; nothing is sent, the server
+  default is `policy.email_allowed_recipients: ["self"]`) or **Me and these addresses**
+  (`["self", ...addresses]`). Sending to anyone else waits for approval, and the account's
+  recipient policy in My email still applies.
+
+The Edit form offers the same interval (for an email trigger), **Email me the result** and the
+allowed recipients when the host passes the committed definition; without a usable account an
+option already on can be turned off, never on. A new interval drops the old `start_at`, so the
+revised trigger starts from now and never re-reads mail. The definition card lists **Notify** and
+**May email**. Hosts with their own create form (the Observer's Launch → Automate) render the same
+fields with `AfEmailTriggerFields`, `AfEmailOptionsFields` and `AfEmailSetupNotice`, and build the
+body with `buildCreateRequest({..., trigger: "email", email, notifyEmail, emailRecipients})`. The
+words live in `automation_controls.json` under `email` (`EMAIL_TEXT`), which the Assistant and the
+Code TUI vendor byte for byte.
 
 ## The client
 
@@ -359,6 +404,7 @@ id source; default `crypto.randomUUID`).
 | `discuss(id, {occurrence_index, prompt, request_id?})` | `POST /api/gateway/automations/{id}/discuss` → `{session_id, run_id, session_kind: "discussion", workspace_root, mounted_workspace}` |
 | `markSeen(id, attentionCursor)` | `POST /api/gateway/automations/{id}/seen` |
 | `listTriggerSources()` | `GET /api/gateway/trigger-sources` |
+| `getMyEmail()` | `GET /api/gateway/me/email` → `MyEmailStatus` (`configured`, `effective_enabled`, `address`, …; never a secret) |
 
 - **Ids**: `command_id` and `request_id` are minted only when you do not pass one. Pass the same
   id to retry a request safely.
@@ -473,14 +519,15 @@ coverage, checksums), `check_automation_client.mjs` (paths, bodies, error parsin
 From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
 
 - **Components**: `AutomationPanel` (`AutomationPanelProps`), `AutomationStateLabel` (state
-  word then icon), `AfScheduleDialog` (`AfScheduleDialogProps`), `CONTROL_LABELS`,
+  word then icon), `AfScheduleDialog` (`AfScheduleDialogProps`), `AfEmailSetupNotice`,
+  `AfEmailTriggerFields`, `AfEmailOptionsFields` (with their `…Props`), `CONTROL_LABELS`,
   `CONTROL_ICONS` and `CONTROL_HINTS` (each control's name, kit icon and tooltip),
   `controlHint()`, `RUN_NOW_ONE_LINE`, `RUN_NOW_NEXT_RUN_LINE`, `RUN_NOW_GROWING_LINE`,
   `RUN_NOW_GLYPH`, `DISCUSS_LABEL`,
   `STATUS_LABELS`, `STATUS_ICONS`, `plainTextRenderer` (the fallback), types `RenderText`,
   `RenderTurn`, `AutomationTurn`.
 - **Client**: `createAutomationsClient()`, `AutomationApiError`, `parseApiError()`,
-  `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`; types `AutomationsClient`,
+  `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`, `MY_EMAIL_PATH`; types `AutomationsClient`,
   `AutomationsClientOptions`, `ListAutomationsQuery`, `PageQuery`.
 - **Presentation rules** (pure functions, no React): `automationControls()`
   (`ControlId`, `ControlState`), `CONTROL_COMMANDS`, `occurrenceViews()` (`OccurrenceView`,
@@ -488,6 +535,15 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `scheduleLabel()`, `intervalLabel()`, `contextLabel()`, `formatUtc()`, `parseDuration()`,
   `reviseFormFrom()` and `reviseChanges()` (`ReviseForm`, `ReviseDefinition`), `buildCreateRequest()` (`ScheduleForm`, `ScheduleWhen`),
   `SCHEDULE_PRESETS`, `TOOL_APPROVAL_CONSENT`.
+- **Email** (pure): `emailUsable()`, `emailTriggerConfigFrom()` (`EmailTriggerForm`,
+  `EmailAttachmentFilter`, `DEFAULT_EMAIL_TRIGGER_FORM`), `emailTriggerLabel()`,
+  `isEmailTrigger()`, `emailDefaultEvery()`, `emailAllowedRecipientsFrom()`,
+  `emailRecipientsFormFrom()`, `emailRecipientsLabel()` (`EmailRecipientsForm`,
+  `DEFAULT_EMAIL_RECIPIENTS`), `notifyFor()`, `notifyEmails()`, `notifyLabel()`,
+  `parseEntryList()`, `isPlainAddress()`, `isPlainDomain()`, `EMAIL_TEXT`,
+  `EMAIL_TRIGGER_SOURCE_ID`, `EMAIL_TRIGGER_SOURCE_VERSION`, `EMAIL_DEFAULT_EVERY_MODEL`,
+  `EMAIL_DEFAULT_EVERY_NO_MODEL`, `EMAIL_MIN_EVERY_SECONDS`, `EMAIL_DEFAULT_MAX_BATCH`,
+  `EMAIL_MAX_BATCH`.
 - **Waits**: `waitToolCalls()`, `parseEventPayload()`, `WAIT_KIND_LABELS`.
 - **Errors**: `apiErrorText()`, `API_ERROR_TEXT`, `isApiError()`.
 - **Retry-safe ids and acknowledgement**: `ActionIds`, `isDefinitiveError()`, `SeenAckTracker`.
@@ -500,6 +556,8 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `CreateAutomationRequest`, `CreateAutomationResponse`, `DiscussResponse`, `TriggerBinding`,
   `TriggerSpec`, `TriggerEnvelope`, `TriggerSource`, `TriggerSourceEntry`,
   `TriggerSourceKind`, `ScheduleConfig`, `ScheduleEventPayload`, `ManualEventPayload`,
+  `EmailReceivedConfig`, `EmailFilter`, `EmailEventPayload`, `AutomationNotify`,
+  `NotifyChannel`, `MyEmailStatus`,
   `Duration`, `Timestamp`, `Page`, `ApiError`, `ApiErrorCode`.
 
 From `@abstractframework/panel-chat` (sources: `panel-chat/src/automation_badges.tsx`,

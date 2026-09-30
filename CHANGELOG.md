@@ -7,6 +7,46 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## Unreleased
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.2.0 | updated (minor: email automations) |
+| `@abstractframework/panel-chat` | 0.1.21 | peer range only: accepts ui-kit `^0.1.14 \|\| ^0.2.0` |
+
+### ui-kit 0.2.0: email automations in the shared form (framework backlog 0992 WP6)
+
+- Added: **When an email arrives** in `AfScheduleDialog` — the runtime trigger `email.received@1`
+  with typed filters only (from these addresses / domains, sent to these addresses, subject
+  contains, attachments), **Check for new mail every** (1 hour by default when the target runs a
+  model, 60 s without one — `targetUsesModel`; never under 60 s, and the dialog states the rule)
+  and **At most this many emails per run** (`max_batch`, 1–1000, default 100). List entries are
+  checked as plain addresses or domains and a wrong entry is named.
+- Added: **Email me the result** (`notify.channels: ["console", "email"]`) and **May send email
+  without asking to: Only me / Me and these addresses** (`policy.email_allowed_recipients`,
+  `["self", ...]`). Defaults send nothing (the server defaults: console, `["self"]`).
+- Added: the options are offered only when `GET /api/gateway/me/email` reports
+  `effective_enabled`; otherwise the dialog and the Edit form show **"Email isn't set up — open My
+  email"** (`emailStatus`, `onOpenMyEmail`), and nothing email-shaped is sent. The client gains
+  `getMyEmail()` (`MY_EMAIL_PATH`).
+- Added: the Edit form edits an email trigger's interval (the old `start_at` is dropped so the
+  revised trigger never re-reads mail), Email me the result and the allowed recipients; the
+  definition card lists Notify and May email; `triggerSummary` reads email triggers.
+- Added: `AfEmailTriggerFields`, `AfEmailOptionsFields`, `AfEmailSetupNotice` for hosts with their
+  own create form, the pure rules (`emailTriggerConfigFrom`, `emailAllowedRecipientsFrom`,
+  `notifyFor`, `emailUsable`, …) and the types (`EmailReceivedConfig`, `EmailFilter`,
+  `AutomationNotify`, `MyEmailStatus`; `AutomationDefinition.schema_version` 1 | 2).
+- Changed: `automation_controls.json` gains an `email` section (the form's words, `EMAIL_TEXT`);
+  the Assistant and the Code TUI vendor it byte for byte. `ReviseForm` gains `notifyEmail` and
+  `emailRecipients` (`null` without a definition).
+- Added: `scripts/check_automation_email.mjs` (in `npm test`), red before this change.
+
+### panel-chat 0.1.21: accepts ui-kit 0.2.0
+
+- Changed: the `@abstractframework/ui-kit` peer (and dev) range is `^0.1.14 || ^0.2.0`; with the
+  old `^0.1.14` an app installing ui-kit 0.2.0 next to panel-chat 0.1.20 fails npm's peer check.
+  No code change.
+
 ## 0.1.17 - 2026-09-29
 
 | Package | Version | Change |

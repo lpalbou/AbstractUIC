@@ -47,6 +47,37 @@ export type ScheduleEventPayload = {
 /** `manual@1` envelope payload. */
 export type ManualEventPayload = { command_id: string };
 
+/**
+ * `email.received@1` typed filter (framework backlog 0992 B4): membership and
+ * one literal substring only — no expressions, no regex. Every field is
+ * optional; an absent field does not filter.
+ */
+export type EmailFilter = {
+  from_in?: string[];
+  from_domain_in?: string[];
+  to_in?: string[];
+  subject_contains?: string;
+  has_attachment?: boolean;
+};
+/**
+ * `email.received@1` configuration. `every` is the batch interval (at most
+ * one occurrence per `every`, carrying the matching mail received since the
+ * previous one, up to `max_batch`). Defaults: `uses_model` true → `every`
+ * "1h"; false → "60s"; `every` is at least "60s". The server stamps
+ * `start_at` (mail that arrived before is never processed).
+ */
+export type EmailReceivedConfig = {
+  account?: "self";
+  folder?: string;
+  uses_model?: boolean;
+  every?: Duration;
+  max_batch?: number;
+  start_at?: Timestamp;
+  filter?: EmailFilter;
+};
+/** `email.received@1` envelope payload (metadata only; bodies ride the occurrence's inputs). */
+export type EmailEventPayload = { count: number; event_ids: string[]; messages: JsonObject[]; first_seq?: number; last_seq?: number; content_trust?: "untrusted" };
+
 export type TriggerSourceKind = "time" | "manual" | "event";
 export type TriggerSource = {
   id: string;
@@ -168,9 +199,13 @@ export type AutomationCommandType =
   | "automation.stop_current"
   | "automation.archive";
 
-/** Contract A `_meta.automation` (the latest committed revision). */
+/** Where an automation's attention items are delivered (definition v2; default `["console"]`). */
+export type NotifyChannel = "console" | "email";
+export type AutomationNotify = { channels: NotifyChannel[] };
+
+/** Contract A `_meta.automation` (the latest committed revision). v1 definitions read with the v2 defaults. */
 export type AutomationDefinition = {
-  schema_version: 1;
+  schema_version: 1 | 2;
   revision: number;
   title: string;
   controller: { bundle_ref: string; flow_id: string };
@@ -183,7 +218,11 @@ export type AutomationDefinition = {
     failure: "continue";
     retry: { max_attempts: number; backoff: { initial: Duration; factor: number; max: Duration } };
     tool_approval: ToolApprovalPolicy;
+    /** Recipients an occurrence may email without an approval wait: "self" and exact addresses (v2; default ["self"]). */
+    email_allowed_recipients?: string[];
   };
+  /** v2; absent on a v1 definition (= `{channels: ["console"]}`). */
+  notify?: AutomationNotify;
   session_id: string;
   workspace_root: string;
   created_at: Timestamp;
@@ -202,7 +241,13 @@ export type RetryPolicy = { max_attempts?: number; backoff?: { initial?: Duratio
  * automation is the consent; `"ask"` = each tool call waits for approval.
  */
 export type ToolApprovalPolicy = "auto" | "ask";
-export type AutomationPolicyInput = { retry?: RetryPolicy; tool_approval?: ToolApprovalPolicy };
+/**
+ * `email_allowed_recipients` (framework backlog 0992 B5): "self" (the user's
+ * registered address) and exact addresses an occurrence may email without an
+ * approval wait; default `["self"]`. Everyone else waits for approval, and the
+ * account's own recipient policy (My email) still applies on top.
+ */
+export type AutomationPolicyInput = { retry?: RetryPolicy; tool_approval?: ToolApprovalPolicy; email_allowed_recipients?: string[] };
 
 /** Body of `POST /api/gateway/automations`. */
 export type CreateAutomationRequest = {
@@ -212,6 +257,7 @@ export type CreateAutomationRequest = {
   trigger: TriggerSpec;
   context?: { mode: ContextMode };
   policy?: AutomationPolicyInput;
+  notify?: AutomationNotify;
 };
 export type CreateAutomationResponse = { automation_id: string; revision: number; summary: AutomationSummary };
 
@@ -222,6 +268,23 @@ export type AutomationChanges = {
   trigger?: TriggerSpec;
   context?: { mode: ContextMode };
   policy?: AutomationPolicyInput;
+  notify?: AutomationNotify;
+};
+
+/**
+ * `GET /api/gateway/me/email` — the signed-in user's own email account (never
+ * a secret). The kit reads only what decides whether email options can be
+ * offered: `effective_enabled` = configured AND the user's switch AND the
+ * administrator's switch.
+ */
+export type MyEmailStatus = {
+  configured: boolean;
+  enabled?: boolean;
+  admin_enabled?: boolean;
+  effective_enabled: boolean;
+  address?: string;
+  admin_disabled?: { cause: string; fix: string };
+  [key: string]: unknown;
 };
 
 /**
