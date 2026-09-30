@@ -11,6 +11,7 @@
 // non-2xx without that envelope, or a 2xx that is not JSON, throws
 // `invalid_response` — never a silent success.
 import { gatewayApiPath, joinBaseUrl } from "../gateway_paths.js";
+import { randomId } from "../random_id.js";
 import type {
   ApiError,
   AutomationChanges,
@@ -116,9 +117,7 @@ function query(params: Record<string, string | number | undefined>): string {
 }
 
 function defaultId(): string {
-  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (!c || typeof c.randomUUID !== "function") throw new Error("automations client: crypto.randomUUID is unavailable; pass options.newId");
-  return c.randomUUID();
+  return randomId();
 }
 
 export function createAutomationsClient(options: AutomationsClientOptions): AutomationsClient {

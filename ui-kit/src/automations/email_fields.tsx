@@ -6,6 +6,7 @@
 // Observer's Launch → Automate) render the same fields with the same words
 // (EMAIL_TEXT = automation_controls.json → email).
 import React from "react";
+import { AfSwitch } from "../af_switch.js";
 import type { MyEmailStatus } from "./types.js";
 import {
   EMAIL_DEFAULT_MAX_BATCH,
@@ -152,9 +153,7 @@ export function AfEmailOptionsFields(p: AfEmailOptionsFieldsProps): React.ReactE
   const dis = p.disabled === true;
   return (
     <div className="af-email__options" data-field="email-options">
-      <label className="af-email__check">
-        <input type="checkbox" name="notify_email" checked={p.notifyEmail} disabled={dis} onChange={(e) => p.onNotifyEmailChange(e.target.checked)} /> {EMAIL_TEXT.notify_label}
-      </label>
+      <AfSwitch variant="row" action="notify-email" label={EMAIL_TEXT.notify_label} checked={p.notifyEmail} unavailableReason={dis ? EMAIL_TEXT.not_set_up : null} reasonVisible={false} onChange={(on) => p.onNotifyEmailChange(on)} />
       <p className="af-auto__hint">{EMAIL_TEXT.notify_hint}</p>
       <fieldset className="af-auto__field" disabled={dis} data-field="email-recipients">
         <legend>{EMAIL_TEXT.recipients_legend}</legend>

@@ -166,12 +166,12 @@ for (const sel of [".af-gateway-signin__actions", ".af-appearance__actions", ".a
 // the name (scoped so it beats the later base rule).
 {
   const base = resolve(css.replace(/@(media|container|supports)[^{]*\{[\s\S]*?\n\}/g, ""), ".af-tool-row");
-  if (!/24px minmax\(0, 1fr\) auto/.test(base["grid-template-columns"] || "")) fail(`.af-tool-row must use grid-template-columns: 24px minmax(0, 1fr) auto (got ${base["grid-template-columns"]})`);
+  if (!/^auto minmax\(0, 1fr\) auto/.test(base["grid-template-columns"] || "")) fail(`.af-tool-row must use grid-template-columns: auto minmax(0, 1fr) auto (got ${base["grid-template-columns"]})`);
   if (base["flex-shrink"] !== "0") fail(".af-tool-row must not shrink in the scrolling list (flex-shrink: 0)");
   if (resolve(css, ".af-tool-row__approval select")["max-width"] !== "100%") fail(".af-tool-row__approval select must be capped at max-width: 100%");
   if (resolve(css, ".af-tool-row__meta")["min-width"] !== "0") fail(".af-tool-row__meta must have min-width: 0");
   const narrow = blocks_of(/@container af-tool-policy \(max-width: 359\.98px\)\s*\{/g);
-  if (!/24px minmax\(0, 1fr\)$/.test(resolve(narrow, ".af-tool-policy .af-tool-row")["grid-template-columns"] || "")) fail("narrow tool policy (< 360px) must drop to two columns with .af-tool-policy .af-tool-row");
+  if (!/^auto minmax\(0, 1fr\)$/.test(resolve(narrow, ".af-tool-policy .af-tool-row")["grid-template-columns"] || "")) fail("narrow tool policy (< 360px) must drop to two columns with .af-tool-policy .af-tool-row");
   if (resolve(narrow, ".af-tool-policy .af-tool-row__approval")["grid-column"] !== "2") fail("narrow tool policy must wrap the approval select under the name (grid-column: 2)");
 }
 

@@ -3,6 +3,7 @@
 // scripts/check_automation_panel.mjs). Everything here reads STRUCTURE only —
 // statuses, notify objects, waits, config fields — never model prose.
 import controlsSpec from "./automation_controls.json" with { type: "json" };
+import { randomId } from "../random_id.js";
 import type {
   ApiError,
   AutomationChanges,
@@ -286,9 +287,9 @@ export function notifyLabel(notify: AutomationNotify | null | undefined): string
 
 // --- controls ---------------------------------------------------------------
 
-export type ControlId = "pause" | "resume" | "run_now" | "stop_current" | "revise" | "archive" | "discuss";
+export type ControlId = "active" | "pause" | "resume" | "run_now" | "stop_current" | "revise" | "archive" | "discuss";
 export type ControlState = { enabled: boolean; reason?: string };
-export const CONTROL_COMMANDS: Record<Exclude<ControlId, "revise" | "discuss">, string> = {
+export const CONTROL_COMMANDS: Record<Exclude<ControlId, "active" | "revise" | "discuss">, string> = {
   pause: "automation.pause",
   resume: "automation.resume",
   run_now: "automation.run_now",
@@ -353,7 +354,23 @@ export function automationControls(
     return ok ? { enabled: true } : { enabled: false, reason };
   };
   const live = st === "active" || st === "paused";
+  // The "Active" state toggle (operator 2026-09-30: a persistent on/off
+  // setting is a pressed/plain toggle, never a Pause/Resume verb swap). It
+  // needs the capability of the transition a click would request.
+  const toggleCap: ControlId = st === "active" ? "pause" : "resume";
+  const active: ControlState = busy
+    ? { enabled: false, reason: "Working…" }
+    : summary.legacy
+      ? { enabled: false, reason: "Legacy schedule: managed with its existing controls." }
+      : st === "archived"
+        ? { enabled: false, reason: "Archived: history is kept, nothing runs." }
+        : !live
+          ? { enabled: false, reason: "The automation has ended." }
+          : caps.has(toggleCap)
+            ? { enabled: true }
+            : { enabled: false, reason: "Not permitted for this automation." };
   return {
+    active,
     pause: gate("pause", st === "active", st === "paused" ? "Already paused." : "The automation has ended."),
     resume: gate("resume", st === "paused", st === "active" ? "Already running on schedule." : "The automation has ended."),
     run_now: gate("run_now", live && !running, running ? "An occurrence is in progress." : "The automation has ended."),
@@ -368,6 +385,11 @@ export function automationControls(
           ? { enabled: true }
           : { enabled: false, reason: "Discussion is not permitted for this automation." },
   };
+}
+
+/** The command the "Active" toggle sends from this state: pause when active, resume when paused. */
+export function activeToggleCommand(summary: Pick<AutomationSummary, "status">): string {
+  return summary.status === "active" ? CONTROL_COMMANDS.pause : CONTROL_COMMANDS.resume;
 }
 
 // --- occurrences as chat pairs -------------------------------------------------
@@ -738,9 +760,7 @@ export function isDefinitiveError(error: unknown): boolean {
 }
 
 export function mintUuid(): string {
-  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (!c || typeof c.randomUUID !== "function") throw new Error("crypto.randomUUID is unavailable; pass newId");
-  return c.randomUUID();
+  return randomId();
 }
 
 // --- /seen acknowledgement ------------------------------------------------------

@@ -20,17 +20,13 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { gatewayApiPath } from "./gateway_paths.js";
+import { randomId } from "./random_id.js";
 
 export type SteerSubmitResult = { accepted: boolean; duplicate: boolean; seq: number };
 
-/** Best-effort UUID for the command idempotency key. */
+/** UUID for the command idempotency key (randomId: works over plain http too). */
 function newCommandId(): string {
-  try {
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
-  } catch {
-    // fall through
-  }
-  return `steer-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return randomId();
 }
 
 /**

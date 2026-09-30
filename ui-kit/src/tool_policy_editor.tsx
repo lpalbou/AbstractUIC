@@ -2,6 +2,7 @@
  * ToolPolicyEditor: shared allowlist + approval selector for thin clients.
  */
 import React, { useMemo, useState } from "react";
+import { AfSwitch } from "./af_switch.js";
 
 export type ToolSpec = {
   name: string;
@@ -138,6 +139,13 @@ function describe_tool_mode(
   if (override_label) info = { ...info, label: override_label };
   if (override_detail) info = { ...info, detail: override_detail };
   return info;
+}
+
+/** A tool name with a line-break opportunity after each underscore, so "camera_capture_photo" wraps at word
+ * boundaries instead of mid-word. */
+function breakAtUnderscores(name: string): React.ReactNode {
+  const parts = name.split("_");
+  return parts.map((part, i) => (i < parts.length - 1 ? <React.Fragment key={i}>{part}_<wbr /></React.Fragment> : <React.Fragment key={i}>{part}</React.Fragment>));
 }
 
 export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactElement {
@@ -311,18 +319,22 @@ export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactEleme
           const approval = props.value?.approval?.[tool.name] || default_mode_for(tool, defaults);
           return (
             <div key={tool.name} className={`af-tool-row ${is_checked ? "is-enabled" : ""}`.trim()}>
-              <label className="af-tool-row__check">
-                <input
-                  type="checkbox"
+              <div className="af-tool-row__check">
+                <AfSwitch
+                  variant="sm"
+                  action="tool-enabled"
+                  label=""
+                  ariaLabel={tool.name}
                   checked={is_checked}
-                  disabled={disabled || mode !== "custom"}
-                  onChange={(e) => toggle_tool(tool.name, e.target.checked)}
-                  aria-label={`Enable ${tool.name}`}
+                  busy={disabled}
+                  unavailableReason={mode !== "custom" ? "Choose Custom to pick tools one by one." : null}
+                  reasonVisible={false}
+                  onChange={(on) => toggle_tool(tool.name, on)}
                 />
-              </label>
+              </div>
               <div className="af-tool-row__meta">
                 <div className="af-tool-row__title">
-                  <span className="af-tool-row__name">{tool.name}</span>
+                  <span className="af-tool-row__name">{breakAtUnderscores(tool.name)}</span>
                   {tool.toolset ? <span className="af-tool-row__badge">{tool.toolset}</span> : null}
                 </div>
                 {tool.description ? <div className="af-tool-row__desc">{tool.description}</div> : null}

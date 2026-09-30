@@ -12,6 +12,7 @@
 // any state and invoke their handlers without a DOM.
 import React, { useEffect, useId, useRef, useState } from "react";
 import { Icon, type IconName } from "../icon.js";
+import { AfSwitch, AfSwitchInput } from "../af_switch.js";
 import { AfEmailSetupNotice } from "./email_fields.js";
 import controlsSpec from "./automation_controls.json" with { type: "json" };
 import {
@@ -43,6 +44,7 @@ import {
   SeenAckTracker,
   STATUS_LABELS,
   triggerSummary,
+  activeToggleCommand,
   type ControlId,
   type ControlState,
   type OccurrenceView,
@@ -92,7 +94,7 @@ export type AutomationPanelProps = {
    * free text), `tool_approval` → `{approved: true|false}`, `event` → `{payload}`.
    */
   onAnswerWait(runId: string, waitKey: string, payload: JsonObject): Promise<void>;
-  /** Id source for the per-action ids (default `crypto.randomUUID`). */
+  /** Id source for the per-action ids (default `randomId()`: crypto.randomUUID, else getRandomValues). */
   newId?: () => string;
   /**
    * Required in practice: the shared chat renderer (panel-chat
@@ -446,6 +448,7 @@ export const CONTROL_LABELS: Record<ControlId, string> = SPEC.labels;
 
 /** The kit icon of each control (the same glyphs in every client's rows and panels). */
 export const CONTROL_ICONS: Record<ControlId, IconName> = {
+  active: "play",
   pause: "pause",
   resume: "play",
   run_now: SPEC.icons.run_now.name,
@@ -533,7 +536,7 @@ function IconLabel(props: { icon: IconName; label: string }): React.ReactElement
 
 export function AutomationControlsBar(p: AutomationControlsBarProps): React.ReactElement {
   const c = automationControls(p.summary, p.occurrences, p.busy);
-  const shown: ControlId[] = [p.summary.status === "paused" ? "resume" : "pause", "run_now", "stop_current", "revise", "archive"];
+  const shown: ControlId[] = ["active", "run_now", "stop_current", "revise", "archive"];
   const why = disabledReasons(c, shown, p.idBase ?? `af-auto-${p.summary.automation_id}`);
   const btn = (id: ControlId, onClick: () => void, extra?: { pressed?: boolean; danger?: boolean; action?: string; label?: string }) => {
     const hint = controlHint(id, p.summary);
@@ -558,7 +561,18 @@ export function AutomationControlsBar(p: AutomationControlsBarProps): React.Reac
     <div className="af-auto__controls-wrap">
       <div className="af-auto__actionbar">
         <div className="af-auto__controls" role="toolbar" aria-label="Automation controls">
-          {p.summary.status === "paused" ? btn("resume", () => p.onCommand(CONTROL_COMMANDS.resume)) : btn("pause", () => p.onCommand(CONTROL_COMMANDS.pause))}
+          <AfSwitch
+            key="active"
+            className="af-auto__switch"
+            action="active"
+            label={CONTROL_LABELS.active}
+            checked={p.summary.status === "active"}
+            unavailableReason={c.active.enabled ? null : c.active.reason ?? "Not available now."}
+            describedBy={why.describedBy.active}
+            busy={p.busy}
+            hint={controlHint("active", p.summary)}
+            onChange={() => p.onCommand(activeToggleCommand(p.summary))}
+          />
           {btn("run_now", () => p.onCommand(CONTROL_COMMANDS.run_now))}
           {btn("stop_current", () => p.onCommand(CONTROL_COMMANDS.stop_current))}
           {btn("revise", p.onToggleRevise, { pressed: p.reviseOpen, action: "edit" })}
@@ -640,6 +654,7 @@ export function readReviseForm(form: { elements: { namedItem(name: string): unkn
     rcpt && (rcpt.value === "self" || rcpt.value === "list") ? { mode: rcpt.value as "self" | "list", addresses: list ?? "" } : fallback.emailRecipients ?? null;
   return { title: val("title") ?? fallback.title, every, context, prompt: prompt ?? fallback.prompt ?? null, toolApproval, notifyEmail, emailRecipients };
 }
+
 
 export type AutomationReviseFormProps = {
   summary: AutomationSummary;
@@ -732,10 +747,8 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
         <fieldset className="af-auto__field" data-field="email">
           <legend>Email</legend>
           {!usable ? <AfEmailSetupNotice status={p.emailStatus} onOpenMyEmail={p.onOpenMyEmail} /> : null}
-          <label className="af-email__check">
-            {/* Without a usable account an option already on can still be turned off, never on. */}
-            <input type="checkbox" name="notify_email" defaultChecked={initial.notifyEmail} disabled={!usable && !initial.notifyEmail} /> {EMAIL_TEXT.notify_label}
-          </label>
+          {/* Without a usable account an option already on can still be switched off, never on. */}
+          <AfSwitchInput variant="row" action="notify-email" name="notify_email" label={EMAIL_TEXT.notify_label} defaultChecked={Boolean(initial.notifyEmail)} unavailableReason={!usable && !initial.notifyEmail ? EMAIL_TEXT.not_set_up : null} />
           <p className="af-auto__hint">{EMAIL_TEXT.notify_hint}</p>
           <fieldset className="af-auto__field" data-field="email-recipients">
             <legend>{EMAIL_TEXT.recipients_legend}</legend>
@@ -1067,11 +1080,12 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
 /** How long an action's feedback stays next to the buttons. */
 export const NOTICE_MS = 5000;
 
+// A notice names the NEW STATE (operator rule 2026-09-30), never the command that was sent.
 const COMMAND_NOTICES: Record<string, string> = {
-  [CONTROL_COMMANDS.pause]: "Pause sent.",
-  [CONTROL_COMMANDS.resume]: "Resume sent.",
+  [CONTROL_COMMANDS.pause]: "Automation paused.",
+  [CONTROL_COMMANDS.resume]: "Automation active.",
   [CONTROL_COMMANDS.run_now]: "Run requested.",
-  [CONTROL_COMMANDS.stop_current]: "Stop sent.",
+  [CONTROL_COMMANDS.stop_current]: "Stop requested.",
 };
 
 export function AutomationPanel(props: AutomationPanelProps): React.ReactElement {
