@@ -43,7 +43,9 @@
 
 .amx-toolbar-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, 1fr): a select's intrinsic width must never widen its column
+   * past the floating controls panel (round-2 cut finding). */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
   min-width: 0;
 }
@@ -52,8 +54,17 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: var(--font-size-sm, 12px);
   opacity: 0.9;
+}
+
+.amx-toolbar-grid :is(input:not([type='checkbox']):not([type='radio']), select, textarea) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .amx-toolbar-grid input,
@@ -199,6 +210,20 @@
   border-color: var(--ui-border-1, rgba(255, 255, 255, 0.10));
   backdrop-filter: blur(10px);
   box-shadow: var(--ui-shadow-1, 0 18px 48px rgba(0, 0, 0, 0.45));
+}
+
+/* The open panel is a query container: its grids stack by the PANEL's width.
+ * Only when open — a closed panel is fit-content, and inline-size
+ * containment would collapse it to zero width. */
+.amx-controls[open] {
+  container: amx-controls / inline-size;
+  overflow-x: hidden;
+}
+
+@container amx-controls (max-width: 419.98px) {
+  .amx-toolbar-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .amx-controls:not([open]) {
@@ -471,5 +496,44 @@
 @container amx (max-width: 559.98px) {
   .amx-toolbar-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Touch (0.2.0): the explorer's controls reach 44px and its fields 16px
+ * (iOS zoom) on coarse pointers; graph nodes are canvas content and scale
+ * with zoom (documented exception). */
+@media (pointer: coarse) {
+  .amx-root button,
+  .amx-root select,
+  .amx-root input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  .amx-root summary,
+  .amx-graph .react-flow__controls-button {
+    min-height: var(--tap-min, 44px);
+  }
+
+  .amx-graph .react-flow__controls-button {
+    min-width: var(--tap-min, 44px);
+  }
+
+  .amx-root summary {
+    display: flex;
+    align-items: center;
+  }
+
+  .amx-root label:has(> input[type='checkbox']),
+  .amx-root label:has(> input[type='radio']) {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min, 44px);
+  }
+
+  .amx-root input[type='range'] {
+    min-height: var(--tap-min, 44px);
+  }
+
+  .amx-root select,
+  .amx-root input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  .amx-root textarea {
+    font-size: var(--font-size-input, 16px);
   }
 }
