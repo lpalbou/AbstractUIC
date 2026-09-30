@@ -98,6 +98,22 @@
   --entity-bond: #f0c060;
   --entity-accent: #e8a54a;
 
+  /* Account-kind row tints (.af-row--admin|user|entity, .af-kind-chip--*):
+   * faint washes over whatever surface the row sits on. Users stay neutral,
+   * admin takes the theme accent, entities the entity-standing violet. Text
+   * on a tinted row keeps >= 4.5:1 in every theme (check_modal_rows.mjs
+   * computes it). The light-theme strengths live in the grouped light block. */
+  --af-row-tint-admin: color-mix(in srgb, var(--accent) 7%, transparent);
+  --af-row-tint-user: transparent;
+  --af-row-tint-entity: color-mix(in srgb, var(--entity-standing) 8%, transparent);
+  /* Text on a tinted row: the theme's primary, and a secondary nudged toward
+   * the foreground so it keeps 4.5:1 over the wash (.af-row__muted). */
+  --af-row-text: var(--text-primary);
+  --af-row-text-muted: color-mix(in srgb, var(--text-secondary) 65%, #ffffff);
+  --af-row-mark-admin: var(--accent);
+  --af-row-mark-user: var(--ui-border-2);
+  --af-row-mark-entity: var(--entity-standing);
+
   /* Semantic tints (hue-matched to the base colors above — subtle/border
    * variants must never drift to a different hue family than their base) */
   --accent-subtle: rgba(233, 69, 96, 0.12);
@@ -729,6 +745,13 @@
   --entity-scar: #b23230;
   --entity-bond: #66530d;
   --entity-accent: #8f5a0e;
+
+  /* Account-kind row tints, light strengths (see the base :root block). */
+  --af-row-tint-admin: color-mix(in srgb, var(--accent) 6%, transparent);
+  --af-row-tint-user: transparent;
+  --af-row-tint-entity: color-mix(in srgb, var(--entity-standing) 6%, transparent);
+  --af-row-text: color-mix(in srgb, var(--text-primary) 80%, #000000);
+  --af-row-text-muted: color-mix(in srgb, var(--text-secondary) 65%, #000000);
 
   /* Code/JSON syntax tokens, light variants: dark enough to hold ≥4.5:1 on
    * every light theme's primary/secondary backgrounds (worst cases #ffffff
@@ -2770,6 +2793,8 @@
 
 :root {
   --z-drawer: 900;
+  /* AfModal / .af-modal-backdrop: above drawers, below the connect modal. */
+  --z-modal: 950;
   --z-connect-modal: 1000;
   --z-popover: 1100;
 }
@@ -3758,6 +3783,19 @@ html {
   --reading-max: 86ch;
   --form-max: 720px;
   --drawer-w: 420px;
+
+  /* Helper / "why unavailable" text floor: 13 px on desktop, 14 px on touch
+   * (below). Every kit helper rule reads this token; checkLabelScale asserts
+   * the same floors in the browser. */
+  --af-helper-size: max(var(--font-size-sm), 13px);
+}
+
+/* Touch helper floor: a coarse pointer OR a viewport under the md breakpoint
+ * (1024 px) — phones and tablets, whatever the pointer reports. */
+@media (pointer: coarse), (max-width: 1023.98px) {
+  :root {
+    --af-helper-size: max(var(--font-size-sm), 14px);
+  }
 }
 
 @supports (height: 100dvh) {
@@ -4350,8 +4388,8 @@ html {
 }
 .af-switch__desc {
   color: var(--text-muted);
-  /* Helper text is never below 13 px (DESIGN §3 / §12.1). */
-  font-size: max(var(--font-size-sm), 13px);
+  /* Helper text: >= 13 px desktop, >= 14 px touch (--af-helper-size). */
+  font-size: var(--af-helper-size);
   font-weight: 400;
   white-space: normal;
 }
@@ -4466,7 +4504,7 @@ html {
 }
 .af-switch__reason {
   color: var(--text-muted);
-  font-size: max(var(--font-size-sm), 13px);
+  font-size: var(--af-helper-size);
 }
 .af-switch__reason--hidden {
   position: absolute;
@@ -4561,7 +4599,7 @@ html {
 .af-form__help {
   margin: 0;
   color: var(--text-muted);
-  font-size: max(var(--font-size-sm), 13px);
+  font-size: var(--af-helper-size);
   font-weight: 400;
   line-height: 1.4;
 }
@@ -4754,3 +4792,367 @@ html {
   }
 }
 /* af-form:end */
+
+/* af-modal:begin
+ * AfModal (React) and plain-HTML hosts (the gateway console) share these
+ * classes; the markup contract is in docs/modal.md. A large dialog over a
+ * dimmed, blurred backdrop: min(960px, 100vw - 32px) wide, up to 90vh tall,
+ * header / scrolling body / footer. Below 768 px it is a full-screen sheet
+ * with ONE scroll (the sheet), header and footer pinned, safe-area padded. */
+.af-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 950);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, var(--safe-top)) max(16px, var(--safe-right)) calc(max(16px, var(--safe-bottom)) + var(--keyboard-inset, 0px)) max(16px, var(--safe-left));
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  overscroll-behavior: contain;
+}
+
+.af-modal-backdrop[hidden] {
+  display: none;
+}
+
+/* Reduced transparency: no blur, a solid (denser) dim instead. */
+@media (prefers-reduced-transparency: reduce) {
+  .af-modal-backdrop {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgba(0, 0, 0, 0.72);
+  }
+}
+
+/* The page behind an open modal does not scroll (AfModal and bindAfModal
+ * set this class on <html>). */
+html.af-modal-open,
+html.af-modal-open body {
+  overflow: hidden;
+}
+
+.af-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(960px, calc(100vw - 32px));
+  max-width: 100%;
+  max-height: 90vh;
+  max-height: 90dvh;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--ui-border-2);
+  border-radius: var(--radius-lg);
+  /* Solid surface: the translucent --bg-card would show the blur through. */
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  box-shadow: var(--ui-shadow-1);
+  font-size: var(--font-size-base);
+  outline: none;
+}
+
+.af-modal--narrow {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.af-modal__header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 14px 14px 20px;
+  border-bottom: 1px solid var(--ui-border-1);
+  background: var(--bg-secondary);
+}
+
+.af-modal__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.af-modal__close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.af-modal__close:hover {
+  color: var(--text-primary);
+  background: var(--ui-overlay-bg-hover, rgba(255, 255, 255, 0.08));
+}
+
+.af-modal__close:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  outline-offset: 2px;
+}
+
+.af-modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px;
+}
+
+.af-modal__footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--ui-border-1);
+  background: var(--bg-secondary);
+}
+
+.af-modal__footer-note {
+  margin: 0 auto 0 0;
+  color: var(--text-muted);
+  font-size: var(--af-helper-size);
+}
+
+/* Phones (< 768 px): a full-screen sheet. The sheet is the one scroller;
+ * header and footer stay pinned inside it; every edge clears the notch and
+ * the home indicator. */
+@media (max-width: 767.98px) {
+  .af-modal-backdrop {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .af-modal,
+  .af-modal--narrow {
+    width: 100%;
+    height: var(--vh-full, 100vh);
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    overflow-y: auto;
+    padding-bottom: var(--keyboard-inset, 0px);
+  }
+
+  .af-modal__header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: calc(10px + var(--safe-top)) calc(8px + var(--safe-right)) 10px calc(16px + var(--safe-left));
+  }
+
+  .af-modal__body {
+    flex: 1 0 auto;
+    overflow: visible;
+    padding: 16px calc(16px + var(--safe-right)) 16px calc(16px + var(--safe-left));
+  }
+
+  .af-modal__footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    padding: 10px calc(16px + var(--safe-right)) calc(10px + var(--safe-bottom)) calc(16px + var(--safe-left));
+  }
+}
+
+@media (pointer: coarse) {
+  .af-modal__close {
+    width: var(--tap-min);
+    height: var(--tap-min);
+  }
+}
+/* af-modal:end */
+
+/* af-rows:begin
+ * Account-kind rows (tokens --af-row-tint-* / --af-row-mark-* in the base
+ * :root and the light group block). Works on a <tr> (the tint paints the
+ * cells, the kind mark is an inset bar on the first cell) and on any stacked
+ * row block (a <div> row on phones: the bar is on the block itself). */
+.af-row--admin,
+.af-row--admin > td,
+.af-row--admin > th {
+  background-color: var(--af-row-tint-admin);
+}
+.af-row--user,
+.af-row--user > td,
+.af-row--user > th {
+  background-color: var(--af-row-tint-user);
+}
+.af-row--entity,
+.af-row--entity > td,
+.af-row--entity > th {
+  background-color: var(--af-row-tint-entity);
+}
+/* Text on a tinted row keeps 4.5:1: the row colour, and .af-row__muted for
+ * secondary text (NOT the host's own muted colour, which may be tuned for a
+ * bare surface). */
+.af-row--admin,
+.af-row--user,
+.af-row--entity {
+  color: var(--af-row-text);
+}
+.af-row__muted {
+  color: var(--af-row-text-muted);
+}
+/* A <tr>'s own background would double the wash under its cells. */
+tr.af-row--admin,
+tr.af-row--user,
+tr.af-row--entity {
+  background-color: transparent;
+}
+tr.af-row--admin > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-admin); }
+tr.af-row--user > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-user); }
+tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-entity); }
+.af-row--admin:not(tr) { box-shadow: inset 3px 0 0 var(--af-row-mark-admin); }
+.af-row--user:not(tr) { box-shadow: inset 3px 0 0 var(--af-row-mark-user); }
+.af-row--entity:not(tr) { box-shadow: inset 3px 0 0 var(--af-row-mark-entity); }
+
+/* Kind chip: "Admin" / "User" / "Entity" beside a name. Text is always
+ * --af-row-text (never the tint colour), so it keeps 4.5:1 over its wash. */
+.af-kind-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border: 1px solid var(--ui-border-2);
+  border-radius: 999px;
+  background: var(--ui-overlay-bg, transparent);
+  color: var(--af-row-text, var(--text-primary));
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.af-kind-chip--admin {
+  border-color: color-mix(in srgb, var(--af-row-mark-admin) 60%, transparent);
+  background: color-mix(in srgb, var(--af-row-mark-admin) 10%, transparent);
+}
+.af-kind-chip--user {
+  border-color: var(--ui-border-2);
+  background: var(--ui-overlay-bg, transparent);
+}
+.af-kind-chip--entity {
+  border-color: color-mix(in srgb, var(--af-row-mark-entity) 60%, transparent);
+  background: color-mix(in srgb, var(--af-row-mark-entity) 10%, transparent);
+}
+
+/* Tint legend under a tinted table: "Tint: [admin] [user] [entity]". */
+.af-row-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: var(--af-helper-size);
+}
+.af-row-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.af-row-legend__swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--ui-border-2);
+}
+.af-row-legend__swatch--admin { background: var(--af-row-tint-admin); box-shadow: inset 3px 0 0 var(--af-row-mark-admin); }
+.af-row-legend__swatch--user { background: var(--af-row-tint-user); box-shadow: inset 3px 0 0 var(--af-row-mark-user); }
+.af-row-legend__swatch--entity { background: var(--af-row-tint-entity); box-shadow: inset 3px 0 0 var(--af-row-mark-entity); }
+/* af-rows:end */
+
+/* af-nav:begin
+ * Grouped sidebar navigation: a small uppercase muted caption above each
+ * group of items, and a footer slot pinned to the bottom of a flex-column
+ * sidebar (the Setup button). The items keep the host's own styles. */
+.af-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+}
+.af-nav-group + .af-nav-group {
+  margin-top: 14px;
+}
+.af-nav-group__caption {
+  margin: 0;
+  padding: 0 10px 4px;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  user-select: none;
+}
+.af-nav-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0 max(4px, var(--safe-bottom));
+  border-top: 1px solid var(--ui-border-1);
+}
+.af-nav-footer__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--control-h, 32px);
+  padding: 6px 12px;
+  border: 1px solid var(--ui-border-2);
+  border-radius: var(--radius-md);
+  background: var(--ui-overlay-bg, transparent);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  cursor: pointer;
+}
+.af-nav-footer__button:hover {
+  background: var(--ui-overlay-bg-hover, rgba(255, 255, 255, 0.08));
+}
+.af-nav-footer__button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  .af-nav-footer__button {
+    min-height: var(--tap-min);
+  }
+}
+/* af-nav:end */
+
+/* Generic helper text (the label-scale guard's .af-field-help): the same
+ * floor as the kit's own helper rules. */
+.af-field-help {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--af-helper-size);
+  font-weight: 400;
+  line-height: 1.4;
+}

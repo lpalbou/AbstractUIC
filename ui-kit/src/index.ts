@@ -90,6 +90,8 @@ export {
 } from "./disclosure_list.js";
 export { AfChip, AfChipButton, afChipHue, type AfChipProps, type AfChipButtonProps, type AfChipTone } from "./af_chip.js";
 export { AfDrawer, type AfDrawerProps } from "./af_drawer.js";
+export { AfModal, type AfModalProps } from "./af_modal.js";
+export { bindAfModal, afModalTabTarget, afModalFocusables, AF_MODAL_FOCUSABLE, type BindAfModalOptions } from "./af_modal_core.js";
 export { AfTopBarActions, type AfTopBarActionsProps } from "./af_top_bar_actions.js";
 export {
   frameworkIdentity,

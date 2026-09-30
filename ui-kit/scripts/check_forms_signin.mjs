@@ -131,7 +131,7 @@ const fl = resolve(fmTop, ".af-form__label");
 check("af-form__label: body size, 500", fl["font-size"] === "var(--font-size-base)" && fl["font-weight"] === "500", JSON.stringify(fl));
 check("af-form__field stacks label above field", resolve(fmTop, ".af-form__field")["flex-direction"] === "column");
 const help = resolve(fmTop, ".af-form__help");
-check("af-form__help: small (never below 13px) + muted", help["font-size"] === "max(var(--font-size-sm), 13px)" && help.color === "var(--text-muted)", JSON.stringify(help));
+check("af-form__help: small (never below 13px desktop / 14px touch via --af-helper-size) + muted", help["font-size"] === "var(--af-helper-size)" && help.color === "var(--text-muted)", JSON.stringify(help));
 check("inputs never wider than the card", resolve(fmTop, ".af-form textarea")["max-width"] === "100%" && resolve(fmTop, ".af-form select")["min-width"] === "0");
 check("af-card + heading", resolve(fmTop, ".af-card").display === "flex" && resolve(fmTop, ".af-card__title")["font-weight"] === "600");
 check("selected tab: accent underline, weight 600", resolve(fmTop, '.af-tabs__tab[aria-selected="true"]')["border-bottom-color"] === "var(--accent)" && resolve(fmTop, '.af-tabs__tab[aria-selected="true"]')["font-weight"] === "600");
