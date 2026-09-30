@@ -45,6 +45,13 @@ ships.
   keyboard padding; dialog `width`/`max-height: 100%`, `border-box`, square bottom corners; sticky
   actions). Deleting either block fails (24 / 34 failures). `check_viewport_vars.mjs` pins the pinch rule.
 
+### monitor-active-memory 0.2.1
+
+- Fixed: the explorer's selects (`.amx-toolbar-grid select`, `.amx-graphbar select`) set
+  `background-color` instead of the `background` shorthand, which erased the kit's touch chevron
+  (ui-kit 0.3.2 `--af-select-chevron`). On coarse pointers they keep 32 px of right padding for it and
+  the 16 px input font. Desktop is unchanged (pixel-identical at 1512x982).
+
 ### panel-chat (0.2.1, unchanged)
 
 - Added: `scripts/check_responsive.mjs` in `npm test`. It pins the pc-thread / pc-composer / pc-chat

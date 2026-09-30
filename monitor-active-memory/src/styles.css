@@ -72,7 +72,9 @@
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
-  background: var(--ui-surface-3, rgba(0, 0, 0, 0.2));
+  /* background-color, not the shorthand: the kit's touch select rule draws
+   * the chevron as background-image (ui-kit 0.3.2). */
+  background-color: var(--ui-surface-3, rgba(0, 0, 0, 0.2));
   color: inherit;
 }
 
@@ -165,7 +167,9 @@
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
-  background: var(--ui-surface-3, rgba(0, 0, 0, 0.2));
+  /* background-color, not the shorthand: the kit's touch select rule draws
+   * the chevron as background-image (ui-kit 0.3.2). */
+  background-color: var(--ui-surface-3, rgba(0, 0, 0, 0.2));
   color: inherit;
 }
 
@@ -535,5 +539,11 @@
   .amx-root input:not([type='checkbox']):not([type='radio']):not([type='range']),
   .amx-root textarea {
     font-size: var(--font-size-input, 16px);
+  }
+
+  /* Room for the kit's chevron: this package's 8px/10px padding would
+   * otherwise run the value under it. */
+  .amx-root select:not([multiple]) {
+    padding-right: 32px;
   }
 }
