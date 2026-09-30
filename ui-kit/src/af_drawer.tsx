@@ -19,7 +19,7 @@ export type AfDrawerProps = {
   onClose: () => void;
   /** Accessible name for the drawer region. */
   label: string;
-  /** Panel width (px). Default 420. Below 680px viewport the drawer is full-width via CSS. */
+  /** Panel width (px). Default 420. Below 768px viewport (the `sm` breakpoint) the drawer is full-width via CSS. */
   width?: number;
   /** Distance from the viewport top (px) — set to your header height so the
    * drawer opens BELOW the app header instead of covering the top-bar
@@ -33,6 +33,13 @@ export type AfDrawerProps = {
   title?: React.ReactNode;
   /** Extra header actions rendered before the close button. */
   headerActions?: React.ReactNode;
+  /** Edge the drawer opens from (default "right"). "left" suits a navigation
+   * sidebar that becomes a drawer below the `md` breakpoint (1024px). */
+  side?: "left" | "right";
+  /** Render a dimmed backdrop behind the open drawer; a tap on it closes the
+   * drawer. Use it where the drawer REPLACES a docked sidebar on narrow
+   * screens (overlay mode). Default false: the drawer stays non-modal. */
+  backdrop?: boolean;
 };
 
 export function AfDrawer(props: AfDrawerProps): React.ReactElement {
@@ -60,9 +67,11 @@ export function AfDrawer(props: AfDrawerProps): React.ReactElement {
   }, [props.open]);
 
   return (
+    <>
+    {props.backdrop && props.open ? <div className="af-drawer-backdrop" aria-hidden="true" onClick={props.onClose} style={{ top: props.topOffset || 0 }} /> : null}
     <div
       ref={panelRef}
-      className={`af-drawer${props.open ? " af-drawer--open" : ""}${props.className ? ` ${props.className}` : ""}`}
+      className={`af-drawer${props.side === "left" ? " af-drawer--left" : ""}${props.topOffset ? " af-drawer--offset" : ""}${props.open ? " af-drawer--open" : ""}${props.className ? ` ${props.className}` : ""}`}
       style={{ width: props.width || 420, top: props.topOffset || 0, display: props.open ? undefined : "none" }}
       role="complementary"
       aria-label={props.label}
@@ -81,6 +90,7 @@ export function AfDrawer(props: AfDrawerProps): React.ReactElement {
       ) : null}
       <div className="af-drawer__body">{props.children}</div>
     </div>
+    </>
   );
 }
 

@@ -30,8 +30,19 @@
   --font-size-sm: calc(12px * var(--font-scale));
   --font-size-md: calc(13px * var(--font-scale));
   --font-size-base: calc(14px * var(--font-scale));
+  /* Headings are FLUID (responsive workstream 2026-09-30): they reach their
+   * desktop size at ~1000px wide and shrink slightly below, so a phone is
+   * never bigger than a laptop. Sizes up to lg stay fixed px (legibility
+   * floor; apps use lg as their 16px touch-input size, so it must not dip).
+   * Everything still multiplies by the user's --font-scale. */
   --font-size-lg: calc(16px * var(--font-scale));
-  --font-size-xl: calc(18px * var(--font-scale));
+  --font-size-xl: calc(clamp(16px, 14px + 0.4vw, 18px) * var(--font-scale));
+  --font-size-2xl: calc(clamp(18px, 15px + 0.7vw, 22px) * var(--font-scale));
+  /* Role sizes: reading text, form fields, monospace. Coarse pointers raise
+   * their floors (see the Responsive tokens block). */
+  --font-size-body: var(--font-size-base);
+  --font-size-input: var(--font-size-md);
+  --font-size-code: var(--font-size-sm);
 
   --line-height-base: 1.5;
 
@@ -301,8 +312,10 @@
 
 /* Narrow drawers (360-480px): a fixed 150px label column leaves too little
  * for the gateway URL — labels stack above their inputs instead
- * (design adversary B, 2026-07-13). */
-@media (max-width: 520px) {
+ * (design adversary B, 2026-07-13). A CONTAINER query since 0.3.0: the card
+ * asks its own width, so it also stacks inside a 420px drawer on a desktop
+ * (the old viewport query never fired there). */
+@container af-signin (max-width: 559.98px) {
   .af-gateway-signin__form {
     grid-template-columns: minmax(0, 1fr);
     gap: 6px;
@@ -412,11 +425,13 @@
   background: var(--bg-tertiary);
 }
 
-@media (max-width: 680px) {
+@media (max-width: 767.98px) {
   .af-gateway-signin {
     padding: 18px;
   }
+}
 
+@container af-signin (max-width: 679.98px) {
   .af-gateway-signin__hero {
     gap: 16px;
   }
@@ -651,7 +666,7 @@
 
 /* Narrow containers: the three-column control row (filter + segmented +
  * bulk) overflows under ~520px — stack it (design adversary B). */
-@media (max-width: 520px) {
+@container af-tool-policy (max-width: 519.98px) {
   .af-tool-policy__controls {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -2580,9 +2595,13 @@
   font-family: var(--font-sans);
 }
 
-@media (max-width: 680px) {
+/* Below the sm breakpoint (768px) a drawer is the whole screen (the inline
+ * width prop loses); 0.2.0 switched at 680px. */
+@media (max-width: 767.98px) {
   .af-drawer {
     width: 100vw !important;
+    border-left: 0;
+    border-right: 0;
   }
 }
 
@@ -2691,7 +2710,7 @@
   align-items: center;
 }
 
-@media (max-width: 520px) {
+@container af-dialog (max-width: 479.98px) {
   .af-appearance__grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 6px;
@@ -2740,7 +2759,7 @@
   display: contents;
 }
 
-@media (max-width: 520px) {
+@container af-dialog (max-width: 479.98px) {
   .af-about__rows {
     grid-template-columns: minmax(0, 1fr);
     gap: 2px;
@@ -3363,7 +3382,7 @@
   .af-auto__notice--on { animation: none; }
 }
 .af-auto__error-text { flex: 1; min-width: 0; }
-@media (max-width: 520px) {
+@container af-auto (max-width: 519.98px) {
   .af-auto__facts { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .af-auto-turn--trigger { max-width: 100%; }
 }
@@ -3395,3 +3414,434 @@
 .af-auto-wait__prompt { min-width: 0; overflow-wrap: anywhere; }
 .af-auto-turn__text > .pc-chat-content > .pc-md > :first-child,
 .af-auto-wait__prompt .pc-md > :first-child { margin-top: 0; }
+
+/* =====================================================================
+ * RESPONSIVE LAYER (ui-kit 0.3.0; responsive workstream 2026-09-30)
+ *
+ * Breakpoints — CSS variables cannot be used in @media, so these literal
+ * values are the contract (mirrored in src/responsive.ts AF_BREAKPOINTS/
+ * AF_MEDIA and untracked/responsive/DESIGN.md):
+ *   xs  < 480   (max-width: 479.98px)   phone portrait
+ *   sm  < 768   (max-width: 767.98px)   phone landscape / small tablet
+ *   md  < 1024  (max-width: 1023.98px)  tablet portrait, narrow window
+ *   lg  < 1440  (max-width: 1439.98px)  laptop windows, tablet landscape
+ *   xl  >= 1440 (min-width: 1440px)
+ *   short       (max-height: 500px)     phone landscape
+ *   touch       (pointer: coarse)       44px targets, 16px inputs
+ *   no-hover    (hover: none)
+ * Desktop-first: every rule below only ADDS behaviour under a query, so a
+ * regular desktop window renders exactly as 0.2.0 did.
+ * ===================================================================== */
+
+html {
+  /* No iOS/Android text inflation: a layout that is (even briefly) wider
+   * than the phone must not make the browser boost font sizes. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Responsive tokens (the same for every theme; no theme block redefines them). */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --gutter: 16px;
+
+  --tap-min: 32px;
+  --control-h: 32px;
+  --row-pad-y: 4px;
+  --row-pad-x: 8px;
+  --control-pad-x: 10px;
+
+  --vh-full: 100vh;
+  --keyboard-inset: 0px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  --content-max: 1200px;
+  --reading-max: 86ch;
+  --form-max: 720px;
+  --drawer-w: 420px;
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --vh-full: 100dvh;
+  }
+}
+
+@media (max-width: 479.98px) {
+  :root {
+    --gutter: 12px;
+  }
+}
+
+@media (min-width: 1440px) {
+  :root {
+    --gutter: 24px;
+  }
+}
+
+/* Touch: bigger targets, comfortable density, legible floors whatever the
+ * user's font scale (body >= 14px, inputs >= 16px so iOS never zooms). */
+@media (pointer: coarse) {
+  :root {
+    --tap-min: 44px;
+    --control-h: 44px;
+    --row-pad-y: 10px;
+    --row-pad-x: 12px;
+    --control-pad-x: 14px;
+    --font-size-body: max(14px, var(--font-size-base));
+    --font-size-input: max(16px, var(--font-size-md));
+    --font-size-code: max(12px, var(--font-size-sm));
+  }
+}
+
+/* Density override (an app Settings toggle may set data-density on <html>).
+ * It never relaxes --tap-min on a touch device. */
+:root[data-density="dense"] {
+  --row-pad-y: 4px;
+  --row-pad-x: 8px;
+  --control-pad-x: 10px;
+}
+
+:root[data-density="comfortable"] {
+  --row-pad-y: 10px;
+  --row-pad-x: 12px;
+  --control-pad-x: 14px;
+}
+
+/* --- Query containers: kit components adapt to the PANE, not the window.
+ * A container must get its width from its parent (block / stretch / flex:1). */
+.af-gateway-signin {
+  container: af-signin / inline-size;
+}
+
+.af-appearance {
+  container: af-dialog / inline-size;
+}
+
+.af-auto {
+  container: af-auto / inline-size;
+}
+
+.af-tool-policy {
+  container: af-tool-policy / inline-size;
+}
+
+.af-drawer__body {
+  container: af-drawer / inline-size;
+}
+
+/* --- Generic helpers (documented in DESIGN.md) --- */
+.af-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.af-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(var(--gutter), var(--safe-top)) max(var(--gutter), var(--safe-right)) max(var(--gutter), var(--safe-bottom)) max(var(--gutter), var(--safe-left));
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.af-sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 560px);
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--ui-border-1);
+  background: var(--bg-card, var(--bg-secondary));
+  box-shadow: var(--ui-shadow-1);
+  color: var(--text-primary);
+}
+
+/* --- Dialog overlays respect the notch / home indicator on every size --- */
+.af-connect-overlay,
+.af-critical__overlay,
+.af-appearance-overlay {
+  padding: max(var(--gutter), var(--safe-top)) max(var(--gutter), var(--safe-right)) max(var(--gutter), var(--safe-bottom)) max(var(--gutter), var(--safe-left));
+}
+
+.af-connect-modal,
+.af-appearance,
+.af-critical {
+  max-height: 100%;
+}
+
+.af-critical {
+  width: min(480px, 100%);
+}
+
+/* --- Dialogs become bottom SHEETS on phones (below sm, or a short phone
+ * landscape viewport): full width, up to the full visible height, the
+ * action row pinned to the bottom so it is always reachable. --- */
+@media (max-width: 767.98px), (max-height: 500px) {
+  .af-connect-overlay,
+  .af-critical__overlay,
+  .af-appearance-overlay,
+  .af-sheet-overlay {
+    align-items: flex-end;
+    padding: var(--safe-top) 0 0;
+  }
+
+  .af-connect-modal,
+  .af-appearance,
+  .af-critical,
+  .af-sheet {
+    width: 100%;
+    max-width: none;
+    max-height: 100%;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom: 0;
+    padding-left: max(18px, var(--safe-left));
+    padding-right: max(18px, var(--safe-right));
+    padding-bottom: 0;
+  }
+
+  .af-connect-modal {
+    padding: 0;
+  }
+
+  .af-connect-modal > .af-gateway-signin {
+    width: 100%;
+    border-bottom: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    padding-left: max(18px, var(--safe-left));
+    padding-right: max(18px, var(--safe-right));
+    padding-bottom: 0;
+  }
+
+  .af-gateway-signin__actions,
+  .af-appearance__actions,
+  .af-critical__actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    margin-top: 12px;
+    padding: 10px 0 max(12px, var(--safe-bottom));
+    background: var(--bg-secondary);
+    box-shadow: 0 -1px 0 var(--ui-border-1);
+  }
+}
+
+@media (max-width: 479.98px) {
+  /* Stack dialog actions full width; the primary (last in DOM) sits nearest
+   * the thumb. */
+  .af-gateway-signin__actions,
+  .af-appearance__actions,
+  .af-critical__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .af-gateway-signin__actions > *,
+  .af-appearance__actions > *,
+  .af-critical__actions > * {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Phone landscape: the sign-in hero mark and long intro are dead weight. */
+@media (max-height: 500px) {
+  .af-gateway-signin__mark {
+    display: none;
+  }
+
+  .af-gateway-signin__hero {
+    margin-bottom: 12px;
+  }
+
+  .af-gateway-signin p {
+    margin-top: 8px;
+  }
+}
+
+/* --- AfDrawer: safe areas, left edge, overlay backdrop --- */
+.af-drawer {
+  padding-right: var(--safe-right);
+}
+
+.af-drawer__header {
+  padding-top: max(12px, var(--safe-top));
+}
+
+.af-drawer__body {
+  padding-bottom: var(--safe-bottom);
+}
+
+.af-drawer--left {
+  right: auto;
+  left: 0;
+  padding-right: 0;
+  padding-left: var(--safe-left);
+  border-left: 0;
+  border-right: 1px solid var(--ui-border-1);
+}
+
+.af-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-drawer) - 1);
+  background: rgba(0, 0, 0, 0.45);
+}
+
+/* A drawer that opens under an app header (topOffset) must not reserve the
+ * notch inset again. */
+.af-drawer--offset .af-drawer__header {
+  padding-top: 12px;
+}
+
+/* --- Top bar: on phones the connection pill keeps its dot and drops the
+ * word (the button keeps its accessible name via aria-label/title). --- */
+@media (max-width: 479.98px) {
+  .af-topbar {
+    gap: 6px;
+  }
+
+  .af-topbar__pill {
+    padding: 4px 10px;
+  }
+
+  .af-topbar__pill-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .af-topbar__identity {
+    display: none;
+  }
+}
+
+/* --- Automations form/panel in narrow panes --- */
+@container af-auto (max-width: 519.98px) {
+  .af-auto__actionbar,
+  .af-auto__controls {
+    gap: 8px;
+  }
+
+  .af-auto__controls > .af-auto__btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .af-auto__revise textarea {
+    min-height: 6em;
+  }
+}
+
+@container af-dialog (max-width: 519.98px) {
+  .af-schedule__form > fieldset {
+    padding: 8px 10px;
+  }
+
+  .af-schedule .af-appearance__actions > .af-auto__btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+.af-schedule__form textarea,
+.af-auto__revise textarea {
+  max-height: calc(var(--vh-full) * 0.4);
+}
+
+/* --- Provider/model picker and selects: lists scroll inside the viewport --- */
+.af-select-popover {
+  max-width: calc(100vw - 2 * var(--gutter));
+}
+
+/* --- Touch: every kit control reaches the 44px target on coarse pointers.
+ * The glyph stays the same size; the box grows. --- */
+@media (pointer: coarse) {
+  .af-gateway-signin button,
+  .af-gateway-signin input:not([type="checkbox"]),
+  .af-select-trigger,
+  .af-select-option,
+  .af-select-search-input,
+  .af-steer__send,
+  .af-steer__input,
+  .af-critical__actions button,
+  .af-critical__phrase input,
+  .af-tool-policy__seg-btn,
+  .af-tool-policy__bulk button,
+  .af-tool-row,
+  .af-pmp__seg-btn,
+  .af-appearance__close,
+  .af-topbar__pill,
+  .af-auto__btn,
+  .af-auto input:not([type="radio"]):not([type="checkbox"]),
+  .af-auto select,
+  .af-schedule input:not([type="radio"]):not([type="checkbox"]),
+  .af-schedule select,
+  .af-disclosure__row,
+  .af-chip--button,
+  .af-phase-radio__btn {
+    min-height: var(--tap-min);
+  }
+
+  .af-topbar__btn,
+  .af-drawer__close,
+  .af-chip__remove,
+  .af-select-clear-btn {
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
+  }
+
+  .af-auto input:not([type="radio"]):not([type="checkbox"]),
+  .af-auto select,
+  .af-auto textarea,
+  .af-schedule input:not([type="radio"]):not([type="checkbox"]),
+  .af-schedule select,
+  .af-schedule textarea,
+  .af-appearance select {
+    font-size: var(--font-size-input);
+  }
+
+  .af-auto input[type="radio"],
+  .af-auto input[type="checkbox"],
+  .af-schedule input[type="radio"],
+  .af-schedule input[type="checkbox"],
+  .af-gateway-signin input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+
+  .af-auto-occ__details > summary,
+  .af-schedule__advanced > summary,
+  .af-auto__definition > summary {
+    display: flex;
+    align-items: center;
+    min-height: var(--tap-min);
+  }
+}
+
+/* No hover on this device: nothing may hide behind :hover. */
+@media (hover: none) {
+  .af-topbar__btn:hover,
+  .af-topbar__pill:hover:not(:disabled) {
+    filter: none;
+  }
+}
