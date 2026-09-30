@@ -74,11 +74,28 @@ The state reads without colour and in every theme:
 
 - position and shape: the thumb slides right and shows a check mark;
 - colour and light: the track fills with the accent and glows;
-- weight: the label turns bold.
+- weight: the label turns semibold (600, the ceiling of the label type scale) and brighter.
 
 Unavailable switches have a dashed, hatched track and muted text. On touch screens the control is
-at least 44 px tall. Motion follows `prefers-reduced-motion`, and forced-colours mode uses system
-colours.
+at least 44 px in both directions, `af-switch--sm` included. Under `prefers-reduced-motion: reduce`
+the track and thumb do not animate, and forced-colours mode uses system colours.
+
+## Unavailable reasons
+
+Use these sentences word for word, as `unavailableReason` (web) or after the em dash (terminal):
+
+| Where | Reason |
+|---|---|
+| Agent email tools, no mailbox yet | Connect a mailbox first. |
+| Agent email tools, admin switched mailboxes off | Your admin turned mailboxes off. |
+| Agent email tools, admin switched agent email tools off | Your admin turned agent email tools off. |
+| Notifications (Job failed, Approval needed), no mailbox yet | Connect a mailbox first. |
+| Users table, Active switch on your own row | You can't deactivate your own account. |
+| A feature a plain-http page cannot use | This page is loaded over http, so the microphone is unavailable — open it over https or on the gateway's own computer. |
+
+The last sentence swaps the feature ("the camera", "copying to the clipboard");
+`insecureContextReason(feature)` returns it when the page is not a secure context and `null`
+otherwise.
 
 ## Terminal clients
 
@@ -101,6 +118,115 @@ pass. `ui-kit/scripts/check_state_toggles.mjs` runs it over the kit's sources an
 component's markup and CSS; apps run it over their own `src` in their test gate. A genuine one-shot
 action that flips (pausing a running run) opts out on the same line with
 `// state-toggle-lint: allow <reason>`.
+
+## Type scale guard
+
+Labels, switch labels and field captions sit at body size: 14 to 15 px, weight 500 (600 for an on
+switch). `checkLabelScale(root)` runs in the browser and returns every rendered `label`,
+`.af-switch__label`, `.af-form__label`, `.af-gateway-signin__label`,
+`.af-gateway-signin__checkbox`, `.af-field-caption` or `[data-af-caption]` whose computed
+font-size is above 15 px or whose weight is above 600. A Playwright test renders a settings panel,
+injects it and expects an empty list:
+
+```js
+const hits = await page.evaluate(() => window.checkLabelScale(document).map((h) => h.selector));
+expect(hits).toEqual([]);
+```
+
+Options: `maxFontSizePx`, `maxWeight`, `selector`, `includeHidden`. Run it with
+`findVerbToggleLabels` over the same surface's sources.
+
+## Sign-in card
+
+The `af-gateway-signin` block of `theme.css` (between `af-gateway-signin:begin` and
+`af-gateway-signin:end`) styles the gateway console's sign-in page and the apps'
+`GatewayConnectModal`. One column, labels above fields, at most 480 px wide and centred.
+
+```html
+<section class="af-gateway-signin">
+  <div class="af-gateway-signin__hero"><div>
+    <div class="af-gateway-signin__kicker">AbstractGateway Console</div>
+    <h2>Sign in</h2><p>Use the token your gateway admin gave you.</p>
+  </div></div>
+  <div class="af-gateway-signin__status-row">
+    <span class="af-gateway-signin__status af-gateway-signin__status--neutral">Not signed in</span>
+  </div>
+  <form class="af-gateway-signin__form">
+    <div class="af-gateway-signin__field">
+      <label class="af-gateway-signin__label" for="login-user">Gateway user</label>
+      <input id="login-user" value="admin">
+    </div>
+    <div class="af-gateway-signin__field">
+      <label class="af-gateway-signin__label" for="login-token">Token</label>
+      <div class="af-gateway-signin__token-input">
+        <input id="login-token" type="password"><button type="button" aria-label="Show token">Show</button>
+      </div>
+      <p class="af-gateway-signin__field-error" role="alert" hidden>This token was refused.</p>
+    </div>
+    <div class="af-gateway-signin__submit-row">
+      <label class="af-gateway-signin__checkbox"><input type="checkbox"> Remember this browser</label>
+      <button class="af-gateway-signin__primary" type="submit">Sign in</button>
+    </div>
+  </form>
+  <div class="af-gateway-signin__recovery">
+    <button type="button" class="af-gateway-signin__link">Forgot your token? Email me a sign-in code</button>
+  </div>
+  <div class="af-gateway-signin__code" hidden>
+    <p class="af-gateway-signin__message af-gateway-signin__message--ok" role="status">A sign-in code is on its way to l•••@•••. It expires in 10 minutes.</p>
+    <div class="af-gateway-signin__field">
+      <label class="af-gateway-signin__label" for="code">Code from the email</label>
+      <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8">
+    </div>
+    <div class="af-gateway-signin__code-actions">
+      <button type="button" class="af-gateway-signin__link" disabled>Send a new code (in 24 s)</button>
+      <button type="button" class="af-gateway-signin__primary" disabled>Use code</button>
+    </div>
+    <button type="button" class="af-gateway-signin__link af-gateway-signin__back">Back to token</button>
+  </div>
+</section>
+```
+
+| Class | Role |
+|---|---|
+| `__status--neutral` / `--ok` / `--warn` | The one status pill ("Not signed in" / "Signed in as admin" / "Token refused"). `--err` stays for older callers. |
+| `__field` | A label and its field (plus an optional `__field-error`). |
+| `__token-input > button` | The Show/Hide button, drawn inside the field. |
+| `__checkbox` | A plain checkbox row at body size. |
+| `__submit-row` | Checkbox on the left, primary button on the right. |
+| `__link` | The quiet text link. `aria-busy="true"` shows a spinner beside the host's "Sending…" text; `disabled` is the cooldown look. |
+| `__recovery` | Holds the recovery link below the form. |
+| `__code`, `__code-actions`, `__back` | The code step: message, code field, "Send a new code" + "Use code", "Back to token". |
+| `__message`, `__message--ok`, `__message--error`, `__field-error` | Inline messages at body size; the ok message is plain text, not green. |
+
+`[hidden]` always hides a step inside the card. Below about 360 px of card width the submit and
+code rows stack and the primary button spans the row.
+
+## Forms, cards and tabs
+
+| Class | Role |
+|---|---|
+| `af-form` | A settings form: column of fields, at most 720 px (`--form-max`). |
+| `af-form__field`, `af-form__label` | Label above its field, body size, weight 500. |
+| `af-form__help`, `af-form__error` | Muted small helper text; inline error at body size. |
+| `af-form__grid-2` | Two short fields side by side (port + security, per hour + per day); one column below 768 px. |
+| `af-form__inline` | A field with its own action (the Email address row's "Save"). |
+| `af-form__actions` | Right-aligned action row. |
+| `af-card`, `af-card__header`, `af-card__title`, `af-card__desc` | A grouped card with its heading. |
+| `af-tabs`, `af-tabs__list`, `af-tabs__tab`, `af-tabs__panel` | Underlined tabs; 44 px on touch. |
+
+`AfTabs` renders the tabs in React (`tabs`, `value`, `onChange`, `ariaLabel`, `idBase`,
+`children` = the selected panel): `role="tablist"` / `tab` / `tabpanel`, one tab in the tab order,
+Left/Right (and Up/Down) move and select, Home/End jump, and a tab with `unavailableReason` is
+skipped and shows the reason on hover. `afTabsNextIndex(tabs, current, key)` is the same rule for
+consoles that render the markup themselves.
+
+## Non-secure contexts
+
+Over plain http from another machine, browsers withhold `crypto.randomUUID`, the microphone, the
+camera and clipboard reads. `randomId()` returns a v4 UUID in every context: `crypto.randomUUID`
+when it exists, otherwise one built from `crypto.getRandomValues`. The kit's own ids (automation
+commands, steering) use it; call it instead of `crypto.randomUUID`. When a feature cannot work,
+show `insecureContextReason(feature)` once, as the control's unavailable reason.
 
 ## Related
 

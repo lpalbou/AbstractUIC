@@ -53,7 +53,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Getting started](docs/getting-started.md): install/integrate, required CSS, quick examples, Next.js notes
 - [Adoption guide](docs/adoption-guide.md): which shared component for which job + the cross-app contracts (connection surface, server truth, labeled fallbacks)
 - [Theming](docs/theming.md): design-token vocabulary, 21-theme system, adoption/migration rules for host apps
-- [On/off settings](docs/state-toggles.md): `AfSwitch` (a `role="switch"` labelled by the feature, highlighted when on; unavailable = `aria-disabled` + reason), the `af-switch` CSS block the consoles copy, the terminal `[x]`/`[ ]`/`[-]` marker, and `findVerbToggleLabels` (the guard against "Email off"/"Email on" labels)
+- [On/off settings](docs/state-toggles.md): `AfSwitch` (a `role="switch"` labelled by the feature, highlighted when on; unavailable = `aria-disabled` + reason), the `af-switch` CSS block the consoles copy, the terminal `[x]`/`[ ]`/`[-]` marker, `findVerbToggleLabels` (the guard against "Email off"/"Email on" labels), `checkLabelScale` (labels at body size), unavailable-reason strings, the sign-in card classes, `af-form`/`af-card`/`af-tabs` + `AfTabs`, and `randomId()` / `insecureContextReason()` for plain-http pages
 - [Responsive layout](docs/responsive.md): breakpoints (480/768/1024/1440 px, short and touch axes), 44 px touch targets and 16 px form text on touch screens, bottom-sheet dialogs and drawers above the keyboard, container queries and their thresholds, `installViewportVars()` / `viewportVarsFrom()`, the font-size order, and how a host app adopts them
 - [API reference](docs/api.md): export map per package (what to import)
 - [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, ecosystem data flow, gateway connection flow, live replies, About/identity flow, automations flow, console islands build)
@@ -159,7 +159,7 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 - Getting started (entrypoint): [`docs/getting-started.md`](./docs/getting-started.md)
 - Adoption guide (which component for which job): [`docs/adoption-guide.md`](./docs/adoption-guide.md)
 - Theming & design tokens: [`docs/theming.md`](./docs/theming.md)
-- On/off settings (`AfSwitch`, console markup, verb-toggle guard): [`docs/state-toggles.md`](./docs/state-toggles.md)
+- On/off settings, sign-in card, forms and tabs (`AfSwitch`, `AfTabs`, guards, `randomId()`): [`docs/state-toggles.md`](./docs/state-toggles.md)
 - Responsive layout (breakpoints, touch sizes, sheets, drawers, viewport helpers): [`docs/responsive.md`](./docs/responsive.md)
 - API reference: [`docs/api.md`](./docs/api.md)
 - FAQ: [`docs/faq.md`](./docs/faq.md)
@@ -794,11 +794,28 @@ The state reads without colour and in every theme:
 
 - position and shape: the thumb slides right and shows a check mark;
 - colour and light: the track fills with the accent and glows;
-- weight: the label turns bold.
+- weight: the label turns semibold (600, the ceiling of the label type scale) and brighter.
 
 Unavailable switches have a dashed, hatched track and muted text. On touch screens the control is
-at least 44 px tall. Motion follows `prefers-reduced-motion`, and forced-colours mode uses system
-colours.
+at least 44 px in both directions, `af-switch--sm` included. Under `prefers-reduced-motion: reduce`
+the track and thumb do not animate, and forced-colours mode uses system colours.
+
+## Unavailable reasons
+
+Use these sentences word for word, as `unavailableReason` (web) or after the em dash (terminal):
+
+| Where | Reason |
+|---|---|
+| Agent email tools, no mailbox yet | Connect a mailbox first. |
+| Agent email tools, admin switched mailboxes off | Your admin turned mailboxes off. |
+| Agent email tools, admin switched agent email tools off | Your admin turned agent email tools off. |
+| Notifications (Job failed, Approval needed), no mailbox yet | Connect a mailbox first. |
+| Users table, Active switch on your own row | You can't deactivate your own account. |
+| A feature a plain-http page cannot use | This page is loaded over http, so the microphone is unavailable — open it over https or on the gateway's own computer. |
+
+The last sentence swaps the feature ("the camera", "copying to the clipboard");
+`insecureContextReason(feature)` returns it when the page is not a secure context and `null`
+otherwise.
 
 ## Terminal clients
 
@@ -821,6 +838,115 @@ pass. `ui-kit/scripts/check_state_toggles.mjs` runs it over the kit's sources an
 component's markup and CSS; apps run it over their own `src` in their test gate. A genuine one-shot
 action that flips (pausing a running run) opts out on the same line with
 `// state-toggle-lint: allow <reason>`.
+
+## Type scale guard
+
+Labels, switch labels and field captions sit at body size: 14 to 15 px, weight 500 (600 for an on
+switch). `checkLabelScale(root)` runs in the browser and returns every rendered `label`,
+`.af-switch__label`, `.af-form__label`, `.af-gateway-signin__label`,
+`.af-gateway-signin__checkbox`, `.af-field-caption` or `[data-af-caption]` whose computed
+font-size is above 15 px or whose weight is above 600. A Playwright test renders a settings panel,
+injects it and expects an empty list:
+
+```js
+const hits = await page.evaluate(() => window.checkLabelScale(document).map((h) => h.selector));
+expect(hits).toEqual([]);
+```
+
+Options: `maxFontSizePx`, `maxWeight`, `selector`, `includeHidden`. Run it with
+`findVerbToggleLabels` over the same surface's sources.
+
+## Sign-in card
+
+The `af-gateway-signin` block of `theme.css` (between `af-gateway-signin:begin` and
+`af-gateway-signin:end`) styles the gateway console's sign-in page and the apps'
+`GatewayConnectModal`. One column, labels above fields, at most 480 px wide and centred.
+
+```html
+<section class="af-gateway-signin">
+  <div class="af-gateway-signin__hero"><div>
+    <div class="af-gateway-signin__kicker">AbstractGateway Console</div>
+    <h2>Sign in</h2><p>Use the token your gateway admin gave you.</p>
+  </div></div>
+  <div class="af-gateway-signin__status-row">
+    <span class="af-gateway-signin__status af-gateway-signin__status--neutral">Not signed in</span>
+  </div>
+  <form class="af-gateway-signin__form">
+    <div class="af-gateway-signin__field">
+      <label class="af-gateway-signin__label" for="login-user">Gateway user</label>
+      <input id="login-user" value="admin">
+    </div>
+    <div class="af-gateway-signin__field">
+      <label class="af-gateway-signin__label" for="login-token">Token</label>
+      <div class="af-gateway-signin__token-input">
+        <input id="login-token" type="password"><button type="button" aria-label="Show token">Show</button>
+      </div>
+      <p class="af-gateway-signin__field-error" role="alert" hidden>This token was refused.</p>
+    </div>
+    <div class="af-gateway-signin__submit-row">
+      <label class="af-gateway-signin__checkbox"><input type="checkbox"> Remember this browser</label>
+      <button class="af-gateway-signin__primary" type="submit">Sign in</button>
+    </div>
+  </form>
+  <div class="af-gateway-signin__recovery">
+    <button type="button" class="af-gateway-signin__link">Forgot your token? Email me a sign-in code</button>
+  </div>
+  <div class="af-gateway-signin__code" hidden>
+    <p class="af-gateway-signin__message af-gateway-signin__message--ok" role="status">A sign-in code is on its way to l•••@•••. It expires in 10 minutes.</p>
+    <div class="af-gateway-signin__field">
+      <label class="af-gateway-signin__label" for="code">Code from the email</label>
+      <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8">
+    </div>
+    <div class="af-gateway-signin__code-actions">
+      <button type="button" class="af-gateway-signin__link" disabled>Send a new code (in 24 s)</button>
+      <button type="button" class="af-gateway-signin__primary" disabled>Use code</button>
+    </div>
+    <button type="button" class="af-gateway-signin__link af-gateway-signin__back">Back to token</button>
+  </div>
+</section>
+```
+
+| Class | Role |
+|---|---|
+| `__status--neutral` / `--ok` / `--warn` | The one status pill ("Not signed in" / "Signed in as admin" / "Token refused"). `--err` stays for older callers. |
+| `__field` | A label and its field (plus an optional `__field-error`). |
+| `__token-input > button` | The Show/Hide button, drawn inside the field. |
+| `__checkbox` | A plain checkbox row at body size. |
+| `__submit-row` | Checkbox on the left, primary button on the right. |
+| `__link` | The quiet text link. `aria-busy="true"` shows a spinner beside the host's "Sending…" text; `disabled` is the cooldown look. |
+| `__recovery` | Holds the recovery link below the form. |
+| `__code`, `__code-actions`, `__back` | The code step: message, code field, "Send a new code" + "Use code", "Back to token". |
+| `__message`, `__message--ok`, `__message--error`, `__field-error` | Inline messages at body size; the ok message is plain text, not green. |
+
+`[hidden]` always hides a step inside the card. Below about 360 px of card width the submit and
+code rows stack and the primary button spans the row.
+
+## Forms, cards and tabs
+
+| Class | Role |
+|---|---|
+| `af-form` | A settings form: column of fields, at most 720 px (`--form-max`). |
+| `af-form__field`, `af-form__label` | Label above its field, body size, weight 500. |
+| `af-form__help`, `af-form__error` | Muted small helper text; inline error at body size. |
+| `af-form__grid-2` | Two short fields side by side (port + security, per hour + per day); one column below 768 px. |
+| `af-form__inline` | A field with its own action (the Email address row's "Save"). |
+| `af-form__actions` | Right-aligned action row. |
+| `af-card`, `af-card__header`, `af-card__title`, `af-card__desc` | A grouped card with its heading. |
+| `af-tabs`, `af-tabs__list`, `af-tabs__tab`, `af-tabs__panel` | Underlined tabs; 44 px on touch. |
+
+`AfTabs` renders the tabs in React (`tabs`, `value`, `onChange`, `ariaLabel`, `idBase`,
+`children` = the selected panel): `role="tablist"` / `tab` / `tabpanel`, one tab in the tab order,
+Left/Right (and Up/Down) move and select, Home/End jump, and a tab with `unavailableReason` is
+skipped and shows the reason on hover. `afTabsNextIndex(tabs, current, key)` is the same rule for
+consoles that render the markup themselves.
+
+## Non-secure contexts
+
+Over plain http from another machine, browsers withhold `crypto.randomUUID`, the microphone, the
+camera and clipboard reads. `randomId()` returns a v4 UUID in every context: `crypto.randomUUID`
+when it exists, otherwise one built from `crypto.getRandomValues`. The kit's own ids (automation
+commands, steering) use it; call it instead of `crypto.randomUUID`. When a feature cannot work,
+show `insecureContextReason(feature)` once, as the control's unavailable reason.
 
 ## Related
 
@@ -1096,6 +1222,8 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`; `VoiceSettings` (catalog-driven voice preferences form)
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
 - Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation on a fixed UTC interval, once, or when an email arrives; "Email me the result" and allowed recipients), the email fields `AfEmailTriggerFields` / `AfEmailOptionsFields` / `AfEmailSetupNotice`, `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
+- On/off settings and forms: `AfSwitch` (+ `afSwitchNextState()`, `afSwitchIsActionable()`), `AfTabs` (+ `afTabsNextIndex()`), the guards `findVerbToggleLabels(source)` and `checkLabelScale(root)` (+ `LABEL_SCALE_SELECTOR`) — see [On/off settings](./state-toggles.md)
+- Ids and non-secure contexts: `randomId()` (v4 UUID over plain http too), `uuidV4FromBytes()`, `insecureContextReason(feature)` — see [Non-secure contexts](./state-toggles.md#non-secure-contexts)
 - Icons: `Icon`, `IconName` (~45 glyphs, 24-grid and 16-grid families; `play`, `stop`, `folder`, `file`, `archive`, `clock` added for automations)
 - Palette seeds: `@abstractframework/ui-kit/palette_seeds.json` (generated 4-token palette per theme)
 
@@ -3012,7 +3140,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 - **Adoption guide**: [`adoption-guide.md`](./adoption-guide.md) — which shared component for which job, and the contracts apps follow
 - **Theming & design tokens**: [`theming.md`](./theming.md) — token vocabulary, the 21 themes, migration rules for host apps
-- **On/off settings**: [`state-toggles.md`](./state-toggles.md) — `AfSwitch`, the console markup, the terminal marker and the verb-toggle guard
+- **On/off settings**: [`state-toggles.md`](./state-toggles.md) — `AfSwitch`, the console markup, the terminal marker, the verb-toggle and label-scale guards, the sign-in card, forms, cards and tabs, `randomId()`
 - **Responsive layout**: [`responsive.md`](./responsive.md) — breakpoints, touch sizes, bottom sheets and drawers, container queries, the viewport helpers, the font-size order, and how a host app adopts them
 - **Automations**: [`automations.md`](./automations.md) — show and manage AbstractGateway automations: `AutomationPanel` (controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (schedules and **When an email arrives** triggers, **Email me the result**, allowed recipients) and its tool-approval consent line, `createAutomationsClient()` and its error model, retry-safe ids, the panel-chat schedule action and badge, the canonical fixtures and how to regenerate them, and the export list
 - **Console islands**: [`console-islands.md`](./console-islands.md) — the `window.AfConsoleIslands` bundle built from `ui-kit` for non-React pages (AbstractGateway console): API, build and check
@@ -4389,7 +4517,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_random_id.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -4970,6 +5098,9 @@ export {
 } from "./automations/email_fields.js";
 export { AfSwitch, afSwitchIsActionable, afSwitchNextState, type AfSwitchProps } from "./af_switch.js";
 export { findVerbToggleLabels, type VerbToggleHit } from "./state_toggle_lint.js";
+export { randomId, uuidV4FromBytes, insecureContextReason } from "./random_id.js";
+export { checkLabelScale, LABEL_SCALE_SELECTOR, type LabelScaleHit, type LabelScaleOptions } from "./label_scale.js";
+export { AfTabs, afTabsNextIndex, type AfTab, type AfTabsProps } from "./af_tabs.js";
 
 ## ui-kit/src/responsive.ts
 
@@ -5423,7 +5554,7 @@ export default AfAboutDialog;
 
 import React from "react";
 
-export type GatewaySessionStatusTone = "ok" | "warn" | "err";
+export type GatewaySessionStatusTone = "neutral" | "ok" | "warn" | "err";
 
 export type GatewaySessionSignInCardProps = {
   kicker?: string;
@@ -5478,9 +5609,9 @@ export function GatewaySessionSignInCard({
   kicker = "AbstractGateway connection",
   title = "Connect to AbstractGateway",
   description = "Sign in with the Gateway user token assigned by the Gateway admin.",
-  statusLabel = "Gateway token missing",
-  statusTone = "warn",
-  tokenSourceLabel = "token: missing",
+  statusLabel = "Not signed in",
+  statusTone = "neutral",
+  tokenSourceLabel,
   showGatewayUrl = false,
   gatewayUrl = "",
   gatewayUrlPlaceholder = "http://127.0.0.1:8080",
@@ -5591,7 +5722,6 @@ export function GatewaySessionSignInCard({
           </button>
         </div>
 
-        <label className="af-gateway-signin__label">Browser session</label>
         <label className="af-gateway-signin__checkbox">
           <input
             type="checkbox"
@@ -6316,6 +6446,7 @@ export type ApiError = { status: number; code: string; message: string; field?: 
 // non-2xx without that envelope, or a 2xx that is not JSON, throws
 // `invalid_response` — never a silent success.
 import { gatewayApiPath, joinBaseUrl } from "../gateway_paths.js";
+import { randomId } from "../random_id.js";
 import type {
   ApiError,
   AutomationChanges,
@@ -6421,9 +6552,7 @@ function query(params: Record<string, string | number | undefined>): string {
 }
 
 function defaultId(): string {
-  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (!c || typeof c.randomUUID !== "function") throw new Error("automations client: crypto.randomUUID is unavailable; pass options.newId");
-  return c.randomUUID();
+  return randomId();
 }
 
 export function createAutomationsClient(options: AutomationsClientOptions): AutomationsClient {
@@ -6485,6 +6614,7 @@ export function createAutomationsClient(options: AutomationsClientOptions): Auto
 // scripts/check_automation_panel.mjs). Everything here reads STRUCTURE only —
 // statuses, notify objects, waits, config fields — never model prose.
 import controlsSpec from "./automation_controls.json" with { type: "json" };
+import { randomId } from "../random_id.js";
 import type {
   ApiError,
   AutomationChanges,
@@ -7241,9 +7371,7 @@ export function isDefinitiveError(error: unknown): boolean {
 }
 
 export function mintUuid(): string {
-  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (!c || typeof c.randomUUID !== "function") throw new Error("crypto.randomUUID is unavailable; pass newId");
-  return c.randomUUID();
+  return randomId();
 }
 
 // --- /seen acknowledgement ------------------------------------------------------
@@ -13489,7 +13617,7 @@ On/off settings become switches labelled by the feature, highlighted when on (op
 
 | Package | Version | Change |
 | --- | --- | --- |
-| `@abstractframework/ui-kit` | 0.3.3 | updated (`AfSwitch`, the verb-toggle guard, the automation Active switch) |
+| `@abstractframework/ui-kit` | 0.3.3 | updated (`AfSwitch`, the verb-toggle guard, the automation Active switch, the sign-in card layout, form/card/tab styles, `checkLabelScale`, `randomId`) |
 
 ### ui-kit 0.3.3
 
@@ -13515,8 +13643,31 @@ On/off settings become switches labelled by the feature, highlighted when on (op
   the command.
 - Changed: `automation_controls.json` gains the `active` label and hint. Clients that vendor it
   (AbstractAssistant, AbstractCode's terminal client) must copy it again.
+- Added: `randomId()`, a v4 UUID that also works over plain http (`crypto.randomUUID` when present,
+  otherwise built from `crypto.getRandomValues`), and `insecureContextReason(feature)`, the one
+  sentence for a feature a plain-http page cannot use. The automations client, `mintUuid` and the
+  steering composer use `randomId()`; before, the automations client threw over plain http.
+  Voice recording names the http cause when that is why the microphone is missing.
+- Added: `checkLabelScale(root)`, the browser-side type-scale guard: every label, switch label or
+  field caption rendered above 15 px or heavier than 600.
+- Added: `AfTabs` and `afTabsNextIndex` (tablist / tab / tabpanel, arrow keys, Home/End,
+  unavailable tabs skipped), and the `af-form`, `af-form__grid-2`, `af-form__help`, `af-card` and
+  `af-tabs` styles (forms at most 720 px, labels above fields, two columns for short fields from
+  768 px).
+- Changed: the sign-in card (`af-gateway-signin`, used by the gateway console and
+  `GatewayConnectModal`) is one column with labels above fields, at most 480 px and centred; the
+  Show/Hide button sits inside the token field; "Remember this browser" is a plain checkbox at body
+  size next to a right-aligned Sign in button; new classes for the quiet recovery link (busy and
+  cooldown states), the code step and inline messages at body size; one status pill with a
+  `neutral` tone. `GatewaySessionSignInCard` defaults to one "Not signed in" pill without a
+  "token: missing" caption and drops the "Browser session" pseudo-label; the connect modal shows no
+  "token: …" caption.
+- Changed: an on switch's label is weight 600 (was 700) to stay inside the label type scale; on
+  touch screens every switch is 44 px wide as well as tall; reduced motion also covers the switch
+  root and check mark.
 - Docs: [`docs/state-toggles.md`](docs/state-toggles.md) (the rule, the component, the console
-  markup, the terminal marker, the guard).
+  markup, the terminal marker, the guards, unavailable reasons, the sign-in card, forms, cards and
+  tabs, non-secure contexts).
 
 ## 0.3.2 - 2026-09-30
 

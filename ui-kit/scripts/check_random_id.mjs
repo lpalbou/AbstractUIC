@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
 const kit = await import(join(root, "dist", "index.js"));
-const { randomId, uuidV4FromBytes, createAutomationsClient } = kit;
+const { randomId, uuidV4FromBytes, createAutomationsClient, insecureContextReason } = kit;
 const { mintUuid } = await import(join(root, "dist", "automations", "panel_core.js"));
 
 let failures = 0;
@@ -103,6 +103,23 @@ const walk = (d) => {
 walk(join(root, "src"));
 walk(join(root, "islands"));
 check("no kit source calls crypto.randomUUID() directly (use randomId)", offenders.length === 0, offenders.join(", "));
+
+// 6) the non-secure-context sentence (DESIGN §11)
+{
+  const had = Object.getOwnPropertyDescriptor(globalThis, "isSecureContext");
+  Object.defineProperty(globalThis, "isSecureContext", { value: false, configurable: true, writable: true });
+  check(
+    "insecure context -> the DESIGN §11 sentence",
+    insecureContextReason("the microphone") === "This page is loaded over http, so the microphone is unavailable — open it over https or on the gateway's own computer.",
+    insecureContextReason("the microphone"),
+  );
+  Object.defineProperty(globalThis, "isSecureContext", { value: true, configurable: true, writable: true });
+  check("secure context -> null", insecureContextReason("the camera") === null);
+  if (had) Object.defineProperty(globalThis, "isSecureContext", had);
+  else delete globalThis.isSecureContext;
+  const voice = readFileSync(join(root, "src", "use_gateway_voice.ts"), "utf8");
+  check("voice recording names the http cause first", /insecureContextReason\("the microphone"\)/.test(voice));
+}
 
 if (failures) {
   console.error(`check_random_id: ${failures}/${checks} FAILED`);

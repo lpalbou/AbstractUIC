@@ -14,7 +14,7 @@ On/off settings become switches labelled by the feature, highlighted when on (op
 
 | Package | Version | Change |
 | --- | --- | --- |
-| `@abstractframework/ui-kit` | 0.3.3 | updated (`AfSwitch`, the verb-toggle guard, the automation Active switch) |
+| `@abstractframework/ui-kit` | 0.3.3 | updated (`AfSwitch`, the verb-toggle guard, the automation Active switch, the sign-in card layout, form/card/tab styles, `checkLabelScale`, `randomId`) |
 
 ### ui-kit 0.3.3
 
@@ -40,8 +40,31 @@ On/off settings become switches labelled by the feature, highlighted when on (op
   the command.
 - Changed: `automation_controls.json` gains the `active` label and hint. Clients that vendor it
   (AbstractAssistant, AbstractCode's terminal client) must copy it again.
+- Added: `randomId()`, a v4 UUID that also works over plain http (`crypto.randomUUID` when present,
+  otherwise built from `crypto.getRandomValues`), and `insecureContextReason(feature)`, the one
+  sentence for a feature a plain-http page cannot use. The automations client, `mintUuid` and the
+  steering composer use `randomId()`; before, the automations client threw over plain http.
+  Voice recording names the http cause when that is why the microphone is missing.
+- Added: `checkLabelScale(root)`, the browser-side type-scale guard: every label, switch label or
+  field caption rendered above 15 px or heavier than 600.
+- Added: `AfTabs` and `afTabsNextIndex` (tablist / tab / tabpanel, arrow keys, Home/End,
+  unavailable tabs skipped), and the `af-form`, `af-form__grid-2`, `af-form__help`, `af-card` and
+  `af-tabs` styles (forms at most 720 px, labels above fields, two columns for short fields from
+  768 px).
+- Changed: the sign-in card (`af-gateway-signin`, used by the gateway console and
+  `GatewayConnectModal`) is one column with labels above fields, at most 480 px and centred; the
+  Show/Hide button sits inside the token field; "Remember this browser" is a plain checkbox at body
+  size next to a right-aligned Sign in button; new classes for the quiet recovery link (busy and
+  cooldown states), the code step and inline messages at body size; one status pill with a
+  `neutral` tone. `GatewaySessionSignInCard` defaults to one "Not signed in" pill without a
+  "token: missing" caption and drops the "Browser session" pseudo-label; the connect modal shows no
+  "token: …" caption.
+- Changed: an on switch's label is weight 600 (was 700) to stay inside the label type scale; on
+  touch screens every switch is 44 px wide as well as tall; reduced motion also covers the switch
+  root and check mark.
 - Docs: [`docs/state-toggles.md`](docs/state-toggles.md) (the rule, the component, the console
-  markup, the terminal marker, the guard).
+  markup, the terminal marker, the guards, unavailable reasons, the sign-in card, forms, cards and
+  tabs, non-secure contexts).
 
 ## 0.3.2 - 2026-09-30
 

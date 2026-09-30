@@ -310,4 +310,6 @@ export {
 } from "./automations/email_fields.js";
 export { AfSwitch, afSwitchIsActionable, afSwitchNextState, type AfSwitchProps } from "./af_switch.js";
 export { findVerbToggleLabels, type VerbToggleHit } from "./state_toggle_lint.js";
-export { randomId, uuidV4FromBytes } from "./random_id.js";
+export { randomId, uuidV4FromBytes, insecureContextReason } from "./random_id.js";
+export { checkLabelScale, LABEL_SCALE_SELECTOR, type LabelScaleHit, type LabelScaleOptions } from "./label_scale.js";
+export { AfTabs, afTabsNextIndex, type AfTab, type AfTabsProps } from "./af_tabs.js";

@@ -100,11 +100,17 @@ check("ON track fills with the accent", /background:\s*var\(--accent\)/.test(rul
 check("ON track glows (highlight)", /box-shadow:[^;]*var\(--accent\)/.test(rule('.af-switch[aria-checked="true"] .af-switch__track')));
 check("ON thumb slides (position cue)", /transform:\s*translateX/.test(rule('.af-switch[aria-checked="true"] .af-switch__thumb')));
 check("ON thumb draws a check mark (shape cue)", /border-width:\s*0 2px 2px 0/.test(rule('.af-switch[aria-checked="true"] .af-switch__thumb::after')));
-check("ON label is bold (weight cue)", /font-weight:\s*700/.test(rule('.af-switch[aria-checked="true"] .af-switch__label')));
+check("ON label is bolder than OFF (weight cue, 600 = the type-scale cap)", /font-weight:\s*600/.test(rule('.af-switch[aria-checked="true"] .af-switch__label')) && /font-weight:\s*500/.test(rule(".af-switch")));
 check("OFF track is not accent", !/var\(--accent\)/.test(rule(".af-switch__track")));
 check("unavailable is dashed/hatched + not-allowed", /border-style:\s*dashed/.test(block) && /cursor:\s*not-allowed/.test(block));
-check("touch target at --tap-min", /@media \(pointer: coarse\)\s*\{\s*\.af-switch,\s*\.af-switch--sm\s*\{\s*min-height:\s*var\(--tap-min\)/.test(block));
-check("reduced motion drops the transition", /@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*transition:\s*none/.test(block));
+check("touch target at --tap-min (both axes, sm included)", /@media \(pointer: coarse\)\s*\{\s*\.af-switch,\s*\.af-switch--sm\s*\{\s*min-height:\s*var\(--tap-min\);\s*min-width:\s*var\(--tap-min\)/.test(block));
+{
+  const rm = (block.match(/@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\n\}/) || [, ""])[1];
+  const sels = (rm.match(/([^{}]+)\{[^}]*transition:\s*none/) || [, ""])[1].split(",").map((x) => x.trim());
+  check("reduced motion drops the track + thumb transitions", sels.includes(".af-switch__track") && sels.includes(".af-switch__thumb"), sels.join(" | "));
+  const moving = [...block.replace(/@media[^{]*\{[\s\S]*?\n\}/g, "").matchAll(/([^{}]+)\{[^}]*\btransition:/g)].map((m) => m[1].trim());
+  check("every transitioning switch selector is silenced under reduced motion", moving.length > 0 && moving.every((sel) => sels.includes(sel)), moving.join(" | "));
+}
 check("switch label uses the body type scale (no heading font)", !/font-size:\s*(var\(--font-size-(lg|xl|2xl)\)|[2-9]\dpx)/.test(block) && /font:\s*inherit/.test(rule(".af-switch")));
 
 // 3) the lint

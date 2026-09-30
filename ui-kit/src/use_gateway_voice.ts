@@ -35,6 +35,7 @@
  * page-wide "blinking"). Dep-array consumers must stay safe by construction.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { insecureContextReason } from "./random_id.js";
 
 export type TtsPlaybackStatus = "idle" | "loading" | "playing" | "paused";
 
@@ -694,7 +695,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   const start_voice_ptt_recording = useCallback(async (): Promise<void> => {
     set_error?.("");
     if (!voice_ptt_supported_ref.current) {
-      set_error?.("Voice recording is not supported in this browser (MediaRecorder/getUserMedia unavailable).");
+      set_error?.(insecureContextReason("the microphone") ?? "Voice recording is not supported in this browser (MediaRecorder/getUserMedia unavailable).");
       return;
     }
     if (voice_ptt_busy_ref.current) return;

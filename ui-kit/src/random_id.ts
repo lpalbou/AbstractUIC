@@ -48,3 +48,16 @@ export function randomId(): string {
   }
   throw new Error("randomId: Web Crypto (crypto.getRandomValues) is unavailable");
 }
+
+/**
+ * The one sentence for a feature a non-secure (plain http) page cannot use
+ * (DESIGN §11), or null when the page is a secure context (or the answer is
+ * unknown). Swap the feature word: "the microphone", "the camera",
+ * "copying to the clipboard". Show it once, where the feature is, as the
+ * control's unavailable reason.
+ */
+export function insecureContextReason(feature: string): string | null {
+  const g = globalThis as { isSecureContext?: boolean };
+  if (g.isSecureContext !== false) return null;
+  return `This page is loaded over http, so ${feature} is unavailable — open it over https or on the gateway's own computer.`;
+}

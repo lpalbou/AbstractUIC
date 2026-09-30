@@ -1,6 +1,6 @@
 import React from "react";
 
-export type GatewaySessionStatusTone = "ok" | "warn" | "err";
+export type GatewaySessionStatusTone = "neutral" | "ok" | "warn" | "err";
 
 export type GatewaySessionSignInCardProps = {
   kicker?: string;
@@ -55,9 +55,9 @@ export function GatewaySessionSignInCard({
   kicker = "AbstractGateway connection",
   title = "Connect to AbstractGateway",
   description = "Sign in with the Gateway user token assigned by the Gateway admin.",
-  statusLabel = "Gateway token missing",
-  statusTone = "warn",
-  tokenSourceLabel = "token: missing",
+  statusLabel = "Not signed in",
+  statusTone = "neutral",
+  tokenSourceLabel,
   showGatewayUrl = false,
   gatewayUrl = "",
   gatewayUrlPlaceholder = "http://127.0.0.1:8080",
@@ -168,7 +168,6 @@ export function GatewaySessionSignInCard({
           </button>
         </div>
 
-        <label className="af-gateway-signin__label">Browser session</label>
         <label className="af-gateway-signin__checkbox">
           <input
             type="checkbox"

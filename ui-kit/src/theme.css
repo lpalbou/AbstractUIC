@@ -157,7 +157,16 @@
   }
 }
 
-/* Shared Gateway browser-session sign-in card */
+/* af-gateway-signin:begin
+ * Shared Gateway browser-session sign-in card (ui-kit 0.3.3 layout,
+ * docs/state-toggles.md "Sign-in card"): ONE column, labels ABOVE fields,
+ * max 480px centred; one status pill (neutral / ok / warn); the token field
+ * carries its Show/Hide button INSIDE; a plain body-size "Remember this
+ * browser" checkbox row with the primary button right-aligned; one quiet text
+ * link for "Forgot your token? Email me a sign-in code" (busy + cooldown
+ * states); the code step block; inline messages at body size. The gateway
+ * console copies this block through console_islands_sync; the React
+ * GatewaySessionSignInCard / GatewayConnectModal use the same classes. */
 .af-gateway-signin,
 .af-gateway-signin *,
 .af-gateway-signin *::before,
@@ -170,7 +179,8 @@
 
 .af-gateway-signin {
   display: block;
-  width: min(760px, 100%);
+  width: min(480px, 100%);
+  margin-inline: auto;
   border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   border-radius: var(--radius-md);
   padding: 24px;
@@ -178,6 +188,14 @@
   box-shadow: var(--ui-shadow-1);
   color: var(--text-primary);
   font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: 1.4;
+}
+
+/* Hosts toggle steps with the hidden attribute; the flex/grid rules below
+ * must not resurrect a hidden step. */
+.af-gateway-signin [hidden] {
+  display: none !important;
 }
 
 .af-gateway-signin h2 {
@@ -187,7 +205,7 @@
 }
 
 .af-gateway-signin p {
-  margin: 14px 0 0;
+  margin: 8px 0 0;
   color: var(--text-secondary);
   font-size: var(--font-size-base);
 }
@@ -208,9 +226,15 @@
   outline-offset: 0;
 }
 
+.af-gateway-signin input[aria-invalid="true"] {
+  border-color: var(--error);
+}
+
 .af-gateway-signin input[type="checkbox"] {
   width: auto;
   min-height: auto;
+  margin: 0;
+  accent-color: var(--accent);
 }
 
 .af-gateway-signin button {
@@ -220,7 +244,7 @@
   padding: 8px 14px;
   color: var(--text-primary);
   font: inherit;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -238,33 +262,37 @@
   cursor: not-allowed;
 }
 
+.af-gateway-signin button[aria-busy="true"] {
+  cursor: progress;
+}
+
 .af-gateway-signin__hero {
   display: flex;
   justify-content: space-between;
   gap: 24px;
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
 
 .af-gateway-signin__kicker {
   margin-bottom: 8px;
   color: var(--accent);
   font-size: var(--font-size-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .af-gateway-signin__mark {
-  width: 72px;
-  height: 72px;
+  width: 56px;
+  height: 56px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  border-radius: 24px;
+  border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
   background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, transparent), color-mix(in srgb, var(--error) 20%, transparent));
   color: var(--text-primary);
-  font-size: 32px;
+  font-size: 26px;
   font-weight: 900;
 }
 
@@ -276,16 +304,34 @@
   margin-bottom: 18px;
 }
 
+/* ONE pill per state: neutral "Not signed in", ok "Signed in as admin",
+ * warn "Token refused". No duplicate caption beside it. */
 .af-gateway-signin__status {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   min-height: 26px;
-  padding: 4px 12px;
+  padding: 3px 12px;
   border-radius: 999px;
-  font-size: var(--font-size-xs);
-  font-weight: 800;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
   border: 1px solid var(--ui-overlay-border);
   background: var(--ui-overlay-bg);
+}
+
+.af-gateway-signin__status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.85;
+}
+
+.af-gateway-signin__status--neutral {
+  color: var(--text-secondary);
 }
 
 .af-gateway-signin__status--ok {
@@ -298,6 +344,7 @@
   border-color: var(--warning-border);
 }
 
+/* Kept for existing callers; new code uses --warn for a refused token. */
 .af-gateway-signin__status--err {
   color: var(--error);
   border-color: var(--error-border);
@@ -308,88 +355,238 @@
   font-size: var(--font-size-sm);
 }
 
+/* One column: label above field. Works for the flat markup (label, input,
+ * label, input) and for __field wrappers. */
 .af-gateway-signin__form {
-  display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
-  gap: 12px;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
 }
 
-/* Narrow drawers (360-480px): a fixed 150px label column leaves too little
- * for the gateway URL — labels stack above their inputs instead
- * (design adversary B, 2026-07-13). A CONTAINER query since 0.3.0: the card
- * asks its own width. It fires only below 320px of card CONTENT width (card
- * padding excluded; ~368px card), where the
- * 150px label column genuinely leaves too little room (0.3.1): a 420px
- * desktop drawer keeps the 0.2.0 two-column form; phones and small tablets
- * (< 768px viewport) keep the stacked form they had in 0.2.0. */
-@container af-signin (max-width: 319.98px) {
-  .af-gateway-signin__form {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 6px;
-  }
-
-  .af-gateway-signin__label {
-    margin-top: 6px;
-  }
+.af-gateway-signin__form > * + .af-gateway-signin__label,
+.af-gateway-signin__form > * + .af-gateway-signin__field,
+.af-gateway-signin__form > * + .af-gateway-signin__checkbox,
+.af-gateway-signin__form > * + .af-gateway-signin__submit-row {
+  margin-top: 10px;
 }
 
-/* Phones and small tablets keep the stacked form they had in 0.2.0. */
-@media (max-width: 767.98px) {
-  .af-gateway-signin__form {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 6px;
-  }
-
-  .af-gateway-signin__label {
-    margin-top: 6px;
-  }
+.af-gateway-signin__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
 }
 
 .af-gateway-signin__label {
   margin: 0;
-  color: var(--text-secondary);
-  font-size: var(--font-size-xs);
-  /* 600, not 800: labels must not compete with the kicker/buttons for
-   * hierarchy — uppercase + tracking already carry the label look
-   * (design adversary A, 2026-07-13). */
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
+/* The Show/Hide button sits INSIDE the token field, at its right end. */
 .af-gateway-signin__token-input {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
+  min-width: 0;
 }
 
 .af-gateway-signin__token-input input {
   flex: 1;
+  min-width: 0;
+  padding-right: 72px;
 }
 
-.af-gateway-signin__checkbox {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
+.af-gateway-signin .af-gateway-signin__token-input > button {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  min-height: 30px;
+  min-width: 56px;
+  padding: 4px 10px;
+  border-radius: calc(var(--radius-sm) - 1px);
+  background: transparent;
   color: var(--text-secondary);
-  font-weight: 700;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.af-gateway-signin .af-gateway-signin__token-input > button:hover:not(:disabled) {
+  filter: none;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.af-gateway-signin .af-gateway-signin__token-input > button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* A form option, not a setting: a plain checkbox at body size. */
+.af-gateway-signin__checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  font-weight: 400;
+  line-height: 1.3;
   text-transform: none;
   letter-spacing: 0;
+  cursor: pointer;
 }
 
-.af-gateway-signin__message {
-  margin-top: 14px;
+/* "Remember this browser" left, primary "Sign in" right. */
+.af-gateway-signin__submit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  flex-wrap: wrap;
+}
+
+.af-gateway-signin__submit-row > .af-gateway-signin__primary,
+.af-gateway-signin__code-actions > .af-gateway-signin__primary {
+  margin-left: auto;
+}
+
+/* Inline messages at body size: an error under the field that failed, a
+ * plain sentence for "a code is on its way". Nothing big, nothing green that
+ * stays. */
+.af-gateway-signin .af-gateway-signin__message,
+.af-gateway-signin .af-gateway-signin__field-error {
+  margin: 10px 0 0;
+  font-size: var(--font-size-base);
+  font-weight: 400;
+  line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
-.af-gateway-signin__message--error {
+.af-gateway-signin .af-gateway-signin__field-error {
+  margin-top: 0;
   color: var(--error);
 }
 
-.af-gateway-signin__message--ok {
-  color: var(--success);
+.af-gateway-signin .af-gateway-signin__message--error {
+  color: var(--error);
+}
+
+.af-gateway-signin .af-gateway-signin__message--ok {
+  color: var(--text-primary);
+}
+
+/* The one quiet text link ("Forgot your token? Email me a sign-in code",
+ * "Send a new code", "Back to token"). Busy: aria-busy="true" + the host's
+ * "Sending…" text. Cooldown: disabled + "Send a new code (in 24 s)". */
+.af-gateway-signin__recovery {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.af-gateway-signin .af-gateway-signin__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-base);
+  font-weight: 400;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 3px;
+  white-space: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.af-gateway-signin .af-gateway-signin__link:hover:not(:disabled) {
+  filter: none;
+  color: var(--text-primary);
+  text-decoration-color: currentColor;
+}
+
+.af-gateway-signin .af-gateway-signin__link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.af-gateway-signin .af-gateway-signin__link[aria-busy="true"] {
+  color: var(--text-secondary);
+  text-decoration: none;
+  cursor: progress;
+}
+
+.af-gateway-signin .af-gateway-signin__link[aria-busy="true"]::after {
+  content: "";
+  width: 0.85em;
+  height: 0.85em;
+  flex: none;
+  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-top-color: currentColor;
+  border-radius: 999px;
+  animation: af-signin-spin 0.8s linear infinite;
+}
+
+.af-gateway-signin .af-gateway-signin__link:disabled,
+.af-gateway-signin .af-gateway-signin__link[aria-disabled="true"] {
+  opacity: 1;
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: not-allowed;
+}
+
+@keyframes af-signin-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The code step: replaces the recovery link once a code was requested. */
+.af-gateway-signin__code {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--ui-border-1);
+}
+
+.af-gateway-signin .af-gateway-signin__code > .af-gateway-signin__message {
+  margin: 0 0 8px;
+}
+
+.af-gateway-signin__code input[inputmode="numeric"] {
+  font-family: var(--font-mono);
+  letter-spacing: 0.18em;
+  font-variant-numeric: tabular-nums;
+}
+
+.af-gateway-signin__code-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.af-gateway-signin .af-gateway-signin__back {
+  align-self: flex-start;
+  margin-top: 6px;
 }
 
 /* Shared gateway connect modal (GatewayConnectModal).
@@ -412,7 +609,7 @@
 }
 
 .af-connect-modal {
-  width: min(760px, 100%);
+  width: min(480px, 100%);
   max-height: calc(100vh - 48px);
   /* dvh tracks the REAL viewport under mobile URL bars / open keyboards
    * (design adversary B); vh line above stays as the older-browser fallback. */
@@ -449,41 +646,56 @@
   .af-gateway-signin {
     padding: 18px;
   }
+
+  .af-gateway-signin__hero {
+    gap: 16px;
+  }
 }
 
+/* A card narrower than ~360px (drawers, phones): the submit and code rows
+ * stack, the primary spans the row (nearest the thumb). */
 @container af-signin (max-width: 319.98px) {
-  .af-gateway-signin__hero {
-    gap: 16px;
+  .af-gateway-signin__submit-row,
+  .af-gateway-signin__code-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .af-gateway-signin__submit-row > .af-gateway-signin__primary,
+  .af-gateway-signin__code-actions > .af-gateway-signin__primary {
+    width: 100%;
+    margin-left: 0;
   }
 
   .af-gateway-signin__mark {
-    width: 56px;
-    height: 56px;
-    border-radius: 18px;
-    font-size: 26px;
-  }
-
-  .af-gateway-signin__form {
-    grid-template-columns: 1fr;
+    display: none;
   }
 }
 
-@media (max-width: 767.98px) {
-  .af-gateway-signin__hero {
-    gap: 16px;
+/* Touch: the in-field Show/Hide button spans the field's height and the text
+ * links become 44px rows (their (0,2,0) selectors outrank the general
+ * `.af-gateway-signin button` touch rule, so they carry their own). */
+@media (pointer: coarse) {
+  .af-gateway-signin .af-gateway-signin__token-input > button {
+    top: 0;
+    bottom: 0;
+    right: 0;
+    transform: none;
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
   }
 
-  .af-gateway-signin__mark {
-    width: 56px;
-    height: 56px;
-    border-radius: 18px;
-    font-size: 26px;
-  }
-
-  .af-gateway-signin__form {
-    grid-template-columns: 1fr;
+  .af-gateway-signin .af-gateway-signin__link {
+    min-height: var(--tap-min);
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .af-gateway-signin .af-gateway-signin__link[aria-busy="true"]::after {
+    animation: none;
+  }
+}
+/* af-gateway-signin:end */
 
 :root.theme-light,
 :root.theme-solarized-light,
@@ -4148,8 +4360,11 @@ html {
 .af-switch[aria-checked="true"] {
   color: var(--text-primary);
 }
+/* 600, not 700: the type-scale guard (checkLabelScale) caps every label at
+ * weight 600; 500 -> 600 plus secondary -> primary text still reads as bold
+ * next to the fill, glow and check mark. */
 .af-switch[aria-checked="true"] .af-switch__label {
-  font-weight: 700;
+  font-weight: 600;
 }
 .af-switch[aria-checked="true"] .af-switch__track {
   border-color: var(--accent);
@@ -4243,6 +4458,7 @@ html {
   .af-switch,
   .af-switch--sm {
     min-height: var(--tap-min);
+    min-width: var(--tap-min);
   }
   .af-switch--sm {
     --af-switch-w: 40px;
@@ -4251,9 +4467,12 @@ html {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .af-switch,
   .af-switch__track,
-  .af-switch__thumb {
+  .af-switch__thumb,
+  .af-switch__thumb::after {
     transition: none;
+    animation: none;
   }
 }
 @media (forced-colors: active) {
@@ -4266,3 +4485,240 @@ html {
   }
 }
 /* af-switch:end */
+
+/* af-form:begin
+ * FORM LAYOUT, CARD, TABS (ui-kit 0.3.3, docs/state-toggles.md "Forms, cards
+ * and tabs"). Settings forms: max 720px wide (--form-max), labels ABOVE
+ * fields at every width, short fields side by side in af-form__grid-2 from
+ * 768px up (one column below), helper text small and muted, 44px controls on
+ * touch, no input wider than its card. One type scale: labels at body size
+ * weight 500 (the checkLabelScale guard caps labels at 15px / 600). */
+.af-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 16px);
+  width: 100%;
+  max-width: var(--form-max, 720px);
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.af-form *,
+.af-form *::before,
+.af-form *::after {
+  box-sizing: border-box;
+}
+
+.af-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.af-form__label {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.af-form__help {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.af-form__error {
+  margin: 0;
+  color: var(--error);
+  font-size: var(--font-size-base);
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.af-form input:not([type="checkbox"]):not([type="radio"]),
+.af-form select,
+.af-form textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Two short fields side by side (port + security, per hour + per day). */
+.af-form__grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4, 16px);
+  min-width: 0;
+}
+
+/* A field with its own inline action (the Email address row's "Save"). */
+.af-form__inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  min-width: 0;
+}
+
+.af-form__inline > input,
+.af-form__inline > select {
+  flex: 1 1 auto;
+}
+
+.af-form__inline > button {
+  flex: none;
+}
+
+.af-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 767.98px) {
+  .af-form__grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* A grouped card with a heading (Email address, Mailbox, Notifications…). */
+.af-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--space-4, 16px) 18px;
+  border: 1px solid var(--ui-border-1);
+  border-radius: var(--radius-md);
+  background: var(--bg-card, var(--bg-secondary));
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.af-card__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  min-width: 0;
+}
+
+.af-card__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.af-card__desc {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+/* Tabs: role=tablist / tab / tabpanel (AfTabs, or the same markup in a
+ * console). Underline style: the selected tab is accent-underlined, primary
+ * text, weight 600; others secondary. Arrow keys move between tabs. */
+.af-tabs {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.af-tabs__list {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--ui-border-1);
+}
+
+.af-tabs__list::-webkit-scrollbar {
+  display: none;
+}
+
+.af-tabs__tab {
+  appearance: none;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--control-h, 32px);
+  margin: 0 0 -1px;
+  padding: 6px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background-color 120ms ease;
+}
+
+.af-tabs__tab:hover:not([aria-selected="true"]):not([aria-disabled="true"]) {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--text-muted) 10%, transparent);
+}
+
+.af-tabs__tab[aria-selected="true"] {
+  color: var(--text-primary);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+.af-tabs__tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.af-tabs__tab[aria-disabled="true"] {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.af-tabs__panel {
+  padding-top: var(--space-4, 16px);
+  min-width: 0;
+}
+
+.af-tabs__panel:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (pointer: coarse) {
+  .af-tabs__tab {
+    min-height: var(--tap-min);
+  }
+
+  .af-form input:not([type="checkbox"]):not([type="radio"]),
+  .af-form select {
+    min-height: var(--tap-min);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .af-tabs__tab {
+    transition: none;
+  }
+}
+/* af-form:end */

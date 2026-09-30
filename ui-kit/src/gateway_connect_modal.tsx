@@ -256,7 +256,6 @@ export function GatewayConnectModal(props: GatewayConnectModalProps): React.Reac
           description="Sign in with a Gateway user token. The app exchanges it for an HTTP-only browser session and never stores the raw token."
           statusLabel={badge.label}
           statusTone={badge.tone}
-          tokenSourceLabel={status?.has_session ? "token: browser session" : "token: missing"}
           showGatewayUrl
           gatewayUrl={gatewayUrl}
           onGatewayUrlChange={(value: string) => setGatewayUrl(value)}
