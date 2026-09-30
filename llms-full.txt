@@ -53,6 +53,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Getting started](docs/getting-started.md): install/integrate, required CSS, quick examples, Next.js notes
 - [Adoption guide](docs/adoption-guide.md): which shared component for which job + the cross-app contracts (connection surface, server truth, labeled fallbacks)
 - [Theming](docs/theming.md): design-token vocabulary, 21-theme system, adoption/migration rules for host apps
+- [Modal, account rows, grouped navigation](docs/modal.md): `AfModal` (960 px × 90vh dialog over a blurred backdrop, full-screen sheet under 768 px, focus trap, Escape/backdrop close), its plain-HTML markup and `AfConsoleIslands.bindModal` / `bindAfModal`, the `af-row--admin|user|entity` tints with `af-kind-chip`, `af-nav-group` captions and `af-nav-footer`, and the `--af-helper-size` floor (13 px desktop, 14 px touch)
 - [On/off settings](docs/state-toggles.md): `AfSwitch` (a `role="switch"` labelled by the feature, highlighted when on; unavailable = `aria-disabled` + reason), the `af-switch` CSS block the consoles copy, the terminal `[x]`/`[ ]`/`[-]` marker, `findVerbToggleLabels` (the guard against "Email off"/"Email on" labels), `checkLabelScale` (labels at body size), unavailable-reason strings, the sign-in card classes, `af-form`/`af-card`/`af-tabs` + `AfTabs`, and `randomId()` / `insecureContextReason()` for plain-http pages
 - [Responsive layout](docs/responsive.md): breakpoints (480/768/1024/1440 px, short and touch axes), 44 px touch targets and 16 px form text on touch screens, bottom-sheet dialogs and drawers above the keyboard, container queries and their thresholds, `installViewportVars()` / `viewportVarsFrom()`, the font-size order, and how a host app adopts them
 - [API reference](docs/api.md): export map per package (what to import)
@@ -159,6 +160,7 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 - Getting started (entrypoint): [`docs/getting-started.md`](./docs/getting-started.md)
 - Adoption guide (which component for which job): [`docs/adoption-guide.md`](./docs/adoption-guide.md)
 - Theming & design tokens: [`docs/theming.md`](./docs/theming.md)
+- Modal dialog, account row tints, grouped navigation (`AfModal`, `bindModal`): [`docs/modal.md`](./docs/modal.md)
 - On/off settings, sign-in card, forms and tabs (`AfSwitch`, `AfTabs`, guards, `randomId()`): [`docs/state-toggles.md`](./docs/state-toggles.md)
 - Responsive layout (breakpoints, touch sizes, sheets, drawers, viewport helpers): [`docs/responsive.md`](./docs/responsive.md)
 - API reference: [`docs/api.md`](./docs/api.md)
@@ -716,6 +718,188 @@ Both run in the package test chain, so a published `ui-kit` cannot drift silentl
 - Non-React pages: [Console islands](./console-islands.md)
 - Breakpoints, touch sizes and the responsive tokens: [Responsive layout](./responsive.md)
 
+## docs/modal.md
+
+# Modal, Account Rows and Grouped Navigation
+
+This page covers four `ui-kit` pieces used by account and settings screens: the large modal
+dialog (`AfModal`), the account-kind row tints and chips, the grouped sidebar captions with a
+bottom slot, and the helper-text size floor. Each piece is a set of CSS classes in
+`ui-kit/src/theme.css`, so pages that are not React apps (the AbstractGateway console) use the
+same markup; React apps can also use the component.
+
+## Modal dialog
+
+A modal opens a large panel over the page: an Email panel, an activity log, a form that needs room.
+
+- Size: `min(960px, 100vw - 32px)` wide, at most 90 % of the viewport height. `af-modal--narrow`
+  is `min(560px, 100vw - 32px)`.
+- Backdrop: the page is dimmed and blurred (`backdrop-filter: blur(8px)`). With
+  `prefers-reduced-transparency: reduce` the blur is dropped and the dim is solid.
+- Scrolling: on a desktop the header and footer stay put and the body scrolls. Below 768 px the
+  modal is a full-screen sheet with one scroll (the sheet itself); the header and footer stay
+  pinned inside it and clear the notch and the home indicator.
+- Behaviour: focus moves into the dialog and returns to the button that opened it; Tab and
+  Shift+Tab stay inside; Escape and a click on the backdrop close it (only the topmost modal
+  reacts when several are open); the page behind does not scroll (`html.af-modal-open`).
+- Layering: `z-index: var(--z-modal)` (950): above drawers, below the Gateway connect modal.
+
+### React: `AfModal`
+
+```tsx
+import { AfModal } from "@abstractframework/ui-kit";
+
+<AfModal
+  open={open}
+  onClose={() => setOpen(false)}
+  title={`Email — ${userId}`}
+  footerNote="From the gateway's audit log."
+  footer={<button type="button" onClick={() => setOpen(false)}>Done</button>}
+>
+  …
+</AfModal>
+```
+
+Props: `open`, `onClose` (called by Escape, the close button and a backdrop click; the host sets
+`open` to false), `title`, `children` (the body), `footer`, `footerNote`, `size`
+(`"default"` | `"narrow"`), `closeLabel` (default "Close"), `closeOnEscape`, `closeOnBackdrop`
+(both default true), `initialFocusRef`, `describedBy`, `portal` (default true: rendered into
+`document.body`), `id` (the title gets `${id}-title`), `className`.
+
+The first focus goes to an element marked `data-af-autofocus` (or `autofocus`), else the first
+focusable element in the body, else the first focusable element, else the dialog itself.
+
+### Plain HTML
+
+```html
+<div class="af-modal-backdrop" id="email-modal" hidden>
+  <div class="af-modal" role="dialog" aria-modal="true" aria-labelledby="email-modal-title">
+    <div class="af-modal__header">
+      <h2 class="af-modal__title" id="email-modal-title">Email — alice</h2>
+      <button type="button" class="af-modal__close" aria-label="Close">×</button>
+    </div>
+    <div class="af-modal__body">
+      …
+    </div>
+    <div class="af-modal__footer">
+      <p class="af-modal__footer-note">From the gateway's audit log.</p>
+      <button type="button">Done</button>
+    </div>
+  </div>
+</div>
+```
+
+The footer is optional. The CSS hides a backdrop that carries `hidden`. For the behaviour, pages
+that load the console islands bundle bind it with one call:
+
+```js
+const el = document.getElementById("email-modal");
+function openModal() {
+  el.hidden = false;
+  release = window.AfConsoleIslands.bindModal(el, { onClose: closeModal });
+}
+function closeModal() {
+  release();          // unbinds, returns focus to the opener, unlocks the page scroll
+  el.hidden = true;
+}
+el.querySelector(".af-modal__close").addEventListener("click", closeModal);
+```
+
+`bindModal(backdrop, { onClose, closeOnEscape?, closeOnBackdrop?, initialFocus? })` is the same
+function `AfModal` uses (`bindAfModal` in `src/af_modal_core.ts`, also exported from the package).
+Show the backdrop before binding (focus needs a rendered element), and call `release()` before
+hiding it.
+
+## Account rows
+
+A table (or a list of row blocks) that mixes administrators, users and entities tints each row by
+kind: users stay neutral, the administrator takes a faint accent wash, entities a faint violet
+wash. A 3 px bar on the row's leading edge and a text chip carry the kind as well, so colour is
+never the only cue.
+
+| Class | Use |
+| --- | --- |
+| `af-row--admin`, `af-row--user`, `af-row--entity` | on a `<tr>` (the cells get the wash, the first cell the bar) or on a stacked row `<div>` (phones) |
+| `af-row__muted` | secondary text inside a tinted row (keeps 4.5:1 over the wash) |
+| `af-kind-chip` + `af-kind-chip--admin` / `--user` / `--entity` | the small "Admin" / "User" / "Entity" chip beside a name |
+| `af-row-legend`, `af-row-legend__item`, `af-row-legend__swatch--admin` / `--user` / `--entity` | the one-line legend under the table |
+
+```html
+<table>
+  <tbody>
+    <tr class="af-row--admin">
+      <td><strong>admin</strong> <span class="af-kind-chip af-kind-chip--admin">Admin</span></td>
+      <td class="af-row__muted">admin@example.com</td>
+    </tr>
+    <tr class="af-row--entity">
+      <td><strong>castor</strong> <span class="af-kind-chip af-kind-chip--entity">Entity</span></td>
+      <td class="af-row__muted">—</td>
+    </tr>
+  </tbody>
+</table>
+<p class="af-row-legend">Tint:
+  <span class="af-row-legend__item"><span class="af-row-legend__swatch af-row-legend__swatch--admin"></span>admin</span>
+  <span class="af-row-legend__item"><span class="af-row-legend__swatch af-row-legend__swatch--user"></span>user</span>
+  <span class="af-row-legend__item"><span class="af-row-legend__swatch af-row-legend__swatch--entity"></span>entity</span>
+</p>
+```
+
+Tokens: `--af-row-tint-admin`, `--af-row-tint-user`, `--af-row-tint-entity` (the washes; the
+light themes use lighter strengths), `--af-row-mark-admin|user|entity` (the bar colours) and
+`--af-row-text` / `--af-row-text-muted` (text on a tinted row). A tinted row sets its text colour
+to `--af-row-text`; use `af-row__muted` rather than the page's own muted colour for secondary text
+in the row. `scripts/check_modal_rows.mjs` computes the contrast of that text and of the chip text
+over the wash on `--bg-primary`, `--bg-secondary` and `--bg-card` for all 21 themes and fails
+under 4.5:1.
+
+## Grouped navigation
+
+A sidebar with many entries shows them in groups under small uppercase captions, and can pin one
+button (for example **Setup**) to the bottom.
+
+```html
+<nav class="sidebar" style="display: flex; flex-direction: column">
+  <div class="af-nav-group" role="group" aria-labelledby="nav-accounts">
+    <p class="af-nav-group__caption" id="nav-accounts">Accounts</p>
+    <a class="nav-item active" href="#accounts">Accounts</a>
+  </div>
+  <div class="af-nav-group" role="group" aria-labelledby="nav-work">
+    <p class="af-nav-group__caption" id="nav-work">Work</p>
+    <a class="nav-item" href="#workflows">Workflows</a>
+    <a class="nav-item" href="#runtimes">Runtimes</a>
+  </div>
+  <div class="af-nav-footer">
+    <button type="button" class="af-nav-footer__button">Setup</button>
+  </div>
+</nav>
+```
+
+The items keep the host's own styles. `af-nav-footer` uses `margin-top: auto`, so the sidebar must
+be a flex column. `af-nav-footer__button` is 44 px tall on touch screens.
+
+## Helper text size
+
+Helper text (switch descriptions, "why unavailable" reasons, form help, the modal footer note, the
+row legend, and anything with `class="af-field-help"`) reads the token `--af-helper-size`:
+
+- at least 13 px on a desktop pointer;
+- at least 14 px under `(pointer: coarse), (max-width: 1023.98px)` (phones and tablets).
+
+`checkLabelScale(root)` reports helper text under those floors (it picks the touch floor from
+`matchMedia(HELPER_TOUCH_MEDIA)`, or pass `touch: true|false`), next to labels above 15 px or
+heavier than 600. The constants are exported: `HELPER_MIN_PX` (13), `HELPER_MIN_TOUCH_PX` (14),
+`HELPER_TOUCH_MEDIA`. See [On/off settings](./state-toggles.md) for the label side of the scale.
+
+## Checks
+
+- `ui-kit/scripts/check_modal.mjs`: `bindAfModal` behaviour (focus in and back, Tab trap, Escape,
+  backdrop, nested modals, scroll lock, release) and the `AfModal` markup.
+- `ui-kit/scripts/check_modal_rows.mjs`: the modal CSS contract, the row tint contrast in every
+  theme, the row / chip / navigation classes and the helper floors.
+- `ui-kit/scripts/check_forms_signin.mjs`: `checkLabelScale` including the touch floor.
+
+All three run in `npm test` for `ui-kit`.
+
 ## docs/state-toggles.md
 
 # On/Off Settings (AfSwitch)
@@ -811,7 +995,7 @@ Use these sentences word for word, as `unavailableReason` (web) or after the em 
 | Agent email tools, admin switched agent email tools off | Your admin turned agent email tools off. |
 | Notifications (Job failed, Approval needed), no mailbox yet | Connect a mailbox first. |
 | Users table, Active switch on your own row | You can't deactivate your own account. |
-| A feature a plain-http page cannot use | This page is loaded over http, so the microphone is unavailable — open it over https or on the gateway's own computer. |
+| A feature a plain-http page cannot use | This page is loaded over http, so the microphone is unavailable — open it over https (for example through tailscale serve; the gateway console's Network page explains how) or on the gateway's own computer. |
 
 The last sentence swaps the feature ("the camera", "copying to the clipboard");
 `insecureContextReason(feature)` returns it when the page is not a secure context and `null`
@@ -1222,6 +1406,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`; `VoiceSettings` (catalog-driven voice preferences form)
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
 - Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation on a fixed UTC interval, once, or when an email arrives; "Email me the result" and allowed recipients), the email fields `AfEmailTriggerFields` / `AfEmailOptionsFields` / `AfEmailSetupNotice`, `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
+- Modal and account rows: `AfModal`, `bindAfModal()` (+ `afModalTabTarget()`, `afModalFocusables()`, `AF_MODAL_FOCUSABLE`), the helper floors `HELPER_MIN_PX`, `HELPER_MIN_TOUCH_PX`, `HELPER_TOUCH_MEDIA` — see [Modal, account rows, grouped navigation](./modal.md)
 - On/off settings and forms: `AfSwitch` (+ `afSwitchNextState()`, `afSwitchIsActionable()`), `AfTabs` (+ `afTabsNextIndex()`), the guards `findVerbToggleLabels(source)` and `checkLabelScale(root)` (+ `LABEL_SCALE_SELECTOR`) — see [On/off settings](./state-toggles.md)
 - Ids and non-secure contexts: `randomId()` (v4 UUID over plain http too), `uuidV4FromBytes()`, `insecureContextReason(feature)` — see [Non-secure contexts](./state-toggles.md#non-secure-contexts)
 - Icons: `Icon`, `IconName` (~45 glyphs, 24-grid and 16-grid families; `play`, `stop`, `folder`, `file`, `archive`, `clock` added for automations)
@@ -2914,7 +3099,7 @@ Source files:
 
 | File | Role |
 | --- | --- |
-| `ui-kit/islands/console_islands.tsx` | Entry point and API (`mountTopBar`, `mountAppearance`, `mountAbout`, `appIdentity`, `applyAppearance`) |
+| `ui-kit/islands/console_islands.tsx` | Entry point and API (`mountTopBar`, `mountAppearance`, `mountAbout`, `bindModal`, `appIdentity`, `applyAppearance`) |
 | `ui-kit/islands/tsconfig.json` | Type-check configuration for the entry (`noEmit`) |
 | `ui-kit/scripts/build_islands.mjs` | esbuild bundler; writes `islands/dist/af-console-islands.js` |
 | `ui-kit/scripts/check_islands.mjs` | Rebuilds the bundle and verifies it loads as a plain script |
@@ -2939,7 +3124,7 @@ node ui-kit/scripts/check_islands.mjs
 (`tsc -p islands/tsconfig.json`) and runs `check_islands.mjs`. The check verifies that:
 
 - evaluating the bundle defines `AfConsoleIslands`;
-- `mountTopBar`, `mountAppearance`, `mountAbout`, `appIdentity` and `applyAppearance` are
+- `mountTopBar`, `mountAppearance`, `mountAbout`, `bindModal`, `appIdentity` and `applyAppearance` are
   functions, and `appIdentity` returns the gateway's identity and throws for an unknown id;
 - `apiVersion` is `"1"` and `kitVersion` equals the `ui-kit` `package.json` version;
 - `themes` has one entry per theme in `THEME_SPECS`;
@@ -2974,6 +3159,7 @@ Serve both files from your own origin; the paths above are examples.
 | `mountTopBar(el, props)` | `IslandHandle` | Mounts `AfTopBarActions` into `el` |
 | `mountAppearance(el, props)` | `IslandHandle` | Mounts `AfAppearanceDialog` into `el` |
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
+| `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.3.3+) |
 | `appIdentity(id, version)` | `AppIdentity` | Identity facts for an AbstractFramework app; throws for an unknown id (kit 0.1.12+) |
 | `applyAppearance(settings)` | `void` | Applies a theme and typography settings to the document |
 
@@ -3053,6 +3239,23 @@ type AboutIslandProps = {
 Use `mountAbout` when your About entry lives outside the top bar. When you pass `about` to
 `mountTopBar`, the cluster renders the About button and owns the dialog itself, so you do not
 need `mountAbout`.
+
+### `bindModal(backdrop, options)`
+
+Gives your own modal markup (the `af-modal` classes of `theme.css`) the kit's modal behaviour. It
+does not render anything: show the backdrop, bind, and call the returned `release()` before you
+hide it again.
+
+```ts
+type BindModalOptions = {
+  onClose: () => void;           // Escape or a click on the backdrop
+  closeOnEscape?: boolean;       // default true
+  closeOnBackdrop?: boolean;     // default true
+  initialFocus?: HTMLElement | null;
+};
+```
+
+Markup and a complete example: [Modal, account rows, grouped navigation](./modal.md).
 
 ### `appIdentity(id, version)`
 
@@ -3141,6 +3344,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 - **Adoption guide**: [`adoption-guide.md`](./adoption-guide.md) — which shared component for which job, and the contracts apps follow
 - **Theming & design tokens**: [`theming.md`](./theming.md) — token vocabulary, the 21 themes, migration rules for host apps
 - **On/off settings**: [`state-toggles.md`](./state-toggles.md) — `AfSwitch`, the console markup, the terminal marker, the verb-toggle and label-scale guards, the sign-in card, forms, cards and tabs, `randomId()`
+- **Modal, account rows, grouped navigation**: [`modal.md`](./modal.md) — `AfModal` and its plain-HTML markup with `AfConsoleIslands.bindModal`, the account-kind row tints and chips, sidebar group captions with a bottom slot, and the 13 px / 14 px helper-text floor
 - **Responsive layout**: [`responsive.md`](./responsive.md) — breakpoints, touch sizes, bottom sheets and drawers, container queries, the viewport helpers, the font-size order, and how a host app adopts them
 - **Automations**: [`automations.md`](./automations.md) — show and manage AbstractGateway automations: `AutomationPanel` (controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (schedules and **When an email arrives** triggers, **Email me the result**, allowed recipients) and its tool-approval consent line, `createAutomationsClient()` and its error model, retry-safe ids, the panel-chat schedule action and badge, the canonical fixtures and how to regenerate them, and the export list
 - **Console islands**: [`console-islands.md`](./console-islands.md) — the `window.AfConsoleIslands` bundle built from `ui-kit` for non-React pages (AbstractGateway console): API, build and check
@@ -3194,6 +3398,9 @@ This package provides:
 - **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk)
 - **Automations**: `AutomationPanel`, `AfScheduleDialog` (schedule and email triggers, Email me the
   result, allowed recipients), `createAutomationsClient()` and the canonical Gateway fixtures — see [Automations](../docs/automations.md)
+- **Modal and account rows**: `AfModal` (large dialog over a blurred backdrop, full-screen sheet on
+  phones), `bindAfModal()`, the `af-row--admin|user|entity` tints, `af-kind-chip`, `af-nav-group` /
+  `af-nav-footer` — see [Modal, account rows, grouped navigation](../docs/modal.md)
 - **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
 - **Palette seeds**: `@abstractframework/ui-kit/palette_seeds.json` for non-CSS consumers
 - **Console islands** (repository build, not in the npm package): the kit components as one
@@ -3499,6 +3706,7 @@ app. `scripts/check_responsive.mjs` and `scripts/check_viewport_vars.mjs` pin it
 - API reference: [`docs/api.md`](../docs/api.md)
 - Adoption guide: [`docs/adoption-guide.md`](../docs/adoption-guide.md)
 - Theming: [`docs/theming.md`](../docs/theming.md)
+- Modal, account rows, grouped navigation: [`docs/modal.md`](../docs/modal.md)
 - Console islands: [`docs/console-islands.md`](../docs/console-islands.md)
 - Automations: [`docs/automations.md`](../docs/automations.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)
@@ -4517,7 +4725,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_random_id.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_random_id.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -4586,7 +4794,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.1.14 || ^0.2.0 || ^0.3.0",
@@ -4878,6 +5086,8 @@ export {
 } from "./disclosure_list.js";
 export { AfChip, AfChipButton, afChipHue, type AfChipProps, type AfChipButtonProps, type AfChipTone } from "./af_chip.js";
 export { AfDrawer, type AfDrawerProps } from "./af_drawer.js";
+export { AfModal, type AfModalProps } from "./af_modal.js";
+export { bindAfModal, afModalTabTarget, afModalFocusables, AF_MODAL_FOCUSABLE, type BindAfModalOptions } from "./af_modal_core.js";
 export { AfTopBarActions, type AfTopBarActionsProps } from "./af_top_bar_actions.js";
 export {
   frameworkIdentity,
@@ -5096,10 +5306,10 @@ export {
   type AfEmailSetupNoticeProps,
   type AfEmailTriggerFieldsProps,
 } from "./automations/email_fields.js";
-export { AfSwitch, afSwitchIsActionable, afSwitchNextState, type AfSwitchProps } from "./af_switch.js";
+export { AfSwitch, AfSwitchInput, afSwitchIsActionable, afSwitchNextState, type AfSwitchProps } from "./af_switch.js";
 export { findVerbToggleLabels, type VerbToggleHit } from "./state_toggle_lint.js";
 export { randomId, uuidV4FromBytes, insecureContextReason } from "./random_id.js";
-export { checkLabelScale, LABEL_SCALE_SELECTOR, type LabelScaleHit, type LabelScaleOptions } from "./label_scale.js";
+export { checkLabelScale, LABEL_SCALE_SELECTOR, type LabelScaleHit, type LabelScaleOptions, HELPER_SCALE_SELECTOR, HELPER_MIN_PX, HELPER_MIN_TOUCH_PX, HELPER_TOUCH_MEDIA } from "./label_scale.js";
 export { AfTabs, afTabsNextIndex, type AfTab, type AfTabsProps } from "./af_tabs.js";
 
 ## ui-kit/src/responsive.ts
@@ -5562,6 +5772,7 @@ export type GatewaySessionSignInCardProps = {
   description?: React.ReactNode;
   statusLabel?: string;
   statusTone?: GatewaySessionStatusTone;
+  /** Ignored since 0.3.3: one pill per state, no caption (DESIGN §3). Kept so apps still compile. */
   tokenSourceLabel?: string;
 
   showGatewayUrl?: boolean;
@@ -5611,7 +5822,6 @@ export function GatewaySessionSignInCard({
   description = "Sign in with the Gateway user token assigned by the Gateway admin.",
   statusLabel = "Not signed in",
   statusTone = "neutral",
-  tokenSourceLabel,
   showGatewayUrl = false,
   gatewayUrl = "",
   gatewayUrlPlaceholder = "http://127.0.0.1:8080",
@@ -5667,7 +5877,7 @@ export function GatewaySessionSignInCard({
 
       <div className="af-gateway-signin__status-row">
         <span className={cx("af-gateway-signin__status", `af-gateway-signin__status--${statusTone}`)}>{statusLabel}</span>
-        {tokenSourceLabel ? <span className="af-gateway-signin__source">{tokenSourceLabel}</span> : null}
+        {/* One pill per state (DESIGN §3): a "token: …" caption is never rendered, even when an app still passes tokenSourceLabel. */}
       </div>
 
       <div className="af-gateway-signin__form">
@@ -7480,6 +7690,7 @@ import { AfAppearanceDialog, type AppearanceSettings } from "../src/appearance.j
 import { AfAboutDialog } from "../src/about.js";
 import { appIdentity, type AppIdentity } from "../src/identity.js";
 import { Icon, type IconName } from "../src/icon.js";
+import { bindAfModal } from "../src/af_modal_core.js";
 import { THEME_SPECS, applyTheme } from "../src/theme.js";
 import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typography.js";
 import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
@@ -7603,6 +7814,16 @@ export function mountAbout(el: Element, props: AboutIslandProps): IslandHandle<A
   return mount(el, (p) => <AfAboutDialog {...p} />, props);
 }
 
+/**
+ * Make a plain-HTML `.af-modal-backdrop` behave as a modal (focus in + trap +
+ * return, Escape / backdrop click -> onClose, page scroll lock) until the
+ * returned release() is called. Markup contract: docs/modal.md. Additive
+ * member (kit 0.3.3): apiVersion stays "1".
+ */
+export function bindModal(backdrop: HTMLElement, options: { onClose: () => void; closeOnEscape?: boolean; closeOnBackdrop?: boolean; initialFocus?: HTMLElement | null }): () => void {
+  return bindAfModal(backdrop, options);
+}
+
 /** The kit's own theme + typography application (root class + CSS vars). */
 export function applyAppearance(settings: Partial<AppearanceSettings>): void {
   applyTheme(String(settings.theme || "dark"));
@@ -7618,6 +7839,7 @@ const api = {
   mountTopBar,
   mountAppearance,
   mountAbout,
+  bindModal,
   appIdentity,
   applyAppearance,
 };
@@ -13617,7 +13839,7 @@ On/off settings become switches labelled by the feature, highlighted when on (op
 
 | Package | Version | Change |
 | --- | --- | --- |
-| `@abstractframework/ui-kit` | 0.3.3 | updated (`AfSwitch`, the verb-toggle guard, the automation Active switch, the sign-in card layout, form/card/tab styles, `checkLabelScale`, `randomId`) |
+| `@abstractframework/ui-kit` | 0.3.3 | updated (`AfSwitch`, the verb-toggle guard, the automation Active switch, the sign-in card layout, form/card/tab styles, `checkLabelScale`, `randomId`, `AfModal`, account row tints, grouped navigation, the touch helper floor) |
 
 ### ui-kit 0.3.3
 
@@ -13665,9 +13887,73 @@ On/off settings become switches labelled by the feature, highlighted when on (op
 - Changed: an on switch's label is weight 600 (was 700) to stay inside the label type scale; on
   touch screens every switch is 44 px wide as well as tall; reduced motion also covers the switch
   root and check mark.
+- Changed: the kit's own on/off checkboxes are switches: "Email me the result" in the schedule
+  dialog (`AfSwitch`, unavailable with the reason "Connect a mailbox first.") and in the edit form
+  (`AfSwitchInput`, a native `role="switch"` checkbox inside the switch markup so the uncontrolled
+  form still reads `notify_email`); the tool policy editor's per-tool control is a switch named by
+  the tool (unavailable outside Custom: "Choose Custom to pick tools one by one."). Tests that found
+  these as checkboxes use `getByRole("switch", { name })`.
+- Changed: `insecureContextReason()` names the fix path ("open it over https (for example through
+  tailscale serve; the gateway console's Network page explains how) or on the gateway's own
+  computer").
+- Fixed: the tool policy row's first column sizes to the tool's switch (`auto`; a fixed 24 px let
+  the 34–44 px switch overlap the tool name on touch); tool names break after underscores
+  (`<wbr>`), not mid-word.
+- Changed: automation notices name the new state ("Automation paused." / "Automation active." /
+  "Stop requested."), never the command sent.
+- Changed: the sign-in card never renders a "token: …" caption (one pill per state), even when an
+  app still passes `tokenSourceLabel`; its hero mark is hidden on cards narrower than 480 px (the
+  intro was squeezed to ~70% of a phone's width).
+- Changed: helper text (`af-switch__desc`, `af-switch__reason`, `af-form__help`) is never below
+  13 px; `checkLabelScale` also reports helper text under 13 px (`minHelperFontSizePx`,
+  `HELPER_SCALE_SELECTOR`). An unavailable `AfSwitchInput` shows its reason inline.
+- Changed: the email notice reads "Connect a mailbox first — open My email" (was "Email isn't set
+  up — …") and the automation forms' email section is titled "Mailbox".
+- Fixed: `.af-switch-wrap` is `position: relative`, so a switch's visually hidden reason no longer
+  lands against the document and adds a page scroll on phones.
+- monitor-active-memory 0.2.1 → 0.2.2 pending: the explorer's help text (`.amx-small`) is 14 px on
+  touch screens.
 - Docs: [`docs/state-toggles.md`](docs/state-toggles.md) (the rule, the component, the console
   markup, the terminal marker, the guards, unavailable reasons, the sign-in card, forms, cards and
   tabs, non-secure contexts).
+- Added: `AfModal`, a large modal dialog: `min(960px, 100vw - 32px)` wide and at most 90 % of the
+  viewport tall over a dimmed, blurred backdrop (a solid dim with `prefers-reduced-transparency`).
+  The body scrolls between a fixed header and footer; below 768 px it is a full-screen sheet with
+  one scroll that clears the notch and the home indicator. Focus moves in and returns to the
+  opener, Tab stays inside, Escape and a backdrop click close it, the page behind does not scroll.
+  `size="narrow"` gives a 560 px dialog.
+- Added: the `af-modal` classes in `theme.css` and `bindAfModal()` (the same behaviour for plain
+  HTML), exposed to the AbstractGateway console as `AfConsoleIslands.bindModal()`. The markup is
+  documented in [`docs/modal.md`](docs/modal.md). New layer token `--z-modal` (950): above drawers,
+  below the connect modal.
+- Added: account-kind row tints: tokens `--af-row-tint-admin|user|entity` (light and dark
+  strengths), classes `af-row--admin|user|entity` for table rows and stacked row blocks (a wash and
+  a 3 px leading bar), `af-row__muted` for secondary text on a tinted row, `af-kind-chip` with
+  `--admin|--user|--entity`, and the `af-row-legend`. Text on a tinted row and on a chip keeps
+  4.5:1 in all 21 themes (computed by `check_modal_rows.mjs`).
+- Added: grouped sidebar navigation: `af-nav-group` with an `af-nav-group__caption` (small
+  uppercase caption) and an `af-nav-footer` slot pinned to the bottom (`af-nav-footer__button`,
+  44 px on touch).
+- Changed: helper text (switch descriptions and reasons, form help) is at least 14 px on touch
+  screens and below 1024 px of viewport, and at least 13 px elsewhere, through the new
+  `--af-helper-size` token; `af-field-help` applies it to any helper line. `checkLabelScale`
+  asserts the same floors (the touch floor from `matchMedia(HELPER_TOUCH_MEDIA)` or `touch: true`)
+  and also checks the modal footer note and the row legend; new exports `HELPER_MIN_PX`,
+  `HELPER_MIN_TOUCH_PX`, `HELPER_TOUCH_MEDIA`.
+
+### Fixed
+
+- **panel-chat: plain http from another machine** (LAN, Tailscale). Browsers
+  withhold `crypto.randomUUID` and the clipboard API outside https and
+  localhost. Workflow command ids are now v4 UUIDs built from
+  `crypto.getRandomValues` there (the kit peer range stays `^0.3.0`),
+  `copyText` returns `false` when the browser refuses the copy instead of
+  claiming success, and **Copy JSON** says "Copied" or "Copy failed — select
+  and copy". `scripts/check_secure_context.mjs` runs both paths with the APIs
+  removed.
+- **monitor-flow, monitor-active-memory:** the copy helpers fall back to a
+  text-selection copy over plain http; monitor-flow's `copy_text` reports the
+  real outcome.
 
 ## 0.3.2 - 2026-09-30
 
