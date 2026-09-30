@@ -62,6 +62,30 @@ On/off settings become switches labelled by the feature, highlighted when on (op
 - Changed: an on switch's label is weight 600 (was 700) to stay inside the label type scale; on
   touch screens every switch is 44 px wide as well as tall; reduced motion also covers the switch
   root and check mark.
+- Changed: the kit's own on/off checkboxes are switches: "Email me the result" in the schedule
+  dialog (`AfSwitch`, unavailable with the reason "Connect a mailbox first.") and in the edit form
+  (`AfSwitchInput`, a native `role="switch"` checkbox inside the switch markup so the uncontrolled
+  form still reads `notify_email`); the tool policy editor's per-tool control is a switch named by
+  the tool (unavailable outside Custom: "Choose Custom to pick tools one by one."). Tests that found
+  these as checkboxes use `getByRole("switch", { name })`.
+- Changed: `insecureContextReason()` names the fix path ("open it over https (for example through
+  tailscale serve; the gateway console's Network page explains how) or on the gateway's own
+  computer").
+- Fixed: the tool policy row's first column sizes to the tool's switch (`auto`; a fixed 24 px let
+  the 34–44 px switch overlap the tool name on touch); tool names break after underscores
+  (`<wbr>`), not mid-word.
+- Changed: automation notices name the new state ("Automation paused." / "Automation active." /
+  "Stop requested."), never the command sent.
+- Changed: the sign-in card never renders a "token: …" caption (one pill per state), even when an
+  app still passes `tokenSourceLabel`; its hero mark is hidden on cards narrower than 480 px (the
+  intro was squeezed to ~70% of a phone's width).
+- Changed: helper text (`af-switch__desc`, `af-switch__reason`, `af-form__help`) is never below
+  13 px; `checkLabelScale` also reports helper text under 13 px (`minHelperFontSizePx`,
+  `HELPER_SCALE_SELECTOR`). An unavailable `AfSwitchInput` shows its reason inline.
+- Changed: the email notice reads "Connect a mailbox first — open My email" (was "Email isn't set
+  up — …") and the automation forms' email section is titled "Mailbox".
+- monitor-active-memory 0.2.1 → 0.2.2 pending: the explorer's help text (`.amx-small`) is 14 px on
+  touch screens.
 - Docs: [`docs/state-toggles.md`](docs/state-toggles.md) (the rule, the component, the console
   markup, the terminal marker, the guards, unavailable reasons, the sign-in card, forms, cards and
   tabs, non-secure contexts).

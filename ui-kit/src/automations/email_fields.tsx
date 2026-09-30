@@ -153,7 +153,7 @@ export function AfEmailOptionsFields(p: AfEmailOptionsFieldsProps): React.ReactE
   const dis = p.disabled === true;
   return (
     <div className="af-email__options" data-field="email-options">
-      <AfSwitch variant="row" action="notify-email" label={EMAIL_TEXT.notify_label} checked={p.notifyEmail} unavailableReason={dis ? EMAIL_TEXT.not_set_up : null} reasonVisible={false} onChange={(on) => p.onNotifyEmailChange(on)} />
+      <AfSwitch variant="row" action="notify-email" label={EMAIL_TEXT.notify_label} checked={p.notifyEmail} unavailableReason={dis ? "Connect a mailbox first." : null} onChange={(on) => p.onNotifyEmailChange(on)} />
       <p className="af-auto__hint">{EMAIL_TEXT.notify_hint}</p>
       <fieldset className="af-auto__field" disabled={dis} data-field="email-recipients">
         <legend>{EMAIL_TEXT.recipients_legend}</legend>

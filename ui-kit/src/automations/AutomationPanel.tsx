@@ -745,10 +745,10 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
       ) : null}
       {initial.notifyEmail !== null && initial.notifyEmail !== undefined && initial.emailRecipients ? (
         <fieldset className="af-auto__field" data-field="email">
-          <legend>Email</legend>
+          <legend>Mailbox</legend>
           {!usable ? <AfEmailSetupNotice status={p.emailStatus} onOpenMyEmail={p.onOpenMyEmail} /> : null}
           {/* Without a usable account an option already on can still be switched off, never on. */}
-          <AfSwitchInput variant="row" action="notify-email" name="notify_email" label={EMAIL_TEXT.notify_label} defaultChecked={Boolean(initial.notifyEmail)} unavailableReason={!usable && !initial.notifyEmail ? EMAIL_TEXT.not_set_up : null} />
+          <AfSwitchInput variant="row" action="notify-email" name="notify_email" label={EMAIL_TEXT.notify_label} defaultChecked={Boolean(initial.notifyEmail)} unavailableReason={!usable && !initial.notifyEmail ? "Connect a mailbox first." : null} />
           <p className="af-auto__hint">{EMAIL_TEXT.notify_hint}</p>
           <fieldset className="af-auto__field" data-field="email-recipients">
             <legend>{EMAIL_TEXT.recipients_legend}</legend>
