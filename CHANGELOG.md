@@ -21,6 +21,15 @@ ships.
 - Fixed: `.af-disclosure__content` clips on the inline axis only on touch, so an interactive chip's
   44 px hit area is no longer cut (a tap just above/below the chip selected the row); the disclosure
   chevron gets a 44 px `::after` hit area.
+- Fixed: `installViewportVars()` ignored `visualViewport.scale`: a 2x pinch-zoom halved `--vv-height`
+  and reported a 426 px `--keyboard-inset` with no keyboard, shrinking app shells. A pinch-zoomed page
+  (scale > 1.01) now keeps the layout viewport height and no inset; the keyboard at scale 1 keeps its
+  inset (offsetTop honoured). The rule is exported as `viewportVarsFrom()`; `check_viewport_vars.mjs`
+  pins 7 cases.
+- Fixed: kit sheets (sign-in, critical, appearance, about, schedule, `.af-sheet`) and centred dialog
+  overlays pad the bottom by `--keyboard-inset`, sheets are `border-box`, and `.af-drawer` sits above the
+  keyboard (`bottom: var(--keyboard-inset)`), so pinned action rows and drawer composers stay visible
+  with the keyboard up.
 - Added: `--af-select-chevron` lives in the base (first) `:root` token block, so the gateway and core
   consoles, whose theme sync copies only that block, receive it by name.
 - Added: `check_responsive.mjs` section H (red on the 0.3.1 CSS: 4 failures).

@@ -110,6 +110,10 @@ if (!/select:not\(\[multiple\]\):where\(:not\(\[size\]\), \[size="1"\]\)\s*\{[^}
 if (!coarse_has(".af-disclosure__content", /overflow-x:\s*clip/)) fail("coarse: .af-disclosure__content must clip on x only (overflow:hidden clips the chip hit area)");
 if (!coarse_has(".af-disclosure__chevron:not(.af-disclosure__chevron--spacer)::after", /width:\s*max\(100%,\s*var\(--tap-min\)\)/)) fail("coarse: the disclosure chevron needs a 44px ::after hit area");
 
+// I. fixed bottom surfaces follow --keyboard-inset (DESIGN §4.3; reviewer A).
+if (!/@media \(max-width: 767\.98px\), \(max-height: 500px\)\s*\{[\s\S]*?padding: var\(--safe-top\) 0 var\(--keyboard-inset, 0px\);/.test(css)) fail("sheet overlays must pad the bottom by --keyboard-inset (pinned actions under the keyboard)");
+if (!/\.af-drawer \{[^}]*bottom: var\(--keyboard-inset, 0px\)/.test(css)) fail(".af-drawer must sit above the keyboard (bottom: var(--keyboard-inset, 0px))");
+
 // E. containers
 for (const [sel, name] of [[".af-gateway-signin", "af-signin"], [".af-appearance", "af-dialog"], [".af-auto", "af-auto"], [".af-tool-policy", "af-tool-policy"], [".af-drawer__body", "af-drawer"]]) {
   const re = new RegExp(`${sel.replace(/[.]/g, "\\.")}\\s*\\{[^}]*container:\\s*${name}\\s*/\\s*inline-size`);

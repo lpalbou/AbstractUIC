@@ -61,8 +61,28 @@ export function useAfMedia(query: string): boolean {
 
 let viewportCleanup: (() => void) | null = null;
 
+/** The subset of `window.visualViewport` the viewport variables depend on. */
+export type AfVisualViewportSample = { height: number; offsetTop: number; scale: number };
+
 /**
- * Mirror the VISUAL viewport into CSS variables on <html>:
+ * Pure rule behind `installViewportVars()` (exported for tests).
+ * - Keyboard at scale 1: `--vv-height` is the visible height and
+ *   `--keyboard-inset` the layout px hidden at the bottom.
+ * - Pinch-zoomed (scale > 1.01): the visual viewport is a magnified window
+ *   onto the page, not a smaller page — the shell keeps the layout viewport
+ *   height and there is no inset (a zoomed page must never shrink the shell).
+ */
+export function viewportVarsFrom(innerHeight: number, vv: AfVisualViewportSample): { vvHeight: number; keyboardInset: number } {
+  const layout = Math.max(0, Math.round(innerHeight));
+  if (!(vv.scale <= 1.01)) return { vvHeight: layout, keyboardInset: 0 };
+  const height = Math.max(0, Math.min(layout, Math.round(vv.height)));
+  const inset = Math.max(0, Math.round(innerHeight - vv.height - Math.max(0, vv.offsetTop)));
+  return { vvHeight: height, keyboardInset: inset };
+}
+
+/**
+ * Mirror the VISUAL viewport into CSS variables on <html> (rule:
+ * `viewportVarsFrom`; a pinch-zoomed page keeps the full layout height):
  * - `--vv-height`: the visible height in px (shrinks under the iOS keyboard,
  *   which `dvh` does not track on iOS Safari);
  * - `--keyboard-inset`: px of the layout viewport hidden at the bottom (the
@@ -79,10 +99,9 @@ export function installViewportVars(): () => void {
   let frame = 0;
   const apply = () => {
     frame = 0;
-    const height = Math.round(vv.height);
-    const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-    root.style.setProperty("--vv-height", `${height}px`);
-    root.style.setProperty("--keyboard-inset", `${inset}px`);
+    const { vvHeight, keyboardInset } = viewportVarsFrom(window.innerHeight, { height: vv.height, offsetTop: vv.offsetTop, scale: vv.scale || 1 });
+    root.style.setProperty("--vv-height", `${vvHeight}px`);
+    root.style.setProperty("--keyboard-inset", `${keyboardInset}px`);
   };
   const schedule = () => {
     if (frame) return;

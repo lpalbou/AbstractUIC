@@ -3589,7 +3589,7 @@ html {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: max(var(--gutter), var(--safe-top)) max(var(--gutter), var(--safe-right)) max(var(--gutter), var(--safe-bottom)) max(var(--gutter), var(--safe-left));
+  padding: max(var(--gutter), var(--safe-top)) max(var(--gutter), var(--safe-right)) calc(max(var(--gutter), var(--safe-bottom)) + var(--keyboard-inset, 0px)) max(var(--gutter), var(--safe-left));
   background: rgba(0, 0, 0, 0.45);
 }
 
@@ -3612,7 +3612,7 @@ html {
 .af-connect-overlay,
 .af-critical__overlay,
 .af-appearance-overlay {
-  padding: max(var(--gutter), var(--safe-top)) max(var(--gutter), var(--safe-right)) max(var(--gutter), var(--safe-bottom)) max(var(--gutter), var(--safe-left));
+  padding: max(var(--gutter), var(--safe-top)) max(var(--gutter), var(--safe-right)) calc(max(var(--gutter), var(--safe-bottom)) + var(--keyboard-inset, 0px)) max(var(--gutter), var(--safe-left));
 }
 
 .af-connect-modal,
@@ -3634,13 +3634,19 @@ html {
   .af-appearance-overlay,
   .af-sheet-overlay {
     align-items: flex-end;
-    padding: var(--safe-top) 0 0;
+    /* The sheet ends above the on-screen keyboard (installViewportVars); its
+     * max-height: 100% then shrinks with it, so the pinned actions stay
+     * visible. */
+    padding: var(--safe-top) 0 var(--keyboard-inset, 0px);
   }
 
   .af-connect-modal,
   .af-appearance,
   .af-critical,
   .af-sheet {
+    /* border-box: max-height 100% must include the padding, or a short
+     * visible area (keyboard up in landscape) pushes the actions off. */
+    box-sizing: border-box;
     width: 100%;
     max-width: none;
     max-height: 100%;
@@ -3715,6 +3721,8 @@ html {
 /* --- AfDrawer: safe areas, left edge, overlay backdrop --- */
 .af-drawer {
   padding-right: var(--safe-right);
+  /* A drawer's bottom (an assistant composer) stays above the keyboard. */
+  bottom: var(--keyboard-inset, 0px);
 }
 
 .af-drawer__header {
