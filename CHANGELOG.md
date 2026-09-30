@@ -7,6 +7,42 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## [Unreleased]
+
+On/off settings become switches labelled by the feature, highlighted when on (operator rule
+2026-09-30), and automations get an "Active" switch in place of the Pause/Resume swap.
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.3.3 | updated (`AfSwitch`, the verb-toggle guard, the automation Active switch) |
+
+### ui-kit 0.3.3
+
+- Added: `AfSwitch`, the one control for a persistent on/off setting: a `role="switch"` button
+  with a track and thumb, labelled by the feature. On shows as a sliding thumb with a check mark,
+  an accent track with a glow and a bold label, so it reads without colour and in every theme.
+  Variants `inline`, `row` (settings rows with a description) and `sm` (table rows); 44 px on touch
+  screens; `prefers-reduced-motion` and forced-colours aware.
+- Added: unavailable switches (`unavailableReason`) stay focusable (`aria-disabled`) and name the
+  reason through `aria-describedby`, as text and on hover; `describedBy` reuses a reason the page
+  already shows.
+- Added: the `af-switch` CSS block in `theme.css`, delimited by `af-switch:begin` /
+  `af-switch:end` so the AbstractGateway and AbstractCore consoles copy it verbatim.
+- Added: `findVerbToggleLabels(source)`, the guard that finds conditional labels swapping only an
+  on/off verb ("Email off" / "Email on", "Enable" / "Disable", "Pause" / "Resume"), and
+  `scripts/check_state_toggles.mjs` in the test gate (component markup, CSS cues, the guard over
+  the kit's sources).
+- Changed: the automation controls bar leads with an "Active" switch (on = runs on its schedule,
+  off = paused) instead of a Pause or Resume button. It sends `automation.pause` or
+  `automation.resume`, needs the capability of that transition, and is unavailable with its reason
+  once the automation has ended, is archived or legacy, or while a command is in flight.
+  `automationControls()` returns the new `active` control and `activeToggleCommand(summary)` names
+  the command.
+- Changed: `automation_controls.json` gains the `active` label and hint. Clients that vendor it
+  (AbstractAssistant, AbstractCode's terminal client) must copy it again.
+- Docs: [`docs/state-toggles.md`](docs/state-toggles.md) (the rule, the component, the console
+  markup, the terminal marker, the guard).
+
 ## 0.3.2 - 2026-09-30
 
 Responsive layout for every AbstractFramework browser app: the shared components adapt to phones,

@@ -53,6 +53,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Getting started](docs/getting-started.md): install/integrate, required CSS, quick examples, Next.js notes
 - [Adoption guide](docs/adoption-guide.md): which shared component for which job + the cross-app contracts (connection surface, server truth, labeled fallbacks)
 - [Theming](docs/theming.md): design-token vocabulary, 21-theme system, adoption/migration rules for host apps
+- [On/off settings](docs/state-toggles.md): `AfSwitch` (a `role="switch"` labelled by the feature, highlighted when on; unavailable = `aria-disabled` + reason), the `af-switch` CSS block the consoles copy, the terminal `[x]`/`[ ]`/`[-]` marker, and `findVerbToggleLabels` (the guard against "Email off"/"Email on" labels)
 - [Responsive layout](docs/responsive.md): breakpoints (480/768/1024/1440 px, short and touch axes), 44 px touch targets and 16 px form text on touch screens, bottom-sheet dialogs and drawers above the keyboard, container queries and their thresholds, `installViewportVars()` / `viewportVarsFrom()`, the font-size order, and how a host app adopts them
 - [API reference](docs/api.md): export map per package (what to import)
 - [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, ecosystem data flow, gateway connection flow, live replies, About/identity flow, automations flow, console islands build)
@@ -158,6 +159,7 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 - Getting started (entrypoint): [`docs/getting-started.md`](./docs/getting-started.md)
 - Adoption guide (which component for which job): [`docs/adoption-guide.md`](./docs/adoption-guide.md)
 - Theming & design tokens: [`docs/theming.md`](./docs/theming.md)
+- On/off settings (`AfSwitch`, console markup, verb-toggle guard): [`docs/state-toggles.md`](./docs/state-toggles.md)
 - Responsive layout (breakpoints, touch sizes, sheets, drawers, viewport helpers): [`docs/responsive.md`](./docs/responsive.md)
 - API reference: [`docs/api.md`](./docs/api.md)
 - FAQ: [`docs/faq.md`](./docs/faq.md)
@@ -713,6 +715,118 @@ Both run in the package test chain, so a published `ui-kit` cannot drift silentl
 - Package README: [`ui-kit/README.md`](../ui-kit/README.md)
 - Non-React pages: [Console islands](./console-islands.md)
 - Breakpoints, touch sizes and the responsive tokens: [Responsive layout](./responsive.md)
+
+## docs/state-toggles.md
+
+# On/Off Settings (AfSwitch)
+
+This page explains how every AbstractFramework surface shows a setting that is either on or off:
+one switch, labelled by the feature, highlighted when on. It covers the React component, the markup
+the Python-served consoles copy, the terminal convention and the check that keeps verb toggles out.
+
+## The rule
+
+- A persistent on/off setting is a **switch labelled by the feature**: "Email", "Agent email
+  tools", "Start at login", "Job failed". Its position shows the state.
+- The label never names an action. "Turn on", "Email off", "Agent tools on", "Enable X" and
+  "Pause" / "Resume" swaps are not used for a setting: a label that says what a click would do reads
+  as the current state half the time.
+- A setting that cannot change right now (agent email tools while no mailbox is connected, a
+  capability the administrator has not made available) is shown **unavailable**: still visible,
+  still focusable, with the reason as text and on hover.
+- One-shot actions (Rotate, Delete, Disconnect, Restart, Check for updates, Run now) stay ordinary
+  buttons.
+- A confirmation message describes the new state: "Email is on for admin."
+
+## React: `AfSwitch`
+
+```tsx
+import { AfSwitch } from "@abstractframework/ui-kit";
+
+<AfSwitch
+  label="Agent email tools"
+  description="Let your agents list, read and send mail. Off by default."
+  variant="row"
+  checked={status.agent_tools}
+  unavailableReason={status.connected ? null : "Connect a mailbox first."}
+  busy={saving}
+  onChange={(next) => save({ agent_tools: next })}
+/>
+```
+
+| Prop | Meaning |
+|---|---|
+| `label` | The feature name. Never a verb phrase. |
+| `checked` | The current state. |
+| `onChange(next)` | Called with the requested state; not called while unavailable or busy. |
+| `description` | One line under the label (settings rows). |
+| `hint` | Tooltip and `aria-description` when there is no visible description. |
+| `unavailableReason` | A non-empty reason makes the switch unavailable (`aria-disabled`, reason via `aria-describedby`). |
+| `reasonVisible` | `false` keeps the reason for hover and assistive technology only. |
+| `describedBy` | The id of a reason the page already shows (a table cell, a shared line); the switch renders none of its own. |
+| `busy` | A save is in flight: the state stays as it is and clicks are ignored. |
+| `variant` | `inline` (default), `row` (text left, switch right, full width) or `sm` (table rows). |
+| `action` | `data-action` on the button. |
+
+`afSwitchNextState(props)` returns the state a click requests, or `null` when it must be ignored.
+
+## Markup for the consoles
+
+The AbstractGateway and AbstractCore consoles are HTML served from Python. They render the same
+markup and receive the CSS verbatim from `ui-kit/src/theme.css` (the block between
+`af-switch:begin` and `af-switch:end`):
+
+```html
+<button type="button" role="switch" class="af-switch" aria-checked="true">
+  <span class="af-switch__track" aria-hidden="true"><span class="af-switch__thumb"></span></span>
+  <span class="af-switch__text"><span class="af-switch__label">Email</span></span>
+</button>
+```
+
+Unavailable: add `aria-disabled="true"` and `aria-describedby="<id>"` pointing at a
+`<span class="af-switch__reason" id="<id>">` with the reason, and ignore the click. Do not use the
+`disabled` attribute: a disabled button cannot take focus, so the reason would be unreachable from
+the keyboard.
+
+## How "on" is shown
+
+The state reads without colour and in every theme:
+
+- position and shape: the thumb slides right and shows a check mark;
+- colour and light: the track fills with the accent and glows;
+- weight: the label turns bold.
+
+Unavailable switches have a dashed, hatched track and muted text. On touch screens the control is
+at least 44 px tall. Motion follows `prefers-reduced-motion`, and forced-colours mode uses system
+colours.
+
+## Terminal clients
+
+The terminal consoles use one marker, followed by the feature name:
+
+| State | Marker |
+|---|---|
+| On | `[x] Email`, highlighted (accent, bold) |
+| Off | `[ ] Email`, plain |
+| Unavailable | `[-] Agent email tools — connect a mailbox first`, dimmed |
+
+The key hint says what the key does to the selected row ("space: switch"), never "turn on/off".
+
+## The guard
+
+`findVerbToggleLabels(source)` (exported by the kit) finds conditional labels that swap only an
+on/off verb: `mailOn ? "Email off" : "Email on"`, `enabled ? "Disable" : "Enable"`,
+`paused ? "Resume" : "Pause"`. State sentences ("Email is on for admin.") and single state words
+pass. `ui-kit/scripts/check_state_toggles.mjs` runs it over the kit's sources and checks the
+component's markup and CSS; apps run it over their own `src` in their test gate. A genuine one-shot
+action that flips (pausing a running run) opts out on the same line with
+`// state-toggle-lint: allow <reason>`.
+
+## Related
+
+- [Responsive layout](./responsive.md): touch sizes and breakpoints the switch follows.
+- [Theming](./theming.md): the tokens the switch reads (`--accent`, `--text-muted`, `--bg-primary`).
+- [Console islands](./console-islands.md): how the gateway console receives the kit's CSS.
 
 ## docs/responsive.md
 
@@ -2898,6 +3012,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 - **Adoption guide**: [`adoption-guide.md`](./adoption-guide.md) — which shared component for which job, and the contracts apps follow
 - **Theming & design tokens**: [`theming.md`](./theming.md) — token vocabulary, the 21 themes, migration rules for host apps
+- **On/off settings**: [`state-toggles.md`](./state-toggles.md) — `AfSwitch`, the console markup, the terminal marker and the verb-toggle guard
 - **Responsive layout**: [`responsive.md`](./responsive.md) — breakpoints, touch sizes, bottom sheets and drawers, container queries, the viewport helpers, the font-size order, and how a host app adopts them
 - **Automations**: [`automations.md`](./automations.md) — show and manage AbstractGateway automations: `AutomationPanel` (controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (schedules and **When an email arrives** triggers, **Email me the result**, allowed recipients) and its tool-approval consent line, `createAutomationsClient()` and its error model, retry-safe ids, the panel-chat schedule action and badge, the canonical fixtures and how to regenerate them, and the export list
 - **Console islands**: [`console-islands.md`](./console-islands.md) — the `window.AfConsoleIslands` bundle built from `ui-kit` for non-React pages (AbstractGateway console): API, build and check
@@ -4233,7 +4348,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -4274,7 +4389,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -4814,6 +4929,7 @@ export {
   reviseFormFrom,
   scheduleLabel,
   triggerSummary,
+  activeToggleCommand,
   type ControlId,
   type ControlState,
   type OccurrenceTone,
@@ -4852,6 +4968,8 @@ export {
   type AfEmailSetupNoticeProps,
   type AfEmailTriggerFieldsProps,
 } from "./automations/email_fields.js";
+export { AfSwitch, afSwitchIsActionable, afSwitchNextState, type AfSwitchProps } from "./af_switch.js";
+export { findVerbToggleLabels, type VerbToggleHit } from "./state_toggle_lint.js";
 
 ## ui-kit/src/responsive.ts
 
@@ -6650,9 +6768,9 @@ export function notifyLabel(notify: AutomationNotify | null | undefined): string
 
 // --- controls ---------------------------------------------------------------
 
-export type ControlId = "pause" | "resume" | "run_now" | "stop_current" | "revise" | "archive" | "discuss";
+export type ControlId = "active" | "pause" | "resume" | "run_now" | "stop_current" | "revise" | "archive" | "discuss";
 export type ControlState = { enabled: boolean; reason?: string };
-export const CONTROL_COMMANDS: Record<Exclude<ControlId, "revise" | "discuss">, string> = {
+export const CONTROL_COMMANDS: Record<Exclude<ControlId, "active" | "revise" | "discuss">, string> = {
   pause: "automation.pause",
   resume: "automation.resume",
   run_now: "automation.run_now",
@@ -6717,7 +6835,23 @@ export function automationControls(
     return ok ? { enabled: true } : { enabled: false, reason };
   };
   const live = st === "active" || st === "paused";
+  // The "Active" state toggle (operator 2026-09-30: a persistent on/off
+  // setting is a pressed/plain toggle, never a Pause/Resume verb swap). It
+  // needs the capability of the transition a click would request.
+  const toggleCap: ControlId = st === "active" ? "pause" : "resume";
+  const active: ControlState = busy
+    ? { enabled: false, reason: "Working…" }
+    : summary.legacy
+      ? { enabled: false, reason: "Legacy schedule: managed with its existing controls." }
+      : st === "archived"
+        ? { enabled: false, reason: "Archived: history is kept, nothing runs." }
+        : !live
+          ? { enabled: false, reason: "The automation has ended." }
+          : caps.has(toggleCap)
+            ? { enabled: true }
+            : { enabled: false, reason: "Not permitted for this automation." };
   return {
+    active,
     pause: gate("pause", st === "active", st === "paused" ? "Already paused." : "The automation has ended."),
     resume: gate("resume", st === "paused", st === "active" ? "Already running on schedule." : "The automation has ended."),
     run_now: gate("run_now", live && !running, running ? "An occurrence is in progress." : "The automation has ended."),
@@ -6732,6 +6866,11 @@ export function automationControls(
           ? { enabled: true }
           : { enabled: false, reason: "Discussion is not permitted for this automation." },
   };
+}
+
+/** The command the "Active" toggle sends from this state: pause when active, resume when paused. */
+export function activeToggleCommand(summary: Pick<AutomationSummary, "status">): string {
+  return summary.status === "active" ? CONTROL_COMMANDS.pause : CONTROL_COMMANDS.resume;
 }
 
 // --- occurrences as chat pairs -------------------------------------------------
@@ -13342,6 +13481,42 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## [Unreleased]
+
+On/off settings become switches labelled by the feature, highlighted when on (operator rule
+2026-09-30), and automations get an "Active" switch in place of the Pause/Resume swap.
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.3.3 | updated (`AfSwitch`, the verb-toggle guard, the automation Active switch) |
+
+### ui-kit 0.3.3
+
+- Added: `AfSwitch`, the one control for a persistent on/off setting: a `role="switch"` button
+  with a track and thumb, labelled by the feature. On shows as a sliding thumb with a check mark,
+  an accent track with a glow and a bold label, so it reads without colour and in every theme.
+  Variants `inline`, `row` (settings rows with a description) and `sm` (table rows); 44 px on touch
+  screens; `prefers-reduced-motion` and forced-colours aware.
+- Added: unavailable switches (`unavailableReason`) stay focusable (`aria-disabled`) and name the
+  reason through `aria-describedby`, as text and on hover; `describedBy` reuses a reason the page
+  already shows.
+- Added: the `af-switch` CSS block in `theme.css`, delimited by `af-switch:begin` /
+  `af-switch:end` so the AbstractGateway and AbstractCore consoles copy it verbatim.
+- Added: `findVerbToggleLabels(source)`, the guard that finds conditional labels swapping only an
+  on/off verb ("Email off" / "Email on", "Enable" / "Disable", "Pause" / "Resume"), and
+  `scripts/check_state_toggles.mjs` in the test gate (component markup, CSS cues, the guard over
+  the kit's sources).
+- Changed: the automation controls bar leads with an "Active" switch (on = runs on its schedule,
+  off = paused) instead of a Pause or Resume button. It sends `automation.pause` or
+  `automation.resume`, needs the capability of that transition, and is unavailable with its reason
+  once the automation has ended, is archived or legacy, or while a command is in flight.
+  `automationControls()` returns the new `active` control and `activeToggleCommand(summary)` names
+  the command.
+- Changed: `automation_controls.json` gains the `active` label and hint. Clients that vendor it
+  (AbstractAssistant, AbstractCode's terminal client) must copy it again.
+- Docs: [`docs/state-toggles.md`](docs/state-toggles.md) (the rule, the component, the console
+  markup, the terminal marker, the guard).
 
 ## 0.3.2 - 2026-09-30
 

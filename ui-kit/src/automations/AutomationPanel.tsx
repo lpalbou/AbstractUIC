@@ -12,6 +12,7 @@
 // any state and invoke their handlers without a DOM.
 import React, { useEffect, useId, useRef, useState } from "react";
 import { Icon, type IconName } from "../icon.js";
+import { AfSwitch } from "../af_switch.js";
 import { AfEmailSetupNotice } from "./email_fields.js";
 import controlsSpec from "./automation_controls.json" with { type: "json" };
 import {
@@ -43,6 +44,7 @@ import {
   SeenAckTracker,
   STATUS_LABELS,
   triggerSummary,
+  activeToggleCommand,
   type ControlId,
   type ControlState,
   type OccurrenceView,
@@ -446,6 +448,7 @@ export const CONTROL_LABELS: Record<ControlId, string> = SPEC.labels;
 
 /** The kit icon of each control (the same glyphs in every client's rows and panels). */
 export const CONTROL_ICONS: Record<ControlId, IconName> = {
+  active: "play",
   pause: "pause",
   resume: "play",
   run_now: SPEC.icons.run_now.name,
@@ -533,7 +536,7 @@ function IconLabel(props: { icon: IconName; label: string }): React.ReactElement
 
 export function AutomationControlsBar(p: AutomationControlsBarProps): React.ReactElement {
   const c = automationControls(p.summary, p.occurrences, p.busy);
-  const shown: ControlId[] = [p.summary.status === "paused" ? "resume" : "pause", "run_now", "stop_current", "revise", "archive"];
+  const shown: ControlId[] = ["active", "run_now", "stop_current", "revise", "archive"];
   const why = disabledReasons(c, shown, p.idBase ?? `af-auto-${p.summary.automation_id}`);
   const btn = (id: ControlId, onClick: () => void, extra?: { pressed?: boolean; danger?: boolean; action?: string; label?: string }) => {
     const hint = controlHint(id, p.summary);
@@ -558,7 +561,18 @@ export function AutomationControlsBar(p: AutomationControlsBarProps): React.Reac
     <div className="af-auto__controls-wrap">
       <div className="af-auto__actionbar">
         <div className="af-auto__controls" role="toolbar" aria-label="Automation controls">
-          {p.summary.status === "paused" ? btn("resume", () => p.onCommand(CONTROL_COMMANDS.resume)) : btn("pause", () => p.onCommand(CONTROL_COMMANDS.pause))}
+          <AfSwitch
+            key="active"
+            className="af-auto__switch"
+            action="active"
+            label={CONTROL_LABELS.active}
+            checked={p.summary.status === "active"}
+            unavailableReason={c.active.enabled ? null : c.active.reason ?? "Not available now."}
+            describedBy={why.describedBy.active}
+            busy={p.busy}
+            hint={controlHint("active", p.summary)}
+            onChange={() => p.onCommand(activeToggleCommand(p.summary))}
+          />
           {btn("run_now", () => p.onCommand(CONTROL_COMMANDS.run_now))}
           {btn("stop_current", () => p.onCommand(CONTROL_COMMANDS.stop_current))}
           {btn("revise", p.onToggleRevise, { pressed: p.reviseOpen, action: "edit" })}

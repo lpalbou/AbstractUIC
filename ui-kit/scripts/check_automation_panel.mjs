@@ -75,6 +75,11 @@ const button = (html, action) => {
   const m = new RegExp(`<button[^>]*data-action="${action}"[^>]*>`).exec(html);
   return m ? m[0] : null;
 };
+// The "Active" state toggle (operator 2026-09-30): aria-pressed, aria-disabled when unavailable.
+const toggle = (html) => button(html, "active");
+const toggleOn = (html) => /role="switch"[^>]*aria-checked="true"/.test(toggle(html) || "");
+const toggleAvailable = (html) => toggle(html) !== null && !/aria-disabled="true"/.test(toggle(html));
+const noVerbPair = (html) => button(html, "pause") === null && button(html, "resume") === null;
 const enabled = (html, action) => {
   const b = button(html, action);
   return b !== null && !/ disabled=""/.test(b);
@@ -123,8 +128,8 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("header: attention 2 unseen + 2 waiting, notable", mailHtml.includes('class="is-notable">2 unseen · 2 waiting for you</dd>'));
   check("attention strip lists both items oldest first", mailHtml.indexOf('data-cursor="att1:1"') > 0 && mailHtml.indexOf('data-cursor="att1:2"') > mailHtml.indexOf('data-cursor="att1:1"'));
   check("attention strip lists the pending wait", mailHtml.includes("af-auto__attention-item--wait"));
-  check("controls: pause enabled; run now disabled while an occurrence waits; stop current enabled", enabled(mailHtml, "pause") && !enabled(mailHtml, "run_now") && enabled(mailHtml, "stop_current"));
-  check("controls: resume not offered while active", button(mailHtml, "resume") === null);
+  check("controls: Active toggle pressed and available; run now disabled while an occurrence waits; stop current enabled", toggleOn(mailHtml) && toggleAvailable(mailHtml) && !enabled(mailHtml, "run_now") && enabled(mailHtml, "stop_current"));
+  check("controls: no Pause/Resume verb buttons, the toggle is labelled Active", noVerbPair(mailHtml) && /data-action="active"[^>]*>.*?<span class="af-switch__label">Active<\/span><\/span><\/button>/.test(mailHtml));
   check("controls: labelled toolbar", mailHtml.includes('role="toolbar" aria-label="Automation controls"'));
   check("section labelled by the title, aria-busy false", /<section class="af-auto" aria-labelledby="([^"]+)" aria-busy="false" data-text-rendering="unformatted">/.test(mailHtml) && /<h2 class="af-auto__title" id="[^"]+" tabindex="-1">Inbox triage<\/h2>/.test(mailHtml));
   check("all occurrences loaded → no load-more", button(mailHtml, "load-more") === null);
@@ -141,7 +146,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("news: workspace shown, folder icon + whole path (no control without onOpenWorkspace)", ws.startsWith('<dd data-fact="workspace" class="af-auto__workspace"><span class="af-auto__path af-auto__path--static"><svg') && ws.replace(/<[^>]+>/g, "") === news.workspace_root && button(html, "open-workspace") === null);
   check("news: the path wraps at its separators (<wbr> after each /), text unchanged", ws.includes("/<wbr/>") && ws.includes("-<wbr/>"));
   check("news: attention quiet", html.includes('data-fact="attention">nothing new</dd>') && !html.includes("af-auto__attention\""));
-  check("news: pause + run now enabled, stop current disabled", enabled(html, "pause") && enabled(html, "run_now") && !enabled(html, "stop_current"));
+  check("news: Active switch on and available, run now enabled, stop current disabled", toggleOn(html) && toggleAvailable(html) && enabled(html, "run_now") && !enabled(html, "stop_current"));
   check("news: load more (6 more)", enabled(html, "load-more") && html.includes("Load earlier occurrences (6 more)"));
   check("news: no occurrences text", html.includes("No occurrences yet."));
 }
@@ -167,7 +172,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
 {
   const html = panel({ summary: jour, occurrences: [] });
   check("journal: every 7 days (UTC) · 12 runs max", html.includes(">every 7 days (UTC) · 12 runs max</dd>"));
-  check("journal: Resume offered and enabled; Pause not offered", enabled(html, "resume") && button(html, "pause") === null);
+  check("journal: Active toggle plain (paused) and available; no Pause/Resume buttons", !toggleOn(html) && toggleAvailable(html) && noVerbPair(html) && /data-action="active"[^>]*aria-checked="false"/.test(html));
   check("journal: RUN NOW ENABLED WHILE PAUSED", enabled(html, "run_now"));
   check("journal: paused hint says run now keeps it paused", html.includes("Run now works and keeps it paused."));
   check("journal: next run none while paused", html.includes(">none while paused</dd>"));
@@ -177,19 +182,21 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
 
 // --- busy / archived / legacy / capabilities / unknown source ---------------------------
 {
-  const ids = ["pause", "run_now", "stop_current", "edit", "archive"];
+  const ids = ["run_now", "stop_current", "edit", "archive"];
   const busy = panel({ summary: mail, occurrences: occ, busy: true });
-  check("busy: every control disabled", ids.every((a) => !enabled(busy, a)));
+  check("busy: every control disabled", ids.every((a) => !enabled(busy, a)) && !toggleAvailable(busy) && toggleOn(busy));
   check("busy: aria-busy", busy.includes('aria-busy="true"'));
   check("busy: wait answer disabled", !enabled(busy, "wait-answer") && !enabled(busy, "wait-choice"));
   const archived = panel({ summary: { ...news, status: "archived" }, occurrences: [] });
-  check("archived: every control disabled", ids.every((a) => !enabled(archived, a)));
+  check("archived: every control disabled", ids.every((a) => !enabled(archived, a)) && !toggleAvailable(archived));
   const legacy = panel({ summary: { ...news, legacy: true, revision: null }, occurrences: [] });
-  check("legacy: marker, no revision, controls disabled", legacy.includes("Legacy schedule") && !legacy.includes('data-fact="revision"') && ids.every((a) => !enabled(legacy, a)));
+  check("legacy: marker, no revision, controls disabled", legacy.includes("Legacy schedule") && !legacy.includes('data-fact="revision"') && ids.every((a) => !enabled(legacy, a)) && !toggleAvailable(legacy));
   const nocaps = panel({ summary: { ...jour, capabilities: ["resume"] }, occurrences: [] });
-  check("capabilities gate: only resume", enabled(nocaps, "resume") && !enabled(nocaps, "run_now") && !enabled(nocaps, "archive"));
+  check("capabilities gate: only resume -> the paused toggle is available", toggleAvailable(nocaps) && !toggleOn(nocaps) && !enabled(nocaps, "run_now") && !enabled(nocaps, "archive"));
+  const nopause = panel({ summary: { ...news, capabilities: ["resume", "run_now"] }, occurrences: [] });
+  check("capabilities gate: active without pause -> toggle unavailable, reason named", !toggleAvailable(nopause) && toggleOn(nopause) && /Active[^:<]*: Not permitted for this automation\./.test(nopause));
   const ended = panel({ summary: { ...news, status: "completed" }, occurrences: [] });
-  check("completed: pause/run now disabled, archive enabled", !enabled(ended, "pause") && !enabled(ended, "run_now") && enabled(ended, "archive"));
+  check("completed: toggle unavailable (reason), run now disabled, archive enabled", !toggleAvailable(ended) && !toggleOn(ended) && ended.includes("The automation has ended.") && !enabled(ended, "run_now") && enabled(ended, "archive"));
   const gone = panel({ summary: news, occurrences: [], triggerSources: sources.filter((s) => s.id !== "schedule") });
   check("unknown trigger source is stated", gone.includes("does not list the trigger source schedule@1"));
   const off = panel({ summary: news, occurrences: [], triggerSources: sources.map((s) => (s.id === "schedule" ? { ...s, available: false, unavailable_reason: "entry point failed" } : s)) });
@@ -215,11 +222,12 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   const bar = (summary, extra = {}) =>
     AutomationControlsBar({ summary, occurrences: [], busy: false, confirmingArchive: false, reviseOpen: false, onCommand: (t) => cmds.push(t), onToggleRevise: () => toggled++, onAskArchive: () => asked++, onCancelArchive: () => cancelled++, ...extra });
   const j = bar(jour);
-  byAction(j, "resume")[0].props.onClick();
+  const ev = { preventDefault() {} };
+  byAction(j, "active")[0].props.onClick(ev);
   byAction(j, "run_now")[0].props.onClick();
   byAction(j, "edit")[0].props.onClick();
   byAction(j, "archive")[0].props.onClick();
-  check("resume → automation.resume; run now → automation.run_now", eq(cmds, ["automation.resume", "automation.run_now"]), JSON.stringify(cmds));
+  check("Active toggle on a paused automation → automation.resume; run now → automation.run_now", eq(cmds, ["automation.resume", "automation.run_now"]), JSON.stringify(cmds));
   check("Edit toggles the form; archive only ASKS (no command yet)", toggled === 1 && asked === 1 && cmds.length === 2);
   const confirm = bar(jour, { confirmingArchive: true });
   check("archive confirmation is in the page", byAction(confirm, "archive-confirm").length === 1 && renderToStaticMarkup(confirm).includes("Its history stays readable"));
@@ -227,8 +235,12 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   check("Keep it cancels without a command", cancelled === 1 && cmds.length === 2);
   byAction(confirm, "archive-confirm")[0].props.onClick();
   check("confirm sends automation.archive", cmds.at(-1) === "automation.archive");
-  byAction(bar(news), "pause")[0].props.onClick();
-  check("pause → automation.pause", cmds.at(-1) === "automation.pause");
+  byAction(bar(news), "active")[0].props.onClick(ev);
+  check("Active toggle on an active automation → automation.pause", cmds.at(-1) === "automation.pause");
+  const before = cmds.length;
+  byAction(bar({ ...news, status: "completed" }), "active")[0].props.onClick(ev);
+  byAction(bar(news, { busy: true }), "active")[0].props.onClick(ev);
+  check("Active toggle sends nothing while unavailable or busy", cmds.length === before);
   byAction(bar(mail, { occurrences: occ }), "stop_current")[0].props.onClick();
   check("stop current → automation.stop_current", cmds.at(-1) === "automation.stop_current");
   check("no confirm box unless asked", byAction(bar(jour), "archive-confirm").length === 0);
@@ -484,10 +496,10 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   const ref = (/aria-describedby="([^"]+)"/.exec(b) || [])[1];
   check("disabled Run now references a reason", !!ref, b);
   check("…and the reason is VISIBLE, compact and muted (tooltips on disabled buttons are unreliable)", ref && new RegExp(`<p class="af-auto__reasons"><svg[^]*?</svg><span id="${ref.replace(/[:]/g, "\\:")}">Run now: An occurrence is in progress.</span>`).test(html) && !/af-auto__reasons af-auto__sr-only/.test(html), ref);
-  check("enabled controls carry no reason", !/aria-describedby/.test(button(html, "pause")) && !/aria-describedby/.test(button(html, "edit")) && !/title="(Already|Nothing|Working)/.test(button(html, "pause")));
+  check("enabled controls carry no reason", !/aria-describedby/.test(button(html, "active")) && !/aria-describedby/.test(button(html, "edit")) && !/title="(Already|Nothing|Working|The automation)/.test(button(html, "active")));
   check("the disabled control's reason is also its tooltip (first line, then the hint)", /<button[^>]*data-action="run_now"[^>]*title="An occurrence is in progress.\n/.test(html));
   const busy = panel({ summary: news, occurrences: [], busy: true });
-  check("busy: one shared reason line for all controls", busy.includes("Pause, Run now, Stop current, Edit, Archive: Working…"));
+  check("busy: one shared reason line for all controls", busy.includes("Active, Run now, Stop current, Edit, Archive: Working…"));
   const fake = (sel) => ({ querySelector: (q) => sel[q] ?? null });
   const mk = (name, disabled = false) => ({ name, disabled, focus() {} });
   const { pickFocusTarget } = await import(join(here, "..", "dist", "automations", "panel_core.js"));
@@ -709,10 +721,13 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   check("CONTROL_ICONS: one kit icon per control", eq(Object.keys(kit.CONTROL_ICONS).sort(), Object.keys(kit.CONTROL_LABELS).sort()) && Object.values(kit.CONTROL_ICONS).every((n) => typeof n === "string" && n));
   const html = panel({ summary: mail, occurrences: occ });
   const toolbar = (/<div class="af-auto__controls" role="toolbar"[^]*?<\/div>/.exec(html) || [""])[0];
-  const btns = [...toolbar.matchAll(/<button\b[^>]*>[^]*?<\/button>/g)].map((m) => m[0]);
-  check("every control button starts with its icon, then its label", btns.length === 5 && btns.every((b) => /^<button\b[^>]*><svg\b[^]*<\/svg><span>[^<]+<\/span><\/button>$/.test(b)), btns.join("\n"));
+  const all = [...toolbar.matchAll(/<button\b[^>]*>[^]*?<\/button>/g)].map((m) => m[0]);
+  // The Active state switch leads the bar; it is a switch (track + thumb), not an action button.
+  check("the bar leads with the Active switch", all.length === 5 && /^<button type="button" role="switch"[^>]*data-action="active"/.test(all[0]), all[0]);
+  const btns = all.filter((b) => !/role="switch"/.test(b));
+  check("every control button starts with its icon, then its label", btns.length === 4 && btns.every((b) => /^<button\b[^>]*><svg\b[^]*<\/svg><span>[^<]+<\/span><\/button>$/.test(b)), btns.join("\n"));
   check("the Edit control reads Edit (data-action=edit)", /data-action="edit"[^>]*><svg[^]*?<span>Edit<\/span>/.test(toolbar) && !/Revise/.test(html));
-  const allButtons = [...html.matchAll(/<button\b[^>]*>[^]*?<\/button>/g)].map((m) => m[0]).filter((b) => !/data-action="wait-choice"/.test(b));
+  const allButtons = [...html.matchAll(/<button\b[^>]*>[^]*?<\/button>/g)].map((m) => m[0]).filter((b) => !/data-action="wait-choice"/.test(b) && !/role="switch"/.test(b));
   check("every action button in the panel carries an icon (wait choices are the choice text)", allButtons.every((b) => /^<button\b[^>]*>(<svg\b|<span[^>]*><svg\b)/.test(b) || /af-auto__linkbtn/.test(b)), allButtons.filter((b) => !/^<button\b[^>]*><svg\b/.test(b)).join("\n").slice(0, 400));
 
   // Controlled: the host opens the form; the panel asks through onEditOpenChange.
@@ -794,7 +809,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   check("formatUtc: other offsets normalised to UTC", kit.formatUtc("2026-09-27T10:00:00.000000+02:00") === "2026-09-27 08:00 UTC");
   check("fixture fired_at renders as UTC", mailHtml.includes("fired 2026-09-27 04:00 UTC"));
   const leg = panel({ summary: legacyRow, occurrences: [] });
-  check("real legacy row: marker, every control disabled with the legacy reason", leg.includes("Legacy schedule") && ["pause", "run_now", "stop_current", "edit", "archive"].every((a) => !enabled(leg, a)) && leg.includes("Legacy schedule: managed with its existing controls."));
+  check("real legacy row: marker, every control disabled with the legacy reason", leg.includes("Legacy schedule") && ["run_now", "stop_current", "edit", "archive"].every((a) => !enabled(leg, a)) && !toggleAvailable(leg) && leg.includes("Legacy schedule: managed with its existing controls."));
   check("real legacy row: every hour (UTC), no revision", leg.includes(">every hour (UTC)</dd>") && !leg.includes('data-fact="revision"'));
   const tw = occ.find((o) => o.index === 7).waits.find((x) => x.kind === "tool_approval");
   check("real tool_approval wait has no prompt → the panel's own sentence", !("prompt" in tw) && mailHtml.includes("A tool call needs your approval."));
@@ -865,7 +880,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 {
   const { CONTROL_HINTS, CONTROL_LABELS, CONTROL_ICONS, RUN_NOW_GLYPH, RUN_NOW_ONE_LINE, RUN_NOW_NEXT_RUN_LINE, RUN_NOW_GROWING_LINE, controlHint, Icon } = kit;
   const spec = JSON.parse(readFileSync(join(here, "..", "src", "automations", "automation_controls.json"), "utf8"));
-  const ids = ["pause", "resume", "run_now", "stop_current", "revise", "archive", "discuss"];
+  const ids = ["active", "pause", "resume", "run_now", "stop_current", "revise", "archive", "discuss"];
   check("hints: exported", typeof controlHint === "function" && CONTROL_HINTS && RUN_NOW_GLYPH && typeof RUN_NOW_ONE_LINE === "string");
   check("hints: one per control, no more", eq(Object.keys(CONTROL_HINTS).sort(), [...ids].sort()) && eq(Object.keys(CONTROL_LABELS).sort(), [...ids].sort()));
   check("hints/labels/lines ARE the canonical automation_controls.json", eq(CONTROL_HINTS, spec.hints) && eq(CONTROL_LABELS, spec.labels) && RUN_NOW_ONE_LINE === spec.run_now_one_line && RUN_NOW_NEXT_RUN_LINE === spec.run_now_next_run_line && RUN_NOW_GROWING_LINE === spec.run_now_growing_line);
@@ -886,9 +901,9 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   const want = esc(controlHint("run_now", active));
   check("Run now button: title = hint", b && b.includes(`title="${want}"`), b);
   check("Run now button: aria-description = hint", b && b.includes(`aria-description="${want}"`), b);
-  check("every bar control carries its hint", [["pause", "pause"], ["stop_current", "stop_current"], ["edit", "revise"], ["archive", "archive"]].every(([a, id]) => (button(html, a) || "").includes(`aria-description="${esc(CONTROL_HINTS[id])}"`)));
+  check("every bar control carries its hint", [["active", "active"], ["stop_current", "stop_current"], ["edit", "revise"], ["archive", "archive"]].every(([a, id]) => (button(html, a) || "").includes(`aria-description="${esc(CONTROL_HINTS[id])}"`)));
   const pausedHtml = panel({ summary: { ...active, status: "paused", next_fire_at: undefined }, occurrences: [] });
-  check("resume carries its hint", (button(pausedHtml, "resume") || "").includes(`title="${esc(CONTROL_HINTS.resume)}"`));
+  check("the paused Active switch carries its hint", (button(pausedHtml, "active") || "").includes(`title="${esc(CONTROL_HINTS.active)}"`));
   const occHtml = panel({ summary: mail, occurrences: occ });
   check("Discuss carries its hint", (button(occHtml, "discuss") || "").includes(`title="${esc(CONTROL_HINTS.discuss)}"`));
   // The icon: the kit's playCircle, and the vendorable glyph is exactly what <Icon> draws.

@@ -20,6 +20,7 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 - Getting started (entrypoint): [`docs/getting-started.md`](./docs/getting-started.md)
 - Adoption guide (which component for which job): [`docs/adoption-guide.md`](./docs/adoption-guide.md)
 - Theming & design tokens: [`docs/theming.md`](./docs/theming.md)
+- On/off settings (`AfSwitch`, console markup, verb-toggle guard): [`docs/state-toggles.md`](./docs/state-toggles.md)
 - Responsive layout (breakpoints, touch sizes, sheets, drawers, viewport helpers): [`docs/responsive.md`](./docs/responsive.md)
 - API reference: [`docs/api.md`](./docs/api.md)
 - FAQ: [`docs/faq.md`](./docs/faq.md)

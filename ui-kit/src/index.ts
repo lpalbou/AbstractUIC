@@ -269,6 +269,7 @@ export {
   reviseFormFrom,
   scheduleLabel,
   triggerSummary,
+  activeToggleCommand,
   type ControlId,
   type ControlState,
   type OccurrenceTone,
@@ -307,3 +308,5 @@ export {
   type AfEmailSetupNoticeProps,
   type AfEmailTriggerFieldsProps,
 } from "./automations/email_fields.js";
+export { AfSwitch, afSwitchIsActionable, afSwitchNextState, type AfSwitchProps } from "./af_switch.js";
+export { findVerbToggleLabels, type VerbToggleHit } from "./state_toggle_lint.js";

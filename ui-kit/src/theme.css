@@ -4061,3 +4061,208 @@ html {
     filter: none;
   }
 }
+
+
+/* af-switch:begin
+ * SWITCH (ui-kit 0.3.3): the one control for a persistent on/off setting,
+ * labelled by the FEATURE, a true switch highlighted when ON (src/af_switch.tsx
+ * has the markup contract; docs/state-toggles.md the rule). ON reads without
+ * colour and in every theme: the thumb slides right and shows a check mark
+ * (position + shape), the track fills with the accent and glows (colour +
+ * light), the label turns bold (weight). Unavailable = aria-disabled (still
+ * focusable, reason via aria-describedby): hatched track, muted text, no
+ * pointer. The consoles copy this block verbatim (abstractgateway
+ * console_islands_sync, abstractcore console.theme_sync). */
+.af-switch {
+  --af-switch-w: 40px;
+  --af-switch-h: 22px;
+  --af-switch-pad: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--control-h, 32px);
+  margin: 0;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.af-switch__track {
+  position: relative;
+  flex: none;
+  width: var(--af-switch-w);
+  height: var(--af-switch-h);
+  border-radius: 999px;
+  border: 1.5px solid var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+  box-sizing: border-box;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.af-switch__thumb {
+  position: absolute;
+  top: calc(var(--af-switch-pad) - 1.5px);
+  left: calc(var(--af-switch-pad) - 1.5px);
+  width: calc(var(--af-switch-h) - 2 * var(--af-switch-pad));
+  height: calc(var(--af-switch-h) - 2 * var(--af-switch-pad));
+  border-radius: 999px;
+  background: var(--text-muted);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 160ms cubic-bezier(0.3, 0.7, 0.4, 1), background-color 160ms ease;
+}
+.af-switch__text {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.af-switch__label {
+  color: inherit;
+}
+.af-switch__desc {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 400;
+  white-space: normal;
+}
+.af-switch:hover:not([aria-disabled="true"]) {
+  color: var(--text-primary);
+}
+.af-switch:hover:not([aria-disabled="true"]) .af-switch__track {
+  border-color: var(--text-secondary);
+}
+.af-switch:focus-visible {
+  outline: none;
+}
+.af-switch:focus-visible .af-switch__track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* ON: accent fill + glow, thumb slides right, raised, with a check mark. */
+.af-switch[aria-checked="true"] {
+  color: var(--text-primary);
+}
+.af-switch[aria-checked="true"] .af-switch__label {
+  font-weight: 700;
+}
+.af-switch[aria-checked="true"] .af-switch__track {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.af-switch[aria-checked="true"] .af-switch__thumb {
+  transform: translateX(calc(var(--af-switch-w) - var(--af-switch-h)));
+  background: var(--bg-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+/* The check mark: the non-colour cue that the setting is ON. */
+.af-switch[aria-checked="true"] .af-switch__thumb::after {
+  content: "";
+  position: absolute;
+  left: 34%;
+  top: 18%;
+  width: 22%;
+  height: 44%;
+  border: solid var(--accent);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.af-switch[aria-busy="true"] {
+  cursor: progress;
+}
+.af-switch[aria-busy="true"] .af-switch__track {
+  opacity: 0.7;
+}
+.af-switch--unavailable,
+.af-switch[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: var(--text-muted);
+}
+.af-switch[aria-disabled="true"] .af-switch__label {
+  font-weight: 500;
+}
+.af-switch[aria-disabled="true"] .af-switch__track {
+  border-style: dashed;
+  box-shadow: none;
+  background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--text-muted) 22%, transparent) 4px 6px);
+  opacity: 0.8;
+}
+.af-switch[aria-disabled="true"][aria-checked="true"] .af-switch__track {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+/* Settings row: text left, switch right, full width. */
+.af-switch--row {
+  display: flex;
+  width: 100%;
+  flex-direction: row-reverse;
+  justify-content: space-between;
+  gap: 16px;
+  padding: var(--row-pad-y, 8px) 0;
+}
+.af-switch--sm {
+  --af-switch-w: 34px;
+  --af-switch-h: 18px;
+  --af-switch-pad: 2.5px;
+  gap: 8px;
+  font-size: var(--font-size-sm);
+}
+.af-switch-wrap {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.af-switch-wrap--row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.af-switch__reason {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+.af-switch__reason--hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (pointer: coarse) {
+  .af-switch,
+  .af-switch--sm {
+    min-height: var(--tap-min);
+  }
+  .af-switch--sm {
+    --af-switch-w: 40px;
+    --af-switch-h: 22px;
+    --af-switch-pad: 3px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .af-switch__track,
+  .af-switch__thumb {
+    transition: none;
+  }
+}
+@media (forced-colors: active) {
+  .af-switch[aria-checked="true"] .af-switch__track {
+    background: Highlight;
+    border-color: Highlight;
+  }
+  .af-switch[aria-checked="true"] .af-switch__thumb {
+    background: Canvas;
+  }
+}
+/* af-switch:end */
