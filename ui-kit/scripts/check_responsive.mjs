@@ -77,6 +77,23 @@ if (!/--tap-min:\s*44px/.test(coarse)) fail("coarse pointers must set --tap-min:
 if (!/--font-size-input:\s*max\(16px/.test(coarse)) fail("coarse pointers must floor --font-size-input at 16px");
 if (!/html\s*\{[^}]*text-size-adjust:\s*100%/.test(css)) fail("html text-size-adjust: 100% missing");
 
+// F. touch minimums apply to INTERACTIVE boxes only (kit round 2): a chip
+// keeps its pill geometry (hit area via ::after), the panel select trigger
+// reaches --control-h despite its 34px higher-specificity pin, About links
+// and checkbox rows are 44px rows.
+for (const rule of coarse.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+  const sels = rule[1].split(",").map((x) => x.trim());
+  if (/min-(height|width):\s*var\(--tap-min\)/.test(rule[2])) {
+    for (const sel of sels) if (/af-chip|af-auto-badge|af-topbar__dot|af-auto__facts/.test(sel)) fail(`non-interactive/pill element ${sel} gets a touch minimum box (use a ::after hit area)`);
+  }
+}
+const coarse_has = (sel, decl) => [...coarse.matchAll(/([^{}]+)\{([^{}]*)\}/g)].some((r) => r[1].split(",").map((x) => x.trim()).includes(sel) && decl.test(r[2]));
+if (!coarse_has(".af-select--panel .af-select-trigger", /min-height:\s*var\(--control-h\)/)) fail("coarse: .af-select--panel .af-select-trigger must use --control-h");
+if (!coarse_has(".af-chip--button::after", /width:\s*max\(100%,\s*var\(--tap-min\)\)/)) fail("coarse: interactive chips need a 44px ::after hit area");
+for (const sel of [".af-about__link", ".af-gateway-signin__checkbox", ".af-email__check", ".af-auto__linkbtn", ".af-topbar__pill"]) {
+  if (!coarse_has(sel, /min-height:\s*var\(--tap-min\)/)) fail(`coarse: ${sel} must reach --tap-min`);
+}
+
 // E. containers
 for (const [sel, name] of [[".af-gateway-signin", "af-signin"], [".af-appearance", "af-dialog"], [".af-auto", "af-auto"], [".af-tool-policy", "af-tool-policy"], [".af-drawer__body", "af-drawer"]]) {
   const re = new RegExp(`${sel.replace(/[.]/g, "\\.")}\\s*\\{[^}]*container:\\s*${name}\\s*/\\s*inline-size`);

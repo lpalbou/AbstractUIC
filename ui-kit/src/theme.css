@@ -3797,16 +3797,75 @@ html {
   .af-schedule input:not([type="radio"]):not([type="checkbox"]),
   .af-schedule select,
   .af-disclosure__row,
-  .af-chip--button,
   .af-phase-radio__btn {
     min-height: var(--tap-min);
   }
 
+  /* Selects: the panel variant pins 34px at higher specificity. */
+  .af-select-trigger,
+  .af-select--panel .af-select-trigger {
+    min-height: var(--control-h);
+  }
+
   .af-topbar__btn,
+  .af-topbar__pill,
   .af-drawer__close,
-  .af-chip__remove,
   .af-select-clear-btn {
     min-width: var(--tap-min);
+    min-height: var(--tap-min);
+  }
+
+  .af-topbar__pill {
+    justify-content: center;
+  }
+
+  /* Chips keep their pill geometry (a 44px-tall chip reads as an oval
+   * button). An INTERACTIVE chip or a chip's remove button grows an
+   * invisible hit area instead; non-interactive chips, badges, pills and
+   * facts get no touch minimum at all. */
+  .af-chip--button,
+  .af-chip__remove {
+    position: relative;
+  }
+
+  .af-chip--button::after,
+  .af-chip__remove::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, var(--tap-min));
+    height: max(100%, var(--tap-min));
+    transform: translate(-50%, -50%);
+  }
+
+  /* Checkbox / radio rows: the whole label is the target. */
+  .af-gateway-signin__checkbox,
+  .af-email__check,
+  .af-auto label:has(> input[type="checkbox"]),
+  .af-auto label:has(> input[type="radio"]),
+  .af-schedule label:has(> input[type="checkbox"]),
+  .af-schedule label:has(> input[type="radio"]),
+  .af-tool-row__check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: var(--tap-min);
+  }
+
+  /* The automations panel is READING text: on touch it opts into the role
+   * token (14px floor). An app that keeps dense touch text overrides
+   * --font-size-body on its own root and the panel follows (DESIGN.md §2.3). */
+  .af-auto {
+    font-size: var(--font-size-body);
+  }
+
+  /* Link-styled buttons and the About dialog's links are the dialog's main
+   * actions on a phone: full 44px rows, not inline text links. */
+  .af-auto__linkbtn,
+  .af-about__link {
+    display: inline-flex;
+    align-items: center;
     min-height: var(--tap-min);
   }
 
