@@ -99,6 +99,13 @@ for (const sel of [".af-auto", ".af-critical__consequence", ".af-critical__fallb
   if (!coarse_has(sel, /font-size:\s*var\(--font-size-body\)/)) fail(`coarse: ${sel} must use --font-size-body (primary reading text, DESIGN.md §2.3)`);
 }
 
+// H. kit round 3: native selects are sizeable in WebKit only without the
+// native appearance; disclosure content must not clip a chip's hit area.
+if (!/select:not\(\[multiple\]\):where\(:not\(\[size\]\), \[size="1"\]\)\s*\{[^}]*appearance:\s*none[^}]*min-height:\s*var\(--tap-min\)[^}]*background-image:\s*var\(--af-select-chevron\)/.test(coarse)) fail("coarse: single-choice selects need appearance:none + min-height var(--tap-min) + the chevron at (0,1,1) specificity (WebKit ignores min-height on native selects; apps' element-level resets must not erase the chevron)");
+if (!/--af-select-chevron:\s*url\(/.test(css)) fail("--af-select-chevron token missing (appearance:none drops the native arrow)");
+if (!coarse_has(".af-disclosure__content", /overflow-x:\s*clip/)) fail("coarse: .af-disclosure__content must clip on x only (overflow:hidden clips the chip hit area)");
+if (!coarse_has(".af-disclosure__chevron:not(.af-disclosure__chevron--spacer)::after", /width:\s*max\(100%,\s*var\(--tap-min\)\)/)) fail("coarse: the disclosure chevron needs a 44px ::after hit area");
+
 // E. containers
 for (const [sel, name] of [[".af-gateway-signin", "af-signin"], [".af-appearance", "af-dialog"], [".af-auto", "af-auto"], [".af-tool-policy", "af-tool-policy"], [".af-drawer__body", "af-drawer"]]) {
   const re = new RegExp(`${sel.replace(/[.]/g, "\\.")}\\s*\\{[^}]*container:\\s*${name}\\s*/\\s*inline-size`);

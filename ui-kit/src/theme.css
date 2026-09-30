@@ -3862,12 +3862,14 @@ html {
    * invisible hit area instead; non-interactive chips, badges, pills and
    * facts get no touch minimum at all. */
   .af-chip--button,
-  .af-chip__remove {
+  .af-chip__remove,
+  .af-disclosure__chevron:not(.af-disclosure__chevron--spacer) {
     position: relative;
   }
 
   .af-chip--button::after,
-  .af-chip__remove::after {
+  .af-chip__remove::after,
+  .af-disclosure__chevron:not(.af-disclosure__chevron--spacer)::after {
     content: "";
     position: absolute;
     top: 50%;
@@ -3875,6 +3877,15 @@ html {
     width: max(100%, var(--tap-min));
     height: max(100%, var(--tap-min));
     transform: translate(-50%, -50%);
+  }
+
+  /* A disclosure row's content clips long labels on the INLINE axis only, so
+   * a chip's 44px ::after hit area can reach the row's full height (overflow:
+   * hidden clipped it: a tap just above the chip selected the row). `clip`
+   * does not force the other axis to scroll, unlike `hidden`. */
+  .af-disclosure__content {
+    overflow-x: clip;
+    overflow-y: visible;
   }
 
   /* Checkbox / radio rows: the whole label is the target. */
@@ -3942,6 +3953,63 @@ html {
     display: flex;
     align-items: center;
     min-height: var(--tap-min);
+  }
+}
+
+/* --- Native <select> on touch (kit round 3; WebKit / iOS Safari) ---
+ * WebKit ignores min-height/height on a native-appearance select (it stayed
+ * 23px on iPhone while Chromium honoured 44px). Dropping the native
+ * appearance on coarse pointers lets the 44px minimum and the 16px font
+ * apply; the chevron is redrawn as a background image. Scope: every
+ * single-choice select (the apps' bare selects included) at specificity
+ * (0,1,1): it beats the apps' element-level `input, textarea, select {
+ * background: … }` resets (which would erase the chevron) and ties with an
+ * app's class-scoped rule, which loads later and wins;
+ * list boxes (multiple, size > 1) keep their native look. Desktop (fine
+ * pointer) is untouched. An app rule that sets the `background` SHORTHAND
+ * on a select erases the chevron: use background-color, or re-assert
+ * `background-image: var(--af-select-chevron)` in that rule. */
+:root {
+  --af-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238a93a3' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+@media (pointer: coarse) {
+  select:not([multiple]):where(:not([size]), [size="1"]) {
+    -webkit-appearance: none;
+    appearance: none;
+    max-width: 100%;
+    min-height: var(--tap-min);
+    font-size: var(--font-size-input);
+    line-height: 1.25;
+    padding-left: 10px;
+    padding-right: 32px;
+    background-image: var(--af-select-chevron);
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px 8px;
+    text-overflow: ellipsis;
+  }
+
+  /* List boxes keep their native look but still must not trigger iOS
+   * focus zoom. */
+  select:where([multiple]),
+  select:where([size]:not([size="1"])) {
+    font-size: var(--font-size-input);
+  }
+
+  /* Kit selects restate the padding and image their own class rules reset. */
+  .af-auto select:not([multiple]),
+  .af-schedule select:not([multiple]),
+  .af-appearance select:not([multiple]),
+  .af-tool-policy select:not([multiple]),
+  .af-voice-settings select:not([multiple]) {
+    min-height: var(--tap-min);
+    font-size: var(--font-size-input);
+    padding-right: 32px;
+    background-image: var(--af-select-chevron);
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px 8px;
   }
 }
 

@@ -7,6 +7,22 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## Unreleased (kit round 3, to ship as ui-kit 0.3.2)
+
+### ui-kit
+
+- Fixed: native `<select>` elements reach 44 px on touch in WebKit / iOS Safari (it ignores
+  `min-height` on a native-appearance select): on coarse pointers single-choice selects get
+  `appearance: none`, `min-height: var(--tap-min)`, the 16 px input font, `max-width: 100%` and a
+  redrawn chevron (`--af-select-chevron`), at (0,1,1) specificity so apps' element-level resets do not
+  erase the chevron and their class-scoped rules still win; list boxes keep the native look (16 px font).
+  Kit selects (`.af-auto`, `.af-schedule`, `.af-appearance`, `.af-tool-policy`, `.af-voice-settings`)
+  restate the chevron, padding, height and font over their own class rules.
+- Fixed: `.af-disclosure__content` clips on the inline axis only on touch, so an interactive chip's
+  44 px hit area is no longer cut (a tap just above/below the chip selected the row); the disclosure
+  chevron gets a 44 px `::after` hit area.
+- Added: `check_responsive.mjs` section H (red on the 0.3.1 CSS: 4 failures).
+
 ## 0.3.1 - Unreleased (branch feat/responsive, kit round 2)
 
 | Package | Version | Change |
