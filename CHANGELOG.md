@@ -7,6 +7,22 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## [Unreleased]
+
+### Fixed
+
+- **panel-chat: plain http from another machine** (LAN, Tailscale). Browsers
+  withhold `crypto.randomUUID` and the clipboard API outside https and
+  localhost. Workflow command ids are now v4 UUIDs built from
+  `crypto.getRandomValues` there (the kit peer range stays `^0.3.0`),
+  `copyText` returns `false` when the browser refuses the copy instead of
+  claiming success, and **Copy JSON** says "Copied" or "Copy failed — select
+  and copy". `scripts/check_secure_context.mjs` runs both paths with the APIs
+  removed.
+- **monitor-flow, monitor-active-memory:** the copy helpers fall back to a
+  text-selection copy over plain http; monitor-flow's `copy_text` reports the
+  real outcome.
+
 ## 0.3.2 - 2026-09-30
 
 Responsive layout for every AbstractFramework browser app: the shared components adapt to phones,

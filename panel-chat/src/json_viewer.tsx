@@ -201,6 +201,7 @@ function tryParseJsonString(value: string): unknown {
 export function JsonViewer(props: { value: unknown; className?: string; collapseAfterDepth?: number; showCopy?: boolean }): React.ReactElement {
   const { value, className, showCopy = true } = props;
   const [expansion, setExpansion] = useState<{ mode: JsonExpansionMode; version: number }>({ mode: "folded", version: 0 });
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   // collapseAfterDepth is the consumer's folded-mode depth; it was accepted
   // and silently ignored until 2026-07-11 (adversary find) — honor it.
   const foldedDepth =
@@ -240,8 +241,17 @@ export function JsonViewer(props: { value: unknown; className?: string; collapse
           {expansion.mode === "unfolded" ? "Fold all" : "Unfold all"}
         </button>
         {showCopy ? (
-          <button type="button" className="pc-btn pc-json-viewer__copy" onClick={() => void copyText(copyValue)}>
-            Copy JSON
+          <button
+            type="button"
+            className="pc-btn pc-json-viewer__copy"
+            onClick={() =>
+              void copyText(copyValue).then((ok) => {
+                setCopyState(ok ? "copied" : "failed");
+                window.setTimeout(() => setCopyState("idle"), 2000);
+              })
+            }
+          >
+            {copyState === "copied" ? "Copied" : copyState === "failed" ? "Copy failed — select and copy" : "Copy JSON"}
           </button>
         ) : null}
       </div>

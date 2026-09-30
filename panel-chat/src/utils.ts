@@ -65,23 +65,28 @@ export function chatToMarkdown(messages: Array<{ role: string; content: string; 
 export async function copyText(text: string): Promise<boolean> {
   const value = String(text || "");
   if (!value) return false;
+  // navigator.clipboard is https/localhost only; over plain http the textarea + execCommand path
+  // copies inside a click handler. Returns true only when a copy actually happened.
   try {
-    await navigator.clipboard.writeText(value);
-    return true;
-  } catch {
-    try {
-      const el = document.createElement("textarea");
-      el.value = value;
-      el.style.position = "fixed";
-      el.style.left = "-9999px";
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand("copy");
-      document.body.removeChild(el);
+    if (typeof navigator !== "undefined" && typeof navigator.clipboard?.writeText === "function") {
+      await navigator.clipboard.writeText(value);
       return true;
-    } catch {
-      return false;
     }
+  } catch {
+    // denied or unfocused: try the textarea path
+  }
+  try {
+    const el = document.createElement("textarea");
+    el.value = value;
+    el.style.position = "fixed";
+    el.style.left = "-9999px";
+    document.body.appendChild(el);
+    el.select();
+    const ok = document.execCommand("copy") === true;
+    document.body.removeChild(el);
+    return ok;
+  } catch {
+    return false;
   }
 }
 
