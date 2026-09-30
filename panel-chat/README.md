@@ -7,7 +7,7 @@ Chat UI primitives for AbstractFramework-style UIs: thread rendering, message ca
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` (icons used by `ChatMessageCard`)
+- `@abstractframework/ui-kit` `^0.1.14 || ^0.2.0 || ^0.3.0` (icons used by `ChatMessageCard`; 0.3.0 for the responsive tokens)
 
 ## Install
 
@@ -194,6 +194,14 @@ Markdown is intentionally minimal and implemented in `panel-chat/src/markdown.ts
 - Import CSS in your app entrypoint (recommended):
   - `import "@abstractframework/panel-chat/panel_chat.css";`
   - `import "@abstractframework/ui-kit/theme.css";` (shared tokens)
+- Responsive (0.2.0): `.pc-chat-thread` (`pc-thread`), `.pc-composer` (`pc-composer`) and
+  `.pc-workflow-chat` / `.pc-assistant` (`pc-chat`) are query containers, so the transcript,
+  tool rows, approval buttons and composer adapt to the pane they sit in (a 420 px drawer on a
+  desktop behaves like a phone). The composer textarea grows with its content from `rows` lines
+  (CSS `field-sizing`) up to 40 % of the viewport; controls reach 44 px and the textarea 16 px on
+  touch. Tokens come from ui-kit 0.3.0 (`--tap-min`, `--vh-full`, `--safe-bottom`,
+  `--reading-max`, `--font-size-input`); every use has a fallback, so ui-kit 0.2.x still works.
+  A container needs its width from its parent (block, stretch or `flex: 1`).
 
 ## Related docs
 

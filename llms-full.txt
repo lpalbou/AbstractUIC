@@ -2825,6 +2825,8 @@ Rules:
 - `AfDrawer` is non-modal and keeps its children mounted when closed (`display:none` + `inert`),
   so drawers can host long-running work. ESC handling respects `defaultPrevented`; the connect
   modal sits above drawers (z-order tokens `--z-drawer` < `--z-connect-modal` < `--z-popover`).
+  Below 768 px it is full width; `side="left"` opens it from the left edge and `backdrop` adds a
+  dimmed backdrop that closes it on tap (use both where a docked sidebar becomes a drawer).
 - `AssistantPanel` (in `@abstractframework/panel-chat`) never fetches: the
   `ask(question, { signal, history })` transport is injected and may return a Promise or an
   AsyncIterable of deltas.
@@ -2959,6 +2961,35 @@ switcher surfaces (`AfAppearanceDialog`, `ThemeSelect`, `FontScaleSelect`,
 
 See [Theming](../docs/theming.md) for the token vocabulary and adoption rules.
 
+## Responsive layout (0.3.0)
+
+`theme.css` carries one responsive contract for every app (desktop-first; a regular desktop
+window renders as before):
+
+- **Breakpoints** (literal values; CSS variables cannot be used in `@media`):
+  `xs` `(max-width: 479.98px)`, `sm` `(max-width: 767.98px)`, `md` `(max-width: 1023.98px)`,
+  `lg` `(max-width: 1439.98px)`, `xl` `(min-width: 1440px)`, plus `short` `(max-height: 500px)`
+  (phone landscape) and `touch` `(pointer: coarse)`. JS: `AF_BREAKPOINTS`, `AF_MEDIA`,
+  `useAfMedia(query)`.
+- **Tokens**: `--font-size-2xl` (fluid headings: `--font-size-xl`/`-2xl` use `clamp()` × `--font-scale`;
+  sizes up to `lg` stay fixed), `--font-size-body` / `-input` / `-code` (touch floors 14 / 16 / 12 px),
+  `--space-1..6`, `--gutter`, `--tap-min` / `--control-h` (32 px, 44 px on touch),
+  `--row-pad-y/x`, `--control-pad-x` (density; `data-density="dense|comfortable"` on `<html>`
+  overrides), `--vh-full` (`100dvh` with a `100vh` fallback), `--safe-top/right/bottom/left`,
+  `--keyboard-inset` / `--vv-height` (set by `installViewportVars()`), `--content-max`,
+  `--reading-max`, `--form-max`, `--drawer-w`.
+- **Components**: dialogs become bottom sheets below 768 px or under 500 px tall, with their
+  action row pinned; `AfDrawer` is full width below 768 px, pads the safe areas and gains
+  `side="left"` and `backdrop`; kit controls reach 44 px and inputs 16 px on touch; the
+  connection pill keeps only its dot below 480 px; the sign-in card, dialogs, automations and
+  tool policy editor are query containers (`af-signin`, `af-dialog`, `af-auto`,
+  `af-tool-policy`; `.af-drawer__body` is `af-drawer`) so they adapt to their pane.
+- **Helpers**: `.af-table-wrap` (horizontal scroll), `.af-sheet-overlay` / `.af-sheet` (an app
+  dialog that follows the same sheet rules).
+
+`scripts/check_responsive.mjs` pins the breakpoint set, the tokens, the touch floors and the
+containers.
+
 ## Related docs
 
 - Getting started: [`docs/getting-started.md`](../docs/getting-started.md)
@@ -2982,7 +3013,7 @@ Chat UI primitives for AbstractFramework-style UIs: thread rendering, message ca
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` (icons used by `ChatMessageCard`)
+- `@abstractframework/ui-kit` `^0.1.14 || ^0.2.0 || ^0.3.0` (icons used by `ChatMessageCard`; 0.3.0 for the responsive tokens)
 
 ## Install
 
@@ -3169,6 +3200,14 @@ Markdown is intentionally minimal and implemented in `panel-chat/src/markdown.ts
 - Import CSS in your app entrypoint (recommended):
   - `import "@abstractframework/panel-chat/panel_chat.css";`
   - `import "@abstractframework/ui-kit/theme.css";` (shared tokens)
+- Responsive (0.2.0): `.pc-chat-thread` (`pc-thread`), `.pc-composer` (`pc-composer`) and
+  `.pc-workflow-chat` / `.pc-assistant` (`pc-chat`) are query containers, so the transcript,
+  tool rows, approval buttons and composer adapt to the pane they sit in (a 420 px drawer on a
+  desktop behaves like a phone). The composer textarea grows with its content from `rows` lines
+  (CSS `field-sizing`) up to 40 % of the viewport; controls reach 44 px and the textarea 16 px on
+  touch. Tokens come from ui-kit 0.3.0 (`--tap-min`, `--vh-full`, `--safe-bottom`,
+  `--reading-max`, `--font-size-input`); every use has a fallback, so ui-kit 0.2.x still works.
+  A container needs its width from its parent (block, stretch or `flex: 1`).
 
 ## Related docs
 
@@ -3889,7 +3928,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -3913,7 +3952,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -3954,7 +3993,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -3982,7 +4021,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.1.21",
+  "version": "0.2.0",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -4026,12 +4065,12 @@ npm test
     "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.1.14 || ^0.2.0",
+    "@abstractframework/ui-kit": "^0.1.14 || ^0.2.0 || ^0.3.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.1.14 || ^0.2.0",
+    "@abstractframework/ui-kit": "^0.3.0",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -4225,6 +4264,7 @@ npm test
 
 export { THEMES, THEME_SPECS, applyTheme, getThemeSpec, themeClassName, type ThemeOption, type ThemeSpec } from "./theme.js";
 export { FONT_SCALES, HEADER_DENSITIES, applyTypography, getFontScaleSpec, getHeaderDensitySpec, type FontScaleOption, type HeaderDensityOption } from "./typography.js";
+export { AF_BREAKPOINTS, AF_MEDIA, installViewportVars, useAfMedia } from "./responsive.js";
 export { AfSelect, type AfSelectProps, type AfSelectOption } from "./af_select.js";
 export { ProviderModelSelect, type ProviderModelSelectProps, type ProviderOption } from "./provider_model_select.js";
 export { ProviderModelPicker, type ProviderModelPickerProps, type ProviderModelPickerValue } from "./provider_model_picker.js";
@@ -12894,6 +12934,63 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## 0.3.0 - Unreleased (branch feat/responsive)
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.3.0 | updated (minor: responsive layer) |
+| `@abstractframework/panel-chat` | 0.2.0 | updated (minor: responsive layer); accepts ui-kit `^0.1.14 \|\| ^0.2.0 \|\| ^0.3.0` |
+
+### ui-kit 0.3.0: responsive layer (responsive workstream 2026-09-30)
+
+- Added: one breakpoint contract for every app — `xs` < 480, `sm` < 768, `md` < 1024, `lg` < 1440,
+  `xl` >= 1440 (max-width queries ending in `.98px`), the `short` axis `(max-height: 500px)` and
+  `touch` `(pointer: coarse)`; JS `AF_BREAKPOINTS`, `AF_MEDIA`, `useAfMedia(query)`.
+- Added: tokens `--font-size-2xl`, `--font-size-body`, `--font-size-input`, `--font-size-code`,
+  `--space-1..6`, `--gutter`, `--tap-min`, `--control-h`, `--row-pad-y`, `--row-pad-x`,
+  `--control-pad-x`, `--vh-full`, `--safe-top/right/bottom/left`, `--keyboard-inset`,
+  `--content-max`, `--reading-max`, `--form-max`, `--drawer-w`. On coarse pointers `--tap-min` is
+  44 px and body / input / code text never go below 14 / 16 / 12 px whatever the font scale;
+  `data-density="dense|comfortable"` on `<html>` overrides the density tokens.
+- Added: `installViewportVars()` mirrors the visual viewport into `--vv-height` and
+  `--keyboard-inset` (the iOS keyboard, which `dvh` does not track).
+- Added: `html { text-size-adjust: 100% }` — no mobile text inflation when a layout is wider than
+  the phone (the cause of Observer's oversized text on phones).
+- Changed: `--font-size-xl` is fluid (`clamp(16px, 14px + 0.4vw, 18px)` × `--font-scale`); it
+  reaches 18 px at about 1000 px wide, so desktop windows are unchanged. Sizes up to `lg` stay fixed.
+- Changed: the kit's dialogs (connect/sign-in, critical action, appearance, about, schedule) pad
+  the safe areas and become bottom sheets below 768 px or under 500 px tall, with the action row
+  pinned to the bottom; below 480 px their actions stack full width.
+- Changed: the sign-in card, the dialogs, the automations panel and the tool policy editor adapt
+  to their own width through container queries (`af-signin`, `af-dialog`, `af-auto`,
+  `af-tool-policy`); the old `520px` / `680px` viewport queries are gone (the sign-in form now
+  stacks inside a 420 px drawer on a desktop too).
+- Changed: `AfDrawer` is full width below 768 px (was 680 px) and pads the safe areas; added
+  `side="left"`, `backdrop` (a dimmed backdrop that closes the drawer on tap) and the
+  `.af-drawer-backdrop` / `.af-drawer--left` / `.af-drawer--offset` classes; `.af-drawer__body`
+  is a query container (`af-drawer`).
+- Changed: on coarse pointers every kit control reaches 44 px (icon buttons in both axes) and the
+  automation form's fields use 16 px text (iOS no longer zooms on focus); the connection pill keeps
+  only its dot below 480 px (its accessible name is unchanged).
+- Added: `.af-table-wrap`, `.af-sheet-overlay` / `.af-sheet` helpers; `scripts/check_responsive.mjs`
+  pins the breakpoint set, tokens, touch floors and containers (red on 0.2.0's theme.css).
+
+### panel-chat 0.2.0: responsive layer
+
+- Changed: `.pc-chat-thread` is a query container (`pc-thread`): below 560 px of thread width the
+  tool rows stack (was a 600 px viewport query, kept as a 480 px fallback outside a thread);
+  below 420 px bubbles use the full width. Bubbles cap at `--reading-max` (86ch fallback).
+  The generated `transcript.css` carries the same change (class set unchanged).
+- Changed: `.pc-workflow-chat` / `.pc-assistant` are containers (`pc-chat`): approval and
+  ask-user buttons share the row below 560 px and stack full width below 360 px; long details wrap.
+- Changed: `ChatComposer` passes `rows` as `--pc-composer-rows`; the textarea grows with its
+  content (CSS `field-sizing: content`) from `rows` lines up to 40 % of the viewport. The
+  composer is a container (`pc-composer`); its action row wraps; the composer clears the home
+  indicator (`--safe-bottom`).
+- Changed: on coarse pointers the composer textarea is at least 16 px (it used `--font-size-lg`)
+  and buttons, icon buttons, tool rows and workspace rows reach 44 px.
+- Changed: `.pc-ws__entries` and `.pc-json-viewer__tree` scroll or wrap inside their pane.
 
 ## 0.2.0 - 2026-09-30
 

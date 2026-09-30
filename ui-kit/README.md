@@ -150,6 +150,8 @@ Rules:
 - `AfDrawer` is non-modal and keeps its children mounted when closed (`display:none` + `inert`),
   so drawers can host long-running work. ESC handling respects `defaultPrevented`; the connect
   modal sits above drawers (z-order tokens `--z-drawer` < `--z-connect-modal` < `--z-popover`).
+  Below 768 px it is full width; `side="left"` opens it from the left edge and `backdrop` adds a
+  dimmed backdrop that closes it on tap (use both where a docked sidebar becomes a drawer).
 - `AssistantPanel` (in `@abstractframework/panel-chat`) never fetches: the
   `ask(question, { signal, history })` transport is injected and may return a Promise or an
   AsyncIterable of deltas.
@@ -283,6 +285,35 @@ switcher surfaces (`AfAppearanceDialog`, `ThemeSelect`, `FontScaleSelect`,
    `palette_seeds.json`.
 
 See [Theming](../docs/theming.md) for the token vocabulary and adoption rules.
+
+## Responsive layout (0.3.0)
+
+`theme.css` carries one responsive contract for every app (desktop-first; a regular desktop
+window renders as before):
+
+- **Breakpoints** (literal values; CSS variables cannot be used in `@media`):
+  `xs` `(max-width: 479.98px)`, `sm` `(max-width: 767.98px)`, `md` `(max-width: 1023.98px)`,
+  `lg` `(max-width: 1439.98px)`, `xl` `(min-width: 1440px)`, plus `short` `(max-height: 500px)`
+  (phone landscape) and `touch` `(pointer: coarse)`. JS: `AF_BREAKPOINTS`, `AF_MEDIA`,
+  `useAfMedia(query)`.
+- **Tokens**: `--font-size-2xl` (fluid headings: `--font-size-xl`/`-2xl` use `clamp()` × `--font-scale`;
+  sizes up to `lg` stay fixed), `--font-size-body` / `-input` / `-code` (touch floors 14 / 16 / 12 px),
+  `--space-1..6`, `--gutter`, `--tap-min` / `--control-h` (32 px, 44 px on touch),
+  `--row-pad-y/x`, `--control-pad-x` (density; `data-density="dense|comfortable"` on `<html>`
+  overrides), `--vh-full` (`100dvh` with a `100vh` fallback), `--safe-top/right/bottom/left`,
+  `--keyboard-inset` / `--vv-height` (set by `installViewportVars()`), `--content-max`,
+  `--reading-max`, `--form-max`, `--drawer-w`.
+- **Components**: dialogs become bottom sheets below 768 px or under 500 px tall, with their
+  action row pinned; `AfDrawer` is full width below 768 px, pads the safe areas and gains
+  `side="left"` and `backdrop`; kit controls reach 44 px and inputs 16 px on touch; the
+  connection pill keeps only its dot below 480 px; the sign-in card, dialogs, automations and
+  tool policy editor are query containers (`af-signin`, `af-dialog`, `af-auto`,
+  `af-tool-policy`; `.af-drawer__body` is `af-drawer`) so they adapt to their pane.
+- **Helpers**: `.af-table-wrap` (horizontal scroll), `.af-sheet-overlay` / `.af-sheet` (an app
+  dialog that follows the same sheet rules).
+
+`scripts/check_responsive.mjs` pins the breakpoint set, the tokens, the touch floors and the
+containers.
 
 ## Related docs
 

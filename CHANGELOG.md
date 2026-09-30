@@ -7,6 +7,63 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.3.0 - Unreleased (branch feat/responsive)
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.3.0 | updated (minor: responsive layer) |
+| `@abstractframework/panel-chat` | 0.2.0 | updated (minor: responsive layer); accepts ui-kit `^0.1.14 \|\| ^0.2.0 \|\| ^0.3.0` |
+
+### ui-kit 0.3.0: responsive layer (responsive workstream 2026-09-30)
+
+- Added: one breakpoint contract for every app — `xs` < 480, `sm` < 768, `md` < 1024, `lg` < 1440,
+  `xl` >= 1440 (max-width queries ending in `.98px`), the `short` axis `(max-height: 500px)` and
+  `touch` `(pointer: coarse)`; JS `AF_BREAKPOINTS`, `AF_MEDIA`, `useAfMedia(query)`.
+- Added: tokens `--font-size-2xl`, `--font-size-body`, `--font-size-input`, `--font-size-code`,
+  `--space-1..6`, `--gutter`, `--tap-min`, `--control-h`, `--row-pad-y`, `--row-pad-x`,
+  `--control-pad-x`, `--vh-full`, `--safe-top/right/bottom/left`, `--keyboard-inset`,
+  `--content-max`, `--reading-max`, `--form-max`, `--drawer-w`. On coarse pointers `--tap-min` is
+  44 px and body / input / code text never go below 14 / 16 / 12 px whatever the font scale;
+  `data-density="dense|comfortable"` on `<html>` overrides the density tokens.
+- Added: `installViewportVars()` mirrors the visual viewport into `--vv-height` and
+  `--keyboard-inset` (the iOS keyboard, which `dvh` does not track).
+- Added: `html { text-size-adjust: 100% }` — no mobile text inflation when a layout is wider than
+  the phone (the cause of Observer's oversized text on phones).
+- Changed: `--font-size-xl` is fluid (`clamp(16px, 14px + 0.4vw, 18px)` × `--font-scale`); it
+  reaches 18 px at about 1000 px wide, so desktop windows are unchanged. Sizes up to `lg` stay fixed.
+- Changed: the kit's dialogs (connect/sign-in, critical action, appearance, about, schedule) pad
+  the safe areas and become bottom sheets below 768 px or under 500 px tall, with the action row
+  pinned to the bottom; below 480 px their actions stack full width.
+- Changed: the sign-in card, the dialogs, the automations panel and the tool policy editor adapt
+  to their own width through container queries (`af-signin`, `af-dialog`, `af-auto`,
+  `af-tool-policy`); the old `520px` / `680px` viewport queries are gone (the sign-in form now
+  stacks inside a 420 px drawer on a desktop too).
+- Changed: `AfDrawer` is full width below 768 px (was 680 px) and pads the safe areas; added
+  `side="left"`, `backdrop` (a dimmed backdrop that closes the drawer on tap) and the
+  `.af-drawer-backdrop` / `.af-drawer--left` / `.af-drawer--offset` classes; `.af-drawer__body`
+  is a query container (`af-drawer`).
+- Changed: on coarse pointers every kit control reaches 44 px (icon buttons in both axes) and the
+  automation form's fields use 16 px text (iOS no longer zooms on focus); the connection pill keeps
+  only its dot below 480 px (its accessible name is unchanged).
+- Added: `.af-table-wrap`, `.af-sheet-overlay` / `.af-sheet` helpers; `scripts/check_responsive.mjs`
+  pins the breakpoint set, tokens, touch floors and containers (red on 0.2.0's theme.css).
+
+### panel-chat 0.2.0: responsive layer
+
+- Changed: `.pc-chat-thread` is a query container (`pc-thread`): below 560 px of thread width the
+  tool rows stack (was a 600 px viewport query, kept as a 480 px fallback outside a thread);
+  below 420 px bubbles use the full width. Bubbles cap at `--reading-max` (86ch fallback).
+  The generated `transcript.css` carries the same change (class set unchanged).
+- Changed: `.pc-workflow-chat` / `.pc-assistant` are containers (`pc-chat`): approval and
+  ask-user buttons share the row below 560 px and stack full width below 360 px; long details wrap.
+- Changed: `ChatComposer` passes `rows` as `--pc-composer-rows`; the textarea grows with its
+  content (CSS `field-sizing: content`) from `rows` lines up to 40 % of the viewport. The
+  composer is a container (`pc-composer`); its action row wraps; the composer clears the home
+  indicator (`--safe-bottom`).
+- Changed: on coarse pointers the composer textarea is at least 16 px (it used `--font-size-lg`)
+  and buttons, icon buttons, tool rows and workspace rows reach 44 px.
+- Changed: `.pc-ws__entries` and `.pc-json-viewer__tree` scroll or wrap inside their pane.
+
 ## 0.2.0 - 2026-09-30
 
 | Package | Version | Change |
