@@ -14,7 +14,7 @@ On/off settings become switches labelled by the feature, highlighted when on (op
 
 | Package | Version | Change |
 | --- | --- | --- |
-| `@abstractframework/ui-kit` | 0.3.3 | updated (`AfSwitch`, the verb-toggle guard, the automation Active switch, the sign-in card layout, form/card/tab styles, `checkLabelScale`, `randomId`) |
+| `@abstractframework/ui-kit` | 0.3.3 | updated (`AfSwitch`, the verb-toggle guard, the automation Active switch, the sign-in card layout, form/card/tab styles, `checkLabelScale`, `randomId`, `AfModal`, account row tints, grouped navigation, the touch helper floor) |
 
 ### ui-kit 0.3.3
 
@@ -91,6 +91,30 @@ On/off settings become switches labelled by the feature, highlighted when on (op
 - Docs: [`docs/state-toggles.md`](docs/state-toggles.md) (the rule, the component, the console
   markup, the terminal marker, the guards, unavailable reasons, the sign-in card, forms, cards and
   tabs, non-secure contexts).
+- Added: `AfModal`, a large modal dialog: `min(960px, 100vw - 32px)` wide and at most 90 % of the
+  viewport tall over a dimmed, blurred backdrop (a solid dim with `prefers-reduced-transparency`).
+  The body scrolls between a fixed header and footer; below 768 px it is a full-screen sheet with
+  one scroll that clears the notch and the home indicator. Focus moves in and returns to the
+  opener, Tab stays inside, Escape and a backdrop click close it, the page behind does not scroll.
+  `size="narrow"` gives a 560 px dialog.
+- Added: the `af-modal` classes in `theme.css` and `bindAfModal()` (the same behaviour for plain
+  HTML), exposed to the AbstractGateway console as `AfConsoleIslands.bindModal()`. The markup is
+  documented in [`docs/modal.md`](docs/modal.md). New layer token `--z-modal` (950): above drawers,
+  below the connect modal.
+- Added: account-kind row tints: tokens `--af-row-tint-admin|user|entity` (light and dark
+  strengths), classes `af-row--admin|user|entity` for table rows and stacked row blocks (a wash and
+  a 3 px leading bar), `af-row__muted` for secondary text on a tinted row, `af-kind-chip` with
+  `--admin|--user|--entity`, and the `af-row-legend`. Text on a tinted row and on a chip keeps
+  4.5:1 in all 21 themes (computed by `check_modal_rows.mjs`).
+- Added: grouped sidebar navigation: `af-nav-group` with an `af-nav-group__caption` (small
+  uppercase caption) and an `af-nav-footer` slot pinned to the bottom (`af-nav-footer__button`,
+  44 px on touch).
+- Changed: helper text (switch descriptions and reasons, form help) is at least 14 px on touch
+  screens and below 1024 px of viewport, and at least 13 px elsewhere, through the new
+  `--af-helper-size` token; `af-field-help` applies it to any helper line. `checkLabelScale`
+  asserts the same floors (the touch floor from `matchMedia(HELPER_TOUCH_MEDIA)` or `touch: true`)
+  and also checks the modal footer note and the row legend; new exports `HELPER_MIN_PX`,
+  `HELPER_MIN_TOUCH_PX`, `HELPER_TOUCH_MEDIA`.
 
 ### Fixed
 

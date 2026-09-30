@@ -22,6 +22,9 @@ This package provides:
 - **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk)
 - **Automations**: `AutomationPanel`, `AfScheduleDialog` (schedule and email triggers, Email me the
   result, allowed recipients), `createAutomationsClient()` and the canonical Gateway fixtures — see [Automations](../docs/automations.md)
+- **Modal and account rows**: `AfModal` (large dialog over a blurred backdrop, full-screen sheet on
+  phones), `bindAfModal()`, the `af-row--admin|user|entity` tints, `af-kind-chip`, `af-nav-group` /
+  `af-nav-footer` — see [Modal, account rows, grouped navigation](../docs/modal.md)
 - **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
 - **Palette seeds**: `@abstractframework/ui-kit/palette_seeds.json` for non-CSS consumers
 - **Console islands** (repository build, not in the npm package): the kit components as one
@@ -327,6 +330,7 @@ app. `scripts/check_responsive.mjs` and `scripts/check_viewport_vars.mjs` pin it
 - API reference: [`docs/api.md`](../docs/api.md)
 - Adoption guide: [`docs/adoption-guide.md`](../docs/adoption-guide.md)
 - Theming: [`docs/theming.md`](../docs/theming.md)
+- Modal, account rows, grouped navigation: [`docs/modal.md`](../docs/modal.md)
 - Console islands: [`docs/console-islands.md`](../docs/console-islands.md)
 - Automations: [`docs/automations.md`](../docs/automations.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)

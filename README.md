@@ -20,6 +20,7 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 - Getting started (entrypoint): [`docs/getting-started.md`](./docs/getting-started.md)
 - Adoption guide (which component for which job): [`docs/adoption-guide.md`](./docs/adoption-guide.md)
 - Theming & design tokens: [`docs/theming.md`](./docs/theming.md)
+- Modal dialog, account row tints, grouped navigation (`AfModal`, `bindModal`): [`docs/modal.md`](./docs/modal.md)
 - On/off settings, sign-in card, forms and tabs (`AfSwitch`, `AfTabs`, guards, `randomId()`): [`docs/state-toggles.md`](./docs/state-toggles.md)
 - Responsive layout (breakpoints, touch sizes, sheets, drawers, viewport helpers): [`docs/responsive.md`](./docs/responsive.md)
 - API reference: [`docs/api.md`](./docs/api.md)

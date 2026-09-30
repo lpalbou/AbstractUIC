@@ -31,7 +31,7 @@ Source files:
 
 | File | Role |
 | --- | --- |
-| `ui-kit/islands/console_islands.tsx` | Entry point and API (`mountTopBar`, `mountAppearance`, `mountAbout`, `appIdentity`, `applyAppearance`) |
+| `ui-kit/islands/console_islands.tsx` | Entry point and API (`mountTopBar`, `mountAppearance`, `mountAbout`, `bindModal`, `appIdentity`, `applyAppearance`) |
 | `ui-kit/islands/tsconfig.json` | Type-check configuration for the entry (`noEmit`) |
 | `ui-kit/scripts/build_islands.mjs` | esbuild bundler; writes `islands/dist/af-console-islands.js` |
 | `ui-kit/scripts/check_islands.mjs` | Rebuilds the bundle and verifies it loads as a plain script |
@@ -56,7 +56,7 @@ node ui-kit/scripts/check_islands.mjs
 (`tsc -p islands/tsconfig.json`) and runs `check_islands.mjs`. The check verifies that:
 
 - evaluating the bundle defines `AfConsoleIslands`;
-- `mountTopBar`, `mountAppearance`, `mountAbout`, `appIdentity` and `applyAppearance` are
+- `mountTopBar`, `mountAppearance`, `mountAbout`, `bindModal`, `appIdentity` and `applyAppearance` are
   functions, and `appIdentity` returns the gateway's identity and throws for an unknown id;
 - `apiVersion` is `"1"` and `kitVersion` equals the `ui-kit` `package.json` version;
 - `themes` has one entry per theme in `THEME_SPECS`;
@@ -91,6 +91,7 @@ Serve both files from your own origin; the paths above are examples.
 | `mountTopBar(el, props)` | `IslandHandle` | Mounts `AfTopBarActions` into `el` |
 | `mountAppearance(el, props)` | `IslandHandle` | Mounts `AfAppearanceDialog` into `el` |
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
+| `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.3.3+) |
 | `appIdentity(id, version)` | `AppIdentity` | Identity facts for an AbstractFramework app; throws for an unknown id (kit 0.1.12+) |
 | `applyAppearance(settings)` | `void` | Applies a theme and typography settings to the document |
 
@@ -170,6 +171,23 @@ type AboutIslandProps = {
 Use `mountAbout` when your About entry lives outside the top bar. When you pass `about` to
 `mountTopBar`, the cluster renders the About button and owns the dialog itself, so you do not
 need `mountAbout`.
+
+### `bindModal(backdrop, options)`
+
+Gives your own modal markup (the `af-modal` classes of `theme.css`) the kit's modal behaviour. It
+does not render anything: show the backdrop, bind, and call the returned `release()` before you
+hide it again.
+
+```ts
+type BindModalOptions = {
+  onClose: () => void;           // Escape or a click on the backdrop
+  closeOnEscape?: boolean;       // default true
+  closeOnBackdrop?: boolean;     // default true
+  initialFocus?: HTMLElement | null;
+};
+```
+
+Markup and a complete example: [Modal, account rows, grouped navigation](./modal.md).
 
 ### `appIdentity(id, version)`
 

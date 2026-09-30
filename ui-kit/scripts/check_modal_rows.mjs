@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Modal / account-row / nav-group / helper-floor checks (ui-kit 0.3.3, round 2;
- * docs/modal.md, docs/account-rows.md).
+ * docs/modal.md).
  *
  * 1. theme.css carries the af-modal contract: blurred dim backdrop with a
  *    reduced-transparency solid fallback, the min(960px, 100vw - 32px) x 90vh
