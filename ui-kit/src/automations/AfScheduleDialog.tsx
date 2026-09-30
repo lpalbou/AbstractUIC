@@ -267,7 +267,7 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
           </fieldset>
 
           <fieldset className="af-auto__field" data-field="email">
-            <legend>Email</legend>
+            <legend>Mailbox</legend>
             {!usable ? <AfEmailSetupNotice status={props.emailStatus} onOpenMyEmail={props.onOpenMyEmail} /> : null}
             <AfEmailOptionsFields
               notifyEmail={usable && notifyEmail}

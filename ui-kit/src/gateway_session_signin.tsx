@@ -8,6 +8,7 @@ export type GatewaySessionSignInCardProps = {
   description?: React.ReactNode;
   statusLabel?: string;
   statusTone?: GatewaySessionStatusTone;
+  /** Ignored since 0.3.3: one pill per state, no caption (DESIGN §3). Kept so apps still compile. */
   tokenSourceLabel?: string;
 
   showGatewayUrl?: boolean;
@@ -57,7 +58,6 @@ export function GatewaySessionSignInCard({
   description = "Sign in with the Gateway user token assigned by the Gateway admin.",
   statusLabel = "Not signed in",
   statusTone = "neutral",
-  tokenSourceLabel,
   showGatewayUrl = false,
   gatewayUrl = "",
   gatewayUrlPlaceholder = "http://127.0.0.1:8080",

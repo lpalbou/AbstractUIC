@@ -10,7 +10,7 @@
  * - "Email me the result" → `notify.channels ["console","email"]`; off sends
  *   no `notify` (server default); allowed recipients → `policy.
  *   email_allowed_recipients ["self", ...]`; only-me sends nothing;
- * - the dialog: "When an email arrives" disabled + "Email isn't set up — open
+ * - the dialog: "When an email arrives" disabled + "Connect a mailbox first — open
  *   My email" when `GET /me/email` is unknown or not usable; enabled and
  *   submitted when usable; nothing email-shaped is sent without a usable
  *   account;
@@ -55,7 +55,7 @@ if (failures) {
 
 // --- wording = the canonical JSON ----------------------------------------------------------
 check("EMAIL_TEXT is automation_controls.json → email", eq(kit.EMAIL_TEXT, spec.email));
-check("the notice text (operator wording)", spec.email.not_set_up === "Email isn't set up — open My email" && spec.email.not_set_up.endsWith(spec.email.open_my_email));
+check("the notice text (operator wording)", spec.email.not_set_up === "Connect a mailbox first — open My email" && spec.email.not_set_up.endsWith(spec.email.open_my_email));
 check("trigger label", spec.email.trigger_label === "When an email arrives" && spec.email.notify_label === "Email me the result");
 check("the 60 s rule and the hourly default are stated", /once an hour by default/.test(spec.email.interval_rule) && /every 60 s/.test(spec.email.interval_rule) && /shortest interval is 60 s/.test(spec.email.interval_rule));
 check("trigger source id", kit.EMAIL_TRIGGER_SOURCE_ID === "email.received" && kit.EMAIL_TRIGGER_SOURCE_VERSION === 1 && spec.email.trigger_source === "email.received@1");
@@ -143,7 +143,7 @@ const find = (tree, pred) => {
 };
 const { AfScheduleDialog } = kit;
 const dlg = (p) => renderToStaticMarkup(React.createElement(AfScheduleDialog, { open: true, onClose() {}, target: null, onSubmit() {}, newRequestId: () => "rid", ...p }));
-const NOT_SET_UP_HTML = `Email isn&#x27;t set up — `;
+const NOT_SET_UP_HTML = `Connect a mailbox first — `;
 {
   const unknown = dlg({});
   check("dialog: email trigger offered", unknown.includes("When an email arrives"));

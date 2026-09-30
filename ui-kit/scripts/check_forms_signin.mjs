@@ -24,7 +24,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
 const kit = await import(join(root, "dist", "index.js"));
-const { GatewaySessionSignInCard, AfTabs, afTabsNextIndex, checkLabelScale, LABEL_SCALE_SELECTOR } = kit;
+const { GatewaySessionSignInCard, AfTabs, afTabsNextIndex, checkLabelScale, LABEL_SCALE_SELECTOR, HELPER_SCALE_SELECTOR } = kit;
 
 let failures = 0;
 let checks = 0;
@@ -131,7 +131,7 @@ const fl = resolve(fmTop, ".af-form__label");
 check("af-form__label: body size, 500", fl["font-size"] === "var(--font-size-base)" && fl["font-weight"] === "500", JSON.stringify(fl));
 check("af-form__field stacks label above field", resolve(fmTop, ".af-form__field")["flex-direction"] === "column");
 const help = resolve(fmTop, ".af-form__help");
-check("af-form__help: small + muted", help["font-size"] === "var(--font-size-sm)" && help.color === "var(--text-muted)", JSON.stringify(help));
+check("af-form__help: small (never below 13px) + muted", help["font-size"] === "max(var(--font-size-sm), 13px)" && help.color === "var(--text-muted)", JSON.stringify(help));
 check("inputs never wider than the card", resolve(fmTop, ".af-form textarea")["max-width"] === "100%" && resolve(fmTop, ".af-form select")["min-width"] === "0");
 check("af-card + heading", resolve(fmTop, ".af-card").display === "flex" && resolve(fmTop, ".af-card__title")["font-weight"] === "600");
 check("selected tab: accent underline, weight 600", resolve(fmTop, '.af-tabs__tab[aria-selected="true"]')["border-bottom-color"] === "var(--accent)" && resolve(fmTop, '.af-tabs__tab[aria-selected="true"]')["font-weight"] === "600");
@@ -164,13 +164,16 @@ check("other keys are not tab keys", afTabsNextIndex(tabs, 0, "a") === null && a
 // 4) checkLabelScale
 const el = (cls, fontSize, fontWeight, rendered = true) => ({ tagName: "LABEL", getAttribute: () => cls, textContent: cls, getClientRects: () => (rendered ? [1] : []), _s: { fontSize, fontWeight } });
 const els = [el("ok", "14px", "500"), el("big", "20px", "500"), el("heavy", "14px", "700"), el("boldword", "14px", "bold"), el("hidden-big", "22px", "400", false), el("edge", "15px", "600")];
-let seenSelector = "";
-const fakeRoot = { querySelectorAll: (sel) => ((seenSelector = sel), els) };
+const helperEls = [el("help-ok", "13px", "400"), el("help-tiny", "11px", "400"), el("help-hidden-tiny", "11px", "400", false)];
+const seenSelectors = [];
+const fakeRoot = { querySelectorAll: (sel) => (seenSelectors.push(sel), sel === HELPER_SCALE_SELECTOR ? helperEls : els) };
 const hits = checkLabelScale(fakeRoot, { getComputedStyle: (e) => e._s });
-check("checkLabelScale flags > 15px and > 600 (incl. 'bold')", JSON.stringify(hits.map((h) => h.text)) === '["big","heavy","boldword"]', JSON.stringify(hits.map((h) => h.text)));
+const seenSelector = seenSelectors[0];
+check("checkLabelScale flags > 15px and > 600 (incl. 'bold') and helper text < 13px", JSON.stringify(hits.map((h) => h.text)) === '["big","heavy","boldword","help-tiny"]', JSON.stringify(hits.map((h) => h.text)));
+check("checkLabelScale queries the helper selector too", seenSelectors[1] === HELPER_SCALE_SELECTOR);
 check("checkLabelScale reports size + weight + selector", hits[0].fontSize === 20 && hits[1].fontWeight === 700 && hits[0].selector === "label.big");
 check("checkLabelScale default selector covers labels, switch labels and captions", ["label", ".af-switch__label", ".af-form__label", ".af-gateway-signin__label", ".af-gateway-signin__checkbox"].every((s) => seenSelector.split(", ").includes(s)) && seenSelector === LABEL_SCALE_SELECTOR);
-check("includeHidden checks unrendered elements too", checkLabelScale(fakeRoot, { getComputedStyle: (e) => e._s, includeHidden: true }).length === 4);
+check("includeHidden checks unrendered elements too", checkLabelScale(fakeRoot, { getComputedStyle: (e) => e._s, includeHidden: true }).length === 6);
 // The kit's own label rules stay inside the scale (static: no px sizes above 15, no weight above 600).
 for (const sel of [".af-gateway-signin__label", ".af-gateway-signin__checkbox", ".af-form__label", ".af-switch__label", '.af-switch[aria-checked="true"] .af-switch__label', ".af-switch"]) {
   const d = resolve(topLevel(css), sel);

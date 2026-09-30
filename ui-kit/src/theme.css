@@ -4350,7 +4350,8 @@ html {
 }
 .af-switch__desc {
   color: var(--text-muted);
-  font-size: var(--font-size-xs);
+  /* Helper text is never below 13 px (DESIGN §3 / §12.1). */
+  font-size: max(var(--font-size-sm), 13px);
   font-weight: 400;
   white-space: normal;
 }
@@ -4462,7 +4463,7 @@ html {
 }
 .af-switch__reason {
   color: var(--text-muted);
-  font-size: var(--font-size-xs);
+  font-size: max(var(--font-size-sm), 13px);
 }
 .af-switch__reason--hidden {
   position: absolute;
@@ -4557,7 +4558,7 @@ html {
 .af-form__help {
   margin: 0;
   color: var(--text-muted);
-  font-size: var(--font-size-sm);
+  font-size: max(var(--font-size-sm), 13px);
   font-weight: 400;
   line-height: 1.4;
 }

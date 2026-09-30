@@ -161,7 +161,8 @@ export function AfSwitchInput(props: {
 }): React.ReactElement {
   const reason = String(props.unavailableReason || "").trim();
   const cls = ["af-switch", "af-switch--native", props.variant === "row" ? "af-switch--row" : "", reason ? "af-switch--unavailable" : ""].filter(Boolean).join(" ");
-  return (
+  const reasonId = reason ? `${props.id || props.name}-reason` : undefined;
+  const control = (
     <label className={cls} title={reason || undefined} data-action={props.action}>
       <input
         type="checkbox"
@@ -171,7 +172,7 @@ export function AfSwitchInput(props: {
         name={props.name}
         defaultChecked={props.defaultChecked}
         disabled={Boolean(reason)}
-        aria-description={reason || undefined}
+        aria-describedby={reasonId}
       />
       <span className="af-switch__track" aria-hidden="true">
         <span className="af-switch__thumb" />
@@ -180,5 +181,13 @@ export function AfSwitchInput(props: {
         <span className="af-switch__label">{props.label}</span>
       </span>
     </label>
+  );
+  if (!reason) return control;
+  // An unavailable switch always shows its reason (a tap must never do nothing visible).
+  return (
+    <span className={props.variant === "row" ? "af-switch-wrap af-switch-wrap--row" : "af-switch-wrap"}>
+      {control}
+      <span id={reasonId} className="af-switch__reason">{reason}</span>
+    </span>
   );
 }
