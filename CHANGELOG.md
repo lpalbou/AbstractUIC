@@ -63,6 +63,8 @@ ships.
 - Changed: on coarse pointers the composer textarea is at least 16 px (it used `--font-size-lg`)
   and buttons, icon buttons, tool rows and workspace rows reach 44 px.
 - Changed: `.pc-ws__entries` and `.pc-json-viewer__tree` scroll or wrap inside their pane.
+- Changed: Markdown table cells use `overflow-wrap: break-word`, so a narrow table scrolls in
+  its wrapper instead of breaking words mid-token.
 
 ## 0.2.0 - 2026-09-30
 

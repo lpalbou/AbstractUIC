@@ -1730,6 +1730,14 @@ button.pc-ws__name:hover {
   padding-bottom: max(10px, var(--safe-bottom, 0px));
 }
 
+/* Markdown tables scroll inside their wrapper (.pc-md_table_wrap) instead of
+ * breaking words mid-token ("src/workspace.t|s"): a cell breaks a word only
+ * when that single word is wider than the whole column can grow. */
+.pc-md_table th,
+.pc-md_table td {
+  overflow-wrap: break-word;
+}
+
 /* Workspace browser / JSON viewer: scroll inside their pane, never widen it. */
 .pc-ws {
   min-height: 0;
