@@ -1530,6 +1530,7 @@ export function KgActiveMemoryExplorer({
   const itemCount = visibleItems.length;
 
   return (
+    <div className="amx-host">
     <div className="amx-root">
       <div className="amx-left">
         <div className="amx-graphbar" role="toolbar" aria-label="Graph layout controls">
@@ -2253,6 +2254,7 @@ export function KgActiveMemoryExplorer({
           {!selectedSources.length && !(onOpenTranscript && selectedRunTranscripts.length) ? <div className="amx-small">(no provenance)</div> : null}
         </div>
       </div>
+    </div>
     </div>
   );
 }
