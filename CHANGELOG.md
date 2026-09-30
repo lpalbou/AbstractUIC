@@ -7,6 +7,57 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.3.1 - Unreleased (branch feat/responsive, kit round 2)
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.3.1 | updated (patch: touch-target and touch-text fixes measured by the apps) |
+| `@abstractframework/panel-chat` | 0.2.1 | updated (patch: JSON viewer touch targets); peer range unchanged |
+| `@abstractframework/monitor-active-memory` | 0.2.0 | updated (minor: container-based layout, touch sizes) |
+
+### ui-kit 0.3.1
+
+- Fixed: touch minimums now apply to INTERACTIVE boxes only. Chips (`.af-chip--button`,
+  `.af-chip__remove`) keep their pill geometry and get an invisible 44 px `::after` hit area (a
+  44 px-tall chip read as an oval button); non-interactive chips, badges, pills and facts get none.
+- Fixed: on coarse pointers the About dialog links, link-styled buttons (`.af-auto__linkbtn`, the
+  email notice link), checkbox/radio rows (sign-in "Keep this browser signed in", `.af-email__check`,
+  every `label > input[type=checkbox|radio]` in `.af-auto` / `.af-schedule`, `.af-tool-row__check`)
+  are 44 px rows; the top-bar pill is at least 44x44.
+- Fixed: the `AfSelect` panel trigger (also in the model settings' MTP depth) uses `--control-h` on
+  touch; the `.af-select--panel` 34 px pin had higher specificity. Pin selects (`.af-select--pin`,
+  canvas nodes) are exempt.
+- Changed: on touch the automations panel, the critical dialog's consequence / fallback statement
+  and the About links use `--font-size-body` (14 px floor; apps may override the token, see
+  DESIGN.md §2.3). Secondary lines stay `--font-size-sm`.
+- Fixed: desktop panes keep the 0.2.0 look. Container rules now fire only where the 0.2.0 layout
+  genuinely broke: the automations panel's definition grid and buttons stack below 400 px (was 520 px:
+  a 470 px Code pane lost its two-column grid); the sign-in form stacks below 320 px of card content
+  width (was 560/680 px: it stacked inside a 420 px desktop drawer), plus a `767.98px` viewport rule so
+  phones keep the stacked form they had in 0.2.0. Verified pixel-identical to 0.2.0 at 1512x982 with the
+  automation panel at 470/420 px and the sign-in card in a 420 px drawer.
+- Added: `check_responsive.mjs` sections F and G (interactive-only minimums, select, chips hit area,
+  44 px rows, primary text), red on the 0.3.0 CSS.
+
+### panel-chat 0.2.1
+
+- Fixed: on coarse pointers the JSON viewer's disclosure lines are padded to 44 px rows and its
+  string toggles are 44x44 (only interactive lines grow).
+- Fixed: desktop panes keep the 0.2.0 look. The transcript, composer and approval-card container
+  rules fire below 360 px of pane width (were 420/560 px, which changed a 420 px desktop drawer); the
+  approval buttons no longer stretch between 360 and 560 px. Phones keep 0.2.0's stacked tool rows
+  through the `479.98px` viewport fallback.
+
+### monitor-active-memory 0.2.0
+
+- Changed: a `.amx-host` query container wraps the explorer; `.amx-left { min-width: 420px }` is gone
+  (`min-width: 0`); the graph / details split stacks below 820 px of the explorer's own width (was a
+  1080 px viewport query) and the toolbar grid below 560 px (was 720 px).
+- Fixed: the floating controls panel's grid uses `minmax(0, 1fr)` columns with full-width fields and
+  wrapping labels, so no label extends past the panel (open or closed); the open panel is a query
+  container (`amx-controls`) that stacks its grids below 420 px.
+- Changed: 44 px controls and 16 px fields on coarse pointers.
+
 ## 0.3.0 - Unreleased (branch feat/responsive)
 
 | Package | Version | Change |
