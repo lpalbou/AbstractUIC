@@ -1064,8 +1064,24 @@ export function KgActiveMemoryExplorer({
   const copyText = useCallback(async (text: string) => {
     const s = String(text ?? '');
     if (!s) return;
+    // navigator.clipboard is https/localhost only; plain http uses the textarea + execCommand path.
     try {
-      await navigator.clipboard.writeText(s);
+      if (typeof navigator.clipboard?.writeText === 'function') {
+        await navigator.clipboard.writeText(s);
+        return;
+      }
+    } catch {
+      // fall through to the textarea path
+    }
+    try {
+      const el = document.createElement('textarea');
+      el.value = s;
+      el.style.position = 'fixed';
+      el.style.left = '-9999px';
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
     } catch {
       // Best-effort.
     }

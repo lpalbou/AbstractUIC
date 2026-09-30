@@ -1200,8 +1200,17 @@ export class WorkflowSessionController {
   }
 
   private newCommandId(): string {
+    // crypto.randomUUID is https/localhost only; over plain http build the v4 UUID from getRandomValues
+    // (same algorithm as ui-kit randomId, kept local so the ^0.3.0 kit peer range still holds).
     const cryptoApi = globalThis.crypto;
     if (cryptoApi && typeof cryptoApi.randomUUID === "function") return cryptoApi.randomUUID();
+    if (cryptoApi && typeof cryptoApi.getRandomValues === "function") {
+      const b = cryptoApi.getRandomValues(new Uint8Array(16));
+      b[6] = (b[6] & 0x0f) | 0x40;
+      b[8] = (b[8] & 0x3f) | 0x80;
+      const hex = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
     return `workflow-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }
 
