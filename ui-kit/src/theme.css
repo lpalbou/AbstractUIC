@@ -313,9 +313,24 @@
 /* Narrow drawers (360-480px): a fixed 150px label column leaves too little
  * for the gateway URL — labels stack above their inputs instead
  * (design adversary B, 2026-07-13). A CONTAINER query since 0.3.0: the card
- * asks its own width, so it also stacks inside a 420px drawer on a desktop
- * (the old viewport query never fired there). */
-@container af-signin (max-width: 559.98px) {
+ * asks its own width. It fires only below 320px of card CONTENT width (card
+ * padding excluded; ~368px card), where the
+ * 150px label column genuinely leaves too little room (0.3.1): a 420px
+ * desktop drawer keeps the 0.2.0 two-column form; phones and small tablets
+ * (< 768px viewport) keep the stacked form they had in 0.2.0. */
+@container af-signin (max-width: 319.98px) {
+  .af-gateway-signin__form {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .af-gateway-signin__label {
+    margin-top: 6px;
+  }
+}
+
+/* Phones and small tablets keep the stacked form they had in 0.2.0. */
+@media (max-width: 767.98px) {
   .af-gateway-signin__form {
     grid-template-columns: minmax(0, 1fr);
     gap: 6px;
@@ -431,7 +446,24 @@
   }
 }
 
-@container af-signin (max-width: 679.98px) {
+@container af-signin (max-width: 319.98px) {
+  .af-gateway-signin__hero {
+    gap: 16px;
+  }
+
+  .af-gateway-signin__mark {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    font-size: 26px;
+  }
+
+  .af-gateway-signin__form {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767.98px) {
   .af-gateway-signin__hero {
     gap: 16px;
   }
@@ -3382,7 +3414,7 @@
   .af-auto__notice--on { animation: none; }
 }
 .af-auto__error-text { flex: 1; min-width: 0; }
-@container af-auto (max-width: 519.98px) {
+@container af-auto (max-width: 399.98px) {
   .af-auto__facts { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .af-auto-turn--trigger { max-width: 100%; }
 }
@@ -3736,7 +3768,7 @@ html {
 }
 
 /* --- Automations form/panel in narrow panes --- */
-@container af-auto (max-width: 519.98px) {
+@container af-auto (max-width: 399.98px) {
   .af-auto__actionbar,
   .af-auto__controls {
     gap: 8px;
@@ -3805,6 +3837,12 @@ html {
   .af-select-trigger,
   .af-select--panel .af-select-trigger {
     min-height: var(--control-h);
+  }
+
+  /* Pin selects live inside canvas nodes (Flow), which scale with zoom:
+   * canvas content is a documented exception to the touch minimum. */
+  .af-select--pin .af-select-trigger {
+    min-height: 0;
   }
 
   .af-topbar__btn,

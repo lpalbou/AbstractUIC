@@ -1053,7 +1053,7 @@
 @media (prefers-reduced-motion: reduce) { .pc-tool-activity--running .pc-tool-activity__state-icon { animation: none; } }
 /* Narrow transcript (container query on .pc-chat-thread; the viewport query
  * is the fallback for a tool list rendered outside a thread). */
-@container pc-thread (max-width: 559.98px) {
+@container pc-thread (max-width: 359.98px) {
   .pc-tool-activity__preview { flex-basis: calc(100% - 25px); order: 6; margin-left: 23px; }
   .pc-tool-activity__status { margin-left: auto; }
   .pc-tool-activity__error { order: 7; }
@@ -1070,7 +1070,7 @@
   .pc-tool-activity__parameters dd { margin-bottom: 6px; }
   .pc-tool-group__heading { flex-wrap: wrap; }
 }
-@container pc-thread (max-width: 419.98px) {
+@container pc-thread (max-width: 359.98px) {
   .pc-chat-item { max-width: 100%; padding: 10px 12px; }
   .pc-chat-item--user { max-width: 94%; }
   .pc-chat-header { gap: 8px; margin-bottom: 8px; }
@@ -1675,7 +1675,7 @@ button.pc-ws__name:hover {
   margin-left: auto;
 }
 
-@container pc-composer (max-width: 419.98px) {
+@container pc-composer (max-width: 359.98px) {
   /* Secondary actions (attach, model, voice) wrap onto as many rows as they
    * need; the send button stays at the end of the last row. */
   .pc-composer__row {
@@ -1697,13 +1697,6 @@ button.pc-ws__name:hover {
   overflow-wrap: anywhere;
 }
 
-@container pc-chat (max-width: 559.98px) {
-  .pc-workflow-interaction__buttons > button {
-    flex: 1 1 auto;
-    justify-content: center;
-  }
-}
-
 @container pc-chat (max-width: 359.98px) {
   .pc-workflow-interaction__buttons {
     flex-direction: column;
@@ -1715,7 +1708,7 @@ button.pc-ws__name:hover {
   }
 }
 
-@container pc-chat (max-width: 419.98px) {
+@container pc-chat (max-width: 359.98px) {
   .pc-workflow-chat__header,
   .pc-workflow-chat__footer,
   .pc-workflow-chat__composer {
