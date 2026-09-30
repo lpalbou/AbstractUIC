@@ -84,6 +84,8 @@ On/off settings become switches labelled by the feature, highlighted when on (op
   `HELPER_SCALE_SELECTOR`). An unavailable `AfSwitchInput` shows its reason inline.
 - Changed: the email notice reads "Connect a mailbox first — open My email" (was "Email isn't set
   up — …") and the automation forms' email section is titled "Mailbox".
+- Fixed: `.af-switch-wrap` is `position: relative`, so a switch's visually hidden reason no longer
+  lands against the document and adds a page scroll on phones.
 - monitor-active-memory 0.2.1 → 0.2.2 pending: the explorer's help text (`.amx-small`) is 14 px on
   touch screens.
 - Docs: [`docs/state-toggles.md`](docs/state-toggles.md) (the rule, the component, the console
