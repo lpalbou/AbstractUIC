@@ -59,5 +59,5 @@ export function randomId(): string {
 export function insecureContextReason(feature: string): string | null {
   const g = globalThis as { isSecureContext?: boolean };
   if (g.isSecureContext !== false) return null;
-  return `This page is loaded over http, so ${feature} is unavailable — open it over https or on the gateway's own computer.`;
+  return `This page is loaded over http, so ${feature} is unavailable — open it over https (for example through tailscale serve; the gateway console's Network page explains how) or on the gateway's own computer.`;
 }

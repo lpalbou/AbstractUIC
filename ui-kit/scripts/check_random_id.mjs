@@ -110,7 +110,7 @@ check("no kit source calls crypto.randomUUID() directly (use randomId)", offende
   Object.defineProperty(globalThis, "isSecureContext", { value: false, configurable: true, writable: true });
   check(
     "insecure context -> the DESIGN §11 sentence",
-    insecureContextReason("the microphone") === "This page is loaded over http, so the microphone is unavailable — open it over https or on the gateway's own computer.",
+    insecureContextReason("the microphone") === "This page is loaded over http, so the microphone is unavailable — open it over https (for example through tailscale serve; the gateway console's Network page explains how) or on the gateway's own computer.",
     insecureContextReason("the microphone"),
   );
   Object.defineProperty(globalThis, "isSecureContext", { value: true, configurable: true, writable: true });

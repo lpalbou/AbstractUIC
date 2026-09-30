@@ -91,7 +91,7 @@ Use these sentences word for word, as `unavailableReason` (web) or after the em 
 | Agent email tools, admin switched agent email tools off | Your admin turned agent email tools off. |
 | Notifications (Job failed, Approval needed), no mailbox yet | Connect a mailbox first. |
 | Users table, Active switch on your own row | You can't deactivate your own account. |
-| A feature a plain-http page cannot use | This page is loaded over http, so the microphone is unavailable — open it over https or on the gateway's own computer. |
+| A feature a plain-http page cannot use | This page is loaded over http, so the microphone is unavailable — open it over https (for example through tailscale serve; the gateway console's Network page explains how) or on the gateway's own computer. |
 
 The last sentence swaps the feature ("the camera", "copying to the clipboard");
 `insecureContextReason(feature)` returns it when the page is not a secure context and `null`
