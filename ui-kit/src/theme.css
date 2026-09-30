@@ -3860,6 +3860,16 @@ html {
     font-size: var(--font-size-body);
   }
 
+  /* Primary reading lines of kit dialogs follow the same role token: the
+   * critical dialog's consequence / fallback statement and the About
+   * dialog's links (its main actions). Labels, facts and About values stay
+   * secondary (--font-size-sm). */
+  .af-critical__consequence,
+  .af-critical__fallback,
+  .af-about__link {
+    font-size: var(--font-size-body);
+  }
+
   /* Link-styled buttons and the About dialog's links are the dialog's main
    * actions on a phone: full 44px rows, not inline text links. */
   .af-auto__linkbtn,

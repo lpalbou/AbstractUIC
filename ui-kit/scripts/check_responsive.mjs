@@ -94,6 +94,11 @@ for (const sel of [".af-about__link", ".af-gateway-signin__checkbox", ".af-email
   if (!coarse_has(sel, /min-height:\s*var\(--tap-min\)/)) fail(`coarse: ${sel} must reach --tap-min`);
 }
 
+// G. primary reading text in kit surfaces opts into --font-size-body on touch.
+for (const sel of [".af-auto", ".af-critical__consequence", ".af-critical__fallback", ".af-about__link"]) {
+  if (!coarse_has(sel, /font-size:\s*var\(--font-size-body\)/)) fail(`coarse: ${sel} must use --font-size-body (primary reading text, DESIGN.md §2.3)`);
+}
+
 // E. containers
 for (const [sel, name] of [[".af-gateway-signin", "af-signin"], [".af-appearance", "af-dialog"], [".af-auto", "af-auto"], [".af-tool-policy", "af-tool-policy"], [".af-drawer__body", "af-drawer"]]) {
   const re = new RegExp(`${sel.replace(/[.]/g, "\\.")}\\s*\\{[^}]*container:\\s*${name}\\s*/\\s*inline-size`);
