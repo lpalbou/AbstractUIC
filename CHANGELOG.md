@@ -7,7 +7,7 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## Unreleased
+## 0.2.0 - 2026-09-30
 
 | Package | Version | Change |
 | --- | --- | --- |

@@ -20,8 +20,8 @@ This package provides:
 - **Run and policy surfaces**: `PhaseCapabilityMatrix`, `CriticalActionDialog`, `SteerComposer`,
   `DisclosureList`, `AfChip`, `AfPhaseRadio`, cognition gauges
 - **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk)
-- **Automations**: `AutomationPanel`, `AfScheduleDialog`, `createAutomationsClient()` and the
-  canonical Gateway fixtures — see [Automations](../docs/automations.md)
+- **Automations**: `AutomationPanel`, `AfScheduleDialog` (schedule and email triggers, Email me the
+  result, allowed recipients), `createAutomationsClient()` and the canonical Gateway fixtures — see [Automations](../docs/automations.md)
 - **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
 - **Palette seeds**: `@abstractframework/ui-kit/palette_seeds.json` for non-CSS consumers
 - **Console islands** (repository build, not in the npm package): the kit components as one
