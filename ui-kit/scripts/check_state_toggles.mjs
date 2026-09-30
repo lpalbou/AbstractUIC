@@ -168,6 +168,7 @@ for (const f of files) {
   check("tool policy: the switch column sizes to the switch (auto), never a fixed 24px", /\.af-tool-row \{[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\) auto/.test(css) && !/\.af-tool-row \{[^}]*grid-template-columns:\s*24px/.test(css));
   const panelSrc = readFileSync(join(root, "src", "automations", "AutomationPanel.tsx"), "utf8");
   check("automation notices name the new state, not the command", /pause\]: "Automation paused\."/.test(panelSrc) && /resume\]: "Automation active\."/.test(panelSrc) && !/"(Pause|Resume) sent\."/.test(panelSrc));
+  check("switch wrap is the containing block for the hidden reason", /\.af-switch-wrap \{[^}]*position:\s*relative/.test(css));
   check("AfSwitchInput: native checkbox with role=switch inside the switch markup", /<label class="af-switch af-switch--native"[^>]*><input type="checkbox" role="switch" class="af-switch__input" name="notify_email" checked=""/.test(native) && native.includes('class="af-switch__track"'));
 }
 

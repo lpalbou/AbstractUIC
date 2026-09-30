@@ -4451,6 +4451,9 @@ html {
   font-size: var(--font-size-sm);
 }
 .af-switch-wrap {
+  /* The visually hidden reason (absolute) is placed inside the wrap, never against the document
+   * (it used to make the page scroll on phones). */
+  position: relative;
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
