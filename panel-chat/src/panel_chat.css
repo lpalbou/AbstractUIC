@@ -1789,4 +1789,27 @@ button.pc-ws__name:hover {
   .pc-workflow-interaction textarea {
     font-size: var(--font-size-input, 16px);
   }
+
+  /* JSON viewer: the disclosure lines and string toggles are the targets
+   * (the approval dialog's evidence); only those lines grow, plain value
+   * lines keep the dense rhythm. */
+  .pc-json-viewer__summary {
+    /* Pad the line (inline layout and wrapping unchanged) to a 44px row. */
+    padding-block: max(0px, calc((var(--tap-min, 44px) - 1.35em) / 2));
+  }
+
+  .pc-json-string {
+    align-items: center;
+  }
+
+  .pc-json-string__toggle {
+    min-width: var(--tap-min, 44px);
+    min-height: var(--tap-min, 44px);
+    margin-right: 0;
+  }
+
+  .pc-json-string__preview {
+    min-height: var(--tap-min, 44px);
+    align-items: center;
+  }
 }
