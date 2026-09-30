@@ -709,6 +709,20 @@
   }
 }
 
+/* Narrow tool policy (phones): the approval select wraps under the tool
+ * name instead of squeezing it. */
+@container af-tool-policy (max-width: 359.98px) {
+  /* Scoped to beat the base .af-tool-row rule, which comes later in the file. */
+  .af-tool-policy .af-tool-row {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .af-tool-policy .af-tool-row__approval {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
 .af-tool-policy__segmented {
   display: inline-flex;
   background: var(--ui-overlay-bg);
@@ -807,7 +821,12 @@
 
 .af-tool-row {
   display: grid;
-  grid-template-columns: 24px 1fr auto;
+  /* minmax(0, 1fr): a long tool name must shrink its column, never push the
+   * approval select past the row edge. */
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  /* Never shrink inside the scrolling list: the touch min-height replaces
+   * min-height:auto, which would otherwise let a row shrink below its content. */
+  flex-shrink: 0;
   gap: 10px;
   align-items: flex-start;
   padding: 10px 12px;
@@ -835,6 +854,8 @@
   font-weight: 700;
   font-size: var(--font-size-sm);
   color: var(--text-primary);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .af-tool-row__badge {
@@ -860,7 +881,17 @@
   margin-top: 4px;
 }
 
+.af-tool-row__meta {
+  min-width: 0;
+}
+
+.af-tool-row__approval {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .af-tool-row__approval select {
+  max-width: 100%;
   border-radius: var(--radius-md);
   border: 1px solid var(--ui-border-1);
   background: var(--ui-overlay-bg);

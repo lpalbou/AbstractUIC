@@ -129,7 +129,7 @@ desktop layout no longer fits, so a 420 px desktop drawer keeps the desktop layo
 | `af-signin` | `.af-gateway-signin` | below 320 px of content width, or below 768 px of viewport: labels above fields |
 | `af-auto` | `.af-auto` | below 400 px: definition grid and buttons stack |
 | `af-dialog` | `.af-appearance` (appearance, About, schedule) | below 480 px: label grids stack |
-| `af-tool-policy` | `.af-tool-policy` | below 520 px: control row stacks |
+| `af-tool-policy` | `.af-tool-policy` | below 520 px: control row stacks; below 360 px: approval select under the tool name |
 | `af-drawer` | `.af-drawer__body` | for your own content inside a drawer |
 | `amx` | `.amx-host` (monitor-active-memory) | below 820 px: graph and details stack |
 

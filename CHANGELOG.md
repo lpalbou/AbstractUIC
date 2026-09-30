@@ -65,7 +65,7 @@ AbstractCore consoles).
   - sign-in form: below 320 px of card content width, and below 768 px of viewport;
   - automations panel: below 400 px;
   - dialog label grids: below 480 px;
-  - tool policy controls: below 520 px.
+  - tool policy controls: below 520 px, and approval selects under the tool name below 360 px.
 - Changed: on touch screens every interactive kit control is at least 44 px, and icon buttons are
   44 px in both axes. Chips keep their pill shape with an invisible 44 px hit area. Checkbox and radio
   labels, About links and link buttons are 44 px rows. Pin selects inside canvas nodes are exempt.
@@ -75,6 +75,8 @@ AbstractCore consoles).
 - Changed: on touch screens the automations panel, the critical dialog's main statement and the About
   links use `--font-size-body`. The top-bar connection pill keeps only its status dot below 480 px;
   its accessible name is unchanged.
+- Changed: tool policy editor rows keep the approval select inside the row: long tool names wrap,
+  and below 360 px of editor width the select moves under the tool name.
 - Added: `.af-table-wrap` (horizontal scroll for tables).
 
 ### panel-chat 0.2.1
@@ -108,7 +110,8 @@ AbstractCore consoles).
 
 - Apps that tested with the pre-release `file:` tarballs relock to the registry versions:
   `@abstractframework/ui-kit@^0.3.2`, `@abstractframework/panel-chat@^0.2.1`, and
-  `@abstractframework/monitor-active-memory@^0.2.1` where used.
+  `@abstractframework/monitor-active-memory@^0.2.1` where used. The registry release is the
+  reference build; apps take it through the relock rather than by re-vendoring a tarball.
 - The new tokens are additive; no token was renamed or removed. `--font-size-lg` and below keep
   their values.
 - Touch sizes apply only under `(pointer: coarse)`, and narrow layouts only below the thresholds
