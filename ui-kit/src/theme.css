@@ -1069,7 +1069,8 @@
   font-size: var(--font-size-sm);
   color: var(--text-primary);
   min-width: 0;
-  overflow-wrap: anywhere;
+  /* Breaks at the <wbr> after each underscore; mid-word only when one segment is wider than the column. */
+  overflow-wrap: break-word;
 }
 
 .af-tool-row__badge {

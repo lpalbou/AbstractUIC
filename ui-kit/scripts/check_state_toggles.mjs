@@ -160,6 +160,7 @@ for (const f of files) {
   const tools = [{ name: "write_file", description: "Write a file." }, { name: "read_file", description: "Read a file." }];
   const custom = renderToStaticMarkup(React.createElement(kitAll.ToolPolicyEditor, { tools, value: { mode: "custom", selected: ["read_file"] }, onChange() {} }));
   check("tool policy: per-tool control is a switch named by the tool", /role="switch"[^>]*data-action="tool-enabled" aria-checked="true"[^>]*aria-label="read_file"/.test(custom) && /data-action="tool-enabled" aria-checked="false"[^>]*aria-label="write_file"/.test(custom));
+  check("tool policy: names break after underscores (<wbr>), not mid-word", /write_<wbr\/>file/.test(custom));
   check("tool policy: no verb-labelled checkbox", !/aria-label="Enable /.test(custom) && !/type="checkbox"/.test(custom));
   const all = renderToStaticMarkup(React.createElement(kitAll.ToolPolicyEditor, { tools, value: { mode: "all" }, onChange() {} }));
   check("tool policy: outside Custom the switches are unavailable with the reason", /data-action="tool-enabled"[^>]*aria-disabled="true"/.test(all) && all.includes("Choose Custom to pick tools one by one."));

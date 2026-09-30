@@ -141,6 +141,13 @@ function describe_tool_mode(
   return info;
 }
 
+/** A tool name with a line-break opportunity after each underscore, so "camera_capture_photo" wraps at word
+ * boundaries instead of mid-word. */
+function breakAtUnderscores(name: string): React.ReactNode {
+  const parts = name.split("_");
+  return parts.map((part, i) => (i < parts.length - 1 ? <React.Fragment key={i}>{part}_<wbr /></React.Fragment> : <React.Fragment key={i}>{part}</React.Fragment>));
+}
+
 export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactElement {
   const defaults = props.defaults || TOOL_POLICY_DEFAULTS;
   const disabled = props.disabled === true;
@@ -327,7 +334,7 @@ export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactEleme
               </div>
               <div className="af-tool-row__meta">
                 <div className="af-tool-row__title">
-                  <span className="af-tool-row__name">{tool.name}</span>
+                  <span className="af-tool-row__name">{breakAtUnderscores(tool.name)}</span>
                   {tool.toolset ? <span className="af-tool-row__badge">{tool.toolset}</span> : null}
                 </div>
                 {tool.description ? <div className="af-tool-row__desc">{tool.description}</div> : null}
