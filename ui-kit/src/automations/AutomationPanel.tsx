@@ -12,7 +12,7 @@
 // any state and invoke their handlers without a DOM.
 import React, { useEffect, useId, useRef, useState } from "react";
 import { Icon, type IconName } from "../icon.js";
-import { AfSwitch } from "../af_switch.js";
+import { AfSwitch, AfSwitchInput } from "../af_switch.js";
 import { AfEmailSetupNotice } from "./email_fields.js";
 import controlsSpec from "./automation_controls.json" with { type: "json" };
 import {
@@ -655,6 +655,7 @@ export function readReviseForm(form: { elements: { namedItem(name: string): unkn
   return { title: val("title") ?? fallback.title, every, context, prompt: prompt ?? fallback.prompt ?? null, toolApproval, notifyEmail, emailRecipients };
 }
 
+
 export type AutomationReviseFormProps = {
   summary: AutomationSummary;
   /** The committed definition: with it the form also edits the task (`input_data.prompt`) and tool approval. */
@@ -746,10 +747,8 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
         <fieldset className="af-auto__field" data-field="email">
           <legend>Email</legend>
           {!usable ? <AfEmailSetupNotice status={p.emailStatus} onOpenMyEmail={p.onOpenMyEmail} /> : null}
-          <label className="af-email__check">
-            {/* Without a usable account an option already on can still be turned off, never on. */}
-            <input type="checkbox" name="notify_email" defaultChecked={initial.notifyEmail} disabled={!usable && !initial.notifyEmail} /> {EMAIL_TEXT.notify_label}
-          </label>
+          {/* Without a usable account an option already on can still be switched off, never on. */}
+          <AfSwitchInput variant="row" action="notify-email" name="notify_email" label={EMAIL_TEXT.notify_label} defaultChecked={Boolean(initial.notifyEmail)} unavailableReason={!usable && !initial.notifyEmail ? EMAIL_TEXT.not_set_up : null} />
           <p className="af-auto__hint">{EMAIL_TEXT.notify_hint}</p>
           <fieldset className="af-auto__field" data-field="email-recipients">
             <legend>{EMAIL_TEXT.recipients_legend}</legend>

@@ -143,3 +143,42 @@ export function AfSwitch(props: AfSwitchProps): React.ReactElement {
     </span>
   );
 }
+
+/**
+ * AfSwitchInput — the same switch for an UNCONTROLLED form (hook-free): a native checkbox with role="switch"
+ * inside the switch markup, so the form reads `name` on submit like any checkbox. Use it only where a form
+ * collects its values on submit; everywhere else use AfSwitch.
+ */
+export function AfSwitchInput(props: {
+  label: React.ReactNode;
+  name: string;
+  defaultChecked?: boolean;
+  /** A non-empty reason makes the switch unavailable (disabled, reason as hover text and described-by). */
+  unavailableReason?: string | null;
+  variant?: "inline" | "row";
+  action?: string;
+  id?: string;
+}): React.ReactElement {
+  const reason = String(props.unavailableReason || "").trim();
+  const cls = ["af-switch", "af-switch--native", props.variant === "row" ? "af-switch--row" : "", reason ? "af-switch--unavailable" : ""].filter(Boolean).join(" ");
+  return (
+    <label className={cls} title={reason || undefined} data-action={props.action}>
+      <input
+        type="checkbox"
+        role="switch"
+        className="af-switch__input"
+        id={props.id}
+        name={props.name}
+        defaultChecked={props.defaultChecked}
+        disabled={Boolean(reason)}
+        aria-description={reason || undefined}
+      />
+      <span className="af-switch__track" aria-hidden="true">
+        <span className="af-switch__thumb" />
+      </span>
+      <span className="af-switch__text">
+        <span className="af-switch__label">{props.label}</span>
+      </span>
+    </label>
+  );
+}

@@ -4352,31 +4352,37 @@ html {
 .af-switch:focus-visible {
   outline: none;
 }
+.af-switch--native:has(> .af-switch__input:focus-visible) .af-switch__track,
 .af-switch:focus-visible .af-switch__track {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 /* ON: accent fill + glow, thumb slides right, raised, with a check mark. */
+.af-switch--native:has(> .af-switch__input:checked),
 .af-switch[aria-checked="true"] {
   color: var(--text-primary);
 }
 /* 600, not 700: the type-scale guard (checkLabelScale) caps every label at
  * weight 600; 500 -> 600 plus secondary -> primary text still reads as bold
  * next to the fill, glow and check mark. */
+.af-switch--native:has(> .af-switch__input:checked) .af-switch__label,
 .af-switch[aria-checked="true"] .af-switch__label {
   font-weight: 600;
 }
+.af-switch--native:has(> .af-switch__input:checked) .af-switch__track,
 .af-switch[aria-checked="true"] .af-switch__track {
   border-color: var(--accent);
   background: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent);
 }
+.af-switch--native:has(> .af-switch__input:checked) .af-switch__thumb,
 .af-switch[aria-checked="true"] .af-switch__thumb {
   transform: translateX(calc(var(--af-switch-w) - var(--af-switch-h)));
   background: var(--bg-primary);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 /* The check mark: the non-colour cue that the setting is ON. */
+.af-switch--native:has(> .af-switch__input:checked) .af-switch__thumb::after,
 .af-switch[aria-checked="true"] .af-switch__thumb::after {
   content: "";
   position: absolute;
@@ -4395,19 +4401,23 @@ html {
   opacity: 0.7;
 }
 .af-switch--unavailable,
+.af-switch--native:has(> .af-switch__input:disabled),
 .af-switch[aria-disabled="true"] {
   cursor: not-allowed;
   color: var(--text-muted);
 }
+.af-switch--native:has(> .af-switch__input:disabled) .af-switch__label,
 .af-switch[aria-disabled="true"] .af-switch__label {
   font-weight: 500;
 }
+.af-switch--native:has(> .af-switch__input:disabled) .af-switch__track,
 .af-switch[aria-disabled="true"] .af-switch__track {
   border-style: dashed;
   box-shadow: none;
   background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--text-muted) 22%, transparent) 4px 6px);
   opacity: 0.8;
 }
+.af-switch--native:has(> .af-switch__input:disabled:checked) .af-switch__track,
 .af-switch[aria-disabled="true"][aria-checked="true"] .af-switch__track {
   background: color-mix(in srgb, var(--accent) 45%, transparent);
   border-color: color-mix(in srgb, var(--accent) 60%, transparent);
@@ -4476,14 +4486,21 @@ html {
   }
 }
 @media (forced-colors: active) {
+  .af-switch--native:has(> .af-switch__input:checked) .af-switch__track,
   .af-switch[aria-checked="true"] .af-switch__track {
     background: Highlight;
     border-color: Highlight;
   }
+  .af-switch--native:has(> .af-switch__input:checked) .af-switch__thumb,
   .af-switch[aria-checked="true"] .af-switch__thumb {
     background: Canvas;
   }
 }
+/* Native variant (a form-state switch inside an uncontrolled form): <label class="af-switch af-switch--native">
+ * <input type="checkbox" role="switch" class="af-switch__input" name="…"> track + text </label>. The checkbox
+ * keeps the value for the form; it is visually hidden but focusable, and the rules above mirror :checked. */
+.af-switch--native { position: relative; }
+.af-switch__input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
 /* af-switch:end */
 
 /* af-form:begin

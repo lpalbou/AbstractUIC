@@ -153,6 +153,20 @@ for (const f of files) {
   check(`no verb toggle in ${f.slice(root.length + 1)}`, hits.length === 0, hits.map((h) => `${h.line}: ${h.text}`).join(" | "));
 }
 
+// Kit-owned per-item and form-state switches (2026-09-30): the tool policy's per-tool on/off and the edit form's
+// "Email me the result" are switches labelled by the feature, never "Enable <tool>" checkboxes.
+{
+  const kitAll = await import(new URL("../dist/index.js", import.meta.url).href);
+  const tools = [{ name: "write_file", description: "Write a file." }, { name: "read_file", description: "Read a file." }];
+  const custom = renderToStaticMarkup(React.createElement(kitAll.ToolPolicyEditor, { tools, value: { mode: "custom", selected: ["read_file"] }, onChange() {} }));
+  check("tool policy: per-tool control is a switch named by the tool", /role="switch"[^>]*data-action="tool-enabled" aria-checked="true"[^>]*aria-label="read_file"/.test(custom) && /data-action="tool-enabled" aria-checked="false"[^>]*aria-label="write_file"/.test(custom));
+  check("tool policy: no verb-labelled checkbox", !/aria-label="Enable /.test(custom) && !/type="checkbox"/.test(custom));
+  const all = renderToStaticMarkup(React.createElement(kitAll.ToolPolicyEditor, { tools, value: { mode: "all" }, onChange() {} }));
+  check("tool policy: outside Custom the switches are unavailable with the reason", /data-action="tool-enabled"[^>]*aria-disabled="true"/.test(all) && all.includes("Choose Custom to pick tools one by one."));
+  const native = renderToStaticMarkup(React.createElement(kitAll.AfSwitchInput, { label: "Email me the result", name: "notify_email", defaultChecked: true }));
+  check("AfSwitchInput: native checkbox with role=switch inside the switch markup", /<label class="af-switch af-switch--native"[^>]*><input type="checkbox" role="switch" class="af-switch__input" name="notify_email" checked=""/.test(native) && native.includes('class="af-switch__track"'));
+}
+
 if (failures) {
   console.error(`check_state_toggles: ${failures}/${checks} FAILED`);
   process.exit(1);
