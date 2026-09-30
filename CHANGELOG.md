@@ -7,9 +7,14 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## Unreleased (kit round 3, to ship as ui-kit 0.3.2)
+## 0.3.2 - Unreleased (branch feat/responsive, kit rounds 3-4)
 
-### ui-kit
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.3.2 | updated (patch: WebKit native selects, disclosure hit areas, pinch guard, keyboard-aware sheets, tool-policy touch sizes, guards) |
+| `@abstractframework/panel-chat` | 0.2.1 | unchanged CSS/JS; adds the `check_responsive.mjs` guard to its test (not republished) |
+
+### ui-kit 0.3.2
 
 - Fixed: native `<select>` elements reach 44 px on touch in WebKit / iOS Safari (it ignores
   `min-height` on a native-appearance select): on coarse pointers single-choice selects get
@@ -32,7 +37,23 @@ ships.
   with the keyboard up.
 - Added: `--af-select-chevron` lives in the base (first) `:root` token block, so the gateway and core
   consoles, whose theme sync copies only that block, receive it by name.
-- Added: `check_responsive.mjs` section H (red on the 0.3.1 CSS: 4 failures).
+- Fixed: the tool policy editor on touch: the filter box reaches 44 px (it was 36 px) and the
+  per-tool approval selects 44 px / 16 px (28 px / 11 px; covered by the select rule).
+- Added: `check_responsive.mjs` sections H-J: WebKit select rule, chevron token in the first `:root`,
+  disclosure clip, keyboard-inset surfaces, and BLOCK PRESENCE. The general coarse-pointer touch block
+  and the bottom-sheet dialog rule are resolved per selector (overlay `align-items: flex-end` +
+  keyboard padding; dialog `width`/`max-height: 100%`, `border-box`, square bottom corners; sticky
+  actions). Deleting either block fails (24 / 34 failures). `check_viewport_vars.mjs` pins the pinch rule.
+
+### panel-chat (0.2.1, unchanged)
+
+- Added: `scripts/check_responsive.mjs` in `npm test`. It pins the pc-thread / pc-composer / pc-chat
+  containers (also in the generated `transcript.css`), the 360 px desktop-safe container thresholds
+  and named viewport breakpoints, 44 px touch targets (approval/workflow buttons, `.pc-btn`, icon
+  buttons, JSON viewer toggles and lines), the 16 px composer input, the composer auto-grow cap and
+  the safe-area composer padding. It is red on 0.1.21 (28 failures) and on the round-1 CSS (7).
+- Docs: README no longer says a 420 px drawer behaves like a phone (the narrow layouts fire below
+  360 px of pane width).
 
 ## 0.3.1 - Unreleased (branch feat/responsive, kit round 2)
 
