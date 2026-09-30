@@ -370,7 +370,7 @@
 /* Prevent iOS Safari auto-zoom on focus (needs >= 16px). */
 @media (pointer: coarse) {
   .pc-composer__textarea {
-    font-size: var(--font-size-lg, 16px);
+    font-size: var(--font-size-input, max(16px, var(--font-size-lg, 16px)));
   }
 }
 
@@ -853,6 +853,9 @@
    * (design adversary B). */
   overscroll-behavior: contain;
   padding-right: 4px;
+  /* The transcript adapts to its PANE (a 420px drawer on a desktop, a phone,
+   * a wide main column) through container queries (panel-chat 0.2.0). */
+  container: pc-thread / inline-size;
 }
 
 /* .pc-chat-item family — the shared dialogue-bubble recipe.
@@ -871,7 +874,7 @@
   border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
   background: var(--ui-surface-1, rgba(0, 0, 0, 0.18));
   padding: 12px 14px;
-  max-width: min(92%, 86ch);
+  max-width: min(92%, var(--reading-max, 86ch));
 }
 
 .pc-chat-item--user {
@@ -1048,13 +1051,33 @@
 .pc-tool-activity--running .pc-tool-activity__state-icon { animation: pc-tool-spin 1.5s linear infinite; }
 @keyframes pc-tool-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .pc-tool-activity--running .pc-tool-activity__state-icon { animation: none; } }
-@media (max-width: 600px) {
+/* Narrow transcript (container query on .pc-chat-thread; the viewport query
+ * is the fallback for a tool list rendered outside a thread). */
+@container pc-thread (max-width: 559.98px) {
+  .pc-tool-activity__preview { flex-basis: calc(100% - 25px); order: 6; margin-left: 23px; }
+  .pc-tool-activity__status { margin-left: auto; }
+  .pc-tool-activity__error { order: 7; }
+  .pc-tool-activity__parameters { grid-template-columns: 1fr; gap: 3px; }
+  .pc-tool-activity__parameters dd { margin-bottom: 6px; }
+  .pc-tool-activity__detail { padding: 10px 12px 12px; }
+  .pc-tool-group__heading { flex-wrap: wrap; }
+}
+@media (max-width: 479.98px) {
   .pc-tool-activity__preview { flex-basis: calc(100% - 25px); order: 6; margin-left: 23px; }
   .pc-tool-activity__status { margin-left: auto; }
   .pc-tool-activity__error { order: 7; }
   .pc-tool-activity__parameters { grid-template-columns: 1fr; gap: 3px; }
   .pc-tool-activity__parameters dd { margin-bottom: 6px; }
   .pc-tool-group__heading { flex-wrap: wrap; }
+}
+@container pc-thread (max-width: 419.98px) {
+  .pc-chat-item { max-width: 100%; padding: 10px 12px; }
+  .pc-chat-item--user { max-width: 94%; }
+  .pc-chat-header { gap: 8px; margin-bottom: 8px; }
+}
+@media (pointer: coarse) {
+  .pc-tool-activity__summary { min-height: 44px; }
+  .pc-tool-activity__detail-heading button { min-height: 44px; padding: 4px 8px; }
 }
 
 .pc-chat-icon-btn {
@@ -1606,4 +1629,156 @@ button.pc-ws__name:hover {
 .pc-ws button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* =====================================================================
+ * RESPONSIVE LAYER (panel-chat 0.2.0; responsive workstream 2026-09-30)
+ * Breakpoints and tokens: ui-kit theme.css "RESPONSIVE LAYER" (0.3.0).
+ * Every var() carries a fallback so the rules degrade on ui-kit 0.2.x.
+ * ===================================================================== */
+
+/* Query containers: the composer and the workflow chat adapt to their pane. */
+.pc-composer {
+  container: pc-composer / inline-size;
+}
+
+.pc-workflow-chat,
+.pc-assistant {
+  container: pc-chat / inline-size;
+}
+
+/* Composer textarea: grows with its content from `rows` lines (the component
+ * passes --pc-composer-rows) up to 40% of the visible viewport, then
+ * scrolls. Browsers without field-sizing keep the fixed `rows` height. */
+.pc-composer__textarea {
+  max-height: calc(var(--vh-full, 100vh) * 0.4);
+  overflow-y: auto;
+}
+
+@supports (field-sizing: content) {
+  .pc-composer__textarea {
+    field-sizing: content;
+    min-height: calc(var(--pc-composer-rows, 3) * 1.35em + 22px);
+  }
+}
+
+.pc-composer__row {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.pc-composer__actions {
+  min-width: 0;
+}
+
+.pc-composer__row > button:last-child {
+  margin-left: auto;
+}
+
+@container pc-composer (max-width: 419.98px) {
+  /* Secondary actions (attach, model, voice) wrap onto as many rows as they
+   * need; the send button stays at the end of the last row. */
+  .pc-composer__row {
+    gap: 8px;
+  }
+
+  .pc-composer__actions {
+    flex: 1 1 auto;
+    gap: 6px;
+  }
+}
+
+/* Approval / ask-user cards: buttons share the row, then stack full width in
+ * a narrow chat; long details wrap instead of widening the card. */
+.pc-workflow-interaction,
+.pc-workflow-interaction__body,
+.pc-workflow-interaction__detail {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@container pc-chat (max-width: 559.98px) {
+  .pc-workflow-interaction__buttons > button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+@container pc-chat (max-width: 359.98px) {
+  .pc-workflow-interaction__buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pc-workflow-interaction__buttons > button {
+    width: 100%;
+  }
+}
+
+@container pc-chat (max-width: 419.98px) {
+  .pc-workflow-chat__header,
+  .pc-workflow-chat__footer,
+  .pc-workflow-chat__composer {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+
+/* The composer sits on the bottom edge on phones: clear the home indicator. */
+.pc-workflow-chat__composer,
+.pc-assistant__composer {
+  padding-bottom: max(10px, var(--safe-bottom, 0px));
+}
+
+/* Workspace browser / JSON viewer: scroll inside their pane, never widen it. */
+.pc-ws {
+  min-height: 0;
+  max-width: 100%;
+}
+
+.pc-ws__entries {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pc-json-viewer__tree {
+  overflow-wrap: anywhere;
+}
+
+/* Touch targets (44px on coarse pointers; glyphs keep their size). */
+@media (pointer: coarse) {
+  .pc-btn,
+  .pc-workflow-interaction button,
+  .pc-workflow-chat__icon-button,
+  .pc-workflow-chat__stop,
+  .pc-workflow-chat__error button,
+  .pc-assistant__suggestion,
+  .pc-ws__btn,
+  .pc-schedule-this {
+    min-height: var(--tap-min, 44px);
+  }
+
+  .pc-workflow-chat__icon-button,
+  .pc-ws__icon-btn {
+    min-width: var(--tap-min, 44px);
+    min-height: var(--tap-min, 44px);
+  }
+
+  .pc-ws__entry {
+    min-height: var(--tap-min, 44px);
+  }
+
+  .pc-composer__row > button:last-child {
+    min-width: 72px;
+  }
+
+  .pc-chat-icon-btn {
+    width: var(--tap-min, 44px);
+    height: var(--tap-min, 44px);
+  }
+
+  .pc-workflow-interaction textarea {
+    font-size: var(--font-size-input, 16px);
+  }
 }

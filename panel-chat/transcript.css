@@ -39,6 +39,7 @@
  *   --info-border
  *   --info-subtle
  *   --radius-sm
+ *   --reading-max
  *   --success   (NO fallback — theme.css required)
  *   --success-border
  *   --success-subtle
@@ -71,6 +72,9 @@
    * (design adversary B). */
   overscroll-behavior: contain;
   padding-right: 4px;
+  /* The transcript adapts to its PANE (a 420px drawer on a desktop, a phone,
+   * a wide main column) through container queries (panel-chat 0.2.0). */
+  container: pc-thread / inline-size;
 }
 
 /* .pc-chat-item family — the shared dialogue-bubble recipe.
@@ -89,7 +93,7 @@
   border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
   background: var(--ui-surface-1, rgba(0, 0, 0, 0.18));
   padding: 12px 14px;
-  max-width: min(92%, 86ch);
+  max-width: min(92%, var(--reading-max, 86ch));
 }
 
 .pc-chat-item--user {
@@ -266,13 +270,33 @@
 .pc-tool-activity--running .pc-tool-activity__state-icon { animation: pc-tool-spin 1.5s linear infinite; }
 @keyframes pc-tool-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .pc-tool-activity--running .pc-tool-activity__state-icon { animation: none; } }
-@media (max-width: 600px) {
+/* Narrow transcript (container query on .pc-chat-thread; the viewport query
+ * is the fallback for a tool list rendered outside a thread). */
+@container pc-thread (max-width: 559.98px) {
+  .pc-tool-activity__preview { flex-basis: calc(100% - 25px); order: 6; margin-left: 23px; }
+  .pc-tool-activity__status { margin-left: auto; }
+  .pc-tool-activity__error { order: 7; }
+  .pc-tool-activity__parameters { grid-template-columns: 1fr; gap: 3px; }
+  .pc-tool-activity__parameters dd { margin-bottom: 6px; }
+  .pc-tool-activity__detail { padding: 10px 12px 12px; }
+  .pc-tool-group__heading { flex-wrap: wrap; }
+}
+@media (max-width: 479.98px) {
   .pc-tool-activity__preview { flex-basis: calc(100% - 25px); order: 6; margin-left: 23px; }
   .pc-tool-activity__status { margin-left: auto; }
   .pc-tool-activity__error { order: 7; }
   .pc-tool-activity__parameters { grid-template-columns: 1fr; gap: 3px; }
   .pc-tool-activity__parameters dd { margin-bottom: 6px; }
   .pc-tool-group__heading { flex-wrap: wrap; }
+}
+@container pc-thread (max-width: 419.98px) {
+  .pc-chat-item { max-width: 100%; padding: 10px 12px; }
+  .pc-chat-item--user { max-width: 94%; }
+  .pc-chat-header { gap: 8px; margin-bottom: 8px; }
+}
+@media (pointer: coarse) {
+  .pc-tool-activity__summary { min-height: 44px; }
+  .pc-tool-activity__detail-heading button { min-height: 44px; padding: 4px 8px; }
 }
 
 .pc-chat-icon-btn {

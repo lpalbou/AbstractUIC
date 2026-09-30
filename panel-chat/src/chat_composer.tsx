@@ -42,6 +42,9 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
         rows={rows}
+        // The textarea auto-grows (CSS field-sizing) from `rows` lines up to a
+        // viewport-relative cap; the row count reaches the CSS as a variable.
+        style={{ ["--pc-composer-rows" as string]: String(rows) } as React.CSSProperties}
         spellCheck={false}
         autoCorrect="off"
         autoCapitalize="off"
