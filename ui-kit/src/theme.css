@@ -652,6 +652,14 @@
   }
 }
 
+/* A card narrower than ~480px (phones, drawers): the hero mark is dead weight
+ * that squeezes the intro to ~70% of the width — hide it. */
+@container af-signin (max-width: 479.98px) {
+  .af-gateway-signin__mark {
+    display: none;
+  }
+}
+
 /* A card narrower than ~360px (drawers, phones): the submit and code rows
  * stack, the primary spans the row (nearest the thumb). */
 @container af-signin (max-width: 319.98px) {
