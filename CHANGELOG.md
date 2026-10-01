@@ -32,6 +32,7 @@ ships.
 - `@abstractframework/ui-kit`: a modal's focus trap (`bindAfModal`, islands `bindModal`) no longer
   counts the controls inside a closed `<details>` (their summary stays reachable). In Chromium,
   Tab from the last summary used to leave the dialog.
+- `@abstractframework/ui-kit`: `WorkflowPicker` + `useExecutableWorkflows()` — the shared workflow chooser. It lists only the workflows the gateway returns for the app's interface (`GET /api/gateway/bundles?executable_for=<interface>`), grouped "Shared" and "Mine", with "Gateway default" first and the version as a small detail; it has no "show all" switch and fails with a sentence when the gateway does not filter per app. Empty list: "No workflows available for this app — ask your admin."
 
 ## 0.4.0 - 2026-10-01
 
