@@ -43,11 +43,26 @@ export function afModalTabTarget<T>(focusables: readonly T[], active: T | null, 
   return null;
 }
 
-/** Every focusable element inside `root`, in DOM order, skipping hidden / inert subtrees. */
+/**
+ * True when `el` sits in the content of a closed <details> (its own <summary> stays reachable).
+ * Browsers skip that content on Tab, but Chromium still gives it client rects, so the rect test
+ * below does not catch it — a trap that counted it let Tab leave the dialog from the last summary.
+ */
+function insideClosedDetails(el: Element): boolean {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    if (p.tagName.toUpperCase() !== "DETAILS" || p.hasAttribute("open")) continue;
+    const ownSummary = el.tagName.toUpperCase() === "SUMMARY" && el.parentElement === p;
+    if (!ownSummary) return true;
+  }
+  return false;
+}
+
+/** Every focusable element inside `root`, in DOM order, skipping hidden / inert subtrees and closed <details> content. */
 export function afModalFocusables(root: ParentNode): HTMLElement[] {
   const all = Array.from(root.querySelectorAll<HTMLElement>(AF_MODAL_FOCUSABLE));
   return all.filter((el) => {
     if (typeof el.closest === "function" && el.closest("[hidden], [inert], [aria-hidden='true']")) return false;
+    if (insideClosedDetails(el)) return false;
     if (typeof el.getClientRects === "function" && el.getClientRects().length === 0) return false;
     return true;
   });

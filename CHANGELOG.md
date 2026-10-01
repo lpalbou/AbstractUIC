@@ -19,6 +19,12 @@ ships.
 - `@abstractframework/ui-kit`: `af-modal--wide` (`AfModal size="wide"`), a modal up to 1120 px wide
   for management panels that hold a table.
 
+### Fixed
+
+- `@abstractframework/ui-kit`: a modal's focus trap (`bindAfModal`, islands `bindModal`) no longer
+  counts the controls inside a closed `<details>` (their summary stays reachable). In Chromium,
+  Tab from the last summary used to leave the dialog.
+
 ## 0.4.0 - 2026-10-01
 
 On/off settings become switches labelled by the feature, highlighted when on; automations get an

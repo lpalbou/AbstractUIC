@@ -24,7 +24,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
 const kit = await import(join(root, "dist", "index.js"));
-const { AfModal, bindAfModal, afModalTabTarget, AF_MODAL_FOCUSABLE } = kit;
+const { AfModal, bindAfModal, afModalTabTarget, afModalFocusables, AF_MODAL_FOCUSABLE } = kit;
 
 let failures = 0;
 let checks = 0;
@@ -71,6 +71,8 @@ class FakeEl {
     this.classList = { add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => cls.has(c) };
     for (const c of children) this.append(c);
   }
+  get parentElement() { return this.parent instanceof FakeEl ? this.parent : null; }
+  get tagName() { return this.tag.toUpperCase(); }
   append(c) { c.parent = this; this.children.push(c); return c; }
   getAttribute(n) { return this.attrs[n] ?? null; }
   setAttribute(n, v) { this.attrs[n] = String(v); }
@@ -209,6 +211,28 @@ function mkModal(doc, { autofocus = false, bodyItems = true } = {}) {
   check("nested: after the top is released the lower one reacts", JSON.stringify(calls) === '["b","a"]', JSON.stringify(calls));
   ra();
   check("nested: the last release drops html.af-modal-open", !doc.documentElement.classList.contains("af-modal-open"));
+}
+// 1c') closed <details>: its content is not focusable (its own summary is), an open one's is,
+// and Tab on the last summary wraps instead of leaving the dialog (round 3 manage-modal finding).
+{
+  const doc = mkDoc();
+  const close = E(doc, "button", { class: "af-modal__close", id: "close" });
+  const closedSummary = E(doc, "summary", { id: "closed-summary" });
+  const closed = E(doc, "details", { id: "closed" }, closedSummary, E(doc, "div", {}, E(doc, "button", { id: "inside-closed" }), E(doc, "details", { open: "" }, E(doc, "summary", { id: "nested-summary" }), E(doc, "input", { id: "nested-input" }))));
+  const open = E(doc, "details", { open: "" }, E(doc, "summary", { id: "open-summary" }), E(doc, "button", { id: "inside-open" }));
+  const lastSummary = E(doc, "summary", { id: "last-summary" });
+  const last = E(doc, "details", {}, lastSummary, E(doc, "button", { id: "inside-last" }));
+  const body = E(doc, "div", { class: "af-modal__body" }, E(doc, "input", { id: "first" }), open, closed, last);
+  const dialog = E(doc, "div", { class: "af-modal", role: "dialog", "aria-modal": "true" }, E(doc, "div", { class: "af-modal__header" }, close), body);
+  const backdrop = doc.body.append(E(doc, "div", { class: "af-modal-backdrop" }, dialog));
+  const ids = afModalFocusables(dialog).map((x) => x.attrs.id).join(",");
+  check("closed <details>: content skipped, summaries and open content kept", ids === "close,first,open-summary,inside-open,closed-summary,last-summary", ids);
+  const r = bindAfModal(backdrop, { onClose() {}, document: doc });
+  lastSummary.focus();
+  const e = doc.key("Tab");
+  check("Tab on the last summary (closed <details> after it) wraps to the first", e.defaultPrevented && doc.activeElement === close, doc.activeElement && doc.activeElement.attrs.id);
+  r();
+  void closed;
 }
 // 1d) the pure tab decision
 check("afModalTabTarget: empty list -> null", afModalTabTarget([], null, false, false) === null);
