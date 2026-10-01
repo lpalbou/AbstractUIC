@@ -5300,7 +5300,7 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 }
 /* Phones: the trigger shows the name only; the version and the default's
  * target are in the open list. */
-@media (max-width: 599.98px) {
+@media (max-width: 767.98px) {
   .af-workflow-picker__trigger .af-workflow-picker__detail {
     display: none;
   }
