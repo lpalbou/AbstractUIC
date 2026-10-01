@@ -297,6 +297,7 @@ const click = (w, el) => { w.dispatch("pointerdown", el); w.dispatch("mousedown"
   check(".af-menu__list[hidden] is display none", /display: none/.test(rule('.af-menu__list[hidden]')));
   check("touch: button and items use --tap-min (44 px)", /@media \(pointer: coarse\)[\s\S]*\.af-menu__button \{[^}]*min-width: var\(--tap-min\)[^}]*height: var\(--tap-min\)[\s\S]*\.af-menu__item \{[^}]*min-height: var\(--tap-min\)/.test(block));
   check("no disabled item styling (unavailable actions are not rendered)", !/disabled/.test(block.slice(block.indexOf("*/") + 2).replace(/\/\*[\s\S]*?\*\//g, "")));
+  check(".af-menu__item is a left-aligned full-width row (hosts' centred buttons do not leak in)", /justify-content: flex-start;/.test(rule(".af-menu__item")) && /text-align: left;/.test(rule(".af-menu__item")) && /width: 100%;/.test(rule(".af-menu__item")));
   check(".af-menu__item--danger uses --error", /color: var\(--error\)/.test(rule(".af-menu__item--danger")));
   check(".af-modal--wide is min(1120px, 100vw - 32px)", /\.af-modal--wide \{\s*width: min\(1120px, calc\(100vw - 32px\)\);\s*\}/.test(css));
   check(".af-modal--wide becomes the full-screen sheet on phones", /@media \(max-width: 767\.98px\)[\s\S]*\n  \.af-modal--wide \{\s*width: 100%;\s*\}/.test(css));

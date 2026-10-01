@@ -5067,6 +5067,7 @@ html.af-modal-open body {
 .af-menu__item {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   width: 100%;
   min-height: 36px;
   padding: 8px 12px;
