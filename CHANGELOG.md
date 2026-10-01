@@ -18,6 +18,14 @@ ships.
   with `AfConsoleIslands.bindMenu(button, list)` (`bindAfMenu` in the package).
 - `@abstractframework/ui-kit`: `af-modal--wide` (`AfModal size="wide"`), a modal up to 1120 px wide
   for management panels that hold a table.
+- `@abstractframework/panel-chat`: chat messages can carry generated media (`media`: images, audio and
+  video shown inline with a link to the raw file), the reasoning of a finished reply (`reasoning`,
+  collapsed under "Thinking"), their own stat chips (`stats`), and a pending reply can say what it
+  waits for (`live.label`, e.g. "generating image") instead of "streaming".
+- `@abstractframework/ui-kit`: the console islands bundle gains `mountSandboxChat(el, props)`: the
+  panel-chat thread and composer (Attach button, drop and paste to attach, attachment chips, hold to
+  dictate and a speaker on replies through `useGatewayVoice`), driven by the host with `update(props)`.
+  The AbstractGateway console's Sandbox renders its chat with it.
 
 ## 0.4.0 - 2026-10-01
 

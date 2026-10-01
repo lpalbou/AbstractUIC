@@ -30,7 +30,11 @@ const result = await build({
     "process.env.NODE_ENV": '"production"',
     __KIT_VERSION__: JSON.stringify(pkg.version),
   },
-  // Only relative kit sources + react/react-dom; resolved from the workspace.
+  // Relative kit sources, panel-chat's sources (the Sandbox chat) and
+  // react/react-dom, resolved from the workspace. panel-chat imports the kit
+  // by package name: alias it to THIS kit's sources so the bundle carries one
+  // copy of every kit module (never a stale dist).
+  alias: { "@abstractframework/ui-kit": join(kitDir, "src", "index.ts") },
   nodePaths: [join(kitDir, "node_modules"), join(kitDir, "..", "node_modules")],
 });
 const banner = `/*! @abstractframework/ui-kit ${pkg.version} console islands (React 18, MIT) */\n`;

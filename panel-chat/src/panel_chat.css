@@ -1174,6 +1174,59 @@
   overflow-y: auto;
 }
 
+/* Generated media under a message (ChatMessage.media): images, audio and
+ * video inline, each with its raw-file link. Sources come from the host. */
+.pc-chat-media {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.pc-chat-media__item {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.pc-chat-media__image,
+.pc-chat-media__video {
+  display: block;
+  max-width: min(100%, 640px);
+  max-height: min(70vh, 640px);
+  height: auto;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
+  background: var(--ui-surface-2, rgba(255, 255, 255, 0.06));
+}
+
+.pc-chat-media__audio {
+  display: block;
+  width: min(100%, 420px);
+  min-height: 40px;
+}
+
+.pc-chat-media__caption {
+  font-size: var(--font-size-sm, 12px);
+}
+
+.pc-chat-media__link {
+  color: var(--accent, #e94560);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.pc-chat-media__link:hover,
+.pc-chat-media__link:focus-visible {
+  text-decoration: underline;
+}
+
+.pc-chat-media__error {
+  font-size: var(--font-size-sm, 12px);
+  color: var(--warning, #f59e0b);
+}
+
 .pc-chat-attachments {
   margin-top: 10px;
   display: flex;

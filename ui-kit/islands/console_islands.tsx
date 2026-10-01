@@ -11,7 +11,7 @@
 //
 // The API is deliberately tiny and prop-driven: the host owns all state and
 // re-calls `update(props)` whenever it changes (no React knowledge needed).
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { AfTopBarActions } from "../src/af_top_bar_actions.js";
 import { AfAppearanceDialog, type AppearanceSettings } from "../src/appearance.js";
@@ -23,6 +23,11 @@ import { bindAfMenu } from "../src/af_menu_core.js";
 import { THEME_SPECS, applyTheme } from "../src/theme.js";
 import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typography.js";
 import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
+import { useGatewayVoice } from "../src/use_gateway_voice.js";
+// panel-chat's REAL chat (the one AbstractCode's workspace renders): ChatThread +
+// ChatComposer with the standard Attach control, drop zone and paste-to-attach.
+import { WorkflowChat } from "../../panel-chat/src/workflow_chat.js";
+import type { ChatMessage } from "../../panel-chat/src/chat_message_card.js";
 
 declare const __KIT_VERSION__: string;
 
@@ -72,6 +77,55 @@ export type AboutIslandProps = {
   /** App-specific rows, e.g. `[["abstractgateway", "0.4.3"]]` from `GET /about`. */
   extraRows?: Array<[string, string]>;
   title?: string;
+};
+
+/** A composer attachment chip (the host uploads; the island only shows state). */
+export type SandboxChatAttachment = {
+  id: string;
+  name: string;
+  /** Default "attached". "failed" shows `message` (the gateway's reason). */
+  status?: "uploading" | "attached" | "failed";
+  message?: string;
+};
+
+/**
+ * The console Sandbox's chat (round 3, DESIGN-v3 §8): panel-chat's thread +
+ * composer, fully controlled by the host. The console keeps the output-mode
+ * buttons, system prompt, reasoning and MTP controls around it and sends
+ * every mode through its existing gateway endpoints; results come back as
+ * `messages` (generated media in `message.media`, reasoning in
+ * `message.reasoning`, pending replies as `message.live`).
+ */
+export type SandboxChatIslandProps = {
+  messages: ChatMessage[];
+  draft: string;
+  onDraftChange: (draft: string) => void;
+  /** Send the draft. A rejection is shown above the composer and keeps the draft. */
+  onSend: (draft: string) => void | Promise<unknown>;
+  busy?: boolean;
+  busyLabel?: string;
+  sendLabel?: string;
+  placeholder?: string;
+  /** Why sending is not possible right now (e.g. the mode is not configured): shown, composer disabled. */
+  blockedNotice?: string | null;
+  attachments?: SandboxChatAttachment[];
+  /** Opens the host's file picker (the standard Attach control). */
+  onAttach?: () => void | Promise<unknown>;
+  /** Files dropped on the chat or pasted into the message field. */
+  onFiles?: (files: File[]) => void | Promise<unknown>;
+  onRemoveAttachment?: (id: string) => void;
+  /** Rendered as "Clear" once the thread has messages. */
+  onClear?: () => void;
+  emptyText?: string;
+  /**
+   * Voice in/out through the kit's useGatewayVoice, as in the apps. `tts`
+   * puts a speaker on assistant replies; `transcribe` adds hold-to-dictate.
+   * Pass STABLE functions (their identity decides support); omit = hidden.
+   */
+  voice?: {
+    tts?: (text: string) => Promise<ArrayBuffer>;
+    transcribe?: (blob: Blob, mime: string) => Promise<string>;
+  } | null;
 };
 
 export type IslandHandle<P> = { update: (props: P) => void; unmount: () => void };
@@ -131,6 +185,132 @@ function mount<P>(el: Element, render: (props: P) => React.ReactElement, props: 
   };
 }
 
+function SandboxAttachmentChips(props: { items: SandboxChatAttachment[]; onRemove?: (id: string) => void }): React.ReactElement {
+  return (
+    <div className="pc-chat-attachments af-sandbox-chat__attachments" role="list" aria-label="Attached files">
+      {props.items.map((item) => {
+        const status = item.status || "attached";
+        const note = status === "uploading" ? "Uploading…" : status === "failed" ? item.message || "Not attached" : "";
+        return (
+          <span key={item.id} role="listitem" className={`pc-chat-attachment-chip af-sandbox-chat__chip is-${status}`} title={note ? `${item.name} — ${note}` : item.name}>
+            <Icon name={status === "uploading" ? "loader" : status === "failed" ? "warning" : "paperclip"} size={14} />
+            <span className="pc-chat-attachment-name">{item.name}</span>
+            {note ? <span className="af-sandbox-chat__chip-note">{note}</span> : null}
+            {props.onRemove && status !== "uploading" ? (
+              <button type="button" className="af-sandbox-chat__chip-remove" aria-label={`Remove ${item.name}`} title={`Remove ${item.name}`} onClick={() => props.onRemove?.(item.id)}>
+                <Icon name="x" size={14} />
+              </button>
+            ) : null}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+export function SandboxChatIsland(props: SandboxChatIslandProps): React.ReactElement {
+  const [voiceError, setVoiceError] = useState("");
+  // The transcript lands in the CURRENT draft (the recorder finishes renders later).
+  const draftRef = useRef(props);
+  draftRef.current = props;
+  const voice = useGatewayVoice({
+    tts: props.voice?.tts,
+    transcribe: props.voice?.transcribe,
+    on_transcript: (text) => {
+      const words = String(text || "").trim();
+      if (!words) return;
+      setVoiceError("");
+      const current = String(draftRef.current.draft || "");
+      draftRef.current.onDraftChange(current.trim() ? `${current.replace(/\s+$/, "")} ${words}` : words);
+    },
+    on_error: (message) => setVoiceError(String(message || "Voice failed.")),
+  });
+  // Hold-to-dictate, as in AbstractCode's composer: press starts, release
+  // (anywhere) transcribes; a permission prompt that outlives the press never
+  // leaves the microphone open.
+  const held = useRef(false);
+  useEffect(() => {
+    const stop = () => {
+      if (!held.current) return;
+      held.current = false;
+      voice.stop_voice_ptt_recording();
+    };
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+    window.addEventListener("blur", stop);
+    return () => {
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+      window.removeEventListener("blur", stop);
+    };
+  }, [voice.stop_voice_ptt_recording]);
+  useEffect(() => () => { voice.stop_tts(); voice.cancel_voice_ptt_recording?.(); }, [voice.stop_tts, voice.cancel_voice_ptt_recording]);
+  const begin = () => {
+    held.current = true;
+    setVoiceError("");
+    void voice.start_voice_ptt_recording().then(() => {
+      if (!held.current) voice.stop_voice_ptt_recording();
+    });
+  };
+  const end = () => {
+    if (!held.current) return;
+    held.current = false;
+    voice.stop_voice_ptt_recording();
+  };
+  const blocked = Boolean(props.blockedNotice);
+  const items = Array.isArray(props.attachments) ? props.attachments : [];
+  const messages = Array.isArray(props.messages) ? props.messages : [];
+  const mic = voice.voice_ptt_supported && !blocked ? (
+    <button
+      type="button"
+      className={`pc-workflow-chat__icon-button af-sandbox-chat__mic${voice.voice_ptt_recording ? " is-recording" : ""}`}
+      aria-label={voice.voice_ptt_recording ? "Recording — release to transcribe" : "Hold to dictate"}
+      title="Hold to dictate (Space or Enter on the keyboard)"
+      aria-pressed={voice.voice_ptt_recording}
+      disabled={voice.voice_ptt_busy}
+      onPointerDown={(event) => { if (event.button === 0) begin(); }}
+      onPointerUp={end}
+      onPointerCancel={end}
+      onKeyDown={(event) => { if ((event.key === " " || event.key === "Enter") && !event.repeat) { event.preventDefault(); begin(); } }}
+      onKeyUp={(event) => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); end(); } }}
+      onBlur={end}
+    >
+      <Icon name={voice.voice_ptt_busy ? "loader" : "mic"} size={16} />
+      <span>{voice.voice_ptt_recording ? "Listening…" : voice.voice_ptt_busy ? "Transcribing…" : "Dictate"}</span>
+    </button>
+  ) : null;
+  const clear = props.onClear && messages.length ? (
+    <button type="button" className="pc-workflow-chat__icon-button af-sandbox-chat__clear" aria-label="Clear chat" title="Clear chat" onClick={() => { voice.stop_tts(); props.onClear?.(); }}>
+      <Icon name="trash" size={16} />
+      <span>Clear</span>
+    </button>
+  ) : null;
+  return (
+    <WorkflowChat
+      className="af-sandbox-chat"
+      messages={messages}
+      draft={props.draft}
+      onDraftChange={props.onDraftChange}
+      onSend={props.onSend}
+      busy={props.busy}
+      busyLabel={props.busyLabel}
+      sendLabel={props.sendLabel}
+      placeholder={props.placeholder}
+      blockedNotice={blocked ? props.blockedNotice : null}
+      emptyState={<div className="af-sandbox-chat__empty">{props.emptyText || "No messages yet."}</div>}
+      onAttach={props.onAttach}
+      onFiles={props.onFiles}
+      attachments={items.length ? <SandboxAttachmentChips items={items} onRemove={props.onRemoveAttachment} /> : null}
+      composerExtras={<>{mic}{clear}</>}
+      footer={voiceError ? <div className="pc-workflow-chat__error af-sandbox-chat__voice-error" role="alert">Voice: {voiceError}</div> : null}
+      messageProps={{
+        ...(voice.tts_supported ? { onSpeakToggle: (message: ChatMessage) => { void voice.toggle_tts(String(message.id || message.content), String(message.content || "")); } } : {}),
+        getSpeakState: (message: ChatMessage) => (voice.tts_playback.key === String(message.id || message.content) ? voice.tts_playback.status : "idle"),
+      }}
+    />
+  );
+}
+
 export function mountTopBar(el: Element, props: TopBarIslandProps): IslandHandle<TopBarIslandProps> {
   return mount(el, (p) => <TopBarIsland {...p} />, props);
 }
@@ -141,6 +321,14 @@ export function mountAppearance(el: Element, props: AppearanceIslandProps): Isla
 
 export function mountAbout(el: Element, props: AboutIslandProps): IslandHandle<AboutIslandProps> {
   return mount(el, (p) => <AfAboutDialog {...p} />, props);
+}
+
+/**
+ * The Sandbox chat (panel-chat thread + composer, voice via useGatewayVoice).
+ * Additive member (kit 0.4.0, round 3): apiVersion stays "1".
+ */
+export function mountSandboxChat(el: Element, props: SandboxChatIslandProps): IslandHandle<SandboxChatIslandProps> {
+  return mount(el, (p) => <SandboxChatIsland {...p} />, props);
 }
 
 /**
@@ -179,6 +367,7 @@ const api = {
   mountTopBar,
   mountAppearance,
   mountAbout,
+  mountSandboxChat,
   bindModal,
   bindMenu,
   appIdentity,

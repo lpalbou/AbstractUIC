@@ -2,8 +2,9 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "rootDir": "..",
-    "resolveJsonModule": true
+    "rootDir": "../..",
+    "resolveJsonModule": true,
+    "paths": { "@abstractframework/ui-kit": ["../src/index.ts"] }
   },
   "include": ["console_islands.tsx"]
 }

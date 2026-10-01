@@ -28,6 +28,31 @@ export type ChatMessage = {
    * and the model's reasoning in a collapsed "Thinking" block.
    */
   live?: ChatLiveReply;
+  /**
+   * The model's reasoning for a FINISHED reply, shown collapsed under
+   * "Thinking" like a live reply's (hosts that do not stream, e.g. a one-shot
+   * generation, still have reasoning to show).
+   */
+  reasoning?: string;
+  /** Generated media shown inline under the message text (images, audio, video). */
+  media?: ChatMedia[];
+  /** Per-message stat chips (e.g. "1.2s · 24 tok"); a card's `stats` prop wins. */
+  stats?: ChatStat[];
+};
+
+/**
+ * One generated media item. `src` is supplied by the HOST (typically a
+ * `blob:` URL of a gateway artifact it fetched with the session), never
+ * parsed out of model text; `href` is the raw file link shown beside it.
+ */
+export type ChatMedia = {
+  id?: string;
+  kind: "image" | "audio" | "video";
+  src: string;
+  /** Accessible name / link text, e.g. "Generated image". */
+  label?: string;
+  /** Link to the raw file (opens in a new tab). */
+  href?: string;
 };
 
 /** Streaming state of a live assistant reply. `content` holds the visible text only. */
@@ -37,6 +62,9 @@ export type ChatLiveReply = {
   reasoning: string;
   /** Who is writing, when it is not the conversation's own agent (e.g. "sub-agent · researcher"). */
   caption?: string;
+  /** The indicator's text while the reply is pending. Default "streaming";
+   *  a one-shot host says what it waits for (e.g. "generating image"). */
+  label?: string;
 };
 
 export type ChatAttachment = {
@@ -103,6 +131,50 @@ function _role_ui(m: ChatMessage): RoleUI {
   return { label: sys_label, icon: sys_icon, variant: sys_variant };
 }
 
+const MEDIA_SCHEMES = new Set(["blob:", "data:", "http:", "https:"]);
+
+/** A host-supplied media source: blob/data/http(s) or a same-origin path. */
+function mediaSource(src: string): string | undefined {
+  const value = String(src || "").trim();
+  if (!value) return undefined;
+  try {
+    const base = typeof window !== "undefined" && window.location ? window.location.href : "http://same-origin.invalid/";
+    return MEDIA_SCHEMES.has(new URL(value, base).protocol) ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function ChatMediaItem({ item }: { item: ChatMedia }): React.ReactElement | null {
+  const [failed, setFailed] = useState(false);
+  const src = mediaSource(item.src);
+  const href = item.href ? mediaSource(item.href) : undefined;
+  const kind = item.kind === "image" || item.kind === "audio" || item.kind === "video" ? item.kind : null;
+  if (!kind || (!src && !href)) return null;
+  const noun = kind === "image" ? "Image" : kind === "video" ? "Video" : "Audio";
+  const label = String(item.label || "").trim() || `Generated ${noun.toLowerCase()}`;
+  const onError = () => setFailed(true);
+  return (
+    <figure className={`pc-chat-media__item pc-chat-media__item--${kind}`}>
+      {src && kind === "image" ? <img className="pc-chat-media__image" src={src} alt={label} loading="lazy" onError={onError} /> : null}
+      {src && kind === "video" ? <video className="pc-chat-media__video" src={src} controls playsInline preload="metadata" aria-label={label} onError={onError} /> : null}
+      {src && kind === "audio" ? <audio className="pc-chat-media__audio" src={src} controls preload="metadata" aria-label={label} onError={onError} /> : null}
+      {failed ? (
+        <div className="pc-chat-media__error" role="note">
+          {noun} could not be decoded by this browser{href ? "; open the raw file with the link." : "."}
+        </div>
+      ) : null}
+      {href ? (
+        <figcaption className="pc-chat-media__caption">
+          <a className="pc-chat-media__link" href={href} target="_blank" rel="noopener noreferrer">
+            {label}
+          </a>
+        </figcaption>
+      ) : null}
+    </figure>
+  );
+}
+
 export type ChatMessageCardProps = {
   message: ChatMessage;
   className?: string;
@@ -160,10 +232,14 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
 
   const attachments = Array.isArray(props.attachments) ? props.attachments : [];
   const metrics = m.statistics;
+  const own_stats = m.stats;
   const stats: ChatStat[] = useMemo(
-    () => (Array.isArray(props.stats) ? props.stats : metrics ? workflowStats(metrics) : []),
-    [props.stats, metrics],
+    () => (Array.isArray(props.stats) ? props.stats : Array.isArray(own_stats) ? own_stats : metrics ? workflowStats(metrics) : []),
+    [props.stats, own_stats, metrics],
   );
+  const media = Array.isArray(m.media) ? m.media : [];
+  const reasoning = live ? String(live.reasoning || "") : String(m.reasoning || "");
+  const has_text = Boolean(String(m.content || "").trim());
 
   if (m.toolActivity) return <ToolActivity tool={m.toolActivity} showCopy={props.showCopy} />;
 
@@ -178,9 +254,9 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         </div>
         <span className="pc-chat-role">{role_ui.label}</span>
         {live ? (
-          <span className="pc-chat-live-indicator" title="The reply is still being written">
+          <span className="pc-chat-live-indicator" title={live.label ? `Pending: ${live.label}` : "The reply is still being written"}>
             <span className="pc-chat-live-dot" aria-hidden="true" />
-            streaming
+            {live.label || "streaming"}
           </span>
         ) : null}
         {live?.caption ? <span className="pc-chat-live-caption">{live.caption}</span> : null}
@@ -217,14 +293,14 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         </div>
       </div>
 
-      {live?.reasoning ? (
+      {reasoning.trim() ? (
         <details className="pc-chat-thinking">
           <summary>Thinking</summary>
-          <div className="pc-chat-thinking-body">{live.reasoning}</div>
+          <div className="pc-chat-thinking-body">{reasoning}</div>
         </details>
       ) : null}
 
-      {!live || String(m.content || "").trim() ? (
+      {has_text || (!live && !media.length) ? (
         <div className="pc-chat-body">
           <ChatMessageContent
             text={String(m.content || "")}
@@ -233,6 +309,14 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
             images={props.images || (role_ui.variant === "user" ? "inline" : "link")}
             inlineImage={props.inlineImage}
           />
+        </div>
+      ) : null}
+
+      {media.length ? (
+        <div className="pc-chat-media">
+          {media.slice(0, 24).map((item, idx) => (
+            <ChatMediaItem key={item.id || `${item.kind}:${item.src}:${idx}`} item={item} />
+          ))}
         </div>
       ) : null}
 

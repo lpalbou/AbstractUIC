@@ -5292,3 +5292,66 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   font-weight: 400;
   line-height: 1.4;
 }
+
+/* af-sandbox-chat:begin — the console Sandbox chat island (islands
+ * mountSandboxChat): panel-chat's thread + composer fill the host's box;
+ * these rules cover only the island's own pieces (attachment chips with a
+ * remove button and an upload state, the empty state, the dictation state). */
+.af-sandbox-chat {
+  height: 100%;
+  min-height: 0;
+  border-radius: inherit;
+}
+.af-sandbox-chat__empty {
+  padding: 24px 8px;
+  color: var(--text-muted);
+  font-size: var(--font-size-base);
+  text-align: center;
+}
+.af-sandbox-chat__attachments {
+  margin: 0 0 6px;
+}
+.af-sandbox-chat__chip {
+  cursor: default;
+}
+.af-sandbox-chat__chip.is-failed {
+  border-color: var(--error-border);
+  color: var(--error);
+}
+.af-sandbox-chat__chip-note {
+  font-size: var(--af-helper-size, 13px);
+  color: inherit;
+}
+.af-sandbox-chat__chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: -4px -6px -4px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.af-sandbox-chat__chip-remove:hover {
+  background: var(--ui-overlay-bg-hover, rgba(255, 255, 255, 0.08));
+}
+.af-sandbox-chat__chip-remove:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  outline-offset: 1px;
+}
+.af-sandbox-chat__mic.is-recording {
+  border-color: var(--error-border);
+  color: var(--error);
+}
+@media (pointer: coarse) {
+  .af-sandbox-chat__chip-remove {
+    width: var(--tap-min);
+    height: var(--tap-min);
+    margin: -10px -10px -10px 0;
+  }
+}
+/* af-sandbox-chat:end */

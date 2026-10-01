@@ -41,7 +41,7 @@ export {
   type StreamRepliesMode,
 } from "./llm_delta.js";
 
-export type { ChatAttachment, ChatLiveReply, ChatMessage, ChatMessageLevel, ChatStat } from "./chat_message_card.js";
+export type { ChatAttachment, ChatLiveReply, ChatMedia, ChatMessage, ChatMessageLevel, ChatStat } from "./chat_message_card.js";
 export type {
   WorkflowChatProps,
 } from "./workflow_chat.js";
