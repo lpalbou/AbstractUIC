@@ -172,6 +172,15 @@ Use `mountAbout` when your About entry lives outside the top bar. When you pass 
 `mountTopBar`, the cluster renders the About button and owns the dialog itself, so you do not
 need `mountAbout`.
 
+### `mountProviderModelPicker(el, props)` and `mountVoiceSettings(el, props)`
+
+The kit's shared provider + model picker (`ProviderModelPicker`: "Gateway default" | Custom,
+reasoning, MTP) and voice picker (`VoiceSettings`) for plain-HTML hosts, with the components' own
+props. Transports are injected: `fetchProviders()`, `fetchModels(provider)` and
+`fetchModelCapabilities(model, provider)` for the picker, `fetchCatalog(provider, model)` for the
+voice picker. The host keeps the value and calls `update(props)` after each change. The gateway
+console's entity Manage, Mind & voice tab uses both.
+
 ### `bindModal(backdrop, options)`
 
 Gives your own modal markup (the `af-modal` classes of `theme.css`) the kit's modal behaviour. It

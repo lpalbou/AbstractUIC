@@ -24,6 +24,8 @@ import { THEME_SPECS, applyTheme } from "../src/theme.js";
 import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typography.js";
 import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
 import { useGatewayVoice } from "../src/use_gateway_voice.js";
+import { ProviderModelPicker, type ProviderModelPickerProps } from "../src/provider_model_picker.js";
+import { VoiceSettings } from "../src/voice_settings.js";
 // panel-chat's REAL chat (the one AbstractCode's workspace renders): ChatThread +
 // ChatComposer with the standard Attach control, drop zone and paste-to-attach.
 import { WorkflowChat } from "../../panel-chat/src/workflow_chat.js";
@@ -332,6 +334,26 @@ export function mountSandboxChat(el: Element, props: SandboxChatIslandProps): Is
 }
 
 /**
+ * The shared provider + model picker ("Gateway default" | Custom, reasoning,
+ * MTP) the React apps render, for the console. Props are the component's
+ * own (transport injected: fetchProviders / fetchModels /
+ * fetchModelCapabilities). Additive member (round 3): apiVersion stays "1".
+ */
+export function mountProviderModelPicker(el: Element, props: ProviderModelPickerProps): IslandHandle<ProviderModelPickerProps> {
+  return mount(el, (p) => <ProviderModelPicker {...p} />, props);
+}
+
+export type VoiceSettingsIslandProps = React.ComponentProps<typeof VoiceSettings>;
+
+/**
+ * The shared voice picker (provider + model + voice, "Gateway default"),
+ * transport injected (fetchCatalog). Additive member (round 3).
+ */
+export function mountVoiceSettings(el: Element, props: VoiceSettingsIslandProps): IslandHandle<VoiceSettingsIslandProps> {
+  return mount(el, (p) => <VoiceSettings {...p} />, props);
+}
+
+/**
  * Make a plain-HTML `.af-modal-backdrop` behave as a modal (focus in + trap +
  * return, Escape / backdrop click -> onClose, page scroll lock) until the
  * returned release() is called. Markup contract: docs/modal.md. Additive
@@ -368,6 +390,8 @@ const api = {
   mountAppearance,
   mountAbout,
   mountSandboxChat,
+  mountProviderModelPicker,
+  mountVoiceSettings,
   bindModal,
   bindMenu,
   appIdentity,

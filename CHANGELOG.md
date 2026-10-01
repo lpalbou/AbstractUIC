@@ -9,6 +9,13 @@ ships.
 
 ## [Unreleased]
 
+- `@abstractframework/ui-kit`: `ProviderModelPicker` takes `inheritLabel` (the inherit choice of
+  the reasoning and MTP selects; default unchanged) and `optionsInDefaultMode` (`false` shows
+  reasoning and MTP only for a custom provider/model). `VoiceSettings` takes `intro`, `delivery`,
+  `showReset`, `defaultHint` and `voiceDefaultLabel`. The console islands add
+  `mountProviderModelPicker` and `mountVoiceSettings`, so the gateway console renders the same
+  pickers as the apps. Checked by `scripts/check_route_picker.mjs` and `check_islands.mjs`.
+
 - `@abstractframework/ui-kit`: the sign-in card's **Gateway token** field is no longer offered to password managers: `autoComplete="off"` (was `current-password`) plus the standard ignore attributes `data-1p-ignore`, `data-lpignore="true"`, `data-bwignore`. A manager reacting to it showed a "Keychain Not Found" toast on sign-in. Paste still works.
 
 ### Added
