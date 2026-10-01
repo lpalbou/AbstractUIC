@@ -9,6 +9,8 @@ ships.
 
 ## [Unreleased]
 
+- `@abstractframework/ui-kit`: the sign-in card's **Gateway token** field is no longer offered to password managers: `autoComplete="off"` (was `current-password`) plus the standard ignore attributes `data-1p-ignore`, `data-lpignore="true"`, `data-bwignore`. A manager reacting to it showed a "Keychain Not Found" toast on sign-in. Paste still works.
+
 ### Added
 
 - `@abstractframework/ui-kit`: a row actions menu. `AfMenu` (React) and the `af-menu` classes for

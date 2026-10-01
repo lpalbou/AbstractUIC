@@ -197,6 +197,17 @@ for (const sel of [".af-gateway-signin__label", ".af-gateway-signin__checkbox", 
   check(`kit rule ${sel} inside the label scale`, w <= 600 && !/var\(--font-size-(lg|xl|2xl)\)|^(1[6-9]|[2-9]\d)px/.test(size), JSON.stringify(d));
 }
 
+// The token field is not a site password: no autofill, password managers told to ignore it
+// (a manager reacting to it showed the operator a "Keychain Not Found" toast), paste untouched.
+{
+  const html = renderToStaticMarkup(React.createElement(GatewaySessionSignInCard, { userId: "u", token: "t", onUserIdChange() {}, onTokenChange() {}, onSubmit() {} }));
+  const tokenTag = (html.match(/<input[^>]*id="gateway-session-token"[^>]*>/) || [""])[0];
+  check("token field present", tokenTag.length > 0, html.slice(0, 200));
+  check("token field autocomplete=off (not current-password)", /autoComplete="off"|autocomplete="off"/.test(tokenTag) && !/current-password/.test(html), tokenTag);
+  for (const attr of ['data-1p-ignore=""', 'data-lpignore="true"', 'data-bwignore=""']) check(`token field ${attr}`, tokenTag.includes(attr), tokenTag);
+  check("token field does not block paste", !/onpaste|onPaste/i.test(tokenTag) && !/readonly/i.test(tokenTag), tokenTag);
+}
+
 if (failures) {
   console.error(`check_forms_signin: ${failures}/${checks} FAILED`);
   process.exit(1);

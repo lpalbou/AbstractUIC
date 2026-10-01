@@ -155,7 +155,15 @@ export function GatewaySessionSignInCard({
             value={token}
             onChange={(event) => onTokenChange(event.target.value)}
             placeholder={tokenPlaceholder}
-            autoComplete="current-password"
+            // A Gateway token is not a site password: no autofill, and the
+            // password managers' standard ignore attributes (1Password,
+            // LastPass, Bitwarden) so none of them reacts to this field — the
+            // operator saw a "Keychain Not Found" toast on sign-in. Paste works.
+            autoComplete="off"
+            data-1p-ignore=""
+            data-lpignore="true"
+            data-bwignore=""
+            spellCheck={false}
             disabled={busy}
           />
           <button
