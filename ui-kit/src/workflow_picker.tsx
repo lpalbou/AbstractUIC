@@ -272,7 +272,8 @@ export function WorkflowPicker(props: WorkflowPickerProps): React.ReactElement {
         type="button"
         role="combobox"
         className="af-workflow-picker__trigger"
-        aria-label={`${props.ariaLabel || "Workflow"}: ${shown.name}${shown.detail ? ` ${shown.detail}` : ""}`}
+        aria-label={props.ariaLabel || "Workflow"}
+        aria-describedby={`${baseId}-value`}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
@@ -282,7 +283,7 @@ export function WorkflowPicker(props: WorkflowPickerProps): React.ReactElement {
         onClick={() => (open ? close() : openList())}
         onKeyDown={onKeyDown}
       >
-        <span className="af-workflow-picker__value">
+        <span className="af-workflow-picker__value" id={`${baseId}-value`}>
           <span className="af-workflow-picker__name">{shown.name}</span>
           {shown.detail ? <span className="af-workflow-picker__detail">{shown.detail}</span> : null}
         </span>

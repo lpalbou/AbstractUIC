@@ -129,6 +129,7 @@ check("empty still offers the default", emptyHtml.includes('data-value="@default
 const state = (data, status = "ready", error = "") => ({ status, data, error, reload: () => {} });
 const trig = (props) => renderToStaticMarkup(React.createElement(WorkflowPicker, { interfaceId: IFACE, value: WORKFLOW_PICKER_DEFAULT, onChange: () => {}, workflows: state(parsed), ...props }));
 const t1 = trig({});
+check("trigger named by the field, value described", t1.includes('aria-label="Workflow"') && /aria-describedby="([^"]+-value)"[\s\S]*id="\1"/.test(t1));
 check("trigger combobox", t1.includes('role="combobox"') && t1.includes('aria-haspopup="listbox"') && t1.includes('aria-expanded="false"'));
 check("trigger shows default + detail", t1.includes(">Gateway default</span>") && t1.includes(">Basic agent @0.0.5</span>"));
 check("trigger never a toggle", !/role="switch"|type="checkbox"|Show all/i.test(t1));
