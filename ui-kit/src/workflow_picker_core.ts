@@ -219,11 +219,40 @@ export function workflowPickerGroups(entries: readonly WorkflowPickerEntry[]): W
 }
 
 /** The small detail line of an entry: its version (and flow when the bundle offers several). */
-export function workflowEntryDetail(entry: WorkflowPickerEntry, all: readonly WorkflowPickerEntry[] = []): string {
-  const siblings = all.filter((e) => e.bundleId === entry.bundleId && e.bundleVersion === entry.bundleVersion);
+/**
+ * Short interface labels for the any-interface detail line (explicit table, no
+ * text heuristics): an id not in the table is shown as written.
+ */
+export const WORKFLOW_INTERFACE_LABELS: Readonly<Record<string, string>> = {
+  "abstractcode.agent.v1": "Code agent",
+  "abstractassistant.agent.v1": "Assistant",
+  "abstractcode.coding.v1": "Coding",
+  tools: "tools",
+  event: "event",
+  chat: "chat",
+};
+
+/** The short label of an interface id (the id itself when the table has none). */
+export function workflowInterfaceLabel(interfaceId: string): string {
+  return WORKFLOW_INTERFACE_LABELS[interfaceId] ?? interfaceId;
+}
+
+/**
+ * The small detail line of an entry: its version; in any-interface mode the
+ * short interface labels first ("Code agent, Assistant · @0.0.1"). Per-interface
+ * mode omits the interface (it is implied). Bundle and flow ids are not on the
+ * line: they are the option's tooltip (`workflowEntryTitle`).
+ */
+export function workflowEntryDetail(entry: WorkflowPickerEntry, _all: readonly WorkflowPickerEntry[] = []): string {
   const version = entry.bundleVersion ? `@${entry.bundleVersion}` : "";
-  const base = siblings.length > 1 ? `${version} · ${entry.flowId}`.trim() : version;
-  return entry.showInterfaces ? [entry.interfaces.join(", "), base].filter(Boolean).join(" · ") : base;
+  if (!entry.showInterfaces) return version;
+  const labels = [...new Set(entry.interfaces.map(workflowInterfaceLabel))].join(", ");
+  return [labels, version].filter(Boolean).join(" · ");
+}
+
+/** The option's tooltip: the exact workflow id (`bundle@version:flow`). */
+export function workflowEntryTitle(entry: WorkflowPickerEntry): string {
+  return entry.value;
 }
 
 /** The default entry: label "Gateway default", detail = what it resolves to (or why it can't). */
@@ -244,7 +273,7 @@ export function workflowPickerNextIndex(key: string, current: number, count: num
 }
 
 /** One rendered option (the default entry has `entry: null`). */
-export type WorkflowPickerRow = { key: string; value: string; name: string; detail: string; group: WorkflowPickerGroupId | null; entry: WorkflowPickerEntry | null };
+export type WorkflowPickerRow = { key: string; value: string; name: string; detail: string; title?: string; group: WorkflowPickerGroupId | null; entry: WorkflowPickerEntry | null };
 
 /** Every option in display order: "Gateway default" (when offered), then Shared, then Mine. */
 export function workflowPickerRows(data: ExecutableWorkflows | null, showDefault = true): WorkflowPickerRow[] {
@@ -253,6 +282,6 @@ export function workflowPickerRows(data: ExecutableWorkflows | null, showDefault
   if (showDefault)
     out.push({ key: "default", value: WORKFLOW_PICKER_DEFAULT, name: "Gateway default", detail: gatewayDefaultDetail(data?.gatewayDefault ?? null), group: null, entry: null });
   for (const g of workflowPickerGroups(entries))
-    for (const e of g.entries) out.push({ key: e.value, value: e.value, name: e.name, detail: workflowEntryDetail(e, entries), group: g.id, entry: e });
+    for (const e of g.entries) out.push({ key: e.value, value: e.value, name: e.name, detail: workflowEntryDetail(e, entries), title: workflowEntryTitle(e), group: g.id, entry: e });
   return out;
 }

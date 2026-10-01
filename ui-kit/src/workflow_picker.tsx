@@ -348,6 +348,7 @@ export function WorkflowPickerListbox(props: WorkflowPickerListboxProps): React.
       role="option"
       aria-selected={row.value === props.value}
       data-value={row.value}
+      title={row.title}
       className={cx(
         "af-workflow-picker__option",
         index === props.highlight && "af-workflow-picker__option--highlighted",

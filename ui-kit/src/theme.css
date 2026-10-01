@@ -5431,13 +5431,16 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   height: 8px;
   background: var(--af-select-chevron) center / 12px 8px no-repeat;
 }
+/* OPAQUE surface in every theme: --bg-card is translucent in light themes
+ * (rgba 0.88-0.92) and let the page text show through the list. --bg-secondary
+ * is a solid colour in every theme block. */
 .af-workflow-picker__list {
   z-index: 10000;
   overflow: auto;
   overscroll-behavior: contain;
   padding: 6px;
-  background: var(--bg-card, var(--bg-secondary));
-  border: 1px solid var(--ui-overlay-border, rgba(255, 255, 255, 0.14));
+  background: var(--bg-secondary);
+  border: 1px solid var(--ui-border-2, var(--ui-overlay-border, rgba(127, 127, 127, 0.35)));
   border-radius: 12px;
   box-shadow: var(--ui-shadow-1, 0 10px 30px rgba(0, 0, 0, 0.35));
 }

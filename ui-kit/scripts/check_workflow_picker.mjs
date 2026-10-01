@@ -36,6 +36,8 @@ const {
   workflowPickerGroups,
   workflowPickerNextIndex,
   workflowPickerRows,
+  workflowInterfaceLabel,
+  WORKFLOW_INTERFACE_LABELS,
 } = kit;
 
 let failures = 0;
@@ -166,7 +168,9 @@ check("any: every interface listed", any.entries.map((e) => e.bundleId).join() =
 check("any: entrypoint without an interface is not executable", !any.entries.some((e) => e.bundleId === "scratch"));
 check("any: Mine from owner", any.entries.find((e) => e.bundleId === "mail-triage")?.group === "mine");
 const anyRows = workflowPickerRows(any);
-check("any: interface as the detail line", anyRows.find((r) => r.entry?.bundleId === "mail-triage")?.detail === "abstractflow.event.v1 · @1.0.0", JSON.stringify(anyRows.map((r) => r.detail)));
+check("any: unknown interface id shown as written", anyRows.find((r) => r.entry?.bundleId === "mail-triage")?.detail === "abstractflow.event.v1 · @1.0.0", JSON.stringify(anyRows.map((r) => r.detail)));
+check("any: known interface as its short label", anyRows.find((r) => r.entry?.bundleId === "basic-agent")?.detail === "Code agent · @0.0.5", JSON.stringify(anyRows.map((r) => r.detail)));
+check("any: bundle/flow ids not on the line, in the tooltip", anyRows.every((r) => !r.entry || (!r.detail.includes(r.entry.bundleId) && !r.detail.includes(r.entry.flowId))) && anyRows.find((r) => r.entry?.bundleId === "basic-agent")?.title === "basic-agent@0.0.5:main");
 check("any: default for the named interface", any.gatewayDefault.status === "ok" && anyRows[0].detail === "Basic agent @0.0.5");
 throwsContract("any: an echoed executable_for is refused (asked for all)", () => parseWorkflowListing(fake, null), "Asked for every workflow");
 throwsContract("any: owner still required", () => parseWorkflowListing({ items: [{ ...anyEnv.items[0], owner: undefined }] }, null), "owner missing");
@@ -174,6 +178,12 @@ const tAny = renderToStaticMarkup(React.createElement(WorkflowPicker, { interfac
 check("any: no Gateway default without defaultInterface", !tAny.includes(">Gateway default<") && tAny.includes('data-interface="any"'));
 const tAnyDef = renderToStaticMarkup(React.createElement(WorkflowPicker, { interfaceId: null, defaultInterface: IFACE, value: WORKFLOW_PICKER_DEFAULT, onChange: () => {}, workflows: state(any) }));
 check("any: Gateway default with defaultInterface", tAnyDef.includes(">Gateway default</span>"));
+
+// 4c. Short interface labels (explicit table) and the per-interface line.
+check("labels table", workflowInterfaceLabel("abstractcode.agent.v1") === "Code agent" && workflowInterfaceLabel("abstractassistant.agent.v1") === "Assistant" && workflowInterfaceLabel("abstractcode.coding.v1") === "Coding" && workflowInterfaceLabel("tools") === "tools" && workflowInterfaceLabel("event") === "event" && workflowInterfaceLabel("chat") === "chat");
+check("labels: unknown id as written", workflowInterfaceLabel("x.y.v9") === "x.y.v9" && !("x.y.v9" in WORKFLOW_INTERFACE_LABELS));
+check("per-interface: the line is the version only (interface implied)", rows.filter((r) => r.entry).every((r) => /^@[\d.]+$/.test(r.detail)), JSON.stringify(rows.map((r) => r.detail)));
+check("option carries the exact id as its tooltip", html.includes('title="my-coder@0.1.0:main"'));
 
 // 5. Keyboard navigation (pure).
 check("down from none", workflowPickerNextIndex("ArrowDown", -1, 4) === 0);
@@ -195,6 +205,15 @@ const block = css.slice(css.indexOf("af-workflow-picker:begin"), css.indexOf("af
 check("css block", block.length > 100);
 check("css 44px touch", /pointer: coarse[\s\S]*af-workflow-picker__option[\s\S]*min-height: var\(--tap-min/.test(block));
 check("css detail helper size", /\.af-workflow-picker__detail \{[^}]*--af-helper-size/.test(block));
+// The list is an OPAQUE surface: never the translucent --bg-card / a transparent
+// colour (light themes showed the page through it). --bg-secondary must be a solid
+// #hex in every theme block that defines it.
+const listRule = (block.match(/\.af-workflow-picker__list \{[^}]*\}/) || [""])[0];
+check("css list background is --bg-secondary", /background: var\(--bg-secondary\);/.test(listRule), listRule);
+check("css list background not the translucent card / transparent", !/bg-card|transparent|rgba\(/.test((listRule.match(/background:[^;]*;/) || [""])[0]), listRule);
+check("css list has a border and a shadow", /border: 1px solid/.test(listRule) && /box-shadow:/.test(listRule), listRule);
+const bgDefs = [...css.matchAll(/--bg-secondary:\s*([^;]+);/g)].map((m) => m[1].trim());
+check("every --bg-secondary is an opaque #hex", bgDefs.length > 5 && bgDefs.every((v) => /^#[0-9a-fA-F]{6}$/.test(v)), JSON.stringify(bgDefs.filter((v) => !/^#[0-9a-fA-F]{6}$/.test(v))));
 
 console.log(`check_workflow_picker: ${checks - failures}/${checks} passed`);
 if (failures) process.exit(1);
