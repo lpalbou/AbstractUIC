@@ -53,7 +53,7 @@ export const LABEL_SCALE_SELECTOR = [
 ].join(", ");
 
 /** Helper text: switch descriptions and reasons, form help, field hints. Never below 13 px (14 px on touch). */
-export const HELPER_SCALE_SELECTOR = [".af-switch__desc", ".af-switch__reason", ".af-form__help", ".af-field-help", ".af-modal__footer-note", ".af-row-legend", "[data-af-help]"].join(", ");
+export const HELPER_SCALE_SELECTOR = [".af-switch__desc", ".af-workflow-picker__detail", ".af-switch__reason", ".af-form__help", ".af-field-help", ".af-modal__footer-note", ".af-row-legend", "[data-af-help]"].join(", ");
 
 /** Helper-text floor on a desktop pointer (px). */
 export const HELPER_MIN_PX = 13;

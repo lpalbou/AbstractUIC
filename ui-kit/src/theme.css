@@ -5163,3 +5163,130 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   font-weight: 400;
   line-height: 1.4;
 }
+
+/* af-workflow-picker:begin — WorkflowPicker (workflow_picker.tsx): the one
+ * workflow chooser of every client. Name + small version detail, groups
+ * "Shared" / "Mine", 44 px options on touch, fixed popover clamped to the
+ * viewport (the TSX computes left/top/width/max-height). */
+.af-workflow-picker {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+.af-workflow-picker__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--ui-overlay-border, rgba(255, 255, 255, 0.14));
+  border-radius: var(--radius-md, 8px);
+  background: var(--ui-overlay-bg, rgba(0, 0, 0, 0.18));
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--font-size-base);
+  text-align: left;
+  cursor: pointer;
+}
+.af-workflow-picker__trigger:hover:not([aria-disabled="true"]) {
+  background: var(--ui-overlay-bg-hover, rgba(255, 255, 255, 0.08));
+}
+.af-workflow-picker__trigger:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  outline-offset: 2px;
+}
+.af-workflow-picker__trigger[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: var(--text-secondary);
+}
+.af-workflow-picker__value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+.af-workflow-picker__value .af-workflow-picker__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.af-workflow-picker__detail {
+  color: var(--text-muted);
+  font-size: var(--af-helper-size, 13px);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.af-workflow-picker__caret {
+  flex: none;
+  width: 12px;
+  height: 8px;
+  background: var(--af-select-chevron) center / 12px 8px no-repeat;
+}
+.af-workflow-picker__list {
+  z-index: 10000;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  background: var(--bg-card, var(--bg-secondary));
+  border: 1px solid var(--ui-overlay-border, rgba(255, 255, 255, 0.14));
+  border-radius: 12px;
+  box-shadow: var(--ui-shadow-1, 0 10px 30px rgba(0, 0, 0, 0.35));
+}
+.af-workflow-picker__group {
+  padding: 10px 10px 4px;
+  color: var(--text-muted);
+  font-size: var(--af-helper-size, 13px);
+  font-weight: 700;
+}
+.af-workflow-picker__option {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+}
+.af-workflow-picker__option .af-workflow-picker__name {
+  overflow-wrap: anywhere;
+}
+.af-workflow-picker__option--highlighted {
+  background: var(--accent-subtle, rgba(233, 69, 96, 0.12));
+}
+.af-workflow-picker__option--selected .af-workflow-picker__name {
+  font-weight: 700;
+}
+.af-workflow-picker__option--selected {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.af-workflow-picker__empty {
+  margin: 0;
+  padding: 10px;
+  color: var(--text-secondary);
+  font-size: var(--af-helper-size, 13px);
+}
+.af-workflow-picker__error {
+  color: var(--error);
+  font-size: var(--af-helper-size, 13px);
+  overflow-wrap: anywhere;
+}
+@media (pointer: coarse) {
+  .af-workflow-picker__trigger,
+  .af-workflow-picker__option {
+    min-height: var(--tap-min, 44px);
+  }
+}
+/* af-workflow-picker:end */
