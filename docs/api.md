@@ -44,6 +44,15 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   `speculationSelection()`, `speculationFromSelection()` and `SpeculationValue` /
   `SpeculationCapability` types. Enable `ProviderModelPicker`'s `enableSpeculation` for text
   routes; its injected `fetchModelCapabilities(model, provider)` returns the Gateway payload.
+  `inheritLabel` names the inherit choice of the reasoning and MTP selects (default
+  "Workflow / Gateway default"; a host without workflows says "Gateway default").
+  `optionsInDefaultMode={false}` takes the gateway default whole: reasoning and MTP appear only
+  once a custom provider/model is chosen (for hosts that store them only with a pinned model,
+  such as an entity's mind).
+- Voice: `VoiceSettings` (provider + model + voice from the Gateway catalog, "Gateway default"
+  first). Host props: `intro` (`null` hides the paragraph), `delivery` (speed / quality /
+  instructions, default on), `showReset`, `defaultHint` (names what the gateway default is) and
+  `voiceDefaultLabel` (the voice select's unset choice).
 - Gateway connection: `GatewayConnectModal` + `useGatewayConnection()` (the connection state machine: boot probe, auto-open on resolved disconnect, self-close on sign-in), plus helpers `fetchGatewayConnection()`, `signInGateway()`, `signOutGateway()`, `gatewayStatusBadge()`, `normalizeGatewayUrl()`; `GatewaySessionSignInCard` is the underlying form card.
 - Phase capability matrix: `PhaseCapabilityMatrix` + a framework-free core (`validateMatrixPayload()`, `resolveCellView()`, `applyCellAction()`, `reconcilePatches()`, `serializeCellPatches()`)
 - Critical actions: `CriticalActionDialog` + core (`resolveCriticalActionGate()`, `normalizeCriticalActionFacts()`)

@@ -52,6 +52,15 @@ export type ProviderModelPickerProps = {
   reasoningLabel?: string;
   /** Enable only for text routes; uses execution capability, never model names. */
   enableSpeculation?: boolean;
+  /** Label of the "inherit" choice in the reasoning and MTP selects
+   * (default "Workflow / Gateway default"). A host without a workflow layer,
+   * e.g. an entity's mind, says "Gateway default". */
+  inheritLabel?: string;
+  /** Show reasoning and MTP while on the gateway default (default true).
+   * false = the gateway default is taken whole (its own reasoning/MTP) and
+   * the two selects appear only for a custom provider/model — for hosts that
+   * can store those options only together with a pinned model. */
+  optionsInDefaultMode?: boolean;
 
   disabled?: boolean;
   /** Copy describing what the gateway default applies to (task family). */
@@ -233,6 +242,9 @@ export function ProviderModelPicker(
     };
   }, [effectiveProvider, effectiveModel, hasCapabilities, disabled]);
 
+  const inherit = props.inheritLabel || "Workflow / Gateway default";
+  const showOptions = !isDefault || props.optionsInDefaultMode !== false;
+
   return (
     <div className={`af-pmp${props.className ? ` ${props.className}` : ""}`}>
       <div className="af-pmp__seg" role="tablist" aria-label="Provider mode">
@@ -299,15 +311,15 @@ export function ProviderModelPicker(
           }
         />
       )}
-      {hasCapabilities && (reasoning.levels.length > 0 || value.reasoning) ? (
+      {showOptions && hasCapabilities && (reasoning.levels.length > 0 || value.reasoning) ? (
         <div className="af-pmp__reasoning">
           <label>{props.reasoningLabel || "Reasoning effort"}</label>
           <AfSelect
             ariaLabel={props.reasoningLabel || "Reasoning effort"}
-            placeholder="Workflow / Gateway default"
+            placeholder={inherit}
             value={value.reasoning || ""}
             options={[
-              { value: "", label: "Workflow / Gateway default" },
+              { value: "", label: inherit },
               ...reasoning.levels.map((level) => ({
                 value: level,
                 label: level,
@@ -326,12 +338,12 @@ export function ProviderModelPicker(
           />
         </div>
       ) : null}
-      {reasoning.error ? (
+      {showOptions && reasoning.error ? (
         <div role="status" className="af-pmp__hint">
           {reasoning.error}
         </div>
       ) : null}
-      {props.enableSpeculation ? <SpeculationSelect value={value.speculation}
+      {showOptions && props.enableSpeculation ? <SpeculationSelect value={value.speculation} inheritLabel={inherit}
         onChange={speculation => props.onChange({ ...value, speculation })}
         capabilities={capabilityPayload} disabled={disabled} loading={reasoning.loading}
         error={reasoning.error ? reasoning.error.replace("Reasoning options", "MTP options") : undefined} /> : null}

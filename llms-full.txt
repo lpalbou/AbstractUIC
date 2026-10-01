@@ -1459,6 +1459,15 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   `speculationSelection()`, `speculationFromSelection()` and `SpeculationValue` /
   `SpeculationCapability` types. Enable `ProviderModelPicker`'s `enableSpeculation` for text
   routes; its injected `fetchModelCapabilities(model, provider)` returns the Gateway payload.
+  `inheritLabel` names the inherit choice of the reasoning and MTP selects (default
+  "Workflow / Gateway default"; a host without workflows says "Gateway default").
+  `optionsInDefaultMode={false}` takes the gateway default whole: reasoning and MTP appear only
+  once a custom provider/model is chosen (for hosts that store them only with a pinned model,
+  such as an entity's mind).
+- Voice: `VoiceSettings` (provider + model + voice from the Gateway catalog, "Gateway default"
+  first). Host props: `intro` (`null` hides the paragraph), `delivery` (speed / quality /
+  instructions, default on), `showReset`, `defaultHint` (names what the gateway default is) and
+  `voiceDefaultLabel` (the voice select's unset choice).
 - Gateway connection: `GatewayConnectModal` + `useGatewayConnection()` (the connection state machine: boot probe, auto-open on resolved disconnect, self-close on sign-in), plus helpers `fetchGatewayConnection()`, `signInGateway()`, `signOutGateway()`, `gatewayStatusBadge()`, `normalizeGatewayUrl()`; `GatewaySessionSignInCard` is the underlying form card.
 - Phase capability matrix: `PhaseCapabilityMatrix` + a framework-free core (`validateMatrixPayload()`, `resolveCellView()`, `applyCellAction()`, `reconcilePatches()`, `serializeCellPatches()`)
 - Critical actions: `CriticalActionDialog` + core (`resolveCriticalActionGate()`, `normalizeCriticalActionFacts()`)
@@ -1472,6 +1481,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation on a fixed UTC interval, once, or when an email arrives; "Email me the result" and allowed recipients), the email fields `AfEmailTriggerFields` / `AfEmailOptionsFields` / `AfEmailSetupNotice`, `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
 - Modal and account rows: `AfModal`, `bindAfModal()` (+ `afModalTabTarget()`, `afModalFocusables()`, `AF_MODAL_FOCUSABLE`), the helper floors `HELPER_MIN_PX`, `HELPER_MIN_TOUCH_PX`, `HELPER_TOUCH_MEDIA` — see [Modal, account rows, grouped navigation](./modal.md)
 - On/off settings and forms: `AfSwitch`, `AfSwitchInput` (a native `role="switch"` checkbox for uncontrolled forms) (+ `afSwitchNextState()`, `afSwitchIsActionable()`), `AfTabs` (+ `afTabsNextIndex()`), the guards `findVerbToggleLabels(source)` and `checkLabelScale(root)` (+ `LABEL_SCALE_SELECTOR`) — see [On/off settings](./state-toggles.md)
+- Workflow picker: `WorkflowPicker` (the one workflow chooser of every client: "Gateway default", then the groups "Shared" and "Mine", each entry with its version as a small detail line; no toggles), `useExecutableWorkflows({ interfaceId, request? | gatewayBaseUrl?, allVersions?, enabled?, reloadKey? })` (fetches `GET /api/gateway/bundles?executable_for=<interface>` with the app's own auth), `WorkflowPickerListbox`, and the pure core `executableWorkflowsPath()`, `parseExecutableWorkflows()` (throws `WorkflowPickerContractError` when the gateway ignores `executable_for`: no echo, an item without `owner`/`shipped`, an entrypoint that does not declare the interface), `workflowPickerGroups()`, `workflowPickerRows()`, `WORKFLOW_PICKER_DEFAULT` (`"@default"`), `WORKFLOW_PICKER_EMPTY`. The picker lists exactly what the gateway returns: which workflows a person sees is the gateway's availability rule (admins decide what is shared with users; users also see their own), never a client switch. Two modes: per interface (`interfaceId="abstractcode.agent.v1"`, for an app that runs one interface) and any interface (`interfaceId={null}`, for a launcher such as AbstractObserver: `GET /api/gateway/bundles`, every entrypoint that declares an interface, the interfaces as the detail line, `defaultInterface` names the interface "Gateway default" stands for); helpers `workflowPickerPath()`, `allWorkflowsPath()`, `parseWorkflowListing()`.
 - Ids and non-secure contexts: `randomId()` (v4 UUID over plain http too), `uuidV4FromBytes()`, `insecureContextReason(feature)` — see [Non-secure contexts](./state-toggles.md#non-secure-contexts)
 - Icons: `Icon`, `IconName` (~45 glyphs, 24-grid and 16-grid families; `play`, `stop`, `folder`, `file`, `archive`, `clock` added for automations)
 - Palette seeds: `@abstractframework/ui-kit/palette_seeds.json` (generated 4-token palette per theme)
@@ -3334,6 +3344,15 @@ Use `mountAbout` when your About entry lives outside the top bar. When you pass 
 `mountTopBar`, the cluster renders the About button and owns the dialog itself, so you do not
 need `mountAbout`.
 
+### `mountProviderModelPicker(el, props)` and `mountVoiceSettings(el, props)`
+
+The kit's shared provider + model picker (`ProviderModelPicker`: "Gateway default" | Custom,
+reasoning, MTP) and voice picker (`VoiceSettings`) for plain-HTML hosts, with the components' own
+props. Transports are injected: `fetchProviders()`, `fetchModels(provider)` and
+`fetchModelCapabilities(model, provider)` for the picker, `fetchCatalog(provider, model)` for the
+voice picker. The host keeps the value and calls `update(props)` after each change. The gateway
+console's entity Manage, Mind & voice tab uses both.
+
 ### `bindModal(backdrop, options)`
 
 Gives your own modal markup (the `af-modal` classes of `theme.css`) the kit's modal behaviour. It
@@ -4825,7 +4844,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_random_id.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_random_id.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -4894,7 +4913,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.1.14 || ^0.2.0 || ^0.3.0 || ^0.4.0",
@@ -5413,6 +5432,38 @@ export { findVerbToggleLabels, type VerbToggleHit } from "./state_toggle_lint.js
 export { randomId, uuidV4FromBytes, insecureContextReason } from "./random_id.js";
 export { checkLabelScale, LABEL_SCALE_SELECTOR, type LabelScaleHit, type LabelScaleOptions, HELPER_SCALE_SELECTOR, HELPER_MIN_PX, HELPER_MIN_TOUCH_PX, HELPER_TOUCH_MEDIA } from "./label_scale.js";
 export { AfTabs, afTabsNextIndex, type AfTab, type AfTabsProps } from "./af_tabs.js";
+export {
+  WorkflowPicker,
+  WorkflowPickerListbox,
+  useExecutableWorkflows,
+  type WorkflowPickerListboxProps,
+  type ExecutableWorkflowsState,
+  type UseExecutableWorkflowsOptions,
+  type WorkflowPickerProps,
+  type WorkflowPickerRequest,
+} from "./workflow_picker.js";
+export {
+  WORKFLOW_PICKER_DEFAULT,
+  WORKFLOW_PICKER_EMPTY,
+  WORKFLOW_PICKER_GROUP_LABELS,
+  WorkflowPickerContractError,
+  allWorkflowsPath,
+  executableWorkflowsPath,
+  parseWorkflowListing,
+  workflowPickerPath,
+  gatewayDefaultDetail,
+  parseExecutableWorkflows,
+  workflowEntryDetail,
+  workflowPickerGroups,
+  workflowPickerNextIndex,
+  workflowPickerRows,
+  type ExecutableWorkflows,
+  type WorkflowPickerRow,
+  type WorkflowPickerDefault,
+  type WorkflowPickerEntry,
+  type WorkflowPickerGroup,
+  type WorkflowPickerGroupId,
+} from "./workflow_picker_core.js";
 
 ## ui-kit/src/responsive.ts
 
@@ -6021,7 +6072,15 @@ export function GatewaySessionSignInCard({
             value={token}
             onChange={(event) => onTokenChange(event.target.value)}
             placeholder={tokenPlaceholder}
-            autoComplete="current-password"
+            // A Gateway token is not a site password: no autofill, and the
+            // password managers' standard ignore attributes (1Password,
+            // LastPass, Bitwarden) so none of them reacts to this field — the
+            // operator saw a "Keychain Not Found" toast on sign-in. Paste works.
+            autoComplete="off"
+            data-1p-ignore=""
+            data-lpignore="true"
+            data-bwignore=""
+            spellCheck={false}
             disabled={busy}
           />
           <button
@@ -7785,7 +7844,7 @@ tell the AbstractObserver and AbstractAssistant maintainers.
 //
 // The API is deliberately tiny and prop-driven: the host owns all state and
 // re-calls `update(props)` whenever it changes (no React knowledge needed).
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { AfTopBarActions } from "../src/af_top_bar_actions.js";
 import { AfAppearanceDialog, type AppearanceSettings } from "../src/appearance.js";
@@ -7797,6 +7856,13 @@ import { bindAfMenu } from "../src/af_menu_core.js";
 import { THEME_SPECS, applyTheme } from "../src/theme.js";
 import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typography.js";
 import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
+import { useGatewayVoice } from "../src/use_gateway_voice.js";
+import { ProviderModelPicker, type ProviderModelPickerProps } from "../src/provider_model_picker.js";
+import { VoiceSettings } from "../src/voice_settings.js";
+// panel-chat's REAL chat (the one AbstractCode's workspace renders): ChatThread +
+// ChatComposer with the standard Attach control, drop zone and paste-to-attach.
+import { WorkflowChat } from "../../panel-chat/src/workflow_chat.js";
+import type { ChatMessage } from "../../panel-chat/src/chat_message_card.js";
 
 declare const __KIT_VERSION__: string;
 
@@ -7846,6 +7912,55 @@ export type AboutIslandProps = {
   /** App-specific rows, e.g. `[["abstractgateway", "0.4.3"]]` from `GET /about`. */
   extraRows?: Array<[string, string]>;
   title?: string;
+};
+
+/** A composer attachment chip (the host uploads; the island only shows state). */
+export type SandboxChatAttachment = {
+  id: string;
+  name: string;
+  /** Default "attached". "failed" shows `message` (the gateway's reason). */
+  status?: "uploading" | "attached" | "failed";
+  message?: string;
+};
+
+/**
+ * The console Sandbox's chat (round 3, DESIGN-v3 §8): panel-chat's thread +
+ * composer, fully controlled by the host. The console keeps the output-mode
+ * buttons, system prompt, reasoning and MTP controls around it and sends
+ * every mode through its existing gateway endpoints; results come back as
+ * `messages` (generated media in `message.media`, reasoning in
+ * `message.reasoning`, pending replies as `message.live`).
+ */
+export type SandboxChatIslandProps = {
+  messages: ChatMessage[];
+  draft: string;
+  onDraftChange: (draft: string) => void;
+  /** Send the draft. A rejection is shown above the composer and keeps the draft. */
+  onSend: (draft: string) => void | Promise<unknown>;
+  busy?: boolean;
+  busyLabel?: string;
+  sendLabel?: string;
+  placeholder?: string;
+  /** Why sending is not possible right now (e.g. the mode is not configured): shown, composer disabled. */
+  blockedNotice?: string | null;
+  attachments?: SandboxChatAttachment[];
+  /** Opens the host's file picker (the standard Attach control). */
+  onAttach?: () => void | Promise<unknown>;
+  /** Files dropped on the chat or pasted into the message field. */
+  onFiles?: (files: File[]) => void | Promise<unknown>;
+  onRemoveAttachment?: (id: string) => void;
+  /** Rendered as "Clear" once the thread has messages. */
+  onClear?: () => void;
+  emptyText?: string;
+  /**
+   * Voice in/out through the kit's useGatewayVoice, as in the apps. `tts`
+   * puts a speaker on assistant replies; `transcribe` adds hold-to-dictate.
+   * Pass STABLE functions (their identity decides support); omit = hidden.
+   */
+  voice?: {
+    tts?: (text: string) => Promise<ArrayBuffer>;
+    transcribe?: (blob: Blob, mime: string) => Promise<string>;
+  } | null;
 };
 
 export type IslandHandle<P> = { update: (props: P) => void; unmount: () => void };
@@ -7905,6 +8020,132 @@ function mount<P>(el: Element, render: (props: P) => React.ReactElement, props: 
   };
 }
 
+function SandboxAttachmentChips(props: { items: SandboxChatAttachment[]; onRemove?: (id: string) => void }): React.ReactElement {
+  return (
+    <div className="pc-chat-attachments af-sandbox-chat__attachments" role="list" aria-label="Attached files">
+      {props.items.map((item) => {
+        const status = item.status || "attached";
+        const note = status === "uploading" ? "Uploading…" : status === "failed" ? item.message || "Not attached" : "";
+        return (
+          <span key={item.id} role="listitem" className={`pc-chat-attachment-chip af-sandbox-chat__chip is-${status}`} title={note ? `${item.name} — ${note}` : item.name}>
+            <Icon name={status === "uploading" ? "loader" : status === "failed" ? "warning" : "paperclip"} size={14} />
+            <span className="pc-chat-attachment-name">{item.name}</span>
+            {note ? <span className="af-sandbox-chat__chip-note">{note}</span> : null}
+            {props.onRemove && status !== "uploading" ? (
+              <button type="button" className="af-sandbox-chat__chip-remove" aria-label={`Remove ${item.name}`} title={`Remove ${item.name}`} onClick={() => props.onRemove?.(item.id)}>
+                <Icon name="x" size={14} />
+              </button>
+            ) : null}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+export function SandboxChatIsland(props: SandboxChatIslandProps): React.ReactElement {
+  const [voiceError, setVoiceError] = useState("");
+  // The transcript lands in the CURRENT draft (the recorder finishes renders later).
+  const draftRef = useRef(props);
+  draftRef.current = props;
+  const voice = useGatewayVoice({
+    tts: props.voice?.tts,
+    transcribe: props.voice?.transcribe,
+    on_transcript: (text) => {
+      const words = String(text || "").trim();
+      if (!words) return;
+      setVoiceError("");
+      const current = String(draftRef.current.draft || "");
+      draftRef.current.onDraftChange(current.trim() ? `${current.replace(/\s+$/, "")} ${words}` : words);
+    },
+    on_error: (message) => setVoiceError(String(message || "Voice failed.")),
+  });
+  // Hold-to-dictate, as in AbstractCode's composer: press starts, release
+  // (anywhere) transcribes; a permission prompt that outlives the press never
+  // leaves the microphone open.
+  const held = useRef(false);
+  useEffect(() => {
+    const stop = () => {
+      if (!held.current) return;
+      held.current = false;
+      voice.stop_voice_ptt_recording();
+    };
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+    window.addEventListener("blur", stop);
+    return () => {
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+      window.removeEventListener("blur", stop);
+    };
+  }, [voice.stop_voice_ptt_recording]);
+  useEffect(() => () => { voice.stop_tts(); voice.cancel_voice_ptt_recording?.(); }, [voice.stop_tts, voice.cancel_voice_ptt_recording]);
+  const begin = () => {
+    held.current = true;
+    setVoiceError("");
+    void voice.start_voice_ptt_recording().then(() => {
+      if (!held.current) voice.stop_voice_ptt_recording();
+    });
+  };
+  const end = () => {
+    if (!held.current) return;
+    held.current = false;
+    voice.stop_voice_ptt_recording();
+  };
+  const blocked = Boolean(props.blockedNotice);
+  const items = Array.isArray(props.attachments) ? props.attachments : [];
+  const messages = Array.isArray(props.messages) ? props.messages : [];
+  const mic = voice.voice_ptt_supported && !blocked ? (
+    <button
+      type="button"
+      className={`pc-workflow-chat__icon-button af-sandbox-chat__mic${voice.voice_ptt_recording ? " is-recording" : ""}`}
+      aria-label={voice.voice_ptt_recording ? "Recording — release to transcribe" : "Hold to dictate"}
+      title="Hold to dictate (Space or Enter on the keyboard)"
+      aria-pressed={voice.voice_ptt_recording}
+      disabled={voice.voice_ptt_busy}
+      onPointerDown={(event) => { if (event.button === 0) begin(); }}
+      onPointerUp={end}
+      onPointerCancel={end}
+      onKeyDown={(event) => { if ((event.key === " " || event.key === "Enter") && !event.repeat) { event.preventDefault(); begin(); } }}
+      onKeyUp={(event) => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); end(); } }}
+      onBlur={end}
+    >
+      <Icon name={voice.voice_ptt_busy ? "loader" : "mic"} size={16} />
+      <span>{voice.voice_ptt_recording ? "Listening…" : voice.voice_ptt_busy ? "Transcribing…" : "Dictate"}</span>
+    </button>
+  ) : null;
+  const clear = props.onClear && messages.length ? (
+    <button type="button" className="pc-workflow-chat__icon-button af-sandbox-chat__clear" aria-label="Clear chat" title="Clear chat" onClick={() => { voice.stop_tts(); props.onClear?.(); }}>
+      <Icon name="trash" size={16} />
+      <span>Clear</span>
+    </button>
+  ) : null;
+  return (
+    <WorkflowChat
+      className="af-sandbox-chat"
+      messages={messages}
+      draft={props.draft}
+      onDraftChange={props.onDraftChange}
+      onSend={props.onSend}
+      busy={props.busy}
+      busyLabel={props.busyLabel}
+      sendLabel={props.sendLabel}
+      placeholder={props.placeholder}
+      blockedNotice={blocked ? props.blockedNotice : null}
+      emptyState={<div className="af-sandbox-chat__empty">{props.emptyText || "No messages yet."}</div>}
+      onAttach={props.onAttach}
+      onFiles={props.onFiles}
+      attachments={items.length ? <SandboxAttachmentChips items={items} onRemove={props.onRemoveAttachment} /> : null}
+      composerExtras={<>{mic}{clear}</>}
+      footer={voiceError ? <div className="pc-workflow-chat__error af-sandbox-chat__voice-error" role="alert">Voice: {voiceError}</div> : null}
+      messageProps={{
+        ...(voice.tts_supported ? { onSpeakToggle: (message: ChatMessage) => { void voice.toggle_tts(String(message.id || message.content), String(message.content || "")); } } : {}),
+        getSpeakState: (message: ChatMessage) => (voice.tts_playback.key === String(message.id || message.content) ? voice.tts_playback.status : "idle"),
+      }}
+    />
+  );
+}
+
 export function mountTopBar(el: Element, props: TopBarIslandProps): IslandHandle<TopBarIslandProps> {
   return mount(el, (p) => <TopBarIsland {...p} />, props);
 }
@@ -7915,6 +8156,34 @@ export function mountAppearance(el: Element, props: AppearanceIslandProps): Isla
 
 export function mountAbout(el: Element, props: AboutIslandProps): IslandHandle<AboutIslandProps> {
   return mount(el, (p) => <AfAboutDialog {...p} />, props);
+}
+
+/**
+ * The Sandbox chat (panel-chat thread + composer, voice via useGatewayVoice).
+ * Additive member (kit 0.4.0, round 3): apiVersion stays "1".
+ */
+export function mountSandboxChat(el: Element, props: SandboxChatIslandProps): IslandHandle<SandboxChatIslandProps> {
+  return mount(el, (p) => <SandboxChatIsland {...p} />, props);
+}
+
+/**
+ * The shared provider + model picker ("Gateway default" | Custom, reasoning,
+ * MTP) the React apps render, for the console. Props are the component's
+ * own (transport injected: fetchProviders / fetchModels /
+ * fetchModelCapabilities). Additive member (round 3): apiVersion stays "1".
+ */
+export function mountProviderModelPicker(el: Element, props: ProviderModelPickerProps): IslandHandle<ProviderModelPickerProps> {
+  return mount(el, (p) => <ProviderModelPicker {...p} />, props);
+}
+
+export type VoiceSettingsIslandProps = React.ComponentProps<typeof VoiceSettings>;
+
+/**
+ * The shared voice picker (provider + model + voice, "Gateway default"),
+ * transport injected (fetchCatalog). Additive member (round 3).
+ */
+export function mountVoiceSettings(el: Element, props: VoiceSettingsIslandProps): IslandHandle<VoiceSettingsIslandProps> {
+  return mount(el, (p) => <VoiceSettings {...p} />, props);
 }
 
 /**
@@ -7953,6 +8222,9 @@ const api = {
   mountTopBar,
   mountAppearance,
   mountAbout,
+  mountSandboxChat,
+  mountProviderModelPicker,
+  mountVoiceSettings,
   bindModal,
   bindMenu,
   appIdentity,
@@ -7997,7 +8269,11 @@ const result = await build({
     "process.env.NODE_ENV": '"production"',
     __KIT_VERSION__: JSON.stringify(pkg.version),
   },
-  // Only relative kit sources + react/react-dom; resolved from the workspace.
+  // Relative kit sources, panel-chat's sources (the Sandbox chat) and
+  // react/react-dom, resolved from the workspace. panel-chat imports the kit
+  // by package name: alias it to THIS kit's sources so the bundle carries one
+  // copy of every kit module (never a stale dist).
+  alias: { "@abstractframework/ui-kit": join(kitDir, "src", "index.ts") },
   nodePaths: [join(kitDir, "node_modules"), join(kitDir, "..", "node_modules")],
 });
 const banner = `/*! @abstractframework/ui-kit ${pkg.version} console islands (React 18, MIT) */\n`;
@@ -9773,7 +10049,7 @@ export {
   type StreamRepliesMode,
 } from "./llm_delta.js";
 
-export type { ChatAttachment, ChatLiveReply, ChatMessage, ChatMessageLevel, ChatStat } from "./chat_message_card.js";
+export type { ChatAttachment, ChatLiveReply, ChatMedia, ChatMessage, ChatMessageLevel, ChatStat } from "./chat_message_card.js";
 export type {
   WorkflowChatProps,
 } from "./workflow_chat.js";
@@ -9881,6 +10157,31 @@ export type ChatMessage = {
    * and the model's reasoning in a collapsed "Thinking" block.
    */
   live?: ChatLiveReply;
+  /**
+   * The model's reasoning for a FINISHED reply, shown collapsed under
+   * "Thinking" like a live reply's (hosts that do not stream, e.g. a one-shot
+   * generation, still have reasoning to show).
+   */
+  reasoning?: string;
+  /** Generated media shown inline under the message text (images, audio, video). */
+  media?: ChatMedia[];
+  /** Per-message stat chips (e.g. "1.2s · 24 tok"); a card's `stats` prop wins. */
+  stats?: ChatStat[];
+};
+
+/**
+ * One generated media item. `src` is supplied by the HOST (typically a
+ * `blob:` URL of a gateway artifact it fetched with the session), never
+ * parsed out of model text; `href` is the raw file link shown beside it.
+ */
+export type ChatMedia = {
+  id?: string;
+  kind: "image" | "audio" | "video";
+  src: string;
+  /** Accessible name / link text, e.g. "Generated image". */
+  label?: string;
+  /** Link to the raw file (opens in a new tab). */
+  href?: string;
 };
 
 /** Streaming state of a live assistant reply. `content` holds the visible text only. */
@@ -9890,6 +10191,9 @@ export type ChatLiveReply = {
   reasoning: string;
   /** Who is writing, when it is not the conversation's own agent (e.g. "sub-agent · researcher"). */
   caption?: string;
+  /** The indicator's text while the reply is pending. Default "streaming";
+   *  a one-shot host says what it waits for (e.g. "generating image"). */
+  label?: string;
 };
 
 export type ChatAttachment = {
@@ -9956,6 +10260,50 @@ function _role_ui(m: ChatMessage): RoleUI {
   return { label: sys_label, icon: sys_icon, variant: sys_variant };
 }
 
+const MEDIA_SCHEMES = new Set(["blob:", "data:", "http:", "https:"]);
+
+/** A host-supplied media source: blob/data/http(s) or a same-origin path. */
+function mediaSource(src: string): string | undefined {
+  const value = String(src || "").trim();
+  if (!value) return undefined;
+  try {
+    const base = typeof window !== "undefined" && window.location ? window.location.href : "http://same-origin.invalid/";
+    return MEDIA_SCHEMES.has(new URL(value, base).protocol) ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function ChatMediaItem({ item }: { item: ChatMedia }): React.ReactElement | null {
+  const [failed, setFailed] = useState(false);
+  const src = mediaSource(item.src);
+  const href = item.href ? mediaSource(item.href) : undefined;
+  const kind = item.kind === "image" || item.kind === "audio" || item.kind === "video" ? item.kind : null;
+  if (!kind || (!src && !href)) return null;
+  const noun = kind === "image" ? "Image" : kind === "video" ? "Video" : "Audio";
+  const label = String(item.label || "").trim() || `Generated ${noun.toLowerCase()}`;
+  const onError = () => setFailed(true);
+  return (
+    <figure className={`pc-chat-media__item pc-chat-media__item--${kind}`}>
+      {src && kind === "image" ? <img className="pc-chat-media__image" src={src} alt={label} loading="lazy" onError={onError} /> : null}
+      {src && kind === "video" ? <video className="pc-chat-media__video" src={src} controls playsInline preload="metadata" aria-label={label} onError={onError} /> : null}
+      {src && kind === "audio" ? <audio className="pc-chat-media__audio" src={src} controls preload="metadata" aria-label={label} onError={onError} /> : null}
+      {failed ? (
+        <div className="pc-chat-media__error" role="note">
+          {noun} could not be decoded by this browser{href ? "; open the raw file with the link." : "."}
+        </div>
+      ) : null}
+      {href ? (
+        <figcaption className="pc-chat-media__caption">
+          <a className="pc-chat-media__link" href={href} target="_blank" rel="noopener noreferrer">
+            {label}
+          </a>
+        </figcaption>
+      ) : null}
+    </figure>
+  );
+}
+
 export type ChatMessageCardProps = {
   message: ChatMessage;
   className?: string;
@@ -10013,10 +10361,14 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
 
   const attachments = Array.isArray(props.attachments) ? props.attachments : [];
   const metrics = m.statistics;
+  const own_stats = m.stats;
   const stats: ChatStat[] = useMemo(
-    () => (Array.isArray(props.stats) ? props.stats : metrics ? workflowStats(metrics) : []),
-    [props.stats, metrics],
+    () => (Array.isArray(props.stats) ? props.stats : Array.isArray(own_stats) ? own_stats : metrics ? workflowStats(metrics) : []),
+    [props.stats, own_stats, metrics],
   );
+  const media = Array.isArray(m.media) ? m.media : [];
+  const reasoning = live ? String(live.reasoning || "") : String(m.reasoning || "");
+  const has_text = Boolean(String(m.content || "").trim());
 
   if (m.toolActivity) return <ToolActivity tool={m.toolActivity} showCopy={props.showCopy} />;
 
@@ -10031,9 +10383,9 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         </div>
         <span className="pc-chat-role">{role_ui.label}</span>
         {live ? (
-          <span className="pc-chat-live-indicator" title="The reply is still being written">
+          <span className="pc-chat-live-indicator" title={live.label ? `Pending: ${live.label}` : "The reply is still being written"}>
             <span className="pc-chat-live-dot" aria-hidden="true" />
-            streaming
+            {live.label || "streaming"}
           </span>
         ) : null}
         {live?.caption ? <span className="pc-chat-live-caption">{live.caption}</span> : null}
@@ -10070,14 +10422,14 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         </div>
       </div>
 
-      {live?.reasoning ? (
+      {reasoning.trim() ? (
         <details className="pc-chat-thinking">
           <summary>Thinking</summary>
-          <div className="pc-chat-thinking-body">{live.reasoning}</div>
+          <div className="pc-chat-thinking-body">{reasoning}</div>
         </details>
       ) : null}
 
-      {!live || String(m.content || "").trim() ? (
+      {has_text || (!live && !media.length) ? (
         <div className="pc-chat-body">
           <ChatMessageContent
             text={String(m.content || "")}
@@ -10086,6 +10438,14 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
             images={props.images || (role_ui.variant === "user" ? "inline" : "link")}
             inlineImage={props.inlineImage}
           />
+        </div>
+      ) : null}
+
+      {media.length ? (
+        <div className="pc-chat-media">
+          {media.slice(0, 24).map((item, idx) => (
+            <ChatMediaItem key={item.id || `${item.kind}:${item.src}:${idx}`} item={item} />
+          ))}
         </div>
       ) : null}
 
@@ -13949,6 +14309,15 @@ ships.
 
 ## [Unreleased]
 
+- `@abstractframework/ui-kit`: `ProviderModelPicker` takes `inheritLabel` (the inherit choice of
+  the reasoning and MTP selects; default unchanged) and `optionsInDefaultMode` (`false` shows
+  reasoning and MTP only for a custom provider/model). `VoiceSettings` takes `intro`, `delivery`,
+  `showReset`, `defaultHint` and `voiceDefaultLabel`. The console islands add
+  `mountProviderModelPicker` and `mountVoiceSettings`, so the gateway console renders the same
+  pickers as the apps. Checked by `scripts/check_route_picker.mjs` and `check_islands.mjs`.
+
+- `@abstractframework/ui-kit`: the sign-in card's **Gateway token** field is no longer offered to password managers: `autoComplete="off"` (was `current-password`) plus the standard ignore attributes `data-1p-ignore`, `data-lpignore="true"`, `data-bwignore`. A manager reacting to it showed a "Keychain Not Found" toast on sign-in. Paste still works.
+
 ### Added
 
 - `@abstractframework/ui-kit`: a row actions menu. `AfMenu` (React) and the `af-menu` classes for
@@ -13958,6 +14327,22 @@ ships.
   with `AfConsoleIslands.bindMenu(button, list)` (`bindAfMenu` in the package).
 - `@abstractframework/ui-kit`: `af-modal--wide` (`AfModal size="wide"`), a modal up to 1120 px wide
   for management panels that hold a table.
+- `@abstractframework/panel-chat`: chat messages can carry generated media (`media`: images, audio and
+  video shown inline with a link to the raw file), the reasoning of a finished reply (`reasoning`,
+  collapsed under "Thinking"), their own stat chips (`stats`), and a pending reply can say what it
+  waits for (`live.label`, e.g. "generating image") instead of "streaming".
+- `@abstractframework/ui-kit`: the console islands bundle gains `mountSandboxChat(el, props)`: the
+  panel-chat thread and composer (Attach button, drop and paste to attach, attachment chips, hold to
+  dictate and a speaker on replies through `useGatewayVoice`), driven by the host with `update(props)`.
+  The AbstractGateway console's Sandbox renders its chat with it.
+
+### Fixed
+
+- `@abstractframework/ui-kit`: a modal's focus trap (`bindAfModal`, islands `bindModal`) no longer
+  counts the controls inside a closed `<details>` (their summary stays reachable). In Chromium,
+  Tab from the last summary used to leave the dialog.
+- `@abstractframework/ui-kit`: `WorkflowPicker` + `useExecutableWorkflows()` — the shared workflow chooser. It lists only the workflows the gateway returns for the app's interface (`GET /api/gateway/bundles?executable_for=<interface>`), grouped "Shared" and "Mine", with "Gateway default" first and the version as a small detail; it has no "show all" switch and fails with a sentence when the gateway does not filter per app. Empty list: "No workflows available for this app — ask your admin."
+- `@abstractframework/ui-kit`: `WorkflowPicker` + `useExecutableWorkflows()` — the shared workflow chooser. It lists only the workflows the gateway returns for the app's interface (`GET /api/gateway/bundles?executable_for=<interface>`), grouped "Shared" and "Mine", with "Gateway default" first and the version as a small detail; it has no "show all" switch and fails with a sentence when the gateway does not filter per app. Empty list: "No workflows available for this app — ask your admin." A launcher passes `interfaceId={null}` to list every workflow it may run across interfaces (`GET /api/gateway/bundles`, still filtered by the gateway), with each entry's interfaces as its detail line.
 
 ## 0.4.0 - 2026-10-01
 
