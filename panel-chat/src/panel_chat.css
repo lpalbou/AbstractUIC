@@ -1203,7 +1203,8 @@
 
 .pc-chat-media__audio {
   display: block;
-  width: min(100%, 420px);
+  width: 420px;
+  max-width: 100%;
   min-height: 40px;
 }
 
