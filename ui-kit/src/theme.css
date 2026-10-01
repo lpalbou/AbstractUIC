@@ -5213,10 +5213,17 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   overflow: hidden;
 }
 .af-workflow-picker__value .af-workflow-picker__name {
+  flex: 0 0 auto;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
+}
+/* In the trigger the detail gives way first (the name stays readable). */
+.af-workflow-picker__value .af-workflow-picker__detail {
+  flex: 0 100 auto;
+  min-width: 0;
 }
 .af-workflow-picker__detail {
   color: var(--text-muted);
@@ -5260,8 +5267,10 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   font-size: var(--font-size-base);
   cursor: pointer;
 }
-.af-workflow-picker__option .af-workflow-picker__name {
+.af-workflow-picker__option .af-workflow-picker__name,
+.af-workflow-picker__option .af-workflow-picker__detail {
   overflow-wrap: anywhere;
+  white-space: normal;
 }
 .af-workflow-picker__option--highlighted {
   background: var(--accent-subtle, rgba(233, 69, 96, 0.12));
@@ -5287,6 +5296,13 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   .af-workflow-picker__trigger,
   .af-workflow-picker__option {
     min-height: var(--tap-min, 44px);
+  }
+}
+/* Phones: the trigger shows the name only; the version and the default's
+ * target are in the open list. */
+@media (max-width: 599.98px) {
+  .af-workflow-picker__trigger .af-workflow-picker__detail {
+    display: none;
   }
 }
 /* af-workflow-picker:end */
