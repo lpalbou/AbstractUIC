@@ -44,6 +44,8 @@ export type WorkflowPickerEntry = {
   shipped: boolean;
   /** The entrypoint's declared interfaces, as listed (always include the requested one). */
   interfaces: string[];
+  /** Any-interface mode: the detail line names the interfaces (a launcher picks across apps). */
+  showInterfaces?: boolean;
 };
 
 export type WorkflowPickerDefault =
@@ -51,7 +53,8 @@ export type WorkflowPickerDefault =
   | { status: "unavailable"; reason: string };
 
 export type ExecutableWorkflows = {
-  interfaceId: string;
+  /** The interface the list was asked for, or null for the launcher's "any interface" mode. */
+  interfaceId: string | null;
   entries: WorkflowPickerEntry[];
   gatewayDefault: WorkflowPickerDefault;
 };
@@ -69,6 +72,20 @@ export function executableWorkflowsPath(interfaceId: string, options: { allVersi
   const id = String(interfaceId || "").trim();
   if (!id) throw new Error("executableWorkflowsPath needs the interface the app runs (e.g. abstractcode.agent.v1).");
   return `bundles?executable_for=${encodeURIComponent(id)}${options.allVersions ? "&all_versions=true" : ""}`;
+}
+
+/**
+ * The launcher's "any interface" request: `GET /bundles` without
+ * `executable_for`. The gateway still applies availability and ownership to it
+ * (a non-admin sees available shared bundles plus their own).
+ */
+export function allWorkflowsPath(options: { allVersions?: boolean } = {}): string {
+  return options.allVersions ? "bundles?all_versions=true" : "bundles";
+}
+
+/** The request path for a picker: per interface, or every interface when `interfaceId` is null. */
+export function workflowPickerPath(interfaceId: string | null, options: { allVersions?: boolean } = {}): string {
+  return interfaceId === null ? allWorkflowsPath(options) : executableWorkflowsPath(interfaceId, options);
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -110,10 +127,29 @@ function defaultFrom(body: Record<string, unknown>, interfaceId: string): Workfl
  * executable-for listing of that interface.
  */
 export function parseExecutableWorkflows(envelope: unknown, interfaceId: string): ExecutableWorkflows {
+  return parseWorkflowListing(envelope, interfaceId);
+}
+
+/**
+ * Parse a picker listing. `interfaceId` = a string: the per-interface answer
+ * (`executable_for` echo required, every entrypoint declares it). `null`: the
+ * launcher's any-interface answer (`GET /bundles`; it must NOT carry an
+ * `executable_for` echo) where a workflow is executable when its entrypoint
+ * declares at least one interface — entrypoints declaring none are
+ * scratch/dev flows no app can run. `defaultInterface` names the interface
+ * whose gateway default the "Gateway default" entry stands for.
+ */
+export function parseWorkflowListing(
+  envelope: unknown,
+  interfaceId: string | null,
+  options: { defaultInterface?: string } = {},
+): ExecutableWorkflows {
   const body = record(envelope);
   if (!body) throw new WorkflowPickerContractError("The gateway's workflow list is not a JSON object.");
   const echoed = text(body.executable_for);
-  if (echoed !== interfaceId)
+  if (interfaceId === null) {
+    if (echoed) throw new WorkflowPickerContractError(`Asked for every workflow, the gateway listed only ${echoed}.`);
+  } else if (echoed !== interfaceId)
     throw new WorkflowPickerContractError(
       echoed
         ? `The gateway listed workflows for ${echoed}, not ${interfaceId}.`
@@ -138,9 +174,11 @@ export function parseExecutableWorkflows(envelope: unknown, interfaceId: string)
       const flowId = text(ep?.flow_id);
       if (!ep || !flowId) continue;
       const interfaces = Array.isArray(ep.interfaces) ? ep.interfaces.map(text).filter(Boolean) : [];
-      // Never filtered here: the gateway already did. An entrypoint that does
-      // not declare the interface means the gateway ignored the contract.
-      if (!interfaces.includes(interfaceId))
+      if (interfaceId === null) {
+        if (!interfaces.length) continue;
+      } else if (!interfaces.includes(interfaceId))
+        // Never filtered here: the gateway already did. An entrypoint that does
+        // not declare the interface means the gateway ignored the contract.
         throw new WorkflowPickerContractError(
           `The gateway offered ${bundleId}:${flowId}, which does not declare ${interfaceId}: ${UPDATE}.`,
         );
@@ -155,10 +193,18 @@ export function parseExecutableWorkflows(envelope: unknown, interfaceId: string)
         group: kind === "user" ? "mine" : "shared",
         shipped: item.shipped,
         interfaces,
+        ...(interfaceId === null ? { showInterfaces: true } : {}),
       });
     }
   }
-  return { interfaceId, entries, gatewayDefault: defaultFrom(body, interfaceId) };
+  const defaultInterface = options.defaultInterface ?? interfaceId;
+  return {
+    interfaceId,
+    entries,
+    gatewayDefault: defaultInterface
+      ? defaultFrom(body, defaultInterface)
+      : { status: "unavailable", reason: "no interface named for the gateway default" },
+  };
 }
 
 export type WorkflowPickerGroup = { id: WorkflowPickerGroupId; label: string; entries: WorkflowPickerEntry[] };
@@ -176,7 +222,8 @@ export function workflowPickerGroups(entries: readonly WorkflowPickerEntry[]): W
 export function workflowEntryDetail(entry: WorkflowPickerEntry, all: readonly WorkflowPickerEntry[] = []): string {
   const siblings = all.filter((e) => e.bundleId === entry.bundleId && e.bundleVersion === entry.bundleVersion);
   const version = entry.bundleVersion ? `@${entry.bundleVersion}` : "";
-  return siblings.length > 1 ? `${version} · ${entry.flowId}`.trim() : version;
+  const base = siblings.length > 1 ? `${version} · ${entry.flowId}`.trim() : version;
+  return entry.showInterfaces ? [entry.interfaces.join(", "), base].filter(Boolean).join(" · ") : base;
 }
 
 /** The default entry: label "Gateway default", detail = what it resolves to (or why it can't). */

@@ -9,7 +9,7 @@ ships.
 
 ## [Unreleased]
 
-- `@abstractframework/ui-kit`: `WorkflowPicker` + `useExecutableWorkflows()` — the shared workflow chooser. It lists only the workflows the gateway returns for the app's interface (`GET /api/gateway/bundles?executable_for=<interface>`), grouped "Shared" and "Mine", with "Gateway default" first and the version as a small detail; it has no "show all" switch and fails with a sentence when the gateway does not filter per app. Empty list: "No workflows available for this app — ask your admin."
+- `@abstractframework/ui-kit`: `WorkflowPicker` + `useExecutableWorkflows()` — the shared workflow chooser. It lists only the workflows the gateway returns for the app's interface (`GET /api/gateway/bundles?executable_for=<interface>`), grouped "Shared" and "Mine", with "Gateway default" first and the version as a small detail; it has no "show all" switch and fails with a sentence when the gateway does not filter per app. Empty list: "No workflows available for this app — ask your admin." A launcher passes `interfaceId={null}` to list every workflow it may run across interfaces (`GET /api/gateway/bundles`, still filtered by the gateway), with each entry's interfaces as its detail line.
 
 ## 0.4.0 - 2026-10-01
 

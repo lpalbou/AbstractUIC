@@ -30,6 +30,9 @@ const {
   WorkflowPickerContractError,
   executableWorkflowsPath,
   parseExecutableWorkflows,
+  parseWorkflowListing,
+  workflowPickerPath,
+  allWorkflowsPath,
   workflowPickerGroups,
   workflowPickerNextIndex,
   workflowPickerRows,
@@ -144,6 +147,33 @@ check("error is said", t5.includes('role="alert"') && t5.includes("403: forbidde
 const t6 = trig({ workflows: state(empty), showDefault: false });
 check("empty without default says the sentence", t6.includes(WORKFLOW_PICKER_EMPTY));
 check("data-interface marks the app's interface", t1.includes(`data-interface="${IFACE}"`));
+
+// 4b. Any-interface mode (a launcher: AbstractObserver). GET /bundles without
+// executable_for (the gateway still applies availability); every entrypoint
+// declaring an interface is listed, the interfaces are the detail line.
+check("any path", workflowPickerPath(null) === "bundles" && allWorkflowsPath({ allVersions: true }) === "bundles?all_versions=true");
+check("per-interface path unchanged", workflowPickerPath(IFACE) === executableWorkflowsPath(IFACE));
+const anyEnv = {
+  items: [
+    item("basic-agent", "0.0.5", GW, true, [ep("main", "Basic agent", [IFACE], "basic-agent", "0.0.5")]),
+    item("mail-triage", "1.0.0", ME, false, [ep("main", "Mail triage", ["abstractflow.event.v1"], "mail-triage", "1.0.0")]),
+    item("scratch", "0.0.1", GW, false, [ep("dev", "Scratch", [], "scratch", "0.0.1")]),
+  ],
+  default_agent_workflows: fake.default_agent_workflows,
+};
+const any = parseWorkflowListing(anyEnv, null, { defaultInterface: IFACE });
+check("any: every interface listed", any.entries.map((e) => e.bundleId).join() === "basic-agent,mail-triage");
+check("any: entrypoint without an interface is not executable", !any.entries.some((e) => e.bundleId === "scratch"));
+check("any: Mine from owner", any.entries.find((e) => e.bundleId === "mail-triage")?.group === "mine");
+const anyRows = workflowPickerRows(any);
+check("any: interface as the detail line", anyRows.find((r) => r.entry?.bundleId === "mail-triage")?.detail === "abstractflow.event.v1 · @1.0.0", JSON.stringify(anyRows.map((r) => r.detail)));
+check("any: default for the named interface", any.gatewayDefault.status === "ok" && anyRows[0].detail === "Basic agent @0.0.5");
+throwsContract("any: an echoed executable_for is refused (asked for all)", () => parseWorkflowListing(fake, null), "Asked for every workflow");
+throwsContract("any: owner still required", () => parseWorkflowListing({ items: [{ ...anyEnv.items[0], owner: undefined }] }, null), "owner missing");
+const tAny = renderToStaticMarkup(React.createElement(WorkflowPicker, { interfaceId: null, value: "", onChange: () => {}, workflows: state(any) }));
+check("any: no Gateway default without defaultInterface", !tAny.includes(">Gateway default<") && tAny.includes('data-interface="any"'));
+const tAnyDef = renderToStaticMarkup(React.createElement(WorkflowPicker, { interfaceId: null, defaultInterface: IFACE, value: WORKFLOW_PICKER_DEFAULT, onChange: () => {}, workflows: state(any) }));
+check("any: Gateway default with defaultInterface", tAnyDef.includes(">Gateway default</span>"));
 
 // 5. Keyboard navigation (pure).
 check("down from none", workflowPickerNextIndex("ArrowDown", -1, 4) === 0);

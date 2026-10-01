@@ -32,8 +32,8 @@ import {
   WORKFLOW_PICKER_DEFAULT,
   WORKFLOW_PICKER_EMPTY,
   WORKFLOW_PICKER_GROUP_LABELS,
-  executableWorkflowsPath,
-  parseExecutableWorkflows,
+  parseWorkflowListing,
+  workflowPickerPath,
   workflowPickerNextIndex,
   workflowPickerRows,
   type ExecutableWorkflows,
@@ -53,7 +53,15 @@ export type ExecutableWorkflowsState = {
 };
 
 export type UseExecutableWorkflowsOptions = {
-  interfaceId: string;
+  /**
+   * The interface this app runs (`GET /bundles?executable_for=<it>`), or null
+   * for a launcher (AbstractObserver) that runs workflows of ANY interface
+   * (`GET /bundles`, still filtered by the gateway's availability rules; the
+   * detail line then names each entry's interfaces).
+   */
+  interfaceId: string | null;
+  /** Any-interface mode: the interface whose gateway default "Gateway default" stands for. */
+  defaultInterface?: string;
   /** The app's authenticated JSON request (preferred: it carries the app's sign-in). */
   request?: WorkflowPickerRequest;
   /** Without `request`: a same-origin (or this base URL's) fetch with the browser's credentials. */
@@ -87,7 +95,7 @@ function errorText(reason: unknown): string {
 
 /** Fetch the workflows this app can run, as the gateway lists them for the signed-in person. */
 export function useExecutableWorkflows(options: UseExecutableWorkflowsOptions): ExecutableWorkflowsState {
-  const { interfaceId, allVersions = false, enabled = true, gatewayBaseUrl, reloadKey } = options;
+  const { interfaceId, defaultInterface, allVersions = false, enabled = true, gatewayBaseUrl, reloadKey } = options;
   const requestRef = useRef(options.request);
   requestRef.current = options.request;
   const [tick, setTick] = useState(0);
@@ -99,28 +107,30 @@ export function useExecutableWorkflows(options: UseExecutableWorkflowsOptions): 
     }
     const abort = new AbortController();
     setState((s) => ({ ...s, status: "loading", error: "" }));
-    const path = executableWorkflowsPath(interfaceId, { allVersions });
+    const path = workflowPickerPath(interfaceId, { allVersions });
     const run = requestRef.current
       ? requestRef.current(path, { signal: abort.signal })
       : defaultRequest(gatewayBaseUrl, path, abort.signal);
     run
       .then((body) => {
         if (abort.signal.aborted) return;
-        setState({ status: "ready", data: parseExecutableWorkflows(body, interfaceId), error: "" });
+        setState({ status: "ready", data: parseWorkflowListing(body, interfaceId, { defaultInterface }), error: "" });
       })
       .catch((reason) => {
         if (abort.signal.aborted) return;
         setState({ status: "error", data: null, error: errorText(reason) });
       });
     return () => abort.abort();
-  }, [interfaceId, allVersions, enabled, gatewayBaseUrl, reloadKey, tick]);
+  }, [interfaceId, defaultInterface, allVersions, enabled, gatewayBaseUrl, reloadKey, tick]);
   const reload = useCallback(() => setTick((t) => t + 1), []);
   return { ...state, reload };
 }
 
 export type WorkflowPickerProps = {
-  /** The interface this app runs (abstractcode.agent.v1, abstractassistant.agent.v1, …). */
-  interfaceId: string;
+  /** The interface this app runs (abstractcode.agent.v1, abstractassistant.agent.v1, …), or null for a launcher (any interface). */
+  interfaceId: string | null;
+  /** Any-interface mode: the interface whose gateway default "Gateway default" stands for (no default entry without it). */
+  defaultInterface?: string;
   /** `@default` (WORKFLOW_PICKER_DEFAULT) or an entry's `value` (bundle@version:flow). */
   value: string;
   onChange: (value: string, entry: WorkflowPickerEntry | null) => void;
@@ -164,13 +174,14 @@ function cx(...parts: Array<string | false | null | undefined>): string {
 export function WorkflowPicker(props: WorkflowPickerProps): React.ReactElement {
   const own = useExecutableWorkflows({
     interfaceId: props.interfaceId,
+    defaultInterface: props.defaultInterface,
     request: props.request,
     gatewayBaseUrl: props.gatewayBaseUrl,
     allVersions: props.allVersions,
     enabled: props.workflows ? false : props.enabled !== false,
   });
   const list = props.workflows ?? own;
-  const showDefault = props.showDefault !== false;
+  const showDefault = props.showDefault !== false && (props.interfaceId !== null || Boolean(props.defaultInterface));
   const baseId = useId().replace(/:/g, "");
   const listId = `${baseId}-list`;
   const [open, setOpen] = useState(false);
@@ -265,7 +276,7 @@ export function WorkflowPicker(props: WorkflowPickerProps): React.ReactElement {
   };
 
   return (
-    <div ref={rootRef} className={cx("af-workflow-picker", props.className)} data-interface={props.interfaceId}>
+    <div ref={rootRef} className={cx("af-workflow-picker", props.className)} data-interface={props.interfaceId ?? "any"}>
       <button
         ref={triggerRef}
         id={props.id}
