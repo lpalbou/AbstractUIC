@@ -1,7 +1,7 @@
 # Modal, Account Rows and Grouped Navigation
 
-This page covers four `ui-kit` pieces used by account and settings screens: the large modal
-dialog (`AfModal`), the account-kind row tints and chips, the grouped sidebar captions with a
+This page covers five `ui-kit` pieces used by account and settings screens: the large modal
+dialog (`AfModal`), the row actions menu (`AfMenu`), the account-kind row tints and chips, the grouped sidebar captions with a
 bottom slot, and the helper-text size floor. Each piece is a set of CSS classes in
 `ui-kit/src/theme.css`, so pages that are not React apps (the AbstractGateway console) use the
 same markup; React apps can also use the component.
@@ -11,7 +11,8 @@ same markup; React apps can also use the component.
 A modal opens a large panel over the page: an Email panel, an activity log, a form that needs room.
 
 - Size: `min(960px, 100vw - 32px)` wide, at most 90 % of the viewport height. `af-modal--narrow`
-  is `min(560px, 100vw - 32px)`.
+  is `min(560px, 100vw - 32px)`; `af-modal--wide` is `min(1120px, 100vw - 32px)`, for management
+  panels that hold a table.
 - Backdrop: the page is dimmed and blurred (`backdrop-filter: blur(8px)`). With
   `prefers-reduced-transparency: reduce` the blur is dropped and the dim is solid.
 - Scrolling: on a desktop the header and footer stay put and the body scrolls. Below 768 px the
@@ -40,7 +41,7 @@ import { AfModal } from "@abstractframework/ui-kit";
 
 Props: `open`, `onClose` (called by Escape, the close button and a backdrop click; the host sets
 `open` to false), `title`, `children` (the body), `footer`, `footerNote`, `size`
-(`"default"` | `"narrow"`), `closeLabel` (default "Close"), `closeOnEscape`, `closeOnBackdrop`
+(`"default"` | `"narrow"` | `"wide"`), `closeLabel` (default "Close"), `closeOnEscape`, `closeOnBackdrop`
 (both default true), `initialFocusRef`, `describedBy`, `portal` (default true: rendered into
 `document.body`), `id` (the title gets `${id}-title`), `className`.
 
@@ -87,6 +88,66 @@ el.querySelector(".af-modal__close").addEventListener("click", closeModal);
 function `AfModal` uses (`bindAfModal` in `src/af_modal_core.ts`, also exported from the package).
 Show the backdrop before binding (focus needs a rendered element), and call `release()` before
 hiding it.
+
+## Menu
+
+A compact "more actions" button that opens a short list of actions, for rows that have more
+actions than fit (Workspace, Rotate token, Archive…). Only actions that apply are rendered: there
+are no disabled items. When the absence of an action may surprise, put the reason in the button's
+`title` (for example "Entities have no token to rotate").
+
+- The list is `position: fixed`, placed under the button and flipped upward or leftward when it
+  would leave the viewport. A table cell's or a modal's `overflow` never clips it and it never
+  widens the page. Layering: `z-index: var(--z-popover)` (1100), above modals.
+- Behaviour: the button carries `aria-haspopup="menu"` and `aria-expanded`; items are
+  `role="menuitem"`. A click, Enter, Space or ArrowDown opens it on the first item (ArrowUp on the
+  last); ArrowDown / ArrowUp move (wrapping), Home / End jump; Escape closes it and returns focus
+  to the button (an enclosing modal stays open); Tab closes it and moves on; a press outside closes
+  it. Choosing an item closes the menu; focus returns to the button unless the item's handler moved
+  it (for example by opening a modal). Scrolling repositions the list, resizing closes it.
+- Touch (`pointer: coarse`): the button and every item are at least 44 px tall.
+
+### React: `AfMenu`
+
+```tsx
+import { AfMenu } from "@abstractframework/ui-kit";
+
+<AfMenu
+  label={`More actions for ${id}`}
+  items={[
+    { id: "workspace", label: "Workspace", onSelect: openWorkspace },
+    { id: "archive", label: "Archive", danger: true, onSelect: askArchive, hidden: !canArchive },
+  ]}
+/>
+```
+
+Props: `label` (the button's accessible name), `items` (`id`, `label`, `onSelect`, `danger`,
+`hidden` — a hidden item is left out, never shown disabled; with no visible item nothing renders),
+`buttonContent` (default "⋯"), `title`, `className`, `buttonClassName`.
+
+### Plain HTML
+
+```html
+<div class="af-menu">
+  <button type="button" class="af-menu__button" aria-label="More actions for alice">⋯</button>
+  <div class="af-menu__list" hidden>
+    <button type="button" class="af-menu__item">Workspace</button>
+    <button type="button" class="af-menu__item af-menu__item--danger">Archive</button>
+  </div>
+</div>
+<script>
+  const root = document.querySelector(".af-menu");
+  const release = AfConsoleIslands.bindMenu(
+    root.querySelector(".af-menu__button"),
+    root.querySelector(".af-menu__list"),
+  );
+</script>
+```
+
+`bindMenu(button, list, { onOpen?, onClose? })` is the function `AfMenu` uses (`bindAfMenu` in
+`src/af_menu_core.ts`, also exported from the package with `afMenuPlacement`). Items are the
+`.af-menu__item` elements inside the list, read each time the menu opens, so the host may re-render
+them. Call `release()` before removing the markup.
 
 ## Account rows
 
@@ -175,5 +236,8 @@ heavier than 600. The constants are exported: `HELPER_MIN_PX` (13), `HELPER_MIN_
 - `ui-kit/scripts/check_modal_rows.mjs`: the modal CSS contract, the row tint contrast in every
   theme, the row / chip / navigation classes and the helper floors.
 - `ui-kit/scripts/check_forms_signin.mjs`: `checkLabelScale` including the touch floor.
+- `ui-kit/scripts/check_menu.mjs`: `bindAfMenu` behaviour (ARIA, open / close, keys, outside press,
+  focus return, Escape inside a modal), `afMenuPlacement` flips, the `AfMenu` markup, the menu and
+  `af-modal--wide` CSS contract and the islands export.
 
-All three run in `npm test` for `ui-kit`.
+All four run in `npm test` for `ui-kit`.

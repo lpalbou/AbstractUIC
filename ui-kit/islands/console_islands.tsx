@@ -19,6 +19,7 @@ import { AfAboutDialog } from "../src/about.js";
 import { appIdentity, type AppIdentity } from "../src/identity.js";
 import { Icon, type IconName } from "../src/icon.js";
 import { bindAfModal } from "../src/af_modal_core.js";
+import { bindAfMenu } from "../src/af_menu_core.js";
 import { THEME_SPECS, applyTheme } from "../src/theme.js";
 import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typography.js";
 import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
@@ -152,6 +153,17 @@ export function bindModal(backdrop: HTMLElement, options: { onClose: () => void;
   return bindAfModal(backdrop, options);
 }
 
+/**
+ * Make a plain-HTML button open an `.af-menu__list` (menu button semantics:
+ * aria-haspopup / aria-expanded, role=menuitem items, arrow keys, Escape and
+ * outside press close, focus return, flips upward / leftward at the viewport
+ * edge) until the returned release() is called. Markup contract: docs/modal.md
+ * ("Menu"). Additive member (kit 0.4.0, round 3): apiVersion stays "1".
+ */
+export function bindMenu(button: HTMLElement, menu: HTMLElement, options?: { onOpen?: () => void; onClose?: () => void }): () => void {
+  return bindAfMenu(button, menu, options || {});
+}
+
 /** The kit's own theme + typography application (root class + CSS vars). */
 export function applyAppearance(settings: Partial<AppearanceSettings>): void {
   applyTheme(String(settings.theme || "dark"));
@@ -168,6 +180,7 @@ const api = {
   mountAppearance,
   mountAbout,
   bindModal,
+  bindMenu,
   appIdentity,
   applyAppearance,
 };

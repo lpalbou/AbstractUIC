@@ -9,6 +9,16 @@ ships.
 
 ## [Unreleased]
 
+### Added
+
+- `@abstractframework/ui-kit`: a row actions menu. `AfMenu` (React) and the `af-menu` classes for
+  plain HTML: a compact "⋯" button that opens a short list of the actions that apply (no disabled
+  items). Arrow keys, Home / End, Escape and an outside press work; the list flips upward or
+  leftward at the viewport edge and is never clipped by a table or a modal. Plain-HTML pages bind it
+  with `AfConsoleIslands.bindMenu(button, list)` (`bindAfMenu` in the package).
+- `@abstractframework/ui-kit`: `af-modal--wide` (`AfModal size="wide"`), a modal up to 1120 px wide
+  for management panels that hold a table.
+
 ## 0.4.0 - 2026-10-01
 
 On/off settings become switches labelled by the feature, highlighted when on; automations get an

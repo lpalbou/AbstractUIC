@@ -36,8 +36,8 @@ export type AfModalProps = {
   footer?: React.ReactNode;
   /** A short muted note at the start of the footer (e.g. the source of a list). */
   footerNote?: React.ReactNode;
-  /** "default" = min(960px, 100vw - 32px); "narrow" = min(560px, 100vw - 32px). */
-  size?: "default" | "narrow";
+  /** "default" = min(960px, 100vw - 32px); "narrow" = min(560px, …); "wide" = min(1120px, …). */
+  size?: "default" | "narrow" | "wide";
   /** Accessible name of the close button (default "Close"). */
   closeLabel?: string;
   closeOnEscape?: boolean;
@@ -76,7 +76,7 @@ export function AfModal(props: AfModalProps): React.ReactElement | null {
   const node = (
     <div className="af-modal-backdrop" ref={backdropRef}>
       <div
-        className={`af-modal${props.size === "narrow" ? " af-modal--narrow" : ""}${props.className ? ` ${props.className}` : ""}`}
+        className={`af-modal${props.size === "narrow" ? " af-modal--narrow" : props.size === "wide" ? " af-modal--wide" : ""}${props.className ? ` ${props.className}` : ""}`}
         id={id}
         role="dialog"
         aria-modal="true"

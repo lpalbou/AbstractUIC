@@ -92,6 +92,8 @@ export { AfChip, AfChipButton, afChipHue, type AfChipProps, type AfChipButtonPro
 export { AfDrawer, type AfDrawerProps } from "./af_drawer.js";
 export { AfModal, type AfModalProps } from "./af_modal.js";
 export { bindAfModal, afModalTabTarget, afModalFocusables, AF_MODAL_FOCUSABLE, type BindAfModalOptions } from "./af_modal_core.js";
+export { AfMenu, type AfMenuProps, type AfMenuItem } from "./af_menu.js";
+export { bindAfMenu, afMenuPlacement, type BindAfMenuOptions, type AfMenuPlacement, type AfMenuRect } from "./af_menu_core.js";
 export { AfTopBarActions, type AfTopBarActionsProps } from "./af_top_bar_actions.js";
 export {
   frameworkIdentity,
