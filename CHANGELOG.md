@@ -27,6 +27,12 @@ ships.
   dictate and a speaker on replies through `useGatewayVoice`), driven by the host with `update(props)`.
   The AbstractGateway console's Sandbox renders its chat with it.
 
+### Fixed
+
+- `@abstractframework/ui-kit`: a modal's focus trap (`bindAfModal`, islands `bindModal`) no longer
+  counts the controls inside a closed `<details>` (their summary stays reachable). In Chromium,
+  Tab from the last summary used to leave the dialog.
+
 ## 0.4.0 - 2026-10-01
 
 On/off settings become switches labelled by the feature, highlighted when on; automations get an
