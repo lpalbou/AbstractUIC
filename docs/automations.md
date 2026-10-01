@@ -159,22 +159,23 @@ and tool approval), `renderText` and `renderTurn` (required in practice; see abo
 
 ### Controls
 
-Pause / Resume, Run now, Stop current, Edit and Archive…, each an icon then its label
-(`CONTROL_LABELS`, `CONTROL_ICONS` — hosts use the same names and glyphs for their own row
+The controls bar leads with an **Active** switch (`AfSwitch`: on = the automation runs on its
+schedule, off = paused), followed by Run now, Stop current, Edit and Archive…, each an icon then
+its label (`CONTROL_LABELS`, `CONTROL_ICONS` — hosts use the same names and glyphs for their own row
 actions). `summary.capabilities` says what you may do (the Edit control is the `revise`
 capability); the status says what applies at this moment:
 
 | Control | Enabled when | Sends |
 | --- | --- | --- |
-| Pause | status `active` | `automation.pause` |
-| Resume | status `paused` | `automation.resume` |
+| Active (switch) | status `active` or `paused`, with the capability of the transition (`pause` when on, `resume` when off) | `automation.pause` when on, `automation.resume` when off (`activeToggleCommand(summary)`) |
 | Run now | status `active` or `paused`, and `current_occurrence` is `null` | `automation.run_now` (while paused it runs once; the automation stays paused) |
 | Stop current | `current_occurrence` is not `null` (admitted, running — including waiting for you — or backing off) | `automation.stop_current` |
 | Edit | always (subject to capability and status below) | opens the Edit form; Save calls `onRevise(changes, revision)` |
 | Archive… | always (subject to capability and status below) | `automation.archive`, after an in-panel confirmation |
 
 Every control is disabled while `busy`, on a legacy row, without the matching capability, or on
-an archived automation. The reasons show as one compact muted line under the buttons ("Run
+an archived automation; the Active switch is also unavailable once the automation has ended. An
+unavailable switch stays focusable and names its reason. The reasons show as one compact muted line under the buttons ("Run
 now, Stop current: Nothing is running. · …"), linked to each disabled button with
 `aria-describedby` and repeated as the first line of its tooltip (a tooltip alone is unreliable
 on a disabled button).
@@ -208,7 +209,8 @@ rows) and `RUN_NOW_GLYPH` (the `playCircle` markup, for clients that draw it wit
 Clients that cannot import the kit vendor that file byte-identical; the AbstractFramework
 repository's `scripts/check_identity_sync.py` fails when a copy drifts.
 
-The result of an action ("Pause sent.", "Run requested.", "Saved; applies from the next run.")
+The result of an action, named by the new state ("Automation paused.", "Automation active.",
+"Run requested.", "Stop requested.", "Saved; applies from the next run.")
 shows next to the buttons for `NOTICE_MS` (5 s) with a dismiss control, then clears. Errors stay
 until dismissed or replaced.
 
@@ -334,12 +336,11 @@ create UI.
 
 ### Email automations
 
-The Gateway reads each user's own mailbox (framework backlog 0992; runtime trigger
-`email.received@1`). The dialog offers three email options, and only when
+The Gateway reads each user's own mailbox (runtime trigger `email.received@1`). The dialog offers three email options, and only when
 `GET /api/gateway/me/email` (`automations.getMyEmail()`, passed as `emailStatus`) reports
 `effective_enabled: true` — the account is connected, the user's own switch is on and an
-administrator allows it. Otherwise the options are disabled and the dialog shows **"Email isn't
-set up — open My email"**; with `onOpenMyEmail` the last words are a button (the Gateway console's
+administrator allows it. Otherwise the options are disabled and the dialog shows **"Connect a
+mailbox first — open My email"**; with `onOpenMyEmail` the last words are a button (the Gateway console's
 My email is in its Users tab, `/console#users`). An unknown status (not loaded, or the call
 failed) counts as not set up, and nothing email-shaped is ever sent without a usable account.
 
@@ -530,7 +531,7 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`, `MY_EMAIL_PATH`; types `AutomationsClient`,
   `AutomationsClientOptions`, `ListAutomationsQuery`, `PageQuery`.
 - **Presentation rules** (pure functions, no React): `automationControls()`
-  (`ControlId`, `ControlState`), `CONTROL_COMMANDS`, `occurrenceViews()` (`OccurrenceView`,
+  (`ControlId`, `ControlState`), `activeToggleCommand()`, `CONTROL_COMMANDS`, `occurrenceViews()` (`OccurrenceView`,
   `OccurrenceTone`), `attentionAckCursor()`, `attentionLabel()`, `triggerSummary()`,
   `scheduleLabel()`, `intervalLabel()`, `contextLabel()`, `formatUtc()`, `parseDuration()`,
   `reviseFormFrom()` and `reviseChanges()` (`ReviseForm`, `ReviseDefinition`), `buildCreateRequest()` (`ScheduleForm`, `ScheduleWhen`),

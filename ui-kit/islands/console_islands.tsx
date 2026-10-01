@@ -146,7 +146,7 @@ export function mountAbout(el: Element, props: AboutIslandProps): IslandHandle<A
  * Make a plain-HTML `.af-modal-backdrop` behave as a modal (focus in + trap +
  * return, Escape / backdrop click -> onClose, page scroll lock) until the
  * returned release() is called. Markup contract: docs/modal.md. Additive
- * member (kit 0.3.3): apiVersion stays "1".
+ * member (kit 0.4.0): apiVersion stays "1".
  */
 export function bindModal(backdrop: HTMLElement, options: { onClose: () => void; closeOnEscape?: boolean; closeOnBackdrop?: boolean; initialFocus?: HTMLElement | null }): () => void {
   return bindAfModal(backdrop, options);

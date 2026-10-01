@@ -25,6 +25,11 @@ This package provides:
 - **Modal and account rows**: `AfModal` (large dialog over a blurred backdrop, full-screen sheet on
   phones), `bindAfModal()`, the `af-row--admin|user|entity` tints, `af-kind-chip`, `af-nav-group` /
   `af-nav-footer` — see [Modal, account rows, grouped navigation](../docs/modal.md)
+- **On/off settings and forms**: `AfSwitch` / `AfSwitchInput` (a switch labelled by the feature),
+  `AfTabs`, the `af-form` / `af-card` / `af-tabs` styles, and the guards `findVerbToggleLabels()`
+  and `checkLabelScale()` — see [On/off settings](../docs/state-toggles.md)
+- **Plain http**: `randomId()` (a v4 UUID in every browser context) and
+  `insecureContextReason(feature)` — see [Non-secure contexts](../docs/state-toggles.md#non-secure-contexts)
 - **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
 - **Palette seeds**: `@abstractframework/ui-kit/palette_seeds.json` for non-CSS consumers
 - **Console islands** (repository build, not in the npm package): the kit components as one
@@ -331,6 +336,7 @@ app. `scripts/check_responsive.mjs` and `scripts/check_viewport_vars.mjs` pin it
 - Adoption guide: [`docs/adoption-guide.md`](../docs/adoption-guide.md)
 - Theming: [`docs/theming.md`](../docs/theming.md)
 - Modal, account rows, grouped navigation: [`docs/modal.md`](../docs/modal.md)
+- On/off settings, forms, tabs: [`docs/state-toggles.md`](../docs/state-toggles.md)
 - Console islands: [`docs/console-islands.md`](../docs/console-islands.md)
 - Automations: [`docs/automations.md`](../docs/automations.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)

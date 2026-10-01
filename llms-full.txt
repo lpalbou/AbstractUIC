@@ -59,14 +59,14 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [API reference](docs/api.md): export map per package (what to import)
 - [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, ecosystem data flow, gateway connection flow, live replies, About/identity flow, automations flow, console islands build)
 - [FAQ](docs/faq.md): bundling/CSS/SSR and per-package notes
-- [Troubleshooting](docs/troubleshooting.md): symptoms, checks and fixes (unstyled components, SSR errors, widget polling, app-server 400/401/403, live replies, images shown as links, stale islands bundle)
+- [Troubleshooting](docs/troubleshooting.md): symptoms, checks and fixes (unstyled components, SSR errors, widget polling, app-server 400/401/403, live replies, images shown as links, stale islands bundle, plain-http copy/voice/ids)
 - [Automations](docs/automations.md): show and manage AbstractGateway automations — `AutomationPanel` (icon controls, an Edit form a host can open through `editOpen`, runs as chat pairs, typed wait answers), `AfScheduleDialog` (fixed UTC intervals, **When an email arrives** with typed filters, **Email me the result**, allowed recipients, tool-approval consent line), `createAutomationsClient()` and its error model, retry-safe ids, panel-chat `ScheduleThisAction` / `FromAutomationBadge`, the canonical fixtures and the export list
 - [Console islands](docs/console-islands.md): `window.AfConsoleIslands` (mountTopBar / mountAppearance / mountAbout / appIdentity / applyAppearance) for pages that are not React apps; repository build, not in the npm package
 - [Docs index](docs/README.md): full docs navigation
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / appearance dialog, About dialog + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel + schedule dialog + client
+- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / appearance dialog, About dialog + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel (Active switch) + schedule dialog + client, AfSwitch, AfTabs, AfModal, randomId
 - [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat, live replies (`llm.delta`), ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser, presentInteraction
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
@@ -1407,7 +1407,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
 - Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation on a fixed UTC interval, once, or when an email arrives; "Email me the result" and allowed recipients), the email fields `AfEmailTriggerFields` / `AfEmailOptionsFields` / `AfEmailSetupNotice`, `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
 - Modal and account rows: `AfModal`, `bindAfModal()` (+ `afModalTabTarget()`, `afModalFocusables()`, `AF_MODAL_FOCUSABLE`), the helper floors `HELPER_MIN_PX`, `HELPER_MIN_TOUCH_PX`, `HELPER_TOUCH_MEDIA` — see [Modal, account rows, grouped navigation](./modal.md)
-- On/off settings and forms: `AfSwitch` (+ `afSwitchNextState()`, `afSwitchIsActionable()`), `AfTabs` (+ `afTabsNextIndex()`), the guards `findVerbToggleLabels(source)` and `checkLabelScale(root)` (+ `LABEL_SCALE_SELECTOR`) — see [On/off settings](./state-toggles.md)
+- On/off settings and forms: `AfSwitch`, `AfSwitchInput` (a native `role="switch"` checkbox for uncontrolled forms) (+ `afSwitchNextState()`, `afSwitchIsActionable()`), `AfTabs` (+ `afTabsNextIndex()`), the guards `findVerbToggleLabels(source)` and `checkLabelScale(root)` (+ `LABEL_SCALE_SELECTOR`) — see [On/off settings](./state-toggles.md)
 - Ids and non-secure contexts: `randomId()` (v4 UUID over plain http too), `uuidV4FromBytes()`, `insecureContextReason(feature)` — see [Non-secure contexts](./state-toggles.md#non-secure-contexts)
 - Icons: `Icon`, `IconName` (~45 glyphs, 24-grid and 16-grid families; `play`, `stop`, `folder`, `file`, `archive`, `clock` added for automations)
 - Palette seeds: `@abstractframework/ui-kit/palette_seeds.json` (generated 4-token palette per theme)
@@ -1631,7 +1631,9 @@ This document stays intentionally close to the code: package boundaries, exports
 
 The AbstractFramework apps consume the packages from npm (or as workspace links). The
 AbstractGateway console is served from Python without an npm build, so it vendors generated
-copies of the kit instead: the theme stylesheet and the console islands bundle.
+copies of the kit instead: the theme stylesheet and the console islands bundle. The AbstractCore
+web console, also served from Python, generates its themes and the kit's `af-switch` and
+`af-form` blocks from `theme.css` and `theme.ts` at sync time.
 
 ```mermaid
 flowchart LR
@@ -1657,6 +1659,8 @@ flowchart LR
     CONSOLE["console page"]
   end
 
+  CORECON["AbstractCore web console<br/>(HTML served from Python)"]
+
   IDDESC["AbstractFramework identity descriptor<br/>(AbstractFramework repo: identity/abstractframework.json)"]
   IDDESC -->|"byte-identical copy<br/>ui-kit/src/abstractframework_identity.json"| UIKIT
 
@@ -1666,6 +1670,7 @@ flowchart LR
   APPSRV -->|"app server (Node)"| CONT & ENT & OBS
   UIKIT -->|"theme.css (vendored copy)"| CONSOLE
   ISL -->|"window.AfConsoleIslands (vendored copy)"| CONSOLE
+  UIKIT -->|"themes + af-switch / af-form blocks (generated copy)"| CORECON
 ```
 
 Every app renders its About dialog from the kit (`AfTopBarActions` `about` prop, or
@@ -1953,6 +1958,7 @@ Details, props, the error model and the fixtures contract: [Automations](./autom
 - `@abstractframework/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css` (exported as `@abstractframework/ui-kit/theme.css`) — 21 themes; see [Theming](./theming.md) for the token vocabulary and adoption rules.
 - Other packages use those variables where available, but include fallbacks (e.g. `var(--ui-border-1, rgba(...))`).
 - Non-CSS consumers can use the generated `ui-kit/palette_seeds.json` (4-token reduction per theme).
+- Shared controls live in `theme.css` as blocks delimited by `<name>:begin` / `<name>:end` comments so the Python-served consoles can copy them: the sign-in card (`af-gateway-signin`), the switch (`af-switch`, see [On/off settings](./state-toggles.md)), forms, cards and tabs (`af-form`), the large modal (`af-modal`), account-row tints (`af-rows`) and grouped navigation (`af-nav`) (see [Modal, account rows, grouped navigation](./modal.md)).
 
 See also: [Getting started](./getting-started.md) for integration + required CSS.
 
@@ -1963,6 +1969,8 @@ See also: [Getting started](./getting-started.md) for integration + required CSS
 - Console islands: [Console islands](./console-islands.md)
 - Automations: [Automations](./automations.md)
 - Theming: [Theming](./theming.md)
+- On/off settings: [On/off settings](./state-toggles.md)
+- Modal, account rows, grouped navigation: [Modal](./modal.md)
 - FAQ: [FAQ](./faq.md)
 - Troubleshooting: [Troubleshooting](./troubleshooting.md)
 - Docs index: [Docs index](./README.md)
@@ -2413,8 +2421,8 @@ See: [Console islands](./console-islands.md).
 ## Automations: the panel shows an error or a control stays disabled
 
 - **A control is disabled.** The reason is printed under the controls ("Run now: An occurrence is
-  in progress."). Controls follow `summary.capabilities` and the status: Pause needs `active`,
-  Resume needs `paused`, Run now needs no run in progress, Stop current needs one, and an archived
+  in progress."). Controls follow `summary.capabilities` and the status: the Active switch needs
+  `active` or `paused` (and the `pause` or `resume` capability), Run now needs no run in progress, Stop current needs one, and an archived
   or legacy automation offers no controls. Pass `busy={false}` once your request settles.
 - **"The automation changed since this view loaded."** (`revision_conflict`): another client
   revised it. Reload the summary and submit the revision again.
@@ -2470,6 +2478,27 @@ script names the problem, for example:
   see the automations entries above.
 
 See: [Theming: Guard scripts](./theming.md#guard-scripts), [Development](./development.md).
+
+## Copy, voice or ids fail when the app is opened over plain http
+
+Symptom: the app works on the computer that runs the gateway but, from another machine (LAN,
+Tailscale address), **Copy JSON** reads "Copy failed — select and copy", voice recording reports
+"This page is loaded over http, so the microphone is unavailable — …", or an app that calls
+`crypto.randomUUID` itself throws.
+
+Cause: browsers expose `crypto.randomUUID`, the microphone, the camera and the clipboard API only
+in a secure context (https, or `localhost` on the same computer).
+
+Fix:
+
+- Open the app over https: for example through `tailscale serve` (the gateway console's Network
+  page shows the command), or behind an https reverse proxy you control. An app served by
+  `app-server` behind a proxy also needs the proxy settings in
+  [`app-server/README.md`](../app-server/README.md).
+- Or open it on the gateway's own computer (`localhost`).
+- In your own code, use `randomId()` instead of `crypto.randomUUID` and show
+  `insecureContextReason(feature)` as the unavailable reason of a control that cannot work. See
+  [Non-secure contexts](./state-toggles.md#non-secure-contexts).
 
 ## Still stuck?
 
@@ -2649,22 +2678,23 @@ and tool approval), `renderText` and `renderTurn` (required in practice; see abo
 
 ### Controls
 
-Pause / Resume, Run now, Stop current, Edit and Archive…, each an icon then its label
-(`CONTROL_LABELS`, `CONTROL_ICONS` — hosts use the same names and glyphs for their own row
+The controls bar leads with an **Active** switch (`AfSwitch`: on = the automation runs on its
+schedule, off = paused), followed by Run now, Stop current, Edit and Archive…, each an icon then
+its label (`CONTROL_LABELS`, `CONTROL_ICONS` — hosts use the same names and glyphs for their own row
 actions). `summary.capabilities` says what you may do (the Edit control is the `revise`
 capability); the status says what applies at this moment:
 
 | Control | Enabled when | Sends |
 | --- | --- | --- |
-| Pause | status `active` | `automation.pause` |
-| Resume | status `paused` | `automation.resume` |
+| Active (switch) | status `active` or `paused`, with the capability of the transition (`pause` when on, `resume` when off) | `automation.pause` when on, `automation.resume` when off (`activeToggleCommand(summary)`) |
 | Run now | status `active` or `paused`, and `current_occurrence` is `null` | `automation.run_now` (while paused it runs once; the automation stays paused) |
 | Stop current | `current_occurrence` is not `null` (admitted, running — including waiting for you — or backing off) | `automation.stop_current` |
 | Edit | always (subject to capability and status below) | opens the Edit form; Save calls `onRevise(changes, revision)` |
 | Archive… | always (subject to capability and status below) | `automation.archive`, after an in-panel confirmation |
 
 Every control is disabled while `busy`, on a legacy row, without the matching capability, or on
-an archived automation. The reasons show as one compact muted line under the buttons ("Run
+an archived automation; the Active switch is also unavailable once the automation has ended. An
+unavailable switch stays focusable and names its reason. The reasons show as one compact muted line under the buttons ("Run
 now, Stop current: Nothing is running. · …"), linked to each disabled button with
 `aria-describedby` and repeated as the first line of its tooltip (a tooltip alone is unreliable
 on a disabled button).
@@ -2698,7 +2728,8 @@ rows) and `RUN_NOW_GLYPH` (the `playCircle` markup, for clients that draw it wit
 Clients that cannot import the kit vendor that file byte-identical; the AbstractFramework
 repository's `scripts/check_identity_sync.py` fails when a copy drifts.
 
-The result of an action ("Pause sent.", "Run requested.", "Saved; applies from the next run.")
+The result of an action, named by the new state ("Automation paused.", "Automation active.",
+"Run requested.", "Stop requested.", "Saved; applies from the next run.")
 shows next to the buttons for `NOTICE_MS` (5 s) with a dismiss control, then clears. Errors stay
 until dismissed or replaced.
 
@@ -2824,12 +2855,11 @@ create UI.
 
 ### Email automations
 
-The Gateway reads each user's own mailbox (framework backlog 0992; runtime trigger
-`email.received@1`). The dialog offers three email options, and only when
+The Gateway reads each user's own mailbox (runtime trigger `email.received@1`). The dialog offers three email options, and only when
 `GET /api/gateway/me/email` (`automations.getMyEmail()`, passed as `emailStatus`) reports
 `effective_enabled: true` — the account is connected, the user's own switch is on and an
-administrator allows it. Otherwise the options are disabled and the dialog shows **"Email isn't
-set up — open My email"**; with `onOpenMyEmail` the last words are a button (the Gateway console's
+administrator allows it. Otherwise the options are disabled and the dialog shows **"Connect a
+mailbox first — open My email"**; with `onOpenMyEmail` the last words are a button (the Gateway console's
 My email is in its Users tab, `/console#users`). An unknown status (not loaded, or the call
 failed) counts as not set up, and nothing email-shaped is ever sent without a usable account.
 
@@ -3020,7 +3050,7 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`, `MY_EMAIL_PATH`; types `AutomationsClient`,
   `AutomationsClientOptions`, `ListAutomationsQuery`, `PageQuery`.
 - **Presentation rules** (pure functions, no React): `automationControls()`
-  (`ControlId`, `ControlState`), `CONTROL_COMMANDS`, `occurrenceViews()` (`OccurrenceView`,
+  (`ControlId`, `ControlState`), `activeToggleCommand()`, `CONTROL_COMMANDS`, `occurrenceViews()` (`OccurrenceView`,
   `OccurrenceTone`), `attentionAckCursor()`, `attentionLabel()`, `triggerSummary()`,
   `scheduleLabel()`, `intervalLabel()`, `contextLabel()`, `formatUtc()`, `parseDuration()`,
   `reviseFormFrom()` and `reviseChanges()` (`ReviseForm`, `ReviseDefinition`), `buildCreateRequest()` (`ScheduleForm`, `ScheduleWhen`),
@@ -3159,7 +3189,7 @@ Serve both files from your own origin; the paths above are examples.
 | `mountTopBar(el, props)` | `IslandHandle` | Mounts `AfTopBarActions` into `el` |
 | `mountAppearance(el, props)` | `IslandHandle` | Mounts `AfAppearanceDialog` into `el` |
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
-| `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.3.3+) |
+| `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.4.0+) |
 | `appIdentity(id, version)` | `AppIdentity` | Identity facts for an AbstractFramework app; throws for an unknown id (kit 0.1.12+) |
 | `applyAppearance(settings)` | `void` | Applies a theme and typography settings to the document |
 
@@ -3401,6 +3431,11 @@ This package provides:
 - **Modal and account rows**: `AfModal` (large dialog over a blurred backdrop, full-screen sheet on
   phones), `bindAfModal()`, the `af-row--admin|user|entity` tints, `af-kind-chip`, `af-nav-group` /
   `af-nav-footer` — see [Modal, account rows, grouped navigation](../docs/modal.md)
+- **On/off settings and forms**: `AfSwitch` / `AfSwitchInput` (a switch labelled by the feature),
+  `AfTabs`, the `af-form` / `af-card` / `af-tabs` styles, and the guards `findVerbToggleLabels()`
+  and `checkLabelScale()` — see [On/off settings](../docs/state-toggles.md)
+- **Plain http**: `randomId()` (a v4 UUID in every browser context) and
+  `insecureContextReason(feature)` — see [Non-secure contexts](../docs/state-toggles.md#non-secure-contexts)
 - **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
 - **Palette seeds**: `@abstractframework/ui-kit/palette_seeds.json` for non-CSS consumers
 - **Console islands** (repository build, not in the npm package): the kit components as one
@@ -3707,6 +3742,7 @@ app. `scripts/check_responsive.mjs` and `scripts/check_viewport_vars.mjs` pin it
 - Adoption guide: [`docs/adoption-guide.md`](../docs/adoption-guide.md)
 - Theming: [`docs/theming.md`](../docs/theming.md)
 - Modal, account rows, grouped navigation: [`docs/modal.md`](../docs/modal.md)
+- On/off settings, forms, tabs: [`docs/state-toggles.md`](../docs/state-toggles.md)
 - Console islands: [`docs/console-islands.md`](../docs/console-islands.md)
 - Automations: [`docs/automations.md`](../docs/automations.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)
@@ -4660,7 +4696,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -4684,7 +4720,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.3.3",
+  "version": "0.4.0",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -4753,7 +4789,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -4797,12 +4833,12 @@ npm test
     "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.1.14 || ^0.2.0 || ^0.3.0",
+    "@abstractframework/ui-kit": "^0.1.14 || ^0.2.0 || ^0.3.0 || ^0.4.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.3.0",
+    "@abstractframework/ui-kit": "^0.4.0",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -4821,7 +4857,7 @@ npm test
 
 {
   "name": "@abstractframework/monitor-flow",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Shared flow/agent monitoring UI components for AbstractFramework (used by AbstractFlow and AbstractObserver).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -4885,7 +4921,7 @@ npm test
 
 {
   "name": "@abstractframework/monitor-active-memory",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Shared KG + Active Memory explorer UI components for AbstractFramework clients (AbstractFlow, AbstractObserver, AbstractCode).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -5772,7 +5808,7 @@ export type GatewaySessionSignInCardProps = {
   description?: React.ReactNode;
   statusLabel?: string;
   statusTone?: GatewaySessionStatusTone;
-  /** Ignored since 0.3.3: one pill per state, no caption (DESIGN §3). Kept so apps still compile. */
+  /** Ignored since 0.4.0: one pill per state, no caption (DESIGN §3). Kept so apps still compile. */
   tokenSourceLabel?: string;
 
   showGatewayUrl?: boolean;
@@ -6935,7 +6971,7 @@ export function isEmailTrigger(trigger: Pick<TriggerBinding, "source_id" | "sour
  * True only when the user's account can be used now (`GET /me/email` →
  * `effective_enabled`: connected, the user's switch on, allowed by the
  * administrator). Unknown (null / not loaded / the call failed) is NOT usable:
- * the form then shows "Email isn't set up — open My email" instead of the
+ * the form then shows "Connect a mailbox first — open My email" instead of the
  * email options.
  */
 export function emailUsable(status: MyEmailStatus | null | undefined): boolean {
@@ -7818,7 +7854,7 @@ export function mountAbout(el: Element, props: AboutIslandProps): IslandHandle<A
  * Make a plain-HTML `.af-modal-backdrop` behave as a modal (focus in + trap +
  * return, Escape / backdrop click -> onClose, page scroll lock) until the
  * returned release() is called. Markup contract: docs/modal.md. Additive
- * member (kit 0.3.3): apiVersion stays "1".
+ * member (kit 0.4.0): apiVersion stays "1".
  */
 export function bindModal(backdrop: HTMLElement, options: { onClose: () => void; closeOnEscape?: boolean; closeOnBackdrop?: boolean; initialFocus?: HTMLElement | null }): () => void {
   return bindAfModal(backdrop, options);
@@ -13834,14 +13870,29 @@ ships.
 
 ## [Unreleased]
 
-On/off settings become switches labelled by the feature, highlighted when on (operator rule
-2026-09-30), and automations get an "Active" switch in place of the Pause/Resume swap.
+## 0.4.0 - 2026-10-01
+
+On/off settings become switches labelled by the feature, highlighted when on; automations get an
+"Active" switch in place of the Pause/Resume swap. The kit adds a large modal dialog, account-row
+tints, grouped sidebar navigation, form/card/tab layouts, a reworked sign-in card and a type-scale
+floor for helper text. Every package that copies text to the clipboard or mints ids works over
+plain http from another machine.
 
 | Package | Version | Change |
 | --- | --- | --- |
-| `@abstractframework/ui-kit` | 0.3.3 | updated (`AfSwitch`, the verb-toggle guard, the automation Active switch, the sign-in card layout, form/card/tab styles, `checkLabelScale`, `randomId`, `AfModal`, account row tints, grouped navigation, the touch helper floor) |
+| `@abstractframework/ui-kit` | 0.4.0 | updated (minor: `AfSwitch`, the verb-toggle guard, the automation Active switch, the sign-in card layout, form/card/tab styles, `checkLabelScale`, `randomId`, `AfModal`, account row tints, grouped navigation, the touch helper floor) |
+| `@abstractframework/panel-chat` | 0.2.2 | updated (patch: plain-http ids and copy); accepts ui-kit `^0.1.14 \|\| ^0.2.0 \|\| ^0.3.0 \|\| ^0.4.0` |
+| `@abstractframework/monitor-active-memory` | 0.2.2 | updated (patch: plain-http copy, 14 px help text on touch) |
+| `@abstractframework/monitor-flow` | 0.1.10 | updated (patch: plain-http copy) |
 
-### ui-kit 0.3.3
+`@abstractframework/monitor-gpu` 0.1.10, `@abstractframework/monitor-memory` 0.1.10 and
+`@abstractframework/app-server` 0.1.12 are unchanged.
+
+Who is affected: every app that imports `@abstractframework/ui-kit` or
+`@abstractframework/panel-chat`, and the pages that copy the kit's CSS blocks (the AbstractGateway
+and AbstractCore consoles).
+
+### ui-kit 0.4.0
 
 - Added: `AfSwitch`, the one control for a persistent on/off setting: a `role="switch"` button
   with a track and thumb, labelled by the feature. On shows as a sliding thumb with a check mark,
@@ -13868,7 +13919,7 @@ On/off settings become switches labelled by the feature, highlighted when on (op
 - Added: `randomId()`, a v4 UUID that also works over plain http (`crypto.randomUUID` when present,
   otherwise built from `crypto.getRandomValues`), and `insecureContextReason(feature)`, the one
   sentence for a feature a plain-http page cannot use. The automations client, `mintUuid` and the
-  steering composer use `randomId()`; before, the automations client threw over plain http.
+  steering composer use `randomId()`, so the automations client works over plain http.
   Voice recording names the http cause when that is why the microphone is missing.
 - Added: `checkLabelScale(root)`, the browser-side type-scale guard: every label, switch label or
   field caption rendered above 15 px or heavier than 600.
@@ -13909,10 +13960,8 @@ On/off settings become switches labelled by the feature, highlighted when on (op
   `HELPER_SCALE_SELECTOR`). An unavailable `AfSwitchInput` shows its reason inline.
 - Changed: the email notice reads "Connect a mailbox first — open My email" (was "Email isn't set
   up — …") and the automation forms' email section is titled "Mailbox".
-- Fixed: `.af-switch-wrap` is `position: relative`, so a switch's visually hidden reason no longer
-  lands against the document and adds a page scroll on phones.
-- monitor-active-memory 0.2.1 → 0.2.2 pending: the explorer's help text (`.amx-small`) is 14 px on
-  touch screens.
+- Fixed: `.af-switch-wrap` is `position: relative`, so a switch's visually hidden reason stays
+  inside the switch and adds no page scroll on phones.
 - Docs: [`docs/state-toggles.md`](docs/state-toggles.md) (the rule, the component, the console
   markup, the terminal marker, the guards, unavailable reasons, the sign-in card, forms, cards and
   tabs, non-secure contexts).
@@ -13941,19 +13990,40 @@ On/off settings become switches labelled by the feature, highlighted when on (op
   and also checks the modal footer note and the row legend; new exports `HELPER_MIN_PX`,
   `HELPER_MIN_TOUCH_PX`, `HELPER_TOUCH_MEDIA`.
 
-### Fixed
+### panel-chat 0.2.2
 
-- **panel-chat: plain http from another machine** (LAN, Tailscale). Browsers
-  withhold `crypto.randomUUID` and the clipboard API outside https and
-  localhost. Workflow command ids are now v4 UUIDs built from
-  `crypto.getRandomValues` there (the kit peer range stays `^0.3.0`),
-  `copyText` returns `false` when the browser refuses the copy instead of
-  claiming success, and **Copy JSON** says "Copied" or "Copy failed — select
-  and copy". `scripts/check_secure_context.mjs` runs both paths with the APIs
-  removed.
-- **monitor-flow, monitor-active-memory:** the copy helpers fall back to a
-  text-selection copy over plain http; monitor-flow's `copy_text` reports the
-  real outcome.
+- Fixed: over plain http from another machine (LAN, Tailscale), where browsers withhold
+  `crypto.randomUUID` and the clipboard API, workflow command ids are v4 UUIDs built from
+  `crypto.getRandomValues`.
+- Fixed: `copyText` returns `false` when the browser refuses the copy, and **Copy JSON** says
+  "Copied" or "Copy failed — select and copy". `scripts/check_secure_context.mjs` runs both paths
+  with the APIs removed.
+- Changed: the ui-kit peer range accepts `^0.4.0` (`^0.1.14 || ^0.2.0 || ^0.3.0 || ^0.4.0`).
+
+### monitor-active-memory 0.2.2
+
+- Fixed: the explorer's copy action falls back to a text-selection copy over plain http.
+- Changed: the explorer's help text (`.amx-small`) is 14 px on touch screens.
+
+### monitor-flow 0.1.10
+
+- Fixed: `copy_text` falls back to a text-selection copy over plain http and returns `true` only
+  when a copy happened.
+
+### Migration notes
+
+- Apps relock to `@abstractframework/ui-kit@^0.4.0` (and `@abstractframework/panel-chat@^0.2.2`,
+  `@abstractframework/monitor-active-memory@^0.2.2`, `@abstractframework/monitor-flow@^0.1.10`
+  where used).
+- `automation_controls.json` gains the `active` label and hint: clients that vendor it
+  (AbstractAssistant, AbstractCode's terminal client) copy it again.
+- Tests that found the kit's on/off checkboxes as checkboxes use
+  `getByRole("switch", { name })`.
+- `GatewaySessionSignInCard` ignores `tokenSourceLabel`; the prop is kept so apps still compile.
+- Pages that copy the kit's CSS (AbstractGateway console, AbstractCore console) re-sync to 0.4.0 to
+  receive the `af-switch`, `af-form`, `af-modal`, `af-rows` and `af-nav` blocks and the
+  `--af-helper-size`, `--af-row-tint-*` and `--z-modal` tokens.
+- Use `randomId()` instead of `crypto.randomUUID` in app code that can be opened over plain http.
 
 ## 0.3.2 - 2026-09-30
 

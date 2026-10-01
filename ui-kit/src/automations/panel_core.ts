@@ -114,7 +114,7 @@ export function isEmailTrigger(trigger: Pick<TriggerBinding, "source_id" | "sour
  * True only when the user's account can be used now (`GET /me/email` →
  * `effective_enabled`: connected, the user's switch on, allowed by the
  * administrator). Unknown (null / not loaded / the call failed) is NOT usable:
- * the form then shows "Email isn't set up — open My email" instead of the
+ * the form then shows "Connect a mailbox first — open My email" instead of the
  * email options.
  */
 export function emailUsable(status: MyEmailStatus | null | undefined): boolean {

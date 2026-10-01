@@ -1,5 +1,5 @@
 // Email pieces of the automation form (framework backlog 0992 WP6): the
-// "Email isn't set up — open My email" notice, the "When an email arrives"
+// "Connect a mailbox first — open My email" notice, the "When an email arrives"
 // fields (typed filters, check interval, max batch) and the email options
 // ("Email me the result", allowed recipients). Controlled and hook-free, so
 // AfScheduleDialog, the Edit form and hosts with their own form (the
@@ -27,7 +27,7 @@ export type AfEmailSetupNoticeProps = {
   onOpenMyEmail?: () => void;
 };
 
-/** Nothing when email is usable; otherwise "Email isn't set up — open My email" (plus the administrator's cause when email was turned off for the user). */
+/** Nothing when email is usable; otherwise "Connect a mailbox first — open My email" (plus the administrator's cause when email was turned off for the user). */
 export function AfEmailSetupNotice(p: AfEmailSetupNoticeProps): React.ReactElement | null {
   if (emailUsable(p.status)) return null;
   const full = EMAIL_TEXT.not_set_up;

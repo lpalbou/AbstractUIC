@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Sign-in card, form layout, card, tabs and the type-scale guard (ui-kit 0.3.3,
+ * Sign-in card, form layout, card, tabs and the type-scale guard (ui-kit 0.4.0,
  * DESIGN §3/§4, docs/state-toggles.md).
  *
  * 1. af-gateway-signin block: one column (no label column), labels above at

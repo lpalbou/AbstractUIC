@@ -145,7 +145,7 @@ export type AutomationPanelProps = {
    * `GET /api/gateway/me/email` (the client's `getMyEmail()`): the Edit form
    * offers "Email me the result" and allowed recipients only when the account
    * is usable (an option already on can still be turned off); otherwise it
-   * shows "Email isn't set up — open My email".
+   * shows "Connect a mailbox first — open My email".
    */
   emailStatus?: MyEmailStatus | null;
   onOpenMyEmail?: () => void;

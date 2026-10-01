@@ -21,7 +21,9 @@ This document stays intentionally close to the code: package boundaries, exports
 
 The AbstractFramework apps consume the packages from npm (or as workspace links). The
 AbstractGateway console is served from Python without an npm build, so it vendors generated
-copies of the kit instead: the theme stylesheet and the console islands bundle.
+copies of the kit instead: the theme stylesheet and the console islands bundle. The AbstractCore
+web console, also served from Python, generates its themes and the kit's `af-switch` and
+`af-form` blocks from `theme.css` and `theme.ts` at sync time.
 
 ```mermaid
 flowchart LR
@@ -47,6 +49,8 @@ flowchart LR
     CONSOLE["console page"]
   end
 
+  CORECON["AbstractCore web console<br/>(HTML served from Python)"]
+
   IDDESC["AbstractFramework identity descriptor<br/>(AbstractFramework repo: identity/abstractframework.json)"]
   IDDESC -->|"byte-identical copy<br/>ui-kit/src/abstractframework_identity.json"| UIKIT
 
@@ -56,6 +60,7 @@ flowchart LR
   APPSRV -->|"app server (Node)"| CONT & ENT & OBS
   UIKIT -->|"theme.css (vendored copy)"| CONSOLE
   ISL -->|"window.AfConsoleIslands (vendored copy)"| CONSOLE
+  UIKIT -->|"themes + af-switch / af-form blocks (generated copy)"| CORECON
 ```
 
 Every app renders its About dialog from the kit (`AfTopBarActions` `about` prop, or
@@ -343,6 +348,7 @@ Details, props, the error model and the fixtures contract: [Automations](./autom
 - `@abstractframework/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css` (exported as `@abstractframework/ui-kit/theme.css`) — 21 themes; see [Theming](./theming.md) for the token vocabulary and adoption rules.
 - Other packages use those variables where available, but include fallbacks (e.g. `var(--ui-border-1, rgba(...))`).
 - Non-CSS consumers can use the generated `ui-kit/palette_seeds.json` (4-token reduction per theme).
+- Shared controls live in `theme.css` as blocks delimited by `<name>:begin` / `<name>:end` comments so the Python-served consoles can copy them: the sign-in card (`af-gateway-signin`), the switch (`af-switch`, see [On/off settings](./state-toggles.md)), forms, cards and tabs (`af-form`), the large modal (`af-modal`), account-row tints (`af-rows`) and grouped navigation (`af-nav`) (see [Modal, account rows, grouped navigation](./modal.md)).
 
 See also: [Getting started](./getting-started.md) for integration + required CSS.
 
@@ -353,6 +359,8 @@ See also: [Getting started](./getting-started.md) for integration + required CSS
 - Console islands: [Console islands](./console-islands.md)
 - Automations: [Automations](./automations.md)
 - Theming: [Theming](./theming.md)
+- On/off settings: [On/off settings](./state-toggles.md)
+- Modal, account rows, grouped navigation: [Modal](./modal.md)
 - FAQ: [FAQ](./faq.md)
 - Troubleshooting: [Troubleshooting](./troubleshooting.md)
 - Docs index: [Docs index](./README.md)

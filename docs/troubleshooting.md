@@ -143,8 +143,8 @@ See: [Console islands](./console-islands.md).
 ## Automations: the panel shows an error or a control stays disabled
 
 - **A control is disabled.** The reason is printed under the controls ("Run now: An occurrence is
-  in progress."). Controls follow `summary.capabilities` and the status: Pause needs `active`,
-  Resume needs `paused`, Run now needs no run in progress, Stop current needs one, and an archived
+  in progress."). Controls follow `summary.capabilities` and the status: the Active switch needs
+  `active` or `paused` (and the `pause` or `resume` capability), Run now needs no run in progress, Stop current needs one, and an archived
   or legacy automation offers no controls. Pass `busy={false}` once your request settles.
 - **"The automation changed since this view loaded."** (`revision_conflict`): another client
   revised it. Reload the summary and submit the revision again.
@@ -200,6 +200,27 @@ script names the problem, for example:
   see the automations entries above.
 
 See: [Theming: Guard scripts](./theming.md#guard-scripts), [Development](./development.md).
+
+## Copy, voice or ids fail when the app is opened over plain http
+
+Symptom: the app works on the computer that runs the gateway but, from another machine (LAN,
+Tailscale address), **Copy JSON** reads "Copy failed — select and copy", voice recording reports
+"This page is loaded over http, so the microphone is unavailable — …", or an app that calls
+`crypto.randomUUID` itself throws.
+
+Cause: browsers expose `crypto.randomUUID`, the microphone, the camera and the clipboard API only
+in a secure context (https, or `localhost` on the same computer).
+
+Fix:
+
+- Open the app over https: for example through `tailscale serve` (the gateway console's Network
+  page shows the command), or behind an https reverse proxy you control. An app served by
+  `app-server` behind a proxy also needs the proxy settings in
+  [`app-server/README.md`](../app-server/README.md).
+- Or open it on the gateway's own computer (`localhost`).
+- In your own code, use `randomId()` instead of `crypto.randomUUID` and show
+  `insecureContextReason(feature)` as the unavailable reason of a control that cannot work. See
+  [Non-secure contexts](./state-toggles.md#non-secure-contexts).
 
 ## Still stuck?
 

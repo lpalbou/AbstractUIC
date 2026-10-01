@@ -3,8 +3,8 @@
 // minutes/hours/days; or `email.received@1`: when an email arrives, with typed
 // filters, a check interval and a max batch), Context (independent /
 // growing), Tools, Email (email me the result, allowed recipients — offered
-// only when `GET /me/email` says the account is usable, otherwise "Email
-// isn't set up — open My email"), Advanced (first run, max runs, stop at,
+// only when `GET /me/email` says the account is usable, otherwise "Connect
+// a mailbox first — open My email"), Advanced (first run, max runs, stop at,
 // title). It builds the `POST /api/gateway/automations`
 // body and hands it to `onSubmit`; the host sends it (see ./client.ts).
 //
@@ -58,7 +58,7 @@ export type AfScheduleDialogProps = {
   /**
    * `GET /api/gateway/me/email` (the client's `getMyEmail()`). Email options
    * are offered only when it says the account is usable; null/undefined
-   * (unknown, not loaded, or the call failed) shows "Email isn't set up —
+   * (unknown, not loaded, or the call failed) shows "Connect a mailbox first —
    * open My email" instead.
    */
   emailStatus?: MyEmailStatus | null;

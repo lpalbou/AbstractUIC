@@ -8,7 +8,7 @@ export type GatewaySessionSignInCardProps = {
   description?: React.ReactNode;
   statusLabel?: string;
   statusTone?: GatewaySessionStatusTone;
-  /** Ignored since 0.3.3: one pill per state, no caption (DESIGN §3). Kept so apps still compile. */
+  /** Ignored since 0.4.0: one pill per state, no caption (DESIGN §3). Kept so apps still compile. */
   tokenSourceLabel?: string;
 
   showGatewayUrl?: boolean;

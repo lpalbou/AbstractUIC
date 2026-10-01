@@ -9,14 +9,29 @@ ships.
 
 ## [Unreleased]
 
-On/off settings become switches labelled by the feature, highlighted when on (operator rule
-2026-09-30), and automations get an "Active" switch in place of the Pause/Resume swap.
+## 0.4.0 - 2026-10-01
+
+On/off settings become switches labelled by the feature, highlighted when on; automations get an
+"Active" switch in place of the Pause/Resume swap. The kit adds a large modal dialog, account-row
+tints, grouped sidebar navigation, form/card/tab layouts, a reworked sign-in card and a type-scale
+floor for helper text. Every package that copies text to the clipboard or mints ids works over
+plain http from another machine.
 
 | Package | Version | Change |
 | --- | --- | --- |
-| `@abstractframework/ui-kit` | 0.3.3 | updated (`AfSwitch`, the verb-toggle guard, the automation Active switch, the sign-in card layout, form/card/tab styles, `checkLabelScale`, `randomId`, `AfModal`, account row tints, grouped navigation, the touch helper floor) |
+| `@abstractframework/ui-kit` | 0.4.0 | updated (minor: `AfSwitch`, the verb-toggle guard, the automation Active switch, the sign-in card layout, form/card/tab styles, `checkLabelScale`, `randomId`, `AfModal`, account row tints, grouped navigation, the touch helper floor) |
+| `@abstractframework/panel-chat` | 0.2.2 | updated (patch: plain-http ids and copy); accepts ui-kit `^0.1.14 \|\| ^0.2.0 \|\| ^0.3.0 \|\| ^0.4.0` |
+| `@abstractframework/monitor-active-memory` | 0.2.2 | updated (patch: plain-http copy, 14 px help text on touch) |
+| `@abstractframework/monitor-flow` | 0.1.10 | updated (patch: plain-http copy) |
 
-### ui-kit 0.3.3
+`@abstractframework/monitor-gpu` 0.1.10, `@abstractframework/monitor-memory` 0.1.10 and
+`@abstractframework/app-server` 0.1.12 are unchanged.
+
+Who is affected: every app that imports `@abstractframework/ui-kit` or
+`@abstractframework/panel-chat`, and the pages that copy the kit's CSS blocks (the AbstractGateway
+and AbstractCore consoles).
+
+### ui-kit 0.4.0
 
 - Added: `AfSwitch`, the one control for a persistent on/off setting: a `role="switch"` button
   with a track and thumb, labelled by the feature. On shows as a sliding thumb with a check mark,
@@ -43,7 +58,7 @@ On/off settings become switches labelled by the feature, highlighted when on (op
 - Added: `randomId()`, a v4 UUID that also works over plain http (`crypto.randomUUID` when present,
   otherwise built from `crypto.getRandomValues`), and `insecureContextReason(feature)`, the one
   sentence for a feature a plain-http page cannot use. The automations client, `mintUuid` and the
-  steering composer use `randomId()`; before, the automations client threw over plain http.
+  steering composer use `randomId()`, so the automations client works over plain http.
   Voice recording names the http cause when that is why the microphone is missing.
 - Added: `checkLabelScale(root)`, the browser-side type-scale guard: every label, switch label or
   field caption rendered above 15 px or heavier than 600.
@@ -84,10 +99,8 @@ On/off settings become switches labelled by the feature, highlighted when on (op
   `HELPER_SCALE_SELECTOR`). An unavailable `AfSwitchInput` shows its reason inline.
 - Changed: the email notice reads "Connect a mailbox first — open My email" (was "Email isn't set
   up — …") and the automation forms' email section is titled "Mailbox".
-- Fixed: `.af-switch-wrap` is `position: relative`, so a switch's visually hidden reason no longer
-  lands against the document and adds a page scroll on phones.
-- monitor-active-memory 0.2.1 → 0.2.2 pending: the explorer's help text (`.amx-small`) is 14 px on
-  touch screens.
+- Fixed: `.af-switch-wrap` is `position: relative`, so a switch's visually hidden reason stays
+  inside the switch and adds no page scroll on phones.
 - Docs: [`docs/state-toggles.md`](docs/state-toggles.md) (the rule, the component, the console
   markup, the terminal marker, the guards, unavailable reasons, the sign-in card, forms, cards and
   tabs, non-secure contexts).
@@ -116,19 +129,40 @@ On/off settings become switches labelled by the feature, highlighted when on (op
   and also checks the modal footer note and the row legend; new exports `HELPER_MIN_PX`,
   `HELPER_MIN_TOUCH_PX`, `HELPER_TOUCH_MEDIA`.
 
-### Fixed
+### panel-chat 0.2.2
 
-- **panel-chat: plain http from another machine** (LAN, Tailscale). Browsers
-  withhold `crypto.randomUUID` and the clipboard API outside https and
-  localhost. Workflow command ids are now v4 UUIDs built from
-  `crypto.getRandomValues` there (the kit peer range stays `^0.3.0`),
-  `copyText` returns `false` when the browser refuses the copy instead of
-  claiming success, and **Copy JSON** says "Copied" or "Copy failed — select
-  and copy". `scripts/check_secure_context.mjs` runs both paths with the APIs
-  removed.
-- **monitor-flow, monitor-active-memory:** the copy helpers fall back to a
-  text-selection copy over plain http; monitor-flow's `copy_text` reports the
-  real outcome.
+- Fixed: over plain http from another machine (LAN, Tailscale), where browsers withhold
+  `crypto.randomUUID` and the clipboard API, workflow command ids are v4 UUIDs built from
+  `crypto.getRandomValues`.
+- Fixed: `copyText` returns `false` when the browser refuses the copy, and **Copy JSON** says
+  "Copied" or "Copy failed — select and copy". `scripts/check_secure_context.mjs` runs both paths
+  with the APIs removed.
+- Changed: the ui-kit peer range accepts `^0.4.0` (`^0.1.14 || ^0.2.0 || ^0.3.0 || ^0.4.0`).
+
+### monitor-active-memory 0.2.2
+
+- Fixed: the explorer's copy action falls back to a text-selection copy over plain http.
+- Changed: the explorer's help text (`.amx-small`) is 14 px on touch screens.
+
+### monitor-flow 0.1.10
+
+- Fixed: `copy_text` falls back to a text-selection copy over plain http and returns `true` only
+  when a copy happened.
+
+### Migration notes
+
+- Apps relock to `@abstractframework/ui-kit@^0.4.0` (and `@abstractframework/panel-chat@^0.2.2`,
+  `@abstractframework/monitor-active-memory@^0.2.2`, `@abstractframework/monitor-flow@^0.1.10`
+  where used).
+- `automation_controls.json` gains the `active` label and hint: clients that vendor it
+  (AbstractAssistant, AbstractCode's terminal client) copy it again.
+- Tests that found the kit's on/off checkboxes as checkboxes use
+  `getByRole("switch", { name })`.
+- `GatewaySessionSignInCard` ignores `tokenSourceLabel`; the prop is kept so apps still compile.
+- Pages that copy the kit's CSS (AbstractGateway console, AbstractCore console) re-sync to 0.4.0 to
+  receive the `af-switch`, `af-form`, `af-modal`, `af-rows` and `af-nav` blocks and the
+  `--af-helper-size`, `--af-row-tint-*` and `--z-modal` tokens.
+- Use `randomId()` instead of `crypto.randomUUID` in app code that can be opened over plain http.
 
 ## 0.3.2 - 2026-09-30
 

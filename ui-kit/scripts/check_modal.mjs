@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * AfModal / bindAfModal behaviour checks (ui-kit 0.3.3 round 2; docs/modal.md).
+ * AfModal / bindAfModal behaviour checks (ui-kit 0.4.0; docs/modal.md).
  *
  * 1. bindAfModal over a minimal fake DOM (no jsdom — the kit's checks stay
  *    dependency-free): focus moves in (autofocus > body > first), Tab and
