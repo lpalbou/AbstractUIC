@@ -53,6 +53,8 @@ and AbstractCore consoles).
   once the automation has ended, is archived or legacy, or while a command is in flight.
   `automationControls()` returns the new `active` control and `activeToggleCommand(summary)` names
   the command.
+- Changed: the Pause and Active hints say that pausing lets a run in progress finish without
+  further retries and cancels a pending retry (AbstractRuntime 0.8.2 behaviour).
 - Changed: `automation_controls.json` gains the `active` label and hint. Clients that vendor it
   (AbstractAssistant, AbstractCode's terminal client) must copy it again.
 - Added: `randomId()`, a v4 UUID that also works over plain http (`crypto.randomUUID` when present,
