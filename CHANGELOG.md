@@ -11,6 +11,14 @@ ships.
 
 Nothing yet.
 
+## 0.5.1 - 2026-10-01
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/panel-chat` | 0.2.4 | its ui-kit peer range accepts `^0.5.0` (0.2.3 required ui-kit up to 0.4.x, so apps on ui-kit 0.5.0 failed to install) |
+
+Every other package is unchanged from 0.5.0.
+
 ## 0.5.0 - 2026-10-01
 
 ### ui-kit 0.5.0
