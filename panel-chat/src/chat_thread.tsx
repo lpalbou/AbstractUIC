@@ -59,7 +59,11 @@ export function ChatThread(props: ChatThreadProps): React.ReactElement {
   // signature sums every content length.
   const content_signature = useMemo(() => {
     let total = 0;
-    for (const m of msgs) total += String(m.content ?? "").length;
+    for (const m of msgs) {
+      total += String(m.content ?? "").length;
+      // Generated media arriving (a src filled in) moves the bottom too.
+      if (Array.isArray(m.media)) for (const item of m.media) total += String(item?.src ?? "").length + 1;
+    }
     return `${msgs.length}:${total}:${String(props.afterKey ?? "")}`;
   }, [msgs, props.afterKey]);
 
@@ -71,6 +75,24 @@ export function ChatThread(props: ChatThreadProps): React.ReactElement {
     const list = list_ref.current;
     if (list) list.scrollTop = list.scrollHeight;
   }, [auto, stick, content_signature]);
+
+  // An inline image/video/audio grows AFTER its message rendered (decode,
+  // metadata): follow it when the reader is at the bottom. Load events do not
+  // bubble, so the thread listens in the capture phase.
+  useEffect(() => {
+    if (!auto) return;
+    const list = list_ref.current;
+    if (!list) return;
+    const follow = () => {
+      if (stick) list.scrollTop = list.scrollHeight;
+    };
+    list.addEventListener("load", follow, true);
+    list.addEventListener("loadedmetadata", follow, true);
+    return () => {
+      list.removeEventListener("load", follow, true);
+      list.removeEventListener("loadedmetadata", follow, true);
+    };
+  }, [auto, stick]);
 
   return (
     <div ref={list_ref} className={["pc-chat-thread", props.className].filter(Boolean).join(" ")}>
