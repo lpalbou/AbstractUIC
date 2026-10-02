@@ -248,7 +248,7 @@ export type EmailRecipientsForm = { mode: "self" | "list"; addresses: string };
 export const DEFAULT_EMAIL_RECIPIENTS: EmailRecipientsForm = { mode: "self", addresses: "" };
 
 /**
- * `policy.email_allowed_recipients` from the form: `["self"]` for "only me",
+ * `notify.recipients` from the form: `["self"]` for "only me",
  * `["self", ...addresses]` for "me and these addresses" (at least one).
  */
 export function emailAllowedRecipientsFrom(form: EmailRecipientsForm): { recipients: string[]; errors: string[] } {
@@ -262,7 +262,7 @@ export function emailAllowedRecipientsFrom(form: EmailRecipientsForm): { recipie
   return { recipients: ["self", ...items], errors };
 }
 
-/** The form's view of a stored `email_allowed_recipients` (absent = only me). */
+/** The form's view of a stored result-recipient list (absent = only me). */
 export function emailRecipientsFormFrom(list: string[] | null | undefined): EmailRecipientsForm {
   const extra = (list ?? []).filter((a) => a !== "self");
   return extra.length ? { mode: "list", addresses: extra.join(", ") } : { mode: "self", addresses: "" };
@@ -274,7 +274,7 @@ export function emailRecipientsLabel(list: string[] | null | undefined): string 
   return extra.length ? `Me and ${extra.join(", ")}` : "Only me";
 }
 
-/** `notify` for "Email me the result": `["console", "email"]` when on, the default `["console"]` when off. */
+/** `notify` for "Email result": `["console", "email"]` when on, the default `["console"]` when off. */
 export function notifyFor(emailMe: boolean, recipients: string[] = ["self"]): AutomationNotify {
   return { channels: emailMe ? ["console", "email"] : ["console"], ...(recipients.some((r) => r !== "self") ? { recipients } : {}) };
 }
@@ -492,9 +492,9 @@ export type ReviseForm = {
   growingMaxTokens?: number;
   prompt?: string | null;
   toolApproval?: ToolApprovalPolicy | null;
-  /** "Email me the result" (`notify.channels` has "email"); `null` without a definition. */
+  /** "Email result" (`notify.channels` has "email"); `null` without a definition. */
   notifyEmail?: boolean | null;
-  /** `policy.email_allowed_recipients`; `null` without a definition. */
+  /** `notify.recipients`; `null` without a definition. */
   emailRecipients?: EmailRecipientsForm | null;
 };
 
@@ -530,8 +530,8 @@ export function reviseFormFrom(summary: AutomationSummary, definition?: ReviseDe
  * definition's target (`bundle_ref`, `flow_id`) and the rest of its
  * `input_data`; the gateway re-applies its run protections to it
  * (`PATCH /automations/{id}` resolves `changes.target` like a creation). A new
- * tool approval or allowed-recipient list sends only that `policy` field (the
- * server merges policy); "Email me the result" sends `notify`.
+ * tool approval sends only that `policy` field (the server merges policy);
+ * "Email result" and its recipients send `notify`.
  * Returns `{errors}` when the form is invalid, `null` when nothing changed.
  */
 export function reviseChanges(summary: AutomationSummary, form: ReviseForm, definition?: ReviseDefinition | null): AutomationChanges | null | { errors: string[] } {
@@ -593,7 +593,7 @@ export type ScheduleForm = {
   trigger?: "schedule" | "email";
   /** The "When an email arrives" fields (default `DEFAULT_EMAIL_TRIGGER_FORM`). */
   email?: EmailTriggerForm;
-  /** "Email me the result": `notify.channels` `["console", "email"]`. Off (default) sends no `notify` (the server default, console). */
+  /** "Email result": `notify.channels` `["console", "email"]`. Off (default) sends no `notify` (the server default, console). */
   notifyEmail?: boolean;
   /** Allowed recipients; "only me" (default) sends nothing (the server default, `["self"]`). */
   emailRecipients?: EmailRecipientsForm;
