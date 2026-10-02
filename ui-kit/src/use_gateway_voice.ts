@@ -50,7 +50,7 @@ export type GatewayVoiceOptions = {
    * segment instead of waiting for full synthesis. `streamTtsJsonl` is the
    * ready-made transport for the gateway endpoint.
    */
-  tts_stream?: (text: string) => AsyncIterable<ArrayBuffer>;
+  tts_stream?: (text: string, signal?: AbortSignal) => AsyncIterable<ArrayBuffer>;
   /** Transcribe a recorded blob to text (absent = PTT unsupported). */
   transcribe?: (blob: Blob, mime: string) => Promise<string>;
   on_error?: (message: string) => void;
@@ -71,8 +71,13 @@ export async function* streamTtsJsonl(opts: {
   csrfToken?: string;
   /** Extra headers — the direct-bearer posture passes Authorization here (entity c1242). */
   headers?: Record<string, string>;
+  /** Abort immediately on stop or owner changes, even before the first segment. */
+  signal?: AbortSignal;
 }): AsyncGenerator<ArrayBuffer> {
   const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (opts.signal?.aborted) abort();
+  else opts.signal?.addEventListener("abort", abort, { once: true });
   try {
     const res = await fetch(opts.path, {
       method: "POST",
@@ -95,8 +100,8 @@ export async function* streamTtsJsonl(opts: {
     let buf = "";
     for (;;) {
       const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
+      buf += done ? decoder.decode() : decoder.decode(value, { stream: true });
+      if (done && buf.trim()) buf += "\n";
       let nl: number;
       while ((nl = buf.indexOf("\n")) >= 0) {
         const line = buf.slice(0, nl).trim();
@@ -106,7 +111,7 @@ export async function* streamTtsJsonl(opts: {
         try {
           evt = JSON.parse(line);
         } catch {
-          continue; // tolerate partial/garbled lines rather than killing playback
+          throw new Error("TTS stream returned invalid JSON.");
         }
         if (evt && evt.type === "error") throw new Error(String(evt.error || "TTS stream error"));
         const b64 = evt && typeof evt.audio_b64 === "string" ? evt.audio_b64 : "";
@@ -118,8 +123,10 @@ export async function* streamTtsJsonl(opts: {
         }
         if (evt && (evt.type === "done" || evt.type === "cancelled")) return;
       }
+      if (done) throw new Error("TTS stream ended before synthesis completed.");
     }
   } finally {
+    opts.signal?.removeEventListener("abort", abort);
     controller.abort();
   }
 }
@@ -259,6 +266,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   // buffering ahead regardless of pause. `gen` invalidates a superseded or
   // stopped stream (the async iteration checks it after every await).
   const tts_stream_gen_ref = useRef(0);
+  const tts_stream_abort_ref = useRef<AbortController | null>(null);
   const tts_segments_ref = useRef<AudioBuffer[]>([]);
   const tts_seg_idx_ref = useRef(0);
   const tts_stream_done_ref = useRef(true);
@@ -317,6 +325,8 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   const stop_tts = useCallback((): void => {
     stop_tts_source();
     tts_stream_gen_ref.current += 1; // invalidates any in-flight stream loop
+    tts_stream_abort_ref.current?.abort();
+    tts_stream_abort_ref.current = null;
     tts_segments_ref.current = [];
     tts_seg_idx_ref.current = 0;
     tts_stream_done_ref.current = true;
@@ -436,7 +446,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     apply_tts_playback({ key, status: "playing" });
   };
 
-  const start_tts_stream = async (key: string, text: string, streamFn: (t: string) => AsyncIterable<ArrayBuffer>): Promise<void> => {
+  const start_tts_stream = async (key: string, text: string, streamFn: NonNullable<GatewayVoiceOptions["tts_stream"]>): Promise<void> => {
     const engine = ensure_tts_webaudio();
     if (!engine) {
       set_error?.("TTS playback is not supported in this browser.");
@@ -444,6 +454,9 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     }
     stop_tts_source();
     const gen = ++tts_stream_gen_ref.current;
+    tts_stream_abort_ref.current?.abort();
+    const streamAbort = new AbortController();
+    tts_stream_abort_ref.current = streamAbort;
     tts_segments_ref.current = [];
     tts_seg_idx_ref.current = 0;
     tts_stream_done_ref.current = false;
@@ -458,7 +471,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
 
     let prelude: Uint8Array | null = null;
     try {
-      for await (const bytes of streamFn(text)) {
+      for await (const bytes of streamFn(text, streamAbort.signal)) {
         if (gen !== tts_stream_gen_ref.current) return; // superseded/stopped
         let buffer: AudioBuffer;
         try {
@@ -497,6 +510,8 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       if (gen !== tts_stream_gen_ref.current) return;
       set_error?.(String(e?.message || e || "TTS stream failed"));
       stop_tts();
+    } finally {
+      if (tts_stream_abort_ref.current === streamAbort) tts_stream_abort_ref.current = null;
     }
   };
 
@@ -578,6 +593,8 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
 
     stop_tts_source();
     tts_stream_gen_ref.current += 1;
+    tts_stream_abort_ref.current?.abort();
+    tts_stream_abort_ref.current = null;
     // Non-stream requests ride the same generation guard: a stop_tts (or a
     // newer toggle) mid-decode bumps the generation and this request's
     // results — including its error — are dropped instead of resurrecting

@@ -1,3 +1,5 @@
+import { automationToolSelection, withAutomationTools } from "./tool_selection.js";
+import { automationTargetValue, retargetAutomationInput } from "./target_selection.js";
 // Pure presentation rules for the automation panel and the schedule dialog
 // (the kit's `*_core.ts` pattern: no React, checked directly by
 // scripts/check_automation_panel.mjs). Everything here reads STRUCTURE only —
@@ -486,12 +488,14 @@ export function isApiError(value: unknown): value is ApiError {
  * and the form does not offer them.
  */
 export type ReviseForm = {
+  target?: AutomationTarget;
   title: string;
   every: string | null;
   context: ContextMode;
   growingMaxTokens?: number;
   prompt?: string | null;
   toolApproval?: ToolApprovalPolicy | null;
+  tools?: string[] | null;
   /** "Email result" (`notify.channels` has "email"); `null` without a definition. */
   notifyEmail?: boolean | null;
   /** `notify.recipients`; `null` without a definition. */
@@ -517,6 +521,7 @@ export function reviseFormFrom(summary: AutomationSummary, definition?: ReviseDe
     growingMaxTokens: Number(definition?.context?.growing?.max_tokens ?? summary.growing_max_tokens ?? DEFAULT_GROWING_MAX_TOKENS),
     prompt: typeof prompt === "string" ? prompt : null,
     toolApproval: definition ? definition.policy.tool_approval : null,
+    tools: automationToolSelection(definition?.target.input_data),
     notifyEmail: definition ? notifyEmails(definition.notify) : null,
     emailRecipients: definition ? emailRecipientsFormFrom(definition.notify?.recipients) : null,
   };
@@ -562,6 +567,10 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
     if (!prompt) errors.push("Task is required.");
     else changes.target = { bundle_ref: definition.target.bundle_ref, flow_id: definition.target.flow_id, input_data: { ...definition.target.input_data, prompt } };
   }
+  if (definition && form.tools !== undefined && JSON.stringify(form.tools) !== JSON.stringify(before.tools)) {
+    const target = changes.target || { bundle_ref: definition.target.bundle_ref, flow_id: definition.target.flow_id, input_data: definition.target.input_data };
+    changes.target = { ...target, input_data: withAutomationTools(target.input_data || {}, form.tools) };
+  }
   if (definition && form.toolApproval && form.toolApproval !== before.toolApproval) changes.policy = { tool_approval: form.toolApproval };
   if (definition && typeof form.notifyEmail === "boolean") {
     const next = emailAllowedRecipientsFrom(form.notifyEmail ? form.emailRecipients ?? DEFAULT_EMAIL_RECIPIENTS : before.emailRecipients ?? DEFAULT_EMAIL_RECIPIENTS);
@@ -570,12 +579,16 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
     else if (form.notifyEmail !== before.notifyEmail || JSON.stringify(next.recipients) !== JSON.stringify(prev)) changes.notify = notifyFor(form.notifyEmail, next.recipients);
   }
   if (errors.length) return { errors };
+  if (definition && form.target && automationTargetValue(form.target) !== automationTargetValue(definition.target)) {
+    const currentInput = changes.target?.input_data || definition.target.input_data;
+    changes.target = { ...form.target, input_data: retargetAutomationInput(currentInput) };
+  }
   return Object.keys(changes).length ? changes : null;
 }
 
 // History replay keeps whole turns, including an oversized newest turn.
 export const DEFAULT_GROWING_MAX_TOKENS = 50_000;
-export const GROWING_CONTEXT_HELP = "Keeps the most recent whole turns within this token budget. The newest turn is kept whole even if it exceeds the budget. Changes apply to future runs.";
+export const GROWING_CONTEXT_HELP = "Limits history carried into the next run, keeping recent whole turns. The newest turn is kept even if oversized. New messages and tool results can grow context beyond this budget.";
 const GROWING_MAX_TOKENS_ERROR = "Max growing context must be a positive whole number of tokens.";
 function validGrowingMaxTokens(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;

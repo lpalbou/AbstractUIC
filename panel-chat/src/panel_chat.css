@@ -1488,6 +1488,10 @@
   font-size: var(--font-size-xs, 11px);
   color: var(--text-muted, rgba(255, 255, 255, 0.58));
 }
+/* Audio generation is pending; keep the read-aloud affordance visibly busy. */
+.pc-chat-speak-spinner { animation: pc-chat-speak-spin .8s linear infinite; }
+@keyframes pc-chat-speak-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pc-chat-speak-spinner { animation: none; } }
 /* @transcript-slice:end */
 
 /* Automations v1: "Schedule this…" header action + "from automation" badge */

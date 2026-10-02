@@ -11,7 +11,7 @@
 // workflow-written, never the user's own.
 import React from "react";
 import { AutomationPanel, type AutomationPanelProps, type AutomationTurn, type GatewayResource } from "@abstractframework/ui-kit";
-import { ChatMessageCard } from "./chat_message_card.js";
+import { ChatMessageCard, type ChatMessageCardProps } from "./chat_message_card.js";
 import { ChatMessageContent } from "./message_content.js";
 import { openGatewayResource, type GatewayFetch } from "./workspace_browser.js";
 
@@ -24,9 +24,10 @@ export function renderAutomationText(text: string): React.ReactElement {
 export const AUTOMATION_TURN_TITLES: Record<AutomationTurn["kind"], string> = { trigger: "Trigger", answer: "Automation" };
 
 /** One occurrence turn as the shared chat card. */
-export function renderAutomationTurn(turn: AutomationTurn): React.ReactElement {
+export function renderAutomationTurn(turn: AutomationTurn, messageProps?: Omit<ChatMessageCardProps, "message">): React.ReactElement {
   return (
     <ChatMessageCard
+      {...messageProps}
       message={{ id: `${turn.runId}:${turn.kind}`, role: turn.role, content: turn.text, title: AUTOMATION_TURN_TITLES[turn.kind], runId: turn.runId }}
       images="link"
     />
@@ -46,12 +47,14 @@ export type AutomationPanelWithMarkdownProps = Omit<AutomationPanelProps, "rende
    * (`openGatewayResource`); without either, the panel shows no such links.
    */
   fetchGateway?: GatewayFetch;
+  /** Shared chat affordances, including narration, applied to occurrence turns. */
+  messageProps?: Omit<ChatMessageCardProps, "message">;
 };
 
 /** `AutomationPanel` with the shared chat rendering already wired. */
 export function AutomationPanelWithMarkdown(props: AutomationPanelWithMarkdownProps): React.ReactElement {
-  const { fetchGateway, ...rest } = props;
+  const { fetchGateway, messageProps, ...rest } = props;
   const onOpenResource =
     rest.onOpenResource ?? (fetchGateway ? (r: GatewayResource) => openGatewayResource(fetchGateway, r.url, { name: r.name }) : undefined);
-  return <AutomationPanel {...rest} onOpenResource={onOpenResource} {...automationRenderers} />;
+  return <AutomationPanel {...rest} onOpenResource={onOpenResource} {...automationRenderers} renderTurn={(turn) => renderAutomationTurn(turn, messageProps)} />;
 }

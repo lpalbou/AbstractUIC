@@ -1454,7 +1454,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Theme: `THEMES`, `THEME_SPECS`, `applyTheme()`, `getThemeSpec()`, `themeClassName()` — see [Theming](./theming.md)
 - Typography: `FONT_SCALES`, `HEADER_DENSITIES`, `applyTypography()`, `getFontScaleSpec()`, `getHeaderDensitySpec()`
 - Responsive: `AF_BREAKPOINTS` (`{ xs: 480, sm: 768, md: 1024, lg: 1440 }`), `AF_MEDIA` (the media query strings), `useAfMedia(query)`, `installViewportVars()` (sets `--vv-height` / `--keyboard-inset`, returns a cleanup), `viewportVarsFrom(innerHeight, { height, offsetTop, scale })` and the `AfVisualViewportSample` type — see [Responsive layout](./responsive.md)
-- Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker` (gateway-default mode + provider→models cascade, injected transports), `FontScaleSelect`, `HeaderDensitySelect`, `ToolPolicyEditor`
+- Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker` (gateway-default mode + provider→models cascade, injected transports), `FontScaleSelect`, `HeaderDensitySelect`, `ToolPolicyEditor`, `MultiSelect`
 - MTP: `SpeculationSelect`, `speculationCapability()`, `normalizeSpeculationValue()`,
   `speculationSelection()`, `speculationFromSelection()` and `SpeculationValue` /
   `SpeculationCapability` types. Enable `ProviderModelPicker`'s `enableSpeculation` for text
@@ -1679,6 +1679,15 @@ See: [`monitor-memory/README.md`](../monitor-memory/README.md) for the backend c
 - Troubleshooting: [Troubleshooting](./troubleshooting.md)
 - Docs index: [Docs index](./README.md)
 - Security policy: [`SECURITY.md`](../SECURITY.md)
+
+Automation creation and editing accept `availableTools` to show `AutomationToolsPicker`. Its value is `null` for workflow defaults or a list of enabled names; `[]` disables all tools. `automationToolSelection()` intersects saved tools with their runtime ceiling, and `withAutomationTools()` updates both tool fields while preserving other inputs.
+
+`AutomationWorkflowPicker` reuses the shared workflow menu for automation targets.
+Pass `workflowPickerOptions` to `AutomationPanel` to enable workflow changes and
+provide its Gateway `request` function for required-input checks, or supply
+`prepareTarget` to reuse a host’s schema validator. `AfScheduleDialog.workflowPicker`
+accepts the creation form’s picker. Changing workflows retains portable agent settings;
+workflow-specific inputs use the new workflow’s defaults.
 
 ## docs/architecture.md
 
@@ -5478,6 +5487,13 @@ export {
   type WorkflowPickerGroupId,
 } from "./workflow_picker_core.js";
 
+export { MultiSelect } from "./multi_select.js";
+export { automationToolSelection, withAutomationTools } from "./automations/tool_selection.js";
+export { AutomationToolsPicker } from "./automations/automation_tools_picker.js";
+export { AutomationWorkflowPicker, type AutomationWorkflowPickerOptions } from "./automations/automation_workflow_picker.js";
+export { retargetAutomationInput, automationTargetValue } from "./automations/target_selection.js";
+export { prepareAutomationTarget } from "./automations/prepare_target.js";
+
 ## ui-kit/src/responsive.ts
 
 // Responsive contract shared by every AbstractFramework browser app
@@ -6995,6 +7011,8 @@ export function createAutomationsClient(options: AutomationsClientOptions): Auto
 
 ## ui-kit/src/automations/panel_core.ts
 
+import { automationToolSelection, withAutomationTools } from "./tool_selection.js";
+import { automationTargetValue, retargetAutomationInput } from "./target_selection.js";
 // Pure presentation rules for the automation panel and the schedule dialog
 // (the kit's `*_core.ts` pattern: no React, checked directly by
 // scripts/check_automation_panel.mjs). Everything here reads STRUCTURE only —
@@ -7483,12 +7501,14 @@ export function isApiError(value: unknown): value is ApiError {
  * and the form does not offer them.
  */
 export type ReviseForm = {
+  target?: AutomationTarget;
   title: string;
   every: string | null;
   context: ContextMode;
   growingMaxTokens?: number;
   prompt?: string | null;
   toolApproval?: ToolApprovalPolicy | null;
+  tools?: string[] | null;
   /** "Email result" (`notify.channels` has "email"); `null` without a definition. */
   notifyEmail?: boolean | null;
   /** `notify.recipients`; `null` without a definition. */
@@ -7514,6 +7534,7 @@ export function reviseFormFrom(summary: AutomationSummary, definition?: ReviseDe
     growingMaxTokens: Number(definition?.context?.growing?.max_tokens ?? summary.growing_max_tokens ?? DEFAULT_GROWING_MAX_TOKENS),
     prompt: typeof prompt === "string" ? prompt : null,
     toolApproval: definition ? definition.policy.tool_approval : null,
+    tools: automationToolSelection(definition?.target.input_data),
     notifyEmail: definition ? notifyEmails(definition.notify) : null,
     emailRecipients: definition ? emailRecipientsFormFrom(definition.notify?.recipients) : null,
   };
@@ -7559,6 +7580,10 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
     if (!prompt) errors.push("Task is required.");
     else changes.target = { bundle_ref: definition.target.bundle_ref, flow_id: definition.target.flow_id, input_data: { ...definition.target.input_data, prompt } };
   }
+  if (definition && form.tools !== undefined && JSON.stringify(form.tools) !== JSON.stringify(before.tools)) {
+    const target = changes.target || { bundle_ref: definition.target.bundle_ref, flow_id: definition.target.flow_id, input_data: definition.target.input_data };
+    changes.target = { ...target, input_data: withAutomationTools(target.input_data || {}, form.tools) };
+  }
   if (definition && form.toolApproval && form.toolApproval !== before.toolApproval) changes.policy = { tool_approval: form.toolApproval };
   if (definition && typeof form.notifyEmail === "boolean") {
     const next = emailAllowedRecipientsFrom(form.notifyEmail ? form.emailRecipients ?? DEFAULT_EMAIL_RECIPIENTS : before.emailRecipients ?? DEFAULT_EMAIL_RECIPIENTS);
@@ -7567,12 +7592,16 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
     else if (form.notifyEmail !== before.notifyEmail || JSON.stringify(next.recipients) !== JSON.stringify(prev)) changes.notify = notifyFor(form.notifyEmail, next.recipients);
   }
   if (errors.length) return { errors };
+  if (definition && form.target && automationTargetValue(form.target) !== automationTargetValue(definition.target)) {
+    const currentInput = changes.target?.input_data || definition.target.input_data;
+    changes.target = { ...form.target, input_data: retargetAutomationInput(currentInput) };
+  }
   return Object.keys(changes).length ? changes : null;
 }
 
 // History replay keeps whole turns, including an oversized newest turn.
 export const DEFAULT_GROWING_MAX_TOKENS = 50_000;
-export const GROWING_CONTEXT_HELP = "Keeps the most recent whole turns within this token budget. The newest turn is kept whole even if it exceeds the budget. Changes apply to future runs.";
+export const GROWING_CONTEXT_HELP = "Limits history carried into the next run, keeping recent whole turns. The newest turn is kept even if oversized. New messages and tool results can grow context beyond this budget.";
 const GROWING_MAX_TOKENS_ERROR = "Max growing context must be a positive whole number of tokens.";
 function validGrowingMaxTokens(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;
@@ -10435,7 +10464,7 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
               title={speak_title}
               onClick={() => props.onSpeakToggle?.(m)}
             >
-              <Icon name={speak_icon} size={22} />
+              <Icon name={speak_icon} size={22} className={speak_state === "loading" ? "pc-chat-speak-spinner" : undefined} />
             </button>
           ) : null}
           {show_copy ? (
@@ -14344,7 +14373,9 @@ ships.
 
 ## [Unreleased]
 
-Nothing yet.
+- Automation forms support shared workflow selection and a compact responsive scheduling layout. Automation headers identify the target workflow; history-budget help distinguishes inherited history from working context.
+
+- Add shared MultiSelect and AutomationToolsPicker controls for automation creation/editing. Tool selection preserves explicit empty lists, respects saved ceilings, and keeps unrelated workflow inputs.
 
 ## 0.5.2 - 2026-10-02
 

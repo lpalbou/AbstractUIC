@@ -271,7 +271,7 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
               title={speak_title}
               onClick={() => props.onSpeakToggle?.(m)}
             >
-              <Icon name={speak_icon} size={22} />
+              <Icon name={speak_icon} size={22} className={speak_state === "loading" ? "pc-chat-speak-spinner" : undefined} />
             </button>
           ) : null}
           {show_copy ? (

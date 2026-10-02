@@ -39,7 +39,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Theme: `THEMES`, `THEME_SPECS`, `applyTheme()`, `getThemeSpec()`, `themeClassName()` — see [Theming](./theming.md)
 - Typography: `FONT_SCALES`, `HEADER_DENSITIES`, `applyTypography()`, `getFontScaleSpec()`, `getHeaderDensitySpec()`
 - Responsive: `AF_BREAKPOINTS` (`{ xs: 480, sm: 768, md: 1024, lg: 1440 }`), `AF_MEDIA` (the media query strings), `useAfMedia(query)`, `installViewportVars()` (sets `--vv-height` / `--keyboard-inset`, returns a cleanup), `viewportVarsFrom(innerHeight, { height, offsetTop, scale })` and the `AfVisualViewportSample` type — see [Responsive layout](./responsive.md)
-- Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker` (gateway-default mode + provider→models cascade, injected transports), `FontScaleSelect`, `HeaderDensitySelect`, `ToolPolicyEditor`
+- Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker` (gateway-default mode + provider→models cascade, injected transports), `FontScaleSelect`, `HeaderDensitySelect`, `ToolPolicyEditor`, `MultiSelect`
 - MTP: `SpeculationSelect`, `speculationCapability()`, `normalizeSpeculationValue()`,
   `speculationSelection()`, `speculationFromSelection()` and `SpeculationValue` /
   `SpeculationCapability` types. Enable `ProviderModelPicker`'s `enableSpeculation` for text
@@ -264,3 +264,12 @@ See: [`monitor-memory/README.md`](../monitor-memory/README.md) for the backend c
 - Troubleshooting: [Troubleshooting](./troubleshooting.md)
 - Docs index: [Docs index](./README.md)
 - Security policy: [`SECURITY.md`](../SECURITY.md)
+
+Automation creation and editing accept `availableTools` to show `AutomationToolsPicker`. Its value is `null` for workflow defaults or a list of enabled names; `[]` disables all tools. `automationToolSelection()` intersects saved tools with their runtime ceiling, and `withAutomationTools()` updates both tool fields while preserving other inputs.
+
+`AutomationWorkflowPicker` reuses the shared workflow menu for automation targets.
+Pass `workflowPickerOptions` to `AutomationPanel` to enable workflow changes and
+provide its Gateway `request` function for required-input checks, or supply
+`prepareTarget` to reuse a host’s schema validator. `AfScheduleDialog.workflowPicker`
+accepts the creation form’s picker. Changing workflows retains portable agent settings;
+workflow-specific inputs use the new workflow’s defaults.

@@ -3686,12 +3686,35 @@
 .af-auto-occ__details[open] { display: flex; flex-direction: column; gap: 6px; }
 .af-auto-discuss,
 .af-auto-occ__foot { align-self: stretch; }
-.af-schedule { width: min(640px, 100%); }
+.af-schedule { width: min(960px, 100%); }
 .af-schedule__form { display: flex; flex-direction: column; gap: 14px; }
+.af-schedule__picker { margin-bottom: 10px; min-width: 0; }
+.af-schedule__picker .af-workflow-picker, .af-auto__revise .af-workflow-picker { width: 100%; min-width: 0; }
+.af-schedule__form input[type="checkbox"], .af-auto__revise input[type="checkbox"] { width: auto; flex: 0 0 auto; }
 .af-schedule__form > fieldset { border: 1px solid var(--ui-border-2); border-radius: var(--radius-md); padding: 10px 12px; }
 .af-schedule__preview { margin: 0; color: var(--text-secondary); }
 .af-schedule__advanced { display: flex; flex-direction: column; gap: 8px; }
 .af-schedule__advanced[open] > .af-auto__field { margin-top: 8px; }
+.af-schedule .af-appearance__actions {
+  position: sticky; bottom: -18px; z-index: 2;
+  padding: 12px 0; margin-top: 0;
+  background: var(--bg-card, var(--bg-secondary));
+  border-top: 1px solid var(--ui-border-2);
+}
+.af-schedule__form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.af-schedule__form > fieldset:first-child,
+.af-schedule__form > details,
+.af-schedule__form > .af-auto__form-errors,
+.af-schedule__form > .af-auto__error,
+.af-schedule__form > .af-appearance__actions { grid-column: 1 / -1; }
+.af-schedule__form > fieldset:first-child { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 14px; }
+.af-schedule__form > fieldset:first-child > legend { grid-column: 1 / -1; }
+.af-schedule__picker { margin-bottom: 0; }
+@media (max-width: 767.98px) {
+  .af-schedule__form { display: flex; gap: 14px; }
+  .af-schedule__form > fieldset:first-child { display: block; }
+  .af-schedule__picker { margin-bottom: 10px; }
+}
 @media (prefers-reduced-motion: reduce) {
   .af-auto__btn,
   .af-auto__definition-chevron { transition: none; }
@@ -5501,3 +5524,102 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   }
 }
 /* af-workflow-picker:end */
+
+/* Shared searchable multi-select, originally the Observer tools picker. */
+.af_multi_select {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.af_multi_select_row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.af_multi_select_row > .btn:first-child {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.af_multi_select_panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--ui-border-1);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-primary) 55%, transparent);
+}
+
+.af_multi_select_list {
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.af_multi_select_item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius-lg, 10px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--bg-primary) 35%, transparent);
+  cursor: pointer;
+  user-select: none;
+}
+
+.af_multi_select_item.checked {
+  border-color: var(--accent);
+  background: var(--ui-surface-2);
+}
+
+/* Selected items shown as chips */
+.af_multi_select_chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.af_multi_select_chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm, 4px);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  color: color-mix(in srgb, var(--accent) 95%, transparent);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.af_multi_select_chip:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.af_multi_select_chip_x {
+  font-size: calc(11px * var(--font-scale));
+  line-height: 1;
+  opacity: 0.6;
+  margin-left: 2px;
+}
+
+.af_multi_select_chip:hover .af_multi_select_chip_x {
+  opacity: 1;
+}
+
+.af_multi_select button { color: inherit; font: inherit; }
+.af_multi_select_row > button { background: var(--ui-surface-2); border: 1px solid var(--ui-border-1); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.af_multi_select_panel > input { width: 100%; box-sizing: border-box; }
+.af_multi_select_chip { max-width: 100%; overflow-wrap: anywhere; white-space: normal; }

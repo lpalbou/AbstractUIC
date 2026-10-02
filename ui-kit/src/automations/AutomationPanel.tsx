@@ -1,3 +1,6 @@
+import { AutomationToolsPicker } from "./automation_tools_picker.js";
+import { AutomationWorkflowPicker, type AutomationWorkflowPickerOptions } from "./automation_workflow_picker.js";
+import { prepareAutomationTarget } from "./prepare_target.js";
 // AutomationPanel — one automation, rendered from server truth (contract G).
 //
 // Controlled: the host fetches (see ./client.ts) and passes the summary, the
@@ -70,6 +73,8 @@ import type {
 } from "./types.js";
 
 export type AutomationPanelProps = {
+  prepareTarget?(target: NonNullable<AutomationChanges["target"]>): Promise<NonNullable<AutomationChanges["target"]>>;
+  workflowPickerOptions?: AutomationWorkflowPickerOptions;
   summary: AutomationSummary;
   definition?: AutomationDefinition;
   occurrences: OccurrenceRow[];
@@ -144,10 +149,11 @@ export type AutomationPanelProps = {
   onEditOpenChange?(open: boolean): void;
   /**
    * `GET /api/gateway/me/email` (the client's `getMyEmail()`): the Edit form
-   * offers "Email me the result" and allowed recipients only when the account
+   * offers "Email result" and allowed recipients only when the account
    * is usable (an option already on can still be turned off); otherwise it
    * shows "Connect a mailbox first — open My email".
    */
+  availableTools?: string[];
   emailStatus?: MyEmailStatus | null;
   onOpenMyEmail?: () => void;
   className?: string;
@@ -262,6 +268,7 @@ export function triggerSourceProblem(summary: AutomationSummary, sources: Array<
 }
 
 export function AutomationHeader(props: {
+  workflowLabel?: string;
   summary: AutomationSummary;
   triggerSources: Array<TriggerSource | TriggerSourceEntry>;
   titleId?: string;
@@ -286,6 +293,7 @@ export function AutomationHeader(props: {
         {s.legacy ? <span className="af-auto__legacy">Legacy schedule</span> : null}
       </div>
       <dl className="af-auto__facts">
+        {props.workflowLabel ? <><dt>Workflow</dt><dd data-fact="workflow">{props.workflowLabel}</dd></> : null}
         <dt>When</dt>
         <dd data-fact="trigger">
           {triggerSummary(s.trigger)}
@@ -658,6 +666,7 @@ export function readReviseForm(form: { elements: { namedItem(name: string): unkn
 
 
 export type AutomationReviseFormProps = {
+  workflowPickerOptions?: AutomationWorkflowPickerOptions;
   summary: AutomationSummary;
   /** The committed definition: with it the form also edits the task (`input_data.prompt`) and tool approval. */
   definition?: ReviseDefinition | null;
@@ -666,6 +675,7 @@ export type AutomationReviseFormProps = {
   onSubmit(form: ReviseForm): void;
   onCancel(): void;
   /** See `AutomationPanelProps.emailStatus`. */
+  availableTools?: string[];
   emailStatus?: MyEmailStatus | null;
   onOpenMyEmail?: () => void;
 };
@@ -673,6 +683,8 @@ export type AutomationReviseFormProps = {
 /** The Edit form: everything `PATCH /automations/{id}` can change that this kit knows how to show, prefilled. */
 export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactElement {
   const initial = reviseFormFrom(p.summary, p.definition);
+  const [target, setTarget] = useState<ReviseForm["target"]>();
+  const [selectedTools, setSelectedTools] = useState(initial.tools ?? null);
   const [contextMode, setContextMode] = useState(initial.context);
   const [emailResult, setEmailResult] = useState(Boolean(initial.notifyEmail));
   const d = initial.every ? parseDuration(initial.every) : null;
@@ -686,7 +698,7 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
       aria-labelledby={`${base}-heading`}
       onSubmit={(e) => {
         e.preventDefault();
-        p.onSubmit(readReviseForm(e.currentTarget, initial));
+        p.onSubmit({ ...readReviseForm(e.currentTarget, initial), ...(target ? { target } : {}), ...(p.availableTools !== undefined ? { tools: selectedTools } : {}) });
       }}
       onKeyDown={(e) => {
         if (e.key === "Escape") {
@@ -698,6 +710,7 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
       <h3 className="af-auto__form-title" id={`${base}-heading`}>
         <Icon name="edit" size={14} /> Edit automation
       </h3>
+      {p.definition && p.workflowPickerOptions ? <AutomationWorkflowPicker target={target || p.definition.target} options={p.workflowPickerOptions} onChange={setTarget} /> : null}
       <label className="af-auto__field" htmlFor={`${base}-title`}>
         <span>Title</span>
         <input id={`${base}-title`} name="title" defaultValue={initial.title} maxLength={120} required />
@@ -745,6 +758,7 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
       {initial.toolApproval ? (
         <fieldset className="af-auto__field">
           <legend>Tools</legend>
+          {p.availableTools !== undefined ? <AutomationToolsPicker availableTools={p.availableTools} value={selectedTools} onChange={setSelectedTools} disabled={p.busy} /> : null}
           <label>
             <input type="radio" name="tool_approval" value="auto" defaultChecked={initial.toolApproval === "auto"} /> Run without asking
           </label>
@@ -759,7 +773,7 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
           {!usable ? <AfEmailSetupNotice status={p.emailStatus} onOpenMyEmail={p.onOpenMyEmail} /> : null}
           {/* Without a usable account an option already on can still be switched off, never on. */}
           <AfSwitchInput variant="row" action="notify-email" name="notify_email" label={EMAIL_TEXT.notify_label} defaultChecked={Boolean(initial.notifyEmail)} onChange={setEmailResult} unavailableReason={!usable && !initial.notifyEmail ? "Connect a mailbox first." : null} />
-          <p className="af-auto__hint">{EMAIL_TEXT.notify_hint}</p>
+          <p className="af-auto__hint">{EMAIL_TEXT.notify_hint} Turn on Email result to choose yourself or other email addresses.</p>
           <div hidden={!emailResult}><fieldset className="af-auto__field" disabled={!emailResult} data-field="email-recipients">
             <legend>{EMAIL_TEXT.recipients_legend}</legend>
             <label>
@@ -1206,7 +1220,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
 
   return (
     <section ref={rootRef} className={`af-auto${props.className ? ` ${props.className}` : ""}`} aria-labelledby={titleId} aria-busy={busy} data-text-rendering={props.renderText ? "rich" : "unformatted"}>
-      <AutomationHeader summary={summary} triggerSources={props.triggerSources} titleId={titleId} nowMs={props.nowMs} onOpenWorkspace={props.onOpenWorkspace} />
+      <AutomationHeader summary={summary} workflowLabel={props.definition?.target.workflow_id} triggerSources={props.triggerSources} titleId={titleId} nowMs={props.nowMs} onOpenWorkspace={props.onOpenWorkspace} />
       <AutomationControlsBar
         summary={summary}
         occurrences={props.occurrences}
@@ -1241,6 +1255,8 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
           definition={editBase.definition}
           busy={busy}
           errors={reviseErrors}
+          availableTools={props.availableTools}
+          workflowPickerOptions={props.workflowPickerOptions}
           emailStatus={props.emailStatus}
           onOpenMyEmail={props.onOpenMyEmail}
           onCancel={() => {
@@ -1259,7 +1275,10 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
               return;
             }
             setReviseErrors([]);
-            act(`revise:${base.revision}:${JSON.stringify(changes)}`, (command_id) => props.onRevise(changes, base.revision, { command_id }), () => {
+            act(`revise:${base.revision}:${JSON.stringify(changes)}`, async (command_id) => {
+              const prepared = form.target && changes.target ? { ...changes, target: await (props.prepareTarget ? props.prepareTarget(changes.target) : prepareAutomationTarget(changes.target, props.workflowPickerOptions!)) } : changes;
+              return props.onRevise(prepared, base.revision, { command_id });
+            }, () => {
               setNotice("Saved; applies from the next run.");
               setReviseOpen(false);
               setFocusAfter(['[data-action="edit"]']);

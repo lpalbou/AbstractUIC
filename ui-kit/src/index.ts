@@ -354,3 +354,10 @@ export {
   type WorkflowPickerGroup,
   type WorkflowPickerGroupId,
 } from "./workflow_picker_core.js";
+
+export { MultiSelect } from "./multi_select.js";
+export { automationToolSelection, withAutomationTools } from "./automations/tool_selection.js";
+export { AutomationToolsPicker } from "./automations/automation_tools_picker.js";
+export { AutomationWorkflowPicker, type AutomationWorkflowPickerOptions } from "./automations/automation_workflow_picker.js";
+export { retargetAutomationInput, automationTargetValue } from "./automations/target_selection.js";
+export { prepareAutomationTarget } from "./automations/prepare_target.js";

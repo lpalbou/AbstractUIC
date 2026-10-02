@@ -9,7 +9,9 @@ ships.
 
 ## [Unreleased]
 
-Nothing yet.
+- Automation forms support shared workflow selection and a compact responsive scheduling layout. Automation headers identify the target workflow; history-budget help distinguishes inherited history from working context.
+
+- Add shared MultiSelect and AutomationToolsPicker controls for automation creation/editing. Tool selection preserves explicit empty lists, respects saved ceilings, and keeps unrelated workflow inputs.
 
 ## 0.5.2 - 2026-10-02
 

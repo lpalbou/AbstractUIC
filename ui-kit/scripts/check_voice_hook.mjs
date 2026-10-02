@@ -44,3 +44,4 @@ for (const marker of ["tts_playback_ref.current", "voice_ptt_recording_ref.curre
 ok("stable callbacks read state through ref twins");
 
 console.log("check_voice_hook: 4 pins green");
+await import("./check_voice_stream.mjs");

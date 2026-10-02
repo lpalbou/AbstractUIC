@@ -1,8 +1,10 @@
+import { AutomationToolsPicker } from "./automation_tools_picker.js";
+import { automationToolSelection, withAutomationTools } from "./tool_selection.js";
 // AfScheduleDialog — create an automation: What (the host's workflow picker +
 // the task prompt), When (`schedule@1`: once at a UTC time, or every N
 // minutes/hours/days; or `email.received@1`: when an email arrives, with typed
 // filters, a check interval and a max batch), Context (independent /
-// growing), Tools, Email (email me the result, allowed recipients — offered
+// growing), Tools, Email (Email result, allowed recipients — offered
 // only when `GET /me/email` says the account is usable, otherwise "Connect
 // a mailbox first — open My email"), Advanced (first run, max runs, stop at,
 // title). It builds the `POST /api/gateway/automations`
@@ -47,6 +49,8 @@ export type AfScheduleDialogProps = {
   initialPrompt?: string;
   /** The target's tool names, listed under the consent line (from the host's picker). */
   targetTools?: string[];
+  availableTools?: string[];
+  initialTools?: string[] | null;
   initialTitle?: string;
   onSubmit(body: CreateAutomationRequest): void | Promise<unknown>;
   busy?: boolean;
@@ -80,6 +84,13 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
   const onCloseRef = useRef(props.onClose);
   onCloseRef.current = props.onClose;
 
+  const initialTools = props.initialTools ?? automationToolSelection(props.target?.input_data);
+  const [toolState, setToolState] = useState({ open: props.open, value: initialTools });
+  // Snapshot on opening, before paint. Later catalog refreshes must not
+  // change a checkbox while the person is interacting with the form.
+  if (toolState.open !== props.open) setToolState({ open: props.open, value: initialTools });
+  const selectedTools = toolState.value;
+  const setSelectedTools = (value: string[] | null) => setToolState(previous => ({ ...previous, value }));
   const [prompt, setPrompt] = useState(props.initialPrompt ?? "");
   const [kind, setKind] = useState<"every" | "once" | "email">("every");
   const [email, setEmail] = useState<EmailTriggerForm>(DEFAULT_EMAIL_TRIGGER_FORM);
@@ -154,8 +165,11 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
     }
     setErrors([]);
     const ids = idsRef.current as ActionIds;
-    const signature = JSON.stringify(probe.body);
-    const body = { ...probe.body, request_id: ids.idFor(signature) };
+    const prepared = props.availableTools === undefined ? probe.body : {
+      ...probe.body, target: { ...probe.body.target, input_data: withAutomationTools(probe.body.target.input_data || {}, selectedTools) },
+    };
+    const signature = JSON.stringify(prepared);
+    const body = { ...prepared, request_id: ids.idFor(signature) };
     Promise.resolve(props.onSubmit(body)).then(
       () => ids.settle(signature, { ok: true }),
       (error) => ids.settle(signature, { ok: false, error }),
@@ -254,6 +268,7 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
 
           <fieldset className="af-auto__field" data-field="tool-approval">
             <legend>Tools</legend>
+            {props.availableTools !== undefined ? <AutomationToolsPicker availableTools={props.availableTools} value={selectedTools} onChange={setSelectedTools} disabled={busy} /> : null}
             <label>
               <input type="radio" name={id("tools")} value="auto" checked={toolApproval === "auto"} onChange={() => setToolApproval("auto")} /> Run without asking
             </label>

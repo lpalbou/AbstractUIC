@@ -1,7 +1,7 @@
 // Email pieces of the automation form (framework backlog 0992 WP6): the
 // "Connect a mailbox first — open My email" notice, the "When an email arrives"
 // fields (typed filters, check interval, max batch) and the email options
-// ("Email me the result", allowed recipients). Controlled and hook-free, so
+// ("Email result", allowed recipients). Controlled and hook-free, so
 // AfScheduleDialog, the Edit form and hosts with their own form (the
 // Observer's Launch → Automate) render the same fields with the same words
 // (EMAIL_TEXT = automation_controls.json → email).
@@ -147,14 +147,14 @@ export type AfEmailOptionsFieldsProps = {
   idBase: string;
 };
 
-/** "Email me the result" and "May send email without asking to: Only me (default) / Me and these addresses". */
+/** "Email result" and "Recipients: Only me (default) / Me and these addresses". */
 export function AfEmailOptionsFields(p: AfEmailOptionsFieldsProps): React.ReactElement {
   const id = (s: string) => `${p.idBase}-email-${s}`;
   const dis = p.disabled === true;
   return (
     <div className="af-email__options" data-field="email-options">
       <AfSwitch variant="row" action="notify-email" label={EMAIL_TEXT.notify_label} checked={p.notifyEmail} unavailableReason={dis ? "Connect a mailbox first." : null} onChange={(on) => p.onNotifyEmailChange(on)} />
-      <p className="af-auto__hint">{EMAIL_TEXT.notify_hint}</p>
+      <p className="af-auto__hint">{EMAIL_TEXT.notify_hint} Turn on Email result to choose yourself or other email addresses.</p>
       {p.notifyEmail ? <fieldset className="af-auto__field" disabled={dis} data-field="email-recipients">
         <legend>{EMAIL_TEXT.recipients_legend}</legend>
         <label>

@@ -18,6 +18,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -945,3 +946,62 @@ if (failures) {
   process.exit(1);
 }
 console.log(`check_automation_panel: OK (${checks} checks)`);
+
+
+// Tool selection revisions preserve unrelated inputs and distinguish defaults from deny-all.
+{
+  const { withAutomationTools, automationToolSelection } = await import("../dist/automations/tool_selection.js");
+  const input = { prompt: "Find prices", model: "chosen", tools: ["read_file"], _runtime: { allowed_tools: ["read_file"], model: "chosen" } };
+  const disabled = withAutomationTools(input, []);
+  assert(JSON.stringify(disabled.tools) === "[]" && JSON.stringify(disabled._runtime.allowed_tools) === "[]", "empty means no tools");
+  const inherited = withAutomationTools(input, null);
+  assert(!("tools" in inherited) && !("allowed_tools" in inherited._runtime), "defaults clear only tool overrides");
+  assert(inherited.model === "chosen" && inherited._runtime.model === "chosen", "tool edits preserve model");
+  assert(automationToolSelection(inherited) === null, "omitted tools inherit");
+  assert(input.tools[0] === "read_file", "editing does not mutate the definition");
+}
+
+{
+  const { reviseFormFrom, reviseChanges } = kit;
+  const definition = { target: { bundle_ref: "agent@1", flow_id: "main", input_data: { prompt: "Old task", model: "selected", tools: ["read_file"], _runtime: { model: "selected", allowed_tools: ["read_file"] } } }, policy: { tool_approval: "auto" } };
+  const form = reviseFormFrom(news, definition);
+  const changed = reviseChanges(news, { ...form, prompt: "New task", tools: [] }, definition);
+  assert.deepEqual(changed.target.input_data.tools, []);
+  assert.deepEqual(changed.target.input_data._runtime.allowed_tools, []);
+  assert.equal(changed.target.input_data.prompt, "New task");
+  assert.equal(changed.target.input_data.model, "selected");
+  assert.equal(reviseChanges(news, form, definition), null);
+  const defaults = reviseChanges(news, { ...form, tools: null }, definition);
+  assert.equal(Object.hasOwn(defaults.target.input_data, "tools"), false);
+}
+
+assert.deepEqual(kit.automationToolSelection({ tools: ["read_file", "write_file"], _runtime: { allowed_tools: ["read_file"] } }), ["read_file"]);
+assert.deepEqual(kit.automationToolSelection({ tools: ["read_file"], _runtime: { allowed_tools: [] } }), []);
+
+{
+  const definition = {
+    target: { bundle_ref: "old@1", flow_id: "agent", input_data: { prompt: "Original task", tools: [], model: "chosen", workspace_root: "/old-session", custom_pin: "old-only", context: { task: "stale" }, _runtime: { allowed_tools: [], model: "chosen", tool_policy: { auto_approve_tools: ["write_file"] } } } },
+    policy: { tool_approval: "ask" }, notify: { channels: ["console", "email"], recipients: ["self", "colleague@example.com"] },
+  };
+  const form = kit.reviseFormFrom(news, definition);
+  const changed = kit.reviseChanges(news, { ...form, target: { bundle_ref: "new@2", flow_id: "agent" }, prompt: "New task" }, definition);
+  assert.equal(changed.target.bundle_ref, "new@2");
+  assert.equal(changed.target.input_data.prompt, "New task");
+  assert.deepEqual(changed.target.input_data.tools, []);
+  assert.equal(changed.target.input_data.model, "chosen");
+  for (const key of ["workspace_root", "context", "custom_pin"]) assert(!(key in changed.target.input_data));
+  assert(!("tool_policy" in changed.target.input_data._runtime));
+  assert(!("notify" in changed), "workflow edits must preserve existing external recipients");
+  assert.equal(kit.reviseChanges(news, { ...form, target: { bundle_ref: "old@1", flow_id: "agent" } }, definition), null);
+}
+
+{
+  const target = { bundle_ref: "test@1", flow_id: "main", input_data: { prompt: "Task", tools: [] } };
+  const options = { request: async () => ({ input_data_schema: { properties: { prompt: { type: "string" }, ticket: { type: "string" } }, required: ["prompt", "ticket"] } }) };
+  await assert.rejects(kit.prepareAutomationTarget(target, options), /additional inputs: ticket/);
+  const prepared = await kit.prepareAutomationTarget(target, { request: async () => ({ input_data_schema: { properties: { prompt: {}, ticket: { default: "default-ticket" } }, required: ["prompt", "ticket"] } }) });
+  assert.equal(prepared.input_data.ticket, "default-ticket");
+  assert.equal(prepared.input_data.prompt, "Task");
+  assert.deepEqual(prepared.input_data.tools, []);
+  await assert.rejects(kit.prepareAutomationTarget(target, { request: async () => ({}) }), /does not report/);
+}
