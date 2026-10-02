@@ -275,8 +275,8 @@ export function emailRecipientsLabel(list: string[] | null | undefined): string 
 }
 
 /** `notify` for "Email me the result": `["console", "email"]` when on, the default `["console"]` when off. */
-export function notifyFor(emailMe: boolean): AutomationNotify {
-  return { channels: emailMe ? ["console", "email"] : ["console"] };
+export function notifyFor(emailMe: boolean, recipients: string[] = ["self"]): AutomationNotify {
+  return { channels: emailMe ? ["console", "email"] : ["console"], ...(recipients.some((r) => r !== "self") ? { recipients } : {}) };
 }
 export function notifyEmails(notify: AutomationNotify | null | undefined): boolean {
   return !!notify && Array.isArray(notify.channels) && notify.channels.includes("email");
@@ -489,6 +489,7 @@ export type ReviseForm = {
   title: string;
   every: string | null;
   context: ContextMode;
+  growingMaxTokens?: number;
   prompt?: string | null;
   toolApproval?: ToolApprovalPolicy | null;
   /** "Email me the result" (`notify.channels` has "email"); `null` without a definition. */
@@ -499,6 +500,7 @@ export type ReviseForm = {
 
 /** The committed definition fields the Edit form reads (a subset of `AutomationDefinition`). */
 export type ReviseDefinition = {
+  context?: { mode: ContextMode; growing?: JsonObject };
   target: { bundle_ref: string; flow_id: string; input_data: JsonObject };
   policy: { tool_approval: ToolApprovalPolicy; email_allowed_recipients?: string[] };
   notify?: AutomationNotify;
@@ -512,10 +514,11 @@ export function reviseFormFrom(summary: AutomationSummary, definition?: ReviseDe
     title: summary.title,
     every: typeof every === "string" ? every : null,
     context: summary.context_mode,
+    growingMaxTokens: Number(definition?.context?.growing?.max_tokens ?? summary.growing_max_tokens ?? DEFAULT_GROWING_MAX_TOKENS),
     prompt: typeof prompt === "string" ? prompt : null,
     toolApproval: definition ? definition.policy.tool_approval : null,
     notifyEmail: definition ? notifyEmails(definition.notify) : null,
-    emailRecipients: definition ? emailRecipientsFormFrom(definition.policy.email_allowed_recipients) : null,
+    emailRecipients: definition ? emailRecipientsFormFrom(definition.notify?.recipients) : null,
   };
 }
 
@@ -549,22 +552,36 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
       changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config };
     }
   }
-  if (form.context !== summary.context_mode) changes.context = { mode: form.context };
+  const maxTokens = form.context === "growing" ? form.growingMaxTokens ?? before.growingMaxTokens! : before.growingMaxTokens!;
+  if (!validGrowingMaxTokens(maxTokens)) errors.push(GROWING_MAX_TOKENS_ERROR);
+  if (form.context !== summary.context_mode || maxTokens !== before.growingMaxTokens) {
+    changes.context = automationContext(form.context, maxTokens);
+  }
   if (definition && typeof before.prompt === "string" && typeof form.prompt === "string" && form.prompt.trim() !== before.prompt.trim()) {
     const prompt = form.prompt.trim();
     if (!prompt) errors.push("Task is required.");
     else changes.target = { bundle_ref: definition.target.bundle_ref, flow_id: definition.target.flow_id, input_data: { ...definition.target.input_data, prompt } };
   }
   if (definition && form.toolApproval && form.toolApproval !== before.toolApproval) changes.policy = { tool_approval: form.toolApproval };
-  if (definition && typeof form.notifyEmail === "boolean" && form.notifyEmail !== before.notifyEmail) changes.notify = notifyFor(form.notifyEmail);
-  if (definition && form.emailRecipients) {
-    const next = emailAllowedRecipientsFrom(form.emailRecipients);
+  if (definition && typeof form.notifyEmail === "boolean") {
+    const next = emailAllowedRecipientsFrom(form.notifyEmail ? form.emailRecipients ?? DEFAULT_EMAIL_RECIPIENTS : before.emailRecipients ?? DEFAULT_EMAIL_RECIPIENTS);
     const prev = emailAllowedRecipientsFrom(before.emailRecipients ?? DEFAULT_EMAIL_RECIPIENTS).recipients;
     if (next.errors.length) errors.push(...next.errors);
-    else if (JSON.stringify(next.recipients) !== JSON.stringify(prev)) changes.policy = { ...(changes.policy ?? {}), email_allowed_recipients: next.recipients };
+    else if (form.notifyEmail !== before.notifyEmail || JSON.stringify(next.recipients) !== JSON.stringify(prev)) changes.notify = notifyFor(form.notifyEmail, next.recipients);
   }
   if (errors.length) return { errors };
   return Object.keys(changes).length ? changes : null;
+}
+
+// History replay keeps whole turns, including an oversized newest turn.
+export const DEFAULT_GROWING_MAX_TOKENS = 50_000;
+export const GROWING_CONTEXT_HELP = "Keeps the most recent whole turns within this token budget. The newest turn is kept whole even if it exceeds the budget. Changes apply to future runs.";
+const GROWING_MAX_TOKENS_ERROR = "Max growing context must be a positive whole number of tokens.";
+function validGrowingMaxTokens(value: number): boolean {
+  return Number.isSafeInteger(value) && value > 0;
+}
+function automationContext(mode: ContextMode, maxTokens: number) {
+  return { mode, ...(maxTokens !== DEFAULT_GROWING_MAX_TOKENS ? { growing: { max_tokens: maxTokens } } : {}) };
 }
 
 // --- schedule dialog -----------------------------------------------------------
@@ -582,6 +599,7 @@ export type ScheduleForm = {
   emailRecipients?: EmailRecipientsForm;
   when: ScheduleWhen;
   context: ContextMode;
+  growingMaxTokens?: number;
   /** `"auto"` (default): tools run without asking; `"ask"`: each tool call waits for approval. */
   toolApproval?: ToolApprovalPolicy;
   /** Advanced (all optional). Datetimes are `YYYY-MM-DDTHH:MM` read as UTC. */
@@ -671,8 +689,10 @@ export function buildCreateRequest(
   const email = form.trigger === "email";
   const built = email ? emailTriggerConfigFrom(form.email ?? DEFAULT_EMAIL_TRIGGER_FORM) : scheduleConfigFrom(form);
   errors.push(...built.errors);
-  const recipients = form.emailRecipients && form.emailRecipients.mode === "list" ? emailAllowedRecipientsFrom(form.emailRecipients) : null;
+  const recipients = form.notifyEmail && form.emailRecipients && form.emailRecipients.mode === "list" ? emailAllowedRecipientsFrom(form.emailRecipients) : null;
   if (recipients) errors.push(...recipients.errors);
+  const maxTokens = form.growingMaxTokens ?? DEFAULT_GROWING_MAX_TOKENS;
+  if (form.context === "growing" && !validGrowingMaxTokens(maxTokens)) errors.push(GROWING_MAX_TOKENS_ERROR);
   if (errors.length || !opts.target) return { ok: false, errors };
   const target = { ...opts.target, input_data: { ...(opts.target.input_data ?? {}), prompt } } as AutomationTarget;
   const body: CreateAutomationRequest = {
@@ -682,10 +702,10 @@ export function buildCreateRequest(
     trigger: email
       ? { source_id: EMAIL_TRIGGER_SOURCE_ID, source_version: EMAIL_TRIGGER_SOURCE_VERSION, config: built.config as JsonObject }
       : { source_id: "schedule", source_version: 1, config: built.config as JsonObject },
-    context: { mode: form.context },
-    policy: { tool_approval: form.toolApproval ?? "auto", ...(recipients ? { email_allowed_recipients: recipients.recipients } : {}) },
+    context: automationContext(form.context, form.context === "growing" ? maxTokens : DEFAULT_GROWING_MAX_TOKENS),
+    policy: { tool_approval: form.toolApproval ?? "auto" },
   };
-  if (form.notifyEmail === true) body.notify = notifyFor(true);
+  if (form.notifyEmail === true) body.notify = notifyFor(true, recipients?.recipients);
   return { ok: true, body };
 }
 

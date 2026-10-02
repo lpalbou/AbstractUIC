@@ -60,7 +60,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, ecosystem data flow, gateway connection flow, live replies, About/identity flow, automations flow, console islands build)
 - [FAQ](docs/faq.md): bundling/CSS/SSR and per-package notes
 - [Troubleshooting](docs/troubleshooting.md): symptoms, checks and fixes (unstyled components, SSR errors, widget polling, app-server 400/401/403, live replies, images shown as links, stale islands bundle, plain-http copy/voice/ids)
-- [Automations](docs/automations.md): show and manage AbstractGateway automations — `AutomationPanel` (icon controls, an Edit form a host can open through `editOpen`, runs as chat pairs, typed wait answers), `AfScheduleDialog` (fixed UTC intervals, **When an email arrives** with typed filters, **Email me the result**, allowed recipients, tool-approval consent line), `createAutomationsClient()` and its error model, retry-safe ids, panel-chat `ScheduleThisAction` / `FromAutomationBadge`, the canonical fixtures and the export list
+- [Automations](docs/automations.md): configurable growing-context budgets and result email; show and manage AbstractGateway automations — `AutomationPanel` (icon controls, an Edit form a host can open through `editOpen`, runs as chat pairs, typed wait answers), `AfScheduleDialog` (fixed UTC intervals, **When an email arrives** with typed filters, **Email me the result**, allowed recipients, tool-approval consent line), `createAutomationsClient()` and its error model, retry-safe ids, panel-chat `ScheduleThisAction` / `FromAutomationBadge`, the canonical fixtures and the export list
 - [Console islands](docs/console-islands.md): `window.AfConsoleIslands` (mountTopBar / mountAppearance / mountAbout / appIdentity / applyAppearance) for pages that are not React apps; repository build, not in the npm package
 - [Docs index](docs/README.md): full docs navigation
 
@@ -2913,7 +2913,7 @@ sections:
   consent line **"Tools run without asking (you approve them now by creating this automation)"**,
   followed by the `targetTools` names when you pass them. "Ask me before each tool call"
   (`"ask"`) makes every tool call wait for approval in the automation's timeline.
-- **Email** — **Email me the result** and **May send email without asking to** (see
+- **Email** — **Email result** and **Recipients** (see
   [Email automations](#email-automations)).
 - **Advanced** — title (default: the task's first line, at most 120 characters), first run at,
   stop after N runs, stop at. Date fields are read as UTC.
@@ -2949,22 +2949,19 @@ failed) counts as not set up, and nothing email-shaped is ever sent without a us
   Each email is read once by the automation; mail that arrived before it was created, or while it
   was paused, is not processed. The Tools section adds that incoming mail is data, never
   instructions, and that link-opening tools (`fetch_url`, `browser_probe`) always ask.
-- **Email me the result** — `notify: {channels: ["console", "email"]}`: a run that notifies you,
-  or fails for good, is also emailed to you. Off sends no `notify` (the default, console only).
-- **May send email without asking to** — **Only me** (the default; nothing is sent, the server
-  default is `policy.email_allowed_recipients: ["self"]`) or **Me and these addresses**
-  (`["self", ...addresses]`). Sending to anyone else waits for approval, and the account's
-  recipient policy in My email still applies.
+- **Email result** emails every completed run’s full result.
+- **Recipients** appears when Email result is enabled: **Only me** (default) or
+  **Me and these addresses**. Recipients are stored in `notify.recipients`;
+  this setting does not grant email-tool permissions. The mailbox recipient policy still applies.
 
-The Edit form offers the same interval (for an email trigger), **Email me the result** and the
-allowed recipients when the host passes the committed definition; without a usable account an
+The Edit form offers the same interval (for an email trigger), **Email result** and the
+result recipients when the host passes the committed definition; without a usable account an
 option already on can be turned off, never on. A new interval drops the old `start_at`, so the
 revised trigger starts from now and never re-reads mail. The definition card lists **Notify** and
-**May email**. Hosts with their own create form (the Observer's Launch → Automate) render the same
+**Recipients**. Hosts with their own create form (the Observer's Launch → Automate) render the same
 fields with `AfEmailTriggerFields`, `AfEmailOptionsFields` and `AfEmailSetupNotice`, and build the
 body with `buildCreateRequest({..., trigger: "email", email, notifyEmail, emailRecipients})`. The
-words live in `automation_controls.json` under `email` (`EMAIL_TEXT`), which the Assistant and the
-Code TUI vendor byte for byte.
+words live in `automation_controls.json` under `email` (`EMAIL_TEXT`), which the Assistant vendors.
 
 ## The client
 
@@ -3167,6 +3164,17 @@ From `@abstractframework/panel-chat` (sources: `panel-chat/src/automation_badges
 - [FAQ](./faq.md#automations-does-the-kit-poll-or-schedule-anything) and [Troubleshooting](./troubleshooting.md#automations-the-panel-shows-an-error-or-a-control-stays-disabled)
 - [Development: shared contracts](./development.md#shared-contracts-with-other-repositories)
 - [Docs index](./README.md)
+
+## Growing context limit
+
+Choose **Growing** to set **Max growing context (tokens)** when creating or editing an
+automation. The default is 50,000; enter `30000` for a 30,000-token history budget.
+The limit is hidden for **Independent** runs. Changing it affects subsequent occurrences;
+already admitted occurrences retain their history for retries. History retains whole turns,
+including the newest turn even when that turn alone exceeds the budget.
+
+The API field is `context.growing.max_tokens`, a positive integer. Existing definitions
+that omit it retain the 50,000-token default.
 
 ## docs/console-islands.md
 
@@ -4779,7 +4787,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.4.0",
+  "version": "0.5.2",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -4803,7 +4811,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -4872,7 +4880,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -4916,7 +4924,7 @@ npm test
     "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.1.14 || ^0.2.0 || ^0.3.0 || ^0.4.0",
+    "@abstractframework/ui-kit": "^0.1.14 || ^0.2.0 || ^0.3.0 || ^0.4.0 || ^0.5.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
@@ -5384,6 +5392,8 @@ export {
   isApiError,
   occurrenceViews,
   parseDuration,
+  DEFAULT_GROWING_MAX_TOKENS,
+  GROWING_CONTEXT_HELP,
   reviseChanges,
   reviseFormFrom,
   scheduleLabel,
@@ -6586,6 +6596,7 @@ export type TriggerSourceEntry = TriggerSource & { available: boolean; unavailab
 
 export type AutomationStatus = "active" | "paused" | "completed" | "failed" | "archived";
 export type ContextMode = "independent" | "growing";
+export type AutomationContext = { mode: ContextMode; growing?: { max_tokens?: number } };
 export type Notify = { title: string; body: string };
 
 export type AttentionItem = {
@@ -6643,6 +6654,7 @@ export type AutomationSummary = {
   status: AutomationStatus;
   trigger: TriggerBinding;
   context_mode: ContextMode;
+  growing_max_tokens?: number;
   /** The automation's folder (= `definition.workspace_root`). Legacy rows carry it only when the wrapper recorded one. */
   workspace_root?: string;
   /**
@@ -6695,7 +6707,7 @@ export type AutomationCommandType =
 
 /** Where an automation's attention items are delivered (definition v2; default `["console"]`). */
 export type NotifyChannel = "console" | "email";
-export type AutomationNotify = { channels: NotifyChannel[] };
+export type AutomationNotify = { channels: NotifyChannel[]; recipients?: string[] };
 
 /** Contract A `_meta.automation` (the latest committed revision). v1 definitions read with the v2 defaults. */
 export type AutomationDefinition = {
@@ -6749,7 +6761,7 @@ export type CreateAutomationRequest = {
   title: string;
   target: AutomationTarget;
   trigger: TriggerSpec;
-  context?: { mode: ContextMode };
+  context?: AutomationContext;
   policy?: AutomationPolicyInput;
   notify?: AutomationNotify;
 };
@@ -6760,7 +6772,7 @@ export type AutomationChanges = {
   title?: string;
   target?: AutomationTarget;
   trigger?: TriggerSpec;
-  context?: { mode: ContextMode };
+  context?: AutomationContext;
   policy?: AutomationPolicyInput;
   notify?: AutomationNotify;
 };
@@ -7260,8 +7272,8 @@ export function emailRecipientsLabel(list: string[] | null | undefined): string 
 }
 
 /** `notify` for "Email me the result": `["console", "email"]` when on, the default `["console"]` when off. */
-export function notifyFor(emailMe: boolean): AutomationNotify {
-  return { channels: emailMe ? ["console", "email"] : ["console"] };
+export function notifyFor(emailMe: boolean, recipients: string[] = ["self"]): AutomationNotify {
+  return { channels: emailMe ? ["console", "email"] : ["console"], ...(recipients.some((r) => r !== "self") ? { recipients } : {}) };
 }
 export function notifyEmails(notify: AutomationNotify | null | undefined): boolean {
   return !!notify && Array.isArray(notify.channels) && notify.channels.includes("email");
@@ -7474,6 +7486,7 @@ export type ReviseForm = {
   title: string;
   every: string | null;
   context: ContextMode;
+  growingMaxTokens?: number;
   prompt?: string | null;
   toolApproval?: ToolApprovalPolicy | null;
   /** "Email me the result" (`notify.channels` has "email"); `null` without a definition. */
@@ -7484,6 +7497,7 @@ export type ReviseForm = {
 
 /** The committed definition fields the Edit form reads (a subset of `AutomationDefinition`). */
 export type ReviseDefinition = {
+  context?: { mode: ContextMode; growing?: JsonObject };
   target: { bundle_ref: string; flow_id: string; input_data: JsonObject };
   policy: { tool_approval: ToolApprovalPolicy; email_allowed_recipients?: string[] };
   notify?: AutomationNotify;
@@ -7497,10 +7511,11 @@ export function reviseFormFrom(summary: AutomationSummary, definition?: ReviseDe
     title: summary.title,
     every: typeof every === "string" ? every : null,
     context: summary.context_mode,
+    growingMaxTokens: Number(definition?.context?.growing?.max_tokens ?? summary.growing_max_tokens ?? DEFAULT_GROWING_MAX_TOKENS),
     prompt: typeof prompt === "string" ? prompt : null,
     toolApproval: definition ? definition.policy.tool_approval : null,
     notifyEmail: definition ? notifyEmails(definition.notify) : null,
-    emailRecipients: definition ? emailRecipientsFormFrom(definition.policy.email_allowed_recipients) : null,
+    emailRecipients: definition ? emailRecipientsFormFrom(definition.notify?.recipients) : null,
   };
 }
 
@@ -7534,22 +7549,36 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
       changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config };
     }
   }
-  if (form.context !== summary.context_mode) changes.context = { mode: form.context };
+  const maxTokens = form.context === "growing" ? form.growingMaxTokens ?? before.growingMaxTokens! : before.growingMaxTokens!;
+  if (!validGrowingMaxTokens(maxTokens)) errors.push(GROWING_MAX_TOKENS_ERROR);
+  if (form.context !== summary.context_mode || maxTokens !== before.growingMaxTokens) {
+    changes.context = automationContext(form.context, maxTokens);
+  }
   if (definition && typeof before.prompt === "string" && typeof form.prompt === "string" && form.prompt.trim() !== before.prompt.trim()) {
     const prompt = form.prompt.trim();
     if (!prompt) errors.push("Task is required.");
     else changes.target = { bundle_ref: definition.target.bundle_ref, flow_id: definition.target.flow_id, input_data: { ...definition.target.input_data, prompt } };
   }
   if (definition && form.toolApproval && form.toolApproval !== before.toolApproval) changes.policy = { tool_approval: form.toolApproval };
-  if (definition && typeof form.notifyEmail === "boolean" && form.notifyEmail !== before.notifyEmail) changes.notify = notifyFor(form.notifyEmail);
-  if (definition && form.emailRecipients) {
-    const next = emailAllowedRecipientsFrom(form.emailRecipients);
+  if (definition && typeof form.notifyEmail === "boolean") {
+    const next = emailAllowedRecipientsFrom(form.notifyEmail ? form.emailRecipients ?? DEFAULT_EMAIL_RECIPIENTS : before.emailRecipients ?? DEFAULT_EMAIL_RECIPIENTS);
     const prev = emailAllowedRecipientsFrom(before.emailRecipients ?? DEFAULT_EMAIL_RECIPIENTS).recipients;
     if (next.errors.length) errors.push(...next.errors);
-    else if (JSON.stringify(next.recipients) !== JSON.stringify(prev)) changes.policy = { ...(changes.policy ?? {}), email_allowed_recipients: next.recipients };
+    else if (form.notifyEmail !== before.notifyEmail || JSON.stringify(next.recipients) !== JSON.stringify(prev)) changes.notify = notifyFor(form.notifyEmail, next.recipients);
   }
   if (errors.length) return { errors };
   return Object.keys(changes).length ? changes : null;
+}
+
+// History replay keeps whole turns, including an oversized newest turn.
+export const DEFAULT_GROWING_MAX_TOKENS = 50_000;
+export const GROWING_CONTEXT_HELP = "Keeps the most recent whole turns within this token budget. The newest turn is kept whole even if it exceeds the budget. Changes apply to future runs.";
+const GROWING_MAX_TOKENS_ERROR = "Max growing context must be a positive whole number of tokens.";
+function validGrowingMaxTokens(value: number): boolean {
+  return Number.isSafeInteger(value) && value > 0;
+}
+function automationContext(mode: ContextMode, maxTokens: number) {
+  return { mode, ...(maxTokens !== DEFAULT_GROWING_MAX_TOKENS ? { growing: { max_tokens: maxTokens } } : {}) };
 }
 
 // --- schedule dialog -----------------------------------------------------------
@@ -7567,6 +7596,7 @@ export type ScheduleForm = {
   emailRecipients?: EmailRecipientsForm;
   when: ScheduleWhen;
   context: ContextMode;
+  growingMaxTokens?: number;
   /** `"auto"` (default): tools run without asking; `"ask"`: each tool call waits for approval. */
   toolApproval?: ToolApprovalPolicy;
   /** Advanced (all optional). Datetimes are `YYYY-MM-DDTHH:MM` read as UTC. */
@@ -7656,8 +7686,10 @@ export function buildCreateRequest(
   const email = form.trigger === "email";
   const built = email ? emailTriggerConfigFrom(form.email ?? DEFAULT_EMAIL_TRIGGER_FORM) : scheduleConfigFrom(form);
   errors.push(...built.errors);
-  const recipients = form.emailRecipients && form.emailRecipients.mode === "list" ? emailAllowedRecipientsFrom(form.emailRecipients) : null;
+  const recipients = form.notifyEmail && form.emailRecipients && form.emailRecipients.mode === "list" ? emailAllowedRecipientsFrom(form.emailRecipients) : null;
   if (recipients) errors.push(...recipients.errors);
+  const maxTokens = form.growingMaxTokens ?? DEFAULT_GROWING_MAX_TOKENS;
+  if (form.context === "growing" && !validGrowingMaxTokens(maxTokens)) errors.push(GROWING_MAX_TOKENS_ERROR);
   if (errors.length || !opts.target) return { ok: false, errors };
   const target = { ...opts.target, input_data: { ...(opts.target.input_data ?? {}), prompt } } as AutomationTarget;
   const body: CreateAutomationRequest = {
@@ -7667,10 +7699,10 @@ export function buildCreateRequest(
     trigger: email
       ? { source_id: EMAIL_TRIGGER_SOURCE_ID, source_version: EMAIL_TRIGGER_SOURCE_VERSION, config: built.config as JsonObject }
       : { source_id: "schedule", source_version: 1, config: built.config as JsonObject },
-    context: { mode: form.context },
-    policy: { tool_approval: form.toolApproval ?? "auto", ...(recipients ? { email_allowed_recipients: recipients.recipients } : {}) },
+    context: automationContext(form.context, form.context === "growing" ? maxTokens : DEFAULT_GROWING_MAX_TOKENS),
+    policy: { tool_approval: form.toolApproval ?? "auto" },
   };
-  if (form.notifyEmail === true) body.notify = notifyFor(true);
+  if (form.notifyEmail === true) body.notify = notifyFor(true, recipients?.recipients);
   return { ok: true, body };
 }
 
@@ -14313,6 +14345,21 @@ ships.
 ## [Unreleased]
 
 Nothing yet.
+
+## 0.5.2 - 2026-10-02
+
+### ui-kit 0.5.1
+
+- Automation creation and editing expose the growing-context token budget only in Growing mode.
+- Email result sends completion results to the selected Recipients; these fields no longer change email-tool permissions. Recipients appear only when result email is enabled.
+
+## 0.5.1 - 2026-10-01
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/panel-chat` | 0.2.4 | its ui-kit peer range accepts `^0.5.0` (0.2.3 required ui-kit up to 0.4.x, so apps on ui-kit 0.5.0 failed to install) |
+
+Every other package is unchanged from 0.5.0.
 
 ## 0.5.0 - 2026-10-01
 

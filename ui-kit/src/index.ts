@@ -269,6 +269,8 @@ export {
   isApiError,
   occurrenceViews,
   parseDuration,
+  DEFAULT_GROWING_MAX_TOKENS,
+  GROWING_CONTEXT_HELP,
   reviseChanges,
   reviseFormFrom,
   scheduleLabel,

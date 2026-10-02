@@ -11,6 +11,13 @@ ships.
 
 Nothing yet.
 
+## 0.5.2 - 2026-10-02
+
+### ui-kit 0.5.1
+
+- Automation creation and editing expose the growing-context token budget only in Growing mode.
+- Email result sends completion results to the selected Recipients; these fields no longer change email-tool permissions. Recipients appear only when result email is enabled.
+
 ## 0.5.1 - 2026-10-01
 
 | Package | Version | Change |

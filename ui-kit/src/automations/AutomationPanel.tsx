@@ -23,6 +23,7 @@ import {
   ActionIds,
   CONTROL_COMMANDS,
   contextLabel,
+  GROWING_CONTEXT_HELP,
   EMAIL_TEXT,
   emailRecipientsLabel,
   emailUsable,
@@ -388,13 +389,13 @@ export function AutomationDefinitionBlock(props: { definition: AutomationDefinit
           <pre className="af-auto__json">{JSON.stringify(d.trigger.config, null, 2)}</pre>
         </dd>
         <dt>Context</dt>
-        <dd data-def="context">{contextLabel(d.context.mode)}</dd>
+        <dd data-def="context">{contextLabel(d.context.mode)}{d.context.mode === "growing" ? ` · ${Number(d.context.growing?.max_tokens ?? 50_000).toLocaleString()} tokens` : ""}</dd>
         <dt>Tools</dt>
         <dd data-def="tool_approval">{approval === "ask" ? "Ask before each tool call (ask)" : approval === "auto" ? "Run without asking (auto)" : String(approval)}</dd>
         <dt>Notify</dt>
         <dd data-def="notify">{notifyLabel(d.notify)}</dd>
-        <dt>May email</dt>
-        <dd data-def="email_allowed_recipients">{emailRecipientsLabel(d.policy.email_allowed_recipients)}</dd>
+        {d.notify?.channels.includes("email") ? <><dt>Recipients</dt>
+        <dd data-def="email_recipients">{emailRecipientsLabel(d.notify.recipients)}</dd></> : null}
         <dt>Retries</dt>
         <dd data-def="retry">
           {retry.max_attempts} {retry.max_attempts === 1 ? "attempt" : "attempts"}, backoff {retry.backoff.initial} ×{retry.backoff.factor} up to {retry.backoff.max}
@@ -652,7 +653,7 @@ export function readReviseForm(form: { elements: { namedItem(name: string): unkn
   const list = val("email_recipient_list");
   const emailRecipients =
     rcpt && (rcpt.value === "self" || rcpt.value === "list") ? { mode: rcpt.value as "self" | "list", addresses: list ?? "" } : fallback.emailRecipients ?? null;
-  return { title: val("title") ?? fallback.title, every, context, prompt: prompt ?? fallback.prompt ?? null, toolApproval, notifyEmail, emailRecipients };
+  return { title: val("title") ?? fallback.title, every, context, growingMaxTokens: val("growing_max_tokens") === null ? fallback.growingMaxTokens : Number(val("growing_max_tokens")), prompt: prompt ?? fallback.prompt ?? null, toolApproval, notifyEmail, emailRecipients };
 }
 
 
@@ -672,6 +673,8 @@ export type AutomationReviseFormProps = {
 /** The Edit form: everything `PATCH /automations/{id}` can change that this kit knows how to show, prefilled. */
 export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactElement {
   const initial = reviseFormFrom(p.summary, p.definition);
+  const [contextMode, setContextMode] = useState(initial.context);
+  const [emailResult, setEmailResult] = useState(Boolean(initial.notifyEmail));
   const d = initial.every ? parseDuration(initial.every) : null;
   const units = d && d.unit === "s" ? [["s", "seconds"] as [string, string], ...UNIT_OPTIONS] : UNIT_OPTIONS;
   const base = `af-auto-revise-${p.summary.automation_id}`;
@@ -726,11 +729,18 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
       <fieldset className="af-auto__field">
         <legend>Context</legend>
         <label>
-          <input type="radio" name="context" value="independent" defaultChecked={initial.context === "independent"} /> Independent — each run starts fresh
+          <input type="radio" name="context" value="independent" defaultChecked={initial.context === "independent"} onChange={() => setContextMode("independent")} /> Independent — each run starts fresh
         </label>
         <label>
-          <input type="radio" name="context" value="growing" defaultChecked={initial.context === "growing"} /> Growing — each run sees the previous runs
+          <input type="radio" name="context" value="growing" defaultChecked={initial.context === "growing"} onChange={() => setContextMode("growing")} /> Growing — each run sees the previous runs
         </label>
+        <div hidden={contextMode !== "growing"}>
+        <label className="af-auto__field">
+          <span>Max growing context (tokens)</span>
+          <input name="growing_max_tokens" type="number" min={1} step={1} disabled={p.busy || contextMode !== "growing"} defaultValue={initial.growingMaxTokens} />
+          <span className="af-auto__hint">{GROWING_CONTEXT_HELP}</span>
+        </label>
+        </div>
       </fieldset>
       {initial.toolApproval ? (
         <fieldset className="af-auto__field">
@@ -748,9 +758,9 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
           <legend>Mailbox</legend>
           {!usable ? <AfEmailSetupNotice status={p.emailStatus} onOpenMyEmail={p.onOpenMyEmail} /> : null}
           {/* Without a usable account an option already on can still be switched off, never on. */}
-          <AfSwitchInput variant="row" action="notify-email" name="notify_email" label={EMAIL_TEXT.notify_label} defaultChecked={Boolean(initial.notifyEmail)} unavailableReason={!usable && !initial.notifyEmail ? "Connect a mailbox first." : null} />
+          <AfSwitchInput variant="row" action="notify-email" name="notify_email" label={EMAIL_TEXT.notify_label} defaultChecked={Boolean(initial.notifyEmail)} onChange={setEmailResult} unavailableReason={!usable && !initial.notifyEmail ? "Connect a mailbox first." : null} />
           <p className="af-auto__hint">{EMAIL_TEXT.notify_hint}</p>
-          <fieldset className="af-auto__field" data-field="email-recipients">
+          <div hidden={!emailResult}><fieldset className="af-auto__field" disabled={!emailResult} data-field="email-recipients">
             <legend>{EMAIL_TEXT.recipients_legend}</legend>
             <label>
               <input type="radio" name="email_recipients" value="self" defaultChecked={initial.emailRecipients.mode === "self"} /> {EMAIL_TEXT.recipients_self}
@@ -760,7 +770,7 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
             </label>
             <textarea name="email_recipient_list" aria-label={EMAIL_TEXT.recipients_list} rows={2} spellCheck={false} defaultValue={initial.emailRecipients.addresses} disabled={!usable && initial.emailRecipients.mode !== "list"} />
             <p className="af-auto__hint">{EMAIL_TEXT.recipients_hint}</p>
-          </fieldset>
+          </fieldset></div>
         </fieldset>
       ) : null}
       <p className="af-auto__hint">Changes apply from the next run; a new interval never fires past ticks.</p>

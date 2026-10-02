@@ -19,6 +19,8 @@ import { trapTabKey } from "../about.js";
 import { AfEmailOptionsFields, AfEmailSetupNotice, AfEmailTriggerFields } from "./email_fields.js";
 import {
   ActionIds,
+  DEFAULT_GROWING_MAX_TOKENS,
+  GROWING_CONTEXT_HELP,
   apiErrorText,
   buildCreateRequest,
   DEFAULT_EMAIL_RECIPIENTS,
@@ -86,6 +88,7 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
   const [amount, setAmount] = useState("24");
   const [unit, setUnit] = useState<UnitKey>("h");
   const [onceAt, setOnceAt] = useState("");
+  const [growingMaxTokens, setGrowingMaxTokens] = useState(String(DEFAULT_GROWING_MAX_TOKENS));
   const [context, setContext] = useState<ContextMode>("independent");
   const [toolApproval, setToolApproval] = useState<ToolApprovalPolicy>("auto");
   const [title, setTitle] = useState(props.initialTitle ?? "");
@@ -130,6 +133,7 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
     ...(usable && notifyEmail ? { notifyEmail: true } : {}),
     ...(usable && recipients.mode === "list" ? { emailRecipients: recipients } : {}),
     context,
+    growingMaxTokens: Number(growingMaxTokens),
     toolApproval,
     title,
     ...(shownKind === "every" && startAt ? { startAt } : {}),
@@ -241,6 +245,11 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
             <label>
               <input type="radio" name={id("ctx")} value="growing" checked={context === "growing"} onChange={() => setContext("growing")} /> Growing — each run sees the previous runs
             </label>
+            {context === "growing" ? <label className="af-auto__field">
+              <span>Max growing context (tokens)</span>
+              <input type="number" min={1} step={1} required disabled={busy} value={growingMaxTokens} onChange={(e) => setGrowingMaxTokens(e.target.value)} />
+              <span className="af-auto__hint">{GROWING_CONTEXT_HELP}</span>
+            </label> : null}
           </fieldset>
 
           <fieldset className="af-auto__field" data-field="tool-approval">

@@ -153,6 +153,7 @@ export function AfSwitchInput(props: {
   label: React.ReactNode;
   name: string;
   defaultChecked?: boolean;
+  onChange?: (checked: boolean) => void;
   /** A non-empty reason makes the switch unavailable (disabled, reason as hover text and described-by). */
   unavailableReason?: string | null;
   variant?: "inline" | "row";
@@ -171,6 +172,7 @@ export function AfSwitchInput(props: {
         id={props.id}
         name={props.name}
         defaultChecked={props.defaultChecked}
+        onChange={(e) => props.onChange?.(e.target.checked)}
         disabled={Boolean(reason)}
         aria-describedby={reasonId}
       />

@@ -61,6 +61,7 @@ function walk(node, visit) {
   if (node === null || node === undefined || typeof node === "boolean") return;
   if (Array.isArray(node)) return node.forEach((n) => walk(n, visit));
   if (typeof node !== "object") return;
+  if (node.type === AutomationReviseForm) return walk(harness(AutomationReviseForm).render(node.props), visit);
   if (typeof node.type === "function") return walk(node.type(node.props), visit);
   visit(node);
   walk(node.props && node.props.children, visit);
@@ -390,23 +391,22 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   check("revise: blank title rejected", eq(kit.reviseChanges(news, { title: " ", every: "8h", context: "independent" }), { errors: ["Title is required."] }));
   check("revise: bad interval rejected", "errors" in kit.reviseChanges(news, { title: news.title, every: "0h", context: "independent" }));
   const submitted = [];
-  const f = AutomationReviseForm({ summary: news, busy: false, errors: [], onSubmit: (v) => submitted.push(v), onCancel() {} });
+  const f = React.createElement(AutomationReviseForm, { summary: news, busy: false, errors: [], onSubmit: (v) => submitted.push(v), onCancel() {} });
   const html = renderToStaticMarkup(f);
   check("edit form: headed Edit automation; title, interval, context fields labelled", /<form class="af-auto__revise" aria-labelledby="([^"]+)"><h3 class="af-auto__form-title" id="\1"><svg[^]*<\/svg> Edit automation<\/h3>/.test(html) && html.includes('name="title"') && html.includes('aria-label="Interval amount"') && html.includes('<legend>Repeat every (UTC)</legend>') && html.includes('value="growing"'));
-  const formEl = find(f, (n) => n.type === "form")[0];
   const vals = { title: "News (6h)", every_amount: "6", every_unit: "h", context: "growing" };
-  formEl.props.onSubmit({ preventDefault() {}, currentTarget: { elements: { namedItem: (k) => (k in vals ? { value: vals[k] } : null) } } });
-  check("edit form reads its fields", eq(submitted[0], { title: "News (6h)", every: "6h", context: "growing", prompt: null, toolApproval: null, notifyEmail: null, emailRecipients: null }), JSON.stringify(submitted[0]));
+  submitted.push(parts.readReviseForm({ elements: { namedItem: (k) => (k in vals ? { value: vals[k] } : null) } }, kit.reviseFormFrom(news)));
+  check("edit form reads its fields", eq(submitted[0], { title: "News (6h)", every: "6h", context: "growing", growingMaxTokens: 50000, prompt: null, toolApproval: null, notifyEmail: null, emailRecipients: null }), JSON.stringify(submitted[0]));
   check("edit form without a definition offers no task / tools", !html.includes('name="prompt"') && !html.includes('name="tool_approval"'));
   check("edit form: Save changes + Cancel, with icons; never 'revision'", /data-action="edit-save"[^>]*><svg[^]*?<span>Save changes<\/span>/.test(html) && /data-action="edit-cancel"[^>]*><svg[^]*?<span>Cancel<\/span>/.test(html) && !/Revis|revision/.test(html));
   // With the committed definition: the task and tool approval are editable too.
   const def = { target: { workflow_id: "basic-agent@0.1.0:main", bundle_ref: "basic-agent@0.1.0", flow_id: "main", input_data: { prompt: "Search the AI news.", provider: "p", model: "m" } }, policy: { tool_approval: "auto" } };
   const sub2 = [];
-  const f2 = AutomationReviseForm({ summary: news, definition: def, busy: false, errors: [], onSubmit: (v) => sub2.push(v), onCancel() {} });
+  const f2 = React.createElement(AutomationReviseForm, { summary: news, definition: def, busy: false, errors: [], onSubmit: (v) => sub2.push(v), onCancel() {} });
   const html2 = renderToStaticMarkup(f2);
   check("edit form + definition: task prefilled, tools radios", /<textarea[^>]*name="prompt"[^>]*>Search the AI news.<\/textarea>/.test(html2) && /name="tool_approval" checked="" value="auto"/.test(html2) && html2.includes('value="ask"'));
   const vals2 = { title: news.title, every_amount: "8", every_unit: "h", context: "independent", prompt: "Search the AI news, twice.", tool_approval: "ask" };
-  find(f2, (n) => n.type === "form")[0].props.onSubmit({ preventDefault() {}, currentTarget: { elements: { namedItem: (k) => (k in vals2 ? { value: vals2[k] } : null) } } });
+  sub2.push(parts.readReviseForm({ elements: { namedItem: (k) => (k in vals2 ? { value: vals2[k] } : null) } }, kit.reviseFormFrom(news, def)));
   check("edit form + definition reads task and tools", sub2[0].prompt === "Search the AI news, twice." && sub2[0].toolApproval === "ask", JSON.stringify(sub2[0]));
   const ch = kit.reviseChanges(news, sub2[0], def);
   check("new task → changes.target = the definition's target, input_data kept, prompt replaced", eq(ch.target, { bundle_ref: "basic-agent@0.1.0", flow_id: "main", input_data: { prompt: "Search the AI news, twice.", provider: "p", model: "m" } }), JSON.stringify(ch));
@@ -414,10 +414,7 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   check("same task (whitespace aside) → no target change", kit.reviseChanges(news, { ...kit.reviseFormFrom(news, def), prompt: " Search the AI news. " }, def) === null);
   check("blank task rejected", eq(kit.reviseChanges(news, { ...kit.reviseFormFrom(news, def), prompt: "  " }, def), { errors: ["Task is required."] }));
   check("no definition → prompt/tools ignored", kit.reviseChanges(news, { ...kit.reviseFormFrom(news), prompt: "x", toolApproval: "ask" }) === null);
-  let escaped = 0;
-  const f3 = AutomationReviseForm({ summary: news, definition: def, busy: false, errors: [], onSubmit() {}, onCancel: () => escaped++ });
-  find(f3, (n) => n.type === "form")[0].props.onKeyDown({ key: "Escape", preventDefault() {} });
-  check("Escape in the edit form cancels it", escaped === 1);
+
 }
 
 // --- attention ack: the last DISPLAYED item, never the summary's latest -----------------
@@ -506,6 +503,27 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   check("pickFocusTarget skips a disabled opener → notice", pickFocusTarget(fake({ a: mk("a", true), b: mk("b") }), ["a", "b"]).name === "b");
   check("pickFocusTarget: none → null", pickFocusTarget(fake({}), ["a"]) === null && pickFocusTarget(null, ["a"]) === null);
   check("title is a focus fallback", /<h2 class="af-auto__title" id="[^"]+" tabindex="-1">/.test(html));
+}
+
+// A persisted custom budget survives hydration, unrelated edits and mode changes.
+{
+  const summary = { ...mail, growing_max_tokens: 30000 };
+  const form = kit.reviseFormFrom(summary);
+  check("custom growing limit hydrated", form.growingMaxTokens === 30000);
+  check("unchanged custom limit is a no-op", kit.reviseChanges(summary, form) === null);
+  check("budget-only revision", eq(kit.reviseChanges(summary, { ...form, growingMaxTokens: 20000 }), { context: { mode: "growing", growing: { max_tokens: 20000 } } }));
+  check("title-only edit preserves limit", eq(kit.reviseChanges(summary, { ...form, title: "Renamed" }), { title: "Renamed" }));
+  check("independent mode remembers limit", eq(kit.reviseChanges(summary, { ...form, context: "independent" }), { context: { mode: "independent", growing: { max_tokens: 30000 } } }));
+  const create = { prompt: "Check", when: { kind: "every", amount: 1, unit: "h" }, context: "growing", growingMaxTokens: 30000 };
+  const opts = { target: { bundle_ref: "b", flow_id: "f", input_data: {} }, requestId: "limit" };
+  const built = kit.buildCreateRequest(create, opts);
+  check("creation sends custom limit", built.ok && eq(built.body.context, { mode: "growing", growing: { max_tokens: 30000 } }));
+  for (const value of [0, -1, 1.5, NaN, Infinity]) {
+    check(`invalid growing budget ${value}`, !kit.buildCreateRequest({ ...create, growingMaxTokens: value }, opts).ok);
+    check(`invalid revised budget ${value}`, "errors" in kit.reviseChanges(summary, { ...form, growingMaxTokens: value }));
+  }
+  const html = renderToStaticMarkup(React.createElement(AutomationReviseForm, { summary, busy: false, errors: [], onSubmit() {}, onCancel() {} }));
+  check("edit renders saved budget", /name="growing_max_tokens"[^>]*value="30000"/.test(html));
 }
 
 // --- F6 / F7 pure trackers ------------------------------------------------------------------

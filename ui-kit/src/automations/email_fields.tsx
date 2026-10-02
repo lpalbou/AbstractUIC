@@ -155,7 +155,7 @@ export function AfEmailOptionsFields(p: AfEmailOptionsFieldsProps): React.ReactE
     <div className="af-email__options" data-field="email-options">
       <AfSwitch variant="row" action="notify-email" label={EMAIL_TEXT.notify_label} checked={p.notifyEmail} unavailableReason={dis ? "Connect a mailbox first." : null} onChange={(on) => p.onNotifyEmailChange(on)} />
       <p className="af-auto__hint">{EMAIL_TEXT.notify_hint}</p>
-      <fieldset className="af-auto__field" disabled={dis} data-field="email-recipients">
+      {p.notifyEmail ? <fieldset className="af-auto__field" disabled={dis} data-field="email-recipients">
         <legend>{EMAIL_TEXT.recipients_legend}</legend>
         <label>
           <input type="radio" name={id("rcpt")} value="self" checked={p.recipients.mode === "self"} onChange={() => p.onRecipientsChange({ ...p.recipients, mode: "self" })} /> {EMAIL_TEXT.recipients_self}
@@ -175,7 +175,7 @@ export function AfEmailOptionsFields(p: AfEmailOptionsFieldsProps): React.ReactE
           />
         ) : null}
         <p className="af-auto__hint">{EMAIL_TEXT.recipients_hint}</p>
-      </fieldset>
+      </fieldset> : null}
     </div>
   );
 }

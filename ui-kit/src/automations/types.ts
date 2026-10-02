@@ -92,6 +92,7 @@ export type TriggerSourceEntry = TriggerSource & { available: boolean; unavailab
 
 export type AutomationStatus = "active" | "paused" | "completed" | "failed" | "archived";
 export type ContextMode = "independent" | "growing";
+export type AutomationContext = { mode: ContextMode; growing?: { max_tokens?: number } };
 export type Notify = { title: string; body: string };
 
 export type AttentionItem = {
@@ -149,6 +150,7 @@ export type AutomationSummary = {
   status: AutomationStatus;
   trigger: TriggerBinding;
   context_mode: ContextMode;
+  growing_max_tokens?: number;
   /** The automation's folder (= `definition.workspace_root`). Legacy rows carry it only when the wrapper recorded one. */
   workspace_root?: string;
   /**
@@ -201,7 +203,7 @@ export type AutomationCommandType =
 
 /** Where an automation's attention items are delivered (definition v2; default `["console"]`). */
 export type NotifyChannel = "console" | "email";
-export type AutomationNotify = { channels: NotifyChannel[] };
+export type AutomationNotify = { channels: NotifyChannel[]; recipients?: string[] };
 
 /** Contract A `_meta.automation` (the latest committed revision). v1 definitions read with the v2 defaults. */
 export type AutomationDefinition = {
@@ -255,7 +257,7 @@ export type CreateAutomationRequest = {
   title: string;
   target: AutomationTarget;
   trigger: TriggerSpec;
-  context?: { mode: ContextMode };
+  context?: AutomationContext;
   policy?: AutomationPolicyInput;
   notify?: AutomationNotify;
 };
@@ -266,7 +268,7 @@ export type AutomationChanges = {
   title?: string;
   target?: AutomationTarget;
   trigger?: TriggerSpec;
-  context?: { mode: ContextMode };
+  context?: AutomationContext;
   policy?: AutomationPolicyInput;
   notify?: AutomationNotify;
 };

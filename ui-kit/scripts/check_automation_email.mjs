@@ -7,7 +7,7 @@
  *   to_in, subject_contains, has_attachment), `every` default 1h for a model
  *   target / 60s without a model, the 60 s floor, `max_batch` 1..1000;
  *   invalid addresses/domains refused with the entry named;
- * - "Email me the result" → `notify.channels ["console","email"]`; off sends
+ * - "Email result" → `notify.channels ["console","email"]`; off sends
  *   no `notify` (server default); allowed recipients → `policy.
  *   email_allowed_recipients ["self", ...]`; only-me sends nothing;
  * - the dialog: "When an email arrives" disabled + "Connect a mailbox first — open
@@ -56,7 +56,7 @@ if (failures) {
 // --- wording = the canonical JSON ----------------------------------------------------------
 check("EMAIL_TEXT is automation_controls.json → email", eq(kit.EMAIL_TEXT, spec.email));
 check("the notice text (operator wording)", spec.email.not_set_up === "Connect a mailbox first — open My email" && spec.email.not_set_up.endsWith(spec.email.open_my_email));
-check("trigger label", spec.email.trigger_label === "When an email arrives" && spec.email.notify_label === "Email me the result");
+check("trigger label", spec.email.trigger_label === "When an email arrives" && spec.email.notify_label === "Email result");
 check("the 60 s rule and the hourly default are stated", /once an hour by default/.test(spec.email.interval_rule) && /every 60 s/.test(spec.email.interval_rule) && /shortest interval is 60 s/.test(spec.email.interval_rule));
 check("trigger source id", kit.EMAIL_TRIGGER_SOURCE_ID === "email.received" && kit.EMAIL_TRIGGER_SOURCE_VERSION === 1 && spec.email.trigger_source === "email.received@1");
 
@@ -100,8 +100,8 @@ const target = { flow_id: "@default", interface: "abstractcode.agent.v1" };
     request_id: "rq", title: "Summarise new invoices", target: { ...target, input_data: { prompt: "Summarise new invoices" } },
     trigger: { source_id: "email.received", source_version: 1, config: { uses_model: true, every: "1h", max_batch: 100, filter: { from_domain_in: ["example.org"] } } },
     context: { mode: "independent" },
-    policy: { tool_approval: "auto", email_allowed_recipients: ["self", "boss@example.test"] },
-    notify: { channels: ["console", "email"] },
+    policy: { tool_approval: "auto" },
+    notify: { channels: ["console", "email"], recipients: ["self", "boss@example.test"] },
   }), JSON.stringify(r));
   const plain = kit.buildCreateRequest({ prompt: "x", when: { kind: "every", amount: 5, unit: "m" }, context: "independent", notifyEmail: false, emailRecipients: { mode: "self", addresses: "" } }, { target, requestId: "r" });
   check("defaults send no notify and no recipients (server defaults)", plain.ok && !("notify" in plain.body) && eq(plain.body.policy, { tool_approval: "auto" }) && plain.body.trigger.source_id === "schedule");
@@ -149,7 +149,7 @@ const NOT_SET_UP_HTML = `Connect a mailbox first — `;
   check("dialog: email trigger offered", unknown.includes("When an email arrives"));
   check("dialog: unknown email status → trigger disabled", /<input type="radio" name="[^"]+" disabled="" value="email"\/> When an email arrives/.test(unknown), (/.{80}value="email".{40}/.exec(unknown) || [""])[0]);
   check("dialog: unknown email status → the notice", unknown.includes(NOT_SET_UP_HTML) && unknown.includes('data-email-setup="missing"'));
-  check("dialog: unknown → Email me the result disabled", /<button type="button" role="switch" class="af-switch af-switch--row af-switch--unavailable" data-action="notify-email" aria-checked="false" aria-disabled="true"[^>]*>.*?Email me the result/.test(unknown));
+  check("dialog: unknown → Email result disabled", /<button type="button" role="switch" class="af-switch af-switch--row af-switch--unavailable" data-action="notify-email" aria-checked="false" aria-disabled="true"[^>]*>.*?Email result/.test(unknown));
   const notConfigured = dlg({ emailStatus: { configured: false, effective_enabled: false } });
   check("dialog: not configured → notice", notConfigured.includes(NOT_SET_UP_HTML));
   const off = dlg({ emailStatus: { configured: true, enabled: true, admin_enabled: false, effective_enabled: false, admin_disabled: { cause: "An administrator turned email off for your account.", fix: "Ask an administrator." } } });
@@ -161,7 +161,7 @@ const NOT_SET_UP_HTML = `Connect a mailbox first — `;
   check("dialog: open My email is a button calling the host", link.length >= 1 && (link[0].props.onClick(), opened === 1));
   const ok = dlg({ emailStatus: { configured: true, effective_enabled: true } });
   check("dialog: usable → trigger enabled, no notice", /<input type="radio" name="[^"]+" value="email"\/> When an email arrives/.test(ok) && !ok.includes('data-email-setup="missing"'));
-  check("dialog: usable → email options enabled", /<button type="button" role="switch" class="af-switch af-switch--row" data-action="notify-email" aria-checked="false"[^>]*>.*?Email me the result/.test(ok) && !/data-action="notify-email"[^>]*aria-disabled/.test(ok) && ok.includes(`> ${esc(spec.email.recipients_self)}`));
+  check("dialog: usable → email options enabled", /<button type="button" role="switch" class="af-switch af-switch--row" data-action="notify-email" aria-checked="false"[^>]*>.*?Email result/.test(ok) && !/data-action="notify-email"[^>]*aria-disabled/.test(ok) && !ok.includes(`> ${esc(spec.email.recipients_self)}`));
 }
 {
   const bodies = [];
@@ -180,7 +180,7 @@ const NOT_SET_UP_HTML = `Connect a mailbox first — `;
   find(tree(), (x) => x.type === "input" && x.props.value === "list" && x.props.type === "radio")[0].props.onChange();
   find(tree(), (x) => x.type === "textarea" && x.props.name === "email_recipient_list")[0].props.onChange({ target: { value: "colleague@example.test" } });
   find(tree(), (x) => x.type === "form")[0].props.onSubmit({ preventDefault() {} });
-  check("dialog: submits the email body", bodies[0] && eq(bodies[0].trigger, { source_id: "email.received", source_version: 1, config: { uses_model: true, every: "1h", max_batch: 100, filter: { from_in: ["boss@example.test"] } } }) && eq(bodies[0].notify, { channels: ["console", "email"] }) && eq(bodies[0].policy, { tool_approval: "auto", email_allowed_recipients: ["self", "colleague@example.test"] }), JSON.stringify(bodies[0]));
+  check("dialog: submits the email body", bodies[0] && eq(bodies[0].trigger, { source_id: "email.received", source_version: 1, config: { uses_model: true, every: "1h", max_batch: 100, filter: { from_in: ["boss@example.test"] } } }) && eq(bodies[0].notify, { channels: ["console", "email"], recipients: ["self", "colleague@example.test"] }) && eq(bodies[0].policy, { tool_approval: "auto" }), JSON.stringify(bodies[0]));
   // The account stops being usable: nothing email-shaped is sent.
   props.emailStatus = { configured: true, effective_enabled: false };
   find(tree(), (x) => x.type === "form")[0].props.onSubmit({ preventDefault() {} });
@@ -201,7 +201,7 @@ const NOT_SET_UP_HTML = `Connect a mailbox first — `;
   check("reviseFormFrom: email every, notify off, only me", f0.every === "1h" && f0.notifyEmail === false && eq(f0.emailRecipients, { mode: "self", addresses: "" }));
   check("no change → null", kit.reviseChanges(summary, f0, def) === null);
   const ch = kit.reviseChanges(summary, { ...f0, every: "2h", notifyEmail: true, emailRecipients: { mode: "list", addresses: "boss@example.test" } }, def);
-  check("revise: interval keeps the filter, drops start_at; notify; recipients", eq(ch, { trigger: { source_id: "email.received", source_version: 1, config: { account: "self", folder: "INBOX", uses_model: true, every: "2h", max_batch: 100, filter: { from_in: ["a@x.test"] } } }, notify: { channels: ["console", "email"] }, policy: { email_allowed_recipients: ["self", "boss@example.test"] } }), JSON.stringify(ch));
+  check("revise: interval keeps the filter, drops start_at; notify; recipients", eq(ch, { trigger: { source_id: "email.received", source_version: 1, config: { account: "self", folder: "INBOX", uses_model: true, every: "2h", max_batch: 100, filter: { from_in: ["a@x.test"] } } }, notify: { channels: ["console", "email"], recipients: ["self", "boss@example.test"] } }), JSON.stringify(ch));
   check("revise: 30 s refused", "errors" in kit.reviseChanges(summary, { ...f0, every: "30s" }, def));
   const back = kit.reviseChanges(summary, { ...f0, notifyEmail: false }, { ...def, notify: { channels: ["console", "email"] } });
   check("revise: turning email off → notify console only", eq(back, { notify: { channels: ["console"] } }), JSON.stringify(back));
@@ -219,8 +219,8 @@ const NOT_SET_UP_HTML = `Connect a mailbox first — `;
   const read = parts.readReviseForm({ elements: { namedItem: (k) => els[k] ?? null } }, f0);
   check("readReviseForm reads the email fields", read.every === "3h" && read.notifyEmail === true && eq(read.emailRecipients, { mode: "list", addresses: "c@x.test" }), JSON.stringify(read));
   // Definition block.
-  const block = renderToStaticMarkup(React.createElement(parts.AutomationDefinitionBlock, { definition: { schema_version: 2, revision: 2, title: "t", controller: { bundle_ref: "c@1", flow_id: "controller" }, target: { workflow_id: "w", ...def.target }, trigger: summary.trigger, context: { mode: "independent", growing: {} }, policy: { serial: true, misfire: "coalesce", failure: "continue", retry: { max_attempts: 3, backoff: { initial: "30s", factor: 2, max: "10m" } }, tool_approval: "auto", email_allowed_recipients: ["self", "boss@example.test"] }, notify: { channels: ["console", "email"] }, session_id: "s", workspace_root: "/w", created_at: "2026-09-30T00:00:00Z", archived_at: null } }));
-  check("definition block: notify + may email + email trigger label", block.includes('data-def="notify">In the console and by email') && block.includes('data-def="email_allowed_recipients">Me and boss@example.test') && block.includes("email.received@1 · when an email arrives"));
+  const block = renderToStaticMarkup(React.createElement(parts.AutomationDefinitionBlock, { definition: { schema_version: 2, revision: 2, title: "t", controller: { bundle_ref: "c@1", flow_id: "controller" }, target: { workflow_id: "w", ...def.target }, trigger: summary.trigger, context: { mode: "independent", growing: {} }, policy: { serial: true, misfire: "coalesce", failure: "continue", retry: { max_attempts: 3, backoff: { initial: "30s", factor: 2, max: "10m" } }, tool_approval: "auto", email_allowed_recipients: ["self", "boss@example.test"] }, notify: { channels: ["console", "email"], recipients: ["self", "boss@example.test"] }, session_id: "s", workspace_root: "/w", created_at: "2026-09-30T00:00:00Z", archived_at: null } }));
+  check("definition block: notify + may email + email trigger label", block.includes('data-def="notify">In the console and by email') && block.includes('data-def="email_recipients">Me and boss@example.test') && block.includes("email.received@1 · when an email arrives"));
 }
 
 // --- client ---------------------------------------------------------------------------------------

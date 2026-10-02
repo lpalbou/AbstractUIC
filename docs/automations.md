@@ -320,7 +320,7 @@ sections:
   consent line **"Tools run without asking (you approve them now by creating this automation)"**,
   followed by the `targetTools` names when you pass them. "Ask me before each tool call"
   (`"ask"`) makes every tool call wait for approval in the automation's timeline.
-- **Email** — **Email me the result** and **May send email without asking to** (see
+- **Email** — **Email result** and **Recipients** (see
   [Email automations](#email-automations)).
 - **Advanced** — title (default: the task's first line, at most 120 characters), first run at,
   stop after N runs, stop at. Date fields are read as UTC.
@@ -356,22 +356,19 @@ failed) counts as not set up, and nothing email-shaped is ever sent without a us
   Each email is read once by the automation; mail that arrived before it was created, or while it
   was paused, is not processed. The Tools section adds that incoming mail is data, never
   instructions, and that link-opening tools (`fetch_url`, `browser_probe`) always ask.
-- **Email me the result** — `notify: {channels: ["console", "email"]}`: a run that notifies you,
-  or fails for good, is also emailed to you. Off sends no `notify` (the default, console only).
-- **May send email without asking to** — **Only me** (the default; nothing is sent, the server
-  default is `policy.email_allowed_recipients: ["self"]`) or **Me and these addresses**
-  (`["self", ...addresses]`). Sending to anyone else waits for approval, and the account's
-  recipient policy in My email still applies.
+- **Email result** emails every completed run’s full result.
+- **Recipients** appears when Email result is enabled: **Only me** (default) or
+  **Me and these addresses**. Recipients are stored in `notify.recipients`;
+  this setting does not grant email-tool permissions. The mailbox recipient policy still applies.
 
-The Edit form offers the same interval (for an email trigger), **Email me the result** and the
-allowed recipients when the host passes the committed definition; without a usable account an
+The Edit form offers the same interval (for an email trigger), **Email result** and the
+result recipients when the host passes the committed definition; without a usable account an
 option already on can be turned off, never on. A new interval drops the old `start_at`, so the
 revised trigger starts from now and never re-reads mail. The definition card lists **Notify** and
-**May email**. Hosts with their own create form (the Observer's Launch → Automate) render the same
+**Recipients**. Hosts with their own create form (the Observer's Launch → Automate) render the same
 fields with `AfEmailTriggerFields`, `AfEmailOptionsFields` and `AfEmailSetupNotice`, and build the
 body with `buildCreateRequest({..., trigger: "email", email, notifyEmail, emailRecipients})`. The
-words live in `automation_controls.json` under `email` (`EMAIL_TEXT`), which the Assistant and the
-Code TUI vendor byte for byte.
+words live in `automation_controls.json` under `email` (`EMAIL_TEXT`), which the Assistant vendors.
 
 ## The client
 
@@ -574,3 +571,14 @@ From `@abstractframework/panel-chat` (sources: `panel-chat/src/automation_badges
 - [FAQ](./faq.md#automations-does-the-kit-poll-or-schedule-anything) and [Troubleshooting](./troubleshooting.md#automations-the-panel-shows-an-error-or-a-control-stays-disabled)
 - [Development: shared contracts](./development.md#shared-contracts-with-other-repositories)
 - [Docs index](./README.md)
+
+## Growing context limit
+
+Choose **Growing** to set **Max growing context (tokens)** when creating or editing an
+automation. The default is 50,000; enter `30000` for a 30,000-token history budget.
+The limit is hidden for **Independent** runs. Changing it affects subsequent occurrences;
+already admitted occurrences retain their history for retries. History retains whole turns,
+including the newest turn even when that turn alone exceeds the budget.
+
+The API field is `context.growing.max_tokens`, a positive integer. Existing definitions
+that omit it retain the 50,000-token default.
