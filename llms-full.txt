@@ -1478,7 +1478,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - CSRF helpers: `readGatewayCsrfToken()`, `readGatewayCsrfTokens()`
 - Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`; `VoiceSettings` (catalog-driven voice preferences form)
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
-- Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation on a fixed UTC interval, once, or when an email arrives; "Email me the result" and allowed recipients), the email fields `AfEmailTriggerFields` / `AfEmailOptionsFields` / `AfEmailSetupNotice`, `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
+- Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation on a fixed UTC interval, once, or when an email arrives; "Email result" and result recipients), the email fields `AfEmailTriggerFields` / `AfEmailOptionsFields` / `AfEmailSetupNotice`, `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
 - Modal and account rows: `AfModal`, `bindAfModal()` (+ `afModalTabTarget()`, `afModalFocusables()`, `AF_MODAL_FOCUSABLE`), the helper floors `HELPER_MIN_PX`, `HELPER_MIN_TOUCH_PX`, `HELPER_TOUCH_MEDIA` — see [Modal, account rows, grouped navigation](./modal.md)
 - On/off settings and forms: `AfSwitch`, `AfSwitchInput` (a native `role="switch"` checkbox for uncontrolled forms) (+ `afSwitchNextState()`, `afSwitchIsActionable()`), `AfTabs` (+ `afTabsNextIndex()`), the guards `findVerbToggleLabels(source)` and `checkLabelScale(root)` (+ `LABEL_SCALE_SELECTOR`) — see [On/off settings](./state-toggles.md)
 - Workflow picker: `WorkflowPicker` (the one workflow chooser of every client: "Gateway default", then the groups "Shared" and "Mine", each entry with its version as a small detail line; no toggles), `useExecutableWorkflows({ interfaceId, request? | gatewayBaseUrl?, allVersions?, enabled?, reloadKey? })` (fetches `GET /api/gateway/bundles?executable_for=<interface>` with the app's own auth), `WorkflowPickerListbox`, and the pure core `executableWorkflowsPath()`, `parseExecutableWorkflows()` (throws `WorkflowPickerContractError` when the gateway ignores `executable_for`: no echo, an item without `owner`/`shipped`, an entrypoint that does not declare the interface), `workflowPickerGroups()`, `workflowPickerRows()`, `WORKFLOW_PICKER_DEFAULT` (`"@default"`), `WORKFLOW_PICKER_EMPTY`. The picker lists exactly what the gateway returns: which workflows a person sees is the gateway's availability rule (admins decide what is shared with users; users also see their own), never a client switch. Two modes: per interface (`interfaceId="abstractcode.agent.v1"`, for an app that runs one interface) and any interface (`interfaceId={null}`, for a launcher such as AbstractObserver: `GET /api/gateway/bundles`, every entrypoint that declares an interface, the interfaces as the detail line, `defaultInterface` names the interface "Gateway default" stands for); helpers `workflowPickerPath()`, `allWorkflowsPath()`, `parseWorkflowListing()`.
@@ -3467,7 +3467,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 - **On/off settings**: [`state-toggles.md`](./state-toggles.md) — `AfSwitch`, the console markup, the terminal marker, the verb-toggle and label-scale guards, the sign-in card, forms, cards and tabs, `randomId()`
 - **Modal, account rows, grouped navigation**: [`modal.md`](./modal.md) — `AfModal` and its plain-HTML markup with `AfConsoleIslands.bindModal`, the account-kind row tints and chips, sidebar group captions with a bottom slot, and the 13 px / 14 px helper-text floor
 - **Responsive layout**: [`responsive.md`](./responsive.md) — breakpoints, touch sizes, bottom sheets and drawers, container queries, the viewport helpers, the font-size order, and how a host app adopts them
-- **Automations**: [`automations.md`](./automations.md) — show and manage AbstractGateway automations: `AutomationPanel` (controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (schedules and **When an email arrives** triggers, **Email me the result**, allowed recipients) and its tool-approval consent line, `createAutomationsClient()` and its error model, retry-safe ids, the panel-chat schedule action and badge, the canonical fixtures and how to regenerate them, and the export list
+- **Automations**: [`automations.md`](./automations.md) — show and manage AbstractGateway automations: `AutomationPanel` (controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (schedules and **When an email arrives** triggers, **Email result**, result recipients) and its tool-approval consent line, `createAutomationsClient()` and its error model, retry-safe ids, the panel-chat schedule action and badge, the canonical fixtures and how to regenerate them, and the export list
 - **Console islands**: [`console-islands.md`](./console-islands.md) — the `window.AfConsoleIslands` bundle built from `ui-kit` for non-React pages (AbstractGateway console): API, build and check
 - **Local development**: [`development.md`](./development.md) — workspace build, tests, contracts shared with other repositories, docs regeneration
 - **Publishing (maintainers)**: [`publishing.md`](./publishing.md) — versioning, tag-driven release workflow, first publish of a new package
@@ -7245,7 +7245,7 @@ export type EmailRecipientsForm = { mode: "self" | "list"; addresses: string };
 export const DEFAULT_EMAIL_RECIPIENTS: EmailRecipientsForm = { mode: "self", addresses: "" };
 
 /**
- * `policy.email_allowed_recipients` from the form: `["self"]` for "only me",
+ * `notify.recipients` from the form: `["self"]` for "only me",
  * `["self", ...addresses]` for "me and these addresses" (at least one).
  */
 export function emailAllowedRecipientsFrom(form: EmailRecipientsForm): { recipients: string[]; errors: string[] } {
@@ -7259,7 +7259,7 @@ export function emailAllowedRecipientsFrom(form: EmailRecipientsForm): { recipie
   return { recipients: ["self", ...items], errors };
 }
 
-/** The form's view of a stored `email_allowed_recipients` (absent = only me). */
+/** The form's view of a stored result-recipient list (absent = only me). */
 export function emailRecipientsFormFrom(list: string[] | null | undefined): EmailRecipientsForm {
   const extra = (list ?? []).filter((a) => a !== "self");
   return extra.length ? { mode: "list", addresses: extra.join(", ") } : { mode: "self", addresses: "" };
@@ -7271,7 +7271,7 @@ export function emailRecipientsLabel(list: string[] | null | undefined): string 
   return extra.length ? `Me and ${extra.join(", ")}` : "Only me";
 }
 
-/** `notify` for "Email me the result": `["console", "email"]` when on, the default `["console"]` when off. */
+/** `notify` for "Email result": `["console", "email"]` when on, the default `["console"]` when off. */
 export function notifyFor(emailMe: boolean, recipients: string[] = ["self"]): AutomationNotify {
   return { channels: emailMe ? ["console", "email"] : ["console"], ...(recipients.some((r) => r !== "self") ? { recipients } : {}) };
 }
@@ -7489,9 +7489,9 @@ export type ReviseForm = {
   growingMaxTokens?: number;
   prompt?: string | null;
   toolApproval?: ToolApprovalPolicy | null;
-  /** "Email me the result" (`notify.channels` has "email"); `null` without a definition. */
+  /** "Email result" (`notify.channels` has "email"); `null` without a definition. */
   notifyEmail?: boolean | null;
-  /** `policy.email_allowed_recipients`; `null` without a definition. */
+  /** `notify.recipients`; `null` without a definition. */
   emailRecipients?: EmailRecipientsForm | null;
 };
 
@@ -7527,8 +7527,8 @@ export function reviseFormFrom(summary: AutomationSummary, definition?: ReviseDe
  * definition's target (`bundle_ref`, `flow_id`) and the rest of its
  * `input_data`; the gateway re-applies its run protections to it
  * (`PATCH /automations/{id}` resolves `changes.target` like a creation). A new
- * tool approval or allowed-recipient list sends only that `policy` field (the
- * server merges policy); "Email me the result" sends `notify`.
+ * tool approval sends only that `policy` field (the server merges policy);
+ * "Email result" and its recipients send `notify`.
  * Returns `{errors}` when the form is invalid, `null` when nothing changed.
  */
 export function reviseChanges(summary: AutomationSummary, form: ReviseForm, definition?: ReviseDefinition | null): AutomationChanges | null | { errors: string[] } {
@@ -7590,7 +7590,7 @@ export type ScheduleForm = {
   trigger?: "schedule" | "email";
   /** The "When an email arrives" fields (default `DEFAULT_EMAIL_TRIGGER_FORM`). */
   email?: EmailTriggerForm;
-  /** "Email me the result": `notify.channels` `["console", "email"]`. Off (default) sends no `notify` (the server default, console). */
+  /** "Email result": `notify.channels` `["console", "email"]`. Off (default) sends no `notify` (the server default, console). */
   notifyEmail?: boolean;
   /** Allowed recipients; "only me" (default) sends nothing (the server default, `["self"]`). */
   emailRecipients?: EmailRecipientsForm;
