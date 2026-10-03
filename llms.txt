@@ -58,7 +58,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / appearance dialog, About dialog + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel (Active switch) + schedule dialog + client, AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / rail drawer (AfRailDrawer) / appearance dialog, file viewer (AfFileViewer, AfCodeBlock), settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow) + AfVoiceSection, relative time, About dialog + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel (Active switch) + schedule dialog + client, AfSwitch, AfTabs, AfModal, randomId
 - [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat, live replies (`llm.delta`), ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser, presentInteraction
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
@@ -78,6 +78,10 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [ui-kit/src/responsive.ts](ui-kit/src/responsive.ts): `AF_BREAKPOINTS`, `AF_MEDIA`, `useAfMedia`, `installViewportVars`, `viewportVarsFrom`
 - [ui-kit/src/identity.ts](ui-kit/src/identity.ts): identity helpers (`appIdentity`, `aboutRows`, `gatewayVersionRows`)
 - [ui-kit/src/about.tsx](ui-kit/src/about.tsx): `AfAboutDialog`
+- [ui-kit/src/af_rail_drawer.tsx](ui-kit/src/af_rail_drawer.tsx): `AfRailDrawer` (vertical rail drawer) and its pure rules
+- [ui-kit/src/af_file_viewer.tsx](ui-kit/src/af_file_viewer.tsx): `AfFileViewer`, `fileViewerKind`; [code_highlight.tsx](ui-kit/src/code_highlight.tsx): `AfCodeBlock`, `highlightCode`
+- [ui-kit/src/af_settings_rows.tsx](ui-kit/src/af_settings_rows.tsx): `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow`; [af_voice_section.tsx](ui-kit/src/af_voice_section.tsx): `AfVoiceSection`; [relative_time.ts](ui-kit/src/relative_time.ts): `formatRelativeTime`, `formatExactTime`
+- [panel-chat/src/file_viewer.tsx](panel-chat/src/file_viewer.tsx): `FileViewer`, `useWorkspaceFilePreview`
 - [ui-kit/src/gateway_session_signin.tsx](ui-kit/src/gateway_session_signin.tsx): shared Gateway browser-session sign-in card
 - [ui-kit/src/use_gateway_connection.ts](ui-kit/src/use_gateway_connection.ts): the connection state machine hook (probe/auto-open/self-close contract)
 - [ui-kit/src/gateway_paths.ts](ui-kit/src/gateway_paths.ts): relative same-origin routes (`gatewayApiPath`, `joinBaseUrl`, `gatewayResourcePath`)

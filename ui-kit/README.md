@@ -12,8 +12,14 @@ This package provides:
   `SpeculationSelect`, `ToolPolicyEditor`, `VoiceSettings`
 - **Gateway connection UI**: `GatewayConnectModal`, `useGatewayConnection()`,
   `GatewaySessionSignInCard`
-- **App chrome**: `AfTopBarActions`, `AfDrawer`, `AfAppearanceDialog` + `useAppearanceSettings()`,
-  `AfAboutDialog`
+- **App chrome**: `AfTopBarActions`, `AfDrawer`, `AfRailDrawer` (vertical icon rail at the right
+  edge, panel beside it, resizable, collapses to icons), `AfAppearanceDialog` +
+  `useAppearanceSettings()`, `AfAboutDialog`
+- **Files**: `AfFileViewer` (Markdown via the host renderer, highlighted code, JSON, images, PDF,
+  text; size/date header; download) and `AfCodeBlock` / `highlightCode()`
+- **Settings rows**: `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow` ("Gateway default" unless
+  overridden), `AfVoiceSection` (the Assistant's Voice layout)
+- **Time**: `formatRelativeTime(ts, nowMs)`, `formatExactTime(ts)` — deterministic, no seconds
 - **Identity**: `appIdentity(id, version)`, `frameworkIdentity()`, `knownAppIds()`,
   `aboutRows(...)`, `gatewayVersionRows(...)` — the AbstractFramework facts every About screen
   shows
@@ -160,6 +166,20 @@ Rules:
   modal sits above drawers (z-order tokens `--z-drawer` < `--z-connect-modal` < `--z-popover`).
   Below 768 px it is full width; `side="left"` opens it from the left edge and `backdrop` adds a
   dimmed backdrop that closes it on tap (use both where a docked sidebar becomes a drawer).
+- `AfRailDrawer` is the vertical rail drawer (AbstractEntity / Continuum Teams pattern): put it at
+  the right end of a `position: relative` content row. Docked from 1024 px (the panel takes its
+  width in the flow; drag or arrow-key the separator; `storageKey` remembers it), floating below
+  (backdrop, Escape folds it). The rail is a vertical `tablist`; clicking the open icon folds the
+  panel back to the icons. Panels visited once stay mounted.
+
+```tsx
+<div style={{ display: "flex", position: "relative", minHeight: 0 }}>
+  <main style={{ flex: 1, minWidth: 0 }}>…</main>
+  <AfRailDrawer ariaLabel="Workspace panels" storageKey="myapp.rail.width" active={panel} onActiveChange={setPanel}
+    items={[{ id: "files", label: "Files", icon: "folder", content: <Files /> },
+            { id: "settings", label: "Settings", icon: "cog", content: <Settings /> }]} />
+</div>
+```
 - `AssistantPanel` (in `@abstractframework/panel-chat`) never fetches: the
   `ask(question, { signal, history })` transport is injected and may return a Promise or an
   AsyncIterable of deltas.

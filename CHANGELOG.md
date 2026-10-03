@@ -12,6 +12,12 @@ ships.
 - ui-kit: `automationTiming()` and its parts (`compactCadence`, `lastRunText`, `nextRunText`, `compactDuration`) give an automation card or header its one compact line, `every 24 h · last 3 h ago · next in 14 h`; deterministic, checked by `scripts/check_timing_line.mjs`.
 - ui-kit: `AutomationPanel` `hideHeader` — the host draws its own header and controls (AbstractCode's automation header); the panel starts at the definition and the occurrences and is named by the automation's title.
 
+- ui-kit 0.6.0 (unreleased): `AfRailDrawer` — the vertical rail drawer of AbstractEntity / Continuum Teams as a shared component (icon rail at the right edge, panel beside it, resizable by pointer and keyboard, collapses to icons, floating below 1024 px, 44 px targets); `scripts/check_rail_viewer.mjs`.
+- ui-kit 0.6.0: `AfFileViewer` + `AfCodeBlock` / `highlightCode` — one file preview (Markdown, highlighted code, JSON, images, PDF, text; size/date header; download), dependency-free highlighting that wraps instead of scrolling.
+- ui-kit 0.6.0: `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow` (Gateway default unless overridden), `AfVoiceSection` (the Assistant's Voice layout: engines, output device, read aloud, voice latency; `voiceTtsRequest` / `voiceSttRequest`), `useGatewayVoice({ output_device_id })`.
+- ui-kit 0.6.0: `formatRelativeTime` / `formatExactTime` / `formatShortDate` / `timeValueMs` (deterministic); icons `cog` and `activity`; `AutomationReviseForm` exported, embeddable (`heading`, optional `onCancel`, `submitLabel`); `VoiceSettings` `quality` prop.
+- panel-chat 0.3.0 (unreleased): `FileViewer`, `useWorkspaceFilePreview`; `WorkspaceBrowser` previews a file in place (no "Open" button), rows show size, generated date and a download icon, the root shows once as a short name with Open folder / Copy path icons (`fileActions`, `onOpenFolder`, `copyText`); peer `@abstractframework/ui-kit` ^0.6.0.
+
 ## 0.5.3 - 2026-10-03
 
 ### ui-kit 0.5.2

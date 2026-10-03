@@ -66,7 +66,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / appearance dialog, About dialog + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel (Active switch) + schedule dialog + client, AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / rail drawer (AfRailDrawer) / appearance dialog, file viewer (AfFileViewer, AfCodeBlock), settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow) + AfVoiceSection, relative time, About dialog + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel (Active switch) + schedule dialog + client, AfSwitch, AfTabs, AfModal, randomId
 - [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat, live replies (`llm.delta`), ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser, presentInteraction
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
@@ -86,6 +86,10 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [ui-kit/src/responsive.ts](ui-kit/src/responsive.ts): `AF_BREAKPOINTS`, `AF_MEDIA`, `useAfMedia`, `installViewportVars`, `viewportVarsFrom`
 - [ui-kit/src/identity.ts](ui-kit/src/identity.ts): identity helpers (`appIdentity`, `aboutRows`, `gatewayVersionRows`)
 - [ui-kit/src/about.tsx](ui-kit/src/about.tsx): `AfAboutDialog`
+- [ui-kit/src/af_rail_drawer.tsx](ui-kit/src/af_rail_drawer.tsx): `AfRailDrawer` (vertical rail drawer) and its pure rules
+- [ui-kit/src/af_file_viewer.tsx](ui-kit/src/af_file_viewer.tsx): `AfFileViewer`, `fileViewerKind`; [code_highlight.tsx](ui-kit/src/code_highlight.tsx): `AfCodeBlock`, `highlightCode`
+- [ui-kit/src/af_settings_rows.tsx](ui-kit/src/af_settings_rows.tsx): `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow`; [af_voice_section.tsx](ui-kit/src/af_voice_section.tsx): `AfVoiceSection`; [relative_time.ts](ui-kit/src/relative_time.ts): `formatRelativeTime`, `formatExactTime`
+- [panel-chat/src/file_viewer.tsx](panel-chat/src/file_viewer.tsx): `FileViewer`, `useWorkspaceFilePreview`
 - [ui-kit/src/gateway_session_signin.tsx](ui-kit/src/gateway_session_signin.tsx): shared Gateway browser-session sign-in card
 - [ui-kit/src/use_gateway_connection.ts](ui-kit/src/use_gateway_connection.ts): the connection state machine hook (probe/auto-open/self-close contract)
 - [ui-kit/src/gateway_paths.ts](ui-kit/src/gateway_paths.ts): relative same-origin routes (`gatewayApiPath`, `joinBaseUrl`, `gatewayResourcePath`)
@@ -181,7 +185,7 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 
 | Package | Purpose | Docs |
 |---|---|---|
-| `@abstractframework/ui-kit` | Theme tokens (21 themes) and the responsive layer (breakpoints, 44 px touch targets, bottom sheets, viewport helpers), inputs (`AfSelect`, provider/model pickers), Gateway connect modal + connection hook, top bar / drawer / appearance dialog, About dialog + AbstractFramework identity helpers, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel + schedule dialog (schedule and email triggers, email notifications) + typed Gateway client; console islands for non-React pages (repository build) | [`ui-kit/README.md`](./ui-kit/README.md) |
+| `@abstractframework/ui-kit` | Theme tokens (21 themes) and the responsive layer (breakpoints, 44 px touch targets, bottom sheets, viewport helpers), inputs (`AfSelect`, provider/model pickers), Gateway connect modal + connection hook, top bar / drawer / rail drawer (`AfRailDrawer`) / appearance dialog, file viewer + code highlighting, settings rows + voice section, relative time, About dialog + AbstractFramework identity helpers, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel + schedule dialog (schedule and email triggers, email notifications) + typed Gateway client; console islands for non-React pages (repository build) | [`ui-kit/README.md`](./ui-kit/README.md) |
 | `@abstractframework/panel-chat` | Chat thread + message cards + composer + markdown/json rendering, app assistant panel, workflow chat with live (streamed) replies, "Schedule this…" action and "from automation" badge | [`panel-chat/README.md`](./panel-chat/README.md) |
 | `@abstractframework/app-server` | Node server side for apps: serving under the gateway's `/apps/<id>/`, shared launch flags, local gateway pointer, gateway-session proxy (token → HttpOnly cookie exchange, CSRF, URL pinning, forwarded client address) | [`app-server/README.md`](./app-server/README.md) |
 | `@abstractframework/monitor-flow` | Agent-cycle trace viewer + ledger adapter | [`monitor-flow/README.md`](./monitor-flow/README.md) |
@@ -1473,6 +1477,13 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Critical actions: `CriticalActionDialog` + core (`resolveCriticalActionGate()`, `normalizeCriticalActionFacts()`)
 - Run steering: `SteerComposer` + `submitSteer()` (idempotent command ids, CSRF candidates)
 - Lists & badges: `DisclosureList` (tree list, roving tabindex), `AfChip` / `AfChipButton`
+- Rail drawer (0.6.0): `AfRailDrawer` — the vertical rail drawer lifted from AbstractEntity's side tabs and Continuum Teams' drawer rail: an icon rail (role `tablist`, vertical; 44 px icons with tooltips; Up/Down/Home/End) at the right edge of the host's content area; a click opens that panel beside the rail, the open icon (or the panel's collapse button) folds it back; the rail always stays. Docked from 1024 px (in the layout flow; width resizable by pointer — mouse, pen, touch with pointer capture — and by keyboard on a `separator`, persisted under `storageKey`), floating below (backdrop, Escape folds it with the consumed-event rule, focus returns to the icon). Panels visited once stay mounted. Props: `items: AfRailItem[]` (`id`, `label`, `icon`, `badge?`, `hint?`, `content`, `headerActions?`), `active`, `onActiveChange(id | null)`, `ariaLabel`, `storageKey?`, `defaultWidth?`/`minWidth?`/`maxWidth?`, `overlay?`, `idBase?` (ids `<idBase>-tab-<id>` / `<idBase>-panel-<id>`). The host's container needs `position: relative`. Pure rules: `railDrawerToggle()`, `railDrawerClampWidth()`, `railDrawerKeyWidth()`, `railDrawerNextIndex()`, `AF_RAIL_WIDTH`.
+- File viewer (0.6.0): `AfFileViewer` — one preview for every client: header (name with the path as tooltip, size, generated date relative with the exact time on hover, extra `actions`, Download and close icons) and a body by kind (`fileViewerKind(name, contentType)`: Markdown through the host's `renderMarkdown` — panel-chat `FileViewer` wires its `Markdown` —, code highlighted by `AfCodeBlock`, JSON pretty-printed, images, PDF in an `<object>`, plain text; SVG and HTML show as source, never rendered). Presentational: the host passes text (`fileViewerNeedsText(kind)`) or an object URL. `formatFileSize()`.
+- Code highlighting (0.6.0): `AfCodeBlock` (`text`, `language` = a file name or a language, `lineNumbers?`) — wraps long lines, never scrolls sideways; `highlightCode(text, codeLanguage(name))` is a dependency-free lexer (comment / string / number / keyword tokens; joining the tokens returns the input).
+- Settings rows (0.6.0): `AfSettingsGroup` (titled card; `variant="flat"` inside another card; `aside` for e.g. "Revision 4"), `AfSettingRow` (label + one-line help left, control right; wraps in a narrow panel), `AfOverrideRow` — the "Gateway default unless overridden" row: summary (`Gateway default · x` or `<override> — <owner>`), **Change** opens the editor in place, **Use gateway default** only while overridden.
+- Voice (0.6.0): `AfVoiceSection` — the Assistant's Settings → Voice layout: Engines (Text → speech, Speech → text as `AfOverrideRow`s), Output device (audio outputs where `audioOutputSelectable()`; otherwise disabled with the reason), Read aloud switch, Voice latency (`VOICE_LATENCY_OPTIONS`, only when the gateway advertises `quality_preset`). Value `VoiceClientPreferences` (`VoicePreferences` + `stt_provider`, `stt_model`, `output_device`, `read_aloud`); `voiceTtsRequest()` / `voiceSttRequest()` pick what a request carries. `nested` renders its sub-sections flat. `useGatewayVoice({ output_device_id })` routes playback with `AudioContext.setSinkId`.
+- Relative time (0.6.0): `formatRelativeTime(ts, nowMs)` ("just now", "5 min ago", "3 h ago", "yesterday", "4 days ago", then "Oct 2"; future "in 14 h"), `formatExactTime(ts)` ("Oct 2, 2026, 14:05"), `formatShortDate(ts, nowMs)`, `timeValueMs(ts)` — deterministic (the caller passes now), no seconds, no year within the same year.
+- Icons (0.6.0): `cog` (the usual settings gear; `settings` stays the sliders glyph) and `activity`.
 - App chrome: `AfTopBarActions` (assistant → appearance → about → extras → connection pill; `about={{ identity, extraRows?, onOpen?, label? }}` adds the About button and dialog), `AfDrawer` (non-modal, keeps children mounted; `side="left"`, `backdrop`; full width below 768 px), `AfAppearanceDialog` + `useAppearanceSettings()` / `appearanceStorageKey()` / `APPEARANCE_DEFAULTS`, `AfAboutDialog`
 - Identity: `appIdentity(id, version): AppIdentity` (throws on an unknown id), `frameworkIdentity(): FrameworkIdentity`, `knownAppIds()`, `aboutRows(identity, extra?): AboutRow[]` (the ordered About rows, same as the Python `abstractcore.utils.identity.about_fields`), `gatewayVersionRows(payload: GatewayAboutPayload | null, error?: string): AboutRow[]` (the connected gateway's version rows from `GET /api/gateway/about`); types `AppIdentity`, `FrameworkIdentity`, `AboutRow`, `GatewayAboutPayload`. See [About dialog and identity](../ui-kit/README.md#about-dialog-and-identity)
 - CSRF helpers: `readGatewayCsrfToken()`, `readGatewayCsrfTokens()`
@@ -1525,7 +1536,8 @@ Components:
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
 - `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow all enabled tools" only with `onPermissionsAll`), question (`ask_user`, choices and free text) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. Types `PresentInteractionOptions`, `InteractionController`
-- `WorkspaceBrowser` — a run's folder on the gateway host through the CONTRACTS §W routes (`GET /runs/{id}/workspace`, `/workspace/files`, `/workspace/content`): breadcrumbs, folders first, sizes, "N entries hidden by the gateway's workspace rules", Open / Download per file (fetched with the host's credentials, never linked; HTML, SVG, XML and other text open as plain text because a blob URL runs with the app's origin), or `onSelectFile` + `selectedPath` for a host preview. Props: `fetchGateway(path, init)` (the host joins the gateway-relative path to its base URL and adds its auth), `runId` (an automation's id browses the automation's folder), `title`, `note?`, `onClose?`, `refreshKey?`, `className?`. Hook-free `WorkspaceBrowserView` and helpers: `loadWorkspaceView()`, `loadRunWorkspace()`, `listWorkspaceFolder()`, `readWorkspaceFile()`, `parseWorkspaceListing()` (malformed answers throw), `gatewayResponseError()`, `tabOpenPlan()`, `workspaceInfoUrl()` / `workspaceFilesUrl()` / `workspaceContentUrl()`, `workspaceCrumbs()`, `workspaceParent()`, `sortWorkspaceEntries()`, `workspaceHiddenNote()`, `formatBytes()`; types `GatewayFetch`, `RunWorkspace`, `WorkspaceEntry`, `WorkspaceListing`, `WorkspaceBrowserProps`, `WorkspaceBrowserViewProps`
+- `WorkspaceBrowser` — a run's folder on the gateway host through the CONTRACTS §W routes (`GET /runs/{id}/workspace`, `/workspace/files`, `/workspace/content`): the root once as its short name (`workspaceShortName`; full path on hover) with **Open folder** (`onOpenFolder`, offered only when `workspaceCanOpenFolder`) and **Copy path** icons, breadcrumbs, folders first, then per file: name, size, generated date (relative, exact on hover) and a Download icon; "N entries hidden by the gateway's workspace rules". A click on a file previews it IN PLACE with `FileViewer` (0.3.0: no "Open" button; `fileActions(entry)` adds host actions such as "Attach"), or `onSelectFile` + `selectedPath` hand the selection to a host preview. Files are fetched with the host's credentials, never linked. Props: `fetchGateway(path, init)`, `runId` (an automation's id browses the automation's folder), `title`, `note?`, `onClose?`, `refreshKey?`, `className?`, `fileActions?`, `onOpenFolder?`, `copyText?`, `nowMs?`. Hook-free `WorkspaceBrowserView` and helpers: `loadWorkspaceView()`, `loadRunWorkspace()`, `listWorkspaceFolder()`, `readWorkspaceFile()`, `parseWorkspaceListing()` (malformed answers throw), `gatewayResponseError()`, `tabOpenPlan()`, `workspaceInfoUrl()` / `workspaceFilesUrl()` / `workspaceContentUrl()`, `workspaceCrumbs()`, `workspaceParent()`, `sortWorkspaceEntries()`, `workspaceHiddenNote()`, `formatBytes()`; types `GatewayFetch`, `RunWorkspace`, `WorkspaceEntry`, `WorkspaceListing`, `WorkspaceBrowserProps`, `WorkspaceBrowserViewProps`
+- `FileViewer` (0.3.0) — ui-kit `AfFileViewer` with panel-chat's `Markdown`; `useWorkspaceFilePreview(fetchGateway, runId, entry, refreshKey?)` loads one workspace file for it (a bounded Range read of at most `PREVIEW_TEXT_LIMIT` = 1 MiB for text kinds, an object URL for images/PDF up to `PREVIEW_BLOB_LIMIT`, nothing for binaries) and `filePreviewViewerProps(state)` maps the result; `readBoundedText()`, `responseTotal()`, `partialPreviewNote()`, `safeMarkdownImages()` (Markdown images only from the run's workspace)
 
 Renderers:
 - `Markdown` (lightweight Markdown with real nested lists, marker progression, fenced code
@@ -2859,6 +2871,11 @@ list row, a menu) passes `editOpen` and `onEditOpenChange`: the form is open exa
 successful save ask `onEditOpenChange(false)`. The form never opens on an automation that cannot
 be edited (archived, legacy, or without the `revise` capability), whatever `editOpen` says.
 
+A host that draws its own header and controls passes `hideHeader`: the panel then omits its
+header (title, facts) and its controls bar and starts at the definition and the occurrences; the
+section is named by the automation's title. AbstractCode does this: its header carries the Active
+switch, the timing line (`automationTiming()`), Run now, Stop, Edit and Archive.
+
 ### Attention and `/seen`
 
 After showing the attention items, the panel calls `onSeen(cursor)` with the cursor of the **last
@@ -3148,6 +3165,12 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `scheduleLabel()`, `intervalLabel()`, `contextLabel()`, `formatUtc()`, `parseDuration()`,
   `reviseFormFrom()` and `reviseChanges()` (`ReviseForm`, `ReviseDefinition`), `buildCreateRequest()` (`ScheduleForm`, `ScheduleWhen`),
   `SCHEDULE_PRESETS`, `TOOL_APPROVAL_CONSENT`.
+- **Timing line** (pure, deterministic: the caller passes `nowMs`): `automationTiming()`
+  returns `{cadence, last, next, line}` for a card or header, e.g.
+  `every 24 h · last 3 h ago · next in 14 h` — compact units rounded down (`<1 min`, `N min`,
+  `N h` below 48 h, `N d`), no year, no seconds, `last never` before the first run,
+  `running now` while an occurrence executes, `waiting since 5 min` while it waits for an approval or answer, no next part when nothing is scheduled.
+  Parts: `compactCadence()`, `lastRunText()`, `nextRunText()`, `compactDuration()`.
 - **Email** (pure): `emailUsable()`, `emailTriggerConfigFrom()` (`EmailTriggerForm`,
   `EmailAttachmentFilter`, `DEFAULT_EMAIL_TRIGGER_FORM`), `emailTriggerLabel()`,
   `isEmailTrigger()`, `emailDefaultEvery()`, `emailAllowedRecipientsFrom()`,
@@ -3531,8 +3554,14 @@ This package provides:
   `SpeculationSelect`, `ToolPolicyEditor`, `VoiceSettings`
 - **Gateway connection UI**: `GatewayConnectModal`, `useGatewayConnection()`,
   `GatewaySessionSignInCard`
-- **App chrome**: `AfTopBarActions`, `AfDrawer`, `AfAppearanceDialog` + `useAppearanceSettings()`,
-  `AfAboutDialog`
+- **App chrome**: `AfTopBarActions`, `AfDrawer`, `AfRailDrawer` (vertical icon rail at the right
+  edge, panel beside it, resizable, collapses to icons), `AfAppearanceDialog` +
+  `useAppearanceSettings()`, `AfAboutDialog`
+- **Files**: `AfFileViewer` (Markdown via the host renderer, highlighted code, JSON, images, PDF,
+  text; size/date header; download) and `AfCodeBlock` / `highlightCode()`
+- **Settings rows**: `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow` ("Gateway default" unless
+  overridden), `AfVoiceSection` (the Assistant's Voice layout)
+- **Time**: `formatRelativeTime(ts, nowMs)`, `formatExactTime(ts)` — deterministic, no seconds
 - **Identity**: `appIdentity(id, version)`, `frameworkIdentity()`, `knownAppIds()`,
   `aboutRows(...)`, `gatewayVersionRows(...)` — the AbstractFramework facts every About screen
   shows
@@ -3679,6 +3708,20 @@ Rules:
   modal sits above drawers (z-order tokens `--z-drawer` < `--z-connect-modal` < `--z-popover`).
   Below 768 px it is full width; `side="left"` opens it from the left edge and `backdrop` adds a
   dimmed backdrop that closes it on tap (use both where a docked sidebar becomes a drawer).
+- `AfRailDrawer` is the vertical rail drawer (AbstractEntity / Continuum Teams pattern): put it at
+  the right end of a `position: relative` content row. Docked from 1024 px (the panel takes its
+  width in the flow; drag or arrow-key the separator; `storageKey` remembers it), floating below
+  (backdrop, Escape folds it). The rail is a vertical `tablist`; clicking the open icon folds the
+  panel back to the icons. Panels visited once stay mounted.
+
+```tsx
+<div style={{ display: "flex", position: "relative", minHeight: 0 }}>
+  <main style={{ flex: 1, minWidth: 0 }}>…</main>
+  <AfRailDrawer ariaLabel="Workspace panels" storageKey="myapp.rail.width" active={panel} onActiveChange={setPanel}
+    items={[{ id: "files", label: "Files", icon: "folder", content: <Files /> },
+            { id: "settings", label: "Settings", icon: "cog", content: <Settings /> }]} />
+</div>
+```
 - `AssistantPanel` (in `@abstractframework/panel-chat`) never fetches: the
   `ask(question, { signal, history })` transport is injected and may return a Promise or an
   AsyncIterable of deltas.
@@ -3873,7 +3916,7 @@ Chat UI primitives for AbstractFramework-style UIs: thread rendering, message ca
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` `^0.1.14 || ^0.2.0 || ^0.3.0` (icons used by `ChatMessageCard`; 0.3 provides the responsive tokens)
+- `@abstractframework/ui-kit` `^0.6.0` (icons, the responsive tokens, and `AfFileViewer` / relative time for the workspace browser and `FileViewer`)
 
 ## Install
 
@@ -3896,6 +3939,7 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
   `folderRefusal`, `dragCarriesFiles`, `draggedFileCount`, `dropZoneLabel`, `pastedFileName`,
   `DragPresence`
 - Renderers: `Markdown` (with `sameOriginImage` as the default image rule for `images="link"`), `JsonViewer`
+- Files (0.3.0): `WorkspaceBrowser` (rows: name, size, generated date, download icon; a click previews the file in place; the root once as a short name with Open folder / Copy path icons; `fileActions` for host actions), `FileViewer` (ui-kit `AfFileViewer` + `Markdown`), `useWorkspaceFilePreview` (bounded loader through the host's `fetchGateway`)
 - Tool and run evidence: `ToolActivity`, `ToolActivityGroup`, `toolArguments`, `toolPreview`,
   `workflowProgress`, `workflowEvidence`, `foldWorkflowTools`, `historyRecords`,
   `statDetail`, `StatDetailPanel`
@@ -4833,7 +4877,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -4874,7 +4918,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_random_id.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -4902,7 +4946,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.2.5",
+  "version": "0.3.0",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -4946,12 +4990,12 @@ npm test
     "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.5.2",
+    "@abstractframework/ui-kit": "^0.6.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.5.2",
+    "@abstractframework/ui-kit": "^0.6.0",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -5432,6 +5476,8 @@ export {
 } from "./automations/panel_core.js";
 export {
   AutomationPanel,
+  AutomationReviseForm,
+  type AutomationReviseFormProps,
   AutomationStateLabel,
   CONTROL_ICONS,
   CONTROL_HINTS,
@@ -5506,6 +5552,25 @@ export { AutomationToolsPicker } from "./automations/automation_tools_picker.js"
 export { AutomationWorkflowPicker, type AutomationWorkflowPickerOptions } from "./automations/automation_workflow_picker.js";
 export { retargetAutomationInput, automationTargetValue } from "./automations/target_selection.js";
 export { prepareAutomationTarget } from "./automations/prepare_target.js";
+export { automationTiming, compactCadence, compactDuration, lastRunText, nextRunText, type AutomationTiming } from "./automations/timing_line.js";
+export { triggerSourceProblem } from "./automations/AutomationPanel.js";
+// ui-kit 0.6.0 (round 4): rail drawer, file viewer, code highlighter, settings rows, voice section, relative time.
+export { AfRailDrawer, AF_RAIL_WIDTH, railDrawerClampWidth, railDrawerKeyWidth, railDrawerNextIndex, railDrawerToggle, type AfRailDrawerProps, type AfRailItem } from "./af_rail_drawer.js";
+export { AfFileViewer, fileViewerKind, fileViewerNeedsText, formatFileSize, type AfFileViewerKind, type AfFileViewerProps } from "./af_file_viewer.js";
+export { AfCodeBlock, codeLanguage, highlightCode, type AfCodeBlockProps, type CodeToken, type CodeTokenKind } from "./code_highlight.js";
+export { AfSettingsGroup, AfSettingRow, AfOverrideRow, type AfSettingsGroupProps, type AfSettingRowProps, type AfOverrideRowProps } from "./af_settings_rows.js";
+export {
+  AfVoiceSection,
+  VOICE_LATENCY_OPTIONS,
+  voiceTtsRequest,
+  voiceSttRequest,
+  voiceTtsOverrideSummary,
+  voiceSttOverrideSummary,
+  type AfVoiceSectionProps,
+  type VoiceClientPreferences,
+} from "./af_voice_section.js";
+export { formatRelativeTime, formatExactTime, formatShortDate, timeValueMs } from "./relative_time.js";
+export { audioOutputSelectable } from "./use_gateway_voice.js";
 
 ## ui-kit/src/responsive.ts
 
@@ -5954,6 +6019,861 @@ export function AfAboutDialog(props: AfAboutDialogProps): React.ReactElement | n
 }
 
 export default AfAboutDialog;
+
+## ui-kit/src/af_rail_drawer.tsx
+
+// AfRailDrawer — the vertical rail drawer (ui-kit 0.6.0).
+//
+// Lifted from AbstractEntity's SideTabs (src/drawer.tsx) and Continuum Teams'
+// team drawer rail, with their gaps closed: a narrow ICON rail on the right
+// edge of the host's content area; clicking an icon opens that panel beside
+// the rail; clicking the open icon (or the panel's collapse button) collapses
+// back to the bare rail. The rail never goes away.
+//
+// - Docked (≥ 1024 px by default): the panel is in the layout flow; its width
+//   is resizable by pointer (mouse, pen, touch: pointer capture) and by
+//   keyboard on the separator (Arrow keys ±16 px, Shift ±64, Home/End);
+//   the width persists under `storageKey`.
+// - Overlay (< 1024 px): the panel floats over the content beside the rail
+//   with a backdrop; Escape or a backdrop tap collapses it; focus moves into
+//   the panel and back to the icon that opened it.
+// - Rail: role=tablist (vertical), Up/Down/Home/End move focus, Enter/Space
+//   open; every icon is ≥ 44 px square with a tooltip and an accessible name.
+// - KEEP-ALIVE: a panel visited once stays mounted (hidden) so unfinished
+//   edits and long-running work survive switching panels.
+// - Escape follows the consumed-event convention of AfDrawer / AfModal.
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Icon, type IconName } from "./icon.js";
+import { AF_MEDIA, useAfMedia } from "./responsive.js";
+
+export type AfRailItem = {
+  id: string;
+  /** Short label: the icon's tooltip, accessible name and the panel title. */
+  label: string;
+  icon: IconName;
+  /** A small count or dot on the icon (number → count, true → dot). */
+  badge?: number | boolean;
+  /** Extra tooltip text after the label (e.g. "3 running"). */
+  hint?: string;
+  content: React.ReactNode;
+  /** Header actions of this panel (before the collapse button). */
+  headerActions?: React.ReactNode;
+};
+
+export type AfRailDrawerProps = {
+  items: AfRailItem[];
+  /** The open panel, or null = collapsed to the rail. */
+  active: string | null;
+  onActiveChange: (id: string | null) => void;
+  /** Accessible name of the rail ("Workspace panels"). */
+  ariaLabel: string;
+  /** localStorage key for the docked width (omit = not persisted). */
+  storageKey?: string;
+  defaultWidth?: number;
+  minWidth?: number;
+  maxWidth?: number;
+  /** Force overlay (true) or docked (false); default: overlay below 1024 px. */
+  overlay?: boolean;
+  /** Prefix for element ids (default "af-rail"). Must be unique on the page. */
+  idBase?: string;
+  className?: string;
+};
+
+export const AF_RAIL_WIDTH = { min: 300, max: 960, default: 420, step: 16, bigStep: 64 } as const;
+
+/** The width clamped to [min, max] (non-finite → `fallback`). */
+export function railDrawerClampWidth(width: number, min: number = AF_RAIL_WIDTH.min, max: number = AF_RAIL_WIDTH.max, fallback: number = AF_RAIL_WIDTH.default): number {
+  if (!Number.isFinite(width)) return Math.min(max, Math.max(min, fallback));
+  return Math.round(Math.min(max, Math.max(min, width)));
+}
+
+/**
+ * The separator's keyboard rule. The panel sits LEFT of the rail, so
+ * ArrowLeft widens and ArrowRight narrows; Shift moves a big step; Home = min,
+ * End = max. Returns null for any other key.
+ */
+export function railDrawerKeyWidth(width: number, key: string, shift: boolean, min: number = AF_RAIL_WIDTH.min, max: number = AF_RAIL_WIDTH.max): number | null {
+  const step = shift ? AF_RAIL_WIDTH.bigStep : AF_RAIL_WIDTH.step;
+  if (key === "ArrowLeft") return railDrawerClampWidth(width + step, min, max);
+  if (key === "ArrowRight") return railDrawerClampWidth(width - step, min, max);
+  if (key === "Home") return min;
+  if (key === "End") return max;
+  return null;
+}
+
+/** Rail focus movement: Up/Down wrap, Home/End jump; null for other keys. */
+export function railDrawerNextIndex(count: number, current: number, key: string): number | null {
+  if (count <= 0) return null;
+  if (key === "ArrowDown") return (current + 1) % count;
+  if (key === "ArrowUp") return (current - 1 + count) % count;
+  if (key === "Home") return 0;
+  if (key === "End") return count - 1;
+  return null;
+}
+
+/** What a click on a rail icon asks: open it, or collapse when it is already open. */
+export function railDrawerToggle(active: string | null, id: string): string | null {
+  return active === id ? null : id;
+}
+
+function readWidth(key: string | undefined, fallback: number, min: number, max: number): number {
+  if (!key) return railDrawerClampWidth(fallback, min, max);
+  try {
+    const raw = Number.parseInt(window.localStorage.getItem(key) || "", 10);
+    if (Number.isFinite(raw)) return railDrawerClampWidth(raw, min, max, fallback);
+  } catch {
+    /* storage unavailable: the default width */
+  }
+  return railDrawerClampWidth(fallback, min, max);
+}
+
+export function AfRailDrawer(props: AfRailDrawerProps): React.ReactElement {
+  const min = props.minWidth ?? AF_RAIL_WIDTH.min;
+  const max = props.maxWidth ?? AF_RAIL_WIDTH.max;
+  const idBase = props.idBase || "af-rail";
+  const narrow = useAfMedia(AF_MEDIA.md);
+  const overlay = props.overlay ?? narrow;
+  const [width, setWidth] = useState<number>(() => (typeof window === "undefined" ? railDrawerClampWidth(props.defaultWidth ?? AF_RAIL_WIDTH.default, min, max) : readWidth(props.storageKey, props.defaultWidth ?? AF_RAIL_WIDTH.default, min, max)));
+  const widthRef = useRef(width);
+  widthRef.current = width;
+  const [visited, setVisited] = useState<Set<string>>(() => new Set(props.active ? [props.active] : []));
+  const railRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const drag = useRef<{ startX: number; startW: number; pointerId: number } | null>(null);
+  const activeItem = props.items.find((item) => item.id === props.active) || null;
+  const { onActiveChange } = props;
+
+  useEffect(() => {
+    if (props.active) setVisited((prev) => (prev.has(props.active as string) ? prev : new Set([...prev, props.active as string])));
+  }, [props.active]);
+
+  const persist = useCallback(
+    (w: number) => {
+      if (!props.storageKey) return;
+      try {
+        window.localStorage.setItem(props.storageKey, String(Math.round(w)));
+      } catch {
+        /* in-memory width still applies */
+      }
+    },
+    [props.storageKey],
+  );
+
+  // Overlay: Escape collapses (topmost layer only), focus moves in and back.
+  useEffect(() => {
+    if (!overlay || !activeItem) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      e.preventDefault();
+      onActiveChange(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [overlay, activeItem, onActiveChange]);
+  useEffect(() => {
+    if (!overlay) return;
+    if (activeItem) panelRef.current?.focus({ preventScroll: true });
+    else if (openerRef.current && document.activeElement && panelRef.current?.contains(document.activeElement)) openerRef.current.focus();
+  }, [overlay, activeItem]);
+
+  const onRailKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const buttons = Array.from(railRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]') || []);
+    const current = buttons.findIndex((b) => b === document.activeElement);
+    const next = railDrawerNextIndex(buttons.length, current < 0 ? 0 : current, e.key);
+    if (next === null) return;
+    e.preventDefault();
+    buttons[next]?.focus();
+  };
+
+  const onSeparatorKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const next = railDrawerKeyWidth(widthRef.current, e.key, e.shiftKey, min, max);
+    if (next === null) return;
+    e.preventDefault();
+    setWidth(next);
+    persist(next);
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    drag.current = { startX: e.clientX, startW: widthRef.current, pointerId: e.pointerId };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    // The panel is LEFT of the rail: moving left widens it.
+    setWidth(railDrawerClampWidth(d.startW + (d.startX - e.clientX), min, max));
+  };
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    drag.current = null;
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+    persist(widthRef.current);
+  };
+
+  const open = Boolean(activeItem);
+  return (
+    <div
+      className={`af-rail${open ? " af-rail--open" : " af-rail--collapsed"}${overlay ? " af-rail--overlay" : " af-rail--docked"}${props.className ? ` ${props.className}` : ""}`}
+      style={{ "--af-rail-panel-width": `${width}px` } as React.CSSProperties}
+      data-active={props.active || ""}
+    >
+      {overlay && open ? <div className="af-rail__backdrop" aria-hidden="true" onClick={() => onActiveChange(null)} /> : null}
+      <div
+        className="af-rail__panel-wrap"
+        hidden={!open}
+        style={!overlay && open ? { width } : undefined}
+      >
+        {!overlay && open ? (
+          <div
+            className="af-rail__resize"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={`Resize the ${activeItem?.label || ""} panel`}
+            aria-valuemin={min}
+            aria-valuemax={max}
+            aria-valuenow={width}
+            tabIndex={0}
+            title="Drag to resize"
+            onKeyDown={onSeparatorKey}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+          />
+        ) : null}
+        <div
+          ref={panelRef}
+          className="af-rail__panel"
+          role={overlay ? "dialog" : undefined}
+          aria-label={overlay ? activeItem?.label : undefined}
+          tabIndex={overlay ? -1 : undefined}
+        >
+          {props.items.map((item) => (
+            <section
+              key={item.id}
+              id={`${idBase}-panel-${item.id}`}
+              role="tabpanel"
+              aria-labelledby={`${idBase}-tab-${item.id}`}
+              className="af-rail__section"
+              data-panel={item.id}
+              hidden={item.id !== props.active}
+            >
+              <header className="af-rail__head">
+                <h2 className="af-rail__title">{item.label}</h2>
+                <span className="af-rail__head-actions">
+                  {item.headerActions}
+                  <button
+                    type="button"
+                    className="af-rail__icon-btn"
+                    data-action="collapse-panel"
+                    aria-label={`Collapse ${item.label}`}
+                    title="Collapse"
+                    onClick={() => onActiveChange(null)}
+                  >
+                    <Icon name={overlay ? "x" : "chevronRight"} size={16} />
+                  </button>
+                </span>
+              </header>
+              <div className="af-rail__body">{visited.has(item.id) || item.id === props.active ? item.content : null}</div>
+            </section>
+          ))}
+        </div>
+      </div>
+      <div ref={railRef} className="af-rail__rail" role="tablist" aria-orientation="vertical" aria-label={props.ariaLabel} onKeyDown={onRailKey}>
+        {props.items.map((item) => {
+          const selected = item.id === props.active;
+          const tip = `${selected ? `Collapse ${item.label}` : item.label}${item.hint ? ` · ${item.hint}` : ""}`;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              id={`${idBase}-tab-${item.id}`}
+              aria-selected={selected}
+              aria-controls={`${idBase}-panel-${item.id}`}
+              aria-label={item.label}
+              title={tip}
+              className={`af-rail__tab${selected ? " is-active" : ""}`}
+              data-rail={item.id}
+              onClick={(e) => {
+                openerRef.current = e.currentTarget;
+                onActiveChange(railDrawerToggle(props.active, item.id));
+              }}
+            >
+              <Icon name={item.icon} size={19} />
+              {typeof item.badge === "number" && item.badge > 0 ? (
+                <span className="af-rail__badge" aria-hidden="true">
+                  {item.badge > 99 ? "99+" : item.badge}
+                </span>
+              ) : item.badge === true ? (
+                <span className="af-rail__dot" aria-hidden="true" />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+## ui-kit/src/af_file_viewer.tsx
+
+// AfFileViewer — one preview for every file a client shows (ui-kit 0.6.0).
+//
+// Presentational and transport-free: the host fetches the bytes (with its own
+// credentials) and passes text for text kinds, or an object URL for image and
+// PDF. Markdown is rendered by the host's renderer (`renderMarkdown`, e.g.
+// panel-chat `Markdown`; panel-chat `FileViewer` wires it); without one the
+// source shows highlighted. Code is highlighted by `AfCodeBlock`, JSON is
+// pretty-printed. Header: name, size, generated date (relative, exact on
+// hover), download and close icons.
+import React from "react";
+import { Icon } from "./icon.js";
+import { AfCodeBlock, codeLanguage } from "./code_highlight.js";
+import { formatExactTime, formatRelativeTime, timeValueMs } from "./relative_time.js";
+
+export type AfFileViewerKind = "markdown" | "code" | "json" | "image" | "pdf" | "text" | "binary";
+
+const IMAGE_EXT = new Set("png jpg jpeg gif webp bmp ico avif".split(" "));
+const TEXT_EXT = new Set("txt log csv tsv rst adoc org tex diff patch lock".split(" "));
+
+function extensionOf(name: string): string {
+  const base = String(name || "").split("/").pop() || "";
+  const dot = base.lastIndexOf(".");
+  return dot > 0 ? base.slice(dot + 1).toLowerCase() : base.toLowerCase();
+}
+
+/**
+ * How a file is shown, from its name and (when known) the Content-Type the
+ * server reported. SVG and HTML are shown as SOURCE (code), never rendered:
+ * a model-written file must not run in the app's origin.
+ */
+export function fileViewerKind(name: string, contentType = ""): AfFileViewerKind {
+  const ext = extensionOf(name);
+  const type = String(contentType || "").split(";", 1)[0].trim().toLowerCase();
+  if (ext === "md" || ext === "markdown" || type === "text/markdown") return "markdown";
+  if (ext === "json" || type === "application/json" || type.endsWith("+json")) return "json";
+  if (ext === "pdf" || type === "application/pdf") return "pdf";
+  if (IMAGE_EXT.has(ext) || (type.startsWith("image/") && type !== "image/svg+xml")) return "image";
+  if (codeLanguage(name)) return "code";
+  if (TEXT_EXT.has(ext) || type.startsWith("text/")) return "text";
+  if (["application/javascript", "application/xml", "application/x-yaml", "application/toml"].includes(type)) return "code";
+  return "binary";
+}
+
+/** Kinds whose preview needs the file's text (the others use an object URL or nothing). */
+export function fileViewerNeedsText(kind: AfFileViewerKind): boolean {
+  return kind === "markdown" || kind === "code" || kind === "json" || kind === "text";
+}
+
+/** "512 B", "12 KiB", "3.4 MiB" ("" when unknown). */
+export function formatFileSize(n: number | undefined | null): string {
+  if (typeof n !== "number" || !Number.isFinite(n) || n < 0) return "";
+  if (n < 1024) return `${n} B`;
+  const units = ["KiB", "MiB", "GiB", "TiB"];
+  let v = n / 1024;
+  let u = 0;
+  while (v >= 1024 && u < units.length - 1) {
+    v /= 1024;
+    u += 1;
+  }
+  return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${units[u]}`;
+}
+
+export type AfFileViewerProps = {
+  name: string;
+  /** Full workspace path (the name's tooltip). */
+  path?: string;
+  sizeBytes?: number;
+  /** When the file was generated / last written (ISO text or epoch). */
+  modified?: string | number;
+  /** "Now" for the relative date (deterministic; the host passes Date.now()). */
+  nowMs: number;
+  /** Default: `fileViewerKind(name, contentType)`. */
+  kind?: AfFileViewerKind;
+  contentType?: string;
+  status: "loading" | "error" | "ready";
+  error?: string;
+  /** Text kinds: the (possibly partial) text. */
+  text?: string;
+  /** Shown above a partial preview ("Showing the first 1 MiB of 3 MiB…"). */
+  partialNote?: string;
+  /** Image / PDF: an object URL of the bytes. */
+  url?: string;
+  renderMarkdown?: (text: string) => React.ReactNode;
+  onDownload?: () => void;
+  onClose?: () => void;
+  /** Extra header actions (e.g. "Attach"), placed before Download. */
+  actions?: React.ReactNode;
+  className?: string;
+};
+
+export function AfFileViewer(p: AfFileViewerProps): React.ReactElement {
+  const kind = p.kind ?? fileViewerKind(p.name, p.contentType);
+  const size = formatFileSize(p.sizeBytes);
+  const relative = p.modified !== undefined ? formatRelativeTime(p.modified, p.nowMs) : "";
+  return (
+    <section className={`af-file-viewer${p.className ? ` ${p.className}` : ""}`} aria-label={`Preview of ${p.name}`} data-kind={kind}>
+      <header className="af-file-viewer__head">
+        <Icon name="file" size={15} />
+        <span className="af-file-viewer__title">
+          <strong className="af-file-viewer__name" title={p.path || p.name}>
+            {p.name}
+          </strong>
+          {size || relative ? (
+            <span className="af-file-viewer__meta">
+              {size ? <span data-meta="size">{size}</span> : null}
+              {size && relative ? <span aria-hidden="true"> · </span> : null}
+              {relative ? (
+                <time data-meta="modified" title={formatExactTime(p.modified)} dateTime={new Date(timeValueMs(p.modified)).toISOString()}>
+                  {relative}
+                </time>
+              ) : null}
+            </span>
+          ) : null}
+        </span>
+        {p.actions}
+        {p.onDownload ? (
+          <button type="button" className="af-file-viewer__icon-btn" data-action="download-file" onClick={p.onDownload} title="Download" aria-label={`Download ${p.name}`}>
+            <Icon name="download" size={15} />
+          </button>
+        ) : null}
+        {p.onClose ? (
+          <button type="button" className="af-file-viewer__icon-btn" data-action="close-preview" onClick={p.onClose} title="Close" aria-label="Close the preview">
+            <Icon name="x" size={15} />
+          </button>
+        ) : null}
+      </header>
+      <div className="af-file-viewer__body">
+        {p.status === "loading" ? (
+          <p className="af-file-viewer__muted" role="status">
+            Loading preview…
+          </p>
+        ) : p.status === "error" ? (
+          <p className="af-file-viewer__error" role="alert">
+            {p.error || "The preview could not be loaded."}
+          </p>
+        ) : (
+          <>
+            {p.partialNote ? (
+              <p className="af-file-viewer__muted" role="status">
+                {p.partialNote}
+              </p>
+            ) : null}
+            <FileBody kind={kind} p={p} />
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function FileBody({ kind, p }: { kind: AfFileViewerKind; p: AfFileViewerProps }): React.ReactElement {
+  const text = p.text ?? "";
+  switch (kind) {
+    case "image":
+      return p.url ? <img className="af-file-viewer__image" src={p.url} alt={p.name} /> : <NoPreview />;
+    case "pdf":
+      return p.url ? (
+        <object className="af-file-viewer__pdf" data={p.url} type="application/pdf" aria-label={p.name}>
+          <p className="af-file-viewer__muted">This browser cannot show PDFs inline. Use Download to open it.</p>
+        </object>
+      ) : (
+        <NoPreview />
+      );
+    case "markdown":
+      return p.renderMarkdown ? <div className="af-file-viewer__markdown">{p.renderMarkdown(text)}</div> : <AfCodeBlock text={text} language="" />;
+    case "json": {
+      let pretty = text;
+      let note = "";
+      try {
+        pretty = JSON.stringify(JSON.parse(text), null, 2);
+      } catch {
+        note = p.partialNote ? "" : "Not valid JSON; shown as text.";
+      }
+      return (
+        <>
+          {note ? <p className="af-file-viewer__muted">{note}</p> : null}
+          <AfCodeBlock text={pretty} language="json" />
+        </>
+      );
+    }
+    case "code":
+      return <AfCodeBlock text={text} language={p.name} />;
+    case "text":
+      return <AfCodeBlock text={text} language="" lineNumbers={false} />;
+    default:
+      return <NoPreview />;
+  }
+}
+
+function NoPreview(): React.ReactElement {
+  return <p className="af-file-viewer__muted">No preview for this file type. Use Download to open it.</p>;
+}
+
+## ui-kit/src/af_settings_rows.tsx
+
+// Compact settings rows (ui-kit 0.6.0): the Assistant's Settings layout
+// (Card + add_row) for web clients. A group = a titled card; a row = label
+// (+ one-line help) on the left, the control on the right; rows wrap to one
+// column in a narrow panel. No Save buttons: controls apply on change.
+//
+// AfOverrideRow is the "Gateway default unless overridden" pattern used by
+// every client: the summary names what applies ("Gateway default · x" or the
+// override), "Change" reveals the editor in place, "Use gateway default"
+// appears only while an override is set.
+import React, { useId } from "react";
+
+export type AfSettingsGroupProps = {
+  title: string;
+  /** One line under the title (what the group is for). */
+  help?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+  id?: string;
+  /** Extra content at the right of the title (e.g. "Revision 4"). */
+  aside?: React.ReactNode;
+  /** "card" (default) = a bordered card; "flat" = a titled sub-section inside another card (no card in a card). */
+  variant?: "card" | "flat";
+};
+
+export function AfSettingsGroup(p: AfSettingsGroupProps): React.ReactElement {
+  const auto = useId();
+  const titleId = `${p.id || auto}-title`;
+  return (
+    <section className={`af-settings-group${p.variant === "flat" ? " af-settings-group--flat" : ""}${p.className ? ` ${p.className}` : ""}`} aria-labelledby={titleId} id={p.id}>
+      <div className="af-settings-group__head">
+        <h3 className="af-settings-group__title" id={titleId}>
+          {p.title}
+        </h3>
+        {p.aside ? <span className="af-settings-group__aside">{p.aside}</span> : null}
+      </div>
+      {p.help ? <p className="af-settings-group__help">{p.help}</p> : null}
+      <div className="af-settings-group__rows">{p.children}</div>
+    </section>
+  );
+}
+
+export type AfSettingRowProps = {
+  label: React.ReactNode;
+  /** One line under the label, only where it prevents a mistake. */
+  help?: React.ReactNode;
+  /** The control (select, switch, summary…). */
+  children?: React.ReactNode;
+  /** Buttons after the control ("Change", "Test"). */
+  trailing?: React.ReactNode;
+  /** Label + control stacked (wide editors: pickers, text areas). */
+  stack?: boolean;
+  /** Id of the control the label names (renders a <label for>). */
+  htmlFor?: string;
+  className?: string;
+  /** Data attribute for tests and styling (`data-setting`). */
+  setting?: string;
+};
+
+export function AfSettingRow(p: AfSettingRowProps): React.ReactElement {
+  const Label = p.htmlFor ? "label" : "span";
+  return (
+    <div className={`af-setting-row${p.stack ? " af-setting-row--stack" : ""}${p.className ? ` ${p.className}` : ""}`} data-setting={p.setting}>
+      <div className="af-setting-row__label">
+        <Label className="af-setting-row__name" {...(p.htmlFor ? { htmlFor: p.htmlFor } : {})}>
+          {p.label}
+        </Label>
+        {p.help ? <span className="af-setting-row__help">{p.help}</span> : null}
+      </div>
+      {p.children !== undefined || p.trailing ? (
+        <div className="af-setting-row__control">
+          {p.children}
+          {p.trailing ? <span className="af-setting-row__trailing">{p.trailing}</span> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export type AfOverrideRowProps = {
+  label: React.ReactNode;
+  help?: React.ReactNode;
+  /** What "Gateway default" resolves to, when known ("supertonic · F1"). */
+  defaultSummary?: string;
+  /** The override's summary; "" / undefined = no override (the gateway default applies). */
+  overrideSummary?: string;
+  /** Whose override it is ("this app", "this conversation", "this automation"). */
+  overrideOwner?: string;
+  open: boolean;
+  onToggle: () => void;
+  /** Clear the override. Absent = no reset button. */
+  onReset?: () => void;
+  disabled?: boolean;
+  /** The editor shown under the row while `open`. */
+  children?: React.ReactNode;
+  setting?: string;
+};
+
+/** "Gateway default" summary + Change + (while overridden) Use gateway default. */
+export function AfOverrideRow(p: AfOverrideRowProps): React.ReactElement {
+  const overridden = Boolean(p.overrideSummary);
+  const editorId = useId();
+  const summary = overridden
+    ? `${p.overrideSummary}${p.overrideOwner ? ` — ${p.overrideOwner}` : ""}`
+    : `Gateway default${p.defaultSummary ? ` · ${p.defaultSummary}` : ""}`;
+  return (
+    <div className="af-override" data-setting={p.setting} data-overridden={overridden ? "true" : "false"}>
+      <AfSettingRow
+        label={p.label}
+        help={p.help}
+        trailing={
+          <>
+            <button type="button" className="af-setting-btn" data-action="change" aria-expanded={p.open} aria-controls={editorId} disabled={p.disabled} onClick={p.onToggle}>
+              {p.open ? "Done" : "Change"}
+            </button>
+            {overridden && p.onReset ? (
+              <button type="button" className="af-setting-btn af-setting-btn--quiet" data-action="use-default" disabled={p.disabled} onClick={p.onReset}>
+                Use gateway default
+              </button>
+            ) : null}
+          </>
+        }
+      >
+        <span className="af-override__summary" title={summary}>
+          {summary}
+        </span>
+      </AfSettingRow>
+      <div className="af-override__editor" id={editorId} hidden={!p.open}>
+        {p.open ? p.children : null}
+      </div>
+    </div>
+  );
+}
+
+## panel-chat/src/file_viewer.tsx
+
+// The shared file preview (panel-chat 0.3.0): ui-kit `AfFileViewer` with this
+// package's `Markdown` renderer, plus the loader that reads one workspace
+// file through the host's credentialed `GatewayFetch` — bounded text for the
+// text kinds (Range request + a reader that stops at the limit), an object
+// URL for images and PDFs. Lifted from AbstractCode web's
+// `workspace/session_files.tsx` (previewKind, readBoundedText,
+// safeMarkdownImages) so every client previews files the same way.
+import React, { useEffect, useState } from "react";
+import { AfFileViewer, fileViewerKind, fileViewerNeedsText, formatFileSize, gatewayApiPath, type AfFileViewerKind, type AfFileViewerProps } from "@abstractframework/ui-kit";
+import { Markdown } from "./markdown.js";
+
+/** A gateway request with the host's credentials (see `workspace_browser.tsx`). */
+type GatewayFetch = (path: string, init?: RequestInit) => Promise<Response>;
+
+/** Bytes read for a text preview; larger files show their first part. */
+export const PREVIEW_TEXT_LIMIT = 1024 * 1024;
+export const PREVIEW_LIMIT_LABEL = "1 MiB";
+/** Images / PDFs larger than this are offered as a download only. */
+export const PREVIEW_BLOB_LIMIT = 25 * 1024 * 1024;
+
+const contentUrl = (runId: string, path: string) =>
+  `${gatewayApiPath(`runs/${encodeURIComponent(runId)}/workspace`)}/content?${new URLSearchParams({ path })}`;
+
+export type BoundedText = { text: string; received: number; total?: number; partial: boolean };
+
+/** The size a content response reports: the total of `Content-Range` (a 206), else `Content-Length` of a full 200. */
+export function responseTotal(response: Response): number | undefined {
+  const range = response.headers.get("content-range");
+  const total = range ? Number(range.split("/")[1]) : NaN;
+  if (Number.isFinite(total)) return total;
+  const length = Number(response.headers.get("content-length"));
+  return response.status === 200 && Number.isFinite(length) && response.headers.has("content-length") ? length : undefined;
+}
+
+/** Read at most `limit` bytes of a response body as text, then stop reading (never the whole of a large file). */
+export async function readBoundedText(response: Response, limit: number, knownSize?: number): Promise<BoundedText> {
+  const decoder = new TextDecoder();
+  let text = "";
+  let received = 0;
+  const reader = response.body?.getReader();
+  if (reader) {
+    while (received < limit) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = value.subarray(0, limit - received);
+      received += chunk.length;
+      text += decoder.decode(chunk, { stream: true });
+    }
+    await reader.cancel().catch(() => {});
+  } else {
+    text = (await response.text()).slice(0, limit);
+    received = text.length;
+  }
+  const total = responseTotal(response) ?? knownSize;
+  const partial = total !== undefined ? total > received : received >= limit;
+  return { text, received, total, partial };
+}
+
+export function partialPreviewNote(total: number | undefined): string {
+  return `Showing the first ${PREVIEW_LIMIT_LABEL} of ${total !== undefined ? formatFileSize(total) : "a file of unknown size"}; download for the rest.`;
+}
+
+function decodeSafe(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+/**
+ * Markdown previews never load images from elsewhere: an image renders only
+ * when its URL is this run's workspace content route (a relative path is
+ * resolved against the Markdown file's folder); any other image becomes a
+ * plain link. Fenced code is left untouched.
+ */
+export function safeMarkdownImages(text: string, runId: string, markdownPath: string): string {
+  const contentPrefix = `${gatewayApiPath(`runs/${encodeURIComponent(runId)}/workspace`)}/content?`;
+  const folder = markdownPath.split("/").slice(0, -1);
+  const resolveRelative = (src: string): string | null => {
+    if (/^[a-z][a-z0-9+.-]*:/i.test(src) || src.startsWith("/") || src.startsWith("#")) return null;
+    const parts = [...folder];
+    for (const part of src.split(/[?#]/, 1)[0].split("/")) {
+      if (!part || part === ".") continue;
+      if (part === "..") {
+        if (!parts.length) return null;
+        parts.pop();
+      } else parts.push(decodeSafe(part));
+    }
+    return parts.length ? contentUrl(runId, parts.join("/")) : null;
+  };
+  const rewriteLine = (line: string): string => {
+    let out = "";
+    let i = 0;
+    while (i < line.length) {
+      if (line[i] === "!" && line[i + 1] === "[") {
+        const labelEnd = line.indexOf("]", i + 2);
+        if (labelEnd !== -1 && line[labelEnd + 1] === "(") {
+          const hrefEnd = line.indexOf(")", labelEnd + 2);
+          if (hrefEnd !== -1) {
+            const alt = line.slice(i + 2, labelEnd);
+            const src = line.slice(labelEnd + 2, hrefEnd).trim();
+            const local = src.startsWith(contentPrefix) ? src : resolveRelative(src);
+            out += local ? `![${alt}](${local})` : `[image: ${alt || src}](${src})`;
+            i = hrefEnd + 1;
+            continue;
+          }
+        }
+      }
+      out += line[i];
+      i += 1;
+    }
+    return out;
+  };
+  let fenced = false;
+  return text
+    .split("\n")
+    .map((line) => {
+      if (/^\s*(```|~~~)/.test(line)) {
+        fenced = !fenced;
+        return line;
+      }
+      return fenced ? line : rewriteLine(line);
+    })
+    .join("\n");
+}
+
+export type FilePreviewEntry = { name: string; path: string; size_bytes?: number };
+export type FilePreviewState =
+  | { status: "idle" }
+  | { status: "loading"; kind: AfFileViewerKind }
+  | { status: "error"; kind: AfFileViewerKind; message: string }
+  | { status: "ready"; kind: AfFileViewerKind; contentType: string; text?: string; url?: string; partial: boolean; total?: number };
+
+/**
+ * Load one workspace file for the viewer. Text kinds: a bounded Range read.
+ * Image / PDF: the bytes as an object URL (revoked when the entry changes).
+ * Binary: nothing is read. `refreshKey` re-reads (the run wrote again).
+ */
+export function useWorkspaceFilePreview(fetchGateway: GatewayFetch, runId: string, entry: FilePreviewEntry | null, refreshKey?: string | number): FilePreviewState {
+  const [state, setState] = useState<FilePreviewState>({ status: "idle" });
+  useEffect(() => {
+    if (!entry || !runId) {
+      setState({ status: "idle" });
+      return;
+    }
+    const abort = new AbortController();
+    let objectUrl = "";
+    const byName = fileViewerKind(entry.name);
+    if (byName === "binary") {
+      setState({ status: "ready", kind: "binary", contentType: "", partial: false });
+      return;
+    }
+    if ((byName === "image" || byName === "pdf") && typeof entry.size_bytes === "number" && entry.size_bytes > PREVIEW_BLOB_LIMIT) {
+      setState({ status: "error", kind: byName, message: `Too large to preview (${formatFileSize(entry.size_bytes)}); use Download.` });
+      return;
+    }
+    setState({ status: "loading", kind: byName });
+    const text = fileViewerNeedsText(byName);
+    void (async () => {
+      try {
+        const r = await fetchGateway(contentUrl(runId, entry.path), {
+          signal: abort.signal,
+          ...(text ? { headers: { Range: `bytes=0-${PREVIEW_TEXT_LIMIT - 1}` } } : {}),
+        });
+        if (!r.ok) throw new Error(`Preview failed (HTTP ${r.status}): ${(await r.text().catch(() => "")) || r.statusText || "no reason given"}`);
+        const contentType = r.headers.get("content-type") || "";
+        const kind = fileViewerKind(entry.name, contentType);
+        if (fileViewerNeedsText(kind)) {
+          const read = await readBoundedText(r, PREVIEW_TEXT_LIMIT, entry.size_bytes);
+          if (abort.signal.aborted) return;
+          setState({
+            status: "ready",
+            kind,
+            contentType,
+            text: kind === "markdown" ? safeMarkdownImages(read.text, runId, entry.path) : read.text,
+            partial: read.partial,
+            total: read.total,
+          });
+          return;
+        }
+        if (kind === "image" || kind === "pdf") {
+          const blob = await r.blob();
+          if (abort.signal.aborted) return;
+          objectUrl = URL.createObjectURL(blob.type ? blob : new Blob([blob], { type: kind === "pdf" ? "application/pdf" : contentType }));
+          setState({ status: "ready", kind, contentType, url: objectUrl, partial: false });
+          return;
+        }
+        await r.body?.cancel().catch(() => {});
+        if (!abort.signal.aborted) setState({ status: "ready", kind: "binary", contentType, partial: false });
+      } catch (e: any) {
+        if (!abort.signal.aborted) setState({ status: "error", kind: byName, message: String(e?.message || e) });
+      }
+    })();
+    return () => {
+      abort.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [fetchGateway, runId, entry?.path, entry?.name, entry?.size_bytes, refreshKey]);
+  return state;
+}
+
+export type FileViewerProps = Omit<AfFileViewerProps, "renderMarkdown" | "nowMs"> & { nowMs?: number };
+
+/** `AfFileViewer` with panel-chat's Markdown renderer (the one every client uses). */
+export function FileViewer(props: FileViewerProps): React.ReactElement {
+  return <AfFileViewer {...props} nowMs={props.nowMs ?? Date.now()} renderMarkdown={(text) => <Markdown text={text} />} />;
+}
+
+/** Props of `FileViewer` for a loaded `FilePreviewState`. */
+export function filePreviewViewerProps(state: FilePreviewState): Pick<AfFileViewerProps, "status" | "error" | "text" | "url" | "kind" | "contentType" | "partialNote"> {
+  if (state.status === "idle" || state.status === "loading") return { status: "loading", ...(state.status === "loading" ? { kind: state.kind } : {}) };
+  if (state.status === "error") return { status: "error", error: state.message, kind: state.kind };
+  return {
+    status: "ready",
+    kind: state.kind,
+    contentType: state.contentType,
+    ...(state.text !== undefined ? { text: state.text } : {}),
+    ...(state.url ? { url: state.url } : {}),
+    ...(state.partial ? { partialNote: partialPreviewNote(state.total) } : {}),
+  };
+}
 
 ## ui-kit/src/gateway_session_signin.tsx
 
@@ -10194,6 +11114,8 @@ export {
   workspaceHiddenNote,
   workspaceInfoUrl,
   workspaceParent,
+  workspaceShortName,
+  workspaceCanOpenFolder,
   type GatewayFetch,
   type RunWorkspace,
   type WorkspaceBrowserProps,
@@ -10201,6 +11123,22 @@ export {
   type WorkspaceEntry,
   type WorkspaceListing,
 } from "./workspace_browser.js";
+export {
+  FileViewer,
+  filePreviewViewerProps,
+  partialPreviewNote,
+  readBoundedText,
+  responseTotal,
+  safeMarkdownImages,
+  useWorkspaceFilePreview,
+  PREVIEW_TEXT_LIMIT,
+  PREVIEW_LIMIT_LABEL,
+  PREVIEW_BLOB_LIMIT,
+  type BoundedText,
+  type FilePreviewEntry,
+  type FilePreviewState,
+  type FileViewerProps,
+} from "./file_viewer.js";
 
 ## panel-chat/src/chat_message_card.tsx
 
@@ -10683,7 +11621,8 @@ export function FromAutomationBadge(props: FromAutomationBadgeProps): React.Reac
 // listing parser comes from AbstractCode web (`workspace/session_files.tsx`).
 import React, { useCallback, useEffect, useState } from "react";
 
-import { Icon, gatewayApiPath, gatewayResourcePath } from "@abstractframework/ui-kit";
+import { Icon, formatExactTime, formatRelativeTime, gatewayApiPath, gatewayResourcePath } from "@abstractframework/ui-kit";
+import { FileViewer, filePreviewViewerProps, useWorkspaceFilePreview } from "./file_viewer.js";
 
 /**
  * A gateway request with the host's credentials. `path` is RELATIVE,
@@ -10908,6 +11847,17 @@ export async function openGatewayResource(
   deliverBlob(await r.blob(), options.name, options.mode ?? "open");
 }
 
+/** The last segment of a path ("/srv/ws/run-1" → "run-1"); the whole path when it has none. */
+export function workspaceShortName(root: string): string {
+  const parts = String(root || "").split(/[\\/]/).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : String(root || "");
+}
+
+/** "Open folder" acts on the gateway machine: offered only to a browser on that machine, where the gateway can open folders. */
+export function workspaceCanOpenFolder(where: RunWorkspace | null | undefined): boolean {
+  return Boolean(where && where.open_supported === true && where.host?.caller_is_this_machine === true && where.exists);
+}
+
 export type WorkspaceBrowserProps = {
   /** The host's gateway request (credentials included). */
   fetchGateway: GatewayFetch;
@@ -10919,17 +11869,37 @@ export type WorkspaceBrowserProps = {
   note?: string;
   onClose?: () => void;
   /**
-   * Select a file instead of offering Open/Download on it (a host with its
-   * own preview, e.g. AbstractCode's). `selectedPath` marks the selection.
+   * Select a file instead of previewing it here (a host with its own
+   * preview). Without it, a click opens the shared `FileViewer` in place.
    */
   onSelectFile?: (entry: WorkspaceEntry) => void;
   selectedPath?: string;
   /** Changes whenever the host knows files changed (e.g. a run finished): the folder is re-listed. */
   refreshKey?: string | number;
   className?: string;
+  /** Extra actions in the preview header for a file (e.g. AbstractCode's "Attach"). */
+  fileActions?: (entry: WorkspaceEntry) => React.ReactNode;
+  /**
+   * Open the folder on the gateway machine (`POST /runs/{id}/workspace/open`
+   * with the host's CSRF rules). Offered only when `workspaceCanOpenFolder`.
+   */
+  onOpenFolder?: () => Promise<void>;
+  /** Copy text (default: `navigator.clipboard.writeText`). Returns success. */
+  copyText?: (text: string) => Promise<boolean>;
+  /** "Now" for relative dates (default Date.now() per render). */
+  nowMs?: number;
 };
 
-/** Stateful browser: loads where the folder is and one level at a time. */
+async function clipboardCopy(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Stateful browser: loads where the folder is and one level at a time; previews a file in place. */
 export function WorkspaceBrowser(props: WorkspaceBrowserProps): React.ReactElement {
   const { fetchGateway, runId } = props;
   // Location and loaded data are keyed by the run they belong to, so a new
@@ -10938,9 +11908,14 @@ export function WorkspaceBrowser(props: WorkspaceBrowserProps): React.ReactEleme
   const path = loc.runId === runId ? loc.path : "";
   const [data, setData] = useState<{ runId: string; where: RunWorkspace; listing: WorkspaceListing | null } | null>(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(Boolean(runId));
   const [fileBusy, setFileBusy] = useState("");
+  const [opening, setOpening] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [selected, setSelected] = useState<{ runId: string; entry: WorkspaceEntry } | null>(null);
+  const preview = selected && selected.runId === runId && !props.onSelectFile ? selected.entry : null;
+  const previewState = useWorkspaceFilePreview(fetchGateway, runId, preview, `${props.refreshKey ?? ""}:${revision}`);
 
   useEffect(() => {
     if (!runId) return;
@@ -10959,14 +11934,15 @@ export function WorkspaceBrowser(props: WorkspaceBrowserProps): React.ReactEleme
     })();
     return () => abort.abort();
   }, [fetchGateway, runId, path, revision, props.refreshKey]);
+  useEffect(() => setNotice(""), [runId]);
   const current = data && data.runId === runId ? data : null;
 
-  const onFile = useCallback(
-    async (entry: WorkspaceEntry, mode: "open" | "download") => {
+  const download = useCallback(
+    async (entry: WorkspaceEntry) => {
       setFileBusy(entry.path);
       setError("");
       try {
-        deliverBlob(await readWorkspaceFile(fetchGateway, runId, entry.path), entry.name, mode);
+        deliverBlob(await readWorkspaceFile(fetchGateway, runId, entry.path), entry.name, "download");
       } catch (e: any) {
         setError(String(e?.message || e));
       } finally {
@@ -10975,6 +11951,8 @@ export function WorkspaceBrowser(props: WorkspaceBrowserProps): React.ReactEleme
     },
     [fetchGateway, runId],
   );
+  const root = current?.where.workspace_root || "";
+  const nowMs = props.nowMs ?? Date.now();
 
   return (
     <WorkspaceBrowserView
@@ -10984,15 +11962,55 @@ export function WorkspaceBrowser(props: WorkspaceBrowserProps): React.ReactEleme
       path={path}
       listing={current?.listing ?? null}
       error={error}
+      notice={notice}
       loading={loading}
       fileBusy={fileBusy}
-      selectedPath={props.selectedPath}
+      selectedPath={props.onSelectFile ? props.selectedPath : preview?.path}
       className={props.className}
-      onNavigate={(p) => setLoc({ runId, path: p })}
+      nowMs={nowMs}
+      openingFolder={opening}
+      onNavigate={(p) => {
+        setSelected(null);
+        setLoc({ runId, path: p });
+      }}
       onRefresh={() => setRevision((n) => n + 1)}
-      onFile={props.onSelectFile ? undefined : (entry, mode) => void onFile(entry, mode)}
-      onSelectFile={props.onSelectFile}
+      onFile={(entry) => void download(entry)}
+      onSelectFile={props.onSelectFile ?? ((entry) => setSelected({ runId, entry }))}
       onClose={props.onClose}
+      onCopyPath={
+        root
+          ? () => {
+              void (props.copyText || clipboardCopy)(root).then((ok) => setNotice(ok ? "Path copied." : "Could not copy; select the path instead."));
+            }
+          : undefined
+      }
+      onOpenFolder={
+        props.onOpenFolder && workspaceCanOpenFolder(current?.where)
+          ? () => {
+              setOpening(true);
+              setNotice("");
+              void props.onOpenFolder!()
+                .then(() => setNotice("Folder opened on this machine."))
+                .catch((e: any) => setNotice(`Open folder failed: ${String(e?.message || e)}`))
+                .finally(() => setOpening(false));
+            }
+          : undefined
+      }
+      preview={
+        preview ? (
+          <FileViewer
+            name={preview.name}
+            path={preview.path}
+            sizeBytes={preview.size_bytes}
+            modified={preview.mtime}
+            nowMs={nowMs}
+            {...filePreviewViewerProps(previewState)}
+            actions={props.fileActions?.(preview)}
+            onDownload={() => void download(preview)}
+            onClose={() => setSelected(null)}
+          />
+        ) : null
+      }
     />
   );
 }
@@ -11004,25 +12022,36 @@ export type WorkspaceBrowserViewProps = {
   path: string;
   listing: WorkspaceListing | null;
   error: string;
+  /** A one-line outcome ("Path copied."). */
+  notice?: string;
   loading: boolean;
   fileBusy: string;
   selectedPath?: string;
   className?: string;
+  /** "Now" for the rows' relative dates (deterministic in checks). */
+  nowMs?: number;
   onNavigate(path: string): void;
   onRefresh(): void;
-  /** Open / Download buttons per file (when the host has no preview of its own). */
-  onFile?(entry: WorkspaceEntry, mode: "open" | "download"): void;
-  /** The file name selects the file (a host preview). */
+  /** The row's download icon. `mode` is always "download" (0.3.0: no "Open" button). */
+  onFile?(entry: WorkspaceEntry, mode: "download"): void;
+  /** A click on the file name (the preview). */
   onSelectFile?(entry: WorkspaceEntry): void;
   onClose?: () => void;
+  onCopyPath?: () => void;
+  onOpenFolder?: () => void;
+  openingFolder?: boolean;
+  /** Shown instead of the list (a file preview); its close returns to the list. */
+  preview?: React.ReactNode;
 };
 
 /** The hook-free view (checks render it in any state). */
 export function WorkspaceBrowserView(p: WorkspaceBrowserViewProps): React.ReactElement {
   const note = p.listing ? workspaceHiddenNote(p.listing) : "";
   const hostname = p.where?.host?.hostname;
+  const root = p.where?.workspace_root || "";
+  const nowMs = p.nowMs ?? Date.now();
   return (
-    <section className={`pc-ws${p.className ? ` ${p.className}` : ""}`} aria-label={p.title} data-workspace-root={p.where?.workspace_root || undefined}>
+    <section className={`pc-ws${p.className ? ` ${p.className}` : ""}`} aria-label={p.title} data-workspace-root={root || undefined}>
       <header className="pc-ws__head">
         <span className="pc-ws__title">
           <Icon name="folder" size={15} /> {p.title}
@@ -11039,87 +12068,112 @@ export function WorkspaceBrowserView(p: WorkspaceBrowserViewProps): React.ReactE
       </header>
       {p.where ? (
         <div className="pc-ws__root">
-          <code>{p.where.workspace_root}</code>
-          {hostname && p.where.host?.caller_is_this_machine !== true ? <span className="pc-ws__muted"> on the gateway host {hostname}</span> : null}
+          <span className="pc-ws__root-name" title={root} data-root-name="true">
+            {workspaceShortName(root)}
+          </span>
+          {p.onOpenFolder ? (
+            <button type="button" className="pc-ws__icon-btn pc-ws__icon-btn--bare" data-action="open-folder" onClick={p.onOpenFolder} disabled={p.openingFolder} title="Open folder" aria-label="Open the folder on this machine">
+              <Icon name="folder" size={14} />
+            </button>
+          ) : null}
+          {p.onCopyPath ? (
+            <button type="button" className="pc-ws__icon-btn pc-ws__icon-btn--bare" data-action="copy-path" onClick={p.onCopyPath} title="Copy path" aria-label="Copy the folder path">
+              <Icon name="copy" size={14} />
+            </button>
+          ) : null}
+          {hostname && p.where.host?.caller_is_this_machine !== true ? <span className="pc-ws__muted"> on {hostname}</span> : null}
         </div>
       ) : null}
       {p.note ? <div className="pc-ws__muted">{p.note}</div> : null}
-      <nav className="pc-ws__crumbs" aria-label="Folder">
-        {workspaceCrumbs(p.path).map((c, i, all) =>
-          i === all.length - 1 ? (
-            <span key={c.path} aria-current="page">
-              {c.label}
-            </span>
-          ) : (
-            <React.Fragment key={c.path}>
-              <button type="button" className="pc-ws__crumb" onClick={() => p.onNavigate(c.path)}>
-                {c.label}
-              </button>
-              <span className="pc-ws__muted"> / </span>
-            </React.Fragment>
-          ),
-        )}
-      </nav>
+      {p.notice ? (
+        <div className="pc-ws__muted" role="status">
+          {p.notice}
+        </div>
+      ) : null}
       {p.error ? (
         <div className="pc-ws__error" role="alert">
           {p.error}
         </div>
       ) : null}
-      {p.loading && !p.listing ? <div className="pc-ws__muted" role="status">Loading…</div> : null}
-      {p.where && !p.where.exists ? <div className="pc-ws__muted">The folder does not exist yet: nothing has been written.</div> : null}
-      {p.listing ? (
-        p.listing.entries.length ? (
-          <ul className="pc-ws__entries">
-            {sortWorkspaceEntries(p.listing.entries).map((e) => (
-              <li key={e.path} className={`pc-ws__entry${p.selectedPath === e.path ? " is-selected" : ""}`} data-type={e.type} data-path={e.path}>
-                {e.type === "dir" ? (
-                  <button type="button" className="pc-ws__name" data-action="open-dir" onClick={() => p.onNavigate(e.path)}>
-                    <Icon name="folder" size={14} /> {e.name}/
+      {p.preview ? (
+        <div className="pc-ws__preview">{p.preview}</div>
+      ) : (
+        <>
+          <nav className="pc-ws__crumbs" aria-label="Folder">
+            {workspaceCrumbs(p.path).map((c, i, all) =>
+              i === all.length - 1 ? (
+                <span key={c.path} aria-current="page">
+                  {c.label}
+                </span>
+              ) : (
+                <React.Fragment key={c.path}>
+                  <button type="button" className="pc-ws__crumb" onClick={() => p.onNavigate(c.path)}>
+                    {c.label}
                   </button>
-                ) : (
-                  <>
-                    {p.onSelectFile ? (
-                      <button type="button" className="pc-ws__name" data-action="select-file" aria-pressed={p.selectedPath === e.path} onClick={() => p.onSelectFile?.(e)}>
-                        <Icon name="file" size={14} /> {e.name}
+                  <span className="pc-ws__muted"> / </span>
+                </React.Fragment>
+              ),
+            )}
+          </nav>
+          {p.loading && !p.listing ? <div className="pc-ws__muted" role="status">Loading…</div> : null}
+          {p.where && !p.where.exists ? <div className="pc-ws__muted">The folder does not exist yet: nothing has been written.</div> : null}
+          {p.listing ? (
+            p.listing.entries.length ? (
+              <ul className="pc-ws__entries">
+                {sortWorkspaceEntries(p.listing.entries).map((e) => (
+                  <li key={e.path} className={`pc-ws__entry${p.selectedPath === e.path ? " is-selected" : ""}`} data-type={e.type} data-path={e.path}>
+                    {e.type === "dir" ? (
+                      <button type="button" className="pc-ws__name" data-action="open-dir" onClick={() => p.onNavigate(e.path)}>
+                        <Icon name="folder" size={14} /> <span className="pc-ws__label">{e.name}/</span>
                       </button>
                     ) : (
-                      <span className="pc-ws__name">
-                        <Icon name="file" size={14} /> {e.name}
-                      </span>
-                    )}
-                    <span className="pc-ws__size">{formatBytes(e.size_bytes)}</span>
-                    {p.onFile ? (
                       <>
-                        <button type="button" className="pc-ws__btn" data-action="open-file" disabled={p.fileBusy === e.path} onClick={() => p.onFile?.(e, "open")}>
-                          Open
-                        </button>
-                        <button
-                          type="button"
-                          className="pc-ws__icon-btn"
-                          data-action="download-file"
-                          disabled={p.fileBusy === e.path}
-                          onClick={() => p.onFile?.(e, "download")}
-                          title={`Download ${e.name}`}
-                          aria-label={`Download ${e.name}`}
-                        >
-                          <Icon name="download" size={14} />
-                        </button>
+                        {p.onSelectFile ? (
+                          <button type="button" className="pc-ws__name" data-action="select-file" aria-pressed={p.selectedPath === e.path} title={`Preview ${e.name}`} onClick={() => p.onSelectFile?.(e)}>
+                            <Icon name="file" size={14} /> <span className="pc-ws__label">{e.name}</span>
+                          </button>
+                        ) : (
+                          <span className="pc-ws__name">
+                            <Icon name="file" size={14} /> <span className="pc-ws__label">{e.name}</span>
+                          </span>
+                        )}
+                        <span className="pc-ws__meta">
+                          <span className="pc-ws__size">{formatBytes(e.size_bytes)}</span>
+                          {e.mtime !== undefined && formatRelativeTime(e.mtime, nowMs) ? (
+                            <time className="pc-ws__time" title={formatExactTime(e.mtime)} data-meta="modified">
+                              {formatRelativeTime(e.mtime, nowMs)}
+                            </time>
+                          ) : null}
+                        </span>
+                        {p.onFile ? (
+                          <button
+                            type="button"
+                            className="pc-ws__icon-btn pc-ws__icon-btn--bare"
+                            data-action="download-file"
+                            disabled={p.fileBusy === e.path}
+                            onClick={() => p.onFile?.(e, "download")}
+                            title="Download"
+                            aria-label={`Download ${e.name}`}
+                          >
+                            <Icon name="download" size={14} />
+                          </button>
+                        ) : null}
                       </>
-                    ) : null}
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="pc-ws__muted">This folder is empty.</div>
-        )
-      ) : null}
-      {note ? (
-        <div className="pc-ws__muted" data-hidden-note="true">
-          {note}
-        </div>
-      ) : null}
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="pc-ws__muted">This folder is empty.</div>
+            )
+          ) : null}
+          {note ? (
+            <div className="pc-ws__muted" data-hidden-note="true">
+              {note}
+            </div>
+          ) : null}
+        </>
+      )}
     </section>
   );
 }
@@ -14385,6 +15439,15 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## [Unreleased]
+
+- ui-kit: `automationTiming()` and its parts (`compactCadence`, `lastRunText`, `nextRunText`, `compactDuration`) give an automation card or header its one compact line, `every 24 h · last 3 h ago · next in 14 h`; deterministic, checked by `scripts/check_timing_line.mjs`.
+- ui-kit: `AutomationPanel` `hideHeader` — the host draws its own header and controls (AbstractCode's automation header); the panel starts at the definition and the occurrences and is named by the automation's title.
+
+- ui-kit 0.6.0 (unreleased): `AfRailDrawer` — the vertical rail drawer of AbstractEntity / Continuum Teams as a shared component (icon rail at the right edge, panel beside it, resizable by pointer and keyboard, collapses to icons, floating below 1024 px, 44 px targets); `scripts/check_rail_viewer.mjs`.
+- ui-kit 0.6.0: `AfFileViewer` + `AfCodeBlock` / `highlightCode` — one file preview (Markdown, highlighted code, JSON, images, PDF, text; size/date header; download), dependency-free highlighting that wraps instead of scrolling.
+- ui-kit 0.6.0: `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow` (Gateway default unless overridden), `AfVoiceSection` (the Assistant's Voice layout: engines, output device, read aloud, voice latency; `voiceTtsRequest` / `voiceSttRequest`), `useGatewayVoice({ output_device_id })`.
+- ui-kit 0.6.0: `formatRelativeTime` / `formatExactTime` / `formatShortDate` / `timeValueMs` (deterministic); icons `cog` and `activity`; `AutomationReviseForm` exported, embeddable (`heading`, optional `onCancel`, `submitLabel`); `VoiceSettings` `quality` prop.
+- panel-chat 0.3.0 (unreleased): `FileViewer`, `useWorkspaceFilePreview`; `WorkspaceBrowser` previews a file in place (no "Open" button), rows show size, generated date and a download icon, the root shows once as a short name with Open folder / Copy path icons (`fileActions`, `onOpenFolder`, `copyText`); peer `@abstractframework/ui-kit` ^0.6.0.
 
 ## 0.5.3 - 2026-10-03
 

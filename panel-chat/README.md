@@ -7,7 +7,7 @@ Chat UI primitives for AbstractFramework-style UIs: thread rendering, message ca
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` `^0.1.14 || ^0.2.0 || ^0.3.0` (icons used by `ChatMessageCard`; 0.3 provides the responsive tokens)
+- `@abstractframework/ui-kit` `^0.6.0` (icons, the responsive tokens, and `AfFileViewer` / relative time for the workspace browser and `FileViewer`)
 
 ## Install
 
@@ -30,6 +30,7 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
   `folderRefusal`, `dragCarriesFiles`, `draggedFileCount`, `dropZoneLabel`, `pastedFileName`,
   `DragPresence`
 - Renderers: `Markdown` (with `sameOriginImage` as the default image rule for `images="link"`), `JsonViewer`
+- Files (0.3.0): `WorkspaceBrowser` (rows: name, size, generated date, download icon; a click previews the file in place; the root once as a short name with Open folder / Copy path icons; `fileActions` for host actions), `FileViewer` (ui-kit `AfFileViewer` + `Markdown`), `useWorkspaceFilePreview` (bounded loader through the host's `fetchGateway`)
 - Tool and run evidence: `ToolActivity`, `ToolActivityGroup`, `toolArguments`, `toolPreview`,
   `workflowProgress`, `workflowEvidence`, `foldWorkflowTools`, `historyRecords`,
   `statDetail`, `StatDetailPanel`
