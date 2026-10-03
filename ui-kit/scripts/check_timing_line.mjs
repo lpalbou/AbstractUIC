@@ -52,6 +52,10 @@ eq("email", compactCadence({ binding_id: "b", source_id: "email.received", sourc
 eq("once", compactCadence(schedule(undefined)), "once");
 // Fired but not finished yet uses fired_at; an occurrence in flight says so.
 eq("fired only", lastRunText({ last_occurrence: { fired_at: iso(NOW - 5 * 60_000) } }, NOW), "last 5 min ago");
+// A pending approval is not "running": waiting since the occurrence fired, or no run part.
+eq("waiting", lastRunText({ attention: { pending_waits: 1 }, current_occurrence: { index: 4, run_id: "r", attempt: 1, status: "running" }, last_occurrence: { index: 4, fired_at: iso(NOW - 5 * 60_000) } }, NOW), "waiting since 5 min");
+eq("waiting, unknown start", automationTiming({ trigger: schedule("24h"), attention: { pending_waits: 2 }, current_occurrence: { index: 4, run_id: "r", attempt: 1, status: "running" }, last_occurrence: { index: 3, fired_at: iso(NOW - H) }, next_fire_at: iso(NOW + 2 * H) }, NOW).line, "every 24 h · next in 2 h");
+eq("running without waits", lastRunText({ attention: { pending_waits: 0 }, current_occurrence: { index: 4, run_id: "r", attempt: 1, status: "running" } }, NOW), "running now");
 eq("future last (skew)", lastRunText({ last_occurrence: { fired_at: iso(NOW + 3 * H) } }, NOW), "last <1 min ago");
 eq("running", lastRunText({ current_occurrence: { index: 3, run_id: "r", attempt: 1, status: "running" }, last_occurrence: { fired_at: iso(NOW - H) } }, NOW), "running now");
 // Next: due / absent / unparsable.

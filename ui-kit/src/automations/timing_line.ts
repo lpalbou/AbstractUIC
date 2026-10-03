@@ -51,8 +51,16 @@ function parsed(ts: string | undefined | null): number | null {
   return Number.isNaN(t) ? null : t;
 }
 
-/** "last 3 h ago" / "last <1 min ago" / "running now" (an occurrence in flight) / "last never". */
-export function lastRunText(s: Pick<AutomationSummary, "last_occurrence" | "current_occurrence">, nowMs: number): string {
+/**
+ * "last 3 h ago" / "last <1 min ago" / "running now" (an occurrence executing) / "last never".
+ * While an approval or question is pending (`attention.pending_waits`) an occurrence in flight is
+ * not running: "waiting since 5 min" from its fired time, or "" (no run part) when that is unknown.
+ */
+export function lastRunText(s: Pick<AutomationSummary, "last_occurrence" | "current_occurrence"> & { attention?: Pick<AutomationSummary["attention"], "pending_waits"> }, nowMs: number): string {
+  if (s.current_occurrence && (s.attention?.pending_waits ?? 0) > 0) {
+    const same = s.last_occurrence && s.last_occurrence.index === s.current_occurrence.index ? parsed(s.last_occurrence.fired_at) : null;
+    return same === null ? "" : `waiting since ${compactDuration(Math.max(0, nowMs - same))}`;
+  }
   if (s.current_occurrence) return "running now";
   const last = s.last_occurrence;
   const t = parsed(last?.finished_at) ?? parsed(last?.fired_at);
@@ -73,7 +81,7 @@ export type AutomationTiming = { cadence: string; last: string; next: string | n
 
 /** The three facts and the joined line ("·" separated; the next part is omitted when none). */
 export function automationTiming(
-  s: Pick<AutomationSummary, "trigger" | "last_occurrence" | "current_occurrence" | "next_fire_at">,
+  s: Pick<AutomationSummary, "trigger" | "last_occurrence" | "current_occurrence" | "next_fire_at"> & { attention?: Pick<AutomationSummary["attention"], "pending_waits"> },
   nowMs: number,
 ): AutomationTiming {
   const cadence = compactCadence(s.trigger);
