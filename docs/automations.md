@@ -257,6 +257,11 @@ list row, a menu) passes `editOpen` and `onEditOpenChange`: the form is open exa
 successful save ask `onEditOpenChange(false)`. The form never opens on an automation that cannot
 be edited (archived, legacy, or without the `revise` capability), whatever `editOpen` says.
 
+A host that draws its own header and controls passes `hideHeader`: the panel then omits its
+header (title, facts) and its controls bar and starts at the definition and the occurrences; the
+section is named by the automation's title. AbstractCode does this: its header carries the Active
+switch, the timing line (`automationTiming()`), Run now, Stop, Edit and Archive.
+
 ### Attention and `/seen`
 
 After showing the attention items, the panel calls `onSeen(cursor)` with the cursor of the **last

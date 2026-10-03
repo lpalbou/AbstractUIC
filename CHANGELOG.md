@@ -10,6 +10,7 @@ ships.
 ## [Unreleased]
 
 - ui-kit: `automationTiming()` and its parts (`compactCadence`, `lastRunText`, `nextRunText`, `compactDuration`) give an automation card or header its one compact line, `every 24 h · last 3 h ago · next in 14 h`; deterministic, checked by `scripts/check_timing_line.mjs`.
+- ui-kit: `AutomationPanel` `hideHeader` — the host draws its own header and controls (AbstractCode's automation header); the panel starts at the definition and the occurrences and is named by the automation's title.
 
 ## 0.5.3 - 2026-10-03
 

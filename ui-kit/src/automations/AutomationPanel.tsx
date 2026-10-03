@@ -148,6 +148,11 @@ export type AutomationPanelProps = {
   editOpen?: boolean;
   onEditOpenChange?(open: boolean): void;
   /**
+   * The host draws its own header and controls (AbstractCode's automation header):
+   * the panel then starts at the definition and the occurrences. Default false.
+   */
+  hideHeader?: boolean;
+  /**
    * `GET /api/gateway/me/email` (the client's `getMyEmail()`): the Edit form
    * offers "Email result" and allowed recipients only when the account
    * is usable (an option already on can still be turned off); otherwise it
@@ -1219,7 +1224,8 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
   const att = summary.attention;
 
   return (
-    <section ref={rootRef} className={`af-auto${props.className ? ` ${props.className}` : ""}`} aria-labelledby={titleId} aria-busy={busy} data-text-rendering={props.renderText ? "rich" : "unformatted"}>
+    <section ref={rootRef} className={`af-auto${props.className ? ` ${props.className}` : ""}`} {...(props.hideHeader ? { "aria-label": summary.title } : { "aria-labelledby": titleId })} aria-busy={busy} data-text-rendering={props.renderText ? "rich" : "unformatted"}>
+      {props.hideHeader ? null : <>
       <AutomationHeader summary={summary} workflowLabel={props.definition?.target.workflow_id} triggerSources={props.triggerSources} titleId={titleId} nowMs={props.nowMs} onOpenWorkspace={props.onOpenWorkspace} />
       <AutomationControlsBar
         summary={summary}
@@ -1249,6 +1255,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
           setFocusAfter(['[data-action="archive"]']);
         }}
       />
+      </>}
       {reviseOpen && editBase ? (
         <AutomationReviseForm
           summary={editBase.summary}

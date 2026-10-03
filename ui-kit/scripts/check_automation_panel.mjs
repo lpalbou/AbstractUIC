@@ -941,6 +941,18 @@ for (const cls of [".af-auto__path", ".af-auto__notice--on", ".af-auto__actionba
   check(`css ${cls}`, css.includes(`${cls} {`) || css.includes(`${cls},`));
 }
 
+// hideHeader (round 4): the host draws its own header and controls (AbstractCode); the panel
+// keeps the definition and the occurrences and is named by the automation's title.
+{
+  const full = panel({ summary: news, occurrences: occ });
+  const bare = panel({ summary: news, occurrences: occ, hideHeader: true });
+  check("default panel keeps its header", full.includes("af-auto__head") && full.includes('data-action="run_now"'));
+  check("hideHeader drops the header", !bare.includes("af-auto__head") && !bare.includes("af-auto__title"));
+  check("hideHeader drops the controls", !bare.includes('data-action="run_now"') && !bare.includes('data-action="archive"') && !bare.includes("af-auto__controls"));
+  const sectionTag = bare.slice(0, bare.indexOf(">") + 1);
+  check("hideHeader names the section by the title", sectionTag.includes(`aria-label="${news.title}"`) && !sectionTag.includes("aria-labelledby"), sectionTag);
+}
+
 if (failures) {
   console.error(`check_automation_panel: ${failures}/${checks} FAILED`);
   process.exit(1);
@@ -1005,3 +1017,4 @@ assert.deepEqual(kit.automationToolSelection({ tools: ["read_file"], _runtime: {
   assert.deepEqual(prepared.input_data.tools, []);
   await assert.rejects(kit.prepareAutomationTarget(target, { request: async () => ({}) }), /does not report/);
 }
+
