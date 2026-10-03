@@ -5623,3 +5623,505 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 .af_multi_select_row > button { background: var(--ui-surface-2); border: 1px solid var(--ui-border-1); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
 .af_multi_select_panel > input { width: 100%; box-sizing: border-box; }
 .af_multi_select_chip { max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
+
+/* ------------------------------------------------------------------ */
+/* af-rail:begin — AfRailDrawer (ui-kit 0.6.0). An icon rail on the right
+ * edge of the host's content area; its panel opens beside it (docked in the
+ * flow ≥ 1024 px, floating over the content below). The HOST gives the
+ * container `position: relative` (overlay mode positions against it). */
+.af-rail {
+  --af-rail-w: 48px;
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  min-height: 0;
+  height: 100%;
+  max-width: 100%;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+.af-rail--overlay {
+  position: static;
+}
+.af-rail__rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: var(--af-rail-w);
+  flex: 0 0 var(--af-rail-w);
+  padding: 8px 0;
+  border-left: 1px solid var(--ui-border-1);
+  background: color-mix(in srgb, var(--bg-primary) 86%, var(--bg-secondary));
+  overflow-y: auto;
+  z-index: 3;
+}
+.af-rail__tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.af-rail__tab:hover {
+  background: var(--ui-surface-2);
+  color: var(--text-primary);
+}
+.af-rail__tab:focus-visible,
+.af-rail__icon-btn:focus-visible,
+.af-rail__resize:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.af-rail__tab.is-active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.af-rail__tab.is-active::before {
+  content: "";
+  position: absolute;
+  left: -3px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.af-rail__badge {
+  position: absolute;
+  top: 3px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+.af-rail__dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.af-rail__panel-wrap {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--ui-border-1);
+  background: var(--bg-card, var(--bg-secondary));
+}
+.af-rail__panel-wrap[hidden] {
+  display: none;
+}
+.af-rail__panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  outline: 0;
+}
+.af-rail__section {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.af-rail__section[hidden] {
+  display: none;
+}
+.af-rail__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 4px 6px 4px 14px;
+  border-bottom: 1px solid var(--ui-border-1);
+}
+.af-rail__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-base);
+  font-weight: 700;
+}
+.af-rail__head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.af-rail__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.af-rail__icon-btn:hover {
+  background: var(--ui-surface-2);
+  color: var(--text-primary);
+}
+.af-rail__body {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 12px 14px 16px;
+  overflow-wrap: anywhere;
+}
+.af-rail__resize {
+  position: absolute;
+  left: -4px;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 4;
+}
+.af-rail__resize:hover,
+.af-rail__resize:active {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+@media (pointer: coarse) {
+  .af-rail__resize {
+    left: -11px;
+    width: 22px;
+  }
+  .af-rail__icon-btn {
+    width: var(--tap-min, 44px);
+    height: var(--tap-min, 44px);
+  }
+}
+/* Overlay: the panel floats over the host content beside the rail. */
+.af-rail--overlay .af-rail__panel-wrap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: var(--af-rail-w);
+  width: min(var(--af-rail-panel-width, 420px), calc(100% - var(--af-rail-w)));
+  z-index: 6;
+  box-shadow: var(--ui-shadow-1);
+}
+.af-rail__backdrop {
+  position: absolute;
+  inset: 0 var(--af-rail-w) 0 0;
+  z-index: 5;
+  background: color-mix(in srgb, var(--bg-primary) 55%, transparent);
+}
+/* af-rail:end */
+
+/* af-settings:begin — AfSettingsGroup / AfSettingRow / AfOverrideRow (0.6.0). */
+.af-settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border-1);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-card, var(--bg-secondary)) 70%, transparent);
+}
+.af-settings-group + .af-settings-group {
+  margin-top: 12px;
+}
+.af-settings-group__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.af-settings-group__title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+}
+.af-settings-group__aside {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+.af-settings-group__help {
+  margin: 0 0 2px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+.af-settings-group__rows {
+  display: flex;
+  flex-direction: column;
+}
+.af-setting-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-height: 40px;
+  padding: 6px 0;
+  border-top: 1px solid color-mix(in srgb, var(--ui-border-1) 70%, transparent);
+}
+.af-settings-group__rows > :first-child,
+.af-settings-group__rows > :first-child > .af-setting-row {
+  border-top: 0;
+}
+.af-setting-row__label {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.af-setting-row__name {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.af-setting-row__help {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+.af-setting-row__control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.af-setting-row__control > .af-select,
+.af-setting-row__control > select,
+.af-setting-row__control > input {
+  flex: 1 1 160px;
+  min-width: 0;
+  max-width: 100%;
+}
+.af-setting-row--stack .af-setting-row__control {
+  flex-basis: 100%;
+  justify-content: stretch;
+}
+.af-setting-row--switch {
+  padding: 0;
+}
+.af-setting-row--switch > .af-switch {
+  flex: 1 1 100%;
+}
+.af-setting-row__trailing {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.af-setting-btn {
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--ui-border-1);
+  border-radius: var(--radius-sm);
+  background: var(--ui-surface-2);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.af-setting-btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--ui-border-1));
+}
+.af-setting-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.af-setting-btn--quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+@media (pointer: coarse) {
+  .af-setting-btn {
+    min-height: var(--tap-min, 44px);
+  }
+}
+.af-override__summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: right;
+}
+.af-override[data-overridden="true"] .af-override__summary {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.af-override__editor {
+  padding: 4px 0 10px;
+}
+.af-override__editor[hidden] {
+  display: none;
+}
+.af-voice-section .af-voice-settings > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* af-settings:end */
+
+/* af-file-viewer:begin — AfFileViewer + AfCodeBlock (0.6.0). */
+.af-file-viewer {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--ui-border-1);
+  border-radius: var(--radius-md);
+  background: var(--bg-card, var(--bg-secondary));
+}
+.af-file-viewer__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 4px 6px 4px 10px;
+  border-bottom: 1px solid var(--ui-border-1);
+}
+.af-file-viewer__title {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.af-file-viewer__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+}
+.af-file-viewer__meta {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+.af-file-viewer__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.af-file-viewer__icon-btn:hover {
+  background: var(--ui-surface-2);
+  color: var(--text-primary);
+}
+.af-file-viewer__icon-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+@media (pointer: coarse) {
+  .af-file-viewer__icon-btn {
+    width: var(--tap-min, 44px);
+    height: var(--tap-min, 44px);
+  }
+}
+.af-file-viewer__body {
+  min-width: 0;
+  padding: 10px;
+  overflow-wrap: anywhere;
+}
+.af-file-viewer__muted {
+  margin: 0 0 8px;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+.af-file-viewer__error {
+  margin: 0;
+  color: var(--error, #ef4444);
+  font-size: var(--font-size-sm);
+}
+.af-file-viewer__image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: var(--radius-sm);
+}
+.af-file-viewer__pdf {
+  display: block;
+  width: 100%;
+  height: min(70vh, 720px);
+  border: 0;
+}
+.af-file-viewer__markdown {
+  min-width: 0;
+}
+.af-code {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--ui-code-bg, color-mix(in srgb, var(--bg-primary) 80%, var(--bg-secondary)));
+  color: var(--text-primary);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--font-size-code, 12px);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  tab-size: 2;
+}
+.af-code--numbered .af-code__line {
+  display: block;
+  position: relative;
+  padding-left: calc(var(--af-code-gutter, 3ch) + 10px);
+}
+.af-code--numbered .af-code__line::before {
+  content: attr(data-line);
+  position: absolute;
+  left: 0;
+  width: var(--af-code-gutter, 3ch);
+  color: var(--text-muted);
+  text-align: right;
+  user-select: none;
+}
+.af-code__comment {
+  color: var(--text-muted);
+  font-style: italic;
+}
+.af-code__string {
+  color: var(--success, #16a34a);
+}
+.af-code__number {
+  color: var(--warning, #d97706);
+}
+.af-code__keyword {
+  color: var(--accent);
+  font-weight: 600;
+}
+/* af-file-viewer:end */

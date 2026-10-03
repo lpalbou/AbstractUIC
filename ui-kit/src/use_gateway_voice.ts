@@ -40,6 +40,12 @@ import { insecureContextReason } from "./random_id.js";
 export type TtsPlaybackStatus = "idle" | "loading" | "playing" | "paused";
 
 export type GatewayVoiceOptions = {
+  /**
+   * Speaker to play on (a `MediaDeviceInfo.deviceId` of kind "audiooutput";
+   * "" = the system default). Applied with `AudioContext.setSinkId` where the
+   * browser supports it (`audioOutputSelectable()`); ignored elsewhere.
+   */
+  output_device_id?: string;
   /** Synthesize text to audio bytes (absent = TTS unsupported). */
   tts?: (text: string) => Promise<ArrayBuffer>;
   /**
@@ -227,6 +233,25 @@ function wrapWavSegment(prelude: Uint8Array, raw: ArrayBuffer): ArrayBuffer {
   return out.buffer;
 }
 
+/** The browser can route Web Audio to a chosen speaker (`AudioContext.setSinkId`). */
+export function audioOutputSelectable(): boolean {
+  const w: any = globalThis as any;
+  const Ctx = w?.AudioContext;
+  return Boolean(Ctx && Ctx.prototype && typeof Ctx.prototype.setSinkId === "function");
+}
+
+const applied_sinks = new WeakMap<object, string>();
+function apply_sink(ctx: AudioContext, device: string): void {
+  const anyCtx = ctx as any;
+  if (typeof anyCtx.setSinkId !== "function" || applied_sinks.get(ctx) === device) return;
+  applied_sinks.set(ctx, device);
+  try {
+    void Promise.resolve(anyCtx.setSinkId(device)).catch(() => applied_sinks.delete(ctx));
+  } catch {
+    applied_sinks.delete(ctx);
+  }
+}
+
 export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   // Callbacks fire from async work started renders ago (recorder onstop,
   // stream loops) — read them through a ref so they are never stale
@@ -288,6 +313,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       const ctx = tts_ctx_ref.current;
       const gain = tts_gain_ref.current;
       if (!ctx || !gain) return null;
+      apply_sink(ctx, opts_ref.current.output_device_id || "");
       try {
         if (ctx.state === "suspended") void ctx.resume();
       } catch {
