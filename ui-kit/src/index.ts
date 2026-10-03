@@ -362,6 +362,7 @@ export { AutomationWorkflowPicker, type AutomationWorkflowPickerOptions } from "
 export { retargetAutomationInput, automationTargetValue } from "./automations/target_selection.js";
 export { prepareAutomationTarget } from "./automations/prepare_target.js";
 export { automationTiming, compactCadence, compactDuration, lastRunText, nextRunText, type AutomationTiming } from "./automations/timing_line.js";
+export { triggerSourceProblem } from "./automations/AutomationPanel.js";
 // ui-kit 0.6.0 (round 4): rail drawer, file viewer, code highlighter, settings rows, voice section, relative time.
 export { AfRailDrawer, AF_RAIL_WIDTH, railDrawerClampWidth, railDrawerKeyWidth, railDrawerNextIndex, railDrawerToggle, type AfRailDrawerProps, type AfRailItem } from "./af_rail_drawer.js";
 export { AfFileViewer, fileViewerKind, fileViewerNeedsText, formatFileSize, type AfFileViewerKind, type AfFileViewerProps } from "./af_file_viewer.js";
