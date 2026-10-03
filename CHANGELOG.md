@@ -9,9 +9,19 @@ ships.
 
 ## [Unreleased]
 
+## 0.5.3 - 2026-10-03
+
+### ui-kit 0.5.2
+
 - Automation forms support shared workflow selection and a compact responsive scheduling layout. Automation headers identify the target workflow; history-budget help distinguishes inherited history from working context.
 
 - Add shared MultiSelect and AutomationToolsPicker controls for automation creation/editing. Tool selection preserves explicit empty lists, respects saved ceilings, and keeps unrelated workflow inputs.
+
+- Streaming narration decodes split chunks and final JSON lines without a trailing newline, reports malformed or incomplete streams, and cancels promptly when stopped.
+
+### panel-chat 0.2.5
+
+- Automation answers support the shared narration controls, with an animated loading spinner. User and trigger cards have a distinct background and align to the right.
 
 ## 0.5.2 - 2026-10-02
 

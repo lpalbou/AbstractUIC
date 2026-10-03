@@ -60,7 +60,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, ecosystem data flow, gateway connection flow, live replies, About/identity flow, automations flow, console islands build)
 - [FAQ](docs/faq.md): bundling/CSS/SSR and per-package notes
 - [Troubleshooting](docs/troubleshooting.md): symptoms, checks and fixes (unstyled components, SSR errors, widget polling, app-server 400/401/403, live replies, images shown as links, stale islands bundle, plain-http copy/voice/ids)
-- [Automations](docs/automations.md): configurable growing-context budgets and result email; show and manage AbstractGateway automations — `AutomationPanel` (icon controls, an Edit form a host can open through `editOpen`, runs as chat pairs, typed wait answers), `AfScheduleDialog` (fixed UTC intervals, **When an email arrives** with typed filters, **Email me the result**, allowed recipients, tool-approval consent line), `createAutomationsClient()` and its error model, retry-safe ids, panel-chat `ScheduleThisAction` / `FromAutomationBadge`, the canonical fixtures and the export list
+- [Automations](docs/automations.md): configurable growing-context budgets and result email; show and manage AbstractGateway automations — `AutomationPanel` (icon controls, an Edit form a host can open through `editOpen`, runs as chat pairs, typed wait answers), `AfScheduleDialog` (fixed UTC intervals, **When an email arrives** with typed filters, **Email result**, recipients, workflow and tool selection), `createAutomationsClient()` and its error model, retry-safe ids, panel-chat `ScheduleThisAction` / `FromAutomationBadge`, the canonical fixtures and the export list
 - [Console islands](docs/console-islands.md): `window.AfConsoleIslands` (mountTopBar / mountAppearance / mountAbout / appIdentity / applyAppearance) for pages that are not React apps; repository build, not in the npm package
 - [Docs index](docs/README.md): full docs navigation
 
@@ -2672,6 +2672,15 @@ import { AutomationPanelWithMarkdown, automationRenderers } from "@abstractframe
 <AutomationPanel {...automationRenderers} {...props} />  // same thing, spread onto the kit panel
 ```
 
+Pass `messageProps` to `AutomationPanelWithMarkdown` to expose the shared chat actions on
+occurrence cards, including narration controls and their loading/playback state. The host supplies
+the voice transport through `useGatewayVoice`; streamed audio can play before synthesis completes.
+
+The automation header identifies its target workflow. To offer a workflow picker in Edit, provide
+`definition` and `workflowPickerOptions`. A target revision keeps portable agent settings, tool
+selection and result-email recipients, and loads the selected workflow's input defaults. Hosts
+with a custom preparation step can provide `prepareTarget`.
+
 `renderTurn` receives an `AutomationTurn`: `{kind: "trigger" | "answer", role: "user" |
 "assistant", text, index, runId}`; without it a turn's text goes through `renderText`. Without
 `renderText` the panel falls back to escaped plain text and marks itself
@@ -2829,10 +2838,12 @@ The Edit control opens a form prefilled from the automation, with its first fiel
 | Field | From | Sent as |
 | --- | --- | --- |
 | Title | `summary.title` | `changes.title` |
+| Workflow | `definition.target` (with `workflowPickerOptions`) | `changes.target`, prepared with the selected workflow's defaults |
 | Task | `definition.target.input_data.prompt` (only with `definition`, when it is text) | `changes.target`: the definition's `bundle_ref` and `flow_id`, its `input_data` with the new `prompt` (the Gateway re-applies its run protections) |
 | Repeat every (UTC) | the schedule's `every` (only for an interval schedule) | `changes.trigger` with the rest of the schedule config kept |
 | Context | `summary.context_mode` | `changes.context` |
-| Tools | `definition.policy.tool_approval` (only with `definition`) | `changes.policy.tool_approval` |
+| Tool selection | the target's enabled tools (with `availableTools`) | revised target tool selection; empty disables tools, workflow defaults restores inheritance |
+| Tool approval | `definition.policy.tool_approval` (only with `definition`) | `changes.policy.tool_approval` |
 
 The form works on the automation as it was when the form opened: a refresh meanwhile (a host's
 poll) changes neither its values nor what Save compares against. Save sends only the fields
@@ -2922,6 +2933,8 @@ sections:
   consent line **"Tools run without asking (you approve them now by creating this automation)"**,
   followed by the `targetTools` names when you pass them. "Ask me before each tool call"
   (`"ask"`) makes every tool call wait for approval in the automation's timeline.
+  Pass `availableTools` to include the shared searchable tool selector, with `initialTools`
+  for a saved selection. An explicit empty list disables tools; `null` uses workflow defaults.
 - **Email** — **Email result** and **Recipients** (see
   [Email automations](#email-automations)).
 - **Advanced** — title (default: the task's first line, at most 120 characters), first run at,
@@ -4796,7 +4809,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -4820,7 +4833,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -4889,7 +4902,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -4933,12 +4946,12 @@ npm test
     "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.1.14 || ^0.2.0 || ^0.3.0 || ^0.4.0 || ^0.5.0",
+    "@abstractframework/ui-kit": "^0.5.2",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.5.0",
+    "@abstractframework/ui-kit": "^0.5.2",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -14373,9 +14386,19 @@ ships.
 
 ## [Unreleased]
 
+## 0.5.3 - 2026-10-03
+
+### ui-kit 0.5.2
+
 - Automation forms support shared workflow selection and a compact responsive scheduling layout. Automation headers identify the target workflow; history-budget help distinguishes inherited history from working context.
 
 - Add shared MultiSelect and AutomationToolsPicker controls for automation creation/editing. Tool selection preserves explicit empty lists, respects saved ceilings, and keeps unrelated workflow inputs.
+
+- Streaming narration decodes split chunks and final JSON lines without a trailing newline, reports malformed or incomplete streams, and cancels promptly when stopped.
+
+### panel-chat 0.2.5
+
+- Automation answers support the shared narration controls, with an animated loading spinner. User and trigger cards have a distinct background and align to the right.
 
 ## 0.5.2 - 2026-10-02
 

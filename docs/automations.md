@@ -70,6 +70,15 @@ import { AutomationPanelWithMarkdown, automationRenderers } from "@abstractframe
 <AutomationPanel {...automationRenderers} {...props} />  // same thing, spread onto the kit panel
 ```
 
+Pass `messageProps` to `AutomationPanelWithMarkdown` to expose the shared chat actions on
+occurrence cards, including narration controls and their loading/playback state. The host supplies
+the voice transport through `useGatewayVoice`; streamed audio can play before synthesis completes.
+
+The automation header identifies its target workflow. To offer a workflow picker in Edit, provide
+`definition` and `workflowPickerOptions`. A target revision keeps portable agent settings, tool
+selection and result-email recipients, and loads the selected workflow's input defaults. Hosts
+with a custom preparation step can provide `prepareTarget`.
+
 `renderTurn` receives an `AutomationTurn`: `{kind: "trigger" | "answer", role: "user" |
 "assistant", text, index, runId}`; without it a turn's text goes through `renderText`. Without
 `renderText` the panel falls back to escaped plain text and marks itself
@@ -227,10 +236,12 @@ The Edit control opens a form prefilled from the automation, with its first fiel
 | Field | From | Sent as |
 | --- | --- | --- |
 | Title | `summary.title` | `changes.title` |
+| Workflow | `definition.target` (with `workflowPickerOptions`) | `changes.target`, prepared with the selected workflow's defaults |
 | Task | `definition.target.input_data.prompt` (only with `definition`, when it is text) | `changes.target`: the definition's `bundle_ref` and `flow_id`, its `input_data` with the new `prompt` (the Gateway re-applies its run protections) |
 | Repeat every (UTC) | the schedule's `every` (only for an interval schedule) | `changes.trigger` with the rest of the schedule config kept |
 | Context | `summary.context_mode` | `changes.context` |
-| Tools | `definition.policy.tool_approval` (only with `definition`) | `changes.policy.tool_approval` |
+| Tool selection | the target's enabled tools (with `availableTools`) | revised target tool selection; empty disables tools, workflow defaults restores inheritance |
+| Tool approval | `definition.policy.tool_approval` (only with `definition`) | `changes.policy.tool_approval` |
 
 The form works on the automation as it was when the form opened: a refresh meanwhile (a host's
 poll) changes neither its values nor what Save compares against. Save sends only the fields
@@ -320,6 +331,8 @@ sections:
   consent line **"Tools run without asking (you approve them now by creating this automation)"**,
   followed by the `targetTools` names when you pass them. "Ask me before each tool call"
   (`"ask"`) makes every tool call wait for approval in the automation's timeline.
+  Pass `availableTools` to include the shared searchable tool selector, with `initialTools`
+  for a saved selection. An explicit empty list disables tools; `null` uses workflow defaults.
 - **Email** — **Email result** and **Recipients** (see
   [Email automations](#email-automations)).
 - **Advanced** — title (default: the task's first line, at most 120 characters), first run at,
