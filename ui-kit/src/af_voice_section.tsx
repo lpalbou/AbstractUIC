@@ -164,7 +164,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
             onChange={(next) => p.onChange({ ...value, ...next })}
             fetchCatalog={p.fetchCatalog}
             intro={null}
-            delivery={false}
+            quality={false}
             showReset={false}
             voiceDefaultLabel="Gateway default"
           />

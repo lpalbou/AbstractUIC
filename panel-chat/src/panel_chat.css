@@ -1686,12 +1686,19 @@ button.pc-ws__name:hover {
 }
 .pc-ws__root {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 2px 4px;
+  gap: 2px;
   min-width: 0;
 }
+.pc-ws__root > .pc-ws__muted {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .pc-ws__root-name {
+  flex: 0 1 auto;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;

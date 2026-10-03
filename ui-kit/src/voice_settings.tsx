@@ -28,6 +28,7 @@ export function VoiceSettings({
   fetchCatalog,
   intro,
   delivery = true,
+  quality = true,
   showReset = true,
   defaultHint,
   voiceDefaultLabel,
@@ -39,6 +40,8 @@ export function VoiceSettings({
   intro?: React.ReactNode | null;
   /** Speed / quality / delivery-instruction controls (default true). */
   delivery?: boolean;
+  /** The Quality select inside the delivery controls (default true; false when the host shows its own latency row). */
+  quality?: boolean;
   /** The "Reset to Gateway defaults" button (default true). */
   showReset?: boolean;
   /** Names what "Gateway default" resolves to, e.g. "Gateway default: supertonic · F1." */
@@ -222,7 +225,7 @@ export function VoiceSettings({
           ))}
         </select>
       </label>
-      {catalog.controls?.quality_preset?.supported ? (
+      {quality && catalog.controls?.quality_preset?.supported ? (
         <label>
           Quality
           <select
