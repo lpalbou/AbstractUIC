@@ -57,7 +57,8 @@ export function lastRunText(s: Pick<AutomationSummary, "last_occurrence" | "curr
   const last = s.last_occurrence;
   const t = parsed(last?.finished_at) ?? parsed(last?.fired_at);
   if (t === null) return "last never";
-  return `last ${compactDuration(nowMs - t)} ago`;
+  // A run stamped after `nowMs` (clock skew between gateway and viewer) reads as just now.
+  return `last ${compactDuration(Math.max(0, nowMs - t))} ago`;
 }
 
 /** "next in 14 h" / "next due now"; null when nothing is scheduled (paused, manual, finished). */

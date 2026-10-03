@@ -52,6 +52,7 @@ eq("email", compactCadence({ binding_id: "b", source_id: "email.received", sourc
 eq("once", compactCadence(schedule(undefined)), "once");
 // Fired but not finished yet uses fired_at; an occurrence in flight says so.
 eq("fired only", lastRunText({ last_occurrence: { fired_at: iso(NOW - 5 * 60_000) } }, NOW), "last 5 min ago");
+eq("future last (skew)", lastRunText({ last_occurrence: { fired_at: iso(NOW + 3 * H) } }, NOW), "last <1 min ago");
 eq("running", lastRunText({ current_occurrence: { index: 3, run_id: "r", attempt: 1, status: "running" }, last_occurrence: { fired_at: iso(NOW - H) } }, NOW), "running now");
 // Next: due / absent / unparsable.
 eq("due", nextRunText({ next_fire_at: iso(NOW + 30_000) }, NOW), "next due now");
