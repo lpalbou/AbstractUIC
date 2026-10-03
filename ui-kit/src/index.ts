@@ -361,3 +361,4 @@ export { AutomationToolsPicker } from "./automations/automation_tools_picker.js"
 export { AutomationWorkflowPicker, type AutomationWorkflowPickerOptions } from "./automations/automation_workflow_picker.js";
 export { retargetAutomationInput, automationTargetValue } from "./automations/target_selection.js";
 export { prepareAutomationTarget } from "./automations/prepare_target.js";
+export { automationTiming, compactCadence, compactDuration, lastRunText, nextRunText, type AutomationTiming } from "./automations/timing_line.js";

@@ -9,6 +9,8 @@ ships.
 
 ## [Unreleased]
 
+- ui-kit: `automationTiming()` and its parts (`compactCadence`, `lastRunText`, `nextRunText`, `compactDuration`) give an automation card or header its one compact line, `every 24 h · last 3 h ago · next in 14 h`; deterministic, checked by `scripts/check_timing_line.mjs`.
+
 ## 0.5.3 - 2026-10-03
 
 ### ui-kit 0.5.2
