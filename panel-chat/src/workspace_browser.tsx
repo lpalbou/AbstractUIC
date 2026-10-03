@@ -16,7 +16,8 @@
 // listing parser comes from AbstractCode web (`workspace/session_files.tsx`).
 import React, { useCallback, useEffect, useState } from "react";
 
-import { Icon, gatewayApiPath, gatewayResourcePath } from "@abstractframework/ui-kit";
+import { Icon, formatExactTime, formatRelativeTime, gatewayApiPath, gatewayResourcePath } from "@abstractframework/ui-kit";
+import { FileViewer, filePreviewViewerProps, useWorkspaceFilePreview } from "./file_viewer.js";
 
 /**
  * A gateway request with the host's credentials. `path` is RELATIVE,
@@ -241,6 +242,17 @@ export async function openGatewayResource(
   deliverBlob(await r.blob(), options.name, options.mode ?? "open");
 }
 
+/** The last segment of a path ("/srv/ws/run-1" → "run-1"); the whole path when it has none. */
+export function workspaceShortName(root: string): string {
+  const parts = String(root || "").split(/[\\/]/).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : String(root || "");
+}
+
+/** "Open folder" acts on the gateway machine: offered only to a browser on that machine, where the gateway can open folders. */
+export function workspaceCanOpenFolder(where: RunWorkspace | null | undefined): boolean {
+  return Boolean(where && where.open_supported === true && where.host?.caller_is_this_machine === true && where.exists);
+}
+
 export type WorkspaceBrowserProps = {
   /** The host's gateway request (credentials included). */
   fetchGateway: GatewayFetch;
@@ -252,17 +264,37 @@ export type WorkspaceBrowserProps = {
   note?: string;
   onClose?: () => void;
   /**
-   * Select a file instead of offering Open/Download on it (a host with its
-   * own preview, e.g. AbstractCode's). `selectedPath` marks the selection.
+   * Select a file instead of previewing it here (a host with its own
+   * preview). Without it, a click opens the shared `FileViewer` in place.
    */
   onSelectFile?: (entry: WorkspaceEntry) => void;
   selectedPath?: string;
   /** Changes whenever the host knows files changed (e.g. a run finished): the folder is re-listed. */
   refreshKey?: string | number;
   className?: string;
+  /** Extra actions in the preview header for a file (e.g. AbstractCode's "Attach"). */
+  fileActions?: (entry: WorkspaceEntry) => React.ReactNode;
+  /**
+   * Open the folder on the gateway machine (`POST /runs/{id}/workspace/open`
+   * with the host's CSRF rules). Offered only when `workspaceCanOpenFolder`.
+   */
+  onOpenFolder?: () => Promise<void>;
+  /** Copy text (default: `navigator.clipboard.writeText`). Returns success. */
+  copyText?: (text: string) => Promise<boolean>;
+  /** "Now" for relative dates (default Date.now() per render). */
+  nowMs?: number;
 };
 
-/** Stateful browser: loads where the folder is and one level at a time. */
+async function clipboardCopy(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Stateful browser: loads where the folder is and one level at a time; previews a file in place. */
 export function WorkspaceBrowser(props: WorkspaceBrowserProps): React.ReactElement {
   const { fetchGateway, runId } = props;
   // Location and loaded data are keyed by the run they belong to, so a new
@@ -271,9 +303,14 @@ export function WorkspaceBrowser(props: WorkspaceBrowserProps): React.ReactEleme
   const path = loc.runId === runId ? loc.path : "";
   const [data, setData] = useState<{ runId: string; where: RunWorkspace; listing: WorkspaceListing | null } | null>(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(Boolean(runId));
   const [fileBusy, setFileBusy] = useState("");
+  const [opening, setOpening] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [selected, setSelected] = useState<{ runId: string; entry: WorkspaceEntry } | null>(null);
+  const preview = selected && selected.runId === runId && !props.onSelectFile ? selected.entry : null;
+  const previewState = useWorkspaceFilePreview(fetchGateway, runId, preview, `${props.refreshKey ?? ""}:${revision}`);
 
   useEffect(() => {
     if (!runId) return;
@@ -292,14 +329,15 @@ export function WorkspaceBrowser(props: WorkspaceBrowserProps): React.ReactEleme
     })();
     return () => abort.abort();
   }, [fetchGateway, runId, path, revision, props.refreshKey]);
+  useEffect(() => setNotice(""), [runId]);
   const current = data && data.runId === runId ? data : null;
 
-  const onFile = useCallback(
-    async (entry: WorkspaceEntry, mode: "open" | "download") => {
+  const download = useCallback(
+    async (entry: WorkspaceEntry) => {
       setFileBusy(entry.path);
       setError("");
       try {
-        deliverBlob(await readWorkspaceFile(fetchGateway, runId, entry.path), entry.name, mode);
+        deliverBlob(await readWorkspaceFile(fetchGateway, runId, entry.path), entry.name, "download");
       } catch (e: any) {
         setError(String(e?.message || e));
       } finally {
@@ -308,6 +346,8 @@ export function WorkspaceBrowser(props: WorkspaceBrowserProps): React.ReactEleme
     },
     [fetchGateway, runId],
   );
+  const root = current?.where.workspace_root || "";
+  const nowMs = props.nowMs ?? Date.now();
 
   return (
     <WorkspaceBrowserView
@@ -317,15 +357,55 @@ export function WorkspaceBrowser(props: WorkspaceBrowserProps): React.ReactEleme
       path={path}
       listing={current?.listing ?? null}
       error={error}
+      notice={notice}
       loading={loading}
       fileBusy={fileBusy}
-      selectedPath={props.selectedPath}
+      selectedPath={props.onSelectFile ? props.selectedPath : preview?.path}
       className={props.className}
-      onNavigate={(p) => setLoc({ runId, path: p })}
+      nowMs={nowMs}
+      openingFolder={opening}
+      onNavigate={(p) => {
+        setSelected(null);
+        setLoc({ runId, path: p });
+      }}
       onRefresh={() => setRevision((n) => n + 1)}
-      onFile={props.onSelectFile ? undefined : (entry, mode) => void onFile(entry, mode)}
-      onSelectFile={props.onSelectFile}
+      onFile={(entry) => void download(entry)}
+      onSelectFile={props.onSelectFile ?? ((entry) => setSelected({ runId, entry }))}
       onClose={props.onClose}
+      onCopyPath={
+        root
+          ? () => {
+              void (props.copyText || clipboardCopy)(root).then((ok) => setNotice(ok ? "Path copied." : "Could not copy; select the path instead."));
+            }
+          : undefined
+      }
+      onOpenFolder={
+        props.onOpenFolder && workspaceCanOpenFolder(current?.where)
+          ? () => {
+              setOpening(true);
+              setNotice("");
+              void props.onOpenFolder!()
+                .then(() => setNotice("Folder opened on this machine."))
+                .catch((e: any) => setNotice(`Open folder failed: ${String(e?.message || e)}`))
+                .finally(() => setOpening(false));
+            }
+          : undefined
+      }
+      preview={
+        preview ? (
+          <FileViewer
+            name={preview.name}
+            path={preview.path}
+            sizeBytes={preview.size_bytes}
+            modified={preview.mtime}
+            nowMs={nowMs}
+            {...filePreviewViewerProps(previewState)}
+            actions={props.fileActions?.(preview)}
+            onDownload={() => void download(preview)}
+            onClose={() => setSelected(null)}
+          />
+        ) : null
+      }
     />
   );
 }
@@ -337,25 +417,36 @@ export type WorkspaceBrowserViewProps = {
   path: string;
   listing: WorkspaceListing | null;
   error: string;
+  /** A one-line outcome ("Path copied."). */
+  notice?: string;
   loading: boolean;
   fileBusy: string;
   selectedPath?: string;
   className?: string;
+  /** "Now" for the rows' relative dates (deterministic in checks). */
+  nowMs?: number;
   onNavigate(path: string): void;
   onRefresh(): void;
-  /** Open / Download buttons per file (when the host has no preview of its own). */
-  onFile?(entry: WorkspaceEntry, mode: "open" | "download"): void;
-  /** The file name selects the file (a host preview). */
+  /** The row's download icon. `mode` is always "download" (0.3.0: no "Open" button). */
+  onFile?(entry: WorkspaceEntry, mode: "download"): void;
+  /** A click on the file name (the preview). */
   onSelectFile?(entry: WorkspaceEntry): void;
   onClose?: () => void;
+  onCopyPath?: () => void;
+  onOpenFolder?: () => void;
+  openingFolder?: boolean;
+  /** Shown instead of the list (a file preview); its close returns to the list. */
+  preview?: React.ReactNode;
 };
 
 /** The hook-free view (checks render it in any state). */
 export function WorkspaceBrowserView(p: WorkspaceBrowserViewProps): React.ReactElement {
   const note = p.listing ? workspaceHiddenNote(p.listing) : "";
   const hostname = p.where?.host?.hostname;
+  const root = p.where?.workspace_root || "";
+  const nowMs = p.nowMs ?? Date.now();
   return (
-    <section className={`pc-ws${p.className ? ` ${p.className}` : ""}`} aria-label={p.title} data-workspace-root={p.where?.workspace_root || undefined}>
+    <section className={`pc-ws${p.className ? ` ${p.className}` : ""}`} aria-label={p.title} data-workspace-root={root || undefined}>
       <header className="pc-ws__head">
         <span className="pc-ws__title">
           <Icon name="folder" size={15} /> {p.title}
@@ -372,87 +463,112 @@ export function WorkspaceBrowserView(p: WorkspaceBrowserViewProps): React.ReactE
       </header>
       {p.where ? (
         <div className="pc-ws__root">
-          <code>{p.where.workspace_root}</code>
-          {hostname && p.where.host?.caller_is_this_machine !== true ? <span className="pc-ws__muted"> on the gateway host {hostname}</span> : null}
+          <span className="pc-ws__root-name" title={root} data-root-name="true">
+            {workspaceShortName(root)}
+          </span>
+          {p.onOpenFolder ? (
+            <button type="button" className="pc-ws__icon-btn pc-ws__icon-btn--bare" data-action="open-folder" onClick={p.onOpenFolder} disabled={p.openingFolder} title="Open folder" aria-label="Open the folder on this machine">
+              <Icon name="folder" size={14} />
+            </button>
+          ) : null}
+          {p.onCopyPath ? (
+            <button type="button" className="pc-ws__icon-btn pc-ws__icon-btn--bare" data-action="copy-path" onClick={p.onCopyPath} title="Copy path" aria-label="Copy the folder path">
+              <Icon name="copy" size={14} />
+            </button>
+          ) : null}
+          {hostname && p.where.host?.caller_is_this_machine !== true ? <span className="pc-ws__muted"> on {hostname}</span> : null}
         </div>
       ) : null}
       {p.note ? <div className="pc-ws__muted">{p.note}</div> : null}
-      <nav className="pc-ws__crumbs" aria-label="Folder">
-        {workspaceCrumbs(p.path).map((c, i, all) =>
-          i === all.length - 1 ? (
-            <span key={c.path} aria-current="page">
-              {c.label}
-            </span>
-          ) : (
-            <React.Fragment key={c.path}>
-              <button type="button" className="pc-ws__crumb" onClick={() => p.onNavigate(c.path)}>
-                {c.label}
-              </button>
-              <span className="pc-ws__muted"> / </span>
-            </React.Fragment>
-          ),
-        )}
-      </nav>
+      {p.notice ? (
+        <div className="pc-ws__muted" role="status">
+          {p.notice}
+        </div>
+      ) : null}
       {p.error ? (
         <div className="pc-ws__error" role="alert">
           {p.error}
         </div>
       ) : null}
-      {p.loading && !p.listing ? <div className="pc-ws__muted" role="status">Loading…</div> : null}
-      {p.where && !p.where.exists ? <div className="pc-ws__muted">The folder does not exist yet: nothing has been written.</div> : null}
-      {p.listing ? (
-        p.listing.entries.length ? (
-          <ul className="pc-ws__entries">
-            {sortWorkspaceEntries(p.listing.entries).map((e) => (
-              <li key={e.path} className={`pc-ws__entry${p.selectedPath === e.path ? " is-selected" : ""}`} data-type={e.type} data-path={e.path}>
-                {e.type === "dir" ? (
-                  <button type="button" className="pc-ws__name" data-action="open-dir" onClick={() => p.onNavigate(e.path)}>
-                    <Icon name="folder" size={14} /> {e.name}/
+      {p.preview ? (
+        <div className="pc-ws__preview">{p.preview}</div>
+      ) : (
+        <>
+          <nav className="pc-ws__crumbs" aria-label="Folder">
+            {workspaceCrumbs(p.path).map((c, i, all) =>
+              i === all.length - 1 ? (
+                <span key={c.path} aria-current="page">
+                  {c.label}
+                </span>
+              ) : (
+                <React.Fragment key={c.path}>
+                  <button type="button" className="pc-ws__crumb" onClick={() => p.onNavigate(c.path)}>
+                    {c.label}
                   </button>
-                ) : (
-                  <>
-                    {p.onSelectFile ? (
-                      <button type="button" className="pc-ws__name" data-action="select-file" aria-pressed={p.selectedPath === e.path} onClick={() => p.onSelectFile?.(e)}>
-                        <Icon name="file" size={14} /> {e.name}
+                  <span className="pc-ws__muted"> / </span>
+                </React.Fragment>
+              ),
+            )}
+          </nav>
+          {p.loading && !p.listing ? <div className="pc-ws__muted" role="status">Loading…</div> : null}
+          {p.where && !p.where.exists ? <div className="pc-ws__muted">The folder does not exist yet: nothing has been written.</div> : null}
+          {p.listing ? (
+            p.listing.entries.length ? (
+              <ul className="pc-ws__entries">
+                {sortWorkspaceEntries(p.listing.entries).map((e) => (
+                  <li key={e.path} className={`pc-ws__entry${p.selectedPath === e.path ? " is-selected" : ""}`} data-type={e.type} data-path={e.path}>
+                    {e.type === "dir" ? (
+                      <button type="button" className="pc-ws__name" data-action="open-dir" onClick={() => p.onNavigate(e.path)}>
+                        <Icon name="folder" size={14} /> <span className="pc-ws__label">{e.name}/</span>
                       </button>
                     ) : (
-                      <span className="pc-ws__name">
-                        <Icon name="file" size={14} /> {e.name}
-                      </span>
-                    )}
-                    <span className="pc-ws__size">{formatBytes(e.size_bytes)}</span>
-                    {p.onFile ? (
                       <>
-                        <button type="button" className="pc-ws__btn" data-action="open-file" disabled={p.fileBusy === e.path} onClick={() => p.onFile?.(e, "open")}>
-                          Open
-                        </button>
-                        <button
-                          type="button"
-                          className="pc-ws__icon-btn"
-                          data-action="download-file"
-                          disabled={p.fileBusy === e.path}
-                          onClick={() => p.onFile?.(e, "download")}
-                          title={`Download ${e.name}`}
-                          aria-label={`Download ${e.name}`}
-                        >
-                          <Icon name="download" size={14} />
-                        </button>
+                        {p.onSelectFile ? (
+                          <button type="button" className="pc-ws__name" data-action="select-file" aria-pressed={p.selectedPath === e.path} title={`Preview ${e.name}`} onClick={() => p.onSelectFile?.(e)}>
+                            <Icon name="file" size={14} /> <span className="pc-ws__label">{e.name}</span>
+                          </button>
+                        ) : (
+                          <span className="pc-ws__name">
+                            <Icon name="file" size={14} /> <span className="pc-ws__label">{e.name}</span>
+                          </span>
+                        )}
+                        <span className="pc-ws__meta">
+                          <span className="pc-ws__size">{formatBytes(e.size_bytes)}</span>
+                          {e.mtime !== undefined && formatRelativeTime(e.mtime, nowMs) ? (
+                            <time className="pc-ws__time" title={formatExactTime(e.mtime)} data-meta="modified">
+                              {formatRelativeTime(e.mtime, nowMs)}
+                            </time>
+                          ) : null}
+                        </span>
+                        {p.onFile ? (
+                          <button
+                            type="button"
+                            className="pc-ws__icon-btn pc-ws__icon-btn--bare"
+                            data-action="download-file"
+                            disabled={p.fileBusy === e.path}
+                            onClick={() => p.onFile?.(e, "download")}
+                            title="Download"
+                            aria-label={`Download ${e.name}`}
+                          >
+                            <Icon name="download" size={14} />
+                          </button>
+                        ) : null}
                       </>
-                    ) : null}
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="pc-ws__muted">This folder is empty.</div>
-        )
-      ) : null}
-      {note ? (
-        <div className="pc-ws__muted" data-hidden-note="true">
-          {note}
-        </div>
-      ) : null}
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="pc-ws__muted">This folder is empty.</div>
+            )
+          ) : null}
+          {note ? (
+            <div className="pc-ws__muted" data-hidden-note="true">
+              {note}
+            </div>
+          ) : null}
+        </>
+      )}
     </section>
   );
 }

@@ -109,6 +109,8 @@ export {
   workspaceHiddenNote,
   workspaceInfoUrl,
   workspaceParent,
+  workspaceShortName,
+  workspaceCanOpenFolder,
   type GatewayFetch,
   type RunWorkspace,
   type WorkspaceBrowserProps,
@@ -116,3 +118,19 @@ export {
   type WorkspaceEntry,
   type WorkspaceListing,
 } from "./workspace_browser.js";
+export {
+  FileViewer,
+  filePreviewViewerProps,
+  partialPreviewNote,
+  readBoundedText,
+  responseTotal,
+  safeMarkdownImages,
+  useWorkspaceFilePreview,
+  PREVIEW_TEXT_LIMIT,
+  PREVIEW_LIMIT_LABEL,
+  PREVIEW_BLOB_LIMIT,
+  type BoundedText,
+  type FilePreviewEntry,
+  type FilePreviewState,
+  type FileViewerProps,
+} from "./file_viewer.js";

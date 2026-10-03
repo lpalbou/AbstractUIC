@@ -153,59 +153,95 @@ const byAction = (tree, action) => {
   return out;
 };
 const got = [];
+const NOW = Date.parse("2026-10-03T12:00:00Z");
+const listing = { ...good, entries: good.entries.map((e) => (e.type === "file" ? { ...e, mtime: new Date(NOW - 3 * 3600_000).toISOString() } : e)) };
 const viewProps = {
   title: "Automation files",
   note: "Mounted read-only for the discussion.",
-  where,
+  where: { ...where, workspace_root: "/srv/ws/r1" },
   path: "notes",
-  listing: good,
+  listing,
   error: "",
   loading: false,
   fileBusy: "",
+  nowMs: NOW,
   onNavigate: (p) => got.push(["nav", p]),
   onRefresh: () => got.push(["refresh"]),
   onFile: (e, mode) => got.push(["file", e.path, mode]),
+  onSelectFile: (e) => got.push(["select", e.path]),
+  onCopyPath: () => got.push(["copy"]),
+  onOpenFolder: () => got.push(["open-folder"]),
   onClose: () => got.push(["close"]),
 };
 const tree = WorkspaceBrowserView(viewProps);
 const html = renderToStaticMarkup(tree);
 assert.ok(html.startsWith('<section class="pc-ws" aria-label="Automation files" data-workspace-root="/srv/ws/r1">'), "labelled section with the root");
-assert.ok(html.includes("<code>/srv/ws/r1</code><span class=\"pc-ws__muted\"> on the gateway host box</span>"), "remote host named");
+assert.ok(html.includes('<span class="pc-ws__root-name" title="/srv/ws/r1" data-root-name="true">r1</span>'), "root shown ONCE as its short name, full path on hover");
+assert.ok(!html.includes("<code>/srv/ws/r1</code>"), "the full path is never printed");
+assert.ok(html.includes('<span class="pc-ws__muted"> on box</span>'), "remote host named");
 assert.ok(html.includes("Mounted read-only for the discussion."), "host note");
 assert.ok(html.indexOf('data-path="notes/a"') < html.indexOf('data-path="notes/b.md"'), "folders listed first");
 assert.ok(html.includes('<span class="pc-ws__size">2.0 KiB</span>'), "file size");
+assert.ok(/<time class="pc-ws__time" title="Oct 3, 2026, \d{2}:\d{2}" data-meta="modified">3 h ago<\/time>/.test(html), "generated date: relative, exact on hover");
+assert.ok(!/>\s*Open\s*</.test(html) && byAction(tree, "open-file").length === 0, "no Open button (0.3.0): a click on the name previews");
 assert.ok(html.includes('data-hidden-note="true">3 entries hidden by the gateway&#x27;s workspace rules</div>'), "hidden entries counted, never silently dropped");
 assert.ok(html.includes('<span aria-current="page">notes</span>'), "current folder crumb");
 byAction(tree, "open-dir")[0].props.onClick();
 assert.deepEqual(got.at(-1), ["nav", "notes/a"]);
-byAction(tree, "open-file")[0].props.onClick();
-assert.deepEqual(got.at(-1), ["file", "notes/b.md", "open"]);
+byAction(tree, "select-file")[0].props.onClick();
+assert.deepEqual(got.at(-1), ["select", "notes/b.md"]);
 byAction(tree, "download-file")[0].props.onClick();
 assert.deepEqual(got.at(-1), ["file", "notes/b.md", "download"]);
+assert.ok(html.includes('aria-label="Download b.md"') && html.includes('title="Download"'), "download is an icon with a name");
+byAction(tree, "copy-path")[0].props.onClick();
+assert.deepEqual(got.at(-1), ["copy"]);
+byAction(tree, "open-folder")[0].props.onClick();
+assert.deepEqual(got.at(-1), ["open-folder"]);
 byAction(tree, "refresh-folder")[0].props.onClick();
 assert.deepEqual(got.at(-1), ["refresh"]);
 byAction(tree, "close-folder")[0].props.onClick();
 assert.deepEqual(got.at(-1), ["close"]);
-assert.equal(byAction(tree, "select-file").length, 0, "no selection without onSelectFile");
+assert.equal(byAction(WorkspaceBrowserView({ ...viewProps, onOpenFolder: undefined }), "open-folder").length, 0, "no open-folder without the host action");
+assert.equal(pc.workspaceShortName("/srv/ws/run-1/"), "run-1");
+assert.equal(pc.workspaceShortName("C:\\Users\\me\\proj"), "proj");
+assert.equal(pc.workspaceCanOpenFolder({ ...where, exists: true, open_supported: true, host: { caller_is_this_machine: true } }), true);
+assert.equal(pc.workspaceCanOpenFolder({ ...where, exists: true, open_supported: true, host: { caller_is_this_machine: false } }), false, "never offered to a remote browser");
 
-// A host preview (AbstractCode): the name selects; no Open/Download.
-const sel = WorkspaceBrowserView({ ...viewProps, onFile: undefined, onSelectFile: (e) => got.push(["select", e.path]), selectedPath: "notes/b.md" });
+// Selection marked; a preview replaces the list.
+const sel = WorkspaceBrowserView({ ...viewProps, selectedPath: "notes/b.md" });
 const selHtml = renderToStaticMarkup(sel);
-assert.equal(byAction(sel, "open-file").length + byAction(sel, "download-file").length, 0);
-byAction(sel, "select-file")[0].props.onClick();
-assert.deepEqual(got.at(-1), ["select", "notes/b.md"]);
 assert.ok(selHtml.includes('class="pc-ws__entry is-selected" data-type="file" data-path="notes/b.md"') && selHtml.includes('aria-pressed="true"'), "selection marked");
+const withPreview = renderToStaticMarkup(WorkspaceBrowserView({ ...viewProps, preview: React.createElement("div", { id: "PREVIEW" }) }));
+assert.ok(withPreview.includes('id="PREVIEW"') && !withPreview.includes("pc-ws__entries"), "a preview replaces the list");
 
 // States: error, not created yet, empty, busy file, local host.
 const err = renderToStaticMarkup(WorkspaceBrowserView({ ...viewProps, error: "The folder could not be listed (HTTP 403): denied" }));
 assert.ok(err.includes('<div class="pc-ws__error" role="alert">The folder could not be listed (HTTP 403): denied</div>'));
 const none = renderToStaticMarkup(WorkspaceBrowserView({ ...viewProps, where: { ...where, exists: false, host: { hostname: "box", caller_is_this_machine: true } }, listing: null }));
-assert.ok(none.includes("The folder does not exist yet: nothing has been written.") && !none.includes("on the gateway host"), "not created yet; local host not announced");
+assert.ok(none.includes("The folder does not exist yet: nothing has been written.") && !none.includes(" on box"), "not created yet; local host not announced");
 const empty = renderToStaticMarkup(WorkspaceBrowserView({ ...viewProps, listing: { path: "", entries: [], truncated: false } }));
 assert.ok(empty.includes("This folder is empty."));
 const busy = renderToStaticMarkup(WorkspaceBrowserView({ ...viewProps, fileBusy: "notes/b.md" }));
-assert.ok(/data-action="open-file" disabled=""/.test(busy) && /data-action="download-file" disabled=""/.test(busy), "file buttons disabled while that file is fetched");
-assert.ok(!html.includes("close-folder") || byAction(WorkspaceBrowserView({ ...viewProps, onClose: undefined }), "close-folder").length === 0, "no close button without onClose");
+assert.ok(/data-action="download-file" disabled=""/.test(busy), "download disabled while that file is fetched");
+assert.ok(byAction(WorkspaceBrowserView({ ...viewProps, onClose: undefined }), "close-folder").length === 0, "no close button without onClose");
+
+// The shared file viewer (panel-chat FileViewer = ui-kit AfFileViewer + Markdown).
+const fv = renderToStaticMarkup(React.createElement(pc.FileViewer, { name: "plan.md", nowMs: NOW, status: "ready", text: "# Hello **world**", sizeBytes: 10, modified: new Date(NOW - 60_000).toISOString(), onDownload: () => {} }));
+assert.ok(fv.includes("<strong>world</strong>") && fv.includes("af-file-viewer__markdown"), "markdown rendered by panel-chat Markdown");
+assert.ok(fv.includes("1 min ago") && fv.includes('data-action="download-file"'), "size/date header + download");
+const ps = pc.filePreviewViewerProps({ status: "ready", kind: "text", contentType: "text/plain", text: "x", partial: true, total: 3 * 1024 * 1024 });
+assert.equal(ps.partialNote, "Showing the first 1 MiB of 3.0 MiB; download for the rest.");
+assert.deepEqual(pc.filePreviewViewerProps({ status: "error", kind: "pdf", message: "Preview failed (HTTP 404): gone" }), { status: "error", error: "Preview failed (HTTP 404): gone", kind: "pdf" });
+const img = pc.safeMarkdownImages("![a](img/x.png)\n![b](https://evil/x.png)\n```\n![c](y.png)\n```", "r1", "docs/p.md");
+assert.ok(img.includes("![a](api/gateway/runs/r1/workspace/content?path=docs%2Fimg%2Fx.png)"), "relative image → workspace content route");
+assert.ok(img.includes("[image: b](https://evil/x.png)"), "remote image → plain link");
+assert.ok(img.includes("![c](y.png)"), "fenced code untouched");
+{
+  const enc = new TextEncoder().encode("abcdefghij");
+  const r = new Response(new ReadableStream({ start(c) { c.enqueue(enc); c.close(); } }), { status: 206, headers: { "content-range": "bytes 0-3/10" } });
+  const read = await pc.readBoundedText(r, 4);
+  assert.deepEqual([read.text, read.received, read.total, read.partial], ["abcd", 4, 10, true], "bounded read stops at the limit");
+}
 
 // The stateful browser's first paint (effects run in a browser): loading, top folder.
 const first = renderToStaticMarkup(React.createElement(WorkspaceBrowser, { fetchGateway: gw, runId: "r1", title: "Automation files" }));
