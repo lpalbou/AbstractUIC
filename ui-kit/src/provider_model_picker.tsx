@@ -75,6 +75,10 @@ export type ProviderModelPickerProps = {
   allowCustom?: boolean;
 };
 
+/** What the user reads when the gateway cannot describe the selected model (the cause goes under Technical details). */
+export const PICKER_DISCOVERY_UNAVAILABLE = "Reasoning and MTP choices appear when the gateway can describe the selected model.";
+export const PICKER_REASONING_UNAVAILABLE = "Reasoning choices appear when the gateway can describe the selected model.";
+
 export function ProviderModelPicker(
   props: ProviderModelPickerProps,
 ): React.ReactElement {
@@ -233,7 +237,7 @@ export function ProviderModelPicker(
         if (alive)
           setReasoning({
             levels: [],
-            error: `Reasoning options unavailable: ${String(error?.message || error)}`,
+            error: String(error?.message || error),
             loading: false,
           });
       });
@@ -338,15 +342,21 @@ export function ProviderModelPicker(
           />
         </div>
       ) : null}
-      {showOptions && reasoning.error ? (
-        <div role="status" className="af-pmp__hint">
-          {reasoning.error}
-        </div>
-      ) : null}
       {showOptions && props.enableSpeculation ? <SpeculationSelect value={value.speculation} inheritLabel={inherit}
         onChange={speculation => props.onChange({ ...value, speculation })}
         capabilities={capabilityPayload} disabled={disabled} loading={reasoning.loading}
-        error={reasoning.error ? reasoning.error.replace("Reasoning options", "MTP options") : undefined} /> : null}
+        hideNote={Boolean(reasoning.error)} /> : null}
+      {showOptions && reasoning.error ? (
+        // One plain sentence for the user; the gateway's own cause stays available
+        // under Technical details (and in the console), never as the main text.
+        <div role="status" className="af-pmp__hint" data-discovery="unavailable">
+          {props.enableSpeculation ? PICKER_DISCOVERY_UNAVAILABLE : PICKER_REASONING_UNAVAILABLE}
+          <details className="af-pmp__details">
+            <summary>Technical details</summary>
+            <span>{reasoning.error}</span>
+          </details>
+        </div>
+      ) : null}
     </div>
   );
 }

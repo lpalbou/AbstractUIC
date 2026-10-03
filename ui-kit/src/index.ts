@@ -3,7 +3,7 @@ export { FONT_SCALES, HEADER_DENSITIES, applyTypography, getFontScaleSpec, getHe
 export { AF_BREAKPOINTS, AF_MEDIA, installViewportVars, useAfMedia, viewportVarsFrom, type AfVisualViewportSample } from "./responsive.js";
 export { AfSelect, type AfSelectProps, type AfSelectOption } from "./af_select.js";
 export { ProviderModelSelect, type ProviderModelSelectProps, type ProviderOption } from "./provider_model_select.js";
-export { ProviderModelPicker, type ProviderModelPickerProps, type ProviderModelPickerValue } from "./provider_model_picker.js";
+export { ProviderModelPicker, PICKER_DISCOVERY_UNAVAILABLE, PICKER_REASONING_UNAVAILABLE, type ProviderModelPickerProps, type ProviderModelPickerValue } from "./provider_model_picker.js";
 export { SpeculationSelect } from "./speculation_select.js";
 export { normalizeSpeculationValue, speculationCapability, speculationSelection, speculationFromSelection, type SpeculationValue, type SpeculationCapability } from "./speculation_control.js";
 export {

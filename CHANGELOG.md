@@ -18,6 +18,8 @@ ships.
 - ui-kit 0.6.0: `formatRelativeTime` / `formatExactTime` / `formatShortDate` / `timeValueMs` (deterministic); icons `cog` and `activity`; `AutomationReviseForm` exported, embeddable (`heading`, optional `onCancel`, `submitLabel`); `VoiceSettings` `quality` prop.
 - panel-chat 0.3.0 (unreleased): `FileViewer`, `useWorkspaceFilePreview`; `WorkspaceBrowser` previews a file in place (no "Open" button), rows show size, generated date and a download icon, the root shows once as a short name with Open folder / Copy path icons (`fileActions`, `onOpenFolder`, `copyText`); peer `@abstractframework/ui-kit` ^0.6.0.
 
+- ui-kit 0.6.0: `ProviderModelPicker` says one plain sentence when the gateway cannot describe the selected model (`PICKER_DISCOVERY_UNAVAILABLE`), the gateway's cause under **Technical details**; `SpeculationSelect` `hideNote`; an embedded `AutomationReviseForm` styles its own fields.
+
 ## 0.5.3 - 2026-10-03
 
 ### ui-kit 0.5.2

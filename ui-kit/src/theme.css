@@ -3592,6 +3592,9 @@
 .af-auto input:not([type="radio"]),
 .af-auto select,
 .af-auto textarea,
+.af-auto__revise input:not([type="radio"]):not([type="checkbox"]),
+.af-auto__revise select,
+.af-auto__revise textarea,
 .af-schedule input:not([type="radio"]),
 .af-schedule select,
 .af-schedule textarea {
@@ -3604,6 +3607,7 @@
   min-width: 0;
 }
 .af-auto input[type="number"],
+.af-auto__revise input[type="number"],
 .af-schedule input[type="number"] { width: 6em; }
 .af-auto__form-errors { margin: 0; padding-left: 18px; color: var(--error); }
 .af-auto__error {
@@ -4155,6 +4159,8 @@ html {
   .af-auto__btn,
   .af-auto input:not([type="radio"]):not([type="checkbox"]),
   .af-auto select,
+  .af-auto__revise input:not([type="radio"]):not([type="checkbox"]),
+  .af-auto__revise select,
   .af-schedule input:not([type="radio"]):not([type="checkbox"]),
   .af-schedule select,
   .af-disclosure__row,
@@ -4260,6 +4266,9 @@ html {
   .af-auto input:not([type="radio"]):not([type="checkbox"]),
   .af-auto select,
   .af-auto textarea,
+  .af-auto__revise input:not([type="radio"]):not([type="checkbox"]),
+  .af-auto__revise select,
+  .af-auto__revise textarea,
   .af-schedule input:not([type="radio"]):not([type="checkbox"]),
   .af-schedule select,
   .af-schedule textarea,
@@ -6005,6 +6014,9 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   flex-direction: column;
   gap: 4px;
 }
+.af-pmp__details { margin-top: 2px; }
+.af-pmp__details > summary { cursor: pointer; color: var(--text-muted); font-size: var(--font-size-xs); }
+.af-pmp__details > span { display: block; color: var(--text-muted); font-size: var(--font-size-xs); overflow-wrap: anywhere; }
 /* af-settings:end */
 
 /* af-file-viewer:begin — AfFileViewer + AfCodeBlock (0.6.0). */

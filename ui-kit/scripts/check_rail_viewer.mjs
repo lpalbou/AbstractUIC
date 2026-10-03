@@ -201,5 +201,14 @@ const eq = (name, got, want) => check(name, got === want, `got ${JSON.stringify(
   eq("standalone voice: cards", (cards.match(/class="af-settings-group"/g) || []).length, 3);
 }
 
+// ------------------------------------------------------------ adversary pass W4 (F1, F2)
+{
+  const css = readFileSync(join(root, "src", "theme.css"), "utf8");
+  const picker = readFileSync(join(root, "src", "provider_model_picker.tsx"), "utf8");
+  eq("F1: one plain sentence when the gateway cannot describe the model", kit.PICKER_DISCOVERY_UNAVAILABLE, "Reasoning and MTP choices appear when the gateway can describe the selected model.");
+  check("F1: the raw cause is only under Technical details", picker.includes("<summary>Technical details</summary>") && !picker.includes("options unavailable: ${") && picker.includes("hideNote={Boolean(reasoning.error)}"));
+  check("F2: an embedded Edit form styles its own fields (no native boxes outside the panel)", /\.af-auto__revise input:not\(\[type="radio"\]\):not\(\[type="checkbox"\]\),\s*\.af-auto__revise select,\s*\.af-auto__revise textarea,[^{]*\{[^}]*background: var\(--ui-overlay-bg\)/.test(css));
+}
+
 console.log(`check_rail_viewer: ${checks - failures}/${checks} checks passed`);
 if (failures) process.exit(1);

@@ -11,6 +11,8 @@ export function SpeculationSelect(props: {
   loading?: boolean;
   error?: string;
   inheritLabel?: string;
+  /** The host shows one shared note instead (e.g. discovery unavailable for reasoning AND MTP). */
+  hideNote?: boolean;
 }): React.ReactElement {
   const caps = speculationCapability(props.capabilities);
   const selected = speculationSelection(props.value);
@@ -36,6 +38,6 @@ export function SpeculationSelect(props: {
           ? [{ value: selected, label: `Depth ${selected} (saved; not available)` }] : []),
       ]}
       onChange={value => props.onChange(speculationFromSelection(value))} />
-    {note ? <div role="status" className="af-pmp__hint">{note}</div> : null}
+    {note && !props.hideNote ? <div role="status" className="af-pmp__hint">{note}</div> : null}
   </div>;
 }
