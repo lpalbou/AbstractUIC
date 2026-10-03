@@ -186,5 +186,20 @@ const eq = (name, got, want) => check(name, got === want, `got ${JSON.stringify(
   check("latency options = the Assistant's", VOICE_LATENCY_OPTIONS.map((o) => o.value).join(",") === ",standard,low,high" && VOICE_LATENCY_OPTIONS[0].label === "Gateway default");
 }
 
+// ------------------------------------------------------------ voice section layout
+{
+  const { AfVoiceSection } = kit;
+  const props = { value: {}, onChange: () => {}, fetchCatalog: async () => ({}), outputSelectable: false };
+  const nested = renderToStaticMarkup(h(AfVoiceSection, { ...props, nested: true }));
+  eq("nested voice: three flat sub-sections", (nested.match(/af-settings-group af-settings-group--flat/g) || []).length, 3);
+  check("nested voice: never a card in a card", !/class="af-settings-group"/.test(nested), nested);
+  for (const label of ["Text → speech", "Speech → text", "Output device", "Read aloud", "Voice latency"]) check(`voice row ${label}`, nested.includes(label), label);
+  check("voice: everything Gateway default until overridden", (nested.match(/Gateway default/g) || []).length >= 2 && !nested.includes("Use gateway default"), nested);
+  check("voice: read aloud is a real switch", /role="switch"[^>]*aria-checked="false"/.test(nested), nested);
+  check("voice: unselectable speaker says why", nested.includes("This browser plays on the system output."), nested);
+  const cards = renderToStaticMarkup(h(AfVoiceSection, props));
+  eq("standalone voice: cards", (cards.match(/class="af-settings-group"/g) || []).length, 3);
+}
+
 console.log(`check_rail_viewer: ${checks - failures}/${checks} checks passed`);
 if (failures) process.exit(1);

@@ -287,6 +287,8 @@ export {
 } from "./automations/panel_core.js";
 export {
   AutomationPanel,
+  AutomationReviseForm,
+  type AutomationReviseFormProps,
   AutomationStateLabel,
   CONTROL_ICONS,
   CONTROL_HINTS,

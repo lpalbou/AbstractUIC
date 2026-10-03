@@ -81,6 +81,8 @@ export type AfVoiceSectionProps = {
   listOutputDevices?: () => Promise<Array<{ id: string; label: string }>>;
   /** Speaker selection works here (default: `audioOutputSelectable()`). */
   outputSelectable?: boolean;
+  /** Inside a host card (e.g. a "Voice" settings group): sub-sections render flat, never a card in a card. */
+  nested?: boolean;
   className?: string;
 };
 
@@ -103,6 +105,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
   const [outputs, setOutputs] = useState<Array<{ id: string; label: string }>>([]);
   const selectable = p.outputSelectable ?? audioOutputSelectable();
   const value = p.value;
+  const flat = p.nested ? "flat" : "card";
   const update = (patch: Partial<VoiceClientPreferences>) => p.onChange({ ...value, ...patch });
 
   useEffect(() => {
@@ -144,7 +147,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
           {p.unavailableReason}
         </p>
       ) : null}
-      <AfSettingsGroup title="Engines" help="Which engines speak and listen.">
+      <AfSettingsGroup variant={flat} title="Engines" help="Which engines speak and listen.">
         <AfOverrideRow
           label="Text → speech"
           setting="tts"
@@ -194,10 +197,11 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
           />
         </AfOverrideRow>
       </AfSettingsGroup>
-      <AfSettingsGroup title="Output">
+      <AfSettingsGroup variant={flat} title="Output">
         <AfSettingRow label="Output device" setting="output-device" help={selectable ? undefined : "This browser plays on the system output."}>
           <AfSelect
             ariaLabel="Output device"
+            placeholder="System default"
             value={selectable ? savedOutput : ""}
             options={outputOptions}
             disabled={disabled || !selectable}
@@ -207,7 +211,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
           />
         </AfSettingRow>
       </AfSettingsGroup>
-      <AfSettingsGroup title="Replies">
+      <AfSettingsGroup variant={flat} title="Replies">
         <div className="af-setting-row af-setting-row--switch" data-setting="read-aloud">
           <AfSwitch
             label="Read aloud"
@@ -226,6 +230,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
         >
           <AfSelect
             ariaLabel="Voice latency"
+            placeholder="Gateway default"
             value={latencySupported ? value.quality_preset || "" : ""}
             options={VOICE_LATENCY_OPTIONS}
             disabled={disabled || !latencySupported}

@@ -18,13 +18,15 @@ export type AfSettingsGroupProps = {
   id?: string;
   /** Extra content at the right of the title (e.g. "Revision 4"). */
   aside?: React.ReactNode;
+  /** "card" (default) = a bordered card; "flat" = a titled sub-section inside another card (no card in a card). */
+  variant?: "card" | "flat";
 };
 
 export function AfSettingsGroup(p: AfSettingsGroupProps): React.ReactElement {
   const auto = useId();
   const titleId = `${p.id || auto}-title`;
   return (
-    <section className={`af-settings-group${p.className ? ` ${p.className}` : ""}`} aria-labelledby={titleId} id={p.id}>
+    <section className={`af-settings-group${p.variant === "flat" ? " af-settings-group--flat" : ""}${p.className ? ` ${p.className}` : ""}`} aria-labelledby={titleId} id={p.id}>
       <div className="af-settings-group__head">
         <h3 className="af-settings-group__title" id={titleId}>
           {p.title}

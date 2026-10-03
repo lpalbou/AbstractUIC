@@ -5850,6 +5850,23 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 .af-settings-group + .af-settings-group {
   margin-top: 12px;
 }
+.af-settings-group--flat {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.af-settings-group--flat + .af-settings-group--flat {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ui-border-1);
+}
+.af-settings-group--flat .af-settings-group__title {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
 .af-settings-group__head {
   display: flex;
   align-items: baseline;

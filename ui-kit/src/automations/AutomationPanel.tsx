@@ -678,7 +678,12 @@ export type AutomationReviseFormProps = {
   busy: boolean;
   errors: string[];
   onSubmit(form: ReviseForm): void;
-  onCancel(): void;
+  /** Absent = no Cancel button (a host that shows the form permanently, e.g. a Settings panel). */
+  onCancel?(): void;
+  /** The form heading (default "Edit automation"); null hides it (the host titles the card). */
+  heading?: string | null;
+  /** The submit label (default "Save changes"). */
+  submitLabel?: string;
   /** See `AutomationPanelProps.emailStatus`. */
   availableTools?: string[];
   emailStatus?: MyEmailStatus | null;
@@ -706,15 +711,21 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
         p.onSubmit({ ...readReviseForm(e.currentTarget, initial), ...(target ? { target } : {}), ...(p.availableTools !== undefined ? { tools: selectedTools } : {}) });
       }}
       onKeyDown={(e) => {
-        if (e.key === "Escape") {
+        if (e.key === "Escape" && p.onCancel) {
           e.preventDefault();
           p.onCancel();
         }
       }}
     >
-      <h3 className="af-auto__form-title" id={`${base}-heading`}>
-        <Icon name="edit" size={14} /> Edit automation
-      </h3>
+      {p.heading === null ? (
+        <span id={`${base}-heading`} hidden>
+          Edit automation
+        </span>
+      ) : (
+        <h3 className="af-auto__form-title" id={`${base}-heading`}>
+          <Icon name="edit" size={14} /> {p.heading ?? "Edit automation"}
+        </h3>
+      )}
       {p.definition && p.workflowPickerOptions ? <AutomationWorkflowPicker target={target || p.definition.target} options={p.workflowPickerOptions} onChange={setTarget} /> : null}
       <label className="af-auto__field" htmlFor={`${base}-title`}>
         <span>Title</span>
@@ -802,11 +813,13 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
       ) : null}
       <div className="af-auto__row">
         <button type="submit" className="af-auto__btn af-auto__btn--primary" data-action="edit-save" disabled={p.busy}>
-          <IconLabel icon="check" label="Save changes" />
+          <IconLabel icon="check" label={p.submitLabel ?? "Save changes"} />
         </button>
-        <button type="button" className="af-auto__btn" data-action="edit-cancel" onClick={p.onCancel}>
-          <IconLabel icon="x" label="Cancel" />
-        </button>
+        {p.onCancel ? (
+          <button type="button" className="af-auto__btn" data-action="edit-cancel" onClick={p.onCancel}>
+            <IconLabel icon="x" label="Cancel" />
+          </button>
+        ) : null}
       </div>
     </form>
   );
