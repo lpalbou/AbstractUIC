@@ -555,7 +555,7 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   returns `{cadence, last, next, line}` for a card or header, e.g.
   `every 24 h · last 3 h ago · next in 14 h` — compact units rounded down (`<1 min`, `N min`,
   `N h` below 48 h, `N d`), no year, no seconds, `last never` before the first run,
-  `running now` while an occurrence is in flight, no next part when nothing is scheduled.
+  `running now` while an occurrence executes, `waiting since 5 min` while it waits for an approval or answer, no next part when nothing is scheduled.
   Parts: `compactCadence()`, `lastRunText()`, `nextRunText()`, `compactDuration()`.
 - **Email** (pure): `emailUsable()`, `emailTriggerConfigFrom()` (`EmailTriggerForm`,
   `EmailAttachmentFilter`, `DEFAULT_EMAIL_TRIGGER_FORM`), `emailTriggerLabel()`,
