@@ -28,6 +28,7 @@ import { useGatewayVoice } from "../src/use_gateway_voice.js";
 import { ProviderModelPicker, type ProviderModelPickerProps } from "../src/provider_model_picker.js";
 import { VoiceSettings } from "../src/voice_settings.js";
 import { WorkspaceChooser, type WorkspaceChooserProps } from "../src/workspace_chooser.js";
+import { WORKSPACE_CHOOSER_TEXT } from "../src/workspace_chooser_core.js";
 // panel-chat's REAL chat (the one AbstractCode's workspace renders): ChatThread +
 // ChatComposer with the standard Attach control, drop zone and paste-to-attach.
 import { WorkflowChat } from "../../panel-chat/src/workflow_chat.js";
@@ -442,6 +443,9 @@ const api = {
   mountVoiceSettings,
   mountDocsAssistant,
   mountWorkspaceChooser,
+  // The chooser's ONE wording table (the console's gateway modal uses the same posture and
+  // permission words: Only allowed folders / Any folder except denied, Read-only / Read & write).
+  workspaceChooserText: WORKSPACE_CHOOSER_TEXT,
   bindModal,
   bindMenu,
   bindTooltips,
