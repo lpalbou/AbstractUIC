@@ -1,11 +1,19 @@
 // AfVoiceSection — the Assistant's Settings → Voice layout for web clients
-// (ui-kit 0.6.0), compact rows:
+// (ui-kit 0.6.0; devices, tests and the gateway's routes in 0.7.1), compact rows:
 //
-//   Engines   Text → speech   Gateway default · supertonic   [Change]
-//             Speech → text   Gateway default · whisper      [Change]
-//   Output    Output device   [System default ▾]
-//   Replies   Read aloud      (switch)
-//             Voice latency   [Gateway default ▾]
+//   Engines     Text → speech   Gateway default · supertonic / supertonic-3   [Change]
+//               Speech → text   Gateway default · faster-whisper / large-v3   [Change]
+//   Output      Output device   [System default ▾]   [Test]
+//               Reply volume    ───●── 80 %
+//   Microphone  Input device    [System default ▾]   [Test]   ▮▮▮▯▯ (live level)
+//               Input level     ───●── 100 %          (where Web Audio allows)
+//   Replies     Read aloud      (switch)
+//               Voice latency   [Gateway default ▾]
+//
+// "Gateway default · …" comes from ONE gateway answer, `fetchDefaults`
+// (`GET /api/gateway/voice/defaults` = the output.voice / input.voice routes),
+// never from the voice catalog: the catalog's engine-side `active_*` fields
+// said "openai" on a gateway routed to supertonic and faster-whisper.
 //
 // Everything is "Gateway default" until the user overrides it here; an
 // override is a client preference (the host stores it; the gateway's own
@@ -18,6 +26,19 @@ import { ProviderModelPicker } from "./provider_model_picker.js";
 import { AfOverrideRow, AfSettingRow, AfSettingsGroup } from "./af_settings_rows.js";
 import { VoiceSettings, type VoiceCatalog, type VoicePreferences } from "./voice_settings.js";
 import { audioOutputSelectable } from "./use_gateway_voice.js";
+import {
+  SILENT_LEVEL,
+  inputGainSupported,
+  listVoiceDevices,
+  microphoneErrorSentence,
+  playOnDevice,
+  playTestTone,
+  recordSample,
+  unlockDeviceLabels,
+  voiceDefaultSummary,
+  type VoiceDefaults,
+  type VoiceDevice,
+} from "./voice_devices.js";
 
 /** Client voice preferences: the TTS request fields plus STT route, speaker and read-aloud. */
 export type VoiceClientPreferences = VoicePreferences & {
@@ -27,6 +48,12 @@ export type VoiceClientPreferences = VoicePreferences & {
   output_device?: string;
   /** Speak each new reply automatically. */
   read_aloud?: boolean;
+  /** `MediaDeviceInfo.deviceId` of the microphone; "" = system default. */
+  input_device?: string;
+  /** Input gain for recordings (1 = unchanged). */
+  input_gain?: number;
+  /** Reply volume 0..1 (absent = 1). */
+  reply_volume?: number;
 };
 
 const TTS_KEYS = ["provider", "model", "voice", "profile", "speed", "quality_preset", "instructions"] as const;
@@ -71,14 +98,21 @@ const names = (value: unknown): string[] =>
 export type AfVoiceSectionProps = {
   value: VoiceClientPreferences;
   onChange: (next: VoiceClientPreferences) => void;
-  /** The gateway voice catalog (`GET voice/voices?compact=true[&provider&model]`). */
+  /** The gateway voice catalog (`GET voice/voices?compact=true[&provider&model]`) — engines, models and voices to pick from. */
   fetchCatalog: (provider?: string, model?: string) => Promise<VoiceCatalog>;
+  /**
+   * The gateway's default voice routes (`GET voice/defaults`): what
+   * "Gateway default · …" names. Required — there is no other source.
+   */
+  fetchDefaults: () => Promise<VoiceDefaults>;
+  /** Defaults the host already holds (the same `voice/defaults` body); given = no fetch. */
+  defaults?: VoiceDefaults | null;
   /** Whose override this is ("this app"). */
   overrideOwner?: string;
   /** Why voice cannot be configured now (disconnected…); disables every control. */
   unavailableReason?: string | null;
-  /** Speakers (default: `navigator.mediaDevices.enumerateDevices()` audio outputs). */
-  listOutputDevices?: () => Promise<Array<{ id: string; label: string }>>;
+  /** Devices of a kind (default: `navigator.mediaDevices.enumerateDevices()`). */
+  listDevices?: (kind: "audioinput" | "audiooutput") => Promise<{ devices: VoiceDevice[]; labelled: boolean }>;
   /** Speaker selection works here (default: `audioOutputSelectable()`). */
   outputSelectable?: boolean;
   /** Inside a host card (e.g. a "Voice" settings group): sub-sections render flat, never a card in a card. */
@@ -86,27 +120,35 @@ export type AfVoiceSectionProps = {
   className?: string;
 };
 
-async function browserOutputs(): Promise<Array<{ id: string; label: string }>> {
-  const md: any = (globalThis as any).navigator?.mediaDevices;
-  if (!md || typeof md.enumerateDevices !== "function") return [];
-  const list: any[] = await md.enumerateDevices();
-  return list
-    .filter((d) => d.kind === "audiooutput" && d.deviceId && d.deviceId !== "default")
-    .map((d, i) => ({ id: String(d.deviceId), label: String(d.label || `Speaker ${i + 1}`) }));
-}
+type MicTest = { phase: "idle" | "recording" | "playing"; message: string; tone: "info" | "ok" | "error" };
+
+const percent = (v: number) => `${Math.round(v * 100)} %`;
 
 export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
   const owner = p.overrideOwner || "this app";
   const disabled = Boolean(p.unavailableReason);
   const fetcher = useRef(p.fetchCatalog);
   fetcher.current = p.fetchCatalog;
+  const defaultsFetcher = useRef(p.fetchDefaults);
+  defaultsFetcher.current = p.fetchDefaults;
   const [catalog, setCatalog] = useState<VoiceCatalog>({});
+  const [fetchedDefaults, setDefaults] = useState<{ value: VoiceDefaults | null; failed: boolean }>({ value: null, failed: false });
+  const defaults = p.defaults !== undefined ? { value: p.defaults, failed: false } : fetchedDefaults;
+  const hostDefaults = p.defaults !== undefined;
   const [open, setOpen] = useState<"" | "tts" | "stt">("");
-  const [outputs, setOutputs] = useState<Array<{ id: string; label: string }>>([]);
+  const [outputs, setOutputs] = useState<{ devices: VoiceDevice[]; labelled: boolean }>({ devices: [], labelled: true });
+  const [inputs, setInputs] = useState<{ devices: VoiceDevice[]; labelled: boolean }>({ devices: [], labelled: true });
+  const [deviceNote, setDeviceNote] = useState("");
+  const [speakerNote, setSpeakerNote] = useState<{ text: string; tone: "info" | "ok" | "error" }>({ text: "", tone: "info" });
+  const [micTest, setMicTest] = useState<MicTest>({ phase: "idle", message: "", tone: "info" });
+  const [level, setLevel] = useState(0);
   const selectable = p.outputSelectable ?? audioOutputSelectable();
+  const gainSupported = inputGainSupported();
   const value = p.value;
   const flat = p.nested ? "flat" : "card";
   const update = (patch: Partial<VoiceClientPreferences>) => p.onChange({ ...value, ...patch });
+  const volume = value.reply_volume === undefined ? 1 : Math.min(1, Math.max(0, Number(value.reply_volume) || 0));
+  const gain = value.input_gain === undefined ? 1 : Math.min(2, Math.max(0.5, Number(value.input_gain) || 1));
 
   useEffect(() => {
     if (disabled) return;
@@ -115,30 +157,74 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
       .current()
       .then((c) => alive && setCatalog(c || {}))
       .catch(() => alive && setCatalog({}));
+    if (!hostDefaults)
+      void defaultsFetcher
+        .current()
+        .then((d) => alive && setDefaults({ value: d || {}, failed: false }))
+        .catch(() => alive && setDefaults({ value: null, failed: true }));
     return () => {
       alive = false;
     };
-  }, [disabled]);
+  }, [disabled, hostDefaults]);
 
-  const loadOutputs = () => {
-    void (p.listOutputDevices || browserOutputs)()
-      .then(setOutputs)
-      .catch(() => setOutputs([]));
+  const lister = p.listDevices || listVoiceDevices;
+  const loadDevices = () => {
+    if (selectable) void lister("audiooutput").then(setOutputs).catch(() => setOutputs({ devices: [], labelled: false }));
+    void lister("audioinput").then(setInputs).catch(() => setInputs({ devices: [], labelled: false }));
   };
   useEffect(() => {
-    if (selectable && !disabled) loadOutputs();
+    if (!disabled) loadDevices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectable, disabled]);
 
-  const ttsDefault = String(catalog.active_tts_provider || "") || names(catalog.tts_providers)[0] || "";
-  const sttDefault = String(catalog.active_stt_provider || "") || names(catalog.stt_providers)[0] || "";
+  const showNames = () => {
+    setDeviceNote("");
+    void unlockDeviceLabels()
+      .then(loadDevices)
+      .catch((e) => setDeviceNote(microphoneErrorSentence(e)));
+  };
+
+  const testSpeaker = () => {
+    setSpeakerNote({ text: "Playing a short chime…", tone: "info" });
+    void playTestTone({ deviceId: selectable ? value.output_device || "" : "", volume })
+      .then(() => setSpeakerNote({ text: "Chime played. Heard nothing? Pick another output or raise the volume.", tone: "ok" }))
+      .catch((e) => setSpeakerNote({ text: `The speaker test failed: ${String(e?.message || e).replace(/\.$/, "")}.`, tone: "error" }));
+  };
+
+  const testMicrophone = () => {
+    setMicTest({ phase: "recording", message: "Recording 3 seconds — say something.", tone: "info" });
+    void recordSample({ deviceId: value.input_device || "", ms: 3000, gain, onLevel: setLevel })
+      .then(async ({ blob, peak }) => {
+        if (peak < SILENT_LEVEL) {
+          setMicTest({ phase: "idle", message: "The microphone recorded silence. Pick another input, or raise its level in the system sound settings.", tone: "error" });
+          return;
+        }
+        setMicTest({ phase: "playing", message: "Playing it back…", tone: "info" });
+        await playOnDevice(blob, { deviceId: selectable ? value.output_device || "" : "", volume });
+        setMicTest({ phase: "idle", message: `The microphone works (peak level ${percent(peak)}).`, tone: "ok" });
+        loadDevices();
+      })
+      .catch((e) => setMicTest({ phase: "idle", message: microphoneErrorSentence(e), tone: "error" }));
+  };
+
+  const ttsDefault = voiceDefaultSummary(defaults.value, "tts", defaults.failed);
+  const sttDefault = voiceDefaultSummary(defaults.value, "stt", defaults.failed);
+  const notes = [defaults.value?.tts, defaults.value?.stt].map((e) => (e && !e.configured ? e.note : "")).filter(Boolean);
   const latencySupported = Boolean(catalog.controls?.quality_preset?.supported);
   const savedOutput = value.output_device || "";
   const outputOptions = [
     { value: "", label: "System default" },
-    ...outputs.map((o) => ({ value: o.id, label: o.label })),
-    ...(savedOutput && !outputs.some((o) => o.id === savedOutput) ? [{ value: savedOutput, label: "Saved speaker (not connected)" }] : []),
+    ...outputs.devices.map((o) => ({ value: o.id, label: o.label })),
+    ...(savedOutput && !outputs.devices.some((o) => o.id === savedOutput) ? [{ value: savedOutput, label: "Saved speaker (not connected)" }] : []),
   ];
+  const savedInput = value.input_device || "";
+  const inputOptions = [
+    { value: "", label: "System default" },
+    ...inputs.devices.map((o) => ({ value: o.id, label: o.label })),
+    ...(savedInput && !inputs.devices.some((o) => o.id === savedInput) ? [{ value: savedInput, label: "Saved microphone (not connected)" }] : []),
+  ];
+  const unlabelled = !inputs.labelled || (selectable && !outputs.labelled);
+  const busy = micTest.phase !== "idle";
 
   return (
     <div className={`af-voice-section${p.className ? ` ${p.className}` : ""}`}>
@@ -196,9 +282,28 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
             modelLabel="Transcription model"
           />
         </AfOverrideRow>
+        {defaults.failed ? (
+          <p className="af-settings-group__help" data-voice-note="defaults" role="status">
+            The gateway's default voice routes could not be read. Requests still use them.
+          </p>
+        ) : null}
+        {notes.map((note) => (
+          <p key={note} className="af-settings-group__help" data-voice-note="unset">
+            {note}
+          </p>
+        ))}
       </AfSettingsGroup>
       <AfSettingsGroup variant={flat} title="Output">
-        <AfSettingRow label="Output device" setting="output-device" help={selectable ? undefined : "This browser plays on the system output."}>
+        <AfSettingRow
+          label="Output device"
+          setting="output-device"
+          help={selectable ? undefined : "This browser (Safari) cannot choose a speaker: replies play on the system output. Change it in the system sound settings."}
+          trailing={
+            <button type="button" className="af-setting-btn" data-action="test-speaker" disabled={disabled} onClick={testSpeaker}>
+              Test
+            </button>
+          }
+        >
           <AfSelect
             ariaLabel="Output device"
             placeholder="System default"
@@ -206,10 +311,90 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
             options={outputOptions}
             disabled={disabled || !selectable}
             searchable={false}
-            onOpen={loadOutputs}
+            onOpen={loadDevices}
             onChange={(id) => update({ output_device: id })}
           />
         </AfSettingRow>
+        {speakerNote.text ? (
+          <p className={`af-voice-note af-voice-note--${speakerNote.tone}`} role="status" data-voice-note="speaker">
+            {speakerNote.text}
+          </p>
+        ) : null}
+        <AfSettingRow label="Reply volume" setting="reply-volume" htmlFor="af-voice-volume">
+          <input
+            id="af-voice-volume"
+            className="af-voice-range"
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={Math.round(volume * 100)}
+            disabled={disabled}
+            aria-valuetext={percent(volume)}
+            onChange={(e) => update({ reply_volume: Number(e.currentTarget.value) / 100 })}
+          />
+          <span className="af-voice-range__value">{percent(volume)}</span>
+        </AfSettingRow>
+      </AfSettingsGroup>
+      <AfSettingsGroup variant={flat} title="Microphone">
+        <AfSettingRow
+          label="Input device"
+          setting="input-device"
+          trailing={
+            <button type="button" className="af-setting-btn" data-action="test-microphone" disabled={disabled || busy} onClick={testMicrophone}>
+              {micTest.phase === "recording" ? "Recording…" : micTest.phase === "playing" ? "Playing…" : "Test"}
+            </button>
+          }
+        >
+          <AfSelect
+            ariaLabel="Input device"
+            placeholder="System default"
+            value={savedInput}
+            options={inputOptions}
+            disabled={disabled}
+            searchable={false}
+            onOpen={loadDevices}
+            onChange={(id) => update({ input_device: id })}
+          />
+        </AfSettingRow>
+        <div className="af-voice-meter" data-voice-meter role="meter" aria-label="Microphone level" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level * 100)}>
+          <span className="af-voice-meter__fill" style={{ width: `${Math.round(level * 100)}%` }} />
+        </div>
+        {micTest.message ? (
+          <p className={`af-voice-note af-voice-note--${micTest.tone}`} role="status" data-voice-note="microphone">
+            {micTest.message}
+          </p>
+        ) : null}
+        {unlabelled && !disabled ? (
+          <p className="af-voice-note" data-voice-note="labels">
+            Device names appear once the microphone is allowed.{" "}
+            <button type="button" className="af-setting-btn af-setting-btn--quiet" data-action="show-device-names" onClick={showNames}>
+              Show names
+            </button>
+          </p>
+        ) : null}
+        {deviceNote ? (
+          <p className="af-voice-note af-voice-note--error" role="status">
+            {deviceNote}
+          </p>
+        ) : null}
+        {gainSupported ? (
+          <AfSettingRow label="Input level" setting="input-gain" htmlFor="af-voice-gain" help="Raises a quiet microphone.">
+            <input
+              id="af-voice-gain"
+              className="af-voice-range"
+              type="range"
+              min={50}
+              max={200}
+              step={10}
+              value={Math.round(gain * 100)}
+              disabled={disabled}
+              aria-valuetext={percent(gain)}
+              onChange={(e) => update({ input_gain: Number(e.currentTarget.value) / 100 })}
+            />
+            <span className="af-voice-range__value">{percent(gain)}</span>
+          </AfSettingRow>
+        ) : null}
       </AfSettingsGroup>
       <AfSettingsGroup variant={flat} title="Replies">
         <div className="af-setting-row af-setting-row--switch" data-setting="read-aloud">

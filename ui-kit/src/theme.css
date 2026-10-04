@@ -6174,6 +6174,44 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   flex-direction: column;
   gap: 4px;
 }
+/* 0.7.1: devices, tests, level meter, sliders. */
+.af-voice-note {
+  margin: 0 0 6px;
+  padding: 2px 0 2px 8px;
+  border-left: 3px solid var(--ui-border-1);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+.af-voice-note--ok { border-left-color: var(--success); color: var(--text-primary); }
+.af-voice-note--error { border-left-color: var(--error); color: var(--text-primary); }
+.af-voice-meter {
+  position: relative;
+  height: 6px;
+  margin: 2px 0 8px;
+  border-radius: 3px;
+  background: var(--ui-surface-2);
+  overflow: hidden;
+}
+.af-voice-meter__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--success);
+  transition: width 60ms linear;
+}
+.af-voice-range {
+  flex: 1 1 120px;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+.af-voice-range__value {
+  flex: 0 0 auto;
+  min-width: 4ch;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
 .af-pmp__details { margin-top: 2px; }
 .af-pmp__details > summary { cursor: pointer; color: var(--text-muted); font-size: var(--font-size-xs); }
 .af-pmp__details > span { display: block; color: var(--text-muted); font-size: var(--font-size-xs); overflow-wrap: anywhere; }

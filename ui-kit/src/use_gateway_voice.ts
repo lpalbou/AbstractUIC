@@ -36,6 +36,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { insecureContextReason } from "./random_id.js";
+import { clampVolume, inputGainSupported, microphoneErrorSentence, openMicrophone } from "./voice_devices.js";
 
 export type TtsPlaybackStatus = "idle" | "loading" | "playing" | "paused";
 
@@ -46,6 +47,16 @@ export type GatewayVoiceOptions = {
    * browser supports it (`audioOutputSelectable()`); ignored elsewhere.
    */
   output_device_id?: string;
+  /** Reply volume 0..1 (absent = 1), applied to every spoken reply. */
+  volume?: number;
+  /**
+   * Microphone to record from (a `MediaDeviceInfo.deviceId` of kind
+   * "audioinput"; "" = the system default). A saved device that is gone fails
+   * with a sentence — the hook never records from another microphone silently.
+   */
+  input_device_id?: string;
+  /** Input gain applied to recordings (1 = unchanged; needs Web Audio). */
+  input_gain?: number;
   /** Synthesize text to audio bytes (absent = TTS unsupported). */
   tts?: (text: string) => Promise<ArrayBuffer>;
   /**
@@ -57,11 +68,17 @@ export type GatewayVoiceOptions = {
    * ready-made transport for the gateway endpoint.
    */
   tts_stream?: (text: string, signal?: AbortSignal) => AsyncIterable<ArrayBuffer>;
-  /** Transcribe a recorded blob to text (absent = PTT unsupported). */
-  transcribe?: (blob: Blob, mime: string) => Promise<string>;
+  /**
+   * Transcribe a recorded blob (absent = PTT unsupported). Returns the text,
+   * or the text with the route that ran (shown beside the transcript).
+   */
+  transcribe?: (blob: Blob, mime: string) => Promise<string | VoiceTranscription>;
   on_error?: (message: string) => void;
-  on_transcript?: (text: string) => void;
+  on_transcript?: (text: string, info?: VoiceTranscription) => void;
 };
+
+/** A transcription result with the route that ran (`provider`/`model` from the gateway response). */
+export type VoiceTranscription = { text: string; provider?: string | null; model?: string | null };
 
 /**
  * Transport helper for the gateway streaming TTS endpoint
@@ -149,7 +166,18 @@ export type GatewayVoice = {
   stop_voice_ptt_recording: () => void;
   /** Discard recording / pending permission / transcription on owner changes. */
   cancel_voice_ptt_recording?: () => void;
+  /** When the current recording or transcription began (ms epoch; 0 = idle) — for "Transcribing… 12 s". */
+  voice_ptt_since: number;
 };
+
+/** "Prefix: detail." — every voice failure reaches the user as one sentence. */
+export function voiceErrorSentence(prefix: string, e: unknown): string {
+  const detail = String((e as any)?.message || e || "").trim().replace(/\.$/, "");
+  return detail ? `${prefix}: ${detail}.` : `${prefix}.`;
+}
+
+/** A recording shorter than this carries no speech: say so instead of sending it. */
+export const MIN_RECORDING_MS = 350;
 
 function supportsMediaRecorder(): boolean {
   if (typeof window === "undefined") return false;
@@ -314,6 +342,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       const gain = tts_gain_ref.current;
       if (!ctx || !gain) return null;
       apply_sink(ctx, opts_ref.current.output_device_id || "");
+      gain.gain.value = clampVolume(opts_ref.current.volume);
       try {
         if (ctx.state === "suspended") void ctx.resume();
       } catch {
@@ -475,7 +504,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   const start_tts_stream = async (key: string, text: string, streamFn: NonNullable<GatewayVoiceOptions["tts_stream"]>): Promise<void> => {
     const engine = ensure_tts_webaudio();
     if (!engine) {
-      set_error?.("TTS playback is not supported in this browser.");
+      set_error?.("This browser cannot play spoken replies.");
       return;
     }
     stop_tts_source();
@@ -525,7 +554,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       if (gen !== tts_stream_gen_ref.current) return;
       tts_stream_done_ref.current = true;
       if (tts_segments_ref.current.length === 0) {
-        set_error?.("TTS stream produced no audio.");
+        set_error?.("Reading aloud failed: the voice engine returned no audio.");
         stop_tts();
         return;
       }
@@ -534,7 +563,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       if (!tts_source_ref.current && !tts_paused_ref.current) start_stream_segment(key, gen);
     } catch (e: any) {
       if (gen !== tts_stream_gen_ref.current) return;
-      set_error?.(String(e?.message || e || "TTS stream failed"));
+      set_error?.(voiceErrorSentence("Reading aloud failed", e));
       stop_tts();
     } finally {
       if (tts_stream_abort_ref.current === streamAbort) tts_stream_abort_ref.current = null;
@@ -552,13 +581,13 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     const tts = opts_ref.current.tts;
     const tts_stream = opts_ref.current.tts_stream;
     if (typeof tts !== "function" && typeof tts_stream !== "function") {
-      set_error?.("TTS is not available.");
+      set_error?.("Reading aloud is not available on this gateway.");
       return;
     }
 
     const engine = ensure_tts_webaudio();
     if (!engine) {
-      set_error?.("TTS playback is not supported in this browser.");
+      set_error?.("This browser cannot play spoken replies.");
       return;
     }
 
@@ -602,7 +631,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
         try {
           await start_tts_playback(key, buffer, tts_offset_ref.current);
         } catch (e: any) {
-          set_error?.(String(e?.message || e || "TTS play failed"));
+          set_error?.(voiceErrorSentence("Reading aloud failed", e));
           apply_tts_playback({ key: "", status: "idle" });
         }
         return;
@@ -656,7 +685,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
         tts_key_ref.current = "";
         apply_tts_playback({ key: "", status: "idle" });
       }
-      set_error?.(String(e?.message || e || "TTS failed"));
+      set_error?.(voiceErrorSentence("Reading aloud failed", e));
     }
   }, []);
 
@@ -682,6 +711,9 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   const voice_ptt_mime_ref = useRef<string>("");
   const voice_ptt_generation = useRef(0);
   const voice_ptt_start_pending = useRef(false);
+  const [voice_ptt_since, set_voice_ptt_since] = useState(0);
+  const voice_ptt_started_ms = useRef(0);
+  const voice_ptt_gain_ctx = useRef<AudioContext | null>(null);
 
   function stop_voice_ptt_tracks(): void {
     try {
@@ -696,6 +728,13 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       // ignore
     }
     voice_ptt_stream_ref.current = null;
+    const gainCtx = voice_ptt_gain_ctx.current;
+    voice_ptt_gain_ctx.current = null;
+    try {
+      void gainCtx?.close();
+    } catch {
+      // ignore
+    }
   }
 
   const cancel_voice_ptt_recording = useCallback(() => {
@@ -706,31 +745,45 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     voice_ptt_recorder_ref.current = null;
     stop_voice_ptt_tracks(); apply_recording(false);
     voice_ptt_busy_ref.current = false; set_voice_ptt_busy(false);
+    set_voice_ptt_since(0);
     voice_ptt_chunks_ref.current = [];
   }, [apply_recording]);
   useEffect(() => () => cancel_voice_ptt_recording(), [cancel_voice_ptt_recording]);
 
   async function transcribe_voice_blob(blob: Blob, mime: string): Promise<void> {
     set_error?.("");
-    if (!blob || !blob.size) return;
     if (voice_ptt_busy_ref.current) return;
+    const held_ms = voice_ptt_started_ms.current ? Date.now() - voice_ptt_started_ms.current : Infinity;
+    if (!blob || !blob.size || held_ms < MIN_RECORDING_MS) {
+      set_voice_ptt_since(0);
+      set_error?.("The recording was too short. Hold the microphone button while you speak, or tap it once to start and again to stop.");
+      return;
+    }
 
     const transcribe = opts_ref.current.transcribe;
     if (typeof transcribe !== "function") {
-      set_error?.("Transcription is not available.");
+      set_error?.("Speech to text is not available on this gateway.");
       return;
     }
 
     voice_ptt_busy_ref.current = true;
     const generation = voice_ptt_generation.current;
     set_voice_ptt_busy(true);
+    set_voice_ptt_since(Date.now());
     try {
-      const text = String((await transcribe(blob, mime)) || "").trim();
-      if (generation === voice_ptt_generation.current && text) opts_ref.current.on_transcript?.(text);
+      const result = await transcribe(blob, mime);
+      const info: VoiceTranscription = typeof result === "string" || !result ? { text: String(result || "") } : result;
+      const text = String(info.text || "").trim();
+      if (generation !== voice_ptt_generation.current) return;
+      if (text) opts_ref.current.on_transcript?.(text, { ...info, text });
+      else set_error?.("Nothing was heard. Check the microphone in Settings → Voice (Test), then try again.");
     } catch (e: any) {
-      if (generation === voice_ptt_generation.current) set_error?.(String(e?.message || e || "Transcription failed"));
+      if (generation === voice_ptt_generation.current) {
+        const detail = String(e?.message || e || "").trim().replace(/\.$/, "");
+        set_error?.(detail ? `Transcription failed: ${detail}.` : "Transcription failed.");
+      }
     } finally {
-      if (generation === voice_ptt_generation.current) { voice_ptt_busy_ref.current = false; set_voice_ptt_busy(false); }
+      if (generation === voice_ptt_generation.current) { voice_ptt_busy_ref.current = false; set_voice_ptt_busy(false); set_voice_ptt_since(0); }
     }
   }
 
@@ -750,13 +803,27 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     voice_ptt_start_pending.current = true;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await openMicrophone(opts_ref.current.input_device_id || "");
       if (generation !== voice_ptt_generation.current) { stream.getTracks().forEach((track) => track.stop()); return; }
       voice_ptt_stream_ref.current = stream;
       const mime = chooseVoiceMime();
       voice_ptt_mime_ref.current = mime;
+      // Input gain: record the stream through a Web Audio gain node.
+      let recorded: MediaStream = stream;
+      const input_gain = Number(opts_ref.current.input_gain ?? 1);
+      if (Number.isFinite(input_gain) && input_gain > 0 && input_gain !== 1 && inputGainSupported()) {
+        const C: any = (globalThis as any).AudioContext || (globalThis as any).webkitAudioContext;
+        const ctx: AudioContext = new C();
+        const g = ctx.createGain();
+        g.gain.value = input_gain;
+        const dest = ctx.createMediaStreamDestination();
+        ctx.createMediaStreamSource(stream).connect(g);
+        g.connect(dest);
+        voice_ptt_gain_ctx.current = ctx;
+        recorded = dest.stream;
+      }
 
-      const rec: MediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      const rec: MediaRecorder = mime ? new MediaRecorder(recorded, { mimeType: mime }) : new MediaRecorder(recorded);
       voice_ptt_recorder_ref.current = rec;
       rec.ondataavailable = (ev: any) => {
         if (generation !== voice_ptt_generation.current) return;
@@ -768,7 +835,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       };
       rec.onerror = () => {
         if (generation !== voice_ptt_generation.current) return;
-        set_error?.("Recording failed.");
+        set_error?.("Recording failed. Try again, or pick another microphone in Settings → Voice.");
       };
       rec.onstop = () => {
         if (generation !== voice_ptt_generation.current) return;
@@ -779,19 +846,21 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
           const b = new Blob(voice_ptt_chunks_ref.current, { type: voice_ptt_mime_ref.current || "" });
           void transcribe_voice_blob(b, voice_ptt_mime_ref.current);
         } catch (e: any) {
-          set_error?.(String(e?.message || e || "Failed to build recording"));
+          set_error?.(voiceErrorSentence("The recording could not be prepared", e));
         }
       };
 
       rec.start();
+      voice_ptt_started_ms.current = Date.now();
+      set_voice_ptt_since(voice_ptt_started_ms.current);
       apply_recording(true);
     } catch (e: any) {
       if (generation !== voice_ptt_generation.current) return;
       stop_voice_ptt_tracks();
       voice_ptt_recorder_ref.current = null;
       apply_recording(false);
-      const msg = String(e?.message || e || "Failed to access microphone");
-      set_error?.(msg.toLowerCase().includes("permission") ? `Microphone permission denied: ${msg}` : msg);
+      set_voice_ptt_since(0);
+      set_error?.(microphoneErrorSentence(e));
     } finally {
       if (generation === voice_ptt_generation.current) voice_ptt_start_pending.current = false;
     }
@@ -807,7 +876,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     try {
       rec.stop();
     } catch (e: any) {
-      set_error?.(String(e?.message || e || "Failed to stop recording"));
+      set_error?.(voiceErrorSentence("The recording could not stop", e));
     }
   }, []);
 
@@ -834,6 +903,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     start_voice_ptt_recording,
     stop_voice_ptt_recording,
     cancel_voice_ptt_recording,
+    voice_ptt_since,
   };
 }
 

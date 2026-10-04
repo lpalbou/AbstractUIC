@@ -115,7 +115,7 @@ export {
   type AppearanceSettings,
   type AfAppearanceDialogProps,
 } from "./appearance.js";
-export { useGatewayVoice, streamTtsJsonl, type GatewayVoice, type GatewayVoiceOptions, type TtsPlaybackStatus } from "./use_gateway_voice.js";
+export { useGatewayVoice, streamTtsJsonl, voiceErrorSentence, MIN_RECORDING_MS, type GatewayVoice, type GatewayVoiceOptions, type TtsPlaybackStatus, type VoiceTranscription } from "./use_gateway_voice.js";
 export { AfPhaseRadio, type AfPhaseRadioProps, type AfPhaseSlot } from "./af_phase_radio.js";
 export { AfCognitionBloom, type AfCognitionBloomProps } from "./af_cognition_bloom.js";
 export { AfConductGauge, type AfConductGaugeProps } from "./af_conduct_gauge.js";
@@ -384,3 +384,25 @@ export { formatRelativeTime, formatExactTime, formatShortDate, timeValueMs } fro
 export { audioOutputSelectable } from "./use_gateway_voice.js";
 // ui-kit 0.7.0 (round 5): the shared waveform audio player (AfFileViewer plays audio with it).
 export { AfAudioPlayer, AUDIO_WAVEFORM_BARS, audioPeaks, audioSeekTime, formatAudioTime, type AfAudioPlayerProps } from "./af_audio_player.js";
+// ui-kit 0.7.1 (round 6): the gateway's voice routes + devices, tests, level meter.
+export {
+  voiceDefaultSummary,
+  voiceRouteText,
+  sttRouteText,
+  transcribingLine,
+  elapsedSeconds,
+  microphoneErrorSentence,
+  listVoiceDevices,
+  unlockDeviceLabels,
+  openMicrophone,
+  watchLevel,
+  recordSample,
+  playOnDevice,
+  playTestTone,
+  inputGainSupported,
+  clampVolume,
+  SILENT_LEVEL,
+  type VoiceDefaults,
+  type VoiceRouteDefault,
+  type VoiceDevice,
+} from "./voice_devices.js";

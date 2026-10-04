@@ -189,16 +189,17 @@ const eq = (name, got, want) => check(name, got === want, `got ${JSON.stringify(
 // ------------------------------------------------------------ voice section layout
 {
   const { AfVoiceSection } = kit;
-  const props = { value: {}, onChange: () => {}, fetchCatalog: async () => ({}), outputSelectable: false };
+  const props = { value: {}, onChange: () => {}, fetchCatalog: async () => ({}), fetchDefaults: async () => ({}), outputSelectable: false };
   const nested = renderToStaticMarkup(h(AfVoiceSection, { ...props, nested: true }));
-  eq("nested voice: three flat sub-sections", (nested.match(/af-settings-group af-settings-group--flat/g) || []).length, 3);
+  // 0.7.1: Engines, Output, Microphone, Replies.
+  eq("nested voice: four flat sub-sections", (nested.match(/af-settings-group af-settings-group--flat/g) || []).length, 4);
   check("nested voice: never a card in a card", !/class="af-settings-group"/.test(nested), nested);
-  for (const label of ["Text → speech", "Speech → text", "Output device", "Read aloud", "Voice latency"]) check(`voice row ${label}`, nested.includes(label), label);
+  for (const label of ["Text → speech", "Speech → text", "Output device", "Reply volume", "Input device", "Read aloud", "Voice latency"]) check(`voice row ${label}`, nested.includes(label), label);
   check("voice: everything Gateway default until overridden", (nested.match(/Gateway default/g) || []).length >= 2 && !nested.includes("Use gateway default"), nested);
   check("voice: read aloud is a real switch", /role="switch"[^>]*aria-checked="false"/.test(nested), nested);
-  check("voice: unselectable speaker says why", nested.includes("This browser plays on the system output."), nested);
+  check("voice: unselectable speaker says why", nested.includes("cannot choose a speaker: replies play on the system output."), nested);
   const cards = renderToStaticMarkup(h(AfVoiceSection, props));
-  eq("standalone voice: cards", (cards.match(/class="af-settings-group"/g) || []).length, 3);
+  eq("standalone voice: cards", (cards.match(/class="af-settings-group"/g) || []).length, 4);
 }
 
 // ------------------------------------------------------------ adversary pass W4 (F1, F2)
