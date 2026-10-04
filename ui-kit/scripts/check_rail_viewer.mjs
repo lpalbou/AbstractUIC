@@ -197,7 +197,7 @@ const eq = (name, got, want) => check(name, got === want, `got ${JSON.stringify(
   for (const label of ["Text → speech", "Speech → text", "Output device", "Reply volume", "Input device", "Read aloud", "Voice latency"]) check(`voice row ${label}`, nested.includes(label), label);
   check("voice: everything Gateway default until overridden", (nested.match(/Gateway default/g) || []).length >= 2 && !nested.includes("Use gateway default"), nested);
   check("voice: read aloud is a real switch", /role="switch"[^>]*aria-checked="false"/.test(nested), nested);
-  check("voice: unselectable speaker says why", nested.includes("cannot choose a speaker: replies play on the system output."), nested);
+  check("voice: unselectable speaker says why", nested.includes("Safari does not let a page choose the output device"), nested);
   const cards = renderToStaticMarkup(h(AfVoiceSection, props));
   eq("standalone voice: cards", (cards.match(/class="af-settings-group"/g) || []).length, 4);
 }

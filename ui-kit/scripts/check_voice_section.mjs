@@ -82,7 +82,7 @@ check("volume shows 100 % by default", html.includes("100 %"));
 const vol = render({ defaults: ROUTES, value: { reply_volume: 0.4 } });
 check("volume value reflects the preference", vol.includes('value="40"') && vol.includes("40 %"));
 const safari = render({ defaults: ROUTES, outputSelectable: false });
-check("Safari: cannot choose a speaker, stated", safari.includes("cannot choose a speaker") && /aria-label="Output device"[^>]*disabled|disabled[^>]*aria-label="Output device"/.test(safari));
+check("Safari: cannot choose a speaker, stated", safari.includes("Safari does not let a page choose the output device") && /aria-label="Output device"[^>]*disabled|disabled[^>]*aria-label="Output device"/.test(safari));
 
 // --- microphone: picker + Test + live meter ----------------------------------
 check("input device picker", html.includes('aria-label="Input device"'));

@@ -319,7 +319,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
         <AfSettingRow
           label="Output device"
           setting="output-device"
-          help={selectable ? undefined : "This browser (Safari) cannot choose a speaker: replies play on the system output. Change it in the system sound settings."}
+          help={selectable ? undefined : "Safari does not let a page choose the output device: replies play on the system output (change it in the system sound settings)."}
           trailing={
             <button type="button" className="af-setting-btn" data-action="test-speaker" disabled={disabled} onClick={testSpeaker}>
               Test
