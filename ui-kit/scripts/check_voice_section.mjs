@@ -103,6 +103,7 @@ check("hook records from the chosen microphone", hook.includes('openMicrophone(o
 check("hook applies reply volume", hook.includes("gain.gain.value = clampVolume(opts_ref.current.volume)"));
 check("hook: too-short recording is a sentence", hook.includes("The recording was too short."));
 check("hook: empty transcript is a sentence", hook.includes("Nothing was heard."));
+check("hook: tap-to-toggle hosts can turn off the pointerup stop", hook.includes("opts_ref.current.stop_on_pointerup === false"));
 check("hook exposes voice_ptt_since", /voice_ptt_since,\n  };/.test(hook));
 
 if (failures) {

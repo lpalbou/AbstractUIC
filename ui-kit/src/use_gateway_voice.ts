@@ -57,6 +57,12 @@ export type GatewayVoiceOptions = {
   input_device_id?: string;
   /** Input gain applied to recordings (1 = unchanged; needs Web Audio). */
   input_gain?: number;
+  /**
+   * Stop recording on any pointer release in the window (default true: the
+   * hold-to-talk shape). A host with tap-to-start/tap-to-stop sets false and
+   * stops recording itself.
+   */
+  stop_on_pointerup?: boolean;
   /** Synthesize text to audio bytes (absent = TTS unsupported). */
   tts?: (text: string) => Promise<ArrayBuffer>;
   /**
@@ -881,7 +887,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   }, []);
 
   useEffect(() => {
-    if (!voice_ptt_recording) return;
+    if (!voice_ptt_recording || opts_ref.current.stop_on_pointerup === false) return;
     const on_up = () => stop_voice_ptt_recording();
     window.addEventListener("pointerup", on_up);
     window.addEventListener("pointercancel", on_up);
