@@ -20,7 +20,7 @@
 // rows, Enter in the folder field adds, Escape clears the field.
 import React, { useState } from "react";
 import { AfSwitch } from "./af_switch.js";
-import { AfSettingsGroup, AfSettingRow } from "./af_settings_rows.js";
+import { AfSettingsGroup } from "./af_settings_rows.js";
 import { Icon } from "./icon.js";
 import { useAfTooltips } from "./af_tooltip.js";
 import {
@@ -171,22 +171,18 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
               {blocked}
             </p>
           ) : null}
-          <AfSettingRow
-            label={T.sharedLabel}
-            setting="workspace-shared"
-            help={
-              <>
-                <code className="af-workspace__path" title={view.shared.path}>
-                  {view.shared.path}
-                </code>
-                <span>{T.sharedHelp}</span>
-              </>
-            }
-          >
-            <span className="af-workspace__always" data-workspace="shared-always">
-              {T.sharedState}
-            </span>
-          </AfSettingRow>
+          <div className="af-workspace__shared" data-setting="workspace-shared">
+            <div className="af-workspace__shared-head">
+              <span className="af-workspace__shared-name">{T.sharedLabel}</span>
+              <span className="af-workspace__always" data-workspace="shared-always">
+                {T.sharedState}
+              </span>
+            </div>
+            <code className="af-workspace__path" title={view.shared.path}>
+              {view.shared.path}
+            </code>
+            <span className="af-workspace__note">{T.sharedHelp}</span>
+          </div>
 
           <AfSettingsGroup variant="flat" title={T.allowedTitle} help={automation ? (view.follows ? T.automationFollows : undefined) : T.allowedHelp} id={`${id}-allowed`}>
             {view.extras.length === 0 ? (

@@ -6242,8 +6242,26 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   overflow-wrap: anywhere;
   word-break: break-all;
 }
-.af-setting-row__help .af-workspace__path {
-  display: block;
+.af-workspace__shared {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0 8px;
+  min-width: 0;
+}
+.af-workspace__shared-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.af-workspace__shared-name {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.af-workspace__shared > .af-workspace__note {
+  margin: 0;
 }
 .af-workspace__always {
   display: inline-flex;
