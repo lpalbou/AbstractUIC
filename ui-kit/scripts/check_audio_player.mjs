@@ -80,6 +80,7 @@ eq("ts stays code", fileViewerKind("main.ts"), "code");
 
 // --- css ships
 const css = readFileSync(join(root, "src", "theme.css"), "utf8");
+check("css: the player never overflows its box (border-box)", /\.af-audio \{[^}]*box-sizing: border-box/.test(css));
 for (const cls of [".af-audio", ".af-audio__play", ".af-audio__wave", ".af-audio__bar--played", ".af-audio__time"]) check(`css ${cls}`, css.includes(`${cls} {`) || css.includes(`${cls},`));
 
 if (failures) {

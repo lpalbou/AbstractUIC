@@ -3173,6 +3173,7 @@
  * AUDIO PLAYER (ui-kit 0.7.0): AfAudioPlayer, the shared waveform player
  * (AfFileViewer audio kind, panel-chat media, AbstractFlow artifacts). */
 .af-audio {
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
