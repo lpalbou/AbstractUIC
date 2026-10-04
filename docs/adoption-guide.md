@@ -16,7 +16,7 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Server-side session proxy | `@abstractframework/app-server` (`createGatewaySessionProxy`) | Token→HttpOnly-cookie exchange, CSRF, URL pinning; tokens never rest client-side |
 | Searchable select / combobox | `AfSelect` | Keyboard nav + ARIA built in; `variant="panel"` for forms |
 | Provider + model pickers | `ProviderModelPicker` (mode toggle + cascade) or `ProviderModelSelect` (plain pair) | Picker's "Gateway default" mode is the default; transports injected (`fetchProviders`/`fetchModels`) |
-| App top bar + About | `AfTopBarActions` with `about={{ identity: appIdentity(id, version), extraRows, onOpen }}` (or `AfAboutDialog` directly) | Identity facts come from the kit's descriptor; format the connected Gateway's versions with `gatewayVersionRows` — never hand-write About rows |
+| App top bar + About | `AfTopBarActions` with `about={{ identity: appIdentity(id, version), versions, onOpen }}` (or `AfAboutDialog` / inline `AfAbout` directly) | Identity facts come from the kit's descriptor; build `versions` from `GET /api/gateway/about` with `aboutVersionsFromGateway` — the card shows no package list |
 | Theme/typography pickers | `ThemeSelect`, `FontScaleSelect`, `HeaderDensitySelect` | Persisted user settings; see [Theming](./theming.md) |
 | Tool allowlist + approval editor | `ToolPolicyEditor` | Server-declared `default_approval` wins; `TOOL_POLICY_DEFAULTS` is the labeled fallback |
 | Phase × capability grid | `PhaseCapabilityMatrix` (+ framework-free core) | Payload-driven: render the server's `MatrixPayload`, never re-derive policy client-side |

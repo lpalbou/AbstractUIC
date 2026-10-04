@@ -14,9 +14,10 @@ This package provides:
   `GatewaySessionSignInCard`
 - **App chrome**: `AfTopBarActions`, `AfDrawer`, `AfRailDrawer` (vertical icon rail at the right
   edge, panel beside it, resizable, collapses to icons), `AfAppearanceDialog` +
-  `useAppearanceSettings()`, `AfAboutDialog`
-- **Files**: `AfFileViewer` (Markdown via the host renderer, highlighted code, JSON, images, PDF,
-  text; size/date header; download) and `AfCodeBlock` / `highlightCode()`
+  `useAppearanceSettings()`, `AfAbout` / `AfAboutDialog` (the compact About card)
+- **Files**: `AfFileViewer` (Markdown via the host renderer, highlighted code, JSON, images,
+  audio, PDF, text; size/date header; download), `AfCodeBlock` / `highlightCode()` and
+  `AfAudioPlayer` (the shared waveform audio player)
 - **Settings rows**: `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow` ("Gateway default" unless
   overridden), `AfVoiceSection` (the Assistant's Voice layout)
 - **Time**: `formatRelativeTime(ts, nowMs)`, `formatExactTime(ts)` — deterministic, no seconds
@@ -189,57 +190,72 @@ Rules:
 
 ## About dialog and identity
 
-Every AbstractFramework app shows the same About facts: the app name and version, "Part of
-AbstractFramework", the author, the copyright and licence line, and links to the website, source,
-documentation, issue tracker and feedback page, plus the contact e-mail. They come from one
-canonical descriptor that the kit ships as `abstractframework_identity.json` (a byte-identical
-copy of `identity/abstractframework.json` in the
-[AbstractFramework repository](https://github.com/lpalbou/AbstractFramework)); the rows match the
-Python `abstractcore.utils.identity.about_fields`, so web, desktop and terminal apps agree.
+Every AbstractFramework app shows the same compact About card: the app's name and version, the
+AbstractFramework and AbstractGateway versions, one row of links (Website, Source, Docs, Issues,
+Feedback, and Contact as a `mailto:`) and the copyright and licence line. It never lists
+packages. The identity facts come from one canonical descriptor that the kit ships as
+`abstractframework_identity.json` (a byte-identical copy of `identity/abstractframework.json` in
+the [AbstractFramework repository](https://github.com/lpalbou/AbstractFramework)); AbstractCore's
+`abstractcore.utils.identity.about_card_html` renders the same card in Python, so web apps and the
+consoles agree.
 
 Add About to the top bar with one prop:
 
 ```tsx
-import { AfTopBarActions, appIdentity, gatewayVersionRows, type AboutRow } from "@abstractframework/ui-kit";
+import { AfTopBarActions, aboutVersionsFromGateway, appIdentity, type AfAboutVersions } from "@abstractframework/ui-kit";
 
 const identity = appIdentity("abstractflow", APP_VERSION); // throws for an unknown id
-const [gatewayRows, setGatewayRows] = useState<AboutRow[]>([]);
-const refreshGatewayRows = () =>
+const [versions, setVersions] = useState<AfAboutVersions>({ gatewayNote: "checking…" });
+const refreshVersions = () =>
   fetchJson("/api/gateway/about").then(
-    (body) => setGatewayRows(gatewayVersionRows(body)),
-    (err) => setGatewayRows(gatewayVersionRows(null, String(err?.message || err))),
+    (body) => setVersions(aboutVersionsFromGateway(body)),
+    (err) => setVersions(aboutVersionsFromGateway(null, String(err?.message || err))),
   );
 
 <AfTopBarActions
-  about={{ identity, extraRows: gatewayRows, onOpen: refreshGatewayRows }}
+  about={{ identity, versions, onOpen: refreshVersions }}
   connection={...}
 />
 ```
 
 - `appIdentity(id, version)` takes the distribution name in lower case (`knownAppIds()` lists
   them) and your app's own version. An unknown id throws: an app must not invent identity facts.
-- `extraRows` is an array of `[label, value]` pairs appended after the standard rows. For the
-  connected gateway, build them with `gatewayVersionRows(body)` from the body of
-  `GET /api/gateway/about`, or with `gatewayVersionRows(null, reason)` when the request fails. The kit never fetches
-  versions; `onOpen` runs each time the dialog opens, which is a good moment to refresh them.
-- `gatewayVersionRows` gives every app the same rows: `Gateway` (`AbstractGateway <version>`),
-  `Gateway framework` (`AbstractFramework <version>`, or `not installed on the gateway host`), then
-  `Gateway package <name>` for each other reported package, sorted by name. Only string values
-  count as versions: packages without one are left out, and a body without a string
-  `abstractgateway` version, like a failed request, gives the single row
-  `Gateway` → `unavailable (<reason>)`. The error is its own argument, so a body that contains an
-  `error` field is still read as a normal body. The rows match the Python
-  `abstractcore.utils.identity.gateway_version_rows(payload, error)`; both sides are checked
-  against the shared fixture `scripts/fixtures/gateway_version_rows.json`.
-- The dialog turns every `http://` or `https://` URL in a row into a link that opens in a new tab
-  (`rel="noopener noreferrer"`), including the framework website in "Part of"; the rest of the
-  value stays text. Only the Contact row is a `mailto:` link, so a value such as
-  `basic-agent@0.1.0:main` shows as plain text.
-- The dialog keeps Tab and Shift+Tab inside itself while it is open, and closes on Escape, a click
-  outside, or Close.
-- Use `<AfAboutDialog open onClose identity extraRows />` directly when your About entry lives
-  somewhere else (a menu, a settings page), and `aboutRows(identity, extra)` when you render the
-  rows yourself.
+- `versions` is `{ framework?, frameworkNote?, gateway?, gatewayNote? }`. A missing version shows
+  its note, otherwise "not reported" (framework) or "not connected" (gateway). Build it with
+  `aboutVersionsFromGateway(body)` from the body of `GET /api/gateway/about`: only the framework
+  and gateway versions are read (the payload's package list is ignored), a missing framework says
+  "not installed on the gateway host", and a body without a string gateway version says
+  "unavailable (the gateway did not report its version)". After a failed request use
+  `aboutVersionsFromGateway(null, reason)` ("unavailable (<reason>)"). The kit never fetches;
+  `onOpen` runs each time the dialog opens, a good moment to refresh the versions.
+- The dialog keeps Tab and Shift+Tab inside itself while it is open, closes on Escape, a click
+  outside, or the Close button in its heading row, and returns focus to the About button.
+- Use `<AfAboutDialog open onClose identity versions />` when your About entry lives somewhere
+  else (a menu), or the inline `<AfAbout identity versions />` card on a settings page.
+  `aboutLinks(identity)` and `aboutVersionFacts(versions)` expose the card's links and facts.
+- `aboutRows(identity, extra)` and `gatewayVersionRows(payload, error)` remain available for
+  apps that list About facts as rows (they match the Python `about_fields` and
+  `gateway_version_rows`, checked against `scripts/fixtures/gateway_version_rows.json`); the About
+  card does not render rows.
+
+## Audio player
+
+`AfAudioPlayer` is the one audio viewer of every client (AbstractFlow artifacts, `AfFileViewer`
+audio files, panel-chat media):
+
+```tsx
+<AfAudioPlayer src={objectUrl} name="speech.wav" />
+```
+
+- `src` is a URL the browser can play: an object URL of bytes you fetched with your own
+  credentials, or a same-origin URL. `name` labels the controls; `peaks` (0..1 per bar) skips
+  decoding; `className` styles the wrapper.
+- The waveform is decoded from `src` with the Web Audio API. When decoding is unavailable or
+  fails, the bars stay flat with the reason in the waveform's tooltip, and playback still works.
+- Click or drag the waveform to seek. It is a keyboard `slider`: Left/Right move ±5 s, Home/End
+  jump to the start or end, Space/Enter play or pause.
+- Pure helpers: `audioPeaks(samples, bars?)`, `formatAudioTime(seconds)`,
+  `audioSeekTime(x, width, duration)`, `AUDIO_WAVEFORM_BARS`.
 
 ### CSS public API (non-React consumers)
 

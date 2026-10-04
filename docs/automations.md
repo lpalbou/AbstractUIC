@@ -181,9 +181,13 @@ capability); the status says what applies at this moment:
 | Stop current | `current_occurrence` is not `null` (admitted, running — including waiting for you — or backing off) | `automation.stop_current` |
 | Edit | always (subject to capability and status below) | opens the Edit form; Save calls `onRevise(changes, revision)` |
 | Archive… | always (subject to capability and status below) | `automation.archive`, after an in-panel confirmation |
+| Unarchive (0.7.0) | status `archived` and the `unarchive` capability; shown in place of Archive… on an archived automation | `automation.unarchive` (the automation comes back paused; one that had already finished or failed keeps that status) |
 
-Every control is disabled while `busy`, on a legacy row, without the matching capability, or on
-an archived automation; the Active switch is also unavailable once the automation has ended. An
+Every control except Unarchive is disabled while `busy`, on a legacy row, without the matching
+capability, or on an archived automation; Unarchive is disabled while `busy`, on a legacy row,
+without the `unarchive` capability, or when the automation is not archived (AbstractGateway
+answers `409 invalid_state` to `automation.unarchive` on an automation that is not archived). The
+Active switch is also unavailable once the automation has ended. An
 unavailable switch stays focusable and names its reason. The reasons show as one compact muted line under the buttons ("Run
 now, Stop current: Nothing is running. · …"), linked to each disabled button with
 `aria-describedby` and repeated as the first line of its tooltip (a tooltip alone is unreliable
@@ -425,7 +429,7 @@ id source; default `crypto.randomUUID`).
 - **Ids**: `command_id` and `request_id` are minted only when you do not pass one. Pass the same
   id to retry a request safely.
 - **Command types**: `automation.pause`, `automation.resume`, `automation.run_now`,
-  `automation.stop_current`, `automation.archive`. Revisions go through `reviseAutomation`.
+  `automation.stop_current`, `automation.archive`, `automation.unarchive` (0.7.0). Revisions go through `reviseAutomation`.
 - **Polling**: the Automations API has no change cursor. Poll complete pages; the client never
   sends `changed_since`.
 - **Wait answers** are not part of this client: send them through your existing Gateway command

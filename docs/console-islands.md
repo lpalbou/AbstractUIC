@@ -58,7 +58,7 @@ node ui-kit/scripts/check_islands.mjs
 - evaluating the bundle defines `AfConsoleIslands`;
 - `mountTopBar`, `mountAppearance`, `mountAbout`, `bindModal`, `appIdentity` and `applyAppearance` are
   functions, and `appIdentity` returns the gateway's identity and throws for an unknown id;
-- `apiVersion` is `"1"` and `kitVersion` equals the `ui-kit` `package.json` version;
+- `apiVersion` is `"2"` and `kitVersion` equals the `ui-kit` `package.json` version;
 - `themes` has one entry per theme in `THEME_SPECS`;
 - the bundle starts with the `/*! @abstractframework/ui-kit <version> console islands` banner.
 
@@ -71,19 +71,19 @@ node ui-kit/scripts/check_islands.mjs
 <script src="/static/af-console-islands.js"></script>
 <script>
   const islands = window.AfConsoleIslands;
-  console.log(islands.apiVersion, islands.kitVersion); // "1", e.g. "0.1.12"
+  console.log(islands.apiVersion, islands.kitVersion); // "2", e.g. "0.7.0"
 </script>
 ```
 
 Serve both files from your own origin; the paths above are examples.
 
-## API reference (`apiVersion` "1")
+## API reference (`apiVersion` "2")
 
 `window.AfConsoleIslands` exposes:
 
 | Member | Type | Description |
 | --- | --- | --- |
-| `apiVersion` | `"1"` | Islands API contract version |
+| `apiVersion` | `"2"` | Islands API contract version |
 | `kitVersion` | `string` | `ui-kit` version the bundle was built from |
 | `themes` | `ThemeSpec[]` | The kit's theme list (`THEME_SPECS`) |
 | `fontScales` | array | `FONT_SCALES` options |
@@ -93,6 +93,7 @@ Serve both files from your own origin; the paths above are examples.
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
 | `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.4.0+) |
 | `appIdentity(id, version)` | `AppIdentity` | Identity facts for an AbstractFramework app; throws for an unknown id (kit 0.1.12+) |
+| `aboutVersionsFromGateway(payload, error?)` | `AfAboutVersions` | The About card's framework and gateway versions from a `GET /api/gateway/about` body, or `(null, reason)` after a failed request (kit 0.7.0+) |
 | `applyAppearance(settings)` | `void` | Applies a theme and typography settings to the document |
 
 Every mount returns `{ update(props), unmount() }`. Mounting into a missing element throws
@@ -109,7 +110,7 @@ type TopBarIslandProps = {
   appearance?: { onOpen: () => void; label?: string } | null;                 // omit/null hides it
   about?: {                                                                   // omit/null hides it (kit 0.1.12+)
     identity: AppIdentity;               // from islands.appIdentity("abstractgateway", version)
-    extraRows?: Array<[string, string]>; // e.g. package versions from GET /about
+    versions?: AfAboutVersions;          // framework + gateway versions (apiVersion "2")
     onOpen?: () => void;                 // runs each time the About dialog opens
     label?: string;
   } | null;
@@ -154,19 +155,29 @@ The dialog does not persist anything: store `value` yourself, then call
 
 ### `mountAbout(el, props)`
 
-Renders the shared About dialog: the application name and version, "Part of AbstractFramework",
-author, copyright and licence, website, source, documentation, "Report an issue", "Give feedback"
-and the contact e-mail, followed by your `extraRows`. Links open in a new tab.
+Renders the shared compact About card in a modal dialog: the application name and version, the
+AbstractFramework and AbstractGateway versions, one row of links (Website, Source, Docs, Issues,
+Feedback, and Contact as a mailto) and the copyright and licence line. It never lists packages.
+Links open in a new tab; Escape, the Close button or a click outside closes it.
 
 ```ts
+type AfAboutVersions = {
+  framework?: string | null; // AbstractFramework version
+  frameworkNote?: string;    // shown when framework is missing, e.g. "not installed on the gateway host"
+  gateway?: string | null;   // AbstractGateway version
+  gatewayNote?: string;      // shown when gateway is missing, e.g. "unavailable (HTTP 503)"
+};
+
 type AboutIslandProps = {
   open: boolean;
   onClose: () => void;
-  identity: AppIdentity;               // islands.appIdentity("abstractgateway", version)
-  extraRows?: Array<[string, string]>; // e.g. [["abstractcore", "2.15.2"]]
-  title?: string;                      // defaults to "About <app name>"
+  identity: AppIdentity;      // islands.appIdentity("abstractgateway", version)
+  versions?: AfAboutVersions; // or islands.aboutVersionsFromGateway(body)
 };
 ```
+
+A missing version shows its note, otherwise "not reported" (framework) or "not connected"
+(gateway).
 
 Use `mountAbout` when your About entry lives outside the top bar. When you pass `about` to
 `mountTopBar`, the cluster renders the About button and owns the dialog itself, so you do not
@@ -249,6 +260,9 @@ Use the values in `islands.fontScales` and `islands.headerDensities` for valid
   Additive members keep the same `apiVersion` and are marked with the kit version that
   introduced them (for example `mountAbout`, kit 0.1.12); check `kitVersion` if you load a bundle
   you did not build yourself.
+- `apiVersion` `"2"` (kit 0.7.0): the About props (`mountAbout`, and `about` on `mountTopBar`)
+  take `versions` (`AfAboutVersions`) instead of `extraRows`. A host written for `"1"` that still
+  passes `extraRows` must switch to `versions`; the rows are no longer rendered.
 - `kitVersion` identifies the `ui-kit` release the bundle was built from. Rebuild the bundle
   after upgrading the kit sources; a consumer that vendors the bundle should rebuild and re-vendor
   it whenever any kit source that feeds it changes (`ui-kit/src/*`, `ui-kit/islands/*`,

@@ -242,33 +242,41 @@ sequenceDiagram
 - Rules for bubbles (reconnect, sub-runs, failed or unavailable calls, render interval): see
   [`panel-chat/README.md`](../panel-chat/README.md#live-replies-streaming).
 
-## About dialog and identity (`ui-kit`)
+## About card and identity (`ui-kit`)
 
-Every AbstractFramework app shows the same About facts. They come from one descriptor that the
-kit ships as `ui-kit/src/abstractframework_identity.json`, a byte-identical copy of the
-AbstractFramework repository's `identity/abstractframework.json`. The kit never fetches: the app
-fetches the connected Gateway's versions and formats them with `gatewayVersionRows`.
+Every AbstractFramework app shows the same compact About card: the app's name and version, the
+AbstractFramework and AbstractGateway versions, six links (Website, Source, Docs, Issues,
+Feedback, Contact) and one copyright and licence line. It never lists packages. The identity
+facts come from one descriptor that the kit ships as `ui-kit/src/abstractframework_identity.json`,
+a byte-identical copy of the AbstractFramework repository's `identity/abstractframework.json`.
+The kit never fetches: the app fetches the connected Gateway's versions and turns them into
+`versions` with `aboutVersionsFromGateway`.
 
 ```mermaid
 flowchart LR
   DESC["abstractframework_identity.json<br/>(vendored descriptor)"]
   ID["appIdentity(id, version)<br/>frameworkIdentity() / knownAppIds()"]
-  ROWS["aboutRows(identity, extra)"]
-  GWROWS["gatewayVersionRows(payload | null, error?)"]
+  LINKS["aboutLinks(identity)"]
+  VERS["aboutVersionsFromGateway(payload | null, error?)<br/>→ AfAboutVersions"]
   ABOUTAPI["GET /api/gateway/about<br/>(fetched by the app)"]
-  DLG["AfAboutDialog<br/>(focus trap, links, Contact mailto)"]
+  CARD["AfAbout card<br/>(name + version, 2 versions, links, licence)"]
+  DLG["AfAboutDialog<br/>(modal, focus trap, Close in the heading row)"]
   TOP["AfTopBarActions about={...}"]
   ISL["console islands<br/>mountAbout / mountTopBar about"]
 
-  DESC --> ID --> ROWS --> DLG
-  ABOUTAPI --> GWROWS -->|"extraRows"| DLG
+  DESC --> ID --> LINKS --> CARD
+  ABOUTAPI --> VERS -->|"versions"| CARD
+  CARD --> DLG
   TOP --> DLG
   ISL --> DLG
 ```
 
-- The rows match the Python twins in AbstractCore (`abstractcore.utils.identity.about_fields`
-  and `gateway_version_rows`); the shared fixture
-  `ui-kit/scripts/fixtures/gateway_version_rows.json` pins both sides.
+- The card markup matches AbstractCore's Python twin
+  (`abstractcore.utils.identity.about_card_html`), used by the AbstractCore console.
+- `aboutRows` and `gatewayVersionRows` stay exported for parity with the Python
+  `about_fields` / `gateway_version_rows` (the shared fixture
+  `ui-kit/scripts/fixtures/gateway_version_rows.json` pins both sides); the About card does not
+  render rows.
 - Details and examples: [`ui-kit/README.md`](../ui-kit/README.md#about-dialog-and-identity).
 
 ## Console islands (`ui-kit`)
@@ -284,7 +292,7 @@ flowchart LR
   OUT["islands/dist/af-console-islands.js"]
   CHECK["scripts/check_islands.mjs<br/>(npm test)"]
   PAGE["Host page<br/>script tag + theme.css"]
-  API["window.AfConsoleIslands<br/>mountTopBar / mountAppearance / mountAbout<br/>appIdentity / applyAppearance"]
+  API["window.AfConsoleIslands<br/>mountTopBar / mountAppearance / mountAbout<br/>appIdentity / aboutVersionsFromGateway / applyAppearance"]
 
   SRC --> ENTRY --> BUILD --> OUT
   OUT --> CHECK
@@ -292,7 +300,7 @@ flowchart LR
 ```
 
 - The host owns all state and calls `handle.update(props)` when it changes.
-- `apiVersion` (`"1"`) versions the island API; `kitVersion` records the `ui-kit` version the
+- `apiVersion` (`"2"`) versions the island API; `kitVersion` records the `ui-kit` version the
   bundle was built from.
 - The bundle carries no CSS; the host also serves `theme.css`.
 

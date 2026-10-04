@@ -491,7 +491,7 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Server-side session proxy | `@abstractframework/app-server` (`createGatewaySessionProxy`) | Token→HttpOnly-cookie exchange, CSRF, URL pinning; tokens never rest client-side |
 | Searchable select / combobox | `AfSelect` | Keyboard nav + ARIA built in; `variant="panel"` for forms |
 | Provider + model pickers | `ProviderModelPicker` (mode toggle + cascade) or `ProviderModelSelect` (plain pair) | Picker's "Gateway default" mode is the default; transports injected (`fetchProviders`/`fetchModels`) |
-| App top bar + About | `AfTopBarActions` with `about={{ identity: appIdentity(id, version), extraRows, onOpen }}` (or `AfAboutDialog` directly) | Identity facts come from the kit's descriptor; format the connected Gateway's versions with `gatewayVersionRows` — never hand-write About rows |
+| App top bar + About | `AfTopBarActions` with `about={{ identity: appIdentity(id, version), versions, onOpen }}` (or `AfAboutDialog` / inline `AfAbout` directly) | Identity facts come from the kit's descriptor; build `versions` from `GET /api/gateway/about` with `aboutVersionsFromGateway` — the card shows no package list |
 | Theme/typography pickers | `ThemeSelect`, `FontScaleSelect`, `HeaderDensitySelect` | Persisted user settings; see [Theming](./theming.md) |
 | Tool allowlist + approval editor | `ToolPolicyEditor` | Server-declared `default_approval` wins; `TOOL_POLICY_DEFAULTS` is the labeled fallback |
 | Phase × capability grid | `PhaseCapabilityMatrix` (+ framework-free core) | Payload-driven: render the server's `MatrixPayload`, never re-derive policy client-side |
@@ -1478,14 +1478,16 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Run steering: `SteerComposer` + `submitSteer()` (idempotent command ids, CSRF candidates)
 - Lists & badges: `DisclosureList` (tree list, roving tabindex), `AfChip` / `AfChipButton`
 - Rail drawer (0.6.0): `AfRailDrawer` — the vertical rail drawer lifted from AbstractEntity's side tabs and Continuum Teams' drawer rail: an icon rail (role `tablist`, vertical; 44 px icons with tooltips; Up/Down/Home/End) at the right edge of the host's content area; a click opens that panel beside the rail, the open icon (or the panel's collapse button) folds it back; the rail always stays. Docked from 1024 px (in the layout flow; width resizable by pointer — mouse, pen, touch with pointer capture — and by keyboard on a `separator`, persisted under `storageKey`), floating below (backdrop, Escape folds it with the consumed-event rule, focus returns to the icon). Panels visited once stay mounted. Props: `items: AfRailItem[]` (`id`, `label`, `icon`, `badge?`, `hint?`, `content`, `headerActions?`), `active`, `onActiveChange(id | null)`, `ariaLabel`, `storageKey?`, `defaultWidth?`/`minWidth?`/`maxWidth?`, `overlay?`, `idBase?` (ids `<idBase>-tab-<id>` / `<idBase>-panel-<id>`). The host's container needs `position: relative`. Pure rules: `railDrawerToggle()`, `railDrawerClampWidth()`, `railDrawerKeyWidth()`, `railDrawerNextIndex()`, `AF_RAIL_WIDTH`.
-- File viewer (0.6.0): `AfFileViewer` — one preview for every client: header (name with the path as tooltip, size, generated date relative with the exact time on hover, extra `actions`, Download and close icons) and a body by kind (`fileViewerKind(name, contentType)`: Markdown through the host's `renderMarkdown` — panel-chat `FileViewer` wires its `Markdown` —, code highlighted by `AfCodeBlock`, JSON pretty-printed, images, PDF in an `<object>`, plain text; SVG and HTML show as source, never rendered). Presentational: the host passes text (`fileViewerNeedsText(kind)`) or an object URL. `formatFileSize()`.
+- File viewer (0.6.0): `AfFileViewer` — one preview for every client: header (name with the path as tooltip, size, generated date relative with the exact time on hover, extra `actions`, Download and close icons) and a body by kind (`fileViewerKind(name, contentType)`: Markdown through the host's `renderMarkdown` — panel-chat `FileViewer` wires its `Markdown` —, code highlighted by `AfCodeBlock`, JSON pretty-printed, images, audio (0.7.0: kind `"audio"` for mp3, wav, ogg, oga, opus, m4a, aac, flac, weba or any `audio/*` type, played by `AfAudioPlayer`), PDF in an `<object>`, plain text; SVG and HTML show as source, never rendered). Presentational: the host passes text (`fileViewerNeedsText(kind)`) or an object URL (images, audio, PDF). `formatFileSize()`.
+- Audio player (0.7.0): `AfAudioPlayer` (`src`, `name?`, `peaks?`, `className?`) — the shared audio viewer: play/pause, a waveform you click or drag to seek, elapsed / total time. The waveform is decoded from `src` with the Web Audio API (pass `peaks` to skip decoding); when decoding is unavailable or fails, the bars stay flat with the reason in the waveform's tooltip and playback still works. Keyboard: the waveform is a `slider` (Left/Right ±5 s, Home/End, Space/Enter play or pause). Pure helpers: `audioPeaks(samples, bars?)` (normalised 0..1 per bar), `formatAudioTime(seconds)` (`"1:03"`, `"--:--"` when unknown), `audioSeekTime(x, width, duration)`, `AUDIO_WAVEFORM_BARS` (72).
 - Code highlighting (0.6.0): `AfCodeBlock` (`text`, `language` = a file name or a language, `lineNumbers?`) — wraps long lines, never scrolls sideways; `highlightCode(text, codeLanguage(name))` is a dependency-free lexer (comment / string / number / keyword tokens; joining the tokens returns the input).
 - Settings rows (0.6.0): `AfSettingsGroup` (titled card; `variant="flat"` inside another card; `aside` for e.g. "Revision 4"), `AfSettingRow` (label + one-line help left, control right; wraps in a narrow panel), `AfOverrideRow` — the "Gateway default unless overridden" row: summary (`Gateway default · x` or `<override> — <owner>`), **Change** opens the editor in place, **Use gateway default** only while overridden.
 - Voice (0.6.0): `AfVoiceSection` — the Assistant's Settings → Voice layout: Engines (Text → speech, Speech → text as `AfOverrideRow`s), Output device (audio outputs where `audioOutputSelectable()`; otherwise disabled with the reason), Read aloud switch, Voice latency (`VOICE_LATENCY_OPTIONS`, only when the gateway advertises `quality_preset`). Value `VoiceClientPreferences` (`VoicePreferences` + `stt_provider`, `stt_model`, `output_device`, `read_aloud`); `voiceTtsRequest()` / `voiceSttRequest()` pick what a request carries. `nested` renders its sub-sections flat. `useGatewayVoice({ output_device_id })` routes playback with `AudioContext.setSinkId`.
 - Relative time (0.6.0): `formatRelativeTime(ts, nowMs)` ("just now", "5 min ago", "3 h ago", "yesterday", "4 days ago", then "Oct 2"; future "in 14 h"), `formatExactTime(ts)` ("Oct 2, 2026, 14:05"), `formatShortDate(ts, nowMs)`, `timeValueMs(ts)` — deterministic (the caller passes now), no seconds, no year within the same year.
-- Icons (0.6.0): `cog` (the usual settings gear; `settings` stays the sliders glyph) and `activity`.
-- App chrome: `AfTopBarActions` (assistant → appearance → about → extras → connection pill; `about={{ identity, extraRows?, onOpen?, label? }}` adds the About button and dialog), `AfDrawer` (non-modal, keeps children mounted; `side="left"`, `backdrop`; full width below 768 px), `AfAppearanceDialog` + `useAppearanceSettings()` / `appearanceStorageKey()` / `APPEARANCE_DEFAULTS`, `AfAboutDialog`
-- Identity: `appIdentity(id, version): AppIdentity` (throws on an unknown id), `frameworkIdentity(): FrameworkIdentity`, `knownAppIds()`, `aboutRows(identity, extra?): AboutRow[]` (the ordered About rows, same as the Python `abstractcore.utils.identity.about_fields`), `gatewayVersionRows(payload: GatewayAboutPayload | null, error?: string): AboutRow[]` (the connected gateway's version rows from `GET /api/gateway/about`); types `AppIdentity`, `FrameworkIdentity`, `AboutRow`, `GatewayAboutPayload`. See [About dialog and identity](../ui-kit/README.md#about-dialog-and-identity)
+- Icons (0.6.0): `cog` (the usual settings gear; `settings` stays the sliders glyph) and `activity`; (0.7.0) `unarchive` (archive box with an up arrow).
+- App chrome: `AfTopBarActions` (assistant → appearance → about → extras → connection pill; `about={{ identity, versions?, onOpen?, label? }}` adds the About button and dialog), `AfDrawer` (non-modal, keeps children mounted; `side="left"`, `backdrop`; full width below 768 px), `AfAppearanceDialog` + `useAppearanceSettings()` / `appearanceStorageKey()` / `APPEARANCE_DEFAULTS`
+- About (0.7.0): `AfAbout` (inline card: `identity`, `versions?`, `titleId?`, `action?`, `className?`) and `AfAboutDialog` (`open`, `onClose`, `identity`, `versions?`; modal, Escape and a click outside close it, Close button in the heading row). The card shows the app's name and version, the AbstractFramework and AbstractGateway versions, six links (Website, Source, Docs, Issues, Feedback, and Contact as a mailto) and the copyright and licence line — never a package list. `versions: AfAboutVersions` = `{ framework?, frameworkNote?, gateway?, gatewayNote? }`; a missing version shows its note, else "not reported" / "not connected". `aboutVersionsFromGateway(payload | null, error?)` builds it from `GET /api/gateway/about` (only the framework and gateway versions are read; "not installed on the gateway host" when the gateway reports no framework; "unavailable (reason)" on failure). Helpers `aboutLinks(identity)`, `aboutVersionFacts(versions)`.
+- Identity: `appIdentity(id, version): AppIdentity` (throws on an unknown id), `frameworkIdentity(): FrameworkIdentity`, `knownAppIds()`, `aboutRows(identity, extra?): AboutRow[]` (the ordered About rows, same as the Python `abstractcore.utils.identity.about_fields`), `gatewayVersionRows(payload: GatewayAboutPayload | null, error?: string): AboutRow[]` (the connected gateway's version rows from `GET /api/gateway/about`) — both kept for parity with the Python twins; the About card does not render rows; types `AppIdentity`, `FrameworkIdentity`, `AboutRow`, `GatewayAboutPayload`. See [About dialog and identity](../ui-kit/README.md#about-dialog-and-identity)
 - CSRF helpers: `readGatewayCsrfToken()`, `readGatewayCsrfTokens()`
 - Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`; `VoiceSettings` (catalog-driven voice preferences form)
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
@@ -1494,7 +1496,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - On/off settings and forms: `AfSwitch`, `AfSwitchInput` (a native `role="switch"` checkbox for uncontrolled forms) (+ `afSwitchNextState()`, `afSwitchIsActionable()`), `AfTabs` (+ `afTabsNextIndex()`), the guards `findVerbToggleLabels(source)` and `checkLabelScale(root)` (+ `LABEL_SCALE_SELECTOR`) — see [On/off settings](./state-toggles.md)
 - Workflow picker: `WorkflowPicker` (the one workflow chooser of every client: "Gateway default", then the groups "Shared" and "Mine", each entry with its version as a small detail line; no toggles), `useExecutableWorkflows({ interfaceId, request? | gatewayBaseUrl?, allVersions?, enabled?, reloadKey? })` (fetches `GET /api/gateway/bundles?executable_for=<interface>` with the app's own auth), `WorkflowPickerListbox`, and the pure core `executableWorkflowsPath()`, `parseExecutableWorkflows()` (throws `WorkflowPickerContractError` when the gateway ignores `executable_for`: no echo, an item without `owner`/`shipped`, an entrypoint that does not declare the interface), `workflowPickerGroups()`, `workflowPickerRows()`, `WORKFLOW_PICKER_DEFAULT` (`"@default"`), `WORKFLOW_PICKER_EMPTY`. The picker lists exactly what the gateway returns: which workflows a person sees is the gateway's availability rule (admins decide what is shared with users; users also see their own), never a client switch. Two modes: per interface (`interfaceId="abstractcode.agent.v1"`, for an app that runs one interface) and any interface (`interfaceId={null}`, for a launcher such as AbstractObserver: `GET /api/gateway/bundles`, every entrypoint that declares an interface, the interfaces as the detail line, `defaultInterface` names the interface "Gateway default" stands for); helpers `workflowPickerPath()`, `allWorkflowsPath()`, `parseWorkflowListing()`.
 - Ids and non-secure contexts: `randomId()` (v4 UUID over plain http too), `uuidV4FromBytes()`, `insecureContextReason(feature)` — see [Non-secure contexts](./state-toggles.md#non-secure-contexts)
-- Icons: `Icon`, `IconName` (~45 glyphs, 24-grid and 16-grid families; `play`, `stop`, `folder`, `file`, `archive`, `clock` added for automations)
+- Icons: `Icon`, `IconName` (~45 glyphs, 24-grid and 16-grid families; `play`, `stop`, `folder`, `file`, `archive`, `unarchive`, `clock` added for automations)
 - Palette seeds: `@abstractframework/ui-kit/palette_seeds.json` (generated 4-token palette per theme)
 
 See: [`ui-kit/README.md`](../ui-kit/README.md) and the [Adoption guide](./adoption-guide.md).
@@ -1502,10 +1504,10 @@ See: [`ui-kit/README.md`](../ui-kit/README.md) and the [Adoption guide](./adopti
 ### Console islands (repository build, not an npm export)
 
 `ui-kit/islands/console_islands.tsx` builds into `ui-kit/islands/dist/af-console-islands.js`, a
-self-contained script that defines `window.AfConsoleIslands` (`apiVersion` `"1"`, `kitVersion`,
+self-contained script that defines `window.AfConsoleIslands` (`apiVersion` `"2"`, `kitVersion`,
 `themes`, `fontScales`, `headerDensities`, `mountTopBar(el, props)`,
 `mountAppearance(el, props)`, `mountAbout(el, props)`, `appIdentity(id, version)`,
-`applyAppearance(settings)`). Build it with
+`aboutVersionsFromGateway(payload, error?)`, `applyAppearance(settings)`). Build it with
 `npm run build:islands -w @abstractframework/ui-kit`. It is not included in the npm tarball.
 Full reference: [Console islands](./console-islands.md).
 
@@ -1537,7 +1539,7 @@ Components:
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
 - `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow all enabled tools" only with `onPermissionsAll`), question (`ask_user`, choices and free text) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. Types `PresentInteractionOptions`, `InteractionController`
 - `WorkspaceBrowser` — a run's folder on the gateway host through the CONTRACTS §W routes (`GET /runs/{id}/workspace`, `/workspace/files`, `/workspace/content`): the root once as its short name (`workspaceShortName`; full path on hover) with **Open folder** (`onOpenFolder`, offered only when `workspaceCanOpenFolder`) and **Copy path** icons, breadcrumbs, folders first, then per file: name, size, generated date (relative, exact on hover) and a Download icon; "N entries hidden by the gateway's workspace rules". A click on a file previews it IN PLACE with `FileViewer` (0.3.0: no "Open" button; `fileActions(entry)` adds host actions such as "Attach"), or `onSelectFile` + `selectedPath` hand the selection to a host preview. Files are fetched with the host's credentials, never linked. Props: `fetchGateway(path, init)`, `runId` (an automation's id browses the automation's folder), `title`, `note?`, `onClose?`, `refreshKey?`, `className?`, `fileActions?`, `onOpenFolder?`, `copyText?`, `nowMs?`. Hook-free `WorkspaceBrowserView` and helpers: `loadWorkspaceView()`, `loadRunWorkspace()`, `listWorkspaceFolder()`, `readWorkspaceFile()`, `parseWorkspaceListing()` (malformed answers throw), `gatewayResponseError()`, `tabOpenPlan()`, `workspaceInfoUrl()` / `workspaceFilesUrl()` / `workspaceContentUrl()`, `workspaceCrumbs()`, `workspaceParent()`, `sortWorkspaceEntries()`, `workspaceHiddenNote()`, `formatBytes()`; types `GatewayFetch`, `RunWorkspace`, `WorkspaceEntry`, `WorkspaceListing`, `WorkspaceBrowserProps`, `WorkspaceBrowserViewProps`
-- `FileViewer` (0.3.0) — ui-kit `AfFileViewer` with panel-chat's `Markdown`; `useWorkspaceFilePreview(fetchGateway, runId, entry, refreshKey?)` loads one workspace file for it (a bounded Range read of at most `PREVIEW_TEXT_LIMIT` = 1 MiB for text kinds, an object URL for images/PDF up to `PREVIEW_BLOB_LIMIT`, nothing for binaries) and `filePreviewViewerProps(state)` maps the result; `readBoundedText()`, `responseTotal()`, `partialPreviewNote()`, `safeMarkdownImages()` (Markdown images only from the run's workspace)
+- `FileViewer` (0.3.0) — ui-kit `AfFileViewer` with panel-chat's `Markdown`; `useWorkspaceFilePreview(fetchGateway, runId, entry, refreshKey?)` loads one workspace file for it (a bounded Range read of at most `PREVIEW_TEXT_LIMIT` = 1 MiB for text kinds, an object URL for images, audio and PDF up to `PREVIEW_BLOB_LIMIT`, nothing for binaries; audio plays in the kit's `AfAudioPlayer`) and `filePreviewViewerProps(state)` maps the result; `readBoundedText()`, `responseTotal()`, `partialPreviewNote()`, `safeMarkdownImages()` (Markdown images only from the run's workspace)
 
 Renderers:
 - `Markdown` (lightweight Markdown with real nested lists, marker progression, fenced code
@@ -1947,33 +1949,41 @@ sequenceDiagram
 - Rules for bubbles (reconnect, sub-runs, failed or unavailable calls, render interval): see
   [`panel-chat/README.md`](../panel-chat/README.md#live-replies-streaming).
 
-## About dialog and identity (`ui-kit`)
+## About card and identity (`ui-kit`)
 
-Every AbstractFramework app shows the same About facts. They come from one descriptor that the
-kit ships as `ui-kit/src/abstractframework_identity.json`, a byte-identical copy of the
-AbstractFramework repository's `identity/abstractframework.json`. The kit never fetches: the app
-fetches the connected Gateway's versions and formats them with `gatewayVersionRows`.
+Every AbstractFramework app shows the same compact About card: the app's name and version, the
+AbstractFramework and AbstractGateway versions, six links (Website, Source, Docs, Issues,
+Feedback, Contact) and one copyright and licence line. It never lists packages. The identity
+facts come from one descriptor that the kit ships as `ui-kit/src/abstractframework_identity.json`,
+a byte-identical copy of the AbstractFramework repository's `identity/abstractframework.json`.
+The kit never fetches: the app fetches the connected Gateway's versions and turns them into
+`versions` with `aboutVersionsFromGateway`.
 
 ```mermaid
 flowchart LR
   DESC["abstractframework_identity.json<br/>(vendored descriptor)"]
   ID["appIdentity(id, version)<br/>frameworkIdentity() / knownAppIds()"]
-  ROWS["aboutRows(identity, extra)"]
-  GWROWS["gatewayVersionRows(payload | null, error?)"]
+  LINKS["aboutLinks(identity)"]
+  VERS["aboutVersionsFromGateway(payload | null, error?)<br/>→ AfAboutVersions"]
   ABOUTAPI["GET /api/gateway/about<br/>(fetched by the app)"]
-  DLG["AfAboutDialog<br/>(focus trap, links, Contact mailto)"]
+  CARD["AfAbout card<br/>(name + version, 2 versions, links, licence)"]
+  DLG["AfAboutDialog<br/>(modal, focus trap, Close in the heading row)"]
   TOP["AfTopBarActions about={...}"]
   ISL["console islands<br/>mountAbout / mountTopBar about"]
 
-  DESC --> ID --> ROWS --> DLG
-  ABOUTAPI --> GWROWS -->|"extraRows"| DLG
+  DESC --> ID --> LINKS --> CARD
+  ABOUTAPI --> VERS -->|"versions"| CARD
+  CARD --> DLG
   TOP --> DLG
   ISL --> DLG
 ```
 
-- The rows match the Python twins in AbstractCore (`abstractcore.utils.identity.about_fields`
-  and `gateway_version_rows`); the shared fixture
-  `ui-kit/scripts/fixtures/gateway_version_rows.json` pins both sides.
+- The card markup matches AbstractCore's Python twin
+  (`abstractcore.utils.identity.about_card_html`), used by the AbstractCore console.
+- `aboutRows` and `gatewayVersionRows` stay exported for parity with the Python
+  `about_fields` / `gateway_version_rows` (the shared fixture
+  `ui-kit/scripts/fixtures/gateway_version_rows.json` pins both sides); the About card does not
+  render rows.
 - Details and examples: [`ui-kit/README.md`](../ui-kit/README.md#about-dialog-and-identity).
 
 ## Console islands (`ui-kit`)
@@ -1989,7 +1999,7 @@ flowchart LR
   OUT["islands/dist/af-console-islands.js"]
   CHECK["scripts/check_islands.mjs<br/>(npm test)"]
   PAGE["Host page<br/>script tag + theme.css"]
-  API["window.AfConsoleIslands<br/>mountTopBar / mountAppearance / mountAbout<br/>appIdentity / applyAppearance"]
+  API["window.AfConsoleIslands<br/>mountTopBar / mountAppearance / mountAbout<br/>appIdentity / aboutVersionsFromGateway / applyAppearance"]
 
   SRC --> ENTRY --> BUILD --> OUT
   OUT --> CHECK
@@ -1997,7 +2007,7 @@ flowchart LR
 ```
 
 - The host owns all state and calls `handle.update(props)` when it changes.
-- `apiVersion` (`"1"`) versions the island API; `kitVersion` records the `ui-kit` version the
+- `apiVersion` (`"2"`) versions the island API; `kitVersion` records the `ui-kit` version the
   bundle was built from.
 - The bundle carries no CSS; the host also serves `theme.css`.
 
@@ -2254,10 +2264,13 @@ Source of truth: `panel-chat/src/markdown.tsx` and `panel-chat/src/chat_message_
 
 ## ui-kit: How do I add the About dialog?
 
-Pass `about={{ identity: appIdentity("<app id>", APP_VERSION), extraRows, onOpen }}` to
-`AfTopBarActions`. Build `extraRows` for the connected Gateway with `gatewayVersionRows(body)`
-from `GET /api/gateway/about`, or `gatewayVersionRows(null, reason)` when the request fails.
-`knownAppIds()` lists the accepted ids.
+Pass `about={{ identity: appIdentity("<app id>", APP_VERSION), versions, onOpen }}` to
+`AfTopBarActions`. Build `versions` for the connected Gateway with
+`aboutVersionsFromGateway(body)` from `GET /api/gateway/about`, or
+`aboutVersionsFromGateway(null, reason)` when the request fails (the card then says
+"unavailable (reason)"). The card shows the app's name and version, the framework and gateway
+versions, six links and the licence line; it never lists packages. `knownAppIds()` lists the
+accepted ids.
 
 See: [`ui-kit/README.md`](../ui-kit/README.md#about-dialog-and-identity).
 
@@ -2795,9 +2808,13 @@ capability); the status says what applies at this moment:
 | Stop current | `current_occurrence` is not `null` (admitted, running — including waiting for you — or backing off) | `automation.stop_current` |
 | Edit | always (subject to capability and status below) | opens the Edit form; Save calls `onRevise(changes, revision)` |
 | Archive… | always (subject to capability and status below) | `automation.archive`, after an in-panel confirmation |
+| Unarchive (0.7.0) | status `archived` and the `unarchive` capability; shown in place of Archive… on an archived automation | `automation.unarchive` (the automation comes back paused; one that had already finished or failed keeps that status) |
 
-Every control is disabled while `busy`, on a legacy row, without the matching capability, or on
-an archived automation; the Active switch is also unavailable once the automation has ended. An
+Every control except Unarchive is disabled while `busy`, on a legacy row, without the matching
+capability, or on an archived automation; Unarchive is disabled while `busy`, on a legacy row,
+without the `unarchive` capability, or when the automation is not archived (AbstractGateway
+answers `409 invalid_state` to `automation.unarchive` on an automation that is not archived). The
+Active switch is also unavailable once the automation has ended. An
 unavailable switch stays focusable and names its reason. The reasons show as one compact muted line under the buttons ("Run
 now, Stop current: Nothing is running. · …"), linked to each disabled button with
 `aria-describedby` and repeated as the first line of its tooltip (a tooltip alone is unreliable
@@ -3039,7 +3056,7 @@ id source; default `crypto.randomUUID`).
 - **Ids**: `command_id` and `request_id` are minted only when you do not pass one. Pass the same
   id to retry a request safely.
 - **Command types**: `automation.pause`, `automation.resume`, `automation.run_now`,
-  `automation.stop_current`, `automation.archive`. Revisions go through `reviseAutomation`.
+  `automation.stop_current`, `automation.archive`, `automation.unarchive` (0.7.0). Revisions go through `reviseAutomation`.
 - **Polling**: the Automations API has no change cursor. Poll complete pages; the client never
   sends `changed_since`.
 - **Wait answers** are not part of this client: send them through your existing Gateway command
@@ -3283,7 +3300,7 @@ node ui-kit/scripts/check_islands.mjs
 - evaluating the bundle defines `AfConsoleIslands`;
 - `mountTopBar`, `mountAppearance`, `mountAbout`, `bindModal`, `appIdentity` and `applyAppearance` are
   functions, and `appIdentity` returns the gateway's identity and throws for an unknown id;
-- `apiVersion` is `"1"` and `kitVersion` equals the `ui-kit` `package.json` version;
+- `apiVersion` is `"2"` and `kitVersion` equals the `ui-kit` `package.json` version;
 - `themes` has one entry per theme in `THEME_SPECS`;
 - the bundle starts with the `/*! @abstractframework/ui-kit <version> console islands` banner.
 
@@ -3296,19 +3313,19 @@ node ui-kit/scripts/check_islands.mjs
 <script src="/static/af-console-islands.js"></script>
 <script>
   const islands = window.AfConsoleIslands;
-  console.log(islands.apiVersion, islands.kitVersion); // "1", e.g. "0.1.12"
+  console.log(islands.apiVersion, islands.kitVersion); // "2", e.g. "0.7.0"
 </script>
 ```
 
 Serve both files from your own origin; the paths above are examples.
 
-## API reference (`apiVersion` "1")
+## API reference (`apiVersion` "2")
 
 `window.AfConsoleIslands` exposes:
 
 | Member | Type | Description |
 | --- | --- | --- |
-| `apiVersion` | `"1"` | Islands API contract version |
+| `apiVersion` | `"2"` | Islands API contract version |
 | `kitVersion` | `string` | `ui-kit` version the bundle was built from |
 | `themes` | `ThemeSpec[]` | The kit's theme list (`THEME_SPECS`) |
 | `fontScales` | array | `FONT_SCALES` options |
@@ -3318,6 +3335,7 @@ Serve both files from your own origin; the paths above are examples.
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
 | `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.4.0+) |
 | `appIdentity(id, version)` | `AppIdentity` | Identity facts for an AbstractFramework app; throws for an unknown id (kit 0.1.12+) |
+| `aboutVersionsFromGateway(payload, error?)` | `AfAboutVersions` | The About card's framework and gateway versions from a `GET /api/gateway/about` body, or `(null, reason)` after a failed request (kit 0.7.0+) |
 | `applyAppearance(settings)` | `void` | Applies a theme and typography settings to the document |
 
 Every mount returns `{ update(props), unmount() }`. Mounting into a missing element throws
@@ -3334,7 +3352,7 @@ type TopBarIslandProps = {
   appearance?: { onOpen: () => void; label?: string } | null;                 // omit/null hides it
   about?: {                                                                   // omit/null hides it (kit 0.1.12+)
     identity: AppIdentity;               // from islands.appIdentity("abstractgateway", version)
-    extraRows?: Array<[string, string]>; // e.g. package versions from GET /about
+    versions?: AfAboutVersions;          // framework + gateway versions (apiVersion "2")
     onOpen?: () => void;                 // runs each time the About dialog opens
     label?: string;
   } | null;
@@ -3379,19 +3397,29 @@ The dialog does not persist anything: store `value` yourself, then call
 
 ### `mountAbout(el, props)`
 
-Renders the shared About dialog: the application name and version, "Part of AbstractFramework",
-author, copyright and licence, website, source, documentation, "Report an issue", "Give feedback"
-and the contact e-mail, followed by your `extraRows`. Links open in a new tab.
+Renders the shared compact About card in a modal dialog: the application name and version, the
+AbstractFramework and AbstractGateway versions, one row of links (Website, Source, Docs, Issues,
+Feedback, and Contact as a mailto) and the copyright and licence line. It never lists packages.
+Links open in a new tab; Escape, the Close button or a click outside closes it.
 
 ```ts
+type AfAboutVersions = {
+  framework?: string | null; // AbstractFramework version
+  frameworkNote?: string;    // shown when framework is missing, e.g. "not installed on the gateway host"
+  gateway?: string | null;   // AbstractGateway version
+  gatewayNote?: string;      // shown when gateway is missing, e.g. "unavailable (HTTP 503)"
+};
+
 type AboutIslandProps = {
   open: boolean;
   onClose: () => void;
-  identity: AppIdentity;               // islands.appIdentity("abstractgateway", version)
-  extraRows?: Array<[string, string]>; // e.g. [["abstractcore", "2.15.2"]]
-  title?: string;                      // defaults to "About <app name>"
+  identity: AppIdentity;      // islands.appIdentity("abstractgateway", version)
+  versions?: AfAboutVersions; // or islands.aboutVersionsFromGateway(body)
 };
 ```
+
+A missing version shows its note, otherwise "not reported" (framework) or "not connected"
+(gateway).
 
 Use `mountAbout` when your About entry lives outside the top bar. When you pass `about` to
 `mountTopBar`, the cluster renders the About button and owns the dialog itself, so you do not
@@ -3474,6 +3502,9 @@ Use the values in `islands.fontScales` and `islands.headerDensities` for valid
   Additive members keep the same `apiVersion` and are marked with the kit version that
   introduced them (for example `mountAbout`, kit 0.1.12); check `kitVersion` if you load a bundle
   you did not build yourself.
+- `apiVersion` `"2"` (kit 0.7.0): the About props (`mountAbout`, and `about` on `mountTopBar`)
+  take `versions` (`AfAboutVersions`) instead of `extraRows`. A host written for `"1"` that still
+  passes `extraRows` must switch to `versions`; the rows are no longer rendered.
 - `kitVersion` identifies the `ui-kit` release the bundle was built from. Rebuild the bundle
   after upgrading the kit sources; a consumer that vendors the bundle should rebuild and re-vendor
   it whenever any kit source that feeds it changes (`ui-kit/src/*`, `ui-kit/islands/*`,
@@ -3556,9 +3587,10 @@ This package provides:
   `GatewaySessionSignInCard`
 - **App chrome**: `AfTopBarActions`, `AfDrawer`, `AfRailDrawer` (vertical icon rail at the right
   edge, panel beside it, resizable, collapses to icons), `AfAppearanceDialog` +
-  `useAppearanceSettings()`, `AfAboutDialog`
-- **Files**: `AfFileViewer` (Markdown via the host renderer, highlighted code, JSON, images, PDF,
-  text; size/date header; download) and `AfCodeBlock` / `highlightCode()`
+  `useAppearanceSettings()`, `AfAbout` / `AfAboutDialog` (the compact About card)
+- **Files**: `AfFileViewer` (Markdown via the host renderer, highlighted code, JSON, images,
+  audio, PDF, text; size/date header; download), `AfCodeBlock` / `highlightCode()` and
+  `AfAudioPlayer` (the shared waveform audio player)
 - **Settings rows**: `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow` ("Gateway default" unless
   overridden), `AfVoiceSection` (the Assistant's Voice layout)
 - **Time**: `formatRelativeTime(ts, nowMs)`, `formatExactTime(ts)` — deterministic, no seconds
@@ -3731,57 +3763,72 @@ Rules:
 
 ## About dialog and identity
 
-Every AbstractFramework app shows the same About facts: the app name and version, "Part of
-AbstractFramework", the author, the copyright and licence line, and links to the website, source,
-documentation, issue tracker and feedback page, plus the contact e-mail. They come from one
-canonical descriptor that the kit ships as `abstractframework_identity.json` (a byte-identical
-copy of `identity/abstractframework.json` in the
-[AbstractFramework repository](https://github.com/lpalbou/AbstractFramework)); the rows match the
-Python `abstractcore.utils.identity.about_fields`, so web, desktop and terminal apps agree.
+Every AbstractFramework app shows the same compact About card: the app's name and version, the
+AbstractFramework and AbstractGateway versions, one row of links (Website, Source, Docs, Issues,
+Feedback, and Contact as a `mailto:`) and the copyright and licence line. It never lists
+packages. The identity facts come from one canonical descriptor that the kit ships as
+`abstractframework_identity.json` (a byte-identical copy of `identity/abstractframework.json` in
+the [AbstractFramework repository](https://github.com/lpalbou/AbstractFramework)); AbstractCore's
+`abstractcore.utils.identity.about_card_html` renders the same card in Python, so web apps and the
+consoles agree.
 
 Add About to the top bar with one prop:
 
 ```tsx
-import { AfTopBarActions, appIdentity, gatewayVersionRows, type AboutRow } from "@abstractframework/ui-kit";
+import { AfTopBarActions, aboutVersionsFromGateway, appIdentity, type AfAboutVersions } from "@abstractframework/ui-kit";
 
 const identity = appIdentity("abstractflow", APP_VERSION); // throws for an unknown id
-const [gatewayRows, setGatewayRows] = useState<AboutRow[]>([]);
-const refreshGatewayRows = () =>
+const [versions, setVersions] = useState<AfAboutVersions>({ gatewayNote: "checking…" });
+const refreshVersions = () =>
   fetchJson("/api/gateway/about").then(
-    (body) => setGatewayRows(gatewayVersionRows(body)),
-    (err) => setGatewayRows(gatewayVersionRows(null, String(err?.message || err))),
+    (body) => setVersions(aboutVersionsFromGateway(body)),
+    (err) => setVersions(aboutVersionsFromGateway(null, String(err?.message || err))),
   );
 
 <AfTopBarActions
-  about={{ identity, extraRows: gatewayRows, onOpen: refreshGatewayRows }}
+  about={{ identity, versions, onOpen: refreshVersions }}
   connection={...}
 />
 ```
 
 - `appIdentity(id, version)` takes the distribution name in lower case (`knownAppIds()` lists
   them) and your app's own version. An unknown id throws: an app must not invent identity facts.
-- `extraRows` is an array of `[label, value]` pairs appended after the standard rows. For the
-  connected gateway, build them with `gatewayVersionRows(body)` from the body of
-  `GET /api/gateway/about`, or with `gatewayVersionRows(null, reason)` when the request fails. The kit never fetches
-  versions; `onOpen` runs each time the dialog opens, which is a good moment to refresh them.
-- `gatewayVersionRows` gives every app the same rows: `Gateway` (`AbstractGateway <version>`),
-  `Gateway framework` (`AbstractFramework <version>`, or `not installed on the gateway host`), then
-  `Gateway package <name>` for each other reported package, sorted by name. Only string values
-  count as versions: packages without one are left out, and a body without a string
-  `abstractgateway` version, like a failed request, gives the single row
-  `Gateway` → `unavailable (<reason>)`. The error is its own argument, so a body that contains an
-  `error` field is still read as a normal body. The rows match the Python
-  `abstractcore.utils.identity.gateway_version_rows(payload, error)`; both sides are checked
-  against the shared fixture `scripts/fixtures/gateway_version_rows.json`.
-- The dialog turns every `http://` or `https://` URL in a row into a link that opens in a new tab
-  (`rel="noopener noreferrer"`), including the framework website in "Part of"; the rest of the
-  value stays text. Only the Contact row is a `mailto:` link, so a value such as
-  `basic-agent@0.1.0:main` shows as plain text.
-- The dialog keeps Tab and Shift+Tab inside itself while it is open, and closes on Escape, a click
-  outside, or Close.
-- Use `<AfAboutDialog open onClose identity extraRows />` directly when your About entry lives
-  somewhere else (a menu, a settings page), and `aboutRows(identity, extra)` when you render the
-  rows yourself.
+- `versions` is `{ framework?, frameworkNote?, gateway?, gatewayNote? }`. A missing version shows
+  its note, otherwise "not reported" (framework) or "not connected" (gateway). Build it with
+  `aboutVersionsFromGateway(body)` from the body of `GET /api/gateway/about`: only the framework
+  and gateway versions are read (the payload's package list is ignored), a missing framework says
+  "not installed on the gateway host", and a body without a string gateway version says
+  "unavailable (the gateway did not report its version)". After a failed request use
+  `aboutVersionsFromGateway(null, reason)` ("unavailable (<reason>)"). The kit never fetches;
+  `onOpen` runs each time the dialog opens, a good moment to refresh the versions.
+- The dialog keeps Tab and Shift+Tab inside itself while it is open, closes on Escape, a click
+  outside, or the Close button in its heading row, and returns focus to the About button.
+- Use `<AfAboutDialog open onClose identity versions />` when your About entry lives somewhere
+  else (a menu), or the inline `<AfAbout identity versions />` card on a settings page.
+  `aboutLinks(identity)` and `aboutVersionFacts(versions)` expose the card's links and facts.
+- `aboutRows(identity, extra)` and `gatewayVersionRows(payload, error)` remain available for
+  apps that list About facts as rows (they match the Python `about_fields` and
+  `gateway_version_rows`, checked against `scripts/fixtures/gateway_version_rows.json`); the About
+  card does not render rows.
+
+## Audio player
+
+`AfAudioPlayer` is the one audio viewer of every client (AbstractFlow artifacts, `AfFileViewer`
+audio files, panel-chat media):
+
+```tsx
+<AfAudioPlayer src={objectUrl} name="speech.wav" />
+```
+
+- `src` is a URL the browser can play: an object URL of bytes you fetched with your own
+  credentials, or a same-origin URL. `name` labels the controls; `peaks` (0..1 per bar) skips
+  decoding; `className` styles the wrapper.
+- The waveform is decoded from `src` with the Web Audio API. When decoding is unavailable or
+  fails, the bars stay flat with the reason in the waveform's tooltip, and playback still works.
+- Click or drag the waveform to seek. It is a keyboard `slider`: Left/Right move ±5 s, Home/End
+  jump to the start or end, Space/Enter play or pause.
+- Pure helpers: `audioPeaks(samples, bars?)`, `formatAudioTime(seconds)`,
+  `audioSeekTime(x, width, duration)`, `AUDIO_WAVEFORM_BARS`.
 
 ### CSS public API (non-React consumers)
 
@@ -3916,7 +3963,7 @@ Chat UI primitives for AbstractFramework-style UIs: thread rendering, message ca
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` `^0.6.0` (icons, the responsive tokens, and `AfFileViewer` / relative time for the workspace browser and `FileViewer`)
+- `@abstractframework/ui-kit` `^0.7.0` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, and `AfAudioPlayer` for audio previews and chat media)
 
 ## Install
 
@@ -3939,7 +3986,7 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
   `folderRefusal`, `dragCarriesFiles`, `draggedFileCount`, `dropZoneLabel`, `pastedFileName`,
   `DragPresence`
 - Renderers: `Markdown` (with `sameOriginImage` as the default image rule for `images="link"`), `JsonViewer`
-- Files (0.3.0): `WorkspaceBrowser` (rows: name, size, generated date, download icon; a click previews the file in place; the root once as a short name with Open folder / Copy path icons; `fileActions` for host actions), `FileViewer` (ui-kit `AfFileViewer` + `Markdown`), `useWorkspaceFilePreview` (bounded loader through the host's `fetchGateway`)
+- Files (0.3.0): `WorkspaceBrowser` (rows: name, size, generated date, download icon; a click previews the file in place; the root once as a short name with Open folder / Copy path icons; `fileActions` for host actions), `FileViewer` (ui-kit `AfFileViewer` + `Markdown`; audio files play in the kit's waveform `AfAudioPlayer`, 0.3.1), `useWorkspaceFilePreview` (bounded loader through the host's `fetchGateway`; images, audio and PDF as object URLs)
 - Tool and run evidence: `ToolActivity`, `ToolActivityGroup`, `toolArguments`, `toolPreview`,
   `workflowProgress`, `workflowEvidence`, `foldWorkflowTools`, `historyRecords`,
   `statDetail`, `StatDetailPanel`
@@ -4877,7 +4924,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -4918,7 +4965,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -4946,7 +4993,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -4990,12 +5037,12 @@ npm test
     "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.6.0",
+    "@abstractframework/ui-kit": "^0.7.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.6.0",
+    "@abstractframework/ui-kit": "^0.7.0",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -5192,7 +5239,7 @@ export { FONT_SCALES, HEADER_DENSITIES, applyTypography, getFontScaleSpec, getHe
 export { AF_BREAKPOINTS, AF_MEDIA, installViewportVars, useAfMedia, viewportVarsFrom, type AfVisualViewportSample } from "./responsive.js";
 export { AfSelect, type AfSelectProps, type AfSelectOption } from "./af_select.js";
 export { ProviderModelSelect, type ProviderModelSelectProps, type ProviderOption } from "./provider_model_select.js";
-export { ProviderModelPicker, type ProviderModelPickerProps, type ProviderModelPickerValue } from "./provider_model_picker.js";
+export { ProviderModelPicker, PICKER_DISCOVERY_UNAVAILABLE, PICKER_REASONING_UNAVAILABLE, type ProviderModelPickerProps, type ProviderModelPickerValue } from "./provider_model_picker.js";
 export { SpeculationSelect } from "./speculation_select.js";
 export { normalizeSpeculationValue, speculationCapability, speculationSelection, speculationFromSelection, type SpeculationValue, type SpeculationCapability } from "./speculation_control.js";
 export {
@@ -5295,7 +5342,7 @@ export {
   type AboutRow,
   type GatewayAboutPayload,
 } from "./identity.js";
-export { AfAboutDialog, type AfAboutDialogProps } from "./about.js";
+export { AfAbout, AfAboutDialog, aboutLinks, aboutVersionFacts, aboutVersionsFromGateway, type AfAboutDialogProps, type AfAboutProps, type AfAboutVersions } from "./about.js";
 export {
   AfAppearanceDialog,
   useAppearanceSettings,
@@ -5571,6 +5618,8 @@ export {
 } from "./af_voice_section.js";
 export { formatRelativeTime, formatExactTime, formatShortDate, timeValueMs } from "./relative_time.js";
 export { audioOutputSelectable } from "./use_gateway_voice.js";
+// ui-kit 0.7.0 (round 5): the shared waveform audio player (AfFileViewer plays audio with it).
+export { AfAudioPlayer, AUDIO_WAVEFORM_BARS, audioPeaks, audioSeekTime, formatAudioTime, type AfAudioPlayerProps } from "./af_audio_player.js";
 
 ## ui-kit/src/responsive.ts
 
@@ -5858,31 +5907,99 @@ export function gatewayVersionRows(payload: GatewayAboutPayload | null, error?: 
 
 ## ui-kit/src/about.tsx
 
-// AfAboutDialog — the one About dialog every AbstractFramework web app shows.
+// AfAbout / AfAboutDialog — the one About every AbstractFramework web app and
+// console shows (compact card, ui-kit 0.7.0).
 //
-// The rows come from `aboutRows` (identity.ts), which mirrors the Python
-// `abstractcore.utils.identity.about_fields`, so the web apps, the desktop
-// assistant and the terminal UIs all state the same facts in the same order.
-// Same dialog shell as AfAppearanceDialog (overlay, Escape closes, click
-// outside closes), themed through the kit tokens in theme.css. It is a true
-// modal: Tab / Shift+Tab cycle inside the dialog (aria-modal contract).
+// Content rule (operator, round 5): the app's name and version, the
+// framework version, the gateway version, the links (website, source, docs,
+// issues, feedback, contact) and ONE author/licence line. Never a package
+// list: per-package versions belong to the gateway's own diagnostics, not to
+// About. Same dialog shell as AfAppearanceDialog (overlay, Escape closes,
+// click outside closes); a true modal (Tab / Shift+Tab cycle inside).
 import React, { useEffect, useId, useRef } from "react";
-import { aboutRows, type AppIdentity } from "./identity.js";
+import { frameworkIdentity, type AppIdentity, type GatewayAboutPayload } from "./identity.js";
+import { Icon } from "./icon.js";
 
-export type AfAboutDialogProps = {
-  open: boolean;
-  onClose: () => void;
+/**
+ * The two versions About states besides the app's own. `null`/missing = not
+ * known; `gatewayNote` says why the gateway version is missing (e.g.
+ * "unavailable (HTTP 503)"). The kit never fetches: the app passes what it
+ * knows, typically from `aboutVersionsFromGateway(GET /api/gateway/about)`.
+ */
+export type AfAboutVersions = {
+  /** The AbstractFramework version (installed on the gateway host for web apps). */
+  framework?: string | null;
+  /** Why `framework` is missing (e.g. "not installed on the gateway host"); shown instead of "not reported". */
+  frameworkNote?: string;
+  /** The AbstractGateway version the app talks to (or serves). */
+  gateway?: string | null;
+  /** Why `gateway` is missing; shown instead of "not connected". */
+  gatewayNote?: string;
+};
+
+export type AfAboutProps = {
   /** From `appIdentity(id, version)`. */
   identity: AppIdentity;
-  /**
-   * App-specific rows appended after the standard ones, e.g. the versions the
-   * connected gateway reports (`GET /api/gateway/about`). The kit never fetches
-   * versions itself: the app passes what it knows.
-   */
-  extraRows?: ReadonlyArray<readonly [string, string]>;
-  /** Defaults to "About <app name>". */
-  title?: string;
+  versions?: AfAboutVersions;
+  /** id of the heading (the dialog's aria-labelledby). */
+  titleId?: string;
+  /** Rendered in the heading row, at the end (the dialog's Close button). */
+  action?: React.ReactNode;
+  className?: string;
 };
+
+export type AfAboutDialogProps = Omit<AfAboutProps, "titleId" | "action" | "className"> & {
+  open: boolean;
+  onClose: () => void;
+};
+
+function versionOf(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * About versions from the body of `GET /api/gateway/about` (or, when the
+ * request failed, `null` + the reason). Only the framework and gateway
+ * versions are taken: the payload's per-package list is deliberately unused.
+ */
+export function aboutVersionsFromGateway(payload: GatewayAboutPayload | null, error?: string): AfAboutVersions {
+  if (error !== undefined && error !== null) {
+    return { framework: null, gateway: null, gatewayNote: `unavailable (${String(error).trim() || "unknown error"})` };
+  }
+  const raw = (payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {}) as Record<string, unknown>;
+  const gateway = versionOf(raw.abstractgateway);
+  const framework = versionOf(raw.abstractframework);
+  return {
+    framework: framework || null,
+    gateway: gateway || null,
+    ...(gateway && !framework ? { frameworkNote: "not installed on the gateway host" } : {}),
+    ...(gateway ? {} : { gatewayNote: "unavailable (the gateway did not report its version)" }),
+  };
+}
+
+/** The ordered links of an About card (exported for the kit checks). */
+export function aboutLinks(identity: AppIdentity): Array<{ id: string; label: string; href: string; title: string }> {
+  const fw = frameworkIdentity();
+  return [
+    { id: "website", label: "Website", href: identity.website, title: identity.website },
+    { id: "source", label: "Source", href: identity.repo, title: identity.repo },
+    { id: "docs", label: "Docs", href: identity.docs, title: identity.docs },
+    { id: "issues", label: "Issues", href: identity.issues, title: identity.issues },
+    { id: "feedback", label: "Feedback", href: identity.feedback, title: identity.feedback },
+    { id: "contact", label: "Contact", href: `mailto:${fw.contact_email}`, title: fw.contact_email },
+  ];
+}
+
+/** The two version facts as `[label, text]` (exported for the kit checks). */
+export function aboutVersionFacts(versions: AfAboutVersions | undefined): Array<[string, string]> {
+  const v = versions || {};
+  const framework = versionOf(v.framework);
+  const gateway = versionOf(v.gateway);
+  return [
+    ["AbstractFramework", framework || (versionOf(v.frameworkNote) || "not reported")],
+    ["AbstractGateway", gateway || (versionOf(v.gatewayNote) || "not connected")],
+  ];
+}
 
 const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
@@ -5928,23 +6045,40 @@ export function aboutValueParts(label: string, value: string): Array<{ text: str
   return parts;
 }
 
-function RowValue({ label, value }: { label: string; value: string }): React.ReactElement {
+/** The About card (inline; AfAboutDialog wraps it in a modal). */
+export function AfAbout(p: AfAboutProps): React.ReactElement {
+  const fw = frameworkIdentity();
   return (
-    <span>
-      {aboutValueParts(label, value).map((part, i) =>
-        part.href === undefined ? (
-          <React.Fragment key={i}>{part.text}</React.Fragment>
-        ) : part.href.startsWith("mailto:") ? (
-          <a key={i} className="af-about__link" href={part.href}>
-            {part.text}
-          </a>
-        ) : (
-          <a key={i} className="af-about__link" href={part.href} target="_blank" rel="noopener noreferrer">
-            {part.text}
-          </a>
-        ),
-      )}
-    </span>
+    <div className={`af-about-card${p.className ? ` ${p.className}` : ""}`} data-app={p.identity.id}>
+      <div className="af-about-card__head">
+        <h2 className="af-about-card__name" id={p.titleId}>
+          {p.identity.name} <span className="af-about-card__version">{p.identity.version}</span>
+        </h2>
+        {p.action}
+      </div>
+      <dl className="af-about-card__versions">
+        {aboutVersionFacts(p.versions).map(([label, text]) => (
+          <div className="af-about-card__fact" key={label}>
+            <dt>{label}</dt>
+            <dd>{text}</dd>
+          </div>
+        ))}
+      </dl>
+      <nav className="af-about-card__links" aria-label={`${p.identity.name} links`}>
+        {aboutLinks(p.identity).map((link) =>
+          link.href.startsWith("mailto:") ? (
+            <a key={link.id} className="af-about-card__link" data-link={link.id} href={link.href} title={link.title}>
+              {link.label}
+            </a>
+          ) : (
+            <a key={link.id} className="af-about-card__link" data-link={link.id} href={link.href} title={link.title} target="_blank" rel="noopener noreferrer">
+              {link.label}
+            </a>
+          ),
+        )}
+      </nav>
+      <p className="af-about-card__legal">{fw.copyright}</p>
+    </div>
   );
 }
 
@@ -5982,9 +6116,6 @@ export function AfAboutDialog(props: AfAboutDialogProps): React.ReactElement | n
 
   if (!props.open) return null;
 
-  const title = props.title || `About ${props.identity.name}`;
-  const rows = aboutRows(props.identity, props.extraRows);
-
   return (
     <div className="af-appearance-overlay af-about-overlay" onClick={props.onClose} role="presentation">
       <div
@@ -5995,24 +6126,16 @@ export function AfAboutDialog(props: AfAboutDialogProps): React.ReactElement | n
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="af-appearance__title" id={titleId}>
-          {title}
-        </div>
-        <dl className="af-about__rows">
-          {rows.map(([label, value], i) => (
-            <div className="af-about__row" key={`${i}:${label}`}>
-              <dt className="af-about__label">{label}</dt>
-              <dd className="af-about__value">
-                <RowValue label={label} value={value} />
-              </dd>
-            </div>
-          ))}
-        </dl>
-        <div className="af-appearance__actions">
-          <button ref={closeRef} type="button" className="af-appearance__close" onClick={props.onClose}>
-            Close
-          </button>
-        </div>
+        <AfAbout
+          identity={props.identity}
+          versions={props.versions}
+          titleId={titleId}
+          action={
+            <button ref={closeRef} type="button" className="af-about-card__close" data-action="close-about" onClick={props.onClose} aria-label="Close" title="Close">
+              <Icon name="x" size={16} />
+            </button>
+          }
+        />
       </div>
     </div>
   );
@@ -6329,16 +6452,19 @@ export function AfRailDrawer(props: AfRailDrawerProps): React.ReactElement {
 // PDF. Markdown is rendered by the host's renderer (`renderMarkdown`, e.g.
 // panel-chat `Markdown`; panel-chat `FileViewer` wires it); without one the
 // source shows highlighted. Code is highlighted by `AfCodeBlock`, JSON is
-// pretty-printed. Header: name, size, generated date (relative, exact on
-// hover), download and close icons.
+// pretty-printed. Audio plays in the shared waveform player (AfAudioPlayer,
+// 0.7.0). Header: name, size, generated date (relative, exact on hover),
+// download and close icons.
 import React from "react";
 import { Icon } from "./icon.js";
+import { AfAudioPlayer } from "./af_audio_player.js";
 import { AfCodeBlock, codeLanguage } from "./code_highlight.js";
 import { formatExactTime, formatRelativeTime, timeValueMs } from "./relative_time.js";
 
-export type AfFileViewerKind = "markdown" | "code" | "json" | "image" | "pdf" | "text" | "binary";
+export type AfFileViewerKind = "markdown" | "code" | "json" | "image" | "audio" | "pdf" | "text" | "binary";
 
 const IMAGE_EXT = new Set("png jpg jpeg gif webp bmp ico avif".split(" "));
+const AUDIO_EXT = new Set("mp3 wav ogg oga opus m4a aac flac weba".split(" "));
 const TEXT_EXT = new Set("txt log csv tsv rst adoc org tex diff patch lock".split(" "));
 
 function extensionOf(name: string): string {
@@ -6359,6 +6485,7 @@ export function fileViewerKind(name: string, contentType = ""): AfFileViewerKind
   if (ext === "json" || type === "application/json" || type.endsWith("+json")) return "json";
   if (ext === "pdf" || type === "application/pdf") return "pdf";
   if (IMAGE_EXT.has(ext) || (type.startsWith("image/") && type !== "image/svg+xml")) return "image";
+  if (AUDIO_EXT.has(ext) || type.startsWith("audio/")) return "audio";
   if (codeLanguage(name)) return "code";
   if (TEXT_EXT.has(ext) || type.startsWith("text/")) return "text";
   if (["application/javascript", "application/xml", "application/x-yaml", "application/toml"].includes(type)) return "code";
@@ -6402,7 +6529,7 @@ export type AfFileViewerProps = {
   text?: string;
   /** Shown above a partial preview ("Showing the first 1 MiB of 3 MiB…"). */
   partialNote?: string;
-  /** Image / PDF: an object URL of the bytes. */
+  /** Image / audio / PDF: an object URL of the bytes. */
   url?: string;
   renderMarkdown?: (text: string) => React.ReactNode;
   onDownload?: () => void;
@@ -6477,6 +6604,8 @@ function FileBody({ kind, p }: { kind: AfFileViewerKind; p: AfFileViewerProps })
   switch (kind) {
     case "image":
       return p.url ? <img className="af-file-viewer__image" src={p.url} alt={p.name} /> : <NoPreview />;
+    case "audio":
+      return p.url ? <AfAudioPlayer src={p.url} name={p.name} /> : <NoPreview />;
     case "pdf":
       return p.url ? (
         <object className="af-file-viewer__pdf" data={p.url} type="application/pdf" aria-label={p.name}>
@@ -6656,7 +6785,7 @@ export function AfOverrideRow(p: AfOverrideRowProps): React.ReactElement {
 // package's `Markdown` renderer, plus the loader that reads one workspace
 // file through the host's credentialed `GatewayFetch` — bounded text for the
 // text kinds (Range request + a reader that stops at the limit), an object
-// URL for images and PDFs. Lifted from AbstractCode web's
+// URL for images, audio (the kit waveform player, 0.7.0) and PDFs. Lifted from AbstractCode web's
 // `workspace/session_files.tsx` (previewKind, readBoundedText,
 // safeMarkdownImages) so every client previews files the same way.
 import React, { useEffect, useState } from "react";
@@ -6669,7 +6798,7 @@ type GatewayFetch = (path: string, init?: RequestInit) => Promise<Response>;
 /** Bytes read for a text preview; larger files show their first part. */
 export const PREVIEW_TEXT_LIMIT = 1024 * 1024;
 export const PREVIEW_LIMIT_LABEL = "1 MiB";
-/** Images / PDFs larger than this are offered as a download only. */
+/** Images / audio / PDFs larger than this are offered as a download only. */
 export const PREVIEW_BLOB_LIMIT = 25 * 1024 * 1024;
 
 const contentUrl = (runId: string, path: string) =>
@@ -6788,7 +6917,7 @@ export type FilePreviewState =
 
 /**
  * Load one workspace file for the viewer. Text kinds: a bounded Range read.
- * Image / PDF: the bytes as an object URL (revoked when the entry changes).
+ * Image / audio / PDF: the bytes as an object URL (revoked when the entry changes).
  * Binary: nothing is read. `refreshKey` re-reads (the run wrote again).
  */
 export function useWorkspaceFilePreview(fetchGateway: GatewayFetch, runId: string, entry: FilePreviewEntry | null, refreshKey?: string | number): FilePreviewState {
@@ -6805,7 +6934,7 @@ export function useWorkspaceFilePreview(fetchGateway: GatewayFetch, runId: strin
       setState({ status: "ready", kind: "binary", contentType: "", partial: false });
       return;
     }
-    if ((byName === "image" || byName === "pdf") && typeof entry.size_bytes === "number" && entry.size_bytes > PREVIEW_BLOB_LIMIT) {
+    if ((byName === "image" || byName === "audio" || byName === "pdf") && typeof entry.size_bytes === "number" && entry.size_bytes > PREVIEW_BLOB_LIMIT) {
       setState({ status: "error", kind: byName, message: `Too large to preview (${formatFileSize(entry.size_bytes)}); use Download.` });
       return;
     }
@@ -6833,7 +6962,7 @@ export function useWorkspaceFilePreview(fetchGateway: GatewayFetch, runId: strin
           });
           return;
         }
-        if (kind === "image" || kind === "pdf") {
+        if (kind === "image" || kind === "audio" || kind === "pdf") {
           const blob = await r.blob();
           if (abort.signal.aborted) return;
           objectUrl = URL.createObjectURL(blob.type ? blob : new Blob([blob], { type: kind === "pdf" ? "application/pdf" : contentType }));
@@ -7652,7 +7781,8 @@ export type AutomationCommandType =
   | "automation.resume"
   | "automation.run_now"
   | "automation.stop_current"
-  | "automation.archive";
+  | "automation.archive"
+  | "automation.unarchive";
 
 /** Where an automation's attention items are delivered (definition v2; default `["console"]`). */
 export type NotifyChannel = "console" | "email";
@@ -8235,7 +8365,7 @@ export function notifyLabel(notify: AutomationNotify | null | undefined): string
 
 // --- controls ---------------------------------------------------------------
 
-export type ControlId = "active" | "pause" | "resume" | "run_now" | "stop_current" | "revise" | "archive" | "discuss";
+export type ControlId = "active" | "pause" | "resume" | "run_now" | "stop_current" | "revise" | "archive" | "unarchive" | "discuss";
 export type ControlState = { enabled: boolean; reason?: string };
 export const CONTROL_COMMANDS: Record<Exclude<ControlId, "active" | "revise" | "discuss">, string> = {
   pause: "automation.pause",
@@ -8243,6 +8373,7 @@ export const CONTROL_COMMANDS: Record<Exclude<ControlId, "active" | "revise" | "
   run_now: "automation.run_now",
   stop_current: "automation.stop_current",
   archive: "automation.archive",
+  unarchive: "automation.unarchive",
 };
 
 const IN_PROGRESS = new Set(["running", "waiting", "backoff"]);
@@ -8284,7 +8415,9 @@ export function relativeIn(ts: string, nowMs: number): string {
  * (`summary.capabilities`); the status decides which of them apply now. Run
  * now stays enabled while paused (it does not resume). `busy` disables all.
  * Discuss needs the `discuss` capability and is off for legacy rows; it stays
- * available on an archived automation (its history is kept).
+ * available on an archived automation (its history is kept). Unarchive
+ * (0.7.0) applies ONLY to an archived automation and needs the `unarchive`
+ * capability; the runtime brings it back paused.
  */
 export function automationControls(
   summary: AutomationSummary,
@@ -8325,6 +8458,15 @@ export function automationControls(
     stop_current: gate("stop_current", running, "Nothing is running."),
     revise: gate("revise", true, ""),
     archive: gate("archive", true, ""),
+    unarchive: busy
+      ? { enabled: false, reason: "Working…" }
+      : summary.legacy
+        ? { enabled: false, reason: "Legacy schedule: managed with its existing controls." }
+        : st !== "archived"
+          ? { enabled: false, reason: "Not archived." }
+          : caps.has("unarchive")
+            ? { enabled: true }
+            : { enabled: false, reason: "Not permitted for this automation." },
     discuss: busy
       ? { enabled: false, reason: "Working…" }
       : summary.legacy
@@ -8845,7 +8987,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { AfTopBarActions } from "../src/af_top_bar_actions.js";
 import { AfAppearanceDialog, type AppearanceSettings } from "../src/appearance.js";
-import { AfAboutDialog } from "../src/about.js";
+import { AfAboutDialog, aboutVersionsFromGateway, type AfAboutVersions } from "../src/about.js";
 import { appIdentity, type AppIdentity } from "../src/identity.js";
 import { Icon, type IconName } from "../src/icon.js";
 import { bindAfModal } from "../src/af_modal_core.js";
@@ -8864,8 +9006,11 @@ import type { ChatMessage } from "../../panel-chat/src/chat_message_card.js";
 declare const __KIT_VERSION__: string;
 
 // Changes only when the island API changes INCOMPATIBLY (docs/console-islands.md
-// "Versioning"). Additive members (mountAbout, appIdentity: kit 0.1.12) keep "1".
-export const ISLANDS_API_VERSION = "1";
+// "Versioning"). Additive members (mountAbout, appIdentity: kit 0.1.12) keep the
+// version; "2" (kit 0.7.0): the About props take `versions` (framework +
+// gateway) instead of `extraRows` — a host still passing rows would silently
+// lose them, so this is incompatible.
+export const ISLANDS_API_VERSION = "2";
 
 export type IslandExtraAction = {
   id: string;
@@ -8882,7 +9027,7 @@ export type TopBarIslandProps = {
   assistant?: { open: boolean; onToggle: () => void; label?: string } | null;
   appearance?: { onOpen: () => void; label?: string } | null;
   /** The About button + dialog, owned by the cluster (omit/null hides it). */
-  about?: { identity: AppIdentity; extraRows?: Array<[string, string]>; onOpen?: () => void; label?: string } | null;
+  about?: { identity: AppIdentity; versions?: AfAboutVersions; onOpen?: () => void; label?: string } | null;
   extras?: IslandExtraAction[];
   connection: {
     phase: GatewayConnectionPhase;
@@ -8906,9 +9051,8 @@ export type AboutIslandProps = {
   onClose: () => void;
   /** From `AfConsoleIslands.appIdentity("abstractgateway", version)`. */
   identity: AppIdentity;
-  /** App-specific rows, e.g. `[["abstractgateway", "0.4.3"]]` from `GET /about`. */
-  extraRows?: Array<[string, string]>;
-  title?: string;
+  /** Framework + gateway versions (kit 0.7.0 compact About; no package list). */
+  versions?: AfAboutVersions;
 };
 
 /** A composer attachment chip (the host uploads; the island only shows state). */
@@ -9225,6 +9369,7 @@ const api = {
   bindModal,
   bindMenu,
   appIdentity,
+  aboutVersionsFromGateway,
   applyAppearance,
 };
 
@@ -11144,7 +11289,7 @@ export {
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import { Icon, type IconName } from "@abstractframework/ui-kit";
+import { AfAudioPlayer, Icon, type IconName } from "@abstractframework/ui-kit";
 
 import { ChatMessageContent } from "./message_content.js";
 import type { MarkdownImages } from "./markdown.js";
@@ -11302,7 +11447,7 @@ function ChatMediaItem({ item }: { item: ChatMedia }): React.ReactElement | null
     <figure className={`pc-chat-media__item pc-chat-media__item--${kind}`}>
       {src && kind === "image" ? <img className="pc-chat-media__image" src={src} alt={label} loading="lazy" onError={onError} /> : null}
       {src && kind === "video" ? <video className="pc-chat-media__video" src={src} controls playsInline preload="metadata" aria-label={label} onError={onError} /> : null}
-      {src && kind === "audio" ? <audio className="pc-chat-media__audio" src={src} controls preload="metadata" aria-label={label} onError={onError} /> : null}
+      {src && kind === "audio" ? <AfAudioPlayer className="pc-chat-media__audio" src={src} name={label} /> : null}
       {failed ? (
         <div className="pc-chat-media__error" role="note">
           {noun} could not be decoded by this browser{href ? "; open the raw file with the link." : "."}
@@ -15448,6 +15593,14 @@ ships.
 - ui-kit 0.6.0: `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow` (Gateway default unless overridden), `AfVoiceSection` (the Assistant's Voice layout: engines, output device, read aloud, voice latency; `voiceTtsRequest` / `voiceSttRequest`), `useGatewayVoice({ output_device_id })`.
 - ui-kit 0.6.0: `formatRelativeTime` / `formatExactTime` / `formatShortDate` / `timeValueMs` (deterministic); icons `cog` and `activity`; `AutomationReviseForm` exported, embeddable (`heading`, optional `onCancel`, `submitLabel`); `VoiceSettings` `quality` prop.
 - panel-chat 0.3.0 (unreleased): `FileViewer`, `useWorkspaceFilePreview`; `WorkspaceBrowser` previews a file in place (no "Open" button), rows show size, generated date and a download icon, the root shows once as a short name with Open folder / Copy path icons (`fileActions`, `onOpenFolder`, `copyText`); peer `@abstractframework/ui-kit` ^0.6.0.
+
+- ui-kit 0.6.0: `ProviderModelPicker` says one plain sentence when the gateway cannot describe the selected model (`PICKER_DISCOVERY_UNAVAILABLE`), the gateway's cause under **Technical details**; `SpeculationSelect` `hideNote`; an embedded `AutomationReviseForm` styles its own fields.
+
+- ui-kit 0.7.0 (unreleased): compact About card. `AfAbout` (inline) and `AfAboutDialog` show the app's name and version, the AbstractFramework and AbstractGateway versions, six links (Website, Source, Docs, Issues, Feedback, Contact) and the copyright and licence line — about half the height of the rows dialog, and never a package list. Props take `versions: AfAboutVersions` (`framework`, `frameworkNote`, `gateway`, `gatewayNote`) built with `aboutVersionsFromGateway(payload | null, error?)`; `aboutLinks`, `aboutVersionFacts` exported. **Breaking:** the `extraRows` prop of `AfAboutDialog` and of `AfTopBarActions` `about` is removed (pass `versions`). `aboutRows` / `gatewayVersionRows` stay for Python parity.
+- ui-kit 0.7.0: `AfAudioPlayer`, the shared waveform audio player (play/pause, click or drag the waveform to seek, keyboard slider, elapsed / total time; waveform decoded with Web Audio, flat bars with the reason when decoding fails); `AfFileViewer` kind `"audio"`; helpers `audioPeaks`, `formatAudioTime`, `audioSeekTime`, `AUDIO_WAVEFORM_BARS`. AbstractFlow's artifact audio preview now uses it.
+- ui-kit 0.7.0: Unarchive control — `AutomationControlsBar` shows **Unarchive** in place of Archive… on an archived automation, enabled with the `unarchive` capability, sending `automation.unarchive` (the automation comes back paused); `ControlId` `"unarchive"`, label and hint in `automation_controls.json`, icon `unarchive`.
+- ui-kit 0.7.0: console islands `apiVersion` `"2"` — `mountAbout` and the top bar's `about` take `versions` instead of `extraRows`; `aboutVersionsFromGateway` exported on `window.AfConsoleIslands`.
+- panel-chat 0.3.1 (unreleased): `useWorkspaceFilePreview` loads audio files as object URLs and `FileViewer` plays them in `AfAudioPlayer`; chat media audio uses `AfAudioPlayer`; peer `@abstractframework/ui-kit` ^0.7.0.
 
 ## 0.5.3 - 2026-10-03
 

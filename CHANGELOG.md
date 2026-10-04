@@ -20,6 +20,12 @@ ships.
 
 - ui-kit 0.6.0: `ProviderModelPicker` says one plain sentence when the gateway cannot describe the selected model (`PICKER_DISCOVERY_UNAVAILABLE`), the gateway's cause under **Technical details**; `SpeculationSelect` `hideNote`; an embedded `AutomationReviseForm` styles its own fields.
 
+- ui-kit 0.7.0 (unreleased): compact About card. `AfAbout` (inline) and `AfAboutDialog` show the app's name and version, the AbstractFramework and AbstractGateway versions, six links (Website, Source, Docs, Issues, Feedback, Contact) and the copyright and licence line — about half the height of the rows dialog, and never a package list. Props take `versions: AfAboutVersions` (`framework`, `frameworkNote`, `gateway`, `gatewayNote`) built with `aboutVersionsFromGateway(payload | null, error?)`; `aboutLinks`, `aboutVersionFacts` exported. **Breaking:** the `extraRows` prop of `AfAboutDialog` and of `AfTopBarActions` `about` is removed (pass `versions`). `aboutRows` / `gatewayVersionRows` stay for Python parity.
+- ui-kit 0.7.0: `AfAudioPlayer`, the shared waveform audio player (play/pause, click or drag the waveform to seek, keyboard slider, elapsed / total time; waveform decoded with Web Audio, flat bars with the reason when decoding fails); `AfFileViewer` kind `"audio"`; helpers `audioPeaks`, `formatAudioTime`, `audioSeekTime`, `AUDIO_WAVEFORM_BARS`. AbstractFlow's artifact audio preview now uses it.
+- ui-kit 0.7.0: Unarchive control — `AutomationControlsBar` shows **Unarchive** in place of Archive… on an archived automation, enabled with the `unarchive` capability, sending `automation.unarchive` (the automation comes back paused); `ControlId` `"unarchive"`, label and hint in `automation_controls.json`, icon `unarchive`.
+- ui-kit 0.7.0: console islands `apiVersion` `"2"` — `mountAbout` and the top bar's `about` take `versions` instead of `extraRows`; `aboutVersionsFromGateway` exported on `window.AfConsoleIslands`.
+- panel-chat 0.3.1 (unreleased): `useWorkspaceFilePreview` loads audio files as object URLs and `FileViewer` plays them in `AfAudioPlayer`; chat media audio uses `AfAudioPlayer`; peer `@abstractframework/ui-kit` ^0.7.0.
+
 ## 0.5.3 - 2026-10-03
 
 ### ui-kit 0.5.2

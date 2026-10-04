@@ -178,10 +178,13 @@ Source of truth: `panel-chat/src/markdown.tsx` and `panel-chat/src/chat_message_
 
 ## ui-kit: How do I add the About dialog?
 
-Pass `about={{ identity: appIdentity("<app id>", APP_VERSION), extraRows, onOpen }}` to
-`AfTopBarActions`. Build `extraRows` for the connected Gateway with `gatewayVersionRows(body)`
-from `GET /api/gateway/about`, or `gatewayVersionRows(null, reason)` when the request fails.
-`knownAppIds()` lists the accepted ids.
+Pass `about={{ identity: appIdentity("<app id>", APP_VERSION), versions, onOpen }}` to
+`AfTopBarActions`. Build `versions` for the connected Gateway with
+`aboutVersionsFromGateway(body)` from `GET /api/gateway/about`, or
+`aboutVersionsFromGateway(null, reason)` when the request fails (the card then says
+"unavailable (reason)"). The card shows the app's name and version, the framework and gateway
+versions, six links and the licence line; it never lists packages. `knownAppIds()` lists the
+accepted ids.
 
 See: [`ui-kit/README.md`](../ui-kit/README.md#about-dialog-and-identity).
 
