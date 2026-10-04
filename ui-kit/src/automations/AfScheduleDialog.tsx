@@ -50,7 +50,8 @@ export type AfScheduleDialogProps = {
   workflowPicker?: React.ReactNode;
   /**
    * Slot for the host's Workspaces section (the WorkspaceChooser at the run
-   * level), shown as a visible "Workspaces" fieldset after Tools. The host
+   * level, which titles itself "Workspaces"), shown as a visible group after
+   * Tools (no second heading). The host
    * keeps the value and merges it into `target.input_data.workspace` in its
    * `onSubmit`; the dialog sends nothing workspace-shaped itself.
    */
@@ -300,10 +301,10 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
           </fieldset>
 
           {props.workspaces ? (
-            <fieldset className="af-auto__field" data-field="workspaces">
-              <legend>Workspaces</legend>
+            // The chooser titles its own group ("Workspaces"): no second heading here.
+            <div className="af-auto__field" data-field="workspaces" role="group" aria-label="Workspaces">
               {props.workspaces}
-            </fieldset>
+            </div>
           ) : null}
 
           <fieldset className="af-auto__field" data-field="email">

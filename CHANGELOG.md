@@ -15,7 +15,7 @@ ships.
 
 ### ui-kit 0.8.4 (unreleased, round 13)
 
-- `AfScheduleDialog`: new optional `workspaces` slot, rendered as a visible **Workspaces** fieldset after Tools. The host puts the `WorkspaceChooser` at the run level there and merges the value into `target.input_data.workspace` in its `onSubmit`; the dialog sends nothing workspace-shaped. The **Advanced** disclosure is gone: its fields (title; for Repeat: first run at, stop after this many runs, stop at) are now the visible **Title and limits** fieldset. The dialog has no disclosure. `check_automation_panel.mjs` covers both. The `.af-schedule__advanced` CSS rules are kept, unused, so the console theme copy does not change.
+- `AfScheduleDialog`: new optional `workspaces` slot, rendered as a visible group after Tools (named **Workspaces**; the chooser inside carries the one visible title). The host puts the `WorkspaceChooser` at the run level there and merges the value into `target.input_data.workspace` in its `onSubmit`; the dialog sends nothing workspace-shaped. The **Advanced** disclosure is gone: its fields (title; for Repeat: first run at, stop after this many runs, stop at) are now the visible **Title and limits** fieldset. The dialog has no disclosure. `check_automation_panel.mjs` covers both. The `.af-schedule__advanced` CSS rules are kept, unused, so the console theme copy does not change.
 
 ### ui-kit 0.8.3 (unreleased, round 11; 0.8.2 was an interim pack of the same work)
 
