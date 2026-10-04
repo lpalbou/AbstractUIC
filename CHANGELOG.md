@@ -13,6 +13,10 @@ ships.
 
 - `AfTooltip` / `useAfTooltips` and the framework-free `bindAfTooltips` (console islands `bindTooltips`, additive, apiVersion stays "2"): one themed tooltip for icon buttons — 150 ms delay, shown on keyboard focus, hoverable, hidden by Escape / press / scroll / resize, placed above (flipped below) and kept inside the viewport, inverse surface from the active theme, `aria-describedby` while shown. New `--z-tooltip` (1200) token. Check `check_tooltip.mjs`. Docs: modal.md "Tooltip".
 
+### ui-kit 0.8.1 (unreleased, round 9)
+
+- `WorkspaceChooser`: the one folder chooser of the console's per-account modal, AbstractCode and the AbstractAssistant. It shows the shared workspace (always on, never a switch), one switch per folder the gateway admin allows (off until turned on), "My folders" rows with **Add** only while the gateway allows any folder (otherwise one sentence says why), and the gateway's one-line summary after "Agents may use:". Two modes: `account` (each change is one `PUT /api/gateway/workspace/policy/{account}`; a refusal shows the gateway's sentence with "Not saved.") and `automation` (the automation's stored set, chosen among the account's folders; "Use this account's folders" returns to following the account). Prop-driven, no route baked in; `workspaceChooserClient(request, account = "me")` wraps the routes and refuses a gateway without the round-9 model. The wording is `WORKSPACE_CHOOSER_TEXT`; the kit holds no policy logic (no path checks, no clamp): only folders the gateway lists can become switches.
+
 ## 0.6.0 - 2026-10-04
 
 | Package | Version | Change |

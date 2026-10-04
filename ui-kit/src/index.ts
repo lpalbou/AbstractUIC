@@ -369,6 +369,29 @@ export { triggerSourceProblem } from "./automations/AutomationPanel.js";
 export { AfRailDrawer, AF_RAIL_WIDTH, railDrawerClampWidth, railDrawerKeyWidth, railDrawerNextIndex, railDrawerToggle, type AfRailDrawerProps, type AfRailItem } from "./af_rail_drawer.js";
 export { AfFileViewer, fileViewerKind, fileViewerNeedsText, formatFileSize, type AfFileViewerKind, type AfFileViewerProps } from "./af_file_viewer.js";
 export { AfCodeBlock, codeLanguage, highlightCode, type AfCodeBlockProps, type CodeToken, type CodeTokenKind } from "./code_highlight.js";
+export { WorkspaceChooser, type WorkspaceChooserProps, type WorkspaceChooserAccountProps, type WorkspaceChooserAutomationProps } from "./workspace_chooser.js";
+export {
+  WORKSPACE_CHOOSER_TEXT,
+  workspaceFolderName,
+  workspaceAccountView,
+  workspaceSelectionView,
+  workspaceSelectionSummary,
+  workspaceSelectionAfterToggle,
+  workspaceExtraBody,
+  workspaceAddOwnBody,
+  workspaceRemoveOwnBody,
+  workspacePolicyPath,
+  workspaceChooserClient,
+  workspaceRefusal,
+  type WorkspaceEffective,
+  type WorkspaceFolder,
+  type WorkspaceAccountPolicy,
+  type WorkspaceAccountState,
+  type WorkspaceChooserView,
+  type WorkspaceChooserRow,
+  type WorkspaceChooserText,
+  type WorkspaceRequest,
+} from "./workspace_chooser_core.js";
 export { AfSettingsGroup, AfSettingRow, AfOverrideRow, type AfSettingsGroupProps, type AfSettingRowProps, type AfOverrideRowProps } from "./af_settings_rows.js";
 export {
   AfVoiceSection,

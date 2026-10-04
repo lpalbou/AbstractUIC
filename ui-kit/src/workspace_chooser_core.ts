@@ -1,0 +1,195 @@
+// WorkspaceChooser core (ui-kit 0.8.1, round 9): the folder model every
+// client shows — the admin allows, the account fine-tunes within it.
+//
+// The GATEWAY decides everything (R9 WORKSPACE API, abstractgateway):
+//   GET  /api/gateway/workspace/policy/{account}  -> {policy, gateway, effective}
+//   PUT  /api/gateway/workspace/policy/{account}  {enabled_folders?, own_folders?}
+//        -> the same shape; a refused folder -> 4xx with a sentence.
+// `{account}` is `me` (the caller), `user` or `tenant:user` (admin).
+//
+// This module holds NO policy logic: no path validation, no clamp, no deny
+// check. It turns what the gateway answered into rows, and a click on a row
+// into the PUT body the gateway will accept or refuse. A folder can only
+// appear as a switch when the gateway listed it (available_folders for an
+// account, effective folders for an automation), so a client cannot offer a
+// folder the admin did not allow.
+
+/** One effective folder: the shared workspace, an admin-allowed folder switched on, or one of the account's own. */
+export type WorkspaceFolder = { path: string; source: "shared" | "allowed" | "own" | string };
+
+/** EFFECTIVE, as GET /workspace/effective/{account} and the policy reads answer it. */
+export type WorkspaceEffective = {
+  account?: string;
+  shared_workspace: string;
+  folders: WorkspaceFolder[];
+  available_folders: { path: string; enabled: boolean }[];
+  own_folders_allowed: boolean;
+  own_folders_inactive?: boolean;
+  never_allowed?: string[];
+  launch_folder_trust?: boolean;
+  /** The gateway's one line ("Shared workspace + 2 folders (1 of your own). Never: 3 folders."). */
+  summary: string;
+};
+
+/** ACCOUNT POLICY (stored): `enabled_folders` ⊆ the admin's allowed folders, `own_folders` only while any folder is allowed. */
+export type WorkspaceAccountPolicy = { account?: string; enabled_folders: string[]; own_folders: string[] };
+
+/** GET/PUT /workspace/policy/{account} answer. */
+export type WorkspaceAccountState = { policy: WorkspaceAccountPolicy; effective: WorkspaceEffective };
+
+/**
+ * The ONE wording table. The console (per-account modal), AbstractCode and
+ * the AbstractAssistant (Qt; abstractassistant/ui/settings/workspace_text.py
+ * carries a verbatim copy, checked by its tests) show exactly these strings.
+ */
+export const WORKSPACE_CHOOSER_TEXT = {
+  title: "Workspace folders",
+  help: "The folders agents may use. The shared workspace is always on; other folders the gateway admin allows can be turned on.",
+  sharedLabel: "Shared workspace",
+  sharedState: "Always on",
+  sharedHelp: "Every conversation, automation and entity gets its own folder in it.",
+  allowedTitle: "Allowed folders",
+  allowedHelp: "Allowed by the gateway admin. Off until turned on.",
+  allowedEmpty: "The gateway admin has not allowed other folders.",
+  ownTitle: "My folders",
+  ownHelp: "Folders of this account. The gateway admin allows any folder.",
+  ownHidden: "My folders appear when the gateway admin allows any folder.",
+  ownInactive: "My folders are kept but unused until the gateway admin allows any folder again.",
+  ownEmpty: "No folders added yet.",
+  ownPlaceholder: "/absolute/path/to/folder",
+  add: "Add",
+  remove: "Remove",
+  effectivePrefix: "Agents may use:",
+  saved: "Saved",
+  notSaved: "Not saved.",
+  // An automation keeps its own set, within the account's folders.
+  automationHelp: "The folders this automation's runs may use, chosen among this account's folders.",
+  automationFollows: "Follows this account's folders.",
+  automationUseAccount: "Use this account's folders",
+  automationOwnHidden: "Add folders of your own in the account's workspace settings.",
+} as const;
+
+export type WorkspaceChooserText = typeof WORKSPACE_CHOOSER_TEXT;
+
+/** The last path segment (the row's name); the full path is shown under it. */
+export function workspaceFolderName(path: string): string {
+  const parts = String(path || "").split(/[\\/]+/).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : String(path || "");
+}
+
+export type WorkspaceChooserRow = { path: string; name: string; on: boolean };
+
+export type WorkspaceChooserView = {
+  shared: { path: string; name: string };
+  /** Switch rows: account mode = the admin's allowed folders; automation mode = the account's effective extras. */
+  extras: WorkspaceChooserRow[];
+  /** "My folders" rows (account mode only). */
+  own: { visible: boolean; rows: string[]; note: string | null };
+  /** The one effective line, without the prefix. */
+  summary: string;
+  /** Automation mode: the automation stores no set and follows the account. */
+  follows: boolean;
+};
+
+/** Account mode: the account's own policy (Assistant settings, Code conversations, the console's per-account modal). */
+export function workspaceAccountView(state: WorkspaceAccountState): WorkspaceChooserView {
+  const eff = state.effective;
+  const ownStored = Array.isArray(state.policy?.own_folders) ? state.policy.own_folders : [];
+  return {
+    shared: { path: eff.shared_workspace, name: workspaceFolderName(eff.shared_workspace) },
+    extras: (eff.available_folders || []).map((f) => ({ path: f.path, name: workspaceFolderName(f.path), on: f.enabled === true })),
+    own: {
+      visible: eff.own_folders_allowed === true,
+      rows: eff.own_folders_allowed === true ? ownStored : [],
+      note: eff.own_folders_allowed === true ? null : eff.own_folders_inactive && ownStored.length ? WORKSPACE_CHOOSER_TEXT.ownInactive : WORKSPACE_CHOOSER_TEXT.ownHidden,
+    },
+    summary: eff.summary,
+    follows: false,
+  };
+}
+
+/** The display line for an automation's chosen set (formatting only). */
+export function workspaceSelectionSummary(count: number): string {
+  return count === 0 ? "Shared workspace only." : `Shared workspace + ${count} folder${count === 1 ? "" : "s"}.`;
+}
+
+/**
+ * Automation mode: the definition stores its chosen folders
+ * (`input_data.workspace_allowed_paths`); `selection === null` = nothing
+ * stored, the runs follow the account's effective folders.
+ */
+export function workspaceSelectionView(effective: WorkspaceEffective, selection: string[] | null): WorkspaceChooserView {
+  const offered = (effective.folders || []).filter((f) => f.source !== "shared").map((f) => f.path);
+  const chosen = new Set(selection ?? offered);
+  const extras = offered.map((path) => ({ path, name: workspaceFolderName(path), on: chosen.has(path) }));
+  return {
+    shared: { path: effective.shared_workspace, name: workspaceFolderName(effective.shared_workspace) },
+    extras,
+    own: { visible: false, rows: [], note: WORKSPACE_CHOOSER_TEXT.automationOwnHidden },
+    summary: selection === null ? effective.summary : workspaceSelectionSummary(extras.filter((r) => r.on).length),
+    follows: selection === null,
+  };
+}
+
+/**
+ * The automation's next stored set after one switch: built from the ROWS
+ * shown (so only folders the gateway offered can ever be stored; a stale
+ * entry that is no longer offered drops out).
+ */
+export function workspaceSelectionAfterToggle(view: WorkspaceChooserView, path: string, on: boolean): string[] {
+  return view.extras.filter((r) => (r.path === path ? on : r.on)).map((r) => r.path);
+}
+
+/** PUT bodies for the account policy (the gateway validates every folder). */
+export function workspaceExtraBody(view: WorkspaceChooserView, path: string, on: boolean): { enabled_folders: string[] } {
+  return { enabled_folders: workspaceSelectionAfterToggle(view, path, on) };
+}
+export function workspaceAddOwnBody(state: WorkspaceAccountState, path: string): { own_folders: string[] } {
+  const own = Array.isArray(state.policy?.own_folders) ? state.policy.own_folders : [];
+  return { own_folders: [...own, String(path).trim()] };
+}
+export function workspaceRemoveOwnBody(state: WorkspaceAccountState, path: string): { own_folders: string[] } {
+  const own = Array.isArray(state.policy?.own_folders) ? state.policy.own_folders : [];
+  return { own_folders: own.filter((p) => p !== path) };
+}
+
+/** The gateway route for an account's policy (`me` = the caller). */
+export function workspacePolicyPath(account = "me"): string {
+  return `/api/gateway/workspace/policy/${encodeURIComponent(account)}`;
+}
+
+/** A host's request: (path under the gateway origin, method, JSON body) -> parsed JSON; throws Error(sentence) on 4xx/5xx. */
+export type WorkspaceRequest = (path: string, init: { method: "GET" | "PUT"; body?: unknown }) => Promise<unknown>;
+
+function asState(value: unknown): WorkspaceAccountState {
+  const v = (value && typeof value === "object" ? value : {}) as Record<string, any>;
+  if (!v.effective || typeof v.effective !== "object" || typeof v.effective.shared_workspace !== "string") {
+    // Fail loudly: an older gateway (no R9 workspace model) must not render an empty chooser.
+    throw new Error("The gateway answered without a workspace policy (it needs the round-9 workspace model).");
+  }
+  const policy = v.policy && typeof v.policy === "object" ? v.policy : {};
+  return {
+    policy: {
+      account: policy.account,
+      enabled_folders: Array.isArray(policy.enabled_folders) ? policy.enabled_folders : [],
+      own_folders: Array.isArray(policy.own_folders) ? policy.own_folders : [],
+    },
+    effective: v.effective as WorkspaceEffective,
+  };
+}
+
+/** A thin client over the R9 routes for one account. Every write answers the new state. */
+export function workspaceChooserClient(request: WorkspaceRequest, account = "me") {
+  const path = workspacePolicyPath(account);
+  return {
+    load: async (): Promise<WorkspaceAccountState> => asState(await request(path, { method: "GET" })),
+    put: async (body: Record<string, unknown>): Promise<WorkspaceAccountState> => asState(await request(path, { method: "PUT", body })),
+  };
+}
+
+/** A refusal's sentence for the row ("<gateway sentence> Not saved."). */
+export function workspaceRefusal(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error || "");
+  const sentence = raw.trim() || "The gateway refused the change.";
+  return `${sentence}${/[.!?]$/.test(sentence) ? "" : "."} ${WORKSPACE_CHOOSER_TEXT.notSaved}`;
+}
