@@ -1924,6 +1924,11 @@ button.pc-ws__name:hover {
  * card on the right), a compact header (book title, icon-only New
  * conversation + close), and ONE footer line naming the grounding.
  * ===================================================================== */
+/* Opaque: a theme's --bg-card may be translucent (the page would show through). */
+.pc-docs-assistant-drawer {
+  background: var(--bg-secondary, #16213e);
+}
+
 .pc-docs-assistant-drawer .af-drawer__header {
   padding: 8px 10px 8px 14px;
 }
