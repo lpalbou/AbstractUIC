@@ -6303,11 +6303,14 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 .af-workspace__path {
   flex: 1 1 180px;
   min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: var(--font-size-sm);
   color: var(--text-primary);
   overflow-wrap: anywhere;
-  word-break: break-all;
 }
 .af-workspace__name {
   flex: 1 1 180px;
