@@ -7,7 +7,7 @@ Chat UI primitives for AbstractFramework-style UIs: thread rendering, message ca
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` `^0.7.0` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, and `AfAudioPlayer` for audio previews and chat media)
+- `@abstractframework/ui-kit` `^0.8.0` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, and `AfAudioPlayer` for audio previews and chat media)
 
 ## Install
 
