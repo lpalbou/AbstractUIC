@@ -165,6 +165,10 @@ function imageLink(key: string, src: string, alt: string): React.ReactElement {
   );
 }
 
+function isWordChar(ch: string | undefined): boolean {
+  return Boolean(ch) && /[\p{L}\p{N}]/u.test(ch as string);
+}
+
 function renderInline(text: string, highlight: HighlightState | null): InlineNode[] {
   const out: InlineNode[] = [];
   const s = String(text ?? "");
@@ -243,6 +247,27 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
         out.push(<code key={`code:${i}`}>{highlight ? highlightInline(inner, highlight) : inner}</code>);
         i = j + 1;
         continue;
+      }
+    }
+
+    // Underscore emphasis (`_em_`, `__strong__`), CommonMark's flanking rule
+    // in short: it opens after a non-word character and before a non-space,
+    // and closes after a non-space and before a non-word character, so
+    // snake_case_names and paths stay literal.
+    if (ch === "_" && !isWordChar(s[i - 1])) {
+      const marker = s[i + 1] === "_" ? "__" : "_";
+      const n = marker.length;
+      if (s[i + n] && !/\s/.test(s[i + n]) && s[i + n] !== "_") {
+        let j = s.indexOf(marker, i + n);
+        while (j !== -1 && (/\s/.test(s[j - 1] || " ") || isWordChar(s[j + n]) || (n === 1 && s[j + 1] === "_"))) j = s.indexOf(marker, j + 1);
+        if (j !== -1 && j > i + n) {
+          flush();
+          const inner = s.slice(i + n, j);
+          const nodes = renderInline(inner, highlight);
+          out.push(n === 2 ? <strong key={`ubold:${i}`}>{nodes}</strong> : <em key={`uem:${i}`}>{nodes}</em>);
+          i = j + n;
+          continue;
+        }
       }
     }
 

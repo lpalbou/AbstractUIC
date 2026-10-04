@@ -156,6 +156,15 @@ check("markdown rendered (bold)", panel.includes("<strong>Run</strong>"), panel.
 check("link rendered", /<a [^>]*href="https:\/\/example.org\/guide"/.test(panel));
 check("code block rendered", panel.includes("abstractflow run demo") && /<pre/.test(panel));
 check("code block highlighted (kit tokens) with a Copy icon", /af-code__(string|keyword|number|punct|comment)/.test(panel) && panel.includes('aria-label="Copy code"'), panel.match(/pc-md_codeblock[\s\S]{0,400}/)?.[0]);
+{
+  const { Markdown } = api;
+  const md = (t) => renderToStaticMarkup(React.createElement(Markdown, { text: t }));
+  const ital = md("_I received 1 image attachment with your question._");
+  check("underscore emphasis renders italic, never literal underscores", ital.includes("<em>I received 1 image attachment with your question.</em>") && !/_I received/.test(ital), ital);
+  check("double underscore renders bold", md("a __strong__ b").includes("<strong>strong</strong>"));
+  const snake = md("use snake_case_names and path/to_file_x");
+  check("snake_case and paths stay literal", snake.includes("snake_case_names") && snake.includes("to_file_x") && !snake.includes("<em>"), snake);
+}
 check("links open in a new tab", /<a [^>]*href="https:\/\/example.org\/guide"[^>]*target="_blank"|<a [^>]*target="_blank"[^>]*href="https:\/\/example.org\/guide"/.test(panel));
 check("JSON rendered", panel.includes("ok") && /pc-json|json/i.test(panel));
 check("user image attachment rendered", panel.includes('src="blob:http://x/1"'));

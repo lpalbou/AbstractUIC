@@ -2004,7 +2004,11 @@ button.pc-ws__name:hover {
 }
 
 .pc-docs-assistant .pc-chat-media__image {
+  display: block;
+  width: auto;
+  max-width: 100%;
   max-height: 160px;
+  border-radius: var(--radius-sm, 6px);
 }
 
 .pc-docs-assistant__empty {
