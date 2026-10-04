@@ -92,7 +92,7 @@ Serve both files from your own origin; the paths above are examples.
 | `mountAppearance(el, props)` | `IslandHandle` | Mounts `AfAppearanceDialog` into `el` |
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
 | `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.4.0+) |
-| `mountWorkspaceChooser(el, props)` | `IslandHandle` | Mounts the kit `WorkspaceChooser` (account mode: `state` + `onPut`); the console's per-account Workspace folders modal (kit 0.8.1, round 9) |
+| `mountWorkspaceChooser(el, props)` | `IslandHandle` | Mounts the kit `WorkspaceChooser` (account mode: `state` + `onPut`); the console's per-account Workspace modal (kit 0.8.1) |
 | `workspaceChooserText` | `object` | The WorkspaceChooser's wording table (`WORKSPACE_CHOOSER_TEXT`): the console's gateway modal shows the same posture and permission words (kit 0.8.1, round 9) |
 | `bindTooltips(root?, options?)` | `() => void` | The kit tooltip on every `[data-af-tip]` element under `root` (default the document): 150 ms delay, keyboard focus, hoverable, Escape hides, kept inside the viewport; delegated, bind once; returns `release()` (kit 0.8.x, round 9; [modal.md](./modal.md#tooltip)) |
 | `appIdentity(id, version)` | `AppIdentity` | Identity facts for an AbstractFramework app; throws for an unknown id (kit 0.1.12+) |
