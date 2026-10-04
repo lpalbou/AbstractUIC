@@ -1,5 +1,23 @@
 export { ChatMessageContent } from "./message_content.js";
 export { AssistantPanel } from "./assistant_panel.js";
+export {
+  DocsAssistantDrawer,
+  DocsAssistantPanel,
+  DOCS_QA_WORKFLOW,
+  docsAnswerFromRun,
+  docsCorpusPath,
+  docsQaStartBody,
+  docsReplayNote,
+  makeDocsQaAsk,
+  newDocsSessionId,
+  sseFrames,
+  type DocsAsk,
+  type DocsAskContext,
+  type DocsAssistantDrawerProps,
+  type DocsAssistantPanelProps,
+  type DocsAssistantSource,
+  type DocsAttachmentRef,
+} from "./docs_assistant.js";
 export type { AssistantPanelProps, AssistantAsk, AssistantAskContext } from "./assistant_panel.js";
 export { ChatComposer } from "./chat_composer.js";
 export { Markdown, sameOriginImage, type MarkdownImages, type MarkdownProps } from "./markdown.js";

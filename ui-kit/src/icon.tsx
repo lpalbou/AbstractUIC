@@ -67,7 +67,11 @@ export type IconName =
   // Rail drawer glyphs (ui-kit 0.6.0): the usual settings cog (the sliders
   // glyph stays "settings" for older callers) and an activity pulse. 24-grid.
   | "cog"
-  | "activity";
+  | "activity"
+  // Docs assistant (ui-kit 0.8.0, round 8): an open book (the top-bar "Docs
+  // assistant" button) and a square with a pen ("New conversation"). 24-grid.
+  | "book"
+  | "compose";
 
 /** Icons drawn on continuum's 16x16 grid (stroke 1.4) vs the kit's 24-grid (stroke 2). */
 const GRID_16: ReadonlySet<IconName> = new Set(["board", "inbox", "server", "agent", "playCircle", "list", "gear"]);
@@ -403,6 +407,20 @@ function paths(name: IconName): React.ReactNode {
         <>
           <circle cx="12" cy="12" r="10" />
           <path d="M12 6v6h4" />
+        </>
+      );
+    case "book":
+      return (
+        <>
+          <path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z" />
+          <path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z" />
+        </>
+      );
+    case "compose":
+      return (
+        <>
+          <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+          <path d="M18.4 2.6a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z" />
         </>
       );
     default:

@@ -13,7 +13,18 @@ import type { AppIdentity } from "./identity.js";
 import type { GatewayConnectionPhase } from "./use_gateway_connection.js";
 
 export type AfTopBarActionsProps = {
-  /** Omit to hide the assistant button (apps without an assistant yet). */
+  /**
+   * The Docs assistant (round 8): the app's documentation chat (panel-chat
+   * `DocsAssistantDrawer`). Same book icon in every app and the console; it
+   * renders first in the cluster. Omit to hide it.
+   */
+  docs?: {
+    open: boolean;
+    onToggle: () => void;
+    label?: string;
+  };
+  /** An app-specific assistant (e.g. Flow's authoring assistant, Continuum's
+   * advisor). Omit to hide the assistant button. */
   assistant?: {
     open: boolean;
     onToggle: () => void;
@@ -70,6 +81,19 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
 
   return (
     <div className={`af-topbar${props.className ? ` ${props.className}` : ""}`} role="group" aria-label="App actions">
+      {props.docs ? (
+        <button
+          type="button"
+          className={`af-topbar__btn af-topbar__btn--docs${props.docs.open ? " is-active" : ""}`}
+          aria-pressed={props.docs.open}
+          aria-label={props.docs.label || "Docs assistant"}
+          title={props.docs.label || "Docs assistant"}
+          onClick={props.docs.onToggle}
+        >
+          <Icon name="book" size={16} />
+        </button>
+      ) : null}
+
       {props.assistant ? (
         <button
           type="button"

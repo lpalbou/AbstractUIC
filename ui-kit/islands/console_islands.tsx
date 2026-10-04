@@ -30,6 +30,8 @@ import { VoiceSettings } from "../src/voice_settings.js";
 // ChatComposer with the standard Attach control, drop zone and paste-to-attach.
 import { WorkflowChat } from "../../panel-chat/src/workflow_chat.js";
 import type { ChatMessage } from "../../panel-chat/src/chat_message_card.js";
+// The shared docs assistant (round 8): the SAME drawer every app mounts.
+import { DocsAssistantDrawer, type DocsAssistantDrawerProps } from "../../panel-chat/src/docs_assistant.js";
 
 declare const __KIT_VERSION__: string;
 
@@ -52,6 +54,8 @@ export type IslandExtraAction = {
 };
 
 export type TopBarIslandProps = {
+  /** The Docs assistant button (book icon; additive, kit 0.8.0 round 8). */
+  docs?: { open: boolean; onToggle: () => void; label?: string } | null;
   assistant?: { open: boolean; onToggle: () => void; label?: string } | null;
   appearance?: { onOpen: () => void; label?: string } | null;
   /** The About button + dialog, owned by the cluster (omit/null hides it). */
@@ -166,6 +170,7 @@ function extrasNode(extras: IslandExtraAction[] | undefined): React.ReactNode {
 function TopBarIsland(props: TopBarIslandProps): React.ReactElement {
   return (
     <AfTopBarActions
+      docs={props.docs || undefined}
       assistant={props.assistant || undefined}
       appearance={props.appearance || undefined}
       about={props.about || undefined}
@@ -377,6 +382,19 @@ export function bindMenu(button: HTMLElement, menu: HTMLElement, options?: { onO
 }
 
 /** The kit's own theme + typography application (root class + CSS vars). */
+export type DocsAssistantIslandProps = DocsAssistantDrawerProps;
+
+/**
+ * The console's Docs assistant: panel-chat's DocsAssistantDrawer (the same
+ * component the apps mount) with source {app: "gateway"}. The host passes
+ * its own `fetchGateway` (cookie session + CSRF). Keep it mounted while
+ * closed (`open: false`) so the conversation survives. Additive member
+ * (kit 0.8.0, round 8): apiVersion stays "2".
+ */
+export function mountDocsAssistant(el: Element, props: DocsAssistantIslandProps): IslandHandle<DocsAssistantIslandProps> {
+  return mount(el, (p) => <DocsAssistantDrawer {...p} />, props);
+}
+
 export function applyAppearance(settings: Partial<AppearanceSettings>): void {
   applyTheme(String(settings.theme || "dark"));
   applyTypography({ font_scale: settings.font_scale, header_density: settings.header_density });
@@ -394,6 +412,7 @@ const api = {
   mountSandboxChat,
   mountProviderModelPicker,
   mountVoiceSettings,
+  mountDocsAssistant,
   bindModal,
   bindMenu,
   appIdentity,

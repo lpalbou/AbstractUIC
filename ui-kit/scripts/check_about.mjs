@@ -216,6 +216,11 @@ const order = ["Appearance (theme and typography)", "About AbstractFlow", 'id="x
 check("top bar: order appearance → about → extras → pill", order.every((v, i) => v >= 0 && (i === 0 || v > order[i - 1])), JSON.stringify(order));
 check("top bar: custom label", bar({ about: { identity: appIdentity("abstractflow", "1"), label: "About Flow" } }).includes('aria-label="About Flow"'));
 check("top bar: no about without prop", !bar({}).includes("af-topbar__btn--about"));
+// The Docs assistant slot (round 8): a book icon button, first in the cluster, pressed state shown.
+const withDocs = bar({ docs: { open: true, onToggle: noop }, assistant: { open: false, onToggle: noop, label: "Authoring assistant" }, about: { identity: appIdentity("abstractflow", "1") } });
+check("top bar: docs button", withDocs.includes('aria-label="Docs assistant"') && withDocs.includes("af-topbar__btn--docs") && withDocs.includes('aria-pressed="true"'));
+check("top bar: docs first, then the app's own assistant", withDocs.indexOf("af-topbar__btn--docs") >= 0 && withDocs.indexOf("af-topbar__btn--docs") < withDocs.indexOf('aria-label="Authoring assistant"'));
+check("top bar: no docs button without prop", !bar({}).includes("af-topbar__btn--docs"));
 
 // --- CSS for the dialog ships in theme.css ------------------------------------
 const css = readFileSync(join(here, "..", "src", "theme.css"), "utf8");

@@ -38,6 +38,9 @@ export type ChatMessage = {
   media?: ChatMedia[];
   /** Per-message stat chips (e.g. "1.2s · 24 tok"); a card's `stats` prop wins. */
   stats?: ChatStat[];
+  /** Per-message attachment chips (e.g. the files a question carried); a
+   * card's `attachments` prop wins. */
+  attachments?: ChatAttachment[];
 };
 
 /**
@@ -230,7 +233,7 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
           : "Speak (TTS)";
   const show_copy = props.showCopy !== false;
 
-  const attachments = Array.isArray(props.attachments) ? props.attachments : [];
+  const attachments = Array.isArray(props.attachments) ? props.attachments : Array.isArray(m.attachments) ? m.attachments : [];
   const metrics = m.statistics;
   const own_stats = m.stats;
   const stats: ChatStat[] = useMemo(
