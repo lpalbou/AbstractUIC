@@ -135,7 +135,7 @@ const render = (el, props) => renderToStaticMarkup(React.createElement(el, props
   check("the line before the heading stays prose", /<p class="pc-md_p">\[Trigger schedule@1 · occurrence 3 · fired [^<]*\]<\/p><h2>/.test(trig));
   check("prose after the heading is its own paragraph", trig.includes("<h2>Market check</h2><p class=\"pc-md_p\">Look up the price.</p>"));
   const fenceAfter = render(Markdown, { text: "result:\n```json\n{\"a\": 1}\n```\nafter" });
-  check("fence directly after a line renders a code block", fenceAfter.includes('<pre class="pc-md_pre"><code class="language-json">{&quot;a&quot;: 1}</code></pre>') && !fenceAfter.includes("`json"), fenceAfter);
+  check("fence directly after a line renders a code block", fenceAfter.includes('<pre class="pc-md_pre"><code class="language-json">') && fenceAfter.replace(/<span[^>]*>|<\/span>/g, "").includes('<code class="language-json">{&quot;a&quot;: 1}</code></pre>') && !fenceAfter.includes("`json"), fenceAfter);
   check("text after the fence is prose", fenceAfter.includes('<p class="pc-md_p">after</p>'));
   const quoteAfter = render(Markdown, { text: "note\n> quoted" });
   check("quote directly after a line renders a blockquote", quoteAfter.includes('<blockquote class="pc-md_quote">quoted</blockquote>') && !quoteAfter.includes("&gt;"), quoteAfter);
@@ -151,7 +151,7 @@ const render = (el, props) => renderToStaticMarkup(React.createElement(el, props
 
   // Fence handling stays block-shaped.
   const fence = render(Markdown, { text: "before\n\n```js\nconst x = 1;\n```" });
-  check("code fence renders a pre block", fence.includes("<pre") && fence.includes("const x = 1;"));
+  check("code fence renders a pre block", fence.includes("<pre") && fence.replace(/<span[^>]*>|<\/span>/g, "").includes("const x = 1;"));
 }
 
 // ---------------------------------------------------- JsonViewer contract

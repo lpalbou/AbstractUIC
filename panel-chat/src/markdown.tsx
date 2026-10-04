@@ -1,4 +1,43 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { codeLanguage, highlightCode, Icon } from "@abstractframework/ui-kit";
+import { copyText } from "./utils.js";
+
+/**
+ * A fenced code block: the kit's dependency-free highlighter (ui-kit
+ * `highlightCode`, the same tokens as `AfCodeBlock`) and a Copy icon
+ * (panel-chat 0.4.0, round 8: every chat renders code the same way).
+ */
+function MarkdownCodeBlock({ code, lang }: { code: string; lang: string }): React.ReactElement {
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+  const timer = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+  }, []);
+  const tokens = highlightCode(code, codeLanguage(lang));
+  return (
+    <div className="pc-md_codeblock">
+      <button
+        type="button"
+        className={`pc-md_copy${state !== "idle" ? ` pc-md_copy--${state}` : ""}`}
+        aria-label="Copy code"
+        title={state === "idle" ? "Copy" : state === "copied" ? "Copied" : "Copy failed"}
+        onClick={async () => {
+          const ok = await copyText(code);
+          setState(ok ? "copied" : "failed");
+          if (timer.current !== null) window.clearTimeout(timer.current);
+          timer.current = window.setTimeout(() => setState("idle"), 900);
+        }}
+      >
+        <Icon name={state === "copied" ? "check" : "copy"} size={14} />
+      </button>
+      <pre className="pc-md_pre">
+        <code className={lang ? `language-${lang}` : undefined}>
+          {tokens.map((t, k) => (t.kind === "plain" ? <React.Fragment key={k}>{t.text}</React.Fragment> : <span key={k} className={`af-code__${t.kind}`}>{t.text}</span>))}
+        </code>
+      </pre>
+    </div>
+  );
+}
 
 type InlineNode = React.ReactNode;
 
@@ -489,11 +528,7 @@ function renderMarkdown({
       }
       if (i < lines.length) i += 1;
       const code = codeLines.join("\n");
-      blocks.push(
-        <pre key={`pre:${i}`} className="pc-md_pre">
-          <code className={lang ? `language-${lang}` : undefined}>{code}</code>
-        </pre>
-      );
+      blocks.push(<MarkdownCodeBlock key={`pre:${i}`} code={code} lang={lang} />);
       continue;
     }
 

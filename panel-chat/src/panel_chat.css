@@ -2114,3 +2114,50 @@ button.pc-ws__name:hover {
     min-height: var(--tap-min, 44px);
   }
 }
+
+/* Fenced code in chat Markdown (panel-chat 0.4.0): highlighted with the kit's
+ * tokens (.af-code__*) and a Copy icon in the corner. */
+.pc-md_codeblock {
+  position: relative;
+}
+
+.pc-md_copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-secondary, rgba(0, 0, 0, 0.3));
+  color: var(--text-secondary, #aaa);
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+.pc-md_copy:hover {
+  color: var(--text-primary, #eee);
+  opacity: 1;
+}
+
+.pc-md_copy--copied {
+  color: var(--success, #27ae60);
+}
+
+.pc-md_codeblock .pc-md_pre {
+  padding-right: 40px;
+}
+
+@media (pointer: coarse) {
+  .pc-md_copy {
+    width: var(--tap-min, 44px);
+    height: var(--tap-min, 44px);
+    top: 2px;
+    right: 2px;
+  }
+}

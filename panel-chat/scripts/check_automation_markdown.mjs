@@ -29,7 +29,7 @@ assert.ok(pair2, "occurrence #2 rendered");
 // Heading, table and fenced JSON become elements; no literal markdown survives.
 assert.ok(pair2.includes("<h2>2 emails need a reply today</h2>"), "heading element");
 assert.ok(/<table class="pc-md_table"><thead><tr><th>From<\/th><th>Subject<\/th><th>Due<\/th><\/tr><\/thead><tbody><tr><td>Clara \(accountant\)<\/td>/.test(pair2), "table element");
-assert.ok(pair2.includes('<pre class="pc-md_pre"><code class="language-json">{&quot;urgent&quot;: 2, &quot;newsletters&quot;: 1}</code></pre>'), "fenced JSON as a code block");
+assert.ok(pair2.replace(/<span[^>]*>|<\/span>/g, "").includes('<pre class="pc-md_pre"><code class="language-json">{&quot;urgent&quot;: 2, &quot;newsletters&quot;: 1}</code></pre>'), "fenced JSON as a code block");
 assert.ok(!pair2.includes("## ") && !pair2.includes("|---|") && !pair2.includes("```"), "no literal markdown");
 assert.ok(html.includes('data-text-rendering="rich"') && !html.includes("data-unformatted"), "panel marked rich, nothing unformatted");
 // The trigger turn, wait prompt and attention bodies go through the same renderer.
