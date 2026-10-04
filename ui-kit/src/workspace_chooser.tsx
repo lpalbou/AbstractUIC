@@ -9,7 +9,8 @@
 // - "account": the account's own policy. Every change is ONE PUT through
 //   `onPut` (no Save); the gateway's refusal sentence shows under the row
 //   with "Not saved." and the row keeps its previous state.
-// - "automation": the automation's stored set (input_data.workspace_allowed_paths),
+// - "automation": the automation's stored set (a host that saves later
+//   returns void and shows its own revision line; a Promise = "Saved" here) (input_data.workspace_allowed_paths),
 //   chosen among the account's effective folders; `selection === null` =
 //   follows the account. "My folders" are managed in the account settings.
 //
@@ -90,8 +91,11 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
       return n;
     });
     try {
-      await work();
-      setSaved(key);
+      const done = work();
+      await done;
+      // An automation's host saves the revision itself (and says so); only a
+      // write that resolved here can say "Saved".
+      if (!automation || done instanceof Promise) setSaved(key);
       return true;
     } catch (error) {
       setErrors((e) => ({ ...e, [key]: workspaceRefusal(error) }));
