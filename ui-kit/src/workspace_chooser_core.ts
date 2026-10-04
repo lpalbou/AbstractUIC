@@ -16,14 +16,21 @@
 import { GATEWAY_API_PATH } from "./gateway_paths.js";
 
 /** One effective folder: the shared workspace, an admin-allowed folder switched on, or one of the account's own. */
-export type WorkspaceFolder = { path: string; source: "shared" | "allowed" | "own" | string };
+/** Folder permission (round 9 correction): the account may lower the admin's mode, never raise it. */
+export type WorkspaceAccess = "ro" | "rw";
+
+export type WorkspaceFolder = { path: string; source: "shared" | "allowed" | "own" | string; mode: WorkspaceAccess };
+
+/** A stored folder row (account policy). */
+export type WorkspaceRow = { path: string; mode?: WorkspaceAccess };
 
 /** EFFECTIVE, as GET /workspace/effective/{account} and the policy reads answer it. */
 export type WorkspaceEffective = {
   account?: string;
   shared_workspace: string;
   folders: WorkspaceFolder[];
-  available_folders: { path: string; enabled: boolean; never_allowed?: boolean }[];
+  /** `mode` = the admin's ceiling; `enabled_mode` = this account's mode (null when off). */
+  available_folders: { path: string; mode: WorkspaceAccess; enabled: boolean; enabled_mode: WorkspaceAccess | null; never_allowed?: boolean }[];
   own_folders_allowed: boolean;
   own_folders_inactive?: boolean;
   never_allowed?: string[];
@@ -32,8 +39,6 @@ export type WorkspaceEffective = {
   summary: string;
   /** The gateway's posture (round 9 amendments): deny by default, or allow by default except never-allowed folders. */
   posture: WorkspacePosture;
-  /** Built-in switch "Other sessions of this account": the account's own conversation folders (never another account's). */
-  other_sessions: { enabled: boolean; path?: string | null };
   /** True: this account's agents may use any folder except never-allowed ones (posture any_except_denied, no own folders listed). */
   any_folder: boolean;
 };
@@ -41,7 +46,7 @@ export type WorkspaceEffective = {
 export type WorkspacePosture = "allowed_only" | "any_except_denied";
 
 /** ACCOUNT POLICY (stored): `enabled_folders` ⊆ the admin's allowed folders, `own_folders` only while any folder is allowed. */
-export type WorkspaceAccountPolicy = { account?: string; enabled_folders: string[]; own_folders: string[]; other_sessions?: boolean };
+export type WorkspaceAccountPolicy = { account?: string; enabled_folders: WorkspaceRow[]; own_folders: WorkspaceRow[] };
 
 /** GET/PUT /workspace/policy/{account} answer. */
 export type WorkspaceAccountState = { policy: WorkspaceAccountPolicy; effective: WorkspaceEffective };
@@ -58,9 +63,11 @@ export const WORKSPACE_CHOOSER_TEXT = {
   postureAllowedOnlyHelp: "Agents may use the shared workspace and the folders turned on here, nothing else.",
   postureAnyExceptDeniedHelp: "Agents may use any folder except the never-allowed ones, or only the folders added here.",
   anyFolderNote: "No folders added: agents may use any folder except the never-allowed ones. Adding a folder narrows them to the folders listed.",
-  otherSessions: "Other sessions of this account",
-  otherSessionsHelp: "On: agents may also use this account's other conversation folders. Never another account's.",
   neverTitle: "Never allowed",
+  accessLabel: "Permission",
+  accessRead: "Read-only",
+  accessReadWrite: "Read & write",
+  accessCeiling: "The gateway admin allows read only.",
   foldersTitle: "Folders",
   help: "The folders agents may use. The shared workspace is always on; other folders the gateway admin allows can be turned on.",
   sharedLabel: "Shared workspace",
@@ -97,12 +104,10 @@ export function workspaceFolderName(path: string): string {
 }
 
 /** `blocked`: the gateway marks this folder never allowed (shown, not switchable). */
-export type WorkspaceChooserRow = { path: string; name: string; on: boolean; blocked?: boolean };
+export type WorkspaceChooserRow = { path: string; name: string; on: boolean; blocked?: boolean; access: WorkspaceAccess; ceiling: WorkspaceAccess };
 
 export type WorkspaceChooserView = {
   posture: WorkspacePosture;
-  /** Account mode only: the built-in "Other sessions of this account" switch. */
-  otherSessions: { on: boolean; path?: string } | null;
   /** The gateway's never-allowed folders (shown as chips). */
   never: string[];
   shared: { path: string; name: string };
@@ -110,6 +115,8 @@ export type WorkspaceChooserView = {
   extras: WorkspaceChooserRow[];
   /** "My folders" rows (account mode only). */
   own: { visible: boolean; rows: string[]; note: string | null };
+  /** The permission of each own folder (from effective.folders). */
+  ownAccess: Record<string, WorkspaceAccess>;
   /** Account mode: the account currently reaches any folder except never-allowed ones. */
   anyFolder: boolean;
   /** The one effective line, without the prefix. */
@@ -124,13 +131,13 @@ export function workspaceAccountView(state: WorkspaceAccountState): WorkspaceCho
   const ownStored = Array.isArray(state.policy?.own_folders) ? state.policy.own_folders : [];
   return {
     posture: eff.posture,
-    otherSessions: { on: eff.other_sessions?.enabled === true, ...(eff.other_sessions?.path ? { path: eff.other_sessions.path } : {}) },
     never: eff.never_allowed || [],
     shared: { path: eff.shared_workspace, name: workspaceFolderName(eff.shared_workspace) },
-    extras: (eff.available_folders || []).map((f) => ({ path: f.path, name: workspaceFolderName(f.path), on: f.enabled === true, ...(f.never_allowed === true ? { blocked: true } : {}) })),
+    extras: (eff.available_folders || []).map((f) => ({ path: f.path, name: workspaceFolderName(f.path), on: f.enabled === true, access: f.enabled_mode ?? f.mode, ceiling: f.mode, ...(f.never_allowed === true ? { blocked: true } : {}) })),
+    ownAccess: Object.fromEntries(ownStored.map((r) => [r.path, r.mode ?? "rw"])),
     own: {
       visible: eff.own_folders_allowed === true,
-      rows: eff.own_folders_allowed === true ? ownStored : [],
+      rows: eff.own_folders_allowed === true ? ownStored.map((r) => r.path) : [],
       note: eff.own_folders_allowed === true ? null : eff.own_folders_inactive && ownStored.length ? WORKSPACE_CHOOSER_TEXT.ownInactive : WORKSPACE_CHOOSER_TEXT.ownHidden,
     },
     summary: eff.summary,
@@ -151,16 +158,17 @@ export function workspaceSelectionSummary(count: number, sharedName = ""): strin
  * stored, the runs follow the account's effective folders.
  */
 export function workspaceSelectionView(effective: WorkspaceEffective, selection: string[] | null): WorkspaceChooserView {
-  const offered = (effective.folders || []).filter((f) => f.source !== "shared").map((f) => f.path);
+  const offeredFolders = (effective.folders || []).filter((f) => f.source !== "shared");
+  const offered = offeredFolders.map((f) => f.path);
   const chosen = new Set(selection ?? offered);
-  const extras = offered.map((path) => ({ path, name: workspaceFolderName(path), on: chosen.has(path) }));
+  const extras = offeredFolders.map((f) => ({ path: f.path, name: workspaceFolderName(f.path), on: chosen.has(f.path), access: f.mode, ceiling: f.mode }));
   return {
     posture: effective.posture,
-    otherSessions: null,
     never: effective.never_allowed || [],
     shared: { path: effective.shared_workspace, name: workspaceFolderName(effective.shared_workspace) },
     extras,
     own: { visible: false, rows: [], note: WORKSPACE_CHOOSER_TEXT.automationOwnHidden },
+    ownAccess: {},
     anyFolder: false,
     summary: selection === null ? effective.summary : workspaceSelectionSummary(extras.filter((r) => r.on).length, workspaceFolderName(effective.shared_workspace)),
     follows: selection === null,
@@ -183,17 +191,29 @@ export function workspacePostureText(posture: WorkspacePosture): { label: string
     : { label: WORKSPACE_CHOOSER_TEXT.postureAllowedOnly, help: WORKSPACE_CHOOSER_TEXT.postureAllowedOnlyHelp };
 }
 
-/** PUT bodies for the account policy (the gateway validates every folder). */
-export function workspaceExtraBody(view: WorkspaceChooserView, path: string, on: boolean): { enabled_folders: string[] } {
-  return { enabled_folders: workspaceSelectionAfterToggle(view, path, on) };
+/** PUT bodies for the account policy: whole rows; the gateway validates every folder and mode. */
+export function workspaceExtraBody(view: WorkspaceChooserView, path: string, on: boolean): { enabled_folders: WorkspaceRow[] } {
+  return {
+    enabled_folders: view.extras
+      .filter((r) => (r.path === path ? on : r.on))
+      .map((r) => (r.path === path && on && !r.on ? { path: r.path } : { path: r.path, mode: r.access })),
+  };
 }
-export function workspaceAddOwnBody(state: WorkspaceAccountState, path: string): { own_folders: string[] } {
-  const own = Array.isArray(state.policy?.own_folders) ? state.policy.own_folders : [];
-  return { own_folders: [...own, String(path).trim()] };
+/** PUT body for one folder's permission (Read-only / Read & write); the gateway refuses raising above the admin's mode. */
+export function workspaceAccessBody(view: WorkspaceChooserView, state: WorkspaceAccountState, path: string, mode: WorkspaceAccess): { enabled_folders: WorkspaceRow[] } | { own_folders: WorkspaceRow[] } {
+  if (view.extras.some((r) => r.path === path)) {
+    return { enabled_folders: view.extras.filter((r) => r.on).map((r) => ({ path: r.path, mode: r.path === path ? mode : r.access })) };
+  }
+  return { own_folders: state.policy.own_folders.map((r) => ({ path: r.path, mode: r.path === path ? mode : r.mode ?? "rw" })) };
 }
-export function workspaceRemoveOwnBody(state: WorkspaceAccountState, path: string): { own_folders: string[] } {
-  const own = Array.isArray(state.policy?.own_folders) ? state.policy.own_folders : [];
-  return { own_folders: own.filter((p) => p !== path) };
+export function workspaceAccessLabel(mode: WorkspaceAccess): string {
+  return mode === "ro" ? WORKSPACE_CHOOSER_TEXT.accessRead : WORKSPACE_CHOOSER_TEXT.accessReadWrite;
+}
+export function workspaceAddOwnBody(state: WorkspaceAccountState, path: string): { own_folders: WorkspaceRow[] } {
+  return { own_folders: [...state.policy.own_folders, { path: String(path).trim() }] };
+}
+export function workspaceRemoveOwnBody(state: WorkspaceAccountState, path: string): { own_folders: WorkspaceRow[] } {
+  return { own_folders: state.policy.own_folders.filter((r) => r.path !== path) };
 }
 
 /**
@@ -210,10 +230,18 @@ export function workspacePolicyPath(account = "me", base: string = GATEWAY_API_P
 /** A host's request: (path as built by workspacePolicyPath, method, JSON body) -> parsed JSON; throws Error(sentence) on 4xx/5xx. */
 export type WorkspaceRequest = (path: string, init: { method: "GET" | "PUT"; body?: unknown }) => Promise<unknown>;
 
+const isMode = (m: unknown): m is WorkspaceAccess => m === "ro" || m === "rw";
+/** Stored rows as the gateway answers them ({path, mode}); a bare string is a row without a mode. */
+function rows(value: unknown): WorkspaceRow[] {
+  return (Array.isArray(value) ? value : []).flatMap((r: any): WorkspaceRow[] =>
+    typeof r === "string" ? [{ path: r }] : r && typeof r.path === "string" ? [{ path: r.path, ...(isMode(r.mode) ? { mode: r.mode } : {}) }] : [],
+  );
+}
+
 function asState(value: unknown): WorkspaceAccountState {
   const v = (value && typeof value === "object" ? value : {}) as Record<string, any>;
   const e = v.effective;
-  if (!e || typeof e !== "object" || typeof e.shared_workspace !== "string" || (e.posture !== "allowed_only" && e.posture !== "any_except_denied") || !e.other_sessions || typeof e.other_sessions.enabled !== "boolean" || typeof e.any_folder !== "boolean") {
+  if (!e || typeof e !== "object" || typeof e.shared_workspace !== "string" || (e.posture !== "allowed_only" && e.posture !== "any_except_denied") || typeof e.any_folder !== "boolean" || !(e.available_folders || []).every((f: any) => f && isMode(f.mode) && (f.enabled_mode === null || isMode(f.enabled_mode))) || !(e.folders || []).every((f: any) => f && isMode(f.mode))) {
     // Fail loudly: an older gateway (no R9 workspace model) must not render an empty chooser.
     throw new Error("The gateway answered without a workspace policy (it needs the round-9 workspace model).");
   }
@@ -221,9 +249,8 @@ function asState(value: unknown): WorkspaceAccountState {
   return {
     policy: {
       account: policy.account,
-      enabled_folders: Array.isArray(policy.enabled_folders) ? policy.enabled_folders : [],
-      own_folders: Array.isArray(policy.own_folders) ? policy.own_folders : [],
-      other_sessions: policy.other_sessions === true,
+      enabled_folders: rows(policy.enabled_folders),
+      own_folders: rows(policy.own_folders),
     },
     effective: v.effective as WorkspaceEffective,
   };

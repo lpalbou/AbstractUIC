@@ -30,6 +30,10 @@ import {
   workspaceExtraBody,
   workspaceFolderName,
   workspacePostureText,
+  workspaceAccessBody,
+  workspaceAccessLabel,
+  type WorkspaceAccess,
+  type WorkspaceRow,
   workspaceRefusal,
   workspaceRemoveOwnBody,
   workspaceSelectionAfterToggle,
@@ -54,7 +58,7 @@ export type WorkspaceChooserAccountProps = Common & {
   /** GET/PUT /workspace/policy/{account} answer; null while loading. */
   state: WorkspaceAccountState | null;
   /** Perform ONE PUT with this body; reject with Error(<gateway sentence>) on refusal. */
-  onPut: (body: { enabled_folders?: string[]; own_folders?: string[]; other_sessions?: boolean }) => Promise<unknown>;
+  onPut: (body: { enabled_folders?: WorkspaceRow[]; own_folders?: WorkspaceRow[] }) => Promise<unknown>;
 };
 
 export type WorkspaceChooserAutomationProps = Common & {
@@ -129,18 +133,52 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
     if (await run("own:add", () => p.onPut(workspaceAddOwnBody(state, path)))) setDraft("");
   }
 
-  function setOtherSessions(on: boolean) {
-    if (props.mode === "automation") return;
-    const p = props;
-    void run("other-sessions", () => p.onPut({ other_sessions: on }));
-  }
-
   function removeOwn(path: string) {
     if (props.mode === "automation" || !props.state) return;
     const p = props;
     const state = props.state;
     void run(`own:${path}`, () => p.onPut(workspaceRemoveOwnBody(state, path)));
   }
+
+  // One folder's permission: Read-only / Read & write. The account may lower
+  // the admin's mode, never raise it (Read & write unavailable at a read-only
+  // ceiling). An automation shows the account's permission as text.
+  const accessControl = (path: string, access: WorkspaceAccess, ceiling: WorkspaceAccess) => {
+    if (props.mode === "automation" || !view)
+      return (
+        <span className="af-workspace__access-tag" data-workspace="access" data-access={access}>
+          {workspaceAccessLabel(access)}
+        </span>
+      );
+    const p = props;
+    const choose = (next: WorkspaceAccess) => {
+      if (next === access || (next === "rw" && ceiling === "ro") || p.state === null || !view) return;
+      const body = workspaceAccessBody(view, p.state, path, next);
+      void run(`access:${path}`, () => p.onPut(body));
+    };
+    return (
+      <span className="af-workspace__access" role="group" aria-label={`${T.accessLabel} ${path}`} data-workspace="access" data-access={access}>
+        {(["ro", "rw"] as WorkspaceAccess[]).map((mode) => {
+          const unavailable = mode === "rw" && ceiling === "ro";
+          return (
+            <button
+              key={mode}
+              type="button"
+              className="af-workspace__access-btn"
+              aria-pressed={access === mode ? "true" : "false"}
+              aria-disabled={unavailable || Boolean(blocked) ? "true" : undefined}
+              data-af-tip={unavailable ? T.accessCeiling : undefined}
+              data-action={`workspace-access-${mode}`}
+              onClick={() => (unavailable || blocked ? undefined : choose(mode))}
+            >
+              {workspaceAccessLabel(mode)}
+            </button>
+          );
+        })}
+        {status(`access:${path}`)}
+      </span>
+    );
+  };
 
   const status = (key: string) =>
     errors[key] ? (
@@ -191,8 +229,13 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
             <li className="af-workspace__shared" data-setting="workspace-shared">
               <div className="af-workspace__shared-head">
                 <span className="af-workspace__shared-name">{T.sharedLabel}</span>
-                <span className="af-workspace__always" data-workspace="shared-always">
-                  {T.sharedState}
+                <span className="af-workspace__tags">
+                  <span className="af-workspace__access-tag" data-workspace="shared-access">
+                    {T.accessReadWrite}
+                  </span>
+                  <span className="af-workspace__always" data-workspace="shared-always">
+                    {T.sharedState}
+                  </span>
                 </span>
               </div>
               <code className="af-workspace__path" title={view.shared.path}>
@@ -214,31 +257,17 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
                   action="workspace-extra"
                   onChange={(next) => toggle(row.path, next)}
                 />
+                {row.on ? accessControl(row.path, row.access, row.ceiling) : null}
                 {status(row.path)}
               </li>
             ))}
-            {view.otherSessions ? (
-              <li className="af-workspace__row" data-workspace="other-sessions">
-                <AfSwitch
-                  variant="row"
-                  label={T.otherSessions}
-                  description={T.otherSessionsHelp}
-                  checked={view.otherSessions.on}
-                  busy={busy === "other-sessions"}
-                  unavailableReason={blocked || null}
-                  describedBy={blocked ? `${id}-blocked` : undefined}
-                  action="workspace-other-sessions"
-                  onChange={(next) => setOtherSessions(next)}
-                />
-                {status("other-sessions")}
-              </li>
-            ) : null}
             {view.own.rows.map((path) => (
               <li className="af-workspace__row af-workspace__own" key={path} data-workspace="own" data-path={path}>
                 <span className="af-workspace__own-text">
                   <span className="af-workspace__own-name">{workspaceFolderName(path)}</span>
                   <code className="af-workspace__path">{path}</code>
                 </span>
+                {view.ownAccess[path] ? accessControl(path, view.ownAccess[path], "rw") : null}
                 <button
                   type="button"
                   className="af-workspace__icon-btn"

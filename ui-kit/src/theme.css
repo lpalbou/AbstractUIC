@@ -6471,6 +6471,67 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   max-width: 100%;
   overflow-wrap: anywhere;
 }
+.af-workspace__tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+.af-workspace__access-tag {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ui-surface-2);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.af-workspace__access {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+  margin: 0 0 6px;
+}
+.af-workspace__access-btn {
+  min-height: 28px;
+  padding: 3px 10px;
+  border: 1px solid var(--ui-border-1);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+.af-workspace__access-btn:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+.af-workspace__access-btn:nth-child(2) {
+  border-left: 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.af-workspace__access-btn[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text-primary);
+}
+.af-workspace__access-btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.af-workspace__access-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.af-workspace__access > .af-workspace__refusal,
+.af-workspace__access > .af-workspace__saved {
+  flex-basis: 100%;
+}
+@media (pointer: coarse) {
+  .af-workspace__access-btn {
+    min-height: var(--tap-min, 44px);
+  }
+}
 /* af-workspace:end */
 
 /* af-file-viewer:begin — AfFileViewer + AfCodeBlock (0.6.0). */
