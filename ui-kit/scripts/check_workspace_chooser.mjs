@@ -1,20 +1,19 @@
 #!/usr/bin/env node
 /**
- * ui-kit 0.8.1 (round 9): WorkspaceChooser — the shared folder model.
+ * ui-kit 0.8.1 (round 9 FINAL wording): WorkspaceChooser — the shared folder model.
  *
  * Over the compiled dist (renderToStaticMarkup, no jsdom), like check_about:
- * 1. The shared workspace is ALWAYS shown, first, "Always on", never a switch.
- * 2. One switch per folder the GATEWAY lists (account: available_folders with
- *    their stored state; automation: the account's effective extras). A folder
- *    the admin did not allow never becomes a switch, and no PUT body / stored
- *    set built by the kit can contain it.
- * 3. "My folders" rows + Add only while own_folders_allowed; otherwise the
- *    sentence saying why (and the inactive sentence when own folders are kept).
- * 4. The effective line is the gateway's summary, prefixed "Agents may use:".
- * 5. Refusal = the gateway's sentence + "Not saved."; the wording table is
- *    the one every client copies.
- * Mutation-checked: dropping the shared row, the own-folders gate, or letting
- * a non-offered folder into a body turns this red.
+ * 1. The posture is shown ("Only allowed folders" / "Any folder except denied").
+ * 2. The shared workspace is ALWAYS shown, first, "Read & write" + "Always on".
+ * 3. One row per folder the GATEWAY lists, each with Read & write / Read-only /
+ *    Denied; the account may lower the admin's mode, never raise it (a higher
+ *    mode is unavailable). PUT bodies never carry "rw".
+ * 4. Posture b only: "Everything else" with the default mode, and the add row.
+ *    Posture a: no add row, one sentence says only the admin adds folders.
+ * 5. The effective line is the gateway's summary, verbatim.
+ * 6. Nothing else: no Other sessions, no allow-any switch, no launch-folder trust.
+ * Mutation-checked: dropping the shared row, the posture gate on the add row,
+ * or letting an account raise a mode turns this red.
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -39,169 +38,120 @@ const {
   WorkspaceChooser,
   WORKSPACE_CHOOSER_TEXT: T,
   workspaceAccountView,
+  workspaceModeBody,
+  workspaceDefaultModeBody,
+  workspaceAddRowBody,
+  workspaceRemoveRowBody,
   workspaceSelectionView,
   workspaceSelectionAfterToggle,
-  workspaceExtraBody,
-  workspaceAddOwnBody,
-  workspaceRemoveOwnBody,
-  workspaceAccessBody,
   workspacePolicyPath,
   workspaceChooserClient,
   workspaceRefusal,
 } = kit;
 
 const SHARED = "/srv/gw/workspaces";
-const A = "/data/projects";
-const B = "/data/notes";
-const OWN = "/home/alice/thesis";
-const DENIED = "/etc/secrets";
+const P = "/data/project";
+const AR = "/archive";
+const SEC = "/secrets";
+const X = "/elsewhere";
+const LINE_A = "Only allowed folders · Shared workspace (rw) · /data/project (rw) · /archive (ro)";
+const LINE_B = "Any folder except denied (rw) · Shared workspace (rw) · /secrets (denied) · /archive (ro)";
 
-const effective = (over = {}) => ({
-  account: "default:alice",
-  shared_workspace: SHARED,
-  folders: [
-    { path: SHARED, source: "shared", mode: "rw" },
-    { path: A, source: "allowed", mode: "rw" },
-  ],
-  available_folders: [
-    { path: A, mode: "rw", enabled: true, enabled_mode: "rw" },
-    { path: B, mode: "ro", enabled: false, enabled_mode: null },
-  ],
-  own_folders_allowed: false,
-  own_folders_inactive: false,
-  never_allowed: [DENIED],
-  launch_folder_trust: true,
-  summary: "Shared workspace + 1 folder. Never: 1 folder.",
-  posture: "allowed_only",
-  any_folder: false,
-  ...over,
+const stateA = (accountFolders = [], over = {}) => ({
+  policy: { account: "default:alice", default_mode: null, folders: accountFolders },
+  gateway: { shared_workspace: SHARED, posture: "allowed_only", default_mode: "rw", folders: [{ path: P, mode: "rw" }, { path: AR, mode: "ro" }] },
+  effective: {
+    account: "default:alice", posture: "allowed_only", default_mode: null, shared_workspace: SHARED,
+    folders: [{ path: SHARED, mode: "rw", source: "shared" }, { path: P, mode: "rw", source: "gateway" }, { path: AR, mode: "ro", source: "gateway" }],
+    summary: LINE_A, ...over,
+  },
 });
-const state = (effOver = {}, policyOver = {}) => ({
-  policy: { account: "default:alice", enabled_folders: [{ path: A, mode: "rw" }], own_folders: [], ...policyOver },
-  effective: effective(effOver),
+const stateB = (accountFolders = [], defaultMode = null) => ({
+  policy: { account: "default:alice", default_mode: defaultMode, folders: accountFolders },
+  gateway: { shared_workspace: SHARED, posture: "any_except_denied", default_mode: "rw", folders: [{ path: SEC, mode: "deny" }, { path: AR, mode: "ro" }] },
+  effective: {
+    account: "default:alice", posture: "any_except_denied", default_mode: defaultMode ?? "rw", shared_workspace: SHARED,
+    folders: [{ path: SHARED, mode: "rw", source: "shared" }, { path: SEC, mode: "deny", source: "gateway" }, { path: AR, mode: "ro", source: "gateway" }, ...accountFolders.map((r) => ({ ...r, source: "account" }))],
+    summary: LINE_B,
+  },
 });
 
-const esc = (s) => s.replace(/'/g, "&#x27;");
+const esc = (s) => s.replace(/&/g, "&amp;").replace(/'/g, "&#x27;");
 const html = (props) => renderToStaticMarkup(React.createElement(WorkspaceChooser, props));
-const switches = (h) => [...h.matchAll(/<button[^>]*role="switch"[^>]*>/g)].map((m) => m[0]);
-const label = (s) => (/aria-label="([^"]*)"/.exec(s) || [])[1];
-const checked = (s) => /aria-checked="true"/.test(s);
+const rowHtml = (h, path) => (new RegExp(`<li[^>]*data-path="${path.replace(/\//g, "\\/")}"[\\s\\S]*?</li>`).exec(h) || [""])[0];
+const btn = (s, mode) => (new RegExp(`<button[^>]*data-action="workspace-mode-${mode}"[^>]*>`).exec(s) || [""])[0];
 
-// 1-2. Account mode, any folder NOT allowed.
+// Posture a.
 {
-  const h = html({ state: state(), onPut: async () => {} });
+  const h = html({ state: stateA(), onPut: async () => {} });
   check("title", h.includes(`>${T.title}<`));
-  check("shared row present", h.includes('data-setting="workspace-shared"') && h.includes(SHARED), h);
-  check("shared says Always on", h.includes('data-workspace="shared-always"') && h.includes(`>${T.sharedState}<`));
-  check("shared row comes before every switch", h.indexOf('data-setting="workspace-shared"') < h.indexOf('role="switch"'));
-  const sw = switches(h);
-  check("one switch per admin-allowed folder (+ the sessions switch)", sw.length === 2, String(sw.length));
-  check("switch A is ON (stored)", sw.some((s) => label(s) === A && checked(s)));
-  check("switch B is OFF (default)", sw.some((s) => label(s) === B && !checked(s)));
-  check("shared workspace is never a switch", !sw.some((s) => label(s) === SHARED));
-  check("never-allowed folder is never a switch", !sw.some((x) => label(x) === DENIED));
-  check("effective line = gateway summary", h.includes(`<strong>${T.effectivePrefix}</strong> Shared workspace + 1 folder. Never: 1 folder.`), h);
-  check("own rows hidden while any folder is not allowed", !h.includes('data-workspace="own-add"') && !h.includes('data-workspace="own"'));
-  check("why-hidden sentence", h.includes('data-workspace="own-hidden"') && h.includes(T.ownHidden));
-  check("posture badge: Only allowed folders + its sentence", h.includes('data-posture="allowed_only"') && h.includes(`>${T.postureAllowedOnly}<`) && h.includes(T.postureAllowedOnlyHelp));
-  check("no Other sessions switch (operator correction)", !h.includes("other-sessions") && !h.includes("Other sessions"));
-  check("never-allowed chips", h.includes('data-workspace="never"') && h.includes(">secrets<"));
+  check("posture badge: Only allowed folders", h.includes('data-posture="allowed_only"') && h.includes(`>${T.postureAllowedOnly}<`));
+  check("shared row first", h.indexOf('data-setting="workspace-shared"') < h.indexOf('data-workspace="folder"'));
+  check("shared: Read & write + Always on", h.includes('data-workspace="shared-access"') && h.includes(`>${esc(T.accessReadWrite)}<`) && h.includes(`>${T.sharedState}<`));
+  const p = rowHtml(h, P), a = rowHtml(h, AR);
+  check("one row per gateway folder", [...h.matchAll(/data-workspace="folder"/g)].length === 2);
+  check("rw folder: all three choices, Read & write pressed", /aria-pressed="true"/.test(btn(p, "rw")) && !/aria-disabled/.test(btn(p, "ro")) && !/aria-disabled/.test(btn(p, "deny")), p);
+  check("ro folder: Read & write unavailable (cannot raise), tooltip says why", /aria-disabled="true"/.test(btn(a, "rw")) && btn(a, "rw").includes(`data-af-tip="${T.accessCeiling}"`) && /aria-pressed="true"/.test(btn(a, "ro")), a);
+  check("posture a: no add row, the sentence instead", !h.includes('data-workspace="add"') && h.includes(T.adminOnlyAdds));
+  check("posture a: no Everything else", !h.includes('data-workspace="everything-else"'));
+  check("effective line = gateway summary, verbatim", h.includes(`data-workspace="effective">${esc(LINE_A)}<`));
+  check("nothing else (no sessions, no allow-any, no trust, no never-allowed control)", !/Other sessions|Allow any|launch folder|Launch folder|Never allowed/.test(h));
 }
-// A listed folder the gateway marks never allowed: shown, not switchable, with the reason.
+// Account narrowing shown + bodies.
 {
-  const h = html({ state: state({ available_folders: [{ path: A, mode: "rw", enabled: false, enabled_mode: null, never_allowed: true }, { path: B, mode: "rw", enabled: false, enabled_mode: null }] }), onPut: async () => {} });
-  const sw = switches(h);
-  const a = sw.find((s) => label(s) === A) || "";
-  check("never-allowed listed folder is unavailable", /aria-disabled="true"/.test(a) && h.includes(T.neverAllowed), a);
-  check("other folder stays switchable", !/aria-disabled/.test(sw.find((s) => label(s) === B) || "x aria-disabled"));
+  const st = stateA([{ path: AR, mode: "deny" }], { folders: [{ path: SHARED, mode: "rw", source: "shared" }, { path: P, mode: "rw", source: "gateway" }, { path: AR, mode: "deny", source: "gateway" }] });
+  const h = html({ state: st, onPut: async () => {} });
+  check("account-denied folder shows Denied pressed", /aria-pressed="true"/.test(btn(rowHtml(h, AR), "deny")));
+  const v = workspaceAccountView(stateA());
+  const rowP = v.rows.find((r) => r.path === P), rowA = v.rows.find((r) => r.path === AR);
+  check("lower /data/project to Read-only -> one ro rule", JSON.stringify(workspaceModeBody(stateA(), rowP, "ro")) === JSON.stringify({ folders: [{ path: P, mode: "ro" }] }));
+  check("deny /archive -> one deny rule", JSON.stringify(workspaceModeBody(stateA(), rowA, "deny")) === JSON.stringify({ folders: [{ path: AR, mode: "deny" }] }));
+  check("back to the admin's mode removes the rule", JSON.stringify(workspaceModeBody(st, rowA, "ro")) === JSON.stringify({ folders: [] }));
+  check("an account body never carries rw (cannot raise)", !JSON.stringify(workspaceModeBody(stateA(), rowA, "rw")).includes('"rw"'));
+  check("choices never exceed the admin's mode", rowA.choices.join(",") === "ro,deny" && rowP.choices.join(",") === "rw,ro,deny");
 }
-// Inactive own folders (allow_any_folder turned off by the admin).
+// Posture b.
 {
-  const h = html({ state: state({ own_folders_inactive: true }, { own_folders: [{ path: OWN, mode: "rw" }] }), onPut: async () => {} });
-  check("inactive sentence when own folders are kept", h.includes(T.ownInactive) && !h.includes('data-workspace="own"'));
-}
-// Permission per row: Read-only / Read & write; Read & write unavailable at a read-only ceiling; shared is Read & write.
-{
-  const h = html({ state: state({ available_folders: [{ path: A, mode: "rw", enabled: true, enabled_mode: "ro" }, { path: B, mode: "ro", enabled: true, enabled_mode: "ro" }] }), onPut: async () => {} });
-  check("shared workspace says Read & write", h.includes('data-workspace="shared-access"') && h.includes(`>${T.accessReadWrite.replace("&", "&amp;")}<`));
-  const groups = [...h.matchAll(/<span[^>]*data-workspace="access"[^>]*>[\s\S]*?<\/span>/g)].map((m) => m[0]);
-  check("a permission control per enabled row", groups.length === 2, String(groups.length));
-  check("A lowered to Read-only by the account", /data-access="ro"/.test(groups[0] || "") && /aria-pressed="true"[^>]*>Read-only</.test(groups[0] || ""), groups[0]);
-  check("B: Read & write unavailable at the admin's read-only ceiling", /aria-disabled="true"[^>]*data-af-tip="The gateway admin allows read only\."[^>]*data-action="workspace-access-rw"/.test(groups[1] || ""), groups[1]);
-  const off = html({ state: state(), onPut: async () => {} });
-  check("no permission control on a switched-off row", [...off.matchAll(/data-workspace="access"/g)].length === 1);
-}
-// 3. Any folder allowed: My folders rows + Add.
-{
-  const h = html({ state: state({ own_folders_allowed: true, posture: "any_except_denied", folders: [{ path: SHARED, source: "shared", mode: "rw" }, { path: OWN, source: "own", mode: "rw" }] }, { own_folders: [{ path: OWN, mode: "rw" }] }), onPut: async () => {} });
-  check("own row shown", h.includes(`data-workspace="own" data-path="${OWN}"`), h);
-  check("own row has a Remove icon button", h.includes(`aria-label="${T.remove} ${OWN}"`));
-  check("Add field + button", h.includes('data-workspace="own-add"') && h.includes('data-action="workspace-add-own"'));
+  const h = html({ state: stateB([{ path: X, mode: "ro" }]), onPut: async () => {} });
   check("posture badge: Any folder except denied", h.includes('data-posture="any_except_denied"') && h.includes(`>${T.postureAnyExceptDenied}<`));
-  check("one list: shared, switches, own row and the add row inside it", /data-workspace="list"[\s\S]*workspace-shared[\s\S]*data-workspace="extra"[\s\S]*data-workspace="own"[\s\S]*data-workspace="own-add"[\s\S]*<\/ul>/.test(h));
-  check("no why-hidden sentence", !h.includes(T.ownHidden));
+  check("gateway deny row is fixed Denied", rowHtml(h, SEC).includes('data-access="deny"') && !rowHtml(h, SEC).includes("workspace-mode-"));
+  check("Everything else: default mode with Read & write / Read-only", /data-workspace="everything-else"[\s\S]*workspace-mode-rw[\s\S]*workspace-mode-ro/.test(h));
+  check("account row with Remove", rowHtml(h, X).includes('data-workspace="account-row"') && h.includes(`aria-label="${T.remove} ${X}"`) && h.includes(`data-af-tip="${T.remove} ${X}"`));
+  check("add row with Read-only / Denied + Add", /data-workspace="add"[\s\S]*workspace-mode-ro[\s\S]*workspace-mode-deny[\s\S]*workspace-add-row/.test(h));
+  check("no admin-only sentence under b", !h.includes(T.adminOnlyAdds));
+  check("effective line b verbatim", h.includes(esc(LINE_B)));
+  check("lower Everything else -> default_mode ro", JSON.stringify(workspaceDefaultModeBody("ro")) === JSON.stringify({ default_mode: "ro" }) && JSON.stringify(workspaceDefaultModeBody("rw")) === JSON.stringify({ default_mode: null }));
+  check("add a denied folder", JSON.stringify(workspaceAddRowBody(stateB(), " /tmp/x ", "deny")) === JSON.stringify({ folders: [{ path: "/tmp/x", mode: "deny" }] }));
+  check("remove an account row", JSON.stringify(workspaceRemoveRowBody(stateB([{ path: X, mode: "ro" }]), X)) === JSON.stringify({ folders: [] }));
 }
-{
-  const h = html({ state: state({ own_folders_allowed: true }), onPut: async () => {} });
-  check("add row without own rows", h.includes('data-workspace="own-add"'));
-}
-{
-  const h = html({ state: state({ own_folders_allowed: true, posture: "any_except_denied", any_folder: true }), onPut: async () => {} });
-  check("any folder: the note says adding narrows", h.includes('data-workspace="any-folder"') && h.includes(T.anyFolderNote));
-  const h2 = html({ state: state(), onPut: async () => {} });
-  check("allowed_only: no any-folder note", !h2.includes('data-workspace="any-folder"'));
-}
-// No allowed folders.
-{
-  const h = html({ state: state({ available_folders: [] }), onPut: async () => {} });
-  check("no allowed folders sentence", h.includes(T.allowedEmpty) && switches(h).filter((x) => /workspace-extra/.test(x)).length === 0);
-}
-// Loading / load error / unavailable.
+// Unavailable / loading / error.
 check("loading", html({ state: null, onPut: async () => {} }).includes('data-workspace="loading"'));
 check("load error shown verbatim", html({ state: null, loadError: "Sign in first.", onPut: async () => {} }).includes(">Sign in first.<"));
 {
-  const h = html({ state: state(), unavailableReason: "Connect to your gateway first.", onPut: async () => {} });
-  check("unavailable: switches aria-disabled with the reason", switches(h).every((s) => /aria-disabled="true"/.test(s)) && h.includes("Connect to your gateway first."));
+  const h = html({ state: stateA(), unavailableReason: "Connect to your gateway first.", onPut: async () => {} });
+  const btns = [...h.matchAll(/<button[^>]*workspace-mode-[^>]*>/g)].map((m) => m[0]);
+  check("unavailable: every mode button aria-disabled + reason", btns.length > 0 && btns.every((b) => /aria-disabled="true"/.test(b)) && h.includes("Connect to your gateway first."));
 }
-
-// 2. Bodies only ever carry offered folders (the admin's allowance).
+// Automation mode.
 {
-  const v = workspaceAccountView(state());
-  check("toggle B on -> rows [A rw, B (the admin's mode)]", JSON.stringify(workspaceExtraBody(v, B, true)) === JSON.stringify({ enabled_folders: [{ path: A, mode: "rw" }, { path: B }] }), JSON.stringify(workspaceExtraBody(v, B, true)));
-  check("toggle A off -> []", JSON.stringify(workspaceExtraBody(v, A, false)) === JSON.stringify({ enabled_folders: [] }));
-  check("a folder the admin did not allow cannot be enabled", !workspaceExtraBody(v, DENIED, true).enabled_folders.some((r) => r.path === DENIED), JSON.stringify(workspaceExtraBody(v, DENIED, true)));
-  check("lower A to Read-only -> one row with mode ro", JSON.stringify(workspaceAccessBody(v, state(), A, "ro")) === JSON.stringify({ enabled_folders: [{ path: A, mode: "ro" }] }));
-  const st = state({ own_folders_allowed: true }, { own_folders: [{ path: OWN, mode: "rw" }] });
-  check("add own appends a row", JSON.stringify(workspaceAddOwnBody(st, " /x/y ")) === JSON.stringify({ own_folders: [{ path: OWN, mode: "rw" }, { path: "/x/y" }] }));
-  check("remove own", JSON.stringify(workspaceRemoveOwnBody(st, OWN)) === JSON.stringify({ own_folders: [] }));
-  check("own folder Read-only", JSON.stringify(workspaceAccessBody(workspaceAccountView(st), st, OWN, "ro")) === JSON.stringify({ own_folders: [{ path: OWN, mode: "ro" }] }));
-}
-
-// Automation mode: the stored set, within the account's effective folders.
-{
-  const eff = effective({ folders: [{ path: SHARED, source: "shared", mode: "rw" }, { path: A, source: "allowed", mode: "rw" }, { path: OWN, source: "own", mode: "ro" }] });
+  const eff = stateA().effective;
   const follows = workspaceSelectionView(eff, null);
-  check("automation follows: every effective extra ON", follows.extras.every((r) => r.on) && follows.extras.length === 2 && follows.follows === true);
-  check("automation follows: gateway summary", follows.summary === eff.summary);
-  check("automation never offers an admin-allowed folder the account has not switched on", !follows.extras.some((r) => r.path === B));
-  const pinned = workspaceSelectionView(eff, [OWN, DENIED]);
-  check("automation stale/denied stored entry is not a row", !pinned.extras.some((r) => r.path === DENIED));
-  const next = workspaceSelectionAfterToggle(pinned, A, true);
-  check("automation toggle stores only offered folders", JSON.stringify(next) === JSON.stringify([A, OWN]), JSON.stringify(next));
-  check("automation enabling a non-offered folder stores nothing new", JSON.stringify(workspaceSelectionAfterToggle(pinned, B, true)) === JSON.stringify([OWN]));
-  check("automation summary formatted like the gateway line", pinned.summary === "Private session folder + Shared workspace (workspaces) + 1 folder." && workspaceSelectionView(eff, []).summary === "Private session folder + Shared workspace (workspaces).", pinned.summary);
-  const h = html({ mode: "automation", effective: eff, selection: [OWN], onSelectionChange: () => {} });
+  check("automation follows: every effective ro/rw folder ON", follows.rows.length === 2 && follows.rows.every((r) => r.mode !== "deny") && follows.follows === true);
+  check("automation follows: gateway summary", follows.summary === LINE_A);
+  const pinned = workspaceSelectionView(eff, [AR, SEC]);
+  check("automation stale/denied stored entry is not a row", !pinned.rows.some((r) => r.path === SEC));
+  check("automation toggle stores only offered folders", JSON.stringify(workspaceSelectionAfterToggle(pinned, P, true)) === JSON.stringify([P, AR]));
+  check("automation enabling a non-offered folder stores nothing new", JSON.stringify(workspaceSelectionAfterToggle(pinned, SEC, true)) === JSON.stringify([AR]));
+  check("automation line in the gateway format", pinned.summary === "Only allowed folders · Shared workspace (rw) · /archive (ro)", pinned.summary);
+  const h = html({ mode: "automation", effective: eff, selection: [AR], onSelectionChange: () => {} });
   check("automation: shared always on", h.includes('data-workspace="shared-always"'));
-  check("automation: switches = account's effective extras", switches(h).length === 2 && !h.includes(`aria-label="${B}"`));
+  check("automation: switches = the account's folders", [...h.matchAll(/role="switch"/g)].length === 2);
   check("automation: Use this account's folders while a set is stored", h.includes('data-action="workspace-follow-account"') && h.includes(esc(T.automationUseAccount)));
-  check("automation: no own rows, sentence instead", !h.includes('data-workspace="own-add"') && h.includes(esc(T.automationOwnHidden)));
+  check("automation: no add row, no admin sentence", !h.includes('data-workspace="add"') && !h.includes(T.adminOnlyAdds));
   check("automation help", h.includes(esc(T.automationHelp)));
   const hr = html({ mode: "automation", subject: "run", effective: eff, selection: null, onSelectionChange: () => {} });
-  check("run launch help (same rows)", hr.includes(esc(T.runHelp)) && switches(hr).length === 2);
-  const hf = html({ mode: "automation", effective: eff, selection: null, onSelectionChange: () => {} });
-  check("automation follows: sentence, no reset", hf.includes(esc(T.automationFollows)) && !hf.includes('data-action="workspace-follow-account"'));
+  check("run launch help (same rows)", hr.includes(esc(T.runHelp)) && hr.includes(esc(T.automationFollows)) && !hr.includes('data-action="workspace-follow-account"'));
 }
-
 // Client + refusal.
 {
   check("route for me (relative, same-origin proxy)", workspacePolicyPath() === "api/gateway/workspace/policy/me", workspacePolicyPath());
@@ -209,45 +159,33 @@ check("load error shown verbatim", html({ state: null, loadError: "Sign in first
   const calls = [];
   const client = workspaceChooserClient(async (path, init) => {
     calls.push([path, init.method, init.body]);
-    return { ok: true, ...state() };
+    return { ok: true, ...stateA() };
   }, "bob");
   const loaded = await client.load();
   check("client load", loaded.effective.shared_workspace === SHARED && calls[0][0] === "api/gateway/workspace/policy/bob" && calls[0][1] === "GET");
-  await client.put({ enabled_folders: [A] });
-  check("client put", calls[1][1] === "PUT" && JSON.stringify(calls[1][2]) === JSON.stringify({ enabled_folders: [A] }));
-  let threw = "";
-  try {
-    await workspaceChooserClient(async () => ({ ok: true, policy: { mode: "whitelist" } })).load();
-  } catch (e) {
-    threw = e.message;
+  await client.put({ folders: [{ path: AR, mode: "deny" }] });
+  check("client put", calls[1][1] === "PUT" && JSON.stringify(calls[1][2]) === JSON.stringify({ folders: [{ path: AR, mode: "deny" }] }));
+  for (const [name, mutate] of [
+    ["pre-round-9 answer", () => ({ ok: true, policy: { mode: "whitelist" } })],
+    ["no posture", () => { const s = stateA(); delete s.effective.posture; return s; }],
+    ["no folder modes", () => { const s = stateA(); s.gateway.folders = [{ path: P }]; return s; }],
+    ["no summary", () => { const s = stateA(); delete s.effective.summary; return s; }],
+  ]) {
+    let threw = "";
+    try { await workspaceChooserClient(async () => mutate()).load(); } catch (e) { threw = e.message; }
+    check(`client refuses loudly: ${name}`, /round-9 workspace model/.test(threw), threw);
   }
-  let threw2 = "";
-  try {
-    const st = state(); delete st.effective.posture;
-    await workspaceChooserClient(async () => ({ ok: true, ...st })).load();
-  } catch (e) { threw2 = e.message; }
-  check("client refuses an answer without posture loudly", /round-9 workspace model/.test(threw2), threw2);
-  check("client refuses a pre-round-9 answer loudly", /round-9 workspace model/.test(threw), threw);
-  check("refusal keeps the gateway sentence + Not saved.", workspaceRefusal(new Error("Folder /etc/secrets is never allowed")) === "Folder /etc/secrets is never allowed. Not saved.");
+  check("refusal keeps the gateway sentence + Not saved.", workspaceRefusal(new Error("A rule cannot raise /archive above read-only")) === "A rule cannot raise /archive above read-only. Not saved.");
 }
-
 // Wording table (every client copies it verbatim).
 {
   const expected = {
-    title: "Workspace folders",
-    sharedLabel: "Shared workspace",
-    sharedState: "Always on",
-    allowedTitle: "Allowed folders",
-    ownTitle: "My folders",
-    effectivePrefix: "Agents may use:",
-    notSaved: "Not saved.",
+    title: "Workspace folders", postureAllowedOnly: "Only allowed folders", postureAnyExceptDenied: "Any folder except denied",
+    sharedLabel: "Shared workspace", sharedState: "Always on", accessRead: "Read-only", accessReadWrite: "Read & write", accessDenied: "Denied",
+    everythingElse: "Everything else", notSaved: "Not saved.",
   };
   for (const [k, v] of Object.entries(expected)) check(`text.${k}`, T[k] === v, T[k]);
-}
-{
-  const h = html({ state: state({ own_folders_allowed: true }, { own_folders: [{ path: OWN, mode: "rw" }] }), onPut: async () => {} });
-  const btn = (/<button[^>]*data-action="workspace-remove-own"[^>]*>/.exec(h) || [""])[0];
-  check("remove: kit tooltip, no native title", btn.includes(`data-af-tip="${T.remove} ${OWN}"`) && !/ title=/.test(btn), btn);
+  check("no retired wording", !Object.values(T).some((v) => /Other sessions|Allow any|trust|Never allowed/i.test(v)));
 }
 check("css block", /af-workspace:begin[\s\S]*\.af-workspace__always[\s\S]*af-workspace:end/.test(css));
 check("css: paths wrap (no horizontal scroll at 390 px)", /\.af-workspace__path\s*\{[^}]*overflow-wrap:\s*anywhere/.test(css));

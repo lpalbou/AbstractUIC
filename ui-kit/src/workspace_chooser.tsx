@@ -1,23 +1,25 @@
-// WorkspaceChooser (ui-kit 0.8.1, round 9): the ONE folder chooser.
+// WorkspaceChooser (ui-kit 0.8.1, round 9 FINAL wording): the ONE folder chooser.
 //
-//   Agents may use: <the gateway's one line>
-//   Shared workspace   <path>                       Always on
-//   ALLOWED FOLDERS    one switch per folder the gateway lists (state-showing)
-//   MY FOLDERS         rows + Add, only while the gateway allows any folder
+//   [Only allowed folders]                       the gateway's posture
+//   Shared workspace          Read & write · Always on
+//   /data/project             [Read & write | Read-only | Denied]
+//   /archive                  [Read & write (unavailable) | Read-only | Denied]
+//   Everything else           [Read & write | Read-only]     (posture b only)
+//   [/absolute/path] [Read-only | Denied] [Add]              (posture b only)
+//   Only allowed folders · Shared workspace (rw) · /data/project (rw) · /archive (ro)
 //
 // Two modes, same rows and words:
-// - "account": the account's own policy. Every change is ONE PUT through
-//   `onPut` (no Save); the gateway's refusal sentence shows under the row
-//   with "Not saved." and the row keeps its previous state.
-// - "automation": the automation's stored set (a host that saves later
-//   returns void and shows its own revision line; a Promise = "Saved" here) (input_data.workspace_allowed_paths),
-//   chosen among the account's effective folders; `selection === null` =
-//   follows the account. "My folders" are managed in the account settings.
+// - "account": the account's own narrowing. Every change is ONE PUT through
+//   `onPut` (no Save); the gateway's refusal sentence shows under the row with
+//   "Not saved." and the row keeps its previous state.
+// - "automation": the automation's (or one run's) stored set
+//   (input_data.workspace_allowed_paths, narrowing only) chosen among the
+//   account's effective folders; `selection === null` = follows the account.
 //
 // Prop-driven, no route baked in: the host loads the state (see
 // workspaceChooserClient) and performs the writes, so the console can edit
-// ANOTHER account and the apps edit `me`. Keyboard: Tab walks switches and
-// rows, Enter in the folder field adds, Escape clears the field.
+// ANOTHER account and the apps edit `me`. Keyboard: Tab walks the controls,
+// Enter in the folder field adds, Escape clears it.
 import React, { useState } from "react";
 import { AfSwitch } from "./af_switch.js";
 import { AfSettingsGroup } from "./af_settings_rows.js";
@@ -26,21 +28,21 @@ import { useAfTooltips } from "./af_tooltip.js";
 import {
   WORKSPACE_CHOOSER_TEXT as T,
   workspaceAccountView,
-  workspaceAddOwnBody,
-  workspaceExtraBody,
-  workspaceFolderName,
-  workspacePostureText,
-  workspaceAccessBody,
-  workspaceAccessLabel,
-  type WorkspaceAccess,
-  type WorkspaceRow,
+  workspaceAddRowBody,
+  workspaceDefaultModeBody,
+  workspaceModeBody,
+  workspaceModeLabel,
+  workspacePostureLabel,
   workspaceRefusal,
-  workspaceRemoveOwnBody,
+  workspaceRemoveRowBody,
   workspaceSelectionAfterToggle,
   workspaceSelectionView,
+  type WorkspaceAccess,
   type WorkspaceAccountState,
+  type WorkspaceChooserRow,
   type WorkspaceChooserView,
   type WorkspaceEffective,
+  type WorkspaceMode,
 } from "./workspace_chooser_core.js";
 
 type Common = {
@@ -58,12 +60,12 @@ export type WorkspaceChooserAccountProps = Common & {
   /** GET/PUT /workspace/policy/{account} answer; null while loading. */
   state: WorkspaceAccountState | null;
   /** Perform ONE PUT with this body; reject with Error(<gateway sentence>) on refusal. */
-  onPut: (body: { enabled_folders?: WorkspaceRow[]; own_folders?: WorkspaceRow[] }) => Promise<unknown>;
+  onPut: (body: { default_mode?: "ro" | null; folders?: { path: string; mode: "ro" | "deny" }[] }) => Promise<unknown>;
 };
 
 export type WorkspaceChooserAutomationProps = Common & {
   mode: "automation";
-  /** The account's effective folders (GET /workspace/effective/me or the policy read's `effective`); null while loading. */
+  /** The account's effective folders (the policy read's `effective`); null while loading. */
   effective: WorkspaceEffective | null;
   /** The stored set; null = nothing stored (follows the account). */
   selection: string[] | null;
@@ -75,6 +77,8 @@ export type WorkspaceChooserAutomationProps = Common & {
 
 export type WorkspaceChooserProps = WorkspaceChooserAccountProps | WorkspaceChooserAutomationProps;
 
+const ALL: WorkspaceMode[] = ["rw", "ro", "deny"];
+
 export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactElement {
   useAfTooltips();
   const id = props.idPrefix || "af-workspace";
@@ -82,11 +86,12 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [addMode, setAddMode] = useState<"ro" | "deny">("deny");
   const blocked = String(props.unavailableReason || "").trim();
 
   const automation = props.mode === "automation";
   let view: WorkspaceChooserView | null = null;
-  if (automation) view = props.effective ? workspaceSelectionView(props.effective, props.selection) : null;
+  if (props.mode === "automation") view = props.effective ? workspaceSelectionView(props.effective, props.selection) : null;
   else view = props.state ? workspaceAccountView(props.state) : null;
 
   async function run(key: string, work: () => Promise<unknown> | void): Promise<boolean> {
@@ -112,72 +117,10 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
     }
   }
 
-  function toggle(path: string, on: boolean) {
-    if (!view) return;
-    const v = view;
-    if (props.mode === "automation") {
-      const p = props;
-      void run(path, () => p.onSelectionChange(workspaceSelectionAfterToggle(v, path, on)));
-    } else {
-      const p = props;
-      void run(path, () => p.onPut(workspaceExtraBody(v, path, on)));
-    }
-  }
-
-  async function addOwn() {
-    if (props.mode === "automation" || !props.state) return;
-    const path = draft.trim();
-    if (!path) return;
+  const put = (key: string, body: Parameters<WorkspaceChooserAccountProps["onPut"]>[0]) => {
+    if (props.mode === "automation") return Promise.resolve(false);
     const p = props;
-    const state = props.state;
-    if (await run("own:add", () => p.onPut(workspaceAddOwnBody(state, path)))) setDraft("");
-  }
-
-  function removeOwn(path: string) {
-    if (props.mode === "automation" || !props.state) return;
-    const p = props;
-    const state = props.state;
-    void run(`own:${path}`, () => p.onPut(workspaceRemoveOwnBody(state, path)));
-  }
-
-  // One folder's permission: Read-only / Read & write. The account may lower
-  // the admin's mode, never raise it (Read & write unavailable at a read-only
-  // ceiling). An automation shows the account's permission as text.
-  const accessControl = (path: string, access: WorkspaceAccess, ceiling: WorkspaceAccess) => {
-    if (props.mode === "automation" || !view)
-      return (
-        <span className="af-workspace__access-tag" data-workspace="access" data-access={access}>
-          {workspaceAccessLabel(access)}
-        </span>
-      );
-    const p = props;
-    const choose = (next: WorkspaceAccess) => {
-      if (next === access || (next === "rw" && ceiling === "ro") || p.state === null || !view) return;
-      const body = workspaceAccessBody(view, p.state, path, next);
-      void run(`access:${path}`, () => p.onPut(body));
-    };
-    return (
-      <span className="af-workspace__access" role="group" aria-label={`${T.accessLabel} ${path}`} data-workspace="access" data-access={access}>
-        {(["ro", "rw"] as WorkspaceAccess[]).map((mode) => {
-          const unavailable = mode === "rw" && ceiling === "ro";
-          return (
-            <button
-              key={mode}
-              type="button"
-              className="af-workspace__access-btn"
-              aria-pressed={access === mode ? "true" : "false"}
-              aria-disabled={unavailable || Boolean(blocked) ? "true" : undefined}
-              data-af-tip={unavailable ? T.accessCeiling : undefined}
-              data-action={`workspace-access-${mode}`}
-              onClick={() => (unavailable || blocked ? undefined : choose(mode))}
-            >
-              {workspaceAccessLabel(mode)}
-            </button>
-          );
-        })}
-        {status(`access:${path}`)}
-      </span>
-    );
+    return run(key, () => p.onPut(body));
   };
 
   const status = (key: string) =>
@@ -190,6 +133,51 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
         {T.saved}
       </span>
     ) : null;
+
+  const tag = (mode: WorkspaceMode, attr = "access") => (
+    <span className="af-workspace__access-tag" data-workspace={attr} data-access={mode}>
+      {workspaceModeLabel(mode)}
+    </span>
+  );
+
+  // Read & write / Read-only / Denied for one row: the account may lower the
+  // admin's mode, never raise it (a higher mode is shown unavailable).
+  const segmented = (label: string, current: WorkspaceMode, offered: WorkspaceMode[], allowed: WorkspaceMode[], onPick: (m: WorkspaceMode) => void) => (
+    <span className="af-workspace__access" role="group" aria-label={`${T.accessLabel} ${label}`} data-workspace="access" data-access={current}>
+      {offered.map((mode) => {
+        const unavailable = !allowed.includes(mode) || Boolean(blocked);
+        return (
+          <button
+            key={mode}
+            type="button"
+            className="af-workspace__access-btn"
+            aria-pressed={current === mode ? "true" : "false"}
+            aria-disabled={unavailable ? "true" : undefined}
+            data-af-tip={!allowed.includes(mode) ? T.accessCeiling : undefined}
+            data-action={`workspace-mode-${mode}`}
+            onClick={() => (unavailable || busy !== null || mode === current ? undefined : onPick(mode))}
+          >
+            {workspaceModeLabel(mode)}
+          </button>
+        );
+      })}
+    </span>
+  );
+
+  const rowControl = (row: WorkspaceChooserRow) => {
+    if (props.mode === "automation") return tag(row.adminMode);
+    if (!row.choices.length) return tag(row.mode);
+    const state = props.state as WorkspaceAccountState;
+    const offered = row.origin === "account" ? (["ro", "deny"] as WorkspaceMode[]) : ALL;
+    return segmented(row.path, row.mode, offered, row.choices, (m) => void put(row.path, workspaceModeBody(state, row, m)));
+  };
+
+  async function addRow() {
+    if (props.mode === "automation" || !props.state) return;
+    const path = draft.trim();
+    if (!path) return;
+    if (await put("add", workspaceAddRowBody(props.state, path, addMode))) setDraft("");
+  }
 
   return (
     <AfSettingsGroup
@@ -209,12 +197,8 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
       ) : (
         <>
           <div className="af-workspace__posture" data-workspace="posture" data-posture={view.posture}>
-            <span className="af-workspace__badge">{workspacePostureText(view.posture).label}</span>
-            <span className="af-workspace__note">{workspacePostureText(view.posture).help}</span>
+            <span className="af-workspace__badge">{workspacePostureLabel(view.posture)}</span>
           </div>
-          <p className="af-workspace__effective" data-workspace="effective">
-            <strong>{T.effectivePrefix}</strong> {view.summary}
-          </p>
           {blocked ? (
             <p className="af-workspace__note" id={`${id}-blocked`} data-workspace="blocked">
               {blocked}
@@ -230,9 +214,7 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
               <div className="af-workspace__shared-head">
                 <span className="af-workspace__shared-name">{T.sharedLabel}</span>
                 <span className="af-workspace__tags">
-                  <span className="af-workspace__access-tag" data-workspace="shared-access">
-                    {T.accessReadWrite}
-                  </span>
+                  {tag("rw", "shared-access")}
                   <span className="af-workspace__always" data-workspace="shared-always">
                     {T.sharedState}
                   </span>
@@ -241,56 +223,73 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
               <code className="af-workspace__path" title={view.shared.path}>
                 {view.shared.path}
               </code>
-              <span className="af-workspace__note">{T.sharedHelp}</span>
             </li>
-            {view.extras.map((row) => (
-              <li className="af-workspace__row" key={row.path} data-workspace="extra" data-path={row.path}>
-                <AfSwitch
-                  variant="row"
-                  label={row.name}
-                  description={<code className="af-workspace__path">{row.path}</code>}
-                  ariaLabel={row.path}
-                  checked={row.on}
-                  busy={busy === row.path}
-                  unavailableReason={blocked || (row.blocked ? T.neverAllowed : null)}
-                  describedBy={blocked ? `${id}-blocked` : undefined}
-                  action="workspace-extra"
-                  onChange={(next) => toggle(row.path, next)}
-                />
-                {row.on ? accessControl(row.path, row.access, row.ceiling) : null}
+            {view.rows.map((row) => (
+              <li className="af-workspace__row af-workspace__folder" key={row.path} data-workspace={row.origin === "account" ? "account-row" : "folder"} data-path={row.path} data-mode={row.mode}>
+                {props.mode === "automation" ? (
+                  <AfSwitch
+                    variant="row"
+                    label={row.name}
+                    description={<code className="af-workspace__path">{row.path}</code>}
+                    ariaLabel={row.path}
+                    checked={row.mode !== "deny"}
+                    busy={busy === row.path}
+                    unavailableReason={blocked || null}
+                    describedBy={blocked ? `${id}-blocked` : undefined}
+                    action="workspace-select"
+                    onChange={(next) => {
+                      const p = props;
+                      const v = view as WorkspaceChooserView;
+                      void run(row.path, () => p.onSelectionChange(workspaceSelectionAfterToggle(v, row.path, next)));
+                    }}
+                  />
+                ) : (
+                  <span className="af-workspace__folder-text">
+                    <span className="af-workspace__own-name">{row.name}</span>
+                    <code className="af-workspace__path">{row.path}</code>
+                  </span>
+                )}
+                <span className="af-workspace__folder-controls">
+                  {rowControl(row)}
+                  {row.origin === "account" && props.mode !== "automation" ? (
+                    <button
+                      type="button"
+                      className="af-workspace__icon-btn"
+                      data-action="workspace-remove-row"
+                      aria-label={`${T.remove} ${row.path}`}
+                      data-af-tip={`${T.remove} ${row.path}`}
+                      disabled={Boolean(blocked) || busy !== null}
+                      onClick={() => props.state && void put(row.path, workspaceRemoveRowBody(props.state, row.path))}
+                    >
+                      <Icon name="x" size={16} />
+                    </button>
+                  ) : null}
+                </span>
                 {status(row.path)}
               </li>
             ))}
-            {view.own.rows.map((path) => (
-              <li className="af-workspace__row af-workspace__own" key={path} data-workspace="own" data-path={path}>
-                <span className="af-workspace__own-text">
-                  <span className="af-workspace__own-name">{workspaceFolderName(path)}</span>
-                  <code className="af-workspace__path">{path}</code>
+            {view.everythingElse ? (
+              <li className="af-workspace__row af-workspace__folder" data-workspace="everything-else" data-mode={view.everythingElse.mode}>
+                <span className="af-workspace__folder-text">
+                  <span className="af-workspace__own-name">{T.everythingElse}</span>
                 </span>
-                {view.ownAccess[path] ? accessControl(path, view.ownAccess[path], "rw") : null}
-                <button
-                  type="button"
-                  className="af-workspace__icon-btn"
-                  data-action="workspace-remove-own"
-                  aria-label={`${T.remove} ${path}`}
-                  data-af-tip={`${T.remove} ${path}`}
-                  disabled={Boolean(blocked) || busy !== null}
-                  onClick={() => removeOwn(path)}
-                >
-                  <Icon name="x" size={16} />
-                </button>
-                {status(`own:${path}`)}
+                <span className="af-workspace__folder-controls">
+                  {view.everythingElse.choices.length > 1
+                    ? segmented(T.everythingElse, view.everythingElse.mode, ["rw", "ro"], view.everythingElse.choices, (m) => void put("everything-else", workspaceDefaultModeBody(m as WorkspaceAccess)))
+                    : tag(view.everythingElse.mode)}
+                </span>
+                {status("everything-else")}
               </li>
-            ))}
-            {!automation && view.own.visible ? (
-              <li className="af-workspace__add" data-workspace="own-add">
+            ) : null}
+            {!automation && view.canAdd ? (
+              <li className="af-workspace__add" data-workspace="add">
                 <input
                   type="text"
                   className="af-workspace__input"
-                  aria-label={T.ownTitle}
-                  placeholder={T.ownPlaceholder}
+                  aria-label={T.foldersTitle}
+                  placeholder={T.addPlaceholder}
                   value={draft}
-                  disabled={Boolean(blocked) || busy === "own:add"}
+                  disabled={Boolean(blocked) || busy === "add"}
                   spellCheck={false}
                   autoCapitalize="off"
                   autoCorrect="off"
@@ -298,50 +297,34 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      void addOwn();
+                      void addRow();
                     } else if (e.key === "Escape") {
                       e.preventDefault();
                       setDraft("");
                       setErrors((x) => {
                         const n = { ...x };
-                        delete n["own:add"];
+                        delete n.add;
                         return n;
                       });
                     }
                   }}
                 />
-                <button type="button" className="af-workspace__add-btn" data-action="workspace-add-own" disabled={Boolean(blocked) || !draft.trim() || busy !== null} onClick={() => void addOwn()}>
+                {segmented(T.addPlaceholder, addMode, ["ro", "deny"], ["ro", "deny"], (m) => setAddMode(m as "ro" | "deny"))}
+                <button type="button" className="af-workspace__add-btn" data-action="workspace-add-row" disabled={Boolean(blocked) || !draft.trim() || busy !== null} onClick={() => void addRow()}>
                   {T.add}
                 </button>
-                {status("own:add")}
+                {status("add")}
               </li>
             ) : null}
           </ul>
-          {view.anyFolder ? (
-            <p className="af-workspace__note" data-workspace="any-folder">
-              {T.anyFolderNote}
+          {!automation && !view.canAdd ? (
+            <p className="af-workspace__note" data-workspace="admin-only-adds">
+              {T.adminOnlyAdds}
             </p>
           ) : null}
-          {view.own.note ? (
-            <p className="af-workspace__note" data-workspace="own-hidden">
-              {view.own.note}
-            </p>
-          ) : null}
-          {view.extras.length === 0 && !view.own.visible ? (
-            <p className="af-workspace__note" data-workspace="allowed-empty">
-              {T.allowedEmpty}
-            </p>
-          ) : null}
-          {view.never.length ? (
-            <div className="af-workspace__never" data-workspace="never">
-              <span className="af-workspace__never-title">{T.neverTitle}</span>
-              {view.never.map((p) => (
-                <code key={p} className="af-workspace__chip" title={p}>
-                  {workspaceFolderName(p)}
-                </code>
-              ))}
-            </div>
-          ) : null}
+          <p className="af-workspace__effective" data-workspace="effective">
+            {view.summary}
+          </p>
           {automation && !view.follows ? (
             <div className="af-workspace__actions">
               <button
