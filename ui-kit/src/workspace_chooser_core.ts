@@ -23,7 +23,7 @@ export type WorkspaceEffective = {
   account?: string;
   shared_workspace: string;
   folders: WorkspaceFolder[];
-  available_folders: { path: string; enabled: boolean }[];
+  available_folders: { path: string; enabled: boolean; never_allowed?: boolean }[];
   own_folders_allowed: boolean;
   own_folders_inactive?: boolean;
   never_allowed?: string[];
@@ -48,7 +48,8 @@ export const WORKSPACE_CHOOSER_TEXT = {
   help: "The folders agents may use. The shared workspace is always on; other folders the gateway admin allows can be turned on.",
   sharedLabel: "Shared workspace",
   sharedState: "Always on",
-  sharedHelp: "Every conversation, automation and entity gets its own folder in it.",
+  sharedHelp: "Every agent can always use it. Each conversation also keeps a private folder of its own.",
+  neverAllowed: "Never allowed on this gateway.",
   allowedTitle: "Allowed folders",
   allowedHelp: "Allowed by the gateway admin. Off until turned on.",
   allowedEmpty: "The gateway admin has not allowed other folders.",
@@ -78,7 +79,8 @@ export function workspaceFolderName(path: string): string {
   return parts.length ? parts[parts.length - 1] : String(path || "");
 }
 
-export type WorkspaceChooserRow = { path: string; name: string; on: boolean };
+/** `blocked`: the gateway marks this folder never allowed (shown, not switchable). */
+export type WorkspaceChooserRow = { path: string; name: string; on: boolean; blocked?: boolean };
 
 export type WorkspaceChooserView = {
   shared: { path: string; name: string };
@@ -98,7 +100,7 @@ export function workspaceAccountView(state: WorkspaceAccountState): WorkspaceCho
   const ownStored = Array.isArray(state.policy?.own_folders) ? state.policy.own_folders : [];
   return {
     shared: { path: eff.shared_workspace, name: workspaceFolderName(eff.shared_workspace) },
-    extras: (eff.available_folders || []).map((f) => ({ path: f.path, name: workspaceFolderName(f.path), on: f.enabled === true })),
+    extras: (eff.available_folders || []).map((f) => ({ path: f.path, name: workspaceFolderName(f.path), on: f.enabled === true, ...(f.never_allowed === true ? { blocked: true } : {}) })),
     own: {
       visible: eff.own_folders_allowed === true,
       rows: eff.own_folders_allowed === true ? ownStored : [],
@@ -109,9 +111,10 @@ export function workspaceAccountView(state: WorkspaceAccountState): WorkspaceCho
   };
 }
 
-/** The display line for an automation's chosen set (formatting only). */
-export function workspaceSelectionSummary(count: number): string {
-  return count === 0 ? "Shared workspace only." : `Shared workspace + ${count} folder${count === 1 ? "" : "s"}.`;
+/** The display line for an automation's chosen set (formatting only; the gateway's own line template). */
+export function workspaceSelectionSummary(count: number, sharedName = ""): string {
+  const shared = sharedName ? `Shared workspace (${sharedName})` : "Shared workspace";
+  return `Private session folder + ${shared}${count ? ` + ${count} folder${count === 1 ? "" : "s"}` : ""}.`;
 }
 
 /**
@@ -127,7 +130,7 @@ export function workspaceSelectionView(effective: WorkspaceEffective, selection:
     shared: { path: effective.shared_workspace, name: workspaceFolderName(effective.shared_workspace) },
     extras,
     own: { visible: false, rows: [], note: WORKSPACE_CHOOSER_TEXT.automationOwnHidden },
-    summary: selection === null ? effective.summary : workspaceSelectionSummary(extras.filter((r) => r.on).length),
+    summary: selection === null ? effective.summary : workspaceSelectionSummary(extras.filter((r) => r.on).length, workspaceFolderName(effective.shared_workspace)),
     follows: selection === null,
   };
 }

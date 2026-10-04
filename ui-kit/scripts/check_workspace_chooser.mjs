@@ -102,6 +102,14 @@ const checked = (s) => /aria-checked="true"/.test(s);
   check("why-hidden sentence", h.includes('data-workspace="own-hidden"') && h.includes(T.ownHidden));
   check("allowed help", h.includes(T.allowedHelp));
 }
+// A listed folder the gateway marks never allowed: shown, not switchable, with the reason.
+{
+  const h = html({ state: state({ available_folders: [{ path: A, enabled: false, never_allowed: true }, { path: B, enabled: false }] }), onPut: async () => {} });
+  const sw = switches(h);
+  const a = sw.find((s) => label(s) === A) || "";
+  check("never-allowed listed folder is unavailable", /aria-disabled="true"/.test(a) && h.includes(T.neverAllowed), a);
+  check("other folder stays switchable", !/aria-disabled/.test(sw.find((s) => label(s) === B) || "x aria-disabled"));
+}
 // Inactive own folders (allow_any_folder turned off by the admin).
 {
   const h = html({ state: state({ own_folders_inactive: true }, { own_folders: [OWN] }), onPut: async () => {} });
@@ -156,7 +164,7 @@ check("load error shown verbatim", html({ state: null, loadError: "Sign in first
   const next = workspaceSelectionAfterToggle(pinned, A, true);
   check("automation toggle stores only offered folders", JSON.stringify(next) === JSON.stringify([A, OWN]), JSON.stringify(next));
   check("automation enabling a non-offered folder stores nothing new", JSON.stringify(workspaceSelectionAfterToggle(pinned, B, true)) === JSON.stringify([OWN]));
-  check("automation summary formatted", pinned.summary === "Shared workspace + 1 folder." && workspaceSelectionView(eff, []).summary === "Shared workspace only.");
+  check("automation summary formatted like the gateway line", pinned.summary === "Private session folder + Shared workspace (workspaces) + 1 folder." && workspaceSelectionView(eff, []).summary === "Private session folder + Shared workspace (workspaces).", pinned.summary);
   const h = html({ mode: "automation", effective: eff, selection: [OWN], onSelectionChange: () => {} });
   check("automation: shared always on", h.includes('data-workspace="shared-always"'));
   check("automation: switches = account's effective extras", switches(h).length === 2 && !h.includes(`aria-label="${B}"`));

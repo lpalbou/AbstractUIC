@@ -201,7 +201,7 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
                     ariaLabel={row.path}
                     checked={row.on}
                     busy={busy === row.path}
-                    unavailableReason={blocked || null}
+                    unavailableReason={blocked || (row.blocked ? T.neverAllowed : null)}
                     describedBy={blocked ? `${id}-blocked` : undefined}
                     action="workspace-extra"
                     onChange={(next) => toggle(row.path, next)}
