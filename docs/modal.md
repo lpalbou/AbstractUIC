@@ -149,6 +149,52 @@ Props: `label` (the button's accessible name), `items` (`id`, `label`, `onSelect
 `.af-menu__item` elements inside the list, read each time the menu opens, so the host may re-render
 them. Call `release()` before removing the markup.
 
+## Tooltip
+
+One themed tooltip for every icon button: it says in one sentence what the button does for whom
+("Archive alice (kept, hidden)", "Activity log of alice"). The button keeps its `aria-label` (its
+accessible name) and carries no `title`, so the browser's own tooltip never shows twice.
+
+- Shown 150 ms after the pointer rests on the button, and on keyboard focus (focus that follows a
+  click does not show it). Touch taps do not show it.
+- Hidden when the pointer leaves (it may move onto the tooltip, which stays: it is hoverable), on
+  blur, on any press, on scroll, on resize, and on Escape. Escape is consumed only when a tooltip
+  was visible, so a modal behind it closes on the next press.
+- Placed above the button and centred, below when there is no room above, and kept 8 px inside
+  the viewport, so it never widens the page and an ancestor's `overflow` never clips it
+  (`position: fixed`, `z-index: var(--z-tooltip)` (1200), above menus).
+- Inverse surface from the active theme (`--text-primary` background, `--bg-primary` text): it
+  reads in every light and dark theme. Plain text only, wrapping at 280 px.
+- While it shows, the button gets `aria-describedby` pointing at it when the sentence differs from
+  the `aria-label`.
+
+### React: `AfTooltip`
+
+```tsx
+import { AfTooltip } from "@abstractframework/ui-kit";
+
+<AfTooltip content={`Archive ${name} (kept, hidden)`}>
+  <button type="button" className="icon-btn" aria-label={`Archive ${name}`}>…</button>
+</AfTooltip>
+```
+
+`AfTooltip` sets `data-af-tip` on its one child and binds the document-wide tooltip while mounted.
+Markup that sets `data-af-tip` itself calls `useAfTooltips()` once in the tree.
+
+### Plain HTML
+
+```html
+<button type="button" class="icon-btn" aria-label="Archive alice"
+        data-af-tip="Archive alice (kept, hidden)">…</button>
+<script>
+  const release = AfConsoleIslands.bindTooltips(document);
+</script>
+```
+
+`bindTooltips(root = document, { delayMs? })` is `bindAfTooltips` (`src/af_tooltip_core.ts`, also
+exported with `afTooltipPlacement`, `AF_TOOLTIP_DELAY_MS` and `AF_TOOLTIP_ATTR`). It delegates on
+`root`, so markup rendered later needs no new binding: bind once per page.
+
 ## Account rows
 
 A table (or a list of row blocks) that mixes administrators, users and entities tints each row by
@@ -239,5 +285,8 @@ heavier than 600. The constants are exported: `HELPER_MIN_PX` (13), `HELPER_MIN_
 - `ui-kit/scripts/check_menu.mjs`: `bindAfMenu` behaviour (ARIA, open / close, keys, outside press,
   focus return, Escape inside a modal), `afMenuPlacement` flips, the `AfMenu` markup, the menu and
   `af-modal--wide` CSS contract and the islands export.
+- `ui-kit/scripts/check_tooltip.mjs`: `bindAfTooltips` behaviour (150 ms delay, keyboard focus,
+  hoverable, Escape / press / scroll / resize, `aria-describedby`), `afTooltipPlacement` flips and
+  clamps, the `AfTooltip` markup and the `af-tooltip` CSS contract.
 
-All four run in `npm test` for `ui-kit`.
+All of them run in `npm test` for `ui-kit`.

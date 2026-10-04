@@ -407,3 +407,5 @@ export {
   type VoiceRouteDefault,
   type VoiceDevice,
 } from "./voice_devices.js";
+export { AfTooltip, useAfTooltips, type AfTooltipProps } from "./af_tooltip.js";
+export { bindAfTooltips, acquireAfTooltips, afTooltipPlacement, AF_TOOLTIP_DELAY_MS, AF_TOOLTIP_ATTR, type BindAfTooltipsOptions, type AfTooltipPlacement, type AfTooltipRect } from "./af_tooltip_core.js";

@@ -2788,7 +2788,8 @@
  *
  * Z-ORDER TOKENS (behavior contract statement 13): bottom→top
  *   app content < drawers (--z-drawer) < connect modal (--z-connect-modal,
- *   the pre-existing 1000) < transient popovers (--z-popover).
+ *   the pre-existing 1000) < transient popovers (--z-popover) < tooltips
+ *   (--z-tooltip).
  * ------------------------------------------------------------------- */
 
 :root {
@@ -2797,6 +2798,8 @@
   --z-modal: 950;
   --z-connect-modal: 1000;
   --z-popover: 1100;
+  /* The kit tooltip (af-tooltip): above everything it explains. */
+  --z-tooltip: 1200;
 }
 
 .af-topbar {
@@ -6360,3 +6363,52 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   font-weight: 600;
 }
 /* af-file-viewer:end */
+
+/* af-tooltip:begin
+ * The kit tooltip (af_tooltip_core.bindAfTooltips; AfTooltip in React;
+ * AfConsoleIslands.bindTooltips in plain-HTML hosts). One element per
+ * document, position: fixed (placed by afTooltipPlacement inside the
+ * viewport, so no ancestor overflow clips it and it never widens the page),
+ * above popovers. Inverse surface from the active theme's own tokens, so it
+ * reads in every light and dark theme. Plain text, wraps at 280 px. */
+.af-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-tooltip, 1200);
+  box-sizing: border-box;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  box-shadow: var(--ui-shadow-1);
+  font-family: var(--font-sans, inherit);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  pointer-events: auto;
+}
+
+.af-tooltip[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .af-tooltip:not([hidden]) {
+    animation: af-tooltip-in 90ms ease-out;
+  }
+}
+
+@keyframes af-tooltip-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* af-tooltip:end */

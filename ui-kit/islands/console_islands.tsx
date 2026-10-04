@@ -20,6 +20,7 @@ import { appIdentity, type AppIdentity } from "../src/identity.js";
 import { Icon, type IconName } from "../src/icon.js";
 import { bindAfModal } from "../src/af_modal_core.js";
 import { bindAfMenu } from "../src/af_menu_core.js";
+import { bindAfTooltips } from "../src/af_tooltip_core.js";
 import { THEME_SPECS, applyTheme } from "../src/theme.js";
 import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typography.js";
 import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
@@ -381,7 +382,19 @@ export function bindMenu(button: HTMLElement, menu: HTMLElement, options?: { onO
   return bindAfMenu(button, menu, options || {});
 }
 
-/** The kit's own theme + typography application (root class + CSS vars). */
+/**
+ * The kit tooltip for plain-HTML hosts: every `[data-af-tip]` element under
+ * `root` (default: the whole document) gets the themed tooltip (150 ms delay,
+ * shown on keyboard focus, hoverable, Escape hides it, kept inside the
+ * viewport). Bind ONCE per page; re-rendered markup needs no re-binding
+ * (delegated). Icon buttons keep their aria-label and carry no `title`.
+ * Markup contract: docs/modal.md ("Tooltip"). Additive member (kit 0.8.x,
+ * round 9): apiVersion stays "2".
+ */
+export function bindTooltips(root?: Document | Element, options?: { delayMs?: number }): () => void {
+  return bindAfTooltips(root || document, options || {});
+}
+
 export type DocsAssistantIslandProps = DocsAssistantDrawerProps;
 
 /**
@@ -415,6 +428,7 @@ const api = {
   mountDocsAssistant,
   bindModal,
   bindMenu,
+  bindTooltips,
   appIdentity,
   aboutVersionsFromGateway,
   applyAppearance,
