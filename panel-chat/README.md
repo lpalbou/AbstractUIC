@@ -19,6 +19,7 @@ Declared in `panel-chat/package.json`:
 See `panel-chat/src/index.ts` for the authoritative export list. Common entry points:
 
 - Components: `ChatThread`, `ChatComposer`, `ChatMessageCard`, `ChatMessageContent`
+- Docs assistant: `DocsAssistantDrawer` (the console's and every app's, on the gateway's docs-qa workflow; see below)
 - App assistant: `AssistantPanel` (injected `ask` transport; see below)
 - Controlled workflow surface: `WorkflowChat`, `WorkflowInteractionPanel` and the `WorkflowInteraction` union
 - Transport-injected runtime: `WorkflowSessionController`, `useWorkflowSession`, `WorkflowTransport`,
@@ -57,6 +58,25 @@ export function ChatView() {
     </>
   );
 }
+```
+
+## Docs assistant
+
+`DocsAssistantDrawer` (0.4.0) is the ONE Docs assistant: the AbstractGateway console mounts it
+through the islands bundle (`mountDocsAssistant`) and every app mounts it in React, opened from the
+top bar's `docs` slot (book icon). Pass `source: { app, name }` (`app` = `gateway` or the app id),
+the host's `fetchGateway(path, init)` (relative `api/gateway/...` paths with the host's
+credentials) and `connected`. It reads the app's llms.txt from `GET api/gateway/docs/corpus?app=<id>`,
+uploads attachments to the conversation's session, starts the gateway's shipped `docs-qa` workflow
+(`{prompt, docs, app}`, `use_session_history`, `context.attachments`), grows the reply from the run's
+`llm.delta` frames while polling the run, and shows the completed `output.response`. User messages
+sit on the right and answers on the left with Markdown, code, JSON, links and copy; the header
+has an icon-only **New conversation** and close; one footer line names the grounding. Keep it
+mounted while closed. No corpus is an error message, never an ungrounded answer.
+
+```tsx
+<DocsAssistantDrawer open={open} onClose={close} source={{ app: "code", name: "AbstractCode" }}
+  fetchGateway={(path, init) => fetch(path, { ...init, credentials: "same-origin" })} connected={connected} />
 ```
 
 ## App assistant

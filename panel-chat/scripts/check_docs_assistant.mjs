@@ -38,6 +38,7 @@ check("start body: no context without attachments, no forced streaming", !("cont
 const withFiles = docsQaStartBody({ question: "Q", docs: "D", appName: "A", sessionId: "s", attachments: [{ $artifact: "art1", filename: "a.png" }] });
 check("start body: attachments ride context.attachments", withFiles.input_data.context?.attachments?.[0]?.$artifact === "art1", JSON.stringify(withFiles.input_data));
 check("answer = output.response", docsAnswerFromRun({ output: { response: " Hi " } }) === "Hi" && docsAnswerFromRun({ output: {} }) === "" && docsAnswerFromRun(null) === "");
+check("replay note names tokens and the history window (the console's former wording)", docsReplayNote({ replayed_messages: 12, dropped_messages: 49, dropped_tokens: 61234, max_tokens: 50000 }) === "Earlier messages not replayed: 49 (~61,234 tokens). The model read the newest 12 messages (history window: the most recent 50,000 tokens of whole messages).", docsReplayNote({ replayed_messages: 12, dropped_messages: 49, dropped_tokens: 61234, max_tokens: 50000 }));
 check("replay note only when messages were dropped", docsReplayNote({ dropped_messages: 0 }) === "" && docsReplayNote({ dropped_messages: 4, replayed_messages: 1 }).includes("Earlier messages not replayed: 4") && docsReplayNote({ dropped_messages: 4, replayed_messages: 1 }).includes("newest 1 message."));
 
 // --- SSE parsing ---------------------------------------------------------------

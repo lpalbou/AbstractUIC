@@ -1532,6 +1532,7 @@ Purpose: chat-thread UI primitives with lightweight Markdown/JSON rendering.
 - CSS: `@abstractframework/panel-chat/panel_chat.css` (file: `panel-chat/src/panel_chat.css`)
 
 Components:
+- `DocsAssistantDrawer` (0.4.0) — the Docs assistant of the console and every app: kit drawer + panel-chat thread (user right, assistant left; Markdown, code, JSON, links, images per the image policy; copy), attachments (`attachments/upload` to the conversation's session → `context.attachments`), streaming (`llm.delta` on `runs/{id}/ledger/stream`), Stop, icon-only New conversation and close, one-line grounding footer. Props `open`, `onClose`, `source: { app, name }`, `fetchGateway`, `connected`, `suggestions?`, `placeholder?`, `width?`, `topOffset?`, `className?`. Grounding: `GET api/gateway/docs/corpus?app=<id>` → the shipped `docs-qa` workflow (`DOCS_QA_WORKFLOW`); one gateway session per conversation. Exports `DocsAssistantPanel` (stateless view), `makeDocsQaAsk`, `docsQaStartBody`, `docsCorpusPath`, `docsAnswerFromRun`, `docsReplayNote`, `newDocsSessionId`, `sseFrames`
 - `AssistantPanel` (docs Q&A surface with an injected `ask(question, { signal, history })` transport returning a Promise or an AsyncIterable of deltas; never fetches)
 - `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions; `streamReplies?: "gateway_default" | "on" | "off"`); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
 - Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry), the event-name constants `LLM_DELTA_EVENT` / `LLM_DELTA_END_EVENT`; types `LlmDelta`, `LlmDeltaEnd`, `LlmDeltaEvent`, `LlmDeltaChannel`, `LlmDeltaEndReason`, `LlmStreamUnavailableDetail`, `StreamRepliesMode`; controller option `liveRenderIntervalMs` (default 60, also on `useWorkflowSession`). See [panel-chat README](../panel-chat/README.md#live-replies-streaming)
@@ -4076,6 +4077,7 @@ Declared in `panel-chat/package.json`:
 See `panel-chat/src/index.ts` for the authoritative export list. Common entry points:
 
 - Components: `ChatThread`, `ChatComposer`, `ChatMessageCard`, `ChatMessageContent`
+- Docs assistant: `DocsAssistantDrawer` (the console's and every app's, on the gateway's docs-qa workflow; see below)
 - App assistant: `AssistantPanel` (injected `ask` transport; see below)
 - Controlled workflow surface: `WorkflowChat`, `WorkflowInteractionPanel` and the `WorkflowInteraction` union
 - Transport-injected runtime: `WorkflowSessionController`, `useWorkflowSession`, `WorkflowTransport`,
@@ -4114,6 +4116,25 @@ export function ChatView() {
     </>
   );
 }
+```
+
+## Docs assistant
+
+`DocsAssistantDrawer` (0.4.0) is the ONE Docs assistant: the AbstractGateway console mounts it
+through the islands bundle (`mountDocsAssistant`) and every app mounts it in React, opened from the
+top bar's `docs` slot (book icon). Pass `source: { app, name }` (`app` = `gateway` or the app id),
+the host's `fetchGateway(path, init)` (relative `api/gateway/...` paths with the host's
+credentials) and `connected`. It reads the app's llms.txt from `GET api/gateway/docs/corpus?app=<id>`,
+uploads attachments to the conversation's session, starts the gateway's shipped `docs-qa` workflow
+(`{prompt, docs, app}`, `use_session_history`, `context.attachments`), grows the reply from the run's
+`llm.delta` frames while polling the run, and shows the completed `output.response`. User messages
+sit on the right and answers on the left with Markdown, code, JSON, links and copy; the header
+has an icon-only **New conversation** and close; one footer line names the grounding. Keep it
+mounted while closed. No corpus is an error message, never an ungrounded answer.
+
+```tsx
+<DocsAssistantDrawer open={open} onClose={close} source={{ app: "code", name: "AbstractCode" }}
+  fetchGateway={(path, init) => fetch(path, { ...init, credentials: "same-origin" })} connected={connected} />
 ```
 
 ## App assistant
@@ -5094,7 +5115,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -5135,7 +5156,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.8.0",
@@ -9126,6 +9147,8 @@ import { VoiceSettings } from "../src/voice_settings.js";
 // ChatComposer with the standard Attach control, drop zone and paste-to-attach.
 import { WorkflowChat } from "../../panel-chat/src/workflow_chat.js";
 import type { ChatMessage } from "../../panel-chat/src/chat_message_card.js";
+// The shared docs assistant (round 8): the SAME drawer every app mounts.
+import { DocsAssistantDrawer, type DocsAssistantDrawerProps } from "../../panel-chat/src/docs_assistant.js";
 
 declare const __KIT_VERSION__: string;
 
@@ -9148,6 +9171,8 @@ export type IslandExtraAction = {
 };
 
 export type TopBarIslandProps = {
+  /** The Docs assistant button (book icon; additive, kit 0.8.0 round 8). */
+  docs?: { open: boolean; onToggle: () => void; label?: string } | null;
   assistant?: { open: boolean; onToggle: () => void; label?: string } | null;
   appearance?: { onOpen: () => void; label?: string } | null;
   /** The About button + dialog, owned by the cluster (omit/null hides it). */
@@ -9262,6 +9287,7 @@ function extrasNode(extras: IslandExtraAction[] | undefined): React.ReactNode {
 function TopBarIsland(props: TopBarIslandProps): React.ReactElement {
   return (
     <AfTopBarActions
+      docs={props.docs || undefined}
       assistant={props.assistant || undefined}
       appearance={props.appearance || undefined}
       about={props.about || undefined}
@@ -9473,6 +9499,19 @@ export function bindMenu(button: HTMLElement, menu: HTMLElement, options?: { onO
 }
 
 /** The kit's own theme + typography application (root class + CSS vars). */
+export type DocsAssistantIslandProps = DocsAssistantDrawerProps;
+
+/**
+ * The console's Docs assistant: panel-chat's DocsAssistantDrawer (the same
+ * component the apps mount) with source {app: "gateway"}. The host passes
+ * its own `fetchGateway` (cookie session + CSRF). Keep it mounted while
+ * closed (`open: false`) so the conversation survives. Additive member
+ * (kit 0.8.0, round 8): apiVersion stays "2".
+ */
+export function mountDocsAssistant(el: Element, props: DocsAssistantIslandProps): IslandHandle<DocsAssistantIslandProps> {
+  return mount(el, (p) => <DocsAssistantDrawer {...p} />, props);
+}
+
 export function applyAppearance(settings: Partial<AppearanceSettings>): void {
   applyTheme(String(settings.theme || "dark"));
   applyTypography({ font_scale: settings.font_scale, header_density: settings.header_density });
@@ -9490,6 +9529,7 @@ const api = {
   mountSandboxChat,
   mountProviderModelPicker,
   mountVoiceSettings,
+  mountDocsAssistant,
   bindModal,
   bindMenu,
   appIdentity,
@@ -11274,6 +11314,24 @@ export function createGatewayUrlResolver(options?: Parameters<typeof resolveGate
 
 export { ChatMessageContent } from "./message_content.js";
 export { AssistantPanel } from "./assistant_panel.js";
+export {
+  DocsAssistantDrawer,
+  DocsAssistantPanel,
+  DOCS_QA_WORKFLOW,
+  docsAnswerFromRun,
+  docsCorpusPath,
+  docsQaStartBody,
+  docsReplayNote,
+  makeDocsQaAsk,
+  newDocsSessionId,
+  sseFrames,
+  type DocsAsk,
+  type DocsAskContext,
+  type DocsAssistantDrawerProps,
+  type DocsAssistantPanelProps,
+  type DocsAssistantSource,
+  type DocsAttachmentRef,
+} from "./docs_assistant.js";
 export type { AssistantPanelProps, AssistantAsk, AssistantAskContext } from "./assistant_panel.js";
 export { ChatComposer } from "./chat_composer.js";
 export { Markdown, sameOriginImage, type MarkdownImages, type MarkdownProps } from "./markdown.js";
@@ -11451,6 +11509,9 @@ export type ChatMessage = {
   media?: ChatMedia[];
   /** Per-message stat chips (e.g. "1.2s · 24 tok"); a card's `stats` prop wins. */
   stats?: ChatStat[];
+  /** Per-message attachment chips (e.g. the files a question carried); a
+   * card's `attachments` prop wins. */
+  attachments?: ChatAttachment[];
 };
 
 /**
@@ -11643,7 +11704,7 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
           : "Speak (TTS)";
   const show_copy = props.showCopy !== false;
 
-  const attachments = Array.isArray(props.attachments) ? props.attachments : [];
+  const attachments = Array.isArray(props.attachments) ? props.attachments : Array.isArray(m.attachments) ? m.attachments : [];
   const metrics = m.statistics;
   const own_stats = m.stats;
   const stats: ChatStat[] = useMemo(
@@ -15714,7 +15775,7 @@ ships.
 | Package | Version | Change |
 | --- | --- | --- |
 | `@abstractframework/ui-kit` | 0.8.0 | updated (minor: rail drawer, file viewer, audio player, settings rows, voice section, relative time, compact About card, Unarchive control, automation timing line; **breaking** About props and a required `AfVoiceSection` prop, see the migration notes) |
-| `@abstractframework/panel-chat` | 0.3.1 | updated (minor: `FileViewer`, `useWorkspaceFilePreview`, in-place workspace previews, audio playback); peer `@abstractframework/ui-kit` `^0.8.0` |
+| `@abstractframework/panel-chat` | 0.4.0 | updated (minor: `DocsAssistantDrawer`, the one Docs assistant of the console and every app; `FileViewer`, `useWorkspaceFilePreview`, in-place workspace previews, audio playback); peer `@abstractframework/ui-kit` `^0.8.0` |
 
 `@abstractframework/app-server` 0.1.12, `@abstractframework/monitor-active-memory` 0.2.2,
 `@abstractframework/monitor-flow` 0.1.10, `@abstractframework/monitor-gpu` 0.1.10 and
@@ -15735,9 +15796,15 @@ ships.
 - Compact About card: `AfAbout` (inline) and `AfAboutDialog` show the app's name and version, the AbstractFramework and AbstractGateway versions, six links (Website, Source, Docs, Issues, Feedback, Contact) and the copyright and licence line, never a package list. Props take `versions: AfAboutVersions` (`framework`, `frameworkNote`, `gateway`, `gatewayNote`), built with `aboutVersionsFromGateway(payload | null, error?)`; `aboutLinks`, `aboutVersionFacts` exported. `aboutRows` / `gatewayVersionRows` stay for parity with the Python helpers.
 - Console islands `apiVersion` `"2"`: `mountAbout` and the top bar's `about` take `versions`; `aboutVersionsFromGateway` is exported on `window.AfConsoleIslands`.
 - `ProviderModelPicker` says one plain sentence when the gateway cannot describe the selected model (`PICKER_DISCOVERY_UNAVAILABLE`), with the gateway's cause under **Technical details**; `SpeculationSelect` `hideNote`.
+- `AfTopBarActions` `docs` slot: the **Docs assistant** button (book icon, first in the cluster, pressed while open), beside an app's own `assistant` (Flow's Authoring assistant, Continuum's advisor). Icons `book` and `compose`. Console islands: `mountDocsAssistant` and the top bar's `docs` (additive; `apiVersion` stays `"2"`).
 - `AutomationReviseForm` is exported and embeddable (`heading`, optional `onCancel`, `submitLabel`) and styles its own fields; `VoiceSettings` `quality` prop; icons `cog`, `activity` and `unarchive`.
 
-### panel-chat 0.3.1
+### panel-chat 0.4.0
+
+- `DocsAssistantDrawer`: the Docs assistant of the AbstractGateway console and every app, one look everywhere: the user's question on the right, the answer on the left (Markdown, code, JSON, links, images per the kit's image policy), copy on every message, attachments (Attach, drop or paste; uploaded to the conversation's session and sent as `context.attachments`), live streaming, Stop, an icon-only **New conversation** and close in a compact header, and one footer line naming the grounding. Props `open`, `onClose`, `source: { app, name }`, `fetchGateway`, `connected`, `suggestions?`, `placeholder?`, `width?`, `topOffset?`. It reads the app's llms.txt from `GET /api/gateway/docs/corpus?app=<id>` (AbstractGateway 0.13.0) and runs the gateway's shipped `docs-qa` workflow, one gateway session per conversation (`use_session_history`); no corpus is an error, never an ungrounded answer. The stateless `DocsAssistantPanel` and the transport pieces (`makeDocsQaAsk`, `docsQaStartBody`, `docsCorpusPath`, `docsAnswerFromRun`, `docsReplayNote`, `sseFrames`, `DOCS_QA_WORKFLOW`) are exported.
+- `ChatMessage.attachments`: per-message attachment chips (a card's `attachments` prop still wins).
+
+### panel-chat 0.3.1 (folded into 0.4.0)
 
 - `FileViewer` (the kit's `AfFileViewer` with panel-chat's `Markdown`) and `useWorkspaceFilePreview` (a bounded loader through the host's `fetchGateway`: text up to 1 MiB, images, audio and PDF as object URLs).
 - `WorkspaceBrowser` previews a file in place (no "Open" button); rows show size, generated date and a download icon; the root shows once as a short name with Open folder / Copy path icons (`fileActions`, `onOpenFolder`, `copyText`).
@@ -15745,7 +15812,7 @@ ships.
 
 ### Migration notes
 
-- Apps update `@abstractframework/ui-kit` to `^0.8.0` and `@abstractframework/panel-chat` to `^0.3.1`.
+- Apps update `@abstractframework/ui-kit` to `^0.8.0` and `@abstractframework/panel-chat` to `^0.4.0`, replace their own docs assistant with `DocsAssistantDrawer`, serve their `llms.txt` as `text/plain` at `/llms.txt` (the gateway reads it from the running app) and open the drawer from the top bar's `docs` slot. `AssistantPanel` stays for app-specific assistants.
 - `AfAboutDialog` and the `about` prop of `AfTopBarActions` take `versions` (from `aboutVersionsFromGateway`); `extraRows` is removed. Console pages built for islands `apiVersion` `"1"` switch `extraRows` to `versions`.
 - `AfVoiceSection` requires `fetchDefaults` (`GET /api/gateway/voice/defaults`, served by AbstractGateway 0.13.0 and later); TypeScript reports the missing prop at build time.
 - Pages that copy the kit's CSS blocks (the AbstractGateway and AbstractCore consoles) re-sync `theme.css`: it adds the About card, audio player, rail drawer, settings rows and voice section styles.

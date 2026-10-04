@@ -14,7 +14,7 @@ ships.
 | Package | Version | Change |
 | --- | --- | --- |
 | `@abstractframework/ui-kit` | 0.8.0 | updated (minor: rail drawer, file viewer, audio player, settings rows, voice section, relative time, compact About card, Unarchive control, automation timing line; **breaking** About props and a required `AfVoiceSection` prop, see the migration notes) |
-| `@abstractframework/panel-chat` | 0.3.1 | updated (minor: `FileViewer`, `useWorkspaceFilePreview`, in-place workspace previews, audio playback); peer `@abstractframework/ui-kit` `^0.8.0` |
+| `@abstractframework/panel-chat` | 0.4.0 | updated (minor: `DocsAssistantDrawer`, the one Docs assistant of the console and every app; `FileViewer`, `useWorkspaceFilePreview`, in-place workspace previews, audio playback); peer `@abstractframework/ui-kit` `^0.8.0` |
 
 `@abstractframework/app-server` 0.1.12, `@abstractframework/monitor-active-memory` 0.2.2,
 `@abstractframework/monitor-flow` 0.1.10, `@abstractframework/monitor-gpu` 0.1.10 and
@@ -35,9 +35,15 @@ ships.
 - Compact About card: `AfAbout` (inline) and `AfAboutDialog` show the app's name and version, the AbstractFramework and AbstractGateway versions, six links (Website, Source, Docs, Issues, Feedback, Contact) and the copyright and licence line, never a package list. Props take `versions: AfAboutVersions` (`framework`, `frameworkNote`, `gateway`, `gatewayNote`), built with `aboutVersionsFromGateway(payload | null, error?)`; `aboutLinks`, `aboutVersionFacts` exported. `aboutRows` / `gatewayVersionRows` stay for parity with the Python helpers.
 - Console islands `apiVersion` `"2"`: `mountAbout` and the top bar's `about` take `versions`; `aboutVersionsFromGateway` is exported on `window.AfConsoleIslands`.
 - `ProviderModelPicker` says one plain sentence when the gateway cannot describe the selected model (`PICKER_DISCOVERY_UNAVAILABLE`), with the gateway's cause under **Technical details**; `SpeculationSelect` `hideNote`.
+- `AfTopBarActions` `docs` slot: the **Docs assistant** button (book icon, first in the cluster, pressed while open), beside an app's own `assistant` (Flow's Authoring assistant, Continuum's advisor). Icons `book` and `compose`. Console islands: `mountDocsAssistant` and the top bar's `docs` (additive; `apiVersion` stays `"2"`).
 - `AutomationReviseForm` is exported and embeddable (`heading`, optional `onCancel`, `submitLabel`) and styles its own fields; `VoiceSettings` `quality` prop; icons `cog`, `activity` and `unarchive`.
 
-### panel-chat 0.3.1
+### panel-chat 0.4.0
+
+- `DocsAssistantDrawer`: the Docs assistant of the AbstractGateway console and every app, one look everywhere: the user's question on the right, the answer on the left (Markdown, code, JSON, links, images per the kit's image policy), copy on every message, attachments (Attach, drop or paste; uploaded to the conversation's session and sent as `context.attachments`), live streaming, Stop, an icon-only **New conversation** and close in a compact header, and one footer line naming the grounding. Props `open`, `onClose`, `source: { app, name }`, `fetchGateway`, `connected`, `suggestions?`, `placeholder?`, `width?`, `topOffset?`. It reads the app's llms.txt from `GET /api/gateway/docs/corpus?app=<id>` (AbstractGateway 0.13.0) and runs the gateway's shipped `docs-qa` workflow, one gateway session per conversation (`use_session_history`); no corpus is an error, never an ungrounded answer. The stateless `DocsAssistantPanel` and the transport pieces (`makeDocsQaAsk`, `docsQaStartBody`, `docsCorpusPath`, `docsAnswerFromRun`, `docsReplayNote`, `sseFrames`, `DOCS_QA_WORKFLOW`) are exported.
+- `ChatMessage.attachments`: per-message attachment chips (a card's `attachments` prop still wins).
+
+### panel-chat 0.3.1 (folded into 0.4.0)
 
 - `FileViewer` (the kit's `AfFileViewer` with panel-chat's `Markdown`) and `useWorkspaceFilePreview` (a bounded loader through the host's `fetchGateway`: text up to 1 MiB, images, audio and PDF as object URLs).
 - `WorkspaceBrowser` previews a file in place (no "Open" button); rows show size, generated date and a download icon; the root shows once as a short name with Open folder / Copy path icons (`fileActions`, `onOpenFolder`, `copyText`).
@@ -45,7 +51,7 @@ ships.
 
 ### Migration notes
 
-- Apps update `@abstractframework/ui-kit` to `^0.8.0` and `@abstractframework/panel-chat` to `^0.3.1`.
+- Apps update `@abstractframework/ui-kit` to `^0.8.0` and `@abstractframework/panel-chat` to `^0.4.0`, replace their own docs assistant with `DocsAssistantDrawer`, serve their `llms.txt` as `text/plain` at `/llms.txt` (the gateway reads it from the running app) and open the drawer from the top bar's `docs` slot. `AssistantPanel` stays for app-specific assistants.
 - `AfAboutDialog` and the `about` prop of `AfTopBarActions` take `versions` (from `aboutVersionsFromGateway`); `extraRows` is removed. Console pages built for islands `apiVersion` `"1"` switch `extraRows` to `versions`.
 - `AfVoiceSection` requires `fetchDefaults` (`GET /api/gateway/voice/defaults`, served by AbstractGateway 0.13.0 and later); TypeScript reports the missing prop at build time.
 - Pages that copy the kit's CSS blocks (the AbstractGateway and AbstractCore consoles) re-sync `theme.css`: it adds the About card, audio player, rail drawer, settings rows and voice section styles.

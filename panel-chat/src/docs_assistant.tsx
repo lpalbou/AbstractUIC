@@ -91,7 +91,13 @@ export function docsReplayNote(history: unknown): string {
   const dropped = n(h.dropped_messages);
   if (!dropped) return "";
   const replayed = n(h.replayed_messages);
-  return `Earlier messages not replayed: ${dropped.toLocaleString("en-US")}. The model read the newest ${replayed.toLocaleString("en-US")} message${replayed === 1 ? "" : "s"}.`;
+  const tokens = n(h.dropped_tokens);
+  const budget = n(h.max_tokens);
+  return (
+    `Earlier messages not replayed: ${dropped.toLocaleString("en-US")}${tokens ? ` (~${tokens.toLocaleString("en-US")} tokens)` : ""}. ` +
+    `The model read the newest ${replayed.toLocaleString("en-US")} message${replayed === 1 ? "" : "s"}` +
+    (budget ? ` (history window: the most recent ${budget.toLocaleString("en-US")} tokens of whole messages).` : ".")
+  );
 }
 
 /** Parse an SSE body into frames. Ends when the body ends or `signal` aborts. */
