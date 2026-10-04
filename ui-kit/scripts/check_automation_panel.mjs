@@ -467,7 +467,13 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   check("dialog: default preview every 24 hours (UTC), first run now", html.includes("Runs every 24 hours (UTC), first run now."));
   check("dialog: once-at option", html.includes("Once at…"));
   check("dialog: context Independent/Growing", /<input type="radio" name="[^"]+" checked="" value="independent"\/>/.test(html) && /<input type="radio" name="[^"]+" value="growing"\/>/.test(html));
-  check("dialog: Advanced disclosure with title", html.includes("<summary>Advanced</summary>") && html.includes("Defaults to the task&#x27;s first line"));
+  // R13.2: no disclosure anywhere in the dialog; title and limits are a visible fieldset.
+  check("dialog: no disclosure (no details/summary, no Advanced)", !/<details|<summary|>Advanced</.test(html));
+  check("dialog: visible Title and limits fieldset with title, first run, stop after, stop at", html.includes('data-field="limits"><legend>Title and limits</legend>') && html.includes("Defaults to the task&#x27;s first line") && html.includes("First run at (UTC; empty = now)") && html.includes("Stop after this many runs") && html.includes("Stop at (UTC)"));
+  check("dialog: no Workspaces section without the host slot", !html.includes('data-field="workspaces"') && !html.includes("<legend>Workspaces</legend>"));
+  const ws = dlg({ workspaces: React.createElement("div", { id: "host-workspaces" }, "chooser") });
+  check("dialog: Workspaces slot = visible fieldset after Tools, before Mailbox", /data-field="workspaces"><legend>Workspaces<\/legend><div id="host-workspaces">chooser<\/div><\/fieldset>/.test(ws) && ws.indexOf('data-field="tool-approval"') < ws.indexOf('data-field="workspaces"') && ws.indexOf('data-field="workspaces"') < ws.indexOf('data-field="email"'));
+  check("dialog: Workspaces slot sends nothing itself (no workspace in the markup outside the slot)", ws.split("host-workspaces").length === 2);
   check("dialog: no calendar/local wording", !/daily|local time| local\b/i.test(html));
   const err = dlg({ error: kit.parseApiError(422, fx("errors.json").items.find((e) => e.body.detail.reason_code === "invalid_definition").body) });
   check("dialog: shows an API error", err.includes('data-code="invalid_definition"'));

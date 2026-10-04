@@ -3096,8 +3096,15 @@ sections:
   for a saved selection. An explicit empty list disables tools; `null` uses workflow defaults.
 - **Email** — **Email result** and **Recipients** (see
   [Email automations](#email-automations)).
-- **Advanced** — title (default: the task's first line, at most 120 characters), first run at,
-  stop after N runs, stop at. Date fields are read as UTC.
+- **Workspaces** — shown when the host passes the `workspaces` slot: the host renders the
+  `WorkspaceChooser` at the run level (`level="run"`, the gateway's dry run as `effective`,
+  **Use my default** = no payload) and merges the value into `target.input_data.workspace` in its
+  `onSubmit`. The gateway stores it on the definition and clamps it to the eligible workspaces at
+  each run. The dialog itself sends nothing workspace-shaped.
+- **Title and limits** — title (default: the task's first line, at most 120 characters), and for
+  Repeat: first run at, stop after N runs, stop at. Date fields are read as UTC.
+
+Every section is visible: the dialog has no disclosure.
 
 Submitting calls `onSubmit(body)` with a complete `CreateAutomationRequest`. The dialog mints one
 `request_id` per distinct request body: retrying the same request after a transport failure
@@ -5100,7 +5107,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -15976,6 +15983,10 @@ ships.
 ### ui-kit
 
 - `AfTooltip` / `useAfTooltips` and the framework-free `bindAfTooltips` (console islands `bindTooltips`, additive, apiVersion stays "2"): one themed tooltip for icon buttons — 150 ms delay, shown on keyboard focus, hoverable, hidden by Escape / press / scroll / resize, placed above (flipped below) and kept inside the viewport, inverse surface from the active theme, `aria-describedby` while shown. New `--z-tooltip` (1200) token. Check `check_tooltip.mjs`. Docs: modal.md "Tooltip".
+
+### ui-kit 0.8.4 (unreleased, round 13)
+
+- `AfScheduleDialog`: new optional `workspaces` slot, rendered as a visible **Workspaces** fieldset after Tools. The host puts the `WorkspaceChooser` at the run level there and merges the value into `target.input_data.workspace` in its `onSubmit`; the dialog sends nothing workspace-shaped. The **Advanced** disclosure is gone: its fields (title; for Repeat: first run at, stop after this many runs, stop at) are now the visible **Title and limits** fieldset. The dialog has no disclosure. `check_automation_panel.mjs` covers both. The `.af-schedule__advanced` CSS rules are kept, unused, so the console theme copy does not change.
 
 ### ui-kit 0.8.3 (unreleased, round 11; 0.8.2 was an interim pack of the same work)
 

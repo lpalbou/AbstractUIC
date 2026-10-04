@@ -6,8 +6,10 @@ import { automationToolSelection, withAutomationTools } from "./tool_selection.j
 // filters, a check interval and a max batch), Context (independent /
 // growing), Tools, Email (Email result, allowed recipients — offered
 // only when `GET /me/email` says the account is usable, otherwise "Connect
-// a mailbox first — open My email"), Advanced (first run, max runs, stop at,
-// title). It builds the `POST /api/gateway/automations`
+// a mailbox first — open My email"), Workspaces (the host's slot: the
+// WorkspaceChooser at the run level; the host merges the value into
+// `target.input_data.workspace`), Title and limits (title, first run, max
+// runs, stop at) — every section visible, no disclosure. It builds the `POST /api/gateway/automations`
 // body and hands it to `onSubmit`; the host sends it (see ./client.ts).
 //
 // Wording is fixed-interval UTC ("every 24 hours (UTC)"), never calendar
@@ -46,6 +48,13 @@ export type AfScheduleDialogProps = {
   target: AutomationTarget | null;
   /** Slot for the host's workflow picker (it sets `target`). */
   workflowPicker?: React.ReactNode;
+  /**
+   * Slot for the host's Workspaces section (the WorkspaceChooser at the run
+   * level), shown as a visible "Workspaces" fieldset after Tools. The host
+   * keeps the value and merges it into `target.input_data.workspace` in its
+   * `onSubmit`; the dialog sends nothing workspace-shaped itself.
+   */
+  workspaces?: React.ReactNode;
   initialPrompt?: string;
   /** The target's tool names, listed under the consent line (from the host's picker). */
   targetTools?: string[];
@@ -290,6 +299,13 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
             )}
           </fieldset>
 
+          {props.workspaces ? (
+            <fieldset className="af-auto__field" data-field="workspaces">
+              <legend>Workspaces</legend>
+              {props.workspaces}
+            </fieldset>
+          ) : null}
+
           <fieldset className="af-auto__field" data-field="email">
             <legend>Mailbox</legend>
             {!usable ? <AfEmailSetupNotice status={props.emailStatus} onOpenMyEmail={props.onOpenMyEmail} /> : null}
@@ -303,8 +319,8 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
             />
           </fieldset>
 
-          <details className="af-schedule__advanced">
-            <summary>Advanced</summary>
+          <fieldset className="af-auto__field" data-field="limits">
+            <legend>Title and limits</legend>
             <label className="af-auto__field" htmlFor={id("title")}>
               <span>Title</span>
               <input id={id("title")} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder="Defaults to the task's first line" />
@@ -325,7 +341,7 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
                 </label>
               </>
             ) : null}
-          </details>
+          </fieldset>
 
           {errors.length ? (
             <ul className="af-auto__form-errors" role="alert">

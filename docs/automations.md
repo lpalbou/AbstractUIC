@@ -344,8 +344,15 @@ sections:
   for a saved selection. An explicit empty list disables tools; `null` uses workflow defaults.
 - **Email** — **Email result** and **Recipients** (see
   [Email automations](#email-automations)).
-- **Advanced** — title (default: the task's first line, at most 120 characters), first run at,
-  stop after N runs, stop at. Date fields are read as UTC.
+- **Workspaces** — shown when the host passes the `workspaces` slot: the host renders the
+  `WorkspaceChooser` at the run level (`level="run"`, the gateway's dry run as `effective`,
+  **Use my default** = no payload) and merges the value into `target.input_data.workspace` in its
+  `onSubmit`. The gateway stores it on the definition and clamps it to the eligible workspaces at
+  each run. The dialog itself sends nothing workspace-shaped.
+- **Title and limits** — title (default: the task's first line, at most 120 characters), and for
+  Repeat: first run at, stop after N runs, stop at. Date fields are read as UTC.
+
+Every section is visible: the dialog has no disclosure.
 
 Submitting calls `onSubmit(body)` with a complete `CreateAutomationRequest`. The dialog mints one
 `request_id` per distinct request body: retrying the same request after a transport failure
