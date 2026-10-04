@@ -6175,6 +6175,14 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   gap: 4px;
 }
 /* 0.7.1: devices, tests, level meter, sliders. */
+/* The route names the gateway answered must be readable in a narrow rail: wrap, never ellipsis. */
+.af-voice-section .af-override__summary {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.af-voice-section .af-setting-row__control > .af-select {
+  flex-basis: 120px;
+}
 .af-voice-note {
   margin: 0 0 6px;
   padding: 2px 0 2px 8px;

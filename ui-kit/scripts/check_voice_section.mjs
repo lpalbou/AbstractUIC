@@ -89,6 +89,11 @@ check("input device picker", html.includes('aria-label="Input device"'));
 check("microphone Test button", html.includes('data-action="test-microphone"'));
 check("live level meter", html.includes('role="meter"') && html.includes('aria-label="Microphone level"'));
 
+// --- spoken language: sent only when named (skips detection) ----------------
+check("spoken language row", html.includes('aria-label="Spoken language"'));
+check("language rides on the STT request", JSON.stringify(kit.voiceSttRequest({ stt_language: "en" })) === '{"language":"en"}');
+check("no language = engine detects", JSON.stringify(kit.voiceSttRequest({})) === "{}");
+
 // --- sentences ----------------------------------------------------------------
 check("denied → sentence", microphoneErrorSentence({ name: "NotAllowedError" }).startsWith("The browser blocked the microphone."));
 check("no device → sentence", microphoneErrorSentence({ name: "NotFoundError" }) === "No microphone was found. Connect one, then try again.");

@@ -373,6 +373,7 @@ export { AfSettingsGroup, AfSettingRow, AfOverrideRow, type AfSettingsGroupProps
 export {
   AfVoiceSection,
   VOICE_LATENCY_OPTIONS,
+  VOICE_LANGUAGE_OPTIONS,
   voiceTtsRequest,
   voiceSttRequest,
   voiceTtsOverrideSummary,
