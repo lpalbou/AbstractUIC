@@ -210,7 +210,7 @@ check("dialog closed renders nothing", renderToStaticMarkup(React.createElement(
 const connection = { phase: "connected", onConnect: noop, onDisconnect: noop };
 const bar = (extra) => renderToStaticMarkup(React.createElement(AfTopBarActions, { connection, ...extra }));
 const withAbout = bar({ appearance: { onOpen: noop }, about: { identity: appIdentity("abstractflow", "1.0.0") }, extraActions: React.createElement("span", { id: "x-extra" }) });
-check("top bar: About button", withAbout.includes('aria-label="About AbstractFlow"') && withAbout.includes('title="About"') && withAbout.includes("af-topbar__btn--about"));
+check("top bar: About button", withAbout.includes('aria-label="About AbstractFlow"') && withAbout.includes('data-af-tip="About AbstractFlow"') && !/af-topbar__btn--about"[^>]*title=/.test(withAbout) && withAbout.includes("af-topbar__btn--about"));
 check("top bar: dialog closed initially", !withAbout.includes('role="dialog"'));
 const order = ["Appearance (theme and typography)", "About AbstractFlow", 'id="x-extra"', "Disconnect from gateway"].map((s) => withAbout.indexOf(s));
 check("top bar: order appearance → about → extras → pill", order.every((v, i) => v >= 0 && (i === 0 || v > order[i - 1])), JSON.stringify(order));

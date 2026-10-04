@@ -10,6 +10,7 @@
 import React, { useEffect, useId, useRef } from "react";
 import { frameworkIdentity, type AppIdentity, type GatewayAboutPayload } from "./identity.js";
 import { Icon } from "./icon.js";
+import { useAfTooltips } from "./af_tooltip.js";
 
 /**
  * The two versions About states besides the app's own. `null`/missing = not
@@ -175,6 +176,7 @@ export function AfAbout(p: AfAboutProps): React.ReactElement {
 
 /** The shared About dialog (controlled: the app owns `open`). */
 export function AfAboutDialog(props: AfAboutDialogProps): React.ReactElement | null {
+  useAfTooltips();
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const titleId = useId();
@@ -222,7 +224,7 @@ export function AfAboutDialog(props: AfAboutDialogProps): React.ReactElement | n
           versions={props.versions}
           titleId={titleId}
           action={
-            <button ref={closeRef} type="button" className="af-about-card__close" data-action="close-about" onClick={props.onClose} aria-label="Close" title="Close">
+            <button ref={closeRef} type="button" className="af-about-card__close" data-action="close-about" onClick={props.onClose} aria-label="Close" data-af-tip="Close About">
               <Icon name="x" size={16} />
             </button>
           }

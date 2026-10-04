@@ -163,7 +163,7 @@ const source = { app: "flow", name: "AbstractFlow" };
   const past = await loadDocsConversation(fetchGateway, items[0], "AbstractFlow");
   check("a past conversation reopens as its questions and answers", past.map((m) => `${m.role}:${m.content}`).join("|") === "user:First question?|assistant:answer r1|user:Follow-up?|assistant:answer r2", JSON.stringify(past));
   const list = renderToStaticMarkup(React.createElement(DocsHistoryList, { items, state: "ready", nowMs: Date.parse("2026-10-04T12:00:00Z"), onOpen: () => {}, onArchive: () => {} }));
-  check("history list: titles, relative times, an Archive icon per row", list.includes("First question?") && list.includes("2 questions") && (list.match(/title="Archive"/g) || []).length === 2, list.slice(0, 300));
+  check("history list: titles, relative times, an Archive icon per row", list.includes("First question?") && list.includes("2 questions") && (list.match(/data-af-tip="Archive &quot;/g) || []).length === 2 && !/title="Archive"/.test(list), list.slice(0, 300));
   const drawerH = renderToStaticMarkup(React.createElement(DocsAssistantDrawer, { open: true, onClose: () => {}, source, fetchGateway: async () => new Response("{}"), connected: true }));
   check("drawer header: a Past conversations icon", /aria-label="Past conversations"[^>]*><svg/.test(drawerH));
 }

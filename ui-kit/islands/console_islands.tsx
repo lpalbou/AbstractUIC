@@ -20,7 +20,7 @@ import { appIdentity, type AppIdentity } from "../src/identity.js";
 import { Icon, type IconName } from "../src/icon.js";
 import { bindAfModal } from "../src/af_modal_core.js";
 import { bindAfMenu } from "../src/af_menu_core.js";
-import { bindAfTooltips } from "../src/af_tooltip_core.js";
+import { acquireAfTooltips, bindAfTooltips } from "../src/af_tooltip_core.js";
 import { THEME_SPECS, applyTheme } from "../src/theme.js";
 import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typography.js";
 import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
@@ -156,7 +156,7 @@ function extrasNode(extras: IslandExtraAction[] | undefined): React.ReactNode {
             type="button"
             className={`af-topbar__btn${x.pressed ? " is-active" : ""}`}
             aria-label={x.label}
-            title={x.label}
+            data-af-tip={x.label}
             aria-pressed={x.pressed === undefined ? undefined : x.pressed}
             onClick={x.onClick}
           >
@@ -207,7 +207,7 @@ function SandboxAttachmentChips(props: { items: SandboxChatAttachment[]; onRemov
             <span className="pc-chat-attachment-name">{item.name}</span>
             {note ? <span className="af-sandbox-chat__chip-note">{note}</span> : null}
             {props.onRemove && status !== "uploading" ? (
-              <button type="button" className="af-sandbox-chat__chip-remove" aria-label={`Remove ${item.name}`} title={`Remove ${item.name}`} onClick={() => props.onRemove?.(item.id)}>
+              <button type="button" className="af-sandbox-chat__chip-remove" aria-label={`Remove ${item.name}`} data-af-tip={`Remove ${item.name}`} onClick={() => props.onRemove?.(item.id)}>
                 <Icon name="x" size={14} />
               </button>
             ) : null}
@@ -275,7 +275,7 @@ export function SandboxChatIsland(props: SandboxChatIslandProps): React.ReactEle
       type="button"
       className={`pc-workflow-chat__icon-button af-sandbox-chat__mic${voice.voice_ptt_recording ? " is-recording" : ""}`}
       aria-label={voice.voice_ptt_recording ? "Recording — release to transcribe" : "Hold to dictate"}
-      title="Hold to dictate (Space or Enter on the keyboard)"
+      data-af-tip="Hold to dictate (Space or Enter on the keyboard)"
       aria-pressed={voice.voice_ptt_recording}
       disabled={voice.voice_ptt_busy}
       onPointerDown={(event) => { if (event.button === 0) begin(); }}
@@ -290,7 +290,7 @@ export function SandboxChatIsland(props: SandboxChatIslandProps): React.ReactEle
     </button>
   ) : null;
   const clear = props.onClear && messages.length ? (
-    <button type="button" className="pc-workflow-chat__icon-button af-sandbox-chat__clear" aria-label="Clear chat" title="Clear chat" onClick={() => { voice.stop_tts(); props.onClear?.(); }}>
+    <button type="button" className="pc-workflow-chat__icon-button af-sandbox-chat__clear" aria-label="Clear chat" data-af-tip="Clear the chat" onClick={() => { voice.stop_tts(); props.onClear?.(); }}>
       <Icon name="trash" size={16} />
       <span>Clear</span>
     </button>
@@ -392,6 +392,9 @@ export function bindMenu(button: HTMLElement, menu: HTMLElement, options?: { onO
  * round 9): apiVersion stays "2".
  */
 export function bindTooltips(root?: Document | Element, options?: { delayMs?: number }): () => void {
+  // The document-wide binding is shared (ref-counted) with the kit's own React
+  // components (AfTopBarActions calls useAfTooltips): one tooltip, never two.
+  if ((!root || root === document) && !(options && typeof options.delayMs === "number")) return acquireAfTooltips(document);
   return bindAfTooltips(root || document, options || {});
 }
 

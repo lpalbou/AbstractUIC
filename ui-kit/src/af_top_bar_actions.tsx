@@ -9,6 +9,7 @@
 import React, { useState } from "react";
 import { AfAboutDialog, type AfAboutVersions } from "./about.js";
 import { Icon } from "./icon.js";
+import { useAfTooltips } from "./af_tooltip.js";
 import type { AppIdentity } from "./identity.js";
 import type { GatewayConnectionPhase } from "./use_gateway_connection.js";
 
@@ -67,6 +68,8 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
   const phase = connection.phase;
   const signingOut = connection.signingOut === true;
   const [aboutOpen, setAboutOpen] = useState(false);
+  // Icon buttons explain themselves with the kit tooltip (data-af-tip; no native title).
+  useAfTooltips();
   const about = props.about;
 
   const pillLabel = signingOut
@@ -87,7 +90,7 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
           className={`af-topbar__btn af-topbar__btn--docs${props.docs.open ? " is-active" : ""}`}
           aria-pressed={props.docs.open}
           aria-label={props.docs.label || "Docs assistant"}
-          title={props.docs.label || "Docs assistant"}
+          data-af-tip={props.docs.label || "Docs assistant"}
           onClick={props.docs.onToggle}
         >
           <Icon name="book" size={16} />
@@ -100,7 +103,7 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
           className={`af-topbar__btn${props.assistant.open ? " is-active" : ""}`}
           aria-pressed={props.assistant.open}
           aria-label={props.assistant.label || "Open assistant"}
-          title={props.assistant.label || "Assistant"}
+          data-af-tip={props.assistant.label || "Assistant"}
           onClick={props.assistant.onToggle}
         >
           <Icon name="sparkle" size={16} />
@@ -112,7 +115,7 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
           type="button"
           className="af-topbar__btn"
           aria-label={props.appearance.label || "Appearance (theme and typography)"}
-          title={props.appearance.label || "Appearance"}
+          data-af-tip={props.appearance.label || "Appearance (theme and text size)"}
           onClick={props.appearance.onOpen}
         >
           <Icon name="contrast" size={16} />
@@ -124,7 +127,7 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
           type="button"
           className="af-topbar__btn af-topbar__btn--about"
           aria-label={about.label || `About ${about.identity.name}`}
-          title={about.label || "About"}
+          data-af-tip={about.label || `About ${about.identity.name}`}
           aria-haspopup="dialog"
           onClick={() => {
             setAboutOpen(true);

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 
-import { Icon } from "@abstractframework/ui-kit";
+import { Icon, useAfTooltips } from "@abstractframework/ui-kit";
 
 import { ChatComposer } from "./chat_composer.js";
 import type { ChatMessage, ChatMessageCardProps } from "./chat_message_card.js";
@@ -80,6 +80,7 @@ function messageFor(error: unknown): string {
  * the embedding controller.
  */
 export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
+  useAfTooltips();
   const [sendPending, setSendPending] = useState(false);
   const [cancelPending, setCancelPending] = useState(false);
   const [attachPending, setAttachPending] = useState(false);
@@ -356,7 +357,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
           actions={
             <>
               {props.onAttach ? (
-                <button type="button" className="pc-workflow-chat__icon-button" aria-label="Attach file" title="Attach file" disabled={disabled || attachPending} onClick={() => void attach()}>
+                <button type="button" className="pc-workflow-chat__icon-button" aria-label="Attach file" data-af-tip="Attach a file" disabled={disabled || attachPending} onClick={() => void attach()}>
                   <Icon name="paperclip" size={16} />
                   <span>{attachPending ? "Attaching…" : "Attach"}</span>
                 </button>

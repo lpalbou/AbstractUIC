@@ -24,7 +24,7 @@
 // the component never builds credentials.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { AfDrawer, Icon, formatRelativeTime, gatewayApiPath, randomId } from "@abstractframework/ui-kit";
+import { AfDrawer, Icon, formatRelativeTime, gatewayApiPath, randomId, useAfTooltips } from "@abstractframework/ui-kit";
 
 import { ChatComposer } from "./chat_composer.js";
 import { ChatThread } from "./chat_thread.js";
@@ -357,7 +357,7 @@ export function DocsHistoryList(props: DocsHistoryListProps): React.ReactElement
                 <span className="pc-docs-history__title">{item.title}</span>
                 <span className="pc-docs-history__meta">{formatRelativeTime(item.updatedAt, props.nowMs)}{item.runIds.length > 1 ? ` · ${item.runIds.length} questions` : ""}</span>
               </button>
-              <button type="button" className="pc-docs-assistant__icon-btn" aria-label={`Archive "${item.title}"`} title="Archive" onClick={() => setConfirming(item.sessionId)}>
+              <button type="button" className="pc-docs-assistant__icon-btn" aria-label={`Archive "${item.title}"`} data-af-tip={`Archive "${item.title}" (kept, hidden)`} onClick={() => setConfirming(item.sessionId)}>
                 <Icon name="archive" size={16} />
               </button>
             </>
@@ -465,7 +465,7 @@ export function DocsAssistantPanel(props: DocsAssistantPanelProps): React.ReactE
                     <Icon name="paperclip" size={14} />
                     <span className="pc-chat-attachment-name">{f.name}</span>
                     {props.onRemoveFile && !busy ? (
-                      <button type="button" className="pc-docs-assistant__file-remove" aria-label={`Remove ${f.name}`} title="Remove" onClick={() => props.onRemoveFile?.(f.id)}>
+                      <button type="button" className="pc-docs-assistant__file-remove" aria-label={`Remove ${f.name}`} data-af-tip={`Remove ${f.name}`} onClick={() => props.onRemoveFile?.(f.id)}>
                         <Icon name="x" size={12} />
                       </button>
                     ) : null}
@@ -478,7 +478,7 @@ export function DocsAssistantPanel(props: DocsAssistantPanelProps): React.ReactE
             <>
               {canAttach ? (
                 <>
-                  <button type="button" className="pc-docs-assistant__icon-btn" aria-label="Attach files" title="Attach files" disabled={busy} onClick={() => fileInput.current?.click()}>
+                  <button type="button" className="pc-docs-assistant__icon-btn" aria-label="Attach files" data-af-tip="Attach files to your question" disabled={busy} onClick={() => fileInput.current?.click()}>
                     <Icon name="paperclip" size={16} />
                   </button>
                   <input
@@ -497,7 +497,7 @@ export function DocsAssistantPanel(props: DocsAssistantPanelProps): React.ReactE
                 </>
               ) : null}
               {busy && props.onStop ? (
-                <button type="button" className="pc-docs-assistant__icon-btn" aria-label="Stop" title="Stop" onClick={props.onStop}>
+                <button type="button" className="pc-docs-assistant__icon-btn" aria-label="Stop" data-af-tip="Stop the answer" onClick={props.onStop}>
                   <Icon name="stop" size={14} />
                 </button>
               ) : null}
@@ -538,6 +538,7 @@ function now(): string {
  * keep-alive contract keeps the conversation and an in-flight answer).
  */
 export function DocsAssistantDrawer(props: DocsAssistantDrawerProps): React.ReactElement {
+  useAfTooltips();
   const { source } = props;
   const fetchRef = useRef(props.fetchGateway);
   fetchRef.current = props.fetchGateway;
@@ -701,7 +702,7 @@ export function DocsAssistantDrawer(props: DocsAssistantDrawerProps): React.Reac
             type="button"
             className={`pc-docs-assistant__icon-btn${historyOpen ? " is-active" : ""}`}
             aria-label="Past conversations"
-            title="Past conversations"
+            data-af-tip="Past conversations"
             aria-pressed={historyOpen}
             disabled={!props.connected || busy}
             onClick={() => {
@@ -712,7 +713,7 @@ export function DocsAssistantDrawer(props: DocsAssistantDrawerProps): React.Reac
           >
             <Icon name="history" size={16} />
           </button>
-          <button type="button" className="pc-docs-assistant__icon-btn" aria-label="New conversation" title="New conversation" disabled={!messages.length && !draft && !files.length && !historyOpen} onClick={() => { newConversation(); setHistoryOpen(false); }}>
+          <button type="button" className="pc-docs-assistant__icon-btn" aria-label="New conversation" data-af-tip="Start a new conversation" disabled={!messages.length && !draft && !files.length && !historyOpen} onClick={() => { newConversation(); setHistoryOpen(false); }}>
             <Icon name="compose" size={16} />
           </button>
         </>
