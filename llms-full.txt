@@ -1483,6 +1483,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Code highlighting (0.6.0): `AfCodeBlock` (`text`, `language` = a file name or a language, `lineNumbers?`) — wraps long lines, never scrolls sideways; `highlightCode(text, codeLanguage(name))` is a dependency-free lexer (comment / string / number / keyword tokens; joining the tokens returns the input).
 - Settings rows (0.6.0): `AfSettingsGroup` (titled card; `variant="flat"` inside another card; `aside` for e.g. "Revision 4"), `AfSettingRow` (label + one-line help left, control right; wraps in a narrow panel), `AfOverrideRow` — the "Gateway default unless overridden" row: summary (`Gateway default · x` or `<override> — <owner>`), **Change** opens the editor in place, **Use gateway default** only while overridden.
 - Voice (0.6.0): `AfVoiceSection` — the Assistant's Settings → Voice layout: Engines (Text → speech, Speech → text as `AfOverrideRow`s), Output device (audio outputs where `audioOutputSelectable()`; otherwise disabled with the reason), Read aloud switch, Voice latency (`VOICE_LATENCY_OPTIONS`, only when the gateway advertises `quality_preset`). Value `VoiceClientPreferences` (`VoicePreferences` + `stt_provider`, `stt_model`, `output_device`, `read_aloud`); `voiceTtsRequest()` / `voiceSttRequest()` pick what a request carries. `nested` renders its sub-sections flat. `useGatewayVoice({ output_device_id })` routes playback with `AudioContext.setSinkId`.
+- Voice (0.7.1): `AfVoiceSection` requires `fetchDefaults` (`GET /api/gateway/voice/defaults`, the gateway's `output.voice` / `input.voice` routes) — the only source of "Gateway default · provider / model"; `defaults` passes them when the host already holds them. Sections: Engines, Output (device + **Test** chime, reply volume), Microphone (device, **Test** = 3 s recording with a live meter played back, spoken language, input level where Web Audio allows), Replies. Prefs add `input_device`, `input_gain`, `reply_volume`, `stt_language` (`voiceSttRequest` sends `language`). `useGatewayVoice` adds `input_device_id`, `volume`, `input_gain`, `stop_on_pointerup`, returns `voice_ptt_since`. `voice_devices.ts`: `voiceDefaultSummary`, `sttRouteText`, `transcribingLine`, `microphoneErrorSentence`, `listVoiceDevices`, `unlockDeviceLabels`, `recordSample`, `playTestTone`, `playOnDevice`. Safari cannot choose a speaker: the picker stays on System default and says so.
 - Relative time (0.6.0): `formatRelativeTime(ts, nowMs)` ("just now", "5 min ago", "3 h ago", "yesterday", "4 days ago", then "Oct 2"; future "in 14 h"), `formatExactTime(ts)` ("Oct 2, 2026, 14:05"), `formatShortDate(ts, nowMs)`, `timeValueMs(ts)` — deterministic (the caller passes now), no seconds, no year within the same year.
 - Icons (0.6.0): `cog` (the usual settings gear; `settings` stays the sliders glyph) and `activity`; (0.7.0) `unarchive` (archive box with an up arrow).
 - App chrome: `AfTopBarActions` (assistant → appearance → about → extras → connection pill; `about={{ identity, versions?, onOpen?, label? }}` adds the About button and dialog), `AfDrawer` (non-modal, keeps children mounted; `side="left"`, `backdrop`; full width below 768 px), `AfAppearanceDialog` + `useAppearanceSettings()` / `appearanceStorageKey()` / `APPEARANCE_DEFAULTS`
@@ -4924,7 +4925,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -4965,7 +4966,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -5351,7 +5352,7 @@ export {
   type AppearanceSettings,
   type AfAppearanceDialogProps,
 } from "./appearance.js";
-export { useGatewayVoice, streamTtsJsonl, type GatewayVoice, type GatewayVoiceOptions, type TtsPlaybackStatus } from "./use_gateway_voice.js";
+export { useGatewayVoice, streamTtsJsonl, voiceErrorSentence, MIN_RECORDING_MS, type GatewayVoice, type GatewayVoiceOptions, type TtsPlaybackStatus, type VoiceTranscription } from "./use_gateway_voice.js";
 export { AfPhaseRadio, type AfPhaseRadioProps, type AfPhaseSlot } from "./af_phase_radio.js";
 export { AfCognitionBloom, type AfCognitionBloomProps } from "./af_cognition_bloom.js";
 export { AfConductGauge, type AfConductGaugeProps } from "./af_conduct_gauge.js";
@@ -5609,6 +5610,7 @@ export { AfSettingsGroup, AfSettingRow, AfOverrideRow, type AfSettingsGroupProps
 export {
   AfVoiceSection,
   VOICE_LATENCY_OPTIONS,
+  VOICE_LANGUAGE_OPTIONS,
   voiceTtsRequest,
   voiceSttRequest,
   voiceTtsOverrideSummary,
@@ -5620,6 +5622,28 @@ export { formatRelativeTime, formatExactTime, formatShortDate, timeValueMs } fro
 export { audioOutputSelectable } from "./use_gateway_voice.js";
 // ui-kit 0.7.0 (round 5): the shared waveform audio player (AfFileViewer plays audio with it).
 export { AfAudioPlayer, AUDIO_WAVEFORM_BARS, audioPeaks, audioSeekTime, formatAudioTime, type AfAudioPlayerProps } from "./af_audio_player.js";
+// ui-kit 0.7.1 (round 6): the gateway's voice routes + devices, tests, level meter.
+export {
+  voiceDefaultSummary,
+  voiceRouteText,
+  sttRouteText,
+  transcribingLine,
+  elapsedSeconds,
+  microphoneErrorSentence,
+  listVoiceDevices,
+  unlockDeviceLabels,
+  openMicrophone,
+  watchLevel,
+  recordSample,
+  playOnDevice,
+  playTestTone,
+  inputGainSupported,
+  clampVolume,
+  SILENT_LEVEL,
+  type VoiceDefaults,
+  type VoiceRouteDefault,
+  type VoiceDevice,
+} from "./voice_devices.js";
 
 ## ui-kit/src/responsive.ts
 
@@ -15585,6 +15609,8 @@ ships.
 
 ## [Unreleased]
 
+- ui-kit 0.7.1 (round 6): `AfVoiceSection` is truthful to the gateway — "Gateway default · supertonic / supertonic-3" and "· faster-whisper / large-v3" come from the new required prop `fetchDefaults` (`GET /api/gateway/voice/defaults`; optional `defaults` when the host holds them), "not set" / "unknown" otherwise, never from the voice catalog (whose engine-side fields said "openai"). New rows: **Output device** with **Test** (a short chime on the chosen speaker; Safari, which cannot choose a speaker, says so), **Reply volume**, **Microphone** with an input picker, **Test** (records 3 s with a live level meter, plays it back, or says why: blocked, no device, device gone, in use, silence, http), **Spoken language** (rides on transcription requests and skips detection) and **Input level** where Web Audio allows. Device names appear after one microphone permission (**Show names**). New prefs `input_device`, `input_gain`, `reply_volume`, `stt_language`.
+- ui-kit 0.7.1: `useGatewayVoice` records from `input_device_id` (a missing device fails with a sentence, never another microphone), applies `volume` and `input_gain`, exposes `voice_ptt_since` (for "Transcribing… 12 s · faster-whisper / large-v3"), accepts `{text, provider, model}` from `transcribe`, takes `stop_on_pointerup: false` for tap-to-start/tap-to-stop hosts, and turns every failure into one sentence (too-short recording, nothing heard, transcription and playback errors). Helpers in `voice_devices.ts`: `voiceDefaultSummary`, `sttRouteText`, `transcribingLine`, `microphoneErrorSentence`, `listVoiceDevices`, `recordSample`, `playTestTone`, `playOnDevice`. Checked by `scripts/check_voice_section.mjs`.
 - ui-kit: `automationTiming()` and its parts (`compactCadence`, `lastRunText`, `nextRunText`, `compactDuration`) give an automation card or header its one compact line, `every 24 h · last 3 h ago · next in 14 h`; deterministic, checked by `scripts/check_timing_line.mjs`.
 - ui-kit: `AutomationPanel` `hideHeader` — the host draws its own header and controls (AbstractCode's automation header); the panel starts at the definition and the occurrences and is named by the automation's title.
 
