@@ -3,7 +3,11 @@ export { AssistantPanel } from "./assistant_panel.js";
 export {
   DocsAssistantDrawer,
   DocsAssistantPanel,
+  DocsHistoryList,
   DOCS_QA_WORKFLOW,
+  DOCS_SESSION_KIND,
+  loadDocsConversation,
+  loadDocsHistory,
   docsAnswerFromRun,
   docsCorpusPath,
   docsQaStartBody,
@@ -17,6 +21,8 @@ export {
   type DocsAssistantPanelProps,
   type DocsAssistantSource,
   type DocsAttachmentRef,
+  type DocsHistoryItem,
+  type DocsHistoryListProps,
 } from "./docs_assistant.js";
 export type { AssistantPanelProps, AssistantAsk, AssistantAskContext } from "./assistant_panel.js";
 export { ChatComposer } from "./chat_composer.js";

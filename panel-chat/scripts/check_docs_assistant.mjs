@@ -15,7 +15,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const api = await import(join(here, "..", "dist", "index.js"));
-const { DocsAssistantDrawer, DocsAssistantPanel, DOCS_QA_WORKFLOW, docsAnswerFromRun, docsCorpusPath, docsQaStartBody, docsReplayNote, makeDocsQaAsk, newDocsSessionId, sseFrames } = api;
+const { DocsHistoryList, loadDocsHistory, loadDocsConversation, DOCS_SESSION_KIND, DocsAssistantDrawer, DocsAssistantPanel, DOCS_QA_WORKFLOW, docsAnswerFromRun, docsCorpusPath, docsQaStartBody, docsReplayNote, makeDocsQaAsk, newDocsSessionId, sseFrames } = api;
 let failures = 0;
 let checks = 0;
 const check = (name, cond, detail) => {
@@ -30,9 +30,10 @@ for (const [name, fn] of Object.entries({ DocsAssistantDrawer, DocsAssistantPane
 
 // --- pure helpers ------------------------------------------------------------
 check("corpus path names the app", docsCorpusPath("code") === "api/gateway/docs/corpus?app=code", docsCorpusPath("code"));
-check("workflow = the shipped docs-qa", DOCS_QA_WORKFLOW.bundle_id === "docs-qa" && DOCS_QA_WORKFLOW.flow_id === "docsqa001" && DOCS_QA_WORKFLOW.registry_scope === "tenant_catalog" && !("bundle_version" in DOCS_QA_WORKFLOW));
+check("workflow = the shipped docs-qa, pinned like the terminal console", DOCS_QA_WORKFLOW.bundle_id === "docs-qa" && DOCS_QA_WORKFLOW.flow_id === "docsqa001" && DOCS_QA_WORKFLOW.registry_scope === "tenant_catalog" && DOCS_QA_WORKFLOW.bundle_version === "0.1.1");
 check("session id per app", /^flow-docs-assistant:[0-9a-f-]{36}$/.test(newDocsSessionId("flow")), newDocsSessionId("flow"));
 const plain = docsQaStartBody({ question: "Q?", docs: "# Doc", appName: "AbstractFlow", sessionId: "s1" });
+check("start body: the session is a docs chat (kind)", plain.kind === "docs" && DOCS_SESSION_KIND === "docs", JSON.stringify(plain));
 check("start body: docs-qa inputs + session history", plain.bundle_id === "docs-qa" && plain.session_id === "s1" && plain.input_data.prompt === "Q?" && plain.input_data.docs === "# Doc" && plain.input_data.app === "AbstractFlow" && plain.input_data.use_session_history === true, JSON.stringify(plain));
 check("start body: no context without attachments, no forced streaming", !("context" in plain.input_data) && !("_runtime" in plain.input_data));
 const withFiles = docsQaStartBody({ question: "Q", docs: "D", appName: "A", sessionId: "s", attachments: [{ $artifact: "art1", filename: "a.png" }] });
@@ -136,6 +137,35 @@ const source = { app: "flow", name: "AbstractFlow" };
     err = e;
   }
   check("stop aborts the poll", err && err.name === "AbortError", err && String(err));
+}
+
+// --- history (kind=docs) --------------------------------------------------------
+{
+  const calls = [];
+  const json = (body) => new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
+  const fetchGateway = async (path, init = {}) => {
+    calls.push({ path, method: init.method || "GET" });
+    if (path.startsWith("api/gateway/runs?")) return json({ items: [
+      { run_id: "r2", session_id: "flow-docs-assistant:a", created_at: "2026-10-04T10:05:00Z", updated_at: "2026-10-04T10:06:00Z" },
+      { run_id: "r1", session_id: "flow-docs-assistant:a", created_at: "2026-10-04T10:00:00Z", updated_at: "2026-10-04T10:01:00Z" },
+      { run_id: "r3", session_id: "flow-docs-assistant:b", created_at: "2026-10-03T09:00:00Z", updated_at: "2026-10-03T09:01:00Z" },
+      { run_id: "rx", session_id: "code-docs-assistant:z", created_at: "2026-10-04T11:00:00Z", updated_at: "2026-10-04T11:00:00Z" },
+    ] });
+    const m = path.match(/^api\/gateway\/runs\/(r\d)(\/input_data)?$/);
+    if (m && m[2]) return json({ input_data: { prompt: { r1: "First question?", r2: "Follow-up?", r3: "Old one?" }[m[1]] } });
+    if (m) return json({ run_id: m[1], status: "completed", output: { response: `answer ${m[1]}` } });
+    return new Response("{}", { status: 404 });
+  };
+  const items = await loadDocsHistory(fetchGateway, "flow");
+  const listPath = calls[0].path;
+  check("history lists kind=docs turns", listPath.includes("root_only=true") && listPath.includes("kind=docs"), listPath);
+  check("history: this app's sessions, newest first, titled by the first question", items.length === 2 && items[0].sessionId === "flow-docs-assistant:a" && items[0].title === "First question?" && items[0].runIds.join() === "r1,r2" && items[1].title === "Old one?", JSON.stringify(items));
+  const past = await loadDocsConversation(fetchGateway, items[0], "AbstractFlow");
+  check("a past conversation reopens as its questions and answers", past.map((m) => `${m.role}:${m.content}`).join("|") === "user:First question?|assistant:answer r1|user:Follow-up?|assistant:answer r2", JSON.stringify(past));
+  const list = renderToStaticMarkup(React.createElement(DocsHistoryList, { items, state: "ready", nowMs: Date.parse("2026-10-04T12:00:00Z"), onOpen: () => {}, onArchive: () => {} }));
+  check("history list: titles, relative times, an Archive icon per row", list.includes("First question?") && list.includes("2 questions") && (list.match(/title="Archive"/g) || []).length === 2, list.slice(0, 300));
+  const drawerH = renderToStaticMarkup(React.createElement(DocsAssistantDrawer, { open: true, onClose: () => {}, source, fetchGateway: async () => new Response("{}"), connected: true }));
+  check("drawer header: a Past conversations icon", /aria-label="Past conversations"[^>]*><svg/.test(drawerH));
 }
 
 // --- rendering -----------------------------------------------------------------

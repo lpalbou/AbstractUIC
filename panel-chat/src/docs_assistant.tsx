@@ -24,7 +24,7 @@
 // the component never builds credentials.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { AfDrawer, Icon, gatewayApiPath, randomId } from "@abstractframework/ui-kit";
+import { AfDrawer, Icon, formatRelativeTime, gatewayApiPath, randomId } from "@abstractframework/ui-kit";
 
 import { ChatComposer } from "./chat_composer.js";
 import { ChatThread } from "./chat_thread.js";
@@ -43,9 +43,14 @@ export type DocsAssistantSource = {
   name: string;
 };
 
-/** The shipped docs-qa workflow (abstractgateway flows/bundles/docs-qa@*.flow;
- * the newest loaded version runs). Inputs: prompt, docs, app. */
-export const DOCS_QA_WORKFLOW = { registry_scope: "tenant_catalog", bundle_id: "docs-qa", flow_id: "docsqa001" } as const;
+/** The shipped docs-qa workflow (abstractgateway flows/bundles/docs-qa@0.1.1.flow,
+ * the version the gateway's terminal console pins too). Inputs: prompt, docs, app. */
+export const DOCS_QA_WORKFLOW = { registry_scope: "tenant_catalog", bundle_id: "docs-qa", bundle_version: "0.1.1", flow_id: "docsqa001" } as const;
+
+/** The session purpose the gateway records for a Docs assistant chat
+ * (`POST runs/start` `kind`): conversation lists leave it out; the drawer's
+ * history lists it (`GET runs?root_only=true&kind=docs`). */
+export const DOCS_SESSION_KIND = "docs" as const;
 
 export function docsCorpusPath(app: string): string {
   return gatewayApiPath(`docs/corpus?${new URLSearchParams({ app: String(app || "") })}`);
@@ -73,7 +78,7 @@ export function docsQaStartBody(args: {
     use_session_history: true,
   };
   if (args.attachments && args.attachments.length) input.context = { attachments: args.attachments };
-  return { ...DOCS_QA_WORKFLOW, session_id: args.sessionId, input_data: input };
+  return { ...DOCS_QA_WORKFLOW, session_id: args.sessionId, kind: DOCS_SESSION_KIND, input_data: input };
 }
 
 /** The answer of a COMPLETED docs-qa run (`output.response`), or "". */
@@ -265,6 +270,104 @@ export function makeDocsQaAsk(opts: {
   };
 }
 
+/** One past Docs assistant conversation of this app (the drawer's history). */
+export type DocsHistoryItem = { sessionId: string; title: string; updatedAt: string; runIds: string[] };
+
+/** `GET runs?root_only=true&kind=docs` for this source's sessions, newest first, titled by their first question. */
+export async function loadDocsHistory(fetchGateway: GatewayFetch, app: string, opts: { signal?: AbortSignal; max?: number } = {}): Promise<DocsHistoryItem[]> {
+  const qs = new URLSearchParams({ root_only: "true", kind: DOCS_SESSION_KIND, limit: "500", include_ledger_len: "false" });
+  const page = await jsonOf(await fetchGateway(gatewayApiPath(`runs?${qs}`), { signal: opts.signal }), "The docs assistant history could not be read");
+  const prefix = `${String(app || "app")}-docs-assistant:`;
+  const bySession = new Map<string, { runs: { id: string; created: string }[]; updatedAt: string }>();
+  for (const row of Array.isArray(page?.items) ? page.items : []) {
+    const sid = String(row?.session_id || "");
+    if (!sid.startsWith(prefix) || !row?.run_id) continue;
+    const entry = bySession.get(sid) || { runs: [], updatedAt: "" };
+    entry.runs.push({ id: String(row.run_id), created: String(row.created_at || "") });
+    const updated = String(row.updated_at || row.created_at || "");
+    if (updated > entry.updatedAt) entry.updatedAt = updated;
+    bySession.set(sid, entry);
+  }
+  const sessions = [...bySession.entries()].sort((a, b) => (a[1].updatedAt < b[1].updatedAt ? 1 : -1)).slice(0, opts.max ?? 20);
+  return Promise.all(
+    sessions.map(async ([sessionId, entry]) => {
+      const runIds = entry.runs.sort((a, b) => (a.created < b.created ? -1 : 1)).map((r) => r.id);
+      let title = "";
+      try {
+        const first = await jsonOf(await fetchGateway(gatewayApiPath(`runs/${encodeURIComponent(runIds[0])}/input_data`), { signal: opts.signal }), "");
+        title = String(first?.input_data?.prompt || "").trim();
+      } catch {
+        title = "";
+      }
+      return { sessionId, title: title || "Untitled question", updatedAt: entry.updatedAt, runIds };
+    }),
+  );
+}
+
+/** A past conversation as messages: each turn's question (its input) and answer (the completed run's response). */
+export async function loadDocsConversation(fetchGateway: GatewayFetch, item: DocsHistoryItem, appName: string, signal?: AbortSignal): Promise<ChatMessage[]> {
+  const out: ChatMessage[] = [];
+  for (const runId of item.runIds) {
+    const [input, run] = await Promise.all([
+      jsonOf(await fetchGateway(gatewayApiPath(`runs/${encodeURIComponent(runId)}/input_data`), { signal }), "A past question could not be read"),
+      jsonOf(await fetchGateway(gatewayApiPath(`runs/${encodeURIComponent(runId)}`), { signal }), "A past answer could not be read"),
+    ]);
+    const question = String(input?.input_data?.prompt || "").trim();
+    if (question) out.push({ id: `u-${runId}`, role: "user", content: question, ts: String(run?.created_at || "") || undefined });
+    const answer = docsAnswerFromRun(run);
+    const status = String(run?.status || "").toLowerCase();
+    out.push(
+      answer
+        ? { id: `a-${runId}`, role: "assistant", title: appName, content: answer, ts: String(run?.updated_at || "") || undefined }
+        : { id: `a-${runId}`, role: "assistant", title: appName, level: "warn", content: status === "completed" ? "This answer was empty." : `No answer: the run is ${status || "unknown"}.` },
+    );
+  }
+  return out;
+}
+
+export type DocsHistoryListProps = {
+  items: DocsHistoryItem[];
+  state: "loading" | "ready" | "error";
+  error?: string;
+  nowMs: number;
+  activeSessionId?: string;
+  onOpen: (item: DocsHistoryItem) => void;
+  onArchive: (item: DocsHistoryItem) => void;
+};
+
+/** The drawer's history: past conversations (newest first), open or archive (inline confirm). */
+export function DocsHistoryList(props: DocsHistoryListProps): React.ReactElement {
+  const [confirming, setConfirming] = useState<string | null>(null);
+  if (props.state === "loading") return <div className="pc-docs-history__note" role="status">Loading past conversations…</div>;
+  if (props.state === "error") return <div className="pc-docs-history__note pc-docs-history__note--error" role="alert">{props.error || "The history could not be read."}</div>;
+  if (!props.items.length) return <div className="pc-docs-history__note">No past conversations yet.</div>;
+  return (
+    <ul className="pc-docs-history" aria-label="Past conversations">
+      {props.items.map((item) => (
+        <li key={item.sessionId} className={`pc-docs-history__row${item.sessionId === props.activeSessionId ? " is-active" : ""}`}>
+          {confirming === item.sessionId ? (
+            <div className="pc-docs-history__confirm">
+              <span>Archive this conversation? It stays in the gateway; it leaves this list.</span>
+              <button type="button" className="pc-docs-history__btn pc-docs-history__btn--danger" onClick={() => { setConfirming(null); props.onArchive(item); }}>Archive</button>
+              <button type="button" className="pc-docs-history__btn" onClick={() => setConfirming(null)}>Cancel</button>
+            </div>
+          ) : (
+            <>
+              <button type="button" className="pc-docs-history__open" onClick={() => props.onOpen(item)} title={item.title}>
+                <span className="pc-docs-history__title">{item.title}</span>
+                <span className="pc-docs-history__meta">{formatRelativeTime(item.updatedAt, props.nowMs)}{item.runIds.length > 1 ? ` · ${item.runIds.length} questions` : ""}</span>
+              </button>
+              <button type="button" className="pc-docs-assistant__icon-btn" aria-label={`Archive "${item.title}"`} title="Archive" onClick={() => setConfirming(item.sessionId)}>
+                <Icon name="archive" size={16} />
+              </button>
+            </>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 type PendingFile = { id: string; file: File; preview?: string };
 
 const IMAGE_TYPES = /^image\/(png|jpe?g|gif|webp|avif|bmp|svg\+xml)$/i;
@@ -452,8 +555,52 @@ export function DocsAssistantDrawer(props: DocsAssistantDrawerProps): React.Reac
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const active = useRef<AbortController | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<{ state: "loading" | "ready" | "error"; items: DocsHistoryItem[]; error?: string }>({ state: "loading", items: [] });
 
   useEffect(() => () => active.current?.abort(), []);
+  const refreshHistory = useCallback(async () => {
+    setHistory((h) => ({ ...h, state: "loading" }));
+    try {
+      const items = await loadDocsHistory((path, init) => fetchRef.current(path, init), source.app);
+      setHistory({ state: "ready", items });
+    } catch (e: any) {
+      setHistory({ state: "error", items: [], error: String(e?.message || e) });
+    }
+  }, [source.app]);
+  const openPast = useCallback(
+    async (item: DocsHistoryItem) => {
+      active.current?.abort();
+      setHistory((h) => ({ ...h, state: "loading" }));
+      try {
+        const past = await loadDocsConversation((path, init) => fetchRef.current(path, init), item, source.name);
+        session.current = item.sessionId;
+        setMessages(past);
+        setNotice("");
+        setHistoryOpen(false);
+        setHistory((h) => ({ ...h, state: "ready" }));
+      } catch (e: any) {
+        setHistory((h) => ({ ...h, state: "error", error: String(e?.message || e) }));
+      }
+    },
+    [source.name],
+  );
+  const archivePast = useCallback(
+    async (item: DocsHistoryItem) => {
+      try {
+        const r = await fetchRef.current(gatewayApiPath(`sessions/${encodeURIComponent(item.sessionId)}/archive`), { method: "POST" });
+        if (!r.ok) throw await gatewayResponseError(r, "The conversation could not be archived");
+        if (session.current === item.sessionId) {
+          session.current = newDocsSessionId(source.app);
+          setMessages([]);
+        }
+        setHistory((h) => ({ ...h, items: h.items.filter((x) => x.sessionId !== item.sessionId) }));
+      } catch (e: any) {
+        setHistory((h) => ({ ...h, state: "error", error: String(e?.message || e) }));
+      }
+    },
+    [source.app],
+  );
   useEffect(() => {
     if (!props.connected) active.current?.abort();
   }, [props.connected]);
@@ -549,11 +696,34 @@ export function DocsAssistantDrawer(props: DocsAssistantDrawerProps): React.Reac
       topOffset={props.topOffset}
       className={`pc-docs-assistant-drawer${props.className ? ` ${props.className}` : ""}`}
       headerActions={
-        <button type="button" className="pc-docs-assistant__icon-btn" aria-label="New conversation" title="New conversation" disabled={!messages.length && !draft && !files.length} onClick={newConversation}>
-          <Icon name="compose" size={16} />
-        </button>
+        <>
+          <button
+            type="button"
+            className={`pc-docs-assistant__icon-btn${historyOpen ? " is-active" : ""}`}
+            aria-label="Past conversations"
+            title="Past conversations"
+            aria-pressed={historyOpen}
+            disabled={!props.connected || busy}
+            onClick={() => {
+              const next = !historyOpen;
+              setHistoryOpen(next);
+              if (next) void refreshHistory();
+            }}
+          >
+            <Icon name="history" size={16} />
+          </button>
+          <button type="button" className="pc-docs-assistant__icon-btn" aria-label="New conversation" title="New conversation" disabled={!messages.length && !draft && !files.length && !historyOpen} onClick={() => { newConversation(); setHistoryOpen(false); }}>
+            <Icon name="compose" size={16} />
+          </button>
+        </>
       }
     >
+      {historyOpen ? (
+        <div className="pc-docs-assistant pc-docs-assistant--history">
+          <DocsHistoryList items={history.items} state={history.state} error={history.error} nowMs={Date.now()} activeSessionId={session.current} onOpen={(i) => void openPast(i)} onArchive={(i) => void archivePast(i)} />
+        </div>
+      ) : null}
+      <div hidden={historyOpen} style={{ display: historyOpen ? "none" : "contents" }}>
       <DocsAssistantPanel
         source={source}
         messages={messages}
@@ -578,6 +748,7 @@ export function DocsAssistantDrawer(props: DocsAssistantDrawerProps): React.Reac
         onSuggestion={(s) => void send(s)}
         placeholder={props.placeholder}
       />
+      </div>
     </AfDrawer>
   );
 }
