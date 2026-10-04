@@ -7,42 +7,40 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## [Unreleased]
+## 0.6.0 - 2026-10-05
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.8.5 | updated (minor: tooltip, tool state badge, schedule-dialog Workspaces slot, WorkspaceChooser v2; rail drawer, file viewer, audio player, settings rows, voice section, relative time, compact About card, Unarchive control, automation timing line; **breaking** About props and a required `AfVoiceSection` prop, see the migration notes) |
+| `@abstractframework/panel-chat` | 0.4.1 | updated (minor: tool sandbox line; `DocsAssistantDrawer`, the one Docs assistant of the console and every app; `FileViewer`, `useWorkspaceFilePreview`, in-place workspace previews, audio playback); peer `@abstractframework/ui-kit` `^0.8.0` |
+
+`@abstractframework/app-server` 0.1.12, `@abstractframework/monitor-active-memory` 0.2.2,
+`@abstractframework/monitor-flow` 0.1.10, `@abstractframework/monitor-gpu` 0.1.10 and
+`@abstractframework/monitor-memory` 0.1.10 are unchanged.
 
 ### ui-kit
 
 - `AfTooltip` / `useAfTooltips` and the framework-free `bindAfTooltips` (console islands `bindTooltips`, additive, apiVersion stays "2"): one themed tooltip for icon buttons — 150 ms delay, shown on keyboard focus, hoverable, hidden by Escape / press / scroll / resize, placed above (flipped below) and kept inside the viewport, inverse surface from the active theme, `aria-describedby` while shown. New `--z-tooltip` (1200) token. Check `check_tooltip.mjs`. Docs: modal.md "Tooltip".
 
-### ui-kit 0.8.5 (unreleased, round 13)
+### ui-kit 0.8.5
 
 - `ToolPolicyEditor`: a tool may carry a server-reported `state` (`ToolStateBadge` = `{label, tooltip?, tone?: "ok" | "warn" | "danger"}`), shown as a badge under the tool's name with the kit tooltip carrying the server's sentence (focusable when it has one). AbstractCode passes the gateway's command-sandbox state of its process-spawning tools ("Sandboxed to this run's workspaces"); the kit never derives a state. `check_tool_state.mjs`.
 
-### panel-chat 0.4.1 (unreleased, round 13)
+### panel-chat 0.4.1
 
 - The command sandbox of a tool call: `toolSandbox(result)` reads the ledger's `output.sandbox` evidence (AbstractCore's `Sandbox.describe()`) into one line — `Sandbox: macOS sandbox-exec · 4 workspaces enforced` from the evidence's own `label`, or `Sandbox: none — refused` — plus the enforced paths (the run's folder, allowed rows with their mode, refused rows, the count of built-in refusals); `ToolSandboxLine` renders it. `workflowEvidence()` carries it as `WorkflowToolActivity.sandbox` and `ToolActivity` shows it first in the call's detail. Exported for AbstractObserver's run view. `check_tool_sandbox.mjs` on a seeded ledger.
 
-### ui-kit 0.8.4 (unreleased, round 13)
+### ui-kit 0.8.4
 
 - `AfScheduleDialog`: new optional `workspaces` slot, rendered as a visible group after Tools (named **Workspaces**; the chooser inside carries the one visible title). The host puts the `WorkspaceChooser` at the run level there and merges the value into `target.input_data.workspace` in its `onSubmit`; the dialog sends nothing workspace-shaped. The **Advanced** disclosure is gone: its fields (title; for Repeat: first run at, stop after this many runs, stop at) are now the visible **Title and limits** fieldset. The dialog has no disclosure. `check_automation_panel.mjs` covers both. The `.af-schedule__advanced` CSS rules are kept, unused, so the console theme copy does not change.
 
-### ui-kit 0.8.3 (unreleased, round 11; 0.8.2 was an interim pack of the same work)
+### ui-kit 0.8.3 (0.8.2 was an interim pack of the same work)
 
 - **Breaking (unreleased 0.8.1 API):** `WorkspaceChooser` v2 on the gateway's round-11 workspace model (three levels, no shared workspace). One component, `level` = `"gateway"` (the admin's eligible set; a row's mode is its cap) | `"account"` (an account's default, humans and entities) | `"session"` (one conversation's subset, stored on the session by the gateway) | `"run"` (a one-off run: nothing is PUT, the host keeps the value and passes the gateway's dry run). Top line "Gateway: <gateway_summary>" verbatim (not at the gateway level); posture segmented control ("Deny everything, allow listed workspaces" / "Allow everything, refuse listed workspaces"); rows `path · Read & write | Read-only | Refused · remove` grouped as Allowed / Refused workspaces, a mode above the gateway's cap `aria-disabled` with the kit tooltip "The gateway allows this workspace read-only"; **Everything else** under the second posture; "Add a workspace path" (+ **Choose…** through a `choose` callback); **Follow the gateway policy** (account) / **Use my default** (session, run) as state-showing switches sending `{configured: false}`; the effective line verbatim; a `footer` slot. Every change is ONE `save(payload)` (full body) or `onChange(value)`; a refusal shows the gateway's sentence + "Not saved.". Removed: the Shared workspace row and every shared-workspace string, `mode="automation"`, `onPut`, `workspaceAccountView`, `workspaceSelection*`, the old body helpers. New helpers: `workspaceChooserClient(request, target, base)`, `workspaceDryRun`, `workspaceAsState` / `workspaceAsPolicy` / `workspaceAsEffective` (loud on an older answer), `workspaceErrorSentence` (reads `{detail: {message}}`), the payload builders and `workspaceModesUnderCap`. Wording table updated (36 keys; "workspaces", never "folders"). Console islands: `mountWorkspaceChooser` takes the new props and `workspaceAsState` is exported (additive, apiVersion stays "2"). `check_workspace_chooser.mjs` (96 checks).
 
-### ui-kit 0.8.1 (unreleased, round 9)
+### ui-kit 0.8.1
 
 - `WorkspaceChooser`: the one workspace chooser of the console's per-account modal, AbstractCode, Observer, Flow and the AbstractAssistant (which copies `WORKSPACE_CHOOSER_TEXT` verbatim), on the gateway's round-9 FINAL model — two dimensions only: the posture ("Deny everything, allow listed workspaces" / "Allow everything, refuse listed workspaces") and, per workspace, **Read & write** / **Read-only** / **Refused**. It shows the posture, the **Shared workspace** (always on, Read & write), one row per workspace the gateway lists, grouped as **Allowed workspaces** / **Refused workspaces**, with the account's choice (lower, never raise: a mode above the admin's is unavailable, with the reason as a tooltip), under "Allow everything, refuse listed workspaces" also **Everything else** (the default mode) and an add row (a workspace Read-only or Refused), and the gateway's effective line verbatim ("Deny everything, allow listed workspaces · Shared workspace (rw) · /data/project (rw) · /archive (ro)"). Under "Deny everything, allow listed workspaces" one sentence says only the gateway admin can add workspaces. Account mode = one `PUT /api/gateway/workspace/policy/{account}` per change (`{folders: [{path, mode: "ro"|"deny"}]}` or `{default_mode: "ro"|null}`), a refusal shows the gateway's sentence with "Not saved."; automation mode = the automation's (or one run's) stored set (`input_data.workspace_allowed_paths`, narrowing only). Prop-driven, no route baked in; `workspaceChooserClient(request, account = "me", base)` refuses an answer without the FINAL model. No policy logic: no path checks, no clamp.
-
-## 0.6.0 - 2026-10-04
-
-| Package | Version | Change |
-| --- | --- | --- |
-| `@abstractframework/ui-kit` | 0.8.0 | updated (minor: rail drawer, file viewer, audio player, settings rows, voice section, relative time, compact About card, Unarchive control, automation timing line; **breaking** About props and a required `AfVoiceSection` prop, see the migration notes) |
-| `@abstractframework/panel-chat` | 0.4.0 | updated (minor: `DocsAssistantDrawer`, the one Docs assistant of the console and every app; `FileViewer`, `useWorkspaceFilePreview`, in-place workspace previews, audio playback); peer `@abstractframework/ui-kit` `^0.8.0` |
-
-`@abstractframework/app-server` 0.1.12, `@abstractframework/monitor-active-memory` 0.2.2,
-`@abstractframework/monitor-flow` 0.1.10, `@abstractframework/monitor-gpu` 0.1.10 and
-`@abstractframework/monitor-memory` 0.1.10 are unchanged.
 
 ### ui-kit 0.8.0
 
