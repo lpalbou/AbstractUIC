@@ -168,15 +168,15 @@ check("load error shown verbatim", html({ state: null, loadError: "Sign in first
 
 // Client + refusal.
 {
-  check("route for me", workspacePolicyPath() === "/api/gateway/workspace/policy/me");
-  check("route for tenant:user", workspacePolicyPath("default:alice") === "/api/gateway/workspace/policy/default%3Aalice");
+  check("route for me (relative, same-origin proxy)", workspacePolicyPath() === "api/gateway/workspace/policy/me", workspacePolicyPath());
+  check("route for tenant:user with the console's base", workspacePolicyPath("default:alice", "/api/gateway/") === "/api/gateway/workspace/policy/default%3Aalice");
   const calls = [];
   const client = workspaceChooserClient(async (path, init) => {
     calls.push([path, init.method, init.body]);
     return { ok: true, ...state() };
   }, "bob");
   const loaded = await client.load();
-  check("client load", loaded.effective.shared_workspace === SHARED && calls[0][0] === "/api/gateway/workspace/policy/bob" && calls[0][1] === "GET");
+  check("client load", loaded.effective.shared_workspace === SHARED && calls[0][0] === "api/gateway/workspace/policy/bob" && calls[0][1] === "GET");
   await client.put({ enabled_folders: [A] });
   check("client put", calls[1][1] === "PUT" && JSON.stringify(calls[1][2]) === JSON.stringify({ enabled_folders: [A] }));
   let threw = "";
@@ -201,6 +201,11 @@ check("load error shown verbatim", html({ state: null, loadError: "Sign in first
     notSaved: "Not saved.",
   };
   for (const [k, v] of Object.entries(expected)) check(`text.${k}`, T[k] === v, T[k]);
+}
+{
+  const h = html({ state: state({ own_folders_allowed: true }, { own_folders: [OWN] }), onPut: async () => {} });
+  const btn = (/<button[^>]*data-action="workspace-remove-own"[^>]*>/.exec(h) || [""])[0];
+  check("remove: kit tooltip, no native title", btn.includes(`data-af-tip="${T.remove} ${OWN}"`) && !/ title=/.test(btn), btn);
 }
 check("css block", /af-workspace:begin[\s\S]*\.af-workspace__always[\s\S]*af-workspace:end/.test(css));
 check("css: paths wrap (no horizontal scroll at 390 px)", /\.af-workspace__path\s*\{[^}]*overflow-wrap:\s*anywhere/.test(css));

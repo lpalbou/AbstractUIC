@@ -2,8 +2,8 @@
 // client shows — the admin allows, the account fine-tunes within it.
 //
 // The GATEWAY decides everything (R9 WORKSPACE API, abstractgateway):
-//   GET  /api/gateway/workspace/policy/{account}  -> {policy, gateway, effective}
-//   PUT  /api/gateway/workspace/policy/{account}  {enabled_folders?, own_folders?}
+//   GET  api/gateway/workspace/policy/{account}  -> {policy, gateway, effective}
+//   PUT  api/gateway/workspace/policy/{account}  {enabled_folders?, own_folders?}
 //        -> the same shape; a refused folder -> 4xx with a sentence.
 // `{account}` is `me` (the caller), `user` or `tenant:user` (admin).
 //
@@ -13,6 +13,7 @@
 // appear as a switch when the gateway listed it (available_folders for an
 // account, effective folders for an automation), so a client cannot offer a
 // folder the admin did not allow.
+import { GATEWAY_API_PATH } from "./gateway_paths.js";
 
 /** One effective folder: the shared workspace, an admin-allowed folder switched on, or one of the account's own. */
 export type WorkspaceFolder = { path: string; source: "shared" | "allowed" | "own" | string };
@@ -153,12 +154,18 @@ export function workspaceRemoveOwnBody(state: WorkspaceAccountState, path: strin
   return { own_folders: own.filter((p) => p !== path) };
 }
 
-/** The gateway route for an account's policy (`me` = the caller). */
-export function workspacePolicyPath(account = "me"): string {
-  return `/api/gateway/workspace/policy/${encodeURIComponent(account)}`;
+/**
+ * The gateway route for an account's policy (`me` = the caller). Relative by
+ * default (the kit's same-origin convention, GATEWAY_API_PATH); a host whose
+ * API lives elsewhere passes its own base (the console: "/api/gateway").
+ */
+export function workspacePolicyPath(account = "me", base: string = GATEWAY_API_PATH): string {
+  let b = String(base || "");
+  while (b.endsWith("/")) b = b.slice(0, -1);
+  return `${b}/workspace/policy/${encodeURIComponent(account)}`;
 }
 
-/** A host's request: (path under the gateway origin, method, JSON body) -> parsed JSON; throws Error(sentence) on 4xx/5xx. */
+/** A host's request: (path as built by workspacePolicyPath, method, JSON body) -> parsed JSON; throws Error(sentence) on 4xx/5xx. */
 export type WorkspaceRequest = (path: string, init: { method: "GET" | "PUT"; body?: unknown }) => Promise<unknown>;
 
 function asState(value: unknown): WorkspaceAccountState {
@@ -179,8 +186,8 @@ function asState(value: unknown): WorkspaceAccountState {
 }
 
 /** A thin client over the R9 routes for one account. Every write answers the new state. */
-export function workspaceChooserClient(request: WorkspaceRequest, account = "me") {
-  const path = workspacePolicyPath(account);
+export function workspaceChooserClient(request: WorkspaceRequest, account = "me", base: string = GATEWAY_API_PATH) {
+  const path = workspacePolicyPath(account, base);
   return {
     load: async (): Promise<WorkspaceAccountState> => asState(await request(path, { method: "GET" })),
     put: async (body: Record<string, unknown>): Promise<WorkspaceAccountState> => asState(await request(path, { method: "PUT", body })),

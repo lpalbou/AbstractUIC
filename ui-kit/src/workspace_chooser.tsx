@@ -21,6 +21,7 @@ import React, { useState } from "react";
 import { AfSwitch } from "./af_switch.js";
 import { AfSettingsGroup, AfSettingRow } from "./af_settings_rows.js";
 import { Icon } from "./icon.js";
+import { useAfTooltips } from "./af_tooltip.js";
 import {
   WORKSPACE_CHOOSER_TEXT as T,
   workspaceAccountView,
@@ -67,6 +68,7 @@ export type WorkspaceChooserAutomationProps = Common & {
 export type WorkspaceChooserProps = WorkspaceChooserAccountProps | WorkspaceChooserAutomationProps;
 
 export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactElement {
+  useAfTooltips();
   const id = props.idPrefix || "af-workspace";
   const [busy, setBusy] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -253,7 +255,7 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
                           className="af-workspace__icon-btn"
                           data-action="workspace-remove-own"
                           aria-label={`${T.remove} ${path}`}
-                          title={`${T.remove} ${path}`}
+                          data-af-tip={`${T.remove} ${path}`}
                           disabled={Boolean(blocked) || busy !== null}
                           onClick={() => removeOwn(path)}
                         >
