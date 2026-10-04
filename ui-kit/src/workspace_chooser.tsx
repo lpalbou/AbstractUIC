@@ -64,6 +64,8 @@ export type WorkspaceChooserAutomationProps = Common & {
   selection: string[] | null;
   /** Store a set, or null to follow the account again. */
   onSelectionChange: (next: string[] | null) => Promise<unknown> | void;
+  /** What the set is for: an automation's runs (default) or one run being launched. */
+  subject?: "automation" | "run";
 };
 
 export type WorkspaceChooserProps = WorkspaceChooserAccountProps | WorkspaceChooserAutomationProps;
@@ -149,7 +151,7 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
       id={id}
       className={`af-workspace${props.className ? ` ${props.className}` : ""}`}
       title={T.title}
-      help={automation ? T.automationHelp : T.help}
+      help={props.mode === "automation" ? (props.subject === "run" ? T.runHelp : T.automationHelp) : T.help}
     >
       {props.loadError ? (
         <p className="af-workspace__refusal" role="alert" data-workspace="load-error">

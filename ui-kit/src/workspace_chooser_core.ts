@@ -66,6 +66,7 @@ export const WORKSPACE_CHOOSER_TEXT = {
   notSaved: "Not saved.",
   // An automation keeps its own set, within the account's folders.
   automationHelp: "The folders this automation's runs may use, chosen among this account's folders.",
+  runHelp: "The folders this run may use, chosen among this account's folders.",
   automationFollows: "Follows this account's folders.",
   automationUseAccount: "Use this account's folders",
   automationOwnHidden: "Add folders of your own in the account's workspace settings.",

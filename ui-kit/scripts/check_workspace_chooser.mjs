@@ -170,6 +170,9 @@ check("load error shown verbatim", html({ state: null, loadError: "Sign in first
   check("automation: switches = account's effective extras", switches(h).length === 2 && !h.includes(`aria-label="${B}"`));
   check("automation: Use this account's folders while a set is stored", h.includes('data-action="workspace-follow-account"') && h.includes(esc(T.automationUseAccount)));
   check("automation: no own rows, sentence instead", !h.includes('data-workspace="own-add"') && h.includes(esc(T.automationOwnHidden)));
+  check("automation help", h.includes(esc(T.automationHelp)));
+  const hr = html({ mode: "automation", subject: "run", effective: eff, selection: null, onSelectionChange: () => {} });
+  check("run launch help (same rows)", hr.includes(esc(T.runHelp)) && switches(hr).length === 2);
   const hf = html({ mode: "automation", effective: eff, selection: null, onSelectionChange: () => {} });
   check("automation follows: sentence, no reset", hf.includes(esc(T.automationFollows)) && !hf.includes('data-action="workspace-follow-account"'));
 }
