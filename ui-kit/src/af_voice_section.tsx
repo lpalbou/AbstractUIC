@@ -170,7 +170,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
   const flat = p.nested ? "flat" : "card";
   const update = (patch: Partial<VoiceClientPreferences>) => p.onChange({ ...value, ...patch });
   const volume = value.reply_volume === undefined ? 1 : Math.min(1, Math.max(0, Number(value.reply_volume) || 0));
-  const gain = value.input_gain === undefined ? 1 : Math.min(2, Math.max(0.5, Number(value.input_gain) || 1));
+  const gain = value.input_gain === undefined ? 1 : Math.min(1.5, Math.max(0.5, Number(value.input_gain) || 1));
 
   useEffect(() => {
     if (disabled) return;
@@ -418,7 +418,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
               className="af-voice-range"
               type="range"
               min={50}
-              max={200}
+              max={150}
               step={10}
               value={Math.round(gain * 100)}
               disabled={disabled}

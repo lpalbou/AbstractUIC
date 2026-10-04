@@ -94,6 +94,12 @@ check("spoken language row", html.includes('aria-label="Spoken language"'));
 check("language rides on the STT request", JSON.stringify(kit.voiceSttRequest({ stt_language: "en" })) === '{"language":"en"}');
 check("no language = engine detects", JSON.stringify(kit.voiceSttRequest({})) === "{}");
 
+// --- input level: 100 % sits at the centre of the range (adversary R6 nit) ----
+{
+  const src2 = readFileSync(join(here, "..", "src", "af_voice_section.tsx"), "utf8");
+  check("input level range centres 100 %", /min=\{50\}\s*max=\{150\}/.test(src2));
+}
+
 // --- sentences ----------------------------------------------------------------
 check("denied → sentence", microphoneErrorSentence({ name: "NotAllowedError" }).startsWith("The browser blocked the microphone."));
 check("no device → sentence", microphoneErrorSentence({ name: "NotFoundError" }) === "No microphone was found. Connect one, then try again.");
