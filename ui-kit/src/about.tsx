@@ -20,6 +20,8 @@ import { Icon } from "./icon.js";
 export type AfAboutVersions = {
   /** The AbstractFramework version (installed on the gateway host for web apps). */
   framework?: string | null;
+  /** Why `framework` is missing (e.g. "not installed on the gateway host"); shown instead of "not reported". */
+  frameworkNote?: string;
   /** The AbstractGateway version the app talks to (or serves). */
   gateway?: string | null;
   /** Why `gateway` is missing; shown instead of "not connected". */
@@ -61,6 +63,7 @@ export function aboutVersionsFromGateway(payload: GatewayAboutPayload | null, er
   return {
     framework: framework || null,
     gateway: gateway || null,
+    ...(gateway && !framework ? { frameworkNote: "not installed on the gateway host" } : {}),
     ...(gateway ? {} : { gatewayNote: "unavailable (the gateway did not report its version)" }),
   };
 }
@@ -84,7 +87,7 @@ export function aboutVersionFacts(versions: AfAboutVersions | undefined): Array<
   const framework = versionOf(v.framework);
   const gateway = versionOf(v.gateway);
   return [
-    ["AbstractFramework", framework || "not reported"],
+    ["AbstractFramework", framework || (versionOf(v.frameworkNote) || "not reported")],
     ["AbstractGateway", gateway || (versionOf(v.gatewayNote) || "not connected")],
   ];
 }

@@ -186,6 +186,8 @@ for (const id of appIds) {
   check("versions: full payload", eq(aboutVersionsFromGateway(fullPayload), { framework: "0.9.6", gateway: "0.12.0" }));
   check("versions: error wins", eq(aboutVersionsFromGateway(fullPayload, "HTTP 503"), { framework: null, gateway: null, gatewayNote: "unavailable (HTTP 503)" }));
   check("versions: empty error text", aboutVersionsFromGateway(null, " ").gatewayNote === "unavailable (unknown error)");
+  check("versions: framework not installed on the gateway host", eq(aboutVersionsFromGateway({ abstractgateway: "0.12.0", abstractframework: null }), { framework: null, gateway: "0.12.0", frameworkNote: "not installed on the gateway host" }));
+  check("facts: framework note", eq(aboutVersionFacts({ gateway: "1", frameworkNote: "not installed on the gateway host" })[0], ["AbstractFramework", "not installed on the gateway host"]));
   check("versions: no gateway version", eq(aboutVersionsFromGateway({ abstractframework: "0.9.6" }), { framework: "0.9.6", gateway: null, gatewayNote: "unavailable (the gateway did not report its version)" }));
   check("versions: non-string ignored", eq(aboutVersionsFromGateway({ abstractgateway: 3, abstractframework: true }), { framework: null, gateway: null, gatewayNote: "unavailable (the gateway did not report its version)" }));
   check("facts: defaults", eq(aboutVersionFacts(undefined), [["AbstractFramework", "not reported"], ["AbstractGateway", "not connected"]]));
