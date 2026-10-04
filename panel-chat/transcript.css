@@ -28,6 +28,7 @@
  *   --error   (NO fallback — theme.css required)
  *   --error-border
  *   --error-subtle
+ *   --error-text
  *   --font-mono   (NO fallback — theme.css required)
  *   --font-sans   (NO fallback — theme.css required)
  *   --font-size-base
@@ -58,8 +59,9 @@
  *   --warning   (NO fallback — theme.css required)
  *   --warning-border
  *   --warning-subtle
+ *   --warning-text
  *
- * CLASS SET (82): pc-chat-attachment-chip, pc-chat-attachment-name, pc-chat-attachment-target, pc-chat-attachment-target--client, pc-chat-attachment-target--repo, pc-chat-attachment-target--server, pc-chat-attachments, pc-chat-avatar, pc-chat-body, pc-chat-header, pc-chat-header-actions, pc-chat-header-spacer, pc-chat-icon-btn, pc-chat-icon-btn--copied, pc-chat-icon-btn--failed, pc-chat-item, pc-chat-item--assistant, pc-chat-item--error, pc-chat-item--report_bug, pc-chat-item--report_feature, pc-chat-item--status, pc-chat-item--user, pc-chat-item--warn, pc-chat-live-caption, pc-chat-live-dot, pc-chat-live-indicator, pc-chat-media, pc-chat-media__audio, pc-chat-media__caption, pc-chat-media__error, pc-chat-media__image, pc-chat-media__item, pc-chat-media__link, pc-chat-media__video, pc-chat-role, pc-chat-speak-spinner, pc-chat-stat, pc-chat-stat--clickable, pc-chat-stat--detail, pc-chat-stat-icon, pc-chat-stat-label, pc-chat-stats, pc-chat-thinking, pc-chat-thinking-body, pc-chat-thread, pc-chat-time, pc-stat-detail, pc-stat-detail-foot, pc-stat-detail-head, pc-stat-detail-heading, pc-stat-detail-headline, pc-stat-detail-hint, pc-stat-detail-note, pc-stat-detail-rows, pc-stat-detail-section, pc-stat-detail-table, pc-stat-detail-title, pc-stat-detail-value, pc-stat-detail-value--absent, pc-tool-activity, pc-tool-activity--completed, pc-tool-activity--failed, pc-tool-activity--running, pc-tool-activity--waiting, pc-tool-activity__chevron, pc-tool-activity__detail, pc-tool-activity__detail-heading, pc-tool-activity__duration, pc-tool-activity__error, pc-tool-activity__key, pc-tool-activity__output, pc-tool-activity__parameters, pc-tool-activity__preview, pc-tool-activity__state-icon, pc-tool-activity__status, pc-tool-activity__summary, pc-tool-group, pc-tool-group__completed, pc-tool-group__failed, pc-tool-group__heading, pc-tool-group__running, pc-tool-group__waiting
+ * CLASS SET (87): pc-chat-attachment-chip, pc-chat-attachment-name, pc-chat-attachment-target, pc-chat-attachment-target--client, pc-chat-attachment-target--repo, pc-chat-attachment-target--server, pc-chat-attachments, pc-chat-avatar, pc-chat-body, pc-chat-header, pc-chat-header-actions, pc-chat-header-spacer, pc-chat-icon-btn, pc-chat-icon-btn--copied, pc-chat-icon-btn--failed, pc-chat-item, pc-chat-item--assistant, pc-chat-item--error, pc-chat-item--report_bug, pc-chat-item--report_feature, pc-chat-item--status, pc-chat-item--user, pc-chat-item--warn, pc-chat-live-caption, pc-chat-live-dot, pc-chat-live-indicator, pc-chat-media, pc-chat-media__audio, pc-chat-media__caption, pc-chat-media__error, pc-chat-media__image, pc-chat-media__item, pc-chat-media__link, pc-chat-media__video, pc-chat-role, pc-chat-speak-spinner, pc-chat-stat, pc-chat-stat--clickable, pc-chat-stat--detail, pc-chat-stat-icon, pc-chat-stat-label, pc-chat-stats, pc-chat-thinking, pc-chat-thinking-body, pc-chat-thread, pc-chat-time, pc-stat-detail, pc-stat-detail-foot, pc-stat-detail-head, pc-stat-detail-heading, pc-stat-detail-headline, pc-stat-detail-hint, pc-stat-detail-note, pc-stat-detail-rows, pc-stat-detail-section, pc-stat-detail-table, pc-stat-detail-title, pc-stat-detail-value, pc-stat-detail-value--absent, pc-tool-activity, pc-tool-activity--completed, pc-tool-activity--failed, pc-tool-activity--running, pc-tool-activity--waiting, pc-tool-activity__chevron, pc-tool-activity__detail, pc-tool-activity__detail-heading, pc-tool-activity__duration, pc-tool-activity__error, pc-tool-activity__key, pc-tool-activity__output, pc-tool-activity__parameters, pc-tool-activity__preview, pc-tool-activity__state-icon, pc-tool-activity__status, pc-tool-activity__summary, pc-tool-group, pc-tool-group__completed, pc-tool-group__failed, pc-tool-group__heading, pc-tool-group__running, pc-tool-group__waiting, pc-tool-sandbox, pc-tool-sandbox__builtin, pc-tool-sandbox__line, pc-tool-sandbox__mode, pc-tool-sandbox__rows
  */
 
 .pc-chat-thread {
@@ -269,6 +271,15 @@
 .pc-tool-activity code, .pc-tool-activity pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.6 var(--font-mono); }
 .pc-tool-activity__output { margin: 0; max-height: 300px; overflow: auto; }
 .pc-tool-activity--running .pc-tool-activity__state-icon { animation: pc-tool-spin 1.5s linear infinite; }
+/* The command sandbox of the call (R13.4): one line, then the enforced paths. */
+.pc-tool-sandbox { margin: 0 0 12px; font-size: 12px; color: var(--text-secondary); }
+.pc-tool-sandbox__line { font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
+.pc-tool-sandbox.is-refused .pc-tool-sandbox__line { color: var(--warning-text, var(--warning, var(--text-primary))); }
+.pc-tool-sandbox.is-unsandboxed .pc-tool-sandbox__line { color: var(--error-text, var(--error, var(--text-primary))); }
+.pc-tool-sandbox__rows { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; }
+.pc-tool-sandbox__rows li { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; min-width: 0; }
+.pc-tool-sandbox__rows code { font: 11px/1.5 var(--font-mono); overflow-wrap: anywhere; min-width: 0; }
+.pc-tool-sandbox__mode, .pc-tool-sandbox__builtin { font-size: 11px; color: var(--text-muted, var(--text-secondary)); }
 @keyframes pc-tool-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .pc-tool-activity--running .pc-tool-activity__state-icon { animation: none; } }
 /* Narrow transcript (container query on .pc-chat-thread; the viewport query

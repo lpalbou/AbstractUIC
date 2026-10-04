@@ -1115,6 +1115,39 @@
   letter-spacing: 0.08em;
 }
 
+/* A server-reported tool state (ToolSpec.state): a calm pill under the title. */
+.af-tool-row__state-line {
+  margin-top: 4px;
+}
+
+.af-tool-row__state {
+  display: inline-block;
+  max-width: 100%;
+  padding: 1px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ui-chip-border);
+  background: var(--ui-chip-bg);
+  color: var(--text-primary);
+  font-size: var(--font-size-xxs);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.af-tool-row__state.is-ok {
+  border-color: var(--success-border);
+  background: var(--success-subtle);
+}
+
+.af-tool-row__state.is-warn {
+  border-color: var(--warning-border);
+  background: var(--warning-subtle);
+}
+
+.af-tool-row__state.is-danger {
+  border-color: var(--error-border);
+  background: var(--error-subtle);
+}
+
 .af-tool-row__desc {
   font-size: var(--font-size-xs);
   color: var(--text-secondary);

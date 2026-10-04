@@ -31,6 +31,7 @@ export { JsonViewer } from "./json_viewer.js";
 export { ChatMessageCard } from "./chat_message_card.js";
 export { ChatThread } from "./chat_thread.js";
 export { ToolActivity, ToolActivityGroup, toolArguments, toolPreview } from "./tool_activity.js";
+export { ToolSandboxLine, toolSandbox, sandboxEvidence, type ToolSandbox, type ToolSandboxRow } from "./sandbox_line.js";
 export { workflowProgress, type WorkflowProgress } from "./workflow_progress.js";
 export { WorkflowChat } from "./workflow_chat.js";
 export {

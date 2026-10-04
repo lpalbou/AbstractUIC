@@ -86,6 +86,10 @@ Most apps use it through `GatewayConnectModal` (below).
 `ToolPolicyEditor` renders the shared allowlist + approve/ask picker for gateway tools. It has no
 deny mode: a tool is denied by removing it from the allowlist. Pass `toolMode` (and optional
 `toolModeLabel` / `toolModeDetail`) to surface the gateway tool execution mode in a banner.
+A tool may carry `state: { label, tooltip?, tone? }` — a server-reported state shown as a badge
+under its name, with the server's sentence in the kit tooltip (AbstractCode passes the gateway's
+command-sandbox state of process-spawning tools). The kit shows what it is given and never derives
+a state.
 
 The default approve/ask classification is exposed as `TOOL_POLICY_DEFAULTS` (mirrors the
 AbstractRuntime `ToolApprovalPolicy` defaults).

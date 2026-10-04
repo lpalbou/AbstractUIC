@@ -1,4 +1,5 @@
 import type { WorkflowRecord, ServerRecord } from "./workflow_runtime.js";
+import { toolSandbox, type ToolSandbox } from "./sandbox_line.js";
 
 export type WorkflowToolActivity = {
   id: string;
@@ -11,6 +12,8 @@ export type WorkflowToolActivity = {
   error?: string;
   startedAt?: string;
   endedAt?: string;
+  /** The command sandbox this call ran under (process-spawning tools), from its result. */
+  sandbox?: ToolSandbox;
 };
 export type WorkflowStatistics = {
   inputTokens?: number;
@@ -257,6 +260,7 @@ export function foldWorkflowTools(
         ? { output: output.output ?? output.result }
         : {}),
       ...(output.error ? { error: String(output.error) } : {}),
+      ...(toolSandbox(output) ? { sandbox: toolSandbox(output)! } : {}),
       startedAt: previous?.startedAt || str(rec.started_at) || undefined,
       endedAt: completed
         ? str(rec.ended_at) || previous?.endedAt

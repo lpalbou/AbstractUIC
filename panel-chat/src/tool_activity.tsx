@@ -3,6 +3,7 @@ import { Icon } from "@abstractframework/ui-kit";
 import type { WorkflowToolActivity } from "./workflow_evidence.js";
 import { JsonViewer } from "./json_viewer.js";
 import { copyText } from "./utils.js";
+import { ToolSandboxLine } from "./sandbox_line.js";
 
 export function toolArguments(value: unknown): unknown {
   if (typeof value !== "string") return value;
@@ -123,6 +124,7 @@ export function ToolActivity({
         ) : null}
       </summary>
       <div className="pc-tool-activity__detail">
+        <ToolSandboxLine sandbox={tool.sandbox} />
         {tool.error ? (
           <>
             <h4>Error</h4>

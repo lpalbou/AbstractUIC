@@ -3,6 +3,7 @@
  */
 import React, { useMemo, useState } from "react";
 import { AfSwitch } from "./af_switch.js";
+import { AfTooltip } from "./af_tooltip.js";
 
 export type ToolSpec = {
   name: string;
@@ -16,7 +17,33 @@ export type ToolSpec = {
    * (client-copied defaults rot — prefer server truth).
    */
   default_approval?: ToolApprovalMode;
+  /**
+   * A server-reported STATE of this tool, shown as a badge on its card with
+   * the kit tooltip (e.g. the gateway's command-sandbox state of a
+   * process-spawning tool: "Sandboxed to this run's workspaces"). The host
+   * passes the server's words; the kit never derives a state.
+   */
+  state?: ToolStateBadge;
 };
+
+export type ToolStateBadge = {
+  /** The state, verbatim from the server. */
+  label: string;
+  /** The server's explanation, shown in the kit tooltip. */
+  tooltip?: string;
+  /** "ok" (green), "warn" (amber), "danger" (red); neutral when omitted. */
+  tone?: "ok" | "warn" | "danger";
+};
+
+function normalize_state(value: unknown): ToolStateBadge | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const v = value as Record<string, unknown>;
+  const label = typeof v.label === "string" ? v.label.trim() : "";
+  if (!label) return undefined;
+  const tooltip = typeof v.tooltip === "string" && v.tooltip.trim() ? v.tooltip.trim() : undefined;
+  const tone = v.tone === "ok" || v.tone === "warn" || v.tone === "danger" ? v.tone : undefined;
+  return { label, ...(tooltip ? { tooltip } : {}), ...(tone ? { tone } : {}) };
+}
 
 export type ToolApprovalMode = "approve" | "ask";
 
@@ -90,6 +117,7 @@ function normalize_tools(items: ToolSpec[]): ToolSpec[] {
       when_to_use: typeof it.when_to_use === "string" ? it.when_to_use : undefined,
       default_approval:
         it.default_approval === "approve" || it.default_approval === "ask" ? it.default_approval : undefined,
+      state: normalize_state(it.state),
     });
   }
   out.sort((a, b) => {
@@ -337,6 +365,20 @@ export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactEleme
                   <span className="af-tool-row__name">{breakAtUnderscores(tool.name)}</span>
                   {tool.toolset ? <span className="af-tool-row__badge">{tool.toolset}</span> : null}
                 </div>
+                {tool.state ? (
+                  <div className="af-tool-row__state-line">
+                    <AfTooltip content={tool.state.tooltip || ""}>
+                      <span
+                        className={`af-tool-row__state${tool.state.tone ? ` is-${tool.state.tone}` : ""}`}
+                        data-tool-state={tool.name}
+                        tabIndex={tool.state.tooltip ? 0 : undefined}
+                        aria-label={tool.state.tooltip ? `${tool.state.label}. ${tool.state.tooltip}` : undefined}
+                      >
+                        {tool.state.label}
+                      </span>
+                    </AfTooltip>
+                  </div>
+                ) : null}
                 {tool.description ? <div className="af-tool-row__desc">{tool.description}</div> : null}
                 {tool.when_to_use ? <div className="af-tool-row__hint">{tool.when_to_use}</div> : null}
               </div>

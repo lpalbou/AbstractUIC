@@ -1513,7 +1513,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Theme: `THEMES`, `THEME_SPECS`, `applyTheme()`, `getThemeSpec()`, `themeClassName()` — see [Theming](./theming.md)
 - Typography: `FONT_SCALES`, `HEADER_DENSITIES`, `applyTypography()`, `getFontScaleSpec()`, `getHeaderDensitySpec()`
 - Responsive: `AF_BREAKPOINTS` (`{ xs: 480, sm: 768, md: 1024, lg: 1440 }`), `AF_MEDIA` (the media query strings), `useAfMedia(query)`, `installViewportVars()` (sets `--vv-height` / `--keyboard-inset`, returns a cleanup), `viewportVarsFrom(innerHeight, { height, offsetTop, scale })` and the `AfVisualViewportSample` type — see [Responsive layout](./responsive.md)
-- Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker` (gateway-default mode + provider→models cascade, injected transports), `FontScaleSelect`, `HeaderDensitySelect`, `ToolPolicyEditor`, `MultiSelect`
+- Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker` (gateway-default mode + provider→models cascade, injected transports), `FontScaleSelect`, `HeaderDensitySelect`, `ToolPolicyEditor` (a tool's optional `state` = a server-reported badge with the kit tooltip), `MultiSelect`
 - MTP: `SpeculationSelect`, `speculationCapability()`, `normalizeSpeculationValue()`,
   `speculationSelection()`, `speculationFromSelection()` and `SpeculationValue` /
   `SpeculationCapability` types. Enable `ProviderModelPicker`'s `enableSpeculation` for text
@@ -1587,7 +1587,7 @@ Components:
 - `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions; `streamReplies?: "gateway_default" | "on" | "off"`); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
 - Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry), the event-name constants `LLM_DELTA_EVENT` / `LLM_DELTA_END_EVENT`; types `LlmDelta`, `LlmDeltaEnd`, `LlmDeltaEvent`, `LlmDeltaChannel`, `LlmDeltaEndReason`, `LlmStreamUnavailableDetail`, `StreamRepliesMode`; controller option `liveRenderIntervalMs` (default 60, also on `useWorkflowSession`). See [panel-chat README](../panel-chat/README.md#live-replies-streaming)
 - File drop and paste: `WorkflowChat`'s `onFiles(files)` turns on the drop zone and paste-to-attach (folders are refused with a visible message); the pure helpers behind it are exported too: `dragCarriesFiles()`, `draggedFileCount()`, `dropZoneLabel()`, `droppedFiles()`, `folderRefusal()`, `pastedFileName()`, `pastedFiles()`, `DragPresence` (see `panel-chat/src/file_drop.ts`)
-- `ToolActivity`, `ToolActivityGroup` (tool-call rendering), `StatDetailPanel` + `statDetail()` (token/time/tool statistics)
+- `ToolActivity`, `ToolActivityGroup` (tool-call rendering; a process-spawning call shows its command-sandbox line first in its detail), `toolSandbox(result)` + `ToolSandboxLine` (the line `Sandbox: <label> · N workspaces enforced` / `Sandbox: none — refused` and the enforced paths, from the ledger's `output.sandbox`), `StatDetailPanel` + `statDetail()` (token/time/tool statistics)
 - `ChatThread` (thread container; renders a list of messages)
 - `ChatMessageCard` (single message rendering; `message.title` names the speaker — assistants
   render their entity/agent name when provided, falling back to "Agent")
@@ -3795,6 +3795,10 @@ Most apps use it through `GatewayConnectModal` (below).
 `ToolPolicyEditor` renders the shared allowlist + approve/ask picker for gateway tools. It has no
 deny mode: a tool is denied by removing it from the allowlist. Pass `toolMode` (and optional
 `toolModeLabel` / `toolModeDetail`) to surface the gateway tool execution mode in a banner.
+A tool may carry `state: { label, tooltip?, tone? }` — a server-reported state shown as a badge
+under its name, with the server's sentence in the kit tooltip (AbstractCode passes the gateway's
+command-sandbox state of process-spawning tools). The kit shows what it is given and never derives
+a state.
 
 The default approve/ask classification is exposed as `TOOL_POLICY_DEFAULTS` (mirrors the
 AbstractRuntime `ToolApprovalPolicy` defaults).
@@ -4152,6 +4156,9 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
 - Renderers: `Markdown` (with `sameOriginImage` as the default image rule for `images="link"`), `JsonViewer`
 - Files (0.3.1): `WorkspaceBrowser` (rows: name, size, generated date, download icon; a click previews the file in place; the root once as a short name with Open folder / Copy path icons; `fileActions` for host actions), `FileViewer` (ui-kit `AfFileViewer` + `Markdown`; audio files play in the kit's waveform `AfAudioPlayer`), `useWorkspaceFilePreview` (bounded loader through the host's `fetchGateway`; images, audio and PDF as object URLs)
 - Tool and run evidence: `ToolActivity`, `ToolActivityGroup`, `toolArguments`, `toolPreview`,
+  `toolSandbox`, `ToolSandboxLine` (the command sandbox of a call from the ledger's
+  `output.sandbox`: one line such as `Sandbox: macOS sandbox-exec · 3 workspaces enforced` or
+  `Sandbox: none — refused`, then the enforced paths; `ToolActivity` shows it in the detail),
   `workflowProgress`, `workflowEvidence`, `foldWorkflowTools`, `historyRecords`,
   `statDetail`, `StatDetailPanel`
 - Types: `ChatMessage`, `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat`,
@@ -5107,7 +5114,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -5148,7 +5155,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_workspace_chooser.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -5176,7 +5183,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -5217,7 +5224,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.8.0",
@@ -5442,6 +5449,7 @@ export {
   type ToolPolicyDefaults,
   type ToolSpec,
   type ToolApprovalMode,
+  type ToolStateBadge,
 } from "./tool_policy_editor.js";
 export {
   MATRIX_SCHEMA_VERSION,
@@ -11489,6 +11497,7 @@ export { JsonViewer } from "./json_viewer.js";
 export { ChatMessageCard } from "./chat_message_card.js";
 export { ChatThread } from "./chat_thread.js";
 export { ToolActivity, ToolActivityGroup, toolArguments, toolPreview } from "./tool_activity.js";
+export { ToolSandboxLine, toolSandbox, sandboxEvidence, type ToolSandbox, type ToolSandboxRow } from "./sandbox_line.js";
 export { workflowProgress, type WorkflowProgress } from "./workflow_progress.js";
 export { WorkflowChat } from "./workflow_chat.js";
 export {
@@ -15983,6 +15992,14 @@ ships.
 ### ui-kit
 
 - `AfTooltip` / `useAfTooltips` and the framework-free `bindAfTooltips` (console islands `bindTooltips`, additive, apiVersion stays "2"): one themed tooltip for icon buttons — 150 ms delay, shown on keyboard focus, hoverable, hidden by Escape / press / scroll / resize, placed above (flipped below) and kept inside the viewport, inverse surface from the active theme, `aria-describedby` while shown. New `--z-tooltip` (1200) token. Check `check_tooltip.mjs`. Docs: modal.md "Tooltip".
+
+### ui-kit 0.8.5 (unreleased, round 13)
+
+- `ToolPolicyEditor`: a tool may carry a server-reported `state` (`ToolStateBadge` = `{label, tooltip?, tone?: "ok" | "warn" | "danger"}`), shown as a badge under the tool's name with the kit tooltip carrying the server's sentence (focusable when it has one). AbstractCode passes the gateway's command-sandbox state of its process-spawning tools ("Sandboxed to this run's workspaces"); the kit never derives a state. `check_tool_state.mjs`.
+
+### panel-chat 0.4.1 (unreleased, round 13)
+
+- The command sandbox of a tool call: `toolSandbox(result)` reads the ledger's `output.sandbox` evidence (AbstractCore's `Sandbox.describe()`) into one line — `Sandbox: macOS sandbox-exec · 4 workspaces enforced` from the evidence's own `label`, or `Sandbox: none — refused` — plus the enforced paths (the run's folder, allowed rows with their mode, refused rows, the count of built-in refusals); `ToolSandboxLine` renders it. `workflowEvidence()` carries it as `WorkflowToolActivity.sandbox` and `ToolActivity` shows it first in the call's detail. Exported for AbstractObserver's run view. `check_tool_sandbox.mjs` on a seeded ledger.
 
 ### ui-kit 0.8.4 (unreleased, round 13)
 

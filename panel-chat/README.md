@@ -33,6 +33,9 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
 - Renderers: `Markdown` (with `sameOriginImage` as the default image rule for `images="link"`), `JsonViewer`
 - Files (0.3.1): `WorkspaceBrowser` (rows: name, size, generated date, download icon; a click previews the file in place; the root once as a short name with Open folder / Copy path icons; `fileActions` for host actions), `FileViewer` (ui-kit `AfFileViewer` + `Markdown`; audio files play in the kit's waveform `AfAudioPlayer`), `useWorkspaceFilePreview` (bounded loader through the host's `fetchGateway`; images, audio and PDF as object URLs)
 - Tool and run evidence: `ToolActivity`, `ToolActivityGroup`, `toolArguments`, `toolPreview`,
+  `toolSandbox`, `ToolSandboxLine` (the command sandbox of a call from the ledger's
+  `output.sandbox`: one line such as `Sandbox: macOS sandbox-exec · 3 workspaces enforced` or
+  `Sandbox: none — refused`, then the enforced paths; `ToolActivity` shows it in the detail),
   `workflowProgress`, `workflowEvidence`, `foldWorkflowTools`, `historyRecords`,
   `statDetail`, `StatDetailPanel`
 - Types: `ChatMessage`, `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat`,

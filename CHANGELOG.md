@@ -13,6 +13,14 @@ ships.
 
 - `AfTooltip` / `useAfTooltips` and the framework-free `bindAfTooltips` (console islands `bindTooltips`, additive, apiVersion stays "2"): one themed tooltip for icon buttons — 150 ms delay, shown on keyboard focus, hoverable, hidden by Escape / press / scroll / resize, placed above (flipped below) and kept inside the viewport, inverse surface from the active theme, `aria-describedby` while shown. New `--z-tooltip` (1200) token. Check `check_tooltip.mjs`. Docs: modal.md "Tooltip".
 
+### ui-kit 0.8.5 (unreleased, round 13)
+
+- `ToolPolicyEditor`: a tool may carry a server-reported `state` (`ToolStateBadge` = `{label, tooltip?, tone?: "ok" | "warn" | "danger"}`), shown as a badge under the tool's name with the kit tooltip carrying the server's sentence (focusable when it has one). AbstractCode passes the gateway's command-sandbox state of its process-spawning tools ("Sandboxed to this run's workspaces"); the kit never derives a state. `check_tool_state.mjs`.
+
+### panel-chat 0.4.1 (unreleased, round 13)
+
+- The command sandbox of a tool call: `toolSandbox(result)` reads the ledger's `output.sandbox` evidence (AbstractCore's `Sandbox.describe()`) into one line — `Sandbox: macOS sandbox-exec · 4 workspaces enforced` from the evidence's own `label`, or `Sandbox: none — refused` — plus the enforced paths (the run's folder, allowed rows with their mode, refused rows, the count of built-in refusals); `ToolSandboxLine` renders it. `workflowEvidence()` carries it as `WorkflowToolActivity.sandbox` and `ToolActivity` shows it first in the call's detail. Exported for AbstractObserver's run view. `check_tool_sandbox.mjs` on a seeded ledger.
+
 ### ui-kit 0.8.4 (unreleased, round 13)
 
 - `AfScheduleDialog`: new optional `workspaces` slot, rendered as a visible group after Tools (named **Workspaces**; the chooser inside carries the one visible title). The host puts the `WorkspaceChooser` at the run level there and merges the value into `target.input_data.workspace` in its `onSubmit`; the dialog sends nothing workspace-shaped. The **Advanced** disclosure is gone: its fields (title; for Repeat: first run at, stop after this many runs, stop at) are now the visible **Title and limits** fieldset. The dialog has no disclosure. `check_automation_panel.mjs` covers both. The `.af-schedule__advanced` CSS rules are kept, unused, so the console theme copy does not change.

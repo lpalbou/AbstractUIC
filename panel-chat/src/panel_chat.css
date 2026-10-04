@@ -1049,6 +1049,15 @@
 .pc-tool-activity code, .pc-tool-activity pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.6 var(--font-mono); }
 .pc-tool-activity__output { margin: 0; max-height: 300px; overflow: auto; }
 .pc-tool-activity--running .pc-tool-activity__state-icon { animation: pc-tool-spin 1.5s linear infinite; }
+/* The command sandbox of the call (R13.4): one line, then the enforced paths. */
+.pc-tool-sandbox { margin: 0 0 12px; font-size: 12px; color: var(--text-secondary); }
+.pc-tool-sandbox__line { font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
+.pc-tool-sandbox.is-refused .pc-tool-sandbox__line { color: var(--warning-text, var(--warning, var(--text-primary))); }
+.pc-tool-sandbox.is-unsandboxed .pc-tool-sandbox__line { color: var(--error-text, var(--error, var(--text-primary))); }
+.pc-tool-sandbox__rows { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; }
+.pc-tool-sandbox__rows li { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; min-width: 0; }
+.pc-tool-sandbox__rows code { font: 11px/1.5 var(--font-mono); overflow-wrap: anywhere; min-width: 0; }
+.pc-tool-sandbox__mode, .pc-tool-sandbox__builtin { font-size: 11px; color: var(--text-muted, var(--text-secondary)); }
 @keyframes pc-tool-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .pc-tool-activity--running .pc-tool-activity__state-icon { animation: none; } }
 /* Narrow transcript (container query on .pc-chat-thread; the viewport query

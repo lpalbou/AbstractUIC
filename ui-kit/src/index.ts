@@ -23,6 +23,7 @@ export {
   type ToolPolicyDefaults,
   type ToolSpec,
   type ToolApprovalMode,
+  type ToolStateBadge,
 } from "./tool_policy_editor.js";
 export {
   MATRIX_SCHEMA_VERSION,
