@@ -152,6 +152,17 @@ const noop = async () => {};
   check("follow OFF -> configured:true with the gateway's effective rows verbatim",
     JSON.stringify(workspaceFollowPayload(st, false)) === JSON.stringify({ configured: true, posture: "any_except_denied", default_mode: "rw", folders: [{ path: SEC, mode: "deny" }, { path: AR, mode: "ro" }] }));
 }
+// ---- effective.default_mode null under "Deny everything…" (the gateway answers null there).
+{
+  const a = accountAnswer({ configured: false, folders: [] }, { default_mode: null });
+  const st = workspaceAsState(a, "account");
+  check("effective default_mode null accepted under allowed_only", st.effective.default_mode === null);
+  check("follow OFF with a null effective default -> the policy's default_mode (always a valid body)", workspaceFollowPayload(st, false).default_mode === "rw");
+  let threw = "";
+  try { workspaceAsState(accountAnswer({}, { posture: "any_except_denied", default_mode: null }), "account"); } catch (e) { threw = e.message; }
+  check("effective default_mode null refused under any_except_denied", /round-11 workspace API/.test(threw), threw);
+  check("run state with a null effective default is a valid policy", workspaceRunState(null, effective({ default_mode: null })).policy.default_mode === "rw");
+}
 // ---- Payloads (account level): full bodies, one per change.
 {
   const st = workspaceAsState(accountAnswer(), "account");

@@ -95,7 +95,7 @@ export function workspaceRunState(value: WorkspaceRunValue | null, effective: Wo
   return {
     policy: value
       ? { configured: true, posture: value.posture, default_mode: value.default_mode, folders: value.folders.map((r) => ({ ...r })) }
-      : { configured: false, posture: effective.posture, default_mode: effective.default_mode, folders: [] },
+      : { configured: false, posture: effective.posture, default_mode: effective.default_mode ?? "rw", folders: [] },
     effective,
   };
 }

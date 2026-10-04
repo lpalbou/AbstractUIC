@@ -63,7 +63,8 @@ export type WorkspaceEffectiveRow = { path: string; mode: WorkspaceMode; cap: Wo
 /** What applies (server-computed). `summary` and `gateway_summary` are shown verbatim. */
 export type WorkspaceEffective = {
   posture: WorkspacePosture;
-  default_mode: WorkspaceAccess;
+  /** The mode of everything not listed; null under "Deny everything, allow listed workspaces" (nothing unlisted applies). */
+  default_mode: WorkspaceAccess | null;
   folders: WorkspaceEffectiveRow[];
   /** e.g. "Deny everything, allow listed workspaces · /Users/me/Pictures (rw) · /Users/me/Documents (ro)". */
   summary: string;
@@ -213,7 +214,7 @@ export function workspaceChooserView(level: WorkspaceLevel, state: WorkspaceChoo
   const eff = effective as WorkspaceEffective;
   const source: WorkspaceRule[] = following ? eff.folders.map((f) => ({ path: f.path, mode: f.mode })) : policy.folders;
   const posture = following ? eff.posture : policy.posture;
-  const defaultMode = following ? eff.default_mode : policy.default_mode;
+  const defaultMode: WorkspaceAccess = following ? eff.default_mode ?? policy.default_mode : policy.default_mode;
   const editable = !following && !locked;
   const rows: WorkspaceChooserRow[] = source.map((r) => {
     const cap = level === "gateway" ? null : caps.get(r.path) ?? null;
@@ -279,7 +280,9 @@ export function workspaceFollowPayload(state: WorkspaceChooserState, follow: boo
   if (follow) return { configured: false };
   const e = state.effective;
   if (!e) throw new Error("The follow switch needs the gateway's effective workspaces.");
-  return { configured: true, posture: e.posture, default_mode: e.default_mode, folders: e.folders.map((f) => ({ path: f.path, mode: f.mode })) };
+  // effective.default_mode is null under "Deny everything…" (nothing unlisted applies): the
+  // policy read's own default_mode stands in (it is unused under that posture).
+  return { configured: true, posture: e.posture, default_mode: e.default_mode ?? state.policy.default_mode, folders: e.folders.map((f) => ({ path: f.path, mode: f.mode })) };
 }
 
 // ---- Routes + a thin client (the console passes base "/api/gateway"; apps use the relative default).
@@ -336,7 +339,7 @@ export function workspaceAsEffective(value: unknown): WorkspaceEffective {
   const v = (value && typeof value === "object" ? value : {}) as Record<string, any>;
   if ("shared_workspace" in v) throw new Error(OLD_MODEL);
   const ok =
-    isPosture(v.posture) && isAccess(v.default_mode) && typeof v.summary === "string" && typeof v.gateway_summary === "string" &&
+    isPosture(v.posture) && (isAccess(v.default_mode) || (v.default_mode === null && v.posture === "allowed_only")) && typeof v.summary === "string" && typeof v.gateway_summary === "string" &&
     Array.isArray(v.folders) && v.folders.every((f: any) => f && typeof f.path === "string" && isMode(f.mode) && isMode(f.cap));
   if (!ok) throw new Error(`The gateway answered without the effective workspaces (posture, default_mode, folders with cap, summary, gateway_summary). ${OLD_MODEL}`);
   return { posture: v.posture, default_mode: v.default_mode, folders: v.folders.map((f: any) => ({ path: f.path, mode: f.mode, cap: f.cap, source: f.source })), summary: v.summary, gateway_summary: v.gateway_summary };
