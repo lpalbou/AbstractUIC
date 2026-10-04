@@ -376,6 +376,8 @@ export {
   workspaceAccountView,
   workspaceSelectionView,
   workspaceSelectionSummary,
+  workspacePostureText,
+  type WorkspacePosture,
   workspaceSelectionAfterToggle,
   workspaceExtraBody,
   workspaceAddOwnBody,

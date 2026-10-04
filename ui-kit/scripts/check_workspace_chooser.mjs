@@ -71,6 +71,9 @@ const effective = (over = {}) => ({
   never_allowed: [DENIED],
   launch_folder_trust: true,
   summary: "Shared workspace + 1 folder. Never: 1 folder.",
+  posture: "allowed_only",
+  any_folder: false,
+  other_sessions: { enabled: false, path: "/srv/gw/data/workspaces/alice" },
   ...over,
 });
 const state = (effOver = {}, policyOver = {}) => ({
@@ -92,15 +95,18 @@ const checked = (s) => /aria-checked="true"/.test(s);
   check("shared says Always on", h.includes('data-workspace="shared-always"') && h.includes(`>${T.sharedState}<`));
   check("shared row comes before every switch", h.indexOf('data-setting="workspace-shared"') < h.indexOf('role="switch"'));
   const sw = switches(h);
-  check("one switch per admin-allowed folder", sw.length === 2, String(sw.length));
+  check("one switch per admin-allowed folder (+ the sessions switch)", sw.filter((x) => /workspace-extra/.test(x)).length === 2 && sw.length === 3, String(sw.length));
   check("switch A is ON (stored)", sw.some((s) => label(s) === A && checked(s)));
   check("switch B is OFF (default)", sw.some((s) => label(s) === B && !checked(s)));
   check("shared workspace is never a switch", !sw.some((s) => label(s) === SHARED));
-  check("never-allowed folder is never a switch", !h.includes(DENIED));
+  check("never-allowed folder is never a switch", !sw.some((x) => label(x) === DENIED));
   check("effective line = gateway summary", h.includes(`<strong>${T.effectivePrefix}</strong> Shared workspace + 1 folder. Never: 1 folder.`), h);
   check("own rows hidden while any folder is not allowed", !h.includes('data-workspace="own-add"') && !h.includes('data-workspace="own"'));
   check("why-hidden sentence", h.includes('data-workspace="own-hidden"') && h.includes(T.ownHidden));
-  check("allowed help", h.includes(T.allowedHelp));
+  check("posture badge: Only allowed folders + its sentence", h.includes('data-posture="allowed_only"') && h.includes(`>${T.postureAllowedOnly}<`) && h.includes(T.postureAllowedOnlyHelp));
+  const so = sw.find((x) => /data-action="workspace-other-sessions"/.test(x)) || "";
+  check("Other sessions of this account: a switch, off by default", so && !checked(so), so);
+  check("never-allowed chips", h.includes('data-workspace="never"') && h.includes(">secrets<"));
 }
 // A listed folder the gateway marks never allowed: shown, not switchable, with the reason.
 {
@@ -117,21 +123,28 @@ const checked = (s) => /aria-checked="true"/.test(s);
 }
 // 3. Any folder allowed: My folders rows + Add.
 {
-  const h = html({ state: state({ own_folders_allowed: true, folders: [{ path: SHARED, source: "shared" }, { path: OWN, source: "own" }] }, { own_folders: [OWN] }), onPut: async () => {} });
+  const h = html({ state: state({ own_folders_allowed: true, posture: "any_except_denied", folders: [{ path: SHARED, source: "shared" }, { path: OWN, source: "own" }] }, { own_folders: [OWN] }), onPut: async () => {} });
   check("own row shown", h.includes(`data-workspace="own" data-path="${OWN}"`), h);
   check("own row has a Remove icon button", h.includes(`aria-label="${T.remove} ${OWN}"`));
   check("Add field + button", h.includes('data-workspace="own-add"') && h.includes('data-action="workspace-add-own"'));
-  check("own title + help", h.includes(`>${T.ownTitle}<`) && h.includes(T.ownHelp));
+  check("posture badge: Any folder except denied", h.includes('data-posture="any_except_denied"') && h.includes(`>${T.postureAnyExceptDenied}<`));
+  check("one list: shared, switches, sessions, own row and the add row inside it", /data-workspace="list"[\s\S]*workspace-shared[\s\S]*data-workspace="extra"[\s\S]*data-workspace="other-sessions"[\s\S]*data-workspace="own"[\s\S]*data-workspace="own-add"[\s\S]*<\/ul>/.test(h));
   check("no why-hidden sentence", !h.includes(T.ownHidden));
 }
 {
   const h = html({ state: state({ own_folders_allowed: true }), onPut: async () => {} });
-  check("own empty sentence", h.includes(T.ownEmpty));
+  check("add row without own rows", h.includes('data-workspace="own-add"'));
+}
+{
+  const h = html({ state: state({ own_folders_allowed: true, posture: "any_except_denied", any_folder: true }), onPut: async () => {} });
+  check("any folder: the note says adding narrows", h.includes('data-workspace="any-folder"') && h.includes(T.anyFolderNote));
+  const h2 = html({ state: state(), onPut: async () => {} });
+  check("allowed_only: no any-folder note", !h2.includes('data-workspace="any-folder"'));
 }
 // No allowed folders.
 {
   const h = html({ state: state({ available_folders: [] }), onPut: async () => {} });
-  check("no allowed folders sentence", h.includes(T.allowedEmpty) && switches(h).length === 0);
+  check("no allowed folders sentence", h.includes(T.allowedEmpty) && switches(h).filter((x) => /workspace-extra/.test(x)).length === 0);
 }
 // Loading / load error / unavailable.
 check("loading", html({ state: null, onPut: async () => {} }).includes('data-workspace="loading"'));
@@ -167,6 +180,7 @@ check("load error shown verbatim", html({ state: null, loadError: "Sign in first
   check("automation summary formatted like the gateway line", pinned.summary === "Private session folder + Shared workspace (workspaces) + 1 folder." && workspaceSelectionView(eff, []).summary === "Private session folder + Shared workspace (workspaces).", pinned.summary);
   const h = html({ mode: "automation", effective: eff, selection: [OWN], onSelectionChange: () => {} });
   check("automation: shared always on", h.includes('data-workspace="shared-always"'));
+  check("automation: no sessions switch (account setting)", !h.includes('data-workspace="other-sessions"'));
   check("automation: switches = account's effective extras", switches(h).length === 2 && !h.includes(`aria-label="${B}"`));
   check("automation: Use this account's folders while a set is stored", h.includes('data-action="workspace-follow-account"') && h.includes(esc(T.automationUseAccount)));
   check("automation: no own rows, sentence instead", !h.includes('data-workspace="own-add"') && h.includes(esc(T.automationOwnHidden)));
@@ -196,6 +210,12 @@ check("load error shown verbatim", html({ state: null, loadError: "Sign in first
   } catch (e) {
     threw = e.message;
   }
+  let threw2 = "";
+  try {
+    const st = state(); delete st.effective.posture;
+    await workspaceChooserClient(async () => ({ ok: true, ...st })).load();
+  } catch (e) { threw2 = e.message; }
+  check("client refuses an answer without posture loudly", /round-9 workspace model/.test(threw2), threw2);
   check("client refuses a pre-round-9 answer loudly", /round-9 workspace model/.test(threw), threw);
   check("refusal keeps the gateway sentence + Not saved.", workspaceRefusal(new Error("Folder /etc/secrets is never allowed")) === "Folder /etc/secrets is never allowed. Not saved.");
 }

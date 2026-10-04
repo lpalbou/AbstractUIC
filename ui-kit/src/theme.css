@@ -6416,6 +6416,61 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
     min-height: var(--tap-min, 44px);
   }
 }
+.af-workspace__posture {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 2px 0;
+}
+.af-workspace__badge {
+  display: inline-flex;
+  padding: 2px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 999px;
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.af-workspace__posture > .af-workspace__note {
+  margin: 0;
+}
+.af-workspace__list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.af-workspace__list > li + li {
+  border-top: 1px solid color-mix(in srgb, var(--ui-border-1) 70%, transparent);
+}
+.af-workspace__list > .af-workspace__row {
+  border-top-width: 1px;
+}
+.af-workspace__never {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-top: 6px;
+}
+.af-workspace__never-title {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+.af-workspace__chip {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--error-subtle, rgba(231, 76, 60, 0.12));
+  color: var(--text-primary);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--font-size-xs);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
 /* af-workspace:end */
 
 /* af-file-viewer:begin — AfFileViewer + AfCodeBlock (0.6.0). */

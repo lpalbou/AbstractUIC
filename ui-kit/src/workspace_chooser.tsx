@@ -29,6 +29,7 @@ import {
   workspaceAddOwnBody,
   workspaceExtraBody,
   workspaceFolderName,
+  workspacePostureText,
   workspaceRefusal,
   workspaceRemoveOwnBody,
   workspaceSelectionAfterToggle,
@@ -53,7 +54,7 @@ export type WorkspaceChooserAccountProps = Common & {
   /** GET/PUT /workspace/policy/{account} answer; null while loading. */
   state: WorkspaceAccountState | null;
   /** Perform ONE PUT with this body; reject with Error(<gateway sentence>) on refusal. */
-  onPut: (body: { enabled_folders?: string[]; own_folders?: string[] }) => Promise<unknown>;
+  onPut: (body: { enabled_folders?: string[]; own_folders?: string[]; other_sessions?: boolean }) => Promise<unknown>;
 };
 
 export type WorkspaceChooserAutomationProps = Common & {
@@ -128,6 +129,12 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
     if (await run("own:add", () => p.onPut(workspaceAddOwnBody(state, path)))) setDraft("");
   }
 
+  function setOtherSessions(on: boolean) {
+    if (props.mode === "automation") return;
+    const p = props;
+    void run("other-sessions", () => p.onPut({ other_sessions: on }));
+  }
+
   function removeOwn(path: string) {
     if (props.mode === "automation" || !props.state) return;
     const p = props;
@@ -163,6 +170,10 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
         </p>
       ) : (
         <>
+          <div className="af-workspace__posture" data-workspace="posture" data-posture={view.posture}>
+            <span className="af-workspace__badge">{workspacePostureText(view.posture).label}</span>
+            <span className="af-workspace__note">{workspacePostureText(view.posture).help}</span>
+          </div>
           <p className="af-workspace__effective" data-workspace="effective">
             <strong>{T.effectivePrefix}</strong> {view.summary}
           </p>
@@ -171,138 +182,156 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
               {blocked}
             </p>
           ) : null}
-          <div className="af-workspace__shared" data-setting="workspace-shared">
-            <div className="af-workspace__shared-head">
-              <span className="af-workspace__shared-name">{T.sharedLabel}</span>
-              <span className="af-workspace__always" data-workspace="shared-always">
-                {T.sharedState}
-              </span>
-            </div>
-            <code className="af-workspace__path" title={view.shared.path}>
-              {view.shared.path}
-            </code>
-            <span className="af-workspace__note">{T.sharedHelp}</span>
-          </div>
-
-          <AfSettingsGroup variant="flat" title={T.allowedTitle} help={automation ? (view.follows ? T.automationFollows : undefined) : T.allowedHelp} id={`${id}-allowed`}>
-            {view.extras.length === 0 ? (
-              <p className="af-workspace__note" data-workspace="allowed-empty">
-                {T.allowedEmpty}
-              </p>
-            ) : (
-              view.extras.map((row) => (
-                <div className="af-workspace__row" key={row.path} data-workspace="extra" data-path={row.path}>
-                  <AfSwitch
-                    variant="row"
-                    label={row.name}
-                    description={<code className="af-workspace__path">{row.path}</code>}
-                    ariaLabel={row.path}
-                    checked={row.on}
-                    busy={busy === row.path}
-                    unavailableReason={blocked || (row.blocked ? T.neverAllowed : null)}
-                    describedBy={blocked ? `${id}-blocked` : undefined}
-                    action="workspace-extra"
-                    onChange={(next) => toggle(row.path, next)}
-                  />
-                  {status(row.path)}
-                </div>
-              ))
-            )}
-            {automation && !view.follows ? (
-              <div className="af-workspace__actions">
+          {automation && view.follows ? (
+            <p className="af-workspace__note" data-workspace="follows">
+              {T.automationFollows}
+            </p>
+          ) : null}
+          <ul className="af-workspace__list" aria-label={T.foldersTitle} data-workspace="list">
+            <li className="af-workspace__shared" data-setting="workspace-shared">
+              <div className="af-workspace__shared-head">
+                <span className="af-workspace__shared-name">{T.sharedLabel}</span>
+                <span className="af-workspace__always" data-workspace="shared-always">
+                  {T.sharedState}
+                </span>
+              </div>
+              <code className="af-workspace__path" title={view.shared.path}>
+                {view.shared.path}
+              </code>
+              <span className="af-workspace__note">{T.sharedHelp}</span>
+            </li>
+            {view.extras.map((row) => (
+              <li className="af-workspace__row" key={row.path} data-workspace="extra" data-path={row.path}>
+                <AfSwitch
+                  variant="row"
+                  label={row.name}
+                  description={<code className="af-workspace__path">{row.path}</code>}
+                  ariaLabel={row.path}
+                  checked={row.on}
+                  busy={busy === row.path}
+                  unavailableReason={blocked || (row.blocked ? T.neverAllowed : null)}
+                  describedBy={blocked ? `${id}-blocked` : undefined}
+                  action="workspace-extra"
+                  onChange={(next) => toggle(row.path, next)}
+                />
+                {status(row.path)}
+              </li>
+            ))}
+            {view.otherSessions ? (
+              <li className="af-workspace__row" data-workspace="other-sessions">
+                <AfSwitch
+                  variant="row"
+                  label={T.otherSessions}
+                  description={T.otherSessionsHelp}
+                  checked={view.otherSessions.on}
+                  busy={busy === "other-sessions"}
+                  unavailableReason={blocked || null}
+                  describedBy={blocked ? `${id}-blocked` : undefined}
+                  action="workspace-other-sessions"
+                  onChange={(next) => setOtherSessions(next)}
+                />
+                {status("other-sessions")}
+              </li>
+            ) : null}
+            {view.own.rows.map((path) => (
+              <li className="af-workspace__row af-workspace__own" key={path} data-workspace="own" data-path={path}>
+                <span className="af-workspace__own-text">
+                  <span className="af-workspace__own-name">{workspaceFolderName(path)}</span>
+                  <code className="af-workspace__path">{path}</code>
+                </span>
                 <button
                   type="button"
-                  className="af-workspace__link"
-                  data-action="workspace-follow-account"
+                  className="af-workspace__icon-btn"
+                  data-action="workspace-remove-own"
+                  aria-label={`${T.remove} ${path}`}
+                  data-af-tip={`${T.remove} ${path}`}
                   disabled={Boolean(blocked) || busy !== null}
-                  onClick={() => {
-                    if (props.mode === "automation") {
-                      const p = props;
-                      void run("follow", () => p.onSelectionChange(null));
+                  onClick={() => removeOwn(path)}
+                >
+                  <Icon name="x" size={16} />
+                </button>
+                {status(`own:${path}`)}
+              </li>
+            ))}
+            {!automation && view.own.visible ? (
+              <li className="af-workspace__add" data-workspace="own-add">
+                <input
+                  type="text"
+                  className="af-workspace__input"
+                  aria-label={T.ownTitle}
+                  placeholder={T.ownPlaceholder}
+                  value={draft}
+                  disabled={Boolean(blocked) || busy === "own:add"}
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void addOwn();
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      setDraft("");
+                      setErrors((x) => {
+                        const n = { ...x };
+                        delete n["own:add"];
+                        return n;
+                      });
                     }
                   }}
-                >
-                  {T.automationUseAccount}
+                />
+                <button type="button" className="af-workspace__add-btn" data-action="workspace-add-own" disabled={Boolean(blocked) || !draft.trim() || busy !== null} onClick={() => void addOwn()}>
+                  {T.add}
                 </button>
-                {status("follow")}
-              </div>
+                {status("own:add")}
+              </li>
             ) : null}
-          </AfSettingsGroup>
-
-          {automation ? (
+          </ul>
+          {view.anyFolder ? (
+            <p className="af-workspace__note" data-workspace="any-folder">
+              {T.anyFolderNote}
+            </p>
+          ) : null}
+          {view.own.note ? (
             <p className="af-workspace__note" data-workspace="own-hidden">
               {view.own.note}
             </p>
-          ) : (
-            <AfSettingsGroup variant="flat" title={T.ownTitle} help={view.own.visible ? T.ownHelp : undefined} id={`${id}-own`}>
-              {!view.own.visible ? (
-                <p className="af-workspace__note" data-workspace="own-hidden">
-                  {view.own.note}
-                </p>
-              ) : (
-                <>
-                  {view.own.rows.length === 0 ? (
-                    <p className="af-workspace__note" data-workspace="own-empty">
-                      {T.ownEmpty}
-                    </p>
-                  ) : (
-                    view.own.rows.map((path) => (
-                      <div className="af-workspace__row af-workspace__own" key={path} data-workspace="own" data-path={path}>
-                        <span className="af-workspace__own-text">
-                          <span className="af-workspace__own-name">{workspaceFolderName(path)}</span>
-                          <code className="af-workspace__path">{path}</code>
-                        </span>
-                        <button
-                          type="button"
-                          className="af-workspace__icon-btn"
-                          data-action="workspace-remove-own"
-                          aria-label={`${T.remove} ${path}`}
-                          data-af-tip={`${T.remove} ${path}`}
-                          disabled={Boolean(blocked) || busy !== null}
-                          onClick={() => removeOwn(path)}
-                        >
-                          <Icon name="x" size={16} />
-                        </button>
-                        {status(`own:${path}`)}
-                      </div>
-                    ))
-                  )}
-                  <div className="af-workspace__add" data-workspace="own-add">
-                    <input
-                      type="text"
-                      className="af-workspace__input"
-                      aria-label={T.ownTitle}
-                      placeholder={T.ownPlaceholder}
-                      value={draft}
-                      disabled={Boolean(blocked) || busy === "own:add"}
-                      spellCheck={false}
-                      autoCapitalize="off"
-                      autoCorrect="off"
-                      onChange={(e) => setDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          void addOwn();
-                        } else if (e.key === "Escape") {
-                          e.preventDefault();
-                          setDraft("");
-                          setErrors((x) => {
-                            const n = { ...x };
-                            delete n["own:add"];
-                            return n;
-                          });
-                        }
-                      }}
-                    />
-                    <button type="button" className="af-workspace__add-btn" data-action="workspace-add-own" disabled={Boolean(blocked) || !draft.trim() || busy !== null} onClick={() => void addOwn()}>
-                      {T.add}
-                    </button>
-                    {status("own:add")}
-                  </div>
-                </>
-              )}
-            </AfSettingsGroup>
-          )}
+          ) : null}
+          {view.extras.length === 0 && !view.own.visible ? (
+            <p className="af-workspace__note" data-workspace="allowed-empty">
+              {T.allowedEmpty}
+            </p>
+          ) : null}
+          {view.never.length ? (
+            <div className="af-workspace__never" data-workspace="never">
+              <span className="af-workspace__never-title">{T.neverTitle}</span>
+              {view.never.map((p) => (
+                <code key={p} className="af-workspace__chip" title={p}>
+                  {workspaceFolderName(p)}
+                </code>
+              ))}
+            </div>
+          ) : null}
+          {automation && !view.follows ? (
+            <div className="af-workspace__actions">
+              <button
+                type="button"
+                className="af-workspace__link"
+                data-action="workspace-follow-account"
+                disabled={Boolean(blocked) || busy !== null}
+                onClick={() => {
+                  if (props.mode === "automation") {
+                    const p = props;
+                    void run("follow", () => p.onSelectionChange(null));
+                  }
+                }}
+              >
+                {T.automationUseAccount}
+              </button>
+              {status("follow")}
+            </div>
+          ) : null}
         </>
       )}
     </AfSettingsGroup>
