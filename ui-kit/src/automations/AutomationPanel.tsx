@@ -469,6 +469,7 @@ export const CONTROL_ICONS: Record<ControlId, IconName> = {
   stop_current: "stop",
   revise: "edit",
   archive: "archive",
+  unarchive: "unarchive",
   discuss: "chat",
 };
 
@@ -550,7 +551,10 @@ function IconLabel(props: { icon: IconName; label: string }): React.ReactElement
 
 export function AutomationControlsBar(p: AutomationControlsBarProps): React.ReactElement {
   const c = automationControls(p.summary, p.occurrences, p.busy);
-  const shown: ControlId[] = ["active", "run_now", "stop_current", "revise", "archive"];
+  // An archived automation shows Unarchive in place of Archive (0.7.0); the
+  // other controls stay visible, disabled with the "Archived" reason.
+  const archived = p.summary.status === "archived";
+  const shown: ControlId[] = ["active", "run_now", "stop_current", "revise", archived ? "unarchive" : "archive"];
   const why = disabledReasons(c, shown, p.idBase ?? `af-auto-${p.summary.automation_id}`);
   const btn = (id: ControlId, onClick: () => void, extra?: { pressed?: boolean; danger?: boolean; action?: string; label?: string }) => {
     const hint = controlHint(id, p.summary);
@@ -590,7 +594,7 @@ export function AutomationControlsBar(p: AutomationControlsBarProps): React.Reac
           {btn("run_now", () => p.onCommand(CONTROL_COMMANDS.run_now))}
           {btn("stop_current", () => p.onCommand(CONTROL_COMMANDS.stop_current))}
           {btn("revise", p.onToggleRevise, { pressed: p.reviseOpen, action: "edit" })}
-          {btn("archive", p.onAskArchive, { danger: true, label: "Archive…" })}
+          {archived ? btn("unarchive", () => p.onCommand(CONTROL_COMMANDS.unarchive)) : btn("archive", p.onAskArchive, { danger: true, label: "Archive…" })}
         </div>
         <span className={`af-auto__notice${p.notice ? " af-auto__notice--on" : ""}`} role="status" tabIndex={-1}>
           {p.notice ? (
@@ -619,7 +623,7 @@ export function AutomationControlsBar(p: AutomationControlsBarProps): React.Reac
       {p.summary.status === "paused" && c.run_now.enabled ? (
         <p className="af-auto__hint">Paused: scheduled runs are skipped. Run now works and keeps it paused.</p>
       ) : null}
-      {p.confirmingArchive ? (
+      {p.confirmingArchive && !archived ? (
         <div className="af-auto__confirm" role="group" aria-label="Confirm archive">
           <p>
             Archive “{p.summary.title}”? Its history stays readable; it will not run again. The current run, if any, finishes.
@@ -1128,6 +1132,7 @@ const COMMAND_NOTICES: Record<string, string> = {
   [CONTROL_COMMANDS.resume]: "Automation active.",
   [CONTROL_COMMANDS.run_now]: "Run requested.",
   [CONTROL_COMMANDS.stop_current]: "Stop requested.",
+  [CONTROL_COMMANDS.unarchive]: "Unarchived: it is paused until you make it active.",
 };
 
 export function AutomationPanel(props: AutomationPanelProps): React.ReactElement {

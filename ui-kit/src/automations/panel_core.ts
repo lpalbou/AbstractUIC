@@ -289,7 +289,7 @@ export function notifyLabel(notify: AutomationNotify | null | undefined): string
 
 // --- controls ---------------------------------------------------------------
 
-export type ControlId = "active" | "pause" | "resume" | "run_now" | "stop_current" | "revise" | "archive" | "discuss";
+export type ControlId = "active" | "pause" | "resume" | "run_now" | "stop_current" | "revise" | "archive" | "unarchive" | "discuss";
 export type ControlState = { enabled: boolean; reason?: string };
 export const CONTROL_COMMANDS: Record<Exclude<ControlId, "active" | "revise" | "discuss">, string> = {
   pause: "automation.pause",
@@ -297,6 +297,7 @@ export const CONTROL_COMMANDS: Record<Exclude<ControlId, "active" | "revise" | "
   run_now: "automation.run_now",
   stop_current: "automation.stop_current",
   archive: "automation.archive",
+  unarchive: "automation.unarchive",
 };
 
 const IN_PROGRESS = new Set(["running", "waiting", "backoff"]);
@@ -338,7 +339,9 @@ export function relativeIn(ts: string, nowMs: number): string {
  * (`summary.capabilities`); the status decides which of them apply now. Run
  * now stays enabled while paused (it does not resume). `busy` disables all.
  * Discuss needs the `discuss` capability and is off for legacy rows; it stays
- * available on an archived automation (its history is kept).
+ * available on an archived automation (its history is kept). Unarchive
+ * (0.7.0) applies ONLY to an archived automation and needs the `unarchive`
+ * capability; the runtime brings it back paused.
  */
 export function automationControls(
   summary: AutomationSummary,
@@ -379,6 +382,15 @@ export function automationControls(
     stop_current: gate("stop_current", running, "Nothing is running."),
     revise: gate("revise", true, ""),
     archive: gate("archive", true, ""),
+    unarchive: busy
+      ? { enabled: false, reason: "Working…" }
+      : summary.legacy
+        ? { enabled: false, reason: "Legacy schedule: managed with its existing controls." }
+        : st !== "archived"
+          ? { enabled: false, reason: "Not archived." }
+          : caps.has("unarchive")
+            ? { enabled: true }
+            : { enabled: false, reason: "Not permitted for this automation." },
     discuss: busy
       ? { enabled: false, reason: "Working…" }
       : summary.legacy

@@ -5,16 +5,19 @@
 // PDF. Markdown is rendered by the host's renderer (`renderMarkdown`, e.g.
 // panel-chat `Markdown`; panel-chat `FileViewer` wires it); without one the
 // source shows highlighted. Code is highlighted by `AfCodeBlock`, JSON is
-// pretty-printed. Header: name, size, generated date (relative, exact on
-// hover), download and close icons.
+// pretty-printed. Audio plays in the shared waveform player (AfAudioPlayer,
+// 0.7.0). Header: name, size, generated date (relative, exact on hover),
+// download and close icons.
 import React from "react";
 import { Icon } from "./icon.js";
+import { AfAudioPlayer } from "./af_audio_player.js";
 import { AfCodeBlock, codeLanguage } from "./code_highlight.js";
 import { formatExactTime, formatRelativeTime, timeValueMs } from "./relative_time.js";
 
-export type AfFileViewerKind = "markdown" | "code" | "json" | "image" | "pdf" | "text" | "binary";
+export type AfFileViewerKind = "markdown" | "code" | "json" | "image" | "audio" | "pdf" | "text" | "binary";
 
 const IMAGE_EXT = new Set("png jpg jpeg gif webp bmp ico avif".split(" "));
+const AUDIO_EXT = new Set("mp3 wav ogg oga opus m4a aac flac weba".split(" "));
 const TEXT_EXT = new Set("txt log csv tsv rst adoc org tex diff patch lock".split(" "));
 
 function extensionOf(name: string): string {
@@ -35,6 +38,7 @@ export function fileViewerKind(name: string, contentType = ""): AfFileViewerKind
   if (ext === "json" || type === "application/json" || type.endsWith("+json")) return "json";
   if (ext === "pdf" || type === "application/pdf") return "pdf";
   if (IMAGE_EXT.has(ext) || (type.startsWith("image/") && type !== "image/svg+xml")) return "image";
+  if (AUDIO_EXT.has(ext) || type.startsWith("audio/")) return "audio";
   if (codeLanguage(name)) return "code";
   if (TEXT_EXT.has(ext) || type.startsWith("text/")) return "text";
   if (["application/javascript", "application/xml", "application/x-yaml", "application/toml"].includes(type)) return "code";
@@ -78,7 +82,7 @@ export type AfFileViewerProps = {
   text?: string;
   /** Shown above a partial preview ("Showing the first 1 MiB of 3 MiB…"). */
   partialNote?: string;
-  /** Image / PDF: an object URL of the bytes. */
+  /** Image / audio / PDF: an object URL of the bytes. */
   url?: string;
   renderMarkdown?: (text: string) => React.ReactNode;
   onDownload?: () => void;
@@ -153,6 +157,8 @@ function FileBody({ kind, p }: { kind: AfFileViewerKind; p: AfFileViewerProps })
   switch (kind) {
     case "image":
       return p.url ? <img className="af-file-viewer__image" src={p.url} alt={p.name} /> : <NoPreview />;
+    case "audio":
+      return p.url ? <AfAudioPlayer src={p.url} name={p.name} /> : <NoPreview />;
     case "pdf":
       return p.url ? (
         <object className="af-file-viewer__pdf" data={p.url} type="application/pdf" aria-label={p.name}>

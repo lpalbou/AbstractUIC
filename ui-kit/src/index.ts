@@ -106,7 +106,7 @@ export {
   type AboutRow,
   type GatewayAboutPayload,
 } from "./identity.js";
-export { AfAboutDialog, type AfAboutDialogProps } from "./about.js";
+export { AfAbout, AfAboutDialog, aboutLinks, aboutVersionFacts, aboutVersionsFromGateway, type AfAboutDialogProps, type AfAboutProps, type AfAboutVersions } from "./about.js";
 export {
   AfAppearanceDialog,
   useAppearanceSettings,
@@ -382,3 +382,5 @@ export {
 } from "./af_voice_section.js";
 export { formatRelativeTime, formatExactTime, formatShortDate, timeValueMs } from "./relative_time.js";
 export { audioOutputSelectable } from "./use_gateway_voice.js";
+// ui-kit 0.7.0 (round 5): the shared waveform audio player (AfFileViewer plays audio with it).
+export { AfAudioPlayer, AUDIO_WAVEFORM_BARS, audioPeaks, audioSeekTime, formatAudioTime, type AfAudioPlayerProps } from "./af_audio_player.js";

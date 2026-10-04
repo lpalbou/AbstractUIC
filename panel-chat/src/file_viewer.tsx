@@ -2,7 +2,7 @@
 // package's `Markdown` renderer, plus the loader that reads one workspace
 // file through the host's credentialed `GatewayFetch` — bounded text for the
 // text kinds (Range request + a reader that stops at the limit), an object
-// URL for images and PDFs. Lifted from AbstractCode web's
+// URL for images, audio (the kit waveform player, 0.7.0) and PDFs. Lifted from AbstractCode web's
 // `workspace/session_files.tsx` (previewKind, readBoundedText,
 // safeMarkdownImages) so every client previews files the same way.
 import React, { useEffect, useState } from "react";
@@ -15,7 +15,7 @@ type GatewayFetch = (path: string, init?: RequestInit) => Promise<Response>;
 /** Bytes read for a text preview; larger files show their first part. */
 export const PREVIEW_TEXT_LIMIT = 1024 * 1024;
 export const PREVIEW_LIMIT_LABEL = "1 MiB";
-/** Images / PDFs larger than this are offered as a download only. */
+/** Images / audio / PDFs larger than this are offered as a download only. */
 export const PREVIEW_BLOB_LIMIT = 25 * 1024 * 1024;
 
 const contentUrl = (runId: string, path: string) =>
@@ -134,7 +134,7 @@ export type FilePreviewState =
 
 /**
  * Load one workspace file for the viewer. Text kinds: a bounded Range read.
- * Image / PDF: the bytes as an object URL (revoked when the entry changes).
+ * Image / audio / PDF: the bytes as an object URL (revoked when the entry changes).
  * Binary: nothing is read. `refreshKey` re-reads (the run wrote again).
  */
 export function useWorkspaceFilePreview(fetchGateway: GatewayFetch, runId: string, entry: FilePreviewEntry | null, refreshKey?: string | number): FilePreviewState {
@@ -151,7 +151,7 @@ export function useWorkspaceFilePreview(fetchGateway: GatewayFetch, runId: strin
       setState({ status: "ready", kind: "binary", contentType: "", partial: false });
       return;
     }
-    if ((byName === "image" || byName === "pdf") && typeof entry.size_bytes === "number" && entry.size_bytes > PREVIEW_BLOB_LIMIT) {
+    if ((byName === "image" || byName === "audio" || byName === "pdf") && typeof entry.size_bytes === "number" && entry.size_bytes > PREVIEW_BLOB_LIMIT) {
       setState({ status: "error", kind: byName, message: `Too large to preview (${formatFileSize(entry.size_bytes)}); use Download.` });
       return;
     }
@@ -179,7 +179,7 @@ export function useWorkspaceFilePreview(fetchGateway: GatewayFetch, runId: strin
           });
           return;
         }
-        if (kind === "image" || kind === "pdf") {
+        if (kind === "image" || kind === "audio" || kind === "pdf") {
           const blob = await r.blob();
           if (abort.signal.aborted) return;
           objectUrl = URL.createObjectURL(blob.type ? blob : new Blob([blob], { type: kind === "pdf" ? "application/pdf" : contentType }));

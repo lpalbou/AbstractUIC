@@ -3062,52 +3062,202 @@
   filter: brightness(1.12);
 }
 
-/* --- AfAboutDialog (reuses the .af-appearance shell) --- */
-
-.af-about__rows {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: 8px 14px;
+/* af-about:begin
+ * ABOUT (ui-kit 0.7.0): AfAbout card + AfAboutDialog (reuses the
+ * .af-appearance shell). App name + version, framework + gateway versions,
+ * one row of links, one author/licence line. No package list. Vendored
+ * verbatim by the AbstractCore console (theme_sync KIT_ABOUT_CSS). */
+.af-appearance.af-about {
+  width: min(460px, 100%);
+  gap: 0;
+  padding: 16px 18px;
+}
+.af-about-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+.af-about-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.af-about-card__name {
+  flex: 1;
+  min-width: 0;
   margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
-
-.af-about__row {
-  display: contents;
-}
-
-@container af-dialog (max-width: 479.98px) {
-  .af-about__rows {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 2px;
-  }
-
-  .af-about__value {
-    margin-bottom: 8px;
-  }
-}
-
-.af-about__label {
+.af-about-card__version {
   color: var(--text-secondary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.af-about-card__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  margin: -6px -8px -6px 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.af-about-card__close:hover {
+  background: var(--ui-surface-2, var(--bg-tertiary));
+  color: var(--text-primary);
+}
+.af-about-card__close:focus-visible,
+.af-about-card__link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.af-about-card__versions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 0;
   font-size: var(--font-size-sm);
+}
+.af-about-card__fact {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+.af-about-card__fact dt {
+  color: var(--text-secondary);
   font-weight: 600;
 }
-
-.af-about__value {
+.af-about-card__fact dd {
   margin: 0;
   min-width: 0;
   overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.af-about-card__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
   font-size: var(--font-size-sm);
 }
-
-.af-about__link {
+.af-about-card__link {
   color: var(--accent);
+  font-weight: 600;
   text-decoration: none;
+  border-radius: 3px;
 }
-
-.af-about__link:hover,
-.af-about__link:focus-visible {
+.af-about-card__link:hover {
   text-decoration: underline;
 }
+.af-about-card__legal {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+}
+/* af-about:end */
+
+/* af-audio:begin
+ * AUDIO PLAYER (ui-kit 0.7.0): AfAudioPlayer, the shared waveform player
+ * (AfFileViewer audio kind, panel-chat media, AbstractFlow artifacts). */
+.af-audio {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  width: min(100%, 640px);
+  padding: 6px 10px 6px 6px;
+  border: 1px solid var(--ui-border-1);
+  border-radius: var(--radius-md);
+  background: var(--ui-surface-1, var(--bg-secondary));
+}
+.af-audio audio {
+  display: none;
+}
+.af-audio__play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg-primary);
+  cursor: pointer;
+}
+.af-audio__play:hover {
+  filter: brightness(1.1);
+}
+.af-audio__play:focus-visible,
+.af-audio__wave:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.af-audio__wave {
+  height: 36px;
+  min-width: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  touch-action: none;
+}
+.af-audio__wave svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.af-audio__bar {
+  fill: var(--text-muted);
+  opacity: 0.55;
+}
+.af-audio__bar--played {
+  fill: var(--accent);
+  opacity: 1;
+}
+.af-audio__time {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.af-audio__error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--error, #ef4444);
+  font-size: var(--font-size-sm);
+}
+@media (pointer: coarse) {
+  .af-audio__play {
+    width: var(--tap-min, 44px);
+    height: var(--tap-min, 44px);
+  }
+  .af-audio__wave {
+    height: var(--tap-min, 44px);
+  }
+}
+@container (max-width: 359.98px) {
+  .af-audio {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .af-audio__time {
+    grid-column: 2;
+  }
+}
+/* af-audio:end */
 
 /* ---------------------------------------------------------------------
  * Kit-wide interaction polish (design adversaries A+B, 2026-07-13)
@@ -4250,17 +4400,26 @@ html {
    * secondary (--font-size-sm). */
   .af-critical__consequence,
   .af-critical__fallback,
-  .af-about__link {
+  .af-about-card__link {
     font-size: var(--font-size-body);
   }
 
   /* Link-styled buttons and the About dialog's links are the dialog's main
    * actions on a phone: full 44px rows, not inline text links. */
   .af-auto__linkbtn,
-  .af-about__link {
+  .af-about-card__link {
     display: inline-flex;
     align-items: center;
     min-height: var(--tap-min);
+  }
+
+  .af-about-card__links {
+    gap: 0 18px;
+  }
+
+  .af-about-card__close {
+    width: var(--tap-min);
+    height: var(--tap-min);
   }
 
   .af-auto input:not([type="radio"]):not([type="checkbox"]),

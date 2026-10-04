@@ -1,28 +1,93 @@
-// AfAboutDialog — the one About dialog every AbstractFramework web app shows.
+// AfAbout / AfAboutDialog — the one About every AbstractFramework web app and
+// console shows (compact card, ui-kit 0.7.0).
 //
-// The rows come from `aboutRows` (identity.ts), which mirrors the Python
-// `abstractcore.utils.identity.about_fields`, so the web apps, the desktop
-// assistant and the terminal UIs all state the same facts in the same order.
-// Same dialog shell as AfAppearanceDialog (overlay, Escape closes, click
-// outside closes), themed through the kit tokens in theme.css. It is a true
-// modal: Tab / Shift+Tab cycle inside the dialog (aria-modal contract).
+// Content rule (operator, round 5): the app's name and version, the
+// framework version, the gateway version, the links (website, source, docs,
+// issues, feedback, contact) and ONE author/licence line. Never a package
+// list: per-package versions belong to the gateway's own diagnostics, not to
+// About. Same dialog shell as AfAppearanceDialog (overlay, Escape closes,
+// click outside closes); a true modal (Tab / Shift+Tab cycle inside).
 import React, { useEffect, useId, useRef } from "react";
-import { aboutRows, type AppIdentity } from "./identity.js";
+import { frameworkIdentity, type AppIdentity, type GatewayAboutPayload } from "./identity.js";
+import { Icon } from "./icon.js";
 
-export type AfAboutDialogProps = {
-  open: boolean;
-  onClose: () => void;
+/**
+ * The two versions About states besides the app's own. `null`/missing = not
+ * known; `gatewayNote` says why the gateway version is missing (e.g.
+ * "unavailable (HTTP 503)"). The kit never fetches: the app passes what it
+ * knows, typically from `aboutVersionsFromGateway(GET /api/gateway/about)`.
+ */
+export type AfAboutVersions = {
+  /** The AbstractFramework version (installed on the gateway host for web apps). */
+  framework?: string | null;
+  /** The AbstractGateway version the app talks to (or serves). */
+  gateway?: string | null;
+  /** Why `gateway` is missing; shown instead of "not connected". */
+  gatewayNote?: string;
+};
+
+export type AfAboutProps = {
   /** From `appIdentity(id, version)`. */
   identity: AppIdentity;
-  /**
-   * App-specific rows appended after the standard ones, e.g. the versions the
-   * connected gateway reports (`GET /api/gateway/about`). The kit never fetches
-   * versions itself: the app passes what it knows.
-   */
-  extraRows?: ReadonlyArray<readonly [string, string]>;
-  /** Defaults to "About <app name>". */
-  title?: string;
+  versions?: AfAboutVersions;
+  /** id of the heading (the dialog's aria-labelledby). */
+  titleId?: string;
+  /** Rendered in the heading row, at the end (the dialog's Close button). */
+  action?: React.ReactNode;
+  className?: string;
 };
+
+export type AfAboutDialogProps = Omit<AfAboutProps, "titleId" | "action" | "className"> & {
+  open: boolean;
+  onClose: () => void;
+};
+
+function versionOf(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * About versions from the body of `GET /api/gateway/about` (or, when the
+ * request failed, `null` + the reason). Only the framework and gateway
+ * versions are taken: the payload's per-package list is deliberately unused.
+ */
+export function aboutVersionsFromGateway(payload: GatewayAboutPayload | null, error?: string): AfAboutVersions {
+  if (error !== undefined && error !== null) {
+    return { framework: null, gateway: null, gatewayNote: `unavailable (${String(error).trim() || "unknown error"})` };
+  }
+  const raw = (payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {}) as Record<string, unknown>;
+  const gateway = versionOf(raw.abstractgateway);
+  const framework = versionOf(raw.abstractframework);
+  return {
+    framework: framework || null,
+    gateway: gateway || null,
+    ...(gateway ? {} : { gatewayNote: "unavailable (the gateway did not report its version)" }),
+  };
+}
+
+/** The ordered links of an About card (exported for the kit checks). */
+export function aboutLinks(identity: AppIdentity): Array<{ id: string; label: string; href: string; title: string }> {
+  const fw = frameworkIdentity();
+  return [
+    { id: "website", label: "Website", href: identity.website, title: identity.website },
+    { id: "source", label: "Source", href: identity.repo, title: identity.repo },
+    { id: "docs", label: "Docs", href: identity.docs, title: identity.docs },
+    { id: "issues", label: "Issues", href: identity.issues, title: identity.issues },
+    { id: "feedback", label: "Feedback", href: identity.feedback, title: identity.feedback },
+    { id: "contact", label: "Contact", href: `mailto:${fw.contact_email}`, title: fw.contact_email },
+  ];
+}
+
+/** The two version facts as `[label, text]` (exported for the kit checks). */
+export function aboutVersionFacts(versions: AfAboutVersions | undefined): Array<[string, string]> {
+  const v = versions || {};
+  const framework = versionOf(v.framework);
+  const gateway = versionOf(v.gateway);
+  return [
+    ["AbstractFramework", framework || "not reported"],
+    ["AbstractGateway", gateway || (versionOf(v.gatewayNote) || "not connected")],
+  ];
+}
 
 const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
@@ -68,23 +133,40 @@ export function aboutValueParts(label: string, value: string): Array<{ text: str
   return parts;
 }
 
-function RowValue({ label, value }: { label: string; value: string }): React.ReactElement {
+/** The About card (inline; AfAboutDialog wraps it in a modal). */
+export function AfAbout(p: AfAboutProps): React.ReactElement {
+  const fw = frameworkIdentity();
   return (
-    <span>
-      {aboutValueParts(label, value).map((part, i) =>
-        part.href === undefined ? (
-          <React.Fragment key={i}>{part.text}</React.Fragment>
-        ) : part.href.startsWith("mailto:") ? (
-          <a key={i} className="af-about__link" href={part.href}>
-            {part.text}
-          </a>
-        ) : (
-          <a key={i} className="af-about__link" href={part.href} target="_blank" rel="noopener noreferrer">
-            {part.text}
-          </a>
-        ),
-      )}
-    </span>
+    <div className={`af-about-card${p.className ? ` ${p.className}` : ""}`} data-app={p.identity.id}>
+      <div className="af-about-card__head">
+        <h2 className="af-about-card__name" id={p.titleId}>
+          {p.identity.name} <span className="af-about-card__version">{p.identity.version}</span>
+        </h2>
+        {p.action}
+      </div>
+      <dl className="af-about-card__versions">
+        {aboutVersionFacts(p.versions).map(([label, text]) => (
+          <div className="af-about-card__fact" key={label}>
+            <dt>{label}</dt>
+            <dd>{text}</dd>
+          </div>
+        ))}
+      </dl>
+      <nav className="af-about-card__links" aria-label={`${p.identity.name} links`}>
+        {aboutLinks(p.identity).map((link) =>
+          link.href.startsWith("mailto:") ? (
+            <a key={link.id} className="af-about-card__link" data-link={link.id} href={link.href} title={link.title}>
+              {link.label}
+            </a>
+          ) : (
+            <a key={link.id} className="af-about-card__link" data-link={link.id} href={link.href} title={link.title} target="_blank" rel="noopener noreferrer">
+              {link.label}
+            </a>
+          ),
+        )}
+      </nav>
+      <p className="af-about-card__legal">{fw.copyright}</p>
+    </div>
   );
 }
 
@@ -122,9 +204,6 @@ export function AfAboutDialog(props: AfAboutDialogProps): React.ReactElement | n
 
   if (!props.open) return null;
 
-  const title = props.title || `About ${props.identity.name}`;
-  const rows = aboutRows(props.identity, props.extraRows);
-
   return (
     <div className="af-appearance-overlay af-about-overlay" onClick={props.onClose} role="presentation">
       <div
@@ -135,24 +214,16 @@ export function AfAboutDialog(props: AfAboutDialogProps): React.ReactElement | n
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="af-appearance__title" id={titleId}>
-          {title}
-        </div>
-        <dl className="af-about__rows">
-          {rows.map(([label, value], i) => (
-            <div className="af-about__row" key={`${i}:${label}`}>
-              <dt className="af-about__label">{label}</dt>
-              <dd className="af-about__value">
-                <RowValue label={label} value={value} />
-              </dd>
-            </div>
-          ))}
-        </dl>
-        <div className="af-appearance__actions">
-          <button ref={closeRef} type="button" className="af-appearance__close" onClick={props.onClose}>
-            Close
-          </button>
-        </div>
+        <AfAbout
+          identity={props.identity}
+          versions={props.versions}
+          titleId={titleId}
+          action={
+            <button ref={closeRef} type="button" className="af-about-card__close" data-action="close-about" onClick={props.onClose} aria-label="Close" title="Close">
+              <Icon name="x" size={16} />
+            </button>
+          }
+        />
       </div>
     </div>
   );

@@ -7,8 +7,9 @@
  *   from the descriptor, for EVERY app id — the same rows, labels and order
  *   as the Python `abstractcore.utils.identity.about_fields`.
  * - An unknown id throws (callers must not invent identity facts).
- * - AfAboutDialog renders every row; URLs are links opening in a new tab with
- *   rel=noopener; the e-mail is a mailto link; extra rows follow in order.
+ * - AfAbout / AfAboutDialog (0.7.0 compact card): name + version, framework
+ *   and gateway versions, six links (new tab + noopener; contact = mailto),
+ *   one author/licence line, and NO package list (red on removal).
  * - AfTopBarActions renders the About button only when `about` is given.
  *
  * renderToStaticMarkup over the compiled dist (no jsdom), like
@@ -137,49 +138,71 @@ for (const bad of ["abstractnope", "", "toString", "__proto__", "AbstractFlow"])
   check("trap: other keys ignored", !e.prevented);
 }
 
-// --- AfAboutDialog -------------------------------------------------------------
+// --- AfAbout / AfAboutDialog (0.7.0 compact card; content rule) ----------------
+// Rule (operator, round 5): app name + version, framework version, gateway
+// version, links website/source/docs/issues/feedback/contact, ONE
+// author/licence line, and NEVER a package list.
 const noop = () => {};
+const { AfAbout, aboutLinks, aboutVersionFacts, aboutVersionsFromGateway } = kit;
+for (const [name, fn] of Object.entries({ AfAbout, aboutLinks, aboutVersionFacts, aboutVersionsFromGateway })) check(`export ${name}`, typeof fn === "function", typeof fn);
 const dialog = (props) => renderToStaticMarkup(React.createElement(AfAboutDialog, { open: true, onClose: noop, ...props }));
+const fullPayload = {
+  abstractgateway: "0.12.0",
+  abstractframework: "0.9.6",
+  packages: { abstractruntime: "0.8.4", abstractcore: "2.23.1", abstractvoice: "0.9.0", abstractgateway: "0.12.0" },
+};
 for (const id of appIds) {
   const ident = appIdentity(id, "1.2.3");
-  const html = dialog({ identity: ident, extraRows: [["Gateway", "0.4.3"]] });
+  const app = descriptor.apps[id];
+  const html = dialog({ identity: ident, versions: aboutVersionsFromGateway(fullPayload) });
   check(`${id}: dialog role`, html.includes('role="dialog"') && html.includes('aria-modal="true"'));
   const labelledBy = (html.match(/aria-labelledby="([^"]+)"/) || [])[1];
-  check(`${id}: aria-labelledby points at the title`, !!labelledBy && html.includes(`id="${labelledBy}">About ${esc(ident.name)}<`), labelledBy);
-  check(`${id}: dialog title`, html.includes(`About ${esc(ident.name)}`));
-  for (const [label, value] of aboutRows(ident, [["Gateway", "0.4.3"]])) {
-    check(`${id}: row label ${label}`, html.includes(`>${esc(label)}</dt>`), label);
-    if (value.startsWith("https://")) {
-      check(`${id}: link ${label}`, html.includes(`href="${esc(value)}" target="_blank" rel="noopener noreferrer">${esc(value)}</a>`), value);
-    } else if (label === "Part of") {
-      check(`${id}: Part of = text + framework link`, html.includes(`<dd class="af-about__value"><span>${esc(fw.name)} — <a class="af-about__link" href="${esc(fw.website)}" target="_blank" rel="noopener noreferrer">${esc(fw.website)}</a></span></dd>`), value);
-    } else if (label === "Contact") {
-      check(`${id}: mailto`, html.includes(`href="mailto:${esc(value)}">${esc(value)}</a>`), value);
-    } else {
-      check(`${id}: text ${label}`, html.includes(`<span>${esc(value)}</span>`), value);
-    }
+  check(`${id}: aria-labelledby = the name heading`, !!labelledBy && html.includes(`id="${labelledBy}">${esc(ident.name)} <span class="af-about-card__version">1.2.3</span></h2>`), labelledBy);
+  check(`${id}: framework version`, html.includes("<dt>AbstractFramework</dt><dd>0.9.6</dd>"));
+  check(`${id}: gateway version`, html.includes("<dt>AbstractGateway</dt><dd>0.12.0</dd>"));
+  for (const [linkId, label, href] of [["website", "Website", app.website], ["source", "Source", app.repo], ["docs", "Docs", app.docs], ["issues", "Issues", app.issues], ["feedback", "Feedback", app.feedback]]) {
+    check(`${id}: link ${label}`, html.includes(`data-link="${linkId}" href="${esc(href)}" title="${esc(href)}" target="_blank" rel="noopener noreferrer">${label}</a>`), href);
   }
-  const labels = [...html.matchAll(/<dt class="af-about__label">([^<]*)<\/dt>/g)].map((m) => m[1]);
-  check(`${id}: row order`, eq(labels, aboutRows(ident, [["Gateway", "0.4.3"]]).map(([l]) => esc(l))), JSON.stringify(labels));
+  check(`${id}: contact mailto`, html.includes(`data-link="contact" href="mailto:${esc(fw.contact_email)}" title="${esc(fw.contact_email)}">Contact</a>`));
+  check(`${id}: exactly one mailto`, (html.match(/href="mailto:/g) || []).length === 1);
+  check(`${id}: link order`, eq([...html.matchAll(/data-link="([a-z]+)"/g)].map((m) => m[1]), ["website", "source", "docs", "issues", "feedback", "contact"]));
+  check(`${id}: author/licence line`, html.includes(`<p class="af-about-card__legal">${esc(fw.copyright)}</p>`));
+  // NO package list: none of the payload's other packages, no version rows table.
+  for (const pkg of ["abstractruntime", "abstractvoice", "0.8.4", "2.23.1", "0.9.0"]) check(`${id}: no package list (${pkg})`, !html.includes(pkg), pkg);
+  check(`${id}: no rows table`, !html.includes("af-about__rows") && !html.includes("Gateway package"));
+  check(`${id}: close button in the heading row`, html.includes('data-action="close-about"') && html.includes('aria-label="Close"'));
 }
-// Value rendering (mirrors Python about_html/_render_value): mailto ONLY for
-// Contact; every http(s) URL inside any other value is a link.
+// Compactness: the card is a fixed small set of elements (≤ half the old
+// 10-row dialog): one heading, two facts, one link row, one legal line.
+{
+  const html = renderToStaticMarkup(React.createElement(AfAbout, { identity: appIdentity("abstractflow", "1"), versions: { framework: "0.9.6", gateway: "0.12.0" } }));
+  check("card: two facts only", (html.match(/<dt>/g) || []).length === 2, html);
+  check("card: one link row", (html.match(/class="af-about-card__links"/g) || []).length === 1);
+  check("card: one legal line", (html.match(/class="af-about-card__legal"/g) || []).length === 1);
+  check("card: no extraRows prop honoured", !renderToStaticMarkup(React.createElement(AfAbout, { identity: appIdentity("abstractflow", "1"), extraRows: [["Gateway package x", "9"]] })).includes("Gateway package"));
+}
+// Versions: missing / failed gateway is said, never empty.
+{
+  check("versions: full payload", eq(aboutVersionsFromGateway(fullPayload), { framework: "0.9.6", gateway: "0.12.0" }));
+  check("versions: error wins", eq(aboutVersionsFromGateway(fullPayload, "HTTP 503"), { framework: null, gateway: null, gatewayNote: "unavailable (HTTP 503)" }));
+  check("versions: empty error text", aboutVersionsFromGateway(null, " ").gatewayNote === "unavailable (unknown error)");
+  check("versions: no gateway version", eq(aboutVersionsFromGateway({ abstractframework: "0.9.6" }), { framework: "0.9.6", gateway: null, gatewayNote: "unavailable (the gateway did not report its version)" }));
+  check("versions: non-string ignored", eq(aboutVersionsFromGateway({ abstractgateway: 3, abstractframework: true }), { framework: null, gateway: null, gatewayNote: "unavailable (the gateway did not report its version)" }));
+  check("facts: defaults", eq(aboutVersionFacts(undefined), [["AbstractFramework", "not reported"], ["AbstractGateway", "not connected"]]));
+  check("facts: note", eq(aboutVersionFacts({ gatewayNote: "unavailable (HTTP 503)" })[1], ["AbstractGateway", "unavailable (HTTP 503)"]));
+  const html = dialog({ identity: appIdentity("abstractobserver", "1"), versions: aboutVersionsFromGateway(null, "HTTP 401") });
+  check("dialog: failed gateway shown", html.includes("<dd>unavailable (HTTP 401)</dd>") && html.includes("<dd>not reported</dd>"));
+  check("links: contact last", aboutLinks(appIdentity("abstractflow", "1")).at(-1).href === `mailto:${fw.contact_email}`);
+}
+// aboutValueParts stays (pure helper; the Python about_html twin).
 {
   const ref = "basic-agent@0.1.0:main";
-  const html = dialog({ identity: appIdentity("abstractflow", "1"), extraRows: [["Default workflow", ref], ["Note", "see https://a.example/x?y=1 and http://b.example now"], ["Mail-like", "someone@example.com"]] });
-  check("package ref with @ is plain text", html.includes(`<span>${esc(ref)}</span>`) && !html.includes(`mailto:${ref}`));
-  check("e-mail-looking extra row is NOT a mailto", html.includes("<span>someone@example.com</span>") && !html.includes("mailto:someone@example.com"));
-  check("exactly one mailto (Contact)", (html.match(/href="mailto:/g) || []).length === 1);
-  check("URLs inside text become links, text kept", html.includes('<span>see <a class="af-about__link" href="https://a.example/x?y=1" target="_blank" rel="noopener noreferrer">https://a.example/x?y=1</a> and <a class="af-about__link" href="http://b.example" target="_blank" rel="noopener noreferrer">http://b.example</a> now</span>'), html);
-  check("every non-mailto link opens in a new tab with noopener", [...html.matchAll(/<a [^>]*>/g)].every(([a]) => a.includes('href="mailto:') || (a.includes('target="_blank"') && a.includes('rel="noopener noreferrer"'))));
   check("parts: plain", eq(aboutValueParts("X", ref), [{ text: ref }]));
   check("parts: empty value", eq(aboutValueParts("X", ""), [{ text: "" }]));
   check("parts: Contact", eq(aboutValueParts("Contact", "contact@abstractframework.ai"), [{ text: "contact@abstractframework.ai", href: "mailto:contact@abstractframework.ai" }]));
-  check("parts: Part of", eq(aboutValueParts("Part of", "AbstractFramework — https://abstractframework.ai"), [{ text: "AbstractFramework — " }, { text: "https://abstractframework.ai", href: "https://abstractframework.ai" }]));
   check("parts: URL stops at quote/angle", eq(aboutValueParts("X", 'a https://x.y/"b'), [{ text: "a " }, { text: "https://x.y/", href: "https://x.y/" }, { text: '"b' }]));
 }
 check("dialog closed renders nothing", renderToStaticMarkup(React.createElement(AfAboutDialog, { open: false, onClose: noop, identity: appIdentity("abstractflow", "1") })) === "");
-check("dialog custom title", dialog({ identity: appIdentity("abstractflow", "1"), title: "About this app" }).includes("About this app"));
 
 // --- AfTopBarActions about slot -------------------------------------------------
 const connection = { phase: "connected", onConnect: noop, onDisconnect: noop };
@@ -194,7 +217,8 @@ check("top bar: no about without prop", !bar({}).includes("af-topbar__btn--about
 
 // --- CSS for the dialog ships in theme.css ------------------------------------
 const css = readFileSync(join(here, "..", "src", "theme.css"), "utf8");
-for (const cls of [".af-about__rows", ".af-about__label", ".af-about__value", ".af-about__link"]) check(`css ${cls}`, css.includes(`${cls} {`) || css.includes(`${cls},`));
+for (const cls of [".af-about-card", ".af-about-card__head", ".af-about-card__versions", ".af-about-card__links", ".af-about-card__link", ".af-about-card__legal", ".af-about-card__close"]) check(`css ${cls}`, css.includes(`${cls} {`) || css.includes(`${cls},`));
+check("css: about block markers (vendored by the AbstractCore console)", css.includes("/* af-about:begin") && css.includes("/* af-about:end */"));
 
 if (failures) {
   console.error(`check_about: ${failures}/${checks} FAILED`);

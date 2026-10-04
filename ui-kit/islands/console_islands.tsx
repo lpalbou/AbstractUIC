@@ -15,7 +15,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { AfTopBarActions } from "../src/af_top_bar_actions.js";
 import { AfAppearanceDialog, type AppearanceSettings } from "../src/appearance.js";
-import { AfAboutDialog } from "../src/about.js";
+import { AfAboutDialog, aboutVersionsFromGateway, type AfAboutVersions } from "../src/about.js";
 import { appIdentity, type AppIdentity } from "../src/identity.js";
 import { Icon, type IconName } from "../src/icon.js";
 import { bindAfModal } from "../src/af_modal_core.js";
@@ -34,8 +34,11 @@ import type { ChatMessage } from "../../panel-chat/src/chat_message_card.js";
 declare const __KIT_VERSION__: string;
 
 // Changes only when the island API changes INCOMPATIBLY (docs/console-islands.md
-// "Versioning"). Additive members (mountAbout, appIdentity: kit 0.1.12) keep "1".
-export const ISLANDS_API_VERSION = "1";
+// "Versioning"). Additive members (mountAbout, appIdentity: kit 0.1.12) keep the
+// version; "2" (kit 0.7.0): the About props take `versions` (framework +
+// gateway) instead of `extraRows` — a host still passing rows would silently
+// lose them, so this is incompatible.
+export const ISLANDS_API_VERSION = "2";
 
 export type IslandExtraAction = {
   id: string;
@@ -52,7 +55,7 @@ export type TopBarIslandProps = {
   assistant?: { open: boolean; onToggle: () => void; label?: string } | null;
   appearance?: { onOpen: () => void; label?: string } | null;
   /** The About button + dialog, owned by the cluster (omit/null hides it). */
-  about?: { identity: AppIdentity; extraRows?: Array<[string, string]>; onOpen?: () => void; label?: string } | null;
+  about?: { identity: AppIdentity; versions?: AfAboutVersions; onOpen?: () => void; label?: string } | null;
   extras?: IslandExtraAction[];
   connection: {
     phase: GatewayConnectionPhase;
@@ -76,9 +79,8 @@ export type AboutIslandProps = {
   onClose: () => void;
   /** From `AfConsoleIslands.appIdentity("abstractgateway", version)`. */
   identity: AppIdentity;
-  /** App-specific rows, e.g. `[["abstractgateway", "0.4.3"]]` from `GET /about`. */
-  extraRows?: Array<[string, string]>;
-  title?: string;
+  /** Framework + gateway versions (kit 0.7.0 compact About; no package list). */
+  versions?: AfAboutVersions;
 };
 
 /** A composer attachment chip (the host uploads; the island only shows state). */
@@ -395,6 +397,7 @@ const api = {
   bindModal,
   bindMenu,
   appIdentity,
+  aboutVersionsFromGateway,
   applyAppearance,
 };
 

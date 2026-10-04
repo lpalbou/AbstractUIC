@@ -899,7 +899,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 {
   const { CONTROL_HINTS, CONTROL_LABELS, CONTROL_ICONS, RUN_NOW_GLYPH, RUN_NOW_ONE_LINE, RUN_NOW_NEXT_RUN_LINE, RUN_NOW_GROWING_LINE, controlHint, Icon } = kit;
   const spec = JSON.parse(readFileSync(join(here, "..", "src", "automations", "automation_controls.json"), "utf8"));
-  const ids = ["active", "pause", "resume", "run_now", "stop_current", "revise", "archive", "discuss"];
+  const ids = ["active", "pause", "resume", "run_now", "stop_current", "revise", "archive", "unarchive", "discuss"];
   check("hints: exported", typeof controlHint === "function" && CONTROL_HINTS && RUN_NOW_GLYPH && typeof RUN_NOW_ONE_LINE === "string");
   check("hints: one per control, no more", eq(Object.keys(CONTROL_HINTS).sort(), [...ids].sort()) && eq(Object.keys(CONTROL_LABELS).sort(), [...ids].sort()));
   check("hints/labels/lines ARE the canonical automation_controls.json", eq(CONTROL_HINTS, spec.hints) && eq(CONTROL_LABELS, spec.labels) && RUN_NOW_ONE_LINE === spec.run_now_one_line && RUN_NOW_NEXT_RUN_LINE === spec.run_now_next_run_line && RUN_NOW_GROWING_LINE === spec.run_now_growing_line);

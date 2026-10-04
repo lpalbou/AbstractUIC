@@ -90,12 +90,12 @@ for (const rule of coarse.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
 const coarse_has = (sel, decl) => [...coarse.matchAll(/([^{}]+)\{([^{}]*)\}/g)].some((r) => r[1].split(",").map((x) => x.trim()).includes(sel) && decl.test(r[2]));
 if (!coarse_has(".af-select--panel .af-select-trigger", /min-height:\s*var\(--control-h\)/)) fail("coarse: .af-select--panel .af-select-trigger must use --control-h");
 if (!coarse_has(".af-chip--button::after", /width:\s*max\(100%,\s*var\(--tap-min\)\)/)) fail("coarse: interactive chips need a 44px ::after hit area");
-for (const sel of [".af-about__link", ".af-gateway-signin__checkbox", ".af-email__check", ".af-auto__linkbtn", ".af-topbar__pill"]) {
+for (const sel of [".af-about-card__link", ".af-gateway-signin__checkbox", ".af-email__check", ".af-auto__linkbtn", ".af-topbar__pill"]) {
   if (!coarse_has(sel, /min-height:\s*var\(--tap-min\)/)) fail(`coarse: ${sel} must reach --tap-min`);
 }
 
 // G. primary reading text in kit surfaces opts into --font-size-body on touch.
-for (const sel of [".af-auto", ".af-critical__consequence", ".af-critical__fallback", ".af-about__link"]) {
+for (const sel of [".af-auto", ".af-critical__consequence", ".af-critical__fallback", ".af-about-card__link"]) {
   if (!coarse_has(sel, /font-size:\s*var\(--font-size-body\)/)) fail(`coarse: ${sel} must use --font-size-body (primary reading text, docs/responsive.md)`);
 }
 

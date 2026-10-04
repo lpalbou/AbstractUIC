@@ -199,7 +199,8 @@ export type AutomationCommandType =
   | "automation.resume"
   | "automation.run_now"
   | "automation.stop_current"
-  | "automation.archive";
+  | "automation.archive"
+  | "automation.unarchive";
 
 /** Where an automation's attention items are delivered (definition v2; default `["console"]`). */
 export type NotifyChannel = "console" | "email";

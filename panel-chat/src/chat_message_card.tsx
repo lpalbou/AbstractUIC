@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import { Icon, type IconName } from "@abstractframework/ui-kit";
+import { AfAudioPlayer, Icon, type IconName } from "@abstractframework/ui-kit";
 
 import { ChatMessageContent } from "./message_content.js";
 import type { MarkdownImages } from "./markdown.js";
@@ -158,7 +158,7 @@ function ChatMediaItem({ item }: { item: ChatMedia }): React.ReactElement | null
     <figure className={`pc-chat-media__item pc-chat-media__item--${kind}`}>
       {src && kind === "image" ? <img className="pc-chat-media__image" src={src} alt={label} loading="lazy" onError={onError} /> : null}
       {src && kind === "video" ? <video className="pc-chat-media__video" src={src} controls playsInline preload="metadata" aria-label={label} onError={onError} /> : null}
-      {src && kind === "audio" ? <audio className="pc-chat-media__audio" src={src} controls preload="metadata" aria-label={label} onError={onError} /> : null}
+      {src && kind === "audio" ? <AfAudioPlayer className="pc-chat-media__audio" src={src} name={label} /> : null}
       {failed ? (
         <div className="pc-chat-media__error" role="note">
           {noun} could not be decoded by this browser{href ? "; open the raw file with the link." : "."}

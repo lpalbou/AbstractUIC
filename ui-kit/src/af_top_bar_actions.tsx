@@ -7,7 +7,7 @@
 // (a boolean flashes "Connect" over a live session during the boot probe;
 // code/web's hosted token exchange made this load-bearing, c1645).
 import React, { useState } from "react";
-import { AfAboutDialog } from "./about.js";
+import { AfAboutDialog, type AfAboutVersions } from "./about.js";
 import { Icon } from "./icon.js";
 import type { AppIdentity } from "./identity.js";
 import type { GatewayConnectionPhase } from "./use_gateway_connection.js";
@@ -27,13 +27,13 @@ export type AfTopBarActionsProps = {
   /**
    * Omit to hide the About button. With it, the cluster renders an "About"
    * button that opens the shared AfAboutDialog (the cluster owns the open
-   * state). `extraRows` are app-specific rows such as gateway versions (the
-   * kit never fetches them); `onOpen` fires each time the dialog opens, e.g.
-   * to refresh those versions.
+   * state). `versions` = the framework and gateway versions (the kit never
+   * fetches them; see `aboutVersionsFromGateway`); `onOpen` fires each time
+   * the dialog opens, e.g. to refresh those versions.
    */
   about?: {
     identity: AppIdentity;
-    extraRows?: ReadonlyArray<readonly [string, string]>;
+    versions?: AfAboutVersions;
     onOpen?: () => void;
     label?: string;
   };
@@ -130,7 +130,7 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
           open={aboutOpen}
           onClose={() => setAboutOpen(false)}
           identity={about.identity}
-          extraRows={about.extraRows}
+          versions={about.versions}
         />
       ) : null}
     </div>

@@ -28,7 +28,7 @@ const media = card({
 });
 check("image renders inline from the host src", media.includes('<img class="pc-chat-media__image" src="blob:http://x/1" alt="Generated image"'), media);
 check("raw-file link beside the image", media.includes('href="/api/gateway/runs/r/artifacts/a/content"') && media.includes('target="_blank"'));
-check("audio renders with controls", /<audio class="pc-chat-media__audio" src="blob:http:\/\/x\/2" controls=""/.test(media), media);
+check("audio renders in the kit waveform player (ui-kit 0.7.0)", /<div class="af-audio pc-chat-media__audio"[^>]*><audio src="blob:http:\/\/x\/2"/.test(media) && media.includes('data-action="play-audio"') && media.includes('role="slider"'), media.slice(0, 400));
 check("video renders with controls", /<video class="pc-chat-media__video" src="blob:http:\/\/x\/3" controls=""/.test(media), media);
 check("javascript: sources are never rendered", !media.includes("javascript:"));
 check("unknown media kinds are not rendered", !media.includes("x/4"));

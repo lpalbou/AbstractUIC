@@ -21,7 +21,7 @@ const api = sandbox.AfConsoleIslands;
 const fail = (msg) => { console.error(`check_islands: ${msg}`); process.exit(1); };
 if (!api) fail("bundle did not define AfConsoleIslands");
 for (const fn of ["mountTopBar", "mountAppearance", "mountAbout", "mountSandboxChat", "mountProviderModelPicker", "mountVoiceSettings", "bindModal", "bindMenu", "appIdentity", "applyAppearance"]) if (typeof api[fn] !== "function") fail(`missing ${fn}()`);
-if (api.apiVersion !== "1") fail(`apiVersion ${api.apiVersion} (expected "1")`);
+if (api.apiVersion !== "2") fail(`apiVersion ${api.apiVersion} (expected "2")`);
 if (api.kitVersion !== pkg.version) fail(`kitVersion ${api.kitVersion} != package ${pkg.version}`);
 const gw = api.appIdentity("abstractgateway", "0.0.1");
 if (gw.name !== "AbstractGateway" || gw.version !== "0.0.1" || !gw.repo.startsWith("https://")) fail(`appIdentity("abstractgateway") = ${JSON.stringify(gw)}`);
