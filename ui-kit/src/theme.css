@@ -6228,93 +6228,170 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 .af-pmp__details > span { display: block; color: var(--text-muted); font-size: var(--font-size-xs); overflow-wrap: anywhere; }
 /* af-settings:end */
 
-/* af-workspace:begin — WorkspaceChooser (0.8.1, round 9): shared workspace always on, allowed folders as switches, My folders rows. */
-.af-workspace__effective {
-  margin: 2px 0 4px;
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  overflow-wrap: anywhere;
-}
-.af-workspace__path {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-  overflow-wrap: anywhere;
-  word-break: break-all;
-}
-.af-workspace__shared {
+/* af-workspace:begin — WorkspaceChooser (0.8.2, round 11): one chooser, four levels (gateway | account | session | run). */
+.af-workspace__body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px 0 8px;
+  gap: 8px;
   min-width: 0;
 }
-.af-workspace__shared-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.af-workspace__shared-name {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.af-workspace__shared > .af-workspace__note {
+.af-workspace__gateway {
   margin: 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--info, var(--accent));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--info, var(--accent)) 8%, transparent);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
-.af-workspace__always {
+.af-workspace__follow {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.af-workspace__posture {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+.af-workspace__badge {
   display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
+  max-width: 100%;
+  padding: 2px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
   color: var(--text-primary);
   font-size: var(--font-size-xs);
-  font-weight: 600;
-  white-space: nowrap;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.af-workspace__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.af-workspace__list > li + li {
+  border-top: 1px solid color-mix(in srgb, var(--ui-border-1) 70%, transparent);
+}
+.af-workspace__list > .af-workspace__caption {
+  padding: 10px 0 4px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.af-workspace__list > .af-workspace__caption + li {
+  border-top: 0;
 }
 .af-workspace__row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 2px 8px;
-  min-width: 0;
-  border-top: 1px solid color-mix(in srgb, var(--ui-border-1) 70%, transparent);
-}
-.af-settings-group__rows > .af-workspace__row:first-child {
-  border-top: 0;
-}
-.af-workspace__row > .af-switch {
-  flex: 1 1 100%;
-  min-width: 0;
-}
-.af-workspace__own {
+  justify-content: space-between;
+  gap: 4px 10px;
   padding: 6px 0;
-  flex-wrap: nowrap;
-}
-.af-workspace__own-text {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
   min-width: 0;
 }
-.af-workspace__own-name {
+.af-workspace__path {
+  flex: 1 1 180px;
+  min-width: 0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+.af-workspace__name {
+  flex: 1 1 180px;
+  min-width: 0;
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--text-primary);
 }
-.af-workspace__own > .af-workspace__refusal,
-.af-workspace__own > .af-workspace__saved {
+.af-workspace__controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+.af-workspace__row > .af-workspace__refusal,
+.af-workspace__row > .af-workspace__saved,
+.af-workspace__posture > .af-workspace__refusal,
+.af-workspace__posture > .af-workspace__saved {
   flex-basis: 100%;
+}
+.af-workspace__access {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  max-width: 100%;
+}
+.af-workspace__access-btn {
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid var(--ui-border-1);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+.af-workspace__access-btn + .af-workspace__access-btn {
+  border-left: 0;
+}
+.af-workspace__access-btn:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+.af-workspace__access-btn:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.af-workspace__access-btn[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.af-workspace__access-btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.af-workspace__access-btn:focus-visible,
+.af-workspace__icon-btn:focus-visible,
+.af-workspace__add-btn:focus-visible,
+.af-workspace__access-tag:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.af-workspace__access-tag {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ui-surface-2);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.af-workspace__access-tag[data-access="deny"] {
+  background: var(--error-subtle, rgba(231, 76, 60, 0.12));
+  color: var(--text-primary);
 }
 .af-workspace__icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
   border-radius: var(--radius-sm);
@@ -6322,22 +6399,21 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   color: var(--text-secondary);
   cursor: pointer;
 }
-.af-workspace__icon-btn:hover:not(:disabled) {
+.af-workspace__icon-btn:hover:not([aria-disabled="true"]) {
   background: var(--ui-surface-2);
   color: var(--text-primary);
 }
-.af-workspace__icon-btn:focus-visible,
-.af-workspace__link:focus-visible,
-.af-workspace__add-btn:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+.af-workspace__icon-btn[aria-disabled="true"],
+.af-workspace__add-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 .af-workspace__add {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 8px;
-  padding: 8px 0 2px;
+  padding: 10px 0 2px;
 }
 .af-workspace__input {
   flex: 1 1 200px;
@@ -6362,217 +6438,43 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   font-weight: 600;
   cursor: pointer;
 }
-.af-workspace__add-btn:disabled,
-.af-workspace__icon-btn:disabled,
-.af-workspace__link:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
 .af-workspace__add > .af-workspace__refusal,
 .af-workspace__add > .af-workspace__saved {
   flex-basis: 100%;
 }
-.af-workspace__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0 2px;
-}
-.af-workspace__link {
-  padding: 4px 0;
-  border: 0;
-  background: transparent;
-  color: var(--accent);
+.af-workspace__effective {
+  margin: 2px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--ui-border-1) 70%, transparent);
+  color: var(--text-primary);
   font-size: var(--font-size-sm);
   font-weight: 600;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
 }
 .af-workspace__note {
-  margin: 4px 0;
+  margin: 0;
   color: var(--text-secondary);
   font-size: var(--af-helper-size, var(--font-size-xs));
 }
 .af-workspace__refusal {
   display: block;
-  padding: 0 0 6px;
   color: var(--error, #d14343);
   font-size: var(--af-helper-size, var(--font-size-xs));
   overflow-wrap: anywhere;
 }
 .af-workspace__saved {
   display: block;
-  padding: 0 0 6px;
   color: var(--text-secondary);
   font-size: var(--af-helper-size, var(--font-size-xs));
 }
 @media (pointer: coarse) {
+  .af-workspace__access-btn,
   .af-workspace__icon-btn,
   .af-workspace__add-btn,
   .af-workspace__input {
     min-width: var(--tap-min, 44px);
     min-height: var(--tap-min, 44px);
   }
-}
-.af-workspace__posture {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 8px;
-  margin: 2px 0;
-}
-.af-workspace__badge {
-  display: inline-flex;
-  padding: 2px 10px;
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  border-radius: 999px;
-  color: var(--text-primary);
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  white-space: nowrap;
-}
-.af-workspace__posture > .af-workspace__note {
-  margin: 0;
-}
-.af-workspace__list {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-.af-workspace__list > li + li {
-  border-top: 1px solid color-mix(in srgb, var(--ui-border-1) 70%, transparent);
-}
-.af-workspace__list > .af-workspace__row {
-  border-top-width: 1px;
-}
-.af-workspace__never {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 6px;
-  margin-top: 6px;
-}
-.af-workspace__never-title {
-  color: var(--text-secondary);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-}
-.af-workspace__chip {
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--error-subtle, rgba(231, 76, 60, 0.12));
-  color: var(--text-primary);
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: var(--font-size-xs);
-  max-width: 100%;
-  overflow-wrap: anywhere;
-}
-.af-workspace__tags {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  justify-content: flex-end;
-}
-.af-workspace__access-tag {
-  display: inline-flex;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--ui-surface-2);
-  color: var(--text-secondary);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  white-space: nowrap;
-}
-.af-workspace__access {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0;
-  margin: 0 0 6px;
-}
-.af-workspace__access-btn {
-  min-height: 28px;
-  padding: 3px 10px;
-  border: 1px solid var(--ui-border-1);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  cursor: pointer;
-}
-.af-workspace__access-btn:first-child {
-  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-}
-.af-workspace__access-btn:nth-child(2) {
-  border-left: 0;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-}
-.af-workspace__access-btn[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: var(--text-primary);
-}
-.af-workspace__access-btn[aria-disabled="true"] {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.af-workspace__access-btn:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-.af-workspace__access > .af-workspace__refusal,
-.af-workspace__access > .af-workspace__saved {
-  flex-basis: 100%;
-}
-@media (pointer: coarse) {
-  .af-workspace__access-btn {
-    min-height: var(--tap-min, 44px);
-  }
-}
-.af-workspace__folder {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px 10px;
-  padding: 6px 0;
-}
-.af-workspace__folder > .af-switch {
-  flex: 1 1 220px;
-}
-.af-workspace__folder-text {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 200px;
-  min-width: 0;
-}
-.af-workspace__folder-controls {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-.af-workspace__folder > .af-workspace__refusal,
-.af-workspace__folder > .af-workspace__saved {
-  flex-basis: 100%;
-}
-.af-workspace__access-btn:nth-child(3) {
-  border-left: 0;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-}
-.af-workspace__access-btn:nth-child(2):not(:last-child) {
-  border-radius: 0;
-}
-.af-workspace__list > .af-workspace__caption {
-  padding: 8px 0 2px;
-  color: var(--text-secondary);
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 /* af-workspace:end */
 

@@ -22,6 +22,7 @@ const fail = (msg) => { console.error(`check_islands: ${msg}`); process.exit(1);
 if (!api) fail("bundle did not define AfConsoleIslands");
 for (const fn of ["mountTopBar", "mountAppearance", "mountAbout", "mountSandboxChat", "mountProviderModelPicker", "mountVoiceSettings", "mountDocsAssistant", "mountWorkspaceChooser", "bindModal", "bindMenu", "bindTooltips", "appIdentity", "applyAppearance"]) if (typeof api[fn] !== "function") fail(`missing ${fn}()`);
 if (!api.workspaceChooserText || api.workspaceChooserText.postureAllowedOnly !== "Deny everything, allow listed workspaces" || api.workspaceChooserText.accessReadWrite !== "Read & write") fail("missing workspaceChooserText (the chooser wording table)");
+if (typeof api.workspaceAsState !== "function" || api.workspaceChooserText.gatewayTitle !== "Eligible workspaces") fail("missing workspaceAsState / the round-11 wording table (kit 0.8.2)");
 if (api.apiVersion !== "2") fail(`apiVersion ${api.apiVersion} (expected "2")`);
 if (api.kitVersion !== pkg.version) fail(`kitVersion ${api.kitVersion} != package ${pkg.version}`);
 const gw = api.appIdentity("abstractgateway", "0.0.1");

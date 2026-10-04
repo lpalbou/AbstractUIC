@@ -28,7 +28,7 @@ import { useGatewayVoice } from "../src/use_gateway_voice.js";
 import { ProviderModelPicker, type ProviderModelPickerProps } from "../src/provider_model_picker.js";
 import { VoiceSettings } from "../src/voice_settings.js";
 import { WorkspaceChooser, type WorkspaceChooserProps } from "../src/workspace_chooser.js";
-import { WORKSPACE_CHOOSER_TEXT } from "../src/workspace_chooser_core.js";
+import { WORKSPACE_CHOOSER_TEXT, workspaceAsState } from "../src/workspace_chooser_core.js";
 // panel-chat's REAL chat (the one AbstractCode's workspace renders): ChatThread +
 // ChatComposer with the standard Attach control, drop zone and paste-to-attach.
 import { WorkflowChat } from "../../panel-chat/src/workflow_chat.js";
@@ -401,11 +401,13 @@ export function bindTooltips(root?: Document | Element, options?: { delayMs?: nu
 }
 
 /**
- * The kit WorkspaceChooser (round 9): the console's per-account "Workspace
- * folders" modal mounts the SAME component the apps use (identical rows and
- * words). Prop-driven: the host loads GET /workspace/policy/{account}, passes
- * `state`, performs each PUT in `onPut` and re-calls update() with the
- * answer. Additive member (kit 0.8.1, round 9): apiVersion stays "2".
+ * The kit WorkspaceChooser (round 11): the console's Accounts modals mount the
+ * SAME component the apps use (identical rows and words) — "Eligible
+ * workspaces" at level "gateway", one account's default at level "account".
+ * Prop-driven: the host GETs the level's route, turns the answer into
+ * `state` with `workspaceAsState(answer, level)`, performs each PUT in
+ * `save` (resolving with the new state) and re-calls update() when it wants.
+ * Additive member: apiVersion stays "2".
  */
 export function mountWorkspaceChooser(el: Element, props: WorkspaceChooserProps): IslandHandle<WorkspaceChooserProps> {
   return mount(el, (p) => <WorkspaceChooser {...p} />, props);
@@ -443,9 +445,10 @@ const api = {
   mountVoiceSettings,
   mountDocsAssistant,
   mountWorkspaceChooser,
-  // The chooser's ONE wording table (the console's gateway modal uses the same posture and
-  // permission words: Only allowed folders / Any folder except denied, Read-only / Read & write).
+  // The chooser's ONE wording table and its answer parser (round 11): the console builds the
+  // chooser state from GET /workspace/policy[/{account}] with workspaceAsState(answer, level).
   workspaceChooserText: WORKSPACE_CHOOSER_TEXT,
+  workspaceAsState,
   bindModal,
   bindMenu,
   bindTooltips,

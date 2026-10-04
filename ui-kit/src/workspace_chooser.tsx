@@ -1,25 +1,29 @@
-// WorkspaceChooser (ui-kit 0.8.1, round 9 FINAL wording): the ONE folder chooser.
+// WorkspaceChooser (ui-kit 0.8.2, round 11): the ONE workspace chooser, four levels.
 //
-//   [Deny everything, allow listed workspaces]                       the gateway's posture
-//   Shared workspace          Read & write · Always on
-//   /data/project             [Read & write | Read-only | Refused]
-//   /archive                  [Read & write (unavailable) | Read-only | Refused]
-//   Everything else           [Read & write | Read-only]     (posture b only)
-//   [/absolute/path] [Read-only | Refused] [Add]              (posture b only)
-//   Deny everything, allow listed workspaces · Shared workspace (rw) · /data/project (rw) · /archive (ro)
+//   Gateway: Allow everything, refuse listed workspaces (rw) · /secrets (refused)   (not at the gateway level)
+//   [Deny everything, allow listed workspaces | Allow everything, refuse listed workspaces]
+//   [x] Follow the gateway policy  (account)  /  [x] Use my default  (session, run)
+//   ALLOWED WORKSPACES
+//   /data/project      [Read & write | Read-only | Refused]  (x)
+//   /archive           [Read & write (cap: disabled + tooltip) | Read-only | Refused]  (x)
+//   REFUSED WORKSPACES
+//   /data/project/tmp  [Read & write | Read-only | Refused]  (x)
+//   Everything else    [Read & write | Read-only]            (posture b)
+//   [Add a workspace path] [Add] [Choose…]
+//   <effective line, verbatim from the gateway>
 //
-// Two modes, same rows and words:
-// - "account": the account's own narrowing. Every change is ONE PUT through
-//   `onPut` (no Save); the gateway's refusal sentence shows under the row with
-//   "Not saved." and the row keeps its previous state.
-// - "automation": the automation's (or one run's) stored set
-//   (input_data.workspace_allowed_paths, narrowing only) chosen among the
-//   account's effective folders; `selection === null` = follows the account.
-//
-// Prop-driven, no route baked in: the host loads the state (see
-// workspaceChooserClient) and performs the writes, so the console can edit
-// ANOTHER account and the apps edit `me`. Keyboard: Tab walks the controls,
-// Enter in the folder field adds, Escape clears it.
+// Levels (`level`): "gateway" (the admin's eligible set; a row's mode IS its
+// cap), "account" (an account's default), "session" (one conversation,
+// stored on the session by the gateway), "run" (a one-off run: nothing is
+// PUT; the host keeps the value and passes the gateway's dry-run answer).
+// Every change is ONE call of the host's `save(payload)` (the run level:
+// `onChange(value)`); a rejection shows the gateway's sentence + "Not saved."
+// under the control and nothing changes. No Save button. When `save`
+// resolves with a chooser state (workspaceChooserClient.save does), the
+// chooser shows it at once; the host may also pass a new `state`.
+// Keyboard: Tab walks the controls (a mode above the cap stays focusable,
+// aria-disabled, and its tooltip says why); Enter in the path field adds,
+// Escape clears it.
 import React, { useState } from "react";
 import { AfSwitch } from "./af_switch.js";
 import { AfSettingsGroup } from "./af_settings_rows.js";
@@ -27,22 +31,26 @@ import { Icon } from "./icon.js";
 import { useAfTooltips } from "./af_tooltip.js";
 import {
   WORKSPACE_CHOOSER_TEXT as T,
-  workspaceAccountView,
-  workspaceAddRowBody,
-  workspaceDefaultModeBody,
-  workspaceModeBody,
+  workspaceAddPayload,
+  workspaceChooserView,
+  workspaceDefaultModePayload,
+  workspaceFollowPayload,
+  workspaceLevelHelp,
   workspaceModeLabel,
+  workspaceModePayload,
+  workspacePostureHelp,
   workspacePostureLabel,
+  workspacePosturePayload,
   workspaceRefusal,
-  workspaceRemoveRowBody,
-  workspaceSelectionAfterToggle,
-  workspaceSelectionView,
+  workspaceRemovePayload,
   type WorkspaceAccess,
-  type WorkspaceAccountState,
   type WorkspaceChooserRow,
-  type WorkspaceChooserView,
+  type WorkspaceChooserState,
   type WorkspaceEffective,
   type WorkspaceMode,
+  type WorkspacePayload,
+  type WorkspacePosture,
+  type WorkspaceRunValue,
 } from "./workspace_chooser_core.js";
 
 type Common = {
@@ -50,34 +58,47 @@ type Common = {
   loadError?: string | null;
   /** Why nothing can be changed now (disconnected, run active…); rows stay readable. */
   unavailableReason?: string | null;
+  /** Desktop apps: a native picker; resolves with a path (added at once) or null (cancelled). Shows "Choose…". */
+  choose?: () => Promise<string | null | undefined>;
+  /** Rendered under the effective line (e.g. a link to the account default). */
+  footer?: React.ReactNode;
   /** Prefix for element ids (several choosers on one page). */
   idPrefix?: string;
   className?: string;
 };
 
-export type WorkspaceChooserAccountProps = Common & {
-  mode?: "account";
-  /** GET/PUT /workspace/policy/{account} answer; null while loading. */
-  state: WorkspaceAccountState | null;
-  /** Perform ONE PUT with this body; reject with Error(<gateway sentence>) on refusal. */
-  onPut: (body: { default_mode?: "ro" | null; folders?: { path: string; mode: "ro" | "deny" }[] }) => Promise<unknown>;
+export type WorkspaceChooserStoredProps = Common & {
+  level: "gateway" | "account" | "session";
+  /** The level's GET answer as workspaceAsState builds it; null while loading. */
+  state: WorkspaceChooserState | null;
+  /** ONE PUT with this body; reject with Error(<gateway sentence>) on refusal; may resolve with the new state. */
+  save: (payload: WorkspacePayload) => Promise<unknown>;
 };
 
-export type WorkspaceChooserAutomationProps = Common & {
-  mode: "automation";
-  /** The account's effective folders (the policy read's `effective`); null while loading. */
+export type WorkspaceChooserRunProps = Common & {
+  level: "run";
+  /** The start body's `workspace`; null = "Use my default". */
+  value: WorkspaceRunValue | null;
+  /** The gateway's dry-run answer for `value` (POST /workspace/effective/me {workspace}); null while loading. */
   effective: WorkspaceEffective | null;
-  /** The stored set; null = nothing stored (follows the account). */
-  selection: string[] | null;
-  /** Store a set, or null to follow the account again. */
-  onSelectionChange: (next: string[] | null) => Promise<unknown> | void;
-  /** What the set is for: an automation's runs (default) or one run being launched. */
-  subject?: "automation" | "run";
+  /** The next value (null = my default). Reject with Error(<gateway sentence>) to refuse it (e.g. the dry run refused it). */
+  onChange: (next: WorkspaceRunValue | null) => Promise<unknown> | void;
 };
 
-export type WorkspaceChooserProps = WorkspaceChooserAccountProps | WorkspaceChooserAutomationProps;
+export type WorkspaceChooserProps = WorkspaceChooserStoredProps | WorkspaceChooserRunProps;
 
-const ALL: WorkspaceMode[] = ["rw", "ro", "deny"];
+const isState = (v: unknown): v is WorkspaceChooserState => !!v && typeof v === "object" && "policy" in (v as object) && "effective" in (v as object);
+
+/** The run level as a stored-level state (value null = following the account default). */
+export function workspaceRunState(value: WorkspaceRunValue | null, effective: WorkspaceEffective | null): WorkspaceChooserState | null {
+  if (!effective) return null;
+  return {
+    policy: value
+      ? { configured: true, posture: value.posture, default_mode: value.default_mode, folders: value.folders.map((r) => ({ ...r })) }
+      : { configured: false, posture: effective.posture, default_mode: effective.default_mode, folders: [] },
+    effective,
+  };
+}
 
 export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactElement {
   useAfTooltips();
@@ -86,15 +107,26 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
-  const [addMode, setAddMode] = useState<"ro" | "deny">("deny");
+  const [adopted, setAdopted] = useState<{ base: unknown; value: WorkspaceChooserState } | null>(null);
   const blocked = String(props.unavailableReason || "").trim();
+  const level = props.level;
 
-  const automation = props.mode === "automation";
-  let view: WorkspaceChooserView | null = null;
-  if (props.mode === "automation") view = props.effective ? workspaceSelectionView(props.effective, props.selection) : null;
-  else view = props.state ? workspaceAccountView(props.state) : null;
+  const base: WorkspaceChooserState | null = props.level === "run" ? workspaceRunState(props.value, props.effective) : props.state;
+  const baseKey: unknown = props.level === "run" ? props.effective : props.state;
+  const state = adopted && adopted.base === baseKey ? adopted.value : base;
+  const view = state ? workspaceChooserView(level, state) : null;
 
-  async function run(key: string, work: () => Promise<unknown> | void): Promise<boolean> {
+  const send = (payload: WorkspacePayload): Promise<unknown> => {
+    if (props.level === "run") {
+      const p = props;
+      const next: WorkspaceRunValue | null = payload.configured === false ? null : { posture: payload.posture, default_mode: payload.default_mode, folders: payload.folders };
+      return Promise.resolve(p.onChange(next));
+    }
+    return props.save(payload);
+  };
+
+  async function change(key: string, payload: WorkspacePayload): Promise<boolean> {
+    if (busy !== null || blocked) return false;
     setBusy(key);
     setSaved(null);
     setErrors((e) => {
@@ -103,11 +135,9 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
       return n;
     });
     try {
-      const done = work();
-      await done;
-      // An automation's host saves the revision itself (and says so); only a
-      // write that resolved here can say "Saved".
-      if (!automation || done instanceof Promise) setSaved(key);
+      const out = await send(payload);
+      if (isState(out)) setAdopted({ base: baseKey, value: out });
+      setSaved(key);
       return true;
     } catch (error) {
       setErrors((e) => ({ ...e, [key]: workspaceRefusal(error) }));
@@ -116,12 +146,6 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
       setBusy(null);
     }
   }
-
-  const put = (key: string, body: Parameters<WorkspaceChooserAccountProps["onPut"]>[0]) => {
-    if (props.mode === "automation") return Promise.resolve(false);
-    const p = props;
-    return run(key, () => p.onPut(body));
-  };
 
   const status = (key: string) =>
     errors[key] ? (
@@ -134,172 +158,212 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
       </span>
     ) : null;
 
-  const tag = (mode: WorkspaceMode, attr = "access") => (
-    <span className="af-workspace__access-tag" data-workspace={attr} data-access={mode}>
+  const tag = (mode: WorkspaceMode, tip?: string) => (
+    <span className="af-workspace__access-tag" data-workspace="access" data-access={mode} data-af-tip={tip} tabIndex={tip ? 0 : undefined}>
       {workspaceModeLabel(mode)}
     </span>
   );
 
-  // Read & write / Read-only / Denied for one row: the account may lower the
-  // admin's mode, never raise it (a higher mode is shown unavailable).
-  const segmented = (label: string, current: WorkspaceMode, offered: WorkspaceMode[], allowed: WorkspaceMode[], onPick: (m: WorkspaceMode) => void) => (
-    <span className="af-workspace__access" role="group" aria-label={`${T.accessLabel} ${label}`} data-workspace="access" data-access={current}>
-      {offered.map((mode) => {
-        const unavailable = !allowed.includes(mode) || Boolean(blocked);
+  // A segmented control: an option the gateway does not allow here stays visible and
+  // focusable, aria-disabled, with the kit tooltip saying why.
+  const segmented = <M extends string>(
+    label: string,
+    current: M,
+    options: { value: M; text: string; reason?: string }[],
+    onPick: (m: M) => void,
+    attr: string,
+  ) => (
+    <span className="af-workspace__access" role="group" aria-label={label} data-workspace={attr} data-access={current}>
+      {options.map((o) => {
+        const unavailable = Boolean(o.reason) || Boolean(blocked);
         return (
           <button
-            key={mode}
+            key={o.value}
             type="button"
             className="af-workspace__access-btn"
-            aria-pressed={current === mode ? "true" : "false"}
+            aria-pressed={current === o.value ? "true" : "false"}
             aria-disabled={unavailable ? "true" : undefined}
-            data-af-tip={!allowed.includes(mode) ? T.accessCeiling : undefined}
-            data-action={`workspace-mode-${mode}`}
-            onClick={() => (unavailable || busy !== null || mode === current ? undefined : onPick(mode))}
+            data-af-tip={o.reason || undefined}
+            data-action={`${attr}-${o.value}`}
+            onClick={() => (unavailable || busy !== null || o.value === current ? undefined : onPick(o.value))}
           >
-            {workspaceModeLabel(mode)}
+            {o.text}
           </button>
         );
       })}
     </span>
   );
 
-  const rowControl = (row: WorkspaceChooserRow) => {
-    if (props.mode === "automation") return tag(row.adminMode);
-    if (!row.choices.length) return tag(row.mode);
-    const state = props.state as WorkspaceAccountState;
-    const offered = row.origin === "account" ? (["ro", "deny"] as WorkspaceMode[]) : ALL;
-    return segmented(row.path, row.mode, offered, row.choices, (m) => void put(row.path, workspaceModeBody(state, row, m)));
+  const rowControls = (row: WorkspaceChooserRow) => {
+    if (row.builtin) return tag("deny", T.builtinRefused);
+    if (!row.editable || !state) return tag(row.mode);
+    const policy = state.policy;
+    return (
+      <>
+        {segmented(
+          `${T.accessLabel} ${row.path}`,
+          row.mode,
+          (["rw", "ro", "deny"] as WorkspaceMode[]).map((m) => ({ value: m, text: workspaceModeLabel(m), reason: row.reasons[m] })),
+          (m) => void change(row.path, workspaceModePayload(level, policy, row.path, m)),
+          "workspace-mode",
+        )}
+        <button
+          type="button"
+          className="af-workspace__icon-btn"
+          data-action="workspace-remove"
+          aria-label={`${T.remove} ${row.path}`}
+          data-af-tip={`${T.remove} ${row.path}`}
+          aria-disabled={blocked || busy !== null ? "true" : undefined}
+          onClick={() => (blocked || busy !== null ? undefined : void change(row.path, workspaceRemovePayload(level, policy, row.path)))}
+        >
+          <Icon name="x" size={16} />
+        </button>
+      </>
+    );
   };
 
-  // Allowed workspaces first, then Denied workspaces (each under its caption).
-  const ordered = view ? [...view.rows.filter((r) => r.mode !== "deny"), ...view.rows.filter((r) => r.mode === "deny")] : [];
-
-  async function addRow() {
-    if (props.mode === "automation" || !props.state) return;
-    const path = draft.trim();
+  async function addPath(raw: string) {
+    if (!state || !view || !view.canAdd) return;
+    const path = raw.trim();
     if (!path) return;
-    if (await put("add", workspaceAddRowBody(props.state, path, addMode))) setDraft("");
+    if (await change("add", workspaceAddPayload(level, state.policy, path))) setDraft("");
   }
+
+  async function choosePath() {
+    if (!props.choose || busy !== null || blocked) return;
+    let picked: string | null | undefined;
+    try {
+      picked = await props.choose();
+    } catch (error) {
+      setErrors((e) => ({ ...e, add: workspaceRefusal(error) }));
+      return;
+    }
+    if (picked) await addPath(picked);
+  }
+
+  const allowed = view ? view.rows.filter((r) => r.mode !== "deny") : [];
+  const refused = view ? view.rows.filter((r) => r.mode === "deny") : [];
+  const rowItem = (row: WorkspaceChooserRow) => (
+    <li
+      className="af-workspace__row"
+      key={`${row.builtin ? "builtin:" : ""}${row.path}`}
+      data-workspace={row.builtin ? "builtin" : "row"}
+      data-path={row.path}
+      data-mode={row.mode}
+      data-cap={row.cap ?? undefined}
+    >
+      <code className="af-workspace__path">{row.path}</code>
+      <span className="af-workspace__controls">{rowControls(row)}</span>
+      {status(row.path)}
+    </li>
+  );
+
+  const followLabel = level === "account" ? T.followGateway : T.useDefault;
+  const followHelp = level === "account" ? T.followGatewayHelp : T.useDefaultHelp;
 
   return (
     <AfSettingsGroup
       id={id}
-      className={`af-workspace${props.className ? ` ${props.className}` : ""}`}
-      title={T.title}
-      help={props.mode === "automation" ? (props.subject === "run" ? T.runHelp : T.automationHelp) : T.help}
+      className={`af-workspace af-workspace--${level}${props.className ? ` ${props.className}` : ""}`}
+      title={level === "gateway" ? T.gatewayTitle : T.title}
+      help={workspaceLevelHelp(level)}
     >
       {props.loadError ? (
         <p className="af-workspace__refusal" role="alert" data-workspace="load-error">
           {props.loadError}
         </p>
-      ) : !view ? (
+      ) : !view || !state ? (
         <p className="af-workspace__note" data-workspace="loading">
-          Loading…
+          {T.loading}
         </p>
       ) : (
-        <>
-          <div className="af-workspace__posture" data-workspace="posture" data-posture={view.posture}>
-            <span className="af-workspace__badge">{workspacePostureLabel(view.posture)}</span>
-          </div>
+        <div className="af-workspace__body" data-level={level} data-following={view.following ? "true" : "false"}>
+          {view.gatewayLine ? (
+            <p className="af-workspace__gateway" data-workspace="gateway-line">
+              {view.gatewayLine}
+            </p>
+          ) : null}
           {blocked ? (
             <p className="af-workspace__note" id={`${id}-blocked`} data-workspace="blocked">
               {blocked}
             </p>
           ) : null}
-          {automation && view.follows ? (
-            <p className="af-workspace__note" data-workspace="follows">
-              {T.automationFollows}
-            </p>
+          {level !== "gateway" ? (
+            <div className="af-workspace__follow" data-workspace="follow">
+              <AfSwitch
+                variant="row"
+                label={followLabel}
+                description={followHelp}
+                checked={view.following}
+                busy={busy === "follow"}
+                unavailableReason={blocked || (view.locked ? T.locked : null)}
+                reasonVisible={false}
+                describedBy={blocked ? `${id}-blocked` : undefined}
+                action={level === "account" ? "workspace-follow-gateway" : "workspace-use-default"}
+                onChange={(next) => void change("follow", workspaceFollowPayload(state, next))}
+              />
+              {status("follow")}
+            </div>
           ) : null}
-          <ul className="af-workspace__list" aria-label={T.foldersTitle} data-workspace="list">
-            <li className="af-workspace__shared" data-setting="workspace-shared">
-              <div className="af-workspace__shared-head">
-                <span className="af-workspace__shared-name">{T.sharedLabel}</span>
-                <span className="af-workspace__tags">
-                  {tag("rw", "shared-access")}
-                  <span className="af-workspace__always" data-workspace="shared-always">
-                    {T.sharedState}
-                  </span>
-                </span>
-              </div>
-              <code className="af-workspace__path" title={view.shared.path}>
-                {view.shared.path}
-              </code>
-            </li>
-            {ordered.map((row, i) => [
-              i === 0 && row.mode !== "deny" ? (
-                <li key="caption-allowed" className="af-workspace__caption" data-workspace="caption-allowed">
-                  {T.allowedTitle}
-                </li>
-              ) : null,
-              row.mode === "deny" && (i === 0 || ordered[i - 1].mode !== "deny") ? (
-                <li key="caption-denied" className="af-workspace__caption" data-workspace="caption-denied">
-                  {T.deniedTitle}
-                </li>
-              ) : null,
-              <li className="af-workspace__row af-workspace__folder" key={row.path} data-workspace={row.origin === "account" ? "account-row" : "folder"} data-path={row.path} data-mode={row.mode}>
-                {props.mode === "automation" ? (
-                  <AfSwitch
-                    variant="row"
-                    label={row.name}
-                    description={<code className="af-workspace__path">{row.path}</code>}
-                    ariaLabel={row.path}
-                    checked={row.mode !== "deny"}
-                    busy={busy === row.path}
-                    unavailableReason={blocked || null}
-                    describedBy={blocked ? `${id}-blocked` : undefined}
-                    action="workspace-select"
-                    onChange={(next) => {
-                      const p = props;
-                      const v = view as WorkspaceChooserView;
-                      void run(row.path, () => p.onSelectionChange(workspaceSelectionAfterToggle(v, row.path, next)));
-                    }}
-                  />
-                ) : (
-                  <span className="af-workspace__folder-text">
-                    <span className="af-workspace__own-name">{row.name}</span>
-                    <code className="af-workspace__path">{row.path}</code>
-                  </span>
-                )}
-                <span className="af-workspace__folder-controls">
-                  {rowControl(row)}
-                  {row.origin === "account" && props.mode !== "automation" ? (
-                    <button
-                      type="button"
-                      className="af-workspace__icon-btn"
-                      data-action="workspace-remove-row"
-                      aria-label={`${T.remove} ${row.path}`}
-                      data-af-tip={`${T.remove} ${row.path}`}
-                      disabled={Boolean(blocked) || busy !== null}
-                      onClick={() => props.state && void put(row.path, workspaceRemoveRowBody(props.state, row.path))}
-                    >
-                      <Icon name="x" size={16} />
-                    </button>
-                  ) : null}
-                </span>
-                {status(row.path)}
-              </li>,
-            ])}
+          <div className="af-workspace__posture" data-workspace="posture" data-posture={view.posture}>
+            {view.following || view.locked ? (
+              <span className="af-workspace__badge">{workspacePostureLabel(view.posture)}</span>
+            ) : (
+              segmented<WorkspacePosture>(
+                T.postureLabel,
+                view.posture,
+                [
+                  { value: "allowed_only", text: T.postureAllowedOnly },
+                  { value: "any_except_denied", text: T.postureAnyExceptDenied },
+                ],
+                (p) => void change("posture", workspacePosturePayload(level, state.policy, p)),
+                "workspace-posture",
+              )
+            )}
+            <span className="af-workspace__note" data-workspace="posture-help">
+              {workspacePostureHelp(view.posture)}
+            </span>
+            {status("posture")}
+          </div>
+          <ul className="af-workspace__list" aria-label={T.title} data-workspace="list">
+            {allowed.length ? (
+              <li className="af-workspace__caption" data-workspace="caption-allowed">
+                {T.allowedTitle}
+              </li>
+            ) : null}
+            {allowed.map(rowItem)}
+            {refused.length ? (
+              <li className="af-workspace__caption" data-workspace="caption-refused">
+                {T.deniedTitle}
+              </li>
+            ) : null}
+            {refused.map(rowItem)}
             {view.everythingElse ? (
-              <li className="af-workspace__row af-workspace__folder" data-workspace="everything-else" data-mode={view.everythingElse.mode}>
-                <span className="af-workspace__folder-text">
-                  <span className="af-workspace__own-name">{T.everythingElse}</span>
-                </span>
-                <span className="af-workspace__folder-controls">
-                  {view.everythingElse.choices.length > 1
-                    ? segmented(T.everythingElse, view.everythingElse.mode, ["rw", "ro"], view.everythingElse.choices, (m) => void put("everything-else", workspaceDefaultModeBody(m as WorkspaceAccess)))
+              <li className="af-workspace__row" data-workspace="everything-else" data-mode={view.everythingElse.mode}>
+                <span className="af-workspace__name">{T.everythingElse}</span>
+                <span className="af-workspace__controls">
+                  {view.everythingElse.editable
+                    ? segmented<WorkspaceAccess>(
+                        `${T.accessLabel} ${T.everythingElse}`,
+                        view.everythingElse.mode,
+                        [
+                          { value: "rw", text: T.accessReadWrite },
+                          { value: "ro", text: T.accessRead },
+                        ],
+                        (m) => void change("everything-else", workspaceDefaultModePayload(level, state.policy, m)),
+                        "workspace-default",
+                      )
                     : tag(view.everythingElse.mode)}
                 </span>
                 {status("everything-else")}
               </li>
             ) : null}
-            {!automation && view.canAdd ? (
+            {view.canAdd ? (
               <li className="af-workspace__add" data-workspace="add">
                 <input
                   type="text"
                   className="af-workspace__input"
-                  aria-label={T.foldersTitle}
+                  aria-label={T.addPlaceholder}
                   placeholder={T.addPlaceholder}
                   value={draft}
                   disabled={Boolean(blocked) || busy === "add"}
@@ -310,7 +374,7 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      void addRow();
+                      void addPath(draft);
                     } else if (e.key === "Escape") {
                       e.preventDefault();
                       setDraft("");
@@ -322,42 +386,33 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
                     }
                   }}
                 />
-                {segmented(T.addPlaceholder, addMode, ["ro", "deny"], ["ro", "deny"], (m) => setAddMode(m as "ro" | "deny"))}
-                <button type="button" className="af-workspace__add-btn" data-action="workspace-add-row" disabled={Boolean(blocked) || !draft.trim() || busy !== null} onClick={() => void addRow()}>
+                <button type="button" className="af-workspace__add-btn" data-action="workspace-add" disabled={Boolean(blocked) || !draft.trim() || busy !== null} onClick={() => void addPath(draft)}>
                   {T.add}
                 </button>
+                {props.choose ? (
+                  <button type="button" className="af-workspace__add-btn" data-action="workspace-choose" disabled={Boolean(blocked) || busy !== null} onClick={() => void choosePath()}>
+                    {T.choose}
+                  </button>
+                ) : null}
                 {status("add")}
               </li>
             ) : null}
           </ul>
-          {!automation && !view.canAdd ? (
-            <p className="af-workspace__note" data-workspace="admin-only-adds">
-              {T.adminOnlyAdds}
+          {view.posture === "allowed_only" && !allowed.length ? (
+            <p className="af-workspace__note" data-workspace="empty">
+              {T.emptyAllowed}
+            </p>
+          ) : null}
+          {level === "session" || level === "run" ? (
+            <p className="af-workspace__note" data-workspace="private">
+              {T.privateNote}
             </p>
           ) : null}
           <p className="af-workspace__effective" data-workspace="effective">
             {view.summary}
           </p>
-          {automation && !view.follows ? (
-            <div className="af-workspace__actions">
-              <button
-                type="button"
-                className="af-workspace__link"
-                data-action="workspace-follow-account"
-                disabled={Boolean(blocked) || busy !== null}
-                onClick={() => {
-                  if (props.mode === "automation") {
-                    const p = props;
-                    void run("follow", () => p.onSelectionChange(null));
-                  }
-                }}
-              >
-                {T.automationUseAccount}
-              </button>
-              {status("follow")}
-            </div>
-          ) : null}
-        </>
+          {props.footer ? <div className="af-workspace__footer">{props.footer}</div> : null}
+        </div>
       )}
     </AfSettingsGroup>
   );
