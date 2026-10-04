@@ -285,7 +285,7 @@ export function workspaceFollowPayload(state: WorkspaceChooserState, follow: boo
   return { configured: true, posture: e.posture, default_mode: e.default_mode ?? state.policy.default_mode, folders: e.folders.map((f) => ({ path: f.path, mode: f.mode })) };
 }
 
-// ---- Routes + a thin client (the console passes base "/api/gateway"; apps use the relative default).
+// ---- Routes + a thin client (the console passes its gateway API base; apps use the relative default).
 function trimBase(base: string): string {
   let b = String(base || "");
   while (b.endsWith("/")) b = b.slice(0, -1);
