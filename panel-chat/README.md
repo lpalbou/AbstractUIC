@@ -30,7 +30,7 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
   `folderRefusal`, `dragCarriesFiles`, `draggedFileCount`, `dropZoneLabel`, `pastedFileName`,
   `DragPresence`
 - Renderers: `Markdown` (with `sameOriginImage` as the default image rule for `images="link"`), `JsonViewer`
-- Files (0.3.0): `WorkspaceBrowser` (rows: name, size, generated date, download icon; a click previews the file in place; the root once as a short name with Open folder / Copy path icons; `fileActions` for host actions), `FileViewer` (ui-kit `AfFileViewer` + `Markdown`; audio files play in the kit's waveform `AfAudioPlayer`, 0.3.1), `useWorkspaceFilePreview` (bounded loader through the host's `fetchGateway`; images, audio and PDF as object URLs)
+- Files (0.3.1): `WorkspaceBrowser` (rows: name, size, generated date, download icon; a click previews the file in place; the root once as a short name with Open folder / Copy path icons; `fileActions` for host actions), `FileViewer` (ui-kit `AfFileViewer` + `Markdown`; audio files play in the kit's waveform `AfAudioPlayer`), `useWorkspaceFilePreview` (bounded loader through the host's `fetchGateway`; images, audio and PDF as object URLs)
 - Tool and run evidence: `ToolActivity`, `ToolActivityGroup`, `toolArguments`, `toolPreview`,
   `workflowProgress`, `workflowEvidence`, `foldWorkflowTools`, `historyRecords`,
   `statDetail`, `StatDetailPanel`

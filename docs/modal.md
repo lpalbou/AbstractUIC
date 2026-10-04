@@ -92,7 +92,7 @@ hiding it.
 ## Menu
 
 A compact "more actions" button that opens a short list of actions, for rows that have more
-actions than fit (Workspace, Rotate token, Archive…). Only actions that apply are rendered: there
+actions than fit (Workspace, Rotate token, Archive). Only actions that apply are rendered: there
 are no disabled items. When the absence of an action may surprise, put the reason in the button's
 `title` (for example "Entities have no token to rotate").
 

@@ -351,6 +351,62 @@ flowchart LR
 
 Details, props, the error model and the fixtures contract: [Automations](./automations.md).
 
+## Voice settings and file preview (`ui-kit` + `panel-chat`)
+
+Both surfaces are presentational: the kit never fetches by itself. The host passes the gateway
+transports (`fetchDefaults`, `fetchCatalog`, `fetchGateway`) and stores the user's overrides.
+"Gateway default · provider / model" in `AfVoiceSection` comes only from the gateway's voice
+defaults; a request carries only the keys the user overrode. A workspace file is read through the
+host's credentials and previewed in place; audio plays in the shared `AfAudioPlayer`.
+
+```mermaid
+flowchart LR
+  subgraph Host["Host app (Assistant, Code, Entity, ...)"]
+    PREFS["stored overrides<br/>VoiceClientPreferences"]
+    FETCH["gateway transports<br/>(host auth)"]
+  end
+
+  subgraph Kit["ui-kit"]
+    VS["AfVoiceSection<br/>Engines / Output / Microphone / Replies"]
+    ROWS["AfSettingsGroup / AfSettingRow<br/>AfOverrideRow"]
+    DEV["voice_devices.ts<br/>device lists, Test, level meter"]
+    HOOK["useGatewayVoice<br/>TTS playback + push-to-talk"]
+    FV["AfFileViewer"]
+    CB["AfCodeBlock"]
+    AP["AfAudioPlayer"]
+  end
+
+  subgraph Chat["panel-chat"]
+    WB["WorkspaceBrowser"]
+    PREV["useWorkspaceFilePreview<br/>bounded text / object URL"]
+    PFV["FileViewer<br/>(AfFileViewer + Markdown)"]
+  end
+
+  subgraph GW["AbstractGateway"]
+    VDEF["GET /api/gateway/voice/defaults"]
+    VCAT["voice catalog"]
+    VRUN["voice TTS / STT routes"]
+    WSR["run workspace routes"]
+  end
+
+  VS --> ROWS
+  VS --> DEV
+  VS -->|"onChange"| PREFS
+  VS -->|"fetchDefaults / fetchCatalog"| FETCH
+  FETCH --> VDEF & VCAT & VRUN & WSR
+  PREFS -->|"voiceTtsRequest / voiceSttRequest"| HOOK
+  HOOK -->|"tts / transcribe (host)"| FETCH
+  WB -->|"click a file"| PREV
+  PREV -->|"fetchGateway"| FETCH
+  PREV --> PFV
+  PFV --> FV
+  FV --> CB
+  FV --> AP
+```
+
+Props and helpers: [API reference](./api.md) (Voice section, File viewer, Audio player, Settings
+rows) and the [panel-chat README](../panel-chat/README.md).
+
 ## Styling & theming
 
 - `@abstractframework/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css` (exported as `@abstractframework/ui-kit/theme.css`) — 21 themes; see [Theming](./theming.md) for the token vocabulary and adoption rules.

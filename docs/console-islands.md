@@ -71,7 +71,7 @@ node ui-kit/scripts/check_islands.mjs
 <script src="/static/af-console-islands.js"></script>
 <script>
   const islands = window.AfConsoleIslands;
-  console.log(islands.apiVersion, islands.kitVersion); // "2", e.g. "0.7.0"
+  console.log(islands.apiVersion, islands.kitVersion); // "2", e.g. "0.8.0"
 </script>
 ```
 
@@ -93,7 +93,7 @@ Serve both files from your own origin; the paths above are examples.
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
 | `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.4.0+) |
 | `appIdentity(id, version)` | `AppIdentity` | Identity facts for an AbstractFramework app; throws for an unknown id (kit 0.1.12+) |
-| `aboutVersionsFromGateway(payload, error?)` | `AfAboutVersions` | The About card's framework and gateway versions from a `GET /api/gateway/about` body, or `(null, reason)` after a failed request (kit 0.7.0+) |
+| `aboutVersionsFromGateway(payload, error?)` | `AfAboutVersions` | The About card's framework and gateway versions from a `GET /api/gateway/about` body, or `(null, reason)` after a failed request (kit 0.8.0+) |
 | `applyAppearance(settings)` | `void` | Applies a theme and typography settings to the document |
 
 Every mount returns `{ update(props), unmount() }`. Mounting into a missing element throws
@@ -260,9 +260,9 @@ Use the values in `islands.fontScales` and `islands.headerDensities` for valid
   Additive members keep the same `apiVersion` and are marked with the kit version that
   introduced them (for example `mountAbout`, kit 0.1.12); check `kitVersion` if you load a bundle
   you did not build yourself.
-- `apiVersion` `"2"` (kit 0.7.0): the About props (`mountAbout`, and `about` on `mountTopBar`)
+- `apiVersion` `"2"` (kit 0.8.0): the About props (`mountAbout`, and `about` on `mountTopBar`)
   take `versions` (`AfAboutVersions`) instead of `extraRows`. A host written for `"1"` that still
-  passes `extraRows` must switch to `versions`; the rows are no longer rendered.
+  passes `extraRows` must switch to `versions`; `extraRows` is not rendered.
 - `kitVersion` identifies the `ui-kit` release the bundle was built from. Rebuild the bundle
   after upgrading the kit sources; a consumer that vendors the bundle should rebuild and re-vendor
   it whenever any kit source that feeds it changes (`ui-kit/src/*`, `ui-kit/islands/*`,

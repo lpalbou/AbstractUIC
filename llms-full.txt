@@ -57,7 +57,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [On/off settings](docs/state-toggles.md): `AfSwitch` (a `role="switch"` labelled by the feature, highlighted when on; unavailable = `aria-disabled` + reason), the `af-switch` CSS block the consoles copy, the terminal `[x]`/`[ ]`/`[-]` marker, `findVerbToggleLabels` (the guard against "Email off"/"Email on" labels), `checkLabelScale` (labels at body size), unavailable-reason strings, the sign-in card classes, `af-form`/`af-card`/`af-tabs` + `AfTabs`, and `randomId()` / `insecureContextReason()` for plain-http pages
 - [Responsive layout](docs/responsive.md): breakpoints (480/768/1024/1440 px, short and touch axes), 44 px touch targets and 16 px form text on touch screens, bottom-sheet dialogs and drawers above the keyboard, container queries and their thresholds, `installViewportVars()` / `viewportVarsFrom()`, the font-size order, and how a host app adopts them
 - [API reference](docs/api.md): export map per package (what to import)
-- [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, ecosystem data flow, gateway connection flow, live replies, About/identity flow, automations flow, console islands build)
+- [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, ecosystem data flow, gateway connection flow, live replies, About/identity flow, automations flow, voice settings and file preview, console islands build)
 - [FAQ](docs/faq.md): bundling/CSS/SSR and per-package notes
 - [Troubleshooting](docs/troubleshooting.md): symptoms, checks and fixes (unstyled components, SSR errors, widget polling, app-server 400/401/403, live replies, images shown as links, stale islands bundle, plain-http copy/voice/ids)
 - [Automations](docs/automations.md): configurable growing-context budgets and result email; show and manage AbstractGateway automations — `AutomationPanel` (icon controls, an Edit form a host can open through `editOpen`, runs as chat pairs, typed wait answers), `AfScheduleDialog` (fixed UTC intervals, **When an email arrives** with typed filters, **Email result**, recipients, workflow and tool selection), `createAutomationsClient()` and its error model, retry-safe ids, panel-chat `ScheduleThisAction` / `FromAutomationBadge`, the canonical fixtures and the export list
@@ -66,8 +66,8 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / rail drawer (AfRailDrawer) / appearance dialog, file viewer (AfFileViewer, AfCodeBlock, AfAudioPlayer waveform audio player), settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow) + AfVoiceSection, relative time, compact About card (AfAbout / AfAboutDialog, aboutVersionsFromGateway) + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel (Active switch) + schedule dialog + client, AfSwitch, AfTabs, AfModal, randomId
-- [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat, live replies (`llm.delta`), ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser, presentInteraction
+- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / rail drawer (AfRailDrawer) / appearance dialog, file viewer (AfFileViewer, AfCodeBlock, AfAudioPlayer waveform audio player), settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow) + AfVoiceSection (gateway voice defaults via fetchDefaults, devices, Test, level meter), relative time, compact About card (AfAbout / AfAboutDialog, aboutVersionsFromGateway) + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel (Active switch) + schedule dialog + client, AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat, live replies (`llm.delta`), ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, presentInteraction
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -85,10 +85,10 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [ui-kit/src/index.ts](ui-kit/src/index.ts): exports for `@abstractframework/ui-kit`
 - [ui-kit/src/responsive.ts](ui-kit/src/responsive.ts): `AF_BREAKPOINTS`, `AF_MEDIA`, `useAfMedia`, `installViewportVars`, `viewportVarsFrom`
 - [ui-kit/src/identity.ts](ui-kit/src/identity.ts): identity helpers (`appIdentity`, `aboutRows`, `gatewayVersionRows`)
-- [ui-kit/src/about.tsx](ui-kit/src/about.tsx): `AfAboutDialog`
+- [ui-kit/src/about.tsx](ui-kit/src/about.tsx): `AfAbout`, `AfAboutDialog`, `aboutVersionsFromGateway`
 - [ui-kit/src/af_rail_drawer.tsx](ui-kit/src/af_rail_drawer.tsx): `AfRailDrawer` (vertical rail drawer) and its pure rules
 - [ui-kit/src/af_file_viewer.tsx](ui-kit/src/af_file_viewer.tsx): `AfFileViewer`, `fileViewerKind`; [code_highlight.tsx](ui-kit/src/code_highlight.tsx): `AfCodeBlock`, `highlightCode`
-- [ui-kit/src/af_settings_rows.tsx](ui-kit/src/af_settings_rows.tsx): `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow`; [af_voice_section.tsx](ui-kit/src/af_voice_section.tsx): `AfVoiceSection`; [relative_time.ts](ui-kit/src/relative_time.ts): `formatRelativeTime`, `formatExactTime`
+- [ui-kit/src/af_settings_rows.tsx](ui-kit/src/af_settings_rows.tsx): `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow`; [af_voice_section.tsx](ui-kit/src/af_voice_section.tsx): `AfVoiceSection`; [voice_devices.ts](ui-kit/src/voice_devices.ts): voice defaults, devices, Test helpers; [af_audio_player.tsx](ui-kit/src/af_audio_player.tsx): `AfAudioPlayer`; [relative_time.ts](ui-kit/src/relative_time.ts): `formatRelativeTime`, `formatExactTime`
 - [panel-chat/src/file_viewer.tsx](panel-chat/src/file_viewer.tsx): `FileViewer`, `useWorkspaceFilePreview`
 - [ui-kit/src/gateway_session_signin.tsx](ui-kit/src/gateway_session_signin.tsx): shared Gateway browser-session sign-in card
 - [ui-kit/src/use_gateway_connection.ts](ui-kit/src/use_gateway_connection.ts): the connection state machine hook (probe/auto-open/self-close contract)
@@ -185,8 +185,8 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 
 | Package | Purpose | Docs |
 |---|---|---|
-| `@abstractframework/ui-kit` | Theme tokens (21 themes) and the responsive layer (breakpoints, 44 px touch targets, bottom sheets, viewport helpers), inputs (`AfSelect`, provider/model pickers), Gateway connect modal + connection hook, top bar / drawer / rail drawer (`AfRailDrawer`) / appearance dialog, file viewer + code highlighting, settings rows + voice section, relative time, About dialog + AbstractFramework identity helpers, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel + schedule dialog (schedule and email triggers, email notifications) + typed Gateway client; console islands for non-React pages (repository build) | [`ui-kit/README.md`](./ui-kit/README.md) |
-| `@abstractframework/panel-chat` | Chat thread + message cards + composer + markdown/json rendering, app assistant panel, workflow chat with live (streamed) replies, "Schedule this…" action and "from automation" badge | [`panel-chat/README.md`](./panel-chat/README.md) |
+| `@abstractframework/ui-kit` | Theme tokens (21 themes) and the responsive layer (breakpoints, 44 px touch targets, bottom sheets, viewport helpers), inputs (`AfSelect`, provider/model pickers), Gateway connect modal + connection hook, top bar / drawer / rail drawer (`AfRailDrawer`) / appearance dialog, file viewer + code highlighting + waveform audio player, settings rows + voice section (gateway voice defaults, devices, tests), relative time, About dialog + AbstractFramework identity helpers, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel + schedule dialog (schedule and email triggers, email notifications) + typed Gateway client; console islands for non-React pages (repository build) | [`ui-kit/README.md`](./ui-kit/README.md) |
+| `@abstractframework/panel-chat` | Chat thread + message cards + composer + markdown/json rendering, app assistant panel, workflow chat with live (streamed) replies, "Schedule this…" action and "from automation" badge, workspace browser + in-place file preview | [`panel-chat/README.md`](./panel-chat/README.md) |
 | `@abstractframework/app-server` | Node server side for apps: serving under the gateway's `/apps/<id>/`, shared launch flags, local gateway pointer, gateway-session proxy (token → HttpOnly cookie exchange, CSRF, URL pinning, forwarded client address) | [`app-server/README.md`](./app-server/README.md) |
 | `@abstractframework/monitor-flow` | Agent-cycle trace viewer + ledger adapter | [`monitor-flow/README.md`](./monitor-flow/README.md) |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | [`monitor-active-memory/README.md`](./monitor-active-memory/README.md) |
@@ -504,7 +504,13 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Live (streamed) replies | `WorkflowSessionController` / `useWorkflowSession` + a transport whose `streamLedger` passes `onDelta`; `WorkflowChat` `streamReplies` + `streamRepliesRuntime()` | Deltas never move the ledger cursor; the ledger record replaces the live bubble. See [panel-chat live replies](../panel-chat/README.md#live-replies-streaming) |
 | App assistant (docs Q&A drawer) | `AssistantPanel` (panel-chat) in `AfDrawer` via `AfTopBarActions` | Transport injected. THE shared transport (docs-qa@0.1.0, tenant_catalog): `POST /runs/start {registry_scope:"tenant_catalog", bundle_id:"docs-qa", bundle_version:"0.1.0", flow_id:"docsqa001", input_data:{question, history, docs:<llms.txt text>, app}}`, answer on `output.response` — grounded on YOUR docs only, cites sections, says honestly when docs don't answer. `import docs from "./llms.txt?raw"` remains the recommended docs source (build-time, versioned) |
 | Markdown / JSON rendering | `Markdown`, `JsonViewer` (panel-chat) | Also exported standalone |
-| TTS playback + push-to-talk | `useGatewayVoice` (+ `streamTtsJsonl`) | Injected `tts`/`tts_stream`/`transcribe` functions; streaming with pause/resume |
+| TTS playback + push-to-talk | `useGatewayVoice` (+ `streamTtsJsonl`) | Injected `tts`/`tts_stream`/`transcribe` functions; streaming with pause/resume; output and input device, volume and input level options |
+| Voice settings page | `AfVoiceSection` | Pass `fetchDefaults` (`GET /api/gateway/voice/defaults`): "Gateway default · provider / model" comes only from it; the host stores the overrides |
+| Compact settings rows | `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow` | "Gateway default" until the user overrides it; **Use gateway default** returns to it |
+| Side panels on a vertical icon rail | `AfRailDrawer` | Docked from 1024 px, floating below; resizable, width persisted under `storageKey` |
+| File preview | `AfFileViewer` (ui-kit) or `FileViewer` + `useWorkspaceFilePreview` (panel-chat, for run workspace files) | Markdown, highlighted code, JSON, images, audio, PDF, text; the host fetches with its own credentials |
+| Audio playback | `AfAudioPlayer` | Waveform player: click or drag to seek, keyboard slider |
+| Relative and exact times | `formatRelativeTime(ts, nowMs)`, `formatExactTime(ts)` | Deterministic: the caller passes now; exact time on hover |
 | Agent cycle traces | `AgentCyclesPanel` + `build_agent_trace` (monitor-flow) | Adapter turns ledger-like records into `TraceItem[]` |
 | KG / active-memory explorer | `KgActiveMemoryExplorer` (monitor-active-memory) | ReactFlow peer dep |
 | GPU utilization widget | `<monitor-gpu>` (monitor-gpu) | Dependency-free custom element |
@@ -818,7 +824,7 @@ hiding it.
 ## Menu
 
 A compact "more actions" button that opens a short list of actions, for rows that have more
-actions than fit (Workspace, Rotate token, Archive…). Only actions that apply are rendered: there
+actions than fit (Workspace, Rotate token, Archive). Only actions that apply are rendered: there
 are no disabled items. When the absence of an action may surprise, put the reason in the button's
 `title` (for example "Entities have no token to rotate").
 
@@ -1477,20 +1483,19 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Critical actions: `CriticalActionDialog` + core (`resolveCriticalActionGate()`, `normalizeCriticalActionFacts()`)
 - Run steering: `SteerComposer` + `submitSteer()` (idempotent command ids, CSRF candidates)
 - Lists & badges: `DisclosureList` (tree list, roving tabindex), `AfChip` / `AfChipButton`
-- Rail drawer (0.6.0): `AfRailDrawer` — the vertical rail drawer lifted from AbstractEntity's side tabs and Continuum Teams' drawer rail: an icon rail (role `tablist`, vertical; 44 px icons with tooltips; Up/Down/Home/End) at the right edge of the host's content area; a click opens that panel beside the rail, the open icon (or the panel's collapse button) folds it back; the rail always stays. Docked from 1024 px (in the layout flow; width resizable by pointer — mouse, pen, touch with pointer capture — and by keyboard on a `separator`, persisted under `storageKey`), floating below (backdrop, Escape folds it with the consumed-event rule, focus returns to the icon). Panels visited once stay mounted. Props: `items: AfRailItem[]` (`id`, `label`, `icon`, `badge?`, `hint?`, `content`, `headerActions?`), `active`, `onActiveChange(id | null)`, `ariaLabel`, `storageKey?`, `defaultWidth?`/`minWidth?`/`maxWidth?`, `overlay?`, `idBase?` (ids `<idBase>-tab-<id>` / `<idBase>-panel-<id>`). The host's container needs `position: relative`. Pure rules: `railDrawerToggle()`, `railDrawerClampWidth()`, `railDrawerKeyWidth()`, `railDrawerNextIndex()`, `AF_RAIL_WIDTH`.
-- File viewer (0.6.0): `AfFileViewer` — one preview for every client: header (name with the path as tooltip, size, generated date relative with the exact time on hover, extra `actions`, Download and close icons) and a body by kind (`fileViewerKind(name, contentType)`: Markdown through the host's `renderMarkdown` — panel-chat `FileViewer` wires its `Markdown` —, code highlighted by `AfCodeBlock`, JSON pretty-printed, images, audio (0.7.0: kind `"audio"` for mp3, wav, ogg, oga, opus, m4a, aac, flac, weba or any `audio/*` type, played by `AfAudioPlayer`), PDF in an `<object>`, plain text; SVG and HTML show as source, never rendered). Presentational: the host passes text (`fileViewerNeedsText(kind)`) or an object URL (images, audio, PDF). `formatFileSize()`.
-- Audio player (0.7.0): `AfAudioPlayer` (`src`, `name?`, `peaks?`, `className?`) — the shared audio viewer: play/pause, a waveform you click or drag to seek, elapsed / total time. The waveform is decoded from `src` with the Web Audio API (pass `peaks` to skip decoding); when decoding is unavailable or fails, the bars stay flat with the reason in the waveform's tooltip and playback still works. Keyboard: the waveform is a `slider` (Left/Right ±5 s, Home/End, Space/Enter play or pause). Pure helpers: `audioPeaks(samples, bars?)` (normalised 0..1 per bar), `formatAudioTime(seconds)` (`"1:03"`, `"--:--"` when unknown), `audioSeekTime(x, width, duration)`, `AUDIO_WAVEFORM_BARS` (72).
-- Code highlighting (0.6.0): `AfCodeBlock` (`text`, `language` = a file name or a language, `lineNumbers?`) — wraps long lines, never scrolls sideways; `highlightCode(text, codeLanguage(name))` is a dependency-free lexer (comment / string / number / keyword tokens; joining the tokens returns the input).
-- Settings rows (0.6.0): `AfSettingsGroup` (titled card; `variant="flat"` inside another card; `aside` for e.g. "Revision 4"), `AfSettingRow` (label + one-line help left, control right; wraps in a narrow panel), `AfOverrideRow` — the "Gateway default unless overridden" row: summary (`Gateway default · x` or `<override> — <owner>`), **Change** opens the editor in place, **Use gateway default** only while overridden.
-- Voice (0.6.0): `AfVoiceSection` — the Assistant's Settings → Voice layout: Engines (Text → speech, Speech → text as `AfOverrideRow`s), Output device (audio outputs where `audioOutputSelectable()`; otherwise disabled with the reason), Read aloud switch, Voice latency (`VOICE_LATENCY_OPTIONS`, only when the gateway advertises `quality_preset`). Value `VoiceClientPreferences` (`VoicePreferences` + `stt_provider`, `stt_model`, `output_device`, `read_aloud`); `voiceTtsRequest()` / `voiceSttRequest()` pick what a request carries. `nested` renders its sub-sections flat. `useGatewayVoice({ output_device_id })` routes playback with `AudioContext.setSinkId`.
-- Voice (0.7.1): `AfVoiceSection` requires `fetchDefaults` (`GET /api/gateway/voice/defaults`, the gateway's `output.voice` / `input.voice` routes) — the only source of "Gateway default · provider / model"; `defaults` passes them when the host already holds them. Sections: Engines, Output (device + **Test** chime, reply volume), Microphone (device, **Test** = 3 s recording with a live meter played back, spoken language, input level where Web Audio allows), Replies. Prefs add `input_device`, `input_gain`, `reply_volume`, `stt_language` (`voiceSttRequest` sends `language`). `useGatewayVoice` adds `input_device_id`, `volume`, `input_gain`, `stop_on_pointerup`, returns `voice_ptt_since`. `voice_devices.ts`: `voiceDefaultSummary`, `sttRouteText`, `transcribingLine`, `microphoneErrorSentence`, `listVoiceDevices`, `unlockDeviceLabels`, `recordSample`, `playTestTone`, `playOnDevice`. Safari cannot choose a speaker: the picker stays on System default and says so.
-- Relative time (0.6.0): `formatRelativeTime(ts, nowMs)` ("just now", "5 min ago", "3 h ago", "yesterday", "4 days ago", then "Oct 2"; future "in 14 h"), `formatExactTime(ts)` ("Oct 2, 2026, 14:05"), `formatShortDate(ts, nowMs)`, `timeValueMs(ts)` — deterministic (the caller passes now), no seconds, no year within the same year.
-- Icons (0.6.0): `cog` (the usual settings gear; `settings` stays the sliders glyph) and `activity`; (0.7.0) `unarchive` (archive box with an up arrow).
+- Rail drawer (0.8.0): `AfRailDrawer` — the vertical rail drawer lifted from AbstractEntity's side tabs and Continuum Teams' drawer rail: an icon rail (role `tablist`, vertical; 44 px icons with tooltips; Up/Down/Home/End) at the right edge of the host's content area; a click opens that panel beside the rail, the open icon (or the panel's collapse button) folds it back; the rail always stays. Docked from 1024 px (in the layout flow; width resizable by pointer — mouse, pen, touch with pointer capture — and by keyboard on a `separator`, persisted under `storageKey`), floating below (backdrop, Escape folds it with the consumed-event rule, focus returns to the icon). Panels visited once stay mounted. Props: `items: AfRailItem[]` (`id`, `label`, `icon`, `badge?`, `hint?`, `content`, `headerActions?`), `active`, `onActiveChange(id | null)`, `ariaLabel`, `storageKey?`, `defaultWidth?`/`minWidth?`/`maxWidth?`, `overlay?`, `idBase?` (ids `<idBase>-tab-<id>` / `<idBase>-panel-<id>`). The host's container needs `position: relative`. Pure rules: `railDrawerToggle()`, `railDrawerClampWidth()`, `railDrawerKeyWidth()`, `railDrawerNextIndex()`, `AF_RAIL_WIDTH`.
+- File viewer (0.8.0): `AfFileViewer` — one preview for every client: header (name with the path as tooltip, size, generated date relative with the exact time on hover, extra `actions`, Download and close icons) and a body by kind (`fileViewerKind(name, contentType)`: Markdown through the host's `renderMarkdown` — panel-chat `FileViewer` wires its `Markdown` —, code highlighted by `AfCodeBlock`, JSON pretty-printed, images, audio (kind `"audio"` for mp3, wav, ogg, oga, opus, m4a, aac, flac, weba or any `audio/*` type, played by `AfAudioPlayer`), PDF in an `<object>`, plain text; SVG and HTML show as source, never rendered). Presentational: the host passes text (`fileViewerNeedsText(kind)`) or an object URL (images, audio, PDF). `formatFileSize()`.
+- Audio player (0.8.0): `AfAudioPlayer` (`src`, `name?`, `peaks?`, `className?`) — the shared audio viewer: play/pause, a waveform you click or drag to seek, elapsed / total time. The waveform is decoded from `src` with the Web Audio API (pass `peaks` to skip decoding); when decoding is unavailable or fails, the bars stay flat with the reason in the waveform's tooltip and playback still works. Keyboard: the waveform is a `slider` (Left/Right ±5 s, Home/End, Space/Enter play or pause). Pure helpers: `audioPeaks(samples, bars?)` (normalised 0..1 per bar), `formatAudioTime(seconds)` (`"1:03"`, `"--:--"` when unknown), `audioSeekTime(x, width, duration)`, `AUDIO_WAVEFORM_BARS` (72).
+- Code highlighting (0.8.0): `AfCodeBlock` (`text`, `language` = a file name or a language, `lineNumbers?`) — wraps long lines, never scrolls sideways; `highlightCode(text, codeLanguage(name))` is a dependency-free lexer (comment / string / number / keyword tokens; joining the tokens returns the input).
+- Settings rows (0.8.0): `AfSettingsGroup` (titled card; `variant="flat"` inside another card; `aside` for e.g. "Revision 4"), `AfSettingRow` (label + one-line help left, control right; wraps in a narrow panel), `AfOverrideRow` — the "Gateway default unless overridden" row: summary (`Gateway default · x` or `<override> — <owner>`), **Change** opens the editor in place, **Use gateway default** only while overridden.
+- Voice section (0.8.0): `AfVoiceSection` — the Assistant's Settings → Voice layout, four groups: **Engines** (Text → speech, Speech → text as `AfOverrideRow`s), **Output** (output device where `audioOutputSelectable()`, with a **Test** chime on the chosen speaker; Reply volume), **Microphone** (input device; **Test** records 3 s with a live level meter and plays it back, or says why it could not: blocked, no device, device gone, in use, silence; Spoken language, which rides on transcription requests and skips detection; Input level 50–150 % where Web Audio allows) and **Replies** (Read aloud switch; Voice latency from `VOICE_LATENCY_OPTIONS`, only when the gateway advertises `quality_preset`). Device names appear after one microphone permission (**Show names**). Safari cannot choose a speaker: the picker stays on System default and says so. Required prop `fetchDefaults: () => Promise<VoiceDefaults>` (`GET /api/gateway/voice/defaults`, the gateway's `output.voice` / `input.voice` routes) is the only source of "Gateway default · provider / model" ("not set" / "unknown" otherwise); `defaults` passes them when the host already holds them. Value `VoiceClientPreferences` (`VoicePreferences` + `stt_provider`, `stt_model`, `stt_language`, `output_device`, `input_device`, `input_gain`, `reply_volume`, `read_aloud`); `voiceTtsRequest()` / `voiceSttRequest()` pick what a request carries (`voiceSttRequest` sends `language`). `nested` renders its sub-sections flat. Helpers (`voice_devices.ts`): `voiceDefaultSummary`, `sttRouteText`, `transcribingLine`, `microphoneErrorSentence`, `listVoiceDevices`, `unlockDeviceLabels`, `recordSample`, `playTestTone`, `playOnDevice`.
+- Relative time (0.8.0): `formatRelativeTime(ts, nowMs)` ("just now", "5 min ago", "3 h ago", "yesterday", "4 days ago", then "Oct 2"; future "in 14 h"), `formatExactTime(ts)` ("Oct 2, 2026, 14:05"), `formatShortDate(ts, nowMs)`, `timeValueMs(ts)` — deterministic (the caller passes now), no seconds, no year within the same year.
+- Icons (0.8.0): `cog` (the usual settings gear; `settings` stays the sliders glyph), `activity` and `unarchive` (archive box with an up arrow).
 - App chrome: `AfTopBarActions` (assistant → appearance → about → extras → connection pill; `about={{ identity, versions?, onOpen?, label? }}` adds the About button and dialog), `AfDrawer` (non-modal, keeps children mounted; `side="left"`, `backdrop`; full width below 768 px), `AfAppearanceDialog` + `useAppearanceSettings()` / `appearanceStorageKey()` / `APPEARANCE_DEFAULTS`
-- About (0.7.0): `AfAbout` (inline card: `identity`, `versions?`, `titleId?`, `action?`, `className?`) and `AfAboutDialog` (`open`, `onClose`, `identity`, `versions?`; modal, Escape and a click outside close it, Close button in the heading row). The card shows the app's name and version, the AbstractFramework and AbstractGateway versions, six links (Website, Source, Docs, Issues, Feedback, and Contact as a mailto) and the copyright and licence line — never a package list. `versions: AfAboutVersions` = `{ framework?, frameworkNote?, gateway?, gatewayNote? }`; a missing version shows its note, else "not reported" / "not connected". `aboutVersionsFromGateway(payload | null, error?)` builds it from `GET /api/gateway/about` (only the framework and gateway versions are read; "not installed on the gateway host" when the gateway reports no framework; "unavailable (reason)" on failure). Helpers `aboutLinks(identity)`, `aboutVersionFacts(versions)`.
+- About (0.8.0): `AfAbout` (inline card: `identity`, `versions?`, `titleId?`, `action?`, `className?`) and `AfAboutDialog` (`open`, `onClose`, `identity`, `versions?`; modal, Escape and a click outside close it, Close button in the heading row). The card shows the app's name and version, the AbstractFramework and AbstractGateway versions, six links (Website, Source, Docs, Issues, Feedback, and Contact as a mailto) and the copyright and licence line — never a package list. `versions: AfAboutVersions` = `{ framework?, frameworkNote?, gateway?, gatewayNote? }`; a missing version shows its note, else "not reported" / "not connected". `aboutVersionsFromGateway(payload | null, error?)` builds it from `GET /api/gateway/about` (only the framework and gateway versions are read; "not installed on the gateway host" when the gateway reports no framework; "unavailable (reason)" on failure). Helpers `aboutLinks(identity)`, `aboutVersionFacts(versions)`.
 - Identity: `appIdentity(id, version): AppIdentity` (throws on an unknown id), `frameworkIdentity(): FrameworkIdentity`, `knownAppIds()`, `aboutRows(identity, extra?): AboutRow[]` (the ordered About rows, same as the Python `abstractcore.utils.identity.about_fields`), `gatewayVersionRows(payload: GatewayAboutPayload | null, error?: string): AboutRow[]` (the connected gateway's version rows from `GET /api/gateway/about`) — both kept for parity with the Python twins; the About card does not render rows; types `AppIdentity`, `FrameworkIdentity`, `AboutRow`, `GatewayAboutPayload`. See [About dialog and identity](../ui-kit/README.md#about-dialog-and-identity)
 - CSRF helpers: `readGatewayCsrfToken()`, `readGatewayCsrfTokens()`
-- Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`; `VoiceSettings` (catalog-driven voice preferences form)
+- Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`. Options `output_device_id` (playback through `AudioContext.setSinkId`), `input_device_id` (records from that microphone; a missing device fails with a sentence, never another microphone), `volume`, `input_gain`, `stop_on_pointerup: false` (tap-to-start / tap-to-stop hosts stop recording themselves); returns `voice_ptt_since` (for "Transcribing… 12 s · faster-whisper / large-v3"); `transcribe` may return `{ text, provider, model }`; every failure becomes one sentence; `VoiceSettings` (catalog-driven voice preferences form)
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
 - Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation on a fixed UTC interval, once, or when an email arrives; "Email result" and result recipients), the email fields `AfEmailTriggerFields` / `AfEmailOptionsFields` / `AfEmailSetupNotice`, `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
 - Modal and account rows: `AfModal`, `bindAfModal()` (+ `afModalTabTarget()`, `afModalFocusables()`, `AF_MODAL_FOCUSABLE`), the helper floors `HELPER_MIN_PX`, `HELPER_MIN_TOUCH_PX`, `HELPER_TOUCH_MEDIA` — see [Modal, account rows, grouped navigation](./modal.md)
@@ -1539,8 +1544,8 @@ Components:
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
 - `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow all enabled tools" only with `onPermissionsAll`), question (`ask_user`, choices and free text) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. Types `PresentInteractionOptions`, `InteractionController`
-- `WorkspaceBrowser` — a run's folder on the gateway host through the CONTRACTS §W routes (`GET /runs/{id}/workspace`, `/workspace/files`, `/workspace/content`): the root once as its short name (`workspaceShortName`; full path on hover) with **Open folder** (`onOpenFolder`, offered only when `workspaceCanOpenFolder`) and **Copy path** icons, breadcrumbs, folders first, then per file: name, size, generated date (relative, exact on hover) and a Download icon; "N entries hidden by the gateway's workspace rules". A click on a file previews it IN PLACE with `FileViewer` (0.3.0: no "Open" button; `fileActions(entry)` adds host actions such as "Attach"), or `onSelectFile` + `selectedPath` hand the selection to a host preview. Files are fetched with the host's credentials, never linked. Props: `fetchGateway(path, init)`, `runId` (an automation's id browses the automation's folder), `title`, `note?`, `onClose?`, `refreshKey?`, `className?`, `fileActions?`, `onOpenFolder?`, `copyText?`, `nowMs?`. Hook-free `WorkspaceBrowserView` and helpers: `loadWorkspaceView()`, `loadRunWorkspace()`, `listWorkspaceFolder()`, `readWorkspaceFile()`, `parseWorkspaceListing()` (malformed answers throw), `gatewayResponseError()`, `tabOpenPlan()`, `workspaceInfoUrl()` / `workspaceFilesUrl()` / `workspaceContentUrl()`, `workspaceCrumbs()`, `workspaceParent()`, `sortWorkspaceEntries()`, `workspaceHiddenNote()`, `formatBytes()`; types `GatewayFetch`, `RunWorkspace`, `WorkspaceEntry`, `WorkspaceListing`, `WorkspaceBrowserProps`, `WorkspaceBrowserViewProps`
-- `FileViewer` (0.3.0) — ui-kit `AfFileViewer` with panel-chat's `Markdown`; `useWorkspaceFilePreview(fetchGateway, runId, entry, refreshKey?)` loads one workspace file for it (a bounded Range read of at most `PREVIEW_TEXT_LIMIT` = 1 MiB for text kinds, an object URL for images, audio and PDF up to `PREVIEW_BLOB_LIMIT`, nothing for binaries; audio plays in the kit's `AfAudioPlayer`) and `filePreviewViewerProps(state)` maps the result; `readBoundedText()`, `responseTotal()`, `partialPreviewNote()`, `safeMarkdownImages()` (Markdown images only from the run's workspace)
+- `WorkspaceBrowser` — a run's folder on the gateway host through the CONTRACTS §W routes (`GET /runs/{id}/workspace`, `/workspace/files`, `/workspace/content`): the root once as its short name (`workspaceShortName`; full path on hover) with **Open folder** (`onOpenFolder`, offered only when `workspaceCanOpenFolder`) and **Copy path** icons, breadcrumbs, folders first, then per file: name, size, generated date (relative, exact on hover) and a Download icon; "N entries hidden by the gateway's workspace rules". A click on a file previews it IN PLACE with `FileViewer` (0.3.1: no "Open" button; `fileActions(entry)` adds host actions such as "Attach"), or `onSelectFile` + `selectedPath` hand the selection to a host preview. Files are fetched with the host's credentials, never linked. Props: `fetchGateway(path, init)`, `runId` (an automation's id browses the automation's folder), `title`, `note?`, `onClose?`, `refreshKey?`, `className?`, `fileActions?`, `onOpenFolder?`, `copyText?`, `nowMs?`. Hook-free `WorkspaceBrowserView` and helpers: `loadWorkspaceView()`, `loadRunWorkspace()`, `listWorkspaceFolder()`, `readWorkspaceFile()`, `parseWorkspaceListing()` (malformed answers throw), `gatewayResponseError()`, `tabOpenPlan()`, `workspaceInfoUrl()` / `workspaceFilesUrl()` / `workspaceContentUrl()`, `workspaceCrumbs()`, `workspaceParent()`, `sortWorkspaceEntries()`, `workspaceHiddenNote()`, `formatBytes()`; types `GatewayFetch`, `RunWorkspace`, `WorkspaceEntry`, `WorkspaceListing`, `WorkspaceBrowserProps`, `WorkspaceBrowserViewProps`
+- `FileViewer` (0.3.1) — ui-kit `AfFileViewer` with panel-chat's `Markdown`; `useWorkspaceFilePreview(fetchGateway, runId, entry, refreshKey?)` loads one workspace file for it (a bounded Range read of at most `PREVIEW_TEXT_LIMIT` = 1 MiB for text kinds, an object URL for images, audio and PDF up to `PREVIEW_BLOB_LIMIT`, nothing for binaries; audio plays in the kit's `AfAudioPlayer`) and `filePreviewViewerProps(state)` maps the result; `readBoundedText()`, `responseTotal()`, `partialPreviewNote()`, `safeMarkdownImages()` (Markdown images only from the run's workspace)
 
 Renderers:
 - `Markdown` (lightweight Markdown with real nested lists, marker progression, fenced code
@@ -2059,6 +2064,62 @@ flowchart LR
 
 Details, props, the error model and the fixtures contract: [Automations](./automations.md).
 
+## Voice settings and file preview (`ui-kit` + `panel-chat`)
+
+Both surfaces are presentational: the kit never fetches by itself. The host passes the gateway
+transports (`fetchDefaults`, `fetchCatalog`, `fetchGateway`) and stores the user's overrides.
+"Gateway default · provider / model" in `AfVoiceSection` comes only from the gateway's voice
+defaults; a request carries only the keys the user overrode. A workspace file is read through the
+host's credentials and previewed in place; audio plays in the shared `AfAudioPlayer`.
+
+```mermaid
+flowchart LR
+  subgraph Host["Host app (Assistant, Code, Entity, ...)"]
+    PREFS["stored overrides<br/>VoiceClientPreferences"]
+    FETCH["gateway transports<br/>(host auth)"]
+  end
+
+  subgraph Kit["ui-kit"]
+    VS["AfVoiceSection<br/>Engines / Output / Microphone / Replies"]
+    ROWS["AfSettingsGroup / AfSettingRow<br/>AfOverrideRow"]
+    DEV["voice_devices.ts<br/>device lists, Test, level meter"]
+    HOOK["useGatewayVoice<br/>TTS playback + push-to-talk"]
+    FV["AfFileViewer"]
+    CB["AfCodeBlock"]
+    AP["AfAudioPlayer"]
+  end
+
+  subgraph Chat["panel-chat"]
+    WB["WorkspaceBrowser"]
+    PREV["useWorkspaceFilePreview<br/>bounded text / object URL"]
+    PFV["FileViewer<br/>(AfFileViewer + Markdown)"]
+  end
+
+  subgraph GW["AbstractGateway"]
+    VDEF["GET /api/gateway/voice/defaults"]
+    VCAT["voice catalog"]
+    VRUN["voice TTS / STT routes"]
+    WSR["run workspace routes"]
+  end
+
+  VS --> ROWS
+  VS --> DEV
+  VS -->|"onChange"| PREFS
+  VS -->|"fetchDefaults / fetchCatalog"| FETCH
+  FETCH --> VDEF & VCAT & VRUN & WSR
+  PREFS -->|"voiceTtsRequest / voiceSttRequest"| HOOK
+  HOOK -->|"tts / transcribe (host)"| FETCH
+  WB -->|"click a file"| PREV
+  PREV -->|"fetchGateway"| FETCH
+  PREV --> PFV
+  PFV --> FV
+  FV --> CB
+  FV --> AP
+```
+
+Props and helpers: [API reference](./api.md) (Voice section, File viewer, Audio player, Settings
+rows) and the [panel-chat README](../panel-chat/README.md).
+
 ## Styling & theming
 
 - `@abstractframework/ui-kit` provides CSS variables + theme classes in `ui-kit/src/theme.css` (exported as `@abstractframework/ui-kit/theme.css`) — 21 themes; see [Theming](./theming.md) for the token vocabulary and adoption rules.
@@ -2106,6 +2167,7 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 - [panel-chat: How do I show replies while the model writes them?](#panel-chat-how-do-i-show-replies-while-the-model-writes-them)
 - [panel-chat: Why do images in assistant messages show as links?](#panel-chat-why-do-images-in-assistant-messages-show-as-links)
 - [ui-kit: How do I add the About dialog?](#ui-kit-how-do-i-add-the-about-dialog)
+- [ui-kit: Where does the voice section's "Gateway default" come from?](#ui-kit-where-does-the-voice-sections-gateway-default-come-from)
 - [Automations: Does the kit poll or schedule anything?](#automations-does-the-kit-poll-or-schedule-anything)
 - [Automations: Why are schedules fixed UTC intervals?](#automations-why-are-schedules-fixed-utc-intervals)
 - [Automations: Why do tools run without asking by default?](#automations-why-do-tools-run-without-asking-by-default)
@@ -2274,6 +2336,17 @@ versions, six links and the licence line; it never lists packages. `knownAppIds(
 accepted ids.
 
 See: [`ui-kit/README.md`](../ui-kit/README.md#about-dialog-and-identity).
+
+## ui-kit: Where does the voice section's "Gateway default" come from?
+
+From the gateway's voice defaults only: `AfVoiceSection` requires `fetchDefaults`
+(`GET /api/gateway/voice/defaults`, the gateway's text-to-speech and speech-to-text routes). It
+reads "Gateway default · provider / model" when a route is configured, "not set" when the
+administrator configured none, and "unknown" when the gateway could not be asked. The voice
+catalog lists what you can pick; it never names the default. A user's override is a client
+preference the host stores; the gateway's defaults are never written from the client.
+
+See: [`ui-kit/README.md`](../ui-kit/README.md#voice-settings).
 
 ## Automations: Does the kit poll or schedule anything?
 
@@ -2797,7 +2870,7 @@ and tool approval), `renderText` and `renderTurn` (required in practice; see abo
 ### Controls
 
 The controls bar leads with an **Active** switch (`AfSwitch`: on = the automation runs on its
-schedule, off = paused), followed by Run now, Stop current, Edit and Archive…, each an icon then
+schedule, off = paused), followed by Run now, Stop current, Edit and Archive, each an icon then
 its label (`CONTROL_LABELS`, `CONTROL_ICONS` — hosts use the same names and glyphs for their own row
 actions). `summary.capabilities` says what you may do (the Edit control is the `revise`
 capability); the status says what applies at this moment:
@@ -2808,8 +2881,8 @@ capability); the status says what applies at this moment:
 | Run now | status `active` or `paused`, and `current_occurrence` is `null` | `automation.run_now` (while paused it runs once; the automation stays paused) |
 | Stop current | `current_occurrence` is not `null` (admitted, running — including waiting for you — or backing off) | `automation.stop_current` |
 | Edit | always (subject to capability and status below) | opens the Edit form; Save calls `onRevise(changes, revision)` |
-| Archive… | always (subject to capability and status below) | `automation.archive`, after an in-panel confirmation |
-| Unarchive (0.7.0) | status `archived` and the `unarchive` capability; shown in place of Archive… on an archived automation | `automation.unarchive` (the automation comes back paused; one that had already finished or failed keeps that status) |
+| Archive | always (subject to capability and status below) | `automation.archive`, after an in-panel confirmation |
+| Unarchive (0.8.0) | status `archived` and the `unarchive` capability; shown in place of Archive on an archived automation | `automation.unarchive` (the automation comes back paused; one that had already finished or failed keeps that status) |
 
 Every control except Unarchive is disabled while `busy`, on a legacy row, without the matching
 capability, or on an archived automation; Unarchive is disabled while `busy`, on a legacy row,
@@ -3057,7 +3130,7 @@ id source; default `crypto.randomUUID`).
 - **Ids**: `command_id` and `request_id` are minted only when you do not pass one. Pass the same
   id to retry a request safely.
 - **Command types**: `automation.pause`, `automation.resume`, `automation.run_now`,
-  `automation.stop_current`, `automation.archive`, `automation.unarchive` (0.7.0). Revisions go through `reviseAutomation`.
+  `automation.stop_current`, `automation.archive`, `automation.unarchive` (0.8.0). Revisions go through `reviseAutomation`.
 - **Polling**: the Automations API has no change cursor. Poll complete pages; the client never
   sends `changed_since`.
 - **Wait answers** are not part of this client: send them through your existing Gateway command
@@ -3314,7 +3387,7 @@ node ui-kit/scripts/check_islands.mjs
 <script src="/static/af-console-islands.js"></script>
 <script>
   const islands = window.AfConsoleIslands;
-  console.log(islands.apiVersion, islands.kitVersion); // "2", e.g. "0.7.0"
+  console.log(islands.apiVersion, islands.kitVersion); // "2", e.g. "0.8.0"
 </script>
 ```
 
@@ -3336,7 +3409,7 @@ Serve both files from your own origin; the paths above are examples.
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
 | `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.4.0+) |
 | `appIdentity(id, version)` | `AppIdentity` | Identity facts for an AbstractFramework app; throws for an unknown id (kit 0.1.12+) |
-| `aboutVersionsFromGateway(payload, error?)` | `AfAboutVersions` | The About card's framework and gateway versions from a `GET /api/gateway/about` body, or `(null, reason)` after a failed request (kit 0.7.0+) |
+| `aboutVersionsFromGateway(payload, error?)` | `AfAboutVersions` | The About card's framework and gateway versions from a `GET /api/gateway/about` body, or `(null, reason)` after a failed request (kit 0.8.0+) |
 | `applyAppearance(settings)` | `void` | Applies a theme and typography settings to the document |
 
 Every mount returns `{ update(props), unmount() }`. Mounting into a missing element throws
@@ -3503,9 +3576,9 @@ Use the values in `islands.fontScales` and `islands.headerDensities` for valid
   Additive members keep the same `apiVersion` and are marked with the kit version that
   introduced them (for example `mountAbout`, kit 0.1.12); check `kitVersion` if you load a bundle
   you did not build yourself.
-- `apiVersion` `"2"` (kit 0.7.0): the About props (`mountAbout`, and `about` on `mountTopBar`)
+- `apiVersion` `"2"` (kit 0.8.0): the About props (`mountAbout`, and `about` on `mountTopBar`)
   take `versions` (`AfAboutVersions`) instead of `extraRows`. A host written for `"1"` that still
-  passes `extraRows` must switch to `versions`; the rows are no longer rendered.
+  passes `extraRows` must switch to `versions`; `extraRows` is not rendered.
 - `kitVersion` identifies the `ui-kit` release the bundle was built from. Rebuild the bundle
   after upgrading the kit sources; a consumer that vendors the bundle should rebuild and re-vendor
   it whenever any kit source that feeds it changes (`ui-kit/src/*`, `ui-kit/islands/*`,
@@ -3533,7 +3606,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 - **Getting started**: [`getting-started.md`](./getting-started.md) — install, required CSS imports, first examples, Next.js notes
 - **API reference**: [`api.md`](./api.md) — export map per package
-- **Architecture**: [`architecture.md`](./architecture.md) — package boundaries, consumers, data flow, the Gateway connection flow, live replies, the About/identity flow and the automations flow (with diagrams)
+- **Architecture**: [`architecture.md`](./architecture.md) — package boundaries, consumers, data flow, the Gateway connection flow, live replies, the About/identity flow, the automations flow, and voice settings and file preview (with diagrams)
 - **FAQ**: [`faq.md`](./faq.md) — recurring questions and limits
 - **Troubleshooting**: [`troubleshooting.md`](./troubleshooting.md) — symptoms, checks and fixes
 
@@ -3562,8 +3635,8 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 ## Package docs
 
-- UI tokens, themes, responsive layout, inputs, Gateway connection UI, top bar/drawer/appearance, About dialog and identity, automations, console islands: [`ui-kit/README.md`](../ui-kit/README.md)
-- Chat primitives (thread, composer, markdown/json renderers, assistant panel, workflow chat, live replies): [`panel-chat/README.md`](../panel-chat/README.md)
+- UI tokens, themes, responsive layout, inputs, Gateway connection UI, top bar/drawer/rail drawer/appearance, file viewer and audio player, settings rows and voice section, About dialog and identity, automations, console islands: [`ui-kit/README.md`](../ui-kit/README.md)
+- Chat primitives (thread, composer, markdown/json renderers, assistant panel, workflow chat, live replies, workspace browser and file preview): [`panel-chat/README.md`](../panel-chat/README.md)
 - App-origin Gateway session proxy: [`app-server/README.md`](../app-server/README.md)
 - Agent-cycle trace viewer (LLM/tool/observe): [`monitor-flow/README.md`](../monitor-flow/README.md)
 - KG + Active Memory explorer (ReactFlow): [`monitor-active-memory/README.md`](../monitor-active-memory/README.md)
@@ -3812,6 +3885,33 @@ const refreshVersions = () =>
   `gateway_version_rows`, checked against `scripts/fixtures/gateway_version_rows.json`); the About
   card does not render rows.
 
+## Voice settings
+
+`AfVoiceSection` renders a client's Settings → Voice page in four groups: **Engines**
+(Text → speech, Speech → text), **Output** (output device with **Test**, Reply volume),
+**Microphone** (input device with **Test** and a live level meter, Spoken language, Input level)
+and **Replies** (Read aloud, Voice latency). Everything reads "Gateway default" until the user
+overrides it; the host stores the overrides.
+
+```tsx
+<AfVoiceSection
+  value={prefs}
+  onChange={setPrefs}
+  fetchCatalog={(provider, model) => gatewayJson(voiceCatalogPath(provider, model))}
+  fetchDefaults={() => gatewayJson("/api/gateway/voice/defaults")}
+  overrideOwner="this app"
+/>
+```
+
+- `fetchDefaults` is required: "Gateway default · provider / model" comes only from the gateway's
+  voice defaults (`VoiceDefaults`: `tts` and `stt` routes), "not set" when the administrator set
+  none, "unknown" when the gateway could not be asked. Pass `defaults` when you already hold them.
+- Device names appear after one microphone permission (**Show names**). Safari does not let a page
+  choose the output device: the picker stays on System default and says so.
+- Send what the user chose with `voiceTtsRequest(prefs)` / `voiceSttRequest(prefs)`, and play or
+  record through `useGatewayVoice({ output_device_id, input_device_id, volume, input_gain })`.
+- `gatewayJson` and `voiceCatalogPath` above stand for your own authenticated transport.
+
 ## Audio player
 
 `AfAudioPlayer` is the one audio viewer of every client (AbstractFlow artifacts, `AfFileViewer`
@@ -3964,7 +4064,7 @@ Chat UI primitives for AbstractFramework-style UIs: thread rendering, message ca
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` `^0.7.0` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, and `AfAudioPlayer` for audio previews and chat media)
+- `@abstractframework/ui-kit` `^0.8.0` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, and `AfAudioPlayer` for audio previews and chat media)
 
 ## Install
 
@@ -3987,7 +4087,7 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
   `folderRefusal`, `dragCarriesFiles`, `draggedFileCount`, `dropZoneLabel`, `pastedFileName`,
   `DragPresence`
 - Renderers: `Markdown` (with `sameOriginImage` as the default image rule for `images="link"`), `JsonViewer`
-- Files (0.3.0): `WorkspaceBrowser` (rows: name, size, generated date, download icon; a click previews the file in place; the root once as a short name with Open folder / Copy path icons; `fileActions` for host actions), `FileViewer` (ui-kit `AfFileViewer` + `Markdown`; audio files play in the kit's waveform `AfAudioPlayer`, 0.3.1), `useWorkspaceFilePreview` (bounded loader through the host's `fetchGateway`; images, audio and PDF as object URLs)
+- Files (0.3.1): `WorkspaceBrowser` (rows: name, size, generated date, download icon; a click previews the file in place; the root once as a short name with Open folder / Copy path icons; `fileActions` for host actions), `FileViewer` (ui-kit `AfFileViewer` + `Markdown`; audio files play in the kit's waveform `AfAudioPlayer`), `useWorkspaceFilePreview` (bounded loader through the host's `fetchGateway`; images, audio and PDF as object URLs)
 - Tool and run evidence: `ToolActivity`, `ToolActivityGroup`, `toolArguments`, `toolPreview`,
   `workflowProgress`, `workflowEvidence`, `foldWorkflowTools`, `historyRecords`,
   `statDetail`, `StatDetailPanel`
@@ -4901,7 +5001,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -4925,7 +5025,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -5038,12 +5138,12 @@ npm test
     "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.7.0",
+    "@abstractframework/ui-kit": "^0.8.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.7.0",
+    "@abstractframework/ui-kit": "^0.8.0",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -15609,24 +15709,46 @@ ships.
 
 ## [Unreleased]
 
-- ui-kit 0.7.1 (round 6): `AfVoiceSection` is truthful to the gateway — "Gateway default · supertonic / supertonic-3" and "· faster-whisper / large-v3" come from the new required prop `fetchDefaults` (`GET /api/gateway/voice/defaults`; optional `defaults` when the host holds them), "not set" / "unknown" otherwise, never from the voice catalog (whose engine-side fields said "openai"). New rows: **Output device** with **Test** (a short chime on the chosen speaker; Safari, which cannot choose a speaker, says so), **Reply volume**, **Microphone** with an input picker, **Test** (records 3 s with a live level meter, plays it back, or says why: blocked, no device, device gone, in use, silence, http), **Spoken language** (rides on transcription requests and skips detection) and **Input level** where Web Audio allows. Device names appear after one microphone permission (**Show names**). New prefs `input_device`, `input_gain`, `reply_volume`, `stt_language`.
-- ui-kit 0.7.1: `useGatewayVoice` records from `input_device_id` (a missing device fails with a sentence, never another microphone), applies `volume` and `input_gain`, exposes `voice_ptt_since` (for "Transcribing… 12 s · faster-whisper / large-v3"), accepts `{text, provider, model}` from `transcribe`, takes `stop_on_pointerup: false` for tap-to-start/tap-to-stop hosts, and turns every failure into one sentence (too-short recording, nothing heard, transcription and playback errors). Helpers in `voice_devices.ts`: `voiceDefaultSummary`, `sttRouteText`, `transcribingLine`, `microphoneErrorSentence`, `listVoiceDevices`, `recordSample`, `playTestTone`, `playOnDevice`. Checked by `scripts/check_voice_section.mjs`.
-- ui-kit: `automationTiming()` and its parts (`compactCadence`, `lastRunText`, `nextRunText`, `compactDuration`) give an automation card or header its one compact line, `every 24 h · last 3 h ago · next in 14 h`; deterministic, checked by `scripts/check_timing_line.mjs`.
-- ui-kit: `AutomationPanel` `hideHeader` — the host draws its own header and controls (AbstractCode's automation header); the panel starts at the definition and the occurrences and is named by the automation's title.
+## 0.6.0 - 2026-10-04
 
-- ui-kit 0.6.0 (unreleased): `AfRailDrawer` — the vertical rail drawer of AbstractEntity / Continuum Teams as a shared component (icon rail at the right edge, panel beside it, resizable by pointer and keyboard, collapses to icons, floating below 1024 px, 44 px targets); `scripts/check_rail_viewer.mjs`.
-- ui-kit 0.6.0: `AfFileViewer` + `AfCodeBlock` / `highlightCode` — one file preview (Markdown, highlighted code, JSON, images, PDF, text; size/date header; download), dependency-free highlighting that wraps instead of scrolling.
-- ui-kit 0.6.0: `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow` (Gateway default unless overridden), `AfVoiceSection` (the Assistant's Voice layout: engines, output device, read aloud, voice latency; `voiceTtsRequest` / `voiceSttRequest`), `useGatewayVoice({ output_device_id })`.
-- ui-kit 0.6.0: `formatRelativeTime` / `formatExactTime` / `formatShortDate` / `timeValueMs` (deterministic); icons `cog` and `activity`; `AutomationReviseForm` exported, embeddable (`heading`, optional `onCancel`, `submitLabel`); `VoiceSettings` `quality` prop.
-- panel-chat 0.3.0 (unreleased): `FileViewer`, `useWorkspaceFilePreview`; `WorkspaceBrowser` previews a file in place (no "Open" button), rows show size, generated date and a download icon, the root shows once as a short name with Open folder / Copy path icons (`fileActions`, `onOpenFolder`, `copyText`); peer `@abstractframework/ui-kit` ^0.6.0.
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.8.0 | updated (minor: rail drawer, file viewer, audio player, settings rows, voice section, relative time, compact About card, Unarchive control, automation timing line; **breaking** About props and a required `AfVoiceSection` prop, see the migration notes) |
+| `@abstractframework/panel-chat` | 0.3.1 | updated (minor: `FileViewer`, `useWorkspaceFilePreview`, in-place workspace previews, audio playback); peer `@abstractframework/ui-kit` `^0.8.0` |
 
-- ui-kit 0.6.0: `ProviderModelPicker` says one plain sentence when the gateway cannot describe the selected model (`PICKER_DISCOVERY_UNAVAILABLE`), the gateway's cause under **Technical details**; `SpeculationSelect` `hideNote`; an embedded `AutomationReviseForm` styles its own fields.
+`@abstractframework/app-server` 0.1.12, `@abstractframework/monitor-active-memory` 0.2.2,
+`@abstractframework/monitor-flow` 0.1.10, `@abstractframework/monitor-gpu` 0.1.10 and
+`@abstractframework/monitor-memory` 0.1.10 are unchanged.
 
-- ui-kit 0.7.0 (unreleased): compact About card. `AfAbout` (inline) and `AfAboutDialog` show the app's name and version, the AbstractFramework and AbstractGateway versions, six links (Website, Source, Docs, Issues, Feedback, Contact) and the copyright and licence line — about half the height of the rows dialog, and never a package list. Props take `versions: AfAboutVersions` (`framework`, `frameworkNote`, `gateway`, `gatewayNote`) built with `aboutVersionsFromGateway(payload | null, error?)`; `aboutLinks`, `aboutVersionFacts` exported. **Breaking:** the `extraRows` prop of `AfAboutDialog` and of `AfTopBarActions` `about` is removed (pass `versions`). `aboutRows` / `gatewayVersionRows` stay for Python parity.
-- ui-kit 0.7.0: `AfAudioPlayer`, the shared waveform audio player (play/pause, click or drag the waveform to seek, keyboard slider, elapsed / total time; waveform decoded with Web Audio, flat bars with the reason when decoding fails); `AfFileViewer` kind `"audio"`; helpers `audioPeaks`, `formatAudioTime`, `audioSeekTime`, `AUDIO_WAVEFORM_BARS`. AbstractFlow's artifact audio preview now uses it.
-- ui-kit 0.7.0: Unarchive control — `AutomationControlsBar` shows **Unarchive** in place of Archive… on an archived automation, enabled with the `unarchive` capability, sending `automation.unarchive` (the automation comes back paused); `ControlId` `"unarchive"`, label and hint in `automation_controls.json`, icon `unarchive`.
-- ui-kit 0.7.0: console islands `apiVersion` `"2"` — `mountAbout` and the top bar's `about` take `versions` instead of `extraRows`; `aboutVersionsFromGateway` exported on `window.AfConsoleIslands`.
-- panel-chat 0.3.1 (unreleased): `useWorkspaceFilePreview` loads audio files as object URLs and `FileViewer` plays them in `AfAudioPlayer`; chat media audio uses `AfAudioPlayer`; peer `@abstractframework/ui-kit` ^0.7.0.
+### ui-kit 0.8.0
+
+- `AfRailDrawer`: the vertical rail drawer shared by AbstractEntity and Continuum Teams — an icon rail at the right edge with the panel beside it, resizable by pointer and keyboard (width persisted under `storageKey`), collapsing to icons, docked from 1024 px and floating below, 44 px targets.
+- `AfFileViewer` + `AfCodeBlock` / `highlightCode()`: one file preview for every client (Markdown through the host renderer, highlighted code, JSON, images, audio, PDF, text; size and date header; download). Highlighting is dependency-free and wraps long lines instead of scrolling.
+- `AfAudioPlayer`: the shared waveform audio player (play/pause, click or drag the waveform to seek, keyboard slider, elapsed / total time; flat bars with the reason when decoding is unavailable). `AfFileViewer` plays audio files with it (kind `"audio"`); helpers `audioPeaks`, `formatAudioTime`, `audioSeekTime`, `AUDIO_WAVEFORM_BARS`.
+- `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow`: compact settings rows; an override row reads "Gateway default · x" until the user changes it, with **Use gateway default** to return.
+- `AfVoiceSection`: the Settings → Voice page in four groups — Engines; Output (output device with a **Test** chime, Reply volume); Microphone (input device, **Test** = a 3 s recording with a live level meter played back, Spoken language, Input level 50–150 % where Web Audio allows); Replies (Read aloud, Voice latency). "Gateway default · provider / model" comes from the required prop `fetchDefaults` (`GET /api/gateway/voice/defaults`); "not set" or "unknown" otherwise. Device names appear after one microphone permission (**Show names**); Safari keeps System default and says that it does not let a page choose the output device. Preferences `input_device`, `input_gain`, `reply_volume`, `stt_language` (sent as `language` by `voiceSttRequest`), `output_device`, `read_aloud`; helpers `voiceTtsRequest`, `voiceSttRequest`, `voiceDefaultSummary`, `sttRouteText`, `transcribingLine`, `microphoneErrorSentence`, `listVoiceDevices`, `unlockDeviceLabels`, `recordSample`, `playTestTone`, `playOnDevice`.
+- `useGatewayVoice`: options `output_device_id`, `input_device_id` (a missing microphone fails with a sentence instead of recording from another one), `volume`, `input_gain` and `stop_on_pointerup: false` (for tap-to-start / tap-to-stop hosts); returns `voice_ptt_since`; `transcribe` may return `{ text, provider, model }`; every failure is one sentence (recording too short, nothing heard, transcription or playback error).
+- `formatRelativeTime` / `formatExactTime` / `formatShortDate` / `timeValueMs`: deterministic relative and exact times (the caller passes now; no seconds; no year within the same year).
+- `automationTiming()` and its parts (`compactCadence`, `lastRunText`, `nextRunText`, `compactDuration`): the one compact line of an automation card or header, `every 24 h · last 3 h ago · next in 14 h`.
+- `AutomationPanel` `hideHeader`: a host that draws its own header and controls hides the panel's; the panel starts at the definition and the occurrences and is named by the automation's title.
+- Unarchive control: `AutomationControlsBar` shows **Unarchive** in place of Archive on an archived automation, enabled by the `unarchive` capability and sending `automation.unarchive` (the automation comes back paused); `ControlId` `"unarchive"`, icon `unarchive`.
+- Compact About card: `AfAbout` (inline) and `AfAboutDialog` show the app's name and version, the AbstractFramework and AbstractGateway versions, six links (Website, Source, Docs, Issues, Feedback, Contact) and the copyright and licence line, never a package list. Props take `versions: AfAboutVersions` (`framework`, `frameworkNote`, `gateway`, `gatewayNote`), built with `aboutVersionsFromGateway(payload | null, error?)`; `aboutLinks`, `aboutVersionFacts` exported. `aboutRows` / `gatewayVersionRows` stay for parity with the Python helpers.
+- Console islands `apiVersion` `"2"`: `mountAbout` and the top bar's `about` take `versions`; `aboutVersionsFromGateway` is exported on `window.AfConsoleIslands`.
+- `ProviderModelPicker` says one plain sentence when the gateway cannot describe the selected model (`PICKER_DISCOVERY_UNAVAILABLE`), with the gateway's cause under **Technical details**; `SpeculationSelect` `hideNote`.
+- `AutomationReviseForm` is exported and embeddable (`heading`, optional `onCancel`, `submitLabel`) and styles its own fields; `VoiceSettings` `quality` prop; icons `cog`, `activity` and `unarchive`.
+
+### panel-chat 0.3.1
+
+- `FileViewer` (the kit's `AfFileViewer` with panel-chat's `Markdown`) and `useWorkspaceFilePreview` (a bounded loader through the host's `fetchGateway`: text up to 1 MiB, images, audio and PDF as object URLs).
+- `WorkspaceBrowser` previews a file in place (no "Open" button); rows show size, generated date and a download icon; the root shows once as a short name with Open folder / Copy path icons (`fileActions`, `onOpenFolder`, `copyText`).
+- Audio files and chat media audio play in the kit's `AfAudioPlayer`.
+
+### Migration notes
+
+- Apps update `@abstractframework/ui-kit` to `^0.8.0` and `@abstractframework/panel-chat` to `^0.3.1`.
+- `AfAboutDialog` and the `about` prop of `AfTopBarActions` take `versions` (from `aboutVersionsFromGateway`); `extraRows` is removed. Console pages built for islands `apiVersion` `"1"` switch `extraRows` to `versions`.
+- `AfVoiceSection` requires `fetchDefaults` (`GET /api/gateway/voice/defaults`, served by AbstractGateway 0.13.0 and later); TypeScript reports the missing prop at build time.
+- Pages that copy the kit's CSS blocks (the AbstractGateway and AbstractCore consoles) re-sync `theme.css`: it adds the About card, audio player, rail drawer, settings rows and voice section styles.
 
 ## 0.5.3 - 2026-10-03
 

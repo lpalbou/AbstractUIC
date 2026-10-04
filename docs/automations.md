@@ -169,7 +169,7 @@ and tool approval), `renderText` and `renderTurn` (required in practice; see abo
 ### Controls
 
 The controls bar leads with an **Active** switch (`AfSwitch`: on = the automation runs on its
-schedule, off = paused), followed by Run now, Stop current, Edit and Archive…, each an icon then
+schedule, off = paused), followed by Run now, Stop current, Edit and Archive, each an icon then
 its label (`CONTROL_LABELS`, `CONTROL_ICONS` — hosts use the same names and glyphs for their own row
 actions). `summary.capabilities` says what you may do (the Edit control is the `revise`
 capability); the status says what applies at this moment:
@@ -180,8 +180,8 @@ capability); the status says what applies at this moment:
 | Run now | status `active` or `paused`, and `current_occurrence` is `null` | `automation.run_now` (while paused it runs once; the automation stays paused) |
 | Stop current | `current_occurrence` is not `null` (admitted, running — including waiting for you — or backing off) | `automation.stop_current` |
 | Edit | always (subject to capability and status below) | opens the Edit form; Save calls `onRevise(changes, revision)` |
-| Archive… | always (subject to capability and status below) | `automation.archive`, after an in-panel confirmation |
-| Unarchive (0.7.0) | status `archived` and the `unarchive` capability; shown in place of Archive… on an archived automation | `automation.unarchive` (the automation comes back paused; one that had already finished or failed keeps that status) |
+| Archive | always (subject to capability and status below) | `automation.archive`, after an in-panel confirmation |
+| Unarchive (0.8.0) | status `archived` and the `unarchive` capability; shown in place of Archive on an archived automation | `automation.unarchive` (the automation comes back paused; one that had already finished or failed keeps that status) |
 
 Every control except Unarchive is disabled while `busy`, on a legacy row, without the matching
 capability, or on an archived automation; Unarchive is disabled while `busy`, on a legacy row,
@@ -429,7 +429,7 @@ id source; default `crypto.randomUUID`).
 - **Ids**: `command_id` and `request_id` are minted only when you do not pass one. Pass the same
   id to retry a request safely.
 - **Command types**: `automation.pause`, `automation.resume`, `automation.run_now`,
-  `automation.stop_current`, `automation.archive`, `automation.unarchive` (0.7.0). Revisions go through `reviseAutomation`.
+  `automation.stop_current`, `automation.archive`, `automation.unarchive` (0.8.0). Revisions go through `reviseAutomation`.
 - **Polling**: the Automations API has no change cursor. Poll complete pages; the client never
   sends `changed_since`.
 - **Wait answers** are not part of this client: send them through your existing Gateway command

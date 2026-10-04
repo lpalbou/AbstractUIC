@@ -29,7 +29,13 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Live (streamed) replies | `WorkflowSessionController` / `useWorkflowSession` + a transport whose `streamLedger` passes `onDelta`; `WorkflowChat` `streamReplies` + `streamRepliesRuntime()` | Deltas never move the ledger cursor; the ledger record replaces the live bubble. See [panel-chat live replies](../panel-chat/README.md#live-replies-streaming) |
 | App assistant (docs Q&A drawer) | `AssistantPanel` (panel-chat) in `AfDrawer` via `AfTopBarActions` | Transport injected. THE shared transport (docs-qa@0.1.0, tenant_catalog): `POST /runs/start {registry_scope:"tenant_catalog", bundle_id:"docs-qa", bundle_version:"0.1.0", flow_id:"docsqa001", input_data:{question, history, docs:<llms.txt text>, app}}`, answer on `output.response` — grounded on YOUR docs only, cites sections, says honestly when docs don't answer. `import docs from "./llms.txt?raw"` remains the recommended docs source (build-time, versioned) |
 | Markdown / JSON rendering | `Markdown`, `JsonViewer` (panel-chat) | Also exported standalone |
-| TTS playback + push-to-talk | `useGatewayVoice` (+ `streamTtsJsonl`) | Injected `tts`/`tts_stream`/`transcribe` functions; streaming with pause/resume |
+| TTS playback + push-to-talk | `useGatewayVoice` (+ `streamTtsJsonl`) | Injected `tts`/`tts_stream`/`transcribe` functions; streaming with pause/resume; output and input device, volume and input level options |
+| Voice settings page | `AfVoiceSection` | Pass `fetchDefaults` (`GET /api/gateway/voice/defaults`): "Gateway default · provider / model" comes only from it; the host stores the overrides |
+| Compact settings rows | `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow` | "Gateway default" until the user overrides it; **Use gateway default** returns to it |
+| Side panels on a vertical icon rail | `AfRailDrawer` | Docked from 1024 px, floating below; resizable, width persisted under `storageKey` |
+| File preview | `AfFileViewer` (ui-kit) or `FileViewer` + `useWorkspaceFilePreview` (panel-chat, for run workspace files) | Markdown, highlighted code, JSON, images, audio, PDF, text; the host fetches with its own credentials |
+| Audio playback | `AfAudioPlayer` | Waveform player: click or drag to seek, keyboard slider |
+| Relative and exact times | `formatRelativeTime(ts, nowMs)`, `formatExactTime(ts)` | Deterministic: the caller passes now; exact time on hover |
 | Agent cycle traces | `AgentCyclesPanel` + `build_agent_trace` (monitor-flow) | Adapter turns ledger-like records into `TraceItem[]` |
 | KG / active-memory explorer | `KgActiveMemoryExplorer` (monitor-active-memory) | ReactFlow peer dep |
 | GPU utilization widget | `<monitor-gpu>` (monitor-gpu) | Dependency-free custom element |

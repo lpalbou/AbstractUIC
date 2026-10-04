@@ -10,7 +10,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 - **Getting started**: [`getting-started.md`](./getting-started.md) — install, required CSS imports, first examples, Next.js notes
 - **API reference**: [`api.md`](./api.md) — export map per package
-- **Architecture**: [`architecture.md`](./architecture.md) — package boundaries, consumers, data flow, the Gateway connection flow, live replies, the About/identity flow and the automations flow (with diagrams)
+- **Architecture**: [`architecture.md`](./architecture.md) — package boundaries, consumers, data flow, the Gateway connection flow, live replies, the About/identity flow, the automations flow, and voice settings and file preview (with diagrams)
 - **FAQ**: [`faq.md`](./faq.md) — recurring questions and limits
 - **Troubleshooting**: [`troubleshooting.md`](./troubleshooting.md) — symptoms, checks and fixes
 
@@ -39,8 +39,8 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 ## Package docs
 
-- UI tokens, themes, responsive layout, inputs, Gateway connection UI, top bar/drawer/appearance, About dialog and identity, automations, console islands: [`ui-kit/README.md`](../ui-kit/README.md)
-- Chat primitives (thread, composer, markdown/json renderers, assistant panel, workflow chat, live replies): [`panel-chat/README.md`](../panel-chat/README.md)
+- UI tokens, themes, responsive layout, inputs, Gateway connection UI, top bar/drawer/rail drawer/appearance, file viewer and audio player, settings rows and voice section, About dialog and identity, automations, console islands: [`ui-kit/README.md`](../ui-kit/README.md)
+- Chat primitives (thread, composer, markdown/json renderers, assistant panel, workflow chat, live replies, workspace browser and file preview): [`panel-chat/README.md`](../panel-chat/README.md)
 - App-origin Gateway session proxy: [`app-server/README.md`](../app-server/README.md)
 - Agent-cycle trace viewer (LLM/tool/observe): [`monitor-flow/README.md`](../monitor-flow/README.md)
 - KG + Active Memory explorer (ReactFlow): [`monitor-active-memory/README.md`](../monitor-active-memory/README.md)

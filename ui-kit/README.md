@@ -238,6 +238,33 @@ const refreshVersions = () =>
   `gateway_version_rows`, checked against `scripts/fixtures/gateway_version_rows.json`); the About
   card does not render rows.
 
+## Voice settings
+
+`AfVoiceSection` renders a client's Settings → Voice page in four groups: **Engines**
+(Text → speech, Speech → text), **Output** (output device with **Test**, Reply volume),
+**Microphone** (input device with **Test** and a live level meter, Spoken language, Input level)
+and **Replies** (Read aloud, Voice latency). Everything reads "Gateway default" until the user
+overrides it; the host stores the overrides.
+
+```tsx
+<AfVoiceSection
+  value={prefs}
+  onChange={setPrefs}
+  fetchCatalog={(provider, model) => gatewayJson(voiceCatalogPath(provider, model))}
+  fetchDefaults={() => gatewayJson("/api/gateway/voice/defaults")}
+  overrideOwner="this app"
+/>
+```
+
+- `fetchDefaults` is required: "Gateway default · provider / model" comes only from the gateway's
+  voice defaults (`VoiceDefaults`: `tts` and `stt` routes), "not set" when the administrator set
+  none, "unknown" when the gateway could not be asked. Pass `defaults` when you already hold them.
+- Device names appear after one microphone permission (**Show names**). Safari does not let a page
+  choose the output device: the picker stays on System default and says so.
+- Send what the user chose with `voiceTtsRequest(prefs)` / `voiceSttRequest(prefs)`, and play or
+  record through `useGatewayVoice({ output_device_id, input_device_id, volume, input_gain })`.
+- `gatewayJson` and `voiceCatalogPath` above stand for your own authenticated transport.
+
 ## Audio player
 
 `AfAudioPlayer` is the one audio viewer of every client (AbstractFlow artifacts, `AfFileViewer`

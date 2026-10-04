@@ -19,6 +19,7 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 - [panel-chat: How do I show replies while the model writes them?](#panel-chat-how-do-i-show-replies-while-the-model-writes-them)
 - [panel-chat: Why do images in assistant messages show as links?](#panel-chat-why-do-images-in-assistant-messages-show-as-links)
 - [ui-kit: How do I add the About dialog?](#ui-kit-how-do-i-add-the-about-dialog)
+- [ui-kit: Where does the voice section's "Gateway default" come from?](#ui-kit-where-does-the-voice-sections-gateway-default-come-from)
 - [Automations: Does the kit poll or schedule anything?](#automations-does-the-kit-poll-or-schedule-anything)
 - [Automations: Why are schedules fixed UTC intervals?](#automations-why-are-schedules-fixed-utc-intervals)
 - [Automations: Why do tools run without asking by default?](#automations-why-do-tools-run-without-asking-by-default)
@@ -187,6 +188,17 @@ versions, six links and the licence line; it never lists packages. `knownAppIds(
 accepted ids.
 
 See: [`ui-kit/README.md`](../ui-kit/README.md#about-dialog-and-identity).
+
+## ui-kit: Where does the voice section's "Gateway default" come from?
+
+From the gateway's voice defaults only: `AfVoiceSection` requires `fetchDefaults`
+(`GET /api/gateway/voice/defaults`, the gateway's text-to-speech and speech-to-text routes). It
+reads "Gateway default · provider / model" when a route is configured, "not set" when the
+administrator configured none, and "unknown" when the gateway could not be asked. The voice
+catalog lists what you can pick; it never names the default. A user's override is a client
+preference the host stores; the gateway's defaults are never written from the client.
+
+See: [`ui-kit/README.md`](../ui-kit/README.md#voice-settings).
 
 ## Automations: Does the kit poll or schedule anything?
 
