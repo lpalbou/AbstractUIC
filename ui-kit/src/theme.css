@@ -6566,6 +6566,14 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 .af-workspace__access-btn:nth-child(2):not(:last-child) {
   border-radius: 0;
 }
+.af-workspace__list > .af-workspace__caption {
+  padding: 8px 0 2px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 /* af-workspace:end */
 
 /* af-file-viewer:begin — AfFileViewer + AfCodeBlock (0.6.0). */

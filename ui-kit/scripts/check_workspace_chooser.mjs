@@ -54,8 +54,8 @@ const P = "/data/project";
 const AR = "/archive";
 const SEC = "/secrets";
 const X = "/elsewhere";
-const LINE_A = "Only allowed folders · Shared workspace (rw) · /data/project (rw) · /archive (ro)";
-const LINE_B = "Any folder except denied (rw) · Shared workspace (rw) · /secrets (denied) · /archive (ro)";
+const LINE_A = "Deny everything, allow listed workspaces · Shared workspace (rw) · /data/project (rw) · /archive (ro)";
+const LINE_B = "Allow everything, refuse listed workspaces (rw) · Shared workspace (rw) · /secrets (denied) · /archive (ro)";
 
 const stateA = (accountFolders = [], over = {}) => ({
   policy: { account: "default:alice", default_mode: null, folders: accountFolders },
@@ -94,6 +94,8 @@ const btn = (s, mode) => (new RegExp(`<button[^>]*data-action="workspace-mode-${
   check("ro folder: Read & write unavailable (cannot raise), tooltip says why", /aria-disabled="true"/.test(btn(a, "rw")) && btn(a, "rw").includes(`data-af-tip="${T.accessCeiling}"`) && /aria-pressed="true"/.test(btn(a, "ro")), a);
   check("posture a: no add row, the sentence instead", !h.includes('data-workspace="add"') && h.includes(T.adminOnlyAdds));
   check("posture a: no Everything else", !h.includes('data-workspace="everything-else"'));
+  check("Allowed workspaces caption before the allowed rows", h.includes(`>${T.allowedTitle}<`) && h.indexOf(T.allowedTitle) < h.indexOf(`data-path="${P}"`) && !h.includes(T.deniedTitle));
+  check("no visible 'folder' word", !/>[^<]*\bfolders?\b[^<]*</i.test(h), (/>[^<]*\bfolders?\b[^<]*</i.exec(h) || [""])[0]);
   check("effective line = gateway summary, verbatim", h.includes(`data-workspace="effective">${esc(LINE_A)}<`));
   check("nothing else (no sessions, no allow-any, no trust, no never-allowed control)", !/Other sessions|Allow any|launch folder|Launch folder|Never allowed/.test(h));
 }
@@ -114,6 +116,7 @@ const btn = (s, mode) => (new RegExp(`<button[^>]*data-action="workspace-mode-${
 {
   const h = html({ state: stateB([{ path: X, mode: "ro" }]), onPut: async () => {} });
   check("posture badge: Any folder except denied", h.includes('data-posture="any_except_denied"') && h.includes(`>${T.postureAnyExceptDenied}<`));
+  check("Denied workspaces caption before the denied row", h.includes(`>${T.deniedTitle}<`) && h.indexOf(T.deniedTitle) < h.indexOf(`data-path="${SEC}"`));
   check("gateway deny row is fixed Denied", rowHtml(h, SEC).includes('data-access="deny"') && !rowHtml(h, SEC).includes("workspace-mode-"));
   check("Everything else: default mode with Read & write / Read-only", /data-workspace="everything-else"[\s\S]*workspace-mode-rw[\s\S]*workspace-mode-ro/.test(h));
   check("account row with Remove", rowHtml(h, X).includes('data-workspace="account-row"') && h.includes(`aria-label="${T.remove} ${X}"`) && h.includes(`data-af-tip="${T.remove} ${X}"`));
@@ -142,7 +145,7 @@ check("load error shown verbatim", html({ state: null, loadError: "Sign in first
   check("automation stale/denied stored entry is not a row", !pinned.rows.some((r) => r.path === SEC));
   check("automation toggle stores only offered folders", JSON.stringify(workspaceSelectionAfterToggle(pinned, P, true)) === JSON.stringify([P, AR]));
   check("automation enabling a non-offered folder stores nothing new", JSON.stringify(workspaceSelectionAfterToggle(pinned, SEC, true)) === JSON.stringify([AR]));
-  check("automation line in the gateway format", pinned.summary === "Only allowed folders · Shared workspace (rw) · /archive (ro)", pinned.summary);
+  check("automation line in the gateway format", pinned.summary === "Deny everything, allow listed workspaces · Shared workspace (rw) · /archive (ro)", pinned.summary);
   const h = html({ mode: "automation", effective: eff, selection: [AR], onSelectionChange: () => {} });
   check("automation: shared always on", h.includes('data-workspace="shared-always"'));
   check("automation: switches = the account's folders", [...h.matchAll(/role="switch"/g)].length === 2);
@@ -180,12 +183,14 @@ check("load error shown verbatim", html({ state: null, loadError: "Sign in first
 // Wording table (every client copies it verbatim).
 {
   const expected = {
-    title: "Workspace folders", postureAllowedOnly: "Only allowed folders", postureAnyExceptDenied: "Any folder except denied",
-    sharedLabel: "Shared workspace", sharedState: "Always on", accessRead: "Read-only", accessReadWrite: "Read & write", accessDenied: "Denied",
+    title: "Workspaces", postureAllowedOnly: "Deny everything, allow listed workspaces", postureAnyExceptDenied: "Allow everything, refuse listed workspaces", addPlaceholder: "Add a workspace path",
+    allowedTitle: "Allowed workspaces", deniedTitle: "Refused workspaces",
+    sharedLabel: "Shared workspace", sharedState: "Always on", accessRead: "Read-only", accessReadWrite: "Read & write", accessDenied: "Refused",
     everythingElse: "Everything else", notSaved: "Not saved.",
   };
   for (const [k, v] of Object.entries(expected)) check(`text.${k}`, T[k] === v, T[k]);
   check("no retired wording", !Object.values(T).some((v) => /Other sessions|Allow any|trust|Never allowed/i.test(v)));
+  check("vocabulary: workspaces, never folders", !Object.values(T).some((v) => /folder/i.test(v)), Object.values(T).filter((v) => /folder/i.test(v)).join(" | "));
 }
 check("css block", /af-workspace:begin[\s\S]*\.af-workspace__always[\s\S]*af-workspace:end/.test(css));
 check("css: paths wrap (no horizontal scroll at 390 px)", /\.af-workspace__path\s*\{[^}]*overflow-wrap:\s*anywhere/.test(css));

@@ -1,9 +1,9 @@
 // WorkspaceChooser core (ui-kit 0.8.1, round 9 FINAL wording): the folder
 // model every client shows. Two dimensions only:
-//   WHAT — the gateway's posture: (a) "Only allowed folders" (everything
-//          denied, the listed folders allowed) or (b) "Any folder except
-//          denied" (everything allowed at ONE default mode, the listed
-//          folders denied or with their own mode). The shared workspace is
+//   WHAT — the gateway's posture: (a) "Deny everything, allow listed
+//          workspaces" or (b) "Allow everything, refuse listed workspaces"
+//          (everything allowed at ONE default mode, the listed workspaces
+//          refused or with their own mode). The shared workspace is
 //          always in, Read & write.
 //   HOW  — per folder, Read-only or Read & write (or Denied), granular.
 // Accounts narrow only: lower a folder to Read-only, deny it, or lower the
@@ -50,7 +50,7 @@ export type WorkspaceEffective = {
   default_mode: WorkspaceAccess | null;
   shared_workspace: string;
   folders: { path: string; mode: WorkspaceMode; source: "shared" | "gateway" | "account" | string }[];
-  /** The one line, verbatim: "Only allowed folders · Shared workspace (rw) · /data/project (rw) · /archive (ro)". */
+  /** The one line, verbatim: "Deny everything, allow listed workspaces · Shared workspace (rw) · /data/project (rw) · /archive (ro)". */
   summary: string;
 };
 
@@ -64,31 +64,36 @@ export type WorkspaceAccountState = { policy: WorkspaceAccountPolicy; gateway: W
  * carries a verbatim copy) show exactly these strings.
  */
 export const WORKSPACE_CHOOSER_TEXT = {
-  title: "Workspace folders",
-  help: "Which folders agents may use, and how.",
-  postureAllowedOnly: "Only allowed folders",
-  postureAnyExceptDenied: "Any folder except denied",
+  title: "Workspaces",
+  help: "Which workspaces agents may use, and how.",
+  postureAllowedOnly: "Deny everything, allow listed workspaces",
+  postureAllowedOnlyHelp: "Agents may use the shared workspace and the allowed workspaces, nothing else.",
+  postureAnyExceptDenied: "Allow everything, refuse listed workspaces",
+  postureAnyExceptDeniedHelp: "Agents may use any workspace at the default mode, except the refused ones.",
   sharedLabel: "Shared workspace",
   sharedState: "Always on",
+  sharedHelp: "Every agent can always use it, read and write.",
   accessLabel: "Permission",
   accessRead: "Read-only",
   accessReadWrite: "Read & write",
-  accessDenied: "Denied",
+  accessDenied: "Refused",
   accessCeiling: "The gateway admin allows read only.",
   everythingElse: "Everything else",
-  foldersTitle: "Folders",
+  foldersTitle: "Workspaces",
+  allowedTitle: "Allowed workspaces",
+  deniedTitle: "Refused workspaces",
   policyTitle: "Gateway policy",
-  adminOnlyAdds: "Under Only allowed folders, only the gateway admin can add folders.",
-  addPlaceholder: "/absolute/path/to/folder",
+  adminOnlyAdds: "While everything is denied, only the gateway admin can add workspaces.",
+  addPlaceholder: "Add a workspace path",
   add: "Add",
   remove: "Remove",
   saved: "Saved",
   notSaved: "Not saved.",
   // An automation (or one run) keeps its own set, within the account's folders.
-  automationHelp: "The folders this automation's runs may use, chosen among this account's folders.",
-  runHelp: "The folders this run may use, chosen among this account's folders.",
-  automationFollows: "Follows this account's folders.",
-  automationUseAccount: "Use this account's folders",
+  automationHelp: "The workspaces this automation's runs may use, chosen among this account's workspaces.",
+  runHelp: "The workspaces this run may use, chosen among this account's workspaces.",
+  automationFollows: "Follows this account's workspaces.",
+  automationUseAccount: "Use this account's workspaces",
 } as const;
 
 export type WorkspaceChooserText = typeof WORKSPACE_CHOOSER_TEXT;

@@ -1,12 +1,12 @@
 // WorkspaceChooser (ui-kit 0.8.1, round 9 FINAL wording): the ONE folder chooser.
 //
-//   [Only allowed folders]                       the gateway's posture
+//   [Deny everything, allow listed workspaces]                       the gateway's posture
 //   Shared workspace          Read & write · Always on
-//   /data/project             [Read & write | Read-only | Denied]
-//   /archive                  [Read & write (unavailable) | Read-only | Denied]
+//   /data/project             [Read & write | Read-only | Refused]
+//   /archive                  [Read & write (unavailable) | Read-only | Refused]
 //   Everything else           [Read & write | Read-only]     (posture b only)
-//   [/absolute/path] [Read-only | Denied] [Add]              (posture b only)
-//   Only allowed folders · Shared workspace (rw) · /data/project (rw) · /archive (ro)
+//   [/absolute/path] [Read-only | Refused] [Add]              (posture b only)
+//   Deny everything, allow listed workspaces · Shared workspace (rw) · /data/project (rw) · /archive (ro)
 //
 // Two modes, same rows and words:
 // - "account": the account's own narrowing. Every change is ONE PUT through
@@ -172,6 +172,9 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
     return segmented(row.path, row.mode, offered, row.choices, (m) => void put(row.path, workspaceModeBody(state, row, m)));
   };
 
+  // Allowed workspaces first, then Denied workspaces (each under its caption).
+  const ordered = view ? [...view.rows.filter((r) => r.mode !== "deny"), ...view.rows.filter((r) => r.mode === "deny")] : [];
+
   async function addRow() {
     if (props.mode === "automation" || !props.state) return;
     const path = draft.trim();
@@ -224,7 +227,17 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
                 {view.shared.path}
               </code>
             </li>
-            {view.rows.map((row) => (
+            {ordered.map((row, i) => [
+              i === 0 && row.mode !== "deny" ? (
+                <li key="caption-allowed" className="af-workspace__caption" data-workspace="caption-allowed">
+                  {T.allowedTitle}
+                </li>
+              ) : null,
+              row.mode === "deny" && (i === 0 || ordered[i - 1].mode !== "deny") ? (
+                <li key="caption-denied" className="af-workspace__caption" data-workspace="caption-denied">
+                  {T.deniedTitle}
+                </li>
+              ) : null,
               <li className="af-workspace__row af-workspace__folder" key={row.path} data-workspace={row.origin === "account" ? "account-row" : "folder"} data-path={row.path} data-mode={row.mode}>
                 {props.mode === "automation" ? (
                   <AfSwitch
@@ -266,8 +279,8 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
                   ) : null}
                 </span>
                 {status(row.path)}
-              </li>
-            ))}
+              </li>,
+            ])}
             {view.everythingElse ? (
               <li className="af-workspace__row af-workspace__folder" data-workspace="everything-else" data-mode={view.everythingElse.mode}>
                 <span className="af-workspace__folder-text">
