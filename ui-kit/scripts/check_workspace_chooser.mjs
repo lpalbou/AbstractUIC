@@ -86,7 +86,8 @@ const btn = (s, mode) => (new RegExp(`<button[^>]*data-action="workspace-mode-${
   const h = html({ state: stateA(), onPut: async () => {} });
   check("title", h.includes(`>${T.title}<`));
   check("posture badge: Only allowed folders", h.includes('data-posture="allowed_only"') && h.includes(`>${T.postureAllowedOnly}<`));
-  check("shared row first", h.indexOf('data-setting="workspace-shared"') < h.indexOf('data-workspace="folder"'));
+  check("shared row present and first", h.indexOf('data-setting="workspace-shared"') >= 0 && h.indexOf('data-setting="workspace-shared"') < h.indexOf('data-workspace="folder"'));
+  check("shared row shows its path", (/data-setting="workspace-shared"[\s\S]*?<\/li>/.exec(h) || [""])[0].includes(SHARED));
   check("shared: Read & write + Always on", h.includes('data-workspace="shared-access"') && h.includes(`>${esc(T.accessReadWrite)}<`) && h.includes(`>${T.sharedState}<`));
   const p = rowHtml(h, P), a = rowHtml(h, AR);
   check("one row per gateway folder", [...h.matchAll(/data-workspace="folder"/g)].length === 2);
