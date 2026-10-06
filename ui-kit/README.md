@@ -37,7 +37,7 @@ This package provides:
   and `checkLabelScale()` — see [On/off settings](../docs/state-toggles.md)
 - **Plain http**: `randomId()` (a v4 UUID in every browser context) and
   `insecureContextReason(feature)` — see [Non-secure contexts](../docs/state-toggles.md#non-secure-contexts)
-- **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
+- **Icons**: `Icon`, `ICON_NAMES` (65 monochrome glyphs; every name and the contact sheet: [docs/icons.md](../docs/icons.md); used by `@abstractframework/panel-chat`)
 - **Palette seeds**: `@abstractframework/ui-kit/palette_seeds.json` for non-CSS consumers
 - **Console islands** (repository build, not in the npm package): the kit components as one
   script for pages that are not React apps — see [Console islands](#console-islands)

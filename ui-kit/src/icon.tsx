@@ -71,7 +71,42 @@ export type IconName =
   // Docs assistant (ui-kit 0.8.0, round 8): an open book (the top-bar "Docs
   // assistant" button) and a square with a pen ("New conversation"). 24-grid.
   | "book"
-  | "compose";
+  | "compose"
+  // Flow node and canvas glyphs (ui-kit 0.8.6, round 14): media, data,
+  // control flow, variables, math, and the canvas controls. 24-grid, stroke 2.
+  | "image"
+  | "video"
+  | "camera"
+  | "music"
+  | "database"
+  | "branch"
+  | "loop"
+  | "variable"
+  | "minus"
+  | "divide"
+  | "function"
+  | "zoomIn"
+  | "zoomOut"
+  | "fitView"
+  | "lock";
+
+/**
+ * Every icon name, in declaration order (docs/icons.md lists the same set;
+ * check_icons.mjs renders each one). A consumer can test its own mapping
+ * against this list at runtime.
+ */
+export const ICON_NAMES = [
+  "chat", "plus", "history", "refresh", "settings", "user", "bot", "paperclip", "mic", "speaker",
+  "pause", "terminal", "edit", "download", "loader", "info", "warning", "error", "copy", "check",
+  "x", "chevronDown", "chevronRight", "trash", "send", "thumbsUp", "thumbsDown", "thumbsUpFilled",
+  "thumbsDownFilled", "board", "inbox", "server", "agent", "playCircle", "list", "gear", "sparkle",
+  "contrast", "logout", "play", "stop", "folder", "file", "archive", "unarchive", "clock", "cog",
+  "activity", "book", "compose", "image", "video", "camera", "music", "database", "branch", "loop",
+  "variable", "minus", "divide", "function", "zoomIn", "zoomOut", "fitView", "lock",
+] as const satisfies readonly IconName[];
+
+/** Compile-time guard: a name added to IconName but not to ICON_NAMES fails the build. */
+export const ICON_NAMES_COMPLETE: [Exclude<IconName, (typeof ICON_NAMES)[number]>] extends [never] ? true : never = true;
 
 /** Icons drawn on continuum's 16x16 grid (stroke 1.4) vs the kit's 24-grid (stroke 2). */
 const GRID_16: ReadonlySet<IconName> = new Set(["board", "inbox", "server", "agent", "playCircle", "list", "gear"]);
@@ -421,6 +456,125 @@ function paths(name: IconName): React.ReactNode {
         <>
           <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
           <path d="M18.4 2.6a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z" />
+        </>
+      );
+    case "image":
+      return (
+        <>
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <circle cx="9" cy="9" r="2" />
+          <path d="M21 15l-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+        </>
+      );
+    case "video":
+      return (
+        <>
+          <rect x="2" y="6" width="14" height="12" rx="2" />
+          <path d="M16 10.5l5.2-3.1a.5.5 0 0 1 .8.4v8.4a.5.5 0 0 1-.8.4L16 13.5" />
+        </>
+      );
+    case "camera":
+      return (
+        <>
+          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z" />
+          <circle cx="12" cy="13" r="3" />
+        </>
+      );
+    case "music":
+      return (
+        <>
+          <path d="M9 18V5l12-2v13" />
+          <circle cx="6" cy="18" r="3" />
+          <circle cx="18" cy="16" r="3" />
+        </>
+      );
+    case "database":
+      return (
+        <>
+          <ellipse cx="12" cy="5" rx="9" ry="3" />
+          <path d="M3 5v14a9 3 0 0 0 18 0V5" />
+          <path d="M3 12a9 3 0 0 0 18 0" />
+        </>
+      );
+    case "branch":
+      // A fork: one path in, two out (an if / switch), not a chevron.
+      return (
+        <>
+          <path d="M6 3v12" />
+          <circle cx="18" cy="6" r="3" />
+          <circle cx="6" cy="18" r="3" />
+          <path d="M18 9a9 9 0 0 1-9 9" />
+        </>
+      );
+    case "loop":
+      // Two opposed arrows on a closed track; `refresh` stays the reload glyph.
+      return (
+        <>
+          <path d="M17 2l4 4-4 4" />
+          <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+          <path d="M7 22l-4-4 4-4" />
+          <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+        </>
+      );
+    case "variable":
+      return (
+        <>
+          <path d="M8 21s-4-3-4-9 4-9 4-9" />
+          <path d="M16 3s4 3 4 9-4 9-4 9" />
+          <path d="M15 9l-6 6" />
+          <path d="M9 9l6 6" />
+        </>
+      );
+    case "minus":
+      return <path d="M5 12h14" />;
+    case "divide":
+      return (
+        <>
+          <circle cx="12" cy="6" r="1.25" fill="currentColor" stroke="none" />
+          <path d="M5 12h14" />
+          <circle cx="12" cy="18" r="1.25" fill="currentColor" stroke="none" />
+        </>
+      );
+    case "function":
+      return (
+        <>
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M9 17c2 0 2.8-1 2.8-2.8V10c0-2 1-3.3 3.2-3" />
+          <path d="M9 11.2h5.7" />
+        </>
+      );
+    case "zoomIn":
+      return (
+        <>
+          <circle cx="11" cy="11" r="8" />
+          <path d="M21 21l-4.35-4.35" />
+          <path d="M11 8v6" />
+          <path d="M8 11h6" />
+        </>
+      );
+    case "zoomOut":
+      return (
+        <>
+          <circle cx="11" cy="11" r="8" />
+          <path d="M21 21l-4.35-4.35" />
+          <path d="M8 11h6" />
+        </>
+      );
+    case "fitView":
+      // Four corners framing the view (fit everything inside).
+      return (
+        <>
+          <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+          <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+          <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+          <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+        </>
+      );
+    case "lock":
+      return (
+        <>
+          <rect x="4" y="11" width="16" height="10" rx="2" />
+          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
         </>
       );
     default:

@@ -13,7 +13,7 @@ export {
 } from "./gateway_session_signin.js";
 export { ThemeSelect, type ThemeSelectProps } from "./theme_select.js";
 export { FontScaleSelect, HeaderDensitySelect, type FontScaleSelectProps, type HeaderDensitySelectProps } from "./typography_select.js";
-export { Icon, type IconName } from "./icon.js";
+export { Icon, ICON_NAMES, type IconName } from "./icon.js";
 export { GATEWAY_API_PATH, GATEWAY_CONNECTION_PATH, gatewayApiPath, gatewayResourcePath, joinBaseUrl } from "./gateway_paths.js";
 export {
   ToolPolicyEditor,

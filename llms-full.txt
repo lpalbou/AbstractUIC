@@ -55,6 +55,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Theming](docs/theming.md): design-token vocabulary, 21-theme system, adoption/migration rules for host apps
 - [Modal, account rows, grouped navigation](docs/modal.md): `AfModal` (960 px × 90vh dialog over a blurred backdrop, full-screen sheet under 768 px, focus trap, Escape/backdrop close), its plain-HTML markup and `AfConsoleIslands.bindModal` / `bindAfModal`, the `af-row--admin|user|entity` tints with `af-kind-chip`, `af-nav-group` captions and `af-nav-footer`, and the `--af-helper-size` floor (13 px desktop, 14 px touch)
 - [On/off settings](docs/state-toggles.md): `AfSwitch` (a `role="switch"` labelled by the feature, highlighted when on; unavailable = `aria-disabled` + reason), the `af-switch` CSS block the consoles copy, the terminal `[x]`/`[ ]`/`[-]` marker, `findVerbToggleLabels` (the guard against "Email off"/"Email on" labels), `checkLabelScale` (labels at body size), unavailable-reason strings, the sign-in card classes, `af-form`/`af-card`/`af-tabs` + `AfTabs`, and `randomId()` / `insecureContextReason()` for plain-http pages
+- [Icons](docs/icons.md): the `Icon` component (`name`, `size`, `title`), `ICON_NAMES`, every icon name with its grid (24-grid stroke 2, 16-grid stroke 1.4) and typical use, light and dark contact sheets, how to add an icon
 - [Responsive layout](docs/responsive.md): breakpoints (480/768/1024/1440 px, short and touch axes), 44 px touch targets and 16 px form text on touch screens, bottom-sheet dialogs and drawers above the keyboard, container queries and their thresholds, `installViewportVars()` / `viewportVarsFrom()`, the font-size order, and how a host app adopts them
 - [API reference](docs/api.md): export map per package (what to import)
 - [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, ecosystem data flow, gateway connection flow, live replies, About/identity flow, automations flow, voice settings and file preview, console islands build)
@@ -1261,6 +1262,125 @@ show `insecureContextReason(feature)` once, as the control's unavailable reason.
 - [Theming](./theming.md): the tokens the switch reads (`--accent`, `--text-muted`, `--bg-primary`).
 - [Console islands](./console-islands.md): how the gateway console receives the kit's CSS.
 
+## docs/icons.md
+
+# Icons
+
+`@abstractframework/ui-kit` ships one monochrome icon set for every AbstractFramework client: the
+`Icon` component draws a named glyph in the current text colour (`currentColor`), so it follows
+the active theme with no extra CSS.
+
+```tsx
+import { Icon, ICON_NAMES, type IconName } from "@abstractframework/ui-kit";
+
+<Icon name="database" size={16} />          // decorative: aria-hidden
+<Icon name="lock" size={16} title="Locked" /> // meaningful: role="img" with a <title>
+```
+
+- `name: IconName`: one of the names below. `size` (default 16) sets width and height in px.
+  `title` makes the icon an image with an accessible name; without it the icon is hidden from
+  assistive technology (put the name on the button instead, `aria-label`).
+- `ICON_NAMES`: every name, in declaration order. Use it in a test to prove your own mapping only
+  names icons that exist (AbstractFlow checks every node type this way).
+
+## Contact sheet
+
+Generated from the compiled package by `ui-kit/scripts/generate_icon_sheet.mjs`; the kit test
+fails when a sheet is stale.
+
+![Every kit icon, light theme](assets/icons-light.svg)
+
+![Every kit icon, dark theme](assets/icons-dark.svg)
+
+## Style
+
+- **24-grid family** (most icons): `viewBox="0 0 24 24"`, stroke 2, round caps and joins, no
+  fill. A solid part (a pupil, a dot, a filled twin) is a per-path `fill="currentColor"
+  stroke="none"`.
+- **16-grid family** (`board`, `inbox`, `server`, `agent`, `playCircle`, `list`, `gear`):
+  `viewBox="0 0 16 16"`, stroke 1.4, kept verbatim from AbstractContinuum's navigation.
+- Names are camelCase (`zoomOut`, `fitView`, `chevronDown`).
+
+## Names
+
+| Name | Grid | Typical use |
+| --- | --- | --- |
+| `chat` | 24 | Conversation, ask the user |
+| `plus` | 24 | Add, new |
+| `history` | 24 | Past runs, recall |
+| `refresh` | 24 | Reload |
+| `settings` | 24 | Settings (sliders) |
+| `user` | 24 | Person, account |
+| `bot` | 24 | Assistant |
+| `paperclip` | 24 | Attach, artifact |
+| `mic` | 24 | Record, transcribe |
+| `speaker` | 24 | Read aloud, voice |
+| `pause` | 24 | Pause (solid) |
+| `terminal` | 24 | Command, code, tool call |
+| `edit` | 24 | Edit |
+| `download` | 24 | Download, import |
+| `loader` | 24 | Busy (spin it with CSS) |
+| `info` | 24 | Information |
+| `warning` | 24 | Warning |
+| `error` | 24 | Error |
+| `copy` | 24 | Copy |
+| `check` | 24 | Done, confirm |
+| `x` | 24 | Close, remove |
+| `chevronDown` | 24 | Expanded section |
+| `chevronRight` | 24 | Collapsed section |
+| `trash` | 24 | Delete |
+| `send` | 24 | Send |
+| `thumbsUp` | 24 | Vouch |
+| `thumbsDown` | 24 | Flag |
+| `thumbsUpFilled` | 24 | Vouch, pressed |
+| `thumbsDownFilled` | 24 | Flag, pressed |
+| `board` | 16 | Board, subflow |
+| `inbox` | 16 | Inbox, incoming event |
+| `server` | 16 | Server, provider |
+| `agent` | 16 | Agent |
+| `playCircle` | 16 | Start |
+| `list` | 16 | List |
+| `gear` | 16 | Settings (small) |
+| `sparkle` | 24 | Generate, model call |
+| `contrast` | 24 | Appearance |
+| `logout` | 24 | Sign out |
+| `play` | 24 | Run, active (solid) |
+| `stop` | 24 | Stop, end (solid) |
+| `folder` | 24 | Folder, workspace |
+| `file` | 24 | File |
+| `archive` | 24 | Archive |
+| `unarchive` | 24 | Unarchive |
+| `clock` | 24 | Time, schedule |
+| `cog` | 24 | Settings (cog) |
+| `activity` | 24 | Activity |
+| `book` | 24 | Docs |
+| `compose` | 24 | New conversation, write |
+| `image` | 24 | Image (generate, edit, upscale) |
+| `video` | 24 | Video |
+| `camera` | 24 | Camera |
+| `music` | 24 | Music |
+| `database` | 24 | Stored memory, data store |
+| `branch` | 24 | If / switch (one path in, several out) |
+| `loop` | 24 | Loop, for, while |
+| `variable` | 24 | Variable |
+| `minus` | 24 | Subtract, zoom-out button without a magnifier |
+| `divide` | 24 | Divide |
+| `function` | 24 | Function, math operation |
+| `zoomIn` | 24 | Zoom in |
+| `zoomOut` | 24 | Zoom out |
+| `fitView` | 24 | Fit everything in view |
+| `lock` | 24 | Lock |
+
+## Adding an icon
+
+1. Add the name to the `IconName` union and to `ICON_NAMES` in `ui-kit/src/icon.tsx` (the build
+   fails when a union name is missing from `ICON_NAMES`), and draw it in `paths()` on the 24-grid.
+2. Add its row to the table above.
+3. `npm run build -w @abstractframework/ui-kit && node ui-kit/scripts/generate_icon_sheet.mjs`
+   to regenerate the contact sheets.
+4. `npm test -w @abstractframework/ui-kit`: `check_icons.mjs` renders every name and compares
+   the union, `ICON_NAMES` and this table.
+
 ## docs/responsive.md
 
 # Responsive Layout
@@ -1552,7 +1672,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - On/off settings and forms: `AfSwitch`, `AfSwitchInput` (a native `role="switch"` checkbox for uncontrolled forms) (+ `afSwitchNextState()`, `afSwitchIsActionable()`), `AfTabs` (+ `afTabsNextIndex()`), the guards `findVerbToggleLabels(source)` and `checkLabelScale(root)` (+ `LABEL_SCALE_SELECTOR`) — see [On/off settings](./state-toggles.md)
 - Workflow picker: `WorkflowPicker` (the one workflow chooser of every client: "Gateway default", then the groups "Shared" and "Mine", each entry with its version as a small detail line; no toggles), `useExecutableWorkflows({ interfaceId, request? | gatewayBaseUrl?, allVersions?, enabled?, reloadKey? })` (fetches `GET /api/gateway/bundles?executable_for=<interface>` with the app's own auth), `WorkflowPickerListbox`, and the pure core `executableWorkflowsPath()`, `parseExecutableWorkflows()` (throws `WorkflowPickerContractError` when the gateway ignores `executable_for`: no echo, an item without `owner`/`shipped`, an entrypoint that does not declare the interface), `workflowPickerGroups()`, `workflowPickerRows()`, `WORKFLOW_PICKER_DEFAULT` (`"@default"`), `WORKFLOW_PICKER_EMPTY`. The picker lists exactly what the gateway returns: which workflows a person sees is the gateway's availability rule (admins decide what is shared with users; users also see their own), never a client switch. Two modes: per interface (`interfaceId="abstractcode.agent.v1"`, for an app that runs one interface) and any interface (`interfaceId={null}`, for a launcher such as AbstractObserver: `GET /api/gateway/bundles`, every entrypoint that declares an interface, the interfaces as the detail line, `defaultInterface` names the interface "Gateway default" stands for); helpers `workflowPickerPath()`, `allWorkflowsPath()`, `parseWorkflowListing()`.
 - Ids and non-secure contexts: `randomId()` (v4 UUID over plain http too), `uuidV4FromBytes()`, `insecureContextReason(feature)` — see [Non-secure contexts](./state-toggles.md#non-secure-contexts)
-- Icons: `Icon`, `IconName` (~45 glyphs, 24-grid and 16-grid families; `play`, `stop`, `folder`, `file`, `archive`, `unarchive`, `clock` added for automations)
+- Icons: `Icon`, `IconName`, `ICON_NAMES` (65 glyphs, 24-grid and 16-grid families; 0.8.6 adds `image`, `video`, `camera`, `music`, `database`, `branch`, `loop`, `variable`, `minus`, `divide`, `function`, `zoomIn`, `zoomOut`, `fitView`, `lock`). Every name, the style rules and the contact sheet: [Icons](./icons.md)
 - Palette seeds: `@abstractframework/ui-kit/palette_seeds.json` (generated 4-token palette per theme)
 
 See: [`ui-kit/README.md`](../ui-kit/README.md) and the [Adoption guide](./adoption-guide.md).
@@ -3678,6 +3798,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 - **Theming & design tokens**: [`theming.md`](./theming.md) — token vocabulary, the 21 themes, migration rules for host apps
 - **On/off settings**: [`state-toggles.md`](./state-toggles.md) — `AfSwitch`, the console markup, the terminal marker, the verb-toggle and label-scale guards, the sign-in card, forms, cards and tabs, `randomId()`
 - **Modal, account rows, grouped navigation**: [`modal.md`](./modal.md) — `AfModal` and its plain-HTML markup with `AfConsoleIslands.bindModal`, the menu and the themed tooltip (`AfTooltip`, `bindTooltips`), the account-kind row tints and chips, sidebar group captions with a bottom slot, and the 13 px / 14 px helper-text floor
+- **Icons**: [`icons.md`](./icons.md) — the `Icon` component, every icon name with its grid and typical use, the light and dark contact sheets, the drawing rules, and how to add an icon
 - **Responsive layout**: [`responsive.md`](./responsive.md) — breakpoints, touch sizes, bottom sheets and drawers, container queries, the viewport helpers, the font-size order, and how a host app adopts them
 - **Automations**: [`automations.md`](./automations.md) — show and manage AbstractGateway automations: `AutomationPanel` (controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (schedules and **When an email arrives** triggers, **Email result**, result recipients) and its tool-approval consent line, `createAutomationsClient()` and its error model, retry-safe ids, the panel-chat schedule action and badge, the canonical fixtures and how to regenerate them, and the export list
 - **Console islands**: [`console-islands.md`](./console-islands.md) — the `window.AfConsoleIslands` bundle built from `ui-kit` for non-React pages (AbstractGateway console): API, build and check
@@ -3746,7 +3867,7 @@ This package provides:
   and `checkLabelScale()` — see [On/off settings](../docs/state-toggles.md)
 - **Plain http**: `randomId()` (a v4 UUID in every browser context) and
   `insecureContextReason(feature)` — see [Non-secure contexts](../docs/state-toggles.md#non-secure-contexts)
-- **Icons**: `Icon` (used by `@abstractframework/panel-chat`)
+- **Icons**: `Icon`, `ICON_NAMES` (65 monochrome glyphs; every name and the contact sheet: [docs/icons.md](../docs/icons.md); used by `@abstractframework/panel-chat`)
 - **Palette seeds**: `@abstractframework/ui-kit/palette_seeds.json` for non-CSS consumers
 - **Console islands** (repository build, not in the npm package): the kit components as one
   script for pages that are not React apps — see [Console islands](#console-islands)
@@ -5155,7 +5276,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -5439,7 +5560,7 @@ export {
 } from "./gateway_session_signin.js";
 export { ThemeSelect, type ThemeSelectProps } from "./theme_select.js";
 export { FontScaleSelect, HeaderDensitySelect, type FontScaleSelectProps, type HeaderDensitySelectProps } from "./typography_select.js";
-export { Icon, type IconName } from "./icon.js";
+export { Icon, ICON_NAMES, type IconName } from "./icon.js";
 export { GATEWAY_API_PATH, GATEWAY_CONNECTION_PATH, gatewayApiPath, gatewayResourcePath, joinBaseUrl } from "./gateway_paths.js";
 export {
   ToolPolicyEditor,
@@ -15986,6 +16107,12 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## Unreleased
+
+### ui-kit
+
+- Icons: 15 new glyphs on the 24-grid, stroke 2 — `image`, `video`, `camera`, `music`, `database`, `branch`, `loop`, `variable`, `minus`, `divide`, `function`, `zoomIn`, `zoomOut`, `fitView`, `lock` (AbstractFlow's node palette, canvas cards and canvas controls draw them instead of stand-ins). New export `ICON_NAMES` (every name, declaration order; the build fails when a name is missing from it) so a consumer can test its own mapping. New docs page [Icons](docs/icons.md): every name with its grid and typical use, the style rules, light and dark contact sheets (`docs/assets/icons-{light,dark}.svg`, generated by `ui-kit/scripts/generate_icon_sheet.mjs`; the test fails on a stale sheet). `check_icons.mjs`: the union, `ICON_NAMES` and the docs table are the same set, every icon renders a shape on its grid, no two icons are identical.
 
 ## 0.6.0 - 2026-10-05
 
