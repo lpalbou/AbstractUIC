@@ -7,7 +7,15 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## Unreleased
+## 0.6.1 - 2026-10-07
+
+| Package | Version | Change |
+| --- | --- | --- |
+| `@abstractframework/ui-kit` | 0.8.6 | updated (patch: 15 icons — `image`, `video`, `camera`, `music`, `database`, `branch`, `loop`, `variable`, `minus`, `divide`, `function`, `zoomIn`, `zoomOut`, `fitView`, `lock`; `ICON_NAMES`) |
+
+`@abstractframework/panel-chat` 0.4.1, `@abstractframework/app-server` 0.1.12,
+`@abstractframework/monitor-active-memory` 0.2.2, `@abstractframework/monitor-flow` 0.1.10,
+`@abstractframework/monitor-gpu` 0.1.10 and `@abstractframework/monitor-memory` 0.1.10 are unchanged.
 
 ### ui-kit
 
