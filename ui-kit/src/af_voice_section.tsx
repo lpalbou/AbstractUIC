@@ -232,6 +232,10 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
   const ttsDefault = voiceDefaultSummary(defaults.value, "tts", defaults.failed);
   const sttDefault = voiceDefaultSummary(defaults.value, "stt", defaults.failed);
   const notes = [defaults.value?.tts, defaults.value?.stt].map((e) => (e && !e.configured ? e.note : "")).filter(Boolean);
+  // The gateway's served hint for a configured route, verbatim (speech input on Apple silicon).
+  const hints = [defaults.value?.tts, defaults.value?.stt]
+    .map((e) => (e && e.configured ? String(e.hint?.sentence || "").trim() : ""))
+    .filter(Boolean);
   const latencySupported = Boolean(catalog.controls?.quality_preset?.supported);
   const savedOutput = value.output_device || "";
   const outputOptions = [
@@ -312,6 +316,11 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
         {notes.map((note) => (
           <p key={note} className="af-settings-group__help" data-voice-note="unset">
             {note}
+          </p>
+        ))}
+        {hints.map((hint) => (
+          <p key={hint} className="af-settings-group__help" data-voice-note="hint" role="note">
+            {hint}
           </p>
         ))}
       </AfSettingsGroup>

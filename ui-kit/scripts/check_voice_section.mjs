@@ -67,6 +67,13 @@ check("fetchDefaults is a required prop", /fetchDefaults: \(\) => Promise<VoiceD
 const unset = render({ defaults: { tts: { configured: false, note: "No gateway default is set for text to speech. An administrator sets it in the console under Defaults." }, stt: { configured: false } } });
 check("unset route says not set", unset.includes("Gateway default · not set"));
 check("unset note shown", unset.includes("No gateway default is set for text to speech."));
+
+// Round 16: the gateway's served hint for a CONFIGURED route is shown verbatim, once.
+const HINT = "Runs on the processor: faster-whisper has no Apple GPU backend. mlx-whisper runs large-v3 on this Mac's GPU, about 15 times faster: about 1.4 s instead of about 20 s for a 17 s clip on an M5 Max.";
+const hinted = render({ defaults: { ...ROUTES, stt: { ...ROUTES.stt, hint: { code: "apple_gpu_engine", sentence: HINT, route: { key: "input.voice", provider: "mlx-whisper", model: "large-v3" } } } } });
+check("served hint shown verbatim", hinted.includes('data-voice-note="hint"') && hinted.includes("mlx-whisper runs large-v3 on this Mac&#x27;s GPU"));
+check("no hint, no hint line", !html.includes('data-voice-note="hint"'));
+check("an unset route never shows a hint", !render({ defaults: { stt: { configured: false, hint: { sentence: HINT } } } }).includes('data-voice-note="hint"'));
 check("helper: failed = unknown", voiceDefaultSummary(null, "tts", true) === "unknown");
 check("helper: loading = empty", voiceDefaultSummary(null, "stt") === "");
 check("helper: route text", voiceRouteText({ provider: "faster-whisper", model: "large-v3" }) === "faster-whisper / large-v3");
