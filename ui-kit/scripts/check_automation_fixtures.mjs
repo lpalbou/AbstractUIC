@@ -110,6 +110,8 @@ const shape = (name, value, schema) => {
 };
 
 const Notify = t.nullable({ title: t.nonempty, body: t.str });
+// schedule@2 (round 16): kind + rule fields (wall times "HH:MM" in time_zone) + the v1 bounds.
+const ScheduleV2Config = { kind: t.lit("every", "once", "daily", "weekly", "monthly"), at: t.opt(t.re(/^\d{2}:\d{2}$|^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)), days: t.opt(t.arr(t.lit("mon", "tue", "wed", "thu", "fri", "sat", "sun"))), day: t.opt((v) => v === "last" || (Number.isInteger(v) && v >= 1 && v <= 31) || "1..31 or last"), time_zone: t.nonempty, start_at: t.opt(t.ts), anchor: t.opt(t.ts), every: t.opt(t.duration), count: t.opt(t.pos), until: t.opt(t.ts) };
 const ScheduleConfig = { start_at: t.opt(t.ts), every: t.opt(t.duration), until: t.opt(t.ts), count: t.opt(t.pos), anchor: t.opt(t.ts) };
 const TriggerBinding = { binding_id: t.uuid, source_id: t.nonempty, source_version: t.pos, config: t.object };
 const AttentionItem = { kind: t.lit("notify", "failure"), automation_id: t.uuid, run_id: t.uuid, index: t.pos, at: t.ts, title: t.nonempty, body: t.opt(t.str), cursor: t.re(/^att1:\d+$/) };
@@ -133,6 +135,12 @@ const AutomationSummary = {
   updated_at: t.ts,
   capabilities: t.arr(t.nonempty),
   session_kind: t.lit("automation"),
+  // Round 16 (R16.1): the served schedule facts (gateway automation_schedule.schedule_fields).
+  time_zone: t.nonempty,
+  schedule_rule_text: t.nonempty,
+  schedule_text: t.nonempty,
+  next_run_at: t.opt(t.ts),
+  next_run_local: t.opt(t.re(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?[+-]\d{2}:\d{2}$/)),
 };
 const OccurrenceRow = {
   run_id: t.uuid,
@@ -190,7 +198,8 @@ for (const [i, c] of fx["commands.json"].items.entries()) {
   if (route[3] === Receipt) check(`commands.json[${i}] receipt echoes command_id`, c.response.command_id === c.request.body.command_id);
 }
 for (const s of fx["list.json"].items) {
-  if (s.trigger.source_id === "schedule") shape(`schedule config of ${s.title}`, s.trigger.config, ScheduleConfig);
+  if (s.trigger.source_id === "schedule" && s.trigger.source_version === 1) shape(`schedule config of ${s.title}`, s.trigger.config, ScheduleConfig);
+  if (s.trigger.source_id === "schedule" && s.trigger.source_version === 2) shape(`schedule@2 config of ${s.title}`, s.trigger.config, ScheduleV2Config);
 }
 
 // --- coverage ------------------------------------------------------------------------
@@ -217,8 +226,11 @@ for (const e of errItems) check(`errors.json: ${e.body.detail.reason_code} is HT
 check("errors.json: no cursor_expired (removed in rev 2)", !JSON.stringify(errItems).includes("cursor_expired"));
 
 const sources = fx["trigger-sources.json"].items;
-check("trigger sources: schedule@1 and manual@1", eq(sources.map((s) => `${s.id}@${s.version}`), ["schedule@1", "manual@1"]));
-const sched = sources.find((s) => s.id === "schedule");
+check("trigger sources: schedule@1, schedule@2 (round 16) and manual@1", eq(sources.map((s) => `${s.id}@${s.version}`), ["schedule@1", "schedule@2", "manual@1"]));
+const sched = sources.find((s) => s.id === "schedule" && s.version === 1);
+const sched2 = sources.find((s) => s.id === "schedule" && s.version === 2);
+check("schedule@2 schema: kind + rule fields + time_zone, closed", sched2.config_schema.additionalProperties === false && ["kind", "at", "days", "day", "time_zone", "every", "start_at", "count", "until"].every((k) => k in sched2.config_schema.properties), Object.keys(sched2.config_schema.properties).join(","));
+check("schedule@2 kinds: every, once, daily, weekly, monthly", eq([...sched2.config_schema.properties.kind.enum].sort(), ["daily", "every", "monthly", "once", "weekly"]));
 check("schedule@1 schema: the five config fields, closed", eq(Object.keys(sched.config_schema.properties).sort(), ["anchor", "count", "every", "start_at", "until"]) && sched.config_schema.additionalProperties === false);
 check("schedule@1 schema: duration pattern", sched.config_schema.properties.every.pattern === "^[1-9][0-9]*[smhd]$");
 // Decided (review 42 F1): the envelope payload is the runtime's {tick, scheduled_at, coalesced?}; fired_at is on the envelope.
@@ -229,8 +241,17 @@ check("schedule@1 schema: no tz field in v1", !("tz" in sched.config_schema.prop
 check("manual@1 schema: empty closed config", eq(sources.find((s) => s.id === "manual").config_schema, { type: "object", additionalProperties: false, properties: {} }));
 
 const list = fx["list.json"].items;
-check("list: three automations + the legacy row, legacy last", list.length === 4 && list.filter((s) => s.legacy).length === 1 && list[3].legacy === true);
-const legacy = list[3];
+check("list: four automations + the legacy row, legacy last", list.length === 5 && list.filter((s) => s.legacy).length === 1 && list[4].legacy === true);
+const legacy = list[4];
+// Round 16 (R16.1): the served schedule facts, as gateway automation_schedule.schedule_fields writes them.
+for (const s of list) {
+  check(`${s.title}: next_run_at == next_fire_at (both or neither)`, s.next_run_at === s.next_fire_at);
+  check(`${s.title}: next_run_local iff next_run_at, same instant`, ("next_run_local" in s) === ("next_run_at" in s) && (!s.next_run_at || Date.parse(s.next_run_local) === Date.parse(s.next_run_at)));
+  check(`${s.title}: schedule_text = rule (+ " · next …" when a next run exists)`, s.next_run_at ? s.schedule_text.startsWith(`${s.schedule_rule_text} · next `) : s.schedule_text === s.schedule_rule_text);
+  check(`${s.title}: served keys after session_kind (time_zone, schedule_rule_text, schedule_text, next_run_at?, next_run_local?), before last_occurrence`, (() => { const k = Object.keys(s); const i = k.indexOf("time_zone"); return i > k.indexOf("session_kind") && eq(k.slice(i, i + 3), ["time_zone", "schedule_rule_text", "schedule_text"]) && (!("last_occurrence" in s) || k.indexOf("last_occurrence") > i); })());
+}
+const brief = list.find((s) => s.title === "Morning briefing");
+check("list: Morning briefing = schedule@2 daily 08:00 in Europe/Paris, served words and local next run", brief && brief.trigger.source_version === 2 && brief.trigger.config.kind === "daily" && brief.trigger.config.at === "08:00" && brief.time_zone === "Europe/Paris" && brief.schedule_rule_text === "Every day at 08:00 (Europe/Paris)" && brief.next_run_local === "2026-09-28T08:00:00+02:00");
 check("legacy row: capabilities [legacy], revision null, binding_id + last_occurrence", eq(legacy.capabilities, ["legacy"]) && legacy.revision === null && UUID.test(legacy.trigger.binding_id) && !!legacy.last_occurrence);
 for (const s of list) {
   const want = s.legacy ? ["legacy"] : ["archived", "completed", "failed"].includes(s.status) ? ["discuss"] : ["revise", "pause", "resume", "run_now", "stop_current", "archive", "discuss"];
@@ -240,14 +261,20 @@ for (const s of list) {
 const stamps = [];
 const collect = (v, k) => {
   if (Array.isArray(v)) return v.forEach((x) => collect(x, k));
+  // A schedule@2 rule's `at` is a wall time ("08:00"), not a response timestamp.
+  if (k === "config" && v && typeof v === "object" && "kind" in v) return Object.entries(v).forEach(([kk, vv]) => kk !== "at" && collect(vv, kk));
   if (v && typeof v === "object") return Object.entries(v).forEach(([kk, vv]) => collect(vv, kk));
   if (typeof v === "string" && ["fired_at", "finished_at", "at", "updated_at", "next_fire_at", "start_at", "anchor", "until"].includes(k)) stamps.push(v);
 };
-collect([fx["list.json"], fx["occurrences.json"], fx["attention.json"]]);
+// A schedule@2 calendar tick is a whole wall-clock minute: the runtime writes it without a fraction.
+const calendarRows = fx["list.json"].items.filter((s) => s.trigger.source_version === 2);
+for (const s of calendarRows) check(`${s.title}: calendar next_fire_at is a whole minute (runtime format, no fraction)`, !s.next_fire_at || /T\d{2}:\d{2}:00\+00:00$/.test(s.next_fire_at), s.next_fire_at);
+collect([{ items: fx["list.json"].items.map((s) => (s.trigger.source_version === 2 ? { ...s, next_fire_at: undefined, next_run_at: undefined } : s)) }, fx["occurrences.json"], fx["attention.json"]]);
 check("every response timestamp is in the gateway format (.ffffff+00:00)", stamps.length > 30 && stamps.every((v) => GATEWAY_TS.test(v)), stamps.find((v) => !GATEWAY_TS.test(v)));
 const byTitle = Object.fromEntries(list.map((s) => [s.title, s]));
 const news = byTitle["AI news monitor"], mail = byTitle["Inbox triage"], jour = byTitle["Weekly journal monitor"];
-for (const s of list.filter((x) => !x.legacy)) check(`${s.title}: trigger config key order is the gateway's (start_at, anchor, every…)`, eq(Object.keys(s.trigger.config).slice(0, 3), ["start_at", "anchor", "every"]));
+for (const s of list.filter((x) => !x.legacy && x.trigger.source_version === 1)) check(`${s.title}: trigger config key order is the gateway's (start_at, anchor, every…)`, eq(Object.keys(s.trigger.config).slice(0, 3), ["start_at", "anchor", "every"]));
+for (const s of list.filter((x) => x.trigger.source_version === 2)) check(`${s.title}: schedule@2 config key order is the gateway's (kind, rule fields, time_zone, start_at, anchor)`, eq(Object.keys(s.trigger.config), ["kind", "at", "time_zone", "start_at", "anchor"]));
 check("list: news monitor every 8h independent active", news && news.trigger.config.every === "8h" && news.context_mode === "independent" && news.status === "active");
 check("list: inbox triage every 30m growing with typed pending waits (ask_user + tool_approval)", mail && mail.trigger.config.every === "30m" && mail.context_mode === "growing" && mail.attention.pending_waits === 2 && eq(mail.attention.waits.map((w) => w.kind), ["ask_user", "tool_approval"]));
 for (const s of list.filter((x) => !x.legacy)) {
