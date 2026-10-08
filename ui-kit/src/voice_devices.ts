@@ -23,6 +23,9 @@ export type VoiceRouteDefault = {
   model?: string | null;
   voice?: string | null;
   note?: string;
+  /** The gateway's served one-line hint for a configured route (e.g. speech input on Apple
+   *  silicon: mlx-whisper runs the model on the GPU). Shown verbatim; never computed here. */
+  hint?: { code?: string; sentence?: string; route?: { key?: string; provider?: string; model?: string } | null } | null;
 };
 
 /** The body of `GET /api/gateway/voice/defaults`. */
