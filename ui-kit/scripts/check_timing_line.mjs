@@ -35,26 +35,30 @@ const NOW = Date.parse("2026-10-03T12:00:00Z");
 const H = 3_600_000;
 const iso = (ms) => new Date(ms).toISOString();
 const schedule = (every) => ({ binding_id: "b", source_id: "schedule", source_version: 1, config: every === undefined ? { start_at: iso(NOW + H) } : { every } });
+// Round 16: a schedule's words are the gateway's (schedule_rule_text), served on every row.
+const RULE = { "24h": "Every 24 hours (UTC)", "8h": "Every 8 hours (UTC)", "2h": "Every 2 hours (UTC)" };
+const served = (every) => ({ schedule_rule_text: RULE[every] });
 
 // The operator's example, exactly.
 eq(
   "example line",
   automationTiming(
-    { trigger: schedule("24h"), last_occurrence: { finished_at: iso(NOW - 3 * H - 59_000), fired_at: iso(NOW - 4 * H) }, current_occurrence: null, next_run_at: iso(NOW + 14 * H + 20 * 60_000) },
+    { trigger: schedule("24h"), ...served("24h"), last_occurrence: { finished_at: iso(NOW - 3 * H - 59_000), fired_at: iso(NOW - 4 * H) }, current_occurrence: null, next_run_at: iso(NOW + 14 * H + 20 * 60_000) },
     NOW,
   ).line,
-  "every 24 h · last 3 h ago · next in 14 h",
+  "Every 24 hours (UTC) · last 3 h ago · next in 14 h",
 );
 // No run yet: "never"; nothing scheduled: the next part is omitted.
-eq("never", automationTiming({ trigger: schedule("8h"), current_occurrence: null }, NOW).line, "every 8 h · last never");
+eq("never", automationTiming({ trigger: schedule("8h"), ...served("8h"), current_occurrence: null }, NOW).line, "Every 8 hours (UTC) · last never");
 eq("manual", automationTiming({ trigger: { binding_id: "b", source_id: "manual", source_version: 1, config: {} }, current_occurrence: null }, NOW).line, "manual · last never");
 eq("email", compactCadence({ binding_id: "b", source_id: "email.received", source_version: 1, config: {} }), "on new email");
-eq("once", compactCadence(schedule(undefined)), "once");
+eq("once = served words", compactCadence(schedule(undefined), { schedule_rule_text: "Once at Sat 3 Oct 13:00 (UTC)" }), "Once at Sat 3 Oct 13:00 (UTC)");
+eq("schedule without served words = the literal source (a broken seam, never invented words)", compactCadence(schedule("24h"), {}), "schedule@1");
 // Fired but not finished yet uses fired_at; an occurrence in flight says so.
 eq("fired only", lastRunText({ last_occurrence: { fired_at: iso(NOW - 5 * 60_000) } }, NOW), "last 5 min ago");
 // A pending approval is not "running": waiting since the occurrence fired, or no run part.
 eq("waiting", lastRunText({ attention: { pending_waits: 1 }, current_occurrence: { index: 4, run_id: "r", attempt: 1, status: "running" }, last_occurrence: { index: 4, fired_at: iso(NOW - 5 * 60_000) } }, NOW), "waiting since 5 min");
-eq("waiting, unknown start", automationTiming({ trigger: schedule("24h"), attention: { pending_waits: 2 }, current_occurrence: { index: 4, run_id: "r", attempt: 1, status: "running" }, last_occurrence: { index: 3, fired_at: iso(NOW - H) }, next_run_at: iso(NOW + 2 * H) }, NOW).line, "every 24 h · next in 2 h");
+eq("waiting, unknown start", automationTiming({ trigger: schedule("24h"), ...served("24h"), attention: { pending_waits: 2 }, current_occurrence: { index: 4, run_id: "r", attempt: 1, status: "running" }, last_occurrence: { index: 3, fired_at: iso(NOW - H) }, next_run_at: iso(NOW + 2 * H) }, NOW).line, "Every 24 hours (UTC) · next in 2 h");
 eq("running without waits", lastRunText({ attention: { pending_waits: 0 }, current_occurrence: { index: 4, run_id: "r", attempt: 1, status: "running" } }, NOW), "running now");
 eq("future last (skew)", lastRunText({ last_occurrence: { fired_at: iso(NOW + 3 * H) } }, NOW), "last <1 min ago");
 eq("running", lastRunText({ current_occurrence: { index: 3, run_id: "r", attempt: 1, status: "running" }, last_occurrence: { fired_at: iso(NOW - H) } }, NOW), "running now");
@@ -67,12 +71,12 @@ eq("bad ts", nextRunText({ next_run_at: "soon" }, NOW), null);
 // never computed; a calendar rule (schedule@2 daily/weekly/monthly/once) reads as the served
 // `schedule_rule_text` verbatim; a schedule@2 Repeat keeps the compact interval.
 eq("served next only (next_fire_at alone is not read)", nextRunText({ next_fire_at: iso(NOW + 2 * H) }, NOW), null);
-eq("served next changes the line", automationTiming({ trigger: schedule("24h"), current_occurrence: null, next_run_at: iso(NOW + 5 * H) }, NOW).line, "every 24 h · last never · next in 5 h");
+eq("served next changes the line", automationTiming({ trigger: schedule("24h"), ...served("24h"), current_occurrence: null, next_run_at: iso(NOW + 5 * H) }, NOW).line, "Every 24 hours (UTC) · last never · next in 5 h");
 const v2 = (config) => ({ binding_id: "b", source_id: "schedule", source_version: 2, config });
 eq("v2 daily = served rule text", compactCadence(v2({ kind: "daily", at: "08:00", time_zone: "Europe/Paris" }), { schedule_rule_text: "Every day at 08:00 (Europe/Paris)" }), "Every day at 08:00 (Europe/Paris)");
 eq("v2 weekly = served rule text verbatim", automationTiming({ trigger: v2({ kind: "weekly", days: ["mon", "fri"], at: "07:30" }), schedule_rule_text: "Every Mon and Fri at 07:30 (Europe/Paris)", current_occurrence: null, next_run_at: iso(NOW + 26 * H) }, NOW).line, "Every Mon and Fri at 07:30 (Europe/Paris) · last never · next in 26 h");
 eq("v2 once = served rule text", compactCadence(v2({ kind: "once", at: "2026-10-09T08:00" }), { schedule_rule_text: "Once at Fri 9 Oct 08:00 (Europe/Paris)" }), "Once at Fri 9 Oct 08:00 (Europe/Paris)");
-eq("v2 every keeps the compact interval", compactCadence(v2({ kind: "every", every: "24h" }), { schedule_rule_text: "Every 24 hours (UTC)" }), "every 24 h");
+eq("v2 every with bounds = the served words verbatim", compactCadence(v2({ kind: "every", every: "24h", count: 3 }), { schedule_rule_text: "Every 24 hours (UTC) · 3 runs max" }), "Every 24 hours (UTC) · 3 runs max");
 eq("v2 without served text = the literal source (a broken seam, never invented words)", compactCadence(v2({ kind: "daily", at: "08:00" }), {}), "schedule@2");
 // Units: rounded down; 24 h stays hours; days from 48 h; no seconds anywhere.
 eq("<1 min", compactDuration(59_000), "<1 min");
@@ -82,16 +86,13 @@ eq("24 h", compactDuration(24 * H), "24 h");
 eq("47 h", compactDuration(47 * H + 59 * 60_000), "47 h");
 eq("2 d", compactDuration(48 * H), "2 d");
 eq("40 d", compactDuration(40 * 24 * H), "40 d");
-eq("every hour", compactCadence(schedule("1h")), "every hour");
-eq("every 30 min", compactCadence(schedule("30m")), "every 30 min");
-eq("seconds as minutes", compactCadence(schedule("120s")), "every 2 min");
-eq("every 7 d", compactCadence(schedule("7d")), "every 7 d");
+
 // Determinism: the same input and now give the same line; nothing reads the clock.
 const realNow = Date.now;
 Date.now = () => { throw new Error("automationTiming read the clock"); };
 try {
-  const a = automationTiming({ trigger: schedule("2h"), last_occurrence: { fired_at: iso(NOW - 2 * 24 * H - 5 * H) }, current_occurrence: null, next_run_at: iso(NOW + 90 * 60_000) }, NOW).line;
-  eq("deterministic", a, "every 2 h · last 2 d ago · next in 1 h");
+  const a = automationTiming({ trigger: schedule("2h"), ...served("2h"), last_occurrence: { fired_at: iso(NOW - 2 * 24 * H - 5 * H) }, current_occurrence: null, next_run_at: iso(NOW + 90 * 60_000) }, NOW).line;
+  eq("deterministic", a, "Every 2 hours (UTC) · last 2 d ago · next in 1 h");
   for (const line of [a]) {
     checks += 1;
     if (/\b20\d\d\b|\bsec|\d+ ?s\b/.test(line)) { failures += 1; console.error(`  FAIL year/seconds in ${line}`); }

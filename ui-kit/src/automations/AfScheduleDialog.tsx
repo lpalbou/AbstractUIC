@@ -15,8 +15,7 @@ import { automationToolSelection, withAutomationTools } from "./tool_selection.j
 // runs, stop at) — every section visible, no disclosure. It builds the `POST /api/gateway/automations`
 // body and hands it to `onSubmit`; the host sends it (see ./client.ts).
 //
-// Repeat / Once wording stays fixed-interval UTC ("every 24 hours (UTC)").
-// A calendar rule's sentence is the GATEWAY's (`previewSchedule` → the
+// Every schedule's sentence (Repeat included, with its bounds) is the GATEWAY's (`previewSchedule` → the
 // describe route's `schedule_text` + `next_run_local`): the kit never composes
 // a calendar sentence nor computes a next run.
 // ONE request id per distinct request: a retry of the same request after a
@@ -162,11 +161,16 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
   }, [props.open]);
 
   // The gateway describes a complete calendar rule (debounced; hooks run before the early return).
-  // Once / Daily / Weekly / Monthly depend on the time zone: their line is the gateway's (schedule-preview).
-  const servedKind = props.open && (kind === "once" || kind === "daily" || kind === "weekly" || kind === "monthly");
-  const limitsForm = { ...(count.trim() ? { count: Number(count) } : {}), ...(until ? { until } : {}) };
+  // Every schedule kind's line is the GATEWAY's (schedule-preview): Repeat with its bounds too.
+  const servedKind = props.open && kind !== "email";
+  const whenNow = kind === "once" ? { kind: "once" as const, at: onceAt } : kind === "daily" || kind === "weekly" || kind === "monthly" ? calendar : { kind: "every" as const, amount: Number(amount), unit };
+  const limitsForm = {
+    ...(kind === "every" && startAt ? { startAt } : {}),
+    ...(kind !== "once" && count.trim() ? { count: Number(count) } : {}),
+    ...(kind !== "once" && until ? { until } : {}),
+  };
   const previewed = useSchedulePreview(
-    servedKind ? scheduleTriggerFrom({ prompt: "", context: "independent", ...(kind === "once" ? { when: { kind: "once", at: onceAt } } : { when: calendar, ...limitsForm }) }).trigger : null,
+    servedKind ? scheduleTriggerFrom({ prompt: "", context: "independent", when: whenNow, ...limitsForm }).trigger : null,
     props.previewSchedule,
   );
 
@@ -300,8 +304,9 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
                 <input id={id("once")} type="datetime-local" value={onceAt} onChange={(e) => setOnceAt(e.target.value)} />
               </label>
             )}
-            {calendarKind || shownKind === "once" ? (
-              <AfServedSchedule state={previewed} onOpenPreferences={props.onOpenPreferences} />
+            {shownKind !== "email" ? (
+              // Repeat is a fixed UTC interval: no account time-zone line for it.
+              <AfServedSchedule state={previewed} onOpenPreferences={props.onOpenPreferences} showZone={shownKind !== "every"} />
             ) : (
               <p className="af-schedule__preview" aria-live="polite" data-preview="true">
                 {preview ? `Runs ${preview}.` : emailKind ? "Incomplete email trigger." : SCHEDULE_TEXT.incomplete}

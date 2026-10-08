@@ -5,7 +5,7 @@
 // gateway's SERVED schedule facts (round 16): a calendar rule reads as the
 // summary's `schedule_text`, the next run comes from `next_run_at` — the kit
 // never computes when an automation runs next.
-import { isEmailTrigger, isScheduleV2, parseDuration, servedRuleText } from "./panel_core.js";
+import { isEmailTrigger, servedRuleText } from "./panel_core.js";
 import type { AutomationSummary } from "./types.js";
 
 const MINUTE = 60_000;
@@ -25,30 +25,15 @@ export function compactDuration(ms: number): string {
   return `${Math.floor(span / DAY)} d`;
 }
 
-const UNIT: Record<string, [string, string]> = {
-  s: ["second", "s"],
-  m: ["minute", "min"],
-  h: ["hour", "h"],
-  d: ["day", "d"],
-};
 
 /**
- * The trigger in two or three words: "every 24 h", "every hour", "once", "manual", "on new email".
- * A Repeat interval (schedule@1, or schedule@2 `kind: "every"`) keeps this compact form; any
- * other schedule@2 rule (daily / weekly / monthly / once) is the served `schedule_rule_text`
- * verbatim ("Every day at 08:00 (Europe/Paris)").
+ * The trigger part of the line: a schedule (schedule@1 or @2, any kind, bounds included) is the
+ * gateway's `schedule_rule_text` verbatim ("Every 24 hours (UTC)", "Every day at 08:00
+ * (Europe/Paris)"); otherwise "manual" or "on new email".
  */
 export function compactCadence(trigger: AutomationSummary["trigger"], served?: Pick<AutomationSummary, "schedule_rule_text"> | null): string {
-  const every = (trigger.config as { every?: unknown }).every;
-  if (isScheduleV2(trigger) && typeof every !== "string") return servedRuleText(served);
-  if (trigger.source_id === "schedule") {
-    const d = parseDuration(every);
-    if (!d) return typeof every === "string" ? `every ${every}` : "once";
-    // A seconds interval that is whole minutes reads in minutes (no seconds on screen).
-    if (d.unit === "s" && d.amount % 60 === 0) return compactCadence({ ...trigger, config: { every: `${d.amount / 60}m` } });
-    const [one, short] = UNIT[d.unit];
-    return d.amount === 1 ? `every ${one}` : `every ${d.amount} ${short}`;
-  }
+  // Every schedule row reads the gateway's own words (schedule_rule_text), bounds included.
+  if (trigger.source_id === "schedule") return servedRuleText(served, trigger.source_version);
   if (trigger.source_id === "manual") return "manual";
   if (isEmailTrigger(trigger)) return "on new email";
   return trigger.source_id;

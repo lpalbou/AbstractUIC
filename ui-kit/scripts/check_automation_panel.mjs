@@ -126,7 +126,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("Discuss labelled as a fork at this occurrence (own workspace, automation files read-only)", mailHtml.includes(`<span>${esc(DISCUSS_LABEL)}</span></button>`) && DISCUSS_LABEL === "Discuss — fork at this occurrence (own workspace, automation files read-only)");
   check("no stale 'read-only workspace' wording", !mailHtml.includes("read-only workspace") && !mailHtml.includes("forked session"));
   check("Discuss disabled on the waiting occurrence only", chunks.every((c, i) => (/data-action="discuss" disabled=""/.test(c)) === (i === 6)));
-  check("header: every 30 minutes (UTC), growing, next run", mailHtml.includes(">every 30 minutes (UTC)</dd>") && mailHtml.includes("Growing — each run sees the previous runs") && mailHtml.includes('data-fact="next">2026-09-27 09:00 Europe/Paris (in 25 min)</dd>'));
+  check("header: the served rule (Every 30 minutes (UTC)), growing, next run", mailHtml.includes(">Every 30 minutes (UTC)</dd>") && mailHtml.includes("Growing — each run sees the previous runs") && mailHtml.includes('data-fact="next">2026-09-27 09:00 Europe/Paris (in 25 min)</dd>'));
   check("header: attention 2 unseen + 2 waiting, notable", mailHtml.includes('class="is-notable">2 unseen · 2 waiting for you</dd>'));
   check("attention strip lists both items oldest first", mailHtml.indexOf('data-cursor="att1:1"') > 0 && mailHtml.indexOf('data-cursor="att1:2"') > mailHtml.indexOf('data-cursor="att1:1"'));
   check("attention strip lists the pending wait", mailHtml.includes("af-auto__attention-item--wait"));
@@ -140,7 +140,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
 // --- News monitor: every 8 hours, load more ---------------------------------------------
 {
   const html = panel({ summary: news, occurrences: [] });
-  check("news: every 8 hours (UTC)", html.includes(">every 8 hours (UTC)</dd>"));
+  check("news: the served rule Every 8 hours (UTC)", html.includes(">Every 8 hours (UTC)</dd>"));
   check("news: independent", html.includes("Independent — each run starts fresh"));
   check("news: next run (served next_run_local cut + relative from next_run_at)", html.includes('data-fact="next">2026-09-27 10:00 Europe/Paris (in 1 h 25 min)</dd>'));
   // R16.1 A4: the header shows the SERVED next run: a changed gateway value changes the display, and
@@ -177,7 +177,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
 // --- Journal (paused): run now while paused ------------------------------------------
 {
   const html = panel({ summary: jour, occurrences: [] });
-  check("journal: every 7 days (UTC) · 12 runs max", html.includes(">every 7 days (UTC) · 12 runs max</dd>"));
+  check("journal: the served rule with its bounds, verbatim", html.includes(`>${esc(jour.schedule_rule_text)}</dd>`) && jour.schedule_rule_text.includes("12 runs max"));
   check("journal: Active toggle plain (paused) and available; no Pause/Resume buttons", !toggleOn(html) && toggleAvailable(html) && noVerbPair(html) && /data-action="active"[^>]*aria-checked="false"/.test(html));
   check("journal: RUN NOW ENABLED WHILE PAUSED", enabled(html, "run_now"));
   check("journal: paused hint says run now keeps it paused", html.includes("Run now works and keeps it paused."));
@@ -472,7 +472,7 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   const badDay = cal({ kind: "monthly", day: 32, at: "09:00" });
   check("monthly day 32 → the kit sentence", !badDay.ok && eq(badDay.errors, [kit.SCHEDULE_TEXT.error_day]));
   check("calendar/once preview is the gateway's (the kit returns no sentence)", ["daily", "weekly", "monthly"].every((k) => kit.schedulePreview({ prompt: "", when: kit.calendarWhenOf(k, {}), context: "independent" }) === "") && kit.schedulePreview({ prompt: "", when: { kind: "once", at: "2026-10-09T08:00" }, context: "independent" }) === "");
-  check("Repeat keeps the kit sentence family", kit.schedulePreview({ prompt: "", when: { kind: "every", amount: 24, unit: "h" }, context: "independent" }) === "every 24 hours (UTC), first run now");
+  check("Repeat's line is the gateway's too (the kit returns no sentence)", kit.schedulePreview({ prompt: "", when: { kind: "every", amount: 24, unit: "h" }, context: "independent" }) === "");
   const bad = kit.buildCreateRequest({ prompt: " ", when: { kind: "once", at: "" }, context: "independent" }, { target: null, requestId: "r" });
   check("missing target/prompt/time → reasons, no body", !bad.ok && bad.errors.length === 3, JSON.stringify(bad));
   check("no time zone sent by the kit (the gateway fills the owner's)", !/"tz"|time_zone/.test(JSON.stringify([r, g, once])));
@@ -486,7 +486,7 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   check("dialog: modal, labelled", html.includes('role="dialog" aria-modal="true" aria-labelledby=') && html.includes(">Schedule a task<"));
   check("dialog: What with host picker slot + prompt", html.includes("<legend>What</legend>") && html.includes('id="host-picker"') && html.includes(">Monitor memory usage</textarea>") && html.includes("Choose what to run."));
   check("dialog: When presets incl. every 24 hours", html.includes("<legend>When</legend>") && ["every 5 minutes", "every 30 minutes", "every hour", "every 8 hours", "every 24 hours", "every 7 days"].every((l) => html.includes(`>${l}</button>`)));
-  check("dialog: default preview every 24 hours (UTC), first run now", html.includes("Runs every 24 hours (UTC), first run now."));
+  check("dialog: the default Repeat line waits for the gateway (no kit sentence)", !html.includes("Runs every 24 hours (UTC)") && (html.includes('data-preview="loading"') || html.includes('data-preview="idle"')));
   check("dialog: once-at option", html.includes("Once at…"));
   check("dialog: context Independent/Growing", /<input type="radio" name="[^"]+" checked="" value="independent"\/>/.test(html) && /<input type="radio" name="[^"]+" value="growing"\/>/.test(html));
   // R13.2: no disclosure anywhere in the dialog; title and limits are a visible fieldset.
@@ -858,7 +858,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   check("fixture fired_at renders as UTC", mailHtml.includes("fired 2026-09-27 04:00 UTC"));
   const leg = panel({ summary: legacyRow, occurrences: [] });
   check("real legacy row: marker, every control disabled with the legacy reason", leg.includes("Legacy schedule") && ["run_now", "stop_current", "edit", "archive"].every((a) => !enabled(leg, a)) && !toggleAvailable(leg) && leg.includes("Legacy schedule: managed with its existing controls."));
-  check("real legacy row: every hour (UTC), no revision", leg.includes(">every hour (UTC)</dd>") && !leg.includes('data-fact="revision"'));
+  check("real legacy row: the served rule, no revision", leg.includes(">Every hour (UTC)</dd>") && !leg.includes('data-fact="revision"'));
   const tw = occ.find((o) => o.index === 7).waits.find((x) => x.kind === "tool_approval");
   check("real tool_approval wait has no prompt → the panel's own sentence", !("prompt" in tw) && mailHtml.includes("A tool call needs your approval."));
 }
@@ -878,7 +878,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   const block = (html.match(/<details class="af-auto__definition"[\s\S]*?<\/details>/) || [""])[0];
   check("definition: collapsed card, chevron + icon + 'Definition' + its revision", /^<details class="af-auto__definition" data-definition-revision="1"><summary><svg[^]*?<\/svg><svg[^]*?<\/svg><span class="af-auto__definition-title">Definition<\/span><span class="af-auto__definition-meta">revision 1<\/span><\/summary>/.test(block), block.slice(0, 300));
   check("definition: target workflow", block.includes('data-def="target"><code>basic-agent@0.1.0:main</code>'));
-  check("definition: trigger source + label + config", block.includes('data-def="trigger">schedule@1 · every 8 hours (UTC)') && block.includes(esc(JSON.stringify(news.trigger.config, null, 2))));
+  check("definition: trigger source + label + config", block.includes('data-def="trigger">schedule@1 · Every 8 hours (UTC)') && block.includes(esc(JSON.stringify(news.trigger.config, null, 2))));
   check("definition: context", block.includes('data-def="context">Independent — each run starts fresh'));
   check("definition: tool approval auto", block.includes('data-def="tool_approval">Run without asking (auto)'));
   check("definition: retry policy", block.includes('data-def="retry">3 attempts, backoff 30s ×2 up to 10m'));

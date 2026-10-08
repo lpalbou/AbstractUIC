@@ -82,10 +82,8 @@ export function scheduleLabel(config: ScheduleConfig | JsonObject): string {
  * the kit never composes a calendar sentence, so every client says the same.
  */
 export function triggerSummary(trigger: Pick<TriggerBinding, "source_id" | "source_version" | "config">, served?: { schedule_rule_text?: string | null } | null): string {
-  if (trigger.source_id === "schedule" && trigger.source_version === 1) return scheduleLabel(trigger.config);
-  // A schedule@2 Repeat keeps the kit's fixed-interval family (the same words as a v1 row beside it).
-  if (isScheduleV2(trigger) && typeof (trigger.config as { every?: unknown }).every === "string") return scheduleLabel(trigger.config);
-  if (isScheduleV2(trigger)) return servedRuleText(served);
+  // Every schedule row (schedule@1 or @2, every kind, with its bounds) reads the gateway's words.
+  if (trigger.source_id === "schedule") return servedRuleText(served, trigger.source_version);
   if (trigger.source_id === "manual" && trigger.source_version === 1) return "manual runs only";
   if (isEmailTrigger(trigger)) return emailTriggerLabel(trigger.config);
   return `${trigger.source_id}@${trigger.source_version}`;
@@ -706,9 +704,9 @@ export function isScheduleV2(trigger: Pick<TriggerBinding, "source_id" | "source
  * is a broken gateway seam (R16.1 serves it on every summary and preview): it
  * reads as the literal "schedule@2", never as a sentence the kit made up.
  */
-export function servedRuleText(served: { schedule_rule_text?: string | null } | null | undefined): string {
+export function servedRuleText(served: { schedule_rule_text?: string | null } | null | undefined, version: number = SCHEDULE_VERSION): string {
   const text = served?.schedule_rule_text;
-  return typeof text === "string" && text ? text : "schedule@2";
+  return typeof text === "string" && text ? text : `schedule@${version}`;
 }
 
 const SERVED_LOCAL_RE = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/;
@@ -879,24 +877,20 @@ export function scheduleTriggerFrom(form: ScheduleForm): { trigger: TriggerSpec 
 
 /** Kinds whose line under "When" is the GATEWAY's `first_run_sentence` (they depend on the time zone). */
 export function isServedPreviewWhen(when: ScheduleWhen): boolean {
-  return when.kind === "once" || isCalendarWhen(when);
+  return when.kind === "every" || when.kind === "once" || isCalendarWhen(when);
 }
 
 /**
- * Human line under the When section for Repeat (fixed-interval UTC, the
- * sentence family as before: "every 24 hours (UTC), first run now") and for
- * the email trigger. Once / Daily / Weekly / Monthly return "": their line is
- * the gateway's `first_run_sentence` (schedule-preview), never the kit's.
+ * The kit's own line under the When section, for the email trigger only. Every schedule kind
+ * (Repeat with its bounds, Daily, Weekly, Monthly, Once) returns "": its line is the gateway's
+ * `first_run_sentence` (schedule-preview), never the kit's.
  */
 export function schedulePreview(form: ScheduleForm): string {
   if (form.trigger === "email") {
     const built = emailTriggerConfigFrom(form.email ?? DEFAULT_EMAIL_TRIGGER_FORM);
     return built.errors.length ? "" : emailTriggerLabel(built.config);
   }
-  if (isServedPreviewWhen(form.when)) return "";
-  const { config } = scheduleConfigFrom(form);
-  if (!config || config.kind !== "every") return "";
-  return `${scheduleLabel(config as unknown as ScheduleConfig)}, first run ${config.start_at ? `at ${formatUtc(config.start_at)}` : "now"}`;
+  return "";
 }
 
 /** The `POST /api/gateway/automations` body, or the reasons it cannot be built yet. */

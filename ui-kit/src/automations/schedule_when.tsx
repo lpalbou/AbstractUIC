@@ -185,12 +185,12 @@ export function useSchedulePreview(trigger: TriggerSpec | null, describe: Previe
 }
 
 /** The served sentence lines (and the time-zone line) of a calendar rule. */
-export function AfServedSchedule(props: { state: PreviewState; whose?: "account" | "automation"; onOpenPreferences?: () => void; incompleteText?: string }): React.ReactElement {
+export function AfServedSchedule(props: { state: PreviewState; whose?: "account" | "automation"; onOpenPreferences?: () => void; incompleteText?: string; /** false for Repeat (a fixed UTC interval): no time-zone line. */ showZone?: boolean }): React.ReactElement {
   const st = props.state;
   if (st.phase === "ok") {
     return (
       <>
-        <AfTimeZoneLine timeZone={st.description.time_zone} whose={props.whose} onOpenPreferences={props.onOpenPreferences} />
+        {props.showZone === false ? null : <AfTimeZoneLine timeZone={st.description.time_zone} whose={props.whose} onOpenPreferences={props.onOpenPreferences} />}
         <p className="af-schedule__preview" aria-live="polite" data-preview="served">
           {st.description.first_run_sentence}
         </p>
