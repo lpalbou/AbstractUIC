@@ -16495,6 +16495,11 @@ ships.
 
 ## Unreleased
 
+
+### Added
+
+- ui-kit `AfVoiceSection` shows the gateway's served hint (`VoiceRouteDefault.hint.sentence`) under a configured engine line.
+
 ### ui-kit
 
 - **Calendar schedules (round 16, R16.1).** `AfScheduleDialog`'s **When** offers Repeat (every N
