@@ -599,9 +599,15 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
     const built = calendarConfigFrom(form.calendar);
     if (!built.config) errors.push(...built.errors);
     else {
-      // The automation keeps its own time zone (stored on the definition); the form never edits it.
-      const zone = (summary.trigger.config as { time_zone?: unknown }).time_zone;
-      const config: JsonObject = { ...(built.config as JsonObject), ...(typeof zone === "string" ? { time_zone: zone } : {}) };
+      // The automation keeps its own time zone (stored on the definition; the form never edits it)
+      // and its limits (max runs, stop at); the gateway re-anchors the new rule from now.
+      const prev = summary.trigger.config as { time_zone?: unknown; count?: unknown; until?: unknown };
+      const config: JsonObject = {
+        ...(built.config as JsonObject),
+        ...(typeof prev.time_zone === "string" ? { time_zone: prev.time_zone } : {}),
+        ...(typeof prev.count === "number" ? { count: prev.count } : {}),
+        ...(typeof prev.until === "string" ? { until: prev.until } : {}),
+      };
       changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config };
     }
   }

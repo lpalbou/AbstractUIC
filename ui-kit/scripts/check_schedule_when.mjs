@@ -98,6 +98,8 @@ const form = kit.reviseFormFrom(brief, def);
 check("reviseFormFrom: the calendar rule of a schedule@2 row", eq(form.calendar, { kind: "daily", at: "08:00" }) && form.every === null);
 const moved = kit.reviseChanges(brief, { ...form, calendar: { kind: "weekly", days: ["sat", "mon"], at: "09:15" } }, def);
 check("reviseChanges: a new rule keeps the binding's time_zone", eq(moved, { trigger: { source_id: "schedule", source_version: 2, config: { kind: "weekly", days: ["mon", "sat"], at: "09:15", time_zone: "Europe/Paris" } } }), JSON.stringify(moved));
+const limited = { ...brief, trigger: { ...brief.trigger, config: { ...brief.trigger.config, count: 5, until: "2026-12-31T23:00:00+00:00" } } };
+check("reviseChanges: the limits (max runs, stop at) are kept with the new rule", eq(kit.reviseChanges(limited, { ...form, calendar: { kind: "daily", at: "09:00" } }, def).trigger.config, { kind: "daily", at: "09:00", time_zone: "Europe/Paris", count: 5, until: "2026-12-31T23:00:00+00:00" }));
 check("reviseChanges: an unchanged rule changes nothing", kit.reviseChanges(brief, form, def) === null);
 check("reviseChanges: an invalid rule says why", eq(kit.reviseChanges(brief, { ...form, calendar: { kind: "weekly", days: [], at: "09:15" } }, def), { errors: [T.error_days] }));
 const editHtml = ssr(h(parts.AutomationReviseForm, { summary: brief, definition: def, busy: false, errors: [], onSubmit() {}, previewSchedule: async () => preview }));
