@@ -20,9 +20,12 @@ export type TimeZonePreference = {
   choices: string[];
 };
 
-/** "Gateway default (Europe/Paris)" first (value ""), then the served IANA names in the gateway's order. */
+/** The option value standing for "follow the gateway default" (null on the wire; never an IANA name). */
+export const TIME_ZONE_GATEWAY_DEFAULT = "@gateway-default";
+
+/** "Gateway default (Europe/Paris)" first (= null), then the served IANA names in the gateway's order. */
 export function timeZoneOptions(block: Pick<TimeZonePreference, "gateway_default" | "choices">): AfSelectOption[] {
-  return [{ value: "", label: SCHEDULE_TEXT.time_zone_default.replace("{time_zone}", block.gateway_default) }, ...block.choices.map((z) => ({ value: z, label: z }))];
+  return [{ value: TIME_ZONE_GATEWAY_DEFAULT, label: SCHEDULE_TEXT.time_zone_default.replace("{time_zone}", block.gateway_default) }, ...block.choices.map((z) => ({ value: z, label: z }))];
 }
 
 export type AfTimeZonePickerProps = {
@@ -56,13 +59,13 @@ export function AfTimeZonePicker(props: AfTimeZonePickerProps): React.ReactEleme
       <div className="af-tz-picker__control">
         <AfSelect
           id={props.id}
-          value={b.value ?? ""}
+          value={b.value ?? TIME_ZONE_GATEWAY_DEFAULT}
           options={timeZoneOptions(b)}
           searchable
           searchPlaceholder={SCHEDULE_TEXT.time_zone_search}
           ariaLabel={b.label}
           disabled={props.disabled}
-          onChange={(v: string) => props.onChange(v ? v : null)}
+          onChange={(v: string) => props.onChange(v && v !== TIME_ZONE_GATEWAY_DEFAULT ? v : null)}
         />
         {props.note ? (
           <span className={`af-tz-picker__note ${props.note.ok ? "is-ok" : "is-error"}`} role="status" aria-live="polite">

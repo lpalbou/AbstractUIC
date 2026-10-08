@@ -332,7 +332,17 @@ export function currentOccurrenceLabel(summary: AutomationSummary): string | nul
   return `Run #${c.index} running${attempt}`;
 }
 
-/** "in 25 min", "in 3 h 5 min", "in 2 d 4 h", "due now" — from `next_fire_at` only. */
+/**
+ * The "Next run" fact every client shows: "2026-10-09 08:00 Europe/Paris (in 14 h)" from the
+ * SERVED `next_run_local` (cut) + `next_run_at` (relative), "none while paused", "none scheduled".
+ * The kit never computes when an automation runs next.
+ */
+export function nextRunLabel(s: Pick<AutomationSummary, "next_run_at" | "next_run_local" | "time_zone" | "status">, nowMs: number): string {
+  if (s.next_run_at && s.next_run_local) return `${formatServedLocal(s.next_run_local, s.time_zone)} (${relativeIn(s.next_run_at, nowMs)})`;
+  return s.status === "paused" ? "none while paused" : "none scheduled";
+}
+
+/** "in 25 min", "in 3 h 5 min", "in 2 d 4 h", "due now" — from a served timestamp (`next_run_at`) only. */
 export function relativeIn(ts: string, nowMs: number): string {
   const t = Date.parse(ts);
   if (Number.isNaN(t)) return "";

@@ -172,6 +172,18 @@ for (const [name, text] of [["2xx non-JSON", "ok"], ["2xx empty", ""], ["2xx JSO
   const err = await thrown(createAutomationsClient({ fetch: s.fetch, newId }).listTriggerSources());
   check(`${name} throws invalid_response`, err instanceof AutomationApiError && err.code === "invalid_response");
 }
+// --- schedule-preview (round 16, R16.1): POST {trigger}, the gateway's answer returned as is ---------
+{
+  const answer = { trigger: { source_id: "schedule", source_version: 2, config: { kind: "daily", at: "08:00", time_zone: "Europe/Paris" } }, time_zone: "Europe/Paris", schedule_rule_text: "Every day at 08:00 (Europe/Paris)", schedule_text: "Every day at 08:00 (Europe/Paris) · next Fri 9 Oct 08:00", next_run_at: "2026-10-09T06:00:00+00:00", next_run_local: "2026-10-09T08:00:00+02:00", first_run_sentence: "Runs every day at 08:00 (Europe/Paris), first run Fri 9 Oct 08:00." };
+  const s = stub(() => ({ status: 200, body: answer }));
+  const trigger = { source_id: "schedule", source_version: 2, config: { kind: "daily", at: "08:00" } };
+  const got = await createAutomationsClient({ fetch: s.fetch, newId, baseUrl: "http://127.0.0.1:18900/" }).previewSchedule(trigger);
+  check("previewSchedule: POST api/gateway/automations/schedule-preview with {trigger}", s.calls[0].method === "POST" && s.calls[0].url === "http://127.0.0.1:18900/api/gateway/automations/schedule-preview" && eq(s.calls[0].body, { trigger }), JSON.stringify(s.calls[0]));
+  check("previewSchedule: the gateway's answer, untouched", eq(got, answer));
+  const refused = stub(() => ({ status: 422, body: { detail: { reason_code: "invalid_definition", message: "time_zone 'Mars/Base' is not an IANA time zone.", field: "trigger.config.time_zone" } } }));
+  const err = await thrown(createAutomationsClient({ fetch: refused.fetch, newId }).previewSchedule({ ...trigger, config: { ...trigger.config, time_zone: "Mars/Base" } }));
+  check("previewSchedule: a refusal is the gateway's sentence (AutomationApiError)", err instanceof AutomationApiError && err.code === "invalid_definition" && err.message.startsWith("time_zone 'Mars/Base'") && err.field === "trigger.config.time_zone");
+}
 {
   const boom = new Error("network down");
   const err = await thrown(createAutomationsClient({ fetch: async () => { throw boom; }, newId }).listAutomations());

@@ -126,7 +126,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("Discuss labelled as a fork at this occurrence (own workspace, automation files read-only)", mailHtml.includes(`<span>${esc(DISCUSS_LABEL)}</span></button>`) && DISCUSS_LABEL === "Discuss — fork at this occurrence (own workspace, automation files read-only)");
   check("no stale 'read-only workspace' wording", !mailHtml.includes("read-only workspace") && !mailHtml.includes("forked session"));
   check("Discuss disabled on the waiting occurrence only", chunks.every((c, i) => (/data-action="discuss" disabled=""/.test(c)) === (i === 6)));
-  check("header: every 30 minutes (UTC), growing, next run", mailHtml.includes(">every 30 minutes (UTC)</dd>") && mailHtml.includes("Growing — each run sees the previous runs") && mailHtml.includes('data-fact="next">2026-09-27 07:00 UTC (in 25 min)</dd>'));
+  check("header: every 30 minutes (UTC), growing, next run", mailHtml.includes(">every 30 minutes (UTC)</dd>") && mailHtml.includes("Growing — each run sees the previous runs") && mailHtml.includes('data-fact="next">2026-09-27 09:00 Europe/Paris (in 25 min)</dd>'));
   check("header: attention 2 unseen + 2 waiting, notable", mailHtml.includes('class="is-notable">2 unseen · 2 waiting for you</dd>'));
   check("attention strip lists both items oldest first", mailHtml.indexOf('data-cursor="att1:1"') > 0 && mailHtml.indexOf('data-cursor="att1:2"') > mailHtml.indexOf('data-cursor="att1:1"'));
   check("attention strip lists the pending wait", mailHtml.includes("af-auto__attention-item--wait"));
@@ -142,7 +142,11 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   const html = panel({ summary: news, occurrences: [] });
   check("news: every 8 hours (UTC)", html.includes(">every 8 hours (UTC)</dd>"));
   check("news: independent", html.includes("Independent — each run starts fresh"));
-  check("news: next run (absolute + relative, from next_fire_at)", html.includes('data-fact="next">2026-09-27 08:00 UTC (in 1 h 25 min)</dd>'));
+  check("news: next run (served next_run_local cut + relative from next_run_at)", html.includes('data-fact="next">2026-09-27 10:00 Europe/Paris (in 1 h 25 min)</dd>'));
+  // R16.1 A4: the header shows the SERVED next run: a changed gateway value changes the display, and
+  // next_fire_at alone (no served next_run_*) shows nothing scheduled.
+  check("news: a different served next_run_local/at changes the Next run fact", panel({ summary: { ...news, next_run_local: "2026-09-27T11:30:00+02:00", next_run_at: "2026-09-27T09:30:00+00:00" } }).includes('data-fact="next">2026-09-27 11:30 Europe/Paris (in 2 h 55 min)</dd>'));
+  check("news: next_fire_at without the served fields = none scheduled (never computed)", panel({ summary: { ...news, next_run_local: undefined, next_run_at: undefined } }).includes('data-fact="next">none scheduled</dd>'));
   check("news: nothing in flight → no 'Now' fact", !html.includes('data-fact="current"'));
   const ws = (/<dd data-fact="workspace"[^]*?<\/dd>/.exec(html) || [""])[0];
   check("news: workspace shown, folder icon + whole path (no control without onOpenWorkspace)", ws.startsWith('<dd data-fact="workspace" class="af-auto__workspace"><span class="af-auto__path af-auto__path--static"><svg') && ws.replace(/<[^>]+>/g, "") === news.workspace_root && button(html, "open-workspace") === null);
@@ -156,7 +160,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
 // --- current_occurrence / next_fire_at (runtime 64ee72a) --------------------------------------
 {
   check("mail: 'Run #7 running' from current_occurrence", mailHtml.includes('<dt>Now</dt><dd data-fact="current" class="is-notable">Run #7 running</dd>'));
-  check("mail: next run shown WHILE an occurrence runs (active + scheduled)", mailHtml.includes('data-fact="next">2026-09-27 07:00 UTC (in 25 min)'));
+  check("mail: next run shown WHILE an occurrence runs (active + scheduled)", mailHtml.includes('data-fact="next">2026-09-27 09:00 Europe/Paris (in 25 min)'));
   // Never inferred from last_occurrence: a waiting last occurrence with current_occurrence null shows nothing in flight.
   const stale = panel({ summary: { ...mail, current_occurrence: null }, occurrences: [] });
   check("no 'Now' when current_occurrence is null, even if last_occurrence is waiting", mail.last_occurrence.status === "waiting" && !stale.includes('data-fact="current"'));
@@ -445,25 +449,43 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
 {
   const target = { flow_id: "@default", interface: "abstractcode.agent.v1" };
   const r = kit.buildCreateRequest({ prompt: "Check ACME share price\nNotify if it moved 2%.", when: { kind: "every", amount: 5, unit: "m" }, context: "independent" }, { target, requestId: "req-1" });
-  check("every 5 minutes, first run now", r.ok && eq(r.body, { request_id: "req-1", title: "Check ACME share price", target: { flow_id: "@default", interface: "abstractcode.agent.v1", input_data: { prompt: "Check ACME share price\nNotify if it moved 2%." } }, trigger: { source_id: "schedule", source_version: 1, config: { every: "5m" } }, context: { mode: "independent" }, policy: { tool_approval: "auto" } }), JSON.stringify(r));
+  check("every 5 minutes, first run now", r.ok && eq(r.body, { request_id: "req-1", title: "Check ACME share price", target: { flow_id: "@default", interface: "abstractcode.agent.v1", input_data: { prompt: "Check ACME share price\nNotify if it moved 2%." } }, trigger: { source_id: "schedule", source_version: 2, config: { kind: "every", every: "5m" } }, context: { mode: "independent" }, policy: { tool_approval: "auto" } }), JSON.stringify(r));
   const askPolicy = kit.buildCreateRequest({ prompt: "x", when: { kind: "every", amount: 5, unit: "m" }, context: "independent", toolApproval: "ask" }, { target, requestId: "r" });
   check("D1: toolApproval ask → policy.tool_approval ask", askPolicy.ok && eq(askPolicy.body.policy, { tool_approval: "ask" }));
   const g = kit.buildCreateRequest({ prompt: "Triage", when: { kind: "every", amount: 30, unit: "m" }, context: "growing", title: "Inbox triage", startAt: "2026-09-27T04:00", count: 48, until: "2026-09-28T04:00" }, { target: { bundle_ref: "inbox@1.0.0", flow_id: "main", input_data: { folder: "INBOX" } }, requestId: "req-2" });
-  check("advanced: start/count/until as UTC, input_data merged", g.ok && eq(g.body.trigger.config, { every: "30m", start_at: "2026-09-27T04:00:00Z", count: 48, until: "2026-09-28T04:00:00Z" }) && eq(g.body.target.input_data, { folder: "INBOX", prompt: "Triage" }) && g.body.context.mode === "growing" && g.body.title === "Inbox triage");
+  check("advanced: start/count/until as UTC, input_data merged", g.ok && eq(g.body.trigger.config, { kind: "every", every: "30m", start_at: "2026-09-27T04:00:00Z", count: 48, until: "2026-09-28T04:00:00Z" }) && eq(g.body.target.input_data, { folder: "INBOX", prompt: "Triage" }) && g.body.context.mode === "growing" && g.body.title === "Inbox triage");
   const once = kit.buildCreateRequest({ prompt: "Ping", when: { kind: "once", at: "2026-09-28T08:00" }, context: "independent" }, { target, requestId: "r" });
-  check("once at → start_at only (no every)", once.ok && eq(once.body.trigger.config, { start_at: "2026-09-28T08:00:00Z" }));
+  check("once at → schedule@2 {kind: once, at} (a wall time; the gateway converts it in the account zone)", once.ok && eq(once.body.trigger, { source_id: "schedule", source_version: 2, config: { kind: "once", at: "2026-09-28T08:00" } }));
+  // R16.1 A5: the calendar rules (schedule@2), no time_zone sent (the gateway fills the owner's).
+  const cal = (when, extra = {}) => kit.buildCreateRequest({ prompt: "Brief me", when, context: "independent", ...extra }, { target, requestId: "r" });
+  const daily = cal({ kind: "daily", at: "08:00" });
+  check("daily → {kind: daily, at}", daily.ok && eq(daily.body.trigger, { source_id: "schedule", source_version: 2, config: { kind: "daily", at: "08:00" } }), JSON.stringify(daily));
+  const weekly = cal({ kind: "weekly", days: ["fri", "mon", "fri"], at: "07:30" }, { count: 10, until: "2026-12-31T23:00" });
+  check("weekly → days Monday-first, de-duplicated; max runs and stop at kept", weekly.ok && eq(weekly.body.trigger.config, { kind: "weekly", days: ["mon", "fri"], at: "07:30", count: 10, until: "2026-12-31T23:00:00Z" }), JSON.stringify(weekly));
+  const monthly = cal({ kind: "monthly", day: "last", at: "18:00" });
+  check("monthly last → {kind: monthly, day: last, at}", monthly.ok && eq(monthly.body.trigger.config, { kind: "monthly", day: "last", at: "18:00" }));
+  check("monthly 31 → day 31 (the gateway clamps short months)", eq(cal({ kind: "monthly", day: 31, at: "09:00" }).body.trigger.config, { kind: "monthly", day: 31, at: "09:00" }));
+  const noDays = cal({ kind: "weekly", days: [], at: "07:30" });
+  check("weekly without a day → the kit sentence, no body", !noDays.ok && eq(noDays.errors, [kit.SCHEDULE_TEXT.error_days]));
+  const badAt = cal({ kind: "daily", at: "25:00" });
+  check("daily with an impossible time → the kit sentence", !badAt.ok && eq(badAt.errors, [kit.SCHEDULE_TEXT.error_at]));
+  const badDay = cal({ kind: "monthly", day: 32, at: "09:00" });
+  check("monthly day 32 → the kit sentence", !badDay.ok && eq(badDay.errors, [kit.SCHEDULE_TEXT.error_day]));
+  check("calendar/once preview is the gateway's (the kit returns no sentence)", ["daily", "weekly", "monthly"].every((k) => kit.schedulePreview({ prompt: "", when: kit.calendarWhenOf(k, {}), context: "independent" }) === "") && kit.schedulePreview({ prompt: "", when: { kind: "once", at: "2026-10-09T08:00" }, context: "independent" }) === "");
+  check("Repeat keeps the kit sentence family", kit.schedulePreview({ prompt: "", when: { kind: "every", amount: 24, unit: "h" }, context: "independent" }) === "every 24 hours (UTC), first run now");
   const bad = kit.buildCreateRequest({ prompt: " ", when: { kind: "once", at: "" }, context: "independent" }, { target: null, requestId: "r" });
   check("missing target/prompt/time → reasons, no body", !bad.ok && bad.errors.length === 3, JSON.stringify(bad));
-  check("no tz field ever", !JSON.stringify([r, g, once]).includes("tz"));
+  check("no time zone sent by the kit (the gateway fills the owner's)", !/"tz"|time_zone/.test(JSON.stringify([r, g, once])));
 }
 
 // --- AfScheduleDialog render -----------------------------------------------------------------
 {
-  const dlg = (p) => renderToStaticMarkup(React.createElement(AfScheduleDialog, { open: true, onClose() {}, target: null, onSubmit() {}, newRequestId: () => "rid", ...p }));
+  const previewSchedule = async () => { throw new Error("SSR never previews"); };
+  const dlg = (p) => renderToStaticMarkup(React.createElement(AfScheduleDialog, { open: true, onClose() {}, target: null, onSubmit() {}, newRequestId: () => "rid", previewSchedule, ...p }));
   const html = dlg({ initialPrompt: "Monitor memory usage", workflowPicker: React.createElement("div", { id: "host-picker" }, "picker") });
   check("dialog: modal, labelled", html.includes('role="dialog" aria-modal="true" aria-labelledby=') && html.includes(">Schedule a task<"));
   check("dialog: What with host picker slot + prompt", html.includes("<legend>What</legend>") && html.includes('id="host-picker"') && html.includes(">Monitor memory usage</textarea>") && html.includes("Choose what to run."));
-  check("dialog: When (UTC) presets incl. every 24 hours", html.includes("<legend>When (UTC)</legend>") && ["every 5 minutes", "every 30 minutes", "every hour", "every 8 hours", "every 24 hours", "every 7 days"].every((l) => html.includes(`>${l}</button>`)));
+  check("dialog: When presets incl. every 24 hours", html.includes("<legend>When</legend>") && ["every 5 minutes", "every 30 minutes", "every hour", "every 8 hours", "every 24 hours", "every 7 days"].every((l) => html.includes(`>${l}</button>`)));
   check("dialog: default preview every 24 hours (UTC), first run now", html.includes("Runs every 24 hours (UTC), first run now."));
   check("dialog: once-at option", html.includes("Once at…"));
   check("dialog: context Independent/Growing", /<input type="radio" name="[^"]+" checked="" value="independent"\/>/.test(html) && /<input type="radio" name="[^"]+" value="growing"\/>/.test(html));
@@ -474,7 +496,8 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   const ws = dlg({ workspaces: React.createElement("div", { id: "host-workspaces" }, "chooser") });
   check("dialog: Workspaces slot = visible group (one heading: the chooser's) after Tools, before Mailbox", /data-field="workspaces" role="group" aria-label="Workspaces"><div id="host-workspaces">chooser<\/div><\/div>/.test(ws) && !ws.includes("<legend>Workspaces</legend>") && ws.indexOf('data-field="tool-approval"') < ws.indexOf('data-field="workspaces"') && ws.indexOf('data-field="workspaces"') < ws.indexOf('data-field="email"'));
   check("dialog: Workspaces slot sends nothing itself (no workspace in the markup outside the slot)", ws.split("host-workspaces").length === 2);
-  check("dialog: no calendar/local wording", !/daily|local time| local\b/i.test(html));
+  check("dialog: the six kinds in order (Repeat, Daily, Weekly, Monthly, Once at…, email)", (() => { const at = ["every", "daily", "weekly", "monthly", "once", "email"].map((v) => html.indexOf(`value="${v}"`)); return at.every((i, k) => i > 0 && (k === 0 || i > at[k - 1])); })() && [">Repeat<", " Daily</label>", " Weekly</label>", " Monthly</label>", " Once at…</label>"].every((w) => html.includes(w.replace(">Repeat<", " Repeat</label>"))));
+  check("dialog: no calendar sentence composed by the kit (served only)", !/Every day at|every day at|Monthly on|Every Mon/.test(html));
   const err = dlg({ error: kit.parseApiError(422, fx("errors.json").items.find((e) => e.body.detail.reason_code === "invalid_definition").body) });
   check("dialog: shows an API error", err.includes('data-code="invalid_definition"'));
   check("dialog closed renders nothing", renderToStaticMarkup(React.createElement(AfScheduleDialog, { open: false, onClose() {}, target: null, onSubmit() {} })) === "");
@@ -915,10 +938,10 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   check("run now hint: the next scheduled run keeps its time, or follows this run", rn.includes("the next scheduled run keeps its time, or starts right after this run if its time comes first"));
   check("run now hint: no run-limit count, allowed while paused, refused while busy", rn.includes("Does not count toward a run limit.") && rn.includes("Works while paused; it stays paused.") && rn.includes("Not available while a run is in progress."));
   // Dynamic parts.
-  const active = { ...news, status: "active", context_mode: "independent", next_fire_at: "2026-09-27T08:00:00.108652+00:00" };
-  check("controlHint(run_now) adds the next scheduled time (formatUtc)", controlHint("run_now", active) === `${rn}\nNext scheduled run: 2026-09-27 08:00 UTC.`, controlHint("run_now", active));
+  const active = { ...news, status: "active", context_mode: "independent" };
+  check("controlHint(run_now) adds the SERVED next run (next_run_local cut, in the automation's zone)", controlHint("run_now", active) === `${rn}\nNext scheduled run: 2026-09-27 10:00 Europe/Paris.`, controlHint("run_now", active));
   check("controlHint(run_now) adds the Growing line only for growing", controlHint("run_now", { ...active, context_mode: "growing" }).endsWith(`\n${RUN_NOW_GROWING_LINE}`) && !controlHint("run_now", active).includes("Growing"));
-  check("controlHint(run_now) without next_fire_at (paused/manual) = the static hint", controlHint("run_now", { ...active, next_fire_at: undefined }) === rn);
+  check("controlHint(run_now) without a served next run (paused/manual) = the static hint", controlHint("run_now", { ...active, next_run_local: undefined }) === rn);
   check("controlHint(other) = its static hint", ids.filter((i) => i !== "run_now").every((i) => controlHint(i, active) === CONTROL_HINTS[i]));
   // The bar: every control's tooltip and aria-description is its hint.
   const html = panel({ summary: active, occurrences: [] });

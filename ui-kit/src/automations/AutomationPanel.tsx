@@ -24,6 +24,7 @@ import {
   CALENDAR_KINDS,
   calendarConfigFrom,
   formatServedLocal,
+  nextRunLabel,
   SCHEDULE_TEXT,
   attentionAckCursor,
   attentionLabel,
@@ -40,7 +41,6 @@ import {
   formatUtc,
   isApiError,
   currentOccurrenceLabel,
-  relativeIn,
   mintUuid,
   parseEventPayload,
   WAIT_KIND_LABELS,
@@ -291,11 +291,7 @@ export function AutomationHeader(props: {
   const current = currentOccurrenceLabel(s);
   const problem = triggerSourceProblem(s, props.triggerSources);
   // The next run is the gateway's (served `next_run_local` + `next_run_at`); the kit never computes it.
-  const next = s.next_run_at && s.next_run_local
-    ? `${formatServedLocal(s.next_run_local, s.time_zone)} (${relativeIn(s.next_run_at, props.nowMs ?? Date.now())})`
-    : s.status === "paused"
-      ? "none while paused"
-      : "none scheduled";
+  const next = nextRunLabel(s, props.nowMs ?? Date.now());
   return (
     <header className="af-auto__head">
       <div className="af-auto__titlebar">
