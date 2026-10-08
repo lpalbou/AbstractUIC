@@ -1,7 +1,8 @@
 # Automations
 
-An **automation** runs a workflow on a trigger — "every 8 hours", "every 30 minutes", "once at
-2026-09-28 08:00 UTC", or by hand — and keeps every run readable as a chat. AbstractGateway owns
+An **automation** runs a workflow on a trigger — "every 8 hours", "every day at 08:00",
+"every Mon and Fri at 07:30", "monthly on the last day", "once at Fri 9 Oct 08:00", or by
+hand — and keeps every run readable as a chat. AbstractGateway owns
 the execution (its `/api/gateway/automations` routes, backed by AbstractRuntime). AbstractUIC
 ships the shared presentation and the typed client that every app uses to show and manage
 automations:
@@ -30,9 +31,24 @@ in the architecture page; for the export list in context, see the [API reference
   runs stay visible, subdued and unbadged.
 - **Context** — *independent*: each run starts fresh. *growing*: each run sees the previous
   runs, like turns of one conversation.
-- **Fixed UTC intervals** — `schedule@1` knows `start_at`, `every` (`^[1-9][0-9]*[smhd]$`),
-  `until` and `count`. Every label reads "every 24 hours (UTC)", never "daily at 08:00 local":
-  schedules carry no time zone. Without `every`, the automation runs once at `start_at`.
+- **Schedules (`schedule@2`)** — the kit writes every schedule as `schedule@2` with a `kind`:
+  **Repeat** `{kind: "every", every, start_at?, count?, until?}` is a fixed UTC interval
+  (`^[1-9][0-9]*[smhd]$`, exactly as `schedule@1`: "every 24 hours (UTC)"); **Daily**
+  `{kind: "daily", at: "HH:MM"}`, **Weekly** `{kind: "weekly", days: ["mon", …], at}` and
+  **Monthly** `{kind: "monthly", day: 1..31 | "last", at}` run at that wall-clock time in the
+  automation's time zone, across daylight-saving changes (a day the month does not have runs on
+  its last day); **Once** `{kind: "once", at: "YYYY-MM-DDTHH:MM"}` is a wall time in that zone.
+  The kit never sends a `time_zone`: the Gateway stamps the owner's account time zone (the
+  `time_zone` preference, default the Gateway host's zone) and keeps it on revisions.
+  Existing `schedule@1` automations keep their meaning and wording.
+- **Served schedule facts** — the Gateway computes when an automation runs next and words its
+  rule; every client shows those values and computes neither. Each summary carries `time_zone`,
+  `schedule_rule_text` ("Every Mon and Fri at 07:30 (Europe/Paris)"), `schedule_text` (the
+  rule + " · next Fri 9 Oct 07:30"), and, while a run is scheduled, `next_run_at` (UTC) and
+  `next_run_local` (the same instant with the zone's offset, e.g. `2026-10-09T07:30:00+02:00`).
+  `POST /api/gateway/automations/schedule-preview` answers the same for a trigger before it is
+  saved, plus `first_run_sentence` ("Runs every Mon and Fri at 07:30 (Europe/Paris), first run
+  Fri 9 Oct 07:30.").
 - **Tool approval** — `policy.tool_approval` is `"auto"` by default: an unattended run cannot
   ask a person at every tick, so its tools run without asking, and creating the automation is the
   consent. `"ask"` makes every tool call wait for approval in the automation's timeline.
@@ -124,12 +140,15 @@ and tool approval), `renderText` and `renderTurn` (required in practice; see abo
 ### What it shows
 
 - **Header** — title, state as a word then an icon ("Active ▶", "Paused ⏸"; Completed,
-  Failed and Archived likewise — `AutomationStateLabel`, the one rendering every client uses), trigger ("every 8 hours (UTC)", "once at 2026-09-28 08:00 UTC",
-  "manual runs only"), context, "Now: Run #7 running" (only from `summary.current_occurrence`,
-  never inferred from the last occurrence; "starting" while admitted, "waiting to retry" in
-  backoff), next run as "2026-09-27 07:00 UTC (in 25 min)" (only from `next_fire_at`, which an
-  active scheduled automation carries even while a run is in progress; "none while paused" when
-  paused), run count, the automation's workspace folder (`workspace_root`: a folder icon and the
+  Failed and Archived likewise — `AutomationStateLabel`, the one rendering every client uses), trigger (a Repeat rule in the
+  kit's words, "every 8 hours (UTC)"; a calendar or once rule is the served `schedule_rule_text`
+  verbatim, "Every day at 08:00 (Europe/Paris)"; "manual runs only"), context, "Now: Run #7
+  running" (only from `summary.current_occurrence`, never inferred from the last occurrence;
+  "starting" while admitted, "waiting to retry" in backoff), next run as
+  "2026-10-09 08:00 Europe/Paris (in 14 h)" (`nextRunLabel`: the served `next_run_local` cut to
+  date and time — no clock or zone arithmetic — plus the relative time to the served
+  `next_run_at`; an active scheduled automation carries them even while a run is in progress;
+  "none while paused" when paused), run count, the automation's workspace folder (`workspace_root`: a folder icon and the
   whole path, wrapping at its `/`, `-` and `_` separators; the whole chip is a button calling
   `onOpenWorkspace(automation_id)` when that prop is given — an automation's id is its
   controller run), attention
@@ -202,8 +221,8 @@ Each control's tooltip (`title`) and `aria-description` say what it does (`CONTR
 > Does not count toward a run limit. Works while paused; it stays paused.
 > Not available while a run is in progress.
 
-`controlHint("run_now", summary)` adds "Next scheduled run: 2026-09-27 08:00 UTC." when the
-summary carries `next_fire_at`, and "Growing context: later runs see this run in their history."
+`controlHint("run_now", summary)` adds "Next scheduled run: 2026-10-09 08:00 Europe/Paris." when
+the summary carries a served next run (`next_run_local`), and "Growing context: later runs see this run in their history."
 for a Growing automation. In detail, a manual run:
 
 - never moves the schedule: the next scheduled time stays where it was;
@@ -243,6 +262,7 @@ The Edit control opens a form prefilled from the automation, with its first fiel
 | Workflow | `definition.target` (with `workflowPickerOptions`) | `changes.target`, prepared with the selected workflow's defaults |
 | Task | `definition.target.input_data.prompt` (only with `definition`, when it is text) | `changes.target`: the definition's `bundle_ref` and `flow_id`, its `input_data` with the new `prompt` (the Gateway re-applies its run protections) |
 | Repeat every (UTC) | the schedule's `every` (only for an interval schedule) | `changes.trigger` with the rest of the schedule config kept |
+| When (Daily · Weekly · Monthly) | a `schedule@2` calendar rule (only for one) | `changes.trigger` with the new rule, the automation's `time_zone`, `count` and `until` kept; the line under it is the Gateway's `first_run_sentence` and "in Europe/Paris (this automation's time zone)" |
 | Context | `summary.context_mode` | `changes.context` |
 | Tool selection | the target's enabled tools (with `availableTools`) | revised target tool selection; empty disables tools, workflow defaults restores inheritance |
 | Tool approval | `definition.policy.tool_approval` (only with `definition`) | `changes.policy.tool_approval` |
@@ -323,6 +343,8 @@ import { AfScheduleDialog } from "@abstractframework/ui-kit";
   error={createError}
   emailStatus={myEmail}               // automations.getMyEmail(); null/undefined = not set up
   onOpenMyEmail={() => openConsole("users")}  // optional: makes "open My email" a button
+  previewSchedule={automations.previewSchedule}  // required: the Gateway's line for calendar/once rules
+  onOpenPreferences={openAccountPreferences}  // optional: "Change in preferences" next to the time zone
 />
 ```
 
@@ -331,10 +353,18 @@ sections:
 
 - **What** — your workflow picker (a slot; it sets `target`) and the task, sent as
   `target.input_data.prompt`.
-- **When (UTC)** — **Repeat** every N minutes, hours or days, with presets from "every 5
-  minutes" to "every 7 days", **Once at…** a UTC date and time, or **When an email arrives**
-  (see [Email automations](#email-automations)). A preview line reads, for example, "Runs every
-  24 hours (UTC), first run now."
+- **When** — **Repeat** every N minutes, hours or days, with presets from "every 5 minutes" to
+  "every 7 days" (a fixed UTC interval; the line reads, for example, "Runs every 24 hours (UTC),
+  first run now."); **Daily** at HH:MM; **Weekly** on the days you pick (day chips that show
+  their state: on = tinted with a check mark) at HH:MM; **Monthly** on day 1 to 31 or "last" at
+  HH:MM; **Once at…** a date and time; or **When an email arrives** (see
+  [Email automations](#email-automations)). For Daily, Weekly, Monthly and Once the line under
+  the section is the Gateway's own sentence (`previewSchedule` → `first_run_sentence`, asked
+  250 ms after the last change, the latest answer wins; "Checking the schedule…" meanwhile; a
+  refusal shows the Gateway's sentence), with the time zone as a line — "in Europe/Paris (your
+  account's time zone)" — carrying a kit tooltip, and **Change in preferences** when the host
+  passes `onOpenPreferences`. The zone is changed only in the account preferences, never in the
+  dialog. Switching kinds keeps what you picked (Weekly → Monthly → Weekly keeps the days).
 - **Context** — Independent or Growing.
 - **Tools** — "Run without asking" (the default, `policy.tool_approval: "auto"`) shows the
   consent line **"Tools run without asking (you approve them now by creating this automation)"**,
@@ -349,8 +379,9 @@ sections:
   **Use my default** = no payload) and merges the value into `target.input_data.workspace` in its
   `onSubmit`. The gateway stores it on the definition and clamps it to the eligible workspaces at
   each run. The dialog itself sends nothing workspace-shaped.
-- **Title and limits** — title (default: the task's first line, at most 120 characters), and for
-  Repeat: first run at, stop after N runs, stop at. Date fields are read as UTC.
+- **Title and limits** — title (default: the task's first line, at most 120 characters); for
+  Repeat the first run at; for Repeat and the calendar rules stop after N runs and stop at. These
+  date fields are read as UTC.
 
 Every section is visible: the dialog has no disclosure.
 
@@ -498,6 +529,22 @@ Neither piece performs requests or holds state.
 - `presentInteraction(wait, controller, options?)` turns a discussion's pending wait into the
   `WorkflowChat` control (tool approval, question, event).
 
+## Time zone preference
+
+`AfTimeZonePicker` is the account's time zone in a settings page or a preferences modal: a kit
+searchable combobox over the IANA names the Gateway serves (`GET /api/gateway/accounts/me/preferences`
+→ `time_zone.choices`, never a list from the browser), "Gateway default (Europe/Paris)" first
+(= `null`, follow the Gateway host's zone), with the Gateway's own label and help as a kit
+tooltip. It holds no state: the host sends `PUT …/preferences` `{"time_zone": "<IANA>" | null}`
+on change (no Save) and shows "Saved." or "Not saved." with the Gateway's sentence through the
+`note` prop. A preferences answer without the `time_zone` block throws — the picker never guesses.
+
+```tsx
+<AfTimeZonePicker id="tz" block={answer.time_zone} onChange={(zone) => save({ time_zone: zone })} note={note} />
+```
+
+The Gateway console mounts the same component as the island `AfConsoleIslands.mountTimeZonePicker`.
+
 ## Fixtures contract
 
 `ui-kit/scripts/fixtures/automations/` holds the Gateway's wire shapes that every automations
@@ -505,10 +552,10 @@ client tests against:
 
 | File | Route | Content |
 | --- | --- | --- |
-| `list.json` | `GET /api/gateway/automations` | Three automations (active growing, active independent, paused) and a legacy row |
+| `list.json` | `GET /api/gateway/automations` | Four automations (active growing, active independent, paused, and a `schedule@2` daily rule in Europe/Paris) and a legacy row; every row carries the served schedule facts |
 | `occurrences.json` | `GET …/{id}/occurrences` | Quiet runs, a notify with an artifact, a success after a retry, a manual run, a failure after 3 attempts, and a run waiting on an `ask_user` and a `tool_approval` wait |
 | `attention.json` | `GET …/{id}/attention` | Unseen items, oldest first |
-| `trigger-sources.json` | `GET /api/gateway/trigger-sources` | `schedule@1` and `manual@1` |
+| `trigger-sources.json` | `GET /api/gateway/trigger-sources` | `schedule@1`, `schedule@2` and `manual@1` |
 | `commands.json` | revise, `…/commands`, `…/seen`, `…/discuss`, `POST /api/gateway/commands` | Exact request and response per route, including a duplicate command and the wait answers by kind |
 | `errors.json` | every automation route | The error bodies with their HTTP status, covering every contract error code |
 
@@ -553,18 +600,32 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `RUN_NOW_GLYPH`, `DISCUSS_LABEL`,
   `STATUS_LABELS`, `STATUS_ICONS`, `plainTextRenderer` (the fallback), types `RenderText`,
   `RenderTurn`, `AutomationTurn`.
+- **When editor and time zone** (round 16): `AfCalendarRuleFields` (Daily / Weekly day chips /
+  Monthly day + time), `AfServedSchedule` (the Gateway's `first_run_sentence` with the
+  time-zone line, loading and error states), `AfTimeZoneLine`, `useSchedulePreview()`
+  (debounced, latest answer wins; `PreviewSchedule`, `PreviewState`), `CalendarRuleState` with
+  `calendarRuleOf()`, `withCalendarRule()`, `calendarStateOf()`, `DEFAULT_CALENDAR_STATE`,
+  `calendarWhenOf()`, `AfTimeZonePicker` (`TimeZonePreference`, `timeZoneOptions()`,
+  `TIME_ZONE_GATEWAY_DEFAULT`).
 - **Client**: `createAutomationsClient()`, `AutomationApiError`, `parseApiError()`,
-  `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`, `MY_EMAIL_PATH`; types `AutomationsClient`,
+  `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`, `MY_EMAIL_PATH`, `SCHEDULE_PREVIEW_PATH`
+  (`previewSchedule(trigger)`); types `AutomationsClient`,
   `AutomationsClientOptions`, `ListAutomationsQuery`, `PageQuery`.
 - **Presentation rules** (pure functions, no React): `automationControls()`
   (`ControlId`, `ControlState`), `activeToggleCommand()`, `CONTROL_COMMANDS`, `occurrenceViews()` (`OccurrenceView`,
   `OccurrenceTone`), `attentionAckCursor()`, `attentionLabel()`, `triggerSummary()`,
   `scheduleLabel()`, `intervalLabel()`, `contextLabel()`, `formatUtc()`, `parseDuration()`,
   `reviseFormFrom()` and `reviseChanges()` (`ReviseForm`, `ReviseDefinition`), `buildCreateRequest()` (`ScheduleForm`, `ScheduleWhen`),
-  `SCHEDULE_PRESETS`, `TOOL_APPROVAL_CONSENT`.
+  `SCHEDULE_PRESETS`, `TOOL_APPROVAL_CONSENT`; schedules: `scheduleConfigFrom()`,
+  `scheduleTriggerFrom()`, `schedulePreview()` (the Repeat sentence; "" for a served kind),
+  `calendarConfigFrom()`, `calendarWhenFrom()`, `isScheduleV2()`, `isCalendarWhen()`,
+  `isServedPreviewWhen()`, `servedRuleText()`, `formatServedLocal()`, `nextRunLabel()`,
+  `timeZoneLine()`, `SCHEDULE_TEXT` (the `schedule` wording of `automation_controls.json`),
+  `CALENDAR_DAYS`, `CALENDAR_KINDS`, `SCHEDULE_VERSION`, `WALL_TIME_RE`, `WALL_DATETIME_RE`.
 - **Timing line** (pure, deterministic: the caller passes `nowMs`): `automationTiming()`
   returns `{cadence, last, next, line}` for a card or header, e.g.
-  `every 24 h · last 3 h ago · next in 14 h` — compact units rounded down (`<1 min`, `N min`,
+  `every 24 h · last 3 h ago · next in 14 h` (a calendar rule's cadence is the served
+  `schedule_rule_text`; the next part is relative to the served `next_run_at`) — compact units rounded down (`<1 min`, `N min`,
   `N h` below 48 h, `N d`), no year, no seconds, `last never` before the first run,
   `running now` while an occurrence executes, `waiting since 5 min` while it waits for an approval or answer, no next part when nothing is scheduled.
   Parts: `compactCadence()`, `lastRunText()`, `nextRunText()`, `compactDuration()`.

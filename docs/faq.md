@@ -21,7 +21,7 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 - [ui-kit: How do I add the About dialog?](#ui-kit-how-do-i-add-the-about-dialog)
 - [ui-kit: Where does the voice section's "Gateway default" come from?](#ui-kit-where-does-the-voice-sections-gateway-default-come-from)
 - [Automations: Does the kit poll or schedule anything?](#automations-does-the-kit-poll-or-schedule-anything)
-- [Automations: Why are schedules fixed UTC intervals?](#automations-why-are-schedules-fixed-utc-intervals)
+- [Automations: Which time does a daily schedule use?](#automations-which-time-does-a-daily-schedule-use)
 - [Automations: Why do tools run without asking by default?](#automations-why-do-tools-run-without-asking-by-default)
 - [Automations: How are wait answers sent?](#automations-how-are-wait-answers-sent)
 - [monitor-flow: What trace format does AgentCyclesPanel expect?](#monitor-flow-what-trace-format-does-agentcyclespanel-expect)
@@ -207,12 +207,15 @@ reports intent through callbacks; `createAutomationsClient()` sends a request on
 one of its methods, through the `fetch` you inject. Poll complete pages at the interval your app
 needs: the Automations API has no change cursor. See [Automations](./automations.md).
 
-## Automations: Why are schedules fixed UTC intervals?
+## Automations: Which time does a daily schedule use?
 
-The `schedule@1` trigger source counts fixed intervals (`every: "24h"`) from a UTC start, with
-no time zone and no calendar rules. The kit words every schedule that way ("every 24 hours
-(UTC)") so the label matches what runs. Use **Once at…** in `AfScheduleDialog` for a single UTC
-date and time.
+The automation's time zone. **Daily**, **Weekly**, **Monthly** and **Once at…** in
+`AfScheduleDialog` are `schedule@2` rules on wall-clock time in the owner's account time zone
+(the `time_zone` preference; by default the Gateway host's zone), so "every day at 08:00" stays
+at 08:00 when daylight saving time changes. **Repeat** is a fixed interval in UTC ("every 24
+hours (UTC)"), as before. The dialog shows the zone ("in Europe/Paris (your account's time
+zone)"); change it in your account preferences (`AfTimeZonePicker`). The Gateway words the rule
+and computes the next run; the kit shows its words.
 
 ## Automations: Why do tools run without asking by default?
 

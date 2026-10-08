@@ -7,6 +7,35 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## Unreleased
+
+### ui-kit
+
+- **Calendar schedules (round 16, R16.1).** `AfScheduleDialog`'s **When** offers Repeat (every N
+  minutes, hours or days, a fixed UTC interval as before), **Daily** at HH:MM, **Weekly** (day
+  chips that show their state: tinted with a check mark when on) at HH:MM, **Monthly** on day 1–31
+  or "last" at HH:MM, **Once at…** and **When an email arrives**. Every schedule is written as
+  `schedule@2` (`{kind, …}`); no time zone is sent — the Gateway stamps the owner's account zone.
+  For Daily, Weekly, Monthly and Once the line under the section is the Gateway's own
+  `first_run_sentence` (new required prop `previewSchedule`, the client's
+  `previewSchedule(trigger)` → `POST /api/gateway/automations/schedule-preview`; debounced, latest
+  answer wins), with the zone as "in Europe/Paris (your account's time zone)", a kit tooltip, and
+  **Change in preferences** (`onOpenPreferences`). The kit composes no calendar sentence. Switching
+  kinds keeps what was picked. Max runs and stop at apply to the calendar rules too.
+- **Served next run everywhere.** `AutomationPanel`'s header, `automationTiming()`, the new
+  `nextRunLabel()` and `controlHint("run_now")` read the Gateway's `next_run_at` /
+  `next_run_local` (cut to "2026-10-09 08:00 Europe/Paris", no clock or zone arithmetic) and a
+  calendar rule's `schedule_rule_text`; `next_fire_at` is no longer read. The Edit form edits a
+  calendar rule (kind, days, day, time) and keeps the automation's time zone and limits; it needs
+  the panel's new required `previewSchedule` prop.
+- **`AfTimeZonePicker`** — the account time zone in settings and preferences: a searchable
+  combobox over the Gateway's `time_zone.choices`, "Gateway default (<zone>)" first (= `null`);
+  island `AfConsoleIslands.mountTimeZonePicker` for the Gateway console.
+- Wording: `automation_controls.json` gains a `schedule` block (kind labels, day words, the
+  time-zone line, tooltip and link, error sentences) for the clients that vendor it byte for byte.
+- Fixtures: `list.json` rows carry the served schedule facts and a `schedule@2` daily row;
+  `trigger-sources.json` lists `schedule@2`. New check `check_schedule_when.mjs`.
+
 ## 0.6.1 - 2026-10-08
 
 | Package | Version | Change |

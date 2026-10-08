@@ -27,8 +27,10 @@ This package provides:
 - **Run and policy surfaces**: `PhaseCapabilityMatrix`, `CriticalActionDialog`, `SteerComposer`,
   `DisclosureList`, `AfChip`, `AfPhaseRadio`, cognition gauges
 - **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk)
-- **Automations**: `AutomationPanel`, `AfScheduleDialog` (schedule and email triggers, Email me the
-  result, allowed recipients), `createAutomationsClient()` and the canonical Gateway fixtures — see [Automations](../docs/automations.md)
+- **Automations**: `AutomationPanel`, `AfScheduleDialog` (Repeat, Daily, Weekly, Monthly, Once and
+  email triggers — the Gateway words calendar rules and computes next runs —, Email me the result,
+  allowed recipients), `AfTimeZonePicker` (the account time zone over the Gateway's IANA list),
+  `createAutomationsClient()` and the canonical Gateway fixtures — see [Automations](../docs/automations.md)
 - **Modal and account rows**: `AfModal` (large dialog over a blurred backdrop, full-screen sheet on
   phones), `bindAfModal()`, the `af-row--admin|user|entity` tints, `af-kind-chip`, `af-nav-group` /
   `af-nav-footer` — see [Modal, account rows, grouped navigation](../docs/modal.md)

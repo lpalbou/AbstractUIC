@@ -61,7 +61,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Architecture](docs/architecture.md): package boundaries + diagrams (packages and their consumers, ecosystem data flow, gateway connection flow, live replies, About/identity flow, automations flow, voice settings and file preview, console islands build)
 - [FAQ](docs/faq.md): bundling/CSS/SSR and per-package notes
 - [Troubleshooting](docs/troubleshooting.md): symptoms, checks and fixes (unstyled components, SSR errors, widget polling, app-server 400/401/403, live replies, images shown as links, stale islands bundle, plain-http copy/voice/ids)
-- [Automations](docs/automations.md): configurable growing-context budgets and result email; show and manage AbstractGateway automations — `AutomationPanel` (icon controls, an Edit form a host can open through `editOpen`, runs as chat pairs, typed wait answers), `AfScheduleDialog` (fixed UTC intervals, **When an email arrives** with typed filters, **Email result**, recipients, workflow and tool selection), `createAutomationsClient()` and its error model, retry-safe ids, panel-chat `ScheduleThisAction` / `FromAutomationBadge`, the canonical fixtures and the export list
+- [Automations](docs/automations.md): configurable growing-context budgets and result email; show and manage AbstractGateway automations — `AutomationPanel` (icon controls, an Edit form a host can open through `editOpen`, runs as chat pairs, typed wait answers), `AfScheduleDialog` (Repeat on fixed UTC intervals, Daily / Weekly / Monthly / Once on the account's time zone with the Gateway's own sentence via `previewSchedule`, **When an email arrives** with typed filters, **Email result**, recipients, workflow and tool selection), the served next run (`nextRunLabel`), `AfTimeZonePicker`, `createAutomationsClient()` and its error model, retry-safe ids, panel-chat `ScheduleThisAction` / `FromAutomationBadge`, the canonical fixtures and the export list
 - [Console islands](docs/console-islands.md): `window.AfConsoleIslands` (mountTopBar / mountAppearance / mountAbout / appIdentity / aboutVersionsFromGateway / applyAppearance, apiVersion "2") for pages that are not React apps; repository build, not in the npm package
 - [Docs index](docs/README.md): full docs navigation
 
@@ -1667,7 +1667,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - CSRF helpers: `readGatewayCsrfToken()`, `readGatewayCsrfTokens()`
 - Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`. Options `output_device_id` (playback through `AudioContext.setSinkId`), `input_device_id` (records from that microphone; a missing device fails with a sentence, never another microphone), `volume`, `input_gain`, `stop_on_pointerup: false` (tap-to-start / tap-to-stop hosts stop recording themselves); returns `voice_ptt_since` (for "Transcribing… 12 s · faster-whisper / large-v3"); `transcribe` may return `{ text, provider, model }`; every failure becomes one sentence; `VoiceSettings` (catalog-driven voice preferences form)
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
-- Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation on a fixed UTC interval, once, or when an email arrives; "Email result" and result recipients), the email fields `AfEmailTriggerFields` / `AfEmailOptionsFields` / `AfEmailSetupNotice`, `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
+- Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation: Repeat on a fixed UTC interval, Daily / Weekly / Monthly at a time of day in the account's time zone, once, or when an email arrives — the Gateway's own sentence for calendar rules through `previewSchedule`; "Email result" and result recipients), `AfTimeZonePicker` (the account time zone, over the Gateway's IANA list), the email fields `AfEmailTriggerFields` / `AfEmailOptionsFields` / `AfEmailSetupNotice`, `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
 - Modal and account rows: `AfModal`, `bindAfModal()` (+ `afModalTabTarget()`, `afModalFocusables()`, `AF_MODAL_FOCUSABLE`), the helper floors `HELPER_MIN_PX`, `HELPER_MIN_TOUCH_PX`, `HELPER_TOUCH_MEDIA` — see [Modal, account rows, grouped navigation](./modal.md)
 - On/off settings and forms: `AfSwitch`, `AfSwitchInput` (a native `role="switch"` checkbox for uncontrolled forms) (+ `afSwitchNextState()`, `afSwitchIsActionable()`), `AfTabs` (+ `afTabsNextIndex()`), the guards `findVerbToggleLabels(source)` and `checkLabelScale(root)` (+ `LABEL_SCALE_SELECTOR`) — see [On/off settings](./state-toggles.md)
 - Workflow picker: `WorkflowPicker` (the one workflow chooser of every client: "Gateway default", then the groups "Shared" and "Mine", each entry with its version as a small detail line; no toggles), `useExecutableWorkflows({ interfaceId, request? | gatewayBaseUrl?, allVersions?, enabled?, reloadKey? })` (fetches `GET /api/gateway/bundles?executable_for=<interface>` with the app's own auth), `WorkflowPickerListbox`, and the pure core `executableWorkflowsPath()`, `parseExecutableWorkflows()` (throws `WorkflowPickerContractError` when the gateway ignores `executable_for`: no echo, an item without `owner`/`shipped`, an entrypoint that does not declare the interface), `workflowPickerGroups()`, `workflowPickerRows()`, `WORKFLOW_PICKER_DEFAULT` (`"@default"`), `WORKFLOW_PICKER_EMPTY`. The picker lists exactly what the gateway returns: which workflows a person sees is the gateway's availability rule (admins decide what is shared with users; users also see their own), never a client switch. Two modes: per interface (`interfaceId="abstractcode.agent.v1"`, for an app that runs one interface) and any interface (`interfaceId={null}`, for a launcher such as AbstractObserver: `GET /api/gateway/bundles`, every entrypoint that declares an interface, the interfaces as the detail line, `defaultInterface` names the interface "Gateway default" stands for); helpers `workflowPickerPath()`, `allWorkflowsPath()`, `parseWorkflowListing()`.
@@ -2340,7 +2340,7 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 - [ui-kit: How do I add the About dialog?](#ui-kit-how-do-i-add-the-about-dialog)
 - [ui-kit: Where does the voice section's "Gateway default" come from?](#ui-kit-where-does-the-voice-sections-gateway-default-come-from)
 - [Automations: Does the kit poll or schedule anything?](#automations-does-the-kit-poll-or-schedule-anything)
-- [Automations: Why are schedules fixed UTC intervals?](#automations-why-are-schedules-fixed-utc-intervals)
+- [Automations: Which time does a daily schedule use?](#automations-which-time-does-a-daily-schedule-use)
 - [Automations: Why do tools run without asking by default?](#automations-why-do-tools-run-without-asking-by-default)
 - [Automations: How are wait answers sent?](#automations-how-are-wait-answers-sent)
 - [monitor-flow: What trace format does AgentCyclesPanel expect?](#monitor-flow-what-trace-format-does-agentcyclespanel-expect)
@@ -2526,12 +2526,15 @@ reports intent through callbacks; `createAutomationsClient()` sends a request on
 one of its methods, through the `fetch` you inject. Poll complete pages at the interval your app
 needs: the Automations API has no change cursor. See [Automations](./automations.md).
 
-## Automations: Why are schedules fixed UTC intervals?
+## Automations: Which time does a daily schedule use?
 
-The `schedule@1` trigger source counts fixed intervals (`every: "24h"`) from a UTC start, with
-no time zone and no calendar rules. The kit words every schedule that way ("every 24 hours
-(UTC)") so the label matches what runs. Use **Once at…** in `AfScheduleDialog` for a single UTC
-date and time.
+The automation's time zone. **Daily**, **Weekly**, **Monthly** and **Once at…** in
+`AfScheduleDialog` are `schedule@2` rules on wall-clock time in the owner's account time zone
+(the `time_zone` preference; by default the Gateway host's zone), so "every day at 08:00" stays
+at 08:00 when daylight saving time changes. **Repeat** is a fixed interval in UTC ("every 24
+hours (UTC)"), as before. The dialog shows the zone ("in Europe/Paris (your account's time
+zone)"); change it in your account preferences (`AfTimeZonePicker`). The Gateway words the rule
+and computes the next run; the kit shows its words.
 
 ## Automations: Why do tools run without asking by default?
 
@@ -2872,8 +2875,9 @@ error. Report security problems privately as described in [`SECURITY.md`](../SEC
 
 # Automations
 
-An **automation** runs a workflow on a trigger — "every 8 hours", "every 30 minutes", "once at
-2026-09-28 08:00 UTC", or by hand — and keeps every run readable as a chat. AbstractGateway owns
+An **automation** runs a workflow on a trigger — "every 8 hours", "every day at 08:00",
+"every Mon and Fri at 07:30", "monthly on the last day", "once at Fri 9 Oct 08:00", or by
+hand — and keeps every run readable as a chat. AbstractGateway owns
 the execution (its `/api/gateway/automations` routes, backed by AbstractRuntime). AbstractUIC
 ships the shared presentation and the typed client that every app uses to show and manage
 automations:
@@ -2902,9 +2906,24 @@ in the architecture page; for the export list in context, see the [API reference
   runs stay visible, subdued and unbadged.
 - **Context** — *independent*: each run starts fresh. *growing*: each run sees the previous
   runs, like turns of one conversation.
-- **Fixed UTC intervals** — `schedule@1` knows `start_at`, `every` (`^[1-9][0-9]*[smhd]$`),
-  `until` and `count`. Every label reads "every 24 hours (UTC)", never "daily at 08:00 local":
-  schedules carry no time zone. Without `every`, the automation runs once at `start_at`.
+- **Schedules (`schedule@2`)** — the kit writes every schedule as `schedule@2` with a `kind`:
+  **Repeat** `{kind: "every", every, start_at?, count?, until?}` is a fixed UTC interval
+  (`^[1-9][0-9]*[smhd]$`, exactly as `schedule@1`: "every 24 hours (UTC)"); **Daily**
+  `{kind: "daily", at: "HH:MM"}`, **Weekly** `{kind: "weekly", days: ["mon", …], at}` and
+  **Monthly** `{kind: "monthly", day: 1..31 | "last", at}` run at that wall-clock time in the
+  automation's time zone, across daylight-saving changes (a day the month does not have runs on
+  its last day); **Once** `{kind: "once", at: "YYYY-MM-DDTHH:MM"}` is a wall time in that zone.
+  The kit never sends a `time_zone`: the Gateway stamps the owner's account time zone (the
+  `time_zone` preference, default the Gateway host's zone) and keeps it on revisions.
+  Existing `schedule@1` automations keep their meaning and wording.
+- **Served schedule facts** — the Gateway computes when an automation runs next and words its
+  rule; every client shows those values and computes neither. Each summary carries `time_zone`,
+  `schedule_rule_text` ("Every Mon and Fri at 07:30 (Europe/Paris)"), `schedule_text` (the
+  rule + " · next Fri 9 Oct 07:30"), and, while a run is scheduled, `next_run_at` (UTC) and
+  `next_run_local` (the same instant with the zone's offset, e.g. `2026-10-09T07:30:00+02:00`).
+  `POST /api/gateway/automations/schedule-preview` answers the same for a trigger before it is
+  saved, plus `first_run_sentence` ("Runs every Mon and Fri at 07:30 (Europe/Paris), first run
+  Fri 9 Oct 07:30.").
 - **Tool approval** — `policy.tool_approval` is `"auto"` by default: an unattended run cannot
   ask a person at every tick, so its tools run without asking, and creating the automation is the
   consent. `"ask"` makes every tool call wait for approval in the automation's timeline.
@@ -2996,12 +3015,15 @@ and tool approval), `renderText` and `renderTurn` (required in practice; see abo
 ### What it shows
 
 - **Header** — title, state as a word then an icon ("Active ▶", "Paused ⏸"; Completed,
-  Failed and Archived likewise — `AutomationStateLabel`, the one rendering every client uses), trigger ("every 8 hours (UTC)", "once at 2026-09-28 08:00 UTC",
-  "manual runs only"), context, "Now: Run #7 running" (only from `summary.current_occurrence`,
-  never inferred from the last occurrence; "starting" while admitted, "waiting to retry" in
-  backoff), next run as "2026-09-27 07:00 UTC (in 25 min)" (only from `next_fire_at`, which an
-  active scheduled automation carries even while a run is in progress; "none while paused" when
-  paused), run count, the automation's workspace folder (`workspace_root`: a folder icon and the
+  Failed and Archived likewise — `AutomationStateLabel`, the one rendering every client uses), trigger (a Repeat rule in the
+  kit's words, "every 8 hours (UTC)"; a calendar or once rule is the served `schedule_rule_text`
+  verbatim, "Every day at 08:00 (Europe/Paris)"; "manual runs only"), context, "Now: Run #7
+  running" (only from `summary.current_occurrence`, never inferred from the last occurrence;
+  "starting" while admitted, "waiting to retry" in backoff), next run as
+  "2026-10-09 08:00 Europe/Paris (in 14 h)" (`nextRunLabel`: the served `next_run_local` cut to
+  date and time — no clock or zone arithmetic — plus the relative time to the served
+  `next_run_at`; an active scheduled automation carries them even while a run is in progress;
+  "none while paused" when paused), run count, the automation's workspace folder (`workspace_root`: a folder icon and the
   whole path, wrapping at its `/`, `-` and `_` separators; the whole chip is a button calling
   `onOpenWorkspace(automation_id)` when that prop is given — an automation's id is its
   controller run), attention
@@ -3074,8 +3096,8 @@ Each control's tooltip (`title`) and `aria-description` say what it does (`CONTR
 > Does not count toward a run limit. Works while paused; it stays paused.
 > Not available while a run is in progress.
 
-`controlHint("run_now", summary)` adds "Next scheduled run: 2026-09-27 08:00 UTC." when the
-summary carries `next_fire_at`, and "Growing context: later runs see this run in their history."
+`controlHint("run_now", summary)` adds "Next scheduled run: 2026-10-09 08:00 Europe/Paris." when
+the summary carries a served next run (`next_run_local`), and "Growing context: later runs see this run in their history."
 for a Growing automation. In detail, a manual run:
 
 - never moves the schedule: the next scheduled time stays where it was;
@@ -3115,6 +3137,7 @@ The Edit control opens a form prefilled from the automation, with its first fiel
 | Workflow | `definition.target` (with `workflowPickerOptions`) | `changes.target`, prepared with the selected workflow's defaults |
 | Task | `definition.target.input_data.prompt` (only with `definition`, when it is text) | `changes.target`: the definition's `bundle_ref` and `flow_id`, its `input_data` with the new `prompt` (the Gateway re-applies its run protections) |
 | Repeat every (UTC) | the schedule's `every` (only for an interval schedule) | `changes.trigger` with the rest of the schedule config kept |
+| When (Daily · Weekly · Monthly) | a `schedule@2` calendar rule (only for one) | `changes.trigger` with the new rule, the automation's `time_zone`, `count` and `until` kept; the line under it is the Gateway's `first_run_sentence` and "in Europe/Paris (this automation's time zone)" |
 | Context | `summary.context_mode` | `changes.context` |
 | Tool selection | the target's enabled tools (with `availableTools`) | revised target tool selection; empty disables tools, workflow defaults restores inheritance |
 | Tool approval | `definition.policy.tool_approval` (only with `definition`) | `changes.policy.tool_approval` |
@@ -3195,6 +3218,8 @@ import { AfScheduleDialog } from "@abstractframework/ui-kit";
   error={createError}
   emailStatus={myEmail}               // automations.getMyEmail(); null/undefined = not set up
   onOpenMyEmail={() => openConsole("users")}  // optional: makes "open My email" a button
+  previewSchedule={automations.previewSchedule}  // required: the Gateway's line for calendar/once rules
+  onOpenPreferences={openAccountPreferences}  // optional: "Change in preferences" next to the time zone
 />
 ```
 
@@ -3203,10 +3228,18 @@ sections:
 
 - **What** — your workflow picker (a slot; it sets `target`) and the task, sent as
   `target.input_data.prompt`.
-- **When (UTC)** — **Repeat** every N minutes, hours or days, with presets from "every 5
-  minutes" to "every 7 days", **Once at…** a UTC date and time, or **When an email arrives**
-  (see [Email automations](#email-automations)). A preview line reads, for example, "Runs every
-  24 hours (UTC), first run now."
+- **When** — **Repeat** every N minutes, hours or days, with presets from "every 5 minutes" to
+  "every 7 days" (a fixed UTC interval; the line reads, for example, "Runs every 24 hours (UTC),
+  first run now."); **Daily** at HH:MM; **Weekly** on the days you pick (day chips that show
+  their state: on = tinted with a check mark) at HH:MM; **Monthly** on day 1 to 31 or "last" at
+  HH:MM; **Once at…** a date and time; or **When an email arrives** (see
+  [Email automations](#email-automations)). For Daily, Weekly, Monthly and Once the line under
+  the section is the Gateway's own sentence (`previewSchedule` → `first_run_sentence`, asked
+  250 ms after the last change, the latest answer wins; "Checking the schedule…" meanwhile; a
+  refusal shows the Gateway's sentence), with the time zone as a line — "in Europe/Paris (your
+  account's time zone)" — carrying a kit tooltip, and **Change in preferences** when the host
+  passes `onOpenPreferences`. The zone is changed only in the account preferences, never in the
+  dialog. Switching kinds keeps what you picked (Weekly → Monthly → Weekly keeps the days).
 - **Context** — Independent or Growing.
 - **Tools** — "Run without asking" (the default, `policy.tool_approval: "auto"`) shows the
   consent line **"Tools run without asking (you approve them now by creating this automation)"**,
@@ -3221,8 +3254,9 @@ sections:
   **Use my default** = no payload) and merges the value into `target.input_data.workspace` in its
   `onSubmit`. The gateway stores it on the definition and clamps it to the eligible workspaces at
   each run. The dialog itself sends nothing workspace-shaped.
-- **Title and limits** — title (default: the task's first line, at most 120 characters), and for
-  Repeat: first run at, stop after N runs, stop at. Date fields are read as UTC.
+- **Title and limits** — title (default: the task's first line, at most 120 characters); for
+  Repeat the first run at; for Repeat and the calendar rules stop after N runs and stop at. These
+  date fields are read as UTC.
 
 Every section is visible: the dialog has no disclosure.
 
@@ -3370,6 +3404,22 @@ Neither piece performs requests or holds state.
 - `presentInteraction(wait, controller, options?)` turns a discussion's pending wait into the
   `WorkflowChat` control (tool approval, question, event).
 
+## Time zone preference
+
+`AfTimeZonePicker` is the account's time zone in a settings page or a preferences modal: a kit
+searchable combobox over the IANA names the Gateway serves (`GET /api/gateway/accounts/me/preferences`
+→ `time_zone.choices`, never a list from the browser), "Gateway default (Europe/Paris)" first
+(= `null`, follow the Gateway host's zone), with the Gateway's own label and help as a kit
+tooltip. It holds no state: the host sends `PUT …/preferences` `{"time_zone": "<IANA>" | null}`
+on change (no Save) and shows "Saved." or "Not saved." with the Gateway's sentence through the
+`note` prop. A preferences answer without the `time_zone` block throws — the picker never guesses.
+
+```tsx
+<AfTimeZonePicker id="tz" block={answer.time_zone} onChange={(zone) => save({ time_zone: zone })} note={note} />
+```
+
+The Gateway console mounts the same component as the island `AfConsoleIslands.mountTimeZonePicker`.
+
 ## Fixtures contract
 
 `ui-kit/scripts/fixtures/automations/` holds the Gateway's wire shapes that every automations
@@ -3377,10 +3427,10 @@ client tests against:
 
 | File | Route | Content |
 | --- | --- | --- |
-| `list.json` | `GET /api/gateway/automations` | Three automations (active growing, active independent, paused) and a legacy row |
+| `list.json` | `GET /api/gateway/automations` | Four automations (active growing, active independent, paused, and a `schedule@2` daily rule in Europe/Paris) and a legacy row; every row carries the served schedule facts |
 | `occurrences.json` | `GET …/{id}/occurrences` | Quiet runs, a notify with an artifact, a success after a retry, a manual run, a failure after 3 attempts, and a run waiting on an `ask_user` and a `tool_approval` wait |
 | `attention.json` | `GET …/{id}/attention` | Unseen items, oldest first |
-| `trigger-sources.json` | `GET /api/gateway/trigger-sources` | `schedule@1` and `manual@1` |
+| `trigger-sources.json` | `GET /api/gateway/trigger-sources` | `schedule@1`, `schedule@2` and `manual@1` |
 | `commands.json` | revise, `…/commands`, `…/seen`, `…/discuss`, `POST /api/gateway/commands` | Exact request and response per route, including a duplicate command and the wait answers by kind |
 | `errors.json` | every automation route | The error bodies with their HTTP status, covering every contract error code |
 
@@ -3425,18 +3475,32 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `RUN_NOW_GLYPH`, `DISCUSS_LABEL`,
   `STATUS_LABELS`, `STATUS_ICONS`, `plainTextRenderer` (the fallback), types `RenderText`,
   `RenderTurn`, `AutomationTurn`.
+- **When editor and time zone** (round 16): `AfCalendarRuleFields` (Daily / Weekly day chips /
+  Monthly day + time), `AfServedSchedule` (the Gateway's `first_run_sentence` with the
+  time-zone line, loading and error states), `AfTimeZoneLine`, `useSchedulePreview()`
+  (debounced, latest answer wins; `PreviewSchedule`, `PreviewState`), `CalendarRuleState` with
+  `calendarRuleOf()`, `withCalendarRule()`, `calendarStateOf()`, `DEFAULT_CALENDAR_STATE`,
+  `calendarWhenOf()`, `AfTimeZonePicker` (`TimeZonePreference`, `timeZoneOptions()`,
+  `TIME_ZONE_GATEWAY_DEFAULT`).
 - **Client**: `createAutomationsClient()`, `AutomationApiError`, `parseApiError()`,
-  `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`, `MY_EMAIL_PATH`; types `AutomationsClient`,
+  `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`, `MY_EMAIL_PATH`, `SCHEDULE_PREVIEW_PATH`
+  (`previewSchedule(trigger)`); types `AutomationsClient`,
   `AutomationsClientOptions`, `ListAutomationsQuery`, `PageQuery`.
 - **Presentation rules** (pure functions, no React): `automationControls()`
   (`ControlId`, `ControlState`), `activeToggleCommand()`, `CONTROL_COMMANDS`, `occurrenceViews()` (`OccurrenceView`,
   `OccurrenceTone`), `attentionAckCursor()`, `attentionLabel()`, `triggerSummary()`,
   `scheduleLabel()`, `intervalLabel()`, `contextLabel()`, `formatUtc()`, `parseDuration()`,
   `reviseFormFrom()` and `reviseChanges()` (`ReviseForm`, `ReviseDefinition`), `buildCreateRequest()` (`ScheduleForm`, `ScheduleWhen`),
-  `SCHEDULE_PRESETS`, `TOOL_APPROVAL_CONSENT`.
+  `SCHEDULE_PRESETS`, `TOOL_APPROVAL_CONSENT`; schedules: `scheduleConfigFrom()`,
+  `scheduleTriggerFrom()`, `schedulePreview()` (the Repeat sentence; "" for a served kind),
+  `calendarConfigFrom()`, `calendarWhenFrom()`, `isScheduleV2()`, `isCalendarWhen()`,
+  `isServedPreviewWhen()`, `servedRuleText()`, `formatServedLocal()`, `nextRunLabel()`,
+  `timeZoneLine()`, `SCHEDULE_TEXT` (the `schedule` wording of `automation_controls.json`),
+  `CALENDAR_DAYS`, `CALENDAR_KINDS`, `SCHEDULE_VERSION`, `WALL_TIME_RE`, `WALL_DATETIME_RE`.
 - **Timing line** (pure, deterministic: the caller passes `nowMs`): `automationTiming()`
   returns `{cadence, last, next, line}` for a card or header, e.g.
-  `every 24 h · last 3 h ago · next in 14 h` — compact units rounded down (`<1 min`, `N min`,
+  `every 24 h · last 3 h ago · next in 14 h` (a calendar rule's cadence is the served
+  `schedule_rule_text`; the next part is relative to the served `next_run_at`) — compact units rounded down (`<1 min`, `N min`,
   `N h` below 48 h, `N d`), no year, no seconds, `last never` before the first run,
   `running now` while an occurrence executes, `waiting since 5 min` while it waits for an approval or answer, no next part when nothing is scheduled.
   Parts: `compactCadence()`, `lastRunText()`, `nextRunText()`, `compactDuration()`.
@@ -3587,6 +3651,7 @@ Serve both files from your own origin; the paths above are examples.
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
 | `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.4.0+) |
 | `mountWorkspaceChooser(el, props)` | `IslandHandle` | Mounts the kit `WorkspaceChooser` (`level`, `state`, `save`): the console's **Eligible workspaces** modal (`level: "gateway"`) and each account's Workspaces modal (`level: "account"`) (kit 0.8.3, round 11) |
+| `mountTimeZonePicker(el, props)` | `IslandHandle` | Mounts the kit `AfTimeZonePicker` (`block` = the preferences answer's `time_zone`, `id`, `onChange(zone \| null)`, `disabled`, `note`): the time zone row of the console's Accounts → Preferences modal (kit 0.8.7, round 16) |
 | `workspaceChooserText` | `object` | The WorkspaceChooser's wording table (`WORKSPACE_CHOOSER_TEXT`), e.g. the modal title `gatewayTitle` "Eligible workspaces" (kit 0.8.3) |
 | `workspaceAsState(answer, level)` | `object` | Turns a `GET/PUT /workspace/policy[/{account}]` answer into the chooser's `state`; throws on an older answer (kit 0.8.3) |
 | `bindTooltips(root?, options?)` | `() => void` | The kit tooltip on every `[data-af-tip]` element under `root` (default the document): 150 ms delay, keyboard focus, hoverable, Escape hides, kept inside the viewport; delegated, bind once; returns `release()` (kit 0.8.x, round 9; [modal.md](./modal.md#tooltip)) |
@@ -3857,8 +3922,10 @@ This package provides:
 - **Run and policy surfaces**: `PhaseCapabilityMatrix`, `CriticalActionDialog`, `SteerComposer`,
   `DisclosureList`, `AfChip`, `AfPhaseRadio`, cognition gauges
 - **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk)
-- **Automations**: `AutomationPanel`, `AfScheduleDialog` (schedule and email triggers, Email me the
-  result, allowed recipients), `createAutomationsClient()` and the canonical Gateway fixtures — see [Automations](../docs/automations.md)
+- **Automations**: `AutomationPanel`, `AfScheduleDialog` (Repeat, Daily, Weekly, Monthly, Once and
+  email triggers — the Gateway words calendar rules and computes next runs —, Email me the result,
+  allowed recipients), `AfTimeZonePicker` (the account time zone over the Gateway's IANA list),
+  `createAutomationsClient()` and the canonical Gateway fixtures — see [Automations](../docs/automations.md)
 - **Modal and account rows**: `AfModal` (large dialog over a blurred backdrop, full-screen sheet on
   phones), `bindAfModal()`, the `af-row--admin|user|entity` tints, `af-kind-chip`, `af-nav-group` /
   `af-nav-footer` — see [Modal, account rows, grouped navigation](../docs/modal.md)
@@ -5276,7 +5343,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -5740,6 +5807,10 @@ export type {
   Page,
   RetryPolicy,
   ScheduleConfig,
+  CalendarDay,
+  CalendarScheduleConfig,
+  ScheduleV2Config,
+  SchedulePreview,
   ScheduleEventPayload,
   Timestamp,
   ToolApprovalPolicy,
@@ -5756,6 +5827,7 @@ export type {
 export {
   AUTOMATIONS_PATH,
   MY_EMAIL_PATH,
+  SCHEDULE_PREVIEW_PATH,
   TRIGGER_SOURCES_PATH,
   AutomationApiError,
   createAutomationsClient,
@@ -5832,7 +5904,45 @@ export {
   type ReviseForm,
   type ScheduleForm,
   type ScheduleWhen,
+  // Round 16 (R16.1): calendar rules + served schedule facts.
+  CALENDAR_DAYS,
+  CALENDAR_KINDS,
+  SCHEDULE_VERSION,
+  SCHEDULE_TEXT,
+  WALL_TIME_RE,
+  calendarConfigFrom,
+  calendarWhenFrom,
+  isScheduleV2,
+  isServedPreviewWhen,
+  formatServedLocal,
+  nextRunLabel,
+  WALL_DATETIME_RE,
+  isCalendarWhen,
+  scheduleTriggerFrom,
+  scheduleConfigFrom,
+  schedulePreview,
+  servedRuleText,
+  timeZoneLine,
+  type CalendarKind,
+  type ScheduleText,
 } from "./automations/panel_core.js";
+export {
+  AfCalendarRuleFields,
+  AfServedSchedule,
+  AfTimeZoneLine,
+  DEFAULT_CALENDAR_AT,
+  DEFAULT_CALENDAR_DAYS,
+  calendarWhenOf,
+  calendarRuleOf,
+  calendarStateOf,
+  withCalendarRule,
+  DEFAULT_CALENDAR_STATE,
+  type CalendarRuleState,
+  useSchedulePreview,
+  type CalendarWhen,
+  type PreviewSchedule,
+  type PreviewState,
+} from "./automations/schedule_when.js";
 export {
   AutomationPanel,
   AutomationReviseForm,
@@ -5999,6 +6109,8 @@ export {
 } from "./voice_devices.js";
 export { AfTooltip, useAfTooltips, type AfTooltipProps } from "./af_tooltip.js";
 export { bindAfTooltips, acquireAfTooltips, afTooltipPlacement, AF_TOOLTIP_DELAY_MS, AF_TOOLTIP_ATTR, type BindAfTooltipsOptions, type AfTooltipPlacement, type AfTooltipRect } from "./af_tooltip_core.js";
+// ui-kit 0.8.7 (round 16, R16.1 A2): the account time-zone picker (preferences).
+export { AfTimeZonePicker, TIME_ZONE_GATEWAY_DEFAULT, timeZoneOptions, type AfTimeZonePickerProps, type TimeZonePreference } from "./time_zone_picker.js";
 
 ## ui-kit/src/responsive.ts
 
@@ -7985,6 +8097,46 @@ export type ScheduleConfig = {
   anchor?: Timestamp;
 };
 
+/** A weekday of a `schedule@2` weekly rule. */
+export type CalendarDay = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+/**
+ * `schedule@2` calendar rules (round 16, R16.1 — the "R16.1 API — FINAL"
+ * line): a wall-clock time in the automation's IANA `time_zone` (omitted on
+ * the wire = the owner's account time zone on create, the binding's zone on
+ * revise; the gateway fills it). DST-correct; a monthly day the month does
+ * not have runs on its last day. The gateway computes every next run and
+ * words the rule; clients never do either.
+ */
+export type CalendarScheduleConfig =
+  | { kind: "daily"; at: string; time_zone?: string; count?: number; until?: Timestamp }
+  | { kind: "weekly"; days: CalendarDay[]; at: string; time_zone?: string; count?: number; until?: Timestamp }
+  | { kind: "monthly"; day: number | "last"; at: string; time_zone?: string; count?: number; until?: Timestamp };
+/**
+ * Every `schedule@2` config a client writes: Repeat (`every`, a fixed UTC
+ * interval exactly as v1; `time_zone` only for display), Once (`at` = a wall
+ * time `YYYY-MM-DDTHH:MM` in `time_zone`), and the calendar rules.
+ */
+export type ScheduleV2Config =
+  | { kind: "every"; every: Duration; start_at?: Timestamp; count?: number; until?: Timestamp; time_zone?: string }
+  | { kind: "once"; at: string; time_zone?: string }
+  | CalendarScheduleConfig;
+
+/**
+ * `POST /api/gateway/automations/schedule-preview` (nothing stored): the
+ * normalized trigger (time zone filled), the gateway's words for the rule,
+ * the next run, and `first_run_sentence` — the dialog's line under "When"
+ * ("Runs every day at 08:00 (Europe/Paris), first run Thu 9 Oct 08:00.").
+ */
+export type SchedulePreview = {
+  trigger: TriggerSpec;
+  time_zone: string;
+  schedule_rule_text: string;
+  schedule_text: string;
+  next_run_at: Timestamp | null;
+  next_run_local: string | null;
+  first_run_sentence: string;
+};
+
 export type TriggerBinding = { binding_id: string; source_id: string; source_version: number; config: JsonObject };
 /** A trigger as a client writes it (the server mints `binding_id`). */
 export type TriggerSpec = { source_id: string; source_version: number; config: JsonObject };
@@ -8121,6 +8273,20 @@ export type AutomationSummary = {
    * occurrence runs. Absent for paused, archived, manual-only or exhausted ones.
    */
   next_fire_at?: Timestamp;
+  /**
+   * Round 16 (R16.1), served by the gateway — clients show these verbatim and
+   * never compute a next run: `next_run_at` (UTC, = `next_fire_at`; absent
+   * when none), `next_run_local` (the same instant as ISO with the offset of
+   * `time_zone`, e.g. "2026-10-09T08:00:00+02:00"; absent when none),
+   * `time_zone` (the binding's IANA zone; the owner's for v1/email/manual
+   * rows), `schedule_text` (the one sentence: the rule + " · next Thu 9 Oct
+   * 08:00" when a next run exists) and `schedule_rule_text` (the rule alone).
+   */
+  next_run_at?: Timestamp;
+  next_run_local?: string;
+  time_zone: string;
+  schedule_text: string;
+  schedule_rule_text: string;
   /** Always present on automation rows (`null` when nothing is in flight); absent on legacy rows. */
   current_occurrence?: CurrentOccurrence | null;
   occurrence_count: number;
@@ -8309,7 +8475,9 @@ import type {
   MyEmailStatus,
   OccurrenceRow,
   Page,
+  SchedulePreview,
   TriggerSourceEntry,
+  TriggerSpec,
 } from "./types.js";
 
 /** Relative (see gateway_paths.ts): resolved under the page's base, or under `baseUrl`. */
@@ -8317,6 +8485,11 @@ export const AUTOMATIONS_PATH = gatewayApiPath("automations");
 export const TRIGGER_SOURCES_PATH = gatewayApiPath("trigger-sources");
 /** The signed-in user's own email account (framework backlog 0992 C2). */
 export const MY_EMAIL_PATH = gatewayApiPath("me/email");
+/**
+ * Round 16 (R16.1): the gateway describes a schedule without storing anything
+ * (the dialog's sentence, next run and time zone for a calendar rule).
+ */
+export const SCHEDULE_PREVIEW_PATH = gatewayApiPath("automations/schedule-preview");
 
 export class AutomationApiError extends Error implements ApiError {
   readonly status: number;
@@ -8388,6 +8561,12 @@ export type AutomationsClient = {
    * result" and allowed recipients). Never carries a secret.
    */
   getMyEmail(): Promise<MyEmailStatus>;
+  /**
+   * The gateway's description of a trigger, nothing stored: `schedule_text`,
+   * `next_run_at`, `next_run_local`, `time_zone` (round 16). AfScheduleDialog
+   * and the Edit form show it verbatim for a calendar rule.
+   */
+  previewSchedule(trigger: TriggerSpec): Promise<SchedulePreview>;
 };
 
 function query(params: Record<string, string | number | undefined>): string {
@@ -8450,6 +8629,7 @@ export function createAutomationsClient(options: AutomationsClientOptions): Auto
     listAttention: (id, q = {}) => call("GET", `${one(id)}/attention${query({ cursor: q.cursor, limit: q.limit })}`),
     listTriggerSources: () => call("GET", TRIGGER_SOURCES_PATH),
     getMyEmail: () => call("GET", MY_EMAIL_PATH),
+    previewSchedule: (trigger) => call("POST", SCHEDULE_PREVIEW_PATH, { trigger }),
   };
 }
 
@@ -8480,6 +8660,10 @@ import type {
   OccurrenceWait,
   AttentionWait,
   ScheduleConfig,
+  CalendarDay,
+  CalendarScheduleConfig,
+  ScheduleV2Config,
+  TriggerSpec,
   ToolApprovalPolicy,
   ToolCallToApprove,
   TriggerBinding,
@@ -8528,8 +8712,17 @@ export function scheduleLabel(config: ScheduleConfig | JsonObject): string {
   return parts.join(" · ");
 }
 
-export function triggerSummary(trigger: Pick<TriggerBinding, "source_id" | "source_version" | "config">): string {
+/**
+ * The trigger in words. A Repeat row (`schedule@1`, or `schedule@2` with
+ * `every`) keeps its fixed-interval UTC wording above; a `schedule@2`
+ * calendar or once row reads ONLY the gateway's served `schedule_rule_text` —
+ * the kit never composes a calendar sentence, so every client says the same.
+ */
+export function triggerSummary(trigger: Pick<TriggerBinding, "source_id" | "source_version" | "config">, served?: { schedule_rule_text?: string | null } | null): string {
   if (trigger.source_id === "schedule" && trigger.source_version === 1) return scheduleLabel(trigger.config);
+  // A schedule@2 Repeat keeps the kit's fixed-interval family (the same words as a v1 row beside it).
+  if (isScheduleV2(trigger) && typeof (trigger.config as { every?: unknown }).every === "string") return scheduleLabel(trigger.config);
+  if (isScheduleV2(trigger)) return servedRuleText(served);
   if (trigger.source_id === "manual" && trigger.source_version === 1) return "manual runs only";
   if (isEmailTrigger(trigger)) return emailTriggerLabel(trigger.config);
   return `${trigger.source_id}@${trigger.source_version}`;
@@ -8778,7 +8971,17 @@ export function currentOccurrenceLabel(summary: AutomationSummary): string | nul
   return `Run #${c.index} running${attempt}`;
 }
 
-/** "in 25 min", "in 3 h 5 min", "in 2 d 4 h", "due now" — from `next_fire_at` only. */
+/**
+ * The "Next run" fact every client shows: "2026-10-09 08:00 Europe/Paris (in 14 h)" from the
+ * SERVED `next_run_local` (cut) + `next_run_at` (relative), "none while paused", "none scheduled".
+ * The kit never computes when an automation runs next.
+ */
+export function nextRunLabel(s: Pick<AutomationSummary, "next_run_at" | "next_run_local" | "time_zone" | "status">, nowMs: number): string {
+  if (s.next_run_at && s.next_run_local) return `${formatServedLocal(s.next_run_local, s.time_zone)} (${relativeIn(s.next_run_at, nowMs)})`;
+  return s.status === "paused" ? "none while paused" : "none scheduled";
+}
+
+/** "in 25 min", "in 3 h 5 min", "in 2 d 4 h", "due now" — from a served timestamp (`next_run_at`) only. */
 export function relativeIn(ts: string, nowMs: number): string {
   const t = Date.parse(ts);
   if (Number.isNaN(t)) return "";
@@ -8960,6 +9163,8 @@ export type ReviseForm = {
   target?: AutomationTarget;
   title: string;
   every: string | null;
+  /** The calendar rule of a `schedule@2` automation (null for any other trigger). */
+  calendar?: Extract<ScheduleWhen, { kind: CalendarKind }> | null;
   context: ContextMode;
   growingMaxTokens?: number;
   prompt?: string | null;
@@ -8986,6 +9191,7 @@ export function reviseFormFrom(summary: AutomationSummary, definition?: ReviseDe
   return {
     title: summary.title,
     every: typeof every === "string" ? every : null,
+    calendar: isScheduleV2(t) ? calendarWhenFrom(t.config) : null,
     context: summary.context_mode,
     growingMaxTokens: Number(definition?.context?.growing?.max_tokens ?? summary.growing_max_tokens ?? DEFAULT_GROWING_MAX_TOKENS),
     prompt: typeof prompt === "string" ? prompt : null,
@@ -9023,6 +9229,22 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
     else {
       const config: JsonObject = { ...summary.trigger.config, every: form.every };
       if (email) delete config.start_at;
+      changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config };
+    }
+  }
+  if (form.calendar && before.calendar && JSON.stringify(form.calendar) !== JSON.stringify(before.calendar)) {
+    const built = calendarConfigFrom(form.calendar);
+    if (!built.config) errors.push(...built.errors);
+    else {
+      // The automation keeps its own time zone (stored on the definition; the form never edits it)
+      // and its limits (max runs, stop at); the gateway re-anchors the new rule from now.
+      const prev = summary.trigger.config as { time_zone?: unknown; count?: unknown; until?: unknown };
+      const config: JsonObject = {
+        ...(built.config as JsonObject),
+        ...(typeof prev.time_zone === "string" ? { time_zone: prev.time_zone } : {}),
+        ...(typeof prev.count === "number" ? { count: prev.count } : {}),
+        ...(typeof prev.until === "string" ? { until: prev.until } : {}),
+      };
       changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config };
     }
   }
@@ -9068,7 +9290,126 @@ function automationContext(mode: ContextMode, maxTokens: number) {
 
 // --- schedule dialog -----------------------------------------------------------
 
-export type ScheduleWhen = { kind: "once"; at: string } | { kind: "every"; amount: number; unit: "m" | "h" | "d" };
+/**
+ * The "When" wording (round 16): kind labels, day chips, the time-zone line and
+ * its tooltip, the served-sentence templates. Shared byte for byte with the
+ * clients that vendor `automation_controls.json` (the Assistant, the Code TUI).
+ */
+export const SCHEDULE_TEXT = (controlsSpec as unknown as { schedule: ScheduleText }).schedule;
+export type ScheduleText = {
+  legend: string;
+  kind_every: string;
+  kind_daily: string;
+  kind_weekly: string;
+  kind_monthly: string;
+  kind_once: string;
+  every_label: string;
+  at_label: string;
+  time_label: string;
+  days_legend: string;
+  days: Record<CalendarDay, string>;
+  day_label: string;
+  last_day: string;
+  once_label: string;
+  time_zone_line: string;
+  time_zone_line_automation: string;
+  time_zone_hint: string;
+  time_zone_change: string;
+  time_zone_change_hint: string;
+  time_zone_default: string;
+  time_zone_search: string;
+  describing: string;
+  incomplete: string;
+  error_at: string;
+  error_days: string;
+  error_day: string;
+  error_once: string;
+};
+/** Weekdays in display order (Monday first). */
+export const CALENDAR_DAYS: ReadonlyArray<CalendarDay> = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+/** The calendar kinds (a wall-clock rule: daily / weekly / monthly). */
+export const CALENDAR_KINDS = ["daily", "weekly", "monthly"] as const;
+export type CalendarKind = (typeof CALENDAR_KINDS)[number];
+/** Clients write `schedule@2` (round 16); `schedule@1` rows keep reading as before. */
+export const SCHEDULE_VERSION = 2;
+
+/** A `schedule@2` trigger (any kind): the gateway words it (`schedule_rule_text`). */
+export function isScheduleV2(trigger: Pick<TriggerBinding, "source_id" | "source_version">): boolean {
+  return trigger.source_id === "schedule" && trigger.source_version === SCHEDULE_VERSION;
+}
+
+/**
+ * The served rule in words, verbatim (`schedule_rule_text`). A missing value
+ * is a broken gateway seam (R16.1 serves it on every summary and preview): it
+ * reads as the literal "schedule@2", never as a sentence the kit made up.
+ */
+export function servedRuleText(served: { schedule_rule_text?: string | null } | null | undefined): string {
+  const text = served?.schedule_rule_text;
+  return typeof text === "string" && text ? text : "schedule@2";
+}
+
+const SERVED_LOCAL_RE = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/;
+/**
+ * The served `next_run_local` ("2026-10-09T08:00:00+02:00", already in the
+ * automation's zone) as "2026-10-09 08:00 Europe/Paris": the date and the
+ * wall time are CUT from the gateway's string — no clock or zone arithmetic.
+ */
+export function formatServedLocal(nextRunLocal: string | undefined | null, timeZone: string | undefined | null): string {
+  if (!nextRunLocal) return "";
+  const m = SERVED_LOCAL_RE.exec(nextRunLocal);
+  if (!m) return nextRunLocal;
+  return `${m[1]} ${m[2]}${timeZone ? ` ${timeZone}` : ""}`;
+}
+
+/** "in Europe/Paris (your account's time zone)" (a new automation) / "… (this automation's time zone)" (an existing one). */
+export function timeZoneLine(timeZone: string, whose: "account" | "automation" = "account"): string {
+  return (whose === "account" ? SCHEDULE_TEXT.time_zone_line : SCHEDULE_TEXT.time_zone_line_automation).replace("{time_zone}", timeZone);
+}
+
+/** `HH:MM`, 00:00–23:59 (a fixed format, read structurally). */
+export const WALL_TIME_RE = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+
+export type ScheduleWhen =
+  | { kind: "once"; at: string }
+  | { kind: "every"; amount: number; unit: "m" | "h" | "d" }
+  | { kind: "daily"; at: string }
+  | { kind: "weekly"; days: CalendarDay[]; at: string }
+  | { kind: "monthly"; day: number | "last"; at: string };
+
+export function isCalendarWhen(when: ScheduleWhen): when is Extract<ScheduleWhen, { kind: CalendarKind }> {
+  return (CALENDAR_KINDS as ReadonlyArray<string>).includes(when.kind);
+}
+
+/**
+ * The `schedule@2` config of a calendar rule, or the reasons it is incomplete.
+ * No `time_zone`: the gateway stamps the owner's account time zone (A2); the
+ * dialog only shows it. Days keep the Monday-first order, without repeats.
+ */
+export function calendarConfigFrom(when: Extract<ScheduleWhen, { kind: CalendarKind }>): { config: CalendarScheduleConfig | null; errors: string[] } {
+  const errors: string[] = [];
+  if (!WALL_TIME_RE.test(when.at)) errors.push(SCHEDULE_TEXT.error_at);
+  if (when.kind === "weekly") {
+    const days = CALENDAR_DAYS.filter((d) => when.days.includes(d));
+    if (!days.length) errors.push(SCHEDULE_TEXT.error_days);
+    return errors.length ? { config: null, errors } : { config: { kind: "weekly", days, at: when.at }, errors };
+  }
+  if (when.kind === "monthly") {
+    const ok = when.day === "last" || (Number.isInteger(when.day) && when.day >= 1 && when.day <= 31);
+    if (!ok) errors.push(SCHEDULE_TEXT.error_day);
+    return errors.length ? { config: null, errors } : { config: { kind: "monthly", day: when.day, at: when.at }, errors };
+  }
+  return errors.length ? { config: null, errors } : { config: { kind: "daily", at: when.at }, errors };
+}
+
+/** The calendar rule of a stored `schedule@2` config, as the dialog's `when` (null when it is not one). */
+export function calendarWhenFrom(config: JsonObject | CalendarScheduleConfig): Extract<ScheduleWhen, { kind: CalendarKind }> | null {
+  const c = config as { kind?: unknown; at?: unknown; days?: unknown; day?: unknown };
+  const at = typeof c.at === "string" ? c.at : "";
+  if (c.kind === "daily") return { kind: "daily", at };
+  if (c.kind === "weekly") return { kind: "weekly", at, days: Array.isArray(c.days) ? CALENDAR_DAYS.filter((d) => (c.days as unknown[]).includes(d)) : [] };
+  if (c.kind === "monthly") return { kind: "monthly", at, day: c.day === "last" ? "last" : Number(c.day) };
+  return null;
+}
 export type ScheduleForm = {
   prompt: string;
   /** `"schedule"` (default): `when` decides; `"email"`: `email.received@1` from `email` (then `when` is ignored). */
@@ -9115,46 +9456,84 @@ export function defaultTitle(prompt: string): string {
   return first.length > 120 ? `${first.slice(0, 119)}…` : first;
 }
 
-export function scheduleConfigFrom(form: ScheduleForm): { config: ScheduleConfig; errors: string[] } {
-  const errors: string[] = [];
-  const config: ScheduleConfig = {};
-  if (form.when.kind === "once") {
-    const at = utcFromLocalInput(form.when.at);
-    if (!at) errors.push("Pick the date and time (UTC) to run once.");
-    else config.start_at = at;
-    return { config, errors };
-  }
-  const n = form.when.amount;
-  if (!Number.isInteger(n) || n < 1) errors.push("The interval must be a whole number of at least 1.");
-  else config.every = `${n}${form.when.unit}`;
-  if (form.startAt) {
-    const s = utcFromLocalInput(form.startAt);
-    if (!s) errors.push("First run must be a date and time (UTC).");
-    else config.start_at = s;
-  }
+/** `YYYY-MM-DDTHH:MM` — the Once rule's wall time in the automation's zone (the gateway converts it). */
+export const WALL_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T([01][0-9]|2[0-3]):[0-5][0-9]$/;
+
+/** The limits a Repeat or calendar rule may carry (max runs, stop at — UTC). */
+function limitsFrom(form: ScheduleForm, errors: string[]): { count?: number; until?: string } {
+  const out: { count?: number; until?: string } = {};
   if (form.count !== undefined) {
     if (!Number.isInteger(form.count) || form.count < 1) errors.push("Maximum runs must be a whole number of at least 1.");
-    else config.count = form.count;
+    else out.count = form.count;
   }
   if (form.until) {
     const u = utcFromLocalInput(form.until);
     if (!u) errors.push("Stop at must be a date and time (UTC).");
-    else config.until = u;
+    else out.until = u;
   }
-  return { config, errors };
+  return out;
 }
 
-/** Human line under the When section, e.g. "every 24 hours (UTC), first run now". */
+/**
+ * The `schedule@2` config a schedule form writes ("R16.1 API — FINAL"):
+ * Repeat → `{kind: "every", every, start_at?, count?, until?}` (a fixed UTC
+ * interval, exactly as v1); Once → `{kind: "once", at}` (a wall time in the
+ * account's zone); Daily / Weekly / Monthly → the calendar rule, with the
+ * optional max runs / stop at. No `time_zone`: the gateway fills the owner's.
+ */
+export function scheduleConfigFrom(form: ScheduleForm): { config: ScheduleV2Config | null; errors: string[] } {
+  const errors: string[] = [];
+  const when = form.when;
+  if (when.kind === "once") {
+    const at = (when.at || "").trim().slice(0, 16);
+    if (!WALL_DATETIME_RE.test(at)) return { config: null, errors: [SCHEDULE_TEXT.error_once] };
+    return { config: { kind: "once", at }, errors };
+  }
+  if (isCalendarWhen(when)) {
+    const built = calendarConfigFrom(when);
+    const limits = limitsFrom(form, built.errors);
+    return built.config && !built.errors.length ? { config: { ...built.config, ...limits } as ScheduleV2Config, errors: [] } : { config: null, errors: built.errors };
+  }
+  const n = when.amount;
+  let every: string | null = null;
+  if (!Number.isInteger(n) || n < 1) errors.push("The interval must be a whole number of at least 1.");
+  else every = `${n}${when.unit}`;
+  let start: string | null = null;
+  if (form.startAt) {
+    start = utcFromLocalInput(form.startAt);
+    if (!start) errors.push("First run must be a date and time (UTC).");
+  }
+  const limits = limitsFrom(form, errors);
+  if (errors.length || !every) return { config: null, errors };
+  return { config: { kind: "every", every, ...(start ? { start_at: start } : {}), ...limits }, errors };
+}
+
+/** The `schedule@2` trigger of a schedule form, or the reasons it is incomplete. */
+export function scheduleTriggerFrom(form: ScheduleForm): { trigger: TriggerSpec | null; errors: string[] } {
+  const built = scheduleConfigFrom(form);
+  return built.config ? { trigger: { source_id: "schedule", source_version: SCHEDULE_VERSION, config: built.config as JsonObject }, errors: [] } : { trigger: null, errors: built.errors };
+}
+
+/** Kinds whose line under "When" is the GATEWAY's `first_run_sentence` (they depend on the time zone). */
+export function isServedPreviewWhen(when: ScheduleWhen): boolean {
+  return when.kind === "once" || isCalendarWhen(when);
+}
+
+/**
+ * Human line under the When section for Repeat (fixed-interval UTC, the
+ * sentence family as before: "every 24 hours (UTC), first run now") and for
+ * the email trigger. Once / Daily / Weekly / Monthly return "": their line is
+ * the gateway's `first_run_sentence` (schedule-preview), never the kit's.
+ */
 export function schedulePreview(form: ScheduleForm): string {
   if (form.trigger === "email") {
     const built = emailTriggerConfigFrom(form.email ?? DEFAULT_EMAIL_TRIGGER_FORM);
     return built.errors.length ? "" : emailTriggerLabel(built.config);
   }
-  const { config, errors } = scheduleConfigFrom(form);
-  if (errors.length) return "";
-  const label = scheduleLabel(config);
-  if (form.when.kind === "once") return label;
-  return `${label}, first run ${config.start_at ? `at ${formatUtc(config.start_at)}` : "now"}`;
+  if (isServedPreviewWhen(form.when)) return "";
+  const { config } = scheduleConfigFrom(form);
+  if (!config || config.kind !== "every") return "";
+  return `${scheduleLabel(config as unknown as ScheduleConfig)}, first run ${config.start_at ? `at ${formatUtc(config.start_at)}` : "now"}`;
 }
 
 /** The `POST /api/gateway/automations` body, or the reasons it cannot be built yet. */
@@ -9169,8 +9548,9 @@ export function buildCreateRequest(
   const title = (form.title ?? "").trim() || defaultTitle(prompt);
   if (title.length > 120) errors.push("Title is at most 120 characters.");
   const email = form.trigger === "email";
-  const built = email ? emailTriggerConfigFrom(form.email ?? DEFAULT_EMAIL_TRIGGER_FORM) : scheduleConfigFrom(form);
-  errors.push(...built.errors);
+  const built = email ? emailTriggerConfigFrom(form.email ?? DEFAULT_EMAIL_TRIGGER_FORM) : null;
+  const schedule = email ? null : scheduleTriggerFrom(form);
+  errors.push(...(built ? built.errors : schedule!.errors));
   const recipients = form.notifyEmail && form.emailRecipients && form.emailRecipients.mode === "list" ? emailAllowedRecipientsFrom(form.emailRecipients) : null;
   if (recipients) errors.push(...recipients.errors);
   const maxTokens = form.growingMaxTokens ?? DEFAULT_GROWING_MAX_TOKENS;
@@ -9181,9 +9561,9 @@ export function buildCreateRequest(
     request_id: opts.requestId,
     title,
     target,
-    trigger: email
+    trigger: built
       ? { source_id: EMAIL_TRIGGER_SOURCE_ID, source_version: EMAIL_TRIGGER_SOURCE_VERSION, config: built.config as JsonObject }
-      : { source_id: "schedule", source_version: 1, config: built.config as JsonObject },
+      : (schedule!.trigger as TriggerSpec),
     context: automationContext(form.context, form.context === "growing" ? maxTokens : DEFAULT_GROWING_MAX_TOKENS),
     policy: { tool_approval: form.toolApproval ?? "auto" },
   };
@@ -9329,10 +9709,10 @@ whose ids, texts and times are chosen for readability, plus a captured legacy ro
 
 | File | Route it exemplifies | Content |
 | --- | --- | --- |
-| `list.json` | `GET /api/gateway/automations` | `Page<AutomationSummary>`: inbox triage (every 30 min, growing, active, two unseen attention items, an `ask_user` and a `tool_approval` wait), AI news monitor (every 8 h, independent, active), weekly journal monitor (every 7 days, paused), and the captured legacy `scheduled:*` row last (`capabilities: ["legacy"]`, `revision: null`, `binding_id` = its root run id) |
+| `list.json` | `GET /api/gateway/automations` | `Page<AutomationSummary>`: inbox triage (every 30 min, growing, active, two unseen attention items, an `ask_user` and a `tool_approval` wait), AI news monitor (every 8 h, independent, active), weekly journal monitor (every 7 days, paused), a morning briefing (`schedule@2` daily 08:00 in Europe/Paris, round 16), and the captured legacy `scheduled:*` row last; every row carries the served schedule facts (`time_zone`, `schedule_rule_text`, `schedule_text`, `next_run_at`/`next_run_local` while scheduled) computed by the Gateway's `automation_schedule.schedule_fields` for owner zone Europe/Paris (`capabilities: ["legacy"]`, `revision: null`, `binding_id` = its root run id) |
 | `occurrences.json` | `GET …/{id}/occurrences` | `Page<OccurrenceRow>` of the inbox triage, newest first: quiet ticks, a `notify` with an artifact, a success after a retry, a manual run, a failure after 3 attempts (with `failure`), a waiting occurrence with an `ask_user` wait (choices) on its own run and a `tool_approval` wait (`details` = the tool calls) on its agent sub-run |
 | `attention.json` | `GET …/{id}/attention` | `Page<AttentionItem>` of the inbox triage, oldest unseen first (a notify, and a failure titled "<title> failed" whose body is the failure message) |
-| `trigger-sources.json` | `GET /api/gateway/trigger-sources` | verbatim capture: `schedule@1` and `manual@1` |
+| `trigger-sources.json` | `GET /api/gateway/trigger-sources` | verbatim capture: `schedule@1`, `schedule@2` (round 16, the runtime's descriptor) and `manual@1` |
 | `commands.json` | revise, `…/commands`, `…/seen`, `…/discuss`, `POST /api/gateway/commands` (wait answers) | exact request (method, path, body) and response per route: revise, every `automation.*` command, a repeat (duplicate), seen, discuss, and the wait answers by kind (`{response}` for `ask_user`, `{approved}` for `tool_approval`) |
 | `errors.json` | every automation route | the captured error bodies **verbatim** (request, status, body) for 401 and every 404/409/422, including busy, archived and both resume-payload mismatches; 403 `forbidden` is the only hand-written body (the capture ran with user auth off) |
 
@@ -9382,6 +9762,7 @@ import { ProviderModelPicker, type ProviderModelPickerProps } from "../src/provi
 import { VoiceSettings } from "../src/voice_settings.js";
 import { WorkspaceChooser, type WorkspaceChooserProps } from "../src/workspace_chooser.js";
 import { WORKSPACE_CHOOSER_TEXT, workspaceAsState } from "../src/workspace_chooser_core.js";
+import { AfTimeZonePicker, type AfTimeZonePickerProps } from "../src/time_zone_picker.js";
 // panel-chat's REAL chat (the one AbstractCode's workspace renders): ChatThread +
 // ChatComposer with the standard Attach control, drop zone and paste-to-attach.
 import { WorkflowChat } from "../../panel-chat/src/workflow_chat.js";
@@ -9766,6 +10147,15 @@ export function mountWorkspaceChooser(el: Element, props: WorkspaceChooserProps)
   return mount(el, (p) => <WorkspaceChooser {...p} />, props);
 }
 
+/**
+ * The kit AfTimeZonePicker (round 16, R16.1 A2): the console's Accounts →
+ * Preferences modal mounts it over the gateway's `time_zone` block and PUTs
+ * `{time_zone}` on change (additive member: the API version is unchanged).
+ */
+export function mountTimeZonePicker(el: Element, props: AfTimeZonePickerProps): IslandHandle<AfTimeZonePickerProps> {
+  return mount(el, (p) => <AfTimeZonePicker {...p} />, props);
+}
+
 export type DocsAssistantIslandProps = DocsAssistantDrawerProps;
 
 /**
@@ -9798,6 +10188,7 @@ const api = {
   mountVoiceSettings,
   mountDocsAssistant,
   mountWorkspaceChooser,
+  mountTimeZonePicker,
   // The chooser's ONE wording table and its answer parser (round 11): the console builds the
   // chooser state from GET /workspace/policy[/{account}] with workspaceAsState(answer, level).
   workspaceChooserText: WORKSPACE_CHOOSER_TEXT,
@@ -16107,6 +16498,35 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## Unreleased
+
+### ui-kit
+
+- **Calendar schedules (round 16, R16.1).** `AfScheduleDialog`'s **When** offers Repeat (every N
+  minutes, hours or days, a fixed UTC interval as before), **Daily** at HH:MM, **Weekly** (day
+  chips that show their state: tinted with a check mark when on) at HH:MM, **Monthly** on day 1–31
+  or "last" at HH:MM, **Once at…** and **When an email arrives**. Every schedule is written as
+  `schedule@2` (`{kind, …}`); no time zone is sent — the Gateway stamps the owner's account zone.
+  For Daily, Weekly, Monthly and Once the line under the section is the Gateway's own
+  `first_run_sentence` (new required prop `previewSchedule`, the client's
+  `previewSchedule(trigger)` → `POST /api/gateway/automations/schedule-preview`; debounced, latest
+  answer wins), with the zone as "in Europe/Paris (your account's time zone)", a kit tooltip, and
+  **Change in preferences** (`onOpenPreferences`). The kit composes no calendar sentence. Switching
+  kinds keeps what was picked. Max runs and stop at apply to the calendar rules too.
+- **Served next run everywhere.** `AutomationPanel`'s header, `automationTiming()`, the new
+  `nextRunLabel()` and `controlHint("run_now")` read the Gateway's `next_run_at` /
+  `next_run_local` (cut to "2026-10-09 08:00 Europe/Paris", no clock or zone arithmetic) and a
+  calendar rule's `schedule_rule_text`; `next_fire_at` is no longer read. The Edit form edits a
+  calendar rule (kind, days, day, time) and keeps the automation's time zone and limits; it needs
+  the panel's new required `previewSchedule` prop.
+- **`AfTimeZonePicker`** — the account time zone in settings and preferences: a searchable
+  combobox over the Gateway's `time_zone.choices`, "Gateway default (<zone>)" first (= `null`);
+  island `AfConsoleIslands.mountTimeZonePicker` for the Gateway console.
+- Wording: `automation_controls.json` gains a `schedule` block (kind labels, day words, the
+  time-zone line, tooltip and link, error sentences) for the clients that vendor it byte for byte.
+- Fixtures: `list.json` rows carry the served schedule facts and a `schedule@2` daily row;
+  `trigger-sources.json` lists `schedule@2`. New check `check_schedule_when.mjs`.
 
 ## 0.6.1 - 2026-10-08
 
