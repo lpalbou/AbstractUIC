@@ -193,6 +193,10 @@ export type {
   Page,
   RetryPolicy,
   ScheduleConfig,
+  CalendarDay,
+  CalendarScheduleConfig,
+  ScheduleV2Config,
+  SchedulePreview,
   ScheduleEventPayload,
   Timestamp,
   ToolApprovalPolicy,
@@ -209,6 +213,7 @@ export type {
 export {
   AUTOMATIONS_PATH,
   MY_EMAIL_PATH,
+  SCHEDULE_PREVIEW_PATH,
   TRIGGER_SOURCES_PATH,
   AutomationApiError,
   createAutomationsClient,
@@ -285,7 +290,37 @@ export {
   type ReviseForm,
   type ScheduleForm,
   type ScheduleWhen,
+  // Round 16 (R16.1): calendar rules + served schedule facts.
+  CALENDAR_DAYS,
+  CALENDAR_KINDS,
+  SCHEDULE_VERSION,
+  SCHEDULE_TEXT,
+  WALL_TIME_RE,
+  calendarConfigFrom,
+  calendarWhenFrom,
+  isScheduleV2,
+  isServedPreviewWhen,
+  formatServedLocal,
+  WALL_DATETIME_RE,
+  isCalendarWhen,
+  scheduleTriggerFrom,
+  servedRuleText,
+  timeZoneLine,
+  type CalendarKind,
+  type ScheduleText,
 } from "./automations/panel_core.js";
+export {
+  AfCalendarRuleFields,
+  AfServedSchedule,
+  AfTimeZoneLine,
+  DEFAULT_CALENDAR_AT,
+  DEFAULT_CALENDAR_DAYS,
+  calendarWhenOf,
+  useSchedulePreview,
+  type CalendarWhen,
+  type PreviewSchedule,
+  type PreviewState,
+} from "./automations/schedule_when.js";
 export {
   AutomationPanel,
   AutomationReviseForm,
@@ -452,3 +487,5 @@ export {
 } from "./voice_devices.js";
 export { AfTooltip, useAfTooltips, type AfTooltipProps } from "./af_tooltip.js";
 export { bindAfTooltips, acquireAfTooltips, afTooltipPlacement, AF_TOOLTIP_DELAY_MS, AF_TOOLTIP_ATTR, type BindAfTooltipsOptions, type AfTooltipPlacement, type AfTooltipRect } from "./af_tooltip_core.js";
+// ui-kit 0.8.7 (round 16, R16.1 A2): the account time-zone picker (preferences).
+export { AfTimeZonePicker, timeZoneOptions, type AfTimeZonePickerProps, type TimeZonePreference } from "./time_zone_picker.js";

@@ -23,6 +23,10 @@ import type {
   OccurrenceWait,
   AttentionWait,
   ScheduleConfig,
+  CalendarDay,
+  CalendarScheduleConfig,
+  ScheduleV2Config,
+  TriggerSpec,
   ToolApprovalPolicy,
   ToolCallToApprove,
   TriggerBinding,
@@ -71,8 +75,15 @@ export function scheduleLabel(config: ScheduleConfig | JsonObject): string {
   return parts.join(" · ");
 }
 
-export function triggerSummary(trigger: Pick<TriggerBinding, "source_id" | "source_version" | "config">): string {
+/**
+ * The trigger in words. A `schedule@1` row keeps its fixed-interval UTC
+ * wording above; a `schedule@2` row (every kind) reads ONLY the gateway's
+ * served `schedule_rule_text` — the kit never composes a calendar sentence, so
+ * every client says the same.
+ */
+export function triggerSummary(trigger: Pick<TriggerBinding, "source_id" | "source_version" | "config">, served?: { schedule_rule_text?: string | null } | null): string {
   if (trigger.source_id === "schedule" && trigger.source_version === 1) return scheduleLabel(trigger.config);
+  if (isScheduleV2(trigger)) return servedRuleText(served);
   if (trigger.source_id === "manual" && trigger.source_version === 1) return "manual runs only";
   if (isEmailTrigger(trigger)) return emailTriggerLabel(trigger.config);
   return `${trigger.source_id}@${trigger.source_version}`;
@@ -503,6 +514,8 @@ export type ReviseForm = {
   target?: AutomationTarget;
   title: string;
   every: string | null;
+  /** The calendar rule of a `schedule@2` automation (null for any other trigger). */
+  calendar?: Extract<ScheduleWhen, { kind: CalendarKind }> | null;
   context: ContextMode;
   growingMaxTokens?: number;
   prompt?: string | null;
@@ -529,6 +542,7 @@ export function reviseFormFrom(summary: AutomationSummary, definition?: ReviseDe
   return {
     title: summary.title,
     every: typeof every === "string" ? every : null,
+    calendar: isScheduleV2(t) ? calendarWhenFrom(t.config) : null,
     context: summary.context_mode,
     growingMaxTokens: Number(definition?.context?.growing?.max_tokens ?? summary.growing_max_tokens ?? DEFAULT_GROWING_MAX_TOKENS),
     prompt: typeof prompt === "string" ? prompt : null,
@@ -566,6 +580,16 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
     else {
       const config: JsonObject = { ...summary.trigger.config, every: form.every };
       if (email) delete config.start_at;
+      changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config };
+    }
+  }
+  if (form.calendar && before.calendar && JSON.stringify(form.calendar) !== JSON.stringify(before.calendar)) {
+    const built = calendarConfigFrom(form.calendar);
+    if (!built.config) errors.push(...built.errors);
+    else {
+      // The automation keeps its own time zone (stored on the definition); the form never edits it.
+      const zone = (summary.trigger.config as { time_zone?: unknown }).time_zone;
+      const config: JsonObject = { ...(built.config as JsonObject), ...(typeof zone === "string" ? { time_zone: zone } : {}) };
       changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config };
     }
   }
@@ -611,7 +635,126 @@ function automationContext(mode: ContextMode, maxTokens: number) {
 
 // --- schedule dialog -----------------------------------------------------------
 
-export type ScheduleWhen = { kind: "once"; at: string } | { kind: "every"; amount: number; unit: "m" | "h" | "d" };
+/**
+ * The "When" wording (round 16): kind labels, day chips, the time-zone line and
+ * its tooltip, the served-sentence templates. Shared byte for byte with the
+ * clients that vendor `automation_controls.json` (the Assistant, the Code TUI).
+ */
+export const SCHEDULE_TEXT = (controlsSpec as unknown as { schedule: ScheduleText }).schedule;
+export type ScheduleText = {
+  legend: string;
+  kind_every: string;
+  kind_daily: string;
+  kind_weekly: string;
+  kind_monthly: string;
+  kind_once: string;
+  every_label: string;
+  at_label: string;
+  time_label: string;
+  days_legend: string;
+  days: Record<CalendarDay, string>;
+  day_label: string;
+  last_day: string;
+  once_label: string;
+  time_zone_line: string;
+  time_zone_line_automation: string;
+  time_zone_hint: string;
+  time_zone_change: string;
+  time_zone_change_hint: string;
+  time_zone_default: string;
+  time_zone_search: string;
+  describing: string;
+  incomplete: string;
+  error_at: string;
+  error_days: string;
+  error_day: string;
+  error_once: string;
+};
+/** Weekdays in display order (Monday first). */
+export const CALENDAR_DAYS: ReadonlyArray<CalendarDay> = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+/** The calendar kinds (a wall-clock rule: daily / weekly / monthly). */
+export const CALENDAR_KINDS = ["daily", "weekly", "monthly"] as const;
+export type CalendarKind = (typeof CALENDAR_KINDS)[number];
+/** Clients write `schedule@2` (round 16); `schedule@1` rows keep reading as before. */
+export const SCHEDULE_VERSION = 2;
+
+/** A `schedule@2` trigger (any kind): the gateway words it (`schedule_rule_text`). */
+export function isScheduleV2(trigger: Pick<TriggerBinding, "source_id" | "source_version">): boolean {
+  return trigger.source_id === "schedule" && trigger.source_version === SCHEDULE_VERSION;
+}
+
+/**
+ * The served rule in words, verbatim (`schedule_rule_text`). A missing value
+ * is a broken gateway seam (R16.1 serves it on every summary and preview): it
+ * reads as the literal "schedule@2", never as a sentence the kit made up.
+ */
+export function servedRuleText(served: { schedule_rule_text?: string | null } | null | undefined): string {
+  const text = served?.schedule_rule_text;
+  return typeof text === "string" && text ? text : "schedule@2";
+}
+
+const SERVED_LOCAL_RE = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/;
+/**
+ * The served `next_run_local` ("2026-10-09T08:00:00+02:00", already in the
+ * automation's zone) as "2026-10-09 08:00 Europe/Paris": the date and the
+ * wall time are CUT from the gateway's string — no clock or zone arithmetic.
+ */
+export function formatServedLocal(nextRunLocal: string | undefined | null, timeZone: string | undefined | null): string {
+  if (!nextRunLocal) return "";
+  const m = SERVED_LOCAL_RE.exec(nextRunLocal);
+  if (!m) return nextRunLocal;
+  return `${m[1]} ${m[2]}${timeZone ? ` ${timeZone}` : ""}`;
+}
+
+/** "in Europe/Paris (your account's time zone)" (a new automation) / "… (this automation's time zone)" (an existing one). */
+export function timeZoneLine(timeZone: string, whose: "account" | "automation" = "account"): string {
+  return (whose === "account" ? SCHEDULE_TEXT.time_zone_line : SCHEDULE_TEXT.time_zone_line_automation).replace("{time_zone}", timeZone);
+}
+
+/** `HH:MM`, 00:00–23:59 (a fixed format, read structurally). */
+export const WALL_TIME_RE = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+
+export type ScheduleWhen =
+  | { kind: "once"; at: string }
+  | { kind: "every"; amount: number; unit: "m" | "h" | "d" }
+  | { kind: "daily"; at: string }
+  | { kind: "weekly"; days: CalendarDay[]; at: string }
+  | { kind: "monthly"; day: number | "last"; at: string };
+
+export function isCalendarWhen(when: ScheduleWhen): when is Extract<ScheduleWhen, { kind: CalendarKind }> {
+  return (CALENDAR_KINDS as ReadonlyArray<string>).includes(when.kind);
+}
+
+/**
+ * The `schedule@2` config of a calendar rule, or the reasons it is incomplete.
+ * No `time_zone`: the gateway stamps the owner's account time zone (A2); the
+ * dialog only shows it. Days keep the Monday-first order, without repeats.
+ */
+export function calendarConfigFrom(when: Extract<ScheduleWhen, { kind: CalendarKind }>): { config: CalendarScheduleConfig | null; errors: string[] } {
+  const errors: string[] = [];
+  if (!WALL_TIME_RE.test(when.at)) errors.push(SCHEDULE_TEXT.error_at);
+  if (when.kind === "weekly") {
+    const days = CALENDAR_DAYS.filter((d) => when.days.includes(d));
+    if (!days.length) errors.push(SCHEDULE_TEXT.error_days);
+    return errors.length ? { config: null, errors } : { config: { kind: "weekly", days, at: when.at }, errors };
+  }
+  if (when.kind === "monthly") {
+    const ok = when.day === "last" || (Number.isInteger(when.day) && when.day >= 1 && when.day <= 31);
+    if (!ok) errors.push(SCHEDULE_TEXT.error_day);
+    return errors.length ? { config: null, errors } : { config: { kind: "monthly", day: when.day, at: when.at }, errors };
+  }
+  return errors.length ? { config: null, errors } : { config: { kind: "daily", at: when.at }, errors };
+}
+
+/** The calendar rule of a stored `schedule@2` config, as the dialog's `when` (null when it is not one). */
+export function calendarWhenFrom(config: JsonObject | CalendarScheduleConfig): Extract<ScheduleWhen, { kind: CalendarKind }> | null {
+  const c = config as { kind?: unknown; at?: unknown; days?: unknown; day?: unknown };
+  const at = typeof c.at === "string" ? c.at : "";
+  if (c.kind === "daily") return { kind: "daily", at };
+  if (c.kind === "weekly") return { kind: "weekly", at, days: Array.isArray(c.days) ? CALENDAR_DAYS.filter((d) => (c.days as unknown[]).includes(d)) : [] };
+  if (c.kind === "monthly") return { kind: "monthly", at, day: c.day === "last" ? "last" : Number(c.day) };
+  return null;
+}
 export type ScheduleForm = {
   prompt: string;
   /** `"schedule"` (default): `when` decides; `"email"`: `email.received@1` from `email` (then `when` is ignored). */
@@ -658,46 +801,84 @@ export function defaultTitle(prompt: string): string {
   return first.length > 120 ? `${first.slice(0, 119)}…` : first;
 }
 
-export function scheduleConfigFrom(form: ScheduleForm): { config: ScheduleConfig; errors: string[] } {
-  const errors: string[] = [];
-  const config: ScheduleConfig = {};
-  if (form.when.kind === "once") {
-    const at = utcFromLocalInput(form.when.at);
-    if (!at) errors.push("Pick the date and time (UTC) to run once.");
-    else config.start_at = at;
-    return { config, errors };
-  }
-  const n = form.when.amount;
-  if (!Number.isInteger(n) || n < 1) errors.push("The interval must be a whole number of at least 1.");
-  else config.every = `${n}${form.when.unit}`;
-  if (form.startAt) {
-    const s = utcFromLocalInput(form.startAt);
-    if (!s) errors.push("First run must be a date and time (UTC).");
-    else config.start_at = s;
-  }
+/** `YYYY-MM-DDTHH:MM` — the Once rule's wall time in the automation's zone (the gateway converts it). */
+export const WALL_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T([01][0-9]|2[0-3]):[0-5][0-9]$/;
+
+/** The limits a Repeat or calendar rule may carry (max runs, stop at — UTC). */
+function limitsFrom(form: ScheduleForm, errors: string[]): { count?: number; until?: string } {
+  const out: { count?: number; until?: string } = {};
   if (form.count !== undefined) {
     if (!Number.isInteger(form.count) || form.count < 1) errors.push("Maximum runs must be a whole number of at least 1.");
-    else config.count = form.count;
+    else out.count = form.count;
   }
   if (form.until) {
     const u = utcFromLocalInput(form.until);
     if (!u) errors.push("Stop at must be a date and time (UTC).");
-    else config.until = u;
+    else out.until = u;
   }
-  return { config, errors };
+  return out;
 }
 
-/** Human line under the When section, e.g. "every 24 hours (UTC), first run now". */
+/**
+ * The `schedule@2` config a schedule form writes ("R16.1 API — FINAL"):
+ * Repeat → `{kind: "every", every, start_at?, count?, until?}` (a fixed UTC
+ * interval, exactly as v1); Once → `{kind: "once", at}` (a wall time in the
+ * account's zone); Daily / Weekly / Monthly → the calendar rule, with the
+ * optional max runs / stop at. No `time_zone`: the gateway fills the owner's.
+ */
+export function scheduleConfigFrom(form: ScheduleForm): { config: ScheduleV2Config | null; errors: string[] } {
+  const errors: string[] = [];
+  const when = form.when;
+  if (when.kind === "once") {
+    const at = (when.at || "").trim().slice(0, 16);
+    if (!WALL_DATETIME_RE.test(at)) return { config: null, errors: [SCHEDULE_TEXT.error_once] };
+    return { config: { kind: "once", at }, errors };
+  }
+  if (isCalendarWhen(when)) {
+    const built = calendarConfigFrom(when);
+    const limits = limitsFrom(form, built.errors);
+    return built.config && !built.errors.length ? { config: { ...built.config, ...limits } as ScheduleV2Config, errors: [] } : { config: null, errors: built.errors };
+  }
+  const n = when.amount;
+  let every: string | null = null;
+  if (!Number.isInteger(n) || n < 1) errors.push("The interval must be a whole number of at least 1.");
+  else every = `${n}${when.unit}`;
+  let start: string | null = null;
+  if (form.startAt) {
+    start = utcFromLocalInput(form.startAt);
+    if (!start) errors.push("First run must be a date and time (UTC).");
+  }
+  const limits = limitsFrom(form, errors);
+  if (errors.length || !every) return { config: null, errors };
+  return { config: { kind: "every", every, ...(start ? { start_at: start } : {}), ...limits }, errors };
+}
+
+/** The `schedule@2` trigger of a schedule form, or the reasons it is incomplete. */
+export function scheduleTriggerFrom(form: ScheduleForm): { trigger: TriggerSpec | null; errors: string[] } {
+  const built = scheduleConfigFrom(form);
+  return built.config ? { trigger: { source_id: "schedule", source_version: SCHEDULE_VERSION, config: built.config as JsonObject }, errors: [] } : { trigger: null, errors: built.errors };
+}
+
+/** Kinds whose line under "When" is the GATEWAY's `first_run_sentence` (they depend on the time zone). */
+export function isServedPreviewWhen(when: ScheduleWhen): boolean {
+  return when.kind === "once" || isCalendarWhen(when);
+}
+
+/**
+ * Human line under the When section for Repeat (fixed-interval UTC, the
+ * sentence family as before: "every 24 hours (UTC), first run now") and for
+ * the email trigger. Once / Daily / Weekly / Monthly return "": their line is
+ * the gateway's `first_run_sentence` (schedule-preview), never the kit's.
+ */
 export function schedulePreview(form: ScheduleForm): string {
   if (form.trigger === "email") {
     const built = emailTriggerConfigFrom(form.email ?? DEFAULT_EMAIL_TRIGGER_FORM);
     return built.errors.length ? "" : emailTriggerLabel(built.config);
   }
-  const { config, errors } = scheduleConfigFrom(form);
-  if (errors.length) return "";
-  const label = scheduleLabel(config);
-  if (form.when.kind === "once") return label;
-  return `${label}, first run ${config.start_at ? `at ${formatUtc(config.start_at)}` : "now"}`;
+  if (isServedPreviewWhen(form.when)) return "";
+  const { config } = scheduleConfigFrom(form);
+  if (!config || config.kind !== "every") return "";
+  return `${scheduleLabel(config as unknown as ScheduleConfig)}, first run ${config.start_at ? `at ${formatUtc(config.start_at)}` : "now"}`;
 }
 
 /** The `POST /api/gateway/automations` body, or the reasons it cannot be built yet. */
@@ -712,8 +893,9 @@ export function buildCreateRequest(
   const title = (form.title ?? "").trim() || defaultTitle(prompt);
   if (title.length > 120) errors.push("Title is at most 120 characters.");
   const email = form.trigger === "email";
-  const built = email ? emailTriggerConfigFrom(form.email ?? DEFAULT_EMAIL_TRIGGER_FORM) : scheduleConfigFrom(form);
-  errors.push(...built.errors);
+  const built = email ? emailTriggerConfigFrom(form.email ?? DEFAULT_EMAIL_TRIGGER_FORM) : null;
+  const schedule = email ? null : scheduleTriggerFrom(form);
+  errors.push(...(built ? built.errors : schedule!.errors));
   const recipients = form.notifyEmail && form.emailRecipients && form.emailRecipients.mode === "list" ? emailAllowedRecipientsFrom(form.emailRecipients) : null;
   if (recipients) errors.push(...recipients.errors);
   const maxTokens = form.growingMaxTokens ?? DEFAULT_GROWING_MAX_TOKENS;
@@ -724,9 +906,9 @@ export function buildCreateRequest(
     request_id: opts.requestId,
     title,
     target,
-    trigger: email
+    trigger: built
       ? { source_id: EMAIL_TRIGGER_SOURCE_ID, source_version: EMAIL_TRIGGER_SOURCE_VERSION, config: built.config as JsonObject }
-      : { source_id: "schedule", source_version: 1, config: built.config as JsonObject },
+      : (schedule!.trigger as TriggerSpec),
     context: automationContext(form.context, form.context === "growing" ? maxTokens : DEFAULT_GROWING_MAX_TOKENS),
     policy: { tool_approval: form.toolApproval ?? "auto" },
   };

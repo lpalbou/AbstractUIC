@@ -17,9 +17,14 @@ import React, { useEffect, useId, useRef, useState } from "react";
 import { Icon, type IconName } from "../icon.js";
 import { AfSwitch, AfSwitchInput } from "../af_switch.js";
 import { AfEmailSetupNotice } from "./email_fields.js";
+import { AfCalendarRuleFields, AfServedSchedule, type CalendarWhen, calendarWhenOf, type PreviewSchedule, useSchedulePreview } from "./schedule_when.js";
 import controlsSpec from "./automation_controls.json" with { type: "json" };
 import {
   apiErrorText,
+  CALENDAR_KINDS,
+  calendarConfigFrom,
+  formatServedLocal,
+  SCHEDULE_TEXT,
   attentionAckCursor,
   attentionLabel,
   automationControls,
@@ -161,6 +166,8 @@ export type AutomationPanelProps = {
   availableTools?: string[];
   emailStatus?: MyEmailStatus | null;
   onOpenMyEmail?: () => void;
+  /** The gateway's dry-run schedule description (the Edit form shows a calendar rule's served sentence and next run). */
+  previewSchedule: PreviewSchedule;
   className?: string;
 };
 
@@ -283,8 +290,9 @@ export function AutomationHeader(props: {
   const s = props.summary;
   const current = currentOccurrenceLabel(s);
   const problem = triggerSourceProblem(s, props.triggerSources);
-  const next = s.next_fire_at
-    ? `${formatUtc(s.next_fire_at)} (${relativeIn(s.next_fire_at, props.nowMs ?? Date.now())})`
+  // The next run is the gateway's (served `next_run_local` + `next_run_at`); the kit never computes it.
+  const next = s.next_run_at && s.next_run_local
+    ? `${formatServedLocal(s.next_run_local, s.time_zone)} (${relativeIn(s.next_run_at, props.nowMs ?? Date.now())})`
     : s.status === "paused"
       ? "none while paused"
       : "none scheduled";
@@ -301,7 +309,7 @@ export function AutomationHeader(props: {
         {props.workflowLabel ? <><dt>Workflow</dt><dd data-fact="workflow">{props.workflowLabel}</dd></> : null}
         <dt>When</dt>
         <dd data-fact="trigger">
-          {triggerSummary(s.trigger)}
+          {triggerSummary(s.trigger, s)}
           {problem ? (
             <span className="af-auto__warn" role="note">
               {" "}
@@ -371,7 +379,7 @@ export function AutomationHeader(props: {
  * expanded): target workflow, task, trigger config, context, policy (incl.
  * tool approval) and revision.
  */
-export function AutomationDefinitionBlock(props: { definition: AutomationDefinition; renderText?: RenderText; open?: boolean }): React.ReactElement {
+export function AutomationDefinitionBlock(props: { definition: AutomationDefinition; renderText?: RenderText; open?: boolean; /** The summary's served `schedule_rule_text` (a schedule@2 rule reads only that). */ served?: Pick<AutomationSummary, "schedule_rule_text"> | null }): React.ReactElement {
   const d = props.definition;
   const render = props.renderText ?? plainTextRenderer;
   const task = (d.target.input_data as { prompt?: unknown }).prompt;
@@ -398,7 +406,7 @@ export function AutomationDefinitionBlock(props: { definition: AutomationDefinit
         ) : null}
         <dt>Trigger</dt>
         <dd data-def="trigger">
-          {d.trigger.source_id}@{d.trigger.source_version} · {triggerSummary(d.trigger)}
+          {d.trigger.source_id}@{d.trigger.source_version} · {triggerSummary(d.trigger, props.served)}
           <pre className="af-auto__json">{JSON.stringify(d.trigger.config, null, 2)}</pre>
         </dd>
         <dt>Context</dt>
@@ -495,7 +503,7 @@ export const RUN_NOW_ONE_LINE: string = SPEC.run_now_one_line;
 /** The run-now glyph as SVG markup, for clients that draw it without React (it IS `<Icon name="playCircle">`). */
 export const RUN_NOW_GLYPH: Readonly<{ name: IconName; view_box: string; stroke_width: number; svg: string }> = SPEC.icons.run_now;
 
-/** The run-now line added when the summary carries `next_fire_at` ("{time}" = `formatUtc`). */
+/** The run-now line added when the summary carries a next run ("{time}" = `formatServedLocal` of the served `next_run_local`). */
 export const RUN_NOW_NEXT_RUN_LINE: string = SPEC.run_now_next_run_line;
 /** The run-now line added for a Growing-context automation (a manual run is a turn of its session). */
 export const RUN_NOW_GROWING_LINE: string = SPEC.run_now_growing_line;
@@ -505,10 +513,10 @@ export const RUN_NOW_GROWING_LINE: string = SPEC.run_now_growing_line;
  * now, the next scheduled time when the server reports one and the Growing
  * line when the automation replays its history.
  */
-export function controlHint(id: ControlId, summary?: Pick<AutomationSummary, "next_fire_at" | "context_mode">): string {
+export function controlHint(id: ControlId, summary?: Pick<AutomationSummary, "next_run_local" | "time_zone" | "context_mode">): string {
   const lines = [CONTROL_HINTS[id]];
   if (id === "run_now" && summary) {
-    if (summary.next_fire_at) lines.push(RUN_NOW_NEXT_RUN_LINE.replace("{time}", formatUtc(summary.next_fire_at)));
+    if (summary.next_run_local) lines.push(RUN_NOW_NEXT_RUN_LINE.replace("{time}", formatServedLocal(summary.next_run_local, summary.time_zone)));
     if (summary.context_mode === "growing") lines.push(RUN_NOW_GROWING_LINE);
   }
   return lines.join("\n");
@@ -692,6 +700,8 @@ export type AutomationReviseFormProps = {
   availableTools?: string[];
   emailStatus?: MyEmailStatus | null;
   onOpenMyEmail?: () => void;
+  /** The gateway's dry-run schedule description (a calendar rule's sentence and next run are served). */
+  previewSchedule: PreviewSchedule;
 };
 
 /** The Edit form: everything `PATCH /automations/{id}` can change that this kit knows how to show, prefilled. */
@@ -701,6 +711,16 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
   const [selectedTools, setSelectedTools] = useState(initial.tools ?? null);
   const [contextMode, setContextMode] = useState(initial.context);
   const [emailResult, setEmailResult] = useState(Boolean(initial.notifyEmail));
+  const [calendar, setCalendar] = useState<CalendarWhen | null>(initial.calendar ?? null);
+  // The edited rule as the gateway will store it (the automation keeps its own time zone).
+  const calendarTrigger = (() => {
+    if (!calendar) return null;
+    const built = calendarConfigFrom(calendar);
+    if (!built.config) return null;
+    const zone = (p.summary.trigger.config as { time_zone?: unknown }).time_zone;
+    return { source_id: p.summary.trigger.source_id, source_version: p.summary.trigger.source_version, config: { ...(built.config as JsonObject), ...(typeof zone === "string" ? { time_zone: zone } : {}) } };
+  })();
+  const described = useSchedulePreview(calendarTrigger, p.previewSchedule);
   const d = initial.every ? parseDuration(initial.every) : null;
   const units = d && d.unit === "s" ? [["s", "seconds"] as [string, string], ...UNIT_OPTIONS] : UNIT_OPTIONS;
   const base = `af-auto-revise-${p.summary.automation_id}`;
@@ -712,7 +732,7 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
       aria-labelledby={`${base}-heading`}
       onSubmit={(e) => {
         e.preventDefault();
-        p.onSubmit({ ...readReviseForm(e.currentTarget, initial), ...(target ? { target } : {}), ...(p.availableTools !== undefined ? { tools: selectedTools } : {}) });
+        p.onSubmit({ ...readReviseForm(e.currentTarget, initial), ...(calendar ? { calendar } : {}), ...(target ? { target } : {}), ...(p.availableTools !== undefined ? { tools: selectedTools } : {}) });
       }}
       onKeyDown={(e) => {
         if (e.key === "Escape" && p.onCancel) {
@@ -755,6 +775,20 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
             </select>
           </div>
           {emailTrigger ? <p className="af-auto__hint" data-email-rule="interval">{EMAIL_TEXT.interval_rule}</p> : null}
+        </fieldset>
+      ) : calendar ? (
+        <fieldset className="af-auto__field" data-field="calendar">
+          <legend>{SCHEDULE_TEXT.legend}</legend>
+          <div className="af-auto__row" role="radiogroup" aria-label="Schedule kind">
+            {CALENDAR_KINDS.map((k) => (
+              <label key={k}>
+                <input type="radio" name={`${base}-calendar-kind`} value={k} checked={calendar.kind === k} disabled={p.busy} onChange={() => setCalendar(calendarWhenOf(k, calendar as { at?: string }))} />{" "}
+                {SCHEDULE_TEXT[`kind_${k}`]}
+              </label>
+            ))}
+          </div>
+          <AfCalendarRuleFields value={calendar} onChange={setCalendar} idBase={base} disabled={p.busy} />
+          <AfServedSchedule state={described} whose="automation" />
         </fieldset>
       ) : (
         <p className="af-auto__hint">This trigger has no interval to change.</p>
@@ -1284,6 +1318,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
           workflowPickerOptions={props.workflowPickerOptions}
           emailStatus={props.emailStatus}
           onOpenMyEmail={props.onOpenMyEmail}
+          previewSchedule={props.previewSchedule}
           onCancel={() => {
             setReviseOpen(false);
             setFocusAfter(['[data-action="edit"]']);
@@ -1311,7 +1346,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
           }}
         />
       ) : props.definition ? (
-        <AutomationDefinitionBlock definition={props.definition} renderText={render} />
+        <AutomationDefinitionBlock definition={props.definition} renderText={render} served={summary} />
       ) : null}
       {errText ? (
         <div className="af-auto__error" role="alert" data-code={shownError?.code}>

@@ -29,6 +29,7 @@ import { ProviderModelPicker, type ProviderModelPickerProps } from "../src/provi
 import { VoiceSettings } from "../src/voice_settings.js";
 import { WorkspaceChooser, type WorkspaceChooserProps } from "../src/workspace_chooser.js";
 import { WORKSPACE_CHOOSER_TEXT, workspaceAsState } from "../src/workspace_chooser_core.js";
+import { AfTimeZonePicker, type AfTimeZonePickerProps } from "../src/time_zone_picker.js";
 // panel-chat's REAL chat (the one AbstractCode's workspace renders): ChatThread +
 // ChatComposer with the standard Attach control, drop zone and paste-to-attach.
 import { WorkflowChat } from "../../panel-chat/src/workflow_chat.js";
@@ -413,6 +414,15 @@ export function mountWorkspaceChooser(el: Element, props: WorkspaceChooserProps)
   return mount(el, (p) => <WorkspaceChooser {...p} />, props);
 }
 
+/**
+ * The kit AfTimeZonePicker (round 16, R16.1 A2): the console's Accounts →
+ * Preferences modal mounts it over the gateway's `time_zone` block and PUTs
+ * `{time_zone}` on change (additive member: the API version is unchanged).
+ */
+export function mountTimeZonePicker(el: Element, props: AfTimeZonePickerProps): IslandHandle<AfTimeZonePickerProps> {
+  return mount(el, (p) => <AfTimeZonePicker {...p} />, props);
+}
+
 export type DocsAssistantIslandProps = DocsAssistantDrawerProps;
 
 /**
@@ -445,6 +455,7 @@ const api = {
   mountVoiceSettings,
   mountDocsAssistant,
   mountWorkspaceChooser,
+  mountTimeZonePicker,
   // The chooser's ONE wording table and its answer parser (round 11): the console builds the
   // chooser state from GET /workspace/policy[/{account}] with workspaceAsState(answer, level).
   workspaceChooserText: WORKSPACE_CHOOSER_TEXT,

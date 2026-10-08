@@ -1,9 +1,12 @@
 import { AutomationToolsPicker } from "./automation_tools_picker.js";
 import { automationToolSelection, withAutomationTools } from "./tool_selection.js";
 // AfScheduleDialog — create an automation: What (the host's workflow picker +
-// the task prompt), When (`schedule@1`: once at a UTC time, or every N
-// minutes/hours/days; or `email.received@1`: when an email arrives, with typed
-// filters, a check interval and a max batch), Context (independent /
+// the task prompt), When (Repeat — `schedule@1` every N minutes/hours/days,
+// fixed UTC interval; Daily / Weekly / Monthly at HH:MM — `schedule@2`
+// calendar rules in the account's time zone, shown as a line with a link to
+// the preferences, never edited here; Once at a UTC time; or
+// `email.received@1`: when an email arrives, with typed filters, a check
+// interval and a max batch), Context (independent /
 // growing), Tools, Email (Email result, allowed recipients — offered
 // only when `GET /me/email` says the account is usable, otherwise "Connect
 // a mailbox first — open My email"), Workspaces (the host's slot: the
@@ -12,8 +15,10 @@ import { automationToolSelection, withAutomationTools } from "./tool_selection.j
 // runs, stop at) — every section visible, no disclosure. It builds the `POST /api/gateway/automations`
 // body and hands it to `onSubmit`; the host sends it (see ./client.ts).
 //
-// Wording is fixed-interval UTC ("every 24 hours (UTC)"), never calendar
-// wording such as "daily at 08:00 local": schedule@1 has no time zone.
+// Repeat / Once wording stays fixed-interval UTC ("every 24 hours (UTC)").
+// A calendar rule's sentence is the GATEWAY's (`previewSchedule` → the
+// describe route's `schedule_text` + `next_run_local`): the kit never composes
+// a calendar sentence nor computes a next run.
 // ONE request id per distinct request: a retry of the same request after a
 // transport failure reuses it (the gateway answers idempotently); an edited
 // request, or one after a definitive answer, gets a new id (never an
@@ -21,6 +26,7 @@ import { automationToolSelection, withAutomationTools } from "./tool_selection.j
 import React, { useEffect, useId, useRef, useState } from "react";
 import { trapTabKey } from "../about.js";
 import { AfEmailOptionsFields, AfEmailSetupNotice, AfEmailTriggerFields } from "./email_fields.js";
+import { AfCalendarRuleFields, AfServedSchedule, type CalendarWhen, calendarWhenOf, type PreviewSchedule, useSchedulePreview } from "./schedule_when.js";
 import {
   ActionIds,
   DEFAULT_GROWING_MAX_TOKENS,
@@ -34,7 +40,10 @@ import {
   type EmailRecipientsForm,
   type EmailTriggerForm,
   SCHEDULE_PRESETS,
+  SCHEDULE_TEXT,
+  type CalendarKind,
   schedulePreview,
+  scheduleTriggerFrom,
   mintUuid,
   TOOL_APPROVAL_CONSENT,
   type ScheduleForm,
@@ -82,9 +91,18 @@ export type AfScheduleDialogProps = {
   onOpenMyEmail?: () => void;
   /** Does the target run a model on new mail? (default true: an hourly check by default; false: every 60 s). */
   targetUsesModel?: boolean;
+  /**
+   * The gateway's dry-run description of a schedule (the client's
+   * `previewSchedule`): Daily / Weekly / Monthly show ITS sentence, next run
+   * and time zone. Required — the kit has no calendar wording of its own.
+   */
+  previewSchedule: PreviewSchedule;
+  /** Opens the account preferences (where the time zone changes); without it the time-zone line has no link. */
+  onOpenPreferences?: () => void;
 };
 
 type UnitKey = "m" | "h" | "d";
+type WhenKind = "every" | CalendarKind | "once" | "email";
 
 export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactElement | null {
   const titleId = useId();
@@ -102,7 +120,8 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
   const selectedTools = toolState.value;
   const setSelectedTools = (value: string[] | null) => setToolState(previous => ({ ...previous, value }));
   const [prompt, setPrompt] = useState(props.initialPrompt ?? "");
-  const [kind, setKind] = useState<"every" | "once" | "email">("every");
+  const [kind, setKind] = useState<WhenKind>("every");
+  const [calendar, setCalendar] = useState<CalendarWhen>(() => calendarWhenOf("daily", {}));
   const [email, setEmail] = useState<EmailTriggerForm>(DEFAULT_EMAIL_TRIGGER_FORM);
   const [notifyEmail, setNotifyEmail] = useState(false);
   const [recipients, setRecipients] = useState<EmailRecipientsForm>(DEFAULT_EMAIL_RECIPIENTS);
@@ -140,6 +159,15 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
     };
   }, [props.open]);
 
+  // The gateway describes a complete calendar rule (debounced; hooks run before the early return).
+  // Once / Daily / Weekly / Monthly depend on the time zone: their line is the gateway's (schedule-preview).
+  const servedKind = props.open && (kind === "once" || kind === "daily" || kind === "weekly" || kind === "monthly");
+  const limitsForm = { ...(count.trim() ? { count: Number(count) } : {}), ...(until ? { until } : {}) };
+  const previewed = useSchedulePreview(
+    servedKind ? scheduleTriggerFrom({ prompt: "", context: "independent", ...(kind === "once" ? { when: { kind: "once", at: onceAt } } : { when: calendar, ...limitsForm }) }).trigger : null,
+    props.previewSchedule,
+  );
+
   if (!props.open) return null;
 
   const usable = emailUsable(props.emailStatus);
@@ -147,9 +175,14 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
   const emailKind = kind === "email" && usable;
   // An email choice made while the account was usable falls back to Repeat if it stops being usable.
   const shownKind = kind === "email" && !usable ? "every" : kind;
+  const calendarKind = shownKind === "daily" || shownKind === "weekly" || shownKind === "monthly";
+  const pickKind = (next: WhenKind) => {
+    setKind(next);
+    if (next === "daily" || next === "weekly" || next === "monthly") setCalendar((prev) => calendarWhenOf(next, prev as { at?: string }));
+  };
   const form: ScheduleForm = {
     prompt,
-    when: kind === "once" ? { kind: "once", at: onceAt } : { kind: "every", amount: Number(amount), unit },
+    when: kind === "once" ? { kind: "once", at: onceAt } : calendarKind ? calendar : { kind: "every", amount: Number(amount), unit },
     ...(emailKind ? { trigger: "email" as const, email: { ...email, usesModel: props.targetUsesModel !== false } } : {}),
     ...(usable && notifyEmail ? { notifyEmail: true } : {}),
     ...(usable && recipients.mode === "list" ? { emailRecipients: recipients } : {}),
@@ -158,8 +191,9 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
     toolApproval,
     title,
     ...(shownKind === "every" && startAt ? { startAt } : {}),
-    ...(shownKind === "every" && count.trim() ? { count: Number(count) } : {}),
-    ...(shownKind === "every" && until ? { until } : {}),
+    // Max runs / stop at apply to Repeat and the calendar rules.
+    ...((shownKind === "every" || calendarKind) && count.trim() ? { count: Number(count) } : {}),
+    ...((shownKind === "every" || calendarKind) && until ? { until } : {}),
   };
   const preview = schedulePreview(form);
   const busy = props.busy === true;
@@ -204,21 +238,32 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
           </fieldset>
 
           <fieldset className="af-auto__field">
-            <legend>When (UTC)</legend>
+            <legend>{SCHEDULE_TEXT.legend}</legend>
             <div className="af-auto__row" role="radiogroup" aria-label="Schedule kind">
               <label>
-                <input type="radio" name={id("kind")} value="every" checked={shownKind === "every"} onChange={() => setKind("every")} /> Repeat
+                <input type="radio" name={id("kind")} value="every" checked={shownKind === "every"} onChange={() => pickKind("every")} /> {SCHEDULE_TEXT.kind_every}
               </label>
               <label>
-                <input type="radio" name={id("kind")} value="once" checked={kind === "once"} onChange={() => setKind("once")} /> Once at…
+                <input type="radio" name={id("kind")} value="daily" checked={kind === "daily"} onChange={() => pickKind("daily")} /> {SCHEDULE_TEXT.kind_daily}
               </label>
               <label>
-                <input type="radio" name={id("kind")} value="email" checked={emailKind} disabled={!usable} onChange={() => setKind("email")} /> {EMAIL_TEXT.trigger_label}
+                <input type="radio" name={id("kind")} value="weekly" checked={kind === "weekly"} onChange={() => pickKind("weekly")} /> {SCHEDULE_TEXT.kind_weekly}
+              </label>
+              <label>
+                <input type="radio" name={id("kind")} value="monthly" checked={kind === "monthly"} onChange={() => pickKind("monthly")} /> {SCHEDULE_TEXT.kind_monthly}
+              </label>
+              <label>
+                <input type="radio" name={id("kind")} value="once" checked={kind === "once"} onChange={() => pickKind("once")} /> {SCHEDULE_TEXT.kind_once}
+              </label>
+              <label>
+                <input type="radio" name={id("kind")} value="email" checked={emailKind} disabled={!usable} onChange={() => pickKind("email")} /> {EMAIL_TEXT.trigger_label}
               </label>
             </div>
             {!usable ? <AfEmailSetupNotice status={props.emailStatus} onOpenMyEmail={props.onOpenMyEmail} /> : null}
             {emailKind ? (
               <AfEmailTriggerFields value={{ ...email, usesModel: props.targetUsesModel !== false }} onChange={setEmail} idBase={base} />
+            ) : calendarKind ? (
+              <AfCalendarRuleFields value={calendar} onChange={setCalendar} idBase={base} disabled={busy} />
             ) : shownKind === "every" ? (
               <>
                 <div className="af-auto__row af-schedule__presets" role="group" aria-label="Presets">
@@ -241,7 +286,7 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
                   )}
                 </div>
                 <div className="af-auto__row">
-                  <span>Every</span>
+                  <span>{SCHEDULE_TEXT.every_label}</span>
                   <input type="number" min={1} step={1} value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="Interval amount" />
                   <select value={unit} onChange={(e) => setUnit(e.target.value as UnitKey)} aria-label="Interval unit">
                     <option value="m">minutes</option>
@@ -252,13 +297,17 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
               </>
             ) : (
               <label className="af-auto__field" htmlFor={id("once")}>
-                <span>Run once at (UTC)</span>
+                <span>{SCHEDULE_TEXT.once_label}</span>
                 <input id={id("once")} type="datetime-local" value={onceAt} onChange={(e) => setOnceAt(e.target.value)} />
               </label>
             )}
-            <p className="af-schedule__preview" aria-live="polite" data-preview="true">
-              {preview ? `Runs ${preview}.` : emailKind ? "Incomplete email trigger." : "Incomplete schedule."}
-            </p>
+            {calendarKind || shownKind === "once" ? (
+              <AfServedSchedule state={previewed} onOpenPreferences={props.onOpenPreferences} />
+            ) : (
+              <p className="af-schedule__preview" aria-live="polite" data-preview="true">
+                {preview ? `Runs ${preview}.` : emailKind ? "Incomplete email trigger." : SCHEDULE_TEXT.incomplete}
+              </p>
+            )}
           </fieldset>
 
           <fieldset className="af-auto__field">
@@ -326,12 +375,14 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
               <span>Title</span>
               <input id={id("title")} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder="Defaults to the task's first line" />
             </label>
-            {shownKind === "every" ? (
+            {shownKind === "every" || calendarKind ? (
               <>
-                <label className="af-auto__field" htmlFor={id("start")}>
-                  <span>First run at (UTC; empty = now)</span>
-                  <input id={id("start")} type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} />
-                </label>
+                {shownKind === "every" ? (
+                  <label className="af-auto__field" htmlFor={id("start")}>
+                    <span>First run at (UTC; empty = now)</span>
+                    <input id={id("start")} type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} />
+                  </label>
+                ) : null}
                 <label className="af-auto__field" htmlFor={id("count")}>
                   <span>Stop after this many runs</span>
                   <input id={id("count")} type="number" min={1} step={1} value={count} onChange={(e) => setCount(e.target.value)} />

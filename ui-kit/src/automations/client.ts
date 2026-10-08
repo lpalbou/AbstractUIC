@@ -28,7 +28,9 @@ import type {
   MyEmailStatus,
   OccurrenceRow,
   Page,
+  SchedulePreview,
   TriggerSourceEntry,
+  TriggerSpec,
 } from "./types.js";
 
 /** Relative (see gateway_paths.ts): resolved under the page's base, or under `baseUrl`. */
@@ -36,6 +38,11 @@ export const AUTOMATIONS_PATH = gatewayApiPath("automations");
 export const TRIGGER_SOURCES_PATH = gatewayApiPath("trigger-sources");
 /** The signed-in user's own email account (framework backlog 0992 C2). */
 export const MY_EMAIL_PATH = gatewayApiPath("me/email");
+/**
+ * Round 16 (R16.1): the gateway describes a schedule without storing anything
+ * (the dialog's sentence, next run and time zone for a calendar rule).
+ */
+export const SCHEDULE_PREVIEW_PATH = gatewayApiPath("automations/schedule-preview");
 
 export class AutomationApiError extends Error implements ApiError {
   readonly status: number;
@@ -107,6 +114,12 @@ export type AutomationsClient = {
    * result" and allowed recipients). Never carries a secret.
    */
   getMyEmail(): Promise<MyEmailStatus>;
+  /**
+   * The gateway's description of a trigger, nothing stored: `schedule_text`,
+   * `next_run_at`, `next_run_local`, `time_zone` (round 16). AfScheduleDialog
+   * and the Edit form show it verbatim for a calendar rule.
+   */
+  previewSchedule(trigger: TriggerSpec): Promise<SchedulePreview>;
 };
 
 function query(params: Record<string, string | number | undefined>): string {
@@ -169,5 +182,6 @@ export function createAutomationsClient(options: AutomationsClientOptions): Auto
     listAttention: (id, q = {}) => call("GET", `${one(id)}/attention${query({ cursor: q.cursor, limit: q.limit })}`),
     listTriggerSources: () => call("GET", TRIGGER_SOURCES_PATH),
     getMyEmail: () => call("GET", MY_EMAIL_PATH),
+    previewSchedule: (trigger) => call("POST", SCHEDULE_PREVIEW_PATH, { trigger }),
   };
 }

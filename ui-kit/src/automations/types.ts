@@ -22,6 +22,46 @@ export type ScheduleConfig = {
   anchor?: Timestamp;
 };
 
+/** A weekday of a `schedule@2` weekly rule. */
+export type CalendarDay = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+/**
+ * `schedule@2` calendar rules (round 16, R16.1 — the "R16.1 API — FINAL"
+ * line): a wall-clock time in the automation's IANA `time_zone` (omitted on
+ * the wire = the owner's account time zone on create, the binding's zone on
+ * revise; the gateway fills it). DST-correct; a monthly day the month does
+ * not have runs on its last day. The gateway computes every next run and
+ * words the rule; clients never do either.
+ */
+export type CalendarScheduleConfig =
+  | { kind: "daily"; at: string; time_zone?: string; count?: number; until?: Timestamp }
+  | { kind: "weekly"; days: CalendarDay[]; at: string; time_zone?: string; count?: number; until?: Timestamp }
+  | { kind: "monthly"; day: number | "last"; at: string; time_zone?: string; count?: number; until?: Timestamp };
+/**
+ * Every `schedule@2` config a client writes: Repeat (`every`, a fixed UTC
+ * interval exactly as v1; `time_zone` only for display), Once (`at` = a wall
+ * time `YYYY-MM-DDTHH:MM` in `time_zone`), and the calendar rules.
+ */
+export type ScheduleV2Config =
+  | { kind: "every"; every: Duration; start_at?: Timestamp; count?: number; until?: Timestamp; time_zone?: string }
+  | { kind: "once"; at: string; time_zone?: string }
+  | CalendarScheduleConfig;
+
+/**
+ * `POST /api/gateway/automations/schedule-preview` (nothing stored): the
+ * normalized trigger (time zone filled), the gateway's words for the rule,
+ * the next run, and `first_run_sentence` — the dialog's line under "When"
+ * ("Runs every day at 08:00 (Europe/Paris), first run Thu 9 Oct 08:00.").
+ */
+export type SchedulePreview = {
+  trigger: TriggerSpec;
+  time_zone: string;
+  schedule_rule_text: string;
+  schedule_text: string;
+  next_run_at: Timestamp | null;
+  next_run_local: string | null;
+  first_run_sentence: string;
+};
+
 export type TriggerBinding = { binding_id: string; source_id: string; source_version: number; config: JsonObject };
 /** A trigger as a client writes it (the server mints `binding_id`). */
 export type TriggerSpec = { source_id: string; source_version: number; config: JsonObject };
@@ -158,6 +198,20 @@ export type AutomationSummary = {
    * occurrence runs. Absent for paused, archived, manual-only or exhausted ones.
    */
   next_fire_at?: Timestamp;
+  /**
+   * Round 16 (R16.1), served by the gateway — clients show these verbatim and
+   * never compute a next run: `next_run_at` (UTC, = `next_fire_at`; absent
+   * when none), `next_run_local` (the same instant as ISO with the offset of
+   * `time_zone`, e.g. "2026-10-09T08:00:00+02:00"; absent when none),
+   * `time_zone` (the binding's IANA zone; the owner's for v1/email/manual
+   * rows), `schedule_text` (the one sentence: the rule + " · next Thu 9 Oct
+   * 08:00" when a next run exists) and `schedule_rule_text` (the rule alone).
+   */
+  next_run_at?: Timestamp;
+  next_run_local?: string;
+  time_zone: string;
+  schedule_text: string;
+  schedule_rule_text: string;
   /** Always present on automation rows (`null` when nothing is in flight); absent on legacy rows. */
   current_occurrence?: CurrentOccurrence | null;
   occurrence_count: number;

@@ -1,8 +1,11 @@
 // The one compact timing line of an automation card / header:
 //   "every 24 h · last 3 h ago · next in 14 h"
 // Deterministic: the caller passes `nowMs`; no locale, no year, no seconds.
-// Reads STRUCTURE only (trigger config, occurrence timestamps, next_fire_at).
-import { isEmailTrigger, parseDuration } from "./panel_core.js";
+// Reads STRUCTURE only (trigger config, occurrence timestamps) and the
+// gateway's SERVED schedule facts (round 16): a calendar rule reads as the
+// summary's `schedule_text`, the next run comes from `next_run_at` — the kit
+// never computes when an automation runs next.
+import { isEmailTrigger, isScheduleV2, parseDuration, servedRuleText } from "./panel_core.js";
 import type { AutomationSummary } from "./types.js";
 
 const MINUTE = 60_000;
@@ -29,10 +32,16 @@ const UNIT: Record<string, [string, string]> = {
   d: ["day", "d"],
 };
 
-/** The trigger in two or three words: "every 24 h", "every hour", "once", "manual", "on new email". */
-export function compactCadence(trigger: AutomationSummary["trigger"]): string {
+/**
+ * The trigger in two or three words: "every 24 h", "every hour", "once", "manual", "on new email".
+ * A Repeat interval (schedule@1, or schedule@2 `kind: "every"`) keeps this compact form; any
+ * other schedule@2 rule (daily / weekly / monthly / once) is the served `schedule_rule_text`
+ * verbatim ("Every day at 08:00 (Europe/Paris)").
+ */
+export function compactCadence(trigger: AutomationSummary["trigger"], served?: Pick<AutomationSummary, "schedule_rule_text"> | null): string {
+  const every = (trigger.config as { every?: unknown }).every;
+  if (isScheduleV2(trigger) && typeof every !== "string") return servedRuleText(served);
   if (trigger.source_id === "schedule") {
-    const every = (trigger.config as { every?: unknown }).every;
     const d = parseDuration(every);
     if (!d) return typeof every === "string" ? `every ${every}` : "once";
     // A seconds interval that is whole minutes reads in minutes (no seconds on screen).
@@ -69,9 +78,9 @@ export function lastRunText(s: Pick<AutomationSummary, "last_occurrence" | "curr
   return `last ${compactDuration(Math.max(0, nowMs - t))} ago`;
 }
 
-/** "next in 14 h" / "next due now"; null when nothing is scheduled (paused, manual, finished). */
-export function nextRunText(s: Pick<AutomationSummary, "next_fire_at">, nowMs: number): string | null {
-  const t = parsed(s.next_fire_at);
+/** "next in 14 h" / "next due now" from the served `next_run_at`; null when nothing is scheduled (paused, manual, finished). */
+export function nextRunText(s: Pick<AutomationSummary, "next_run_at">, nowMs: number): string | null {
+  const t = parsed(s.next_run_at);
   if (t === null) return null;
   if (t - nowMs < MINUTE) return "next due now";
   return `next in ${compactDuration(t - nowMs)}`;
@@ -81,10 +90,10 @@ export type AutomationTiming = { cadence: string; last: string; next: string | n
 
 /** The three facts and the joined line ("·" separated; the next part is omitted when none). */
 export function automationTiming(
-  s: Pick<AutomationSummary, "trigger" | "last_occurrence" | "current_occurrence" | "next_fire_at"> & { attention?: Pick<AutomationSummary["attention"], "pending_waits"> },
+  s: Pick<AutomationSummary, "trigger" | "last_occurrence" | "current_occurrence" | "next_run_at" | "schedule_rule_text"> & { attention?: Pick<AutomationSummary["attention"], "pending_waits"> },
   nowMs: number,
 ): AutomationTiming {
-  const cadence = compactCadence(s.trigger);
+  const cadence = compactCadence(s.trigger, s);
   const last = lastRunText(s, nowMs);
   const next = nextRunText(s, nowMs);
   return { cadence, last, next, line: [cadence, last, next].filter(Boolean).join(" · ") };

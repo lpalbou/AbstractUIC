@@ -3884,6 +3884,24 @@
 .af-schedule__form input[type="checkbox"], .af-auto__revise input[type="checkbox"] { width: auto; flex: 0 0 auto; }
 .af-schedule__form > fieldset { border: 1px solid var(--ui-border-2); border-radius: var(--radius-md); padding: 10px 12px; }
 .af-schedule__preview { margin: 0; color: var(--text-secondary); }
+.af-schedule__calendar { display: flex; flex-direction: column; gap: 8px; }
+.af-schedule__days { flex-wrap: wrap; gap: 6px; }
+/* Day chips are state-showing toggles: ON = tinted + a check mark (the non-colour cue). */
+.af-schedule__day[aria-pressed="true"]::before { content: "\2713"; margin-right: 4px; font-weight: 700; }
+.af-schedule__calendar input[type="time"] { width: 7.5em; }
+.af-schedule__tz { margin: 0; color: var(--text-secondary); font-size: var(--font-size-xs); }
+.af-schedule__tz-text { border-bottom: 1px dotted var(--text-muted); cursor: help; }
+.af-schedule__tz-text:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.af-auto__link { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+.af-tz-picker { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.af-tz-picker__head { display: flex; align-items: center; gap: 6px; }
+.af-tz-picker__label { font-weight: 600; }
+.af-tz-picker__help { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--ui-border-2); color: var(--text-muted); font-size: 11px; cursor: help; }
+.af-tz-picker__help:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.af-tz-picker__control { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.af-tz-picker__control > :first-child { flex: 1 1 260px; min-width: 0; max-width: 420px; }
+.af-tz-picker__note { font-size: var(--font-size-xs); color: var(--text-secondary); }
+.af-tz-picker__note.is-error { color: var(--error); }
 .af-schedule__advanced { display: flex; flex-direction: column; gap: 8px; }
 .af-schedule__advanced[open] > .af-auto__field { margin-top: 8px; }
 .af-schedule .af-appearance__actions {
