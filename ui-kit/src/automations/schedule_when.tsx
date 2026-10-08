@@ -31,6 +31,30 @@ export function calendarWhenOf(kind: CalendarKind, previous: { at?: string; days
   return { kind, at };
 }
 
+/**
+ * What a person chose for the calendar fields, kept across kind switches (Weekly → Monthly →
+ * Weekly keeps the picked days; Daily → Monthly keeps the time). The rule sent is
+ * `calendarRuleOf(kind, state)`; an emptied day set stays empty (the kit then says why).
+ */
+export type CalendarRuleState = { at: string; days: CalendarDay[]; day: number | "last" };
+export const DEFAULT_CALENDAR_STATE: CalendarRuleState = { at: DEFAULT_CALENDAR_AT, days: [...DEFAULT_CALENDAR_DAYS], day: 1 };
+
+export function calendarRuleOf(kind: CalendarKind, state: CalendarRuleState): CalendarWhen {
+  if (kind === "weekly") return { kind, at: state.at, days: [...state.days] };
+  if (kind === "monthly") return { kind, at: state.at, day: state.day };
+  return { kind, at: state.at };
+}
+
+/** The state after the fields changed one rule (only that rule's own fields move). */
+export function withCalendarRule(state: CalendarRuleState, rule: CalendarWhen): CalendarRuleState {
+  return { ...state, at: rule.at, ...(rule.kind === "weekly" ? { days: [...rule.days] } : {}), ...(rule.kind === "monthly" ? { day: rule.day } : {}) };
+}
+
+/** The state of a stored rule (the Edit form's starting point). */
+export function calendarStateOf(rule: CalendarWhen): CalendarRuleState {
+  return withCalendarRule(DEFAULT_CALENDAR_STATE, rule);
+}
+
 const MONTH_DAYS: ReadonlyArray<string> = [...Array.from({ length: 31 }, (_, i) => String(i + 1)), "last"];
 
 /** The fields of one calendar rule (controlled). */

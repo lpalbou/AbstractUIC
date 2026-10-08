@@ -17,7 +17,7 @@ import React, { useEffect, useId, useRef, useState } from "react";
 import { Icon, type IconName } from "../icon.js";
 import { AfSwitch, AfSwitchInput } from "../af_switch.js";
 import { AfEmailSetupNotice } from "./email_fields.js";
-import { AfCalendarRuleFields, AfServedSchedule, type CalendarWhen, calendarWhenOf, type PreviewSchedule, useSchedulePreview } from "./schedule_when.js";
+import { AfCalendarRuleFields, AfServedSchedule, calendarRuleOf, calendarStateOf, type CalendarRuleState, type PreviewSchedule, useSchedulePreview, withCalendarRule } from "./schedule_when.js";
 import controlsSpec from "./automation_controls.json" with { type: "json" };
 import {
   apiErrorText,
@@ -707,7 +707,10 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
   const [selectedTools, setSelectedTools] = useState(initial.tools ?? null);
   const [contextMode, setContextMode] = useState(initial.context);
   const [emailResult, setEmailResult] = useState(Boolean(initial.notifyEmail));
-  const [calendar, setCalendar] = useState<CalendarWhen | null>(initial.calendar ?? null);
+  // The calendar fields, kept across kind switches; null for a trigger that is not a calendar rule.
+  const [calKind, setCalKind] = useState(initial.calendar?.kind ?? null);
+  const [calState, setCalState] = useState<CalendarRuleState | null>(initial.calendar ? calendarStateOf(initial.calendar) : null);
+  const calendar = calKind && calState ? calendarRuleOf(calKind, calState) : null;
   // The edited rule as the gateway will store it (the automation keeps its own time zone).
   const calendarTrigger = (() => {
     if (!calendar) return null;
@@ -778,12 +781,12 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
           <div className="af-auto__row" role="radiogroup" aria-label="Schedule kind">
             {CALENDAR_KINDS.map((k) => (
               <label key={k}>
-                <input type="radio" name={`${base}-calendar-kind`} value={k} checked={calendar.kind === k} disabled={p.busy} onChange={() => setCalendar(calendarWhenOf(k, calendar as { at?: string }))} />{" "}
+                <input type="radio" name={`${base}-calendar-kind`} value={k} checked={calendar.kind === k} disabled={p.busy} onChange={() => setCalKind(k)} />{" "}
                 {SCHEDULE_TEXT[`kind_${k}`]}
               </label>
             ))}
           </div>
-          <AfCalendarRuleFields value={calendar} onChange={setCalendar} idBase={base} disabled={p.busy} />
+          <AfCalendarRuleFields value={calendar} onChange={(next) => setCalState((prev) => withCalendarRule(prev ?? calendarStateOf(next), next))} idBase={base} disabled={p.busy} />
           <AfServedSchedule state={described} whose="automation" />
         </fieldset>
       ) : (

@@ -26,7 +26,7 @@ import { automationToolSelection, withAutomationTools } from "./tool_selection.j
 import React, { useEffect, useId, useRef, useState } from "react";
 import { trapTabKey } from "../about.js";
 import { AfEmailOptionsFields, AfEmailSetupNotice, AfEmailTriggerFields } from "./email_fields.js";
-import { AfCalendarRuleFields, AfServedSchedule, type CalendarWhen, calendarWhenOf, type PreviewSchedule, useSchedulePreview } from "./schedule_when.js";
+import { AfCalendarRuleFields, AfServedSchedule, type CalendarRuleState, calendarRuleOf, DEFAULT_CALENDAR_STATE, type PreviewSchedule, useSchedulePreview, withCalendarRule } from "./schedule_when.js";
 import {
   ActionIds,
   DEFAULT_GROWING_MAX_TOKENS,
@@ -121,7 +121,9 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
   const setSelectedTools = (value: string[] | null) => setToolState(previous => ({ ...previous, value }));
   const [prompt, setPrompt] = useState(props.initialPrompt ?? "");
   const [kind, setKind] = useState<WhenKind>("every");
-  const [calendar, setCalendar] = useState<CalendarWhen>(() => calendarWhenOf("daily", {}));
+  // The calendar fields, kept across kind switches (Weekly → Monthly → Weekly keeps the days).
+  const [rule, setRule] = useState<CalendarRuleState>(DEFAULT_CALENDAR_STATE);
+  const calendar = calendarRuleOf(kind === "weekly" || kind === "monthly" ? kind : "daily", rule);
   const [email, setEmail] = useState<EmailTriggerForm>(DEFAULT_EMAIL_TRIGGER_FORM);
   const [notifyEmail, setNotifyEmail] = useState(false);
   const [recipients, setRecipients] = useState<EmailRecipientsForm>(DEFAULT_EMAIL_RECIPIENTS);
@@ -176,10 +178,7 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
   // An email choice made while the account was usable falls back to Repeat if it stops being usable.
   const shownKind = kind === "email" && !usable ? "every" : kind;
   const calendarKind = shownKind === "daily" || shownKind === "weekly" || shownKind === "monthly";
-  const pickKind = (next: WhenKind) => {
-    setKind(next);
-    if (next === "daily" || next === "weekly" || next === "monthly") setCalendar((prev) => calendarWhenOf(next, prev as { at?: string }));
-  };
+  const pickKind = (next: WhenKind) => setKind(next);
   const form: ScheduleForm = {
     prompt,
     when: kind === "once" ? { kind: "once", at: onceAt } : calendarKind ? calendar : { kind: "every", amount: Number(amount), unit },
@@ -263,7 +262,7 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
             {emailKind ? (
               <AfEmailTriggerFields value={{ ...email, usesModel: props.targetUsesModel !== false }} onChange={setEmail} idBase={base} />
             ) : calendarKind ? (
-              <AfCalendarRuleFields value={calendar} onChange={setCalendar} idBase={base} disabled={busy} />
+              <AfCalendarRuleFields value={calendar} onChange={(next) => setRule((prev) => withCalendarRule(prev, next))} idBase={base} disabled={busy} />
             ) : shownKind === "every" ? (
               <>
                 <div className="af-auto__row af-schedule__presets" role="group" aria-label="Presets">

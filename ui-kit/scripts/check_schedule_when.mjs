@@ -60,6 +60,16 @@ const daily = fields({ kind: "daily", at: "08:00" });
 check("daily: only the time (no day chips, no day select)", !daily.includes("data-day=") && !daily.includes("<select") && daily.includes('value="08:00"'));
 check("calendarWhenOf keeps the time and days across kinds", eq(kit.calendarWhenOf("weekly", { at: "06:15" }), { kind: "weekly", at: "06:15", days: ["mon"] }) && eq(kit.calendarWhenOf("monthly", { at: "06:15" }), { kind: "monthly", at: "06:15", day: 1 }) && eq(kit.calendarWhenOf("daily", {}), { kind: "daily", at: "08:00" }));
 
+// Kind switches keep what was picked (live-drive finding: Weekly → Monthly → Weekly lost the days).
+{
+  let st = kit.DEFAULT_CALENDAR_STATE;
+  st = kit.withCalendarRule(st, { kind: "weekly", days: ["mon", "fri"], at: "07:30" });
+  st = kit.withCalendarRule(st, { kind: "monthly", day: "last", at: "07:30" });
+  check("calendar state: Weekly → Monthly → Weekly keeps the days, the day and the time", eq(kit.calendarRuleOf("weekly", st), { kind: "weekly", at: "07:30", days: ["mon", "fri"] }) && eq(kit.calendarRuleOf("monthly", st), { kind: "monthly", at: "07:30", day: "last" }) && eq(kit.calendarRuleOf("daily", st), { kind: "daily", at: "07:30" }));
+  check("calendar state: an emptied day set stays empty (the kit then says why)", eq(kit.calendarRuleOf("weekly", kit.withCalendarRule(st, { kind: "weekly", days: [], at: "07:30" })).days, []));
+  check("calendar state of a stored rule", eq(kit.calendarStateOf({ kind: "monthly", day: 31, at: "09:00" }), { at: "09:00", days: ["mon"], day: 31 }));
+}
+
 // --- the served line -----------------------------------------------------------------------------
 const preview = { trigger: { source_id: "schedule", source_version: 2, config: { kind: "daily", at: "08:00", time_zone: "Europe/Paris" } }, time_zone: "Europe/Paris", schedule_rule_text: "Every day at 08:00 (Europe/Paris)", schedule_text: "Every day at 08:00 (Europe/Paris) · next Fri 9 Oct 08:00", next_run_at: "2026-10-09T06:00:00+00:00", next_run_local: "2026-10-09T08:00:00+02:00", first_run_sentence: "Runs every day at 08:00 (Europe/Paris), first run Fri 9 Oct 08:00." };
 const ok = ssr(h(kit.AfServedSchedule, { state: { phase: "ok", description: preview }, onOpenPreferences() {} }));
