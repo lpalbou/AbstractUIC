@@ -7,6 +7,12 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## Unreleased
+
+### Added
+
+- ui-kit `AfVoiceSection` shows the gateway's served hint (`VoiceRouteDefault.hint.sentence`) under a configured engine line.
+
 ## 0.6.1 - 2026-10-08
 
 | Package | Version | Change |
