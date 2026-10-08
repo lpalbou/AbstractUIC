@@ -43,10 +43,12 @@ import {
   type CalendarKind,
   schedulePreview,
   scheduleTriggerFrom,
+  isServedPreviewWhen,
   mintUuid,
   TOOL_APPROVAL_CONSENT,
   type ScheduleForm,
 } from "./panel_core.js";
+import type { TriggerSpec } from "./types.js";
 import type { ApiError, AutomationTarget, ContextMode, CreateAutomationRequest, MyEmailStatus, ToolApprovalPolicy } from "./types.js";
 
 export type AfScheduleDialogProps = {
@@ -101,6 +103,21 @@ export type AfScheduleDialogProps = {
 };
 
 type UnitKey = "m" | "h" | "d";
+
+/**
+ * The trigger the dialog asks the gateway to preview (round 16): every schedule kind — Repeat with
+ * its first run / max runs / stop at, Daily, Weekly, Monthly, Once — so its line is the gateway's
+ * `first_run_sentence`; null for the email trigger (its line is the kit's) or an incomplete rule.
+ */
+export function dialogPreviewTrigger(kind: "every" | "daily" | "weekly" | "monthly" | "once" | "email", form: Pick<ScheduleForm, "when" | "startAt" | "count" | "until">): TriggerSpec | null {
+  if (kind === "email" || !isServedPreviewWhen(form.when)) return null;
+  return scheduleTriggerFrom({ prompt: "", context: "independent", ...form }).trigger;
+}
+
+/** The account time-zone line shows for the wall-clock kinds only, never under Repeat (a fixed UTC interval). */
+export function dialogShowsZone(kind: string): boolean {
+  return kind === "daily" || kind === "weekly" || kind === "monthly" || kind === "once";
+}
 type WhenKind = "every" | CalendarKind | "once" | "email";
 
 export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactElement | null {
@@ -162,7 +179,6 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
 
   // The gateway describes a complete calendar rule (debounced; hooks run before the early return).
   // Every schedule kind's line is the GATEWAY's (schedule-preview): Repeat with its bounds too.
-  const servedKind = props.open && kind !== "email";
   const whenNow = kind === "once" ? { kind: "once" as const, at: onceAt } : kind === "daily" || kind === "weekly" || kind === "monthly" ? calendar : { kind: "every" as const, amount: Number(amount), unit };
   const limitsForm = {
     ...(kind === "every" && startAt ? { startAt } : {}),
@@ -170,7 +186,8 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
     ...(kind !== "once" && until ? { until } : {}),
   };
   const previewed = useSchedulePreview(
-    servedKind ? scheduleTriggerFrom({ prompt: "", context: "independent", when: whenNow, ...limitsForm }).trigger : null,
+    // The helper decides which kinds the gateway words (all schedules; not email): the only gate here is "open".
+    props.open ? dialogPreviewTrigger(kind, { when: whenNow, ...limitsForm }) : null,
     props.previewSchedule,
   );
 
@@ -306,7 +323,7 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
             )}
             {shownKind !== "email" ? (
               // Repeat is a fixed UTC interval: no account time-zone line for it.
-              <AfServedSchedule state={previewed} onOpenPreferences={props.onOpenPreferences} showZone={shownKind !== "every"} />
+              <AfServedSchedule state={previewed} onOpenPreferences={props.onOpenPreferences} showZone={dialogShowsZone(shownKind)} />
             ) : (
               <p className="af-schedule__preview" aria-live="polite" data-preview="true">
                 {preview ? `Runs ${preview}.` : emailKind ? "Incomplete email trigger." : SCHEDULE_TEXT.incomplete}

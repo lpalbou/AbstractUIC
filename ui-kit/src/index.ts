@@ -351,7 +351,7 @@ export {
   type RenderText,
   type RenderTurn,
 } from "./automations/AutomationPanel.js";
-export { AfScheduleDialog, type AfScheduleDialogProps } from "./automations/AfScheduleDialog.js";
+export { AfScheduleDialog, dialogPreviewTrigger, dialogShowsZone, type AfScheduleDialogProps } from "./automations/AfScheduleDialog.js";
 export {
   AfEmailOptionsFields,
   AfEmailSetupNotice,

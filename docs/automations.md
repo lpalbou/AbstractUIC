@@ -140,9 +140,9 @@ and tool approval), `renderText` and `renderTurn` (required in practice; see abo
 ### What it shows
 
 - **Header** — title, state as a word then an icon ("Active ▶", "Paused ⏸"; Completed,
-  Failed and Archived likewise — `AutomationStateLabel`, the one rendering every client uses), trigger (a Repeat rule in the
-  kit's words, "every 8 hours (UTC)"; a calendar or once rule is the served `schedule_rule_text`
-  verbatim, "Every day at 08:00 (Europe/Paris)"; "manual runs only"), context, "Now: Run #7
+  Failed and Archived likewise — `AutomationStateLabel`, the one rendering every client uses), trigger (every schedule — Repeat
+  with its bounds, calendar, once, `schedule@1` rows too — is the served `schedule_rule_text`
+  verbatim: "Every 8 hours (UTC)", "Every day at 08:00 (Europe/Paris)"; "manual runs only"), context, "Now: Run #7
   running" (only from `summary.current_occurrence`, never inferred from the last occurrence;
   "starting" while admitted, "waiting to retry" in backoff), next run as
   "2026-10-09 08:00 Europe/Paris (in 14 h)" (`nextRunLabel`: the served `next_run_local` cut to
@@ -354,14 +354,14 @@ sections:
 - **What** — your workflow picker (a slot; it sets `target`) and the task, sent as
   `target.input_data.prompt`.
 - **When** — **Repeat** every N minutes, hours or days, with presets from "every 5 minutes" to
-  "every 7 days" (a fixed UTC interval; the line reads, for example, "Runs every 24 hours (UTC),
-  first run now."); **Daily** at HH:MM; **Weekly** on the days you pick (day chips that show
+  "every 7 days" (a fixed UTC interval); **Daily** at HH:MM; **Weekly** on the days you pick (day chips that show
   their state: on = tinted with a check mark) at HH:MM; **Monthly** on day 1 to 31 or "last" at
   HH:MM; **Once at…** a date and time; or **When an email arrives** (see
-  [Email automations](#email-automations)). For Daily, Weekly, Monthly and Once the line under
-  the section is the Gateway's own sentence (`previewSchedule` → `first_run_sentence`, asked
+  [Email automations](#email-automations)). For every schedule kind (Repeat with its first run,
+  max runs and stop at included) the line under the section is the Gateway's own sentence (`previewSchedule` → `first_run_sentence`, asked
   250 ms after the last change, the latest answer wins; "Checking the schedule…" meanwhile; a
-  refusal shows the Gateway's sentence), with the time zone as a line — "in Europe/Paris (your
+  refusal shows the Gateway's sentence), for example "Runs every 24 hours (UTC), first run now.";
+  Daily, Weekly, Monthly and Once add the time zone as a line — "in Europe/Paris (your
   account's time zone)" — carrying a kit tooltip, and **Change in preferences** when the host
   passes `onOpenPreferences`. The zone is changed only in the account preferences, never in the
   dialog. Switching kinds keeps what you picked (Weekly → Monthly → Weekly keeps the days).
@@ -624,8 +624,8 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `CALENDAR_DAYS`, `CALENDAR_KINDS`, `SCHEDULE_VERSION`, `WALL_TIME_RE`, `WALL_DATETIME_RE`.
 - **Timing line** (pure, deterministic: the caller passes `nowMs`): `automationTiming()`
   returns `{cadence, last, next, line}` for a card or header, e.g.
-  `every 24 h · last 3 h ago · next in 14 h` (a calendar rule's cadence is the served
-  `schedule_rule_text`; the next part is relative to the served `next_run_at`) — compact units rounded down (`<1 min`, `N min`,
+  `Every 24 hours (UTC) · last 3 h ago · next in 14 h` (a schedule's cadence is the served
+  `schedule_rule_text`, every kind; the next part is relative to the served `next_run_at`) — compact units rounded down (`<1 min`, `N min`,
   `N h` below 48 h, `N d`), no year, no seconds, `last never` before the first run,
   `running now` while an occurrence executes, `waiting since 5 min` while it waits for an approval or answer, no next part when nothing is scheduled.
   Parts: `compactCadence()`, `lastRunText()`, `nextRunText()`, `compactDuration()`.

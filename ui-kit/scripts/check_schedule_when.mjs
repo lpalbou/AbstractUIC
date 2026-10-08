@@ -70,6 +70,12 @@ check("calendarWhenOf keeps the time and days across kinds", eq(kit.calendarWhen
   check("calendar state of a stored rule", eq(kit.calendarStateOf({ kind: "monthly", day: 31, at: "09:00" }), { at: "09:00", days: ["mon"], day: 31 }));
 }
 
+// Gate finding 2: the dialog asks the gateway for EVERY schedule kind's line (Repeat with bounds too).
+check("isServedPreviewWhen: Repeat, Daily, Weekly, Monthly, Once", ["every", "daily", "weekly", "monthly", "once"].every((k) => kit.isServedPreviewWhen(k === "every" ? { kind: k, amount: 8, unit: "h" } : k === "once" ? { kind: k, at: "2026-10-09T08:00" } : kit.calendarWhenOf(k, {}))));
+check("dialogPreviewTrigger(Repeat with bounds) = the schedule@2 every trigger the gateway words", eq(kit.dialogPreviewTrigger("every", { when: { kind: "every", amount: 8, unit: "h" }, startAt: "2026-10-09T06:00", count: 3, until: "2026-10-20T06:00" }), { source_id: "schedule", source_version: 2, config: { kind: "every", every: "8h", start_at: "2026-10-09T06:00:00Z", count: 3, until: "2026-10-20T06:00:00Z" } }));
+check("dialogPreviewTrigger(email) = null (the kit's own email line)", kit.dialogPreviewTrigger("email", { when: { kind: "every", amount: 8, unit: "h" } }) === null);
+check("dialogShowsZone: the account zone line under Daily/Weekly/Monthly/Once only, never under Repeat", ["daily", "weekly", "monthly", "once"].every(kit.dialogShowsZone) && !kit.dialogShowsZone("every") && !kit.dialogShowsZone("email"));
+
 // --- the served line -----------------------------------------------------------------------------
 const preview = { trigger: { source_id: "schedule", source_version: 2, config: { kind: "daily", at: "08:00", time_zone: "Europe/Paris" } }, time_zone: "Europe/Paris", schedule_rule_text: "Every day at 08:00 (Europe/Paris)", schedule_text: "Every day at 08:00 (Europe/Paris) · next Fri 9 Oct 08:00", next_run_at: "2026-10-09T06:00:00+00:00", next_run_local: "2026-10-09T08:00:00+02:00", first_run_sentence: "Runs every day at 08:00 (Europe/Paris), first run Fri 9 Oct 08:00." };
 const ok = ssr(h(kit.AfServedSchedule, { state: { phase: "ok", description: preview }, onOpenPreferences() {} }));

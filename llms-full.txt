@@ -3015,9 +3015,9 @@ and tool approval), `renderText` and `renderTurn` (required in practice; see abo
 ### What it shows
 
 - **Header** — title, state as a word then an icon ("Active ▶", "Paused ⏸"; Completed,
-  Failed and Archived likewise — `AutomationStateLabel`, the one rendering every client uses), trigger (a Repeat rule in the
-  kit's words, "every 8 hours (UTC)"; a calendar or once rule is the served `schedule_rule_text`
-  verbatim, "Every day at 08:00 (Europe/Paris)"; "manual runs only"), context, "Now: Run #7
+  Failed and Archived likewise — `AutomationStateLabel`, the one rendering every client uses), trigger (every schedule — Repeat
+  with its bounds, calendar, once, `schedule@1` rows too — is the served `schedule_rule_text`
+  verbatim: "Every 8 hours (UTC)", "Every day at 08:00 (Europe/Paris)"; "manual runs only"), context, "Now: Run #7
   running" (only from `summary.current_occurrence`, never inferred from the last occurrence;
   "starting" while admitted, "waiting to retry" in backoff), next run as
   "2026-10-09 08:00 Europe/Paris (in 14 h)" (`nextRunLabel`: the served `next_run_local` cut to
@@ -3229,14 +3229,14 @@ sections:
 - **What** — your workflow picker (a slot; it sets `target`) and the task, sent as
   `target.input_data.prompt`.
 - **When** — **Repeat** every N minutes, hours or days, with presets from "every 5 minutes" to
-  "every 7 days" (a fixed UTC interval; the line reads, for example, "Runs every 24 hours (UTC),
-  first run now."); **Daily** at HH:MM; **Weekly** on the days you pick (day chips that show
+  "every 7 days" (a fixed UTC interval); **Daily** at HH:MM; **Weekly** on the days you pick (day chips that show
   their state: on = tinted with a check mark) at HH:MM; **Monthly** on day 1 to 31 or "last" at
   HH:MM; **Once at…** a date and time; or **When an email arrives** (see
-  [Email automations](#email-automations)). For Daily, Weekly, Monthly and Once the line under
-  the section is the Gateway's own sentence (`previewSchedule` → `first_run_sentence`, asked
+  [Email automations](#email-automations)). For every schedule kind (Repeat with its first run,
+  max runs and stop at included) the line under the section is the Gateway's own sentence (`previewSchedule` → `first_run_sentence`, asked
   250 ms after the last change, the latest answer wins; "Checking the schedule…" meanwhile; a
-  refusal shows the Gateway's sentence), with the time zone as a line — "in Europe/Paris (your
+  refusal shows the Gateway's sentence), for example "Runs every 24 hours (UTC), first run now.";
+  Daily, Weekly, Monthly and Once add the time zone as a line — "in Europe/Paris (your
   account's time zone)" — carrying a kit tooltip, and **Change in preferences** when the host
   passes `onOpenPreferences`. The zone is changed only in the account preferences, never in the
   dialog. Switching kinds keeps what you picked (Weekly → Monthly → Weekly keeps the days).
@@ -3499,8 +3499,8 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `CALENDAR_DAYS`, `CALENDAR_KINDS`, `SCHEDULE_VERSION`, `WALL_TIME_RE`, `WALL_DATETIME_RE`.
 - **Timing line** (pure, deterministic: the caller passes `nowMs`): `automationTiming()`
   returns `{cadence, last, next, line}` for a card or header, e.g.
-  `every 24 h · last 3 h ago · next in 14 h` (a calendar rule's cadence is the served
-  `schedule_rule_text`; the next part is relative to the served `next_run_at`) — compact units rounded down (`<1 min`, `N min`,
+  `Every 24 hours (UTC) · last 3 h ago · next in 14 h` (a schedule's cadence is the served
+  `schedule_rule_text`, every kind; the next part is relative to the served `next_run_at`) — compact units rounded down (`<1 min`, `N min`,
   `N h` below 48 h, `N d`), no year, no seconds, `last never` before the first run,
   `running now` while an occurrence executes, `waiting since 5 min` while it waits for an approval or answer, no next part when nothing is scheduled.
   Parts: `compactCadence()`, `lastRunText()`, `nextRunText()`, `compactDuration()`.
@@ -5965,7 +5965,7 @@ export {
   type RenderText,
   type RenderTurn,
 } from "./automations/AutomationPanel.js";
-export { AfScheduleDialog, type AfScheduleDialogProps } from "./automations/AfScheduleDialog.js";
+export { AfScheduleDialog, dialogPreviewTrigger, dialogShowsZone, type AfScheduleDialogProps } from "./automations/AfScheduleDialog.js";
 export {
   AfEmailOptionsFields,
   AfEmailSetupNotice,
@@ -8719,10 +8719,8 @@ export function scheduleLabel(config: ScheduleConfig | JsonObject): string {
  * the kit never composes a calendar sentence, so every client says the same.
  */
 export function triggerSummary(trigger: Pick<TriggerBinding, "source_id" | "source_version" | "config">, served?: { schedule_rule_text?: string | null } | null): string {
-  if (trigger.source_id === "schedule" && trigger.source_version === 1) return scheduleLabel(trigger.config);
-  // A schedule@2 Repeat keeps the kit's fixed-interval family (the same words as a v1 row beside it).
-  if (isScheduleV2(trigger) && typeof (trigger.config as { every?: unknown }).every === "string") return scheduleLabel(trigger.config);
-  if (isScheduleV2(trigger)) return servedRuleText(served);
+  // Every schedule row (schedule@1 or @2, every kind, with its bounds) reads the gateway's words.
+  if (trigger.source_id === "schedule") return servedRuleText(served, trigger.source_version);
   if (trigger.source_id === "manual" && trigger.source_version === 1) return "manual runs only";
   if (isEmailTrigger(trigger)) return emailTriggerLabel(trigger.config);
   return `${trigger.source_id}@${trigger.source_version}`;
@@ -9343,9 +9341,9 @@ export function isScheduleV2(trigger: Pick<TriggerBinding, "source_id" | "source
  * is a broken gateway seam (R16.1 serves it on every summary and preview): it
  * reads as the literal "schedule@2", never as a sentence the kit made up.
  */
-export function servedRuleText(served: { schedule_rule_text?: string | null } | null | undefined): string {
+export function servedRuleText(served: { schedule_rule_text?: string | null } | null | undefined, version: number = SCHEDULE_VERSION): string {
   const text = served?.schedule_rule_text;
-  return typeof text === "string" && text ? text : "schedule@2";
+  return typeof text === "string" && text ? text : `schedule@${version}`;
 }
 
 const SERVED_LOCAL_RE = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/;
@@ -9516,24 +9514,20 @@ export function scheduleTriggerFrom(form: ScheduleForm): { trigger: TriggerSpec 
 
 /** Kinds whose line under "When" is the GATEWAY's `first_run_sentence` (they depend on the time zone). */
 export function isServedPreviewWhen(when: ScheduleWhen): boolean {
-  return when.kind === "once" || isCalendarWhen(when);
+  return when.kind === "every" || when.kind === "once" || isCalendarWhen(when);
 }
 
 /**
- * Human line under the When section for Repeat (fixed-interval UTC, the
- * sentence family as before: "every 24 hours (UTC), first run now") and for
- * the email trigger. Once / Daily / Weekly / Monthly return "": their line is
- * the gateway's `first_run_sentence` (schedule-preview), never the kit's.
+ * The kit's own line under the When section, for the email trigger only. Every schedule kind
+ * (Repeat with its bounds, Daily, Weekly, Monthly, Once) returns "": its line is the gateway's
+ * `first_run_sentence` (schedule-preview), never the kit's.
  */
 export function schedulePreview(form: ScheduleForm): string {
   if (form.trigger === "email") {
     const built = emailTriggerConfigFrom(form.email ?? DEFAULT_EMAIL_TRIGGER_FORM);
     return built.errors.length ? "" : emailTriggerLabel(built.config);
   }
-  if (isServedPreviewWhen(form.when)) return "";
-  const { config } = scheduleConfigFrom(form);
-  if (!config || config.kind !== "every") return "";
-  return `${scheduleLabel(config as unknown as ScheduleConfig)}, first run ${config.start_at ? `at ${formatUtc(config.start_at)}` : "now"}`;
+  return "";
 }
 
 /** The `POST /api/gateway/automations` body, or the reasons it cannot be built yet. */
@@ -16508,16 +16502,18 @@ ships.
   chips that show their state: tinted with a check mark when on) at HH:MM, **Monthly** on day 1–31
   or "last" at HH:MM, **Once at…** and **When an email arrives**. Every schedule is written as
   `schedule@2` (`{kind, …}`); no time zone is sent — the Gateway stamps the owner's account zone.
-  For Daily, Weekly, Monthly and Once the line under the section is the Gateway's own
-  `first_run_sentence` (new required prop `previewSchedule`, the client's
+  For every schedule kind (Repeat with its bounds included) the line under the section is the
+  Gateway's own `first_run_sentence` (new required prop `previewSchedule`, the client's
   `previewSchedule(trigger)` → `POST /api/gateway/automations/schedule-preview`; debounced, latest
-  answer wins), with the zone as "in Europe/Paris (your account's time zone)", a kit tooltip, and
-  **Change in preferences** (`onOpenPreferences`). The kit composes no calendar sentence. Switching
+  answer wins); Daily, Weekly, Monthly and Once add the zone as "in Europe/Paris (your account's
+  time zone)", a kit tooltip, and **Change in preferences** (`onOpenPreferences`). The kit
+  composes no schedule sentence (`schedulePreview()` keeps the email line only). Switching
   kinds keeps what was picked. Max runs and stop at apply to the calendar rules too.
 - **Served next run everywhere.** `AutomationPanel`'s header, `automationTiming()`, the new
   `nextRunLabel()` and `controlHint("run_now")` read the Gateway's `next_run_at` /
-  `next_run_local` (cut to "2026-10-09 08:00 Europe/Paris", no clock or zone arithmetic) and a
-  calendar rule's `schedule_rule_text`; `next_fire_at` is no longer read. The Edit form edits a
+  `next_run_local` (cut to "2026-10-09 08:00 Europe/Paris", no clock or zone arithmetic) and
+  every schedule's `schedule_rule_text` (Repeat and `schedule@1` rows too: the card line reads
+  "Every 24 hours (UTC) · last 3 h ago · next in 14 h"); `next_fire_at` is no longer read. The Edit form edits a
   calendar rule (kind, days, day, time) and keeps the automation's time zone and limits; it needs
   the panel's new required `previewSchedule` prop.
 - **`AfTimeZonePicker`** — the account time zone in settings and preferences: a searchable
