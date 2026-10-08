@@ -76,13 +76,15 @@ export function scheduleLabel(config: ScheduleConfig | JsonObject): string {
 }
 
 /**
- * The trigger in words. A `schedule@1` row keeps its fixed-interval UTC
- * wording above; a `schedule@2` row (every kind) reads ONLY the gateway's
- * served `schedule_rule_text` — the kit never composes a calendar sentence, so
- * every client says the same.
+ * The trigger in words. A Repeat row (`schedule@1`, or `schedule@2` with
+ * `every`) keeps its fixed-interval UTC wording above; a `schedule@2`
+ * calendar or once row reads ONLY the gateway's served `schedule_rule_text` —
+ * the kit never composes a calendar sentence, so every client says the same.
  */
 export function triggerSummary(trigger: Pick<TriggerBinding, "source_id" | "source_version" | "config">, served?: { schedule_rule_text?: string | null } | null): string {
   if (trigger.source_id === "schedule" && trigger.source_version === 1) return scheduleLabel(trigger.config);
+  // A schedule@2 Repeat keeps the kit's fixed-interval family (the same words as a v1 row beside it).
+  if (isScheduleV2(trigger) && typeof (trigger.config as { every?: unknown }).every === "string") return scheduleLabel(trigger.config);
   if (isScheduleV2(trigger)) return servedRuleText(served);
   if (trigger.source_id === "manual" && trigger.source_version === 1) return "manual runs only";
   if (isEmailTrigger(trigger)) return emailTriggerLabel(trigger.config);

@@ -87,6 +87,7 @@ check("nextRunLabel: served local + relative", kit.nextRunLabel(brief, NOW) === 
 check("nextRunLabel: paused / nothing scheduled", kit.nextRunLabel({ status: "paused" }, NOW) === "none while paused" && kit.nextRunLabel({ status: "active", next_fire_at: brief.next_fire_at }, NOW) === "none scheduled");
 check("triggerSummary(schedule@2) = served schedule_rule_text verbatim", kit.triggerSummary(brief.trigger, brief) === "Every day at 08:00 (Europe/Paris)");
 check("triggerSummary(schedule@2) without served text = the literal source", kit.triggerSummary(brief.trigger, {}) === "schedule@2");
+check("triggerSummary(schedule@2 every) = the kit's Repeat family (same words as a v1 row)", kit.triggerSummary({ source_id: "schedule", source_version: 2, config: { kind: "every", every: "8h", count: 3 } }, { schedule_rule_text: "Every 8 hours (UTC) · 3 runs max" }) === "every 8 hours (UTC) · 3 runs max");
 check("timing line of the daily row", kit.automationTiming(brief, NOW).line === "Every day at 08:00 (Europe/Paris) · last 33 min ago · next in 23 h", kit.automationTiming(brief, NOW).line);
 const header = ssr(h(parts.AutomationHeader, { summary: brief, triggerSources: fx("trigger-sources.json").items, nowMs: NOW }));
 check("header: When = served rule, Next run = served local, schedule@2 is a listed source", header.includes('data-fact="trigger">Every day at 08:00 (Europe/Paris)</dd>') && header.includes('data-fact="next">2026-09-28 08:00 Europe/Paris (in 23 h 25 min)</dd>') && !header.includes("does not list the trigger source"));
