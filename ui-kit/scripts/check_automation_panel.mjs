@@ -105,7 +105,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("no server-supplied gateway URL is ever an href (ledger, artifact, workspace)", !/href="\/api\//.test(mailHtml) && !mailHtml.includes('data-action="open-ledger-json"'));
   check("#3 says completed after 2 attempts", chunks[2].includes("completed after 2 attempts"));
   check("#4 is the manual run (decided summary wording)", chunks[3].includes(esc(occ.find((o) => o.index === 4).trigger.summary)) && /manual: run now \([0-9a-f-]{36}\)/.test(chunks[3]) && chunks[3].includes("[Trigger manual@1 · occurrence 4"));
-  check("scheduled pairs show the decided summary wording", chunks[0].includes("schedule: every 30 minutes (UTC), tick 0") && chunks[6].includes("schedule: every 30 minutes (UTC), tick 5"));
+  check("scheduled pairs show the decided summary wording", chunks[0].includes("schedule: Every 30 minutes (UTC), tick 0") && chunks[6].includes("schedule: Every 30 minutes (UTC), tick 5"));
   check("#5 badged Failed after 3 attempts", chunks[4].includes(">Failed after 3 attempts<"));
   const f5 = occ.find((o) => o.index === 5).failure;
   check("#5 renders its failure: reason_code, message, after N attempts", chunks[4].includes(`<div class="af-auto-failure" data-failure="${f5.reason_code}"><strong>${f5.reason_code}</strong>: ${esc(f5.message)}`) && chunks[4].includes(`(after ${f5.attempts} attempts)`));

@@ -317,7 +317,8 @@ for (const o of occ) {
   // Decided wording (review 42 F3).
   if (o.trigger.source_id === "schedule") {
     const tick = (Date.parse(o.fired_at) - startMs) / 1800000;
-    check(`occurrence #${o.index}: summary "schedule: every 30 minutes (UTC), tick ${tick}"`, o.trigger.summary === `schedule: every 30 minutes (UTC), tick ${tick}`, o.trigger.summary);
+    // Round 16 (gateway S1): the occurrence line shares the summary's rule sentence ("schedule: <schedule_rule_text>, tick N").
+    check(`occurrence #${o.index}: summary "schedule: Every 30 minutes (UTC), tick ${tick}"`, o.trigger.summary === `schedule: ${mail.schedule_rule_text}, tick ${tick}`, o.trigger.summary);
   } else {
     check(`occurrence #${o.index}: summary "manual: run now (<command_id>)"`, /^manual: run now \([^()\s]+\)$/.test(o.trigger.summary), o.trigger.summary);
   }
