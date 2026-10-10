@@ -459,13 +459,15 @@ export { AfSettingsGroup, AfSettingRow, AfOverrideRow, type AfSettingsGroupProps
 export {
   AfVoiceSection,
   VOICE_LATENCY_OPTIONS,
-  VOICE_LANGUAGE_OPTIONS,
+  SPOKEN_LANGUAGE_MISSING,
+  spokenLanguageLabel,
   voiceTtsRequest,
   voiceSttRequest,
   voiceTtsOverrideSummary,
   voiceSttOverrideSummary,
   type AfVoiceSectionProps,
   type VoiceClientPreferences,
+  type SpokenLanguagePreference,
 } from "./af_voice_section.js";
 export { formatRelativeTime, formatExactTime, formatShortDate, timeValueMs } from "./relative_time.js";
 export { audioOutputSelectable } from "./use_gateway_voice.js";

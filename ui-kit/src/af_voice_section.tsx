@@ -7,6 +7,7 @@
 //               Reply volume    ───●── 80 %
 //   Microphone  Input device    [System default ▾]   [Test]   ▮▮▮▯▯ (live level)
 //               Input level     ───●── 100 %          (where Web Audio allows)
+//               Spoken language [Auto (detected) ▾]   (the account's, served by the gateway; round 18)
 //   Replies     Read aloud      (switch)
 //               Voice latency   [Gateway default ▾]
 //
@@ -54,9 +55,31 @@ export type VoiceClientPreferences = VoicePreferences & {
   input_gain?: number;
   /** Reply volume 0..1 (absent = 1). */
   reply_volume?: number;
-  /** Language spoken to the microphone (ISO 639-1, "" = the engine detects it). */
-  stt_language?: string;
 };
+
+/**
+ * The gateway's `spoken_language` block (round 18: `GET accounts/{me}/preferences`):
+ * the account's spoken language and the control's whole truth — label, help and
+ * the served choices. A client never keeps its own list or its own copy; it
+ * renders this block and PUTs `{spoken_language: value}` on a pick.
+ */
+export type SpokenLanguagePreference = {
+  /** "auto" or an ISO 639-1 code; never null. */
+  value: string;
+  label: string;
+  help: string;
+  choices: Array<{ value: string; label: string }>;
+};
+
+/** The sentence a surface shows when the gateway's answer lacks the block (the seam fails loudly). */
+export const SPOKEN_LANGUAGE_MISSING = "The gateway's account preferences answer has no spoken_language block.";
+
+/** The current choice's label ("Auto (detected)", "French"…); "" when the block is unknown. */
+export function spokenLanguageLabel(block: SpokenLanguagePreference | null): string {
+  if (!block) return "";
+  const hit = block.choices.find((c) => c.value === block.value);
+  return hit ? hit.label : block.value;
+}
 
 const TTS_KEYS = ["provider", "model", "voice", "profile", "speed", "quality_preset", "instructions"] as const;
 
@@ -71,32 +94,16 @@ export function voiceTtsRequest(prefs: VoiceClientPreferences): Record<string, s
 }
 
 /**
- * The fields a transcription request carries (`provider`/`model`; empty =
- * gateway default) plus `language` when the user named it — the engine then
- * skips language detection (faster-whisper large-v3 on CPU: ~2.4x faster).
+ * The fields a transcription request carries: `provider`/`model` only (empty =
+ * gateway default). Never a language: the gateway applies the account's
+ * spoken-language preference (round 18), so a client copy cannot override it.
  */
-export function voiceSttRequest(prefs: VoiceClientPreferences): { provider?: string; model?: string; language?: string } {
+export function voiceSttRequest(prefs: VoiceClientPreferences): { provider?: string; model?: string } {
   return {
     ...(prefs.stt_provider ? { provider: prefs.stt_provider } : {}),
     ...(prefs.stt_provider && prefs.stt_model ? { model: prefs.stt_model } : {}),
-    ...(prefs.stt_language ? { language: prefs.stt_language } : {}),
   };
 }
-
-/** Spoken-language choices for transcription ("" = detected by the engine). */
-export const VOICE_LANGUAGE_OPTIONS = [
-  { value: "", label: "Detect automatically" },
-  { value: "en", label: "English" },
-  { value: "fr", label: "French" },
-  { value: "de", label: "German" },
-  { value: "es", label: "Spanish" },
-  { value: "it", label: "Italian" },
-  { value: "pt", label: "Portuguese" },
-  { value: "nl", label: "Dutch" },
-  { value: "zh", label: "Chinese" },
-  { value: "ja", label: "Japanese" },
-  { value: "ko", label: "Korean" },
-];
 
 /** "provider · model · voice" of the TTS override, or "" when the gateway default applies. */
 export function voiceTtsOverrideSummary(p: VoiceClientPreferences): string {
@@ -139,6 +146,18 @@ export type AfVoiceSectionProps = {
   outputSelectable?: boolean;
   /** Inside a host card (e.g. a "Voice" settings group): sub-sections render flat, never a card in a card. */
   nested?: boolean;
+  /**
+   * The account's spoken language (round 18): the gateway's served block
+   * (`null` = the answer lacked it → the row says so in the error tone), the
+   * pick reported to the host (which PUTs it), the host's save note. Absent =
+   * no row (an app without accounts).
+   */
+  spokenLanguage?: {
+    block: SpokenLanguagePreference | null;
+    onChange: (value: string) => void | Promise<void>;
+    note?: { ok: boolean; text: string } | null;
+    disabled?: boolean;
+  };
   className?: string;
 };
 
@@ -409,17 +428,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
             {deviceNote}
           </p>
         ) : null}
-        <AfSettingRow label="Spoken language" setting="stt-language" help="Naming it skips detection: transcription is faster.">
-          <AfSelect
-            ariaLabel="Spoken language"
-            placeholder="Detect automatically"
-            value={value.stt_language || ""}
-            options={VOICE_LANGUAGE_OPTIONS}
-            disabled={disabled}
-            searchable={false}
-            onChange={(v) => update({ stt_language: v })}
-          />
-        </AfSettingRow>
+        {p.spokenLanguage ? <SpokenLanguageRow {...p.spokenLanguage} disabled={disabled || Boolean(p.spokenLanguage.disabled)} /> : null}
         {gainSupported ? (
           <AfSettingRow label="Input level" setting="input-gain" htmlFor="af-voice-gain" help="Raises a quiet microphone.">
             <input
@@ -467,5 +476,37 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
         </AfSettingRow>
       </AfSettingsGroup>
     </div>
+  );
+}
+
+function SpokenLanguageRow(p: NonNullable<AfVoiceSectionProps["spokenLanguage"]>): React.ReactElement {
+  const block = p.block;
+  if (!block) {
+    return (
+      <AfSettingRow label="Spoken language" setting="spoken-language">
+        <p className="af-voice-note af-voice-note--error" role="status" data-voice-note="spoken-language">
+          {SPOKEN_LANGUAGE_MISSING}
+        </p>
+      </AfSettingRow>
+    );
+  }
+  return (
+    <>
+      <AfSettingRow label={block.label} setting="spoken-language" help={block.help}>
+        <AfSelect
+          ariaLabel="Spoken language"
+          value={block.value}
+          options={block.choices}
+          disabled={p.disabled}
+          searchable={false}
+          onChange={(v) => void p.onChange(v)}
+        />
+      </AfSettingRow>
+      {p.note && p.note.text ? (
+        <p className={`af-voice-note af-voice-note--${p.note.ok ? "ok" : "error"}`} role="status" data-voice-note="spoken-language">
+          {p.note.text}
+        </p>
+      ) : null}
+    </>
   );
 }

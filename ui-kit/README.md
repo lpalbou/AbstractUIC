@@ -259,6 +259,7 @@ overrides it; the host stores the overrides.
   fetchCatalog={(provider, model) => gatewayJson(voiceCatalogPath(provider, model))}
   fetchDefaults={() => gatewayJson("/api/gateway/voice/defaults")}
   overrideOwner="this app"
+  spokenLanguage={{ block: prefsAnswer.spoken_language, onChange: (v) => putPreferences({ spoken_language: v }), note }}
 />
 ```
 
@@ -269,7 +270,13 @@ overrides it; the host stores the overrides.
   choose the output device: the picker stays on System default and says so.
 - Send what the user chose with `voiceTtsRequest(prefs)` / `voiceSttRequest(prefs)`, and play or
   record through `useGatewayVoice({ output_device_id, input_device_id, volume, input_gain })`.
-- `gatewayJson` and `voiceCatalogPath` above stand for your own authenticated transport.
+- **Spoken language** is the account's, not the app's: pass `spokenLanguage` with the
+  `spoken_language` block of `GET /api/gateway/accounts/me/preferences` (`SpokenLanguagePreference`:
+  `value`, `label`, `help`, `choices`) and PUT `{spoken_language: value}` on a pick. The row shows
+  the served labels; `null` says the gateway's answer lacks the block; no prop, no row. Show
+  `Spoken language: ${spokenLanguageLabel(block)}` next to the microphone. `voiceSttRequest` never
+  sends a language — the gateway applies the account's.
+- `gatewayJson` and `voiceCatalogPath` above stand for your own authenticated transport. `prefsAnswer`, `putPreferences` and `note` stand for the host's preferences state.
 
 ## Audio player
 

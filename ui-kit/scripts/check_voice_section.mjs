@@ -11,6 +11,8 @@
  *   choose a speaker. Microphone: picker + Test + live meter (+ input level
  *   where Web Audio allows).
  * - Pure helpers: route text, transcribing line, error sentences.
+ * - Round 18: the Spoken language row renders from the gateway's served
+ *   block (`spokenLanguage` prop) and the STT request never carries a language.
  * Mutation-checked: reading the catalog for the summary, dropping a Test
  * button, the meter or the Safari note turns this red.
  */
@@ -96,10 +98,40 @@ check("input device picker", html.includes('aria-label="Input device"'));
 check("microphone Test button", html.includes('data-action="test-microphone"'));
 check("live level meter", html.includes('role="meter"') && html.includes('aria-label="Microphone level"'));
 
-// --- spoken language: sent only when named (skips detection) ----------------
-check("spoken language row", html.includes('aria-label="Spoken language"'));
-check("language rides on the STT request", JSON.stringify(kit.voiceSttRequest({ stt_language: "en" })) === '{"language":"en"}');
+// --- spoken language (round 18): the account's, served by the gateway --------
+// The row renders ONLY from the served block (labels verbatim); the kit keeps no
+// list and no copy, and the transcription request never carries a language.
+const HELP = "The language spoken to the microphone. Auto lets the speech engine detect it; naming it skips detection, so short phrases and mixed-language speech transcribe reliably and a little faster.";
+const BLOCK = {
+  value: "auto",
+  label: "Spoken language",
+  help: HELP,
+  choices: [
+    { value: "auto", label: "Auto (detected)" },
+    { value: "en", label: "English" },
+    { value: "fr", label: "French" },
+  ],
+};
+const picks = [];
+const withRow = render({ defaults: ROUTES, spokenLanguage: { block: BLOCK, onChange: (v) => picks.push(v) } });
+check("spoken language row: data-setting", withRow.includes('data-setting="spoken-language"'), withRow.match(/data-setting="[^"]*"/g)?.join(" "));
+check("spoken language row: served label + help", withRow.includes(">Spoken language<") && withRow.includes("naming it skips detection, so short phrases"));
+check("spoken language row: select named", withRow.includes('aria-label="Spoken language"'));
+check("spoken language row: auto shows the served label", withRow.includes("Auto (detected)"));
+const french = render({ defaults: ROUTES, spokenLanguage: { block: { ...BLOCK, value: "fr" }, onChange: () => undefined, note: { ok: true, text: "Saved." } } });
+check("spoken language row: a code shows its served label", french.includes("French") && !french.includes("Auto (detected)"));
+check("spoken language row: save note", /data-voice-note="spoken-language"[^>]*>Saved\.</.test(french) || /role="status"[^>]*data-voice-note="spoken-language">Saved\./.test(french), french.match(/[^<]*spoken-language[^<]*<?[^<]*/g)?.join(" | "));
+const refused = render({ defaults: ROUTES, spokenLanguage: { block: BLOCK, onChange: () => undefined, note: { ok: false, text: "Not saved. nope." } } });
+check("spoken language row: refusal note in the error tone", refused.includes("af-voice-note--error") && refused.includes("Not saved. nope."));
+check("no prop = no row (an app without accounts)", !html.includes("spoken-language") && !html.includes('aria-label="Spoken language"'));
+const missing = render({ defaults: ROUTES, spokenLanguage: { block: null, onChange: () => undefined } });
+check("null block = the seam sentence, error tone", missing.includes("The gateway&#x27;s account preferences answer has no spoken_language block.") && missing.includes("af-voice-note--error") && !missing.includes('aria-label="Spoken language"'));
+check("helper: label of the current choice", kit.spokenLanguageLabel({ ...BLOCK, value: "fr" }) === "French" && kit.spokenLanguageLabel(BLOCK) === "Auto (detected)");
+check("helper: unknown block = empty label", kit.spokenLanguageLabel(null) === "");
+check("STT request never carries a language", !("language" in kit.voiceSttRequest({ stt_language: "fr" }))
+  && JSON.stringify(kit.voiceSttRequest({ stt_provider: "p", stt_model: "m", stt_language: "fr" })) === '{"provider":"p","model":"m"}');
 check("no language = engine detects", JSON.stringify(kit.voiceSttRequest({})) === "{}");
+check("the kit keeps no client copy (source pin)", !/stt_language/.test(src) && !/VOICE_LANGUAGE_OPTIONS/.test(src) && !("VOICE_LANGUAGE_OPTIONS" in kit));
 
 // --- input level: 100 % sits at the centre of the range (adversary R6 nit) ----
 {

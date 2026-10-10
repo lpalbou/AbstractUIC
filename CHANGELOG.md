@@ -16,6 +16,17 @@ ships.
 
 ### ui-kit
 
+- **Spoken language is the account's (round 18).** `AfVoiceSection` gains the optional
+  `spokenLanguage` prop (`{block, onChange, note, disabled}`): the Microphone group renders the
+  gateway's served `spoken_language` block (`GET /api/gateway/accounts/me/preferences`) as the
+  **Spoken language** row — served label, help and choices (`Auto (detected)`, `English`, …) —
+  reports a pick to the host (which PUTs `{spoken_language: value}`) and shows the host's
+  "Saved." / "Not saved. …" note; a `null` block says "The gateway's account preferences answer
+  has no spoken_language block." in the error tone; no prop, no row. New exports
+  `SpokenLanguagePreference`, `spokenLanguageLabel(block)` and `SPOKEN_LANGUAGE_MISSING`.
+  **Removed** (breaking for a host that read them): `VoiceClientPreferences.stt_language` and
+  `VOICE_LANGUAGE_OPTIONS`; `voiceSttRequest()` carries `provider`/`model` only and never a
+  `language`, so a client copy can no longer override the account preference.
 - **Calendar schedules (round 16, R16.1).** `AfScheduleDialog`'s **When** offers Repeat (every N
   minutes, hours or days, a fixed UTC interval as before), **Daily** at HH:MM, **Weekly** (day
   chips that show their state: tinted with a check mark when on) at HH:MM, **Monthly** on day 1–31
