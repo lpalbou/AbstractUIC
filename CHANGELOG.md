@@ -29,6 +29,9 @@ ships.
   path, and no revision; all three are under the collapsed **Details** card (was "Definition").
   "Runs", "No runs yet.", "Load earlier runs", **Discuss this run** (was "Discuss — fork at this
   occurrence …"), "a new conversation" instead of "session". New check `check_trigger_words`.
+- **"Flow", not "workflow"** (defect #5): the Edit form's picker is labelled **Flow**, the tool
+  choice reads **Use the flow's default tools**, and `WorkflowPicker` says **Choose a flow** /
+  **Loading flows…**.
 
 ## 0.6.2 - 2026-10-15
 

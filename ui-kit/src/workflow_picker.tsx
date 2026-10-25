@@ -198,8 +198,8 @@ export function WorkflowPicker(props: WorkflowPickerProps): React.ReactElement {
     : props.currentLabel
       ? { name: props.currentLabel.name, detail: props.currentLabel.detail || "" }
       : list.status === "loading"
-        ? { name: "Loading workflows…", detail: "" }
-        : { name: props.value === WORKFLOW_PICKER_DEFAULT ? "Gateway default" : "Choose a workflow", detail: "" };
+        ? { name: "Loading flows…", detail: "" }
+        : { name: props.value === WORKFLOW_PICKER_DEFAULT ? "Gateway default" : "Choose a flow", detail: "" };
   const reason = String(props.unavailableReason || "").trim();
   const actionable = !reason && list.status === "ready";
 
