@@ -184,6 +184,11 @@ check("any: its detail is the trigger in words", workflowPickerRows(trigList).fi
 check("any: without automation defaults it stays out", !parseWorkflowListing({ ...trigEnv, items: trigEnv.items.map((i) => ({ ...i, automation_defaults: {} })) }, null).entries.some((e) => e.bundleId === "Python-digest"));
 const tTrig = renderToStaticMarkup(React.createElement(WorkflowPicker, { interfaceId: null, value: digest.value, onChange: () => {}, workflows: state(trigList), entryDetail: (e) => (e.automationTrigger ? "When Python news has a new item" : null) }));
 check("any: the host's entryDetail names the trigger", tTrig.includes("Python digest") && tTrig.includes("When Python news has a new item"), tTrig.slice(0, 300));
+{
+  const kitIdx = await import(join(here, "..", "dist", "index.js"));
+  const opts = { workflows: state(trigList) };
+  check("flowNameOf: the listed name, also for another version; never the bundle@version:flow id", kitIdx.flowNameOf("Python-digest@0.0.0:92abf314", opts) === "Python digest" && kitIdx.flowNameOf("Python-digest@0.0.9:92abf314", opts) === "Python digest" && kitIdx.flowNameOf("Gone@1.0.0:abc", opts) === "Gone");
+}
 throwsContract("any: an echoed executable_for is refused (asked for all)", () => parseWorkflowListing(fake, null), "Asked for every workflow");
 throwsContract("any: owner still required", () => parseWorkflowListing({ items: [{ ...anyEnv.items[0], owner: undefined }] }, null), "owner missing");
 const tAny = renderToStaticMarkup(React.createElement(WorkflowPicker, { interfaceId: null, value: "", onChange: () => {}, workflows: state(any) }));

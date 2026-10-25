@@ -407,7 +407,6 @@ export function AutomationDefinitionBlock(props: {
         <Icon name="chevronRight" size={14} className="af-auto__definition-chevron" />
         <Icon name="file" size={14} />
         <span className="af-auto__definition-title">Details</span>
-        <span className="af-auto__definition-meta">revision {d.revision}</span>
       </summary>
       <dl className="af-auto__facts">
         <dt>Target</dt>
@@ -869,7 +868,7 @@ export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactE
           </fieldset></div>
         </fieldset>
       ) : null}
-      <p className="af-auto__hint">Changes apply from the next run; a new interval never fires past ticks.</p>
+      <p className="af-auto__hint">Changes apply from the next run; runs that a new schedule would have had in the past are not made up.</p>
       {p.errors.length ? (
         <ul className="af-auto__form-errors" role="alert">
           {p.errors.map((e) => (

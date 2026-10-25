@@ -38,6 +38,11 @@ ships.
   its detail line the trigger in words ("When a feed has a new item · @0.0.0"); new
   `WorkflowPicker` prop `entryDetail(entry)` lets the host name it with the person's feeds and
   mailboxes ("When Python news has a new item").
+- **Edit names the flow** (re-review #5): the Edit form's **Flow** picker shows the flow's name
+  for a value the list carries under another version (`flowNameOf`), never
+  `Python-digest@0.0.0:92abf314`; the **Details** title no longer carries "revision N" (the
+  Revision row is inside); the Edit hint reads "runs that a new schedule would have had in the
+  past are not made up" (was "a new interval never fires past ticks").
 
 ## 0.6.2 - 2026-10-15
 
