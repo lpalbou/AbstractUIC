@@ -3859,6 +3859,25 @@
 .af-auto-badge--notified { border-color: var(--info-border); background: var(--info-subtle); }
 .af-auto-badge--running { border-color: var(--accent-border); background: var(--accent-subtle); }
 .af-auto-notify { padding: 4px 8px; border-left: 2px solid var(--info); }
+/* What arrived, above the task (UX review 2026-10-25 #3): "Release notes · 1 new item: “…” · 15:13". */
+.af-auto-event {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated, var(--bg-secondary));
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+.af-auto-event .af-auto__btn-icon { flex: none; margin-top: 2px; color: var(--text-secondary); }
+.af-auto-event__source { font-weight: 600; }
+/* The raw text the agent received (trigger header, framed events), behind a disclosure. */
+.af-auto-received { font-size: var(--font-size-xs); color: var(--text-muted); }
+.af-auto-received > summary { cursor: pointer; }
+.af-auto-received__body { margin-top: 4px; color: var(--text-secondary); overflow-wrap: anywhere; }
 .af-auto-wait__prompt { margin: 0; font-weight: 600; }
 .af-auto-artifacts { margin: 0; padding-left: 18px; }
 .af-auto-artifacts a,

@@ -6,6 +6,7 @@ import { automationTargetValue, retargetAutomationInput } from "./target_selecti
 // statuses, notify objects, waits, config fields — never model prose.
 import controlsSpec from "./automation_controls.json" with { type: "json" };
 import { randomId } from "../random_id.js";
+import { TRIGGER_WORDS_TEXT, isEventTrigger, triggerWords } from "./trigger_words.js";
 import type {
   ApiError,
   AutomationChanges,
@@ -30,6 +31,8 @@ import type {
   ToolApprovalPolicy,
   ToolCallToApprove,
   TriggerBinding,
+  TriggerConnection,
+  Mailbox,
 } from "./types.js";
 
 export const DURATION_RE = /^([1-9][0-9]*)([smhd])$/;
@@ -81,12 +84,14 @@ export function scheduleLabel(config: ScheduleConfig | JsonObject): string {
  * calendar or once row reads ONLY the gateway's served `schedule_rule_text` —
  * the kit never composes a calendar sentence, so every client says the same.
  */
-export function triggerSummary(trigger: Pick<TriggerBinding, "source_id" | "source_version" | "config">, served?: { schedule_rule_text?: string | null } | null): string {
-  // Every schedule row (schedule@1 or @2, every kind, with its bounds) reads the gateway's words.
-  if (trigger.source_id === "schedule") return servedRuleText(served, trigger.source_version);
-  if (trigger.source_id === "manual" && trigger.source_version === 1) return "manual runs only";
-  if (isEmailTrigger(trigger)) return emailTriggerLabel(trigger.config);
-  return `${trigger.source_id}@${trigger.source_version}`;
+export function triggerSummary(
+  trigger: Pick<TriggerBinding, "source_id" | "source_version" | "config">,
+  served?: { schedule_rule_text?: string | null } | null,
+  vocab?: { connections?: readonly TriggerConnection[] | null; mailboxes?: readonly Mailbox[] | null } | null,
+): string {
+  // One sentence for a person (UX review 2026-10-25 #2): the schedule's served words, "By hand",
+  // "When mail arrives in …", "When Release notes has a new item" — never a source id.
+  return triggerWords(trigger, vocab?.connections, vocab?.mailboxes, served);
 }
 
 export function contextLabel(mode: ContextMode): string {
@@ -337,10 +342,20 @@ export function currentOccurrenceLabel(summary: AutomationSummary): string | nul
  * SERVED `next_run_local` (cut) + `next_run_at` (relative), "none while paused", "none scheduled".
  * The kit never computes when an automation runs next.
  */
-export function nextRunLabel(s: Pick<AutomationSummary, "next_run_at" | "next_run_local" | "time_zone" | "status">, nowMs: number): string {
+export function nextRunLabel(s: Pick<AutomationSummary, "next_run_at" | "next_run_local" | "time_zone" | "status"> & { trigger?: Pick<TriggerBinding, "source_id"> | null }, nowMs: number): string {
   if (s.next_run_at && s.next_run_local) return `${formatServedLocal(s.next_run_local, s.time_zone)} (${relativeIn(s.next_run_at, nowMs)})`;
-  return s.status === "paused" ? "none while paused" : "none scheduled";
+  if (s.status === "paused") return "none while paused";
+  // Nothing to schedule: it runs when something arrives, or when someone asks (UX review 2026-10-25 #2).
+  if (s.status === "active" && s.trigger && isEventTrigger(s.trigger)) return NEXT_RUN_WORDS.event;
+  if (s.status === "active" && s.trigger?.source_id === "manual") return NEXT_RUN_WORDS.manual;
+  return "none scheduled";
 }
+
+/** "Next run" of an automation that has no clock. */
+export const NEXT_RUN_WORDS = {
+  event: "when something new arrives",
+  manual: "when someone presses Run now",
+} as const;
 
 /** "in 25 min", "in 3 h 5 min", "in 2 d 4 h", "due now" — from a served timestamp (`next_run_at`) only. */
 export function relativeIn(ts: string, nowMs: number): string {
@@ -702,11 +717,13 @@ export function isScheduleV2(trigger: Pick<TriggerBinding, "source_id" | "source
 /**
  * The served rule in words, verbatim (`schedule_rule_text`). A missing value
  * is a broken gateway seam (R16.1 serves it on every summary and preview): it
- * reads as the literal "schedule@2", never as a sentence the kit made up.
+ * reads as the plain "On a schedule" (UX review 2026-10-25: never a source id
+ * such as "schedule@2"), never as a rule sentence the kit made up.
  */
 export function servedRuleText(served: { schedule_rule_text?: string | null } | null | undefined, version: number = SCHEDULE_VERSION): string {
   const text = served?.schedule_rule_text;
-  return typeof text === "string" && text ? text : `schedule@${version}`;
+  void version;
+  return typeof text === "string" && text ? text : TRIGGER_WORDS_TEXT.schedule;
 }
 
 const SERVED_LOCAL_RE = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/;

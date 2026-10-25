@@ -131,8 +131,12 @@ import "@abstractframework/ui-kit/theme.css";
 
 The panel is controlled: it holds only view state (which form is open, the last notice) and
 renders what you pass. Optional props: `definition` (the `definition` of `GET /automations/{id}`;
-when given, the panel adds a collapsed "Definition" card and the Edit form also edits the task
-and tool approval), `renderText` and `renderTurn` (required in practice; see above),
+when given, the panel adds a collapsed "Details" card and the Edit form also edits the task
+and tool approval), `triggerConnections` and `mailboxes` (the client's `listTriggerConnections()`
+and `listMailboxes()`: the trigger then reads by name, "When Release notes has a new item", "When
+mail arrives in me@example.org"), `occurrenceEvents` (each run's `input_data.event` by run id, read
+by the host from `GET /runs/{id}/input_data`: the "what arrived" card), `workflowName` (the flow's
+name for a person, shown as **Flow**), `renderText` and `renderTurn` (required in practice; see above),
 `onOpenWorkspace(runId)` and `onOpenResource(resource)` (see below), `editOpen` /
 `onEditOpenChange(open)` (see [Edit](#edit)), `newId` (the id source for retry-safe ids, default
 `crypto.randomUUID`) and `className`.
@@ -140,28 +144,38 @@ and tool approval), `renderText` and `renderTurn` (required in practice; see abo
 ### What it shows
 
 - **Header** — title, state as a word then an icon ("Active ▶", "Paused ⏸"; Completed,
-  Failed and Archived likewise — `AutomationStateLabel`, the one rendering every client uses), trigger (every schedule — Repeat
+  Failed and Archived likewise — `AutomationStateLabel`, the one rendering every client uses), the
+  flow's name when the host passes `workflowName`, trigger in words (`triggerWords()`: every schedule — Repeat
   with its bounds, calendar, once, `schedule@1` rows too — is the served `schedule_rule_text`
-  verbatim: "Every 8 hours (UTC)", "Every day at 08:00 (Europe/Paris)"; "manual runs only"), context, "Now: Run #7
+  verbatim: "Every 8 hours (UTC)", "Every day at 08:00 (Europe/Paris)"; "By hand"; "When mail
+  arrives in me@example.org"; "When Release notes has a new item"; "When CI hook is called"; never
+  a source id), context, "Now: Run #7
   running" (only from `summary.current_occurrence`, never inferred from the last occurrence;
   "starting" while admitted, "waiting to retry" in backoff), next run as
   "2026-10-09 08:00 Europe/Paris (in 14 h)" (`nextRunLabel`: the served `next_run_local` cut to
   date and time — no clock or zone arithmetic — plus the relative time to the served
   `next_run_at`; an active scheduled automation carries them even while a run is in progress;
-  "none while paused" when paused), run count, the automation's workspace folder (`workspace_root`: a folder icon and the
-  whole path, wrapping at its `/`, `-` and `_` separators; the whole chip is a button calling
-  `onOpenWorkspace(automation_id)` when that prop is given — an automation's id is its
-  controller run), attention
-  ("2 unseen · 1 waiting for you"), revision, and a "Legacy schedule" marker for rows the Gateway
+  "none while paused" when paused; "when something new arrives" for a mailbox, feed or webhook
+  trigger, "when someone presses Run now" by hand), run count, **Files** (a "Browse its files"
+  button calling `onOpenWorkspace(automation_id)` when that prop is given — an automation's id is
+  its controller run; the folder's path is under Details), attention
+  ("2 unseen · 1 waiting for you"), and a "Legacy schedule" marker for rows the Gateway
   projects from older `scheduled:*` roots. When the Gateway does not list the automation's trigger
   source, or lists it with `available: false`, the header says so.
-- **Definition** (only with the `definition` prop) — a collapsed card right under the controls
-  ("Definition · revision N", one click to open): target workflow, task, trigger source and
-  config, context, tools (`tool_approval` auto / ask), retry policy and revision. The Edit form
+- **Details** (only with the `definition` prop) — a collapsed card right under the controls
+  ("Details · revision N", one click to open): target workflow id, task, trigger source and
+  config (and a mailbox trigger's filters in words), context, tools (`tool_approval` auto / ask),
+  retry policy, the automation's folder (whole path, wrapping at its separators) and revision. The Edit form
   takes its place while it is open.
 - **Needs attention** — the unseen notify and failure items, then the pending waits, labelled by
   kind ("Question for you", "Approval needed", "Waiting for an event").
-- **Occurrences** — one chat pair per run, oldest first. Quiet runs are subdued; notified, failed,
+- **Runs** — one chat pair per run, oldest first. The meta line reads "Run #3 · on schedule ·
+  today 08:00" (the time in the automation's served zone; the Gateway's trigger summary and the
+  UTC time are its tooltip). A run fed by something that arrived shows a card above its task —
+  "Release notes · 1 new item: “Release 0.13” · 15:13" (`occurrenceEventCard()` of the run's
+  `input_data.event`); when the run's text carries the automation's task verbatim, the turn shows
+  the task alone and the whole text the agent received (trigger header, framed events, JSON)
+  sits behind **What the agent received**. Quiet runs are subdued; notified, failed,
   waiting and running runs carry a badge ("Notified", "Failed after 3 attempts", "Waiting for you",
   "Running"). A run that succeeded after retries reads "completed after 2 attempts". A failed run
   shows its `failure` (`reason_code`, message, "after N attempts"). The answer turn lists the
@@ -597,7 +611,7 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `AfEmailTriggerFields`, `AfEmailOptionsFields` (with their `…Props`), `CONTROL_LABELS`,
   `CONTROL_ICONS` and `CONTROL_HINTS` (each control's name, kit icon and tooltip),
   `controlHint()`, `RUN_NOW_ONE_LINE`, `RUN_NOW_NEXT_RUN_LINE`, `RUN_NOW_GROWING_LINE`,
-  `RUN_NOW_GLYPH`, `DISCUSS_LABEL`,
+  `RUN_NOW_GLYPH`, `DISCUSS_LABEL` ("Discuss this run"), `RECEIVED_LABEL`,
   `STATUS_LABELS`, `STATUS_ICONS`, `plainTextRenderer` (the fallback), types `RenderText`,
   `RenderTurn`, `AutomationTurn`.
 - **When editor and time zone** (round 16): `AfCalendarRuleFields` (Daily / Weekly day chips /
@@ -609,11 +623,16 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `TIME_ZONE_GATEWAY_DEFAULT`).
 - **Client**: `createAutomationsClient()`, `AutomationApiError`, `parseApiError()`,
   `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`, `MY_EMAIL_PATH`, `SCHEDULE_PREVIEW_PATH`
-  (`previewSchedule(trigger)`); types `AutomationsClient`,
+  (`previewSchedule(trigger)`), `TRIGGER_CONNECTIONS_PATH` (`listTriggerConnections()`),
+  `MY_MAILBOXES_PATH` (`listMailboxes()`); types `AutomationsClient`, `TriggerConnection`, `Mailbox`,
   `AutomationsClientOptions`, `ListAutomationsQuery`, `PageQuery`.
 - **Presentation rules** (pure functions, no React): `automationControls()`
   (`ControlId`, `ControlState`), `activeToggleCommand()`, `CONTROL_COMMANDS`, `occurrenceViews()` (`OccurrenceView`,
-  `OccurrenceTone`), `attentionAckCursor()`, `attentionLabel()`, `triggerSummary()`,
+  `OccurrenceTone`), `attentionAckCursor()`, `attentionLabel()`, `triggerSummary()` (= `triggerWords()`),
+  triggers in words: `triggerWords(trigger, connections, mailboxes, served)`, `triggerSourceName()`,
+  `mailboxName()`, `connectionSentence()`, `connectionKind()`, `isEventTrigger()`,
+  `occurrenceEventCard()` (`OccurrenceEventCard`), `whenWords()` (a past instant in the served
+  zone: "15:13", "today 15:13", "yesterday 15:13"), `TRIGGER_WORDS_TEXT`, `NEXT_RUN_WORDS`,
   `scheduleLabel()`, `intervalLabel()`, `contextLabel()`, `formatUtc()`, `parseDuration()`,
   `reviseFormFrom()` and `reviseChanges()` (`ReviseForm`, `ReviseDefinition`), `buildCreateRequest()` (`ScheduleForm`, `ScheduleWhen`),
   `SCHEDULE_PRESETS`, `TOOL_APPROVAL_CONSENT`; schedules: `scheduleConfigFrom()`,

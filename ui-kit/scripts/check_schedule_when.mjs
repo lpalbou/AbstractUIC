@@ -102,9 +102,9 @@ const NOW = Date.parse("2026-09-27T06:35:00Z");
 check("nextRunLabel: served local + relative", kit.nextRunLabel(brief, NOW) === "2026-09-28 08:00 Europe/Paris (in 23 h 25 min)", kit.nextRunLabel(brief, NOW));
 check("nextRunLabel: paused / nothing scheduled", kit.nextRunLabel({ status: "paused" }, NOW) === "none while paused" && kit.nextRunLabel({ status: "active", next_fire_at: brief.next_fire_at }, NOW) === "none scheduled");
 check("triggerSummary(schedule@2) = served schedule_rule_text verbatim", kit.triggerSummary(brief.trigger, brief) === "Every day at 08:00 (Europe/Paris)");
-check("triggerSummary(schedule@2) without served text = the literal source", kit.triggerSummary(brief.trigger, {}) === "schedule@2");
+check("triggerSummary(schedule@2) without served text = plain words, never the source id", kit.triggerSummary(brief.trigger, {}) === "On a schedule");
 check("triggerSummary(schedule@2 every with bounds) = the served words verbatim", kit.triggerSummary({ source_id: "schedule", source_version: 2, config: { kind: "every", every: "8h", count: 3 } }, { schedule_rule_text: "Every 8 hours (UTC) · 3 runs max" }) === "Every 8 hours (UTC) · 3 runs max");
-check("triggerSummary(schedule@1) = the served words verbatim; absent = the literal source", kit.triggerSummary({ source_id: "schedule", source_version: 1, config: { every: "24h", until: "2026-12-31T23:00:00Z" } }, { schedule_rule_text: "Every 24 hours (UTC) · until Thu 31 Dec 2026 23:00" }) === "Every 24 hours (UTC) · until Thu 31 Dec 2026 23:00" && kit.triggerSummary({ source_id: "schedule", source_version: 1, config: { every: "24h" } }, {}) === "schedule@1");
+check("triggerSummary(schedule@1) = the served words verbatim; absent = plain words", kit.triggerSummary({ source_id: "schedule", source_version: 1, config: { every: "24h", until: "2026-12-31T23:00:00Z" } }, { schedule_rule_text: "Every 24 hours (UTC) · until Thu 31 Dec 2026 23:00" }) === "Every 24 hours (UTC) · until Thu 31 Dec 2026 23:00" && kit.triggerSummary({ source_id: "schedule", source_version: 1, config: { every: "24h" } }, {}) === "On a schedule");
 {
   const T2 = kit.SCHEDULE_TEXT;
   const noZone = ssr(h(kit.AfServedSchedule, { state: { phase: "ok", description: { ...preview, time_zone: "Europe/Paris", first_run_sentence: "Runs every 24 hours (UTC) · 3 runs max, first run now." } }, showZone: false }));
@@ -144,7 +144,10 @@ const files = [];
 const walk = (d) => { for (const n of readdirSync(d)) { const p = join(d, n); if (statSync(p).isDirectory()) walk(p); else if (/\.(ts|tsx)$/.test(n)) files.push(p); } };
 walk(join(root, "src"));
 const offenders = files.filter((f) => {
-  const src = readFileSync(f, "utf8");
+  // trigger_words.ts formats PAST instants (when something arrived) in the automation's SERVED zone
+  // with Intl.DateTimeFormat; the rest of the guard still applies to it.
+  const raw = readFileSync(f, "utf8");
+  const src = f.endsWith(join("automations", "trigger_words.ts")) ? raw.replace(/Intl\.DateTimeFormat\(/g, "") : raw;
   // A next run built from the trigger: anchor/start_at + k*every, or a wall time turned into a Date.
   return /next_fire_at|nextFire|anchor\s*\+|start_at\)\s*\+|\+\s*every|setHours\(|setUTCHours\(|Intl\.DateTimeFormat\(|getTimezoneOffset|resolvedOptions\(\)\.timeZone/.test(src.replace(/\/\/.*$|\/\*[\s\S]*?\*\//gm, "").replace(/next_fire_at\?: Timestamp;/, ""));
 });

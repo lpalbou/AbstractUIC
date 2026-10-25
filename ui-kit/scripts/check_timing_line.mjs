@@ -53,7 +53,8 @@ eq("never", automationTiming({ trigger: schedule("8h"), ...served("8h"), current
 eq("manual", automationTiming({ trigger: { binding_id: "b", source_id: "manual", source_version: 1, config: {} }, current_occurrence: null }, NOW).line, "manual · last never");
 eq("email", compactCadence({ binding_id: "b", source_id: "email.received", source_version: 1, config: {} }), "on new email");
 eq("once = served words", compactCadence(schedule(undefined), { schedule_rule_text: "Once at Sat 3 Oct 13:00 (UTC)" }), "Once at Sat 3 Oct 13:00 (UTC)");
-eq("schedule without served words = the literal source (a broken seam, never invented words)", compactCadence(schedule("24h"), {}), "schedule@1");
+eq("schedule without served words = plain words, never the source id or an invented rule", compactCadence(schedule("24h"), {}), "On a schedule");
+eq("a feed reads by its connection's name, never its source id", compactCadence({ source_id: "feed.item", source_version: 1, config: { connection_id: "c1" } }, {}, { connections: [{ connection_id: "c1", source_id: "feed.item", source_version: 1, label: "Release notes" }] }), "When Release notes has a new item");
 // Fired but not finished yet uses fired_at; an occurrence in flight says so.
 eq("fired only", lastRunText({ last_occurrence: { fired_at: iso(NOW - 5 * 60_000) } }, NOW), "last 5 min ago");
 // A pending approval is not "running": waiting since the occurrence fired, or no run part.
@@ -77,7 +78,7 @@ eq("v2 daily = served rule text", compactCadence(v2({ kind: "daily", at: "08:00"
 eq("v2 weekly = served rule text verbatim", automationTiming({ trigger: v2({ kind: "weekly", days: ["mon", "fri"], at: "07:30" }), schedule_rule_text: "Every Mon and Fri at 07:30 (Europe/Paris)", current_occurrence: null, next_run_at: iso(NOW + 26 * H) }, NOW).line, "Every Mon and Fri at 07:30 (Europe/Paris) · last never · next in 26 h");
 eq("v2 once = served rule text", compactCadence(v2({ kind: "once", at: "2026-10-09T08:00" }), { schedule_rule_text: "Once at Fri 9 Oct 08:00 (Europe/Paris)" }), "Once at Fri 9 Oct 08:00 (Europe/Paris)");
 eq("v2 every with bounds = the served words verbatim", compactCadence(v2({ kind: "every", every: "24h", count: 3 }), { schedule_rule_text: "Every 24 hours (UTC) · 3 runs max" }), "Every 24 hours (UTC) · 3 runs max");
-eq("v2 without served text = the literal source (a broken seam, never invented words)", compactCadence(v2({ kind: "daily", at: "08:00" }), {}), "schedule@2");
+eq("v2 without served text = plain words, never the source id or an invented rule", compactCadence(v2({ kind: "daily", at: "08:00" }), {}), "On a schedule");
 // Units: rounded down; 24 h stays hours; days from 48 h; no seconds anywhere.
 eq("<1 min", compactDuration(59_000), "<1 min");
 eq("min", compactDuration(59 * 60_000 + 59_000), "59 min");

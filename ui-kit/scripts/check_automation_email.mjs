@@ -81,7 +81,7 @@ const D = kit.DEFAULT_EMAIL_TRIGGER_FORM;
   check("max_batch range", kit.emailTriggerConfigFrom({ ...D, maxBatch: 1001 }).errors.length === 1 && kit.emailTriggerConfigFrom({ ...D, maxBatch: 0 }).errors.length === 1 && kit.emailTriggerConfigFrom({ ...D, maxBatch: 1000 }).errors.length === 0);
   check("subject: one line", kit.emailTriggerConfigFrom({ ...D, subjectContains: "a\nb" }).errors.length === 1);
   check("label", kit.emailTriggerLabel(f.config) === "when an email arrives · from boss@example.test, a@x.test, example.org · to me@example.test · subject contains “invoice” · with attachments · checked every 10 minutes · up to 20 per run", kit.emailTriggerLabel(f.config));
-  check("triggerSummary knows email.received@1", kit.triggerSummary({ source_id: "email.received", source_version: 1, config: { every: "1h" } }).startsWith("when an email arrives · checked every hour"));
+  check("triggerSummary knows email.received@1 (the mailbox by address)", kit.triggerSummary({ source_id: "email.received", source_version: 1, config: { every: "1h" } }) === "When mail arrives in your main mailbox" && kit.triggerSummary({ source_id: "email.received", source_version: 1, config: { account: "work" } }, null, { mailboxes: [{ account_id: "work", primary: false, address: "work@example.test" }] }) === "When mail arrives in work@example.test");
 }
 {
   check("recipients: only me", eq(kit.emailAllowedRecipientsFrom({ mode: "self", addresses: "x@y.test" }), { recipients: ["self"], errors: [] }));
@@ -220,7 +220,7 @@ const NOT_SET_UP_HTML = `Connect a mailbox first — `;
   check("readReviseForm reads the email fields", read.every === "3h" && read.notifyEmail === true && eq(read.emailRecipients, { mode: "list", addresses: "c@x.test" }), JSON.stringify(read));
   // Definition block.
   const block = renderToStaticMarkup(React.createElement(parts.AutomationDefinitionBlock, { definition: { schema_version: 2, revision: 2, title: "t", controller: { bundle_ref: "c@1", flow_id: "controller" }, target: { workflow_id: "w", ...def.target }, trigger: summary.trigger, context: { mode: "independent", growing: {} }, policy: { serial: true, misfire: "coalesce", failure: "continue", retry: { max_attempts: 3, backoff: { initial: "30s", factor: 2, max: "10m" } }, tool_approval: "auto", email_allowed_recipients: ["self", "boss@example.test"] }, notify: { channels: ["console", "email"], recipients: ["self", "boss@example.test"] }, session_id: "s", workspace_root: "/w", created_at: "2026-09-30T00:00:00Z", archived_at: null } }));
-  check("definition block: notify + may email + email trigger label", block.includes('data-def="notify">In the console and by email') && block.includes('data-def="email_recipients">Me and boss@example.test') && block.includes("email.received@1 · when an email arrives"));
+  check("definition block: notify + may email + email trigger label", block.includes('data-def="notify">In the console and by email') && block.includes('data-def="email_recipients">Me and boss@example.test') && block.includes("email.received@1 · When mail arrives in your main mailbox") && block.includes('data-def="email_rule">when an email arrives'));
 }
 
 // --- client ---------------------------------------------------------------------------------------

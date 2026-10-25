@@ -3006,8 +3006,12 @@ import "@abstractframework/ui-kit/theme.css";
 
 The panel is controlled: it holds only view state (which form is open, the last notice) and
 renders what you pass. Optional props: `definition` (the `definition` of `GET /automations/{id}`;
-when given, the panel adds a collapsed "Definition" card and the Edit form also edits the task
-and tool approval), `renderText` and `renderTurn` (required in practice; see above),
+when given, the panel adds a collapsed "Details" card and the Edit form also edits the task
+and tool approval), `triggerConnections` and `mailboxes` (the client's `listTriggerConnections()`
+and `listMailboxes()`: the trigger then reads by name, "When Release notes has a new item", "When
+mail arrives in me@example.org"), `occurrenceEvents` (each run's `input_data.event` by run id, read
+by the host from `GET /runs/{id}/input_data`: the "what arrived" card), `workflowName` (the flow's
+name for a person, shown as **Flow**), `renderText` and `renderTurn` (required in practice; see above),
 `onOpenWorkspace(runId)` and `onOpenResource(resource)` (see below), `editOpen` /
 `onEditOpenChange(open)` (see [Edit](#edit)), `newId` (the id source for retry-safe ids, default
 `crypto.randomUUID`) and `className`.
@@ -3015,28 +3019,38 @@ and tool approval), `renderText` and `renderTurn` (required in practice; see abo
 ### What it shows
 
 - **Header** — title, state as a word then an icon ("Active ▶", "Paused ⏸"; Completed,
-  Failed and Archived likewise — `AutomationStateLabel`, the one rendering every client uses), trigger (every schedule — Repeat
+  Failed and Archived likewise — `AutomationStateLabel`, the one rendering every client uses), the
+  flow's name when the host passes `workflowName`, trigger in words (`triggerWords()`: every schedule — Repeat
   with its bounds, calendar, once, `schedule@1` rows too — is the served `schedule_rule_text`
-  verbatim: "Every 8 hours (UTC)", "Every day at 08:00 (Europe/Paris)"; "manual runs only"), context, "Now: Run #7
+  verbatim: "Every 8 hours (UTC)", "Every day at 08:00 (Europe/Paris)"; "By hand"; "When mail
+  arrives in me@example.org"; "When Release notes has a new item"; "When CI hook is called"; never
+  a source id), context, "Now: Run #7
   running" (only from `summary.current_occurrence`, never inferred from the last occurrence;
   "starting" while admitted, "waiting to retry" in backoff), next run as
   "2026-10-09 08:00 Europe/Paris (in 14 h)" (`nextRunLabel`: the served `next_run_local` cut to
   date and time — no clock or zone arithmetic — plus the relative time to the served
   `next_run_at`; an active scheduled automation carries them even while a run is in progress;
-  "none while paused" when paused), run count, the automation's workspace folder (`workspace_root`: a folder icon and the
-  whole path, wrapping at its `/`, `-` and `_` separators; the whole chip is a button calling
-  `onOpenWorkspace(automation_id)` when that prop is given — an automation's id is its
-  controller run), attention
-  ("2 unseen · 1 waiting for you"), revision, and a "Legacy schedule" marker for rows the Gateway
+  "none while paused" when paused; "when something new arrives" for a mailbox, feed or webhook
+  trigger, "when someone presses Run now" by hand), run count, **Files** (a "Browse its files"
+  button calling `onOpenWorkspace(automation_id)` when that prop is given — an automation's id is
+  its controller run; the folder's path is under Details), attention
+  ("2 unseen · 1 waiting for you"), and a "Legacy schedule" marker for rows the Gateway
   projects from older `scheduled:*` roots. When the Gateway does not list the automation's trigger
   source, or lists it with `available: false`, the header says so.
-- **Definition** (only with the `definition` prop) — a collapsed card right under the controls
-  ("Definition · revision N", one click to open): target workflow, task, trigger source and
-  config, context, tools (`tool_approval` auto / ask), retry policy and revision. The Edit form
+- **Details** (only with the `definition` prop) — a collapsed card right under the controls
+  ("Details · revision N", one click to open): target workflow id, task, trigger source and
+  config (and a mailbox trigger's filters in words), context, tools (`tool_approval` auto / ask),
+  retry policy, the automation's folder (whole path, wrapping at its separators) and revision. The Edit form
   takes its place while it is open.
 - **Needs attention** — the unseen notify and failure items, then the pending waits, labelled by
   kind ("Question for you", "Approval needed", "Waiting for an event").
-- **Occurrences** — one chat pair per run, oldest first. Quiet runs are subdued; notified, failed,
+- **Runs** — one chat pair per run, oldest first. The meta line reads "Run #3 · on schedule ·
+  today 08:00" (the time in the automation's served zone; the Gateway's trigger summary and the
+  UTC time are its tooltip). A run fed by something that arrived shows a card above its task —
+  "Release notes · 1 new item: “Release 0.13” · 15:13" (`occurrenceEventCard()` of the run's
+  `input_data.event`); when the run's text carries the automation's task verbatim, the turn shows
+  the task alone and the whole text the agent received (trigger header, framed events, JSON)
+  sits behind **What the agent received**. Quiet runs are subdued; notified, failed,
   waiting and running runs carry a badge ("Notified", "Failed after 3 attempts", "Waiting for you",
   "Running"). A run that succeeded after retries reads "completed after 2 attempts". A failed run
   shows its `failure` (`reason_code`, message, "after N attempts"). The answer turn lists the
@@ -3472,7 +3486,7 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `AfEmailTriggerFields`, `AfEmailOptionsFields` (with their `…Props`), `CONTROL_LABELS`,
   `CONTROL_ICONS` and `CONTROL_HINTS` (each control's name, kit icon and tooltip),
   `controlHint()`, `RUN_NOW_ONE_LINE`, `RUN_NOW_NEXT_RUN_LINE`, `RUN_NOW_GROWING_LINE`,
-  `RUN_NOW_GLYPH`, `DISCUSS_LABEL`,
+  `RUN_NOW_GLYPH`, `DISCUSS_LABEL` ("Discuss this run"), `RECEIVED_LABEL`,
   `STATUS_LABELS`, `STATUS_ICONS`, `plainTextRenderer` (the fallback), types `RenderText`,
   `RenderTurn`, `AutomationTurn`.
 - **When editor and time zone** (round 16): `AfCalendarRuleFields` (Daily / Weekly day chips /
@@ -3484,11 +3498,16 @@ From `@abstractframework/ui-kit` (source: `ui-kit/src/automations/`):
   `TIME_ZONE_GATEWAY_DEFAULT`).
 - **Client**: `createAutomationsClient()`, `AutomationApiError`, `parseApiError()`,
   `AUTOMATIONS_PATH`, `TRIGGER_SOURCES_PATH`, `MY_EMAIL_PATH`, `SCHEDULE_PREVIEW_PATH`
-  (`previewSchedule(trigger)`); types `AutomationsClient`,
+  (`previewSchedule(trigger)`), `TRIGGER_CONNECTIONS_PATH` (`listTriggerConnections()`),
+  `MY_MAILBOXES_PATH` (`listMailboxes()`); types `AutomationsClient`, `TriggerConnection`, `Mailbox`,
   `AutomationsClientOptions`, `ListAutomationsQuery`, `PageQuery`.
 - **Presentation rules** (pure functions, no React): `automationControls()`
   (`ControlId`, `ControlState`), `activeToggleCommand()`, `CONTROL_COMMANDS`, `occurrenceViews()` (`OccurrenceView`,
-  `OccurrenceTone`), `attentionAckCursor()`, `attentionLabel()`, `triggerSummary()`,
+  `OccurrenceTone`), `attentionAckCursor()`, `attentionLabel()`, `triggerSummary()` (= `triggerWords()`),
+  triggers in words: `triggerWords(trigger, connections, mailboxes, served)`, `triggerSourceName()`,
+  `mailboxName()`, `connectionSentence()`, `connectionKind()`, `isEventTrigger()`,
+  `occurrenceEventCard()` (`OccurrenceEventCard`), `whenWords()` (a past instant in the served
+  zone: "15:13", "today 15:13", "yesterday 15:13"), `TRIGGER_WORDS_TEXT`, `NEXT_RUN_WORDS`,
   `scheduleLabel()`, `intervalLabel()`, `contextLabel()`, `formatUtc()`, `parseDuration()`,
   `reviseFormFrom()` and `reviseChanges()` (`ReviseForm`, `ReviseDefinition`), `buildCreateRequest()` (`ScheduleForm`, `ScheduleWhen`),
   `SCHEDULE_PRESETS`, `TOOL_APPROVAL_CONSENT`; schedules: `scheduleConfigFrom()`,
@@ -5302,7 +5321,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.8.7",
+  "version": "0.8.8",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -5343,7 +5362,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -5821,12 +5840,16 @@ export type {
   TriggerSourceEntry,
   TriggerSourceKind,
   TriggerSpec,
+  TriggerConnection,
+  Mailbox,
   WaitAnswer,
   WaitKind,
 } from "./automations/types.js";
 export {
   AUTOMATIONS_PATH,
   MY_EMAIL_PATH,
+  MY_MAILBOXES_PATH,
+  TRIGGER_CONNECTIONS_PATH,
   SCHEDULE_PREVIEW_PATH,
   TRIGGER_SOURCES_PATH,
   AutomationApiError,
@@ -5916,6 +5939,7 @@ export {
   isServedPreviewWhen,
   formatServedLocal,
   nextRunLabel,
+  NEXT_RUN_WORDS,
   WALL_DATETIME_RE,
   isCalendarWhen,
   scheduleTriggerFrom,
@@ -6021,6 +6045,20 @@ export { AutomationToolsPicker } from "./automations/automation_tools_picker.js"
 export { AutomationWorkflowPicker, type AutomationWorkflowPickerOptions } from "./automations/automation_workflow_picker.js";
 export { retargetAutomationInput, automationTargetValue } from "./automations/target_selection.js";
 export { prepareAutomationTarget } from "./automations/prepare_target.js";
+export {
+  TRIGGER_WORDS_TEXT,
+  connectionKind,
+  connectionOf,
+  connectionSentence,
+  isEventTrigger,
+  mailboxName,
+  occurrenceEventCard,
+  triggerConnectionId,
+  triggerSourceName,
+  triggerWords,
+  whenWords,
+  type OccurrenceEventCard,
+} from "./automations/trigger_words.js";
 export { automationTiming, compactCadence, compactDuration, lastRunText, nextRunText, type AutomationTiming } from "./automations/timing_line.js";
 export { triggerSourceProblem } from "./automations/AutomationPanel.js";
 // ui-kit 0.6.0 (round 4): rail drawer, file viewer, code highlighter, settings rows, voice section, relative time.
@@ -8182,7 +8220,8 @@ export type EmailFilter = {
  * `start_at` (mail that arrived before is never processed).
  */
 export type EmailReceivedConfig = {
-  account?: "self";
+  /** The mailbox read: "self" / "default" / absent = the primary one; otherwise a mailbox id of `GET /me/email/accounts`. */
+  account?: string;
   folder?: string;
   uses_model?: boolean;
   every?: Duration;
@@ -8204,6 +8243,41 @@ export type TriggerSource = {
 };
 /** A row of `GET /api/gateway/trigger-sources`. */
 export type TriggerSourceEntry = TriggerSource & { available: boolean; unavailable_reason?: string };
+
+/**
+ * One of the person's trigger connections (`GET /api/gateway/triggers/connections` →
+ * `connections`): a feed or a webhook they set up, named by its `label`. Never a secret.
+ */
+export type TriggerConnection = {
+  connection_id: string;
+  source_id: string;
+  source_version: number;
+  label: string;
+  status?: string;
+  /** "listening" | "idle" | "paused". */
+  listening?: string;
+  /** Active automations reading it. */
+  used_by?: number;
+  paused?: boolean;
+  last_event_at?: string | null;
+  last_error?: JsonObject | null;
+  [key: string]: unknown;
+};
+
+/**
+ * One of the person's mailboxes (`GET /api/gateway/me/email/accounts` → `items`): the primary
+ * (`account_id` "default") first. `can_read` = it can be watched by "When mail arrives".
+ */
+export type Mailbox = {
+  account_id: string;
+  primary: boolean;
+  address?: string;
+  configured?: boolean;
+  can_read?: boolean;
+  can_send?: boolean;
+  enabled?: boolean;
+  [key: string]: unknown;
+};
 
 export type AutomationStatus = "active" | "paused" | "completed" | "failed" | "archived";
 export type ContextMode = "independent" | "growing";
@@ -8472,10 +8546,12 @@ import type {
   CreateAutomationResponse,
   DiscussResponse,
   JsonObject,
+  Mailbox,
   MyEmailStatus,
   OccurrenceRow,
   Page,
   SchedulePreview,
+  TriggerConnection,
   TriggerSourceEntry,
   TriggerSpec,
 } from "./types.js";
@@ -8485,6 +8561,10 @@ export const AUTOMATIONS_PATH = gatewayApiPath("automations");
 export const TRIGGER_SOURCES_PATH = gatewayApiPath("trigger-sources");
 /** The signed-in user's own email account (framework backlog 0992 C2). */
 export const MY_EMAIL_PATH = gatewayApiPath("me/email");
+/** The signed-in user's mailboxes, the primary first (framework backlog 1044). */
+export const MY_MAILBOXES_PATH = gatewayApiPath("me/email/accounts");
+/** The signed-in user's trigger connections: feeds and webhooks, by name (framework backlog 1041). */
+export const TRIGGER_CONNECTIONS_PATH = gatewayApiPath("triggers/connections");
 /**
  * Round 16 (R16.1): the gateway describes a schedule without storing anything
  * (the dialog's sentence, next run and time zone for a calendar rule).
@@ -8562,6 +8642,13 @@ export type AutomationsClient = {
    */
   getMyEmail(): Promise<MyEmailStatus>;
   /**
+   * `GET /api/gateway/triggers/connections`: the user's feeds and webhooks, so a trigger reads by
+   * name ("When Release notes has a new item"). Optional for hand-written clients.
+   */
+  listTriggerConnections?(): Promise<{ connections: TriggerConnection[] }>;
+  /** `GET /api/gateway/me/email/accounts`: the user's mailboxes, so mail reads by address. Optional for hand-written clients. */
+  listMailboxes?(): Promise<{ items: Mailbox[] }>;
+  /**
    * The gateway's description of a trigger, nothing stored: `schedule_text`,
    * `next_run_at`, `next_run_local`, `time_zone` (round 16). AfScheduleDialog
    * and the Edit form show it verbatim for a calendar rule.
@@ -8629,6 +8716,8 @@ export function createAutomationsClient(options: AutomationsClientOptions): Auto
     listAttention: (id, q = {}) => call("GET", `${one(id)}/attention${query({ cursor: q.cursor, limit: q.limit })}`),
     listTriggerSources: () => call("GET", TRIGGER_SOURCES_PATH),
     getMyEmail: () => call("GET", MY_EMAIL_PATH),
+    listTriggerConnections: () => call("GET", TRIGGER_CONNECTIONS_PATH),
+    listMailboxes: () => call("GET", MY_MAILBOXES_PATH),
     previewSchedule: (trigger) => call("POST", SCHEDULE_PREVIEW_PATH, { trigger }),
   };
 }
@@ -8643,6 +8732,7 @@ import { automationTargetValue, retargetAutomationInput } from "./target_selecti
 // statuses, notify objects, waits, config fields — never model prose.
 import controlsSpec from "./automation_controls.json" with { type: "json" };
 import { randomId } from "../random_id.js";
+import { TRIGGER_WORDS_TEXT, isEventTrigger, triggerWords } from "./trigger_words.js";
 import type {
   ApiError,
   AutomationChanges,
@@ -8667,6 +8757,8 @@ import type {
   ToolApprovalPolicy,
   ToolCallToApprove,
   TriggerBinding,
+  TriggerConnection,
+  Mailbox,
 } from "./types.js";
 
 export const DURATION_RE = /^([1-9][0-9]*)([smhd])$/;
@@ -8718,12 +8810,14 @@ export function scheduleLabel(config: ScheduleConfig | JsonObject): string {
  * calendar or once row reads ONLY the gateway's served `schedule_rule_text` —
  * the kit never composes a calendar sentence, so every client says the same.
  */
-export function triggerSummary(trigger: Pick<TriggerBinding, "source_id" | "source_version" | "config">, served?: { schedule_rule_text?: string | null } | null): string {
-  // Every schedule row (schedule@1 or @2, every kind, with its bounds) reads the gateway's words.
-  if (trigger.source_id === "schedule") return servedRuleText(served, trigger.source_version);
-  if (trigger.source_id === "manual" && trigger.source_version === 1) return "manual runs only";
-  if (isEmailTrigger(trigger)) return emailTriggerLabel(trigger.config);
-  return `${trigger.source_id}@${trigger.source_version}`;
+export function triggerSummary(
+  trigger: Pick<TriggerBinding, "source_id" | "source_version" | "config">,
+  served?: { schedule_rule_text?: string | null } | null,
+  vocab?: { connections?: readonly TriggerConnection[] | null; mailboxes?: readonly Mailbox[] | null } | null,
+): string {
+  // One sentence for a person (UX review 2026-10-25 #2): the schedule's served words, "By hand",
+  // "When mail arrives in …", "When Release notes has a new item" — never a source id.
+  return triggerWords(trigger, vocab?.connections, vocab?.mailboxes, served);
 }
 
 export function contextLabel(mode: ContextMode): string {
@@ -8974,10 +9068,20 @@ export function currentOccurrenceLabel(summary: AutomationSummary): string | nul
  * SERVED `next_run_local` (cut) + `next_run_at` (relative), "none while paused", "none scheduled".
  * The kit never computes when an automation runs next.
  */
-export function nextRunLabel(s: Pick<AutomationSummary, "next_run_at" | "next_run_local" | "time_zone" | "status">, nowMs: number): string {
+export function nextRunLabel(s: Pick<AutomationSummary, "next_run_at" | "next_run_local" | "time_zone" | "status"> & { trigger?: Pick<TriggerBinding, "source_id"> | null }, nowMs: number): string {
   if (s.next_run_at && s.next_run_local) return `${formatServedLocal(s.next_run_local, s.time_zone)} (${relativeIn(s.next_run_at, nowMs)})`;
-  return s.status === "paused" ? "none while paused" : "none scheduled";
+  if (s.status === "paused") return "none while paused";
+  // Nothing to schedule: it runs when something arrives, or when someone asks (UX review 2026-10-25 #2).
+  if (s.status === "active" && s.trigger && isEventTrigger(s.trigger)) return NEXT_RUN_WORDS.event;
+  if (s.status === "active" && s.trigger?.source_id === "manual") return NEXT_RUN_WORDS.manual;
+  return "none scheduled";
 }
+
+/** "Next run" of an automation that has no clock. */
+export const NEXT_RUN_WORDS = {
+  event: "when something new arrives",
+  manual: "when someone presses Run now",
+} as const;
 
 /** "in 25 min", "in 3 h 5 min", "in 2 d 4 h", "due now" — from a served timestamp (`next_run_at`) only. */
 export function relativeIn(ts: string, nowMs: number): string {
@@ -9339,11 +9443,13 @@ export function isScheduleV2(trigger: Pick<TriggerBinding, "source_id" | "source
 /**
  * The served rule in words, verbatim (`schedule_rule_text`). A missing value
  * is a broken gateway seam (R16.1 serves it on every summary and preview): it
- * reads as the literal "schedule@2", never as a sentence the kit made up.
+ * reads as the plain "On a schedule" (UX review 2026-10-25: never a source id
+ * such as "schedule@2"), never as a rule sentence the kit made up.
  */
 export function servedRuleText(served: { schedule_rule_text?: string | null } | null | undefined, version: number = SCHEDULE_VERSION): string {
   const text = served?.schedule_rule_text;
-  return typeof text === "string" && text ? text : `schedule@${version}`;
+  void version;
+  return typeof text === "string" && text ? text : TRIGGER_WORDS_TEXT.schedule;
 }
 
 const SERVED_LOCAL_RE = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/;
@@ -16492,6 +16598,29 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## Unreleased
+
+### ui-kit 0.8.8
+
+- **Triggers in words** (UX review 2026-10-25, defect #2). New `triggerWords(trigger, connections,
+  mailboxes, served)`: a schedule is the Gateway's served sentence in the account's zone ("On a
+  schedule" without it), "By hand", "When mail arrives in me@example.org", "When Release notes has a
+  new item", "When CI hook is called" — never a source id. `triggerSummary()` and `compactCadence()`
+  use it (their `feed.item@1` / `schedule@2` fallbacks are gone; "manual runs only" reads "By hand").
+  `nextRunLabel()` says "when something new arrives" for a mailbox, feed or webhook trigger. The
+  client gains `listTriggerConnections()` (`GET /api/gateway/triggers/connections`) and
+  `listMailboxes()` (`GET /api/gateway/me/email/accounts`); types `TriggerConnection`, `Mailbox`.
+- **What arrived, above the task** (defect #3). `AutomationPanel` takes `occurrenceEvents` (each
+  run's `input_data.event`) and shows "Release notes · 1 new item: “Release 0.13” · 15:13"
+  (`occurrenceEventCard()`); a run whose text carries the task verbatim shows the task alone, the
+  raw text (trigger header, framed events, JSON) behind **What the agent received**. The run's
+  meta line reads "Run #3 · on schedule · today 08:00" (`whenWords()`, the served zone).
+- **No jargon in the person's view** (defects #4–#6). The panel header shows the flow's name
+  (`workflowName`, as **Flow**) instead of the target id, a **Files** button instead of the folder
+  path, and no revision; all three are under the collapsed **Details** card (was "Definition").
+  "Runs", "No runs yet.", "Load earlier runs", **Discuss this run** (was "Discuss — fork at this
+  occurrence …"), "a new conversation" instead of "session". New check `check_trigger_words`.
 
 ## 0.6.2 - 2026-10-15
 

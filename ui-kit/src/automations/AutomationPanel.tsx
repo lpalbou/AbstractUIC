@@ -19,6 +19,7 @@ import { AfSwitch, AfSwitchInput } from "../af_switch.js";
 import { AfEmailSetupNotice } from "./email_fields.js";
 import { AfCalendarRuleFields, AfServedSchedule, calendarRuleOf, calendarStateOf, type CalendarRuleState, type PreviewSchedule, useSchedulePreview, withCalendarRule } from "./schedule_when.js";
 import controlsSpec from "./automation_controls.json" with { type: "json" };
+import { occurrenceEventCard, whenWords, type OccurrenceEventCard } from "./trigger_words.js";
 import {
   apiErrorText,
   CALENDAR_KINDS,
@@ -35,6 +36,7 @@ import {
   GROWING_CONTEXT_HELP,
   EMAIL_TEXT,
   emailRecipientsLabel,
+  emailTriggerLabel,
   emailUsable,
   isEmailTrigger,
   notifyLabel,
@@ -69,11 +71,13 @@ import type {
   CommandReceipt,
   ContextMode,
   JsonObject,
+  Mailbox,
   MyEmailStatus,
   OccurrenceRow,
   OccurrenceWait,
   TriggerSourceEntry,
   TriggerSource,
+  TriggerConnection,
   ToolApprovalPolicy,
 } from "./types.js";
 
@@ -169,6 +173,23 @@ export type AutomationPanelProps = {
   /** The gateway's dry-run schedule description (the Edit form shows a calendar rule's served sentence and next run). */
   previewSchedule: PreviewSchedule;
   className?: string;
+  /**
+   * The user's feeds and webhooks (the client's `listTriggerConnections()`): the trigger reads by
+   * name ("When Release notes has a new item"). Absent = "When a feed has a new item".
+   */
+  triggerConnections?: readonly TriggerConnection[] | null;
+  /** The user's mailboxes (the client's `listMailboxes()`): "When mail arrives in me@example.org". */
+  mailboxes?: readonly Mailbox[] | null;
+  /**
+   * Each occurrence's `input_data.event` by run id (the host reads `GET /runs/{id}/input_data`):
+   * the card "Release notes · 1 new item: “…” · 15:13" above the task. Absent = no card.
+   */
+  occurrenceEvents?: Readonly<Record<string, unknown>>;
+  /**
+   * The flow's name for a person ("Release digest"). The header shows it as **Flow**; without it
+   * the header names no flow (the target's id stays under Details).
+   */
+  workflowName?: string;
 };
 
 /** Icon shown AFTER each state word ("Active ▶", "Paused ⏸"; operator 2026-09-28). */
@@ -220,7 +241,7 @@ export type AutomationTurn = {
 
 export type RenderTurn = (turn: AutomationTurn) => React.ReactNode;
 
-export const DISCUSS_LABEL = "Discuss — fork at this occurrence (own workspace, automation files read-only)";
+export const DISCUSS_LABEL = "Discuss this run";
 
 /**
  * Renders model/user text (occurrence turns, wait prompts, notify and
@@ -280,12 +301,15 @@ export function triggerSourceProblem(summary: AutomationSummary, sources: Array<
 }
 
 export function AutomationHeader(props: {
+  /** The flow's name for a person ("Release digest"): the **Flow** fact. Never the target's id. */
   workflowLabel?: string;
   summary: AutomationSummary;
   triggerSources: Array<TriggerSource | TriggerSourceEntry>;
   titleId?: string;
   nowMs?: number;
   onOpenWorkspace?(runId: string): void;
+  triggerConnections?: readonly TriggerConnection[] | null;
+  mailboxes?: readonly Mailbox[] | null;
 }): React.ReactElement {
   const s = props.summary;
   const current = currentOccurrenceLabel(s);
@@ -302,10 +326,10 @@ export function AutomationHeader(props: {
         {s.legacy ? <span className="af-auto__legacy">Legacy schedule</span> : null}
       </div>
       <dl className="af-auto__facts">
-        {props.workflowLabel ? <><dt>Workflow</dt><dd data-fact="workflow">{props.workflowLabel}</dd></> : null}
+        {props.workflowLabel ? <><dt>Flow</dt><dd data-fact="workflow">{props.workflowLabel}</dd></> : null}
         <dt>When</dt>
         <dd data-fact="trigger">
-          {triggerSummary(s.trigger, s)}
+          {triggerSummary(s.trigger, s, { connections: props.triggerConnections, mailboxes: props.mailboxes })}
           {problem ? (
             <span className="af-auto__warn" role="note">
               {" "}
@@ -327,28 +351,22 @@ export function AutomationHeader(props: {
         <dd data-fact="next">{next}</dd>
         <dt>Runs</dt>
         <dd data-fact="count">{s.occurrence_count}</dd>
-        {s.workspace_root ? (
+        {s.workspace_root && props.onOpenWorkspace ? (
           <>
-            <dt>Workspace</dt>
+            <dt>Files</dt>
             <dd data-fact="workspace" className="af-auto__workspace">
-              {props.onOpenWorkspace ? (
-                <button
-                  type="button"
-                  className="af-auto__path"
-                  data-action="open-workspace"
-                  title={`Browse the automation's folder\n${s.workspace_root}`}
-                  aria-label={`Browse the automation's folder ${s.workspace_root}`}
-                  onClick={() => props.onOpenWorkspace?.(s.automation_id)}
-                >
-                  <Icon name="folder" size={14} className="af-auto__path-icon" />
-                  <WrappingPath path={s.workspace_root} />
-                </button>
-              ) : (
-                <span className="af-auto__path af-auto__path--static">
-                  <Icon name="folder" size={14} className="af-auto__path-icon" />
-                  <WrappingPath path={s.workspace_root} />
-                </span>
-              )}
+              {/* The folder's path is under Details (UX review 2026-10-25 #4: no paths in the person's view). */}
+              <button
+                type="button"
+                className="af-auto__path"
+                data-action="open-workspace"
+                title={`Browse the automation's folder\n${s.workspace_root}`}
+                aria-label="Browse the automation's files"
+                onClick={() => props.onOpenWorkspace?.(s.automation_id)}
+              >
+                <Icon name="folder" size={14} className="af-auto__path-icon" />
+                <span>Browse its files</span>
+              </button>
             </dd>
           </>
         ) : null}
@@ -356,12 +374,6 @@ export function AutomationHeader(props: {
         <dd data-fact="attention" className={s.attention.unread || s.attention.pending_waits ? "is-notable" : undefined}>
           {attentionLabel(s)}
         </dd>
-        {s.revision !== null ? (
-          <>
-            <dt>Revision</dt>
-            <dd data-fact="revision">{s.revision}</dd>
-          </>
-        ) : null}
       </dl>
     </header>
   );
@@ -375,7 +387,15 @@ export function AutomationHeader(props: {
  * expanded): target workflow, task, trigger config, context, policy (incl.
  * tool approval) and revision.
  */
-export function AutomationDefinitionBlock(props: { definition: AutomationDefinition; renderText?: RenderText; open?: boolean; /** The summary's served `schedule_rule_text` (a schedule@2 rule reads only that). */ served?: Pick<AutomationSummary, "schedule_rule_text"> | null }): React.ReactElement {
+export function AutomationDefinitionBlock(props: {
+  definition: AutomationDefinition;
+  renderText?: RenderText;
+  open?: boolean;
+  /** The summary's served `schedule_rule_text` (a schedule@2 rule reads only that). */
+  served?: Pick<AutomationSummary, "schedule_rule_text"> | null;
+  triggerConnections?: readonly TriggerConnection[] | null;
+  mailboxes?: readonly Mailbox[] | null;
+}): React.ReactElement {
   const d = props.definition;
   const render = props.renderText ?? plainTextRenderer;
   const task = (d.target.input_data as { prompt?: unknown }).prompt;
@@ -386,7 +406,7 @@ export function AutomationDefinitionBlock(props: { definition: AutomationDefinit
       <summary>
         <Icon name="chevronRight" size={14} className="af-auto__definition-chevron" />
         <Icon name="file" size={14} />
-        <span className="af-auto__definition-title">Definition</span>
+        <span className="af-auto__definition-title">Details</span>
         <span className="af-auto__definition-meta">revision {d.revision}</span>
       </summary>
       <dl className="af-auto__facts">
@@ -402,7 +422,8 @@ export function AutomationDefinitionBlock(props: { definition: AutomationDefinit
         ) : null}
         <dt>Trigger</dt>
         <dd data-def="trigger">
-          {d.trigger.source_id}@{d.trigger.source_version} · {triggerSummary(d.trigger, props.served)}
+          {d.trigger.source_id}@{d.trigger.source_version} · {triggerSummary(d.trigger, props.served, { connections: props.triggerConnections, mailboxes: props.mailboxes })}
+          {isEmailTrigger(d.trigger) ? <div className="af-auto__hint" data-def="email_rule">{emailTriggerLabel(d.trigger.config)}</div> : null}
           <pre className="af-auto__json">{JSON.stringify(d.trigger.config, null, 2)}</pre>
         </dd>
         <dt>Context</dt>
@@ -417,6 +438,14 @@ export function AutomationDefinitionBlock(props: { definition: AutomationDefinit
         <dd data-def="retry">
           {retry.max_attempts} {retry.max_attempts === 1 ? "attempt" : "attempts"}, backoff {retry.backoff.initial} ×{retry.backoff.factor} up to {retry.backoff.max}
         </dd>
+        {d.workspace_root ? (
+          <>
+            <dt>Folder</dt>
+            <dd data-def="workspace">
+              <WrappingPath path={d.workspace_root} />
+            </dd>
+          </>
+        ) : null}
         <dt>Revision</dt>
         <dd data-def="revision">{d.revision}</dd>
       </dl>
@@ -884,7 +913,30 @@ export type OccurrencePairProps = {
   onOpenWorkspace?(runId: string): void;
   /** See `AutomationPanelProps.onOpenResource`. */
   onOpenResource?(resource: GatewayResource): void;
+  /** What arrived (`occurrenceEventCard` of the run's `input_data.event`): the card above the task. */
+  eventCard?: OccurrenceEventCard | null;
+  /**
+   * The automation's task (`definition.target.input_data.prompt`). When the occurrence's
+   * `user_turn` carries it verbatim, the turn shows the task alone and the whole text the agent
+   * received (trigger header, framed events) moves behind "What the agent received".
+   */
+  task?: string;
+  /** The automation's time zone (the summary's `time_zone`) for the run's time; default the viewer's. */
+  timeZone?: string;
+  nowMs?: number;
 };
+
+/** How a run started, in words, for its meta line ("Run #3 · on schedule · today 08:00"). */
+export function occurrenceStartWords(row: Pick<OccurrenceRow, "trigger">): string {
+  const source = String(row.trigger?.source_id || "");
+  if (source === "schedule") return "on schedule";
+  if (source === "manual") return "run by hand";
+  if (source.startsWith("email")) return "new mail";
+  return source ? "something arrived" : "";
+}
+
+/** The summary of the disclosure that holds the raw text an occurrence's agent received. */
+export const RECEIVED_LABEL = "What the agent received";
 
 function fieldValue(form: HTMLFormElement, name: string): string {
   const el = form.elements.namedItem(name) as { value?: string } | null;
@@ -1013,19 +1065,43 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
   const idBase = `af-auto-occ-${row.run_id}`;
   const render = p.renderText ?? plainTextRenderer;
   const discussOk = p.discuss.enabled && p.view.canDiscuss && !p.busy;
-  const discussWhy = !p.discuss.enabled ? p.discuss.reason ?? "Not available." : !p.view.canDiscuss ? "Available once this occurrence finishes." : null;
+  const discussWhy = !p.discuss.enabled ? p.discuss.reason ?? "Not available." : !p.view.canDiscuss ? "Available once this run finishes." : null;
   const turn = (kind: AutomationTurn["kind"], text: string) =>
     p.renderTurn ? p.renderTurn({ kind, role: kind === "trigger" ? "user" : "assistant", text, index: row.index, runId: row.run_id }) : render(text);
   const turnClass = p.renderTurn ? " af-auto-turn--card" : "";
+  // The task alone when the turn carries it verbatim (an exact substring: structure, not prose);
+  // the whole received text (trigger header, framed events, JSON) goes behind a disclosure.
+  const task = typeof p.task === "string" ? p.task.trim() : "";
+  const showTask = Boolean(task && row.user_turn && row.user_turn !== task && row.user_turn.includes(task));
+  const started = occurrenceStartWords(row);
+  const firedWords = whenWords(row.fired_at, { timeZone: p.timeZone, nowMs: p.nowMs, style: "day" });
   const empty =
     tone === "failed" ? (row.failure ? "No answer." : "No answer: the run failed.") : tone === "waiting" ? "Waiting for your answer." : tone === "running" ? "Running…" : "No answer.";
   return (
     <li className={`af-auto-occ af-auto-occ--${tone}`} data-index={row.index} data-tone={tone} aria-labelledby={`${idBase}-h`}>
       <div className={`af-auto-turn af-auto-turn--trigger${turnClass}`} data-turn="trigger">
-        <div className="af-auto-turn__meta" id={`${idBase}-h`}>
-          <span className="af-auto-turn__index">#{row.index}</span> · {row.trigger.summary} · fired {formatUtc(row.fired_at)}
+        <div className="af-auto-turn__meta" id={`${idBase}-h`} title={`${row.trigger.summary} · fired ${formatUtc(row.fired_at)}`}>
+          <span className="af-auto-turn__index">Run #{row.index}</span>
+          {started ? ` · ${started}` : ""}
+          {firedWords ? ` · ${firedWords}` : ""}
         </div>
-        <div className="af-auto-turn__text">{turn("trigger", row.user_turn)}</div>
+        {p.eventCard ? (
+          <div className="af-auto-event" data-event-card="true">
+            <Icon name="inbox" size={14} className="af-auto__btn-icon" />
+            <span className="af-auto-event__text">
+              <strong className="af-auto-event__source">{p.eventCard.source}</strong>
+              {p.eventCard.what ? <span> · {p.eventCard.what}</span> : null}
+              {p.eventCard.at ? <span className="af-auto-turn__muted"> · {p.eventCard.at}</span> : null}
+            </span>
+          </div>
+        ) : null}
+        <div className="af-auto-turn__text">{turn("trigger", showTask ? task : row.user_turn)}</div>
+        {showTask ? (
+          <details className="af-auto-received" data-received="true">
+            <summary>{RECEIVED_LABEL}</summary>
+            <div className="af-auto-received__body">{render(row.user_turn)}</div>
+          </details>
+        ) : null}
       </div>
       <div className={`af-auto-turn af-auto-turn--answer${turnClass}`} data-turn="answer">
         <div className="af-auto-turn__meta">
@@ -1108,7 +1184,7 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
         {p.discussOpen ? (
           <form
             className="af-auto-discuss"
-            aria-label={`${DISCUSS_LABEL}, from occurrence ${row.index}`}
+            aria-label={`${DISCUSS_LABEL}, from run ${row.index}`}
             onSubmit={(e) => {
               e.preventDefault();
               const v = fieldValue(e.currentTarget, "prompt");
@@ -1116,7 +1192,7 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
             }}
           >
             <p className="af-auto__hint">
-              Starts a new session that forks this automation at #{row.index} with its full history (runs 1–{row.index}). It works in its own writable workspace; the automation's files are mounted read-only for the file tools (shell commands are not sandboxed), and nothing is written back into the automation's session.
+              Starts a new conversation from run #{row.index} with the automation's whole history (runs 1–{row.index}). It works in its own folder; the automation's files can be read but not changed (by the file tools; shell commands are not sandboxed), and nothing is written back into the automation.
             </p>
             <textarea name="prompt" rows={3} aria-label="Your message" placeholder="Ask about this result…" required />
             <div className="af-auto__row">
@@ -1269,6 +1345,11 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
 
   const controls = automationControls(summary, props.occurrences, busy);
   const views = occurrenceViews(props.occurrences);
+  const task = (props.definition?.target.input_data as { prompt?: unknown } | undefined)?.prompt;
+  const eventCardOf = (runId: string): OccurrenceEventCard | null =>
+    props.occurrenceEvents && runId in props.occurrenceEvents
+      ? occurrenceEventCard(props.occurrenceEvents[runId], { trigger: summary.trigger, connections: props.triggerConnections, mailboxes: props.mailboxes, timeZone: summary.time_zone, nowMs: props.nowMs })
+      : null;
   const more = summary.occurrence_count - props.occurrences.length;
   const shownError = localError ?? props.error ?? null;
   const errText = shownError ? apiErrorText(shownError) : null;
@@ -1277,7 +1358,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
   return (
     <section ref={rootRef} className={`af-auto${props.className ? ` ${props.className}` : ""}`} {...(props.hideHeader ? { "aria-label": summary.title } : { "aria-labelledby": titleId })} aria-busy={busy} data-text-rendering={props.renderText ? "rich" : "unformatted"}>
       {props.hideHeader ? null : <>
-      <AutomationHeader summary={summary} workflowLabel={props.definition?.target.workflow_id} triggerSources={props.triggerSources} titleId={titleId} nowMs={props.nowMs} onOpenWorkspace={props.onOpenWorkspace} />
+      <AutomationHeader summary={summary} workflowLabel={props.workflowName} triggerSources={props.triggerSources} titleId={titleId} nowMs={props.nowMs} onOpenWorkspace={props.onOpenWorkspace} triggerConnections={props.triggerConnections} mailboxes={props.mailboxes} />
       <AutomationControlsBar
         summary={summary}
         occurrences={props.occurrences}
@@ -1345,7 +1426,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
           }}
         />
       ) : props.definition ? (
-        <AutomationDefinitionBlock definition={props.definition} renderText={render} served={summary} />
+        <AutomationDefinitionBlock definition={props.definition} renderText={render} served={summary} triggerConnections={props.triggerConnections} mailboxes={props.mailboxes} />
       ) : null}
       {errText ? (
         <div className="af-auto__error" role="alert" data-code={shownError?.code}>
@@ -1384,11 +1465,11 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
       ) : null}
       {more > 0 ? (
         <button type="button" className="af-auto__btn af-auto__more" data-action="load-more" disabled={busy} onClick={props.onLoadMore}>
-          <IconLabel icon="history" label={`Load earlier occurrences (${more} more)`} />
+          <IconLabel icon="history" label={`Load earlier runs (${more} more)`} />
         </button>
       ) : null}
       {views.length ? (
-        <ol className="af-auto__timeline" aria-label="Occurrences">
+        <ol className="af-auto__timeline" aria-label="Runs">
           {views.map((v) => {
             const rowSel = `[data-index="${v.row.index}"]`;
             return (
@@ -1396,6 +1477,10 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
                 key={v.row.run_id}
                 view={v}
                 busy={busy}
+                eventCard={eventCardOf(v.row.run_id)}
+                task={typeof task === "string" ? task : undefined}
+                timeZone={summary.time_zone}
+                nowMs={props.nowMs}
                 discuss={controls.discuss}
                 renderText={render}
                 renderTurn={props.renderTurn}
@@ -1425,9 +1510,9 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
                   setFocusAfter([`${rowSel} [data-action="discuss"]`]);
                 }}
                 onDiscussSubmit={(index, prompt) =>
-                  act(`discuss:${index}:${prompt}`, (request_id) => props.onDiscuss(index, prompt, { request_id }), (r) => {
+                  act(`discuss:${index}:${prompt}`, (request_id) => props.onDiscuss(index, prompt, { request_id }), () => {
                     setDiscussAt(null);
-                    setNotice(`Discussion started (session ${r.session_id}).`);
+                    setNotice("Discussion started in a new conversation.");
                     setFocusAfter([`${rowSel} [data-action="discuss"]`]);
                   })
                 }
@@ -1436,7 +1521,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
           })}
         </ol>
       ) : (
-        <p className="af-auto__empty">No occurrences yet.</p>
+        <p className="af-auto__empty">No runs yet.</p>
       )}
     </section>
   );

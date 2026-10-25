@@ -207,12 +207,16 @@ export type {
   TriggerSourceEntry,
   TriggerSourceKind,
   TriggerSpec,
+  TriggerConnection,
+  Mailbox,
   WaitAnswer,
   WaitKind,
 } from "./automations/types.js";
 export {
   AUTOMATIONS_PATH,
   MY_EMAIL_PATH,
+  MY_MAILBOXES_PATH,
+  TRIGGER_CONNECTIONS_PATH,
   SCHEDULE_PREVIEW_PATH,
   TRIGGER_SOURCES_PATH,
   AutomationApiError,
@@ -302,6 +306,7 @@ export {
   isServedPreviewWhen,
   formatServedLocal,
   nextRunLabel,
+  NEXT_RUN_WORDS,
   WALL_DATETIME_RE,
   isCalendarWhen,
   scheduleTriggerFrom,
@@ -407,6 +412,20 @@ export { AutomationToolsPicker } from "./automations/automation_tools_picker.js"
 export { AutomationWorkflowPicker, type AutomationWorkflowPickerOptions } from "./automations/automation_workflow_picker.js";
 export { retargetAutomationInput, automationTargetValue } from "./automations/target_selection.js";
 export { prepareAutomationTarget } from "./automations/prepare_target.js";
+export {
+  TRIGGER_WORDS_TEXT,
+  connectionKind,
+  connectionOf,
+  connectionSentence,
+  isEventTrigger,
+  mailboxName,
+  occurrenceEventCard,
+  triggerConnectionId,
+  triggerSourceName,
+  triggerWords,
+  whenWords,
+  type OccurrenceEventCard,
+} from "./automations/trigger_words.js";
 export { automationTiming, compactCadence, compactDuration, lastRunText, nextRunText, type AutomationTiming } from "./automations/timing_line.js";
 export { triggerSourceProblem } from "./automations/AutomationPanel.js";
 // ui-kit 0.6.0 (round 4): rail drawer, file viewer, code highlighter, settings rows, voice section, relative time.

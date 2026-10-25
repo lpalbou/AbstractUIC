@@ -107,7 +107,8 @@ export type EmailFilter = {
  * `start_at` (mail that arrived before is never processed).
  */
 export type EmailReceivedConfig = {
-  account?: "self";
+  /** The mailbox read: "self" / "default" / absent = the primary one; otherwise a mailbox id of `GET /me/email/accounts`. */
+  account?: string;
   folder?: string;
   uses_model?: boolean;
   every?: Duration;
@@ -129,6 +130,41 @@ export type TriggerSource = {
 };
 /** A row of `GET /api/gateway/trigger-sources`. */
 export type TriggerSourceEntry = TriggerSource & { available: boolean; unavailable_reason?: string };
+
+/**
+ * One of the person's trigger connections (`GET /api/gateway/triggers/connections` →
+ * `connections`): a feed or a webhook they set up, named by its `label`. Never a secret.
+ */
+export type TriggerConnection = {
+  connection_id: string;
+  source_id: string;
+  source_version: number;
+  label: string;
+  status?: string;
+  /** "listening" | "idle" | "paused". */
+  listening?: string;
+  /** Active automations reading it. */
+  used_by?: number;
+  paused?: boolean;
+  last_event_at?: string | null;
+  last_error?: JsonObject | null;
+  [key: string]: unknown;
+};
+
+/**
+ * One of the person's mailboxes (`GET /api/gateway/me/email/accounts` → `items`): the primary
+ * (`account_id` "default") first. `can_read` = it can be watched by "When mail arrives".
+ */
+export type Mailbox = {
+  account_id: string;
+  primary: boolean;
+  address?: string;
+  configured?: boolean;
+  can_read?: boolean;
+  can_send?: boolean;
+  enabled?: boolean;
+  [key: string]: unknown;
+};
 
 export type AutomationStatus = "active" | "paused" | "completed" | "failed" | "archived";
 export type ContextMode = "independent" | "growing";

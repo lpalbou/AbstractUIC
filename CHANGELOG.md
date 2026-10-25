@@ -7,6 +7,29 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## Unreleased
+
+### ui-kit 0.8.8
+
+- **Triggers in words** (UX review 2026-10-25, defect #2). New `triggerWords(trigger, connections,
+  mailboxes, served)`: a schedule is the Gateway's served sentence in the account's zone ("On a
+  schedule" without it), "By hand", "When mail arrives in me@example.org", "When Release notes has a
+  new item", "When CI hook is called" — never a source id. `triggerSummary()` and `compactCadence()`
+  use it (their `feed.item@1` / `schedule@2` fallbacks are gone; "manual runs only" reads "By hand").
+  `nextRunLabel()` says "when something new arrives" for a mailbox, feed or webhook trigger. The
+  client gains `listTriggerConnections()` (`GET /api/gateway/triggers/connections`) and
+  `listMailboxes()` (`GET /api/gateway/me/email/accounts`); types `TriggerConnection`, `Mailbox`.
+- **What arrived, above the task** (defect #3). `AutomationPanel` takes `occurrenceEvents` (each
+  run's `input_data.event`) and shows "Release notes · 1 new item: “Release 0.13” · 15:13"
+  (`occurrenceEventCard()`); a run whose text carries the task verbatim shows the task alone, the
+  raw text (trigger header, framed events, JSON) behind **What the agent received**. The run's
+  meta line reads "Run #3 · on schedule · today 08:00" (`whenWords()`, the served zone).
+- **No jargon in the person's view** (defects #4–#6). The panel header shows the flow's name
+  (`workflowName`, as **Flow**) instead of the target id, a **Files** button instead of the folder
+  path, and no revision; all three are under the collapsed **Details** card (was "Definition").
+  "Runs", "No runs yet.", "Load earlier runs", **Discuss this run** (was "Discuss — fork at this
+  occurrence …"), "a new conversation" instead of "session". New check `check_trigger_words`.
+
 ## 0.6.2 - 2026-10-15
 
 

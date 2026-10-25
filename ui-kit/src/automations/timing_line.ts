@@ -6,7 +6,8 @@
 // summary's `schedule_text`, the next run comes from `next_run_at` — the kit
 // never computes when an automation runs next.
 import { isEmailTrigger, servedRuleText } from "./panel_core.js";
-import type { AutomationSummary } from "./types.js";
+import { triggerWords } from "./trigger_words.js";
+import type { AutomationSummary, Mailbox, TriggerConnection } from "./types.js";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -29,14 +30,19 @@ export function compactDuration(ms: number): string {
 /**
  * The trigger part of the line: a schedule (schedule@1 or @2, any kind, bounds included) is the
  * gateway's `schedule_rule_text` verbatim ("Every 24 hours (UTC)", "Every day at 08:00
- * (Europe/Paris)"); otherwise "manual" or "on new email".
+ * (Europe/Paris)"); otherwise "manual", "on new email", or a feed / webhook by name (`triggerWords`).
  */
-export function compactCadence(trigger: AutomationSummary["trigger"], served?: Pick<AutomationSummary, "schedule_rule_text"> | null): string {
+export function compactCadence(
+  trigger: AutomationSummary["trigger"],
+  served?: Pick<AutomationSummary, "schedule_rule_text"> | null,
+  vocab?: { connections?: readonly TriggerConnection[] | null; mailboxes?: readonly Mailbox[] | null } | null,
+): string {
   // Every schedule row reads the gateway's own words (schedule_rule_text), bounds included.
   if (trigger.source_id === "schedule") return servedRuleText(served, trigger.source_version);
   if (trigger.source_id === "manual") return "manual";
   if (isEmailTrigger(trigger)) return "on new email";
-  return trigger.source_id;
+  // A feed or a webhook by its name ("When Release notes has a new item"), never its source id.
+  return triggerWords(trigger, vocab?.connections, vocab?.mailboxes, served);
 }
 
 function parsed(ts: string | undefined | null): number | null {

@@ -123,7 +123,7 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("tool_approval wait: Approve and Deny, no free text", enabled(chunks[6], "wait-approve") && enabled(chunks[6], "wait-deny") && (chunks[6].match(/aria-label="Your answer"/g) || []).length === 1);
   check("no wait controls on other occurrences", chunks.filter((c, i) => i !== 6).every((c) => !c.includes("af-auto-wait")));
   check("every pair has expandable run details with Open run ledger (and no raw ledger href)", chunks.every((c) => c.includes("<details class=\"af-auto-occ__details\"><summary>Run details</summary>") && c.includes('data-action="open-run"') && !/href="\/api\//.test(c)));
-  check("Discuss labelled as a fork at this occurrence (own workspace, automation files read-only)", mailHtml.includes(`<span>${esc(DISCUSS_LABEL)}</span></button>`) && DISCUSS_LABEL === "Discuss — fork at this occurrence (own workspace, automation files read-only)");
+  check("Discuss labelled in plain words (the fork's details are its hint)", mailHtml.includes(`<span>${esc(DISCUSS_LABEL)}</span></button>`) && DISCUSS_LABEL === "Discuss this run");
   check("no stale 'read-only workspace' wording", !mailHtml.includes("read-only workspace") && !mailHtml.includes("forked session"));
   check("Discuss disabled on the waiting occurrence only", chunks.every((c, i) => (/data-action="discuss" disabled=""/.test(c)) === (i === 6)));
   check("header: the served rule (Every 30 minutes (UTC)), growing, next run", mailHtml.includes(">Every 30 minutes (UTC)</dd>") && mailHtml.includes("Growing — each run sees the previous runs") && mailHtml.includes('data-fact="next">2026-09-27 09:00 Europe/Paris (in 25 min)</dd>'));
@@ -148,13 +148,15 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("news: a different served next_run_local/at changes the Next run fact", panel({ summary: { ...news, next_run_local: "2026-09-27T11:30:00+02:00", next_run_at: "2026-09-27T09:30:00+00:00" } }).includes('data-fact="next">2026-09-27 11:30 Europe/Paris (in 2 h 55 min)</dd>'));
   check("news: next_fire_at without the served fields = none scheduled (never computed)", panel({ summary: { ...news, next_run_local: undefined, next_run_at: undefined } }).includes('data-fact="next">none scheduled</dd>'));
   check("news: nothing in flight → no 'Now' fact", !html.includes('data-fact="current"'));
-  const ws = (/<dd data-fact="workspace"[^]*?<\/dd>/.exec(html) || [""])[0];
-  check("news: workspace shown, folder icon + whole path (no control without onOpenWorkspace)", ws.startsWith('<dd data-fact="workspace" class="af-auto__workspace"><span class="af-auto__path af-auto__path--static"><svg') && ws.replace(/<[^>]+>/g, "") === news.workspace_root && button(html, "open-workspace") === null);
-  check("news: the path wraps at its separators (<wbr> after each /), text unchanged", ws.includes("/<wbr/>") && ws.includes("-<wbr/>"));
+  // UX review 2026-10-25 #4: no folder path, revision or workflow id in the header (they are under Details).
+  check("news: no folder path, revision or target id in the header without onOpenWorkspace", !html.includes('data-fact="workspace"') && !html.includes(news.workspace_root) && !html.includes('data-fact="revision"') && !html.includes('data-fact="workflow"') && button(html, "open-workspace") === null);
+  const wpath = renderToStaticMarkup(React.createElement(parts.WrappingPath, { path: news.workspace_root }));
+  check("WrappingPath: the path wraps at its separators (<wbr> after each /), text unchanged", wpath.includes("/<wbr/>") && wpath.includes("-<wbr/>") && wpath.replace(/<[^>]+>/g, "") === news.workspace_root);
+  check("news: the flow's name when the host gives it (Flow), never the target id", panel({ summary: news, workflowName: "Release digest" }).includes('<dt>Flow</dt><dd data-fact="workflow">Release digest</dd>'));
   check("news: attention quiet", html.includes('data-fact="attention">nothing new</dd>') && !html.includes("af-auto__attention\""));
   check("news: Active switch on and available, run now enabled, stop current disabled", toggleOn(html) && toggleAvailable(html) && enabled(html, "run_now") && !enabled(html, "stop_current"));
-  check("news: load more (6 more)", enabled(html, "load-more") && html.includes("Load earlier occurrences (6 more)"));
-  check("news: no occurrences text", html.includes("No occurrences yet."));
+  check("news: load more (6 more)", enabled(html, "load-more") && html.includes("Load earlier runs (6 more)"));
+  check("news: no runs text", html.includes("No runs yet."));
 }
 
 // --- current_occurrence / next_fire_at (runtime 64ee72a) --------------------------------------
@@ -291,7 +293,7 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   dform.props.onSubmit(fakeSubmit("Draft the reply to Clara.", "prompt"));
   check("discuss submit → onDiscuss(2, prompt)", eq(got.at(-1), ["discuss", 2, "Draft the reply to Clara."]));
   const dhtml = renderToStaticMarkup(open2);
-  check("discuss form help text is the exact shared sentence (file-tools-only mount; shell not sandboxed)", dhtml.includes(esc("Starts a new session that forks this automation at #2 with its full history (runs 1–2). It works in its own writable workspace; the automation's files are mounted read-only for the file tools (shell commands are not sandboxed), and nothing is written back into the automation's session.")) && dhtml.includes(`aria-label="${esc(DISCUSS_LABEL)}, from occurrence 2"`), dhtml.slice(0, 400));
+  check("discuss form help text is the exact shared sentence (file-tools-only mount; shell not sandboxed)", dhtml.includes(esc("Starts a new conversation from run #2 with the automation's whole history (runs 1–2). It works in its own folder; the automation's files can be read but not changed (by the file tools; shell commands are not sandboxed), and nothing is written back into the automation.")) && dhtml.includes(`aria-label="${esc(DISCUSS_LABEL)}, from run 2"`), dhtml.slice(0, 400));
 }
 
 // --- state label: WORD then ICON, one rendering for every client (operator 2026-09-28) --------
@@ -322,7 +324,7 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   const opened = [];
   const hdr = AutomationHeader({ summary: news, triggerSources: sources, nowMs: NOW, onOpenWorkspace: (id) => opened.push(id) });
   const hbtn = byAction(hdr, "open-workspace");
-  check("header: folder button on the Workspace fact", hbtn.length === 1 && find(hbtn[0], (n) => n.type === "svg").length === 1 && hbtn[0].props["aria-label"] === `Browse the automation's folder ${news.workspace_root}`);
+  check("header: folder button on the Files fact (the path only in its tooltip)", hbtn.length === 1 && find(hbtn[0], (n) => n.type === "svg").length === 1 && hbtn[0].props["aria-label"] === "Browse the automation's files" && String(hbtn[0].props.title).endsWith(news.workspace_root));
   hbtn[0].props.onClick();
   check("header folder → onOpenWorkspace(automation_id)", eq(opened, [news.automation_id]));
   const views = kit.occurrenceViews(occ);
@@ -440,7 +442,7 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   check("label 7d", L({ every: "7d" }) === "every 7 days (UTC)");
   check("label once", L({ start_at: "2026-09-28T08:00:00Z" }) === "once at 2026-09-28 08:00 UTC");
   check("label until", L({ every: "2m", until: "2026-09-28T00:00:00Z" }) === "every 2 minutes (UTC) · until 2026-09-28 00:00 UTC");
-  check("manual trigger summary", kit.triggerSummary({ source_id: "manual", source_version: 1, config: {} }) === "manual runs only");
+  check("manual trigger summary", kit.triggerSummary({ source_id: "manual", source_version: 1, config: {} }) === "By hand");
   const all = [mailHtml, panel({ summary: news }), panel({ summary: jour })].join("");
   check("no calendar/local wording anywhere", !/daily|local time| local\b|o'clock/i.test(all));
 }
@@ -513,7 +515,7 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   check("legacy → every Discuss disabled with a reason", discussEnabled(legacyRows).every((e) => !e) && legacyRows.includes("Legacy schedule: discussion is not available."));
   const archivedRows = panel({ summary: { ...mail, status: "archived" }, occurrences: occ });
   check("archived keeps Discuss on finished occurrences", eq(discussEnabled(archivedRows), [true, true, true, true, true, true, false]));
-  check("waiting row: Discuss reason is visible", mailHtml.includes(">Available once this occurrence finishes.</span>"));
+  check("waiting row: Discuss reason is visible", mailHtml.includes(">Available once this run finishes.</span>"));
 }
 
 // --- F5: visible reasons for disabled controls (aria-describedby) --------------------------
@@ -876,7 +878,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   };
   const html = panel({ summary: news, occurrences: [], definition });
   const block = (html.match(/<details class="af-auto__definition"[\s\S]*?<\/details>/) || [""])[0];
-  check("definition: collapsed card, chevron + icon + 'Definition' + its revision", /^<details class="af-auto__definition" data-definition-revision="1"><summary><svg[^]*?<\/svg><svg[^]*?<\/svg><span class="af-auto__definition-title">Definition<\/span><span class="af-auto__definition-meta">revision 1<\/span><\/summary>/.test(block), block.slice(0, 300));
+  check("definition: collapsed card, chevron + icon + 'Details' + its revision", /^<details class="af-auto__definition" data-definition-revision="1"><summary><svg[^]*?<\/svg><svg[^]*?<\/svg><span class="af-auto__definition-title">Details<\/span><span class="af-auto__definition-meta">revision 1<\/span><\/summary>/.test(block), block.slice(0, 300));
   check("definition: target workflow", block.includes('data-def="target"><code>basic-agent@0.1.0:main</code>'));
   check("definition: trigger source + label + config", block.includes('data-def="trigger">schedule@1 · Every 8 hours (UTC)') && block.includes(esc(JSON.stringify(news.trigger.config, null, 2))));
   check("definition: context", block.includes('data-def="context">Independent — each run starts fresh'));
