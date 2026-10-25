@@ -68,6 +68,7 @@ eq("schedule without served words", W({ source_id: "schedule", source_version: 2
 eq("an unknown source that arrives", W({ source_id: "sensor.reading", source_version: 3, config: {} }), "When something arrives");
 const all = [W(feed), W(hook), W(mail), W(feed, connections), W({ source_id: "schedule", source_version: 2, config: {} }), W({ source_id: "sensor.reading", source_version: 3, config: {} })];
 check("no source id or version in any sentence", all.every((t) => !/@\d|feed\.item|webhook\.received|email\.received|schedule@/.test(t)), all.join(" | "));
+eq("the gateway's served trigger_text wins; absent or empty → the helper", [W(feed, null, null, { trigger_text: "When Python news has a new item" }), W(feed, connections, null, { trigger_text: "" }), kit.triggerSummary(feed, { trigger_text: "When Python news has a new item" })], ["When Python news has a new item", "When Release notes has a new item", "When Python news has a new item"]);
 eq("isEventTrigger", [kit.isEventTrigger(feed), kit.isEventTrigger(mail), kit.isEventTrigger({ source_id: "schedule" }), kit.isEventTrigger({ source_id: "manual" }), kit.isEventTrigger(null)], [true, true, false, false, false]);
 eq("triggerSummary is the same words (served schedule, vocab)", kit.triggerSummary(feed, null, { connections }), "When Release notes has a new item");
 

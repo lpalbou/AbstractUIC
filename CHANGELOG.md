@@ -46,6 +46,9 @@ ships.
 - **Run card** (re-review #14): no empty Trigger bubble for a flow that reads only what arrived;
   the answer line uses the run's time format ("completed · today 17:29", UTC in its tooltip); a
   console test (every event `data.test === true`) reads **Test event**.
+- **The gateway's words win** (AbstractGateway 1613d05c): `triggerWords` / `triggerSummary` use the
+  summary's served `trigger_text` when present (the helper is the fallback), and the picker lists
+  an entrypoint the gateway marks `triggerable: true` (`entry.triggerable`).
 
 ## 0.6.2 - 2026-10-15
 

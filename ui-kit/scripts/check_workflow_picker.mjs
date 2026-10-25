@@ -184,6 +184,7 @@ check("any: its detail is the trigger in words", workflowPickerRows(trigList).fi
 check("any: without automation defaults it stays out", !parseWorkflowListing({ ...trigEnv, items: trigEnv.items.map((i) => ({ ...i, automation_defaults: {} })) }, null).entries.some((e) => e.bundleId === "Python-digest"));
 const tTrig = renderToStaticMarkup(React.createElement(WorkflowPicker, { interfaceId: null, value: digest.value, onChange: () => {}, workflows: state(trigList), entryDetail: (e) => (e.automationTrigger ? "When Python news has a new item" : null) }));
 check("any: the host's entryDetail names the trigger", tTrig.includes("Python digest") && tTrig.includes("When Python news has a new item"), tTrig.slice(0, 300));
+check("any: the gateway's triggerable mark alone lists the flow (no defaults on the row)", parseWorkflowListing({ items: [item("Marked", "1.0.0", ME, false, [{ ...ep("f1", "Marked flow", [], "Marked", "1.0.0"), triggerable: true }])] }, null).entries.some((e) => e.bundleId === "Marked" && e.triggerable === true));
 {
   const kitIdx = await import(join(here, "..", "dist", "index.js"));
   const opts = { workflows: state(trigList) };

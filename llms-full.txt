@@ -6045,7 +6045,7 @@ export {
 export { MultiSelect } from "./multi_select.js";
 export { automationToolSelection, withAutomationTools } from "./automations/tool_selection.js";
 export { AutomationToolsPicker } from "./automations/automation_tools_picker.js";
-export { AutomationWorkflowPicker, type AutomationWorkflowPickerOptions } from "./automations/automation_workflow_picker.js";
+export { AutomationWorkflowPicker, flowNameOf, type AutomationWorkflowPickerOptions } from "./automations/automation_workflow_picker.js";
 export { retargetAutomationInput, automationTargetValue } from "./automations/target_selection.js";
 export { prepareAutomationTarget } from "./automations/prepare_target.js";
 export {
@@ -8364,6 +8364,8 @@ export type AutomationSummary = {
   time_zone: string;
   schedule_text: string;
   schedule_rule_text: string;
+  /** AbstractGateway 1613d05c: the trigger in words, names looked up ("When Python news has a new item"); preferred when present. */
+  trigger_text?: string;
   /** Always present on automation rows (`null` when nothing is in flight); absent on legacy rows. */
   current_occurrence?: CurrentOccurrence | null;
   occurrence_count: number;
@@ -8815,7 +8817,7 @@ export function scheduleLabel(config: ScheduleConfig | JsonObject): string {
  */
 export function triggerSummary(
   trigger: Pick<TriggerBinding, "source_id" | "source_version" | "config">,
-  served?: { schedule_rule_text?: string | null } | null,
+  served?: { schedule_rule_text?: string | null; trigger_text?: string | null } | null,
   vocab?: { connections?: readonly TriggerConnection[] | null; mailboxes?: readonly Mailbox[] | null } | null,
 ): string {
   // One sentence for a person (UX review 2026-10-25 #2): the schedule's served words, "By hand",
@@ -16627,6 +16629,23 @@ ships.
 - **"Flow", not "workflow"** (defect #5): the Edit form's picker is labelled **Flow**, the tool
   choice reads **Use the flow's default tools**, and `WorkflowPicker` says **Choose a flow** /
   **Loading flows…**.
+- **Flows that run by themselves are listed** (re-review #1). In any-interface mode
+  (`interfaceId: null`, a launcher) an entrypoint that declares no interface but carries an
+  automation trigger in the row's `automation_defaults` is listed (`entry.automationTrigger`),
+  its detail line the trigger in words ("When a feed has a new item · @0.0.0"); new
+  `WorkflowPicker` prop `entryDetail(entry)` lets the host name it with the person's feeds and
+  mailboxes ("When Python news has a new item").
+- **Edit names the flow** (re-review #5): the Edit form's **Flow** picker shows the flow's name
+  for a value the list carries under another version (`flowNameOf`), never
+  `Python-digest@0.0.0:92abf314`; the **Details** title no longer carries "revision N" (the
+  Revision row is inside); the Edit hint reads "runs that a new schedule would have had in the
+  past are not made up" (was "a new interval never fires past ticks").
+- **Run card** (re-review #14): no empty Trigger bubble for a flow that reads only what arrived;
+  the answer line uses the run's time format ("completed · today 17:29", UTC in its tooltip); a
+  console test (every event `data.test === true`) reads **Test event**.
+- **The gateway's words win** (AbstractGateway 1613d05c): `triggerWords` / `triggerSummary` use the
+  summary's served `trigger_text` when present (the helper is the fallback), and the picker lists
+  an entrypoint the gateway marks `triggerable: true` (`entry.triggerable`).
 
 ## 0.6.2 - 2026-10-15
 

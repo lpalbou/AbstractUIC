@@ -86,7 +86,7 @@ export function scheduleLabel(config: ScheduleConfig | JsonObject): string {
  */
 export function triggerSummary(
   trigger: Pick<TriggerBinding, "source_id" | "source_version" | "config">,
-  served?: { schedule_rule_text?: string | null } | null,
+  served?: { schedule_rule_text?: string | null; trigger_text?: string | null } | null,
   vocab?: { connections?: readonly TriggerConnection[] | null; mailboxes?: readonly Mailbox[] | null } | null,
 ): string {
   // One sentence for a person (UX review 2026-10-25 #2): the schedule's served words, "By hand",

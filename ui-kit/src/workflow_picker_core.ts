@@ -53,6 +53,8 @@ export type WorkflowPickerEntry = {
    * declares no interface (AbstractFlow 77b0c1d) and is listed in any-interface mode for it.
    */
   automationTrigger?: { source_id: string; source_version: number; config: Record<string, unknown>; connection_id?: string };
+  /** The gateway's `triggerable` mark (or a trigger in the row's defaults): the flow runs by itself. */
+  triggerable?: boolean;
 };
 
 export type WorkflowPickerDefault =
@@ -182,9 +184,11 @@ export function parseWorkflowListing(
       if (!ep || !flowId) continue;
       const interfaces = Array.isArray(ep.interfaces) ? ep.interfaces.map(text).filter(Boolean) : [];
       const automationTrigger = triggerOf(record(item.automation_defaults)?.[flowId]);
+      // The gateway marks such an entrypoint `triggerable: true` (AbstractGateway 1613d05c).
+      const triggerable = ep.triggerable === true || !!automationTrigger;
       if (interfaceId === null) {
         // A flow made to run by itself (its automation trigger) is runnable without an interface.
-        if (!interfaces.length && !automationTrigger) continue;
+        if (!interfaces.length && !triggerable) continue;
       } else if (!interfaces.includes(interfaceId))
         // Never filtered here: the gateway already did. An entrypoint that does
         // not declare the interface means the gateway ignored the contract.
@@ -204,6 +208,7 @@ export function parseWorkflowListing(
         interfaces,
         ...(interfaceId === null ? { showInterfaces: true } : {}),
         ...(automationTrigger ? { automationTrigger } : {}),
+        ...(triggerable ? { triggerable: true } : {}),
       });
     }
   }

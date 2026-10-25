@@ -96,8 +96,12 @@ export function triggerWords(
   trigger: TriggerLike,
   connections?: readonly TriggerConnection[] | null,
   mailboxes?: readonly Mailbox[] | null,
-  served?: { schedule_rule_text?: string | null } | null,
+  served?: { schedule_rule_text?: string | null; trigger_text?: string | null } | null,
 ): string {
+  // The gateway's own words for the automation's trigger win (AbstractGateway 1613d05c: every
+  // summary carries `trigger_text`, names looked up by the gateway); this helper is the fallback.
+  const servedText = typeof served?.trigger_text === "string" ? served.trigger_text.trim() : "";
+  if (servedText) return servedText;
   if (!trigger) return "";
   const source = String(trigger.source_id || "");
   if (source === "schedule") {

@@ -248,6 +248,8 @@ export type AutomationSummary = {
   time_zone: string;
   schedule_text: string;
   schedule_rule_text: string;
+  /** AbstractGateway 1613d05c: the trigger in words, names looked up ("When Python news has a new item"); preferred when present. */
+  trigger_text?: string;
   /** Always present on automation rows (`null` when nothing is in flight); absent on legacy rows. */
   current_occurrence?: CurrentOccurrence | null;
   occurrence_count: number;
