@@ -926,6 +926,20 @@ export type OccurrencePairProps = {
   nowMs?: number;
 };
 
+/**
+ * The task when an occurrence's text is the runtime's framing of it (AbstractRuntime
+ * `controller._render_prompt`: "[Trigger …]" on the first line, then the task verbatim; a feed or
+ * webhook's events framed after a blank line), else null. Exact positions only, never a search.
+ */
+export function taskOfTurn(userTurn: string | null | undefined, task: string | null | undefined): string | null {
+  const t = typeof task === "string" ? task.trim() : "";
+  const turn = typeof userTurn === "string" ? userTurn : "";
+  const nl = turn.indexOf("\n");
+  if (!t || nl < 0 || !turn.startsWith("[")) return null;
+  const rest = turn.slice(nl + 1);
+  return rest === t || rest.startsWith(`${t}\n`) ? t : null;
+}
+
 /** How a run started, in words, for its meta line ("Run #3 · on schedule · today 08:00"). */
 export function occurrenceStartWords(row: Pick<OccurrenceRow, "trigger">): string {
   const source = String(row.trigger?.source_id || "");
@@ -1069,10 +1083,11 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
   const turn = (kind: AutomationTurn["kind"], text: string) =>
     p.renderTurn ? p.renderTurn({ kind, role: kind === "trigger" ? "user" : "assistant", text, index: row.index, runId: row.run_id }) : render(text);
   const turnClass = p.renderTurn ? " af-auto-turn--card" : "";
-  // The task alone when the turn carries it verbatim (an exact substring: structure, not prose);
-  // the whole received text (trigger header, framed events, JSON) goes behind a disclosure.
+  // The task alone when the turn is the runtime's framing of it — its one-line trigger header, then
+  // the task verbatim, then nothing or the appended events (structure, not prose); the whole
+  // received text goes behind a disclosure.
   const task = typeof p.task === "string" ? p.task.trim() : "";
-  const showTask = Boolean(task && row.user_turn && row.user_turn !== task && row.user_turn.includes(task));
+  const showTask = taskOfTurn(row.user_turn, task) !== null;
   const started = occurrenceStartWords(row);
   const firedWords = whenWords(row.fired_at, { timeZone: p.timeZone, nowMs: p.nowMs, style: "day" });
   const empty =

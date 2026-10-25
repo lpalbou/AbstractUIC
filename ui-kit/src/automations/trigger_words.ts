@@ -118,13 +118,16 @@ export function triggerWords(
 
 // --- when something happened, in words ---------------------------------------------------
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 function zoned(ms: number, timeZone: string): { day: string; clock: string; label: string } {
   // A PAST instant (when something arrived, when a run started) shown in the automation's served
   // zone: never a next run, never the browser's zone (check_schedule_when allows this file only).
   const d = new Date(ms);
   const day = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
   const clock = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
-  const label = new Intl.DateTimeFormat("en-GB", { timeZone, day: "numeric", month: "short" }).format(d);
+  const [, mm, dd] = day.split("-");
+  const label = `${Number(dd)} ${MONTHS[Number(mm) - 1] ?? mm}`;
   return { day, clock, label };
 }
 
