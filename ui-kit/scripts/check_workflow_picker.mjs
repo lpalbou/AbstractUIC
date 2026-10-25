@@ -172,6 +172,18 @@ check("any: unknown interface id shown as written", anyRows.find((r) => r.entry?
 check("any: known interface as its short label", anyRows.find((r) => r.entry?.bundleId === "basic-agent")?.detail === "Code agent · @0.0.5", JSON.stringify(anyRows.map((r) => r.detail)));
 check("any: bundle/flow ids not on the line, in the tooltip", anyRows.every((r) => !r.entry || (!r.detail.includes(r.entry.bundleId) && !r.detail.includes(r.entry.flowId))) && anyRows.find((r) => r.entry?.bundleId === "basic-agent")?.title === "basic-agent@0.0.5:main");
 check("any: default for the named interface", any.gatewayDefault.status === "ok" && anyRows[0].detail === "Basic agent @0.0.5");
+// A flow made to run by itself (AbstractFlow 77b0c1d: no interface, its automation trigger in
+// `automation_defaults`) is listed in any-interface mode, named by its trigger; the same flow
+// without defaults stays out (the absent-input case).
+const digestDefaults = { "92abf314": { schema_version: 1, trigger: { source_id: "feed.item", source_version: 1, config: {}, connection_id: "c_feed" } } };
+const trigEnv = { items: [...anyEnv.items, { ...item("Python-digest", "0.0.0", ME, false, [ep("92abf314", "Python digest", [], "Python-digest", "0.0.0")]), automation_defaults: digestDefaults }], default_agent_workflows: fake.default_agent_workflows };
+const trigList = parseWorkflowListing(trigEnv, null, { defaultInterface: IFACE });
+const digest = trigList.entries.find((e) => e.bundleId === "Python-digest");
+check("any: a flow with its own trigger is listed without an interface", !!digest && digest.automationTrigger?.source_id === "feed.item" && digest.automationTrigger?.connection_id === "c_feed");
+check("any: its detail is the trigger in words", workflowPickerRows(trigList).find((r) => r.entry?.bundleId === "Python-digest")?.detail === "When a feed has a new item · @0.0.0");
+check("any: without automation defaults it stays out", !parseWorkflowListing({ ...trigEnv, items: trigEnv.items.map((i) => ({ ...i, automation_defaults: {} })) }, null).entries.some((e) => e.bundleId === "Python-digest"));
+const tTrig = renderToStaticMarkup(React.createElement(WorkflowPicker, { interfaceId: null, value: digest.value, onChange: () => {}, workflows: state(trigList), entryDetail: (e) => (e.automationTrigger ? "When Python news has a new item" : null) }));
+check("any: the host's entryDetail names the trigger", tTrig.includes("Python digest") && tTrig.includes("When Python news has a new item"), tTrig.slice(0, 300));
 throwsContract("any: an echoed executable_for is refused (asked for all)", () => parseWorkflowListing(fake, null), "Asked for every workflow");
 throwsContract("any: owner still required", () => parseWorkflowListing({ items: [{ ...anyEnv.items[0], owner: undefined }] }, null), "owner missing");
 const tAny = renderToStaticMarkup(React.createElement(WorkflowPicker, { interfaceId: null, value: "", onChange: () => {}, workflows: state(any) }));

@@ -15,6 +15,7 @@
  * not declare the interface): such a gateway would hand the app workflows it
  * cannot run, and the picker would show them silently.
  */
+import { triggerWords } from "./automations/trigger_words.js";
 
 /** The persisted choice "whatever the gateway's default workflow for this app is". */
 export const WORKFLOW_PICKER_DEFAULT = "@default";
@@ -46,6 +47,12 @@ export type WorkflowPickerEntry = {
   interfaces: string[];
   /** Any-interface mode: the detail line names the interfaces (a launcher picks across apps). */
   showInterfaces?: boolean;
+  /**
+   * The flow's own automation trigger (`automation_defaults[flow_id].trigger` on the `/bundles`
+   * row): a flow made to run by itself ("When Release notes has a new item"). Such a flow
+   * declares no interface (AbstractFlow 77b0c1d) and is listed in any-interface mode for it.
+   */
+  automationTrigger?: { source_id: string; source_version: number; config: Record<string, unknown>; connection_id?: string };
 };
 
 export type WorkflowPickerDefault =
@@ -174,8 +181,10 @@ export function parseWorkflowListing(
       const flowId = text(ep?.flow_id);
       if (!ep || !flowId) continue;
       const interfaces = Array.isArray(ep.interfaces) ? ep.interfaces.map(text).filter(Boolean) : [];
+      const automationTrigger = triggerOf(record(item.automation_defaults)?.[flowId]);
       if (interfaceId === null) {
-        if (!interfaces.length) continue;
+        // A flow made to run by itself (its automation trigger) is runnable without an interface.
+        if (!interfaces.length && !automationTrigger) continue;
       } else if (!interfaces.includes(interfaceId))
         // Never filtered here: the gateway already did. An entrypoint that does
         // not declare the interface means the gateway ignored the contract.
@@ -194,6 +203,7 @@ export function parseWorkflowListing(
         shipped: item.shipped,
         interfaces,
         ...(interfaceId === null ? { showInterfaces: true } : {}),
+        ...(automationTrigger ? { automationTrigger } : {}),
       });
     }
   }
@@ -246,8 +256,20 @@ export function workflowInterfaceLabel(interfaceId: string): string {
 export function workflowEntryDetail(entry: WorkflowPickerEntry, _all: readonly WorkflowPickerEntry[] = []): string {
   const version = entry.bundleVersion ? `@${entry.bundleVersion}` : "";
   if (!entry.showInterfaces) return version;
+  // A flow that runs by itself reads by its trigger ("When a feed has a new item"); hosts pass
+  // `entryDetail` to WorkflowPicker for the names ("When Release notes has a new item").
+  if (!entry.interfaces.length && entry.automationTrigger) return [triggerWords(entry.automationTrigger), version].filter(Boolean).join(" · ");
   const labels = [...new Set(entry.interfaces.map(workflowInterfaceLabel))].join(", ");
   return [labels, version].filter(Boolean).join(" · ");
+}
+
+function triggerOf(raw: unknown): WorkflowPickerEntry["automationTrigger"] | undefined {
+  const t = record(record(raw)?.trigger);
+  const source_id = text(t?.source_id);
+  if (!t || !source_id || typeof t.source_version !== "number") return undefined;
+  const config = record(t.config) ?? {};
+  const cid = text(t.connection_id);
+  return { source_id, source_version: t.source_version, config, ...(cid ? { connection_id: cid } : {}) };
 }
 
 /** The option's tooltip: the exact workflow id (`bundle@version:flow`). */

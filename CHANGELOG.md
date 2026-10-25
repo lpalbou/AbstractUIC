@@ -32,6 +32,12 @@ ships.
 - **"Flow", not "workflow"** (defect #5): the Edit form's picker is labelled **Flow**, the tool
   choice reads **Use the flow's default tools**, and `WorkflowPicker` says **Choose a flow** /
   **Loading flows…**.
+- **Flows that run by themselves are listed** (re-review #1). In any-interface mode
+  (`interfaceId: null`, a launcher) an entrypoint that declares no interface but carries an
+  automation trigger in the row's `automation_defaults` is listed (`entry.automationTrigger`),
+  its detail line the trigger in words ("When a feed has a new item · @0.0.0"); new
+  `WorkflowPicker` prop `entryDetail(entry)` lets the host name it with the person's feeds and
+  mailboxes ("When Python news has a new item").
 
 ## 0.6.2 - 2026-10-15
 

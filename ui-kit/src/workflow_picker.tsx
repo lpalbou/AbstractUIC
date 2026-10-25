@@ -147,6 +147,12 @@ export type WorkflowPickerProps = {
   currentLabel?: { name: string; detail?: string } | null;
   /** Offer "Gateway default" (default true). */
   showDefault?: boolean;
+  /**
+   * The detail line of an entry, when the host can say more than the kit (a flow that runs by
+   * itself named by its trigger with the person's feeds and mailboxes: "When Python news has a
+   * new item · @0.0.0"). Null/"" keeps the kit's line.
+   */
+  entryDetail?: (entry: WorkflowPickerEntry) => string | null | undefined;
   ariaLabel?: string;
   id?: string;
   className?: string;
@@ -190,7 +196,15 @@ export function WorkflowPicker(props: WorkflowPickerProps): React.ReactElement {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [place, setPlace] = useState<React.CSSProperties>({});
 
-  const rows: Row[] = useMemo(() => workflowPickerRows(list.data, showDefault), [list.data, showDefault]);
+  const entryDetail = props.entryDetail;
+  const rows: Row[] = useMemo(
+    () =>
+      workflowPickerRows(list.data, showDefault).map((r) => {
+        const d = r.entry && entryDetail ? entryDetail(r.entry) : null;
+        return d ? { ...r, detail: d } : r;
+      }),
+    [list.data, showDefault, entryDetail],
+  );
 
   const current = rows.find((r) => r.value === props.value);
   const shown = current
