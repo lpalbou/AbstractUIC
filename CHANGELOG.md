@@ -43,6 +43,9 @@ ships.
   `Python-digest@0.0.0:92abf314`; the **Details** title no longer carries "revision N" (the
   Revision row is inside); the Edit hint reads "runs that a new schedule would have had in the
   past are not made up" (was "a new interval never fires past ticks").
+- **Run card** (re-review #14): no empty Trigger bubble for a flow that reads only what arrived;
+  the answer line uses the run's time format ("completed · today 17:29", UTC in its tooltip); a
+  console test (every event `data.test === true`) reads **Test event**.
 
 ## 0.6.2 - 2026-10-15
 

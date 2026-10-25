@@ -1109,7 +1109,8 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
             </span>
           </div>
         ) : null}
-        <div className="af-auto-turn__text">{turn("trigger", showTask ? task : row.user_turn)}</div>
+        {/* A flow with no task (it reads only what arrived) has no message: no empty bubble (UX re-review #14). */}
+        {(showTask ? task : row.user_turn).trim() ? <div className="af-auto-turn__text">{turn("trigger", showTask ? task : row.user_turn)}</div> : null}
         {showTask ? (
           <details className="af-auto-received" data-received="true">
             <summary>{RECEIVED_LABEL}</summary>
@@ -1121,7 +1122,8 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
         <div className="af-auto-turn__meta">
           {badge ? <span className={`af-auto-badge af-auto-badge--${tone}`}>{badge}</span> : null}
           <span className="af-auto-turn__status">{statusText}</span>
-          {row.finished_at ? <span> · {formatUtc(row.finished_at)}</span> : null}
+          {/* One time format with the run's own line ("today 17:29"); the UTC time is the tooltip. */}
+          {row.finished_at ? <span title={formatUtc(row.finished_at)}> · {whenWords(row.finished_at, { timeZone: p.timeZone, nowMs: p.nowMs, style: "day" })}</span> : null}
         </div>
         {row.notify ? (
           <div className="af-auto-notify" data-notify="true">

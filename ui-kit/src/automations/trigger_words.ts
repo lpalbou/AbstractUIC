@@ -229,7 +229,10 @@ export function occurrenceEventCard(
     const conn = connectionOf(cid ? binding : ctx.trigger, ctx.connections);
     const kind = connectionKind(source_id);
     source = conn?.label || triggerSourceName(cid ? binding : ctx.trigger ?? binding, ctx.connections, ctx.mailboxes);
-    if (kind === "webhook") what = `${plural(n, "call", "calls")}${quoted(str(first.subject))}`;
+    // A console test ("Send a test event"): every event carries the typed flag `data.test === true`.
+    const isTest = (ev: unknown) => !!ev && typeof ev === "object" && (ev as { data?: { test?: unknown } }).data?.test === true;
+    if (events.length && events.every(isTest)) what = n === 1 ? "Test event" : `${n} test events`;
+    else if (kind === "webhook") what = `${plural(n, "call", "calls")}${quoted(str(first.subject))}`;
     else if (kind === "feed") what = `${plural(n, "new item", "new items")}${quoted(str(firstData.title) || str(first.subject))}`;
     else what = `${plural(n, "new event", "new events")}${quoted(str(first.subject))}`;
   }
