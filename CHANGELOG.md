@@ -9,6 +9,8 @@ ships.
 
 ## Unreleased
 
+## 0.6.3 - 2026-10-26
+
 ### ui-kit 0.8.8
 
 - **Triggers in words** (UX review 2026-10-25, defect #2). New `triggerWords(trigger, connections,
