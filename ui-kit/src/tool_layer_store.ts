@@ -15,14 +15,25 @@
 // (GET, PUT, DELETE on "Use my defaults"); otherwise they use this browser and say so
 // (`storage.kind: "browser"`, with a note when the gateway was asked and cannot).
 import { normalizeToolMode, type ToolCatalogItem, type ToolMode, type ToolModeDialect, type ToolModeLayer } from "./tool_plan.js";
-import { layerFromSessionPolicy, sessionPolicyFromLayer, SESSION_TOOL_POLICY_UNSUPPORTED, type SessionToolPolicy, type SessionToolPolicyClient } from "./session_tool_policy.js";
+import {
+  layerFromSessionPolicy,
+  sessionPolicyBodyIsEmpty,
+  sessionPolicyFromLayer,
+  SessionToolPolicyRevisionError,
+  SESSION_TOOL_POLICY_UNSUPPORTED,
+  type SessionToolPolicy,
+  type SessionToolPolicyClient,
+} from "./session_tool_policy.js";
 
 /** The words a host shows next to an editor backed by this store. */
 export const TOOL_LAYER_STORE_WHERE = "Saved in this browser";
-/** The words for a session layer the gateway stores (the conversation's tool policy). */
-export const TOOL_LAYER_GATEWAY_WHERE = "Saved for this conversation on the gateway";
-/** Said when the gateway was asked and cannot store a conversation's policy (an older gateway). */
-export const TOOL_LAYER_BROWSER_FALLBACK = `${SESSION_TOOL_POLICY_UNSUPPORTED}, so this conversation's tool choices stay in this browser and ask on the gateway until this browser approves them.`;
+/** The words for a session layer the gateway stores (the chat's tool policy). "Chat" is the
+ * user-facing noun of that scope ("Allow for this chat", ADR 0001 §5). */
+export const TOOL_LAYER_GATEWAY_WHERE = "Saved for this chat on the gateway";
+/** Said when the gateway was asked and cannot store a chat's policy (an older gateway). A fact about
+ * STORAGE only (review L4): the choices take effect only where the host applies the browser layer
+ * itself (planRunTools / toWorkflowApprovalPolicy); the gateway does not know them. */
+export const TOOL_LAYER_BROWSER_FALLBACK = `${SESSION_TOOL_POLICY_UNSUPPORTED}, so this chat's tool choices are kept in this browser.`;
 
 /** Where a layer lives, in words: `where` is the frame's label, `note` why it is not the gateway. */
 export type ToolLayerStorage = { kind: "gateway" | "browser"; where: string; note?: string };
@@ -57,11 +68,21 @@ export type ToolLayerStore = {
   sessionStorage(sessionId: string): ToolLayerStorage;
   /** The conversation's layer from where it lives (GET of its policy on the gateway). */
   loadSession(sessionId: string, catalog: readonly ToolCatalogItem[]): Promise<SessionLayerState>;
-  /** Save it there (PUT, guarded by the last revision read: a 409 rejects with
-   * SessionToolPolicyConflictError). An empty layer resets (DELETE). The answer is the gateway's
-   * effective policy as a layer (after its clamp). */
-  saveSession(sessionId: string, layer: ToolModeLayer | null, catalog: readonly ToolCatalogItem[]): Promise<SessionLayerState>;
-  /** "Use my defaults": DELETE the conversation's policy, or remove the browser entry. */
+  /** Save it there: a PUT guarded by the revision of the last read or reset (`if_revision`; a 409
+   * rejects with SessionToolPolicyConflictError: re-read). Entries this catalog does not offer and the
+   * request's kinds / all / max_risk_rank selectors are carried from the last read
+   * (sessionPolicyFromLayer `base`). A body that changes nothing resets (a guarded DELETE). Never
+   * unguarded: with no known revision (never loaded, or a gateway that serves none) it rejects with
+   * SessionToolPolicyRevisionError. The answer is the gateway's effective policy as a layer.
+   * `inherited`: the modes the session layer inherits (for tools a carried selector covers). */
+  saveSession(
+    sessionId: string,
+    layer: ToolModeLayer | null,
+    catalog: readonly ToolCatalogItem[],
+    opts?: { inherited?: Readonly<Record<string, ToolMode>> },
+  ): Promise<SessionLayerState>;
+  /** "Use my defaults": a guarded DELETE of the chat's policy (same revision rule), or remove the
+   * browser entry. */
   resetSession(sessionId: string): Promise<SessionLayerState>;
 };
 
@@ -156,15 +177,35 @@ export function createToolLayerStore(identityKey: string, opts: ToolLayerStoreOp
     return layer;
   };
   const revisions = new Map<string, number>();
+  const policies = new Map<string, SessionToolPolicy | null>();
+  // The revision of a client's last answer: the revisioned client's own (GET top-level, DELETE), else
+  // the policy's (a structural twin client exposes only that).
+  const revisionOf = (client: SessionToolPolicyClient, policy: SessionToolPolicy | null): number | undefined => {
+    const r = (client as { revision?: unknown }).revision;
+    return typeof r === "number" ? r : policy ? policy.revision : undefined;
+  };
+  const guard = (sessionId: string): number => {
+    const rev = revisions.get(sessionId);
+    if (rev === undefined)
+      throw new SessionToolPolicyRevisionError(policies.has(sessionId) ? "the last read carried none" : "load this chat's policy before saving it");
+    return rev;
+  };
   const browser = (note?: string): ToolLayerStorage => ({ kind: "browser", where: TOOL_LAYER_STORE_WHERE, ...(note ? { note } : {}) });
   const clientFor = (sessionId: string): { client: SessionToolPolicyClient | null; storage: ToolLayerStorage } => {
     const client = opts.sessionPolicy?.(sessionId) ?? null;
     if (client?.supported === true) return { client, storage: { kind: "gateway", where: TOOL_LAYER_GATEWAY_WHERE } };
     return { client: null, storage: browser(client ? TOOL_LAYER_BROWSER_FALLBACK : undefined) };
   };
-  const fromPolicy = (sessionId: string, storage: ToolLayerStorage, policy: SessionToolPolicy | null, catalog: readonly ToolCatalogItem[]): SessionLayerState => {
-    if (policy) revisions.set(sessionId, policy.revision);
-    else revisions.delete(sessionId);
+  const fromPolicy = (
+    sessionId: string,
+    storage: ToolLayerStorage,
+    policy: SessionToolPolicy | null,
+    catalog: readonly ToolCatalogItem[],
+    revision: number | undefined,
+  ): SessionLayerState => {
+    if (revision === undefined) revisions.delete(sessionId);
+    else revisions.set(sessionId, revision);
+    policies.set(sessionId, policy);
     return { storage, layer: layerFromSessionPolicy(policy, catalog), policy };
   };
   const store: ToolLayerStore = {
@@ -192,18 +233,19 @@ export function createToolLayerStore(identityKey: string, opts: ToolLayerStoreOp
     async loadSession(sessionId, catalog) {
       const { client, storage } = clientFor(sessionId);
       if (!client) return { storage, layer: store.readSession(sessionId), policy: null };
-      return fromPolicy(sessionId, storage, await client.get(), catalog);
+      const policy = await client.get();
+      return fromPolicy(sessionId, storage, policy, catalog, revisionOf(client, policy));
     },
-    async saveSession(sessionId, layer, catalog) {
+    async saveSession(sessionId, layer, catalog, saveOpts = {}) {
       const { client, storage } = clientFor(sessionId);
       if (!client) {
         store.writeSession(sessionId, layer);
         return { storage, layer: store.readSession(sessionId), policy: null };
       }
-      const body = sessionPolicyFromLayer(layer, catalog);
-      if (!body.approve?.tools?.length && !body.deny?.tools?.length && !body.ask?.length) return store.resetSession(sessionId);
-      const rev = revisions.get(sessionId);
-      return fromPolicy(sessionId, storage, await client.replace(rev === undefined ? body : { ...body, if_revision: rev }), catalog);
+      const body = sessionPolicyFromLayer(layer, catalog, { base: policies.get(sessionId) ?? null, inherited: saveOpts.inherited });
+      if (sessionPolicyBodyIsEmpty(body)) return store.resetSession(sessionId);
+      const policy = await client.replace({ ...body, if_revision: guard(sessionId) });
+      return fromPolicy(sessionId, storage, policy, catalog, revisionOf(client, policy));
     },
     async resetSession(sessionId) {
       const { client, storage } = clientFor(sessionId);
@@ -211,8 +253,9 @@ export function createToolLayerStore(identityKey: string, opts: ToolLayerStoreOp
         store.writeSession(sessionId, null);
         return { storage, layer: {}, policy: null };
       }
-      await client.reset();
-      return fromPolicy(sessionId, storage, null, []);
+      const answer = await client.reset(guard(sessionId));
+      // DELETE answers the new revision (contract v1 §3): the next write is guarded by it.
+      return fromPolicy(sessionId, storage, null, [], typeof answer.revision === "number" ? answer.revision : revisionOf(client, null));
     },
   };
   return store;

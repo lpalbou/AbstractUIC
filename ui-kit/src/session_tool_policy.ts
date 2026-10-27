@@ -1,4 +1,4 @@
-// A conversation's tool policy on the gateway (session tool policy contract v1, 2026-10-27):
+// A chat's tool policy on the gateway (session tool policy contract v1, 2026-10-27):
 // a durable, server-side "approve these tools / kinds / everything", "deny these", "keep asking
 // for these" for one `session_id`. The runtime consults it BEFORE it decides to wait for an
 // approval, so a covered call runs with no wait and a denied call is refused with no wait.
@@ -14,6 +14,16 @@
 // so no caller can silently fall through to "saved".
 //
 // Bridge with the tool layers (backlog 0033): `sessionPolicyFromLayer` / `layerFromSessionPolicy`.
+//
+// WORDING: the user-facing noun is "chat" ("Allow for this chat", ADR 0001 §5, panel-chat); the code
+// and the gateway say "session". Every sentence a person reads here says "chat".
+//
+// REVISIONS (review B1): every answer's revision is kept — GET's top-level `revision` (also with
+// `policy: null`), PUT/POST `policy.revision`, DELETE's `revision` — so a host can guard EVERY write
+// (`if_revision` on PUT, `reset(ifRevision)` → `DELETE ?if_revision=`). Contract v1 amendment
+// requested (GET top-level revision; DELETE ?if_revision): both are served by the gateway
+// implementation (routes/session_tool_policy.py get_session_tool_policy / delete_session_tool_policy)
+// but not yet named by contract v1.
 import { sessionToolPolicyRoute, SESSION_ID_PATTERN, gatewayApiPath } from "./gateway_paths.js";
 import { normalizeToolMode, type ToolCatalogItem, type ToolMode, type ToolModeLayer } from "./tool_plan.js";
 
@@ -47,8 +57,14 @@ export type SessionToolPolicyClient = {
   get(): Promise<SessionToolPolicy | null>;
   replace(body: SessionToolPolicyBody): Promise<SessionToolPolicy>;
   merge(body: SessionToolPolicyBody): Promise<SessionToolPolicy>;
-  reset(): Promise<{ revision?: number }>;
+  /** `ifRevision` guards the reset (`DELETE ?if_revision=`; contract v1 amendment requested). */
+  reset(ifRevision?: number): Promise<{ revision?: number }>;
 };
+
+/** The client this module builds: also the revision of the gateway's last answer (GET top-level
+ * `revision` even with no policy, PUT/POST `policy.revision`, DELETE `revision`); undefined until an
+ * answer carried one. A 409 does not move it: the host re-reads. */
+export type SessionToolPolicyRevisionedClient = SessionToolPolicyClient & { readonly revision: number | undefined };
 
 /** `capabilities.session_tool_policy` as served (contract v1 §3). */
 export type SessionToolPolicyCapability = {
@@ -74,7 +90,9 @@ export type SessionToolPolicyRequest = (
 ) => Promise<unknown>;
 
 /** The words every call of an unsupported client rejects with (and a UI can show). */
-export const SESSION_TOOL_POLICY_UNSUPPORTED = "The gateway cannot store conversation policies";
+export const SESSION_TOOL_POLICY_UNSUPPORTED = "The gateway cannot store chat tool policies";
+/** The words of a write the kit refuses because it could not be guarded by a revision. */
+export const SESSION_TOOL_POLICY_NO_REVISION = "The gateway did not return a policy revision; refusing an unguarded write";
 
 export class SessionToolPolicyUnsupportedError extends Error {
   readonly code = "unsupported";
@@ -84,13 +102,22 @@ export class SessionToolPolicyUnsupportedError extends Error {
   }
 }
 
+/** A write the kit refuses: no revision to guard it with (never an unguarded overwrite). */
+export class SessionToolPolicyRevisionError extends Error {
+  readonly code = "no_revision";
+  constructor(detail?: string) {
+    super(`${SESSION_TOOL_POLICY_NO_REVISION}${detail ? ` (${detail})` : ""}.`);
+    this.name = "SessionToolPolicyRevisionError";
+  }
+}
+
 /** 409 `{reason_code: "revision_conflict"}`: the policy changed since `if_revision` (another client). */
 export class SessionToolPolicyConflictError extends Error {
   readonly code = "revision_conflict";
   /** The stored revision the gateway reported, when it did. */
   readonly revision?: number;
   constructor(message: string, revision?: number) {
-    super(message || "This conversation's tool policy was changed elsewhere. Reload it and try again.");
+    super(message || "This chat's tool policy was changed elsewhere. Reload it and try again.");
     this.name = "SessionToolPolicyConflictError";
     if (typeof revision === "number") this.revision = revision;
   }
@@ -135,7 +162,7 @@ export function asSessionToolPolicy(value: unknown): SessionToolPolicy {
   const approve = nameMap(p?.approve);
   const deny = nameMap(p?.deny);
   if (!p || typeof p.version !== "number" || typeof p.revision !== "number" || typeof p.session_id !== "string" || !approve || !deny || !Array.isArray(p.ask))
-    throw new Error("The gateway answered without a conversation tool policy (policy.version, revision, session_id, approve, deny, ask).");
+    throw new Error("The gateway answered without a chat tool policy (policy.version, revision, session_id, approve, deny, ask).");
   const clamped = Array.isArray(p.clamped)
     ? p.clamped.map(obj).filter((c): c is Row => Boolean(c)).map((c) => ({ selector: String(c.selector ?? ""), name: String(c.name ?? ""), reason: String(c.reason ?? "") }))
     : undefined;
@@ -174,7 +201,7 @@ function conflictOf(error: unknown): SessionToolPolicyConflictError | null {
 }
 
 /**
- * The four routes for one conversation. `capability` is `sessionToolPolicyCapability(...)` of the
+ * The four routes for one chat (session). `capability` is `sessionToolPolicyCapability(...)` of the
  * connected gateway; `supported` is true only when it says `supported: true`, and every call of an
  * unsupported client rejects with SessionToolPolicyUnsupportedError. `opts.client` names the app as
  * provenance (`client` in the body unless the body has its own). A 409 revision conflict rejects
@@ -185,59 +212,124 @@ export function createSessionToolPolicyClient(
   sessionId: string,
   capability: SessionToolPolicyCapability | null | undefined,
   opts: { client?: string } = {},
-): SessionToolPolicyClient {
+): SessionToolPolicyRevisionedClient {
   const sid = String(sessionId ?? "");
-  if (!SESSION_ID_PATTERN.test(sid)) throw new Error(`A session id is 1-256 characters [A-Za-z0-9_.:-], got ${JSON.stringify(sid)}.`);
+  if (!SESSION_ID_PATTERN.test(sid)) throw new Error(`A session id is 1-256 characters [A-Za-z0-9_.:-], not only dots, got ${JSON.stringify(sid)}.`);
   const supported = capability?.supported === true;
   const path = gatewayApiPath(sessionToolPolicyRoute(sid));
-  const call = async (method: "GET" | "PUT" | "POST" | "DELETE", body?: unknown): Promise<Row | undefined> => {
+  let revision: number | undefined;
+  const call = async (method: "GET" | "PUT" | "POST" | "DELETE", body?: unknown, query = ""): Promise<Row | undefined> => {
     if (!supported) throw new SessionToolPolicyUnsupportedError();
+    // A gateway that lists its methods and leaves one out does not get it (review L5).
+    if (capability?.methods && !capability.methods.includes(method))
+      throw new Error(`${SESSION_TOOL_POLICY_UNSUPPORTED} with ${method} (the gateway advertises ${capability.methods.join(", ")}).`);
     try {
-      return obj(await request(path, body === undefined ? { method } : { method, body }));
+      return obj(await request(`${path}${query}`, body === undefined ? { method } : { method, body }));
     } catch (error) {
       throw conflictOf(error) ?? error;
     }
   };
   const withClient = (body: SessionToolPolicyBody): SessionToolPolicyBody =>
     opts.client && body.client === undefined ? { ...body, client: opts.client } : body;
-  const written = (answer: Row | undefined): SessionToolPolicy => asSessionToolPolicy(answer?.policy);
+  const written = (answer: Row | undefined): SessionToolPolicy => {
+    const policy = asSessionToolPolicy(answer?.policy);
+    revision = policy.revision;
+    return policy;
+  };
   return {
     supported,
     sessionId: sid,
+    get revision() {
+      return revision;
+    },
     async get() {
       const answer = await call("GET");
-      if (!answer || !("policy" in answer)) throw new Error("The gateway answered without `policy` for this conversation.");
-      return answer.policy === null ? null : asSessionToolPolicy(answer.policy);
+      if (!answer || !("policy" in answer)) throw new Error("The gateway answered without `policy` for this chat.");
+      const policy = answer.policy === null ? null : asSessionToolPolicy(answer.policy);
+      // GET's top-level `revision` (contract v1 amendment requested) also covers "no policy yet".
+      revision = typeof answer.revision === "number" ? answer.revision : policy ? policy.revision : undefined;
+      return policy;
     },
     replace: async (body) => written(await call("PUT", withClient(body))),
     merge: async (body) => written(await call("POST", withClient(body))),
-    async reset() {
-      const answer = await call("DELETE");
-      return typeof answer?.revision === "number" ? { revision: answer.revision } : {};
+    async reset(ifRevision?: number) {
+      if (ifRevision !== undefined && !Number.isInteger(ifRevision)) throw new Error(`reset(ifRevision) takes an integer revision, got ${JSON.stringify(ifRevision)}.`);
+      // `DELETE ?if_revision=` (contract v1 amendment requested).
+      const answer = await call("DELETE", undefined, ifRevision === undefined ? "" : `?if_revision=${ifRevision}`);
+      revision = typeof answer?.revision === "number" ? answer.revision : undefined;
+      return revision === undefined ? {} : { revision };
     },
   };
 }
 
 /**
- * A session layer as a policy body (PUT). Mapping, for offered catalog tools with a canonical mode:
- *   auto → approve.tools · ask → ask · off → deny.tools
- * Limit: `deny` REFUSES a call with no wait ("Denied by this conversation's tool policy"), which is
+ * A session layer as a policy body (PUT, a REPLACE). Mapping, for offered catalog tools with a
+ * canonical mode:   auto → approve.tools · ask → ask · off → deny.tools
+ * Limit: `deny` REFUSES a call with no wait ("Denied by this conversation's tool policy", the runtime's words), which is
  * stricter than "not offered"; the run's own ceiling (`allowed_tools` from planRunTools) still keeps
  * off tools out of the run, so the deny entry only matters for runs started elsewhere in the session.
- * Names the catalog does not offer are left out (the gateway would clamp an approval of them).
+ *
+ * `base` = the policy last read (review B2): a REPLACE must not erase what this editor cannot see.
+ * - Entries for names this catalog does not offer (an MCP server down, a toolset disabled for now,
+ *   a tool only another client lists) are carried unchanged: approve and deny entries set by tool
+ *   name, and `ask` names. A lost deny is the dangerous direction.
+ * - The request's selectors are carried unchanged: `approve.kinds`, `approve.all`,
+ *   `approve.max_risk_rank`, `deny.kinds` (the gateway re-expands them at write time).
+ * - An offered tool covered by a carried selector (served as "kind:<id>" / "all") whose mode here is
+ *   Ask is put in `ask` (ask beats approve on the gateway); `inherited` (the modes the session layer
+ *   inherits) decides a tool the layer leaves out. A tool denied by a `deny.kinds` selector stays
+ *   denied: the editor cannot lift a kind (the gateway's deny always wins).
  */
-export function sessionPolicyFromLayer(layer: ToolModeLayer | null | undefined, catalog: readonly ToolCatalogItem[]): SessionToolPolicyBody {
-  const approve: string[] = [];
-  const deny: string[] = [];
-  const ask: string[] = [];
-  for (const item of [...catalog].sort((a, b) => a.name.localeCompare(b.name))) {
-    if (!item.offered || !layer || !Object.prototype.hasOwnProperty.call(layer, item.name)) continue;
-    const mode = normalizeToolMode(layer[item.name]);
-    if (mode === "auto") approve.push(item.name);
-    else if (mode === "off") deny.push(item.name);
-    else if (mode === "ask") ask.push(item.name);
+export function sessionPolicyFromLayer(
+  layer: ToolModeLayer | null | undefined,
+  catalog: readonly ToolCatalogItem[],
+  opts: { base?: SessionToolPolicy | null; inherited?: Readonly<Record<string, ToolMode>> } = {},
+): SessionToolPolicyBody {
+  const approve = new Set<string>();
+  const deny = new Set<string>();
+  const ask = new Set<string>();
+  const offered = new Set(catalog.filter((t) => t.offered).map((t) => t.name));
+  const layerMode = (name: string): ToolMode | undefined =>
+    layer && Object.prototype.hasOwnProperty.call(layer, name) ? normalizeToolMode(layer[name]) : undefined;
+  for (const name of offered) {
+    const mode = layerMode(name);
+    if (mode === "auto") approve.add(name);
+    else if (mode === "off") deny.add(name);
+    else if (mode === "ask") ask.add(name);
   }
-  return { approve: { tools: approve }, deny: { tools: deny }, ask };
+  const base = opts.base;
+  const body: SessionToolPolicyBody = {};
+  if (base) {
+    for (const [name, sel] of Object.entries(base.approve)) if (!offered.has(name) && sel === "tool") approve.add(name);
+    for (const [name, sel] of Object.entries(base.deny)) if (!offered.has(name) && sel === "tool") deny.add(name);
+    for (const name of base.ask) if (!offered.has(name)) ask.add(name);
+    for (const [name, sel] of Object.entries(base.approve)) {
+      if (!offered.has(name) || sel === "tool") continue;
+      const mode = layerMode(name) ?? opts.inherited?.[name];
+      if (mode === "ask") ask.add(name);
+    }
+    const req = obj(base.request);
+    const a = obj(req?.approve);
+    const d = obj(req?.deny);
+    if (Array.isArray(a?.kinds) && a!.kinds.length) body.approve = { kinds: strList(a!.kinds) };
+    if (a?.all === true) body.approve = { ...(body.approve || {}), all: true };
+    if (typeof a?.max_risk_rank === "number") body.approve = { ...(body.approve || {}), max_risk_rank: a.max_risk_rank };
+    if (Array.isArray(d?.kinds) && d!.kinds.length) body.deny = { kinds: strList(d!.kinds) };
+  }
+  const sorted = (v: Set<string>) => [...v].sort();
+  return {
+    approve: { tools: sorted(approve), ...(body.approve || {}) },
+    deny: { tools: sorted(deny), ...(body.deny || {}) },
+    ask: sorted(ask),
+  };
+}
+
+/** The body changes nothing: no tool, no selector, no ask (a REPLACE with it equals a reset). */
+export function sessionPolicyBodyIsEmpty(body: SessionToolPolicyBody): boolean {
+  return (
+    !body.approve?.tools?.length && !body.approve?.kinds?.length && body.approve?.all !== true &&
+    !body.deny?.tools?.length && !body.deny?.kinds?.length && !body.ask?.length
+  );
 }
 
 /**

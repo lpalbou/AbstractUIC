@@ -1,5 +1,5 @@
 // ToolModeEditor (ADR 0001, backlog 0033): one tool editor for every app.
-// Edits ONE sparse layer (the app's defaults, or this conversation's changes)
+// Edits ONE sparse layer (the app's defaults, or this chat's changes)
 // on top of what it inherits. Off / Ask / Auto per tool; per toolset a group
 // control with a Mixed state and the bulk-Auto cap explained in words; search;
 // risk and state badges; the gateway's reason for a tool it does not offer;
@@ -37,7 +37,7 @@ export const TOOL_LAYER_RESET: Record<"app" | "session", string> = {
   session: "Use my defaults",
 };
 /** Whose override a layer is (AfOverrideRow `overrideOwner`). */
-export const TOOL_LAYER_OWNER: Record<"app" | "session", string> = { app: "this app", session: "this conversation" };
+export const TOOL_LAYER_OWNER: Record<"app" | "session", string> = { app: "this app", session: "this chat" };
 
 /** Why group Auto leaves some tools as they are (the cap, in words). */
 export const BULK_AUTO_CAP_SENTENCE = `Auto for a whole group reaches the tools that read or make changes (risk ${BULK_AUTO_MAX_RANK} or lower) and whose destination the assistant does not choose. Set the others to Auto one at a time.`;
