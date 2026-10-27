@@ -24,6 +24,14 @@ ships.
   `TOOL_LAYER_BROWSER_FALLBACK`).
 - `ToolModeEditor`: `storage` (which storage applies, and why not the gateway) and `policy` (clamped
   entries, `set_by` / `set_at`).
+- Review fixes: every PUT and DELETE is revision-guarded (the revision of every answer is kept;
+  `reset(ifRevision)`; an unguarded write is refused, `SessionToolPolicyRevisionError`); a save carries
+  the entries this catalog cannot see and the request's selectors; dot-only session ids are refused;
+  an unadvertised method is not sent; the user-facing noun is "chat".
+- Contract v1 revision: the served `scope` is passed through and rendered verbatim; the store never
+  POSTs (a merge only adds); model-chosen-destination tools at Ask always go to `ask`; Off on a
+  gateway-stored chat says it reaches every run, automations included; the session id is the root
+  session.
 - Checks: `check_session_tool_policy` (new); `check_tool_plan` and `check_tool_mode_editor` extended.
 
 ### chat: one chat surface, questions and approvals, attachments and generated media (backlog 0030, 0032, kit half of 0031; ADR 0001)

@@ -116,24 +116,39 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   `sessions()`; options `dialect` (read another writer's "approve") and `onDropped(key, names)`
   (told when stored values could not be read); it is browser storage ("Saved in this
   browser"), never "saved for this Gateway account".
-- A conversation's tool policy on the gateway (session tool policy contract v1,
+- A chat's tool policy on the gateway (session tool policy contract v1, revised 2026-10-27;
   `session_tool_policy.ts`): the gateway stores "approve these tools / kinds / everything",
   "deny these", "keep asking for these" per `session_id`, and the runtime applies it BEFORE any
-  approval wait (a covered call runs with no wait, a denied call is refused with no wait).
+  approval wait (a covered call runs with no wait, a denied call is refused with no wait). Deny
+  reaches every run of the session, automations and untrusted-input runs included; approve never
+  reaches automation, untrusted-input or entity-visit runs. The session id is the run tree's ROOT
+  session (the runtime reads the root's grant). The user-facing noun is "chat" (ADR 0001 §5).
   `sessionToolPolicyCapability(payload)` reads `capabilities.session_tool_policy` of
   `GET discovery/capabilities` (null on an older gateway). `createSessionToolPolicyClient(request,
   sessionId, capability, {client})` → `SessionToolPolicyClient` `{supported, sessionId, get(),
   replace(body), merge(body), reset()}` over `GET | PUT | POST | DELETE
   sessions/{session_id}/tool-policy` (`sessionToolPolicyRoute`; the id must match
-  `SESSION_ID_PATTERN`, 1-256 `[A-Za-z0-9_.:-]`). `request(path, {method, body})` is the host's
+  `SESSION_ID_PATTERN`, 1-256 `[A-Za-z0-9_.:-]`, never only dots). The client keeps the revision of
+  every answer (`client.revision`: GET's top-level `revision` also with no policy, PUT/POST
+  `policy.revision`, DELETE `revision`) and the served `scope` (`client.scope`, also copied onto the
+  policy untouched: `{approve, deny}` sentences, never composed); `reset(ifRevision?)` sends
+  `DELETE ?if_revision=` (GET's top-level revision and DELETE's `if_revision` are a contract v1
+  amendment requested; the gateway implementation serves both). POST (`merge`) only ADDS (it never
+  narrows nor re-expands an earlier all / kinds); a method the capability does not list is not sent. `request(path, {method, body})` is the host's
   (credentials, base URL) and rejects with `{status, body}` / `{status, detail}` on an error; a 409
   `revision_conflict` rejects with `SessionToolPolicyConflictError` (`revision` = the stored one);
   `clamped` is passed through untouched; `supported` is true only for `supported: true`, and an
   unsupported client rejects every call with `SessionToolPolicyUnsupportedError` ("The gateway
-  cannot store conversation policies", `SESSION_TOOL_POLICY_UNSUPPORTED`). Types:
+  cannot store chat tool policies", `SESSION_TOOL_POLICY_UNSUPPORTED`). Types:
   `SessionToolPolicyBody`, `SessionToolPolicy`, `SessionToolPolicyCapability`.
-  Bridge: `sessionPolicyFromLayer(layer, catalog)` maps a session layer to a PUT body (auto →
-  `approve.tools`, ask → `ask`, off → `deny.tools`; only offered tools). Limit: `deny` refuses a call
+  Bridge: `sessionPolicyFromLayer(layer, catalog, {base, inherited})` maps a session layer to a PUT
+  body (auto → `approve.tools`, ask → `ask`, off → `deny.tools` for offered tools). With `base` (the
+  policy last read) it carries what this catalog cannot see: approve / deny / ask entries of tools it
+  does not offer (an MCP server down, a toolset disabled for now) and the request's `approve.kinds`,
+  `approve.all`, `approve.max_risk_rank`, `deny.kinds`; a tool a carried selector covers is put in
+  `ask` when its mode here (or `inherited`) is Ask. `all` / `kinds` include model-chosen-destination
+  tools (fetch_url, browser_probe, send_email); at Ask they are always in `ask`.
+  `sessionPolicyBodyIsEmpty(body)`. Limit: `deny` refuses a call
   with no wait, which is stricter than "not offered"; the run's own ceiling (`allowed_tools` from
   `planRunTools`) still keeps off tools out of the run. `layerFromSessionPolicy(policy, catalog)`
   maps back (approve → auto, deny → off and wins, ask → ask); the gateway serves `approve` / `deny`
@@ -142,14 +157,22 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   is not covered and keeps asking. `sessionPolicyClampedLines(policy)` ("Not covered: send_email
   (not_authorized)"), `policySetLine(policy)` ("Set by admin (panel-chat) on …").
   `createToolLayerStore(identity, {sessionPolicy: (sessionId) => client})`: `sessionStorage(id)`,
-  `loadSession(id, catalog)`, `saveSession(id, layer, catalog)` (PUT guarded by the last revision
-  read; an empty layer resets) and `resetSession(id)` (DELETE on "Use my defaults") go through a
-  supported client and answer `{storage, layer, policy}` with the gateway's effective layer; without
-  one they use this browser (`storage.kind: "browser"`, "Saved in this browser"), and when the
-  gateway was asked and cannot, `storage.note` says so (`TOOL_LAYER_BROWSER_FALLBACK`).
-  `ToolModeEditor` `storage` (its `where` replaces `savedWhere`: "Saved for this conversation on the
-  gateway" / "Saved in this browser", plus the note) and `policy` (clamped entries, who set it and
-  when). Approve-all trust (`trustAfterApproveAll`) is for the browser fallback only: with a
+  `loadSession(id, catalog)`, `saveSession(id, layer, catalog, {inherited})` and `resetSession(id)`
+  go through a supported client and answer `{storage, layer, policy, scope}` with the gateway's
+  effective layer. Every write is guarded: a PUT with `if_revision` and a DELETE with
+  `?if_revision=` from the last read or reset (a 409 rejects with `SessionToolPolicyConflictError`:
+  re-read); with no known revision (never loaded, or none served) the store refuses with
+  `SessionToolPolicyRevisionError` ("The gateway did not return a policy revision; refusing an
+  unguarded write"). Saves carry the last read's uncatalogued entries and selectors; a body that
+  changes nothing resets. The store never POSTs: a merge cannot narrow. Without a supported client
+  the layer stays in this browser (`storage.kind: "browser"`, "Saved in this browser"), and when the
+  gateway was asked and cannot, `storage.note` says so (`TOOL_LAYER_BROWSER_FALLBACK`, a fact about
+  storage: the choices apply only where the host applies the browser layer itself).
+  `ToolModeEditor` `storage` (its `where` replaces `savedWhere`: "Saved for this chat on the gateway"
+  / "Saved in this browser", plus the note), `policy` (clamped entries, who set it and when) and
+  `scope` ("Approve applies to: …" / "Deny applies to: …" as served, else "The gateway did not say
+  where this policy applies"); a gateway-stored chat also reads `TOOL_SESSION_OFF_HELP` ("Off =
+  denied for every run of this chat, automations included"). Approve-all trust (`trustAfterApproveAll`) is for the browser fallback only: with a
   supported gateway, "Allow all" writes the policy (`merge`) first and then answers the shown wait.
 - Gateway model routes (backlog 0034, `gateway_models.ts`): `gatewayTextDefault(payload)`
   (`GET config/capability-defaults`: provider/model of `output.text` then `input.text`, reasoning
