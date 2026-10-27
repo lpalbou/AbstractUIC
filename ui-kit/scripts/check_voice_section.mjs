@@ -207,6 +207,11 @@ for (const [name, fn] of Object.entries({ AfVoiceOutput, AfVoiceInput, gatewayVo
   await failing.settle();
   check("0035 a failed language list falls back to the kit table", byAria(failing.tree, "Spoken language")?.props.options.length === VOICE_LANGUAGE_OPTIONS.length);
   failing.unmount();
+  const before = VOICE_LANGUAGE_OPTIONS.length;
+  const saved = render({ defaults: ROUTES, value: { stt_language: "sv" } });
+  render({ defaults: ROUTES, value: { stt_language: "sv" } });
+  check("0035 a saved language outside the kit table stays visible", saved.includes("sv (saved)"));
+  check("0035 the kit table is never mutated by a render", VOICE_LANGUAGE_OPTIONS.length === before && !VOICE_LANGUAGE_OPTIONS.some((o) => o.value === "sv"), String(VOICE_LANGUAGE_OPTIONS.length));
   const answer = { languages: { stt: { "faster-whisper": { provider: "faster-whisper", languages: ["en", "fr", "de"], open: false, declared: true }, openai: { provider: "openai", languages: [], open: true, declared: false } }, tts: { piper: { languages: ["es"] } } } };
   check("0035 voiceLanguagesFromAnswer: one provider", JSON.stringify(voiceLanguagesFromAnswer(answer, "stt", "faster-whisper")) === '["de","en","fr"]');
   check("0035 voiceLanguagesFromAnswer: every provider of a kind", JSON.stringify(voiceLanguagesFromAnswer(answer, "tts")) === '["es"]');

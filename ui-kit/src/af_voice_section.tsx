@@ -289,7 +289,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
   const spokenOptions =
     sttLanguages && sttLanguages.length
       ? [{ value: "", label: "Detect automatically" }, ...sttLanguages.map((code) => ({ value: code, label: voiceLanguageLabel(code) }))]
-      : VOICE_LANGUAGE_OPTIONS;
+      : [...VOICE_LANGUAGE_OPTIONS];
   const spoken = value.stt_language || "";
   if (spoken && !spokenOptions.some((o) => o.value === spoken)) spokenOptions.push({ value: spoken, label: `${voiceLanguageLabel(spoken)} (saved)` });
   const captureMode: VoiceCaptureMode = value.capture_mode || p.captureDefaults?.capture_mode || "hold";

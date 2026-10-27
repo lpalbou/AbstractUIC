@@ -749,12 +749,12 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   const [voice_ptt_since, set_voice_ptt_since] = useState(0);
   const voice_ptt_started_ms = useRef(0);
   const voice_ptt_gain_ctx = useRef<AudioContext | null>(null);
-  // Live level while recording (watchLevel on the recording stream), quantised to 2 % steps so an
-  // unchanged level schedules no render.
+  // Live level while recording (watchLevel on the recording stream, ~20 reads/s), quantised to 5 %
+  // steps: an unchanged step schedules no render (the hook usually lives at the app's top level).
   const [voice_ptt_level, set_voice_ptt_level] = useState(0);
   const voice_ptt_level_stop = useRef<(() => void) | null>(null);
   const apply_level = useCallback((v: number) => {
-    const q = Math.round(Math.min(1, Math.max(0, Number(v) || 0)) * 50) / 50;
+    const q = Math.round(Math.min(1, Math.max(0, Number(v) || 0)) * 20) / 20;
     set_voice_ptt_level((prev) => (prev === q ? prev : q));
   }, []);
   const transcript_listeners = useRef(new Set<(text: string, info?: VoiceTranscription) => void>());
