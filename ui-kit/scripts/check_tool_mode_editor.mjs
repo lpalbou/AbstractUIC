@@ -214,8 +214,9 @@ const btn = (tree, key) => [...walk(tree)].find((n) => n.props["data-tool-mode"]
   check("an empty layer removes the entry (Use the gateway's)", !mem.has(`af.tools.app.abstractcode.agent.v1.${id}`));
   store.writeSession("s1", { write_file: "auto" });
   check("session key", mem.has(`af.tools.session.${id}.s1`));
-  for (let i = 0; i < TOOL_SESSION_LAYERS_MAX + 5; i += 1) store.writeSession(`n${i}`, { read_file: "ask" });
-  check("newest 100 conversations kept", store.sessions().length === TOOL_SESSION_LAYERS_MAX && store.sessions()[0] === `n${TOOL_SESSION_LAYERS_MAX + 4}`, String(store.sessions().length));
+  check("the store keeps 100 conversations", TOOL_SESSION_LAYERS_MAX === 100, String(TOOL_SESSION_LAYERS_MAX));
+  for (let i = 0; i < 105; i += 1) store.writeSession(`n${i}`, { read_file: "ask" });
+  check("newest 100 conversations kept", store.sessions().length === 100 && store.sessions()[0] === "n104", String(store.sessions().length));
   check("evicted conversations are deleted", !mem.has(`af.tools.session.${id}.s1`) && !mem.has(`af.tools.session.${id}.n0`) && mem.has(`af.tools.session.${id}.n5`));
   store.writeSession("n104", null);
   check("an empty session layer is removed (Use my defaults)", !mem.has(`af.tools.session.${id}.n104`) && !store.sessions().includes("n104"));

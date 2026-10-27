@@ -90,7 +90,7 @@ check("no badge without served sandbox fields", by.read_file.state === undefined
   const r = resolveToolModes(cat, layers);
   check("R1 resolve: not offered stays off under any layer", r.send_telegram_message.mode === "off" && r.camera_capture_photo.mode === "off", j(r.send_telegram_message));
   const plan = planRunTools(cat, layers);
-  check("R1 plan: not offered never sent", !plan.tools.includes("send_telegram_message") && !plan.tools.includes("camera_capture_photo") && !plan.tool_policy.auto_approve_tools.includes("send_telegram_message"), j(plan));
+  check("R1 plan: not offered never sent", !plan.tools.includes("send_telegram_message") && !plan.tools.includes("camera_capture_photo") && !plan.tool_policy?.auto_approve_tools.includes("send_telegram_message"), j(plan));
   const written = setToolMode({}, by.send_telegram_message, "auto", "off");
   check("R1 setToolMode never writes a not-offered tool", !("send_telegram_message" in written), j(written));
 }
@@ -104,7 +104,7 @@ check("no badge without served sandbox fields", by.read_file.state === undefined
   const r = resolveToolModes(grown, { app });
   check("R2 a newly served tool follows the gateway default", r.new_tool.mode === "auto" && r.new_tool.source === "gateway", j(r.new_tool));
   const plan = planRunTools(grown, { app });
-  check("R2 and is sent with it", plan.tools.includes("new_tool") && plan.tool_policy.auto_approve_tools.includes("new_tool"), j(plan.tools));
+  check("R2 and is sent with it", plan.tools.includes("new_tool") && plan.tool_policy?.auto_approve_tools.includes("new_tool"), j(plan.tools));
   // Layering order: session over app over gateway.
   const both = resolveToolModes(cat, { app: { read_file: "ask" }, session: { read_file: "off" } });
   check("session over app over gateway, with inherited", both.read_file.mode === "off" && both.read_file.source === "session" && both.read_file.inherited === "ask", j(both.read_file));
@@ -136,7 +136,7 @@ check("no badge without served sandbox fields", by.read_file.state === undefined
   check("R5 withRunTools removes a stale tool_policy key (its presence suppresses the grant)", !("tool_policy" in stale._runtime) && stale._runtime.stream === true && stale.prompt === "hi", j(stale));
   const one = planRunTools(cat, { session: { read_file: "ask" } });
   check("R4 one choice → tool_policy sent", Boolean(one.tool_policy), j(one));
-  check("R4 it carries every enabled tool, split", j(one.tool_policy.auto_approve_tools) === j(["fetch_url", "legacy_tool", "list_files", "web_search"]) && j(one.tool_policy.require_approval_tools) === j(["execute_command", "read_file", "write_file"]), j(one.tool_policy));
+  check("R4 it carries every enabled tool, split", j(one.tool_policy?.auto_approve_tools) === j(["fetch_url", "legacy_tool", "list_files", "web_search"]) && j(one.tool_policy?.require_approval_tools) === j(["execute_command", "read_file", "write_file"]), j(one.tool_policy));
   // A choice that makes the plan equal to the gateway defaults still sends the policy (explicit act).
   const reset = planRunTools(cat, { app: { read_file: "off" }, session: { read_file: "auto" } });
   check("R4 an explicit choice equal to the defaults is still sent", Boolean(reset.tool_policy));
@@ -150,9 +150,9 @@ check("no badge without served sandbox fields", by.read_file.state === undefined
 // ---------------------------------------------------------------- plan details
 {
   const plan = planRunTools(cat, { app: { send_email: "ask" } });
-  check("refined stays offered but out of the always-ask list", plan.tools.includes("send_email") && !plan.tool_policy.require_approval_tools.includes("send_email"), j(plan.tool_policy));
+  check("refined stays offered but out of the always-ask list", plan.tools.includes("send_email") && !plan.tool_policy?.require_approval_tools.includes("send_email"), j(plan.tool_policy));
   const off = planRunTools(cat, { app: { write_file: "off" } });
-  check("off is never sent", !off.tools.includes("write_file") && !off.tool_policy.require_approval_tools.includes("write_file"));
+  check("off is never sent", !off.tools.includes("write_file") && !off.tool_policy?.require_approval_tools.includes("write_file"));
   const ceiling = planRunTools(cat, { app: { write_file: "auto" } }, { ceiling: ["read_file", "write_file", "send_telegram_message"] });
   check("the workflow ceiling is a ceiling (never widens)", j(ceiling.tools) === j(["read_file", "write_file"]), j(ceiling.tools));
   check("allowed_tools mirrors tools", j(plan.allowed_tools) === j(plan.tools));
