@@ -205,9 +205,13 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
   h.rerender({ value: { provider: "p", model: "m1" } });
   await h.settle();
   check("C1 the reset is kept", byAria(h.tree, "Voice language")?.props.value === "", byAria(h.tree, "Voice language")?.props.value);
-  // Provider change: the filter resets.
+  // A model change within the provider reloads the catalog (briefly empty) and keeps the filter.
   byAria(h.tree, "Voice language").props.onChange("fr");
   h.render();
+  h.rerender({ value: { provider: "p", model: "m2" } });
+  await h.settle();
+  check("C1 a model change keeps the filter", byAria(h.tree, "Voice language")?.props.value === "fr", byAria(h.tree, "Voice language")?.props.value);
+  // Provider change: the filter resets.
   h.rerender({ value: { provider: "q", model: "" } });
   await h.settle();
   check("C1 a provider change resets the filter", byAria(h.tree, "Voice language")?.props.value === "", byAria(h.tree, "Voice language")?.props.value);

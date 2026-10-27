@@ -189,9 +189,11 @@ export function VoiceSettings({
   const languages = voiceLanguages(entries);
   // The filter shows only with two languages or more; hidden, it must not keep filtering.
   const hasLanguageFilter = languages.length > 1;
+  // While the catalog reloads (a model change, a created voice) the list is briefly empty: that is
+  // not "one language left", so the filter is kept; it resets only once a loaded catalog has none.
   useEffect(() => {
-    if (!hasLanguageFilter) setLanguage("");
-  }, [hasLanguageFilter]);
+    if (!hasLanguageFilter && !loading) setLanguage("");
+  }, [hasLanguageFilter, loading]);
   const activeLanguage = hasLanguageFilter ? language : "";
   const options = entries
     .filter(
