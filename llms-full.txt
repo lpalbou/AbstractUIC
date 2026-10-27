@@ -167,6 +167,11 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
 
+## What's new in 0.7.2
+
+`@abstractframework/ui-kit` 0.9.2: the voice picker's speech model list shows a cloning checkpoint
+(Qwen3-TTS Base) as "<id> (clones)" ([changelog](./CHANGELOG.md#072---2026-10-28)).
+
 ## What's new in 0.7.1
 
 `@abstractframework/ui-kit` 0.9.1: in the voice picker, choosing a voice plays it, with one
@@ -2087,7 +2092,8 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   `createVoice`, which stays as an alias) adds **Manage voices** (`VoiceLibraryPanel`: the voices
   that can change, built-in ones are read-only and not listed; **Rename**, **Delete** asked twice,
   **Share** where the host injects `share`, i.e. for an administrator; a refusal is the gateway's
-  sentence); `previewVoice(prefs, text?, opts?) => Promise<ArrayBuffer>` makes **choosing a voice play
+  sentence); The speech model list shows a cloning checkpoint (AbstractVoice `tts_model_details_by_provider`, role `"cloning"`,
+  e.g. Qwen3-TTS Base) as "<id> (clones)" (0.9.2). `previewVoice(prefs, text?, opts?) => Promise<ArrayBuffer>` makes **choosing a voice play
   it** (host-injected: every gateway TTS route needs a run or an entity), played on
   `previewOn` (`{deviceId, volume}`): one play/stop toggle sits at the right of the voice select
   (play restarts from 0, stop stops and rewinds; busy while the sample is on its way, a click then
@@ -6329,7 +6335,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -6354,7 +6360,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -20411,6 +20417,18 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## Unreleased
+
+## 0.7.2 - 2026-10-28
+
+Packages: `@abstractframework/ui-kit` 0.9.2 (panel-chat unchanged at 0.5.0).
+
+### Voice: the cloning checkpoint is offered as a model, marked
+
+- `VoiceSettings`' speech model list reads `tts_model_details_by_provider` (AbstractVoice 0.19.2, through
+  AbstractGateway `GET voice/voices`): a cloning checkpoint (Qwen3-TTS `…-Base`, role `"cloning"`, the model a cloned
+  voice is spoken with) is shown as "<id> (clones)". Without details the ids show as before.
+- `ProviderModelPicker`'s `fetchModels` may return `{id, label}` records as well as ids (additive; existing hosts
+  unchanged); `ProviderModelSelect` takes `modelDisplayNames` (id → label). The value stays the id.
 
 ## 0.7.1 - 2026-10-27
 

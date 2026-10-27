@@ -38,6 +38,8 @@ export type ProviderModelSelectProps = {
   model: string;
   providers: ProviderOption[];
   models: string[];
+  /** What a model is shown as (e.g. "Qwen/…-Base (clones)"); absent = its id. */
+  modelDisplayNames?: Record<string, string>;
   onChange: (next: { provider: string; model: string }) => void;
 
   disabled?: boolean;
@@ -102,7 +104,7 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
 
   const model_options: AfSelectOption[] = [
     ...(allow_gateway_default ? [{ value: "", label: gateway_default_label } satisfies AfSelectOption] : []),
-    ...models.map((m) => ({ value: m, label: m })),
+    ...models.map((m) => ({ value: m, label: props.modelDisplayNames?.[m] || m })),
     ...(props.markSaved && model_value && !models.includes(model_value)
       ? [{ value: model_value, label: saved(model_value, "model", props.loadingModels, props.modelError) }]
       : []),
