@@ -10,14 +10,15 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 - **Getting started**: [`getting-started.md`](./getting-started.md) — install, required CSS imports, first examples, Next.js notes
 - **API reference**: [`api.md`](./api.md) — export map per package
-- **Architecture**: [`architecture.md`](./architecture.md) — package boundaries, consumers, data flow, the Gateway connection flow, live replies, the About/identity flow, the automations flow, and voice settings and file preview (with diagrams)
+- **Architecture**: [`architecture.md`](./architecture.md) — package boundaries, consumers, the design rules (one component per job, composed on the gateway's contracts), the app shell, the approval and chat tool-policy flow, data flow, the Gateway connection flow, live replies, the About/identity flow, the automations flow, and voice settings and file preview (with diagrams)
 - **FAQ**: [`faq.md`](./faq.md) — recurring questions and limits
 - **Troubleshooting**: [`troubleshooting.md`](./troubleshooting.md) — symptoms, checks and fixes
 
 ## Topic deep dives
 
-- **Adoption guide**: [`adoption-guide.md`](./adoption-guide.md) — which shared component for which job, and the contracts apps follow
-- **Theming & design tokens**: [`theming.md`](./theming.md) — token vocabulary, the 21 themes, migration rules for host apps
+- **Adoption guide**: [`adoption-guide.md`](./adoption-guide.md) — which shared component for which job (the chat surface, questions and approvals, attachments and media, tool selection and the chat's tool policy, the provider/model picker, voice, the app shell), and the contracts apps follow
+- **Design decisions (ADRs)**: [`adr/README.md`](./adr/README.md) — the durable rules the shared components follow; [ADR 0001](./adr/0001_shared_primitives_composed_on_gateway_contracts.md): one component per job, composed on the gateway's contracts, customized through props, slots and theme tokens
+- **Theming & design tokens**: [`theming.md`](./theming.md) — token vocabulary, the layout variables the app shell publishes, the 21 themes, migration rules for host apps
 - **On/off settings**: [`state-toggles.md`](./state-toggles.md) — `AfSwitch`, the console markup, the terminal marker, the verb-toggle and label-scale guards, the sign-in card, forms, cards and tabs, `randomId()`
 - **Modal, account rows, grouped navigation**: [`modal.md`](./modal.md) — `AfModal` and its plain-HTML markup with `AfConsoleIslands.bindModal`, the menu and the themed tooltip (`AfTooltip`, `bindTooltips`), the account-kind row tints and chips, sidebar group captions with a bottom slot, and the 13 px / 14 px helper-text floor
 - **Icons**: [`icons.md`](./icons.md) — the `Icon` component, every icon name with its grid and typical use, the light and dark contact sheets, the drawing rules, and how to add an icon
@@ -25,7 +26,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 - **Automations**: [`automations.md`](./automations.md) — show and manage AbstractGateway automations: `AutomationPanel` (controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (schedules and **When an email arrives** triggers, **Email result**, result recipients) and its tool-approval consent line, `createAutomationsClient()` and its error model, retry-safe ids, the panel-chat schedule action and badge, the canonical fixtures and how to regenerate them, and the export list
 - **Console islands**: [`console-islands.md`](./console-islands.md) — the `window.AfConsoleIslands` bundle built from `ui-kit` for non-React pages (AbstractGateway console): API, build and check
 - **Local development**: [`development.md`](./development.md) — workspace build, tests, contracts shared with other repositories, docs regeneration
-- **Publishing (maintainers)**: [`publishing.md`](./publishing.md) — versioning, tag-driven release workflow, first publish of a new package
+- **Publishing (maintainers)**: [`publishing.md`](./publishing.md) — versioning, the release gates, tag-driven release workflow, first publish of a new package
 - Legacy stub (kept for old links): [`installation.md`](./installation.md) — points to Getting started
 
 ## Repo docs / policies
@@ -40,8 +41,8 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 
 ## Package docs
 
-- UI tokens, themes, responsive layout, inputs, Gateway connection UI, top bar/drawer/rail drawer/appearance, file viewer and audio player, settings rows and voice section, About dialog and identity, automations, console islands: [`ui-kit/README.md`](../ui-kit/README.md)
-- Chat primitives (thread, composer, markdown/json renderers, assistant panel, workflow chat, live replies, workspace browser and file preview): [`panel-chat/README.md`](../panel-chat/README.md)
+- UI tokens, themes, responsive layout, inputs (provider/model picker, tool editor and tool layers, the chat's tool policy client), Gateway connection UI, the app shell (top-right cluster with the signed-in identity, drawer system, appearance, About), file viewer and audio player, settings rows and voice (section, voice in / out widgets, microphone button, voice library), identity helpers, automations, console islands: [`ui-kit/README.md`](../ui-kit/README.md)
+- Chat (the workflow chat surface, questions and approvals, the chat's tool policy, attachments and generated media, live replies, Docs assistant and app assistant, workspace browser and file preview, thread, composer, markdown/json renderers): [`panel-chat/README.md`](../panel-chat/README.md)
 - App-origin Gateway session proxy: [`app-server/README.md`](../app-server/README.md)
 - Agent-cycle trace viewer (LLM/tool/observe): [`monitor-flow/README.md`](../monitor-flow/README.md)
 - KG + Active Memory explorer (ReactFlow): [`monitor-active-memory/README.md`](../monitor-active-memory/README.md)
