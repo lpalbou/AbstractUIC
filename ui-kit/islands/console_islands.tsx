@@ -27,6 +27,7 @@ import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
 import { useGatewayVoice } from "../src/use_gateway_voice.js";
 import { ProviderModelPicker, type ProviderModelPickerProps } from "../src/provider_model_picker.js";
 import { VoiceSettings } from "../src/voice_settings.js";
+import { AfVoiceSection, type AfVoiceSectionProps } from "../src/af_voice_section.js";
 import { WorkspaceChooser, type WorkspaceChooserProps } from "../src/workspace_chooser.js";
 import { WORKSPACE_CHOOSER_TEXT, workspaceAsState } from "../src/workspace_chooser_core.js";
 import { AfTimeZonePicker, type AfTimeZonePickerProps } from "../src/time_zone_picker.js";
@@ -358,10 +359,26 @@ export type VoiceSettingsIslandProps = React.ComponentProps<typeof VoiceSettings
 
 /**
  * The shared voice picker (provider + model + voice, "Gateway default"),
- * transport injected (fetchCatalog). Additive member (round 3).
+ * transport injected (fetchCatalog). Additive member (round 3). Its props
+ * carry `voiceLibrary` (ui-primitives 0035): creation plus list / rename /
+ * remove / share over the gateway's voice library (`voice/clones`), and
+ * `previewVoice` ("Play sample").
  */
 export function mountVoiceSettings(el: Element, props: VoiceSettingsIslandProps): IslandHandle<VoiceSettingsIslandProps> {
   return mount(el, (p) => <VoiceSettings {...p} />, props);
+}
+
+export type VoiceSectionIslandProps = AfVoiceSectionProps;
+
+/**
+ * The whole voice section (`AfVoiceSection`: Engines, Output, Microphone,
+ * Replies) for plain-HTML hosts, the same component the apps render. Props are
+ * the component's own (transport injected: fetchCatalog, fetchDefaults,
+ * voiceLibrary, fetchLanguages, previewVoice). Additive member
+ * (ui-primitives 0035): apiVersion stays "2".
+ */
+export function mountVoiceSection(el: Element, props: VoiceSectionIslandProps): IslandHandle<VoiceSectionIslandProps> {
+  return mount(el, (p) => <AfVoiceSection {...p} />, props);
 }
 
 /**
@@ -453,6 +470,7 @@ const api = {
   mountSandboxChat,
   mountProviderModelPicker,
   mountVoiceSettings,
+  mountVoiceSection,
   mountDocsAssistant,
   mountWorkspaceChooser,
   mountTimeZonePicker,
