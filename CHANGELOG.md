@@ -37,8 +37,18 @@ kit tool editor is `ToolModeEditor`, with an `allowListOnly` mode for allowlist 
   "(saved; not available)").
 - `gateway_models.ts`: `gatewayTextDefault`, `createGatewayModelTransport`, `reasoningLadderFrom`,
   `withRunModel`; the routes in `gateway_paths.ts`.
+- Review fixes (adversarial review of PR #6): a layer key that changes no tool's mode (a removed or
+  not-offered tool, a bare "approve", a diff the gateway default caught up with) no longer sends
+  `tool_policy` (`effectiveToolLayers`, `hasToolChoices(catalog, layers)`); the gateway's failure
+  answer `{items: [], error}` is an error, `catalog_warnings` are shown (`ToolModeEditorForPayload`,
+  used by the island, never throws); the picker re-reads a new `fetchGatewayDefault`, says "none
+  configured" / "could not be read", and shows the gateway's warnings instead of naming an unusable
+  default; "(saved)" only for the mounted value and never while its list failed; the store rebuilds a
+  lost session index and reports unreadable values (`dialect`, `onDropped`); the tool search uses
+  `--font-size-input`; the session chip names the gateway when that is the inherited source.
 - Checks: `check_tool_plan`, `check_tool_mode_editor`, `check_gateway_models`; `check_route_picker`,
-  `check_tool_state`, `check_speculation` (now in `npm test`) and `check_islands` extended.
+  `check_tool_state`, `check_speculation` (now in `npm test`), `check_islands` and `check_responsive`
+  extended.
 
 ## 0.6.4 - 2026-10-27
 
