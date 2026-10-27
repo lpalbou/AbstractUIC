@@ -20,10 +20,23 @@ export type PresentInteractionOptions = {
    * Omit it and only Allow once / Deny are offered.
    */
   onPermissionsAll?: () => Promise<void>;
+  /**
+   * Opt in to conversation grants on the gateway (session tool policy). When
+   * the controller reports `sessionToolPolicy === "server"`, approve-all reads
+   * "Allow all tools in this conversation": the grant is written on the
+   * gateway first, then this batch is answered (`approveForSession`), and the
+   * runtime stops asking for covered calls. `ask` lists the host's explicit
+   * Ask settings: those tools keep asking under the grant. It is an opt-in
+   * because only the host knows that list; without it nothing changes.
+   * Otherwise (#FALLBACK, older gateway: `local-fallback`) approve-all is the
+   * `onPermissionsAll` switch as before, routed through `approveForSession`
+   * so the path that ran is reported.
+   */
+  sessionPolicy?: { ask: readonly string[] };
 };
 
 /** The controller methods the controls call. */
-export type InteractionController = Pick<WorkflowSessionController, "approve" | "approveWithPolicyChange" | "resume" | "emitEvent">;
+export type InteractionController = Pick<WorkflowSessionController, "approve" | "approveWithPolicyChange" | "approveForSession" | "getSnapshot" | "resume" | "emitEvent">;
 
 /**
  * Converts a runtime wait into a control, or null when the wait is not one a
@@ -43,6 +56,14 @@ export function presentInteraction(
     const target = { runId: raw.runId, waitKey: String(wait.wait_key || ""), stepId: raw.stepId };
     const names = [...new Set(calls.map((call: any) => String(call?.name || "tool")))];
     const onPermissionsAll = options.onPermissionsAll;
+    const sessionPolicy = options.sessionPolicy;
+    const serverGrant = Boolean(sessionPolicy) && controller.getSnapshot().sessionToolPolicy === "server";
+    const localAll = onPermissionsAll
+      ? async () => {
+          if (sessionPolicy) await controller.approveForSession(target, { all: true }, { ask: sessionPolicy.ask, onLocalFallback: () => void onPermissionsAll() });
+          else await controller.approveWithPolicyChange(target, () => { void onPermissionsAll(); });
+        }
+      : undefined;
     return {
       id,
       kind: "tool-approval",
@@ -68,17 +89,17 @@ export function presentInteraction(
       ),
       approveLabel: "Allow once",
       denyLabel: "Deny",
-      approveAllLabel: onPermissionsAll ? "Allow all enabled tools" : undefined,
-      approveAllDescription: onPermissionsAll
-        ? "Sets permissions: all for this Gateway account, including future turns. Unchecked tools stay unavailable; explicit Ask overrides and Gateway restrictions remain enforced. Questions still need your answer."
-        : undefined,
-      onApproveAll: onPermissionsAll
+      approveAllLabel: serverGrant ? "Allow all tools in this conversation" : onPermissionsAll ? "Allow all enabled tools" : undefined,
+      approveAllDescription: serverGrant
+        ? "Saved on the Gateway for this conversation: from now on its tool calls run without asking, in every turn and sub-agent. Tools this conversation cannot use stay unavailable; explicit Ask settings still ask. Questions still need your answer."
+        : onPermissionsAll
+          ? "Sets permissions: all for this Gateway account, including future turns. Unchecked tools stay unavailable; explicit Ask overrides and Gateway restrictions remain enforced. Questions still need your answer."
+          : undefined,
+      onApproveAll: serverGrant
         ? async () => {
-            await controller.approveWithPolicyChange(target, () => {
-              void onPermissionsAll();
-            });
+            await controller.approveForSession(target, { all: true }, { ask: sessionPolicy!.ask, ...(onPermissionsAll ? { onLocalFallback: () => void onPermissionsAll() } : {}) });
           }
-        : undefined,
+        : localAll,
       onApprove: async () => {
         await controller.approve(true, target);
       },

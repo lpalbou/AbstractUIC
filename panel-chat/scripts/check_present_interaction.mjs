@@ -10,7 +10,13 @@ const { presentInteraction } = pc;
 assert.equal(typeof presentInteraction, "function", "export presentInteraction");
 
 const calls = [];
+let policyMode = "local-fallback";
 const controller = {
+  getSnapshot: () => ({ sessionToolPolicy: policyMode }),
+  approveForSession: async (target, selector, options) => {
+    calls.push(["approveForSession", target, selector, options?.ask]);
+    if (policyMode !== "server") options?.onLocalFallback?.();
+  },
   approve: async (approved, target) => void calls.push(["approve", approved, target]),
   approveWithPolicyChange: async (target, onApproved) => {
     calls.push(["approveWithPolicyChange", target]);
@@ -56,6 +62,31 @@ assert.match(all.approveAllDescription, /permissions: all/);
 await all.onApproveAll();
 assert.deepEqual(calls.at(-1), ["approveWithPolicyChange", target], "Allow all → approveWithPolicyChange(target)");
 assert.equal(policy, 1, "the host's policy switch runs once the batch is approved");
+// --- conversation grant on the gateway (session tool policy) -------------------------
+// Without the host's opt-in nothing changes, even on a supporting gateway.
+policyMode = "server";
+const notOptedIn = presentInteraction(toolWait, controller, { onPermissionsAll: async () => void (policy += 1) });
+assert.equal(notOptedIn.approveAllLabel, "Allow all enabled tools", "no sessionPolicy opt-in → the old local switch");
+assert.equal(presentInteraction(toolWait, controller).onApproveAll, undefined, "no opt-in, no switch → no Allow-all");
+const server = presentInteraction(toolWait, controller, { sessionPolicy: { ask: ["send_email"] }, onPermissionsAll: async () => void (policy += 1) });
+assert.equal(server.approveAllLabel, "Allow all tools in this conversation");
+assert.match(server.approveAllDescription, /this conversation/);
+assert.doesNotMatch(server.approveAllDescription, /account/, "the server grant is conversation-scoped, never account-wide");
+await server.onApproveAll();
+assert.deepEqual(calls.at(-1), ["approveForSession", target, { all: true }, ["send_email"]], "Allow all → approveForSession(target, {all}, ask)");
+assert.equal(policy, 1, "the host's local switch does not run on the server path");
+const serverOnly = presentInteraction(toolWait, controller, { sessionPolicy: { ask: [] } });
+assert.equal(serverOnly.approveAllLabel, "Allow all tools in this conversation", "a supporting gateway offers it without a local switch");
+assert.equal(server.approveLabel, "Allow once"); assert.equal(server.denyLabel, "Deny");
+// Older gateway (local-fallback): the old switch, routed so the path is reported.
+policyMode = "local-fallback";
+const fallback = presentInteraction(toolWait, controller, { sessionPolicy: { ask: [] }, onPermissionsAll: async () => void (policy += 1) });
+assert.equal(fallback.approveAllLabel, "Allow all enabled tools");
+await fallback.onApproveAll();
+assert.deepEqual(calls.at(-1)[0], "approveForSession");
+assert.equal(policy, 2, "local-fallback runs the host's switch");
+assert.equal(presentInteraction(toolWait, controller, { sessionPolicy: { ask: [] } }).onApproveAll, undefined, "local-fallback without a host switch offers nothing");
+
 const single = presentInteraction({ runId: "r", wait: { wait_key: "k", details: { kind: "tool_approval", tool_calls: [{ name: "shell" }] } } }, controller);
 assert.equal(single.kind, "tool-approval", "details.kind=tool_approval is an approval too");
 assert.equal(single.title, "1 action needs permission");

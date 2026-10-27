@@ -91,6 +91,11 @@ export type {
   WorkflowToolApprovalPolicy,
   WorkflowStopPhase,
   WorkflowStopState,
+  WorkflowSessionToolPolicyRequest,
+  WorkflowSessionToolSelector,
+  WorkflowSessionToolPolicyMode,
+  WorkflowSessionToolPolicyClamp,
+  WorkflowSessionToolGrant,
 } from "./workflow_runtime.js";
 export type { UseWorkflowSessionOptions, WorkflowSessionHook } from "./use_workflow_session.js";
 export type { WorkflowEventScope, WorkflowEventTarget, WorkflowEventTargetResolution } from "./event_target.js";

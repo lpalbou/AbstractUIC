@@ -40,7 +40,44 @@ export type WorkflowTransport = {
    */
   streamLedger(runId: string, after: number, onStep: (item: unknown) => void, signal: AbortSignal, onOpen?: () => void, onDelta?: (event: LlmDelta | LlmDeltaEnd) => void): Promise<void>;
   submitCommand(command: GatewayCommand, signal?: AbortSignal): Promise<unknown>;
+  /**
+   * Session tool policy (gateway contract v1), optional so older hosts keep
+   * compiling. A host that implements all three lets a conversation-wide grant
+   * live on the gateway (`approveForSession`); without them the controller
+   * reports `sessionToolPolicy: "local-fallback"`.
+   *
+   * `GET /api/gateway/discovery/capabilities`: resolve to the response body
+   * (`{capabilities: {...}}`). Only `capabilities.session_tool_policy.supported`
+   * is read; it is read once per controller (one controller per auth scope).
+   */
+  getCapabilities?(signal?: AbortSignal): Promise<unknown>;
+  /** `POST` (merge: true) or `PUT` (merge: false)
+   * `api/gateway/sessions/{session_id}/tool-policy` (gateway-relative) with `body` as JSON;
+   * resolve to the response body (`{session_id, policy}`), reject on non-2xx. */
+  setSessionToolPolicy?(sessionId: string, body: WorkflowSessionToolPolicyRequest, options: { merge: boolean }, signal?: AbortSignal): Promise<unknown>;
+  /** `DELETE /api/gateway/sessions/{session_id}/tool-policy`; resolve to the response body. */
+  clearSessionToolPolicy?(sessionId: string, signal?: AbortSignal): Promise<unknown>;
 };
+
+/** Body of PUT/POST `/sessions/{session_id}/tool-policy` (contract v1 §3). */
+export type WorkflowSessionToolPolicyRequest = {
+  approve?: { tools?: string[]; kinds?: string[]; all?: boolean; max_risk_rank?: number };
+  deny?: { tools?: string[]; kinds?: string[] };
+  ask?: string[];
+  client?: string;
+  if_revision?: number;
+};
+/** What a conversation-wide grant covers: every tool the gateway authorizes
+ * for the account, toolsets (`toolset` ids of `GET /discovery/tools` rows), or
+ * exact tool names. */
+export type WorkflowSessionToolSelector = { all: true } | { kinds: readonly string[] } | { tools: readonly string[] };
+/** Where a conversation-wide grant goes; see `WorkflowSessionSnapshot.sessionToolPolicy`. */
+export type WorkflowSessionToolPolicyMode = "server" | "local-fallback" | "unavailable";
+/** A requested name the gateway did not approve (`policy.clamped`). */
+export type WorkflowSessionToolPolicyClamp = { selector: string; name: string; reason: string };
+export type WorkflowSessionToolGrant =
+  | { path: "server"; sessionId: string; policy: ServerRecord | null; clamped: WorkflowSessionToolPolicyClamp[] }
+  | { path: "local-fallback"; reason: string };
 
 /** Raw runtime wait; presentation code may map this to its own UI union. */
 export type WorkflowWaitInteraction = {
@@ -89,6 +126,28 @@ export type WorkflowSessionSnapshot = {
    * Null when this client never asked to stop and nothing was forced.
    */
   stop?: WorkflowStopState | null;
+  /**
+   * Where a conversation-wide grant (`approveForSession`) is applied:
+   * - `server`: the gateway advertises `capabilities.session_tool_policy`, the
+   *   transport implements the session-policy calls and the root run has a
+   *   `session_id`. The grant is written on the gateway; the runtime then runs
+   *   covered calls with no wait at all (no approval gate is ever shown).
+   * - `local-fallback`: an older gateway (capability absent), a transport
+   *   without the calls, or a run without `session_id` (a session policy never
+   *   applies to it). The grant is this client's standing permission: the
+   *   runtime still emits each covered wait and this controller answers it
+   *   after it arrived, so the gate can flash. Kept so older gateways keep
+   *   working; `sessionToolPolicyReason` says why.
+   * - `unavailable`: not decided yet (nothing loaded, capability read in
+   *   flight) or the capability read failed (`sessionToolPolicyReason`); a
+   *   grant then fails loudly instead of guessing a path.
+   */
+  sessionToolPolicy?: WorkflowSessionToolPolicyMode;
+  /** Why `sessionToolPolicy` is not `server` (empty when it is). */
+  sessionToolPolicyReason?: string;
+  /** Names the gateway dropped at this client's last policy write
+   * (`policy.clamped`). They are NOT approved: hosts should show them. */
+  sessionToolPolicyClamped?: WorkflowSessionToolPolicyClamp[];
 };
 
 export type WorkflowStopPhase = "stopping" | "stopped" | "forced";
@@ -131,7 +190,36 @@ export type WorkflowSessionControllerOptions = {
 const EMPTY: WorkflowSessionSnapshot = {
   messages: [], records: [], run: null, interaction: null,
   status: "idle", displayStatus: "", loading: false, error: null, connection: "idle", toolApprovalGranted: false, stop: null,
+  sessionToolPolicy: "unavailable", sessionToolPolicyReason: "No run is loaded.", sessionToolPolicyClamped: [],
 };
+
+function policyClamps(value: unknown): WorkflowSessionToolPolicyClamp[] {
+  return array(value).map(object).filter((row): row is ServerRecord => Boolean(row)).map(row => ({ selector: text(row.selector), name: text(row.name), reason: text(row.reason) }));
+}
+
+/** The approve half of a policy write; never an empty grant. */
+function sessionPolicyRequest(selector: WorkflowSessionToolSelector, ask: readonly string[], client: string): WorkflowSessionToolPolicyRequest {
+  const names = (values: readonly string[]) => [...new Set(values.map(text).filter(Boolean))];
+  let approve: WorkflowSessionToolPolicyRequest["approve"];
+  if ("all" in selector && selector.all === true) approve = { all: true };
+  else if ("kinds" in selector && names(selector.kinds).length) approve = { kinds: names(selector.kinds) };
+  else if ("tools" in selector && names(selector.tools).length) approve = { tools: names(selector.tools) };
+  else throw new Error("A conversation grant needs all, kinds or tools.");
+  return { approve, ...(names(ask).length ? { ask: names(ask) } : {}), client: client.slice(0, 64) };
+}
+
+/** `abstract.tool_policy_decision` (contract v1 §5) as an activity line. */
+function toolPolicyDecisionText(payload: ServerRecord | null): string {
+  const decision = text(payload?.decision);
+  const head = decision === "auto_approved" ? "Allowed by this conversation's policy" : decision === "denied" ? "Denied by this conversation's policy" : "";
+  if (!head) return "";
+  const policy = object(payload?.policy);
+  const by = text(object(policy?.set_by)?.user_id);
+  const at = text(policy?.set_at);
+  const provenance = by || at ? ` (set${by ? ` by ${by}` : ""}${at ? ` at ${at}` : ""})` : "";
+  const names = [...new Set(array(payload?.tool_calls).map(call => text(object(call)?.name)).filter(Boolean))];
+  return `${head}${provenance}${names.length ? `: ${names.join(", ")}` : ""}`;
+}
 
 function object(value: unknown): ServerRecord | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as ServerRecord : null;
@@ -290,6 +378,9 @@ export class WorkflowSessionController {
   private toolApprovalPolicy: WorkflowToolApprovalPolicy | null = null;
   private toolApprovalSuspended = false;
   private toolApprovalStopped = false;
+  /** `capabilities.session_tool_policy.supported`, read once per controller
+   * (one controller per auth scope); null until read or after a failed read. */
+  private sessionPolicyCapability: Promise<boolean> | null = null;
   private displayStatusAt = -Infinity;
   /** Stop evidence (see `WorkflowSessionSnapshot.stop`). */
   private stopRequested = false;
@@ -368,6 +459,7 @@ export class WorkflowSessionController {
         ...(currentWait && !terminal(runStatus) ? { interaction: this.interactionWith({ runId: id, wait: currentWait }) } : {}),
       });
       if (liveRun) this.updateRunState(id, liveRun);
+      void this.resolveSessionToolPolicy(generation);
       if (currentWait) for (const child of subRunIds({ result: { wait: currentWait } })) if (child !== id) void this.catchUpAndWatch(child, generation);
       await this.catchUpAndWatch(id, generation);
       // Ledger streams intentionally stay open while a workflow is parked.
@@ -441,11 +533,17 @@ export class WorkflowSessionController {
     return this.sendCommand("resume", { wait_key: text(interaction.wait.wait_key), payload: { response } });
   }
 
-  approve(approved: boolean, target?: WorkflowApprovalTarget): Promise<unknown> {
+  /** The shown wait `target` names, if a decision on it is allowed now. */
+  private decidableInteraction(approved: boolean, target?: WorkflowApprovalTarget): WorkflowWaitInteraction {
     const interaction = this.requireInteraction();
     if (terminal(this.snapshot.status)) throw new Error("This run has already ended.");
     if (target && (interaction.runId !== target.runId || text(interaction.wait.wait_key) !== target.waitKey || (target.stepId !== undefined && interaction.stepId !== target.stepId))) throw new Error("This approval request has changed. Review the current request before deciding.");
     if (approved && this.toolApprovalPolicy && !this.toolCallsMatch(interaction, this.toolApprovalPolicy.enabledTools)) throw new Error("This request includes an unavailable or unselected tool. It cannot be authorized. Deny this request or stop the run and change Tools settings.");
+    return interaction;
+  }
+
+  approve(approved: boolean, target?: WorkflowApprovalTarget): Promise<unknown> {
+    const interaction = this.decidableInteraction(approved, target);
     const generation = this.generation;
     return this.sendCommand("resume", { wait_key: text(interaction.wait.wait_key), payload: { approved: Boolean(approved) } }).then(result => {
       if (!this.live(generation)) return result;
@@ -481,6 +579,85 @@ export class WorkflowSessionController {
     if (!this.live(generation) || epoch !== this.approvalEpoch || terminal(this.snapshot.status)) return;
     this.approvedWaits.add(`${target.runId}:${target.waitKey}${interaction.stepId ? `:${interaction.stepId}` : ""}`);
     this.set({ ...this.snapshot, autoApproveTools: true });
+  }
+
+  /**
+   * "Allow all / this kind / these tools in this conversation" on the shown
+   * tool approval `target`.
+   *
+   * `sessionToolPolicy === "server"`: writes the grant on the gateway FIRST
+   * (POST, merge), then answers the shown wait with the ordinary
+   * `approve(true, target)` — the contract's order: the policy never answers a
+   * wait that already exists. No client-side standing permission is installed:
+   * the runtime stops emitting covered waits, so a later wait that does arrive
+   * (a tool outside the grant, an explicit Ask) is a real question. The
+   * gateway's `clamped` list is returned and kept in
+   * `snapshot.sessionToolPolicyClamped`. `ask`: names that keep asking under
+   * the grant (the host's explicit Ask settings).
+   *
+   * `local-fallback` (#FALLBACK, older gateway): only `{all: true}` exists
+   * locally — `approveWithPolicyChange(target, onLocalFallback)` when the host
+   * gives its own policy switch, else `allowAllToolsForRun(target)`. The result
+   * says which path ran. `unavailable`: throws.
+   */
+  async approveForSession(target: WorkflowApprovalTarget, selector: WorkflowSessionToolSelector, options: { ask?: readonly string[]; onLocalFallback?: () => void } = {}): Promise<WorkflowSessionToolGrant> {
+    const generation = this.generation;
+    if (!this.isToolApproval(this.decidableInteraction(true, target))) throw new Error("This is not a tool approval request.");
+    const request = sessionPolicyRequest(selector, options.ask || [], this.options.clientId || "panel-chat");
+    const resolved = await this.resolveSessionToolPolicy(generation);
+    if (!this.live(generation)) throw new Error("This approval request has changed. Review the current request before deciding.");
+    if (resolved.mode === "unavailable") throw new Error(`${resolved.reason} Allow once still works.`);
+    if (resolved.mode === "local-fallback") {
+      if (!("all" in selector)) throw new Error(`Allowing a kind of tool or named tools for the whole conversation needs the gateway's session tool policy. ${resolved.reason}`);
+      if (options.onLocalFallback) await this.approveWithPolicyChange(target, options.onLocalFallback);
+      else await this.allowAllToolsForRun(target);
+      return { path: "local-fallback", reason: resolved.reason };
+    }
+    const response = object(await this.transport.setSessionToolPolicy!(resolved.sessionId, request, { merge: true }));
+    const policy = object(response?.policy);
+    const clamped = policyClamps(policy?.clamped);
+    const grant: WorkflowSessionToolGrant = { path: "server", sessionId: resolved.sessionId, policy, clamped };
+    if (!this.live(generation)) return grant;
+    this.set({ ...this.snapshot, sessionToolPolicyClamped: clamped });
+    await this.approve(true, target);
+    return grant;
+  }
+
+  /** Reset this conversation's tool policy on the gateway (DELETE): later
+   * calls follow the normal defaults again. Only on the `server` path; a
+   * local standing permission is withdrawn with `revokeToolApproval`. */
+  async resetSessionToolPolicy(): Promise<ServerRecord | null> {
+    const generation = this.generation;
+    const resolved = await this.resolveSessionToolPolicy(generation);
+    if (resolved.mode !== "server") throw new Error(`This conversation has no gateway tool policy to reset. ${resolved.reason}`);
+    const response = object(await this.transport.clearSessionToolPolicy!(resolved.sessionId));
+    if (this.live(generation)) this.set({ ...this.snapshot, sessionToolPolicyClamped: [] });
+    return response;
+  }
+
+  /** Decide (and publish) `sessionToolPolicy` for the loaded root run. */
+  private async resolveSessionToolPolicy(generation: number): Promise<{ mode: WorkflowSessionToolPolicyMode; reason: string; sessionId: string }> {
+    const publish = (mode: WorkflowSessionToolPolicyMode, reason: string, sessionId = "") => {
+      if (this.live(generation) && (this.snapshot.sessionToolPolicy !== mode || this.snapshot.sessionToolPolicyReason !== reason)) this.set({ ...this.snapshot, sessionToolPolicy: mode, sessionToolPolicyReason: reason });
+      return { mode, reason, sessionId };
+    };
+    const transport = this.transport;
+    if (!transport.getCapabilities || !transport.setSessionToolPolicy || !transport.clearSessionToolPolicy) {
+      return publish("local-fallback", "This host's transport does not implement the session tool policy calls; conversation grants stay in this client.");
+    }
+    let supported: boolean;
+    try {
+      // Not bound to a run's abort signal: the answer is per gateway and cached.
+      this.sessionPolicyCapability ??= transport.getCapabilities().then(body => object(object(object(body)?.capabilities)?.session_tool_policy)?.supported === true);
+      supported = await this.sessionPolicyCapability;
+    } catch (error) {
+      this.sessionPolicyCapability = null;
+      return publish("unavailable", `Could not read the gateway's capabilities (${error instanceof Error ? error.message : text(object(error)?.detail) || String(error)}).`);
+    }
+    if (!supported) return publish("local-fallback", "This gateway does not advertise capabilities.session_tool_policy (older gateway); conversation grants stay in this client.");
+    const sessionId = text(this.snapshot.run?.session_id);
+    if (!sessionId) return publish("local-fallback", "This run has no session_id, so a conversation policy cannot apply to it; grants stay in this client.");
+    return publish("server", "", sessionId);
   }
 
   revokeToolApproval(): void { this.approvalEpoch += 1; this.toolApprovalSuspended = true; this.set({ ...this.snapshot, autoApproveTools: false }); }
@@ -921,6 +1098,13 @@ export class WorkflowSessionController {
       if (["abstract.tool_execution", "abstractcode.tool_execution", "abstract.tool_result", "abstractcode.tool_result"].includes(name)) {
         const content = displayValue(eventPayload);
         if (content) this.addMessage({ id: `event:${runId}:${key}`, role: "system", title: "Tool activity", content, ts: timestamp });
+      }
+      // The conversation's tool policy allowed or refused calls with NO wait
+      // (session tool policy contract v1 §5). Activity, never a question:
+      // the record carries no `result.wait`, so no interaction is made of it.
+      if (name === "abstract.tool_policy_decision") {
+        const content = toolPolicyDecisionText(object(eventPayload));
+        if (content) this.addMessage({ id: `event:${runId}:${key}`, role: "system", title: "Tool policy", content, ts: timestamp });
       }
     }
     // Publish the wait BEFORE folding its tool calls, so no snapshot ever
