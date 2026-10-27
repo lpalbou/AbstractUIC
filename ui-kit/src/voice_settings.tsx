@@ -507,6 +507,13 @@ export function VoiceSettings({
           Voice discovery unavailable: {error}. Your saved choice is preserved.
         </p>
       ) : null}
+      {!loading && !error && value.provider && entries.length === 0 && String(catalog.unavailable_reason || "").trim() ? (
+        // WHY the engine lists no voice, in the gateway's / AbstractVoice's words ("Supertonic is not
+        // installed: …", "OpenAI: needs an API key"), never a bare empty list.
+        <p className="af-voice-note" role="status" data-voice-note="unavailable">
+          {String(catalog.unavailable_reason).trim()}
+        </p>
+      ) : null}
       {delivery ? (<>
       <label>
         Speaking speed

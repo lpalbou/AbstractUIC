@@ -554,6 +554,17 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
       h.unmount();
       check("0947 unmounting aborts the sample on its way", asked.at(-1).signal.aborted);
       check("0947 no previewVoice, no toggle", !render({}).includes("play-sample"));
+      // An engine that lists no voice says why (the gateway's unavailable_reason), never a bare empty list.
+      {
+        const hu = mountH(VoiceSettings, { value: { provider: "supertonic" }, onChange: () => undefined, fetchCatalog: async () => ({ items: [], unavailable_reason: "Supertonic is not installed: onnxruntime is missing" }) });
+        await hu.settle();
+        check("0947 no voices: the reason is shown", text(dataH(hu.tree, "data-voice-note", "unavailable")) === "Supertonic is not installed: onnxruntime is missing");
+        hu.unmount();
+        const hv = mountH(VoiceSettings, { value: { provider: "supertonic" }, onChange: () => undefined, fetchCatalog: async () => ({ items: [{ id: "F1", provider: "supertonic" }], unavailable_reason: "stale" }) });
+        await hv.settle();
+        check("0947 voices listed: no reason note", !dataH(hv.tree, "data-voice-note", "unavailable"));
+        hv.unmount();
+      }
       // A profile stored as `voice` (a capability route's options.voice) is shown as that profile.
       {
         const prof = { items: [{ id: "aiden", name: "Aiden", provider: "qwen3-tts", model: "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", voice_kind: "profile", language: "en" }] };

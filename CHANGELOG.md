@@ -26,6 +26,8 @@ Packages: `@abstractframework/ui-kit` 0.9.1 (panel-chat unchanged at 0.5.0).
   the synthesis request so an abandoned sample stops downloading. Existing two-argument hosts still work
   (their late answer is dropped unplayed).
 - `playOnDevice` takes `signal`: aborting it stops the sound at once.
+- An engine that lists no voice says why: the catalog's `unavailable_reason` ("Supertonic is not installed: …",
+  "OpenAI: needs an API key") is a one-line note under the voice row (`data-voice-note="unavailable"`).
 - A profile stored as `voice` (a host that keeps one id for both kinds: a capability route's `options.voice`, an
   entity's voice) is shown as that profile by its name, not as an unknown "(saved)" id.
 - Who is affected: every host that passes `previewVoice` (the AbstractGateway console's entity voice
