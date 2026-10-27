@@ -8,7 +8,7 @@ import { JsonViewer } from "./json_viewer.js";
 import { ToolActivityGroup } from "./tool_activity.js";
 import { sessionPolicyClampedText } from "./tool_policy.js";
 import { WORKFLOW_INTERACTION_LABELS, type WorkflowInteraction, type WorkflowInteractionRemember, type WorkflowToolApprovalInteraction } from "./workflow_interaction.js";
-import type { ServerRecord, SessionPolicyMode, SessionToolPolicy, SessionToolPolicyClamp, WorkflowRecord, WorkflowSessionController, WorkflowWaitInteraction } from "./workflow_runtime.js";
+import type { ServerRecord, SessionToolPolicy, WorkflowRecord, WorkflowSessionController, WorkflowWaitInteraction } from "./workflow_runtime.js";
 
 /**
  * The served, tree-resolved pending interaction of the replay view
@@ -98,22 +98,25 @@ export type PresentInteractionOptions = {
   /** Offer "Continue without answering" on a question: resumes with an empty answer. */
   allowSkip?: boolean;
   /**
-   * The conversation's tool policy (session tool policy contract v1). With
-   * `mode: "gateway"` (from `snapshot.sessionPolicyMode`): "Allow for this chat"
-   * writes `{approve:{all:true}}` to the gateway THEN answers the shown wait,
-   * and each toolset of the batch gets "Allow all <toolset> tools for this
-   * chat" (`{approve:{kinds:[toolset]}}`). `toolsetOf(name)` maps a tool to the
-   * `toolset` of its `GET discovery/tools` row; a call carrying `toolset` wins;
-   * a tool with neither gets no kind button. `clamped`
-   * (`snapshot.sessionPolicyClamped`) renders "Not covered: …". With
-   * `mode: "local-fallback"` the local grant stays (the host's
-   * `onAllowForSession`, else the controller's run-scoped grant) and a labeled
-   * line says the gateway cannot store conversation policies.
+   * Turn on the chat's tool policy controls (session tool policy contract v1).
+   * The MODE is the controller's (`controller.sessionPolicyStatus()`), never a
+   * host prop, so the controls always say what the click will do:
+   * - `"gateway"`: "Allow for this chat" writes `{approve:{all:true}}` THEN answers
+   *   the shown wait; each toolset of the batch gets "Allow all <toolset> tools for
+   *   this chat" (`{approve:{kinds:[toolset]}}`). `toolsetOf(name)` maps a tool to the
+   *   `toolset` of its `GET discovery/tools` row; a call carrying `toolset` wins; a
+   *   tool with neither gets no kind button. The controller's `clamped` renders
+   *   "Not covered: …".
+   * - `"local-fallback"`: the host's `onAllowForSession` ("Allow for this chat",
+   *   labeled browser-only), else the controller's run-scoped grant ("Allow for this
+   *   run", labeled).
+   * - `"unavailable"`: no chat grant; the reason is shown; Allow once still works.
+   * Re-present on every snapshot change (the mode can change).
    */
   sessionPolicy?: {
-    mode: SessionPolicyMode;
     toolsetOf?: (toolName: string) => string | undefined;
-    clamped?: readonly SessionToolPolicyClamp[];
+    /** The person's explicit Ask tools: sent on every write so a broad approve never overrides them. */
+    ask?: readonly string[];
     /** Contract `approve.max_risk_rank` for "Allow for this chat" (default: unset). */
     maxRiskRank?: number;
   };
@@ -121,7 +124,7 @@ export type PresentInteractionOptions = {
 
 /** The controller methods the controls call. */
 export type InteractionController = Pick<WorkflowSessionController, "approve" | "approveWithPolicyChange" | "resume" | "emitEvent"> &
-  Partial<Pick<WorkflowSessionController, "approveAllForSession" | "approveKindForSession">>;
+  Partial<Pick<WorkflowSessionController, "approveAllForSession" | "approveKindForSession" | "sessionPolicyStatus">>;
 
 /**
  * Converts a runtime wait into a control, or null when the wait is not one a
@@ -150,7 +153,7 @@ export function presentInteraction(
     const hostChatGrant = onAllowForSession
       ? {
           approveForSessionLabel: L.allowForChat,
-          approveForSessionDescription: "Allow for this chat approves this batch and the enabled tools for the rest of this conversation. Unchecked tools stay unavailable; questions still need your answer.",
+          approveForSessionDescription: "Allow for this chat approves this batch and the enabled tools for the rest of this chat. Unchecked tools stay unavailable; questions still need your answer.",
           onApproveForSession: async () => {
             let grant: Promise<void> | undefined;
             await controller.approveWithPolicyChange(target, () => {
@@ -169,14 +172,19 @@ export function presentInteraction(
     if (policy) {
       const approveAllForSession = controller.approveAllForSession;
       const approveKindForSession = controller.approveKindForSession;
-      if (typeof approveAllForSession !== "function" || typeof approveKindForSession !== "function")
-        throw new Error("presentInteraction: sessionPolicy needs a controller with approveAllForSession / approveKindForSession (WorkflowSessionController).");
+      const sessionPolicyStatus = controller.sessionPolicyStatus;
+      if (typeof approveAllForSession !== "function" || typeof approveKindForSession !== "function" || typeof sessionPolicyStatus !== "function")
+        throw new Error("presentInteraction: sessionPolicy needs a controller with approveAllForSession / approveKindForSession / sessionPolicyStatus (WorkflowSessionController).");
+      const status = sessionPolicyStatus.call(controller);
+      const ask = policy.ask ? [...policy.ask] : undefined;
       const covered = (result: SessionToolPolicy | null) => {
         const note = sessionPolicyClampedText(result?.clamped);
         return note ? { outcomeNote: note } : undefined;
       };
-      const notCovered = sessionPolicyClampedText(policy.clamped);
-      if (policy.mode === "gateway") {
+      const notCovered = sessionPolicyClampedText(status.clamped);
+      if (status.mode === "unavailable") {
+        sessionFields = { scopeNote: L.unavailablePolicyNote(status.reason || "") };
+      } else if (status.mode === "gateway") {
         // Toolsets come from the wait's calls (`toolset`) or the host's
         // `GET discovery/tools` rows (`toolsetOf`); an unknown one is never guessed.
         const toolsets = [
@@ -189,12 +197,13 @@ export function presentInteraction(
         sessionFields = {
           approveForSessionLabel: L.allowForChat,
           approveForSessionDescription:
-            "Allow for this chat approves this batch and stores a policy for this conversation on the gateway: later tool calls of every run of this conversation run without asking, until the policy is reset. Tools the gateway does not authorize stay uncovered.",
-          onApproveForSession: async () => covered(await approveAllForSession.call(controller, target, policy.maxRiskRank !== undefined ? { maxRiskRank: policy.maxRiskRank } : {})),
+            "Allow for this chat approves this batch and stores a policy for this chat on the gateway: later tool calls of every run of this chat run without asking, until the policy is reset. Tools set to Ask keep asking; tools the gateway does not authorize stay uncovered.",
+          onApproveForSession: async () =>
+            covered(await approveAllForSession.call(controller, target, { ...(policy.maxRiskRank !== undefined ? { maxRiskRank: policy.maxRiskRank } : {}), ...(ask ? { ask } : {}) })),
           approveKinds: toolsets.map((kind) => ({
             kind,
             label: L.allowKindForChat(kind),
-            onApprove: async () => covered(await approveKindForSession.call(controller, target, kind)),
+            onApprove: async () => covered(await approveKindForSession.call(controller, target, kind, ask ? { ask } : {})),
           })),
           ...(notCovered ? { notCovered } : {}),
         };
@@ -203,7 +212,8 @@ export function presentInteraction(
         sessionFields = onAllowForSession
           ? { ...hostChatGrant, scopeNote: L.localChatPolicyNote }
           : {
-              approveForSessionLabel: L.allowForChat,
+              // The grant ends with the run: the button says so (ADR 0001 §5).
+              approveForSessionLabel: L.allowForRun,
               onApproveForSession: async () => {
                 await approveAllForSession.call(controller, target, {});
               },

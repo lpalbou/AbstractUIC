@@ -112,7 +112,7 @@ export function ToolActivity({
         <span className="pc-tool-activity__status">{labels[tool.status]}</span>
         {tool.policy ? (
           <span className="pc-tool-activity__policy" data-policy={tool.policy.decision} title={toolPolicyDecisionText(tool.policy)}>
-            {tool.policy.decision === "denied" ? "Denied by this conversation's policy" : "Allowed by this conversation's policy"}
+            {tool.policy.decision === "denied" ? "Denied by this chat's policy" : "Allowed by this chat's policy"}
           </span>
         ) : null}
         {Number.isFinite(duration) && duration >= 0 ? (

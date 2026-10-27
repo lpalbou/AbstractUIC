@@ -42,16 +42,19 @@ export function toolPolicyDecision(payload: Rec | null): { provenance: WorkflowT
     .map((row) => obj(row))
     .filter((row): row is Rec => Boolean(row && str(row.call_id)))
     .map((row) => ({ callId: str(row.call_id), name: str(row.name), ...(str(row.matched) ? { matched: str(row.matched) } : {}) }));
+  // A decision about no identifiable call is not shown (it would attach to nothing).
+  if (!calls.length) return null;
   return { provenance, calls };
 }
 
-/** "Allowed by this conversation's policy (set by admin at Oct 27, 2026, 10:00)" / "Denied by this conversation's policy". */
+/** "Allowed by this chat's policy (set by admin at Oct 27, 2026, 10:00)" / "Denied by this chat's policy".
+ * One noun for the scope across the kit (ADR 0001 §5): "chat". */
 export function toolPolicyDecisionText(provenance: WorkflowToolPolicyProvenance): string {
-  if (provenance.decision === "denied") return "Denied by this conversation's policy";
+  if (provenance.decision === "denied") return "Denied by this chat's policy";
   const at = provenance.setAt ? formatExactTime(provenance.setAt) : "";
   const by = provenance.setBy ? `set by ${provenance.setBy}` : "";
   const detail = [by, at ? `at ${at}` : ""].filter(Boolean).join(" ");
-  return `Allowed by this conversation's policy${detail ? ` (${detail})` : ""}`;
+  return `Allowed by this chat's policy${detail ? ` (${detail})` : ""}`;
 }
 
 /** "Not covered: send_email (not authorized); nope (unknown kind)" from a write's `clamped` list ("" when empty). */

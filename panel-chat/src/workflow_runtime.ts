@@ -97,9 +97,17 @@ export type SessionToolPolicyClient = {
   /** DELETE: no session policy. */
   reset(): Promise<{ revision?: number }>;
 };
-/** Where "Allow for this chat" is stored: on the gateway (every run and client of the
- * conversation), or, on a gateway without the capability, in this browser only. */
-export type SessionPolicyMode = "gateway" | "local-fallback";
+/**
+ * Where "Allow for this chat" is stored:
+ * - `"gateway"`: on the gateway (every run and client of the chat);
+ * - `"local-fallback"`: the gateway has no such capability (older gateway, or no client
+ *   injected): the client-side grant, labeled as such;
+ * - `"unavailable"`: the capability read failed (`sessionPolicyReason`); no chat grant is
+ *   made (Allow once still works).
+ */
+export type SessionPolicyMode = "gateway" | "local-fallback" | "unavailable";
+/** The controller's session-policy state, the ONE source the approval controls read. */
+export type SessionPolicyStatus = { mode: SessionPolicyMode; reason?: string; clamped: SessionToolPolicyClamp[]; policy: SessionToolPolicy | null };
 
 /** A run artifact resolved by the host for display. */
 export type ResolvedArtifact = {
@@ -166,6 +174,8 @@ export type WorkflowSessionSnapshot = {
   /** `"gateway"` when a supported `SessionToolPolicyClient` is injected, else `"local-fallback"`
    * (the client-side grant; hosts must label it, see `presentInteraction`). */
   sessionPolicyMode?: SessionPolicyMode;
+  /** Why the mode is `"unavailable"` (e.g. the capability read failed). */
+  sessionPolicyReason?: string;
   /** The conversation's stored policy after this controller's last write/read (gateway mode). */
   sessionPolicy?: SessionToolPolicy | null;
   /** What the gateway did not store on the last write (`policy.clamped`). Never dropped. */
@@ -209,6 +219,8 @@ export type WorkflowSessionControllerOptions = {
   liveRenderIntervalMs?: number;
   /** Session tool policy client (see `SessionToolPolicyClient`); also `setSessionToolPolicyClient`. */
   sessionToolPolicy?: SessionToolPolicyClient | null;
+  /** The host could not read the capability: the mode starts `"unavailable"` with this reason. */
+  sessionToolPolicyUnavailableReason?: string;
   /** Called with the stored policy and its `clamped` list after every write/read/reset. */
   onSessionPolicy?: (policy: SessionToolPolicy | null, clamped: SessionToolPolicyClamp[]) => void;
 };
@@ -393,6 +405,7 @@ export class WorkflowSessionController {
   private lastLiveRender = -Infinity;
   private readonly liveRenderIntervalMs: number;
   private sessionToolPolicy: SessionToolPolicyClient | null = null;
+  private sessionPolicyUnavailableReason = "";
   private sessionPolicyState: SessionToolPolicy | null = null;
   private sessionPolicyClamped: SessionToolPolicyClamp[] = [];
   /** `abstract.tool_policy_decision` provenance by `${runId}:${call_id}` (contract §5). */
@@ -403,6 +416,7 @@ export class WorkflowSessionController {
     if (typeof interval !== "number" || !Number.isFinite(interval) || interval < 0) throw new Error(`liveRenderIntervalMs must be a non-negative number of milliseconds, got ${JSON.stringify(options.liveRenderIntervalMs)}`);
     this.liveRenderIntervalMs = interval;
     this.sessionToolPolicy = options.sessionToolPolicy || null;
+    if (!this.sessionToolPolicy) this.sessionPolicyUnavailableReason = text(options.sessionToolPolicyUnavailableReason);
     this.snapshot = this.withSessionPolicy({ ...EMPTY });
   }
 
@@ -410,21 +424,35 @@ export class WorkflowSessionController {
 
   /** `"gateway"` only for an injected client whose capability is `supported === true`. */
   sessionPolicyMode(): SessionPolicyMode {
-    return this.sessionToolPolicy?.supported === true ? "gateway" : "local-fallback";
+    if (this.sessionToolPolicy?.supported === true) return "gateway";
+    return !this.sessionToolPolicy && this.sessionPolicyUnavailableReason ? "unavailable" : "local-fallback";
   }
 
-  /** Inject (or remove) the session policy client, e.g. once discovery has answered or the session changed. */
-  setSessionToolPolicyClient(client: SessionToolPolicyClient | null): void {
-    if (client === this.sessionToolPolicy) return;
+  /** Mode, reason, `clamped` and stored policy: what `presentInteraction` reads (never a host prop). */
+  sessionPolicyStatus(): SessionPolicyStatus {
+    const mode = this.sessionPolicyMode();
+    return { mode, ...(mode === "unavailable" ? { reason: this.sessionPolicyUnavailableReason } : {}), clamped: this.sessionPolicyClamped, policy: this.sessionPolicyState };
+  }
+
+  /**
+   * Inject (or remove) the session policy client, e.g. once discovery has answered or the
+   * session changed. `null` with a `reason` means the capability read FAILED (mode
+   * `"unavailable"`); `null` alone means the gateway does not offer it (`"local-fallback"`).
+   */
+  setSessionToolPolicyClient(client: SessionToolPolicyClient | null, options: { reason?: string } = {}): void {
+    const reason = client ? "" : text(options.reason);
+    if (client === this.sessionToolPolicy && reason === this.sessionPolicyUnavailableReason) return;
     const sameSession = Boolean(client && this.sessionToolPolicy && client.sessionId === this.sessionToolPolicy.sessionId);
     this.sessionToolPolicy = client;
+    this.sessionPolicyUnavailableReason = reason;
     if (!sameSession) { this.sessionPolicyState = null; this.sessionPolicyClamped = []; }
     this.set({ ...this.snapshot });
   }
 
   private gatewayPolicy(): SessionToolPolicyClient {
     const client = this.sessionToolPolicy;
-    if (!client || client.supported !== true) throw new Error("This gateway cannot store conversation tool policies (session_tool_policy is not supported).");
+    if (this.sessionPolicyMode() === "unavailable") throw new Error(`${this.sessionPolicyUnavailableReason} Allow once still works.`);
+    if (!client || client.supported !== true) throw new Error("This gateway cannot store chat tool policies (session_tool_policy is not supported).");
     return client;
   }
 
@@ -451,14 +479,24 @@ export class WorkflowSessionController {
     return interaction;
   }
 
-  /** Write the policy FIRST, then answer the shown wait (contract §4: the policy never answers existing waits). */
-  private async writeThenAnswer(target: WorkflowApprovalTarget, body: SessionToolPolicyBody, approved: boolean): Promise<SessionToolPolicy> {
+  /**
+   * Write the policy FIRST, then answer the shown wait (contract §4: the policy never
+   * answers existing waits). `ask` (the person's explicit Ask tools) travels on every
+   * write, so a broad approve never overrides them.
+   */
+  private async writeThenAnswer(target: WorkflowApprovalTarget, body: SessionToolPolicyBody, approved: boolean, ask: readonly string[] = []): Promise<SessionToolPolicy> {
     this.requireTarget(target);
     const client = this.gatewayPolicy();
-    const generation = this.generation;
-    const policy = await client.merge({ ...body, client: body.client || "panel-chat" });
-    if (this.generation === generation) this.adoptSessionPolicy(policy);
-    await this.approve(approved, target);
+    const names = [...new Set(ask.map((name) => text(name)).filter(Boolean))];
+    const policy = await client.merge({ ...body, ...(names.length ? { ask: names } : {}), client: body.client || "panel-chat" });
+    // Same client = same chat: adopt even across a reset/reload of the run.
+    if (this.sessionToolPolicy === client) this.adoptSessionPolicy(policy);
+    try {
+      await this.approve(approved, target);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(`This chat's tool policy was saved, but this request was not answered: ${reason} The policy does not answer requests that were already waiting.`);
+    }
     return policy;
   }
 
@@ -470,38 +508,44 @@ export class WorkflowSessionController {
    * (`allowAllToolsForRun`: this controller, until the run ends). Returns the
    * stored policy, or null in the fallback.
    */
-  async approveAllForSession(target: WorkflowApprovalTarget, options: { maxRiskRank?: number } = {}): Promise<SessionToolPolicy | null> {
-    if (this.sessionPolicyMode() !== "gateway") {
+  async approveAllForSession(target: WorkflowApprovalTarget, options: { maxRiskRank?: number; ask?: readonly string[] } = {}): Promise<SessionToolPolicy | null> {
+    const mode = this.sessionPolicyMode();
+    if (mode === "unavailable") throw new Error(`${this.sessionPolicyUnavailableReason} Allow once still works.`);
+    if (mode !== "gateway") {
       await this.allowAllToolsForRun(target);
       return null;
     }
-    return this.writeThenAnswer(target, { approve: { all: true, ...(typeof options.maxRiskRank === "number" ? { max_risk_rank: options.maxRiskRank } : {}) } }, true);
+    return this.writeThenAnswer(target, { approve: { all: true, ...(typeof options.maxRiskRank === "number" ? { max_risk_rank: options.maxRiskRank } : {}) } }, true, options.ask);
   }
 
   /** "Allow all <toolset> tools for this chat": merge `{approve:{kinds:[kind]}}`, then answer `{approved:true}`. Gateway mode only. */
-  approveKindForSession(target: WorkflowApprovalTarget, kind: string): Promise<SessionToolPolicy> {
-    return this.writeThenAnswer(target, { approve: { kinds: [kind] } }, true);
+  approveKindForSession(target: WorkflowApprovalTarget, kind: string, options: { ask?: readonly string[] } = {}): Promise<SessionToolPolicy> {
+    return this.writeThenAnswer(target, { approve: { kinds: [kind] } }, true, options.ask);
   }
 
-  /** Deny a toolset for the conversation, then answer `{approved:false}`. Gateway mode only. */
-  denyKindForSession(target: WorkflowApprovalTarget, kind: string): Promise<SessionToolPolicy> {
-    return this.writeThenAnswer(target, { deny: { kinds: [kind] } }, false);
+  /** Deny a toolset for the chat, then answer `{approved:false}`. Gateway mode only; no panel control (hosts expose it). */
+  denyKindForSession(target: WorkflowApprovalTarget, kind: string, options: { ask?: readonly string[] } = {}): Promise<SessionToolPolicy> {
+    return this.writeThenAnswer(target, { deny: { kinds: [kind] } }, false, options.ask);
   }
 
-  /** Deny one tool for the conversation, then answer `{approved:false}`. Gateway mode only. */
-  denyToolForSession(target: WorkflowApprovalTarget, tool: string): Promise<SessionToolPolicy> {
-    return this.writeThenAnswer(target, { deny: { tools: [tool] } }, false);
+  /** Deny one tool for the chat, then answer `{approved:false}`. Gateway mode only; no panel control (hosts expose it). */
+  denyToolForSession(target: WorkflowApprovalTarget, tool: string, options: { ask?: readonly string[] } = {}): Promise<SessionToolPolicy> {
+    return this.writeThenAnswer(target, { deny: { tools: [tool] } }, false, options.ask);
   }
 
   /** Reset: gateway mode deletes the conversation's policy; the fallback revokes the local grant. */
   async resetSessionPolicy(): Promise<void> {
+    if (this.sessionPolicyMode() === "unavailable") throw new Error(`${this.sessionPolicyUnavailableReason}`);
     if (this.sessionPolicyMode() !== "gateway") { this.revokeToolApproval(); return; }
     await this.gatewayPolicy().reset();
     this.adoptSessionPolicy(null);
   }
 
   private withSessionPolicy(snapshot: WorkflowSessionSnapshot): WorkflowSessionSnapshot {
-    return { ...snapshot, sessionPolicyMode: this.sessionPolicyMode(), sessionPolicy: this.sessionPolicyState, sessionPolicyClamped: this.sessionPolicyClamped };
+    const mode = this.sessionPolicyMode();
+    const { sessionPolicyReason: _previous, ...rest } = snapshot;
+    void _previous;
+    return { ...rest, sessionPolicyMode: mode, ...(mode === "unavailable" ? { sessionPolicyReason: this.sessionPolicyUnavailableReason } : {}), sessionPolicy: this.sessionPolicyState, sessionPolicyClamped: this.sessionPolicyClamped };
   }
 
   subscribe(listener: Subscriber): () => void { this.subscribers.add(listener); return () => this.subscribers.delete(listener); }

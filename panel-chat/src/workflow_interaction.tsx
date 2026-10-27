@@ -18,8 +18,12 @@ export const WORKFLOW_INTERACTION_LABELS = {
   /** Approve one toolset (a `GET discovery/tools` row's `toolset`) for the conversation. */
   allowKindForChat: (toolset: string) => `Allow all ${toolset} tools for this chat`,
   /** The labeled line when the gateway cannot store conversation policies (no silent hedge). */
-  localChatPolicyNote: "Allowed for this chat in this browser only — the gateway cannot store conversation policies.",
-  localRunPolicyNote: "Allowed until this run ends, in this browser only — the gateway cannot store conversation policies.",
+  /** The local, run-scoped grant (no gateway chat policy): says what it does. */
+  allowForRun: "Allow for this run",
+  localChatPolicyNote: "Allowed for this chat in this browser only — the gateway cannot store chat policies.",
+  localRunPolicyNote: "Allowed until this run ends, in this browser only — the gateway cannot store chat policies.",
+  /** The capability read failed: no chat grant is offered. */
+  unavailablePolicyNote: (reason: string) => `Allow for this chat is unavailable: ${reason || "the gateway's capabilities could not be read."} Allow once still works.`,
   decideLater: "Decide later",
   submit: "Submit",
   skip: "Continue without answering",
