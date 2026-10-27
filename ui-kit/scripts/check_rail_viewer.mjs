@@ -11,6 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { mountHook, find, findAll } from "./hook_harness.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
@@ -160,6 +161,131 @@ const eq = (name, got, want) => check(name, got === want, `got ${JSON.stringify(
   check("rail icons are 44px targets", /\.af-rail__tab\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px/.test(css));
   check("resize handle takes touch (touch-action:none)", /\.af-rail__resize\s*\{[^}]*touch-action:\s*none/.test(css));
   check("rail body never scrolls sideways", /\.af-rail__body\s*\{[^}]*overflow-x:\s*hidden/.test(css));
+}
+
+// ------------------------------------------------------------ drawer system (shell, backlog 0036)
+{
+  const {
+    AfDrawerSystem, AfRailDrawer, AfPanelErrorBoundary, AfPanelHeaderActions, AF_RAIL_WIDTH,
+    railDrawerKeyWidth, railDrawerDragWidth, railDrawerActiveFor, railDrawerSetActive, railDrawerParseRequest, railDrawerMounted,
+    railDrawerReadStored, railDrawerWriteStored, railDrawerPanelWidth, railDrawerStoredActive,
+  } = kit;
+  for (const [name, fn] of Object.entries({ AfDrawerSystem, AfPanelErrorBoundary, AfPanelHeaderActions, railDrawerDragWidth, railDrawerActiveFor, railDrawerSetActive, railDrawerParseRequest, railDrawerMounted, railDrawerReadStored, railDrawerWriteStored, railDrawerPanelWidth, railDrawerStoredActive })) check(`export ${name}`, typeof fn === "function", typeof fn);
+  // Left side: the panel is RIGHT of its rail, so ArrowRight / a rightward drag widens it.
+  eq("left: ArrowRight widens", railDrawerKeyWidth(400, "ArrowRight", false, 300, 960, "left"), 416);
+  eq("left: ArrowLeft narrows", railDrawerKeyWidth(400, "ArrowLeft", false, 300, 960, "left"), 384);
+  eq("right (default) unchanged: ArrowLeft widens", railDrawerKeyWidth(400, "ArrowLeft", false, 300, 960, "right"), 416);
+  eq("left: drag right widens", railDrawerDragWidth(400, 50, "left"), 450);
+  eq("right: drag right narrows", railDrawerDragWidth(400, 50, "right"), 350);
+  const panels = [
+    { id: "nav", label: "Palette", icon: "list", side: "left", content: "N" },
+    { id: "files", label: "Files", icon: "folder", content: "F" },
+    { id: "docs", label: "Docs assistant", icon: "book", mode: "drawer", content: "D" },
+  ];
+  eq("active: a single id resolves on its side", railDrawerActiveFor("files", "right", panels), "files");
+  eq("active: a single id is null on the other side", railDrawerActiveFor("files", "left", panels), null);
+  eq("active: per-side object", railDrawerActiveFor({ left: "nav", right: "docs" }, "left", panels), "nav");
+  eq("active: an id on the wrong side is null", railDrawerActiveFor({ left: "files" }, "left", panels), null);
+  eq("active: unknown id is null", railDrawerActiveFor("gone", "right", panels), null);
+  eq("set active keeps a single id single", railDrawerSetActive("files", "right", "docs"), "docs");
+  eq("set active keeps the object shape", JSON.stringify(railDrawerSetActive({ left: "nav", right: "files" }, "right", null)), JSON.stringify({ left: "nav", right: null }));
+  eq("request id#nonce", JSON.stringify(railDrawerParseRequest("files#3")), JSON.stringify({ id: "files", nonce: "3" }));
+  eq("request bare id", JSON.stringify(railDrawerParseRequest("files")), JSON.stringify({ id: "files", nonce: "" }));
+  eq("request empty", railDrawerParseRequest(""), null);
+  const none = new Set();
+  check("keepAlive always: mounted while closed", railDrawerMounted({ id: "g", keepAlive: "always" }, null, none));
+  check("keepAlive visited: not mounted before a visit", !railDrawerMounted({ id: "g" }, null, none) && !railDrawerMounted({ id: "g", keepAlive: "visited" }, "x", none));
+  check("keepAlive visited: kept after a visit", railDrawerMounted({ id: "g" }, null, new Set(["g"])));
+  const legacy = railDrawerReadStored("512");
+  eq("stored: a bare number (AfRailDrawer <= 0.8.9) is every panel's width", railDrawerPanelWidth(legacy, { id: "files" }), 512);
+  const stored = railDrawerReadStored(railDrawerWriteStored({ widths: { files: 500, nav: 280 }, active: { right: "files", left: null } }));
+  eq("stored: width per panel", railDrawerPanelWidth(stored, { id: "files" }), 500);
+  eq("stored: per-panel bounds clamp", railDrawerPanelWidth(stored, { id: "nav", minWidth: 320 }), 320);
+  eq("stored: default width for an unseen panel", railDrawerPanelWidth(stored, { id: "docs", defaultWidth: 380 }), 380);
+  eq("stored: garbage is empty", JSON.stringify(railDrawerReadStored("{not json")), JSON.stringify({ widths: {}, active: {} }));
+  eq("restore: docked restores the stored panel", railDrawerStoredActive(stored, "right", false, panels), "files");
+  eq("restore: never while overlay", railDrawerStoredActive(stored, "right", true, panels), null);
+  eq("restore: a removed panel is not restored", railDrawerStoredActive(railDrawerReadStored('{"active":{"right":"gone"}}'), "right", false, panels), null);
+
+  // Rendering.
+  const two = renderToStaticMarkup(
+    h(AfDrawerSystem, { panels: [{ ...panels[0], keepAlive: "always" }, panels[1], { ...panels[2], keepAlive: "visited" }], active: { left: null, right: "files" }, onActiveChange: () => {}, ariaLabel: "Panels", overlay: false, railLabelStyle: "vertical-text" }, h("div", { id: "x-main" })),
+  );
+  check("left + right sides around the content", two.indexOf("af-rail--left") >= 0 && two.indexOf("af-rail--left") < two.indexOf('id="x-main"') && two.indexOf('id="x-main"') < two.indexOf('data-side="right"'), two);
+  check("two rails are named by side", two.includes('aria-label="Panels (left)"') && two.includes('aria-label="Panels (right)"'), two);
+  check("left: rail before its panel", /data-side="left"[^>]*><div class="af-rail__rail"/.test(two), two);
+  check("vertical-text tabs show the label (no icon)", two.includes('<span class="af-rail__vlabel" aria-hidden="true">Palette</span>') && !/af-rail__tab--text[^>]*><svg/.test(two), two);
+  check("keepAlive always: closed panel's content mounted", /data-panel="nav"[^>]*hidden=""[\s\S]*?>N</.test(two), two);
+  check("keepAlive visited: unvisited panel's content not mounted", !/data-panel="docs"[\s\S]*?af-rail__body"[^>]*>D</.test(two), two);
+  check("drawer-mode panel: no rail tab", !two.includes('data-rail="docs"') && two.includes('data-rail="files"'), two);
+  check("--af-panel-w published on the side", two.includes("--af-panel-w:420px"), two);
+  const fill = renderToStaticMarkup(h(AfDrawerSystem, { panels: [{ id: "graph", label: "Graph", icon: "branch", fill: true, content: h("canvas") }], active: "graph", onActiveChange: () => {}, ariaLabel: "P", overlay: false }));
+  check("fill: the canvas panel body has no padding/scroll class", fill.includes('class="af-rail__body af-rail__body--fill"') && fill.includes("<canvas>"), fill);
+  const cssFill = readFileSync(join(root, "src", "theme.css"), "utf8");
+  check("fill css: no padding, no scrolling", /\.af-rail__body--fill\s*\{[^}]*padding: 0;[^}]*overflow: hidden/.test(cssFill));
+  const drawerOnly = renderToStaticMarkup(h(AfDrawerSystem, { panels: [panels[2]], active: "docs", onActiveChange: () => {}, ariaLabel: "P", overlay: true, topOffset: "auto" }));
+  check("drawer-mode only: no rail, anchored under the top bar", drawerOnly.includes("af-rail--no-rail") && !drawerOnly.includes('role="tablist"') && drawerOnly.includes("af-rail--anchored") && drawerOnly.includes("--af-drawers-top:var(--af-topbar-h, 0px)"), drawerOnly);
+  check("drawer-mode panel is labelled without a tab", drawerOnly.includes('aria-label="Docs assistant"') && !drawerOnly.includes("aria-labelledby"), drawerOnly);
+  // AfRailDrawer stays the same markup (one .af-rail, no .af-drawers wrapper).
+  const wrapped = renderToStaticMarkup(h(AfRailDrawer, { items: [panels[1]], active: "files", onActiveChange: () => {}, ariaLabel: "W", overlay: false }));
+  check("AfRailDrawer: wrapper keeps the single-rail markup", wrapped.startsWith('<div class="af-rail af-rail--open af-rail--docked') && !wrapped.includes("af-drawers"), wrapped.slice(0, 120));
+
+  // Error boundary: one per panel, labeled fallback.
+  const sys = mountHook(AfDrawerSystem, { panels: [{ id: "a", label: "Alpha", icon: "list", content: "A", keepAlive: "always" }, { id: "b", label: "Beta", icon: "list", content: "B", keepAlive: "always" }, { id: "c", label: "Gamma", icon: "list", content: "C", keepAlive: "always", errorBoundary: false }], active: "a", onActiveChange: () => {}, ariaLabel: "P", overlay: false });
+  const side = find(sys.current, (n) => typeof n.type === "function" && n.type.name === "DrawerSide");
+  const sections = findAll(mountHook(side.type, side.props).current, (n) => typeof n.type === "function" && n.type.name === "PanelSection");
+  const bounds = sections.map((s) => find(mountHook(s.type, s.props).current, (n) => n.type === AfPanelErrorBoundary));
+  check("error boundary: each panel has its own", bounds[0]?.props.label === "Alpha" && bounds[0].props.children === "A" && bounds[1]?.props.label === "Beta" && bounds[1].props.children === "B", JSON.stringify(bounds.map((b) => b && b.props.label)));
+  check("error boundary: opt-out", sections.length === 3 && !bounds[2]);
+  const st = AfPanelErrorBoundary.getDerivedStateFromError(new Error("boom"));
+  const inst = new AfPanelErrorBoundary({ label: "Alpha", children: "A" });
+  inst.state = st;
+  const failed = renderToStaticMarkup(inst.render());
+  check("error boundary: labeled failure + Try again", failed.includes('role="alert"') && failed.includes("The Alpha panel stopped: boom") && failed.includes(">Try again<"), failed);
+  inst.state = { error: null };
+  eq("error boundary: healthy renders the panel", inst.render(), "A");
+  // Header slot: outside a system the actions render in place.
+  check("header actions outside a system render in place", renderToStaticMarkup(h(AfPanelHeaderActions, null, h("b", null, "X"))) === "<b>X</b>");
+
+  // Storage + restore (docked only) + request nonce + onResize, with a fake localStorage.
+  const store = {};
+  globalThis.window = { localStorage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => (store[k] = String(v)) }, addEventListener: () => {}, removeEventListener: () => {} };
+  store.k = JSON.stringify({ v: 1, widths: { files: 480 }, active: { right: "files" } });
+  const calls = [];
+  const resized = [];
+  const plist = [{ id: "files", label: "Files", icon: "folder", content: "F" }, { id: "settings", label: "Settings", icon: "cog", content: "S" }];
+  const host = mountHook(AfDrawerSystem, { panels: plist, active: null, onActiveChange: (id, s) => calls.push([id, s]), ariaLabel: "P", overlay: false, storageKey: "k", onResize: (id, w) => resized.push([id, w]) });
+  check("restore: docked mount restores the stored panel", JSON.stringify(calls) === JSON.stringify([["files", "right"]]), JSON.stringify(calls));
+  host.rerender({ active: "files" });
+  host.rerender({ active: "settings" });
+  check("persist: the open panel is stored while docked", JSON.parse(store.k).active.right === "settings", store.k);
+  host.rerender({ overlay: true, active: "files" });
+  check("persist: an overlay session never overwrites it", JSON.parse(store.k).active.right === "settings", store.k);
+  host.rerender({ overlay: false, active: null });
+  check("persist: collapsing while docked is stored", JSON.parse(store.k).active.right === null, store.k);
+  calls.length = 0;
+  store.k2 = JSON.stringify({ active: { right: "files" } });
+  mountHook(AfDrawerSystem, { panels: plist, active: null, onActiveChange: (id, s) => calls.push([id, s]), ariaLabel: "P", overlay: true, storageKey: "k2" });
+  check("restore: never while overlay", calls.length === 0, JSON.stringify(calls));
+  // request nonce
+  calls.length = 0;
+  const req = mountHook(AfDrawerSystem, { panels: plist, active: null, onActiveChange: (id, s) => calls.push([id, s]), ariaLabel: "P", overlay: false, restoreActive: false, request: "settings#1" });
+  check("request: opens the requested panel", JSON.stringify(calls) === JSON.stringify([["settings", "right"]]), JSON.stringify(calls));
+  req.rerender({ active: "settings" });
+  req.rerender({ active: null });
+  check("request: the same nonce does not re-open", calls.length === 1, JSON.stringify(calls));
+  req.rerender({ request: "settings#2" });
+  check("request: a new nonce re-requests the same panel", calls.length === 2 && calls[1][0] === "settings", JSON.stringify(calls));
+  req.rerender({ active: "settings", request: "settings#3" });
+  check("request: an already open panel is not re-opened", calls.length === 2, JSON.stringify(calls));
+  // width per panel + onResize
+  const sideEl = find(host.current, (n) => typeof n.type === "function" && n.type.name === "DrawerSide");
+  check("width: stored per panel", sideEl.props.width(plist[0]) === 480 && sideEl.props.width(plist[1]) === AF_RAIL_WIDTH.default, `${sideEl.props.width(plist[0])}`);
+  sideEl.props.setWidth(plist[1], 610, false);
+  check("resize: a drag in progress is not persisted", !(JSON.parse(store.k).widths || {}).settings && resized.length === 0, store.k);
+  sideEl.props.setWidth(plist[1], 640, true);
+  check("resize: the final width is persisted for THAT panel and reported", JSON.parse(store.k).widths.settings === 640 && JSON.parse(store.k).widths.files === 480 && JSON.stringify(resized) === JSON.stringify([["settings", 640]]), `${store.k} ${JSON.stringify(resized)}`);
+  delete globalThis.window;
 }
 
 // ------------------------------------------------------------ settings rows + voice
