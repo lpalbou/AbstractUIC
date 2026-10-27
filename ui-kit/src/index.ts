@@ -657,3 +657,31 @@ export { topBarPillText, topBarConnection, identityTitle, useAfTopBarHeight, AF_
 export { principalFromConnection, principalLabel, gatewayHostLabel, AF_DEFAULT_TENANT, type AfPrincipal } from "./principal.js";
 export { fetchAboutVersions, ABOUT_VERSIONS_CHECKING, type AfGatewayFetch } from "./about.js";
 export type { GatewayPrincipalPayload } from "./gateway_connect_modal.js";
+// --- ui-primitives (session-policy-kit) ---
+// A conversation's tool policy on the gateway (session tool policy contract v1) and its bridge to
+// the tool layers (backlog 0033).
+export {
+  sessionToolPolicyCapability,
+  createSessionToolPolicyClient,
+  asSessionToolPolicy,
+  sessionPolicyFromLayer,
+  layerFromSessionPolicy,
+  sessionPolicyClampedLines,
+  SESSION_TOOL_POLICY_UNSUPPORTED,
+  SessionToolPolicyUnsupportedError,
+  SessionToolPolicyConflictError,
+  type SessionToolPolicyBody,
+  type SessionToolPolicy,
+  type SessionToolPolicyClient,
+  type SessionToolPolicyCapability,
+  type SessionToolPolicyRequest,
+} from "./session_tool_policy.js";
+export {
+  TOOL_LAYER_GATEWAY_WHERE,
+  TOOL_LAYER_BROWSER_FALLBACK,
+  type ToolLayerStorage,
+  type SessionLayerState,
+  type ToolLayerStoreOptions,
+} from "./tool_layer_store.js";
+export { policySetLine } from "./tool_mode_editor.js";
+export { SESSION_ID_PATTERN, sessionToolPolicyRoute } from "./gateway_paths.js";

@@ -268,6 +268,20 @@ const btn = (tree, key) => [...walk(tree)].find((n) => n.props["data-tool-mode"]
   check("the editor renders the host's savedWhere", render({ savedWhere: TOOL_LAYER_STORE_WHERE }).includes("Saved in this browser"));
 }
 
+// ---------------------------------------------------------------- session-policy-kit: storage and the served policy
+{
+  const { TOOL_LAYER_GATEWAY_WHERE, TOOL_LAYER_BROWSER_FALLBACK } = kit;
+  const gw = render({ layer: "session", storage: { kind: "gateway", where: TOOL_LAYER_GATEWAY_WHERE }, savedWhere: "ignored" });
+  check("gateway storage labeled", gw.includes('data-storage="gateway"') && gw.includes("Saved for this conversation on the gateway") && !gw.includes("ignored"));
+  const older = render({ layer: "session", storage: { kind: "browser", where: TOOL_LAYER_STORE_WHERE, note: TOOL_LAYER_BROWSER_FALLBACK } });
+  check("browser fallback labeled, with why", older.includes('data-storage="browser"') && older.includes("Saved in this browser") && older.includes('data-storage-note="browser"') && older.includes("The gateway cannot store conversation policies"));
+  const policy = { version: 1, session_id: "s-1", revision: 5, approve: { read_file: "tool" }, deny: {}, ask: [], clamped: [{ selector: "tools", name: "send_email", reason: "not_authorized" }], set_by: { tenant_id: "default", user_id: "admin", client: "panel-chat" }, set_at: "2026-10-27T10:00:00+00:00" };
+  const served = render({ layer: "session", policy });
+  check("clamped entries shown", served.includes("Not covered: send_email (not_authorized)") && served.includes("data-policy-clamped"));
+  check("who set it, when", /data-policy-set="">Set by admin \(panel-chat\) on Oct 27, 2026, \d\d:\d\d</.test(served), served.match(/data-policy-set[^<]*/)?.[0]);
+  check("no policy block without a served policy", !render({ layer: "session" }).includes("data-session-policy"));
+}
+
 if (failures) {
   console.error(`check_tool_mode_editor: ${failures}/${checks} FAILED`);
   process.exit(1);

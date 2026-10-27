@@ -8,10 +8,27 @@
 //
 // It is browser storage: the UI says so ("Saved in this browser"), never "saved
 // for this Gateway account" (that would be a server promise this is not).
-import { normalizeToolMode, type ToolMode, type ToolModeDialect, type ToolModeLayer } from "./tool_plan.js";
+//
+// ui-primitives (session-policy-kit): the SESSION layer moves to the gateway when it can store it
+// (session tool policy contract v1): given `sessionPolicy(sessionId)` returning a client with
+// `supported`, loadSession / saveSession / resetSession read and write the conversation's policy
+// (GET, PUT, DELETE on "Use my defaults"); otherwise they use this browser and say so
+// (`storage.kind: "browser"`, with a note when the gateway was asked and cannot).
+import { normalizeToolMode, type ToolCatalogItem, type ToolMode, type ToolModeDialect, type ToolModeLayer } from "./tool_plan.js";
+import { layerFromSessionPolicy, sessionPolicyFromLayer, SESSION_TOOL_POLICY_UNSUPPORTED, type SessionToolPolicy, type SessionToolPolicyClient } from "./session_tool_policy.js";
 
 /** The words a host shows next to an editor backed by this store. */
 export const TOOL_LAYER_STORE_WHERE = "Saved in this browser";
+/** The words for a session layer the gateway stores (the conversation's tool policy). */
+export const TOOL_LAYER_GATEWAY_WHERE = "Saved for this conversation on the gateway";
+/** Said when the gateway was asked and cannot store a conversation's policy (an older gateway). */
+export const TOOL_LAYER_BROWSER_FALLBACK = `${SESSION_TOOL_POLICY_UNSUPPORTED}, so this conversation's tool choices stay in this browser and ask on the gateway until this browser approves them.`;
+
+/** Where a layer lives, in words: `where` is the frame's label, `note` why it is not the gateway. */
+export type ToolLayerStorage = { kind: "gateway" | "browser"; where: string; note?: string };
+/** A loaded or saved session layer: the layer, where it lives, and the gateway's policy when it is there. */
+export type SessionLayerState = { storage: ToolLayerStorage; layer: ToolModeLayer; policy: SessionToolPolicy | null };
+
 /** Conversations kept per identity (the watch keeps the newest 100 too, ToolPrefs.swift). */
 export const TOOL_SESSION_LAYERS_MAX = 100;
 
@@ -36,6 +53,16 @@ export type ToolLayerStore = {
   writeSession(sessionId: string, layer: ToolModeLayer | null): void;
   /** Stored conversation ids, newest first. */
   sessions(): string[];
+  /** Where this conversation's layer lives: the gateway when `sessionPolicy` gives a supported client. */
+  sessionStorage(sessionId: string): ToolLayerStorage;
+  /** The conversation's layer from where it lives (GET of its policy on the gateway). */
+  loadSession(sessionId: string, catalog: readonly ToolCatalogItem[]): Promise<SessionLayerState>;
+  /** Save it there (PUT, guarded by the last revision read: a 409 rejects with
+   * SessionToolPolicyConflictError). An empty layer resets (DELETE). The answer is the gateway's
+   * effective policy as a layer (after its clamp). */
+  saveSession(sessionId: string, layer: ToolModeLayer | null, catalog: readonly ToolCatalogItem[]): Promise<SessionLayerState>;
+  /** "Use my defaults": DELETE the conversation's policy, or remove the browser entry. */
+  resetSession(sessionId: string): Promise<SessionLayerState>;
 };
 
 function clean(layer: unknown, dialect?: ToolModeDialect, dropped?: string[]): Record<string, ToolMode> {
@@ -57,6 +84,10 @@ export type ToolLayerStoreOptions = {
   /** Told when a stored entry's values could not be read (non-canonical, no dialect): the storage
    * key and the tool names dropped, so the host can say so ("2 saved tool choices could not be read"). */
   onDropped?: (key: string, names: string[]) => void;
+  /** The conversation's policy client (createSessionToolPolicyClient) for a session id, when the host
+   * has a gateway connection. A client with `supported: false` keeps the layer in this browser and
+   * the storage says why (TOOL_LAYER_BROWSER_FALLBACK). */
+  sessionPolicy?: (sessionId: string) => SessionToolPolicyClient | null | undefined;
 };
 
 export function createToolLayerStore(identityKey: string, opts: ToolLayerStoreOptions = {}): ToolLayerStore {
@@ -124,7 +155,19 @@ export function createToolLayerStore(identityKey: string, opts: ToolLayerStoreOp
     if (dropped.length) opts.onDropped?.(key, dropped);
     return layer;
   };
-  return {
+  const revisions = new Map<string, number>();
+  const browser = (note?: string): ToolLayerStorage => ({ kind: "browser", where: TOOL_LAYER_STORE_WHERE, ...(note ? { note } : {}) });
+  const clientFor = (sessionId: string): { client: SessionToolPolicyClient | null; storage: ToolLayerStorage } => {
+    const client = opts.sessionPolicy?.(sessionId) ?? null;
+    if (client?.supported === true) return { client, storage: { kind: "gateway", where: TOOL_LAYER_GATEWAY_WHERE } };
+    return { client: null, storage: browser(client ? TOOL_LAYER_BROWSER_FALLBACK : undefined) };
+  };
+  const fromPolicy = (sessionId: string, storage: ToolLayerStorage, policy: SessionToolPolicy | null, catalog: readonly ToolCatalogItem[]): SessionLayerState => {
+    if (policy) revisions.set(sessionId, policy.revision);
+    else revisions.delete(sessionId);
+    return { storage, layer: layerFromSessionPolicy(policy, catalog), policy };
+  };
+  const store: ToolLayerStore = {
     identityKey: identity,
     appKey,
     sessionKey,
@@ -145,5 +188,32 @@ export function createToolLayerStore(identityKey: string, opts: ToolLayerStoreOp
       set(indexKey, order.length ? order : null);
     },
     sessions,
+    sessionStorage: (sessionId) => clientFor(sessionId).storage,
+    async loadSession(sessionId, catalog) {
+      const { client, storage } = clientFor(sessionId);
+      if (!client) return { storage, layer: store.readSession(sessionId), policy: null };
+      return fromPolicy(sessionId, storage, await client.get(), catalog);
+    },
+    async saveSession(sessionId, layer, catalog) {
+      const { client, storage } = clientFor(sessionId);
+      if (!client) {
+        store.writeSession(sessionId, layer);
+        return { storage, layer: store.readSession(sessionId), policy: null };
+      }
+      const body = sessionPolicyFromLayer(layer, catalog);
+      if (!body.approve?.tools?.length && !body.deny?.tools?.length && !body.ask?.length) return store.resetSession(sessionId);
+      const rev = revisions.get(sessionId);
+      return fromPolicy(sessionId, storage, await client.replace(rev === undefined ? body : { ...body, if_revision: rev }), catalog);
+    },
+    async resetSession(sessionId) {
+      const { client, storage } = clientFor(sessionId);
+      if (!client) {
+        store.writeSession(sessionId, null);
+        return { storage, layer: {}, policy: null };
+      }
+      await client.reset();
+      return fromPolicy(sessionId, storage, null, []);
+    },
   };
+  return store;
 }

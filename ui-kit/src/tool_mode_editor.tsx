@@ -13,6 +13,9 @@ import React, { useMemo, useState } from "react";
 import { AfOverrideRow } from "./af_settings_rows.js";
 import { AfTooltip } from "./af_tooltip.js";
 import { describeToolMode } from "./tool_policy_editor.js";
+import { formatExactTime } from "./relative_time.js";
+import { sessionPolicyClampedLines, type SessionToolPolicy } from "./session_tool_policy.js";
+import type { ToolLayerStorage } from "./tool_layer_store.js";
 import {
   BULK_AUTO_MAX_RANK,
   bulkAutoReaches,
@@ -64,6 +67,12 @@ export type ToolModeEditorProps = {
   warnings?: readonly string[];
   /** Where the host keeps this layer, in words (e.g. TOOL_LAYER_STORE_WHERE). */
   savedWhere?: string;
+  /** Where this layer lives (ToolLayerStore.sessionStorage / loadSession): its words replace
+   * `savedWhere`, and a browser fallback's note says why the gateway does not keep it. */
+  storage?: ToolLayerStorage;
+  /** The conversation's policy as the gateway stores it (loadSession / saveSession): its `clamped`
+   * entries ("Not covered: … (not_authorized)") and who set it, when. */
+  policy?: SessionToolPolicy | null;
   /** Settings pages: frame the editor in an AfOverrideRow with this label ("Tools"). */
   rowLabel?: React.ReactNode;
   rowHelp?: React.ReactNode;
@@ -79,6 +88,16 @@ function breakAtUnderscores(name: string): React.ReactNode {
 }
 
 type Group = { toolset: string; items: ToolCatalogItem[] };
+
+/** "Set by admin (panel-chat) on Oct 27, 2026, 10:00", from the policy's served set_by / set_at. */
+export function policySetLine(policy: SessionToolPolicy | null | undefined): string {
+  if (!policy) return "";
+  const who = policy.set_by?.user_id || "";
+  const client = policy.set_by?.client || "";
+  const when = formatExactTime(policy.set_at);
+  if (!who && !when) return "";
+  return `Set${who ? ` by ${who}` : ""}${client ? ` (${client})` : ""}${when ? ` on ${when}` : ""}`;
+}
 
 export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
   const labels: ToolModeLabels = { ...TOOL_MODE_LABELS, ...(props.labels || {}) };
@@ -193,8 +212,29 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
             {TOOL_LAYER_RESET[props.layer]}
           </button>
         ) : null}
-        {props.savedWhere ? <span className="af-tool-modes__saved">{props.savedWhere}</span> : null}
+        {props.storage ? (
+          <span className="af-tool-modes__saved" data-storage={props.storage.kind}>
+            {props.storage.where}
+          </span>
+        ) : props.savedWhere ? (
+          <span className="af-tool-modes__saved">{props.savedWhere}</span>
+        ) : null}
       </div>
+      {props.storage?.note ? (
+        <div className="af-tool-modes__warnings" role="status" data-storage-note={props.storage.kind}>
+          {props.storage.note}
+        </div>
+      ) : null}
+      {props.policy ? (
+        <div className="af-tool-modes__policy" data-session-policy={props.policy.revision}>
+          {policySetLine(props.policy) ? <div data-policy-set="">{policySetLine(props.policy)}</div> : null}
+          {sessionPolicyClampedLines(props.policy).map((line, i) => (
+            <div key={i} data-policy-clamped="">
+              {line}
+            </div>
+          ))}
+        </div>
+      ) : null}
       {!props.catalog.length ? <div className="af-tool-policy__empty">The gateway offers no tools.</div> : null}
       {props.catalog.length && !groups.length ? <div className="af-tool-policy__empty">No tools match the search.</div> : null}
       {groups.map((group) => {
