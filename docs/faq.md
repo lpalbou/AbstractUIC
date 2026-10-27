@@ -29,6 +29,7 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 - [monitor-active-memory: Does it persist layouts?](#monitor-active-memory-does-it-persist-layouts)
 - [monitor-gpu: What backend payload does it expect?](#monitor-gpu-what-backend-payload-does-it-expect)
 - [monitor-gpu: How do I set auth and CORS safely?](#monitor-gpu-how-do-i-set-auth-and-cors-safely)
+- [Why one shared component per job instead of a copy in my app?](#why-one-shared-component-per-job-instead-of-a-copy-in-my-app)
 - [Can I use the kit components on a page that is not a React app?](#can-i-use-the-kit-components-on-a-page-that-is-not-a-react-app)
 - [Where are the tests?](#where-are-the-tests)
 - [Is this published to npm?](#is-this-published-to-npm)
@@ -273,11 +274,20 @@ Source of truth: `monitor-gpu/src/gpu_metrics_api.js` and `monitor-gpu/src/monit
 
 Source of truth: `monitor-gpu/src/gpu_metrics_api.js` (`buildAuthHeaders`) and `monitor-gpu/src/monitor_gpu_widget.js`.
 
+## Why one shared component per job instead of a copy in my app?
+
+Because the same gateway should behave the same in every app: one chat surface, one approval
+wording, one tool editor, one voice section. [ADR 0001](./adr/0001_shared_primitives_composed_on_gateway_contracts.md)
+makes each job in the [Adoption guide](./adoption-guide.md) one shared component composed on the
+gateway's contracts, customized through props, slots and theme tokens. When a component lacks
+something your app needs, the kit adds the prop or slot (see
+[Requesting a component](./adoption-guide.md#requesting-a-component-or-absorbing-yours)).
+
 ## Can I use the kit components on a page that is not a React app?
 
 Yes, in two ways:
 
-- **Console islands**: build `ui-kit/islands/dist/af-console-islands.js` from a repository checkout and load it with a `<script>` tag; `window.AfConsoleIslands` mounts the real top bar, appearance dialog and About dialog with a prop-driven API. It is not part of the npm package. See [Console islands](./console-islands.md).
+- **Console islands**: build `ui-kit/islands/dist/af-console-islands.js` from a repository checkout and load it with a `<script>` tag; `window.AfConsoleIslands` mounts the real top bar, appearance and About dialogs, drawer system, pickers, tool editor, voice section and Docs assistant with a prop-driven API. It is not part of the npm package. See [Console islands](./console-islands.md).
 - **CSS only**: the `.af-topbar-*` and `.af-drawer-*` classes in `theme.css` are stable public API for server-rendered HTML (see [`ui-kit/README.md`](../ui-kit/README.md#css-public-api-non-react-consumers)).
 
 ## Where are the tests?

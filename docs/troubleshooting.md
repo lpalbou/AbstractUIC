@@ -196,10 +196,47 @@ script names the problem, for example:
   when the gateway rows change, update the helper and the fixture together with the Python twin
   in AbstractCore.
 - `check_islands.mjs`: see the console islands entry above.
+- `check_css_balanced.mjs`: `theme.css` (or `panel-chat/src/panel_chat.css`) has an unclosed block,
+  a stray `}` or an unterminated comment or string; the message names the line where the depth
+  first went wrong. A stylesheet that does not parse fails every app's bundler ("Unclosed block").
 - `check_automation_fixtures.mjs`, `check_automation_client.mjs`, `check_automation_panel.mjs`:
   see the automations entries above.
 
 See: [Theming: Guard scripts](./theming.md#guard-scripts), [Development](./development.md).
+
+## `npm test` fails at `check_cross_dist_types` (repository root)
+
+The root `npm test` ends with `scripts/check_cross_dist_types.mjs`: the built ui-kit and the built
+panel-chat must agree, type for type, on the session tool-policy client. "missing — build ui-kit
+and panel-chat first" means a `dist/` is absent: run `npm run build`. A type error means one
+package changed the shared shape: change both together (ui-kit `session_tool_policy.ts`, panel-chat
+`workflow_runtime.ts`) and rebuild.
+
+## "Allow for this chat" reads "Allow for this run", or no chat grant is offered
+
+The chat grant is stored on the gateway only when the host injects a `SessionToolPolicyClient` and
+`GET discovery/capabilities` serves `capabilities.session_tool_policy.supported === true`.
+
+- **"Allow for this run" with "Allowed until this run ends, in this browser only — …"**: no
+  supported client (the gateway does not advertise the capability, or the host injected none).
+  The grant applies to this run in this browser. Check the gateway's capabilities answer and that
+  the host passes `sessionToolPolicy` to `WorkflowSessionController`.
+- **No chat grant, with a reason**: the host recorded a failed capability read
+  (`setSessionToolPolicyClient(null, { reason })`). Allow once still works; reload once the gateway
+  answers.
+- **"Someone changed this chat's policy; re-read it before deciding again"**: another client
+  changed the policy (a revision conflict). The chat has refreshed it; decide again.
+
+See: [panel-chat: Session tool policy](../panel-chat/README.md#session-tool-policy-stored-on-the-gateway).
+
+## The microphone button is disabled and asks to reload the page
+
+`AfVoiceMicButton` reads "The microphone is set up for the other way of talking. Reload the page."
+when its `mode` and the `capture_mode` the `useGatewayVoice` hook was created with differ (the
+console also logs the mismatch). Create both from the same preference:
+`useGatewayVoice({ ...gatewayVoiceOptions(prefs), … })` and
+`<AfVoiceMicButton mode={voiceCaptureMode(prefs)} … />`. "The microphone cannot deliver what you say
+here" means `onTranscript` was passed with a `voice` that is not `useGatewayVoice`'s return value.
 
 ## Copy, voice or ids fail when the app is opened over plain http
 

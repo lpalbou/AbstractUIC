@@ -168,8 +168,8 @@ shown as unavailable rather than guessed.
 
 ### One chat surface
 
-`WorkflowChat` is the one chat surface (ADR 0001, backlog 0030). Everything an app
-used to build next to it is a prop; each control appears only when the host injects it.
+`WorkflowChat` is the one chat surface (ADR 0001, backlog 0030). Steering, attachment chips,
+the toolbar and per-message slots are props; each control appears only when the host injects it.
 
 ```tsx
 const uploads = useAttachmentUploads({ upload: (file) => gateway.attachmentsUpload(sessionId, file), maxBytes: policy.maxAttachmentBytes });

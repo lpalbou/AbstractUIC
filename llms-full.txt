@@ -2910,6 +2910,7 @@ This FAQ is written for first-time users integrating AbstractUIC packages into a
 - [monitor-active-memory: Does it persist layouts?](#monitor-active-memory-does-it-persist-layouts)
 - [monitor-gpu: What backend payload does it expect?](#monitor-gpu-what-backend-payload-does-it-expect)
 - [monitor-gpu: How do I set auth and CORS safely?](#monitor-gpu-how-do-i-set-auth-and-cors-safely)
+- [Why one shared component per job instead of a copy in my app?](#why-one-shared-component-per-job-instead-of-a-copy-in-my-app)
 - [Can I use the kit components on a page that is not a React app?](#can-i-use-the-kit-components-on-a-page-that-is-not-a-react-app)
 - [Where are the tests?](#where-are-the-tests)
 - [Is this published to npm?](#is-this-published-to-npm)
@@ -3154,11 +3155,20 @@ Source of truth: `monitor-gpu/src/gpu_metrics_api.js` and `monitor-gpu/src/monit
 
 Source of truth: `monitor-gpu/src/gpu_metrics_api.js` (`buildAuthHeaders`) and `monitor-gpu/src/monitor_gpu_widget.js`.
 
+## Why one shared component per job instead of a copy in my app?
+
+Because the same gateway should behave the same in every app: one chat surface, one approval
+wording, one tool editor, one voice section. [ADR 0001](./adr/0001_shared_primitives_composed_on_gateway_contracts.md)
+makes each job in the [Adoption guide](./adoption-guide.md) one shared component composed on the
+gateway's contracts, customized through props, slots and theme tokens. When a component lacks
+something your app needs, the kit adds the prop or slot (see
+[Requesting a component](./adoption-guide.md#requesting-a-component-or-absorbing-yours)).
+
 ## Can I use the kit components on a page that is not a React app?
 
 Yes, in two ways:
 
-- **Console islands**: build `ui-kit/islands/dist/af-console-islands.js` from a repository checkout and load it with a `<script>` tag; `window.AfConsoleIslands` mounts the real top bar, appearance dialog and About dialog with a prop-driven API. It is not part of the npm package. See [Console islands](./console-islands.md).
+- **Console islands**: build `ui-kit/islands/dist/af-console-islands.js` from a repository checkout and load it with a `<script>` tag; `window.AfConsoleIslands` mounts the real top bar, appearance and About dialogs, drawer system, pickers, tool editor, voice section and Docs assistant with a prop-driven API. It is not part of the npm package. See [Console islands](./console-islands.md).
 - **CSS only**: the `.af-topbar-*` and `.af-drawer-*` classes in `theme.css` are stable public API for server-rendered HTML (see [`ui-kit/README.md`](../ui-kit/README.md#css-public-api-non-react-consumers)).
 
 ## Where are the tests?
@@ -3392,10 +3402,47 @@ script names the problem, for example:
   when the gateway rows change, update the helper and the fixture together with the Python twin
   in AbstractCore.
 - `check_islands.mjs`: see the console islands entry above.
+- `check_css_balanced.mjs`: `theme.css` (or `panel-chat/src/panel_chat.css`) has an unclosed block,
+  a stray `}` or an unterminated comment or string; the message names the line where the depth
+  first went wrong. A stylesheet that does not parse fails every app's bundler ("Unclosed block").
 - `check_automation_fixtures.mjs`, `check_automation_client.mjs`, `check_automation_panel.mjs`:
   see the automations entries above.
 
 See: [Theming: Guard scripts](./theming.md#guard-scripts), [Development](./development.md).
+
+## `npm test` fails at `check_cross_dist_types` (repository root)
+
+The root `npm test` ends with `scripts/check_cross_dist_types.mjs`: the built ui-kit and the built
+panel-chat must agree, type for type, on the session tool-policy client. "missing — build ui-kit
+and panel-chat first" means a `dist/` is absent: run `npm run build`. A type error means one
+package changed the shared shape: change both together (ui-kit `session_tool_policy.ts`, panel-chat
+`workflow_runtime.ts`) and rebuild.
+
+## "Allow for this chat" reads "Allow for this run", or no chat grant is offered
+
+The chat grant is stored on the gateway only when the host injects a `SessionToolPolicyClient` and
+`GET discovery/capabilities` serves `capabilities.session_tool_policy.supported === true`.
+
+- **"Allow for this run" with "Allowed until this run ends, in this browser only — …"**: no
+  supported client (the gateway does not advertise the capability, or the host injected none).
+  The grant applies to this run in this browser. Check the gateway's capabilities answer and that
+  the host passes `sessionToolPolicy` to `WorkflowSessionController`.
+- **No chat grant, with a reason**: the host recorded a failed capability read
+  (`setSessionToolPolicyClient(null, { reason })`). Allow once still works; reload once the gateway
+  answers.
+- **"Someone changed this chat's policy; re-read it before deciding again"**: another client
+  changed the policy (a revision conflict). The chat has refreshed it; decide again.
+
+See: [panel-chat: Session tool policy](../panel-chat/README.md#session-tool-policy-stored-on-the-gateway).
+
+## The microphone button is disabled and asks to reload the page
+
+`AfVoiceMicButton` reads "The microphone is set up for the other way of talking. Reload the page."
+when its `mode` and the `capture_mode` the `useGatewayVoice` hook was created with differ (the
+console also logs the mismatch). Create both from the same preference:
+`useGatewayVoice({ ...gatewayVoiceOptions(prefs), … })` and
+`<AfVoiceMicButton mode={voiceCaptureMode(prefs)} … />`. "The microphone cannot deliver what you say
+here" means `onTranscript` was passed with a `voice` that is not `useGatewayVoice`'s return value.
 
 ## Copy, voice or ids fail when the app is opened over plain http
 
@@ -5232,8 +5279,8 @@ shown as unavailable rather than guessed.
 
 ### One chat surface
 
-`WorkflowChat` is the one chat surface (ADR 0001, backlog 0030). Everything an app
-used to build next to it is a prop; each control appears only when the host injects it.
+`WorkflowChat` is the one chat surface (ADR 0001, backlog 0030). Steering, attachment chips,
+the toolbar and per-message slots are props; each control appears only when the host injects it.
 
 ```tsx
 const uploads = useAttachmentUploads({ upload: (file) => gateway.attachmentsUpload(sessionId, file), maxBytes: policy.maxAttachmentBytes });
@@ -20136,7 +20183,10 @@ npm --workspace monitor-memory test
 
 The React packages test with small Node scripts (`ui-kit/scripts/check_*.mjs`,
 `panel-chat/scripts/check_*.mjs`), run in order by each package's `npm test`; the first failing
-script names the problem. `app-server` and the Web Components have a `test/` folder.
+script names the problem. `app-server` and the Web Components have a `test/` folder. After the
+workspaces, the root `npm test` runs the repository gates `scripts/check_relative_urls.mjs` (no
+root-absolute same-origin URL) and `scripts/check_cross_dist_types.mjs` (the built ui-kit and
+panel-chat agree on the session tool-policy client types); see [Publishing](./publishing.md).
 
 ### Shared contracts with other repositories
 
