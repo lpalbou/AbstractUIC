@@ -9,7 +9,7 @@ revises the ADR first or is refused.
 
 | ID | Title | Status | Date | Summary |
 |----|-------|--------|------|---------|
-| 0001 | [Shared primitives are composed on the gateway's contracts; apps customize through props, slots and theme tokens, never by forking](0001_shared_primitives_composed_on_gateway_contracts.md) | Accepted | 2026-10-27 | One component per user-facing job, data from the gateway's routes, apps adapt it with props/slots/tokens; an app-local twin is a defect with a backlog item, not a shortcut |
+| 0001 | [Shared primitives are composed on the gateway's contracts; apps customize through props, slots and theme tokens, never by forking](0001_shared_primitives_composed_on_gateway_contracts.md) | Accepted | 2026-10-27 | One component per user-facing job, composed on the gateway's routes and designed for `replay_view_v1`; apps adapt it with props/slots/tokens, the gateway default is shown first, one wording set; voice in/out are standalone; one repository holds JS/TS today with a documented place for Python, Rust and Swift ports; an app-local twin is a defect with a backlog item, not a shortcut |
 
 ## Adding an ADR
 
