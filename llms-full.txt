@@ -5856,7 +5856,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.6.4",
+  "version": "0.7.0",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -5870,9 +5870,10 @@ npm test
   ],
   "scripts": {
     "build": "npm --workspaces --if-present run build",
-    "test": "npm --workspaces --if-present run test && node scripts/check_relative_urls.mjs",
+    "test": "npm --workspaces --if-present run test && node scripts/check_relative_urls.mjs && node scripts/check_cross_dist_types.mjs",
     "pack:dry": "npm --workspaces --if-present pack --dry-run",
-    "check:urls": "node scripts/check_relative_urls.mjs"
+    "check:urls": "node scripts/check_relative_urls.mjs",
+    "check:cross-dist": "node scripts/check_cross_dist_types.mjs"
   }
 }
 
@@ -5880,7 +5881,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.8.9",
+  "version": "0.9.0",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -5949,7 +5950,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -5993,12 +5994,12 @@ npm test
     "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && tsc -p scripts/types/tsconfig.json"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.8.0",
+    "@abstractframework/ui-kit": "^0.9.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.8.0",
+    "@abstractframework/ui-kit": "^0.9.0",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -18590,6 +18591,18 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## Unreleased
+
+## 0.7.0 - 2026-10-27
+
+Packages: `@abstractframework/ui-kit` 0.9.0, `@abstractframework/panel-chat` 0.5.0 (peer and dev floor on ui-kit raised to `^0.9.0`).
+
+The shared-primitives consolidation (ADR 0001, backlog 0030-0036, 0039; root backlog 1055): one component per
+user-facing job, composed on the gateway's contracts, customized through props, slots and theme tokens. Every
+section below shipped through its own adversarially reviewed PR (#4 chat, #5 shell, #6 tools-models, #7 voice,
+#9 and #11 session tool policy). `ToolPolicyEditor` and `AfRailDrawer` stay as adapters, so existing callers
+compile unchanged; the session tool-policy path is capability-gated (`capabilities.session_tool_policy.supported`)
+and keeps a labeled local fallback on gateways before 0.16.0. Release gate: `scripts/check_cross_dist_types.mjs`
+pins that the built ui-kit and panel-chat agree on the session tool-policy client shape.
 
 ### session-policy: "Allow for this chat" is stored on the gateway (backlog 0032; session tool policy contract v1)
 

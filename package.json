@@ -1,6 +1,6 @@
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.6.4",
+  "version": "0.7.0",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -14,8 +14,9 @@
   ],
   "scripts": {
     "build": "npm --workspaces --if-present run build",
-    "test": "npm --workspaces --if-present run test && node scripts/check_relative_urls.mjs",
+    "test": "npm --workspaces --if-present run test && node scripts/check_relative_urls.mjs && node scripts/check_cross_dist_types.mjs",
     "pack:dry": "npm --workspaces --if-present pack --dry-run",
-    "check:urls": "node scripts/check_relative_urls.mjs"
+    "check:urls": "node scripts/check_relative_urls.mjs",
+    "check:cross-dist": "node scripts/check_cross_dist_types.mjs"
   }
 }

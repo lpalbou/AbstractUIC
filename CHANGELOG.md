@@ -9,6 +9,18 @@ ships.
 
 ## Unreleased
 
+## 0.7.0 - 2026-10-27
+
+Packages: `@abstractframework/ui-kit` 0.9.0, `@abstractframework/panel-chat` 0.5.0 (peer and dev floor on ui-kit raised to `^0.9.0`).
+
+The shared-primitives consolidation (ADR 0001, backlog 0030-0036, 0039; root backlog 1055): one component per
+user-facing job, composed on the gateway's contracts, customized through props, slots and theme tokens. Every
+section below shipped through its own adversarially reviewed PR (#4 chat, #5 shell, #6 tools-models, #7 voice,
+#9 and #11 session tool policy). `ToolPolicyEditor` and `AfRailDrawer` stay as adapters, so existing callers
+compile unchanged; the session tool-policy path is capability-gated (`capabilities.session_tool_policy.supported`)
+and keeps a labeled local fallback on gateways before 0.16.0. Release gate: `scripts/check_cross_dist_types.mjs`
+pins that the built ui-kit and panel-chat agree on the session tool-policy client shape.
+
 ### session-policy: "Allow for this chat" is stored on the gateway (backlog 0032; session tool policy contract v1)
 
 panel-chat:
