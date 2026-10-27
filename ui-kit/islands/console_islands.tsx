@@ -14,6 +14,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { AfTopBarActions } from "../src/af_top_bar_actions.js";
+import { AfDrawerSystem, type AfDrawerPanel, type AfDrawerSystemProps } from "../src/af_drawer_system.js";
+import type { GatewayConnectionState } from "../src/gateway_connect_modal.js";
 import { AfAppearanceDialog, type AppearanceSettings } from "../src/appearance.js";
 import { AfAboutDialog, aboutVersionsFromGateway, type AfAboutVersions } from "../src/about.js";
 import { appIdentity, type AppIdentity } from "../src/identity.js";
@@ -26,6 +28,7 @@ import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typograph
 import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
 import { useGatewayVoice } from "../src/use_gateway_voice.js";
 import { ProviderModelPicker, type ProviderModelPickerProps } from "../src/provider_model_picker.js";
+import { ToolModeEditorForPayload, type ToolModeEditorForPayloadProps } from "../src/tool_mode_editor.js";
 import { VoiceSettings } from "../src/voice_settings.js";
 import { AfVoiceSection, type AfVoiceSectionProps } from "../src/af_voice_section.js";
 import { WorkspaceChooser, type WorkspaceChooserProps } from "../src/workspace_chooser.js";
@@ -66,13 +69,41 @@ export type TopBarIslandProps = {
   /** The About button + dialog, owned by the cluster (omit/null hides it). */
   about?: { identity: AppIdentity; versions?: AfAboutVersions; onOpen?: () => void; label?: string } | null;
   extras?: IslandExtraAction[];
+  /**
+   * Who is signed in, left of the pill (kit identity: "badge" or "menu" with
+   * Copy user id / Sign out). Replaces the `extras: [{text: "<tenant>/<user>"}]`
+   * convention (which keeps working). Reads `connection.status` or
+   * `connection.me`. Additive (shell, backlog 0036): apiVersion stays "2".
+   */
+  identity?: "badge" | "menu" | null;
   connection: {
     phase: GatewayConnectionPhase;
     signingOut?: boolean;
     onConnect: () => void;
     onDisconnect: () => void;
+    /** The app server's connection status (apps behind app-server). */
+    status?: GatewayConnectionState | null;
+    /** The last disconnect's failure, rendered beside the pill. */
+    signOutError?: string | null;
+    /**
+     * The gateway's own `GET /api/gateway/me` body (routes/gateway.py:351-365),
+     * for a host on the gateway's origin (the console): read as a signed-in
+     * status on `location.origin`. Ignored when `status` is given.
+     */
+    me?: GatewayConnectionState["gateway"] | null;
   };
 };
+
+/** The connection status an island renders: `status`, else the console's `/me` body on this origin. */
+export function islandConnectionStatus(c: TopBarIslandProps["connection"]): GatewayConnectionState | null {
+  // Never a connected identity beside a pill that is not connected (a stale `me` after sign-out).
+  if (c.phase !== "connected") return null;
+  if (c.status !== undefined) return c.status;
+  const me = c.me;
+  if (!me || me.ok === false) return null;
+  const origin = typeof location !== "undefined" ? location.origin : "";
+  return { ok: true, has_session: true, gateway_url: origin, gateway: me };
+}
 
 export type AppearanceIslandProps = {
   open: boolean;
@@ -173,6 +204,7 @@ function extrasNode(extras: IslandExtraAction[] | undefined): React.ReactNode {
 }
 
 function TopBarIsland(props: TopBarIslandProps): React.ReactElement {
+  const { me: _me, ...connection } = props.connection;
   return (
     <AfTopBarActions
       docs={props.docs || undefined}
@@ -180,8 +212,38 @@ function TopBarIsland(props: TopBarIslandProps): React.ReactElement {
       appearance={props.appearance || undefined}
       about={props.about || undefined}
       extraActions={extrasNode(props.extras)}
-      connection={props.connection}
+      identity={props.identity || false}
+      connection={{ ...connection, status: islandConnectionStatus(props.connection) }}
     />
+  );
+}
+
+/** A drawer-system panel whose content is a host-owned DOM element (moved into the panel). */
+export type IslandDrawerPanel = Omit<AfDrawerPanel, "content" | "headerActions"> & { element: HTMLElement };
+
+export type DrawerSystemIslandProps = Omit<AfDrawerSystemProps, "panels" | "children"> & {
+  panels: IslandDrawerPanel[];
+  /** The host content between the sides (required with LEFT panels). */
+  main?: HTMLElement | null;
+};
+
+/** Hosts an element the page owns inside a React tree (moved in on mount, never cloned). */
+function HostElement(props: { element: HTMLElement; className?: string }): React.ReactElement {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const box = ref.current;
+    if (!box || props.element.parentNode === box) return;
+    box.appendChild(props.element);
+  }, [props.element]);
+  return <div ref={ref} className={props.className || "af-island-host"} />;
+}
+
+function DrawerSystemIsland(props: DrawerSystemIslandProps): React.ReactElement {
+  const { panels, main, ...rest } = props;
+  return (
+    <AfDrawerSystem {...rest} panels={panels.map(({ element, ...p }) => ({ ...p, content: <HostElement element={element} /> }))}>
+      {main ? <HostElement element={main} className="af-island-host af-island-host--main" /> : undefined}
+    </AfDrawerSystem>
   );
 }
 
@@ -355,6 +417,17 @@ export function mountProviderModelPicker(el: Element, props: ProviderModelPicker
   return mount(el, (p) => <ProviderModelPicker {...p} />, props);
 }
 
+// ui-primitives (tools-models, backlog 0033): the tool editor for the console (e.g. a page for the
+// gateway's /tool-grants default, audit gateway gap 6). Host-driven like every island: the console
+// passes the catalog — the served GET discovery/tools answer as is (normalized here with the kit's
+// normalizeToolCatalog, so the console keeps no copy of it; its `catalog_warnings` are shown) or
+// already normalized items — the layer value and onChange. A broken answer renders a labeled
+// error in place (never a throw after the root is attached).
+export type ToolModeEditorIslandProps = ToolModeEditorForPayloadProps;
+export function mountToolModeEditor(el: Element, props: ToolModeEditorIslandProps): IslandHandle<ToolModeEditorIslandProps> {
+  return mount(el, (p) => <ToolModeEditorForPayload {...p} />, props);
+}
+
 export type VoiceSettingsIslandProps = React.ComponentProps<typeof VoiceSettings>;
 
 /**
@@ -453,6 +526,17 @@ export function mountDocsAssistant(el: Element, props: DocsAssistantIslandProps)
   return mount(el, (p) => <DocsAssistantDrawer {...p} />, props);
 }
 
+/**
+ * The kit drawer system (shell, backlog 0036): side panels with a rail,
+ * docked or overlay, resizable, persisted under `storageKey`. Each panel's
+ * content is a host element (`element`) the island moves into the panel and
+ * keeps alive. The host owns `active` and re-calls update() from
+ * `onActiveChange`. Additive member: apiVersion stays "2".
+ */
+export function mountDrawerSystem(el: Element, props: DrawerSystemIslandProps): IslandHandle<DrawerSystemIslandProps> {
+  return mount(el, (p) => <DrawerSystemIsland {...p} />, props);
+}
+
 export function applyAppearance(settings: Partial<AppearanceSettings>): void {
   applyTheme(String(settings.theme || "dark"));
   applyTypography({ font_scale: settings.font_scale, header_density: settings.header_density });
@@ -469,9 +553,13 @@ const api = {
   mountAbout,
   mountSandboxChat,
   mountProviderModelPicker,
+  mountToolModeEditor,
   mountVoiceSettings,
   mountVoiceSection,
   mountDocsAssistant,
+  mountDrawerSystem,
+  // The identity source the top bar island reads (shell, 0036): exposed so hosts and checks see the rule.
+  islandConnectionStatus,
   mountWorkspaceChooser,
   mountTimeZonePicker,
   // The chooser's ONE wording table and its answer parser (round 11): the console builds the

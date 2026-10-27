@@ -112,4 +112,22 @@ export function runTranscribePath(runId: string): string {
 /** GET / PUT an entity's own voice; with `tts`, speech in that voice (routes/entities.py:5293, :5341, :5451, :5470). */
 export function entityVoicePath(entity: string, tts: "" | "tts" | "tts/stream" = ""): string {
   return `entities/${seg(entity, "entity name")}/voice${tts ? `/${tts}` : ""}`;
+// --- ui-primitives (tools-models) ---
+// The gateway routes the tool and model pickers read (relative to the gateway API; build the
+// request path with gatewayApiPath). Read in the live gateway source, routes/gateway.py:
+/** `GET discovery/tools` → `{items:[{name, toolset, enabled, approval_default, risk_rank, …}], tool_mode}` (:15568). */
+export const GATEWAY_TOOLS_ROUTE = "discovery/tools";
+/** `GET discovery/providers?include_models=` → `{items:[{id, label, …}], default_provider, default_model}` (:20322). */
+export const GATEWAY_PROVIDERS_ROUTE = "discovery/providers";
+/** `GET discovery/models/capabilities?model_name&provider` → `{capabilities, execution:{speculation}}` (:20671). */
+export const GATEWAY_MODEL_CAPABILITIES_ROUTE = "discovery/models/capabilities";
+/** `GET config/capability-defaults` → `{routes:[{key, provider, model, reasoning, options, source}]}` (:27748). */
+export const GATEWAY_CAPABILITY_DEFAULTS_ROUTE = "config/capability-defaults";
+/** `GET discovery/capabilities` → `{capabilities:{contracts:{common:{runs:{start:{thinking_control}}}}}}` (:19285). */
+export const GATEWAY_CAPABILITIES_ROUTE = "discovery/capabilities";
+/** `GET discovery/providers/{provider}/models` (:20475); the provider is one encoded path segment. */
+export function gatewayProviderModelsRoute(provider: string): string {
+  const p = String(provider || "").trim();
+  if (!p) throw new Error("gatewayProviderModelsRoute needs a provider.");
+  return `${GATEWAY_PROVIDERS_ROUTE}/${encodeURIComponent(p)}/models`;
 }

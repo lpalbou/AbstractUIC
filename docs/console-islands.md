@@ -91,6 +91,9 @@ Serve both files from your own origin; the paths above are examples.
 | `mountTopBar(el, props)` | `IslandHandle` | Mounts `AfTopBarActions` into `el` |
 | `mountAppearance(el, props)` | `IslandHandle` | Mounts `AfAppearanceDialog` into `el` |
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
+| `mountDocsAssistant(el, props)` | `IslandHandle` | Mounts panel-chat's `DocsAssistantDrawer` (the same Docs assistant every app mounts; the console passes `source: {app: "gateway", name: "AbstractGateway"}` and its own `fetchGateway`); keep it mounted while closed (kit 0.8.0, round 8) |
+| `islandConnectionStatus(connection)` | `GatewayConnectionState \| null` | The status the top bar's identity reads: `connection.status`, else the console's `me` body on this origin; null unless `phase` is `"connected"` (shell, backlog 0036) |
+| `mountDrawerSystem(el, props)` | `IslandHandle` | Mounts the kit `AfDrawerSystem`; each panel's content is a host element (`element`) moved into the panel and kept alive (shell, backlog 0036) |
 | `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.4.0+) |
 | `mountWorkspaceChooser(el, props)` | `IslandHandle` | Mounts the kit `WorkspaceChooser` (`level`, `state`, `save`): the console's **Eligible workspaces** modal (`level: "gateway"`) and each account's Workspaces modal (`level: "account"`) (kit 0.8.3, round 11) |
 | `mountVoiceSection(el, props)` | `IslandHandle` | Mounts the kit `AfVoiceSection` (the whole voice settings: Engines, Output, Microphone, Replies) with the component's own props (`fetchCatalog`, `fetchDefaults`, `voiceLibrary`, `fetchLanguages`, `previewVoice`, `rows`, …) (ui-primitives 0035) |
@@ -107,11 +110,12 @@ Every mount returns `{ update(props), unmount() }`. Mounting into a missing elem
 
 ### `mountTopBar(el, props)`
 
-Renders the shared top-right cluster: assistant button, appearance button, extras, then the
-connection pill (always rightmost).
+Renders the shared top-right cluster in the kit's enforced order: extras · docs · assistant ·
+appearance · about · identity · connection pill (always rightmost).
 
 ```ts
 type TopBarIslandProps = {
+  docs?: { open: boolean; onToggle: () => void; label?: string } | null;      // the Docs assistant (book icon)
   assistant?: { open: boolean; onToggle: () => void; label?: string } | null; // omit/null hides it
   appearance?: { onOpen: () => void; label?: string } | null;                 // omit/null hides it
   about?: {                                                                   // omit/null hides it (kit 0.1.12+)
@@ -124,22 +128,61 @@ type TopBarIslandProps = {
     id: string;          // becomes the element id
     label: string;       // aria-label / tooltip
     icon?: IconName;     // defaults to "settings"
-    text?: string;       // plain text instead of an icon button (e.g. the signed-in identity)
+    text?: string;       // plain text instead of an icon button (kept for compatibility; use `identity`)
     hidden?: boolean;
     pressed?: boolean;   // sets aria-pressed and the active style
     onClick?: () => void;
   }>;
+  // Who is signed in, left of the pill (shell, backlog 0036): "badge" = icon + "<user>"
+  // ("<tenant>/<user>" when the tenant is not "default"); "menu" = the same, opening
+  // "Signed in as … / Gateway <host>", Copy user id, Disconnect (= onDisconnect).
+  // Rendered only while phase is "connected" (islandConnectionStatus).
+  identity?: "badge" | "menu" | null;
   connection: {
     phase: "loading" | "connected" | "disconnected";
     signingOut?: boolean;
     onConnect: () => void;
     onDisconnect: () => void;
+    status?: GatewayConnectionState | null; // an app behind app-server: the connection probe's body
+    signOutError?: string | null;           // shown as "Disconnect failed" beside the pill
+    me?: { ok?: boolean; principal?: {...}; auth?: {...}; routing?: {...} } | null; // the console: its own GET /api/gateway/me body
   };
 };
 ```
 
+The console replaces its `extras: [{ id: "island-identity", text: "<tenant>/<user>" }]` with
+`identity: "menu"` and `connection.me: <the /api/gateway/me body it already holds>`; the identity is
+read from `me.principal` (no display name, e-mail or avatar: the gateway serves none).
+
 A text extra renders as `<span class="af-topbar__identity">`: one line, secondary text color,
 ellipsized past 24 characters.
+
+### `mountDocsAssistant(el, props)`
+
+Mounts panel-chat's `DocsAssistantDrawer` (`open`, `onClose`, `source: {app, name}`,
+`fetchGateway`, `connected`, `suggestions?`, `placeholder?`, `width?`, `topOffset?` (a number or
+`"auto"` = under the top bar), `className?`). Grounding is the gateway's corpus
+(`GET api/gateway/docs/corpus?app=gateway` for the console). Keep it mounted with `open: false`
+so the conversation survives closing.
+
+### `mountDrawerSystem(el, props)`
+
+Mounts the kit `AfDrawerSystem` (see [API](./api.md)). Panels are `{id, label, icon, element,
+side?, mode?, keepAlive?, errorBoundary?, fill?, badge?, hint?, minWidth?, maxWidth?,
+defaultWidth?}`: `element` is a DOM element the page owns, moved (never cloned) into the panel
+body. `main?` is the element between the sides (required with left panels). The host owns
+`active` and calls `handle.update({...props, active})` from `onActiveChange(id, side)`.
+
+```js
+const props = {
+  panels: [{ id: "jobs", label: "Jobs", icon: "activity", element: document.getElementById("jobs-pane") }],
+  active: null,
+  onActiveChange: (id) => { props.active = id; handle.update({ ...props }); },
+  ariaLabel: "Console panels",
+  storageKey: "abstractgateway.console.drawers.v1",
+};
+const handle = islands.mountDrawerSystem(document.getElementById("af-drawers-root"), props);
+```
 
 ### `mountAppearance(el, props)`
 
@@ -200,6 +243,21 @@ console's entity Manage, Mind & voice tab uses both. The voice picker's props in
 `voiceLibrary` (create, list, rename, delete and share the gateway's voices: **Manage voices**)
 and `previewVoice` (**Play sample**); `mountVoiceSection(el, props)` mounts the whole
 `AfVoiceSection` the same way (ui-primitives 0035).
+
+The picker also takes the props added by backlog 0034 (`fetchGatewayDefault`, `reasoningLadder`,
+`unknownReasoning`, `layout: "compact"`, `pinned`); see [API](./api.md). The console's Defaults
+modal and Sandbox selects (hardcoded reasoning and MTP ladders) can move onto it with a
+`reasoningLadder` read from `GET /api/gateway/discovery/capabilities`.
+
+### `mountToolModeEditor(el, props)`
+
+The kit's tool editor (`ToolModeEditor`: Off / Ask / Auto per tool, grouped by toolset) for
+plain-HTML hosts, with the component's props. `catalog` takes the served
+`GET /api/gateway/discovery/tools` answer as is (the island renders `ToolModeEditorForPayload`:
+the kit's `normalizeToolCatalog`, the answer's `catalog_warnings` shown, and "Tools unavailable: …"
+in place for a broken or failed answer, never a throw) or already-normalized items.
+The host keeps `value` (the layer's sparse diffs) and calls `update(props)` after each `onChange`.
+Intended for a console page over the gateway's tool settings (no such page exists yet).
 
 ### `bindModal(backdrop, options)`
 

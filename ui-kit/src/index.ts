@@ -554,3 +554,106 @@ export { voiceCaptureMode, type VoiceCaptureMode } from "./use_gateway_voice.js"
 export { recordingAbortError } from "./voice_devices.js";
 export { AfVoiceLevelMeter, useVoiceLevel, type AfVoiceLevelMeterProps, type VoiceLevelSource } from "./af_voice_level_meter.js";
 export { GATEWAY_VOICE_ROUTES, voiceClonePath, voiceCloneDeployPath, runVoiceTtsPath, runTranscribePath, entityVoicePath } from "./gateway_paths.js";
+// --- ui-primitives (tools-models) ---
+// Backlog 0033 (tool selection) + 0034 (provider/model/reasoning/MTP picker), ADR 0001.
+export {
+  TOOL_MODES,
+  normalizeToolMode,
+  toolModeInDialect,
+  normalizeToolCatalog,
+  toolCatalogWarnings,
+  effectiveToolLayers,
+  resolveToolModes,
+  inheritedToolModes,
+  setToolMode,
+  setGroupToolMode,
+  BULK_AUTO_MAX_RANK,
+  bulkAutoReaches,
+  hasToolChoices,
+  planRunTools,
+  withRunTools,
+  toWorkflowApprovalPolicy,
+  trustAfterApproveAll,
+  approvalCovered,
+  type ToolMode,
+  type ToolModeDialect,
+  type ToolCatalogItem,
+  type ToolModeLayer,
+  type ToolLayers,
+  type ToolModeSource,
+  type ResolvedToolMode,
+  type RunToolPolicy,
+  type RunToolPlan,
+  type WorkflowToolApprovalPolicyShape,
+} from "./tool_plan.js";
+export {
+  ToolModeEditor,
+  ToolModeEditorForPayload,
+  type ToolModeEditorForPayloadProps,
+  TOOL_MODE_LABELS,
+  TOOL_LAYER_RESET,
+  TOOL_LAYER_OWNER,
+  BULK_AUTO_CAP_SENTENCE,
+  type ToolModeEditorProps,
+  type ToolModeLabels,
+} from "./tool_mode_editor.js";
+export {
+  createToolLayerStore,
+  toolIdentityKey,
+  TOOL_LAYER_STORE_WHERE,
+  TOOL_SESSION_LAYERS_MAX,
+  type ToolLayerStore,
+} from "./tool_layer_store.js";
+export { describeToolMode, toolPolicySelectionToLayer } from "./tool_policy_editor.js";
+export {
+  gatewayTextDefault,
+  gatewayDefaultSummary,
+  gatewayDefaultLabel,
+  reasoningLadderFrom,
+  createGatewayModelTransport,
+  withRunModel,
+  type GatewayModelDefault,
+  type GatewayRequest,
+  type GatewayModelTransport,
+  type RunModelValue,
+} from "./gateway_models.js";
+export {
+  GATEWAY_TOOLS_ROUTE,
+  GATEWAY_PROVIDERS_ROUTE,
+  GATEWAY_MODEL_CAPABILITIES_ROUTE,
+  GATEWAY_CAPABILITY_DEFAULTS_ROUTE,
+  GATEWAY_CAPABILITIES_ROUTE,
+  gatewayProviderModelsRoute,
+} from "./gateway_paths.js";
+export { PINNED_FIELD_TEXT } from "./provider_model_select.js";
+export { PICKER_REASONING_UNKNOWN, PICKER_REASONING_OVERRIDE } from "./provider_model_picker.js";
+// --- ui-primitives (shell) ---
+// Backlog 0036 (ADR 0001): the app shell — identity in the top-right cluster, the drawer
+// system (AfRailDrawer is now a wrapper over it), AfAppShell, the kit-owned About fetch.
+export { AfAppShell, type AfAppShellProps, type AfAppShellTopBar, type AfAppShellNav } from "./af_app_shell.js";
+export {
+  AfDrawerSystem,
+  AfPanelHeaderActions,
+  AfPanelErrorBoundary,
+  railDrawerDragWidth,
+  railDrawerSide,
+  railDrawerActiveFor,
+  railDrawerSetActive,
+  railDrawerParseRequest,
+  railDrawerMounted,
+  railDrawerReadStored,
+  railDrawerWriteStored,
+  railDrawerPanelWidth,
+  railDrawerStoredActive,
+  railDrawerTopOffset,
+  type AfDrawerSystemProps,
+  type AfDrawerPanel,
+  type AfDrawerActive,
+  type AfDrawerSide,
+  type AfDrawerStored,
+} from "./af_drawer_system.js";
+export { drawerTop, drawerFocusTarget } from "./af_drawer.js";
+export { topBarPillText, topBarConnection, identityTitle, useAfTopBarHeight, AF_TOPBAR_HEIGHT_VAR, type AfTopBarConnection } from "./af_top_bar_actions.js";
+export { principalFromConnection, principalLabel, gatewayHostLabel, AF_DEFAULT_TENANT, type AfPrincipal } from "./principal.js";
+export { fetchAboutVersions, ABOUT_VERSIONS_CHECKING, type AfGatewayFetch } from "./about.js";
+export type { GatewayPrincipalPayload } from "./gateway_connect_modal.js";

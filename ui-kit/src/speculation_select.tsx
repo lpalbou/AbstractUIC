@@ -35,7 +35,7 @@ export function SpeculationSelect(props: {
         { value: "off", label: "Off" },
         ...advertised.map(value => ({ value, label: `Depth ${value}` })),
         ...(selected && selected !== "off" && !advertised.includes(selected)
-          ? [{ value: selected, label: `Depth ${selected} (saved; not available)` }] : []),
+          ? [{ value: selected, label: `Depth ${selected} (saved)` }] : []),
       ]}
       onChange={value => props.onChange(speculationFromSelection(value))} />
     {note && !props.hideNote ? <div role="status" className="af-pmp__hint">{note}</div> : null}

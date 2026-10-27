@@ -14,11 +14,25 @@ packaging). Full findings are distilled into the items below; each item
 carries its own code-reality citations.
 
 ## Counts
-- Planned: 7 (0001, 0003-0006, 0014, 0019)
-- Proposed: 17 (0009-0013, 0015-0018, 0020-0022, 0024-0028)
+- Planned: 14 (0001, 0003-0006, 0014, 0019, 0030-0036)
+- Proposed: 19 (0009-0013, 0015-0018, 0020-0022, 0024-0028, 0037-0038)
 - Completed: 6 (0002, 0007, 0008, 0023, 0026-theme-adoption, 0029)
 - Deprecated: 0
 - Recurrent: 1 (backlog hygiene)
+
+## ADRs
+`docs/adr/` exists since 2026-10-27. ADR 0001 (shared primitives are composed on the gateway's
+contracts; apps customize through props, slots and theme tokens, never by forking; one repository,
+several frameworks) governs items 0030-0038 and gives a rule to 0009, 0010, 0011, 0017, 0021.
+0015 and 0016 are superseded by 0033 and move when its kit PR merges.
+
+### Shared UI primitives consolidation (2026-10-27, root backlog 1055)
+Audit of every web surface (`untracked/ui-primitives/audit/`): one item per primitive, kit half first
+(branches `feat/ui-primitives-*`), app adoption PRs after the kit release and gateway 0.16.0.
+0030 chat surface · 0031 attachments and generated media · 0032 questions and approvals · 0033 tool
+selection layers · 0034 provider/model/reasoning/speculation picker · 0035 voice section with voice-in/out
+widgets · 0036 app shell (top-right widgets + drawer system) · proposed, designed for: 0037 flow diagram
+panel, 0038 memory graph viewer.
 
 ## Priority bands (next recommended work)
 1. **0003** one JsonViewer — collapseAfterDepth honored in both kit twins and
@@ -58,6 +72,13 @@ merge, or missing test rigs) — see each item's checklist.
 | 0006 | guard extensions + test rigs | ui-kit scripts + workspaces | Token-consumption + literal + swatch invariants; test scripts for 3 packages |
 | 0014 | entity-creation modal module family | ui-kit (framework-free) | 2-tab console modal; gateway c872/c879 seam; capabilities tab gated on served inventory |
 | 0019 | gateway session-proxy server module | new node package | LAURENT-DIRECTED: one auth proxy for 3 cli.js copies + the entity app; observer contract verbatim |
+| 0030 | one chat surface | panel-chat | `WorkflowChat` gains steer, typed attachments + upload hook, toolbar, footer/variant slots, abortable cancel, sessions; `replay_view_v1` message mapping; apps delete their twins |
+| 0031 | attachment and generated media | panel-chat + ui-kit | `file` media kind, STT transcript caption, `video` in AfFileViewer, controller fills media from the ledger |
+| 0032 | questions and approvals | panel-chat | Deny / Allow once / Allow for this chat / Allow all enabled tools / Decide later; card variant; accepts `replay_view_v1.interaction` |
+| 0033 | tool selection layers | ui-kit | `tool_plan.ts` (sparse gateway → app → session, off/ask/auto) + `ToolModeEditor`; supersedes 0015, 0016 |
+| 0034 | provider/model/reasoning/speculation picker | ui-kit | Gateway default first and named; served ladders only; compact layout; `gateway_models.ts` helpers |
+| 0035 | voice section with voice-in/out widgets | ui-kit | `AfVoiceInput` / `AfVoiceOutput` standalone, live level, mute, capture mode, voice library, mic button, prefs hooks |
+| 0036 | app shell: top-right widgets + drawer system | ui-kit + panel-chat | Identity badge/menu, about fetch, enforced order; `AfDrawerSystem` (opaque panels, keep-alive, persisted, auto top offset); `AfAppShell` |
 
 ## Proposed ledger (promotion criteria in each item)
 | ID | Item | Consumers today | Blocked on |
@@ -78,6 +99,8 @@ merge, or missing test rigs) — see each item's checklist.
 | 0024 | entity.css tokenization | abstractentity | Entity seat opt-in; observer-night values already in kit |
 | 0025 | Non-visual gateway-client sibling package | observer, abstractcode/web, continuum (~2,100 dup lines) | Cross-seat decision; NOT ui-kit (no React/CSS) |
 | 0026 | Cognition wave monitor (monitor-cognition) | prototype live (untracked/cognition-monitor, 12 forms; scorer+basis v0 shipped, entity vendored Bloom) | Operator picks the surviving forms |
+| 0037 | Flow diagram panel (read-only, store-free) | none yet (Observer candidate) | Operator: not yet; 0036 designs the opaque `fill` panel for it |
+| 0038 | Memory graph viewer panel | Flow + Observer use `KgActiveMemoryExplorer` | AbstractMemory graph contract on gateway `main`; operator: not yet |
 | 0027 | AfPhaseRadio (four-position phase radio) | proposed (entity's shared-yes, c2000; their radio ships app-side) | Absorb entity's implementation; validate against entity_phases.json |
 | 0028 | Shared dialogue-transcript CSS API (pc-chat slice) | proposed (gateway card-015 cross-repo flag, c2173) | Extract transcript.css slice + token-mapping recipe for single-file consumers |
 
