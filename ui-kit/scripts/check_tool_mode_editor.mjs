@@ -149,7 +149,7 @@ const pressed = (html, key) => new RegExp(`aria-pressed="true"[^>]*data-(?:tool|
   const { readFileSync } = await import("node:fs");
   const island = readFileSync(join(here, "..", "islands", "console_islands.tsx"), "utf8");
   check("the island mounts the payload editor (no throw after createRoot)", /mount\(el, \(p\) => <ToolModeEditorForPayload \{\.\.\.p\} \/>, props\)/.test(island));
-  check("the voice picker's doc comment sits on mountVoiceSettings again", /\* transport injected \(fetchCatalog\)\. Additive member \(round 3\)\.\n \*\/\nexport function mountVoiceSettings/.test(island));
+  check("the voice picker's doc comment sits on mountVoiceSettings again", /\/\*\*\n \* The shared voice picker(?:(?!\/\*\*|\*\/)[^])*\*\/\nexport function mountVoiceSettings/.test(island));
 }
 
 // ---------------------------------------------------------------- behaviour (hook harness)
