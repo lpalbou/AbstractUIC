@@ -165,6 +165,20 @@ check("the card's stats prop wins over message.stats", propStats.includes("prop"
   for (const [contentType, name] of [["application/pdf", "r.pdf"], ["text/markdown", "r.md"], ["application/json", "d.json"], ["text/csv", "t.csv"], ["text/plain", "a.txt"], ["text/x-python", "m.py"], ["text/javascript", "m.js"], ["image/png", "i.png"], ["audio/mpeg", "a.mp3"], ["video/mp4", "v.mp4"], ["audio/wav", "a.wav"], ["video/webm", "v.webm"]])
     check(`inert ${name} keeps its object-URL raw link`, pcAll.fileRawLink({ src: "blob:http://app/i", contentType, name }) === "blob:http://app/i");
   check("a resolved inert document links its object URL", chatMediaFromArtifact({ src: "blob:http://app/i", contentType: "text/csv", name: "t.csv" }).href === "blob:http://app/i");
+  // Review N1d: a browser that cannot play a type may render its blob as a DOCUMENT (WebKit:
+  // video/ogg, audio/opus; old Safari: webm, avif). Every blob:/data: raw link is a DOWNLOAD
+  // (saved, never navigated, no script), whatever the type; a gateway URL stays a normal link.
+  const localFile = card({ id: "lf", role: "assistant", content: "", media: [{ kind: "file", src: "blob:http://app/r", name: "report.pdf", contentType: "application/pdf" }] });
+  check("a blob raw link downloads with the file name", /<a class="pc-chat-media__link" href="blob:http:\/\/app\/r"[^>]*download="report.pdf"/.test(localFile), localFile.slice(-500));
+  check("a blob raw link never opens a tab", !/href="blob:http:\/\/app\/r"[^>]*target="_blank"/.test(localFile));
+  const dataFile = card({ id: "df", role: "assistant", content: "", media: [{ kind: "file", src: "data:text/plain;base64,aGk=", name: "a.txt", contentType: "text/plain" }] });
+  check("a data: raw link downloads too", /href="data:text\/plain;base64,aGk="[^>]*download="a.txt"/.test(dataFile), dataFile.slice(-400));
+  const gatewayFile = card({ id: "gf", role: "assistant", content: "", media: [{ kind: "file", src: "blob:http://app/r", href: "/api/gateway/runs/r/artifacts/p/content", name: "report.pdf", contentType: "application/pdf" }] });
+  check("a gateway href stays a normal link (no download)", /href="\/api\/gateway\/runs\/r\/artifacts\/p\/content" target="_blank"/.test(gatewayFile) && !/artifacts\/p\/content"[^>]*download=/.test(gatewayFile));
+  const mediaBlob = card({ id: "mb", role: "assistant", content: "", media: [{ kind: "video", src: "blob:http://app/v", href: "blob:http://app/v", label: "Clip" }] });
+  check("a media item's blob link downloads too", /class="pc-chat-media__link" href="blob:http:\/\/app\/v"[^>]*download="Clip"/.test(mediaBlob), mediaBlob.slice(-400));
+  for (const [contentType, name] of [["video/ogg", "v.ogv"], ["audio/opus", "a.opus"]])
+    check(`${contentType} is not in the allowlist (WebKit cannot play it)`, pcAll.fileRawLink({ src: "blob:http://app/i", contentType, name }) === undefined);
   // Review H1: TypeScript is code even when served as video/mp2t.
   check("a .ts artifact served as video/mp2t is a document, not a video", chatMediaFromArtifact({ src: "blob:t", contentType: "video/mp2t", name: "app.ts" }).kind === "file");
 

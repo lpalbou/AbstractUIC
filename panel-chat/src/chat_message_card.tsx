@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { AfAudioPlayer, Icon, fileViewerKind, fileViewerNeedsText, formatFileSize, type IconName } from "@abstractframework/ui-kit";
 
-import { fileRawLink } from "./chat_media.js";
+import { fileRawLink, isLocalObjectUrl } from "./chat_media.js";
 import { FileViewer } from "./file_viewer.js";
 import { ChatMessageContent } from "./message_content.js";
 import type { MarkdownImages } from "./markdown.js";
@@ -178,6 +178,17 @@ function mediaSource(src: string): string | undefined {
 
 /** A document in the chat: a compact row that opens the shared file viewer
  * inline (or the host's opener). Nothing loads until it is opened. */
+/**
+ * A raw-file link. A browser-local URL (blob:/data:) is a DOWNLOAD named after
+ * the file: it is saved, never navigated, so no script can run whatever its
+ * type (a browser that cannot play a media type may render its blob as a
+ * document; review N1d). A gateway URL (served with `CSP: sandbox`) opens in a
+ * new tab as before.
+ */
+function rawLinkProps(href: string, name: string): React.AnchorHTMLAttributes<HTMLAnchorElement> {
+  return isLocalObjectUrl(href) ? { href, download: name || "file" } : { href, target: "_blank", rel: "noopener noreferrer" };
+}
+
 type MediaMarkdownPolicy = {
   renderMarkdown?: (markdown: string) => React.ReactElement;
   images?: MarkdownImages;
@@ -222,7 +233,7 @@ function ChatMediaFile({ item, onOpen, markdown }: { item: ChatMedia; onOpen?: (
           </button>
         )}
         {href ? (
-          <a className="pc-chat-media__link" href={href} target="_blank" rel="noopener noreferrer">
+          <a className="pc-chat-media__link" {...rawLinkProps(href, String(item.name || "").trim() || label)}>
             Raw file
           </a>
         ) : null}
@@ -278,7 +289,7 @@ function ChatMediaItem({ item, onOpenFile, markdown }: { item: ChatMedia; onOpen
       ) : null}
       {href ? (
         <figcaption className="pc-chat-media__caption">
-          <a className="pc-chat-media__link" href={href} target="_blank" rel="noopener noreferrer">
+          <a className="pc-chat-media__link" {...rawLinkProps(href, String(item.name || "").trim() || label)}>
             {label}
           </a>
         </figcaption>

@@ -246,7 +246,9 @@ this chat / allow all, and a dismissal defers, never denies.
   wildcard; `objectUrlRawLinkSafe`,
   `fileRawLink`) and never for HTML, SVG, XML, XSL or any unlisted type, whatever the host
   passes. The guard trusts the declared type: `contentType` must be the type the object URL's
-  Blob was created with. An
+  Blob was created with. On top of that, every `blob:`/`data:` raw link is a download
+  (`download="<name>"`: saved, never opened in the browser), since a browser that cannot play a
+  media type may render it as a document; a gateway `href` opens in a new tab. An
   opened Markdown file follows the chat's `images` policy (default `"link"`: no remote image
   loads) or the host's `renderMarkdown`. `onOpenMedia` receives the item with sanitized sources.
 - Sources come from the host (object URLs it fetched with its credentials), never from model

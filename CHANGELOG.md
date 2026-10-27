@@ -42,7 +42,8 @@ panel-chat (and one ui-kit file):
   `href` (pass the gateway's sandboxed content URL), or its object URL for an allowlist of inert types only (concrete subtypes, no wildcard). A
   `blob:`/`data:` URL is never the raw link of HTML, SVG, XML, XSL or any unlisted type (it would run on the app's
   origin without the gateway's `CSP: sandbox`); the guard trusts the declared type, so `contentType` must be the
-  Blob's type: `fileRawLink`, `objectUrlRawLinkSafe`, `isLocalObjectUrl`. `onOpenMedia` receives sanitized
+  Blob's type: `fileRawLink`, `objectUrlRawLinkSafe`, `isLocalObjectUrl`. Every `blob:`/`data:` raw link is a
+  download (`download="<name>"`, never navigated); a gateway `href` opens in a new tab. `onOpenMedia` receives sanitized
   sources only.
   `WorkflowTransport.resolveArtifact` (optional; `ResolvedArtifact.text` for small text artifacts),
   `chatMediaFromArtifact` (inert documents get `href`), `chatMediaForArtifacts`. `FileViewer` takes `markdownImages`,

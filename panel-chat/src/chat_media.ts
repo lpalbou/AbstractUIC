@@ -34,10 +34,11 @@ const INERT_TYPES = new Set([
   "image/avif",
   "image/bmp",
   // Concrete media subtypes only: WebKit renders an unsupported subtype
-  // (video/html, audio/text, ...) as a document and runs its script (review N1c).
+  // (video/html, audio/text, ...) as a document and runs its script (review N1c),
+  // and a type it cannot play too (video/ogg, audio/opus: left out, N1d). This list
+  // is defence in depth: every blob:/data: raw link is a download (chat_message_card).
   "video/mp4",
   "video/webm",
-  "video/ogg",
   "video/quicktime",
   "audio/mpeg",
   "audio/mp4",
@@ -45,7 +46,6 @@ const INERT_TYPES = new Set([
   "audio/wav",
   "audio/x-wav",
   "audio/ogg",
-  "audio/opus",
   "audio/webm",
   "audio/flac",
 ]);
