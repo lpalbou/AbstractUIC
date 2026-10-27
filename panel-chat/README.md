@@ -41,6 +41,13 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
 - Types: `ChatMessage`, `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat`,
   `LlmDelta`, `LlmDeltaEnd`, `StreamRepliesMode`, `WorkflowSessionSnapshot`
 - Utils: `chatToMarkdown`, `copyText`, `downloadTextFile`, `tryParseJson`
+- One chat surface (unreleased): `WorkflowChat` `steer` / `toolbar` / `attachmentItems`,
+  `ComposerAttachmentChips`, `useAttachmentUploads` (see [One chat surface](#one-chat-surface))
+- Questions and approvals (unreleased): `presentInteraction`, `WORKFLOW_INTERACTION_LABELS`,
+  `ReplayInteraction` (see [Questions and approvals](#questions-and-approvals))
+- Generated media (unreleased): `ChatMedia` kind `"file"` and audio `transcript`,
+  `chatMediaFromArtifact`, `chatMediaForArtifacts`, `WorkflowTransport.resolveArtifact`
+  (see [Attachments and generated media](#attachments-and-generated-media))
 - Automations: `ScheduleThisAction` (a "Schedule this…" button for a chat header slot) and
   `FromAutomationBadge` — see [Automations](../docs/automations.md#panel-chat-pieces)
 
@@ -139,6 +146,125 @@ a turn, but the shared component never invents an event or command vocabulary.
 Event waits use `resolveWorkflowEventTarget(rawWait, records, run)` to recover
 the exact canonical scope from matching ledger evidence; an ambiguous wait is
 shown as unavailable rather than guessed.
+
+### One chat surface
+
+`WorkflowChat` is the one chat surface (ADR 0001, backlog 0030). Everything an app
+used to build next to it is a prop; each control appears only when the host injects it.
+
+```tsx
+const uploads = useAttachmentUploads({ upload: (file) => gateway.attachmentsUpload(sessionId, file), maxBytes: policy.maxAttachmentBytes });
+
+<WorkflowChat
+  messages={snapshot.messages}
+  draft={draft}
+  onDraftChange={setDraft}
+  busy={running}
+  onSend={async (text, { signal }) => { await startTurn(text, uploads.attached, signal); uploads.clear(); setDraft(""); }}
+  onCancel={(signal) => controller.cancel()}
+  steer={{ onSteer: (text, mode) => (mode === "queue" ? queueNextTurn(text) : submitSteer({ runId, guidance: text })), modes: ["guide", "queue"] }}
+  onFiles={(files) => void uploads.add(files)}
+  attachmentItems={uploads.items}
+  onRemoveAttachment={uploads.remove}
+  onRetryAttachment={uploads.retry}
+  toolbar={{ onNewSession: newSession, exportTranscript: { filename: "conversation.md" }, copyTranscript: true }}
+  messageProps={{ renderFooter: (m) => (m.detail ? <TurnBadge detail={m.detail} /> : null), variant: (m) => (m.role === "system" ? "hint" : undefined) }}
+  interaction={presentInteraction(workflowPendingInteraction(snapshot), controller, { onPermissionsAll, approveAllScope: "in this browser", onDefer: hide })}
+/>
+```
+
+- **Steer / Queue.** With `steer`, the composer stays usable while `busy`: the send
+  button reads **Steer** (mode `"guide"`) or **Queue** (mode `"queue"`); with both modes a
+  **Guide this run / Queue next turn** switch appears. The host posts the text (ui-kit
+  `submitSteer` posts `inject_guidance`) or queues it. The status line says "Queued (seq N).
+  Delivers at the run's next loop boundary." (or, with `parked`, "delivers at its next wake")
+  only for an accepted steer; `accepted:false` is shown as a refusal and the draft stays. An
+  accepted steer clears the draft through `onDraftChange("")`.
+- **Typed attachment chips.** `attachmentItems` renders one chip per file with its state in
+  words: Waiting, Uploading, attached (with its size), refused (both sizes) or failed (the
+  gateway's words, with Retry). Send refuses while a chip is not attached. `useAttachmentUploads`
+  is AbstractCode's upload queue: refused over `maxBytes` before any request, three uploads at
+  once, Retry, Remove (a late result for a removed chip is dropped), `clear()` after a send.
+  The `attachments` ReactNode slot remains for hosts with their own chips.
+- **Toolbar.** `toolbar` renders **New chat**, **Clear**, **Copy** and **Export** in the header
+  row next to `header`. Copy and Export carry the transcript as Markdown (`chatToMarkdown`; tool
+  rows and live bubbles are left out).
+- **Per-message slots.** `messageProps.renderFooter(m)` renders under a card (e.g. a per-turn
+  detail badge); `messageProps.variant(m)` returning `"hint"` renders the message as one discreet
+  line (system notes such as "Rejoined the open visit").
+- **Stop that aborts.** `onSend(draft, { signal })`: Stop aborts that signal and calls
+  `onCancel(signal)` with it, so a request/response host stops its fetch (an aborted send is not
+  reported as a failure). When no send is in flight (a ledger host), `onCancel` gets a signal
+  aborted at the same moment.
+
+### Questions and approvals
+
+`presentInteraction(wait, controller, options)` maps a runtime wait to the `interaction`
+control, with ONE wording set (`WORKFLOW_INTERACTION_LABELS`, ADR 0001 §5, backlog 0032).
+The native AbstractAssistant (Qt, iPhone) is the reference: deny / allow once / allow for
+this chat / allow all, and a dismissal defers, never denies.
+
+| Decision | Label | Offered when | What it sends |
+|---|---|---|---|
+| Deny | Deny | always | `resume {approved: false}` |
+| Allow once | Allow once | always | `resume {approved: true}` for this batch |
+| Allow for this chat | Allow for this chat | `onAllowForSession` | this batch, then the host's chat-scoped grant |
+| Allow all enabled tools | Allow all enabled tools | `onPermissionsAll` | this batch, then the host's standing policy |
+| Decide later | Decide later | `onDefer` | nothing (the run keeps waiting) |
+| Answer | Submit / a choice button | always (free text when `allow_free_text`) | `resume {response}` |
+| Continue without answering | Continue without answering | `allowSkip` | `resume {response: ""}` |
+| Keep waiting | Keep waiting | `onDefer` | nothing |
+
+- The allow-all sentence names no storage scope by default; pass `approveAllScope` with the
+  host's truth ("for this Gateway account", "in this browser").
+- `remember(toolNames)` returns a host-worded per-tool checkbox (`{label, checked, onChange}`).
+- `approveAllDisabledReason` renders the broad grants disabled with the reason visible.
+- `WorkflowInteractionPanel` `variant="card"` is the compact form for served-state lists (a
+  "Needs you" board, an inbox): same decisions and callbacks, detail behind **Review**.
+- `presentInteraction` also accepts a `ReplayInteraction`: the shape of
+  `replay_view_v1.interaction` (kind, run_id, wait_key, step_id, seq, prompt, choices,
+  allow_free_text, details, tool_calls, activity_id, command). It is a typed seam only: no
+  gateway on `main` serves the replay view yet, panel-chat never fetches a `/view` route, and
+  today's data path stays the controller's ledger fold + served `waiting`.
+
+### Attachments and generated media
+
+`ChatMessage.media` items render under the message text (backlog 0031):
+
+- `image`, `video`: inline; `audio`: the kit's waveform player, with `transcript` (speech to
+  text) as a collapsible **Transcript** caption; music rides on audio.
+- `file`: a document row (name, size) that opens the shared `AfFileViewer` inline behind
+  **Open** (nothing loads before), or calls `messageProps.onOpenMedia(item)` when the host has
+  its own opener. Text kinds (markdown, code, json, text) need `text`; without it the viewer
+  says so instead of showing an empty preview.
+- Sources come from the host (object URLs it fetched with its credentials), never from model
+  text. `WorkflowTransport.resolveArtifact?(runId, artifactId)` is the transport's hook for
+  that (`GET runs/{id}/artifacts/{artifact_id}` metadata + `/content` bytes);
+  `chatMediaFromArtifact(resolved)` picks the kind from the gateway's `content_type`
+  (image/audio/video inline, everything else a file, SVG never rendered) and
+  `chatMediaForArtifacts(runId, ids, resolve)` resolves a message's `artifactIds` (it rejects
+  when one cannot be resolved).
+- Not done yet: the controller does not fold `$artifact` refs or generated-media ledger events
+  into `message.media` by itself; a host fills `media` with the helpers above.
+
+### Messages from the replay view
+
+`ChatMessage` can carry a `replay_view_v1.messages[]` item, so `messages` can come from the
+replay view once a gateway serves it (no route on `main` yet; panel-chat never fetches one).
+The shape below is the WIP `ReplayView` of abstractruntime `feat/replay-view` and may move
+before it ships:
+
+| replay `role` / `kind` | `ChatMessage` |
+|---|---|
+| `user` / `prompt` | `{ role: "user", kind: "prompt", content: text }` |
+| `assistant` / `answer` (`final: true` when it is also the run's final answer) | `{ role: "assistant", kind: "answer", content: text }` |
+| `assistant` / `final` (a final answer that repeats no earlier answer) | `{ role: "assistant", kind: "final", content: text }` |
+| `assistant` / `question` | `{ role: "assistant", kind: "question", content: text }` (the open question itself comes from `interaction`) |
+| `user` / `answer` | `{ role: "user", kind: "answer", content: text }` |
+| `system` / `event` | `{ role: "system", kind: "event", content: text, level }` (use `variant: "hint"` for one-line notes) |
+
+Every item maps `id` → `id`, `run_id` → `runId`, `artifact_ids` → `artifactIds` (resolve them
+with `chatMediaForArtifacts`).
 
 ### Live replies (streaming)
 

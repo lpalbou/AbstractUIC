@@ -9,6 +9,37 @@ ships.
 
 ## Unreleased
 
+### chat: one chat surface, questions and approvals, attachments and generated media (backlog 0030, 0032, kit half of 0031; ADR 0001)
+
+panel-chat (and one ui-kit file):
+
+- **Questions and approvals (0032).** One wording set, `WORKFLOW_INTERACTION_LABELS`: Deny / Allow once /
+  Allow for this chat / Allow all enabled tools / Decide later; Submit / Continue without answering / Keep waiting.
+  `WorkflowInteractionPanel`'s default labels are now "Allow once" and "Allow all enabled tools" (were "Approve" and
+  "Allow all"). Tool approvals add `onApproveForSession`, `onDefer` (sends nothing: a dismissal never denies),
+  `remember` (a host-worded per-tool checkbox) and `disabledReason` (the broad grants render disabled with the reason
+  visible); questions add `onSkip` (resumes with an empty answer) and `onDefer`. `variant="card"` is a compact card for
+  "Needs you" lists and inboxes. `presentInteraction` options `onAllowForSession`, `approveAllScope`,
+  `approveAllDisabledReason`, `remember`, `onDefer`, `allowSkip`; each option appears only when injected. The
+  allow-all sentence no longer says "for this Gateway account" by default (AbstractCode stores the choice per
+  browser): the host passes its scope. `presentInteraction` also accepts a `ReplayInteraction` (the shape of
+  `replay_view_v1.interaction`; a typed seam, no gateway serves it yet) and produces the same control.
+- **One chat surface (0030).** `WorkflowChat` adds `steer` (Steer / Queue while busy, "Queued (seq N)" only for an
+  accepted steer), typed attachment chips `attachmentItems` + `onRemoveAttachment` / `onRetryAttachment` (Send
+  refuses while one is not attached) with `useAttachmentUploads` and `ComposerAttachmentChips` (AbstractCode's upload
+  queue, lifted), `toolbar` (New chat / Clear / Copy / Export, each only when injected), `messageProps.renderFooter`
+  and `messageProps.variant` (`"hint"`: one-line system notes), and `onSend(draft, { signal })` + `onCancel(signal)`
+  so Stop aborts a request/response host's request. `ChatMessage` gains `artifactIds`; the README maps
+  `replay_view_v1.messages[]` onto `ChatMessage`.
+- **Attachments and generated media (0031, kit half).** `ChatMedia.kind` adds `"file"` (opens the shared
+  `AfFileViewer` inline, or the host's `onOpenMedia`); audio media takes `transcript` (a collapsible Transcript
+  caption: the speech-to-text display); music rides on audio. `WorkflowTransport.resolveArtifact` (optional),
+  `chatMediaFromArtifact`, `chatMediaForArtifacts`. `useWorkspaceFilePreview` loads video files. ui-kit:
+  `AfFileViewer` kind `"video"` (mp4, m4v, webm, mov, ogv, mkv, `video/*`). Not yet: the controller does not fold
+  `$artifact` refs or generated-media events into `message.media` itself.
+- Checks: `check_present_interaction.mjs` (extended), `check_chat_surface.mjs` (new), `check_chat_media.mjs`
+  (extended), ui-kit `check_file_viewer_video.mjs` (new); each was seen red under a mutation.
+
 ## 0.6.4 - 2026-10-27
 
 Packages: `@abstractframework/ui-kit` 0.8.9.

@@ -68,7 +68,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 ## Packages
 
 - [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / rail drawer (AfRailDrawer) / appearance dialog, file viewer (AfFileViewer, AfCodeBlock, AfAudioPlayer waveform audio player), settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow) + AfVoiceSection (gateway voice defaults via fetchDefaults, devices, Test, level meter), relative time, compact About card (AfAbout / AfAboutDialog, aboutVersionsFromGateway) + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel (Active switch) + schedule dialog + client, AfSwitch, AfTabs, AfModal, randomId
-- [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat, live replies (`llm.delta`), ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, presentInteraction
+- [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, file media + STT transcripts), live replies (`llm.delta`), ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, presentInteraction (one approval wording set, card variant)
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -501,15 +501,17 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Expandable tree/list panes | `DisclosureList` | Dual-key selection, path-keyed expansion, `role=tree` keyboard nav, badge rail |
 | Badges / chips / toggles | `AfChip`, `AfChipButton` | Tone variants with AA-derived colors; custom hues via `var(--token)` |
 | Icons | `Icon` | ~45 glyphs, 24-grid and 16-grid families |
-| Chat UI (thread, cards, composer) | `@abstractframework/panel-chat` | Markdown with real nested lists; JSON auto-detect; `message.title` names the speaker |
-| Live (streamed) replies | `WorkflowSessionController` / `useWorkflowSession` + a transport whose `streamLedger` passes `onDelta`; `WorkflowChat` `streamReplies` + `streamRepliesRuntime()` | Deltas never move the ledger cursor; the ledger record replaces the live bubble. See [panel-chat live replies](../panel-chat/README.md#live-replies-streaming) |
+| Chat UI (thread, cards, composer) | `WorkflowChat` (`@abstractframework/panel-chat`) | Markdown with real nested lists; JSON auto-detect; `message.title` names the speaker. One surface (backlog 0030): `steer` (Steer / Queue while busy, honest "Queued (seq N)"), `toolbar` (New chat / Clear / Copy / Export, each only when injected), `messageProps.renderFooter` / `variant: "hint"` (per-message badge, one-line system notes), `onSend(draft, {signal})` + `onCancel(signal)` so Stop aborts a request/response host. Add a prop here instead of forking the thread |
+| Live (streamed) replies | `WorkflowSessionController` / `useWorkflowSession` + a transport whose `streamLedger` passes `onDelta`; `WorkflowChat` `streamReplies` + `streamRepliesRuntime()` | Deltas never move the ledger cursor; the ledger record replaces the live bubble. See [panel-chat live replies](../panel-chat/README.md#live-replies-streaming). Pending questions come from the same controller (ledger + served `waiting`), never a local fold |
+| Questions and approvals | `presentInteraction(wait, controller, options)` → `WorkflowChat` `interaction` (or `WorkflowInteractionPanel`, `variant="card"` for "Needs you" lists and inboxes) | One wording set (`WORKFLOW_INTERACTION_LABELS`): Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later and Keep waiting send nothing (a dismissal never denies); Continue without answering resumes empty. Each broader option appears only when the host injects it; the allow-all scope sentence is the host's (`approveAllScope`), never assumed. Accepts a `replay_view_v1.interaction` (`ReplayInteraction`) once a gateway serves it |
+| Attachments and generated media | Composer: `WorkflowChat` `attachmentItems` + `useAttachmentUploads`. Messages: `ChatMessage.media` (`image` / `audio` with `transcript` / `video` / `file`), filled with `chatMediaFromArtifact` from the transport's `resolveArtifact` | Chips name their state (Waiting, Uploading, refused with both sizes, failed with the gateway's words and Retry); Send refuses while one is not attached. Files open in the shared `AfFileViewer`; speech-to-text shows as a **Transcript** caption; music rides on audio. The host fetches with its own credentials |
 | App assistant (docs Q&A drawer) | `AssistantPanel` (panel-chat) in `AfDrawer` via `AfTopBarActions` | Transport injected. THE shared transport (docs-qa@0.1.0, tenant_catalog): `POST /runs/start {registry_scope:"tenant_catalog", bundle_id:"docs-qa", bundle_version:"0.1.0", flow_id:"docsqa001", input_data:{question, history, docs:<llms.txt text>, app}}`, answer on `output.response` — grounded on YOUR docs only, cites sections, says honestly when docs don't answer. `import docs from "./llms.txt?raw"` remains the recommended docs source (build-time, versioned) |
 | Markdown / JSON rendering | `Markdown`, `JsonViewer` (panel-chat) | Also exported standalone |
 | TTS playback + push-to-talk | `useGatewayVoice` (+ `streamTtsJsonl`) | Injected `tts`/`tts_stream`/`transcribe` functions; streaming with pause/resume; output and input device, volume and input level options |
 | Voice settings page | `AfVoiceSection` | Pass `fetchDefaults` (`GET /api/gateway/voice/defaults`): "Gateway default · provider / model" comes only from it; the host stores the overrides. Pass `createVoice` (`design` → `POST /api/gateway/voice/design`, `clone` → multipart `POST /api/gateway/voice/clones`) to let people create their own voices |
 | Compact settings rows | `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow` | "Gateway default" until the user overrides it; **Use gateway default** returns to it |
 | Side panels on a vertical icon rail | `AfRailDrawer` | Docked from 1024 px, floating below; resizable, width persisted under `storageKey` |
-| File preview | `AfFileViewer` (ui-kit) or `FileViewer` + `useWorkspaceFilePreview` (panel-chat, for run workspace files) | Markdown, highlighted code, JSON, images, audio, PDF, text; the host fetches with its own credentials |
+| File preview | `AfFileViewer` (ui-kit) or `FileViewer` + `useWorkspaceFilePreview` (panel-chat, for run workspace files) | Markdown, highlighted code, JSON, images, audio, video, PDF, text; the host fetches with its own credentials |
 | Audio playback | `AfAudioPlayer` | Waveform player: click or drag to seek, keyboard slider |
 | Relative and exact times | `formatRelativeTime(ts, nowMs)`, `formatExactTime(ts)` | Deterministic: the caller passes now; exact time on hover |
 | Agent cycle traces | `AgentCyclesPanel` + `build_agent_trace` (monitor-flow) | Adapter turns ledger-like records into `TraceItem[]` |
@@ -1653,7 +1655,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Run steering: `SteerComposer` + `submitSteer()` (idempotent command ids, CSRF candidates)
 - Lists & badges: `DisclosureList` (tree list, roving tabindex), `AfChip` / `AfChipButton`
 - Rail drawer (0.8.0): `AfRailDrawer` — the vertical rail drawer lifted from AbstractEntity's side tabs and Continuum Teams' drawer rail: an icon rail (role `tablist`, vertical; 44 px icons with tooltips; Up/Down/Home/End) at the right edge of the host's content area; a click opens that panel beside the rail, the open icon (or the panel's collapse button) folds it back; the rail always stays. Docked from 1024 px (in the layout flow; width resizable by pointer — mouse, pen, touch with pointer capture — and by keyboard on a `separator`, persisted under `storageKey`), floating below (backdrop, Escape folds it with the consumed-event rule, focus returns to the icon). Panels visited once stay mounted. Props: `items: AfRailItem[]` (`id`, `label`, `icon`, `badge?`, `hint?`, `content`, `headerActions?`), `active`, `onActiveChange(id | null)`, `ariaLabel`, `storageKey?`, `defaultWidth?`/`minWidth?`/`maxWidth?`, `overlay?`, `idBase?` (ids `<idBase>-tab-<id>` / `<idBase>-panel-<id>`). The host's container needs `position: relative`. Pure rules: `railDrawerToggle()`, `railDrawerClampWidth()`, `railDrawerKeyWidth()`, `railDrawerNextIndex()`, `AF_RAIL_WIDTH`.
-- File viewer (0.8.0): `AfFileViewer` — one preview for every client: header (name with the path as tooltip, size, generated date relative with the exact time on hover, extra `actions`, Download and close icons) and a body by kind (`fileViewerKind(name, contentType)`: Markdown through the host's `renderMarkdown` — panel-chat `FileViewer` wires its `Markdown` —, code highlighted by `AfCodeBlock`, JSON pretty-printed, images, audio (kind `"audio"` for mp3, wav, ogg, oga, opus, m4a, aac, flac, weba or any `audio/*` type, played by `AfAudioPlayer`), PDF in an `<object>`, plain text; SVG and HTML show as source, never rendered). Presentational: the host passes text (`fileViewerNeedsText(kind)`) or an object URL (images, audio, PDF). `formatFileSize()`.
+- File viewer (0.8.0): `AfFileViewer` — one preview for every client: header (name with the path as tooltip, size, generated date relative with the exact time on hover, extra `actions`, Download and close icons) and a body by kind (`fileViewerKind(name, contentType)`: Markdown through the host's `renderMarkdown` — panel-chat `FileViewer` wires its `Markdown` —, code highlighted by `AfCodeBlock`, JSON pretty-printed, images, audio (kind `"audio"` for mp3, wav, ogg, oga, opus, m4a, aac, flac, weba or any `audio/*` type, played by `AfAudioPlayer`), video (unreleased: kind `"video"` for mp4, m4v, webm, mov, ogv, mkv or any `video/*` type, the browser's own controls), PDF in an `<object>`, plain text; SVG and HTML show as source, never rendered). Presentational: the host passes text (`fileViewerNeedsText(kind)`) or an object URL (images, audio, video, PDF). `formatFileSize()`.
 - Audio player (0.8.0): `AfAudioPlayer` (`src`, `name?`, `peaks?`, `className?`) — the shared audio viewer: play/pause, a waveform you click or drag to seek, elapsed / total time. The waveform is decoded from `src` with the Web Audio API (pass `peaks` to skip decoding); when decoding is unavailable or fails, the bars stay flat with the reason in the waveform's tooltip and playback still works. Keyboard: the waveform is a `slider` (Left/Right ±5 s, Home/End, Space/Enter play or pause). Pure helpers: `audioPeaks(samples, bars?)` (normalised 0..1 per bar), `formatAudioTime(seconds)` (`"1:03"`, `"--:--"` when unknown), `audioSeekTime(x, width, duration)`, `AUDIO_WAVEFORM_BARS` (72).
 - Code highlighting (0.8.0): `AfCodeBlock` (`text`, `language` = a file name or a language, `lineNumbers?`) — wraps long lines, never scrolls sideways; `highlightCode(text, codeLanguage(name))` is a dependency-free lexer (comment / string / number / keyword tokens; joining the tokens returns the input).
 - Settings rows (0.8.0): `AfSettingsGroup` (titled card; `variant="flat"` inside another card; `aside` for e.g. "Revision 4"), `AfSettingRow` (label + one-line help left, control right; wraps in a narrow panel), `AfOverrideRow` — the "Gateway default unless overridden" row: summary (`Gateway default · x` or `<override> — <owner>`), **Change** opens the editor in place, **Use gateway default** only while overridden.
@@ -1705,6 +1707,13 @@ Components:
 - `DocsAssistantDrawer` (0.4.0) — the Docs assistant of the console and every app: kit drawer + panel-chat thread (user right, assistant left; Markdown, code, JSON, links, images per the image policy; copy), attachments (`attachments/upload` to the conversation's session → `context.attachments`), streaming (`llm.delta` on `runs/{id}/ledger/stream`), Stop, icon-only New conversation and close, one-line grounding footer. Props `open`, `onClose`, `source: { app, name }`, `fetchGateway`, `connected`, `suggestions?`, `placeholder?`, `width?`, `topOffset?`, `className?`. Grounding: `GET api/gateway/docs/corpus?app=<id>` → the shipped `docs-qa` workflow (`DOCS_QA_WORKFLOW`); one gateway session per conversation. Exports `DocsAssistantPanel` (stateless view), `makeDocsQaAsk`, `docsQaStartBody`, `docsCorpusPath`, `docsAnswerFromRun`, `docsReplayNote`, `newDocsSessionId`, `sseFrames`
 - `AssistantPanel` (docs Q&A surface with an injected `ask(question, { signal, history })` transport returning a Promise or an AsyncIterable of deltas; never fetches)
 - `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions; `streamReplies?: "gateway_default" | "on" | "off"`); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
+- One chat surface (unreleased, backlog 0030; ADR 0001): `WorkflowChat` also takes
+  - `steer?: ChatSteer` (`{ onSteer(text, mode) → Promise<{accepted, seq?, duplicate?}>, modes?: ("guide"|"queue")[], parked? }`): while `busy` the send button reads **Steer** (or **Queue**; with both modes a **Guide this run / Queue next turn** switch), the host posts it (ui-kit `submitSteer`), and the status line says "Queued (seq N). Delivers at the run's next loop boundary." only for an accepted steer (`accepted:false` is shown as a refusal and the draft stays);
+  - typed chips `attachmentItems?: ComposerAttachment[]` (`{id, name, size?, state: "queued"|"uploading"|"attached"|"refused"|"failed", thumbnailUrl?, error?}`) with `onRemoveAttachment(id)` / `onRetryAttachment(id)`; Send refuses while a chip is not attached (`unattachedSendBlock`). The `attachments` ReactNode slot stays as the escape hatch. `useAttachmentUploads({ upload, maxBytes?, concurrency?, thumbnail? })` → `{ items, attached, add, remove, retry, clear, sendBlock, announcement }` (AbstractCode's upload queue: refusal over the gateway's `maxAttachmentBytes` before any request, 3 uploads in flight, the gateway's words on a failure, Retry); `ComposerAttachmentChips`; helpers `uploadRefusal()`, `uploadFailure()`, `uploadAnnouncement()`, `runBounded()`, `UPLOAD_CONCURRENCY`;
+  - `toolbar?: ChatToolbar` (`{ onNewSession?, onClear?, exportTranscript?: {filename, heading?} | false, copyTranscript? }`): **New chat**, **Clear**, **Copy**, **Export** in the header row, each only when injected (Copy/Export use `chatToMarkdown`);
+  - `messageProps.renderFooter?(m)` (per-message slot under the card) and `messageProps.variant?(m) → "hint"` (a system note as one discreet line); `messageProps.onOpenMedia?(item)` (host opener for file media);
+  - `onSend(draft, { signal })` and `onCancel(signal)`: Stop aborts the in-flight send's `AbortSignal` and hands it to `onCancel` (a request/response host ties its fetch to it).
+  - Types `ChatSteer`, `ChatSteerMode`, `ChatSteerResult`, `ChatToolbar`, `ComposerAttachment`, `ComposerAttachmentState`, `UseAttachmentUploadsOptions`, `AttachmentUploads`, `ComposerAttachmentChipsProps`
 - Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry), the event-name constants `LLM_DELTA_EVENT` / `LLM_DELTA_END_EVENT`; types `LlmDelta`, `LlmDeltaEnd`, `LlmDeltaEvent`, `LlmDeltaChannel`, `LlmDeltaEndReason`, `LlmStreamUnavailableDetail`, `StreamRepliesMode`; controller option `liveRenderIntervalMs` (default 60, also on `useWorkflowSession`). See [panel-chat README](../panel-chat/README.md#live-replies-streaming)
 - File drop and paste: `WorkflowChat`'s `onFiles(files)` turns on the drop zone and paste-to-attach (folders are refused with a visible message); the pure helpers behind it are exported too: `dragCarriesFiles()`, `draggedFileCount()`, `dropZoneLabel()`, `droppedFiles()`, `folderRefusal()`, `pastedFileName()`, `pastedFiles()`, `DragPresence` (see `panel-chat/src/file_drop.ts`)
 - `ToolActivity`, `ToolActivityGroup` (tool-call rendering; a process-spawning call shows its command-sandbox line first in its detail), `toolSandbox(result)` + `ToolSandboxLine` (the line `Sandbox: <label> · N workspaces enforced` / `Sandbox: none — refused` and the enforced paths, from the ledger's `output.sandbox`), `StatDetailPanel` + `statDetail()` (token/time/tool statistics)
@@ -1714,9 +1723,10 @@ Components:
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
-- `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow all enabled tools" only with `onPermissionsAll`), question (`ask_user`, choices and free text) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. Types `PresentInteractionOptions`, `InteractionController`
+- `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll?, approveAllScope?, onAllowForSession?, approveAllDisabledReason?, remember?, onDefer?, allowSkip? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow for this chat" only with `onAllowForSession`, "Allow all enabled tools" only with `onPermissionsAll` — its scope sentence names no storage scope unless the host passes `approveAllScope`, e.g. "for this Gateway account" —, "Decide later" only with `onDefer`, a per-tool remember checkbox only with `remember(toolNames)`), question (`ask_user`, choices as buttons and free text; "Continue without answering" with `allowSkip` resumes with an empty answer, "Keep waiting" with `onDefer`) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. The first argument may also be a `ReplayInteraction` (the shape of `replay_view_v1.interaction`; a typed seam only: no gateway on `main` serves the replay view, and panel-chat never fetches a `/view` route) — it produces the same control as the raw wait (`isReplayInteraction()`, `replayInteractionWait()`). Types `PresentInteractionOptions`, `InteractionController`, `ReplayInteraction`
+- Questions and approvals (unreleased, backlog 0032): `WORKFLOW_INTERACTION_LABELS` is the one wording set (Deny / Allow once / Allow for this chat / Allow all enabled tools / Decide later; Submit / Continue without answering / Keep waiting). `WorkflowToolApprovalInteraction` adds `onApproveForSession?`, `onDefer?` (a dismissal sends nothing and never denies), `remember?: {label, checked, onChange}` (`WorkflowInteractionRemember`; the host words the scope), `disabledReason?` (the broad grants render disabled with the reason visible); its default labels are now "Allow once" / "Allow all enabled tools" (were "Approve" / "Allow all"). `WorkflowAskUserInteraction` adds `onSkip?` and `onDefer?`. `WorkflowInteractionPanel` takes `variant?: "panel" | "card"` (the compact card for "Needs you" lists and inboxes: same decisions, detail behind **Review**)
 - `WorkspaceBrowser` — a run's folder on the gateway host through the CONTRACTS §W routes (`GET /runs/{id}/workspace`, `/workspace/files`, `/workspace/content`): the root once as its short name (`workspaceShortName`; full path on hover) with **Open folder** (`onOpenFolder`, offered only when `workspaceCanOpenFolder`) and **Copy path** icons, breadcrumbs, folders first, then per file: name, size, generated date (relative, exact on hover) and a Download icon; "N entries hidden by the gateway's workspace rules". A click on a file previews it IN PLACE with `FileViewer` (0.3.1: no "Open" button; `fileActions(entry)` adds host actions such as "Attach"), or `onSelectFile` + `selectedPath` hand the selection to a host preview. Files are fetched with the host's credentials, never linked. Props: `fetchGateway(path, init)`, `runId` (an automation's id browses the automation's folder), `title`, `note?`, `onClose?`, `refreshKey?`, `className?`, `fileActions?`, `onOpenFolder?`, `copyText?`, `nowMs?`. Hook-free `WorkspaceBrowserView` and helpers: `loadWorkspaceView()`, `loadRunWorkspace()`, `listWorkspaceFolder()`, `readWorkspaceFile()`, `parseWorkspaceListing()` (malformed answers throw), `gatewayResponseError()`, `tabOpenPlan()`, `workspaceInfoUrl()` / `workspaceFilesUrl()` / `workspaceContentUrl()`, `workspaceCrumbs()`, `workspaceParent()`, `sortWorkspaceEntries()`, `workspaceHiddenNote()`, `formatBytes()`; types `GatewayFetch`, `RunWorkspace`, `WorkspaceEntry`, `WorkspaceListing`, `WorkspaceBrowserProps`, `WorkspaceBrowserViewProps`
-- `FileViewer` (0.3.1) — ui-kit `AfFileViewer` with panel-chat's `Markdown`; `useWorkspaceFilePreview(fetchGateway, runId, entry, refreshKey?)` loads one workspace file for it (a bounded Range read of at most `PREVIEW_TEXT_LIMIT` = 1 MiB for text kinds, an object URL for images, audio and PDF up to `PREVIEW_BLOB_LIMIT`, nothing for binaries; audio plays in the kit's `AfAudioPlayer`) and `filePreviewViewerProps(state)` maps the result; `readBoundedText()`, `responseTotal()`, `partialPreviewNote()`, `safeMarkdownImages()` (Markdown images only from the run's workspace)
+- `FileViewer` (0.3.1) — ui-kit `AfFileViewer` with panel-chat's `Markdown`; `useWorkspaceFilePreview(fetchGateway, runId, entry, refreshKey?)` loads one workspace file for it (a bounded Range read of at most `PREVIEW_TEXT_LIMIT` = 1 MiB for text kinds, an object URL for images, audio, video and PDF up to `PREVIEW_BLOB_LIMIT`, nothing for binaries; audio plays in the kit's `AfAudioPlayer`) and `filePreviewViewerProps(state)` maps the result; `readBoundedText()`, `responseTotal()`, `partialPreviewNote()`, `safeMarkdownImages()` (Markdown images only from the run's workspace)
 
 Renderers:
 - `Markdown` (lightweight Markdown with real nested lists, marker progression, fenced code
@@ -1726,7 +1736,8 @@ Renderers:
 - `JsonViewer` (collapsible tree; honors `collapseAfterDepth`; auto-parses JSON strings)
 
 Types:
-- `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`; optional `live: ChatLiveReply` (`callId`, `reasoning`, `caption?`) marks a reply still being streamed), `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
+- `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`; optional `live: ChatLiveReply` (`callId`, `reasoning`, `caption?`) marks a reply still being streamed; `kind?` and `artifactIds?` carry a `replay_view_v1.messages[]` item's kind and `artifact_ids`, see the [README mapping](../panel-chat/README.md#messages-from-the-replay-view)), `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
+- `ChatMedia` (unreleased, backlog 0031): `kind` is `"image" | "audio" | "video" | "file"`; a `"file"` (`name`, `contentType`, `size?`, `text?` for text kinds) opens in the shared `AfFileViewer` inline behind **Open** (nothing loads before) or in the host's `onOpenMedia`; audio takes `transcript?` (speech-to-text, shown as a collapsible **Transcript** caption); music rides on audio. `WorkflowTransport.resolveArtifact?(runId, artifactId, signal?) → ResolvedArtifact` (`{src, contentType, name?, size?}`, the host reads `GET runs/{id}/artifacts/{artifact_id}` and `/content`) with `chatMediaFromArtifact(resolved, extra?)` (image/audio/video inline, everything else a file, SVG never rendered) and `chatMediaForArtifacts(runId, ids, resolve)` (rejects when one cannot be resolved). The controller does not yet fold `$artifact` refs or generated-media ledger events into `message.media` itself
 
 Utilities:
 - `tryParseJson()` (drives JSON autodetection in `ChatMessageContent`)
@@ -4371,6 +4382,13 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
 - Types: `ChatMessage`, `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat`,
   `LlmDelta`, `LlmDeltaEnd`, `StreamRepliesMode`, `WorkflowSessionSnapshot`
 - Utils: `chatToMarkdown`, `copyText`, `downloadTextFile`, `tryParseJson`
+- One chat surface (unreleased): `WorkflowChat` `steer` / `toolbar` / `attachmentItems`,
+  `ComposerAttachmentChips`, `useAttachmentUploads` (see [One chat surface](#one-chat-surface))
+- Questions and approvals (unreleased): `presentInteraction`, `WORKFLOW_INTERACTION_LABELS`,
+  `ReplayInteraction` (see [Questions and approvals](#questions-and-approvals))
+- Generated media (unreleased): `ChatMedia` kind `"file"` and audio `transcript`,
+  `chatMediaFromArtifact`, `chatMediaForArtifacts`, `WorkflowTransport.resolveArtifact`
+  (see [Attachments and generated media](#attachments-and-generated-media))
 - Automations: `ScheduleThisAction` (a "Schedule this…" button for a chat header slot) and
   `FromAutomationBadge` — see [Automations](../docs/automations.md#panel-chat-pieces)
 
@@ -4469,6 +4487,125 @@ a turn, but the shared component never invents an event or command vocabulary.
 Event waits use `resolveWorkflowEventTarget(rawWait, records, run)` to recover
 the exact canonical scope from matching ledger evidence; an ambiguous wait is
 shown as unavailable rather than guessed.
+
+### One chat surface
+
+`WorkflowChat` is the one chat surface (ADR 0001, backlog 0030). Everything an app
+used to build next to it is a prop; each control appears only when the host injects it.
+
+```tsx
+const uploads = useAttachmentUploads({ upload: (file) => gateway.attachmentsUpload(sessionId, file), maxBytes: policy.maxAttachmentBytes });
+
+<WorkflowChat
+  messages={snapshot.messages}
+  draft={draft}
+  onDraftChange={setDraft}
+  busy={running}
+  onSend={async (text, { signal }) => { await startTurn(text, uploads.attached, signal); uploads.clear(); setDraft(""); }}
+  onCancel={(signal) => controller.cancel()}
+  steer={{ onSteer: (text, mode) => (mode === "queue" ? queueNextTurn(text) : submitSteer({ runId, guidance: text })), modes: ["guide", "queue"] }}
+  onFiles={(files) => void uploads.add(files)}
+  attachmentItems={uploads.items}
+  onRemoveAttachment={uploads.remove}
+  onRetryAttachment={uploads.retry}
+  toolbar={{ onNewSession: newSession, exportTranscript: { filename: "conversation.md" }, copyTranscript: true }}
+  messageProps={{ renderFooter: (m) => (m.detail ? <TurnBadge detail={m.detail} /> : null), variant: (m) => (m.role === "system" ? "hint" : undefined) }}
+  interaction={presentInteraction(workflowPendingInteraction(snapshot), controller, { onPermissionsAll, approveAllScope: "in this browser", onDefer: hide })}
+/>
+```
+
+- **Steer / Queue.** With `steer`, the composer stays usable while `busy`: the send
+  button reads **Steer** (mode `"guide"`) or **Queue** (mode `"queue"`); with both modes a
+  **Guide this run / Queue next turn** switch appears. The host posts the text (ui-kit
+  `submitSteer` posts `inject_guidance`) or queues it. The status line says "Queued (seq N).
+  Delivers at the run's next loop boundary." (or, with `parked`, "delivers at its next wake")
+  only for an accepted steer; `accepted:false` is shown as a refusal and the draft stays. An
+  accepted steer clears the draft through `onDraftChange("")`.
+- **Typed attachment chips.** `attachmentItems` renders one chip per file with its state in
+  words: Waiting, Uploading, attached (with its size), refused (both sizes) or failed (the
+  gateway's words, with Retry). Send refuses while a chip is not attached. `useAttachmentUploads`
+  is AbstractCode's upload queue: refused over `maxBytes` before any request, three uploads at
+  once, Retry, Remove (a late result for a removed chip is dropped), `clear()` after a send.
+  The `attachments` ReactNode slot remains for hosts with their own chips.
+- **Toolbar.** `toolbar` renders **New chat**, **Clear**, **Copy** and **Export** in the header
+  row next to `header`. Copy and Export carry the transcript as Markdown (`chatToMarkdown`; tool
+  rows and live bubbles are left out).
+- **Per-message slots.** `messageProps.renderFooter(m)` renders under a card (e.g. a per-turn
+  detail badge); `messageProps.variant(m)` returning `"hint"` renders the message as one discreet
+  line (system notes such as "Rejoined the open visit").
+- **Stop that aborts.** `onSend(draft, { signal })`: Stop aborts that signal and calls
+  `onCancel(signal)` with it, so a request/response host stops its fetch (an aborted send is not
+  reported as a failure). When no send is in flight (a ledger host), `onCancel` gets a signal
+  aborted at the same moment.
+
+### Questions and approvals
+
+`presentInteraction(wait, controller, options)` maps a runtime wait to the `interaction`
+control, with ONE wording set (`WORKFLOW_INTERACTION_LABELS`, ADR 0001 §5, backlog 0032).
+The native AbstractAssistant (Qt, iPhone) is the reference: deny / allow once / allow for
+this chat / allow all, and a dismissal defers, never denies.
+
+| Decision | Label | Offered when | What it sends |
+|---|---|---|---|
+| Deny | Deny | always | `resume {approved: false}` |
+| Allow once | Allow once | always | `resume {approved: true}` for this batch |
+| Allow for this chat | Allow for this chat | `onAllowForSession` | this batch, then the host's chat-scoped grant |
+| Allow all enabled tools | Allow all enabled tools | `onPermissionsAll` | this batch, then the host's standing policy |
+| Decide later | Decide later | `onDefer` | nothing (the run keeps waiting) |
+| Answer | Submit / a choice button | always (free text when `allow_free_text`) | `resume {response}` |
+| Continue without answering | Continue without answering | `allowSkip` | `resume {response: ""}` |
+| Keep waiting | Keep waiting | `onDefer` | nothing |
+
+- The allow-all sentence names no storage scope by default; pass `approveAllScope` with the
+  host's truth ("for this Gateway account", "in this browser").
+- `remember(toolNames)` returns a host-worded per-tool checkbox (`{label, checked, onChange}`).
+- `approveAllDisabledReason` renders the broad grants disabled with the reason visible.
+- `WorkflowInteractionPanel` `variant="card"` is the compact form for served-state lists (a
+  "Needs you" board, an inbox): same decisions and callbacks, detail behind **Review**.
+- `presentInteraction` also accepts a `ReplayInteraction`: the shape of
+  `replay_view_v1.interaction` (kind, run_id, wait_key, step_id, seq, prompt, choices,
+  allow_free_text, details, tool_calls, activity_id, command). It is a typed seam only: no
+  gateway on `main` serves the replay view yet, panel-chat never fetches a `/view` route, and
+  today's data path stays the controller's ledger fold + served `waiting`.
+
+### Attachments and generated media
+
+`ChatMessage.media` items render under the message text (backlog 0031):
+
+- `image`, `video`: inline; `audio`: the kit's waveform player, with `transcript` (speech to
+  text) as a collapsible **Transcript** caption; music rides on audio.
+- `file`: a document row (name, size) that opens the shared `AfFileViewer` inline behind
+  **Open** (nothing loads before), or calls `messageProps.onOpenMedia(item)` when the host has
+  its own opener. Text kinds (markdown, code, json, text) need `text`; without it the viewer
+  says so instead of showing an empty preview.
+- Sources come from the host (object URLs it fetched with its credentials), never from model
+  text. `WorkflowTransport.resolveArtifact?(runId, artifactId)` is the transport's hook for
+  that (`GET runs/{id}/artifacts/{artifact_id}` metadata + `/content` bytes);
+  `chatMediaFromArtifact(resolved)` picks the kind from the gateway's `content_type`
+  (image/audio/video inline, everything else a file, SVG never rendered) and
+  `chatMediaForArtifacts(runId, ids, resolve)` resolves a message's `artifactIds` (it rejects
+  when one cannot be resolved).
+- Not done yet: the controller does not fold `$artifact` refs or generated-media ledger events
+  into `message.media` by itself; a host fills `media` with the helpers above.
+
+### Messages from the replay view
+
+`ChatMessage` can carry a `replay_view_v1.messages[]` item, so `messages` can come from the
+replay view once a gateway serves it (no route on `main` yet; panel-chat never fetches one).
+The shape below is the WIP `ReplayView` of abstractruntime `feat/replay-view` and may move
+before it ships:
+
+| replay `role` / `kind` | `ChatMessage` |
+|---|---|
+| `user` / `prompt` | `{ role: "user", kind: "prompt", content: text }` |
+| `assistant` / `answer` (`final: true` when it is also the run's final answer) | `{ role: "assistant", kind: "answer", content: text }` |
+| `assistant` / `final` (a final answer that repeats no earlier answer) | `{ role: "assistant", kind: "final", content: text }` |
+| `assistant` / `question` | `{ role: "assistant", kind: "question", content: text }` (the open question itself comes from `interaction`) |
+| `user` / `answer` | `{ role: "user", kind: "answer", content: text }` |
+| `system` / `event` | `{ role: "system", kind: "event", content: text, level }` (use `variant: "hint"` for one-line notes) |
+
+Every item maps `id` → `id`, `run_id` → `runId`, `artifact_ids` → `artifactIds` (resolve them
+with `chatMediaForArtifacts`).
 
 ### Live replies (streaming)
 
@@ -5362,7 +5499,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -5431,7 +5568,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.8.0",
@@ -6998,18 +7135,20 @@ export function AfRailDrawer(props: AfRailDrawerProps): React.ReactElement {
 // panel-chat `Markdown`; panel-chat `FileViewer` wires it); without one the
 // source shows highlighted. Code is highlighted by `AfCodeBlock`, JSON is
 // pretty-printed. Audio plays in the shared waveform player (AfAudioPlayer,
-// 0.7.0). Header: name, size, generated date (relative, exact on hover),
-// download and close icons.
+// 0.7.0). Video plays in the browser's own <video> controls from the host's
+// object URL (ui-primitives chat, backlog 0031). Header: name, size, generated
+// date (relative, exact on hover), download and close icons.
 import React from "react";
 import { Icon } from "./icon.js";
 import { AfAudioPlayer } from "./af_audio_player.js";
 import { AfCodeBlock, codeLanguage } from "./code_highlight.js";
 import { formatExactTime, formatRelativeTime, timeValueMs } from "./relative_time.js";
 
-export type AfFileViewerKind = "markdown" | "code" | "json" | "image" | "audio" | "pdf" | "text" | "binary";
+export type AfFileViewerKind = "markdown" | "code" | "json" | "image" | "audio" | "video" | "pdf" | "text" | "binary";
 
 const IMAGE_EXT = new Set("png jpg jpeg gif webp bmp ico avif".split(" "));
 const AUDIO_EXT = new Set("mp3 wav ogg oga opus m4a aac flac weba".split(" "));
+const VIDEO_EXT = new Set("mp4 m4v webm mov ogv mkv".split(" "));
 const TEXT_EXT = new Set("txt log csv tsv rst adoc org tex diff patch lock".split(" "));
 
 function extensionOf(name: string): string {
@@ -7031,6 +7170,7 @@ export function fileViewerKind(name: string, contentType = ""): AfFileViewerKind
   if (ext === "pdf" || type === "application/pdf") return "pdf";
   if (IMAGE_EXT.has(ext) || (type.startsWith("image/") && type !== "image/svg+xml")) return "image";
   if (AUDIO_EXT.has(ext) || type.startsWith("audio/")) return "audio";
+  if (VIDEO_EXT.has(ext) || type.startsWith("video/")) return "video";
   if (codeLanguage(name)) return "code";
   if (TEXT_EXT.has(ext) || type.startsWith("text/")) return "text";
   if (["application/javascript", "application/xml", "application/x-yaml", "application/toml"].includes(type)) return "code";
@@ -7074,7 +7214,7 @@ export type AfFileViewerProps = {
   text?: string;
   /** Shown above a partial preview ("Showing the first 1 MiB of 3 MiB…"). */
   partialNote?: string;
-  /** Image / audio / PDF: an object URL of the bytes. */
+  /** Image / audio / video / PDF: an object URL of the bytes. */
   url?: string;
   renderMarkdown?: (text: string) => React.ReactNode;
   onDownload?: () => void;
@@ -7151,6 +7291,9 @@ function FileBody({ kind, p }: { kind: AfFileViewerKind; p: AfFileViewerProps })
       return p.url ? <img className="af-file-viewer__image" src={p.url} alt={p.name} /> : <NoPreview />;
     case "audio":
       return p.url ? <AfAudioPlayer src={p.url} name={p.name} /> : <NoPreview />;
+    case "video":
+      // Same box rules as an image (block, fit the width); the browser's own controls.
+      return p.url ? <video className="af-file-viewer__image af-file-viewer__video" src={p.url} controls playsInline preload="metadata" aria-label={p.name} /> : <NoPreview />;
     case "pdf":
       return p.url ? (
         <object className="af-file-viewer__pdf" data={p.url} type="application/pdf" aria-label={p.name}>
@@ -7462,7 +7605,7 @@ export type FilePreviewState =
 
 /**
  * Load one workspace file for the viewer. Text kinds: a bounded Range read.
- * Image / audio / PDF: the bytes as an object URL (revoked when the entry changes).
+ * Image / audio / video / PDF: the bytes as an object URL (revoked when the entry changes).
  * Binary: nothing is read. `refreshKey` re-reads (the run wrote again).
  */
 export function useWorkspaceFilePreview(fetchGateway: GatewayFetch, runId: string, entry: FilePreviewEntry | null, refreshKey?: string | number): FilePreviewState {
@@ -7479,7 +7622,7 @@ export function useWorkspaceFilePreview(fetchGateway: GatewayFetch, runId: strin
       setState({ status: "ready", kind: "binary", contentType: "", partial: false });
       return;
     }
-    if ((byName === "image" || byName === "audio" || byName === "pdf") && typeof entry.size_bytes === "number" && entry.size_bytes > PREVIEW_BLOB_LIMIT) {
+    if ((byName === "image" || byName === "audio" || byName === "video" || byName === "pdf") && typeof entry.size_bytes === "number" && entry.size_bytes > PREVIEW_BLOB_LIMIT) {
       setState({ status: "error", kind: byName, message: `Too large to preview (${formatFileSize(entry.size_bytes)}); use Download.` });
       return;
     }
@@ -7507,7 +7650,7 @@ export function useWorkspaceFilePreview(fetchGateway: GatewayFetch, runId: strin
           });
           return;
         }
-        if (kind === "image" || kind === "audio" || kind === "pdf") {
+        if (kind === "image" || kind === "audio" || kind === "video" || kind === "pdf") {
           const blob = await r.blob();
           if (abort.signal.aborted) return;
           objectUrl = URL.createObjectURL(blob.type ? blob : new Blob([blob], { type: kind === "pdf" ? "application/pdf" : contentType }));
@@ -12254,12 +12397,37 @@ export {
   type FileViewerProps,
 } from "./file_viewer.js";
 
+// --- ui-primitives (chat) ---
+export { WORKFLOW_INTERACTION_LABELS, type WorkflowInteractionRemember } from "./workflow_interaction.js";
+export { isReplayInteraction, replayInteractionWait, type ReplayInteraction } from "./present_interaction.js";
+export {
+  ComposerAttachmentChips,
+  type ComposerAttachmentChipsProps,
+} from "./composer_attachments.js";
+export {
+  UPLOAD_CONCURRENCY,
+  runBounded,
+  unattachedSendBlock,
+  uploadAnnouncement,
+  uploadFailure,
+  uploadRefusal,
+  useAttachmentUploads,
+  type AttachmentUploads,
+  type ComposerAttachment,
+  type ComposerAttachmentState,
+  type UseAttachmentUploadsOptions,
+} from "./attachment_uploads.js";
+export type { ChatSteer, ChatSteerMode, ChatSteerResult, ChatToolbar } from "./workflow_chat.js";
+export { chatMediaFromArtifact, chatMediaForArtifacts } from "./chat_media.js";
+export type { ResolvedArtifact } from "./workflow_runtime.js";
+
 ## panel-chat/src/chat_message_card.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import { AfAudioPlayer, Icon, type IconName } from "@abstractframework/ui-kit";
+import { AfAudioPlayer, Icon, fileViewerKind, fileViewerNeedsText, formatFileSize, type IconName } from "@abstractframework/ui-kit";
 
+import { FileViewer } from "./file_viewer.js";
 import { ChatMessageContent } from "./message_content.js";
 import type { MarkdownImages } from "./markdown.js";
 import { copyText } from "./utils.js";
@@ -12276,7 +12444,12 @@ export type ChatMessage = {
   ts?: string;
   title?: string;
   level?: ChatMessageLevel;
-  kind?: string; // e.g. report_bug, report_feature
+  /**
+   * e.g. report_bug, report_feature. A `replay_view_v1.messages[]` item's
+   * kind (prompt, answer, question, event, ...) maps here unchanged; see the
+   * README's "Messages from the replay view" mapping.
+   */
+  kind?: string;
   toolActivity?: WorkflowToolActivity;
   statistics?: WorkflowStatistics;
   runId?: string;
@@ -12299,21 +12472,42 @@ export type ChatMessage = {
   /** Per-message attachment chips (e.g. the files a question carried); a
    * card's `attachments` prop wins. */
   attachments?: ChatAttachment[];
+  /**
+   * Artifact ids this message carries (`replay_view_v1.messages[].artifact_ids`,
+   * or `$artifact` refs a host folded). Data only: a host resolves them into
+   * `media` / `attachments` (e.g. with a transport's `resolveArtifact`).
+   */
+  artifactIds?: string[];
 };
 
 /**
  * One generated media item. `src` is supplied by the HOST (typically a
  * `blob:` URL of a gateway artifact it fetched with the session), never
  * parsed out of model text; `href` is the raw file link shown beside it.
+ * Music rides on `audio`.
  */
 export type ChatMedia = {
   id?: string;
-  kind: "image" | "audio" | "video";
+  /**
+   * `"file"`: a document (pdf, markdown, code, json, text, or a video/audio/
+   * image file named as such) shown in the shared `AfFileViewer`, inline
+   * behind an "Open" toggle or in the host's opener (`onOpenMedia`).
+   */
+  kind: "image" | "audio" | "video" | "file";
+  /** Object URL / same-origin path of the bytes. A text file may give `text` instead. */
   src: string;
   /** Accessible name / link text, e.g. "Generated image". */
   label?: string;
   /** Link to the raw file (opens in a new tab). */
   href?: string;
+  /** Audio: the speech-to-text transcript, shown as a collapsible caption. */
+  transcript?: string;
+  /** File: its name (with `contentType`, decides how it is shown). */
+  name?: string;
+  contentType?: string;
+  size?: number;
+  /** File, text kinds (markdown/code/json/text): the text the host read. */
+  text?: string;
 };
 
 /** Streaming state of a live assistant reply. `content` holds the visible text only. */
@@ -12406,8 +12600,63 @@ function mediaSource(src: string): string | undefined {
   }
 }
 
-function ChatMediaItem({ item }: { item: ChatMedia }): React.ReactElement | null {
+/** A document in the chat: a compact row that opens the shared file viewer
+ * inline (or the host's opener). Nothing loads until it is opened. */
+function ChatMediaFile({ item, onOpen }: { item: ChatMedia; onOpen?: (item: ChatMedia) => void }): React.ReactElement | null {
+  const [open, setOpen] = useState(false);
+  const src = mediaSource(item.src);
+  const href = item.href ? mediaSource(item.href) : undefined;
+  const name = String(item.name || item.label || "").trim() || "File";
+  const kind = fileViewerKind(name, item.contentType);
+  const needsText = fileViewerNeedsText(kind);
+  const hasText = typeof item.text === "string";
+  if (!src && !href && !hasText) return null;
+  const size = formatFileSize(item.size);
+  const label = String(item.label || "").trim() || name;
+  return (
+    <figure className="pc-chat-media__item pc-chat-media__item--file" data-file-kind={kind}>
+      <div className="pc-chat-media__file-row">
+        <Icon name="file" size={14} />
+        <span className="pc-chat-media__file-name" title={name}>
+          {label}
+        </span>
+        {size ? <span className="pc-chat-media__file-size">{size}</span> : null}
+        {onOpen ? (
+          <button type="button" className="pc-chat-media__file-open" data-action="open-file" onClick={() => onOpen(item)}>
+            Open
+          </button>
+        ) : (
+          <button type="button" className="pc-chat-media__file-open" data-action="toggle-file" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+            {open ? "Close" : "Open"}
+          </button>
+        )}
+        {href ? (
+          <a className="pc-chat-media__link" href={href} target="_blank" rel="noopener noreferrer">
+            Raw file
+          </a>
+        ) : null}
+      </div>
+      {open && !onOpen ? (
+        <FileViewer
+          className="pc-chat-media__viewer"
+          name={name}
+          kind={kind}
+          contentType={item.contentType}
+          sizeBytes={item.size}
+          status={needsText && !hasText ? "error" : "ready"}
+          error={needsText && !hasText ? "No preview text was supplied for this file; open the raw file." : undefined}
+          {...(hasText ? { text: item.text } : {})}
+          {...(src && !needsText ? { url: src } : {})}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
+    </figure>
+  );
+}
+
+function ChatMediaItem({ item, onOpenFile }: { item: ChatMedia; onOpenFile?: (item: ChatMedia) => void }): React.ReactElement | null {
   const [failed, setFailed] = useState(false);
+  if (item.kind === "file") return <ChatMediaFile item={item} onOpen={onOpenFile} />;
   const src = mediaSource(item.src);
   const href = item.href ? mediaSource(item.href) : undefined;
   const kind = item.kind === "image" || item.kind === "audio" || item.kind === "video" ? item.kind : null;
@@ -12420,6 +12669,12 @@ function ChatMediaItem({ item }: { item: ChatMedia }): React.ReactElement | null
       {src && kind === "image" ? <img className="pc-chat-media__image" src={src} alt={label} loading="lazy" onError={onError} /> : null}
       {src && kind === "video" ? <video className="pc-chat-media__video" src={src} controls playsInline preload="metadata" aria-label={label} onError={onError} /> : null}
       {src && kind === "audio" ? <AfAudioPlayer className="pc-chat-media__audio" src={src} name={label} /> : null}
+      {kind === "audio" && String(item.transcript || "").trim() ? (
+        <details className="pc-chat-media__transcript">
+          <summary>Transcript</summary>
+          <p className="pc-chat-media__transcript-text">{String(item.transcript).trim()}</p>
+        </details>
+      ) : null}
       {failed ? (
         <div className="pc-chat-media__error" role="note">
           {noun} could not be decoded by this browser{href ? "; open the raw file with the link." : "."}
@@ -12455,6 +12710,20 @@ export type ChatMessageCardProps = {
    */
   images?: MarkdownImages;
   inlineImage?: (src: string) => boolean;
+  /**
+   * Per-message slot rendered under the card (after attachments and stats),
+   * e.g. a per-turn detail badge. Return null for nothing.
+   */
+  renderFooter?: (message: ChatMessage) => React.ReactNode;
+  /**
+   * Per-message presentation. `"hint"` renders the message as one discreet
+   * line (no avatar, header or copy): a system note such as "Rejoined the
+   * open visit". `undefined` keeps the full card.
+   */
+  variant?: (message: ChatMessage) => "hint" | undefined;
+  /** Host opener for `media` items of kind `"file"` (e.g. a side drawer).
+   * Without it the file opens inline in the shared viewer. */
+  onOpenMedia?: (item: ChatMedia) => void;
 };
 
 export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement {
@@ -12503,6 +12772,20 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
   const has_text = Boolean(String(m.content || "").trim());
 
   if (m.toolActivity) return <ToolActivity tool={m.toolActivity} showCopy={props.showCopy} />;
+  const footer = props.renderFooter ? props.renderFooter(m) : null;
+  if (props.variant?.(m) === "hint") {
+    const level = String(m.level || "").trim().toLowerCase();
+    return (
+      <div
+        className={["pc-chat-hint", level === "warn" || level === "error" ? `pc-chat-hint--${level}` : "", props.className].filter(Boolean).join(" ")}
+        role="note"
+        data-variant="hint"
+      >
+        <span className="pc-chat-hint__text">{String(m.content || "")}</span>
+        {footer != null && footer !== false ? <div className="pc-chat-footer">{footer}</div> : null}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -12576,7 +12859,7 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
       {media.length ? (
         <div className="pc-chat-media">
           {media.slice(0, 24).map((item, idx) => (
-            <ChatMediaItem key={item.id || `${item.kind}:${item.src}:${idx}`} item={item} />
+            <ChatMediaItem key={item.id || `${item.kind}:${item.src}:${idx}`} item={item} onOpenFile={props.onOpenMedia} />
           ))}
         </div>
       ) : null}
@@ -12631,6 +12914,8 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
           })}
         </div>
       ) : null}
+
+      {footer != null && footer !== false ? <div className="pc-chat-footer">{footer}</div> : null}
     </div>
   );
 }
@@ -13305,8 +13590,60 @@ export function WorkspaceBrowserView(p: WorkspaceBrowserViewProps): React.ReactE
 import { resolveWorkflowEventTarget } from "./event_target.js";
 import { JsonViewer } from "./json_viewer.js";
 import { ToolActivityGroup } from "./tool_activity.js";
-import type { WorkflowInteraction } from "./workflow_interaction.js";
+import { WORKFLOW_INTERACTION_LABELS, type WorkflowInteraction, type WorkflowInteractionRemember } from "./workflow_interaction.js";
 import type { ServerRecord, WorkflowRecord, WorkflowSessionController, WorkflowWaitInteraction } from "./workflow_runtime.js";
+
+/**
+ * The served, tree-resolved pending interaction of the replay view
+ * (`replay_view_v1.interaction`: the newest person-facing open wait in the
+ * run tree, with a ready `command`).
+ *
+ * THIS IS A SEAM, NOT A DATA PATH: no gateway on `main` serves it yet (there
+ * is no `GET /runs/{id}/view` and no `/view/stream`; the view is WIP on
+ * abstractruntime `feat/replay-view`, root backlog 0993). Today's data path
+ * stays the ledger fold + served `runs/{id}.waiting`
+ * (`WorkflowSessionController` / `useWorkflowSession`). `presentInteraction`
+ * accepts this shape so the panel does not change when the view ships; this
+ * package never fetches a `/view` route.
+ *
+ * Shape as written by `ReplayView._interaction_of` (abstractruntime
+ * `replay/view.py`): `details` has `tool_calls` stripped (they are top-level),
+ * and `kind` is one of the person-facing kinds.
+ */
+export type ReplayInteraction = {
+  kind: "tool_approval" | "ask_user";
+  run_id: string;
+  wait_key: string;
+  step_id?: string | null;
+  seq?: number | null;
+  prompt?: string | null;
+  choices?: unknown[] | null;
+  allow_free_text?: boolean | null;
+  details?: Record<string, unknown> | null;
+  tool_calls?: unknown[] | null;
+  activity_id?: string | null;
+  command?: { type: "resume"; run_id: string; payload: { wait_key: string } };
+};
+
+/** True for a `replay_view_v1.interaction` (it has `run_id` + `wait_key`, a raw wait has `runId` + `wait`). */
+export function isReplayInteraction(value: unknown): value is ReplayInteraction {
+  const v = value as Record<string, unknown> | null;
+  return Boolean(v && typeof v === "object" && typeof v.run_id === "string" && typeof v.wait_key === "string" && !("wait" in v));
+}
+
+/** The raw runtime wait a replay interaction stands for (same control, same target). */
+export function replayInteractionWait(interaction: ReplayInteraction): WorkflowWaitInteraction {
+  const details: Record<string, unknown> = { ...(interaction.details || {}) };
+  if (interaction.kind === "tool_approval") {
+    details.kind = "tool_approval";
+    details.tool_calls = Array.isArray(interaction.tool_calls) ? interaction.tool_calls : [];
+  }
+  const wait: Record<string, unknown> = { wait_key: interaction.wait_key, reason: interaction.kind === "ask_user" ? "user" : "tool_approval", details };
+  if (interaction.prompt != null) wait.prompt = interaction.prompt;
+  if (Array.isArray(interaction.choices)) wait.choices = interaction.choices;
+  if (typeof interaction.allow_free_text === "boolean") wait.allow_free_text = interaction.allow_free_text;
+  return { runId: interaction.run_id, wait, ...(interaction.step_id ? { stepId: interaction.step_id } : {}) };
+}
 
 export type PresentInteractionOptions = {
   /** The session's records: an event wait is routed from them (`resolveWorkflowEventTarget`). */
@@ -13319,6 +13656,30 @@ export type PresentInteractionOptions = {
    * Omit it and only Allow once / Deny are offered.
    */
   onPermissionsAll?: () => Promise<void>;
+  /**
+   * Where the "Allow all enabled tools" policy is kept, in the host's words
+   * ("for this Gateway account", "in this browser"). Only the host knows; the
+   * default sentence asserts no scope (backlog 0032: AbstractCode said
+   * "Gateway account" over per-browser storage).
+   */
+  approveAllScope?: string;
+  /**
+   * Offer "Allow for this chat": approves this batch, then the host turns on
+   * its chat-scoped grant (e.g. a session-level tool policy it applies to
+   * every run of this conversation with `setToolApprovalPolicy`). The host
+   * owns the scope because a chat spans several runs: the controller's own
+   * `allowAllToolsForRun` ends with the run. Omit it and the button is not
+   * offered.
+   */
+  onAllowForSession?: () => Promise<void>;
+  /** Why the broad grants cannot be offered for this batch (rendered disabled, reason visible). */
+  approveAllDisabledReason?: string;
+  /** Host-owned per-tool "remember" checkbox for this batch's tool names. */
+  remember?: (toolNames: string[]) => WorkflowInteractionRemember | null | undefined;
+  /** "Decide later" / "Keep waiting": the host dismisses the control. Nothing is sent. */
+  onDefer?: () => void | Promise<unknown>;
+  /** Offer "Continue without answering" on a question: resumes with an empty answer. */
+  allowSkip?: boolean;
 };
 
 /** The controller methods the controls call. */
@@ -13329,11 +13690,12 @@ export type InteractionController = Pick<WorkflowSessionController, "approve" | 
  * person answers here (e.g. a subworkflow wait: never a question).
  */
 export function presentInteraction(
-  raw: WorkflowWaitInteraction | null,
+  input: WorkflowWaitInteraction | ReplayInteraction | null,
   controller: InteractionController,
   options: PresentInteractionOptions = {},
 ): WorkflowInteraction | null {
-  if (!raw) return null;
+  if (!input) return null;
+  const raw: WorkflowWaitInteraction = isReplayInteraction(input) ? replayInteractionWait(input) : input;
   const wait = raw.wait as Record<string, any>;
   const id = `${raw.runId}:${wait.wait_key}:${raw.stepId || ""}`;
   const details = wait.details || {};
@@ -13342,6 +13704,9 @@ export function presentInteraction(
     const target = { runId: raw.runId, waitKey: String(wait.wait_key || ""), stepId: raw.stepId };
     const names = [...new Set(calls.map((call: any) => String(call?.name || "tool")))];
     const onPermissionsAll = options.onPermissionsAll;
+    const onAllowForSession = options.onAllowForSession;
+    const scope = String(options.approveAllScope || "").trim();
+    const remember = options.remember?.(names) || undefined;
     return {
       id,
       kind: "tool-approval",
@@ -13365,12 +13730,26 @@ export function presentInteraction(
           </details>
         </div>
       ),
-      approveLabel: "Allow once",
-      denyLabel: "Deny",
-      approveAllLabel: onPermissionsAll ? "Allow all enabled tools" : undefined,
+      approveLabel: WORKFLOW_INTERACTION_LABELS.allowOnce,
+      denyLabel: WORKFLOW_INTERACTION_LABELS.deny,
+      approveAllLabel: onPermissionsAll ? WORKFLOW_INTERACTION_LABELS.allowAll : undefined,
       approveAllDescription: onPermissionsAll
-        ? "Sets permissions: all for this Gateway account, including future turns. Unchecked tools stay unavailable; explicit Ask overrides and Gateway restrictions remain enforced. Questions still need your answer."
+        ? `Sets permissions: all${scope ? ` ${scope}` : ""}, including future turns. Unchecked tools stay unavailable; explicit Ask overrides and Gateway restrictions remain enforced. Questions still need your answer.`
         : undefined,
+      ...(onAllowForSession
+        ? {
+            approveForSessionLabel: WORKFLOW_INTERACTION_LABELS.allowForChat,
+            approveForSessionDescription: "Allow for this chat approves this batch and the enabled tools for the rest of this conversation. Unchecked tools stay unavailable; questions still need your answer.",
+            onApproveForSession: async () => {
+              await controller.approveWithPolicyChange(target, () => {
+                void onAllowForSession();
+              });
+            },
+          }
+        : {}),
+      ...(options.approveAllDisabledReason ? { disabledReason: options.approveAllDisabledReason } : {}),
+      ...(remember ? { remember } : {}),
+      ...(options.onDefer ? { onDefer: options.onDefer } : {}),
       onApproveAll: onPermissionsAll
         ? async () => {
             await controller.approveWithPolicyChange(target, () => {
@@ -13405,6 +13784,14 @@ export function presentInteraction(
       onSubmit: async (answer) => {
         await controller.resume(answer);
       },
+      ...(options.allowSkip
+        ? {
+            onSkip: async () => {
+              await controller.resume("");
+            },
+          }
+        : {}),
+      ...(options.onDefer ? { onDefer: options.onDefer } : {}),
     };
   const key = String(wait.wait_key || "");
   if (wait.reason === "event" || key.startsWith("evt:")) {
@@ -16616,6 +17003,37 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## Unreleased
+
+### chat: one chat surface, questions and approvals, attachments and generated media (backlog 0030, 0032, kit half of 0031; ADR 0001)
+
+panel-chat (and one ui-kit file):
+
+- **Questions and approvals (0032).** One wording set, `WORKFLOW_INTERACTION_LABELS`: Deny / Allow once /
+  Allow for this chat / Allow all enabled tools / Decide later; Submit / Continue without answering / Keep waiting.
+  `WorkflowInteractionPanel`'s default labels are now "Allow once" and "Allow all enabled tools" (were "Approve" and
+  "Allow all"). Tool approvals add `onApproveForSession`, `onDefer` (sends nothing: a dismissal never denies),
+  `remember` (a host-worded per-tool checkbox) and `disabledReason` (the broad grants render disabled with the reason
+  visible); questions add `onSkip` (resumes with an empty answer) and `onDefer`. `variant="card"` is a compact card for
+  "Needs you" lists and inboxes. `presentInteraction` options `onAllowForSession`, `approveAllScope`,
+  `approveAllDisabledReason`, `remember`, `onDefer`, `allowSkip`; each option appears only when injected. The
+  allow-all sentence no longer says "for this Gateway account" by default (AbstractCode stores the choice per
+  browser): the host passes its scope. `presentInteraction` also accepts a `ReplayInteraction` (the shape of
+  `replay_view_v1.interaction`; a typed seam, no gateway serves it yet) and produces the same control.
+- **One chat surface (0030).** `WorkflowChat` adds `steer` (Steer / Queue while busy, "Queued (seq N)" only for an
+  accepted steer), typed attachment chips `attachmentItems` + `onRemoveAttachment` / `onRetryAttachment` (Send
+  refuses while one is not attached) with `useAttachmentUploads` and `ComposerAttachmentChips` (AbstractCode's upload
+  queue, lifted), `toolbar` (New chat / Clear / Copy / Export, each only when injected), `messageProps.renderFooter`
+  and `messageProps.variant` (`"hint"`: one-line system notes), and `onSend(draft, { signal })` + `onCancel(signal)`
+  so Stop aborts a request/response host's request. `ChatMessage` gains `artifactIds`; the README maps
+  `replay_view_v1.messages[]` onto `ChatMessage`.
+- **Attachments and generated media (0031, kit half).** `ChatMedia.kind` adds `"file"` (opens the shared
+  `AfFileViewer` inline, or the host's `onOpenMedia`); audio media takes `transcript` (a collapsible Transcript
+  caption: the speech-to-text display); music rides on audio. `WorkflowTransport.resolveArtifact` (optional),
+  `chatMediaFromArtifact`, `chatMediaForArtifacts`. `useWorkspaceFilePreview` loads video files. ui-kit:
+  `AfFileViewer` kind `"video"` (mp4, m4v, webm, mov, ogv, mkv, `video/*`). Not yet: the controller does not fold
+  `$artifact` refs or generated-media events into `message.media` itself.
+- Checks: `check_present_interaction.mjs` (extended), `check_chat_surface.mjs` (new), `check_chat_media.mjs`
+  (extended), ui-kit `check_file_viewer_video.mjs` (new); each was seen red under a mutation.
 
 ## 0.6.4 - 2026-10-27
 
