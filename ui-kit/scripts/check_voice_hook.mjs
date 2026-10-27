@@ -18,7 +18,7 @@ const fail = (msg) => {
 };
 
 // 1) Every returned function must have a stable identity (useCallback).
-for (const fn of ["stop_tts", "toggle_tts", "start_voice_ptt_recording", "stop_voice_ptt_recording", "stop_tts_source", "apply_tts_playback", "apply_recording"]) {
+for (const fn of ["stop_tts", "toggle_tts", "start_voice_ptt_recording", "stop_voice_ptt_recording", "stop_tts_source", "apply_tts_playback", "apply_recording", "apply_level", "add_transcript_listener"]) {
   const re = new RegExp(`const ${fn} = useCallback`);
   if (!re.test(src)) fail(`${fn} is not wrapped in useCallback — fresh identity per render makes every dep-array consumer a loop risk`);
 }
@@ -43,5 +43,91 @@ for (const marker of ["tts_playback_ref.current", "voice_ptt_recording_ref.curre
 }
 ok("stable callbacks read state through ref twins");
 
-console.log("check_voice_hook: 4 pins green");
+// 5) ui-primitives 0035, executed on the real hook (fake media APIs, no DOM):
+// the live level moves during a REAL recording, mute silences replies at once,
+// capture_mode "toggle" never stops on a pointer release, transcripts reach listeners.
+{
+  const { mount, installFakeBrowser, sleep } = await import("./voice_harness.mjs");
+  const { useGatewayVoice } = await import("../dist/use_gateway_voice.js");
+  const env = installFakeBrowser();
+  try {
+    const transcripts = [];
+    const errors = [];
+    const h = mount((props) => useGatewayVoice(props), {
+      transcribe: async () => ({ text: "hello there", provider: "faster-whisper", model: "large-v3" }),
+      tts: async () => new ArrayBuffer(8),
+      on_error: (m) => m && errors.push(m),
+      input_device_id: "mic-1",
+    });
+    const first = h.tree;
+    if (first.voice_capture_mode !== "hold") fail(`default capture mode is hold (got ${first.voice_capture_mode})`);
+    if (first.voice_ptt_level !== 0) fail(`idle level is 0 (got ${first.voice_ptt_level})`);
+    const off = first.add_transcript_listener((t, info) => transcripts.push([t, info?.provider]));
+    env.amplitude = 0.1;
+    await first.start_voice_ptt_recording();
+    h.render();
+    if (!h.tree.voice_ptt_recording) fail("recording did not start");
+    if (!env.log.windowAdd.includes("pointerup")) fail("hold mode: a pointer release must stop the recording (no window pointerup listener)");
+    await sleep(130);
+    h.render();
+    const live = h.tree.voice_ptt_level;
+    if (!(live > 0.3 && live <= 1)) fail(`voice_ptt_level must move during a real recording (RMS 0.1 × 4 = 0.4), got ${live}`);
+    env.amplitude = 0.05;
+    await sleep(110);
+    h.render();
+    if (!(Math.abs(h.tree.voice_ptt_level - 0.2) < 0.03)) fail(`the level follows the voice (expected ~0.2, got ${h.tree.voice_ptt_level})`);
+    // Hold for more than MIN_RECORDING_MS, then stop: the transcript reaches the listener.
+    await sleep(260);
+    h.tree.stop_voice_ptt_recording();
+    await h.settle(10);
+    await sleep(5);
+    await h.settle(10);
+    if (h.tree.voice_ptt_level !== 0) fail(`the level returns to 0 when recording stops (got ${h.tree.voice_ptt_level})`);
+    if (JSON.stringify(transcripts) !== JSON.stringify([["hello there", "faster-whisper"]])) fail(`transcript listener: ${JSON.stringify(transcripts)} ${errors.join(" | ")}`);
+    off();
+    if (h.tree.add_transcript_listener !== first.add_transcript_listener) fail("add_transcript_listener identity changed across renders");
+    // Mute: a playing reply goes silent at once; unmuting restores the kept volume.
+    h.rerender({ volume: 0.4, muted: false });
+    await h.tree.toggle_tts("m1", "Read me");
+    await h.settle();
+    const gain = env.log.gains.find((g) => g.gain.value === 0.4);
+    if (!gain) fail(`reply volume 0.4 applied to the playback gain (gains: ${env.log.gains.map((g) => g.gain.value).join(",")})`);
+    h.rerender({ muted: true });
+    if (gain.gain.value !== 0) fail(`muted: the playback gain must be 0 at once (got ${gain.gain.value})`);
+    h.rerender({ muted: false });
+    if (gain.gain.value !== 0.4) fail(`unmuted: the kept volume comes back (got ${gain.gain.value})`);
+    h.rerender({ muted: true });
+    await h.tree.toggle_tts("m2", "Again");
+    await h.settle();
+    if (gain.gain.value !== 0) fail(`muted: a new reply starts silent (got ${gain.gain.value})`);
+    h.unmount();
+
+    // Tap to talk: no pointerup stop while recording.
+    env.log.windowAdd.length = 0;
+    const t = mount((props) => useGatewayVoice(props), { transcribe: async () => "x", capture_mode: "toggle" });
+    if (t.tree.voice_capture_mode !== "toggle") fail("capture_mode toggle is reported");
+    await t.tree.start_voice_ptt_recording();
+    t.render();
+    if (!t.tree.voice_ptt_recording) fail("toggle recording did not start");
+    if (env.log.windowAdd.includes("pointerup")) fail("toggle mode must not stop on a pointer release (a window pointerup listener was added)");
+    env.dispatch("pointerup");
+    t.render();
+    if (!t.tree.voice_ptt_recording) fail("toggle mode: a pointer release stopped the recording");
+    t.tree.cancel_voice_ptt_recording();
+    t.unmount();
+    // An explicit stop_on_pointerup wins over the mode.
+    env.log.windowAdd.length = 0;
+    const e = mount((props) => useGatewayVoice(props), { transcribe: async () => "x", capture_mode: "toggle", stop_on_pointerup: true });
+    await e.tree.start_voice_ptt_recording();
+    e.render();
+    if (!env.log.windowAdd.includes("pointerup")) fail("explicit stop_on_pointerup: true wins over capture_mode");
+    e.tree.cancel_voice_ptt_recording();
+    e.unmount();
+  } finally {
+    env.restore();
+  }
+  ok("live level during real recording, mute, capture mode, transcript listeners (executed)");
+}
+
+console.log("check_voice_hook: 5 pins green");
 await import("./check_voice_stream.mjs");

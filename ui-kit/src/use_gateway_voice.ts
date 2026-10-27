@@ -36,7 +36,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { insecureContextReason } from "./random_id.js";
-import { clampVolume, inputGainSupported, microphoneErrorSentence, openMicrophone } from "./voice_devices.js";
+import { clampVolume, inputGainSupported, microphoneErrorSentence, openMicrophone, watchLevel } from "./voice_devices.js";
 
 export type TtsPlaybackStatus = "idle" | "loading" | "playing" | "paused";
 
@@ -49,6 +49,11 @@ export type GatewayVoiceOptions = {
   output_device_id?: string;
   /** Reply volume 0..1 (absent = 1), applied to every spoken reply. */
   volume?: number;
+  /**
+   * Replies muted (the `reply_muted` preference): playback gain 0, the volume kept for when the
+   * mute is lifted. Applied at once, also to a reply that is playing.
+   */
+  muted?: boolean;
   /**
    * Microphone to record from (a `MediaDeviceInfo.deviceId` of kind
    * "audioinput"; "" = the system default). A saved device that is gone fails
@@ -63,6 +68,12 @@ export type GatewayVoiceOptions = {
    * stops recording itself.
    */
   stop_on_pointerup?: boolean;
+  /**
+   * How the microphone button records (the `capture_mode` preference): "hold" (default) = hold to
+   * talk, a release anywhere stops; "toggle" = tap to start, tap again to stop (no pointerup
+   * stop). An explicit `stop_on_pointerup` wins. `AfVoiceMicButton` refuses a different mode.
+   */
+  capture_mode?: VoiceCaptureMode;
   /** Synthesize text to audio bytes (absent = TTS unsupported). */
   tts?: (text: string) => Promise<ArrayBuffer>;
   /**
@@ -82,6 +93,9 @@ export type GatewayVoiceOptions = {
   on_error?: (message: string) => void;
   on_transcript?: (text: string, info?: VoiceTranscription) => void;
 };
+
+/** The microphone button's way of recording: hold to talk, or tap to talk (tap again to stop). */
+export type VoiceCaptureMode = "hold" | "toggle";
 
 /** A transcription result with the route that ran (`provider`/`model` from the gateway response). */
 export type VoiceTranscription = { text: string; provider?: string | null; model?: string | null };
@@ -174,6 +188,15 @@ export type GatewayVoice = {
   cancel_voice_ptt_recording?: () => void;
   /** When the current recording or transcription began (ms epoch; 0 = idle) — for "Transcribing… 12 s". */
   voice_ptt_since: number;
+  /** Live microphone level 0..1 while recording (0 otherwise): the meter moves during real recording. */
+  voice_ptt_level?: number;
+  /** The capture mode this hook was created with ("hold" unless `capture_mode: "toggle"`). */
+  voice_capture_mode?: VoiceCaptureMode;
+  /**
+   * Hear every transcript this hook delivers (besides `on_transcript`); returns the unsubscribe
+   * function. Stable identity. `AfVoiceMicButton`'s `onTranscript` uses it.
+   */
+  add_transcript_listener?: (fn: (text: string, info?: VoiceTranscription) => void) => () => void;
 };
 
 /** "Prefix: detail." — every voice failure reaches the user as one sentence. */
@@ -348,7 +371,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       const gain = tts_gain_ref.current;
       if (!ctx || !gain) return null;
       apply_sink(ctx, opts_ref.current.output_device_id || "");
-      gain.gain.value = clampVolume(opts_ref.current.volume);
+      gain.gain.value = clampVolume(opts_ref.current.volume) * (opts_ref.current.muted ? 0 : 1);
       try {
         if (ctx.state === "suspended") void ctx.resume();
       } catch {
@@ -359,6 +382,12 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       return null;
     }
   };
+
+  // Volume and mute apply at once, also to a reply that is playing (a muted reply goes silent now).
+  useEffect(() => {
+    const gain = tts_gain_ref.current;
+    if (gain) gain.gain.value = clampVolume(opts.volume) * (opts.muted ? 0 : 1);
+  }, [opts.volume, opts.muted]);
 
   const stop_tts_source = useCallback((): void => {
     const src = tts_source_ref.current;
@@ -720,8 +749,31 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   const [voice_ptt_since, set_voice_ptt_since] = useState(0);
   const voice_ptt_started_ms = useRef(0);
   const voice_ptt_gain_ctx = useRef<AudioContext | null>(null);
+  // Live level while recording (watchLevel on the recording stream), quantised to 2 % steps so an
+  // unchanged level schedules no render.
+  const [voice_ptt_level, set_voice_ptt_level] = useState(0);
+  const voice_ptt_level_stop = useRef<(() => void) | null>(null);
+  const apply_level = useCallback((v: number) => {
+    const q = Math.round(Math.min(1, Math.max(0, Number(v) || 0)) * 50) / 50;
+    set_voice_ptt_level((prev) => (prev === q ? prev : q));
+  }, []);
+  const transcript_listeners = useRef(new Set<(text: string, info?: VoiceTranscription) => void>());
+  const add_transcript_listener = useCallback((fn: (text: string, info?: VoiceTranscription) => void) => {
+    transcript_listeners.current.add(fn);
+    return () => {
+      transcript_listeners.current.delete(fn);
+    };
+  }, []);
 
   function stop_voice_ptt_tracks(): void {
+    const stop_level = voice_ptt_level_stop.current;
+    voice_ptt_level_stop.current = null;
+    try {
+      stop_level?.();
+    } catch {
+      // ignore
+    }
+    apply_level(0);
     try {
       voice_ptt_stream_ref.current?.getTracks?.().forEach((t) => {
         try {
@@ -781,7 +833,10 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       const info: VoiceTranscription = typeof result === "string" || !result ? { text: String(result || "") } : result;
       const text = String(info.text || "").trim();
       if (generation !== voice_ptt_generation.current) return;
-      if (text) opts_ref.current.on_transcript?.(text, { ...info, text });
+      if (text) {
+        opts_ref.current.on_transcript?.(text, { ...info, text });
+        for (const listener of Array.from(transcript_listeners.current)) listener(text, { ...info, text });
+      }
       else set_error?.("Nothing was heard. Check the microphone in Settings → Voice (Test), then try again.");
     } catch (e: any) {
       if (generation === voice_ptt_generation.current) {
@@ -812,6 +867,13 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       const stream = await openMicrophone(opts_ref.current.input_device_id || "");
       if (generation !== voice_ptt_generation.current) { stream.getTracks().forEach((track) => track.stop()); return; }
       voice_ptt_stream_ref.current = stream;
+      // The live level (the meter moves while the user speaks, not only during Test).
+      const level_gain = Number(opts_ref.current.input_gain ?? 1);
+      try {
+        voice_ptt_level_stop.current = watchLevel(stream, apply_level, Number.isFinite(level_gain) && level_gain > 0 ? level_gain : 1);
+      } catch {
+        // No meter where Web Audio cannot read the stream; the recording itself goes on.
+      }
       const mime = chooseVoiceMime();
       voice_ptt_mime_ref.current = mime;
       // Input gain: record the stream through a Web Audio gain node.
@@ -888,6 +950,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
 
   useEffect(() => {
     if (!voice_ptt_recording || opts_ref.current.stop_on_pointerup === false) return;
+    if (opts_ref.current.stop_on_pointerup === undefined && opts_ref.current.capture_mode === "toggle") return;
     const on_up = () => stop_voice_ptt_recording();
     window.addEventListener("pointerup", on_up);
     window.addEventListener("pointercancel", on_up);
@@ -910,6 +973,9 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     stop_voice_ptt_recording,
     cancel_voice_ptt_recording,
     voice_ptt_since,
+    voice_ptt_level,
+    voice_capture_mode: opts.capture_mode === "toggle" ? "toggle" : "hold",
+    add_transcript_listener,
   };
 }
 
