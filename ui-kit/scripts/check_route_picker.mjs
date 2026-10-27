@@ -12,6 +12,12 @@ import { ProviderModelPicker } from "../dist/provider_model_picker.js";
 import { VoiceSettings } from "../dist/voice_settings.js";
 
 const h = React.createElement;
+let routeFailures = 0;
+function check(name, cond, detail) {
+  if (cond) return;
+  routeFailures += 1;
+  console.error(`  FAIL ${name}${detail ? ` — ${detail}` : ""}`);
+}
 const none = async () => [];
 const base = {
   onChange: () => {},
@@ -64,4 +70,184 @@ assert.doesNotMatch(voiceEntity, /Speaking speed/);
 assert.doesNotMatch(voiceEntity, /Reset to Gateway defaults/);
 assert.match(voiceEntity, /Gateway default: supertonic · F1\./);
 assert.match(voiceEntity, /Gateway default voice/);
+
+// ------------------------------------------------------------------ ui-primitives (tools-models)
+// Backlog 0034 / ADR 0001 §4: the gateway default is NAMED and first; a saved value the gateway no
+// longer lists stays visible "(saved)"; compact layout; pinned fields; the served reasoning ladder
+// with levels the model does not advertise disabled; unknownReasoning "allow-override" (set anyway).
+// Driven through the kit's minimal hook harness (check_voice_library.mjs): the picker function runs
+// under a stand-in dispatcher; child components stay elements whose props are asserted.
+import { ProviderModelSelect, PINNED_FIELD_TEXT } from "../dist/provider_model_select.js";
+const internals = React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+function mount(Component, initialProps) {
+  const hooks = [];
+  let index = 0;
+  let dirty = false;
+  let queue = [];
+  let props = initialProps;
+  const changed = (prev, deps) => !prev || !deps || deps.length !== prev.deps.length || deps.some((d, k) => !Object.is(d, prev.deps[k]));
+  const dispatcher = {
+    useState(init) {
+      const k = index++;
+      if (!(k in hooks)) hooks[k] = { value: typeof init === "function" ? init() : init };
+      const st = hooks[k];
+      st.set ||= (next) => { const v = typeof next === "function" ? next(st.value) : next; if (!Object.is(v, st.value)) dirty = true; st.value = v; };
+      return [st.value, st.set];
+    },
+    useRef(init) { const k = index++; if (!(k in hooks)) hooks[k] = { current: init }; return hooks[k]; },
+    useEffect(fn, deps) {
+      const k = index++;
+      const prev = hooks[k];
+      if (changed(prev, deps)) queue.push(() => { prev?.cleanup?.(); const c = fn(); hooks[k] = { deps: deps || [], cleanup: typeof c === "function" ? c : undefined }; });
+    },
+    useMemo(fn, deps) { const k = index++; if (changed(hooks[k], deps)) hooks[k] = { deps: deps || [], value: fn() }; return hooks[k].value; },
+    useCallback(fn, deps) { return dispatcher.useMemo(() => fn, deps); },
+  };
+  let tree = null;
+  const render = () => {
+    for (let pass = 0; pass < 25; pass += 1) {
+      dirty = false;
+      index = 0;
+      const before = internals.ReactCurrentDispatcher.current;
+      internals.ReactCurrentDispatcher.current = dispatcher;
+      try { tree = Component(props); } finally { internals.ReactCurrentDispatcher.current = before; }
+      const effects = queue;
+      queue = [];
+      for (const run of effects) run();
+      if (!dirty) return tree;
+    }
+    throw new Error("render loop");
+  };
+  render();
+  return {
+    get tree() { return tree; },
+    render,
+    rerender(next) { props = { ...props, ...next }; return render(); },
+    // Two rounds: a fetched default re-runs the capability effect, whose answer needs a render too.
+    async settle() { for (let round = 0; round < 3; round += 1) { for (let n = 0; n < 5; n += 1) await new Promise((r) => setImmediate(r)); render(); } return tree; },
+  };
+}
+function* walk(node) {
+  if (node == null || typeof node !== "object") return;
+  if (Array.isArray(node)) { for (const n of node) yield* walk(n); return; }
+  if (node.props) { yield node; yield* walk(node.props.children); }
+}
+const all = (tree, pred) => [...walk(tree)].filter(pred);
+const first = (tree, pred) => all(tree, pred)[0];
+const textOf = (node) => [...walk(node.props.children)].length ? String(node.props.children) : String(node.props.children ?? "");
+const reasoningSelect = (tree) => first(tree, (n) => n.props.ariaLabel === "Reasoning effort");
+const DEFAULT = { provider: "ollama", model: "qwen3", reasoning: "high", speculation: { mode: "native_mtp", num_draft_tokens: 3, require_acceleration: true } };
+const calls = [];
+const picker = (extra) => ({
+  value: { provider: "", model: "" },
+  onChange: () => {},
+  fetchProviders: async () => { calls.push("providers"); return [{ name: "ollama" }]; },
+  fetchModels: async (p) => { calls.push(`models:${p}`); return ["qwen3"]; },
+  ...extra,
+});
+
+// The default is named, first, and drives discovery.
+{
+  calls.length = 0;
+  const caps = [];
+  const m = mount(ProviderModelPicker, picker({
+    fetchGatewayDefault: async () => DEFAULT,
+    fetchModelCapabilities: async (model, provider) => { caps.push(`${provider}/${model}`); return { capabilities: { reasoning_levels: ["low", "high"] } }; },
+  }));
+  await m.settle();
+  const seg = first(m.tree, (n) => n.props.role === "tablist");
+  const buttons = all(seg, (n) => n.type === "button");
+  check("default first", buttons[0]?.props["data-default-choice"] === "", JSON.stringify(buttons.map((b) => b.props.children)));
+  check("default named in words", buttons[0]?.props.children === "Gateway default · ollama / qwen3 · reasoning high · MTP depth 3", String(buttons[0]?.props.children));
+  check("default selected", buttons[0]?.props["aria-selected"] === true);
+  check("discovery follows the fetched default", caps.includes("ollama/qwen3"), JSON.stringify(caps));
+  check("no provider listing traffic on the default", !calls.includes("providers"));
+  check("reasoning inherit names the default level", reasoningSelect(m.tree)?.props.options[0].label === "Workflow / Gateway default (high)", JSON.stringify(reasoningSelect(m.tree)?.props.options?.[0]));
+  check("resolved marker", m.tree.props["data-gateway-default"] === "resolved");
+}
+{
+  const m = mount(ProviderModelPicker, picker({ fetchGatewayDefault: async () => { throw new Error("down"); } }));
+  await m.settle();
+  const b = first(m.tree, (n) => n.props["data-default-choice"] === "");
+  check("unknown default reads plain Gateway default", b?.props.children === "Gateway default" && m.tree.props["data-gateway-default"] === "unknown");
+}
+
+// "(saved)": the select keeps a value its list no longer has, labeled once the list loaded.
+{
+  const html = renderToStaticMarkup(h(ProviderModelSelect, { provider: "ollama", model: "gone", providers: [{ name: "ollama" }], models: ["qwen3"], markSaved: true, onChange() {} }));
+  check("(saved) model label", html.includes("gone (saved)"), html.slice(0, 600));
+  const loading = renderToStaticMarkup(h(ProviderModelSelect, { provider: "ollama", model: "gone", providers: [{ name: "ollama" }], models: [], loadingModels: true, markSaved: true, onChange() {} }));
+  check("not marked while its list loads", !loading.includes("gone (saved)"));
+  const listed = renderToStaticMarkup(h(ProviderModelSelect, { provider: "ollama", model: "qwen3", providers: [{ name: "ollama" }], models: ["qwen3"], markSaved: true, onChange() {} }));
+  check("a listed value is not marked", !listed.includes("(saved)"));
+  const m = mount(ProviderModelPicker, picker({ value: { provider: "ollama", model: "gone", reasoning: "ultra" }, fetchModelCapabilities: async () => ({ capabilities: { reasoning_levels: ["low"] } }) }));
+  await m.settle();
+  const sel = first(m.tree, (n) => n.type === ProviderModelSelect);
+  check("the picker asks the select to mark saved values", sel?.props.markSaved === true && !sel.props.models.includes("gone"), JSON.stringify(sel?.props.models));
+  check("(saved) reasoning label", reasoningSelect(m.tree)?.props.options.some((o) => o.value === "ultra" && o.label === "ultra (saved)"), JSON.stringify(reasoningSelect(m.tree)?.props.options));
+}
+
+// compact layout: no segment; the default is the first option of the selects; providers listed at once.
+{
+  calls.length = 0;
+  const m = mount(ProviderModelPicker, picker({ layout: "compact", fetchGatewayDefault: async () => DEFAULT }));
+  await m.settle();
+  check("compact: no segment", !first(m.tree, (n) => n.props.role === "tablist"));
+  const sel = first(m.tree, (n) => n.type === ProviderModelSelect);
+  check("compact: the default is the first option", sel?.props.allowGatewayDefault === true && sel?.props.gatewayDefaultLabel === "Gateway default · ollama / qwen3 · reasoning high · MTP depth 3", JSON.stringify({ a: sel?.props.allowGatewayDefault, l: sel?.props.gatewayDefaultLabel }));
+  check("compact: providers listed without a Custom click", calls.includes("providers"), JSON.stringify(calls));
+  const html = renderToStaticMarkup(h(ProviderModelSelect, { ...sel.props }));
+  check("compact: rendered first option names the default", html.includes("Gateway default · ollama / qwen3"));
+  const seg = mount(ProviderModelPicker, picker({}));
+  check("segmented stays the default layout", Boolean(first(seg.tree, (n) => n.props.role === "tablist")));
+}
+
+// pinned: "Provided by connected pin", not editable.
+{
+  const m = mount(ProviderModelPicker, picker({ pinned: { provider: true, model: true, reasoning: true, speculation: true }, enableSpeculation: true, fetchModelCapabilities: async () => ({ capabilities: { reasoning_levels: ["low"] } }) }));
+  await m.settle();
+  const sel = first(m.tree, (n) => n.type === ProviderModelSelect);
+  check("pinned route: the select shows pins", sel?.props.providerPinned === true && sel?.props.modelPinned === true);
+  check("pinned route: no segment", !first(m.tree, (n) => n.props.role === "tablist"));
+  const pinnedHtml = renderToStaticMarkup(h(ProviderModelSelect, { ...sel.props }));
+  check("pinned provider/model rendered as text", (pinnedHtml.match(/Provided by connected pin/g) || []).length === 2 && !pinnedHtml.includes("af-select"), pinnedHtml.slice(0, 400));
+  check("pinned reasoning", first(m.tree, (n) => n.props["data-pinned"] === "reasoning")?.props.children === PINNED_FIELD_TEXT && !reasoningSelect(m.tree));
+  check("pinned MTP", Boolean(first(m.tree, (n) => n.props["data-pinned"] === "speculation")) && !first(m.tree, (n) => n.props.inheritLabel !== undefined && n.props.capabilities !== undefined));
+}
+
+// reasoningLadder: the served ladder, levels the model does not advertise disabled (not hidden).
+const LADDER = ["none", "minimal", "low", "medium", "high", "xhigh"];
+{
+  const m = mount(ProviderModelPicker, picker({ value: { provider: "ollama", model: "qwen3" }, reasoningLadder: LADDER, fetchModelCapabilities: async () => ({ capabilities: { thinking_support: true, reasoning_levels: ["low", "high"] } }) }));
+  await m.settle();
+  const opts = reasoningSelect(m.tree)?.props.options || [];
+  check("ladder listed", JSON.stringify(opts.slice(1).map((o) => o.value)) === JSON.stringify(LADDER), JSON.stringify(opts));
+  check("advertised levels enabled", opts.filter((o) => !o.disabled).map((o) => o.value).join() === ",low,high", JSON.stringify(opts));
+  check("unadvertised levels disabled with a reason", opts.find((o) => o.value === "xhigh")?.disabled === true && /does not advertise/.test(opts.find((o) => o.value === "xhigh")?.reason || ""));
+}
+// unknownReasoning: locked until "Set anyway", then the ladder; default hides.
+{
+  const unknownCaps = async () => ({ capabilities: {} });
+  const hidden = mount(ProviderModelPicker, picker({ value: { provider: "ollama", model: "m" }, reasoningLadder: LADDER, fetchModelCapabilities: unknownCaps }));
+  await hidden.settle();
+  check("unknown + hide (default): no reasoning select", !reasoningSelect(hidden.tree));
+  const noLadder = mount(ProviderModelPicker, picker({ value: { provider: "ollama", model: "m" }, unknownReasoning: "allow-override", fetchModelCapabilities: unknownCaps }));
+  await noLadder.settle();
+  check("allow-override needs the served ladder (never a kit list)", !reasoningSelect(noLadder.tree));
+  const m = mount(ProviderModelPicker, picker({ value: { provider: "ollama", model: "m" }, reasoningLadder: LADDER, unknownReasoning: "allow-override", fetchModelCapabilities: unknownCaps }));
+  await m.settle();
+  check("unknown + allow-override: shown, locked", reasoningSelect(m.tree)?.props.disabled === true && Boolean(first(m.tree, (n) => n.props["data-reasoning-unknown"] === "")));
+  const box = first(m.tree, (n) => n.type === "input" && n.props.type === "checkbox");
+  check("a Set anyway control", Boolean(box) && JSON.stringify(first(m.tree, (n) => n.props.className === "af-pmp__override")?.props.children).includes("Set anyway"));
+  box.props.onChange({ target: { checked: true } });
+  m.render();
+  check("Set anyway unlocks the ladder", reasoningSelect(m.tree)?.props.disabled === false && reasoningSelect(m.tree).props.options.length === LADDER.length + 1);
+  const unsupported = mount(ProviderModelPicker, picker({ value: { provider: "ollama", model: "m" }, reasoningLadder: LADDER, unknownReasoning: "allow-override", fetchModelCapabilities: async () => ({ capabilities: { thinking_support: false } }) }));
+  await unsupported.settle();
+  check("a model that does not reason: no select", !reasoningSelect(unsupported.tree));
+}
+if (routeFailures) {
+  console.error(`check_route_picker: ${routeFailures} FAILED`);
+  process.exit(1);
+}
 console.log("check_route_picker: OK");
