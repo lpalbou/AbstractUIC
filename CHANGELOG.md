@@ -39,7 +39,7 @@ panel-chat:
   `sessionPolicyClampedText`.
 - `isLocalObjectUrl` decides with the URL parser (a leading control character before `blob:` is local: download, no
   new tab; review of PR #4).
-- Check: `check_session_policy.mjs` (49 checks; 14 mutations red, including a resume sent before the policy write).
+- Check: `check_session_policy.mjs` (49 checks; 12 mutations red, including a resume sent before the policy write).
 
 ### chat: one chat surface, questions and approvals, attachments and generated media (backlog 0030, 0032, kit half of 0031; ADR 0001)
 
