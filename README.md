@@ -109,7 +109,7 @@ import { ChatComposer, ChatThread } from "@abstractframework/panel-chat";
 ## Development
 
 - Install + build workspaces: `npm install && npm run build`
-- Run tests: `npm test` (runs each workspace's test rig)
+- Run tests: `npm test` (runs each workspace's test rig, then the repository's release gates: relative URLs and the cross-package type check; see [`docs/publishing.md`](./docs/publishing.md))
 - React packages are typically validated via a host app that links them in a workspace (HMR).
 
 See [`docs/development.md`](./docs/development.md).

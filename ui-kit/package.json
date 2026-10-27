@@ -1,7 +1,7 @@
 {
   "name": "@abstractframework/ui-kit",
   "version": "0.9.0",
-  "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
+  "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
   "license": "MIT",
@@ -10,7 +10,11 @@
     "ui",
     "theme",
     "tokens",
-    "react"
+    "react",
+    "abstractgateway",
+    "app-shell",
+    "voice",
+    "tool-approval"
   ],
   "repository": {
     "type": "git",
@@ -18,6 +22,9 @@
     "directory": "ui-kit"
   },
   "homepage": "https://github.com/lpalbou/AbstractUIC#readme",
+  "bugs": {
+    "url": "https://github.com/lpalbou/AbstractUIC/issues"
+  },
   "publishConfig": {
     "access": "public"
   },

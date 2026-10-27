@@ -265,7 +265,7 @@ import { ChatComposer, ChatThread } from "@abstractframework/panel-chat";
 ## Development
 
 - Install + build workspaces: `npm install && npm run build`
-- Run tests: `npm test` (runs each workspace's test rig)
+- Run tests: `npm test` (runs each workspace's test rig, then the repository's release gates: relative URLs and the cross-package type check; see [`docs/publishing.md`](./docs/publishing.md))
 - React packages are typically validated via a host app that links them in a workspace (HMR).
 
 See [`docs/development.md`](./docs/development.md).
@@ -6343,7 +6343,7 @@ npm test
 {
   "name": "@abstractframework/ui-kit",
   "version": "0.9.0",
-  "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
+  "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
   "license": "MIT",
@@ -6352,7 +6352,11 @@ npm test
     "ui",
     "theme",
     "tokens",
-    "react"
+    "react",
+    "abstractgateway",
+    "app-shell",
+    "voice",
+    "tool-approval"
   ],
   "repository": {
     "type": "git",
@@ -6360,6 +6364,9 @@ npm test
     "directory": "ui-kit"
   },
   "homepage": "https://github.com/lpalbou/AbstractUIC#readme",
+  "bugs": {
+    "url": "https://github.com/lpalbou/AbstractUIC/issues"
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -6412,7 +6419,7 @@ npm test
 {
   "name": "@abstractframework/panel-chat",
   "version": "0.5.0",
-  "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
+  "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
   "license": "MIT",
@@ -6420,7 +6427,9 @@ npm test
     "abstractframework",
     "chat",
     "ui",
-    "react"
+    "react",
+    "abstractgateway",
+    "tool-approval"
   ],
   "repository": {
     "type": "git",
@@ -6428,6 +6437,9 @@ npm test
     "directory": "panel-chat"
   },
   "homepage": "https://github.com/lpalbou/AbstractUIC#readme",
+  "bugs": {
+    "url": "https://github.com/lpalbou/AbstractUIC/issues"
+  },
   "publishConfig": {
     "access": "public"
   },

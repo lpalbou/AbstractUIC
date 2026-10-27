@@ -1,7 +1,7 @@
 {
   "name": "@abstractframework/panel-chat",
   "version": "0.5.0",
-  "description": "Shared chat panel components for AbstractFramework (extracted from AbstractCode; reusable by other UIs).",
+  "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
   "license": "MIT",
@@ -9,7 +9,9 @@
     "abstractframework",
     "chat",
     "ui",
-    "react"
+    "react",
+    "abstractgateway",
+    "tool-approval"
   ],
   "repository": {
     "type": "git",
@@ -17,6 +19,9 @@
     "directory": "panel-chat"
   },
   "homepage": "https://github.com/lpalbou/AbstractUIC#readme",
+  "bugs": {
+    "url": "https://github.com/lpalbou/AbstractUIC/issues"
+  },
   "publishConfig": {
     "access": "public"
   },
