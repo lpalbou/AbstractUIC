@@ -25,7 +25,11 @@
 //    client sent no `_runtime.tool_policy` key) never silently replaces an
 //    explicit choice.
 // 5. With no choice in any layer, `tool_policy` is omitted (and a stale key
-//    removed) so the gateway's grant applies.
+//    removed) so the gateway's grant applies. A CHOICE is a canonical mode for
+//    an offered catalog tool that differs from what its layer inherits: a key
+//    for a tool the gateway no longer serves or does not offer, a
+//    non-canonical value, or a diff the gateway's own default has caught up
+//    with (rule 3 at plan time) is not one (`effectiveToolLayers`).
 
 export type ToolMode = "off" | "ask" | "auto";
 export const TOOL_MODES: readonly ToolMode[] = ["off", "ask", "auto"];
@@ -108,10 +112,11 @@ function int(v: unknown): number | undefined {
 export function normalizeToolCatalog(payload: unknown): ToolCatalogItem[] {
   const body = obj(payload);
   const items = body?.items;
-  if (!Array.isArray(items)) {
-    const why = str(body?.error);
-    throw new Error(`The gateway's tool catalog has no items${why ? `: ${why}` : ""}.`);
-  }
+  const why = str(body?.error);
+  if (!Array.isArray(items)) throw new Error(`The gateway's tool catalog has no items${why ? `: ${why}` : ""}.`);
+  // The gateway's own failure answer is `{items: [], error}` (routes/gateway.py:15582-15587, the
+  // except after list_default_tool_specs): an error, never "the gateway offers no tools".
+  if (!items.length && why) throw new Error(`The gateway could not list its tools: ${why}`);
   const sandbox = obj(body?.command_sandbox);
   const sentence = str(sandbox?.sentence);
   const seen = new Set<string>();
@@ -157,6 +162,15 @@ export function normalizeToolCatalog(payload: unknown): ToolCatalogItem[] {
   }
   out.sort((a, b) => (a.toolset === b.toolset ? a.name.localeCompare(b.name) : a.toolset.localeCompare(b.toolset)));
   return out;
+}
+
+/** The catalog's warnings in the gateway's words (`catalog_warnings`: plugin load failures, the MCP
+ * registry unavailable, routes/gateway.py:15598-15643), and a non-fatal `error` beside served items. */
+export function toolCatalogWarnings(payload: unknown): string[] {
+  const body = obj(payload);
+  const list = Array.isArray(body?.catalog_warnings) ? body!.catalog_warnings.map(str).filter(Boolean) : [];
+  const why = str(body?.error);
+  return why && Array.isArray(body?.items) && body!.items.length ? [why, ...list] : list;
 }
 
 /** One layer's choices: ONLY the tools whose mode differs from the layer below (sparse). */
@@ -246,9 +260,29 @@ export function setGroupToolMode(
   return { layer: next, skipped };
 }
 
-/** Any layer holds a choice. An empty layer is the same as none ("Use the gateway's"). */
-export function hasToolChoices(layers: ToolLayers = {}): boolean {
-  return [layers.app, layers.session].some((l) => Boolean(l) && Object.keys(l as object).length > 0);
+/** A layer reduced to its effective choices over `catalog`: canonical modes for offered tools that
+ * differ from what the layer inherits (the gateway's default under the app layer, the app's resolved
+ * mode under the session layer). Non-destructive: stored layers keep unknown names (a tool not yet
+ * loaded); call this where a run or a summary is decided. */
+export function effectiveToolLayers(catalog: readonly ToolCatalogItem[], layers: ToolLayers = {}): { app: ToolModeLayer; session: ToolModeLayer } {
+  const app: Record<string, ToolMode> = {};
+  const session: Record<string, ToolMode> = {};
+  for (const item of catalog) {
+    if (!item.offered) continue;
+    const a = layerMode(layers.app, item.name);
+    if (a !== undefined && a !== item.gatewayDefault) app[item.name] = a;
+    const below = app[item.name] ?? item.gatewayDefault;
+    const sMode = layerMode(layers.session, item.name);
+    if (sMode !== undefined && sMode !== below) session[item.name] = sMode;
+  }
+  return { app, session };
+}
+
+/** Any layer holds an effective choice over `catalog` (effectiveToolLayers). An empty layer, or one
+ * whose keys change nothing, is the same as none ("Use the gateway's"). */
+export function hasToolChoices(catalog: readonly ToolCatalogItem[], layers: ToolLayers = {}): boolean {
+  const e = effectiveToolLayers(catalog, layers);
+  return Object.keys(e.app).length > 0 || Object.keys(e.session).length > 0;
 }
 
 export type RunToolPolicy = { auto_approve_tools: string[]; require_approval_tools: string[] };
@@ -288,7 +322,7 @@ export function planRunTools(
   return {
     tools,
     allowed_tools: [...tools],
-    ...(hasToolChoices(layers) ? { tool_policy: { auto_approve_tools: [...auto], require_approval_tools: [...ask] } } : {}),
+    ...(hasToolChoices(catalog, layers) ? { tool_policy: { auto_approve_tools: [...auto], require_approval_tools: [...ask] } } : {}),
     approval: { auto, ask },
   };
 }

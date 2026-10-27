@@ -16,6 +16,8 @@ import { describeToolMode } from "./tool_policy_editor.js";
 import {
   BULK_AUTO_MAX_RANK,
   bulkAutoReaches,
+  normalizeToolCatalog,
+  toolCatalogWarnings,
   setGroupToolMode,
   setToolMode,
   type ToolCatalogItem,
@@ -58,6 +60,8 @@ export type ToolModeEditorProps = {
   toolModeLabel?: string;
   toolModeDetail?: string;
   note?: string;
+  /** The catalog's warnings in the gateway's words (toolCatalogWarnings: plugin load failures, MCP). */
+  warnings?: readonly string[];
   /** Where the host keeps this layer, in words (e.g. TOOL_LAYER_STORE_WHERE). */
   savedWhere?: string;
   /** Settings pages: frame the editor in an AfOverrideRow with this label ("Tools"). */
@@ -141,7 +145,14 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
     else if (m === "ask") counts.ask += 1;
   }
   const enabledCount = counts.auto + counts.ask;
-  const changed = Object.keys(value).filter((n) => props.catalog.some((t) => t.offered && t.name === n));
+  // An effective diff: a canonical mode for an offered tool that differs from what it inherits (the
+  // same rule as tool_plan's hasToolChoices, so the frame and the run never disagree).
+  const overridesRow = (item: ToolCatalogItem): boolean => {
+    if (!item.offered || !Object.prototype.hasOwnProperty.call(value, item.name)) return false;
+    const own = value[item.name];
+    return (own === "off" || own === "ask" || own === "auto") && own !== inheritedOf(item);
+  };
+  const changed = props.catalog.filter(overridesRow).map((t) => t.name);
   const banner = describeToolMode(props.toolMode, props.toolModeLabel, props.toolModeDetail);
   const rowModes: Array<ToolMode | "on"> = allowList ? ["off", "on"] : ["off", "ask", "auto"];
   const modeLabel = (m: ToolMode | "on") => labels[m];
@@ -156,6 +167,13 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
         </div>
       ) : null}
       {props.note ? <div className="af-tool-policy__note">{props.note}</div> : null}
+      {props.warnings?.length ? (
+        <div className="af-tool-modes__warnings" role="status" data-catalog-warnings="">
+          {props.warnings.map((w, i) => (
+            <div key={i}>Gateway warning: {w}</div>
+          ))}
+        </div>
+      ) : null}
       <div className="af-tool-modes__top">
         <input
           type="search"
@@ -218,7 +236,7 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
             {group.items.map((item) => {
               const mode = modeOf(item);
               const shown: ToolMode | "on" = allowList && mode !== "off" ? "on" : mode;
-              const overrides = item.offered && Object.prototype.hasOwnProperty.call(value, item.name);
+              const overrides = overridesRow(item);
               const inh = inheritedOf(item);
               return (
                 <div
@@ -240,7 +258,7 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
                         <span
                           className="af-tool-mode-row__default"
                           data-default-chip={item.name}
-                          title={props.layer === "app" ? "The gateway's default" : "Your default for this app"}
+                          title={props.layer === "app" || inh === item.gatewayDefault ? "The gateway's default" : "Your default for this app"}
                         >
                           Default: {allowList ? (inh === "off" ? labels.off : labels.on) : modeLabel(inh)}
                         </span>
@@ -323,6 +341,28 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
       {editor}
     </AfOverrideRow>
   );
+}
+
+export type ToolModeEditorForPayloadProps = Omit<ToolModeEditorProps, "catalog"> & {
+  /** The served `GET discovery/tools` answer as is, or already-normalized items. */
+  catalog: readonly ToolCatalogItem[] | unknown;
+};
+
+/** ToolModeEditor over the served catalog answer (the console island's entry): normalizes it, shows
+ * its `catalog_warnings`, and renders a labeled error in place of a broken answer (never throws). */
+export function ToolModeEditorForPayload(props: ToolModeEditorForPayloadProps): React.ReactElement {
+  if (Array.isArray(props.catalog)) return <ToolModeEditor {...props} catalog={props.catalog as ToolCatalogItem[]} />;
+  let catalog: ToolCatalogItem[];
+  try {
+    catalog = normalizeToolCatalog(props.catalog);
+  } catch (e) {
+    return (
+      <div className="af-tool-policy__empty" role="alert" data-catalog-error="">
+        Tools unavailable: {String((e as Error)?.message || e)}
+      </div>
+    );
+  }
+  return <ToolModeEditor {...props} catalog={catalog} warnings={[...toolCatalogWarnings(props.catalog), ...(props.warnings || [])]} />;
 }
 
 export default ToolModeEditor;

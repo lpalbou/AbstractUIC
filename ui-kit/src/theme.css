@@ -6764,7 +6764,8 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   color: var(--text-primary);
   padding: 8px 10px;
   font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
+  /* --font-size-input: floored at 16px on coarse pointers, so iOS never zooms on focus. */
+  font-size: var(--font-size-input);
 }
 
 .af-tool-modes__search::placeholder {
@@ -6780,6 +6781,15 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 
 .af-tool-modes__saved {
   color: var(--text-muted);
+}
+
+.af-tool-modes__warnings {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--warning-border);
+  background: var(--warning-subtle);
 }
 
 .af-tool-modes__group {

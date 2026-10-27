@@ -106,6 +106,8 @@ const pressed = (html, key) => new RegExp(`aria-pressed="true"[^>]*data-(?:tool|
   check("app reset: Use the gateway's", app.includes(">Use the gateway&#x27;s</button>"));
   const session = render({ layer: "session", value: { read_file: "off" }, inherited: { read_file: "ask" }, onReset() {} });
   check("session reset: Use my defaults", session.includes(">Use my defaults</button>") && !session.includes("Use the gateway"));
+  const overGateway = render({ layer: "session", value: { write_file: "auto" }, inherited: { write_file: "ask" } });
+  check("session chip over the gateway's default names the gateway (review F8)", /data-default-chip="write_file" title="The gateway&#x27;s default"/.test(overGateway), overGateway.match(/data-default-chip="write_file"[^>]*/)?.[0]);
   check("session chip shows the inherited (app) mode", /data-default-chip="read_file"[^>]*>Default: Ask</.test(session) && session.includes('title="Your default for this app"'));
   check("no reset without a diff", !render({ onReset() {} }).includes("data-action=\"reset-layer\""));
 }
@@ -129,7 +131,25 @@ const pressed = (html, key) => new RegExp(`aria-pressed="true"[^>]*data-(?:tool|
   check("frame: session override owned by this conversation", sess.includes("1 tool changed — this conversation"));
   const overApp = render({ rowLabel: "Tools", layer: "session", value: {}, inherited: { read_file: "ask" }, open: true });
   check("frame: never 'Gateway default' over changed app defaults", overApp.includes("Your defaults — this app") && !overApp.includes(">Gateway default"), overApp.slice(0, 600));
+  // Review F1: the frame and the run agree — keys that change nothing are no change.
+  const inert = render({ rowLabel: "Tools", value: { gone_tool: "auto", send_telegram_message: "auto", read_file: "auto", web_search: "approve" }, open: true });
+  check("frame: stale / not-offered / redundant / non-canonical keys are no change", inert.includes("Gateway default · 5 tools on, 3 without asking") && !inert.includes("data-default-chip") && !inert.includes('data-overridden="true"'), inert.slice(0, 500));
   check("frame: no account promise", !/Gateway account/i.test(plain + sess + overApp));
+}
+
+// ---------------------------------------------------------------- served payload (review F2, F3)
+{
+  const { ToolModeEditorForPayload } = kit;
+  const failed = renderToStaticMarkup(h(ToolModeEditorForPayload, { catalog: { items: [], error: "ImportError: abstractruntime" }, layer: "app", value: {}, onChange() {} }));
+  check("the gateway's failure answer renders a labeled error, not 'no tools'", failed.includes('data-catalog-error=""') && failed.includes("Tools unavailable: The gateway could not list its tools: ImportError: abstractruntime") && !failed.includes("offers no tools"), failed);
+  const broken = renderToStaticMarkup(h(ToolModeEditorForPayload, { catalog: { nope: 1 }, layer: "app", value: {}, onChange() {} }));
+  check("a broken answer renders, never throws", broken.includes("Tools unavailable"));
+  const warned = renderToStaticMarkup(h(ToolModeEditorForPayload, { catalog: { items: [{ name: "read_file", approval_default: "auto" }], catalog_warnings: ["MCP tools unavailable: RuntimeError: x"] }, layer: "app", value: {}, onChange() {} }));
+  check("catalog_warnings shown in the gateway's words", warned.includes("data-catalog-warnings") && warned.includes("Gateway warning: MCP tools unavailable: RuntimeError: x") && warned.includes('data-tool="read_file"'));
+  const { readFileSync } = await import("node:fs");
+  const island = readFileSync(join(here, "..", "islands", "console_islands.tsx"), "utf8");
+  check("the island mounts the payload editor (no throw after createRoot)", /mount\(el, \(p\) => <ToolModeEditorForPayload \{\.\.\.p\} \/>, props\)/.test(island));
+  check("the voice picker's doc comment sits on mountVoiceSettings again", /\* transport injected \(fetchCatalog\)\. Additive member \(round 3\)\.\n \*\/\nexport function mountVoiceSettings/.test(island));
 }
 
 // ---------------------------------------------------------------- behaviour (hook harness)
@@ -227,6 +247,21 @@ const btn = (tree, key) => [...walk(tree)].find((n) => n.props["data-tool-mode"]
   check("another identity does not see it", j(other.readSession("n103")) === "{}" && j(store.readSession("n103")) === j({ read_file: "ask" }));
   storage.setItem(`af.tools.session.${id}.junk`, "{not json");
   check("corrupt storage reads as no layer", j(store.readSession("junk")) === "{}");
+  // Review F6: a corrupt index is rebuilt from the stored keys, so the 100 cap still holds.
+  const mem2 = new Map();
+  const enumerable = { getItem: (k) => (mem2.has(k) ? mem2.get(k) : null), setItem: (k, v) => mem2.set(k, String(v)), removeItem: (k) => mem2.delete(k), key: (i) => [...mem2.keys()][i] ?? null, get length() { return mem2.size; } };
+  const s2 = createToolLayerStore(id, { storage: enumerable });
+  for (let i = 0; i < 101; i += 1) s2.writeSession(`c${i}`, { read_file: "ask" });
+  enumerable.setItem(`af.tools.sessions.${id}`, "{corrupt");
+  s2.writeSession("after", { read_file: "off" });
+  const entries = [...mem2.keys()].filter((k) => k.startsWith(`af.tools.session.${id}.`)).length;
+  check("a corrupt session index is rebuilt; the cap holds", entries === 100 && s2.sessions().length === 100 && s2.sessions()[0] === "after", `${entries} entries, index ${s2.sessions().length}`);
+  // A stored "approve" (another writer's dialect) is read with the declared dialect, or reported.
+  storage.setItem(`af.tools.app.x.${id}`, j({ modes: { a: "approve", b: "auto" } }));
+  const drops = [];
+  const plain = createToolLayerStore(id, { storage, onDropped: (key, names) => drops.push([key, names]) });
+  check("an unreadable stored value is reported, not silently dropped", j(plain.readApp("x")) === j({ b: "auto" }) && j(drops) === j([[`af.tools.app.x.${id}`, ["a"]]]), j(drops));
+  check("…or read with the stored dialect", j(createToolLayerStore(id, { storage, dialect: "entity" }).readApp("x")) === j({ a: "ask", b: "auto" }));
   check("no storage: reads empty, writes are dropped", (() => { const s = createToolLayerStore(id, { storage: null }); s.writeApp("x", { a: "off" }); return j(s.readApp("x")) === "{}"; })());
   check("needs an identity", (() => { try { createToolLayerStore(""); return false; } catch { return true; } })());
   check("says where it saves: this browser, never the account", TOOL_LAYER_STORE_WHERE === "Saved in this browser" && !/account/i.test(TOOL_LAYER_STORE_WHERE));

@@ -537,6 +537,8 @@ export {
   normalizeToolMode,
   toolModeInDialect,
   normalizeToolCatalog,
+  toolCatalogWarnings,
+  effectiveToolLayers,
   resolveToolModes,
   inheritedToolModes,
   setToolMode,
@@ -562,6 +564,8 @@ export {
 } from "./tool_plan.js";
 export {
   ToolModeEditor,
+  ToolModeEditorForPayload,
+  type ToolModeEditorForPayloadProps,
   TOOL_MODE_LABELS,
   TOOL_LAYER_RESET,
   TOOL_LAYER_OWNER,

@@ -71,6 +71,9 @@ const served = {
 const cat = normalizeToolCatalog(served);
 const by = Object.fromEntries(cat.map((t) => [t.name, t]));
 check("throws on a missing items[]", (() => { try { normalizeToolCatalog({ error: "boom" }); return false; } catch (e) { return /no items: boom/.test(e.message); } })());
+check("throws on the gateway's failure answer (items: [], error)", (() => { try { normalizeToolCatalog({ items: [], error: "ImportError: x" }); return false; } catch (e) { return /could not list its tools: ImportError: x/.test(e.message); } })());
+check("an empty catalog without an error is empty, not an error", normalizeToolCatalog({ items: [] }).length === 0);
+check("catalog warnings surfaced", j(kit.toolCatalogWarnings({ items: [{ name: "a" }], catalog_warnings: ["MCP tools unavailable: X"], error: "partial" })) === j(["partial", "MCP tools unavailable: X"]) && j(kit.toolCatalogWarnings({ items: [] })) === "[]");
 check("throws on a non-object", (() => { try { normalizeToolCatalog(null); return false; } catch { return true; } })());
 check("deduped, blank names dropped", cat.length === 10, j(cat.map((t) => t.name)));
 check("approval_default auto → gateway default auto", by.read_file.gatewayDefault === "auto");
@@ -131,7 +134,16 @@ check("no badge without served sandbox fields", by.read_file.state === undefined
 {
   const none = planRunTools(cat, {});
   check("R5 no layers → tool_policy omitted", !("tool_policy" in none), j(none));
-  check("R5 empty layers are no layers", !("tool_policy" in planRunTools(cat, { app: {}, session: null })) && !hasToolChoices({ app: {}, session: {} }));
+  check("R5 empty layers are no layers", !("tool_policy" in planRunTools(cat, { app: {}, session: null })) && !hasToolChoices(cat, { app: {}, session: {} }));
+  // Review F1: keys that change no tool's mode are not choices (the grant must still apply).
+  const stalePolicy = (layers) => "tool_policy" in withRunTools({ _runtime: { tool_policy: { x: 1 } } }, planRunTools(cat, layers))._runtime;
+  check("R5 A: a key for a tool the gateway no longer serves sends no tool_policy", !("tool_policy" in planRunTools(cat, { app: { gone_tool: "auto" } })) && !stalePolicy({ app: { gone_tool: "auto" } }));
+  check("R5 B: a key for a tool the gateway does not offer sends no tool_policy", !("tool_policy" in planRunTools(cat, { app: { send_telegram_message: "auto" }, session: { camera_capture_photo: "auto" } })) && !stalePolicy({ app: { send_telegram_message: "auto" } }));
+  check("R5 C: a diff the gateway's default caught up with sends no tool_policy", !("tool_policy" in planRunTools(cat, { app: { read_file: "auto" } })) && !stalePolicy({ app: { read_file: "auto" } }));
+  check("R5 C: a session diff equal to the app's mode sends no tool_policy", !("tool_policy" in planRunTools(cat, { app: {}, session: { write_file: "ask" } })));
+  check("R5 a non-canonical value (bare approve) is no choice", !("tool_policy" in planRunTools(cat, { app: { read_file: "approve" } })));
+  const eff = kit.effectiveToolLayers(cat, { app: { gone_tool: "auto", read_file: "auto", write_file: "auto", send_telegram_message: "auto" }, session: { write_file: "auto", list_files: "off" } });
+  check("effectiveToolLayers keeps only effective diffs", j(eff) === j({ app: { write_file: "auto" }, session: { list_files: "off" } }), j(eff));
   check("R5 tools still sent without choices", j(none.tools) === j(["execute_command", "fetch_url", "legacy_tool", "list_files", "read_file", "send_email", "web_search", "write_file"]), j(none.tools));
   const stale = withRunTools({ prompt: "hi", _runtime: { tool_policy: { auto_approve_tools: ["x"] }, stream: true } }, none);
   check("R5 withRunTools removes a stale tool_policy key (its presence suppresses the grant)", !("tool_policy" in stale._runtime) && stale._runtime.stream === true && stale.prompt === "hi", j(stale));

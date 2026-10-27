@@ -8,7 +8,7 @@
 //
 // It is browser storage: the UI says so ("Saved in this browser"), never "saved
 // for this Gateway account" (that would be a server promise this is not).
-import { normalizeToolMode, type ToolMode, type ToolModeLayer } from "./tool_plan.js";
+import { normalizeToolMode, type ToolMode, type ToolModeDialect, type ToolModeLayer } from "./tool_plan.js";
 
 /** The words a host shows next to an editor backed by this store. */
 export const TOOL_LAYER_STORE_WHERE = "Saved in this browser";
@@ -21,7 +21,8 @@ export function toolIdentityKey(id: { gatewayUrl?: string; tenantId?: string; ru
   return JSON.stringify([t(id.gatewayUrl), t(id.tenantId), t(id.runtimeId), t(id.userId) || "session"]);
 }
 
-type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+/** getItem/setItem/removeItem, plus `key`/`length` (as localStorage has) to rebuild a lost index. */
+type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem"> & Partial<Pick<Storage, "key" | "length">>;
 
 export type ToolLayerStore = {
   readonly identityKey: string;
@@ -37,17 +38,28 @@ export type ToolLayerStore = {
   sessions(): string[];
 };
 
-function clean(layer: unknown): Record<string, ToolMode> {
+function clean(layer: unknown, dialect?: ToolModeDialect, dropped?: string[]): Record<string, ToolMode> {
   const modes = layer && typeof layer === "object" ? (layer as Record<string, unknown>) : {};
   const out: Record<string, ToolMode> = {};
   for (const [name, v] of Object.entries(modes)) {
-    const m = normalizeToolMode(v);
+    const m = normalizeToolMode(v, dialect);
     if (name.trim() && m) out[name.trim()] = m;
+    else if (name.trim()) dropped?.push(name.trim());
   }
   return out;
 }
 
-export function createToolLayerStore(identityKey: string, opts: { storage?: StorageLike | null } = {}): ToolLayerStore {
+export type ToolLayerStoreOptions = {
+  storage?: StorageLike | null;
+  /** The dialect of values another writer stored ("approve" is ask for "entity", auto for "desktop").
+   * Without it a stored "approve" cannot be read and is reported through `onDropped`. */
+  dialect?: ToolModeDialect;
+  /** Told when a stored entry's values could not be read (non-canonical, no dialect): the storage
+   * key and the tool names dropped, so the host can say so ("2 saved tool choices could not be read"). */
+  onDropped?: (key: string, names: string[]) => void;
+};
+
+export function createToolLayerStore(identityKey: string, opts: ToolLayerStoreOptions = {}): ToolLayerStore {
   const identity = String(identityKey || "").trim();
   if (!identity) throw new Error("createToolLayerStore needs the gateway identity (toolIdentityKey).");
   const storage = (): StorageLike | null => {
@@ -87,11 +99,31 @@ export function createToolLayerStore(identityKey: string, opts: { storage?: Stor
     if (!s) throw new Error("The session layer needs a session id.");
     return `af.tools.session.${identity}.${s}`;
   };
+  const sessionPrefix = `af.tools.session.${identity}.`;
+  // The index orders conversations (newest first). When it is missing or unreadable, it is rebuilt
+  // from the stored keys (order unknown, kept after), so no entry is orphaned past the 100 cap.
   const sessions = (): string[] => {
     const v = get(indexKey);
-    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && Boolean(x)) : [];
+    if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string" && Boolean(x));
+    const s = storage();
+    const out: string[] = [];
+    try {
+      const n = typeof s?.length === "number" ? s.length : 0;
+      for (let i = 0; i < n; i += 1) {
+        const k = s?.key?.(i);
+        if (k && k.startsWith(sessionPrefix)) out.push(k.slice(sessionPrefix.length));
+      }
+    } catch {
+      /* storage without enumeration: nothing to rebuild from */
+    }
+    return out;
   };
-  const read = (key: string): ToolModeLayer => clean((get(key) as { modes?: unknown } | undefined)?.modes);
+  const read = (key: string): ToolModeLayer => {
+    const dropped: string[] = [];
+    const layer = clean((get(key) as { modes?: unknown } | undefined)?.modes, opts.dialect, dropped);
+    if (dropped.length) opts.onDropped?.(key, dropped);
+    return layer;
+  };
   return {
     identityKey: identity,
     appKey,
