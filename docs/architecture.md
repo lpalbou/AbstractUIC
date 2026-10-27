@@ -82,7 +82,7 @@ flowchart LR
     MEM["@abstractframework/monitor-memory"]
   end
 
-  CHAT -->|"peer dep (imports Icon)"| UIKIT
+  CHAT -->|"peer dep ^0.9.0<br/>(Icon, AfFileViewer, AfDrawer, drawer-system panels,<br/>session tool-policy client types)"| UIKIT
   AMX -->|"peer dep"| ReactFlow["reactflow (peer dependency)"]
   FLOW -->|"peer dep"| React["react / react-dom (peer dependency)"]
   CHAT -->|"peer dep"| React
@@ -92,8 +92,101 @@ flowchart LR
 ```
 
 Evidence:
-- `panel-chat/src/chat_message_card.tsx` imports `Icon` from `@abstractframework/ui-kit`, declared as a peer dependency in `panel-chat/package.json`.
+- panel-chat imports from `@abstractframework/ui-kit` (for example `Icon` in `panel-chat/src/chat_message_card.tsx`, `AfFileViewer` in `panel-chat/src/file_viewer.tsx`, the session tool-policy types in `panel-chat/src/workflow_runtime.ts`), declared as a peer dependency (`^0.9.0`) in `panel-chat/package.json`. Upgrade the two packages together; the repository's release gate (`scripts/check_cross_dist_types.mjs`) checks that the two built packages agree on the shared client types.
 - `monitor-active-memory/package.json` declares `reactflow` (and `react` / `react-dom`) as peer dependencies.
+
+## Design rules: one component per job (ADR 0001)
+
+[ADR 0001](./adr/0001_shared_primitives_composed_on_gateway_contracts.md) is the rule the shared
+components follow; the [Adoption guide](./adoption-guide.md) is its job table. In short:
+
+- **One component per user-facing job** (the chat surface, questions and approvals, attachments
+  and media, tool selection, the provider/model picker, voice, the app shell). An app that needs
+  more adds a prop or slot to the kit; a copy in an app tree is a defect.
+- **Composed on the gateway's contracts.** A component renders what the gateway serves (its
+  routes, the run ledger, the served `waiting`, `discovery/capabilities`) through transports the
+  host injects; it never re-derives server policy, and a missing value is a labeled fallback.
+- **The gateway default is shown first** ("Gateway default · ollama / qwen3"), and an override can
+  be undone ("Use gateway default").
+- **One wording set per job**, decided in the kit (Deny / Allow once / Allow for this chat / Allow
+  all enabled tools; Hold to talk / Tap to talk; Play sample).
+
+```mermaid
+flowchart TB
+  subgraph GW["AbstractGateway (contracts)"]
+    ROUTES["/api/gateway routes<br/>discovery/tools, discovery/capabilities,<br/>config/capability-defaults, voice/*, about, me"]
+    LEDGER["run ledger + served waiting<br/>(llm.delta frames)"]
+    POLICY["sessions/{id}/tool-policy<br/>(when advertised)"]
+  end
+  subgraph Host["Host app"]
+    T["injected transports<br/>fetchGateway, WorkflowTransport,<br/>createGatewayModelTransport, SessionToolPolicyClient"]
+    STATE["host state<br/>(preferences, layers)"]
+  end
+  subgraph Kit["Shared components (ui-kit + panel-chat)"]
+    SHELL["AfAppShell<br/>AfTopBarActions · AfDrawerSystem · nav"]
+    CHATS["WorkflowChat + presentInteraction<br/>(questions, approvals, media)"]
+    PICK["ProviderModelPicker · ToolModeEditor"]
+    VOICE["AfVoiceSection<br/>AfVoiceOutput · AfVoiceInput · AfVoiceMicButton"]
+  end
+  ROUTES --> T
+  LEDGER --> T
+  POLICY --> T
+  T --> SHELL & CHATS & PICK & VOICE
+  STATE <--> PICK & VOICE
+  SHELL --> CHATS
+```
+
+### The app shell
+
+`AfAppShell` composes the header, the top-right cluster and the side panels. The cluster's order
+is fixed by the kit; panels are opaque `{id, label, icon, content}` objects, so a new panel kind
+mounts without an API change.
+
+```mermaid
+flowchart LR
+  SHELL["AfAppShell"] --> HEAD["header<br/>brand · leading"]
+  SHELL --> CLUSTER["AfTopBarActions<br/>extras · docs · assistant · appearance · about · identity · connection pill"]
+  SHELL --> DRAWERS["AfDrawerSystem<br/>left / right panels, rail or drawer mode,<br/>keep-alive, per-panel error boundary"]
+  SHELL --> NAV["nav<br/>docked from 1024 px, a drawer below"]
+  SHELL --> MAIN["children<br/>(e.g. WorkflowChat)"]
+  CLUSTER -->|"publishes --af-topbar-h"| DRAWERS
+  CLUSTER -->|"principalFromConnection(status)"| WHO["who is signed in<br/>(the gateway's /me)"]
+```
+
+### Tool approvals and the chat's tool policy
+
+When the gateway advertises `capabilities.session_tool_policy`, "Allow for this chat" and "Allow
+all <toolset> tools for this chat" write the chat's policy first and only then answer the wait
+shown, so later calls of every run of the chat run without a wait. Without the capability, the
+grant stays local and labeled ("Allow for this run").
+
+```mermaid
+sequenceDiagram
+  participant U as Person
+  participant C as WorkflowChat (presentInteraction)
+  participant S as WorkflowSessionController
+  participant P as SessionToolPolicyClient (host-injected)
+  participant G as AbstractGateway
+  G-->>S: run waits for a tool approval (served waiting)
+  S-->>C: interaction: Deny / Allow once / Allow for this chat / …
+  U->>C: Allow for this chat
+  C->>S: approveAllForSession(target)
+  S->>P: merge({approve, ask}) with the chat's Ask tools
+  P->>G: POST sessions/{id}/tool-policy
+  G-->>P: policy (revision, scope, clamped)
+  S->>G: answer the shown wait {approved: true}
+  Note over C: "Applies: …" as served; "Not covered: …" for clamped entries
+```
+
+### One repository, several frameworks (convention)
+
+The packages in this repository are JavaScript/TypeScript npm workspaces at the repository root,
+and they are the first implementation of every job. ADR 0001 §9 fixes where ports to other
+frameworks go when one is written: `python/` (Qt widgets), `rust/` (terminal components),
+`swift/` (SwiftUI), and `contracts/` for what all languages share (the job and wording tables and
+the gateway payload fixtures). None of these directories exists in this release: they are a
+convention, not shipped code. A port is listed in the Adoption guide's job table with its
+location.
 
 ## Runtime data flow
 
@@ -110,7 +203,7 @@ flowchart TD
 
   Host -->|"TraceItem[] (or build_agent_trace)"| FlowPanel["monitor-flow: AgentCyclesPanel"]
   Host -->|"KgAssertion[] + onQuery() (optional)"| AMXPanel["monitor-active-memory: KgActiveMemoryExplorer"]
-  Host -->|"ChatMessage[] + callbacks"| ChatUI["panel-chat: ChatThread / ChatComposer / ChatMessageCard"]
+  Host -->|"WorkflowTransport (injected) or ChatMessage[] + callbacks"| ChatUI["panel-chat: WorkflowChat / WorkflowSessionController<br/>(ChatThread / ChatComposer / ChatMessageCard)"]
 
   Host -->|"register + attach <monitor-gpu>"| GPUWidget["monitor-gpu: <monitor-gpu>"]
   GPUWidget -->|"GET /api/gateway/host/metrics/gpu"| Metrics["AbstractGateway (metrics endpoints)"]
@@ -418,6 +511,8 @@ See also: [Getting started](./getting-started.md) for integration + required CSS
 
 ## Related docs
 
+- Design rules: [ADR 0001](./adr/0001_shared_primitives_composed_on_gateway_contracts.md) and the [ADR index](./adr/README.md)
+- Adoption guide (the job table): [Adoption guide](./adoption-guide.md)
 - Getting started: [Getting started](./getting-started.md)
 - API reference: [API reference](./api.md)
 - Console islands: [Console islands](./console-islands.md)
