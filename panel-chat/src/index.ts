@@ -183,3 +183,4 @@ export {
 export type { ChatSteer, ChatSteerMode, ChatSteerResult, ChatToolbar } from "./workflow_chat.js";
 export { chatMediaFromArtifact, chatMediaForArtifacts } from "./chat_media.js";
 export type { ResolvedArtifact } from "./workflow_runtime.js";
+export { fileRawLink, isLocalObjectUrl, objectUrlRawLinkSafe } from "./chat_media.js";

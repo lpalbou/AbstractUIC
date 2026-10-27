@@ -38,10 +38,13 @@ panel-chat (and one ui-kit file):
 - **Attachments and generated media (0031, kit half).** `ChatMedia.kind` adds `"file"` (opens the shared
   `AfFileViewer` inline, or the host's `onOpenMedia`); audio media takes `transcript` (a collapsible Transcript
   caption: the speech-to-text display); music rides on audio. An opened Markdown file follows the chat's image
-  policy (`images`, default `"link"`) or the host's `renderMarkdown`; a document always shows its raw link (the
-  host's object URL when no `href` is given); `onOpenMedia` receives sanitized sources only.
+  policy (`images`, default `"link"`) or the host's `renderMarkdown`; a document shows its raw link: the host's
+  `href` (pass the gateway's sandboxed content URL), or its object URL for inert types only. A `blob:`/`data:` URL
+  is never the raw link of HTML, SVG or XML (it would run on the app's origin without the gateway's
+  `CSP: sandbox`): `fileRawLink`, `objectUrlRawLinkSafe`, `isLocalObjectUrl`. `onOpenMedia` receives sanitized
+  sources only.
   `WorkflowTransport.resolveArtifact` (optional; `ResolvedArtifact.text` for small text artifacts),
-  `chatMediaFromArtifact` (documents get `href`), `chatMediaForArtifacts`. `FileViewer` takes `markdownImages`,
+  `chatMediaFromArtifact` (inert documents get `href`), `chatMediaForArtifacts`. `FileViewer` takes `markdownImages`,
   `inlineImage`, `renderMarkdown`. `useWorkspaceFilePreview` loads video files. ui-kit: `AfFileViewer` kind
   `"video"` (mp4, m4v, webm, mov, ogv, mkv, `video/*` except `video/mp2t`), and `fileViewerKind` now decides by NAME
   first (media extension, then code/text name, then the media Content-Type): `.ts`/`.mts` served as `video/mp2t`

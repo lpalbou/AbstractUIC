@@ -238,15 +238,20 @@ this chat / allow all, and a dismissal defers, never denies.
 - `file`: a document row (name, size) that opens the shared `AfFileViewer` inline behind
   **Open** (nothing loads before), or calls `messageProps.onOpenMedia(item)` when the host has
   its own opener. Text kinds (markdown, code, json, text) need `text`; without it the viewer
-  says so and offers the raw link (`href`, else the host's `src`) instead of an empty preview. An
+  says so and offers the raw link instead of an empty preview. **Raw links and security:** pass
+  the gateway's content URL (`.../artifacts/{id}/content`, served with `CSP: sandbox` + nosniff)
+  as `href`. A `blob:`/`data:` URL carries the app's origin and none of those headers, so it is
+  used as the raw link only for inert types (pdf, raster images, audio, video, JSON, Markdown,
+  CSV, text other than HTML/XML; `objectUrlRawLinkSafe`, `fileRawLink`) and never for HTML,
+  SVG or XML, whatever the host passes. An
   opened Markdown file follows the chat's `images` policy (default `"link"`: no remote image
   loads) or the host's `renderMarkdown`. `onOpenMedia` receives the item with sanitized sources.
 - Sources come from the host (object URLs it fetched with its credentials), never from model
   text. `WorkflowTransport.resolveArtifact?(runId, artifactId)` is the transport's hook for
   that (`GET runs/{id}/artifacts/{artifact_id}` metadata + `/content` bytes);
   `chatMediaFromArtifact(resolved)` picks the kind from the gateway's `content_type`
-  (image/audio/video inline, everything else a file with `href` = the object URL and the
-  host's `text` when it read one; SVG never rendered) and
+  (image/audio/video inline, everything else a file with the host's `text` when it read one;
+  SVG never rendered) and
   `chatMediaForArtifacts(runId, ids, resolve)` resolves a message's `artifactIds` (it rejects
   when one cannot be resolved).
 - Not done yet: the controller does not fold `$artifact` refs or generated-media ledger events

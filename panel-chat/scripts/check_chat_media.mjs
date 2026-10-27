@@ -120,8 +120,37 @@ check("the card's stats prop wins over message.stats", propStats.includes("prop"
   const mdArtifact = chatMediaFromArtifact({ src: "blob:http://x/md", contentType: "text/markdown", name: "report.md" });
   check("a resolved document links its raw file", mdArtifact.kind === "file" && mdArtifact.href === "blob:http://x/md", mdArtifact);
   check("a resolved document carries the host's text", chatMediaFromArtifact({ src: "blob:x", contentType: "text/markdown", name: "a.md", text: "# A" }).text === "# A");
-  const noHref = card({ id: "nh", role: "assistant", content: "", media: [{ kind: "file", src: "blob:http://x/c", name: "main.py" }] });
+  const noHref = card({ id: "nh", role: "assistant", content: "", media: [{ kind: "file", src: "blob:http://x/c", name: "main.py", contentType: "text/x-python" }] });
   check("a file without href still shows its raw link (the host's src)", noHref.includes('href="blob:http://x/c"') && noHref.includes(">Raw file<"), noHref);
+  // Review N1 (security): an object URL carries the APP origin and none of the gateway's
+  // `CSP: sandbox` / nosniff headers (routes/gateway.py:11328-11340). Agent-written HTML / SVG /
+  // XML must never get a blob:/data: "Raw file" link; only inert types fall back to `src`.
+  const active = [
+    ["text/html", "page.html"],
+    ["image/svg+xml", "logo.svg"],
+    ["application/xhtml+xml", "page.xhtml"],
+    ["application/xml", "feed.xml"],
+    ["text/plain", "page.html"], // an active NAME wins over an inert type
+    ["", "notes.md"], // no type: the browser decides, so no fallback
+    // An active TYPE wins over an inert or missing extension.
+    ["text/html", "download"],
+    ["text/html; charset=utf-8", "report.txt"],
+    ["image/svg+xml", "image"],
+    ["text/xml", "data.txt"],
+    ["application/rss+xml", "feed"],
+  ];
+  for (const [contentType, name] of active) {
+    const m = chatMediaFromArtifact({ src: "blob:http://app/x", contentType, name });
+    check(`no blob raw link for ${name} (${contentType || "no type"})`, m.href === undefined, m);
+    const html = card({ id: name, role: "assistant", content: "", media: [{ kind: "file", src: "blob:http://app/x", name, contentType }] });
+    check(`the card gives ${name} (${contentType || "no type"}) no blob raw link`, !html.includes('href="blob:'), html);
+  }
+  const hostBlob = card({ id: "hb", role: "assistant", content: "", media: [{ kind: "file", src: "", href: "blob:http://app/y", name: "page.html", contentType: "text/html" }] });
+  check("a host blob: href for HTML is refused too", !hostBlob.includes('href="blob:'), hostBlob);
+  const sandboxed = card({ id: "sb", role: "assistant", content: "", media: [{ kind: "file", src: "blob:http://app/x", href: "/api/gateway/runs/r/artifacts/h/content", name: "page.html", contentType: "text/html" }] });
+  check("HTML keeps the gateway's sandboxed content URL", sandboxed.includes('href="/api/gateway/runs/r/artifacts/h/content"'));
+  for (const [contentType, name] of [["application/pdf", "r.pdf"], ["text/markdown", "r.md"], ["application/json", "d.json"], ["text/csv", "t.csv"], ["text/plain", "a.txt"]])
+    check(`inert ${name} keeps its object-URL raw link`, chatMediaFromArtifact({ src: "blob:http://app/i", contentType, name }).href === "blob:http://app/i");
   // Review H1: TypeScript is code even when served as video/mp2t.
   check("a .ts artifact served as video/mp2t is a document, not a video", chatMediaFromArtifact({ src: "blob:t", contentType: "video/mp2t", name: "app.ts" }).kind === "file");
 

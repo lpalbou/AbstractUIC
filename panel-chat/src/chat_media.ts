@@ -7,6 +7,46 @@ import { fileViewerKind } from "@abstractframework/ui-kit";
 import type { ChatMedia } from "./chat_message_card.js";
 import type { ResolvedArtifact } from "./workflow_runtime.js";
 
+// Names that a browser renders as an active document (scripts run) when opened.
+const ACTIVE_EXT = new Set("html htm xhtml xht shtml svg svgz xml xsl xslt mht mhtml".split(" "));
+// Content types a browser shows inertly when opened (no script runs).
+const INERT_TYPES = new Set(["application/pdf", "text/plain", "application/json", "text/markdown", "text/csv"]);
+
+/** A browser-local URL (object or data URL): it carries the APP's origin and none of the gateway's headers. */
+export function isLocalObjectUrl(url: string | undefined): boolean {
+  return /^(blob|data):/i.test(String(url || "").trim());
+}
+
+/**
+ * Whether a `blob:`/`data:` URL of this file may be opened as its "Raw file"
+ * (review N1, security). An object URL carries the APP origin and none of the
+ * gateway's `Content-Security-Policy: sandbox` / nosniff headers
+ * (abstractgateway routes/gateway.py:11328-11340), so agent-written HTML, SVG
+ * or XML opened from it would run on the app's origin. Only known-inert types
+ * qualify: pdf, raster images, audio, video, JSON, Markdown, CSV, text/* other than HTML/XML,
+ * and never a file whose NAME is an active document. No type = no.
+ * Hosts pass the gateway's (sandboxed) content URL as `href` for the rest.
+ */
+export function objectUrlRawLinkSafe(contentType: string | undefined, name: string | undefined): boolean {
+  const base = String(name || "").split("/").pop() || "";
+  const dot = base.lastIndexOf(".");
+  if (dot > 0 && ACTIVE_EXT.has(base.slice(dot + 1).toLowerCase())) return false;
+  const type = String(contentType || "").split(";", 1)[0].trim().toLowerCase();
+  if (!type || type === "text/html" || type.includes("xml")) return false;
+  if (INERT_TYPES.has(type)) return true;
+  // Other text/* (source code, CSS, ...) is shown as text; html/xml are refused above.
+  return type.startsWith("text/") || type.startsWith("image/") || type.startsWith("audio/") || type.startsWith("video/");
+}
+
+/** The raw-file link a document may show: the host's `href`, else its `src`; a
+ * browser-local URL only for an inert type (see `objectUrlRawLinkSafe`). */
+export function fileRawLink(item: { href?: string; src?: string; contentType?: string; name?: string }): string | undefined {
+  const allowed = (url: string | undefined) => Boolean(url) && (!isLocalObjectUrl(url) || objectUrlRawLinkSafe(item.contentType, item.name));
+  if (allowed(item.href)) return item.href;
+  if (allowed(item.src)) return item.src;
+  return undefined;
+}
+
 /**
  * How a resolved artifact shows in a message: image / audio / video inline,
  * everything else as a `"file"` in the shared viewer. The kind comes from the
@@ -30,8 +70,11 @@ export function chatMediaFromArtifact(
     ...(extra.label ? { label: extra.label } : {}),
     ...(extra.href && kind !== "file" ? { href: extra.href } : {}),
     ...(extra.transcript && kind === "audio" ? { transcript: extra.transcript } : {}),
-    // A document always has a way out: its raw link (default: the host's object URL).
-    ...(kind === "file" ? { href: extra.href || artifact.src } : {}),
+    // A document keeps a way out: its raw link (the host's object URL only for an
+    // inert type; agent-written HTML/SVG/XML needs the gateway's sandboxed URL as `href`).
+    ...(kind === "file" && fileRawLink({ href: extra.href, src: artifact.src, contentType: artifact.contentType, name })
+      ? { href: fileRawLink({ href: extra.href, src: artifact.src, contentType: artifact.contentType, name }) }
+      : {}),
     ...(kind === "file" && (extra.text ?? artifact.text) !== undefined ? { text: extra.text ?? artifact.text } : {}),
   };
 }

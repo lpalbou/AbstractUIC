@@ -1737,7 +1737,7 @@ Renderers:
 
 Types:
 - `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`; optional `live: ChatLiveReply` (`callId`, `reasoning`, `caption?`) marks a reply still being streamed; `kind?` and `artifactIds?` carry a `replay_view_v1.messages[]` item's kind and `artifact_ids`, see the [README mapping](../panel-chat/README.md#messages-from-the-replay-view)), `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
-- `ChatMedia` (unreleased, backlog 0031): `kind` is `"image" | "audio" | "video" | "file"`; a `"file"` (`name`, `contentType`, `size?`, `text?` for text kinds) opens in the shared `AfFileViewer` inline behind **Open** (nothing loads before) or in the host's `onOpenMedia`; audio takes `transcript?` (speech-to-text, shown as a collapsible **Transcript** caption); music rides on audio. `WorkflowTransport.resolveArtifact?(runId, artifactId, signal?) → ResolvedArtifact` (`{src, contentType, name?, size?}`, the host reads `GET runs/{id}/artifacts/{artifact_id}` and `/content`) with `chatMediaFromArtifact(resolved, extra?)` (image/audio/video inline, everything else a file with `href` = the object URL, SVG never rendered) and `chatMediaForArtifacts(runId, ids, resolve)` (rejects when one cannot be resolved). The controller does not yet fold `$artifact` refs or generated-media ledger events into `message.media` itself
+- `ChatMedia` (unreleased, backlog 0031): `kind` is `"image" | "audio" | "video" | "file"`; a `"file"` (`name`, `contentType`, `size?`, `text?` for text kinds) opens in the shared `AfFileViewer` inline behind **Open** (nothing loads before) or in the host's `onOpenMedia`; audio takes `transcript?` (speech-to-text, shown as a collapsible **Transcript** caption); music rides on audio. `WorkflowTransport.resolveArtifact?(runId, artifactId, signal?) → ResolvedArtifact` (`{src, contentType, name?, size?}`, the host reads `GET runs/{id}/artifacts/{artifact_id}` and `/content`) with `chatMediaFromArtifact(resolved, extra?)` (image/audio/video inline, everything else a file; its raw link is the host's `href` — pass the gateway's sandboxed content URL — or the object URL for inert types only, never for HTML/SVG/XML: `fileRawLink()`, `objectUrlRawLinkSafe()`, `isLocalObjectUrl()`; SVG never rendered) and `chatMediaForArtifacts(runId, ids, resolve)` (rejects when one cannot be resolved). The controller does not yet fold `$artifact` refs or generated-media ledger events into `message.media` itself
 
 Utilities:
 - `tryParseJson()` (drives JSON autodetection in `ChatMessageContent`)
@@ -4579,15 +4579,20 @@ this chat / allow all, and a dismissal defers, never denies.
 - `file`: a document row (name, size) that opens the shared `AfFileViewer` inline behind
   **Open** (nothing loads before), or calls `messageProps.onOpenMedia(item)` when the host has
   its own opener. Text kinds (markdown, code, json, text) need `text`; without it the viewer
-  says so and offers the raw link (`href`, else the host's `src`) instead of an empty preview. An
+  says so and offers the raw link instead of an empty preview. **Raw links and security:** pass
+  the gateway's content URL (`.../artifacts/{id}/content`, served with `CSP: sandbox` + nosniff)
+  as `href`. A `blob:`/`data:` URL carries the app's origin and none of those headers, so it is
+  used as the raw link only for inert types (pdf, raster images, audio, video, JSON, Markdown,
+  CSV, text other than HTML/XML; `objectUrlRawLinkSafe`, `fileRawLink`) and never for HTML,
+  SVG or XML, whatever the host passes. An
   opened Markdown file follows the chat's `images` policy (default `"link"`: no remote image
   loads) or the host's `renderMarkdown`. `onOpenMedia` receives the item with sanitized sources.
 - Sources come from the host (object URLs it fetched with its credentials), never from model
   text. `WorkflowTransport.resolveArtifact?(runId, artifactId)` is the transport's hook for
   that (`GET runs/{id}/artifacts/{artifact_id}` metadata + `/content` bytes);
   `chatMediaFromArtifact(resolved)` picks the kind from the gateway's `content_type`
-  (image/audio/video inline, everything else a file with `href` = the object URL and the
-  host's `text` when it read one; SVG never rendered) and
+  (image/audio/video inline, everything else a file with the host's `text` when it read one;
+  SVG never rendered) and
   `chatMediaForArtifacts(runId, ids, resolve)` resolves a message's `artifactIds` (it rejects
   when one cannot be resolved).
 - Not done yet: the controller does not fold `$artifact` refs or generated-media ledger events
@@ -12454,6 +12459,7 @@ export {
 export type { ChatSteer, ChatSteerMode, ChatSteerResult, ChatToolbar } from "./workflow_chat.js";
 export { chatMediaFromArtifact, chatMediaForArtifacts } from "./chat_media.js";
 export type { ResolvedArtifact } from "./workflow_runtime.js";
+export { fileRawLink, isLocalObjectUrl, objectUrlRawLinkSafe } from "./chat_media.js";
 
 ## panel-chat/src/chat_message_card.tsx
 
@@ -12461,6 +12467,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { AfAudioPlayer, Icon, fileViewerKind, fileViewerNeedsText, formatFileSize, type IconName } from "@abstractframework/ui-kit";
 
+import { fileRawLink } from "./chat_media.js";
 import { FileViewer } from "./file_viewer.js";
 import { ChatMessageContent } from "./message_content.js";
 import type { MarkdownImages } from "./markdown.js";
@@ -12645,9 +12652,11 @@ type MediaMarkdownPolicy = {
 function ChatMediaFile({ item, onOpen, markdown }: { item: ChatMedia; onOpen?: (item: ChatMedia) => void; markdown: MediaMarkdownPolicy }): React.ReactElement | null {
   const [open, setOpen] = useState(false);
   const src = mediaSource(item.src);
-  // A file always keeps a way out: its raw link, or the host's object URL.
-  const href = (item.href ? mediaSource(item.href) : undefined) || src;
   const name = String(item.name || item.label || "").trim() || "File";
+  // A file keeps a way out: its raw link, or the host's object URL for an inert
+  // type only. A blob:/data: URL of HTML/SVG/XML would run on the app's origin
+  // without the gateway's sandbox headers (review N1): never linked.
+  const href = fileRawLink({ href: item.href ? mediaSource(item.href) : undefined, src, contentType: item.contentType, name: item.name || item.label });
   const kind = fileViewerKind(name, item.contentType);
   const needsText = fileViewerNeedsText(kind);
   const hasText = typeof item.text === "string";
@@ -17097,10 +17106,13 @@ panel-chat (and one ui-kit file):
 - **Attachments and generated media (0031, kit half).** `ChatMedia.kind` adds `"file"` (opens the shared
   `AfFileViewer` inline, or the host's `onOpenMedia`); audio media takes `transcript` (a collapsible Transcript
   caption: the speech-to-text display); music rides on audio. An opened Markdown file follows the chat's image
-  policy (`images`, default `"link"`) or the host's `renderMarkdown`; a document always shows its raw link (the
-  host's object URL when no `href` is given); `onOpenMedia` receives sanitized sources only.
+  policy (`images`, default `"link"`) or the host's `renderMarkdown`; a document shows its raw link: the host's
+  `href` (pass the gateway's sandboxed content URL), or its object URL for inert types only. A `blob:`/`data:` URL
+  is never the raw link of HTML, SVG or XML (it would run on the app's origin without the gateway's
+  `CSP: sandbox`): `fileRawLink`, `objectUrlRawLinkSafe`, `isLocalObjectUrl`. `onOpenMedia` receives sanitized
+  sources only.
   `WorkflowTransport.resolveArtifact` (optional; `ResolvedArtifact.text` for small text artifacts),
-  `chatMediaFromArtifact` (documents get `href`), `chatMediaForArtifacts`. `FileViewer` takes `markdownImages`,
+  `chatMediaFromArtifact` (inert documents get `href`), `chatMediaForArtifacts`. `FileViewer` takes `markdownImages`,
   `inlineImage`, `renderMarkdown`. `useWorkspaceFilePreview` loads video files. ui-kit: `AfFileViewer` kind
   `"video"` (mp4, m4v, webm, mov, ogv, mkv, `video/*` except `video/mp2t`), and `fileViewerKind` now decides by NAME
   first (media extension, then code/text name, then the media Content-Type): `.ts`/`.mts` served as `video/mp2t`

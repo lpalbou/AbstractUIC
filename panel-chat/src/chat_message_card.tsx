@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { AfAudioPlayer, Icon, fileViewerKind, fileViewerNeedsText, formatFileSize, type IconName } from "@abstractframework/ui-kit";
 
+import { fileRawLink } from "./chat_media.js";
 import { FileViewer } from "./file_viewer.js";
 import { ChatMessageContent } from "./message_content.js";
 import type { MarkdownImages } from "./markdown.js";
@@ -186,9 +187,11 @@ type MediaMarkdownPolicy = {
 function ChatMediaFile({ item, onOpen, markdown }: { item: ChatMedia; onOpen?: (item: ChatMedia) => void; markdown: MediaMarkdownPolicy }): React.ReactElement | null {
   const [open, setOpen] = useState(false);
   const src = mediaSource(item.src);
-  // A file always keeps a way out: its raw link, or the host's object URL.
-  const href = (item.href ? mediaSource(item.href) : undefined) || src;
   const name = String(item.name || item.label || "").trim() || "File";
+  // A file keeps a way out: its raw link, or the host's object URL for an inert
+  // type only. A blob:/data: URL of HTML/SVG/XML would run on the app's origin
+  // without the gateway's sandbox headers (review N1): never linked.
+  const href = fileRawLink({ href: item.href ? mediaSource(item.href) : undefined, src, contentType: item.contentType, name: item.name || item.label });
   const kind = fileViewerKind(name, item.contentType);
   const needsText = fileViewerNeedsText(kind);
   const hasText = typeof item.text === "string";
