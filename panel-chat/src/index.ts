@@ -159,3 +159,6 @@ export {
   type FilePreviewState,
   type FileViewerProps,
 } from "./file_viewer.js";
+// --- ui-primitives (shell) ---
+export { DocsAssistantPanelContent, docsAssistantPanel, type DocsAssistantChatProps, type DocsAssistantPanelOptions } from "./docs_assistant.js";
+export { assistantDrawerPanel, type AssistantDrawerPanelOptions } from "./assistant_panel.js";
