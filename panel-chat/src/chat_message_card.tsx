@@ -380,7 +380,8 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
 
   if (m.toolActivity) return <ToolActivity tool={m.toolActivity} showCopy={props.showCopy} />;
   const footer = props.renderFooter ? props.renderFooter(m) : null;
-  if (props.variant?.(m) === "hint") {
+  // A session-policy decision (contract §5) is an activity line, never a card.
+  if (props.variant?.(m) === "hint" || m.kind === "tool_policy_decision") {
     const level = String(m.level || "").trim().toLowerCase();
     return (
       <div

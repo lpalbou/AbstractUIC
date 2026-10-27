@@ -4,6 +4,7 @@ import type { WorkflowToolActivity } from "./workflow_evidence.js";
 import { JsonViewer } from "./json_viewer.js";
 import { copyText } from "./utils.js";
 import { ToolSandboxLine } from "./sandbox_line.js";
+import { toolPolicyDecisionText } from "./tool_policy.js";
 
 export function toolArguments(value: unknown): unknown {
   if (typeof value !== "string") return value;
@@ -109,6 +110,11 @@ export function ToolActivity({
           )}
         </span>
         <span className="pc-tool-activity__status">{labels[tool.status]}</span>
+        {tool.policy ? (
+          <span className="pc-tool-activity__policy" data-policy={tool.policy.decision} title={toolPolicyDecisionText(tool.policy)}>
+            {tool.policy.decision === "denied" ? "Denied by this conversation's policy" : "Allowed by this conversation's policy"}
+          </span>
+        ) : null}
         {Number.isFinite(duration) && duration >= 0 ? (
           <span className="pc-tool-activity__duration">
             {(duration / 1000).toFixed(1)}s
@@ -124,6 +130,12 @@ export function ToolActivity({
         ) : null}
       </summary>
       <div className="pc-tool-activity__detail">
+        {tool.policy ? (
+          <p className="pc-tool-activity__policy-line" data-policy={tool.policy.decision}>
+            {toolPolicyDecisionText(tool.policy)}
+            {tool.policy.matched ? ` · matched ${tool.policy.matched}` : ""}
+          </p>
+        ) : null}
         <ToolSandboxLine sandbox={tool.sandbox} />
         {tool.error ? (
           <>

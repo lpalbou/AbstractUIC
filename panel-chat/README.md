@@ -235,6 +235,40 @@ this chat / allow all, and a dismissal defers, never denies.
   gateway on `main` serves the replay view yet, panel-chat never fetches a `/view` route, and
   today's data path stays the controller's ledger fold + served `waiting`.
 
+#### Session tool policy (stored on the gateway)
+
+"Allow for this chat" used to be a client-side grant: the gateway still asked, and the
+client answered each new wait a moment later, so the gate flashed in every client and in
+the ledger. With the session tool policy (contract v1; gateway routes
+`GET/PUT/POST/DELETE /api/gateway/sessions/{session_id}/tool-policy`, on branch
+`feat/session-tool-policy`, not on `main` yet) the decision is stored for the conversation
+and the runtime runs covered calls with no wait.
+
+```ts
+// Only when GET discovery/capabilities serves capabilities.session_tool_policy.supported === true.
+const controller = new WorkflowSessionController(transport, { sessionToolPolicy: policyClientFor(sessionId) });
+const interaction = presentInteraction(workflowPendingInteraction(snapshot), controller, {
+  sessionPolicy: { mode: snapshot.sessionPolicyMode, toolsetOf: (name) => toolsetByName[name], clamped: snapshot.sessionPolicyClamped },
+});
+```
+
+- **Order:** "Allow for this chat" (`approveAllForSession`: `{approve:{all:true}}`) and
+  "Allow all <toolset> tools for this chat" (`approveKindForSession`: `{approve:{kinds}}`)
+  write the policy FIRST, then answer the shown wait `{approved:true}` (the policy never
+  answers a wait that already exists). A failed write answers nothing.
+- **Toolsets** come from the call's `toolset`, else the host's `toolsetOf(name)` (the `toolset`
+  of the tool's `GET discovery/tools` row). A tool with neither gets no kind button.
+- **Not covered:** what the gateway did not store (`clamped`) is in `snapshot.sessionPolicyClamped`
+  and `onSessionPolicy`, shows after the decision, and on the next approval as
+  "Not covered: send_email (not authorized)".
+- **Older gateway** (`supported` absent or false, or no client): `sessionPolicyMode` is
+  `"local-fallback"`; the previous local grant stays and the approval carries a labeled line:
+  "Allowed until this run ends, in this browser only — the gateway cannot store conversation
+  policies." (or "Allowed for this chat in this browser only — …" with the host's `onAllowForSession`).
+- **Ledger:** `abstract.tool_policy_decision` renders as one line, "Allowed by this conversation's
+  policy (set by admin at …)" or "Denied by this conversation's policy", never as a question; the
+  covered tool rows say so too.
+
 ### Attachments and generated media
 
 `ChatMessage.media` items render under the message text (backlog 0031):

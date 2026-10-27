@@ -50,9 +50,22 @@ const INERT_TYPES = new Set([
   "audio/flac",
 ]);
 
-/** A browser-local URL (object or data URL): it carries the APP's origin and none of the gateway's headers. */
+/**
+ * A browser-local URL (object or data URL): it carries the APP's origin and
+ * none of the gateway's headers. Decided by the URL parser, as the browser
+ * decides it: it strips leading C0 controls and spaces, so "\u0000blob:…" is
+ * a blob URL (review of PR #4). An unparseable value counts as local (fail closed).
+ */
 export function isLocalObjectUrl(url: string | undefined): boolean {
-  return /^(blob|data):/i.test(String(url || "").trim());
+  const value = String(url ?? "");
+  if (!value.trim()) return false;
+  try {
+    const base = typeof window !== "undefined" && window.location ? window.location.href : "http://same-origin.invalid/";
+    const protocol = new URL(value, base).protocol;
+    return protocol === "blob:" || protocol === "data:";
+  } catch {
+    return true;
+  }
 }
 
 /**

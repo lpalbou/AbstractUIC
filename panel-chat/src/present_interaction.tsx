@@ -6,8 +6,9 @@
 import { resolveWorkflowEventTarget } from "./event_target.js";
 import { JsonViewer } from "./json_viewer.js";
 import { ToolActivityGroup } from "./tool_activity.js";
-import { WORKFLOW_INTERACTION_LABELS, type WorkflowInteraction, type WorkflowInteractionRemember } from "./workflow_interaction.js";
-import type { ServerRecord, WorkflowRecord, WorkflowSessionController, WorkflowWaitInteraction } from "./workflow_runtime.js";
+import { sessionPolicyClampedText } from "./tool_policy.js";
+import { WORKFLOW_INTERACTION_LABELS, type WorkflowInteraction, type WorkflowInteractionRemember, type WorkflowToolApprovalInteraction } from "./workflow_interaction.js";
+import type { ServerRecord, SessionPolicyMode, SessionToolPolicy, SessionToolPolicyClamp, WorkflowRecord, WorkflowSessionController, WorkflowWaitInteraction } from "./workflow_runtime.js";
 
 /**
  * The served, tree-resolved pending interaction of the replay view
@@ -96,10 +97,31 @@ export type PresentInteractionOptions = {
   onDefer?: () => void | Promise<unknown>;
   /** Offer "Continue without answering" on a question: resumes with an empty answer. */
   allowSkip?: boolean;
+  /**
+   * The conversation's tool policy (session tool policy contract v1). With
+   * `mode: "gateway"` (from `snapshot.sessionPolicyMode`): "Allow for this chat"
+   * writes `{approve:{all:true}}` to the gateway THEN answers the shown wait,
+   * and each toolset of the batch gets "Allow all <toolset> tools for this
+   * chat" (`{approve:{kinds:[toolset]}}`). `toolsetOf(name)` maps a tool to the
+   * `toolset` of its `GET discovery/tools` row; a call carrying `toolset` wins;
+   * a tool with neither gets no kind button. `clamped`
+   * (`snapshot.sessionPolicyClamped`) renders "Not covered: …". With
+   * `mode: "local-fallback"` the local grant stays (the host's
+   * `onAllowForSession`, else the controller's run-scoped grant) and a labeled
+   * line says the gateway cannot store conversation policies.
+   */
+  sessionPolicy?: {
+    mode: SessionPolicyMode;
+    toolsetOf?: (toolName: string) => string | undefined;
+    clamped?: readonly SessionToolPolicyClamp[];
+    /** Contract `approve.max_risk_rank` for "Allow for this chat" (default: unset). */
+    maxRiskRank?: number;
+  };
 };
 
 /** The controller methods the controls call. */
-export type InteractionController = Pick<WorkflowSessionController, "approve" | "approveWithPolicyChange" | "resume" | "emitEvent">;
+export type InteractionController = Pick<WorkflowSessionController, "approve" | "approveWithPolicyChange" | "resume" | "emitEvent"> &
+  Partial<Pick<WorkflowSessionController, "approveAllForSession" | "approveKindForSession">>;
 
 /**
  * Converts a runtime wait into a control, or null when the wait is not one a
@@ -123,6 +145,72 @@ export function presentInteraction(
     const onAllowForSession = options.onAllowForSession;
     const scope = String(options.approveAllScope || "").trim();
     const remember = options.remember?.(names) || undefined;
+    const L = WORKFLOW_INTERACTION_LABELS;
+    // The host's chat-scoped grant (pre-session-policy path, kept as-is).
+    const hostChatGrant = onAllowForSession
+      ? {
+          approveForSessionLabel: L.allowForChat,
+          approveForSessionDescription: "Allow for this chat approves this batch and the enabled tools for the rest of this conversation. Unchecked tools stay unavailable; questions still need your answer.",
+          onApproveForSession: async () => {
+            let grant: Promise<void> | undefined;
+            await controller.approveWithPolicyChange(target, () => {
+              grant = onAllowForSession();
+            });
+            // The batch is approved; a failed chat-wide grant is shown, never swallowed.
+            if (grant)
+              await grant.catch((error: unknown) => {
+                throw new Error(`This batch was allowed, but "Allow for this chat" could not be turned on: ${error instanceof Error ? error.message : String(error)}`);
+              });
+          },
+        }
+      : {};
+    let sessionFields: Partial<WorkflowToolApprovalInteraction> = hostChatGrant;
+    const policy = options.sessionPolicy;
+    if (policy) {
+      const approveAllForSession = controller.approveAllForSession;
+      const approveKindForSession = controller.approveKindForSession;
+      if (typeof approveAllForSession !== "function" || typeof approveKindForSession !== "function")
+        throw new Error("presentInteraction: sessionPolicy needs a controller with approveAllForSession / approveKindForSession (WorkflowSessionController).");
+      const covered = (result: SessionToolPolicy | null) => {
+        const note = sessionPolicyClampedText(result?.clamped);
+        return note ? { outcomeNote: note } : undefined;
+      };
+      const notCovered = sessionPolicyClampedText(policy.clamped);
+      if (policy.mode === "gateway") {
+        // Toolsets come from the wait's calls (`toolset`) or the host's
+        // `GET discovery/tools` rows (`toolsetOf`); an unknown one is never guessed.
+        const toolsets = [
+          ...new Set(
+            calls
+              .map((call: any) => String(call?.toolset || "").trim() || String(policy.toolsetOf?.(String(call?.name || "")) || "").trim())
+              .filter(Boolean),
+          ),
+        ] as string[];
+        sessionFields = {
+          approveForSessionLabel: L.allowForChat,
+          approveForSessionDescription:
+            "Allow for this chat approves this batch and stores a policy for this conversation on the gateway: later tool calls of every run of this conversation run without asking, until the policy is reset. Tools the gateway does not authorize stay uncovered.",
+          onApproveForSession: async () => covered(await approveAllForSession.call(controller, target, policy.maxRiskRank !== undefined ? { maxRiskRank: policy.maxRiskRank } : {})),
+          approveKinds: toolsets.map((kind) => ({
+            kind,
+            label: L.allowKindForChat(kind),
+            onApprove: async () => covered(await approveKindForSession.call(controller, target, kind)),
+          })),
+          ...(notCovered ? { notCovered } : {}),
+        };
+      } else {
+        // No silent hedge: the local grant is labeled with its real scope.
+        sessionFields = onAllowForSession
+          ? { ...hostChatGrant, scopeNote: L.localChatPolicyNote }
+          : {
+              approveForSessionLabel: L.allowForChat,
+              onApproveForSession: async () => {
+                await approveAllForSession.call(controller, target, {});
+              },
+              scopeNote: L.localRunPolicyNote,
+            };
+      }
+    }
     return {
       id,
       kind: "tool-approval",
@@ -152,23 +240,7 @@ export function presentInteraction(
       approveAllDescription: onPermissionsAll
         ? `Sets permissions: all${scope ? ` ${scope}` : ""}, including future turns. Unchecked tools stay unavailable; explicit Ask overrides and Gateway restrictions remain enforced. Questions still need your answer.`
         : undefined,
-      ...(onAllowForSession
-        ? {
-            approveForSessionLabel: WORKFLOW_INTERACTION_LABELS.allowForChat,
-            approveForSessionDescription: "Allow for this chat approves this batch and the enabled tools for the rest of this conversation. Unchecked tools stay unavailable; questions still need your answer.",
-            onApproveForSession: async () => {
-              let grant: Promise<void> | undefined;
-              await controller.approveWithPolicyChange(target, () => {
-                grant = onAllowForSession();
-              });
-              // The batch is approved; a failed chat-wide grant is shown, never swallowed.
-              if (grant)
-                await grant.catch((error: unknown) => {
-                  throw new Error(`This batch was allowed, but "Allow for this chat" could not be turned on: ${error instanceof Error ? error.message : String(error)}`);
-                });
-            },
-          }
-        : {}),
+      ...sessionFields,
       ...(options.approveAllDisabledReason ? { disabledReason: options.approveAllDisabledReason } : {}),
       ...(remember ? { remember } : {}),
       ...(options.onDefer ? { onDefer: options.onDefer } : {}),

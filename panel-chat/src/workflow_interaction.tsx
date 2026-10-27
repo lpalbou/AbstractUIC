@@ -15,6 +15,11 @@ export const WORKFLOW_INTERACTION_LABELS = {
   allowOnce: "Allow once",
   allowForChat: "Allow for this chat",
   allowAll: "Allow all enabled tools",
+  /** Approve one toolset (a `GET discovery/tools` row's `toolset`) for the conversation. */
+  allowKindForChat: (toolset: string) => `Allow all ${toolset} tools for this chat`,
+  /** The labeled line when the gateway cannot store conversation policies (no silent hedge). */
+  localChatPolicyNote: "Allowed for this chat in this browser only — the gateway cannot store conversation policies.",
+  localRunPolicyNote: "Allowed until this run ends, in this browser only — the gateway cannot store conversation policies.",
   decideLater: "Decide later",
   submit: "Submit",
   skip: "Continue without answering",
@@ -103,6 +108,12 @@ export type WorkflowToolApprovalInteraction = WorkflowInteractionBase & {
   /** Why the broad grants (for this chat / all enabled tools) cannot be
    * offered for this batch. They render disabled with this reason visible. */
   disabledReason?: string;
+  /** "Allow all <toolset> tools for this chat", one per toolset in the batch (session policy, gateway mode). */
+  approveKinds?: { kind: string; label?: string; onApprove: () => void | Promise<unknown> }[];
+  /** A labeled scope line under the decisions, e.g. `WORKFLOW_INTERACTION_LABELS.localChatPolicyNote`. */
+  scopeNote?: string;
+  /** What the conversation's policy does not cover ("Not covered: send_email (not authorized)"). */
+  notCovered?: string;
 };
 
 export type WorkflowEventWaitInteraction = WorkflowInteractionBase & {
@@ -189,13 +200,16 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
     setOutcome("");
     setPending(submission);
     try {
-      await callback();
+      const result = await callback();
       if (!mountedRef.current || activeKeyRef.current !== requestKey || sequenceRef.current !== sequence) return;
       // The host is responsible for removing/replacing the wait. Until it
       // does, a locally accepted action cannot be submitted a second time.
       settledRef.current = true;
       setSettled(true);
-      setOutcome("Response sent. Waiting for the workflow to continue.");
+      // A callback may report what its decision did not cover (a session
+      // policy's `clamped` names): shown, never dropped.
+      const note = result && typeof result === "object" && typeof (result as { outcomeNote?: unknown }).outcomeNote === "string" ? String((result as { outcomeNote: string }).outcomeNote) : "";
+      setOutcome(`Response sent. Waiting for the workflow to continue.${note ? ` ${note}` : ""}`);
     } catch (error) {
       if (!mountedRef.current || activeKeyRef.current !== requestKey || sequenceRef.current !== sequence) return;
       setFailure({ submission, message: errorMessage(error) });
@@ -341,6 +355,20 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
               {pending?.kind === "approve-session" ? "Allowing…" : interaction.approveForSessionLabel || L.allowForChat}
             </button>
           ) : null}
+          {(interaction.approveKinds || []).map((entry) => (
+            <button
+              key={entry.kind}
+              type="button"
+              className="pc-workflow-interaction__allow-session pc-workflow-interaction__allow-kind"
+              data-decision="approve-kind"
+              data-kind={entry.kind}
+              disabled={broadDisabled}
+              title={reason || undefined}
+              onClick={() => void run({ kind: "approve-kind", toolset: entry.kind }, entry.onApprove)}
+            >
+              {pending?.kind === "approve-kind" && pending.toolset === entry.kind ? "Allowing…" : entry.label || L.allowKindForChat(entry.kind)}
+            </button>
+          ))}
           {interaction.onApproveAll ? (
             <button type="button" className="pc-workflow-interaction__allow-all" data-decision="approve-all" disabled={broadDisabled} title={reason || undefined} onClick={() => void run({ kind: "approve-all" }, interaction.onApproveAll!)}>
               {pending?.kind === "approve-all" ? "Allowing…" : interaction.approveAllLabel || L.allowAll}
@@ -353,7 +381,17 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
             <span>{interaction.remember.label}</span>
           </label>
         ) : null}
-        {reason && (interaction.onApproveAll || interaction.onApproveForSession) ? <p className="pc-workflow-interaction__unavailable" role="note">{reason}</p> : null}
+        {interaction.scopeNote ? (
+          <p className="pc-workflow-interaction__scope-note" role="note" data-scope-note="">
+            {interaction.scopeNote}
+          </p>
+        ) : null}
+        {interaction.notCovered ? (
+          <p className="pc-workflow-interaction__unavailable" role="note" data-not-covered="">
+            {interaction.notCovered}
+          </p>
+        ) : null}
+        {reason && (interaction.onApproveAll || interaction.onApproveForSession || interaction.approveKinds?.length) ? <p className="pc-workflow-interaction__unavailable" role="note">{reason}</p> : null}
         {!reason && interaction.onApproveForSession && interaction.approveForSessionDescription ? <p className="pc-workflow-interaction__scope">{interaction.approveForSessionDescription}</p> : null}
         {!reason && interaction.onApproveAll && interaction.approveAllDescription ? <p className="pc-workflow-interaction__scope">{interaction.approveAllDescription}</p> : null}
       </div>
