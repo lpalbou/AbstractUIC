@@ -62,6 +62,9 @@ export type ResolvedArtifact = {
   name?: string;
   /** The gateway's `size_bytes`. */
   size?: number;
+  /** Text kinds (markdown, code, json, text): the text, when the host already read it
+   * (e.g. a small artifact). Without it the document opens as a raw-file link. */
+  text?: string;
 };
 
 /** Raw runtime wait; presentation code may map this to its own UI union. */
@@ -458,8 +461,10 @@ export class WorkflowSessionController {
     }
   }
 
-  resume(response: string): Promise<unknown> {
+  /** Answer the current question. With `target`, refuses when the question shown is no longer the current one. */
+  resume(response: string, target?: WorkflowApprovalTarget): Promise<unknown> {
     const interaction = this.requireInteraction();
+    if (target && (interaction.runId !== target.runId || text(interaction.wait.wait_key) !== target.waitKey || (target.stepId !== undefined && interaction.stepId !== target.stepId))) throw new Error("This question has changed. Review the current question before answering.");
     return this.sendCommand("resume", { wait_key: text(interaction.wait.wait_key), payload: { response } });
   }
 

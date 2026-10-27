@@ -87,6 +87,9 @@ const html = (props) => renderToStaticMarkup(React.createElement(WorkflowChat, {
   composerOf(p.tree).props.onSubmit();
   await p.settle();
   check("A parked run: guidance delivers at its next wake", /Queued \(seq 3\)\. The run is waiting: your guidance delivers at its next wake/.test(textOf(find(p.tree, (n) => n.props?.className === "pc-workflow-chat__steer-status"))));
+  // Review M3: a new turn (busy flips) clears the queued note.
+  p.rerender({ busy: false });
+  check("A a new turn clears the queued note", textOf(find(p.tree, (n) => n.props?.className === "pc-workflow-chat__steer-status")) === "");
   // Not busy: plain Send; no steer: busy locks the composer.
   check("A not busy: plain Send", composerOf(mount(WorkflowChat, { ...props, busy: false }).tree).props.sendLabel === undefined);
   const locked = composerOf(mount(WorkflowChat, { ...props, steer: undefined }).tree);
@@ -169,6 +172,22 @@ const html = (props) => renderToStaticMarkup(React.createElement(WorkflowChat, {
   u.tree.clear();
   await u.settle();
   check("B hook: clear empties the queue", u.tree.items.length === 0 && u.tree.sendBlock === null);
+
+  // Review M3: clear() drops the rest of a batch and its late results.
+  {
+    const late = [];
+    let started = 0;
+    const c = mount((p) => useAttachmentUploads(p), { upload: (file) => new Promise((resolve) => { started += 1; late.push(() => resolve({ $artifact: file.name })); }), concurrency: 1 });
+    c.tree.add([f("one.txt", 1), f("two.txt", 1)]);
+    await c.settle();
+    const before = c.tree.announcement;
+    c.tree.clear();
+    await c.settle();
+    late[0]();
+    await c.settle();
+    check("B hook: after clear the rest of the batch never uploads", started === 1, `started ${started}`);
+    check("B hook: after clear a late upload is never announced", c.tree.announcement === before && c.tree.items.length === 0, c.tree.announcement);
+  }
 }
 
 // ---------------------------------------------------------------- C. toolbar
@@ -246,6 +265,13 @@ const html = (props) => renderToStaticMarkup(React.createElement(WorkflowChat, {
   check("E Stop aborts the send's signal", sendSignal?.aborted === true);
   check("E onCancel receives that same AbortSignal", cancelSignal === sendSignal);
   check("E an aborted send is not reported as a failure", !find(h.tree, (n) => n.props?.role === "alert"));
+  // Review M3: unmounting the chat aborts the in-flight send.
+  let unmountSignal = null;
+  const gone = mount(WorkflowChat, { ...base, draft: "q", onSend: (_d, ctx) => new Promise(() => void (unmountSignal = ctx.signal)) });
+  composerOf(gone.tree).props.onSubmit();
+  await gone.settle();
+  gone.unmount();
+  check("E unmount aborts the in-flight send", unmountSignal instanceof AbortSignal && unmountSignal.aborted);
   let ledgerSignal = null;
   const l = mount(WorkflowChat, { ...base, busy: true, onCancel: (signal) => void (ledgerSignal = signal) });
   find(l.tree, (n) => n.props?.className === "pc-workflow-chat__stop").props.onClick();

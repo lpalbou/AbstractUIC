@@ -157,9 +157,15 @@ export function presentInteraction(
             approveForSessionLabel: WORKFLOW_INTERACTION_LABELS.allowForChat,
             approveForSessionDescription: "Allow for this chat approves this batch and the enabled tools for the rest of this conversation. Unchecked tools stay unavailable; questions still need your answer.",
             onApproveForSession: async () => {
+              let grant: Promise<void> | undefined;
               await controller.approveWithPolicyChange(target, () => {
-                void onAllowForSession();
+                grant = onAllowForSession();
               });
+              // The batch is approved; a failed chat-wide grant is shown, never swallowed.
+              if (grant)
+                await grant.catch((error: unknown) => {
+                  throw new Error(`This batch was allowed, but "Allow for this chat" could not be turned on: ${error instanceof Error ? error.message : String(error)}`);
+                });
             },
           }
         : {}),
@@ -181,6 +187,7 @@ export function presentInteraction(
       },
     };
   }
+  const askTarget = { runId: raw.runId, waitKey: String(wait.wait_key || ""), stepId: raw.stepId };
   if (wait.reason === "user" || wait.reason === "ask_user")
     return {
       id,
@@ -198,12 +205,12 @@ export function presentInteraction(
           : { id: String(choice), label: String(choice) },
       ),
       onSubmit: async (answer) => {
-        await controller.resume(answer);
+        await controller.resume(answer, askTarget);
       },
       ...(options.allowSkip
         ? {
             onSkip: async () => {
-              await controller.resume("");
+              await controller.resume("", askTarget);
             },
           }
         : {}),

@@ -393,7 +393,7 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
         <Icon name={interaction.kind === "tool-approval" ? "warning" : interaction.kind === "event-wait" ? "history" : "info"} size={card ? 14 : 16} />
         <div>
           <h3 tabIndex={-1} id={`pc-workflow-interaction-${interactionKey}`}>{title}</h3>
-          {interaction.description && !card ? <div className="pc-workflow-interaction__description">{interaction.description}</div> : null}
+          {interaction.description ? <div className="pc-workflow-interaction__description">{interaction.description}</div> : null}
         </div>
       </div>
       {body}

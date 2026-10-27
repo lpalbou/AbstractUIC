@@ -95,6 +95,7 @@ export type WorkflowChatProps = {
    * (a visible chip is never left behind silently by a send).
    */
   attachmentItems?: ComposerAttachment[];
+  /** Required with `attachmentItems`: a refused/failed chip blocks Send until it is removed. */
   onRemoveAttachment?: (id: string) => void;
   onRetryAttachment?: (id: string) => void;
   /** Steer/queue while busy: the send button becomes "Steer"/"Queue". */

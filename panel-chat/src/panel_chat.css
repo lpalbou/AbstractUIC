@@ -1285,6 +1285,13 @@
   color: var(--text-muted, #888);
 }
 
+@media (pointer: coarse) {
+  .pc-chat-media__file-open,
+  .pc-chat-media__transcript > summary {
+    min-height: var(--tap-min, 44px);
+  }
+}
+
 .pc-chat-media__file-open {
   border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
   border-radius: var(--radius-sm, 6px);
@@ -2509,4 +2516,7 @@ button.pc-ws__name:hover {
 @media (pointer: coarse) {
   .pc-attachment-chip__action,
   .pc-workflow-chat__steer-mode { min-height: var(--tap-min, 44px); min-width: var(--tap-min, 44px); }
+  .pc-workflow-interaction__review > summary,
+  .pc-workflow-interaction__remember { min-height: var(--tap-min, 44px); }
+  .pc-workflow-interaction__review > summary { display: flex; align-items: center; }
 }

@@ -7,7 +7,7 @@
 // safeMarkdownImages) so every client previews files the same way.
 import React, { useEffect, useState } from "react";
 import { AfFileViewer, fileViewerKind, fileViewerNeedsText, formatFileSize, gatewayApiPath, type AfFileViewerKind, type AfFileViewerProps } from "@abstractframework/ui-kit";
-import { Markdown } from "./markdown.js";
+import { Markdown, type MarkdownImages } from "./markdown.js";
 
 /** A gateway request with the host's credentials (see `workspace_browser.tsx`). */
 type GatewayFetch = (path: string, init?: RequestInit) => Promise<Response>;
@@ -200,11 +200,26 @@ export function useWorkspaceFilePreview(fetchGateway: GatewayFetch, runId: strin
   return state;
 }
 
-export type FileViewerProps = Omit<AfFileViewerProps, "renderMarkdown" | "nowMs"> & { nowMs?: number };
+export type FileViewerProps = Omit<AfFileViewerProps, "renderMarkdown" | "nowMs"> & {
+  nowMs?: number;
+  /** Image loading in a Markdown file (see `Markdown`): `"link"` keeps remote
+   * images as links (only `inlineImage`-accepted sources load). Default: inline. */
+  markdownImages?: MarkdownImages;
+  inlineImage?: (src: string) => boolean;
+  /** A host Markdown renderer (e.g. its sanitizer); wins over the built-in one. */
+  renderMarkdown?: (markdown: string) => React.ReactNode;
+};
 
 /** `AfFileViewer` with panel-chat's Markdown renderer (the one every client uses). */
 export function FileViewer(props: FileViewerProps): React.ReactElement {
-  return <AfFileViewer {...props} nowMs={props.nowMs ?? Date.now()} renderMarkdown={(text) => <Markdown text={text} />} />;
+  const { markdownImages, inlineImage, renderMarkdown, ...rest } = props;
+  return (
+    <AfFileViewer
+      {...rest}
+      nowMs={props.nowMs ?? Date.now()}
+      renderMarkdown={renderMarkdown || ((text) => <Markdown text={text} {...(markdownImages ? { images: markdownImages } : {})} {...(inlineImage ? { inlineImage } : {})} />)}
+    />
+  );
 }
 
 /** Props of `FileViewer` for a loaded `FilePreviewState`. */

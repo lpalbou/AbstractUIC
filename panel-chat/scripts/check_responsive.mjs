@@ -60,7 +60,7 @@ if (!/@media \(max-width: 479\.98px\)\s*\{[^}]*\.pc-tool-activity__preview/.test
 
 // C. touch
 const coarse = blocks_of(css, /@media\s*\(pointer:\s*coarse\)\s*\{/g);
-for (const sel of [".pc-btn", ".pc-workflow-interaction button", ".pc-workflow-chat__stop", ".pc-workflow-chat__error button", ".pc-assistant__suggestion", ".pc-ws__btn", ".pc-ws__entry", ".pc-tool-activity__summary"]) {
+for (const sel of [".pc-btn", ".pc-workflow-interaction button", ".pc-workflow-chat__stop", ".pc-workflow-chat__error button", ".pc-assistant__suggestion", ".pc-ws__btn", ".pc-ws__entry", ".pc-tool-activity__summary", ".pc-chat-media__file-open", ".pc-chat-media__transcript > summary", ".pc-workflow-interaction__review > summary", ".pc-workflow-interaction__remember", ".pc-attachment-chip__action", ".pc-workflow-chat__steer-mode"]) {
   const v = resolve(coarse, sel)["min-height"] || "";
   if (!/^var\(--tap-min, 44px\)$|^44px$/.test(v)) fail(`coarse: ${sel} must reach 44px (min-height var(--tap-min, 44px)), got "${v}"`);
 }

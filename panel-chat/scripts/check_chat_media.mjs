@@ -96,7 +96,34 @@ check("the card's stats prop wins over message.stats", propStats.includes("prop"
   check("a text file without text says so (never an empty viewer)", noTextViewer?.props.status === "error" && /No preview text/.test(noTextViewer.props.error), noTextViewer?.props);
   const viaHost = openFile(pdf, { onOpenMedia: (item) => opener.push(item) });
   byData(viaHost.tree, "data-action", "open-file").props.onClick();
-  check("the host opener receives the item", opener.at(-1) === pdf);
+  check("the host opener receives the item", opener.at(-1)?.name === "report.pdf" && opener.at(-1)?.src === "blob:http://x/p");
+  // Review L2: the opener gets sanitized sources only.
+  const evil = { kind: "file", src: "javascript:alert(1)", href: "/api/gateway/runs/r/artifacts/e/content", name: "e.pdf" };
+  const viaEvil = openFile(evil, { onOpenMedia: (item) => opener.push(item) });
+  byData(viaEvil.tree, "data-action", "open-file").props.onClick();
+  check("the opener never receives an unsafe src", opener.at(-1)?.src === "" && opener.at(-1)?.href === "/api/gateway/runs/r/artifacts/e/content", opener.at(-1));
+
+  // Review M1: a Markdown file follows the chat's image policy (default "link").
+  const tracker = { kind: "file", src: "", name: "r.md", text: "![x](https://tracker.example/p.png)" };
+  const mdOpen = (props) => {
+    const o = openFile(tracker, props);
+    byData(o.tree, "data-action", "toggle-file").props.onClick();
+    o.render();
+    return renderToStaticMarkup(find(o.tree, (n) => n.type === FileViewer));
+  };
+  const linked = mdOpen({});
+  check("an opened Markdown file does not load remote images by default", !/<img[^>]*src="https:\/\/tracker\.example/.test(linked) && linked.includes('href="https://tracker.example/p.png"'), linked);
+  check("the chat's own image policy reaches the file", /<img[^>]*src="https:\/\/tracker\.example\/p\.png"/.test(mdOpen({ images: "inline" })));
+  check("the host Markdown renderer reaches the file", mdOpen({ renderMarkdown: () => React.createElement("i", { id: "host-md" }) }).includes('id="host-md"'));
+
+  // Review M2: a document is never a dead end.
+  const mdArtifact = chatMediaFromArtifact({ src: "blob:http://x/md", contentType: "text/markdown", name: "report.md" });
+  check("a resolved document links its raw file", mdArtifact.kind === "file" && mdArtifact.href === "blob:http://x/md", mdArtifact);
+  check("a resolved document carries the host's text", chatMediaFromArtifact({ src: "blob:x", contentType: "text/markdown", name: "a.md", text: "# A" }).text === "# A");
+  const noHref = card({ id: "nh", role: "assistant", content: "", media: [{ kind: "file", src: "blob:http://x/c", name: "main.py" }] });
+  check("a file without href still shows its raw link (the host's src)", noHref.includes('href="blob:http://x/c"') && noHref.includes(">Raw file<"), noHref);
+  // Review H1: TypeScript is code even when served as video/mp2t.
+  check("a .ts artifact served as video/mp2t is a document, not a video", chatMediaFromArtifact({ src: "blob:t", contentType: "video/mp2t", name: "app.ts" }).kind === "file");
 
   // Resolved artifacts → media kinds from the gateway's content_type.
   const kinds = [["image/png", "a.png"], ["audio/mpeg", "a.mp3"], ["video/mp4", "a.mp4"], ["application/pdf", "a.pdf"], ["image/svg+xml", "a.svg"], ["text/markdown", "a.md"]].map(([contentType, name]) => chatMediaFromArtifact({ src: "blob:x", contentType, name, size: 3 }).kind);

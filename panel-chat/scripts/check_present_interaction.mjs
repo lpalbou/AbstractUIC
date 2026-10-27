@@ -16,7 +16,7 @@ const controller = {
     calls.push(["approveWithPolicyChange", target]);
     onApproved();
   },
-  resume: async (answer) => void calls.push(["resume", answer]),
+  resume: async (answer, target) => void calls.push(target ? ["resume", answer, target] : ["resume", answer]),
   emitEvent: async (event) => void calls.push(["emitEvent", event]),
 };
 
@@ -73,7 +73,7 @@ assert.deepEqual(ask.choices, [
   { id: "tue", label: "Tuesday", description: "after 2 pm" },
 ]);
 await ask.onSubmit("tue");
-assert.deepEqual(calls.at(-1), ["resume", "tue"], "the answer resumes the run");
+assert.deepEqual(calls.at(-1), ["resume", "tue", { runId: "run-2", waitKey: "ask:1", stepId: undefined }], "the answer resumes the run, targeted at the question shown");
 const askDefault = presentInteraction({ runId: "r", wait: { wait_key: "k", reason: "user", details: { prompt: "From details" } } }, controller);
 assert.equal(askDefault.prompt, "From details");
 assert.equal(askDefault.allowFreeText, true, "free text allowed unless the wait says otherwise");
@@ -137,7 +137,11 @@ assert.equal(calls.length, before, "nothing emitted");
   const skip = presentInteraction({ runId: "run-2", wait: { wait_key: "ask:1", reason: "ask_user", prompt: "Which day?" } }, controller, { allowSkip: true, onDefer: () => {} });
   assert.equal(typeof skip.onDefer, "function", "Keep waiting on a question when injected");
   await skip.onSkip();
-  assert.deepEqual(calls.at(-1), ["resume", ""], "Continue without answering resumes with an empty answer");
+  assert.deepEqual(calls.at(-1), ["resume", "", { runId: "run-2", waitKey: "ask:1", stepId: undefined }], "Continue without answering resumes with an empty answer, targeted at the question shown");
+
+  // Review L3: a failed chat-wide grant is surfaced, never an unhandled rejection.
+  const failing = presentInteraction(toolWait, controller, { onAllowForSession: async () => { throw new Error("storage full"); } });
+  await assert.rejects(() => failing.onApproveForSession(), /could not be turned on: storage full/, "a failed Allow for this chat is shown to the person");
 
   // replay_view_v1.interaction → the same control as the raw wait.
   const replayTool = {
@@ -159,6 +163,8 @@ assert.equal(calls.length, before, "nothing emitted");
   const replayAsk = { kind: "ask_user", run_id: "run-2", wait_key: "ask:1", step_id: null, prompt: "Which day?", choices: ["Monday", { value: "tue", label: "Tuesday", description: "after 2 pm" }], allow_free_text: false, details: {}, tool_calls: null };
   const askReplay = presentInteraction(replayAsk, controller);
   assert.deepEqual({ ...askReplay, onSubmit: 0 }, { ...ask, onSubmit: 0 }, "replay question = raw question");
+  await askReplay.onSubmit("tue");
+  assert.deepEqual(calls.at(-1), ["resume", "tue", { runId: "run-2", waitKey: "ask:1", stepId: undefined }], "a replay answer carries the replay's run_id / wait_key");
   assert.equal(replayInteractionWait(replayAsk).wait.reason, "user");
 
   // --- the panel renders the decisions it was given, and only those ----------------------
@@ -191,7 +197,7 @@ assert.equal(calls.length, before, "nothing emitted");
   const cardHtml = html({ ...bare, detail: "rm -rf build", description: "long explainer" }, { variant: "card" });
   assert.ok(cardHtml.includes('class="pc-workflow-interaction pc-workflow-interaction--card" data-variant="card"'), "card variant");
   assert.match(cardHtml, /<details class="pc-workflow-interaction__review"><summary>Review<\/summary>/, "card folds the detail behind Review");
-  assert.ok(!cardHtml.includes("long explainer"), "card drops the long description");
+  assert.ok(cardHtml.includes("long explainer"), "card keeps the description (e.g. why an event cannot be sent)");
   assert.match(cardHtml, /data-decision="approve"[^>]*>Allow once</, "card keeps the same decisions");
   assert.ok(html(bare).includes('data-variant="panel"'), "panel is the default variant");
 

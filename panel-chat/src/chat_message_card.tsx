@@ -177,10 +177,17 @@ function mediaSource(src: string): string | undefined {
 
 /** A document in the chat: a compact row that opens the shared file viewer
  * inline (or the host's opener). Nothing loads until it is opened. */
-function ChatMediaFile({ item, onOpen }: { item: ChatMedia; onOpen?: (item: ChatMedia) => void }): React.ReactElement | null {
+type MediaMarkdownPolicy = {
+  renderMarkdown?: (markdown: string) => React.ReactElement;
+  images?: MarkdownImages;
+  inlineImage?: (src: string) => boolean;
+};
+
+function ChatMediaFile({ item, onOpen, markdown }: { item: ChatMedia; onOpen?: (item: ChatMedia) => void; markdown: MediaMarkdownPolicy }): React.ReactElement | null {
   const [open, setOpen] = useState(false);
   const src = mediaSource(item.src);
-  const href = item.href ? mediaSource(item.href) : undefined;
+  // A file always keeps a way out: its raw link, or the host's object URL.
+  const href = (item.href ? mediaSource(item.href) : undefined) || src;
   const name = String(item.name || item.label || "").trim() || "File";
   const kind = fileViewerKind(name, item.contentType);
   const needsText = fileViewerNeedsText(kind);
@@ -197,7 +204,13 @@ function ChatMediaFile({ item, onOpen }: { item: ChatMedia; onOpen?: (item: Chat
         </span>
         {size ? <span className="pc-chat-media__file-size">{size}</span> : null}
         {onOpen ? (
-          <button type="button" className="pc-chat-media__file-open" data-action="open-file" onClick={() => onOpen(item)}>
+          <button
+            type="button"
+            className="pc-chat-media__file-open"
+            data-action="open-file"
+            // The opener gets the item as the kit would render it: sanitized sources only.
+            onClick={() => onOpen({ ...item, src: src || "", ...(href ? { href } : { href: undefined }) })}
+          >
             Open
           </button>
         ) : (
@@ -219,7 +232,12 @@ function ChatMediaFile({ item, onOpen }: { item: ChatMedia; onOpen?: (item: Chat
           contentType={item.contentType}
           sizeBytes={item.size}
           status={needsText && !hasText ? "error" : "ready"}
-          error={needsText && !hasText ? "No preview text was supplied for this file; open the raw file." : undefined}
+          error={needsText && !hasText ? (href ? "No preview text was supplied for this file; open the raw file." : "No preview text was supplied for this file.") : undefined}
+          // The chat's image policy reaches a Markdown file too (default "link":
+          // a generated document must not make the browser fetch remote images).
+          markdownImages={markdown.images || "link"}
+          {...(markdown.inlineImage ? { inlineImage: markdown.inlineImage } : {})}
+          {...(markdown.renderMarkdown ? { renderMarkdown: markdown.renderMarkdown } : {})}
           {...(hasText ? { text: item.text } : {})}
           {...(src && !needsText ? { url: src } : {})}
           onClose={() => setOpen(false)}
@@ -229,9 +247,9 @@ function ChatMediaFile({ item, onOpen }: { item: ChatMedia; onOpen?: (item: Chat
   );
 }
 
-function ChatMediaItem({ item, onOpenFile }: { item: ChatMedia; onOpenFile?: (item: ChatMedia) => void }): React.ReactElement | null {
+function ChatMediaItem({ item, onOpenFile, markdown }: { item: ChatMedia; onOpenFile?: (item: ChatMedia) => void; markdown?: MediaMarkdownPolicy }): React.ReactElement | null {
   const [failed, setFailed] = useState(false);
-  if (item.kind === "file") return <ChatMediaFile item={item} onOpen={onOpenFile} />;
+  if (item.kind === "file") return <ChatMediaFile item={item} onOpen={onOpenFile} markdown={markdown || {}} />;
   const src = mediaSource(item.src);
   const href = item.href ? mediaSource(item.href) : undefined;
   const kind = item.kind === "image" || item.kind === "audio" || item.kind === "video" ? item.kind : null;
@@ -434,7 +452,12 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
       {media.length ? (
         <div className="pc-chat-media">
           {media.slice(0, 24).map((item, idx) => (
-            <ChatMediaItem key={item.id || `${item.kind}:${item.src}:${idx}`} item={item} onOpenFile={props.onOpenMedia} />
+            <ChatMediaItem
+              key={item.id || `${item.kind}:${item.src}:${idx}`}
+              item={item}
+              onOpenFile={props.onOpenMedia}
+              markdown={{ renderMarkdown: props.renderMarkdown, images: props.images, inlineImage: props.inlineImage }}
+            />
           ))}
         </div>
       ) : null}

@@ -28,9 +28,11 @@ export function chatMediaFromArtifact(
     ...(typeof artifact.size === "number" ? { size: artifact.size } : {}),
     ...(extra.id ? { id: extra.id } : {}),
     ...(extra.label ? { label: extra.label } : {}),
-    ...(extra.href ? { href: extra.href } : {}),
+    ...(extra.href && kind !== "file" ? { href: extra.href } : {}),
     ...(extra.transcript && kind === "audio" ? { transcript: extra.transcript } : {}),
-    ...(extra.text !== undefined && kind === "file" ? { text: extra.text } : {}),
+    // A document always has a way out: its raw link (default: the host's object URL).
+    ...(kind === "file" ? { href: extra.href || artifact.src } : {}),
+    ...(kind === "file" && (extra.text ?? artifact.text) !== undefined ? { text: extra.text ?? artifact.text } : {}),
   };
 }
 

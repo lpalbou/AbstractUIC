@@ -110,7 +110,8 @@ export type UseAttachmentUploadsOptions<T> = {
   maxBytes?: number;
   /** Uploads in flight at once (default 3). */
   concurrency?: number;
-  /** Optional preview for a chip (e.g. an object URL for images). */
+  /** Optional preview for a chip (e.g. an object URL for images). The host owns
+   * the URL: revoke it when the chip is removed or the queue is cleared. */
   thumbnail?: (file: File) => string | undefined;
 };
 
