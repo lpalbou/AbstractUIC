@@ -506,7 +506,7 @@ app code or fetch on their own (injected transports are the pattern where networ
 | App assistant (docs Q&A drawer) | `AssistantPanel` (panel-chat) in `AfDrawer` via `AfTopBarActions` | Transport injected. THE shared transport (docs-qa@0.1.0, tenant_catalog): `POST /runs/start {registry_scope:"tenant_catalog", bundle_id:"docs-qa", bundle_version:"0.1.0", flow_id:"docsqa001", input_data:{question, history, docs:<llms.txt text>, app}}`, answer on `output.response` — grounded on YOUR docs only, cites sections, says honestly when docs don't answer. `import docs from "./llms.txt?raw"` remains the recommended docs source (build-time, versioned) |
 | Markdown / JSON rendering | `Markdown`, `JsonViewer` (panel-chat) | Also exported standalone |
 | TTS playback + push-to-talk | `useGatewayVoice` (+ `streamTtsJsonl`) | Injected `tts`/`tts_stream`/`transcribe` functions; streaming with pause/resume; output and input device, volume and input level options |
-| Voice settings page | `AfVoiceSection` | Pass `fetchDefaults` (`GET /api/gateway/voice/defaults`): "Gateway default · provider / model" comes only from it; the host stores the overrides |
+| Voice settings page | `AfVoiceSection` | Pass `fetchDefaults` (`GET /api/gateway/voice/defaults`): "Gateway default · provider / model" comes only from it; the host stores the overrides. Pass `createVoice` (`design` → `POST /api/gateway/voice/design`, `clone` → multipart `POST /api/gateway/voice/clones`) to let people create their own voices |
 | Compact settings rows | `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow` | "Gateway default" until the user overrides it; **Use gateway default** returns to it |
 | Side panels on a vertical icon rail | `AfRailDrawer` | Docked from 1024 px, floating below; resizable, width persisted under `storageKey` |
 | File preview | `AfFileViewer` (ui-kit) or `FileViewer` + `useWorkspaceFilePreview` (panel-chat, for run workspace files) | Markdown, highlighted code, JSON, images, audio, PDF, text; the host fetches with its own credentials |
@@ -1643,7 +1643,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   `optionsInDefaultMode={false}` takes the gateway default whole: reasoning and MTP appear only
   once a custom provider/model is chosen (for hosts that store them only with a pinned model,
   such as an entity's mind).
-- Voice: `VoiceSettings` (provider + model + voice from the Gateway catalog, "Gateway default"
+- Voice: `VoiceSettings` (provider + model + voice from the Gateway catalog, grouped into Your voices / Engine voices / Shared voices (built-in and administrator-shared) with a language filter (voices with no language restriction always pass), and an optional `createVoice` panel (`VoiceCreation`: `design`, `clone`; a recording's language is detected unless chosen) that creates a voice through the gateway and selects it; "Gateway default"
   first). Host props: `intro` (`null` hides the paragraph), `delivery` (speed / quality /
   instructions, default on), `showReset`, `defaultHint` (names what the gateway default is) and
   `voiceDefaultLabel` (the voice select's unset choice).
@@ -5297,7 +5297,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.6.2",
+  "version": "0.6.4",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -5321,7 +5321,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.8.8",
+  "version": "0.8.9",
   "description": "Shared UI tokens + themes for AbstractFramework thin clients (AbstractFlow, AbstractObserver, etc.).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -5362,7 +5362,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -5780,7 +5780,18 @@ export {
   type EffortFacts,
   type EffortRow,
 } from "./cognition_bloom_core.js";
-export { VoiceSettings, type VoicePreferences, type VoiceCatalog } from "./voice_settings.js";
+export {
+  VoiceSettings,
+  CreateVoicePanel,
+  voiceGroup,
+  voiceLanguage,
+  voiceLanguages,
+  voiceSpeaks,
+  voiceLanguageLabel,
+  type VoicePreferences,
+  type VoiceCatalog,
+  type VoiceCreation,
+} from "./voice_settings.js";
 export {
   RULED_PHASES,
   PHASE_DESCRIPTORS,
@@ -16605,6 +16616,29 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## Unreleased
+
+## 0.6.4 - 2026-10-27
+
+Packages: `@abstractframework/ui-kit` 0.8.9.
+
+### Added
+
+- **Voice picker follows the gateway's voice library** (AbstractGateway 0.16.0): `VoiceSettings` (and so
+  `AfVoiceSection`) groups voices into **Your voices**, **Engine voices** and **Shared voices** (the built-in voices
+  and the voices the administrator shares), shows each voice's native language, filters by language (**Voices that
+  speak**, shown when the catalog has several; it starts over when the speech provider changes and when one language
+  is left), and shows the selected voice's description. A voice with no native language and no listed languages
+  (`languages: []`, e.g. remote/OpenAI voices) is unrestricted and passes every language filter. A clone is recognised
+  by its record's `kind` as well as `voice_kind` (the gateway's catalog merge sets `voice_kind: "voice"` on a clone an
+  engine also lists). Helpers: `voiceGroup`, `voiceLanguage`, `voiceLanguages`, `voiceSpeaks`, `voiceLanguageLabel`.
+- **Create a voice**: `VoiceSettings` / `AfVoiceSection` take `createVoice: VoiceCreation` (`design` = the gateway's
+  `POST voice/design`, `clone` = `POST voice/clones`); the panel (`CreateVoicePanel`) offers the injected modes, from a
+  description (with a language, English by default) or from a recording (its language **Detect from the recording**
+  by default: no `language` is sent and the gateway identifies it), with a name, and selects the new voice when it is
+  ready, merged into the preferences as they are then. One request at a time (the mode tabs and Create are disabled
+  while it runs); a result that arrives after the panel is gone is dropped. Without `createVoice` nothing changes.
+
+## 0.6.3 - 2026-10-26
 
 ### ui-kit 0.8.8
 

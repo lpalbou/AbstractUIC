@@ -9,6 +9,27 @@ ships.
 
 ## Unreleased
 
+## 0.6.4 - 2026-10-27
+
+Packages: `@abstractframework/ui-kit` 0.8.9.
+
+### Added
+
+- **Voice picker follows the gateway's voice library** (AbstractGateway 0.16.0): `VoiceSettings` (and so
+  `AfVoiceSection`) groups voices into **Your voices**, **Engine voices** and **Shared voices** (the built-in voices
+  and the voices the administrator shares), shows each voice's native language, filters by language (**Voices that
+  speak**, shown when the catalog has several; it starts over when the speech provider changes and when one language
+  is left), and shows the selected voice's description. A voice with no native language and no listed languages
+  (`languages: []`, e.g. remote/OpenAI voices) is unrestricted and passes every language filter. A clone is recognised
+  by its record's `kind` as well as `voice_kind` (the gateway's catalog merge sets `voice_kind: "voice"` on a clone an
+  engine also lists). Helpers: `voiceGroup`, `voiceLanguage`, `voiceLanguages`, `voiceSpeaks`, `voiceLanguageLabel`.
+- **Create a voice**: `VoiceSettings` / `AfVoiceSection` take `createVoice: VoiceCreation` (`design` = the gateway's
+  `POST voice/design`, `clone` = `POST voice/clones`); the panel (`CreateVoicePanel`) offers the injected modes, from a
+  description (with a language, English by default) or from a recording (its language **Detect from the recording**
+  by default: no `language` is sent and the gateway identifies it), with a name, and selects the new voice when it is
+  ready, merged into the preferences as they are then. One request at a time (the mode tabs and Create are disabled
+  while it runs); a result that arrives after the panel is gone is dropped. Without `createVoice` nothing changes.
+
 ## 0.6.3 - 2026-10-26
 
 ### ui-kit 0.8.8
