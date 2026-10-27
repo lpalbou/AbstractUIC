@@ -159,3 +159,7 @@ export {
   type FilePreviewState,
   type FileViewerProps,
 } from "./file_viewer.js";
+
+// --- ui-primitives (chat) ---
+export { WORKFLOW_INTERACTION_LABELS, type WorkflowInteractionRemember } from "./workflow_interaction.js";
+export { isReplayInteraction, replayInteractionWait, type ReplayInteraction } from "./present_interaction.js";

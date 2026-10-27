@@ -6,8 +6,60 @@
 import { resolveWorkflowEventTarget } from "./event_target.js";
 import { JsonViewer } from "./json_viewer.js";
 import { ToolActivityGroup } from "./tool_activity.js";
-import type { WorkflowInteraction } from "./workflow_interaction.js";
+import { WORKFLOW_INTERACTION_LABELS, type WorkflowInteraction, type WorkflowInteractionRemember } from "./workflow_interaction.js";
 import type { ServerRecord, WorkflowRecord, WorkflowSessionController, WorkflowWaitInteraction } from "./workflow_runtime.js";
+
+/**
+ * The served, tree-resolved pending interaction of the replay view
+ * (`replay_view_v1.interaction`: the newest person-facing open wait in the
+ * run tree, with a ready `command`).
+ *
+ * THIS IS A SEAM, NOT A DATA PATH: no gateway on `main` serves it yet (there
+ * is no `GET /runs/{id}/view` and no `/view/stream`; the view is WIP on
+ * abstractruntime `feat/replay-view`, root backlog 0993). Today's data path
+ * stays the ledger fold + served `runs/{id}.waiting`
+ * (`WorkflowSessionController` / `useWorkflowSession`). `presentInteraction`
+ * accepts this shape so the panel does not change when the view ships; this
+ * package never fetches a `/view` route.
+ *
+ * Shape as written by `ReplayView._interaction_of` (abstractruntime
+ * `replay/view.py`): `details` has `tool_calls` stripped (they are top-level),
+ * and `kind` is one of the person-facing kinds.
+ */
+export type ReplayInteraction = {
+  kind: "tool_approval" | "ask_user";
+  run_id: string;
+  wait_key: string;
+  step_id?: string | null;
+  seq?: number | null;
+  prompt?: string | null;
+  choices?: unknown[] | null;
+  allow_free_text?: boolean | null;
+  details?: Record<string, unknown> | null;
+  tool_calls?: unknown[] | null;
+  activity_id?: string | null;
+  command?: { type: "resume"; run_id: string; payload: { wait_key: string } };
+};
+
+/** True for a `replay_view_v1.interaction` (it has `run_id` + `wait_key`, a raw wait has `runId` + `wait`). */
+export function isReplayInteraction(value: unknown): value is ReplayInteraction {
+  const v = value as Record<string, unknown> | null;
+  return Boolean(v && typeof v === "object" && typeof v.run_id === "string" && typeof v.wait_key === "string" && !("wait" in v));
+}
+
+/** The raw runtime wait a replay interaction stands for (same control, same target). */
+export function replayInteractionWait(interaction: ReplayInteraction): WorkflowWaitInteraction {
+  const details: Record<string, unknown> = { ...(interaction.details || {}) };
+  if (interaction.kind === "tool_approval") {
+    details.kind = "tool_approval";
+    details.tool_calls = Array.isArray(interaction.tool_calls) ? interaction.tool_calls : [];
+  }
+  const wait: Record<string, unknown> = { wait_key: interaction.wait_key, reason: interaction.kind === "ask_user" ? "user" : "tool_approval", details };
+  if (interaction.prompt != null) wait.prompt = interaction.prompt;
+  if (Array.isArray(interaction.choices)) wait.choices = interaction.choices;
+  if (typeof interaction.allow_free_text === "boolean") wait.allow_free_text = interaction.allow_free_text;
+  return { runId: interaction.run_id, wait, ...(interaction.step_id ? { stepId: interaction.step_id } : {}) };
+}
 
 export type PresentInteractionOptions = {
   /** The session's records: an event wait is routed from them (`resolveWorkflowEventTarget`). */
@@ -20,6 +72,30 @@ export type PresentInteractionOptions = {
    * Omit it and only Allow once / Deny are offered.
    */
   onPermissionsAll?: () => Promise<void>;
+  /**
+   * Where the "Allow all enabled tools" policy is kept, in the host's words
+   * ("for this Gateway account", "in this browser"). Only the host knows; the
+   * default sentence asserts no scope (backlog 0032: AbstractCode said
+   * "Gateway account" over per-browser storage).
+   */
+  approveAllScope?: string;
+  /**
+   * Offer "Allow for this chat": approves this batch, then the host turns on
+   * its chat-scoped grant (e.g. a session-level tool policy it applies to
+   * every run of this conversation with `setToolApprovalPolicy`). The host
+   * owns the scope because a chat spans several runs: the controller's own
+   * `allowAllToolsForRun` ends with the run. Omit it and the button is not
+   * offered.
+   */
+  onAllowForSession?: () => Promise<void>;
+  /** Why the broad grants cannot be offered for this batch (rendered disabled, reason visible). */
+  approveAllDisabledReason?: string;
+  /** Host-owned per-tool "remember" checkbox for this batch's tool names. */
+  remember?: (toolNames: string[]) => WorkflowInteractionRemember | null | undefined;
+  /** "Decide later" / "Keep waiting": the host dismisses the control. Nothing is sent. */
+  onDefer?: () => void | Promise<unknown>;
+  /** Offer "Continue without answering" on a question: resumes with an empty answer. */
+  allowSkip?: boolean;
 };
 
 /** The controller methods the controls call. */
@@ -30,11 +106,12 @@ export type InteractionController = Pick<WorkflowSessionController, "approve" | 
  * person answers here (e.g. a subworkflow wait: never a question).
  */
 export function presentInteraction(
-  raw: WorkflowWaitInteraction | null,
+  input: WorkflowWaitInteraction | ReplayInteraction | null,
   controller: InteractionController,
   options: PresentInteractionOptions = {},
 ): WorkflowInteraction | null {
-  if (!raw) return null;
+  if (!input) return null;
+  const raw: WorkflowWaitInteraction = isReplayInteraction(input) ? replayInteractionWait(input) : input;
   const wait = raw.wait as Record<string, any>;
   const id = `${raw.runId}:${wait.wait_key}:${raw.stepId || ""}`;
   const details = wait.details || {};
@@ -43,6 +120,9 @@ export function presentInteraction(
     const target = { runId: raw.runId, waitKey: String(wait.wait_key || ""), stepId: raw.stepId };
     const names = [...new Set(calls.map((call: any) => String(call?.name || "tool")))];
     const onPermissionsAll = options.onPermissionsAll;
+    const onAllowForSession = options.onAllowForSession;
+    const scope = String(options.approveAllScope || "").trim();
+    const remember = options.remember?.(names) || undefined;
     return {
       id,
       kind: "tool-approval",
@@ -66,12 +146,26 @@ export function presentInteraction(
           </details>
         </div>
       ),
-      approveLabel: "Allow once",
-      denyLabel: "Deny",
-      approveAllLabel: onPermissionsAll ? "Allow all enabled tools" : undefined,
+      approveLabel: WORKFLOW_INTERACTION_LABELS.allowOnce,
+      denyLabel: WORKFLOW_INTERACTION_LABELS.deny,
+      approveAllLabel: onPermissionsAll ? WORKFLOW_INTERACTION_LABELS.allowAll : undefined,
       approveAllDescription: onPermissionsAll
-        ? "Sets permissions: all for this Gateway account, including future turns. Unchecked tools stay unavailable; explicit Ask overrides and Gateway restrictions remain enforced. Questions still need your answer."
+        ? `Sets permissions: all${scope ? ` ${scope}` : ""}, including future turns. Unchecked tools stay unavailable; explicit Ask overrides and Gateway restrictions remain enforced. Questions still need your answer.`
         : undefined,
+      ...(onAllowForSession
+        ? {
+            approveForSessionLabel: WORKFLOW_INTERACTION_LABELS.allowForChat,
+            approveForSessionDescription: "Allow for this chat approves this batch and the enabled tools for the rest of this conversation. Unchecked tools stay unavailable; questions still need your answer.",
+            onApproveForSession: async () => {
+              await controller.approveWithPolicyChange(target, () => {
+                void onAllowForSession();
+              });
+            },
+          }
+        : {}),
+      ...(options.approveAllDisabledReason ? { disabledReason: options.approveAllDisabledReason } : {}),
+      ...(remember ? { remember } : {}),
+      ...(options.onDefer ? { onDefer: options.onDefer } : {}),
       onApproveAll: onPermissionsAll
         ? async () => {
             await controller.approveWithPolicyChange(target, () => {
@@ -106,6 +200,14 @@ export function presentInteraction(
       onSubmit: async (answer) => {
         await controller.resume(answer);
       },
+      ...(options.allowSkip
+        ? {
+            onSkip: async () => {
+              await controller.resume("");
+            },
+          }
+        : {}),
+      ...(options.onDefer ? { onDefer: options.onDefer } : {}),
     };
   const key = String(wait.wait_key || "");
   if (wait.reason === "event" || key.startsWith("evt:")) {

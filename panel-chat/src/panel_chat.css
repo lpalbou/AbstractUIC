@@ -2276,3 +2276,49 @@ button.pc-ws__name:hover {
     min-height: var(--tap-min, 44px);
   }
 }
+
+/* --- ui-primitives (chat) --- */
+/* Questions and approvals (backlog 0032): the one decision set. */
+.pc-workflow-interaction__defer,
+.pc-workflow-interaction__skip,
+.pc-workflow-interaction__allow-session {
+  border: 1px solid var(--ui-border-1);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  cursor: pointer;
+  font: 600 var(--font-size-sm) var(--font-sans);
+}
+.pc-workflow-interaction__allow-session {
+  border-color: var(--accent-border);
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+}
+.pc-workflow-interaction__defer { margin-right: auto; border-color: transparent; }
+.pc-workflow-interaction__defer:hover:not(:disabled),
+.pc-workflow-interaction__skip:hover:not(:disabled) { background: var(--ui-overlay-bg-hover); }
+.pc-workflow-interaction__remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.pc-workflow-interaction__unavailable {
+  margin: 0;
+  color: var(--warning);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  max-width: 70ch;
+}
+.pc-workflow-interaction--card { padding: 8px 10px; margin-top: 0; }
+.pc-workflow-interaction--card .pc-workflow-interaction__heading h3 { font-size: var(--font-size-sm); }
+.pc-workflow-interaction--card .pc-workflow-interaction__body { gap: 6px; margin-top: 6px; }
+.pc-workflow-interaction--card .pc-workflow-interaction__prompt { font-size: var(--font-size-sm); }
+.pc-workflow-interaction__review > summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
