@@ -9,6 +9,23 @@ ships.
 
 ## Unreleased
 
+### session-policy-kit: a conversation's tool policy on the gateway (session tool policy contract v1; backlog 0033)
+
+- `session_tool_policy.ts`: `SessionToolPolicyBody`, `SessionToolPolicy`, `SessionToolPolicyClient`,
+  `sessionToolPolicyCapability`, `createSessionToolPolicyClient` over `GET | PUT | POST | DELETE
+  /api/gateway/sessions/{session_id}/tool-policy` (409 `revision_conflict` →
+  `SessionToolPolicyConflictError`; `clamped` passed through; an unsupported client rejects every call
+  with "The gateway cannot store conversation policies"); `sessionToolPolicyRoute` and
+  `SESSION_ID_PATTERN` in `gateway_paths.ts`.
+- Bridge with the tool layers: `sessionPolicyFromLayer` (auto → approve, ask → ask, off → deny) and
+  `layerFromSessionPolicy`.
+- `createToolLayerStore({sessionPolicy})`: `loadSession` / `saveSession` / `resetSession` go through the
+  gateway when it supports the policy, else this browser, labeled (`TOOL_LAYER_GATEWAY_WHERE`,
+  `TOOL_LAYER_BROWSER_FALLBACK`).
+- `ToolModeEditor`: `storage` (which storage applies, and why not the gateway) and `policy` (clamped
+  entries, `set_by` / `set_at`).
+- Checks: `check_session_tool_policy` (new); `check_tool_plan` and `check_tool_mode_editor` extended.
+
 ### chat: one chat surface, questions and approvals, attachments and generated media (backlog 0030, 0032, kit half of 0031; ADR 0001)
 
 panel-chat (and one ui-kit file):

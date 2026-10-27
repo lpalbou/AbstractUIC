@@ -116,6 +116,41 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   `sessions()`; options `dialect` (read another writer's "approve") and `onDropped(key, names)`
   (told when stored values could not be read); it is browser storage ("Saved in this
   browser"), never "saved for this Gateway account".
+- A conversation's tool policy on the gateway (session tool policy contract v1,
+  `session_tool_policy.ts`): the gateway stores "approve these tools / kinds / everything",
+  "deny these", "keep asking for these" per `session_id`, and the runtime applies it BEFORE any
+  approval wait (a covered call runs with no wait, a denied call is refused with no wait).
+  `sessionToolPolicyCapability(payload)` reads `capabilities.session_tool_policy` of
+  `GET discovery/capabilities` (null on an older gateway). `createSessionToolPolicyClient(request,
+  sessionId, capability, {client})` → `SessionToolPolicyClient` `{supported, sessionId, get(),
+  replace(body), merge(body), reset()}` over `GET | PUT | POST | DELETE
+  sessions/{session_id}/tool-policy` (`sessionToolPolicyRoute`; the id must match
+  `SESSION_ID_PATTERN`, 1-256 `[A-Za-z0-9_.:-]`). `request(path, {method, body})` is the host's
+  (credentials, base URL) and rejects with `{status, body}` / `{status, detail}` on an error; a 409
+  `revision_conflict` rejects with `SessionToolPolicyConflictError` (`revision` = the stored one);
+  `clamped` is passed through untouched; `supported` is true only for `supported: true`, and an
+  unsupported client rejects every call with `SessionToolPolicyUnsupportedError` ("The gateway
+  cannot store conversation policies", `SESSION_TOOL_POLICY_UNSUPPORTED`). Types:
+  `SessionToolPolicyBody`, `SessionToolPolicy`, `SessionToolPolicyCapability`.
+  Bridge: `sessionPolicyFromLayer(layer, catalog)` maps a session layer to a PUT body (auto →
+  `approve.tools`, ask → `ask`, off → `deny.tools`; only offered tools). Limit: `deny` refuses a call
+  with no wait, which is stricter than "not offered"; the run's own ceiling (`allowed_tools` from
+  `planRunTools`) still keeps off tools out of the run. `layerFromSessionPolicy(policy, catalog)`
+  maps back (approve → auto, deny → off and wins, ask → ask); the gateway serves `approve` / `deny`
+  already expanded to tool names (the selector "tool", "kind:<id>" or "all" is the value), so the kit
+  never re-expands a selector against today's catalog: a tool enabled after an `all` / `kinds` write
+  is not covered and keeps asking. `sessionPolicyClampedLines(policy)` ("Not covered: send_email
+  (not_authorized)"), `policySetLine(policy)` ("Set by admin (panel-chat) on …").
+  `createToolLayerStore(identity, {sessionPolicy: (sessionId) => client})`: `sessionStorage(id)`,
+  `loadSession(id, catalog)`, `saveSession(id, layer, catalog)` (PUT guarded by the last revision
+  read; an empty layer resets) and `resetSession(id)` (DELETE on "Use my defaults") go through a
+  supported client and answer `{storage, layer, policy}` with the gateway's effective layer; without
+  one they use this browser (`storage.kind: "browser"`, "Saved in this browser"), and when the
+  gateway was asked and cannot, `storage.note` says so (`TOOL_LAYER_BROWSER_FALLBACK`).
+  `ToolModeEditor` `storage` (its `where` replaces `savedWhere`: "Saved for this conversation on the
+  gateway" / "Saved in this browser", plus the note) and `policy` (clamped entries, who set it and
+  when). Approve-all trust (`trustAfterApproveAll`) is for the browser fallback only: with a
+  supported gateway, "Allow all" writes the policy (`merge`) first and then answers the shown wait.
 - Gateway model routes (backlog 0034, `gateway_models.ts`): `gatewayTextDefault(payload)`
   (`GET config/capability-defaults`: provider/model of `output.text` then `input.text`, reasoning
   `routes[output.text].reasoning`, MTP `routes[input.text].options.speculation`; null when none is
