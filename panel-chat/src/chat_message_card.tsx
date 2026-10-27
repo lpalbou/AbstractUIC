@@ -18,7 +18,12 @@ export type ChatMessage = {
   ts?: string;
   title?: string;
   level?: ChatMessageLevel;
-  kind?: string; // e.g. report_bug, report_feature
+  /**
+   * e.g. report_bug, report_feature. A `replay_view_v1.messages[]` item's
+   * kind (prompt, answer, question, event, ...) maps here unchanged; see the
+   * README's "Messages from the replay view" mapping.
+   */
+  kind?: string;
   toolActivity?: WorkflowToolActivity;
   statistics?: WorkflowStatistics;
   runId?: string;
@@ -41,6 +46,12 @@ export type ChatMessage = {
   /** Per-message attachment chips (e.g. the files a question carried); a
    * card's `attachments` prop wins. */
   attachments?: ChatAttachment[];
+  /**
+   * Artifact ids this message carries (`replay_view_v1.messages[].artifact_ids`,
+   * or `$artifact` refs a host folded). Data only: a host resolves them into
+   * `media` / `attachments` (e.g. with a transport's `resolveArtifact`).
+   */
+  artifactIds?: string[];
 };
 
 /**
@@ -197,6 +208,17 @@ export type ChatMessageCardProps = {
    */
   images?: MarkdownImages;
   inlineImage?: (src: string) => boolean;
+  /**
+   * Per-message slot rendered under the card (after attachments and stats),
+   * e.g. a per-turn detail badge. Return null for nothing.
+   */
+  renderFooter?: (message: ChatMessage) => React.ReactNode;
+  /**
+   * Per-message presentation. `"hint"` renders the message as one discreet
+   * line (no avatar, header or copy): a system note such as "Rejoined the
+   * open visit". `undefined` keeps the full card.
+   */
+  variant?: (message: ChatMessage) => "hint" | undefined;
 };
 
 export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement {
@@ -245,6 +267,20 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
   const has_text = Boolean(String(m.content || "").trim());
 
   if (m.toolActivity) return <ToolActivity tool={m.toolActivity} showCopy={props.showCopy} />;
+  const footer = props.renderFooter ? props.renderFooter(m) : null;
+  if (props.variant?.(m) === "hint") {
+    const level = String(m.level || "").trim().toLowerCase();
+    return (
+      <div
+        className={["pc-chat-hint", level === "warn" || level === "error" ? `pc-chat-hint--${level}` : "", props.className].filter(Boolean).join(" ")}
+        role="note"
+        data-variant="hint"
+      >
+        <span className="pc-chat-hint__text">{String(m.content || "")}</span>
+        {footer != null && footer !== false ? <div className="pc-chat-footer">{footer}</div> : null}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -373,6 +409,8 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
           })}
         </div>
       ) : null}
+
+      {footer != null && footer !== false ? <div className="pc-chat-footer">{footer}</div> : null}
     </div>
   );
 }

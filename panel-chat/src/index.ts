@@ -163,3 +163,21 @@ export {
 // --- ui-primitives (chat) ---
 export { WORKFLOW_INTERACTION_LABELS, type WorkflowInteractionRemember } from "./workflow_interaction.js";
 export { isReplayInteraction, replayInteractionWait, type ReplayInteraction } from "./present_interaction.js";
+export {
+  ComposerAttachmentChips,
+  type ComposerAttachmentChipsProps,
+} from "./composer_attachments.js";
+export {
+  UPLOAD_CONCURRENCY,
+  runBounded,
+  unattachedSendBlock,
+  uploadAnnouncement,
+  uploadFailure,
+  uploadRefusal,
+  useAttachmentUploads,
+  type AttachmentUploads,
+  type ComposerAttachment,
+  type ComposerAttachmentState,
+  type UseAttachmentUploadsOptions,
+} from "./attachment_uploads.js";
+export type { ChatSteer, ChatSteerMode, ChatSteerResult, ChatToolbar } from "./workflow_chat.js";

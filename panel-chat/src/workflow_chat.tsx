@@ -2,12 +2,41 @@ import React, { useEffect, useRef, useState } from "react";
 
 import { Icon, useAfTooltips } from "@abstractframework/ui-kit";
 
+import { unattachedSendBlock, type ComposerAttachment } from "./attachment_uploads.js";
 import { ChatComposer } from "./chat_composer.js";
 import type { ChatMessage, ChatMessageCardProps } from "./chat_message_card.js";
 import { ChatThread } from "./chat_thread.js";
+import { ComposerAttachmentChips } from "./composer_attachments.js";
+import { chatToMarkdown, copyText, downloadTextFile } from "./utils.js";
 import { DragPresence, dragCarriesFiles, draggedFileCount, dropZoneLabel, droppedFiles, folderRefusal, pastedFiles } from "./file_drop.js";
 import { WorkflowInteractionPanel, type WorkflowInteraction } from "./workflow_interaction.js";
 import type { StreamRepliesMode } from "./llm_delta.js";
+
+/** What the host's steer door answered (`POST commands {type:"inject_guidance"}`
+ * answers `{accepted, duplicate, seq}`; ui-kit `SteerSubmitResult` fits). */
+export type ChatSteerResult = { accepted: boolean; seq?: number; duplicate?: boolean };
+/** "guide": steer the live run (inject_guidance). "queue": hold the message for the next turn. */
+export type ChatSteerMode = "guide" | "queue";
+export type ChatSteer = {
+  /**
+   * Called instead of `onSend` while `busy`. The host posts it (ui-kit
+   * `submitSteer` posts `inject_guidance` through the app-origin proxy) or
+   * queues it for the next turn. The chat never fetches.
+   */
+  onSteer: (text: string, mode: ChatSteerMode) => Promise<ChatSteerResult>;
+  /** Default `["guide"]`. With both, the busy composer offers a mode switch. */
+  modes?: ChatSteerMode[];
+  /** The run is parked on a wait: guidance delivers at its next wake (steers do not wake runs). */
+  parked?: boolean;
+};
+export type ChatToolbar = {
+  onNewSession?: () => void | Promise<unknown>;
+  onClear?: () => void | Promise<unknown>;
+  /** Download the transcript as Markdown (`chatToMarkdown`). */
+  exportTranscript?: { filename: string; heading?: string } | false;
+  /** Copy the transcript as Markdown. */
+  copyTranscript?: boolean;
+};
 
 export type WorkflowChatProps = {
   /** Fully controlled transcript. The host owns message persistence and identity. */
@@ -15,16 +44,25 @@ export type WorkflowChatProps = {
   /** Fully controlled composer value. It is intentionally retained on failed sends. */
   draft: string;
   onDraftChange: (draft: string) => void;
-  /** Submit a chat message. Async failures are surfaced locally and keep the draft. */
-  onSend: (draft: string) => void | Promise<unknown>;
+  /**
+   * Submit a chat message. Async failures are surfaced locally and keep the
+   * draft. `signal` is aborted when the user presses Stop during this send
+   * (or the chat unmounts): a request/response host ties its fetch to it.
+   */
+  onSend: (draft: string, ctx: { signal: AbortSignal }) => void | Promise<unknown>;
   busy?: boolean;
   /** Keep the composer active while busy, for hosts that queue/steer messages. */
   sendWhileBusy?: boolean;
   sendLabel?: string;
   /** Optional host-specific explanation while the composer is busy. */
   busyLabel?: string;
-  /** Cancels current host work. Only rendered while busy. */
-  onCancel?: () => void | Promise<unknown>;
+  /**
+   * Cancels current host work. Only rendered while busy. Stop first aborts
+   * the in-flight send's signal (the one `onSend` received), then calls this
+   * with that signal; when no send is in flight here (a ledger host whose run
+   * outlives `onSend`) the signal is a fresh one, aborted at the same moment.
+   */
+  onCancel?: (signal: AbortSignal) => void | Promise<unknown>;
   /**
    * Ledger-derived Stop state (`WorkflowSessionSnapshot.stop`). While busy the
    * Stop button reads "Stopping…" for `stopping`; once the host is no longer
@@ -48,8 +86,21 @@ export type WorkflowChatProps = {
    * here with a visible message and never reach the host.
    */
   onFiles?: (files: File[]) => void | Promise<unknown>;
-  /** Host-rendered attachment chips, shown inside the composer above the message field. */
+  /** Host-rendered attachment chips, shown inside the composer above the
+   * message field. Escape hatch: prefer `attachmentItems`. */
   attachments?: React.ReactNode;
+  /**
+   * Typed attachment chips (`useAttachmentUploads().items`). While one is
+   * queued/uploading/refused/failed, Send refuses with the reason in words
+   * (a visible chip is never left behind silently by a send).
+   */
+  attachmentItems?: ComposerAttachment[];
+  onRemoveAttachment?: (id: string) => void;
+  onRetryAttachment?: (id: string) => void;
+  /** Steer/queue while busy: the send button becomes "Steer"/"Queue". */
+  steer?: ChatSteer;
+  /** Standard transcript actions in the header row; each only when injected. */
+  toolbar?: ChatToolbar;
   /** A pending workflow wait rendered after the transcript. */
   interaction?: WorkflowInteraction | null;
   /** Optional host sanitizer/renderer for every transcript message. */
@@ -84,7 +135,11 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
   const [sendPending, setSendPending] = useState(false);
   const [cancelPending, setCancelPending] = useState(false);
   const [attachPending, setAttachPending] = useState(false);
-  const [error, setError] = useState<{ action: "send" | "cancel" | "attach"; message: string } | null>(null);
+  const [error, setError] = useState<{ action: "send" | "cancel" | "attach" | "steer" | "toolbar"; message: string } | null>(null);
+  const [steerMode, setSteerMode] = useState<ChatSteerMode>(() => props.steer?.modes?.[0] || "guide");
+  const [steerStatus, setSteerStatus] = useState<{ mode: ChatSteerMode; seq?: number; duplicate: boolean } | null>(null);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const sendAbortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
   const sendInFlightRef = useRef(false);
   const cancelInFlightRef = useRef(false);
@@ -102,6 +157,8 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
       sendInFlightRef.current = false;
       cancelInFlightRef.current = false;
       attachInFlightRef.current = false;
+      sendAbortRef.current?.abort();
+      sendAbortRef.current = null;
     };
   }, []);
   const blocked = Boolean(props.blockedNotice);
@@ -110,6 +167,16 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
   const composerBusy = sendPending || (Boolean(props.busy) && !props.sendWhileBusy);
   const stopState = props.stopState || null;
   const stopping = stopState?.phase === "stopping";
+  const steer = props.steer && typeof props.steer.onSteer === "function" ? props.steer : null;
+  const steerModes: ChatSteerMode[] = steer ? (steer.modes?.length ? steer.modes : ["guide"]) : [];
+  const activeSteerMode: ChatSteerMode = steerModes.includes(steerMode) ? steerMode : steerModes[0] || "guide";
+  const steering = Boolean(steer) && Boolean(props.busy);
+  const attachmentItems = Array.isArray(props.attachmentItems) ? props.attachmentItems : [];
+  // A "Queued (seq N)" note belongs to the run it was sent to: a new turn
+  // (busy flips) clears it.
+  useEffect(() => {
+    setSteerStatus(null);
+  }, [Boolean(props.busy)]);
 
   // ---- Drag-and-drop / paste to attach ---------------------------------
   const acceptsFiles = typeof props.onFiles === "function";
@@ -247,19 +314,60 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
   ) : null;
   const liveMessage = drag ? (disabled ? "Attachments are unavailable right now" : dropZoneLabel(drag.count)) : announcement;
 
-  const submit = async () => {
-    const draft = String(props.draft || "");
-    if (disabled || sendInFlightRef.current || (!props.sendWhileBusy && props.busy) || !draft.trim()) return;
+  const submitSteer = async (draft: string) => {
+    if (!steer) return;
+    const mode = activeSteerMode;
     const sequence = ++sendSequenceRef.current;
     sendInFlightRef.current = true;
     setError(null);
+    setSteerStatus(null);
     setSendPending(true);
     try {
-      await props.onSend(draft);
+      const result = await steer.onSteer(draft, mode);
+      if (!mountedRef.current || sendSequenceRef.current !== sequence) return;
+      // A 200 with accepted:false is a REFUSAL, not a queue: saying "Queued"
+      // over it would lie (SteerComposer's rule).
+      if (!result?.accepted && !result?.duplicate) {
+        setError({ action: "steer", message: "the gateway did not accept this message (accepted=false)." });
+        return;
+      }
+      setSteerStatus({ mode, ...(typeof result.seq === "number" ? { seq: result.seq } : {}), duplicate: Boolean(result.duplicate) });
+      props.onDraftChange("");
+    } catch (reason) {
+      if (mountedRef.current && sendSequenceRef.current === sequence) setError({ action: "steer", message: messageFor(reason) });
+    } finally {
+      if (mountedRef.current && sendSequenceRef.current === sequence) {
+        sendInFlightRef.current = false;
+        setSendPending(false);
+      }
+    }
+  };
+
+  const submit = async () => {
+    const draft = String(props.draft || "");
+    if (disabled || sendInFlightRef.current || !draft.trim()) return;
+    if (steering) return void submitSteer(draft);
+    if (!props.sendWhileBusy && props.busy) return;
+    const block = attachmentItems.length ? unattachedSendBlock(attachmentItems) : null;
+    if (block) {
+      setError({ action: "send", message: block });
+      return;
+    }
+    const sequence = ++sendSequenceRef.current;
+    const abort = new AbortController();
+    sendAbortRef.current = abort;
+    sendInFlightRef.current = true;
+    setError(null);
+    setSteerStatus(null);
+    setSendPending(true);
+    try {
+      await props.onSend(draft, { signal: abort.signal });
     } catch (reason) {
       // Draft stays controlled by the host and is deliberately not cleared.
-      if (mountedRef.current && sendSequenceRef.current === sequence) setError({ action: "send", message: messageFor(reason) });
+      // A send the user stopped is not a failure to report.
+      if (mountedRef.current && sendSequenceRef.current === sequence && !abort.signal.aborted) setError({ action: "send", message: messageFor(reason) });
     } finally {
+      if (sendAbortRef.current === abort) sendAbortRef.current = null;
       if (mountedRef.current && sendSequenceRef.current === sequence) {
         sendInFlightRef.current = false;
         setSendPending(false);
@@ -273,8 +381,11 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     cancelInFlightRef.current = true;
     setError(null);
     setCancelPending(true);
+    const inFlight = sendAbortRef.current;
+    const signalOwner = inFlight || new AbortController();
+    signalOwner.abort(new DOMException("Stopped by the user", "AbortError"));
     try {
-      await props.onCancel();
+      await props.onCancel(signalOwner.signal);
     } catch (reason) {
       if (mountedRef.current && cancelSequenceRef.current === sequence) setError({ action: "cancel", message: messageFor(reason) });
     } finally {
@@ -305,10 +416,77 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
 
   const retry = () => {
     if (!error) return;
-    if (error.action === "send") void submit();
+    if (error.action === "send" || error.action === "steer") void submit();
     if (error.action === "cancel") void cancel();
     if (error.action === "attach") void attach();
   };
+
+  const toolbar = props.toolbar || null;
+  const transcriptMarkdown = (heading?: string) =>
+    chatToMarkdown(
+      (Array.isArray(props.messages) ? props.messages : []).filter((m) => !m.toolActivity && !m.live && String(m.content || "").trim()),
+      heading ? { heading } : undefined,
+    );
+  const runToolbar = async (action: () => void | Promise<unknown>) => {
+    if (disabled) return;
+    setError(null);
+    try {
+      await action();
+    } catch (reason) {
+      if (mountedRef.current) setError({ action: "toolbar", message: messageFor(reason) });
+    }
+  };
+  const copyTranscript = async () => {
+    const ok = await copyText(transcriptMarkdown());
+    if (!mountedRef.current) return;
+    setCopyState(ok ? "copied" : "failed");
+    if (typeof window !== "undefined") window.setTimeout(() => mountedRef.current && setCopyState("idle"), 1200);
+  };
+  const toolbarRow = toolbar ? (
+    <div className="pc-workflow-chat__toolbar" role="toolbar" aria-label="Conversation actions">
+      {toolbar.onNewSession ? (
+        <button type="button" className="pc-workflow-chat__icon-button" data-toolbar="new" disabled={disabled} onClick={() => void runToolbar(toolbar.onNewSession!)}>
+          <Icon name="plus" size={14} />
+          <span>New chat</span>
+        </button>
+      ) : null}
+      {toolbar.onClear ? (
+        <button type="button" className="pc-workflow-chat__icon-button" data-toolbar="clear" disabled={disabled} onClick={() => void runToolbar(toolbar.onClear!)}>
+          <Icon name="trash" size={14} />
+          <span>Clear</span>
+        </button>
+      ) : null}
+      {toolbar.copyTranscript ? (
+        <button type="button" className="pc-workflow-chat__icon-button" data-toolbar="copy" onClick={() => void copyTranscript()}>
+          <Icon name={copyState === "copied" ? "check" : "copy"} size={14} />
+          <span>{copyState === "copied" ? "Copied" : copyState === "failed" ? "Copy failed" : "Copy"}</span>
+        </button>
+      ) : null}
+      {toolbar.exportTranscript ? (
+        <button
+          type="button"
+          className="pc-workflow-chat__icon-button"
+          data-toolbar="export"
+          onClick={() => {
+            const spec = toolbar.exportTranscript as { filename: string; heading?: string };
+            downloadTextFile({ filename: spec.filename, text: transcriptMarkdown(spec.heading), mime: "text/markdown;charset=utf-8" });
+          }}
+        >
+          <Icon name="download" size={14} />
+          <span>Export</span>
+        </button>
+      ) : null}
+    </div>
+  ) : null;
+
+  const steerLabel = activeSteerMode === "queue" ? "Queue" : "Steer";
+  const steerNote = steerStatus
+    ? steerStatus.mode === "queue"
+      ? `Queued for the next turn${typeof steerStatus.seq === "number" ? ` (seq ${steerStatus.seq})` : ""}.`
+      : `${steerStatus.duplicate ? "Already queued" : "Queued"}${typeof steerStatus.seq === "number" ? ` (seq ${steerStatus.seq})` : ""}. ${
+          steer?.parked ? "The run is waiting: your guidance delivers at its next wake (steers do not wake runs)." : "Delivers at the run's next loop boundary."
+        }`
+    : "";
 
   return (
     <section
@@ -317,7 +495,12 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
       aria-label="Workflow chat"
       data-stream-replies={props.streamReplies || "gateway_default"}
     >
-      {props.header ? <header className="pc-workflow-chat__header">{props.header}</header> : null}
+      {props.header || toolbarRow ? (
+        <header className={["pc-workflow-chat__header", toolbarRow ? "pc-workflow-chat__header--toolbar" : ""].filter(Boolean).join(" ")}>
+          {props.header ? <div className="pc-workflow-chat__header-main">{props.header}</div> : null}
+          {toolbarRow}
+        </header>
+      ) : null}
       <div className="pc-workflow-chat__transcript">
         <ChatThread
           messages={Array.isArray(props.messages) ? props.messages : []}
@@ -335,8 +518,26 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
       </div>
       {error ? (
         <div className="pc-workflow-chat__error" role="alert">
-          <span>Could not {error.action === "send" ? "send this message" : error.action === "attach" ? "attach a file" : "stop the run"}: {error.message}</span>
-          <button type="button" onClick={retry} disabled={disabled}>Try again</button>
+          <span>
+            Could not{" "}
+            {error.action === "send"
+              ? "send this message"
+              : error.action === "steer"
+                ? activeSteerMode === "queue"
+                  ? "queue this message"
+                  : "steer the run"
+                : error.action === "attach"
+                  ? "attach a file"
+                  : error.action === "toolbar"
+                    ? "complete that action"
+                    : "stop the run"}
+            : {error.message}
+          </span>
+          {error.action !== "toolbar" ? (
+            <button type="button" onClick={retry} disabled={disabled}>
+              Try again
+            </button>
+          ) : null}
         </div>
       ) : null}
       <div className="pc-workflow-chat__composer">
@@ -347,11 +548,20 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
           placeholder={props.placeholder || "Send a message"}
           ariaLabel="Message"
           disabled={disabled}
-          busy={composerBusy}
-          sendLabel={props.sendLabel}
-          busyLabel={props.busyLabel}
+          busy={steering ? sendPending : composerBusy}
+          sendLabel={steering ? steerLabel : props.sendLabel}
+          busyLabel={steering ? (activeSteerMode === "queue" ? "Queueing…" : "Steering…") : props.busyLabel}
           rows={2}
-          leading={props.attachments ? <div className="pc-workflow-chat__attachments">{props.attachments}</div> : null}
+          leading={
+            props.attachments || attachmentItems.length ? (
+              <div className="pc-workflow-chat__attachments">
+                {attachmentItems.length ? (
+                  <ComposerAttachmentChips items={attachmentItems} onRemove={props.onRemoveAttachment} onRetry={props.onRetryAttachment} disabled={disabled} />
+                ) : null}
+                {props.attachments}
+              </div>
+            ) : null
+          }
           overlay={dropZone}
           onPaste={acceptsFiles ? onPaste : undefined}
           actions={
@@ -363,6 +573,23 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
                 </button>
               ) : null}
               {props.composerExtras}
+              {steering && steerModes.length > 1 ? (
+                <span className="pc-workflow-chat__steer-modes" role="group" aria-label="While the run is busy">
+                  {steerModes.map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      className="pc-workflow-chat__steer-mode"
+                      data-steer-mode={mode}
+                      aria-pressed={activeSteerMode === mode}
+                      disabled={disabled || sendPending}
+                      onClick={() => setSteerMode(mode)}
+                    >
+                      {mode === "queue" ? "Queue next turn" : "Guide this run"}
+                    </button>
+                  ))}
+                </span>
+              ) : null}
               {sending && props.onCancel ? (
                 <button type="button" className="pc-workflow-chat__stop" disabled={disabled || cancelPending || stopping} onClick={() => void cancel()}>
                   <Icon name="x" size={14} />
@@ -376,6 +603,11 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
             </>
           }
         />
+        {steer ? (
+          <div className="pc-workflow-chat__steer-status" role="status" aria-live="polite">
+            {steerNote}
+          </div>
+        ) : null}
         {acceptsFiles ? (
           <div className="pc-sr-only" role="status" aria-live="polite">
             {liveMessage}
