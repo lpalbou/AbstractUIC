@@ -2,7 +2,7 @@
 
 ## Metadata
 - Created: 2026-10-27
-- Status: Planned (kit half in progress on `feat/ui-primitives-shell`)
+- Status: Planned — kit half MERGED (PR #5, 42dd874): identity badge/menu, enforced order (extras · docs · assistant · appearance · about · identity · pill), About fetch/extra, `AfDrawerSystem`, `AfAppShell`, `docsAssistantPanel`, islands `identity` + `mountDrawerSystem`; one verb "Disconnect"; app adoption PRs pending
 - Completed: N/A
 - Area: ui-kit (`AfTopBarActions`, `AfDrawerSystem`, `AfAppShell`, `AfDrawer`, connection types, islands) + panel-chat (`docsAssistantPanel`)
 - Root link: AbstractFramework backlog 1055

@@ -15,16 +15,16 @@ carries its own code-reality citations.
 
 ## Counts
 - Planned: 14 (0001, 0003-0006, 0014, 0019, 0030-0036)
-- Proposed: 19 (0009-0013, 0015-0018, 0020-0022, 0024-0028, 0037-0038)
+- Proposed: 17 (0009-0013, 0017-0018, 0020-0022, 0024-0028, 0037-0038)
 - Completed: 6 (0002, 0007, 0008, 0023, 0026-theme-adoption, 0029)
-- Deprecated: 0
+- Deprecated: 2 (0015, 0016 — superseded by 0033)
 - Recurrent: 1 (backlog hygiene)
 
 ## ADRs
 `docs/adr/` exists since 2026-10-27. ADR 0001 (shared primitives are composed on the gateway's
 contracts; apps customize through props, slots and theme tokens, never by forking; one repository,
 several frameworks) governs items 0030-0038 and gives a rule to 0009, 0010, 0011, 0017, 0021.
-0015 and 0016 are superseded by 0033 and move when its kit PR merges.
+0015 and 0016 were superseded by 0033 and moved to deprecated when its kit PR merged (2026-10-27). Kit halves of 0030-0036 are merged on main (PRs #4-#7, unreleased); the session tool-policy follow-up of 0032/0033 is in progress.
 
 ### Shared UI primitives consolidation (2026-10-27, root backlog 1055)
 Audit of every web surface (`untracked/ui-primitives/audit/`): one item per primitive, kit half first
@@ -88,8 +88,6 @@ merge, or missing test rigs) — see each item's checklist.
 | 0011 | ModalShell | flow, observer×2, abstractcode | First two consumers agree; dismissal semantics table |
 | 0012 | Console kit-parity | gateway console.py | Gateway seat accepts; consumption mechanism ruling |
 | 0013 | Unconsumed-surface wiring | observer, both connection modals | Gateway transport-object GET ships |
-| 0015 | Tool-approval defaults one source | runtime/gateway/assistant/uic | Gateway serves default_approval; assistant deletes its drifted copy |
-| 0016 | abstractcode tool_picker → ToolPolicyEditor | abstractcode | Fourth tool-selection surface; abstractcode seat opt-in |
 | 0017 | AttachmentDropZone | flow, observer, abstractcode | Two of three consumers opt in; injected uploader |
 | 0018 | CopyButton / useCopied | all three apps + kit internals | Any consumer opts in; candidate to ride 0011 |
 | 0020 | AfMultiSelect absorption | continuum, observer, abstractcode/web | New census evidence supersedes the 2026-07-11 anti-rec; consumers opt in |
