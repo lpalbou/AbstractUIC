@@ -297,7 +297,15 @@ const interaction = presentInteraction(workflowPendingInteraction(snapshot), con
   The description says so: with no Ask list, "Nothing is set to Ask, so … are included"; with
   one, "Tools set to Ask keep asking: …". A host with no Ask list sends no `ask`.
 - **Merge only adds:** a write never narrows or re-expands an earlier `all`/kinds. Undoing an
-  approve is a reset (`resetSessionPolicy`, DELETE), never a merge.
+  approve is a reset (`resetSessionPolicy`, DELETE), never a merge. A reset is revision-guarded:
+  the controller reads first when it has no revision (the policy's, or ui-kit's client
+  `revision` of its last answer, which also covers "no policy yet") and calls `reset(revision)`.
+  With no revision at all, a deny or a reset is refused with a labeled error ("This chat's policy
+  was not changed/reset: …"), never skipped silently; a client's own refusal (ui-kit's
+  `SessionToolPolicyRevisionError`) is shown the same way.
+- **Same shape as ui-kit:** `SessionToolPolicyClient` here is the structural twin of ui-kit's
+  (`reset(ifRevision?) → {revision?, scope?}`); `scripts/types/session_policy_twin.ts` fails `tsc`
+  if either drifts.
 - **Root session:** the grant is read from the run tree's ROOT session, so the client must be
   bound to the root run's `session_id`. A wait on a child run is answered on the child, and the
   policy is written to the root session; a client bound to another session, or a root session

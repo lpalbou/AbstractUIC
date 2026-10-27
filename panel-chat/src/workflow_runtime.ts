@@ -105,9 +105,13 @@ export type SessionToolPolicyClient = {
   replace(body: SessionToolPolicyBody): Promise<SessionToolPolicy>;
   /** POST: merge into the policy. */
   merge(body: SessionToolPolicyBody): Promise<SessionToolPolicy>;
-  /** DELETE: no session policy. */
-  reset(): Promise<{ revision?: number }>;
+  /** DELETE: no session policy. `ifRevision` guards it (`DELETE ?if_revision=`); the answer has
+   * no policy, so its `scope` rides next to the revision. */
+  reset(ifRevision?: number): Promise<{ revision?: number; scope?: SessionToolPolicyScope }>;
 };
+/** ui-kit's client also keeps the latest answer's revision (GET's top-level `revision`, also with
+ * no policy) and `scope`; read structurally, optional here. */
+type RevisionedClient = SessionToolPolicyClient & { readonly revision?: number; readonly scope?: SessionToolPolicyScope };
 /**
  * Where "Allow for this chat" is stored:
  * - `"gateway"`: on the gateway (every run and client of the chat);
@@ -497,6 +501,27 @@ export class WorkflowSessionController {
     if (root !== client.sessionId) throw new Error(`The tool policy client is bound to session ${client.sessionId}, but this chat's root run belongs to session ${root}: the policy is written to the root run's session.`);
   }
 
+  /** The revision a guarded write uses: the adopted policy's, else read first (the policy's, or the
+   * client's latest answer revision, which also covers "no policy yet"). */
+  private async currentRevision(client: SessionToolPolicyClient): Promise<number | undefined> {
+    if (typeof this.sessionPolicyState?.revision === "number") return this.sessionPolicyState.revision;
+    const policy = await this.loadSessionPolicy();
+    if (typeof policy?.revision === "number") return policy.revision;
+    const latest = (client as RevisionedClient).revision;
+    return typeof latest === "number" ? latest : undefined;
+  }
+
+  /** A failed policy write, labeled: a conflict asks to re-read (and re-reads); the client's own
+   * refusal (e.g. ui-kit's `SessionToolPolicyRevisionError`) says the policy was not changed. */
+  private async policyWriteError(error: unknown): Promise<Error> {
+    if (revisionConflict(error)) {
+      await this.loadSessionPolicy().catch(() => null);
+      return new Error("Someone changed this chat's policy; re-read it before deciding again (it was refreshed).");
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    return new Error(`This chat's policy was not changed: ${message}`);
+  }
+
   /** The shown approval must still be the current one before any policy is written. */
   private requireTarget(target: WorkflowApprovalTarget): WorkflowWaitInteraction {
     const interaction = this.requireInteraction();
@@ -520,17 +545,15 @@ export class WorkflowSessionController {
     // re-read, never overwritten blindly). Read the revision first when none is known.
     let guard: { if_revision?: number } = {};
     if (body.deny) {
-      let revision = this.sessionPolicyState?.revision;
-      if (typeof revision !== "number") revision = (await this.loadSessionPolicy())?.revision;
-      if (typeof revision === "number") guard = { if_revision: revision };
+      const revision = await this.currentRevision(client);
+      if (typeof revision !== "number") throw new Error("This chat's policy was not changed: the gateway did not return a policy revision to guard the deny with.");
+      guard = { if_revision: revision };
     }
     let policy: SessionToolPolicy;
     try {
       policy = await client.merge({ ...body, ...(names.length ? { ask: names } : {}), ...guard, client: body.client || "panel-chat" });
     } catch (error) {
-      if (!revisionConflict(error)) throw error;
-      await this.loadSessionPolicy().catch(() => null);
-      throw new Error("Someone changed this chat's policy; re-read it before deciding again (it was refreshed).");
+      throw await this.policyWriteError(error);
     }
     // Same client = same chat: adopt even across a reset/reload of the run.
     if (this.sessionToolPolicy === client) this.adoptSessionPolicy(policy);
@@ -583,7 +606,13 @@ export class WorkflowSessionController {
     if (this.sessionPolicyMode() !== "gateway") { this.revokeToolApproval(); return; }
     const client = this.gatewayPolicy();
     this.requireRootSession(client);
-    await client.reset();
+    const revision = await this.currentRevision(client);
+    if (typeof revision !== "number") throw new Error("This chat's policy was not reset: the gateway did not return a policy revision to guard the reset with.");
+    try {
+      await client.reset(revision);
+    } catch (error) {
+      throw await this.policyWriteError(error);
+    }
     this.adoptSessionPolicy(null);
   }
 

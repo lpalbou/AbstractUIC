@@ -91,7 +91,7 @@ const fakeClient = (merge) => {
       get: async () => { calls.push(["get"]); return policyOf(); },
       replace: async (body) => { calls.push(["replace", body]); return policyOf(); },
       merge: async (body) => { calls.push(["merge", body]); return merge ? merge(body) : policyOf(); },
-      reset: async () => { calls.push(["reset"]); return { revision: 6 }; },
+      reset: async (ifRevision) => { calls.push(["reset", ifRevision]); return { revision: 6 }; },
     },
   };
 };
@@ -454,6 +454,46 @@ const target = { runId: "root", waitKey: "approve:1", stepId: "step:approve:1" }
   let unknownSession = "";
   await h5c.controller.approveAllForSession(target).catch((e) => (unknownSession = e.message));
   check("I5 an unknown root session writes nothing", /session is not known/.test(unknownSession) && h5c.commands.length === 0, unknownSession);
+}
+
+// ------------------------------------------------------------- J. alignment with ui-kit's client (PR #9, 12e2a36)
+{
+  // Reset is revision-guarded: read first when unknown, then reset(revision).
+  const r = fakeClient();
+  const hr = await harness({ client: r.client });
+  await hr.controller.resetSessionPolicy();
+  check("J reset reads first, then reset(revision)", JSON.stringify(r.calls) === JSON.stringify([["get"], ["reset", 5]]), r.calls);
+  const known = fakeClient();
+  const hk = await harness({ client: known.client });
+  await hk.controller.loadSessionPolicy();
+  await hk.controller.resetSessionPolicy();
+  check("J reset with a known revision does not re-read", JSON.stringify(known.calls) === JSON.stringify([["get"], ["reset", 5]]), known.calls);
+  // No policy yet: the kit client's latest `revision` (GET's top-level revision) guards the write.
+  const empty = fakeClient();
+  empty.client.get = async () => { empty.calls.push(["get"]); return null; };
+  const revisioned = Object.assign(empty.client, { revision: 3, scope: undefined });
+  const he = await harness({ client: revisioned });
+  he.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }]));
+  await he.controller.denyToolForSession(target, "fetch_url");
+  check("J deny with no policy yet uses the client's revision", empty.calls.at(-1)?.[1]?.if_revision === 3, empty.calls);
+  // No revision at all: a labeled refusal, never a silent no-op.
+  const none = fakeClient();
+  none.client.get = async () => { none.calls.push(["get"]); return null; };
+  const hn = await harness({ client: none.client });
+  let resetRefusal = "";
+  await hn.controller.resetSessionPolicy().catch((e) => (resetRefusal = e.message));
+  check("J reset with no revision is refused, labeled", /not reset/.test(resetRefusal) && /revision/.test(resetRefusal) && !none.calls.some((c) => c[0] === "reset"), { resetRefusal, calls: none.calls });
+  hn.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }]));
+  let denyRefusal = "";
+  await hn.controller.denyToolForSession(target, "fetch_url").catch((e) => (denyRefusal = e.message));
+  check("J deny with no revision is refused, labeled", /not changed/.test(denyRefusal) && /revision/.test(denyRefusal) && !none.calls.some((c) => c[0] === "merge") && hn.commands.length === 0, { denyRefusal, calls: none.calls });
+  // The kit's own refusal (SessionToolPolicyRevisionError, code "no_revision") surfaces labeled.
+  const kitRefuses = fakeClient(async () => { const e = new Error("The gateway did not return a policy revision; refusing an unguarded write."); e.code = "no_revision"; e.name = "SessionToolPolicyRevisionError"; throw e; });
+  const hkr = await harness({ client: kitRefuses.client });
+  hkr.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }]));
+  let kitRefusal = "";
+  await hkr.controller.approveAllForSession(target).catch((e) => (kitRefusal = e.message));
+  check("J the kit's no-revision refusal surfaces labeled, nothing answered", /This chat's policy was not changed/.test(kitRefusal) && /unguarded write/.test(kitRefusal) && hkr.commands.length === 0, kitRefusal);
 }
 
 for (const controller of controllers) controller.dispose();

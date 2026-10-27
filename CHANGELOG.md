@@ -51,7 +51,11 @@ panel-chat:
   on a denied tool is reported as refused by the gateway. The approve description says that tools reaching
   model-chosen destinations are included unless set to Ask. Writes go to the ROOT run's session only (a client bound
   elsewhere, or an unknown root session, is refused).
-- Check: `check_session_policy.mjs` (84 checks; 37 mutations red, including a resume sent before the policy write, a
+- Aligned with ui-kit's client (PR #9): `SessionToolPolicyClient.reset(ifRevision?) → {revision?, scope?}`; resets and
+  denies are revision-guarded (read first when unknown, including the client's last-answer `revision`); no revision →
+  a labeled refusal; a client's own refusal is labeled "This chat's policy was not changed: …". A `tsc` check pins the
+  twin's exact equality with the kit's shape.
+- Check: `check_session_policy.mjs` (90 checks + a tsc type-equality check; 42 mutations red, including a resume sent before the policy write, a
   host-claimed gateway mode, a dropped `ask`, a failed capability read treated as the local fallback, a composed scope
   sentence, a deny without its revision and a child-session write).
 

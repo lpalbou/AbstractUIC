@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2020",
+    "skipLibCheck": true,
+    "types": []
+  },
+  "files": ["session_policy_twin.ts"]
+}
