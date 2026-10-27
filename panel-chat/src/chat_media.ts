@@ -33,6 +33,21 @@ const INERT_TYPES = new Set([
   "image/webp",
   "image/avif",
   "image/bmp",
+  // Concrete media subtypes only: WebKit renders an unsupported subtype
+  // (video/html, audio/text, ...) as a document and runs its script (review N1c).
+  "video/mp4",
+  "video/webm",
+  "video/ogg",
+  "video/quicktime",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/aac",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/ogg",
+  "audio/opus",
+  "audio/webm",
+  "audio/flac",
 ]);
 
 /** A browser-local URL (object or data URL): it carries the APP's origin and none of the gateway's headers. */
@@ -47,7 +62,8 @@ export function isLocalObjectUrl(url: string | undefined): boolean {
  * (abstractgateway routes/gateway.py:11328-11340), so agent-written HTML, SVG
  * or XML opened from it would run on the app's origin. Only an ALLOWLIST of
  * inert types qualifies (pdf, JSON, plain text, Markdown, CSV/TSV, common
- * source-code text types, raster images, audio, video), never a file whose
+ * source-code text types, raster images, concrete audio/video subtypes; no
+ * wildcard), never a file whose
  * NAME is an active document; anything unlisted (e.g. `text/xsl`) or no type = no.
  * The guard trusts the declared type: `contentType` MUST be the type the object
  * URL's Blob was created with (`new Blob([bytes], { type: contentType })`).
@@ -59,9 +75,8 @@ export function objectUrlRawLinkSafe(contentType: string | undefined, name: stri
   if (dot > 0 && ACTIVE_EXT.has(base.slice(dot + 1).toLowerCase())) return false;
   const type = String(contentType || "").split(";", 1)[0].trim().toLowerCase();
   if (!type || type === "text/html" || type.includes("xml")) return false;
-  if (INERT_TYPES.has(type)) return true;
-  // Media elements never render a document.
-  return type.startsWith("audio/") || type.startsWith("video/");
+  // No wildcard anywhere: an unlisted type is refused.
+  return INERT_TYPES.has(type);
 }
 
 /** The raw-file link a document may show: the host's `href`, else its `src`; a
