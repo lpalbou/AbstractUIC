@@ -112,6 +112,8 @@ export function runTranscribePath(runId: string): string {
 /** GET / PUT an entity's own voice; with `tts`, speech in that voice (routes/entities.py:5293, :5341, :5451, :5470). */
 export function entityVoicePath(entity: string, tts: "" | "tts" | "tts/stream" = ""): string {
   return `entities/${seg(entity, "entity name")}/voice${tts ? `/${tts}` : ""}`;
+}
+
 // --- ui-primitives (tools-models) ---
 // The gateway routes the tool and model pickers read (relative to the gateway API; build the
 // request path with gatewayApiPath). Read in the live gateway source, routes/gateway.py:
