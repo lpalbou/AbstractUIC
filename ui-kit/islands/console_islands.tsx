@@ -435,7 +435,7 @@ export type VoiceSettingsIslandProps = React.ComponentProps<typeof VoiceSettings
  * transport injected (fetchCatalog). Additive member (round 3). Its props
  * carry `voiceLibrary` (ui-primitives 0035): creation plus list / rename /
  * remove / share over the gateway's voice library (`voice/clones`), and
- * `previewVoice` ("Play sample").
+ * `previewVoice` (choosing a voice plays it; a play/stop toggle replays or stops).
  */
 export function mountVoiceSettings(el: Element, props: VoiceSettingsIslandProps): IslandHandle<VoiceSettingsIslandProps> {
   return mount(el, (p) => <VoiceSettings {...p} />, props);

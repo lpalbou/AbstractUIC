@@ -9,6 +9,34 @@ ships.
 
 ## Unreleased
 
+## 0.7.1 - 2026-10-27
+
+Packages: `@abstractframework/ui-kit` 0.9.1 (panel-chat unchanged at 0.5.0).
+
+### Voice: choosing a voice plays it (AbstractGateway backlog 0947, root backlog 1055)
+
+- `VoiceSettings` (and `AfVoiceSection`'s Text → speech row, `mountVoiceSettings` / `mountVoiceSection`):
+  with `previewVoice`, choosing a voice synthesizes a short sample and plays it at once, so a user goes
+  from voice to voice and hears each one. The **Play sample** button is replaced by one play/stop toggle at
+  the right of the voice select (`data-action="play-sample"`, `data-state` idle / loading / playing): play
+  restarts the last sample from 0 without a new request, stop stops and rewinds; while a sample is on its
+  way the toggle is busy (`aria-busy`) and a click cancels it. A newer choice, a provider or model change
+  and unmounting abort the sample on its way; a failure is the one-line note under the row. A choice waits
+  `VOICE_SAMPLE_DEBOUNCE_MS` (200 ms) before synthesizing, so going through voices quickly starts one synthesis
+  (a gateway cannot cancel one it started); choosing the voice just heard replays it without a request.
+- `previewVoice` gains a third argument, `opts?: { signal?: AbortSignal }` (additive): pass the signal to
+  the synthesis request so an abandoned sample stops downloading. Existing two-argument hosts still work
+  (their late answer is dropped unplayed).
+- `playOnDevice` takes `signal`: aborting it stops the sound at once. A context the browser keeps suspended
+  (Safari, playback after an await) is resumed, else the call fails with a sentence instead of hanging silent.
+- An engine that lists no voice says why: the catalog's `unavailable_reason` ("Supertonic is not installed: …",
+  "OpenAI: needs an API key") is a one-line note under the voice row (`data-voice-note="unavailable"`).
+- A profile stored as `voice` (a host that keeps one id for both kinds: a capability route's `options.voice`, an
+  entity's voice) is shown as that profile by its name, not as an unknown "(saved)" id.
+- Who is affected: every host that passes `previewVoice` (the AbstractGateway console's entity voice
+  picker and capability editor, AbstractCode, the Assistant). Nothing to change; passing `opts.signal`
+  through is recommended.
+
 ## 0.7.0 - 2026-10-27
 
 Packages: `@abstractframework/ui-kit` 0.9.0, `@abstractframework/panel-chat` 0.5.0 (peer and dev floor on ui-kit raised to `^0.9.0`).

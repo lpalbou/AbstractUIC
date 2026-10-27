@@ -150,7 +150,7 @@ export function installFakeBrowser() {
     ],
     /** getUserMedia resolves after this many ms (a permission prompt); 0 = at once. */
     gumDelay: 0,
-    log: { getUserMedia: [], streams: [], sinks: [], recorders: [], windowAdd: [], windowRemove: [], gains: [], contexts: [], enumerate: 0, analyserReads: 0 },
+    log: { getUserMedia: [], streams: [], sinks: [], recorders: [], windowAdd: [], windowRemove: [], gains: [], contexts: [], sources: [], enumerate: 0, analyserReads: 0 },
     store: new Map(),
   };
   class FakeTrack {
@@ -205,7 +205,24 @@ export function installFakeBrowser() {
       return { stream: new FakeStream() };
     }
     createBufferSource() {
-      const s = { connect() {}, disconnect() {}, start() { setTimeout(() => s.onended?.(), 5); }, stop() {}, onended: null };
+      // Plays for env.playMs (default 5 ms); stop() ends it at once and, like the Web Audio API,
+      // fires onended. Every source is logged with how it was started and whether it was stopped.
+      const s = {
+        connect() {},
+        disconnect() {},
+        start(...args) {
+          s.startArgs = args;
+          s.timer = setTimeout(() => s.onended?.(), env.playMs ?? 5);
+        },
+        stop() {
+          s.stopped = true;
+          clearTimeout(s.timer);
+          s.onended?.();
+        },
+        onended: null,
+        stopped: false,
+      };
+      env.log.sources.push(s);
       return s;
     }
     decodeAudioData() {

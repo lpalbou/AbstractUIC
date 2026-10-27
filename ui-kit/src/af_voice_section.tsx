@@ -207,9 +207,10 @@ export type AfVoiceSectionProps = {
   fetchLanguages?: (kind: "tts" | "stt" | "cloning", provider?: string) => Promise<string[]>;
   /**
    * A short sample in the chosen voice (host-injected: every gateway TTS route needs a run or an
-   * entity). Present = "Play sample" beside the voice select; it plays on the chosen speaker.
+   * entity). Present = choosing a voice plays it, with a play/stop toggle at the right of the voice
+   * select; it plays on the chosen speaker. `opts.signal` aborts a sample the user moved past.
    */
-  previewVoice?: (prefs: VoiceClientPreferences, text?: string) => Promise<ArrayBuffer>;
+  previewVoice?: (prefs: VoiceClientPreferences, text?: string, opts?: { signal?: AbortSignal }) => Promise<ArrayBuffer>;
   /** What an unset `capture_mode` / `auto_send` means in this host (shown as the selected state). */
   captureDefaults?: { capture_mode?: VoiceCaptureMode; auto_send?: boolean };
   /** The live microphone level while the host records: the `voice` from `useGatewayVoice` (only the meter re-renders). */
@@ -331,7 +332,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
                 showReset={false}
                 voiceDefaultLabel="Gateway default"
                 voiceLibrary={library}
-                previewVoice={p.previewVoice ? (prefs, text) => p.previewVoice!({ ...value, ...prefs }, text) : undefined}
+                previewVoice={p.previewVoice ? (prefs, text, opts) => p.previewVoice!({ ...value, ...prefs }, text, opts) : undefined}
                 previewOn={playOn}
                 recordFrom={{ deviceId: value.input_device || "", gain }}
               />

@@ -152,6 +152,13 @@ const names = (value: unknown): string[] =>
         .filter(Boolean)
     : [];
 
+/**
+ * How long a voice choice waits before its sample is synthesized: going through several voices
+ * quickly starts one synthesis (for the voice the user stops on), not one per voice — a gateway
+ * cannot cancel a synthesis it has started, so each one would run to the end on the engine.
+ */
+export const VOICE_SAMPLE_DEBOUNCE_MS = 200;
+
 /** Gateway-catalog driven and transport injected, usable in any chat host. */
 export function VoiceSettings({
   value,
@@ -193,18 +200,28 @@ export function VoiceSettings({
   voiceLibrary?: VoiceLibrary;
   /**
    * Synthesize a short sample with these preferences (host-injected: every gateway TTS route needs
-   * a run or an entity, routes/gateway.py:12753, so the host chooses the owner). Present = a
-   * "Play sample" button beside the voice select. `text` absent = the host's own sample sentence.
+   * a run or an entity, routes/gateway.py:12753, so the host chooses the owner). Present = choosing
+   * a voice plays it at once, and a play/stop toggle sits at the right of the voice select (play
+   * restarts from 0, stop stops and rewinds). A newer choice aborts the older sample through
+   * `opts.signal` (pass it to the request), so fast choices never queue audio. `text` absent = the
+   * host's own sample sentence.
    */
-  previewVoice?: (prefs: VoicePreferences, text?: string) => Promise<ArrayBuffer>;
+  previewVoice?: (prefs: VoicePreferences, text?: string, opts?: { signal?: AbortSignal }) => Promise<ArrayBuffer>;
   /** The speaker and volume a sample plays on (default: the system output at full volume). */
   previewOn?: VoicePlayOn;
   /** The microphone "Create a voice" records from (default: the system microphone). */
   recordFrom?: VoiceRecordFrom;
 }): React.ReactElement {
   const creation: VoiceCreation | undefined = voiceLibrary || createVoice;
-  const [sample, setSample] = useState<{ busy: boolean; error: string }>({ busy: false, error: "" });
-  const sampling = useRef(false);
+  // The voice sample: one at a time. `run` numbers the current sample (a newer one, a stop or an
+  // unmount moves it on, so a late answer is dropped unplayed); `synth` / `play` abort the request
+  // and the playback; `cache` keeps the last sample's bytes so play replays without a request.
+  const [sample, setSample] = useState<{ state: "idle" | "loading" | "playing"; error: string }>({ state: "idle", error: "" });
+  const run = useRef(0);
+  const synth = useRef<AbortController | null>(null);
+  const play = useRef<AbortController | null>(null);
+  const cache = useRef<{ key: string; bytes: ArrayBuffer } | null>(null);
+  const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fetcher = useRef(fetchCatalog);
   fetcher.current = fetchCatalog;
   const [catalog, setCatalog] = useState<VoiceCatalog>({});
@@ -217,23 +234,82 @@ export function VoiceSettings({
   const latest = useRef(value);
   latest.current = value;
   const mounted = useRef(true);
+  const stopSample = () => {
+    run.current += 1;
+    if (pending.current !== null) clearTimeout(pending.current);
+    pending.current = null;
+    synth.current?.abort();
+    synth.current = null;
+    play.current?.abort();
+    play.current = null;
+  };
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      stopSample();
     };
   }, []);
-  const playSample = () => {
-    if (!previewVoice || sampling.current) return;
-    sampling.current = true;
-    setSample({ busy: true, error: "" });
-    void previewVoice(latest.current)
-      .then((bytes) => (mounted.current ? playOnDevice(bytes, { deviceId: previewOn?.deviceId || "", volume: previewOn?.volume }) : undefined))
-      .then(() => mounted.current && setSample({ busy: false, error: "" }))
-      .catch((err) => mounted.current && setSample({ busy: false, error: `The sample did not play: ${String(err?.message || err).replace(/\.$/, "")}.` }))
-      .finally(() => {
-        sampling.current = false;
+  const sampleKey = (prefs: VoicePreferences) => JSON.stringify([prefs.provider || "", prefs.model || "", prefs.voice || "", prefs.profile || ""]);
+  const failed = (err: any) => `The sample did not play: ${String(err?.message || err).replace(/\.$/, "")}.`;
+  // Plays from 0 (a fresh source each time); ends idle unless a newer sample took over.
+  const playBytes = (bytes: ArrayBuffer, id: number) => {
+    const ctl = new AbortController();
+    play.current = ctl;
+    setSample({ state: "playing", error: "" });
+    void playOnDevice(bytes, { deviceId: previewOn?.deviceId || "", volume: previewOn?.volume, signal: ctl.signal })
+      .then(() => mounted.current && run.current === id && setSample({ state: "idle", error: "" }))
+      .catch((err) => mounted.current && run.current === id && setSample({ state: "idle", error: failed(err) }));
+  };
+  const startSample = (prefs: VoicePreferences) => {
+    if (!previewVoice) return;
+    stopSample();
+    const id = run.current;
+    const ctl = new AbortController();
+    synth.current = ctl;
+    setSample({ state: "loading", error: "" });
+    void previewVoice(prefs, undefined, { signal: ctl.signal })
+      .then((bytes) => {
+        if (!mounted.current || run.current !== id) return;
+        synth.current = null;
+        cache.current = { key: sampleKey(prefs), bytes };
+        playBytes(bytes, id);
+      })
+      .catch((err) => {
+        if (!mounted.current || run.current !== id) return; // moved past: its failure is not news
+        synth.current = null;
+        setSample({ state: "idle", error: failed(err) });
       });
+  };
+  // A voice choice: the cached sample at once, else a sample after the debounce (busy meanwhile).
+  const chooseSample = (prefs: VoicePreferences) => {
+    if (!previewVoice) return;
+    stopSample();
+    const id = run.current;
+    if (cache.current && cache.current.key === sampleKey(prefs)) {
+      playBytes(cache.current.bytes, id);
+      return;
+    }
+    setSample({ state: "loading", error: "" });
+    pending.current = setTimeout(() => {
+      pending.current = null;
+      if (mounted.current && run.current === id) startSample(prefs);
+    }, VOICE_SAMPLE_DEBOUNCE_MS);
+  };
+  // The toggle: stop (or cancel a sample on its way), else play the current voice from 0.
+  const toggleSample = () => {
+    if (sample.state !== "idle") {
+      stopSample();
+      setSample({ state: "idle", error: "" });
+      return;
+    }
+    const current = latest.current;
+    if (cache.current && cache.current.key === sampleKey(current)) {
+      stopSample();
+      playBytes(cache.current.bytes, run.current);
+      return;
+    }
+    startSample(current);
   };
   // Another engine lists other voices: the language filter starts over.
   useEffect(() => {
@@ -284,13 +360,21 @@ export function VoiceSettings({
       item.voice_kind === "profile" ? "profile" : "voice",
       item.id,
     ]);
-  const selected = entries.find(
-    (item) =>
-      item.id === (value.profile || value.voice) &&
-      (item.voice_kind === "profile") === Boolean(value.profile) &&
-      (!value.provider || !item.provider || item.provider === value.provider) &&
-      (!value.model || !item.model || item.model === value.model),
-  );
+  const onRoute = (item: any) =>
+    (!value.provider || !item.provider || item.provider === value.provider) &&
+    (!value.model || !item.model || item.model === value.model);
+  // A host that stores one id for both kinds (a capability route's `options.voice`, an entity's
+  // voice) names a profile as `voice`: it is still that profile, not an unknown saved id.
+  const selected =
+    entries.find(
+      (item) =>
+        item.id === (value.profile || value.voice) &&
+        (item.voice_kind === "profile") === Boolean(value.profile) &&
+        onRoute(item),
+    ) ||
+    (!value.profile && value.voice
+      ? entries.find((item) => item.id === value.voice && item.voice_kind === "profile" && onRoute(item))
+      : undefined);
   const voiceKey = selected
     ? itemKey(selected)
     : value.profile || value.voice
@@ -346,9 +430,12 @@ export function VoiceSettings({
       <ProviderModelPicker
         defaultHint={defaultHint}
         value={{ provider: value.provider || "", model: value.model || "" }}
-        onChange={(next) =>
-          onChange({ ...value, ...next, voice: "", profile: "" })
-        }
+        onChange={(next) => {
+          // Another engine or model: the old sample is not this voice any more.
+          stopSample();
+          setSample({ state: "idle", error: "" });
+          onChange({ ...value, ...next, voice: "", profile: "" });
+        }}
         fetchProviders={async () => {
           const next = await fetcher.current();
           if (next.error && !names(next.tts_providers || next.providers).length)
@@ -383,6 +470,7 @@ export function VoiceSettings({
       ) : null}
       <label>
         Voice / profile
+        <span className="af-voice-settings__voice-row">
         <AfSelect
           ariaLabel="AI voice"
           placeholder={voiceDefaultLabel || "Gateway / provider default"}
@@ -393,30 +481,45 @@ export function VoiceSettings({
             ...options,
           ]}
           onChange={(key) => {
+            let patch: Partial<VoicePreferences>;
             if (!key) {
-              update({ voice: "", profile: "" });
-              return;
+              patch = { voice: "", profile: "" };
+            } else {
+              const [provider, model, kind, id] = JSON.parse(key);
+              // A profile selection is a route selection too. Never combine an id
+              // from one engine with the Gateway's default engine or a stale model.
+              patch = {
+                provider: provider || value.provider || "",
+                model:
+                  model ||
+                  (provider && provider !== value.provider ? "" : value.model) ||
+                  "",
+                voice: kind === "voice" ? id : "",
+                profile: kind === "profile" ? id : "",
+              };
             }
-            const [provider, model, kind, id] = JSON.parse(key);
-            // A profile selection is a route selection too. Never combine an id
-            // from one engine with the Gateway's default engine or a stale model.
-            update({
-              provider: provider || value.provider || "",
-              model:
-                model ||
-                (provider && provider !== value.provider ? "" : value.model) ||
-                "",
-              voice: kind === "voice" ? id : "",
-              profile: kind === "profile" ? id : "",
-            });
+            update(patch);
+            // Choosing a voice plays it: the user hears each voice as they go.
+            chooseSample({ ...value, ...patch });
           }}
         />
+        {previewVoice ? (
+          <button
+            type="button"
+            className="af-voice-settings__sample"
+            data-action="play-sample"
+            data-state={sample.state}
+            aria-busy={sample.state === "loading"}
+            aria-label={sample.state === "playing" ? "Stop the sample" : sample.state === "loading" ? "Cancel the sample" : "Play a sample of this voice"}
+            title={sample.state === "playing" ? "Stop" : sample.state === "loading" ? "Synthesizing… (click to cancel)" : "Play a sample"}
+            disabled={loading && sample.state === "idle"}
+            onClick={toggleSample}
+          >
+            <span aria-hidden="true">{sample.state === "playing" ? "■" : "▶"}</span>
+          </button>
+        ) : null}
+        </span>
       </label>
-      {previewVoice ? (
-        <button type="button" className="af-voice-settings__sample" data-action="play-sample" disabled={loading || sample.busy} onClick={playSample}>
-          {sample.busy ? "Playing…" : "Play sample"}
-        </button>
-      ) : null}
       {sample.error ? (
         <p className="af-voice-note af-voice-note--error" role="status" data-voice-note="sample">
           {sample.error}
@@ -427,6 +530,13 @@ export function VoiceSettings({
       {error ? (
         <p role="alert">
           Voice discovery unavailable: {error}. Your saved choice is preserved.
+        </p>
+      ) : null}
+      {!loading && !error && value.provider && entries.length === 0 && String(catalog.unavailable_reason || "").trim() ? (
+        // WHY the engine lists no voice, in the gateway's / AbstractVoice's words ("Supertonic is not
+        // installed: …", "OpenAI: needs an API key"), never a bare empty list.
+        <p className="af-voice-note" role="status" data-voice-note="unavailable">
+          {String(catalog.unavailable_reason).trim()}
         </p>
       ) : null}
       {delivery ? (<>

@@ -6744,8 +6744,58 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 .af-voice-section__tts-slot {
   padding: 2px 0 6px;
 }
+/* The voice row: the voice select and its play/stop toggle (choosing a voice plays it). */
+.af-voice-settings__voice-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.af-voice-settings__voice-row > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .af-voice-settings__sample {
-  justify-self: start;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+.af-voice-settings__sample:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.af-voice-settings__sample[data-state="loading"] > span {
+  display: none;
+}
+.af-voice-settings__sample[data-state="loading"]::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border-default);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: af-voice-sample-spin 0.8s linear infinite;
+}
+@keyframes af-voice-sample-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .af-voice-settings__sample[data-state="loading"]::before {
+    animation: none;
+    border-top-color: var(--border-default);
+  }
 }
 .af-voice-create__record {
   display: flex;
@@ -6842,9 +6892,12 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
     height: 44px;
   }
   .af-voice-library button,
-  .af-voice-create button,
-  .af-voice-settings__sample {
+  .af-voice-create button {
     min-height: 44px;
+  }
+  .af-voice-settings__sample {
+    width: 44px;
+    height: 44px;
   }
 }
 

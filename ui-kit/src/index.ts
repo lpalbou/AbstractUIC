@@ -150,6 +150,7 @@ export {
 export {
   VoiceSettings,
   CreateVoicePanel,
+  VOICE_SAMPLE_DEBOUNCE_MS,
   voiceGroup,
   voiceLanguage,
   voiceLanguages,

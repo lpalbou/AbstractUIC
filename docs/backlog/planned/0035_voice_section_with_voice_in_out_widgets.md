@@ -67,6 +67,10 @@ a run or an entity); `voice/compatibility` unconsumed; created-voice `engine` no
       the 0.8.9 checks stay green.
 - [ ] Docs: api.md (AfVoiceSection `createVoice` gap closed, new props, two widgets), adoption-guide rows.
 - [ ] App adoption PRs with the deletions above (Assistant web needs the assistant seat: dirty checkout).
+- [x] 0.9.1 (2026-10-27, operator): choosing a voice plays it; one play/stop toggle at the right of the voice
+      select replaces **Play sample**; `previewVoice(prefs, text?, {signal})` aborts the older sample;
+      `check_voice_library.mjs` 0947 checks (mutation-checked red: no abort, no stop, no play on choice).
+      The console's capability editor (output.voice) adopts the picker: AbstractGateway backlog 0947.
 
 ## Non-goals
 VAD / hands-free capture (iPhone, desktop `wait`/`full` modes) in this slice; server-side voice preferences.
