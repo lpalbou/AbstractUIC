@@ -7043,6 +7043,11 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 /* ProviderModelPicker (backlog 0034): a named default may be long; pinned fields; set anyway. */
 .af-pmp__seg-btn {
   max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* --- ui-primitives (shell) --- */
 /* af-shell:begin — the app shell (backlog 0036): identity in the top-right
  * cluster, the drawer system (left side, vertical text tabs, canvas panels,

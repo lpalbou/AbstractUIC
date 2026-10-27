@@ -9,6 +9,14 @@ ships.
 
 ## Unreleased
 
+### fix: theme.css parses again (merge of two append-only blocks)
+
+- The tools-models merge (f637dd4) interleaved its appended `.af-pmp__seg-btn` rule with the shell block and
+  left it unclosed: every app's Vite/PostCSS build of `@abstractframework/ui-kit/theme.css` failed with
+  "Unclosed block" at 7044 while the kit's own checks stayed green. The rule is closed again (the four lost
+  declarations restored); `check_css_syntax.mjs` (new, in `npm test`) fails on an unclosed block, a stray brace
+  or an unterminated comment/string in `theme.css` and `panel_chat.css` (red on b6db5fe's theme.css).
+
 ### session-policy: "Allow for this chat" is stored on the gateway (backlog 0032; session tool policy contract v1)
 
 panel-chat:
