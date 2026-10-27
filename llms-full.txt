@@ -1715,6 +1715,7 @@ Components:
 - `DocsAssistantDrawer` (0.4.0) — the Docs assistant of the console and every app: kit drawer + panel-chat thread (user right, assistant left; Markdown, code, JSON, links, images per the image policy; copy), attachments (`attachments/upload` to the conversation's session → `context.attachments`), streaming (`llm.delta` on `runs/{id}/ledger/stream`), Stop, icon-only New conversation and close, one-line grounding footer. Props `open`, `onClose`, `source: { app, name }`, `fetchGateway`, `connected`, `suggestions?`, `placeholder?`, `width?`, `topOffset?`, `className?`. Grounding: `GET api/gateway/docs/corpus?app=<id>` → the shipped `docs-qa` workflow (`DOCS_QA_WORKFLOW`); one gateway session per conversation. `topOffset` also takes `"auto"`; `manageFocus` (default false: the drawer keeps its earlier focus behaviour) opts into the kit drawer's focus handling. In an `AfDrawerSystem`: `docsAssistantPanel(source, fetchGateway, { connected, suggestions?, placeholder?, ask?, id?, label?, mode?, side?, defaultWidth? })` returns an `AfDrawerPanel` (drawer mode, kept alive) whose content, `DocsAssistantPanelContent`, is the same conversation with its header actions in the panel header (shell, backlog 0036). Exports `DocsAssistantPanel` (stateless view), `makeDocsQaAsk`, `docsQaStartBody`, `docsCorpusPath`, `docsAnswerFromRun`, `docsReplayNote`, `newDocsSessionId`, `sseFrames`
 - `AssistantPanel` (docs Q&A surface with an injected `ask(question, { signal, history })` transport returning a Promise or an AsyncIterable of deltas; never fetches); `assistantDrawerPanel({ ask, assistantName?, …, id?, label?, icon?, mode?, side?, defaultWidth? })` returns it as an `AfDrawerPanel` (drawer mode, kept alive) for an app assistant such as Continuum's advisor (shell, backlog 0036)
 - `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions; `streamReplies?: "gateway_default" | "on" | "off"`); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
+- Session tool policy (gateway contract v1): optional `WorkflowTransport.getCapabilities` / `setSessionToolPolicy(sessionId, body, { merge })` / `clearSessionToolPolicy(sessionId)`; `controller.approveForSession(target, { all: true } | { kinds } | { tools }, { ask?, onLocalFallback? })` writes the grant on the gateway (POST, merge) before answering the shown wait and returns `{ path, clamped }`; `controller.resetSessionToolPolicy()` (DELETE). `snapshot.sessionToolPolicy` is `"server"`, `"local-fallback"` (older gateway, transport without the calls, or a sessionless run: the client-side standing permission, `sessionToolPolicyReason` says why) or `"unavailable"`; `snapshot.sessionToolPolicyClamped` lists names the gateway did not approve. `abstract.tool_policy_decision` ledger records render as "Tool policy" activity rows, never as a question. Types `WorkflowSessionToolPolicyRequest`, `WorkflowSessionToolSelector`, `WorkflowSessionToolPolicyMode`, `WorkflowSessionToolPolicyClamp`, `WorkflowSessionToolGrant`
 - Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry), the event-name constants `LLM_DELTA_EVENT` / `LLM_DELTA_END_EVENT`; types `LlmDelta`, `LlmDeltaEnd`, `LlmDeltaEvent`, `LlmDeltaChannel`, `LlmDeltaEndReason`, `LlmStreamUnavailableDetail`, `StreamRepliesMode`; controller option `liveRenderIntervalMs` (default 60, also on `useWorkflowSession`). See [panel-chat README](../panel-chat/README.md#live-replies-streaming)
 - File drop and paste: `WorkflowChat`'s `onFiles(files)` turns on the drop zone and paste-to-attach (folders are refused with a visible message); the pure helpers behind it are exported too: `dragCarriesFiles()`, `draggedFileCount()`, `dropZoneLabel()`, `droppedFiles()`, `folderRefusal()`, `pastedFileName()`, `pastedFiles()`, `DragPresence` (see `panel-chat/src/file_drop.ts`)
 - `ToolActivity`, `ToolActivityGroup` (tool-call rendering; a process-spawning call shows its command-sandbox line first in its detail), `toolSandbox(result)` + `ToolSandboxLine` (the line `Sandbox: <label> · N workspaces enforced` / `Sandbox: none — refused` and the enforced paths, from the ledger's `output.sandbox`), `StatDetailPanel` + `statDetail()` (token/time/tool statistics)
@@ -1724,7 +1725,7 @@ Components:
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
-- `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow all enabled tools" only with `onPermissionsAll`), question (`ask_user`, choices and free text) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. Types `PresentInteractionOptions`, `InteractionController`
+- `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll?, sessionPolicy? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow all enabled tools" only with `onPermissionsAll`), question (`ask_user`, choices and free text) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. With `sessionPolicy: { ask }` (the host's explicit Ask tools) and a gateway that serves the session tool policy (`snapshot.sessionToolPolicy === "server"`), approve-all reads "Allow all tools in this conversation" and goes through `controller.approveForSession` (policy written on the gateway first, then the batch answered); otherwise it stays the `onPermissionsAll` switch. Types `PresentInteractionOptions`, `InteractionController`
 - `WorkspaceBrowser` — a run's folder on the gateway host through the CONTRACTS §W routes (`GET /runs/{id}/workspace`, `/workspace/files`, `/workspace/content`): the root once as its short name (`workspaceShortName`; full path on hover) with **Open folder** (`onOpenFolder`, offered only when `workspaceCanOpenFolder`) and **Copy path** icons, breadcrumbs, folders first, then per file: name, size, generated date (relative, exact on hover) and a Download icon; "N entries hidden by the gateway's workspace rules". A click on a file previews it IN PLACE with `FileViewer` (0.3.1: no "Open" button; `fileActions(entry)` adds host actions such as "Attach"), or `onSelectFile` + `selectedPath` hand the selection to a host preview. Files are fetched with the host's credentials, never linked. Props: `fetchGateway(path, init)`, `runId` (an automation's id browses the automation's folder), `title`, `note?`, `onClose?`, `refreshKey?`, `className?`, `fileActions?`, `onOpenFolder?`, `copyText?`, `nowMs?`. Hook-free `WorkspaceBrowserView` and helpers: `loadWorkspaceView()`, `loadRunWorkspace()`, `listWorkspaceFolder()`, `readWorkspaceFile()`, `parseWorkspaceListing()` (malformed answers throw), `gatewayResponseError()`, `tabOpenPlan()`, `workspaceInfoUrl()` / `workspaceFilesUrl()` / `workspaceContentUrl()`, `workspaceCrumbs()`, `workspaceParent()`, `sortWorkspaceEntries()`, `workspaceHiddenNote()`, `formatBytes()`; types `GatewayFetch`, `RunWorkspace`, `WorkspaceEntry`, `WorkspaceListing`, `WorkspaceBrowserProps`, `WorkspaceBrowserViewProps`
 - `FileViewer` (0.3.1) — ui-kit `AfFileViewer` with panel-chat's `Markdown`; `useWorkspaceFilePreview(fetchGateway, runId, entry, refreshKey?)` loads one workspace file for it (a bounded Range read of at most `PREVIEW_TEXT_LIMIT` = 1 MiB for text kinds, an object URL for images, audio and PDF up to `PREVIEW_BLOB_LIMIT`, nothing for binaries; audio plays in the kit's `AfAudioPlayer`) and `filePreviewViewerProps(state)` maps the result; `readBoundedText()`, `responseTotal()`, `partialPreviewNote()`, `safeMarkdownImages()` (Markdown images only from the run's workspace)
 
@@ -5520,7 +5521,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_docs_panel.mjs"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_session_tool_policy.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_docs_panel.mjs"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.8.0",
@@ -12979,6 +12980,11 @@ export type {
   WorkflowToolApprovalPolicy,
   WorkflowStopPhase,
   WorkflowStopState,
+  WorkflowSessionToolPolicyRequest,
+  WorkflowSessionToolSelector,
+  WorkflowSessionToolPolicyMode,
+  WorkflowSessionToolPolicyClamp,
+  WorkflowSessionToolGrant,
 } from "./workflow_runtime.js";
 export type { UseWorkflowSessionOptions, WorkflowSessionHook } from "./use_workflow_session.js";
 export type { WorkflowEventScope, WorkflowEventTarget, WorkflowEventTargetResolution } from "./event_target.js";
@@ -14116,10 +14122,23 @@ export type PresentInteractionOptions = {
    * Omit it and only Allow once / Deny are offered.
    */
   onPermissionsAll?: () => Promise<void>;
+  /**
+   * Opt in to conversation grants on the gateway (session tool policy). When
+   * the controller reports `sessionToolPolicy === "server"`, approve-all reads
+   * "Allow all tools in this conversation": the grant is written on the
+   * gateway first, then this batch is answered (`approveForSession`), and the
+   * runtime stops asking for covered calls. `ask` lists the host's explicit
+   * Ask settings: those tools keep asking under the grant. It is an opt-in
+   * because only the host knows that list; without it nothing changes.
+   * Otherwise (#FALLBACK, older gateway: `local-fallback`) approve-all is the
+   * `onPermissionsAll` switch as before, routed through `approveForSession`
+   * so the path that ran is reported.
+   */
+  sessionPolicy?: { ask: readonly string[] };
 };
 
 /** The controller methods the controls call. */
-export type InteractionController = Pick<WorkflowSessionController, "approve" | "approveWithPolicyChange" | "resume" | "emitEvent">;
+export type InteractionController = Pick<WorkflowSessionController, "approve" | "approveWithPolicyChange" | "approveForSession" | "getSnapshot" | "resume" | "emitEvent">;
 
 /**
  * Converts a runtime wait into a control, or null when the wait is not one a
@@ -14139,6 +14158,14 @@ export function presentInteraction(
     const target = { runId: raw.runId, waitKey: String(wait.wait_key || ""), stepId: raw.stepId };
     const names = [...new Set(calls.map((call: any) => String(call?.name || "tool")))];
     const onPermissionsAll = options.onPermissionsAll;
+    const sessionPolicy = options.sessionPolicy;
+    const serverGrant = Boolean(sessionPolicy) && controller.getSnapshot().sessionToolPolicy === "server";
+    const localAll = onPermissionsAll
+      ? async () => {
+          if (sessionPolicy) await controller.approveForSession(target, { all: true }, { ask: sessionPolicy.ask, onLocalFallback: () => void onPermissionsAll() });
+          else await controller.approveWithPolicyChange(target, () => { void onPermissionsAll(); });
+        }
+      : undefined;
     return {
       id,
       kind: "tool-approval",
@@ -14164,17 +14191,17 @@ export function presentInteraction(
       ),
       approveLabel: "Allow once",
       denyLabel: "Deny",
-      approveAllLabel: onPermissionsAll ? "Allow all enabled tools" : undefined,
-      approveAllDescription: onPermissionsAll
-        ? "Sets permissions: all for this Gateway account, including future turns. Unchecked tools stay unavailable; explicit Ask overrides and Gateway restrictions remain enforced. Questions still need your answer."
-        : undefined,
-      onApproveAll: onPermissionsAll
+      approveAllLabel: serverGrant ? "Allow all tools in this conversation" : onPermissionsAll ? "Allow all enabled tools" : undefined,
+      approveAllDescription: serverGrant
+        ? "Saved on the Gateway for this conversation: from now on its tool calls run without asking, in every turn and sub-agent. Tools this conversation cannot use stay unavailable; explicit Ask settings still ask. Questions still need your answer."
+        : onPermissionsAll
+          ? "Sets permissions: all for this Gateway account, including future turns. Unchecked tools stay unavailable; explicit Ask overrides and Gateway restrictions remain enforced. Questions still need your answer."
+          : undefined,
+      onApproveAll: serverGrant
         ? async () => {
-            await controller.approveWithPolicyChange(target, () => {
-              void onPermissionsAll();
-            });
+            await controller.approveForSession(target, { all: true }, { ask: sessionPolicy!.ask, ...(onPermissionsAll ? { onLocalFallback: () => void onPermissionsAll() } : {}) });
           }
-        : undefined,
+        : localAll,
       onApprove: async () => {
         await controller.approve(true, target);
       },
@@ -17413,6 +17440,30 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## Unreleased
+
+### panel-chat: conversation grants through the gateway's session tool policy (backlog 0039)
+
+- **Approve-all without the flash.** `WorkflowSessionController.approveForSession(target, selector, { ask?, onLocalFallback? })`
+  with `{ all: true }`, `{ kinds: [...] }` (toolset ids of `GET /discovery/tools`) or `{ tools: [...] }`: on a gateway that
+  serves `capabilities.session_tool_policy.supported`, it POSTs (merge) `sessions/{session_id}/tool-policy` FIRST, then
+  answers the shown wait with the ordinary `approve(true, target)`. No client-side standing permission is installed: the
+  runtime stops emitting covered waits, so no approval gate is shown and then withdrawn. The gateway's `clamped` names
+  are returned and kept in `snapshot.sessionToolPolicyClamped`. `resetSessionToolPolicy()` sends DELETE.
+- **Feature gate, explicit fallback.** `snapshot.sessionToolPolicy`: `"server"`, `"local-fallback"` (#FALLBACK: older
+  gateway without the capability, a transport without the new calls, or a run without `session_id`; approve-all stays
+  the client-side standing permission and `sessionToolPolicyReason` says why) or `"unavailable"` (not decided yet, or the
+  capability read failed: a grant then fails loudly; Allow once still works). Kind/tool grants exist only on the server path.
+- `WorkflowTransport` gains optional `getCapabilities`, `setSessionToolPolicy(sessionId, body, { merge })`,
+  `clearSessionToolPolicy(sessionId)`; older hosts compile unchanged and report `local-fallback`.
+- `presentInteraction` option `sessionPolicy: { ask }` (opt-in; `ask` = the host's explicit Ask tools, which keep asking
+  under the grant): on the server path approve-all reads "Allow all tools in this conversation" and goes through
+  `approveForSession`. Without the opt-in nothing changes. **Type change**: `InteractionController` now also picks
+  `approveForSession` and `getSnapshot` (a `WorkflowSessionController` satisfies it; hand-written fakes need both).
+  "Allow this kind" is not offered by the card: wait details carry no toolset (see 0039).
+- `abstract.tool_policy_decision` ledger records render as a "Tool policy" activity row ("Allowed by this conversation's
+  policy (set by … at …): names" / "Denied by this conversation's policy …"), never as an interaction.
+- Checks: `check_session_tool_policy.mjs` (new), server-path block in `check_present_interaction.mjs`; each confirmed red
+  once with the change reverted.
 
 ### shell: the app shell — identity, the top-right order, the drawer system (backlog 0036, ADR 0001)
 

@@ -14,7 +14,7 @@ packaging). Full findings are distilled into the items below; each item
 carries its own code-reality citations.
 
 ## Counts
-- Planned: 14 (0001, 0003-0006, 0014, 0019, 0030-0036)
+- Planned: 15 (0001, 0003-0006, 0014, 0019, 0030-0036, 0039)
 - Proposed: 19 (0009-0013, 0015-0018, 0020-0022, 0024-0028, 0037-0038)
 - Completed: 6 (0002, 0007, 0008, 0023, 0026-theme-adoption, 0029)
 - Deprecated: 0
@@ -79,6 +79,7 @@ merge, or missing test rigs) — see each item's checklist.
 | 0034 | provider/model/reasoning/speculation picker | ui-kit | Gateway default first and named; served ladders only; compact layout; `gateway_models.ts` helpers |
 | 0035 | voice section with voice-in/out widgets | ui-kit | `AfVoiceInput` / `AfVoiceOutput` standalone, live level, mute, capture mode, voice library, mic button, prefs hooks |
 | 0036 | app shell: top-right widgets + drawer system | ui-kit + panel-chat | Identity badge/menu, about fetch, enforced order; `AfDrawerSystem` (opaque panels, keep-alive, persisted, auto top offset); `AfAppShell` |
+| 0039 | hosts move approve-all to the session tool policy | panel-chat consumers | Kit route done (`approveForSession`); AbstractCode web passes `sessionPolicy`, implements the transport calls; card "Allow this kind" |
 
 ## Proposed ledger (promotion criteria in each item)
 | ID | Item | Consumers today | Blocked on |
@@ -106,7 +107,7 @@ merge, or missing test rigs) — see each item's checklist.
 
 ## Process
 - Items follow the four-digit global-ID convention (`NNNN_snake_case.md`);
-  next free number: 0030 (0026 is used twice — completed theme adoption
+  next free number: 0040 (0026 is used twice — completed theme adoption
   and proposed cognition monitor — kept as history, not renumbered).
 - Completion: append `## Completion report` (date, outcome, validation), move
   to `completed/`, update this ledger in the same pass.
@@ -118,6 +119,9 @@ merge, or missing test rigs) — see each item's checklist.
   vendor attribution; degraded paths labeled #FALLBACK.
 
 ## Planning notes
+- 2026-10-27: 0039 filed (planned): the panel-chat half of the gateway session tool policy
+  landed on `feat/session-tool-policy`; the host move (AbstractCode web) and the card's
+  "Allow this kind" are open. Hygiene: the "next free number" line was stale at 0030, now 0040.
 - 2026-09-27: 0029 completed and UNRELEASED (`9da01a0`…`1eb6d82`; reviews
   42 and 48 GO; fixtures regenerated from real gateway output in `a9b73ab`);
   moved to `completed/`.

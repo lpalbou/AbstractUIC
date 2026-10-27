@@ -9,6 +9,30 @@ ships.
 
 ## Unreleased
 
+### panel-chat: conversation grants through the gateway's session tool policy (backlog 0039)
+
+- **Approve-all without the flash.** `WorkflowSessionController.approveForSession(target, selector, { ask?, onLocalFallback? })`
+  with `{ all: true }`, `{ kinds: [...] }` (toolset ids of `GET /discovery/tools`) or `{ tools: [...] }`: on a gateway that
+  serves `capabilities.session_tool_policy.supported`, it POSTs (merge) `sessions/{session_id}/tool-policy` FIRST, then
+  answers the shown wait with the ordinary `approve(true, target)`. No client-side standing permission is installed: the
+  runtime stops emitting covered waits, so no approval gate is shown and then withdrawn. The gateway's `clamped` names
+  are returned and kept in `snapshot.sessionToolPolicyClamped`. `resetSessionToolPolicy()` sends DELETE.
+- **Feature gate, explicit fallback.** `snapshot.sessionToolPolicy`: `"server"`, `"local-fallback"` (#FALLBACK: older
+  gateway without the capability, a transport without the new calls, or a run without `session_id`; approve-all stays
+  the client-side standing permission and `sessionToolPolicyReason` says why) or `"unavailable"` (not decided yet, or the
+  capability read failed: a grant then fails loudly; Allow once still works). Kind/tool grants exist only on the server path.
+- `WorkflowTransport` gains optional `getCapabilities`, `setSessionToolPolicy(sessionId, body, { merge })`,
+  `clearSessionToolPolicy(sessionId)`; older hosts compile unchanged and report `local-fallback`.
+- `presentInteraction` option `sessionPolicy: { ask }` (opt-in; `ask` = the host's explicit Ask tools, which keep asking
+  under the grant): on the server path approve-all reads "Allow all tools in this conversation" and goes through
+  `approveForSession`. Without the opt-in nothing changes. **Type change**: `InteractionController` now also picks
+  `approveForSession` and `getSnapshot` (a `WorkflowSessionController` satisfies it; hand-written fakes need both).
+  "Allow this kind" is not offered by the card: wait details carry no toolset (see 0039).
+- `abstract.tool_policy_decision` ledger records render as a "Tool policy" activity row ("Allowed by this conversation's
+  policy (set by … at …): names" / "Denied by this conversation's policy …"), never as an interaction.
+- Checks: `check_session_tool_policy.mjs` (new), server-path block in `check_present_interaction.mjs`; each confirmed red
+  once with the change reverted.
+
 ### shell: the app shell — identity, the top-right order, the drawer system (backlog 0036, ADR 0001)
 
 - **Who is signed in** in the top-right cluster: `AfTopBarActions` `identity="badge" | "menu"`
