@@ -20,6 +20,11 @@ export type AfFileViewerKind = "markdown" | "code" | "json" | "image" | "audio" 
 const IMAGE_EXT = new Set("png jpg jpeg gif webp bmp ico avif".split(" "));
 const AUDIO_EXT = new Set("mp3 wav ogg oga opus m4a aac flac weba".split(" "));
 const VIDEO_EXT = new Set("mp4 m4v webm mov ogv mkv".split(" "));
+// Source files `codeLanguage` does not highlight but that are still code.
+const SOURCE_EXT = new Set("mts cts".split(" "));
+// MPEG transport streams: no browser plays them, and Python's mimetypes (the
+// gateway's guess for workspace files) gives this type to .ts/.mts.
+const UNPLAYABLE_VIDEO_TYPES = new Set(["video/mp2t"]);
 const TEXT_EXT = new Set("txt log csv tsv rst adoc org tex diff patch lock".split(" "));
 
 function extensionOf(name: string): string {
@@ -32,6 +37,11 @@ function extensionOf(name: string): string {
  * How a file is shown, from its name and (when known) the Content-Type the
  * server reported. SVG and HTML are shown as SOURCE (code), never rendered:
  * a model-written file must not run in the app's origin.
+ *
+ * The NAME decides first: a media extension, then a code or text name, and
+ * only then a media Content-Type. Servers guess types from extensions too
+ * (Python's mimetypes maps `.ts` to `video/mp2t`), so a code file must never
+ * become a player because of a guessed type.
  */
 export function fileViewerKind(name: string, contentType = ""): AfFileViewerKind {
   const ext = extensionOf(name);
@@ -39,11 +49,15 @@ export function fileViewerKind(name: string, contentType = ""): AfFileViewerKind
   if (ext === "md" || ext === "markdown" || type === "text/markdown") return "markdown";
   if (ext === "json" || type === "application/json" || type.endsWith("+json")) return "json";
   if (ext === "pdf" || type === "application/pdf") return "pdf";
-  if (IMAGE_EXT.has(ext) || (type.startsWith("image/") && type !== "image/svg+xml")) return "image";
-  if (AUDIO_EXT.has(ext) || type.startsWith("audio/")) return "audio";
-  if (VIDEO_EXT.has(ext) || type.startsWith("video/")) return "video";
-  if (codeLanguage(name)) return "code";
-  if (TEXT_EXT.has(ext) || type.startsWith("text/")) return "text";
+  if (IMAGE_EXT.has(ext)) return "image";
+  if (AUDIO_EXT.has(ext)) return "audio";
+  if (VIDEO_EXT.has(ext)) return "video";
+  if (codeLanguage(name) || SOURCE_EXT.has(ext)) return "code";
+  if (TEXT_EXT.has(ext)) return "text";
+  if (type.startsWith("image/") && type !== "image/svg+xml") return "image";
+  if (type.startsWith("audio/")) return "audio";
+  if (type.startsWith("video/") && !UNPLAYABLE_VIDEO_TYPES.has(type)) return "video";
+  if (type.startsWith("text/")) return "text";
   if (["application/javascript", "application/xml", "application/x-yaml", "application/toml"].includes(type)) return "code";
   return "binary";
 }

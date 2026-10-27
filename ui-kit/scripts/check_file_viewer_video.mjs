@@ -22,6 +22,13 @@ const check = (name, cond, detail) => {
 
 for (const name of ["clip.mp4", "clip.webm", "clip.mov", "clip.m4v", "clip.ogv", "clip.mkv"]) check(`kind of ${name}`, fileViewerKind(name) === "video", fileViewerKind(name));
 check("video by Content-Type", fileViewerKind("output", "video/mp4") === "video");
+// Review H1: the gateway guesses workspace types with Python's mimetypes, which maps
+// .ts/.mts (and .m2t/.m2ts) to video/mp2t. A code name always wins over a media type.
+check("TypeScript served as video/mp2t is code", fileViewerKind("app.ts", "video/mp2t") === "code", fileViewerKind("app.ts", "video/mp2t"));
+check("ES-module TypeScript (.mts) served as video/mp2t is code", fileViewerKind("app.mts", "video/mp2t") === "code", fileViewerKind("app.mts", "video/mp2t"));
+check("CommonJS TypeScript (.cts) is code", fileViewerKind("app.cts", "") === "code", fileViewerKind("app.cts", ""));
+check("a code name wins over an audio/image type too", fileViewerKind("main.py", "audio/x-wav") === "code" && fileViewerKind("view.tsx", "image/png") === "code");
+check("an unnamed MPEG-TS stream is not a playable video", fileViewerKind("output", "video/mp2t") === "binary", fileViewerKind("output", "video/mp2t"));
 check("audio stays audio (weba, ogg)", fileViewerKind("a.weba") === "audio" && fileViewerKind("a.ogg") === "audio" && fileViewerKind("x", "audio/webm") === "audio");
 check("video needs a URL, not text", fileViewerNeedsText("video") === false);
 const html = renderToStaticMarkup(React.createElement(AfFileViewer, { name: "clip.mp4", nowMs: 0, status: "ready", url: "blob:http://x/v" }));
