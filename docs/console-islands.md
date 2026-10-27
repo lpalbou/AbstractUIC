@@ -240,6 +240,21 @@ props. Transports are injected: `fetchProviders()`, `fetchModels(provider)` and
 voice picker. The host keeps the value and calls `update(props)` after each change. The gateway
 console's entity Manage, Mind & voice tab uses both.
 
+The picker also takes the props added by backlog 0034 (`fetchGatewayDefault`, `reasoningLadder`,
+`unknownReasoning`, `layout: "compact"`, `pinned`); see [API](./api.md). The console's Defaults
+modal and Sandbox selects (hardcoded reasoning and MTP ladders) can move onto it with a
+`reasoningLadder` read from `GET /api/gateway/discovery/capabilities`.
+
+### `mountToolModeEditor(el, props)`
+
+The kit's tool editor (`ToolModeEditor`: Off / Ask / Auto per tool, grouped by toolset) for
+plain-HTML hosts, with the component's props. `catalog` takes the served
+`GET /api/gateway/discovery/tools` answer as is (the island renders `ToolModeEditorForPayload`:
+the kit's `normalizeToolCatalog`, the answer's `catalog_warnings` shown, and "Tools unavailable: …"
+in place for a broken or failed answer, never a throw) or already-normalized items.
+The host keeps `value` (the layer's sparse diffs) and calls `update(props)` after each `onChange`.
+Intended for a console page over the gateway's tool settings (no such page exists yet).
+
 ### `bindModal(backdrop, options)`
 
 Gives your own modal markup (the `af-modal` classes of `theme.css`) the kit's modal behaviour. It

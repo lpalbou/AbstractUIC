@@ -9,6 +9,46 @@ ships.
 
 ## Unreleased
 
+### tools-models: one tool editor and a picker that names the gateway default (backlog 0033, 0034)
+
+Implements ADR 0001 for tool selection and the provider/model/reasoning/MTP picker. Supersedes
+backlog 0015 (the gateway already serves `approval_default`; the kit now reads it) and 0016 (the
+kit tool editor is `ToolModeEditor`, with an `allowListOnly` mode for allowlist pins).
+
+- `ToolModeEditor` (+ console island `mountToolModeEditor`): Off / Ask / Auto per tool, grouped
+  by toolset with a Mixed group control whose Auto reaches only risk rank ≤ 2 tools (the cap is
+  said in words), search, risk and state badges, the gateway's reason for a tool it does not offer,
+  a "Default: X" chip on a row that overrides the layer below, "Use the gateway's" (app layer) /
+  "Use my defaults" (session layer), `allowListOnly`, and an optional `AfOverrideRow` frame.
+- `tool_plan.ts`: `normalizeToolCatalog`, `resolveToolModes`, `setToolMode`, `planRunTools`,
+  `withRunTools`, `toWorkflowApprovalPolicy`, `trustAfterApproveAll` and the dialect edges of
+  the word "approve". Layers are sparse; a tool the gateway does not offer is never offered;
+  `_runtime.tool_policy` is sent once any layer holds a choice, and omitted (a stale key removed)
+  otherwise so the gateway's stored grant applies.
+- `createToolLayerStore`: `af.tools.app.<interface>.<identity>` and
+  `af.tools.session.<identity>.<session_id>` (newest 100), "Saved in this browser".
+- `ToolPolicyEditor` (deprecated, one minor): reads the served `approval_default` first;
+  `default_approval` stays an alias; a row decided by `TOOL_POLICY_DEFAULTS` is labeled
+  "Kit default"; `toolPolicySelectionToLayer` converts its value.
+- `ProviderModelPicker`: `fetchGatewayDefault` ("Gateway default · ollama / qwen3 · reasoning high
+  · MTP depth 3", also used for capability discovery), `reasoningLadder` (unadvertised levels
+  disabled), `unknownReasoning: "allow-override"` (Set anyway), `layout: "compact"`, `pinned`;
+  saved values the gateway no longer lists read "(saved)" (was "(saved; not advertised)" /
+  "(saved; not available)").
+- `gateway_models.ts`: `gatewayTextDefault`, `createGatewayModelTransport`, `reasoningLadderFrom`,
+  `withRunModel`; the routes in `gateway_paths.ts`.
+- Review fixes (adversarial review of PR #6): a layer key that changes no tool's mode (a removed or
+  not-offered tool, a bare "approve", a diff the gateway default caught up with) no longer sends
+  `tool_policy` (`effectiveToolLayers`, `hasToolChoices(catalog, layers)`); the gateway's failure
+  answer `{items: [], error}` is an error, `catalog_warnings` are shown (`ToolModeEditorForPayload`,
+  used by the island, never throws); the picker re-reads a new `fetchGatewayDefault`, says "none
+  configured" / "could not be read", and shows the gateway's warnings instead of naming an unusable
+  default; "(saved)" only for the mounted value and never while its list failed; the store rebuilds a
+  lost session index and reports unreadable values (`dialect`, `onDropped`); the tool search uses
+  `--font-size-input`; the session chip names the gateway when that is the inherited source.
+- Checks: `check_tool_plan`, `check_tool_mode_editor`, `check_gateway_models`; `check_route_picker`,
+  `check_tool_state`, `check_speculation` (now in `npm test`), `check_islands` and `check_responsive`
+  extended.
 ### shell: the app shell — identity, the top-right order, the drawer system (backlog 0036, ADR 0001)
 
 - **Who is signed in** in the top-right cluster: `AfTopBarActions` `identity="badge" | "menu"`

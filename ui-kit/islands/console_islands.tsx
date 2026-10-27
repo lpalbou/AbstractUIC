@@ -28,6 +28,7 @@ import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typograph
 import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
 import { useGatewayVoice } from "../src/use_gateway_voice.js";
 import { ProviderModelPicker, type ProviderModelPickerProps } from "../src/provider_model_picker.js";
+import { ToolModeEditorForPayload, type ToolModeEditorForPayloadProps } from "../src/tool_mode_editor.js";
 import { VoiceSettings } from "../src/voice_settings.js";
 import { WorkspaceChooser, type WorkspaceChooserProps } from "../src/workspace_chooser.js";
 import { WORKSPACE_CHOOSER_TEXT, workspaceAsState } from "../src/workspace_chooser_core.js";
@@ -415,6 +416,17 @@ export function mountProviderModelPicker(el: Element, props: ProviderModelPicker
   return mount(el, (p) => <ProviderModelPicker {...p} />, props);
 }
 
+// ui-primitives (tools-models, backlog 0033): the tool editor for the console (e.g. a page for the
+// gateway's /tool-grants default, audit gateway gap 6). Host-driven like every island: the console
+// passes the catalog — the served GET discovery/tools answer as is (normalized here with the kit's
+// normalizeToolCatalog, so the console keeps no copy of it; its `catalog_warnings` are shown) or
+// already normalized items — the layer value and onChange. A broken answer renders a labeled
+// error in place (never a throw after the root is attached).
+export type ToolModeEditorIslandProps = ToolModeEditorForPayloadProps;
+export function mountToolModeEditor(el: Element, props: ToolModeEditorIslandProps): IslandHandle<ToolModeEditorIslandProps> {
+  return mount(el, (p) => <ToolModeEditorForPayload {...p} />, props);
+}
+
 export type VoiceSettingsIslandProps = React.ComponentProps<typeof VoiceSettings>;
 
 /**
@@ -524,6 +536,7 @@ const api = {
   mountAbout,
   mountSandboxChat,
   mountProviderModelPicker,
+  mountToolModeEditor,
   mountVoiceSettings,
   mountDocsAssistant,
   mountDrawerSystem,

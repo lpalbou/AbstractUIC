@@ -493,12 +493,13 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Connect the browser to a Gateway | `useGatewayConnection` + `GatewayConnectModal` (+ `@abstractframework/app-server` proxy) | The whole connection state machine is the hook — do not hand-roll it (see below) |
 | Server-side session proxy | `@abstractframework/app-server` (`createGatewaySessionProxy`) | Token→HttpOnly-cookie exchange, CSRF, URL pinning; tokens never rest client-side |
 | Searchable select / combobox | `AfSelect` | Keyboard nav + ARIA built in; `variant="panel"` for forms |
-| Provider + model pickers | `ProviderModelPicker` (mode toggle + cascade) or `ProviderModelSelect` (plain pair) | Picker's "Gateway default" mode is the default; transports injected (`fetchProviders`/`fetchModels`) |
-| App shell (header + top-right cluster + side panels + nav) | `AfAppShell` (`topBar`, `drawers`, `nav`, children) | Composition of the rows below; the header publishes `--af-topbar-h` so every `topOffset: "auto"` drawer opens under it — delete app-side header measurers |
+| Provider + model pickers (+ reasoning, MTP) | `ProviderModelPicker` (`layout="compact"` for node panels, `pinned` for connected pins) over `createGatewayModelTransport(request)`; `withRunModel` for the run input | "Gateway default" is first and named (`fetchGatewayDefault`: "Gateway default · ollama / qwen3"); the reasoning ladder comes from the gateway (`reasoningLadder`), never a client list or a model-name rule; saved values stay visible "(saved)" |
 | App top bar + About | `AfTopBarActions` with `connection={useGatewayConnection(...)}`, `identity="menu"`, `appearance={{ value, onChange }}`, `about={{ identity: appIdentity(id, version), fetch: fetchGateway }}` (or `AfAboutDialog` / inline `AfAbout` directly) | Order is the kit's (extras · docs · assistant · appearance · about · identity · pill); the cluster owns the Appearance and About dialogs and GETs `api/gateway/about` on open — delete app-local about fetchers; identity facts come from the kit's descriptor; the card shows no package list; `about.extra` for host controls inside the dialog |
 | Who is signed in | `AfTopBarActions` `identity="badge" \| "menu"` (+ `principalFromConnection`, `principalLabel`) | Reads `status.gateway.principal` (the gateway's `/me`), only while the pill is connected; shows the user id (tenant only when not `default`) and the gateway host in the kit tooltip; the menu's **Disconnect** = the pill's (`signOut()`, then your `onSignOut` state wipe only when the disconnect happened; a failure shows "Disconnect failed" beside the pill). The gateway serves no display name / e-mail / avatar |
+| Provider + model pickers | `ProviderModelPicker` (mode toggle + cascade) or `ProviderModelSelect` (plain pair) | Picker's "Gateway default" mode is the default; transports injected (`fetchProviders`/`fetchModels`) |
+| App shell (header + top-right cluster + side panels + nav) | `AfAppShell` (`topBar`, `drawers`, `nav`, children) | Composition of the rows below; the header publishes `--af-topbar-h` so every `topOffset: "auto"` drawer opens under it — delete app-side header measurers |
 | Theme/typography pickers | `ThemeSelect`, `FontScaleSelect`, `HeaderDensitySelect` | Persisted user settings; see [Theming](./theming.md) |
-| Tool allowlist + approval editor | `ToolPolicyEditor` | Server-declared `default_approval` wins; `TOOL_POLICY_DEFAULTS` is the labeled fallback |
+| Tool allowlist + approval editor | `ToolModeEditor` + `tool_plan` helpers (`normalizeToolCatalog`, `planRunTools`, `withRunTools`) + `createToolLayerStore` | Off / Ask / Auto per tool; the gateway's `approval_default` is the default; app and session layers hold only differences; `allowListOnly` for allowlist pins. `ToolPolicyEditor` is deprecated (one minor) |
 | Phase × capability grid | `PhaseCapabilityMatrix` (+ framework-free core) | Payload-driven: render the server's `MatrixPayload`, never re-derive policy client-side |
 | Irreversible-action confirmation | `CriticalActionDialog` (+ `resolveCriticalActionGate`) | Server-supplied facts required to enable confirm; typed-confirm is opt-in |
 | Steer a live run | `SteerComposer` (+ `submitSteer`) | Idempotent `command_id`, CSRF-token candidates, honest `accepted:false` handling |
@@ -1639,7 +1640,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Theme: `THEMES`, `THEME_SPECS`, `applyTheme()`, `getThemeSpec()`, `themeClassName()` — see [Theming](./theming.md)
 - Typography: `FONT_SCALES`, `HEADER_DENSITIES`, `applyTypography()`, `getFontScaleSpec()`, `getHeaderDensitySpec()`
 - Responsive: `AF_BREAKPOINTS` (`{ xs: 480, sm: 768, md: 1024, lg: 1440 }`), `AF_MEDIA` (the media query strings), `useAfMedia(query)`, `installViewportVars()` (sets `--vv-height` / `--keyboard-inset`, returns a cleanup), `viewportVarsFrom(innerHeight, { height, offsetTop, scale })` and the `AfVisualViewportSample` type — see [Responsive layout](./responsive.md)
-- Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker` (gateway-default mode + provider→models cascade, injected transports), `FontScaleSelect`, `HeaderDensitySelect`, `ToolPolicyEditor` (a tool's optional `state` = a server-reported badge with the kit tooltip), `MultiSelect`
+- Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker` (gateway-default mode + provider→models cascade, injected transports), `FontScaleSelect`, `HeaderDensitySelect`, `ToolModeEditor` (tool selection, below), `ToolPolicyEditor` (deprecated for one minor in favour of `ToolModeEditor`; reads the served `approval_default` first, `default_approval` as an alias, and renders a row decided by `TOOL_POLICY_DEFAULTS` with the "Kit default" label; a tool's optional `state` = a server-reported badge with the kit tooltip; `toolPolicySelectionToLayer(selection, catalog)` converts its value to a sparse app layer), `MultiSelect`
 - MTP: `SpeculationSelect`, `speculationCapability()`, `normalizeSpeculationValue()`,
   `speculationSelection()`, `speculationFromSelection()` and `SpeculationValue` /
   `SpeculationCapability` types. Enable `ProviderModelPicker`'s `enableSpeculation` for text
@@ -1649,6 +1650,86 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   `optionsInDefaultMode={false}` takes the gateway default whole: reasoning and MTP appear only
   once a custom provider/model is chosen (for hosts that store them only with a pinned model,
   such as an entity's mind).
+  Picker props added by backlog 0034 (all optional, existing props unchanged):
+  `fetchGatewayDefault: () => Promise<GatewayModelDefault>` names the default: the default
+  choice reads "Gateway default · {provider} / {model}[ · reasoning {r}][ · MTP depth n]", and
+  the fetched default drives capability discovery when `effectiveDefault` is absent; it is read
+  again whenever the host passes a new function (pass a stable `useCallback` keyed by the
+  identity, so a sign-in re-reads it); "none configured" reads "Gateway default · none
+  configured", an unreadable default (a throw, or `{ok: false, errors}`) reads "Gateway default"
+  with "The gateway's default could not be read: …", and a default the gateway warns about
+  (`warnings`) is not named: its warning is shown instead; `reasoningLadder: string[]` (from `discovery/capabilities`,
+  `reasoningLadderFrom`; never hardcoded) lists the ladder with the levels the model does not
+  advertise disabled, not hidden; `unknownReasoning: "hide" | "allow-override"` (default "hide")
+  — with "allow-override" and a ladder, a model with no served reasoning facts shows the select
+  locked with a **Set anyway** checkbox; a model that serves `thinking_support: false` shows no
+  select; `layout: "segmented" | "compact"` — compact drops the Gateway default | Custom segment
+  for provider/model selects whose first option is the named default, providers listed at once
+  (node panels); `pinned: {provider?, model?, reasoning?, speculation?}` shows "Provided by
+  connected pin" (`PINNED_FIELD_TEXT`) instead of those controls. A saved provider, model,
+  reasoning level or MTP depth the gateway no longer lists stays selectable as "x (saved)" — only
+  the value the picker was mounted with, never a value typed now, never while that list failed
+  (`ProviderModelSelect` `markSaved: boolean | {provider?, model?}`, `providerPinned`, `modelPinned`). MTP choices keep
+  `require_acceleration: true` (the gateway console's Defaults modal writes `strict=false`; not
+  aligned here).
+- Tool selection (backlog 0033, ADR 0001): `ToolModeEditor` edits ONE sparse layer of tool
+  modes `off | ask | auto` ("Off / Ask / Auto"; `labels` relabels) on top of what it inherits.
+  Props: `catalog` (from `normalizeToolCatalog`), `layer: "app" | "session"`, `value` (this
+  layer's diffs), `inherited` (`inheritedToolModes(catalog, layers, layer)`; missing = the
+  gateway default), `onChange(next)`, `onReset?` (shown while the layer holds a diff: "Use the
+  gateway's" for the app layer, "Use my defaults" for the session layer), `allowListOnly?` (Off /
+  On; On keeps the inherited approval), `disabled?`, `toolMode?` / `toolModeLabel?` /
+  `toolModeDetail?` / `note?` (the ToolPolicyEditor banner), `warnings?` (the catalog's, in the
+  gateway's words), `savedWhere?` (e.g.
+  `TOOL_LAYER_STORE_WHERE`), and `rowLabel?` / `rowHelp?` / `open?` / `onToggle?` to frame it in
+  an `AfOverrideRow` ("Gateway default · n tools on, m without asking", "<n> tools changed — this
+  app | this conversation", "Your defaults — this app" for a session over changed app defaults).
+  Rows are grouped by `toolset` with a group control (Mixed when its tools differ; group Auto
+  reaches only risk rank ≤ 2 tools whose destination the model does not choose, and says so:
+  `BULK_AUTO_CAP_SENTENCE`), a search box, risk and state badges, the gateway's reason for a tool
+  it does not offer, and a "Default: X" chip on a row that overrides the layer below.
+  `ToolModeEditorForPayload` takes the served answer as `catalog` (normalizes it, shows
+  `catalog_warnings`, renders "Tools unavailable: …" for a broken or failed answer; the console
+  island uses it). A row counts as changed (frame summary, chip) only when its mode differs from
+  what it inherits, the same rule the run plan uses.
+  Pure helpers (`tool_plan.ts`): `normalizeToolCatalog(payload)` (`GET discovery/tools`; throws
+  without `items[]` and on the gateway's failure answer `{items: [], error}`;
+  `toolCatalogWarnings(payload)` returns `catalog_warnings`; `offered = enabled !== false && available !== false`; `gatewayDefault` from
+  the served `approval_default`; a row without it gets `defaultUnserved: true`, Ask assumed, and the editor says so), `normalizeToolMode(v, "entity" | "desktop")` ("approve" is ask
+  in the entity dialect and auto in the desktop / kit v1 dialect; refused without a dialect),
+  `toolModeInDialect`, `resolveToolModes(catalog, {app, session})` → `{mode, source, inherited}`,
+  `setToolMode` / `setGroupToolMode` (a diff equal to the inherited mode is deleted),
+  `BULK_AUTO_MAX_RANK` (2), `bulkAutoReaches`, `effectiveToolLayers(catalog, layers)` (only the
+  canonical modes of offered tools that differ from what their layer inherits: a key for a removed
+  or not-offered tool, a bare "approve", or a diff the gateway's default caught up with is no
+  choice), `hasToolChoices(catalog, layers)`, `planRunTools(catalog, layers,
+  {ceiling})` → `{tools, allowed_tools, tool_policy?, approval}`, `withRunTools(input_data,
+  plan)` (writes `tools`, `_runtime.allowed_tools`, and `_runtime.tool_policy` once any layer
+  holds a choice; with none, the key is omitted and a stale one removed so the gateway's stored
+  grant applies), `toWorkflowApprovalPolicy(plan)` (panel-chat `{enabledTools,
+  autoApproveTools}`), `trustAfterApproveAll(catalog, modes, call, prev)` (the watch rule: tools
+  on Ask up to rank max(2, the call's rank), never outreach nor a model-chosen destination),
+  `approvalCovered(modes, trust, call)`. Storage until the gateway serves tool layers:
+  `createToolLayerStore(toolIdentityKey({gatewayUrl, tenantId, runtimeId, userId}))` →
+  `readApp/writeApp(interfaceId)` (`af.tools.app.<interface>.<identity>`),
+  `readSession/writeSession(sessionId)` (`af.tools.session.<identity>.<session_id>`, newest
+  `TOOL_SESSION_LAYERS_MAX` = 100; a lost or corrupt index is rebuilt from the stored keys),
+  `sessions()`; options `dialect` (read another writer's "approve") and `onDropped(key, names)`
+  (told when stored values could not be read); it is browser storage ("Saved in this
+  browser"), never "saved for this Gateway account".
+- Gateway model routes (backlog 0034, `gateway_models.ts`): `gatewayTextDefault(payload)`
+  (`GET config/capability-defaults`: provider/model of `output.text` then `input.text`, reasoning
+  `routes[output.text].reasoning`, MTP `routes[input.text].options.speculation`; null when none is
+  configured; throws without `routes[]` and on `{ok: false, errors}`; the gateway's `warnings` ride
+  along as `warnings`), `gatewayDefaultSummary` / `gatewayDefaultLabel`,
+  `reasoningLadderFrom(payload)` (`GET discovery/capabilities`), `createGatewayModelTransport(request)`
+  → `{fetchProviders, fetchModels, fetchModelCapabilities, fetchGatewayDefault,
+  fetchReasoningLadder}` over the host's `request(relativePath)`, and `withRunModel(input_data,
+  value, {topLevelPins})` (`_runtime.{provider, model, thinking, speculation}`; a half pin
+  throws; an inherited field's stale key is removed; top-level `provider`/`model` only with
+  `topLevelPins`). Route constants: `GATEWAY_TOOLS_ROUTE`, `GATEWAY_PROVIDERS_ROUTE`,
+  `GATEWAY_MODEL_CAPABILITIES_ROUTE`, `GATEWAY_CAPABILITY_DEFAULTS_ROUTE`,
+  `GATEWAY_CAPABILITIES_ROUTE`, `gatewayProviderModelsRoute(provider)`.
 - Voice: `VoiceSettings` (provider + model + voice from the Gateway catalog, grouped into Your voices / Engine voices / Shared voices (built-in and administrator-shared) with a language filter (voices with no language restriction always pass), and an optional `createVoice` panel (`VoiceCreation`: `design`, `clone`; a recording's language is detected unless chosen) that creates a voice through the gateway and selects it; "Gateway default"
   first). Host props: `intro` (`null` hides the paragraph), `delivery` (speed / quality /
   instructions, default on), `showReset`, `defaultHint` (names what the gateway default is) and
@@ -3827,6 +3908,21 @@ props. Transports are injected: `fetchProviders()`, `fetchModels(provider)` and
 voice picker. The host keeps the value and calls `update(props)` after each change. The gateway
 console's entity Manage, Mind & voice tab uses both.
 
+The picker also takes the props added by backlog 0034 (`fetchGatewayDefault`, `reasoningLadder`,
+`unknownReasoning`, `layout: "compact"`, `pinned`); see [API](./api.md). The console's Defaults
+modal and Sandbox selects (hardcoded reasoning and MTP ladders) can move onto it with a
+`reasoningLadder` read from `GET /api/gateway/discovery/capabilities`.
+
+### `mountToolModeEditor(el, props)`
+
+The kit's tool editor (`ToolModeEditor`: Off / Ask / Auto per tool, grouped by toolset) for
+plain-HTML hosts, with the component's props. `catalog` takes the served
+`GET /api/gateway/discovery/tools` answer as is (the island renders `ToolModeEditorForPayload`:
+the kit's `normalizeToolCatalog`, the answer's `catalog_warnings` shown, and "Tools unavailable: …"
+in place for a broken or failed answer, never a throw) or already-normalized items.
+The host keeps `value` (the layer's sparse diffs) and calls `update(props)` after each `onChange`.
+Intended for a console page over the gateway's tool settings (no such page exists yet).
+
 ### `bindModal(backdrop, options)`
 
 Gives your own modal markup (the `af-modal` classes of `theme.css`) the kit's modal behaviour. It
@@ -3976,7 +4072,7 @@ This package provides:
 - **Theme tokens** (CSS variables + 21 theme classes): `@abstractframework/ui-kit/theme.css`
 - **Theme + typography helpers**: `applyTheme(...)`, `applyTypography(...)`, `THEME_SPECS`
 - **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker`,
-  `SpeculationSelect`, `ToolPolicyEditor`, `VoiceSettings`
+  `SpeculationSelect`, `ToolModeEditor` (with `ToolPolicyEditor` deprecated), `VoiceSettings`
 - **Gateway connection UI**: `GatewayConnectModal`, `useGatewayConnection()`,
   `GatewaySessionSignInCard`
 - **App chrome**: `AfAppShell` (header + top-right cluster + side panels + nav),
@@ -4053,9 +4149,28 @@ own the network calls and session storage; the component only collects the Gatew
 (optional), user id, token and remember-browser state, and calls the callbacks you provide.
 Most apps use it through `GatewayConnectModal` (below).
 
-### Tool policy editor
+### Tool selection: ToolModeEditor
 
-`ToolPolicyEditor` renders the shared allowlist + approve/ask picker for gateway tools. It has no
+`ToolModeEditor` is the one tool editor: Off / Ask / Auto per tool, grouped by toolset, on ONE
+sparse layer (the app's defaults or this conversation's changes) over what it inherits. The
+gateway's `approval_default` is the default of every tool; a layer stores only differences, so a
+tool the gateway adds later follows the gateway. Build the catalog with `normalizeToolCatalog`,
+the run input with `planRunTools` + `withRunTools`, and keep the layers with
+`createToolLayerStore` (browser storage, "Saved in this browser") until the gateway stores them.
+
+```tsx
+const catalog = normalizeToolCatalog(await request("api/gateway/discovery/tools"));
+const layers = { app: store.readApp("abstractcode.agent.v1"), session: store.readSession(sessionId) };
+<ToolModeEditor catalog={catalog} layer="session" value={layers.session}
+  inherited={inheritedToolModes(catalog, layers, "session")}
+  onChange={(next) => store.writeSession(sessionId, next)}
+  onReset={() => store.writeSession(sessionId, null)} />;
+const input = withRunTools(input_data, planRunTools(catalog, layers));
+```
+
+### Tool policy editor (deprecated)
+
+`ToolPolicyEditor` (deprecated for one minor: use `ToolModeEditor`) renders the shared allowlist + approve/ask picker for gateway tools. It has no
 deny mode: a tool is denied by removing it from the allowlist. Pass `toolMode` (and optional
 `toolModeLabel` / `toolModeDetail`) to surface the gateway tool execution mode in a banner.
 A tool may carry `state: { label, tooltip?, tone? }` — a server-reported state shown as a badge
@@ -4063,8 +4178,10 @@ under its name, with the server's sentence in the kit tooltip (AbstractCode pass
 command-sandbox state of process-spawning tools). The kit shows what it is given and never derives
 a state.
 
-The default approve/ask classification is exposed as `TOOL_POLICY_DEFAULTS` (mirrors the
-AbstractRuntime `ToolApprovalPolicy` defaults).
+A tool's served `approval_default` ("auto" | "ask", passed as is) decides its approve/ask
+default; `default_approval` ("approve" | "ask") is the older alias. Only when neither is given
+does `TOOL_POLICY_DEFAULTS` (a mirror of the AbstractRuntime `ToolApprovalPolicy` defaults)
+decide, and the row says so ("Kit default").
 
 ### Native MTP control
 
@@ -4072,6 +4189,12 @@ AbstractRuntime `ToolApprovalPolicy` defaults).
 complete model-capability payload as `capabilities`; only depths advertised under
 `execution.speculation.supported_depths` are offered. Missing capability data is shown as
 unknown, not guessed from a model name. Saved unavailable selections remain visible.
+
+`ProviderModelPicker` names the gateway default when given `fetchGatewayDefault`
+("Gateway default · ollama / qwen3 · reasoning high"); `createGatewayModelTransport(request)`
+supplies that and the other transports over the gateway's discovery routes, and `withRunModel`
+writes the choice into a run's `input_data`. See [API](../docs/api.md) for `reasoningLadder`,
+`unknownReasoning`, `layout="compact"` and `pinned`.
 
 `ProviderModelPicker` includes this control when `enableSpeculation` is true; supply its usual
 provider-aware capability transport. The `speculation` value is absent for inheritance, `false`
@@ -5451,7 +5574,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -6252,6 +6375,79 @@ export { AfTooltip, useAfTooltips, type AfTooltipProps } from "./af_tooltip.js";
 export { bindAfTooltips, acquireAfTooltips, afTooltipPlacement, AF_TOOLTIP_DELAY_MS, AF_TOOLTIP_ATTR, type BindAfTooltipsOptions, type AfTooltipPlacement, type AfTooltipRect } from "./af_tooltip_core.js";
 // ui-kit 0.8.7 (round 16, R16.1 A2): the account time-zone picker (preferences).
 export { AfTimeZonePicker, TIME_ZONE_GATEWAY_DEFAULT, timeZoneOptions, type AfTimeZonePickerProps, type TimeZonePreference } from "./time_zone_picker.js";
+// --- ui-primitives (tools-models) ---
+// Backlog 0033 (tool selection) + 0034 (provider/model/reasoning/MTP picker), ADR 0001.
+export {
+  TOOL_MODES,
+  normalizeToolMode,
+  toolModeInDialect,
+  normalizeToolCatalog,
+  toolCatalogWarnings,
+  effectiveToolLayers,
+  resolveToolModes,
+  inheritedToolModes,
+  setToolMode,
+  setGroupToolMode,
+  BULK_AUTO_MAX_RANK,
+  bulkAutoReaches,
+  hasToolChoices,
+  planRunTools,
+  withRunTools,
+  toWorkflowApprovalPolicy,
+  trustAfterApproveAll,
+  approvalCovered,
+  type ToolMode,
+  type ToolModeDialect,
+  type ToolCatalogItem,
+  type ToolModeLayer,
+  type ToolLayers,
+  type ToolModeSource,
+  type ResolvedToolMode,
+  type RunToolPolicy,
+  type RunToolPlan,
+  type WorkflowToolApprovalPolicyShape,
+} from "./tool_plan.js";
+export {
+  ToolModeEditor,
+  ToolModeEditorForPayload,
+  type ToolModeEditorForPayloadProps,
+  TOOL_MODE_LABELS,
+  TOOL_LAYER_RESET,
+  TOOL_LAYER_OWNER,
+  BULK_AUTO_CAP_SENTENCE,
+  type ToolModeEditorProps,
+  type ToolModeLabels,
+} from "./tool_mode_editor.js";
+export {
+  createToolLayerStore,
+  toolIdentityKey,
+  TOOL_LAYER_STORE_WHERE,
+  TOOL_SESSION_LAYERS_MAX,
+  type ToolLayerStore,
+} from "./tool_layer_store.js";
+export { describeToolMode, toolPolicySelectionToLayer } from "./tool_policy_editor.js";
+export {
+  gatewayTextDefault,
+  gatewayDefaultSummary,
+  gatewayDefaultLabel,
+  reasoningLadderFrom,
+  createGatewayModelTransport,
+  withRunModel,
+  type GatewayModelDefault,
+  type GatewayRequest,
+  type GatewayModelTransport,
+  type RunModelValue,
+} from "./gateway_models.js";
+export {
+  GATEWAY_TOOLS_ROUTE,
+  GATEWAY_PROVIDERS_ROUTE,
+  GATEWAY_MODEL_CAPABILITIES_ROUTE,
+  GATEWAY_CAPABILITY_DEFAULTS_ROUTE,
+  GATEWAY_CAPABILITIES_ROUTE,
+  gatewayProviderModelsRoute,
+} from "./gateway_paths.js";
+export { PINNED_FIELD_TEXT } from "./provider_model_select.js";
+export { PICKER_REASONING_UNKNOWN, PICKER_REASONING_OVERRIDE } from "./provider_model_picker.js";
 // --- ui-primitives (shell) ---
 // Backlog 0036 (ADR 0001): the app shell — identity in the top-right cluster, the drawer
 // system (AfRailDrawer is now a wrapper over it), AfAppShell, the kit-owned About fetch.
@@ -8842,6 +9038,26 @@ export function gatewayResourcePath(serverUrl: string): string {
   return u.slice(1);
 }
 
+// --- ui-primitives (tools-models) ---
+// The gateway routes the tool and model pickers read (relative to the gateway API; build the
+// request path with gatewayApiPath). Read in the live gateway source, routes/gateway.py:
+/** `GET discovery/tools` → `{items:[{name, toolset, enabled, approval_default, risk_rank, …}], tool_mode}` (:15568). */
+export const GATEWAY_TOOLS_ROUTE = "discovery/tools";
+/** `GET discovery/providers?include_models=` → `{items:[{id, label, …}], default_provider, default_model}` (:20322). */
+export const GATEWAY_PROVIDERS_ROUTE = "discovery/providers";
+/** `GET discovery/models/capabilities?model_name&provider` → `{capabilities, execution:{speculation}}` (:20671). */
+export const GATEWAY_MODEL_CAPABILITIES_ROUTE = "discovery/models/capabilities";
+/** `GET config/capability-defaults` → `{routes:[{key, provider, model, reasoning, options, source}]}` (:27748). */
+export const GATEWAY_CAPABILITY_DEFAULTS_ROUTE = "config/capability-defaults";
+/** `GET discovery/capabilities` → `{capabilities:{contracts:{common:{runs:{start:{thinking_control}}}}}}` (:19285). */
+export const GATEWAY_CAPABILITIES_ROUTE = "discovery/capabilities";
+/** `GET discovery/providers/{provider}/models` (:20475); the provider is one encoded path segment. */
+export function gatewayProviderModelsRoute(provider: string): string {
+  const p = String(provider || "").trim();
+  if (!p) throw new Error("gatewayProviderModelsRoute needs a provider.");
+  return `${GATEWAY_PROVIDERS_ROUTE}/${encodeURIComponent(p)}/models`;
+}
+
 ## ui-kit/src/automations/types.ts
 
 // Automations v1 — wire shapes of the gateway façade (contract F, CONTRACTS rev 2)
@@ -10596,6 +10812,7 @@ import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typograph
 import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
 import { useGatewayVoice } from "../src/use_gateway_voice.js";
 import { ProviderModelPicker, type ProviderModelPickerProps } from "../src/provider_model_picker.js";
+import { ToolModeEditorForPayload, type ToolModeEditorForPayloadProps } from "../src/tool_mode_editor.js";
 import { VoiceSettings } from "../src/voice_settings.js";
 import { WorkspaceChooser, type WorkspaceChooserProps } from "../src/workspace_chooser.js";
 import { WORKSPACE_CHOOSER_TEXT, workspaceAsState } from "../src/workspace_chooser_core.js";
@@ -10983,6 +11200,17 @@ export function mountProviderModelPicker(el: Element, props: ProviderModelPicker
   return mount(el, (p) => <ProviderModelPicker {...p} />, props);
 }
 
+// ui-primitives (tools-models, backlog 0033): the tool editor for the console (e.g. a page for the
+// gateway's /tool-grants default, audit gateway gap 6). Host-driven like every island: the console
+// passes the catalog — the served GET discovery/tools answer as is (normalized here with the kit's
+// normalizeToolCatalog, so the console keeps no copy of it; its `catalog_warnings` are shown) or
+// already normalized items — the layer value and onChange. A broken answer renders a labeled
+// error in place (never a throw after the root is attached).
+export type ToolModeEditorIslandProps = ToolModeEditorForPayloadProps;
+export function mountToolModeEditor(el: Element, props: ToolModeEditorIslandProps): IslandHandle<ToolModeEditorIslandProps> {
+  return mount(el, (p) => <ToolModeEditorForPayload {...p} />, props);
+}
+
 export type VoiceSettingsIslandProps = React.ComponentProps<typeof VoiceSettings>;
 
 /**
@@ -11092,6 +11320,7 @@ const api = {
   mountAbout,
   mountSandboxChat,
   mountProviderModelPicker,
+  mountToolModeEditor,
   mountVoiceSettings,
   mountDocsAssistant,
   mountDrawerSystem,
@@ -17414,6 +17643,46 @@ ships.
 
 ## Unreleased
 
+### tools-models: one tool editor and a picker that names the gateway default (backlog 0033, 0034)
+
+Implements ADR 0001 for tool selection and the provider/model/reasoning/MTP picker. Supersedes
+backlog 0015 (the gateway already serves `approval_default`; the kit now reads it) and 0016 (the
+kit tool editor is `ToolModeEditor`, with an `allowListOnly` mode for allowlist pins).
+
+- `ToolModeEditor` (+ console island `mountToolModeEditor`): Off / Ask / Auto per tool, grouped
+  by toolset with a Mixed group control whose Auto reaches only risk rank ≤ 2 tools (the cap is
+  said in words), search, risk and state badges, the gateway's reason for a tool it does not offer,
+  a "Default: X" chip on a row that overrides the layer below, "Use the gateway's" (app layer) /
+  "Use my defaults" (session layer), `allowListOnly`, and an optional `AfOverrideRow` frame.
+- `tool_plan.ts`: `normalizeToolCatalog`, `resolveToolModes`, `setToolMode`, `planRunTools`,
+  `withRunTools`, `toWorkflowApprovalPolicy`, `trustAfterApproveAll` and the dialect edges of
+  the word "approve". Layers are sparse; a tool the gateway does not offer is never offered;
+  `_runtime.tool_policy` is sent once any layer holds a choice, and omitted (a stale key removed)
+  otherwise so the gateway's stored grant applies.
+- `createToolLayerStore`: `af.tools.app.<interface>.<identity>` and
+  `af.tools.session.<identity>.<session_id>` (newest 100), "Saved in this browser".
+- `ToolPolicyEditor` (deprecated, one minor): reads the served `approval_default` first;
+  `default_approval` stays an alias; a row decided by `TOOL_POLICY_DEFAULTS` is labeled
+  "Kit default"; `toolPolicySelectionToLayer` converts its value.
+- `ProviderModelPicker`: `fetchGatewayDefault` ("Gateway default · ollama / qwen3 · reasoning high
+  · MTP depth 3", also used for capability discovery), `reasoningLadder` (unadvertised levels
+  disabled), `unknownReasoning: "allow-override"` (Set anyway), `layout: "compact"`, `pinned`;
+  saved values the gateway no longer lists read "(saved)" (was "(saved; not advertised)" /
+  "(saved; not available)").
+- `gateway_models.ts`: `gatewayTextDefault`, `createGatewayModelTransport`, `reasoningLadderFrom`,
+  `withRunModel`; the routes in `gateway_paths.ts`.
+- Review fixes (adversarial review of PR #6): a layer key that changes no tool's mode (a removed or
+  not-offered tool, a bare "approve", a diff the gateway default caught up with) no longer sends
+  `tool_policy` (`effectiveToolLayers`, `hasToolChoices(catalog, layers)`); the gateway's failure
+  answer `{items: [], error}` is an error, `catalog_warnings` are shown (`ToolModeEditorForPayload`,
+  used by the island, never throws); the picker re-reads a new `fetchGatewayDefault`, says "none
+  configured" / "could not be read", and shows the gateway's warnings instead of naming an unusable
+  default; "(saved)" only for the mounted value and never while its list failed; the store rebuilds a
+  lost session index and reports unreadable values (`dialect`, `onDropped`); the tool search uses
+  `--font-size-input`; the session chip names the gateway when that is the inherited source.
+- Checks: `check_tool_plan`, `check_tool_mode_editor`, `check_gateway_models`; `check_route_picker`,
+  `check_tool_state`, `check_speculation` (now in `npm test`), `check_islands` and `check_responsive`
+  extended.
 ### shell: the app shell — identity, the top-right order, the drawer system (backlog 0036, ADR 0001)
 
 - **Who is signed in** in the top-right cluster: `AfTopBarActions` `identity="badge" | "menu"`

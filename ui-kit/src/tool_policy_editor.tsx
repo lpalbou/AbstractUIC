@@ -1,9 +1,17 @@
 /*
  * ToolPolicyEditor: shared allowlist + approval selector for thin clients.
+ *
+ * DEPRECATED (ui-primitives tools-models, backlog 0033): use ToolModeEditor
+ * (tool_mode_editor.tsx) with the tool_plan.ts helpers — Off / Ask / Auto per
+ * tool, sparse app and session layers, the gateway default shown first. This
+ * editor stays for one minor as the adapter for the apps already on it
+ * (abstractcode): its value converts with `toolPolicySelectionToLayer`.
+ * Its "approve" means AUTO (the kit v1 / desktop dialect).
  */
 import React, { useMemo, useState } from "react";
 import { AfSwitch } from "./af_switch.js";
 import { AfTooltip } from "./af_tooltip.js";
+import type { ToolCatalogItem, ToolMode, ToolModeLayer, ToolStateBadge } from "./tool_plan.js";
 
 export type ToolSpec = {
   name: string;
@@ -11,10 +19,15 @@ export type ToolSpec = {
   toolset?: string;
   when_to_use?: string;
   /**
-   * Server-declared approval default for this tool ("approve" | "ask").
-   * When present it is authoritative; the kit's TOOL_POLICY_DEFAULTS mirror
-   * is only the labeled fallback for gateways that do not serve defaults yet
-   * (client-copied defaults rot — prefer server truth).
+   * The gateway's served approval default, verbatim from `GET discovery/tools`
+   * (`approval_default: "auto" | "ask"`, routes/gateway.py:15615-15640). Hosts
+   * pass the served row as is; it wins over everything else.
+   */
+  approval_default?: "auto" | "ask";
+  /**
+   * Kit v1 alias of the same default in this editor's dialect ("approve" =
+   * auto). Read only when `approval_default` is absent. When neither is given,
+   * TOOL_POLICY_DEFAULTS is the LABELED fallback (rendered "Kit default").
    */
   default_approval?: ToolApprovalMode;
   /**
@@ -26,14 +39,9 @@ export type ToolSpec = {
   state?: ToolStateBadge;
 };
 
-export type ToolStateBadge = {
-  /** The state, verbatim from the server. */
-  label: string;
-  /** The server's explanation, shown in the kit tooltip. */
-  tooltip?: string;
-  /** "ok" (green), "warn" (amber), "danger" (red); neutral when omitted. */
-  tone?: "ok" | "warn" | "danger";
-};
+/** A server-reported tool state (label verbatim, the server's sentence as tooltip, a tone); one type
+ * shared with ToolModeEditor (tool_plan.ts). */
+export type { ToolStateBadge };
 
 function normalize_state(value: unknown): ToolStateBadge | undefined {
   if (!value || typeof value !== "object") return undefined;
@@ -74,8 +82,10 @@ export type ToolPolicyEditorProps = {
 };
 
 // #FALLBACK mirror of AbstractRuntime ToolApprovalPolicy defaults — used only
-// when a tool arrives WITHOUT a server-declared default_approval. Known drift
-// risk (client-copied defaults rot); gateways should serve per-tool defaults.
+// when a tool arrives WITHOUT the served `approval_default` (nor the v1 alias
+// `default_approval`); every row it decides is rendered with the "Kit default"
+// label so nobody mistakes it for the gateway's word. The gateway serves the
+// field on every row today (backlog 0015 is moot); ToolModeEditor has no table.
 export const TOOL_POLICY_DEFAULTS: ToolPolicyDefaults = {
   autoApprove: [
     "list_files",
@@ -115,8 +125,16 @@ function normalize_tools(items: ToolSpec[]): ToolSpec[] {
       description: typeof it.description === "string" ? it.description : undefined,
       toolset: typeof it.toolset === "string" ? it.toolset : undefined,
       when_to_use: typeof it.when_to_use === "string" ? it.when_to_use : undefined,
+      // Server truth first: the served `approval_default` ("auto" → approve in this
+      // editor's dialect), then the v1 alias. Neither → undefined (labeled fallback).
       default_approval:
-        it.default_approval === "approve" || it.default_approval === "ask" ? it.default_approval : undefined,
+        it.approval_default === "auto"
+          ? "approve"
+          : it.approval_default === "ask"
+            ? "ask"
+            : it.default_approval === "approve" || it.default_approval === "ask"
+              ? it.default_approval
+              : undefined,
       state: normalize_state(it.state),
     });
   }
@@ -143,7 +161,8 @@ type ToolModeInfo = {
   tone: "safe" | "warn" | "danger" | "info";
 };
 
-function describe_tool_mode(
+/** The gateway's `tool_mode` (discovery/tools) as the editors' banner. */
+export function describeToolMode(
   raw: string | undefined,
   override_label?: string,
   override_detail?: string
@@ -185,7 +204,7 @@ export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactEleme
     "Default is all tools. Safe/read-only tools auto-approve; mutating tools ask for approval.";
   const note = String(props.note || "").trim();
   const tool_mode = useMemo(
-    () => describe_tool_mode(props.toolMode, props.toolModeLabel, props.toolModeDetail),
+    () => describeToolMode(props.toolMode, props.toolModeLabel, props.toolModeDetail),
     [props.toolMode, props.toolModeLabel, props.toolModeDetail]
   );
 
@@ -379,6 +398,11 @@ export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactEleme
                     </AfTooltip>
                   </div>
                 ) : null}
+                {!tool.default_approval ? (
+                  <div className="af-tool-row__hint" data-approval-fallback={tool.name}>
+                    Kit default: the gateway did not say whether this tool asks first.
+                  </div>
+                ) : null}
                 {tool.description ? <div className="af-tool-row__desc">{tool.description}</div> : null}
                 {tool.when_to_use ? <div className="af-tool-row__hint">{tool.when_to_use}</div> : null}
               </div>
@@ -400,6 +424,24 @@ export function ToolPolicyEditor(props: ToolPolicyEditorProps): React.ReactEleme
       </div>
     </div>
   );
+}
+
+/**
+ * Adapter (one minor): a ToolPolicyEditor selection as a sparse app layer over the catalog. A tool
+ * left out of a custom allowlist is off; an approval pin ("approve" = auto in this dialect) is kept;
+ * a value equal to the gateway's default is dropped (sparse).
+ */
+export function toolPolicySelectionToLayer(selection: ToolPolicySelection, catalog: readonly ToolCatalogItem[]): ToolModeLayer {
+  const out: Record<string, ToolMode> = {};
+  const picked = new Set(Array.isArray(selection?.selected) ? selection.selected : []);
+  for (const item of catalog) {
+    if (!item.offered) continue;
+    const pin = selection?.approval?.[item.name];
+    const mode: ToolMode =
+      selection?.mode === "custom" && !picked.has(item.name) ? "off" : pin === "approve" ? "auto" : pin === "ask" ? "ask" : item.gatewayDefault;
+    if (mode !== item.gatewayDefault) out[item.name] = mode;
+  }
+  return out;
 }
 
 export default ToolPolicyEditor;
