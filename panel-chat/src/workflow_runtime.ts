@@ -40,6 +40,32 @@ export type WorkflowTransport = {
    */
   streamLedger(runId: string, after: number, onStep: (item: unknown) => void, signal: AbortSignal, onOpen?: () => void, onDelta?: (event: LlmDelta | LlmDeltaEnd) => void): Promise<void>;
   submitCommand(command: GatewayCommand, signal?: AbortSignal): Promise<unknown>;
+  /**
+   * Optional (backlog 0031): a run artifact as the chat can show it. The host
+   * reads the metadata (`GET runs/{run_id}/artifacts/{artifact_id}`,
+   * abstractgateway routes/gateway.py:11260: `content_type`, `size_bytes`)
+   * and the bytes (`.../content`, routes/gateway.py:11293) with its own
+   * credentials and returns an object URL; `chatMediaFromArtifact` turns the
+   * result into a `ChatMedia`. The controller does NOT call it yet: folding
+   * `$artifact` refs and generated-media ledger events into `message.media`
+   * is still the host's job (see the panel-chat README).
+   */
+  resolveArtifact?(runId: string, artifactId: string, signal?: AbortSignal): Promise<ResolvedArtifact>;
+};
+
+/** A run artifact resolved by the host for display. */
+export type ResolvedArtifact = {
+  /** Object URL (or same-origin path) of the bytes. */
+  src: string;
+  /** The gateway's `content_type`. MUST be the type the object URL's Blob was
+   * created with: the raw-link guard (`objectUrlRawLinkSafe`) trusts it. */
+  contentType: string;
+  name?: string;
+  /** The gateway's `size_bytes`. */
+  size?: number;
+  /** Text kinds (markdown, code, json, text): the text, when the host already read it
+   * (e.g. a small artifact). Without it the document opens as a raw-file link. */
+  text?: string;
 };
 
 /** Raw runtime wait; presentation code may map this to its own UI union. */
@@ -436,8 +462,10 @@ export class WorkflowSessionController {
     }
   }
 
-  resume(response: string): Promise<unknown> {
+  /** Answer the current question. With `target`, refuses when the question shown is no longer the current one. */
+  resume(response: string, target?: WorkflowApprovalTarget): Promise<unknown> {
     const interaction = this.requireInteraction();
+    if (target && (interaction.runId !== target.runId || text(interaction.wait.wait_key) !== target.waitKey || (target.stepId !== undefined && interaction.stepId !== target.stepId))) throw new Error("This question has changed. Review the current question before answering.");
     return this.sendCommand("resume", { wait_key: text(interaction.wait.wait_key), payload: { response } });
   }
 

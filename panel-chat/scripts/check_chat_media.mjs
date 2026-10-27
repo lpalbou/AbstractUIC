@@ -46,5 +46,162 @@ check("default pending label stays 'streaming'", streaming.includes("streaming")
 const propStats = card({ id: "m5", role: "assistant", content: "x", stats: [{ label: "own" }] }, { stats: [{ label: "prop" }] });
 check("the card's stats prop wins over message.stats", propStats.includes("prop") && !propStats.includes(">own<"));
 
+
+// --- ui-primitives (chat), backlog 0031: documents, STT transcripts, artifacts, video previews ---
+{
+  const { mount, find, byData } = await import(join(here, "hook_harness.mjs"));
+  const pcAll = await import(join(here, "..", "dist", "index.js"));
+  const { chatMediaFromArtifact, chatMediaForArtifacts, FileViewer, useWorkspaceFilePreview } = pcAll;
+
+  // Audio transcript: the speech-to-text display every app lacked.
+  const spoken = card({ id: "t1", role: "user", content: "", media: [{ kind: "audio", src: "blob:http://x/a", label: "Voice message", transcript: "  Book a table for two.  " }] });
+  check("audio transcript renders as a collapsible caption", spoken.includes('<details class="pc-chat-media__transcript"><summary>Transcript</summary><p class="pc-chat-media__transcript-text">Book a table for two.</p></details>'), spoken);
+  check("no transcript, no caption", !card({ role: "assistant", content: "", media: [{ kind: "audio", src: "blob:http://x/a" }] }).includes("pc-chat-media__transcript"));
+  check("a transcript on an image is ignored", !card({ role: "assistant", content: "", media: [{ kind: "image", src: "blob:http://x/i", transcript: "x" }] }).includes("Transcript"));
+
+  // Files: a compact row; nothing loads until opened.
+  const pdf = { kind: "file", src: "blob:http://x/p", name: "report.pdf", contentType: "application/pdf", size: 2048, href: "/api/gateway/runs/r/artifacts/p/content" };
+  const closed = card({ id: "f1", role: "assistant", content: "", media: [pdf] });
+  check("file row with name, size and Open", closed.includes('data-file-kind="pdf"') && closed.includes(">report.pdf<") && closed.includes(">2.0 KiB<") && closed.includes('data-action="toggle-file" aria-expanded="false">Open<'), closed);
+  check("a closed file loads nothing", !closed.includes("af-file-viewer") && !closed.includes("<object"));
+  check("file raw link", closed.includes('href="/api/gateway/runs/r/artifacts/p/content"'));
+  check("an unsafe file source with nothing else renders nothing", !card({ role: "assistant", content: "", media: [{ kind: "file", src: "javascript:alert(1)", name: "x.pdf" }] }).includes("pc-chat-media__item--file"));
+  const opener = [];
+  const withOpener = card({ id: "f2", role: "assistant", content: "", media: [pdf] }, { onOpenMedia: (item) => opener.push(item) });
+  check("a host opener replaces the inline toggle", withOpener.includes('data-action="open-file"') && !withOpener.includes('data-action="toggle-file"'));
+  // Drive the item through the harness: card → ChatMediaItem → ChatMediaFile.
+  const openFile = (item, props = {}) => {
+    const c = mount(ChatMessageCard, { message: { id: "h", role: "assistant", content: "", media: [item] }, ...props });
+    const itemEl = find(c.tree, (n) => typeof n.type === "function" && n.props.item === item);
+    const fileEl = mount(itemEl.type, itemEl.props).tree;
+    return mount(fileEl.type, fileEl.props);
+  };
+  const f = openFile(pdf);
+  byData(f.tree, "data-action", "toggle-file").props.onClick();
+  f.render();
+  const viewer = find(f.tree, (n) => n.type === FileViewer);
+  check("Open shows the shared file viewer inline", Boolean(viewer) && viewer.props.kind === "pdf" && viewer.props.url === "blob:http://x/p" && viewer.props.status === "ready", viewer?.props);
+  viewer.props.onClose();
+  f.render();
+  check("Close folds it again", !find(f.tree, (n) => n.type === FileViewer));
+  const md = openFile({ kind: "file", src: "", name: "notes.md", text: "# Title" });
+  byData(md.tree, "data-action", "toggle-file").props.onClick();
+  md.render();
+  const mdViewer = find(md.tree, (n) => n.type === FileViewer);
+  check("a text file shows the host's text", mdViewer?.props.kind === "markdown" && mdViewer.props.text === "# Title" && mdViewer.props.url === undefined, mdViewer?.props);
+  const noText = openFile({ kind: "file", src: "blob:http://x/c", name: "main.py" });
+  byData(noText.tree, "data-action", "toggle-file").props.onClick();
+  noText.render();
+  const noTextViewer = find(noText.tree, (n) => n.type === FileViewer);
+  check("a text file without text says so (never an empty viewer)", noTextViewer?.props.status === "error" && /No preview text/.test(noTextViewer.props.error), noTextViewer?.props);
+  const viaHost = openFile(pdf, { onOpenMedia: (item) => opener.push(item) });
+  byData(viaHost.tree, "data-action", "open-file").props.onClick();
+  check("the host opener receives the item", opener.at(-1)?.name === "report.pdf" && opener.at(-1)?.src === "blob:http://x/p");
+  // Review L2: the opener gets sanitized sources only.
+  const evil = { kind: "file", src: "javascript:alert(1)", href: "/api/gateway/runs/r/artifacts/e/content", name: "e.pdf" };
+  const viaEvil = openFile(evil, { onOpenMedia: (item) => opener.push(item) });
+  byData(viaEvil.tree, "data-action", "open-file").props.onClick();
+  check("the opener never receives an unsafe src", opener.at(-1)?.src === "" && opener.at(-1)?.href === "/api/gateway/runs/r/artifacts/e/content", opener.at(-1));
+
+  // Review M1: a Markdown file follows the chat's image policy (default "link").
+  const tracker = { kind: "file", src: "", name: "r.md", text: "![x](https://tracker.example/p.png)" };
+  const mdOpen = (props) => {
+    const o = openFile(tracker, props);
+    byData(o.tree, "data-action", "toggle-file").props.onClick();
+    o.render();
+    return renderToStaticMarkup(find(o.tree, (n) => n.type === FileViewer));
+  };
+  const linked = mdOpen({});
+  check("an opened Markdown file does not load remote images by default", !/<img[^>]*src="https:\/\/tracker\.example/.test(linked) && linked.includes('href="https://tracker.example/p.png"'), linked);
+  check("the chat's own image policy reaches the file", /<img[^>]*src="https:\/\/tracker\.example\/p\.png"/.test(mdOpen({ images: "inline" })));
+  check("the host Markdown renderer reaches the file", mdOpen({ renderMarkdown: () => React.createElement("i", { id: "host-md" }) }).includes('id="host-md"'));
+
+  // Review M2: a document is never a dead end.
+  const mdArtifact = chatMediaFromArtifact({ src: "blob:http://x/md", contentType: "text/markdown", name: "report.md" });
+  check("a resolved document links its raw file", mdArtifact.kind === "file" && mdArtifact.href === "blob:http://x/md", mdArtifact);
+  check("a resolved document carries the host's text", chatMediaFromArtifact({ src: "blob:x", contentType: "text/markdown", name: "a.md", text: "# A" }).text === "# A");
+  const noHref = card({ id: "nh", role: "assistant", content: "", media: [{ kind: "file", src: "blob:http://x/c", name: "main.py", contentType: "text/x-python" }] });
+  check("a file without href still shows its raw link (the host's src)", noHref.includes('href="blob:http://x/c"') && noHref.includes(">Raw file<"), noHref);
+  // Review N1 (security): an object URL carries the APP origin and none of the gateway's
+  // `CSP: sandbox` / nosniff headers (routes/gateway.py:11328-11340). Agent-written HTML / SVG /
+  // XML must never get a blob:/data: "Raw file" link; only inert types fall back to `src`.
+  const active = [
+    ["text/html", "page.html"],
+    ["image/svg+xml", "logo.svg"],
+    ["application/xhtml+xml", "page.xhtml"],
+    ["application/xml", "feed.xml"],
+    ["text/plain", "page.html"], // an active NAME wins over an inert type
+    ["", "notes.md"], // no type: the browser decides, so no fallback
+    // An active TYPE wins over an inert or missing extension.
+    ["text/html", "download"],
+    ["text/html; charset=utf-8", "report.txt"],
+    ["image/svg+xml", "image"],
+    ["text/xml", "data.txt"],
+    ["application/rss+xml", "feed"],
+    // Review N1b: an XSL stylesheet renders as an XML document and runs its script.
+    // Allowlist, not denylist: an unknown or unlisted type gets no blob link.
+    ["text/xsl", "notes.txt"],
+    ["text/xsl", ""],
+    ["text/vnd.unknown", "a.txt"],
+    ["application/octet-stream", "a.bin"],
+    ["image/x-unknown", "a.img"],
+    // Review N1c: WebKit renders an unsupported media subtype as a document; no wildcard.
+    ["video/html", "notes.txt"],
+    ["audio/text", "notes.txt"],
+    ["audio/x-html", "notes.md"],
+    ["video/xsl", "a.txt"],
+    ["video/vnd.html", "a.txt"],
+  ];
+  for (const [contentType, name] of active) {
+    const m = chatMediaFromArtifact({ src: "blob:http://app/x", contentType, name });
+    check(`no blob raw link for ${name} (${contentType || "no type"})`, m.href === undefined, m);
+    const html = card({ id: name, role: "assistant", content: "", media: [{ kind: "file", src: "blob:http://app/x", name, contentType }] });
+    check(`the card gives ${name} (${contentType || "no type"}) no blob raw link`, !html.includes('href="blob:'), html);
+  }
+  const hostBlob = card({ id: "hb", role: "assistant", content: "", media: [{ kind: "file", src: "", href: "blob:http://app/y", name: "page.html", contentType: "text/html" }] });
+  check("a host blob: href for HTML is refused too", !hostBlob.includes('href="blob:'), hostBlob);
+  const sandboxed = card({ id: "sb", role: "assistant", content: "", media: [{ kind: "file", src: "blob:http://app/x", href: "/api/gateway/runs/r/artifacts/h/content", name: "page.html", contentType: "text/html" }] });
+  check("HTML keeps the gateway's sandboxed content URL", sandboxed.includes('href="/api/gateway/runs/r/artifacts/h/content"'));
+  for (const [contentType, name] of [["application/pdf", "r.pdf"], ["text/markdown", "r.md"], ["application/json", "d.json"], ["text/csv", "t.csv"], ["text/plain", "a.txt"], ["text/x-python", "m.py"], ["text/javascript", "m.js"], ["image/png", "i.png"], ["audio/mpeg", "a.mp3"], ["video/mp4", "v.mp4"], ["audio/wav", "a.wav"], ["video/webm", "v.webm"]])
+    check(`inert ${name} keeps its object-URL raw link`, pcAll.fileRawLink({ src: "blob:http://app/i", contentType, name }) === "blob:http://app/i");
+  check("a resolved inert document links its object URL", chatMediaFromArtifact({ src: "blob:http://app/i", contentType: "text/csv", name: "t.csv" }).href === "blob:http://app/i");
+  // Review N1d: a browser that cannot play a type may render its blob as a DOCUMENT (WebKit:
+  // video/ogg, audio/opus; old Safari: webm, avif). Every blob:/data: raw link is a DOWNLOAD
+  // (saved, never navigated, no script), whatever the type; a gateway URL stays a normal link.
+  const localFile = card({ id: "lf", role: "assistant", content: "", media: [{ kind: "file", src: "blob:http://app/r", name: "report.pdf", contentType: "application/pdf" }] });
+  check("a blob raw link downloads with the file name", /<a class="pc-chat-media__link" href="blob:http:\/\/app\/r"[^>]*download="report.pdf"/.test(localFile), localFile.slice(-500));
+  check("a blob raw link never opens a tab", !/href="blob:http:\/\/app\/r"[^>]*target="_blank"/.test(localFile));
+  const dataFile = card({ id: "df", role: "assistant", content: "", media: [{ kind: "file", src: "data:text/plain;base64,aGk=", name: "a.txt", contentType: "text/plain" }] });
+  check("a data: raw link downloads too", /href="data:text\/plain;base64,aGk="[^>]*download="a.txt"/.test(dataFile), dataFile.slice(-400));
+  const gatewayFile = card({ id: "gf", role: "assistant", content: "", media: [{ kind: "file", src: "blob:http://app/r", href: "/api/gateway/runs/r/artifacts/p/content", name: "report.pdf", contentType: "application/pdf" }] });
+  check("a gateway href stays a normal link (no download)", /href="\/api\/gateway\/runs\/r\/artifacts\/p\/content" target="_blank"/.test(gatewayFile) && !/artifacts\/p\/content"[^>]*download=/.test(gatewayFile));
+  const mediaBlob = card({ id: "mb", role: "assistant", content: "", media: [{ kind: "video", src: "blob:http://app/v", href: "blob:http://app/v", label: "Clip" }] });
+  check("a media item's blob link downloads too", /class="pc-chat-media__link" href="blob:http:\/\/app\/v"[^>]*download="Clip"/.test(mediaBlob), mediaBlob.slice(-400));
+  for (const [contentType, name] of [["video/ogg", "v.ogv"], ["audio/opus", "a.opus"]])
+    check(`${contentType} is not in the allowlist (WebKit cannot play it)`, pcAll.fileRawLink({ src: "blob:http://app/i", contentType, name }) === undefined);
+  // Review H1: TypeScript is code even when served as video/mp2t.
+  check("a .ts artifact served as video/mp2t is a document, not a video", chatMediaFromArtifact({ src: "blob:t", contentType: "video/mp2t", name: "app.ts" }).kind === "file");
+
+  // Resolved artifacts → media kinds from the gateway's content_type.
+  const kinds = [["image/png", "a.png"], ["audio/mpeg", "a.mp3"], ["video/mp4", "a.mp4"], ["application/pdf", "a.pdf"], ["image/svg+xml", "a.svg"], ["text/markdown", "a.md"]].map(([contentType, name]) => chatMediaFromArtifact({ src: "blob:x", contentType, name, size: 3 }).kind);
+  check("artifact kinds: image/audio/video inline, the rest as files, SVG never rendered", JSON.stringify(kinds) === JSON.stringify(["image", "audio", "video", "file", "file", "file"]), kinds);
+  const music = chatMediaFromArtifact({ src: "blob:m", contentType: "audio/wav", name: "song.wav" }, { transcript: "la la", label: "Generated music" });
+  check("music rides on audio, with its transcript", music.kind === "audio" && music.transcript === "la la" && music.label === "Generated music");
+  check("no transcript on a non-audio artifact", chatMediaFromArtifact({ src: "b", contentType: "image/png" }, { transcript: "x" }).transcript === undefined);
+  const resolved = await chatMediaForArtifacts("run-1", ["a1", "a2"], async (runId, id) => ({ src: `blob:${runId}/${id}`, contentType: id === "a1" ? "image/png" : "application/json", name: `${id}.bin` }));
+  check("artifact ids resolve in order with their ids", JSON.stringify(resolved.map((m) => [m.id, m.kind, m.src])) === JSON.stringify([["a1", "image", "blob:run-1/a1"], ["a2", "file", "blob:run-1/a2"]]), resolved);
+  let rejected = false;
+  await chatMediaForArtifacts("r", ["ok", "gone"], async (_r, id) => { if (id === "gone") throw new Error("404"); return { src: "b", contentType: "image/png" }; }).catch(() => (rejected = true));
+  check("an unresolvable artifact is an error, not a silent gap", rejected);
+
+  // Workspace previews: a video file loads as an object URL (was download-only).
+  const fetchGateway = async () => new Response(new Blob([new Uint8Array(8)], { type: "video/mp4" }), { status: 200, headers: { "content-type": "video/mp4" } });
+  // Hooks take positional args: wrap.
+  const w = mount((p) => useWorkspaceFilePreview(p.fetchGateway, p.runId, p.entry), { fetchGateway, runId: "run-1", entry: { name: "clip.mp4", path: "out/clip.mp4", size_bytes: 8 } });
+  await w.settle();
+  check("a workspace video previews from an object URL", w.tree.status === "ready" && w.tree.kind === "video" && String(w.tree.url || "").startsWith("blob:"), w.tree);
+  w.unmount();
+}
+
 if (failures) { console.error(`check_chat_media: ${failures} failure(s)`); process.exit(1); }
-console.log("check_chat_media: OK (media inline + link, unsafe/unknown refused, finished reasoning, per-message stats, pending label)");
+console.log("check_chat_media: OK (media inline + link, unsafe/unknown refused, finished reasoning, per-message stats, pending label; files in the shared viewer, STT transcript caption, artifact kinds, video previews)");

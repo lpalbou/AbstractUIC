@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import { AfAudioPlayer, Icon, type IconName } from "@abstractframework/ui-kit";
+import { AfAudioPlayer, Icon, fileViewerKind, fileViewerNeedsText, formatFileSize, type IconName } from "@abstractframework/ui-kit";
 
+import { fileRawLink, isLocalObjectUrl } from "./chat_media.js";
+import { FileViewer } from "./file_viewer.js";
 import { ChatMessageContent } from "./message_content.js";
 import type { MarkdownImages } from "./markdown.js";
 import { copyText } from "./utils.js";
@@ -18,7 +20,12 @@ export type ChatMessage = {
   ts?: string;
   title?: string;
   level?: ChatMessageLevel;
-  kind?: string; // e.g. report_bug, report_feature
+  /**
+   * e.g. report_bug, report_feature. A `replay_view_v1.messages[]` item's
+   * kind (prompt, answer, question, event, ...) maps here unchanged; see the
+   * README's "Messages from the replay view" mapping.
+   */
+  kind?: string;
   toolActivity?: WorkflowToolActivity;
   statistics?: WorkflowStatistics;
   runId?: string;
@@ -41,21 +48,42 @@ export type ChatMessage = {
   /** Per-message attachment chips (e.g. the files a question carried); a
    * card's `attachments` prop wins. */
   attachments?: ChatAttachment[];
+  /**
+   * Artifact ids this message carries (`replay_view_v1.messages[].artifact_ids`,
+   * or `$artifact` refs a host folded). Data only: a host resolves them into
+   * `media` / `attachments` (e.g. with a transport's `resolveArtifact`).
+   */
+  artifactIds?: string[];
 };
 
 /**
  * One generated media item. `src` is supplied by the HOST (typically a
  * `blob:` URL of a gateway artifact it fetched with the session), never
  * parsed out of model text; `href` is the raw file link shown beside it.
+ * Music rides on `audio`.
  */
 export type ChatMedia = {
   id?: string;
-  kind: "image" | "audio" | "video";
+  /**
+   * `"file"`: a document (pdf, markdown, code, json, text, or a video/audio/
+   * image file named as such) shown in the shared `AfFileViewer`, inline
+   * behind an "Open" toggle or in the host's opener (`onOpenMedia`).
+   */
+  kind: "image" | "audio" | "video" | "file";
+  /** Object URL / same-origin path of the bytes. A text file may give `text` instead. */
   src: string;
   /** Accessible name / link text, e.g. "Generated image". */
   label?: string;
   /** Link to the raw file (opens in a new tab). */
   href?: string;
+  /** Audio: the speech-to-text transcript, shown as a collapsible caption. */
+  transcript?: string;
+  /** File: its name (with `contentType`, decides how it is shown). */
+  name?: string;
+  contentType?: string;
+  size?: number;
+  /** File, text kinds (markdown/code/json/text): the text the host read. */
+  text?: string;
 };
 
 /** Streaming state of a live assistant reply. `content` holds the visible text only. */
@@ -148,8 +176,94 @@ function mediaSource(src: string): string | undefined {
   }
 }
 
-function ChatMediaItem({ item }: { item: ChatMedia }): React.ReactElement | null {
+/** A document in the chat: a compact row that opens the shared file viewer
+ * inline (or the host's opener). Nothing loads until it is opened. */
+/**
+ * A raw-file link. A browser-local URL (blob:/data:) is a DOWNLOAD named after
+ * the file: it is saved, never navigated, so no script can run whatever its
+ * type (a browser that cannot play a media type may render its blob as a
+ * document; review N1d). A gateway URL (served with `CSP: sandbox`) opens in a
+ * new tab as before.
+ */
+function rawLinkProps(href: string, name: string): React.AnchorHTMLAttributes<HTMLAnchorElement> {
+  return isLocalObjectUrl(href) ? { href, download: name || "file" } : { href, target: "_blank", rel: "noopener noreferrer" };
+}
+
+type MediaMarkdownPolicy = {
+  renderMarkdown?: (markdown: string) => React.ReactElement;
+  images?: MarkdownImages;
+  inlineImage?: (src: string) => boolean;
+};
+
+function ChatMediaFile({ item, onOpen, markdown }: { item: ChatMedia; onOpen?: (item: ChatMedia) => void; markdown: MediaMarkdownPolicy }): React.ReactElement | null {
+  const [open, setOpen] = useState(false);
+  const src = mediaSource(item.src);
+  const name = String(item.name || item.label || "").trim() || "File";
+  // A file keeps a way out: its raw link, or the host's object URL for an inert
+  // type only. A blob:/data: URL of HTML/SVG/XML would run on the app's origin
+  // without the gateway's sandbox headers (review N1): never linked.
+  const href = fileRawLink({ href: item.href ? mediaSource(item.href) : undefined, src, contentType: item.contentType, name: item.name || item.label });
+  const kind = fileViewerKind(name, item.contentType);
+  const needsText = fileViewerNeedsText(kind);
+  const hasText = typeof item.text === "string";
+  if (!src && !href && !hasText) return null;
+  const size = formatFileSize(item.size);
+  const label = String(item.label || "").trim() || name;
+  return (
+    <figure className="pc-chat-media__item pc-chat-media__item--file" data-file-kind={kind}>
+      <div className="pc-chat-media__file-row">
+        <Icon name="file" size={14} />
+        <span className="pc-chat-media__file-name" title={name}>
+          {label}
+        </span>
+        {size ? <span className="pc-chat-media__file-size">{size}</span> : null}
+        {onOpen ? (
+          <button
+            type="button"
+            className="pc-chat-media__file-open"
+            data-action="open-file"
+            // The opener gets the item as the kit would render it: sanitized sources only.
+            onClick={() => onOpen({ ...item, src: src || "", ...(href ? { href } : { href: undefined }) })}
+          >
+            Open
+          </button>
+        ) : (
+          <button type="button" className="pc-chat-media__file-open" data-action="toggle-file" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+            {open ? "Close" : "Open"}
+          </button>
+        )}
+        {href ? (
+          <a className="pc-chat-media__link" {...rawLinkProps(href, String(item.name || "").trim() || label)}>
+            Raw file
+          </a>
+        ) : null}
+      </div>
+      {open && !onOpen ? (
+        <FileViewer
+          className="pc-chat-media__viewer"
+          name={name}
+          kind={kind}
+          contentType={item.contentType}
+          sizeBytes={item.size}
+          status={needsText && !hasText ? "error" : "ready"}
+          error={needsText && !hasText ? (href ? "No preview text was supplied for this file; open the raw file." : "No preview text was supplied for this file.") : undefined}
+          // The chat's image policy reaches a Markdown file too (default "link":
+          // a generated document must not make the browser fetch remote images).
+          markdownImages={markdown.images || "link"}
+          {...(markdown.inlineImage ? { inlineImage: markdown.inlineImage } : {})}
+          {...(markdown.renderMarkdown ? { renderMarkdown: markdown.renderMarkdown } : {})}
+          {...(hasText ? { text: item.text } : {})}
+          {...(src && !needsText ? { url: src } : {})}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
+    </figure>
+  );
+}
+
+function ChatMediaItem({ item, onOpenFile, markdown }: { item: ChatMedia; onOpenFile?: (item: ChatMedia) => void; markdown?: MediaMarkdownPolicy }): React.ReactElement | null {
   const [failed, setFailed] = useState(false);
+  if (item.kind === "file") return <ChatMediaFile item={item} onOpen={onOpenFile} markdown={markdown || {}} />;
   const src = mediaSource(item.src);
   const href = item.href ? mediaSource(item.href) : undefined;
   const kind = item.kind === "image" || item.kind === "audio" || item.kind === "video" ? item.kind : null;
@@ -162,6 +276,12 @@ function ChatMediaItem({ item }: { item: ChatMedia }): React.ReactElement | null
       {src && kind === "image" ? <img className="pc-chat-media__image" src={src} alt={label} loading="lazy" onError={onError} /> : null}
       {src && kind === "video" ? <video className="pc-chat-media__video" src={src} controls playsInline preload="metadata" aria-label={label} onError={onError} /> : null}
       {src && kind === "audio" ? <AfAudioPlayer className="pc-chat-media__audio" src={src} name={label} /> : null}
+      {kind === "audio" && String(item.transcript || "").trim() ? (
+        <details className="pc-chat-media__transcript">
+          <summary>Transcript</summary>
+          <p className="pc-chat-media__transcript-text">{String(item.transcript).trim()}</p>
+        </details>
+      ) : null}
       {failed ? (
         <div className="pc-chat-media__error" role="note">
           {noun} could not be decoded by this browser{href ? "; open the raw file with the link." : "."}
@@ -169,7 +289,7 @@ function ChatMediaItem({ item }: { item: ChatMedia }): React.ReactElement | null
       ) : null}
       {href ? (
         <figcaption className="pc-chat-media__caption">
-          <a className="pc-chat-media__link" href={href} target="_blank" rel="noopener noreferrer">
+          <a className="pc-chat-media__link" {...rawLinkProps(href, String(item.name || "").trim() || label)}>
             {label}
           </a>
         </figcaption>
@@ -197,6 +317,20 @@ export type ChatMessageCardProps = {
    */
   images?: MarkdownImages;
   inlineImage?: (src: string) => boolean;
+  /**
+   * Per-message slot rendered under the card (after attachments and stats),
+   * e.g. a per-turn detail badge. Return null for nothing.
+   */
+  renderFooter?: (message: ChatMessage) => React.ReactNode;
+  /**
+   * Per-message presentation. `"hint"` renders the message as one discreet
+   * line (no avatar, header or copy): a system note such as "Rejoined the
+   * open visit". `undefined` keeps the full card.
+   */
+  variant?: (message: ChatMessage) => "hint" | undefined;
+  /** Host opener for `media` items of kind `"file"` (e.g. a side drawer).
+   * Without it the file opens inline in the shared viewer. */
+  onOpenMedia?: (item: ChatMedia) => void;
 };
 
 export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement {
@@ -245,6 +379,20 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
   const has_text = Boolean(String(m.content || "").trim());
 
   if (m.toolActivity) return <ToolActivity tool={m.toolActivity} showCopy={props.showCopy} />;
+  const footer = props.renderFooter ? props.renderFooter(m) : null;
+  if (props.variant?.(m) === "hint") {
+    const level = String(m.level || "").trim().toLowerCase();
+    return (
+      <div
+        className={["pc-chat-hint", level === "warn" || level === "error" ? `pc-chat-hint--${level}` : "", props.className].filter(Boolean).join(" ")}
+        role="note"
+        data-variant="hint"
+      >
+        <span className="pc-chat-hint__text">{String(m.content || "")}</span>
+        {footer != null && footer !== false ? <div className="pc-chat-footer">{footer}</div> : null}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -318,7 +466,12 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
       {media.length ? (
         <div className="pc-chat-media">
           {media.slice(0, 24).map((item, idx) => (
-            <ChatMediaItem key={item.id || `${item.kind}:${item.src}:${idx}`} item={item} />
+            <ChatMediaItem
+              key={item.id || `${item.kind}:${item.src}:${idx}`}
+              item={item}
+              onOpenFile={props.onOpenMedia}
+              markdown={{ renderMarkdown: props.renderMarkdown, images: props.images, inlineImage: props.inlineImage }}
+            />
           ))}
         </div>
       ) : null}
@@ -373,6 +526,8 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
           })}
         </div>
       ) : null}
+
+      {footer != null && footer !== false ? <div className="pc-chat-footer">{footer}</div> : null}
     </div>
   );
 }

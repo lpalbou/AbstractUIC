@@ -4,19 +4,21 @@ import type { WorkflowInteraction } from "./workflow_interaction.js";
  * mutable input state so retry never silently substitutes a newer value. */
 export type WorkflowInteractionSubmission =
   | { kind: "choice" | "free-text"; answer: string }
-  | { kind: "approve" | "deny" | "approve-all" }
+  | { kind: "approve" | "deny" | "approve-all" | "approve-session" | "skip" }
   | { kind: "event"; payload: string };
 
 /** Invoke the host callback for a previously captured interaction decision. */
 export function submitWorkflowInteraction(interaction: WorkflowInteraction, submission: WorkflowInteractionSubmission): void | Promise<unknown> {
   if (interaction.kind === "ask-user") {
     if (submission.kind === "choice" || submission.kind === "free-text") return interaction.onSubmit(submission.answer);
+    if (submission.kind === "skip" && interaction.onSkip) return interaction.onSkip();
     throw new Error("Invalid submission for ask-user interaction");
   }
   if (interaction.kind === "tool-approval") {
     if (submission.kind === "approve") return interaction.onApprove();
     if (submission.kind === "deny") return interaction.onDeny();
     if (submission.kind === "approve-all" && interaction.onApproveAll) return interaction.onApproveAll();
+    if (submission.kind === "approve-session" && interaction.onApproveForSession) return interaction.onApproveForSession();
     throw new Error("Invalid submission for tool-approval interaction");
   }
   if (submission.kind === "event") return interaction.onSend(submission.payload);

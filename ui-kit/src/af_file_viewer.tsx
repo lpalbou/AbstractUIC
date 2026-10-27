@@ -6,18 +6,25 @@
 // panel-chat `Markdown`; panel-chat `FileViewer` wires it); without one the
 // source shows highlighted. Code is highlighted by `AfCodeBlock`, JSON is
 // pretty-printed. Audio plays in the shared waveform player (AfAudioPlayer,
-// 0.7.0). Header: name, size, generated date (relative, exact on hover),
-// download and close icons.
+// 0.7.0). Video plays in the browser's own <video> controls from the host's
+// object URL (ui-primitives chat, backlog 0031). Header: name, size, generated
+// date (relative, exact on hover), download and close icons.
 import React from "react";
 import { Icon } from "./icon.js";
 import { AfAudioPlayer } from "./af_audio_player.js";
 import { AfCodeBlock, codeLanguage } from "./code_highlight.js";
 import { formatExactTime, formatRelativeTime, timeValueMs } from "./relative_time.js";
 
-export type AfFileViewerKind = "markdown" | "code" | "json" | "image" | "audio" | "pdf" | "text" | "binary";
+export type AfFileViewerKind = "markdown" | "code" | "json" | "image" | "audio" | "video" | "pdf" | "text" | "binary";
 
 const IMAGE_EXT = new Set("png jpg jpeg gif webp bmp ico avif".split(" "));
 const AUDIO_EXT = new Set("mp3 wav ogg oga opus m4a aac flac weba".split(" "));
+const VIDEO_EXT = new Set("mp4 m4v webm mov ogv mkv".split(" "));
+// Source files `codeLanguage` does not highlight but that are still code.
+const SOURCE_EXT = new Set("mts cts".split(" "));
+// MPEG transport streams: no browser plays them, and Python's mimetypes (the
+// gateway's guess for workspace files) gives this type to .ts/.mts.
+const UNPLAYABLE_VIDEO_TYPES = new Set(["video/mp2t"]);
 const TEXT_EXT = new Set("txt log csv tsv rst adoc org tex diff patch lock".split(" "));
 
 function extensionOf(name: string): string {
@@ -30,6 +37,11 @@ function extensionOf(name: string): string {
  * How a file is shown, from its name and (when known) the Content-Type the
  * server reported. SVG and HTML are shown as SOURCE (code), never rendered:
  * a model-written file must not run in the app's origin.
+ *
+ * The NAME decides first: a media extension, then a code or text name, and
+ * only then a media Content-Type. Servers guess types from extensions too
+ * (Python's mimetypes maps `.ts` to `video/mp2t`), so a code file must never
+ * become a player because of a guessed type.
  */
 export function fileViewerKind(name: string, contentType = ""): AfFileViewerKind {
   const ext = extensionOf(name);
@@ -37,10 +49,15 @@ export function fileViewerKind(name: string, contentType = ""): AfFileViewerKind
   if (ext === "md" || ext === "markdown" || type === "text/markdown") return "markdown";
   if (ext === "json" || type === "application/json" || type.endsWith("+json")) return "json";
   if (ext === "pdf" || type === "application/pdf") return "pdf";
-  if (IMAGE_EXT.has(ext) || (type.startsWith("image/") && type !== "image/svg+xml")) return "image";
-  if (AUDIO_EXT.has(ext) || type.startsWith("audio/")) return "audio";
-  if (codeLanguage(name)) return "code";
-  if (TEXT_EXT.has(ext) || type.startsWith("text/")) return "text";
+  if (IMAGE_EXT.has(ext)) return "image";
+  if (AUDIO_EXT.has(ext)) return "audio";
+  if (VIDEO_EXT.has(ext)) return "video";
+  if (codeLanguage(name) || SOURCE_EXT.has(ext)) return "code";
+  if (TEXT_EXT.has(ext)) return "text";
+  if (type.startsWith("image/") && type !== "image/svg+xml") return "image";
+  if (type.startsWith("audio/")) return "audio";
+  if (type.startsWith("video/") && !UNPLAYABLE_VIDEO_TYPES.has(type)) return "video";
+  if (type.startsWith("text/")) return "text";
   if (["application/javascript", "application/xml", "application/x-yaml", "application/toml"].includes(type)) return "code";
   return "binary";
 }
@@ -82,7 +99,7 @@ export type AfFileViewerProps = {
   text?: string;
   /** Shown above a partial preview ("Showing the first 1 MiB of 3 MiB…"). */
   partialNote?: string;
-  /** Image / audio / PDF: an object URL of the bytes. */
+  /** Image / audio / video / PDF: an object URL of the bytes. */
   url?: string;
   renderMarkdown?: (text: string) => React.ReactNode;
   onDownload?: () => void;
@@ -159,6 +176,9 @@ function FileBody({ kind, p }: { kind: AfFileViewerKind; p: AfFileViewerProps })
       return p.url ? <img className="af-file-viewer__image" src={p.url} alt={p.name} /> : <NoPreview />;
     case "audio":
       return p.url ? <AfAudioPlayer src={p.url} name={p.name} /> : <NoPreview />;
+    case "video":
+      // Same box rules as an image (block, fit the width); the browser's own controls.
+      return p.url ? <video className="af-file-viewer__image af-file-viewer__video" src={p.url} controls playsInline preload="metadata" aria-label={p.name} /> : <NoPreview />;
     case "pdf":
       return p.url ? (
         <object className="af-file-viewer__pdf" data={p.url} type="application/pdf" aria-label={p.name}>
