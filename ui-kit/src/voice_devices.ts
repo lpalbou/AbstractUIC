@@ -238,8 +238,13 @@ export async function recordSample(opts: {
   }
 }
 
-/** Play encoded audio on a chosen output ("" = system default) at `volume` 0..1; resolves when it ends. */
-export async function playOnDevice(data: Blob | ArrayBuffer, opts: { deviceId?: string; volume?: number } = {}): Promise<void> {
+/**
+ * Play encoded audio on a chosen output ("" = system default) at `volume` 0..1, from its start;
+ * resolves when it ends. Aborting `signal` stops it at once (and resolves): playing again starts
+ * from 0.
+ */
+export async function playOnDevice(data: Blob | ArrayBuffer, opts: { deviceId?: string; volume?: number; signal?: AbortSignal } = {}): Promise<void> {
+  if (opts.signal?.aborted) return;
   const C = audioContextCtor();
   if (!C) throw new Error("This browser cannot play audio.");
   const ctx = new C();
@@ -247,6 +252,7 @@ export async function playOnDevice(data: Blob | ArrayBuffer, opts: { deviceId?: 
     if (opts.deviceId && typeof ctx.setSinkId === "function") await ctx.setSinkId(opts.deviceId);
     const bytes = data instanceof Blob ? await data.arrayBuffer() : data;
     const buffer: AudioBuffer = await ctx.decodeAudioData(bytes.slice(0));
+    if (opts.signal?.aborted) return;
     const gain = ctx.createGain();
     gain.gain.value = clampVolume(opts.volume);
     gain.connect(ctx.destination);
@@ -254,7 +260,19 @@ export async function playOnDevice(data: Blob | ArrayBuffer, opts: { deviceId?: 
     src.buffer = buffer;
     src.connect(gain);
     await new Promise<void>((resolve) => {
-      src.onended = () => resolve();
+      const stop = () => {
+        try {
+          src.stop();
+        } catch {
+          /* never started or already ended */
+        }
+        resolve();
+      };
+      src.onended = () => {
+        opts.signal?.removeEventListener?.("abort", stop);
+        resolve();
+      };
+      opts.signal?.addEventListener?.("abort", stop, { once: true });
       src.start();
     });
   } finally {

@@ -369,7 +369,8 @@ const voice = useGatewayVoice({ ...gatewayVoiceOptions(prefs), tts_stream, trans
 - `AfVoiceSection` takes `rows` (hide what the host ignores: `{tts: false}` for an entity that
   speaks with its own voice, shown in Engines through `ttsSlot`; `mute` and `capture` are opt-in),
   `voiceLibrary` (create, list, rename, delete, share the gateway's voices), `fetchLanguages`
-  (`GET voice/languages`) and `previewVoice` (**Play sample**).
+  (`GET voice/languages`) and `previewVoice` (choosing a voice plays it; one play/stop toggle beside
+  the voice select, 0.9.1).
 - The gateway's voice routes are in `GATEWAY_VOICE_ROUTES` and the path helpers
   (`voiceClonePath`, `runVoiceTtsPath`, …), relative to `gatewayApiPath()`.
 

@@ -486,27 +486,74 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
       const withLib = render({ voiceLibrary: lib });
       check("0035 voiceLibrary with list shows Manage voices", withLib.includes("data-voice-library") && withLib.includes("data-voice-create"));
       check("0035 createVoice alone: no Manage panel, still Create", !both.includes("data-voice-library") && both.includes("data-voice-create"));
-      const previews = [];
-      const h = mountH(VoiceSettings, { value: { provider: "qwen3-tts", voice: "v1" }, onChange: () => undefined, fetchCatalog: async () => ({}), previewVoice: async (prefs) => (previews.push(prefs), new ArrayBuffer(4)), previewOn: { deviceId: "spk-1", volume: 0.5 } });
+      // Choosing a voice plays it (0947 / root 1055): one play/stop toggle at the right of the voice
+      // select, no "Play sample" button, no replay panel.
+      const catalog = { items: [
+        { id: "v1", name: "Narrator", provider: "qwen3-tts", model: "Qwen/Qwen3-TTS-12Hz-0.6B-Base", kind: "clone" },
+        { id: "v2", name: "Captain", provider: "qwen3-tts", model: "Qwen/Qwen3-TTS-12Hz-0.6B-Base", kind: "clone" },
+      ] };
+      const asked = [];
+      const answers = [];
+      const previewVoice = (prefs, textArg, opts) =>
+        new Promise((resolve, reject) => {
+          asked.push({ prefs, signal: opts?.signal });
+          answers.push({ resolve, reject });
+          opts?.signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })), { once: true });
+        });
+      let value = { provider: "qwen3-tts", model: "", voice: "" };
+      const h = mountH(VoiceSettings, { value, onChange: (v) => { value = v; h.rerender({ value: v }); }, fetchCatalog: async () => catalog, previewVoice, previewOn: { deviceId: "spk-1", volume: 0.5 } });
       await h.settle();
-      const sample = dataH(h.tree, "data-action", "play-sample");
-      check("0035 Play sample beside the voice select", text(sample) === "Play sample");
+      const toggle = () => dataH(h.tree, "data-action", "play-sample");
+      // A clone carries its model, so a pick can reload the catalog: settle before the next pick.
+      const pick = async (id) => {
+        const select = findH(h.tree, (n) => n.props?.ariaLabel === "AI voice");
+        const opt = select.props.options.find((o) => o.value && JSON.parse(o.value)[3] === id);
+        select.props.onChange(opt.value);
+        await h.settle();
+      };
+      check("0947 a play/stop toggle sits in the voice row", Boolean(toggle()) && toggle().props["data-state"] === "idle" && text(toggle()) === "▶" && !render({ previewVoice }).includes("Play sample"));
+      check("0947 the toggle is a native button (Space toggles it)", toggle().type === "button" && toggle().props.type === "button");
       env.log.sinks.length = 0;
-      sample.props.onClick();
-      sample.props.onClick();
+      env.log.sources.length = 0;
+      env.playMs = 1000;
+      await pick("v1");
+      check("0947 choosing a voice synthesizes it at once", asked.length === 1 && asked[0].prefs.voice === "v1" && asked[0].signal instanceof AbortSignal, JSON.stringify(asked.map((a) => a.prefs)));
+      check("0947 the toggle is busy while the sample is on its way", toggle().props["data-state"] === "loading" && toggle().props["aria-busy"] === true);
+      await pick("v2");
+      check("0947 a newer choice aborts the older sample", asked[0].signal.aborted && asked.length === 2 && asked[1].prefs.voice === "v2");
+      answers[0].resolve(new ArrayBuffer(4)); // a late answer for v1
+      answers[1].resolve(new ArrayBuffer(8));
+      await sleep(10);
+      await h.settle();
+      check("0947 only the latest choice plays (fast choices never queue audio)", env.log.sources.length === 1, String(env.log.sources.length));
+      check("0947 it plays on the chosen speaker", env.log.sinks.includes("spk-1"), JSON.stringify(env.log.sinks));
+      check("0947 playing shows stop", toggle().props["data-state"] === "playing" && text(toggle()) === "■");
+      toggle().props.onClick();
+      await h.settle();
+      check("0947 stop stops the sample", env.log.sources[0].stopped === true && toggle().props["data-state"] === "idle" && text(toggle()) === "▶");
+      toggle().props.onClick();
+      await h.settle();
+      check("0947 play replays the same voice without a new request", asked.length === 2 && env.log.sources.length === 2);
+      check("0947 play restarts from 0 (a fresh source, no offset)", env.log.sources[1].startArgs.length === 0 && !env.log.sources[1].stopped);
+      env.playMs = 5;
+      toggle().props.onClick(); // stop
+      toggle().props.onClick(); // play again; it ends by itself
+      await sleep(20);
+      await h.settle();
+      check("0947 a sample that ends returns to play", toggle().props["data-state"] === "idle");
+      await pick("v1");
+      check("0947 a click while loading cancels", toggle().props["data-state"] === "loading");
+      toggle().props.onClick();
       h.render();
-      check("0035 one sample at a time", previews.length === 1 && dataH(h.tree, "data-action", "play-sample")?.props.disabled === true);
-      await sleep(30);
+      check("0947 ... aborting the request", asked.at(-1).signal.aborted && toggle().props["data-state"] === "idle");
+      await pick("v2");
+      answers.at(-1).reject(new Error("No run to speak in"));
       await h.settle();
-      check("0035 the sample uses the current preferences", previews[0]?.voice === "v1");
-      check("0035 the sample plays on the chosen speaker", env.log.sinks.includes("spk-1"), JSON.stringify(env.log.sinks));
-      check("0035 Play sample is ready again", dataH(h.tree, "data-action", "play-sample")?.props.disabled === false);
-      h.rerender({ previewVoice: async () => { throw new Error("No run to speak in"); } });
-      dataH(h.tree, "data-action", "play-sample").props.onClick();
-      await h.settle();
-      check("0035 a failed sample says why", text(dataH(h.tree, "data-voice-note", "sample")) === "The sample did not play: No run to speak in.");
+      check("0947 a failed sample says why in one line", text(dataH(h.tree, "data-voice-note", "sample")) === "The sample did not play: No run to speak in." && toggle().props["data-state"] === "idle");
+      await pick("v1");
       h.unmount();
-      check("0035 no previewVoice, no Play sample", !render({}).includes("play-sample"));
+      check("0947 unmounting aborts the sample on its way", asked.at(-1).signal.aborted);
+      check("0947 no previewVoice, no toggle", !render({}).includes("play-sample"));
     }
   } finally {
     env.restore();

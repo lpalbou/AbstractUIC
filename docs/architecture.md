@@ -109,7 +109,7 @@ components follow; the [Adoption guide](./adoption-guide.md) is its job table. I
 - **The gateway default is shown first** ("Gateway default · ollama / qwen3"), and an override can
   be undone ("Use gateway default").
 - **One wording set per job**, decided in the kit (Deny / Allow once / Allow for this chat / Allow
-  all enabled tools; Hold to talk / Tap to talk; Play sample).
+  all enabled tools; Hold to talk / Tap to talk; a voice plays when chosen, with one play/stop toggle).
 
 ```mermaid
 flowchart TB

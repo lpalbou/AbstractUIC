@@ -248,7 +248,7 @@ props. Transports are injected: `fetchProviders()`, `fetchModels(provider)` and
 voice picker. The host keeps the value and calls `update(props)` after each change. The gateway
 console's entity Manage, Mind & voice tab uses both. The voice picker's props include
 `voiceLibrary` (create, list, rename, delete and share the gateway's voices: **Manage voices**)
-and `previewVoice` (**Play sample**); `mountVoiceSection(el, props)` mounts the whole
+and `previewVoice` (choosing a voice plays it; a play/stop toggle beside the voice select, kit 0.9.1); `mountVoiceSection(el, props)` mounts the whole
 `AfVoiceSection` the same way (kit 0.9.0).
 
 The picker also takes the props added by backlog 0034 (`fetchGatewayDefault`, `reasoningLadder`,
