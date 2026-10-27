@@ -1,13 +1,20 @@
 # @abstractframework/panel-chat
 
-Chat UI primitives for AbstractFramework-style UIs: thread rendering, message cards, a composer, and lightweight Markdown/JSON rendering.
+Chat UI for AbstractFramework apps: the one chat surface (`WorkflowChat` over a transport-injected
+`WorkflowSessionController`), questions and approvals with one wording set, attachments and
+generated media, a chat's tool policy stored on the gateway, the Docs assistant and the app
+assistant, the workspace browser and file preview, and the thread, message cards, composer and
+lightweight Markdown/JSON renderers they are built from. Each job has one component, composed on
+the gateway's contracts and customized through props and slots
+([ADR 0001](../docs/adr/0001_shared_primitives_composed_on_gateway_contracts.md); the job table is
+the [Adoption guide](../docs/adoption-guide.md)).
 
 ## Peer dependencies
 
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` `^0.8.0` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, and `AfAudioPlayer` for audio previews and chat media)
+- `@abstractframework/ui-kit` `^0.9.0` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.5.0 needs ui-kit 0.9.0.
 
 ## Install
 
@@ -41,11 +48,17 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
 - Types: `ChatMessage`, `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat`,
   `LlmDelta`, `LlmDeltaEnd`, `StreamRepliesMode`, `WorkflowSessionSnapshot`
 - Utils: `chatToMarkdown`, `copyText`, `downloadTextFile`, `tryParseJson`
-- One chat surface (unreleased): `WorkflowChat` `steer` / `toolbar` / `attachmentItems`,
+- One chat surface: `WorkflowChat` `steer` / `toolbar` / `attachmentItems`,
   `ComposerAttachmentChips`, `useAttachmentUploads` (see [One chat surface](#one-chat-surface))
-- Questions and approvals (unreleased): `presentInteraction`, `WORKFLOW_INTERACTION_LABELS`,
+- Questions and approvals: `presentInteraction`, `WORKFLOW_INTERACTION_LABELS`,
   `ReplayInteraction` (see [Questions and approvals](#questions-and-approvals))
-- Generated media (unreleased): `ChatMedia` kind `"file"` and audio `transcript`,
+- A chat's tool policy on the gateway: the `WorkflowSessionController` option `sessionToolPolicy`
+  (a ui-kit `SessionToolPolicyClient`), `sessionPolicyStatus()`, `toolPolicyDecision`,
+  `toolPolicyDecisionText`, `sessionPolicyClampedText` (see
+  [Session tool policy](#session-tool-policy-stored-on-the-gateway))
+- Drawer-system panels: `docsAssistantPanel`, `DocsAssistantPanelContent`, `assistantDrawerPanel`
+  (see [Docs assistant](#docs-assistant) and [App assistant](#app-assistant))
+- Generated media: `ChatMedia` kind `"file"` and audio `transcript`,
   `chatMediaFromArtifact`, `chatMediaForArtifacts`, `WorkflowTransport.resolveArtifact`
   (see [Attachments and generated media](#attachments-and-generated-media))
 - Automations: `ScheduleThisAction` (a "Schedule this…" button for a chat header slot) and
@@ -237,12 +250,12 @@ this chat / allow all, and a dismissal defers, never denies.
 
 #### Session tool policy (stored on the gateway)
 
-"Allow for this chat" used to be a client-side grant: the gateway still asked, and the
-client answered each new wait a moment later, so the gate flashed in every client and in
-the ledger. With the session tool policy (contract v1; gateway routes
-`GET/PUT/POST/DELETE /api/gateway/sessions/{session_id}/tool-policy`, on branch
-`feat/session-tool-policy`, not on `main` yet) the decision is stored for the chat (the
-gateway's session) and the runtime runs covered calls with no wait.
+With the session tool policy (contract v1; gateway routes
+`GET/PUT/POST/DELETE /api/gateway/sessions/{session_id}/tool-policy`), "Allow for this chat" is
+stored for the chat (the gateway's session) and the runtime runs the covered calls of every run of
+the chat with no approval wait. It needs an AbstractGateway that advertises
+`capabilities.session_tool_policy.supported` in `GET discovery/capabilities`; the released
+AbstractGateway 0.15 line does not, and the controller then keeps the labeled local grant below.
 
 ```ts
 // Only when GET discovery/capabilities serves capabilities.session_tool_policy.supported === true.
