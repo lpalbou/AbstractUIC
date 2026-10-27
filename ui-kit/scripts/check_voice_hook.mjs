@@ -102,6 +102,24 @@ ok("stable callbacks read state through ref twins");
     if (gain.gain.value !== 0) fail(`muted: a new reply starts silent (got ${gain.gain.value})`);
     h.unmount();
 
+    // B1 (review 2026-10-27): a stop or cancel while the microphone is still opening (a permission
+    // prompt) is honoured when the stream arrives: tracks stopped, nothing recorded.
+    for (const how of ["stop", "cancel"]) {
+      env.gumDelay = 80;
+      const p = mount((props) => useGatewayVoice(props), { transcribe: async () => "x" });
+      const started = p.tree.start_voice_ptt_recording();
+      await sleep(10);
+      if (how === "stop") p.tree.stop_voice_ptt_recording();
+      else p.tree.cancel_voice_ptt_recording();
+      await Promise.race([started, sleep(300)]);
+      const stream = env.log.streams.at(-1);
+      if (!stream.getTracks().every((tr) => tr.stopped)) fail(`${how} before the microphone opened: its tracks must be stopped as it arrives`);
+      p.render();
+      if (p.tree.voice_ptt_recording) fail(`${how} before the microphone opened: the hook must not start recording`);
+      p.unmount();
+      env.gumDelay = 0;
+    }
+
     // Tap to talk: no pointerup stop while recording.
     env.log.windowAdd.length = 0;
     const t = mount((props) => useGatewayVoice(props), { transcribe: async () => "x", capture_mode: "toggle" });

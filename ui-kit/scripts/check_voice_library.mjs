@@ -362,6 +362,50 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
       await sleep(20);
       check("0035 leaving mid-recording closes the microphone", env.log.recorders.at(-1)?.stream.getTracks().every((t) => t.stopped) && q.stats.lateSets === 0, String(q.stats.lateSets));
     }
+    // B1 (review 2026-10-27): a Stop, or leaving the panel, before the microphone has opened is
+    // honoured the moment the stream arrives (the microphone never stays open for the 30 s cap).
+    {
+      const { recordSample } = kit;
+      env.gumDelay = 120;
+      const stop = new AbortController();
+      const t0 = Date.now();
+      setTimeout(() => stop.abort(), 20);
+      let outcome = "";
+      const pending = recordSample({ ms: 3000, signal: stop.signal }).then(() => (outcome = "resolved"), (e) => (outcome = `rejected:${e?.name}`));
+      await sleep(125);
+      await new Promise((r) => setImmediate(r));
+      const stream = env.log.streams.at(-1);
+      check("B1 an abort before the microphone opens stops its tracks as the stream arrives", stream?.getTracks().every((t) => t.stopped) === true, `${Date.now() - t0} ms`);
+      await Promise.race([pending, sleep(300)]);
+      check("B1 recordSample settles at once (AbortError), not after the full length", outcome === "rejected:AbortError", outcome || "still pending");
+      // An already-aborted signal never records.
+      const gone = new AbortController();
+      gone.abort();
+      env.gumDelay = 0;
+      let out2 = "";
+      await Promise.race([recordSample({ ms: 3000, signal: gone.signal }).then(() => (out2 = "resolved"), (e) => (out2 = `rejected:${e?.name}`)), sleep(300)]);
+      check("B1 an already-aborted recording never records", out2 === "rejected:AbortError" && env.log.streams.at(-1).getTracks().every((t) => t.stopped), out2 || "still pending");
+      // Through the panel: Stop pressed during the permission prompt.
+      env.gumDelay = 120;
+      const h = mountH(CreateVoicePanel, { creation: { clone: async () => ({ voice_id: "c" }) }, onCreated: () => undefined });
+      dataH(h.tree, "data-action", "record-sample").props.onClick();
+      h.render();
+      await sleep(20);
+      dataH(h.tree, "data-action", "record-sample").props.onClick();
+      await sleep(125);
+      await h.settle(10);
+      check("B1 Stop during the permission prompt closes the microphone", env.log.streams.at(-1).getTracks().every((t) => t.stopped));
+      check("B1 Stop during the permission prompt ends the recording at once", text(dataH(h.tree, "data-action", "record-sample")) === "Record" && dataH(h.tree, "data-action", "create-voice")?.props.disabled === true);
+      check("B1 a cancelled recording is not an error", !String(dataH(h.tree, "data-voice-note", "create")?.props.className || "").includes("error"), text(dataH(h.tree, "data-voice-note", "create")));
+      // Leaving the panel during the prompt.
+      dataH(h.tree, "data-action", "record-sample").props.onClick();
+      await sleep(20);
+      h.unmount();
+      await sleep(125);
+      await new Promise((r) => setImmediate(r));
+      check("B1 leaving the panel during the prompt closes the microphone", env.log.streams.at(-1).getTracks().every((t) => t.stopped));
+      env.gumDelay = 0;
+    }
     // "Manage voices": list (no built-in voices), rename, delete asked twice, share for admins, refusals as sentences.
     {
       const calls = [];

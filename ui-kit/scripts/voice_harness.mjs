@@ -145,7 +145,9 @@ export function installFakeBrowser() {
       { kind: "audioinput", deviceId: "mic-1", label: "Desk microphone" },
       { kind: "audiooutput", deviceId: "spk-1", label: "Desk speakers" },
     ],
-    log: { getUserMedia: [], sinks: [], recorders: [], windowAdd: [], windowRemove: [], gains: [], contexts: [], enumerate: 0 },
+    /** getUserMedia resolves after this many ms (a permission prompt); 0 = at once. */
+    gumDelay: 0,
+    log: { getUserMedia: [], streams: [], sinks: [], recorders: [], windowAdd: [], windowRemove: [], gains: [], contexts: [], enumerate: 0, analyserReads: 0 },
     store: new Map(),
   };
   class FakeTrack {
@@ -185,7 +187,13 @@ export function installFakeBrowser() {
       return { frequency: {}, connect() {}, start() {}, stop() {} };
     }
     createAnalyser() {
-      return { fftSize: 1024, getFloatTimeDomainData: (d) => d.fill(env.amplitude) };
+      return {
+        fftSize: 1024,
+        getFloatTimeDomainData: (d) => {
+          env.log.analyserReads += 1;
+          d.fill(env.amplitude);
+        },
+      };
     }
     createMediaStreamSource() {
       return { connect() {}, disconnect() {} };
@@ -241,7 +249,9 @@ export function installFakeBrowser() {
   const mediaDevices = {
     getUserMedia: (constraints) => {
       env.log.getUserMedia.push(constraints);
-      return Promise.resolve(new FakeStream());
+      const stream = new FakeStream();
+      env.log.streams.push(stream);
+      return env.gumDelay ? new Promise((r) => setTimeout(() => r(stream), env.gumDelay)) : Promise.resolve(stream);
     },
     enumerateDevices: () => {
       env.log.enumerate += 1;

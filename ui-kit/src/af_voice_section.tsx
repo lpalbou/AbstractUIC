@@ -40,7 +40,7 @@ import {
   type VoiceLibrary,
   type VoicePreferences,
 } from "./voice_settings.js";
-import { audioOutputSelectable, type GatewayVoiceOptions, type VoiceCaptureMode } from "./use_gateway_voice.js";
+import { audioOutputSelectable, voiceCaptureMode, type GatewayVoiceOptions, type VoiceCaptureMode } from "./use_gateway_voice.js";
 import { clampVolume, voiceDefaultSummary, type VoiceDefaults } from "./voice_devices.js";
 import { AfVoiceOutput, type VoiceDeviceLister } from "./af_voice_output.js";
 import { AfVoiceInput, clampInputGain } from "./af_voice_input.js";
@@ -82,7 +82,7 @@ export function gatewayVoiceOptions(
     muted: prefs.reply_muted === true,
     input_device_id: prefs.input_device || "",
     input_gain: clampInputGain(prefs.input_gain),
-    capture_mode: prefs.capture_mode === "toggle" ? "toggle" : "hold",
+    capture_mode: voiceCaptureMode(prefs.capture_mode),
   };
 }
 
@@ -292,7 +292,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
       : [...VOICE_LANGUAGE_OPTIONS];
   const spoken = value.stt_language || "";
   if (spoken && !spokenOptions.some((o) => o.value === spoken)) spokenOptions.push({ value: spoken, label: `${voiceLanguageLabel(spoken)} (saved)` });
-  const captureMode: VoiceCaptureMode = value.capture_mode || p.captureDefaults?.capture_mode || "hold";
+  const captureMode: VoiceCaptureMode = voiceCaptureMode(value.capture_mode ?? p.captureDefaults?.capture_mode);
   const autoSend = value.auto_send ?? p.captureDefaults?.auto_send ?? false;
 
   return (

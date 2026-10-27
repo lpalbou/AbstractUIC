@@ -224,23 +224,57 @@ try {
       check("Mic toggle: the next press stops", JSON.stringify(calls) === '["start","stop"]', JSON.stringify(calls));
       h.unmount();
     }
-    // Mode mismatch is refused loudly; onTranscript hears transcripts; unavailability is stated.
+    // B2 (review 2026-10-27): never throw at render on data. An unknown stored mode is hold; a
+    // hook in the other mode, or onTranscript without the hook's listener, renders a labelled
+    // disabled button with the reason (and a console error for the developer).
     {
       const { v } = fakeVoice();
-      let threw = "";
+      const { voiceCaptureMode } = kit;
+      check("B2 voiceCaptureMode normalises", typeof voiceCaptureMode === "function" && voiceCaptureMode("toggle") === "toggle" && voiceCaptureMode("hold") === "hold" && ["tap", "TOGGLE", 1, null, undefined, {}].every((x) => voiceCaptureMode(x) === "hold") && voiceCaptureMode({ capture_mode: "toggle" }) === "toggle");
+      const errors = [];
+      const realError = console.error;
+      console.error = (...a) => {
+        const line = a.join(" ");
+        if (line.startsWith("  FAIL")) realError(...a);
+        else errors.push(line);
+      };
       try {
-        mount(AfVoiceMicButton, { voice: v, mode: "toggle" });
-      } catch (e) {
-        threw = String(e?.message || e);
+        for (const stored of ["tap", "TOGGLE", 1, null]) {
+          let threw = "";
+          let m = null;
+          try {
+            m = mount(AfVoiceMicButton, { voice: v, mode: stored });
+          } catch (e) {
+            threw = String(e?.message || e);
+          }
+          check(`B2 a stored mode ${JSON.stringify(stored)} never throws`, !threw, threw);
+          check(`B2 a stored mode ${JSON.stringify(stored)} is hold`, m && button(m.tree)?.props["aria-label"] === "Hold to talk" && button(m.tree)?.props.disabled === false);
+          m?.unmount();
+        }
+        let threw = "";
+        let mm = null;
+        try {
+          mm = mount(AfVoiceMicButton, { voice: v, mode: "toggle" });
+        } catch (e) {
+          threw = String(e?.message || e);
+        }
+        check("B2 a hook in the other mode does not throw", !threw, threw);
+        check("B2 a hook in the other mode: disabled, with the reason shown", mm && button(mm.tree)?.props.disabled === true && text(byData(mm.tree, "data-voice-status", true)) === VOICE_MIC_TEXT.modeMismatch && byData(mm.tree, "data-voice-mic-error", "mode"));
+        check("B2 a hook in the other mode tells the developer", errors.some((e) => e.includes('capture_mode: "toggle"')), errors.join(" | "));
+        mm?.unmount();
+        let threw2 = "";
+        let nt = null;
+        try {
+          nt = mount(AfVoiceMicButton, { voice: { ...v, add_transcript_listener: undefined }, mode: "hold", onTranscript: () => undefined });
+        } catch (e) {
+          threw2 = String(e?.message || e);
+        }
+        check("B2 onTranscript without the hook's listener does not throw", !threw2, threw2);
+        check("B2 onTranscript without the hook's listener: disabled, reason shown, developer told", nt && button(nt.tree)?.props.disabled === true && byData(nt.tree, "data-voice-mic-error", "transcript") && errors.some((e) => e.includes("add_transcript_listener")));
+        nt?.unmount();
+      } finally {
+        console.error = realError;
       }
-      check("Mic: a hook in hold mode refuses a tap-to-talk button", threw.includes('capture_mode: "toggle"'), threw);
-      let threw2 = "";
-      try {
-        mount(AfVoiceMicButton, { voice: { ...v, add_transcript_listener: undefined }, mode: "hold", onTranscript: () => undefined });
-      } catch (e) {
-        threw2 = String(e?.message || e);
-      }
-      check("Mic: onTranscript without the hook's listener is refused", threw2.includes("add_transcript_listener"), threw2);
       const heard = [];
       const { v: v2, listeners } = fakeVoice();
       const h = mount(AfVoiceMicButton, { voice: v2, mode: "hold", onTranscript: (t, i) => heard.push([t, i?.model]) });

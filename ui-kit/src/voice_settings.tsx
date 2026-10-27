@@ -595,7 +595,12 @@ export function CreateVoicePanel({
         setFile(blob);
         setNote({ text: `Recording ready (${Math.max(1, Math.round((Date.now() - started) / 1000))} s).`, tone: "ok" });
       })
-      .catch((err) => alive.current && setNote({ text: microphoneErrorSentence(err), tone: "error" }))
+      .catch((err) => {
+        if (!alive.current) return;
+        // Stopped before the microphone opened (a permission prompt): nothing was recorded.
+        if (err?.name === "AbortError") setNote({ text: "Recording cancelled.", tone: "info" });
+        else setNote({ text: microphoneErrorSentence(err), tone: "error" });
+      })
       .finally(() => {
         if (recorder.current === stop) recorder.current = null;
         if (!alive.current) return;

@@ -8,13 +8,17 @@
 // beside it a live level meter while recording (`voice.voice_ptt_level`) and
 // the status line "Recording… 3 s" / "Transcribing… 4 s · faster-whisper /
 // large-v3". The recording is `useGatewayVoice`'s: create the hook with the
-// same `capture_mode` (`gatewayVoiceOptions(prefs)` does); a different mode is
-// refused loudly, because a hold-mode hook stops a tap-to-talk recording on the
-// first pointer release. What happens to the transcript (send it, put it in the
-// draft) is the host's: `onTranscript`, or the hook's own `on_transcript`.
+// same `capture_mode` (`gatewayVoiceOptions(prefs)` does; pass
+// `mode={voiceCaptureMode(prefs)}`). `mode` is read with `voiceCaptureMode`
+// (anything but "toggle" is hold), so a stored value can never crash a page. A
+// hook in the other mode (a hold-mode hook stops a tap-to-talk recording on the
+// first pointer release) is refused VISIBLY: the button is disabled with the
+// reason, and the developer gets a console error; it never throws at render.
+// What happens to the transcript (send it, put it in the draft) is the host's:
+// `onTranscript`, or the hook's own `on_transcript`.
 import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "./icon.js";
-import { MIN_RECORDING_MS, type GatewayVoice, type VoiceCaptureMode, type VoiceTranscription } from "./use_gateway_voice.js";
+import { MIN_RECORDING_MS, voiceCaptureMode, type GatewayVoice, type VoiceCaptureMode, type VoiceTranscription } from "./use_gateway_voice.js";
 import { elapsedSeconds, transcribingLine } from "./voice_devices.js";
 
 /** The one wording set of the microphone button (ADR 0001 §5). */
@@ -25,13 +29,15 @@ export const VOICE_MIC_TEXT = {
   recordingToggle: "Recording — tap to stop",
   holdHint: "Hold the button while you speak — release to send.",
   unavailable: "Speech to text is not available here.",
+  modeMismatch: "The microphone is set up for the other way of talking. Reload the page.",
+  transcriptMismatch: "The microphone cannot deliver what you say here. Reload the page.",
 } as const;
 
 export type AfVoiceMicButtonProps = {
   /** The hook's return value (`useGatewayVoice`). */
   voice: GatewayVoice;
-  /** Hold to talk, or tap to talk: the same `capture_mode` the hook was created with. */
-  mode: VoiceCaptureMode;
+  /** Hold to talk, or tap to talk: the same `capture_mode` the hook was created with (read with `voiceCaptureMode`: anything but "toggle" is hold). */
+  mode: VoiceCaptureMode | (string & {}) | null | undefined;
   /** The transcription route ("faster-whisper / large-v3": `sttRouteText(prefs, defaults)`), named while transcribing. */
   routeText?: string;
   /** Each transcript (subscribed through `voice.add_transcript_listener`). */
@@ -58,13 +64,23 @@ function useNow(active: boolean): number {
 }
 
 export function AfVoiceMicButton(p: AfVoiceMicButtonProps): React.ReactElement {
-  const { voice, mode } = p;
-  if (voice.voice_capture_mode && voice.voice_capture_mode !== mode)
-    throw new Error(
-      `AfVoiceMicButton mode "${mode}" needs useGatewayVoice({ capture_mode: "${mode}" }) (the hook records in "${voice.voice_capture_mode}" mode).`,
-    );
-  if (p.onTranscript && typeof voice.add_transcript_listener !== "function")
-    throw new Error("AfVoiceMicButton onTranscript needs the voice returned by useGatewayVoice (add_transcript_listener).");
+  const { voice } = p;
+  const mode = voiceCaptureMode(p.mode);
+  // Wiring faults are shown, never thrown: a render error would take the host page down with it.
+  const fault: "" | "mode" | "transcript" =
+    voice.voice_capture_mode && voice.voice_capture_mode !== mode
+      ? "mode"
+      : p.onTranscript && typeof voice.add_transcript_listener !== "function"
+        ? "transcript"
+        : "";
+  useEffect(() => {
+    if (fault === "mode")
+      console.error(
+        `AfVoiceMicButton mode "${mode}" needs useGatewayVoice({ capture_mode: "${mode}" }) (the hook records in "${voice.voice_capture_mode}" mode): pass the same voiceCaptureMode(prefs) to both.`,
+      );
+    else if (fault === "transcript")
+      console.error("AfVoiceMicButton onTranscript needs the voice returned by useGatewayVoice (add_transcript_listener).");
+  }, [fault, mode, voice.voice_capture_mode]);
   const held = useRef(false);
   const pressedAt = useRef(0);
   const mounted = useRef(true);
@@ -96,7 +112,12 @@ export function AfVoiceMicButton(p: AfVoiceMicButtonProps): React.ReactElement {
     return () => clearTimeout(timer);
   }, [hint]);
 
-  const reason = p.unavailableReason || (!voice.voice_ptt_supported ? VOICE_MIC_TEXT.unavailable : null);
+  const reason =
+    fault === "mode"
+      ? VOICE_MIC_TEXT.modeMismatch
+      : fault === "transcript"
+        ? VOICE_MIC_TEXT.transcriptMismatch
+        : p.unavailableReason || (!voice.voice_ptt_supported ? VOICE_MIC_TEXT.unavailable : null);
   const busy = voice.voice_ptt_busy;
   const recording = voice.voice_ptt_recording;
 
@@ -187,7 +208,7 @@ export function AfVoiceMicButton(p: AfVoiceMicButtonProps): React.ReactElement {
         }
       : { onClick: toggle };
   return (
-    <span className={`af-voice-mic${recording ? " af-voice-mic--recording" : ""}${p.className ? ` ${p.className}` : ""}`} data-voice-mic data-mode={mode}>
+    <span className={`af-voice-mic${recording ? " af-voice-mic--recording" : ""}${p.className ? ` ${p.className}` : ""}`} data-voice-mic data-mode={mode} data-voice-mic-error={fault || undefined}>
       <button
         type="button"
         className="af-voice-mic__button"

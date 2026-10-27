@@ -550,5 +550,6 @@ export {
   type VoiceRecordFrom,
   type VoicePlayOn,
 } from "./voice_settings.js";
-export { type VoiceCaptureMode } from "./use_gateway_voice.js";
+export { voiceCaptureMode, type VoiceCaptureMode } from "./use_gateway_voice.js";
+export { recordingAbortError } from "./voice_devices.js";
 export { GATEWAY_VOICE_ROUTES, voiceClonePath, voiceCloneDeployPath, runVoiceTtsPath, runTranscribePath, entityVoicePath } from "./gateway_paths.js";

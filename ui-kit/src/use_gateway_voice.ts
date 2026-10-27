@@ -97,6 +97,17 @@ export type GatewayVoiceOptions = {
 /** The microphone button's way of recording: hold to talk, or tap to talk (tap again to stop). */
 export type VoiceCaptureMode = "hold" | "toggle";
 
+/**
+ * The ONE reading of a capture mode (a stored preference, a prop, the preferences object):
+ * "toggle" only when it is exactly "toggle", "hold" for anything else (absent, stale, foreign,
+ * corrupt). The hook, `gatewayVoiceOptions` and `AfVoiceMicButton` all read it this way, so a
+ * stored value can never make them disagree.
+ */
+export function voiceCaptureMode(value: unknown): VoiceCaptureMode {
+  const v = value && typeof value === "object" ? (value as { capture_mode?: unknown }).capture_mode : value;
+  return v === "toggle" ? "toggle" : "hold";
+}
+
 /** A transcription result with the route that ran (`provider`/`model` from the gateway response). */
 export type VoiceTranscription = { text: string; provider?: string | null; model?: string | null };
 
@@ -746,6 +757,9 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   const voice_ptt_mime_ref = useRef<string>("");
   const voice_ptt_generation = useRef(0);
   const voice_ptt_start_pending = useRef(false);
+  // A stop asked while the microphone is still opening (a permission prompt): honoured when the
+  // stream arrives (its tracks stopped, nothing recorded), never a recording that starts after it.
+  const voice_ptt_stop_pending = useRef(false);
   const [voice_ptt_since, set_voice_ptt_since] = useState(0);
   const voice_ptt_started_ms = useRef(0);
   const voice_ptt_gain_ctx = useRef<AudioContext | null>(null);
@@ -862,10 +876,17 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     voice_ptt_chunks_ref.current = [];
     const generation = voice_ptt_generation.current;
     voice_ptt_start_pending.current = true;
+    voice_ptt_stop_pending.current = false;
 
     try {
       const stream = await openMicrophone(opts_ref.current.input_device_id || "");
       if (generation !== voice_ptt_generation.current) { stream.getTracks().forEach((track) => track.stop()); return; }
+      if (voice_ptt_stop_pending.current) {
+        voice_ptt_stop_pending.current = false;
+        stream.getTracks().forEach((track) => track.stop());
+        set_voice_ptt_since(0);
+        return;
+      }
       voice_ptt_stream_ref.current = stream;
       // The live level (the meter moves while the user speaks, not only during Test).
       const level_gain = Number(opts_ref.current.input_gain ?? 1);
@@ -937,6 +958,10 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const stop_voice_ptt_recording = useCallback((): void => {
     const rec = voice_ptt_recorder_ref.current;
+    if (voice_ptt_start_pending.current && !rec) {
+      voice_ptt_stop_pending.current = true;
+      return;
+    }
     if (!voice_ptt_recording_ref.current || !rec) return;
     // Keep ownership until onstop, so cancellation can detach queued events
     // and a new start cannot replace a recorder that is still draining.
@@ -950,7 +975,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
 
   useEffect(() => {
     if (!voice_ptt_recording || opts_ref.current.stop_on_pointerup === false) return;
-    if (opts_ref.current.stop_on_pointerup === undefined && opts_ref.current.capture_mode === "toggle") return;
+    if (opts_ref.current.stop_on_pointerup === undefined && voiceCaptureMode(opts_ref.current.capture_mode) === "toggle") return;
     const on_up = () => stop_voice_ptt_recording();
     window.addEventListener("pointerup", on_up);
     window.addEventListener("pointercancel", on_up);
@@ -974,7 +999,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     cancel_voice_ptt_recording,
     voice_ptt_since,
     voice_ptt_level,
-    voice_capture_mode: opts.capture_mode === "toggle" ? "toggle" : "hold",
+    voice_capture_mode: voiceCaptureMode(opts.capture_mode),
     add_transcript_listener,
   };
 }

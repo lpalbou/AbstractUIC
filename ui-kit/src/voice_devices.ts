@@ -171,10 +171,20 @@ export function watchLevel(stream: MediaStream, onLevel: (level: number) => void
 /** Level below which a whole recording counts as silence. */
 export const SILENT_LEVEL = 0.02;
 
+/** The error a recording stopped by its `signal` before it began rejects with (`name: "AbortError"`). */
+export function recordingAbortError(): Error {
+  return Object.assign(new Error("The recording was stopped before it began."), { name: "AbortError" });
+}
+
 /**
  * The microphone Test: record `ms` from the chosen input (live level through
  * `onLevel`), return the recording and its peak level. Throws the browser's
  * error (turn it into a sentence with `microphoneErrorSentence`).
+ *
+ * `signal` ends the recording early (what was recorded is returned). An abort
+ * that lands before the microphone has opened (a permission prompt) closes the
+ * microphone the moment it arrives and rejects with an `AbortError`: the
+ * microphone never stays open behind a Stop.
  */
 export async function recordSample(opts: {
   deviceId?: string;
@@ -185,7 +195,12 @@ export async function recordSample(opts: {
 }): Promise<{ blob: Blob; peak: number; mime: string }> {
   const MR: any = (globalThis as any).MediaRecorder;
   if (typeof MR !== "function") throw Object.assign(new Error("This browser cannot record audio."), { name: "NotSupportedError" });
+  if (opts.signal?.aborted) throw recordingAbortError();
   const stream = await openMicrophone(opts.deviceId);
+  if (opts.signal?.aborted) {
+    stream.getTracks().forEach((t) => t.stop());
+    throw recordingAbortError();
+  }
   let peak = 0;
   const stopMeter = watchLevel(
     stream,
@@ -205,6 +220,7 @@ export async function recordSample(opts: {
     });
     recorder.start();
     await new Promise<void>((resolve) => {
+      if (opts.signal?.aborted) return resolve();
       const t = setTimeout(resolve, opts.ms ?? 3000);
       opts.signal?.addEventListener("abort", () => {
         clearTimeout(t);

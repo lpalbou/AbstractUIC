@@ -282,13 +282,15 @@ const voice = useGatewayVoice({ ...gatewayVoiceOptions(prefs), tts_stream, trans
 
 <AfVoiceOutput value={prefs} onChange={setPrefs} />                  // device + Test, volume, Mute
 <AfVoiceInput value={prefs} onChange={setPrefs} level={voice.voice_ptt_level} />
-<AfVoiceMicButton voice={voice} mode={prefs.capture_mode || "hold"}
+<AfVoiceMicButton voice={voice} mode={voiceCaptureMode(prefs)}
   routeText={sttRouteText(prefs, defaults.value)} onTranscript={(text) => send(text)} />
 ```
 
 - `AfVoiceMicButton` has one wording: **Hold to talk** ("Recording — release to send") or
-  **Tap to talk** ("Recording — tap to stop"); it refuses a hook created with the other
-  `capture_mode`.
+  **Tap to talk** ("Recording — tap to stop"). `voiceCaptureMode()` is the one reading of the
+  preference (anything but "toggle" is hold), used by `gatewayVoiceOptions` too. A button whose
+  hook was created with the other mode is shown disabled with the reason (and a console error);
+  it never throws.
 - `AfVoiceSection` takes `rows` (hide what the host ignores: `{tts: false}` for an entity that
   speaks with its own voice, shown in Engines through `ttsSlot`; `mute` and `capture` are opt-in),
   `voiceLibrary` (create, list, rename, delete, share the gateway's voices), `fetchLanguages`
