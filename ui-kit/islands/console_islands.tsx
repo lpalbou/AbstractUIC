@@ -26,6 +26,8 @@ import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typograph
 import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
 import { useGatewayVoice } from "../src/use_gateway_voice.js";
 import { ProviderModelPicker, type ProviderModelPickerProps } from "../src/provider_model_picker.js";
+import { ToolModeEditor, type ToolModeEditorProps } from "../src/tool_mode_editor.js";
+import { normalizeToolCatalog, type ToolCatalogItem } from "../src/tool_plan.js";
 import { VoiceSettings } from "../src/voice_settings.js";
 import { WorkspaceChooser, type WorkspaceChooserProps } from "../src/workspace_chooser.js";
 import { WORKSPACE_CHOOSER_TEXT, workspaceAsState } from "../src/workspace_chooser_core.js";
@@ -360,6 +362,16 @@ export type VoiceSettingsIslandProps = React.ComponentProps<typeof VoiceSettings
  * The shared voice picker (provider + model + voice, "Gateway default"),
  * transport injected (fetchCatalog). Additive member (round 3).
  */
+// ui-primitives (tools-models, backlog 0033): the tool editor for the console (e.g. a page for the
+// gateway's /tool-grants default, audit gateway gap 6). Host-driven like every island: the console
+// passes the catalog — the served GET discovery/tools answer as is (normalized here with the kit's
+// normalizeToolCatalog, so the console keeps no copy of it; a broken answer throws) or already
+// normalized items — the layer value and onChange.
+export type ToolModeEditorIslandProps = Omit<ToolModeEditorProps, "catalog"> & { catalog: ToolCatalogItem[] | unknown };
+export function mountToolModeEditor(el: Element, props: ToolModeEditorIslandProps): IslandHandle<ToolModeEditorIslandProps> {
+  return mount(el, (p) => <ToolModeEditor {...p} catalog={Array.isArray(p.catalog) ? (p.catalog as ToolCatalogItem[]) : normalizeToolCatalog(p.catalog)} />, props);
+}
+
 export function mountVoiceSettings(el: Element, props: VoiceSettingsIslandProps): IslandHandle<VoiceSettingsIslandProps> {
   return mount(el, (p) => <VoiceSettings {...p} />, props);
 }
@@ -452,6 +464,7 @@ const api = {
   mountAbout,
   mountSandboxChat,
   mountProviderModelPicker,
+  mountToolModeEditor,
   mountVoiceSettings,
   mountDocsAssistant,
   mountWorkspaceChooser,

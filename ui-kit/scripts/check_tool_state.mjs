@@ -59,6 +59,28 @@ check("exactly three badges", (html.match(/data-tool-state=/g) || []).length ===
 check("theme.css styles the badge and its three tones", [".af-tool-row__state {", ".af-tool-row__state.is-ok", ".af-tool-row__state.is-warn", ".af-tool-row__state.is-danger"].every((s) => css.includes(s)));
 check("badge wraps inside a narrow card", /\.af-tool-row__state \{[^}]*overflow-wrap:\s*anywhere/.test(css) && /\.af-tool-row__state \{[^}]*max-width:\s*100%/.test(css));
 
+// ui-primitives (tools-models): the served `approval_default` is the server truth this editor reads
+// (routes/gateway.py:15615-15640); `default_approval` stays an alias; the kit table is only the
+// LABELED fallback ("Kit default"), rendered on the rows it decides and nowhere else.
+const served = renderToStaticMarkup(React.createElement(kit.ToolPolicyEditor, {
+  tools: [
+    { name: "write_file", approval_default: "auto" },
+    { name: "read_file", approval_default: "ask" },
+    { name: "edit_file", default_approval: "approve" },
+    { name: "list_files" },
+  ],
+  value: { mode: "all", selected: [], approval: {} },
+  onChange() {},
+}));
+function prow(name) {
+  return served.split(/<div class="af-tool-row(?: is-enabled)?">/).find((r) => r.includes(`aria-label="${name}"`)) || "";
+}
+check("served approval_default auto beats the kit table (write_file → Approve)", /<option value="approve" selected="">/.test(prow("write_file")), prow("write_file").slice(-300));
+check("served approval_default ask beats the kit table (read_file → Ask)", /<option value="ask" selected="">/.test(prow("read_file")));
+check("default_approval alias still read", /<option value="approve" selected="">/.test(prow("edit_file")));
+check("served rows carry no fallback label", !/data-approval-fallback="(write_file|read_file|edit_file)"/.test(served));
+check("a row the table decides is labeled Kit default", prow("list_files").includes('data-approval-fallback="list_files"') && prow("list_files").includes("Kit default"));
+
 if (failures) {
   console.error(`check_tool_state: ${failures}/${checks} FAILED`);
   process.exit(1);
