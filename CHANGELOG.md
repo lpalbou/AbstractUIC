@@ -18,28 +18,34 @@ panel-chat:
   `capabilities.session_tool_policy.supported === true` (the gateway routes exist on branch `feat/session-tool-policy`,
   not on `main`; the controller never fetches them itself). New methods `approveAllForSession(target, {maxRiskRank?})`,
   `approveKindForSession(target, kind)`, `denyKindForSession`, `denyToolForSession`, `resetSessionPolicy`,
-  `loadSessionPolicy`: each WRITES the conversation's policy (`POST …/tool-policy`, merge) FIRST, then answers the
-  shown wait (`{approved:true}` / `{approved:false}`), so later calls of every run of the conversation run with no
-  wait and the gate never flashes. Snapshot: `sessionPolicyMode` (`"gateway"` | `"local-fallback"`),
-  `sessionPolicy`, `sessionPolicyClamped`; option `onSessionPolicy(policy, clamped)`.
-- Without a supported client the previous local grant stays (`allowAllToolsForRun`, or the host's
-  `onAllowForSession`) and the approval says so in a labeled line: "Allowed until this run ends, in this browser
-  only — the gateway cannot store conversation policies." / "Allowed for this chat in this browser only — …".
-- `presentInteraction` option `sessionPolicy: { mode, toolsetOf?, clamped?, maxRiskRank? }`: Deny / Allow once / Allow
+  `loadSessionPolicy`, `sessionPolicyStatus`: each write sends the chat's policy (`POST …/tool-policy`, merge,
+  with the person's `ask` tools) FIRST, then answers the shown wait (`{approved:true}` / `{approved:false}`), so later
+  calls of every run of the chat run with no wait and the gate never flashes. A write that succeeded before the
+  answer failed says the policy was saved. Snapshot: `sessionPolicyMode` (`"gateway"` | `"local-fallback"` |
+  `"unavailable"`), `sessionPolicyReason`, `sessionPolicy`, `sessionPolicyClamped`; option `onSessionPolicy(policy,
+  clamped)`; `setSessionToolPolicyClient(null, {reason})` records a failed capability read.
+- Without a supported client the previous local grant stays and says what it does: **Allow for this run** with
+  "Allowed until this run ends, in this browser only — the gateway cannot store chat policies." (or the host's
+  `onAllowForSession`, "Allowed for this chat in this browser only — …"). When the capability read failed, no chat
+  grant is offered or made and the reason is shown; Allow once still works.
+- `presentInteraction` option `sessionPolicy: { toolsetOf?, ask?, maxRiskRank? }`; the mode is read from the controller
+  (`sessionPolicyStatus()`), never from a host prop: Deny / Allow once / Allow
   for this chat / "Allow all <toolset> tools for this chat" (one per toolset present in the batch: the call's
   `toolset`, else the host's `toolsetOf` from `GET discovery/tools`; never guessed) / Allow all enabled tools
   (unchanged). What the gateway did not store (`clamped`) shows as "Not covered: send_email (not authorized)" after
   the decision and on the next approval. `WORKFLOW_INTERACTION_LABELS` adds `allowKindForChat`,
   `localChatPolicyNote`, `localRunPolicyNote`; `WorkflowToolApprovalInteraction` adds `approveKinds`, `scopeNote`,
   `notCovered`; a decision callback may resolve to `{outcomeNote}`.
-- The ledger record `abstract.tool_policy_decision` folds to an activity line ("Allowed by this conversation's
-  policy (set by admin at …)" / "Denied by this conversation's policy", kind `tool_policy_decision`, rendered as one
-  discreet line), never an interaction; the covered calls' tool rows carry the provenance
+- The ledger record `abstract.tool_policy_decision` folds to an activity line ("Allowed by this chat's policy (set
+  by admin at …)" / "Denied by this chat's policy", kind `tool_policy_decision`, rendered as one discreet line; a
+  record with no identifiable call or an unknown decision adds nothing), never an interaction; the covered calls' tool rows carry the provenance
   (`WorkflowToolActivity.policy`, `callId`). Helpers `toolPolicyDecision`, `toolPolicyDecisionText`,
   `sessionPolicyClampedText`.
 - `isLocalObjectUrl` decides with the URL parser (a leading control character before `blob:` is local: download, no
   new tab; review of PR #4).
-- Check: `check_session_policy.mjs` (49 checks; 12 mutations red, including a resume sent before the policy write).
+- `denyToolForSession` / `denyKindForSession` have no panel control; hosts expose them.
+- Check: `check_session_policy.mjs` (65 checks; 24 mutations red, including a resume sent before the policy write, a
+  host-claimed gateway mode, a dropped `ask`, and a failed capability read treated as the local fallback).
 
 ### chat: one chat surface, questions and approvals, attachments and generated media (backlog 0030, 0032, kit half of 0031; ADR 0001)
 
