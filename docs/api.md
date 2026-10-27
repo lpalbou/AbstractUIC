@@ -83,7 +83,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   it does not offer, and a "Default: X" chip on a row that overrides the layer below.
   Pure helpers (`tool_plan.ts`): `normalizeToolCatalog(payload)` (`GET discovery/tools`; throws
   without `items[]`; `offered = enabled !== false && available !== false`; `gatewayDefault` from
-  the served `approval_default`), `normalizeToolMode(v, "entity" | "desktop")` ("approve" is ask
+  the served `approval_default`; a row without it gets `defaultUnserved: true`, Ask assumed, and the editor says so), `normalizeToolMode(v, "entity" | "desktop")` ("approve" is ask
   in the entity dialect and auto in the desktop / kit v1 dialect; refused without a dialect),
   `toolModeInDialect`, `resolveToolModes(catalog, {app, session})` → `{mode, source, inherited}`,
   `setToolMode` / `setGroupToolMode` (a diff equal to the inherited mode is deleted),

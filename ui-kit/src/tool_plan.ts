@@ -66,6 +66,9 @@ export type ToolCatalogItem = {
   offered: boolean;
   /** off when not offered, else the served `approval_default` ("auto" → auto, anything else → ask). */
   gatewayDefault: ToolMode;
+  /** The row carried neither `approval_default` nor the v1 alias: `gatewayDefault` is the assumed
+   * Ask (the runtime's own fail direction), and the editor labels it as such. */
+  defaultUnserved?: boolean;
   riskRank?: number;
   riskTier?: string;
   /** The model chooses where the output goes (a URL, a recipient): never reached by bulk Auto or Approve all. */
@@ -142,6 +145,7 @@ export function normalizeToolCatalog(payload: unknown): ToolCatalogItem[] {
       toolset: str(row.toolset) || "other",
       offered,
       gatewayDefault: offered ? approval : "off",
+      ...(offered && !served && !alias ? { defaultUnserved: true } : {}),
       ...(riskRank !== undefined ? { riskRank } : {}),
       ...(riskTier ? { riskTier } : {}),
       ...(row.model_controlled_destination === true ? { modelControlledDestination: true } : {}),

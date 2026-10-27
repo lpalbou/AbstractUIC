@@ -77,6 +77,7 @@ check("approval_default auto → gateway default auto", by.read_file.gatewayDefa
 check("approval_default ask → ask", by.write_file.gatewayDefault === "ask");
 check("served approval_default wins over default_approval", by.list_files.gatewayDefault === "auto");
 check("v1 alias read only when the served field is absent", by.legacy_tool.gatewayDefault === "auto");
+check("a row with no served default is flagged (Ask assumed)", normalizeToolCatalog({ items: [{ name: "m" }] })[0].defaultUnserved === true && normalizeToolCatalog({ items: [{ name: "m" }] })[0].gatewayDefault === "ask" && !by.read_file.defaultUnserved && !by.legacy_tool.defaultUnserved && !by.send_telegram_message.defaultUnserved);
 check("disabled → not offered, off, its reason kept", !by.send_telegram_message.offered && by.send_telegram_message.gatewayDefault === "off" && by.send_telegram_message.whyDisabled === "Set TELEGRAM_BOT_TOKEN.");
 check("available:false → not offered", !by.camera_capture_photo.offered && by.camera_capture_photo.gatewayDefault === "off");
 check("blank toolset → other", by.web_search.toolset === "other");

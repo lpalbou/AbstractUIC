@@ -262,6 +262,11 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
                     ) : null}
                     {item.description ? <div className="af-tool-row__desc">{item.description}</div> : null}
                     {item.whenToUse ? <div className="af-tool-row__hint">{item.whenToUse}</div> : null}
+                    {item.offered && item.defaultUnserved ? (
+                      <div className="af-tool-mode-row__why" data-default-unserved={item.name}>
+                        The gateway did not say whether this tool asks first; Ask is assumed.
+                      </div>
+                    ) : null}
                     {!item.offered ? (
                       <div className="af-tool-mode-row__why" data-why-disabled={item.name}>
                         {item.whyDisabled ? `Not offered by the gateway: ${item.whyDisabled}` : "Not offered by the gateway."}

@@ -75,6 +75,9 @@ const pressed = (html, key) => new RegExp(`aria-pressed="true"[^>]*data-(?:tool|
   check("not offered: the gateway's reason", tg.includes("Not offered by the gateway: Set TELEGRAM_BOT_TOKEN."), tg);
   check("not offered: its controls disabled", (tg.match(/disabled=""/g) || []).length === 3, tg);
   check("risk badge", rowOf(html, "execute_command").includes(">destroy<"));
+  check("served defaults carry no 'did not say' label", !html.includes("data-default-unserved"));
+  const unserved = renderToStaticMarkup(h(ToolModeEditor, { catalog: normalizeToolCatalog({ items: [{ name: "mystery", toolset: "x", enabled: true }] }), layer: "app", value: {}, onChange() {} }));
+  check("an unserved default is labeled, Ask assumed", unserved.includes('data-default-unserved="mystery"') && unserved.includes("Ask is assumed") && pressed(rowOf(unserved, "mystery"), "mystery:ask"), unserved.slice(0, 400));
 }
 
 // ---------------------------------------------------------------- group control: Mixed + cap explained
