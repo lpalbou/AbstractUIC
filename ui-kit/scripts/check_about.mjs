@@ -212,8 +212,9 @@ const bar = (extra) => renderToStaticMarkup(React.createElement(AfTopBarActions,
 const withAbout = bar({ appearance: { onOpen: noop }, about: { identity: appIdentity("abstractflow", "1.0.0") }, extraActions: React.createElement("span", { id: "x-extra" }) });
 check("top bar: About button", withAbout.includes('aria-label="About AbstractFlow"') && withAbout.includes('data-af-tip="About AbstractFlow"') && !/af-topbar__btn--about"[^>]*title=/.test(withAbout) && withAbout.includes("af-topbar__btn--about"));
 check("top bar: dialog closed initially", !withAbout.includes('role="dialog"'));
-const order = ["Appearance (theme and typography)", "About AbstractFlow", 'id="x-extra"', "Disconnect from gateway"].map((s) => withAbout.indexOf(s));
-check("top bar: order appearance → about → extras → pill", order.every((v, i) => v >= 0 && (i === 0 || v > order[i - 1])), JSON.stringify(order));
+// shell (backlog 0036): app extras lead the cluster (full order pinned in check_app_shell.mjs).
+const order = ['id="x-extra"', "Appearance (theme and typography)", "About AbstractFlow", "Disconnect from gateway"].map((s) => withAbout.indexOf(s));
+check("top bar: order extras → appearance → about → pill", order.every((v, i) => v >= 0 && (i === 0 || v > order[i - 1])), JSON.stringify(order));
 check("top bar: custom label", bar({ about: { identity: appIdentity("abstractflow", "1"), label: "About Flow" } }).includes('aria-label="About Flow"'));
 check("top bar: no about without prop", !bar({}).includes("af-topbar__btn--about"));
 // The Docs assistant slot (round 8): a book icon button, first in the cluster, pressed state shown.
@@ -221,6 +222,26 @@ const withDocs = bar({ docs: { open: true, onToggle: noop }, assistant: { open: 
 check("top bar: docs button", withDocs.includes('aria-label="Docs assistant"') && withDocs.includes("af-topbar__btn--docs") && withDocs.includes('aria-pressed="true"'));
 check("top bar: docs first, then the app's own assistant", withDocs.indexOf("af-topbar__btn--docs") >= 0 && withDocs.indexOf("af-topbar__btn--docs") < withDocs.indexOf('aria-label="Authoring assistant"'));
 check("top bar: no docs button without prop", !bar({}).includes("af-topbar__btn--docs"));
+
+// --- shell (backlog 0036): About's host slot + the kit-owned versions fetch ------
+{
+  const { AfAbout, fetchAboutVersions, ABOUT_VERSIONS_CHECKING } = kit;
+  const ident = appIdentity("abstractgateway", "0.16.0");
+  const withExtra = renderToStaticMarkup(React.createElement(AfAbout, { identity: ident, extra: React.createElement("button", { id: "x-restart" }, "Restart gateway") }));
+  check("about: extra slot renders under the links, before the legal line", withExtra.includes("af-about-card__extra") && withExtra.indexOf('id="x-restart"') > withExtra.indexOf("af-about-card__links") && withExtra.indexOf('id="x-restart"') < withExtra.indexOf("af-about-card__legal"), withExtra);
+  check("about: no extra wrapper without the slot", !renderToStaticMarkup(React.createElement(AfAbout, { identity: ident })).includes("af-about-card__extra"));
+  check("about: dialog passes the extra through", renderToStaticMarkup(React.createElement(AfAboutDialog, { open: true, onClose: noop, identity: ident, extra: React.createElement("i", { id: "x-dlg-extra" }) })).includes('id="x-dlg-extra"'));
+  const calls = [];
+  const okFetch = async (path, init) => (calls.push([path, init && init.method]), { ok: true, status: 200, json: async () => ({ abstractframework: "0.2.0", abstractgateway: "0.16.0", packages: { abstractcore: "2.0" } }) });
+  const v = await fetchAboutVersions(okFetch);
+  check("about fetch: GET api/gateway/about (relative)", calls.length === 1 && calls[0][0] === "api/gateway/about" && calls[0][1] === "GET", JSON.stringify(calls));
+  check("about fetch: framework + gateway versions", v.framework === "0.2.0" && v.gateway === "0.16.0" && !("packages" in v), JSON.stringify(v));
+  const v401 = await fetchAboutVersions(async () => ({ ok: false, status: 401, json: async () => ({ detail: "Gateway sign-in required" }) }));
+  check("about fetch: HTTP error is the labeled note", v401.gateway === null && v401.gatewayNote === "unavailable (HTTP 401)", JSON.stringify(v401));
+  const vThrow = await fetchAboutVersions(async () => { throw new Error("offline"); });
+  check("about fetch: a thrown fetch is the labeled note", vThrow.gatewayNote === "unavailable (offline)", JSON.stringify(vThrow));
+  check("about fetch: checking state", ABOUT_VERSIONS_CHECKING.gatewayNote === "checking…" && ABOUT_VERSIONS_CHECKING.frameworkNote === "checking…");
+}
 
 // --- CSS for the dialog ships in theme.css ------------------------------------
 const css = readFileSync(join(here, "..", "src", "theme.css"), "utf8");

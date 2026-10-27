@@ -603,3 +603,33 @@ export {
 } from "./gateway_paths.js";
 export { PINNED_FIELD_TEXT } from "./provider_model_select.js";
 export { PICKER_REASONING_UNKNOWN, PICKER_REASONING_OVERRIDE } from "./provider_model_picker.js";
+// --- ui-primitives (shell) ---
+// Backlog 0036 (ADR 0001): the app shell — identity in the top-right cluster, the drawer
+// system (AfRailDrawer is now a wrapper over it), AfAppShell, the kit-owned About fetch.
+export { AfAppShell, type AfAppShellProps, type AfAppShellTopBar, type AfAppShellNav } from "./af_app_shell.js";
+export {
+  AfDrawerSystem,
+  AfPanelHeaderActions,
+  AfPanelErrorBoundary,
+  railDrawerDragWidth,
+  railDrawerSide,
+  railDrawerActiveFor,
+  railDrawerSetActive,
+  railDrawerParseRequest,
+  railDrawerMounted,
+  railDrawerReadStored,
+  railDrawerWriteStored,
+  railDrawerPanelWidth,
+  railDrawerStoredActive,
+  railDrawerTopOffset,
+  type AfDrawerSystemProps,
+  type AfDrawerPanel,
+  type AfDrawerActive,
+  type AfDrawerSide,
+  type AfDrawerStored,
+} from "./af_drawer_system.js";
+export { drawerTop, drawerFocusTarget } from "./af_drawer.js";
+export { topBarPillText, topBarConnection, identityTitle, useAfTopBarHeight, AF_TOPBAR_HEIGHT_VAR, type AfTopBarConnection } from "./af_top_bar_actions.js";
+export { principalFromConnection, principalLabel, gatewayHostLabel, AF_DEFAULT_TENANT, type AfPrincipal } from "./principal.js";
+export { fetchAboutVersions, ABOUT_VERSIONS_CHECKING, type AfGatewayFetch } from "./about.js";
+export type { GatewayPrincipalPayload } from "./gateway_connect_modal.js";

@@ -49,6 +49,51 @@ kit tool editor is `ToolModeEditor`, with an `allowListOnly` mode for allowlist 
 - Checks: `check_tool_plan`, `check_tool_mode_editor`, `check_gateway_models`; `check_route_picker`,
   `check_tool_state`, `check_speculation` (now in `npm test`), `check_islands` and `check_responsive`
   extended.
+### shell: the app shell — identity, the top-right order, the drawer system (backlog 0036, ADR 0001)
+
+- **Who is signed in** in the top-right cluster: `AfTopBarActions` `identity="badge" | "menu"`
+  (the menu: "Signed in as …", "Gateway <host>", **Copy user id**, **Disconnect**; kit tooltip), read from the
+  connection status's `gateway.principal` (the gateway's `GET /api/gateway/me`): `AfPrincipal`,
+  `principalFromConnection`, `principalLabel` (user id; `tenant/` only when the tenant is not
+  `default`), `gatewayHostLabel`. `GatewayConnectionState.gateway` now types `principal` (tenant,
+  roles, scopes, source, admin, …), `auth` and `routing`.
+- `AfTopBarActions.connection` takes `useGatewayConnection()`'s return value; the pill and the
+  menu's Disconnect call its `signOut()`, then the new `onSignOut` only when the disconnect happened
+  (`useGatewayConnection().signOut()` now resolves `true` / `false`, never rejects; with the legacy
+  `connection` shape `onSignOut` is ignored and `onDisconnect` alone runs). A failed disconnect shows
+  "Disconnect failed" beside the pill. The identity renders only while the phase is connected.
+  **One verb**: the in-flight pill now reads "Disconnecting…" (was "Signing out…"), matching
+  "Disconnect" in the pill and the menu. **Order changed and pinned**:
+  extras · docs · assistant · appearance · about · identity · pill (app `extraActions` now lead the
+  cluster instead of sitting before the pill). The pill's wording is pinned.
+- The cluster owns the Appearance dialog when given `appearance={{ value, onChange }}`; `about.fetch`
+  (the host's gateway fetch) GETs `api/gateway/about` each time About opens (`fetchAboutVersions`);
+  `about.extra` / `AfAbout.extra` / `AfAboutDialog.extra` hold host content in the dialog. `AfMenu`
+  takes a non-interactive `header`.
+- `--af-topbar-h`: the cluster publishes its header's bottom edge; `AfDrawer` and the drawer system
+  take `topOffset: "auto"`; the variable is removed when the cluster unmounts. **Behaviour change**:
+  `AfDrawer` now moves focus in on open (a text field is skipped on touch screens) and back to the
+  opener on close when focus was inside (`manageFocus={false}` opts out). `DocsAssistantDrawer`
+  keeps its earlier behaviour (`manageFocus` default false; opt in with `manageFocus`).
+- `AfDrawerSystem`: left and right panels, rail or drawer mode, vertical-text tabs, `keepAlive`
+  "visited" | "always", a per-panel error boundary, `fill` canvas panels (`--af-panel-w`,
+  `onResize`), per-panel widths and the docked-only open panel under one storage key, a
+  `request: "id#nonce"`; `AfPanelHeaderActions`. `AfRailDrawer` is now a thin wrapper over it (same
+  markup; a numeric width stored by 0.8.9 is kept, including across later writes). **Behaviour
+  changes of the wrapper**: widths are now per panel (0.8.9 shared one width across all panels; the
+  stored legacy width stays every panel's width until that panel is resized), and the wrapper now
+  writes the open panel into its `storageKey` (it still never restores it: `restoreActive={false}`).
+  A panel's `headerActions` render inside a small error boundary too. `AfAppShell` composes header,
+  cluster, drawer system and nav.
+- panel-chat: `docsAssistantPanel(source, fetchGateway, opts)` / `DocsAssistantPanelContent` and
+  `assistantDrawerPanel(opts)` (drawer-system panels; `DocsAssistantDrawer` is unchanged and
+  takes `topOffset: "auto"`).
+- Console islands: `TopBarIslandProps.identity` (+ `connection.status` / `connection.me`, the
+  console's own `/me` body, `connection.signOutError`), `islandConnectionStatus` (null unless the
+  phase is connected) and `mountDrawerSystem`; apiVersion stays "2".
+- Checks: `check_app_shell.mjs`, `check_gateway_connection.mjs` (the connection hook's behaviour,
+  first check of it), drawer-system block in `check_rail_viewer.mjs`, About fetch/extra in
+  `check_about.mjs`, panel-chat `check_docs_panel.mjs`.
 
 ## 0.6.4 - 2026-10-27
 
