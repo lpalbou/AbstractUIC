@@ -2092,7 +2092,8 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   `previewOn` (`{deviceId, volume}`): one play/stop toggle sits at the right of the voice select
   (play restarts from 0, stop stops and rewinds; busy while the sample is on its way, a click then
   cancels it), a newer choice aborts the older sample through `opts.signal` (pass it to the
-  request) so fast choices never queue audio, and a failure is one line under the row (0.9.1;
+  request) so fast choices never queue audio, a choice waits `VOICE_SAMPLE_DEBOUNCE_MS` (200 ms) so
+  going through voices starts one synthesis, the voice just heard replays from its cached sample, and a failure is one line under the row (0.9.1;
   replaces 0.9.0's **Play sample** button); `recordFrom` (`{deviceId, gain}`) is the microphone
   `CreateVoicePanel`'s **Record** uses ("From a recording": **Record** / **Stop** beside the file
   picker, a live level meter, at most `VOICE_RECORDING_MAX_MS`, silence refused);
@@ -6827,6 +6828,7 @@ export {
 export {
   VoiceSettings,
   CreateVoicePanel,
+  VOICE_SAMPLE_DEBOUNCE_MS,
   voiceGroup,
   voiceLanguage,
   voiceLanguages,
@@ -20422,11 +20424,14 @@ Packages: `@abstractframework/ui-kit` 0.9.1 (panel-chat unchanged at 0.5.0).
   the right of the voice select (`data-action="play-sample"`, `data-state` idle / loading / playing): play
   restarts the last sample from 0 without a new request, stop stops and rewinds; while a sample is on its
   way the toggle is busy (`aria-busy`) and a click cancels it. A newer choice, a provider or model change
-  and unmounting abort the sample on its way; a failure is the one-line note under the row.
+  and unmounting abort the sample on its way; a failure is the one-line note under the row. A choice waits
+  `VOICE_SAMPLE_DEBOUNCE_MS` (200 ms) before synthesizing, so going through voices quickly starts one synthesis
+  (a gateway cannot cancel one it started); choosing the voice just heard replays it without a request.
 - `previewVoice` gains a third argument, `opts?: { signal?: AbortSignal }` (additive): pass the signal to
   the synthesis request so an abandoned sample stops downloading. Existing two-argument hosts still work
   (their late answer is dropped unplayed).
-- `playOnDevice` takes `signal`: aborting it stops the sound at once.
+- `playOnDevice` takes `signal`: aborting it stops the sound at once. A context the browser keeps suspended
+  (Safari, playback after an await) is resumed, else the call fails with a sentence instead of hanging silent.
 - An engine that lists no voice says why: the catalog's `unavailable_reason` ("Supertonic is not installed: …",
   "OpenAI: needs an API key") is a one-line note under the voice row (`data-voice-note="unavailable"`).
 - A profile stored as `voice` (a host that keeps one id for both kinds: a capability route's `options.voice`, an

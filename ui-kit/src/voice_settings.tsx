@@ -152,6 +152,13 @@ const names = (value: unknown): string[] =>
         .filter(Boolean)
     : [];
 
+/**
+ * How long a voice choice waits before its sample is synthesized: going through several voices
+ * quickly starts one synthesis (for the voice the user stops on), not one per voice — a gateway
+ * cannot cancel a synthesis it has started, so each one would run to the end on the engine.
+ */
+export const VOICE_SAMPLE_DEBOUNCE_MS = 200;
+
 /** Gateway-catalog driven and transport injected, usable in any chat host. */
 export function VoiceSettings({
   value,
@@ -214,6 +221,7 @@ export function VoiceSettings({
   const synth = useRef<AbortController | null>(null);
   const play = useRef<AbortController | null>(null);
   const cache = useRef<{ key: string; bytes: ArrayBuffer } | null>(null);
+  const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fetcher = useRef(fetchCatalog);
   fetcher.current = fetchCatalog;
   const [catalog, setCatalog] = useState<VoiceCatalog>({});
@@ -228,6 +236,8 @@ export function VoiceSettings({
   const mounted = useRef(true);
   const stopSample = () => {
     run.current += 1;
+    if (pending.current !== null) clearTimeout(pending.current);
+    pending.current = null;
     synth.current?.abort();
     synth.current = null;
     play.current?.abort();
@@ -270,6 +280,21 @@ export function VoiceSettings({
         synth.current = null;
         setSample({ state: "idle", error: failed(err) });
       });
+  };
+  // A voice choice: the cached sample at once, else a sample after the debounce (busy meanwhile).
+  const chooseSample = (prefs: VoicePreferences) => {
+    if (!previewVoice) return;
+    stopSample();
+    const id = run.current;
+    if (cache.current && cache.current.key === sampleKey(prefs)) {
+      playBytes(cache.current.bytes, id);
+      return;
+    }
+    setSample({ state: "loading", error: "" });
+    pending.current = setTimeout(() => {
+      pending.current = null;
+      if (mounted.current && run.current === id) startSample(prefs);
+    }, VOICE_SAMPLE_DEBOUNCE_MS);
   };
   // The toggle: stop (or cancel a sample on its way), else play the current voice from 0.
   const toggleSample = () => {
@@ -475,7 +500,7 @@ export function VoiceSettings({
             }
             update(patch);
             // Choosing a voice plays it: the user hears each voice as they go.
-            startSample({ ...value, ...patch });
+            chooseSample({ ...value, ...patch });
           }}
         />
         {previewVoice ? (
@@ -487,7 +512,7 @@ export function VoiceSettings({
             aria-busy={sample.state === "loading"}
             aria-label={sample.state === "playing" ? "Stop the sample" : sample.state === "loading" ? "Cancel the sample" : "Play a sample of this voice"}
             title={sample.state === "playing" ? "Stop" : sample.state === "loading" ? "Synthesizing… (click to cancel)" : "Play a sample"}
-            disabled={loading}
+            disabled={loading && sample.state === "idle"}
             onClick={toggleSample}
           >
             <span aria-hidden="true">{sample.state === "playing" ? "■" : "▶"}</span>

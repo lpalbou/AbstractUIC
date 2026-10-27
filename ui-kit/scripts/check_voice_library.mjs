@@ -491,6 +491,7 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
       const catalog = { items: [
         { id: "v1", name: "Narrator", provider: "qwen3-tts", model: "Qwen/Qwen3-TTS-12Hz-0.6B-Base", kind: "clone" },
         { id: "v2", name: "Captain", provider: "qwen3-tts", model: "Qwen/Qwen3-TTS-12Hz-0.6B-Base", kind: "clone" },
+        { id: "v3", name: "Pilot", provider: "qwen3-tts", model: "Qwen/Qwen3-TTS-12Hz-0.6B-Base", kind: "clone" },
       ] };
       const asked = [];
       const answers = [];
@@ -513,14 +514,22 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
       };
       check("0947 a play/stop toggle sits in the voice row", Boolean(toggle()) && toggle().props["data-state"] === "idle" && text(toggle()) === "▶" && !render({ previewVoice }).includes("Play sample"));
       check("0947 the toggle is a native button (Space toggles it)", toggle().type === "button" && toggle().props.type === "button");
+      const debounce = async () => {
+        await sleep(kit.VOICE_SAMPLE_DEBOUNCE_MS + 30);
+        await h.settle();
+      };
       env.log.sinks.length = 0;
       env.log.sources.length = 0;
       env.playMs = 1000;
       await pick("v1");
-      check("0947 choosing a voice synthesizes it at once", asked.length === 1 && asked[0].prefs.voice === "v1" && asked[0].signal instanceof AbortSignal, JSON.stringify(asked.map((a) => a.prefs)));
-      check("0947 the toggle is busy while the sample is on its way", toggle().props["data-state"] === "loading" && toggle().props["aria-busy"] === true);
+      check("0947 the toggle is busy at once after a choice", toggle().props["data-state"] === "loading" && toggle().props["aria-busy"] === true && asked.length === 0);
+      await debounce();
+      check("0947 choosing a voice synthesizes it", asked.length === 1 && asked[0].prefs.voice === "v1" && asked[0].signal instanceof AbortSignal, JSON.stringify(asked.map((a) => a.prefs)));
+      check("0947 the toggle stays busy while the sample is on its way", toggle().props["data-state"] === "loading" && toggle().props.disabled === false);
       await pick("v2");
-      check("0947 a newer choice aborts the older sample", asked[0].signal.aborted && asked.length === 2 && asked[1].prefs.voice === "v2");
+      check("0947 a newer choice aborts the older sample", asked[0].signal.aborted);
+      await debounce();
+      check("0947 ... and synthesizes the newer one", asked.length === 2 && asked[1].prefs.voice === "v2");
       answers[0].resolve(new ArrayBuffer(4)); // a late answer for v1
       answers[1].resolve(new ArrayBuffer(8));
       await sleep(10);
@@ -537,22 +546,64 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
       check("0947 play restarts from 0 (a fresh source, no offset)", env.log.sources[1].startArgs.length === 0 && !env.log.sources[1].stopped);
       env.playMs = 5;
       toggle().props.onClick(); // stop
+      h.render();
       toggle().props.onClick(); // play again; it ends by itself
+      h.render();
+      check("0947 ... playing again", toggle().props["data-state"] === "playing");
       await sleep(20);
       await h.settle();
-      check("0947 a sample that ends returns to play", toggle().props["data-state"] === "idle");
+      check("0947 a sample that ends returns to play", toggle().props["data-state"] === "idle" && env.log.sources.length === 3, String(env.log.sources.length));
+      await pick("v2");
+      check("0947 choosing the voice just heard replays it without a request", asked.length === 2 && env.log.sources.length === 4 && toggle().props["data-state"] === "playing", JSON.stringify([asked.length, env.log.sources.length]));
+      await sleep(20);
+      await h.settle();
+      // Going through voices quickly: one synthesis, for the voice the user stops on.
+      await pick("v3");
+      await sleep(kit.VOICE_SAMPLE_DEBOUNCE_MS / 2); // the user moves on within the debounce
       await pick("v1");
-      check("0947 a click while loading cancels", toggle().props["data-state"] === "loading");
+      await debounce();
+      check("0947 fast choices start one synthesis (the last voice)", asked.length === 3 && asked[2].prefs.voice === "v1", JSON.stringify(asked.map((a) => a.prefs.voice)));
       toggle().props.onClick();
       h.render();
-      check("0947 ... aborting the request", asked.at(-1).signal.aborted && toggle().props["data-state"] === "idle");
-      await pick("v2");
+      check("0947 a click while loading cancels, aborting the request", asked[2].signal.aborted && toggle().props["data-state"] === "idle");
+      await pick("v3");
+      toggle().props.onClick();
+      await debounce();
+      check("0947 a click before the synthesis starts cancels it", asked.length === 3 && toggle().props["data-state"] === "idle");
+      await pick("v3");
+      await debounce();
       answers.at(-1).reject(new Error("No run to speak in"));
       await h.settle();
       check("0947 a failed sample says why in one line", text(dataH(h.tree, "data-voice-note", "sample")) === "The sample did not play: No run to speak in." && toggle().props["data-state"] === "idle");
       await pick("v1");
+      await debounce();
       h.unmount();
       check("0947 unmounting aborts the sample on its way", asked.at(-1).signal.aborted);
+      // A host whose previewVoice ignores the signal (two arguments): a late answer is dropped unplayed.
+      {
+        env.log.sources.length = 0;
+        const slow = [];
+        let v2 = { provider: "qwen3-tts", model: "", voice: "" };
+        const h2 = mountH(VoiceSettings, { value: v2, onChange: (v) => { v2 = v; h2.rerender({ value: v }); }, fetchCatalog: async () => catalog,
+          previewVoice: (prefs) => new Promise((resolve) => slow.push({ voice: prefs.voice, resolve })) });
+        await h2.settle();
+        const pick2 = async (id) => {
+          const select = findH(h2.tree, (n) => n.props?.ariaLabel === "AI voice");
+          select.props.onChange(select.props.options.find((o) => o.value && JSON.parse(o.value)[3] === id).value);
+          await h2.settle();
+        };
+        await pick2("v1");
+        await sleep(kit.VOICE_SAMPLE_DEBOUNCE_MS + 30);
+        await pick2("v2");
+        await sleep(kit.VOICE_SAMPLE_DEBOUNCE_MS + 30);
+        slow[1].resolve(new ArrayBuffer(8));
+        await sleep(10);
+        slow[0].resolve(new ArrayBuffer(4)); // v1 answers last
+        await sleep(10);
+        await h2.settle();
+        check("0947 a two-argument host: the late answer for an older voice never plays", slow.length === 2 && env.log.sources.length === 1, String(env.log.sources.length));
+        h2.unmount();
+      }
       check("0947 no previewVoice, no toggle", !render({}).includes("play-sample"));
       // An engine that lists no voice says why (the gateway's unavailable_reason), never a bare empty list.
       {

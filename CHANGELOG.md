@@ -21,11 +21,14 @@ Packages: `@abstractframework/ui-kit` 0.9.1 (panel-chat unchanged at 0.5.0).
   the right of the voice select (`data-action="play-sample"`, `data-state` idle / loading / playing): play
   restarts the last sample from 0 without a new request, stop stops and rewinds; while a sample is on its
   way the toggle is busy (`aria-busy`) and a click cancels it. A newer choice, a provider or model change
-  and unmounting abort the sample on its way; a failure is the one-line note under the row.
+  and unmounting abort the sample on its way; a failure is the one-line note under the row. A choice waits
+  `VOICE_SAMPLE_DEBOUNCE_MS` (200 ms) before synthesizing, so going through voices quickly starts one synthesis
+  (a gateway cannot cancel one it started); choosing the voice just heard replays it without a request.
 - `previewVoice` gains a third argument, `opts?: { signal?: AbortSignal }` (additive): pass the signal to
   the synthesis request so an abandoned sample stops downloading. Existing two-argument hosts still work
   (their late answer is dropped unplayed).
-- `playOnDevice` takes `signal`: aborting it stops the sound at once.
+- `playOnDevice` takes `signal`: aborting it stops the sound at once. A context the browser keeps suspended
+  (Safari, playback after an await) is resumed, else the call fails with a sentence instead of hanging silent.
 - An engine that lists no voice says why: the catalog's `unavailable_reason` ("Supertonic is not installed: …",
   "OpenAI: needs an API key") is a one-line note under the voice row (`data-voice-note="unavailable"`).
 - A profile stored as `voice` (a host that keeps one id for both kinds: a capability route's `options.voice`, an

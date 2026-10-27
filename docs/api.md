@@ -200,7 +200,8 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   `previewOn` (`{deviceId, volume}`): one play/stop toggle sits at the right of the voice select
   (play restarts from 0, stop stops and rewinds; busy while the sample is on its way, a click then
   cancels it), a newer choice aborts the older sample through `opts.signal` (pass it to the
-  request) so fast choices never queue audio, and a failure is one line under the row (0.9.1;
+  request) so fast choices never queue audio, a choice waits `VOICE_SAMPLE_DEBOUNCE_MS` (200 ms) so
+  going through voices starts one synthesis, the voice just heard replays from its cached sample, and a failure is one line under the row (0.9.1;
   replaces 0.9.0's **Play sample** button); `recordFrom` (`{deviceId, gain}`) is the microphone
   `CreateVoicePanel`'s **Record** uses ("From a recording": **Record** / **Stop** beside the file
   picker, a live level meter, at most `VOICE_RECORDING_MAX_MS`, silence refused);

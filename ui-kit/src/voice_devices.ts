@@ -253,6 +253,10 @@ export async function playOnDevice(data: Blob | ArrayBuffer, opts: { deviceId?: 
     const bytes = data instanceof Blob ? await data.arrayBuffer() : data;
     const buffer: AudioBuffer = await ctx.decodeAudioData(bytes.slice(0));
     if (opts.signal?.aborted) return;
+    // Played after an await (a synthesis), outside the click: a browser that keeps such a context
+    // suspended (Safari) would play nothing and never end. Resume it, else say so.
+    if (ctx.state === "suspended") await ctx.resume?.();
+    if (ctx.state === "suspended") throw new Error("The browser held the sound back: press play to hear it");
     const gain = ctx.createGain();
     gain.gain.value = clampVolume(opts.volume);
     gain.connect(ctx.destination);
