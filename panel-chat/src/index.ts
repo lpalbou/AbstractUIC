@@ -184,3 +184,6 @@ export type { ChatSteer, ChatSteerMode, ChatSteerResult, ChatToolbar } from "./w
 export { chatMediaFromArtifact, chatMediaForArtifacts } from "./chat_media.js";
 export type { ResolvedArtifact } from "./workflow_runtime.js";
 export { fileRawLink, isLocalObjectUrl, objectUrlRawLinkSafe } from "./chat_media.js";
+// --- ui-primitives (shell) ---
+export { DocsAssistantPanelContent, docsAssistantPanel, type DocsAssistantChatProps, type DocsAssistantPanelOptions } from "./docs_assistant.js";
+export { assistantDrawerPanel, type AssistantDrawerPanelOptions } from "./assistant_panel.js";

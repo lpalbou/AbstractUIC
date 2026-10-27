@@ -13,6 +13,23 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { GatewaySessionSignInCard } from "./gateway_session_signin.js";
 import { GATEWAY_CONNECTION_PATH } from "./gateway_paths.js";
 
+/** `GatewayPrincipal.public_dict()` (abstractgateway security/principal.py:27-37). */
+export type GatewayPrincipalPayload = {
+  user_id?: string;
+  tenant_id?: string;
+  roles?: string[];
+  scopes?: string[];
+  token_fingerprint?: string;
+  runtime_id?: string;
+  source?: string;
+  admin?: boolean;
+};
+
+/**
+ * The app server's connection status (app-server gateway_session_proxy.js:412-435):
+ * `gateway` is the gateway's `GET /api/gateway/me` body (routes/gateway.py:351-365)
+ * when a session exists, else `{ok: false, error}`.
+ */
 export type GatewayConnectionState = {
   ok: boolean;
   gateway_url: string;
@@ -21,7 +38,9 @@ export type GatewayConnectionState = {
     ok?: boolean;
     error?: string;
     detail?: string;
-    principal?: { user_id?: string; runtime_id?: string; admin?: boolean };
+    principal?: GatewayPrincipalPayload;
+    auth?: { mode?: "users" | "legacy-token" | string; user_auth_enabled?: boolean };
+    routing?: { mode?: "per-principal" | "single-user" | string; one_user_one_runtime?: boolean };
   };
 };
 

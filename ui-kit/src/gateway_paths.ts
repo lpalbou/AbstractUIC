@@ -63,3 +63,73 @@ export function gatewayResourcePath(serverUrl: string): string {
   }
   return u.slice(1);
 }
+
+// --- ui-primitives (voice) ---
+// The gateway's voice routes, relative to the gateway API (feed them to
+// `gatewayApiPath`): one place instead of every app writing its own strings
+// (audit voice.md §A6). Read in routes/gateway.py and routes/voice_library.py.
+const seg = (value: string, what: string): string => {
+  const v = String(value || "");
+  if (!v) throw new Error(`A voice route needs a ${what}.`);
+  return encodeURIComponent(v);
+};
+
+export const GATEWAY_VOICE_ROUTES = {
+  /** GET: the default voice routes (routes/gateway.py:19418-19428). */
+  defaults: "voice/defaults",
+  /** GET `?compact=true&provider&model&language`: the voice catalog (routes/gateway.py:19431-19523). */
+  voices: "voice/voices",
+  /** GET `?kind=tts|stt|cloning&provider`: the languages each engine accepts (routes/voice_library.py:109-118). */
+  languages: "voice/languages",
+  /** GET `?provider&model&language` (list), POST multipart (clone): the voice library (routes/voice_library.py:121-170). */
+  clones: "voice/clones",
+  /** POST `{description, name?, language?, text?}`: a voice from a description (routes/voice_library.py:189-200). */
+  design: "voice/design",
+  /** GET: which engine supports which feature (routes/voice_library.py:221-227). */
+  compatibility: "voice/compatibility",
+} as const;
+
+/** GET / PATCH / DELETE one library voice: "voice/clones/{voice_id}" (routes/voice_library.py:133-186). */
+export function voiceClonePath(voiceId: string): string {
+  return `voice/clones/${seg(voiceId, "voice id")}`;
+}
+
+/** POST (administrators): share a voice with everyone (routes/voice_library.py:203-218). */
+export function voiceCloneDeployPath(voiceId: string): string {
+  return `${voiceClonePath(voiceId)}/deploy`;
+}
+
+/** POST: speech for a run, whole ("runs/{id}/voice/tts", routes/gateway.py:12753) or streamed as JSON lines (:12950). */
+export function runVoiceTtsPath(runId: string, stream = false): string {
+  return `runs/${seg(runId, "run id")}/voice/tts${stream ? "/stream" : ""}`;
+}
+
+/** POST: transcribe an uploaded recording for a run (routes/gateway.py:13322). */
+export function runTranscribePath(runId: string): string {
+  return `runs/${seg(runId, "run id")}/audio/transcribe`;
+}
+
+/** GET / PUT an entity's own voice; with `tts`, speech in that voice (routes/entities.py:5293, :5341, :5451, :5470). */
+export function entityVoicePath(entity: string, tts: "" | "tts" | "tts/stream" = ""): string {
+  return `entities/${seg(entity, "entity name")}/voice${tts ? `/${tts}` : ""}`;
+}
+
+// --- ui-primitives (tools-models) ---
+// The gateway routes the tool and model pickers read (relative to the gateway API; build the
+// request path with gatewayApiPath). Read in the live gateway source, routes/gateway.py:
+/** `GET discovery/tools` → `{items:[{name, toolset, enabled, approval_default, risk_rank, …}], tool_mode}` (:15568). */
+export const GATEWAY_TOOLS_ROUTE = "discovery/tools";
+/** `GET discovery/providers?include_models=` → `{items:[{id, label, …}], default_provider, default_model}` (:20322). */
+export const GATEWAY_PROVIDERS_ROUTE = "discovery/providers";
+/** `GET discovery/models/capabilities?model_name&provider` → `{capabilities, execution:{speculation}}` (:20671). */
+export const GATEWAY_MODEL_CAPABILITIES_ROUTE = "discovery/models/capabilities";
+/** `GET config/capability-defaults` → `{routes:[{key, provider, model, reasoning, options, source}]}` (:27748). */
+export const GATEWAY_CAPABILITY_DEFAULTS_ROUTE = "config/capability-defaults";
+/** `GET discovery/capabilities` → `{capabilities:{contracts:{common:{runs:{start:{thinking_control}}}}}}` (:19285). */
+export const GATEWAY_CAPABILITIES_ROUTE = "discovery/capabilities";
+/** `GET discovery/providers/{provider}/models` (:20475); the provider is one encoded path segment. */
+export function gatewayProviderModelsRoute(provider: string): string {
+  const p = String(provider || "").trim();
+  if (!p) throw new Error("gatewayProviderModelsRoute needs a provider.");
+  return `${GATEWAY_PROVIDERS_ROUTE}/${encodeURIComponent(p)}/models`;
+}

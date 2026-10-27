@@ -9,6 +9,7 @@
 // click outside closes); a true modal (Tab / Shift+Tab cycle inside).
 import React, { useEffect, useId, useRef } from "react";
 import { frameworkIdentity, type AppIdentity, type GatewayAboutPayload } from "./identity.js";
+import { gatewayApiPath } from "./gateway_paths.js";
 import { Icon } from "./icon.js";
 import { useAfTooltips } from "./af_tooltip.js";
 
@@ -37,6 +38,11 @@ export type AfAboutProps = {
   titleId?: string;
   /** Rendered in the heading row, at the end (the dialog's Close button). */
   action?: React.ReactNode;
+  /**
+   * Host content under the links (e.g. the gateway console's update / restart
+   * controls), so a host never forks the About dialog. Omit = nothing.
+   */
+  extra?: React.ReactNode;
   className?: string;
 };
 
@@ -44,6 +50,31 @@ export type AfAboutDialogProps = Omit<AfAboutProps, "titleId" | "action" | "clas
   open: boolean;
   onClose: () => void;
 };
+
+/**
+ * The host's gateway fetch (relative `api/gateway/...` paths; bearer token or
+ * session cookie): structurally the same as panel-chat's `GatewayFetch`.
+ */
+export type AfGatewayFetch = (path: string, init?: RequestInit) => Promise<Response>;
+
+/**
+ * `GET api/gateway/about` (public on the gateway, routes/gateway.py:15753)
+ * through the host's fetch, as About versions. Never throws: a failed request
+ * becomes the labeled "unavailable (<reason>)" note.
+ */
+export async function fetchAboutVersions(fetchGateway: AfGatewayFetch, signal?: AbortSignal): Promise<AfAboutVersions> {
+  try {
+    const res = await fetchGateway(gatewayApiPath("about"), { method: "GET", headers: { Accept: "application/json" }, signal });
+    if (!res.ok) return aboutVersionsFromGateway(null, `HTTP ${res.status}`);
+    const payload = (await res.json().catch(() => null)) as GatewayAboutPayload | null;
+    return aboutVersionsFromGateway(payload);
+  } catch (e: any) {
+    return aboutVersionsFromGateway(null, String(e?.message || e || "request failed"));
+  }
+}
+
+/** What About shows while `fetchAboutVersions` is in flight. */
+export const ABOUT_VERSIONS_CHECKING: AfAboutVersions = { framework: null, frameworkNote: "checking…", gateway: null, gatewayNote: "checking…" };
 
 function versionOf(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -169,6 +200,7 @@ export function AfAbout(p: AfAboutProps): React.ReactElement {
           ),
         )}
       </nav>
+      {p.extra !== undefined && p.extra !== null ? <div className="af-about-card__extra">{p.extra}</div> : null}
       <p className="af-about-card__legal">{fw.copyright}</p>
     </div>
   );
@@ -222,6 +254,7 @@ export function AfAboutDialog(props: AfAboutDialogProps): React.ReactElement | n
         <AfAbout
           identity={props.identity}
           versions={props.versions}
+          extra={props.extra}
           titleId={titleId}
           action={
             <button ref={closeRef} type="button" className="af-about-card__close" data-action="close-about" onClick={props.onClose} aria-label="Close" data-af-tip="Close About">

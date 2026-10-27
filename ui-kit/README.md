@@ -9,12 +9,15 @@ This package provides:
 - **Theme tokens** (CSS variables + 21 theme classes): `@abstractframework/ui-kit/theme.css`
 - **Theme + typography helpers**: `applyTheme(...)`, `applyTypography(...)`, `THEME_SPECS`
 - **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker`,
-  `SpeculationSelect`, `ToolPolicyEditor`, `VoiceSettings`
+  `SpeculationSelect`, `ToolModeEditor` (with `ToolPolicyEditor` deprecated), `VoiceSettings`
 - **Gateway connection UI**: `GatewayConnectModal`, `useGatewayConnection()`,
   `GatewaySessionSignInCard`
-- **App chrome**: `AfTopBarActions`, `AfDrawer`, `AfRailDrawer` (vertical icon rail at the right
-  edge, panel beside it, resizable, collapses to icons), `AfAppearanceDialog` +
-  `useAppearanceSettings()`, `AfAbout` / `AfAboutDialog` (the compact About card)
+- **App chrome**: `AfAppShell` (header + top-right cluster + side panels + nav),
+  `AfTopBarActions` (with the signed-in identity), `AfDrawerSystem` (side panels: left/right,
+  rail or drawer mode, keep-alive, per-panel error boundary, canvas panels, per-panel widths),
+  `AfDrawer`, `AfRailDrawer` (the original icon rail, now a wrapper over `AfDrawerSystem`),
+  `AfAppearanceDialog` + `useAppearanceSettings()`, `AfAbout` / `AfAboutDialog` (the compact
+  About card)
 - **Files**: `AfFileViewer` (Markdown via the host renderer, highlighted code, JSON, images,
   audio, PDF, text; size/date header; download), `AfCodeBlock` / `highlightCode()` and
   `AfAudioPlayer` (the shared waveform audio player)
@@ -83,9 +86,28 @@ own the network calls and session storage; the component only collects the Gatew
 (optional), user id, token and remember-browser state, and calls the callbacks you provide.
 Most apps use it through `GatewayConnectModal` (below).
 
-### Tool policy editor
+### Tool selection: ToolModeEditor
 
-`ToolPolicyEditor` renders the shared allowlist + approve/ask picker for gateway tools. It has no
+`ToolModeEditor` is the one tool editor: Off / Ask / Auto per tool, grouped by toolset, on ONE
+sparse layer (the app's defaults or this conversation's changes) over what it inherits. The
+gateway's `approval_default` is the default of every tool; a layer stores only differences, so a
+tool the gateway adds later follows the gateway. Build the catalog with `normalizeToolCatalog`,
+the run input with `planRunTools` + `withRunTools`, and keep the layers with
+`createToolLayerStore` (browser storage, "Saved in this browser") until the gateway stores them.
+
+```tsx
+const catalog = normalizeToolCatalog(await request("api/gateway/discovery/tools"));
+const layers = { app: store.readApp("abstractcode.agent.v1"), session: store.readSession(sessionId) };
+<ToolModeEditor catalog={catalog} layer="session" value={layers.session}
+  inherited={inheritedToolModes(catalog, layers, "session")}
+  onChange={(next) => store.writeSession(sessionId, next)}
+  onReset={() => store.writeSession(sessionId, null)} />;
+const input = withRunTools(input_data, planRunTools(catalog, layers));
+```
+
+### Tool policy editor (deprecated)
+
+`ToolPolicyEditor` (deprecated for one minor: use `ToolModeEditor`) renders the shared allowlist + approve/ask picker for gateway tools. It has no
 deny mode: a tool is denied by removing it from the allowlist. Pass `toolMode` (and optional
 `toolModeLabel` / `toolModeDetail`) to surface the gateway tool execution mode in a banner.
 A tool may carry `state: { label, tooltip?, tone? }` — a server-reported state shown as a badge
@@ -93,8 +115,10 @@ under its name, with the server's sentence in the kit tooltip (AbstractCode pass
 command-sandbox state of process-spawning tools). The kit shows what it is given and never derives
 a state.
 
-The default approve/ask classification is exposed as `TOOL_POLICY_DEFAULTS` (mirrors the
-AbstractRuntime `ToolApprovalPolicy` defaults).
+A tool's served `approval_default` ("auto" | "ask", passed as is) decides its approve/ask
+default; `default_approval` ("approve" | "ask") is the older alias. Only when neither is given
+does `TOOL_POLICY_DEFAULTS` (a mirror of the AbstractRuntime `ToolApprovalPolicy` defaults)
+decide, and the row says so ("Kit default").
 
 ### Native MTP control
 
@@ -102,6 +126,12 @@ AbstractRuntime `ToolApprovalPolicy` defaults).
 complete model-capability payload as `capabilities`; only depths advertised under
 `execution.speculation.supported_depths` are offered. Missing capability data is shown as
 unknown, not guessed from a model name. Saved unavailable selections remain visible.
+
+`ProviderModelPicker` names the gateway default when given `fetchGatewayDefault`
+("Gateway default · ollama / qwen3 · reasoning high"); `createGatewayModelTransport(request)`
+supplies that and the other transports over the gateway's discovery routes, and `withRunModel`
+writes the choice into a run's `input_data`. See [API](../docs/api.md) for `reasoningLadder`,
+`unknownReasoning`, `layout="compact"` and `pinned`.
 
 `ProviderModelPicker` includes this control when `enableSpeculation` is true; supply its usual
 provider-aware capability transport. The `speculation` value is absent for inheritance, `false`
@@ -142,8 +172,9 @@ Use `GatewayConnectModal` for connect/disconnect UX. It pairs with the session p
 
 ## Unified top-right corner
 
-Every app renders the same upper-right cluster: assistant button → appearance button → About
-button → app extras → connection pill, always rightmost.
+Every app renders the same upper-right cluster, in this enforced order: app extras → Docs
+assistant → app assistant → appearance → About → who is signed in → connection pill, always
+rightmost.
 
 ```tsx
 const conn = useGatewayConnection({ appName: "My App", variant: "dismissable" });
@@ -151,17 +182,37 @@ const [appearance, setAppearance] = useAppearanceSettings("my-app", { legacyKey:
 
 <AfTopBarActions
   assistant={{ open: drawerOpen, onToggle: () => setDrawerOpen((v) => !v) }}
-  appearance={{ onOpen: () => setAppearanceOpen(true) }}
-  about={{ identity: appIdentity("abstractflow", APP_VERSION) }}
-  connection={{ phase: conn.phase, signingOut: conn.signingOut,
-                onConnect: conn.openModal, onDisconnect: () => void conn.signOut() }}
+  appearance={{ value: appearance, onChange: setAppearance }}       // the cluster owns the dialog
+  about={{ identity: appIdentity("abstractflow", APP_VERSION), fetch: fetchGateway }} // GET api/gateway/about on open
+  identity="menu"                                                    // Signed in as … · Copy user id · Disconnect
+  connection={conn}                                                  // the hook's return value
+  onSignOut={wipeAppState}                                           // only after a disconnect that happened
 />
-<AfDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} label="Assistant" title="Assistant">
+<AfDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} label="Assistant" title="Assistant" topOffset="auto">
   <AssistantPanel ask={myTransport} blockedNotice={conn.connected ? undefined : "Connect to use the assistant."} />
 </AfDrawer>
-<AfAppearanceDialog open={appearanceOpen} onClose={() => setAppearanceOpen(false)}
-                    value={appearance} onChange={setAppearance} />
 <GatewayConnectModal {...conn.modalProps} />
+```
+
+The legacy `connection={{ phase, signingOut, onConnect, onDisconnect }}` and
+`appearance={{ onOpen }}` shapes keep working. The identity shows the principal's user id (with
+its tenant when that is not `default`) and the gateway host; the gateway serves no display
+name, e-mail or avatar. The cluster publishes `--af-topbar-h` (the bottom of its header) so
+`topOffset="auto"` drawers open below the header.
+
+`AfAppShell` composes all of it:
+
+```tsx
+<AfAppShell
+  topBar={{ brand: { name: "AbstractFlow", mark: <Logo /> }, leading: <Toolbar />, connection: conn,
+            identity: "menu", docs: { open: active === "docs", onToggle: () => setActive((a) => (a === "docs" ? null : "docs")) } }}
+  drawers={{ ariaLabel: "Panels", storageKey: "abstractflow.drawers.v1", active, onActiveChange: (id) => setActive(id),
+             panels: [docsAssistantPanel({ app: "flow", name: "AbstractFlow" }, fetchGateway, { connected: conn.connected }),
+                      { id: "props", label: "Properties", icon: "settings", content: <Properties /> },
+                      { id: "palette", label: "Palette", icon: "list", side: "left", content: <Palette /> }] }}
+>
+  <Canvas />
+</AfAppShell>
 ```
 
 Rules:
@@ -187,6 +238,12 @@ Rules:
             { id: "settings", label: "Settings", icon: "cog", content: <Settings /> }]} />
 </div>
 ```
+- `AfDrawerSystem` generalises it: `panels` (`AfRailItem` + `side`, `mode: "rail" | "drawer"`,
+  `keepAlive: "visited" | "always"`, `errorBoundary` (default on), `fill` for a canvas that owns
+  its viewport, width bounds), `active` (one id or `{left, right}`), `onActiveChange(id, side)`,
+  ONE `storageKey` (each panel's width, and the open panel while docked), `railLabelStyle:
+  "vertical-text"`, `request: "id#nonce"`, `topOffset: "auto"`, `onResize(id, width)` and the
+  `--af-panel-w` variable. It never inspects a panel's content (ADR 0001 §6).
 - `AssistantPanel` (in `@abstractframework/panel-chat`) never fetches: the
   `ask(question, { signal, history })` transport is injected and may return a Promise or an
   AsyncIterable of deltas.
@@ -268,8 +325,35 @@ overrides it; the host stores the overrides.
 - Device names appear after one microphone permission (**Show names**). Safari does not let a page
   choose the output device: the picker stays on System default and says so.
 - Send what the user chose with `voiceTtsRequest(prefs)` / `voiceSttRequest(prefs)`, and play or
-  record through `useGatewayVoice({ output_device_id, input_device_id, volume, input_gain })`.
+  record through `useGatewayVoice({ ...gatewayVoiceOptions(prefs), tts_stream, transcribe })`
+  (devices, volume, mute, input level, capture mode).
 - `gatewayJson` and `voiceCatalogPath` above stand for your own authenticated transport.
+
+The Output and Microphone groups are standalone composables you can render anywhere voice
+settings appear (a composer popover, a rail panel), with no section around them:
+
+```tsx
+const [prefs, setPrefs] = useVoicePreferences("myapp.voice");        // same-tab + cross-tab sync
+const defaults = useVoiceDefaults(connected ? fetchVoiceDefaults : null, gatewayUrl);
+const voice = useGatewayVoice({ ...gatewayVoiceOptions(prefs), tts_stream, transcribe });
+
+<AfVoiceOutput value={prefs} onChange={setPrefs} />                  // device + Test, volume, Mute
+<AfVoiceInput value={prefs} onChange={setPrefs} levelSource={voice} />    // only the meter re-renders
+<AfVoiceMicButton voice={voice} mode={voiceCaptureMode(prefs)}
+  routeText={sttRouteText(prefs, defaults.value)} onTranscript={(text) => send(text)} />
+```
+
+- `AfVoiceMicButton` has one wording: **Hold to talk** ("Recording — release to send") or
+  **Tap to talk** ("Recording — tap to stop"). `voiceCaptureMode()` is the one reading of the
+  preference (anything but "toggle" is hold), used by `gatewayVoiceOptions` too. A button whose
+  hook was created with the other mode is shown disabled with the reason (and a console error);
+  it never throws.
+- `AfVoiceSection` takes `rows` (hide what the host ignores: `{tts: false}` for an entity that
+  speaks with its own voice, shown in Engines through `ttsSlot`; `mute` and `capture` are opt-in),
+  `voiceLibrary` (create, list, rename, delete, share the gateway's voices), `fetchLanguages`
+  (`GET voice/languages`) and `previewVoice` (**Play sample**).
+- The gateway's voice routes are in `GATEWAY_VOICE_ROUTES` and the path helpers
+  (`voiceClonePath`, `runVoiceTtsPath`, …), relative to `gatewayApiPath()`.
 
 ## Audio player
 

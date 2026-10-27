@@ -18,4 +18,8 @@ assert.match(markup, /head_not_loaded/);
 const unknown = renderToStaticMarkup(React.createElement(SpeculationSelect, {onChange:()=>{}}));
 assert.match(unknown, /capability unknown/);
 assert.doesNotMatch(unknown, /Depth [2345]/);
+// ui-primitives (tools-models): a saved depth the model no longer advertises stays visible, "(saved)".
+const saved = renderToStaticMarkup(React.createElement(SpeculationSelect, {value:{mode:'native_mtp',num_draft_tokens:7,require_acceleration:true},capabilities:payload,onChange:()=>{}}));
+assert.match(saved, /Depth 7 \(saved\)/);
+assert.doesNotMatch(renderToStaticMarkup(React.createElement(SpeculationSelect, {value:{mode:'native_mtp',num_draft_tokens:3,require_acceleration:true},capabilities:payload,onChange:()=>{}})), /\(saved\)/);
 console.log('speculation controls: passed');

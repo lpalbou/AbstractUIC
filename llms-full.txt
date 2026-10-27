@@ -67,7 +67,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, top bar / drawer / rail drawer (AfRailDrawer) / appearance dialog, file viewer (AfFileViewer, AfCodeBlock, AfAudioPlayer waveform audio player), settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow) + AfVoiceSection (gateway voice defaults via fetchDefaults, devices, Test, level meter), relative time, compact About card (AfAbout / AfAboutDialog, aboutVersionsFromGateway) + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel (Active switch) + schedule dialog + client, AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/ui-kit](ui-kit/README.md): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers), inputs (AfSelect, ProviderModelPicker), Gateway connect modal + useGatewayConnection hook, app shell (AfAppShell) / top bar with signed-in identity / drawer / drawer system (AfDrawerSystem; AfRailDrawer wraps it) / appearance dialog, file viewer (AfFileViewer, AfCodeBlock, AfAudioPlayer waveform audio player), settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow) + AfVoiceSection (gateway voice defaults via fetchDefaults, devices, Test, level meter), relative time, compact About card (AfAbout / AfAboutDialog, aboutVersionsFromGateway) + AbstractFramework identity helpers, console islands, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel (Active switch) + schedule dialog + client, AfSwitch, AfTabs, AfModal, randomId
 - [@abstractframework/panel-chat](panel-chat/README.md): chat thread/message UI + markdown/json renderers, AssistantPanel, WorkflowChat (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, file media + STT transcripts), live replies (`llm.delta`), ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, presentInteraction (one approval wording set, card variant)
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
@@ -87,7 +87,9 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [ui-kit/src/responsive.ts](ui-kit/src/responsive.ts): `AF_BREAKPOINTS`, `AF_MEDIA`, `useAfMedia`, `installViewportVars`, `viewportVarsFrom`
 - [ui-kit/src/identity.ts](ui-kit/src/identity.ts): identity helpers (`appIdentity`, `aboutRows`, `gatewayVersionRows`)
 - [ui-kit/src/about.tsx](ui-kit/src/about.tsx): `AfAbout`, `AfAboutDialog`, `aboutVersionsFromGateway`
-- [ui-kit/src/af_rail_drawer.tsx](ui-kit/src/af_rail_drawer.tsx): `AfRailDrawer` (vertical rail drawer) and its pure rules
+- [ui-kit/src/af_drawer_system.tsx](ui-kit/src/af_drawer_system.tsx): `AfDrawerSystem` (side panels: left/right, rail or drawer mode, keep-alive, error boundaries, canvas panels) and its pure `railDrawer*` rules
+- [ui-kit/src/af_rail_drawer.tsx](ui-kit/src/af_rail_drawer.tsx): `AfRailDrawer` (vertical rail drawer, a wrapper over `AfDrawerSystem`)
+- [ui-kit/src/af_app_shell.tsx](ui-kit/src/af_app_shell.tsx): `AfAppShell` (header, top-right cluster, drawer system, nav)
 - [ui-kit/src/af_file_viewer.tsx](ui-kit/src/af_file_viewer.tsx): `AfFileViewer`, `fileViewerKind`; [code_highlight.tsx](ui-kit/src/code_highlight.tsx): `AfCodeBlock`, `highlightCode`
 - [ui-kit/src/af_settings_rows.tsx](ui-kit/src/af_settings_rows.tsx): `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow`; [af_voice_section.tsx](ui-kit/src/af_voice_section.tsx): `AfVoiceSection`; [voice_devices.ts](ui-kit/src/voice_devices.ts): voice defaults, devices, Test helpers; [af_audio_player.tsx](ui-kit/src/af_audio_player.tsx): `AfAudioPlayer`; [relative_time.ts](ui-kit/src/relative_time.ts): `formatRelativeTime`, `formatExactTime`
 - [panel-chat/src/file_viewer.tsx](panel-chat/src/file_viewer.tsx): `FileViewer`, `useWorkspaceFilePreview`
@@ -491,10 +493,13 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Connect the browser to a Gateway | `useGatewayConnection` + `GatewayConnectModal` (+ `@abstractframework/app-server` proxy) | The whole connection state machine is the hook — do not hand-roll it (see below) |
 | Server-side session proxy | `@abstractframework/app-server` (`createGatewaySessionProxy`) | Token→HttpOnly-cookie exchange, CSRF, URL pinning; tokens never rest client-side |
 | Searchable select / combobox | `AfSelect` | Keyboard nav + ARIA built in; `variant="panel"` for forms |
+| Provider + model pickers (+ reasoning, MTP) | `ProviderModelPicker` (`layout="compact"` for node panels, `pinned` for connected pins) over `createGatewayModelTransport(request)`; `withRunModel` for the run input | "Gateway default" is first and named (`fetchGatewayDefault`: "Gateway default · ollama / qwen3"); the reasoning ladder comes from the gateway (`reasoningLadder`), never a client list or a model-name rule; saved values stay visible "(saved)" |
+| App top bar + About | `AfTopBarActions` with `connection={useGatewayConnection(...)}`, `identity="menu"`, `appearance={{ value, onChange }}`, `about={{ identity: appIdentity(id, version), fetch: fetchGateway }}` (or `AfAboutDialog` / inline `AfAbout` directly) | Order is the kit's (extras · docs · assistant · appearance · about · identity · pill); the cluster owns the Appearance and About dialogs and GETs `api/gateway/about` on open — delete app-local about fetchers; identity facts come from the kit's descriptor; the card shows no package list; `about.extra` for host controls inside the dialog |
+| Who is signed in | `AfTopBarActions` `identity="badge" \| "menu"` (+ `principalFromConnection`, `principalLabel`) | Reads `status.gateway.principal` (the gateway's `/me`), only while the pill is connected; shows the user id (tenant only when not `default`) and the gateway host in the kit tooltip; the menu's **Disconnect** = the pill's (`signOut()`, then your `onSignOut` state wipe only when the disconnect happened; a failure shows "Disconnect failed" beside the pill). The gateway serves no display name / e-mail / avatar |
 | Provider + model pickers | `ProviderModelPicker` (mode toggle + cascade) or `ProviderModelSelect` (plain pair) | Picker's "Gateway default" mode is the default; transports injected (`fetchProviders`/`fetchModels`) |
-| App top bar + About | `AfTopBarActions` with `about={{ identity: appIdentity(id, version), versions, onOpen }}` (or `AfAboutDialog` / inline `AfAbout` directly) | Identity facts come from the kit's descriptor; build `versions` from `GET /api/gateway/about` with `aboutVersionsFromGateway` — the card shows no package list |
+| App shell (header + top-right cluster + side panels + nav) | `AfAppShell` (`topBar`, `drawers`, `nav`, children) | Composition of the rows below; the header publishes `--af-topbar-h` so every `topOffset: "auto"` drawer opens under it — delete app-side header measurers |
 | Theme/typography pickers | `ThemeSelect`, `FontScaleSelect`, `HeaderDensitySelect` | Persisted user settings; see [Theming](./theming.md) |
-| Tool allowlist + approval editor | `ToolPolicyEditor` | Server-declared `default_approval` wins; `TOOL_POLICY_DEFAULTS` is the labeled fallback |
+| Tool allowlist + approval editor | `ToolModeEditor` + `tool_plan` helpers (`normalizeToolCatalog`, `planRunTools`, `withRunTools`) + `createToolLayerStore` | Off / Ask / Auto per tool; the gateway's `approval_default` is the default; app and session layers hold only differences; `allowListOnly` for allowlist pins. `ToolPolicyEditor` is deprecated (one minor) |
 | Phase × capability grid | `PhaseCapabilityMatrix` (+ framework-free core) | Payload-driven: render the server's `MatrixPayload`, never re-derive policy client-side |
 | Irreversible-action confirmation | `CriticalActionDialog` (+ `resolveCriticalActionGate`) | Server-supplied facts required to enable confirm; typed-confirm is opt-in |
 | Steer a live run | `SteerComposer` (+ `submitSteer`) | Idempotent `command_id`, CSRF-token candidates, honest `accepted:false` handling |
@@ -503,15 +508,22 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Icons | `Icon` | ~45 glyphs, 24-grid and 16-grid families |
 | Chat UI (thread, cards, composer) | `WorkflowChat` (`@abstractframework/panel-chat`) | Markdown with real nested lists; JSON auto-detect; `message.title` names the speaker. One surface (backlog 0030): `steer` (Steer / Queue while busy, honest "Queued (seq N)"), `toolbar` (New chat / Clear / Copy / Export, each only when injected), `messageProps.renderFooter` / `variant: "hint"` (per-message badge, one-line system notes), `onSend(draft, {signal})` + `onCancel(signal)` so Stop aborts a request/response host. Add a prop here instead of forking the thread |
 | Live (streamed) replies | `WorkflowSessionController` / `useWorkflowSession` + a transport whose `streamLedger` passes `onDelta`; `WorkflowChat` `streamReplies` + `streamRepliesRuntime()` | Deltas never move the ledger cursor; the ledger record replaces the live bubble. See [panel-chat live replies](../panel-chat/README.md#live-replies-streaming). Pending questions come from the same controller (ledger + served `waiting`), never a local fold |
+| Docs assistant (Q&A on the app's own docs) | `DocsAssistantDrawer` (panel-chat) toggled by `AfTopBarActions` `docs`, or `docsAssistantPanel(source, fetchGateway, { connected })` in `AfDrawerSystem` | Grounding is the gateway's server corpus `GET api/gateway/docs/corpus?app=<id>` (each app's own build `llms.txt`, relayed by the gateway) → the shipped `docs-qa` workflow (`DOCS_QA_WORKFLOW`); one gateway session per conversation; the host injects `fetchGateway`. No `llms.txt?raw` import in the app |
+| App assistant (an app's own Q&A, e.g. Continuum's advisor) | `AssistantPanel` (panel-chat) in `AfDrawer`, or `assistantDrawerPanel({ ask, assistantName })` in `AfDrawerSystem`, toggled by `AfTopBarActions` `assistant` | Transport injected (`ask(question, { signal, history })`), never fetches |
 | Questions and approvals | `presentInteraction(wait, controller, options)` → `WorkflowChat` `interaction` (or `WorkflowInteractionPanel`, `variant="card"` for "Needs you" lists and inboxes) | One wording set (`WORKFLOW_INTERACTION_LABELS`): Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later and Keep waiting send nothing (a dismissal never denies); Continue without answering resumes empty. Each broader option appears only when the host injects it; the allow-all scope sentence is the host's (`approveAllScope`), never assumed. Accepts a `replay_view_v1.interaction` (`ReplayInteraction`) once a gateway serves it |
 | Attachments and generated media | Composer: `WorkflowChat` `attachmentItems` + `useAttachmentUploads`. Messages: `ChatMessage.media` (`image` / `audio` with `transcript` / `video` / `file`), filled with `chatMediaFromArtifact` from the transport's `resolveArtifact` | Chips name their state (Waiting, Uploading, refused with both sizes, failed with the gateway's words and Retry); Send refuses while one is not attached. Files open in the shared `AfFileViewer`; speech-to-text shows as a **Transcript** caption; music rides on audio. The host fetches with its own credentials |
 | App assistant (docs Q&A drawer) | `AssistantPanel` (panel-chat) in `AfDrawer` via `AfTopBarActions` | Transport injected. THE shared transport (docs-qa@0.1.0, tenant_catalog): `POST /runs/start {registry_scope:"tenant_catalog", bundle_id:"docs-qa", bundle_version:"0.1.0", flow_id:"docsqa001", input_data:{question, history, docs:<llms.txt text>, app}}`, answer on `output.response` — grounded on YOUR docs only, cites sections, says honestly when docs don't answer. `import docs from "./llms.txt?raw"` remains the recommended docs source (build-time, versioned) |
 | Markdown / JSON rendering | `Markdown`, `JsonViewer` (panel-chat) | Also exported standalone |
 | TTS playback + push-to-talk | `useGatewayVoice` (+ `streamTtsJsonl`) | Injected `tts`/`tts_stream`/`transcribe` functions; streaming with pause/resume; output and input device, volume and input level options |
-| Voice settings page | `AfVoiceSection` | Pass `fetchDefaults` (`GET /api/gateway/voice/defaults`): "Gateway default · provider / model" comes only from it; the host stores the overrides. Pass `createVoice` (`design` → `POST /api/gateway/voice/design`, `clone` → multipart `POST /api/gateway/voice/clones`) to let people create their own voices |
+| Voice settings page | `AfVoiceSection` (+ `useVoicePreferences(storageKey)`, `useVoiceDefaults(fetchDefaults)`) | Pass `fetchDefaults` (`GET /api/gateway/voice/defaults`): "Gateway default · provider / model" comes only from it; the host stores the overrides (`useVoicePreferences`: same-tab and cross-tab sync). Pass `voiceLibrary` (`design` → `POST voice/design`, `clone` → multipart `POST voice/clones`, `list` / `rename` / `remove` / `share` over `voice/clones[/{id}]` and `voice/clones/{id}/deploy`; `createVoice` is its alias) to let people create and manage their own voices, `fetchLanguages` (`GET voice/languages`), `previewVoice` (**Play sample**). `rows={{tts: false}}` + `ttsSlot` where the host owns the voice (an entity); `rows.mute` / `rows.capture` only where the host honours `reply_muted` / `capture_mode` / `auto_send` (`useGatewayVoice({...gatewayVoiceOptions(prefs), ...})`) |
+| Voice output controls | `AfVoiceOutput` | Output device + **Test**, Reply volume, **Mute**; the same rows the section shows, alone wherever voice settings appear |
+| Voice input controls | `AfVoiceInput` | Input device + **Test**, live level meter (`levelSource={voice}`: only the meter re-renders while the user speaks), Input level, **Show names** |
+| Microphone button | `AfVoiceMicButton` | **Hold to talk** / **Tap to talk** (the hook's `capture_mode`), live meter, "Recording… 3 s", "Transcribing… · route"; the host decides what a transcript does (`onTranscript`, `auto_send`) |
 | Compact settings rows | `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow` | "Gateway default" until the user overrides it; **Use gateway default** returns to it |
 | Side panels on a vertical icon rail | `AfRailDrawer` | Docked from 1024 px, floating below; resizable, width persisted under `storageKey` |
 | File preview | `AfFileViewer` (ui-kit) or `FileViewer` + `useWorkspaceFilePreview` (panel-chat, for run workspace files) | Markdown, highlighted code, JSON, images, audio, video, PDF, text; the host fetches with its own credentials |
+| Side panels (rail tabs, docs/assistant drawers, left palette, canvas panels) | `AfDrawerSystem` | Panels are opaque `{id, label, icon, content}` + `side`, `mode`, `keepAlive`, `errorBoundary`, `fill`; docked from 1024 px, floating below; per-panel widths and the open panel (docked only) under ONE `storageKey`; `railLabelStyle: "vertical-text"`; `request: "id#nonce"`. Delete app-local side-tab rails, active-panel persistence and error boundaries |
+| Side panels on a vertical icon rail (existing callers) | `AfRailDrawer` | A thin wrapper over `AfDrawerSystem`; new code uses `AfDrawerSystem` |
 | Audio playback | `AfAudioPlayer` | Waveform player: click or drag to seek, keyboard slider |
 | Relative and exact times | `formatRelativeTime(ts, nowMs)`, `formatExactTime(ts)` | Deterministic: the caller passes now; exact time on hover |
 | Agent cycle traces | `AgentCyclesPanel` + `build_agent_trace` (monitor-flow) | Adapter turns ledger-like records into `TraceItem[]` |
@@ -1635,7 +1647,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Theme: `THEMES`, `THEME_SPECS`, `applyTheme()`, `getThemeSpec()`, `themeClassName()` — see [Theming](./theming.md)
 - Typography: `FONT_SCALES`, `HEADER_DENSITIES`, `applyTypography()`, `getFontScaleSpec()`, `getHeaderDensitySpec()`
 - Responsive: `AF_BREAKPOINTS` (`{ xs: 480, sm: 768, md: 1024, lg: 1440 }`), `AF_MEDIA` (the media query strings), `useAfMedia(query)`, `installViewportVars()` (sets `--vv-height` / `--keyboard-inset`, returns a cleanup), `viewportVarsFrom(innerHeight, { height, offsetTop, scale })` and the `AfVisualViewportSample` type — see [Responsive layout](./responsive.md)
-- Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker` (gateway-default mode + provider→models cascade, injected transports), `FontScaleSelect`, `HeaderDensitySelect`, `ToolPolicyEditor` (a tool's optional `state` = a server-reported badge with the kit tooltip), `MultiSelect`
+- Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker` (gateway-default mode + provider→models cascade, injected transports), `FontScaleSelect`, `HeaderDensitySelect`, `ToolModeEditor` (tool selection, below), `ToolPolicyEditor` (deprecated for one minor in favour of `ToolModeEditor`; reads the served `approval_default` first, `default_approval` as an alias, and renders a row decided by `TOOL_POLICY_DEFAULTS` with the "Kit default" label; a tool's optional `state` = a server-reported badge with the kit tooltip; `toolPolicySelectionToLayer(selection, catalog)` converts its value to a sparse app layer), `MultiSelect`
 - MTP: `SpeculationSelect`, `speculationCapability()`, `normalizeSpeculationValue()`,
   `speculationSelection()`, `speculationFromSelection()` and `SpeculationValue` /
   `SpeculationCapability` types. Enable `ProviderModelPicker`'s `enableSpeculation` for text
@@ -1645,29 +1657,133 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   `optionsInDefaultMode={false}` takes the gateway default whole: reasoning and MTP appear only
   once a custom provider/model is chosen (for hosts that store them only with a pinned model,
   such as an entity's mind).
+  Picker props added by backlog 0034 (all optional, existing props unchanged):
+  `fetchGatewayDefault: () => Promise<GatewayModelDefault>` names the default: the default
+  choice reads "Gateway default · {provider} / {model}[ · reasoning {r}][ · MTP depth n]", and
+  the fetched default drives capability discovery when `effectiveDefault` is absent; it is read
+  again whenever the host passes a new function (pass a stable `useCallback` keyed by the
+  identity, so a sign-in re-reads it); "none configured" reads "Gateway default · none
+  configured", an unreadable default (a throw, or `{ok: false, errors}`) reads "Gateway default"
+  with "The gateway's default could not be read: …", and a default the gateway warns about
+  (`warnings`) is not named: its warning is shown instead; `reasoningLadder: string[]` (from `discovery/capabilities`,
+  `reasoningLadderFrom`; never hardcoded) lists the ladder with the levels the model does not
+  advertise disabled, not hidden; `unknownReasoning: "hide" | "allow-override"` (default "hide")
+  — with "allow-override" and a ladder, a model with no served reasoning facts shows the select
+  locked with a **Set anyway** checkbox; a model that serves `thinking_support: false` shows no
+  select; `layout: "segmented" | "compact"` — compact drops the Gateway default | Custom segment
+  for provider/model selects whose first option is the named default, providers listed at once
+  (node panels); `pinned: {provider?, model?, reasoning?, speculation?}` shows "Provided by
+  connected pin" (`PINNED_FIELD_TEXT`) instead of those controls. A saved provider, model,
+  reasoning level or MTP depth the gateway no longer lists stays selectable as "x (saved)" — only
+  the value the picker was mounted with, never a value typed now, never while that list failed
+  (`ProviderModelSelect` `markSaved: boolean | {provider?, model?}`, `providerPinned`, `modelPinned`). MTP choices keep
+  `require_acceleration: true` (the gateway console's Defaults modal writes `strict=false`; not
+  aligned here).
+- Tool selection (backlog 0033, ADR 0001): `ToolModeEditor` edits ONE sparse layer of tool
+  modes `off | ask | auto` ("Off / Ask / Auto"; `labels` relabels) on top of what it inherits.
+  Props: `catalog` (from `normalizeToolCatalog`), `layer: "app" | "session"`, `value` (this
+  layer's diffs), `inherited` (`inheritedToolModes(catalog, layers, layer)`; missing = the
+  gateway default), `onChange(next)`, `onReset?` (shown while the layer holds a diff: "Use the
+  gateway's" for the app layer, "Use my defaults" for the session layer), `allowListOnly?` (Off /
+  On; On keeps the inherited approval), `disabled?`, `toolMode?` / `toolModeLabel?` /
+  `toolModeDetail?` / `note?` (the ToolPolicyEditor banner), `warnings?` (the catalog's, in the
+  gateway's words), `savedWhere?` (e.g.
+  `TOOL_LAYER_STORE_WHERE`), and `rowLabel?` / `rowHelp?` / `open?` / `onToggle?` to frame it in
+  an `AfOverrideRow` ("Gateway default · n tools on, m without asking", "<n> tools changed — this
+  app | this conversation", "Your defaults — this app" for a session over changed app defaults).
+  Rows are grouped by `toolset` with a group control (Mixed when its tools differ; group Auto
+  reaches only risk rank ≤ 2 tools whose destination the model does not choose, and says so:
+  `BULK_AUTO_CAP_SENTENCE`), a search box, risk and state badges, the gateway's reason for a tool
+  it does not offer, and a "Default: X" chip on a row that overrides the layer below.
+  `ToolModeEditorForPayload` takes the served answer as `catalog` (normalizes it, shows
+  `catalog_warnings`, renders "Tools unavailable: …" for a broken or failed answer; the console
+  island uses it). A row counts as changed (frame summary, chip) only when its mode differs from
+  what it inherits, the same rule the run plan uses.
+  Pure helpers (`tool_plan.ts`): `normalizeToolCatalog(payload)` (`GET discovery/tools`; throws
+  without `items[]` and on the gateway's failure answer `{items: [], error}`;
+  `toolCatalogWarnings(payload)` returns `catalog_warnings`; `offered = enabled !== false && available !== false`; `gatewayDefault` from
+  the served `approval_default`; a row without it gets `defaultUnserved: true`, Ask assumed, and the editor says so), `normalizeToolMode(v, "entity" | "desktop")` ("approve" is ask
+  in the entity dialect and auto in the desktop / kit v1 dialect; refused without a dialect),
+  `toolModeInDialect`, `resolveToolModes(catalog, {app, session})` → `{mode, source, inherited}`,
+  `setToolMode` / `setGroupToolMode` (a diff equal to the inherited mode is deleted),
+  `BULK_AUTO_MAX_RANK` (2), `bulkAutoReaches`, `effectiveToolLayers(catalog, layers)` (only the
+  canonical modes of offered tools that differ from what their layer inherits: a key for a removed
+  or not-offered tool, a bare "approve", or a diff the gateway's default caught up with is no
+  choice), `hasToolChoices(catalog, layers)`, `planRunTools(catalog, layers,
+  {ceiling})` → `{tools, allowed_tools, tool_policy?, approval}`, `withRunTools(input_data,
+  plan)` (writes `tools`, `_runtime.allowed_tools`, and `_runtime.tool_policy` once any layer
+  holds a choice; with none, the key is omitted and a stale one removed so the gateway's stored
+  grant applies), `toWorkflowApprovalPolicy(plan)` (panel-chat `{enabledTools,
+  autoApproveTools}`), `trustAfterApproveAll(catalog, modes, call, prev)` (the watch rule: tools
+  on Ask up to rank max(2, the call's rank), never outreach nor a model-chosen destination),
+  `approvalCovered(modes, trust, call)`. Storage until the gateway serves tool layers:
+  `createToolLayerStore(toolIdentityKey({gatewayUrl, tenantId, runtimeId, userId}))` →
+  `readApp/writeApp(interfaceId)` (`af.tools.app.<interface>.<identity>`),
+  `readSession/writeSession(sessionId)` (`af.tools.session.<identity>.<session_id>`, newest
+  `TOOL_SESSION_LAYERS_MAX` = 100; a lost or corrupt index is rebuilt from the stored keys),
+  `sessions()`; options `dialect` (read another writer's "approve") and `onDropped(key, names)`
+  (told when stored values could not be read); it is browser storage ("Saved in this
+  browser"), never "saved for this Gateway account".
+- Gateway model routes (backlog 0034, `gateway_models.ts`): `gatewayTextDefault(payload)`
+  (`GET config/capability-defaults`: provider/model of `output.text` then `input.text`, reasoning
+  `routes[output.text].reasoning`, MTP `routes[input.text].options.speculation`; null when none is
+  configured; throws without `routes[]` and on `{ok: false, errors}`; the gateway's `warnings` ride
+  along as `warnings`), `gatewayDefaultSummary` / `gatewayDefaultLabel`,
+  `reasoningLadderFrom(payload)` (`GET discovery/capabilities`), `createGatewayModelTransport(request)`
+  → `{fetchProviders, fetchModels, fetchModelCapabilities, fetchGatewayDefault,
+  fetchReasoningLadder}` over the host's `request(relativePath)`, and `withRunModel(input_data,
+  value, {topLevelPins})` (`_runtime.{provider, model, thinking, speculation}`; a half pin
+  throws; an inherited field's stale key is removed; top-level `provider`/`model` only with
+  `topLevelPins`). Route constants: `GATEWAY_TOOLS_ROUTE`, `GATEWAY_PROVIDERS_ROUTE`,
+  `GATEWAY_MODEL_CAPABILITIES_ROUTE`, `GATEWAY_CAPABILITY_DEFAULTS_ROUTE`,
+  `GATEWAY_CAPABILITIES_ROUTE`, `gatewayProviderModelsRoute(provider)`.
 - Voice: `VoiceSettings` (provider + model + voice from the Gateway catalog, grouped into Your voices / Engine voices / Shared voices (built-in and administrator-shared) with a language filter (voices with no language restriction always pass), and an optional `createVoice` panel (`VoiceCreation`: `design`, `clone`; a recording's language is detected unless chosen) that creates a voice through the gateway and selects it; "Gateway default"
   first). Host props: `intro` (`null` hides the paragraph), `delivery` (speed / quality /
   instructions, default on), `showReset`, `defaultHint` (names what the gateway default is) and
-  `voiceDefaultLabel` (the voice select's unset choice).
-- Gateway connection: `GatewayConnectModal` + `useGatewayConnection()` (the connection state machine: boot probe, auto-open on resolved disconnect, self-close on sign-in), plus helpers `fetchGatewayConnection()`, `signInGateway()`, `signOutGateway()`, `gatewayStatusBadge()`, `normalizeGatewayUrl()`; `GatewaySessionSignInCard` is the underlying form card.
+  `voiceDefaultLabel` (the voice select's unset choice). ui-primitives 0035: `voiceLibrary`
+  (`VoiceLibrary` = `VoiceCreation` & `{ list?, rename?, remove?, share? }` over `GET voice/clones`,
+  `PATCH` / `DELETE voice/clones/{voice_id}` and `POST voice/clones/{voice_id}/deploy`; supersedes
+  `createVoice`, which stays as an alias) adds **Manage voices** (`VoiceLibraryPanel`: the voices
+  that can change, built-in ones are read-only and not listed; **Rename**, **Delete** asked twice,
+  **Share** where the host injects `share`, i.e. for an administrator; a refusal is the gateway's
+  sentence); `previewVoice(prefs, text?) => Promise<ArrayBuffer>` adds **Play sample** beside the
+  voice select (host-injected: every gateway TTS route needs a run or an entity), played on
+  `previewOn` (`{deviceId, volume}`); `recordFrom` (`{deviceId, gain}`) is the microphone
+  `CreateVoicePanel`'s **Record** uses ("From a recording": **Record** / **Stop** beside the file
+  picker, a live level meter, at most `VOICE_RECORDING_MAX_MS`, silence refused);
+  `CreateVoicePanel.cloneRoute` (`{provider, model}`) names the cloning engine the clone request
+  carries (`VoiceCreation.clone` accepts `provider` / `model`; absent = the gateway's default).
+  One language label table: `VOICE_LANGUAGE_LABELS`; `voiceLanguagesFromAnswer(answer, kind,
+  provider?)` reads a `GET voice/languages` answer; `voiceRecordId(record)`.
+- Gateway connection: `GatewayConnectModal` + `useGatewayConnection()` (the connection state machine: boot probe, auto-open on resolved disconnect, self-close on sign-in), plus helpers `fetchGatewayConnection()`, `signInGateway()`, `signOutGateway()`, `gatewayStatusBadge()`, `normalizeGatewayUrl()`; `GatewaySessionSignInCard` is the underlying form card. `GatewayConnectionState.gateway` is the gateway's `GET /api/gateway/me` body relayed by the app server: `principal` (`GatewayPrincipalPayload`: `user_id`, `tenant_id`, `roles`, `scopes`, `token_fingerprint`, `runtime_id`, `source`, `admin`), `auth` (`mode`, `user_auth_enabled`), `routing` (`mode`, `one_user_one_runtime`). The hook's behaviour is pinned by `check_gateway_connection.mjs`.
+- Signed-in principal (shell, backlog 0036): `principalFromConnection(status)` → `AfPrincipal | null` (`userId`, `tenantId?`, `runtimeId?`, `roles?`, `scopes?`, `source?`, `admin?`; `displayName?` / `email?` / `avatarUrl?` are typed for a host that has them: the gateway serves none), null unless the status is connected (`isGatewayConnected`); `principalLabel(p)` — the one wording: display name, else user id, prefixed `tenant/` only when the tenant is not `default` (`AF_DEFAULT_TENANT`); `gatewayHostLabel(gateway_url)`.
 - Phase capability matrix: `PhaseCapabilityMatrix` + a framework-free core (`validateMatrixPayload()`, `resolveCellView()`, `applyCellAction()`, `reconcilePatches()`, `serializeCellPatches()`)
 - Critical actions: `CriticalActionDialog` + core (`resolveCriticalActionGate()`, `normalizeCriticalActionFacts()`)
 - Run steering: `SteerComposer` + `submitSteer()` (idempotent command ids, CSRF candidates)
 - Lists & badges: `DisclosureList` (tree list, roving tabindex), `AfChip` / `AfChipButton`
-- Rail drawer (0.8.0): `AfRailDrawer` — the vertical rail drawer lifted from AbstractEntity's side tabs and Continuum Teams' drawer rail: an icon rail (role `tablist`, vertical; 44 px icons with tooltips; Up/Down/Home/End) at the right edge of the host's content area; a click opens that panel beside the rail, the open icon (or the panel's collapse button) folds it back; the rail always stays. Docked from 1024 px (in the layout flow; width resizable by pointer — mouse, pen, touch with pointer capture — and by keyboard on a `separator`, persisted under `storageKey`), floating below (backdrop, Escape folds it with the consumed-event rule, focus returns to the icon). Panels visited once stay mounted. Props: `items: AfRailItem[]` (`id`, `label`, `icon`, `badge?`, `hint?`, `content`, `headerActions?`), `active`, `onActiveChange(id | null)`, `ariaLabel`, `storageKey?`, `defaultWidth?`/`minWidth?`/`maxWidth?`, `overlay?`, `idBase?` (ids `<idBase>-tab-<id>` / `<idBase>-panel-<id>`). The host's container needs `position: relative`. Pure rules: `railDrawerToggle()`, `railDrawerClampWidth()`, `railDrawerKeyWidth()`, `railDrawerNextIndex()`, `AF_RAIL_WIDTH`.
+- Rail drawer (0.8.0): `AfRailDrawer` — the vertical rail drawer lifted from AbstractEntity's side tabs and Continuum Teams' drawer rail: an icon rail (role `tablist`, vertical; 44 px icons with tooltips; Up/Down/Home/End) at the right edge of the host's content area; a click opens that panel beside the rail, the open icon (or the panel's collapse button) folds it back; the rail always stays. Docked from 1024 px (in the layout flow; width resizable by pointer — mouse, pen, touch with pointer capture — and by keyboard on a `separator`, persisted under `storageKey`), floating below (backdrop, Escape folds it with the consumed-event rule, focus returns to the icon). Panels visited once stay mounted. Props: `items: AfRailItem[]` (`id`, `label`, `icon`, `badge?`, `hint?`, `content`, `headerActions?`), `active`, `onActiveChange(id | null)`, `ariaLabel`, `storageKey?`, `defaultWidth?`/`minWidth?`/`maxWidth?`, `overlay?`, `idBase?` (ids `<idBase>-tab-<id>` / `<idBase>-panel-<id>`). The host's container needs `position: relative`. Pure rules: `railDrawerToggle()`, `railDrawerClampWidth()`, `railDrawerKeyWidth()`, `railDrawerNextIndex()`, `AF_RAIL_WIDTH`. Since the shell work (backlog 0036) it is a thin wrapper over `AfDrawerSystem` (same markup; a numeric width stored by 0.8.9 and earlier is read as every panel's width).
+- Drawer system (shell, backlog 0036): `AfDrawerSystem` — the app's side panels, generalising `AfRailDrawer`. Panels (`AfDrawerPanel` = `AfRailItem` + `side?: "right" | "left"`, `mode?: "rail" | "drawer"` (drawer = no rail tab, opened by the host, e.g. the top bar's docs button), `keepAlive?: "visited" | "always"`, `errorBoundary?` (default true: a panel that throws shows "The <label> panel stopped: <reason>" with **Try again**, the other panels keep working), `fill?` (no padding, no scrolling: a canvas owns the viewport), `minWidth?`/`maxWidth?`/`defaultWidth?`) are OPAQUE: the system never inspects `content` (ADR 0001 §6), so a flow-diagram or memory-graph panel (backlog 0037, 0038) mounts without an API change. Props: `panels`, `active` (one id, or `{left, right}`), `onActiveChange(id | null, side)`, `ariaLabel`, `storageKey?` (ONE key: each panel's width and, while docked only, the open panel per side), `overlayBelow?` (media query, default `AF_MEDIA.md`), `overlay?`, `topOffset?: "auto" | number` (anchors the overlay under the app header; `"auto"` = `var(--af-topbar-h)`), `railLabelStyle?: "icon" | "vertical-text"`, `request?` (`"id#nonce"`: opens a panel; a new nonce re-requests), `onResize?(id, width)`, `restoreActive?`, `idBase?`, `className?`, `children` (the content between the sides; required with left panels). Each side publishes `--af-panel-w`. A panel's `headerActions` sit in their own small boundary (a failure shows a warning icon, not a broken header). `AfPanelHeaderActions` renders header actions from inside a panel's content (portal into the panel header; in place elsewhere). Pure rules: `railDrawerActiveFor`, `railDrawerSetActive`, `railDrawerParseRequest`, `railDrawerMounted`, `railDrawerReadStored` / `railDrawerWriteStored`, `railDrawerPanelWidth`, `railDrawerStoredActive`, `railDrawerTopOffset`, `railDrawerDragWidth`, `railDrawerKeyWidth(width, key, shift, min, max, side)` (`check_rail_viewer.mjs`).
+- App shell (shell, backlog 0036): `AfAppShell` (`topBar` = `AfTopBarActionsProps` + `brand?: {mark?, name, href?}` + `leading?`; `drawers?` = `AfDrawerSystemProps` (topOffset defaults to `"auto"`); `nav?: {label, content, open?, onOpenChange?, width?}` docked from 1024 px, an `AfDrawer` (left, backdrop, under the header) below it; `children` = the content). The header carries `data-af-topbar` (`check_app_shell.mjs`).
 - File viewer (0.8.0): `AfFileViewer` — one preview for every client: header (name with the path as tooltip, size, generated date relative with the exact time on hover, extra `actions`, Download and close icons) and a body by kind (`fileViewerKind(name, contentType)`: Markdown through the host's `renderMarkdown` — panel-chat `FileViewer` wires its `Markdown` —, code highlighted by `AfCodeBlock`, JSON pretty-printed, images, audio (kind `"audio"` for mp3, wav, ogg, oga, opus, m4a, aac, flac, weba or any `audio/*` type, played by `AfAudioPlayer`), video (unreleased: kind `"video"` for mp4, m4v, webm, mov, ogv, mkv or any `video/*` type except `video/mp2t`, the browser's own controls; the file NAME decides before a media Content-Type, so `.ts` served as `video/mp2t` stays code), PDF in an `<object>`, plain text; SVG and HTML show as source, never rendered). Presentational: the host passes text (`fileViewerNeedsText(kind)`) or an object URL (images, audio, video, PDF). `formatFileSize()`.
 - Audio player (0.8.0): `AfAudioPlayer` (`src`, `name?`, `peaks?`, `className?`) — the shared audio viewer: play/pause, a waveform you click or drag to seek, elapsed / total time. The waveform is decoded from `src` with the Web Audio API (pass `peaks` to skip decoding); when decoding is unavailable or fails, the bars stay flat with the reason in the waveform's tooltip and playback still works. Keyboard: the waveform is a `slider` (Left/Right ±5 s, Home/End, Space/Enter play or pause). Pure helpers: `audioPeaks(samples, bars?)` (normalised 0..1 per bar), `formatAudioTime(seconds)` (`"1:03"`, `"--:--"` when unknown), `audioSeekTime(x, width, duration)`, `AUDIO_WAVEFORM_BARS` (72).
 - Code highlighting (0.8.0): `AfCodeBlock` (`text`, `language` = a file name or a language, `lineNumbers?`) — wraps long lines, never scrolls sideways; `highlightCode(text, codeLanguage(name))` is a dependency-free lexer (comment / string / number / keyword tokens; joining the tokens returns the input).
 - Settings rows (0.8.0): `AfSettingsGroup` (titled card; `variant="flat"` inside another card; `aside` for e.g. "Revision 4"), `AfSettingRow` (label + one-line help left, control right; wraps in a narrow panel), `AfOverrideRow` — the "Gateway default unless overridden" row: summary (`Gateway default · x` or `<override> — <owner>`), **Change** opens the editor in place, **Use gateway default** only while overridden.
 - Workspaces (0.8.3, round 11): `WorkspaceChooser` — the one workspace chooser of the console (Accounts → **Eligible workspaces** and each account's modal), AbstractCode, Observer, Flow (the Assistant copies `WORKSPACE_CHOOSER_TEXT` verbatim). One component, four levels through `level`: `"gateway"` (the admin's eligible set; a row's mode is its cap), `"account"` (an account's default, humans and entities), `"session"` (one conversation's subset, stored on the session by the gateway) and `"run"` (a one-off run without a session: nothing is PUT; the host keeps the value). There is no shared workspace: a run's private workspace is automatic and always Read & write. It shows, top to bottom: **Gateway: <gateway_summary>** verbatim (not at the gateway level); **Follow the gateway policy** (account) or **Use my default** (session, run) as a state-showing switch — ON sends `{configured: false}`, OFF starts from what applies now; the posture as a segmented control ("Deny everything, allow listed workspaces" / "Allow everything, refuse listed workspaces"); **Allowed workspaces** / **Refused workspaces** rows, each `path · Read & write | Read-only | Refused · remove` (a mode above the gateway's cap, read from `effective.folders[].cap`, stays focusable but `aria-disabled` with the kit tooltip "The gateway allows this workspace read-only"; the remove icon's tooltip is "Remove <path>"); **Everything else** under the second posture; the **Add a workspace path** row (+ **Choose…** when the host passes `choose`); the effective line verbatim; an optional `footer`. Every change is ONE call, never a Save button: stored levels `<WorkspaceChooser level="gateway"|"account"|"session" state={workspaceAsState(answer, level)} save={(payload) => …} />` (payload = the full body `{configured: true, posture, default_mode, folders}` or `{configured: false}`; at the gateway level `{posture, default_mode, folders}`; a `save` that resolves with a chooser state is shown at once); run level `<WorkspaceChooser level="run" value={WorkspaceRunValue | null} effective={dry-run answer} onChange={(next | null) => …} />`. A rejection shows the gateway's sentence + "Not saved." under the control. Helpers: `workspaceChooserClient(request, {level, account?, session?}, base = GATEWAY_API_PATH)` → `{path, load(), save(payload)}` over `GET/PUT /workspace/policy`, `/workspace/policy/{account|me}`, `/sessions/{id}/workspaces`; `workspaceDryRun(request, account = "me")` → `POST /workspace/effective/{account} {workspace}`; `workspaceAsState` / `workspaceAsPolicy` / `workspaceAsEffective` refuse an older answer (one carrying `shared_workspace`, or missing `configured`, `cap`, `summary`, `gateway_summary`) loudly; `effective.default_mode` may be `null` under "Deny everything, allow listed workspaces" (the follow switch then sends the policy read's own `default_mode`); `workspaceErrorSentence` reads an `Error`, `{detail: {message}}`, `{detail: "…"}` or `{message}`. No policy logic: no path checks, no clamp, no cap computation (`check_workspace_chooser.mjs`).
-- Voice section (0.8.0): `AfVoiceSection` — the Assistant's Settings → Voice layout, four groups: **Engines** (Text → speech, Speech → text as `AfOverrideRow`s), **Output** (output device where `audioOutputSelectable()`, with a **Test** chime on the chosen speaker; Reply volume), **Microphone** (input device; **Test** records 3 s with a live level meter and plays it back, or says why it could not: blocked, no device, device gone, in use, silence; Spoken language, which rides on transcription requests and skips detection; Input level 50–150 % where Web Audio allows) and **Replies** (Read aloud switch; Voice latency from `VOICE_LATENCY_OPTIONS`, only when the gateway advertises `quality_preset`). Device names appear after one microphone permission (**Show names**). Safari cannot choose a speaker: the picker stays on System default and says so. Required prop `fetchDefaults: () => Promise<VoiceDefaults>` (`GET /api/gateway/voice/defaults`, the gateway's `output.voice` / `input.voice` routes) is the only source of "Gateway default · provider / model" ("not set" / "unknown" otherwise); `defaults` passes them when the host already holds them. Value `VoiceClientPreferences` (`VoicePreferences` + `stt_provider`, `stt_model`, `stt_language`, `output_device`, `input_device`, `input_gain`, `reply_volume`, `read_aloud`); `voiceTtsRequest()` / `voiceSttRequest()` pick what a request carries (`voiceSttRequest` sends `language`). `nested` renders its sub-sections flat. Helpers (`voice_devices.ts`): `voiceDefaultSummary`, `sttRouteText`, `transcribingLine`, `microphoneErrorSentence`, `listVoiceDevices`, `unlockDeviceLabels`, `recordSample`, `playTestTone`, `playOnDevice`.
+- Voice section (0.8.0): `AfVoiceSection` — the Assistant's Settings → Voice layout, four groups: **Engines** (Text → speech, Speech → text as `AfOverrideRow`s), **Output** (output device where `audioOutputSelectable()`, with a **Test** chime on the chosen speaker; Reply volume), **Microphone** (input device; **Test** records 3 s with a live level meter and plays it back, or says why it could not: blocked, no device, device gone, in use, silence; Spoken language, which rides on transcription requests and skips detection; Input level 50–150 % where Web Audio allows) and **Replies** (Read aloud switch; Voice latency from `VOICE_LATENCY_OPTIONS`, only when the gateway advertises `quality_preset`). Device names appear after one microphone permission (**Show names**). Safari cannot choose a speaker: the picker stays on System default and says so. Required prop `fetchDefaults: () => Promise<VoiceDefaults>` (`GET /api/gateway/voice/defaults`, the gateway's `output.voice` / `input.voice` routes) is the only source of "Gateway default · provider / model" ("not set" / "unknown" otherwise); `defaults` passes them when the host already holds them. Value `VoiceClientPreferences` (`VoicePreferences` + `stt_provider`, `stt_model`, `stt_language`, `output_device`, `input_device`, `input_gain`, `reply_volume`, `read_aloud`); `voiceTtsRequest()` / `voiceSttRequest()` pick what a request carries (`voiceSttRequest` sends `language`). `nested` renders its sub-sections flat. `createVoice` (a `VoiceCreation`) adds "Create a voice" under the voice select. Helpers (`voice_devices.ts`): `voiceDefaultSummary`, `sttRouteText`, `transcribingLine`, `microphoneErrorSentence`, `listVoiceDevices`, `unlockDeviceLabels`, `recordSample`, `playTestTone`, `playOnDevice`.
+  ui-primitives 0035: the **Output** and **Microphone** groups are the standalone `AfVoiceOutput` and `AfVoiceInput` below. New props: `rows?: AfVoiceSectionRows` (`tts`, `stt`, `output`, `microphone`, `replies` default shown; `mute` and `capture` default hidden, shown only where the host honours them; an entity that speaks with its own voice passes `{tts: false}`), `ttsSlot?: ReactNode` (a host-owned voice picker shown in Engines in place of the Text → speech row), `voiceLibrary?: VoiceLibrary` (wins over `createVoice`), `previewVoice?(prefs, text?)` (**Play sample**, played on the chosen speaker at the reply volume), `fetchLanguages?(kind, provider?) => Promise<string[]>` (`GET voice/languages?kind=stt&provider=`: Spoken language lists the transcription engine's languages, the override's else the gateway default's; failed or open = the kit table; a saved language outside the list stays as "(saved)"), `captureDefaults?` (what an unset `capture_mode` / `auto_send` means in this host), `levelSource?` (the `voice` from `useGatewayVoice`: the Microphone meter moves during a real recording; only the meter re-renders). A muted preference always shows **Unmute**, even where the Mute row is not opted in. New `VoiceClientPreferences` keys: `reply_muted`, `capture_mode` (`"hold"` | `"toggle"`), `auto_send`; with `rows.capture` the Microphone group shows **Microphone button** (Hold to talk / Tap to talk, `VOICE_CAPTURE_OPTIONS`) and **Send what you say automatically**. `voiceCaptureMode(value | prefs)` is the one reading of `capture_mode` (anything but `"toggle"` is hold). `gatewayVoiceOptions(prefs)` maps the preferences to the hook's `output_device_id`, `volume`, `muted`, `input_device_id`, `input_gain`, `capture_mode`. `VOICE_LANGUAGE_OPTIONS` now lists the kit's 15 languages (`VOICE_LANGUAGE_LABELS`).
+- Voice OUT (ui-primitives 0035): `AfVoiceOutput` — output device picker with a **Test** chime on the chosen speaker (Safari: System default, says why: `SAFARI_OUTPUT_NOTE`), **Reply volume** slider and **Mute** (`reply_muted`; the volume is kept; the Test still plays; **Unmute** is always shown while muted). Controlled and standalone (no section around it): `value` (`VoiceOutputValue` or the whole preferences; `onChange` returns it merged), `onChange`, `listDevices?`, `outputSelectable?`, `showMute?` (default true; ignored while muted), `unavailableReason?`, `devicesKey?` (re-read the device list), `labels?` (`device`, `volume`, `test`), `className?`.
+- Voice IN (ui-primitives 0035): `AfVoiceInput` — input device picker, a live level meter (`AfVoiceLevelMeter`, `role=meter`: the Test's level while the Test records, else the host's real recording level from `levelSource`, or a `level` the host holds), **Test** (3 s from the chosen microphone, played back on `playOn`), **Show names**, **Input level** 50–150 % where Web Audio allows. Controlled and standalone: `value` (`VoiceInputValue` or the whole preferences), `onChange`, `levelSource?`, `level?`, `listDevices?`, `playOn?` (`{deviceId, volume}`), `onDevicesChanged?`, `unavailableReason?`, `labels?` (`device`, `gain`, `test`), `className?`. `clampInputGain(v)`.
+- Microphone button (ui-primitives 0035): `AfVoiceMicButton` (`voice: GatewayVoice`, `mode: "hold" | "toggle"`, `routeText?`, `onTranscript?(text, info)`, `label?`, `unavailableReason?`, `showStatus?`, `className?`) — one wording (`VOICE_MIC_TEXT`): **Hold to talk** → "Recording — release to send" (a tap shorter than `MIN_RECORDING_MS` is discarded with a hint; leaving the page mid-hold sends nothing; Space / Enter hold too) or **Tap to talk** → "Recording — tap to stop"; a live level meter while recording; "Recording… 3 s" / `transcribingLine` beside it. `mode` is read with `voiceCaptureMode` (a stored, stale or foreign value is hold: it never crashes the page). The hook must be created with the same `capture_mode`; a mismatch, or `onTranscript` without the hook's listener, renders the button disabled with the reason (`data-voice-mic-error`) and logs a console error, never a render error; `onTranscript` subscribes through `voice.add_transcript_listener`; unmounting while recording cancels it.
+- Voice preferences and defaults (ui-primitives 0035): `useVoicePreferences(storageKey | null)` → `[prefs, setPrefs]` kept in localStorage under `storageKey`, in sync across the page's components with the same key and across the app's tabs (`storage` event); `null` = in memory only. `loadVoicePreferences(key)`, `saveVoicePreferences(key, prefs)`. `useVoiceDefaults(fetchDefaults | null, key?)` → `{value, failed, reload}`: `GET voice/defaults` once per `key` (another gateway or account), nothing without a gateway; pass `value` to `AfVoiceSection.defaults`.
+- Voice routes (ui-primitives 0035, `gateway_paths.ts`): `GATEWAY_VOICE_ROUTES` (`defaults`, `voices`, `languages`, `clones`, `design`, `compatibility`), `voiceClonePath(id)`, `voiceCloneDeployPath(id)`, `runVoiceTtsPath(runId, stream?)`, `runTranscribePath(runId)`, `entityVoicePath(name, "" | "tts" | "tts/stream")` — relative to the gateway API: wrap with `gatewayApiPath()`.
+- Live level (ui-primitives 0035): `AfVoiceLevelMeter` (`source?`, `level?`, `label?`, `origin?`, `inline?`, `className?`) and `useVoiceLevel(source)` subscribe to `voice.subscribe_level`, so only the meter re-renders while the user speaks (`VoiceLevelSource`). `recordSample` honours an abort at every step: an abort before the microphone has opened closes it as the stream arrives and rejects with `recordingAbortError()` (`name: "AbortError"`).
 - Relative time (0.8.0): `formatRelativeTime(ts, nowMs)` ("just now", "5 min ago", "3 h ago", "yesterday", "4 days ago", then "Oct 2"; future "in 14 h"), `formatExactTime(ts)` ("Oct 2, 2026, 14:05"), `formatShortDate(ts, nowMs)`, `timeValueMs(ts)` — deterministic (the caller passes now), no seconds, no year within the same year.
 - Icons (0.8.0): `cog` (the usual settings gear; `settings` stays the sliders glyph), `activity` and `unarchive` (archive box with an up arrow).
-- App chrome: `AfTopBarActions` (assistant → appearance → about → extras → connection pill; `about={{ identity, versions?, onOpen?, label? }}` adds the About button and dialog), `AfDrawer` (non-modal, keeps children mounted; `side="left"`, `backdrop`; full width below 768 px), `AfAppearanceDialog` + `useAppearanceSettings()` / `appearanceStorageKey()` / `APPEARANCE_DEFAULTS`
-- About (0.8.0): `AfAbout` (inline card: `identity`, `versions?`, `titleId?`, `action?`, `className?`) and `AfAboutDialog` (`open`, `onClose`, `identity`, `versions?`; modal, Escape and a click outside close it, Close button in the heading row). The card shows the app's name and version, the AbstractFramework and AbstractGateway versions, six links (Website, Source, Docs, Issues, Feedback, and Contact as a mailto) and the copyright and licence line — never a package list. `versions: AfAboutVersions` = `{ framework?, frameworkNote?, gateway?, gatewayNote? }`; a missing version shows its note, else "not reported" / "not connected". `aboutVersionsFromGateway(payload | null, error?)` builds it from `GET /api/gateway/about` (only the framework and gateway versions are read; "not installed on the gateway host" when the gateway reports no framework; "unavailable (reason)" on failure). Helpers `aboutLinks(identity)`, `aboutVersionFacts(versions)`.
+- App chrome: `AfTopBarActions` — the top-right cluster, in this enforced order: app `extraActions` · docs · assistant · appearance · about · identity · connection pill (always rightmost; pinned by `check_app_shell.mjs`). `connection` takes `useGatewayConnection()`'s return value (preferred: the pill and the identity menu's **Disconnect** both call its `signOut()`, then the host's `onSignOut?` ONLY when `signOut()` resolved true, i.e. the session is gone; its `signOutError` shows as "Disconnect failed" beside the pill) or the legacy `AfTopBarConnection` `{phase, signingOut?, onConnect, onDisconnect, status?, signOutError?}` (then `onDisconnect` alone runs; `onSignOut` is ignored). One verb for ending the session: pill Connect / Connecting… / Disconnect / Disconnecting… (`topBarPillText`; accessible name "Disconnect from gateway"), menu item **Disconnect**. `identity?: "badge" | "menu" | false` — who is signed in (`principalLabel`), immediately left of the pill, only while the phase is connected, explained by the kit tooltip (`data-af-tip`, no native title); `"menu"` = an `AfMenu` whose header says "Signed in as …" and "Gateway <host>", items **Copy user id** (only where the clipboard API exists) and **Disconnect**. `appearance` = `{onOpen, label?}` (host dialog) or `{value, onChange, label?, title?, note?}` (the cluster renders `AfAppearanceDialog`). `about={{ identity, versions?, fetch?, extra?, onOpen?, label? }}` adds the About button and dialog; with `fetch` (the host's gateway fetch, `AfGatewayFetch`) and no `versions` the cluster GETs `api/gateway/about` each time the dialog opens (`fetchAboutVersions`, "checking…" while in flight, "unavailable (HTTP 401)" on failure; an answer after close is dropped); `extra` is host content in the dialog. The cluster publishes `--af-topbar-h` (its header's bottom edge, viewport-relative; updated on the header's resize, window resize and scroll; removed on unmount unless another publisher wrote it since; `useAfTopBarHeight`, `publishHeight={false}` opts out). `AfDrawer` (non-modal, keeps children mounted; `side="left"`, `backdrop`; full width below 768 px; `topOffset: number | "auto"`; **behaviour change**: focus now moves in on open — `[data-autofocus]`, else the first text field (skipped on touch screens, so no soft keyboard), else the first control, else the drawer — and back to the opener on close when focus was inside; `manageFocus={false}` opts out), `AfAppearanceDialog` + `useAppearanceSettings()` / `appearanceStorageKey()` / `APPEARANCE_DEFAULTS`. `AfMenu` takes an optional non-interactive `header` and a kit tooltip `tip`. `useGatewayConnection().signOut()` now resolves `true` when the session is gone, `false` otherwise (never rejects).
+- About (0.8.0): `AfAbout` (inline card: `identity`, `versions?`, `titleId?`, `action?`, `extra?` (host content under the links, e.g. the console's update and restart controls), `className?`) and `AfAboutDialog` (`open`, `onClose`, `identity`, `versions?`, `extra?`; modal, Escape and a click outside close it, Close button in the heading row). The card shows the app's name and version, the AbstractFramework and AbstractGateway versions, six links (Website, Source, Docs, Issues, Feedback, and Contact as a mailto) and the copyright and licence line — never a package list. `versions: AfAboutVersions` = `{ framework?, frameworkNote?, gateway?, gatewayNote? }`; a missing version shows its note, else "not reported" / "not connected". `aboutVersionsFromGateway(payload | null, error?)` builds it from `GET /api/gateway/about` (only the framework and gateway versions are read; "not installed on the gateway host" when the gateway reports no framework; "unavailable (reason)" on failure). Helpers `aboutLinks(identity)`, `aboutVersionFacts(versions)`, `fetchAboutVersions(fetchGateway)` (never throws), `ABOUT_VERSIONS_CHECKING`.
 - Identity: `appIdentity(id, version): AppIdentity` (throws on an unknown id), `frameworkIdentity(): FrameworkIdentity`, `knownAppIds()`, `aboutRows(identity, extra?): AboutRow[]` (the ordered About rows, same as the Python `abstractcore.utils.identity.about_fields`), `gatewayVersionRows(payload: GatewayAboutPayload | null, error?: string): AboutRow[]` (the connected gateway's version rows from `GET /api/gateway/about`) — both kept for parity with the Python twins; the About card does not render rows; types `AppIdentity`, `FrameworkIdentity`, `AboutRow`, `GatewayAboutPayload`. See [About dialog and identity](../ui-kit/README.md#about-dialog-and-identity)
 - CSRF helpers: `readGatewayCsrfToken()`, `readGatewayCsrfTokens()`
-- Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`. Options `output_device_id` (playback through `AudioContext.setSinkId`), `input_device_id` (records from that microphone; a missing device fails with a sentence, never another microphone), `volume`, `input_gain`, `stop_on_pointerup: false` (tap-to-start / tap-to-stop hosts stop recording themselves); returns `voice_ptt_since` (for "Transcribing… 12 s · faster-whisper / large-v3"); `transcribe` may return `{ text, provider, model }`; every failure becomes one sentence; `VoiceSettings` (catalog-driven voice preferences form)
+- Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`. Options `output_device_id` (playback through `AudioContext.setSinkId`), `input_device_id` (records from that microphone; a missing device fails with a sentence, never another microphone), `volume`, `muted` (0035: gain 0 at once, also for a reply that is playing; the volume is kept), `input_gain`, `capture_mode` (0035: `"toggle"` = tap to start / tap to stop, no pointerup stop; default `"hold"`), `stop_on_pointerup: false` (wins over `capture_mode`; tap-to-start / tap-to-stop hosts stop recording themselves); returns `voice_ptt_since` (for "Transcribing… 12 s · faster-whisper / large-v3"), `subscribe_level(fn)` (0035: the live microphone level 0..1 while recording, as a subscription, so the hook's owner never re-renders for it), `voice_capture_mode` and `add_transcript_listener(fn)` (0035); a stop or cancel while the microphone is still opening closes it as the stream arrives; `transcribe` may return `{ text, provider, model }`; every failure becomes one sentence; `VoiceSettings` (catalog-driven voice preferences form)
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
 - Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation: Repeat on a fixed UTC interval, Daily / Weekly / Monthly at a time of day in the account's time zone, once, or when an email arrives — the Gateway's own sentence for calendar rules through `previewSchedule`; "Email result" and result recipients), `AfTimeZonePicker` (the account time zone, over the Gateway's IANA list), the email fields `AfEmailTriggerFields` / `AfEmailOptionsFields` / `AfEmailSetupNotice`, `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
 - Modal and account rows: `AfModal`, `bindAfModal()` (+ `afModalTabTarget()`, `afModalFocusables()`, `AF_MODAL_FOCUSABLE`), the helper floors `HELPER_MIN_PX`, `HELPER_MIN_TOUCH_PX`, `HELPER_TOUCH_MEDIA` — see [Modal, account rows, grouped navigation](./modal.md)
@@ -1685,7 +1801,8 @@ See: [`ui-kit/README.md`](../ui-kit/README.md) and the [Adoption guide](./adopti
 self-contained script that defines `window.AfConsoleIslands` (`apiVersion` `"2"`, `kitVersion`,
 `themes`, `fontScales`, `headerDensities`, `mountTopBar(el, props)`,
 `mountAppearance(el, props)`, `mountAbout(el, props)`, `appIdentity(id, version)`,
-`aboutVersionsFromGateway(payload, error?)`, `applyAppearance(settings)`). Build it with
+`aboutVersionsFromGateway(payload, error?)`, `applyAppearance(settings)`, `mountDocsAssistant(el, props)`,
+`mountDrawerSystem(el, props)`, …). Build it with
 `npm run build:islands -w @abstractframework/ui-kit`. It is not included in the npm tarball.
 Full reference: [Console islands](./console-islands.md).
 
@@ -1704,8 +1821,8 @@ Purpose: chat-thread UI primitives with lightweight Markdown/JSON rendering.
 - CSS: `@abstractframework/panel-chat/panel_chat.css` (file: `panel-chat/src/panel_chat.css`)
 
 Components:
-- `DocsAssistantDrawer` (0.4.0) — the Docs assistant of the console and every app: kit drawer + panel-chat thread (user right, assistant left; Markdown, code, JSON, links, images per the image policy; copy), attachments (`attachments/upload` to the conversation's session → `context.attachments`), streaming (`llm.delta` on `runs/{id}/ledger/stream`), Stop, icon-only New conversation and close, one-line grounding footer. Props `open`, `onClose`, `source: { app, name }`, `fetchGateway`, `connected`, `suggestions?`, `placeholder?`, `width?`, `topOffset?`, `className?`. Grounding: `GET api/gateway/docs/corpus?app=<id>` → the shipped `docs-qa` workflow (`DOCS_QA_WORKFLOW`); one gateway session per conversation. Exports `DocsAssistantPanel` (stateless view), `makeDocsQaAsk`, `docsQaStartBody`, `docsCorpusPath`, `docsAnswerFromRun`, `docsReplayNote`, `newDocsSessionId`, `sseFrames`
-- `AssistantPanel` (docs Q&A surface with an injected `ask(question, { signal, history })` transport returning a Promise or an AsyncIterable of deltas; never fetches)
+- `DocsAssistantDrawer` (0.4.0) — the Docs assistant of the console and every app: kit drawer + panel-chat thread (user right, assistant left; Markdown, code, JSON, links, images per the image policy; copy), attachments (`attachments/upload` to the conversation's session → `context.attachments`), streaming (`llm.delta` on `runs/{id}/ledger/stream`), Stop, icon-only New conversation and close, one-line grounding footer. Props `open`, `onClose`, `source: { app, name }`, `fetchGateway`, `connected`, `suggestions?`, `placeholder?`, `width?`, `topOffset?`, `className?`. Grounding: `GET api/gateway/docs/corpus?app=<id>` → the shipped `docs-qa` workflow (`DOCS_QA_WORKFLOW`); one gateway session per conversation. `topOffset` also takes `"auto"`; `manageFocus` (default false: the drawer keeps its earlier focus behaviour) opts into the kit drawer's focus handling. In an `AfDrawerSystem`: `docsAssistantPanel(source, fetchGateway, { connected, suggestions?, placeholder?, ask?, id?, label?, mode?, side?, defaultWidth? })` returns an `AfDrawerPanel` (drawer mode, kept alive) whose content, `DocsAssistantPanelContent`, is the same conversation with its header actions in the panel header (shell, backlog 0036). Exports `DocsAssistantPanel` (stateless view), `makeDocsQaAsk`, `docsQaStartBody`, `docsCorpusPath`, `docsAnswerFromRun`, `docsReplayNote`, `newDocsSessionId`, `sseFrames`
+- `AssistantPanel` (docs Q&A surface with an injected `ask(question, { signal, history })` transport returning a Promise or an AsyncIterable of deltas; never fetches); `assistantDrawerPanel({ ask, assistantName?, …, id?, label?, icon?, mode?, side?, defaultWidth? })` returns it as an `AfDrawerPanel` (drawer mode, kept alive) for an app assistant such as Continuum's advisor (shell, backlog 0036)
 - `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions; `streamReplies?: "gateway_default" | "on" | "off"`); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
 - One chat surface (unreleased, backlog 0030; ADR 0001): `WorkflowChat` also takes
   - `steer?: ChatSteer` (`{ onSteer(text, mode) → Promise<{accepted, seq?, duplicate?}>, modes?: ("guide"|"queue")[], parked? }`): while `busy` the send button reads **Steer** (or **Queue**; with both modes a **Guide this run / Queue next turn** switch), the host posts it (ui-kit `submitSteer`), and the status line says "Queued (seq N). Delivers at the run's next loop boundary." only for an accepted steer (`accepted:false` is shown as a refusal and the draft stays);
@@ -3679,8 +3796,12 @@ Serve both files from your own origin; the paths above are examples.
 | `mountTopBar(el, props)` | `IslandHandle` | Mounts `AfTopBarActions` into `el` |
 | `mountAppearance(el, props)` | `IslandHandle` | Mounts `AfAppearanceDialog` into `el` |
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
+| `mountDocsAssistant(el, props)` | `IslandHandle` | Mounts panel-chat's `DocsAssistantDrawer` (the same Docs assistant every app mounts; the console passes `source: {app: "gateway", name: "AbstractGateway"}` and its own `fetchGateway`); keep it mounted while closed (kit 0.8.0, round 8) |
+| `islandConnectionStatus(connection)` | `GatewayConnectionState \| null` | The status the top bar's identity reads: `connection.status`, else the console's `me` body on this origin; null unless `phase` is `"connected"` (shell, backlog 0036) |
+| `mountDrawerSystem(el, props)` | `IslandHandle` | Mounts the kit `AfDrawerSystem`; each panel's content is a host element (`element`) moved into the panel and kept alive (shell, backlog 0036) |
 | `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.4.0+) |
 | `mountWorkspaceChooser(el, props)` | `IslandHandle` | Mounts the kit `WorkspaceChooser` (`level`, `state`, `save`): the console's **Eligible workspaces** modal (`level: "gateway"`) and each account's Workspaces modal (`level: "account"`) (kit 0.8.3, round 11) |
+| `mountVoiceSection(el, props)` | `IslandHandle` | Mounts the kit `AfVoiceSection` (the whole voice settings: Engines, Output, Microphone, Replies) with the component's own props (`fetchCatalog`, `fetchDefaults`, `voiceLibrary`, `fetchLanguages`, `previewVoice`, `rows`, …) (ui-primitives 0035) |
 | `mountTimeZonePicker(el, props)` | `IslandHandle` | Mounts the kit `AfTimeZonePicker` (`block` = the preferences answer's `time_zone`, `id`, `onChange(zone \| null)`, `disabled`, `note`): the time zone row of the console's Accounts → Preferences modal (kit 0.8.7, round 16) |
 | `workspaceChooserText` | `object` | The WorkspaceChooser's wording table (`WORKSPACE_CHOOSER_TEXT`), e.g. the modal title `gatewayTitle` "Eligible workspaces" (kit 0.8.3) |
 | `workspaceAsState(answer, level)` | `object` | Turns a `GET/PUT /workspace/policy[/{account}]` answer into the chooser's `state`; throws on an older answer (kit 0.8.3) |
@@ -3694,11 +3815,12 @@ Every mount returns `{ update(props), unmount() }`. Mounting into a missing elem
 
 ### `mountTopBar(el, props)`
 
-Renders the shared top-right cluster: assistant button, appearance button, extras, then the
-connection pill (always rightmost).
+Renders the shared top-right cluster in the kit's enforced order: extras · docs · assistant ·
+appearance · about · identity · connection pill (always rightmost).
 
 ```ts
 type TopBarIslandProps = {
+  docs?: { open: boolean; onToggle: () => void; label?: string } | null;      // the Docs assistant (book icon)
   assistant?: { open: boolean; onToggle: () => void; label?: string } | null; // omit/null hides it
   appearance?: { onOpen: () => void; label?: string } | null;                 // omit/null hides it
   about?: {                                                                   // omit/null hides it (kit 0.1.12+)
@@ -3711,22 +3833,61 @@ type TopBarIslandProps = {
     id: string;          // becomes the element id
     label: string;       // aria-label / tooltip
     icon?: IconName;     // defaults to "settings"
-    text?: string;       // plain text instead of an icon button (e.g. the signed-in identity)
+    text?: string;       // plain text instead of an icon button (kept for compatibility; use `identity`)
     hidden?: boolean;
     pressed?: boolean;   // sets aria-pressed and the active style
     onClick?: () => void;
   }>;
+  // Who is signed in, left of the pill (shell, backlog 0036): "badge" = icon + "<user>"
+  // ("<tenant>/<user>" when the tenant is not "default"); "menu" = the same, opening
+  // "Signed in as … / Gateway <host>", Copy user id, Disconnect (= onDisconnect).
+  // Rendered only while phase is "connected" (islandConnectionStatus).
+  identity?: "badge" | "menu" | null;
   connection: {
     phase: "loading" | "connected" | "disconnected";
     signingOut?: boolean;
     onConnect: () => void;
     onDisconnect: () => void;
+    status?: GatewayConnectionState | null; // an app behind app-server: the connection probe's body
+    signOutError?: string | null;           // shown as "Disconnect failed" beside the pill
+    me?: { ok?: boolean; principal?: {...}; auth?: {...}; routing?: {...} } | null; // the console: its own GET /api/gateway/me body
   };
 };
 ```
 
+The console replaces its `extras: [{ id: "island-identity", text: "<tenant>/<user>" }]` with
+`identity: "menu"` and `connection.me: <the /api/gateway/me body it already holds>`; the identity is
+read from `me.principal` (no display name, e-mail or avatar: the gateway serves none).
+
 A text extra renders as `<span class="af-topbar__identity">`: one line, secondary text color,
 ellipsized past 24 characters.
+
+### `mountDocsAssistant(el, props)`
+
+Mounts panel-chat's `DocsAssistantDrawer` (`open`, `onClose`, `source: {app, name}`,
+`fetchGateway`, `connected`, `suggestions?`, `placeholder?`, `width?`, `topOffset?` (a number or
+`"auto"` = under the top bar), `className?`). Grounding is the gateway's corpus
+(`GET api/gateway/docs/corpus?app=gateway` for the console). Keep it mounted with `open: false`
+so the conversation survives closing.
+
+### `mountDrawerSystem(el, props)`
+
+Mounts the kit `AfDrawerSystem` (see [API](./api.md)). Panels are `{id, label, icon, element,
+side?, mode?, keepAlive?, errorBoundary?, fill?, badge?, hint?, minWidth?, maxWidth?,
+defaultWidth?}`: `element` is a DOM element the page owns, moved (never cloned) into the panel
+body. `main?` is the element between the sides (required with left panels). The host owns
+`active` and calls `handle.update({...props, active})` from `onActiveChange(id, side)`.
+
+```js
+const props = {
+  panels: [{ id: "jobs", label: "Jobs", icon: "activity", element: document.getElementById("jobs-pane") }],
+  active: null,
+  onActiveChange: (id) => { props.active = id; handle.update({ ...props }); },
+  ariaLabel: "Console panels",
+  storageKey: "abstractgateway.console.drawers.v1",
+};
+const handle = islands.mountDrawerSystem(document.getElementById("af-drawers-root"), props);
+```
 
 ### `mountAppearance(el, props)`
 
@@ -3783,7 +3944,25 @@ reasoning, MTP) and voice picker (`VoiceSettings`) for plain-HTML hosts, with th
 props. Transports are injected: `fetchProviders()`, `fetchModels(provider)` and
 `fetchModelCapabilities(model, provider)` for the picker, `fetchCatalog(provider, model)` for the
 voice picker. The host keeps the value and calls `update(props)` after each change. The gateway
-console's entity Manage, Mind & voice tab uses both.
+console's entity Manage, Mind & voice tab uses both. The voice picker's props include
+`voiceLibrary` (create, list, rename, delete and share the gateway's voices: **Manage voices**)
+and `previewVoice` (**Play sample**); `mountVoiceSection(el, props)` mounts the whole
+`AfVoiceSection` the same way (ui-primitives 0035).
+
+The picker also takes the props added by backlog 0034 (`fetchGatewayDefault`, `reasoningLadder`,
+`unknownReasoning`, `layout: "compact"`, `pinned`); see [API](./api.md). The console's Defaults
+modal and Sandbox selects (hardcoded reasoning and MTP ladders) can move onto it with a
+`reasoningLadder` read from `GET /api/gateway/discovery/capabilities`.
+
+### `mountToolModeEditor(el, props)`
+
+The kit's tool editor (`ToolModeEditor`: Off / Ask / Auto per tool, grouped by toolset) for
+plain-HTML hosts, with the component's props. `catalog` takes the served
+`GET /api/gateway/discovery/tools` answer as is (the island renders `ToolModeEditorForPayload`:
+the kit's `normalizeToolCatalog`, the answer's `catalog_warnings` shown, and "Tools unavailable: …"
+in place for a broken or failed answer, never a throw) or already-normalized items.
+The host keeps `value` (the layer's sparse diffs) and calls `update(props)` after each `onChange`.
+Intended for a console page over the gateway's tool settings (no such page exists yet).
 
 ### `bindModal(backdrop, options)`
 
@@ -3934,12 +4113,15 @@ This package provides:
 - **Theme tokens** (CSS variables + 21 theme classes): `@abstractframework/ui-kit/theme.css`
 - **Theme + typography helpers**: `applyTheme(...)`, `applyTypography(...)`, `THEME_SPECS`
 - **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker`,
-  `SpeculationSelect`, `ToolPolicyEditor`, `VoiceSettings`
+  `SpeculationSelect`, `ToolModeEditor` (with `ToolPolicyEditor` deprecated), `VoiceSettings`
 - **Gateway connection UI**: `GatewayConnectModal`, `useGatewayConnection()`,
   `GatewaySessionSignInCard`
-- **App chrome**: `AfTopBarActions`, `AfDrawer`, `AfRailDrawer` (vertical icon rail at the right
-  edge, panel beside it, resizable, collapses to icons), `AfAppearanceDialog` +
-  `useAppearanceSettings()`, `AfAbout` / `AfAboutDialog` (the compact About card)
+- **App chrome**: `AfAppShell` (header + top-right cluster + side panels + nav),
+  `AfTopBarActions` (with the signed-in identity), `AfDrawerSystem` (side panels: left/right,
+  rail or drawer mode, keep-alive, per-panel error boundary, canvas panels, per-panel widths),
+  `AfDrawer`, `AfRailDrawer` (the original icon rail, now a wrapper over `AfDrawerSystem`),
+  `AfAppearanceDialog` + `useAppearanceSettings()`, `AfAbout` / `AfAboutDialog` (the compact
+  About card)
 - **Files**: `AfFileViewer` (Markdown via the host renderer, highlighted code, JSON, images,
   audio, PDF, text; size/date header; download), `AfCodeBlock` / `highlightCode()` and
   `AfAudioPlayer` (the shared waveform audio player)
@@ -4008,9 +4190,28 @@ own the network calls and session storage; the component only collects the Gatew
 (optional), user id, token and remember-browser state, and calls the callbacks you provide.
 Most apps use it through `GatewayConnectModal` (below).
 
-### Tool policy editor
+### Tool selection: ToolModeEditor
 
-`ToolPolicyEditor` renders the shared allowlist + approve/ask picker for gateway tools. It has no
+`ToolModeEditor` is the one tool editor: Off / Ask / Auto per tool, grouped by toolset, on ONE
+sparse layer (the app's defaults or this conversation's changes) over what it inherits. The
+gateway's `approval_default` is the default of every tool; a layer stores only differences, so a
+tool the gateway adds later follows the gateway. Build the catalog with `normalizeToolCatalog`,
+the run input with `planRunTools` + `withRunTools`, and keep the layers with
+`createToolLayerStore` (browser storage, "Saved in this browser") until the gateway stores them.
+
+```tsx
+const catalog = normalizeToolCatalog(await request("api/gateway/discovery/tools"));
+const layers = { app: store.readApp("abstractcode.agent.v1"), session: store.readSession(sessionId) };
+<ToolModeEditor catalog={catalog} layer="session" value={layers.session}
+  inherited={inheritedToolModes(catalog, layers, "session")}
+  onChange={(next) => store.writeSession(sessionId, next)}
+  onReset={() => store.writeSession(sessionId, null)} />;
+const input = withRunTools(input_data, planRunTools(catalog, layers));
+```
+
+### Tool policy editor (deprecated)
+
+`ToolPolicyEditor` (deprecated for one minor: use `ToolModeEditor`) renders the shared allowlist + approve/ask picker for gateway tools. It has no
 deny mode: a tool is denied by removing it from the allowlist. Pass `toolMode` (and optional
 `toolModeLabel` / `toolModeDetail`) to surface the gateway tool execution mode in a banner.
 A tool may carry `state: { label, tooltip?, tone? }` — a server-reported state shown as a badge
@@ -4018,8 +4219,10 @@ under its name, with the server's sentence in the kit tooltip (AbstractCode pass
 command-sandbox state of process-spawning tools). The kit shows what it is given and never derives
 a state.
 
-The default approve/ask classification is exposed as `TOOL_POLICY_DEFAULTS` (mirrors the
-AbstractRuntime `ToolApprovalPolicy` defaults).
+A tool's served `approval_default` ("auto" | "ask", passed as is) decides its approve/ask
+default; `default_approval` ("approve" | "ask") is the older alias. Only when neither is given
+does `TOOL_POLICY_DEFAULTS` (a mirror of the AbstractRuntime `ToolApprovalPolicy` defaults)
+decide, and the row says so ("Kit default").
 
 ### Native MTP control
 
@@ -4027,6 +4230,12 @@ AbstractRuntime `ToolApprovalPolicy` defaults).
 complete model-capability payload as `capabilities`; only depths advertised under
 `execution.speculation.supported_depths` are offered. Missing capability data is shown as
 unknown, not guessed from a model name. Saved unavailable selections remain visible.
+
+`ProviderModelPicker` names the gateway default when given `fetchGatewayDefault`
+("Gateway default · ollama / qwen3 · reasoning high"); `createGatewayModelTransport(request)`
+supplies that and the other transports over the gateway's discovery routes, and `withRunModel`
+writes the choice into a run's `input_data`. See [API](../docs/api.md) for `reasoningLadder`,
+`unknownReasoning`, `layout="compact"` and `pinned`.
 
 `ProviderModelPicker` includes this control when `enableSpeculation` is true; supply its usual
 provider-aware capability transport. The `speculation` value is absent for inheritance, `false`
@@ -4067,8 +4276,9 @@ Use `GatewayConnectModal` for connect/disconnect UX. It pairs with the session p
 
 ## Unified top-right corner
 
-Every app renders the same upper-right cluster: assistant button → appearance button → About
-button → app extras → connection pill, always rightmost.
+Every app renders the same upper-right cluster, in this enforced order: app extras → Docs
+assistant → app assistant → appearance → About → who is signed in → connection pill, always
+rightmost.
 
 ```tsx
 const conn = useGatewayConnection({ appName: "My App", variant: "dismissable" });
@@ -4076,17 +4286,37 @@ const [appearance, setAppearance] = useAppearanceSettings("my-app", { legacyKey:
 
 <AfTopBarActions
   assistant={{ open: drawerOpen, onToggle: () => setDrawerOpen((v) => !v) }}
-  appearance={{ onOpen: () => setAppearanceOpen(true) }}
-  about={{ identity: appIdentity("abstractflow", APP_VERSION) }}
-  connection={{ phase: conn.phase, signingOut: conn.signingOut,
-                onConnect: conn.openModal, onDisconnect: () => void conn.signOut() }}
+  appearance={{ value: appearance, onChange: setAppearance }}       // the cluster owns the dialog
+  about={{ identity: appIdentity("abstractflow", APP_VERSION), fetch: fetchGateway }} // GET api/gateway/about on open
+  identity="menu"                                                    // Signed in as … · Copy user id · Disconnect
+  connection={conn}                                                  // the hook's return value
+  onSignOut={wipeAppState}                                           // only after a disconnect that happened
 />
-<AfDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} label="Assistant" title="Assistant">
+<AfDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} label="Assistant" title="Assistant" topOffset="auto">
   <AssistantPanel ask={myTransport} blockedNotice={conn.connected ? undefined : "Connect to use the assistant."} />
 </AfDrawer>
-<AfAppearanceDialog open={appearanceOpen} onClose={() => setAppearanceOpen(false)}
-                    value={appearance} onChange={setAppearance} />
 <GatewayConnectModal {...conn.modalProps} />
+```
+
+The legacy `connection={{ phase, signingOut, onConnect, onDisconnect }}` and
+`appearance={{ onOpen }}` shapes keep working. The identity shows the principal's user id (with
+its tenant when that is not `default`) and the gateway host; the gateway serves no display
+name, e-mail or avatar. The cluster publishes `--af-topbar-h` (the bottom of its header) so
+`topOffset="auto"` drawers open below the header.
+
+`AfAppShell` composes all of it:
+
+```tsx
+<AfAppShell
+  topBar={{ brand: { name: "AbstractFlow", mark: <Logo /> }, leading: <Toolbar />, connection: conn,
+            identity: "menu", docs: { open: active === "docs", onToggle: () => setActive((a) => (a === "docs" ? null : "docs")) } }}
+  drawers={{ ariaLabel: "Panels", storageKey: "abstractflow.drawers.v1", active, onActiveChange: (id) => setActive(id),
+             panels: [docsAssistantPanel({ app: "flow", name: "AbstractFlow" }, fetchGateway, { connected: conn.connected }),
+                      { id: "props", label: "Properties", icon: "settings", content: <Properties /> },
+                      { id: "palette", label: "Palette", icon: "list", side: "left", content: <Palette /> }] }}
+>
+  <Canvas />
+</AfAppShell>
 ```
 
 Rules:
@@ -4112,6 +4342,12 @@ Rules:
             { id: "settings", label: "Settings", icon: "cog", content: <Settings /> }]} />
 </div>
 ```
+- `AfDrawerSystem` generalises it: `panels` (`AfRailItem` + `side`, `mode: "rail" | "drawer"`,
+  `keepAlive: "visited" | "always"`, `errorBoundary` (default on), `fill` for a canvas that owns
+  its viewport, width bounds), `active` (one id or `{left, right}`), `onActiveChange(id, side)`,
+  ONE `storageKey` (each panel's width, and the open panel while docked), `railLabelStyle:
+  "vertical-text"`, `request: "id#nonce"`, `topOffset: "auto"`, `onResize(id, width)` and the
+  `--af-panel-w` variable. It never inspects a panel's content (ADR 0001 §6).
 - `AssistantPanel` (in `@abstractframework/panel-chat`) never fetches: the
   `ask(question, { signal, history })` transport is injected and may return a Promise or an
   AsyncIterable of deltas.
@@ -4193,8 +4429,35 @@ overrides it; the host stores the overrides.
 - Device names appear after one microphone permission (**Show names**). Safari does not let a page
   choose the output device: the picker stays on System default and says so.
 - Send what the user chose with `voiceTtsRequest(prefs)` / `voiceSttRequest(prefs)`, and play or
-  record through `useGatewayVoice({ output_device_id, input_device_id, volume, input_gain })`.
+  record through `useGatewayVoice({ ...gatewayVoiceOptions(prefs), tts_stream, transcribe })`
+  (devices, volume, mute, input level, capture mode).
 - `gatewayJson` and `voiceCatalogPath` above stand for your own authenticated transport.
+
+The Output and Microphone groups are standalone composables you can render anywhere voice
+settings appear (a composer popover, a rail panel), with no section around them:
+
+```tsx
+const [prefs, setPrefs] = useVoicePreferences("myapp.voice");        // same-tab + cross-tab sync
+const defaults = useVoiceDefaults(connected ? fetchVoiceDefaults : null, gatewayUrl);
+const voice = useGatewayVoice({ ...gatewayVoiceOptions(prefs), tts_stream, transcribe });
+
+<AfVoiceOutput value={prefs} onChange={setPrefs} />                  // device + Test, volume, Mute
+<AfVoiceInput value={prefs} onChange={setPrefs} levelSource={voice} />    // only the meter re-renders
+<AfVoiceMicButton voice={voice} mode={voiceCaptureMode(prefs)}
+  routeText={sttRouteText(prefs, defaults.value)} onTranscript={(text) => send(text)} />
+```
+
+- `AfVoiceMicButton` has one wording: **Hold to talk** ("Recording — release to send") or
+  **Tap to talk** ("Recording — tap to stop"). `voiceCaptureMode()` is the one reading of the
+  preference (anything but "toggle" is hold), used by `gatewayVoiceOptions` too. A button whose
+  hook was created with the other mode is shown disabled with the reason (and a console error);
+  it never throws.
+- `AfVoiceSection` takes `rows` (hide what the host ignores: `{tts: false}` for an entity that
+  speaks with its own voice, shown in Engines through `ttsSlot`; `mute` and `capture` are opt-in),
+  `voiceLibrary` (create, list, rename, delete, share the gateway's voices), `fetchLanguages`
+  (`GET voice/languages`) and `previewVoice` (**Play sample**).
+- The gateway's voice routes are in `GATEWAY_VOICE_ROUTES` and the path helpers
+  (`voiceClonePath`, `runVoiceTtsPath`, …), relative to `gatewayApiPath()`.
 
 ## Audio player
 
@@ -4430,6 +4693,11 @@ mounted while closed. No corpus is an error message, never an ungrounded answer.
   fetchGateway={(path, init) => fetch(path, { ...init, credentials: "same-origin" })} connected={connected} />
 ```
 
+In the kit's `AfDrawerSystem` (or `AfAppShell`'s `drawers`), mount the same conversation as a
+panel: `docsAssistantPanel(source, fetchGateway, { connected })` returns an `AfDrawerPanel` (drawer
+mode, kept alive) whose header actions (Past conversations, New conversation) sit in the panel
+header; toggle it from the top bar's `docs` button by making `"docs"` the active panel.
+
 ## App assistant
 
 `AssistantPanel` is the docs Q&A surface an app places in the kit's `AfDrawer`
@@ -4438,7 +4706,8 @@ transport that returns a `Promise<string>` or an `AsyncIterable<string>` of delt
 props: `assistantName`, `suggestions`, `emptyState`, `placeholder`, `blockedNotice` (disables
 the composer and shows the notice, e.g. while disconnected) and a controlled
 `messages` / `onMessagesChange` pair. See the
-[Adoption guide](../docs/adoption-guide.md) for the shared docs Q&A transport.
+[Adoption guide](../docs/adoption-guide.md). In an `AfDrawerSystem`, `assistantDrawerPanel({ ask,
+assistantName })` returns it as a kept-alive drawer-mode panel.
 
 ## Workflow chat
 
@@ -5514,7 +5783,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -5583,7 +5852,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.8.0",
@@ -6315,6 +6584,133 @@ export { AfTooltip, useAfTooltips, type AfTooltipProps } from "./af_tooltip.js";
 export { bindAfTooltips, acquireAfTooltips, afTooltipPlacement, AF_TOOLTIP_DELAY_MS, AF_TOOLTIP_ATTR, type BindAfTooltipsOptions, type AfTooltipPlacement, type AfTooltipRect } from "./af_tooltip_core.js";
 // ui-kit 0.8.7 (round 16, R16.1 A2): the account time-zone picker (preferences).
 export { AfTimeZonePicker, TIME_ZONE_GATEWAY_DEFAULT, timeZoneOptions, type AfTimeZonePickerProps, type TimeZonePreference } from "./time_zone_picker.js";
+// --- ui-primitives (voice) ---
+// 0035: voice IN / voice OUT as standalone composables, the one microphone button, the
+// preference and defaults hooks, the voice library, the gateway's voice routes.
+export { AfVoiceOutput, SAFARI_OUTPUT_NOTE, type AfVoiceOutputProps, type AfVoiceOutputLabels, type VoiceOutputValue, type VoiceDeviceLister } from "./af_voice_output.js";
+export { AfVoiceInput, clampInputGain, type AfVoiceInputProps, type AfVoiceInputLabels, type VoiceInputValue } from "./af_voice_input.js";
+export { AfVoiceMicButton, VOICE_MIC_TEXT, type AfVoiceMicButtonProps } from "./af_voice_mic_button.js";
+export { useVoiceDefaults, type VoiceDefaultsState } from "./use_voice_defaults.js";
+export { useVoicePreferences, loadVoicePreferences, saveVoicePreferences } from "./use_voice_preferences.js";
+export { VOICE_CAPTURE_OPTIONS, gatewayVoiceOptions, type AfVoiceSectionRows } from "./af_voice_section.js";
+export {
+  VoiceLibraryPanel,
+  VOICE_LANGUAGE_LABELS,
+  VOICE_RECORDING_MAX_MS,
+  voiceLanguagesFromAnswer,
+  voiceRecordId,
+  type VoiceLibrary,
+  type VoiceRecord,
+  type VoiceRecordFrom,
+  type VoicePlayOn,
+} from "./voice_settings.js";
+export { voiceCaptureMode, type VoiceCaptureMode } from "./use_gateway_voice.js";
+export { recordingAbortError } from "./voice_devices.js";
+export { AfVoiceLevelMeter, useVoiceLevel, type AfVoiceLevelMeterProps, type VoiceLevelSource } from "./af_voice_level_meter.js";
+export { GATEWAY_VOICE_ROUTES, voiceClonePath, voiceCloneDeployPath, runVoiceTtsPath, runTranscribePath, entityVoicePath } from "./gateway_paths.js";
+// --- ui-primitives (tools-models) ---
+// Backlog 0033 (tool selection) + 0034 (provider/model/reasoning/MTP picker), ADR 0001.
+export {
+  TOOL_MODES,
+  normalizeToolMode,
+  toolModeInDialect,
+  normalizeToolCatalog,
+  toolCatalogWarnings,
+  effectiveToolLayers,
+  resolveToolModes,
+  inheritedToolModes,
+  setToolMode,
+  setGroupToolMode,
+  BULK_AUTO_MAX_RANK,
+  bulkAutoReaches,
+  hasToolChoices,
+  planRunTools,
+  withRunTools,
+  toWorkflowApprovalPolicy,
+  trustAfterApproveAll,
+  approvalCovered,
+  type ToolMode,
+  type ToolModeDialect,
+  type ToolCatalogItem,
+  type ToolModeLayer,
+  type ToolLayers,
+  type ToolModeSource,
+  type ResolvedToolMode,
+  type RunToolPolicy,
+  type RunToolPlan,
+  type WorkflowToolApprovalPolicyShape,
+} from "./tool_plan.js";
+export {
+  ToolModeEditor,
+  ToolModeEditorForPayload,
+  type ToolModeEditorForPayloadProps,
+  TOOL_MODE_LABELS,
+  TOOL_LAYER_RESET,
+  TOOL_LAYER_OWNER,
+  BULK_AUTO_CAP_SENTENCE,
+  type ToolModeEditorProps,
+  type ToolModeLabels,
+} from "./tool_mode_editor.js";
+export {
+  createToolLayerStore,
+  toolIdentityKey,
+  TOOL_LAYER_STORE_WHERE,
+  TOOL_SESSION_LAYERS_MAX,
+  type ToolLayerStore,
+} from "./tool_layer_store.js";
+export { describeToolMode, toolPolicySelectionToLayer } from "./tool_policy_editor.js";
+export {
+  gatewayTextDefault,
+  gatewayDefaultSummary,
+  gatewayDefaultLabel,
+  reasoningLadderFrom,
+  createGatewayModelTransport,
+  withRunModel,
+  type GatewayModelDefault,
+  type GatewayRequest,
+  type GatewayModelTransport,
+  type RunModelValue,
+} from "./gateway_models.js";
+export {
+  GATEWAY_TOOLS_ROUTE,
+  GATEWAY_PROVIDERS_ROUTE,
+  GATEWAY_MODEL_CAPABILITIES_ROUTE,
+  GATEWAY_CAPABILITY_DEFAULTS_ROUTE,
+  GATEWAY_CAPABILITIES_ROUTE,
+  gatewayProviderModelsRoute,
+} from "./gateway_paths.js";
+export { PINNED_FIELD_TEXT } from "./provider_model_select.js";
+export { PICKER_REASONING_UNKNOWN, PICKER_REASONING_OVERRIDE } from "./provider_model_picker.js";
+// --- ui-primitives (shell) ---
+// Backlog 0036 (ADR 0001): the app shell — identity in the top-right cluster, the drawer
+// system (AfRailDrawer is now a wrapper over it), AfAppShell, the kit-owned About fetch.
+export { AfAppShell, type AfAppShellProps, type AfAppShellTopBar, type AfAppShellNav } from "./af_app_shell.js";
+export {
+  AfDrawerSystem,
+  AfPanelHeaderActions,
+  AfPanelErrorBoundary,
+  railDrawerDragWidth,
+  railDrawerSide,
+  railDrawerActiveFor,
+  railDrawerSetActive,
+  railDrawerParseRequest,
+  railDrawerMounted,
+  railDrawerReadStored,
+  railDrawerWriteStored,
+  railDrawerPanelWidth,
+  railDrawerStoredActive,
+  railDrawerTopOffset,
+  type AfDrawerSystemProps,
+  type AfDrawerPanel,
+  type AfDrawerActive,
+  type AfDrawerSide,
+  type AfDrawerStored,
+} from "./af_drawer_system.js";
+export { drawerTop, drawerFocusTarget } from "./af_drawer.js";
+export { topBarPillText, topBarConnection, identityTitle, useAfTopBarHeight, AF_TOPBAR_HEIGHT_VAR, type AfTopBarConnection } from "./af_top_bar_actions.js";
+export { principalFromConnection, principalLabel, gatewayHostLabel, AF_DEFAULT_TENANT, type AfPrincipal } from "./principal.js";
+export { fetchAboutVersions, ABOUT_VERSIONS_CHECKING, type AfGatewayFetch } from "./about.js";
+export type { GatewayPrincipalPayload } from "./gateway_connect_modal.js";
 
 ## ui-kit/src/responsive.ts
 
@@ -6613,6 +7009,7 @@ export function gatewayVersionRows(payload: GatewayAboutPayload | null, error?: 
 // click outside closes); a true modal (Tab / Shift+Tab cycle inside).
 import React, { useEffect, useId, useRef } from "react";
 import { frameworkIdentity, type AppIdentity, type GatewayAboutPayload } from "./identity.js";
+import { gatewayApiPath } from "./gateway_paths.js";
 import { Icon } from "./icon.js";
 import { useAfTooltips } from "./af_tooltip.js";
 
@@ -6641,6 +7038,11 @@ export type AfAboutProps = {
   titleId?: string;
   /** Rendered in the heading row, at the end (the dialog's Close button). */
   action?: React.ReactNode;
+  /**
+   * Host content under the links (e.g. the gateway console's update / restart
+   * controls), so a host never forks the About dialog. Omit = nothing.
+   */
+  extra?: React.ReactNode;
   className?: string;
 };
 
@@ -6648,6 +7050,31 @@ export type AfAboutDialogProps = Omit<AfAboutProps, "titleId" | "action" | "clas
   open: boolean;
   onClose: () => void;
 };
+
+/**
+ * The host's gateway fetch (relative `api/gateway/...` paths; bearer token or
+ * session cookie): structurally the same as panel-chat's `GatewayFetch`.
+ */
+export type AfGatewayFetch = (path: string, init?: RequestInit) => Promise<Response>;
+
+/**
+ * `GET api/gateway/about` (public on the gateway, routes/gateway.py:15753)
+ * through the host's fetch, as About versions. Never throws: a failed request
+ * becomes the labeled "unavailable (<reason>)" note.
+ */
+export async function fetchAboutVersions(fetchGateway: AfGatewayFetch, signal?: AbortSignal): Promise<AfAboutVersions> {
+  try {
+    const res = await fetchGateway(gatewayApiPath("about"), { method: "GET", headers: { Accept: "application/json" }, signal });
+    if (!res.ok) return aboutVersionsFromGateway(null, `HTTP ${res.status}`);
+    const payload = (await res.json().catch(() => null)) as GatewayAboutPayload | null;
+    return aboutVersionsFromGateway(payload);
+  } catch (e: any) {
+    return aboutVersionsFromGateway(null, String(e?.message || e || "request failed"));
+  }
+}
+
+/** What About shows while `fetchAboutVersions` is in flight. */
+export const ABOUT_VERSIONS_CHECKING: AfAboutVersions = { framework: null, frameworkNote: "checking…", gateway: null, gatewayNote: "checking…" };
 
 function versionOf(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -6773,6 +7200,7 @@ export function AfAbout(p: AfAboutProps): React.ReactElement {
           ),
         )}
       </nav>
+      {p.extra !== undefined && p.extra !== null ? <div className="af-about-card__extra">{p.extra}</div> : null}
       <p className="af-about-card__legal">{fw.copyright}</p>
     </div>
   );
@@ -6826,6 +7254,7 @@ export function AfAboutDialog(props: AfAboutDialogProps): React.ReactElement | n
         <AfAbout
           identity={props.identity}
           versions={props.versions}
+          extra={props.extra}
           titleId={titleId}
           action={
             <button ref={closeRef} type="button" className="af-about-card__close" data-action="close-about" onClick={props.onClose} aria-label="Close" data-af-tip="Close About">
@@ -6840,38 +7269,52 @@ export function AfAboutDialog(props: AfAboutDialogProps): React.ReactElement | n
 
 export default AfAboutDialog;
 
-## ui-kit/src/af_rail_drawer.tsx
+## ui-kit/src/af_drawer_system.tsx
 
-// AfRailDrawer — the vertical rail drawer (ui-kit 0.6.0).
+// AfDrawerSystem — the app shell's side panels (ADR 0001 §1 + §6, backlog 0036).
 //
-// Lifted from AbstractEntity's SideTabs (src/drawer.tsx) and Continuum Teams'
-// team drawer rail, with their gaps closed: a narrow ICON rail on the right
-// edge of the host's content area; clicking an icon opens that panel beside
-// the rail; clicking the open icon (or the panel's collapse button) collapses
-// back to the bare rail. The rail never goes away.
+// Generalises AfRailDrawer (which is now a thin wrapper over this): panels on
+// the RIGHT and/or the LEFT edge of the host content, each side with an
+// optional rail of tabs (icons, or vertical text labels) and one open panel.
 //
-// - Docked (≥ 1024 px by default): the panel is in the layout flow; its width
-//   is resizable by pointer (mouse, pen, touch: pointer capture) and by
-//   keyboard on the separator (Arrow keys ±16 px, Shift ±64, Home/End);
-//   the width persists under `storageKey`.
-// - Overlay (< 1024 px): the panel floats over the content beside the rail
-//   with a backdrop; Escape or a backdrop tap collapses it; focus moves into
-//   the panel and back to the icon that opened it.
-// - Rail: role=tablist (vertical), Up/Down/Home/End move focus, Enter/Space
-//   open; every icon is ≥ 44 px square with a tooltip and an accessible name.
-// - KEEP-ALIVE: a panel visited once stays mounted (hidden) so unfinished
-//   edits and long-running work survive switching panels.
-// - Escape follows the consumed-event convention of AfDrawer / AfModal.
-import React, { useCallback, useEffect, useRef, useState } from "react";
+// - Panels are OPAQUE (ADR 0001 §6): `{id, label, icon, content}` plus layout
+//   flags; the system never inspects `content`. `fill` removes the body's
+//   padding and scrolling so a canvas (a flow diagram, a memory graph) owns
+//   its viewport; `--af-panel-w` and `onResize(id, width)` let it refit.
+// - mode "rail" = a tab in the side's rail; mode "drawer" = no tab, opened by
+//   the host (the top bar's docs / assistant buttons) into the same area.
+// - Docked (above `overlayBelow`, default the `md` breakpoint): in the layout
+//   flow, resizable by pointer and keyboard (separator), width persisted PER
+//   PANEL. Overlay (below): floats over the content with a backdrop; Escape
+//   or a backdrop tap collapses it; focus moves in and back to the opener.
+// - Keep-alive: "visited" (default) mounts a panel on first open and keeps it
+//   (hidden); "always" mounts it at once (ReactFlow-like state survives).
+// - Each panel renders inside its own error boundary (default on): one panel
+//   throwing shows a labeled failure in THAT panel only.
+// - One kit-owned storage key holds the widths and the open panel per side;
+//   the open panel is persisted and restored only while docked (an overlay
+//   restored on load would cover the content).
+// - `request` ("id#nonce", AbstractEntity's controlled tab request) opens a
+//   panel from elsewhere; a new nonce re-requests the same id.
+// - `topOffset` ("auto" = `var(--af-topbar-h)`, published by AfTopBarActions)
+//   anchors the OVERLAY panel to the viewport under the app header.
+//
+// Every rule lives in a pure `railDrawer*` helper (scripts/check_rail_viewer.mjs
+// drives them without a DOM).
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Icon, type IconName } from "./icon.js";
 import { AF_MEDIA, useAfMedia } from "./responsive.js";
 
+export type AfDrawerSide = "left" | "right";
+
+/** One panel of a rail / drawer system. */
 export type AfRailItem = {
   id: string;
-  /** Short label: the icon's tooltip, accessible name and the panel title. */
+  /** Short label: the tab's tooltip, accessible name and the panel title. */
   label: string;
   icon: IconName;
-  /** A small count or dot on the icon (number → count, true → dot). */
+  /** A small count or dot on the tab (number → count, true → dot). */
   badge?: number | boolean;
   /** Extra tooltip text after the label (e.g. "3 running"). */
   hint?: string;
@@ -6879,6 +7322,660 @@ export type AfRailItem = {
   /** Header actions of this panel (before the collapse button). */
   headerActions?: React.ReactNode;
 };
+
+export type AfDrawerPanel = AfRailItem & {
+  /** Edge (default "right"). */
+  side?: AfDrawerSide;
+  /** "rail" (default) = a tab in the rail; "drawer" = no tab, opened by the host. */
+  mode?: "rail" | "drawer";
+  /** "visited" (default) = mounted on first open, then kept; "always" = mounted at once. */
+  keepAlive?: "always" | "visited";
+  /** Wrap the panel in its own error boundary (default true). */
+  errorBoundary?: boolean;
+  /** No padding, no scrolling: the content owns the panel's viewport (canvas panels). */
+  fill?: boolean;
+  minWidth?: number;
+  maxWidth?: number;
+  defaultWidth?: number;
+};
+
+/** The open panel: one id for the whole system, or one per side. */
+export type AfDrawerActive = string | null | { left?: string | null; right?: string | null };
+
+export type AfDrawerSystemProps = {
+  panels: AfDrawerPanel[];
+  active: AfDrawerActive;
+  /** `side` = where the change happened (a single-id host may ignore it). */
+  onActiveChange: (id: string | null, side: AfDrawerSide) => void;
+  /** Accessible name of the rail(s) ("Workspace panels"). */
+  ariaLabel: string;
+  /** One localStorage key: widths per panel + the open panel per side (docked only). Omit = not persisted. */
+  storageKey?: string;
+  /** Media query under which panels float (default AF_MEDIA.md, < 1024 px). */
+  overlayBelow?: string;
+  /** Force overlay (true) or docked (false); wins over `overlayBelow`. */
+  overlay?: boolean;
+  /** Anchor the overlay panel under the app header: "auto" = `--af-topbar-h`, or px. */
+  topOffset?: "auto" | number;
+  /** Rail tabs: icons (default) or vertical text labels. */
+  railLabelStyle?: "icon" | "vertical-text";
+  /** Opens a panel from elsewhere: "id" or "id#nonce" (a new nonce re-requests). */
+  request?: string | null;
+  /** A panel's width changed (drag end, keyboard). */
+  onResize?: (id: string, width: number) => void;
+  /** Restore the stored open panel on mount while docked (default true). */
+  restoreActive?: boolean;
+  /** Prefix for element ids (default "af-rail"). Must be unique on the page. */
+  idBase?: string;
+  className?: string;
+  /** The host content; required when there are LEFT panels (it sits between the sides). */
+  children?: React.ReactNode;
+};
+
+export const AF_RAIL_WIDTH = { min: 300, max: 960, default: 420, step: 16, bigStep: 64 } as const;
+
+/** The width clamped to [min, max] (non-finite → `fallback`). */
+export function railDrawerClampWidth(width: number, min: number = AF_RAIL_WIDTH.min, max: number = AF_RAIL_WIDTH.max, fallback: number = AF_RAIL_WIDTH.default): number {
+  if (!Number.isFinite(width)) return Math.min(max, Math.max(min, fallback));
+  return Math.round(Math.min(max, Math.max(min, width)));
+}
+
+/**
+ * The separator's keyboard rule. A RIGHT panel sits left of its rail, so
+ * ArrowLeft widens it; a LEFT panel sits right of its rail, so ArrowRight
+ * widens it. Shift moves a big step; Home = min, End = max. Null for other keys.
+ */
+export function railDrawerKeyWidth(width: number, key: string, shift: boolean, min: number = AF_RAIL_WIDTH.min, max: number = AF_RAIL_WIDTH.max, side: AfDrawerSide = "right"): number | null {
+  const step = shift ? AF_RAIL_WIDTH.bigStep : AF_RAIL_WIDTH.step;
+  const widen = side === "left" ? "ArrowRight" : "ArrowLeft";
+  const narrow = side === "left" ? "ArrowLeft" : "ArrowRight";
+  if (key === widen) return railDrawerClampWidth(width + step, min, max);
+  if (key === narrow) return railDrawerClampWidth(width - step, min, max);
+  if (key === "Home") return min;
+  if (key === "End") return max;
+  return null;
+}
+
+/** The width after a pointer drag of `dx` px (positive = rightwards). */
+export function railDrawerDragWidth(startWidth: number, dx: number, side: AfDrawerSide, min: number = AF_RAIL_WIDTH.min, max: number = AF_RAIL_WIDTH.max): number {
+  return railDrawerClampWidth(side === "left" ? startWidth + dx : startWidth - dx, min, max);
+}
+
+/** Rail focus movement: Up/Down wrap, Home/End jump; null for other keys. */
+export function railDrawerNextIndex(count: number, current: number, key: string): number | null {
+  if (count <= 0) return null;
+  if (key === "ArrowDown") return (current + 1) % count;
+  if (key === "ArrowUp") return (current - 1 + count) % count;
+  if (key === "Home") return 0;
+  if (key === "End") return count - 1;
+  return null;
+}
+
+/** What a click on a rail tab asks: open it, or collapse when it is already open. */
+export function railDrawerToggle(active: string | null, id: string): string | null {
+  return active === id ? null : id;
+}
+
+export function railDrawerSide(panel: Pick<AfDrawerPanel, "side">): AfDrawerSide {
+  return panel.side === "left" ? "left" : "right";
+}
+
+/** The open panel id on `side` (an id naming a panel of another side, or no panel, is null). */
+export function railDrawerActiveFor(active: AfDrawerActive, side: AfDrawerSide, panels: ReadonlyArray<Pick<AfDrawerPanel, "id" | "side">>): string | null {
+  const id = active === null || active === undefined ? null : typeof active === "string" ? active : active[side] ?? null;
+  if (!id) return null;
+  const panel = panels.find((p) => p.id === id);
+  return panel && railDrawerSide(panel) === side ? id : null;
+}
+
+/** `active` with `side` set to `id`, in the same shape (a single id stays a single id). */
+export function railDrawerSetActive(active: AfDrawerActive, side: AfDrawerSide, id: string | null): AfDrawerActive {
+  if (active !== null && typeof active === "object") return { ...active, [side]: id };
+  return id;
+}
+
+/** "files#3" → {id: "files", nonce: "3"}; "files" → {id: "files", nonce: ""}; empty → null. */
+export function railDrawerParseRequest(request: string | null | undefined): { id: string; nonce: string } | null {
+  const raw = String(request || "");
+  if (!raw) return null;
+  const at = raw.indexOf("#");
+  const id = at < 0 ? raw : raw.slice(0, at);
+  return id ? { id, nonce: at < 0 ? "" : raw.slice(at + 1) } : null;
+}
+
+/** Whether a panel's content is mounted: the open one, "always" panels, and visited "visited" panels. */
+export function railDrawerMounted(panel: Pick<AfDrawerPanel, "id" | "keepAlive">, activeId: string | null, visited: ReadonlySet<string>): boolean {
+  return panel.id === activeId || panel.keepAlive === "always" || visited.has(panel.id);
+}
+
+export type AfDrawerStored = { widths: Record<string, number>; active: { left?: string | null; right?: string | null }; legacyWidth?: number };
+
+/**
+ * Parse the stored state: `{"v":1,"widths":{id:px},"active":{"right":id},"legacy":px}`;
+ * a bare number (AfRailDrawer ≤ 0.8.9 stored one width) becomes every panel's
+ * width (`legacyWidth`, kept as `"legacy"` on every write so a panel that has
+ * no width of its own keeps it); anything unreadable is empty.
+ */
+export function railDrawerReadStored(raw: string | null | undefined): AfDrawerStored {
+  const empty: AfDrawerStored = { widths: {}, active: {} };
+  const text = String(raw ?? "").trim();
+  if (!text) return empty;
+  if (/^\d+(\.\d+)?$/.test(text)) return { ...empty, legacyWidth: Number(text) };
+  try {
+    const o = JSON.parse(text);
+    if (!o || typeof o !== "object" || Array.isArray(o)) return empty;
+    const widths: Record<string, number> = {};
+    if (o.widths && typeof o.widths === "object") for (const [k, v] of Object.entries(o.widths)) if (typeof v === "number" && Number.isFinite(v)) widths[k] = v;
+    const active: AfDrawerStored["active"] = {};
+    if (o.active && typeof o.active === "object") {
+      for (const side of ["left", "right"] as const) {
+        const v = (o.active as Record<string, unknown>)[side];
+        if (typeof v === "string" || v === null) active[side] = v;
+      }
+    }
+    const legacy = typeof o.legacy === "number" && Number.isFinite(o.legacy) ? o.legacy : undefined;
+    return legacy === undefined ? { widths, active } : { widths, active, legacyWidth: legacy };
+  } catch {
+    return empty;
+  }
+}
+
+export function railDrawerWriteStored(stored: AfDrawerStored): string {
+  return JSON.stringify({ v: 1, widths: stored.widths, active: stored.active, ...(stored.legacyWidth !== undefined ? { legacy: stored.legacyWidth } : {}) });
+}
+
+/** A panel's width: stored for it, else the legacy single width, else its default; clamped to its bounds. */
+export function railDrawerPanelWidth(stored: AfDrawerStored, panel: Pick<AfDrawerPanel, "id" | "minWidth" | "maxWidth" | "defaultWidth">, defaults?: { min?: number; max?: number; width?: number }): number {
+  const min = panel.minWidth ?? defaults?.min ?? AF_RAIL_WIDTH.min;
+  const max = panel.maxWidth ?? defaults?.max ?? AF_RAIL_WIDTH.max;
+  const fallback = panel.defaultWidth ?? defaults?.width ?? AF_RAIL_WIDTH.default;
+  const value = stored.widths[panel.id] ?? stored.legacyWidth;
+  return railDrawerClampWidth(value ?? fallback, min, max, fallback);
+}
+
+/** The open panel to restore on `side`: only while docked, only a panel that still exists there. */
+export function railDrawerStoredActive(stored: AfDrawerStored, side: AfDrawerSide, overlay: boolean, panels: ReadonlyArray<Pick<AfDrawerPanel, "id" | "side">>): string | null {
+  if (overlay) return null;
+  const id = stored.active[side];
+  if (!id) return null;
+  const panel = panels.find((p) => p.id === id);
+  return panel && railDrawerSide(panel) === side ? id : null;
+}
+
+/** The CSS `top` of an anchored overlay ("auto" = the published top-bar height); undefined = not anchored. */
+export function railDrawerTopOffset(topOffset: "auto" | number | undefined): string | undefined {
+  if (topOffset === "auto") return "var(--af-topbar-h, 0px)";
+  if (typeof topOffset === "number" && Number.isFinite(topOffset)) return `${Math.max(0, Math.round(topOffset))}px`;
+  return undefined;
+}
+
+// ------------------------------------------------------------ panel header slot
+
+/**
+ * Where a panel's own header actions go. undefined = not inside a drawer
+ * system (AfPanelHeaderActions renders in place); null = the slot is not
+ * mounted yet (renders nothing until it is).
+ */
+const AfPanelHeaderSlot = createContext<HTMLElement | null | undefined>(undefined);
+
+/**
+ * Header actions rendered from INSIDE a panel's content (state stays with the
+ * content): inside AfDrawerSystem they appear in the panel's header, before
+ * the collapse button; elsewhere they render in place.
+ */
+export function AfPanelHeaderActions(props: { children?: React.ReactNode }): React.ReactElement | null {
+  const slot = useContext(AfPanelHeaderSlot);
+  if (slot === undefined) return <>{props.children}</>;
+  if (slot === null) return null;
+  return createPortal(props.children, slot);
+}
+
+// ------------------------------------------------------------ error boundary
+
+type BoundaryProps = {
+  label: string;
+  /** "panel" (default) = the labeled notice + Try again; "inline" = a small warning icon (panel header actions). */
+  variant?: "panel" | "inline";
+  children?: React.ReactNode;
+};
+type BoundaryState = { error: Error | null };
+
+/** One panel's error boundary: a failure shows a labeled notice in that panel only. */
+export class AfPanelErrorBoundary extends React.Component<BoundaryProps, BoundaryState> {
+  state: BoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: unknown): BoundaryState {
+    return { error: error instanceof Error ? error : new Error(String(error)) };
+  }
+
+  render(): React.ReactNode {
+    const { error } = this.state;
+    if (!error) return this.props.children;
+    if (this.props.variant === "inline") {
+      const text = `The ${this.props.label} panel's actions stopped: ${error.message || "unknown error"}`;
+      return (
+        <span className="af-rail__error-inline" role="img" aria-label={text} data-af-tip={text} data-panel-error="actions">
+          <Icon name="warning" size={16} />
+        </span>
+      );
+    }
+    return (
+      <div className="af-rail__error" role="alert" data-panel-error="">
+        <p className="af-rail__error-text">
+          The {this.props.label} panel stopped: {error.message || "unknown error"}
+        </p>
+        <button type="button" className="af-rail__error-retry" onClick={() => this.setState({ error: null })}>
+          Try again
+        </button>
+      </div>
+    );
+  }
+}
+
+// ------------------------------------------------------------ one side
+
+function readStored(key: string | undefined): AfDrawerStored {
+  if (!key || typeof window === "undefined") return { widths: {}, active: {} };
+  try {
+    return railDrawerReadStored(window.localStorage.getItem(key));
+  } catch {
+    return { widths: {}, active: {} };
+  }
+}
+
+function writeStored(key: string | undefined, stored: AfDrawerStored): void {
+  if (!key || typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, railDrawerWriteStored(stored));
+  } catch {
+    /* in-memory state still applies */
+  }
+}
+
+function PanelSection(props: {
+  panel: AfDrawerPanel;
+  idBase: string;
+  open: boolean;
+  mounted: boolean;
+  overlay: boolean;
+  side: AfDrawerSide;
+  onCollapse: () => void;
+}): React.ReactElement {
+  const { panel } = props;
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  const body = props.mounted ? panel.content : null;
+  return (
+    <section
+      id={`${props.idBase}-panel-${panel.id}`}
+      role="tabpanel"
+      aria-labelledby={panel.mode === "drawer" ? undefined : `${props.idBase}-tab-${panel.id}`}
+      aria-label={panel.mode === "drawer" ? panel.label : undefined}
+      className="af-rail__section"
+      data-panel={panel.id}
+      hidden={!props.open}
+    >
+      <header className="af-rail__head">
+        <h2 className="af-rail__title">{panel.label}</h2>
+        <span className="af-rail__head-actions">
+          {panel.headerActions === undefined || panel.headerActions === null ? null : panel.errorBoundary === false ? (
+            panel.headerActions
+          ) : (
+            <AfPanelErrorBoundary label={panel.label} variant="inline">
+              {panel.headerActions}
+            </AfPanelErrorBoundary>
+          )}
+          <span className="af-rail__head-slot" ref={setSlot} />
+          <button
+            type="button"
+            className="af-rail__icon-btn"
+            data-action="collapse-panel"
+            aria-label={`Collapse ${panel.label}`}
+            title="Collapse"
+            onClick={props.onCollapse}
+          >
+            <Icon name={props.overlay ? "x" : "chevronRight"} size={16} />
+          </button>
+        </span>
+      </header>
+      <div className={`af-rail__body${panel.fill ? " af-rail__body--fill" : ""}`} data-fill={panel.fill ? "" : undefined}>
+        <AfPanelHeaderSlot.Provider value={slot}>
+          {panel.errorBoundary === false ? body : <AfPanelErrorBoundary label={panel.label}>{body}</AfPanelErrorBoundary>}
+        </AfPanelHeaderSlot.Provider>
+      </div>
+    </section>
+  );
+}
+
+function DrawerSide(props: {
+  side: AfDrawerSide;
+  panels: AfDrawerPanel[];
+  activeId: string | null;
+  onActiveChange: (id: string | null) => void;
+  overlay: boolean;
+  width: (panel: AfDrawerPanel) => number;
+  setWidth: (panel: AfDrawerPanel, width: number, final: boolean) => void;
+  ariaLabel: string;
+  idBase: string;
+  railLabelStyle: "icon" | "vertical-text";
+  top?: string;
+  className?: string;
+}): React.ReactElement {
+  const { side, panels, activeId, overlay, onActiveChange } = props;
+  const activePanel = panels.find((p) => p.id === activeId) || null;
+  const railPanels = panels.filter((p) => p.mode !== "drawer");
+  const [visited, setVisited] = useState<Set<string>>(() => new Set(activeId ? [activeId] : []));
+  const railRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const drag = useRef<{ startX: number; startW: number; pointerId: number } | null>(null);
+  const width = activePanel ? props.width(activePanel) : AF_RAIL_WIDTH.default;
+  const widthRef = useRef(width);
+  widthRef.current = width;
+  const min = activePanel?.minWidth ?? AF_RAIL_WIDTH.min;
+  const max = activePanel?.maxWidth ?? AF_RAIL_WIDTH.max;
+
+  useEffect(() => {
+    if (activeId) setVisited((prev) => (prev.has(activeId) ? prev : new Set([...prev, activeId])));
+  }, [activeId]);
+
+  // Overlay: Escape collapses (topmost layer only), focus moves in and back.
+  // Keyed on the open panel's ID (panel objects are often rebuilt every render).
+  const openId = activePanel ? activePanel.id : null;
+  const onActiveChangeRef = useRef(onActiveChange);
+  onActiveChangeRef.current = onActiveChange;
+  useEffect(() => {
+    if (!overlay || !openId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      e.preventDefault();
+      onActiveChangeRef.current(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [overlay, openId]);
+  useEffect(() => {
+    if (!overlay) return;
+    if (openId) {
+      if (!openerRef.current && typeof document !== "undefined") openerRef.current = document.activeElement as HTMLElement | null;
+      panelRef.current?.focus({ preventScroll: true });
+    } else {
+      const opener = openerRef.current;
+      openerRef.current = null;
+      const focused = typeof document !== "undefined" ? document.activeElement : null;
+      if (opener && (!focused || focused === document.body || panelRef.current?.contains(focused))) opener.focus?.();
+    }
+  }, [overlay, openId]);
+
+  const onRailKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const buttons = Array.from(railRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]') || []);
+    const current = buttons.findIndex((b) => b === document.activeElement);
+    const next = railDrawerNextIndex(buttons.length, current < 0 ? 0 : current, e.key);
+    if (next === null) return;
+    e.preventDefault();
+    buttons[next]?.focus();
+  };
+
+  const onSeparatorKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!activePanel) return;
+    const next = railDrawerKeyWidth(widthRef.current, e.key, e.shiftKey, min, max, side);
+    if (next === null) return;
+    e.preventDefault();
+    props.setWidth(activePanel, next, true);
+  };
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    drag.current = { startX: e.clientX, startW: widthRef.current, pointerId: e.pointerId };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d || d.pointerId !== e.pointerId || !activePanel) return;
+    props.setWidth(activePanel, railDrawerDragWidth(d.startW, e.clientX - d.startX, side, min, max), false);
+  };
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    drag.current = null;
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+    if (activePanel) props.setWidth(activePanel, widthRef.current, true);
+  };
+
+  const open = Boolean(activePanel);
+  const vertical = props.railLabelStyle === "vertical-text";
+  const anchored = overlay && props.top !== undefined;
+  const style = {
+    "--af-rail-panel-width": `${width}px`,
+    "--af-panel-w": `${width}px`,
+    ...(props.top !== undefined ? { "--af-drawers-top": props.top } : {}),
+  } as React.CSSProperties;
+  const rail =
+    railPanels.length > 0 ? (
+      <div ref={railRef} className="af-rail__rail" role="tablist" aria-orientation="vertical" aria-label={props.ariaLabel} onKeyDown={onRailKey}>
+        {railPanels.map((item) => {
+          const selected = item.id === activeId;
+          const tip = `${selected ? `Collapse ${item.label}` : item.label}${item.hint ? ` · ${item.hint}` : ""}`;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              id={`${props.idBase}-tab-${item.id}`}
+              aria-selected={selected}
+              aria-controls={`${props.idBase}-panel-${item.id}`}
+              aria-label={item.label}
+              title={tip}
+              className={`af-rail__tab${vertical ? " af-rail__tab--text" : ""}${selected ? " is-active" : ""}`}
+              data-rail={item.id}
+              onClick={(e) => {
+                openerRef.current = e.currentTarget;
+                onActiveChange(railDrawerToggle(activeId, item.id));
+              }}
+            >
+              {vertical ? (
+                <span className="af-rail__vlabel" aria-hidden="true">
+                  {item.label}
+                </span>
+              ) : (
+                <Icon name={item.icon} size={19} />
+              )}
+              {typeof item.badge === "number" && item.badge > 0 ? (
+                <span className="af-rail__badge" aria-hidden="true">
+                  {item.badge > 99 ? "99+" : item.badge}
+                </span>
+              ) : item.badge === true ? (
+                <span className="af-rail__dot" aria-hidden="true" />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    ) : null;
+
+  return (
+    <div
+      className={`af-rail${side === "left" ? " af-rail--left" : ""}${open ? " af-rail--open" : " af-rail--collapsed"}${overlay ? " af-rail--overlay" : " af-rail--docked"}${anchored ? " af-rail--anchored" : ""}${rail ? "" : " af-rail--no-rail"}${vertical ? " af-rail--vertical-text" : ""}${props.className ? ` ${props.className}` : ""}`}
+      style={style}
+      data-active={activeId || ""}
+      data-side={side}
+    >
+      {side === "left" ? rail : null}
+      {overlay && open ? <div className="af-rail__backdrop" aria-hidden="true" onClick={() => onActiveChange(null)} /> : null}
+      <div className="af-rail__panel-wrap" hidden={!open} style={!overlay && open ? { width } : undefined}>
+        {!overlay && open ? (
+          <div
+            className="af-rail__resize"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={`Resize the ${activePanel?.label || ""} panel`}
+            aria-valuemin={min}
+            aria-valuemax={max}
+            aria-valuenow={width}
+            tabIndex={0}
+            title="Drag to resize"
+            onKeyDown={onSeparatorKey}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+          />
+        ) : null}
+        <div
+          ref={panelRef}
+          className="af-rail__panel"
+          role={overlay ? "dialog" : undefined}
+          aria-label={overlay ? activePanel?.label : undefined}
+          tabIndex={overlay ? -1 : undefined}
+        >
+          {panels.map((panel) => (
+            <PanelSection
+              key={panel.id}
+              panel={panel}
+              idBase={props.idBase}
+              open={panel.id === activeId}
+              mounted={railDrawerMounted(panel, activeId, visited)}
+              overlay={overlay}
+              side={side}
+              onCollapse={() => onActiveChange(null)}
+            />
+          ))}
+        </div>
+      </div>
+      {side === "right" ? rail : null}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------ the system
+
+export function AfDrawerSystem(props: AfDrawerSystemProps): React.ReactElement {
+  const narrow = useAfMedia(props.overlayBelow || AF_MEDIA.md);
+  const overlay = props.overlay ?? narrow;
+  const idBase = props.idBase || "af-rail";
+  const { panels, onActiveChange, storageKey } = props;
+  const [stored, setStored] = useState<AfDrawerStored>(() => readStored(storageKey));
+  const storedRef = useRef(stored);
+  storedRef.current = stored;
+  const onResizeRef = useRef(props.onResize);
+  onResizeRef.current = props.onResize;
+
+  const left = panels.filter((p) => railDrawerSide(p) === "left");
+  const right = panels.filter((p) => railDrawerSide(p) === "right");
+  const activeLeft = railDrawerActiveFor(props.active, "left", panels);
+  const activeRight = railDrawerActiveFor(props.active, "right", panels);
+
+  const width = useCallback((panel: AfDrawerPanel) => railDrawerPanelWidth(stored, panel), [stored]);
+  const setWidth = useCallback(
+    (panel: AfDrawerPanel, w: number, final: boolean) => {
+      const next: AfDrawerStored = { ...storedRef.current, widths: { ...storedRef.current.widths, [panel.id]: railDrawerPanelWidth({ widths: { [panel.id]: w }, active: {} }, panel) } };
+      storedRef.current = next;
+      setStored(next);
+      if (final) {
+        writeStored(storageKey, next);
+        onResizeRef.current?.(panel.id, next.widths[panel.id]);
+      }
+    },
+    [storageKey],
+  );
+
+  // Restore the stored open panel once, while docked (never an overlay over the content).
+  const restored = useRef(false);
+  useEffect(() => {
+    if (restored.current) return;
+    restored.current = true;
+    if (props.restoreActive === false) return;
+    for (const side of ["left", "right"] as const) {
+      const current = side === "left" ? activeLeft : activeRight;
+      const want = railDrawerStoredActive(storedRef.current, side, overlay, panels);
+      if (!current && want) onActiveChange(want, side);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist the open panel per side while docked (an overlay session never overwrites it).
+  const persistedOnce = useRef(false);
+  useEffect(() => {
+    if (!persistedOnce.current) {
+      persistedOnce.current = true;
+      return;
+    }
+    if (overlay || !storageKey) return;
+    const next: AfDrawerStored = { ...storedRef.current, active: { left: activeLeft, right: activeRight } };
+    storedRef.current = next;
+    writeStored(storageKey, next);
+  }, [activeLeft, activeRight, overlay, storageKey]);
+
+  // A controlled request ("id#nonce") opens its panel.
+  useEffect(() => {
+    const req = railDrawerParseRequest(props.request);
+    if (!req) return;
+    const panel = panels.find((p) => p.id === req.id);
+    if (!panel) return;
+    const side = railDrawerSide(panel);
+    if ((side === "left" ? activeLeft : activeRight) !== req.id) onActiveChange(req.id, side);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.request]);
+
+  const top = overlay ? railDrawerTopOffset(props.topOffset) : undefined;
+  const railLabelStyle = props.railLabelStyle || "icon";
+  const sideNode = (side: AfDrawerSide, list: AfDrawerPanel[], activeId: string | null) =>
+    list.length ? (
+      <DrawerSide
+        side={side}
+        panels={list}
+        activeId={activeId}
+        onActiveChange={(id) => onActiveChange(id, side)}
+        overlay={overlay}
+        width={width}
+        setWidth={setWidth}
+        ariaLabel={left.length && right.length ? `${props.ariaLabel} (${side})` : props.ariaLabel}
+        idBase={idBase}
+        railLabelStyle={railLabelStyle}
+        top={top}
+        className={props.children === undefined ? props.className : undefined}
+      />
+    ) : null;
+
+  // Without children and without left panels the markup is exactly AfRailDrawer's (one .af-rail).
+  if (props.children === undefined && !left.length) return sideNode("right", right, activeRight) || <></>;
+  return (
+    <div className={`af-drawers${overlay ? " af-drawers--overlay" : ""}${props.className ? ` ${props.className}` : ""}`}>
+      {sideNode("left", left, activeLeft)}
+      <div className="af-drawers__main">{props.children}</div>
+      {sideNode("right", right, activeRight)}
+    </div>
+  );
+}
+
+export default AfDrawerSystem;
+
+## ui-kit/src/af_rail_drawer.tsx
+
+// AfRailDrawer — the vertical rail drawer (ui-kit 0.6.0), now a thin
+// back-compat wrapper over AfDrawerSystem (ui-primitives "shell", backlog 0036).
+//
+// A narrow ICON rail on the right edge of the host's content area; clicking
+// an icon opens that panel beside the rail; clicking the open icon (or the
+// panel's collapse button) collapses back to the bare rail. Docked ≥ 1024 px
+// (resizable by pointer and keyboard, width persisted under `storageKey`),
+// overlay below (backdrop, Escape, focus in/out), vertical tablist rail,
+// keep-alive once visited. New code: use AfDrawerSystem (left side, vertical
+// text tabs, keepAlive "always", error boundaries, per-panel widths, the
+// open panel persisted, a request nonce, `fill` canvas panels).
+//
+// Storage: the key now holds AfDrawerSystem's JSON; a bare number written by
+// ≤ 0.8.9 is read as every panel's width (no width is lost on upgrade).
+import React from "react";
+import { AfDrawerSystem, type AfRailItem } from "./af_drawer_system.js";
+
+export {
+  AF_RAIL_WIDTH,
+  railDrawerClampWidth,
+  railDrawerKeyWidth,
+  railDrawerNextIndex,
+  railDrawerToggle,
+  type AfRailItem,
+} from "./af_drawer_system.js";
 
 export type AfRailDrawerProps = {
   items: AfRailItem[];
@@ -6899,246 +7996,141 @@ export type AfRailDrawerProps = {
   className?: string;
 };
 
-export const AF_RAIL_WIDTH = { min: 300, max: 960, default: 420, step: 16, bigStep: 64 } as const;
-
-/** The width clamped to [min, max] (non-finite → `fallback`). */
-export function railDrawerClampWidth(width: number, min: number = AF_RAIL_WIDTH.min, max: number = AF_RAIL_WIDTH.max, fallback: number = AF_RAIL_WIDTH.default): number {
-  if (!Number.isFinite(width)) return Math.min(max, Math.max(min, fallback));
-  return Math.round(Math.min(max, Math.max(min, width)));
-}
-
-/**
- * The separator's keyboard rule. The panel sits LEFT of the rail, so
- * ArrowLeft widens and ArrowRight narrows; Shift moves a big step; Home = min,
- * End = max. Returns null for any other key.
- */
-export function railDrawerKeyWidth(width: number, key: string, shift: boolean, min: number = AF_RAIL_WIDTH.min, max: number = AF_RAIL_WIDTH.max): number | null {
-  const step = shift ? AF_RAIL_WIDTH.bigStep : AF_RAIL_WIDTH.step;
-  if (key === "ArrowLeft") return railDrawerClampWidth(width + step, min, max);
-  if (key === "ArrowRight") return railDrawerClampWidth(width - step, min, max);
-  if (key === "Home") return min;
-  if (key === "End") return max;
-  return null;
-}
-
-/** Rail focus movement: Up/Down wrap, Home/End jump; null for other keys. */
-export function railDrawerNextIndex(count: number, current: number, key: string): number | null {
-  if (count <= 0) return null;
-  if (key === "ArrowDown") return (current + 1) % count;
-  if (key === "ArrowUp") return (current - 1 + count) % count;
-  if (key === "Home") return 0;
-  if (key === "End") return count - 1;
-  return null;
-}
-
-/** What a click on a rail icon asks: open it, or collapse when it is already open. */
-export function railDrawerToggle(active: string | null, id: string): string | null {
-  return active === id ? null : id;
-}
-
-function readWidth(key: string | undefined, fallback: number, min: number, max: number): number {
-  if (!key) return railDrawerClampWidth(fallback, min, max);
-  try {
-    const raw = Number.parseInt(window.localStorage.getItem(key) || "", 10);
-    if (Number.isFinite(raw)) return railDrawerClampWidth(raw, min, max, fallback);
-  } catch {
-    /* storage unavailable: the default width */
-  }
-  return railDrawerClampWidth(fallback, min, max);
-}
-
 export function AfRailDrawer(props: AfRailDrawerProps): React.ReactElement {
-  const min = props.minWidth ?? AF_RAIL_WIDTH.min;
-  const max = props.maxWidth ?? AF_RAIL_WIDTH.max;
-  const idBase = props.idBase || "af-rail";
-  const narrow = useAfMedia(AF_MEDIA.md);
-  const overlay = props.overlay ?? narrow;
-  const [width, setWidth] = useState<number>(() => (typeof window === "undefined" ? railDrawerClampWidth(props.defaultWidth ?? AF_RAIL_WIDTH.default, min, max) : readWidth(props.storageKey, props.defaultWidth ?? AF_RAIL_WIDTH.default, min, max)));
-  const widthRef = useRef(width);
-  widthRef.current = width;
-  const [visited, setVisited] = useState<Set<string>>(() => new Set(props.active ? [props.active] : []));
-  const railRef = useRef<HTMLDivElement | null>(null);
-  const panelRef = useRef<HTMLDivElement | null>(null);
-  const openerRef = useRef<HTMLElement | null>(null);
-  const drag = useRef<{ startX: number; startW: number; pointerId: number } | null>(null);
-  const activeItem = props.items.find((item) => item.id === props.active) || null;
-  const { onActiveChange } = props;
-
-  useEffect(() => {
-    if (props.active) setVisited((prev) => (prev.has(props.active as string) ? prev : new Set([...prev, props.active as string])));
-  }, [props.active]);
-
-  const persist = useCallback(
-    (w: number) => {
-      if (!props.storageKey) return;
-      try {
-        window.localStorage.setItem(props.storageKey, String(Math.round(w)));
-      } catch {
-        /* in-memory width still applies */
-      }
-    },
-    [props.storageKey],
-  );
-
-  // Overlay: Escape collapses (topmost layer only), focus moves in and back.
-  useEffect(() => {
-    if (!overlay || !activeItem) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || e.defaultPrevented) return;
-      e.preventDefault();
-      onActiveChange(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [overlay, activeItem, onActiveChange]);
-  useEffect(() => {
-    if (!overlay) return;
-    if (activeItem) panelRef.current?.focus({ preventScroll: true });
-    else if (openerRef.current && document.activeElement && panelRef.current?.contains(document.activeElement)) openerRef.current.focus();
-  }, [overlay, activeItem]);
-
-  const onRailKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const buttons = Array.from(railRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]') || []);
-    const current = buttons.findIndex((b) => b === document.activeElement);
-    const next = railDrawerNextIndex(buttons.length, current < 0 ? 0 : current, e.key);
-    if (next === null) return;
-    e.preventDefault();
-    buttons[next]?.focus();
-  };
-
-  const onSeparatorKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const next = railDrawerKeyWidth(widthRef.current, e.key, e.shiftKey, min, max);
-    if (next === null) return;
-    e.preventDefault();
-    setWidth(next);
-    persist(next);
-  };
-
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0 && e.pointerType === "mouse") return;
-    drag.current = { startX: e.clientX, startW: widthRef.current, pointerId: e.pointerId };
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    e.preventDefault();
-  };
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const d = drag.current;
-    if (!d || d.pointerId !== e.pointerId) return;
-    // The panel is LEFT of the rail: moving left widens it.
-    setWidth(railDrawerClampWidth(d.startW + (d.startX - e.clientX), min, max));
-  };
-  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
-    const d = drag.current;
-    if (!d || d.pointerId !== e.pointerId) return;
-    drag.current = null;
-    e.currentTarget.releasePointerCapture?.(e.pointerId);
-    persist(widthRef.current);
-  };
-
-  const open = Boolean(activeItem);
+  const panels = props.items.map((item) => ({ ...item, defaultWidth: props.defaultWidth, minWidth: props.minWidth, maxWidth: props.maxWidth }));
   return (
-    <div
-      className={`af-rail${open ? " af-rail--open" : " af-rail--collapsed"}${overlay ? " af-rail--overlay" : " af-rail--docked"}${props.className ? ` ${props.className}` : ""}`}
-      style={{ "--af-rail-panel-width": `${width}px` } as React.CSSProperties}
-      data-active={props.active || ""}
-    >
-      {overlay && open ? <div className="af-rail__backdrop" aria-hidden="true" onClick={() => onActiveChange(null)} /> : null}
-      <div
-        className="af-rail__panel-wrap"
-        hidden={!open}
-        style={!overlay && open ? { width } : undefined}
-      >
-        {!overlay && open ? (
-          <div
-            className="af-rail__resize"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label={`Resize the ${activeItem?.label || ""} panel`}
-            aria-valuemin={min}
-            aria-valuemax={max}
-            aria-valuenow={width}
-            tabIndex={0}
-            title="Drag to resize"
-            onKeyDown={onSeparatorKey}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
-          />
+    <AfDrawerSystem
+      panels={panels}
+      active={props.active}
+      onActiveChange={(id) => props.onActiveChange(id)}
+      ariaLabel={props.ariaLabel}
+      storageKey={props.storageKey}
+      overlay={props.overlay}
+      idBase={props.idBase}
+      className={props.className}
+      restoreActive={false}
+    />
+  );
+}
+
+## ui-kit/src/af_app_shell.tsx
+
+// AfAppShell — one app shell for every AbstractFramework web app (ADR 0001 §1,
+// backlog 0036): the header (brand · leading · the top-right cluster), the
+// drawer system around the content, and an optional navigation sidebar.
+//
+// Composition only, no new behaviour:
+// - the header is `data-af-topbar`, so AfTopBarActions publishes its bottom
+//   edge as `--af-topbar-h` and every `topOffset: "auto"` drawer opens under it;
+// - `drawers` = AfDrawerSystemProps (panels are opaque, ADR 0001 §6);
+// - `nav` is docked at the left from the `md` breakpoint (1024 px) and an
+//   AfDrawer (left, backdrop, under the header) below it, opened by the
+//   header's "Navigation" button. The nav content is mounted in ONE place at a
+//   time.
+import React, { useState } from "react";
+import { AfDrawer } from "./af_drawer.js";
+import { AfDrawerSystem, type AfDrawerSystemProps } from "./af_drawer_system.js";
+import { AfTopBarActions, type AfTopBarActionsProps } from "./af_top_bar_actions.js";
+import { Icon } from "./icon.js";
+import { AF_MEDIA, useAfMedia } from "./responsive.js";
+
+export type AfAppShellTopBar = AfTopBarActionsProps & {
+  /** Left of the header: the app's mark and name (a link when `href`). */
+  brand?: { mark?: React.ReactNode; name: string; href?: string };
+  /** After the brand: a breadcrumb, a toolbar, a search field. */
+  leading?: React.ReactNode;
+};
+
+export type AfAppShellNav = {
+  /** Accessible name ("Conversations", "Navigation"). */
+  label: string;
+  content: React.ReactNode;
+  /** Controlled open state of the narrow-screen drawer (uncontrolled when omitted). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Width of the docked sidebar and the drawer (px, default 280). */
+  width?: number;
+};
+
+export type AfAppShellProps = {
+  topBar: AfAppShellTopBar;
+  /** The side panels (omit = none). `topOffset` defaults to "auto". */
+  drawers?: Omit<AfDrawerSystemProps, "children">;
+  nav?: AfAppShellNav;
+  children?: React.ReactNode;
+  className?: string;
+};
+
+export function AfAppShell(props: AfAppShellProps): React.ReactElement {
+  const { brand, leading, ...cluster } = props.topBar;
+  const narrow = useAfMedia(AF_MEDIA.md);
+  const [navOpenLocal, setNavOpenLocal] = useState(false);
+  const nav = props.nav;
+  const navOpen = nav?.open ?? navOpenLocal;
+  const setNavOpen = (open: boolean) => {
+    nav?.onOpenChange?.(open);
+    if (nav?.open === undefined) setNavOpenLocal(open);
+  };
+  const navWidth = nav?.width ?? 280;
+
+  const brandNode = brand ? (
+    brand.href ? (
+      <a className="af-shell__brand" href={brand.href}>
+        {brand.mark}
+        <span className="af-shell__brand-name">{brand.name}</span>
+      </a>
+    ) : (
+      <span className="af-shell__brand">
+        {brand.mark}
+        <span className="af-shell__brand-name">{brand.name}</span>
+      </span>
+    )
+  ) : null;
+
+  const main = <main className="af-shell__main">{props.children}</main>;
+  return (
+    <div className={`af-shell${props.className ? ` ${props.className}` : ""}`}>
+      <header className="af-shell__top" data-af-topbar="">
+        {nav && narrow ? (
+          <button
+            type="button"
+            className="af-topbar__btn af-shell__nav-toggle"
+            aria-label={`Open ${nav.label}`}
+            data-af-tip={nav.label}
+            aria-expanded={navOpen}
+            onClick={() => setNavOpen(!navOpen)}
+          >
+            <Icon name="list" size={16} />
+          </button>
         ) : null}
-        <div
-          ref={panelRef}
-          className="af-rail__panel"
-          role={overlay ? "dialog" : undefined}
-          aria-label={overlay ? activeItem?.label : undefined}
-          tabIndex={overlay ? -1 : undefined}
-        >
-          {props.items.map((item) => (
-            <section
-              key={item.id}
-              id={`${idBase}-panel-${item.id}`}
-              role="tabpanel"
-              aria-labelledby={`${idBase}-tab-${item.id}`}
-              className="af-rail__section"
-              data-panel={item.id}
-              hidden={item.id !== props.active}
-            >
-              <header className="af-rail__head">
-                <h2 className="af-rail__title">{item.label}</h2>
-                <span className="af-rail__head-actions">
-                  {item.headerActions}
-                  <button
-                    type="button"
-                    className="af-rail__icon-btn"
-                    data-action="collapse-panel"
-                    aria-label={`Collapse ${item.label}`}
-                    title="Collapse"
-                    onClick={() => onActiveChange(null)}
-                  >
-                    <Icon name={overlay ? "x" : "chevronRight"} size={16} />
-                  </button>
-                </span>
-              </header>
-              <div className="af-rail__body">{visited.has(item.id) || item.id === props.active ? item.content : null}</div>
-            </section>
-          ))}
-        </div>
+        {brandNode}
+        <div className="af-shell__leading">{leading}</div>
+        <AfTopBarActions {...cluster} />
+      </header>
+      <div className="af-shell__body">
+        {nav && !narrow ? (
+          <nav className="af-shell__nav" aria-label={nav.label} style={{ width: navWidth }}>
+            {nav.content}
+          </nav>
+        ) : null}
+        {props.drawers ? (
+          <AfDrawerSystem {...props.drawers} topOffset={props.drawers.topOffset ?? "auto"}>
+            {main}
+          </AfDrawerSystem>
+        ) : (
+          main
+        )}
       </div>
-      <div ref={railRef} className="af-rail__rail" role="tablist" aria-orientation="vertical" aria-label={props.ariaLabel} onKeyDown={onRailKey}>
-        {props.items.map((item) => {
-          const selected = item.id === props.active;
-          const tip = `${selected ? `Collapse ${item.label}` : item.label}${item.hint ? ` · ${item.hint}` : ""}`;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              id={`${idBase}-tab-${item.id}`}
-              aria-selected={selected}
-              aria-controls={`${idBase}-panel-${item.id}`}
-              aria-label={item.label}
-              title={tip}
-              className={`af-rail__tab${selected ? " is-active" : ""}`}
-              data-rail={item.id}
-              onClick={(e) => {
-                openerRef.current = e.currentTarget;
-                onActiveChange(railDrawerToggle(props.active, item.id));
-              }}
-            >
-              <Icon name={item.icon} size={19} />
-              {typeof item.badge === "number" && item.badge > 0 ? (
-                <span className="af-rail__badge" aria-hidden="true">
-                  {item.badge > 99 ? "99+" : item.badge}
-                </span>
-              ) : item.badge === true ? (
-                <span className="af-rail__dot" aria-hidden="true" />
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
+      {nav && narrow ? (
+        <AfDrawer open={navOpen} onClose={() => setNavOpen(false)} label={nav.label} side="left" backdrop topOffset="auto" width={navWidth}>
+          {nav.content}
+        </AfDrawer>
+      ) : null}
     </div>
   );
 }
+
+export default AfAppShell;
 
 ## ui-kit/src/af_file_viewer.tsx
 
@@ -8029,9 +9021,12 @@ export type GatewayConnection = {
   /**
    * Sign out through the machine (settings pages that bypass the modal —
    * observer's adoption datum c1323): server-side sign-out, then a fresh
-   * probe so phase/auto-open react to the REAL resulting state.
+   * probe so phase/auto-open react to the REAL resulting state. Never
+   * rejects; resolves true when the sign-out happened (the request succeeded
+   * and the follow-up probe no longer reports a session), false otherwise
+   * (`signOutError` says why when the request failed).
    */
-  signOut: () => Promise<void>;
+  signOut: () => Promise<boolean>;
   /** Spread into <GatewayConnectModal {...modalProps} />. */
   modalProps: {
     isOpen: boolean;
@@ -8182,6 +9177,7 @@ export function useGatewayConnection(options?: UseGatewayConnectionOptions): Gat
     }
     setSignOutError(failed);
     setSigningOut(false);
+    return failed === null && phaseRef.current !== "connected";
   }, [connectionPath, refresh]);
 
   const booted = useRef(false);
@@ -8308,6 +9304,76 @@ export function gatewayResourcePath(serverUrl: string): string {
       throw new Error(`Not a gateway API path: ${JSON.stringify(u)} (a "." or ".." segment).`);
   }
   return u.slice(1);
+}
+
+// --- ui-primitives (voice) ---
+// The gateway's voice routes, relative to the gateway API (feed them to
+// `gatewayApiPath`): one place instead of every app writing its own strings
+// (audit voice.md §A6). Read in routes/gateway.py and routes/voice_library.py.
+const seg = (value: string, what: string): string => {
+  const v = String(value || "");
+  if (!v) throw new Error(`A voice route needs a ${what}.`);
+  return encodeURIComponent(v);
+};
+
+export const GATEWAY_VOICE_ROUTES = {
+  /** GET: the default voice routes (routes/gateway.py:19418-19428). */
+  defaults: "voice/defaults",
+  /** GET `?compact=true&provider&model&language`: the voice catalog (routes/gateway.py:19431-19523). */
+  voices: "voice/voices",
+  /** GET `?kind=tts|stt|cloning&provider`: the languages each engine accepts (routes/voice_library.py:109-118). */
+  languages: "voice/languages",
+  /** GET `?provider&model&language` (list), POST multipart (clone): the voice library (routes/voice_library.py:121-170). */
+  clones: "voice/clones",
+  /** POST `{description, name?, language?, text?}`: a voice from a description (routes/voice_library.py:189-200). */
+  design: "voice/design",
+  /** GET: which engine supports which feature (routes/voice_library.py:221-227). */
+  compatibility: "voice/compatibility",
+} as const;
+
+/** GET / PATCH / DELETE one library voice: "voice/clones/{voice_id}" (routes/voice_library.py:133-186). */
+export function voiceClonePath(voiceId: string): string {
+  return `voice/clones/${seg(voiceId, "voice id")}`;
+}
+
+/** POST (administrators): share a voice with everyone (routes/voice_library.py:203-218). */
+export function voiceCloneDeployPath(voiceId: string): string {
+  return `${voiceClonePath(voiceId)}/deploy`;
+}
+
+/** POST: speech for a run, whole ("runs/{id}/voice/tts", routes/gateway.py:12753) or streamed as JSON lines (:12950). */
+export function runVoiceTtsPath(runId: string, stream = false): string {
+  return `runs/${seg(runId, "run id")}/voice/tts${stream ? "/stream" : ""}`;
+}
+
+/** POST: transcribe an uploaded recording for a run (routes/gateway.py:13322). */
+export function runTranscribePath(runId: string): string {
+  return `runs/${seg(runId, "run id")}/audio/transcribe`;
+}
+
+/** GET / PUT an entity's own voice; with `tts`, speech in that voice (routes/entities.py:5293, :5341, :5451, :5470). */
+export function entityVoicePath(entity: string, tts: "" | "tts" | "tts/stream" = ""): string {
+  return `entities/${seg(entity, "entity name")}/voice${tts ? `/${tts}` : ""}`;
+}
+
+// --- ui-primitives (tools-models) ---
+// The gateway routes the tool and model pickers read (relative to the gateway API; build the
+// request path with gatewayApiPath). Read in the live gateway source, routes/gateway.py:
+/** `GET discovery/tools` → `{items:[{name, toolset, enabled, approval_default, risk_rank, …}], tool_mode}` (:15568). */
+export const GATEWAY_TOOLS_ROUTE = "discovery/tools";
+/** `GET discovery/providers?include_models=` → `{items:[{id, label, …}], default_provider, default_model}` (:20322). */
+export const GATEWAY_PROVIDERS_ROUTE = "discovery/providers";
+/** `GET discovery/models/capabilities?model_name&provider` → `{capabilities, execution:{speculation}}` (:20671). */
+export const GATEWAY_MODEL_CAPABILITIES_ROUTE = "discovery/models/capabilities";
+/** `GET config/capability-defaults` → `{routes:[{key, provider, model, reasoning, options, source}]}` (:27748). */
+export const GATEWAY_CAPABILITY_DEFAULTS_ROUTE = "config/capability-defaults";
+/** `GET discovery/capabilities` → `{capabilities:{contracts:{common:{runs:{start:{thinking_control}}}}}}` (:19285). */
+export const GATEWAY_CAPABILITIES_ROUTE = "discovery/capabilities";
+/** `GET discovery/providers/{provider}/models` (:20475); the provider is one encoded path segment. */
+export function gatewayProviderModelsRoute(provider: string): string {
+  const p = String(provider || "").trim();
+  if (!p) throw new Error("gatewayProviderModelsRoute needs a provider.");
+  return `${GATEWAY_PROVIDERS_ROUTE}/${encodeURIComponent(p)}/models`;
 }
 
 ## ui-kit/src/automations/types.ts
@@ -10050,6 +11116,8 @@ tell the AbstractObserver and AbstractAssistant maintainers.
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { AfTopBarActions } from "../src/af_top_bar_actions.js";
+import { AfDrawerSystem, type AfDrawerPanel, type AfDrawerSystemProps } from "../src/af_drawer_system.js";
+import type { GatewayConnectionState } from "../src/gateway_connect_modal.js";
 import { AfAppearanceDialog, type AppearanceSettings } from "../src/appearance.js";
 import { AfAboutDialog, aboutVersionsFromGateway, type AfAboutVersions } from "../src/about.js";
 import { appIdentity, type AppIdentity } from "../src/identity.js";
@@ -10062,7 +11130,9 @@ import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typograph
 import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
 import { useGatewayVoice } from "../src/use_gateway_voice.js";
 import { ProviderModelPicker, type ProviderModelPickerProps } from "../src/provider_model_picker.js";
+import { ToolModeEditorForPayload, type ToolModeEditorForPayloadProps } from "../src/tool_mode_editor.js";
 import { VoiceSettings } from "../src/voice_settings.js";
+import { AfVoiceSection, type AfVoiceSectionProps } from "../src/af_voice_section.js";
 import { WorkspaceChooser, type WorkspaceChooserProps } from "../src/workspace_chooser.js";
 import { WORKSPACE_CHOOSER_TEXT, workspaceAsState } from "../src/workspace_chooser_core.js";
 import { AfTimeZonePicker, type AfTimeZonePickerProps } from "../src/time_zone_picker.js";
@@ -10101,13 +11171,41 @@ export type TopBarIslandProps = {
   /** The About button + dialog, owned by the cluster (omit/null hides it). */
   about?: { identity: AppIdentity; versions?: AfAboutVersions; onOpen?: () => void; label?: string } | null;
   extras?: IslandExtraAction[];
+  /**
+   * Who is signed in, left of the pill (kit identity: "badge" or "menu" with
+   * Copy user id / Sign out). Replaces the `extras: [{text: "<tenant>/<user>"}]`
+   * convention (which keeps working). Reads `connection.status` or
+   * `connection.me`. Additive (shell, backlog 0036): apiVersion stays "2".
+   */
+  identity?: "badge" | "menu" | null;
   connection: {
     phase: GatewayConnectionPhase;
     signingOut?: boolean;
     onConnect: () => void;
     onDisconnect: () => void;
+    /** The app server's connection status (apps behind app-server). */
+    status?: GatewayConnectionState | null;
+    /** The last disconnect's failure, rendered beside the pill. */
+    signOutError?: string | null;
+    /**
+     * The gateway's own `GET /api/gateway/me` body (routes/gateway.py:351-365),
+     * for a host on the gateway's origin (the console): read as a signed-in
+     * status on `location.origin`. Ignored when `status` is given.
+     */
+    me?: GatewayConnectionState["gateway"] | null;
   };
 };
+
+/** The connection status an island renders: `status`, else the console's `/me` body on this origin. */
+export function islandConnectionStatus(c: TopBarIslandProps["connection"]): GatewayConnectionState | null {
+  // Never a connected identity beside a pill that is not connected (a stale `me` after sign-out).
+  if (c.phase !== "connected") return null;
+  if (c.status !== undefined) return c.status;
+  const me = c.me;
+  if (!me || me.ok === false) return null;
+  const origin = typeof location !== "undefined" ? location.origin : "";
+  return { ok: true, has_session: true, gateway_url: origin, gateway: me };
+}
 
 export type AppearanceIslandProps = {
   open: boolean;
@@ -10208,6 +11306,7 @@ function extrasNode(extras: IslandExtraAction[] | undefined): React.ReactNode {
 }
 
 function TopBarIsland(props: TopBarIslandProps): React.ReactElement {
+  const { me: _me, ...connection } = props.connection;
   return (
     <AfTopBarActions
       docs={props.docs || undefined}
@@ -10215,8 +11314,38 @@ function TopBarIsland(props: TopBarIslandProps): React.ReactElement {
       appearance={props.appearance || undefined}
       about={props.about || undefined}
       extraActions={extrasNode(props.extras)}
-      connection={props.connection}
+      identity={props.identity || false}
+      connection={{ ...connection, status: islandConnectionStatus(props.connection) }}
     />
+  );
+}
+
+/** A drawer-system panel whose content is a host-owned DOM element (moved into the panel). */
+export type IslandDrawerPanel = Omit<AfDrawerPanel, "content" | "headerActions"> & { element: HTMLElement };
+
+export type DrawerSystemIslandProps = Omit<AfDrawerSystemProps, "panels" | "children"> & {
+  panels: IslandDrawerPanel[];
+  /** The host content between the sides (required with LEFT panels). */
+  main?: HTMLElement | null;
+};
+
+/** Hosts an element the page owns inside a React tree (moved in on mount, never cloned). */
+function HostElement(props: { element: HTMLElement; className?: string }): React.ReactElement {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const box = ref.current;
+    if (!box || props.element.parentNode === box) return;
+    box.appendChild(props.element);
+  }, [props.element]);
+  return <div ref={ref} className={props.className || "af-island-host"} />;
+}
+
+function DrawerSystemIsland(props: DrawerSystemIslandProps): React.ReactElement {
+  const { panels, main, ...rest } = props;
+  return (
+    <AfDrawerSystem {...rest} panels={panels.map(({ element, ...p }) => ({ ...p, content: <HostElement element={element} /> }))}>
+      {main ? <HostElement element={main} className="af-island-host af-island-host--main" /> : undefined}
+    </AfDrawerSystem>
   );
 }
 
@@ -10390,14 +11519,41 @@ export function mountProviderModelPicker(el: Element, props: ProviderModelPicker
   return mount(el, (p) => <ProviderModelPicker {...p} />, props);
 }
 
+// ui-primitives (tools-models, backlog 0033): the tool editor for the console (e.g. a page for the
+// gateway's /tool-grants default, audit gateway gap 6). Host-driven like every island: the console
+// passes the catalog — the served GET discovery/tools answer as is (normalized here with the kit's
+// normalizeToolCatalog, so the console keeps no copy of it; its `catalog_warnings` are shown) or
+// already normalized items — the layer value and onChange. A broken answer renders a labeled
+// error in place (never a throw after the root is attached).
+export type ToolModeEditorIslandProps = ToolModeEditorForPayloadProps;
+export function mountToolModeEditor(el: Element, props: ToolModeEditorIslandProps): IslandHandle<ToolModeEditorIslandProps> {
+  return mount(el, (p) => <ToolModeEditorForPayload {...p} />, props);
+}
+
 export type VoiceSettingsIslandProps = React.ComponentProps<typeof VoiceSettings>;
 
 /**
  * The shared voice picker (provider + model + voice, "Gateway default"),
- * transport injected (fetchCatalog). Additive member (round 3).
+ * transport injected (fetchCatalog). Additive member (round 3). Its props
+ * carry `voiceLibrary` (ui-primitives 0035): creation plus list / rename /
+ * remove / share over the gateway's voice library (`voice/clones`), and
+ * `previewVoice` ("Play sample").
  */
 export function mountVoiceSettings(el: Element, props: VoiceSettingsIslandProps): IslandHandle<VoiceSettingsIslandProps> {
   return mount(el, (p) => <VoiceSettings {...p} />, props);
+}
+
+export type VoiceSectionIslandProps = AfVoiceSectionProps;
+
+/**
+ * The whole voice section (`AfVoiceSection`: Engines, Output, Microphone,
+ * Replies) for plain-HTML hosts, the same component the apps render. Props are
+ * the component's own (transport injected: fetchCatalog, fetchDefaults,
+ * voiceLibrary, fetchLanguages, previewVoice). Additive member
+ * (ui-primitives 0035): apiVersion stays "2".
+ */
+export function mountVoiceSection(el: Element, props: VoiceSectionIslandProps): IslandHandle<VoiceSectionIslandProps> {
+  return mount(el, (p) => <AfVoiceSection {...p} />, props);
 }
 
 /**
@@ -10472,6 +11628,17 @@ export function mountDocsAssistant(el: Element, props: DocsAssistantIslandProps)
   return mount(el, (p) => <DocsAssistantDrawer {...p} />, props);
 }
 
+/**
+ * The kit drawer system (shell, backlog 0036): side panels with a rail,
+ * docked or overlay, resizable, persisted under `storageKey`. Each panel's
+ * content is a host element (`element`) the island moves into the panel and
+ * keeps alive. The host owns `active` and re-calls update() from
+ * `onActiveChange`. Additive member: apiVersion stays "2".
+ */
+export function mountDrawerSystem(el: Element, props: DrawerSystemIslandProps): IslandHandle<DrawerSystemIslandProps> {
+  return mount(el, (p) => <DrawerSystemIsland {...p} />, props);
+}
+
 export function applyAppearance(settings: Partial<AppearanceSettings>): void {
   applyTheme(String(settings.theme || "dark"));
   applyTypography({ font_scale: settings.font_scale, header_density: settings.header_density });
@@ -10488,8 +11655,13 @@ const api = {
   mountAbout,
   mountSandboxChat,
   mountProviderModelPicker,
+  mountToolModeEditor,
   mountVoiceSettings,
+  mountVoiceSection,
   mountDocsAssistant,
+  mountDrawerSystem,
+  // The identity source the top bar island reads (shell, 0036): exposed so hosts and checks see the rule.
+  islandConnectionStatus,
   mountWorkspaceChooser,
   mountTimeZonePicker,
   // The chooser's ONE wording table and its answer parser (round 11): the console builds the
@@ -12465,6 +13637,9 @@ export type { ChatSteer, ChatSteerMode, ChatSteerResult, ChatToolbar } from "./w
 export { chatMediaFromArtifact, chatMediaForArtifacts } from "./chat_media.js";
 export type { ResolvedArtifact } from "./workflow_runtime.js";
 export { fileRawLink, isLocalObjectUrl, objectUrlRawLinkSafe } from "./chat_media.js";
+// --- ui-primitives (shell) ---
+export { DocsAssistantPanelContent, docsAssistantPanel, type DocsAssistantChatProps, type DocsAssistantPanelOptions } from "./docs_assistant.js";
+export { assistantDrawerPanel, type AssistantDrawerPanelOptions } from "./assistant_panel.js";
 
 ## panel-chat/src/chat_message_card.tsx
 
@@ -17138,6 +18313,130 @@ panel-chat (and one ui-kit file):
   refs or generated-media events into `message.media` itself.
 - Checks: `check_present_interaction.mjs` (extended), `check_chat_surface.mjs` (new), `check_chat_media.mjs`
   (extended), ui-kit `check_file_viewer_video.mjs` (new); each was seen red under a mutation.
+### voice: voice IN / voice OUT as standalone composables, one microphone button, the voice library (backlog 0035, ADR 0001 §5 and §8)
+
+Packages: `@abstractframework/ui-kit` (no version bump here; the lead sequences the release).
+
+- **`AfVoiceOutput`** (voice OUT: output device + **Test** chime on the chosen speaker, **Reply volume**, **Mute**)
+  and **`AfVoiceInput`** (voice IN: input device + **Test**, a live level meter, **Show names**, **Input level**)
+  render alone, with no section around them, wherever voice settings appear. Controlled: the value may be the
+  whole preferences, `onChange` returns it merged.
+- **`AfVoiceSection`** renders its Output and Microphone groups with these two components (same rows, same checks).
+  New props: `rows` (`{tts: false}` fixes the entity's ignored TTS override row; `mute` and `capture` are opt-in),
+  `ttsSlot` (a host-owned voice in Engines), `voiceLibrary` (supersedes `createVoice`, kept as an alias),
+  `previewVoice` (**Play sample**), `fetchLanguages` (Spoken language from `GET voice/languages`; the hardcoded
+  10-language list is gone: one 15-language table, `VOICE_LANGUAGE_LABELS`), `captureDefaults`, `levelSource`.
+  New preferences `reply_muted`, `capture_mode` (**Hold to talk** / **Tap to talk**), `auto_send` (**Send what you
+  say automatically**); `gatewayVoiceOptions(prefs)` maps them to the hook.
+- **`useGatewayVoice`**: `subscribe_level` (the meter moves during a real recording, not only during Test; a
+  subscription, so only `AfVoiceLevelMeter` / `useVoiceLevel` re-render, never the hook's owner), `muted`
+  (gain 0 at once, the volume kept), `capture_mode` (`"toggle"` never stops on a pointer release),
+  `voice_capture_mode`, `add_transcript_listener`. Every returned function keeps a stable identity.
+- **`AfVoiceMicButton`**: one wording ("Hold to talk" → "Recording — release to send"; "Tap to talk" → "Recording —
+  tap to stop"), a live meter, "Recording… 3 s" / "Transcribing… 4 s · route"; a tap in hold mode is discarded
+  with a hint. `mode` is read with `voiceCaptureMode()` (anything but "toggle" is hold: a stored value never crashes
+  the page); a hook in the other capture mode renders the button disabled with the reason and a console error,
+  never a render error. Replaces the Code, Observer and Entity buttons.
+- **`useVoicePreferences(storageKey)`** (same-tab and cross-tab sync) and **`useVoiceDefaults(fetchDefaults, key)`**
+  replace the three app copies.
+- **Voice library**: `VoiceLibrary` (`list` / `rename` / `remove` / `share` over `voice/clones[/{id}]` and
+  `voice/clones/{id}/deploy`) and **Manage voices** (`VoiceLibraryPanel`: Rename, Delete asked twice, Share for
+  administrators; built-in voices are not listed; a refusal is the gateway's sentence). `VoiceCreation.clone` takes
+  `provider` / `model`; "From a recording" gains **Record** from the chosen microphone with a live meter.
+- **Gateway voice routes** in `gateway_paths.ts`: `GATEWAY_VOICE_ROUTES`, `voiceClonePath`, `voiceCloneDeployPath`,
+  `runVoiceTtsPath`, `runTranscribePath`, `entityVoicePath`.
+- **Microphone release** (review 2026-10-27): `recordSample` honours an abort at every step: a Stop, or leaving the
+  panel, while the microphone is still opening closes it as the stream arrives (`recordingAbortError()`); the hook
+  honours a stop during its pending start. A muted preference always shows **Unmute**.
+- **Console islands**: `mountVoiceSection`; `mountVoiceSettings` props carry `voiceLibrary` and `previewVoice`.
+- Checks: new `check_voice_widgets.mjs`; `check_voice_section.mjs`, `check_voice_library.mjs` and
+  `check_voice_hook.mjs` extended (the hook is executed with fake media APIs: the level moves during a real
+  recording); shared harness `scripts/voice_harness.mjs`.
+### tools-models: one tool editor and a picker that names the gateway default (backlog 0033, 0034)
+
+Implements ADR 0001 for tool selection and the provider/model/reasoning/MTP picker. Supersedes
+backlog 0015 (the gateway already serves `approval_default`; the kit now reads it) and 0016 (the
+kit tool editor is `ToolModeEditor`, with an `allowListOnly` mode for allowlist pins).
+
+- `ToolModeEditor` (+ console island `mountToolModeEditor`): Off / Ask / Auto per tool, grouped
+  by toolset with a Mixed group control whose Auto reaches only risk rank ≤ 2 tools (the cap is
+  said in words), search, risk and state badges, the gateway's reason for a tool it does not offer,
+  a "Default: X" chip on a row that overrides the layer below, "Use the gateway's" (app layer) /
+  "Use my defaults" (session layer), `allowListOnly`, and an optional `AfOverrideRow` frame.
+- `tool_plan.ts`: `normalizeToolCatalog`, `resolveToolModes`, `setToolMode`, `planRunTools`,
+  `withRunTools`, `toWorkflowApprovalPolicy`, `trustAfterApproveAll` and the dialect edges of
+  the word "approve". Layers are sparse; a tool the gateway does not offer is never offered;
+  `_runtime.tool_policy` is sent once any layer holds a choice, and omitted (a stale key removed)
+  otherwise so the gateway's stored grant applies.
+- `createToolLayerStore`: `af.tools.app.<interface>.<identity>` and
+  `af.tools.session.<identity>.<session_id>` (newest 100), "Saved in this browser".
+- `ToolPolicyEditor` (deprecated, one minor): reads the served `approval_default` first;
+  `default_approval` stays an alias; a row decided by `TOOL_POLICY_DEFAULTS` is labeled
+  "Kit default"; `toolPolicySelectionToLayer` converts its value.
+- `ProviderModelPicker`: `fetchGatewayDefault` ("Gateway default · ollama / qwen3 · reasoning high
+  · MTP depth 3", also used for capability discovery), `reasoningLadder` (unadvertised levels
+  disabled), `unknownReasoning: "allow-override"` (Set anyway), `layout: "compact"`, `pinned`;
+  saved values the gateway no longer lists read "(saved)" (was "(saved; not advertised)" /
+  "(saved; not available)").
+- `gateway_models.ts`: `gatewayTextDefault`, `createGatewayModelTransport`, `reasoningLadderFrom`,
+  `withRunModel`; the routes in `gateway_paths.ts`.
+- Review fixes (adversarial review of PR #6): a layer key that changes no tool's mode (a removed or
+  not-offered tool, a bare "approve", a diff the gateway default caught up with) no longer sends
+  `tool_policy` (`effectiveToolLayers`, `hasToolChoices(catalog, layers)`); the gateway's failure
+  answer `{items: [], error}` is an error, `catalog_warnings` are shown (`ToolModeEditorForPayload`,
+  used by the island, never throws); the picker re-reads a new `fetchGatewayDefault`, says "none
+  configured" / "could not be read", and shows the gateway's warnings instead of naming an unusable
+  default; "(saved)" only for the mounted value and never while its list failed; the store rebuilds a
+  lost session index and reports unreadable values (`dialect`, `onDropped`); the tool search uses
+  `--font-size-input`; the session chip names the gateway when that is the inherited source.
+- Checks: `check_tool_plan`, `check_tool_mode_editor`, `check_gateway_models`; `check_route_picker`,
+  `check_tool_state`, `check_speculation` (now in `npm test`), `check_islands` and `check_responsive`
+  extended.
+### shell: the app shell — identity, the top-right order, the drawer system (backlog 0036, ADR 0001)
+
+- **Who is signed in** in the top-right cluster: `AfTopBarActions` `identity="badge" | "menu"`
+  (the menu: "Signed in as …", "Gateway <host>", **Copy user id**, **Disconnect**; kit tooltip), read from the
+  connection status's `gateway.principal` (the gateway's `GET /api/gateway/me`): `AfPrincipal`,
+  `principalFromConnection`, `principalLabel` (user id; `tenant/` only when the tenant is not
+  `default`), `gatewayHostLabel`. `GatewayConnectionState.gateway` now types `principal` (tenant,
+  roles, scopes, source, admin, …), `auth` and `routing`.
+- `AfTopBarActions.connection` takes `useGatewayConnection()`'s return value; the pill and the
+  menu's Disconnect call its `signOut()`, then the new `onSignOut` only when the disconnect happened
+  (`useGatewayConnection().signOut()` now resolves `true` / `false`, never rejects; with the legacy
+  `connection` shape `onSignOut` is ignored and `onDisconnect` alone runs). A failed disconnect shows
+  "Disconnect failed" beside the pill. The identity renders only while the phase is connected.
+  **One verb**: the in-flight pill now reads "Disconnecting…" (was "Signing out…"), matching
+  "Disconnect" in the pill and the menu. **Order changed and pinned**:
+  extras · docs · assistant · appearance · about · identity · pill (app `extraActions` now lead the
+  cluster instead of sitting before the pill). The pill's wording is pinned.
+- The cluster owns the Appearance dialog when given `appearance={{ value, onChange }}`; `about.fetch`
+  (the host's gateway fetch) GETs `api/gateway/about` each time About opens (`fetchAboutVersions`);
+  `about.extra` / `AfAbout.extra` / `AfAboutDialog.extra` hold host content in the dialog. `AfMenu`
+  takes a non-interactive `header`.
+- `--af-topbar-h`: the cluster publishes its header's bottom edge; `AfDrawer` and the drawer system
+  take `topOffset: "auto"`; the variable is removed when the cluster unmounts. **Behaviour change**:
+  `AfDrawer` now moves focus in on open (a text field is skipped on touch screens) and back to the
+  opener on close when focus was inside (`manageFocus={false}` opts out). `DocsAssistantDrawer`
+  keeps its earlier behaviour (`manageFocus` default false; opt in with `manageFocus`).
+- `AfDrawerSystem`: left and right panels, rail or drawer mode, vertical-text tabs, `keepAlive`
+  "visited" | "always", a per-panel error boundary, `fill` canvas panels (`--af-panel-w`,
+  `onResize`), per-panel widths and the docked-only open panel under one storage key, a
+  `request: "id#nonce"`; `AfPanelHeaderActions`. `AfRailDrawer` is now a thin wrapper over it (same
+  markup; a numeric width stored by 0.8.9 is kept, including across later writes). **Behaviour
+  changes of the wrapper**: widths are now per panel (0.8.9 shared one width across all panels; the
+  stored legacy width stays every panel's width until that panel is resized), and the wrapper now
+  writes the open panel into its `storageKey` (it still never restores it: `restoreActive={false}`).
+  A panel's `headerActions` render inside a small error boundary too. `AfAppShell` composes header,
+  cluster, drawer system and nav.
+- panel-chat: `docsAssistantPanel(source, fetchGateway, opts)` / `DocsAssistantPanelContent` and
+  `assistantDrawerPanel(opts)` (drawer-system panels; `DocsAssistantDrawer` is unchanged and
+  takes `topOffset: "auto"`).
+- Console islands: `TopBarIslandProps.identity` (+ `connection.status` / `connection.me`, the
+  console's own `/me` body, `connection.signOutError`), `islandConnectionStatus` (null unless the
+  phase is connected) and `mountDrawerSystem`; apiVersion stays "2".
+- Checks: `check_app_shell.mjs`, `check_gateway_connection.mjs` (the connection hook's behaviour,
+  first check of it), drawer-system block in `check_rail_viewer.mjs`, About fetch/extra in
+  `check_about.mjs`, panel-chat `check_docs_panel.mjs`.
 
 ## 0.6.4 - 2026-10-27
 

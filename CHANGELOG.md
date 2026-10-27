@@ -54,6 +54,130 @@ panel-chat (and one ui-kit file):
   refs or generated-media events into `message.media` itself.
 - Checks: `check_present_interaction.mjs` (extended), `check_chat_surface.mjs` (new), `check_chat_media.mjs`
   (extended), ui-kit `check_file_viewer_video.mjs` (new); each was seen red under a mutation.
+### voice: voice IN / voice OUT as standalone composables, one microphone button, the voice library (backlog 0035, ADR 0001 §5 and §8)
+
+Packages: `@abstractframework/ui-kit` (no version bump here; the lead sequences the release).
+
+- **`AfVoiceOutput`** (voice OUT: output device + **Test** chime on the chosen speaker, **Reply volume**, **Mute**)
+  and **`AfVoiceInput`** (voice IN: input device + **Test**, a live level meter, **Show names**, **Input level**)
+  render alone, with no section around them, wherever voice settings appear. Controlled: the value may be the
+  whole preferences, `onChange` returns it merged.
+- **`AfVoiceSection`** renders its Output and Microphone groups with these two components (same rows, same checks).
+  New props: `rows` (`{tts: false}` fixes the entity's ignored TTS override row; `mute` and `capture` are opt-in),
+  `ttsSlot` (a host-owned voice in Engines), `voiceLibrary` (supersedes `createVoice`, kept as an alias),
+  `previewVoice` (**Play sample**), `fetchLanguages` (Spoken language from `GET voice/languages`; the hardcoded
+  10-language list is gone: one 15-language table, `VOICE_LANGUAGE_LABELS`), `captureDefaults`, `levelSource`.
+  New preferences `reply_muted`, `capture_mode` (**Hold to talk** / **Tap to talk**), `auto_send` (**Send what you
+  say automatically**); `gatewayVoiceOptions(prefs)` maps them to the hook.
+- **`useGatewayVoice`**: `subscribe_level` (the meter moves during a real recording, not only during Test; a
+  subscription, so only `AfVoiceLevelMeter` / `useVoiceLevel` re-render, never the hook's owner), `muted`
+  (gain 0 at once, the volume kept), `capture_mode` (`"toggle"` never stops on a pointer release),
+  `voice_capture_mode`, `add_transcript_listener`. Every returned function keeps a stable identity.
+- **`AfVoiceMicButton`**: one wording ("Hold to talk" → "Recording — release to send"; "Tap to talk" → "Recording —
+  tap to stop"), a live meter, "Recording… 3 s" / "Transcribing… 4 s · route"; a tap in hold mode is discarded
+  with a hint. `mode` is read with `voiceCaptureMode()` (anything but "toggle" is hold: a stored value never crashes
+  the page); a hook in the other capture mode renders the button disabled with the reason and a console error,
+  never a render error. Replaces the Code, Observer and Entity buttons.
+- **`useVoicePreferences(storageKey)`** (same-tab and cross-tab sync) and **`useVoiceDefaults(fetchDefaults, key)`**
+  replace the three app copies.
+- **Voice library**: `VoiceLibrary` (`list` / `rename` / `remove` / `share` over `voice/clones[/{id}]` and
+  `voice/clones/{id}/deploy`) and **Manage voices** (`VoiceLibraryPanel`: Rename, Delete asked twice, Share for
+  administrators; built-in voices are not listed; a refusal is the gateway's sentence). `VoiceCreation.clone` takes
+  `provider` / `model`; "From a recording" gains **Record** from the chosen microphone with a live meter.
+- **Gateway voice routes** in `gateway_paths.ts`: `GATEWAY_VOICE_ROUTES`, `voiceClonePath`, `voiceCloneDeployPath`,
+  `runVoiceTtsPath`, `runTranscribePath`, `entityVoicePath`.
+- **Microphone release** (review 2026-10-27): `recordSample` honours an abort at every step: a Stop, or leaving the
+  panel, while the microphone is still opening closes it as the stream arrives (`recordingAbortError()`); the hook
+  honours a stop during its pending start. A muted preference always shows **Unmute**.
+- **Console islands**: `mountVoiceSection`; `mountVoiceSettings` props carry `voiceLibrary` and `previewVoice`.
+- Checks: new `check_voice_widgets.mjs`; `check_voice_section.mjs`, `check_voice_library.mjs` and
+  `check_voice_hook.mjs` extended (the hook is executed with fake media APIs: the level moves during a real
+  recording); shared harness `scripts/voice_harness.mjs`.
+### tools-models: one tool editor and a picker that names the gateway default (backlog 0033, 0034)
+
+Implements ADR 0001 for tool selection and the provider/model/reasoning/MTP picker. Supersedes
+backlog 0015 (the gateway already serves `approval_default`; the kit now reads it) and 0016 (the
+kit tool editor is `ToolModeEditor`, with an `allowListOnly` mode for allowlist pins).
+
+- `ToolModeEditor` (+ console island `mountToolModeEditor`): Off / Ask / Auto per tool, grouped
+  by toolset with a Mixed group control whose Auto reaches only risk rank ≤ 2 tools (the cap is
+  said in words), search, risk and state badges, the gateway's reason for a tool it does not offer,
+  a "Default: X" chip on a row that overrides the layer below, "Use the gateway's" (app layer) /
+  "Use my defaults" (session layer), `allowListOnly`, and an optional `AfOverrideRow` frame.
+- `tool_plan.ts`: `normalizeToolCatalog`, `resolveToolModes`, `setToolMode`, `planRunTools`,
+  `withRunTools`, `toWorkflowApprovalPolicy`, `trustAfterApproveAll` and the dialect edges of
+  the word "approve". Layers are sparse; a tool the gateway does not offer is never offered;
+  `_runtime.tool_policy` is sent once any layer holds a choice, and omitted (a stale key removed)
+  otherwise so the gateway's stored grant applies.
+- `createToolLayerStore`: `af.tools.app.<interface>.<identity>` and
+  `af.tools.session.<identity>.<session_id>` (newest 100), "Saved in this browser".
+- `ToolPolicyEditor` (deprecated, one minor): reads the served `approval_default` first;
+  `default_approval` stays an alias; a row decided by `TOOL_POLICY_DEFAULTS` is labeled
+  "Kit default"; `toolPolicySelectionToLayer` converts its value.
+- `ProviderModelPicker`: `fetchGatewayDefault` ("Gateway default · ollama / qwen3 · reasoning high
+  · MTP depth 3", also used for capability discovery), `reasoningLadder` (unadvertised levels
+  disabled), `unknownReasoning: "allow-override"` (Set anyway), `layout: "compact"`, `pinned`;
+  saved values the gateway no longer lists read "(saved)" (was "(saved; not advertised)" /
+  "(saved; not available)").
+- `gateway_models.ts`: `gatewayTextDefault`, `createGatewayModelTransport`, `reasoningLadderFrom`,
+  `withRunModel`; the routes in `gateway_paths.ts`.
+- Review fixes (adversarial review of PR #6): a layer key that changes no tool's mode (a removed or
+  not-offered tool, a bare "approve", a diff the gateway default caught up with) no longer sends
+  `tool_policy` (`effectiveToolLayers`, `hasToolChoices(catalog, layers)`); the gateway's failure
+  answer `{items: [], error}` is an error, `catalog_warnings` are shown (`ToolModeEditorForPayload`,
+  used by the island, never throws); the picker re-reads a new `fetchGatewayDefault`, says "none
+  configured" / "could not be read", and shows the gateway's warnings instead of naming an unusable
+  default; "(saved)" only for the mounted value and never while its list failed; the store rebuilds a
+  lost session index and reports unreadable values (`dialect`, `onDropped`); the tool search uses
+  `--font-size-input`; the session chip names the gateway when that is the inherited source.
+- Checks: `check_tool_plan`, `check_tool_mode_editor`, `check_gateway_models`; `check_route_picker`,
+  `check_tool_state`, `check_speculation` (now in `npm test`), `check_islands` and `check_responsive`
+  extended.
+### shell: the app shell — identity, the top-right order, the drawer system (backlog 0036, ADR 0001)
+
+- **Who is signed in** in the top-right cluster: `AfTopBarActions` `identity="badge" | "menu"`
+  (the menu: "Signed in as …", "Gateway <host>", **Copy user id**, **Disconnect**; kit tooltip), read from the
+  connection status's `gateway.principal` (the gateway's `GET /api/gateway/me`): `AfPrincipal`,
+  `principalFromConnection`, `principalLabel` (user id; `tenant/` only when the tenant is not
+  `default`), `gatewayHostLabel`. `GatewayConnectionState.gateway` now types `principal` (tenant,
+  roles, scopes, source, admin, …), `auth` and `routing`.
+- `AfTopBarActions.connection` takes `useGatewayConnection()`'s return value; the pill and the
+  menu's Disconnect call its `signOut()`, then the new `onSignOut` only when the disconnect happened
+  (`useGatewayConnection().signOut()` now resolves `true` / `false`, never rejects; with the legacy
+  `connection` shape `onSignOut` is ignored and `onDisconnect` alone runs). A failed disconnect shows
+  "Disconnect failed" beside the pill. The identity renders only while the phase is connected.
+  **One verb**: the in-flight pill now reads "Disconnecting…" (was "Signing out…"), matching
+  "Disconnect" in the pill and the menu. **Order changed and pinned**:
+  extras · docs · assistant · appearance · about · identity · pill (app `extraActions` now lead the
+  cluster instead of sitting before the pill). The pill's wording is pinned.
+- The cluster owns the Appearance dialog when given `appearance={{ value, onChange }}`; `about.fetch`
+  (the host's gateway fetch) GETs `api/gateway/about` each time About opens (`fetchAboutVersions`);
+  `about.extra` / `AfAbout.extra` / `AfAboutDialog.extra` hold host content in the dialog. `AfMenu`
+  takes a non-interactive `header`.
+- `--af-topbar-h`: the cluster publishes its header's bottom edge; `AfDrawer` and the drawer system
+  take `topOffset: "auto"`; the variable is removed when the cluster unmounts. **Behaviour change**:
+  `AfDrawer` now moves focus in on open (a text field is skipped on touch screens) and back to the
+  opener on close when focus was inside (`manageFocus={false}` opts out). `DocsAssistantDrawer`
+  keeps its earlier behaviour (`manageFocus` default false; opt in with `manageFocus`).
+- `AfDrawerSystem`: left and right panels, rail or drawer mode, vertical-text tabs, `keepAlive`
+  "visited" | "always", a per-panel error boundary, `fill` canvas panels (`--af-panel-w`,
+  `onResize`), per-panel widths and the docked-only open panel under one storage key, a
+  `request: "id#nonce"`; `AfPanelHeaderActions`. `AfRailDrawer` is now a thin wrapper over it (same
+  markup; a numeric width stored by 0.8.9 is kept, including across later writes). **Behaviour
+  changes of the wrapper**: widths are now per panel (0.8.9 shared one width across all panels; the
+  stored legacy width stays every panel's width until that panel is resized), and the wrapper now
+  writes the open panel into its `storageKey` (it still never restores it: `restoreActive={false}`).
+  A panel's `headerActions` render inside a small error boundary too. `AfAppShell` composes header,
+  cluster, drawer system and nav.
+- panel-chat: `docsAssistantPanel(source, fetchGateway, opts)` / `DocsAssistantPanelContent` and
+  `assistantDrawerPanel(opts)` (drawer-system panels; `DocsAssistantDrawer` is unchanged and
+  takes `topOffset: "auto"`).
+- Console islands: `TopBarIslandProps.identity` (+ `connection.status` / `connection.me`, the
+  console's own `/me` body, `connection.signOutError`), `islandConnectionStatus` (null unless the
+  phase is connected) and `mountDrawerSystem`; apiVersion stays "2".
+- Checks: `check_app_shell.mjs`, `check_gateway_connection.mjs` (the connection hook's behaviour,
+  first check of it), drawer-system block in `check_rail_viewer.mjs`, About fetch/extra in
+  `check_about.mjs`, panel-chat `check_docs_panel.mjs`.
 
 ## 0.6.4 - 2026-10-27
 

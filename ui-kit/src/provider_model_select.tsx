@@ -57,7 +57,17 @@ export type ProviderModelSelectProps = {
   modelError?: string;
   allowCustomProvider?: boolean;
   allowCustomModel?: boolean;
+  /** ui-primitives (tools-models): a current provider/model the discovered list no longer has stays
+   * selectable, labeled "(saved)" once its list has loaded without an error. `true` marks any such
+   * value; `{provider, model}` marks only those stored values (a value typed now is not "saved"). */
+  markSaved?: boolean | { provider?: string; model?: string };
+  /** The provider / model comes from a connected pin (a flow node): shown, not editable. */
+  providerPinned?: boolean;
+  modelPinned?: boolean;
 };
+
+/** The words a field fed by a connected pin shows instead of its control. */
+export const PINNED_FIELD_TEXT = "Provided by connected pin";
 
 export function ProviderModelSelect(props: ProviderModelSelectProps): React.ReactElement {
   const disabled = props.disabled === true;
@@ -75,6 +85,9 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
 
   const providers = normalize_provider_options(props.providers);
   const models = normalize_models(props.models);
+  const savedOnly = typeof props.markSaved === "object" ? props.markSaved : null;
+  const saved = (v: string, field: "provider" | "model", loading: boolean | undefined, error: string | undefined) =>
+    props.markSaved && !loading && !error && (!savedOnly || savedOnly[field] === v) ? `${v} (saved)` : v;
 
   const provider_disabled = disabled || Boolean(props.loadingProviders);
   const model_disabled = disabled || Boolean(props.loadingModels);
@@ -82,12 +95,24 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
   const provider_options: AfSelectOption[] = [
     ...(allow_gateway_default ? [{ value: "", label: gateway_default_label } satisfies AfSelectOption] : []),
     ...providers.map((p) => ({ value: p.name, label: p.display_name ? `${p.display_name} (${p.name})` : p.name })),
+    ...(props.markSaved && provider_value && !providers.some((p) => p.name === provider_value)
+      ? [{ value: provider_value, label: saved(provider_value, "provider", props.loadingProviders, props.providerError) }]
+      : []),
   ];
 
   const model_options: AfSelectOption[] = [
     ...(allow_gateway_default ? [{ value: "", label: gateway_default_label } satisfies AfSelectOption] : []),
     ...models.map((m) => ({ value: m, label: m })),
+    ...(props.markSaved && model_value && !models.includes(model_value)
+      ? [{ value: model_value, label: saved(model_value, "model", props.loadingModels, props.modelError) }]
+      : []),
   ];
+  const pinned = (label: string, value: string) => (
+    <div className="af-pmp__pinned" data-pinned={label}>
+      <span className="af-pmp__pinned-text">{PINNED_FIELD_TEXT}</span>
+      {value ? <span className="mono muted"> · {value}</span> : null}
+    </div>
+  );
 
   return (
     <div
@@ -100,7 +125,7 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
     >
       <div style={layout === "row" ? { flex: "1 1 260px", minWidth: 240 } : undefined}>
         <label>{provider_label}</label>
-        <AfSelect
+        {props.providerPinned ? pinned("provider", provider_value) : <AfSelect
           value={provider_value}
           options={provider_options}
           placeholder={allow_gateway_default ? gateway_default_label : provider_placeholder}
@@ -113,7 +138,7 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
           triggerClassName={props.selectClassName}
           ariaLabel={provider_label}
           onChange={(next_provider) => props.onChange({ provider: String(next_provider || "").trim(), model: "" })}
-        />
+        />}
         {props.loadingProviders ? <div className="mono muted" style={{ fontSize: "12px", marginTop: "6px" }}>Loading providers…</div> : null}
         {props.providerError ? (
           <div className="mono" style={{ color: "var(--error)", fontSize: "12px", marginTop: "6px" }}>
@@ -124,7 +149,7 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
 
       <div style={layout === "row" ? { flex: "1 1 260px", minWidth: 240 } : undefined}>
         <label>{model_label}</label>
-        <AfSelect
+        {props.modelPinned ? pinned("model", model_value) : <AfSelect
           value={model_value}
           options={model_options}
           placeholder={allow_gateway_default ? gateway_default_label : model_placeholder}
@@ -137,7 +162,7 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
           triggerClassName={props.selectClassName}
           ariaLabel={model_label}
           onChange={(next_model) => props.onChange({ provider: provider_value, model: String(next_model || "").trim() })}
-        />
+        />}
         {props.loadingModels ? <div className="mono muted" style={{ fontSize: "12px", marginTop: "6px" }}>Loading models…</div> : null}
         {props.modelError ? (
           <div className="mono" style={{ color: "var(--error)", fontSize: "12px", marginTop: "6px" }}>

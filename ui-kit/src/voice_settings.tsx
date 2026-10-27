@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AfSelect } from "./af_select.js";
 import { ProviderModelPicker } from "./provider_model_picker.js";
+import { SILENT_LEVEL, microphoneErrorSentence, playOnDevice, recordSample } from "./voice_devices.js";
 
 export type VoicePreferences = {
   provider?: string;
@@ -21,8 +22,58 @@ export type VoiceCatalog = Record<string, any>;
  */
 export type VoiceCreation = {
   design?: (request: { description: string; name?: string; language?: string }) => Promise<{ voice_id: string; name?: string; engine?: string }>;
-  clone?: (file: Blob, request: { name?: string; language?: string; reference_text?: string }) => Promise<{ voice_id: string; name?: string; engine?: string }>;
+  /**
+   * `POST voice/clones` (multipart). `provider` / `model` name the cloning engine (the gateway
+   * accepts both, routes/voice_library.py:146-147); absent = the gateway's default cloning engine.
+   */
+  clone?: (
+    file: Blob,
+    request: { name?: string; language?: string; reference_text?: string; provider?: string; model?: string },
+  ) => Promise<{ voice_id: string; name?: string; engine?: string }>;
 };
+
+/**
+ * One voice of the gateway's voice library: an item of `GET voice/clones` → `voices`
+ * (routes/voice_library.py:121-130; the catalog's voice item: `id`/`voice_id`, `name`/`label`,
+ * `provider`/`engine`, `kind: "clone"`, `tags.builtin`, `tags.designed`, `params.meta.scope`).
+ */
+export type VoiceRecord = {
+  voice_id?: string;
+  id?: string;
+  name?: string;
+  label?: string;
+  engine?: string;
+  provider?: string;
+  language?: string;
+  kind?: string;
+  voice_kind?: string;
+  tags?: Record<string, any>;
+  params?: Record<string, any>;
+  meta?: Record<string, any>;
+};
+
+/**
+ * The gateway's voice library, injected by the host (ui-primitives 0035): creation
+ * (`VoiceCreation`) plus management. Every function is optional; what is absent is not offered.
+ * - `list` = `GET voice/clones` (routes/voice_library.py:121-130); the answer `{voices, count}`
+ *   or its `voices` array.
+ * - `rename` = `PATCH voice/clones/{voice_id}` `{name?, reference_text?}` (:173-178).
+ * - `remove` = `DELETE voice/clones/{voice_id}` (:181-186; built-in voices answer 422).
+ * - `share` = `POST voice/clones/{voice_id}/deploy` (:203-218; administrators only: inject it
+ *   only for an administrator).
+ * A refusal (403 shared store, 422 read-only voice) is shown as the gateway's sentence.
+ */
+export type VoiceLibrary = VoiceCreation & {
+  list?: () => Promise<VoiceRecord[] | { voices?: VoiceRecord[] }>;
+  rename?: (voiceId: string, patch: { name?: string; reference_text?: string }) => Promise<unknown>;
+  remove?: (voiceId: string) => Promise<unknown>;
+  share?: (voiceId: string) => Promise<unknown>;
+};
+
+/** Where a recording comes from (the chosen microphone and its input level). */
+export type VoiceRecordFrom = { deviceId?: string; gain?: number };
+/** Where a sample plays (the chosen speaker and the reply volume). */
+export type VoicePlayOn = { deviceId?: string; volume?: number };
 
 const GROUP_ORDER = ["Your voices", "Engine voices", "Shared voices"];
 
@@ -64,11 +115,34 @@ export function voiceSpeaks(item: any, language: string): boolean {
   return langs.includes(language);
 }
 
-const LANGUAGE_LABELS: Record<string, string> = {
+/**
+ * The kit's ONE table of language names (ISO 639-1 → English name): the voice filter, "Create a
+ * voice" and the section's Spoken language all read it. The languages an engine accepts come from
+ * the gateway (`GET voice/languages`); this table only names them.
+ */
+export const VOICE_LANGUAGE_LABELS: Readonly<Record<string, string>> = {
   en: "English", fr: "French", de: "German", es: "Spanish", it: "Italian", pt: "Portuguese", ru: "Russian",
   zh: "Chinese", ja: "Japanese", ko: "Korean", nl: "Dutch", pl: "Polish", tr: "Turkish", ar: "Arabic", hi: "Hindi",
 };
+const LANGUAGE_LABELS = VOICE_LANGUAGE_LABELS;
 export const voiceLanguageLabel = (code: string): string => LANGUAGE_LABELS[code] || code;
+
+/**
+ * The language codes of a `GET voice/languages` answer (routes/voice_library.py:109-118:
+ * `{languages: {kind: {provider: {provider, languages, open, declared}}}}`) for one kind: the
+ * named provider's, else every provider's (sorted, deduplicated). An open engine (a remote one
+ * that decides its own languages) lists none.
+ */
+export function voiceLanguagesFromAnswer(answer: any, kind: "tts" | "stt" | "cloning", provider?: string): string[] {
+  const byProvider = answer?.languages?.[kind];
+  if (!byProvider || typeof byProvider !== "object") return [];
+  const entries: any[] = provider ? [byProvider[provider]].filter(Boolean) : Object.values(byProvider);
+  const codes = entries.flatMap((e) => (Array.isArray(e?.languages) ? e.languages : [])).map((c: any) => String(c).trim().toLowerCase());
+  return Array.from(new Set(codes.filter(Boolean))).sort();
+}
+
+/** A library record's id (`voice_id`, else the catalog's `id`). */
+export const voiceRecordId = (r: VoiceRecord): string => String(r?.voice_id || r?.id || "");
 const names = (value: unknown): string[] =>
   Array.isArray(value)
     ? value
@@ -90,6 +164,10 @@ export function VoiceSettings({
   defaultHint,
   voiceDefaultLabel,
   createVoice,
+  voiceLibrary,
+  previewVoice,
+  previewOn,
+  recordFrom,
 }: {
   value: VoicePreferences;
   onChange: (value: VoicePreferences) => void;
@@ -106,9 +184,27 @@ export function VoiceSettings({
   defaultHint?: string;
   /** The voice select's unset choice (default "Gateway / provider default"). */
   voiceDefaultLabel?: string;
-  /** Voice creation through the gateway (a description, a recording); absent = no "Create a voice" panel. */
+  /** Voice creation through the gateway (a description, a recording); absent = no "Create a voice" panel. Alias of `voiceLibrary`'s creation. */
   createVoice?: VoiceCreation;
+  /**
+   * The gateway's voice library (creation + `list` / `rename` / `remove` / `share`). Supersedes
+   * `createVoice` (which stays as an alias); with `list`, a "Manage voices" panel lists the voices.
+   */
+  voiceLibrary?: VoiceLibrary;
+  /**
+   * Synthesize a short sample with these preferences (host-injected: every gateway TTS route needs
+   * a run or an entity, routes/gateway.py:12753, so the host chooses the owner). Present = a
+   * "Play sample" button beside the voice select. `text` absent = the host's own sample sentence.
+   */
+  previewVoice?: (prefs: VoicePreferences, text?: string) => Promise<ArrayBuffer>;
+  /** The speaker and volume a sample plays on (default: the system output at full volume). */
+  previewOn?: VoicePlayOn;
+  /** The microphone "Create a voice" records from (default: the system microphone). */
+  recordFrom?: VoiceRecordFrom;
 }): React.ReactElement {
+  const creation: VoiceCreation | undefined = voiceLibrary || createVoice;
+  const [sample, setSample] = useState<{ busy: boolean; error: string }>({ busy: false, error: "" });
+  const sampling = useRef(false);
   const fetcher = useRef(fetchCatalog);
   fetcher.current = fetchCatalog;
   const [catalog, setCatalog] = useState<VoiceCatalog>({});
@@ -120,6 +216,25 @@ export function VoiceSettings({
   // created while the user kept changing settings merges into what is current, not what was).
   const latest = useRef(value);
   latest.current = value;
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const playSample = () => {
+    if (!previewVoice || sampling.current) return;
+    sampling.current = true;
+    setSample({ busy: true, error: "" });
+    void previewVoice(latest.current)
+      .then((bytes) => (mounted.current ? playOnDevice(bytes, { deviceId: previewOn?.deviceId || "", volume: previewOn?.volume }) : undefined))
+      .then(() => mounted.current && setSample({ busy: false, error: "" }))
+      .catch((err) => mounted.current && setSample({ busy: false, error: `The sample did not play: ${String(err?.message || err).replace(/\.$/, "")}.` }))
+      .finally(() => {
+        sampling.current = false;
+      });
+  };
   // Another engine lists other voices: the language filter starts over.
   useEffect(() => {
     setLanguage("");
@@ -297,6 +412,16 @@ export function VoiceSettings({
           }}
         />
       </label>
+      {previewVoice ? (
+        <button type="button" className="af-voice-settings__sample" data-action="play-sample" disabled={loading || sample.busy} onClick={playSample}>
+          {sample.busy ? "Playing…" : "Play sample"}
+        </button>
+      ) : null}
+      {sample.error ? (
+        <p className="af-voice-note af-voice-note--error" role="status" data-voice-note="sample">
+          {sample.error}
+        </p>
+      ) : null}
       {selectedDescription ? <p className="af-voice-settings__description">{selectedDescription}</p> : null}
       {loading ? <p role="status">Loading available voices…</p> : null}
       {error ? (
@@ -356,16 +481,29 @@ export function VoiceSettings({
         </label>
       ) : null}
       </>) : null}
-      {createVoice && (createVoice.design || createVoice.clone) ? (
+      {creation && (creation.design || creation.clone) ? (
         <CreateVoicePanel
-          creation={createVoice}
+          creation={creation}
           defaultLanguage={activeLanguage}
+          recordFrom={recordFrom}
           onCreated={(voiceId, engine) => {
             // The new voice is one of the user's own: select it on its engine (merged into the
             // preferences as they are NOW), then reload the list.
             const current = latest.current;
             onChange({ ...current, provider: engine || current.provider || "", model: "", voice: voiceId, profile: "" });
             setRefresh((n) => n + 1);
+          }}
+        />
+      ) : null}
+      {voiceLibrary?.list ? (
+        <VoiceLibraryPanel
+          library={voiceLibrary}
+          refreshKey={refresh}
+          onChanged={() => setRefresh((n) => n + 1)}
+          onRemoved={(voiceId) => {
+            // The selected voice is gone: the gateway default applies again.
+            const current = latest.current;
+            if (current.voice === voiceId) onChange({ ...current, voice: "" });
           }}
         />
       ) : null}
@@ -381,42 +519,97 @@ export function VoiceSettings({
 /** A recording's language: detected from the recording (by the gateway) unless the user names it. */
 const DETECT_LANGUAGE = { value: "", label: "Detect from the recording" };
 
+/** The longest recording "Create a voice" takes from the microphone (a reference is seconds long). */
+export const VOICE_RECORDING_MAX_MS = 30_000;
+
 /**
  * "Create a voice": from a description (Qwen3-TTS VoiceDesign on the gateway; it needs a language)
- * or from a recording (its language detected unless named). One request at a time; a result that
- * arrives after the panel is gone is dropped.
+ * or from a recording (its language detected unless named). A recording is a file, or one made here
+ * with **Record** from the chosen microphone (`recordFrom`), with a live level meter. One request at
+ * a time; a result that arrives after the panel is gone is dropped.
  */
 export function CreateVoicePanel({
   creation,
   defaultLanguage,
   onCreated,
+  recordFrom,
+  cloneRoute,
 }: {
   creation: VoiceCreation;
   defaultLanguage?: string;
   onCreated: (voiceId: string, engine?: string) => void;
+  /** The microphone **Record** uses (default: the system microphone). */
+  recordFrom?: VoiceRecordFrom;
+  /** The cloning engine sent with a recording (`provider` / `model`); absent = the gateway's default. */
+  cloneRoute?: { provider?: string; model?: string };
 }): React.ReactElement {
   const [mode, setMode] = useState<"design" | "clone">(creation.design ? "design" : "clone");
   const [description, setDescription] = useState("");
   const [name, setName] = useState("");
   const [designLanguage, setDesignLanguage] = useState(defaultLanguage || "en");
   const [recordingLanguage, setRecordingLanguage] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [file, setFile] = useState<Blob | null>(null);
   const [transcript, setTranscript] = useState("");
   const [busy, setBusy] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [level, setLevel] = useState(0);
   const [note, setNote] = useState<{ text: string; tone: "info" | "ok" | "error" }>({ text: "", tone: "info" });
   // `busy` state lags a double click by one render; the ref does not.
   const inFlight = useRef(false);
   const alive = useRef(true);
+  const recorder = useRef<AbortController | null>(null);
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
+      // The panel is gone: the microphone closes now.
+      recorder.current?.abort();
     };
   }, []);
   const languageOptions = Object.keys(LANGUAGE_LABELS).map((code) => ({ value: code, label: voiceLanguageLabel(code) }));
   const language = mode === "design" ? designLanguage : recordingLanguage;
+  const record = () => {
+    // A second press stops the recording (it is kept).
+    if (recorder.current) {
+      recorder.current.abort();
+      return;
+    }
+    const stop = new AbortController();
+    recorder.current = stop;
+    const started = Date.now();
+    setRecording(true);
+    setNote({ text: "Recording — read a few sentences, then press Stop.", tone: "info" });
+    void recordSample({
+      deviceId: recordFrom?.deviceId || "",
+      gain: recordFrom?.gain,
+      ms: VOICE_RECORDING_MAX_MS,
+      signal: stop.signal,
+      onLevel: (v) => alive.current && setLevel(v),
+    })
+      .then(({ blob, peak }) => {
+        if (!alive.current) return;
+        if (peak < SILENT_LEVEL) {
+          setNote({ text: "The microphone recorded silence. Pick another input in the voice settings, then record again.", tone: "error" });
+          return;
+        }
+        setFile(blob);
+        setNote({ text: `Recording ready (${Math.max(1, Math.round((Date.now() - started) / 1000))} s).`, tone: "ok" });
+      })
+      .catch((err) => {
+        if (!alive.current) return;
+        // Stopped before the microphone opened (a permission prompt): nothing was recorded.
+        if (err?.name === "AbortError") setNote({ text: "Recording cancelled.", tone: "info" });
+        else setNote({ text: microphoneErrorSentence(err), tone: "error" });
+      })
+      .finally(() => {
+        if (recorder.current === stop) recorder.current = null;
+        if (!alive.current) return;
+        setRecording(false);
+        setLevel(0);
+      });
+  };
   const submit = async () => {
-    if (inFlight.current) return;
+    if (inFlight.current || recorder.current) return;
     inFlight.current = true;
     setBusy(true);
     setNote({ text: mode === "design" ? "Creating the voice from your description…" : "Cloning the voice from your recording…", tone: "info" });
@@ -428,6 +621,8 @@ export function CreateVoicePanel({
               name: name.trim() || undefined,
               reference_text: transcript.trim() || undefined,
               ...(recordingLanguage ? { language: recordingLanguage } : {}),
+              ...(cloneRoute?.provider ? { provider: cloneRoute.provider } : {}),
+              ...(cloneRoute?.provider && cloneRoute.model ? { model: cloneRoute.model } : {}),
             });
       if (!alive.current) return;
       setNote({ text: `Voice ready: ${out.name || out.voice_id}. It is selected above.`, tone: "ok" });
@@ -440,18 +635,18 @@ export function CreateVoicePanel({
       if (alive.current) setBusy(false);
     }
   };
-  const ready = mode === "design" ? Boolean(description.trim()) : Boolean(file);
+  const ready = mode === "design" ? Boolean(description.trim()) : Boolean(file) && !recording;
   return (
     <fieldset className="af-voice-create" data-voice-create>
       <legend>Create a voice</legend>
       <div className="af-voice-create__modes" role="tablist">
         {creation.design ? (
-          <button type="button" role="tab" aria-selected={mode === "design"} data-create-mode="design" disabled={busy} onClick={() => setMode("design")}>
+          <button type="button" role="tab" aria-selected={mode === "design"} data-create-mode="design" disabled={busy || recording} onClick={() => setMode("design")}>
             From a description
           </button>
         ) : null}
         {creation.clone ? (
-          <button type="button" role="tab" aria-selected={mode === "clone"} data-create-mode="clone" disabled={busy} onClick={() => setMode("clone")}>
+          <button type="button" role="tab" aria-selected={mode === "clone"} data-create-mode="clone" disabled={busy || recording} onClick={() => setMode("clone")}>
             From a recording
           </button>
         ) : null}
@@ -471,8 +666,28 @@ export function CreateVoicePanel({
         <>
           <label>
             Recording
-            <input aria-label="Voice recording" type="file" accept="audio/*" onChange={(e) => setFile((e.target.files && e.target.files[0]) || null)} />
+            <input
+              aria-label="Voice recording"
+              type="file"
+              accept="audio/*"
+              disabled={recording}
+              onChange={(e) => {
+                const picked = (e.target.files && e.target.files[0]) || null;
+                setFile(picked);
+                if (picked) setNote({ text: "", tone: "info" });
+              }}
+            />
           </label>
+          <div className="af-voice-create__record">
+            <button type="button" data-action="record-sample" disabled={busy} onClick={record}>
+              {recording ? "Stop" : "Record"}
+            </button>
+            {recording ? (
+              <div className="af-voice-meter" data-voice-meter role="meter" aria-label="Recording level" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level * 100)}>
+                <span className="af-voice-meter__fill" style={{ width: `${Math.round(level * 100)}%` }} />
+              </div>
+            ) : null}
+          </div>
           <label>
             What the recording says (optional)
             <input aria-label="Recording transcript" value={transcript} onChange={(e) => setTranscript(e.target.value)} />
@@ -498,6 +713,174 @@ export function CreateVoicePanel({
       </button>
       {note.text ? (
         <p className={`af-voice-note af-voice-note--${note.tone}`} role="status" data-voice-note="create">
+          {note.text}
+        </p>
+      ) : null}
+    </fieldset>
+  );
+}
+
+const libraryRecords = (answer: VoiceRecord[] | { voices?: VoiceRecord[] } | null | undefined): VoiceRecord[] =>
+  Array.isArray(answer) ? answer : Array.isArray(answer?.voices) ? answer!.voices! : [];
+const failure = (err: any): string => String(err?.message || err || "").trim().replace(/\.$/, "");
+
+/**
+ * "Manage voices": the voices of the gateway's library that can change (the built-in voices are
+ * read-only and not listed), with Rename, Delete (asked twice) and Share (when the host injects
+ * `share`: administrators). The gateway decides who may change what; a refusal is its sentence.
+ */
+export function VoiceLibraryPanel({
+  library,
+  refreshKey,
+  onChanged,
+  onRemoved,
+}: {
+  library: VoiceLibrary;
+  /** Reload the list when it changes (a voice was created elsewhere). */
+  refreshKey?: number;
+  /** A voice was renamed, deleted or shared: the host reloads its catalog. */
+  onChanged?: () => void;
+  /** A voice was deleted (the host clears it when it is selected). */
+  onRemoved?: (voiceId: string) => void;
+}): React.ReactElement | null {
+  const [records, setRecords] = useState<VoiceRecord[]>([]);
+  const [state, setState] = useState<{ loading: boolean; error: string }>({ loading: true, error: "" });
+  const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
+  const [confirming, setConfirming] = useState("");
+  const [busy, setBusy] = useState("");
+  const [note, setNote] = useState<{ text: string; tone: "info" | "ok" | "error" }>({ text: "", tone: "info" });
+  const [reload, setReload] = useState(0);
+  const lib = useRef(library);
+  lib.current = library;
+  const inFlight = useRef(false);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    const list = lib.current.list;
+    if (!list) return;
+    let current = true;
+    setState((s) => ({ loading: true, error: s.error }));
+    void list()
+      .then((answer) => {
+        if (!current) return;
+        setRecords(libraryRecords(answer).filter((r) => voiceRecordId(r) && !r?.tags?.builtin));
+        setState({ loading: false, error: "" });
+      })
+      .catch((err) => current && setState({ loading: false, error: `The voices could not be listed: ${failure(err)}.` }));
+    return () => {
+      current = false;
+    };
+  }, [refreshKey, reload]);
+  const act = (id: string, work: () => Promise<unknown>, done: string, after?: () => void) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(id);
+    setNote({ text: "", tone: "info" });
+    void work()
+      .then(() => {
+        if (!alive.current) return;
+        setNote({ text: done, tone: "ok" });
+        setEditing(null);
+        setConfirming("");
+        after?.();
+        setReload((n) => n + 1);
+        onChanged?.();
+      })
+      .catch((err) => alive.current && setNote({ text: `${failure(err) || "The gateway refused"}.`, tone: "error" }))
+      .finally(() => {
+        inFlight.current = false;
+        if (alive.current) setBusy("");
+      });
+  };
+  const label = (r: VoiceRecord) => String(r.name || r.label || voiceRecordId(r));
+  return (
+    <fieldset className="af-voice-library" data-voice-library>
+      <legend>Manage voices</legend>
+      {state.loading && !records.length ? <p role="status">Loading your voices…</p> : null}
+      {state.error ? (
+        <p className="af-voice-note af-voice-note--error" role="status" data-voice-note="library">
+          {state.error}
+        </p>
+      ) : null}
+      {!state.loading && !state.error && !records.length ? <p className="af-voice-library__empty">No voices of your own yet.</p> : null}
+      {records.length ? (
+        <ul className="af-voice-library__list">
+          {records.map((r) => {
+            const id = voiceRecordId(r);
+            const shared = voiceGroup(r) === "Shared voices";
+            const lang = voiceLanguage(r);
+            const engine = String(r.engine || r.provider || "");
+            const rowBusy = busy === id;
+            return (
+              <li key={id} className="af-voice-library__item" data-voice-id={id}>
+                {editing?.id === id ? (
+                  <span className="af-voice-library__edit">
+                    <input
+                      aria-label={`New name for ${label(r)}`}
+                      value={editing.name}
+                      onChange={(e) => setEditing({ id, name: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      data-action="save-voice-name"
+                      disabled={rowBusy || !editing.name.trim()}
+                      onClick={() => act(id, () => lib.current.rename!(id, { name: editing.name.trim() }), `Renamed to ${editing.name.trim()}.`)}
+                    >
+                      Save
+                    </button>
+                    <button type="button" data-action="cancel-voice-name" disabled={rowBusy} onClick={() => setEditing(null)}>
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
+                  <span className="af-voice-library__name">
+                    {label(r)}
+                    <span className="af-voice-library__meta">
+                      {[shared ? "Shared" : "Yours", lang ? voiceLanguageLabel(lang) : "", engine].filter(Boolean).join(" · ")}
+                    </span>
+                  </span>
+                )}
+                {confirming === id ? (
+                  <span className="af-voice-library__confirm" role="group" aria-label={`Delete ${label(r)}?`}>
+                    Delete {label(r)}?
+                    <button type="button" data-action="confirm-delete-voice" disabled={rowBusy} onClick={() => act(id, () => lib.current.remove!(id), `${label(r)} was deleted.`, () => onRemoved?.(id))}>
+                      Delete
+                    </button>
+                    <button type="button" data-action="keep-voice" disabled={rowBusy} onClick={() => setConfirming("")}>
+                      Keep
+                    </button>
+                  </span>
+                ) : editing?.id !== id ? (
+                  <span className="af-voice-library__actions">
+                    {library.rename ? (
+                      <button type="button" data-action="rename-voice" disabled={Boolean(busy)} onClick={() => setEditing({ id, name: label(r) })}>
+                        Rename
+                      </button>
+                    ) : null}
+                    {library.remove ? (
+                      <button type="button" data-action="delete-voice" disabled={Boolean(busy)} onClick={() => setConfirming(id)}>
+                        Delete
+                      </button>
+                    ) : null}
+                    {library.share && !shared ? (
+                      <button type="button" data-action="share-voice" disabled={Boolean(busy)} onClick={() => act(id, () => lib.current.share!(id), `${label(r)} is shared with everyone.`)}>
+                        Share
+                      </button>
+                    ) : null}
+                  </span>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      {note.text ? (
+        <p className={`af-voice-note af-voice-note--${note.tone}`} role="status" data-voice-note="library-action">
           {note.text}
         </p>
       ) : null}

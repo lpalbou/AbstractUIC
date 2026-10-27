@@ -76,6 +76,11 @@ const coarse = [...css.matchAll(/@media\s*\(pointer:\s*coarse\)\s*\{([\s\S]*?)\n
 if (!/--tap-min:\s*44px/.test(coarse)) fail("coarse pointers must set --tap-min: 44px");
 if (!/--font-size-input:\s*max\(16px/.test(coarse)) fail("coarse pointers must floor --font-size-input at 16px");
 if (!/html\s*\{[^}]*text-size-adjust:\s*100%/.test(css)) fail("html text-size-adjust: 100% missing");
+// Kit text inputs outside the coarse selector lists use --font-size-input themselves (iOS focus zoom).
+for (const sel of [".af-tool-modes__search"]) {
+  const body = css.match(new RegExp(`(?:^|\\n)${sel.replace(/[.]/g, "\\.")}\\s*\\{([^}]*)\\}`))?.[1] || "";
+  if (!/font-size:\s*var\(--font-size-input\)/.test(body)) fail(`${sel} must use font-size: var(--font-size-input) (iOS zooms below 16px)`);
+}
 
 // F. touch minimums apply to INTERACTIVE boxes only (kit round 2): a chip
 // keeps its pill geometry (hit area via ::after), the panel select trigger
