@@ -254,8 +254,8 @@ With the session tool policy (contract v1; gateway routes
 `GET/PUT/POST/DELETE /api/gateway/sessions/{session_id}/tool-policy`), "Allow for this chat" is
 stored for the chat (the gateway's session) and the runtime runs the covered calls of every run of
 the chat with no approval wait. It needs an AbstractGateway that advertises
-`capabilities.session_tool_policy.supported` in `GET discovery/capabilities`; the released
-AbstractGateway 0.15 line does not, and the controller then keeps the labeled local grant below.
+`capabilities.session_tool_policy.supported` in `GET discovery/capabilities`; on a gateway that
+does not, the controller keeps the labeled local grant below.
 
 ```ts
 // Only when GET discovery/capabilities serves capabilities.session_tool_policy.supported === true.
