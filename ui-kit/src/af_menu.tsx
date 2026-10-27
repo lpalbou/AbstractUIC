@@ -44,6 +44,11 @@ export type AfMenuProps = {
   title?: string;
   className?: string;
   buttonClassName?: string;
+  /**
+   * Non-interactive text at the top of the list (e.g. who is signed in and
+   * on which gateway). Not a menu item: arrow keys skip it. Additive (shell, 0036).
+   */
+  header?: React.ReactNode;
 };
 
 export function AfMenu(props: AfMenuProps): React.ReactElement | null {
@@ -72,6 +77,11 @@ export function AfMenu(props: AfMenuProps): React.ReactElement | null {
         {props.buttonContent !== undefined ? props.buttonContent : <span aria-hidden="true">⋯</span>}
       </button>
       <div className="af-menu__list" role="menu" ref={listRef} hidden>
+        {props.header !== undefined && props.header !== null ? (
+          <div className="af-menu__header" role="presentation">
+            {props.header}
+          </div>
+        ) : null}
         {visible.map((item) => (
           <button
             key={item.id}
