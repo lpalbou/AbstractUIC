@@ -9,6 +9,38 @@ ships.
 
 ## Unreleased
 
+### session-policy: "Allow for this chat" is stored on the gateway (backlog 0032; session tool policy contract v1)
+
+panel-chat:
+
+- `WorkflowSessionController` takes a host-injected `sessionToolPolicy: SessionToolPolicyClient` (option, or
+  `setSessionToolPolicyClient`), bound to one `session_id` and enabled only when `GET discovery/capabilities` serves
+  `capabilities.session_tool_policy.supported === true` (the gateway routes exist on branch `feat/session-tool-policy`,
+  not on `main`; the controller never fetches them itself). New methods `approveAllForSession(target, {maxRiskRank?})`,
+  `approveKindForSession(target, kind)`, `denyKindForSession`, `denyToolForSession`, `resetSessionPolicy`,
+  `loadSessionPolicy`: each WRITES the conversation's policy (`POST …/tool-policy`, merge) FIRST, then answers the
+  shown wait (`{approved:true}` / `{approved:false}`), so later calls of every run of the conversation run with no
+  wait and the gate never flashes. Snapshot: `sessionPolicyMode` (`"gateway"` | `"local-fallback"`),
+  `sessionPolicy`, `sessionPolicyClamped`; option `onSessionPolicy(policy, clamped)`.
+- Without a supported client the previous local grant stays (`allowAllToolsForRun`, or the host's
+  `onAllowForSession`) and the approval says so in a labeled line: "Allowed until this run ends, in this browser
+  only — the gateway cannot store conversation policies." / "Allowed for this chat in this browser only — …".
+- `presentInteraction` option `sessionPolicy: { mode, toolsetOf?, clamped?, maxRiskRank? }`: Deny / Allow once / Allow
+  for this chat / "Allow all <toolset> tools for this chat" (one per toolset present in the batch: the call's
+  `toolset`, else the host's `toolsetOf` from `GET discovery/tools`; never guessed) / Allow all enabled tools
+  (unchanged). What the gateway did not store (`clamped`) shows as "Not covered: send_email (not authorized)" after
+  the decision and on the next approval. `WORKFLOW_INTERACTION_LABELS` adds `allowKindForChat`,
+  `localChatPolicyNote`, `localRunPolicyNote`; `WorkflowToolApprovalInteraction` adds `approveKinds`, `scopeNote`,
+  `notCovered`; a decision callback may resolve to `{outcomeNote}`.
+- The ledger record `abstract.tool_policy_decision` folds to an activity line ("Allowed by this conversation's
+  policy (set by admin at …)" / "Denied by this conversation's policy", kind `tool_policy_decision`, rendered as one
+  discreet line), never an interaction; the covered calls' tool rows carry the provenance
+  (`WorkflowToolActivity.policy`, `callId`). Helpers `toolPolicyDecision`, `toolPolicyDecisionText`,
+  `sessionPolicyClampedText`.
+- `isLocalObjectUrl` decides with the URL parser (a leading control character before `blob:` is local: download, no
+  new tab; review of PR #4).
+- Check: `check_session_policy.mjs` (49 checks; 14 mutations red, including a resume sent before the policy write).
+
 ### chat: one chat surface, questions and approvals, attachments and generated media (backlog 0030, 0032, kit half of 0031; ADR 0001)
 
 panel-chat (and one ui-kit file):
