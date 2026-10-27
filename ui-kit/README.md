@@ -325,8 +325,35 @@ overrides it; the host stores the overrides.
 - Device names appear after one microphone permission (**Show names**). Safari does not let a page
   choose the output device: the picker stays on System default and says so.
 - Send what the user chose with `voiceTtsRequest(prefs)` / `voiceSttRequest(prefs)`, and play or
-  record through `useGatewayVoice({ output_device_id, input_device_id, volume, input_gain })`.
+  record through `useGatewayVoice({ ...gatewayVoiceOptions(prefs), tts_stream, transcribe })`
+  (devices, volume, mute, input level, capture mode).
 - `gatewayJson` and `voiceCatalogPath` above stand for your own authenticated transport.
+
+The Output and Microphone groups are standalone composables you can render anywhere voice
+settings appear (a composer popover, a rail panel), with no section around them:
+
+```tsx
+const [prefs, setPrefs] = useVoicePreferences("myapp.voice");        // same-tab + cross-tab sync
+const defaults = useVoiceDefaults(connected ? fetchVoiceDefaults : null, gatewayUrl);
+const voice = useGatewayVoice({ ...gatewayVoiceOptions(prefs), tts_stream, transcribe });
+
+<AfVoiceOutput value={prefs} onChange={setPrefs} />                  // device + Test, volume, Mute
+<AfVoiceInput value={prefs} onChange={setPrefs} levelSource={voice} />    // only the meter re-renders
+<AfVoiceMicButton voice={voice} mode={voiceCaptureMode(prefs)}
+  routeText={sttRouteText(prefs, defaults.value)} onTranscript={(text) => send(text)} />
+```
+
+- `AfVoiceMicButton` has one wording: **Hold to talk** ("Recording — release to send") or
+  **Tap to talk** ("Recording — tap to stop"). `voiceCaptureMode()` is the one reading of the
+  preference (anything but "toggle" is hold), used by `gatewayVoiceOptions` too. A button whose
+  hook was created with the other mode is shown disabled with the reason (and a console error);
+  it never throws.
+- `AfVoiceSection` takes `rows` (hide what the host ignores: `{tts: false}` for an entity that
+  speaks with its own voice, shown in Engines through `ttsSlot`; `mute` and `capture` are opt-in),
+  `voiceLibrary` (create, list, rename, delete, share the gateway's voices), `fetchLanguages`
+  (`GET voice/languages`) and `previewVoice` (**Play sample**).
+- The gateway's voice routes are in `GATEWAY_VOICE_ROUTES` and the path helpers
+  (`voiceClonePath`, `runVoiceTtsPath`, …), relative to `gatewayApiPath()`.
 
 ## Audio player
 

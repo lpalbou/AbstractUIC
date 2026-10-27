@@ -512,7 +512,10 @@ app code or fetch on their own (injected transports are the pattern where networ
 | App assistant (an app's own Q&A, e.g. Continuum's advisor) | `AssistantPanel` (panel-chat) in `AfDrawer`, or `assistantDrawerPanel({ ask, assistantName })` in `AfDrawerSystem`, toggled by `AfTopBarActions` `assistant` | Transport injected (`ask(question, { signal, history })`), never fetches |
 | Markdown / JSON rendering | `Markdown`, `JsonViewer` (panel-chat) | Also exported standalone |
 | TTS playback + push-to-talk | `useGatewayVoice` (+ `streamTtsJsonl`) | Injected `tts`/`tts_stream`/`transcribe` functions; streaming with pause/resume; output and input device, volume and input level options |
-| Voice settings page | `AfVoiceSection` | Pass `fetchDefaults` (`GET /api/gateway/voice/defaults`): "Gateway default · provider / model" comes only from it; the host stores the overrides. Pass `createVoice` (`design` → `POST /api/gateway/voice/design`, `clone` → multipart `POST /api/gateway/voice/clones`) to let people create their own voices |
+| Voice settings page | `AfVoiceSection` (+ `useVoicePreferences(storageKey)`, `useVoiceDefaults(fetchDefaults)`) | Pass `fetchDefaults` (`GET /api/gateway/voice/defaults`): "Gateway default · provider / model" comes only from it; the host stores the overrides (`useVoicePreferences`: same-tab and cross-tab sync). Pass `voiceLibrary` (`design` → `POST voice/design`, `clone` → multipart `POST voice/clones`, `list` / `rename` / `remove` / `share` over `voice/clones[/{id}]` and `voice/clones/{id}/deploy`; `createVoice` is its alias) to let people create and manage their own voices, `fetchLanguages` (`GET voice/languages`), `previewVoice` (**Play sample**). `rows={{tts: false}}` + `ttsSlot` where the host owns the voice (an entity); `rows.mute` / `rows.capture` only where the host honours `reply_muted` / `capture_mode` / `auto_send` (`useGatewayVoice({...gatewayVoiceOptions(prefs), ...})`) |
+| Voice output controls | `AfVoiceOutput` | Output device + **Test**, Reply volume, **Mute**; the same rows the section shows, alone wherever voice settings appear |
+| Voice input controls | `AfVoiceInput` | Input device + **Test**, live level meter (`levelSource={voice}`: only the meter re-renders while the user speaks), Input level, **Show names** |
+| Microphone button | `AfVoiceMicButton` | **Hold to talk** / **Tap to talk** (the hook's `capture_mode`), live meter, "Recording… 3 s", "Transcribing… · route"; the host decides what a transcript does (`onTranscript`, `auto_send`) |
 | Compact settings rows | `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow` | "Gateway default" until the user overrides it; **Use gateway default** returns to it |
 | Side panels (rail tabs, docs/assistant drawers, left palette, canvas panels) | `AfDrawerSystem` | Panels are opaque `{id, label, icon, content}` + `side`, `mode`, `keepAlive`, `errorBoundary`, `fill`; docked from 1024 px, floating below; per-panel widths and the open panel (docked only) under ONE `storageKey`; `railLabelStyle: "vertical-text"`; `request: "id#nonce"`. Delete app-local side-tab rails, active-panel persistence and error boundaries |
 | Side panels on a vertical icon rail (existing callers) | `AfRailDrawer` | A thin wrapper over `AfDrawerSystem`; new code uses `AfDrawerSystem` |
@@ -1733,7 +1736,21 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Voice: `VoiceSettings` (provider + model + voice from the Gateway catalog, grouped into Your voices / Engine voices / Shared voices (built-in and administrator-shared) with a language filter (voices with no language restriction always pass), and an optional `createVoice` panel (`VoiceCreation`: `design`, `clone`; a recording's language is detected unless chosen) that creates a voice through the gateway and selects it; "Gateway default"
   first). Host props: `intro` (`null` hides the paragraph), `delivery` (speed / quality /
   instructions, default on), `showReset`, `defaultHint` (names what the gateway default is) and
-  `voiceDefaultLabel` (the voice select's unset choice).
+  `voiceDefaultLabel` (the voice select's unset choice). ui-primitives 0035: `voiceLibrary`
+  (`VoiceLibrary` = `VoiceCreation` & `{ list?, rename?, remove?, share? }` over `GET voice/clones`,
+  `PATCH` / `DELETE voice/clones/{voice_id}` and `POST voice/clones/{voice_id}/deploy`; supersedes
+  `createVoice`, which stays as an alias) adds **Manage voices** (`VoiceLibraryPanel`: the voices
+  that can change, built-in ones are read-only and not listed; **Rename**, **Delete** asked twice,
+  **Share** where the host injects `share`, i.e. for an administrator; a refusal is the gateway's
+  sentence); `previewVoice(prefs, text?) => Promise<ArrayBuffer>` adds **Play sample** beside the
+  voice select (host-injected: every gateway TTS route needs a run or an entity), played on
+  `previewOn` (`{deviceId, volume}`); `recordFrom` (`{deviceId, gain}`) is the microphone
+  `CreateVoicePanel`'s **Record** uses ("From a recording": **Record** / **Stop** beside the file
+  picker, a live level meter, at most `VOICE_RECORDING_MAX_MS`, silence refused);
+  `CreateVoicePanel.cloneRoute` (`{provider, model}`) names the cloning engine the clone request
+  carries (`VoiceCreation.clone` accepts `provider` / `model`; absent = the gateway's default).
+  One language label table: `VOICE_LANGUAGE_LABELS`; `voiceLanguagesFromAnswer(answer, kind,
+  provider?)` reads a `GET voice/languages` answer; `voiceRecordId(record)`.
 - Gateway connection: `GatewayConnectModal` + `useGatewayConnection()` (the connection state machine: boot probe, auto-open on resolved disconnect, self-close on sign-in), plus helpers `fetchGatewayConnection()`, `signInGateway()`, `signOutGateway()`, `gatewayStatusBadge()`, `normalizeGatewayUrl()`; `GatewaySessionSignInCard` is the underlying form card. `GatewayConnectionState.gateway` is the gateway's `GET /api/gateway/me` body relayed by the app server: `principal` (`GatewayPrincipalPayload`: `user_id`, `tenant_id`, `roles`, `scopes`, `token_fingerprint`, `runtime_id`, `source`, `admin`), `auth` (`mode`, `user_auth_enabled`), `routing` (`mode`, `one_user_one_runtime`). The hook's behaviour is pinned by `check_gateway_connection.mjs`.
 - Signed-in principal (shell, backlog 0036): `principalFromConnection(status)` → `AfPrincipal | null` (`userId`, `tenantId?`, `runtimeId?`, `roles?`, `scopes?`, `source?`, `admin?`; `displayName?` / `email?` / `avatarUrl?` are typed for a host that has them: the gateway serves none), null unless the status is connected (`isGatewayConnected`); `principalLabel(p)` — the one wording: display name, else user id, prefixed `tenant/` only when the tenant is not `default` (`AF_DEFAULT_TENANT`); `gatewayHostLabel(gateway_url)`.
 - Phase capability matrix: `PhaseCapabilityMatrix` + a framework-free core (`validateMatrixPayload()`, `resolveCellView()`, `applyCellAction()`, `reconcilePatches()`, `serializeCellPatches()`)
@@ -1748,14 +1765,21 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Code highlighting (0.8.0): `AfCodeBlock` (`text`, `language` = a file name or a language, `lineNumbers?`) — wraps long lines, never scrolls sideways; `highlightCode(text, codeLanguage(name))` is a dependency-free lexer (comment / string / number / keyword tokens; joining the tokens returns the input).
 - Settings rows (0.8.0): `AfSettingsGroup` (titled card; `variant="flat"` inside another card; `aside` for e.g. "Revision 4"), `AfSettingRow` (label + one-line help left, control right; wraps in a narrow panel), `AfOverrideRow` — the "Gateway default unless overridden" row: summary (`Gateway default · x` or `<override> — <owner>`), **Change** opens the editor in place, **Use gateway default** only while overridden.
 - Workspaces (0.8.3, round 11): `WorkspaceChooser` — the one workspace chooser of the console (Accounts → **Eligible workspaces** and each account's modal), AbstractCode, Observer, Flow (the Assistant copies `WORKSPACE_CHOOSER_TEXT` verbatim). One component, four levels through `level`: `"gateway"` (the admin's eligible set; a row's mode is its cap), `"account"` (an account's default, humans and entities), `"session"` (one conversation's subset, stored on the session by the gateway) and `"run"` (a one-off run without a session: nothing is PUT; the host keeps the value). There is no shared workspace: a run's private workspace is automatic and always Read & write. It shows, top to bottom: **Gateway: <gateway_summary>** verbatim (not at the gateway level); **Follow the gateway policy** (account) or **Use my default** (session, run) as a state-showing switch — ON sends `{configured: false}`, OFF starts from what applies now; the posture as a segmented control ("Deny everything, allow listed workspaces" / "Allow everything, refuse listed workspaces"); **Allowed workspaces** / **Refused workspaces** rows, each `path · Read & write | Read-only | Refused · remove` (a mode above the gateway's cap, read from `effective.folders[].cap`, stays focusable but `aria-disabled` with the kit tooltip "The gateway allows this workspace read-only"; the remove icon's tooltip is "Remove <path>"); **Everything else** under the second posture; the **Add a workspace path** row (+ **Choose…** when the host passes `choose`); the effective line verbatim; an optional `footer`. Every change is ONE call, never a Save button: stored levels `<WorkspaceChooser level="gateway"|"account"|"session" state={workspaceAsState(answer, level)} save={(payload) => …} />` (payload = the full body `{configured: true, posture, default_mode, folders}` or `{configured: false}`; at the gateway level `{posture, default_mode, folders}`; a `save` that resolves with a chooser state is shown at once); run level `<WorkspaceChooser level="run" value={WorkspaceRunValue | null} effective={dry-run answer} onChange={(next | null) => …} />`. A rejection shows the gateway's sentence + "Not saved." under the control. Helpers: `workspaceChooserClient(request, {level, account?, session?}, base = GATEWAY_API_PATH)` → `{path, load(), save(payload)}` over `GET/PUT /workspace/policy`, `/workspace/policy/{account|me}`, `/sessions/{id}/workspaces`; `workspaceDryRun(request, account = "me")` → `POST /workspace/effective/{account} {workspace}`; `workspaceAsState` / `workspaceAsPolicy` / `workspaceAsEffective` refuse an older answer (one carrying `shared_workspace`, or missing `configured`, `cap`, `summary`, `gateway_summary`) loudly; `effective.default_mode` may be `null` under "Deny everything, allow listed workspaces" (the follow switch then sends the policy read's own `default_mode`); `workspaceErrorSentence` reads an `Error`, `{detail: {message}}`, `{detail: "…"}` or `{message}`. No policy logic: no path checks, no clamp, no cap computation (`check_workspace_chooser.mjs`).
-- Voice section (0.8.0): `AfVoiceSection` — the Assistant's Settings → Voice layout, four groups: **Engines** (Text → speech, Speech → text as `AfOverrideRow`s), **Output** (output device where `audioOutputSelectable()`, with a **Test** chime on the chosen speaker; Reply volume), **Microphone** (input device; **Test** records 3 s with a live level meter and plays it back, or says why it could not: blocked, no device, device gone, in use, silence; Spoken language, which rides on transcription requests and skips detection; Input level 50–150 % where Web Audio allows) and **Replies** (Read aloud switch; Voice latency from `VOICE_LATENCY_OPTIONS`, only when the gateway advertises `quality_preset`). Device names appear after one microphone permission (**Show names**). Safari cannot choose a speaker: the picker stays on System default and says so. Required prop `fetchDefaults: () => Promise<VoiceDefaults>` (`GET /api/gateway/voice/defaults`, the gateway's `output.voice` / `input.voice` routes) is the only source of "Gateway default · provider / model" ("not set" / "unknown" otherwise); `defaults` passes them when the host already holds them. Value `VoiceClientPreferences` (`VoicePreferences` + `stt_provider`, `stt_model`, `stt_language`, `output_device`, `input_device`, `input_gain`, `reply_volume`, `read_aloud`); `voiceTtsRequest()` / `voiceSttRequest()` pick what a request carries (`voiceSttRequest` sends `language`). `nested` renders its sub-sections flat. Helpers (`voice_devices.ts`): `voiceDefaultSummary`, `sttRouteText`, `transcribingLine`, `microphoneErrorSentence`, `listVoiceDevices`, `unlockDeviceLabels`, `recordSample`, `playTestTone`, `playOnDevice`.
+- Voice section (0.8.0): `AfVoiceSection` — the Assistant's Settings → Voice layout, four groups: **Engines** (Text → speech, Speech → text as `AfOverrideRow`s), **Output** (output device where `audioOutputSelectable()`, with a **Test** chime on the chosen speaker; Reply volume), **Microphone** (input device; **Test** records 3 s with a live level meter and plays it back, or says why it could not: blocked, no device, device gone, in use, silence; Spoken language, which rides on transcription requests and skips detection; Input level 50–150 % where Web Audio allows) and **Replies** (Read aloud switch; Voice latency from `VOICE_LATENCY_OPTIONS`, only when the gateway advertises `quality_preset`). Device names appear after one microphone permission (**Show names**). Safari cannot choose a speaker: the picker stays on System default and says so. Required prop `fetchDefaults: () => Promise<VoiceDefaults>` (`GET /api/gateway/voice/defaults`, the gateway's `output.voice` / `input.voice` routes) is the only source of "Gateway default · provider / model" ("not set" / "unknown" otherwise); `defaults` passes them when the host already holds them. Value `VoiceClientPreferences` (`VoicePreferences` + `stt_provider`, `stt_model`, `stt_language`, `output_device`, `input_device`, `input_gain`, `reply_volume`, `read_aloud`); `voiceTtsRequest()` / `voiceSttRequest()` pick what a request carries (`voiceSttRequest` sends `language`). `nested` renders its sub-sections flat. `createVoice` (a `VoiceCreation`) adds "Create a voice" under the voice select. Helpers (`voice_devices.ts`): `voiceDefaultSummary`, `sttRouteText`, `transcribingLine`, `microphoneErrorSentence`, `listVoiceDevices`, `unlockDeviceLabels`, `recordSample`, `playTestTone`, `playOnDevice`.
+  ui-primitives 0035: the **Output** and **Microphone** groups are the standalone `AfVoiceOutput` and `AfVoiceInput` below. New props: `rows?: AfVoiceSectionRows` (`tts`, `stt`, `output`, `microphone`, `replies` default shown; `mute` and `capture` default hidden, shown only where the host honours them; an entity that speaks with its own voice passes `{tts: false}`), `ttsSlot?: ReactNode` (a host-owned voice picker shown in Engines in place of the Text → speech row), `voiceLibrary?: VoiceLibrary` (wins over `createVoice`), `previewVoice?(prefs, text?)` (**Play sample**, played on the chosen speaker at the reply volume), `fetchLanguages?(kind, provider?) => Promise<string[]>` (`GET voice/languages?kind=stt&provider=`: Spoken language lists the transcription engine's languages, the override's else the gateway default's; failed or open = the kit table; a saved language outside the list stays as "(saved)"), `captureDefaults?` (what an unset `capture_mode` / `auto_send` means in this host), `levelSource?` (the `voice` from `useGatewayVoice`: the Microphone meter moves during a real recording; only the meter re-renders). A muted preference always shows **Unmute**, even where the Mute row is not opted in. New `VoiceClientPreferences` keys: `reply_muted`, `capture_mode` (`"hold"` | `"toggle"`), `auto_send`; with `rows.capture` the Microphone group shows **Microphone button** (Hold to talk / Tap to talk, `VOICE_CAPTURE_OPTIONS`) and **Send what you say automatically**. `voiceCaptureMode(value | prefs)` is the one reading of `capture_mode` (anything but `"toggle"` is hold). `gatewayVoiceOptions(prefs)` maps the preferences to the hook's `output_device_id`, `volume`, `muted`, `input_device_id`, `input_gain`, `capture_mode`. `VOICE_LANGUAGE_OPTIONS` now lists the kit's 15 languages (`VOICE_LANGUAGE_LABELS`).
+- Voice OUT (ui-primitives 0035): `AfVoiceOutput` — output device picker with a **Test** chime on the chosen speaker (Safari: System default, says why: `SAFARI_OUTPUT_NOTE`), **Reply volume** slider and **Mute** (`reply_muted`; the volume is kept; the Test still plays; **Unmute** is always shown while muted). Controlled and standalone (no section around it): `value` (`VoiceOutputValue` or the whole preferences; `onChange` returns it merged), `onChange`, `listDevices?`, `outputSelectable?`, `showMute?` (default true; ignored while muted), `unavailableReason?`, `devicesKey?` (re-read the device list), `labels?` (`device`, `volume`, `test`), `className?`.
+- Voice IN (ui-primitives 0035): `AfVoiceInput` — input device picker, a live level meter (`AfVoiceLevelMeter`, `role=meter`: the Test's level while the Test records, else the host's real recording level from `levelSource`, or a `level` the host holds), **Test** (3 s from the chosen microphone, played back on `playOn`), **Show names**, **Input level** 50–150 % where Web Audio allows. Controlled and standalone: `value` (`VoiceInputValue` or the whole preferences), `onChange`, `levelSource?`, `level?`, `listDevices?`, `playOn?` (`{deviceId, volume}`), `onDevicesChanged?`, `unavailableReason?`, `labels?` (`device`, `gain`, `test`), `className?`. `clampInputGain(v)`.
+- Microphone button (ui-primitives 0035): `AfVoiceMicButton` (`voice: GatewayVoice`, `mode: "hold" | "toggle"`, `routeText?`, `onTranscript?(text, info)`, `label?`, `unavailableReason?`, `showStatus?`, `className?`) — one wording (`VOICE_MIC_TEXT`): **Hold to talk** → "Recording — release to send" (a tap shorter than `MIN_RECORDING_MS` is discarded with a hint; leaving the page mid-hold sends nothing; Space / Enter hold too) or **Tap to talk** → "Recording — tap to stop"; a live level meter while recording; "Recording… 3 s" / `transcribingLine` beside it. `mode` is read with `voiceCaptureMode` (a stored, stale or foreign value is hold: it never crashes the page). The hook must be created with the same `capture_mode`; a mismatch, or `onTranscript` without the hook's listener, renders the button disabled with the reason (`data-voice-mic-error`) and logs a console error, never a render error; `onTranscript` subscribes through `voice.add_transcript_listener`; unmounting while recording cancels it.
+- Voice preferences and defaults (ui-primitives 0035): `useVoicePreferences(storageKey | null)` → `[prefs, setPrefs]` kept in localStorage under `storageKey`, in sync across the page's components with the same key and across the app's tabs (`storage` event); `null` = in memory only. `loadVoicePreferences(key)`, `saveVoicePreferences(key, prefs)`. `useVoiceDefaults(fetchDefaults | null, key?)` → `{value, failed, reload}`: `GET voice/defaults` once per `key` (another gateway or account), nothing without a gateway; pass `value` to `AfVoiceSection.defaults`.
+- Voice routes (ui-primitives 0035, `gateway_paths.ts`): `GATEWAY_VOICE_ROUTES` (`defaults`, `voices`, `languages`, `clones`, `design`, `compatibility`), `voiceClonePath(id)`, `voiceCloneDeployPath(id)`, `runVoiceTtsPath(runId, stream?)`, `runTranscribePath(runId)`, `entityVoicePath(name, "" | "tts" | "tts/stream")` — relative to the gateway API: wrap with `gatewayApiPath()`.
+- Live level (ui-primitives 0035): `AfVoiceLevelMeter` (`source?`, `level?`, `label?`, `origin?`, `inline?`, `className?`) and `useVoiceLevel(source)` subscribe to `voice.subscribe_level`, so only the meter re-renders while the user speaks (`VoiceLevelSource`). `recordSample` honours an abort at every step: an abort before the microphone has opened closes it as the stream arrives and rejects with `recordingAbortError()` (`name: "AbortError"`).
 - Relative time (0.8.0): `formatRelativeTime(ts, nowMs)` ("just now", "5 min ago", "3 h ago", "yesterday", "4 days ago", then "Oct 2"; future "in 14 h"), `formatExactTime(ts)` ("Oct 2, 2026, 14:05"), `formatShortDate(ts, nowMs)`, `timeValueMs(ts)` — deterministic (the caller passes now), no seconds, no year within the same year.
 - Icons (0.8.0): `cog` (the usual settings gear; `settings` stays the sliders glyph), `activity` and `unarchive` (archive box with an up arrow).
 - App chrome: `AfTopBarActions` — the top-right cluster, in this enforced order: app `extraActions` · docs · assistant · appearance · about · identity · connection pill (always rightmost; pinned by `check_app_shell.mjs`). `connection` takes `useGatewayConnection()`'s return value (preferred: the pill and the identity menu's **Disconnect** both call its `signOut()`, then the host's `onSignOut?` ONLY when `signOut()` resolved true, i.e. the session is gone; its `signOutError` shows as "Disconnect failed" beside the pill) or the legacy `AfTopBarConnection` `{phase, signingOut?, onConnect, onDisconnect, status?, signOutError?}` (then `onDisconnect` alone runs; `onSignOut` is ignored). One verb for ending the session: pill Connect / Connecting… / Disconnect / Disconnecting… (`topBarPillText`; accessible name "Disconnect from gateway"), menu item **Disconnect**. `identity?: "badge" | "menu" | false` — who is signed in (`principalLabel`), immediately left of the pill, only while the phase is connected, explained by the kit tooltip (`data-af-tip`, no native title); `"menu"` = an `AfMenu` whose header says "Signed in as …" and "Gateway <host>", items **Copy user id** (only where the clipboard API exists) and **Disconnect**. `appearance` = `{onOpen, label?}` (host dialog) or `{value, onChange, label?, title?, note?}` (the cluster renders `AfAppearanceDialog`). `about={{ identity, versions?, fetch?, extra?, onOpen?, label? }}` adds the About button and dialog; with `fetch` (the host's gateway fetch, `AfGatewayFetch`) and no `versions` the cluster GETs `api/gateway/about` each time the dialog opens (`fetchAboutVersions`, "checking…" while in flight, "unavailable (HTTP 401)" on failure; an answer after close is dropped); `extra` is host content in the dialog. The cluster publishes `--af-topbar-h` (its header's bottom edge, viewport-relative; updated on the header's resize, window resize and scroll; removed on unmount unless another publisher wrote it since; `useAfTopBarHeight`, `publishHeight={false}` opts out). `AfDrawer` (non-modal, keeps children mounted; `side="left"`, `backdrop`; full width below 768 px; `topOffset: number | "auto"`; **behaviour change**: focus now moves in on open — `[data-autofocus]`, else the first text field (skipped on touch screens, so no soft keyboard), else the first control, else the drawer — and back to the opener on close when focus was inside; `manageFocus={false}` opts out), `AfAppearanceDialog` + `useAppearanceSettings()` / `appearanceStorageKey()` / `APPEARANCE_DEFAULTS`. `AfMenu` takes an optional non-interactive `header` and a kit tooltip `tip`. `useGatewayConnection().signOut()` now resolves `true` when the session is gone, `false` otherwise (never rejects).
 - About (0.8.0): `AfAbout` (inline card: `identity`, `versions?`, `titleId?`, `action?`, `extra?` (host content under the links, e.g. the console's update and restart controls), `className?`) and `AfAboutDialog` (`open`, `onClose`, `identity`, `versions?`, `extra?`; modal, Escape and a click outside close it, Close button in the heading row). The card shows the app's name and version, the AbstractFramework and AbstractGateway versions, six links (Website, Source, Docs, Issues, Feedback, and Contact as a mailto) and the copyright and licence line — never a package list. `versions: AfAboutVersions` = `{ framework?, frameworkNote?, gateway?, gatewayNote? }`; a missing version shows its note, else "not reported" / "not connected". `aboutVersionsFromGateway(payload | null, error?)` builds it from `GET /api/gateway/about` (only the framework and gateway versions are read; "not installed on the gateway host" when the gateway reports no framework; "unavailable (reason)" on failure). Helpers `aboutLinks(identity)`, `aboutVersionFacts(versions)`, `fetchAboutVersions(fetchGateway)` (never throws), `ABOUT_VERSIONS_CHECKING`.
 - Identity: `appIdentity(id, version): AppIdentity` (throws on an unknown id), `frameworkIdentity(): FrameworkIdentity`, `knownAppIds()`, `aboutRows(identity, extra?): AboutRow[]` (the ordered About rows, same as the Python `abstractcore.utils.identity.about_fields`), `gatewayVersionRows(payload: GatewayAboutPayload | null, error?: string): AboutRow[]` (the connected gateway's version rows from `GET /api/gateway/about`) — both kept for parity with the Python twins; the About card does not render rows; types `AppIdentity`, `FrameworkIdentity`, `AboutRow`, `GatewayAboutPayload`. See [About dialog and identity](../ui-kit/README.md#about-dialog-and-identity)
 - CSRF helpers: `readGatewayCsrfToken()`, `readGatewayCsrfTokens()`
-- Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`. Options `output_device_id` (playback through `AudioContext.setSinkId`), `input_device_id` (records from that microphone; a missing device fails with a sentence, never another microphone), `volume`, `input_gain`, `stop_on_pointerup: false` (tap-to-start / tap-to-stop hosts stop recording themselves); returns `voice_ptt_since` (for "Transcribing… 12 s · faster-whisper / large-v3"); `transcribe` may return `{ text, provider, model }`; every failure becomes one sentence; `VoiceSettings` (catalog-driven voice preferences form)
+- Voice: `useGatewayVoice()` (TTS playback incl. streaming with pause/resume, push-to-talk capture; injected transports) + `streamTtsJsonl()`. Options `output_device_id` (playback through `AudioContext.setSinkId`), `input_device_id` (records from that microphone; a missing device fails with a sentence, never another microphone), `volume`, `muted` (0035: gain 0 at once, also for a reply that is playing; the volume is kept), `input_gain`, `capture_mode` (0035: `"toggle"` = tap to start / tap to stop, no pointerup stop; default `"hold"`), `stop_on_pointerup: false` (wins over `capture_mode`; tap-to-start / tap-to-stop hosts stop recording themselves); returns `voice_ptt_since` (for "Transcribing… 12 s · faster-whisper / large-v3"), `subscribe_level(fn)` (0035: the live microphone level 0..1 while recording, as a subscription, so the hook's owner never re-renders for it), `voice_capture_mode` and `add_transcript_listener(fn)` (0035); a stop or cancel while the microphone is still opening closes it as the stream arrives; `transcribe` may return `{ text, provider, model }`; every failure becomes one sentence; `VoiceSettings` (catalog-driven voice preferences form)
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
 - Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation: Repeat on a fixed UTC interval, Daily / Weekly / Monthly at a time of day in the account's time zone, once, or when an email arrives — the Gateway's own sentence for calendar rules through `previewSchedule`; "Email result" and result recipients), `AfTimeZonePicker` (the account time zone, over the Gateway's IANA list), the email fields `AfEmailTriggerFields` / `AfEmailOptionsFields` / `AfEmailSetupNotice`, `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
 - Modal and account rows: `AfModal`, `bindAfModal()` (+ `afModalTabTarget()`, `afModalFocusables()`, `AF_MODAL_FOCUSABLE`), the helper floors `HELPER_MIN_PX`, `HELPER_MIN_TOUCH_PX`, `HELPER_TOUCH_MEDIA` — see [Modal, account rows, grouped navigation](./modal.md)
@@ -3764,6 +3788,7 @@ Serve both files from your own origin; the paths above are examples.
 | `mountDrawerSystem(el, props)` | `IslandHandle` | Mounts the kit `AfDrawerSystem`; each panel's content is a host element (`element`) moved into the panel and kept alive (shell, backlog 0036) |
 | `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.4.0+) |
 | `mountWorkspaceChooser(el, props)` | `IslandHandle` | Mounts the kit `WorkspaceChooser` (`level`, `state`, `save`): the console's **Eligible workspaces** modal (`level: "gateway"`) and each account's Workspaces modal (`level: "account"`) (kit 0.8.3, round 11) |
+| `mountVoiceSection(el, props)` | `IslandHandle` | Mounts the kit `AfVoiceSection` (the whole voice settings: Engines, Output, Microphone, Replies) with the component's own props (`fetchCatalog`, `fetchDefaults`, `voiceLibrary`, `fetchLanguages`, `previewVoice`, `rows`, …) (ui-primitives 0035) |
 | `mountTimeZonePicker(el, props)` | `IslandHandle` | Mounts the kit `AfTimeZonePicker` (`block` = the preferences answer's `time_zone`, `id`, `onChange(zone \| null)`, `disabled`, `note`): the time zone row of the console's Accounts → Preferences modal (kit 0.8.7, round 16) |
 | `workspaceChooserText` | `object` | The WorkspaceChooser's wording table (`WORKSPACE_CHOOSER_TEXT`), e.g. the modal title `gatewayTitle` "Eligible workspaces" (kit 0.8.3) |
 | `workspaceAsState(answer, level)` | `object` | Turns a `GET/PUT /workspace/policy[/{account}]` answer into the chooser's `state`; throws on an older answer (kit 0.8.3) |
@@ -3906,7 +3931,10 @@ reasoning, MTP) and voice picker (`VoiceSettings`) for plain-HTML hosts, with th
 props. Transports are injected: `fetchProviders()`, `fetchModels(provider)` and
 `fetchModelCapabilities(model, provider)` for the picker, `fetchCatalog(provider, model)` for the
 voice picker. The host keeps the value and calls `update(props)` after each change. The gateway
-console's entity Manage, Mind & voice tab uses both.
+console's entity Manage, Mind & voice tab uses both. The voice picker's props include
+`voiceLibrary` (create, list, rename, delete and share the gateway's voices: **Manage voices**)
+and `previewVoice` (**Play sample**); `mountVoiceSection(el, props)` mounts the whole
+`AfVoiceSection` the same way (ui-primitives 0035).
 
 The picker also takes the props added by backlog 0034 (`fetchGatewayDefault`, `reasoningLadder`,
 `unknownReasoning`, `layout: "compact"`, `pinned`); see [API](./api.md). The console's Defaults
@@ -4388,8 +4416,35 @@ overrides it; the host stores the overrides.
 - Device names appear after one microphone permission (**Show names**). Safari does not let a page
   choose the output device: the picker stays on System default and says so.
 - Send what the user chose with `voiceTtsRequest(prefs)` / `voiceSttRequest(prefs)`, and play or
-  record through `useGatewayVoice({ output_device_id, input_device_id, volume, input_gain })`.
+  record through `useGatewayVoice({ ...gatewayVoiceOptions(prefs), tts_stream, transcribe })`
+  (devices, volume, mute, input level, capture mode).
 - `gatewayJson` and `voiceCatalogPath` above stand for your own authenticated transport.
+
+The Output and Microphone groups are standalone composables you can render anywhere voice
+settings appear (a composer popover, a rail panel), with no section around them:
+
+```tsx
+const [prefs, setPrefs] = useVoicePreferences("myapp.voice");        // same-tab + cross-tab sync
+const defaults = useVoiceDefaults(connected ? fetchVoiceDefaults : null, gatewayUrl);
+const voice = useGatewayVoice({ ...gatewayVoiceOptions(prefs), tts_stream, transcribe });
+
+<AfVoiceOutput value={prefs} onChange={setPrefs} />                  // device + Test, volume, Mute
+<AfVoiceInput value={prefs} onChange={setPrefs} levelSource={voice} />    // only the meter re-renders
+<AfVoiceMicButton voice={voice} mode={voiceCaptureMode(prefs)}
+  routeText={sttRouteText(prefs, defaults.value)} onTranscript={(text) => send(text)} />
+```
+
+- `AfVoiceMicButton` has one wording: **Hold to talk** ("Recording — release to send") or
+  **Tap to talk** ("Recording — tap to stop"). `voiceCaptureMode()` is the one reading of the
+  preference (anything but "toggle" is hold), used by `gatewayVoiceOptions` too. A button whose
+  hook was created with the other mode is shown disabled with the reason (and a console error);
+  it never throws.
+- `AfVoiceSection` takes `rows` (hide what the host ignores: `{tts: false}` for an entity that
+  speaks with its own voice, shown in Engines through `ttsSlot`; `mute` and `capture` are opt-in),
+  `voiceLibrary` (create, list, rename, delete, share the gateway's voices), `fetchLanguages`
+  (`GET voice/languages`) and `previewVoice` (**Play sample**).
+- The gateway's voice routes are in `GATEWAY_VOICE_ROUTES` and the path helpers
+  (`voiceClonePath`, `runVoiceTtsPath`, …), relative to `gatewayApiPath()`.
 
 ## Audio player
 
@@ -5574,7 +5629,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -6375,6 +6430,30 @@ export { AfTooltip, useAfTooltips, type AfTooltipProps } from "./af_tooltip.js";
 export { bindAfTooltips, acquireAfTooltips, afTooltipPlacement, AF_TOOLTIP_DELAY_MS, AF_TOOLTIP_ATTR, type BindAfTooltipsOptions, type AfTooltipPlacement, type AfTooltipRect } from "./af_tooltip_core.js";
 // ui-kit 0.8.7 (round 16, R16.1 A2): the account time-zone picker (preferences).
 export { AfTimeZonePicker, TIME_ZONE_GATEWAY_DEFAULT, timeZoneOptions, type AfTimeZonePickerProps, type TimeZonePreference } from "./time_zone_picker.js";
+// --- ui-primitives (voice) ---
+// 0035: voice IN / voice OUT as standalone composables, the one microphone button, the
+// preference and defaults hooks, the voice library, the gateway's voice routes.
+export { AfVoiceOutput, SAFARI_OUTPUT_NOTE, type AfVoiceOutputProps, type AfVoiceOutputLabels, type VoiceOutputValue, type VoiceDeviceLister } from "./af_voice_output.js";
+export { AfVoiceInput, clampInputGain, type AfVoiceInputProps, type AfVoiceInputLabels, type VoiceInputValue } from "./af_voice_input.js";
+export { AfVoiceMicButton, VOICE_MIC_TEXT, type AfVoiceMicButtonProps } from "./af_voice_mic_button.js";
+export { useVoiceDefaults, type VoiceDefaultsState } from "./use_voice_defaults.js";
+export { useVoicePreferences, loadVoicePreferences, saveVoicePreferences } from "./use_voice_preferences.js";
+export { VOICE_CAPTURE_OPTIONS, gatewayVoiceOptions, type AfVoiceSectionRows } from "./af_voice_section.js";
+export {
+  VoiceLibraryPanel,
+  VOICE_LANGUAGE_LABELS,
+  VOICE_RECORDING_MAX_MS,
+  voiceLanguagesFromAnswer,
+  voiceRecordId,
+  type VoiceLibrary,
+  type VoiceRecord,
+  type VoiceRecordFrom,
+  type VoicePlayOn,
+} from "./voice_settings.js";
+export { voiceCaptureMode, type VoiceCaptureMode } from "./use_gateway_voice.js";
+export { recordingAbortError } from "./voice_devices.js";
+export { AfVoiceLevelMeter, useVoiceLevel, type AfVoiceLevelMeterProps, type VoiceLevelSource } from "./af_voice_level_meter.js";
+export { GATEWAY_VOICE_ROUTES, voiceClonePath, voiceCloneDeployPath, runVoiceTtsPath, runTranscribePath, entityVoicePath } from "./gateway_paths.js";
 // --- ui-primitives (tools-models) ---
 // Backlog 0033 (tool selection) + 0034 (provider/model/reasoning/MTP picker), ADR 0001.
 export {
@@ -9038,6 +9117,56 @@ export function gatewayResourcePath(serverUrl: string): string {
   return u.slice(1);
 }
 
+// --- ui-primitives (voice) ---
+// The gateway's voice routes, relative to the gateway API (feed them to
+// `gatewayApiPath`): one place instead of every app writing its own strings
+// (audit voice.md §A6). Read in routes/gateway.py and routes/voice_library.py.
+const seg = (value: string, what: string): string => {
+  const v = String(value || "");
+  if (!v) throw new Error(`A voice route needs a ${what}.`);
+  return encodeURIComponent(v);
+};
+
+export const GATEWAY_VOICE_ROUTES = {
+  /** GET: the default voice routes (routes/gateway.py:19418-19428). */
+  defaults: "voice/defaults",
+  /** GET `?compact=true&provider&model&language`: the voice catalog (routes/gateway.py:19431-19523). */
+  voices: "voice/voices",
+  /** GET `?kind=tts|stt|cloning&provider`: the languages each engine accepts (routes/voice_library.py:109-118). */
+  languages: "voice/languages",
+  /** GET `?provider&model&language` (list), POST multipart (clone): the voice library (routes/voice_library.py:121-170). */
+  clones: "voice/clones",
+  /** POST `{description, name?, language?, text?}`: a voice from a description (routes/voice_library.py:189-200). */
+  design: "voice/design",
+  /** GET: which engine supports which feature (routes/voice_library.py:221-227). */
+  compatibility: "voice/compatibility",
+} as const;
+
+/** GET / PATCH / DELETE one library voice: "voice/clones/{voice_id}" (routes/voice_library.py:133-186). */
+export function voiceClonePath(voiceId: string): string {
+  return `voice/clones/${seg(voiceId, "voice id")}`;
+}
+
+/** POST (administrators): share a voice with everyone (routes/voice_library.py:203-218). */
+export function voiceCloneDeployPath(voiceId: string): string {
+  return `${voiceClonePath(voiceId)}/deploy`;
+}
+
+/** POST: speech for a run, whole ("runs/{id}/voice/tts", routes/gateway.py:12753) or streamed as JSON lines (:12950). */
+export function runVoiceTtsPath(runId: string, stream = false): string {
+  return `runs/${seg(runId, "run id")}/voice/tts${stream ? "/stream" : ""}`;
+}
+
+/** POST: transcribe an uploaded recording for a run (routes/gateway.py:13322). */
+export function runTranscribePath(runId: string): string {
+  return `runs/${seg(runId, "run id")}/audio/transcribe`;
+}
+
+/** GET / PUT an entity's own voice; with `tts`, speech in that voice (routes/entities.py:5293, :5341, :5451, :5470). */
+export function entityVoicePath(entity: string, tts: "" | "tts" | "tts/stream" = ""): string {
+  return `entities/${seg(entity, "entity name")}/voice${tts ? `/${tts}` : ""}`;
+}
+
 // --- ui-primitives (tools-models) ---
 // The gateway routes the tool and model pickers read (relative to the gateway API; build the
 // request path with gatewayApiPath). Read in the live gateway source, routes/gateway.py:
@@ -10814,6 +10943,7 @@ import { useGatewayVoice } from "../src/use_gateway_voice.js";
 import { ProviderModelPicker, type ProviderModelPickerProps } from "../src/provider_model_picker.js";
 import { ToolModeEditorForPayload, type ToolModeEditorForPayloadProps } from "../src/tool_mode_editor.js";
 import { VoiceSettings } from "../src/voice_settings.js";
+import { AfVoiceSection, type AfVoiceSectionProps } from "../src/af_voice_section.js";
 import { WorkspaceChooser, type WorkspaceChooserProps } from "../src/workspace_chooser.js";
 import { WORKSPACE_CHOOSER_TEXT, workspaceAsState } from "../src/workspace_chooser_core.js";
 import { AfTimeZonePicker, type AfTimeZonePickerProps } from "../src/time_zone_picker.js";
@@ -11215,10 +11345,26 @@ export type VoiceSettingsIslandProps = React.ComponentProps<typeof VoiceSettings
 
 /**
  * The shared voice picker (provider + model + voice, "Gateway default"),
- * transport injected (fetchCatalog). Additive member (round 3).
+ * transport injected (fetchCatalog). Additive member (round 3). Its props
+ * carry `voiceLibrary` (ui-primitives 0035): creation plus list / rename /
+ * remove / share over the gateway's voice library (`voice/clones`), and
+ * `previewVoice` ("Play sample").
  */
 export function mountVoiceSettings(el: Element, props: VoiceSettingsIslandProps): IslandHandle<VoiceSettingsIslandProps> {
   return mount(el, (p) => <VoiceSettings {...p} />, props);
+}
+
+export type VoiceSectionIslandProps = AfVoiceSectionProps;
+
+/**
+ * The whole voice section (`AfVoiceSection`: Engines, Output, Microphone,
+ * Replies) for plain-HTML hosts, the same component the apps render. Props are
+ * the component's own (transport injected: fetchCatalog, fetchDefaults,
+ * voiceLibrary, fetchLanguages, previewVoice). Additive member
+ * (ui-primitives 0035): apiVersion stays "2".
+ */
+export function mountVoiceSection(el: Element, props: VoiceSectionIslandProps): IslandHandle<VoiceSectionIslandProps> {
+  return mount(el, (p) => <AfVoiceSection {...p} />, props);
 }
 
 /**
@@ -11322,6 +11468,7 @@ const api = {
   mountProviderModelPicker,
   mountToolModeEditor,
   mountVoiceSettings,
+  mountVoiceSection,
   mountDocsAssistant,
   mountDrawerSystem,
   // The identity source the top bar island reads (shell, 0036): exposed so hosts and checks see the rule.
@@ -17643,6 +17790,45 @@ ships.
 
 ## Unreleased
 
+### voice: voice IN / voice OUT as standalone composables, one microphone button, the voice library (backlog 0035, ADR 0001 §5 and §8)
+
+Packages: `@abstractframework/ui-kit` (no version bump here; the lead sequences the release).
+
+- **`AfVoiceOutput`** (voice OUT: output device + **Test** chime on the chosen speaker, **Reply volume**, **Mute**)
+  and **`AfVoiceInput`** (voice IN: input device + **Test**, a live level meter, **Show names**, **Input level**)
+  render alone, with no section around them, wherever voice settings appear. Controlled: the value may be the
+  whole preferences, `onChange` returns it merged.
+- **`AfVoiceSection`** renders its Output and Microphone groups with these two components (same rows, same checks).
+  New props: `rows` (`{tts: false}` fixes the entity's ignored TTS override row; `mute` and `capture` are opt-in),
+  `ttsSlot` (a host-owned voice in Engines), `voiceLibrary` (supersedes `createVoice`, kept as an alias),
+  `previewVoice` (**Play sample**), `fetchLanguages` (Spoken language from `GET voice/languages`; the hardcoded
+  10-language list is gone: one 15-language table, `VOICE_LANGUAGE_LABELS`), `captureDefaults`, `levelSource`.
+  New preferences `reply_muted`, `capture_mode` (**Hold to talk** / **Tap to talk**), `auto_send` (**Send what you
+  say automatically**); `gatewayVoiceOptions(prefs)` maps them to the hook.
+- **`useGatewayVoice`**: `subscribe_level` (the meter moves during a real recording, not only during Test; a
+  subscription, so only `AfVoiceLevelMeter` / `useVoiceLevel` re-render, never the hook's owner), `muted`
+  (gain 0 at once, the volume kept), `capture_mode` (`"toggle"` never stops on a pointer release),
+  `voice_capture_mode`, `add_transcript_listener`. Every returned function keeps a stable identity.
+- **`AfVoiceMicButton`**: one wording ("Hold to talk" → "Recording — release to send"; "Tap to talk" → "Recording —
+  tap to stop"), a live meter, "Recording… 3 s" / "Transcribing… 4 s · route"; a tap in hold mode is discarded
+  with a hint. `mode` is read with `voiceCaptureMode()` (anything but "toggle" is hold: a stored value never crashes
+  the page); a hook in the other capture mode renders the button disabled with the reason and a console error,
+  never a render error. Replaces the Code, Observer and Entity buttons.
+- **`useVoicePreferences(storageKey)`** (same-tab and cross-tab sync) and **`useVoiceDefaults(fetchDefaults, key)`**
+  replace the three app copies.
+- **Voice library**: `VoiceLibrary` (`list` / `rename` / `remove` / `share` over `voice/clones[/{id}]` and
+  `voice/clones/{id}/deploy`) and **Manage voices** (`VoiceLibraryPanel`: Rename, Delete asked twice, Share for
+  administrators; built-in voices are not listed; a refusal is the gateway's sentence). `VoiceCreation.clone` takes
+  `provider` / `model`; "From a recording" gains **Record** from the chosen microphone with a live meter.
+- **Gateway voice routes** in `gateway_paths.ts`: `GATEWAY_VOICE_ROUTES`, `voiceClonePath`, `voiceCloneDeployPath`,
+  `runVoiceTtsPath`, `runTranscribePath`, `entityVoicePath`.
+- **Microphone release** (review 2026-10-27): `recordSample` honours an abort at every step: a Stop, or leaving the
+  panel, while the microphone is still opening closes it as the stream arrives (`recordingAbortError()`); the hook
+  honours a stop during its pending start. A muted preference always shows **Unmute**.
+- **Console islands**: `mountVoiceSection`; `mountVoiceSettings` props carry `voiceLibrary` and `previewVoice`.
+- Checks: new `check_voice_widgets.mjs`; `check_voice_section.mjs`, `check_voice_library.mjs` and
+  `check_voice_hook.mjs` extended (the hook is executed with fake media APIs: the level moves during a real
+  recording); shared harness `scripts/voice_harness.mjs`.
 ### tools-models: one tool editor and a picker that names the gateway default (backlog 0033, 0034)
 
 Implements ADR 0001 for tool selection and the provider/model/reasoning/MTP picker. Supersedes

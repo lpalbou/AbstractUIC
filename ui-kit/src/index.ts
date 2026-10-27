@@ -530,6 +530,30 @@ export { AfTooltip, useAfTooltips, type AfTooltipProps } from "./af_tooltip.js";
 export { bindAfTooltips, acquireAfTooltips, afTooltipPlacement, AF_TOOLTIP_DELAY_MS, AF_TOOLTIP_ATTR, type BindAfTooltipsOptions, type AfTooltipPlacement, type AfTooltipRect } from "./af_tooltip_core.js";
 // ui-kit 0.8.7 (round 16, R16.1 A2): the account time-zone picker (preferences).
 export { AfTimeZonePicker, TIME_ZONE_GATEWAY_DEFAULT, timeZoneOptions, type AfTimeZonePickerProps, type TimeZonePreference } from "./time_zone_picker.js";
+// --- ui-primitives (voice) ---
+// 0035: voice IN / voice OUT as standalone composables, the one microphone button, the
+// preference and defaults hooks, the voice library, the gateway's voice routes.
+export { AfVoiceOutput, SAFARI_OUTPUT_NOTE, type AfVoiceOutputProps, type AfVoiceOutputLabels, type VoiceOutputValue, type VoiceDeviceLister } from "./af_voice_output.js";
+export { AfVoiceInput, clampInputGain, type AfVoiceInputProps, type AfVoiceInputLabels, type VoiceInputValue } from "./af_voice_input.js";
+export { AfVoiceMicButton, VOICE_MIC_TEXT, type AfVoiceMicButtonProps } from "./af_voice_mic_button.js";
+export { useVoiceDefaults, type VoiceDefaultsState } from "./use_voice_defaults.js";
+export { useVoicePreferences, loadVoicePreferences, saveVoicePreferences } from "./use_voice_preferences.js";
+export { VOICE_CAPTURE_OPTIONS, gatewayVoiceOptions, type AfVoiceSectionRows } from "./af_voice_section.js";
+export {
+  VoiceLibraryPanel,
+  VOICE_LANGUAGE_LABELS,
+  VOICE_RECORDING_MAX_MS,
+  voiceLanguagesFromAnswer,
+  voiceRecordId,
+  type VoiceLibrary,
+  type VoiceRecord,
+  type VoiceRecordFrom,
+  type VoicePlayOn,
+} from "./voice_settings.js";
+export { voiceCaptureMode, type VoiceCaptureMode } from "./use_gateway_voice.js";
+export { recordingAbortError } from "./voice_devices.js";
+export { AfVoiceLevelMeter, useVoiceLevel, type AfVoiceLevelMeterProps, type VoiceLevelSource } from "./af_voice_level_meter.js";
+export { GATEWAY_VOICE_ROUTES, voiceClonePath, voiceCloneDeployPath, runVoiceTtsPath, runTranscribePath, entityVoicePath } from "./gateway_paths.js";
 // --- ui-primitives (tools-models) ---
 // Backlog 0033 (tool selection) + 0034 (provider/model/reasoning/MTP picker), ADR 0001.
 export {

@@ -6735,6 +6735,118 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   }
 }
 /* af-tooltip:end */
+/* --- ui-primitives (voice) --- */
+/* 0035: voice OUT / voice IN render alone (no section around them) with the section's row rules. */
+.af-voice-output .af-setting-row__control > .af-select,
+.af-voice-input .af-setting-row__control > .af-select {
+  flex-basis: 120px;
+}
+.af-voice-section__tts-slot {
+  padding: 2px 0 6px;
+}
+.af-voice-settings__sample {
+  justify-self: start;
+}
+.af-voice-create__record {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.af-voice-create__record > .af-voice-meter {
+  flex: 1 1 120px;
+  margin: 0;
+}
+.af-voice-library {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.af-voice-library__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.af-voice-library__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--ui-border-1);
+}
+.af-voice-library__name {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.af-voice-library__meta,
+.af-voice-library__empty {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+.af-voice-library__actions,
+.af-voice-library__confirm,
+.af-voice-library__edit {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.af-voice-mic {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.af-voice-mic__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+.af-voice-mic__button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.af-voice-mic--recording .af-voice-mic__button {
+  border-color: var(--error);
+  color: var(--error);
+}
+.af-voice-mic__meter {
+  display: inline-block;
+  width: 56px;
+  margin: 0;
+}
+.af-voice-mic__status {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+@media (pointer: coarse) {
+  .af-voice-mic__button {
+    width: 44px;
+    height: 44px;
+  }
+  .af-voice-library button,
+  .af-voice-create button,
+  .af-voice-settings__sample {
+    min-height: 44px;
+  }
+}
 
 /* --- ui-primitives (tools-models) --- */
 /* ToolModeEditor (backlog 0033): Off / Ask / Auto per tool, grouped by toolset. A query container,

@@ -96,6 +96,7 @@ Serve both files from your own origin; the paths above are examples.
 | `mountDrawerSystem(el, props)` | `IslandHandle` | Mounts the kit `AfDrawerSystem`; each panel's content is a host element (`element`) moved into the panel and kept alive (shell, backlog 0036) |
 | `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.4.0+) |
 | `mountWorkspaceChooser(el, props)` | `IslandHandle` | Mounts the kit `WorkspaceChooser` (`level`, `state`, `save`): the console's **Eligible workspaces** modal (`level: "gateway"`) and each account's Workspaces modal (`level: "account"`) (kit 0.8.3, round 11) |
+| `mountVoiceSection(el, props)` | `IslandHandle` | Mounts the kit `AfVoiceSection` (the whole voice settings: Engines, Output, Microphone, Replies) with the component's own props (`fetchCatalog`, `fetchDefaults`, `voiceLibrary`, `fetchLanguages`, `previewVoice`, `rows`, …) (ui-primitives 0035) |
 | `mountTimeZonePicker(el, props)` | `IslandHandle` | Mounts the kit `AfTimeZonePicker` (`block` = the preferences answer's `time_zone`, `id`, `onChange(zone \| null)`, `disabled`, `note`): the time zone row of the console's Accounts → Preferences modal (kit 0.8.7, round 16) |
 | `workspaceChooserText` | `object` | The WorkspaceChooser's wording table (`WORKSPACE_CHOOSER_TEXT`), e.g. the modal title `gatewayTitle` "Eligible workspaces" (kit 0.8.3) |
 | `workspaceAsState(answer, level)` | `object` | Turns a `GET/PUT /workspace/policy[/{account}]` answer into the chooser's `state`; throws on an older answer (kit 0.8.3) |
@@ -238,7 +239,10 @@ reasoning, MTP) and voice picker (`VoiceSettings`) for plain-HTML hosts, with th
 props. Transports are injected: `fetchProviders()`, `fetchModels(provider)` and
 `fetchModelCapabilities(model, provider)` for the picker, `fetchCatalog(provider, model)` for the
 voice picker. The host keeps the value and calls `update(props)` after each change. The gateway
-console's entity Manage, Mind & voice tab uses both.
+console's entity Manage, Mind & voice tab uses both. The voice picker's props include
+`voiceLibrary` (create, list, rename, delete and share the gateway's voices: **Manage voices**)
+and `previewVoice` (**Play sample**); `mountVoiceSection(el, props)` mounts the whole
+`AfVoiceSection` the same way (ui-primitives 0035).
 
 The picker also takes the props added by backlog 0034 (`fetchGatewayDefault`, `reasoningLadder`,
 `unknownReasoning`, `layout: "compact"`, `pinned`); see [API](./api.md). The console's Defaults
