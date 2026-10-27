@@ -30,13 +30,23 @@ panel-chat (and one ui-kit file):
   queue, lifted), `toolbar` (New chat / Clear / Copy / Export, each only when injected), `messageProps.renderFooter`
   and `messageProps.variant` (`"hint"`: one-line system notes), and `onSend(draft, { signal })` + `onCancel(signal)`
   so Stop aborts a request/response host's request. `ChatMessage` gains `artifactIds`; the README maps
-  `replay_view_v1.messages[]` onto `ChatMessage`.
+  `replay_view_v1.messages[]` onto `ChatMessage`. Not yet: 0030 item 6, a session list (`sessions` /
+  `ChatSessionList`) and the run status strip (`runStatus`).
+- Answers are targeted: `WorkflowSessionController.resume(response, target?)` refuses when the question shown is no
+  longer the current one; `presentInteraction` passes the target for answers and "Continue without answering"
+  (raw waits and replay interactions alike). A failed "Allow for this chat" grant is shown, never swallowed.
 - **Attachments and generated media (0031, kit half).** `ChatMedia.kind` adds `"file"` (opens the shared
   `AfFileViewer` inline, or the host's `onOpenMedia`); audio media takes `transcript` (a collapsible Transcript
-  caption: the speech-to-text display); music rides on audio. `WorkflowTransport.resolveArtifact` (optional),
-  `chatMediaFromArtifact`, `chatMediaForArtifacts`. `useWorkspaceFilePreview` loads video files. ui-kit:
-  `AfFileViewer` kind `"video"` (mp4, m4v, webm, mov, ogv, mkv, `video/*`). Not yet: the controller does not fold
-  `$artifact` refs or generated-media events into `message.media` itself.
+  caption: the speech-to-text display); music rides on audio. An opened Markdown file follows the chat's image
+  policy (`images`, default `"link"`) or the host's `renderMarkdown`; a document always shows its raw link (the
+  host's object URL when no `href` is given); `onOpenMedia` receives sanitized sources only.
+  `WorkflowTransport.resolveArtifact` (optional; `ResolvedArtifact.text` for small text artifacts),
+  `chatMediaFromArtifact` (documents get `href`), `chatMediaForArtifacts`. `FileViewer` takes `markdownImages`,
+  `inlineImage`, `renderMarkdown`. `useWorkspaceFilePreview` loads video files. ui-kit: `AfFileViewer` kind
+  `"video"` (mp4, m4v, webm, mov, ogv, mkv, `video/*` except `video/mp2t`), and `fileViewerKind` now decides by NAME
+  first (media extension, then code/text name, then the media Content-Type): `.ts`/`.mts` served as `video/mp2t`
+  (Python's mimetypes guess) stay code; `.mts`/`.cts` are code. Not yet: the controller does not fold `$artifact`
+  refs or generated-media events into `message.media` itself.
 - Checks: `check_present_interaction.mjs` (extended), `check_chat_surface.mjs` (new), `check_chat_media.mjs`
   (extended), ui-kit `check_file_viewer_video.mjs` (new); each was seen red under a mutation.
 

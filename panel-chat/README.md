@@ -185,7 +185,9 @@ const uploads = useAttachmentUploads({ upload: (file) => gateway.attachmentsUplo
   gateway's words, with Retry). Send refuses while a chip is not attached. `useAttachmentUploads`
   is AbstractCode's upload queue: refused over `maxBytes` before any request, three uploads at
   once, Retry, Remove (a late result for a removed chip is dropped), `clear()` after a send.
-  The `attachments` ReactNode slot remains for hosts with their own chips.
+  The `attachments` ReactNode slot remains for hosts with their own chips. Pass
+  `onRemoveAttachment` with `attachmentItems` (a refused chip blocks Send until removed); the
+  host owns any `thumbnail` object URLs and revokes them.
 - **Toolbar.** `toolbar` renders **New chat**, **Clear**, **Copy** and **Export** in the header
   row next to `header`. Copy and Export carry the transcript as Markdown (`chatToMarkdown`; tool
   rows and live bubbles are left out).
@@ -236,12 +238,15 @@ this chat / allow all, and a dismissal defers, never denies.
 - `file`: a document row (name, size) that opens the shared `AfFileViewer` inline behind
   **Open** (nothing loads before), or calls `messageProps.onOpenMedia(item)` when the host has
   its own opener. Text kinds (markdown, code, json, text) need `text`; without it the viewer
-  says so instead of showing an empty preview.
+  says so and offers the raw link (`href`, else the host's `src`) instead of an empty preview. An
+  opened Markdown file follows the chat's `images` policy (default `"link"`: no remote image
+  loads) or the host's `renderMarkdown`. `onOpenMedia` receives the item with sanitized sources.
 - Sources come from the host (object URLs it fetched with its credentials), never from model
   text. `WorkflowTransport.resolveArtifact?(runId, artifactId)` is the transport's hook for
   that (`GET runs/{id}/artifacts/{artifact_id}` metadata + `/content` bytes);
   `chatMediaFromArtifact(resolved)` picks the kind from the gateway's `content_type`
-  (image/audio/video inline, everything else a file, SVG never rendered) and
+  (image/audio/video inline, everything else a file with `href` = the object URL and the
+  host's `text` when it read one; SVG never rendered) and
   `chatMediaForArtifacts(runId, ids, resolve)` resolves a message's `artifactIds` (it rejects
   when one cannot be resolved).
 - Not done yet: the controller does not fold `$artifact` refs or generated-media ledger events
