@@ -301,5 +301,160 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
   check("C4 Create is enabled again after the result", byData(h.tree, "data-action", "create-voice").props.disabled === false);
 }
 
+// ===================== ui-primitives 0035: record, manage, sample =====================
+{
+  const { mount: mountH, find: findH, byAria: ariaH, byData: dataH, text, installFakeBrowser, sleep } = await import("./voice_harness.mjs");
+  const { VoiceLibraryPanel, voiceRecordId } = kit;
+  check("export VoiceLibraryPanel", typeof VoiceLibraryPanel === "function");
+  const env = installFakeBrowser();
+  try {
+    // "From a recording": Record from the chosen microphone, with a live meter, then clone it.
+    {
+      const sent = [];
+      const creation = { clone: async (file, req) => (sent.push([file, req]), { voice_id: "c1", engine: "omnivoice" }) };
+      const created = [];
+      const h = mountH(CreateVoicePanel, { creation, onCreated: (id, engine) => created.push([id, engine]), recordFrom: { deviceId: "mic-1", gain: 1.2 }, cloneRoute: { provider: "qwen3-tts", model: "Qwen/Qwen3-TTS-12Hz-1.7B-Base" } });
+      const rec = () => dataH(h.tree, "data-action", "record-sample");
+      check("0035 Record beside the file picker", Boolean(rec()) && text(rec()) === "Record" && Boolean(ariaH(h.tree, "Voice recording")));
+      check("0035 nothing to clone yet", dataH(h.tree, "data-action", "create-voice")?.props.disabled === true);
+      env.amplitude = 0.12;
+      env.log.getUserMedia.length = 0;
+      rec().props.onClick();
+      h.render();
+      await sleep(130);
+      h.render();
+      check("0035 Record uses the chosen microphone", JSON.stringify(env.log.getUserMedia[0]) === JSON.stringify({ audio: { deviceId: { exact: "mic-1" } } }), JSON.stringify(env.log.getUserMedia));
+      const meter = findH(h.tree, (n) => n.props.role === "meter");
+      check("0035 a live meter while recording", meter?.props["aria-label"] === "Recording level" && meter.props["aria-valuenow"] > 40, String(meter?.props["aria-valuenow"]));
+      check("0035 the button stops the recording", text(rec()) === "Stop" && rec().props["aria-pressed"] === true);
+      check("0035 no clone while recording", dataH(h.tree, "data-action", "create-voice")?.props.disabled === true);
+      rec().props.onClick();
+      await sleep(20);
+      await h.settle(10);
+      check("0035 the recording is ready", text(dataH(h.tree, "data-voice-note", "create")).startsWith("Recording ready"), text(dataH(h.tree, "data-voice-note", "create")));
+      check("0035 the microphone is closed after Stop", env.log.recorders.at(-1)?.stream.getTracks().every((t) => t.stopped));
+      dataH(h.tree, "data-action", "create-voice").props.onClick();
+      await h.settle();
+      check("0035 the recording is what is cloned", sent[0]?.[0] instanceof Blob && sent[0][0].size > 0, JSON.stringify(sent[0]?.[1]));
+      check("0035 the clone names the injected cloning engine", sent[0]?.[1].provider === "qwen3-tts" && sent[0][1].model === "Qwen/Qwen3-TTS-12Hz-1.7B-Base", JSON.stringify(sent[0]?.[1]));
+      check("0035 the created voice is selected on its engine", JSON.stringify(created[0]) === '["c1","omnivoice"]');
+      h.unmount();
+      // Silence is refused with a sentence; without cloneRoute no provider is sent.
+      const sent2 = [];
+      const q = mountH(CreateVoicePanel, { creation: { clone: async (f, r) => (sent2.push(r), { voice_id: "c2" }) }, onCreated: () => undefined });
+      env.amplitude = 0;
+      dataH(q.tree, "data-action", "record-sample").props.onClick();
+      await sleep(80);
+      dataH(q.tree, "data-action", "record-sample").props.onClick();
+      await sleep(20);
+      await q.settle(10);
+      check("0035 a silent recording is refused", dataH(q.tree, "data-voice-note", "create")?.props.className.includes("error") && dataH(q.tree, "data-action", "create-voice")?.props.disabled === true);
+      ariaH(q.tree, "Voice recording").props.onChange({ target: { files: [new Blob([new Uint8Array([1])])] } });
+      q.render();
+      dataH(q.tree, "data-action", "create-voice").props.onClick();
+      await q.settle();
+      check("0035 no cloneRoute, no provider (the gateway's default engine)", sent2[0] && !("provider" in sent2[0]) && !("model" in sent2[0]), JSON.stringify(sent2[0]));
+      // Unmount mid-recording closes the microphone.
+      env.amplitude = 0.1;
+      dataH(q.tree, "data-action", "record-sample").props.onClick();
+      await sleep(20);
+      q.unmount();
+      await sleep(20);
+      check("0035 leaving mid-recording closes the microphone", env.log.recorders.at(-1)?.stream.getTracks().every((t) => t.stopped) && q.stats.lateSets === 0, String(q.stats.lateSets));
+    }
+    // "Manage voices": list (no built-in voices), rename, delete asked twice, share for admins, refusals as sentences.
+    {
+      const calls = [];
+      let voices = [
+        { id: "v1", name: "My voice", kind: "clone", engine: "omnivoice", language: "en", params: { meta: { scope: "personal" } } },
+        { voice_id: "v2", name: "Team voice", kind: "clone", provider: "qwen3-tts", params: { meta: { scope: "library" } } },
+        { id: "fr-female-camille", name: "Camille", kind: "clone", tags: { builtin: true } },
+      ];
+      const library = {
+        list: async () => (calls.push(["list"]), { voices, count: voices.length }),
+        rename: async (id, patch) => void calls.push(["rename", id, patch]),
+        remove: async (id) => {
+          calls.push(["remove", id]);
+          voices = voices.filter((v) => voiceRecordId(v) !== id);
+        },
+        share: async (id) => void calls.push(["share", id]),
+      };
+      let changed = 0;
+      const removed = [];
+      const h = mountH(VoiceLibraryPanel, { library, onChanged: () => (changed += 1), onRemoved: (id) => removed.push(id) });
+      await h.settle();
+      const row = (id) => findH(h.tree, (n) => n.props["data-voice-id"] === id);
+      check("0035 the library lists the voices that can change", Boolean(row("v1")) && Boolean(row("v2")) && !row("fr-female-camille"));
+      check("0035 a voice says whose it is", text(row("v1")).includes("Yours · English · omnivoice") && text(row("v2")).includes("Shared"), text(row("v1")));
+      check("0035 Share is offered for my voice, not for a shared one", Boolean(dataH(row("v1"), "data-action", "share-voice")) && !dataH(row("v2"), "data-action", "share-voice"));
+      dataH(row("v1"), "data-action", "rename-voice").props.onClick();
+      h.render();
+      ariaH(h.tree, "New name for My voice").props.onChange({ target: { value: "Narrator" } });
+      h.render();
+      dataH(row("v1"), "data-action", "save-voice-name").props.onClick();
+      await h.settle();
+      check("0035 Rename patches the name", JSON.stringify(calls.find((c) => c[0] === "rename")) === '["rename","v1",{"name":"Narrator"}]', JSON.stringify(calls));
+      check("0035 a change reloads the list and tells the host", calls.filter((c) => c[0] === "list").length === 2 && changed === 1, JSON.stringify(calls));
+      dataH(row("v1"), "data-action", "delete-voice").props.onClick();
+      h.render();
+      check("0035 Delete asks first", !calls.some((c) => c[0] === "remove") && Boolean(dataH(row("v1"), "data-action", "confirm-delete-voice")));
+      dataH(row("v1"), "data-action", "keep-voice").props.onClick();
+      h.render();
+      check("0035 Keep cancels", !dataH(row("v1"), "data-action", "confirm-delete-voice") && !calls.some((c) => c[0] === "remove"));
+      dataH(row("v1"), "data-action", "delete-voice").props.onClick();
+      h.render();
+      dataH(row("v1"), "data-action", "confirm-delete-voice").props.onClick();
+      await h.settle();
+      await h.settle();
+      check("0035 Delete removes the voice", JSON.stringify(calls.find((c) => c[0] === "remove")) === '["remove","v1"]' && !row("v1") && JSON.stringify(removed) === '["v1"]');
+      library.share = async () => {
+        throw new Error("Administrators only.");
+      };
+      h.rerender({ library: { ...library } });
+      voices.push({ id: "v3", name: "Third", kind: "clone", params: { meta: { scope: "personal" } } });
+      h.rerender({ refreshKey: 1 });
+      await h.settle();
+      dataH(row("v3"), "data-action", "share-voice").props.onClick();
+      await h.settle();
+      check("0035 a refusal is the gateway's sentence", text(dataH(h.tree, "data-voice-note", "library-action")) === "Administrators only.", text(dataH(h.tree, "data-voice-note", "library-action")));
+      h.unmount();
+      const ro = mountH(VoiceLibraryPanel, { library: { list: async () => [{ id: "v9", name: "Nine", kind: "clone" }] } });
+      await ro.settle();
+      check("0035 only the injected actions are offered", !dataH(ro.tree, "data-action", "rename-voice") && !dataH(ro.tree, "data-action", "delete-voice") && !dataH(ro.tree, "data-action", "share-voice"));
+      ro.unmount();
+    }
+    // VoiceSettings: voiceLibrary.list = the Manage panel; createVoice stays an alias; Play sample.
+    {
+      const lib = { list: async () => [], design: async () => ({ voice_id: "d" }) };
+      const withLib = render({ voiceLibrary: lib });
+      check("0035 voiceLibrary with list shows Manage voices", withLib.includes("data-voice-library") && withLib.includes("data-voice-create"));
+      check("0035 createVoice alone: no Manage panel, still Create", !both.includes("data-voice-library") && both.includes("data-voice-create"));
+      const previews = [];
+      const h = mountH(VoiceSettings, { value: { provider: "qwen3-tts", voice: "v1" }, onChange: () => undefined, fetchCatalog: async () => ({}), previewVoice: async (prefs) => (previews.push(prefs), new ArrayBuffer(4)), previewOn: { deviceId: "spk-1", volume: 0.5 } });
+      await h.settle();
+      const sample = dataH(h.tree, "data-action", "play-sample");
+      check("0035 Play sample beside the voice select", text(sample) === "Play sample");
+      env.log.sinks.length = 0;
+      sample.props.onClick();
+      sample.props.onClick();
+      h.render();
+      check("0035 one sample at a time", previews.length === 1 && dataH(h.tree, "data-action", "play-sample")?.props.disabled === true);
+      await sleep(30);
+      await h.settle();
+      check("0035 the sample uses the current preferences", previews[0]?.voice === "v1");
+      check("0035 the sample plays on the chosen speaker", env.log.sinks.includes("spk-1"), JSON.stringify(env.log.sinks));
+      check("0035 Play sample is ready again", dataH(h.tree, "data-action", "play-sample")?.props.disabled === false);
+      h.rerender({ previewVoice: async () => { throw new Error("No run to speak in"); } });
+      dataH(h.tree, "data-action", "play-sample").props.onClick();
+      await h.settle();
+      check("0035 a failed sample says why", text(dataH(h.tree, "data-voice-note", "sample")) === "The sample did not play: No run to speak in.");
+      h.unmount();
+      check("0035 no previewVoice, no Play sample", !render({}).includes("play-sample"));
+    }
+  } finally {
+    env.restore();
+  }
+}
+
 console.log(`check_voice_library: ${checks - failures}/${checks} passed`);
 if (failures) process.exit(1);
