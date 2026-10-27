@@ -22,6 +22,14 @@ export const WORKFLOW_INTERACTION_LABELS = {
   allowForRun: "Allow for this run",
   localChatPolicyNote: "Allowed for this chat in this browser only — the gateway cannot store chat policies.",
   localRunPolicyNote: "Allowed until this run ends, in this browser only — the gateway cannot store chat policies.",
+  /** Deny for the chat (session policy, gateway mode); offered under "More". */
+  denyToolForChat: (tool: string) => `Always deny ${tool} in this chat`,
+  denyKindForChat: (toolset: string) => `Always deny ${toolset} tools in this chat`,
+  /** What a deny reaches, stated before the click and in its confirmation (contract §4.3). */
+  denyForChatNote:
+    "Always deny applies to every run of this chat, automations and runs that read other people's text included, until the policy is reset; a request shown before it is refused even if approved later.",
+  /** No `scope` was served: said so, never composed. */
+  noScopeNote: "The gateway did not say where this grant applies.",
   /** The capability read failed: no chat grant is offered. */
   unavailablePolicyNote: (reason: string) => `Allow for this chat is unavailable: ${reason || "the gateway's capabilities could not be read."} Allow once still works.`,
   decideLater: "Decide later",
@@ -118,6 +126,12 @@ export type WorkflowToolApprovalInteraction = WorkflowInteractionBase & {
   scopeNote?: string;
   /** What the conversation's policy does not cover ("Not covered: send_email (not authorized)"). */
   notCovered?: string;
+  /** "Always deny … in this chat" decisions (session policy), under "More" with `denyForChatNote`. */
+  denyOptions?: { key: string; label: string; onDeny: () => void | Promise<unknown> }[];
+  /** Tools of this batch the chat's policy denies: the gateway refuses them even if allowed once. */
+  deniedNote?: string;
+  /** One line about the chat's stored policy (counts + where it applies, as served). */
+  policySummary?: string;
 };
 
 export type WorkflowEventWaitInteraction = WorkflowInteractionBase & {
@@ -384,6 +398,37 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
             <input type="checkbox" checked={interaction.remember.checked} disabled={disabled} onChange={(event) => interaction.remember!.onChange(event.target.checked)} />
             <span>{interaction.remember.label}</span>
           </label>
+        ) : null}
+        {interaction.deniedNote ? (
+          <p className="pc-workflow-interaction__unavailable" role="note" data-denied-note="">
+            {interaction.deniedNote}
+          </p>
+        ) : null}
+        {interaction.denyOptions?.length ? (
+          <details className="pc-workflow-interaction__more" data-more="">
+            <summary>More</summary>
+            <p className="pc-workflow-interaction__scope">{L.denyForChatNote}</p>
+            <div className="pc-workflow-interaction__buttons">
+              {interaction.denyOptions.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  className="pc-workflow-interaction__deny"
+                  data-decision="deny-chat"
+                  data-key={option.key}
+                  disabled={disabled}
+                  onClick={() => void run({ kind: "deny-chat", key: option.key }, option.onDeny)}
+                >
+                  {pending?.kind === "deny-chat" && pending.key === option.key ? "Denying…" : option.label}
+                </button>
+              ))}
+            </div>
+          </details>
+        ) : null}
+        {interaction.policySummary ? (
+          <p className="pc-workflow-interaction__scope" data-policy-summary="">
+            {interaction.policySummary}
+          </p>
         ) : null}
         {interaction.scopeNote ? (
           <p className="pc-workflow-interaction__scope-note" role="note" data-scope-note="">

@@ -6,6 +6,7 @@ export type WorkflowInteractionSubmission =
   | { kind: "choice" | "free-text"; answer: string }
   | { kind: "approve" | "deny" | "approve-all" | "approve-session" | "skip" }
   | { kind: "approve-kind"; toolset: string }
+  | { kind: "deny-chat"; key: string }
   | { kind: "event"; payload: string };
 
 /** Invoke the host callback for a previously captured interaction decision. */
@@ -20,6 +21,10 @@ export function submitWorkflowInteraction(interaction: WorkflowInteraction, subm
     if (submission.kind === "deny") return interaction.onDeny();
     if (submission.kind === "approve-all" && interaction.onApproveAll) return interaction.onApproveAll();
     if (submission.kind === "approve-session" && interaction.onApproveForSession) return interaction.onApproveForSession();
+    if (submission.kind === "deny-chat") {
+      const option = interaction.denyOptions?.find((item) => item.key === submission.key);
+      if (option) return option.onDeny();
+    }
     if (submission.kind === "approve-kind") {
       const entry = interaction.approveKinds?.find((item) => item.kind === submission.toolset);
       if (entry) return entry.onApprove();

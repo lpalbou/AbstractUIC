@@ -197,4 +197,4 @@ export type {
   SessionToolPolicyClamp,
   SessionToolPolicyClient,
 } from "./workflow_runtime.js";
-export type { SessionPolicyStatus } from "./workflow_runtime.js";
+export type { SessionPolicyStatus, SessionToolPolicyScope } from "./workflow_runtime.js";

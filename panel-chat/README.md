@@ -278,8 +278,30 @@ const interaction = presentInteraction(workflowPendingInteraction(snapshot), con
 - **Capability read failed:** `sessionPolicyMode` is `"unavailable"` with `sessionPolicyReason`;
   no chat grant is offered or made ("Allow for this chat is unavailable: <reason> Allow once
   still works."); Allow once and Deny work as always.
-- **Deny for the chat:** `denyToolForSession` / `denyKindForSession` exist on the controller
-  only; the approval panel has no control for them. A host that wants them exposes them.
+- **Deny for the chat:** under **More**, "Always deny <tool> in this chat" and "Always deny
+  <toolset> tools in this chat" (`denyToolForSession` / `denyKindForSession`). Before the click
+  and in its confirmation the panel says what a deny reaches: every run of this chat,
+  automations and runs that read other people's text included, until reset; a request shown
+  before it is refused even if approved later. A deny is sent with the policy's current
+  revision (read first when unknown); a 409 says "Someone changed this chat's policy; re-read"
+  and refreshes it. When the stored policy denies a tool of a later batch, the panel names it
+  and "Allow once" reports "The gateway refuses <tool>: denied by this chat's policy", never a
+  success.
+- **Where it applies:** every policy response carries the gateway's `scope` words
+  (`{approve, deny}`, top-level). The panel shows them exactly as served, after a decision
+  ("Applies: …") and in the policy summary line; without them it says "The gateway did not say
+  where this grant applies." (the kit never composes that sentence). The client must carry the
+  response's `scope` onto the policy it returns (`SessionToolPolicy.scope`).
+- **What "all" includes:** `all` and kinds include tools whose destination the model picks
+  (`fetch_url`, `browser_probe`, `send_email`) on purpose; only the Ask list keeps them asking.
+  The description says so: with no Ask list, "Nothing is set to Ask, so … are included"; with
+  one, "Tools set to Ask keep asking: …". A host with no Ask list sends no `ask`.
+- **Merge only adds:** a write never narrows or re-expands an earlier `all`/kinds. Undoing an
+  approve is a reset (`resetSessionPolicy`, DELETE), never a merge.
+- **Root session:** the grant is read from the run tree's ROOT session, so the client must be
+  bound to the root run's `session_id`. A wait on a child run is answered on the child, and the
+  policy is written to the root session; a client bound to another session, or a root session
+  not known yet, is refused before any write.
 - **Ledger:** `abstract.tool_policy_decision` renders as one line, "Allowed by this chat's
   policy (set by admin at …)" or "Denied by this chat's policy", never as a question; the
   covered tool rows say so too. A record with no identifiable call adds nothing.

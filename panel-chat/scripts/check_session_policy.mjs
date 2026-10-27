@@ -48,11 +48,16 @@ const approvalRecord = (waitKey, calls) => ({
 const policyOf = (extra = {}) => ({ version: 1, session_id: "s-1", revision: 5, approve: { fetch_url: "kind:web" }, deny: {}, ask: [], set_by: { user_id: "admin", client: "panel-chat" }, set_at: "2026-10-27T10:00:00+00:00", ...extra });
 
 const controllers = [];
-async function harness({ client, onSessionPolicy } = {}) {
+async function harness({ client, onSessionPolicy, children = [], sessions = {}, rootSession = "s-1" } = {}) {
   const commands = [], streams = new Map(), cursors = new Map();
+  const sessionOf = (id) => (id === "root" ? rootSession : sessions[id]);
   const transport = {
-    getRun: async (id) => ({ run_id: id, status: "waiting" }),
-    getHistory: async () => ({ ledgers: {} }),
+    // The root run's session is the chat's (contract §4.2); a child may carry another one.
+    getRun: async (id) => ({ run_id: id, status: id === "root" ? "waiting" : "running", ...(sessionOf(id) ? { session_id: sessionOf(id) } : {}) }),
+    getHistory: async (id) => ({ ledgers: { [id]: { items: children.map((child, index) => ({
+      cursor: index + 1,
+      record: { run_id: id, step_id: `spawn:${child}`, status: "completed", effect: { type: "start_subworkflow" }, result: { sub_run_id: child } },
+    })) } } }),
     getLedger: async (_id, after) => ({ items: [], next_after: after }),
     streamLedger: async (id, after, onStep, signal, onOpen) => {
       const pending = deferred();
@@ -70,10 +75,10 @@ async function harness({ client, onSessionPolicy } = {}) {
   await flush();
   return {
     controller, commands,
-    emit(record) {
-      const cursor = (cursors.get("root") || 0) + 1;
-      cursors.set("root", cursor);
-      streams.get("root").onStep({ cursor, record: { run_id: "root", ...record } });
+    emit(record, runId = "root") {
+      const cursor = (cursors.get(runId) || 0) + 1;
+      cursors.set(runId, cursor);
+      streams.get(runId).onStep({ cursor, record: { run_id: runId, ...record } });
     },
   };
 }
@@ -194,7 +199,7 @@ const target = { runId: "root", waitKey: "approve:1", stepId: "step:approve:1" }
   const result = await control.onApproveForSession();
   check("D clamped reaches the snapshot", JSON.stringify(h.controller.getSnapshot().sessionPolicyClamped) === JSON.stringify(clamped));
   check("D clamped reaches the host callback", JSON.stringify(seen.at(-1)) === JSON.stringify(clamped));
-  check("D the decision reports what is not covered", result?.outcomeNote === "Not covered: send_email (not authorized); nope (unknown kind)", result);
+  check("D the decision reports what is not covered", String(result?.outcomeNote || "").startsWith("Not covered: send_email (not authorized); nope (unknown kind)"), result);
   check("D clamped text", sessionPolicyClampedText([]) === "");
   h.emit(approvalRecord("approve:2", [{ name: "send_email", call_id: "c2" }]));
   const next = presentInteraction(h.controller.getSnapshot().interaction, h.controller, { sessionPolicy: {} });
@@ -359,6 +364,96 @@ const target = { runId: "root", waitKey: "approve:1", stepId: "step:approve:1" }
   hm.emit(decisionRecord({ decision: "denied", tool_calls: "nope" }));
   hm.emit(decisionRecord({ decision: "denied", tool_calls: [{ call_id: null, name: "t" }] }));
   check("H an unknown decision value and a decision with no calls add no line", !hm.controller.getSnapshot().messages.some((m) => m.kind === "tool_policy_decision"), hm.controller.getSnapshot().messages.map((m) => m.content));
+}
+
+// ------------------------------------------------------------- I. contract revision (2026-10-27, after its review)
+{
+  const SCOPE = {
+    approve: "every run of this conversation (turns and their delegated child runs), except automation runs, runs that read text other people wrote, and entity visits",
+    deny: "every run of this conversation, automation runs and untrusted-input runs included",
+  };
+  // 1. `scope` is rendered exactly as served; absent → said so, never composed.
+  const withScope = fakeClient(async () => policyOf({ scope: SCOPE }));
+  const h1 = await harness({ client: withScope.client });
+  h1.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }]));
+  const r1 = await presentInteraction(h1.controller.getSnapshot().interaction, h1.controller, { sessionPolicy: {} }).onApproveForSession();
+  check("I1 after the decision: Applies: <served approve scope>", String(r1?.outcomeNote || "").includes(`Applies: ${SCOPE.approve}`), r1);
+  const noScope = fakeClient(async () => policyOf());
+  const h1b = await harness({ client: noScope.client });
+  h1b.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }]));
+  const r1b = await presentInteraction(h1b.controller.getSnapshot().interaction, h1b.controller, { sessionPolicy: {} }).onApproveForSession();
+  check("I1 no served scope: says the gateway did not say", String(r1b?.outcomeNote || "").includes("The gateway did not say where this grant applies.") && !/every run/.test(String(r1b?.outcomeNote || "")), r1b);
+  h1.emit(approvalRecord("approve:2", [{ name: "send_email", call_id: "c2" }]));
+  const summary = renderToStaticMarkup(React.createElement(WorkflowInteractionPanel, { interaction: presentInteraction(h1.controller.getSnapshot().interaction, h1.controller, { sessionPolicy: {} }) }));
+  check("I1 the policy summary carries the served scope", summary.includes("data-policy-summary") && summary.includes(`Applies: ${SCOPE.approve}`), summary.slice(-900));
+
+  // 2. Deny: offered (More), states its reach before the click, sent with the current revision, answers {approved:false}.
+  const d = fakeClient(async () => policyOf({ scope: SCOPE, revision: 6, deny: { fetch_url: "tool" } }));
+  const h2 = await harness({ client: d.client });
+  await h2.controller.loadSessionPolicy();
+  h2.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1", toolset: "web" }]));
+  const control2 = presentInteraction(h2.controller.getSnapshot().interaction, h2.controller, { sessionPolicy: {} });
+  const html2 = renderToStaticMarkup(React.createElement(WorkflowInteractionPanel, { interaction: control2 }));
+  check("I2 deny for the chat is offered, per tool and per toolset", html2.includes('data-decision="deny-chat"') && html2.includes(">Always deny fetch_url in this chat<") && html2.includes(">Always deny web tools in this chat<"), html2.slice(-1500));
+  check("I2 the deny's reach is stated before the click", html2.includes(L.denyForChatNote.replace(/'/g, "&#x27;")) && /automation/.test(L.denyForChatNote) && /approved later/.test(L.denyForChatNote), L.denyForChatNote);
+  const r2 = await control2.denyOptions.find((o) => o.key === "tool:fetch_url").onDeny();
+  check("I2 deny is sent with the current revision", JSON.stringify(d.calls.at(-1)) === JSON.stringify(["merge", { deny: { tools: ["fetch_url"] }, if_revision: 5, client: "panel-chat" }]), d.calls.at(-1));
+  check("I2 deny answers the shown wait {approved:false}", h2.commands.at(-1)?.payload.payload.approved === false);
+  check("I2 deny confirmation: its reach + Applies: <served deny scope>", String(r2?.outcomeNote || "").includes(L.denyForChatNote) && String(r2?.outcomeNote || "").includes(`Applies: ${SCOPE.deny}`), r2);
+  const firstDeny = fakeClient(async () => policyOf({ revision: 1 }));
+  firstDeny.client.get = async () => { firstDeny.calls.push(["get"]); return policyOf({ revision: 9 }); };
+  const h2b = await harness({ client: firstDeny.client });
+  h2b.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }]));
+  await h2b.controller.denyToolForSession(target, "fetch_url");
+  check("I2 no revision known yet: it is read first", firstDeny.calls[0][0] === "get" && firstDeny.calls[1][1].if_revision === 9, firstDeny.calls);
+
+  // 2b. A later Allow once on a tool this chat denies is shown as refused by the gateway, not a success.
+  h2.emit(approvalRecord("approve:3", [{ name: "fetch_url", call_id: "c3" }]));
+  const control3 = presentInteraction(h2.controller.getSnapshot().interaction, h2.controller, { sessionPolicy: {} });
+  check("I2b the denied tool is named before Allow once", /fetch_url/.test(control3.deniedNote || "") && /refuses/.test(control3.deniedNote || ""), control3.deniedNote);
+  const once = await control3.onApprove();
+  check("I2b Allow once on a denied tool reports the gateway's refusal", /refuse/.test(String(once?.outcomeNote || "")) && /fetch_url/.test(String(once?.outcomeNote || "")), once);
+  const html3 = renderToStaticMarkup(React.createElement(WorkflowInteractionPanel, { interaction: control3 }));
+  check("I2b the panel shows it", html3.includes("data-denied-note"), html3.slice(-800));
+
+  // 3. all/kinds include model-chosen destinations unless set to Ask; the description says which.
+  const h3 = await harness({ client: fakeClient().client });
+  h3.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }]));
+  const noAsk = presentInteraction(h3.controller.getSnapshot().interaction, h3.controller, { sessionPolicy: {} });
+  check("I3 no Ask list: the description says those tools are included", /fetch_url, browser_probe, send_email/.test(noAsk.approveForSessionDescription) && /included/.test(noAsk.approveForSessionDescription), noAsk.approveForSessionDescription);
+  const withAsk = presentInteraction(h3.controller.getSnapshot().interaction, h3.controller, { sessionPolicy: { ask: ["send_email"] } });
+  check("I3 an Ask list: the description names what keeps asking", /keep asking: send_email/.test(withAsk.approveForSessionDescription), withAsk.approveForSessionDescription);
+
+  // 4. A 409 on a revision-guarded write: "someone changed this chat's policy; re-read".
+  const c4 = fakeClient(async () => { const e = new Error("revision_conflict"); e.code = "revision_conflict"; e.status = 409; throw e; });
+  const h4 = await harness({ client: c4.client });
+  await h4.controller.loadSessionPolicy();
+  h4.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }]));
+  let conflict = "";
+  await h4.controller.denyToolForSession(target, "fetch_url").catch((e) => (conflict = e.message));
+  check("I4 a 409 says someone changed this chat's policy; re-read", /Someone changed this chat's policy/.test(conflict) && /re-read/i.test(conflict) && h4.commands.length === 0, conflict);
+  check("I4 the policy is re-read after a conflict", c4.calls.filter((c) => c[0] === "get").length === 2, c4.calls);
+
+  // 5. The grant is the ROOT session's: a wait on a child writes to the root session, never the child's.
+  const root = fakeClient();
+  const h5 = await harness({ client: root.client, children: ["kid"], sessions: { kid: "s-kid" } });
+  await flush(); await flush();
+  h5.emit(approvalRecord("approve:k", [{ name: "fetch_url", call_id: "ck" }]), "kid");
+  const kidTarget = { runId: "kid", waitKey: "approve:k", stepId: "step:approve:k" };
+  await h5.controller.approveAllForSession(kidTarget);
+  check("I5 a child's wait: the root session's client writes, the child's wait is answered", root.calls.at(-1)?.[0] === "merge" && h5.commands.at(-1)?.run_id === "kid", { calls: root.calls, commands: h5.commands });
+  const childBound = { ...fakeClient().client, sessionId: "s-kid" };
+  const h5b = await harness({ client: childBound, children: ["kid"], sessions: { kid: "s-kid" } });
+  await flush(); await flush();
+  h5b.emit(approvalRecord("approve:k", [{ name: "fetch_url", call_id: "ck" }]), "kid");
+  let wrongSession = "";
+  await h5b.controller.approveAllForSession(kidTarget).catch((e) => (wrongSession = e.message));
+  check("I5 a client bound to a child's session is refused", /root run/.test(wrongSession) && /s-1/.test(wrongSession) && h5b.commands.length === 0, wrongSession);
+  const h5c = await harness({ client: fakeClient().client, rootSession: "" });
+  h5c.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }]));
+  let unknownSession = "";
+  await h5c.controller.approveAllForSession(target).catch((e) => (unknownSession = e.message));
+  check("I5 an unknown root session writes nothing", /session is not known/.test(unknownSession) && h5c.commands.length === 0, unknownSession);
 }
 
 for (const controller of controllers) controller.dispose();

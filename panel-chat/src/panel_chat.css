@@ -2533,3 +2533,12 @@ button.pc-ws__name:hover {
   line-height: 1.5;
   max-width: 70ch;
 }
+.pc-workflow-interaction__more > summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+.pc-workflow-interaction__more[open] > summary { margin-bottom: 6px; }
+@media (pointer: coarse) {
+  .pc-workflow-interaction__more > summary { min-height: var(--tap-min, 44px); display: flex; align-items: center; }
+}

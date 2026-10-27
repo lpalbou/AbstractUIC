@@ -71,6 +71,14 @@ export type SessionToolPolicyBody = {
 };
 /** One requested name the gateway did not store (contract §3: "never silently"). */
 export type SessionToolPolicyClamp = { selector: string; name: string; reason: string };
+/**
+ * Where approve and deny apply, in the gateway's words. Served at the TOP level of every
+ * tool-policy response (abstractgateway `feat/session-tool-policy` WIP
+ * routes/session_tool_policy.py:104, :115, :152; the words are `SCOPE` in
+ * session_tool_policy.py:226-230), as an object `{approve, deny}`. Rendered exactly as
+ * served, never composed by a client.
+ */
+export type SessionToolPolicyScope = { approve?: string; deny?: string };
 /** The stored, effective policy (contract §3 response `policy`). */
 export type SessionToolPolicy = {
   version: number;
@@ -83,6 +91,9 @@ export type SessionToolPolicy = {
   clamped?: SessionToolPolicyClamp[];
   set_by?: { tenant_id?: string; user_id?: string; client?: string };
   set_at?: string;
+  /** The response's top-level `scope`, which the client carries onto the policy it returns
+   * (absent when the client or the gateway does not provide it; the UI then says so). */
+  scope?: SessionToolPolicyScope;
 };
 /** Host-injected, already bound to one `session_id`. The controller never fetches a policy route itself. */
 export type SessionToolPolicyClient = {
@@ -239,6 +250,12 @@ function text(value: unknown): string {
 }
 
 function array(value: unknown): unknown[] { return Array.isArray(value) ? value : []; }
+
+/** A 409 `revision_conflict` from a guarded policy write (any client's error shape). */
+function revisionConflict(error: unknown): boolean {
+  const e = object(error) as (ServerRecord & { name?: unknown }) | null;
+  return Boolean(e && (e.code === "revision_conflict" || e.reason_code === "revision_conflict" || e.status === 409 || e.name === "SessionToolPolicyConflict"));
+}
 
 function statusOf(run: ServerRecord | null): string {
   return text(run?.status).toLowerCase() || "unknown";
@@ -470,6 +487,16 @@ export class WorkflowSessionController {
     return policy;
   }
 
+  /**
+   * The grant is read from the run tree's ROOT session (contract §4.2): the client must be
+   * bound to the root run's `session_id`, never a child's. Fails loudly otherwise.
+   */
+  private requireRootSession(client: SessionToolPolicyClient): void {
+    const root = text(this.snapshot.run?.session_id) || text(this.runStates.get(this.rootRunId)?.session_id);
+    if (!root) throw new Error("This chat's session is not known yet: the policy is written to the root run's session.");
+    if (root !== client.sessionId) throw new Error(`The tool policy client is bound to session ${client.sessionId}, but this chat's root run belongs to session ${root}: the policy is written to the root run's session.`);
+  }
+
   /** The shown approval must still be the current one before any policy is written. */
   private requireTarget(target: WorkflowApprovalTarget): WorkflowWaitInteraction {
     const interaction = this.requireInteraction();
@@ -487,8 +514,24 @@ export class WorkflowSessionController {
   private async writeThenAnswer(target: WorkflowApprovalTarget, body: SessionToolPolicyBody, approved: boolean, ask: readonly string[] = []): Promise<SessionToolPolicy> {
     this.requireTarget(target);
     const client = this.gatewayPolicy();
+    this.requireRootSession(client);
     const names = [...new Set(ask.map((name) => text(name)).filter(Boolean))];
-    const policy = await client.merge({ ...body, ...(names.length ? { ask: names } : {}), client: body.client || "panel-chat" });
+    // A deny is revision-guarded (contract §3: a merge only adds; a racing change must be
+    // re-read, never overwritten blindly). Read the revision first when none is known.
+    let guard: { if_revision?: number } = {};
+    if (body.deny) {
+      let revision = this.sessionPolicyState?.revision;
+      if (typeof revision !== "number") revision = (await this.loadSessionPolicy())?.revision;
+      if (typeof revision === "number") guard = { if_revision: revision };
+    }
+    let policy: SessionToolPolicy;
+    try {
+      policy = await client.merge({ ...body, ...(names.length ? { ask: names } : {}), ...guard, client: body.client || "panel-chat" });
+    } catch (error) {
+      if (!revisionConflict(error)) throw error;
+      await this.loadSessionPolicy().catch(() => null);
+      throw new Error("Someone changed this chat's policy; re-read it before deciding again (it was refreshed).");
+    }
     // Same client = same chat: adopt even across a reset/reload of the run.
     if (this.sessionToolPolicy === client) this.adoptSessionPolicy(policy);
     try {
@@ -534,10 +577,13 @@ export class WorkflowSessionController {
   }
 
   /** Reset: gateway mode deletes the conversation's policy; the fallback revokes the local grant. */
+  /** Narrowing an approve (undo) is a reset (DELETE), never a merge: a merge only adds. */
   async resetSessionPolicy(): Promise<void> {
     if (this.sessionPolicyMode() === "unavailable") throw new Error(`${this.sessionPolicyUnavailableReason}`);
     if (this.sessionPolicyMode() !== "gateway") { this.revokeToolApproval(); return; }
-    await this.gatewayPolicy().reset();
+    const client = this.gatewayPolicy();
+    this.requireRootSession(client);
+    await client.reset();
     this.adoptSessionPolicy(null);
   }
 
