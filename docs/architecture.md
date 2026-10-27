@@ -175,7 +175,7 @@ sequenceDiagram
   P->>G: POST sessions/{id}/tool-policy
   G-->>P: policy (revision, scope, clamped)
   S->>G: answer the shown wait {approved: true}
-  Note over C: "Applies: …" as served; "Not covered: …" for clamped entries
+  Note over C: "Applies: …" as served, "Not covered: …" for clamped entries
 ```
 
 ### One repository, several frameworks (convention)
