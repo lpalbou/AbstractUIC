@@ -42,6 +42,8 @@ export type AfMenuProps = {
   buttonContent?: React.ReactNode;
   /** Tooltip on the button (e.g. why an expected action is absent). */
   title?: string;
+  /** Kit tooltip on the button (`data-af-tip`, no native title). Additive (shell, 0036). */
+  tip?: string;
   className?: string;
   buttonClassName?: string;
   /**
@@ -71,6 +73,7 @@ export function AfMenu(props: AfMenuProps): React.ReactElement | null {
         className={`af-menu__button${props.buttonClassName ? ` ${props.buttonClassName}` : ""}`}
         aria-label={props.label}
         title={props.title}
+        data-af-tip={props.tip}
         aria-haspopup="menu"
         aria-expanded="false"
       >

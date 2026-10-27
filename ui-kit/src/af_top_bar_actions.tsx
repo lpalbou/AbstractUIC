@@ -29,14 +29,20 @@ import { gatewayHostLabel, principalFromConnection, principalLabel, type AfPrinc
 /** The connection the cluster renders, when the host does not pass the hook's return value. */
 export type AfTopBarConnection = {
   phase: GatewayConnectionPhase;
-  /** True while signOut is in flight (renders "Signing out…"). */
+  /** True while signOut is in flight (renders "Disconnecting…"). */
   signingOut?: boolean;
   /** Opens the connect modal (disconnected/loading states). */
   onConnect: () => void;
-  /** Signs out (connected state). Apps MAY interpose a confirm first. */
+  /**
+   * Disconnects (connected state). Apps MAY interpose a confirm first. With
+   * this shape the cluster never calls `onSignOut`: the host's own
+   * `onDisconnect` owns its state wipe (it alone knows whether it happened).
+   */
   onDisconnect: () => void;
   /** The connection status (the identity's source; `useGatewayConnection().status`). */
   status?: GatewayConnectionState | null;
+  /** The last disconnect's failure, rendered beside the pill (`useGatewayConnection().signOutError`). */
+  signOutError?: string | null;
 };
 
 export type AfTopBarActionsProps = {
@@ -86,10 +92,14 @@ export type AfTopBarActionsProps = {
    * Who is signed in, immediately left of the pill (from the connection's
    * status: `status.gateway.principal`). "badge" = icon + label;
    * "menu" = the same, opening a menu (who, which gateway, Copy user id,
-   * Sign out). Omit/false = hidden. Nothing renders while signed out.
+   * Disconnect). Omit/false = hidden. Nothing renders unless the phase is connected.
    */
   identity?: "badge" | "menu" | false;
-  /** Runs AFTER the cluster's sign-out (`connection.signOut()`): the app's own state wipe. */
+  /**
+   * The app's own state wipe, run only after a disconnect that HAPPENED
+   * (`connection.signOut()` resolved true). Hook-shaped `connection` only;
+   * ignored with the legacy shape (its `onDisconnect` owns the wipe).
+   */
   onSignOut?: () => void;
   /** App-specific actions, rendered FIRST (left of docs). */
   extraActions?: React.ReactNode;
@@ -100,9 +110,14 @@ export type AfTopBarActionsProps = {
   className?: string;
 };
 
-/** The pill's words, decided once (ADR 0001 §5). */
+/**
+ * The pill's words, decided once (ADR 0001 §5). ONE verb for ending the
+ * session, in the pill and in the identity menu: "Disconnect" (in flight
+ * "Disconnecting…"); "Disconnect from gateway" is the accessible name apps'
+ * end-to-end tests already address.
+ */
 export function topBarPillText(phase: GatewayConnectionPhase, signingOut: boolean): { label: string; title: string } {
-  const label = signingOut ? "Signing out…" : phase === "connected" ? "Disconnect" : phase === "loading" ? "Connecting…" : "Connect";
+  const label = signingOut ? "Disconnecting…" : phase === "connected" ? "Disconnect" : phase === "loading" ? "Connecting…" : "Connect";
   const title = phase === "connected" ? "Disconnect from gateway" : phase === "loading" ? "Checking gateway session…" : "Connect to gateway";
   return { label, title };
 }
@@ -113,24 +128,26 @@ function isHookConnection(c: AfTopBarConnection | GatewayConnection): c is Gatew
 
 /**
  * The cluster's view of either connection shape: phase, connect, the ONE
- * disconnect (the pill and the identity menu's Sign out call the same
- * function: the hook's `signOut()` then the host's `onSignOut`), and the
- * status the identity reads.
+ * disconnect (the pill and the identity menu's Disconnect call the same
+ * function), the status the identity reads and the last disconnect failure.
+ * Hook shape: `signOut()`, then `onSignOut` only when it resolved true (the
+ * session is gone). Legacy shape: `onDisconnect()` only.
  */
 export function topBarConnection(
   c: AfTopBarConnection | GatewayConnection,
   onSignOut?: () => void,
-): { phase: GatewayConnectionPhase; signingOut: boolean; connect: () => void; disconnect: () => Promise<void>; status: GatewayConnectionState | null } {
+): { phase: GatewayConnectionPhase; signingOut: boolean; connect: () => void; disconnect: () => Promise<void>; status: GatewayConnectionState | null; signOutError: string | null } {
   if (isHookConnection(c)) {
     return {
       phase: c.phase,
       signingOut: c.signingOut === true,
       connect: c.openModal,
       disconnect: async () => {
-        await c.signOut();
-        onSignOut?.();
+        const done = await c.signOut();
+        if (done === true) onSignOut?.();
       },
       status: c.status,
+      signOutError: c.signOutError || null,
     };
   }
   return {
@@ -139,9 +156,9 @@ export function topBarConnection(
     connect: c.onConnect,
     disconnect: async () => {
       c.onDisconnect();
-      onSignOut?.();
     },
     status: c.status ?? null,
+    signOutError: c.signOutError || null,
   };
 }
 
@@ -154,7 +171,16 @@ export function identityTitle(p: AfPrincipal, gatewayUrl: string | null | undefi
 /** The CSS variable the cluster publishes and `topOffset: "auto"` reads. */
 export const AF_TOPBAR_HEIGHT_VAR = "--af-topbar-h";
 
-/** Publish the bottom edge of `el`'s header as `--af-topbar-h` while mounted. */
+/**
+ * Publish the bottom edge of `el`'s header (`[data-af-topbar]`, else the
+ * nearest `<header>`, else the parent) as `--af-topbar-h` on <html> while
+ * mounted. The value is viewport-relative (`getBoundingClientRect().bottom`):
+ * right for a fixed or sticky header; for a header that scrolls away it is
+ * re-measured on scroll. It updates on the header's resize (ResizeObserver),
+ * window resize and scroll; where ResizeObserver is missing, a header that
+ * grows without a resize or a scroll is seen at the next one. On unmount the
+ * variable is removed, unless another publisher wrote it since.
+ */
 export function useAfTopBarHeight(ref: React.RefObject<HTMLElement | null>, enabled = true): void {
   useEffect(() => {
     if (!enabled || typeof window === "undefined" || typeof document === "undefined") return;
@@ -162,17 +188,23 @@ export function useAfTopBarHeight(ref: React.RefObject<HTMLElement | null>, enab
     if (!el) return;
     const header = (el.closest("[data-af-topbar], header") as HTMLElement | null) || el.parentElement || el;
     const root = document.documentElement;
+    let written = "";
     const sync = () => {
       const bottom = Math.max(0, Math.round(header.getBoundingClientRect().bottom));
-      root.style.setProperty(AF_TOPBAR_HEIGHT_VAR, `${bottom}px`);
+      written = `${bottom}px`;
+      root.style.setProperty(AF_TOPBAR_HEIGHT_VAR, written);
     };
     sync();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(sync) : null;
     ro?.observe(header);
+    const passive = { passive: true, capture: true } as AddEventListenerOptions;
     window.addEventListener("resize", sync);
+    window.addEventListener("scroll", sync, passive);
     return () => {
       ro?.disconnect();
       window.removeEventListener("resize", sync);
+      window.removeEventListener("scroll", sync, passive);
+      if (written && root.style.getPropertyValue(AF_TOPBAR_HEIGHT_VAR) === written) root.style.removeProperty(AF_TOPBAR_HEIGHT_VAR);
     };
   }, [ref, enabled]);
 }
@@ -220,7 +252,8 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
   }, [aboutOpen]);
 
   const pill = topBarPillText(phase, signingOut);
-  const principal = props.identity ? principalFromConnection(conn.status) : null;
+  // The identity follows the pill: nothing unless the phase is connected (one source).
+  const principal = props.identity && phase === "connected" ? principalFromConnection(conn.status) : null;
   const signOut = () => void conn.disconnect();
 
   let identity: React.ReactNode = null;
@@ -235,7 +268,7 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
     );
     if (props.identity === "badge") {
       identity = (
-        <span className="af-topbar__identity af-topbar__identity--badge" data-af-identity="badge" title={title} aria-label={title}>
+        <span className="af-topbar__identity af-topbar__identity--badge" data-af-identity="badge" data-af-tip={title} aria-label={title}>
           {face}
         </span>
       );
@@ -245,7 +278,7 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
       identity = (
         <AfMenu
           label={`Account: ${title}`}
-          title={title}
+          tip={title}
           className="af-topbar__account"
           buttonClassName="af-topbar__identity af-topbar__identity--menu"
           buttonContent={face}
@@ -257,7 +290,7 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
           }
           items={[
             { id: "copy-user-id", label: "Copy user id", onSelect: copy || (() => undefined), hidden: !copy },
-            { id: "sign-out", label: signingOut ? "Signing out…" : "Sign out", onSelect: signOut, danger: true, hidden: signingOut },
+            { id: "disconnect", label: "Disconnect", onSelect: signOut, danger: true, hidden: signingOut },
           ]}
         />
       );
@@ -327,6 +360,13 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
       ) : null}
 
       {identity}
+
+      {conn.signOutError ? (
+        <span className="af-topbar__signout-error" role="alert" data-af-tip={`Disconnect failed: ${conn.signOutError}`} aria-label={`Disconnect failed: ${conn.signOutError}`}>
+          <Icon name="warning" size={14} />
+          <span className="af-topbar__signout-error-label">Disconnect failed</span>
+        </span>
+      ) : null}
 
       <button
         type="button"

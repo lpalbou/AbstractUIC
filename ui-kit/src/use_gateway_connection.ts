@@ -76,9 +76,12 @@ export type GatewayConnection = {
   /**
    * Sign out through the machine (settings pages that bypass the modal —
    * observer's adoption datum c1323): server-side sign-out, then a fresh
-   * probe so phase/auto-open react to the REAL resulting state.
+   * probe so phase/auto-open react to the REAL resulting state. Never
+   * rejects; resolves true when the sign-out happened (the request succeeded
+   * and the follow-up probe no longer reports a session), false otherwise
+   * (`signOutError` says why when the request failed).
    */
-  signOut: () => Promise<void>;
+  signOut: () => Promise<boolean>;
   /** Spread into <GatewayConnectModal {...modalProps} />. */
   modalProps: {
     isOpen: boolean;
@@ -229,6 +232,7 @@ export function useGatewayConnection(options?: UseGatewayConnectionOptions): Gat
     }
     setSignOutError(failed);
     setSigningOut(false);
+    return failed === null && phaseRef.current !== "connected";
   }, [connectionPath, refresh]);
 
   const booted = useRef(false);

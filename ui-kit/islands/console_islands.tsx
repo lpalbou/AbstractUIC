@@ -81,6 +81,8 @@ export type TopBarIslandProps = {
     onDisconnect: () => void;
     /** The app server's connection status (apps behind app-server). */
     status?: GatewayConnectionState | null;
+    /** The last disconnect's failure, rendered beside the pill. */
+    signOutError?: string | null;
     /**
      * The gateway's own `GET /api/gateway/me` body (routes/gateway.py:351-365),
      * for a host on the gateway's origin (the console): read as a signed-in
@@ -92,6 +94,8 @@ export type TopBarIslandProps = {
 
 /** The connection status an island renders: `status`, else the console's `/me` body on this origin. */
 export function islandConnectionStatus(c: TopBarIslandProps["connection"]): GatewayConnectionState | null {
+  // Never a connected identity beside a pill that is not connected (a stale `me` after sign-out).
+  if (c.phase !== "connected") return null;
   if (c.status !== undefined) return c.status;
   const me = c.me;
   if (!me || me.ok === false) return null;
@@ -523,6 +527,8 @@ const api = {
   mountVoiceSettings,
   mountDocsAssistant,
   mountDrawerSystem,
+  // The identity source the top bar island reads (shell, 0036): exposed so hosts and checks see the rule.
+  islandConnectionStatus,
   mountWorkspaceChooser,
   mountTimeZonePicker,
   // The chooser's ONE wording table and its answer parser (round 11): the console builds the

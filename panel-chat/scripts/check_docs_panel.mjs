@@ -78,6 +78,14 @@ check("system: the panel header has the actions slot", inSystem.includes('class=
 const drawer = renderToStaticMarkup(h(DocsAssistantDrawer, { open: true, onClose: () => {}, source, fetchGateway, connected: true, topOffset: "auto" }));
 check("drawer: still an AfDrawer with its header actions", drawer.includes("af-drawer") && drawer.includes('aria-label="Docs assistant"') && drawer.includes('aria-label="Past conversations"') && drawer.includes("top:var(--af-topbar-h, 0px)"), drawer);
 
+// The drawer keeps its pre-0036 focus behaviour unless the host opts in (no soft keyboard on open).
+{
+  const d = mountHook(DocsAssistantDrawer, { open: false, onClose: () => {}, source, fetchGateway, connected: true });
+  check("drawer: does not move focus by default", find(d.current, (n) => n.type === kit.AfDrawer)?.props.manageFocus === false);
+  const d2 = mountHook(DocsAssistantDrawer, { open: false, onClose: () => {}, source, fetchGateway, connected: true, manageFocus: true });
+  check("drawer: manageFocus opts in", find(d2.current, (n) => n.type === kit.AfDrawer)?.props.manageFocus === true);
+}
+
 // An app assistant panel.
 const ask = async () => "ok";
 const adv = assistantDrawerPanel({ ask, assistantName: "Continuum advisor", blockedNotice: undefined });

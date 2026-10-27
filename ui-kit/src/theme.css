@@ -6987,4 +6987,31 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
     display: none;
   }
 }
+.af-rail__error-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--error);
+}
+@media (pointer: coarse) {
+  .af-rail__error-retry {
+    min-height: var(--tap-min, 44px);
+    min-width: var(--tap-min, 44px);
+  }
+}
+.af-topbar__signout-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--error);
+  font-size: var(--font-size-sm, 12px);
+  white-space: nowrap;
+}
+@media (max-width: 479.98px) {
+  .af-topbar__signout-error-label {
+    display: none;
+  }
+}
 /* af-shell:end */

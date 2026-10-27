@@ -25,12 +25,25 @@ const DRAWER_FOCUSABLE = 'button:not(:disabled), [href], input:not(:disabled), s
 /**
  * Where focus goes when a drawer opens: an element marked `data-autofocus`,
  * else the first text field (an assistant's composer), else the first
- * focusable control of the body, else the drawer itself.
+ * focusable control of the body, else the drawer itself. On a touch screen
+ * (`coarse`) a text field is skipped: focusing it would raise the soft
+ * keyboard over the drawer the person only meant to open.
  */
-export function drawerFocusTarget(el: HTMLElement | null): HTMLElement | null {
+export function drawerFocusTarget(el: HTMLElement | null, coarse = false): HTMLElement | null {
   if (!el) return null;
   const body = el.querySelector<HTMLElement>(".af-drawer__body") || el;
-  return body.querySelector<HTMLElement>("[data-autofocus]") || body.querySelector<HTMLElement>("textarea:not(:disabled)") || body.querySelector<HTMLElement>(DRAWER_FOCUSABLE) || el;
+  const auto = body.querySelector<HTMLElement>("[data-autofocus]");
+  if (auto) return auto;
+  if (coarse) return el;
+  return body.querySelector<HTMLElement>("textarea:not(:disabled)") || body.querySelector<HTMLElement>(DRAWER_FOCUSABLE) || el;
+}
+
+function coarsePointer(): boolean {
+  try {
+    return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+  } catch {
+    return false;
+  }
 }
 
 /** The CSS `top` of a drawer: "auto" = the published top-bar height; a number = px; none = 0. */
@@ -102,7 +115,7 @@ export function AfDrawer(props: AfDrawerProps): React.ReactElement {
       if (el && el.contains(document.activeElement)) return;
       // After the drawer becomes visible (display/inert flip in this commit).
       const id = window.setTimeout(() => {
-        drawerFocusTarget(el)?.focus({ preventScroll: true });
+        drawerFocusTarget(el, coarsePointer())?.focus({ preventScroll: true });
       }, 0);
       return () => window.clearTimeout(id);
     }

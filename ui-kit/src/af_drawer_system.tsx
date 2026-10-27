@@ -178,9 +178,10 @@ export function railDrawerMounted(panel: Pick<AfDrawerPanel, "id" | "keepAlive">
 export type AfDrawerStored = { widths: Record<string, number>; active: { left?: string | null; right?: string | null }; legacyWidth?: number };
 
 /**
- * Parse the stored state: `{"v":1,"widths":{id:px},"active":{"right":id}}`; a
- * bare number (AfRailDrawer ≤ 0.8.9 stored one width) becomes every panel's
- * width; anything unreadable is empty.
+ * Parse the stored state: `{"v":1,"widths":{id:px},"active":{"right":id},"legacy":px}`;
+ * a bare number (AfRailDrawer ≤ 0.8.9 stored one width) becomes every panel's
+ * width (`legacyWidth`, kept as `"legacy"` on every write so a panel that has
+ * no width of its own keeps it); anything unreadable is empty.
  */
 export function railDrawerReadStored(raw: string | null | undefined): AfDrawerStored {
   const empty: AfDrawerStored = { widths: {}, active: {} };
@@ -199,14 +200,15 @@ export function railDrawerReadStored(raw: string | null | undefined): AfDrawerSt
         if (typeof v === "string" || v === null) active[side] = v;
       }
     }
-    return { widths, active };
+    const legacy = typeof o.legacy === "number" && Number.isFinite(o.legacy) ? o.legacy : undefined;
+    return legacy === undefined ? { widths, active } : { widths, active, legacyWidth: legacy };
   } catch {
     return empty;
   }
 }
 
 export function railDrawerWriteStored(stored: AfDrawerStored): string {
-  return JSON.stringify({ v: 1, widths: stored.widths, active: stored.active });
+  return JSON.stringify({ v: 1, widths: stored.widths, active: stored.active, ...(stored.legacyWidth !== undefined ? { legacy: stored.legacyWidth } : {}) });
 }
 
 /** A panel's width: stored for it, else the legacy single width, else its default; clamped to its bounds. */
@@ -257,7 +259,12 @@ export function AfPanelHeaderActions(props: { children?: React.ReactNode }): Rea
 
 // ------------------------------------------------------------ error boundary
 
-type BoundaryProps = { label: string; children?: React.ReactNode };
+type BoundaryProps = {
+  label: string;
+  /** "panel" (default) = the labeled notice + Try again; "inline" = a small warning icon (panel header actions). */
+  variant?: "panel" | "inline";
+  children?: React.ReactNode;
+};
 type BoundaryState = { error: Error | null };
 
 /** One panel's error boundary: a failure shows a labeled notice in that panel only. */
@@ -271,6 +278,14 @@ export class AfPanelErrorBoundary extends React.Component<BoundaryProps, Boundar
   render(): React.ReactNode {
     const { error } = this.state;
     if (!error) return this.props.children;
+    if (this.props.variant === "inline") {
+      const text = `The ${this.props.label} panel's actions stopped: ${error.message || "unknown error"}`;
+      return (
+        <span className="af-rail__error-inline" role="img" aria-label={text} data-af-tip={text} data-panel-error="actions">
+          <Icon name="warning" size={16} />
+        </span>
+      );
+    }
     return (
       <div className="af-rail__error" role="alert" data-panel-error="">
         <p className="af-rail__error-text">
@@ -329,7 +344,13 @@ function PanelSection(props: {
       <header className="af-rail__head">
         <h2 className="af-rail__title">{panel.label}</h2>
         <span className="af-rail__head-actions">
-          {panel.headerActions}
+          {panel.headerActions === undefined || panel.headerActions === null ? null : panel.errorBoundary === false ? (
+            panel.headerActions
+          ) : (
+            <AfPanelErrorBoundary label={panel.label} variant="inline">
+              {panel.headerActions}
+            </AfPanelErrorBoundary>
+          )}
           <span className="af-rail__head-slot" ref={setSlot} />
           <button
             type="button"

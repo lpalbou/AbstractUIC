@@ -531,6 +531,12 @@ export type DocsAssistantDrawerProps = DocsAssistantChatProps & {
   width?: number;
   topOffset?: number | "auto";
   className?: string;
+  /**
+   * Move focus into the drawer on open and back on close (the kit AfDrawer's
+   * focus handling). Default false: the drawer keeps its pre-0036 behaviour
+   * (no soft keyboard on open; apps with their own focus hook are not doubled).
+   */
+  manageFocus?: boolean;
 };
 
 function now(): string {
@@ -766,6 +772,7 @@ export function DocsAssistantDrawer(props: DocsAssistantDrawerProps): React.Reac
       }
       width={props.width || 420}
       topOffset={props.topOffset}
+      manageFocus={props.manageFocus === true}
       className={`pc-docs-assistant-drawer${props.className ? ` ${props.className}` : ""}`}
       headerActions={headerActions}
     >

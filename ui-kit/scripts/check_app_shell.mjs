@@ -4,11 +4,13 @@
  * app shell around it.
  *
  * - ORDER (pinned): extras · docs · assistant · appearance · about · identity · pill.
- * - The pill's ONE wording: Connect / Connecting… / Disconnect / Signing out….
+ * - ONE wording: Connect / Connecting… / Disconnect / Disconnecting… (the pill AND the identity
+ *   menu say Disconnect; a failed disconnect shows "Disconnect failed" beside the pill).
  * - Identity from the connection status (`status.gateway.principal`, the app-server relay of the
  *   gateway's /api/gateway/me): `principalFromConnection`, `principalLabel` (display name or user
  *   id; tenant only when not "default"), the gateway host; "badge" and "menu" (Copy user id,
- *   Sign out); nothing while signed out or without the prop (back-compat).
+ *   Disconnect, kit tooltip, no native title); nothing unless the phase is connected or without
+ *   the prop (back-compat). `onSignOut` runs only after a disconnect that happened (hook shape).
  * - The cluster owns the Appearance dialog when given {value, onChange}, and fetches About
  *   versions on open when given `fetch` (GET api/gateway/about), never when given `versions`.
  * - `--af-topbar-h`: the cluster publishes its header's bottom edge (ResizeObserver);
@@ -66,14 +68,14 @@ const alice = { user_id: "alice", tenant_id: "default", roles: ["user"], scopes:
   check("pill: Connect", w("disconnected", false) === "Connect");
   check("pill: Connecting…", w("loading", false) === "Connecting…");
   check("pill: Disconnect", w("connected", false) === "Disconnect");
-  check("pill: Signing out…", w("connected", true) === "Signing out…");
+  check("pill: Disconnecting…", w("connected", true) === "Disconnecting…");
   check("pill titles", topBarPillText("connected", false).title === "Disconnect from gateway" && topBarPillText("loading", false).title === "Checking gateway session…" && topBarPillText("disconnected", false).title === "Connect to gateway");
   for (const [phase, label] of [["disconnected", "Connect"], ["loading", "Connecting…"], ["connected", "Disconnect"]]) {
     const html = renderToStaticMarkup(h(AfTopBarActions, { connection: { phase, onConnect: noop, onDisconnect: noop } }));
     check(`pill renders ${label}`, html.includes(`<span class="af-topbar__pill-label">${label}</span>`) && html.includes(`af-topbar__dot--${phase}`), html);
   }
   const out = renderToStaticMarkup(h(AfTopBarActions, { connection: { phase: "connected", signingOut: true, onConnect: noop, onDisconnect: noop } }));
-  check("pill renders Signing out… (disabled)", out.includes(">Signing out…</span>") && /af-topbar__pill[^>]*disabled/.test(out), out);
+  check("pill renders Disconnecting… (disabled)", out.includes(">Disconnecting…</span>") && /af-topbar__pill[^>]*disabled/.test(out), out);
 }
 
 // ------------------------------------------------------------ order + identity
@@ -96,41 +98,60 @@ const full = (identity, conn) =>
   const marks = ['id="x-extra"', "af-topbar__btn--docs", "af-topbar__btn--assistant", "af-topbar__btn--appearance", "af-topbar__btn--about", 'data-af-identity="badge"', "af-topbar__pill"];
   const at = marks.map((m) => html.indexOf(m));
   check("ORDER extras · docs · assistant · appearance · about · identity · pill", at.every((v, i) => v >= 0 && (i === 0 || v > at[i - 1])), JSON.stringify(at));
-  check("badge: label + title with the gateway host", html.includes(">alice</span>") && html.includes('title="Signed in as alice · gateway gw.local:8080"'), html);
+  check("badge: label + tooltip with the gateway host", html.includes(">alice</span>") && html.includes('data-af-tip="Signed in as alice · gateway gw.local:8080"'), html);
   const menu = full("menu");
   const mat = ["af-topbar__btn--about", 'data-af-identity="menu"', "af-topbar__pill"].map((m) => menu.indexOf(m));
   check("ORDER (menu): about · identity · pill", mat.every((v, i) => v >= 0 && (i === 0 || v > mat[i - 1])), JSON.stringify(mat));
   check("menu: a menu button labelled with who and where", menu.includes('aria-haspopup="menu"') && menu.includes('aria-label="Account: Signed in as alice · gateway gw.local:8080"'), menu);
   check("menu: header says who and which gateway", menu.includes("Signed in as alice") && menu.includes("Gateway gw.local:8080") && menu.includes('class="af-menu__header"'), menu);
-  check("menu: Copy user id + Sign out", menu.includes('data-menu-id="copy-user-id"') && menu.includes(">Copy user id<") && menu.includes('data-menu-id="sign-out"') && menu.includes(">Sign out<"), menu);
-  check("menu: Sign out is the danger item", /af-menu__item--danger"[^>]*>Sign out</.test(menu) || /data-menu-id="sign-out"[^>]*class="af-menu__item af-menu__item--danger"/.test(menu), menu);
+  check("menu: Copy user id + Disconnect (one verb with the pill)", menu.includes('data-menu-id="copy-user-id"') && menu.includes(">Copy user id<") && menu.includes('data-menu-id="disconnect"') && menu.includes(">Disconnect<") && !menu.includes("Sign out"), menu);
+  check("menu: Disconnect is the danger item", /data-menu-id="disconnect" class="af-menu__item af-menu__item--danger"/.test(menu), menu);
+  check("identity: kit tooltip, never a native title", html.includes('data-af-tip="Signed in as alice · gateway gw.local:8080"') && !/data-af-identity="badge"[^>]*title=/.test(html) && !/af-topbar__identity--menu"[^>]*title=/.test(menu) && menu.includes('data-af-tip="Signed in as alice · gateway gw.local:8080"'), menu);
+  check("identity: nothing beside a pill that is not connected (legacy shape, stale status)", !full("badge", { phase: "disconnected", onConnect: noop, onDisconnect: noop, status: status(alice) }).includes("data-af-identity"));
   check("identity: tenant shown when not default", full("badge", { phase: "connected", onConnect: noop, onDisconnect: noop, status: status({ ...alice, tenant_id: "acme" }) }).includes(">acme/alice</span>"));
   check("identity: nothing while signed out", !full("menu", { phase: "disconnected", onConnect: noop, onDisconnect: noop, status: { ok: false, has_session: false, gateway_url: "x" } }).includes("data-af-identity"));
   check("identity: nothing without the prop (back-compat)", !full(undefined).includes("data-af-identity") && !full(false).includes("data-af-identity"));
   Object.defineProperty(globalThis, "navigator", { value: {}, configurable: true, writable: true });
-  check("menu: no Copy user id without a clipboard (no dead items)", !full("menu").includes("copy-user-id") && full("menu").includes(">Sign out<"));
+  check("menu: no Copy user id without a clipboard (no dead items)", !full("menu").includes("copy-user-id") && full("menu").includes(">Disconnect<"));
   Object.defineProperty(globalThis, "navigator", { value: { clipboard: { writeText: async () => undefined } }, configurable: true, writable: true });
 }
 
-// The menu's Sign out and the pill are the SAME disconnect: hook signOut, then the host's onSignOut.
+// The menu's Disconnect and the pill are the SAME disconnect: hook signOut, then onSignOut ONLY when it happened.
 {
   const order = [];
-  const hookConn = { status: status(alice), phase: "connected", connected: true, modalOpen: false, signingOut: false, signOutError: null, openModal: () => order.push("open"), refresh: async () => {}, signOut: async () => void order.push("signOut"), modalProps: {} };
+  let result = true;
+  const hookConn = { status: status(alice), phase: "connected", connected: true, modalOpen: false, signingOut: false, signOutError: null, openModal: () => order.push("open"), refresh: async () => {}, signOut: async () => (order.push("signOut"), result), modalProps: {} };
   const t = mountHook(AfTopBarActions, { connection: hookConn, identity: "menu", onSignOut: () => order.push("onSignOut") });
   const menu = find(t.current, (n) => n.type === AfMenu);
-  const signOutItem = menu?.props.items.find((i) => i.id === "sign-out");
-  signOutItem?.onSelect();
+  menu?.props.items.find((i) => i.id === "disconnect")?.onSelect();
   await new Promise((r) => setImmediate(r));
-  check("menu Sign out: hook signOut then onSignOut", JSON.stringify(order) === JSON.stringify(["signOut", "onSignOut"]), JSON.stringify(order));
+  check("menu Disconnect: hook signOut then onSignOut", JSON.stringify(order) === JSON.stringify(["signOut", "onSignOut"]), JSON.stringify(order));
   order.length = 0;
-  const pill = find(t.current, (n) => typeof n.props.className === "string" && n.props.className.startsWith("af-topbar__pill"));
-  pill.props.onClick();
+  const pill = () => find(t.current, (n) => typeof n.props.className === "string" && n.props.className.startsWith("af-topbar__pill"));
+  pill().props.onClick();
   await new Promise((r) => setImmediate(r));
-  check("pill Disconnect: the same sign-out", JSON.stringify(order) === JSON.stringify(["signOut", "onSignOut"]), JSON.stringify(order));
+  check("pill Disconnect: the same disconnect", JSON.stringify(order) === JSON.stringify(["signOut", "onSignOut"]), JSON.stringify(order));
+  order.length = 0;
+  result = false;
+  pill().props.onClick();
+  await new Promise((r) => setImmediate(r));
+  check("a failed disconnect never runs the host's state wipe", JSON.stringify(order) === JSON.stringify(["signOut"]), JSON.stringify(order));
+  t.rerender({ connection: { ...hookConn, signOutError: "gateway unreachable" } });
+  const err = find(t.current, (n) => n.props.className === "af-topbar__signout-error");
+  check("a failed disconnect is shown beside the pill", err && err.props.role === "alert" && err.props["data-af-tip"] === "Disconnect failed: gateway unreachable", JSON.stringify(err && err.props["data-af-tip"]));
+  const errHtml = renderToStaticMarkup(h(AfTopBarActions, { connection: { phase: "connected", onConnect: noop, onDisconnect: noop, signOutError: "boom" } }));
+  check("failure notice sits left of the pill", errHtml.indexOf("Disconnect failed") >= 0 && errHtml.indexOf("Disconnect failed") < errHtml.indexOf("af-topbar__pill"), errHtml);
+  check("no failure notice without an error", !renderToStaticMarkup(h(AfTopBarActions, { connection: { phase: "connected", onConnect: noop, onDisconnect: noop } })).includes("Disconnect failed"));
   t.rerender({ connection: { ...hookConn, phase: "disconnected", connected: false, status: null } });
   order.length = 0;
-  find(t.current, (n) => typeof n.props.className === "string" && n.props.className.startsWith("af-topbar__pill")).props.onClick();
+  pill().props.onClick();
   check("pill Connect: opens the hook's modal", JSON.stringify(order) === JSON.stringify(["open"]), JSON.stringify(order));
+  // Legacy shape: onDisconnect only (it may confirm first); onSignOut is never called.
+  order.length = 0;
+  const legacy = mountHook(AfTopBarActions, { connection: { phase: "connected", onConnect: noop, onDisconnect: () => order.push("onDisconnect") }, onSignOut: () => order.push("onSignOut") });
+  find(legacy.current, (n) => typeof n.props.className === "string" && n.props.className.startsWith("af-topbar__pill")).props.onClick();
+  await new Promise((r) => setImmediate(r));
+  check("legacy shape: onDisconnect only, onSignOut ignored", JSON.stringify(order) === JSON.stringify(["onDisconnect"]), JSON.stringify(order));
 }
 
 // ------------------------------------------------------------ appearance + about owned by the cluster
@@ -167,6 +188,21 @@ const full = (identity, conn) =>
   check("about: host versions win, no fetch", calls2.length === 0 && find(t2.current, (n) => n.type === AfAboutDialog)?.props.versions?.gateway === "9.9.9");
 }
 
+// About: an answer that lands after the dialog closed is dropped.
+{
+  let release;
+  const fetchGateway = () => new Promise((resolve) => (release = () => resolve({ ok: true, status: 200, json: async () => ({ abstractgateway: "0.16.0" }) })));
+  const t = mountHook(AfTopBarActions, { connection: { phase: "connected", onConnect: noop, onDisconnect: noop }, about: { identity: ident, fetch: fetchGateway } });
+  const dlg = () => find(t.current, (n) => n.type === AfAboutDialog);
+  find(t.current, (n) => typeof n.props.className === "string" && n.props.className.includes("af-topbar__btn--about")).props.onClick();
+  t.render();
+  dlg().props.onClose();
+  t.render();
+  release();
+  await t.settle();
+  check("about fetch: a late answer after close is dropped", dlg()?.props.open === false && dlg().props.versions?.gatewayNote === "checking…", JSON.stringify(dlg()?.props.versions));
+}
+
 // ------------------------------------------------------------ --af-topbar-h + topOffset "auto"
 {
   check("var name", AF_TOPBAR_HEIGHT_VAR === "--af-topbar-h");
@@ -176,34 +212,44 @@ const full = (identity, conn) =>
   check("drawer system topOffset auto", kit.railDrawerTopOffset("auto") === "var(--af-topbar-h, 0px)" && kit.railDrawerTopOffset(40) === "40px" && kit.railDrawerTopOffset(undefined) === undefined);
   const css = readFileSync(join(root, "src", "theme.css"), "utf8");
   check("css: anchored overlay uses the published offset", /\.af-rail--anchored \.af-rail__panel-wrap,\s*\.af-rail--anchored \.af-rail__backdrop\s*\{[^}]*position: fixed;[^}]*top: var\(--af-drawers-top, 0px\)/.test(css));
-  // Publication: a fake DOM (the harness has none).
+  // Publication: a fake DOM (the harness has none). The fake ResizeObserver only reports what it observes.
   const set = [];
-  let roCb = null;
+  const props = new Map();
   let bottom = 52.4;
-  const header = { getBoundingClientRect: () => ({ bottom }) };
+  const header = { id: "header", getBoundingClientRect: () => ({ bottom }) };
   const el = { closest: (sel) => (sel.includes("[data-af-topbar]") ? header : null), parentElement: null };
   const listeners = [];
-  globalThis.window = { addEventListener: (e, f) => listeners.push([e, f]), removeEventListener: (e, f) => listeners.splice(listeners.findIndex((l) => l[1] === f), 1) };
-  globalThis.document = { documentElement: { style: { setProperty: (k, v) => set.push([k, v]) } } };
+  const observers = [];
+  globalThis.window = { addEventListener: (e, f) => listeners.push([e, f]), removeEventListener: (e, f) => listeners.splice(listeners.findIndex((l) => l[0] === e && l[1] === f), 1) };
+  globalThis.document = { documentElement: { style: { setProperty: (k, v) => (set.push([k, v]), props.set(k, v)), getPropertyValue: (k) => props.get(k) || "", removeProperty: (k) => props.delete(k) } } };
   globalThis.ResizeObserver = class {
     constructor(cb) {
-      roCb = cb;
+      this.cb = cb;
+      this.targets = [];
+      observers.push(this);
     }
     observe(target) {
-      this.target = target;
+      this.targets.push(target);
     }
     disconnect() {
-      roCb = null;
+      this.targets = [];
     }
   };
+  const resizeHeader = () => observers.forEach((o) => o.targets.includes(header) && o.cb([]));
   const t = mountHook(() => useAfTopBarHeight({ current: el }, true));
   check("publish: the header's bottom edge, rounded", set.length === 1 && set[0][0] === "--af-topbar-h" && set[0][1] === "52px", JSON.stringify(set));
+  check("publish: the HEADER is observed", observers.length === 1 && observers[0].targets.length === 1 && observers[0].targets[0] === header, JSON.stringify(observers.map((o) => o.targets.map((x) => x.id))));
   bottom = 61;
-  roCb?.();
+  resizeHeader();
   check("publish: a header resize republishes", set.length === 2 && set[1][1] === "61px", JSON.stringify(set));
-  check("publish: listens to window resize", listeners.some(([e]) => e === "resize"));
+  check("publish: listens to window resize and scroll", listeners.some(([e]) => e === "resize") && listeners.some(([e]) => e === "scroll"));
   t.unmount();
-  check("publish: unmount stops observing", roCb === null && listeners.length === 0);
+  check("publish: unmount stops observing and listening", observers[0].targets.length === 0 && listeners.length === 0);
+  check("publish: unmount removes the variable it wrote", !props.has("--af-topbar-h"));
+  const t2 = mountHook(() => useAfTopBarHeight({ current: el }, true));
+  props.set("--af-topbar-h", "80px"); // another publisher wrote since
+  t2.unmount();
+  check("publish: unmount leaves another publisher's value", props.get("--af-topbar-h") === "80px");
   set.length = 0;
   mountHook(() => useAfTopBarHeight({ current: el }, false));
   check("publish: disabled = nothing published", set.length === 0);
@@ -226,8 +272,60 @@ const full = (identity, conn) =>
   check("focus: then the first control", drawerFocusTarget(anyFocusable({}))?.id === "button");
   const empty = drawer({});
   check("focus: else the drawer itself", drawerFocusTarget(empty) === empty);
-  const src = readFileSync(join(root, "src", "af_drawer.tsx"), "utf8");
-  check("focus: AfDrawer moves focus in and restores the opener", src.includes("drawerFocusTarget(el)?.focus(") && src.includes("back.focus?.("), "af_drawer.tsx");
+  check("focus: on a touch screen the drawer itself, not a text field (no soft keyboard)", drawerFocusTarget(drawer({ "textarea:not(:disabled)": ta }), true)?.id !== "textarea");
+}
+
+// ------------------------------------------------------------ AfDrawer focus, driven (fake DOM)
+{
+  const focused = [];
+  const doc = { body: { id: "body" }, activeElement: null };
+  const node = (id) => ({ id, isConnected: true, focus() { focused.push(id); doc.activeElement = this; } });
+  const opener = node("opener");
+  const textarea = node("textarea");
+  const elsewhere = node("elsewhere");
+  const drawerEl = { ...node("drawer"), contains: (n) => n === textarea || n === drawerEl, setAttribute() {}, removeAttribute() {}, querySelector: (sel) => (sel === ".af-drawer__body" ? { querySelector: (q) => (q === "textarea:not(:disabled)" ? textarea : null) } : null) };
+  let timers = [];
+  let coarse = false;
+  globalThis.document = doc;
+  globalThis.window = { addEventListener() {}, removeEventListener() {}, setTimeout: (f) => timers.push(f), clearTimeout: (id) => (timers[id - 1] = null), matchMedia: (q) => ({ matches: coarse && q.includes("coarse") }) };
+  const flush = () => { const run = timers; timers = []; run.forEach((f) => f && f()); };
+  const drive = (extra) => {
+    const t = mountHook(AfDrawer, { open: false, onClose: noop, label: "Docs", children: "x", ...extra });
+    find(t.current, (n) => n.props.role === "complementary").ref.current = drawerEl;
+    return t;
+  };
+  let t = drive({});
+  doc.activeElement = opener;
+  t.rerender({ open: true });
+  flush();
+  check("AfDrawer: open moves focus in (the composer)", JSON.stringify(focused) === JSON.stringify(["textarea"]), JSON.stringify(focused));
+  focused.length = 0;
+  t.rerender({ open: false });
+  check("AfDrawer: close with focus inside returns it to the opener", JSON.stringify(focused) === JSON.stringify(["opener"]), JSON.stringify(focused));
+  focused.length = 0;
+  t.rerender({ open: true });
+  flush();
+  doc.activeElement = elsewhere; // the person moved on
+  focused.length = 0;
+  t.rerender({ open: false });
+  check("AfDrawer: close with focus elsewhere leaves it there", focused.length === 0, JSON.stringify(focused));
+  coarse = true;
+  t = drive({});
+  doc.activeElement = opener;
+  focused.length = 0;
+  t.rerender({ open: true });
+  flush();
+  check("AfDrawer: touch screen focuses the drawer, not the text field", JSON.stringify(focused) === JSON.stringify(["drawer"]), JSON.stringify(focused));
+  coarse = false;
+  t = drive({ manageFocus: false });
+  doc.activeElement = opener;
+  focused.length = 0;
+  t.rerender({ open: true });
+  flush();
+  t.rerender({ open: false });
+  check("AfDrawer: manageFocus={false} never moves focus", focused.length === 0, JSON.stringify(focused));
+  delete globalThis.document;
+  delete globalThis.window;
 }
 
 // ------------------------------------------------------------ AfAppShell

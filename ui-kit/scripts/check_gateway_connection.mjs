@@ -160,7 +160,8 @@ const gets = () => calls.filter((c) => c.startsWith("GET ")).length;
   const p = h.current.signOut();
   h.render();
   check("signOut: in flight", h.current.signingOut === true);
-  await p;
+  const done = await p;
+  check("signOut: resolves true when the session is gone", done === true, String(done));
   h.render();
   check("signOut: DELETE then a fresh probe", calls[0] === "DELETE api/connection/gateway" && calls[1] === "GET api/connection/gateway", JSON.stringify(calls));
   check("signOut: signed out, no error, not in flight", h.current.phase === "disconnected" && h.current.signOutError === null && h.current.signingOut === false);
@@ -171,8 +172,9 @@ const gets = () => calls.filter((c) => c.startsWith("GET ")).length;
   const h = mountHook(useGatewayConnection, {});
   await h.settle();
   reset((method) => (method === "DELETE" ? { status: 502, body: { detail: "gateway unreachable" } } : signedIn()));
-  await h.current.signOut();
+  const failedDone = await h.current.signOut();
   h.render();
+  check("signOut failure: resolves false (never rejects)", failedDone === false, String(failedDone));
   check("signOut failure: the error is surfaced", h.current.signOutError === "gateway unreachable", String(h.current.signOutError));
   check("signOut failure: the real state is re-probed (still connected)", h.current.phase === "connected" && h.current.signingOut === false);
   reset((method) => (method === "DELETE" ? { status: 200, body: { ok: true } } : signedOut()));
@@ -193,7 +195,15 @@ const gets = () => calls.filter((c) => c.startsWith("GET ")).length;
   check("top bar: connect = openModal", view.connect === h.current.openModal);
   reset((method) => (method === "DELETE" ? (order.push("DELETE"), { status: 200, body: { ok: true } }) : signedOut()));
   await view.disconnect();
-  check("top bar: Sign out = hook signOut, THEN the host's onSignOut", JSON.stringify(order) === JSON.stringify(["DELETE", "host wipe"]), JSON.stringify(order));
+  check("top bar: Disconnect = hook signOut, THEN the host's onSignOut", JSON.stringify(order) === JSON.stringify(["DELETE", "host wipe"]), JSON.stringify(order));
+  // A refused DELETE: the hook resolves false and the host's wipe does not run.
+  reset(() => signedIn());
+  const h2 = mountHook(useGatewayConnection, {});
+  await h2.settle();
+  order.length = 0;
+  reset((method) => (method === "DELETE" ? (order.push("DELETE"), { status: 502, body: { detail: "down" } }) : signedIn()));
+  await topBarConnection(h2.current, () => order.push("host wipe")).disconnect();
+  check("top bar: a failed disconnect never runs onSignOut", JSON.stringify(order) === JSON.stringify(["DELETE"]), JSON.stringify(order));
 }
 
 console.log(`check_gateway_connection: ${checks - failures}/${checks} checks passed`);

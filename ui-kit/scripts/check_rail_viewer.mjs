@@ -285,6 +285,68 @@ const eq = (name, got, want) => check(name, got === want, `got ${JSON.stringify(
   check("resize: a drag in progress is not persisted", !(JSON.parse(store.k).widths || {}).settings && resized.length === 0, store.k);
   sideEl.props.setWidth(plist[1], 640, true);
   check("resize: the final width is persisted for THAT panel and reported", JSON.parse(store.k).widths.settings === 640 && JSON.parse(store.k).widths.files === 480 && JSON.stringify(resized) === JSON.stringify([["settings", 640]]), `${store.k} ${JSON.stringify(resized)}`);
+  // F1 (review): a width stored by AfRailDrawer <= 0.8.9 survives the first write.
+  eq("legacy round trip (pure)", railDrawerPanelWidth(railDrawerReadStored(railDrawerWriteStored({ ...railDrawerReadStored("700"), active: { right: "files" } })), { id: "settings" }), 700);
+  store.legacy = "700";
+  const lg = mountHook(AfDrawerSystem, { panels: plist, active: null, onActiveChange: () => {}, ariaLabel: "P", overlay: false, storageKey: "legacy", restoreActive: false });
+  lg.rerender({ active: "files" });
+  lg.rerender({ active: "settings" });
+  check("legacy round trip: the key was rewritten as JSON", store.legacy.startsWith("{"), store.legacy);
+  const reread = railDrawerReadStored(store.legacy);
+  check("legacy round trip: 700 stays 700 for every panel after a tab change", railDrawerPanelWidth(reread, plist[0]) === 700 && railDrawerPanelWidth(reread, plist[1]) === 700, store.legacy);
+  const lgSide = find(lg.current, (n) => typeof n.type === "function" && n.type.name === "DrawerSide");
+  lgSide.props.setWidth(plist[0], 520, true);
+  const after = railDrawerReadStored(store.legacy);
+  check("legacy round trip: resizing one panel keeps the others at 700", railDrawerPanelWidth(after, plist[0]) === 520 && railDrawerPanelWidth(after, plist[1]) === 700, store.legacy);
+  delete globalThis.window;
+}
+
+// F7 (review): a panel's own header actions are inside an error boundary too.
+{
+  const { AfDrawerSystem, AfPanelErrorBoundary } = kit;
+  const sys = mountHook(AfDrawerSystem, { panels: [{ id: "a", label: "Alpha", icon: "list", content: "A", headerActions: h("button", { id: "x-ha" }) }, { id: "b", label: "Beta", icon: "list", content: "B", headerActions: h("i"), errorBoundary: false }], active: "a", onActiveChange: () => {}, ariaLabel: "P", overlay: false });
+  const side = find(sys.current, (n) => typeof n.type === "function" && n.type.name === "DrawerSide");
+  const sections = findAll(mountHook(side.type, side.props).current, (n) => typeof n.type === "function" && n.type.name === "PanelSection");
+  const head = (sec) => find(mountHook(sec.type, sec.props).current, (n) => n.type === AfPanelErrorBoundary && n.props.variant === "inline");
+  check("header actions: wrapped in an inline boundary", head(sections[0])?.props.children?.props?.id === "x-ha" && head(sections[0]).props.label === "Alpha");
+  check("header actions: boundary opt-out follows errorBoundary:false", !head(sections[1]));
+  const inst = new AfPanelErrorBoundary({ label: "Alpha", variant: "inline", children: "X" });
+  inst.state = AfPanelErrorBoundary.getDerivedStateFromError(new Error("bad"));
+  const failed = renderToStaticMarkup(inst.render());
+  check("header actions: a failure is a small labeled warning, not a panel notice", failed.includes("The Alpha panel&#x27;s actions stopped: bad") && failed.includes('data-panel-error="actions"') && !failed.includes("Try again"), failed);
+}
+
+// F2 (review): the overlay's focus handling, driven with a fake DOM.
+{
+  const { AfDrawerSystem } = kit;
+  const focused = [];
+  const doc = { body: { id: "body" }, activeElement: null };
+  const node = (id) => ({ id, focus() { focused.push(id); doc.activeElement = this; } });
+  const opener = node("opener");
+  const inside = node("inside");
+  const elsewhere = node("elsewhere");
+  const panelEl = { ...node("panel"), contains: (n) => n === inside || n === panelEl };
+  globalThis.document = doc;
+  globalThis.window = { addEventListener() {}, removeEventListener() {} };
+  const plist = [{ id: "files", label: "Files", icon: "folder", content: "F" }];
+  const sys = mountHook(AfDrawerSystem, { panels: plist, active: null, onActiveChange: () => {}, ariaLabel: "P", overlay: true });
+  const sideEl = find(sys.current, (n) => typeof n.type === "function" && n.type.name === "DrawerSide");
+  const side = mountHook(sideEl.type, { ...sideEl.props, activeId: null });
+  find(side.current, (n) => n.props.className === "af-rail__panel").ref.current = panelEl;
+  doc.activeElement = opener;
+  side.rerender({ activeId: "files" });
+  check("overlay: open moves focus into the panel", JSON.stringify(focused) === JSON.stringify(["panel"]), JSON.stringify(focused));
+  doc.activeElement = inside;
+  focused.length = 0;
+  side.rerender({ activeId: null });
+  check("overlay: close with focus inside returns it to the opener", JSON.stringify(focused) === JSON.stringify(["opener"]), JSON.stringify(focused));
+  doc.activeElement = opener;
+  side.rerender({ activeId: "files" });
+  doc.activeElement = elsewhere;
+  focused.length = 0;
+  side.rerender({ activeId: null });
+  check("overlay: close with focus elsewhere leaves it there", focused.length === 0, JSON.stringify(focused));
+  delete globalThis.document;
   delete globalThis.window;
 }
 
