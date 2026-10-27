@@ -335,13 +335,21 @@ export function VoiceSettings({
       item.voice_kind === "profile" ? "profile" : "voice",
       item.id,
     ]);
-  const selected = entries.find(
-    (item) =>
-      item.id === (value.profile || value.voice) &&
-      (item.voice_kind === "profile") === Boolean(value.profile) &&
-      (!value.provider || !item.provider || item.provider === value.provider) &&
-      (!value.model || !item.model || item.model === value.model),
-  );
+  const onRoute = (item: any) =>
+    (!value.provider || !item.provider || item.provider === value.provider) &&
+    (!value.model || !item.model || item.model === value.model);
+  // A host that stores one id for both kinds (a capability route's `options.voice`, an entity's
+  // voice) names a profile as `voice`: it is still that profile, not an unknown saved id.
+  const selected =
+    entries.find(
+      (item) =>
+        item.id === (value.profile || value.voice) &&
+        (item.voice_kind === "profile") === Boolean(value.profile) &&
+        onRoute(item),
+    ) ||
+    (!value.profile && value.voice
+      ? entries.find((item) => item.id === value.voice && item.voice_kind === "profile" && onRoute(item))
+      : undefined);
   const voiceKey = selected
     ? itemKey(selected)
     : value.profile || value.voice

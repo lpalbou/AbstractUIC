@@ -554,6 +554,16 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
       h.unmount();
       check("0947 unmounting aborts the sample on its way", asked.at(-1).signal.aborted);
       check("0947 no previewVoice, no toggle", !render({}).includes("play-sample"));
+      // A profile stored as `voice` (a capability route's options.voice) is shown as that profile.
+      {
+        const prof = { items: [{ id: "aiden", name: "Aiden", provider: "qwen3-tts", model: "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", voice_kind: "profile", language: "en" }] };
+        const hp = mountH(VoiceSettings, { value: { provider: "qwen3-tts", model: "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", voice: "aiden" }, onChange: () => undefined, fetchCatalog: async () => prof });
+        await hp.settle();
+        const sel = findH(hp.tree, (n) => n.props?.ariaLabel === "AI voice");
+        const shown = sel.props.options.find((o) => o.value === sel.props.value);
+        check("0947 a profile stored as voice shows by its name, not as a saved id", shown?.label === "Aiden · English" && !sel.props.options.some((o) => String(o.label).includes("(saved)")), JSON.stringify(sel.props.options));
+        hp.unmount();
+      }
     }
   } finally {
     env.restore();
