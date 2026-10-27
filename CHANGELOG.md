@@ -9,6 +9,40 @@ ships.
 
 ## Unreleased
 
+### voice: voice IN / voice OUT as standalone composables, one microphone button, the voice library (backlog 0035, ADR 0001 §5 and §8)
+
+Packages: `@abstractframework/ui-kit` (no version bump here; the lead sequences the release).
+
+- **`AfVoiceOutput`** (voice OUT: output device + **Test** chime on the chosen speaker, **Reply volume**, **Mute**)
+  and **`AfVoiceInput`** (voice IN: input device + **Test**, a live level meter, **Show names**, **Input level**)
+  render alone, with no section around them, wherever voice settings appear. Controlled: the value may be the
+  whole preferences, `onChange` returns it merged.
+- **`AfVoiceSection`** renders its Output and Microphone groups with these two components (same rows, same checks).
+  New props: `rows` (`{tts: false}` fixes the entity's ignored TTS override row; `mute` and `capture` are opt-in),
+  `ttsSlot` (a host-owned voice in Engines), `voiceLibrary` (supersedes `createVoice`, kept as an alias),
+  `previewVoice` (**Play sample**), `fetchLanguages` (Spoken language from `GET voice/languages`; the hardcoded
+  10-language list is gone: one 15-language table, `VOICE_LANGUAGE_LABELS`), `captureDefaults`, `level`.
+  New preferences `reply_muted`, `capture_mode` (**Hold to talk** / **Tap to talk**), `auto_send` (**Send what you
+  say automatically**); `gatewayVoiceOptions(prefs)` maps them to the hook.
+- **`useGatewayVoice`**: `voice_ptt_level` (the meter moves during a real recording, not only during Test), `muted`
+  (gain 0 at once, the volume kept), `capture_mode` (`"toggle"` never stops on a pointer release),
+  `voice_capture_mode`, `add_transcript_listener`. Every returned function keeps a stable identity.
+- **`AfVoiceMicButton`**: one wording ("Hold to talk" → "Recording — release to send"; "Tap to talk" → "Recording —
+  tap to stop"), a live meter, "Recording… 3 s" / "Transcribing… 4 s · route"; a tap in hold mode is discarded
+  with a hint; a hook in the other capture mode is refused loudly. Replaces the Code, Observer and Entity buttons.
+- **`useVoicePreferences(storageKey)`** (same-tab and cross-tab sync) and **`useVoiceDefaults(fetchDefaults, key)`**
+  replace the three app copies.
+- **Voice library**: `VoiceLibrary` (`list` / `rename` / `remove` / `share` over `voice/clones[/{id}]` and
+  `voice/clones/{id}/deploy`) and **Manage voices** (`VoiceLibraryPanel`: Rename, Delete asked twice, Share for
+  administrators; built-in voices are not listed; a refusal is the gateway's sentence). `VoiceCreation.clone` takes
+  `provider` / `model`; "From a recording" gains **Record** from the chosen microphone with a live meter.
+- **Gateway voice routes** in `gateway_paths.ts`: `GATEWAY_VOICE_ROUTES`, `voiceClonePath`, `voiceCloneDeployPath`,
+  `runVoiceTtsPath`, `runTranscribePath`, `entityVoicePath`.
+- **Console islands**: `mountVoiceSection`; `mountVoiceSettings` props carry `voiceLibrary` and `previewVoice`.
+- Checks: new `check_voice_widgets.mjs`; `check_voice_section.mjs`, `check_voice_library.mjs` and
+  `check_voice_hook.mjs` extended (the hook is executed with fake media APIs: the level moves during a real
+  recording); shared harness `scripts/voice_harness.mjs`.
+
 ## 0.6.4 - 2026-10-27
 
 Packages: `@abstractframework/ui-kit` 0.8.9.
