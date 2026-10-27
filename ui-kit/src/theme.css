@@ -6735,3 +6735,213 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   }
 }
 /* af-tooltip:end */
+
+/* --- ui-primitives (tools-models) --- */
+/* ToolModeEditor (backlog 0033): Off / Ask / Auto per tool, grouped by toolset. A query container,
+ * like .af-tool-policy: the row's segmented control wraps under the tool name in a narrow pane. */
+.af-tool-modes {
+  container: af-tool-modes / inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+
+.af-tool-modes__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.af-tool-modes__search {
+  flex: 1 1 200px;
+  min-width: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ui-border-1);
+  background: var(--ui-overlay-bg);
+  color: var(--text-primary);
+  padding: 8px 10px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+}
+
+.af-tool-modes__search::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.af-tool-modes__count,
+.af-tool-modes__saved {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.af-tool-modes__saved {
+  color: var(--text-muted);
+}
+
+.af-tool-modes__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--ui-border-1);
+  background: var(--ui-surface-1);
+}
+
+.af-tool-modes__group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.af-tool-modes__group-name {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.af-tool-modes__group-state {
+  font-size: var(--font-size-xxs);
+  color: var(--text-muted);
+}
+
+.af-tool-modes__group-head .af-tool-modes__seg {
+  margin-left: auto;
+}
+
+.af-tool-modes__cap {
+  font-size: var(--font-size-xxs);
+  color: var(--text-muted);
+}
+
+.af-tool-modes__seg {
+  display: inline-flex;
+  flex: 0 0 auto;
+  background: var(--ui-overlay-bg);
+  border: 1px solid var(--ui-overlay-border);
+  border-radius: var(--radius-lg);
+  padding: 2px;
+  gap: 2px;
+}
+
+.af-tool-modes__seg-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  font: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.af-tool-modes__seg-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.af-tool-modes__seg-btn.is-active {
+  background: color-mix(in srgb, var(--accent) 22%, var(--ui-surface-2));
+  color: var(--text-primary);
+}
+
+.af-tool-modes__seg-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.af-tool-mode-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ui-border-1);
+  background: var(--ui-surface-2);
+}
+
+.af-tool-mode-row[data-overridden="true"] {
+  border-color: var(--accent-border);
+}
+
+.af-tool-mode-row.is-unavailable {
+  opacity: 0.75;
+}
+
+.af-tool-mode-row__meta {
+  min-width: 0;
+}
+
+.af-tool-mode-row__default {
+  padding: 1px 8px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--ui-chip-border);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xxs);
+  white-space: nowrap;
+}
+
+.af-tool-mode-row__why {
+  margin-top: 4px;
+  font-size: var(--font-size-xxs);
+  color: var(--text-muted);
+}
+
+@container af-tool-modes (max-width: 359.98px) {
+  .af-tool-mode-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .af-tool-modes__group-head .af-tool-modes__seg {
+    margin-left: 0;
+  }
+}
+
+@media (pointer: coarse) {
+  .af-tool-modes__seg-btn {
+    min-height: var(--tap-min);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .af-tool-modes__seg-btn {
+    transition: none;
+  }
+}
+
+/* ProviderModelPicker (backlog 0034): a named default may be long; pinned fields; set anyway. */
+.af-pmp__seg-btn {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.af-pmp__seg {
+  max-width: 100%;
+}
+
+.af-pmp__pinned {
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--ui-border-1);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.af-pmp__override {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
