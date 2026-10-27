@@ -20,20 +20,27 @@ For a package-by-package export map, see the [API reference](./api.md).
 
 | Package | Use when you need… | Primary exports (source of truth) |
 |---|---|---|
-| `@abstractframework/ui-kit` | Shared theme tokens, inputs, Gateway connection UI, app chrome (top bar, drawer, appearance), automations panel + schedule dialog + client ([Automations](./automations.md)) | `ui-kit/src/index.ts` |
-| `@abstractframework/panel-chat` | Chat thread + message UI + markdown/json rendering | `panel-chat/src/index.ts` |
+| `@abstractframework/ui-kit` | Shared theme tokens, inputs (provider/model picker, tool editor), Gateway connection UI, the app shell (top-right cluster with the signed-in identity, drawer system, appearance, About), voice settings and the microphone button, automations panel + schedule dialog + client ([Automations](./automations.md)) | `ui-kit/src/index.ts` |
+| `@abstractframework/panel-chat` | The chat surface for gateway workflows (`WorkflowChat`: live replies, questions and approvals, attachments and media, the chat's tool policy), the Docs assistant, plus the thread, message cards and Markdown/JSON rendering | `panel-chat/src/index.ts` |
 | `@abstractframework/monitor-flow` | Agent “cycles” trace viewer + ledger adapter | `monitor-flow/src/index.ts` |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | `monitor-active-memory/src/index.ts` |
 | `@abstractframework/monitor-gpu` | GPU utilization histogram widget (`<monitor-gpu>`) | `monitor-gpu/src/index.js` |
 | `@abstractframework/monitor-memory` | Host RAM + device memory meter widget (`<monitor-memory>`) | `monitor-memory/src/index.js` |
 | `@abstractframework/app-server` | Node.js server side for apps: serving under the gateway's `/apps/<id>/`, launch flags, the local gateway pointer, and the AbstractGateway session proxy (HttpOnly session cookies) | `app-server/src/index.js` |
 
-For a page that is not a React app, the kit's top bar and appearance dialog are also available as
+For a page that is not a React app, the kit's components (top bar, appearance and About dialogs,
+drawer system, pickers, tool editor, voice section, Docs assistant) are also available as
 [console islands](./console-islands.md), a script built from a repository checkout.
+
+Building an app on AbstractGateway? Each job (the chat, approvals, tool selection, the model
+picker, voice, the app shell) has one shared component: start from the job table in the
+[Adoption guide](./adoption-guide.md), which follows
+[ADR 0001](./adr/0001_shared_primitives_composed_on_gateway_contracts.md).
 
 ## Requirements
 
 - React packages declare `react@^18` and `react-dom@^18` as peer dependencies (see each `*/package.json`).
+- `@abstractframework/panel-chat` 0.5.0 declares `@abstractframework/ui-kit@^0.9.0` as a peer dependency: install and upgrade the two together.
 - `@abstractframework/monitor-active-memory` also declares `reactflow@^11` as a peer dependency.
 - Packages are ESM (`"type": "module"`). In web apps, use a bundler that can consume ESM and CSS.
 
