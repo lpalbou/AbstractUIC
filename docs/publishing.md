@@ -18,13 +18,23 @@ The tagged workflow does the publishing; these steps prepare the tag it needs.
    `npm version <x.y.z> -w <package> --no-git-tag-version`. Then bump the private
    root `package.json` to the release version; the tag names the root version.
 1. Bump the `@abstractframework/ui-kit` range in `panel-chat/package.json`
-   (`peerDependencies` + `devDependencies`) — `npm version` does not touch it.
+   (`peerDependencies` + `devDependencies`) — `npm version` does not touch it. A panel-chat
+   release that uses new kit exports raises the floor to that kit version (0.5.0 needs `^0.9.0`).
 1. Promote the `## Unreleased` section of [`CHANGELOG.md`](../CHANGELOG.md) to
    `## <x.y.z> - <YYYY-MM-DD>`. The release workflow reads this exact heading to
    build the GitHub release notes, so the version and format must match.
 1. Build packages (optional preflight): `npm run build`
 1. Run package tests:
-   - `npm test` (root; runs every workspace's tests)
+   - `npm test` (root; runs every workspace's tests, then the repository's release gates)
+   - The release gates `npm test` runs, which you can also run on their own after a build:
+     - `node scripts/check_cross_dist_types.mjs`: the built ui-kit and panel-chat agree, type for
+       type, on the shared session tool-policy client (it also proves it can fail). Run it after
+       `npm run build`, since it reads both packages' `dist/`.
+     - `node ui-kit/scripts/check_css_balanced.mjs`: `ui-kit/src/theme.css` and
+       `panel-chat/src/panel_chat.css` parse (every block closed, no unterminated comment or
+       string), so the stylesheets the apps import build in every bundler.
+     - `node scripts/check_relative_urls.mjs`: no root-absolute same-origin URL in the sources or
+       the built bundles.
 1. Dry-run the package tarballs: `npm run pack:dry`
 1. Commit, then push the commit **before** the tag so CI runs on it.
 1. Tag and push: `git tag v<x.y.z> && git push origin v<x.y.z>`

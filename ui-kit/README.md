@@ -1,15 +1,24 @@
 # @abstractframework/ui-kit
 
 Shared theme tokens and UI components for AbstractFramework apps. The kit owns the theme system
-used by every AbstractFramework UI and the shared app chrome (connection surface, top-right
-action cluster, drawer, appearance dialog).
+used by every AbstractFramework UI, the shared app chrome (app shell, connection surface,
+top-right action cluster with the signed-in identity, drawer system, appearance dialog) and the
+shared settings surfaces (provider/model picker, tool editor, voice). Each job has one component,
+composed on the gateway's contracts and customized through props, slots and theme tokens
+([ADR 0001](../docs/adr/0001_shared_primitives_composed_on_gateway_contracts.md); the job table is
+the [Adoption guide](../docs/adoption-guide.md)).
 
 This package provides:
 
 - **Theme tokens** (CSS variables + 21 theme classes): `@abstractframework/ui-kit/theme.css`
 - **Theme + typography helpers**: `applyTheme(...)`, `applyTypography(...)`, `THEME_SPECS`
-- **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker`,
-  `SpeculationSelect`, `ToolModeEditor` (with `ToolPolicyEditor` deprecated), `VoiceSettings`
+- **Common inputs**: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker`
+  (with `createGatewayModelTransport`, `withRunModel`: "Gateway default · provider / model"
+  first), `SpeculationSelect`, `ToolModeEditor` (with `tool_plan` helpers and
+  `createToolLayerStore`; `ToolPolicyEditor` deprecated), `VoiceSettings`
+- **A chat's tool policy on the gateway**: `createSessionToolPolicyClient`,
+  `sessionToolPolicyCapability`, `sessionPolicyFromLayer` / `layerFromSessionPolicy` (the client
+  panel-chat's `WorkflowSessionController` and the tool layer store use)
 - **Gateway connection UI**: `GatewayConnectModal`, `useGatewayConnection()`,
   `GatewaySessionSignInCard`
 - **App chrome**: `AfAppShell` (header + top-right cluster + side panels + nav),
@@ -19,17 +28,23 @@ This package provides:
   `AfAppearanceDialog` + `useAppearanceSettings()`, `AfAbout` / `AfAboutDialog` (the compact
   About card)
 - **Files**: `AfFileViewer` (Markdown via the host renderer, highlighted code, JSON, images,
-  audio, PDF, text; size/date header; download), `AfCodeBlock` / `highlightCode()` and
+  audio, video, PDF, text; size/date header; download), `AfCodeBlock` / `highlightCode()` and
   `AfAudioPlayer` (the shared waveform audio player)
 - **Settings rows**: `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow` ("Gateway default" unless
   overridden), `AfVoiceSection` (the Assistant's Voice layout)
 - **Time**: `formatRelativeTime(ts, nowMs)`, `formatExactTime(ts)` — deterministic, no seconds
 - **Identity**: `appIdentity(id, version)`, `frameworkIdentity()`, `knownAppIds()`,
-  `aboutRows(...)`, `gatewayVersionRows(...)` — the AbstractFramework facts every About screen
-  shows
+  `fetchAboutVersions(...)` / `aboutVersionsFromGateway(...)` — the AbstractFramework facts every
+  About screen shows; `principalFromConnection(...)`, `principalLabel(...)`,
+  `gatewayHostLabel(...)` — who is signed in (`aboutRows` / `gatewayVersionRows` stay for parity
+  with the Python helpers)
 - **Run and policy surfaces**: `PhaseCapabilityMatrix`, `CriticalActionDialog`, `SteerComposer`,
   `DisclosureList`, `AfChip`, `AfPhaseRadio`, cognition gauges
-- **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk)
+- **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk, live level, mute, hold or tap to
+  talk), the standalone `AfVoiceOutput` / `AfVoiceInput` and `AfVoiceMicButton`,
+  `AfVoiceLevelMeter`, `useVoicePreferences()`, `useVoiceDefaults()`, the voice library
+  (`VoiceLibraryPanel`) and the gateway's voice routes (`GATEWAY_VOICE_ROUTES`) — see
+  [Voice settings](#voice-settings)
 - **Automations**: `AutomationPanel`, `AfScheduleDialog` (Repeat, Daily, Weekly, Monthly, Once and
   email triggers — the Gateway words calendar rules and computes next runs —, Email me the result,
   allowed recipients), `AfTimeZonePicker` (the account time zone over the Gateway's IANA list),
@@ -89,11 +104,14 @@ Most apps use it through `GatewayConnectModal` (below).
 ### Tool selection: ToolModeEditor
 
 `ToolModeEditor` is the one tool editor: Off / Ask / Auto per tool, grouped by toolset, on ONE
-sparse layer (the app's defaults or this conversation's changes) over what it inherits. The
+sparse layer (the app's defaults or this chat's changes) over what it inherits. The
 gateway's `approval_default` is the default of every tool; a layer stores only differences, so a
 tool the gateway adds later follows the gateway. Build the catalog with `normalizeToolCatalog`,
 the run input with `planRunTools` + `withRunTools`, and keep the layers with
-`createToolLayerStore` (browser storage, "Saved in this browser") until the gateway stores them.
+`createToolLayerStore`: the app layer in this browser ("Saved in this browser"); the chat layer on
+the gateway when you pass `sessionPolicy` and the gateway advertises
+`capabilities.session_tool_policy` (`loadSession` / `saveSession` / `resetSession`; the editor's
+`storage` prop says where it is saved), else in this browser, labeled.
 
 ```tsx
 const catalog = normalizeToolCatalog(await request("api/gateway/discovery/tools"));

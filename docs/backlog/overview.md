@@ -14,7 +14,7 @@ packaging). Full findings are distilled into the items below; each item
 carries its own code-reality citations.
 
 ## Counts
-- Planned: 14 (0001, 0003-0006, 0014, 0019, 0030-0036)
+- Planned: 15 (0001, 0003-0006, 0014, 0019, 0030-0036, 0039)
 - Proposed: 17 (0009-0013, 0017-0018, 0020-0022, 0024-0028, 0037-0038)
 - Completed: 6 (0002, 0007, 0008, 0023, 0026-theme-adoption, 0029)
 - Deprecated: 2 (0015, 0016 — superseded by 0033)
@@ -78,6 +78,7 @@ merge, or missing test rigs) — see each item's checklist.
 | 0033 | tool selection layers | ui-kit | `tool_plan.ts` (sparse gateway → app → session, off/ask/auto) + `ToolModeEditor`; supersedes 0015, 0016 |
 | 0034 | provider/model/reasoning/speculation picker | ui-kit | Gateway default first and named; served ladders only; compact layout; `gateway_models.ts` helpers |
 | 0035 | voice section with voice-in/out widgets | ui-kit | `AfVoiceInput` / `AfVoiceOutput` standalone, live level, mute, capture mode, voice library, mic button, prefs hooks |
+| 0039 | hosts move approve-all / approve-kind to the gateway's session tool policy | panel-chat consumers | Kit half shipped in 0.7.0 (#9, #11); each host builds the kit client, passes `sessionPolicy`, deletes its local approve-all |
 | 0036 | app shell: top-right widgets + drawer system | ui-kit + panel-chat | Identity badge/menu, about fetch, enforced order; `AfDrawerSystem` (opaque panels, keep-alive, persisted, auto top offset); `AfAppShell` |
 
 ## Proposed ledger (promotion criteria in each item)

@@ -56,6 +56,19 @@ Guidance:
   rule for its own inputs; give custom inputs `font-family: inherit` and `color: var(--text-muted)`
   placeholders for the same look.
 
+### Layout variables the app shell publishes
+
+These are not theme tokens (they do not change with the theme): the kit's layout components set
+them at run time so your CSS can line up with them. Read them; do not set them yourself.
+
+| Variable | Set by | Value |
+|---|---|---|
+| `--af-topbar-h` | `AfTopBarActions` (on `<html>`, removed when the cluster unmounts) | The bottom edge of the header that holds the cluster. `AfDrawer` and `AfDrawerSystem` with `topOffset: "auto"` open under it |
+| `--af-panel-w` | `AfDrawerSystem` (on each open panel) | The panel's current width in px; a `fill` canvas panel refits with it (or with `onResize`) |
+| `--af-rail-w` | `theme.css` (`.af-rail`) | The icon rail's width (48 px; 0 px on a side with only drawer-mode panels) |
+| `--af-drawers-top` | `AfDrawerSystem` (floating panels, from its `topOffset`) | Where a floating panel and its backdrop start, under the app header |
+| `--af-identity-max` | your CSS (optional) | The longest signed-in identity label in the top-right cluster (default `24ch`) |
+
 ## Adoption rules (what keeps the framework consistent)
 
 1. **Consume tokens, never literals.** A hardcoded `#1e293b` or `rgba(255,255,255,0.1)` is

@@ -9,81 +9,27 @@ ships.
 
 ## Unreleased
 
-### session-policy: "Allow for this chat" is stored on the gateway (backlog 0032; session tool policy contract v1)
+## 0.7.0 - 2026-10-27
 
-panel-chat:
+Packages: `@abstractframework/ui-kit` 0.9.0, `@abstractframework/panel-chat` 0.5.0 (peer and dev floor on ui-kit raised to `^0.9.0`).
 
-- `WorkflowSessionController` takes a host-injected `sessionToolPolicy: SessionToolPolicyClient` (option, or
-  `setSessionToolPolicyClient`), bound to one `session_id` and enabled only when `GET discovery/capabilities` serves
-  `capabilities.session_tool_policy.supported === true` (the gateway routes exist on branch `feat/session-tool-policy`,
-  not on `main`; the controller never fetches them itself). New methods `approveAllForSession(target, {maxRiskRank?})`,
-  `approveKindForSession(target, kind)`, `denyKindForSession`, `denyToolForSession`, `resetSessionPolicy`,
-  `loadSessionPolicy`, `sessionPolicyStatus`: each write sends the chat's policy (`POST …/tool-policy`, merge,
-  with the person's `ask` tools) FIRST, then answers the shown wait (`{approved:true}` / `{approved:false}`), so later
-  calls of every run of the chat run with no wait and the gate never flashes. A write that succeeded before the
-  answer failed says the policy was saved. Snapshot: `sessionPolicyMode` (`"gateway"` | `"local-fallback"` |
-  `"unavailable"`), `sessionPolicyReason`, `sessionPolicy`, `sessionPolicyClamped`; option `onSessionPolicy(policy,
-  clamped)`; `setSessionToolPolicyClient(null, {reason})` records a failed capability read.
-- Without a supported client the previous local grant stays and says what it does: **Allow for this run** with
-  "Allowed until this run ends, in this browser only — the gateway cannot store chat policies." (or the host's
-  `onAllowForSession`, "Allowed for this chat in this browser only — …"). When the capability read failed, no chat
-  grant is offered or made and the reason is shown; Allow once still works.
-- `presentInteraction` option `sessionPolicy: { toolsetOf?, ask?, maxRiskRank? }`; the mode is read from the controller
-  (`sessionPolicyStatus()`), never from a host prop: Deny / Allow once / Allow
-  for this chat / "Allow all <toolset> tools for this chat" (one per toolset present in the batch: the call's
-  `toolset`, else the host's `toolsetOf` from `GET discovery/tools`; never guessed) / Allow all enabled tools
-  (unchanged). What the gateway did not store (`clamped`) shows as "Not covered: send_email (not authorized)" after
-  the decision and on the next approval. `WORKFLOW_INTERACTION_LABELS` adds `allowKindForChat`,
-  `localChatPolicyNote`, `localRunPolicyNote`; `WorkflowToolApprovalInteraction` adds `approveKinds`, `scopeNote`,
-  `notCovered`; a decision callback may resolve to `{outcomeNote}`.
-- The ledger record `abstract.tool_policy_decision` folds to an activity line ("Allowed by this chat's policy (set
-  by admin at …)" / "Denied by this chat's policy", kind `tool_policy_decision`, rendered as one discreet line; a
-  record with no identifiable call or an unknown decision adds nothing), never an interaction; the covered calls' tool rows carry the provenance
-  (`WorkflowToolActivity.policy`, `callId`). Helpers `toolPolicyDecision`, `toolPolicyDecisionText`,
-  `sessionPolicyClampedText`.
-- `isLocalObjectUrl` decides with the URL parser (a leading control character before `blob:` is local: download, no
-  new tab; review of PR #4).
-- Contract revision (2026-10-27): every policy response's top-level `scope` (`{approve, deny}`, the gateway's words)
-  is shown exactly as served after a decision ("Applies: …") and in a policy summary line, or "The gateway did not
-  say where this grant applies."; `SessionToolPolicy.scope` (the client carries it). "Always deny <tool>/<toolset> in
-  this chat" under More, stating its reach (every run, automations included; wins over a later approval), sent with
-  the current revision; a 409 says "Someone changed this chat's policy; re-read" and refreshes. A later "Allow once"
-  on a denied tool is reported as refused by the gateway. The approve description says that tools reaching
-  model-chosen destinations are included unless set to Ask. Writes go to the ROOT run's session only (a client bound
-  elsewhere, or an unknown root session, is refused).
-- Aligned with ui-kit's client (PR #9): `SessionToolPolicyClient.reset(ifRevision?) → {revision?, scope?}`; resets and
-  denies are revision-guarded (read first when unknown, including the client's last-answer `revision`); no revision →
-  a labeled refusal; a client's own refusal is labeled "This chat's policy was not changed: …". A `tsc` check pins the
-  twin's exact equality with the kit's shape.
-- Check: `check_session_policy.mjs` (90 checks + a tsc type-equality check; 42 mutations red, including a resume sent before the policy write, a
-  host-claimed gateway mode, a dropped `ask`, a failed capability read treated as the local fallback, a composed scope
-  sentence, a deny without its revision and a child-session write).
-### session-policy-kit: a conversation's tool policy on the gateway (session tool policy contract v1; backlog 0033)
+One component per user-facing job, composed on the gateway's contracts and customized through props, slots and
+theme tokens ([ADR 0001](https://github.com/lpalbou/AbstractUIC/blob/main/docs/adr/0001_shared_primitives_composed_on_gateway_contracts.md); backlog 0030-0036,
+0039). Who is affected: apps on the kit gain the shared chat, approvals, media, tool, model, voice and shell
+components (the [Adoption guide](https://github.com/lpalbou/AbstractUIC/blob/main/docs/adoption-guide.md) lists them by job); existing callers compile unchanged
+(`ToolPolicyEditor` and `AfRailDrawer` stay as adapters); the behaviour changes are listed in each section below.
+The chat's tool policy is capability-gated (`capabilities.session_tool_policy.supported`) and keeps a labeled
+local grant on a gateway that does not advertise it. Upgrade panel-chat and ui-kit together. New repository
+release gates: `scripts/check_cross_dist_types.mjs` (the built ui-kit and panel-chat agree on the session
+tool-policy client types) and `ui-kit/scripts/check_css_balanced.mjs` (the shipped stylesheets parse).
 
-- `session_tool_policy.ts`: `SessionToolPolicyBody`, `SessionToolPolicy`, `SessionToolPolicyClient`,
-  `sessionToolPolicyCapability`, `createSessionToolPolicyClient` over `GET | PUT | POST | DELETE
-  /api/gateway/sessions/{session_id}/tool-policy` (409 `revision_conflict` →
-  `SessionToolPolicyConflictError`; `clamped` passed through; an unsupported client rejects every call
-  with "The gateway cannot store conversation policies"); `sessionToolPolicyRoute` and
-  `SESSION_ID_PATTERN` in `gateway_paths.ts`.
-- Bridge with the tool layers: `sessionPolicyFromLayer` (auto → approve, ask → ask, off → deny) and
-  `layerFromSessionPolicy`.
-- `createToolLayerStore({sessionPolicy})`: `loadSession` / `saveSession` / `resetSession` go through the
-  gateway when it supports the policy, else this browser, labeled (`TOOL_LAYER_GATEWAY_WHERE`,
-  `TOOL_LAYER_BROWSER_FALLBACK`).
-- `ToolModeEditor`: `storage` (which storage applies, and why not the gateway) and `policy` (clamped
-  entries, `set_by` / `set_at`).
-- Review fixes: every PUT and DELETE is revision-guarded (the revision of every answer is kept;
-  `reset(ifRevision)`; an unguarded write is refused, `SessionToolPolicyRevisionError`); a save carries
-  the entries this catalog cannot see and the request's selectors; dot-only session ids are refused;
-  an unadvertised method is not sent; the user-facing noun is "chat".
-- Contract v1 revision: the served `scope` is passed through and rendered verbatim; the store never
-  POSTs (a merge only adds); model-chosen-destination tools at Ask always go to `ask`; Off on a
-  gateway-stored chat says it reaches every run, automations included; the session id is the root
-  session.
-- Checks: `check_session_tool_policy` (new); `check_tool_plan` and `check_tool_mode_editor` extended.
+### Fixed
 
-### chat: one chat surface, questions and approvals, attachments and generated media (backlog 0030, 0032, kit half of 0031; ADR 0001)
+- `ui-kit/src/theme.css` parses again: the `.af-pmp__seg-btn` rule is closed (an unclosed block made every app's
+  bundler fail with "Unclosed block"). The new `check_css_balanced.mjs` check (in the ui-kit test chain) keeps
+  `theme.css` and `panel_chat.css` balanced.
+
+### Chat: one chat surface, questions and approvals, attachments and generated media (panel-chat; backlog 0030, 0031, 0032)
 
 panel-chat (and one ui-kit file):
 
@@ -127,10 +73,123 @@ panel-chat (and one ui-kit file):
   (Python's mimetypes guess) stay code; `.mts`/`.cts` are code. Not yet: the controller does not fold `$artifact`
   refs or generated-media events into `message.media` itself.
 - Checks: `check_present_interaction.mjs` (extended), `check_chat_surface.mjs` (new), `check_chat_media.mjs`
-  (extended), ui-kit `check_file_viewer_video.mjs` (new); each was seen red under a mutation.
-### voice: voice IN / voice OUT as standalone composables, one microphone button, the voice library (backlog 0035, ADR 0001 §5 and §8)
+  (extended), ui-kit `check_file_viewer_video.mjs` (new).
 
-Packages: `@abstractframework/ui-kit` (no version bump here; the lead sequences the release).
+### Chat: "Allow for this chat" is stored on the gateway (panel-chat; backlog 0032; session tool policy contract v1)
+
+panel-chat:
+
+- `WorkflowSessionController` takes a host-injected `sessionToolPolicy: SessionToolPolicyClient` (option, or
+  `setSessionToolPolicyClient`), bound to one `session_id` and enabled only when `GET discovery/capabilities` serves
+  `capabilities.session_tool_policy.supported === true` (the host reads the capability; the controller never fetches
+  it itself). New methods `approveAllForSession(target, {maxRiskRank?})`,
+  `approveKindForSession(target, kind)`, `denyKindForSession`, `denyToolForSession`, `resetSessionPolicy`,
+  `loadSessionPolicy`, `sessionPolicyStatus`: each write sends the chat's policy (`POST …/tool-policy`, merge,
+  with the person's `ask` tools) FIRST, then answers the shown wait (`{approved:true}` / `{approved:false}`), so later
+  calls of every run of the chat run with no wait and the gate never flashes. A write that succeeded before the
+  answer failed says the policy was saved. Snapshot: `sessionPolicyMode` (`"gateway"` | `"local-fallback"` |
+  `"unavailable"`), `sessionPolicyReason`, `sessionPolicy`, `sessionPolicyClamped`; option `onSessionPolicy(policy,
+  clamped)`; `setSessionToolPolicyClient(null, {reason})` records a failed capability read.
+- Without a supported client the previous local grant stays and says what it does: **Allow for this run** with
+  "Allowed until this run ends, in this browser only — the gateway cannot store chat policies." (or the host's
+  `onAllowForSession`, "Allowed for this chat in this browser only — …"). When the capability read failed, no chat
+  grant is offered or made and the reason is shown; Allow once still works.
+- `presentInteraction` option `sessionPolicy: { toolsetOf?, ask?, maxRiskRank? }`; the mode is read from the controller
+  (`sessionPolicyStatus()`), never from a host prop: Deny / Allow once / Allow
+  for this chat / "Allow all <toolset> tools for this chat" (one per toolset present in the batch: the call's
+  `toolset`, else the host's `toolsetOf` from `GET discovery/tools`; never guessed) / Allow all enabled tools
+  (unchanged). What the gateway did not store (`clamped`) shows as "Not covered: send_email (not authorized)" after
+  the decision and on the next approval. `WORKFLOW_INTERACTION_LABELS` adds `allowKindForChat`,
+  `localChatPolicyNote`, `localRunPolicyNote`; `WorkflowToolApprovalInteraction` adds `approveKinds`, `scopeNote`,
+  `notCovered`; a decision callback may resolve to `{outcomeNote}`.
+- The ledger record `abstract.tool_policy_decision` folds to an activity line ("Allowed by this chat's policy (set
+  by admin at …)" / "Denied by this chat's policy", kind `tool_policy_decision`, rendered as one discreet line; a
+  record with no identifiable call or an unknown decision adds nothing), never an interaction; the covered calls' tool rows carry the provenance
+  (`WorkflowToolActivity.policy`, `callId`). Helpers `toolPolicyDecision`, `toolPolicyDecisionText`,
+  `sessionPolicyClampedText`.
+- `isLocalObjectUrl` decides with the URL parser (a leading control character before `blob:` is local: download, no
+  new tab).
+- Scope and reach: every policy response's top-level `scope` (`{approve, deny}`, the gateway's words)
+  is shown exactly as served after a decision ("Applies: …") and in a policy summary line, or "The gateway did not
+  say where this grant applies."; `SessionToolPolicy.scope` (the client carries it). "Always deny <tool>/<toolset> in
+  this chat" under More, stating its reach (every run, automations included; wins over a later approval), sent with
+  the current revision; a 409 says "Someone changed this chat's policy; re-read" and refreshes. A later "Allow once"
+  on a denied tool is reported as refused by the gateway. The approve description says that tools reaching
+  model-chosen destinations are included unless set to Ask. Writes go to the ROOT run's session only (a client bound
+  elsewhere, or an unknown root session, is refused).
+- With ui-kit's client: `SessionToolPolicyClient.reset(ifRevision?) → {revision?, scope?}`; resets and
+  denies are revision-guarded (read first when unknown, including the client's last-answer `revision`); no revision →
+  a labeled refusal; a client's own refusal is labeled "This chat's policy was not changed: …". A `tsc` check pins the
+  twin's exact equality with the kit's shape.
+- Check: `check_session_policy.mjs` (new), with a `tsc` check that the client twin equals the kit's type.
+
+### Tool selection and the model picker: one tool editor, a picker that names the gateway default (ui-kit; backlog 0033, 0034)
+
+Implements ADR 0001 for tool selection and the provider/model/reasoning/MTP picker. Supersedes
+backlog 0015 (the gateway already serves `approval_default`; the kit now reads it) and 0016 (the
+kit tool editor is `ToolModeEditor`, with an `allowListOnly` mode for allowlist pins).
+
+- `ToolModeEditor` (+ console island `mountToolModeEditor`): Off / Ask / Auto per tool, grouped
+  by toolset with a Mixed group control whose Auto reaches only risk rank ≤ 2 tools (the cap is
+  said in words), search, risk and state badges, the gateway's reason for a tool it does not offer,
+  a "Default: X" chip on a row that overrides the layer below, "Use the gateway's" (app layer) /
+  "Use my defaults" (session layer), `allowListOnly`, and an optional `AfOverrideRow` frame.
+- `tool_plan.ts`: `normalizeToolCatalog`, `resolveToolModes`, `setToolMode`, `planRunTools`,
+  `withRunTools`, `toWorkflowApprovalPolicy`, `trustAfterApproveAll` and the dialect edges of
+  the word "approve". Layers are sparse; a tool the gateway does not offer is never offered;
+  `_runtime.tool_policy` is sent once any layer holds a choice, and omitted (a stale key removed)
+  otherwise so the gateway's stored grant applies.
+- `createToolLayerStore`: `af.tools.app.<interface>.<identity>` and
+  `af.tools.session.<identity>.<session_id>` (newest 100), "Saved in this browser".
+- `ToolPolicyEditor` (deprecated, one minor): reads the served `approval_default` first;
+  `default_approval` stays an alias; a row decided by `TOOL_POLICY_DEFAULTS` is labeled
+  "Kit default"; `toolPolicySelectionToLayer` converts its value.
+- `ProviderModelPicker`: `fetchGatewayDefault` ("Gateway default · ollama / qwen3 · reasoning high
+  · MTP depth 3", also used for capability discovery), `reasoningLadder` (unadvertised levels
+  disabled), `unknownReasoning: "allow-override"` (Set anyway), `layout: "compact"`, `pinned`;
+  saved values the gateway no longer lists read "(saved)" (was "(saved; not advertised)" /
+  "(saved; not available)").
+- `gateway_models.ts`: `gatewayTextDefault`, `createGatewayModelTransport`, `reasoningLadderFrom`,
+  `withRunModel`; the routes in `gateway_paths.ts`.
+- Details: a layer key that changes no tool's mode (a removed or
+  not-offered tool, a bare "approve", a diff the gateway default caught up with) no longer sends
+  `tool_policy` (`effectiveToolLayers`, `hasToolChoices(catalog, layers)`); the gateway's failure
+  answer `{items: [], error}` is an error, `catalog_warnings` are shown (`ToolModeEditorForPayload`,
+  used by the island, never throws); the picker re-reads a new `fetchGatewayDefault`, says "none
+  configured" / "could not be read", and shows the gateway's warnings instead of naming an unusable
+  default; "(saved)" only for the mounted value and never while its list failed; the store rebuilds a
+  lost session index and reports unreadable values (`dialect`, `onDropped`); the tool search uses
+  `--font-size-input`; the session chip names the gateway when that is the inherited source.
+- Checks: `check_tool_plan`, `check_tool_mode_editor`, `check_gateway_models`; `check_route_picker`,
+  `check_tool_state`, `check_speculation` (now in `npm test`), `check_islands` and `check_responsive`
+  extended.
+
+### Tool selection: a chat's tool policy on the gateway (ui-kit; session tool policy contract v1; backlog 0033)
+
+- `session_tool_policy.ts`: `SessionToolPolicyBody`, `SessionToolPolicy`, `SessionToolPolicyClient`,
+  `sessionToolPolicyCapability`, `createSessionToolPolicyClient` over `GET | PUT | POST | DELETE
+  /api/gateway/sessions/{session_id}/tool-policy` (409 `revision_conflict` →
+  `SessionToolPolicyConflictError`; `clamped` passed through; an unsupported client rejects every call
+  with "The gateway cannot store conversation policies"); `sessionToolPolicyRoute` and
+  `SESSION_ID_PATTERN` in `gateway_paths.ts`.
+- Bridge with the tool layers: `sessionPolicyFromLayer` (auto → approve, ask → ask, off → deny) and
+  `layerFromSessionPolicy`.
+- `createToolLayerStore({sessionPolicy})`: `loadSession` / `saveSession` / `resetSession` go through the
+  gateway when it supports the policy, else this browser, labeled (`TOOL_LAYER_GATEWAY_WHERE`,
+  `TOOL_LAYER_BROWSER_FALLBACK`).
+- `ToolModeEditor`: `storage` (which storage applies, and why not the gateway) and `policy` (clamped
+  entries, `set_by` / `set_at`).
+- Guarded writes: every PUT and DELETE is revision-guarded (the revision of every answer is kept;
+  `reset(ifRevision)`; an unguarded write is refused, `SessionToolPolicyRevisionError`); a save carries
+  the entries this catalog cannot see and the request's selectors; dot-only session ids are refused;
+  an unadvertised method is not sent; the user-facing noun is "chat".
+- Scope and reach: the served `scope` is passed through and rendered verbatim; the store never
+  POSTs (a merge only adds); model-chosen-destination tools at Ask always go to `ask`; Off on a
+  gateway-stored chat says it reaches every run, automations included; the session id is the root
+  session.
+- Checks: `check_session_tool_policy` (new); `check_tool_plan` and `check_tool_mode_editor` extended.
+
+### Voice: voice in / voice out as standalone components, one microphone button, the voice library (ui-kit; backlog 0035)
 
 - **`AfVoiceOutput`** (voice OUT: output device + **Test** chime on the chosen speaker, **Reply volume**, **Mute**)
   and **`AfVoiceInput`** (voice IN: input device + **Test**, a live level meter, **Show names**, **Input level**)
@@ -160,54 +219,15 @@ Packages: `@abstractframework/ui-kit` (no version bump here; the lead sequences 
   `provider` / `model`; "From a recording" gains **Record** from the chosen microphone with a live meter.
 - **Gateway voice routes** in `gateway_paths.ts`: `GATEWAY_VOICE_ROUTES`, `voiceClonePath`, `voiceCloneDeployPath`,
   `runVoiceTtsPath`, `runTranscribePath`, `entityVoicePath`.
-- **Microphone release** (review 2026-10-27): `recordSample` honours an abort at every step: a Stop, or leaving the
+- **Microphone release**: `recordSample` honours an abort at every step: a Stop, or leaving the
   panel, while the microphone is still opening closes it as the stream arrives (`recordingAbortError()`); the hook
   honours a stop during its pending start. A muted preference always shows **Unmute**.
 - **Console islands**: `mountVoiceSection`; `mountVoiceSettings` props carry `voiceLibrary` and `previewVoice`.
 - Checks: new `check_voice_widgets.mjs`; `check_voice_section.mjs`, `check_voice_library.mjs` and
   `check_voice_hook.mjs` extended (the hook is executed with fake media APIs: the level moves during a real
   recording); shared harness `scripts/voice_harness.mjs`.
-### tools-models: one tool editor and a picker that names the gateway default (backlog 0033, 0034)
 
-Implements ADR 0001 for tool selection and the provider/model/reasoning/MTP picker. Supersedes
-backlog 0015 (the gateway already serves `approval_default`; the kit now reads it) and 0016 (the
-kit tool editor is `ToolModeEditor`, with an `allowListOnly` mode for allowlist pins).
-
-- `ToolModeEditor` (+ console island `mountToolModeEditor`): Off / Ask / Auto per tool, grouped
-  by toolset with a Mixed group control whose Auto reaches only risk rank ≤ 2 tools (the cap is
-  said in words), search, risk and state badges, the gateway's reason for a tool it does not offer,
-  a "Default: X" chip on a row that overrides the layer below, "Use the gateway's" (app layer) /
-  "Use my defaults" (session layer), `allowListOnly`, and an optional `AfOverrideRow` frame.
-- `tool_plan.ts`: `normalizeToolCatalog`, `resolveToolModes`, `setToolMode`, `planRunTools`,
-  `withRunTools`, `toWorkflowApprovalPolicy`, `trustAfterApproveAll` and the dialect edges of
-  the word "approve". Layers are sparse; a tool the gateway does not offer is never offered;
-  `_runtime.tool_policy` is sent once any layer holds a choice, and omitted (a stale key removed)
-  otherwise so the gateway's stored grant applies.
-- `createToolLayerStore`: `af.tools.app.<interface>.<identity>` and
-  `af.tools.session.<identity>.<session_id>` (newest 100), "Saved in this browser".
-- `ToolPolicyEditor` (deprecated, one minor): reads the served `approval_default` first;
-  `default_approval` stays an alias; a row decided by `TOOL_POLICY_DEFAULTS` is labeled
-  "Kit default"; `toolPolicySelectionToLayer` converts its value.
-- `ProviderModelPicker`: `fetchGatewayDefault` ("Gateway default · ollama / qwen3 · reasoning high
-  · MTP depth 3", also used for capability discovery), `reasoningLadder` (unadvertised levels
-  disabled), `unknownReasoning: "allow-override"` (Set anyway), `layout: "compact"`, `pinned`;
-  saved values the gateway no longer lists read "(saved)" (was "(saved; not advertised)" /
-  "(saved; not available)").
-- `gateway_models.ts`: `gatewayTextDefault`, `createGatewayModelTransport`, `reasoningLadderFrom`,
-  `withRunModel`; the routes in `gateway_paths.ts`.
-- Review fixes (adversarial review of PR #6): a layer key that changes no tool's mode (a removed or
-  not-offered tool, a bare "approve", a diff the gateway default caught up with) no longer sends
-  `tool_policy` (`effectiveToolLayers`, `hasToolChoices(catalog, layers)`); the gateway's failure
-  answer `{items: [], error}` is an error, `catalog_warnings` are shown (`ToolModeEditorForPayload`,
-  used by the island, never throws); the picker re-reads a new `fetchGatewayDefault`, says "none
-  configured" / "could not be read", and shows the gateway's warnings instead of naming an unusable
-  default; "(saved)" only for the mounted value and never while its list failed; the store rebuilds a
-  lost session index and reports unreadable values (`dialect`, `onDropped`); the tool search uses
-  `--font-size-input`; the session chip names the gateway when that is the inherited source.
-- Checks: `check_tool_plan`, `check_tool_mode_editor`, `check_gateway_models`; `check_route_picker`,
-  `check_tool_state`, `check_speculation` (now in `npm test`), `check_islands` and `check_responsive`
-  extended.
-### shell: the app shell — identity, the top-right order, the drawer system (backlog 0036, ADR 0001)
+### App shell: the signed-in identity, the top-right order, the drawer system (ui-kit, panel-chat; backlog 0036)
 
 - **Who is signed in** in the top-right cluster: `AfTopBarActions` `identity="badge" | "menu"`
   (the menu: "Signed in as …", "Gateway <host>", **Copy user id**, **Disconnect**; kit tooltip), read from the

@@ -50,7 +50,10 @@ npm --workspace monitor-memory test
 
 The React packages test with small Node scripts (`ui-kit/scripts/check_*.mjs`,
 `panel-chat/scripts/check_*.mjs`), run in order by each package's `npm test`; the first failing
-script names the problem. `app-server` and the Web Components have a `test/` folder.
+script names the problem. `app-server` and the Web Components have a `test/` folder. After the
+workspaces, the root `npm test` runs the repository gates `scripts/check_relative_urls.mjs` (no
+root-absolute same-origin URL) and `scripts/check_cross_dist_types.mjs` (the built ui-kit and
+panel-chat agree on the session tool-policy client types); see [Publishing](./publishing.md).
 
 ### Shared contracts with other repositories
 

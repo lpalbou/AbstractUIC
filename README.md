@@ -1,10 +1,27 @@
 # AbstractUIC
 
+[![CI](https://github.com/lpalbou/AbstractUIC/actions/workflows/ci.yml/badge.svg)](https://github.com/lpalbou/AbstractUIC/actions/workflows/ci.yml)
+[![ui-kit on npm](https://img.shields.io/npm/v/@abstractframework/ui-kit?label=ui-kit)](https://www.npmjs.com/package/@abstractframework/ui-kit)
+[![panel-chat on npm](https://img.shields.io/npm/v/@abstractframework/panel-chat?label=panel-chat)](https://www.npmjs.com/package/@abstractframework/panel-chat)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
 Reusable UI packages for AbstractFramework clients: React components, small Web Components, a Node.js Gateway session proxy, and console islands for pages that are not React apps.
 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
+
+## What's new in 0.7.0
+
+AbstractUIC 0.7.0 (`@abstractframework/ui-kit` 0.9.0, `@abstractframework/panel-chat` 0.5.0) gives
+each user-facing job one shared component, composed on AbstractGateway's contracts
+([ADR 0001](./docs/adr/0001_shared_primitives_composed_on_gateway_contracts.md)): one chat surface
+with questions and approvals in one wording set, attachments and generated media, a chat's tool
+policy stored on the gateway, the tool editor and the provider/model picker that names the
+gateway default, voice in / voice out widgets and one microphone button, and the app shell (the
+signed-in identity, the drawer system). The job table is the
+[Adoption guide](./docs/adoption-guide.md); the full list is in the
+[changelog](./CHANGELOG.md#070---2026-10-27). panel-chat 0.5.0 needs ui-kit `^0.9.0`.
 
 ## AbstractFramework ecosystem
 
@@ -19,6 +36,7 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 
 - Getting started (entrypoint): [`docs/getting-started.md`](./docs/getting-started.md)
 - Adoption guide (which component for which job): [`docs/adoption-guide.md`](./docs/adoption-guide.md)
+- Design rules (ADR 0001: one component per job, composed on the gateway's contracts): [`docs/adr/`](./docs/adr/README.md)
 - Theming & design tokens: [`docs/theming.md`](./docs/theming.md)
 - Modal dialog, menu, tooltip, account row tints, grouped navigation (`AfModal`, `bindModal`, `AfTooltip`, `bindTooltips`): [`docs/modal.md`](./docs/modal.md)
 - On/off settings, sign-in card, forms and tabs (`AfSwitch`, `AfTabs`, guards, `randomId()`): [`docs/state-toggles.md`](./docs/state-toggles.md)
@@ -41,8 +59,8 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 
 | Package | Purpose | Docs |
 |---|---|---|
-| `@abstractframework/ui-kit` | Theme tokens (21 themes) and the responsive layer (breakpoints, 44 px touch targets, bottom sheets, viewport helpers), inputs (`AfSelect`, provider/model pickers), Gateway connect modal + connection hook, top bar / drawer / rail drawer (`AfRailDrawer`) / appearance dialog, file viewer + code highlighting + waveform audio player, settings rows + voice section (gateway voice defaults, devices, tests), relative time, About dialog + AbstractFramework identity helpers, tool policy editor, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons, voice hook (streaming TTS + push-to-talk), automations panel + schedule dialog (schedule and email triggers, email notifications) + typed Gateway client; console islands for non-React pages (repository build) | [`ui-kit/README.md`](./ui-kit/README.md) |
-| `@abstractframework/panel-chat` | Chat thread + message cards + composer + markdown/json rendering, app assistant panel, workflow chat with live (streamed) replies, "Schedule this…" action and "from automation" badge, workspace browser + in-place file preview | [`panel-chat/README.md`](./panel-chat/README.md) |
+| `@abstractframework/ui-kit` | Theme tokens (21 themes) and the responsive layer (breakpoints, 44 px touch targets, bottom sheets, viewport helpers); the app shell (`AfAppShell`: top-right cluster with the signed-in identity, `AfDrawerSystem` side panels, appearance and About dialogs) and the Gateway connect modal + connection hook; inputs (`AfSelect`, `ProviderModelPicker` naming the gateway default, `ToolModeEditor` with tool layers and a chat's tool policy stored on the gateway); voice (`AfVoiceSection`, the standalone `AfVoiceOutput` / `AfVoiceInput`, `AfVoiceMicButton`, the voice hook with streaming TTS and push-to-talk, the voice library); file viewer + code highlighting + waveform audio player; settings rows, relative time, AbstractFramework identity helpers, phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel + schedule dialog + typed Gateway client; console islands for non-React pages (repository build) | [`ui-kit/README.md`](./ui-kit/README.md) |
+| `@abstractframework/panel-chat` | The chat surface for gateway workflows (`WorkflowChat` + `WorkflowSessionController`: live (streamed) replies, steer and queue, questions and approvals with one wording set, a chat's tool policy stored on the gateway, typed attachment chips, generated media with transcripts), the Docs assistant and app assistant (also as drawer-system panels), "Schedule this…" action and "from automation" badge, workspace browser + in-place file preview, and the thread, message cards, composer and Markdown/JSON renderers | [`panel-chat/README.md`](./panel-chat/README.md) |
 | `@abstractframework/app-server` | Node server side for apps: serving under the gateway's `/apps/<id>/`, shared launch flags, local gateway pointer, gateway-session proxy (token → HttpOnly cookie exchange, CSRF, URL pinning, forwarded client address) | [`app-server/README.md`](./app-server/README.md) |
 | `@abstractframework/monitor-flow` | Agent-cycle trace viewer + ledger adapter | [`monitor-flow/README.md`](./monitor-flow/README.md) |
 | `@abstractframework/monitor-active-memory` | Knowledge Graph + Active Memory explorer (ReactFlow) | [`monitor-active-memory/README.md`](./monitor-active-memory/README.md) |
@@ -79,7 +97,7 @@ npm i @abstractframework/app-server
 
 ## Quickstart (React)
 
-Import theme tokens once, then import the CSS for the package(s) you use (see [`docs/getting-started.md`](./docs/getting-started.md) for details and Next.js notes). Minimal example (chat):
+Import theme tokens once, then import the CSS for the package(s) you use (see [`docs/getting-started.md`](./docs/getting-started.md) for details and Next.js notes). For an app on AbstractGateway, compose the shared components listed in the [Adoption guide](./docs/adoption-guide.md) (`AfAppShell`, `WorkflowChat`, the pickers). Minimal example (chat primitives):
 
 ```tsx
 import "@abstractframework/ui-kit/theme.css";
@@ -91,7 +109,7 @@ import { ChatComposer, ChatThread } from "@abstractframework/panel-chat";
 ## Development
 
 - Install + build workspaces: `npm install && npm run build`
-- Run tests: `npm test` (runs each workspace's test rig)
+- Run tests: `npm test` (runs each workspace's test rig, then the repository's release gates: relative URLs and the cross-package type check; see [`docs/publishing.md`](./docs/publishing.md))
 - React packages are typically validated via a host app that links them in a workspace (HMR).
 
 See [`docs/development.md`](./docs/development.md).
