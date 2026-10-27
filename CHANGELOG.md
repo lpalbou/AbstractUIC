@@ -9,6 +9,40 @@ ships.
 
 ## Unreleased
 
+### shell: the app shell — identity, the top-right order, the drawer system (backlog 0036, ADR 0001)
+
+- **Who is signed in** in the top-right cluster: `AfTopBarActions` `identity="badge" | "menu"`
+  (the menu: "Signed in as …", "Gateway <host>", **Copy user id**, **Sign out**), read from the
+  connection status's `gateway.principal` (the gateway's `GET /api/gateway/me`): `AfPrincipal`,
+  `principalFromConnection`, `principalLabel` (user id; `tenant/` only when the tenant is not
+  `default`), `gatewayHostLabel`. `GatewayConnectionState.gateway` now types `principal` (tenant,
+  roles, scopes, source, admin, …), `auth` and `routing`.
+- `AfTopBarActions.connection` takes `useGatewayConnection()`'s return value; the pill and the
+  menu's Sign out call its `signOut()`, then the new `onSignOut`. **Order changed and pinned**:
+  extras · docs · assistant · appearance · about · identity · pill (app `extraActions` now lead the
+  cluster instead of sitting before the pill). The pill's wording is pinned.
+- The cluster owns the Appearance dialog when given `appearance={{ value, onChange }}`; `about.fetch`
+  (the host's gateway fetch) GETs `api/gateway/about` each time About opens (`fetchAboutVersions`);
+  `about.extra` / `AfAbout.extra` / `AfAboutDialog.extra` hold host content in the dialog. `AfMenu`
+  takes a non-interactive `header`.
+- `--af-topbar-h`: the cluster publishes its header's bottom edge; `AfDrawer` and the drawer system
+  take `topOffset: "auto"`. `AfDrawer` moves focus in on open and back to the opener on close
+  (`manageFocus={false}` opts out).
+- `AfDrawerSystem`: left and right panels, rail or drawer mode, vertical-text tabs, `keepAlive`
+  "visited" | "always", a per-panel error boundary, `fill` canvas panels (`--af-panel-w`,
+  `onResize`), per-panel widths and the docked-only open panel under one storage key, a
+  `request: "id#nonce"`; `AfPanelHeaderActions`. `AfRailDrawer` is now a thin wrapper over it (same
+  markup; a numeric width stored by 0.8.9 is kept). `AfAppShell` composes header, cluster, drawer
+  system and nav.
+- panel-chat: `docsAssistantPanel(source, fetchGateway, opts)` / `DocsAssistantPanelContent` and
+  `assistantDrawerPanel(opts)` (drawer-system panels; `DocsAssistantDrawer` is unchanged and
+  takes `topOffset: "auto"`).
+- Console islands: `TopBarIslandProps.identity` (+ `connection.status` / `connection.me`, the
+  console's own `/me` body) and `mountDrawerSystem`; apiVersion stays "2".
+- Checks: `check_app_shell.mjs`, `check_gateway_connection.mjs` (the connection hook's behaviour,
+  first check of it), drawer-system block in `check_rail_viewer.mjs`, About fetch/extra in
+  `check_about.mjs`, panel-chat `check_docs_panel.mjs`.
+
 ## 0.6.4 - 2026-10-27
 
 Packages: `@abstractframework/ui-kit` 0.8.9.

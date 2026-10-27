@@ -91,6 +91,8 @@ Serve both files from your own origin; the paths above are examples.
 | `mountTopBar(el, props)` | `IslandHandle` | Mounts `AfTopBarActions` into `el` |
 | `mountAppearance(el, props)` | `IslandHandle` | Mounts `AfAppearanceDialog` into `el` |
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
+| `mountDocsAssistant(el, props)` | `IslandHandle` | Mounts panel-chat's `DocsAssistantDrawer` (the same Docs assistant every app mounts; the console passes `source: {app: "gateway", name: "AbstractGateway"}` and its own `fetchGateway`); keep it mounted while closed (kit 0.8.0, round 8) |
+| `mountDrawerSystem(el, props)` | `IslandHandle` | Mounts the kit `AfDrawerSystem`; each panel's content is a host element (`element`) moved into the panel and kept alive (shell, backlog 0036) |
 | `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.4.0+) |
 | `mountWorkspaceChooser(el, props)` | `IslandHandle` | Mounts the kit `WorkspaceChooser` (`level`, `state`, `save`): the console's **Eligible workspaces** modal (`level: "gateway"`) and each account's Workspaces modal (`level: "account"`) (kit 0.8.3, round 11) |
 | `mountTimeZonePicker(el, props)` | `IslandHandle` | Mounts the kit `AfTimeZonePicker` (`block` = the preferences answer's `time_zone`, `id`, `onChange(zone \| null)`, `disabled`, `note`): the time zone row of the console's Accounts → Preferences modal (kit 0.8.7, round 16) |
@@ -106,11 +108,12 @@ Every mount returns `{ update(props), unmount() }`. Mounting into a missing elem
 
 ### `mountTopBar(el, props)`
 
-Renders the shared top-right cluster: assistant button, appearance button, extras, then the
-connection pill (always rightmost).
+Renders the shared top-right cluster in the kit's enforced order: extras · docs · assistant ·
+appearance · about · identity · connection pill (always rightmost).
 
 ```ts
 type TopBarIslandProps = {
+  docs?: { open: boolean; onToggle: () => void; label?: string } | null;      // the Docs assistant (book icon)
   assistant?: { open: boolean; onToggle: () => void; label?: string } | null; // omit/null hides it
   appearance?: { onOpen: () => void; label?: string } | null;                 // omit/null hides it
   about?: {                                                                   // omit/null hides it (kit 0.1.12+)
@@ -123,22 +126,59 @@ type TopBarIslandProps = {
     id: string;          // becomes the element id
     label: string;       // aria-label / tooltip
     icon?: IconName;     // defaults to "settings"
-    text?: string;       // plain text instead of an icon button (e.g. the signed-in identity)
+    text?: string;       // plain text instead of an icon button (kept for compatibility; use `identity`)
     hidden?: boolean;
     pressed?: boolean;   // sets aria-pressed and the active style
     onClick?: () => void;
   }>;
+  // Who is signed in, left of the pill (shell, backlog 0036): "badge" = icon + "<user>"
+  // ("<tenant>/<user>" when the tenant is not "default"); "menu" = the same, opening
+  // "Signed in as … / Gateway <host>", Copy user id, Sign out (= onDisconnect).
+  identity?: "badge" | "menu" | null;
   connection: {
     phase: "loading" | "connected" | "disconnected";
     signingOut?: boolean;
     onConnect: () => void;
     onDisconnect: () => void;
+    status?: GatewayConnectionState | null; // an app behind app-server: the connection probe's body
+    me?: { ok?: boolean; principal?: {...}; auth?: {...}; routing?: {...} } | null; // the console: its own GET /api/gateway/me body
   };
 };
 ```
 
+The console replaces its `extras: [{ id: "island-identity", text: "<tenant>/<user>" }]` with
+`identity: "menu"` and `connection.me: <the /api/gateway/me body it already holds>`; the identity is
+read from `me.principal` (no display name, e-mail or avatar: the gateway serves none).
+
 A text extra renders as `<span class="af-topbar__identity">`: one line, secondary text color,
 ellipsized past 24 characters.
+
+### `mountDocsAssistant(el, props)`
+
+Mounts panel-chat's `DocsAssistantDrawer` (`open`, `onClose`, `source: {app, name}`,
+`fetchGateway`, `connected`, `suggestions?`, `placeholder?`, `width?`, `topOffset?` (a number or
+`"auto"` = under the top bar), `className?`). Grounding is the gateway's corpus
+(`GET api/gateway/docs/corpus?app=gateway` for the console). Keep it mounted with `open: false`
+so the conversation survives closing.
+
+### `mountDrawerSystem(el, props)`
+
+Mounts the kit `AfDrawerSystem` (see [API](./api.md)). Panels are `{id, label, icon, element,
+side?, mode?, keepAlive?, errorBoundary?, fill?, badge?, hint?, minWidth?, maxWidth?,
+defaultWidth?}`: `element` is a DOM element the page owns, moved (never cloned) into the panel
+body. `main?` is the element between the sides (required with left panels). The host owns
+`active` and calls `handle.update({...props, active})` from `onActiveChange(id, side)`.
+
+```js
+const props = {
+  panels: [{ id: "jobs", label: "Jobs", icon: "activity", element: document.getElementById("jobs-pane") }],
+  active: null,
+  onActiveChange: (id) => { props.active = id; handle.update({ ...props }); },
+  ariaLabel: "Console panels",
+  storageKey: "abstractgateway.console.drawers.v1",
+};
+const handle = islands.mountDrawerSystem(document.getElementById("af-drawers-root"), props);
+```
 
 ### `mountAppearance(el, props)`
 

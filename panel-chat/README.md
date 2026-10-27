@@ -82,6 +82,11 @@ mounted while closed. No corpus is an error message, never an ungrounded answer.
   fetchGateway={(path, init) => fetch(path, { ...init, credentials: "same-origin" })} connected={connected} />
 ```
 
+In the kit's `AfDrawerSystem` (or `AfAppShell`'s `drawers`), mount the same conversation as a
+panel: `docsAssistantPanel(source, fetchGateway, { connected })` returns an `AfDrawerPanel` (drawer
+mode, kept alive) whose header actions (Past conversations, New conversation) sit in the panel
+header; toggle it from the top bar's `docs` button by making `"docs"` the active panel.
+
 ## App assistant
 
 `AssistantPanel` is the docs Q&A surface an app places in the kit's `AfDrawer`
@@ -90,7 +95,8 @@ transport that returns a `Promise<string>` or an `AsyncIterable<string>` of delt
 props: `assistantName`, `suggestions`, `emptyState`, `placeholder`, `blockedNotice` (disables
 the composer and shows the notice, e.g. while disconnected) and a controlled
 `messages` / `onMessagesChange` pair. See the
-[Adoption guide](../docs/adoption-guide.md) for the shared docs Q&A transport.
+[Adoption guide](../docs/adoption-guide.md). In an `AfDrawerSystem`, `assistantDrawerPanel({ ask,
+assistantName })` returns it as a kept-alive drawer-mode panel.
 
 ## Workflow chat
 

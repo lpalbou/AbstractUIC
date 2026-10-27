@@ -12,9 +12,12 @@ This package provides:
   `SpeculationSelect`, `ToolPolicyEditor`, `VoiceSettings`
 - **Gateway connection UI**: `GatewayConnectModal`, `useGatewayConnection()`,
   `GatewaySessionSignInCard`
-- **App chrome**: `AfTopBarActions`, `AfDrawer`, `AfRailDrawer` (vertical icon rail at the right
-  edge, panel beside it, resizable, collapses to icons), `AfAppearanceDialog` +
-  `useAppearanceSettings()`, `AfAbout` / `AfAboutDialog` (the compact About card)
+- **App chrome**: `AfAppShell` (header + top-right cluster + side panels + nav),
+  `AfTopBarActions` (with the signed-in identity), `AfDrawerSystem` (side panels: left/right,
+  rail or drawer mode, keep-alive, per-panel error boundary, canvas panels, per-panel widths),
+  `AfDrawer`, `AfRailDrawer` (the original icon rail, now a wrapper over `AfDrawerSystem`),
+  `AfAppearanceDialog` + `useAppearanceSettings()`, `AfAbout` / `AfAboutDialog` (the compact
+  About card)
 - **Files**: `AfFileViewer` (Markdown via the host renderer, highlighted code, JSON, images,
   audio, PDF, text; size/date header; download), `AfCodeBlock` / `highlightCode()` and
   `AfAudioPlayer` (the shared waveform audio player)
@@ -142,8 +145,9 @@ Use `GatewayConnectModal` for connect/disconnect UX. It pairs with the session p
 
 ## Unified top-right corner
 
-Every app renders the same upper-right cluster: assistant button → appearance button → About
-button → app extras → connection pill, always rightmost.
+Every app renders the same upper-right cluster, in this enforced order: app extras → Docs
+assistant → app assistant → appearance → About → who is signed in → connection pill, always
+rightmost.
 
 ```tsx
 const conn = useGatewayConnection({ appName: "My App", variant: "dismissable" });
@@ -151,17 +155,37 @@ const [appearance, setAppearance] = useAppearanceSettings("my-app", { legacyKey:
 
 <AfTopBarActions
   assistant={{ open: drawerOpen, onToggle: () => setDrawerOpen((v) => !v) }}
-  appearance={{ onOpen: () => setAppearanceOpen(true) }}
-  about={{ identity: appIdentity("abstractflow", APP_VERSION) }}
-  connection={{ phase: conn.phase, signingOut: conn.signingOut,
-                onConnect: conn.openModal, onDisconnect: () => void conn.signOut() }}
+  appearance={{ value: appearance, onChange: setAppearance }}       // the cluster owns the dialog
+  about={{ identity: appIdentity("abstractflow", APP_VERSION), fetch: fetchGateway }} // GET api/gateway/about on open
+  identity="menu"                                                    // Signed in as … · Copy user id · Sign out
+  connection={conn}                                                  // the hook's return value
+  onSignOut={wipeAppState}                                           // after conn.signOut()
 />
-<AfDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} label="Assistant" title="Assistant">
+<AfDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} label="Assistant" title="Assistant" topOffset="auto">
   <AssistantPanel ask={myTransport} blockedNotice={conn.connected ? undefined : "Connect to use the assistant."} />
 </AfDrawer>
-<AfAppearanceDialog open={appearanceOpen} onClose={() => setAppearanceOpen(false)}
-                    value={appearance} onChange={setAppearance} />
 <GatewayConnectModal {...conn.modalProps} />
+```
+
+The legacy `connection={{ phase, signingOut, onConnect, onDisconnect }}` and
+`appearance={{ onOpen }}` shapes keep working. The identity shows the principal's user id (with
+its tenant when that is not `default`) and the gateway host; the gateway serves no display
+name, e-mail or avatar. The cluster publishes `--af-topbar-h` (the bottom of its header) so
+`topOffset="auto"` drawers open below the header.
+
+`AfAppShell` composes all of it:
+
+```tsx
+<AfAppShell
+  topBar={{ brand: { name: "AbstractFlow", mark: <Logo /> }, leading: <Toolbar />, connection: conn,
+            identity: "menu", docs: { open: active === "docs", onToggle: () => setActive((a) => (a === "docs" ? null : "docs")) } }}
+  drawers={{ ariaLabel: "Panels", storageKey: "abstractflow.drawers.v1", active, onActiveChange: (id) => setActive(id),
+             panels: [docsAssistantPanel({ app: "flow", name: "AbstractFlow" }, fetchGateway, { connected: conn.connected }),
+                      { id: "props", label: "Properties", icon: "settings", content: <Properties /> },
+                      { id: "palette", label: "Palette", icon: "list", side: "left", content: <Palette /> }] }}
+>
+  <Canvas />
+</AfAppShell>
 ```
 
 Rules:
@@ -187,6 +211,12 @@ Rules:
             { id: "settings", label: "Settings", icon: "cog", content: <Settings /> }]} />
 </div>
 ```
+- `AfDrawerSystem` generalises it: `panels` (`AfRailItem` + `side`, `mode: "rail" | "drawer"`,
+  `keepAlive: "visited" | "always"`, `errorBoundary` (default on), `fill` for a canvas that owns
+  its viewport, width bounds), `active` (one id or `{left, right}`), `onActiveChange(id, side)`,
+  ONE `storageKey` (each panel's width, and the open panel while docked), `railLabelStyle:
+  "vertical-text"`, `request: "id#nonce"`, `topOffset: "auto"`, `onResize(id, width)` and the
+  `--af-panel-w` variable. It never inspects a panel's content (ADR 0001 §6).
 - `AssistantPanel` (in `@abstractframework/panel-chat`) never fetches: the
   `ask(question, { signal, history })` transport is injected and may return a Promise or an
   AsyncIterable of deltas.
