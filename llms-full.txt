@@ -499,7 +499,7 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Provider + model pickers | `ProviderModelPicker` (mode toggle + cascade) or `ProviderModelSelect` (plain pair) | Picker's "Gateway default" mode is the default; transports injected (`fetchProviders`/`fetchModels`) |
 | App shell (header + top-right cluster + side panels + nav) | `AfAppShell` (`topBar`, `drawers`, `nav`, children) | Composition of the rows below; the header publishes `--af-topbar-h` so every `topOffset: "auto"` drawer opens under it — delete app-side header measurers |
 | Theme/typography pickers | `ThemeSelect`, `FontScaleSelect`, `HeaderDensitySelect` | Persisted user settings; see [Theming](./theming.md) |
-| Tool allowlist + approval editor | `ToolModeEditor` + `tool_plan` helpers (`normalizeToolCatalog`, `planRunTools`, `withRunTools`) + `createToolLayerStore` | Off / Ask / Auto per tool; the gateway's `approval_default` is the default; app and session layers hold only differences; `allowListOnly` for allowlist pins. `ToolPolicyEditor` is deprecated (one minor) |
+| Tool allowlist + approval editor | `ToolModeEditor` + `tool_plan` helpers (`normalizeToolCatalog`, `planRunTools`, `withRunTools`) + `createToolLayerStore` | Off / Ask / Auto per tool; the gateway's `approval_default` is the default; app and session layers hold only differences; `allowListOnly` for allowlist pins. `ToolPolicyEditor` is deprecated (one minor). The chat layer lives on the gateway when it advertises `session_tool_policy` (`createSessionToolPolicyClient` + `createToolLayerStore({sessionPolicy})`), else in this browser, and the editor says which |
 | Phase × capability grid | `PhaseCapabilityMatrix` (+ framework-free core) | Payload-driven: render the server's `MatrixPayload`, never re-derive policy client-side |
 | Irreversible-action confirmation | `CriticalActionDialog` (+ `resolveCriticalActionGate`) | Server-supplied facts required to enable confirm; typed-confirm is opt-in |
 | Steer a live run | `SteerComposer` (+ `submitSteer`) | Idempotent `command_id`, CSRF-token candidates, honest `accepted:false` handling |
@@ -1724,6 +1724,64 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   `sessions()`; options `dialect` (read another writer's "approve") and `onDropped(key, names)`
   (told when stored values could not be read); it is browser storage ("Saved in this
   browser"), never "saved for this Gateway account".
+- A chat's tool policy on the gateway (session tool policy contract v1, revised 2026-10-27;
+  `session_tool_policy.ts`): the gateway stores "approve these tools / kinds / everything",
+  "deny these", "keep asking for these" per `session_id`, and the runtime applies it BEFORE any
+  approval wait (a covered call runs with no wait, a denied call is refused with no wait). Deny
+  reaches every run of the session, automations and untrusted-input runs included; approve never
+  reaches automation, untrusted-input or entity-visit runs. The session id is the run tree's ROOT
+  session (the runtime reads the root's grant). The user-facing noun is "chat" (ADR 0001 §5).
+  `sessionToolPolicyCapability(payload)` reads `capabilities.session_tool_policy` of
+  `GET discovery/capabilities` (null on an older gateway). `createSessionToolPolicyClient(request,
+  sessionId, capability, {client})` → `SessionToolPolicyClient` `{supported, sessionId, get(),
+  replace(body), merge(body), reset()}` over `GET | PUT | POST | DELETE
+  sessions/{session_id}/tool-policy` (`sessionToolPolicyRoute`; the id must match
+  `SESSION_ID_PATTERN`, 1-256 `[A-Za-z0-9_.:-]`, never only dots). The client keeps the revision of
+  every answer (`client.revision`: GET's top-level `revision` also with no policy, PUT/POST
+  `policy.revision`, DELETE `revision`) and the served `scope` (`client.scope`, also copied onto the
+  policy untouched: `{approve, deny}` sentences, never composed); `reset(ifRevision?)` sends
+  `DELETE ?if_revision=` (GET's top-level revision and DELETE's `if_revision` are a contract v1
+  amendment requested; the gateway implementation serves both). POST (`merge`) only ADDS (it never
+  narrows nor re-expands an earlier all / kinds); a method the capability does not list is not sent. `request(path, {method, body})` is the host's
+  (credentials, base URL) and rejects with `{status, body}` / `{status, detail}` on an error; a 409
+  `revision_conflict` rejects with `SessionToolPolicyConflictError` (`revision` = the stored one);
+  `clamped` is passed through untouched; `supported` is true only for `supported: true`, and an
+  unsupported client rejects every call with `SessionToolPolicyUnsupportedError` ("The gateway
+  cannot store chat tool policies", `SESSION_TOOL_POLICY_UNSUPPORTED`). Types:
+  `SessionToolPolicyBody`, `SessionToolPolicy`, `SessionToolPolicyCapability`.
+  Bridge: `sessionPolicyFromLayer(layer, catalog, {base, inherited})` maps a session layer to a PUT
+  body (auto → `approve.tools`, ask → `ask`, off → `deny.tools` for offered tools). With `base` (the
+  policy last read) it carries what this catalog cannot see: approve / deny / ask entries of tools it
+  does not offer (an MCP server down, a toolset disabled for now) and the request's `approve.kinds`,
+  `approve.all`, `approve.max_risk_rank`, `deny.kinds`; a tool a carried selector covers is put in
+  `ask` when its mode here (or `inherited`) is Ask. `all` / `kinds` include model-chosen-destination
+  tools (fetch_url, browser_probe, send_email); at Ask they are always in `ask`.
+  `sessionPolicyBodyIsEmpty(body)`. Limit: `deny` refuses a call
+  with no wait, which is stricter than "not offered"; the run's own ceiling (`allowed_tools` from
+  `planRunTools`) still keeps off tools out of the run. `layerFromSessionPolicy(policy, catalog)`
+  maps back (approve → auto, deny → off and wins, ask → ask); the gateway serves `approve` / `deny`
+  already expanded to tool names (the selector "tool", "kind:<id>" or "all" is the value), so the kit
+  never re-expands a selector against today's catalog: a tool enabled after an `all` / `kinds` write
+  is not covered and keeps asking. `sessionPolicyClampedLines(policy)` ("Not covered: send_email
+  (not_authorized)"), `policySetLine(policy)` ("Set by admin (panel-chat) on …").
+  `createToolLayerStore(identity, {sessionPolicy: (sessionId) => client})`: `sessionStorage(id)`,
+  `loadSession(id, catalog)`, `saveSession(id, layer, catalog, {inherited})` and `resetSession(id)`
+  go through a supported client and answer `{storage, layer, policy, scope}` with the gateway's
+  effective layer. Every write is guarded: a PUT with `if_revision` and a DELETE with
+  `?if_revision=` from the last read or reset (a 409 rejects with `SessionToolPolicyConflictError`:
+  re-read); with no known revision (never loaded, or none served) the store refuses with
+  `SessionToolPolicyRevisionError` ("The gateway did not return a policy revision; refusing an
+  unguarded write"). Saves carry the last read's uncatalogued entries and selectors; a body that
+  changes nothing resets. The store never POSTs: a merge cannot narrow. Without a supported client
+  the layer stays in this browser (`storage.kind: "browser"`, "Saved in this browser"), and when the
+  gateway was asked and cannot, `storage.note` says so (`TOOL_LAYER_BROWSER_FALLBACK`, a fact about
+  storage: the choices apply only where the host applies the browser layer itself).
+  `ToolModeEditor` `storage` (its `where` replaces `savedWhere`: "Saved for this chat on the gateway"
+  / "Saved in this browser", plus the note), `policy` (clamped entries, who set it and when) and
+  `scope` ("Approve applies to: …" / "Deny applies to: …" as served, else "The gateway did not say
+  where this policy applies"); a gateway-stored chat also reads `TOOL_SESSION_OFF_HELP` ("Off =
+  denied for every run of this chat, automations included"). Approve-all trust (`trustAfterApproveAll`) is for the browser fallback only: with a
+  supported gateway, "Allow all" writes the policy (`merge`) first and then answers the shown wait.
 - Gateway model routes (backlog 0034, `gateway_models.ts`): `gatewayTextDefault(payload)`
   (`GET config/capability-defaults`: provider/model of `output.text` then `input.text`, reasoning
   `routes[output.text].reasoning`, MTP `routes[input.text].options.speculation`; null when none is
@@ -5783,7 +5841,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_session_tool_policy.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -6711,6 +6769,40 @@ export { topBarPillText, topBarConnection, identityTitle, useAfTopBarHeight, AF_
 export { principalFromConnection, principalLabel, gatewayHostLabel, AF_DEFAULT_TENANT, type AfPrincipal } from "./principal.js";
 export { fetchAboutVersions, ABOUT_VERSIONS_CHECKING, type AfGatewayFetch } from "./about.js";
 export type { GatewayPrincipalPayload } from "./gateway_connect_modal.js";
+// --- ui-primitives (session-policy-kit) ---
+// A conversation's tool policy on the gateway (session tool policy contract v1) and its bridge to
+// the tool layers (backlog 0033).
+export {
+  sessionToolPolicyCapability,
+  createSessionToolPolicyClient,
+  asSessionToolPolicy,
+  sessionPolicyFromLayer,
+  layerFromSessionPolicy,
+  sessionPolicyClampedLines,
+  SESSION_TOOL_POLICY_UNSUPPORTED,
+  SessionToolPolicyUnsupportedError,
+  SessionToolPolicyConflictError,
+  SessionToolPolicyRevisionError,
+  SESSION_TOOL_POLICY_NO_REVISION,
+  sessionPolicyBodyIsEmpty,
+  sessionToolPolicyScope,
+  type SessionToolPolicyScope,
+  type SessionToolPolicyRevisionedClient,
+  type SessionToolPolicyBody,
+  type SessionToolPolicy,
+  type SessionToolPolicyClient,
+  type SessionToolPolicyCapability,
+  type SessionToolPolicyRequest,
+} from "./session_tool_policy.js";
+export {
+  TOOL_LAYER_GATEWAY_WHERE,
+  TOOL_LAYER_BROWSER_FALLBACK,
+  type ToolLayerStorage,
+  type SessionLayerState,
+  type ToolLayerStoreOptions,
+} from "./tool_layer_store.js";
+export { policySetLine, TOOL_SESSION_OFF_HELP, TOOL_POLICY_SCOPE_UNSAID } from "./tool_mode_editor.js";
+export { SESSION_ID_PATTERN, sessionToolPolicyRoute } from "./gateway_paths.js";
 
 ## ui-kit/src/responsive.ts
 
@@ -9374,6 +9466,19 @@ export function gatewayProviderModelsRoute(provider: string): string {
   const p = String(provider || "").trim();
   if (!p) throw new Error("gatewayProviderModelsRoute needs a provider.");
   return `${GATEWAY_PROVIDERS_ROUTE}/${encodeURIComponent(p)}/models`;
+}
+
+// --- ui-primitives (session-policy-kit) ---
+/** A session id the gateway accepts (contract v1: 1-256 characters `[A-Za-z0-9_.:-]`), never only dots:
+ * "." / ".." are path segments a URL parser normalizes away (`sessions/../tool-policy` would reach
+ * `/api/gateway/tool-policy`). */
+export const SESSION_ID_PATTERN = /^(?!\.+$)[A-Za-z0-9_.:-]{1,256}$/;
+/** `GET|PUT|POST|DELETE sessions/{session_id}/tool-policy`: a conversation's tool policy (session tool
+ * policy contract v1, routes/session_tool_policy.py on the gateway's feat/session-tool-policy). */
+export function sessionToolPolicyRoute(sessionId: string): string {
+  const sid = String(sessionId ?? "");
+  if (!SESSION_ID_PATTERN.test(sid)) throw new Error(`A session id is 1-256 characters [A-Za-z0-9_.:-], not only dots, got ${JSON.stringify(sid)}.`);
+  return `sessions/${sid}/tool-policy`;
 }
 
 ## ui-kit/src/automations/types.ts
@@ -18267,6 +18372,31 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## Unreleased
+
+### session-policy-kit: a conversation's tool policy on the gateway (session tool policy contract v1; backlog 0033)
+
+- `session_tool_policy.ts`: `SessionToolPolicyBody`, `SessionToolPolicy`, `SessionToolPolicyClient`,
+  `sessionToolPolicyCapability`, `createSessionToolPolicyClient` over `GET | PUT | POST | DELETE
+  /api/gateway/sessions/{session_id}/tool-policy` (409 `revision_conflict` →
+  `SessionToolPolicyConflictError`; `clamped` passed through; an unsupported client rejects every call
+  with "The gateway cannot store conversation policies"); `sessionToolPolicyRoute` and
+  `SESSION_ID_PATTERN` in `gateway_paths.ts`.
+- Bridge with the tool layers: `sessionPolicyFromLayer` (auto → approve, ask → ask, off → deny) and
+  `layerFromSessionPolicy`.
+- `createToolLayerStore({sessionPolicy})`: `loadSession` / `saveSession` / `resetSession` go through the
+  gateway when it supports the policy, else this browser, labeled (`TOOL_LAYER_GATEWAY_WHERE`,
+  `TOOL_LAYER_BROWSER_FALLBACK`).
+- `ToolModeEditor`: `storage` (which storage applies, and why not the gateway) and `policy` (clamped
+  entries, `set_by` / `set_at`).
+- Review fixes: every PUT and DELETE is revision-guarded (the revision of every answer is kept;
+  `reset(ifRevision)`; an unguarded write is refused, `SessionToolPolicyRevisionError`); a save carries
+  the entries this catalog cannot see and the request's selectors; dot-only session ids are refused;
+  an unadvertised method is not sent; the user-facing noun is "chat".
+- Contract v1 revision: the served `scope` is passed through and rendered verbatim; the store never
+  POSTs (a merge only adds); model-chosen-destination tools at Ask always go to `ask`; Off on a
+  gateway-stored chat says it reaches every run, automations included; the session id is the root
+  session.
+- Checks: `check_session_tool_policy` (new); `check_tool_plan` and `check_tool_mode_editor` extended.
 
 ### chat: one chat surface, questions and approvals, attachments and generated media (backlog 0030, 0032, kit half of 0031; ADR 0001)
 
