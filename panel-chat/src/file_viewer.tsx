@@ -134,7 +134,7 @@ export type FilePreviewState =
 
 /**
  * Load one workspace file for the viewer. Text kinds: a bounded Range read.
- * Image / audio / PDF: the bytes as an object URL (revoked when the entry changes).
+ * Image / audio / video / PDF: the bytes as an object URL (revoked when the entry changes).
  * Binary: nothing is read. `refreshKey` re-reads (the run wrote again).
  */
 export function useWorkspaceFilePreview(fetchGateway: GatewayFetch, runId: string, entry: FilePreviewEntry | null, refreshKey?: string | number): FilePreviewState {
@@ -151,7 +151,7 @@ export function useWorkspaceFilePreview(fetchGateway: GatewayFetch, runId: strin
       setState({ status: "ready", kind: "binary", contentType: "", partial: false });
       return;
     }
-    if ((byName === "image" || byName === "audio" || byName === "pdf") && typeof entry.size_bytes === "number" && entry.size_bytes > PREVIEW_BLOB_LIMIT) {
+    if ((byName === "image" || byName === "audio" || byName === "video" || byName === "pdf") && typeof entry.size_bytes === "number" && entry.size_bytes > PREVIEW_BLOB_LIMIT) {
       setState({ status: "error", kind: byName, message: `Too large to preview (${formatFileSize(entry.size_bytes)}); use Download.` });
       return;
     }
@@ -179,7 +179,7 @@ export function useWorkspaceFilePreview(fetchGateway: GatewayFetch, runId: strin
           });
           return;
         }
-        if (kind === "image" || kind === "audio" || kind === "pdf") {
+        if (kind === "image" || kind === "audio" || kind === "video" || kind === "pdf") {
           const blob = await r.blob();
           if (abort.signal.aborted) return;
           objectUrl = URL.createObjectURL(blob.type ? blob : new Blob([blob], { type: kind === "pdf" ? "application/pdf" : contentType }));

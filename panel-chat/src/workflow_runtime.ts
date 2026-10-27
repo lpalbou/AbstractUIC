@@ -40,6 +40,28 @@ export type WorkflowTransport = {
    */
   streamLedger(runId: string, after: number, onStep: (item: unknown) => void, signal: AbortSignal, onOpen?: () => void, onDelta?: (event: LlmDelta | LlmDeltaEnd) => void): Promise<void>;
   submitCommand(command: GatewayCommand, signal?: AbortSignal): Promise<unknown>;
+  /**
+   * Optional (backlog 0031): a run artifact as the chat can show it. The host
+   * reads the metadata (`GET runs/{run_id}/artifacts/{artifact_id}`,
+   * abstractgateway routes/gateway.py:11260: `content_type`, `size_bytes`)
+   * and the bytes (`.../content`, routes/gateway.py:11293) with its own
+   * credentials and returns an object URL; `chatMediaFromArtifact` turns the
+   * result into a `ChatMedia`. The controller does NOT call it yet: folding
+   * `$artifact` refs and generated-media ledger events into `message.media`
+   * is still the host's job (see the panel-chat README).
+   */
+  resolveArtifact?(runId: string, artifactId: string, signal?: AbortSignal): Promise<ResolvedArtifact>;
+};
+
+/** A run artifact resolved by the host for display. */
+export type ResolvedArtifact = {
+  /** Object URL (or same-origin path) of the bytes. */
+  src: string;
+  /** The gateway's `content_type`. */
+  contentType: string;
+  name?: string;
+  /** The gateway's `size_bytes`. */
+  size?: number;
 };
 
 /** Raw runtime wait; presentation code may map this to its own UI union. */

@@ -1237,6 +1237,87 @@
   color: var(--warning, #f59e0b);
 }
 
+/* Speech-to-text transcript under an audio item, and documents (kind
+ * "file") that open in the shared file viewer (ui-primitives chat, 0031). */
+.pc-chat-media__transcript {
+  max-width: min(100%, 640px);
+  font-size: var(--font-size-sm, 12px);
+  color: var(--text-secondary, #a0a0a0);
+}
+
+.pc-chat-media__transcript > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.pc-chat-media__transcript-text {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+.pc-chat-media__item--file {
+  width: min(100%, 640px);
+}
+
+.pc-chat-media__file-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
+  border-radius: var(--radius-sm, 6px);
+  background: var(--ui-surface-2, rgba(255, 255, 255, 0.06));
+  font-size: var(--font-size-sm, 12px);
+}
+
+.pc-chat-media__file-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.pc-chat-media__file-size {
+  color: var(--text-muted, #888);
+}
+
+.pc-chat-media__file-open {
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--text-primary, #eee);
+  padding: 2px 8px;
+  cursor: pointer;
+  font: inherit;
+}
+
+/* A system note shown as one discreet line (messageProps.variant → "hint"),
+ * and the per-message footer slot (messageProps.renderFooter). */
+.pc-chat-hint {
+  margin: 4px 0;
+  padding: 0 4px;
+  color: var(--text-muted, #888);
+  font-size: var(--font-size-sm, 12px);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.pc-chat-hint--warn {
+  color: var(--warning, #f59e0b);
+}
+
+.pc-chat-hint--error {
+  color: var(--error, #ef4444);
+}
+
+.pc-chat-footer {
+  margin-top: 6px;
+}
+
 .pc-chat-attachments {
   margin-top: 10px;
   display: flex;
@@ -2421,18 +2502,6 @@ button.pc-ws__name:hover {
   font-size: var(--font-size-xs);
 }
 .pc-attachment-chip__action:hover:not(:disabled) { background: var(--ui-overlay-bg-hover); color: var(--text-primary); }
-
-.pc-chat-hint {
-  margin: 4px 0;
-  padding: 0 4px;
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
-  font-style: italic;
-  line-height: 1.4;
-}
-.pc-chat-hint--warn { color: var(--warning); }
-.pc-chat-hint--error { color: var(--error); }
-.pc-chat-footer { margin-top: 6px; }
 
 @media (prefers-reduced-motion: reduce) {
   .pc-attachment-chip__spinner { animation: none; }

@@ -181,3 +181,5 @@ export {
   type UseAttachmentUploadsOptions,
 } from "./attachment_uploads.js";
 export type { ChatSteer, ChatSteerMode, ChatSteerResult, ChatToolbar } from "./workflow_chat.js";
+export { chatMediaFromArtifact, chatMediaForArtifacts } from "./chat_media.js";
+export type { ResolvedArtifact } from "./workflow_runtime.js";
