@@ -92,6 +92,7 @@ Serve both files from your own origin; the paths above are examples.
 | `mountAppearance(el, props)` | `IslandHandle` | Mounts `AfAppearanceDialog` into `el` |
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
 | `mountDocsAssistant(el, props)` | `IslandHandle` | Mounts panel-chat's `DocsAssistantDrawer` (the same Docs assistant every app mounts; the console passes `source: {app: "gateway", name: "AbstractGateway"}` and its own `fetchGateway`); keep it mounted while closed (kit 0.8.0, round 8) |
+| `islandConnectionStatus(connection)` | `GatewayConnectionState \| null` | The status the top bar's identity reads: `connection.status`, else the console's `me` body on this origin; null unless `phase` is `"connected"` (shell, backlog 0036) |
 | `mountDrawerSystem(el, props)` | `IslandHandle` | Mounts the kit `AfDrawerSystem`; each panel's content is a host element (`element`) moved into the panel and kept alive (shell, backlog 0036) |
 | `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.4.0+) |
 | `mountWorkspaceChooser(el, props)` | `IslandHandle` | Mounts the kit `WorkspaceChooser` (`level`, `state`, `save`): the console's **Eligible workspaces** modal (`level: "gateway"`) and each account's Workspaces modal (`level: "account"`) (kit 0.8.3, round 11) |
@@ -133,7 +134,8 @@ type TopBarIslandProps = {
   }>;
   // Who is signed in, left of the pill (shell, backlog 0036): "badge" = icon + "<user>"
   // ("<tenant>/<user>" when the tenant is not "default"); "menu" = the same, opening
-  // "Signed in as … / Gateway <host>", Copy user id, Sign out (= onDisconnect).
+  // "Signed in as … / Gateway <host>", Copy user id, Disconnect (= onDisconnect).
+  // Rendered only while phase is "connected" (islandConnectionStatus).
   identity?: "badge" | "menu" | null;
   connection: {
     phase: "loading" | "connected" | "disconnected";
@@ -141,6 +143,7 @@ type TopBarIslandProps = {
     onConnect: () => void;
     onDisconnect: () => void;
     status?: GatewayConnectionState | null; // an app behind app-server: the connection probe's body
+    signOutError?: string | null;           // shown as "Disconnect failed" beside the pill
     me?: { ok?: boolean; principal?: {...}; auth?: {...}; routing?: {...} } | null; // the console: its own GET /api/gateway/me body
   };
 };

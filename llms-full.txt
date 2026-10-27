@@ -496,7 +496,7 @@ app code or fetch on their own (injected transports are the pattern where networ
 | Provider + model pickers | `ProviderModelPicker` (mode toggle + cascade) or `ProviderModelSelect` (plain pair) | Picker's "Gateway default" mode is the default; transports injected (`fetchProviders`/`fetchModels`) |
 | App shell (header + top-right cluster + side panels + nav) | `AfAppShell` (`topBar`, `drawers`, `nav`, children) | Composition of the rows below; the header publishes `--af-topbar-h` so every `topOffset: "auto"` drawer opens under it — delete app-side header measurers |
 | App top bar + About | `AfTopBarActions` with `connection={useGatewayConnection(...)}`, `identity="menu"`, `appearance={{ value, onChange }}`, `about={{ identity: appIdentity(id, version), fetch: fetchGateway }}` (or `AfAboutDialog` / inline `AfAbout` directly) | Order is the kit's (extras · docs · assistant · appearance · about · identity · pill); the cluster owns the Appearance and About dialogs and GETs `api/gateway/about` on open — delete app-local about fetchers; identity facts come from the kit's descriptor; the card shows no package list; `about.extra` for host controls inside the dialog |
-| Who is signed in | `AfTopBarActions` `identity="badge" \| "menu"` (+ `principalFromConnection`, `principalLabel`) | Reads `status.gateway.principal` (the gateway's `/me`); shows the user id (tenant only when not `default`) and the gateway host; the menu's **Sign out** = the pill's (`signOut()` then your `onSignOut` state wipe). The gateway serves no display name / e-mail / avatar |
+| Who is signed in | `AfTopBarActions` `identity="badge" \| "menu"` (+ `principalFromConnection`, `principalLabel`) | Reads `status.gateway.principal` (the gateway's `/me`), only while the pill is connected; shows the user id (tenant only when not `default`) and the gateway host in the kit tooltip; the menu's **Disconnect** = the pill's (`signOut()`, then your `onSignOut` state wipe only when the disconnect happened; a failure shows "Disconnect failed" beside the pill). The gateway serves no display name / e-mail / avatar |
 | Theme/typography pickers | `ThemeSelect`, `FontScaleSelect`, `HeaderDensitySelect` | Persisted user settings; see [Theming](./theming.md) |
 | Tool allowlist + approval editor | `ToolPolicyEditor` | Server-declared `default_approval` wins; `TOOL_POLICY_DEFAULTS` is the labeled fallback |
 | Phase × capability grid | `PhaseCapabilityMatrix` (+ framework-free core) | Payload-driven: render the server's `MatrixPayload`, never re-derive policy client-side |
@@ -1660,7 +1660,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Run steering: `SteerComposer` + `submitSteer()` (idempotent command ids, CSRF candidates)
 - Lists & badges: `DisclosureList` (tree list, roving tabindex), `AfChip` / `AfChipButton`
 - Rail drawer (0.8.0): `AfRailDrawer` — the vertical rail drawer lifted from AbstractEntity's side tabs and Continuum Teams' drawer rail: an icon rail (role `tablist`, vertical; 44 px icons with tooltips; Up/Down/Home/End) at the right edge of the host's content area; a click opens that panel beside the rail, the open icon (or the panel's collapse button) folds it back; the rail always stays. Docked from 1024 px (in the layout flow; width resizable by pointer — mouse, pen, touch with pointer capture — and by keyboard on a `separator`, persisted under `storageKey`), floating below (backdrop, Escape folds it with the consumed-event rule, focus returns to the icon). Panels visited once stay mounted. Props: `items: AfRailItem[]` (`id`, `label`, `icon`, `badge?`, `hint?`, `content`, `headerActions?`), `active`, `onActiveChange(id | null)`, `ariaLabel`, `storageKey?`, `defaultWidth?`/`minWidth?`/`maxWidth?`, `overlay?`, `idBase?` (ids `<idBase>-tab-<id>` / `<idBase>-panel-<id>`). The host's container needs `position: relative`. Pure rules: `railDrawerToggle()`, `railDrawerClampWidth()`, `railDrawerKeyWidth()`, `railDrawerNextIndex()`, `AF_RAIL_WIDTH`. Since the shell work (backlog 0036) it is a thin wrapper over `AfDrawerSystem` (same markup; a numeric width stored by 0.8.9 and earlier is read as every panel's width).
-- Drawer system (shell, backlog 0036): `AfDrawerSystem` — the app's side panels, generalising `AfRailDrawer`. Panels (`AfDrawerPanel` = `AfRailItem` + `side?: "right" | "left"`, `mode?: "rail" | "drawer"` (drawer = no rail tab, opened by the host, e.g. the top bar's docs button), `keepAlive?: "visited" | "always"`, `errorBoundary?` (default true: a panel that throws shows "The <label> panel stopped: <reason>" with **Try again**, the other panels keep working), `fill?` (no padding, no scrolling: a canvas owns the viewport), `minWidth?`/`maxWidth?`/`defaultWidth?`) are OPAQUE: the system never inspects `content` (ADR 0001 §6), so a flow-diagram or memory-graph panel (backlog 0037, 0038) mounts without an API change. Props: `panels`, `active` (one id, or `{left, right}`), `onActiveChange(id | null, side)`, `ariaLabel`, `storageKey?` (ONE key: each panel's width and, while docked only, the open panel per side), `overlayBelow?` (media query, default `AF_MEDIA.md`), `overlay?`, `topOffset?: "auto" | number` (anchors the overlay under the app header; `"auto"` = `var(--af-topbar-h)`), `railLabelStyle?: "icon" | "vertical-text"`, `request?` (`"id#nonce"`: opens a panel; a new nonce re-requests), `onResize?(id, width)`, `restoreActive?`, `idBase?`, `className?`, `children` (the content between the sides; required with left panels). Each side publishes `--af-panel-w`. `AfPanelHeaderActions` renders header actions from inside a panel's content (portal into the panel header; in place elsewhere). Pure rules: `railDrawerActiveFor`, `railDrawerSetActive`, `railDrawerParseRequest`, `railDrawerMounted`, `railDrawerReadStored` / `railDrawerWriteStored`, `railDrawerPanelWidth`, `railDrawerStoredActive`, `railDrawerTopOffset`, `railDrawerDragWidth`, `railDrawerKeyWidth(width, key, shift, min, max, side)` (`check_rail_viewer.mjs`).
+- Drawer system (shell, backlog 0036): `AfDrawerSystem` — the app's side panels, generalising `AfRailDrawer`. Panels (`AfDrawerPanel` = `AfRailItem` + `side?: "right" | "left"`, `mode?: "rail" | "drawer"` (drawer = no rail tab, opened by the host, e.g. the top bar's docs button), `keepAlive?: "visited" | "always"`, `errorBoundary?` (default true: a panel that throws shows "The <label> panel stopped: <reason>" with **Try again**, the other panels keep working), `fill?` (no padding, no scrolling: a canvas owns the viewport), `minWidth?`/`maxWidth?`/`defaultWidth?`) are OPAQUE: the system never inspects `content` (ADR 0001 §6), so a flow-diagram or memory-graph panel (backlog 0037, 0038) mounts without an API change. Props: `panels`, `active` (one id, or `{left, right}`), `onActiveChange(id | null, side)`, `ariaLabel`, `storageKey?` (ONE key: each panel's width and, while docked only, the open panel per side), `overlayBelow?` (media query, default `AF_MEDIA.md`), `overlay?`, `topOffset?: "auto" | number` (anchors the overlay under the app header; `"auto"` = `var(--af-topbar-h)`), `railLabelStyle?: "icon" | "vertical-text"`, `request?` (`"id#nonce"`: opens a panel; a new nonce re-requests), `onResize?(id, width)`, `restoreActive?`, `idBase?`, `className?`, `children` (the content between the sides; required with left panels). Each side publishes `--af-panel-w`. A panel's `headerActions` sit in their own small boundary (a failure shows a warning icon, not a broken header). `AfPanelHeaderActions` renders header actions from inside a panel's content (portal into the panel header; in place elsewhere). Pure rules: `railDrawerActiveFor`, `railDrawerSetActive`, `railDrawerParseRequest`, `railDrawerMounted`, `railDrawerReadStored` / `railDrawerWriteStored`, `railDrawerPanelWidth`, `railDrawerStoredActive`, `railDrawerTopOffset`, `railDrawerDragWidth`, `railDrawerKeyWidth(width, key, shift, min, max, side)` (`check_rail_viewer.mjs`).
 - App shell (shell, backlog 0036): `AfAppShell` (`topBar` = `AfTopBarActionsProps` + `brand?: {mark?, name, href?}` + `leading?`; `drawers?` = `AfDrawerSystemProps` (topOffset defaults to `"auto"`); `nav?: {label, content, open?, onOpenChange?, width?}` docked from 1024 px, an `AfDrawer` (left, backdrop, under the header) below it; `children` = the content). The header carries `data-af-topbar` (`check_app_shell.mjs`).
 - File viewer (0.8.0): `AfFileViewer` — one preview for every client: header (name with the path as tooltip, size, generated date relative with the exact time on hover, extra `actions`, Download and close icons) and a body by kind (`fileViewerKind(name, contentType)`: Markdown through the host's `renderMarkdown` — panel-chat `FileViewer` wires its `Markdown` —, code highlighted by `AfCodeBlock`, JSON pretty-printed, images, audio (kind `"audio"` for mp3, wav, ogg, oga, opus, m4a, aac, flac, weba or any `audio/*` type, played by `AfAudioPlayer`), PDF in an `<object>`, plain text; SVG and HTML show as source, never rendered). Presentational: the host passes text (`fileViewerNeedsText(kind)`) or an object URL (images, audio, PDF). `formatFileSize()`.
 - Audio player (0.8.0): `AfAudioPlayer` (`src`, `name?`, `peaks?`, `className?`) — the shared audio viewer: play/pause, a waveform you click or drag to seek, elapsed / total time. The waveform is decoded from `src` with the Web Audio API (pass `peaks` to skip decoding); when decoding is unavailable or fails, the bars stay flat with the reason in the waveform's tooltip and playback still works. Keyboard: the waveform is a `slider` (Left/Right ±5 s, Home/End, Space/Enter play or pause). Pure helpers: `audioPeaks(samples, bars?)` (normalised 0..1 per bar), `formatAudioTime(seconds)` (`"1:03"`, `"--:--"` when unknown), `audioSeekTime(x, width, duration)`, `AUDIO_WAVEFORM_BARS` (72).
@@ -1670,7 +1670,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Voice section (0.8.0): `AfVoiceSection` — the Assistant's Settings → Voice layout, four groups: **Engines** (Text → speech, Speech → text as `AfOverrideRow`s), **Output** (output device where `audioOutputSelectable()`, with a **Test** chime on the chosen speaker; Reply volume), **Microphone** (input device; **Test** records 3 s with a live level meter and plays it back, or says why it could not: blocked, no device, device gone, in use, silence; Spoken language, which rides on transcription requests and skips detection; Input level 50–150 % where Web Audio allows) and **Replies** (Read aloud switch; Voice latency from `VOICE_LATENCY_OPTIONS`, only when the gateway advertises `quality_preset`). Device names appear after one microphone permission (**Show names**). Safari cannot choose a speaker: the picker stays on System default and says so. Required prop `fetchDefaults: () => Promise<VoiceDefaults>` (`GET /api/gateway/voice/defaults`, the gateway's `output.voice` / `input.voice` routes) is the only source of "Gateway default · provider / model" ("not set" / "unknown" otherwise); `defaults` passes them when the host already holds them. Value `VoiceClientPreferences` (`VoicePreferences` + `stt_provider`, `stt_model`, `stt_language`, `output_device`, `input_device`, `input_gain`, `reply_volume`, `read_aloud`); `voiceTtsRequest()` / `voiceSttRequest()` pick what a request carries (`voiceSttRequest` sends `language`). `nested` renders its sub-sections flat. Helpers (`voice_devices.ts`): `voiceDefaultSummary`, `sttRouteText`, `transcribingLine`, `microphoneErrorSentence`, `listVoiceDevices`, `unlockDeviceLabels`, `recordSample`, `playTestTone`, `playOnDevice`.
 - Relative time (0.8.0): `formatRelativeTime(ts, nowMs)` ("just now", "5 min ago", "3 h ago", "yesterday", "4 days ago", then "Oct 2"; future "in 14 h"), `formatExactTime(ts)` ("Oct 2, 2026, 14:05"), `formatShortDate(ts, nowMs)`, `timeValueMs(ts)` — deterministic (the caller passes now), no seconds, no year within the same year.
 - Icons (0.8.0): `cog` (the usual settings gear; `settings` stays the sliders glyph), `activity` and `unarchive` (archive box with an up arrow).
-- App chrome: `AfTopBarActions` — the top-right cluster, in this enforced order: app `extraActions` · docs · assistant · appearance · about · identity · connection pill (always rightmost; pinned by `check_app_shell.mjs`). `connection` takes `useGatewayConnection()`'s return value (preferred: the pill and the identity menu's **Sign out** both call its `signOut()`, then the host's `onSignOut?`) or the legacy `AfTopBarConnection` `{phase, signingOut?, onConnect, onDisconnect, status?}`. Pill wording: Connect / Connecting… / Disconnect / Signing out… (`topBarPillText`). `identity?: "badge" | "menu" | false` — who is signed in (`principalLabel`), immediately left of the pill, nothing while signed out; `"menu"` = an `AfMenu` whose header says "Signed in as …" and "Gateway <host>", items **Copy user id** (only where the clipboard API exists) and **Sign out**. `appearance` = `{onOpen, label?}` (host dialog) or `{value, onChange, label?, title?, note?}` (the cluster renders `AfAppearanceDialog`). `about={{ identity, versions?, fetch?, extra?, onOpen?, label? }}` adds the About button and dialog; with `fetch` (the host's gateway fetch, `AfGatewayFetch`) and no `versions` the cluster GETs `api/gateway/about` each time the dialog opens (`fetchAboutVersions`, "checking…" while in flight, "unavailable (HTTP 401)" on failure); `extra` is host content in the dialog. The cluster publishes `--af-topbar-h` (its header's bottom edge; `useAfTopBarHeight`, `publishHeight={false}` opts out). `AfDrawer` (non-modal, keeps children mounted; `side="left"`, `backdrop`; full width below 768 px; `topOffset: number | "auto"`; focus moves in on open — `[data-autofocus]`, else the first text field, else the first control — and back to the opener on close, `manageFocus={false}` opts out), `AfAppearanceDialog` + `useAppearanceSettings()` / `appearanceStorageKey()` / `APPEARANCE_DEFAULTS`. `AfMenu` takes an optional non-interactive `header`.
+- App chrome: `AfTopBarActions` — the top-right cluster, in this enforced order: app `extraActions` · docs · assistant · appearance · about · identity · connection pill (always rightmost; pinned by `check_app_shell.mjs`). `connection` takes `useGatewayConnection()`'s return value (preferred: the pill and the identity menu's **Disconnect** both call its `signOut()`, then the host's `onSignOut?` ONLY when `signOut()` resolved true, i.e. the session is gone; its `signOutError` shows as "Disconnect failed" beside the pill) or the legacy `AfTopBarConnection` `{phase, signingOut?, onConnect, onDisconnect, status?, signOutError?}` (then `onDisconnect` alone runs; `onSignOut` is ignored). One verb for ending the session: pill Connect / Connecting… / Disconnect / Disconnecting… (`topBarPillText`; accessible name "Disconnect from gateway"), menu item **Disconnect**. `identity?: "badge" | "menu" | false` — who is signed in (`principalLabel`), immediately left of the pill, only while the phase is connected, explained by the kit tooltip (`data-af-tip`, no native title); `"menu"` = an `AfMenu` whose header says "Signed in as …" and "Gateway <host>", items **Copy user id** (only where the clipboard API exists) and **Disconnect**. `appearance` = `{onOpen, label?}` (host dialog) or `{value, onChange, label?, title?, note?}` (the cluster renders `AfAppearanceDialog`). `about={{ identity, versions?, fetch?, extra?, onOpen?, label? }}` adds the About button and dialog; with `fetch` (the host's gateway fetch, `AfGatewayFetch`) and no `versions` the cluster GETs `api/gateway/about` each time the dialog opens (`fetchAboutVersions`, "checking…" while in flight, "unavailable (HTTP 401)" on failure; an answer after close is dropped); `extra` is host content in the dialog. The cluster publishes `--af-topbar-h` (its header's bottom edge, viewport-relative; updated on the header's resize, window resize and scroll; removed on unmount unless another publisher wrote it since; `useAfTopBarHeight`, `publishHeight={false}` opts out). `AfDrawer` (non-modal, keeps children mounted; `side="left"`, `backdrop`; full width below 768 px; `topOffset: number | "auto"`; **behaviour change**: focus now moves in on open — `[data-autofocus]`, else the first text field (skipped on touch screens, so no soft keyboard), else the first control, else the drawer — and back to the opener on close when focus was inside; `manageFocus={false}` opts out), `AfAppearanceDialog` + `useAppearanceSettings()` / `appearanceStorageKey()` / `APPEARANCE_DEFAULTS`. `AfMenu` takes an optional non-interactive `header` and a kit tooltip `tip`. `useGatewayConnection().signOut()` now resolves `true` when the session is gone, `false` otherwise (never rejects).
 - About (0.8.0): `AfAbout` (inline card: `identity`, `versions?`, `titleId?`, `action?`, `extra?` (host content under the links, e.g. the console's update and restart controls), `className?`) and `AfAboutDialog` (`open`, `onClose`, `identity`, `versions?`, `extra?`; modal, Escape and a click outside close it, Close button in the heading row). The card shows the app's name and version, the AbstractFramework and AbstractGateway versions, six links (Website, Source, Docs, Issues, Feedback, and Contact as a mailto) and the copyright and licence line — never a package list. `versions: AfAboutVersions` = `{ framework?, frameworkNote?, gateway?, gatewayNote? }`; a missing version shows its note, else "not reported" / "not connected". `aboutVersionsFromGateway(payload | null, error?)` builds it from `GET /api/gateway/about` (only the framework and gateway versions are read; "not installed on the gateway host" when the gateway reports no framework; "unavailable (reason)" on failure). Helpers `aboutLinks(identity)`, `aboutVersionFacts(versions)`, `fetchAboutVersions(fetchGateway)` (never throws), `ABOUT_VERSIONS_CHECKING`.
 - Identity: `appIdentity(id, version): AppIdentity` (throws on an unknown id), `frameworkIdentity(): FrameworkIdentity`, `knownAppIds()`, `aboutRows(identity, extra?): AboutRow[]` (the ordered About rows, same as the Python `abstractcore.utils.identity.about_fields`), `gatewayVersionRows(payload: GatewayAboutPayload | null, error?: string): AboutRow[]` (the connected gateway's version rows from `GET /api/gateway/about`) — both kept for parity with the Python twins; the About card does not render rows; types `AppIdentity`, `FrameworkIdentity`, `AboutRow`, `GatewayAboutPayload`. See [About dialog and identity](../ui-kit/README.md#about-dialog-and-identity)
 - CSRF helpers: `readGatewayCsrfToken()`, `readGatewayCsrfTokens()`
@@ -1712,7 +1712,7 @@ Purpose: chat-thread UI primitives with lightweight Markdown/JSON rendering.
 - CSS: `@abstractframework/panel-chat/panel_chat.css` (file: `panel-chat/src/panel_chat.css`)
 
 Components:
-- `DocsAssistantDrawer` (0.4.0) — the Docs assistant of the console and every app: kit drawer + panel-chat thread (user right, assistant left; Markdown, code, JSON, links, images per the image policy; copy), attachments (`attachments/upload` to the conversation's session → `context.attachments`), streaming (`llm.delta` on `runs/{id}/ledger/stream`), Stop, icon-only New conversation and close, one-line grounding footer. Props `open`, `onClose`, `source: { app, name }`, `fetchGateway`, `connected`, `suggestions?`, `placeholder?`, `width?`, `topOffset?`, `className?`. Grounding: `GET api/gateway/docs/corpus?app=<id>` → the shipped `docs-qa` workflow (`DOCS_QA_WORKFLOW`); one gateway session per conversation. `topOffset` also takes `"auto"`. In an `AfDrawerSystem`: `docsAssistantPanel(source, fetchGateway, { connected, suggestions?, placeholder?, ask?, id?, label?, mode?, side?, defaultWidth? })` returns an `AfDrawerPanel` (drawer mode, kept alive) whose content, `DocsAssistantPanelContent`, is the same conversation with its header actions in the panel header (shell, backlog 0036). Exports `DocsAssistantPanel` (stateless view), `makeDocsQaAsk`, `docsQaStartBody`, `docsCorpusPath`, `docsAnswerFromRun`, `docsReplayNote`, `newDocsSessionId`, `sseFrames`
+- `DocsAssistantDrawer` (0.4.0) — the Docs assistant of the console and every app: kit drawer + panel-chat thread (user right, assistant left; Markdown, code, JSON, links, images per the image policy; copy), attachments (`attachments/upload` to the conversation's session → `context.attachments`), streaming (`llm.delta` on `runs/{id}/ledger/stream`), Stop, icon-only New conversation and close, one-line grounding footer. Props `open`, `onClose`, `source: { app, name }`, `fetchGateway`, `connected`, `suggestions?`, `placeholder?`, `width?`, `topOffset?`, `className?`. Grounding: `GET api/gateway/docs/corpus?app=<id>` → the shipped `docs-qa` workflow (`DOCS_QA_WORKFLOW`); one gateway session per conversation. `topOffset` also takes `"auto"`; `manageFocus` (default false: the drawer keeps its earlier focus behaviour) opts into the kit drawer's focus handling. In an `AfDrawerSystem`: `docsAssistantPanel(source, fetchGateway, { connected, suggestions?, placeholder?, ask?, id?, label?, mode?, side?, defaultWidth? })` returns an `AfDrawerPanel` (drawer mode, kept alive) whose content, `DocsAssistantPanelContent`, is the same conversation with its header actions in the panel header (shell, backlog 0036). Exports `DocsAssistantPanel` (stateless view), `makeDocsQaAsk`, `docsQaStartBody`, `docsCorpusPath`, `docsAnswerFromRun`, `docsReplayNote`, `newDocsSessionId`, `sseFrames`
 - `AssistantPanel` (docs Q&A surface with an injected `ask(question, { signal, history })` transport returning a Promise or an AsyncIterable of deltas; never fetches); `assistantDrawerPanel({ ask, assistantName?, …, id?, label?, icon?, mode?, side?, defaultWidth? })` returns it as an `AfDrawerPanel` (drawer mode, kept alive) for an app assistant such as Continuum's advisor (shell, backlog 0036)
 - `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions; `streamReplies?: "gateway_default" | "on" | "off"`); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
 - Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry), the event-name constants `LLM_DELTA_EVENT` / `LLM_DELTA_END_EVENT`; types `LlmDelta`, `LlmDeltaEnd`, `LlmDeltaEvent`, `LlmDeltaChannel`, `LlmDeltaEndReason`, `LlmStreamUnavailableDetail`, `StreamRepliesMode`; controller option `liveRenderIntervalMs` (default 60, also on `useWorkflowSession`). See [panel-chat README](../panel-chat/README.md#live-replies-streaming)
@@ -3679,6 +3679,7 @@ Serve both files from your own origin; the paths above are examples.
 | `mountAppearance(el, props)` | `IslandHandle` | Mounts `AfAppearanceDialog` into `el` |
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
 | `mountDocsAssistant(el, props)` | `IslandHandle` | Mounts panel-chat's `DocsAssistantDrawer` (the same Docs assistant every app mounts; the console passes `source: {app: "gateway", name: "AbstractGateway"}` and its own `fetchGateway`); keep it mounted while closed (kit 0.8.0, round 8) |
+| `islandConnectionStatus(connection)` | `GatewayConnectionState \| null` | The status the top bar's identity reads: `connection.status`, else the console's `me` body on this origin; null unless `phase` is `"connected"` (shell, backlog 0036) |
 | `mountDrawerSystem(el, props)` | `IslandHandle` | Mounts the kit `AfDrawerSystem`; each panel's content is a host element (`element`) moved into the panel and kept alive (shell, backlog 0036) |
 | `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.4.0+) |
 | `mountWorkspaceChooser(el, props)` | `IslandHandle` | Mounts the kit `WorkspaceChooser` (`level`, `state`, `save`): the console's **Eligible workspaces** modal (`level: "gateway"`) and each account's Workspaces modal (`level: "account"`) (kit 0.8.3, round 11) |
@@ -3720,7 +3721,8 @@ type TopBarIslandProps = {
   }>;
   // Who is signed in, left of the pill (shell, backlog 0036): "badge" = icon + "<user>"
   // ("<tenant>/<user>" when the tenant is not "default"); "menu" = the same, opening
-  // "Signed in as … / Gateway <host>", Copy user id, Sign out (= onDisconnect).
+  // "Signed in as … / Gateway <host>", Copy user id, Disconnect (= onDisconnect).
+  // Rendered only while phase is "connected" (islandConnectionStatus).
   identity?: "badge" | "menu" | null;
   connection: {
     phase: "loading" | "connected" | "disconnected";
@@ -3728,6 +3730,7 @@ type TopBarIslandProps = {
     onConnect: () => void;
     onDisconnect: () => void;
     status?: GatewayConnectionState | null; // an app behind app-server: the connection probe's body
+    signOutError?: string | null;           // shown as "Disconnect failed" beside the pill
     me?: { ok?: boolean; principal?: {...}; auth?: {...}; routing?: {...} } | null; // the console: its own GET /api/gateway/me body
   };
 };
@@ -4121,9 +4124,9 @@ const [appearance, setAppearance] = useAppearanceSettings("my-app", { legacyKey:
   assistant={{ open: drawerOpen, onToggle: () => setDrawerOpen((v) => !v) }}
   appearance={{ value: appearance, onChange: setAppearance }}       // the cluster owns the dialog
   about={{ identity: appIdentity("abstractflow", APP_VERSION), fetch: fetchGateway }} // GET api/gateway/about on open
-  identity="menu"                                                    // Signed in as … · Copy user id · Sign out
+  identity="menu"                                                    // Signed in as … · Copy user id · Disconnect
   connection={conn}                                                  // the hook's return value
-  onSignOut={wipeAppState}                                           // after conn.signOut()
+  onSignOut={wipeAppState}                                           // only after a disconnect that happened
 />
 <AfDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} label="Assistant" title="Assistant" topOffset="auto">
   <AssistantPanel ask={myTransport} blockedNotice={conn.connected ? undefined : "Connect to use the assistant."} />
@@ -7019,9 +7022,10 @@ export function railDrawerMounted(panel: Pick<AfDrawerPanel, "id" | "keepAlive">
 export type AfDrawerStored = { widths: Record<string, number>; active: { left?: string | null; right?: string | null }; legacyWidth?: number };
 
 /**
- * Parse the stored state: `{"v":1,"widths":{id:px},"active":{"right":id}}`; a
- * bare number (AfRailDrawer ≤ 0.8.9 stored one width) becomes every panel's
- * width; anything unreadable is empty.
+ * Parse the stored state: `{"v":1,"widths":{id:px},"active":{"right":id},"legacy":px}`;
+ * a bare number (AfRailDrawer ≤ 0.8.9 stored one width) becomes every panel's
+ * width (`legacyWidth`, kept as `"legacy"` on every write so a panel that has
+ * no width of its own keeps it); anything unreadable is empty.
  */
 export function railDrawerReadStored(raw: string | null | undefined): AfDrawerStored {
   const empty: AfDrawerStored = { widths: {}, active: {} };
@@ -7040,14 +7044,15 @@ export function railDrawerReadStored(raw: string | null | undefined): AfDrawerSt
         if (typeof v === "string" || v === null) active[side] = v;
       }
     }
-    return { widths, active };
+    const legacy = typeof o.legacy === "number" && Number.isFinite(o.legacy) ? o.legacy : undefined;
+    return legacy === undefined ? { widths, active } : { widths, active, legacyWidth: legacy };
   } catch {
     return empty;
   }
 }
 
 export function railDrawerWriteStored(stored: AfDrawerStored): string {
-  return JSON.stringify({ v: 1, widths: stored.widths, active: stored.active });
+  return JSON.stringify({ v: 1, widths: stored.widths, active: stored.active, ...(stored.legacyWidth !== undefined ? { legacy: stored.legacyWidth } : {}) });
 }
 
 /** A panel's width: stored for it, else the legacy single width, else its default; clamped to its bounds. */
@@ -7098,7 +7103,12 @@ export function AfPanelHeaderActions(props: { children?: React.ReactNode }): Rea
 
 // ------------------------------------------------------------ error boundary
 
-type BoundaryProps = { label: string; children?: React.ReactNode };
+type BoundaryProps = {
+  label: string;
+  /** "panel" (default) = the labeled notice + Try again; "inline" = a small warning icon (panel header actions). */
+  variant?: "panel" | "inline";
+  children?: React.ReactNode;
+};
 type BoundaryState = { error: Error | null };
 
 /** One panel's error boundary: a failure shows a labeled notice in that panel only. */
@@ -7112,6 +7122,14 @@ export class AfPanelErrorBoundary extends React.Component<BoundaryProps, Boundar
   render(): React.ReactNode {
     const { error } = this.state;
     if (!error) return this.props.children;
+    if (this.props.variant === "inline") {
+      const text = `The ${this.props.label} panel's actions stopped: ${error.message || "unknown error"}`;
+      return (
+        <span className="af-rail__error-inline" role="img" aria-label={text} data-af-tip={text} data-panel-error="actions">
+          <Icon name="warning" size={16} />
+        </span>
+      );
+    }
     return (
       <div className="af-rail__error" role="alert" data-panel-error="">
         <p className="af-rail__error-text">
@@ -7170,7 +7188,13 @@ function PanelSection(props: {
       <header className="af-rail__head">
         <h2 className="af-rail__title">{panel.label}</h2>
         <span className="af-rail__head-actions">
-          {panel.headerActions}
+          {panel.headerActions === undefined || panel.headerActions === null ? null : panel.errorBoundary === false ? (
+            panel.headerActions
+          ) : (
+            <AfPanelErrorBoundary label={panel.label} variant="inline">
+              {panel.headerActions}
+            </AfPanelErrorBoundary>
+          )}
           <span className="af-rail__head-slot" ref={setSlot} />
           <button
             type="button"
@@ -8533,9 +8557,12 @@ export type GatewayConnection = {
   /**
    * Sign out through the machine (settings pages that bypass the modal —
    * observer's adoption datum c1323): server-side sign-out, then a fresh
-   * probe so phase/auto-open react to the REAL resulting state.
+   * probe so phase/auto-open react to the REAL resulting state. Never
+   * rejects; resolves true when the sign-out happened (the request succeeded
+   * and the follow-up probe no longer reports a session), false otherwise
+   * (`signOutError` says why when the request failed).
    */
-  signOut: () => Promise<void>;
+  signOut: () => Promise<boolean>;
   /** Spread into <GatewayConnectModal {...modalProps} />. */
   modalProps: {
     isOpen: boolean;
@@ -8686,6 +8713,7 @@ export function useGatewayConnection(options?: UseGatewayConnectionOptions): Gat
     }
     setSignOutError(failed);
     setSigningOut(false);
+    return failed === null && phaseRef.current !== "connected";
   }, [connectionPath, refresh]);
 
   const booted = useRef(false);
@@ -10621,6 +10649,8 @@ export type TopBarIslandProps = {
     onDisconnect: () => void;
     /** The app server's connection status (apps behind app-server). */
     status?: GatewayConnectionState | null;
+    /** The last disconnect's failure, rendered beside the pill. */
+    signOutError?: string | null;
     /**
      * The gateway's own `GET /api/gateway/me` body (routes/gateway.py:351-365),
      * for a host on the gateway's origin (the console): read as a signed-in
@@ -10632,6 +10662,8 @@ export type TopBarIslandProps = {
 
 /** The connection status an island renders: `status`, else the console's `/me` body on this origin. */
 export function islandConnectionStatus(c: TopBarIslandProps["connection"]): GatewayConnectionState | null {
+  // Never a connected identity beside a pill that is not connected (a stale `me` after sign-out).
+  if (c.phase !== "connected") return null;
   if (c.status !== undefined) return c.status;
   const me = c.me;
   if (!me || me.ok === false) return null;
@@ -11063,6 +11095,8 @@ const api = {
   mountVoiceSettings,
   mountDocsAssistant,
   mountDrawerSystem,
+  // The identity source the top bar island reads (shell, 0036): exposed so hosts and checks see the rule.
+  islandConnectionStatus,
   mountWorkspaceChooser,
   mountTimeZonePicker,
   // The chooser's ONE wording table and its answer parser (round 11): the console builds the
@@ -17383,13 +17417,18 @@ ships.
 ### shell: the app shell — identity, the top-right order, the drawer system (backlog 0036, ADR 0001)
 
 - **Who is signed in** in the top-right cluster: `AfTopBarActions` `identity="badge" | "menu"`
-  (the menu: "Signed in as …", "Gateway <host>", **Copy user id**, **Sign out**), read from the
+  (the menu: "Signed in as …", "Gateway <host>", **Copy user id**, **Disconnect**; kit tooltip), read from the
   connection status's `gateway.principal` (the gateway's `GET /api/gateway/me`): `AfPrincipal`,
   `principalFromConnection`, `principalLabel` (user id; `tenant/` only when the tenant is not
   `default`), `gatewayHostLabel`. `GatewayConnectionState.gateway` now types `principal` (tenant,
   roles, scopes, source, admin, …), `auth` and `routing`.
 - `AfTopBarActions.connection` takes `useGatewayConnection()`'s return value; the pill and the
-  menu's Sign out call its `signOut()`, then the new `onSignOut`. **Order changed and pinned**:
+  menu's Disconnect call its `signOut()`, then the new `onSignOut` only when the disconnect happened
+  (`useGatewayConnection().signOut()` now resolves `true` / `false`, never rejects; with the legacy
+  `connection` shape `onSignOut` is ignored and `onDisconnect` alone runs). A failed disconnect shows
+  "Disconnect failed" beside the pill. The identity renders only while the phase is connected.
+  **One verb**: the in-flight pill now reads "Disconnecting…" (was "Signing out…"), matching
+  "Disconnect" in the pill and the menu. **Order changed and pinned**:
   extras · docs · assistant · appearance · about · identity · pill (app `extraActions` now lead the
   cluster instead of sitting before the pill). The pill's wording is pinned.
 - The cluster owns the Appearance dialog when given `appearance={{ value, onChange }}`; `about.fetch`
@@ -17397,19 +17436,26 @@ ships.
   `about.extra` / `AfAbout.extra` / `AfAboutDialog.extra` hold host content in the dialog. `AfMenu`
   takes a non-interactive `header`.
 - `--af-topbar-h`: the cluster publishes its header's bottom edge; `AfDrawer` and the drawer system
-  take `topOffset: "auto"`. `AfDrawer` moves focus in on open and back to the opener on close
-  (`manageFocus={false}` opts out).
+  take `topOffset: "auto"`; the variable is removed when the cluster unmounts. **Behaviour change**:
+  `AfDrawer` now moves focus in on open (a text field is skipped on touch screens) and back to the
+  opener on close when focus was inside (`manageFocus={false}` opts out). `DocsAssistantDrawer`
+  keeps its earlier behaviour (`manageFocus` default false; opt in with `manageFocus`).
 - `AfDrawerSystem`: left and right panels, rail or drawer mode, vertical-text tabs, `keepAlive`
   "visited" | "always", a per-panel error boundary, `fill` canvas panels (`--af-panel-w`,
   `onResize`), per-panel widths and the docked-only open panel under one storage key, a
   `request: "id#nonce"`; `AfPanelHeaderActions`. `AfRailDrawer` is now a thin wrapper over it (same
-  markup; a numeric width stored by 0.8.9 is kept). `AfAppShell` composes header, cluster, drawer
-  system and nav.
+  markup; a numeric width stored by 0.8.9 is kept, including across later writes). **Behaviour
+  changes of the wrapper**: widths are now per panel (0.8.9 shared one width across all panels; the
+  stored legacy width stays every panel's width until that panel is resized), and the wrapper now
+  writes the open panel into its `storageKey` (it still never restores it: `restoreActive={false}`).
+  A panel's `headerActions` render inside a small error boundary too. `AfAppShell` composes header,
+  cluster, drawer system and nav.
 - panel-chat: `docsAssistantPanel(source, fetchGateway, opts)` / `DocsAssistantPanelContent` and
   `assistantDrawerPanel(opts)` (drawer-system panels; `DocsAssistantDrawer` is unchanged and
   takes `topOffset: "auto"`).
 - Console islands: `TopBarIslandProps.identity` (+ `connection.status` / `connection.me`, the
-  console's own `/me` body) and `mountDrawerSystem`; apiVersion stays "2".
+  console's own `/me` body, `connection.signOutError`), `islandConnectionStatus` (null unless the
+  phase is connected) and `mountDrawerSystem`; apiVersion stays "2".
 - Checks: `check_app_shell.mjs`, `check_gateway_connection.mjs` (the connection hook's behaviour,
   first check of it), drawer-system block in `check_rail_viewer.mjs`, About fetch/extra in
   `check_about.mjs`, panel-chat `check_docs_panel.mjs`.

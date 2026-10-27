@@ -157,9 +157,9 @@ const [appearance, setAppearance] = useAppearanceSettings("my-app", { legacyKey:
   assistant={{ open: drawerOpen, onToggle: () => setDrawerOpen((v) => !v) }}
   appearance={{ value: appearance, onChange: setAppearance }}       // the cluster owns the dialog
   about={{ identity: appIdentity("abstractflow", APP_VERSION), fetch: fetchGateway }} // GET api/gateway/about on open
-  identity="menu"                                                    // Signed in as … · Copy user id · Sign out
+  identity="menu"                                                    // Signed in as … · Copy user id · Disconnect
   connection={conn}                                                  // the hook's return value
-  onSignOut={wipeAppState}                                           // after conn.signOut()
+  onSignOut={wipeAppState}                                           // only after a disconnect that happened
 />
 <AfDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} label="Assistant" title="Assistant" topOffset="auto">
   <AssistantPanel ask={myTransport} blockedNotice={conn.connected ? undefined : "Connect to use the assistant."} />
