@@ -42,8 +42,15 @@ export type AfMenuProps = {
   buttonContent?: React.ReactNode;
   /** Tooltip on the button (e.g. why an expected action is absent). */
   title?: string;
+  /** Kit tooltip on the button (`data-af-tip`, no native title). Additive (shell, 0036). */
+  tip?: string;
   className?: string;
   buttonClassName?: string;
+  /**
+   * Non-interactive text at the top of the list (e.g. who is signed in and
+   * on which gateway). Not a menu item: arrow keys skip it. Additive (shell, 0036).
+   */
+  header?: React.ReactNode;
 };
 
 export function AfMenu(props: AfMenuProps): React.ReactElement | null {
@@ -66,12 +73,18 @@ export function AfMenu(props: AfMenuProps): React.ReactElement | null {
         className={`af-menu__button${props.buttonClassName ? ` ${props.buttonClassName}` : ""}`}
         aria-label={props.label}
         title={props.title}
+        data-af-tip={props.tip}
         aria-haspopup="menu"
         aria-expanded="false"
       >
         {props.buttonContent !== undefined ? props.buttonContent : <span aria-hidden="true">⋯</span>}
       </button>
       <div className="af-menu__list" role="menu" ref={listRef} hidden>
+        {props.header !== undefined && props.header !== null ? (
+          <div className="af-menu__header" role="presentation">
+            {props.header}
+          </div>
+        ) : null}
         {visible.map((item) => (
           <button
             key={item.id}

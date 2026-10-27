@@ -24,7 +24,7 @@
 // the component never builds credentials.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { AfDrawer, Icon, formatRelativeTime, gatewayApiPath, randomId, useAfTooltips } from "@abstractframework/ui-kit";
+import { AfDrawer, AfPanelHeaderActions, Icon, formatRelativeTime, gatewayApiPath, randomId, useAfTooltips, type AfDrawerPanel } from "@abstractframework/ui-kit";
 
 import { ChatComposer } from "./chat_composer.js";
 import { ChatThread } from "./chat_thread.js";
@@ -512,9 +512,8 @@ export function DocsAssistantPanel(props: DocsAssistantPanelProps): React.ReactE
   );
 }
 
-export type DocsAssistantDrawerProps = {
-  open: boolean;
-  onClose: () => void;
+/** What the docs assistant needs, wherever it is mounted (drawer or drawer-system panel). */
+export type DocsAssistantChatProps = {
   source: DocsAssistantSource;
   /** The host's gateway fetch (relative `api/gateway/...` paths). */
   fetchGateway: GatewayFetch;
@@ -522,11 +521,22 @@ export type DocsAssistantDrawerProps = {
   connected: boolean;
   suggestions?: string[];
   placeholder?: string;
-  width?: number;
-  topOffset?: number;
-  className?: string;
   /** Test seam: replaces the docs-qa transport. */
   ask?: DocsAsk;
+};
+
+export type DocsAssistantDrawerProps = DocsAssistantChatProps & {
+  open: boolean;
+  onClose: () => void;
+  width?: number;
+  topOffset?: number | "auto";
+  className?: string;
+  /**
+   * Move focus into the drawer on open and back on close (the kit AfDrawer's
+   * focus handling). Default false: the drawer keeps its pre-0036 behaviour
+   * (no soft keyboard on open; apps with their own focus hook are not doubled).
+   */
+  manageFocus?: boolean;
 };
 
 function now(): string {
@@ -534,10 +544,11 @@ function now(): string {
 }
 
 /**
- * The drawer every surface mounts (keep it mounted while closed: the kit's
- * keep-alive contract keeps the conversation and an in-flight answer).
+ * The docs assistant's state and its two halves: the header actions (Past
+ * conversations, New conversation) and the body (history list or chat). The
+ * drawer and the drawer-system panel render the same two halves.
  */
-export function DocsAssistantDrawer(props: DocsAssistantDrawerProps): React.ReactElement {
+function useDocsAssistantChat(props: DocsAssistantChatProps): { headerActions: React.ReactElement; body: React.ReactElement } {
   useAfTooltips();
   const { source } = props;
   const fetchRef = useRef(props.fetchGateway);
@@ -682,43 +693,30 @@ export function DocsAssistantDrawer(props: DocsAssistantDrawerProps): React.Reac
     setNotice("");
   };
 
-  return (
-    <AfDrawer
-      open={props.open}
-      onClose={props.onClose}
-      label="Docs assistant"
-      title={
-        <span className="pc-docs-assistant__title">
-          <Icon name="book" size={16} />
-          Docs assistant
-        </span>
-      }
-      width={props.width || 420}
-      topOffset={props.topOffset}
-      className={`pc-docs-assistant-drawer${props.className ? ` ${props.className}` : ""}`}
-      headerActions={
-        <>
-          <button
-            type="button"
-            className={`pc-docs-assistant__icon-btn${historyOpen ? " is-active" : ""}`}
-            aria-label="Past conversations"
-            data-af-tip="Past conversations"
-            aria-pressed={historyOpen}
-            disabled={!props.connected || busy}
-            onClick={() => {
-              const next = !historyOpen;
-              setHistoryOpen(next);
-              if (next) void refreshHistory();
-            }}
-          >
-            <Icon name="history" size={16} />
-          </button>
-          <button type="button" className="pc-docs-assistant__icon-btn" aria-label="New conversation" data-af-tip="Start a new conversation" disabled={!messages.length && !draft && !files.length && !historyOpen} onClick={() => { newConversation(); setHistoryOpen(false); }}>
-            <Icon name="compose" size={16} />
-          </button>
-        </>
-      }
-    >
+  const headerActions = (
+    <>
+      <button
+        type="button"
+        className={`pc-docs-assistant__icon-btn${historyOpen ? " is-active" : ""}`}
+        aria-label="Past conversations"
+        data-af-tip="Past conversations"
+        aria-pressed={historyOpen}
+        disabled={!props.connected || busy}
+        onClick={() => {
+          const next = !historyOpen;
+          setHistoryOpen(next);
+          if (next) void refreshHistory();
+        }}
+      >
+        <Icon name="history" size={16} />
+      </button>
+      <button type="button" className="pc-docs-assistant__icon-btn" aria-label="New conversation" data-af-tip="Start a new conversation" disabled={!messages.length && !draft && !files.length && !historyOpen} onClick={() => { newConversation(); setHistoryOpen(false); }}>
+        <Icon name="compose" size={16} />
+      </button>
+    </>
+  );
+  const body = (
+    <>
       {historyOpen ? (
         <div className="pc-docs-assistant pc-docs-assistant--history">
           <DocsHistoryList items={history.items} state={history.state} error={history.error} nowMs={Date.now()} activeSessionId={session.current} onOpen={(i) => void openPast(i)} onArchive={(i) => void archivePast(i)} />
@@ -750,8 +748,83 @@ export function DocsAssistantDrawer(props: DocsAssistantDrawerProps): React.Reac
         placeholder={props.placeholder}
       />
       </div>
+    </>
+  );
+  return { headerActions, body };
+}
+
+/**
+ * The drawer every surface mounts (keep it mounted while closed: the kit's
+ * keep-alive contract keeps the conversation and an in-flight answer).
+ */
+export function DocsAssistantDrawer(props: DocsAssistantDrawerProps): React.ReactElement {
+  const { headerActions, body } = useDocsAssistantChat(props);
+  return (
+    <AfDrawer
+      open={props.open}
+      onClose={props.onClose}
+      label="Docs assistant"
+      title={
+        <span className="pc-docs-assistant__title">
+          <Icon name="book" size={16} />
+          Docs assistant
+        </span>
+      }
+      width={props.width || 420}
+      topOffset={props.topOffset}
+      manageFocus={props.manageFocus === true}
+      className={`pc-docs-assistant-drawer${props.className ? ` ${props.className}` : ""}`}
+      headerActions={headerActions}
+    >
+      {body}
     </AfDrawer>
   );
+}
+
+/**
+ * The docs assistant as the content of an AfDrawerSystem panel: the same
+ * conversation as the drawer, its header actions in the panel's header
+ * (`AfPanelHeaderActions`). Mount it through `docsAssistantPanel(...)`.
+ */
+export function DocsAssistantPanelContent(props: DocsAssistantChatProps): React.ReactElement {
+  const { headerActions, body } = useDocsAssistantChat(props);
+  return (
+    <div className="pc-docs-assistant-panel">
+      <AfPanelHeaderActions>{headerActions}</AfPanelHeaderActions>
+      {body}
+    </div>
+  );
+}
+
+export type DocsAssistantPanelOptions = Omit<DocsAssistantChatProps, "source" | "fetchGateway"> & {
+  /** Panel id (default "docs"). */
+  id?: string;
+  /** Panel label (default "Docs assistant"). */
+  label?: string;
+  /** "drawer" (default: opened by the top bar's book button) or "rail" (a rail tab). */
+  mode?: "drawer" | "rail";
+  side?: "left" | "right";
+  defaultWidth?: number;
+};
+
+/**
+ * The docs assistant as an AfDrawerSystem panel (ADR 0001 §6: an opaque
+ * `{id, label, icon, content}`): kept alive ("always") so the conversation and
+ * an in-flight answer survive closing. Toggle it with the top bar's `docs`
+ * button: `docs={{open: active === "docs", onToggle: () => setActive(a => a === "docs" ? null : "docs")}}`.
+ */
+export function docsAssistantPanel(source: DocsAssistantSource, fetchGateway: GatewayFetch, opts: DocsAssistantPanelOptions): AfDrawerPanel {
+  const { id, label, mode, side, defaultWidth, ...chat } = opts;
+  return {
+    id: id || "docs",
+    label: label || "Docs assistant",
+    icon: "book",
+    mode: mode || "drawer",
+    side: side || "right",
+    keepAlive: "always",
+    defaultWidth: defaultWidth ?? 420,
+    content: <DocsAssistantPanelContent source={source} fetchGateway={fetchGateway} {...chat} />,
+  };
 }
 
 export default DocsAssistantDrawer;

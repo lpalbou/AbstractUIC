@@ -17,6 +17,7 @@
 // - conversation state lives HERE (the host drawer keeps the panel mounted
 //   when closed, so history survives close/reopen — statement 10).
 import React, { useMemo, useRef, useState } from "react";
+import type { AfDrawerPanel, IconName } from "@abstractframework/ui-kit";
 import { ChatThread } from "./chat_thread.js";
 import { ChatComposer } from "./chat_composer.js";
 import type { ChatMessage } from "./chat_message_card.js";
@@ -181,6 +182,38 @@ export function AssistantPanel(props: AssistantPanelProps): React.ReactElement {
       </div>
     </div>
   );
+}
+
+export type AssistantDrawerPanelOptions = AssistantPanelProps & {
+  /** Panel id (default "assistant"). */
+  id?: string;
+  /** Panel label (default `assistantName`, else "Assistant"). */
+  label?: string;
+  /** Default "sparkle" (the top bar's assistant icon). */
+  icon?: IconName;
+  /** "drawer" (default: opened by the top bar's assistant button) or "rail". */
+  mode?: "drawer" | "rail";
+  side?: "left" | "right";
+  defaultWidth?: number;
+};
+
+/**
+ * An app assistant (e.g. Continuum's advisor) as an AfDrawerSystem panel
+ * (ADR 0001 §6: an opaque `{id, label, icon, content}`), kept alive so the
+ * conversation survives closing. Toggle it with the top bar's `assistant` button.
+ */
+export function assistantDrawerPanel(opts: AssistantDrawerPanelOptions): AfDrawerPanel {
+  const { id, label, icon, mode, side, defaultWidth, ...panel } = opts;
+  return {
+    id: id || "assistant",
+    label: label || panel.assistantName || "Assistant",
+    icon: icon || "sparkle",
+    mode: mode || "drawer",
+    side: side || "right",
+    keepAlive: "always",
+    defaultWidth: defaultWidth ?? 420,
+    content: <AssistantPanel {...panel} />,
+  };
 }
 
 export default AssistantPanel;
