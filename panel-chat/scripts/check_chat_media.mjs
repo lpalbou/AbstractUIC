@@ -138,6 +138,13 @@ check("the card's stats prop wins over message.stats", propStats.includes("prop"
     ["image/svg+xml", "image"],
     ["text/xml", "data.txt"],
     ["application/rss+xml", "feed"],
+    // Review N1b: an XSL stylesheet renders as an XML document and runs its script.
+    // Allowlist, not denylist: an unknown or unlisted type gets no blob link.
+    ["text/xsl", "notes.txt"],
+    ["text/xsl", ""],
+    ["text/vnd.unknown", "a.txt"],
+    ["application/octet-stream", "a.bin"],
+    ["image/x-unknown", "a.img"],
   ];
   for (const [contentType, name] of active) {
     const m = chatMediaFromArtifact({ src: "blob:http://app/x", contentType, name });
@@ -149,8 +156,9 @@ check("the card's stats prop wins over message.stats", propStats.includes("prop"
   check("a host blob: href for HTML is refused too", !hostBlob.includes('href="blob:'), hostBlob);
   const sandboxed = card({ id: "sb", role: "assistant", content: "", media: [{ kind: "file", src: "blob:http://app/x", href: "/api/gateway/runs/r/artifacts/h/content", name: "page.html", contentType: "text/html" }] });
   check("HTML keeps the gateway's sandboxed content URL", sandboxed.includes('href="/api/gateway/runs/r/artifacts/h/content"'));
-  for (const [contentType, name] of [["application/pdf", "r.pdf"], ["text/markdown", "r.md"], ["application/json", "d.json"], ["text/csv", "t.csv"], ["text/plain", "a.txt"]])
-    check(`inert ${name} keeps its object-URL raw link`, chatMediaFromArtifact({ src: "blob:http://app/i", contentType, name }).href === "blob:http://app/i");
+  for (const [contentType, name] of [["application/pdf", "r.pdf"], ["text/markdown", "r.md"], ["application/json", "d.json"], ["text/csv", "t.csv"], ["text/plain", "a.txt"], ["text/x-python", "m.py"], ["text/javascript", "m.js"], ["image/png", "i.png"], ["audio/mpeg", "a.mp3"], ["video/mp4", "v.mp4"]])
+    check(`inert ${name} keeps its object-URL raw link`, pcAll.fileRawLink({ src: "blob:http://app/i", contentType, name }) === "blob:http://app/i");
+  check("a resolved inert document links its object URL", chatMediaFromArtifact({ src: "blob:http://app/i", contentType: "text/csv", name: "t.csv" }).href === "blob:http://app/i");
   // Review H1: TypeScript is code even when served as video/mp2t.
   check("a .ts artifact served as video/mp2t is a document, not a video", chatMediaFromArtifact({ src: "blob:t", contentType: "video/mp2t", name: "app.ts" }).kind === "file");
 

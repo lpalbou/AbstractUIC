@@ -9,8 +9,31 @@ import type { ResolvedArtifact } from "./workflow_runtime.js";
 
 // Names that a browser renders as an active document (scripts run) when opened.
 const ACTIVE_EXT = new Set("html htm xhtml xht shtml svg svgz xml xsl xslt mht mhtml".split(" "));
-// Content types a browser shows inertly when opened (no script runs).
-const INERT_TYPES = new Set(["application/pdf", "text/plain", "application/json", "text/markdown", "text/csv"]);
+// ALLOWLIST of content types a browser shows inertly when opened (no script
+// runs). Everything else is refused: `text/xsl`, for one, renders as an XML
+// document and runs its script (review N1b), and clients can declare any
+// content_type for an attachment, so a denylist cannot be complete.
+const INERT_TYPES = new Set([
+  "application/pdf",
+  "application/json",
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+  "text/tab-separated-values",
+  "text/x-python",
+  "text/javascript",
+  "application/javascript",
+  "text/css",
+  "text/x-c",
+  "text/x-shellscript",
+  "text/x-typescript",
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "image/avif",
+  "image/bmp",
+]);
 
 /** A browser-local URL (object or data URL): it carries the APP's origin and none of the gateway's headers. */
 export function isLocalObjectUrl(url: string | undefined): boolean {
@@ -22,9 +45,12 @@ export function isLocalObjectUrl(url: string | undefined): boolean {
  * (review N1, security). An object URL carries the APP origin and none of the
  * gateway's `Content-Security-Policy: sandbox` / nosniff headers
  * (abstractgateway routes/gateway.py:11328-11340), so agent-written HTML, SVG
- * or XML opened from it would run on the app's origin. Only known-inert types
- * qualify: pdf, raster images, audio, video, JSON, Markdown, CSV, text/* other than HTML/XML,
- * and never a file whose NAME is an active document. No type = no.
+ * or XML opened from it would run on the app's origin. Only an ALLOWLIST of
+ * inert types qualifies (pdf, JSON, plain text, Markdown, CSV/TSV, common
+ * source-code text types, raster images, audio, video), never a file whose
+ * NAME is an active document; anything unlisted (e.g. `text/xsl`) or no type = no.
+ * The guard trusts the declared type: `contentType` MUST be the type the object
+ * URL's Blob was created with (`new Blob([bytes], { type: contentType })`).
  * Hosts pass the gateway's (sandboxed) content URL as `href` for the rest.
  */
 export function objectUrlRawLinkSafe(contentType: string | undefined, name: string | undefined): boolean {
@@ -34,8 +60,8 @@ export function objectUrlRawLinkSafe(contentType: string | undefined, name: stri
   const type = String(contentType || "").split(";", 1)[0].trim().toLowerCase();
   if (!type || type === "text/html" || type.includes("xml")) return false;
   if (INERT_TYPES.has(type)) return true;
-  // Other text/* (source code, CSS, ...) is shown as text; html/xml are refused above.
-  return type.startsWith("text/") || type.startsWith("image/") || type.startsWith("audio/") || type.startsWith("video/");
+  // Media elements never render a document.
+  return type.startsWith("audio/") || type.startsWith("video/");
 }
 
 /** The raw-file link a document may show: the host's `href`, else its `src`; a

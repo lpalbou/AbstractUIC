@@ -1737,7 +1737,7 @@ Renderers:
 
 Types:
 - `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`; optional `live: ChatLiveReply` (`callId`, `reasoning`, `caption?`) marks a reply still being streamed; `kind?` and `artifactIds?` carry a `replay_view_v1.messages[]` item's kind and `artifact_ids`, see the [README mapping](../panel-chat/README.md#messages-from-the-replay-view)), `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
-- `ChatMedia` (unreleased, backlog 0031): `kind` is `"image" | "audio" | "video" | "file"`; a `"file"` (`name`, `contentType`, `size?`, `text?` for text kinds) opens in the shared `AfFileViewer` inline behind **Open** (nothing loads before) or in the host's `onOpenMedia`; audio takes `transcript?` (speech-to-text, shown as a collapsible **Transcript** caption); music rides on audio. `WorkflowTransport.resolveArtifact?(runId, artifactId, signal?) → ResolvedArtifact` (`{src, contentType, name?, size?}`, the host reads `GET runs/{id}/artifacts/{artifact_id}` and `/content`) with `chatMediaFromArtifact(resolved, extra?)` (image/audio/video inline, everything else a file; its raw link is the host's `href` — pass the gateway's sandboxed content URL — or the object URL for inert types only, never for HTML/SVG/XML: `fileRawLink()`, `objectUrlRawLinkSafe()`, `isLocalObjectUrl()`; SVG never rendered) and `chatMediaForArtifacts(runId, ids, resolve)` (rejects when one cannot be resolved). The controller does not yet fold `$artifact` refs or generated-media ledger events into `message.media` itself
+- `ChatMedia` (unreleased, backlog 0031): `kind` is `"image" | "audio" | "video" | "file"`; a `"file"` (`name`, `contentType`, `size?`, `text?` for text kinds) opens in the shared `AfFileViewer` inline behind **Open** (nothing loads before) or in the host's `onOpenMedia`; audio takes `transcript?` (speech-to-text, shown as a collapsible **Transcript** caption); music rides on audio. `WorkflowTransport.resolveArtifact?(runId, artifactId, signal?) → ResolvedArtifact` (`{src, contentType, name?, size?}`, the host reads `GET runs/{id}/artifacts/{artifact_id}` and `/content`) with `chatMediaFromArtifact(resolved, extra?)` (image/audio/video inline, everything else a file; its raw link is the host's `href` — pass the gateway's sandboxed content URL — or the object URL for an allowlist of inert types only (never HTML/SVG/XML/XSL or an unlisted type; `contentType` must be the Blob's type): `fileRawLink()`, `objectUrlRawLinkSafe()`, `isLocalObjectUrl()`; SVG never rendered) and `chatMediaForArtifacts(runId, ids, resolve)` (rejects when one cannot be resolved). The controller does not yet fold `$artifact` refs or generated-media ledger events into `message.media` itself
 
 Utilities:
 - `tryParseJson()` (drives JSON autodetection in `ChatMessageContent`)
@@ -4582,9 +4582,11 @@ this chat / allow all, and a dismissal defers, never denies.
   says so and offers the raw link instead of an empty preview. **Raw links and security:** pass
   the gateway's content URL (`.../artifacts/{id}/content`, served with `CSP: sandbox` + nosniff)
   as `href`. A `blob:`/`data:` URL carries the app's origin and none of those headers, so it is
-  used as the raw link only for inert types (pdf, raster images, audio, video, JSON, Markdown,
-  CSV, text other than HTML/XML; `objectUrlRawLinkSafe`, `fileRawLink`) and never for HTML,
-  SVG or XML, whatever the host passes. An
+  used as the raw link only for an ALLOWLIST of inert types (pdf, JSON, plain text, Markdown,
+  CSV/TSV, common source-code text types, raster images, audio, video; `objectUrlRawLinkSafe`,
+  `fileRawLink`) and never for HTML, SVG, XML, XSL or any unlisted type, whatever the host
+  passes. The guard trusts the declared type: `contentType` must be the type the object URL's
+  Blob was created with. An
   opened Markdown file follows the chat's `images` policy (default `"link"`: no remote image
   loads) or the host's `renderMarkdown`. `onOpenMedia` receives the item with sanitized sources.
 - Sources come from the host (object URLs it fetched with its credentials), never from model
@@ -17107,9 +17109,10 @@ panel-chat (and one ui-kit file):
   `AfFileViewer` inline, or the host's `onOpenMedia`); audio media takes `transcript` (a collapsible Transcript
   caption: the speech-to-text display); music rides on audio. An opened Markdown file follows the chat's image
   policy (`images`, default `"link"`) or the host's `renderMarkdown`; a document shows its raw link: the host's
-  `href` (pass the gateway's sandboxed content URL), or its object URL for inert types only. A `blob:`/`data:` URL
-  is never the raw link of HTML, SVG or XML (it would run on the app's origin without the gateway's
-  `CSP: sandbox`): `fileRawLink`, `objectUrlRawLinkSafe`, `isLocalObjectUrl`. `onOpenMedia` receives sanitized
+  `href` (pass the gateway's sandboxed content URL), or its object URL for an allowlist of inert types only. A
+  `blob:`/`data:` URL is never the raw link of HTML, SVG, XML, XSL or any unlisted type (it would run on the app's
+  origin without the gateway's `CSP: sandbox`); the guard trusts the declared type, so `contentType` must be the
+  Blob's type: `fileRawLink`, `objectUrlRawLinkSafe`, `isLocalObjectUrl`. `onOpenMedia` receives sanitized
   sources only.
   `WorkflowTransport.resolveArtifact` (optional; `ResolvedArtifact.text` for small text artifacts),
   `chatMediaFromArtifact` (inert documents get `href`), `chatMediaForArtifacts`. `FileViewer` takes `markdownImages`,

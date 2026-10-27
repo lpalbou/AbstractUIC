@@ -57,7 +57,8 @@ export type WorkflowTransport = {
 export type ResolvedArtifact = {
   /** Object URL (or same-origin path) of the bytes. */
   src: string;
-  /** The gateway's `content_type`. */
+  /** The gateway's `content_type`. MUST be the type the object URL's Blob was
+   * created with: the raw-link guard (`objectUrlRawLinkSafe`) trusts it. */
   contentType: string;
   name?: string;
   /** The gateway's `size_bytes`. */

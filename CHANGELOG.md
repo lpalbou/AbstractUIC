@@ -39,9 +39,10 @@ panel-chat (and one ui-kit file):
   `AfFileViewer` inline, or the host's `onOpenMedia`); audio media takes `transcript` (a collapsible Transcript
   caption: the speech-to-text display); music rides on audio. An opened Markdown file follows the chat's image
   policy (`images`, default `"link"`) or the host's `renderMarkdown`; a document shows its raw link: the host's
-  `href` (pass the gateway's sandboxed content URL), or its object URL for inert types only. A `blob:`/`data:` URL
-  is never the raw link of HTML, SVG or XML (it would run on the app's origin without the gateway's
-  `CSP: sandbox`): `fileRawLink`, `objectUrlRawLinkSafe`, `isLocalObjectUrl`. `onOpenMedia` receives sanitized
+  `href` (pass the gateway's sandboxed content URL), or its object URL for an allowlist of inert types only. A
+  `blob:`/`data:` URL is never the raw link of HTML, SVG, XML, XSL or any unlisted type (it would run on the app's
+  origin without the gateway's `CSP: sandbox`); the guard trusts the declared type, so `contentType` must be the
+  Blob's type: `fileRawLink`, `objectUrlRawLinkSafe`, `isLocalObjectUrl`. `onOpenMedia` receives sanitized
   sources only.
   `WorkflowTransport.resolveArtifact` (optional; `ResolvedArtifact.text` for small text artifacts),
   `chatMediaFromArtifact` (inert documents get `href`), `chatMediaForArtifacts`. `FileViewer` takes `markdownImages`,

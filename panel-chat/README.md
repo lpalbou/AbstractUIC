@@ -241,9 +241,11 @@ this chat / allow all, and a dismissal defers, never denies.
   says so and offers the raw link instead of an empty preview. **Raw links and security:** pass
   the gateway's content URL (`.../artifacts/{id}/content`, served with `CSP: sandbox` + nosniff)
   as `href`. A `blob:`/`data:` URL carries the app's origin and none of those headers, so it is
-  used as the raw link only for inert types (pdf, raster images, audio, video, JSON, Markdown,
-  CSV, text other than HTML/XML; `objectUrlRawLinkSafe`, `fileRawLink`) and never for HTML,
-  SVG or XML, whatever the host passes. An
+  used as the raw link only for an ALLOWLIST of inert types (pdf, JSON, plain text, Markdown,
+  CSV/TSV, common source-code text types, raster images, audio, video; `objectUrlRawLinkSafe`,
+  `fileRawLink`) and never for HTML, SVG, XML, XSL or any unlisted type, whatever the host
+  passes. The guard trusts the declared type: `contentType` must be the type the object URL's
+  Blob was created with. An
   opened Markdown file follows the chat's `images` policy (default `"link"`: no remote image
   loads) or the host's `renderMarkdown`. `onOpenMedia` receives the item with sanitized sources.
 - Sources come from the host (object URLs it fetched with its credentials), never from model
