@@ -2,7 +2,7 @@
 
 ## Metadata
 - Created: 2026-10-27
-- Status: Planned (kit half partly in progress on `feat/ui-primitives-chat`)
+- Status: Planned — kit half MERGED (PR #4): `file` media kind, STT transcript caption, `video` in AfFileViewer, `resolveArtifact` + helpers, raw-link hardening (blob:/data: links download; allowlist of inert types); remaining: the controller fold, app adoption PRs
 - Completed: N/A
 - Area: panel-chat (`ChatMessageCard` media, controller fold) + ui-kit (`AfFileViewer`)
 - Root link: AbstractFramework backlog 1055

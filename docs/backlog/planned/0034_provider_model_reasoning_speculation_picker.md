@@ -2,7 +2,7 @@
 
 ## Metadata
 - Created: 2026-10-27
-- Status: Planned (kit half in progress on `feat/ui-primitives-tools-models`)
+- Status: Planned — kit half MERGED (PR #6): `gateway_models.ts`, named gateway default, served ladders, compact layout, pinned, "(saved)"; app adoption PRs pending
 - Completed: N/A
 - Area: ui-kit (`ProviderModelPicker`, `gateway_models.ts`, `gateway_paths.ts`, island)
 - Root link: AbstractFramework backlog 1055

@@ -2,7 +2,7 @@
 
 ## Metadata
 - Created: 2026-10-27
-- Status: Planned (kit half in progress on `feat/ui-primitives-voice`)
+- Status: Planned — kit half MERGED (PR #7, 0c486cf): `AfVoiceInput`, `AfVoiceOutput`, `AfVoiceLevelMeter`/`useVoiceLevel`, `AfVoiceMicButton`, `useVoiceDefaults`, `useVoicePreferences`, voice library panel, Record tab, `mountVoiceSection`; deferred: cloning languages from the gateway in Create a voice, `tts_level` meter; app adoption PRs pending
 - Completed: N/A
 - Area: ui-kit (`AfVoiceInput`, `AfVoiceOutput`, `AfVoiceSection`, `AfVoiceMicButton`, `useGatewayVoice`, hooks, island)
 - Root link: AbstractFramework backlog 1055 (voice library track)

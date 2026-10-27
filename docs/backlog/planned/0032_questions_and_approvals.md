@@ -2,7 +2,7 @@
 
 ## Metadata
 - Created: 2026-10-27
-- Status: Planned (kit half in progress on `feat/ui-primitives-chat`)
+- Status: Planned — kit half MERGED (PR #4): wording set, Allow for this chat / Decide later / Continue without answering / Keep waiting, card variant, `ReplayInteraction`; NEXT: the session tool-policy contract (approve all / approve kind write `/sessions/{id}/tool-policy` first, then answer; capability-gated; `abstract.tool_policy_decision` rendered as an activity) on `feat/ui-primitives-session-policy`
 - Completed: N/A
 - Area: panel-chat (`WorkflowInteractionPanel`, `presentInteraction`, `useWorkflowSession`)
 - Root link: AbstractFramework backlog 1055; root 0993 (one ledger, many views)

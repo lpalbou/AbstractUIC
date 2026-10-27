@@ -2,7 +2,7 @@
 
 ## Metadata
 - Created: 2026-10-27
-- Status: Planned (kit half in progress on `feat/ui-primitives-tools-models`)
+- Status: Planned — kit half MERGED (PR #6, 1aaba7e): `tool_plan.ts`, `ToolModeEditor`, `createToolLayerStore`, `mountToolModeEditor`; NEXT: gateway-backed session layer over the session tool-policy contract on `feat/ui-primitives-session-policy-kit`; app adoption PRs pending
 - Completed: N/A
 - Area: ui-kit (`tool_plan.ts`, `ToolModeEditor`, `ToolPolicyEditor` adapter, `createToolLayerStore`, island)
 - Root link: AbstractFramework backlog 1055

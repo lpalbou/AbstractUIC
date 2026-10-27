@@ -2,7 +2,7 @@
 
 ## Metadata
 - Created: 2026-10-27
-- Status: Planned (kit half in progress on `feat/ui-primitives-chat`)
+- Status: Planned — kit half MERGED (PR #4, 5797355; unreleased: panel-chat 0.4.1 on main carries it); deferred: controller fold of `message.media` (no canonical generated-media event on gateway/runtime main), `sessions` / `runStatus`; app adoption PRs pending the kit release and gateway 0.16.0
 - Completed: N/A
 - Area: panel-chat (`WorkflowChat`, `ChatThread`, `ChatComposer`, `useWorkflowSession`)
 - Root link: AbstractFramework backlog 1055 (release wave 2026-10-27), track "Shared UI primitives consolidation"
