@@ -187,3 +187,14 @@ export { fileRawLink, isLocalObjectUrl, objectUrlRawLinkSafe } from "./chat_medi
 // --- ui-primitives (shell) ---
 export { DocsAssistantPanelContent, docsAssistantPanel, type DocsAssistantChatProps, type DocsAssistantPanelOptions } from "./docs_assistant.js";
 export { assistantDrawerPanel, type AssistantDrawerPanelOptions } from "./assistant_panel.js";
+
+// --- ui-primitives (session-policy) ---
+export { sessionPolicyClampedText, toolPolicyDecision, toolPolicyDecisionText, type WorkflowToolPolicyProvenance } from "./tool_policy.js";
+export type {
+  SessionPolicyMode,
+  SessionToolPolicy,
+  SessionToolPolicyBody,
+  SessionToolPolicyClamp,
+  SessionToolPolicyClient,
+} from "./workflow_runtime.js";
+export type { SessionPolicyStatus, SessionToolPolicyScope } from "./workflow_runtime.js";

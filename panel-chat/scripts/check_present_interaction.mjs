@@ -120,7 +120,7 @@ assert.equal(calls.length, before, "nothing emitted");
   let session = 0;
   const sess2 = presentInteraction(toolWait, controller, { onAllowForSession: async () => void (session += 1) });
   assert.equal(sess2.approveForSessionLabel, "Allow for this chat");
-  assert.match(sess2.approveForSessionDescription, /rest of this conversation/);
+  assert.match(sess2.approveForSessionDescription, /rest of this chat/);
   await sess2.onApproveForSession();
   assert.deepEqual(calls.at(-1), ["approveWithPolicyChange", target], "Allow for this chat → approveWithPolicyChange(exact target)");
   assert.equal(session, 1, "the host's chat grant runs once the batch is approved");

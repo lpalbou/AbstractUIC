@@ -235,6 +235,85 @@ this chat / allow all, and a dismissal defers, never denies.
   gateway on `main` serves the replay view yet, panel-chat never fetches a `/view` route, and
   today's data path stays the controller's ledger fold + served `waiting`.
 
+#### Session tool policy (stored on the gateway)
+
+"Allow for this chat" used to be a client-side grant: the gateway still asked, and the
+client answered each new wait a moment later, so the gate flashed in every client and in
+the ledger. With the session tool policy (contract v1; gateway routes
+`GET/PUT/POST/DELETE /api/gateway/sessions/{session_id}/tool-policy`, on branch
+`feat/session-tool-policy`, not on `main` yet) the decision is stored for the chat (the
+gateway's session) and the runtime runs covered calls with no wait.
+
+```ts
+// Only when GET discovery/capabilities serves capabilities.session_tool_policy.supported === true.
+const controller = new WorkflowSessionController(transport, { sessionToolPolicy: policyClientFor(sessionId) });
+// The capability read failed: say so (mode "unavailable"); no client at all = "local-fallback".
+controller.setSessionToolPolicyClient(null, { reason: "Could not read the gateway's capabilities (HTTP 502)." });
+// Re-present on every snapshot change: the mode is the controller's, never a prop.
+const interaction = presentInteraction(workflowPendingInteraction(snapshot), controller, {
+  sessionPolicy: { toolsetOf: (name) => toolsetByName[name], ask: toolsSetToAsk },
+});
+```
+
+- **One source for the mode:** `presentInteraction` reads `controller.sessionPolicyStatus()`
+  (mode, reason, `clamped`), so a control always says what its click does.
+- **Order:** "Allow for this chat" (`approveAllForSession`: `{approve:{all:true}}`) and
+  "Allow all <toolset> tools for this chat" (`approveKindForSession`: `{approve:{kinds}}`)
+  write the policy FIRST, then answer the shown wait `{approved:true}` (the policy never
+  answers a wait that already exists). A failed write answers nothing. When the write
+  succeeds but the shown request changed meanwhile (or the chat was closed), the error says
+  the chat's tool policy was saved and that request was not answered.
+- **Ask:** `sessionPolicy.ask` (the person's explicit Ask tools) is sent on every write, so a
+  broad approve never overrides them.
+- **Toolsets** come from the call's `toolset`, else the host's `toolsetOf(name)` (the `toolset`
+  of the tool's `GET discovery/tools` row). A tool with neither gets no kind button.
+- **Not covered:** what the gateway did not store (`clamped`) is in `snapshot.sessionPolicyClamped`
+  and `onSessionPolicy`, shows after the decision, and on the next approval as
+  "Not covered: send_email (not authorized)".
+- **Older gateway** (`supported` absent or false, or no client): `sessionPolicyMode` is
+  `"local-fallback"`; the previous local grant stays and says what it does: **Allow for this run**
+  with "Allowed until this run ends, in this browser only — the gateway cannot store chat
+  policies." (or **Allow for this chat** with "Allowed for this chat in this browser only — …"
+  when the host passes its own `onAllowForSession`).
+- **Capability read failed:** `sessionPolicyMode` is `"unavailable"` with `sessionPolicyReason`;
+  no chat grant is offered or made ("Allow for this chat is unavailable: <reason> Allow once
+  still works."); Allow once and Deny work as always.
+- **Deny for the chat:** under **More**, "Always deny <tool> in this chat" and "Always deny
+  <toolset> tools in this chat" (`denyToolForSession` / `denyKindForSession`). Before the click
+  and in its confirmation the panel says what a deny reaches: every run of this chat,
+  automations and runs that read other people's text included, until reset; a request shown
+  before it is refused even if approved later. A deny is sent with the policy's current
+  revision (read first when unknown); a 409 says "Someone changed this chat's policy; re-read"
+  and refreshes it. When the stored policy denies a tool of a later batch, the panel names it
+  and "Allow once" reports "The gateway refuses <tool>: denied by this chat's policy", never a
+  success.
+- **Where it applies:** every policy response carries the gateway's `scope` words
+  (`{approve, deny}`, top-level). The panel shows them exactly as served, after a decision
+  ("Applies: …") and in the policy summary line; without them it says "The gateway did not say
+  where this grant applies." (the kit never composes that sentence). The client must carry the
+  response's `scope` onto the policy it returns (`SessionToolPolicy.scope`).
+- **What "all" includes:** `all` and kinds include tools whose destination the model picks
+  (`fetch_url`, `browser_probe`, `send_email`) on purpose; only the Ask list keeps them asking.
+  The description says so: with no Ask list, "Nothing is set to Ask, so … are included"; with
+  one, "Tools set to Ask keep asking: …". A host with no Ask list sends no `ask`.
+- **Merge only adds:** a write never narrows or re-expands an earlier `all`/kinds. Undoing an
+  approve is a reset (`resetSessionPolicy`, DELETE), never a merge. A reset is revision-guarded:
+  the controller reads first when it has no revision (the policy's, or ui-kit's client
+  `revision` of its last answer, which also covers "no policy yet") and calls `reset(revision)`.
+  With no revision at all, a deny or a reset is refused with a labeled error ("This chat's policy
+  was not changed/reset: …"), never skipped silently; a client's own refusal (ui-kit's
+  `SessionToolPolicyRevisionError`) is shown the same way.
+- **Same shape as ui-kit:** `SessionToolPolicyClient` here is the structural twin of ui-kit's
+  (`reset(ifRevision?) → {revision?, scope?}`); `scripts/types/session_policy_twin.ts` fails `tsc`
+  if either drifts.
+- **Root session:** the grant is read from the run tree's ROOT session, so the client must be
+  bound to the root run's `session_id`. A wait on a child run is answered on the child, and the
+  policy is written to the root session; a client bound to another session, or a root session
+  not known yet, is refused before any write.
+- **Ledger:** `abstract.tool_policy_decision` renders as one line, "Allowed by this chat's
+  policy (set by admin at …)" or "Denied by this chat's policy", never as a question; the
+  covered tool rows say so too. A record with no identifiable call adds nothing.
+
 ### Attachments and generated media
 
 `ChatMessage.media` items render under the message text (backlog 0031):

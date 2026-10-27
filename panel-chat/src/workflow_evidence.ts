@@ -1,5 +1,6 @@
 import type { WorkflowRecord, ServerRecord } from "./workflow_runtime.js";
 import { toolSandbox, type ToolSandbox } from "./sandbox_line.js";
+import type { WorkflowToolPolicyProvenance } from "./tool_policy.js";
 
 export type WorkflowToolActivity = {
   id: string;
@@ -14,6 +15,10 @@ export type WorkflowToolActivity = {
   endedAt?: string;
   /** The command sandbox this call ran under (process-spawning tools), from its result. */
   sandbox?: ToolSandbox;
+  /** The model's call id (`call_id`), when the record carries one. */
+  callId?: string;
+  /** Set when the conversation's tool policy decided this call (`abstract.tool_policy_decision`). */
+  policy?: WorkflowToolPolicyProvenance;
 };
 export type WorkflowStatistics = {
   inputTokens?: number;
@@ -261,6 +266,7 @@ export function foldWorkflowTools(
         : {}),
       ...(output.error ? { error: String(output.error) } : {}),
       ...(toolSandbox(output) ? { sandbox: toolSandbox(output)! } : {}),
+      ...(cid(call) || cid(output) ? { callId: cid(call) || cid(output) } : {}),
       startedAt: previous?.startedAt || str(rec.started_at) || undefined,
       endedAt: completed
         ? str(rec.ended_at) || previous?.endedAt

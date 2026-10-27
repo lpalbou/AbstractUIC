@@ -15,6 +15,23 @@ export const WORKFLOW_INTERACTION_LABELS = {
   allowOnce: "Allow once",
   allowForChat: "Allow for this chat",
   allowAll: "Allow all enabled tools",
+  /** Approve one toolset (a `GET discovery/tools` row's `toolset`) for the conversation. */
+  allowKindForChat: (toolset: string) => `Allow all ${toolset} tools for this chat`,
+  /** The labeled line when the gateway cannot store conversation policies (no silent hedge). */
+  /** The local, run-scoped grant (no gateway chat policy): says what it does. */
+  allowForRun: "Allow for this run",
+  localChatPolicyNote: "Allowed for this chat in this browser only — the gateway cannot store chat policies.",
+  localRunPolicyNote: "Allowed until this run ends, in this browser only — the gateway cannot store chat policies.",
+  /** Deny for the chat (session policy, gateway mode); offered under "More". */
+  denyToolForChat: (tool: string) => `Always deny ${tool} in this chat`,
+  denyKindForChat: (toolset: string) => `Always deny ${toolset} tools in this chat`,
+  /** What a deny reaches, stated before the click and in its confirmation (contract §4.3). */
+  denyForChatNote:
+    "Always deny applies to every run of this chat, automations and runs that read other people's text included, until the policy is reset; a request shown before it is refused even if approved later.",
+  /** No `scope` was served: said so, never composed. */
+  noScopeNote: "The gateway did not say where this grant applies.",
+  /** The capability read failed: no chat grant is offered. */
+  unavailablePolicyNote: (reason: string) => `Allow for this chat is unavailable: ${reason || "the gateway's capabilities could not be read."} Allow once still works.`,
   decideLater: "Decide later",
   submit: "Submit",
   skip: "Continue without answering",
@@ -103,6 +120,18 @@ export type WorkflowToolApprovalInteraction = WorkflowInteractionBase & {
   /** Why the broad grants (for this chat / all enabled tools) cannot be
    * offered for this batch. They render disabled with this reason visible. */
   disabledReason?: string;
+  /** "Allow all <toolset> tools for this chat", one per toolset in the batch (session policy, gateway mode). */
+  approveKinds?: { kind: string; label?: string; onApprove: () => void | Promise<unknown> }[];
+  /** A labeled scope line under the decisions, e.g. `WORKFLOW_INTERACTION_LABELS.localChatPolicyNote`. */
+  scopeNote?: string;
+  /** What the conversation's policy does not cover ("Not covered: send_email (not authorized)"). */
+  notCovered?: string;
+  /** "Always deny … in this chat" decisions (session policy), under "More" with `denyForChatNote`. */
+  denyOptions?: { key: string; label: string; onDeny: () => void | Promise<unknown> }[];
+  /** Tools of this batch the chat's policy denies: the gateway refuses them even if allowed once. */
+  deniedNote?: string;
+  /** One line about the chat's stored policy (counts + where it applies, as served). */
+  policySummary?: string;
 };
 
 export type WorkflowEventWaitInteraction = WorkflowInteractionBase & {
@@ -189,13 +218,16 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
     setOutcome("");
     setPending(submission);
     try {
-      await callback();
+      const result = await callback();
       if (!mountedRef.current || activeKeyRef.current !== requestKey || sequenceRef.current !== sequence) return;
       // The host is responsible for removing/replacing the wait. Until it
       // does, a locally accepted action cannot be submitted a second time.
       settledRef.current = true;
       setSettled(true);
-      setOutcome("Response sent. Waiting for the workflow to continue.");
+      // A callback may report what its decision did not cover (a session
+      // policy's `clamped` names): shown, never dropped.
+      const note = result && typeof result === "object" && typeof (result as { outcomeNote?: unknown }).outcomeNote === "string" ? String((result as { outcomeNote: string }).outcomeNote) : "";
+      setOutcome(`Response sent. Waiting for the workflow to continue.${note ? ` ${note}` : ""}`);
     } catch (error) {
       if (!mountedRef.current || activeKeyRef.current !== requestKey || sequenceRef.current !== sequence) return;
       setFailure({ submission, message: errorMessage(error) });
@@ -341,6 +373,20 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
               {pending?.kind === "approve-session" ? "Allowing…" : interaction.approveForSessionLabel || L.allowForChat}
             </button>
           ) : null}
+          {(interaction.approveKinds || []).map((entry) => (
+            <button
+              key={entry.kind}
+              type="button"
+              className="pc-workflow-interaction__allow-session pc-workflow-interaction__allow-kind"
+              data-decision="approve-kind"
+              data-kind={entry.kind}
+              disabled={broadDisabled}
+              title={reason || undefined}
+              onClick={() => void run({ kind: "approve-kind", toolset: entry.kind }, entry.onApprove)}
+            >
+              {pending?.kind === "approve-kind" && pending.toolset === entry.kind ? "Allowing…" : entry.label || L.allowKindForChat(entry.kind)}
+            </button>
+          ))}
           {interaction.onApproveAll ? (
             <button type="button" className="pc-workflow-interaction__allow-all" data-decision="approve-all" disabled={broadDisabled} title={reason || undefined} onClick={() => void run({ kind: "approve-all" }, interaction.onApproveAll!)}>
               {pending?.kind === "approve-all" ? "Allowing…" : interaction.approveAllLabel || L.allowAll}
@@ -353,7 +399,48 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
             <span>{interaction.remember.label}</span>
           </label>
         ) : null}
-        {reason && (interaction.onApproveAll || interaction.onApproveForSession) ? <p className="pc-workflow-interaction__unavailable" role="note">{reason}</p> : null}
+        {interaction.deniedNote ? (
+          <p className="pc-workflow-interaction__unavailable" role="note" data-denied-note="">
+            {interaction.deniedNote}
+          </p>
+        ) : null}
+        {interaction.denyOptions?.length ? (
+          <details className="pc-workflow-interaction__more" data-more="">
+            <summary>More</summary>
+            <p className="pc-workflow-interaction__scope">{L.denyForChatNote}</p>
+            <div className="pc-workflow-interaction__buttons">
+              {interaction.denyOptions.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  className="pc-workflow-interaction__deny"
+                  data-decision="deny-chat"
+                  data-key={option.key}
+                  disabled={disabled}
+                  onClick={() => void run({ kind: "deny-chat", key: option.key }, option.onDeny)}
+                >
+                  {pending?.kind === "deny-chat" && pending.key === option.key ? "Denying…" : option.label}
+                </button>
+              ))}
+            </div>
+          </details>
+        ) : null}
+        {interaction.policySummary ? (
+          <p className="pc-workflow-interaction__scope" data-policy-summary="">
+            {interaction.policySummary}
+          </p>
+        ) : null}
+        {interaction.scopeNote ? (
+          <p className="pc-workflow-interaction__scope-note" role="note" data-scope-note="">
+            {interaction.scopeNote}
+          </p>
+        ) : null}
+        {interaction.notCovered ? (
+          <p className="pc-workflow-interaction__unavailable" role="note" data-not-covered="">
+            {interaction.notCovered}
+          </p>
+        ) : null}
+        {reason && (interaction.onApproveAll || interaction.onApproveForSession || interaction.approveKinds?.length) ? <p className="pc-workflow-interaction__unavailable" role="note">{reason}</p> : null}
         {!reason && interaction.onApproveForSession && interaction.approveForSessionDescription ? <p className="pc-workflow-interaction__scope">{interaction.approveForSessionDescription}</p> : null}
         {!reason && interaction.onApproveAll && interaction.approveAllDescription ? <p className="pc-workflow-interaction__scope">{interaction.approveAllDescription}</p> : null}
       </div>

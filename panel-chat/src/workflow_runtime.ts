@@ -6,6 +6,7 @@
  */
 import type { ChatMessage } from "./chat_message_card.js";
 import { foldWorkflowTools, workflowEvidence, historyRecords, type WorkflowToolActivity } from "./workflow_evidence.js";
+import { toolPolicyDecision, toolPolicyDecisionText, type WorkflowToolPolicyProvenance } from "./tool_policy.js";
 import { describeStreamUnavailable, isLlmDeltaEnd, validateLlmDeltaEvent, type LlmDelta, type LlmDeltaEnd } from "./llm_delta.js";
 
 export type ServerRecord = Record<string, unknown>;
@@ -52,6 +53,76 @@ export type WorkflowTransport = {
    */
   resolveArtifact?(runId: string, artifactId: string, signal?: AbortSignal): Promise<ResolvedArtifact>;
 };
+
+/**
+ * Session tool policy (contract v1, 2026-10-27; abstractgateway branch
+ * `feat/session-tool-policy`, routes/session_tool_policy.py:92-122:
+ * GET / PUT / POST / DELETE `sessions/{session_id}/tool-policy` under the gateway API base).
+ * NOT on gateway `main` yet: a host injects a client only when
+ * `GET discovery/capabilities` serves `capabilities.session_tool_policy.supported === true`.
+ * The same structural types are exported by ui-kit as `SessionToolPolicyClient` (HTTP client).
+ */
+export type SessionToolPolicyBody = {
+  approve?: { tools?: string[]; kinds?: string[]; all?: boolean; max_risk_rank?: number };
+  deny?: { tools?: string[]; kinds?: string[] };
+  ask?: string[];
+  client?: string;
+  if_revision?: number;
+};
+/** One requested name the gateway did not store (contract §3: "never silently"). */
+export type SessionToolPolicyClamp = { selector: string; name: string; reason: string };
+/**
+ * Where approve and deny apply, in the gateway's words. Served at the TOP level of every
+ * tool-policy response (abstractgateway `feat/session-tool-policy` WIP
+ * routes/session_tool_policy.py:104, :115, :152; the words are `SCOPE` in
+ * session_tool_policy.py:226-230), as an object `{approve, deny}`. Rendered exactly as
+ * served, never composed by a client.
+ */
+export type SessionToolPolicyScope = { approve?: string; deny?: string };
+/** The stored, effective policy (contract §3 response `policy`). */
+export type SessionToolPolicy = {
+  version: number;
+  session_id: string;
+  revision: number;
+  approve: Record<string, string>;
+  deny: Record<string, string>;
+  ask: string[];
+  request?: unknown;
+  clamped?: SessionToolPolicyClamp[];
+  set_by?: { tenant_id?: string; user_id?: string; client?: string };
+  set_at?: string;
+  /** The response's top-level `scope`, which the client carries onto the policy it returns
+   * (absent when the client or the gateway does not provide it; the UI then says so). */
+  scope?: SessionToolPolicyScope;
+};
+/** Host-injected, already bound to one `session_id`. The controller never fetches a policy route itself. */
+export type SessionToolPolicyClient = {
+  /** `capabilities.session_tool_policy.supported === true` from `GET discovery/capabilities`. */
+  supported: boolean;
+  sessionId: string;
+  get(): Promise<SessionToolPolicy | null>;
+  /** PUT: replace the policy. */
+  replace(body: SessionToolPolicyBody): Promise<SessionToolPolicy>;
+  /** POST: merge into the policy. */
+  merge(body: SessionToolPolicyBody): Promise<SessionToolPolicy>;
+  /** DELETE: no session policy. `ifRevision` guards it (`DELETE ?if_revision=`); the answer has
+   * no policy, so its `scope` rides next to the revision. */
+  reset(ifRevision?: number): Promise<{ revision?: number; scope?: SessionToolPolicyScope }>;
+};
+/** ui-kit's client also keeps the latest answer's revision (GET's top-level `revision`, also with
+ * no policy) and `scope`; read structurally, optional here. */
+type RevisionedClient = SessionToolPolicyClient & { readonly revision?: number; readonly scope?: SessionToolPolicyScope };
+/**
+ * Where "Allow for this chat" is stored:
+ * - `"gateway"`: on the gateway (every run and client of the chat);
+ * - `"local-fallback"`: the gateway has no such capability (older gateway, or no client
+ *   injected): the client-side grant, labeled as such;
+ * - `"unavailable"`: the capability read failed (`sessionPolicyReason`); no chat grant is
+ *   made (Allow once still works).
+ */
+export type SessionPolicyMode = "gateway" | "local-fallback" | "unavailable";
+/** The controller's session-policy state, the ONE source the approval controls read. */
+export type SessionPolicyStatus = { mode: SessionPolicyMode; reason?: string; clamped: SessionToolPolicyClamp[]; policy: SessionToolPolicy | null };
 
 /** A run artifact resolved by the host for display. */
 export type ResolvedArtifact = {
@@ -115,6 +186,15 @@ export type WorkflowSessionSnapshot = {
    * Null when this client never asked to stop and nothing was forced.
    */
   stop?: WorkflowStopState | null;
+  /** `"gateway"` when a supported `SessionToolPolicyClient` is injected, else `"local-fallback"`
+   * (the client-side grant; hosts must label it, see `presentInteraction`). */
+  sessionPolicyMode?: SessionPolicyMode;
+  /** Why the mode is `"unavailable"` (e.g. the capability read failed). */
+  sessionPolicyReason?: string;
+  /** The conversation's stored policy after this controller's last write/read (gateway mode). */
+  sessionPolicy?: SessionToolPolicy | null;
+  /** What the gateway did not store on the last write (`policy.clamped`). Never dropped. */
+  sessionPolicyClamped?: SessionToolPolicyClamp[];
 };
 
 export type WorkflowStopPhase = "stopping" | "stopped" | "forced";
@@ -152,6 +232,12 @@ export type WorkflowSessionControllerOptions = {
    * frame.
    */
   liveRenderIntervalMs?: number;
+  /** Session tool policy client (see `SessionToolPolicyClient`); also `setSessionToolPolicyClient`. */
+  sessionToolPolicy?: SessionToolPolicyClient | null;
+  /** The host could not read the capability: the mode starts `"unavailable"` with this reason. */
+  sessionToolPolicyUnavailableReason?: string;
+  /** Called with the stored policy and its `clamped` list after every write/read/reset. */
+  onSessionPolicy?: (policy: SessionToolPolicy | null, clamped: SessionToolPolicyClamp[]) => void;
 };
 
 const EMPTY: WorkflowSessionSnapshot = {
@@ -168,6 +254,12 @@ function text(value: unknown): string {
 }
 
 function array(value: unknown): unknown[] { return Array.isArray(value) ? value : []; }
+
+/** A 409 `revision_conflict` from a guarded policy write (any client's error shape). */
+function revisionConflict(error: unknown): boolean {
+  const e = object(error) as (ServerRecord & { name?: unknown }) | null;
+  return Boolean(e && (e.code === "revision_conflict" || e.reason_code === "revision_conflict" || e.status === 409 || e.name === "SessionToolPolicyConflict"));
+}
 
 function statusOf(run: ServerRecord | null): string {
   return text(run?.status).toLowerCase() || "unknown";
@@ -333,11 +425,202 @@ export class WorkflowSessionController {
   private liveRenderTimer: ReturnType<typeof setTimeout> | null = null;
   private lastLiveRender = -Infinity;
   private readonly liveRenderIntervalMs: number;
+  private sessionToolPolicy: SessionToolPolicyClient | null = null;
+  private sessionPolicyUnavailableReason = "";
+  private sessionPolicyState: SessionToolPolicy | null = null;
+  private sessionPolicyClamped: SessionToolPolicyClamp[] = [];
+  /** `abstract.tool_policy_decision` provenance by `${runId}:${call_id}` (contract §5). */
+  private toolPolicyByCall = new Map<string, WorkflowToolPolicyProvenance>();
 
   public constructor(private readonly transport: WorkflowTransport, private readonly options: WorkflowSessionControllerOptions = {}) {
     const interval = options.liveRenderIntervalMs ?? 60;
     if (typeof interval !== "number" || !Number.isFinite(interval) || interval < 0) throw new Error(`liveRenderIntervalMs must be a non-negative number of milliseconds, got ${JSON.stringify(options.liveRenderIntervalMs)}`);
     this.liveRenderIntervalMs = interval;
+    this.sessionToolPolicy = options.sessionToolPolicy || null;
+    if (!this.sessionToolPolicy) this.sessionPolicyUnavailableReason = text(options.sessionToolPolicyUnavailableReason);
+    this.snapshot = this.withSessionPolicy({ ...EMPTY });
+  }
+
+  // ---- Session tool policy (contract v1) --------------------------------
+
+  /** `"gateway"` only for an injected client whose capability is `supported === true`. */
+  sessionPolicyMode(): SessionPolicyMode {
+    if (this.sessionToolPolicy?.supported === true) return "gateway";
+    return !this.sessionToolPolicy && this.sessionPolicyUnavailableReason ? "unavailable" : "local-fallback";
+  }
+
+  /** Mode, reason, `clamped` and stored policy: what `presentInteraction` reads (never a host prop). */
+  sessionPolicyStatus(): SessionPolicyStatus {
+    const mode = this.sessionPolicyMode();
+    return { mode, ...(mode === "unavailable" ? { reason: this.sessionPolicyUnavailableReason } : {}), clamped: this.sessionPolicyClamped, policy: this.sessionPolicyState };
+  }
+
+  /**
+   * Inject (or remove) the session policy client, e.g. once discovery has answered or the
+   * session changed. `null` with a `reason` means the capability read FAILED (mode
+   * `"unavailable"`); `null` alone means the gateway does not offer it (`"local-fallback"`).
+   */
+  setSessionToolPolicyClient(client: SessionToolPolicyClient | null, options: { reason?: string } = {}): void {
+    const reason = client ? "" : text(options.reason);
+    if (client === this.sessionToolPolicy && reason === this.sessionPolicyUnavailableReason) return;
+    const sameSession = Boolean(client && this.sessionToolPolicy && client.sessionId === this.sessionToolPolicy.sessionId);
+    this.sessionToolPolicy = client;
+    this.sessionPolicyUnavailableReason = reason;
+    if (!sameSession) { this.sessionPolicyState = null; this.sessionPolicyClamped = []; }
+    this.set({ ...this.snapshot });
+  }
+
+  private gatewayPolicy(): SessionToolPolicyClient {
+    const client = this.sessionToolPolicy;
+    if (this.sessionPolicyMode() === "unavailable") throw new Error(`${this.sessionPolicyUnavailableReason} Allow once still works.`);
+    if (!client || client.supported !== true) throw new Error("This gateway cannot store chat tool policies (session_tool_policy is not supported).");
+    return client;
+  }
+
+  private adoptSessionPolicy(policy: SessionToolPolicy | null): void {
+    this.sessionPolicyState = policy;
+    this.sessionPolicyClamped = Array.isArray(policy?.clamped) ? policy!.clamped!.filter((row) => row && typeof row === "object") : [];
+    this.set({ ...this.snapshot });
+    this.options.onSessionPolicy?.(policy, this.sessionPolicyClamped);
+  }
+
+  /** Read the conversation's stored policy (gateway mode). */
+  async loadSessionPolicy(): Promise<SessionToolPolicy | null> {
+    const policy = await this.gatewayPolicy().get();
+    this.adoptSessionPolicy(policy);
+    return policy;
+  }
+
+  /**
+   * The grant is read from the run tree's ROOT session (contract §4.2): the client must be
+   * bound to the root run's `session_id`, never a child's. Fails loudly otherwise.
+   */
+  private requireRootSession(client: SessionToolPolicyClient): void {
+    const root = text(this.snapshot.run?.session_id) || text(this.runStates.get(this.rootRunId)?.session_id);
+    if (!root) throw new Error("This chat's session is not known yet: the policy is written to the root run's session.");
+    if (root !== client.sessionId) throw new Error(`The tool policy client is bound to session ${client.sessionId}, but this chat's root run belongs to session ${root}: the policy is written to the root run's session.`);
+  }
+
+  /** The revision a guarded write uses: the adopted policy's, else read first (the policy's, or the
+   * client's latest answer revision, which also covers "no policy yet"). */
+  private async currentRevision(client: SessionToolPolicyClient): Promise<number | undefined> {
+    if (typeof this.sessionPolicyState?.revision === "number") return this.sessionPolicyState.revision;
+    const policy = await this.loadSessionPolicy();
+    if (typeof policy?.revision === "number") return policy.revision;
+    const latest = (client as RevisionedClient).revision;
+    return typeof latest === "number" ? latest : undefined;
+  }
+
+  /** A failed policy write, labeled: a conflict asks to re-read (and re-reads); the client's own
+   * refusal (e.g. ui-kit's `SessionToolPolicyRevisionError`) says the policy was not changed. */
+  private async policyWriteError(error: unknown): Promise<Error> {
+    if (revisionConflict(error)) {
+      await this.loadSessionPolicy().catch(() => null);
+      return new Error("Someone changed this chat's policy; re-read it before deciding again (it was refreshed).");
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    return new Error(`This chat's policy was not changed: ${message}`);
+  }
+
+  /** The shown approval must still be the current one before any policy is written. */
+  private requireTarget(target: WorkflowApprovalTarget): WorkflowWaitInteraction {
+    const interaction = this.requireInteraction();
+    if (terminal(this.snapshot.status)) throw new Error("This run has already ended.");
+    if (interaction.runId !== target.runId || text(interaction.wait.wait_key) !== target.waitKey || (target.stepId !== undefined && interaction.stepId !== target.stepId)) throw new Error("This approval request has changed. Review the current request before deciding.");
+    if (!this.isToolApproval(interaction)) throw new Error("This is not a tool approval request.");
+    return interaction;
+  }
+
+  /**
+   * Write the policy FIRST, then answer the shown wait (contract §4: the policy never
+   * answers existing waits). `ask` (the person's explicit Ask tools) travels on every
+   * write, so a broad approve never overrides them.
+   */
+  private async writeThenAnswer(target: WorkflowApprovalTarget, body: SessionToolPolicyBody, approved: boolean, ask: readonly string[] = []): Promise<SessionToolPolicy> {
+    this.requireTarget(target);
+    const client = this.gatewayPolicy();
+    this.requireRootSession(client);
+    const names = [...new Set(ask.map((name) => text(name)).filter(Boolean))];
+    // A deny is revision-guarded (contract §3: a merge only adds; a racing change must be
+    // re-read, never overwritten blindly). Read the revision first when none is known.
+    let guard: { if_revision?: number } = {};
+    if (body.deny) {
+      const revision = await this.currentRevision(client);
+      if (typeof revision !== "number") throw new Error("This chat's policy was not changed: the gateway did not return a policy revision to guard the deny with.");
+      guard = { if_revision: revision };
+    }
+    let policy: SessionToolPolicy;
+    try {
+      policy = await client.merge({ ...body, ...(names.length ? { ask: names } : {}), ...guard, client: body.client || "panel-chat" });
+    } catch (error) {
+      throw await this.policyWriteError(error);
+    }
+    // Same client = same chat: adopt even across a reset/reload of the run.
+    if (this.sessionToolPolicy === client) this.adoptSessionPolicy(policy);
+    try {
+      await this.approve(approved, target);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(`This chat's tool policy was saved, but this request was not answered: ${reason} The policy does not answer requests that were already waiting.`);
+    }
+    return policy;
+  }
+
+  /**
+   * "Allow for this chat". Gateway mode: merge `{approve:{all:true}}` into the
+   * conversation's policy, then answer the shown wait `{approved:true}`; later
+   * calls of every run of the conversation run without a wait. Local fallback
+   * (no supported client): the existing client-side grant
+   * (`allowAllToolsForRun`: this controller, until the run ends). Returns the
+   * stored policy, or null in the fallback.
+   */
+  async approveAllForSession(target: WorkflowApprovalTarget, options: { maxRiskRank?: number; ask?: readonly string[] } = {}): Promise<SessionToolPolicy | null> {
+    const mode = this.sessionPolicyMode();
+    if (mode === "unavailable") throw new Error(`${this.sessionPolicyUnavailableReason} Allow once still works.`);
+    if (mode !== "gateway") {
+      await this.allowAllToolsForRun(target);
+      return null;
+    }
+    return this.writeThenAnswer(target, { approve: { all: true, ...(typeof options.maxRiskRank === "number" ? { max_risk_rank: options.maxRiskRank } : {}) } }, true, options.ask);
+  }
+
+  /** "Allow all <toolset> tools for this chat": merge `{approve:{kinds:[kind]}}`, then answer `{approved:true}`. Gateway mode only. */
+  approveKindForSession(target: WorkflowApprovalTarget, kind: string, options: { ask?: readonly string[] } = {}): Promise<SessionToolPolicy> {
+    return this.writeThenAnswer(target, { approve: { kinds: [kind] } }, true, options.ask);
+  }
+
+  /** Deny a toolset for the chat, then answer `{approved:false}`. Gateway mode only; no panel control (hosts expose it). */
+  denyKindForSession(target: WorkflowApprovalTarget, kind: string, options: { ask?: readonly string[] } = {}): Promise<SessionToolPolicy> {
+    return this.writeThenAnswer(target, { deny: { kinds: [kind] } }, false, options.ask);
+  }
+
+  /** Deny one tool for the chat, then answer `{approved:false}`. Gateway mode only; no panel control (hosts expose it). */
+  denyToolForSession(target: WorkflowApprovalTarget, tool: string, options: { ask?: readonly string[] } = {}): Promise<SessionToolPolicy> {
+    return this.writeThenAnswer(target, { deny: { tools: [tool] } }, false, options.ask);
+  }
+
+  /** Reset: gateway mode deletes the conversation's policy; the fallback revokes the local grant. */
+  /** Narrowing an approve (undo) is a reset (DELETE), never a merge: a merge only adds. */
+  async resetSessionPolicy(): Promise<void> {
+    if (this.sessionPolicyMode() === "unavailable") throw new Error(`${this.sessionPolicyUnavailableReason}`);
+    if (this.sessionPolicyMode() !== "gateway") { this.revokeToolApproval(); return; }
+    const client = this.gatewayPolicy();
+    this.requireRootSession(client);
+    const revision = await this.currentRevision(client);
+    if (typeof revision !== "number") throw new Error("This chat's policy was not reset: the gateway did not return a policy revision to guard the reset with.");
+    try {
+      await client.reset(revision);
+    } catch (error) {
+      throw await this.policyWriteError(error);
+    }
+    this.adoptSessionPolicy(null);
+  }
+
+  private withSessionPolicy(snapshot: WorkflowSessionSnapshot): WorkflowSessionSnapshot {
+    const mode = this.sessionPolicyMode();
+    const { sessionPolicyReason: _previous, ...rest } = snapshot;
+    void _previous;
+    return { ...rest, sessionPolicyMode: mode, ...(mode === "unavailable" ? { sessionPolicyReason: this.sessionPolicyUnavailableReason } : {}), sessionPolicy: this.sessionPolicyState, sessionPolicyClamped: this.sessionPolicyClamped };
   }
 
   subscribe(listener: Subscriber): () => void { this.subscribers.add(listener); return () => this.subscribers.delete(listener); }
@@ -353,7 +636,7 @@ export class WorkflowSessionController {
     this.controller?.abort();
     this.controller = null;
     this.rootRunId = ""; this.cursors.clear(); this.seenRecords.clear(); this.seenMessages.clear(); this.watchedRuns.clear(); this.childCatchUpAttempts.clear(); this.runStates.clear(); this.historicalRuns.clear(); this.historicalRunFailures.clear(); this.commandIds.clear();
-    this.toolActivities.clear(); this.historicalEvidence.clear(); this.approvedWaits.clear(); this.grantedToolWaits.clear(); this.resolvedWaits.clear();
+    this.toolActivities.clear(); this.toolPolicyByCall.clear(); this.historicalEvidence.clear(); this.approvedWaits.clear(); this.grantedToolWaits.clear(); this.resolvedWaits.clear();
     this.liveReplies.clear(); this.closedLiveCalls.clear(); this.shownLiveCalls.clear(); this.liveDirty.clear(); this.lastLiveRender = -Infinity;
     if (this.liveRenderTimer) { clearTimeout(this.liveRenderTimer); this.liveRenderTimer = null; }
     this.set({ ...EMPTY });
@@ -648,7 +931,7 @@ export class WorkflowSessionController {
   private interactionRunId(): string { return this.snapshot.interaction?.runId || ""; }
   private live(generation: number): boolean { return generation === this.generation && !this.controller?.signal.aborted; }
   private set(snapshot: WorkflowSessionSnapshot): void {
-    this.snapshot = this.present(snapshot);
+    this.snapshot = this.present(this.withSessionPolicy(snapshot));
     for (const listener of this.subscribers) listener();
     this.autoApproveCurrentWait();
   }
@@ -946,6 +1229,20 @@ export class WorkflowSessionController {
           this.set({ ...this.snapshot, displayStatus: value.trim() });
         }
       }
+      // Contract §5: a session-policy decision is an ACTIVITY (never a wait,
+      // never an interaction): one transcript line, and the covered calls'
+      // tool rows carry the provenance.
+      if (name === "abstract.tool_policy_decision") {
+        const decision = toolPolicyDecision(object(eventPayload));
+        if (decision) {
+          this.addMessage({ id: `policy:${runId}:${key}`, role: "system", kind: "tool_policy_decision", title: "Tool policy", content: toolPolicyDecisionText(decision.provenance), ts: timestamp });
+          for (const call of decision.calls) {
+            const provenance = { ...decision.provenance, ...(call.matched ? { matched: call.matched } : {}) };
+            this.toolPolicyByCall.set(`${runId}:${call.callId}`, provenance);
+            for (const tool of this.toolActivities.values()) if (tool.runId === runId && tool.callId === call.callId) this.upsertTool(tool);
+          }
+        }
+      }
       if (["abstract.tool_execution", "abstractcode.tool_execution", "abstract.tool_result", "abstractcode.tool_result"].includes(name)) {
         const content = displayValue(eventPayload);
         if (content) this.addMessage({ id: `event:${runId}:${key}`, role: "system", title: "Tool activity", content, ts: timestamp });
@@ -1049,7 +1346,9 @@ export class WorkflowSessionController {
     this.seenMessages.add(id); this.set({ ...this.snapshot, messages: [...this.snapshot.messages, { ...message, id }] });
   }
 
-  private toolMessage(tool: WorkflowToolActivity): ChatMessage {
+  private toolMessage(activity: WorkflowToolActivity): ChatMessage {
+    const policy = activity.callId ? this.toolPolicyByCall.get(`${activity.runId}:${activity.callId}`) : undefined;
+    const tool = policy ? { ...activity, policy } : activity;
     return { id: `tool:${tool.id}`, role: "system", kind: "tool_activity", title: "Tool activity", runId: tool.runId, toolActivity: tool, content: JSON.stringify({ tool: tool.name, status: tool.status, arguments: tool.arguments, output: tool.output, error: tool.error }, null, 2), ts: tool.endedAt || tool.startedAt };
   }
 

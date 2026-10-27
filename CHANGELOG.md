@@ -9,6 +9,55 @@ ships.
 
 ## Unreleased
 
+### session-policy: "Allow for this chat" is stored on the gateway (backlog 0032; session tool policy contract v1)
+
+panel-chat:
+
+- `WorkflowSessionController` takes a host-injected `sessionToolPolicy: SessionToolPolicyClient` (option, or
+  `setSessionToolPolicyClient`), bound to one `session_id` and enabled only when `GET discovery/capabilities` serves
+  `capabilities.session_tool_policy.supported === true` (the gateway routes exist on branch `feat/session-tool-policy`,
+  not on `main`; the controller never fetches them itself). New methods `approveAllForSession(target, {maxRiskRank?})`,
+  `approveKindForSession(target, kind)`, `denyKindForSession`, `denyToolForSession`, `resetSessionPolicy`,
+  `loadSessionPolicy`, `sessionPolicyStatus`: each write sends the chat's policy (`POST …/tool-policy`, merge,
+  with the person's `ask` tools) FIRST, then answers the shown wait (`{approved:true}` / `{approved:false}`), so later
+  calls of every run of the chat run with no wait and the gate never flashes. A write that succeeded before the
+  answer failed says the policy was saved. Snapshot: `sessionPolicyMode` (`"gateway"` | `"local-fallback"` |
+  `"unavailable"`), `sessionPolicyReason`, `sessionPolicy`, `sessionPolicyClamped`; option `onSessionPolicy(policy,
+  clamped)`; `setSessionToolPolicyClient(null, {reason})` records a failed capability read.
+- Without a supported client the previous local grant stays and says what it does: **Allow for this run** with
+  "Allowed until this run ends, in this browser only — the gateway cannot store chat policies." (or the host's
+  `onAllowForSession`, "Allowed for this chat in this browser only — …"). When the capability read failed, no chat
+  grant is offered or made and the reason is shown; Allow once still works.
+- `presentInteraction` option `sessionPolicy: { toolsetOf?, ask?, maxRiskRank? }`; the mode is read from the controller
+  (`sessionPolicyStatus()`), never from a host prop: Deny / Allow once / Allow
+  for this chat / "Allow all <toolset> tools for this chat" (one per toolset present in the batch: the call's
+  `toolset`, else the host's `toolsetOf` from `GET discovery/tools`; never guessed) / Allow all enabled tools
+  (unchanged). What the gateway did not store (`clamped`) shows as "Not covered: send_email (not authorized)" after
+  the decision and on the next approval. `WORKFLOW_INTERACTION_LABELS` adds `allowKindForChat`,
+  `localChatPolicyNote`, `localRunPolicyNote`; `WorkflowToolApprovalInteraction` adds `approveKinds`, `scopeNote`,
+  `notCovered`; a decision callback may resolve to `{outcomeNote}`.
+- The ledger record `abstract.tool_policy_decision` folds to an activity line ("Allowed by this chat's policy (set
+  by admin at …)" / "Denied by this chat's policy", kind `tool_policy_decision`, rendered as one discreet line; a
+  record with no identifiable call or an unknown decision adds nothing), never an interaction; the covered calls' tool rows carry the provenance
+  (`WorkflowToolActivity.policy`, `callId`). Helpers `toolPolicyDecision`, `toolPolicyDecisionText`,
+  `sessionPolicyClampedText`.
+- `isLocalObjectUrl` decides with the URL parser (a leading control character before `blob:` is local: download, no
+  new tab; review of PR #4).
+- Contract revision (2026-10-27): every policy response's top-level `scope` (`{approve, deny}`, the gateway's words)
+  is shown exactly as served after a decision ("Applies: …") and in a policy summary line, or "The gateway did not
+  say where this grant applies."; `SessionToolPolicy.scope` (the client carries it). "Always deny <tool>/<toolset> in
+  this chat" under More, stating its reach (every run, automations included; wins over a later approval), sent with
+  the current revision; a 409 says "Someone changed this chat's policy; re-read" and refreshes. A later "Allow once"
+  on a denied tool is reported as refused by the gateway. The approve description says that tools reaching
+  model-chosen destinations are included unless set to Ask. Writes go to the ROOT run's session only (a client bound
+  elsewhere, or an unknown root session, is refused).
+- Aligned with ui-kit's client (PR #9): `SessionToolPolicyClient.reset(ifRevision?) → {revision?, scope?}`; resets and
+  denies are revision-guarded (read first when unknown, including the client's last-answer `revision`); no revision →
+  a labeled refusal; a client's own refusal is labeled "This chat's policy was not changed: …". A `tsc` check pins the
+  twin's exact equality with the kit's shape.
+- Check: `check_session_policy.mjs` (90 checks + a tsc type-equality check; 42 mutations red, including a resume sent before the policy write, a
+  host-claimed gateway mode, a dropped `ask`, a failed capability read treated as the local fallback, a composed scope
+  sentence, a deny without its revision and a child-session write).
 ### session-policy-kit: a conversation's tool policy on the gateway (session tool policy contract v1; backlog 0033)
 
 - `session_tool_policy.ts`: `SessionToolPolicyBody`, `SessionToolPolicy`, `SessionToolPolicyClient`,
