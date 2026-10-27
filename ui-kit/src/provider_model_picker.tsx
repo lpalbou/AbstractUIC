@@ -145,23 +145,36 @@ export function ProviderModelPicker(
   const fetchers = useRef(props);
   fetchers.current = props;
 
-  const [gatewayDefault, setGatewayDefault] = useState<GatewayModelDefault | undefined>(undefined);
-  const hasDefaultFetch = Boolean(props.fetchGatewayDefault);
+  // The named default. Re-read whenever the host hands a new `fetchGatewayDefault` (a sign-in, an
+  // identity change): pass a stable function (useCallback keyed by the identity). States: resolved
+  // (named), none (the gateway has no default configured), unusable (the gateway's own warnings),
+  // error (could not be read: the reason is shown, never a silent plain label).
+  type DefaultState = { status: "idle" | "loading" | "resolved" | "none" | "unusable" | "error"; value: GatewayModelDefault; message: string };
+  const [defaultState, setDefaultState] = useState<DefaultState>({ status: "idle", value: null, message: "" });
+  const fetchDefault = props.fetchGatewayDefault;
   useEffect(() => {
-    if (!hasDefaultFetch || disabled) return;
+    if (!fetchDefault || disabled) return;
     let alive = true;
-    void fetchers.current.fetchGatewayDefault!()
+    const put = (next: DefaultState) =>
+      setDefaultState((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+    setDefaultState((prev) => (prev.status === "idle" ? { ...prev, status: "loading" } : prev));
+    void fetchDefault()
       .then((d) => {
-        if (alive) setGatewayDefault(d ?? null);
+        if (!alive) return;
+        if (!d) put({ status: "none", value: null, message: "" });
+        else if (d.warnings?.length) put({ status: "unusable", value: d, message: d.warnings.join(" ") });
+        else put({ status: "resolved", value: d, message: "" });
       })
-      .catch(() => {
-        // Unknown default: the choice still reads "Gateway default" (the gateway still decides).
-        if (alive) setGatewayDefault(null);
+      .catch((e: any) => {
+        if (alive) put({ status: "error", value: null, message: String(e?.message || e) });
       });
     return () => {
       alive = false;
     };
-  }, [hasDefaultFetch, disabled]);
+  }, [fetchDefault, disabled]);
+  const gatewayDefault = defaultState.status === "resolved" ? defaultState.value : null;
+  // "(saved)" marks only what the picker was mounted with (a stored choice), never a value typed now.
+  const mountedRoute = useRef({ provider: String(value.provider || "").trim(), model: String(value.model || "").trim() });
 
   useEffect(() => {
     if (!showSelects || pins.provider || disabled) return;
@@ -226,11 +239,12 @@ export function ProviderModelPicker(
   const modelName = String(value.model || "").trim();
 
   const defaultLabel = props.defaultModeLabel || "Gateway default";
-  const defaultLine = gatewayDefaultLabel(gatewayDefault ?? null, defaultLabel);
+  const defaultLine =
+    defaultState.status === "none" ? `${defaultLabel} · none configured` : gatewayDefaultLabel(gatewayDefault, defaultLabel);
   const customLabel = props.customModeLabel || "Custom";
   const discoveryDefault =
     props.effectiveDefault ||
-    (gatewayDefault ? { provider: gatewayDefault.provider, model: gatewayDefault.model } : undefined);
+    (defaultState.value ? { provider: defaultState.value.provider, model: defaultState.value.model } : undefined);
   const effectiveProvider = providerName || discoveryDefault?.provider || "";
   const effectiveModel =
     modelName || (!providerName ? discoveryDefault?.model : "") || "";
@@ -336,7 +350,7 @@ export function ProviderModelPicker(
   return (
     <div
       className={`af-pmp${compact ? " af-pmp--compact" : ""}${props.className ? ` ${props.className}` : ""}`}
-      data-gateway-default={gatewayDefault ? "resolved" : hasDefaultFetch ? "unknown" : undefined}
+      data-gateway-default={fetchDefault ? defaultState.status : undefined}
     >
       {compact || pinnedRoute ? null : <div className="af-pmp__seg" role="tablist" aria-label="Provider mode">
         <button
@@ -373,6 +387,13 @@ export function ProviderModelPicker(
         </button>
       </div>}
 
+      {defaultState.status === "error" || defaultState.status === "unusable" ? (
+        <div role="status" className="af-pmp__hint" data-gateway-default-problem={defaultState.status}>
+          {defaultState.status === "error"
+            ? `The gateway's default could not be read: ${defaultState.message}`
+            : `Gateway warning: ${defaultState.message}`}
+        </div>
+      ) : null}
       {!showSelects ? (
         <div className="af-pmp__hint">
           {props.defaultHint ||
@@ -384,7 +405,7 @@ export function ProviderModelPicker(
           model={modelName}
           providers={providers}
           models={models}
-          markSaved
+          markSaved={mountedRoute.current}
           providerPinned={pins.provider}
           modelPinned={pins.model}
           disabled={disabled}

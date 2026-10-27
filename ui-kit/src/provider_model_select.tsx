@@ -58,8 +58,9 @@ export type ProviderModelSelectProps = {
   allowCustomProvider?: boolean;
   allowCustomModel?: boolean;
   /** ui-primitives (tools-models): a current provider/model the discovered list no longer has stays
-   * selectable, labeled "(saved)" (once its list has loaded). */
-  markSaved?: boolean;
+   * selectable, labeled "(saved)" once its list has loaded without an error. `true` marks any such
+   * value; `{provider, model}` marks only those stored values (a value typed now is not "saved"). */
+  markSaved?: boolean | { provider?: string; model?: string };
   /** The provider / model comes from a connected pin (a flow node): shown, not editable. */
   providerPinned?: boolean;
   modelPinned?: boolean;
@@ -84,7 +85,9 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
 
   const providers = normalize_provider_options(props.providers);
   const models = normalize_models(props.models);
-  const saved = (v: string, loading: boolean | undefined) => (props.markSaved && !loading ? `${v} (saved)` : v);
+  const savedOnly = typeof props.markSaved === "object" ? props.markSaved : null;
+  const saved = (v: string, field: "provider" | "model", loading: boolean | undefined, error: string | undefined) =>
+    props.markSaved && !loading && !error && (!savedOnly || savedOnly[field] === v) ? `${v} (saved)` : v;
 
   const provider_disabled = disabled || Boolean(props.loadingProviders);
   const model_disabled = disabled || Boolean(props.loadingModels);
@@ -93,7 +96,7 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
     ...(allow_gateway_default ? [{ value: "", label: gateway_default_label } satisfies AfSelectOption] : []),
     ...providers.map((p) => ({ value: p.name, label: p.display_name ? `${p.display_name} (${p.name})` : p.name })),
     ...(props.markSaved && provider_value && !providers.some((p) => p.name === provider_value)
-      ? [{ value: provider_value, label: saved(provider_value, props.loadingProviders) }]
+      ? [{ value: provider_value, label: saved(provider_value, "provider", props.loadingProviders, props.providerError) }]
       : []),
   ];
 
@@ -101,7 +104,7 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
     ...(allow_gateway_default ? [{ value: "", label: gateway_default_label } satisfies AfSelectOption] : []),
     ...models.map((m) => ({ value: m, label: m })),
     ...(props.markSaved && model_value && !models.includes(model_value)
-      ? [{ value: model_value, label: saved(model_value, props.loadingModels) }]
+      ? [{ value: model_value, label: saved(model_value, "model", props.loadingModels, props.modelError) }]
       : []),
   ];
   const pinned = (label: string, value: string) => (

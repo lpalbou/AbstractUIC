@@ -169,7 +169,31 @@ const picker = (extra) => ({
   const m = mount(ProviderModelPicker, picker({ fetchGatewayDefault: async () => { throw new Error("down"); } }));
   await m.settle();
   const b = first(m.tree, (n) => n.props["data-default-choice"] === "");
-  check("unknown default reads plain Gateway default", b?.props.children === "Gateway default" && m.tree.props["data-gateway-default"] === "unknown");
+  check("an unreadable default reads plain Gateway default", b?.props.children === "Gateway default" && m.tree.props["data-gateway-default"] === "error");
+  const problem = first(m.tree, (n) => n.props["data-gateway-default-problem"] === "error");
+  check("…and says why (never silent)", String(problem?.props.children).includes("could not be read: down"), String(problem?.props.children));
+}
+// Review F4: none configured ≠ could not be read; the gateway's warnings replace the name; a new
+// fetchGatewayDefault (sign-in) is read again.
+{
+  const none = mount(ProviderModelPicker, picker({ fetchGatewayDefault: async () => null }));
+  await none.settle();
+  check("none configured is said", first(none.tree, (n) => n.props["data-default-choice"] === "")?.props.children === "Gateway default · none configured" && none.tree.props["data-gateway-default"] === "none");
+  const unusable = mount(ProviderModelPicker, picker({ fetchGatewayDefault: async () => ({ ...DEFAULT, warnings: ["The default text model cannot be used: profile gone."] }) }));
+  await unusable.settle();
+  const label = first(unusable.tree, (n) => n.props["data-default-choice"] === "")?.props.children;
+  check("an unusable default is not named", label === "Gateway default", String(label));
+  check("the gateway's warning is shown", String(first(unusable.tree, (n) => n.props["data-gateway-default-problem"] === "unusable")?.props.children).includes("profile gone"));
+  let n = 0;
+  const signedOut = async () => { n += 1; throw new Error("401"); };
+  const m = mount(ProviderModelPicker, picker({ fetchGatewayDefault: signedOut }));
+  await m.settle();
+  m.rerender({ fetchGatewayDefault: signedOut });
+  await m.settle();
+  check("the same function is not re-read", n === 1, String(n));
+  m.rerender({ fetchGatewayDefault: async () => DEFAULT });
+  await m.settle();
+  check("a new fetchGatewayDefault (sign-in) is read again", first(m.tree, (x) => x.props["data-default-choice"] === "")?.props.children === "Gateway default · ollama / qwen3 · reasoning high · MTP depth 3" && !first(m.tree, (x) => x.props["data-gateway-default-problem"]));
 }
 
 // "(saved)": the select keeps a value its list no longer has, labeled once the list loaded.
@@ -183,7 +207,12 @@ const picker = (extra) => ({
   const m = mount(ProviderModelPicker, picker({ value: { provider: "ollama", model: "gone", reasoning: "ultra" }, fetchModelCapabilities: async () => ({ capabilities: { reasoning_levels: ["low"] } }) }));
   await m.settle();
   const sel = first(m.tree, (n) => n.type === ProviderModelSelect);
-  check("the picker asks the select to mark saved values", sel?.props.markSaved === true && !sel.props.models.includes("gone"), JSON.stringify(sel?.props.models));
+  check("the picker marks only its mounted (stored) values", JSON.stringify(sel?.props.markSaved) === JSON.stringify({ provider: "ollama", model: "gone" }) && !sel.props.models.includes("gone"), JSON.stringify(sel?.props.markSaved));
+  // Review F5: a value typed now is not "saved"; nothing is "saved" while its list failed.
+  const typed = renderToStaticMarkup(h(ProviderModelSelect, { provider: "ollama", model: "typed-now", providers: [{ name: "ollama" }], models: ["qwen3"], markSaved: { provider: "ollama", model: "gone" }, onChange() {} }));
+  check("a typed value is not labeled (saved)", typed.includes("typed-now") && !typed.includes("typed-now (saved)"));
+  const failed = renderToStaticMarkup(h(ProviderModelSelect, { provider: "ollama", model: "gone", providers: [], models: [], providerError: "#FALLBACK provider discovery failed: x", modelError: "#FALLBACK model discovery failed: x", markSaved: { provider: "ollama", model: "gone" }, onChange() {} }));
+  check("no (saved) while discovery failed", !failed.includes("(saved)"), failed.slice(0, 300));
   check("(saved) reasoning label", reasoningSelect(m.tree)?.props.options.some((o) => o.value === "ultra" && o.label === "ultra (saved)"), JSON.stringify(reasoningSelect(m.tree)?.props.options));
 }
 

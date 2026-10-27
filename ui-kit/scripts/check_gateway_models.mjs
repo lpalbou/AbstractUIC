@@ -48,6 +48,8 @@ check("only input.text configured still resolves", j(gatewayTextDefault({ routes
 check("no configured text route → null", gatewayTextDefault({ routes: [{ key: "output.text", source: "not_configured" }] }) === null);
 check("a half row is not a default", gatewayTextDefault({ routes: [{ key: "output.text", provider: "p" }] }) === null);
 check("MTP off is kept", gatewayTextDefault({ routes: [{ key: "input.text", provider: "p", model: "m", options: { speculation: false } }] })?.speculation === false);
+check("a remote core failure (ok:false) throws with its errors", throws(() => gatewayTextDefault({ ok: false, routes: [], errors: ["connection refused"] }), /connection refused/) && throws(() => gatewayTextDefault({ ok: false, routes: [] }), /could not read/));
+check("the gateway's warnings ride along", j(gatewayTextDefault({ routes: [{ key: "input.text", provider: "endpoint:x", model: "m" }], warnings: ["The default text model cannot be used: gone."] })?.warnings) === j(["The default text model cannot be used: gone."]) && d?.warnings === undefined);
 check("missing routes[] throws", throws(() => gatewayTextDefault({ error: "x" }), /no routes/) && throws(() => gatewayTextDefault(null)));
 check("summary in words", gatewayDefaultSummary(d) === "ollama / qwen3 · reasoning high · MTP depth 3", gatewayDefaultSummary(d));
 check("label names the default", gatewayDefaultLabel(d) === "Gateway default · ollama / qwen3 · reasoning high · MTP depth 3");

@@ -23,6 +23,10 @@ export type GatewayModelDefault = {
   speculation?: SpeculationValue;
   /** The route row's `source` (e.g. "abstractcore.capability_defaults"). */
   source?: string;
+  /** The gateway's own sentences that the default cannot be used now (`warnings`,
+   * capability_defaults_route_problems, routes/gateway.py:27724-27745). A picker shows them instead
+   * of naming the default. */
+  warnings?: string[];
 } | null;
 
 type Row = Record<string, unknown>;
@@ -35,10 +39,17 @@ const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
  * stores the text route under `input.text` and serves `output.text` derived from it,
  * abstractgateway core_config.py:95-100); the default reasoning is `routes[output.text].reasoning`;
  * the default MTP is `routes[input.text].options.speculation` (the declared authority,
- * routes/gateway.py:18977). Throws when the answer has no `routes[]`; null when no row is configured.
+ * routes/gateway.py:18977). Throws when the answer has no `routes[]` or says it could not be read
+ * (`{ok: false, errors}`: a remote AbstractCore that failed, core_config.py:113-140); null when no
+ * row is configured; the gateway's `warnings` ride along.
  */
 export function gatewayTextDefault(payload: unknown): GatewayModelDefault {
-  const rows = obj(payload)?.routes;
+  const body = obj(payload);
+  if (body?.ok === false) {
+    const errors = Array.isArray(body.errors) ? body.errors.map(str).filter(Boolean) : [];
+    throw new Error(errors.length ? errors.join("; ") : "The gateway could not read its capability defaults.");
+  }
+  const rows = body?.routes;
   if (!Array.isArray(rows)) throw new Error("The gateway's capability defaults have no routes.");
   const row = (key: string): Row | undefined =>
     rows.map(obj).find((r) => r && str(r.key) === key && str(r.source) !== "not_configured");
@@ -48,12 +59,14 @@ export function gatewayTextDefault(payload: unknown): GatewayModelDefault {
   if (!pick) return null;
   const reasoning = str(out?.reasoning) || str(stored?.reasoning);
   const speculation = normalizeSpeculationValue(obj(stored?.options)?.speculation ?? obj(out?.options)?.speculation);
+  const warnings = Array.isArray(body?.warnings) ? body!.warnings.map(str).filter(Boolean) : [];
   return {
     provider: str(pick.provider),
     model: str(pick.model),
     ...(reasoning ? { reasoning } : {}),
     ...(speculation !== undefined ? { speculation } : {}),
     ...(str(pick.source) ? { source: str(pick.source) } : {}),
+    ...(warnings.length ? { warnings } : {}),
   };
 }
 
