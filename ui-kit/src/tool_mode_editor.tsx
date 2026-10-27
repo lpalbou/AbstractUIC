@@ -14,7 +14,7 @@ import { AfOverrideRow } from "./af_settings_rows.js";
 import { AfTooltip } from "./af_tooltip.js";
 import { describeToolMode } from "./tool_policy_editor.js";
 import { formatExactTime } from "./relative_time.js";
-import { sessionPolicyClampedLines, type SessionToolPolicy } from "./session_tool_policy.js";
+import { sessionPolicyClampedLines, type SessionToolPolicy, type SessionToolPolicyScope } from "./session_tool_policy.js";
 import type { ToolLayerStorage } from "./tool_layer_store.js";
 import {
   BULK_AUTO_MAX_RANK,
@@ -36,6 +36,12 @@ export const TOOL_LAYER_RESET: Record<"app" | "session", string> = {
   app: "Use the gateway's",
   session: "Use my defaults",
 };
+/** What Off means for a chat whose layer the gateway stores: a deny reaches every run of the session
+ * (contract v1 revised §4.3), not only the runs this app starts. */
+export const TOOL_SESSION_OFF_HELP = "Off = denied for every run of this chat, automations included";
+/** Shown when the gateway stores the policy but does not say where it applies (never composed). */
+export const TOOL_POLICY_SCOPE_UNSAID = "The gateway did not say where this policy applies";
+
 /** Whose override a layer is (AfOverrideRow `overrideOwner`). */
 export const TOOL_LAYER_OWNER: Record<"app" | "session", string> = { app: "this app", session: "this chat" };
 
@@ -73,6 +79,9 @@ export type ToolModeEditorProps = {
   /** The conversation's policy as the gateway stores it (loadSession / saveSession): its `clamped`
    * entries ("Not covered: … (not_authorized)") and who set it, when. */
   policy?: SessionToolPolicy | null;
+  /** Where the policy's approve and deny apply, as the gateway served it (SessionLayerState.scope);
+   * defaults to `policy.scope`. Rendered verbatim ("Approve applies to: …"); never composed. */
+  scope?: SessionToolPolicyScope | null;
   /** Settings pages: frame the editor in an AfOverrideRow with this label ("Tools"). */
   rowLabel?: React.ReactNode;
   rowHelp?: React.ReactNode;
@@ -173,6 +182,7 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
   };
   const changed = props.catalog.filter(overridesRow).map((t) => t.name);
   const banner = describeToolMode(props.toolMode, props.toolModeLabel, props.toolModeDetail);
+  const scope = props.scope ?? props.policy?.scope ?? null;
   const rowModes: Array<ToolMode | "on"> = allowList ? ["off", "on"] : ["off", "ask", "auto"];
   const modeLabel = (m: ToolMode | "on") => labels[m];
 
@@ -223,6 +233,23 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
       {props.storage?.note ? (
         <div className="af-tool-modes__warnings" role="status" data-storage-note={props.storage.kind}>
           {props.storage.note}
+        </div>
+      ) : null}
+      {props.layer === "session" && props.storage?.kind === "gateway" ? (
+        <div className="af-tool-modes__policy" data-session-off-help="">
+          {TOOL_SESSION_OFF_HELP}
+        </div>
+      ) : null}
+      {props.storage?.kind === "gateway" || props.policy ? (
+        <div className="af-tool-modes__policy" data-policy-scope={scope ? "served" : "unsaid"}>
+          {scope ? (
+            <>
+              {scope.approve ? <div>Approve applies to: {scope.approve}</div> : null}
+              {scope.deny ? <div>Deny applies to: {scope.deny}</div> : null}
+            </>
+          ) : (
+            TOOL_POLICY_SCOPE_UNSAID
+          )}
         </div>
       ) : null}
       {props.policy ? (

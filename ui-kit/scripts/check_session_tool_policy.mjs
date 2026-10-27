@@ -82,7 +82,7 @@ await client.merge({ approve: { kinds: ["web"], max_risk_rank: 2 }, client: "min
 check("POST merges; a body's own client wins", j(calls.at(-1)) === j(["api/gateway/sessions/s-123/tool-policy", "POST", { approve: { kinds: ["web"], max_risk_rank: 2 }, client: "mine" }]), j(calls.at(-1)));
 answer = { session_id: "s-123", policy: null, revision: 7 };
 const reset = await client.reset();
-check("DELETE resets → {revision}", j(calls.at(-1)) === j(["api/gateway/sessions/s-123/tool-policy", "DELETE", undefined]) && reset.revision === 7, j(reset));
+check("DELETE resets → {revision}", j(calls.at(-1)) === j(["api/gateway/sessions/s-123/tool-policy", "DELETE", undefined]) && j(reset) === j({ revision: 7 }), j(reset));
 answer = { session_id: "s-123", policy: { approve: {} } };
 check("a malformed policy is refused, never half-read", (await rejects(client.replace({}))) instanceof Error);
 answer = { session_id: "s-123" };
@@ -150,6 +150,23 @@ check("clamped lines", j(sessionPolicyClampedLines(POLICY)) === j(["Not covered:
   check("L5 a method the gateway does not advertise is not sent", /cannot store chat tool policies with DELETE/.test(String((await rejects(noDelete.reset()))?.message)) && calls.length === n);
 }
 
+// ---------------------------------------------------------------- scope (contract v1 revised §3), served words untouched
+// The implementation's shape: top level of every answer, {approve, deny} (gateway session_tool_policy.py:226-230).
+const SCOPE = { approve: "every run of this conversation (turns and their delegated child runs), except automation runs, runs that read text other people wrote, and entity visits", deny: "every run of this conversation, automation runs and untrusted-input runs included" };
+{
+  const c = createSessionToolPolicyClient(async (path, init) => (init.method === "DELETE" ? { session_id: "s-1", policy: null, revision: 3, scope: SCOPE } : init.method === "GET" ? { session_id: "s-1", policy: answer === "null" ? null : { ...POLICY, session_id: "s-1" }, revision: 2, scope: SCOPE } : { session_id: "s-1", policy: { ...POLICY, session_id: "s-1" } }), "s-1", CAP);
+  answer = "x";
+  const p = await c.get();
+  check("scope passed onto the policy untouched", j(p.scope) === j(SCOPE) && j(c.scope) === j(SCOPE), j(p.scope));
+  answer = "null";
+  check("scope kept when there is no policy", (await c.get()) === null && j(c.scope) === j(SCOPE));
+  const put = await c.replace({});
+  check("an answer without scope: none (never composed)", put.scope === undefined && c.scope === undefined, j(put.scope));
+  const del = await c.reset();
+  check("DELETE's scope kept and returned next to its revision", j(c.scope) === j(SCOPE) && j(del) === j({ revision: 3, scope: SCOPE }), j(del));
+  check("a malformed scope is ignored", kit.sessionToolPolicyScope("words") === undefined && kit.sessionToolPolicyScope({ approve: 3 }) === undefined && j(kit.sessionToolPolicyScope({ deny: "d" })) === j({ deny: "d" }));
+}
+
 // ---------------------------------------------------------------- revisions (review B1): every answer's revision is kept
 {
   const seen = [];
@@ -178,7 +195,7 @@ check("clamped lines", j(sessionPolicyClampedLines(POLICY)) === j(["Not covered:
 // A fake gateway with the runtime store's revision semantics (monotonic, kept across DELETE; if_revision
 // checked on PUT and DELETE) and FastAPI 409 bodies, the review's race.mjs model.
 function fakeGateway({ topLevelRevision = true } = {}) {
-  const g = { rev: 0, row: null, log: [] };
+  const g = { rev: 0, row: null, log: [], scope: SCOPE };
   g.request = async (path, init) => {
     const q = new URL(`http://x/${path}`).searchParams;
     g.log.push([init.method, init.body, q.get("if_revision")]);
@@ -186,8 +203,9 @@ function fakeGateway({ topLevelRevision = true } = {}) {
       if (want !== undefined && want !== null && Number(want) !== g.rev)
         throw { status: 409, body: { detail: { reason_code: "revision_conflict", message: `revision is ${g.rev}`, revision: g.rev } } };
     };
-    if (init.method === "GET") return topLevelRevision ? { session_id: "s1", policy: g.row, revision: g.rev } : { session_id: "s1", policy: g.row };
-    if (init.method === "DELETE") { guard(q.get("if_revision") ?? undefined); g.rev += 1; g.row = null; return { session_id: "s1", policy: null, revision: g.rev }; }
+    const sc = g.scope ? { scope: g.scope } : {};
+    if (init.method === "GET") return topLevelRevision ? { session_id: "s1", policy: g.row, revision: g.rev, ...sc } : { session_id: "s1", policy: g.row, ...sc };
+    if (init.method === "DELETE") { guard(q.get("if_revision") ?? undefined); g.rev += 1; g.row = null; return { session_id: "s1", policy: null, revision: g.rev, ...sc }; }
     guard(init.body.if_revision);
     g.rev += 1;
     const sel = (b, key) => {
@@ -197,7 +215,7 @@ function fakeGateway({ topLevelRevision = true } = {}) {
       return out;
     };
     g.row = { version: 1, session_id: "s1", revision: g.rev, approve: sel(init.body.approve, "approve"), deny: sel(init.body.deny, "deny"), ask: init.body.ask || [], request: init.body, clamped: [] };
-    return { session_id: "s1", policy: g.row };
+    return { session_id: "s1", policy: g.row, ...sc };
   };
   g.client = (opts = {}) => createSessionToolPolicyClient(g.request, "s1", CAP, opts);
   g.other = () => createSessionToolPolicyClient(g.request, "s1", CAP, { client: "other" });
@@ -216,6 +234,7 @@ const id = toolIdentityKey({ gatewayUrl: "https://gw", userId: "u" });
   check("never an unguarded write: a save before any read is refused", (await rejects(A.saveSession("s1", { fetch_url: "auto" }, catalog))) instanceof kit.SessionToolPolicyRevisionError && g.log.length === 0);
   check("…and a reset before any read", (await rejects(A.resetSession("s1"))) instanceof kit.SessionToolPolicyRevisionError && g.log.length === 0);
   const loaded = await A.loadSession("s1", catalog);
+  check("the store carries the served scope, also with no policy", j(loaded.scope) === j(SCOPE), j(loaded.scope));
   check("load reads the gateway (GET)", g.log.at(-1)[0] === "GET" && j(loaded.layer) === "{}" && loaded.policy === null && loaded.storage.kind === "gateway");
   const saved = await A.saveSession("s1", { fetch_url: "auto", execute_command: "off" }, catalog);
   check("save PUTs the mapped body, guarded by the null read's revision", g.log.at(-1)[0] === "PUT" && j(g.log.at(-1)[1]) === j({ approve: { tools: ["fetch_url"] }, deny: { tools: ["execute_command"] }, ask: [], if_revision: 0, client: "abstractcode" }), j(g.log.at(-1)));
@@ -299,6 +318,28 @@ await race("A read a policy, B wrote, A clears its layer (DELETE)", async (g, A)
   check("B2 approve.all is carried", allBody.approve.all === true && !kit.sessionPolicyBodyIsEmpty(allBody));
   check("an empty body is empty", kit.sessionPolicyBodyIsEmpty(sessionPolicyFromLayer({}, catalog)));
 }
+// Contract v1 revised §3: POST merge only adds; a narrowing save is a guarded PUT, never POST.
+{
+  const g = fakeGateway();
+  const A = createToolLayerStore(id, { storage: memStore().storage, sessionPolicy: () => g.client() });
+  await A.loadSession("s1", catalog);
+  await A.saveSession("s1", { fetch_url: "auto", web_search: "auto" }, catalog);
+  await A.saveSession("s1", { fetch_url: "ask" }, catalog);
+  const narrowing = g.log.at(-1);
+  check("a narrowing save (auto → ask, a removal) is a guarded PUT", narrowing[0] === "PUT" && narrowing[1].ask.includes("fetch_url") && !narrowing[1].approve.tools.includes("web_search") && narrowing[1].if_revision === 1, j(narrowing));
+  await A.saveSession("s1", { fetch_url: "ask", read_file: "auto" }, catalog);
+  await A.resetSession("s1");
+  check("the store never issues POST", !g.log.some((x) => x[0] === "POST"), j(g.log.map((x) => x[0])));
+}
+// Contract v1 revised §3: all/kinds include model-chosen-destination tools; Ask keeps them asking.
+{
+  const base = { ...POLICY, approve: { fetch_url: "all", send_email: "all", read_file: "all" }, deny: {}, ask: [], request: { approve: { all: true } } };
+  const b = sessionPolicyFromLayer({ fetch_url: "ask", send_email: "ask", read_file: "auto" }, catalog, { base });
+  check("model-chosen-destination tools at Ask are always in ask under approve.all", b.ask.includes("fetch_url") && b.ask.includes("send_email") && b.approve.all === true, j(b));
+  const left = sessionPolicyFromLayer({ read_file: "auto" }, catalog, { base, inherited: { fetch_url: "ask", send_email: "ask" } });
+  check("…also when they inherit Ask", left.ask.includes("fetch_url") && left.ask.includes("send_email"), j(left));
+}
+
 // The browser fallback, labeled.
 {
   const g = fakeGateway();

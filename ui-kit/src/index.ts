@@ -673,6 +673,8 @@ export {
   SessionToolPolicyRevisionError,
   SESSION_TOOL_POLICY_NO_REVISION,
   sessionPolicyBodyIsEmpty,
+  sessionToolPolicyScope,
+  type SessionToolPolicyScope,
   type SessionToolPolicyRevisionedClient,
   type SessionToolPolicyBody,
   type SessionToolPolicy,
@@ -687,5 +689,5 @@ export {
   type SessionLayerState,
   type ToolLayerStoreOptions,
 } from "./tool_layer_store.js";
-export { policySetLine } from "./tool_mode_editor.js";
+export { policySetLine, TOOL_SESSION_OFF_HELP, TOOL_POLICY_SCOPE_UNSAID } from "./tool_mode_editor.js";
 export { SESSION_ID_PATTERN, sessionToolPolicyRoute } from "./gateway_paths.js";

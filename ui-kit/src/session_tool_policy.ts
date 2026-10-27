@@ -49,7 +49,15 @@ export type SessionToolPolicy = {
   clamped?: { selector: string; name: string; reason: string }[];
   set_by?: { tenant_id?: string; user_id?: string; client?: string };
   set_at?: string;
+  /** Where approve and deny apply, in the gateway's words (contract v1 revised §3). The implementation
+   * serves it at the top level of every answer as `{approve, deny}` (gateway routes/session_tool_policy.py
+   * :104, :115, :152; session_tool_policy.py:226-230 SCOPE); the kit copies it here untouched and never
+   * composes it. */
+  scope?: SessionToolPolicyScope;
 };
+
+/** The served `scope`: one sentence each for where approve and where deny apply. */
+export type SessionToolPolicyScope = { approve?: string; deny?: string };
 
 export type SessionToolPolicyClient = {
   supported: boolean;
@@ -58,13 +66,17 @@ export type SessionToolPolicyClient = {
   replace(body: SessionToolPolicyBody): Promise<SessionToolPolicy>;
   merge(body: SessionToolPolicyBody): Promise<SessionToolPolicy>;
   /** `ifRevision` guards the reset (`DELETE ?if_revision=`; contract v1 amendment requested). */
-  reset(ifRevision?: number): Promise<{ revision?: number }>;
+  reset(ifRevision?: number): Promise<{ revision?: number; scope?: SessionToolPolicyScope }>;
 };
 
 /** The client this module builds: also the revision of the gateway's last answer (GET top-level
  * `revision` even with no policy, PUT/POST `policy.revision`, DELETE `revision`); undefined until an
  * answer carried one. A 409 does not move it: the host re-reads. */
-export type SessionToolPolicyRevisionedClient = SessionToolPolicyClient & { readonly revision: number | undefined };
+export type SessionToolPolicyRevisionedClient = SessionToolPolicyClient & {
+  readonly revision: number | undefined;
+  /** The `scope` of the last answer (also with no policy), untouched; undefined when not served. */
+  readonly scope: SessionToolPolicyScope | undefined;
+};
 
 /** `capabilities.session_tool_policy` as served (contract v1 §3). */
 export type SessionToolPolicyCapability = {
@@ -189,6 +201,16 @@ export function asSessionToolPolicy(value: unknown): SessionToolPolicy {
   };
 }
 
+/** The served `scope` (`{approve, deny}` sentences), or undefined when absent or not that shape. */
+export function sessionToolPolicyScope(value: unknown): SessionToolPolicyScope | undefined {
+  const v = obj(value);
+  if (!v) return undefined;
+  const out: SessionToolPolicyScope = {};
+  if (typeof v.approve === "string" && v.approve.trim()) out.approve = v.approve;
+  if (typeof v.deny === "string" && v.deny.trim()) out.deny = v.deny;
+  return out.approve || out.deny ? out : undefined;
+}
+
 function conflictOf(error: unknown): SessionToolPolicyConflictError | null {
   const e = obj(error) ?? (error instanceof Error ? (error as unknown as Row) : undefined);
   if (!e) return null;
@@ -201,7 +223,11 @@ function conflictOf(error: unknown): SessionToolPolicyConflictError | null {
 }
 
 /**
- * The four routes for one chat (session). `capability` is `sessionToolPolicyCapability(...)` of the
+ * The four routes for one chat (session). `sessionId` must be the run tree's ROOT session (contract
+ * v1 revised §4.2: the runtime reads the grant of the root session; a child started with another
+ * session id does not borrow it).
+ * POST (`merge`) only ADDS: it never narrows and never re-expands an earlier all / kinds (revised §3);
+ * anything that removes or narrows (a tool going Auto → Ask, a removal) is a guarded PUT (`replace`). `capability` is `sessionToolPolicyCapability(...)` of the
  * connected gateway; `supported` is true only when it says `supported: true`, and every call of an
  * unsupported client rejects with SessionToolPolicyUnsupportedError. `opts.client` names the app as
  * provenance (`client` in the body unless the body has its own). A 409 revision conflict rejects
@@ -218,6 +244,9 @@ export function createSessionToolPolicyClient(
   const supported = capability?.supported === true;
   const path = gatewayApiPath(sessionToolPolicyRoute(sid));
   let revision: number | undefined;
+  let scope: SessionToolPolicyScope | undefined;
+  // The top-level `scope` rides on the policy (untouched) and is kept for "no policy" answers too.
+  const withScope = (policy: SessionToolPolicy): SessionToolPolicy => (scope ? { ...policy, scope } : policy);
   const call = async (method: "GET" | "PUT" | "POST" | "DELETE", body?: unknown, query = ""): Promise<Row | undefined> => {
     if (!supported) throw new SessionToolPolicyUnsupportedError();
     // A gateway that lists its methods and leaves one out does not get it (review L5).
@@ -234,7 +263,8 @@ export function createSessionToolPolicyClient(
   const written = (answer: Row | undefined): SessionToolPolicy => {
     const policy = asSessionToolPolicy(answer?.policy);
     revision = policy.revision;
-    return policy;
+    scope = sessionToolPolicyScope(answer?.scope);
+    return withScope(policy);
   };
   return {
     supported,
@@ -242,13 +272,17 @@ export function createSessionToolPolicyClient(
     get revision() {
       return revision;
     },
+    get scope() {
+      return scope;
+    },
     async get() {
       const answer = await call("GET");
       if (!answer || !("policy" in answer)) throw new Error("The gateway answered without `policy` for this chat.");
       const policy = answer.policy === null ? null : asSessionToolPolicy(answer.policy);
       // GET's top-level `revision` (contract v1 amendment requested) also covers "no policy yet".
       revision = typeof answer.revision === "number" ? answer.revision : policy ? policy.revision : undefined;
-      return policy;
+      scope = sessionToolPolicyScope(answer.scope);
+      return policy ? withScope(policy) : null;
     },
     replace: async (body) => written(await call("PUT", withClient(body))),
     merge: async (body) => written(await call("POST", withClient(body))),
@@ -257,7 +291,9 @@ export function createSessionToolPolicyClient(
       // `DELETE ?if_revision=` (contract v1 amendment requested).
       const answer = await call("DELETE", undefined, ifRevision === undefined ? "" : `?if_revision=${ifRevision}`);
       revision = typeof answer?.revision === "number" ? answer.revision : undefined;
-      return revision === undefined ? {} : { revision };
+      scope = sessionToolPolicyScope(answer?.scope);
+      // DELETE's `policy` is null: its top-level scope rides next to the revision.
+      return { ...(revision === undefined ? {} : { revision }), ...(scope ? { scope } : {}) };
     },
   };
 }
@@ -265,6 +301,9 @@ export function createSessionToolPolicyClient(
 /**
  * A session layer as a policy body (PUT, a REPLACE). Mapping, for offered catalog tools with a
  * canonical mode:   auto → approve.tools · ask → ask · off → deny.tools
+ * Deny reaches EVERY run of the session, automations and untrusted-input runs included, and wins over a
+ * wait shown earlier and answered later; approve never reaches automation, untrusted-input or
+ * entity-visit runs (contract v1 revised §4.3/3b).
  * Limit: `deny` REFUSES a call with no wait ("Denied by this conversation's tool policy", the runtime's words), which is
  * stricter than "not offered"; the run's own ceiling (`allowed_tools` from planRunTools) still keeps
  * off tools out of the run, so the deny entry only matters for runs started elsewhere in the session.
@@ -276,7 +315,9 @@ export function createSessionToolPolicyClient(
  * - The request's selectors are carried unchanged: `approve.kinds`, `approve.all`,
  *   `approve.max_risk_rank`, `deny.kinds` (the gateway re-expands them at write time).
  * - An offered tool covered by a carried selector (served as "kind:<id>" / "all") whose mode here is
- *   Ask is put in `ask` (ask beats approve on the gateway); `inherited` (the modes the session layer
+ *   Ask is put in `ask` (ask beats approve on the gateway). `all` / `kinds` include the tools whose
+ *   destination the model chooses (fetch_url, browser_probe, send_email; revised §3): a layer that
+ *   sets them to Ask always emits them in `ask`, which keeps them asking under any approve; `inherited` (the modes the session layer
  *   inherits) decides a tool the layer leaves out. A tool denied by a `deny.kinds` selector stays
  *   denied: the editor cannot lift a kind (the gateway's deny always wins).
  */

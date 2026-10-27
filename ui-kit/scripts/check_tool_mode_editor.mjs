@@ -280,6 +280,17 @@ const btn = (tree, key) => [...walk(tree)].find((n) => n.props["data-tool-mode"]
   check("clamped entries shown", served.includes("Not covered: send_email (not_authorized)") && served.includes("data-policy-clamped"));
   check("who set it, when", /data-policy-set="">Set by admin \(panel-chat\) on Oct 27, 2026, \d\d:\d\d</.test(served), served.match(/data-policy-set[^<]*/)?.[0]);
   check("no policy block without a served policy", !render({ layer: "session" }).includes("data-session-policy"));
+  // Contract v1 revised: scope rendered as served, never composed; Off's reach on a gateway-stored chat.
+  const SC = { approve: "every run of this conversation, except automation runs", deny: "every run of this conversation, automation runs and untrusted-input runs included" };
+  const scoped = render({ layer: "session", storage: { kind: "gateway", where: TOOL_LAYER_GATEWAY_WHERE }, scope: SC });
+  check("scope rendered verbatim", scoped.includes("Approve applies to: every run of this conversation, except automation runs") && scoped.includes("Deny applies to: every run of this conversation, automation runs and untrusted-input runs included") && scoped.includes('data-policy-scope="served"'));
+  const viaPolicy = render({ layer: "session", policy: { ...policy, scope: SC } });
+  check("scope read from the policy when not passed", viaPolicy.includes("Approve applies to:"));
+  const unsaid = render({ layer: "session", storage: { kind: "gateway", where: TOOL_LAYER_GATEWAY_WHERE } });
+  check("scope absent → 'The gateway did not say where this policy applies'", unsaid.includes("The gateway did not say where this policy applies") && unsaid.includes('data-policy-scope="unsaid"') && !unsaid.includes("applies to:"));
+  check("no scope line for a browser layer", !older.includes("data-policy-scope"));
+  check("Off's reach said for a gateway-stored chat", unsaid.includes("Off = denied for every run of this chat, automations included"));
+  check("…not for the app layer nor a browser layer", !render({ layer: "app", storage: { kind: "gateway", where: TOOL_LAYER_GATEWAY_WHERE } }).includes("data-session-off-help") && !older.includes("data-session-off-help"));
 }
 
 if (failures) {

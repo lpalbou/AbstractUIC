@@ -14,6 +14,9 @@
 // `supported`, loadSession / saveSession / resetSession read and write the conversation's policy
 // (GET, PUT, DELETE on "Use my defaults"); otherwise they use this browser and say so
 // (`storage.kind: "browser"`, with a note when the gateway was asked and cannot).
+// The session id is the run tree's ROOT session (the runtime reads the root's grant, contract v1
+// revised §4.2). Writes are PUT (replace) and DELETE only, both revision-guarded: never POST, because
+// a merge only adds and cannot express a narrowing save (Auto → Ask, a removal).
 import { normalizeToolMode, type ToolCatalogItem, type ToolMode, type ToolModeDialect, type ToolModeLayer } from "./tool_plan.js";
 import {
   layerFromSessionPolicy,
@@ -23,6 +26,7 @@ import {
   SESSION_TOOL_POLICY_UNSUPPORTED,
   type SessionToolPolicy,
   type SessionToolPolicyClient,
+  type SessionToolPolicyScope,
 } from "./session_tool_policy.js";
 
 /** The words a host shows next to an editor backed by this store. */
@@ -37,8 +41,9 @@ export const TOOL_LAYER_BROWSER_FALLBACK = `${SESSION_TOOL_POLICY_UNSUPPORTED}, 
 
 /** Where a layer lives, in words: `where` is the frame's label, `note` why it is not the gateway. */
 export type ToolLayerStorage = { kind: "gateway" | "browser"; where: string; note?: string };
-/** A loaded or saved session layer: the layer, where it lives, and the gateway's policy when it is there. */
-export type SessionLayerState = { storage: ToolLayerStorage; layer: ToolModeLayer; policy: SessionToolPolicy | null };
+/** A loaded or saved session layer: the layer, where it lives, the gateway's policy when it is there,
+ * and the gateway's `scope` words (also with no policy; undefined when not served). */
+export type SessionLayerState = { storage: ToolLayerStorage; layer: ToolModeLayer; policy: SessionToolPolicy | null; scope?: SessionToolPolicyScope };
 
 /** Conversations kept per identity (the watch keeps the newest 100 too, ToolPrefs.swift). */
 export const TOOL_SESSION_LAYERS_MAX = 100;
@@ -202,12 +207,15 @@ export function createToolLayerStore(identityKey: string, opts: ToolLayerStoreOp
     policy: SessionToolPolicy | null,
     catalog: readonly ToolCatalogItem[],
     revision: number | undefined,
+    scope: SessionToolPolicyScope | undefined,
   ): SessionLayerState => {
     if (revision === undefined) revisions.delete(sessionId);
     else revisions.set(sessionId, revision);
     policies.set(sessionId, policy);
-    return { storage, layer: layerFromSessionPolicy(policy, catalog), policy };
+    return { storage, layer: layerFromSessionPolicy(policy, catalog), policy, ...(scope ? { scope } : {}) };
   };
+  const scopeOf = (client: SessionToolPolicyClient, policy: SessionToolPolicy | null): SessionToolPolicyScope | undefined =>
+    (client as { scope?: SessionToolPolicyScope }).scope ?? policy?.scope;
   const store: ToolLayerStore = {
     identityKey: identity,
     appKey,
@@ -234,7 +242,7 @@ export function createToolLayerStore(identityKey: string, opts: ToolLayerStoreOp
       const { client, storage } = clientFor(sessionId);
       if (!client) return { storage, layer: store.readSession(sessionId), policy: null };
       const policy = await client.get();
-      return fromPolicy(sessionId, storage, policy, catalog, revisionOf(client, policy));
+      return fromPolicy(sessionId, storage, policy, catalog, revisionOf(client, policy), scopeOf(client, policy));
     },
     async saveSession(sessionId, layer, catalog, saveOpts = {}) {
       const { client, storage } = clientFor(sessionId);
@@ -245,7 +253,7 @@ export function createToolLayerStore(identityKey: string, opts: ToolLayerStoreOp
       const body = sessionPolicyFromLayer(layer, catalog, { base: policies.get(sessionId) ?? null, inherited: saveOpts.inherited });
       if (sessionPolicyBodyIsEmpty(body)) return store.resetSession(sessionId);
       const policy = await client.replace({ ...body, if_revision: guard(sessionId) });
-      return fromPolicy(sessionId, storage, policy, catalog, revisionOf(client, policy));
+      return fromPolicy(sessionId, storage, policy, catalog, revisionOf(client, policy), scopeOf(client, policy));
     },
     async resetSession(sessionId) {
       const { client, storage } = clientFor(sessionId);
@@ -255,7 +263,7 @@ export function createToolLayerStore(identityKey: string, opts: ToolLayerStoreOp
       }
       const answer = await client.reset(guard(sessionId));
       // DELETE answers the new revision (contract v1 §3): the next write is guarded by it.
-      return fromPolicy(sessionId, storage, null, [], typeof answer.revision === "number" ? answer.revision : revisionOf(client, null));
+      return fromPolicy(sessionId, storage, null, [], typeof answer.revision === "number" ? answer.revision : revisionOf(client, null), scopeOf(client, null));
     },
   };
   return store;
