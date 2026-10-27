@@ -9,6 +9,22 @@ ships.
 
 ## Unreleased
 
+## 0.6.4 - 2026-10-27
+
+Packages: `@abstractframework/ui-kit` 0.8.9.
+
+### Added
+
+- **Voice picker follows the gateway's voice library** (AbstractGateway 0.16.0): `VoiceSettings` (and so
+  `AfVoiceSection`) groups voices into **Your voices**, **Engine voices** and **Built-in voices**, shows each voice's
+  native language, filters by language (**Voices that speak**, shown when the catalog has several), and shows the
+  selected voice's description. Helpers: `voiceGroup`, `voiceLanguage`, `voiceLanguages`, `voiceSpeaks`,
+  `voiceLanguageLabel`.
+- **Create a voice**: `VoiceSettings` / `AfVoiceSection` take `createVoice: VoiceCreation` (`design` = the gateway's
+  `POST voice/design`, `clone` = `POST voice/clones`); the panel (`CreateVoicePanel`) offers the injected modes, from a
+  description or from a recording, with a name and a language, and selects the new voice when it is ready. Without
+  `createVoice` nothing changes.
+
 ## 0.6.3 - 2026-10-26
 
 ### ui-kit 0.8.8

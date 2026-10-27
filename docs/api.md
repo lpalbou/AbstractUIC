@@ -49,7 +49,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   `optionsInDefaultMode={false}` takes the gateway default whole: reasoning and MTP appear only
   once a custom provider/model is chosen (for hosts that store them only with a pinned model,
   such as an entity's mind).
-- Voice: `VoiceSettings` (provider + model + voice from the Gateway catalog, "Gateway default"
+- Voice: `VoiceSettings` (provider + model + voice from the Gateway catalog, grouped into Your voices / Engine voices / Built-in voices with a language filter, and an optional `createVoice` panel (`VoiceCreation`: `design`, `clone`) that creates a voice through the gateway and selects it; "Gateway default"
   first). Host props: `intro` (`null` hides the paragraph), `delivery` (speed / quality /
   instructions, default on), `showReset`, `defaultHint` (names what the gateway default is) and
   `voiceDefaultLabel` (the voice select's unset choice).

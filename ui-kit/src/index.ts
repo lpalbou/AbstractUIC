@@ -147,7 +147,18 @@ export {
   type EffortFacts,
   type EffortRow,
 } from "./cognition_bloom_core.js";
-export { VoiceSettings, type VoicePreferences, type VoiceCatalog } from "./voice_settings.js";
+export {
+  VoiceSettings,
+  CreateVoicePanel,
+  voiceGroup,
+  voiceLanguage,
+  voiceLanguages,
+  voiceSpeaks,
+  voiceLanguageLabel,
+  type VoicePreferences,
+  type VoiceCatalog,
+  type VoiceCreation,
+} from "./voice_settings.js";
 export {
   RULED_PHASES,
   PHASE_DESCRIPTORS,

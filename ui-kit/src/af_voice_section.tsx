@@ -24,7 +24,7 @@ import { AfSelect } from "./af_select.js";
 import { AfSwitch } from "./af_switch.js";
 import { ProviderModelPicker } from "./provider_model_picker.js";
 import { AfOverrideRow, AfSettingRow, AfSettingsGroup } from "./af_settings_rows.js";
-import { VoiceSettings, type VoiceCatalog, type VoicePreferences } from "./voice_settings.js";
+import { VoiceSettings, type VoiceCatalog, type VoiceCreation, type VoicePreferences } from "./voice_settings.js";
 import { audioOutputSelectable } from "./use_gateway_voice.js";
 import {
   SILENT_LEVEL,
@@ -139,6 +139,8 @@ export type AfVoiceSectionProps = {
   outputSelectable?: boolean;
   /** Inside a host card (e.g. a "Voice" settings group): sub-sections render flat, never a card in a card. */
   nested?: boolean;
+  /** Voice creation through the gateway (`voice/design`, `voice/clones`); absent = no "Create a voice" panel. */
+  createVoice?: VoiceCreation;
   className?: string;
 };
 
@@ -279,6 +281,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
             quality={false}
             showReset={false}
             voiceDefaultLabel="Gateway default"
+            createVoice={p.createVoice}
           />
         </AfOverrideRow>
         <AfOverrideRow
