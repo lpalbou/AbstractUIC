@@ -6,8 +6,10 @@ browser script that defines a small global API, `window.AfConsoleIslands`.
 
 The AbstractGateway console (HTML served from Python) is the consumer: it uses the islands for
 its top-right action cluster (connect/disconnect pill, appearance button, About button, extras),
-its appearance dialog (theme, font scale, header density) and its About dialog, so the console renders the same
-components as the React apps.
+its appearance dialog (theme, font scale, header density), its About dialog, the Docs assistant,
+the Sandbox chat and the entity's model and voice pickers, so the console renders the same
+components as the React apps. The bundle also carries the app shell's drawer system, the tool
+editor and the whole voice section for console pages that adopt them.
 
 This page is a deep dive for the `ui-kit` package. For the package overview see
 [`ui-kit/README.md`](../ui-kit/README.md); for how the islands fit among the other packages and
@@ -31,7 +33,7 @@ Source files:
 
 | File | Role |
 | --- | --- |
-| `ui-kit/islands/console_islands.tsx` | Entry point and API (`mountTopBar`, `mountAppearance`, `mountAbout`, `bindModal`, `appIdentity`, `applyAppearance`) |
+| `ui-kit/islands/console_islands.tsx` | Entry point and API (`window.AfConsoleIslands`: every member of the [API reference](#api-reference-apiversion-2)) |
 | `ui-kit/islands/tsconfig.json` | Type-check configuration for the entry (`noEmit`) |
 | `ui-kit/scripts/build_islands.mjs` | esbuild bundler; writes `islands/dist/af-console-islands.js` |
 | `ui-kit/scripts/check_islands.mjs` | Rebuilds the bundle and verifies it loads as a plain script |
@@ -91,12 +93,17 @@ Serve both files from your own origin; the paths above are examples.
 | `mountTopBar(el, props)` | `IslandHandle` | Mounts `AfTopBarActions` into `el` |
 | `mountAppearance(el, props)` | `IslandHandle` | Mounts `AfAppearanceDialog` into `el` |
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
+| `mountSandboxChat(el, props)` | `IslandHandle` | Mounts the Sandbox chat: panel-chat's thread and composer (`messages`, `draft`, `onDraftChange`, `onSend`, attachments, drop and paste) with voice through `useGatewayVoice` (kit 0.4.0) |
+| `mountProviderModelPicker(el, props)` | `IslandHandle` | Mounts the kit `ProviderModelPicker` with its own props (kit 0.4.0; see [below](#mountprovidermodelpickerel-props-and-mountvoicesettingsel-props)) |
+| `mountVoiceSettings(el, props)` | `IslandHandle` | Mounts the kit `VoiceSettings` voice picker; its props carry `voiceLibrary` and `previewVoice` (kit 0.4.0; library and sample 0.9.0) |
+| `mountToolModeEditor(el, props)` | `IslandHandle` | Mounts the kit `ToolModeEditor` over a served `GET /api/gateway/discovery/tools` answer (kit 0.9.0; see [below](#mounttoolmodeeditorel-props)) |
 | `mountDocsAssistant(el, props)` | `IslandHandle` | Mounts panel-chat's `DocsAssistantDrawer` (the same Docs assistant every app mounts; the console passes `source: {app: "gateway", name: "AbstractGateway"}` and its own `fetchGateway`); keep it mounted while closed (kit 0.8.0, round 8) |
-| `islandConnectionStatus(connection)` | `GatewayConnectionState \| null` | The status the top bar's identity reads: `connection.status`, else the console's `me` body on this origin; null unless `phase` is `"connected"` (shell, backlog 0036) |
-| `mountDrawerSystem(el, props)` | `IslandHandle` | Mounts the kit `AfDrawerSystem`; each panel's content is a host element (`element`) moved into the panel and kept alive (shell, backlog 0036) |
+| `islandConnectionStatus(connection)` | `GatewayConnectionState \| null` | The status the top bar's identity reads: `connection.status`, else the console's `me` body on this origin; null unless `phase` is `"connected"` (kit 0.9.0, backlog 0036) |
+| `mountDrawerSystem(el, props)` | `IslandHandle` | Mounts the kit `AfDrawerSystem`; each panel's content is a host element (`element`) moved into the panel and kept alive (kit 0.9.0, backlog 0036) |
+| `bindMenu(button, menu, options?)` | `() => void` | Makes a plain-HTML button open an `.af-menu__list` (menu-button semantics, arrow keys, Escape and outside press close, focus return, flips at the viewport edge); returns `release()` (kit 0.4.0; [modal.md](./modal.md)) |
 | `bindModal(backdrop, options)` | `() => void` | Makes a plain-HTML `.af-modal-backdrop` modal (focus in, Tab trap, focus return, Escape / backdrop click call `options.onClose`, page scroll lock); returns `release()` (kit 0.4.0+) |
 | `mountWorkspaceChooser(el, props)` | `IslandHandle` | Mounts the kit `WorkspaceChooser` (`level`, `state`, `save`): the console's **Eligible workspaces** modal (`level: "gateway"`) and each account's Workspaces modal (`level: "account"`) (kit 0.8.3, round 11) |
-| `mountVoiceSection(el, props)` | `IslandHandle` | Mounts the kit `AfVoiceSection` (the whole voice settings: Engines, Output, Microphone, Replies) with the component's own props (`fetchCatalog`, `fetchDefaults`, `voiceLibrary`, `fetchLanguages`, `previewVoice`, `rows`, …) (ui-primitives 0035) |
+| `mountVoiceSection(el, props)` | `IslandHandle` | Mounts the kit `AfVoiceSection` (the whole voice settings: Engines, Output, Microphone, Replies) with the component's own props (`fetchCatalog`, `fetchDefaults`, `voiceLibrary`, `fetchLanguages`, `previewVoice`, `rows`, …) (kit 0.9.0, backlog 0035) |
 | `mountTimeZonePicker(el, props)` | `IslandHandle` | Mounts the kit `AfTimeZonePicker` (`block` = the preferences answer's `time_zone`, `id`, `onChange(zone \| null)`, `disabled`, `note`): the time zone row of the console's Accounts → Preferences modal (kit 0.8.7, round 16) |
 | `workspaceChooserText` | `object` | The WorkspaceChooser's wording table (`WORKSPACE_CHOOSER_TEXT`), e.g. the modal title `gatewayTitle` "Eligible workspaces" (kit 0.8.3) |
 | `workspaceAsState(answer, level)` | `object` | Turns a `GET/PUT /workspace/policy[/{account}]` answer into the chooser's `state`; throws on an older answer (kit 0.8.3) |
@@ -242,7 +249,7 @@ voice picker. The host keeps the value and calls `update(props)` after each chan
 console's entity Manage, Mind & voice tab uses both. The voice picker's props include
 `voiceLibrary` (create, list, rename, delete and share the gateway's voices: **Manage voices**)
 and `previewVoice` (**Play sample**); `mountVoiceSection(el, props)` mounts the whole
-`AfVoiceSection` the same way (ui-primitives 0035).
+`AfVoiceSection` the same way (kit 0.9.0).
 
 The picker also takes the props added by backlog 0034 (`fetchGatewayDefault`, `reasoningLadder`,
 `unknownReasoning`, `layout: "compact"`, `pinned`); see [API](./api.md). The console's Defaults
@@ -257,7 +264,7 @@ plain-HTML hosts, with the component's props. `catalog` takes the served
 the kit's `normalizeToolCatalog`, the answer's `catalog_warnings` shown, and "Tools unavailable: …"
 in place for a broken or failed answer, never a throw) or already-normalized items.
 The host keeps `value` (the layer's sparse diffs) and calls `update(props)` after each `onChange`.
-Intended for a console page over the gateway's tool settings (no such page exists yet).
+It is meant for a console page over the gateway's tool settings.
 
 ### `bindModal(backdrop, options)`
 
