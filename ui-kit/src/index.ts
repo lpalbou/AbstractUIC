@@ -552,4 +552,5 @@ export {
 } from "./voice_settings.js";
 export { voiceCaptureMode, type VoiceCaptureMode } from "./use_gateway_voice.js";
 export { recordingAbortError } from "./voice_devices.js";
+export { AfVoiceLevelMeter, useVoiceLevel, type AfVoiceLevelMeterProps, type VoiceLevelSource } from "./af_voice_level_meter.js";
 export { GATEWAY_VOICE_ROUTES, voiceClonePath, voiceCloneDeployPath, runVoiceTtsPath, runTranscribePath, entityVoicePath } from "./gateway_paths.js";

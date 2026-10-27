@@ -44,6 +44,7 @@ import { audioOutputSelectable, voiceCaptureMode, type GatewayVoiceOptions, type
 import { clampVolume, voiceDefaultSummary, type VoiceDefaults } from "./voice_devices.js";
 import { AfVoiceOutput, type VoiceDeviceLister } from "./af_voice_output.js";
 import { AfVoiceInput, clampInputGain } from "./af_voice_input.js";
+import type { VoiceLevelSource } from "./af_voice_level_meter.js";
 
 /** Client voice preferences: the TTS request fields plus STT route, speaker and read-aloud. */
 export type VoiceClientPreferences = VoicePreferences & {
@@ -211,8 +212,8 @@ export type AfVoiceSectionProps = {
   previewVoice?: (prefs: VoiceClientPreferences, text?: string) => Promise<ArrayBuffer>;
   /** What an unset `capture_mode` / `auto_send` means in this host (shown as the selected state). */
   captureDefaults?: { capture_mode?: VoiceCaptureMode; auto_send?: boolean };
-  /** The live microphone level 0..1 while the host records (`voice.voice_ptt_level`): the meter moves. */
-  level?: number;
+  /** The live microphone level while the host records: the `voice` from `useGatewayVoice` (only the meter re-renders). */
+  levelSource?: VoiceLevelSource | null;
   className?: string;
 };
 
@@ -400,7 +401,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
           <AfVoiceInput
             value={value}
             onChange={p.onChange}
-            level={p.level}
+            levelSource={p.levelSource}
             listDevices={p.listDevices}
             playOn={playOn}
             onDevicesChanged={() => setDevicesKey((n) => n + 1)}

@@ -10,15 +10,16 @@
 // `input_gain`). `value` may be the whole preference object: `onChange` returns
 // it with the patch merged.
 //
-// The meter shows the Test's level while the Test records, else the host's
-// `level` (pass `voice.voice_ptt_level` from `useGatewayVoice`: the meter then
-// moves while the user really speaks). Test records 3 s from the chosen
+// The meter shows the Test's level while the Test records, else the host's live
+// level (`levelSource={voice}` from `useGatewayVoice`: the meter then moves while
+// the user really speaks, and only the meter re-renders). Test records 3 s from the chosen
 // microphone and plays it back on `playOn` (the chosen speaker, reply volume).
 // Device names appear once the microphone is allowed ("Show names").
 import React, { useEffect, useId, useRef, useState } from "react";
 import { AfSelect } from "./af_select.js";
 import { AfSettingRow } from "./af_settings_rows.js";
 import type { VoiceDeviceLister } from "./af_voice_output.js";
+import { AfVoiceLevelMeter, type VoiceLevelSource } from "./af_voice_level_meter.js";
 import {
   SILENT_LEVEL,
   inputGainSupported,
@@ -48,7 +49,12 @@ export type AfVoiceInputProps<T extends VoiceInputValue = VoiceInputValue> = {
   value: T;
   /** The whole value with the change merged. */
   onChange: (next: T) => void;
-  /** The live microphone level 0..1 from the host's recording (`voice.voice_ptt_level`). */
+  /**
+   * The host's live recording level: pass the `voice` from `useGatewayVoice` (its
+   * `subscribe_level`); only the meter re-renders while the user speaks.
+   */
+  levelSource?: VoiceLevelSource | null;
+  /** A level 0..1 the host already holds; wins over `levelSource`. */
   level?: number;
   /** Devices of a kind (default: `navigator.mediaDevices.enumerateDevices()`). */
   listDevices?: VoiceDeviceLister;
@@ -142,8 +148,7 @@ export function AfVoiceInput<T extends VoiceInputValue>(p: AfVoiceInputProps<T>)
     ...(saved && !inputs.devices.some((o) => o.id === saved) ? [{ value: saved, label: "Saved microphone (not connected)" }] : []),
   ];
   const busy = micTest.phase !== "idle";
-  // The Test's own level while it records; otherwise the host's live recording level.
-  const level = Math.min(1, Math.max(0, micTest.phase === "recording" ? testLevel : Number(p.level) || 0));
+  const testing = micTest.phase === "recording";
   const deviceLabel = p.labels?.device || "Input device";
   const gainLabel = p.labels?.gain || "Input level";
   return (
@@ -168,18 +173,8 @@ export function AfVoiceInput<T extends VoiceInputValue>(p: AfVoiceInputProps<T>)
           onChange={(id) => update({ input_device: id })}
         />
       </AfSettingRow>
-      <div
-        className="af-voice-meter"
-        data-voice-meter
-        data-voice-meter-source={micTest.phase === "recording" ? "test" : "live"}
-        role="meter"
-        aria-label="Microphone level"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(level * 100)}
-      >
-        <span className="af-voice-meter__fill" style={{ width: `${Math.round(level * 100)}%` }} />
-      </div>
+      {/* The Test's own level while it records; otherwise the host's live recording level. */}
+      <AfVoiceLevelMeter source={testing ? null : p.levelSource} level={testing ? testLevel : p.level} origin={testing ? "test" : "live"} />
       {micTest.message ? (
         <p className={`af-voice-note af-voice-note--${micTest.tone}`} role="status" data-voice-note="microphone">
           {micTest.message}

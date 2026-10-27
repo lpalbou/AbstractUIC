@@ -124,7 +124,7 @@ check("hook: too-short recording is a sentence", hook.includes("The recording wa
 check("hook: empty transcript is a sentence", hook.includes("Nothing was heard."));
 check("hook: tap-to-toggle hosts can turn off the pointerup stop", hook.includes("opts_ref.current.stop_on_pointerup === false"));
 check("hook exposes voice_ptt_since", /return \{[\s\S]*\n    voice_ptt_since,\n[\s\S]*\n  \};\n\}/.test(hook));
-check("hook exposes voice_ptt_level", /\n    voice_ptt_level,\n/.test(hook));
+check("hook exposes subscribe_level (the live level as a subscription)", /\n    subscribe_level,\n/.test(hook));
 
 // ===================== ui-primitives 0035: recomposed on the voice widgets =====================
 const { mount, find, findAll, byAria } = await import("./voice_harness.mjs");
@@ -132,14 +132,15 @@ const { AfVoiceOutput, AfVoiceInput, VoiceSettings, VOICE_LANGUAGE_LABELS, VOICE
 for (const [name, fn] of Object.entries({ AfVoiceOutput, AfVoiceInput, gatewayVoiceOptions, voiceLanguagesFromAnswer })) check(`export ${name}`, typeof fn === "function", typeof fn);
 {
   // The section's Output and Microphone groups ARE the two widgets.
-  const h = mount(AfVoiceSection, { value: { reply_volume: 0.4, input_device: "mic-1" }, onChange: () => undefined, fetchCatalog: async () => ({}), fetchDefaults: async () => ROUTES, defaults: ROUTES, outputSelectable: true, level: 0.42 });
+  const levelSource = { subscribe_level: () => () => undefined };
+  const h = mount(AfVoiceSection, { value: { reply_volume: 0.4, input_device: "mic-1" }, onChange: () => undefined, fetchCatalog: async () => ({}), fetchDefaults: async () => ROUTES, defaults: ROUTES, outputSelectable: true, levelSource });
   const groups = findAll(h.tree, (n) => typeof n.props.title === "string");
   const groupOf = (title) => groups.find((g) => g.props.title === title);
   const out = find(groupOf("Output"), (n) => n.type === AfVoiceOutput);
   const inp = find(groupOf("Microphone"), (n) => n.type === AfVoiceInput);
   check("0035 Output group renders AfVoiceOutput", Boolean(out));
   check("0035 Microphone group renders AfVoiceInput", Boolean(inp));
-  check("0035 the section passes the live level to AfVoiceInput", inp?.props.level === 0.42, String(inp?.props.level));
+  check("0035 the section passes the live level source to AfVoiceInput", inp?.props.levelSource === levelSource);
   check("0035 the widgets get the whole preferences", out?.props.value?.input_device === "mic-1" && inp?.props.value?.reply_volume === 0.4);
   check("0035 Test plays back on the chosen speaker at the reply volume", inp?.props.playOn?.volume === 0.4);
   check("0035 the section shows no Mute unless the host honours it", out?.props.showMute === false);
@@ -147,6 +148,10 @@ for (const [name, fn] of Object.entries({ AfVoiceOutput, AfVoiceInput, gatewayVo
   const muted = mount(AfVoiceSection, { value: {}, onChange: () => undefined, fetchCatalog: async () => ({}), fetchDefaults: async () => ROUTES, defaults: ROUTES, rows: { mute: true } });
   check("0035 rows.mute shows the Mute toggle", find(muted.tree, (n) => n.type === AfVoiceOutput)?.props.showMute === true);
   muted.unmount();
+  // M2 (review 2026-10-27): a muted preference always offers Unmute, even with the row hidden.
+  const mutedHtml = render({ defaults: ROUTES, value: { reply_muted: true, reply_volume: 0.5 } });
+  check("M2 the section offers Unmute while muted (Mute row not opted in)", mutedHtml.includes('data-action="mute-replies"') && mutedHtml.includes(">Unmute<"));
+  check("M2 the section shows no Mute while not muted (row not opted in)", !render({ defaults: ROUTES, value: { reply_volume: 0.5 } }).includes('data-action="mute-replies"'));
   const html2 = render({ defaults: ROUTES });
   check("0035 rendered markup carries both widgets", html2.includes("data-voice-output") && html2.includes("data-voice-input"));
 }

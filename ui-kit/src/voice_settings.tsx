@@ -679,7 +679,7 @@ export function CreateVoicePanel({
             />
           </label>
           <div className="af-voice-create__record">
-            <button type="button" data-action="record-sample" aria-pressed={recording} disabled={busy} onClick={record}>
+            <button type="button" data-action="record-sample" disabled={busy} onClick={record}>
               {recording ? "Stop" : "Record"}
             </button>
             {recording ? (

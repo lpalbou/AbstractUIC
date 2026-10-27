@@ -19,7 +19,7 @@ export function mount(Component, initialProps) {
   let queue = [];
   let props = initialProps;
   let ids = 0;
-  const stats = { lateSets: 0, renders: 0 };
+  const stats = { lateSets: 0, renders: 0, sets: 0 };
   const changed = (prev, deps) => !prev || !deps || deps.length !== prev.deps.length || deps.some((d, j) => !Object.is(d, prev.deps[j]));
   const effect = (fn, deps) => {
     const k = index++;
@@ -43,7 +43,10 @@ export function mount(Component, initialProps) {
             return;
           }
           const v = typeof next === "function" ? next(h.value) : next;
-          if (!Object.is(v, h.value)) dirty = true;
+          if (!Object.is(v, h.value)) {
+            dirty = true;
+            stats.sets += 1;
+          }
           h.value = v;
         };
       return [h.value, h.set];

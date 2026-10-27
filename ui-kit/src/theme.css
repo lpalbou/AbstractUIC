@@ -6841,4 +6841,9 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
     width: 44px;
     height: 44px;
   }
+  .af-voice-library button,
+  .af-voice-create button,
+  .af-voice-settings__sample {
+    min-height: 44px;
+  }
 }

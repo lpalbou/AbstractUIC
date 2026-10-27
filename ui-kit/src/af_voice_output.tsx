@@ -45,7 +45,7 @@ export type AfVoiceOutputProps<T extends VoiceOutputValue = VoiceOutputValue> = 
   listDevices?: VoiceDeviceLister;
   /** Speaker selection works here (default: `audioOutputSelectable()`). */
   outputSelectable?: boolean;
-  /** The Mute toggle (default true). Shown only where the host passes `muted` to `useGatewayVoice`. */
+  /** The Mute toggle (default true; pass false where the host does not pass `muted` to `useGatewayVoice`). Unmute is always shown while muted. */
   showMute?: boolean;
   /** Why voice cannot be configured now; disables every control. */
   unavailableReason?: string | null;
@@ -78,7 +78,9 @@ export function AfVoiceOutput<T extends VoiceOutputValue>(p: AfVoiceOutputProps<
   const update = (patch: VoiceOutputValue) => p.onChange({ ...value, ...patch });
   const volume = clampVolume(value.reply_volume);
   const muted = value.reply_muted === true;
-  const showMute = p.showMute !== false;
+  // A muted value always offers Unmute, whatever the host's `showMute`: "Muted" with no way back
+  // would strand the user (review 2026-10-27 M2).
+  const showMute = p.showMute !== false || muted;
   const lister = p.listDevices || listVoiceDevices;
   const listerRef = useRef(lister);
   listerRef.current = lister;
@@ -151,7 +153,6 @@ export function AfVoiceOutput<T extends VoiceOutputValue>(p: AfVoiceOutputProps<
               type="button"
               className="af-setting-btn"
               data-action="mute-replies"
-              aria-pressed={muted}
               disabled={disabled}
               onClick={() => update({ reply_muted: !muted })}
             >

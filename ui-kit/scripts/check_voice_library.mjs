@@ -326,7 +326,8 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
       check("0035 Record uses the chosen microphone", JSON.stringify(env.log.getUserMedia[0]) === JSON.stringify({ audio: { deviceId: { exact: "mic-1" } } }), JSON.stringify(env.log.getUserMedia));
       const meter = findH(h.tree, (n) => n.props.role === "meter");
       check("0035 a live meter while recording", meter?.props["aria-label"] === "Recording level" && meter.props["aria-valuenow"] > 40, String(meter?.props["aria-valuenow"]));
-      check("0035 the button stops the recording", text(rec()) === "Stop" && rec().props["aria-pressed"] === true);
+      check("0035 the button stops the recording", text(rec()) === "Stop");
+      check("L4 Record flips its label, so it carries no aria-pressed", rec().props["aria-pressed"] === undefined);
       check("0035 no clone while recording", dataH(h.tree, "data-action", "create-voice")?.props.disabled === true);
       rec().props.onClick();
       await sleep(20);
@@ -466,6 +467,18 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
       await ro.settle();
       check("0035 only the injected actions are offered", !dataH(ro.tree, "data-action", "rename-voice") && !dataH(ro.tree, "data-action", "delete-voice") && !dataH(ro.tree, "data-action", "share-voice"));
       ro.unmount();
+    }
+    // L2 (review 2026-10-27): deleting the selected voice returns to the gateway default.
+    {
+      const changes = [];
+      const h = mountH(VoiceSettings, { value: { provider: "omnivoice", voice: "v1", speed: 1.25 }, onChange: (v) => changes.push(v), fetchCatalog: async () => ({}), voiceLibrary: { list: async () => [], remove: async () => undefined } });
+      await h.settle();
+      const panel = findH(h.tree, (n) => n.type === VoiceLibraryPanel);
+      panel.props.onRemoved("v2");
+      check("L2 deleting another voice keeps the selection", changes.length === 0, JSON.stringify(changes));
+      panel.props.onRemoved("v1");
+      check("L2 deleting the selected voice clears it (the rest kept)", changes.at(-1)?.voice === "" && changes.at(-1)?.speed === 1.25 && changes.at(-1)?.provider === "omnivoice", JSON.stringify(changes.at(-1)));
+      h.unmount();
     }
     // VoiceSettings: voiceLibrary.list = the Manage panel; createVoice stays an alias; Play sample.
     {

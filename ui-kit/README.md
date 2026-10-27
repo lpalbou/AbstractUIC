@@ -281,7 +281,7 @@ const defaults = useVoiceDefaults(connected ? fetchVoiceDefaults : null, gateway
 const voice = useGatewayVoice({ ...gatewayVoiceOptions(prefs), tts_stream, transcribe });
 
 <AfVoiceOutput value={prefs} onChange={setPrefs} />                  // device + Test, volume, Mute
-<AfVoiceInput value={prefs} onChange={setPrefs} level={voice.voice_ptt_level} />
+<AfVoiceInput value={prefs} onChange={setPrefs} levelSource={voice} />    // only the meter re-renders
 <AfVoiceMicButton voice={voice} mode={voiceCaptureMode(prefs)}
   routeText={sttRouteText(prefs, defaults.value)} onTranscript={(text) => send(text)} />
 ```

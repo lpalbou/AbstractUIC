@@ -5,7 +5,8 @@
 //   hold    "Hold to talk"  →  "Recording — release to send"   (a tap is too short: a hint, nothing sent)
 //   toggle  "Tap to talk"   →  "Recording — tap to stop"
 //
-// beside it a live level meter while recording (`voice.voice_ptt_level`) and
+// beside it a live level meter while recording (`AfVoiceLevelMeter` subscribed
+// to `voice.subscribe_level`: only the meter re-renders) and
 // the status line "Recording… 3 s" / "Transcribing… 4 s · faster-whisper /
 // large-v3". The recording is `useGatewayVoice`'s: create the hook with the
 // same `capture_mode` (`gatewayVoiceOptions(prefs)` does; pass
@@ -20,6 +21,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "./icon.js";
 import { MIN_RECORDING_MS, voiceCaptureMode, type GatewayVoice, type VoiceCaptureMode, type VoiceTranscription } from "./use_gateway_voice.js";
 import { elapsedSeconds, transcribingLine } from "./voice_devices.js";
+import { AfVoiceLevelMeter } from "./af_voice_level_meter.js";
 
 /** The one wording set of the microphone button (ADR 0001 §5). */
 export const VOICE_MIC_TEXT = {
@@ -184,7 +186,6 @@ export function AfVoiceMicButton(p: AfVoiceMicButtonProps): React.ReactElement {
       : hint
         ? VOICE_MIC_TEXT.holdHint
         : "";
-  const level = Math.min(1, Math.max(0, Number(voice.voice_ptt_level) || 0));
   const handlers =
     mode === "hold"
       ? {
@@ -221,19 +222,7 @@ export function AfVoiceMicButton(p: AfVoiceMicButtonProps): React.ReactElement {
       >
         <Icon name={busy ? "loader" : "mic"} size={15} />
       </button>
-      {recording ? (
-        <span
-          className="af-voice-meter af-voice-mic__meter"
-          data-voice-meter
-          role="meter"
-          aria-label="Microphone level"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(level * 100)}
-        >
-          <span className="af-voice-meter__fill" style={{ width: `${Math.round(level * 100)}%` }} />
-        </span>
-      ) : null}
+      {recording ? <AfVoiceLevelMeter source={voice} inline className="af-voice-mic__meter" /> : null}
       {p.showStatus !== false && (status || reason) ? (
         <span role="status" className="af-voice-mic__status" data-voice-status>
           {status || reason}

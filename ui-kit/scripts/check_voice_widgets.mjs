@@ -35,6 +35,8 @@ const {
   AfVoiceOutput,
   AfVoiceInput,
   AfVoiceMicButton,
+  AfVoiceLevelMeter,
+  useVoiceLevel,
   VOICE_MIC_TEXT,
   useVoicePreferences,
   useVoiceDefaults,
@@ -59,7 +61,8 @@ try {
     const h = mount(AfVoiceOutput, { value: { reply_volume: 0.6, read_aloud: true, output_device: "spk-1" }, onChange: (v) => changes.push(v), outputSelectable: true });
     await h.settle();
     const mute = byData(h.tree, "data-action", "mute-replies");
-    check("Output: Mute toggle", Boolean(mute) && text(mute) === "Mute" && mute.props["aria-pressed"] === false);
+    check("Output: Mute toggle", Boolean(mute) && text(mute) === "Mute");
+    check("L4 Mute flips its label, so it carries no aria-pressed", mute.props["aria-pressed"] === undefined);
     mute.props.onClick();
     const muted = changes.at(-1) || {};
     check("Output: Mute sets reply_muted and keeps the volume and the other preferences", muted.reply_muted === true && muted.reply_volume === 0.6 && muted.read_aloud === true, JSON.stringify(muted));
@@ -82,7 +85,9 @@ try {
     await h.settle();
     check("Output: a new devicesKey re-reads the devices", env.log.enumerate === before + 1, `${before} → ${env.log.enumerate}`);
     h.rerender({ showMute: false });
-    check("Output: showMute=false hides Mute", !byData(h.tree, "data-action", "mute-replies"));
+    check("M2 muted: Unmute stays even with showMute=false", text(byData(h.tree, "data-action", "mute-replies")) === "Unmute");
+    h.rerender({ value: { ...muted, reply_muted: false } });
+    check("Output: showMute=false hides Mute while not muted", !byData(h.tree, "data-action", "mute-replies"));
     h.unmount();
     const safari = mount(AfVoiceOutput, { value: { output_device: "spk-1" }, onChange: () => undefined, outputSelectable: false });
     await safari.settle();
@@ -98,12 +103,14 @@ try {
   {
     const changes = [];
     let devicesChanged = 0;
-    const h = mount(AfVoiceInput, { value: { input_device: "mic-1", input_gain: 1.2, stt_language: "fr" }, onChange: (v) => changes.push(v), level: 0.42, playOn: { deviceId: "spk-1", volume: 0.5 }, onDevicesChanged: () => (devicesChanged += 1) });
+    const source = { subscribe_level: () => () => undefined };
+    const h = mount(AfVoiceInput, { value: { input_device: "mic-1", input_gain: 1.2, stt_language: "fr" }, onChange: (v) => changes.push(v), levelSource: source, playOn: { deviceId: "spk-1", volume: 0.5 }, onDevicesChanged: () => (devicesChanged += 1) });
     await h.settle();
-    const meter = () => find(h.tree, (n) => n.props.role === "meter");
-    check("Input: the meter shows the host's live level (real recording)", meter()?.props["aria-valuenow"] === 42 && meter()?.props["data-voice-meter-source"] === "live", String(meter()?.props["aria-valuenow"]));
-    h.rerender({ level: 0 });
-    check("Input: the live level falls back to 0", meter()?.props["aria-valuenow"] === 0);
+    const meter = () => find(h.tree, (n) => n.type === AfVoiceLevelMeter);
+    check("Input: the meter follows the host's live recording (levelSource)", meter()?.props.source === source && meter()?.props.origin === "live" && meter()?.props.level === undefined);
+    h.rerender({ level: 0.42 });
+    check("Input: a level the host holds wins", meter()?.props.level === 0.42);
+    h.rerender({ level: undefined });
     env.amplitude = 0.15;
     env.log.getUserMedia.length = 0;
     env.log.sinks.length = 0;
@@ -111,7 +118,7 @@ try {
     await sleep(140);
     h.render();
     check("Input: the Test records from the chosen microphone", JSON.stringify(env.log.getUserMedia[0]) === JSON.stringify({ audio: { deviceId: { exact: "mic-1" } } }), JSON.stringify(env.log.getUserMedia));
-    check("Input: the meter follows the Test while it records", meter()?.props["data-voice-meter-source"] === "test" && meter()?.props["aria-valuenow"] > 50, String(meter()?.props["aria-valuenow"]));
+    check("Input: the meter follows the Test while it records", meter()?.props.origin === "test" && meter()?.props.source === null && meter()?.props.level > 0.5, String(meter()?.props.level));
     check("Input: Test is busy while recording", byData(h.tree, "data-action", "test-microphone")?.props.disabled === true);
     await sleep(3000);
     await h.settle(10);
@@ -194,16 +201,17 @@ try {
       button(h.tree).props.onKeyUp({ key: " ", preventDefault() {} });
       check("Mic hold: Space holds too", JSON.stringify(calls) === '["start","stop"]', JSON.stringify(calls));
       // Recording: wording, live meter, elapsed time.
-      h.rerender({ voice: { ...v, voice_ptt_recording: true, voice_ptt_since: Date.now() - 3200, voice_ptt_level: 0.37 } });
+      const recordingVoice = { ...v, voice_ptt_recording: true, voice_ptt_since: Date.now() - 3200 };
+      h.rerender({ voice: recordingVoice });
       check("Mic hold: recording wording", button(h.tree)?.props["aria-label"] === "Recording — release to send" && button(h.tree)?.props["aria-pressed"] === true);
-      const meter = find(h.tree, (n) => n.props.role === "meter");
-      check("Mic: the live meter moves while recording", meter?.props["aria-valuenow"] === 37, String(meter?.props["aria-valuenow"]));
+      const meter = find(h.tree, (n) => n.type === AfVoiceLevelMeter);
+      check("Mic: a live meter subscribed to the hook while recording", meter?.props.source === recordingVoice);
       check("Mic: elapsed time while recording", text(byData(h.tree, "data-voice-status", true)) === "Recording… 3 s", text(byData(h.tree, "data-voice-status", true)));
       calls.length = 0;
       h.unmount();
       check("Mic: unmounting while recording cancels it", calls.includes("cancel"), JSON.stringify(calls));
       const idle = mount(AfVoiceMicButton, { voice: v, mode: "hold" });
-      check("Mic: no meter when not recording", !find(idle.tree, (n) => n.props.role === "meter"));
+      check("Mic: no meter when not recording", !find(idle.tree, (n) => n.type === AfVoiceLevelMeter));
       idle.rerender({ voice: { ...v, voice_ptt_busy: true, voice_ptt_since: Date.now() - 4100 }, routeText: "faster-whisper / large-v3" });
       check("Mic: transcribing line names the route", text(byData(idle.tree, "data-voice-status", true)) === "Transcribing… 4 s · faster-whisper / large-v3", text(byData(idle.tree, "data-voice-status", true)));
       check("Mic: busy disables the button", button(idle.tree)?.props.disabled === true);
@@ -291,6 +299,26 @@ try {
     }
   }
 
+  // ------------------------------------------------------------------ AfVoiceLevelMeter (M1)
+  {
+    const subs = new Set();
+    const source = { subscribe_level: (fn) => (subs.add(fn), fn(0), () => subs.delete(fn)) };
+    const m = mount(AfVoiceLevelMeter, { source });
+    check("Meter: subscribes to the source", subs.size === 1 && m.tree.props.role === "meter" && m.tree.props["aria-valuenow"] === 0);
+    for (const fn of subs) fn(0.35);
+    m.render();
+    check("Meter: moves with the source (only the meter re-renders)", m.tree.props["aria-valuenow"] === 35, String(m.tree.props["aria-valuenow"]));
+    m.rerender({ level: 0.8 });
+    check("Meter: a level the host holds wins, and the source is released", m.tree.props["aria-valuenow"] === 80 && subs.size === 0);
+    m.rerender({ level: undefined });
+    check("Meter: back to the source", subs.size === 1);
+    m.unmount();
+    check("Meter: unmount unsubscribes", subs.size === 0);
+    const lvl = mount((p) => useVoiceLevel(p.source), { source: null });
+    check("useVoiceLevel: no source = 0", lvl.tree === 0);
+    lvl.unmount();
+  }
+
   // ------------------------------------------------------------------ useVoicePreferences
   {
     env.store.clear();
@@ -314,6 +342,11 @@ try {
     env.dispatch("storage", { key: "other", newValue: JSON.stringify({ reply_volume: 0.1 }) });
     composer.render();
     check("prefs: another key's event is ignored", composer.tree[0].reply_volume === 0.9);
+    // L5: another tab cleared the storage (a storage event with key null).
+    env.store.clear();
+    env.dispatch("storage", { key: null, newValue: null });
+    composer.render();
+    check("L5 a storage clear in another tab resets the preferences", JSON.stringify(composer.tree[0]) === "{}", JSON.stringify(composer.tree[0]));
     env.store.set("app.voice:bob", JSON.stringify({ read_aloud: true }));
     composer.rerender({ storageKey: "app.voice:bob" });
     check("prefs: a new key loads its preferences", composer.tree[0].read_aloud === true && composer.tree[0].reply_volume === undefined, JSON.stringify(composer.tree[0]));

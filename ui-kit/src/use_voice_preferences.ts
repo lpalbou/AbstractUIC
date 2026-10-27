@@ -67,8 +67,9 @@ export function useVoicePreferences(storageKey: string | null): [VoiceClientPref
     if (!set) listeners.set(storageKey, (set = new Set()));
     set.add(onSame);
     const onStorage = (e: StorageEvent) => {
-      if (e.key !== storageKey) return;
-      setState({ key: storageKey, prefs: parse(e.newValue) });
+      // key null = another tab cleared the storage: read what is there now.
+      if (e.key !== null && e.key !== storageKey) return;
+      setState({ key: storageKey, prefs: e.key === null ? loadVoicePreferences(storageKey) : parse(e.newValue) });
     };
     const w: any = globalThis as any;
     w.addEventListener?.("storage", onStorage);

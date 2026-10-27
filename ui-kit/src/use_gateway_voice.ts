@@ -199,8 +199,13 @@ export type GatewayVoice = {
   cancel_voice_ptt_recording?: () => void;
   /** When the current recording or transcription began (ms epoch; 0 = idle) — for "Transcribing… 12 s". */
   voice_ptt_since: number;
-  /** Live microphone level 0..1 while recording (0 otherwise): the meter moves during real recording. */
-  voice_ptt_level?: number;
+  /**
+   * Hear the live microphone level 0..1 while recording (0 otherwise; called at once with the
+   * current level, then on each 5 % step). A subscription, not state: only the meter that
+   * subscribes re-renders (`useVoiceLevel`, `AfVoiceLevelMeter`), never the hook's owner.
+   * Returns the unsubscribe function. Stable identity.
+   */
+  subscribe_level?: (fn: (level: number) => void) => () => void;
   /** The capture mode this hook was created with ("hold" unless `capture_mode: "toggle"`). */
   voice_capture_mode?: VoiceCaptureMode;
   /**
@@ -764,12 +769,23 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   const voice_ptt_started_ms = useRef(0);
   const voice_ptt_gain_ctx = useRef<AudioContext | null>(null);
   // Live level while recording (watchLevel on the recording stream, ~20 reads/s), quantised to 5 %
-  // steps: an unchanged step schedules no render (the hook usually lives at the app's top level).
-  const [voice_ptt_level, set_voice_ptt_level] = useState(0);
+  // steps and sent to subscribers only: the hook's owner (often the app's top level) never
+  // re-renders for it (review 2026-10-27 M1).
+  const voice_ptt_level_ref = useRef(0);
+  const level_listeners = useRef(new Set<(level: number) => void>());
   const voice_ptt_level_stop = useRef<(() => void) | null>(null);
   const apply_level = useCallback((v: number) => {
     const q = Math.round(Math.min(1, Math.max(0, Number(v) || 0)) * 20) / 20;
-    set_voice_ptt_level((prev) => (prev === q ? prev : q));
+    if (q === voice_ptt_level_ref.current) return;
+    voice_ptt_level_ref.current = q;
+    for (const listener of Array.from(level_listeners.current)) listener(q);
+  }, []);
+  const subscribe_level = useCallback((fn: (level: number) => void) => {
+    level_listeners.current.add(fn);
+    fn(voice_ptt_level_ref.current);
+    return () => {
+      level_listeners.current.delete(fn);
+    };
   }, []);
   const transcript_listeners = useRef(new Set<(text: string, info?: VoiceTranscription) => void>());
   const add_transcript_listener = useCallback((fn: (text: string, info?: VoiceTranscription) => void) => {
@@ -998,7 +1014,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     stop_voice_ptt_recording,
     cancel_voice_ptt_recording,
     voice_ptt_since,
-    voice_ptt_level,
+    subscribe_level,
     voice_capture_mode: voiceCaptureMode(opts.capture_mode),
     add_transcript_listener,
   };
