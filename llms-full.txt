@@ -1841,7 +1841,7 @@ Components:
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
 - `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll?, approveAllScope?, onAllowForSession?, approveAllDisabledReason?, remember?, onDefer?, allowSkip? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow for this chat" only with `onAllowForSession`, "Allow all enabled tools" only with `onPermissionsAll` — its scope sentence names no storage scope unless the host passes `approveAllScope`, e.g. "for this Gateway account" —, "Decide later" only with `onDefer`, a per-tool remember checkbox only with `remember(toolNames)`), question (`ask_user`, choices as buttons and free text; "Continue without answering" with `allowSkip` resumes with an empty answer, "Keep waiting" with `onDefer`) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. The first argument may also be a `ReplayInteraction` (the shape of `replay_view_v1.interaction`; a typed seam only: no gateway on `main` serves the replay view, and panel-chat never fetches a `/view` route) — it produces the same control as the raw wait (`isReplayInteraction()`, `replayInteractionWait()`). Types `PresentInteractionOptions`, `InteractionController`, `ReplayInteraction`
-- Session tool policy (unreleased, backlog 0032; contract v1, gateway branch `feat/session-tool-policy`): `WorkflowSessionControllerOptions.sessionToolPolicy?: SessionToolPolicyClient` (`{supported, sessionId, get, replace, merge, reset}`; host-injected only when `GET discovery/capabilities` serves `capabilities.session_tool_policy.supported === true`), `setSessionToolPolicyClient(client | null, {reason?})` (null + reason = the capability read failed), `onSessionPolicy(policy, clamped)`; methods `approveAllForSession(target, {maxRiskRank?, ask?})`, `approveKindForSession(target, kind, {ask?})`, `denyKindForSession()`, `denyToolForSession()` (write the policy FIRST with the person's `ask` tools, then answer the shown wait; no panel control for the deny methods), `resetSessionPolicy()`, `loadSessionPolicy()`, `sessionPolicyMode()`, `sessionPolicyStatus()`; snapshot `sessionPolicyMode` (`"gateway"` / `"local-fallback"` / `"unavailable"`), `sessionPolicyReason`, `sessionPolicy`, `sessionPolicyClamped`. `presentInteraction` option `sessionPolicy: {toolsetOf?, ask?, maxRiskRank?}`; the mode comes from the controller (kind buttons only for toolsets present; local fallback "Allow for this run", labeled; unavailable: no chat grant, reason shown). Ledger `abstract.tool_policy_decision` → activity line + `WorkflowToolActivity.policy`. Types `SessionToolPolicy`, `SessionToolPolicyBody`, `SessionToolPolicyClamp`, `SessionToolPolicyClient`, `SessionPolicyMode`, `SessionPolicyStatus`, `WorkflowToolPolicyProvenance`; helpers `toolPolicyDecision()`, `toolPolicyDecisionText()`, `sessionPolicyClampedText()`
+- Session tool policy (unreleased, backlog 0032; contract v1, gateway branch `feat/session-tool-policy`): `WorkflowSessionControllerOptions.sessionToolPolicy?: SessionToolPolicyClient` (`{supported, sessionId, get, replace, merge, reset}`; host-injected only when `GET discovery/capabilities` serves `capabilities.session_tool_policy.supported === true`), `setSessionToolPolicyClient(client | null, {reason?})` (null + reason = the capability read failed), `onSessionPolicy(policy, clamped)`; methods `approveAllForSession(target, {maxRiskRank?, ask?})`, `approveKindForSession(target, kind, {ask?})`, `denyKindForSession()`, `denyToolForSession()` (write the policy FIRST with the person's `ask` tools, then answer the shown wait; no panel control for the deny methods), `resetSessionPolicy()`, `loadSessionPolicy()`, `sessionPolicyMode()`, `sessionPolicyStatus()`; snapshot `sessionPolicyMode` (`"gateway"` / `"local-fallback"` / `"unavailable"`), `sessionPolicyReason`, `sessionPolicy`, `sessionPolicyClamped`. `presentInteraction` option `sessionPolicy: {toolsetOf?, ask?, maxRiskRank?}`; the mode comes from the controller (kind buttons only for toolsets present; "Always deny … in this chat" under More with its reach stated; the served `scope` words shown as "Applies: …" or "The gateway did not say where this grant applies."; a tool the stored policy denies is named and "Allow once" reports the gateway's refusal; local fallback "Allow for this run", labeled; unavailable: no chat grant, reason shown). Writes go to the root run's session only; denies carry `if_revision`; a 409 asks to re-read. `SessionToolPolicy.scope?: {approve?, deny?}` (the response's top-level `scope`, carried by the client). Ledger `abstract.tool_policy_decision` → activity line + `WorkflowToolActivity.policy`. Types `SessionToolPolicy`, `SessionToolPolicyBody`, `SessionToolPolicyClamp`, `SessionToolPolicyClient`, `SessionPolicyMode`, `SessionPolicyStatus`, `SessionToolPolicyScope`, `WorkflowToolPolicyProvenance`; helpers `toolPolicyDecision()`, `toolPolicyDecisionText()`, `sessionPolicyClampedText()`
 - Questions and approvals (unreleased, backlog 0032): `WORKFLOW_INTERACTION_LABELS` is the one wording set (Deny / Allow once / Allow for this chat / Allow all enabled tools / Decide later; Submit / Continue without answering / Keep waiting). `WorkflowToolApprovalInteraction` adds `onApproveForSession?`, `onDefer?` (a dismissal sends nothing and never denies), `remember?: {label, checked, onChange}` (`WorkflowInteractionRemember`; the host words the scope), `disabledReason?` (the broad grants render disabled with the reason visible); its default labels are now "Allow once" / "Allow all enabled tools" (were "Approve" / "Allow all"). `WorkflowAskUserInteraction` adds `onSkip?` and `onDefer?`. `WorkflowInteractionPanel` takes `variant?: "panel" | "card"` (the compact card for "Needs you" lists and inboxes: same decisions, detail behind **Review**)
 - `WorkspaceBrowser` — a run's folder on the gateway host through the CONTRACTS §W routes (`GET /runs/{id}/workspace`, `/workspace/files`, `/workspace/content`): the root once as its short name (`workspaceShortName`; full path on hover) with **Open folder** (`onOpenFolder`, offered only when `workspaceCanOpenFolder`) and **Copy path** icons, breadcrumbs, folders first, then per file: name, size, generated date (relative, exact on hover) and a Download icon; "N entries hidden by the gateway's workspace rules". A click on a file previews it IN PLACE with `FileViewer` (0.3.1: no "Open" button; `fileActions(entry)` adds host actions such as "Attach"), or `onSelectFile` + `selectedPath` hand the selection to a host preview. Files are fetched with the host's credentials, never linked. Props: `fetchGateway(path, init)`, `runId` (an automation's id browses the automation's folder), `title`, `note?`, `onClose?`, `refreshKey?`, `className?`, `fileActions?`, `onOpenFolder?`, `copyText?`, `nowMs?`. Hook-free `WorkspaceBrowserView` and helpers: `loadWorkspaceView()`, `loadRunWorkspace()`, `listWorkspaceFolder()`, `readWorkspaceFile()`, `parseWorkspaceListing()` (malformed answers throw), `gatewayResponseError()`, `tabOpenPlan()`, `workspaceInfoUrl()` / `workspaceFilesUrl()` / `workspaceContentUrl()`, `workspaceCrumbs()`, `workspaceParent()`, `sortWorkspaceEntries()`, `workspaceHiddenNote()`, `formatBytes()`; types `GatewayFetch`, `RunWorkspace`, `WorkspaceEntry`, `WorkspaceListing`, `WorkspaceBrowserProps`, `WorkspaceBrowserViewProps`
 - `FileViewer` (0.3.1) — ui-kit `AfFileViewer` with panel-chat's `Markdown`; `useWorkspaceFilePreview(fetchGateway, runId, entry, refreshKey?)` loads one workspace file for it (a bounded Range read of at most `PREVIEW_TEXT_LIMIT` = 1 MiB for text kinds, an object URL for images, audio, video and PDF up to `PREVIEW_BLOB_LIMIT`, nothing for binaries; audio plays in the kit's `AfAudioPlayer`) and `filePreviewViewerProps(state)` maps the result (`FileViewer` also takes `markdownImages`, `inlineImage` and a host `renderMarkdown`); `readBoundedText()`, `responseTotal()`, `partialPreviewNote()`, `safeMarkdownImages()` (Markdown images only from the run's workspace)
@@ -4883,8 +4883,30 @@ const interaction = presentInteraction(workflowPendingInteraction(snapshot), con
 - **Capability read failed:** `sessionPolicyMode` is `"unavailable"` with `sessionPolicyReason`;
   no chat grant is offered or made ("Allow for this chat is unavailable: <reason> Allow once
   still works."); Allow once and Deny work as always.
-- **Deny for the chat:** `denyToolForSession` / `denyKindForSession` exist on the controller
-  only; the approval panel has no control for them. A host that wants them exposes them.
+- **Deny for the chat:** under **More**, "Always deny <tool> in this chat" and "Always deny
+  <toolset> tools in this chat" (`denyToolForSession` / `denyKindForSession`). Before the click
+  and in its confirmation the panel says what a deny reaches: every run of this chat,
+  automations and runs that read other people's text included, until reset; a request shown
+  before it is refused even if approved later. A deny is sent with the policy's current
+  revision (read first when unknown); a 409 says "Someone changed this chat's policy; re-read"
+  and refreshes it. When the stored policy denies a tool of a later batch, the panel names it
+  and "Allow once" reports "The gateway refuses <tool>: denied by this chat's policy", never a
+  success.
+- **Where it applies:** every policy response carries the gateway's `scope` words
+  (`{approve, deny}`, top-level). The panel shows them exactly as served, after a decision
+  ("Applies: …") and in the policy summary line; without them it says "The gateway did not say
+  where this grant applies." (the kit never composes that sentence). The client must carry the
+  response's `scope` onto the policy it returns (`SessionToolPolicy.scope`).
+- **What "all" includes:** `all` and kinds include tools whose destination the model picks
+  (`fetch_url`, `browser_probe`, `send_email`) on purpose; only the Ask list keeps them asking.
+  The description says so: with no Ask list, "Nothing is set to Ask, so … are included"; with
+  one, "Tools set to Ask keep asking: …". A host with no Ask list sends no `ask`.
+- **Merge only adds:** a write never narrows or re-expands an earlier `all`/kinds. Undoing an
+  approve is a reset (`resetSessionPolicy`, DELETE), never a merge.
+- **Root session:** the grant is read from the run tree's ROOT session, so the client must be
+  bound to the root run's `session_id`. A wait on a child run is answered on the child, and the
+  policy is written to the root session; a client bound to another session, or a root session
+  not known yet, is refused before any write.
 - **Ledger:** `abstract.tool_policy_decision` renders as one line, "Allowed by this chat's
   policy (set by admin at …)" or "Denied by this chat's policy", never as a question; the
   covered tool rows say so too. A record with no identifiable call adds nothing.
@@ -13700,7 +13722,7 @@ export type {
   SessionToolPolicyClamp,
   SessionToolPolicyClient,
 } from "./workflow_runtime.js";
-export type { SessionPolicyStatus } from "./workflow_runtime.js";
+export type { SessionPolicyStatus, SessionToolPolicyScope } from "./workflow_runtime.js";
 
 ## panel-chat/src/chat_message_card.tsx
 
@@ -15027,7 +15049,7 @@ export type PresentInteractionOptions = {
 
 /** The controller methods the controls call. */
 export type InteractionController = Pick<WorkflowSessionController, "approve" | "approveWithPolicyChange" | "resume" | "emitEvent"> &
-  Partial<Pick<WorkflowSessionController, "approveAllForSession" | "approveKindForSession" | "sessionPolicyStatus">>;
+  Partial<Pick<WorkflowSessionController, "approveAllForSession" | "approveKindForSession" | "denyToolForSession" | "denyKindForSession" | "sessionPolicyStatus">>;
 
 /**
  * Converts a runtime wait into a control, or null when the wait is not one a
@@ -15071,19 +15093,34 @@ export function presentInteraction(
         }
       : {};
     let sessionFields: Partial<WorkflowToolApprovalInteraction> = hostChatGrant;
+    // Tools of this batch the chat's stored policy denies (gateway mode): the gateway refuses them even if allowed once.
+    let refusedByPolicy: string[] = [];
     const policy = options.sessionPolicy;
     if (policy) {
       const approveAllForSession = controller.approveAllForSession;
       const approveKindForSession = controller.approveKindForSession;
+      const denyToolForSession = controller.denyToolForSession;
+      const denyKindForSession = controller.denyKindForSession;
       const sessionPolicyStatus = controller.sessionPolicyStatus;
-      if (typeof approveAllForSession !== "function" || typeof approveKindForSession !== "function" || typeof sessionPolicyStatus !== "function")
-        throw new Error("presentInteraction: sessionPolicy needs a controller with approveAllForSession / approveKindForSession / sessionPolicyStatus (WorkflowSessionController).");
+      if (
+        typeof approveAllForSession !== "function" ||
+        typeof approveKindForSession !== "function" ||
+        typeof denyToolForSession !== "function" ||
+        typeof denyKindForSession !== "function" ||
+        typeof sessionPolicyStatus !== "function"
+      )
+        throw new Error("presentInteraction: sessionPolicy needs a WorkflowSessionController (approveAllForSession, approveKindForSession, denyToolForSession, denyKindForSession, sessionPolicyStatus).");
       const status = sessionPolicyStatus.call(controller);
       const ask = policy.ask ? [...policy.ask] : undefined;
-      const covered = (result: SessionToolPolicy | null) => {
-        const note = sessionPolicyClampedText(result?.clamped);
-        return note ? { outcomeNote: note } : undefined;
+      // Where the grant applies: the gateway's words, exactly as served; never composed here.
+      const applies = (stored: SessionToolPolicy | null | undefined, which: "approve" | "deny") => {
+        const words = String(stored?.scope?.[which] || "").trim();
+        return words ? `Applies: ${words}` : L.noScopeNote;
       };
+      const covered = (result: SessionToolPolicy | null) => ({
+        outcomeNote: [sessionPolicyClampedText(result?.clamped), applies(result, "approve")].filter(Boolean).join(" "),
+      });
+      const denied = (result: SessionToolPolicy | null) => ({ outcomeNote: `${L.denyForChatNote} ${applies(result, "deny")}` });
       const notCovered = sessionPolicyClampedText(status.clamped);
       if (status.mode === "unavailable") {
         sessionFields = { scopeNote: L.unavailablePolicyNote(status.reason || "") };
@@ -15097,10 +15134,17 @@ export function presentInteraction(
               .filter(Boolean),
           ),
         ] as string[];
+        // all/kinds include tools whose destination the model chooses, on purpose (contract §3);
+        // only the person's Ask list keeps them asking. Say which.
+        const askNames = (ask || []).map((name) => String(name).trim()).filter(Boolean);
+        const asking = askNames.length
+          ? `Tools set to Ask keep asking: ${askNames.join(", ")}.`
+          : "Nothing is set to Ask, so tools that reach destinations the model picks (fetch_url, browser_probe, send_email) are included.";
+        const stored = status.policy;
+        refusedByPolicy = stored ? names.filter((name) => Object.prototype.hasOwnProperty.call(stored.deny || {}, name)) : [];
         sessionFields = {
           approveForSessionLabel: L.allowForChat,
-          approveForSessionDescription:
-            "Allow for this chat approves this batch and stores a policy for this chat on the gateway: later tool calls of every run of this chat run without asking, until the policy is reset. Tools set to Ask keep asking; tools the gateway does not authorize stay uncovered.",
+          approveForSessionDescription: `Allow for this chat (and Allow all <toolset> tools for this chat) approves this batch and stores a policy for this chat on the gateway: later tool calls of every run of this chat run without asking, until the policy is reset. ${asking} Tools the gateway does not authorize stay uncovered.`,
           onApproveForSession: async () =>
             covered(await approveAllForSession.call(controller, target, { ...(policy.maxRiskRank !== undefined ? { maxRiskRank: policy.maxRiskRank } : {}), ...(ask ? { ask } : {}) })),
           approveKinds: toolsets.map((kind) => ({
@@ -15108,6 +15152,26 @@ export function presentInteraction(
             label: L.allowKindForChat(kind),
             onApprove: async () => covered(await approveKindForSession.call(controller, target, kind, ask ? { ask } : {})),
           })),
+          denyOptions: [
+            ...names.map((name) => ({
+              key: `tool:${name}`,
+              label: L.denyToolForChat(name),
+              onDeny: async () => denied(await denyToolForSession.call(controller, target, name, ask ? { ask } : {})),
+            })),
+            ...toolsets.map((kind) => ({
+              key: `kind:${kind}`,
+              label: L.denyKindForChat(kind),
+              onDeny: async () => denied(await denyKindForSession.call(controller, target, kind, ask ? { ask } : {})),
+            })),
+          ],
+          ...(refusedByPolicy.length
+            ? { deniedNote: `Denied by this chat's policy: ${refusedByPolicy.join(", ")}. The gateway refuses ${refusedByPolicy.length === 1 ? "it" : "them"} even if allowed once.` }
+            : {}),
+          ...(stored
+            ? {
+                policySummary: `This chat's policy: ${Object.keys(stored.approve || {}).length} tools allowed without asking, ${Object.keys(stored.deny || {}).length} denied. ${applies(stored, "approve")}`,
+              }
+            : {}),
           ...(notCovered ? { notCovered } : {}),
         };
       } else {
@@ -15166,6 +15230,8 @@ export function presentInteraction(
         : undefined,
       onApprove: async () => {
         await controller.approve(true, target);
+        // Sent, but not a success: the chat's policy denies these, and deny wins (contract §4.3).
+        return refusedByPolicy.length ? { outcomeNote: `The gateway refuses ${refusedByPolicy.join(", ")}: denied by this chat's policy.` } : undefined;
       },
       onDeny: async () => {
         await controller.approve(false, target);
@@ -18446,9 +18512,17 @@ panel-chat:
   `sessionPolicyClampedText`.
 - `isLocalObjectUrl` decides with the URL parser (a leading control character before `blob:` is local: download, no
   new tab; review of PR #4).
-- `denyToolForSession` / `denyKindForSession` have no panel control; hosts expose them.
-- Check: `check_session_policy.mjs` (65 checks; 24 mutations red, including a resume sent before the policy write, a
-  host-claimed gateway mode, a dropped `ask`, and a failed capability read treated as the local fallback).
+- Contract revision (2026-10-27): every policy response's top-level `scope` (`{approve, deny}`, the gateway's words)
+  is shown exactly as served after a decision ("Applies: …") and in a policy summary line, or "The gateway did not
+  say where this grant applies."; `SessionToolPolicy.scope` (the client carries it). "Always deny <tool>/<toolset> in
+  this chat" under More, stating its reach (every run, automations included; wins over a later approval), sent with
+  the current revision; a 409 says "Someone changed this chat's policy; re-read" and refreshes. A later "Allow once"
+  on a denied tool is reported as refused by the gateway. The approve description says that tools reaching
+  model-chosen destinations are included unless set to Ask. Writes go to the ROOT run's session only (a client bound
+  elsewhere, or an unknown root session, is refused).
+- Check: `check_session_policy.mjs` (84 checks; 37 mutations red, including a resume sent before the policy write, a
+  host-claimed gateway mode, a dropped `ask`, a failed capability read treated as the local fallback, a composed scope
+  sentence, a deny without its revision and a child-session write).
 
 ### chat: one chat surface, questions and approvals, attachments and generated media (backlog 0030, 0032, kit half of 0031; ADR 0001)
 

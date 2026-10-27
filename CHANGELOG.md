@@ -43,9 +43,17 @@ panel-chat:
   `sessionPolicyClampedText`.
 - `isLocalObjectUrl` decides with the URL parser (a leading control character before `blob:` is local: download, no
   new tab; review of PR #4).
-- `denyToolForSession` / `denyKindForSession` have no panel control; hosts expose them.
-- Check: `check_session_policy.mjs` (65 checks; 24 mutations red, including a resume sent before the policy write, a
-  host-claimed gateway mode, a dropped `ask`, and a failed capability read treated as the local fallback).
+- Contract revision (2026-10-27): every policy response's top-level `scope` (`{approve, deny}`, the gateway's words)
+  is shown exactly as served after a decision ("Applies: …") and in a policy summary line, or "The gateway did not
+  say where this grant applies."; `SessionToolPolicy.scope` (the client carries it). "Always deny <tool>/<toolset> in
+  this chat" under More, stating its reach (every run, automations included; wins over a later approval), sent with
+  the current revision; a 409 says "Someone changed this chat's policy; re-read" and refreshes. A later "Allow once"
+  on a denied tool is reported as refused by the gateway. The approve description says that tools reaching
+  model-chosen destinations are included unless set to Ask. Writes go to the ROOT run's session only (a client bound
+  elsewhere, or an unknown root session, is refused).
+- Check: `check_session_policy.mjs` (84 checks; 37 mutations red, including a resume sent before the policy write, a
+  host-claimed gateway mode, a dropped `ask`, a failed capability read treated as the local fallback, a composed scope
+  sentence, a deny without its revision and a child-session write).
 
 ### chat: one chat surface, questions and approvals, attachments and generated media (backlog 0030, 0032, kit half of 0031; ADR 0001)
 
