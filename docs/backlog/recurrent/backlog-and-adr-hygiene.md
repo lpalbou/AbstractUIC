@@ -8,9 +8,10 @@
 ## Purpose
 Keep `docs/backlog/` truthful against the code: counts in `overview.md` match the
 item files, item states match reality, links resolve, and stale items are moved
-(not rewritten away). AbstractUIC has no ADR system yet; if a backlog item ever
-creates a durable cross-task policy, record it explicitly in the item and flag
-the ADR gap in `overview.md` instead of burying the rule in prose.
+(not rewritten away). ADRs live in `docs/adr/` (since 2026-10-27, ADR 0001); a backlog
+item that creates a durable cross-task policy cites or adds an ADR instead of burying
+the rule in prose. The hygiene pass also re-greps the apps for the twin names listed in
+the consolidation items (0030-0036) and files a drift item for any that reappear.
 
 ## Run conditions
 Run whenever items are added, completed, or deprecated; fallback cadence: once
