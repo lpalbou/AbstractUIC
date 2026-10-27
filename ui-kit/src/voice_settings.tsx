@@ -24,14 +24,19 @@ export type VoiceCreation = {
   clone?: (file: Blob, request: { name?: string; language?: string; reference_text?: string }) => Promise<{ voice_id: string; name?: string; engine?: string }>;
 };
 
-const GROUP_ORDER = ["Your voices", "Engine voices", "Built-in voices"];
+const GROUP_ORDER = ["Your voices", "Engine voices", "Shared voices"];
 
-/** Which group a catalog voice belongs to: the user's own, the engine's, or the shared built-in library. */
+/**
+ * Which group a catalog voice belongs to: the user's own, the engine's, or the shared library
+ * (the built-in voices and the voices the administrator shares). A clone is recognised by its
+ * record's `kind` as well as `voice_kind`: the gateway's catalog merge sets `voice_kind: "voice"`
+ * on a clone an engine also lists among its voices.
+ */
 export function voiceGroup(item: any): string {
   const tags = (item && item.tags) || {};
   const scope = item?.params?.meta?.scope;
-  if (tags.builtin) return "Built-in voices";
-  if (item?.voice_kind === "clone" || item?.kind === "clone") return scope === "library" ? "Built-in voices" : "Your voices";
+  if (tags.builtin) return "Shared voices";
+  if (item?.kind === "clone" || item?.voice_kind === "clone") return scope === "library" ? "Shared voices" : "Your voices";
   return "Engine voices";
 }
 
@@ -45,11 +50,17 @@ export function voiceLanguages(entries: any[]): string[] {
   return Array.from(new Set(entries.map(voiceLanguage).filter(Boolean))).sort();
 }
 
-/** A voice speaks `language` when it is its native language or one it lists. */
+/**
+ * A voice speaks `language` when it is its native language or one it lists. A voice with neither
+ * (no native language, `languages` empty or absent) is unrestricted — AbstractVoice's
+ * `languages: []` on remote/OpenAI voices — and speaks every language.
+ */
 export function voiceSpeaks(item: any, language: string): boolean {
   if (!language) return true;
-  if (voiceLanguage(item) === language) return true;
+  const native = voiceLanguage(item);
+  if (native === language) return true;
   const langs = Array.isArray(item?.languages) ? item.languages.map((l: any) => String(l).toLowerCase()) : [];
+  if (!native && langs.length === 0) return true;
   return langs.includes(language);
 }
 
@@ -105,6 +116,14 @@ export function VoiceSettings({
   const [loading, setLoading] = useState(false);
   const [language, setLanguage] = useState("");
   const [refresh, setRefresh] = useState(0);
+  // The latest preferences, for callbacks that outlive the render they were created in (a voice
+  // created while the user kept changing settings merges into what is current, not what was).
+  const latest = useRef(value);
+  latest.current = value;
+  // Another engine lists other voices: the language filter starts over.
+  useEffect(() => {
+    setLanguage("");
+  }, [value.provider]);
   useEffect(() => {
     let alive = true;
     setLoading(true);
@@ -168,12 +187,18 @@ export function VoiceSettings({
         ])
       : "";
   const languages = voiceLanguages(entries);
+  // The filter shows only with two languages or more; hidden, it must not keep filtering.
+  const hasLanguageFilter = languages.length > 1;
+  useEffect(() => {
+    if (!hasLanguageFilter) setLanguage("");
+  }, [hasLanguageFilter]);
+  const activeLanguage = hasLanguageFilter ? language : "";
   const options = entries
     .filter(
       (item) =>
         item?.id &&
         (!value.provider || !item.provider || item.provider === value.provider) &&
-        (voiceSpeaks(item, language) || itemKey(item) === voiceKey),
+        (voiceSpeaks(item, activeLanguage) || itemKey(item) === voiceKey),
     )
     .map((item) => {
       const lang = voiceLanguage(item);
@@ -226,7 +251,7 @@ export function VoiceSettings({
         providerLabel="Speech provider"
         modelLabel="Speech model"
       />
-      {languages.length > 1 ? (
+      {hasLanguageFilter ? (
         <label>
           Voices that speak
           <AfSelect
@@ -332,10 +357,12 @@ export function VoiceSettings({
       {createVoice && (createVoice.design || createVoice.clone) ? (
         <CreateVoicePanel
           creation={createVoice}
-          defaultLanguage={language}
+          defaultLanguage={activeLanguage}
           onCreated={(voiceId, engine) => {
-            // The new voice is one of the user's own: select it on its engine, then reload the list.
-            onChange({ ...value, provider: engine || value.provider || "", model: "", voice: voiceId, profile: "" });
+            // The new voice is one of the user's own: select it on its engine (merged into the
+            // preferences as they are NOW), then reload the list.
+            const current = latest.current;
+            onChange({ ...current, provider: engine || current.provider || "", model: "", voice: voiceId, profile: "" });
             setRefresh((n) => n + 1);
           }}
         />
@@ -349,7 +376,14 @@ export function VoiceSettings({
   );
 }
 
-/** "Create a voice": from a description (Qwen3-TTS VoiceDesign on the gateway) or from a recording. */
+/** A recording's language: detected from the recording (by the gateway) unless the user names it. */
+const DETECT_LANGUAGE = { value: "", label: "Detect from the recording" };
+
+/**
+ * "Create a voice": from a description (Qwen3-TTS VoiceDesign on the gateway; it needs a language)
+ * or from a recording (its language detected unless named). One request at a time; a result that
+ * arrives after the panel is gone is dropped.
+ */
 export function CreateVoicePanel({
   creation,
   defaultLanguage,
@@ -362,26 +396,46 @@ export function CreateVoicePanel({
   const [mode, setMode] = useState<"design" | "clone">(creation.design ? "design" : "clone");
   const [description, setDescription] = useState("");
   const [name, setName] = useState("");
-  const [language, setLanguage] = useState(defaultLanguage || "en");
+  const [designLanguage, setDesignLanguage] = useState(defaultLanguage || "en");
+  const [recordingLanguage, setRecordingLanguage] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [transcript, setTranscript] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ text: string; tone: "info" | "ok" | "error" }>({ text: "", tone: "info" });
+  // `busy` state lags a double click by one render; the ref does not.
+  const inFlight = useRef(false);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
   const languageOptions = Object.keys(LANGUAGE_LABELS).map((code) => ({ value: code, label: voiceLanguageLabel(code) }));
+  const language = mode === "design" ? designLanguage : recordingLanguage;
   const submit = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setNote({ text: mode === "design" ? "Creating the voice from your description…" : "Cloning the voice from your recording…", tone: "info" });
     try {
       const out =
         mode === "design"
-          ? await creation.design!({ description: description.trim(), name: name.trim() || undefined, language })
-          : await creation.clone!(file as Blob, { name: name.trim() || undefined, language, reference_text: transcript.trim() || undefined });
+          ? await creation.design!({ description: description.trim(), name: name.trim() || undefined, language: designLanguage })
+          : await creation.clone!(file as Blob, {
+              name: name.trim() || undefined,
+              reference_text: transcript.trim() || undefined,
+              ...(recordingLanguage ? { language: recordingLanguage } : {}),
+            });
+      if (!alive.current) return;
       setNote({ text: `Voice ready: ${out.name || out.voice_id}. It is selected above.`, tone: "ok" });
       onCreated(out.voice_id, out.engine || (mode === "design" ? "qwen3-tts" : undefined));
     } catch (err: any) {
+      if (!alive.current) return;
       setNote({ text: `The voice was not created: ${String(err?.message || err).replace(/\.$/, "")}.`, tone: "error" });
     } finally {
-      setBusy(false);
+      inFlight.current = false;
+      if (alive.current) setBusy(false);
     }
   };
   const ready = mode === "design" ? Boolean(description.trim()) : Boolean(file);
@@ -390,12 +444,12 @@ export function CreateVoicePanel({
       <legend>Create a voice</legend>
       <div className="af-voice-create__modes" role="tablist">
         {creation.design ? (
-          <button type="button" role="tab" aria-selected={mode === "design"} data-create-mode="design" onClick={() => setMode("design")}>
+          <button type="button" role="tab" aria-selected={mode === "design"} data-create-mode="design" disabled={busy} onClick={() => setMode("design")}>
             From a description
           </button>
         ) : null}
         {creation.clone ? (
-          <button type="button" role="tab" aria-selected={mode === "clone"} data-create-mode="clone" onClick={() => setMode("clone")}>
+          <button type="button" role="tab" aria-selected={mode === "clone"} data-create-mode="clone" disabled={busy} onClick={() => setMode("clone")}>
             From a recording
           </button>
         ) : null}
@@ -429,7 +483,13 @@ export function CreateVoicePanel({
       </label>
       <label>
         Language
-        <AfSelect ariaLabel="Voice language for creation" value={language} searchable={false} options={languageOptions} onChange={setLanguage} />
+        <AfSelect
+          ariaLabel="Voice language for creation"
+          value={language}
+          searchable={false}
+          options={mode === "design" ? languageOptions : [DETECT_LANGUAGE, ...languageOptions]}
+          onChange={mode === "design" ? setDesignLanguage : setRecordingLanguage}
+        />
       </label>
       <button type="button" data-action="create-voice" disabled={busy || !ready} onClick={submit}>
         {busy ? "Creating…" : "Create voice"}

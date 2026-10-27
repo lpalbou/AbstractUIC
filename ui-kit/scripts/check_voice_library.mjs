@@ -10,6 +10,18 @@
  *   injected (a description, a recording).
  * Mutation-checked: grouping every clone as "Your voices", or rendering the panel without an
  * injected function, turns this red.
+ *
+ * Review fixes (adversarial review 2026-10-27), driven through a minimal hook harness (the kit's
+ * checks have no DOM: the component function is called under a stand-in React dispatcher and its
+ * element tree's handlers are invoked directly):
+ * - C1 the language filter resets when the provider changes and when one language is left;
+ * - C2 a voice with no native language and no listed languages (`languages: []` = unrestricted,
+ *   remote/OpenAI voices) passes every language filter;
+ * - C3 a recording's language defaults to "Detect from the recording" (no `language` sent);
+ *   a description keeps one;
+ * - C4 a created voice merges into the CURRENT preferences, a late result after unmount is
+ *   dropped, and the panel takes one request at a time (modes and Create disabled while busy);
+ * - C5 the third group is "Shared voices" (built-in voices and the administrator's).
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,8 +48,12 @@ const builtin = { id: "fr-female-camille", voice_kind: "clone", tags: { builtin:
 const mine = { id: "v1", voice_kind: "clone", language: "en", params: { meta: { scope: "personal" } } };
 const library = { id: "v2", voice_kind: "clone", params: { meta: { scope: "library" } } };
 const preset = { id: "aiden", voice_kind: "profile", languages: ["en", "fr", "de"] };
-check("built-in voices group", voiceGroup(builtin) === "Built-in voices", voiceGroup(builtin));
-check("a library voice is not the user's", voiceGroup(library) === "Built-in voices", voiceGroup(library));
+check("built-in voices are shared", voiceGroup(builtin) === "Shared voices", voiceGroup(builtin));
+check("a library voice is shared, not the user's", voiceGroup(library) === "Shared voices", voiceGroup(library));
+// The gateway's catalog merge (routes/gateway.py `_gateway_catalog_voice_items`) sets `voice_kind: "voice"`
+// on a clone an engine also lists among its voices; the record's own `kind` stays "clone".
+const mergedClone = { id: "v3", voice_kind: "voice", voice_kinds: ["voice", "clone"], kind: "clone", params: { meta: { scope: "personal" } } };
+check("a gateway-merged clone is still the user's", voiceGroup(mergedClone) === "Your voices", voiceGroup(mergedClone));
 check("the user's own clone", voiceGroup(mine) === "Your voices", voiceGroup(mine));
 check("an engine preset", voiceGroup(preset) === "Engine voices", voiceGroup(preset));
 check("language from tags", voiceLanguage(builtin) === "fr");
@@ -45,6 +61,10 @@ check("languages of a catalog", JSON.stringify(voiceLanguages([builtin, mine, pr
 check("native speaker", voiceSpeaks(builtin, "fr") && !voiceSpeaks(builtin, "en"));
 check("listed languages", voiceSpeaks(preset, "de") && !voiceSpeaks(preset, "ja"));
 check("no filter keeps all", voiceSpeaks(mine, ""));
+// C2: no native language and no listed languages = unrestricted (AbstractVoice `languages: []`).
+check("unrestricted voice (languages: []) speaks any language", voiceSpeaks({ id: "alloy", provider: "openai", languages: [] }, "fr"));
+check("unrestricted voice (no languages) speaks any language", voiceSpeaks({ id: "alloy", provider: "openai" }, "ja"));
+check("a voice with a native language is still filtered", !voiceSpeaks({ id: "x", language: "en", languages: [] }, "fr"));
 check("label", voiceLanguageLabel("fr") === "French" && voiceLanguageLabel("xx") === "xx");
 
 const render = (props) => renderToStaticMarkup(React.createElement(VoiceSettings, { value: {}, onChange: () => undefined, fetchCatalog: async () => ({}), ...props }));
@@ -54,6 +74,228 @@ check("panel with creation", both.includes("data-voice-create") && both.includes
 check("both modes offered", both.includes('data-create-mode="design"') && both.includes('data-create-mode="clone"'));
 const designOnly = render({ createVoice: { design: async () => ({ voice_id: "d" }) } });
 check("only the injected mode", designOnly.includes('data-create-mode="design"') && !designOnly.includes('data-create-mode="clone"'));
+
+// ------------------------------------------------------------------ hook harness
+const internals = React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+function mount(Component, initialProps) {
+  const hooks = [];
+  let index = 0;
+  let dirty = false;
+  let alive = true;
+  let queue = [];
+  let props = initialProps;
+  const stats = { lateSets: 0 };
+  const changed = (prev, deps) => !prev || !deps || deps.length !== prev.deps.length || deps.some((d, j) => !Object.is(d, prev.deps[j]));
+  const dispatcher = {
+    useState(init) {
+      const k = index++;
+      if (!(k in hooks)) hooks[k] = { value: typeof init === "function" ? init() : init };
+      const h = hooks[k];
+      if (!h.set)
+        h.set = (next) => {
+          if (!alive) {
+            stats.lateSets += 1;
+            return;
+          }
+          const v = typeof next === "function" ? next(h.value) : next;
+          if (!Object.is(v, h.value)) dirty = true;
+          h.value = v;
+        };
+      return [h.value, h.set];
+    },
+    useRef(init) {
+      const k = index++;
+      if (!(k in hooks)) hooks[k] = { current: init };
+      return hooks[k];
+    },
+    useEffect(fn, deps) {
+      const k = index++;
+      const prev = hooks[k];
+      if (changed(prev, deps))
+        queue.push(() => {
+          prev?.cleanup?.();
+          const cleanup = fn();
+          hooks[k] = { deps: deps || [], cleanup: typeof cleanup === "function" ? cleanup : undefined };
+        });
+    },
+    useMemo(fn, deps) {
+      const k = index++;
+      if (changed(hooks[k], deps)) hooks[k] = { deps: deps || [], value: fn() };
+      return hooks[k].value;
+    },
+    useCallback(fn, deps) {
+      return dispatcher.useMemo(() => fn, deps);
+    },
+  };
+  let tree = null;
+  const render = () => {
+    for (let pass = 0; pass < 25; pass += 1) {
+      dirty = false;
+      index = 0;
+      const before = internals.ReactCurrentDispatcher.current;
+      internals.ReactCurrentDispatcher.current = dispatcher;
+      try {
+        tree = Component(props);
+      } finally {
+        internals.ReactCurrentDispatcher.current = before;
+      }
+      const effects = queue;
+      queue = [];
+      for (const run of effects) run();
+      if (!dirty) return tree;
+    }
+    throw new Error("render loop");
+  };
+  render();
+  return {
+    get tree() {
+      return tree;
+    },
+    stats,
+    render,
+    rerender(next) {
+      props = { ...props, ...next };
+      return render();
+    },
+    async settle() {
+      for (let n = 0; n < 5; n += 1) await new Promise((r) => setImmediate(r));
+      return alive ? render() : tree;
+    },
+    unmount() {
+      alive = false;
+      for (const h of hooks) h?.cleanup?.();
+    },
+  };
+}
+function* walk(node) {
+  if (node == null || typeof node !== "object") return;
+  if (Array.isArray(node)) {
+    for (const n of node) yield* walk(n);
+    return;
+  }
+  if (node.props) {
+    yield node;
+    yield* walk(node.props.children);
+  }
+}
+const find = (tree, pred) => [...walk(tree)].find(pred);
+const byAria = (tree, label) => find(tree, (n) => n.props.ariaLabel === label || n.props["aria-label"] === label);
+const byData = (tree, key, value) => find(tree, (n) => n.props[key] === value);
+const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filter((o) => o.value).map((o) => JSON.parse(o.value)[3]);
+
+// C1: the language filter never outlives its control.
+{
+  const bilingual = { items: [{ id: "en1", provider: "p", voice_kind: "voice", language: "en" }, { id: "fr1", provider: "p", voice_kind: "voice", language: "fr" }] };
+  const englishOnly = { items: [{ id: "en1", provider: "p", voice_kind: "voice", language: "en" }, { id: "en2", provider: "p", voice_kind: "voice", language: "en" }] };
+  let catalog = bilingual;
+  const h = mount(VoiceSettings, { value: { provider: "p", model: "m1" }, onChange: () => undefined, fetchCatalog: async () => catalog });
+  await h.settle();
+  check("C1 two languages show the filter", Boolean(byAria(h.tree, "Voice language")));
+  byAria(h.tree, "Voice language").props.onChange("fr");
+  h.render();
+  check("C1 the filter filters", JSON.stringify(voiceIds(h.tree)) === JSON.stringify(["fr1"]), JSON.stringify(voiceIds(h.tree)));
+  // One language left (another model's catalog): the hidden filter must not keep hiding voices.
+  catalog = englishOnly;
+  h.rerender({ value: { provider: "p", model: "m2" } });
+  await h.settle();
+  check("C1 one language left hides the filter", !byAria(h.tree, "Voice language"));
+  check("C1 one language left: the hidden filter no longer filters", JSON.stringify(voiceIds(h.tree)) === JSON.stringify(["en1", "en2"]), JSON.stringify(voiceIds(h.tree)));
+  // The filter reset is in state too: back to a bilingual catalog, it reads "Any language".
+  catalog = bilingual;
+  h.rerender({ value: { provider: "p", model: "m1" } });
+  await h.settle();
+  check("C1 the reset is kept", byAria(h.tree, "Voice language")?.props.value === "", byAria(h.tree, "Voice language")?.props.value);
+  // Provider change: the filter resets.
+  byAria(h.tree, "Voice language").props.onChange("fr");
+  h.render();
+  h.rerender({ value: { provider: "q", model: "" } });
+  await h.settle();
+  check("C1 a provider change resets the filter", byAria(h.tree, "Voice language")?.props.value === "", byAria(h.tree, "Voice language")?.props.value);
+}
+
+// C3: a recording's language is detected unless chosen; a description keeps one.
+{
+  const sent = [];
+  const creation = {
+    design: async (req) => (sent.push(["design", req]), { voice_id: "d1", engine: "qwen3-tts" }),
+    clone: async (file, req) => (sent.push(["clone", req]), { voice_id: "c1", engine: "qwen3-tts" }),
+  };
+  const h = mount(CreateVoicePanel, { creation, onCreated: () => undefined });
+  const designLang = byAria(h.tree, "Voice language for creation");
+  check("C3 a description keeps a language (en by default)", designLang?.props.value === "en", designLang?.props.value);
+  check("C3 a description offers no detection", !designLang?.props.options.some((o) => o.value === ""));
+  byAria(h.tree, "Voice description").props.onChange({ target: { value: "a calm voice" } });
+  h.render();
+  byData(h.tree, "data-action", "create-voice").props.onClick();
+  await h.settle();
+  check("C3 design sends its language", sent[0]?.[0] === "design" && sent[0][1].language === "en", JSON.stringify(sent[0]));
+  byData(h.tree, "data-create-mode", "clone").props.onClick();
+  h.render();
+  const cloneLang = byAria(h.tree, "Voice language for creation");
+  check("C3 a recording's language defaults to detection", cloneLang?.props.value === "", cloneLang?.props.value);
+  check("C3 detection is the first choice", cloneLang?.props.options[0]?.value === "" && cloneLang.props.options[0].label === "Detect from the recording", JSON.stringify(cloneLang?.props.options[0]));
+  byAria(h.tree, "Voice recording").props.onChange({ target: { files: [new Blob([new Uint8Array([1])])] } });
+  h.render();
+  byData(h.tree, "data-action", "create-voice").props.onClick();
+  await h.settle();
+  check("C3 a detected recording sends no language", sent[1]?.[0] === "clone" && !("language" in sent[1][1]), JSON.stringify(sent[1]));
+  byAria(h.tree, "Voice language for creation").props.onChange("fr");
+  h.render();
+  byData(h.tree, "data-action", "create-voice").props.onClick();
+  await h.settle();
+  check("C3 a chosen recording language is sent", sent[2]?.[1].language === "fr", JSON.stringify(sent[2]));
+}
+
+// C4: the created voice merges into the CURRENT preferences.
+{
+  const changes = [];
+  const createVoice = { design: async () => ({ voice_id: "d1", engine: "qwen3-tts" }) };
+  const h = mount(VoiceSettings, { value: { provider: "qwen3-tts", speed: 1 }, onChange: (v) => changes.push(v), fetchCatalog: async () => ({}), createVoice });
+  await h.settle();
+  const firstOnCreated = find(h.tree, (n) => n.type === CreateVoicePanel).props.onCreated;
+  // The user changed the speed while the voice was being created.
+  h.rerender({ value: { provider: "qwen3-tts", speed: 1.5, instructions: "calm" } });
+  firstOnCreated("d1", "qwen3-tts");
+  const last = changes[changes.length - 1] || {};
+  check("C4 a created voice keeps the preferences changed meanwhile", last.speed === 1.5 && last.instructions === "calm" && last.voice === "d1", JSON.stringify(last));
+}
+// C4: a late result after the panel is gone is dropped.
+{
+  let resolve;
+  const created = [];
+  const creation = { design: () => new Promise((r) => (resolve = r)) };
+  const h = mount(CreateVoicePanel, { creation, onCreated: (id) => created.push(id) });
+  byAria(h.tree, "Voice description").props.onChange({ target: { value: "a calm voice" } });
+  h.render();
+  byData(h.tree, "data-action", "create-voice").props.onClick();
+  h.unmount();
+  resolve({ voice_id: "late" });
+  await h.settle();
+  check("C4 a late result after unmount selects nothing", created.length === 0, JSON.stringify(created));
+  check("C4 a late result after unmount sets no state", h.stats.lateSets === 0, String(h.stats.lateSets));
+}
+// C4: one request at a time, in either mode.
+{
+  let calls = 0;
+  let resolve;
+  const creation = {
+    design: () => ((calls += 1), new Promise((r) => (resolve = r))),
+    clone: async () => ({ voice_id: "c" }),
+  };
+  const h = mount(CreateVoicePanel, { creation, onCreated: () => undefined });
+  byAria(h.tree, "Voice description").props.onChange({ target: { value: "a calm voice" } });
+  h.render();
+  const click = byData(h.tree, "data-action", "create-voice").props.onClick;
+  click();
+  click(); // a double click before the next render
+  h.render();
+  check("C4 a double click sends one request", calls === 1, String(calls));
+  check("C4 Create is disabled while busy", byData(h.tree, "data-action", "create-voice").props.disabled === true);
+  check("C4 the mode tabs are disabled while busy", byData(h.tree, "data-create-mode", "clone").props.disabled === true && byData(h.tree, "data-create-mode", "design").props.disabled === true);
+  resolve({ voice_id: "d" });
+  await h.settle();
+  check("C4 Create is enabled again after the result", byData(h.tree, "data-action", "create-voice").props.disabled === false);
+}
 
 console.log(`check_voice_library: ${checks - failures}/${checks} passed`);
 if (failures) process.exit(1);
