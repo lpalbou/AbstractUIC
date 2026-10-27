@@ -7342,3 +7342,13 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   }
 }
 /* af-shell:end */
+
+/* --- ui-primitives (session-policy-kit) --- */
+/* ToolModeEditor: the conversation's policy as the gateway stores it (who set it, what it did not cover). */
+.af-tool-modes__policy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}

@@ -133,3 +133,16 @@ export function gatewayProviderModelsRoute(provider: string): string {
   if (!p) throw new Error("gatewayProviderModelsRoute needs a provider.");
   return `${GATEWAY_PROVIDERS_ROUTE}/${encodeURIComponent(p)}/models`;
 }
+
+// --- ui-primitives (session-policy-kit) ---
+/** A session id the gateway accepts (contract v1: 1-256 characters `[A-Za-z0-9_.:-]`), never only dots:
+ * "." / ".." are path segments a URL parser normalizes away (`sessions/../tool-policy` would reach
+ * the gateway API's own `tool-policy`, one level above `sessions`). */
+export const SESSION_ID_PATTERN = /^(?!\.+$)[A-Za-z0-9_.:-]{1,256}$/;
+/** `GET|PUT|POST|DELETE sessions/{session_id}/tool-policy`: a conversation's tool policy (session tool
+ * policy contract v1, routes/session_tool_policy.py on the gateway's feat/session-tool-policy). */
+export function sessionToolPolicyRoute(sessionId: string): string {
+  const sid = String(sessionId ?? "");
+  if (!SESSION_ID_PATTERN.test(sid)) throw new Error(`A session id is 1-256 characters [A-Za-z0-9_.:-], not only dots, got ${JSON.stringify(sid)}.`);
+  return `sessions/${sid}/tool-policy`;
+}

@@ -212,6 +212,17 @@ check("unknown rank counts as 4", !bulkAutoReaches({ ...by.read_file, riskRank: 
   check("v1 adapter: mode all with no pins is no layer", j(toolPolicySelectionToLayer({ mode: "all", selected: [], approval: {} }, cat)) === "{}");
 }
 
+// ---------------------------------------------------------------- session-policy-kit: the plan and the session body agree
+{
+  const session = { write_file: "auto", read_file: "off", list_files: "ask", send_telegram_message: "auto" };
+  const plan = planRunTools(cat, { session });
+  const body = kit.sessionPolicyFromLayer(session, cat);
+  check("the session body approves what the plan runs on Auto", body.approve.tools.every((n) => plan.approval.auto.includes(n)) && j(body.approve.tools) === j(["write_file"]), j(body));
+  check("a denied (off) tool is also outside the run's ceiling", j(body.deny.tools) === j(["read_file"]) && !plan.allowed_tools.includes("read_file"));
+  check("the session body asks what the plan asks", j(body.ask) === j(["list_files"]) && plan.approval.ask.includes("list_files"));
+  check("a tool the gateway does not offer is in neither", !plan.tools.includes("send_telegram_message") && !body.approve.tools.includes("send_telegram_message"));
+}
+
 if (failures) {
   console.error(`check_tool_plan: ${failures}/${checks} FAILED`);
   process.exit(1);

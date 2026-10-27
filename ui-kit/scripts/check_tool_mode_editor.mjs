@@ -9,7 +9,7 @@
  * - a "Default: X" chip on a row that overrides the layer below, and only there;
  * - the reset wording per layer: "Use the gateway's" (app) / "Use my defaults" (session);
  * - `allowListOnly`: Off / On only; a tool the gateway does not offer shows its reason, disabled;
- * - the AfOverrideRow frame names whose override it is ("this app" / "this conversation") and never
+ * - the AfOverrideRow frame names whose override it is ("this app" / "this chat") and never
  *   says "Gateway default" over changed app defaults.
  * Behaviour (the kit's minimal hook harness, as check_voice_library.mjs): a row click writes a
  * SPARSE diff, a click back to the inherited mode deletes it, group Auto writes only the reachable
@@ -128,7 +128,7 @@ const pressed = (html, key) => new RegExp(`aria-pressed="true"[^>]*data-(?:tool|
   const plain = render({ rowLabel: "Tools", open: true });
   check("frame: Gateway default named when nothing changed", plain.includes("Gateway default · 5 tools on, 3 without asking"), plain.slice(0, 600));
   const sess = render({ rowLabel: "Tools", layer: "session", value: { read_file: "off" }, open: true });
-  check("frame: session override owned by this conversation", sess.includes("1 tool changed — this conversation"));
+  check("frame: session override owned by this chat", sess.includes("1 tool changed — this chat"));
   const overApp = render({ rowLabel: "Tools", layer: "session", value: {}, inherited: { read_file: "ask" }, open: true });
   check("frame: never 'Gateway default' over changed app defaults", overApp.includes("Your defaults — this app") && !overApp.includes(">Gateway default"), overApp.slice(0, 600));
   // Review F1: the frame and the run agree — keys that change nothing are no change.
@@ -266,6 +266,31 @@ const btn = (tree, key) => [...walk(tree)].find((n) => n.props["data-tool-mode"]
   check("needs an identity", (() => { try { createToolLayerStore(""); return false; } catch { return true; } })());
   check("says where it saves: this browser, never the account", TOOL_LAYER_STORE_WHERE === "Saved in this browser" && !/account/i.test(TOOL_LAYER_STORE_WHERE));
   check("the editor renders the host's savedWhere", render({ savedWhere: TOOL_LAYER_STORE_WHERE }).includes("Saved in this browser"));
+}
+
+// ---------------------------------------------------------------- session-policy-kit: storage and the served policy
+{
+  const { TOOL_LAYER_GATEWAY_WHERE, TOOL_LAYER_BROWSER_FALLBACK } = kit;
+  const gw = render({ layer: "session", storage: { kind: "gateway", where: TOOL_LAYER_GATEWAY_WHERE }, savedWhere: "ignored" });
+  check("gateway storage labeled", gw.includes('data-storage="gateway"') && gw.includes("Saved for this chat on the gateway") && !gw.includes("ignored"));
+  const older = render({ layer: "session", storage: { kind: "browser", where: TOOL_LAYER_STORE_WHERE, note: TOOL_LAYER_BROWSER_FALLBACK } });
+  check("browser fallback labeled, with why", older.includes('data-storage="browser"') && older.includes("Saved in this browser") && older.includes('data-storage-note="browser"') && older.includes("The gateway cannot store chat tool policies"));
+  const policy = { version: 1, session_id: "s-1", revision: 5, approve: { read_file: "tool" }, deny: {}, ask: [], clamped: [{ selector: "tools", name: "send_email", reason: "not_authorized" }], set_by: { tenant_id: "default", user_id: "admin", client: "panel-chat" }, set_at: "2026-10-27T10:00:00+00:00" };
+  const served = render({ layer: "session", policy });
+  check("clamped entries shown", served.includes("Not covered: send_email (not_authorized)") && served.includes("data-policy-clamped"));
+  check("who set it, when", /data-policy-set="">Set by admin \(panel-chat\) on Oct 27, 2026, \d\d:\d\d</.test(served), served.match(/data-policy-set[^<]*/)?.[0]);
+  check("no policy block without a served policy", !render({ layer: "session" }).includes("data-session-policy"));
+  // Contract v1 revised: scope rendered as served, never composed; Off's reach on a gateway-stored chat.
+  const SC = { approve: "every run of this conversation, except automation runs", deny: "every run of this conversation, automation runs and untrusted-input runs included" };
+  const scoped = render({ layer: "session", storage: { kind: "gateway", where: TOOL_LAYER_GATEWAY_WHERE }, scope: SC });
+  check("scope rendered verbatim", scoped.includes("Approve applies to: every run of this conversation, except automation runs") && scoped.includes("Deny applies to: every run of this conversation, automation runs and untrusted-input runs included") && scoped.includes('data-policy-scope="served"'));
+  const viaPolicy = render({ layer: "session", policy: { ...policy, scope: SC } });
+  check("scope read from the policy when not passed", viaPolicy.includes("Approve applies to:"));
+  const unsaid = render({ layer: "session", storage: { kind: "gateway", where: TOOL_LAYER_GATEWAY_WHERE } });
+  check("scope absent → 'The gateway did not say where this policy applies'", unsaid.includes("The gateway did not say where this policy applies") && unsaid.includes('data-policy-scope="unsaid"') && !unsaid.includes("applies to:"));
+  check("no scope line for a browser layer", !older.includes("data-policy-scope"));
+  check("Off's reach said for a gateway-stored chat", unsaid.includes("Off = denied for every run of this chat, automations included"));
+  check("…not for the app layer nor a browser layer", !render({ layer: "app", storage: { kind: "gateway", where: TOOL_LAYER_GATEWAY_WHERE } }).includes("data-session-off-help") && !older.includes("data-session-off-help"));
 }
 
 if (failures) {

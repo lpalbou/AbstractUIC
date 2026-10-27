@@ -58,6 +58,30 @@ panel-chat:
 - Check: `check_session_policy.mjs` (90 checks + a tsc type-equality check; 42 mutations red, including a resume sent before the policy write, a
   host-claimed gateway mode, a dropped `ask`, a failed capability read treated as the local fallback, a composed scope
   sentence, a deny without its revision and a child-session write).
+### session-policy-kit: a conversation's tool policy on the gateway (session tool policy contract v1; backlog 0033)
+
+- `session_tool_policy.ts`: `SessionToolPolicyBody`, `SessionToolPolicy`, `SessionToolPolicyClient`,
+  `sessionToolPolicyCapability`, `createSessionToolPolicyClient` over `GET | PUT | POST | DELETE
+  /api/gateway/sessions/{session_id}/tool-policy` (409 `revision_conflict` →
+  `SessionToolPolicyConflictError`; `clamped` passed through; an unsupported client rejects every call
+  with "The gateway cannot store conversation policies"); `sessionToolPolicyRoute` and
+  `SESSION_ID_PATTERN` in `gateway_paths.ts`.
+- Bridge with the tool layers: `sessionPolicyFromLayer` (auto → approve, ask → ask, off → deny) and
+  `layerFromSessionPolicy`.
+- `createToolLayerStore({sessionPolicy})`: `loadSession` / `saveSession` / `resetSession` go through the
+  gateway when it supports the policy, else this browser, labeled (`TOOL_LAYER_GATEWAY_WHERE`,
+  `TOOL_LAYER_BROWSER_FALLBACK`).
+- `ToolModeEditor`: `storage` (which storage applies, and why not the gateway) and `policy` (clamped
+  entries, `set_by` / `set_at`).
+- Review fixes: every PUT and DELETE is revision-guarded (the revision of every answer is kept;
+  `reset(ifRevision)`; an unguarded write is refused, `SessionToolPolicyRevisionError`); a save carries
+  the entries this catalog cannot see and the request's selectors; dot-only session ids are refused;
+  an unadvertised method is not sent; the user-facing noun is "chat".
+- Contract v1 revision: the served `scope` is passed through and rendered verbatim; the store never
+  POSTs (a merge only adds); model-chosen-destination tools at Ask always go to `ask`; Off on a
+  gateway-stored chat says it reaches every run, automations included; the session id is the root
+  session.
+- Checks: `check_session_tool_policy` (new); `check_tool_plan` and `check_tool_mode_editor` extended.
 
 ### chat: one chat surface, questions and approvals, attachments and generated media (backlog 0030, 0032, kit half of 0031; ADR 0001)
 

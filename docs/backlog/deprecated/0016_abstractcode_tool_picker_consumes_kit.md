@@ -38,3 +38,7 @@ on allowlist-only display mode.
 ## Non-goals
 Unifying the generic multi_select components (rejected in the census:
 deliberately different UX per app).
+
+
+## Superseded (2026-10-27)
+Superseded by 0033 (tool selection layers): the gateway serves `approval_default` and the kit reads it first (`ToolPolicyEditor` is a deprecated adapter over `ToolModeEditor`; `TOOL_POLICY_DEFAULTS` is a labeled fallback); AbstractCode's kit swap is done and what remains is 0033's adoption table. Moved to deprecated by the ui-primitives lead.

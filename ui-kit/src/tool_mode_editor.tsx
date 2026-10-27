@@ -1,5 +1,5 @@
 // ToolModeEditor (ADR 0001, backlog 0033): one tool editor for every app.
-// Edits ONE sparse layer (the app's defaults, or this conversation's changes)
+// Edits ONE sparse layer (the app's defaults, or this chat's changes)
 // on top of what it inherits. Off / Ask / Auto per tool; per toolset a group
 // control with a Mixed state and the bulk-Auto cap explained in words; search;
 // risk and state badges; the gateway's reason for a tool it does not offer;
@@ -13,6 +13,9 @@ import React, { useMemo, useState } from "react";
 import { AfOverrideRow } from "./af_settings_rows.js";
 import { AfTooltip } from "./af_tooltip.js";
 import { describeToolMode } from "./tool_policy_editor.js";
+import { formatExactTime } from "./relative_time.js";
+import { sessionPolicyClampedLines, type SessionToolPolicy, type SessionToolPolicyScope } from "./session_tool_policy.js";
+import type { ToolLayerStorage } from "./tool_layer_store.js";
 import {
   BULK_AUTO_MAX_RANK,
   bulkAutoReaches,
@@ -33,8 +36,14 @@ export const TOOL_LAYER_RESET: Record<"app" | "session", string> = {
   app: "Use the gateway's",
   session: "Use my defaults",
 };
+/** What Off means for a chat whose layer the gateway stores: a deny reaches every run of the session
+ * (contract v1 revised §4.3), not only the runs this app starts. */
+export const TOOL_SESSION_OFF_HELP = "Off = denied for every run of this chat, automations included";
+/** Shown when the gateway stores the policy but does not say where it applies (never composed). */
+export const TOOL_POLICY_SCOPE_UNSAID = "The gateway did not say where this policy applies";
+
 /** Whose override a layer is (AfOverrideRow `overrideOwner`). */
-export const TOOL_LAYER_OWNER: Record<"app" | "session", string> = { app: "this app", session: "this conversation" };
+export const TOOL_LAYER_OWNER: Record<"app" | "session", string> = { app: "this app", session: "this chat" };
 
 /** Why group Auto leaves some tools as they are (the cap, in words). */
 export const BULK_AUTO_CAP_SENTENCE = `Auto for a whole group reaches the tools that read or make changes (risk ${BULK_AUTO_MAX_RANK} or lower) and whose destination the assistant does not choose. Set the others to Auto one at a time.`;
@@ -64,6 +73,15 @@ export type ToolModeEditorProps = {
   warnings?: readonly string[];
   /** Where the host keeps this layer, in words (e.g. TOOL_LAYER_STORE_WHERE). */
   savedWhere?: string;
+  /** Where this layer lives (ToolLayerStore.sessionStorage / loadSession): its words replace
+   * `savedWhere`, and a browser fallback's note says why the gateway does not keep it. */
+  storage?: ToolLayerStorage;
+  /** The conversation's policy as the gateway stores it (loadSession / saveSession): its `clamped`
+   * entries ("Not covered: … (not_authorized)") and who set it, when. */
+  policy?: SessionToolPolicy | null;
+  /** Where the policy's approve and deny apply, as the gateway served it (SessionLayerState.scope);
+   * defaults to `policy.scope`. Rendered verbatim ("Approve applies to: …"); never composed. */
+  scope?: SessionToolPolicyScope | null;
   /** Settings pages: frame the editor in an AfOverrideRow with this label ("Tools"). */
   rowLabel?: React.ReactNode;
   rowHelp?: React.ReactNode;
@@ -79,6 +97,16 @@ function breakAtUnderscores(name: string): React.ReactNode {
 }
 
 type Group = { toolset: string; items: ToolCatalogItem[] };
+
+/** "Set by admin (panel-chat) on Oct 27, 2026, 10:00", from the policy's served set_by / set_at. */
+export function policySetLine(policy: SessionToolPolicy | null | undefined): string {
+  if (!policy) return "";
+  const who = policy.set_by?.user_id || "";
+  const client = policy.set_by?.client || "";
+  const when = formatExactTime(policy.set_at);
+  if (!who && !when) return "";
+  return `Set${who ? ` by ${who}` : ""}${client ? ` (${client})` : ""}${when ? ` on ${when}` : ""}`;
+}
 
 export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
   const labels: ToolModeLabels = { ...TOOL_MODE_LABELS, ...(props.labels || {}) };
@@ -154,6 +182,7 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
   };
   const changed = props.catalog.filter(overridesRow).map((t) => t.name);
   const banner = describeToolMode(props.toolMode, props.toolModeLabel, props.toolModeDetail);
+  const scope = props.scope ?? props.policy?.scope ?? null;
   const rowModes: Array<ToolMode | "on"> = allowList ? ["off", "on"] : ["off", "ask", "auto"];
   const modeLabel = (m: ToolMode | "on") => labels[m];
 
@@ -193,8 +222,46 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
             {TOOL_LAYER_RESET[props.layer]}
           </button>
         ) : null}
-        {props.savedWhere ? <span className="af-tool-modes__saved">{props.savedWhere}</span> : null}
+        {props.storage ? (
+          <span className="af-tool-modes__saved" data-storage={props.storage.kind}>
+            {props.storage.where}
+          </span>
+        ) : props.savedWhere ? (
+          <span className="af-tool-modes__saved">{props.savedWhere}</span>
+        ) : null}
       </div>
+      {props.storage?.note ? (
+        <div className="af-tool-modes__warnings" role="status" data-storage-note={props.storage.kind}>
+          {props.storage.note}
+        </div>
+      ) : null}
+      {props.layer === "session" && props.storage?.kind === "gateway" ? (
+        <div className="af-tool-modes__policy" data-session-off-help="">
+          {TOOL_SESSION_OFF_HELP}
+        </div>
+      ) : null}
+      {props.storage?.kind === "gateway" || props.policy ? (
+        <div className="af-tool-modes__policy" data-policy-scope={scope ? "served" : "unsaid"}>
+          {scope ? (
+            <>
+              {scope.approve ? <div>Approve applies to: {scope.approve}</div> : null}
+              {scope.deny ? <div>Deny applies to: {scope.deny}</div> : null}
+            </>
+          ) : (
+            TOOL_POLICY_SCOPE_UNSAID
+          )}
+        </div>
+      ) : null}
+      {props.policy ? (
+        <div className="af-tool-modes__policy" data-session-policy={props.policy.revision}>
+          {policySetLine(props.policy) ? <div data-policy-set="">{policySetLine(props.policy)}</div> : null}
+          {sessionPolicyClampedLines(props.policy).map((line, i) => (
+            <div key={i} data-policy-clamped="">
+              {line}
+            </div>
+          ))}
+        </div>
+      ) : null}
       {!props.catalog.length ? <div className="af-tool-policy__empty">The gateway offers no tools.</div> : null}
       {props.catalog.length && !groups.length ? <div className="af-tool-policy__empty">No tools match the search.</div> : null}
       {groups.map((group) => {
