@@ -363,6 +363,22 @@ export function VoiceSettings({
   const onRoute = (item: any) =>
     (!value.provider || !item.provider || item.provider === value.provider) &&
     (!value.model || !item.model || item.model === value.model);
+  // One voice served by several models of an engine (Qwen3-TTS lists each preset voice under
+  // each of its models) is ONE choice: listed once. With a model chosen it is that model's
+  // entry; without one it carries no model, so choosing it keeps the gateway's default model.
+  const voiceSig = (item: any) => JSON.stringify([item.provider || "", item.voice_kind === "profile" ? "profile" : "voice", item.id]);
+  const modelsOf = new Map<string, Set<string>>();
+  for (const item of entries) {
+    if (!item?.id) continue;
+    const sig = voiceSig(item);
+    if (!modelsOf.has(sig)) modelsOf.set(sig, new Set());
+    modelsOf.get(sig)!.add(String(item.model || ""));
+  }
+  const multiModel = (item: any) => (modelsOf.get(voiceSig(item))?.size || 0) > 1;
+  const optionKey = (item: any) =>
+    multiModel(item) && !value.model
+      ? JSON.stringify([item.provider || "", "", item.voice_kind === "profile" ? "profile" : "voice", item.id])
+      : itemKey(item);
   // A host that stores one id for both kinds (a capability route's `options.voice`, an entity's
   // voice) names a profile as `voice`: it is still that profile, not an unknown saved id.
   const selected =
@@ -376,7 +392,7 @@ export function VoiceSettings({
       ? entries.find((item) => item.id === value.voice && item.voice_kind === "profile" && onRoute(item))
       : undefined);
   const voiceKey = selected
-    ? itemKey(selected)
+    ? optionKey(selected)
     : value.profile || value.voice
       ? JSON.stringify([
           value.provider || "",
@@ -394,17 +410,26 @@ export function VoiceSettings({
     if (!hasLanguageFilter && !loading) setLanguage("");
   }, [hasLanguageFilter, loading]);
   const activeLanguage = hasLanguageFilter ? language : "";
+  const listed = new Set<string>();
   const options = entries
     .filter(
       (item) =>
         item?.id &&
         (!value.provider || !item.provider || item.provider === value.provider) &&
-        (voiceSpeaks(item, activeLanguage) || itemKey(item) === voiceKey),
+        // a voice of several models: the chosen model's entry only (any one without a model)
+        (!multiModel(item) || !value.model || item.model === value.model || !modelsOf.get(voiceSig(item))!.has(value.model)) &&
+        (voiceSpeaks(item, activeLanguage) || optionKey(item) === voiceKey),
     )
+    .filter((item) => {
+      const key = optionKey(item);
+      if (listed.has(key)) return false;
+      listed.add(key);
+      return true;
+    })
     .map((item) => {
       const lang = voiceLanguage(item);
       return {
-        value: itemKey(item),
+        value: optionKey(item),
         group: voiceGroup(item),
         label: `${item.label || item.name || item.id}${lang ? ` · ${voiceLanguageLabel(lang)}` : ""}${!value.provider && item.provider ? ` · ${item.provider}` : ""}`,
       };

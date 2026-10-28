@@ -217,6 +217,37 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
   check("C1 a provider change resets the filter", byAria(h.tree, "Voice language")?.props.value === "", byAria(h.tree, "Voice language")?.props.value);
 }
 
+// C5 (backlog 0058, release-closing): a voice served by several models of one engine (Qwen3-TTS
+// lists each preset voice under each of its models) is ONE choice. Without a chosen model it
+// carries no model (the gateway's default model speaks it); with one, it is that model's entry.
+{
+  const items = [
+    { id: "Vivian", provider: "qwen3-tts", model: "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", voice_kind: "voice", language: "zh" },
+    { id: "Vivian", provider: "qwen3-tts", model: "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice", voice_kind: "voice", language: "zh" },
+    { id: "Ryan", provider: "qwen3-tts", model: "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", voice_kind: "voice", language: "en" },
+    { id: "Ryan", provider: "qwen3-tts", model: "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice", voice_kind: "voice", language: "en" },
+    { id: "solo", provider: "qwen3-tts", model: "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice", voice_kind: "voice", language: "en" },
+  ];
+  const changes = [];
+  const h = mount(VoiceSettings, { value: { provider: "qwen3-tts", model: "" }, onChange: (v) => changes.push(v), fetchCatalog: async () => ({ items }) });
+  await h.settle();
+  const opts = () => (byAria(h.tree, "AI voice")?.props.options || []).filter((o) => o.value);
+  check("C5 each voice once", JSON.stringify(voiceIds(h.tree).sort()) === JSON.stringify(["Ryan", "Vivian", "solo"]), JSON.stringify(voiceIds(h.tree)));
+  const vivian = opts().find((o) => JSON.parse(o.value)[3] === "Vivian");
+  check("C5 a voice of several models carries no model", JSON.parse(vivian.value)[1] === "", vivian.value);
+  const solo = opts().find((o) => JSON.parse(o.value)[3] === "solo");
+  check("C5 a one-model voice keeps its model", JSON.parse(solo.value)[1] === "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice", solo.value);
+  byAria(h.tree, "AI voice").props.onChange(vivian.value);
+  check("C5 choosing it keeps the default model", changes.at(-1)?.voice === "Vivian" && changes.at(-1)?.model === "", JSON.stringify(changes.at(-1)));
+  h.rerender({ value: { provider: "qwen3-tts", model: "", voice: "Vivian" } });
+  await h.settle();
+  check("C5 the saved choice is the listed option (no '(saved)' twin)", byAria(h.tree, "AI voice")?.props.value === vivian.value && !opts().some((o) => /\(saved\)/.test(o.label)), byAria(h.tree, "AI voice")?.props.value);
+  h.rerender({ value: { provider: "qwen3-tts", model: "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice" } });
+  await h.settle();
+  const withModel = opts().filter((o) => JSON.parse(o.value)[3] === "Vivian");
+  check("C5 with a model chosen: that model's entry, once", withModel.length === 1 && JSON.parse(withModel[0].value)[1] === "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", JSON.stringify(withModel));
+}
+
 // C3: a recording's language is detected unless chosen; a description keeps one.
 {
   const sent = [];
