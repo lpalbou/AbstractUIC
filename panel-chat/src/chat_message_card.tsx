@@ -365,8 +365,8 @@ export function speakButtonView(state: SpeakState): { icon: IconName; title: str
 export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement {
   const m = props.message;
   const role_ui = useMemo(() => _role_ui(m), [m.kind, m.level, m.role, m.title]);
-  // A host may pass an ISO string or epoch milliseconds; a malformed one renders no stamp, never "Invalid Date".
-  const raw_ts = m.ts as unknown as string | number | undefined;
+  // `ChatMessage.ts` is an ISO string; a malformed one renders no stamp, never "Invalid Date".
+  const raw_ts = m.ts;
   // Re-derived when the reader's calendar day changes ("10:52 PM" becomes "Yesterday · 10:52 PM"):
   // `useLocalDay` re-renders the card at local midnight.
   const day_key = useLocalDay();

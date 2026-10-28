@@ -25,7 +25,7 @@ needs ui-kit `^0.9.0`). Operator QA of 2026-10-28, item 2; backlog 0062.
   `Oct 21, 2025 · 10:52 PM` another year, in the reader's locale and time zone (it was the time only, so a reply
   from last week read like one from this morning). The full date is the stamp's hover text (`messageStampTitle`,
   on a `<time>` with an ISO `dateTime`, `messageStampIso`); an open card re-renders at local midnight (`useLocalDay`,
-  one shared timer). Epoch milliseconds are accepted, and a bare date ("2026-10-27") is the reader's local day.
+  one shared timer). A bare date ("2026-10-27") is the reader's local day, stamped without a time ("Yesterday").
 - The speaker is permanent on every assistant message of a host with a read-aloud path (`onSpeakToggle`): while the
   reply streams, or when it has no text, it stays in place, dimmed and `aria-disabled` (still focusable), with its
   reason as the hover text ("Read aloud when the reply is finished", "No text to read aloud") instead of appearing
@@ -33,7 +33,7 @@ needs ui-kit `^0.9.0`). Operator QA of 2026-10-28, item 2; backlog 0062.
 - The "N files changed" chip opens the structured panel like the tokens, tools and duration chips (title "Files
   changed", one row per file: its name, then its folder; capped at 30 with "and N more files"); it was a native
   multi-line `title` tooltip; POSIX and Windows paths. `StatDetailKind` adds `"files"`. `ChatStat.title` is documented as a one-line hint.
-- Checks: `panel-chat/scripts/check_message_footer.mjs` (52, in `npm test`): the stamp table (today, yesterday,
+- Checks: `panel-chat/scripts/check_message_footer.mjs` (56, in `npm test`): the stamp table (today, yesterday,
   this year, another year, a future day, calendar-day and month boundaries, fr-FR, malformed), the card's dated stamp
   and hover text, the speaker on seven assistant message kinds and with a `renderFooter` slot (disabled while
   streaming / without text; never on user or system messages; never without a TTS host), every workflow chip
@@ -42,7 +42,10 @@ needs ui-kit `^0.9.0`). Operator QA of 2026-10-28, item 2; backlog 0062.
   back to a native `disabled`) all red.
   Adversarial review (Opus, read-only): no blocker; fixed: the disabled speaker lost to `.pc-workflow-chat
   button:disabled` (now `aria-disabled` with its own rule), no re-render at midnight (now `useLocalDay`), the desktop
-  differences and the Docs assistant exception written down, epoch/bare-date stamps, ISO `dateTime`, Windows paths.
+  differences and the Docs assistant exception written down, bare-date stamps, ISO `dateTime`, Windows paths. A second
+  review of those fixes: no blocker; the checks it found too weak (ISO `dateTime`, the bare date on a UTC runner, the
+  midnight timer) now pin them (`TZ=America/Los_Angeles`, a stubbed timer: one timer for all cards, re-armed after it
+  fires, cleared by the last card, never re-armed without cards); mutants M8-M12 red.
 
 ## 0.8.3 - 2026-10-28
 

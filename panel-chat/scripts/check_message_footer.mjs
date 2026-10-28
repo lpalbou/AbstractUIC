@@ -13,6 +13,8 @@
  *     structured StatDetail panel: no chip carries a native `title`, the files chip included.
  * Run after `npm run build`.
  */
+// A zone west of UTC, so a date parsed as UTC (a bare "2026-10-27") lands on the wrong day and goes red.
+process.env.TZ = "America/Los_Angeles";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import React from "react";
@@ -59,8 +61,8 @@ const render = (props) => renderToStaticMarkup(React.createElement(ChatMessageCa
   check("A locale-aware (fr-FR)", fr === "21 oct. · 22:52", fr);
   check("A malformed is empty", formatMessageStamp("not-a-date", now) === "" && formatMessageStamp("", now) === "" && formatMessageStamp(undefined, now) === "");
   check("A epoch milliseconds are a timestamp", formatMessageStamp(new Date(2026, 9, 21, 22, 52).getTime(), now, "en-US") === "Oct 21 · 10:52 PM");
-  check("A a bare date is the reader's local day", formatMessageStamp("2026-10-27", now, "en-US") === "Yesterday · 12:00 AM", formatMessageStamp("2026-10-27", now, "en-US"));
-  check("A the machine-readable form is ISO", messageStampIso(at(2026, 9, 21, 22, 52)) === new Date(2026, 9, 21, 22, 52).toISOString() && messageStampIso("x") === "");
+  check("A a bare date is the reader's local day, without a made-up time", formatMessageStamp("2026-10-27", now, "en-US") === "Yesterday" && formatMessageStamp("2026-10-21", now, "en-US") === "Oct 21", formatMessageStamp("2026-10-27", now, "en-US"));
+  check("A the machine-readable form is ISO", messageStampIso("2026-10-21T22:52:00+02:00") === "2026-10-21T20:52:00.000Z" && messageStampIso("2026-10-27") === "2026-10-27" && messageStampIso("x") === "");
   check("A useLocalDay is exported (the card re-renders at local midnight)", typeof useLocalDay === "function");
   const title = messageStampTitle(at(2026, 9, 21, 22, 52), "en-US");
   check("A the hover text is the full date", /Wednesday, October 21, 2026/.test(title) && /10:52/.test(title), title);
@@ -87,9 +89,8 @@ const render = (props) => renderToStaticMarkup(React.createElement(ChatMessageCa
   const thtml = render({ message: { id: "a3", role: "assistant", content: "Now.", ts: now.toISOString() } });
   const tstamp = (thtml.match(/<time class="pc-chat-time"[^>]*>([^<]*)<\/time>/) || [])[1] || "";
   check("A card: today's message shows the time only", tstamp && !tstamp.includes("·") && /\d{1,2}:\d{2}/.test(tstamp), tstamp);
-  check("A card: dateTime is ISO", html.includes(`dateTime="${old.toISOString()}"`), html.slice(0, 600));
-  const epoch = render({ message: { id: "a5", role: "assistant", content: "x", ts: old.getTime() } });
-  check("A card: epoch milliseconds stamp too", epoch.includes(`>${want}</time>`), epoch.slice(0, 600));
+  const offset = render({ message: { id: "a5", role: "assistant", content: "x", ts: "2026-10-21T22:52:00+02:00" } });
+  check("A card: dateTime is ISO (UTC), whatever form the host sent", offset.includes('dateTime="2026-10-21T20:52:00.000Z"'), offset.slice(0, 600));
   const bad = render({ message: { id: "a4", role: "assistant", content: "x", ts: "garbage" } });
   check("A card: a malformed stamp renders nothing", !bad.includes("pc-chat-time") && !bad.includes("Invalid Date"), bad.slice(0, 400));
 }
@@ -164,6 +165,36 @@ const render = (props) => renderToStaticMarkup(React.createElement(ChatMessageCa
   check("C files panel renders as the structured card", panel.includes('role="tooltip"') && panel.includes("pc-stat-detail--files") && panel.includes(">Files changed<") && panel.includes("From the run ledger"), panel.slice(0, 400));
   const tokens = renderToStaticMarkup(React.createElement(StatDetailPanel, { detail: statDetail("tokens", statistics) }));
   check("C tokens panel: Usage with Input/Output/Total and the ledger footnote", /Usage · 2 model calls/.test(tokens) && />Input</.test(tokens) && />Output</.test(tokens) && />Total</.test(tokens) && tokens.includes("summed across this turn and its child runs"), tokens.slice(0, 400));
+}
+
+// ---------------------------------------------------------------- A. the shared midnight timer
+{
+  const { subscribeLocalDay } = await import(join(here, "..", "dist", "message_footer.js"));
+  const realSet = globalThis.setTimeout, realClear = globalThis.clearTimeout;
+  const timers = new Map();
+  let nextId = 1;
+  globalThis.setTimeout = (fn, ms) => { const id = nextId++; timers.set(id, { fn, ms }); return { id, unref() {} }; };
+  globalThis.clearTimeout = (h) => { timers.delete(h && h.id); };
+  try {
+    let a = 0, b = 0;
+    const offA = subscribeLocalDay(() => (a += 1));
+    const offB = subscribeLocalDay(() => (b += 1));
+    check("A timer: two cards share one timer", timers.size === 1, timers.size);
+    const [[id, t]] = [...timers];
+    check("A timer: armed for at most an hour", t.ms >= 1000 && t.ms <= 3600000, t.ms);
+    timers.delete(id); t.fn();
+    check("A timer: fires every card and re-arms", a === 1 && b === 1 && timers.size === 1, { a, b, n: timers.size });
+    offA(); offB();
+    check("A timer: the last card leaving clears it", timers.size === 0, timers.size);
+    const offC = subscribeLocalDay(() => {});
+    const [[id2, t2]] = [...timers];
+    offC();
+    timers.delete(id2); t2.fn();
+    check("A timer: no re-arm without cards", timers.size === 0, timers.size);
+  } finally {
+    globalThis.setTimeout = realSet;
+    globalThis.clearTimeout = realClear;
+  }
 }
 
 // The dimmed, still-focusable speaker style exists (aria-disabled, so no `button:disabled` rule overrides it).

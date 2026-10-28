@@ -337,8 +337,8 @@ A message's meta line holds, in this order:
 
    Days are the reader's calendar days, not 24 h windows; an open card re-renders at local midnight (`useLocalDay()`,
    one shared timer). The full date and time is the stamp's hover text (`messageStampTitle(ts)`, on a `<time>` whose
-   `dateTime` is ISO, `messageStampIso(ts)`). An ISO string or epoch milliseconds are accepted; a bare date
-   ("2026-10-27") is that local day. A missing or malformed timestamp shows no stamp, never "Invalid Date".
+   `dateTime` is ISO, `messageStampIso(ts)`). A bare date ("2026-10-27") is that local day, stamped without a
+   time ("Yesterday", "Oct 27"). A missing or malformed timestamp shows no stamp, never "Invalid Date".
 2. **Speaker**: on every assistant message whenever the host has a read-aloud path (`onSpeakToggle`), whatever the
    message kind (an answer, a question, a warning, a reply from history, a reply with media or statistics, with or
    without `renderFooter`). Always visible, never hover-only. States per `speakButtonView`: speaker, spinner only

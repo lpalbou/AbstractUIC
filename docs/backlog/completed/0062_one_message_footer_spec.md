@@ -44,7 +44,7 @@ reads "Listen to this response / Toggle voice output" where the kit says "Speak 
   speaker even in an app with TTS; it needs a `messageProps`-style passthrough and each host's voice.
 
 ## Evidence
-- `panel-chat/scripts/check_message_footer.mjs` (52 checks, in `npm test`). Mutants, each red: M1 the helper drops the
+- `panel-chat/scripts/check_message_footer.mjs` (56 checks, in `npm test`). Mutants, each red: M1 the helper drops the
   date (12 fails), M2 the card back to `toLocaleTimeString` (4), M3 the speaker dropped while streaming / without text
   (3), M4 dropped on history messages (2), M5 the files chip back to a `title` (3), M6 dropped on questions (2), M7 the
   speaker back to a native `disabled` (3).
@@ -56,11 +56,19 @@ reads "Listen to this response / Toggle voice output" where the kit says "Speak 
   speaker lost to `.pc-workflow-chat button:disabled` (0.6 opacity, not-allowed, brightened on hover): now
   `aria-disabled` (focusable, reason reachable) with its own rule, pinned; (2) the docs promised a re-derived stamp at
   midnight that nothing triggered: `useLocalDay` (one shared timer, capped at an hour); (3) the desktop differences
-  listed; (4) the Docs assistant exception written into the spec; (6) epoch milliseconds and a bare date accepted,
+  listed; (4) the Docs assistant exception written into the spec; (6) a bare date stamped as the local day,
   ISO `dateTime`; (7) doc comment moved back; (8) Windows paths split. Not changed: (9) a check crossing midnight
   between two lines (negligible).
 - `useLocalDay` is plain `useState` + `useEffect` over one shared, `unref`'d timer: a first `useSyncExternalStore`
   version broke `check_chat_media.mjs` (its hook harness stubs the basic hooks only) and a non-`unref`'d timer kept the
   Node checks alive. In the browser (AbstractCode web on the kit build, clock set to 23:59:50, fast-forwarded 20 s), a
   message from 12:31 PM re-rendered from "12:31 PM" to "Yesterday · 12:31 PM" with no other update.
+- Second review (Opus, the fix delta): no blocker; the timer logic, the aria-disabled click path and the CSS hold.
+  Fixed: three new assertions stayed green on revert (ISO `dateTime` fed an ISO input; the bare date on a UTC runner;
+  `useLocalDay` only checked as a function): the check now runs in `America/Los_Angeles`, feeds an offset timestamp
+  and drives the shared timer with a stubbed `setTimeout` (mutants M8 raw `dateTime`, M9 bare date as UTC, M10
+  re-arm without cards, M11 timer kept after the last card, M12 one timer per card: all red); the epoch claim dropped
+  (`ChatMessage.ts` stays an ISO string); a bare date shows no made-up time; the day is re-read when the effect
+  subscribes. Not changed: a POSIX file name containing a backslash, epoch seconds, a suspended laptop catching up
+  within the hour cap, the blocked click (no handler is attached; a static render cannot see handlers).
 - `npm test` (root) green.
