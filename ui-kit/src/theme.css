@@ -1091,8 +1091,9 @@
 
 .af-tool-row__title {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
 }
 
 .af-tool-row__name {
@@ -1113,6 +1114,10 @@
   font-size: var(--font-size-xxs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  /* A one-word risk label: it moves under the name (the title wraps), never
+   * breaks mid-word ("DESTRO/Y" in a 360 px rail, release-closing polish). */
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 /* A server-reported tool state (ToolSpec.state): a calm pill under the title. */
@@ -4378,6 +4383,7 @@ html {
   .af-tool-policy__filter input,
   .af-tool-row,
   .af-pmp__seg-btn,
+  .af-voice-create input:not([type="file"]),
   .af-appearance__close,
   .af-topbar__pill,
   .af-auto__btn,
@@ -6807,6 +6813,127 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   flex: 1 1 120px;
   margin: 0;
 }
+/* "Create a voice" and "Manage voices" (release-closing polish, 2026-10-28): the two
+ * fieldsets were left to the browser (grooved border, unstyled buttons, labels inline
+ * with their controls). A card per fieldset, the mode switch as the kit's segmented
+ * pill, stacked labels, themed fields and the accent-tinted primary action. */
+.af-voice-create,
+.af-voice-library {
+  margin: 0;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--ui-border-1);
+  border-radius: var(--radius-md);
+  background: var(--ui-surface-2);
+  min-width: 0;
+}
+.af-voice-create {
+  display: grid;
+  gap: 12px;
+}
+.af-voice-create > legend,
+.af-voice-library > legend {
+  padding: 0 6px;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+.af-voice-create__modes {
+  display: inline-flex;
+  justify-self: start;
+  max-width: 100%;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--ui-border-1);
+  border-radius: 999px;
+  background: var(--ui-overlay-bg, rgba(0, 0, 0, 0.18));
+}
+.af-voice-create__modes > button {
+  border: 0;
+  border-radius: 999px;
+  padding: 5px 12px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.af-voice-create__modes > button:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+.af-voice-create__modes > button[aria-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 22%, var(--ui-overlay-bg));
+  color: var(--text-primary);
+}
+.af-voice-create > label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+.af-voice-create input:not([type="file"]),
+.af-voice-create textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-input, var(--bg-primary));
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--font-size-input, var(--font-size-sm));
+}
+.af-voice-create textarea {
+  resize: vertical;
+  line-height: 1.45;
+}
+.af-voice-create input[type="file"] {
+  max-width: 100%;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+}
+.af-voice-create input[type="file"]::file-selector-button {
+  margin-right: 10px;
+  border: 1px solid var(--ui-border-1);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  background: var(--ui-overlay-bg, rgba(0, 0, 0, 0.18));
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.af-voice-create__record > button,
+.af-voice-create > [data-action="create-voice"] {
+  border: 1px solid var(--ui-border-1);
+  border-radius: var(--radius-md);
+  padding: 7px 14px;
+  background: var(--ui-overlay-bg, rgba(0, 0, 0, 0.18));
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.af-voice-create > [data-action="create-voice"] {
+  justify-self: start;
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 22%, var(--ui-overlay-bg));
+}
+.af-voice-create button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.af-voice-create button:focus-visible,
+.af-voice-create input:focus-visible,
+.af-voice-create textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 .af-voice-library {
   display: grid;
   gap: 8px;
@@ -7099,6 +7226,17 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* The long named default ellipsizes first; the short "Custom" choice keeps its width
+ * ("Cus..." in a 400 px panel, release-closing polish). */
+.af-pmp__seg-btn:first-child {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.af-pmp__seg-btn:last-child {
+  flex: 0 0 auto;
+  /* a host's long customLabel still ellipsizes, at half the control */
+  max-width: 50%;
 }
 
 /* --- ui-primitives (shell) --- */

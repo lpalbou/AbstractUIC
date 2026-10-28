@@ -19,6 +19,11 @@ export type WorkflowToolActivity = {
   callId?: string;
   /** Set when the conversation's tool policy decided this call (`abstract.tool_policy_decision`). */
   policy?: WorkflowToolPolicyProvenance;
+  /** The call waited for the person's decision, so `startedAt`..`endedAt` includes that wait.
+   * Replay view: `activities[].wait.kind == "tool_approval"` with an `outcome` (AbstractRuntime
+   * `replay/view.py:1050-1051`). Ledger fold: the call's row was `waiting` on an approval
+   * (`result.wait.details.mode == "approval_required"`, the rule of `replay/view.py:213-219`). */
+  approvalWait?: boolean;
 };
 export type WorkflowStatistics = {
   inputTokens?: number;
@@ -195,6 +200,16 @@ const uid = (value: ServerRecord): string =>
 const cid = (value: ServerRecord): string => str(value.call_id || value.id);
 
 /** Fold execution evidence, never model call ids across cycles. Mutates only its supplied map. */
+/** A `waiting` tool_calls row parked on the person's approval: the runtime's rule for a
+ * tool_approval wait (AbstractRuntime `replay/view.py:213-219`: `details.mode ==
+ * "approval_required"`, `details.kind == "tool_approval"`, or a `tool_approval:` wait key). */
+function approvalWaitRecord(rec: ServerRecord): boolean {
+  if (rec.status !== "waiting") return false;
+  const wait = (rec.result && typeof rec.result === "object" ? (rec.result as Record<string, unknown>).wait : null) as Record<string, unknown> | null;
+  const details = (wait && typeof wait.details === "object" ? wait.details : null) as Record<string, unknown> | null;
+  return details?.mode === "approval_required" || details?.kind === "tool_approval" || String(wait?.wait_key || "").startsWith("tool_approval:");
+}
+
 export function foldWorkflowTools(
   state: Map<string, WorkflowToolActivity>,
   entry: WorkflowRecord,
@@ -267,6 +282,8 @@ export function foldWorkflowTools(
       ...(output.error ? { error: String(output.error) } : {}),
       ...(toolSandbox(output) ? { sandbox: toolSandbox(output)! } : {}),
       ...(cid(call) || cid(output) ? { callId: cid(call) || cid(output) } : {}),
+      // The approval wait is part of startedAt..endedAt: say so (same rule as the replay view).
+      ...(previous?.approvalWait || approvalWaitRecord(rec) ? { approvalWait: true } : {}),
       startedAt: previous?.startedAt || str(rec.started_at) || undefined,
       endedAt: completed
         ? str(rec.ended_at) || previous?.endedAt

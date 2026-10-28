@@ -314,6 +314,12 @@ const interaction = presentInteraction(workflowPendingInteraction(snapshot), con
   (`fetch_url`, `browser_probe`, `send_email`) on purpose; only the Ask list keeps them asking.
   The description says so: with no Ask list, "Nothing is set to Ask, so … are included"; with
   one, "Tools set to Ask keep asking: …". A host with no Ask list sends no `ask`.
+- **Where the scope is read (0.6.1):** one line stays visible under the decisions
+  (`broadScopeSummary`: the broad grants keep allowing later calls of this chat until reset, plus
+  the Ask sentence above); the full sentences ("Each of “Allow for this chat” (every tool) or
+  “Allow all web tools for this chat” (that toolset only) approves …") are in the disclosure
+  "What the broader choices allow" and on every broad button as its tooltip. "Allow once" is the
+  card's one primary button; the broader grants are neutral.
 - **Merge only adds:** a write never narrows or re-expands an earlier `all`/kinds. Undoing an
   approve is a reset (`resetSessionPolicy`, DELETE), never a merge. A reset is revision-guarded:
   the controller reads first when it has no revision (the policy's, or ui-kit's client

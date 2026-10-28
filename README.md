@@ -11,6 +11,17 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
 
+## What's new in 0.8.1
+
+Release-closing polish, found by rendering every app at 1440 and 390 px, light and dark:
+`@abstractframework/ui-kit` 0.9.3 styles "Create a voice" / "Manage voices" (they were
+browser-default fieldsets), keeps tool-row badges and the model picker's "Custom" whole, and says
+"Gateway … did not answer" instead of "Session rejected" when the gateway is down (with
+`@abstractframework/app-server` 0.1.13's `gateway_status`); `@abstractframework/panel-chat` 0.6.1
+makes "Allow once" the approval card's one primary, names the real buttons in its scope sentence
+(one visible line, the rest in a disclosure) and uses one duration format, marking a tool time that
+includes an approval wait ([changelog](./CHANGELOG.md#081---2026-10-28)).
+
 ## What's new in 0.8.0
 
 `@abstractframework/panel-chat` 0.6.0: the chat renders a conversation from AbstractGateway's

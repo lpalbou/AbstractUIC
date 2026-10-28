@@ -260,7 +260,7 @@
 .pc-tool-activity__policy { color: var(--text-secondary); font-size: 11px; font-style: italic; }
 .pc-tool-activity__policy[data-policy="denied"] { color: var(--warning); }
 .pc-tool-activity__policy-line { margin: 0 0 6px; color: var(--text-secondary); font-size: 12px; }
-.pc-tool-activity__duration { font: 11px var(--font-mono); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.pc-tool-activity__duration { font: 11px var(--font-mono); color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pc-tool-activity__preview { min-width: 60px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-secondary); font: 12px var(--font-mono); }
 .pc-tool-activity__key { color: var(--text-secondary); opacity: .8; font: 10px var(--font-sans); text-transform: uppercase; margin-right: 7px; }
 .pc-tool-activity__chevron { display: inline-flex; color: var(--text-secondary); }

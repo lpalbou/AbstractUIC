@@ -12,6 +12,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { GatewaySessionSignInCard } from "./gateway_session_signin.js";
 import { GATEWAY_CONNECTION_PATH } from "./gateway_paths.js";
+import { gatewayHostLabel } from "./principal.js";
 
 /** `GatewayPrincipal.public_dict()` (abstractgateway security/principal.py:27-37). */
 export type GatewayPrincipalPayload = {
@@ -34,6 +35,12 @@ export type GatewayConnectionState = {
   ok: boolean;
   gateway_url: string;
   has_session: boolean;
+  /**
+   * The gateway's HTTP status for the session check, as the app server saw it
+   * (`@abstractframework/app-server` >= 0.1.13): 0 = the gateway did not answer
+   * (down, refused, timed out). Absent from older app servers and without a session.
+   */
+  gateway_status?: number;
   gateway?: {
     ok?: boolean;
     error?: string;
@@ -112,6 +119,15 @@ export function gatewayStatusBadge(status: GatewayConnectionState | null): { lab
   const runtime = gw.principal?.runtime_id;
   if (gw.ok && user) return { label: `Signed in as ${user}${runtime ? ` · runtime ${runtime}` : ""}`, tone: "ok" };
   if (gw.ok) return { label: "Signed in", tone: "ok" };
+  // The app server reports the gateway's own answer (gateway_status): a gateway
+  // that did not answer is down, not a rejected session — "sign in again" would
+  // send the person to a form that cannot help.
+  const code = typeof status.gateway_status === "number" ? status.gateway_status : null;
+  const host = gatewayHostLabel(status.gateway_url);
+  if (code === 0) return { label: `Gateway${host ? ` at ${host}` : ""} did not answer — is it running?`, tone: "err" };
+  if (code === 502 || code === 503 || code === 504) return { label: `Gateway unavailable (HTTP ${code}) — try again shortly`, tone: "err" };
+  if (code !== null && code >= 500) return { label: `Gateway error (HTTP ${code}) — try again shortly`, tone: "err" };
+  if (code !== null && code >= 400 && code !== 401 && code !== 403) return { label: `Gateway answered HTTP ${code} — check the gateway URL`, tone: "err" };
   const err = gw.error || gw.detail;
   if (typeof err === "string" && err.trim()) return { label: "Session rejected — sign in again", tone: "err" };
   return { label: "Sign in required", tone: "err" };

@@ -20,7 +20,7 @@ Ecosystem context (external):
 Important integration notes:
 - Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
 - One shared component per user-facing job, composed on AbstractGateway's contracts (ADR 0001): use the job table in `docs/adoption-guide.md` before building anything app-local.
-- `@abstractframework/panel-chat` 0.6.0 needs `@abstractframework/ui-kit` `^0.9.0` (peer dependency); upgrade them together.
+- `@abstractframework/panel-chat` 0.6.1 needs `@abstractframework/ui-kit` `^0.9.0` (peer dependency); upgrade them together.
 - Only `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` perform network requests by default (each polls a metrics endpoint; optional Bearer auth).
 - Always import the package CSS from your app entrypoint (especially in Next.js). Start with `docs/getting-started.md` → `docs/api.md`.
 
@@ -70,8 +70,8 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.0): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
-- [@abstractframework/panel-chat](panel-chat/README.md) (0.6.0, needs ui-kit ^0.9.0): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI + markdown/json renderers
+- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.3): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/panel-chat](panel-chat/README.md) (0.6.1, needs ui-kit ^0.9.0): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -168,6 +168,17 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
+
+## What's new in 0.8.1
+
+Release-closing polish, found by rendering every app at 1440 and 390 px, light and dark:
+`@abstractframework/ui-kit` 0.9.3 styles "Create a voice" / "Manage voices" (they were
+browser-default fieldsets), keeps tool-row badges and the model picker's "Custom" whole, and says
+"Gateway … did not answer" instead of "Session rejected" when the gateway is down (with
+`@abstractframework/app-server` 0.1.13's `gateway_status`); `@abstractframework/panel-chat` 0.6.1
+makes "Allow once" the approval card's one primary, names the real buttons in its scope sentence
+(one visible line, the rest in a disclosure) and uses one duration format, marking a tool time that
+includes an approval wait ([changelog](./CHANGELOG.md#081---2026-10-28)).
 
 ## What's new in 0.8.0
 
@@ -2118,7 +2129,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   carries (`VoiceCreation.clone` accepts `provider` / `model`; absent = the gateway's default).
   One language label table: `VOICE_LANGUAGE_LABELS`; `voiceLanguagesFromAnswer(answer, kind,
   provider?)` reads a `GET voice/languages` answer; `voiceRecordId(record)`.
-- Gateway connection: `GatewayConnectModal` + `useGatewayConnection()` (the connection state machine: boot probe, auto-open on resolved disconnect, self-close on sign-in), plus helpers `fetchGatewayConnection()`, `signInGateway()`, `signOutGateway()`, `gatewayStatusBadge()`, `normalizeGatewayUrl()`; `GatewaySessionSignInCard` is the underlying form card. `GatewayConnectionState.gateway` is the gateway's `GET /api/gateway/me` body relayed by the app server: `principal` (`GatewayPrincipalPayload`: `user_id`, `tenant_id`, `roles`, `scopes`, `token_fingerprint`, `runtime_id`, `source`, `admin`), `auth` (`mode`, `user_auth_enabled`), `routing` (`mode`, `one_user_one_runtime`). The hook's behaviour is pinned by `check_gateway_connection.mjs`.
+- Gateway connection: `GatewayConnectModal` + `useGatewayConnection()` (the connection state machine: boot probe, auto-open on resolved disconnect, self-close on sign-in), plus helpers `fetchGatewayConnection()`, `signInGateway()`, `signOutGateway()`, `gatewayStatusBadge()` (reads `GatewayConnectionState.gateway_status`, app-server 0.1.13: 0 "Gateway at <host> did not answer — is it running?", 502/503/504 "Gateway unavailable", other 5xx "Gateway error", other 4xx "check the gateway URL", 401/403 or no field "Session rejected — sign in again"; ui-kit 0.9.3), `normalizeGatewayUrl()`; `GatewaySessionSignInCard` is the underlying form card. `GatewayConnectionState.gateway` is the gateway's `GET /api/gateway/me` body relayed by the app server: `principal` (`GatewayPrincipalPayload`: `user_id`, `tenant_id`, `roles`, `scopes`, `token_fingerprint`, `runtime_id`, `source`, `admin`), `auth` (`mode`, `user_auth_enabled`), `routing` (`mode`, `one_user_one_runtime`). The hook's behaviour is pinned by `check_gateway_connection.mjs`.
 - Signed-in principal (0.9.0, backlog 0036): `principalFromConnection(status)` → `AfPrincipal | null` (`userId`, `tenantId?`, `runtimeId?`, `roles?`, `scopes?`, `source?`, `admin?`; `displayName?` / `email?` / `avatarUrl?` are typed for a host that has them: the gateway serves none), null unless the status is connected (`isGatewayConnected`); `principalLabel(p)` — the one wording: display name, else user id, prefixed `tenant/` only when the tenant is not `default` (`AF_DEFAULT_TENANT`); `gatewayHostLabel(gateway_url)`.
 - Phase capability matrix: `PhaseCapabilityMatrix` + a framework-free core (`validateMatrixPayload()`, `resolveCellView()`, `applyCellAction()`, `reconcilePatches()`, `serializeCellPatches()`)
 - Critical actions: `CriticalActionDialog` + core (`resolveCriticalActionGate()`, `normalizeCriticalActionFacts()`)
@@ -2199,14 +2210,14 @@ Components:
   - Types `ChatSteer`, `ChatSteerMode`, `ChatSteerResult`, `ChatToolbar`, `ComposerAttachment`, `ComposerAttachmentState`, `UseAttachmentUploadsOptions`, `AttachmentUploads`, `ComposerAttachmentChipsProps`
 - Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry), the event-name constants `LLM_DELTA_EVENT` / `LLM_DELTA_END_EVENT`; types `LlmDelta`, `LlmDeltaEnd`, `LlmDeltaEvent`, `LlmDeltaChannel`, `LlmDeltaEndReason`, `LlmStreamUnavailableDetail`, `StreamRepliesMode`; controller option `liveRenderIntervalMs` (default 60, also on `useWorkflowSession`). See [panel-chat README](../panel-chat/README.md#live-replies-streaming)
 - File drop and paste: `WorkflowChat`'s `onFiles(files)` turns on the drop zone and paste-to-attach (folders are refused with a visible message); the pure helpers behind it are exported too: `dragCarriesFiles()`, `draggedFileCount()`, `dropZoneLabel()`, `droppedFiles()`, `folderRefusal()`, `pastedFileName()`, `pastedFiles()`, `DragPresence` (see `panel-chat/src/file_drop.ts`)
-- `ToolActivity`, `ToolActivityGroup` (tool-call rendering; a process-spawning call shows its command-sandbox line first in its detail), `toolSandbox(result)` + `ToolSandboxLine` (the line `Sandbox: <label> · N workspaces enforced` / `Sandbox: none — refused` and the enforced paths, from the ledger's `output.sandbox`), `StatDetailPanel` + `statDetail()` (token/time/tool statistics)
+- `ToolActivity`, `ToolActivityGroup` (tool-call rendering; a process-spawning call shows its command-sandbox line first in its detail), `toolSandbox(result)` + `ToolSandboxLine` (the line `Sandbox: <label> · N workspaces enforced` / `Sandbox: none — refused` and the enforced paths, from the ledger's `output.sandbox`), `StatDetailPanel` + `statDetail()` (token/time/tool statistics), `formatDuration(ms)` (the chat's one duration format, "4.2s" / "3m 26s"; 0.6.1). A tool row whose `WorkflowToolActivity.approvalWait` is set (the call waited for the person's decision: the replay view's `wait.kind == "tool_approval"` with an `outcome`, or the ledger's `waiting` approval row) reads "3m 26s incl. approval wait" (0.6.1)
 - `ChatThread` (thread container; renders a list of messages)
 - `ChatMessageCard` (single message rendering; `message.title` names the speaker — assistants
   render their entity/agent name when provided, falling back to "Agent")
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
-- `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll?, approveAllScope?, onAllowForSession?, approveAllDisabledReason?, remember?, onDefer?, allowSkip? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow for this chat" only with `onAllowForSession`, "Allow all enabled tools" only with `onPermissionsAll` — its scope sentence names no storage scope unless the host passes `approveAllScope`, e.g. "for this Gateway account" —, "Decide later" only with `onDefer`, a per-tool remember checkbox only with `remember(toolNames)`), question (`ask_user`, choices as buttons and free text; "Continue without answering" with `allowSkip` resumes with an empty answer, "Keep waiting" with `onDefer`) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. The first argument may also be a `ReplayInteraction` (the shape of `replay_view_v1.interaction`) — it produces the same control as the raw wait (`isReplayInteraction()`, `replayInteractionWait()`); a wait that carries the view's `command` (`WorkflowWaitInteraction.command`, `kind`) and is an event is answered with `controller.answerEvent(payload, target)` (the view's resume command), never through an event route. Types `PresentInteractionOptions`, `InteractionController` (adds optional `answerEvent`), `ReplayInteraction`
+- `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll?, approveAllScope?, onAllowForSession?, approveAllDisabledReason?, remember?, onDefer?, allowSkip? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow for this chat" only with `onAllowForSession`, "Allow all enabled tools" only with `onPermissionsAll` — its scope sentence names no storage scope unless the host passes `approveAllScope`, e.g. "for this Gateway account" —, "Decide later" only with `onDefer`, a per-tool remember checkbox only with `remember(toolNames)`), question (`ask_user`, choices as buttons and free text; "Continue without answering" with `allowSkip` resumes with an empty answer, "Keep waiting" with `onDefer`) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. The first argument may also be a `ReplayInteraction` (the shape of `replay_view_v1.interaction`) — it produces the same control as the raw wait (`isReplayInteraction()`, `replayInteractionWait()`); a wait that carries the view's `command` (`WorkflowWaitInteraction.command`, `kind`) and is an event is answered with `controller.answerEvent(payload, target)` (the view's resume command), never through an event route. A tool approval with a broad grant carries `broadScopeSummary` (one always-visible line; the full scope sentences go in the "What the broader choices allow" disclosure and the buttons' tooltips; 0.6.1). Types `PresentInteractionOptions`, `InteractionController` (adds optional `answerEvent`), `ReplayInteraction`
 - Replay view (0.6.0, backlog 0040; root 0993, runtime 0854; AbstractGateway >= 0.17.0 `GET runs/{id}/view` + `/view/stream`): `WorkflowTransport.replayView?: ReplayViewTransport` (`{advertised?, getView(runId, {ifNoneMatch?, at?, signal?}) → {notModified, view?, etag, bytes}, streamView(runId, {lastEventId?, signal, onOpen?, onFrame}) → {bytes}}`), built over the host's gateway fetch by `createReplayViewTransport({ fetch(path, init), advertised? })` (`path` relative to the gateway API). With it the controller renders from the view: one `GET /view` + `GET runs/{id}`, then `/view/stream` from the ETag (`Last-Event-ID` = the last applied frame), no history bundle, no ledger pages, no record fold, no timed poll; the root's ledger stream only for live reply text. Snapshot `source: "replay_view" | "ledger_fold"`, `sourceReason` (why not the view: no `replayView` in the transport, `advertised: false`, or the gateway's route-missing 404/405, probed once per transport; any other failure is a load error), `view` (the folded view); `workflowSourceLabel(snapshot)`. Client pieces: `applyDelta(view, delta)` (port of AbstractRuntime 0.15.0 `apply_delta`), `ReplayViewFold` (`adopt(view, etag)`, `apply(frame) → "view"|"delta"|"duplicate"|"stale"|"done"|"ignored"`: a repeated or older frame is not applied), `SseParser`, `parseCursorToken()`, `compareReplayOrder()`, `ReplayViewUnavailableError`, `projectReplayView(view) → {messages, tools, interaction, status, displayStatus, openLlmCalls, endedLlmCalls, runStatus, statistics}`, `replayToolActivities()`, `replayStatistics()`, `toolActivityMessage()`, constants `REPLAY_VIEW_VERSION`, `REPLAY_SCALAR_KEYS`, `REPLAY_LIST_KEYS`; types `ReplayView`, `ReplayViewDelta`, `ReplayViewCursor`, `ReplayViewRun`, `ReplayViewMessage`, `ReplayViewActivity`, `ReplayViewToolCall`, `ReplayViewInteraction`, `ReplayViewTransport`, `ReplayViewFetch`, `ReplayViewRead`, `ReplayViewStreamOptions`, `ReplayViewHttpError`, `ReplayFoldOutcome`, `SseFrame`, `ReplayProjection`, `WorkflowSessionSource`. Checked against the gateway: the 15 conformance cases captured from AbstractGateway 0.17.0 fold to the exact bytes of `GET /view` after every record (`panel-chat/scripts/check_replay_view.mjs`). See the [README](../panel-chat/README.md#replay-view-the-gateways-reconstruction)
 - Session tool policy (0.5.0, backlog 0032; session tool policy contract v1, served by a gateway that advertises `capabilities.session_tool_policy`): `WorkflowSessionControllerOptions.sessionToolPolicy?: SessionToolPolicyClient` (`{supported, sessionId, get, replace, merge, reset}`; host-injected only when `GET discovery/capabilities` serves `capabilities.session_tool_policy.supported === true`), `setSessionToolPolicyClient(client | null, {reason?})` (null + reason = the capability read failed), `onSessionPolicy(policy, clamped)`; methods `approveAllForSession(target, {maxRiskRank?, ask?})`, `approveKindForSession(target, kind, {ask?})`, `denyKindForSession()`, `denyToolForSession()` (write the policy FIRST with the person's `ask` tools, then answer the shown wait; no panel control for the deny methods), `resetSessionPolicy()`, `loadSessionPolicy()`, `sessionPolicyMode()`, `sessionPolicyStatus()`; snapshot `sessionPolicyMode` (`"gateway"` / `"local-fallback"` / `"unavailable"`), `sessionPolicyReason`, `sessionPolicy`, `sessionPolicyClamped`. `presentInteraction` option `sessionPolicy: {toolsetOf?, ask?, maxRiskRank?}`; the mode comes from the controller (kind buttons only for toolsets present; "Always deny … in this chat" under More with its reach stated; the served `scope` words shown as "Applies: …" or "The gateway did not say where this grant applies."; a tool the stored policy denies is named and "Allow once" reports the gateway's refusal; local fallback "Allow for this run", labeled; unavailable: no chat grant, reason shown). Writes go to the root run's session only; denies and resets carry the current revision (`reset(ifRevision)`, read first when unknown; none → a labeled refusal); a 409 asks to re-read. `SessionToolPolicyClient` is ui-kit's shape exactly (`reset(ifRevision?) → {revision?, scope?}`). `SessionToolPolicy.scope?: {approve?, deny?}` (the response's top-level `scope`, carried by the client). Ledger `abstract.tool_policy_decision` → activity line + `WorkflowToolActivity.policy`. Types `SessionToolPolicy`, `SessionToolPolicyBody`, `SessionToolPolicyClamp`, `SessionToolPolicyClient`, `SessionPolicyMode`, `SessionPolicyStatus`, `SessionToolPolicyScope`, `WorkflowToolPolicyProvenance`; helpers `toolPolicyDecision()`, `toolPolicyDecisionText()`, `sessionPolicyClampedText()`
 - Questions and approvals (0.5.0, backlog 0032): `WORKFLOW_INTERACTION_LABELS` is the one wording set (Deny / Allow once / Allow for this chat / Allow all enabled tools / Decide later; Submit / Continue without answering / Keep waiting). `WorkflowToolApprovalInteraction` adds `onApproveForSession?`, `onDefer?` (a dismissal sends nothing and never denies), `remember?: {label, checked, onChange}` (`WorkflowInteractionRemember`; the host words the scope), `disabledReason?` (the broad grants render disabled with the reason visible); its default labels are now "Allow once" / "Allow all enabled tools" (were "Approve" / "Allow all"). `WorkflowAskUserInteraction` adds `onSkip?` and `onDefer?`. `WorkflowInteractionPanel` takes `variant?: "panel" | "card"` (the compact card for "Needs you" lists and inboxes: same decisions, detail behind **Review**)
@@ -5455,6 +5466,12 @@ const interaction = presentInteraction(workflowPendingInteraction(snapshot), con
   (`fetch_url`, `browser_probe`, `send_email`) on purpose; only the Ask list keeps them asking.
   The description says so: with no Ask list, "Nothing is set to Ask, so … are included"; with
   one, "Tools set to Ask keep asking: …". A host with no Ask list sends no `ask`.
+- **Where the scope is read (0.6.1):** one line stays visible under the decisions
+  (`broadScopeSummary`: the broad grants keep allowing later calls of this chat until reset, plus
+  the Ask sentence above); the full sentences ("Each of “Allow for this chat” (every tool) or
+  “Allow all web tools for this chat” (that toolset only) approves …") are in the disclosure
+  "What the broader choices allow" and on every broad button as its tooltip. "Allow once" is the
+  card's one primary button; the broader grants are neutral.
 - **Merge only adds:** a write never narrows or re-expands an earlier `all`/kinds. Undoing an
   approve is a reset (`resetSessionPolicy`, DELETE), never a merge. A reset is revision-guarded:
   the controller reads first when it has no revision (the policy's, or ui-kit's client
@@ -5876,7 +5893,11 @@ browser-held tokens.
 
 The proxy's contract is:
 
-- `GET /api/connection/gateway` returns the current browser-session status.
+- `GET /api/connection/gateway` returns the current browser-session status:
+  `{ok, gateway_url, has_session, gateway_status?, gateway}`, where `gateway` is the
+  gateway's `GET /api/gateway/me` body and `gateway_status` its HTTP status (0 when the
+  gateway did not answer: refused, timed out; absent without a session; 0.1.13), so a
+  client can tell a gateway that is down from a rejected session.
 - `POST /api/connection/gateway` exchanges a Gateway user/token for an
   HttpOnly session cookie plus a JS-readable CSRF twin.
 - `DELETE /api/connection/gateway` signs the browser session out.
@@ -6414,7 +6435,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -6439,7 +6460,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -6487,7 +6508,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_session_tool_policy.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_session_tool_policy.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -6515,7 +6536,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -6561,7 +6582,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && tsc -p scripts/types/tsconfig.json"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && tsc -p scripts/types/tsconfig.json"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.9.0",
@@ -13740,7 +13761,8 @@ if (process.argv.includes("--check")) {
  *
  * Extracted 2026-07-12 from the OBSERVER copy (the most recently hardened),
  * parameterized per app. Contract (rulings, not preferences):
- *  - GET  /api/connection/gateway  -> {ok, gateway_url, has_session, gateway:{...}}
+ *  - GET  /api/connection/gateway  -> {ok, gateway_url, has_session, gateway_status?, gateway:{...}}
+ *    (gateway_status: the gateway's HTTP status for /me, 0 = no answer; absent without a session)
  *    (the ONE silent still-signed-in probe; sign-in modal opens only on a
  *    definitive no).
  *  - POST {gateway_url?, gateway_user_id, gateway_token, persist}
@@ -14164,6 +14186,10 @@ export function createGatewaySessionProxy(options) {
         ok: checked.ok,
         gateway_url: session.gatewayUrl,
         has_session: Boolean(session.sessionId),
+        // The gateway's HTTP status for /me, 0 when it did not answer
+        // (refused, timed out): lets the client tell "the gateway is down"
+        // from "the gateway rejected the session" (ui-kit gatewayStatusBadge).
+        gateway_status: checked.status,
         gateway: checked.payload,
       });
       return;
@@ -15088,7 +15114,7 @@ export function createGatewayUrlResolver(options = {}) {
 
 {
   "name": "@abstractframework/app-server",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Server-side helpers for AbstractFramework thin-client apps: serving under the gateway's /apps/<id>/ (base path, forwarded client address, identity header), the shared launch flags, the local gateway pointer, and the app-origin gateway session proxy (first-party cookies, CSRF, Authorization-strip, server-pinned gateway URL).",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -15404,7 +15430,7 @@ export type { UseWorkflowSessionOptions, WorkflowSessionHook } from "./use_workf
 export type { WorkflowEventScope, WorkflowEventTarget, WorkflowEventTargetResolution } from "./event_target.js";
 export { chatToMarkdown, copyText, downloadTextFile, tryParseJson } from "./utils.js";
 export { workflowEvidence, foldWorkflowTools, historyRecords, type WorkflowStatistics, type WorkflowToolActivity, type WorkflowModelCall, type WorkflowSpeculation } from "./workflow_evidence.js";
-export { statDetail, StatDetailPanel, type StatDetail, type StatDetailKind, type StatDetailSection } from "./stat_detail.js";
+export { formatDuration, statDetail, StatDetailPanel, type StatDetail, type StatDetailKind, type StatDetailSection } from "./stat_detail.js";
 export {
   ScheduleThisAction,
   FromAutomationBadge,
@@ -15547,7 +15573,7 @@ import type { MarkdownImages } from "./markdown.js";
 import { copyText } from "./utils.js";
 import { ToolActivity } from "./tool_activity.js";
 import type { WorkflowStatistics, WorkflowToolActivity } from "./workflow_evidence.js";
-import { StatChip, statDetail, type StatDetail } from "./stat_detail.js";
+import { StatChip, formatDuration, statDetail, type StatDetail } from "./stat_detail.js";
 
 export type ChatMessageLevel = "info" | "warn" | "error";
 
@@ -15670,7 +15696,8 @@ function workflowStats(metrics: WorkflowStatistics): ChatStat[] {
     ...(tokens ? [{ label: `${metrics.totalTokens!.toLocaleString()} tokens`, detail: tokens }] : []),
     { label: `${metrics.toolCalls} ${metrics.toolCalls === 1 ? "tool" : "tools"}`, detail: tools },
     ...(metrics.changedFiles.length ? [{ label: `${metrics.changedFiles.length} ${metrics.changedFiles.length === 1 ? "file" : "files"} changed`, title: metrics.changedFiles.join("\n") }] : []),
-    ...(time ? [{ label: `${(metrics.durationMs! / 1000).toFixed(metrics.durationMs! < 10000 ? 1 : 0)}s`, detail: time }] : []),
+    // One duration format across the chat (the stat panel, the tool rows, this chip): "4.2s", "3m 35s".
+    ...(time ? [{ label: formatDuration(metrics.durationMs), detail: time }] : []),
   ];
 }
 
@@ -16716,6 +16743,9 @@ export function replayToolActivities(activity: ReplayViewActivity): WorkflowTool
       ...(error ? { error } : {}),
       ...(str(activity.started_at) ? { startedAt: str(activity.started_at) } : {}),
       ...(str(activity.ended_at) ? { endedAt: str(activity.ended_at) } : {}),
+      // A person decided (the view sets `outcome` only once every call of the batch is decided,
+      // AbstractRuntime replay/view.py:1050-1051); a wait cut short by the run's end has none.
+      ...(activity.wait?.kind === "tool_approval" && activity.wait.outcome ? { approvalWait: true } : {}),
       ...(str(call.id) ? { callId: str(call.id) } : {}),
       ...(policy ? { policy } : {}),
     };
@@ -17706,7 +17736,17 @@ export function presentInteraction(
         refusedByPolicy = stored ? names.filter((name) => Object.prototype.hasOwnProperty.call(stored.deny || {}, name)) : [];
         sessionFields = {
           approveForSessionLabel: L.allowForChat,
-          approveForSessionDescription: `Allow for this chat (and Allow all <toolset> tools for this chat) approves this batch and stores a policy for this chat on the gateway: later tool calls of every run of this chat run without asking, until the policy is reset. ${asking} Tools the gateway does not authorize stay uncovered.`,
+          // The real button labels, never a "<toolset>" placeholder; alternatives, each with
+          // its reach (release-closing polish).
+          approveForSessionDescription: toolsets.length
+            ? `Each of ${(() => {
+                const items = [`“${L.allowForChat}” (every tool)`, ...toolsets.map((kind) => `“${L.allowKindForChat(kind)}” (that toolset only)`)];
+                return `${items.slice(0, -1).join(", ")} or ${items[items.length - 1]}`;
+              })()} approves this batch and stores a policy for this chat on the gateway: the later tool calls it covers, in every run of this chat, run without asking, until the policy is reset. ${asking} Tools the gateway does not authorize stay uncovered.`
+            : `“${L.allowForChat}” approves this batch and stores a policy for this chat on the gateway: later tool calls of every run of this chat run without asking, until the policy is reset. ${asking} Tools the gateway does not authorize stay uncovered.`,
+          // Always visible under the decisions (the full sentences are in the disclosure): what
+          // a broad grant reaches, and the Ask warning, before any click.
+          broadScopeSummary: `The broader choices keep allowing later tool calls of this chat until the policy is reset. ${asking}`,
           onApproveForSession: async () =>
             covered(await approveAllForSession.call(controller, target, { ...(policy.maxRiskRank !== undefined ? { maxRiskRank: policy.maxRiskRank } : {}), ...(ask ? { ask } : {}) })),
           approveKinds: toolsets.map((kind) => ({
@@ -17779,6 +17819,7 @@ export function presentInteraction(
       approveAllDescription: onPermissionsAll
         ? `Sets permissions: all${scope ? ` ${scope}` : ""}, including future turns. Unchecked tools stay unavailable; explicit Ask overrides and Gateway restrictions remain enforced. Questions still need your answer.`
         : undefined,
+      ...(onPermissionsAll ? { broadScopeSummary: `“${WORKFLOW_INTERACTION_LABELS.allowAll}” changes your tool permissions for future turns too.` } : {}),
       ...sessionFields,
       ...(options.approveAllDisabledReason ? { disabledReason: options.approveAllDisabledReason } : {}),
       ...(remember ? { remember } : {}),
@@ -21299,6 +21340,50 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## Unreleased
+
+## 0.8.1 - 2026-10-28
+
+Packages: `@abstractframework/ui-kit` 0.9.3, `@abstractframework/panel-chat` 0.6.1, `@abstractframework/app-server` 0.1.13
+(panel-chat still needs ui-kit `^0.9.0`).
+
+### Release-closing polish (backlog 0054)
+
+Found by rendering every app against a scratch gateway at 1440 and 390 px, light and dark
+(AbstractFramework `untracked/release-closing/aesthetic/`, before/after screenshots).
+
+- **Create a voice / Manage voices** (ui-kit): the two fieldsets of `AfVoiceSettings` were left to the
+  browser (grooved border, grey default buttons, labels beside their fields). They are now cards with a
+  legend, the mode switch is the kit's segmented pill, labels stack over themed fields (the recording's
+  file button too), and "Create voice" is the accent-tinted primary; the controls reach the 44 px touch floor.
+- **Tool approval card** (panel-chat): the scope sentence named a literal "Allow all <toolset> tools for this
+  chat"; it now names the real buttons as alternatives, each with its reach ("Each of “Allow for this chat”
+  (every tool) or “Allow all system tools for this chat” (that toolset only) approves this batch and stores a
+  policy …"). The two scope paragraphs that were always open (on a phone they pushed the decision off the
+  screen) become one short line that stays visible under the decisions (new `broadScopeSummary`: what the broad
+  grants reach and which tools keep asking, e.g. "Nothing is set to Ask, so … fetch_url, browser_probe,
+  send_email are included") plus one disclosure, "What the broader choices allow", with the full sentences;
+  every broad button (kind buttons included) carries its sentence as a tooltip. An interaction without
+  `broadScopeSummary` keeps the sentences open. "Allow once", the narrowest grant, is the one accent-tinted
+  primary; "Allow for this chat", "Allow all <toolset> tools" and "Allow all enabled tools" are neutral.
+- **Gateway down is not a rejected session** (app-server, ui-kit): `GET /api/connection/gateway` returns
+  `gateway_status`, the gateway's HTTP status for the session check (0 when it did not answer). The connection
+  badge says "Gateway at 127.0.0.1:8080 did not answer — is it running?" (0), "Gateway unavailable (HTTP 503)"
+  (502/503/504), "Gateway error (HTTP 500)" (other 5xx) or "Gateway answered HTTP 404 — check the gateway URL"
+  (other 4xx) instead of "Session rejected — sign in again", which stays for 401/403; without the field (an
+  older app server) the wording is unchanged.
+- **One duration format in the chat** (panel-chat): the tool row and the turn's time chip use the stat panel's
+  `formatDuration` ("4.2s", "3m 26s"; was "205.8s" and "215s"), now exported. A tool call that waited for the
+  person's decision (new `WorkflowToolActivity.approvalWait`: the replay view's `activities[].wait.kind ==
+  "tool_approval"` with an `outcome`; the ledger-fold fallback reads the call's `waiting` approval row) reads
+  "3m 26s incl. approval wait", with a tooltip saying the time runs from request to result.
+- **Tool policy rows** (ui-kit): the risk/toolset badge no longer breaks mid-word ("DESTRO/Y") or squeezes the
+  tool name; it moves under the name when the row is narrow.
+- **Model picker** (ui-kit): "Custom" is no longer truncated ("Cus…"); the long named default ellipsizes first
+  (a host's long `customLabel` ellipsizes at half the control).
+- Checks: `ui-kit/scripts/check_polish_css.mjs`, `panel-chat/scripts/check_polish.mjs`, additions to
+  `check_gateway_connection.mjs`, `check_session_policy.mjs` and the app-server proxy test; each mutation-checked
+  (removing a fix turns its check red). Adversarial review (Opus, read-only): one blocker (the Ask warning was
+  hidden in the disclosure) and five should-fix findings, all fixed with checks.
 
 ## 0.8.0 - 2026-10-28
 

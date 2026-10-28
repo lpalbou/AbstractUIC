@@ -190,7 +190,17 @@ export function presentInteraction(
         refusedByPolicy = stored ? names.filter((name) => Object.prototype.hasOwnProperty.call(stored.deny || {}, name)) : [];
         sessionFields = {
           approveForSessionLabel: L.allowForChat,
-          approveForSessionDescription: `Allow for this chat (and Allow all <toolset> tools for this chat) approves this batch and stores a policy for this chat on the gateway: later tool calls of every run of this chat run without asking, until the policy is reset. ${asking} Tools the gateway does not authorize stay uncovered.`,
+          // The real button labels, never a "<toolset>" placeholder; alternatives, each with
+          // its reach (release-closing polish).
+          approveForSessionDescription: toolsets.length
+            ? `Each of ${(() => {
+                const items = [`“${L.allowForChat}” (every tool)`, ...toolsets.map((kind) => `“${L.allowKindForChat(kind)}” (that toolset only)`)];
+                return `${items.slice(0, -1).join(", ")} or ${items[items.length - 1]}`;
+              })()} approves this batch and stores a policy for this chat on the gateway: the later tool calls it covers, in every run of this chat, run without asking, until the policy is reset. ${asking} Tools the gateway does not authorize stay uncovered.`
+            : `“${L.allowForChat}” approves this batch and stores a policy for this chat on the gateway: later tool calls of every run of this chat run without asking, until the policy is reset. ${asking} Tools the gateway does not authorize stay uncovered.`,
+          // Always visible under the decisions (the full sentences are in the disclosure): what
+          // a broad grant reaches, and the Ask warning, before any click.
+          broadScopeSummary: `The broader choices keep allowing later tool calls of this chat until the policy is reset. ${asking}`,
           onApproveForSession: async () =>
             covered(await approveAllForSession.call(controller, target, { ...(policy.maxRiskRank !== undefined ? { maxRiskRank: policy.maxRiskRank } : {}), ...(ask ? { ask } : {}) })),
           approveKinds: toolsets.map((kind) => ({
@@ -263,6 +273,7 @@ export function presentInteraction(
       approveAllDescription: onPermissionsAll
         ? `Sets permissions: all${scope ? ` ${scope}` : ""}, including future turns. Unchecked tools stay unavailable; explicit Ask overrides and Gateway restrictions remain enforced. Questions still need your answer.`
         : undefined,
+      ...(onPermissionsAll ? { broadScopeSummary: `“${WORKFLOW_INTERACTION_LABELS.allowAll}” changes your tool permissions for future turns too.` } : {}),
       ...sessionFields,
       ...(options.approveAllDisabledReason ? { disabledReason: options.approveAllDisabledReason } : {}),
       ...(remember ? { remember } : {}),

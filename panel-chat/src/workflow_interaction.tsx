@@ -104,10 +104,16 @@ export type WorkflowToolApprovalInteraction = WorkflowInteractionBase & {
    * tools for the rest of this conversation. Offered only when injected. */
   onApproveForSession?: () => void | Promise<unknown>;
   approveForSessionLabel?: string;
-  /** Visible scope sentence for the session grant. */
+  /** Scope sentence for the session grant: in the "What the broader choices allow"
+   * disclosure and the broad buttons' tooltips when `broadScopeSummary` is given, else
+   * rendered open under the decisions. */
   approveForSessionDescription?: string;
+  /** One always-visible line under the decisions saying what the broad grants reach (and
+   * what keeps asking); with it, the full scope sentences move into one disclosure. */
+  broadScopeSummary?: string;
   /** "Allow all enabled tools": the broader standing policy. Host must
-   * describe its exact scope visibly (`approveAllDescription`). */
+   * describe its exact scope (`approveAllDescription`): open, or in the disclosure when
+   * `broadScopeSummary` is given. */
   onApproveAll?: () => void | Promise<unknown>;
   approveAllLabel?: string;
   approveAllDescription?: string;
@@ -347,6 +353,15 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
   } else if (interaction.kind === "tool-approval") {
     const reason = String(interaction.disabledReason || "").trim();
     const broadDisabled = disabled || Boolean(reason);
+    // What the broader grants cover (release-closing polish): one short line that is always
+    // visible under the decisions (`broadScopeSummary`: their reach and what keeps asking), the
+    // full sentences in one disclosure and the buttons' tooltips, instead of two open
+    // paragraphs that pushed the decision off a phone screen. Without a summary they stay open.
+    const scopes = [
+      !reason && interaction.onApproveForSession && interaction.approveForSessionDescription ? interaction.approveForSessionDescription : "",
+      !reason && interaction.onApproveAll && interaction.approveAllDescription ? interaction.approveAllDescription : "",
+    ].filter(Boolean);
+    const scopeSummary = scopes.length ? String(interaction.broadScopeSummary || "").trim() : "";
     body = (
       <div className="pc-workflow-interaction__body">
         <div className="pc-workflow-interaction__prompt">Allow <strong>{interaction.toolName}</strong> to run?</div>
@@ -369,7 +384,7 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
             {pending?.kind === "approve" ? "Allowing…" : interaction.approveLabel || L.allowOnce}
           </button>
           {interaction.onApproveForSession ? (
-            <button type="button" className="pc-workflow-interaction__allow-session" data-decision="approve-session" disabled={broadDisabled} title={reason || undefined} onClick={() => void run({ kind: "approve-session" }, interaction.onApproveForSession!)}>
+            <button type="button" className="pc-workflow-interaction__allow-session" data-decision="approve-session" disabled={broadDisabled} title={reason || interaction.approveForSessionDescription || undefined} onClick={() => void run({ kind: "approve-session" }, interaction.onApproveForSession!)}>
               {pending?.kind === "approve-session" ? "Allowing…" : interaction.approveForSessionLabel || L.allowForChat}
             </button>
           ) : null}
@@ -381,18 +396,23 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
               data-decision="approve-kind"
               data-kind={entry.kind}
               disabled={broadDisabled}
-              title={reason || undefined}
+              title={reason || interaction.approveForSessionDescription || undefined}
               onClick={() => void run({ kind: "approve-kind", toolset: entry.kind }, entry.onApprove)}
             >
               {pending?.kind === "approve-kind" && pending.toolset === entry.kind ? "Allowing…" : entry.label || L.allowKindForChat(entry.kind)}
             </button>
           ))}
           {interaction.onApproveAll ? (
-            <button type="button" className="pc-workflow-interaction__allow-all" data-decision="approve-all" disabled={broadDisabled} title={reason || undefined} onClick={() => void run({ kind: "approve-all" }, interaction.onApproveAll!)}>
+            <button type="button" className="pc-workflow-interaction__allow-all" data-decision="approve-all" disabled={broadDisabled} title={reason || interaction.approveAllDescription || undefined} onClick={() => void run({ kind: "approve-all" }, interaction.onApproveAll!)}>
               {pending?.kind === "approve-all" ? "Allowing…" : interaction.approveAllLabel || L.allowAll}
             </button>
           ) : null}
         </div>
+        {scopeSummary ? (
+          <p className="pc-workflow-interaction__scope" data-scope-summary="">
+            {scopeSummary}
+          </p>
+        ) : null}
         {interaction.remember ? (
           <label className="pc-workflow-interaction__remember">
             <input type="checkbox" checked={interaction.remember.checked} disabled={disabled} onChange={(event) => interaction.remember!.onChange(event.target.checked)} />
@@ -441,8 +461,23 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
           </p>
         ) : null}
         {reason && (interaction.onApproveAll || interaction.onApproveForSession || interaction.approveKinds?.length) ? <p className="pc-workflow-interaction__unavailable" role="note">{reason}</p> : null}
-        {!reason && interaction.onApproveForSession && interaction.approveForSessionDescription ? <p className="pc-workflow-interaction__scope">{interaction.approveForSessionDescription}</p> : null}
-        {!reason && interaction.onApproveAll && interaction.approveAllDescription ? <p className="pc-workflow-interaction__scope">{interaction.approveAllDescription}</p> : null}
+        {/* The full scope sentences: one disclosure (see `scopes` above). */}
+        {scopeSummary && scopes.length ? (
+          <details className="pc-workflow-interaction__scope-details" data-scope-details="">
+            <summary>What the broader choices allow</summary>
+            {scopes.map((text) => (
+              <p key={text} className="pc-workflow-interaction__scope">
+                {text}
+              </p>
+            ))}
+          </details>
+        ) : (
+          scopes.map((text) => (
+            <p key={text} className="pc-workflow-interaction__scope">
+              {text}
+            </p>
+          ))
+        )}
       </div>
     );
   } else {
