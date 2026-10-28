@@ -20,7 +20,7 @@ Ecosystem context (external):
 Important integration notes:
 - Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
 - One shared component per user-facing job, composed on AbstractGateway's contracts (ADR 0001): use the job table in `docs/adoption-guide.md` before building anything app-local.
-- `@abstractframework/panel-chat` 0.6.3 needs `@abstractframework/ui-kit` `^0.9.0` (peer dependency); upgrade them together.
+- `@abstractframework/panel-chat` 0.6.4 needs `@abstractframework/ui-kit` `^0.9.0` (peer dependency); upgrade them together.
 - Only `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` perform network requests by default (each polls a metrics endpoint; optional Bearer auth).
 - Always import the package CSS from your app entrypoint (especially in Next.js). Start with `docs/getting-started.md` → `docs/api.md`.
 
@@ -71,7 +71,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 ## Packages
 
 - [@abstractframework/ui-kit](ui-kit/README.md) (0.9.5): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
-- [@abstractframework/panel-chat](panel-chat/README.md) (0.6.3, needs ui-kit ^0.9.0): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI + markdown/json renderers
+- [@abstractframework/panel-chat](panel-chat/README.md) (0.6.4, needs ui-kit ^0.9.0): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -168,6 +168,14 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
+
+## What's new in 0.8.4
+
+`@abstractframework/panel-chat` 0.6.4: one message footer spec for every app. The stamp carries the
+date when a message is not from today ("Yesterday · 10:52 PM", "Oct 21 · 10:52 PM"; `formatMessageStamp`),
+the speaker stays on every assistant message of a host with read-aloud (disabled with its reason while
+the reply streams), and the "files changed" chip opens the structured detail panel like the others
+([changelog](./CHANGELOG.md#084---2026-10-28)).
 
 ## What's new in 0.8.3
 
@@ -594,7 +602,7 @@ not a customization point; when the component cannot do what you need, ask for t
 | Expandable tree/list panes | `DisclosureList` | Dual-key selection, path-keyed expansion, `role=tree` keyboard nav, badge rail |
 | Badges / chips / toggles | `AfChip`, `AfChipButton` | Tone variants with AA-derived colors; custom hues via `var(--token)` |
 | Icons | `Icon` | 65 glyphs, 24-grid and 16-grid families ([Icons](./icons.md)) |
-| Chat UI (thread, cards, composer) | `WorkflowChat` (`@abstractframework/panel-chat`) | Markdown with real nested lists; JSON auto-detect; `message.title` names the speaker. One surface (backlog 0030): `steer` (Steer / Queue while busy, honest "Queued (seq N)"), `toolbar` (New chat / Clear / Copy / Export, each only when injected), `messageProps.renderFooter` / `variant: "hint"` (per-message badge, one-line system notes), `onSend(draft, {signal})` + `onCancel(signal)` so Stop aborts a request/response host. Add a prop here instead of forking the thread |
+| Chat UI (thread, cards, composer) | `WorkflowChat` (`@abstractframework/panel-chat`) | Markdown with real nested lists; JSON auto-detect; `message.title` names the speaker. One surface (backlog 0030): `steer` (Steer / Queue while busy, honest "Queued (seq N)"), `toolbar` (New chat / Clear / Copy / Export, each only when injected), `messageProps.renderFooter` / `variant: "hint"` (per-message badge, one-line system notes), `onSend(draft, {signal})` + `onCancel(signal)` so Stop aborts a request/response host. Every message follows the [message footer spec](./api.md#message-footer) (stamp with the date when not today, permanent speaker when you pass `onSpeakToggle`, copy, structured stat chips): pass `messageProps.onSpeakToggle` / `getSpeakState` whenever your app has a read-aloud path, never render your own stamp or toolbar. Add a prop here instead of forking the thread |
 | Live (streamed) replies | `WorkflowSessionController` / `useWorkflowSession` + a transport whose `streamLedger` passes `onDelta`; `WorkflowChat` `streamReplies` + `streamRepliesRuntime()` | Deltas never move the ledger cursor; the ledger record replaces the live bubble. See [panel-chat live replies](../panel-chat/README.md#live-replies-streaming). Pending questions come from the same controller (ledger + served `waiting`), never a local fold |
 | Docs assistant (Q&A on the app's own docs) | `DocsAssistantDrawer` (panel-chat) toggled by `AfTopBarActions` `docs`, or `docsAssistantPanel(source, fetchGateway, { connected })` in `AfDrawerSystem` | Grounding is the gateway's server corpus `GET api/gateway/docs/corpus?app=<id>` (each app's own build `llms.txt`, relayed by the gateway) → the shipped `docs-qa` workflow (`DOCS_QA_WORKFLOW`); one gateway session per conversation; the host injects `fetchGateway`. No `llms.txt?raw` import in the app |
 | App assistant (an app's own Q&A, e.g. Continuum's advisor) | `AssistantPanel` (panel-chat) in `AfDrawer`, or `assistantDrawerPanel({ ask, assistantName })` in `AfDrawerSystem`, toggled by `AfTopBarActions` `assistant` | Transport injected (`ask(question, { signal, history })`), never fetches |
@@ -718,7 +726,7 @@ The kit absorbs proven app components rather than speculating:
 
 # ADR 0001: Shared primitives are composed on the gateway's contracts; apps customize through props, slots and theme tokens, never by forking
 
-Status: Accepted.
+Status: Accepted (amended 2026-10-28: section 10, readable labels).
 Date: 2026-10-27
 Root backlog: `docs/backlog/planned/1055_release_wave_2026_10_27_voice_library_replay_memory.md` (AbstractFramework), track "Shared UI primitives consolidation".
 
@@ -859,6 +867,26 @@ and run panel wants; it is not a dependency of this release.
      by adding the column, the directory and the fixture consumption; the JS/TS packages remain
      the first implementation of every job.
 
+10. **Readable labels, never computer ids (amendment 2026-10-28; AbstractFramework ADR 0043).**
+    Every kit component that names something for a person names it by its readable label, from
+    the records it already reads: a voice by its catalog `name`/`label` (never its id; a cloned
+    voice's id is 32 hex characters), an artifact by its title or file name, a run by its workflow
+    and time, a model by its model name and role label. An opaque id (UUID, hex digest, run,
+    artifact, voice or session id) appears only in a developer/diagnostic view or as copyable
+    detail ("Copy id", a detail line offered for support), never as the text of a row, chip,
+    option, banner or sentence. A name that is not known (yet) is said in words ("a saved voice",
+    "Saved voice (not listed)"); a readable id (a preset voice "aiden", a provider id) may be
+    shown as it is. A note that names the current setting is neutral, never warning-styled.
+    Helpers: `voiceNameInCatalog`, `voiceLabel`, `isOpaqueId` (ui-kit 0.9.5).
+
+    Known violations on 2026-10-28 (the enforcement backlog; ADR 0043 keeps the framework-wide
+    table): the kit's `AfVoiceSection` Engines row showed the voice id (AbstractCode's
+    "250b665e…") and `VoiceSettings` labeled an unlisted saved voice "<id> (saved)": both fixed in
+    AbstractUIC 0.8.3 (backlog 0060). Outside the kit, owned by their apps: the AbstractAssistant
+    desktop route-editor banner ("· voice 41576236…", warning-styled), the desktop message footer's
+    raw hex artifact chips, AbstractFlow's On Flow End self-comment, AbstractCode web's failed-run
+    reply text carrying the run id.
+
 ## Consequences
 
 ### Positive
@@ -887,6 +915,8 @@ and run panel wants; it is not a dependency of this release.
   view replaces it when it ships.
 
 ## Enforcement
+- Section 10 (readable labels): `ui-kit/scripts/check_voice_library.mjs` C8/C9 are red when a voice id is
+  put back in the Engines row, the override summary or the saved choice.
 - Every shared component ships with a check script under `ui-kit/scripts/check_*.mjs` or
   `panel-chat/scripts/check_*.mjs` wired into `npm test`; the check pins the behavior this ADR
   promises (gateway default shown first and named, the one wording set, sparse tool layers,
@@ -925,6 +955,7 @@ and run panel wants; it is not a dependency of this release.
 - Root: AbstractFramework backlog 1055 (release wave), 0993 (one ledger, many views).
 
 ## Related
+- AbstractFramework ADR 0043 (end-user interfaces show readable labels, never computer ids).
 - `docs/adoption-guide.md` ("Which component for which job", "Server truth renders, clients
   never re-derive", "Degradations are labeled").
 - `docs/architecture.md` (host-driven data flow).
@@ -2233,7 +2264,10 @@ Components:
   usually `useGatewayVoice().tts_playback.status` for that message's key); the button follows
   `speakButtonView(state)` (0.6.3: spinner only while `loading`, Pause while playing, Play when paused, the speaker
   when idle; `data-speak-state` on the button). The speaker and copy buttons are always visible (0.6.3: no
-  hover-only toolbar).
+  hover-only toolbar). The meta line follows the [message footer spec](#message-footer) (0.6.4: the stamp carries
+  the date when the message is not from today, the speaker is on every assistant message of a TTS host, every
+  stat chip opens the structured panel); helpers `formatMessageStamp(ts, now?, locales?)`,
+  `messageStampTitle(ts, locales?)`, `messageStampIso(ts)`, `localDayKey(now?)`, `useLocalDay()`.
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
@@ -2243,6 +2277,47 @@ Components:
 - Questions and approvals (0.5.0, backlog 0032): `WORKFLOW_INTERACTION_LABELS` is the one wording set (Deny / Allow once / Allow for this chat / Allow all enabled tools / Decide later; Submit / Continue without answering / Keep waiting). `WorkflowToolApprovalInteraction` adds `onApproveForSession?`, `onDefer?` (a dismissal sends nothing and never denies), `remember?: {label, checked, onChange}` (`WorkflowInteractionRemember`; the host words the scope), `disabledReason?` (the broad grants render disabled with the reason visible); its default labels are now "Allow once" / "Allow all enabled tools" (were "Approve" / "Allow all"). `WorkflowAskUserInteraction` adds `onSkip?` and `onDefer?`. `WorkflowInteractionPanel` takes `variant?: "panel" | "card"` (the compact card for "Needs you" lists and inboxes: same decisions, detail behind **Review**)
 - `WorkspaceBrowser` — a run's folder on the gateway host through the CONTRACTS §W routes (`GET /runs/{id}/workspace`, `/workspace/files`, `/workspace/content`): the root once as its short name (`workspaceShortName`; full path on hover) with **Open folder** (`onOpenFolder`, offered only when `workspaceCanOpenFolder`) and **Copy path** icons, breadcrumbs, folders first, then per file: name, size, generated date (relative, exact on hover) and a Download icon; "N entries hidden by the gateway's workspace rules". A click on a file previews it IN PLACE with `FileViewer` (0.3.1: no "Open" button; `fileActions(entry)` adds host actions such as "Attach"), or `onSelectFile` + `selectedPath` hand the selection to a host preview. Files are fetched with the host's credentials, never linked. Props: `fetchGateway(path, init)`, `runId` (an automation's id browses the automation's folder), `title`, `note?`, `onClose?`, `refreshKey?`, `className?`, `fileActions?`, `onOpenFolder?`, `copyText?`, `nowMs?`. Hook-free `WorkspaceBrowserView` and helpers: `loadWorkspaceView()`, `loadRunWorkspace()`, `listWorkspaceFolder()`, `readWorkspaceFile()`, `parseWorkspaceListing()` (malformed answers throw), `gatewayResponseError()`, `tabOpenPlan()`, `workspaceInfoUrl()` / `workspaceFilesUrl()` / `workspaceContentUrl()`, `workspaceCrumbs()`, `workspaceParent()`, `sortWorkspaceEntries()`, `workspaceHiddenNote()`, `formatBytes()`; types `GatewayFetch`, `RunWorkspace`, `WorkspaceEntry`, `WorkspaceListing`, `WorkspaceBrowserProps`, `WorkspaceBrowserViewProps`
 - `FileViewer` (0.3.1) — ui-kit `AfFileViewer` with panel-chat's `Markdown`; `useWorkspaceFilePreview(fetchGateway, runId, entry, refreshKey?)` loads one workspace file for it (a bounded Range read of at most `PREVIEW_TEXT_LIMIT` = 1 MiB for text kinds, an object URL for images, audio, video and PDF up to `PREVIEW_BLOB_LIMIT`, nothing for binaries; audio plays in the kit's `AfAudioPlayer`) and `filePreviewViewerProps(state)` maps the result (`FileViewer` also takes `markdownImages`, `inlineImage` and a host `renderMarkdown`); `readBoundedText()`, `responseTotal()`, `partialPreviewNote()`, `safeMarkdownImages()` (Markdown images only from the run's workspace)
+
+### Message footer
+
+One spec for every chat message of the framework (operator QA 2026-10-28; panel-chat 0.6.4, backlog 0064). The web
+apps get it from `ChatMessageCard` (through `WorkflowChat` / `ChatThread`); a local twin is a fork (ADR 0001). The
+AbstractAssistant desktop mirrors the same contents in its own Qt bubble; on 2026-10-28 its words still differ
+("Yesterday 10:52 PM" without the separator, a zero-padded day "Oct 01", no year form, the raw text for a malformed
+timestamp, the speaker's tooltip "Speak this reply") and its owner aligns them. Exception until backlog 0063: the Docs
+assistant has no read-aloud path, so its answers carry no speaker. The source of truth is
+`panel-chat/src/message_footer.ts`; `panel-chat/scripts/check_message_footer.mjs` pins it.
+
+A message's meta line holds, in this order:
+
+1. **Stamp**: `formatMessageStamp(ts, now?, locales?)`, in the reader's locale and time zone.
+
+   | The message is from | The stamp reads |
+   |---|---|
+   | today | `12:46 AM` (the time only) |
+   | yesterday | `Yesterday · 10:52 PM` |
+   | earlier this year (or a later day) | `Oct 21 · 10:52 PM` |
+   | another year | `Oct 21, 2025 · 10:52 PM` |
+
+   Days are the reader's calendar days, not 24 h windows; an open card re-renders at local midnight (`useLocalDay()`,
+   one shared timer). The full date and time is the stamp's hover text (`messageStampTitle(ts)`, on a `<time>` whose
+   `dateTime` is ISO, `messageStampIso(ts)`). A bare date ("2026-10-27") is that local day, stamped without a
+   time ("Yesterday", "Oct 27"). A missing or malformed timestamp shows no stamp, never "Invalid Date".
+2. **Speaker**: on every assistant message whenever the host has a read-aloud path (`onSpeakToggle`), whatever the
+   message kind (an answer, a question, a warning, a reply from history, a reply with media or statistics, with or
+   without `renderFooter`). Always visible, never hover-only. States per `speakButtonView`: speaker, spinner only
+   while the first audio is generated, Pause while playing, Resume when paused. While the reply is still streaming,
+   or when it has no text, the speaker stays in place, dimmed and `aria-disabled` (still focusable), with its reason as
+   hover text ("Read aloud when the reply is finished", "No text to read aloud"; `data-speak-state="unavailable"`). No speaker on user or system messages; a tool-activity row and a
+   one-line hint (`variant: "hint"`) are not message cards and carry no meta line.
+3. **Copy**: on every card unless the host passes `showCopy={false}`; always visible.
+
+Under the body, the **stat chips** of a workflow turn (`message.statistics`): tokens, tools, files changed, duration.
+Every chip opens the structured `StatDetailPanel` on hover or keyboard focus (title and headline, sections, the
+ledger footnote; `statDetail(kind, statistics)` with `kind` `"tokens" | "time" | "tools" | "files"`), never a
+native multi-line `title` tooltip. A value the ledger did not report reads "not reported", never 0. Labels are words
+(ADR 0043): file names, counts, durations, never ids. A host chip (`ChatStat`) passes a `detail` for anything longer
+than a one-line `title`.
 
 Renderers:
 - `Markdown` (lightweight Markdown with real nested lists, marker progression, fenced code
@@ -5680,6 +5755,17 @@ the start-run input with `streamRepliesRuntime(mode)`:
 const input = { prompt, _runtime: { ...streamRepliesRuntime(streamReplies) } };
 ```
 
+## Message footer
+
+Every message card renders one meta line, the same in every app (and mirrored by the AbstractAssistant desktop):
+the **stamp** (`formatMessageStamp`: `12:46 AM` today, `Yesterday · 10:52 PM`, `Oct 21 · 10:52 PM`,
+`Oct 21, 2025 · 10:52 PM` another year; the full date on hover; re-rendered at local midnight), the **speaker** on
+every assistant message when you pass `onSpeakToggle` (always visible; dimmed and `aria-disabled` with its reason
+while the reply streams or when it has no text; the Docs assistant has no read-aloud path yet, backlog 0063),
+and **copy**. The stat chips of a workflow turn (tokens, tools, files changed, duration) each open the structured
+`StatDetailPanel`, never a native multi-line tooltip. The full spec is in
+[docs/api.md, Message footer](../docs/api.md#message-footer); `scripts/check_message_footer.mjs` pins it.
+
 ## Rendering rules
 
 `ChatMessageContent` auto-detects JSON (via `tryParseJson` in `panel-chat/src/utils.ts`) and renders:
@@ -6459,7 +6545,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -6560,7 +6646,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -6606,7 +6692,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && tsc -p scripts/types/tsconfig.json"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && tsc -p scripts/types/tsconfig.json"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.9.0",
@@ -15389,6 +15475,7 @@ export { ChatComposer } from "./chat_composer.js";
 export { Markdown, sameOriginImage, type MarkdownImages, type MarkdownProps } from "./markdown.js";
 export { JsonViewer } from "./json_viewer.js";
 export { ChatMessageCard, speakButtonView } from "./chat_message_card.js";
+export { formatMessageStamp, messageStampTitle, messageStampIso, localDayKey, useLocalDay } from "./message_footer.js";
 export { ChatThread } from "./chat_thread.js";
 export { ToolActivity, ToolActivityGroup, toolArguments, toolPreview } from "./tool_activity.js";
 export { ToolSandboxLine, toolSandbox, sandboxEvidence, type ToolSandbox, type ToolSandboxRow } from "./sandbox_line.js";
@@ -15604,6 +15691,7 @@ import { copyText } from "./utils.js";
 import { ToolActivity } from "./tool_activity.js";
 import type { WorkflowStatistics, WorkflowToolActivity } from "./workflow_evidence.js";
 import { StatChip, formatDuration, statDetail, type StatDetail } from "./stat_detail.js";
+import { formatMessageStamp, messageStampIso, messageStampTitle, useLocalDay } from "./message_footer.js";
 
 export type ChatMessageLevel = "info" | "warn" | "error";
 
@@ -15704,6 +15792,8 @@ export type ChatAttachment = {
 export type ChatStat = {
   id?: string;
   label: string;
+  /** A ONE-line hint. A multi-line explanation is a `detail` (the message footer spec:
+   *  every workflow chip opens the structured panel, never a native multi-line tooltip). */
   title?: string;
   icon?: React.ReactNode;
   onClick?: () => void;
@@ -15725,7 +15815,7 @@ function workflowStats(metrics: WorkflowStatistics): ChatStat[] {
   return [
     ...(tokens ? [{ label: `${metrics.totalTokens!.toLocaleString()} tokens`, detail: tokens }] : []),
     { label: `${metrics.toolCalls} ${metrics.toolCalls === 1 ? "tool" : "tools"}`, detail: tools },
-    ...(metrics.changedFiles.length ? [{ label: `${metrics.changedFiles.length} ${metrics.changedFiles.length === 1 ? "file" : "files"} changed`, title: metrics.changedFiles.join("\n") }] : []),
+    ...(metrics.changedFiles.length ? [{ label: `${metrics.changedFiles.length} ${metrics.changedFiles.length === 1 ? "file" : "files"} changed`, detail: statDetail("files", metrics) }] : []),
     // One duration format across the chat (the stat panel, the tool rows, this chip): "4.2s", "3m 35s".
     ...(time ? [{ label: formatDuration(metrics.durationMs), detail: time }] : []),
   ];
@@ -15944,17 +16034,26 @@ export function speakButtonView(state: SpeakState): { icon: IconName; title: str
   return { icon: "speaker", title: "Speak (TTS)", spinning: false };
 }
 
+/**
+ * One chat message. Its meta line (stamp, speaker, copy) and stat chips follow the message
+ * footer spec in `message_footer.ts` (the one spec every web app and the desktop follow):
+ *  - stamp: `formatMessageStamp` (time today; "Yesterday · 10:52 PM"; "Oct 21 · 10:52 PM");
+ *  - speaker: on every assistant message when `onSpeakToggle` is given, always visible;
+ *    disabled with its reason while streaming or without text, never dropped;
+ *  - copy: always visible unless `showCopy === false`;
+ *  - stat chips: each opens the structured `StatDetailPanel`, never a multi-line `title`.
+ */
 export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement {
   const m = props.message;
   const role_ui = useMemo(() => _role_ui(m), [m.kind, m.level, m.role, m.title]);
-  const ts = String(m.ts || "").trim();
-  const time_label = useMemo(() => {
-    if (!ts) return "";
-    const d = new Date(ts);
-    // A malformed timestamp must render as no timestamp, never "Invalid Date".
-    if (!Number.isFinite(d.getTime())) return "";
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }, [ts]);
+  // `ChatMessage.ts` is an ISO string; a malformed one renders no stamp, never "Invalid Date".
+  const raw_ts = m.ts;
+  // Re-derived when the reader's calendar day changes ("10:52 PM" becomes "Yesterday · 10:52 PM"):
+  // `useLocalDay` re-renders the card at local midnight.
+  const day_key = useLocalDay();
+  const time_label = useMemo(() => formatMessageStamp(raw_ts), [raw_ts, day_key]);
+  const time_title = useMemo(() => messageStampTitle(raw_ts), [raw_ts]);
+  const time_iso = useMemo(() => messageStampIso(raw_ts), [raw_ts]);
 
   const [copy_state, set_copy_state] = useState<"idle" | "copied" | "failed">("idle");
   const copy_timer = useRef<number | null>(null);
@@ -15965,7 +16064,11 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
   }, []);
 
   const live = m.live;
-  const can_speak = !live && typeof props.onSpeakToggle === "function" && role_ui.variant === "assistant" && Boolean(String(m.content || "").trim());
+  // The speaker is PERMANENT on an assistant message of a TTS host (footer spec): it is
+  // disabled, never dropped, while the reply streams or when there is no text to read.
+  const show_speaker = typeof props.onSpeakToggle === "function" && role_ui.variant === "assistant";
+  const speak_blocked = !show_speaker ? "" : live ? "Read aloud when the reply is finished" : !String(m.content || "").trim() ? "No text to read aloud" : "";
+  const can_speak = show_speaker && !speak_blocked;
   const speak_state = can_speak ? props.getSpeakState?.(m) || "idle" : "idle";
   const speak = speakButtonView(speak_state);
   const show_copy = props.showCopy !== false;
@@ -16016,16 +16119,22 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         ) : null}
         {live?.caption ? <span className="pc-chat-live-caption">{live.caption}</span> : null}
         <span className="pc-chat-header-spacer" />
-        {time_label ? <span className="pc-chat-time">{time_label}</span> : null}
+        {time_label ? (
+          <time className="pc-chat-time" dateTime={time_iso || undefined} title={time_title || undefined}>
+            {time_label}
+          </time>
+        ) : null}
         <div className="pc-chat-header-actions">
-          {can_speak ? (
+          {show_speaker ? (
             <button
               className="pc-chat-icon-btn"
               type="button"
-              aria-label={speak.title}
-              title={speak.title}
-              data-speak-state={speak_state}
-              onClick={() => props.onSpeakToggle?.(m)}
+              aria-label={speak_blocked || speak.title}
+              title={speak_blocked || speak.title}
+              data-speak-state={speak_blocked ? "unavailable" : speak_state}
+              // aria-disabled, not `disabled`: the button stays focusable so its reason is reachable.
+              {...(speak_blocked ? { "aria-disabled": true } : {})}
+              onClick={can_speak ? () => props.onSpeakToggle?.(m) : undefined}
             >
               {/* Keyed per icon: the spinning element is replaced (never re-used) once audio starts. */}
               <Icon key={speak.icon} name={speak.icon} size={22} className={speak.spinning ? "pc-chat-speak-spinner" : undefined} />
@@ -21417,6 +21526,44 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## Unreleased
+
+## 0.8.4 - 2026-10-28
+
+Packages: `@abstractframework/panel-chat` 0.6.4 (ui-kit unchanged at 0.9.5, app-server at 0.1.13; panel-chat still
+needs ui-kit `^0.9.0`). Operator QA of 2026-10-28, item 2; backlog 0064.
+
+### One message footer spec, written once (panel-chat)
+
+- The spec is in `panel-chat/src/message_footer.ts` and [docs/api.md, Message footer](docs/api.md#message-footer):
+  stamp, speaker, copy, then the stat chips. The web apps get it from `ChatMessageCard`; the AbstractAssistant
+  desktop mirrors it natively (its words still differ in four places, listed in the spec; its owner aligns them).
+  Until backlog 0063 the Docs assistant has no read-aloud path, so its answers carry no speaker.
+- The stamp shows the date when the message is not from today: `formatMessageStamp(ts, now?, locales?)` (exported)
+  reads `12:46 AM` today, `Yesterday · 10:52 PM`, `Oct 21 · 10:52 PM` earlier this year (or a later day),
+  `Oct 21, 2025 · 10:52 PM` another year, in the reader's locale and time zone (it was the time only, so a reply
+  from last week read like one from this morning). The full date is the stamp's hover text (`messageStampTitle`,
+  on a `<time>` with an ISO `dateTime`, `messageStampIso`); an open card re-renders at local midnight (`useLocalDay`,
+  one shared timer). A bare date ("2026-10-27") is the reader's local day, stamped without a time ("Yesterday").
+- The speaker is permanent on every assistant message of a host with a read-aloud path (`onSpeakToggle`): while the
+  reply streams, or when it has no text, it stays in place, dimmed and `aria-disabled` (still focusable), with its
+  reason as the hover text ("Read aloud when the reply is finished", "No text to read aloud") instead of appearing
+  only once the reply is done.
+- The "N files changed" chip opens the structured panel like the tokens, tools and duration chips (title "Files
+  changed", one row per file: its name, then its folder; capped at 30 with "and N more files"); it was a native
+  multi-line `title` tooltip; POSIX and Windows paths. `StatDetailKind` adds `"files"`. `ChatStat.title` is documented as a one-line hint.
+- Checks: `panel-chat/scripts/check_message_footer.mjs` (56, in `npm test`): the stamp table (today, yesterday,
+  this year, another year, a future day, calendar-day and month boundaries, fr-FR, malformed), the card's dated stamp
+  and hover text, the speaker on seven assistant message kinds and with a `renderFooter` slot (disabled while
+  streaming / without text; never on user or system messages; never without a TTS host), every workflow chip
+  structured with no native `title`. Mutants (the date dropped in the helper, the card back to time only, the
+  speaker dropped while streaming, on history messages, on questions, the files chip back to a `title`, the speaker
+  back to a native `disabled`) all red.
+  Adversarial review (Opus, read-only): no blocker; fixed: the disabled speaker lost to `.pc-workflow-chat
+  button:disabled` (now `aria-disabled` with its own rule), no re-render at midnight (now `useLocalDay`), the desktop
+  differences and the Docs assistant exception written down, bare-date stamps, ISO `dateTime`, Windows paths. A second
+  review of those fixes: no blocker; the checks it found too weak (ISO `dateTime`, the bare date on a UTC runner, the
+  midnight timer) now pin them (`TZ=America/Los_Angeles`, a stubbed timer: one timer for all cards, re-armed after it
+  fires, cleared by the last card, never re-armed without cards); mutants M8-M12 red.
 
 ## 0.8.3 - 2026-10-28
 

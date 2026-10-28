@@ -341,6 +341,17 @@
   transform: translateY(-0.5px);
 }
 
+/* A speaker that cannot read yet (the reply is streaming, or there is no text) stays in place,
+ * dimmed, focusable, with its reason as the hover text: the footer spec keeps it permanent. */
+.pc-chat-header-actions .pc-chat-icon-btn[aria-disabled="true"],
+.pc-chat-header-actions .pc-chat-icon-btn[aria-disabled="true"]:hover {
+  opacity: 0.4;
+  cursor: default;
+  background: transparent;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.80));
+  transform: none;
+}
+
 .pc-chat-icon-btn--copied {
   opacity: 1;
   background: var(--success-subtle, rgba(39, 174, 96, 0.12));

@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import type { WorkflowModelCall, WorkflowStatistics } from "./workflow_evidence.js";
 
 /**
- * Structured detail for the message-card stat chips (tokens / time / tools).
+ * Structured detail for the message-card stat chips (tokens / time / tools / files).
  *
  * WHY STRUCTURED (operator, 2026-09-22): the chips used a native `title`
  * with one or two lines ("Input: 5,996 · Output: 423"), while the run ledger
@@ -17,7 +17,7 @@ import type { WorkflowModelCall, WorkflowStatistics } from "./workflow_evidence.
  * "not reported" — never 0, which would be a claim.
  */
 
-export type StatDetailKind = "tokens" | "time" | "tools";
+export type StatDetailKind = "tokens" | "time" | "tools" | "files";
 export type StatDetailRow = { label: string; value: string; hint?: string };
 export type StatDetailSection = {
   heading: string;
@@ -351,10 +351,37 @@ function toolDetail(s: WorkflowStatistics): StatDetail {
   };
 }
 
+/** Files a turn's tools wrote (the "N files changed" chip; was a native multi-line `title`
+ *  until 0.6.4). One row per file: its name, then the folder it is in. */
+const FILES_SHOWN = 30;
+function filesDetail(s: WorkflowStatistics): StatDetail {
+  const files = s.changedFiles || [];
+  const rows: StatDetailRow[] = files.slice(0, FILES_SHOWN).map((path) => {
+    // POSIX and Windows separators alike ("src/a.ts", "src\\a.ts").
+    const clean = path.replace(/[\\/]+$/, "");
+    const cut = Math.max(clean.lastIndexOf("/"), clean.lastIndexOf("\\"));
+    return { label: cut >= 0 ? clean.slice(cut + 1) || clean : clean, value: cut > 0 ? clean.slice(0, cut) : cut === 0 ? "/" : "workspace folder" };
+  });
+  return {
+    kind: "files",
+    title: "Files changed",
+    headline: plural(files.length, "file"),
+    sections: [
+      {
+        heading: "Written by this turn's tools",
+        rows,
+        note: files.length > FILES_SHOWN ? `and ${plural(files.length - FILES_SHOWN, "more file")}` : undefined,
+      },
+    ],
+    footer: ["From the run ledger: the paths of this turn's completed file-writing tool calls."],
+  };
+}
+
 /** Pure: the structured detail for one chip, from the folded statistics. */
 export function statDetail(kind: StatDetailKind, statistics: WorkflowStatistics): StatDetail {
   if (kind === "tokens") return tokenDetail(statistics);
   if (kind === "time") return timeDetail(statistics);
+  if (kind === "files") return filesDetail(statistics);
   return toolDetail(statistics);
 }
 
@@ -402,8 +429,8 @@ export function StatDetailPanel(props: {
           <div className="pc-stat-detail-heading">{section.heading}</div>
           {section.rows?.length ? (
             <dl className="pc-stat-detail-rows">
-              {section.rows.map((row) => (
-                <React.Fragment key={row.label}>
+              {section.rows.map((row, i) => (
+                <React.Fragment key={`${row.label}:${i}`}>
                   <dt>{row.label}</dt>
                   <dd>
                     <span className={row.value === NR ? "pc-stat-detail-value pc-stat-detail-value--absent" : "pc-stat-detail-value"}>
