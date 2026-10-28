@@ -50,9 +50,9 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
       return { notModified: false, view: clone(view), etag, bytes: JSON.stringify(view).length };
     },
     // A one-turn conversation (the loaded run is its only root run).
-    async listSessionTurns() {
+    async listSessionTurns(runId) {
       counts.listSessionTurns += 1;
-      return c.views.length ? [{ run_id: c.views[at].root_run_id, created_at: "2026-10-28T10:00:00Z" }] : [];
+      return [{ run_id: runId, created_at: "2026-10-28T10:00:00Z" }];
     },
     async streamView(runId, opts) {
       counts.streamView += 1;
@@ -377,33 +377,34 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
 }
 
 // ---- Reopening a conversation of several turns shows every turn (backlog 0058) -------------
-// A conversation is the session's root runs; each has its own view. Reopened on its last run,
-// the chat must show the earlier turns too, oldest first, before the loaded turn.
+// A conversation is the session's turns (the runtime's selection, via the history bundle's
+// `session.turns`); each turn has its own view. Reopened on its last run, the chat shows the
+// earlier turns too, oldest first, before the loaded turn.
 {
   const first = load("l_answer_then_completion");
   const second = load("a2_delegated_approval_completed");
-  const v1 = first.views[first.views.length - 1];
-  const v2 = second.views[second.views.length - 1];
+  const third = load("b_timer_without_resume");
+  // One conversation: the three captured runs, given one session id.
+  const v1 = { ...first.views[first.views.length - 1], session_id: "conv-1" };
+  const v2 = { ...second.views[second.views.length - 1], session_id: "conv-1" };
+  const v3open = { ...third.views.find((v) => v.status === "waiting"), session_id: "conv-1" };
+  const byId = new Map([[v1.root_run_id, v1], [v2.root_run_id, v2], [v3open.root_run_id, v3open]]);
   const reads = [];
-  const make = ({ list = true, listError = null } = {}) => {
+  const make = ({ list = true, listError = null, order = [v1.root_run_id, v2.root_run_id], missing = new Set() } = {}) => {
     const replayView = {
       async getView(runId) {
         reads.push(runId);
-        const view = runId === v1.root_run_id ? v1 : runId === v2.root_run_id ? v2 : null;
-        if (!view) throw Object.assign(new Error("Run not found"), { status: 404 });
+        const view = byId.get(runId);
+        if (!view || missing.has(runId)) throw Object.assign(new Error("Run not found"), { status: 404 });
         return { notModified: false, view: clone(view), etag: `"${view.cursor.token}"`, bytes: 1 };
       },
       async streamView(runId, opts) { opts.onOpen?.(); opts.onFrame({ event: "done", data: "{}" }); return { bytes: 0 }; },
       ...(list
         ? {
-            async listSessionTurns(sessionId) {
-              assert.equal(sessionId, v2.session_id, "the turns are listed for the loaded view's session");
+            async listSessionTurns(runId) {
               if (listError) throw listError;
-              // the gateway's order is most recent first; the transport sorts, a fake may not: give it sorted
-              return [
-                { run_id: v1.root_run_id, created_at: "2026-10-28T10:00:00Z" },
-                { run_id: v2.root_run_id, created_at: "2026-10-28T10:05:00Z" },
-              ];
+              // The runtime's selection is cut at the asked run (its last turn).
+              return order.slice(0, order.indexOf(runId) + 1).map((id) => ({ run_id: id }));
             },
           }
         : {}),
@@ -419,6 +420,8 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
     };
     return { transport, history: () => history };
   };
+  const firstIds = projectReplayView(v1).messages.map((m) => m.id);
+  const secondIds = projectReplayView(v2).messages.map((m) => m.id);
   {
     reads.length = 0;
     const gw = make();
@@ -427,14 +430,36 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
     await settle();
     const snap = ctl.getSnapshot();
     const ids = snap.messages.map((m) => m.id);
-    const firstIds = projectReplayView(v1).messages.map((m) => m.id);
-    const secondIds = projectReplayView(v2).messages.map((m) => m.id);
     assert.ok(firstIds.length && firstIds.every((id) => ids.includes(id)), `the earlier turn's messages are shown (${JSON.stringify(ids)})`);
     assert.ok(secondIds.every((id) => ids.includes(id)), "the loaded turn's messages are shown");
     assert.ok(Math.max(...firstIds.map((id) => ids.indexOf(id))) < Math.min(...secondIds.map((id) => ids.indexOf(id))), "the earlier turn comes first");
-    assert.deepEqual(reads.sort(), [v1.root_run_id, v2.root_run_id].sort(), "one view read per turn");
-    assert.equal(gw.history(), 0, "still no history bundle");
+    assert.deepEqual(reads.slice().sort(), [v1.root_run_id, v2.root_run_id].sort(), "one view read per turn");
+    assert.equal(gw.history(), 0, "no history bundle read by the controller (the transport lists turns)");
     assert.equal(snap.status, v2.status, "status and interaction stay the loaded turn's");
+    // A new turn reloads the controller: the finished earlier turns are not read again, and they
+    // are shown before the list is re-read (no collapse to the new prompt).
+    reads.length = 0;
+    const order3 = [v1.root_run_id, v2.root_run_id, v3open.root_run_id];
+    gw.transport.replayView.listSessionTurns = async (runId) => order3.slice(0, order3.indexOf(runId) + 1).map((id) => ({ run_id: id }));
+    await ctl.load(v3open.root_run_id);
+    await settle();
+    const ids3 = ctl.getSnapshot().messages.map((m) => m.id);
+    assert.deepEqual(reads, [v3open.root_run_id], `finished turns come from the cache (${JSON.stringify(reads)})`);
+    assert.ok([...firstIds, ...secondIds].every((id) => ids3.includes(id)), "both earlier turns still shown");
+    ctl.dispose();
+  }
+  {
+    // An earlier turn that is not finished: shown as it is, labeled; one that cannot be read: labeled.
+    reads.length = 0;
+    const order = [v3open.root_run_id, "gone-run-0000", v2.root_run_id];
+    const gw = make({ order, missing: new Set(["gone-run-0000"]) });
+    const ctl = new WorkflowSessionController(gw.transport, { clientId: "turns-open" });
+    await ctl.load(v2.root_run_id);
+    await settle();
+    const msgs = ctl.getSnapshot().messages;
+    assert.ok(msgs.some((m) => m.id === `history:${v3open.root_run_id}:open` && /still (waiting|running);/.test(m.content)), "an open earlier turn says so");
+    assert.ok(msgs.some((m) => m.id === "history:gone-run-0000:unavailable" && /could not be restored \(gone-run\): Run not found/.test(m.content)), "an unreadable earlier turn says so");
+    assert.equal(ctl.getSnapshot().interaction?.runId === v3open.root_run_id, false, "an earlier turn's question never becomes the conversation's interaction");
     ctl.dispose();
   }
   {
@@ -458,27 +483,18 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
   ok();
 }
 
-// ---- createReplayViewTransport.listSessionTurns: the gateway's runs listing, every page, oldest first
+// ---- createReplayViewTransport.listSessionTurns: the runtime's session turns from a small bundle
 {
   const asked = [];
-  const pages = [
-    { items: Array.from({ length: 100 }, (_, i) => ({ run_id: `r${200 - i}`, created_at: `2026-10-28T10:${String(Math.floor((200 - i) / 60)).padStart(2, "0")}:${String((200 - i) % 60).padStart(2, "0")}Z` })), has_more: true },
-    { items: [{ run_id: "r100", created_at: "2026-10-28T10:01:40Z" }, { run_id: "", created_at: "x" }], has_more: false },
-  ];
   const rv = createReplayViewTransport({
     fetch: async (path) => {
       asked.push(path);
-      const page = pages[asked.length - 1];
-      return new Response(JSON.stringify(page), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ session: { session_id: "s", turns: [{ run_id: "a", created_at: "1" }, { run_id: "a" }, { run_id: "" }, { run_id: "b r" }] }, ledgers: {} }), { status: 200, headers: { "content-type": "application/json" } });
     },
   });
-  const turns = await rv.listSessionTurns("s 1");
-  assert.equal(asked[0], "runs?session_id=s%201&root_only=true&include_ledger_len=false&limit=100&offset=0", asked[0]);
-  assert.equal(asked[1], "runs?session_id=s%201&root_only=true&include_ledger_len=false&limit=100&offset=100", "the next page while has_more");
-  assert.equal(asked.length, 2);
-  assert.equal(turns.length, 101, "every listed run, rows without a run id dropped");
-  assert.equal(turns[0].run_id, "r100", "oldest first");
-  assert.equal(turns[turns.length - 1].run_id, "r200");
+  const turns = await rv.listSessionTurns("b r");
+  assert.equal(asked[0], "runs/b%20r/history_bundle?include_session=true&include_subruns=false&ledger_max_items=1&detail=replay&session_turn_limit=200", asked[0]);
+  assert.deepEqual(turns, [{ run_id: "a", created_at: "1" }, { run_id: "b r" }], "the runtime's order, duplicates and blank rows dropped");
   const failing = createReplayViewTransport({ fetch: async () => new Response(JSON.stringify({ detail: "nope" }), { status: 403 }) });
   await assert.rejects(failing.listSessionTurns("s"), /nope/, "a refused listing throws (the controller labels it)");
   ok();

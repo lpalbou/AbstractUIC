@@ -221,6 +221,7 @@ export {
   type ReplayViewInteraction,
   type ReplayViewTransport,
   type ReplaySessionTurn,
+  REPLAY_SESSION_TURN_LIMIT,
   type ReplayViewFetch,
   type ReplayViewRead,
   type ReplayViewStreamOptions,
