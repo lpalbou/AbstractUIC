@@ -46,7 +46,7 @@ check("A the selected mode is accent-tinted", has('.af-voice-create__modes > but
 check("A fields are themed", has(".af-voice-create textarea", /background:\s*var\(--bg-input/) && has('.af-voice-create input:not([type="file"])', /border:\s*1px solid var\(--border-default\)/));
 check("A the file picker button is themed", has('.af-voice-create input[type="file"]::file-selector-button', /border:\s*1px solid var\(--ui-border-1\)/));
 check("A Create voice is the accent-tinted primary", has('.af-voice-create > [data-action="create-voice"]', /background:\s*color-mix\(in srgb, var\(--accent\) 22%/));
-check("A touch floor covers the create controls", /@media \(pointer: coarse\)\s*\{[^}]*\.af-voice-create button,/.test(css));
+check("A touch floor covers the create fields (its buttons: the voice block's own coarse rule)", /@media \(pointer: coarse\)\s*\{[^}]*\.af-voice-create input:not\(\[type="file"\]\),/.test(css) && /\.af-voice-create button\s*\{\s*min-height:\s*44px/.test(css));
 
 // B. tool row badge
 check("B the badge never wraps inside itself", has(".af-tool-row__badge", /white-space:\s*nowrap/), rules(".af-tool-row__badge"));

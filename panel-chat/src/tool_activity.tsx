@@ -120,10 +120,10 @@ export function ToolActivity({
           <span
             className="pc-tool-activity__duration"
             data-approval-wait={tool.approvalWait ? "" : undefined}
-            title={tool.approvalWait ? "Timed from request to result: includes waiting for your approval." : undefined}
+            title={tool.approvalWait ? "Timed from request to result: includes the wait for your decision." : undefined}
           >
             {formatDuration(duration)}
-            {tool.approvalWait ? " incl. approval" : ""}
+            {tool.approvalWait ? " incl. approval wait" : ""}
           </span>
         ) : null}
         <span className="pc-tool-activity__chevron" aria-hidden="true">

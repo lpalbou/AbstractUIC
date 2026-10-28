@@ -124,8 +124,10 @@ export function gatewayStatusBadge(status: GatewayConnectionState | null): { lab
   // send the person to a form that cannot help.
   const code = typeof status.gateway_status === "number" ? status.gateway_status : null;
   const host = gatewayHostLabel(status.gateway_url);
-  if (code === 0) return { label: `Gateway unreachable${host ? ` at ${host}` : ""} — is it running?`, tone: "err" };
+  if (code === 0) return { label: `Gateway${host ? ` at ${host}` : ""} did not answer — is it running?`, tone: "err" };
+  if (code === 502 || code === 503 || code === 504) return { label: `Gateway unavailable (HTTP ${code}) — try again shortly`, tone: "err" };
   if (code !== null && code >= 500) return { label: `Gateway error (HTTP ${code}) — try again shortly`, tone: "err" };
+  if (code !== null && code >= 400 && code !== 401 && code !== 403) return { label: `Gateway answered HTTP ${code} — check the gateway URL`, tone: "err" };
   const err = gw.error || gw.detail;
   if (typeof err === "string" && err.trim()) return { label: "Session rejected — sign in again", tone: "err" };
   return { label: "Sign in required", tone: "err" };

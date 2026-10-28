@@ -424,8 +424,8 @@ let cookieHeader = "";
 
 // ----------------------------------- gateway down: the probe says so (gateway_status 0)
 {
-  await new Promise((resolve) => gw.close(resolve));
   gw.closeAllConnections?.();
+  await new Promise((resolve) => gw.close(resolve));
   const r = await call(appPort, "/api/connection/gateway", { headers: { Cookie: cookieHeader } });
   check("gateway down: 200, ok=false, gateway_status 0", r.status === 200 && r.json.ok === false && r.json.has_session === true && r.json.gateway_status === 0, JSON.stringify(r.json));
 }

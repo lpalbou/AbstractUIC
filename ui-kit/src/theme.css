@@ -4383,7 +4383,6 @@ html {
   .af-tool-policy__filter input,
   .af-tool-row,
   .af-pmp__seg-btn,
-  .af-voice-create button,
   .af-voice-create input:not([type="file"]),
   .af-appearance__close,
   .af-topbar__pill,
@@ -7228,15 +7227,16 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The long named default ellipsizes; the short "Custom" choice never does ("Cus..."
- * in a 400 px panel, release-closing polish). */
+/* The long named default ellipsizes first; the short "Custom" choice keeps its width
+ * ("Cus..." in a 400 px panel, release-closing polish). */
 .af-pmp__seg-btn:first-child {
   flex: 0 1 auto;
   min-width: 0;
 }
 .af-pmp__seg-btn:last-child {
   flex: 0 0 auto;
-  overflow: visible;
+  /* a host's long customLabel still ellipsizes, at half the control */
+  max-width: 50%;
 }
 
 /* --- ui-primitives (shell) --- */

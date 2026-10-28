@@ -228,20 +228,30 @@ const target = { runId: "root", waitKey: "approve:1", stepId: "step:approve:1" }
   const none = presentInteraction(h.controller.getSnapshot().interaction, h.controller, { sessionPolicy: {} });
   check("E no toolsetOf and no call toolset: only the call's own", JSON.stringify(none.approveKinds.map((k) => k.kind)) === JSON.stringify(["search"]));
   const html = renderToStaticMarkup(React.createElement(WorkflowInteractionPanel, { interaction: control }));
-  check("E the panel renders a kind button per toolset", (html.match(/data-decision="approve-kind"/g) || []).length === 3 && html.includes('data-kind="web">Allow all web tools for this chat<'));
+  check("E the panel renders a kind button per toolset", (html.match(/data-decision="approve-kind"/g) || []).length === 3 && /data-kind="web"[^>]*>Allow all web tools for this chat</.test(html));
   const bare = renderToStaticMarkup(React.createElement(WorkflowInteractionPanel, { interaction: { id: "y", kind: "tool-approval", toolName: "t", onApprove: () => {}, onDeny: () => {} } }));
   check("E no kinds unless injected", !bare.includes("approve-kind"));
   // Release-closing polish (2026-10-28): the scope sentence names the real buttons, never a
   // "<toolset>" placeholder, and sits in one disclosure (and each button's tooltip), not as
   // always-open paragraphs that push the decision off a phone screen.
-  check("E the scope sentence names the real buttons", !/<toolset>/.test(control.approveForSessionDescription) && control.approveForSessionDescription.startsWith("“Allow for this chat” and “Allow all web tools for this chat” and “Allow all files tools for this chat” and “Allow all search tools for this chat” approve this batch and store a policy"), control.approveForSessionDescription);
-  check("E without toolsets the sentence is singular", none.approveForSessionDescription.startsWith("“Allow for this chat” and “Allow all search tools for this chat” approve") || /^“Allow for this chat” approves this batch and stores a policy/.test(none.approveForSessionDescription), none.approveForSessionDescription);
+  check("E the scope sentence names the real buttons as alternatives, each with its reach", !/<toolset>/.test(control.approveForSessionDescription) && control.approveForSessionDescription.startsWith("Each of “Allow for this chat” (every tool), “Allow all web tools for this chat” (that toolset only), “Allow all files tools for this chat” (that toolset only) or “Allow all search tools for this chat” (that toolset only) approves this batch and stores a policy for this chat on the gateway: the later tool calls it covers"), control.approveForSessionDescription);
+  {
+    const f0 = fakeClient();
+    const h0 = await harness({ client: f0.client });
+    h0.emit(approvalRecord("approve:0", [{ name: "mystery", call_id: "c0" }]));
+    const single = presentInteraction(h0.controller.getSnapshot().interaction, h0.controller, { sessionPolicy: {} });
+    check("E no toolset at all: the singular sentence", single.approveKinds.length === 0 && single.approveForSessionDescription.startsWith("“Allow for this chat” approves this batch and stores a policy for this chat on the gateway: later tool calls of every run of this chat run without asking"), single.approveForSessionDescription);
+  }
+  check("E the always-visible summary carries the Ask warning", /keep allowing later tool calls of this chat/.test(control.broadScopeSummary) && /fetch_url, browser_probe, send_email\) are included/.test(control.broadScopeSummary), control.broadScopeSummary);
+  const summaryAt = html.indexOf('data-scope-summary="">');
+  check("E the summary is rendered open, before any disclosure", summaryAt > 0 && summaryAt < html.indexOf("<details", html.indexOf('data-decision="approve-all"') > 0 ? html.indexOf('data-decision="approve-all"') : html.indexOf('data-decision="approve-session"')), html.slice(0, 600));
+  check("E every kind button carries the scope as its tooltip", (html.match(/data-decision="approve-kind"[^>]*title="Each of /g) || []).length === 3 || (html.match(/title="Each of [^"]*"[^>]*data-decision="approve-kind"/g) || []).length === 3, html.slice(0, 2000));
   const desc = `>${control.approveForSessionDescription}</p>`;
   const detailsAt = html.indexOf('<details class="pc-workflow-interaction__scope-details" data-scope-details="">');
   const descAt = html.indexOf(desc);
   check("E the scope text sits inside the disclosure", detailsAt >= 0 && descAt > detailsAt && html.indexOf("</details>", detailsAt) > descAt, html.slice(-900));
   check("E the scope text is rendered once as text (no open paragraph outside the disclosure)", html.split(desc).length - 1 === 1);
-  check("E the broad button carries the scope as its tooltip", /data-decision="approve-session"[^>]*title="“Allow for this chat”/.test(html) || /title="“Allow for this chat”[^"]*"[^>]*data-decision="approve-session"/.test(html), html.slice(0, 1500));
+  check("E the broad button carries the scope as its tooltip", /data-decision="approve-session"[^>]*title="Each of /.test(html) || /title="Each of [^"]*"[^>]*data-decision="approve-session"/.test(html), html.slice(0, 1500));
   let threw = false;
   try { presentInteraction(h.controller.getSnapshot().interaction, { approve: async () => {}, approveWithPolicyChange: async () => {}, resume: async () => {}, emitEvent: async () => {} }, { sessionPolicy: {} }); } catch { threw = true; }
   check("E a controller without the policy methods fails loudly", threw);

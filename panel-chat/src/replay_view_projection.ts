@@ -104,7 +104,9 @@ export function replayToolActivities(activity: ReplayViewActivity): WorkflowTool
       ...(error ? { error } : {}),
       ...(str(activity.started_at) ? { startedAt: str(activity.started_at) } : {}),
       ...(str(activity.ended_at) ? { endedAt: str(activity.ended_at) } : {}),
-      ...(activity.wait?.kind === "tool_approval" ? { approvalWait: true } : {}),
+      // A person decided (the view sets `outcome` only once every call of the batch is decided,
+      // AbstractRuntime replay/view.py:1050-1051); a wait cut short by the run's end has none.
+      ...(activity.wait?.kind === "tool_approval" && activity.wait.outcome ? { approvalWait: true } : {}),
       ...(str(call.id) ? { callId: str(call.id) } : {}),
       ...(policy ? { policy } : {}),
     };
