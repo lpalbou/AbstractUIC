@@ -9,6 +9,18 @@ ships.
 
 ## Unreleased
 
+## 0.7.2 - 2026-10-28
+
+Packages: `@abstractframework/ui-kit` 0.9.2 (panel-chat unchanged at 0.5.0).
+
+### Voice: the cloning checkpoint is offered as a model, marked
+
+- `VoiceSettings`' speech model list reads `tts_model_details_by_provider` (AbstractVoice 0.19.2, through
+  AbstractGateway `GET voice/voices`): a cloning checkpoint (Qwen3-TTS `…-Base`, role `"cloning"`, the model a cloned
+  voice is spoken with) is shown as "<id> (clones)". Without details the ids show as before.
+- `ProviderModelPicker`'s `fetchModels` may return `{id, label}` records as well as ids (additive; existing hosts
+  unchanged); `ProviderModelSelect` takes `modelDisplayNames` (id → label). The value stays the id.
+
 ## 0.7.1 - 2026-10-27
 
 Packages: `@abstractframework/ui-kit` 0.9.1 (panel-chat unchanged at 0.5.0).

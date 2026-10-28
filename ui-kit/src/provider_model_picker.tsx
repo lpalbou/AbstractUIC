@@ -52,7 +52,8 @@ export type ProviderModelPickerProps = {
 
   /** Injected transports. Return shapes are normalized defensively. */
   fetchProviders: () => Promise<ProviderOption[]>;
-  fetchModels: (provider: string) => Promise<string[]>;
+  /** Model ids, or `{id, label}` records (the label is what the list shows, e.g. "<id> (clones)"). */
+  fetchModels: (provider: string) => Promise<Array<string | { id: string; label?: string }>>;
   /** Optional model-aware reasoning control. No guessed model-name heuristics. */
   fetchModelCapabilities?: (
     model: string,
@@ -133,6 +134,7 @@ export function ProviderModelPicker(
   const [providersLoading, setProvidersLoading] = useState(false);
   const [providersError, setProvidersError] = useState("");
   const [models, setModels] = useState<string[]>([]);
+  const [modelNames, setModelNames] = useState<Record<string, string>>({});
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState("");
 
@@ -217,7 +219,16 @@ export function ProviderModelPicker(
       try {
         const res = await fetchers.current.fetchModels(providerName);
         if (!alive) return;
-        setModels(Array.isArray(res) ? res : []);
+        const ids: string[] = [];
+        const labels: Record<string, string> = {};
+        for (const item of Array.isArray(res) ? res : []) {
+          const id = typeof item === "string" ? item : String(item?.id || "");
+          if (!id) continue;
+          ids.push(id);
+          if (typeof item !== "string" && item?.label && item.label !== id) labels[id] = String(item.label);
+        }
+        setModels(ids);
+        setModelNames(labels);
       } catch (e: any) {
         if (!alive) return;
         setModels([]);
@@ -405,6 +416,7 @@ export function ProviderModelPicker(
           model={modelName}
           providers={providers}
           models={models}
+          modelDisplayNames={modelNames}
           markSaved={mountedRoute.current}
           providerPinned={pins.provider}
           modelPinned={pins.model}

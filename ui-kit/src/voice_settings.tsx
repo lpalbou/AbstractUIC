@@ -446,11 +446,18 @@ export function VoiceSettings({
         }}
         fetchModels={async (provider) => {
           const next = await fetcher.current(provider);
-          return names(
+          const ids = names(
             next.tts_models_by_provider?.[provider] ||
               next.tts_models ||
               next.models,
           );
+          // AbstractVoice >= 0.19.2 marks each model's role: a cloning checkpoint (Qwen3-TTS
+          // Base, the one a cloned voice is spoken with) is shown as "<id> (clones)".
+          const details: any[] = Array.isArray(next.tts_model_details_by_provider?.[provider])
+            ? next.tts_model_details_by_provider[provider]
+            : [];
+          const labelOf = new Map(details.filter((d) => d && d.id).map((d) => [String(d.id), String(d.label || (d.role === "cloning" ? `${d.id} (clones)` : d.id))]));
+          return ids.map((id) => ({ id, label: labelOf.get(id) || id }));
         }}
         providerLabel="Speech provider"
         modelLabel="Speech model"

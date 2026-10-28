@@ -616,6 +616,31 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
         check("0947 voices listed: no reason note", !dataH(hv.tree, "data-voice-note", "unavailable"));
         hv.unmount();
       }
+      // 0.9.2: a cloning checkpoint (AbstractVoice 0.19.2 `tts_model_details_by_provider`, role "cloning")
+      // is offered in the model list as "<id> (clones)".
+      {
+        const BASE = "Qwen/Qwen3-TTS-12Hz-0.6B-Base";
+        const CUSTOM = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice";
+        const cat = { tts_providers: ["qwen3-tts"], tts_models_by_provider: { "qwen3-tts": [CUSTOM, BASE] },
+          tts_model_details_by_provider: { "qwen3-tts": [{ id: CUSTOM, role: "tts", label: CUSTOM }, { id: BASE, role: "cloning", label: `${BASE} (clones)` }] }, items: [] };
+        const hm = mountH(VoiceSettings, { value: { provider: "qwen3-tts" }, onChange: () => undefined, fetchCatalog: async () => cat });
+        await hm.settle();
+        const picker = findH(hm.tree, (n) => n.type === kit.ProviderModelPicker);
+        const models = await picker.props.fetchModels("qwen3-tts");
+        check("0.9.2 the voice picker labels a cloning checkpoint", JSON.stringify(models) === JSON.stringify([{ id: CUSTOM, label: CUSTOM }, { id: BASE, label: `${BASE} (clones)` }]), JSON.stringify(models));
+        hm.unmount();
+        const hp = mountH(kit.ProviderModelPicker, { value: { provider: "qwen3-tts", model: "" }, onChange: () => undefined,
+          fetchProviders: async () => [{ name: "qwen3-tts" }], fetchModels: async () => [{ id: CUSTOM }, { id: BASE, label: `${BASE} (clones)` }] });
+        await hp.settle();
+        await sleep(5);
+        await hp.settle();
+        const sel = findH(hp.tree, (n) => n.type === kit.ProviderModelSelect);
+        check("0.9.2 the provider/model picker shows a model's label, keeps its id", JSON.stringify(sel?.props.models) === JSON.stringify([CUSTOM, BASE]) && sel?.props.modelDisplayNames?.[BASE] === `${BASE} (clones)` && !(CUSTOM in (sel?.props.modelDisplayNames || {})), JSON.stringify([sel?.props.models, sel?.props.modelDisplayNames]));
+        hp.unmount();
+        const { renderToStaticMarkup: r } = await import("react-dom/server");
+        const html = r(React.createElement(kit.ProviderModelSelect, { provider: "qwen3-tts", model: BASE, providers: [{ name: "qwen3-tts" }], models: [CUSTOM, BASE], modelDisplayNames: { [BASE]: `${BASE} (clones)` }, onChange: () => undefined }));
+        check("0.9.2 the select renders the label", html.includes(`${BASE} (clones)`), html.slice(0, 200));
+      }
       // A profile stored as `voice` (a capability route's options.voice) is shown as that profile.
       {
         const prof = { items: [{ id: "aiden", name: "Aiden", provider: "qwen3-tts", model: "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", voice_kind: "profile", language: "en" }] };

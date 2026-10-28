@@ -195,7 +195,8 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   `createVoice`, which stays as an alias) adds **Manage voices** (`VoiceLibraryPanel`: the voices
   that can change, built-in ones are read-only and not listed; **Rename**, **Delete** asked twice,
   **Share** where the host injects `share`, i.e. for an administrator; a refusal is the gateway's
-  sentence); `previewVoice(prefs, text?, opts?) => Promise<ArrayBuffer>` makes **choosing a voice play
+  sentence); The speech model list shows a cloning checkpoint (AbstractVoice `tts_model_details_by_provider`, role `"cloning"`,
+  e.g. Qwen3-TTS Base) as "<id> (clones)" (0.9.2). `previewVoice(prefs, text?, opts?) => Promise<ArrayBuffer>` makes **choosing a voice play
   it** (host-injected: every gateway TTS route needs a run or an entity), played on
   `previewOn` (`{deviceId, volume}`): one play/stop toggle sits at the right of the voice select
   (play restarts from 0, stop stops and rewinds; busy while the sample is on its way, a click then
