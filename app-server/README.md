@@ -181,7 +181,11 @@ browser-held tokens.
 
 The proxy's contract is:
 
-- `GET /api/connection/gateway` returns the current browser-session status.
+- `GET /api/connection/gateway` returns the current browser-session status:
+  `{ok, gateway_url, has_session, gateway_status?, gateway}`, where `gateway` is the
+  gateway's `GET /api/gateway/me` body and `gateway_status` its HTTP status (0 when the
+  gateway did not answer: refused, timed out; absent without a session; 0.1.13), so a
+  client can tell a gateway that is down from a rejected session.
 - `POST /api/connection/gateway` exchanges a Gateway user/token for an
   HttpOnly session cookie plus a JS-readable CSRF twin.
 - `DELETE /api/connection/gateway` signs the browser session out.

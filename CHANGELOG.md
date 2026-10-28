@@ -9,6 +9,50 @@ ships.
 
 ## Unreleased
 
+## 0.8.1 - 2026-10-28
+
+Packages: `@abstractframework/ui-kit` 0.9.3, `@abstractframework/panel-chat` 0.6.1, `@abstractframework/app-server` 0.1.13
+(panel-chat still needs ui-kit `^0.9.0`).
+
+### Release-closing polish (backlog 0054)
+
+Found by rendering every app against a scratch gateway at 1440 and 390 px, light and dark
+(AbstractFramework `untracked/release-closing/aesthetic/`, before/after screenshots).
+
+- **Create a voice / Manage voices** (ui-kit): the two fieldsets of `AfVoiceSettings` were left to the
+  browser (grooved border, grey default buttons, labels beside their fields). They are now cards with a
+  legend, the mode switch is the kit's segmented pill, labels stack over themed fields (the recording's
+  file button too), and "Create voice" is the accent-tinted primary; the controls reach the 44 px touch floor.
+- **Tool approval card** (panel-chat): the scope sentence named a literal "Allow all <toolset> tools for this
+  chat"; it now names the real buttons as alternatives, each with its reach ("Each of “Allow for this chat”
+  (every tool) or “Allow all system tools for this chat” (that toolset only) approves this batch and stores a
+  policy …"). The two scope paragraphs that were always open (on a phone they pushed the decision off the
+  screen) become one short line that stays visible under the decisions (new `broadScopeSummary`: what the broad
+  grants reach and which tools keep asking, e.g. "Nothing is set to Ask, so … fetch_url, browser_probe,
+  send_email are included") plus one disclosure, "What the broader choices allow", with the full sentences;
+  every broad button (kind buttons included) carries its sentence as a tooltip. An interaction without
+  `broadScopeSummary` keeps the sentences open. "Allow once", the narrowest grant, is the one accent-tinted
+  primary; "Allow for this chat", "Allow all <toolset> tools" and "Allow all enabled tools" are neutral.
+- **Gateway down is not a rejected session** (app-server, ui-kit): `GET /api/connection/gateway` returns
+  `gateway_status`, the gateway's HTTP status for the session check (0 when it did not answer). The connection
+  badge says "Gateway at 127.0.0.1:8080 did not answer — is it running?" (0), "Gateway unavailable (HTTP 503)"
+  (502/503/504), "Gateway error (HTTP 500)" (other 5xx) or "Gateway answered HTTP 404 — check the gateway URL"
+  (other 4xx) instead of "Session rejected — sign in again", which stays for 401/403; without the field (an
+  older app server) the wording is unchanged.
+- **One duration format in the chat** (panel-chat): the tool row and the turn's time chip use the stat panel's
+  `formatDuration` ("4.2s", "3m 26s"; was "205.8s" and "215s"), now exported. A tool call that waited for the
+  person's decision (new `WorkflowToolActivity.approvalWait`: the replay view's `activities[].wait.kind ==
+  "tool_approval"` with an `outcome`; the ledger-fold fallback reads the call's `waiting` approval row) reads
+  "3m 26s incl. approval wait", with a tooltip saying the time runs from request to result.
+- **Tool policy rows** (ui-kit): the risk/toolset badge no longer breaks mid-word ("DESTRO/Y") or squeezes the
+  tool name; it moves under the name when the row is narrow.
+- **Model picker** (ui-kit): "Custom" is no longer truncated ("Cus…"); the long named default ellipsizes first
+  (a host's long `customLabel` ellipsizes at half the control).
+- Checks: `ui-kit/scripts/check_polish_css.mjs`, `panel-chat/scripts/check_polish.mjs`, additions to
+  `check_gateway_connection.mjs`, `check_session_policy.mjs` and the app-server proxy test; each mutation-checked
+  (removing a fix turns its check red). Adversarial review (Opus, read-only): one blocker (the Ask warning was
+  hidden in the disclosure) and five should-fix findings, all fixed with checks.
+
 ## 0.8.0 - 2026-10-28
 
 Packages: `@abstractframework/panel-chat` 0.6.0 (ui-kit unchanged at 0.9.2; panel-chat still needs ui-kit `^0.9.0`).
