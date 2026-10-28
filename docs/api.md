@@ -316,7 +316,7 @@ Components:
 
 ### Message footer
 
-One spec for every chat message of the framework (operator QA 2026-10-28; panel-chat 0.6.4, backlog 0062). The web
+One spec for every chat message of the framework (operator QA 2026-10-28; panel-chat 0.6.4, backlog 0064). The web
 apps get it from `ChatMessageCard` (through `WorkflowChat` / `ChatThread`); a local twin is a fork (ADR 0001). The
 AbstractAssistant desktop mirrors the same contents in its own Qt bubble; on 2026-10-28 its words still differ
 ("Yesterday 10:52 PM" without the separator, a zero-padded day "Oct 01", no year form, the raw text for a malformed

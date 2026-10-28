@@ -1,5 +1,5 @@
 /**
- * The message footer SPEC (operator QA 2026-10-28, AbstractUIC 0.8.4; backlog 0062).
+ * The message footer SPEC (operator QA 2026-10-28, AbstractUIC 0.8.4; backlog 0064).
  *
  * One spec for every chat surface of the framework. The web apps render it through
  * `ChatMessageCard` (never a local twin); the AbstractAssistant desktop mirrors it in its

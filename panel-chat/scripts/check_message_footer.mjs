@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * The message footer spec (operator QA 2026-10-28, AbstractUIC 0.8.4, backlog 0062;
+ * The message footer spec (operator QA 2026-10-28, AbstractUIC 0.8.4, backlog 0064;
  * `panel-chat/src/message_footer.ts`), each pinned so removing the fix is red:
  *  A. the stamp: the time today; "Yesterday · <time>"; "<Mon D> · <time>" earlier this year;
  *     "<Mon D, YYYY> · <time>" another year; the card renders the dated form for a message that

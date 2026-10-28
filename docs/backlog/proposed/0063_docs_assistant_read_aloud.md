@@ -4,7 +4,7 @@
 - Created: 2026-10-28
 - Status: Proposed
 - Area: panel-chat (`docs_assistant.tsx`: `DocsAssistantDrawer`, `docsAssistantPanel`, `DocsAssistantPanel`)
-- Found by: message footer spec (0062), 2026-10-28
+- Found by: message footer spec (0064), 2026-10-28
 
 ## Summary
 The message footer spec puts a speaker on every assistant message whenever the host has a read-aloud path. The Docs

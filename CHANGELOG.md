@@ -12,7 +12,7 @@ ships.
 ## 0.8.4 - 2026-10-28
 
 Packages: `@abstractframework/panel-chat` 0.6.4 (ui-kit unchanged at 0.9.5, app-server at 0.1.13; panel-chat still
-needs ui-kit `^0.9.0`). Operator QA of 2026-10-28, item 2; backlog 0062.
+needs ui-kit `^0.9.0`). Operator QA of 2026-10-28, item 2; backlog 0064.
 
 ### One message footer spec, written once (panel-chat)
 
