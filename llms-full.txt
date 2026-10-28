@@ -20,7 +20,7 @@ Ecosystem context (external):
 Important integration notes:
 - Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
 - One shared component per user-facing job, composed on AbstractGateway's contracts (ADR 0001): use the job table in `docs/adoption-guide.md` before building anything app-local.
-- `@abstractframework/panel-chat` 0.6.1 needs `@abstractframework/ui-kit` `^0.9.0` (peer dependency); upgrade them together.
+- `@abstractframework/panel-chat` 0.6.2 needs `@abstractframework/ui-kit` `^0.9.0` (peer dependency); upgrade them together.
 - Only `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` perform network requests by default (each polls a metrics endpoint; optional Bearer auth).
 - Always import the package CSS from your app entrypoint (especially in Next.js). Start with `docs/getting-started.md` → `docs/api.md`.
 
@@ -70,8 +70,8 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.3): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
-- [@abstractframework/panel-chat](panel-chat/README.md) (0.6.1, needs ui-kit ^0.9.0): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI + markdown/json renderers
+- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.4): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/panel-chat](panel-chat/README.md) (0.6.2, needs ui-kit ^0.9.0): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -168,6 +168,12 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
+
+## What's new in 0.8.2
+
+`@abstractframework/panel-chat` 0.6.2: a conversation reopened in replay-view mode shows every
+turn again (0.6.0 showed only the last one); `@abstractframework/ui-kit` 0.9.4: the voice picker
+lists each Qwen3-TTS voice once ([changelog](./CHANGELOG.md#082---2026-10-28)).
 
 ## What's new in 0.8.1
 
@@ -2218,7 +2224,7 @@ Components:
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
 - `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll?, approveAllScope?, onAllowForSession?, approveAllDisabledReason?, remember?, onDefer?, allowSkip? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow for this chat" only with `onAllowForSession`, "Allow all enabled tools" only with `onPermissionsAll` — its scope sentence names no storage scope unless the host passes `approveAllScope`, e.g. "for this Gateway account" —, "Decide later" only with `onDefer`, a per-tool remember checkbox only with `remember(toolNames)`), question (`ask_user`, choices as buttons and free text; "Continue without answering" with `allowSkip` resumes with an empty answer, "Keep waiting" with `onDefer`) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. The first argument may also be a `ReplayInteraction` (the shape of `replay_view_v1.interaction`) — it produces the same control as the raw wait (`isReplayInteraction()`, `replayInteractionWait()`); a wait that carries the view's `command` (`WorkflowWaitInteraction.command`, `kind`) and is an event is answered with `controller.answerEvent(payload, target)` (the view's resume command), never through an event route. A tool approval with a broad grant carries `broadScopeSummary` (one always-visible line; the full scope sentences go in the "What the broader choices allow" disclosure and the buttons' tooltips; 0.6.1). Types `PresentInteractionOptions`, `InteractionController` (adds optional `answerEvent`), `ReplayInteraction`
-- Replay view (0.6.0, backlog 0040; root 0993, runtime 0854; AbstractGateway >= 0.17.0 `GET runs/{id}/view` + `/view/stream`): `WorkflowTransport.replayView?: ReplayViewTransport` (`{advertised?, getView(runId, {ifNoneMatch?, at?, signal?}) → {notModified, view?, etag, bytes}, streamView(runId, {lastEventId?, signal, onOpen?, onFrame}) → {bytes}}`), built over the host's gateway fetch by `createReplayViewTransport({ fetch(path, init), advertised? })` (`path` relative to the gateway API). With it the controller renders from the view: one `GET /view` + `GET runs/{id}`, then `/view/stream` from the ETag (`Last-Event-ID` = the last applied frame), no history bundle, no ledger pages, no record fold, no timed poll; the root's ledger stream only for live reply text. Snapshot `source: "replay_view" | "ledger_fold"`, `sourceReason` (why not the view: no `replayView` in the transport, `advertised: false`, or the gateway's route-missing 404/405, probed once per transport; any other failure is a load error), `view` (the folded view); `workflowSourceLabel(snapshot)`. Client pieces: `applyDelta(view, delta)` (port of AbstractRuntime 0.15.0 `apply_delta`), `ReplayViewFold` (`adopt(view, etag)`, `apply(frame) → "view"|"delta"|"duplicate"|"stale"|"done"|"ignored"`: a repeated or older frame is not applied), `SseParser`, `parseCursorToken()`, `compareReplayOrder()`, `ReplayViewUnavailableError`, `projectReplayView(view) → {messages, tools, interaction, status, displayStatus, openLlmCalls, endedLlmCalls, runStatus, statistics}`, `replayToolActivities()`, `replayStatistics()`, `toolActivityMessage()`, constants `REPLAY_VIEW_VERSION`, `REPLAY_SCALAR_KEYS`, `REPLAY_LIST_KEYS`; types `ReplayView`, `ReplayViewDelta`, `ReplayViewCursor`, `ReplayViewRun`, `ReplayViewMessage`, `ReplayViewActivity`, `ReplayViewToolCall`, `ReplayViewInteraction`, `ReplayViewTransport`, `ReplayViewFetch`, `ReplayViewRead`, `ReplayViewStreamOptions`, `ReplayViewHttpError`, `ReplayFoldOutcome`, `SseFrame`, `ReplayProjection`, `WorkflowSessionSource`. Checked against the gateway: the 15 conformance cases captured from AbstractGateway 0.17.0 fold to the exact bytes of `GET /view` after every record (`panel-chat/scripts/check_replay_view.mjs`). See the [README](../panel-chat/README.md#replay-view-the-gateways-reconstruction)
+- Replay view (0.6.0, backlog 0040; root 0993, runtime 0854; AbstractGateway >= 0.17.0 `GET runs/{id}/view` + `/view/stream`): `WorkflowTransport.replayView?: ReplayViewTransport` (`{advertised?, getView(runId, {ifNoneMatch?, at?, signal?}) → {notModified, view?, etag, bytes}, streamView(runId, {lastEventId?, signal, onOpen?, onFrame}) → {bytes}, listSessionTurns?(runId, {signal?}) → ReplaySessionTurn[]}`; `listSessionTurns`, 0.6.2: the conversation's turns up to `runId` as the runtime selects them, from a small `history_bundle?include_session=true`; the controller shows every earlier turn's view before the loaded one, finished turns cached per conversation, at most `REPLAY_SESSION_TURN_LIMIT` = 200), built over the host's gateway fetch by `createReplayViewTransport({ fetch(path, init), advertised? })` (`path` relative to the gateway API). With it the controller renders from the view: one `GET /view` + `GET runs/{id}`, then `/view/stream` from the ETag (`Last-Event-ID` = the last applied frame), no history bundle, no ledger pages, no record fold, no timed poll; the root's ledger stream only for live reply text. Snapshot `source: "replay_view" | "ledger_fold"`, `sourceReason` (why not the view: no `replayView` in the transport, `advertised: false`, or the gateway's route-missing 404/405, probed once per transport; any other failure is a load error), `view` (the folded view); `workflowSourceLabel(snapshot)`. Client pieces: `applyDelta(view, delta)` (port of AbstractRuntime 0.15.0 `apply_delta`), `ReplayViewFold` (`adopt(view, etag)`, `apply(frame) → "view"|"delta"|"duplicate"|"stale"|"done"|"ignored"`: a repeated or older frame is not applied), `SseParser`, `parseCursorToken()`, `compareReplayOrder()`, `ReplayViewUnavailableError`, `projectReplayView(view) → {messages, tools, interaction, status, displayStatus, openLlmCalls, endedLlmCalls, runStatus, statistics}`, `replayToolActivities()`, `replayStatistics()`, `toolActivityMessage()`, constants `REPLAY_VIEW_VERSION`, `REPLAY_SCALAR_KEYS`, `REPLAY_LIST_KEYS`; types `ReplayView`, `ReplayViewDelta`, `ReplayViewCursor`, `ReplayViewRun`, `ReplayViewMessage`, `ReplayViewActivity`, `ReplayViewToolCall`, `ReplayViewInteraction`, `ReplayViewTransport`, `ReplayViewFetch`, `ReplayViewRead`, `ReplayViewStreamOptions`, `ReplayViewHttpError`, `ReplayFoldOutcome`, `SseFrame`, `ReplayProjection`, `WorkflowSessionSource`. Checked against the gateway: the 15 conformance cases captured from AbstractGateway 0.17.0 fold to the exact bytes of `GET /view` after every record (`panel-chat/scripts/check_replay_view.mjs`). See the [README](../panel-chat/README.md#replay-view-the-gateways-reconstruction)
 - Session tool policy (0.5.0, backlog 0032; session tool policy contract v1, served by a gateway that advertises `capabilities.session_tool_policy`): `WorkflowSessionControllerOptions.sessionToolPolicy?: SessionToolPolicyClient` (`{supported, sessionId, get, replace, merge, reset}`; host-injected only when `GET discovery/capabilities` serves `capabilities.session_tool_policy.supported === true`), `setSessionToolPolicyClient(client | null, {reason?})` (null + reason = the capability read failed), `onSessionPolicy(policy, clamped)`; methods `approveAllForSession(target, {maxRiskRank?, ask?})`, `approveKindForSession(target, kind, {ask?})`, `denyKindForSession()`, `denyToolForSession()` (write the policy FIRST with the person's `ask` tools, then answer the shown wait; no panel control for the deny methods), `resetSessionPolicy()`, `loadSessionPolicy()`, `sessionPolicyMode()`, `sessionPolicyStatus()`; snapshot `sessionPolicyMode` (`"gateway"` / `"local-fallback"` / `"unavailable"`), `sessionPolicyReason`, `sessionPolicy`, `sessionPolicyClamped`. `presentInteraction` option `sessionPolicy: {toolsetOf?, ask?, maxRiskRank?}`; the mode comes from the controller (kind buttons only for toolsets present; "Always deny … in this chat" under More with its reach stated; the served `scope` words shown as "Applies: …" or "The gateway did not say where this grant applies."; a tool the stored policy denies is named and "Allow once" reports the gateway's refusal; local fallback "Allow for this run", labeled; unavailable: no chat grant, reason shown). Writes go to the root run's session only; denies and resets carry the current revision (`reset(ifRevision)`, read first when unknown; none → a labeled refusal); a 409 asks to re-read. `SessionToolPolicyClient` is ui-kit's shape exactly (`reset(ifRevision?) → {revision?, scope?}`). `SessionToolPolicy.scope?: {approve?, deny?}` (the response's top-level `scope`, carried by the client). Ledger `abstract.tool_policy_decision` → activity line + `WorkflowToolActivity.policy`. Types `SessionToolPolicy`, `SessionToolPolicyBody`, `SessionToolPolicyClamp`, `SessionToolPolicyClient`, `SessionPolicyMode`, `SessionPolicyStatus`, `SessionToolPolicyScope`, `WorkflowToolPolicyProvenance`; helpers `toolPolicyDecision()`, `toolPolicyDecisionText()`, `sessionPolicyClampedText()`
 - Questions and approvals (0.5.0, backlog 0032): `WORKFLOW_INTERACTION_LABELS` is the one wording set (Deny / Allow once / Allow for this chat / Allow all enabled tools / Decide later; Submit / Continue without answering / Keep waiting). `WorkflowToolApprovalInteraction` adds `onApproveForSession?`, `onDefer?` (a dismissal sends nothing and never denies), `remember?: {label, checked, onChange}` (`WorkflowInteractionRemember`; the host words the scope), `disabledReason?` (the broad grants render disabled with the reason visible); its default labels are now "Allow once" / "Allow all enabled tools" (were "Approve" / "Allow all"). `WorkflowAskUserInteraction` adds `onSkip?` and `onDefer?`. `WorkflowInteractionPanel` takes `variant?: "panel" | "card"` (the compact card for "Needs you" lists and inboxes: same decisions, detail behind **Review**)
 - `WorkspaceBrowser` — a run's folder on the gateway host through the CONTRACTS §W routes (`GET /runs/{id}/workspace`, `/workspace/files`, `/workspace/content`): the root once as its short name (`workspaceShortName`; full path on hover) with **Open folder** (`onOpenFolder`, offered only when `workspaceCanOpenFolder`) and **Copy path** icons, breadcrumbs, folders first, then per file: name, size, generated date (relative, exact on hover) and a Download icon; "N entries hidden by the gateway's workspace rules". A click on a file previews it IN PLACE with `FileViewer` (0.3.1: no "Open" button; `fileActions(entry)` adds host actions such as "Attach"), or `onSelectFile` + `selectedPath` hand the selection to a host preview. Files are fetched with the host's credentials, never linked. Props: `fetchGateway(path, init)`, `runId` (an automation's id browses the automation's folder), `title`, `note?`, `onClose?`, `refreshKey?`, `className?`, `fileActions?`, `onOpenFolder?`, `copyText?`, `nowMs?`. Hook-free `WorkspaceBrowserView` and helpers: `loadWorkspaceView()`, `loadRunWorkspace()`, `listWorkspaceFolder()`, `readWorkspaceFile()`, `parseWorkspaceListing()` (malformed answers throw), `gatewayResponseError()`, `tabOpenPlan()`, `workspaceInfoUrl()` / `workspaceFilesUrl()` / `workspaceContentUrl()`, `workspaceCrumbs()`, `workspaceParent()`, `sortWorkspaceEntries()`, `workspaceHiddenNote()`, `formatBytes()`; types `GatewayFetch`, `RunWorkspace`, `WorkspaceEntry`, `WorkspaceListing`, `WorkspaceBrowserProps`, `WorkspaceBrowserViewProps`
@@ -5549,6 +5555,10 @@ const transport: WorkflowTransport = {
 
 With it, `WorkflowSessionController.load(runId)`:
 
+- shows every turn of the conversation (0.6.2): the earlier turns, as the runtime selects them
+  (`listSessionTurns(runId)`: a small `GET runs/{id}/history_bundle?include_session=true`), each
+  from its own `GET /view`, oldest first, before the loaded turn; finished turns are kept per
+  conversation across loads; an open or unreadable earlier turn and a failed listing are labeled;
 - reads `GET runs/{id}/view` and `GET runs/{id}` (for `paused`), then follows `/view/stream`
   from the view's ETag; every frame is folded with `applyDelta` (a port of the runtime's
   `apply_delta`) and projected with `projectReplayView` into the same snapshot the components
@@ -6435,7 +6445,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -6460,7 +6470,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -6536,7 +6546,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -15552,6 +15562,8 @@ export {
   type ReplayViewToolCall,
   type ReplayViewInteraction,
   type ReplayViewTransport,
+  type ReplaySessionTurn,
+  REPLAY_SESSION_TURN_LIMIT,
   type ReplayViewFetch,
   type ReplayViewRead,
   type ReplayViewStreamOptions,
@@ -16556,7 +16568,26 @@ export type ReplayViewTransport = {
   getView(runId: string, options?: { ifNoneMatch?: string | null; at?: string | null; signal?: AbortSignal }): Promise<ReplayViewRead>;
   /** Resolves when the stream ends (a `done` frame, the server closing, or the signal); returns the bytes received. */
   streamView(runId: string, options: ReplayViewStreamOptions): Promise<{ bytes: number }>;
+  /**
+   * The conversation's turns up to and including `runId`, oldest first, as the runtime selects
+   * them (`select_session_turns`, the rule the ledger fold reads from the same bundle): the
+   * `session.turns` of `GET runs/{runId}/history_bundle?include_session=true` (AbstractGateway
+   * routes/gateway.py `get_run_history_bundle`), asked with no sub-runs, one ledger item and the
+   * replay detail so it stays small (the turns rows are still computed by the gateway with their
+   * statistics: a turns-only option is backlog 0059). At most `REPLAY_SESSION_TURN_LIMIT` + 1
+   * turns (the latest ones). The controller
+   * reads every earlier turn's view with it, so a reopened conversation shows all its turns.
+   * `createReplayViewTransport` provides it; a hand-built transport without it gets a labeled
+   * note instead of the earlier turns.
+   */
+  listSessionTurns?(runId: string, options?: { signal?: AbortSignal }): Promise<ReplaySessionTurn[]>;
 };
+
+/** One turn of a conversation, as `listSessionTurns` returns it. */
+export type ReplaySessionTurn = { run_id: string; created_at?: string };
+
+/** The most turns `listSessionTurns` asks for (the gateway's `session_turn_limit` default). */
+export const REPLAY_SESSION_TURN_LIMIT = 200;
 
 /**
  * A `fetch` bound to the gateway API: `path` is relative to it (`runs/<id>/view`); the host adds
@@ -16603,6 +16634,24 @@ export function createReplayViewTransport(options: { fetch: ReplayViewFetch; adv
       const view = JSON.parse(new TextDecoder().decode(raw)) as ReplayView;
       if (view?.version !== REPLAY_VIEW_VERSION) throw new Error(`Unsupported replay view version ${JSON.stringify(view?.version)} (this client reads ${REPLAY_VIEW_VERSION}).`);
       return { notModified: false, view, etag, bytes: raw.byteLength };
+    },
+    async listSessionTurns(runId, opts = {}) {
+      // One more than the limit: the controller says so only when a conversation exceeds it.
+      const query = `include_session=true&include_subruns=false&ledger_max_items=1&detail=replay&session_turn_limit=${REPLAY_SESSION_TURN_LIMIT + 1}`;
+      const res = await request(`runs/${encodeURIComponent(runId)}/history_bundle?${query}`, { method: "GET", headers: { Accept: "application/json" }, ...(opts.signal ? { signal: opts.signal } : {}) });
+      if (!res.ok) throw await httpError(res);
+      const body = (await res.json()) as Row;
+      const session = body.session && typeof body.session === "object" ? (body.session as Row) : null;
+      const rows = Array.isArray(session?.turns) ? (session!.turns as Row[]) : [];
+      const seen = new Set<string>();
+      const turns: ReplaySessionTurn[] = [];
+      for (const row of rows) {
+        const id = typeof row?.run_id === "string" ? row.run_id : "";
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        turns.push({ run_id: id, ...(typeof row.created_at === "string" ? { created_at: row.created_at } : {}) });
+      }
+      return turns;
     },
     async streamView(runId, opts) {
       const headers: Record<string, string> = { Accept: "text/event-stream" };
@@ -21340,6 +21389,40 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## Unreleased
+
+## 0.8.2 - 2026-10-28
+
+Packages: `@abstractframework/panel-chat` 0.6.2, `@abstractframework/ui-kit` 0.9.4 (app-server unchanged at 0.1.13;
+panel-chat still needs ui-kit `^0.9.0`).
+
+### A reopened conversation shows every turn (backlog 0058; release defect of panel-chat 0.6.0)
+
+- In replay-view mode (`WorkflowTransport.replayView`, panel-chat 0.6.0) the controller rendered only the loaded run's
+  view, so a conversation of two turns or more reopened on its last turn. It now shows every turn, oldest first: the
+  turns are the runtime's own selection (`select_session_turns`, the rule the ledger fold reads), served as
+  `session.turns` by `GET runs/{id}/history_bundle?include_session=true` asked small (no sub-runs, one ledger item,
+  replay detail, at most 200 turns: `REPLAY_SESSION_TURN_LIMIT`); each earlier turn is its own view (one `GET /view`).
+  New `ReplayViewTransport.listSessionTurns(runId)`, provided by `createReplayViewTransport`.
+- Finished turns are kept per conversation across `load()` calls (a new turn reloads the controller): each is read once,
+  and the earlier turns stay on screen while the list is re-read. An earlier turn that is still running or waiting is
+  shown as it is with a note to open it; one that cannot be read, a listing that fails, a transport without
+  `listSessionTurns` and a conversation over 200 turns each get a labeled note, never a silent gap.
+- Checks: `check_replay_view_session.mjs` (two- and three-turn conversations, the cache, open and unreadable turns,
+  the labeled failures, the transport's request); mutation-checked.
+
+### The voice picker lists each voice once (backlog 0058)
+
+- Qwen3-TTS lists each preset voice under each of its models, so `AfVoiceSettings` showed it twice. A voice
+  (provider, kind, id) served by several models is one choice: without a chosen model it carries no model (choosing it
+  keeps the gateway's default model, which speaks every preset); with a chosen model it is that model's entry.
+  `check_voice_library.mjs` C5. Verified on a gateway with AbstractVoice 0.19.2: 90 Qwen3-TTS entries, 9 voices
+  listed twice before, none after.
+- Adversarial review (Opus, read-only, twice): the first found the client-side turn selection diverging from the
+  runtime's, N² re-reads per new turn, offset-paging duplicates and a silent drop; the second, newer cached turns
+  shown before an older loaded run, a cache shared across sign-ins, a false 200-turn note and untested paths. All
+  fixed: a known turn is never listed again, only turns known to be older are shown early, the cache is per
+  conversation and transport (cleared on an auth error), the listing asks for 201 turns. The listing still makes
+  the gateway compute each turn's statistics (the ledger fold's cost too): a turns-only option is backlog 0059.
 
 ## 0.8.1 - 2026-10-28
 

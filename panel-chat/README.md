@@ -397,6 +397,10 @@ const transport: WorkflowTransport = {
 
 With it, `WorkflowSessionController.load(runId)`:
 
+- shows every turn of the conversation (0.6.2): the earlier turns, as the runtime selects them
+  (`listSessionTurns(runId)`: a small `GET runs/{id}/history_bundle?include_session=true`), each
+  from its own `GET /view`, oldest first, before the loaded turn; finished turns are kept per
+  conversation across loads; an open or unreadable earlier turn and a failed listing are labeled;
 - reads `GET runs/{id}/view` and `GET runs/{id}` (for `paused`), then follows `/view/stream`
   from the view's ETag; every frame is folded with `applyDelta` (a port of the runtime's
   `apply_delta`) and projected with `projectReplayView` into the same snapshot the components

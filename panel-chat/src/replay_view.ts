@@ -457,7 +457,9 @@ export type ReplayViewTransport = {
    * them (`select_session_turns`, the rule the ledger fold reads from the same bundle): the
    * `session.turns` of `GET runs/{runId}/history_bundle?include_session=true` (AbstractGateway
    * routes/gateway.py `get_run_history_bundle`), asked with no sub-runs, one ledger item and the
-   * replay detail so it stays small. At most `REPLAY_SESSION_TURN_LIMIT` turns. The controller
+   * replay detail so it stays small (the turns rows are still computed by the gateway with their
+   * statistics: a turns-only option is backlog 0059). At most `REPLAY_SESSION_TURN_LIMIT` + 1
+   * turns (the latest ones). The controller
    * reads every earlier turn's view with it, so a reopened conversation shows all its turns.
    * `createReplayViewTransport` provides it; a hand-built transport without it gets a labeled
    * note instead of the earlier turns.
@@ -518,7 +520,8 @@ export function createReplayViewTransport(options: { fetch: ReplayViewFetch; adv
       return { notModified: false, view, etag, bytes: raw.byteLength };
     },
     async listSessionTurns(runId, opts = {}) {
-      const query = `include_session=true&include_subruns=false&ledger_max_items=1&detail=replay&session_turn_limit=${REPLAY_SESSION_TURN_LIMIT}`;
+      // One more than the limit: the controller says so only when a conversation exceeds it.
+      const query = `include_session=true&include_subruns=false&ledger_max_items=1&detail=replay&session_turn_limit=${REPLAY_SESSION_TURN_LIMIT + 1}`;
       const res = await request(`runs/${encodeURIComponent(runId)}/history_bundle?${query}`, { method: "GET", headers: { Accept: "application/json" }, ...(opts.signal ? { signal: opts.signal } : {}) });
       if (!res.ok) throw await httpError(res);
       const body = (await res.json()) as Row;

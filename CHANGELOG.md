@@ -9,6 +9,40 @@ ships.
 
 ## Unreleased
 
+## 0.8.2 - 2026-10-28
+
+Packages: `@abstractframework/panel-chat` 0.6.2, `@abstractframework/ui-kit` 0.9.4 (app-server unchanged at 0.1.13;
+panel-chat still needs ui-kit `^0.9.0`).
+
+### A reopened conversation shows every turn (backlog 0058; release defect of panel-chat 0.6.0)
+
+- In replay-view mode (`WorkflowTransport.replayView`, panel-chat 0.6.0) the controller rendered only the loaded run's
+  view, so a conversation of two turns or more reopened on its last turn. It now shows every turn, oldest first: the
+  turns are the runtime's own selection (`select_session_turns`, the rule the ledger fold reads), served as
+  `session.turns` by `GET runs/{id}/history_bundle?include_session=true` asked small (no sub-runs, one ledger item,
+  replay detail, at most 200 turns: `REPLAY_SESSION_TURN_LIMIT`); each earlier turn is its own view (one `GET /view`).
+  New `ReplayViewTransport.listSessionTurns(runId)`, provided by `createReplayViewTransport`.
+- Finished turns are kept per conversation across `load()` calls (a new turn reloads the controller): each is read once,
+  and the earlier turns stay on screen while the list is re-read. An earlier turn that is still running or waiting is
+  shown as it is with a note to open it; one that cannot be read, a listing that fails, a transport without
+  `listSessionTurns` and a conversation over 200 turns each get a labeled note, never a silent gap.
+- Checks: `check_replay_view_session.mjs` (two- and three-turn conversations, the cache, open and unreadable turns,
+  the labeled failures, the transport's request); mutation-checked.
+
+### The voice picker lists each voice once (backlog 0058)
+
+- Qwen3-TTS lists each preset voice under each of its models, so `AfVoiceSettings` showed it twice. A voice
+  (provider, kind, id) served by several models is one choice: without a chosen model it carries no model (choosing it
+  keeps the gateway's default model, which speaks every preset); with a chosen model it is that model's entry.
+  `check_voice_library.mjs` C5. Verified on a gateway with AbstractVoice 0.19.2: 90 Qwen3-TTS entries, 9 voices
+  listed twice before, none after.
+- Adversarial review (Opus, read-only, twice): the first found the client-side turn selection diverging from the
+  runtime's, N² re-reads per new turn, offset-paging duplicates and a silent drop; the second, newer cached turns
+  shown before an older loaded run, a cache shared across sign-ins, a false 200-turn note and untested paths. All
+  fixed: a known turn is never listed again, only turns known to be older are shown early, the cache is per
+  conversation and transport (cleared on an auth error), the listing asks for 201 turns. The listing still makes
+  the gateway compute each turn's statistics (the ledger fold's cost too): a turns-only option is backlog 0059.
+
 ## 0.8.1 - 2026-10-28
 
 Packages: `@abstractframework/ui-kit` 0.9.3, `@abstractframework/panel-chat` 0.6.1, `@abstractframework/app-server` 0.1.13

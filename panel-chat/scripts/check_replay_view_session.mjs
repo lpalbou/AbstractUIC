@@ -390,6 +390,12 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
   const v3open = { ...third.views.find((v) => v.status === "waiting"), session_id: "conv-1" };
   const byId = new Map([[v1.root_run_id, v1], [v2.root_run_id, v2], [v3open.root_run_id, v3open]]);
   const reads = [];
+  let listings = 0;
+  // Creation times: the order of `ids` below (turn i was created at minute i).
+  const created = (id) => {
+    const i = [v1.root_run_id, v2.root_run_id, v3open.root_run_id, "gone-run-0000", "newer-run-0004"].indexOf(id);
+    return i < 0 ? undefined : `2026-10-28T10:0${i}:00+00:00`;
+  };
   const make = ({ list = true, listError = null, order = [v1.root_run_id, v2.root_run_id], missing = new Set() } = {}) => {
     const replayView = {
       async getView(runId) {
@@ -402,16 +408,17 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
       ...(list
         ? {
             async listSessionTurns(runId) {
+              listings += 1;
               if (listError) throw listError;
               // The runtime's selection is cut at the asked run (its last turn).
-              return order.slice(0, order.indexOf(runId) + 1).map((id) => ({ run_id: id }));
+              return order.slice(0, order.indexOf(runId) + 1).map((id) => ({ run_id: id, created_at: created(id) }));
             },
           }
         : {}),
     };
     let history = 0;
     const transport = {
-      async getRun(runId) { return { run_id: runId, status: "completed" }; },
+      async getRun(runId) { return { run_id: runId, status: "completed", created_at: created(runId) }; },
       async getHistory() { history += 1; return { ledgers: {} }; },
       async getLedger() { return { items: [], next_after: 0 }; },
       async streamLedger(runId, after, onStep, signal) { await new Promise((resolve) => signal.addEventListener("abort", resolve, { once: true })); },
@@ -440,12 +447,36 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
     // are shown before the list is re-read (no collapse to the new prompt).
     reads.length = 0;
     const order3 = [v1.root_run_id, v2.root_run_id, v3open.root_run_id];
-    gw.transport.replayView.listSessionTurns = async (runId) => order3.slice(0, order3.indexOf(runId) + 1).map((id) => ({ run_id: id }));
-    await ctl.load(v3open.root_run_id);
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    gw.transport.replayView.listSessionTurns = async (runId) => { listings += 1; await gate; return order3.slice(0, order3.indexOf(runId) + 1).map((id) => ({ run_id: id, created_at: created(id) })); };
+    const loading = ctl.load(v3open.root_run_id);
+    await settle();
+    const early = ctl.getSnapshot().messages.map((m) => m.id);
+    assert.ok([...firstIds, ...secondIds].every((id) => early.includes(id)), "known older turns stay on screen while the list is re-read");
+    release();
+    await loading;
     await settle();
     const ids3 = ctl.getSnapshot().messages.map((m) => m.id);
     assert.deepEqual(reads, [v3open.root_run_id], `finished turns come from the cache (${JSON.stringify(reads)})`);
     assert.ok([...firstIds, ...secondIds].every((id) => ids3.includes(id)), "both earlier turns still shown");
+    // Reopening a turn this controller has listed: its earlier turns are known, no listing, no reads.
+    const before = listings;
+    reads.length = 0;
+    await ctl.load(v2.root_run_id);
+    await settle();
+    assert.equal(listings, before, "a known turn is not listed again");
+    assert.deepEqual(reads, [v2.root_run_id], "and its earlier turns come from the cache");
+    assert.ok(firstIds.every((id) => ctl.getSnapshot().messages.some((m) => m.id === id)) && !ctl.getSnapshot().messages.some((m) => m.id.startsWith(v3open.root_run_id)), "only the turns before it");
+    // A listing that fails keeps the known older turns, under a labeled note.
+    gw.transport.replayView.listSessionTurns = async () => { throw Object.assign(new Error("down"), { status: 503 }); };
+    const order4 = "newer-run-0004";
+    byId.set(order4, { ...v1, root_run_id: order4, messages: [], activities: [] });
+    await ctl.load(order4);
+    await settle();
+    const after = ctl.getSnapshot().messages;
+    assert.ok(after.some((m) => m.id === "history:conv-1:unlisted" && /could not be listed: down/.test(m.content)), "the failed listing is labeled");
+    assert.ok([...firstIds, ...secondIds].every((id) => after.some((m) => m.id === id)), "the known older turns stay under it");
     ctl.dispose();
   }
   {
@@ -460,6 +491,40 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
     assert.ok(msgs.some((m) => m.id === `history:${v3open.root_run_id}:open` && /still (waiting|running);/.test(m.content)), "an open earlier turn says so");
     assert.ok(msgs.some((m) => m.id === "history:gone-run-0000:unavailable" && /could not be restored \(gone-run\): Run not found/.test(m.content)), "an unreadable earlier turn says so");
     assert.equal(ctl.getSnapshot().interaction?.runId === v3open.root_run_id, false, "an earlier turn's question never becomes the conversation's interaction");
+    ctl.dispose();
+  }
+  {
+    // Over the limit: the latest 200 turns, said so; exactly at it: no note.
+    const many = Array.from({ length: 201 }, (_, i) => `old-${i}`);
+    const gw = make();
+    gw.transport.replayView.listSessionTurns = async () => [...many, v2.root_run_id].map((id) => ({ run_id: id }));
+    gw.transport.replayView.getView = async (runId) => {
+      const base = runId === v2.root_run_id ? v2 : { ...v1, root_run_id: runId, messages: [], activities: [] };
+      return { notModified: false, view: clone(base), etag: '"x"', bytes: 1 };
+    };
+    const ctl = new WorkflowSessionController(gw.transport, { clientId: "turns-limit" });
+    await ctl.load(v2.root_run_id);
+    await settle(20);
+    assert.ok(ctl.getSnapshot().messages.some((m) => m.id === "history:conv-1:limit"), "over the limit: labeled");
+    ctl.dispose();
+    const gw2 = make();
+    gw2.transport.replayView.listSessionTurns = async () => [...many.slice(0, 199), v2.root_run_id].map((id) => ({ run_id: id }));
+    gw2.transport.replayView.getView = gw.transport.replayView.getView;
+    const ctl2 = new WorkflowSessionController(gw2.transport, { clientId: "turns-limit2" });
+    await ctl2.load(v2.root_run_id);
+    await settle(20);
+    assert.ok(!ctl2.getSnapshot().messages.some((m) => m.id === "history:conv-1:limit"), "exactly the limit: no note");
+    ctl2.dispose();
+  }
+  {
+    // The loaded run is not in the runtime's list (a draft, a non-chat run): the listed turns are its earlier turns.
+    reads.length = 0;
+    const gw = make({ order: [v1.root_run_id] });
+    gw.transport.replayView.listSessionTurns = async () => [{ run_id: v1.root_run_id }];
+    const ctl = new WorkflowSessionController(gw.transport, { clientId: "turns-absent" });
+    await ctl.load(v2.root_run_id);
+    await settle();
+    assert.ok(firstIds.every((id) => ctl.getSnapshot().messages.some((m) => m.id === id)), "listed turns shown even when the loaded run is not listed");
     ctl.dispose();
   }
   {
@@ -493,7 +558,7 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
     },
   });
   const turns = await rv.listSessionTurns("b r");
-  assert.equal(asked[0], "runs/b%20r/history_bundle?include_session=true&include_subruns=false&ledger_max_items=1&detail=replay&session_turn_limit=200", asked[0]);
+  assert.equal(asked[0], "runs/b%20r/history_bundle?include_session=true&include_subruns=false&ledger_max_items=1&detail=replay&session_turn_limit=201", asked[0]);
   assert.deepEqual(turns, [{ run_id: "a", created_at: "1" }, { run_id: "b r" }], "the runtime's order, duplicates and blank rows dropped");
   const failing = createReplayViewTransport({ fetch: async () => new Response(JSON.stringify({ detail: "nope" }), { status: 403 }) });
   await assert.rejects(failing.listSessionTurns("s"), /nope/, "a refused listing throws (the controller labels it)");
