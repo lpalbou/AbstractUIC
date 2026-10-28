@@ -1,0 +1,114 @@
+{
+ "generator": "panel-chat/scripts/regen_replay_view_fixtures.py",
+ "versions": {
+  "abstractgateway": "0.17.0",
+  "abstractruntime": "0.15.0"
+ },
+ "cases": [
+  {
+   "name": "a2_delegated_approval_completed",
+   "root_run_id": "fd450aa7-f922-5398-b823-7ed8a3f20dfc",
+   "records": 51,
+   "delta_frames": 51,
+   "manifest": "the same tree as case (a), whole: several approved tool calls in the child (each a new step id with the same idempotency key, rule 3), `$slim` pointers on waiting and completed records, status sub-runs with timer waits, the final answer."
+  },
+  {
+   "name": "a_delegated_child_approval",
+   "root_run_id": "fd450aa7-f922-5398-b823-7ed8a3f20dfc",
+   "records": 21,
+   "delta_frames": 21,
+   "manifest": "2026-09-29 incident: the root (basic-agent@0.0.5) parks on a `subworkflow:<child>` delegation wait, the child waits on `tool_approval` and its waiting record's `effect.payload.tool_calls` is a `$slim` pointer to the STARTED record. The interaction is the child's approval with tool_calls resolved; the delegation is not one."
+  },
+  {
+   "name": "b_timer_without_resume",
+   "root_run_id": "32831f89-76d0-522e-b305-28c0550088fc",
+   "records": 6,
+   "delta_frames": 6,
+   "manifest": "2026-10-04 use case: a `wait_until` timer whose ledger has no resume record, followed by a later step of the same run: the wait is over (ended_by later_step) and the status is not waiting, even with a stale snapshot that still says waiting."
+  },
+  {
+   "name": "c_parallel_tool_batch",
+   "root_run_id": "7acdab4a-b0d4-589a-ad71-787e07262839",
+   "records": 31,
+   "delta_frames": 31,
+   "manifest": "one tool_calls step with more than one call: every call is a row, each matched to its own result."
+  },
+  {
+   "name": "d_cancellation",
+   "root_run_id": "fdd82bce-4c60-5cb0-9da1-641f8056bf1a",
+   "records": 18,
+   "delta_frames": 18,
+   "manifest": "a turn cancelled while its agent sub-run was working: the root and the agent run read cancelled, no open wait or interaction remains."
+  },
+  {
+   "name": "e2_structured_repeated_node",
+   "root_run_id": "67d4a24f-1a23-5390-ba6c-a969a927ce4b",
+   "records": 30,
+   "delta_frames": 30,
+   "manifest": "framework backlog 0993 'Case 2' (flow `assist`): the SAME Agent node (node-8) executed twice in a row; each execution is one activity and the two are never merged."
+  },
+  {
+   "name": "e_structured_output_agents",
+   "root_run_id": "73859e51-b223-5b19-86ac-83b4cbb03b5a",
+   "records": 22,
+   "delta_frames": 22,
+   "manifest": "1016 / executionIdFor: an Agent node execution is start_subworkflow started+waiting, a resume, and the `_temp.agent.<node>.structured` llm_call; the view shows ONE activity per execution (three Agent nodes, the last one cancelled while delegated)."
+  },
+  {
+   "name": "f_windowed_slim",
+   "root_run_id": "fd450aa7-f922-5398-b823-7ed8a3f20dfc",
+   "records": 3,
+   "delta_frames": 3,
+   "manifest": "a windowed history: records start at seq > 1 and the child's approval wait carries a `$slim` pointer to a STARTED record outside the window: warnings name both, no `$slim` reaches the view, and the approval still lists its tool calls (from the wait's details)."
+  },
+  {
+   "name": "g_ask_user",
+   "root_run_id": "73c7888f-f6d1-5be9-9f95-254e9eb0ffd9",
+   "records": 10,
+   "delta_frames": 10,
+   "manifest": "an ask_user question and its answer: a question message, an answer message (role user), the wait ended by the resume, no open interaction afterwards."
+  },
+  {
+   "name": "h_denied_approval",
+   "root_run_id": "68fa21ed-5513-5bae-a53d-6f45f92bd8b7",
+   "records": 17,
+   "delta_frames": 17,
+   "manifest": "a denied tool approval as the runtime records it (no `approved:false` in the ledger: the approval step's results carry success false + the runtime's 'Denied by user'): the tool row and the activity read denied."
+  },
+  {
+   "name": "i_wait_kinds",
+   "root_run_id": "a0a0a0a0-0000-4000-8000-0000000000a0",
+   "records": 16,
+   "delta_frames": 16,
+   "manifest": "wait kinds agree with the runtime's attention classifier: a USER pause is `pause`, an automation controller wake is `automation_wake`, an EVENT wait without prompt/choices is `signal` (none of them person-facing); an EVENT wait WITH a prompt is `event`, person-facing, and is the interaction (answer_payload `{payload}`)."
+  },
+  {
+   "name": "j_event_answered_then_pause",
+   "root_run_id": "b0b0b0b0-0000-4000-8000-0000000000b0",
+   "records": 7,
+   "delta_frames": 7,
+   "manifest": "an event question (EVENT wait with a prompt) answered by its resume, then a pause: the question is closed by the resume, the pause is an open wait but never an interaction, the run reads waiting."
+  },
+  {
+   "name": "k_nested_delegation",
+   "root_run_id": "c0c0c0c0-0000-4000-8000-0000000000c0",
+   "records": 14,
+   "delta_frames": 14,
+   "manifest": "a two-level tree whose grandchild is discovered after its uncle: run rows are in tree order (root, A, G, B) in the view AND after folding deltas with apply_delta (a row's `order` sorts in tree order)."
+  },
+  {
+   "name": "l_answer_then_completion",
+   "root_run_id": "d0d0d0d0-0000-4000-8000-0000000000d0",
+   "records": 5,
+   "delta_frames": 5,
+   "manifest": "a run whose final output repeats the answer it already gave (answer_user) is ONE assistant message (marked final), whatever the read order (the snapshot read before or after the ledger)."
+  },
+  {
+   "name": "m_session_tool_policy",
+   "root_run_id": "e0e0e0e0-0000-4000-8000-0000000000e0",
+   "records": 17,
+   "delta_frames": 17,
+   "manifest": "a decision written twice (crash replay, same idempotency key) is one activity; a deny set after an approval gate was shown and answered approved wins (the tool row and the batch read denied, wait.outcome denied, denied_by session_policy); a session tool policy decides tool calls with NO wait (contract v1 section 5): each `abstract.tool_policy_decision` record is an activity (kind tool_policy, auto_approved / denied, policy revision and who set it), the tool rows it names say decided_by session_policy, the denied call is `denied` (not failed), and the view never shows an interaction."
+  }
+ ]
+}

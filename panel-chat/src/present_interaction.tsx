@@ -9,38 +9,20 @@ import { ToolActivityGroup } from "./tool_activity.js";
 import { sessionPolicyClampedText } from "./tool_policy.js";
 import { WORKFLOW_INTERACTION_LABELS, type WorkflowInteraction, type WorkflowInteractionRemember, type WorkflowToolApprovalInteraction } from "./workflow_interaction.js";
 import type { ServerRecord, SessionToolPolicy, WorkflowRecord, WorkflowSessionController, WorkflowWaitInteraction } from "./workflow_runtime.js";
+import type { ReplayViewInteraction } from "./replay_view.js";
+import { replayInteractionWait } from "./replay_view_projection.js";
 
 /**
  * The served, tree-resolved pending interaction of the replay view
  * (`replay_view_v1.interaction`: the newest person-facing open wait in the
- * run tree, with a ready `command`).
- *
- * THIS IS A SEAM, NOT A DATA PATH: no gateway on `main` serves it yet (there
- * is no `GET /runs/{id}/view` and no `/view/stream`; the view is WIP on
- * abstractruntime `feat/replay-view`, root backlog 0993). Today's data path
- * stays the ledger fold + served `runs/{id}.waiting`
- * (`WorkflowSessionController` / `useWorkflowSession`). `presentInteraction`
- * accepts this shape so the panel does not change when the view ships; this
- * package never fetches a `/view` route.
- *
- * Shape as written by `ReplayView._interaction_of` (abstractruntime
- * `replay/view.py`): `details` has `tool_calls` stripped (they are top-level),
- * and `kind` is one of the person-facing kinds.
+ * run tree, with a ready `command`). `WorkflowSessionController` reads it from
+ * `GET runs/{id}/view` and its stream when the host transport provides
+ * `replayView` (see `replay_view.ts`); `presentInteraction` accepts it as well
+ * as a raw wait. Shape as written by `ReplayView._interaction_of`
+ * (abstractruntime 0.15.0 `replay/view.py`): `details` has `tool_calls`
+ * stripped (they are top-level).
  */
-export type ReplayInteraction = {
-  kind: "tool_approval" | "ask_user";
-  run_id: string;
-  wait_key: string;
-  step_id?: string | null;
-  seq?: number | null;
-  prompt?: string | null;
-  choices?: unknown[] | null;
-  allow_free_text?: boolean | null;
-  details?: Record<string, unknown> | null;
-  tool_calls?: unknown[] | null;
-  activity_id?: string | null;
-  command?: { type: "resume"; run_id: string; payload: { wait_key: string } };
-};
+export type ReplayInteraction = ReplayViewInteraction;
 
 /** True for a `replay_view_v1.interaction` (it has `run_id` + `wait_key`, a raw wait has `runId` + `wait`). */
 export function isReplayInteraction(value: unknown): value is ReplayInteraction {
@@ -49,18 +31,7 @@ export function isReplayInteraction(value: unknown): value is ReplayInteraction 
 }
 
 /** The raw runtime wait a replay interaction stands for (same control, same target). */
-export function replayInteractionWait(interaction: ReplayInteraction): WorkflowWaitInteraction {
-  const details: Record<string, unknown> = { ...(interaction.details || {}) };
-  if (interaction.kind === "tool_approval") {
-    details.kind = "tool_approval";
-    details.tool_calls = Array.isArray(interaction.tool_calls) ? interaction.tool_calls : [];
-  }
-  const wait: Record<string, unknown> = { wait_key: interaction.wait_key, reason: interaction.kind === "ask_user" ? "user" : "tool_approval", details };
-  if (interaction.prompt != null) wait.prompt = interaction.prompt;
-  if (Array.isArray(interaction.choices)) wait.choices = interaction.choices;
-  if (typeof interaction.allow_free_text === "boolean") wait.allow_free_text = interaction.allow_free_text;
-  return { runId: interaction.run_id, wait, ...(interaction.step_id ? { stepId: interaction.step_id } : {}) };
-}
+export { replayInteractionWait };
 
 export type PresentInteractionOptions = {
   /** The session's records: an event wait is routed from them (`resolveWorkflowEventTarget`). */
@@ -124,7 +95,7 @@ export type PresentInteractionOptions = {
 
 /** The controller methods the controls call. */
 export type InteractionController = Pick<WorkflowSessionController, "approve" | "approveWithPolicyChange" | "resume" | "emitEvent"> &
-  Partial<Pick<WorkflowSessionController, "approveAllForSession" | "approveKindForSession" | "denyToolForSession" | "denyKindForSession" | "sessionPolicyStatus">>;
+  Partial<Pick<WorkflowSessionController, "approveAllForSession" | "approveKindForSession" | "denyToolForSession" | "denyKindForSession" | "sessionPolicyStatus" | "answerEvent">>;
 
 /**
  * Converts a runtime wait into a control, or null when the wait is not one a
@@ -344,6 +315,28 @@ export function presentInteraction(
     };
   const key = String(wait.wait_key || "");
   if (wait.reason === "event" || key.startsWith("evt:")) {
+    // The replay view names the answer: its `command` resumes this wait with the payload
+    // (`answer_payload: "{payload}"`). No event route is derived from records.
+    const command = raw.command;
+    if (command) {
+      const answerEvent = controller.answerEvent;
+      if (typeof answerEvent !== "function") throw new Error("presentInteraction: an event wait from the replay view needs a WorkflowSessionController (answerEvent).");
+      const eventTarget = { runId: raw.runId, waitKey: key, stepId: raw.stepId };
+      return {
+        id,
+        kind: "event-wait",
+        title: "Waiting for your input",
+        eventName: key,
+        prompt: String(wait.prompt || "This workflow is waiting for an event."),
+        description: Array.isArray(wait.choices) && wait.choices.length ? `Expected: ${wait.choices.map((choice: unknown) => (typeof choice === "object" && choice !== null ? String((choice as any).label ?? (choice as any).value ?? "") : String(choice))).join(", ")}` : "The data you send resumes this wait.",
+        initialPayload: "{}",
+        payloadLabel: "Event data (JSON)",
+        sendLabel: "Send",
+        onSend: async (text) => {
+          await answerEvent.call(controller, JSON.parse(text || "{}"), eventTarget);
+        },
+      };
+    }
     const routing = resolveWorkflowEventTarget(raw, options.records || [], options.currentRun ?? null);
     const target = routing.target;
     const eventName = target?.name || "";
