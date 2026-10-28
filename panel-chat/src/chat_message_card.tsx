@@ -10,7 +10,7 @@ import { copyText } from "./utils.js";
 import { ToolActivity } from "./tool_activity.js";
 import type { WorkflowStatistics, WorkflowToolActivity } from "./workflow_evidence.js";
 import { StatChip, formatDuration, statDetail, type StatDetail } from "./stat_detail.js";
-import { formatMessageStamp, localDayKey, messageStampTitle } from "./message_footer.js";
+import { formatMessageStamp, messageStampIso, messageStampTitle, useLocalDay } from "./message_footer.js";
 
 export type ChatMessageLevel = "info" | "warn" | "error";
 
@@ -365,12 +365,14 @@ export function speakButtonView(state: SpeakState): { icon: IconName; title: str
 export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement {
   const m = props.message;
   const role_ui = useMemo(() => _role_ui(m), [m.kind, m.level, m.role, m.title]);
-  const ts = String(m.ts || "").trim();
-  // Re-derived when the reader's calendar day changes ("10:52 PM" becomes "Yesterday · 10:52 PM").
-  const day_key = localDayKey();
-  // A malformed timestamp renders as no stamp, never "Invalid Date".
-  const time_label = useMemo(() => formatMessageStamp(ts), [ts, day_key]);
-  const time_title = useMemo(() => messageStampTitle(ts), [ts]);
+  // A host may pass an ISO string or epoch milliseconds; a malformed one renders no stamp, never "Invalid Date".
+  const raw_ts = m.ts as unknown as string | number | undefined;
+  // Re-derived when the reader's calendar day changes ("10:52 PM" becomes "Yesterday · 10:52 PM"):
+  // `useLocalDay` re-renders the card at local midnight.
+  const day_key = useLocalDay();
+  const time_label = useMemo(() => formatMessageStamp(raw_ts), [raw_ts, day_key]);
+  const time_title = useMemo(() => messageStampTitle(raw_ts), [raw_ts]);
+  const time_iso = useMemo(() => messageStampIso(raw_ts), [raw_ts]);
 
   const [copy_state, set_copy_state] = useState<"idle" | "copied" | "failed">("idle");
   const copy_timer = useRef<number | null>(null);
@@ -437,7 +439,7 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         {live?.caption ? <span className="pc-chat-live-caption">{live.caption}</span> : null}
         <span className="pc-chat-header-spacer" />
         {time_label ? (
-          <time className="pc-chat-time" dateTime={ts} title={time_title || undefined}>
+          <time className="pc-chat-time" dateTime={time_iso || undefined} title={time_title || undefined}>
             {time_label}
           </time>
         ) : null}
@@ -449,7 +451,8 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
               aria-label={speak_blocked || speak.title}
               title={speak_blocked || speak.title}
               data-speak-state={speak_blocked ? "unavailable" : speak_state}
-              disabled={Boolean(speak_blocked)}
+              // aria-disabled, not `disabled`: the button stays focusable so its reason is reachable.
+              {...(speak_blocked ? { "aria-disabled": true } : {})}
               onClick={can_speak ? () => props.onSpeakToggle?.(m) : undefined}
             >
               {/* Keyed per icon: the spinning element is replaced (never re-used) once audio starts. */}

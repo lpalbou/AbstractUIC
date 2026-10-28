@@ -2267,7 +2267,7 @@ Components:
   hover-only toolbar). The meta line follows the [message footer spec](#message-footer) (0.6.4: the stamp carries
   the date when the message is not from today, the speaker is on every assistant message of a TTS host, every
   stat chip opens the structured panel); helpers `formatMessageStamp(ts, now?, locales?)`,
-  `messageStampTitle(ts, locales?)`, `localDayKey(now?)`.
+  `messageStampTitle(ts, locales?)`, `messageStampIso(ts)`, `localDayKey(now?)`, `useLocalDay()`.
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
@@ -2282,7 +2282,10 @@ Components:
 
 One spec for every chat message of the framework (operator QA 2026-10-28; panel-chat 0.6.4, backlog 0062). The web
 apps get it from `ChatMessageCard` (through `WorkflowChat` / `ChatThread`); a local twin is a fork (ADR 0001). The
-AbstractAssistant desktop mirrors the same contents and words in its own Qt bubble. The source of truth is
+AbstractAssistant desktop mirrors the same contents in its own Qt bubble; on 2026-10-28 its words still differ
+("Yesterday 10:52 PM" without the separator, a zero-padded day "Oct 01", no year form, the raw text for a malformed
+timestamp, the speaker's tooltip "Speak this reply") and its owner aligns them. Exception until backlog 0063: the Docs
+assistant has no read-aloud path, so its answers carry no speaker. The source of truth is
 `panel-chat/src/message_footer.ts`; `panel-chat/scripts/check_message_footer.mjs` pins it.
 
 A message's meta line holds, in this order:
@@ -2296,15 +2299,16 @@ A message's meta line holds, in this order:
    | earlier this year (or a later day) | `Oct 21 · 10:52 PM` |
    | another year | `Oct 21, 2025 · 10:52 PM` |
 
-   Days are the reader's calendar days, not 24 h windows; the card re-derives the stamp when the day changes. The
-   full date and time is the stamp's hover text (`messageStampTitle(ts)`, on a `<time dateTime>` element). A missing
-   or malformed timestamp shows no stamp, never "Invalid Date".
+   Days are the reader's calendar days, not 24 h windows; an open card re-renders at local midnight (`useLocalDay()`,
+   one shared timer). The full date and time is the stamp's hover text (`messageStampTitle(ts)`, on a `<time>` whose
+   `dateTime` is ISO, `messageStampIso(ts)`). An ISO string or epoch milliseconds are accepted; a bare date
+   ("2026-10-27") is that local day. A missing or malformed timestamp shows no stamp, never "Invalid Date".
 2. **Speaker**: on every assistant message whenever the host has a read-aloud path (`onSpeakToggle`), whatever the
    message kind (an answer, a question, a warning, a reply from history, a reply with media or statistics, with or
    without `renderFooter`). Always visible, never hover-only. States per `speakButtonView`: speaker, spinner only
    while the first audio is generated, Pause while playing, Resume when paused. While the reply is still streaming,
-   or when it has no text, the speaker stays in place disabled with its reason as hover text ("Read aloud when the
-   reply is finished", "No text to read aloud"). No speaker on user or system messages; a tool-activity row and a
+   or when it has no text, the speaker stays in place, dimmed and `aria-disabled` (still focusable), with its reason as
+   hover text ("Read aloud when the reply is finished", "No text to read aloud"; `data-speak-state="unavailable"`). No speaker on user or system messages; a tool-activity row and a
    one-line hint (`variant: "hint"`) are not message cards and carry no meta line.
 3. **Copy**: on every card unless the host passes `showCopy={false}`; always visible.
 
@@ -5755,8 +5759,9 @@ const input = { prompt, _runtime: { ...streamRepliesRuntime(streamReplies) } };
 
 Every message card renders one meta line, the same in every app (and mirrored by the AbstractAssistant desktop):
 the **stamp** (`formatMessageStamp`: `12:46 AM` today, `Yesterday · 10:52 PM`, `Oct 21 · 10:52 PM`,
-`Oct 21, 2025 · 10:52 PM` another year; the full date on hover), the **speaker** on every assistant message when
-you pass `onSpeakToggle` (always visible; disabled with its reason while the reply streams or when it has no text),
+`Oct 21, 2025 · 10:52 PM` another year; the full date on hover; re-rendered at local midnight), the **speaker** on
+every assistant message when you pass `onSpeakToggle` (always visible; dimmed and `aria-disabled` with its reason
+while the reply streams or when it has no text; the Docs assistant has no read-aloud path yet, backlog 0063),
 and **copy**. The stat chips of a workflow turn (tokens, tools, files changed, duration) each open the structured
 `StatDetailPanel`, never a native multi-line tooltip. The full spec is in
 [docs/api.md, Message footer](../docs/api.md#message-footer); `scripts/check_message_footer.mjs` pins it.
@@ -15470,7 +15475,7 @@ export { ChatComposer } from "./chat_composer.js";
 export { Markdown, sameOriginImage, type MarkdownImages, type MarkdownProps } from "./markdown.js";
 export { JsonViewer } from "./json_viewer.js";
 export { ChatMessageCard, speakButtonView } from "./chat_message_card.js";
-export { formatMessageStamp, messageStampTitle, localDayKey } from "./message_footer.js";
+export { formatMessageStamp, messageStampTitle, messageStampIso, localDayKey, useLocalDay } from "./message_footer.js";
 export { ChatThread } from "./chat_thread.js";
 export { ToolActivity, ToolActivityGroup, toolArguments, toolPreview } from "./tool_activity.js";
 export { ToolSandboxLine, toolSandbox, sandboxEvidence, type ToolSandbox, type ToolSandboxRow } from "./sandbox_line.js";
@@ -15686,7 +15691,7 @@ import { copyText } from "./utils.js";
 import { ToolActivity } from "./tool_activity.js";
 import type { WorkflowStatistics, WorkflowToolActivity } from "./workflow_evidence.js";
 import { StatChip, formatDuration, statDetail, type StatDetail } from "./stat_detail.js";
-import { formatMessageStamp, localDayKey, messageStampTitle } from "./message_footer.js";
+import { formatMessageStamp, messageStampIso, messageStampTitle, useLocalDay } from "./message_footer.js";
 
 export type ChatMessageLevel = "info" | "warn" | "error";
 
@@ -16041,12 +16046,14 @@ export function speakButtonView(state: SpeakState): { icon: IconName; title: str
 export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement {
   const m = props.message;
   const role_ui = useMemo(() => _role_ui(m), [m.kind, m.level, m.role, m.title]);
-  const ts = String(m.ts || "").trim();
-  // Re-derived when the reader's calendar day changes ("10:52 PM" becomes "Yesterday · 10:52 PM").
-  const day_key = localDayKey();
-  // A malformed timestamp renders as no stamp, never "Invalid Date".
-  const time_label = useMemo(() => formatMessageStamp(ts), [ts, day_key]);
-  const time_title = useMemo(() => messageStampTitle(ts), [ts]);
+  // A host may pass an ISO string or epoch milliseconds; a malformed one renders no stamp, never "Invalid Date".
+  const raw_ts = m.ts as unknown as string | number | undefined;
+  // Re-derived when the reader's calendar day changes ("10:52 PM" becomes "Yesterday · 10:52 PM"):
+  // `useLocalDay` re-renders the card at local midnight.
+  const day_key = useLocalDay();
+  const time_label = useMemo(() => formatMessageStamp(raw_ts), [raw_ts, day_key]);
+  const time_title = useMemo(() => messageStampTitle(raw_ts), [raw_ts]);
+  const time_iso = useMemo(() => messageStampIso(raw_ts), [raw_ts]);
 
   const [copy_state, set_copy_state] = useState<"idle" | "copied" | "failed">("idle");
   const copy_timer = useRef<number | null>(null);
@@ -16113,7 +16120,7 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         {live?.caption ? <span className="pc-chat-live-caption">{live.caption}</span> : null}
         <span className="pc-chat-header-spacer" />
         {time_label ? (
-          <time className="pc-chat-time" dateTime={ts} title={time_title || undefined}>
+          <time className="pc-chat-time" dateTime={time_iso || undefined} title={time_title || undefined}>
             {time_label}
           </time>
         ) : null}
@@ -16125,7 +16132,8 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
               aria-label={speak_blocked || speak.title}
               title={speak_blocked || speak.title}
               data-speak-state={speak_blocked ? "unavailable" : speak_state}
-              disabled={Boolean(speak_blocked)}
+              // aria-disabled, not `disabled`: the button stays focusable so its reason is reachable.
+              {...(speak_blocked ? { "aria-disabled": true } : {})}
               onClick={can_speak ? () => props.onSpeakToggle?.(m) : undefined}
             >
               {/* Keyed per icon: the spinning element is replaced (never re-used) once audio starts. */}
@@ -21528,24 +21536,31 @@ needs ui-kit `^0.9.0`). Operator QA of 2026-10-28, item 2; backlog 0062.
 
 - The spec is in `panel-chat/src/message_footer.ts` and [docs/api.md, Message footer](docs/api.md#message-footer):
   stamp, speaker, copy, then the stat chips. The web apps get it from `ChatMessageCard`; the AbstractAssistant
-  desktop mirrors the same words natively.
+  desktop mirrors it natively (its words still differ in four places, listed in the spec; its owner aligns them).
+  Until backlog 0063 the Docs assistant has no read-aloud path, so its answers carry no speaker.
 - The stamp shows the date when the message is not from today: `formatMessageStamp(ts, now?, locales?)` (exported)
   reads `12:46 AM` today, `Yesterday · 10:52 PM`, `Oct 21 · 10:52 PM` earlier this year (or a later day),
   `Oct 21, 2025 · 10:52 PM` another year, in the reader's locale and time zone (it was the time only, so a reply
   from last week read like one from this morning). The full date is the stamp's hover text (`messageStampTitle`,
-  on a `<time dateTime>` element); the card re-derives the stamp when the reader's day changes (`localDayKey`).
+  on a `<time>` with an ISO `dateTime`, `messageStampIso`); an open card re-renders at local midnight (`useLocalDay`,
+  one shared timer). Epoch milliseconds are accepted, and a bare date ("2026-10-27") is the reader's local day.
 - The speaker is permanent on every assistant message of a host with a read-aloud path (`onSpeakToggle`): while the
-  reply streams, or when it has no text, it stays in place disabled with its reason as the hover text ("Read aloud
-  when the reply is finished", "No text to read aloud") instead of appearing only once the reply is done.
+  reply streams, or when it has no text, it stays in place, dimmed and `aria-disabled` (still focusable), with its
+  reason as the hover text ("Read aloud when the reply is finished", "No text to read aloud") instead of appearing
+  only once the reply is done.
 - The "N files changed" chip opens the structured panel like the tokens, tools and duration chips (title "Files
   changed", one row per file: its name, then its folder; capped at 30 with "and N more files"); it was a native
-  multi-line `title` tooltip. `StatDetailKind` adds `"files"`. `ChatStat.title` is documented as a one-line hint.
-- Checks: `panel-chat/scripts/check_message_footer.mjs` (44, in `npm test`): the stamp table (today, yesterday,
+  multi-line `title` tooltip; POSIX and Windows paths. `StatDetailKind` adds `"files"`. `ChatStat.title` is documented as a one-line hint.
+- Checks: `panel-chat/scripts/check_message_footer.mjs` (52, in `npm test`): the stamp table (today, yesterday,
   this year, another year, a future day, calendar-day and month boundaries, fr-FR, malformed), the card's dated stamp
   and hover text, the speaker on seven assistant message kinds and with a `renderFooter` slot (disabled while
   streaming / without text; never on user or system messages; never without a TTS host), every workflow chip
   structured with no native `title`. Mutants (the date dropped in the helper, the card back to time only, the
-  speaker dropped while streaming, on history messages, on questions, the files chip back to a `title`) all red.
+  speaker dropped while streaming, on history messages, on questions, the files chip back to a `title`, the speaker
+  back to a native `disabled`) all red.
+  Adversarial review (Opus, read-only): no blocker; fixed: the disabled speaker lost to `.pc-workflow-chat
+  button:disabled` (now `aria-disabled` with its own rule), no re-render at midnight (now `useLocalDay`), the desktop
+  differences and the Docs assistant exception written down, epoch/bare-date stamps, ISO `dateTime`, Windows paths.
 
 ## 0.8.3 - 2026-10-28
 

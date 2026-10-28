@@ -1119,11 +1119,13 @@
 }
 
 /* A speaker that cannot read yet (the reply is streaming, or there is no text) stays in place,
- * dimmed, with its reason as the hover text: the footer spec keeps it permanent. */
-.pc-chat-icon-btn:disabled {
+ * dimmed, focusable, with its reason as the hover text: the footer spec keeps it permanent. */
+.pc-chat-header-actions .pc-chat-icon-btn[aria-disabled="true"],
+.pc-chat-header-actions .pc-chat-icon-btn[aria-disabled="true"]:hover {
   opacity: 0.4;
   cursor: default;
   background: transparent;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.80));
   transform: none;
 }
 

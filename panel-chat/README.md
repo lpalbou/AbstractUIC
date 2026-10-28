@@ -512,8 +512,9 @@ const input = { prompt, _runtime: { ...streamRepliesRuntime(streamReplies) } };
 
 Every message card renders one meta line, the same in every app (and mirrored by the AbstractAssistant desktop):
 the **stamp** (`formatMessageStamp`: `12:46 AM` today, `Yesterday · 10:52 PM`, `Oct 21 · 10:52 PM`,
-`Oct 21, 2025 · 10:52 PM` another year; the full date on hover), the **speaker** on every assistant message when
-you pass `onSpeakToggle` (always visible; disabled with its reason while the reply streams or when it has no text),
+`Oct 21, 2025 · 10:52 PM` another year; the full date on hover; re-rendered at local midnight), the **speaker** on
+every assistant message when you pass `onSpeakToggle` (always visible; dimmed and `aria-disabled` with its reason
+while the reply streams or when it has no text; the Docs assistant has no read-aloud path yet, backlog 0063),
 and **copy**. The stat chips of a workflow turn (tokens, tools, files changed, duration) each open the structured
 `StatDetailPanel`, never a native multi-line tooltip. The full spec is in
 [docs/api.md, Message footer](../docs/api.md#message-footer); `scripts/check_message_footer.mjs` pins it.

@@ -20,7 +20,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pc = await import(join(here, "..", "dist", "index.js"));
-const { ChatMessageCard, formatMessageStamp, messageStampTitle, statDetail, StatDetailPanel } = pc;
+const { ChatMessageCard, formatMessageStamp, messageStampTitle, messageStampIso, useLocalDay, statDetail, StatDetailPanel } = pc;
 let failures = 0;
 let checks = 0;
 const check = (name, cond, detail) => {
@@ -58,6 +58,10 @@ const render = (props) => renderToStaticMarkup(React.createElement(ChatMessageCa
   const fr = formatMessageStamp(at(2026, 9, 21, 22, 52), now, "fr-FR");
   check("A locale-aware (fr-FR)", fr === "21 oct. · 22:52", fr);
   check("A malformed is empty", formatMessageStamp("not-a-date", now) === "" && formatMessageStamp("", now) === "" && formatMessageStamp(undefined, now) === "");
+  check("A epoch milliseconds are a timestamp", formatMessageStamp(new Date(2026, 9, 21, 22, 52).getTime(), now, "en-US") === "Oct 21 · 10:52 PM");
+  check("A a bare date is the reader's local day", formatMessageStamp("2026-10-27", now, "en-US") === "Yesterday · 12:00 AM", formatMessageStamp("2026-10-27", now, "en-US"));
+  check("A the machine-readable form is ISO", messageStampIso(at(2026, 9, 21, 22, 52)) === new Date(2026, 9, 21, 22, 52).toISOString() && messageStampIso("x") === "");
+  check("A useLocalDay is exported (the card re-renders at local midnight)", typeof useLocalDay === "function");
   const title = messageStampTitle(at(2026, 9, 21, 22, 52), "en-US");
   check("A the hover text is the full date", /Wednesday, October 21, 2026/.test(title) && /10:52/.test(title), title);
 }
@@ -83,6 +87,9 @@ const render = (props) => renderToStaticMarkup(React.createElement(ChatMessageCa
   const thtml = render({ message: { id: "a3", role: "assistant", content: "Now.", ts: now.toISOString() } });
   const tstamp = (thtml.match(/<time class="pc-chat-time"[^>]*>([^<]*)<\/time>/) || [])[1] || "";
   check("A card: today's message shows the time only", tstamp && !tstamp.includes("·") && /\d{1,2}:\d{2}/.test(tstamp), tstamp);
+  check("A card: dateTime is ISO", html.includes(`dateTime="${old.toISOString()}"`), html.slice(0, 600));
+  const epoch = render({ message: { id: "a5", role: "assistant", content: "x", ts: old.getTime() } });
+  check("A card: epoch milliseconds stamp too", epoch.includes(`>${want}</time>`), epoch.slice(0, 600));
   const bad = render({ message: { id: "a4", role: "assistant", content: "x", ts: "garbage" } });
   check("A card: a malformed stamp renders nothing", !bad.includes("pc-chat-time") && !bad.includes("Invalid Date"), bad.slice(0, 400));
 }
@@ -105,17 +112,17 @@ const render = (props) => renderToStaticMarkup(React.createElement(ChatMessageCa
   for (const [name, message] of Object.entries(kinds)) {
     const html = render({ message, ...tts });
     const btn = speaker(html);
-    check(`B speaker on an assistant ${name}`, Boolean(btn) && !/\bdisabled=""/.test(btn), html.slice(0, 500));
+    check(`B speaker on an assistant ${name}`, Boolean(btn) && !/aria-disabled|\bdisabled=""/.test(btn), html.slice(0, 500));
     check(`B copy on an assistant ${name}`, html.includes('aria-label="Copy message"'));
   }
   const withFooter = render({ message: kinds.answer, ...tts, renderFooter: () => React.createElement("span", { className: "host-badge" }, "detail") });
   check("B speaker kept with a renderFooter slot", Boolean(speaker(withFooter)) && withFooter.includes("host-badge"));
   const live = render({ message: { id: "b8", role: "assistant", content: "Partial", live: { callId: "c1", reasoning: "" } }, ...tts });
   const liveBtn = speaker(live);
-  check("B a streaming reply keeps the speaker, disabled with its reason", /\bdisabled=""/.test(liveBtn) && liveBtn.includes('title="Read aloud when the reply is finished"'), liveBtn || live.slice(0, 500));
+  check("B a streaming reply keeps the speaker, disabled with its reason", /aria-disabled="true"/.test(liveBtn) && !/\sdisabled=""/.test(liveBtn) && liveBtn.includes('title="Read aloud when the reply is finished"'), liveBtn || live.slice(0, 500));
   const empty = render({ message: { id: "b9", role: "assistant", content: "", media: [{ kind: "image", src: "blob:y" }] }, ...tts });
   const emptyBtn = speaker(empty);
-  check("B a reply without text keeps the speaker, disabled with its reason", /\bdisabled=""/.test(emptyBtn) && emptyBtn.includes('title="No text to read aloud"'), emptyBtn || empty.slice(0, 500));
+  check("B a reply without text keeps the speaker, disabled with its reason", /aria-disabled="true"/.test(emptyBtn) && emptyBtn.includes('title="No text to read aloud"'), emptyBtn || empty.slice(0, 500));
   check("B no speaker on the user's message", !speaker(render({ message: { id: "u1", role: "user", content: "Hi" }, ...tts })));
   check("B no speaker on a system message", !speaker(render({ message: { id: "s1", role: "system", content: "Note" }, ...tts })));
   check("B no speaker without a TTS host", !speaker(render({ message: kinds.answer })));
@@ -149,12 +156,21 @@ const render = (props) => renderToStaticMarkup(React.createElement(ChatMessageCa
         { label: "README.md", value: "workspace folder" },
       ]),
     files);
+  const win = statDetail("files", { ...statistics, changedFiles: ["src\\win\\a.ts"] });
+  check("C files detail splits a Windows path too", win.sections[0].rows[0].label === "a.ts" && win.sections[0].rows[0].value === "src\\win", win.sections[0].rows[0]);
   const many = statDetail("files", { ...statistics, changedFiles: Array.from({ length: 33 }, (_, i) => `f${i}.txt`) });
   check("C files detail caps at 30 rows and says how many more", many.sections[0].rows.length === 30 && many.sections[0].note === "and 3 more files", many.sections[0].note);
   const panel = renderToStaticMarkup(React.createElement(StatDetailPanel, { detail: files }));
   check("C files panel renders as the structured card", panel.includes('role="tooltip"') && panel.includes("pc-stat-detail--files") && panel.includes(">Files changed<") && panel.includes("From the run ledger"), panel.slice(0, 400));
   const tokens = renderToStaticMarkup(React.createElement(StatDetailPanel, { detail: statDetail("tokens", statistics) }));
   check("C tokens panel: Usage with Input/Output/Total and the ledger footnote", /Usage · 2 model calls/.test(tokens) && />Input</.test(tokens) && />Output</.test(tokens) && />Total</.test(tokens) && tokens.includes("summed across this turn and its child runs"), tokens.slice(0, 400));
+}
+
+// The dimmed, still-focusable speaker style exists (aria-disabled, so no `button:disabled` rule overrides it).
+{
+  const { readFileSync } = await import("node:fs");
+  const css = readFileSync(join(here, "..", "src", "panel_chat.css"), "utf8");
+  check("B the unavailable speaker has its own style", /\.pc-chat-header-actions \.pc-chat-icon-btn\[aria-disabled="true"\]/.test(css));
 }
 
 console.error = quiet;

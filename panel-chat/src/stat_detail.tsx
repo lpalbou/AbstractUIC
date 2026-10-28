@@ -351,15 +351,15 @@ function toolDetail(s: WorkflowStatistics): StatDetail {
   };
 }
 
-/** Pure: the structured detail for one chip, from the folded statistics. */
 /** Files a turn's tools wrote (the "N files changed" chip; was a native multi-line `title`
  *  until 0.6.4). One row per file: its name, then the folder it is in. */
 const FILES_SHOWN = 30;
 function filesDetail(s: WorkflowStatistics): StatDetail {
   const files = s.changedFiles || [];
   const rows: StatDetailRow[] = files.slice(0, FILES_SHOWN).map((path) => {
-    const clean = path.replace(/\/+$/, "");
-    const cut = clean.lastIndexOf("/");
+    // POSIX and Windows separators alike ("src/a.ts", "src\\a.ts").
+    const clean = path.replace(/[\\/]+$/, "");
+    const cut = Math.max(clean.lastIndexOf("/"), clean.lastIndexOf("\\"));
     return { label: cut >= 0 ? clean.slice(cut + 1) || clean : clean, value: cut > 0 ? clean.slice(0, cut) : cut === 0 ? "/" : "workspace folder" };
   });
   return {
@@ -377,6 +377,7 @@ function filesDetail(s: WorkflowStatistics): StatDetail {
   };
 }
 
+/** Pure: the structured detail for one chip, from the folded statistics. */
 export function statDetail(kind: StatDetailKind, statistics: WorkflowStatistics): StatDetail {
   if (kind === "tokens") return tokenDetail(statistics);
   if (kind === "time") return timeDetail(statistics);

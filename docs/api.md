@@ -303,7 +303,7 @@ Components:
   hover-only toolbar). The meta line follows the [message footer spec](#message-footer) (0.6.4: the stamp carries
   the date when the message is not from today, the speaker is on every assistant message of a TTS host, every
   stat chip opens the structured panel); helpers `formatMessageStamp(ts, now?, locales?)`,
-  `messageStampTitle(ts, locales?)`, `localDayKey(now?)`.
+  `messageStampTitle(ts, locales?)`, `messageStampIso(ts)`, `localDayKey(now?)`, `useLocalDay()`.
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
@@ -318,7 +318,10 @@ Components:
 
 One spec for every chat message of the framework (operator QA 2026-10-28; panel-chat 0.6.4, backlog 0062). The web
 apps get it from `ChatMessageCard` (through `WorkflowChat` / `ChatThread`); a local twin is a fork (ADR 0001). The
-AbstractAssistant desktop mirrors the same contents and words in its own Qt bubble. The source of truth is
+AbstractAssistant desktop mirrors the same contents in its own Qt bubble; on 2026-10-28 its words still differ
+("Yesterday 10:52 PM" without the separator, a zero-padded day "Oct 01", no year form, the raw text for a malformed
+timestamp, the speaker's tooltip "Speak this reply") and its owner aligns them. Exception until backlog 0063: the Docs
+assistant has no read-aloud path, so its answers carry no speaker. The source of truth is
 `panel-chat/src/message_footer.ts`; `panel-chat/scripts/check_message_footer.mjs` pins it.
 
 A message's meta line holds, in this order:
@@ -332,15 +335,16 @@ A message's meta line holds, in this order:
    | earlier this year (or a later day) | `Oct 21 · 10:52 PM` |
    | another year | `Oct 21, 2025 · 10:52 PM` |
 
-   Days are the reader's calendar days, not 24 h windows; the card re-derives the stamp when the day changes. The
-   full date and time is the stamp's hover text (`messageStampTitle(ts)`, on a `<time dateTime>` element). A missing
-   or malformed timestamp shows no stamp, never "Invalid Date".
+   Days are the reader's calendar days, not 24 h windows; an open card re-renders at local midnight (`useLocalDay()`,
+   one shared timer). The full date and time is the stamp's hover text (`messageStampTitle(ts)`, on a `<time>` whose
+   `dateTime` is ISO, `messageStampIso(ts)`). An ISO string or epoch milliseconds are accepted; a bare date
+   ("2026-10-27") is that local day. A missing or malformed timestamp shows no stamp, never "Invalid Date".
 2. **Speaker**: on every assistant message whenever the host has a read-aloud path (`onSpeakToggle`), whatever the
    message kind (an answer, a question, a warning, a reply from history, a reply with media or statistics, with or
    without `renderFooter`). Always visible, never hover-only. States per `speakButtonView`: speaker, spinner only
    while the first audio is generated, Pause while playing, Resume when paused. While the reply is still streaming,
-   or when it has no text, the speaker stays in place disabled with its reason as hover text ("Read aloud when the
-   reply is finished", "No text to read aloud"). No speaker on user or system messages; a tool-activity row and a
+   or when it has no text, the speaker stays in place, dimmed and `aria-disabled` (still focusable), with its reason as
+   hover text ("Read aloud when the reply is finished", "No text to read aloud"; `data-speak-state="unavailable"`). No speaker on user or system messages; a tool-activity row and a
    one-line hint (`variant: "hint"`) are not message cards and carry no meta line.
 3. **Copy**: on every card unless the host passes `showCopy={false}`; always visible.
 
