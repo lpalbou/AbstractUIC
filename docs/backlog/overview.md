@@ -15,7 +15,7 @@ carries its own code-reality citations.
 
 ## Counts
 - Planned: 16 (0001, 0003-0006, 0014, 0019, 0030-0036, 0039, 0040)
-- Proposed: 36 (0009-0013, 0017-0018, 0020-0022, 0024-0028, 0037-0038, 0041-0053 kit gaps K1-K13 from the adoptions, 2026-10-28; 0055-0057 from the release-closing aesthetic pass; 0059 turns-only listing; 0061 Create a voice follows a served cloning capability; 0063 Docs assistant read-aloud)
+- Proposed: 37 (0009-0013, 0017-0018, 0020-0022, 0024-0028, 0037-0038, 0041-0053 kit gaps K1-K13 from the adoptions, 2026-10-28; 0055-0057 from the release-closing aesthetic pass; 0059 turns-only listing; 0061 Create a voice follows a served cloning capability; 0062 Devices page island (discussion, with gateway 0965); 0063 Docs assistant read-aloud)
 - Completed: 10 (0002, 0007, 0008, 0023, 0026-theme-adoption, 0029, 0054, 0058, 0060, 0064)
 - Deprecated: 2 (0015, 0016 — superseded by 0033)
 - Recurrent: 1 (backlog hygiene)
