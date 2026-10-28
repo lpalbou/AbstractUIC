@@ -34,7 +34,9 @@ import { AfOverrideRow, AfSettingRow, AfSettingsGroup } from "./af_settings_rows
 import {
   VOICE_LANGUAGE_LABELS,
   VoiceSettings,
+  voiceLabel,
   voiceLanguageLabel,
+  voiceNameInCatalog,
   type VoiceCatalog,
   type VoiceCreation,
   type VoiceLibrary,
@@ -128,9 +130,16 @@ export const VOICE_CAPTURE_OPTIONS: { value: VoiceCaptureMode; label: string }[]
   { value: "toggle", label: "Tap to talk" },
 ];
 
-/** "provider · model · voice" of the TTS override, or "" when the gateway default applies. */
-export function voiceTtsOverrideSummary(p: VoiceClientPreferences): string {
-  return [p.provider, p.model, p.profile || p.voice].filter(Boolean).join(" · ");
+/**
+ * "provider · model · voice" of the TTS override, or "" when the gateway default applies. The
+ * voice is its readable name: `voiceName` (resolved from the voice catalog), else the id when it is
+ * readable ("aiden"), else "a saved voice": an opaque id (a clone's 32-hex id) is never shown
+ * (AbstractFramework ADR 0043; QA (i) 2026-10-28, AbstractCode's Engines row showed "250b665e…").
+ */
+export function voiceTtsOverrideSummary(p: VoiceClientPreferences, voiceName?: string): string {
+  const id = p.profile || p.voice || "";
+  const voice = id ? String(voiceName || "").trim() || voiceLabel(id) : "";
+  return [p.provider, p.model, voice].filter(Boolean).join(" · ");
 }
 export function voiceSttOverrideSummary(p: VoiceClientPreferences): string {
   return [p.stt_provider, p.stt_model].filter(Boolean).join(" · ");
@@ -263,6 +272,28 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
     };
   }, [disabled, hostDefaults]);
 
+  // The chosen voice's name for the Engines row: read from the catalog of its own route (a clone
+  // or a voice created since the section mounted is listed there), never its id.
+  const voiceId = value.profile || value.voice || "";
+  const [voiceName, setVoiceName] = useState<{ id: string; name: string }>({ id: "", name: "" });
+  useEffect(() => {
+    if (disabled || !voiceId) return;
+    let alive = true;
+    const known = voiceNameInCatalog(catalog, voiceId);
+    if (known) {
+      setVoiceName({ id: voiceId, name: known });
+      return;
+    }
+    void fetcher
+      .current(value.provider || undefined, value.model || undefined)
+      .then((c) => alive && setVoiceName({ id: voiceId, name: voiceNameInCatalog(c, voiceId) }))
+      .catch(() => alive && setVoiceName({ id: voiceId, name: "" }));
+    return () => {
+      alive = false;
+    };
+  }, [disabled, voiceId, value.provider, value.model, catalog]);
+  const ttsOverride = voiceTtsOverrideSummary(value, voiceName.id === voiceId ? voiceName.name : "");
+
   // The transcription engine's languages: the override, else the gateway default's route.
   const sttEngine = value.stt_provider || (defaults.value?.stt?.configured ? String(defaults.value.stt.provider || "") : "");
   const hasLanguages = Boolean(p.fetchLanguages);
@@ -316,7 +347,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
               label="Text → speech"
               setting="tts"
               defaultSummary={ttsDefault}
-              overrideSummary={voiceTtsOverrideSummary(value)}
+              overrideSummary={ttsOverride}
               overrideOwner={owner}
               open={open === "tts"}
               onToggle={() => setOpen(open === "tts" ? "" : "tts")}

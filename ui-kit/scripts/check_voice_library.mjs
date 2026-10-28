@@ -22,6 +22,11 @@
  * - C4 a created voice merges into the CURRENT preferences, a late result after unmount is
  *   dropped, and the panel takes one request at a time (modes and Create disabled while busy);
  * - C5 the third group is "Shared voices" (built-in voices and the administrator's).
+ * - C6-C9 (AbstractUIC 0.8.3, operator QA (i)/(k) 2026-10-28; ADR 0043 readable labels): one model
+ *   row per id with its role label; a clone's line names the Base it is bound to; an opaque voice
+ *   id is never a label (saved option, override summary); AfVoiceSection's Engines row names the
+ *   voice from the catalog of its own route. Mutants (no dedupe, no clone line, id as the saved
+ *   label, the summary without the name, the id in the summary) all red.
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -246,6 +251,88 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
   await h.settle();
   const withModel = opts().filter((o) => JSON.parse(o.value)[3] === "Vivian");
   check("C5 with a model chosen: that model's entry, once", withModel.length === 1 && JSON.parse(withModel[0].value)[1] === "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", JSON.stringify(withModel));
+}
+
+// C6-C9 (QA (i)/(k) 2026-10-28, AbstractUIC 0.8.3): readable labels, never computer ids.
+{
+  const { voiceNameInCatalog, voiceLabel, isOpaqueId, cloneModelOf, voiceTtsOverrideSummary, AfVoiceSection } = kit;
+  const BASE17 = "Qwen/Qwen3-TTS-12Hz-1.7B-Base";
+  const BASE06 = "Qwen/Qwen3-TTS-12Hz-0.6B-Base";
+  const CV06 = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice";
+  const cloneId = "91f02e9338dc4b9eb07f2ab0b0212333";
+  const sisko = { id: cloneId, voice_id: cloneId, name: "Sisko", label: "Sisko", kind: "clone", voice_kind: "voice", voice_kinds: ["voice", "clone"], provider: "qwen3-tts", model: BASE17, language: "en" };
+  const aiden = { id: "aiden", name: "Aiden", label: "Aiden", kind: "profile", voice_kind: "profile", provider: "qwen3-tts", model: CV06, language: "en" };
+  // C6: one row per model even when the gateway's list carries the plain ids AND the detailed records.
+  {
+    const catalog = {
+      tts_providers: ["qwen3-tts"],
+      tts_models_by_provider: { "qwen3-tts": [CV06, BASE06, BASE17, { id: CV06, role: "tts", label: CV06 }, { id: BASE06, role: "cloning", label: `${BASE06} (clones)` }, { id: BASE17, role: "cloning", label: `${BASE17} (clones)` }] },
+      tts_model_details_by_provider: { "qwen3-tts": [{ id: CV06, role: "tts", label: CV06 }, { id: BASE06, role: "cloning", label: `${BASE06} (clones)` }, { id: BASE17, role: "cloning", label: `${BASE17} (clones)` }] },
+      items: [aiden, sisko],
+    };
+    const h = mount(VoiceSettings, { value: { provider: "qwen3-tts" }, onChange: () => undefined, fetchCatalog: async () => catalog });
+    await h.settle();
+    const picker = find(h.tree, (n) => n.props.modelLabel === "Speech model");
+    const models = await picker.props.fetchModels("qwen3-tts");
+    check("C6 each model once", JSON.stringify(models.map((m) => m.id)) === JSON.stringify([CV06, BASE06, BASE17]), JSON.stringify(models));
+    check("C6 the role stays as the label", models.find((m) => m.id === BASE17)?.label === `${BASE17} (clones)` && models.find((m) => m.id === CV06)?.label === CV06, JSON.stringify(models));
+    // Only details (no records in the list): the same rows.
+    const plain = { ...catalog, tts_models_by_provider: { "qwen3-tts": [CV06, BASE06, BASE17] } };
+    const h2 = mount(VoiceSettings, { value: { provider: "qwen3-tts" }, onChange: () => undefined, fetchCatalog: async () => plain });
+    await h2.settle();
+    const m2 = await find(h2.tree, (n) => n.props.modelLabel === "Speech model").props.fetchModels("qwen3-tts");
+    check("C6 plain list + details: same rows", JSON.stringify(m2) === JSON.stringify(models), JSON.stringify(m2));
+    h.unmount();
+    h2.unmount();
+  }
+  // C7: a clone is bound to the Base that made it: the picker says so under the selected voice.
+  {
+    check("C7 cloneModelOf a clone", cloneModelOf(sisko) === BASE17, cloneModelOf(sisko));
+    check("C7 cloneModelOf a preset is empty", cloneModelOf(aiden) === "", cloneModelOf(aiden));
+    const h = mount(VoiceSettings, { value: { provider: "qwen3-tts", model: BASE17, voice: cloneId }, onChange: () => undefined, fetchCatalog: async () => ({ items: [aiden, sisko] }) });
+    await h.settle();
+    const note = byData(h.tree, "data-voice-note", "clone-model");
+    const text = note ? [].concat(note.props.children).join("") : "";
+    check("C7 the clone's model line", text.includes(BASE17) && /always spoken with that model/.test(text), text);
+    h.rerender({ value: { provider: "qwen3-tts", model: CV06, voice: "aiden" } });
+    await h.settle();
+    check("C7 no clone line for a preset voice", !byData(h.tree, "data-voice-note", "clone-model"));
+    h.unmount();
+  }
+  // C8: an opaque id is never a label (the saved choice the catalog does not list; the summary).
+  {
+    check("C8 a 32-hex id is opaque", isOpaqueId(cloneId) && isOpaqueId("3f2b1c4d-1111-2222-3333-444455556666"));
+    check("C8 a preset name is readable", !isOpaqueId("aiden") && !isOpaqueId("fr-female-camille") && !isOpaqueId("af_heart"));
+    check("C8 the catalog name wins", voiceNameInCatalog({ items: [sisko] }, cloneId) === "Sisko" && voiceLabel(cloneId, { items: [sisko] }) === "Sisko");
+    check("C8 an unlisted opaque id reads as a saved voice", voiceLabel(cloneId) === "a saved voice", voiceLabel(cloneId));
+    const h = mount(VoiceSettings, { value: { provider: "qwen3-tts", model: BASE17, voice: cloneId }, onChange: () => undefined, fetchCatalog: async () => ({ items: [aiden] }) });
+    await h.settle();
+    const labels = (byAria(h.tree, "AI voice")?.props.options || []).map((o) => String(o.label));
+    check("C8 the unlisted saved clone is not shown by its id", !labels.some((l) => l.includes(cloneId.slice(0, 8))) && labels.includes("Saved voice (not listed)"), JSON.stringify(labels));
+    h.unmount();
+    const summary = voiceTtsOverrideSummary({ provider: "qwen3-tts", model: BASE17, voice: cloneId });
+    check("C8 the override summary never shows the id", !summary.includes(cloneId.slice(0, 8)), summary);
+    check("C8 the summary names the voice it is given", voiceTtsOverrideSummary({ provider: "qwen3-tts", model: BASE17, voice: cloneId }, "Sisko") === `qwen3-tts · ${BASE17} · Sisko`);
+  }
+  // C9: AfVoiceSection's Engines row (AbstractCode's "250b665e…") names the voice from the catalog
+  // of its own route, read at mount and again when the override changes.
+  {
+    const calls = [];
+    const fetchCatalog = async (provider, model) => {
+      calls.push([provider || "", model || ""]);
+      return provider === "qwen3-tts" ? { items: [aiden, sisko] } : { items: [] };
+    };
+    const h = mount(AfVoiceSection, { value: { provider: "qwen3-tts", model: BASE17, voice: cloneId }, onChange: () => undefined, fetchCatalog, defaults: {} });
+    await h.settle();
+    const row = find(h.tree, (n) => n.props.setting === "tts" && "overrideSummary" in n.props);
+    check("C9 the Engines row names the clone", row?.props.overrideSummary === `qwen3-tts · ${BASE17} · Sisko`, row?.props.overrideSummary);
+    check("C9 read from the override's own route", calls.some(([p, m]) => p === "qwen3-tts" && m === BASE17), JSON.stringify(calls));
+    h.rerender({ value: { provider: "qwen3-tts", model: CV06, voice: "aiden" } });
+    await h.settle();
+    const row2 = find(h.tree, (n) => n.props.setting === "tts" && "overrideSummary" in n.props);
+    check("C9 a changed voice is renamed", row2?.props.overrideSummary === `qwen3-tts · ${CV06} · Aiden`, row2?.props.overrideSummary);
+    h.unmount();
+  }
 }
 
 // C3: a recording's language is detected unless chosen; a description keeps one.

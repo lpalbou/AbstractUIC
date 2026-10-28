@@ -306,7 +306,7 @@ export type ChatMessageCardProps = {
   attachments?: ChatAttachment[];
   stats?: ChatStat[];
   onSpeakToggle?: (message: ChatMessage) => void;
-  getSpeakState?: (message: ChatMessage) => "idle" | "loading" | "playing" | "paused";
+  getSpeakState?: (message: ChatMessage) => SpeakState;
   showCopy?: boolean;
   jsonCollapseAfterDepth?: number;
   /**
@@ -334,6 +334,22 @@ export type ChatMessageCardProps = {
   onOpenMedia?: (item: ChatMedia) => void;
 };
 
+/** The read-aloud state a host reports for a message (`useGatewayVoice().tts_playback.status`). */
+export type SpeakState = "idle" | "loading" | "playing" | "paused";
+
+/**
+ * What the message's speaker button shows for a read-aloud state: the spinner ONLY while the
+ * first audio is being generated ("loading"); once audio plays, Pause; paused, Play; else the
+ * speaker. A host that keeps "loading" while audio plays is wrong: `useGatewayVoice` turns
+ * "playing" as the first segment starts (check_voice_stream.mjs).
+ */
+export function speakButtonView(state: SpeakState): { icon: IconName; title: string; spinning: boolean } {
+  if (state === "loading") return { icon: "loader", title: "Generating audio…", spinning: true };
+  if (state === "playing") return { icon: "pause", title: "Pause", spinning: false };
+  if (state === "paused") return { icon: "play", title: "Resume", spinning: false };
+  return { icon: "speaker", title: "Speak (TTS)", spinning: false };
+}
+
 export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement {
   const m = props.message;
   const role_ui = useMemo(() => _role_ui(m), [m.kind, m.level, m.role, m.title]);
@@ -357,15 +373,7 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
   const live = m.live;
   const can_speak = !live && typeof props.onSpeakToggle === "function" && role_ui.variant === "assistant" && Boolean(String(m.content || "").trim());
   const speak_state = can_speak ? props.getSpeakState?.(m) || "idle" : "idle";
-  const speak_icon: IconName = speak_state === "loading" ? "loader" : speak_state === "playing" ? "pause" : "speaker";
-  const speak_title =
-    speak_state === "loading"
-      ? "Generating audio…"
-      : speak_state === "playing"
-        ? "Pause"
-        : speak_state === "paused"
-          ? "Resume"
-          : "Speak (TTS)";
+  const speak = speakButtonView(speak_state);
   const show_copy = props.showCopy !== false;
 
   const attachments = Array.isArray(props.attachments) ? props.attachments : Array.isArray(m.attachments) ? m.attachments : [];
@@ -420,11 +428,13 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
             <button
               className="pc-chat-icon-btn"
               type="button"
-              aria-label={speak_title}
-              title={speak_title}
+              aria-label={speak.title}
+              title={speak.title}
+              data-speak-state={speak_state}
               onClick={() => props.onSpeakToggle?.(m)}
             >
-              <Icon name={speak_icon} size={22} className={speak_state === "loading" ? "pc-chat-speak-spinner" : undefined} />
+              {/* Keyed per icon: the spinning element is replaced (never re-used) once audio starts. */}
+              <Icon key={speak.icon} name={speak.icon} size={22} className={speak.spinning ? "pc-chat-speak-spinner" : undefined} />
             </button>
           ) : null}
           {show_copy ? (
