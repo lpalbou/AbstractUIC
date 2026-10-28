@@ -14,7 +14,7 @@ packaging). Full findings are distilled into the items below; each item
 carries its own code-reality citations.
 
 ## Counts
-- Planned: 15 (0001, 0003-0006, 0014, 0019, 0030-0036, 0039)
+- Planned: 16 (0001, 0003-0006, 0014, 0019, 0030-0036, 0039, 0040)
 - Proposed: 17 (0009-0013, 0017-0018, 0020-0022, 0024-0028, 0037-0038)
 - Completed: 6 (0002, 0007, 0008, 0023, 0026-theme-adoption, 0029)
 - Deprecated: 2 (0015, 0016 — superseded by 0033)
@@ -79,6 +79,7 @@ merge, or missing test rigs) — see each item's checklist.
 | 0034 | provider/model/reasoning/speculation picker | ui-kit | Gateway default first and named; served ladders only; compact layout; `gateway_models.ts` helpers |
 | 0035 | voice section with voice-in/out widgets | ui-kit | `AfVoiceInput` / `AfVoiceOutput` standalone, live level, mute, capture mode, voice library, mic button, prefs hooks |
 | 0039 | hosts move approve-all / approve-kind to the gateway's session tool policy | panel-chat consumers | Kit half shipped in 0.7.0 (#9, #11); each host builds the kit client, passes `sessionPolicy`, deletes its local approve-all |
+| 0040 | panel-chat renders the gateway's replay view | panel-chat + controller hosts | Kit half in panel-chat 0.6.0 (`replayView` transport, `applyDelta`, projection, labeled fallback; 15 conformance cases byte-equal to gateway 0.17.0); hosts add `replayView` (root 0993, runtime 0854) |
 | 0036 | app shell: top-right widgets + drawer system | ui-kit + panel-chat | Identity badge/menu, about fetch, enforced order; `AfDrawerSystem` (opaque panels, keep-alive, persisted, auto top offset); `AfAppShell` |
 
 ## Proposed ledger (promotion criteria in each item)

@@ -52,6 +52,9 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
   `ComposerAttachmentChips`, `useAttachmentUploads` (see [One chat surface](#one-chat-surface))
 - Questions and approvals: `presentInteraction`, `WORKFLOW_INTERACTION_LABELS`,
   `ReplayInteraction` (see [Questions and approvals](#questions-and-approvals))
+- Replay view (0.6.0): `WorkflowTransport.replayView`, `createReplayViewTransport`,
+  `applyDelta`, `ReplayViewFold`, `SseParser`, `projectReplayView`, `workflowSourceLabel` (see
+  [Replay view](#replay-view-the-gateways-reconstruction))
 - A chat's tool policy on the gateway: the `WorkflowSessionController` option `sessionToolPolicy`
   (a ui-kit `SessionToolPolicyClient`), `sessionPolicyStatus()`, `toolPolicyDecision`,
   `toolPolicyDecisionText`, `sessionPolicyClampedText` (see
@@ -244,9 +247,11 @@ this chat / allow all, and a dismissal defers, never denies.
   "Needs you" board, an inbox): same decisions and callbacks, detail behind **Review**.
 - `presentInteraction` also accepts a `ReplayInteraction`: the shape of
   `replay_view_v1.interaction` (kind, run_id, wait_key, step_id, seq, prompt, choices,
-  allow_free_text, details, tool_calls, activity_id, command). It is a typed seam only: no
-  gateway on `main` serves the replay view yet, panel-chat never fetches a `/view` route, and
-  today's data path stays the controller's ledger fold + served `waiting`.
+  allow_free_text, details, tool_calls, activity_id, command, answer_payload). With a replay
+  view transport the controller's own interaction comes from the view (see
+  [Replay view](#replay-view-the-gateways-reconstruction)); an `event` interaction is answered
+  with the view's resume `command` (`controller.answerEvent(payload)`), not by deriving an event
+  route.
 
 #### Session tool policy (stored on the gateway)
 
@@ -360,12 +365,74 @@ const interaction = presentInteraction(workflowPendingInteraction(snapshot), con
 - Not done yet: the controller does not fold `$artifact` refs or generated-media ledger events
   into `message.media` by itself; a host fills `media` with the helpers above.
 
+### Replay view: the gateway's reconstruction
+
+AbstractGateway 0.17.0 serves the run tree's replay view (`replay_view_v1`, AbstractRuntime
+0.15.0 `abstractruntime.replay`): `GET runs/{id}/view` (ETag = cursor token, 304 on
+`If-None-Match`, `?at=<token>`) and `GET runs/{id}/view/stream` (SSE: one `view`, then `delta`
+frames, `done`; reconnect with `Last-Event-ID`). It is the one reconstruction of a run: status,
+the person-facing interaction (wherever in the tree it waits) with its resume `command`,
+messages with provenance, one activity per node execution, artifacts, usage.
+
+A host opts in by adding `replayView` to its `WorkflowTransport`:
+
+```ts
+import { createReplayViewTransport, type WorkflowTransport } from "@abstractframework/panel-chat";
+import { gatewayApiPath } from "@abstractframework/ui-kit";
+
+const transport: WorkflowTransport = {
+  ...ledgerTransport, // getRun, getHistory, getLedger, streamLedger, submitCommand as before
+  replayView: createReplayViewTransport({
+    // `path` is relative to the gateway API ("runs/<id>/view"); add the host's credentials.
+    fetch: (path, init) => fetch(gatewayApiPath(path), { ...init, credentials: "include" }),
+  }),
+};
+```
+
+With it, `WorkflowSessionController.load(runId)`:
+
+- reads `GET runs/{id}/view` and `GET runs/{id}` (for `paused`), then follows `/view/stream`
+  from the view's ETag; every frame is folded with `applyDelta` (a port of the runtime's
+  `apply_delta`) and projected with `projectReplayView` into the same snapshot the components
+  already render (`messages`, `interaction`, `status`, `displayStatus`, tool rows, Stop states);
+- answers through `POST commands` with the view's command (`approve`, `resume`, `answerEvent`);
+- opens the root's ledger stream only for live reply text (`llm.delta`, which the view does not
+  carry), from the view's cursor; its records are ignored;
+- does not read the history bundle or ledger pages, folds no records (`snapshot.records` stays
+  empty) and has no timed `GET runs/{id}` poll;
+- labels the snapshot: `source: "replay_view"`, `view` = the folded view.
+
+Without `replayView`, or when the gateway answers that it has no such route (FastAPI's
+`404 Not Found` or a 405, probed once per transport; `advertised: false` skips the probe), the
+controller keeps its ledger fold and says so: `source: "ledger_fold"` with `sourceReason`
+(`workflowSourceLabel(snapshot)` gives one line to show). Any other failure of the view read is
+a load error, never a silent fallback. AbstractGateway 0.17.0 does not list the view in
+`GET discovery/capabilities`; a host that reads a future `capabilities.replay_view` passes it
+as `advertised`.
+
+Not in the view yet (gaps, filed upstream): the kill switch's attribution (`killed_by`), so a
+forced stop reads as "Stopped"; a tool call's command sandbox; per-call model timings
+(`gen_time`, prefill) in the statistics; an EVENT wait without a prompt (`signal`) is not a
+person-facing interaction there, so no "Send event" control is offered for it.
+
+`replay_view.ts` exports the pieces for hosts that render other views of a run: `applyDelta`,
+`ReplayViewFold` (drops a repeated or older frame after a reconnect), `SseParser`,
+`parseCursorToken`, `createReplayViewTransport`, `projectReplayView`. They are checked against
+a real gateway: `scripts/check_replay_view.mjs` folds the 15 conformance cases of AbstractRuntime
+0.15.0 as captured from AbstractGateway 0.17.0 (`scripts/fixtures/replay_view/`, regenerated by
+`scripts/regen_replay_view_fixtures.py`) and requires the folded view to serialize to the exact
+bytes of `GET /view` after every record.
+
+Measured on a 2,997-record run tree (4 runs, 495 tool approvals; scratch AbstractGateway
+0.17.0, SQLite stores, loopback): opening the conversation took 3 requests and 1.21 MB with the
+view against 509 requests and 5.60 MB with the ledger fold; first render 17 ms against 147 ms
+(median of 5, warm), 123 ms against 166 ms on a freshly started gateway.
+
 ### Messages from the replay view
 
-`ChatMessage` can carry a `replay_view_v1.messages[]` item, so `messages` can come from the
-replay view once a gateway serves it (no route on `main` yet; panel-chat never fetches one).
-The shape below is the WIP `ReplayView` of abstractruntime `feat/replay-view` and may move
-before it ships:
+`ChatMessage` carries a `replay_view_v1.messages[]` item (`projectReplayView` applies this
+mapping; a `final` that `repeats` an answer is shown once, the open question's own message is
+left to its card):
 
 | replay `role` / `kind` | `ChatMessage` |
 |---|---|
