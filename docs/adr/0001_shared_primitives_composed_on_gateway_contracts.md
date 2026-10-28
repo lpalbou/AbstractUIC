@@ -1,6 +1,6 @@
 # ADR 0001: Shared primitives are composed on the gateway's contracts; apps customize through props, slots and theme tokens, never by forking
 
-Status: Accepted.
+Status: Accepted (amended 2026-10-28: section 10, readable labels).
 Date: 2026-10-27
 Root backlog: `docs/backlog/planned/1055_release_wave_2026_10_27_voice_library_replay_memory.md` (AbstractFramework), track "Shared UI primitives consolidation".
 
@@ -141,6 +141,26 @@ and run panel wants; it is not a dependency of this release.
      by adding the column, the directory and the fixture consumption; the JS/TS packages remain
      the first implementation of every job.
 
+10. **Readable labels, never computer ids (amendment 2026-10-28; AbstractFramework ADR 0043).**
+    Every kit component that names something for a person names it by its readable label, from
+    the records it already reads: a voice by its catalog `name`/`label` (never its id; a cloned
+    voice's id is 32 hex characters), an artifact by its title or file name, a run by its workflow
+    and time, a model by its model name and role label. An opaque id (UUID, hex digest, run,
+    artifact, voice or session id) appears only in a developer/diagnostic view or as copyable
+    detail ("Copy id", a detail line offered for support), never as the text of a row, chip,
+    option, banner or sentence. A name that is not known (yet) is said in words ("a saved voice",
+    "Saved voice (not listed)"); a readable id (a preset voice "aiden", a provider id) may be
+    shown as it is. A note that names the current setting is neutral, never warning-styled.
+    Helpers: `voiceNameInCatalog`, `voiceLabel`, `isOpaqueId` (ui-kit 0.9.5).
+
+    Known violations on 2026-10-28 (the enforcement backlog; ADR 0043 keeps the framework-wide
+    table): the kit's `AfVoiceSection` Engines row showed the voice id (AbstractCode's
+    "250b665e…") and `VoiceSettings` labeled an unlisted saved voice "<id> (saved)": both fixed in
+    AbstractUIC 0.8.3 (backlog 0060). Outside the kit, owned by their apps: the AbstractAssistant
+    desktop route-editor banner ("· voice 41576236…", warning-styled), the desktop message footer's
+    raw hex artifact chips, AbstractFlow's On Flow End self-comment, AbstractCode web's failed-run
+    reply text carrying the run id.
+
 ## Consequences
 
 ### Positive
@@ -169,6 +189,8 @@ and run panel wants; it is not a dependency of this release.
   view replaces it when it ships.
 
 ## Enforcement
+- Section 10 (readable labels): `ui-kit/scripts/check_voice_library.mjs` C8/C9 are red when a voice id is
+  put back in the Engines row, the override summary or the saved choice.
 - Every shared component ships with a check script under `ui-kit/scripts/check_*.mjs` or
   `panel-chat/scripts/check_*.mjs` wired into `npm test`; the check pins the behavior this ADR
   promises (gateway default shown first and named, the one wording set, sparse tool layers,
@@ -207,6 +229,7 @@ and run panel wants; it is not a dependency of this release.
 - Root: AbstractFramework backlog 1055 (release wave), 0993 (one ledger, many views).
 
 ## Related
+- AbstractFramework ADR 0043 (end-user interfaces show readable labels, never computer ids).
 - `docs/adoption-guide.md` ("Which component for which job", "Server truth renders, clients
   never re-derive", "Degradations are labeled").
 - `docs/architecture.md` (host-driven data flow).
