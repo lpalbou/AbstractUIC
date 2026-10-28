@@ -276,22 +276,20 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
   // or a voice created since the section mounted is listed there), never its id.
   const voiceId = value.profile || value.voice || "";
   const [voiceName, setVoiceName] = useState<{ id: string; name: string }>({ id: "", name: "" });
+  // Re-read when the editor opens or closes: a voice renamed or deleted in "Manage voices" is named
+  // as it is now (one request per change, only where the row is shown).
+  const ttsOpen = open === "tts";
   useEffect(() => {
-    if (disabled || !voiceId) return;
+    if (disabled || !voiceId || !showTtsRow) return;
     let alive = true;
-    const known = voiceNameInCatalog(catalog, voiceId);
-    if (known) {
-      setVoiceName({ id: voiceId, name: known });
-      return;
-    }
     void fetcher
       .current(value.provider || undefined, value.model || undefined)
-      .then((c) => alive && setVoiceName({ id: voiceId, name: voiceNameInCatalog(c, voiceId) }))
+      .then((c) => alive && setVoiceName({ id: voiceId, name: voiceNameInCatalog(c, voiceId, value.provider || undefined) }))
       .catch(() => alive && setVoiceName({ id: voiceId, name: "" }));
     return () => {
       alive = false;
     };
-  }, [disabled, voiceId, value.provider, value.model, catalog]);
+  }, [disabled, voiceId, value.provider, value.model, showTtsRow, ttsOpen]);
   const ttsOverride = voiceTtsOverrideSummary(value, voiceName.id === voiceId ? voiceName.name : "");
 
   // The transcription engine's languages: the override, else the gateway default's route.

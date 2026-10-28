@@ -289,6 +289,10 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
   {
     check("C7 cloneModelOf a clone", cloneModelOf(sisko) === BASE17, cloneModelOf(sisko));
     check("C7 cloneModelOf a preset is empty", cloneModelOf(aiden) === "", cloneModelOf(aiden));
+    // The clone record as AbstractVoice builds it (no top-level model): the tags / stored meta name it.
+    const { model: _m, ...bare } = sisko;
+    check("C7 cloneModelOf from tags.model_id", cloneModelOf({ ...bare, tags: { model_id: BASE17 } }) === BASE17);
+    check("C7 cloneModelOf from params.meta.model_id", cloneModelOf({ ...bare, params: { meta: { model_id: BASE06 } } }) === BASE06);
     const h = mount(VoiceSettings, { value: { provider: "qwen3-tts", model: BASE17, voice: cloneId }, onChange: () => undefined, fetchCatalog: async () => ({ items: [aiden, sisko] }) });
     await h.settle();
     const note = byData(h.tree, "data-voice-note", "clone-model");
@@ -303,6 +307,7 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
   {
     check("C8 a 32-hex id is opaque", isOpaqueId(cloneId) && isOpaqueId("3f2b1c4d-1111-2222-3333-444455556666"));
     check("C8 a preset name is readable", !isOpaqueId("aiden") && !isOpaqueId("fr-female-camille") && !isOpaqueId("af_heart"));
+    check("C8 the same id under two engines: the chosen provider's name", voiceNameInCatalog({ items: [{ id: "x1", provider: "openai", name: "Other" }, { id: "x1", provider: "qwen3-tts", name: "Mine" }] }, "x1", "qwen3-tts") === "Mine");
     check("C8 the catalog name wins", voiceNameInCatalog({ items: [sisko] }, cloneId) === "Sisko" && voiceLabel(cloneId, { items: [sisko] }) === "Sisko");
     check("C8 an unlisted opaque id reads as a saved voice", voiceLabel(cloneId) === "a saved voice", voiceLabel(cloneId));
     const h = mount(VoiceSettings, { value: { provider: "qwen3-tts", model: BASE17, voice: cloneId }, onChange: () => undefined, fetchCatalog: async () => ({ items: [aiden] }) });
@@ -332,6 +337,26 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
     const row2 = find(h.tree, (n) => n.props.setting === "tts" && "overrideSummary" in n.props);
     check("C9 a changed voice is renamed", row2?.props.overrideSummary === `qwen3-tts · ${CV06} · Aiden`, row2?.props.overrideSummary);
     h.unmount();
+    // Renamed in "Manage voices" (editor open), the row is re-read when the editor closes.
+    let name = "Sisko";
+    const live = async (provider) => (provider === "qwen3-tts" ? { items: [aiden, { ...sisko, name, label: name }] } : { items: [] });
+    const h3 = mount(AfVoiceSection, { value: { provider: "qwen3-tts", model: BASE17, voice: cloneId }, onChange: () => undefined, fetchCatalog: live, defaults: {} });
+    await h3.settle();
+    const rowOf = (t) => find(t, (n) => n.props.setting === "tts" && "overrideSummary" in n.props);
+    rowOf(h3.tree).props.onToggle(); // open
+    await h3.settle();
+    name = "Captain";
+    rowOf(h3.tree).props.onToggle(); // close
+    await h3.settle();
+    await h3.settle();
+    check("C9 a rename shows once the editor closes", rowOf(h3.tree)?.props.overrideSummary === `qwen3-tts · ${BASE17} · Captain`, rowOf(h3.tree)?.props.overrideSummary);
+    h3.unmount();
+    // The row hidden (an entity's own voice, rows.tts false): no name request.
+    const hidden = [];
+    const h4 = mount(AfVoiceSection, { value: { provider: "qwen3-tts", model: BASE17, voice: cloneId }, onChange: () => undefined, fetchCatalog: async (p, m) => { hidden.push([p || "", m || ""]); return { items: [] }; }, defaults: {}, rows: { tts: false } });
+    await h4.settle();
+    check("C9 no name request where the row is hidden", !hidden.some(([p]) => p === "qwen3-tts"), JSON.stringify(hidden));
+    h4.unmount();
   }
 }
 

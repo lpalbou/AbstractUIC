@@ -58,10 +58,10 @@ check("A loading and playing are different icons", view("loading").icon !== view
 // B. Always visible.
 const hides = (css) => {
   const out = [];
-  const re = /([^{}]*\.pc-chat-header-actions[^{}]*)\{([^}]*)\}/g;
+  const re = /([^{}]*\.pc-chat-(?:header-actions|icon-btn)[^{}]*)\{([^}]*)\}/g;
   let m;
   while ((m = re.exec(css))) {
-    if (/opacity\s*:\s*0(?![.\d])|visibility\s*:\s*hidden|display\s*:\s*none/.test(m[2])) out.push(`${m[1].trim()} { ${m[2].trim()} }`);
+    if (/opacity\s*:\s*(?:0*\.0+|0+(?:\.0*)?)(?![.\d])\s*(?:!important)?\s*(?:;|$)|visibility\s*:\s*hidden|display\s*:\s*none/.test(m[2])) out.push(`${m[1].trim()} { ${m[2].trim()} }`);
   }
   return out;
 };

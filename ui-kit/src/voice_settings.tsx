@@ -163,10 +163,12 @@ function catalogVoices(catalog: VoiceCatalog | null | undefined): any[] {
  * A voice's readable name in a voice catalog (`label` / `display_name` / `name` of the item whose
  * `id`, `voice_id` or `profile_id` is `id`), or "" when the catalog does not list it.
  */
-export function voiceNameInCatalog(catalog: VoiceCatalog | null | undefined, id: string): string {
+export function voiceNameInCatalog(catalog: VoiceCatalog | null | undefined, id: string, provider?: string): string {
   const want = String(id || "").trim();
   if (!want) return "";
-  const item = catalogVoices(catalog).find((v) => v && (v.id === want || v.voice_id === want || v.profile_id === want));
+  const matches = catalogVoices(catalog).filter((v) => v && (v.id === want || v.voice_id === want || v.profile_id === want));
+  // The same id under two engines: the one of the chosen provider first.
+  const item = (provider ? matches.find((v) => (v.provider || v.engine) === provider) : undefined) || matches[0];
   return String(item?.label || item?.display_name || item?.name || "").trim();
 }
 
@@ -193,7 +195,8 @@ export function voiceLabel(id: string, catalog?: VoiceCatalog | null): string {
 
 /**
  * The cloning checkpoint a cloned voice is bound to: AbstractVoice speaks a clone with the model
- * recorded when it was made (`meta.model_id`, served as the item's `model`;
+ * recorded when it was made (`meta.model_id`, served by AbstractGateway 0.17 as the item's `model` and
+ * `tags.model_id`;
  * abstractvoice/cloning/manager.py `_get_engine_for_voice`), whatever speech model is selected.
  * "" for a voice that is not a clone or names no model.
  */
