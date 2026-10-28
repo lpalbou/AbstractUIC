@@ -53,7 +53,8 @@ the reducer's view; panel-chat renders it.
   replaced by the ended call; reconnect at the last applied frame; fallback labeled, probed once,
   never on a 500; Stop "stopping" until the view shows the model call ended; no history, ledger
   pages or timed poll.
-- Mutation check: 12 mutants of the fold, the projection and the controller, all red.
+- Adversarial review (Opus, read-only): 6 findings (duplicate approval on a step id gained late; `workflowProgress` blind in view mode; a slow re-read overwriting a newer view; reconnect hot loop; per-frame run reads on >32-run trees; stale source label), all fixed with regression checks.
+- Mutation check: 14 mutants of the fold, the projection, the controller and the progress helper, all red.
 - Measured (2,997-record tree, AbstractGateway 0.17.0 scratch, SQLite, loopback): 3 requests /
   1.21 MB with the view vs 509 requests / 5.60 MB with the ledger fold; first render 17 ms vs
   147 ms warm (median of 5), 123 ms vs 166 ms on a fresh gateway. The 509 requests are mostly

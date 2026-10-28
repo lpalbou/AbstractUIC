@@ -497,6 +497,8 @@ export class WorkflowSessionController {
   private viewDigest = "";
   private viewAssistantIds = new Set<string>();
   private viewTerminalRuns = new Set<string>();
+  /** The view stream ended (done, or gave up): the live-reply stream stops with it. */
+  private viewStreamEnded = false;
 
   public constructor(private readonly transport: WorkflowTransport, private readonly options: WorkflowSessionControllerOptions = {}) {
     const interval = options.liveRenderIntervalMs ?? 60;
@@ -712,7 +714,7 @@ export class WorkflowSessionController {
     this.toolActivities.clear(); this.toolPolicyByCall.clear(); this.historicalEvidence.clear(); this.approvedWaits.clear(); this.grantedToolWaits.clear(); this.resolvedWaits.clear();
     this.liveReplies.clear(); this.closedLiveCalls.clear(); this.shownLiveCalls.clear(); this.liveDirty.clear(); this.lastLiveRender = -Infinity;
     if (this.liveRenderTimer) { clearTimeout(this.liveRenderTimer); this.liveRenderTimer = null; }
-    this.source = null; this.viewFold = null; this.viewRun = null; this.viewDigest = ""; this.viewAssistantIds.clear(); this.viewTerminalRuns.clear();
+    this.source = null; this.viewFold = null; this.viewRun = null; this.viewDigest = ""; this.viewAssistantIds.clear(); this.viewTerminalRuns.clear(); this.viewStreamEnded = false;
     this.set({ ...EMPTY });
   }
 
@@ -1036,7 +1038,7 @@ export class WorkflowSessionController {
    */
   private async loadView(id: string, generation: number, signal: AbortSignal): Promise<boolean> {
     const rv = this.transport.replayView;
-    const fallback = (reason: string): false => { this.source = { source: "ledger_fold", reason }; return false; };
+    const fallback = (reason: string): false => { if (this.live(generation)) this.source = { source: "ledger_fold", reason }; return false; };
     if (!rv) return fallback("this app's transport does not read the replay view");
     if (rv.advertised === false) return fallback("the gateway does not advertise the replay view");
     const known = REPLAY_VIEW_PROBES.get(rv);
@@ -1089,6 +1091,15 @@ export class WorkflowSessionController {
     const done = terminal(p.status);
     const local = this.snapshot.messages.filter((message) => LOCAL_MESSAGE.test(String(message.id || "")));
     const run: ServerRecord = { ...(this.viewRun || {}), run_id: view.root_run_id, status: p.status, ...(view.session_id ? { session_id: view.session_id } : {}) };
+    // One wait, one occurrence: a wait first served from a snapshot (no step id) and then from
+    // its ledger record (with one) keeps the identity its approval was recorded under.
+    let interaction = p.interaction;
+    const current = this.snapshot.interaction;
+    if (interaction && current && current.runId === interaction.runId && text(current.wait.wait_key) === text(interaction.wait.wait_key) && current.stepId !== interaction.stepId && (current.stepId === undefined || interaction.stepId === undefined)) {
+      const { stepId: _drop, ...rest } = interaction;
+      void _drop;
+      interaction = current.stepId === undefined ? rest : { ...rest, stepId: current.stepId };
+    }
     this.set({
       ...this.snapshot,
       view,
@@ -1096,14 +1107,16 @@ export class WorkflowSessionController {
       status: p.status,
       displayStatus: done ? "" : p.displayStatus,
       messages: [...p.messages, ...local],
-      interaction: p.interaction,
+      interaction,
       loading: false,
       ...(done ? { autoApproveTools: false } : {}),
     });
     if (this.stopRequested || this.forcedStop) this.recomputeStop();
     // A snapshot-only change (a pause, a resume): the run summary carries the flag.
+    // (A tree of more than 32 runs gets a bounded digest token that changes on every record:
+    // no per-frame re-read there.)
     const digest = cursorDigest(this.viewFold?.lastEventId);
-    if (digest !== this.viewDigest) {
+    if (digest !== this.viewDigest && Object.keys(view.cursor?.runs || {}).length <= 32) {
       this.viewDigest = digest;
       void this.refreshViewRun(this.generation);
     }
@@ -1123,11 +1136,11 @@ export class WorkflowSessionController {
           signal: this.controller!.signal,
           onOpen: () => {
             if (!this.live(generation)) return;
-            failures = 0;
             this.set({ ...this.snapshot, connection: "connected", error: null });
           },
           onFrame: (frame) => {
             if (!this.live(generation) || this.viewFold !== fold) return;
+            failures = 0; // a stream that delivers is healthy (an accept-then-close is not)
             const outcome = fold.apply(frame);
             if (outcome === "view" || outcome === "delta") this.adoptView();
           },
@@ -1144,6 +1157,7 @@ export class WorkflowSessionController {
       if (failures >= 5 || !this.live(generation)) break;
       await this.waitForRetry(Math.min(2000, 150 * 2 ** (failures - 1)));
     }
+    this.viewStreamEnded = true;
     if (!this.live(generation) || this.viewFold !== fold) return;
     if (fold.terminal || terminal(this.snapshot.status)) { this.set({ ...this.snapshot, connection: "disconnected" }); return; }
     this.set({ ...this.snapshot, connection: "disconnected", error: this.snapshot.error || "Replay view stream reconnect limit reached. Reconnect the workflow to continue." });
@@ -1156,12 +1170,13 @@ export class WorkflowSessionController {
   private async followLiveReplies(runId: string, generation: number): Promise<void> {
     let failures = 0;
     try {
-      while (this.live(generation) && this.viewFold && !terminal(this.snapshot.status)) {
+      while (this.live(generation) && this.viewFold && !this.viewStreamEnded && !terminal(this.snapshot.status)) {
         const after = Number(this.viewFold.view?.cursor?.runs?.[runId]) || 0;
         this.dropLiveRepliesVia(runId);
         try {
-          await this.transport.streamLedger(runId, after, () => undefined, this.controller!.signal, () => { failures = 0; }, (event) => {
+          await this.transport.streamLedger(runId, after, () => undefined, this.controller!.signal, undefined, (event) => {
             if (!this.live(generation)) return;
+            failures = 0;
             this.ingestDelta(runId, event);
           });
           if (!this.live(generation)) return;
@@ -1186,8 +1201,7 @@ export class WorkflowSessionController {
     if (!rv || !fold) return;
     const read = await rv.getView(this.rootRunId, { ifNoneMatch: fold.lastEventId ? `"${fold.lastEventId}"` : null, signal: this.controller?.signal });
     if (!this.live(generation) || this.viewFold !== fold || read.notModified) return;
-    fold.adopt(read.view, read.etag);
-    this.adoptView();
+    if (fold.adopt(read.view, read.etag)) this.adoptView();
   }
 
   /** `GET runs/{root}` for what the view does not carry (`paused`); never a lifecycle authority over the view. */

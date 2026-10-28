@@ -40,6 +40,12 @@ Packages: `@abstractframework/panel-chat` 0.6.0 (ui-kit unchanged at 0.9.2; pane
   `scripts/check_replay_view_session.mjs` covers the controller in view mode.
 - Measured on a 2,997-record run tree (scratch gateway 0.17.0): 3 requests and 1.21 MB instead of 509 requests and
   5.60 MB; first render 17 ms instead of 147 ms (warm, median of 5), 123 ms instead of 166 ms on a fresh gateway.
+- `workflowProgress` reads the view's activities when the snapshot carries `view` ("Running a tool", "Thinking", tool
+  and token counts), since view mode folds no records.
+- Review fixes (adversarial review): a wait first served without a step id and then with one keeps one occurrence (no
+  second approval, no card coming back); a slower full re-read never replaces a newer folded view
+  (`ReplayViewFold.adopt` returns false); an accept-then-close stream does not reset the reconnect budget, and the live
+  reply stream stops with the view stream; no per-frame `GET runs/{id}` on trees over 32 runs.
 - Known gaps of the view (filed upstream): no kill-switch attribution (a forced stop reads "Stopped"), no tool command
   sandbox, no per-call model timings; an EVENT wait without a prompt is not offered as "Send event".
 

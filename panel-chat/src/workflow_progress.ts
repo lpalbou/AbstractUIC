@@ -1,3 +1,4 @@
+import { projectReplayView } from "./replay_view_projection.js";
 import type {
   WorkflowSessionSnapshot,
   WorkflowRecord,
@@ -28,9 +29,12 @@ export function workflowProgress(
     | "run"
     | "displayStatus"
   > &
-    Partial<Pick<WorkflowSessionSnapshot, "toolApprovalGranted">>,
+    Partial<Pick<WorkflowSessionSnapshot, "toolApprovalGranted" | "view">>,
 ): WorkflowProgress {
-  const { tools, statistics } = workflowEvidence(snapshot.records);
+  // Replay view mode folds no records: the view's activities are the evidence.
+  const view = snapshot.view || null;
+  const projected = view ? projectReplayView(view) : null;
+  const { tools, statistics } = projected ? { tools: projected.tools, statistics: projected.statistics } : workflowEvidence(snapshot.records);
   const base = {
     toolCalls: statistics.toolCalls,
     totalTokens: statistics.totalTokens,
@@ -72,7 +76,7 @@ export function workflowProgress(
     snapshot.connection === "reconnecting" ||
     snapshot.connection === "disconnected"
   ) {
-    const stalled = !snapshot.records?.length || Boolean(snapshot.error);
+    const stalled = (projected ? false : !snapshot.records?.length) || Boolean(snapshot.error);
     if (stalled)
       return result(
         snapshot.connection === "reconnecting" ? "Reconnecting" : "Disconnected",
@@ -143,6 +147,7 @@ export function workflowProgress(
       continue;
     steps.set(key, entry);
   }
+  if (projected?.openLlmCalls.length) return result("Thinking", "Generating the next response", "working");
   const llm = [...steps.values()]
     .reverse()
     .find(

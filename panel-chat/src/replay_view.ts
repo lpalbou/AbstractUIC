@@ -353,10 +353,16 @@ export class ReplayViewFold {
   lastEventId: string | null = null;
   terminal = false;
 
-  /** Start from a view read with `GET /view` (its ETag/`cursor.token` is the stream's `Last-Event-ID`). */
-  adopt(view: ReplayView, etag?: string | null): void {
+  /**
+   * Start from (or replace with) a view read with `GET /view` (its ETag/`cursor.token` is the
+   * stream's `Last-Event-ID`). A read older than the held view (a slow GET overtaken by stream
+   * frames) is refused: returns false and keeps the newer view.
+   */
+  adopt(view: ReplayView, etag?: string | null): boolean {
+    if (this.view && isOlderCursor(view.cursor?.runs, this.view.cursor?.runs)) return false;
     this.view = view;
     this.lastEventId = unquoteEtag(etag) || view.cursor?.token || null;
+    return true;
   }
 
   apply(frame: SseFrame): ReplayFoldOutcome {

@@ -338,5 +338,37 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
   ok();
 }
 
+// ---- 10. Review fixes: one occurrence per wait; progress from the view; an older read refused ----
+{
+  // f_windowed_slim: the approval is first served from a snapshot (no step id), then from its record.
+  const gw = gateway({ name: "f_windowed_slim", at: 0 });
+  const ctl = new WorkflowSessionController(gw.transport);
+  ctl.setToolApprovalPolicy({ enabledTools: ["write_file"], autoApproveTools: ["write_file"] });
+  await ctl.load(gw.c.views[0].root_run_id);
+  await settle();
+  assert.equal(gw.commands.length, 1, "the standing permission approves the batch once");
+  for (const frame of gw.c.frames.slice(1)) { gw.viewStreams[0].push(frame); await settle(2); }
+  assert.ok(gw.c.views.some((v) => v.interaction?.step_id), "fixture: the wait later gains its step id");
+  assert.equal(gw.commands.length, 1, "the same wait with its step id is not approved again");
+  assert.equal(ctl.getSnapshot().toolApprovalGranted, true, "and stays granted (no card comes back)");
+  ctl.dispose();
+
+  const e2 = gateway({ name: "e2_structured_repeated_node", at: 9 });
+  const c2 = new WorkflowSessionController(e2.transport);
+  await c2.load(e2.c.views[9].root_run_id);
+  await settle();
+  const progress = workflowProgress(c2.getSnapshot());
+  assert.equal(progress.label, "Running a tool", "workflowProgress reads the view's activities");
+  assert.ok(progress.toolCalls > 0 && progress.totalTokens === e2.c.views[9].usage.total_tokens, "with the view's counts");
+  c2.dispose();
+
+  const fold = new ReplayViewFold();
+  const d = load("d_cancellation");
+  fold.adopt(d.views[15]);
+  assert.equal(fold.adopt(d.views[12]), false, "a slower GET that is older than the held view is refused");
+  assert.equal(fold.view.cursor.token, d.views[15].cursor.token);
+  ok();
+}
+
 console.log(`check_replay_view_session: ${checks} groups OK`);
 process.exit(0);
