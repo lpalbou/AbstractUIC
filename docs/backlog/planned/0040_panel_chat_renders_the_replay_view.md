@@ -2,7 +2,7 @@
 
 ## Metadata
 - Created: 2026-10-28
-- Status: Planned, in progress — kit half DONE on `feat/panel-chat-replay-view` (panel-chat 0.6.0, root 0.8.0); host halves open (each host adds `replayView` to its transport)
+- Status: Planned, in progress — kit released (panel-chat 0.6.0, AbstractUIC v0.8.0, PR #17); hosts: AbstractObserver 0.10.0, AbstractEntity 0.9.0, AbstractCode web 0.13.0 released on the view; AbstractContinuum 0.7.2 released (pin only: no own run reads); AbstractNote 0.3.0 merged, unreleased (npm publishing blocked, Note backlog 0038); AbstractAssistant web PR #12 open (ships with desktop 0.16.0)
 - Completed: N/A
 - Area: panel-chat (`replay_view.ts`, `replay_view_projection.ts`, `WorkflowSessionController`, `presentInteraction`)
 - Root link: AbstractFramework backlog 0993 (one ledger, many views; client migration step); AbstractRuntime backlog 0854 (replay view: "panel-chat and AbstractCode web render the view and pass the fixtures")
@@ -60,7 +60,20 @@ the reducer's view; panel-chat renders it.
   147 ms warm (median of 5), 123 ms vs 166 ms on a fresh gateway. The 509 requests are mostly
   the fold's `GET runs/{child}` after each `resume` record.
 
-## Open (host halves and upstream gaps)
+## Hosts (2026-10-28)
+| App | State | Version |
+|---|---|---|
+| AbstractObserver (automation discussions) | migrated: `replayView` on its transport, source label | 0.10.0 (released) |
+| AbstractCode web | migrated: Activity panel reads `view.activities` (parity checked on the 15 cases), status bar from the view | web 0.13.0 (released) |
+| AbstractEntity | migrated: its own run follows (`flow_lane.ts`) read the view; a waiting run is shown | 0.9.0 (released) |
+| AbstractNote web | migrated: Capture/Remember read the view; mock gateway serves it | 0.3.0 (merged; release blocked by Note 0038) |
+| AbstractContinuum | pin only (no own run reads; its run views are panel-chat's) | 0.7.2 (released) |
+| AbstractAssistant web | migrated on PR #12 (open, ships with desktop 0.16.0) | with desktop 0.16.0 |
+
+## Open (follow-ups and upstream gaps)
+- panel-chat `docs_assistant.tsx` (`DocsAssistantDrawer`) still reads runs itself: move it to the view.
+- The route-missing probe is remembered per transport, and hosts memoize the transport per page: a gateway upgraded while a tab is open stays on the ledger fold until reload. Re-probe after a while, or key the memory on the gateway.
+- Upstream: AbstractRuntime backlog 0860 (how a run was stopped + `capabilities.replay_view`), 0861 (tool sandbox, per-call model timings).
 - Each controller host adds `replayView: createReplayViewTransport({ fetch })` to its transport:
   AbstractCode web (first move its Activity panel from `snapshot.records` to `snapshot.view.activities`:
   view mode folds no records), AbstractObserver (automation discussions), AbstractAssistant web.
