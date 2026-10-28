@@ -44,6 +44,7 @@ check("A the create card stacks its fields", has(".af-voice-create", /display:\s
 check("A the mode switch is the segmented pill", has(".af-voice-create__modes", /border-radius:\s*999px/) && has(".af-voice-create__modes > button", /border:\s*0/));
 check("A the selected mode is accent-tinted", has('.af-voice-create__modes > button[aria-selected="true"]', /background:\s*color-mix\(in srgb, var\(--accent\) 22%/));
 check("A fields are themed", has(".af-voice-create textarea", /background:\s*var\(--bg-input/) && has('.af-voice-create input:not([type="file"])', /border:\s*1px solid var\(--border-default\)/));
+check("A the file picker button is themed", has('.af-voice-create input[type="file"]::file-selector-button', /border:\s*1px solid var\(--ui-border-1\)/));
 check("A Create voice is the accent-tinted primary", has('.af-voice-create > [data-action="create-voice"]', /background:\s*color-mix\(in srgb, var\(--accent\) 22%/));
 check("A touch floor covers the create controls", /@media \(pointer: coarse\)\s*\{[^}]*\.af-voice-create button,/.test(css));
 

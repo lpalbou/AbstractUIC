@@ -6897,6 +6897,17 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   font: inherit;
   font-size: var(--font-size-sm);
 }
+.af-voice-create input[type="file"]::file-selector-button {
+  margin-right: 10px;
+  border: 1px solid var(--ui-border-1);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  background: var(--ui-overlay-bg, rgba(0, 0, 0, 0.18));
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
 .af-voice-create__record > button,
 .af-voice-create > [data-action="create-voice"] {
   border: 1px solid var(--ui-border-1);
