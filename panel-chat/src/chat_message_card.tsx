@@ -10,6 +10,7 @@ import { copyText } from "./utils.js";
 import { ToolActivity } from "./tool_activity.js";
 import type { WorkflowStatistics, WorkflowToolActivity } from "./workflow_evidence.js";
 import { StatChip, formatDuration, statDetail, type StatDetail } from "./stat_detail.js";
+import { formatMessageStamp, messageStampIso, messageStampTitle, useLocalDay } from "./message_footer.js";
 
 export type ChatMessageLevel = "info" | "warn" | "error";
 
@@ -110,6 +111,8 @@ export type ChatAttachment = {
 export type ChatStat = {
   id?: string;
   label: string;
+  /** A ONE-line hint. A multi-line explanation is a `detail` (the message footer spec:
+   *  every workflow chip opens the structured panel, never a native multi-line tooltip). */
   title?: string;
   icon?: React.ReactNode;
   onClick?: () => void;
@@ -131,7 +134,7 @@ function workflowStats(metrics: WorkflowStatistics): ChatStat[] {
   return [
     ...(tokens ? [{ label: `${metrics.totalTokens!.toLocaleString()} tokens`, detail: tokens }] : []),
     { label: `${metrics.toolCalls} ${metrics.toolCalls === 1 ? "tool" : "tools"}`, detail: tools },
-    ...(metrics.changedFiles.length ? [{ label: `${metrics.changedFiles.length} ${metrics.changedFiles.length === 1 ? "file" : "files"} changed`, title: metrics.changedFiles.join("\n") }] : []),
+    ...(metrics.changedFiles.length ? [{ label: `${metrics.changedFiles.length} ${metrics.changedFiles.length === 1 ? "file" : "files"} changed`, detail: statDetail("files", metrics) }] : []),
     // One duration format across the chat (the stat panel, the tool rows, this chip): "4.2s", "3m 35s".
     ...(time ? [{ label: formatDuration(metrics.durationMs), detail: time }] : []),
   ];
@@ -350,17 +353,26 @@ export function speakButtonView(state: SpeakState): { icon: IconName; title: str
   return { icon: "speaker", title: "Speak (TTS)", spinning: false };
 }
 
+/**
+ * One chat message. Its meta line (stamp, speaker, copy) and stat chips follow the message
+ * footer spec in `message_footer.ts` (the one spec every web app and the desktop follow):
+ *  - stamp: `formatMessageStamp` (time today; "Yesterday · 10:52 PM"; "Oct 21 · 10:52 PM");
+ *  - speaker: on every assistant message when `onSpeakToggle` is given, always visible;
+ *    disabled with its reason while streaming or without text, never dropped;
+ *  - copy: always visible unless `showCopy === false`;
+ *  - stat chips: each opens the structured `StatDetailPanel`, never a multi-line `title`.
+ */
 export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement {
   const m = props.message;
   const role_ui = useMemo(() => _role_ui(m), [m.kind, m.level, m.role, m.title]);
-  const ts = String(m.ts || "").trim();
-  const time_label = useMemo(() => {
-    if (!ts) return "";
-    const d = new Date(ts);
-    // A malformed timestamp must render as no timestamp, never "Invalid Date".
-    if (!Number.isFinite(d.getTime())) return "";
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }, [ts]);
+  // `ChatMessage.ts` is an ISO string; a malformed one renders no stamp, never "Invalid Date".
+  const raw_ts = m.ts;
+  // Re-derived when the reader's calendar day changes ("10:52 PM" becomes "Yesterday · 10:52 PM"):
+  // `useLocalDay` re-renders the card at local midnight.
+  const day_key = useLocalDay();
+  const time_label = useMemo(() => formatMessageStamp(raw_ts), [raw_ts, day_key]);
+  const time_title = useMemo(() => messageStampTitle(raw_ts), [raw_ts]);
+  const time_iso = useMemo(() => messageStampIso(raw_ts), [raw_ts]);
 
   const [copy_state, set_copy_state] = useState<"idle" | "copied" | "failed">("idle");
   const copy_timer = useRef<number | null>(null);
@@ -371,7 +383,11 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
   }, []);
 
   const live = m.live;
-  const can_speak = !live && typeof props.onSpeakToggle === "function" && role_ui.variant === "assistant" && Boolean(String(m.content || "").trim());
+  // The speaker is PERMANENT on an assistant message of a TTS host (footer spec): it is
+  // disabled, never dropped, while the reply streams or when there is no text to read.
+  const show_speaker = typeof props.onSpeakToggle === "function" && role_ui.variant === "assistant";
+  const speak_blocked = !show_speaker ? "" : live ? "Read aloud when the reply is finished" : !String(m.content || "").trim() ? "No text to read aloud" : "";
+  const can_speak = show_speaker && !speak_blocked;
   const speak_state = can_speak ? props.getSpeakState?.(m) || "idle" : "idle";
   const speak = speakButtonView(speak_state);
   const show_copy = props.showCopy !== false;
@@ -422,16 +438,22 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         ) : null}
         {live?.caption ? <span className="pc-chat-live-caption">{live.caption}</span> : null}
         <span className="pc-chat-header-spacer" />
-        {time_label ? <span className="pc-chat-time">{time_label}</span> : null}
+        {time_label ? (
+          <time className="pc-chat-time" dateTime={time_iso || undefined} title={time_title || undefined}>
+            {time_label}
+          </time>
+        ) : null}
         <div className="pc-chat-header-actions">
-          {can_speak ? (
+          {show_speaker ? (
             <button
               className="pc-chat-icon-btn"
               type="button"
-              aria-label={speak.title}
-              title={speak.title}
-              data-speak-state={speak_state}
-              onClick={() => props.onSpeakToggle?.(m)}
+              aria-label={speak_blocked || speak.title}
+              title={speak_blocked || speak.title}
+              data-speak-state={speak_blocked ? "unavailable" : speak_state}
+              // aria-disabled, not `disabled`: the button stays focusable so its reason is reachable.
+              {...(speak_blocked ? { "aria-disabled": true } : {})}
+              onClick={can_speak ? () => props.onSpeakToggle?.(m) : undefined}
             >
               {/* Keyed per icon: the spinning element is replaced (never re-used) once audio starts. */}
               <Icon key={speak.icon} name={speak.icon} size={22} className={speak.spinning ? "pc-chat-speak-spinner" : undefined} />

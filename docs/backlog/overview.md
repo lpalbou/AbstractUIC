@@ -15,8 +15,8 @@ carries its own code-reality citations.
 
 ## Counts
 - Planned: 16 (0001, 0003-0006, 0014, 0019, 0030-0036, 0039, 0040)
-- Proposed: 35 (0009-0013, 0017-0018, 0020-0022, 0024-0028, 0037-0038, 0041-0053 kit gaps K1-K13 from the adoptions, 2026-10-28; 0055-0057 from the release-closing aesthetic pass; 0059 turns-only listing; 0061 Create a voice follows a served cloning capability)
-- Completed: 9 (0002, 0007, 0008, 0023, 0026-theme-adoption, 0029, 0054, 0058, 0060)
+- Proposed: 36 (0009-0013, 0017-0018, 0020-0022, 0024-0028, 0037-0038, 0041-0053 kit gaps K1-K13 from the adoptions, 2026-10-28; 0055-0057 from the release-closing aesthetic pass; 0059 turns-only listing; 0061 Create a voice follows a served cloning capability; 0063 Docs assistant read-aloud)
+- Completed: 10 (0002, 0007, 0008, 0023, 0026-theme-adoption, 0029, 0054, 0058, 0060, 0064)
 - Deprecated: 2 (0015, 0016 — superseded by 0033)
 - Recurrent: 1 (backlog hygiene)
 
@@ -103,6 +103,7 @@ merge, or missing test rigs) — see each item's checklist.
 | 0038 | Memory graph viewer panel | Flow + Observer use `KgActiveMemoryExplorer` | AbstractMemory graph contract on gateway `main`; operator: not yet |
 | 0054 | Release-closing polish (completed, AbstractUIC 0.8.1): Create a voice styled, approval card hierarchy + visible scope line, gateway-down badge (`gateway_status`), one duration format + approval wait, tool-row badge, picker Custom | ui-kit, panel-chat, app-server | done |
 | 0058 | A reopened conversation shows every turn in replay-view mode (release defect of panel-chat 0.6.0); the voice picker lists each Qwen3-TTS voice once (completed, AbstractUIC 0.8.2) | panel-chat, ui-kit | done |
+| 0063 | The Docs assistant reads its answers aloud in an app with TTS (a read-aloud passthrough; from the footer spec 0064) | panel-chat; Code web, Observer, Entity | proposed |
 | 0055-0057 | From the same pass: top-right cluster overflows at 390 px; raw speculation reason codes; message provenance affordance | ui-kit, panel-chat | proposed |
 | 0041-0053 | Kit gaps K1-K13 found by the AbstractCode web (K1-K8) and Assistant web (K9-K13) adoptions (`untracked/ui-primitives/report.md` §6g; §6h lists K1-K8 as follow-ups): K1 AfAppShell layout, K2 runStatus, K3 stream notes, K4 ChatSteer controlled mode, K5 queued turns, K6 upload chip state, K7 `sessionToolPolicy` option, K8 "Queue" during a question, K9 pre-answer staleness, K10 Stop/Deny reason, K11 failed/empty turn line, K12 blank toolset, K13 voice level source | apps keep local workarounds | each: the adopting app deletes its workaround |
 | 0027 | AfPhaseRadio (four-position phase radio) | proposed (entity's shared-yes, c2000; their radio ships app-side) | Absorb entity's implementation; validate against entity_phases.json |
@@ -160,6 +161,7 @@ merge, or missing test rigs) — see each item's checklist.
   re-litigated without new evidence.
 
 ## Completed ledger
+- [completed/0064_one_message_footer_spec.md](completed/0064_one_message_footer_spec.md) — one message footer spec: the stamp dates a message not from today, the speaker is permanent on every assistant message of a TTS host, every stat chip opens the structured panel (AbstractUIC 0.8.4, panel-chat 0.6.4)
 - [completed/0029_automations_shared_panel_client_and_fixtures.md](completed/0029_automations_shared_panel_client_and_fixtures.md) — Automations v1: `createAutomationsClient`, `AutomationPanel`, `AfScheduleDialog`, typed waits / tool-approval policy (D1), canonical fixtures from real gateway output, panel-chat `ScheduleThisAction` / `FromAutomationBadge` (completed 2026-09-27, UNRELEASED; reviews 42/48 GO)
 - [completed/0007_packaging_exports_and_types.md](completed/0007_packaging_exports_and_types.md) — packaging: default conditions ×4, monitor-gpu d.ts completeness, monitor-flow CSS contract (one family rule; receipts c2775/c2901)
 - [completed/0008_small_component_fixes.md](completed/0008_small_component_fixes.md) — matrix strictness + wrapper smoke tests, dialog busy-escape, ToolPolicyEditor a11y/no-prune, KG forced-dark declaration (closed 2026-07-18)
