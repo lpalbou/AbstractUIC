@@ -1,6 +1,6 @@
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
