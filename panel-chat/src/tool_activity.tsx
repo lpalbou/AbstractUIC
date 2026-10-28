@@ -5,6 +5,7 @@ import { JsonViewer } from "./json_viewer.js";
 import { copyText } from "./utils.js";
 import { ToolSandboxLine } from "./sandbox_line.js";
 import { toolPolicyDecisionText } from "./tool_policy.js";
+import { formatDuration } from "./stat_detail.js";
 
 export function toolArguments(value: unknown): unknown {
   if (typeof value !== "string") return value;
@@ -116,8 +117,13 @@ export function ToolActivity({
           </span>
         ) : null}
         {Number.isFinite(duration) && duration >= 0 ? (
-          <span className="pc-tool-activity__duration">
+          <span
+            className="pc-tool-activity__duration"
+            data-approval-wait={tool.approvalWait ? "" : undefined}
+            title={tool.approvalWait ? "Timed from request to result: includes waiting for your approval." : undefined}
+          >
             {(duration / 1000).toFixed(1)}s
+            {tool.approvalWait ? " incl. approval" : ""}
           </span>
         ) : null}
         <span className="pc-tool-activity__chevron" aria-hidden="true">

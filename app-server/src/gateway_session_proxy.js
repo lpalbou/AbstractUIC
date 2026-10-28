@@ -5,7 +5,8 @@
  *
  * Extracted 2026-07-12 from the OBSERVER copy (the most recently hardened),
  * parameterized per app. Contract (rulings, not preferences):
- *  - GET  /api/connection/gateway  -> {ok, gateway_url, has_session, gateway:{...}}
+ *  - GET  /api/connection/gateway  -> {ok, gateway_url, has_session, gateway_status?, gateway:{...}}
+ *    (gateway_status: the gateway's HTTP status for /me, 0 = no answer; absent without a session)
  *    (the ONE silent still-signed-in probe; sign-in modal opens only on a
  *    definitive no).
  *  - POST {gateway_url?, gateway_user_id, gateway_token, persist}
@@ -429,6 +430,10 @@ export function createGatewaySessionProxy(options) {
         ok: checked.ok,
         gateway_url: session.gatewayUrl,
         has_session: Boolean(session.sessionId),
+        // The gateway's HTTP status for /me, 0 when it did not answer
+        // (refused, timed out): lets the client tell "the gateway is down"
+        // from "the gateway rejected the session" (ui-kit gatewayStatusBadge).
+        gateway_status: checked.status,
         gateway: checked.payload,
       });
       return;

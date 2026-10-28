@@ -19,6 +19,10 @@ export type WorkflowToolActivity = {
   callId?: string;
   /** Set when the conversation's tool policy decided this call (`abstract.tool_policy_decision`). */
   policy?: WorkflowToolPolicyProvenance;
+  /** The call waited for the person's approval, so `startedAt`..`endedAt` includes that wait
+   * (the replay view's `activities[].wait.kind == "tool_approval"`, AbstractRuntime
+   * `replay/view.py` `_open_wait` / the tool activity's `wait`). */
+  approvalWait?: boolean;
 };
 export type WorkflowStatistics = {
   inputTokens?: number;

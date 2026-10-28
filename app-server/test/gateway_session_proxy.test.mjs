@@ -165,6 +165,9 @@ let cookieHeader = "";
 {
   const r = await call(appPort, "/api/connection/gateway", { headers: { Cookie: cookieHeader } });
   check("probe with session: ok=true + principal", r.status === 200 && r.json.ok === true && r.json.gateway?.principal?.user_id === "admin");
+  check("probe with session reports the gateway's status", r.json.gateway_status === 200, String(r.json.gateway_status));
+  const bad = await call(appPort, "/api/connection/gateway", { headers: { Cookie: cookieHeader.replace("sess-1", "sess-stale") } });
+  check("rejected session: gateway_status 401", bad.status === 200 && bad.json.ok === false && bad.json.gateway_status === 401, JSON.stringify(bad.json));
 }
 
 // ------------------------------------------- proxied GET: session attached, secrets stripped
@@ -419,7 +422,14 @@ let cookieHeader = "";
   check("bad appId refused", (() => { try { createGatewaySessionProxy({ appId: "bad app!" }); return false; } catch { return true; } })());
 }
 
-gw.close();
+// ----------------------------------- gateway down: the probe says so (gateway_status 0)
+{
+  await new Promise((resolve) => gw.close(resolve));
+  gw.closeAllConnections?.();
+  const r = await call(appPort, "/api/connection/gateway", { headers: { Cookie: cookieHeader } });
+  check("gateway down: 200, ok=false, gateway_status 0", r.status === 200 && r.json.ok === false && r.json.has_session === true && r.json.gateway_status === 0, JSON.stringify(r.json));
+}
+
 app.close();
 
 if (failures > 0) {

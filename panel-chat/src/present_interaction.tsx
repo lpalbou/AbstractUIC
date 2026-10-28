@@ -190,7 +190,8 @@ export function presentInteraction(
         refusedByPolicy = stored ? names.filter((name) => Object.prototype.hasOwnProperty.call(stored.deny || {}, name)) : [];
         sessionFields = {
           approveForSessionLabel: L.allowForChat,
-          approveForSessionDescription: `Allow for this chat (and Allow all <toolset> tools for this chat) approves this batch and stores a policy for this chat on the gateway: later tool calls of every run of this chat run without asking, until the policy is reset. ${asking} Tools the gateway does not authorize stay uncovered.`,
+          // The real button labels, never a "<toolset>" placeholder (release-closing polish).
+          approveForSessionDescription: `${[L.allowForChat, ...toolsets.map((kind) => L.allowKindForChat(kind))].map((label) => `“${label}”`).join(" and ")} ${toolsets.length ? "approve this batch and store" : "approves this batch and stores"} a policy for this chat on the gateway: later tool calls of every run of this chat run without asking, until the policy is reset. ${asking} Tools the gateway does not authorize stay uncovered.`,
           onApproveForSession: async () =>
             covered(await approveAllForSession.call(controller, target, { ...(policy.maxRiskRank !== undefined ? { maxRiskRank: policy.maxRiskRank } : {}), ...(ask ? { ask } : {}) })),
           approveKinds: toolsets.map((kind) => ({

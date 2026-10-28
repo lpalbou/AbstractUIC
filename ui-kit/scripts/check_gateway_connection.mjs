@@ -206,5 +206,23 @@ const gets = () => calls.filter((c) => c.startsWith("GET ")).length;
   check("top bar: a failed disconnect never runs onSignOut", JSON.stringify(order) === JSON.stringify(["DELETE"]), JSON.stringify(order));
 }
 
+// The status badge tells a gateway that did not answer from a rejected session
+// (release-closing polish, 2026-10-28): "sign in again" over a down gateway sends
+// the person to a form that cannot help.
+{
+  const { gatewayStatusBadge } = kit;
+  const base = { ok: false, gateway_url: "http://127.0.0.1:18240", has_session: true };
+  const down = gatewayStatusBadge({ ...base, gateway_status: 0, gateway: { detail: "connect ECONNREFUSED 127.0.0.1:18240" } });
+  check("badge: gateway down says unreachable, names the host", down.tone === "err" && /^Gateway unreachable at 127\.0\.0\.1:18240/.test(down.label) && !/sign in/i.test(down.label), down.label);
+  const err5 = gatewayStatusBadge({ ...base, gateway_status: 503, gateway: { detail: "busy" } });
+  check("badge: a 5xx is a gateway error, not a rejected session", /HTTP 503/.test(err5.label) && !/sign in/i.test(err5.label), err5.label);
+  const rejected = gatewayStatusBadge({ ...base, gateway_status: 401, gateway: { detail: "no session" } });
+  check("badge: a 401 is a rejected session", rejected.label === "Session rejected — sign in again", rejected.label);
+  const older = gatewayStatusBadge({ ...base, gateway: { detail: "no session" } });
+  check("badge: an older app server (no gateway_status) keeps the rejected wording", older.label === "Session rejected — sign in again", older.label);
+  const ok = gatewayStatusBadge({ ...base, ok: true, gateway_status: 200, gateway: { ok: true, principal: { user_id: "admin" } } });
+  check("badge: signed in unchanged", ok.tone === "ok" && /Signed in as admin/.test(ok.label), ok.label);
+}
+
 console.log(`check_gateway_connection: ${checks - failures}/${checks} checks passed`);
 if (failures) process.exit(1);

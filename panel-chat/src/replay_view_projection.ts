@@ -104,6 +104,7 @@ export function replayToolActivities(activity: ReplayViewActivity): WorkflowTool
       ...(error ? { error } : {}),
       ...(str(activity.started_at) ? { startedAt: str(activity.started_at) } : {}),
       ...(str(activity.ended_at) ? { endedAt: str(activity.ended_at) } : {}),
+      ...(activity.wait?.kind === "tool_approval" ? { approvalWait: true } : {}),
       ...(str(call.id) ? { callId: str(call.id) } : {}),
       ...(policy ? { policy } : {}),
     };

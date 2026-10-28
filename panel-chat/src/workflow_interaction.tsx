@@ -369,7 +369,7 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
             {pending?.kind === "approve" ? "Allowing…" : interaction.approveLabel || L.allowOnce}
           </button>
           {interaction.onApproveForSession ? (
-            <button type="button" className="pc-workflow-interaction__allow-session" data-decision="approve-session" disabled={broadDisabled} title={reason || undefined} onClick={() => void run({ kind: "approve-session" }, interaction.onApproveForSession!)}>
+            <button type="button" className="pc-workflow-interaction__allow-session" data-decision="approve-session" disabled={broadDisabled} title={reason || interaction.approveForSessionDescription || undefined} onClick={() => void run({ kind: "approve-session" }, interaction.onApproveForSession!)}>
               {pending?.kind === "approve-session" ? "Allowing…" : interaction.approveForSessionLabel || L.allowForChat}
             </button>
           ) : null}
@@ -388,7 +388,7 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
             </button>
           ))}
           {interaction.onApproveAll ? (
-            <button type="button" className="pc-workflow-interaction__allow-all" data-decision="approve-all" disabled={broadDisabled} title={reason || undefined} onClick={() => void run({ kind: "approve-all" }, interaction.onApproveAll!)}>
+            <button type="button" className="pc-workflow-interaction__allow-all" data-decision="approve-all" disabled={broadDisabled} title={reason || interaction.approveAllDescription || undefined} onClick={() => void run({ kind: "approve-all" }, interaction.onApproveAll!)}>
               {pending?.kind === "approve-all" ? "Allowing…" : interaction.approveAllLabel || L.allowAll}
             </button>
           ) : null}
@@ -441,8 +441,25 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
           </p>
         ) : null}
         {reason && (interaction.onApproveAll || interaction.onApproveForSession || interaction.approveKinds?.length) ? <p className="pc-workflow-interaction__unavailable" role="note">{reason}</p> : null}
-        {!reason && interaction.onApproveForSession && interaction.approveForSessionDescription ? <p className="pc-workflow-interaction__scope">{interaction.approveForSessionDescription}</p> : null}
-        {!reason && interaction.onApproveAll && interaction.approveAllDescription ? <p className="pc-workflow-interaction__scope">{interaction.approveAllDescription}</p> : null}
+        {/* What the broader grants cover: one disclosure under the buttons, not two always-open
+            paragraphs that push the decision off a phone screen (release-closing polish). The
+            same text is each button's tooltip. */}
+        {(() => {
+          const scopes = [
+            !reason && interaction.onApproveForSession && interaction.approveForSessionDescription ? interaction.approveForSessionDescription : "",
+            !reason && interaction.onApproveAll && interaction.approveAllDescription ? interaction.approveAllDescription : "",
+          ].filter(Boolean);
+          return scopes.length ? (
+            <details className="pc-workflow-interaction__scope-details" data-scope-details="">
+              <summary>What the broader choices allow</summary>
+              {scopes.map((text) => (
+                <p key={text} className="pc-workflow-interaction__scope">
+                  {text}
+                </p>
+              ))}
+            </details>
+          ) : null;
+        })()}
       </div>
     );
   } else {

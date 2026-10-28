@@ -9,7 +9,7 @@ import type { MarkdownImages } from "./markdown.js";
 import { copyText } from "./utils.js";
 import { ToolActivity } from "./tool_activity.js";
 import type { WorkflowStatistics, WorkflowToolActivity } from "./workflow_evidence.js";
-import { StatChip, statDetail, type StatDetail } from "./stat_detail.js";
+import { StatChip, formatDuration, statDetail, type StatDetail } from "./stat_detail.js";
 
 export type ChatMessageLevel = "info" | "warn" | "error";
 
@@ -132,7 +132,8 @@ function workflowStats(metrics: WorkflowStatistics): ChatStat[] {
     ...(tokens ? [{ label: `${metrics.totalTokens!.toLocaleString()} tokens`, detail: tokens }] : []),
     { label: `${metrics.toolCalls} ${metrics.toolCalls === 1 ? "tool" : "tools"}`, detail: tools },
     ...(metrics.changedFiles.length ? [{ label: `${metrics.changedFiles.length} ${metrics.changedFiles.length === 1 ? "file" : "files"} changed`, title: metrics.changedFiles.join("\n") }] : []),
-    ...(time ? [{ label: `${(metrics.durationMs! / 1000).toFixed(metrics.durationMs! < 10000 ? 1 : 0)}s`, detail: time }] : []),
+    // One duration format across the chat (the stat panel, the tool rows, this chip): "4.2s", "3m 35s".
+    ...(time ? [{ label: formatDuration(metrics.durationMs), detail: time }] : []),
   ];
 }
 
