@@ -122,7 +122,7 @@ export function ToolActivity({
             data-approval-wait={tool.approvalWait ? "" : undefined}
             title={tool.approvalWait ? "Timed from request to result: includes waiting for your approval." : undefined}
           >
-            {(duration / 1000).toFixed(1)}s
+            {formatDuration(duration)}
             {tool.approvalWait ? " incl. approval" : ""}
           </span>
         ) : null}
