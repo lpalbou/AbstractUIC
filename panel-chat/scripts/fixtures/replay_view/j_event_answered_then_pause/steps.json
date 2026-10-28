@@ -1,0 +1,64 @@
+[
+ {
+  "record": null,
+  "etag": "\"b0b0b0b0:0~75ac72b7d2\"",
+  "frames": 1,
+  "sha256": "c426182946cf4ef9295e17c2d28e38425843206fd4d43105810dfc354512e44a",
+  "bytes": 1602
+ },
+ {
+  "record": "b0b0b0b0-0000-4000-8000-0000000000b0:1",
+  "etag": "\"b0b0b0b0:1~75ac72b7d2\"",
+  "frames": 1,
+  "sha256": "c4cac6bd623c9bfb855c3a1af16eacacecded7d462a64ba796b92282d2dc537a",
+  "bytes": 2017
+ },
+ {
+  "record": "b0b0b0b0-0000-4000-8000-0000000000b0:2",
+  "etag": "\"b0b0b0b0:2~75ac72b7d2\"",
+  "frames": 1,
+  "sha256": "d2e52044735be2c3e49c5a5c851578492396e66970f1cae0dafac8a1b3b6400b",
+  "bytes": 2695
+ },
+ {
+  "record": "b0b0b0b0-0000-4000-8000-0000000000b0:3",
+  "etag": "\"b0b0b0b0:3~75ac72b7d2\"",
+  "frames": 1,
+  "sha256": "624f2cba5df8969a465b6bad7cc47e7524a497ef4d8e4af0423de512c3aba1b6",
+  "bytes": 2195
+ },
+ {
+  "record": "b0b0b0b0-0000-4000-8000-0000000000b0:4",
+  "etag": "\"b0b0b0b0:4~75ac72b7d2\"",
+  "frames": 1,
+  "sha256": "f60e9102d3c2673567072d96895149512ad728925a85c299770712c4867f1314",
+  "bytes": 2594,
+  "reconnect": [
+   "id: b0b0b0b0:4~75ac72b7d2\nevent: delta\ndata: {\"version\":\"replay_view_v1\",\"root_run_id\":\"b0b0b0b0-0000-4000-8000-0000000000b0\",\"workflow\":{\"id\":\"event-then-pause@1.0.0:main\",\"bundle_id\":\"event-then-pause\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"main\",\"entrypoint\":\"main\"},\"session_id\":\"sess-synthetic-0001\",\"status\":\"waiting\",\"display_status\":null,\"cursor\":{\"token\":\"b0b0b0b0:4~75ac72b7d2\",\"records\":4,\"runs\":{\"b0b0b0b0-0000-4000-8000-0000000000b0\":4}},\"interaction\":null,\"open_waits\":[{\"run_id\":\"b0b0b0b0-0000-4000-8000-0000000000b0\",\"kind\":\"pause\",\"wait_key\":\"pause:b0b0b0b0-0000-4000-8000-0000000000b0\",\"step_id\":null,\"seq\":4,\"until\":null,\"child_run_id\":null,\"person_facing\":false}],\"usage\":{\"input_tokens\":0,\"output_tokens\":0,\"total_tokens\":0,\"llm_calls\":0},\"warnings\":[],\"runs\":[{\"run_id\":\"b0b0b0b0-0000-4000-8000-0000000000b0\",\"parent_run_id\":null,\"workflow_id\":\"event-then-pause@1.0.0:main\",\"workflow\":{\"id\":\"event-then-pause@1.0.0:main\",\"bundle_id\":\"event-then-pause\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"main\"},\"status\":\"waiting\",\"display_status\":null,\"depth\":0,\"order\":[\"\",\"\",0,\"b0b0b0b0-0000-4000-8000-0000000000b0\"],\"waiting\":{\"kind\":\"pause\",\"wait_key\":\"pause:b0b0b0b0-0000-4000-8000-0000000000b0\",\"child_run_id\":null},\"holds_interaction\":false,\"records\":4,\"first_seq\":1,\"last_seq\":4}],\"messages\":[{\"id\":\"b0b0b0b0-0000-4000-8000-0000000000b0:input\",\"role\":\"user\",\"kind\":\"prompt\",\"text\":\"Plan, then wait for me\",\"run_id\":\"b0b0b0b0-0000-4000-8000-0000000000b0\",\"step_ids\":[],\"seqs\":[],\"source\":\"run_input\",\"artifact_ids\":[],\"order\":[\"2026-10-27T10:00:00.000000+00:00\",\"b0b0b0b0-0000-4000-8000-0000000000b0\",0]}],\"activities\":[{\"id\":\"b0b0b0b0-0000-4000-8000-0000000000b0:say\",\"run_id\":\"b0b0b0b0-0000-4000-8000-0000000000b0\",\"execution_id\":\"say\",\"node_id\":\"say\",\"kind\":\"answer\",\"effect_type\":\"answer_user\",\"name\":\"answer_user\",\"status\":\"running\",\"started_at\":\"2026-10-27T10:00:04.000000+00:00\",\"ended_at\":null,\"seqs\":[4],\"step_ids\":[\"say\"],\"order\":[\"2026-10-27T10:00:04.000000+00:00\",\"b0b0b0b0-0000-4000-8000-0000000000b0\",4]}],\"artifacts\":[]}\n\n"
+  ]
+ },
+ {
+  "record": "b0b0b0b0-0000-4000-8000-0000000000b0:5",
+  "etag": "\"b0b0b0b0:5~75ac72b7d2\"",
+  "frames": 1,
+  "sha256": "00cec09237c91d60b76a1df6e13c392a1b6167e40412a1fc8f5c140d9fb5b710",
+  "bytes": 2980
+ },
+ {
+  "record": "b0b0b0b0-0000-4000-8000-0000000000b0:6",
+  "etag": "\"b0b0b0b0:6~75ac72b7d2\"",
+  "frames": 1,
+  "sha256": "2ffc1d4266503fd35392e4bd3fe05453b5d9ad6c1cc8bdeb8ae46d7e60bdbf16",
+  "bytes": 3389
+ },
+ {
+  "record": "b0b0b0b0-0000-4000-8000-0000000000b0:7",
+  "etag": "\"b0b0b0b0:7~75ac72b7d2\"",
+  "frames": 1,
+  "sha256": "b403ffe7e3ba9096ce9da83be799a718da017fc571b79730a209b82e93792ae6",
+  "bytes": 3503,
+  "reconnect": [
+   "id: b0b0b0b0:7~75ac72b7d2\nevent: delta\ndata: {\"version\":\"replay_view_v1\",\"root_run_id\":\"b0b0b0b0-0000-4000-8000-0000000000b0\",\"workflow\":{\"id\":\"event-then-pause@1.0.0:main\",\"bundle_id\":\"event-then-pause\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"main\",\"entrypoint\":\"main\"},\"session_id\":\"sess-synthetic-0001\",\"status\":\"waiting\",\"display_status\":null,\"cursor\":{\"token\":\"b0b0b0b0:7~75ac72b7d2\",\"records\":7,\"runs\":{\"b0b0b0b0-0000-4000-8000-0000000000b0\":7}},\"interaction\":null,\"open_waits\":[{\"run_id\":\"b0b0b0b0-0000-4000-8000-0000000000b0\",\"kind\":\"pause\",\"wait_key\":\"pause:b0b0b0b0-0000-4000-8000-0000000000b0\",\"step_id\":\"pause\",\"seq\":7,\"until\":null,\"child_run_id\":null,\"person_facing\":false}],\"usage\":{\"input_tokens\":0,\"output_tokens\":0,\"total_tokens\":0,\"llm_calls\":0},\"warnings\":[],\"runs\":[{\"run_id\":\"b0b0b0b0-0000-4000-8000-0000000000b0\",\"parent_run_id\":null,\"workflow_id\":\"event-then-pause@1.0.0:main\",\"workflow\":{\"id\":\"event-then-pause@1.0.0:main\",\"bundle_id\":\"event-then-pause\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"main\"},\"status\":\"waiting\",\"display_status\":null,\"depth\":0,\"order\":[\"\",\"\",0,\"b0b0b0b0-0000-4000-8000-0000000000b0\"],\"waiting\":{\"kind\":\"pause\",\"wait_key\":\"pause:b0b0b0b0-0000-4000-8000-0000000000b0\",\"child_run_id\":null},\"holds_interaction\":false,\"records\":7,\"first_seq\":1,\"last_seq\":7}],\"messages\":[{\"id\":\"b0b0b0b0-0000-4000-8000-0000000000b0:input\",\"role\":\"user\",\"kind\":\"prompt\",\"text\":\"Plan, then wait for me\",\"run_id\":\"b0b0b0b0-0000-4000-8000-0000000000b0\",\"step_ids\":[],\"seqs\":[],\"source\":\"run_input\",\"artifact_ids\":[],\"order\":[\"2026-10-27T10:00:00.000000+00:00\",\"b0b0b0b0-0000-4000-8000-0000000000b0\",0]}],\"activities\":[{\"id\":\"b0b0b0b0-0000-4000-8000-0000000000b0:pause\",\"run_id\":\"b0b0b0b0-0000-4000-8000-0000000000b0\",\"execution_id\":\"pause\",\"node_id\":\"pause\",\"kind\":\"event_wait\",\"effect_type\":\"wait_event\",\"name\":\"wait_event\",\"status\":\"waiting\",\"started_at\":\"2026-10-27T10:00:06.000000+00:00\",\"ended_at\":null,\"seqs\":[6,7],\"step_ids\":[\"pause\"],\"order\":[\"2026-10-27T10:00:06.000000+00:00\",\"b0b0b0b0-0000-4000-8000-0000000000b0\",6],\"wait\":{\"kind\":\"pause\",\"wait_key\":\"pause:b0b0b0b0-0000-4000-8000-0000000000b0\",\"until\":null,\"ended_by\":null}}],\"artifacts\":[]}\n\n"
+  ]
+ }
+]

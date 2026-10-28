@@ -1,0 +1,143 @@
+[
+ {
+  "record": null,
+  "etag": "\"e0e0e0e0:0~7df950406a\"",
+  "frames": 1,
+  "sha256": "f061053ac6caaea5e8fc60e4cbbb251e281cf423b25cc94aaf740f94bf9d4f55",
+  "bytes": 1333
+ },
+ {
+  "record": "e0e0e0e0-0000-4000-8000-0000000000e0:1",
+  "etag": "\"e0e0e0e0:1~7df950406a\"",
+  "frames": 1,
+  "sha256": "3ee1fc07d55ce5bb8395977d24f7cdcb23e6fd48327ae2ade1b974b333404b3e",
+  "bytes": 1771
+ },
+ {
+  "record": "e0e0e0e0-0000-4000-8000-0000000000e0:2",
+  "etag": "\"e0e0e0e0:2.e1e1e1e1:0~836517118b\"",
+  "frames": 1,
+  "sha256": "ee47a01f7672e9571f0376a11234c50cb1a6d00b1d2acd3bf31cc91f6e8732b7",
+  "bytes": 2663
+ },
+ {
+  "record": "e1e1e1e1-0000-4000-8000-0000000000e1:1",
+  "etag": "\"e0e0e0e0:2.e1e1e1e1:1~836517118b\"",
+  "frames": 1,
+  "sha256": "253d1d762d948d5d5e13e4db8a4cc0927bde8e0667cd2cf9b0826ae847ad5995",
+  "bytes": 3130
+ },
+ {
+  "record": "e1e1e1e1-0000-4000-8000-0000000000e1:2",
+  "etag": "\"e0e0e0e0:2.e1e1e1e1:2~836517118b\"",
+  "frames": 1,
+  "sha256": "9de9f4407b707dacdf8ced23abbbcf763de6af7b3c0f729eb615d2f0f9df2c15",
+  "bytes": 3230,
+  "reconnect": [
+   "id: e0e0e0e0:2.e1e1e1e1:2~836517118b\nevent: delta\ndata: {\"version\":\"replay_view_v1\",\"root_run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"workflow\":{\"id\":\"basic-agent@0.0.5:81795ea9\",\"bundle_id\":\"basic-agent\",\"bundle_version\":\"0.0.5\",\"flow_id\":\"81795ea9\",\"entrypoint\":\"81795ea9\"},\"session_id\":\"sess-synthetic-policy\",\"status\":\"completed\",\"display_status\":null,\"cursor\":{\"token\":\"e0e0e0e0:2.e1e1e1e1:2~836517118b\",\"records\":4,\"runs\":{\"e0e0e0e0-0000-4000-8000-0000000000e0\":2,\"e1e1e1e1-0000-4000-8000-0000000000e1\":2}},\"interaction\":null,\"open_waits\":[],\"usage\":{\"input_tokens\":20,\"output_tokens\":5,\"total_tokens\":25,\"llm_calls\":1},\"warnings\":[],\"runs\":[{\"run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"parent_run_id\":null,\"workflow_id\":\"basic-agent@0.0.5:81795ea9\",\"workflow\":{\"id\":\"basic-agent@0.0.5:81795ea9\",\"bundle_id\":\"basic-agent\",\"bundle_version\":\"0.0.5\",\"flow_id\":\"81795ea9\"},\"status\":\"completed\",\"display_status\":null,\"depth\":0,\"order\":[\"\",\"\",0,\"e0e0e0e0-0000-4000-8000-0000000000e0\"],\"waiting\":{\"kind\":\"delegation\",\"wait_key\":\"subworkflow:e1e1e1e1-0000-4000-8000-0000000000e1\",\"child_run_id\":\"e1e1e1e1-0000-4000-8000-0000000000e1\"},\"holds_interaction\":false,\"records\":2,\"first_seq\":1,\"last_seq\":2},{\"run_id\":\"e1e1e1e1-0000-4000-8000-0000000000e1\",\"parent_run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"workflow_id\":\"basic-agent@0.0.5:15f19f7f\",\"workflow\":{\"id\":\"basic-agent@0.0.5:15f19f7f\",\"bundle_id\":\"basic-agent\",\"bundle_version\":\"0.0.5\",\"flow_id\":\"15f19f7f\"},\"status\":\"completed\",\"display_status\":null,\"depth\":1,\"order\":[\"\",\"\",0,\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"2026-10-27T11:00:02.000000+00:00\",\"e1e1e1e1-0000-4000-8000-0000000000e1\",2,\"e1e1e1e1-0000-4000-8000-0000000000e1\"],\"waiting\":null,\"holds_interaction\":false,\"records\":2,\"first_seq\":1,\"last_seq\":2}],\"messages\":[{\"id\":\"e0e0e0e0-0000-4000-8000-0000000000e0:input\",\"role\":\"user\",\"kind\":\"prompt\",\"text\":\"Fetch the page and list the folder\",\"run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"step_ids\":[],\"seqs\":[],\"source\":\"run_input\",\"artifact_ids\":[],\"order\":[\"2026-10-27T11:00:00.000000+00:00\",\"e0e0e0e0-0000-4000-8000-0000000000e0\",0]}],\"activities\":[{\"id\":\"e1e1e1e1-0000-4000-8000-0000000000e1:c-llm\",\"run_id\":\"e1e1e1e1-0000-4000-8000-0000000000e1\",\"execution_id\":\"c-llm\",\"node_id\":\"reason\",\"kind\":\"llm\",\"effect_type\":\"llm_call\",\"name\":\"m\",\"status\":\"completed\",\"started_at\":\"2026-10-27T11:00:03.000000+00:00\",\"ended_at\":\"2026-10-27T11:00:04.000000+00:00\",\"seqs\":[1,2],\"step_ids\":[\"c-llm\"],\"order\":[\"2026-10-27T11:00:03.000000+00:00\",\"e1e1e1e1-0000-4000-8000-0000000000e1\",1],\"provider\":\"lmstudio\",\"model\":\"m\",\"usage\":{\"input_tokens\":20,\"output_tokens\":5,\"total_tokens\":25}}],\"artifacts\":[]}\n\n"
+  ]
+ },
+ {
+  "record": "e1e1e1e1-0000-4000-8000-0000000000e1:3",
+  "etag": "\"e0e0e0e0:2.e1e1e1e1:3~836517118b\"",
+  "frames": 1,
+  "sha256": "7aaadd0b1b564162e0da59597671d7924c099cc92791677be9f2281c2786e11b",
+  "bytes": 3844
+ },
+ {
+  "record": "e1e1e1e1-0000-4000-8000-0000000000e1:4",
+  "etag": "\"e0e0e0e0:2.e1e1e1e1:4~836517118b\"",
+  "frames": 1,
+  "sha256": "c1ee369a2217d19b3fed1eda63a07c9f5dd9846e104328cb9d93b4684b0014fa",
+  "bytes": 4814
+ },
+ {
+  "record": "e1e1e1e1-0000-4000-8000-0000000000e1:5",
+  "etag": "\"e0e0e0e0:2.e1e1e1e1:5~836517118b\"",
+  "frames": 1,
+  "sha256": "21135ff465b1a18617ce7dc4304fe85486fe1395d3936609da42b70e3173ebee",
+  "bytes": 5812
+ },
+ {
+  "record": "e1e1e1e1-0000-4000-8000-0000000000e1:6",
+  "etag": "\"e0e0e0e0:2.e1e1e1e1:6~836517118b\"",
+  "frames": 1,
+  "sha256": "0f5fbf914dc795ab131253dee9eaf5d8f17a407d7bafb68ecea4c3719eb5de7d",
+  "bytes": 5869,
+  "reconnect": [
+   "id: e0e0e0e0:2.e1e1e1e1:6~836517118b\nevent: delta\ndata: {\"version\":\"replay_view_v1\",\"root_run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"workflow\":{\"id\":\"basic-agent@0.0.5:81795ea9\",\"bundle_id\":\"basic-agent\",\"bundle_version\":\"0.0.5\",\"flow_id\":\"81795ea9\",\"entrypoint\":\"81795ea9\"},\"session_id\":\"sess-synthetic-policy\",\"status\":\"completed\",\"display_status\":null,\"cursor\":{\"token\":\"e0e0e0e0:2.e1e1e1e1:6~836517118b\",\"records\":8,\"runs\":{\"e0e0e0e0-0000-4000-8000-0000000000e0\":2,\"e1e1e1e1-0000-4000-8000-0000000000e1\":6}},\"interaction\":null,\"open_waits\":[],\"usage\":{\"input_tokens\":20,\"output_tokens\":5,\"total_tokens\":25,\"llm_calls\":1},\"warnings\":[],\"runs\":[{\"run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"parent_run_id\":null,\"workflow_id\":\"basic-agent@0.0.5:81795ea9\",\"workflow\":{\"id\":\"basic-agent@0.0.5:81795ea9\",\"bundle_id\":\"basic-agent\",\"bundle_version\":\"0.0.5\",\"flow_id\":\"81795ea9\"},\"status\":\"completed\",\"display_status\":null,\"depth\":0,\"order\":[\"\",\"\",0,\"e0e0e0e0-0000-4000-8000-0000000000e0\"],\"waiting\":{\"kind\":\"delegation\",\"wait_key\":\"subworkflow:e1e1e1e1-0000-4000-8000-0000000000e1\",\"child_run_id\":\"e1e1e1e1-0000-4000-8000-0000000000e1\"},\"holds_interaction\":false,\"records\":2,\"first_seq\":1,\"last_seq\":2},{\"run_id\":\"e1e1e1e1-0000-4000-8000-0000000000e1\",\"parent_run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"workflow_id\":\"basic-agent@0.0.5:15f19f7f\",\"workflow\":{\"id\":\"basic-agent@0.0.5:15f19f7f\",\"bundle_id\":\"basic-agent\",\"bundle_version\":\"0.0.5\",\"flow_id\":\"15f19f7f\"},\"status\":\"completed\",\"display_status\":null,\"depth\":1,\"order\":[\"\",\"\",0,\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"2026-10-27T11:00:02.000000+00:00\",\"e1e1e1e1-0000-4000-8000-0000000000e1\",2,\"e1e1e1e1-0000-4000-8000-0000000000e1\"],\"waiting\":null,\"holds_interaction\":false,\"records\":6,\"first_seq\":1,\"last_seq\":6}],\"messages\":[{\"id\":\"e0e0e0e0-0000-4000-8000-0000000000e0:input\",\"role\":\"user\",\"kind\":\"prompt\",\"text\":\"Fetch the page and list the folder\",\"run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"step_ids\":[],\"seqs\":[],\"source\":\"run_input\",\"artifact_ids\":[],\"order\":[\"2026-10-27T11:00:00.000000+00:00\",\"e0e0e0e0-0000-4000-8000-0000000000e0\",0]}],\"activities\":[{\"id\":\"e1e1e1e1-0000-4000-8000-0000000000e1:c-act\",\"run_id\":\"e1e1e1e1-0000-4000-8000-0000000000e1\",\"execution_id\":\"c-act\",\"node_id\":\"act\",\"kind\":\"tool\",\"effect_type\":\"tool_calls\",\"name\":\"fetch_url, execute_command\",\"status\":\"completed\",\"started_at\":\"2026-10-27T11:00:05.000000+00:00\",\"ended_at\":\"2026-10-27T11:00:08.000000+00:00\",\"seqs\":[3,6],\"step_ids\":[\"c-act\"],\"order\":[\"2026-10-27T11:00:05.000000+00:00\",\"e1e1e1e1-0000-4000-8000-0000000000e1\",3],\"tool_calls\":[{\"id\":\"c1\",\"name\":\"fetch_url\",\"arguments\":{\"url\":\"https://example.invalid/\"},\"status\":\"completed\",\"decided_by\":\"session_policy\",\"policy_decision\":{\"decision\":\"auto_approved\",\"revision\":5,\"set_by\":{\"tenant_id\":\"default\",\"user_id\":\"person-a\",\"client\":\"panel-chat\"},\"set_at\":\"2026-10-27T10:59:00+00:00\"},\"output\":\"page text\"},{\"id\":\"c2\",\"name\":\"execute_command\",\"arguments\":{\"command\":\"ls\"},\"status\":\"denied\",\"decided_by\":\"session_policy\",\"policy_decision\":{\"decision\":\"denied\",\"revision\":5,\"set_by\":{\"tenant_id\":\"default\",\"user_id\":\"person-a\",\"client\":\"panel-chat\"},\"set_at\":\"2026-10-27T10:59:00+00:00\"},\"error\":\"Denied by this conversation's tool policy\"}]}],\"artifacts\":[]}\n\n"
+  ]
+ },
+ {
+  "record": "e1e1e1e1-0000-4000-8000-0000000000e1:7",
+  "etag": "\"e0e0e0e0:2.e1e1e1e1:7~836517118b\"",
+  "frames": 1,
+  "sha256": "3847bb40b9db3c15a42b518bae95637a10a6b1d23b6662aa2db3fa156ccdb7c3",
+  "bytes": 5869
+ },
+ {
+  "record": "e1e1e1e1-0000-4000-8000-0000000000e1:8",
+  "etag": "\"e0e0e0e0:2.e1e1e1e1:8~836517118b\"",
+  "frames": 1,
+  "sha256": "ac152c543d22f73a6f9d5d6619d9fda219e63c9db0a10d5d257c4806efd9f373",
+  "bytes": 6395
+ },
+ {
+  "record": "e1e1e1e1-0000-4000-8000-0000000000e1:9",
+  "etag": "\"e0e0e0e0:2.e1e1e1e1:9~836517118b\"",
+  "frames": 1,
+  "sha256": "2efa058db0269ec953d4ceff790be8f9df977a00f334c5ec2d5be3f29494b84e",
+  "bytes": 6656
+ },
+ {
+  "record": "e1e1e1e1-0000-4000-8000-0000000000e1:10",
+  "etag": "\"e0e0e0e0:2.e1e1e1e1:10~836517118b\"",
+  "frames": 1,
+  "sha256": "7bbeddd06e3e197f2abcd40bb7b14bb83589a3d8a356985a5581ca5f4d1dc106",
+  "bytes": 6593,
+  "reconnect": [
+   "id: e0e0e0e0:2.e1e1e1e1:10~836517118b\nevent: delta\ndata: {\"version\":\"replay_view_v1\",\"root_run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"workflow\":{\"id\":\"basic-agent@0.0.5:81795ea9\",\"bundle_id\":\"basic-agent\",\"bundle_version\":\"0.0.5\",\"flow_id\":\"81795ea9\",\"entrypoint\":\"81795ea9\"},\"session_id\":\"sess-synthetic-policy\",\"status\":\"completed\",\"display_status\":null,\"cursor\":{\"token\":\"e0e0e0e0:2.e1e1e1e1:10~836517118b\",\"records\":12,\"runs\":{\"e0e0e0e0-0000-4000-8000-0000000000e0\":2,\"e1e1e1e1-0000-4000-8000-0000000000e1\":10}},\"interaction\":null,\"open_waits\":[],\"usage\":{\"input_tokens\":20,\"output_tokens\":5,\"total_tokens\":25,\"llm_calls\":1},\"warnings\":[],\"runs\":[{\"run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"parent_run_id\":null,\"workflow_id\":\"basic-agent@0.0.5:81795ea9\",\"workflow\":{\"id\":\"basic-agent@0.0.5:81795ea9\",\"bundle_id\":\"basic-agent\",\"bundle_version\":\"0.0.5\",\"flow_id\":\"81795ea9\"},\"status\":\"completed\",\"display_status\":null,\"depth\":0,\"order\":[\"\",\"\",0,\"e0e0e0e0-0000-4000-8000-0000000000e0\"],\"waiting\":{\"kind\":\"delegation\",\"wait_key\":\"subworkflow:e1e1e1e1-0000-4000-8000-0000000000e1\",\"child_run_id\":\"e1e1e1e1-0000-4000-8000-0000000000e1\"},\"holds_interaction\":false,\"records\":2,\"first_seq\":1,\"last_seq\":2},{\"run_id\":\"e1e1e1e1-0000-4000-8000-0000000000e1\",\"parent_run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"workflow_id\":\"basic-agent@0.0.5:15f19f7f\",\"workflow\":{\"id\":\"basic-agent@0.0.5:15f19f7f\",\"bundle_id\":\"basic-agent\",\"bundle_version\":\"0.0.5\",\"flow_id\":\"15f19f7f\"},\"status\":\"completed\",\"display_status\":null,\"depth\":1,\"order\":[\"\",\"\",0,\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"2026-10-27T11:00:02.000000+00:00\",\"e1e1e1e1-0000-4000-8000-0000000000e1\",2,\"e1e1e1e1-0000-4000-8000-0000000000e1\"],\"waiting\":null,\"holds_interaction\":false,\"records\":10,\"first_seq\":1,\"last_seq\":10}],\"messages\":[{\"id\":\"e0e0e0e0-0000-4000-8000-0000000000e0:input\",\"role\":\"user\",\"kind\":\"prompt\",\"text\":\"Fetch the page and list the folder\",\"run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"step_ids\":[],\"seqs\":[],\"source\":\"run_input\",\"artifact_ids\":[],\"order\":[\"2026-10-27T11:00:00.000000+00:00\",\"e0e0e0e0-0000-4000-8000-0000000000e0\",0]}],\"activities\":[{\"id\":\"e1e1e1e1-0000-4000-8000-0000000000e1:c-act-2\",\"run_id\":\"e1e1e1e1-0000-4000-8000-0000000000e1\",\"execution_id\":\"c-act-2\",\"node_id\":\"act\",\"kind\":\"tool\",\"effect_type\":\"tool_calls\",\"name\":\"write_file\",\"status\":\"completed\",\"started_at\":\"2026-10-27T11:00:10.000000+00:00\",\"ended_at\":\"2026-10-27T11:00:12.000000+00:00\",\"seqs\":[8,9,10],\"step_ids\":[\"c-act-2\",\"c-resume-2\"],\"order\":[\"2026-10-27T11:00:10.000000+00:00\",\"e1e1e1e1-0000-4000-8000-0000000000e1\",8],\"tool_calls\":[{\"id\":\"c3\",\"name\":\"write_file\",\"arguments\":{\"file_path\":\"notes.txt\",\"content\":\"x\"},\"status\":\"running\"}],\"wait\":{\"kind\":\"tool_approval\",\"wait_key\":\"tool_approval:e1e1e1e1-0000-4000-8000-0000000000e1:act:idem-act-2\",\"until\":null,\"ended_by\":\"resume\"}}],\"artifacts\":[]}\n\n"
+  ]
+ },
+ {
+  "record": "e1e1e1e1-0000-4000-8000-0000000000e1:11",
+  "etag": "\"e0e0e0e0:2.e1e1e1e1:11~836517118b\"",
+  "frames": 1,
+  "sha256": "b425534327d7b9ff2271e3597fc50532600c3e0b1027099101d19392b31e5e46",
+  "bytes": 7696
+ },
+ {
+  "record": "e1e1e1e1-0000-4000-8000-0000000000e1:12",
+  "etag": "\"e0e0e0e0:2.e1e1e1e1:12~836517118b\"",
+  "frames": 1,
+  "sha256": "33ea7ebff70fc36780ad65f7dadc50daa4f4a01a9157a0f03b05b16a3a4f297a",
+  "bytes": 7710
+ },
+ {
+  "record": "e1e1e1e1-0000-4000-8000-0000000000e1:13",
+  "etag": "\"e0e0e0e0:2.e1e1e1e1:13~836517118b\"",
+  "frames": 1,
+  "sha256": "08c8e5911fcda97bea48b1be1eb3cfa241f269987f70fbd410d546065fb0a4a8",
+  "bytes": 7710
+ },
+ {
+  "record": "e0e0e0e0-0000-4000-8000-0000000000e0:3",
+  "etag": "\"e0e0e0e0:3.e1e1e1e1:13~836517118b\"",
+  "frames": 1,
+  "sha256": "aee9b644c0ae5aa186f86f1b1bbff943ce54ae66848433d67f4e3bff65db68da",
+  "bytes": 7626,
+  "reconnect": [
+   "id: e0e0e0e0:3.e1e1e1e1:13~836517118b\nevent: delta\ndata: {\"version\":\"replay_view_v1\",\"root_run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"workflow\":{\"id\":\"basic-agent@0.0.5:81795ea9\",\"bundle_id\":\"basic-agent\",\"bundle_version\":\"0.0.5\",\"flow_id\":\"81795ea9\",\"entrypoint\":\"81795ea9\"},\"session_id\":\"sess-synthetic-policy\",\"status\":\"completed\",\"display_status\":null,\"cursor\":{\"token\":\"e0e0e0e0:3.e1e1e1e1:13~836517118b\",\"records\":16,\"runs\":{\"e0e0e0e0-0000-4000-8000-0000000000e0\":3,\"e1e1e1e1-0000-4000-8000-0000000000e1\":13}},\"interaction\":null,\"open_waits\":[],\"usage\":{\"input_tokens\":20,\"output_tokens\":5,\"total_tokens\":25,\"llm_calls\":1},\"warnings\":[],\"runs\":[{\"run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"parent_run_id\":null,\"workflow_id\":\"basic-agent@0.0.5:81795ea9\",\"workflow\":{\"id\":\"basic-agent@0.0.5:81795ea9\",\"bundle_id\":\"basic-agent\",\"bundle_version\":\"0.0.5\",\"flow_id\":\"81795ea9\"},\"status\":\"completed\",\"display_status\":null,\"depth\":0,\"order\":[\"\",\"\",0,\"e0e0e0e0-0000-4000-8000-0000000000e0\"],\"waiting\":null,\"holds_interaction\":false,\"records\":3,\"first_seq\":1,\"last_seq\":3},{\"run_id\":\"e1e1e1e1-0000-4000-8000-0000000000e1\",\"parent_run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"workflow_id\":\"basic-agent@0.0.5:15f19f7f\",\"workflow\":{\"id\":\"basic-agent@0.0.5:15f19f7f\",\"bundle_id\":\"basic-agent\",\"bundle_version\":\"0.0.5\",\"flow_id\":\"15f19f7f\"},\"status\":\"completed\",\"display_status\":null,\"depth\":1,\"order\":[\"\",\"\",0,\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"2026-10-27T11:00:02.000000+00:00\",\"e1e1e1e1-0000-4000-8000-0000000000e1\",2,\"e1e1e1e1-0000-4000-8000-0000000000e1\"],\"waiting\":null,\"holds_interaction\":false,\"records\":13,\"first_seq\":1,\"last_seq\":13}],\"messages\":[{\"id\":\"e0e0e0e0-0000-4000-8000-0000000000e0:input\",\"role\":\"user\",\"kind\":\"prompt\",\"text\":\"Fetch the page and list the folder\",\"run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"step_ids\":[],\"seqs\":[],\"source\":\"run_input\",\"artifact_ids\":[],\"order\":[\"2026-10-27T11:00:00.000000+00:00\",\"e0e0e0e0-0000-4000-8000-0000000000e0\",0]}],\"activities\":[{\"id\":\"e0e0e0e0-0000-4000-8000-0000000000e0:r-agent\",\"run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"execution_id\":\"r-agent\",\"node_id\":\"agent\",\"kind\":\"subworkflow\",\"effect_type\":\"start_subworkflow\",\"name\":\"basic-agent@0.0.5:15f19f7f\",\"status\":\"completed\",\"started_at\":\"2026-10-27T11:00:01.000000+00:00\",\"ended_at\":\"2026-10-27T11:00:16.000000+00:00\",\"seqs\":[1,2,3],\"step_ids\":[\"r-agent\",\"r-resume\"],\"order\":[\"2026-10-27T11:00:01.000000+00:00\",\"e0e0e0e0-0000-4000-8000-0000000000e0\",1],\"child_run_id\":\"e1e1e1e1-0000-4000-8000-0000000000e1\",\"wait\":{\"kind\":\"delegation\",\"wait_key\":\"subworkflow:e1e1e1e1-0000-4000-8000-0000000000e1\",\"until\":null,\"ended_by\":\"resume\"}}],\"artifacts\":[]}\n\n"
+  ]
+ },
+ {
+  "record": "e0e0e0e0-0000-4000-8000-0000000000e0:4",
+  "etag": "\"e0e0e0e0:4.e1e1e1e1:13~836517118b\"",
+  "frames": 1,
+  "sha256": "c136c851ac09965d1192126deeb00462b0a1b8781e77b7d3ffb0f38b526d3e51",
+  "bytes": 7953,
+  "reconnect": [
+   "id: e0e0e0e0:4.e1e1e1e1:13~836517118b\nevent: delta\ndata: {\"version\":\"replay_view_v1\",\"root_run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"workflow\":{\"id\":\"basic-agent@0.0.5:81795ea9\",\"bundle_id\":\"basic-agent\",\"bundle_version\":\"0.0.5\",\"flow_id\":\"81795ea9\",\"entrypoint\":\"81795ea9\"},\"session_id\":\"sess-synthetic-policy\",\"status\":\"completed\",\"display_status\":null,\"cursor\":{\"token\":\"e0e0e0e0:4.e1e1e1e1:13~836517118b\",\"records\":17,\"runs\":{\"e0e0e0e0-0000-4000-8000-0000000000e0\":4,\"e1e1e1e1-0000-4000-8000-0000000000e1\":13}},\"interaction\":null,\"open_waits\":[],\"usage\":{\"input_tokens\":20,\"output_tokens\":5,\"total_tokens\":25,\"llm_calls\":1},\"warnings\":[],\"runs\":[{\"run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"parent_run_id\":null,\"workflow_id\":\"basic-agent@0.0.5:81795ea9\",\"workflow\":{\"id\":\"basic-agent@0.0.5:81795ea9\",\"bundle_id\":\"basic-agent\",\"bundle_version\":\"0.0.5\",\"flow_id\":\"81795ea9\"},\"status\":\"completed\",\"display_status\":null,\"depth\":0,\"order\":[\"\",\"\",0,\"e0e0e0e0-0000-4000-8000-0000000000e0\"],\"waiting\":null,\"holds_interaction\":false,\"records\":4,\"first_seq\":1,\"last_seq\":4},{\"run_id\":\"e1e1e1e1-0000-4000-8000-0000000000e1\",\"parent_run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"workflow_id\":\"basic-agent@0.0.5:15f19f7f\",\"workflow\":{\"id\":\"basic-agent@0.0.5:15f19f7f\",\"bundle_id\":\"basic-agent\",\"bundle_version\":\"0.0.5\",\"flow_id\":\"15f19f7f\"},\"status\":\"completed\",\"display_status\":null,\"depth\":1,\"order\":[\"\",\"\",0,\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"2026-10-27T11:00:02.000000+00:00\",\"e1e1e1e1-0000-4000-8000-0000000000e1\",2,\"e1e1e1e1-0000-4000-8000-0000000000e1\"],\"waiting\":null,\"holds_interaction\":false,\"records\":13,\"first_seq\":1,\"last_seq\":13}],\"messages\":[{\"id\":\"e0e0e0e0-0000-4000-8000-0000000000e0:final\",\"role\":\"assistant\",\"kind\":\"final\",\"text\":\"Fetched; listing was refused.\",\"run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"step_ids\":[\"r-end\"],\"seqs\":[4],\"source\":\"ledger\",\"artifact_ids\":[],\"order\":[\"2026-10-27T11:00:17.000000+00:00\",\"e0e0e0e0-0000-4000-8000-0000000000e0\",4]},{\"id\":\"e0e0e0e0-0000-4000-8000-0000000000e0:input\",\"role\":\"user\",\"kind\":\"prompt\",\"text\":\"Fetch the page and list the folder\",\"run_id\":\"e0e0e0e0-0000-4000-8000-0000000000e0\",\"step_ids\":[],\"seqs\":[],\"source\":\"run_input\",\"artifact_ids\":[],\"order\":[\"2026-10-27T11:00:00.000000+00:00\",\"e0e0e0e0-0000-4000-8000-0000000000e0\",0]}],\"activities\":[],\"artifacts\":[]}\n\n"
+  ]
+ }
+]

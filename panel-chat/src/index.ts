@@ -46,7 +46,9 @@ export {
   type DroppedFiles,
 } from "./file_drop.js";
 export { WorkflowInteractionPanel } from "./workflow_interaction.js";
-export { WorkflowSessionController, workflowPendingInteraction } from "./workflow_runtime.js";
+export { WorkflowSessionController, workflowPendingInteraction, workflowSourceLabel } from "./workflow_runtime.js";
+export type { WorkflowSessionSource } from "./workflow_runtime.js";
+export { projectReplayView, replayToolActivities, replayStatistics, toolActivityMessage, type ReplayProjection } from "./replay_view_projection.js";
 export { useWorkflowSession } from "./use_workflow_session.js";
 export { resolveWorkflowEventTarget } from "./event_target.js";
 export {
@@ -198,3 +200,30 @@ export type {
   SessionToolPolicyClient,
 } from "./workflow_runtime.js";
 export type { SessionPolicyStatus, SessionToolPolicyScope } from "./workflow_runtime.js";
+export {
+  applyDelta,
+  parseCursorToken,
+  SseParser,
+  ReplayViewFold,
+  createReplayViewTransport,
+  ReplayViewUnavailableError,
+  REPLAY_VIEW_VERSION,
+  REPLAY_SCALAR_KEYS,
+  REPLAY_LIST_KEYS,
+  compareReplayOrder,
+  type ReplayView,
+  type ReplayViewDelta,
+  type ReplayViewCursor,
+  type ReplayViewRun,
+  type ReplayViewMessage,
+  type ReplayViewActivity,
+  type ReplayViewToolCall,
+  type ReplayViewInteraction,
+  type ReplayViewTransport,
+  type ReplayViewFetch,
+  type ReplayViewRead,
+  type ReplayViewStreamOptions,
+  type ReplayViewHttpError,
+  type ReplayFoldOutcome,
+  type SseFrame,
+} from "./replay_view.js";

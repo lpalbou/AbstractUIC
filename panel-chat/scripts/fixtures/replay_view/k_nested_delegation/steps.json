@@ -1,0 +1,119 @@
+[
+ {
+  "record": null,
+  "etag": "\"c0c0c0c0:0~87f49845d2\"",
+  "frames": 1,
+  "sha256": "a12d6b360be0032179ac49cee0549b0f4f0e208556bf9f1d845b32c9a4ee28ac",
+  "bytes": 1569
+ },
+ {
+  "record": "c0c0c0c0-0000-4000-8000-0000000000c0:1",
+  "etag": "\"c0c0c0c0:1~87f49845d2\"",
+  "frames": 1,
+  "sha256": "9dca058466a299ed81393012b833c7dd5a256c7a95f50751aa8046c62415602a",
+  "bytes": 2003
+ },
+ {
+  "record": "c0c0c0c0-0000-4000-8000-0000000000c0:2",
+  "etag": "\"c0c0c0c0:2.c1c1c1c1:0~90fc9f5bf6\"",
+  "frames": 1,
+  "sha256": "265e882f792d33eef93702a7a7b7edb83707b51b7ee00c9226ea958a8735bcdb",
+  "bytes": 2638
+ },
+ {
+  "record": "c0c0c0c0-0000-4000-8000-0000000000c0:3",
+  "etag": "\"c0c0c0c0:3.c1c1c1c1:0~90fc9f5bf6\"",
+  "frames": 1,
+  "sha256": "f931a1aa542c67d67896d1685c2f0ecb7bb7bbb6f248d5532be8230cc5278a35",
+  "bytes": 3073
+ },
+ {
+  "record": "c0c0c0c0-0000-4000-8000-0000000000c0:4",
+  "etag": "\"c0c0c0c0:4.c1c1c1c1:0.c2c2c2c2:0~c2a6cb2297\"",
+  "frames": 1,
+  "sha256": "a66c590e268665c2642648c6218e9a53daa04245d9dac7dde94445de4f5812c9",
+  "bytes": 3708,
+  "reconnect": [
+   "id: c0c0c0c0:4.c1c1c1c1:0.c2c2c2c2:0~c2a6cb2297\nevent: delta\ndata: {\"version\":\"replay_view_v1\",\"root_run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"workflow\":{\"id\":\"nested@1.0.0:main\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"main\",\"entrypoint\":\"main\"},\"session_id\":\"sess-synthetic-0001\",\"status\":\"completed\",\"display_status\":null,\"cursor\":{\"token\":\"c0c0c0c0:4.c1c1c1c1:0.c2c2c2c2:0~c2a6cb2297\",\"records\":4,\"runs\":{\"c0c0c0c0-0000-4000-8000-0000000000c0\":4}},\"interaction\":null,\"open_waits\":[],\"usage\":{\"input_tokens\":0,\"output_tokens\":0,\"total_tokens\":0,\"llm_calls\":0},\"warnings\":[],\"runs\":[{\"run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"parent_run_id\":null,\"workflow_id\":\"nested@1.0.0:main\",\"workflow\":{\"id\":\"nested@1.0.0:main\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"main\"},\"status\":\"completed\",\"display_status\":null,\"depth\":0,\"order\":[\"\",\"\",0,\"c0c0c0c0-0000-4000-8000-0000000000c0\"],\"waiting\":null,\"holds_interaction\":false,\"records\":4,\"first_seq\":1,\"last_seq\":4},{\"run_id\":\"c1c1c1c1-0000-4000-8000-0000000000c1\",\"parent_run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"workflow_id\":\"nested@1.0.0:a\",\"workflow\":{\"id\":\"nested@1.0.0:a\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"a\"},\"status\":\"completed\",\"display_status\":null,\"depth\":1,\"order\":[\"\",\"\",0,\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"2026-10-27T10:00:02.000000+00:00\",\"c1c1c1c1-0000-4000-8000-0000000000c1\",2,\"c1c1c1c1-0000-4000-8000-0000000000c1\"],\"waiting\":null,\"holds_interaction\":false,\"records\":0,\"first_seq\":0,\"last_seq\":0},{\"run_id\":\"c2c2c2c2-0000-4000-8000-0000000000c2\",\"parent_run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"workflow_id\":\"nested@1.0.0:b\",\"workflow\":{\"id\":\"nested@1.0.0:b\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"b\"},\"status\":\"completed\",\"display_status\":null,\"depth\":1,\"order\":[\"\",\"\",0,\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"2026-10-27T10:00:04.000000+00:00\",\"c2c2c2c2-0000-4000-8000-0000000000c2\",4,\"c2c2c2c2-0000-4000-8000-0000000000c2\"],\"waiting\":null,\"holds_interaction\":false,\"records\":0,\"first_seq\":0,\"last_seq\":0}],\"messages\":[{\"id\":\"c0c0c0c0-0000-4000-8000-0000000000c0:input\",\"role\":\"user\",\"kind\":\"prompt\",\"text\":\"Run the nested tree\",\"run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"step_ids\":[],\"seqs\":[],\"source\":\"run_input\",\"artifact_ids\":[],\"order\":[\"2026-10-27T10:00:00.000000+00:00\",\"c0c0c0c0-0000-4000-8000-0000000000c0\",0]},{\"id\":\"c0c0c0c0-0000-4000-8000-0000000000c0:final\",\"role\":\"assistant\",\"kind\":\"final\",\"text\":\"all done\",\"run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"step_ids\":[],\"seqs\":[],\"source\":\"run_output\",\"artifact_ids\":[],\"order\":[\"2026-10-27T10:00:59.000000+00:00\",\"c0c0c0c0-0000-4000-8000-0000000000c0\",0]}],\"activities\":[{\"id\":\"c0c0c0c0-0000-4000-8000-0000000000c0:r-start-b\",\"run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"execution_id\":\"r-start-b\",\"node_id\":\"spawn_b\",\"kind\":\"subworkflow\",\"effect_type\":\"start_subworkflow\",\"name\":\"nested@1.0.0:b\",\"status\":\"completed\",\"started_at\":\"2026-10-27T10:00:03.000000+00:00\",\"ended_at\":\"2026-10-27T10:00:04.000000+00:00\",\"seqs\":[3,4],\"step_ids\":[\"r-start-b\"],\"order\":[\"2026-10-27T10:00:03.000000+00:00\",\"c0c0c0c0-0000-4000-8000-0000000000c0\",3],\"child_run_id\":\"c2c2c2c2-0000-4000-8000-0000000000c2\"}],\"artifacts\":[]}\n\n"
+  ]
+ },
+ {
+  "record": "c1c1c1c1-0000-4000-8000-0000000000c1:1",
+  "etag": "\"c0c0c0c0:4.c1c1c1c1:1.c2c2c2c2:0~c2a6cb2297\"",
+  "frames": 1,
+  "sha256": "009591c2b95b02a5e35d44dd08f871cdf38c5fb4e9b5068c32fc772827bfa8e1",
+  "bytes": 4184
+ },
+ {
+  "record": "c1c1c1c1-0000-4000-8000-0000000000c1:2",
+  "etag": "\"c0c0c0c0:4.c1c1c1c1:2.c3c3c3c3:0.c2c2c2c2:0~a02526c868\"",
+  "frames": 1,
+  "sha256": "93a8a16856363a8f8ce896bbde69548333af74515827a6ddf960e56d130a983e",
+  "bytes": 4934
+ },
+ {
+  "record": "c3c3c3c3-0000-4000-8000-0000000000c3:1",
+  "etag": "\"c0c0c0c0:4.c1c1c1c1:2.c3c3c3c3:1.c2c2c2c2:0~a02526c868\"",
+  "frames": 1,
+  "sha256": "bcfb5e273e4239ba507f522961e290722f540ee4ee2ff51d5f4a6f05fcfcfc4b",
+  "bytes": 4975
+ },
+ {
+  "record": "c3c3c3c3-0000-4000-8000-0000000000c3:2",
+  "etag": "\"c0c0c0c0:4.c1c1c1c1:2.c3c3c3c3:2.c2c2c2c2:0~a02526c868\"",
+  "frames": 1,
+  "sha256": "1f53880ea259144b09b0fbda9d6a198f821f635796d4f75e649997c40c858f74",
+  "bytes": 4975,
+  "reconnect": [
+   "id: c0c0c0c0:4.c1c1c1c1:2.c3c3c3c3:2.c2c2c2c2:0~a02526c868\nevent: delta\ndata: {\"version\":\"replay_view_v1\",\"root_run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"workflow\":{\"id\":\"nested@1.0.0:main\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"main\",\"entrypoint\":\"main\"},\"session_id\":\"sess-synthetic-0001\",\"status\":\"completed\",\"display_status\":null,\"cursor\":{\"token\":\"c0c0c0c0:4.c1c1c1c1:2.c3c3c3c3:2.c2c2c2c2:0~a02526c868\",\"records\":8,\"runs\":{\"c0c0c0c0-0000-4000-8000-0000000000c0\":4,\"c1c1c1c1-0000-4000-8000-0000000000c1\":2,\"c3c3c3c3-0000-4000-8000-0000000000c3\":2}},\"interaction\":null,\"open_waits\":[],\"usage\":{\"input_tokens\":0,\"output_tokens\":0,\"total_tokens\":0,\"llm_calls\":0},\"warnings\":[],\"runs\":[{\"run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"parent_run_id\":null,\"workflow_id\":\"nested@1.0.0:main\",\"workflow\":{\"id\":\"nested@1.0.0:main\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"main\"},\"status\":\"completed\",\"display_status\":null,\"depth\":0,\"order\":[\"\",\"\",0,\"c0c0c0c0-0000-4000-8000-0000000000c0\"],\"waiting\":null,\"holds_interaction\":false,\"records\":4,\"first_seq\":1,\"last_seq\":4},{\"run_id\":\"c1c1c1c1-0000-4000-8000-0000000000c1\",\"parent_run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"workflow_id\":\"nested@1.0.0:a\",\"workflow\":{\"id\":\"nested@1.0.0:a\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"a\"},\"status\":\"completed\",\"display_status\":null,\"depth\":1,\"order\":[\"\",\"\",0,\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"2026-10-27T10:00:02.000000+00:00\",\"c1c1c1c1-0000-4000-8000-0000000000c1\",2,\"c1c1c1c1-0000-4000-8000-0000000000c1\"],\"waiting\":null,\"holds_interaction\":false,\"records\":2,\"first_seq\":1,\"last_seq\":2},{\"run_id\":\"c3c3c3c3-0000-4000-8000-0000000000c3\",\"parent_run_id\":\"c1c1c1c1-0000-4000-8000-0000000000c1\",\"workflow_id\":\"nested@1.0.0:g\",\"workflow\":{\"id\":\"nested@1.0.0:g\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"g\"},\"status\":\"completed\",\"display_status\":null,\"depth\":2,\"order\":[\"\",\"\",0,\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"2026-10-27T10:00:02.000000+00:00\",\"c1c1c1c1-0000-4000-8000-0000000000c1\",2,\"c1c1c1c1-0000-4000-8000-0000000000c1\",\"2026-10-27T10:00:06.000000+00:00\",\"c3c3c3c3-0000-4000-8000-0000000000c3\",2,\"c3c3c3c3-0000-4000-8000-0000000000c3\"],\"waiting\":null,\"holds_interaction\":false,\"records\":2,\"first_seq\":1,\"last_seq\":2},{\"run_id\":\"c2c2c2c2-0000-4000-8000-0000000000c2\",\"parent_run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"workflow_id\":\"nested@1.0.0:b\",\"workflow\":{\"id\":\"nested@1.0.0:b\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"b\"},\"status\":\"completed\",\"display_status\":null,\"depth\":1,\"order\":[\"\",\"\",0,\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"2026-10-27T10:00:04.000000+00:00\",\"c2c2c2c2-0000-4000-8000-0000000000c2\",4,\"c2c2c2c2-0000-4000-8000-0000000000c2\"],\"waiting\":null,\"holds_interaction\":false,\"records\":0,\"first_seq\":0,\"last_seq\":0}],\"messages\":[{\"id\":\"c0c0c0c0-0000-4000-8000-0000000000c0:input\",\"role\":\"user\",\"kind\":\"prompt\",\"text\":\"Run the nested tree\",\"run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"step_ids\":[],\"seqs\":[],\"source\":\"run_input\",\"artifact_ids\":[],\"order\":[\"2026-10-27T10:00:00.000000+00:00\",\"c0c0c0c0-0000-4000-8000-0000000000c0\",0]},{\"id\":\"c0c0c0c0-0000-4000-8000-0000000000c0:final\",\"role\":\"assistant\",\"kind\":\"final\",\"text\":\"all done\",\"run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"step_ids\":[],\"seqs\":[],\"source\":\"run_output\",\"artifact_ids\":[],\"order\":[\"2026-10-27T10:00:59.000000+00:00\",\"c0c0c0c0-0000-4000-8000-0000000000c0\",0]}],\"activities\":[],\"artifacts\":[]}\n\n"
+  ]
+ },
+ {
+  "record": "c1c1c1c1-0000-4000-8000-0000000000c1:3",
+  "etag": "\"c0c0c0c0:4.c1c1c1c1:3.c3c3c3c3:2.c2c2c2c2:0~a02526c868\"",
+  "frames": 1,
+  "sha256": "09543c3e06cfe0c2a1b4125aded924ff984e4798eb0f512f8ad019aa680388f0",
+  "bytes": 4975
+ },
+ {
+  "record": "c1c1c1c1-0000-4000-8000-0000000000c1:4",
+  "etag": "\"c0c0c0c0:4.c1c1c1c1:4.c3c3c3c3:2.c2c2c2c2:0~a02526c868\"",
+  "frames": 1,
+  "sha256": "005b2c144c27429f7ad458272bed8ebdcf71a50626068a0c97106ea16f0a22a2",
+  "bytes": 4976
+ },
+ {
+  "record": "c2c2c2c2-0000-4000-8000-0000000000c2:1",
+  "etag": "\"c0c0c0c0:4.c1c1c1c1:4.c3c3c3c3:2.c2c2c2c2:1~a02526c868\"",
+  "frames": 1,
+  "sha256": "b2344a6160a56f01482d9433f4e4d8552dffe20647ecb13d1bdb750b530b5cf9",
+  "bytes": 5017
+ },
+ {
+  "record": "c2c2c2c2-0000-4000-8000-0000000000c2:2",
+  "etag": "\"c0c0c0c0:4.c1c1c1c1:4.c3c3c3c3:2.c2c2c2c2:2~a02526c868\"",
+  "frames": 1,
+  "sha256": "222c80db8616e990c36d930025e1e4ee25d17964056d6e2de3e7e46600eaecc7",
+  "bytes": 5017,
+  "reconnect": [
+   "id: c0c0c0c0:4.c1c1c1c1:4.c3c3c3c3:2.c2c2c2c2:2~a02526c868\nevent: delta\ndata: {\"version\":\"replay_view_v1\",\"root_run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"workflow\":{\"id\":\"nested@1.0.0:main\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"main\",\"entrypoint\":\"main\"},\"session_id\":\"sess-synthetic-0001\",\"status\":\"completed\",\"display_status\":null,\"cursor\":{\"token\":\"c0c0c0c0:4.c1c1c1c1:4.c3c3c3c3:2.c2c2c2c2:2~a02526c868\",\"records\":12,\"runs\":{\"c0c0c0c0-0000-4000-8000-0000000000c0\":4,\"c1c1c1c1-0000-4000-8000-0000000000c1\":4,\"c2c2c2c2-0000-4000-8000-0000000000c2\":2,\"c3c3c3c3-0000-4000-8000-0000000000c3\":2}},\"interaction\":null,\"open_waits\":[],\"usage\":{\"input_tokens\":0,\"output_tokens\":0,\"total_tokens\":0,\"llm_calls\":0},\"warnings\":[],\"runs\":[{\"run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"parent_run_id\":null,\"workflow_id\":\"nested@1.0.0:main\",\"workflow\":{\"id\":\"nested@1.0.0:main\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"main\"},\"status\":\"completed\",\"display_status\":null,\"depth\":0,\"order\":[\"\",\"\",0,\"c0c0c0c0-0000-4000-8000-0000000000c0\"],\"waiting\":null,\"holds_interaction\":false,\"records\":4,\"first_seq\":1,\"last_seq\":4},{\"run_id\":\"c1c1c1c1-0000-4000-8000-0000000000c1\",\"parent_run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"workflow_id\":\"nested@1.0.0:a\",\"workflow\":{\"id\":\"nested@1.0.0:a\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"a\"},\"status\":\"completed\",\"display_status\":null,\"depth\":1,\"order\":[\"\",\"\",0,\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"2026-10-27T10:00:02.000000+00:00\",\"c1c1c1c1-0000-4000-8000-0000000000c1\",2,\"c1c1c1c1-0000-4000-8000-0000000000c1\"],\"waiting\":null,\"holds_interaction\":false,\"records\":4,\"first_seq\":1,\"last_seq\":4},{\"run_id\":\"c3c3c3c3-0000-4000-8000-0000000000c3\",\"parent_run_id\":\"c1c1c1c1-0000-4000-8000-0000000000c1\",\"workflow_id\":\"nested@1.0.0:g\",\"workflow\":{\"id\":\"nested@1.0.0:g\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"g\"},\"status\":\"completed\",\"display_status\":null,\"depth\":2,\"order\":[\"\",\"\",0,\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"2026-10-27T10:00:02.000000+00:00\",\"c1c1c1c1-0000-4000-8000-0000000000c1\",2,\"c1c1c1c1-0000-4000-8000-0000000000c1\",\"2026-10-27T10:00:06.000000+00:00\",\"c3c3c3c3-0000-4000-8000-0000000000c3\",2,\"c3c3c3c3-0000-4000-8000-0000000000c3\"],\"waiting\":null,\"holds_interaction\":false,\"records\":2,\"first_seq\":1,\"last_seq\":2},{\"run_id\":\"c2c2c2c2-0000-4000-8000-0000000000c2\",\"parent_run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"workflow_id\":\"nested@1.0.0:b\",\"workflow\":{\"id\":\"nested@1.0.0:b\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"b\"},\"status\":\"completed\",\"display_status\":null,\"depth\":1,\"order\":[\"\",\"\",0,\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"2026-10-27T10:00:04.000000+00:00\",\"c2c2c2c2-0000-4000-8000-0000000000c2\",4,\"c2c2c2c2-0000-4000-8000-0000000000c2\"],\"waiting\":null,\"holds_interaction\":false,\"records\":2,\"first_seq\":1,\"last_seq\":2}],\"messages\":[{\"id\":\"c0c0c0c0-0000-4000-8000-0000000000c0:input\",\"role\":\"user\",\"kind\":\"prompt\",\"text\":\"Run the nested tree\",\"run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"step_ids\":[],\"seqs\":[],\"source\":\"run_input\",\"artifact_ids\":[],\"order\":[\"2026-10-27T10:00:00.000000+00:00\",\"c0c0c0c0-0000-4000-8000-0000000000c0\",0]},{\"id\":\"c0c0c0c0-0000-4000-8000-0000000000c0:final\",\"role\":\"assistant\",\"kind\":\"final\",\"text\":\"all done\",\"run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"step_ids\":[],\"seqs\":[],\"source\":\"run_output\",\"artifact_ids\":[],\"order\":[\"2026-10-27T10:00:59.000000+00:00\",\"c0c0c0c0-0000-4000-8000-0000000000c0\",0]}],\"activities\":[],\"artifacts\":[]}\n\n"
+  ]
+ },
+ {
+  "record": "c0c0c0c0-0000-4000-8000-0000000000c0:5",
+  "etag": "\"c0c0c0c0:5.c1c1c1c1:4.c3c3c3c3:2.c2c2c2c2:2~a02526c868\"",
+  "frames": 1,
+  "sha256": "41b07995bafc53236275b2d2d151a43364223763c7257cf76e69545f4df85ed2",
+  "bytes": 5025
+ },
+ {
+  "record": "c0c0c0c0-0000-4000-8000-0000000000c0:6",
+  "etag": "\"c0c0c0c0:6.c1c1c1c1:4.c3c3c3c3:2.c2c2c2c2:2~a02526c868\"",
+  "frames": 1,
+  "sha256": "d1e5344c801cfe51f44e8032e721ed42320e825e1d948dd26d362780d353a017",
+  "bytes": 5025,
+  "reconnect": [
+   "id: c0c0c0c0:6.c1c1c1c1:4.c3c3c3c3:2.c2c2c2c2:2~a02526c868\nevent: delta\ndata: {\"version\":\"replay_view_v1\",\"root_run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"workflow\":{\"id\":\"nested@1.0.0:main\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"main\",\"entrypoint\":\"main\"},\"session_id\":\"sess-synthetic-0001\",\"status\":\"completed\",\"display_status\":null,\"cursor\":{\"token\":\"c0c0c0c0:6.c1c1c1c1:4.c3c3c3c3:2.c2c2c2c2:2~a02526c868\",\"records\":14,\"runs\":{\"c0c0c0c0-0000-4000-8000-0000000000c0\":6,\"c1c1c1c1-0000-4000-8000-0000000000c1\":4,\"c2c2c2c2-0000-4000-8000-0000000000c2\":2,\"c3c3c3c3-0000-4000-8000-0000000000c3\":2}},\"interaction\":null,\"open_waits\":[],\"usage\":{\"input_tokens\":0,\"output_tokens\":0,\"total_tokens\":0,\"llm_calls\":0},\"warnings\":[],\"runs\":[{\"run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"parent_run_id\":null,\"workflow_id\":\"nested@1.0.0:main\",\"workflow\":{\"id\":\"nested@1.0.0:main\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"main\"},\"status\":\"completed\",\"display_status\":null,\"depth\":0,\"order\":[\"\",\"\",0,\"c0c0c0c0-0000-4000-8000-0000000000c0\"],\"waiting\":null,\"holds_interaction\":false,\"records\":6,\"first_seq\":1,\"last_seq\":6},{\"run_id\":\"c1c1c1c1-0000-4000-8000-0000000000c1\",\"parent_run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"workflow_id\":\"nested@1.0.0:a\",\"workflow\":{\"id\":\"nested@1.0.0:a\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"a\"},\"status\":\"completed\",\"display_status\":null,\"depth\":1,\"order\":[\"\",\"\",0,\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"2026-10-27T10:00:02.000000+00:00\",\"c1c1c1c1-0000-4000-8000-0000000000c1\",2,\"c1c1c1c1-0000-4000-8000-0000000000c1\"],\"waiting\":null,\"holds_interaction\":false,\"records\":4,\"first_seq\":1,\"last_seq\":4},{\"run_id\":\"c3c3c3c3-0000-4000-8000-0000000000c3\",\"parent_run_id\":\"c1c1c1c1-0000-4000-8000-0000000000c1\",\"workflow_id\":\"nested@1.0.0:g\",\"workflow\":{\"id\":\"nested@1.0.0:g\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"g\"},\"status\":\"completed\",\"display_status\":null,\"depth\":2,\"order\":[\"\",\"\",0,\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"2026-10-27T10:00:02.000000+00:00\",\"c1c1c1c1-0000-4000-8000-0000000000c1\",2,\"c1c1c1c1-0000-4000-8000-0000000000c1\",\"2026-10-27T10:00:06.000000+00:00\",\"c3c3c3c3-0000-4000-8000-0000000000c3\",2,\"c3c3c3c3-0000-4000-8000-0000000000c3\"],\"waiting\":null,\"holds_interaction\":false,\"records\":2,\"first_seq\":1,\"last_seq\":2},{\"run_id\":\"c2c2c2c2-0000-4000-8000-0000000000c2\",\"parent_run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"workflow_id\":\"nested@1.0.0:b\",\"workflow\":{\"id\":\"nested@1.0.0:b\",\"bundle_id\":\"nested\",\"bundle_version\":\"1.0.0\",\"flow_id\":\"b\"},\"status\":\"completed\",\"display_status\":null,\"depth\":1,\"order\":[\"\",\"\",0,\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"2026-10-27T10:00:04.000000+00:00\",\"c2c2c2c2-0000-4000-8000-0000000000c2\",4,\"c2c2c2c2-0000-4000-8000-0000000000c2\"],\"waiting\":null,\"holds_interaction\":false,\"records\":2,\"first_seq\":1,\"last_seq\":2}],\"messages\":[{\"id\":\"c0c0c0c0-0000-4000-8000-0000000000c0:input\",\"role\":\"user\",\"kind\":\"prompt\",\"text\":\"Run the nested tree\",\"run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"step_ids\":[],\"seqs\":[],\"source\":\"run_input\",\"artifact_ids\":[],\"order\":[\"2026-10-27T10:00:00.000000+00:00\",\"c0c0c0c0-0000-4000-8000-0000000000c0\",0]},{\"id\":\"c0c0c0c0-0000-4000-8000-0000000000c0:final\",\"role\":\"assistant\",\"kind\":\"final\",\"text\":\"all done\",\"run_id\":\"c0c0c0c0-0000-4000-8000-0000000000c0\",\"step_ids\":[\"c0c0-done\"],\"seqs\":[5],\"source\":\"ledger\",\"artifact_ids\":[],\"order\":[\"2026-10-27T10:00:13.000000+00:00\",\"c0c0c0c0-0000-4000-8000-0000000000c0\",5]}],\"activities\":[],\"artifacts\":[]}\n\n"
+  ]
+ }
+]

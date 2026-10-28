@@ -20,7 +20,7 @@ Ecosystem context (external):
 Important integration notes:
 - Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
 - One shared component per user-facing job, composed on AbstractGateway's contracts (ADR 0001): use the job table in `docs/adoption-guide.md` before building anything app-local.
-- `@abstractframework/panel-chat` 0.5.0 needs `@abstractframework/ui-kit` `^0.9.0` (peer dependency); upgrade them together.
+- `@abstractframework/panel-chat` 0.6.0 needs `@abstractframework/ui-kit` `^0.9.0` (peer dependency); upgrade them together.
 - Only `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` perform network requests by default (each polls a metrics endpoint; optional Bearer auth).
 - Always import the package CSS from your app entrypoint (especially in Next.js). Start with `docs/getting-started.md` → `docs/api.md`.
 
@@ -71,7 +71,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 ## Packages
 
 - [@abstractframework/ui-kit](ui-kit/README.md) (0.9.0): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
-- [@abstractframework/panel-chat](panel-chat/README.md) (0.5.0, needs ui-kit ^0.9.0): the one chat surface WorkflowChat over WorkflowSessionController (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI + markdown/json renderers
+- [@abstractframework/panel-chat](panel-chat/README.md) (0.6.0, needs ui-kit ^0.9.0): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -119,6 +119,8 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [app-server/src/index.d.ts](app-server/src/index.d.ts): TS types for the app-server exports
 - [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
 - [panel-chat/src/chat_message_card.tsx](panel-chat/src/chat_message_card.tsx): `ChatMessage` / `ChatAttachment` / `ChatStat` contracts
+- [panel-chat/src/replay_view.ts](panel-chat/src/replay_view.ts): the replay view client (`applyDelta`, `ReplayViewFold`, `SseParser`, `createReplayViewTransport`)
+- [panel-chat/src/replay_view_projection.ts](panel-chat/src/replay_view_projection.ts): `projectReplayView` (view -> transcript, interaction, status)
 - [panel-chat/src/automation_badges.tsx](panel-chat/src/automation_badges.tsx): `ScheduleThisAction` and `FromAutomationBadge`
 - [panel-chat/src/workspace_browser.tsx](panel-chat/src/workspace_browser.tsx): `WorkspaceBrowser`, `openGatewayResource`, `tabOpenPlan`
 - [panel-chat/src/present_interaction.tsx](panel-chat/src/present_interaction.tsx): `presentInteraction` (runtime wait → `WorkflowChat` control)
@@ -166,6 +168,15 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
+
+## What's new in 0.8.0
+
+`@abstractframework/panel-chat` 0.6.0: the chat renders a conversation from AbstractGateway's
+replay view (`GET runs/{id}/view` and its stream, gateway 0.17.0) when the host's transport
+offers it (`replayView: createReplayViewTransport({ fetch })`), instead of rebuilding the run
+from ledger records in the browser; older gateways keep the ledger fold, labeled
+([changelog](./CHANGELOG.md#080---2026-10-28),
+[panel-chat README](./panel-chat/README.md#replay-view-the-gateways-reconstruction)).
 
 ## What's new in 0.7.2
 
@@ -2195,7 +2206,8 @@ Components:
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
-- `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll?, approveAllScope?, onAllowForSession?, approveAllDisabledReason?, remember?, onDefer?, allowSkip? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow for this chat" only with `onAllowForSession`, "Allow all enabled tools" only with `onPermissionsAll` — its scope sentence names no storage scope unless the host passes `approveAllScope`, e.g. "for this Gateway account" —, "Decide later" only with `onDefer`, a per-tool remember checkbox only with `remember(toolNames)`), question (`ask_user`, choices as buttons and free text; "Continue without answering" with `allowSkip` resumes with an empty answer, "Keep waiting" with `onDefer`) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. The first argument may also be a `ReplayInteraction` (the shape of `replay_view_v1.interaction`; a typed seam only: no gateway on `main` serves the replay view, and panel-chat never fetches a `/view` route) — it produces the same control as the raw wait (`isReplayInteraction()`, `replayInteractionWait()`). Types `PresentInteractionOptions`, `InteractionController`, `ReplayInteraction`
+- `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll?, approveAllScope?, onAllowForSession?, approveAllDisabledReason?, remember?, onDefer?, allowSkip? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow for this chat" only with `onAllowForSession`, "Allow all enabled tools" only with `onPermissionsAll` — its scope sentence names no storage scope unless the host passes `approveAllScope`, e.g. "for this Gateway account" —, "Decide later" only with `onDefer`, a per-tool remember checkbox only with `remember(toolNames)`), question (`ask_user`, choices as buttons and free text; "Continue without answering" with `allowSkip` resumes with an empty answer, "Keep waiting" with `onDefer`) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. The first argument may also be a `ReplayInteraction` (the shape of `replay_view_v1.interaction`) — it produces the same control as the raw wait (`isReplayInteraction()`, `replayInteractionWait()`); a wait that carries the view's `command` (`WorkflowWaitInteraction.command`, `kind`) and is an event is answered with `controller.answerEvent(payload, target)` (the view's resume command), never through an event route. Types `PresentInteractionOptions`, `InteractionController` (adds optional `answerEvent`), `ReplayInteraction`
+- Replay view (0.6.0, backlog 0040; root 0993, runtime 0854; AbstractGateway >= 0.17.0 `GET runs/{id}/view` + `/view/stream`): `WorkflowTransport.replayView?: ReplayViewTransport` (`{advertised?, getView(runId, {ifNoneMatch?, at?, signal?}) → {notModified, view?, etag, bytes}, streamView(runId, {lastEventId?, signal, onOpen?, onFrame}) → {bytes}}`), built over the host's gateway fetch by `createReplayViewTransport({ fetch(path, init), advertised? })` (`path` relative to the gateway API). With it the controller renders from the view: one `GET /view` + `GET runs/{id}`, then `/view/stream` from the ETag (`Last-Event-ID` = the last applied frame), no history bundle, no ledger pages, no record fold, no timed poll; the root's ledger stream only for live reply text. Snapshot `source: "replay_view" | "ledger_fold"`, `sourceReason` (why not the view: no `replayView` in the transport, `advertised: false`, or the gateway's route-missing 404/405, probed once per transport; any other failure is a load error), `view` (the folded view); `workflowSourceLabel(snapshot)`. Client pieces: `applyDelta(view, delta)` (port of AbstractRuntime 0.15.0 `apply_delta`), `ReplayViewFold` (`adopt(view, etag)`, `apply(frame) → "view"|"delta"|"duplicate"|"stale"|"done"|"ignored"`: a repeated or older frame is not applied), `SseParser`, `parseCursorToken()`, `compareReplayOrder()`, `ReplayViewUnavailableError`, `projectReplayView(view) → {messages, tools, interaction, status, displayStatus, openLlmCalls, endedLlmCalls, runStatus, statistics}`, `replayToolActivities()`, `replayStatistics()`, `toolActivityMessage()`, constants `REPLAY_VIEW_VERSION`, `REPLAY_SCALAR_KEYS`, `REPLAY_LIST_KEYS`; types `ReplayView`, `ReplayViewDelta`, `ReplayViewCursor`, `ReplayViewRun`, `ReplayViewMessage`, `ReplayViewActivity`, `ReplayViewToolCall`, `ReplayViewInteraction`, `ReplayViewTransport`, `ReplayViewFetch`, `ReplayViewRead`, `ReplayViewStreamOptions`, `ReplayViewHttpError`, `ReplayFoldOutcome`, `SseFrame`, `ReplayProjection`, `WorkflowSessionSource`. Checked against the gateway: the 15 conformance cases captured from AbstractGateway 0.17.0 fold to the exact bytes of `GET /view` after every record (`panel-chat/scripts/check_replay_view.mjs`). See the [README](../panel-chat/README.md#replay-view-the-gateways-reconstruction)
 - Session tool policy (0.5.0, backlog 0032; session tool policy contract v1, served by a gateway that advertises `capabilities.session_tool_policy`): `WorkflowSessionControllerOptions.sessionToolPolicy?: SessionToolPolicyClient` (`{supported, sessionId, get, replace, merge, reset}`; host-injected only when `GET discovery/capabilities` serves `capabilities.session_tool_policy.supported === true`), `setSessionToolPolicyClient(client | null, {reason?})` (null + reason = the capability read failed), `onSessionPolicy(policy, clamped)`; methods `approveAllForSession(target, {maxRiskRank?, ask?})`, `approveKindForSession(target, kind, {ask?})`, `denyKindForSession()`, `denyToolForSession()` (write the policy FIRST with the person's `ask` tools, then answer the shown wait; no panel control for the deny methods), `resetSessionPolicy()`, `loadSessionPolicy()`, `sessionPolicyMode()`, `sessionPolicyStatus()`; snapshot `sessionPolicyMode` (`"gateway"` / `"local-fallback"` / `"unavailable"`), `sessionPolicyReason`, `sessionPolicy`, `sessionPolicyClamped`. `presentInteraction` option `sessionPolicy: {toolsetOf?, ask?, maxRiskRank?}`; the mode comes from the controller (kind buttons only for toolsets present; "Always deny … in this chat" under More with its reach stated; the served `scope` words shown as "Applies: …" or "The gateway did not say where this grant applies."; a tool the stored policy denies is named and "Allow once" reports the gateway's refusal; local fallback "Allow for this run", labeled; unavailable: no chat grant, reason shown). Writes go to the root run's session only; denies and resets carry the current revision (`reset(ifRevision)`, read first when unknown; none → a labeled refusal); a 409 asks to re-read. `SessionToolPolicyClient` is ui-kit's shape exactly (`reset(ifRevision?) → {revision?, scope?}`). `SessionToolPolicy.scope?: {approve?, deny?}` (the response's top-level `scope`, carried by the client). Ledger `abstract.tool_policy_decision` → activity line + `WorkflowToolActivity.policy`. Types `SessionToolPolicy`, `SessionToolPolicyBody`, `SessionToolPolicyClamp`, `SessionToolPolicyClient`, `SessionPolicyMode`, `SessionPolicyStatus`, `SessionToolPolicyScope`, `WorkflowToolPolicyProvenance`; helpers `toolPolicyDecision()`, `toolPolicyDecisionText()`, `sessionPolicyClampedText()`
 - Questions and approvals (0.5.0, backlog 0032): `WORKFLOW_INTERACTION_LABELS` is the one wording set (Deny / Allow once / Allow for this chat / Allow all enabled tools / Decide later; Submit / Continue without answering / Keep waiting). `WorkflowToolApprovalInteraction` adds `onApproveForSession?`, `onDefer?` (a dismissal sends nothing and never denies), `remember?: {label, checked, onChange}` (`WorkflowInteractionRemember`; the host words the scope), `disabledReason?` (the broad grants render disabled with the reason visible); its default labels are now "Allow once" / "Allow all enabled tools" (were "Approve" / "Allow all"). `WorkflowAskUserInteraction` adds `onSkip?` and `onDefer?`. `WorkflowInteractionPanel` takes `variant?: "panel" | "card"` (the compact card for "Needs you" lists and inboxes: same decisions, detail behind **Review**)
 - `WorkspaceBrowser` — a run's folder on the gateway host through the CONTRACTS §W routes (`GET /runs/{id}/workspace`, `/workspace/files`, `/workspace/content`): the root once as its short name (`workspaceShortName`; full path on hover) with **Open folder** (`onOpenFolder`, offered only when `workspaceCanOpenFolder`) and **Copy path** icons, breadcrumbs, folders first, then per file: name, size, generated date (relative, exact on hover) and a Download icon; "N entries hidden by the gateway's workspace rules". A click on a file previews it IN PLACE with `FileViewer` (0.3.1: no "Open" button; `fileActions(entry)` adds host actions such as "Attach"), or `onSelectFile` + `selectedPath` hand the selection to a host preview. Files are fetched with the host's credentials, never linked. Props: `fetchGateway(path, init)`, `runId` (an automation's id browses the automation's folder), `title`, `note?`, `onClose?`, `refreshKey?`, `className?`, `fileActions?`, `onOpenFolder?`, `copyText?`, `nowMs?`. Hook-free `WorkspaceBrowserView` and helpers: `loadWorkspaceView()`, `loadRunWorkspace()`, `listWorkspaceFolder()`, `readWorkspaceFile()`, `parseWorkspaceListing()` (malformed answers throw), `gatewayResponseError()`, `tabOpenPlan()`, `workspaceInfoUrl()` / `workspaceFilesUrl()` / `workspaceContentUrl()`, `workspaceCrumbs()`, `workspaceParent()`, `sortWorkspaceEntries()`, `workspaceHiddenNote()`, `formatBytes()`; types `GatewayFetch`, `RunWorkspace`, `WorkspaceEntry`, `WorkspaceListing`, `WorkspaceBrowserProps`, `WorkspaceBrowserViewProps`
@@ -5181,6 +5193,9 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
   `ComposerAttachmentChips`, `useAttachmentUploads` (see [One chat surface](#one-chat-surface))
 - Questions and approvals: `presentInteraction`, `WORKFLOW_INTERACTION_LABELS`,
   `ReplayInteraction` (see [Questions and approvals](#questions-and-approvals))
+- Replay view (0.6.0): `WorkflowTransport.replayView`, `createReplayViewTransport`,
+  `applyDelta`, `ReplayViewFold`, `SseParser`, `projectReplayView`, `workflowSourceLabel` (see
+  [Replay view](#replay-view-the-gateways-reconstruction))
 - A chat's tool policy on the gateway: the `WorkflowSessionController` option `sessionToolPolicy`
   (a ui-kit `SessionToolPolicyClient`), `sessionPolicyStatus()`, `toolPolicyDecision`,
   `toolPolicyDecisionText`, `sessionPolicyClampedText` (see
@@ -5373,9 +5388,11 @@ this chat / allow all, and a dismissal defers, never denies.
   "Needs you" board, an inbox): same decisions and callbacks, detail behind **Review**.
 - `presentInteraction` also accepts a `ReplayInteraction`: the shape of
   `replay_view_v1.interaction` (kind, run_id, wait_key, step_id, seq, prompt, choices,
-  allow_free_text, details, tool_calls, activity_id, command). It is a typed seam only: no
-  gateway on `main` serves the replay view yet, panel-chat never fetches a `/view` route, and
-  today's data path stays the controller's ledger fold + served `waiting`.
+  allow_free_text, details, tool_calls, activity_id, command, answer_payload). With a replay
+  view transport the controller's own interaction comes from the view (see
+  [Replay view](#replay-view-the-gateways-reconstruction)); an `event` interaction is answered
+  with the view's resume `command` (`controller.answerEvent(payload)`), not by deriving an event
+  route.
 
 #### Session tool policy (stored on the gateway)
 
@@ -5489,12 +5506,74 @@ const interaction = presentInteraction(workflowPendingInteraction(snapshot), con
 - Not done yet: the controller does not fold `$artifact` refs or generated-media ledger events
   into `message.media` by itself; a host fills `media` with the helpers above.
 
+### Replay view: the gateway's reconstruction
+
+AbstractGateway 0.17.0 serves the run tree's replay view (`replay_view_v1`, AbstractRuntime
+0.15.0 `abstractruntime.replay`): `GET runs/{id}/view` (ETag = cursor token, 304 on
+`If-None-Match`, `?at=<token>`) and `GET runs/{id}/view/stream` (SSE: one `view`, then `delta`
+frames, `done`; reconnect with `Last-Event-ID`). It is the one reconstruction of a run: status,
+the person-facing interaction (wherever in the tree it waits) with its resume `command`,
+messages with provenance, one activity per node execution, artifacts, usage.
+
+A host opts in by adding `replayView` to its `WorkflowTransport`:
+
+```ts
+import { createReplayViewTransport, type WorkflowTransport } from "@abstractframework/panel-chat";
+import { gatewayApiPath } from "@abstractframework/ui-kit";
+
+const transport: WorkflowTransport = {
+  ...ledgerTransport, // getRun, getHistory, getLedger, streamLedger, submitCommand as before
+  replayView: createReplayViewTransport({
+    // `path` is relative to the gateway API ("runs/<id>/view"); add the host's credentials.
+    fetch: (path, init) => fetch(gatewayApiPath(path), { ...init, credentials: "include" }),
+  }),
+};
+```
+
+With it, `WorkflowSessionController.load(runId)`:
+
+- reads `GET runs/{id}/view` and `GET runs/{id}` (for `paused`), then follows `/view/stream`
+  from the view's ETag; every frame is folded with `applyDelta` (a port of the runtime's
+  `apply_delta`) and projected with `projectReplayView` into the same snapshot the components
+  already render (`messages`, `interaction`, `status`, `displayStatus`, tool rows, Stop states);
+- answers through `POST commands` with the view's command (`approve`, `resume`, `answerEvent`);
+- opens the root's ledger stream only for live reply text (`llm.delta`, which the view does not
+  carry), from the view's cursor; its records are ignored;
+- does not read the history bundle or ledger pages, folds no records (`snapshot.records` stays
+  empty) and has no timed `GET runs/{id}` poll;
+- labels the snapshot: `source: "replay_view"`, `view` = the folded view.
+
+Without `replayView`, or when the gateway answers that it has no such route (FastAPI's
+`404 Not Found` or a 405, probed once per transport; `advertised: false` skips the probe), the
+controller keeps its ledger fold and says so: `source: "ledger_fold"` with `sourceReason`
+(`workflowSourceLabel(snapshot)` gives one line to show). Any other failure of the view read is
+a load error, never a silent fallback. AbstractGateway 0.17.0 does not list the view in
+`GET discovery/capabilities`; a host that reads a future `capabilities.replay_view` passes it
+as `advertised`.
+
+Not in the view yet (gaps, filed upstream): the kill switch's attribution (`killed_by`), so a
+forced stop reads as "Stopped"; a tool call's command sandbox; per-call model timings
+(`gen_time`, prefill) in the statistics; an EVENT wait without a prompt (`signal`) is not a
+person-facing interaction there, so no "Send event" control is offered for it.
+
+`replay_view.ts` exports the pieces for hosts that render other views of a run: `applyDelta`,
+`ReplayViewFold` (drops a repeated or older frame after a reconnect), `SseParser`,
+`parseCursorToken`, `createReplayViewTransport`, `projectReplayView`. They are checked against
+a real gateway: `scripts/check_replay_view.mjs` folds the 15 conformance cases of AbstractRuntime
+0.15.0 as captured from AbstractGateway 0.17.0 (`scripts/fixtures/replay_view/`, regenerated by
+`scripts/regen_replay_view_fixtures.py`) and requires the folded view to serialize to the exact
+bytes of `GET /view` after every record.
+
+Measured on a 2,997-record run tree (4 runs, 495 tool approvals; scratch AbstractGateway
+0.17.0, SQLite stores, loopback): opening the conversation took 3 requests and 1.21 MB with the
+view against 509 requests and 5.60 MB with the ledger fold; first render 17 ms against 147 ms
+(median of 5, warm), 123 ms against 166 ms on a freshly started gateway.
+
 ### Messages from the replay view
 
-`ChatMessage` can carry a `replay_view_v1.messages[]` item, so `messages` can come from the
-replay view once a gateway serves it (no route on `main` yet; panel-chat never fetches one).
-The shape below is the WIP `ReplayView` of abstractruntime `feat/replay-view` and may move
-before it ships:
+`ChatMessage` carries a `replay_view_v1.messages[]` item (`projectReplayView` applies this
+mapping; a `final` that `repeats` an answer is shown once, the open question's own message is
+left to its card):
 
 | replay `role` / `kind` | `ChatMessage` |
 |---|---|
@@ -6335,7 +6414,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -6436,7 +6515,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -6482,7 +6561,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && tsc -p scripts/types/tsconfig.json"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && tsc -p scripts/types/tsconfig.json"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.9.0",
@@ -15273,7 +15352,9 @@ export {
   type DroppedFiles,
 } from "./file_drop.js";
 export { WorkflowInteractionPanel } from "./workflow_interaction.js";
-export { WorkflowSessionController, workflowPendingInteraction } from "./workflow_runtime.js";
+export { WorkflowSessionController, workflowPendingInteraction, workflowSourceLabel } from "./workflow_runtime.js";
+export type { WorkflowSessionSource } from "./workflow_runtime.js";
+export { projectReplayView, replayToolActivities, replayStatistics, toolActivityMessage, type ReplayProjection } from "./replay_view_projection.js";
 export { useWorkflowSession } from "./use_workflow_session.js";
 export { resolveWorkflowEventTarget } from "./event_target.js";
 export {
@@ -15425,6 +15506,33 @@ export type {
   SessionToolPolicyClient,
 } from "./workflow_runtime.js";
 export type { SessionPolicyStatus, SessionToolPolicyScope } from "./workflow_runtime.js";
+export {
+  applyDelta,
+  parseCursorToken,
+  SseParser,
+  ReplayViewFold,
+  createReplayViewTransport,
+  ReplayViewUnavailableError,
+  REPLAY_VIEW_VERSION,
+  REPLAY_SCALAR_KEYS,
+  REPLAY_LIST_KEYS,
+  compareReplayOrder,
+  type ReplayView,
+  type ReplayViewDelta,
+  type ReplayViewCursor,
+  type ReplayViewRun,
+  type ReplayViewMessage,
+  type ReplayViewActivity,
+  type ReplayViewToolCall,
+  type ReplayViewInteraction,
+  type ReplayViewTransport,
+  type ReplayViewFetch,
+  type ReplayViewRead,
+  type ReplayViewStreamOptions,
+  type ReplayViewHttpError,
+  type ReplayFoldOutcome,
+  type SseFrame,
+} from "./replay_view.js";
 
 ## panel-chat/src/chat_message_card.tsx
 
@@ -15964,6 +16072,787 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
 }
 
 export default ChatMessageCard;
+
+## panel-chat/src/replay_view.ts
+
+/**
+ * The replay view client (`replay_view_v1`, AbstractRuntime `abstractruntime.replay`, served by
+ * AbstractGateway >= 0.17.0):
+ *
+ *   GET  runs/{run_id}/view          the whole view; ETag = its cursor token; 304 on If-None-Match
+ *   GET  runs/{run_id}/view/stream   SSE: one `view` (id = token), then `delta` frames
+ *                                    (id = token), `: keep-alive` comments, `done` at the end;
+ *                                    reconnect with `Last-Event-ID`
+ *
+ * The view is the ONE reconstruction of a run tree (root backlog 0993, runtime ADR 0010): status,
+ * the person-facing interaction with its resume `command`, messages, activities, artifacts,
+ * usage. A client folds the stream with `applyDelta` and renders the result; it never re-derives
+ * run state from raw ledger records.
+ *
+ * `applyDelta` is a port of `abstractruntime.replay.delta.apply_delta` (0.15.0). It is checked
+ * against the gateway itself: `scripts/check_replay_view.mjs` folds every conformance case's
+ * captured stream and requires the folded view to serialize to the bytes of the gateway's
+ * `GET /view` after EVERY record (fixtures: `scripts/fixtures/replay_view/`, regenerated by
+ * `scripts/regen_replay_view_fixtures.py` against a real gateway).
+ */
+
+export type ReplayViewJson = Record<string, unknown>;
+
+/** `replay_view_v1.interaction`: the newest open person-facing wait of the tree. */
+export type ReplayViewInteraction = {
+  kind: "tool_approval" | "ask_user" | "event";
+  run_id: string;
+  wait_key: string;
+  step_id?: string | null;
+  seq?: number | null;
+  prompt?: string | null;
+  choices?: unknown[] | null;
+  allow_free_text?: boolean | null;
+  details?: Record<string, unknown> | null;
+  tool_calls?: unknown[] | null;
+  activity_id?: string | null;
+  /** The resume a client sends (`POST commands`) to answer it, with the answer under `payload`. */
+  command?: { type: "resume"; run_id: string; payload: { wait_key: string } };
+  /** What the resume payload carries for this kind (`{response}`, `{approved: true|false}`, `{payload}`). */
+  answer_payload?: string;
+};
+
+export type ReplayViewMessage = {
+  id: string;
+  role: string;
+  kind: string;
+  text: string;
+  run_id: string;
+  step_ids?: string[];
+  seqs?: number[];
+  source?: string;
+  artifact_ids?: string[];
+  order?: unknown[];
+  /** A final answer that repeats an earlier answer names it here: show the text once. */
+  repeats?: string;
+  level?: string | null;
+};
+
+export type ReplayViewToolCall = {
+  id?: string;
+  name?: string;
+  arguments?: unknown;
+  status?: string;
+  output?: unknown;
+  error?: unknown;
+  decided_by?: string;
+  policy_decision?: { decision?: string; revision?: number; set_by?: Record<string, unknown>; set_at?: string } | null;
+  matched?: string;
+};
+
+export type ReplayViewActivity = {
+  id: string;
+  run_id: string;
+  execution_id?: string | null;
+  node_id?: string | null;
+  kind: string;
+  effect_type?: string | null;
+  name?: string | null;
+  status: string;
+  started_at?: string | null;
+  ended_at?: string | null;
+  seqs?: number[];
+  step_ids?: string[];
+  order?: unknown[];
+  tool_calls?: ReplayViewToolCall[];
+  wait?: { kind?: string; wait_key?: string | null; ended_by?: string | null; outcome?: string; denied_by?: string } | null;
+  usage?: Record<string, number> | null;
+  child_run_id?: string | null;
+  decision?: string;
+  source?: string;
+  policy?: { revision?: number; set_by?: Record<string, unknown>; set_at?: string } | null;
+  [key: string]: unknown;
+};
+
+export type ReplayViewRun = {
+  run_id: string;
+  parent_run_id?: string | null;
+  status: string;
+  display_status?: string | null;
+  depth?: number;
+  order?: unknown[];
+  waiting?: { kind?: string; wait_key?: string | null; child_run_id?: string | null } | null;
+  holds_interaction?: boolean;
+  records?: number;
+  first_seq?: number | null;
+  last_seq?: number | null;
+  [key: string]: unknown;
+};
+
+export type ReplayViewCursor = { token: string; records: number; runs: Record<string, number> };
+
+/** `replay_view_v1` (AbstractRuntime docs/replay.md "The view"). */
+export type ReplayView = {
+  version: string;
+  root_run_id: string;
+  workflow?: Record<string, unknown> | null;
+  session_id?: string | null;
+  status: string;
+  display_status?: string | null;
+  cursor: ReplayViewCursor;
+  runs: ReplayViewRun[];
+  interaction: ReplayViewInteraction | null;
+  open_waits?: Record<string, unknown>[];
+  messages: ReplayViewMessage[];
+  activities: ReplayViewActivity[];
+  artifacts: Record<string, unknown>[];
+  usage?: Record<string, number> | null;
+  warnings?: unknown[];
+};
+
+/** A `delta` frame's data: the scalars whole, the changed list items keyed by id, `changes` (ignored here). */
+export type ReplayViewDelta = Partial<ReplayView> & { changes?: unknown[] };
+
+export const REPLAY_VIEW_VERSION = "replay_view_v1";
+export const REPLAY_SCALAR_KEYS = ["version", "root_run_id", "workflow", "session_id", "status", "display_status", "cursor", "interaction", "open_waits", "usage", "warnings"] as const;
+export const REPLAY_LIST_KEYS = ["runs", "messages", "activities", "artifacts"] as const;
+
+type Row = Record<string, unknown>;
+const own = (value: object, key: string): boolean => Object.prototype.hasOwnProperty.call(value, key);
+
+/** Python's `str()` of a JSON scalar (the reducer's sort and id keys are built with it). */
+function pyStr(value: unknown): string {
+  if (value === null || value === undefined) return "None";
+  if (value === true) return "True";
+  if (value === false) return "False";
+  return String(value);
+}
+
+/** `f"{x:012d}"` for an int (bool included, as `isinstance(True, int)`), else `str(x)`. */
+function orderPart(value: unknown): string {
+  const n = typeof value === "boolean" ? Number(value) : value;
+  if (typeof n === "number" && Number.isInteger(n)) {
+    const digits = String(Math.abs(n));
+    return n < 0 ? `-${digits.padStart(11, "0")}` : digits.padStart(12, "0");
+  }
+  return pyStr(value);
+}
+
+/** Python string order (by code point), not UTF-16 code units. */
+function comparePy(a: string, b: string): number {
+  if (a === b) return 0;
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i += 1) {
+    const x = a.charCodeAt(i);
+    const y = b.charCodeAt(i);
+    if (x === y) continue;
+    const surrogate = (c: number) => c >= 0xd800 && c <= 0xdfff;
+    if (surrogate(x) || surrogate(y)) return (a.codePointAt(i) ?? x) - (b.codePointAt(i) ?? y);
+    return x - y;
+  }
+  return a.length - b.length;
+}
+
+function itemId(key: string, item: Row): string {
+  return pyStr(key === "runs" ? item.run_id : item.id);
+}
+
+function orderKey(key: string, item: Row): [string[], string] {
+  const order = Array.isArray(item.order) && item.order.length ? item.order : [];
+  return [order.map(orderPart), itemId(key, item)];
+}
+
+function compareKeys(a: [string[], string], b: [string[], string]): number {
+  const n = Math.min(a[0].length, b[0].length);
+  for (let i = 0; i < n; i += 1) {
+    const c = comparePy(a[0][i], b[0][i]);
+    if (c) return c;
+  }
+  if (a[0].length !== b[0].length) return a[0].length - b[0].length;
+  return comparePy(a[1], b[1]);
+}
+
+/** The view's own item order (`order` element by element, then `id`), for merging its lists. */
+export function compareReplayOrder(a: { order?: unknown[] | null; id?: unknown }, b: { order?: unknown[] | null; id?: unknown }): number {
+  return compareKeys(orderKey("messages", a as Row), orderKey("messages", b as Row));
+}
+
+function jsonEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return a === b || (a == null && b == null);
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((x, i) => jsonEqual(x, b[i]));
+  }
+  if (a && b && typeof a === "object" && typeof b === "object") {
+    const ka = Object.keys(a as Row);
+    const kb = Object.keys(b as Row);
+    return ka.length === kb.length && ka.every((k) => own(b as Row, k) && jsonEqual((a as Row)[k], (b as Row)[k]));
+  }
+  return false;
+}
+
+/**
+ * `view` with `delta` applied (neither argument is modified): the scalars present in the delta
+ * replace the view's, the delta's list items are upserted by id (`run_id` for runs) and a list
+ * is re-sorted by `order` (element by element, ints zero-padded, then id) when an item is new
+ * or moved. Items are never removed. `changes` is ignored. Port of AbstractRuntime 0.15.0
+ * `replay.delta.apply_delta`; the result shares unchanged items with `view` (treat views as
+ * immutable).
+ */
+export function applyDelta<V extends Row = ReplayView & Row>(view: V | Row | null | undefined, delta: Row): V {
+  const out: Row = view && Object.keys(view).length ? { ...view } : Object.fromEntries(REPLAY_LIST_KEYS.map((k) => [k, []]));
+  for (const k of REPLAY_SCALAR_KEYS) if (own(delta, k)) out[k] = delta[k];
+  for (const k of REPLAY_LIST_KEYS) {
+    const items = delta[k];
+    const current = Array.isArray(out[k]) && (out[k] as unknown[]).length ? (out[k] as Row[]) : [];
+    if (!Array.isArray(items) || !items.length) {
+      out[k] = current;
+      continue;
+    }
+    const rows = [...current];
+    const where = new Map<string, number>(rows.map((it, i) => [itemId(k, it), i]));
+    let resort = false;
+    for (const raw of items as Row[]) {
+      const id = itemId(k, raw);
+      const i = where.get(id);
+      if (i === undefined) {
+        where.set(id, rows.length);
+        rows.push(raw);
+        resort = true;
+      } else {
+        if (!jsonEqual(rows[i].order ?? null, raw.order ?? null)) resort = true;
+        rows[i] = raw;
+      }
+    }
+    if (resort) {
+      const keyed = rows.map((it) => ({ it, key: orderKey(k, it) }));
+      keyed.sort((a, b) => compareKeys(a.key, b.key));
+      out[k] = keyed.map((x) => x.it);
+    } else out[k] = rows;
+  }
+  return out as V;
+}
+
+/** `"<run id prefix>:<seq>.…[~digest]"` (a view's `cursor.token`, ETag, SSE id) -> {prefix: seq}; null when not one. */
+export function parseCursorToken(token: unknown): Record<string, number> | null {
+  if (typeof token !== "string" || !token.trim()) return null;
+  let raw = token.trim();
+  if (raw.startsWith("W/")) raw = raw.slice(2);
+  raw = raw.replace(/^"+|"+$/g, "");
+  const out: Record<string, number> = {};
+  for (const part of raw.split("~", 1)[0].split(".")) {
+    const at = part.indexOf(":");
+    if (at < 0) return null;
+    const prefix = part.slice(0, at).trim();
+    const seqText = part.slice(at + 1).trim();
+    if (!prefix || !/^[+-]?\d+$/.test(seqText)) return null;
+    const n = Number(seqText);
+    if (n < 0) return null;
+    out[prefix] = n;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+// ---------------------------------------------------------------------------------------- SSE
+
+/** One server-sent event: `event` (default "message"), `data` (lines joined by "\n"), `id` when the frame had one. */
+export type SseFrame = { event: string; data: string; id?: string };
+
+/**
+ * An incremental `text/event-stream` parser (WHATWG rules: CRLF/LF/CR lines, `:` comments,
+ * multi-line `data`, one leading space stripped, a frame without data is not dispatched).
+ * `lastEventId` is the stream's last `id:` (what a reconnect sends as `Last-Event-ID`).
+ */
+export class SseParser {
+  lastEventId = "";
+  private buffer = "";
+  private event = "";
+  private data: string[] = [];
+  private id: string | undefined;
+  private pendingCr = false;
+
+  push(chunk: string): SseFrame[] {
+    const frames: SseFrame[] = [];
+    let text = chunk;
+    if (this.pendingCr && text.startsWith("\n")) text = text.slice(1);
+    this.pendingCr = false;
+    this.buffer += text;
+    for (;;) {
+      const m = /\r\n|\n|\r/.exec(this.buffer);
+      if (!m) break;
+      // A trailing CR may be the first half of CRLF: wait for the next chunk.
+      if (m[0] === "\r" && m.index === this.buffer.length - 1) {
+        const line = this.buffer.slice(0, m.index);
+        this.buffer = "";
+        this.pendingCr = true;
+        this.line(line, frames);
+        break;
+      }
+      const line = this.buffer.slice(0, m.index);
+      this.buffer = this.buffer.slice(m.index + m[0].length);
+      this.line(line, frames);
+    }
+    return frames;
+  }
+
+  private line(line: string, frames: SseFrame[]): void {
+    if (line === "") {
+      if (this.data.length) frames.push({ event: this.event || "message", data: this.data.join("\n"), ...(this.id !== undefined ? { id: this.id } : {}) });
+      this.event = "";
+      this.data = [];
+      this.id = undefined;
+      return;
+    }
+    if (line.startsWith(":")) return;
+    const at = line.indexOf(":");
+    const field = at < 0 ? line : line.slice(0, at);
+    let value = at < 0 ? "" : line.slice(at + 1);
+    if (value.startsWith(" ")) value = value.slice(1);
+    if (field === "event") this.event = value;
+    else if (field === "data") this.data.push(value);
+    else if (field === "id" && !value.includes("\u0000")) {
+      this.id = value;
+      this.lastEventId = value;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------------------- fold
+
+/** What folding one frame did. `duplicate`/`stale`: the frame was older than the held view and was NOT applied. */
+export type ReplayFoldOutcome = "view" | "delta" | "duplicate" | "stale" | "done" | "ignored";
+
+/**
+ * The client's copy of one view, folded from stream frames. A `view` frame replaces it; a
+ * `delta` is applied unless it is the frame already applied (same id) or older than the held
+ * cursor (every run's seq at or below the held one, one below): a frame delivered again after
+ * a reconnect never moves the view back. A delta before any view throws (reconnect without
+ * `Last-Event-ID`).
+ */
+export class ReplayViewFold {
+  view: ReplayView | null = null;
+  lastEventId: string | null = null;
+  terminal = false;
+
+  /**
+   * Start from (or replace with) a view read with `GET /view` (its ETag/`cursor.token` is the
+   * stream's `Last-Event-ID`). A read older than the held view (a slow GET overtaken by stream
+   * frames) is refused: returns false and keeps the newer view.
+   */
+  adopt(view: ReplayView, etag?: string | null): boolean {
+    if (this.view && isOlderCursor(view.cursor?.runs, this.view.cursor?.runs)) return false;
+    this.view = view;
+    this.lastEventId = unquoteEtag(etag) || view.cursor?.token || null;
+    return true;
+  }
+
+  apply(frame: SseFrame): ReplayFoldOutcome {
+    if (frame.event === "done") { this.terminal = true; return "done"; }
+    if (frame.event !== "view" && frame.event !== "delta") return "ignored";
+    const data = JSON.parse(frame.data) as Row;
+    if (frame.event === "view") {
+      this.view = data as unknown as ReplayView;
+      this.lastEventId = frame.id || this.view.cursor?.token || null;
+      return "view";
+    }
+    if (!this.view) throw new Error("replay view: a delta arrived before any view (reconnect without Last-Event-ID).");
+    const id = frame.id || (data.cursor as ReplayViewCursor | undefined)?.token || null;
+    if (id && id === this.lastEventId) return "duplicate";
+    if (isOlderCursor((data.cursor as ReplayViewCursor | undefined)?.runs, this.view.cursor?.runs)) return "stale";
+    this.view = applyDelta<ReplayView & Row>(this.view as ReplayView & Row, data);
+    this.lastEventId = id;
+    return "delta";
+  }
+}
+
+function unquoteEtag(etag: string | null | undefined): string {
+  const raw = String(etag || "").trim().replace(/^W\//, "");
+  return raw.replace(/^"|"$/g, "");
+}
+
+/** True when `incoming` is behind `held`: no run ahead, at least one run behind. */
+function isOlderCursor(incoming: Record<string, number> | undefined, held: Record<string, number> | undefined): boolean {
+  if (!incoming || !held) return false;
+  let behind = false;
+  for (const [run, seq] of Object.entries(held)) {
+    const next = incoming[run];
+    // A run the incoming frame does not know yet (a child linked since): that frame is older.
+    if (typeof next !== "number") { if (seq > 0) behind = true; continue; }
+    if (next > seq) return false;
+    if (next < seq) behind = true;
+  }
+  for (const [run, seq] of Object.entries(incoming)) if (!(run in held) && seq > 0) return false;
+  return behind;
+}
+
+// ---------------------------------------------------------------------------------------- transport
+
+/**
+ * The gateway's answer that it has no such route (an AbstractGateway before 0.17.0): FastAPI's
+ * unmatched-route 404 (`{"detail":"Not Found"}`) or a 405. A run the gateway does not hold is a
+ * different 404 (`Run '…' not found`) and is NOT this error.
+ */
+export class ReplayViewUnavailableError extends Error {
+  readonly status: number;
+  constructor(status: number, detail: string) {
+    super(`This gateway does not serve the replay view (GET runs/{id}/view answered ${status}${detail ? `: ${detail}` : ""}); AbstractGateway 0.17.0 or later serves it.`);
+    this.name = "ReplayViewUnavailableError";
+    this.status = status;
+  }
+}
+
+/** A failed view read: `status` and the gateway's `detail` (same shape hosts' JSON clients throw). */
+export type ReplayViewHttpError = Error & { status: number; detail: string };
+
+export type ReplayViewRead =
+  | { notModified: false; view: ReplayView; etag: string | null; bytes: number }
+  | { notModified: true; etag: string | null; bytes: number };
+
+export type ReplayViewStreamOptions = {
+  /** The cursor token held (the last applied frame's id, or the read view's ETag). */
+  lastEventId?: string | null;
+  signal: AbortSignal;
+  /** Called once the stream answered 200 (the transport is usable). */
+  onOpen?: () => void;
+  /** Every frame in received order (keep-alive comments are not frames). */
+  onFrame: (frame: SseFrame) => void;
+};
+
+/**
+ * The replay view half of a `WorkflowTransport` (optional there: a host opts in by providing
+ * it). `createReplayViewTransport` builds one over the host's authenticated `fetch`.
+ */
+export type ReplayViewTransport = {
+  /**
+   * What the host read from `GET discovery/capabilities` (`capabilities.replay_view`), when the
+   * gateway advertises it: `true` uses the view, `false` keeps the ledger fold without asking.
+   * Unset (AbstractGateway 0.17.0 advertises nothing): the controller probes `GET /view` once
+   * per transport and keeps the answer.
+   */
+  advertised?: boolean;
+  getView(runId: string, options?: { ifNoneMatch?: string | null; at?: string | null; signal?: AbortSignal }): Promise<ReplayViewRead>;
+  /** Resolves when the stream ends (a `done` frame, the server closing, or the signal); returns the bytes received. */
+  streamView(runId: string, options: ReplayViewStreamOptions): Promise<{ bytes: number }>;
+};
+
+/**
+ * A `fetch` bound to the gateway API: `path` is relative to it (`runs/<id>/view`); the host adds
+ * its base URL (ui-kit `gatewayApiPath`) and credentials.
+ */
+export type ReplayViewFetch = (path: string, init: RequestInit) => Promise<Response>;
+
+async function httpError(res: Response): Promise<Error> {
+  let detail = "";
+  try {
+    const text = await res.text();
+    try {
+      const body = JSON.parse(text) as Row;
+      detail = typeof body.detail === "string" ? body.detail : text;
+    } catch {
+      detail = text;
+    }
+  } catch {
+    detail = "";
+  }
+  if (res.status === 405 || (res.status === 404 && detail.trim() === "Not Found")) return new ReplayViewUnavailableError(res.status, detail.trim());
+  const error = new Error(detail || `Gateway answered ${res.status}`) as ReplayViewHttpError;
+  error.status = res.status;
+  error.detail = detail;
+  return error;
+}
+
+const runViewPath = (runId: string) => `runs/${encodeURIComponent(runId)}/view`;
+
+/** A `ReplayViewTransport` over the host's gateway `fetch` (see `ReplayViewFetch`). */
+export function createReplayViewTransport(options: { fetch: ReplayViewFetch; advertised?: boolean }): ReplayViewTransport {
+  const request = options.fetch;
+  return {
+    ...(options.advertised !== undefined ? { advertised: options.advertised } : {}),
+    async getView(runId, opts = {}) {
+      const headers: Record<string, string> = { Accept: "application/json" };
+      if (opts.ifNoneMatch) headers["If-None-Match"] = opts.ifNoneMatch;
+      const query = opts.at ? `?at=${encodeURIComponent(opts.at)}` : "";
+      const res = await request(`${runViewPath(runId)}${query}`, { method: "GET", headers, ...(opts.signal ? { signal: opts.signal } : {}) });
+      const etag = res.headers.get("etag");
+      if (res.status === 304) return { notModified: true, etag, bytes: 0 };
+      if (!res.ok) throw await httpError(res);
+      const raw = new Uint8Array(await res.arrayBuffer());
+      const view = JSON.parse(new TextDecoder().decode(raw)) as ReplayView;
+      if (view?.version !== REPLAY_VIEW_VERSION) throw new Error(`Unsupported replay view version ${JSON.stringify(view?.version)} (this client reads ${REPLAY_VIEW_VERSION}).`);
+      return { notModified: false, view, etag, bytes: raw.byteLength };
+    },
+    async streamView(runId, opts) {
+      const headers: Record<string, string> = { Accept: "text/event-stream" };
+      if (opts.lastEventId) headers["Last-Event-ID"] = opts.lastEventId;
+      const res = await request(`${runViewPath(runId)}/stream`, { method: "GET", headers, signal: opts.signal });
+      if (!res.ok) throw await httpError(res);
+      if (!res.body) throw new Error("The replay view stream has no body.");
+      opts.onOpen?.();
+      const parser = new SseParser();
+      const decoder = new TextDecoder();
+      const reader = res.body.getReader();
+      let bytes = 0;
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          bytes += value.byteLength;
+          for (const frame of parser.push(decoder.decode(value, { stream: true }))) {
+            opts.onFrame(frame);
+            if (frame.event === "done") return { bytes };
+          }
+        }
+        // An event not terminated by a blank line when the stream ends is discarded (WHATWG).
+        for (const frame of parser.push(decoder.decode())) opts.onFrame(frame);
+      } finally {
+        try { await reader.cancel(); } catch { /* already closed */ }
+      }
+      return { bytes };
+    },
+  };
+}
+
+## panel-chat/src/replay_view_projection.ts
+
+/**
+ * `replay_view_v1` -> what the chat renders: the transcript (`ChatMessage[]`), the tool rows,
+ * the pending interaction, the status. Pure: no fetch, no state. `WorkflowSessionController`
+ * uses it when the gateway serves the replay view; hosts that hold a view themselves can call
+ * it directly.
+ *
+ * Mapping (panel-chat README "Messages from the replay view"):
+ * - `messages[]` -> `ChatMessage` (`id`, `runId`, `kind`, `artifactIds`; `ts` = the item's time).
+ *   A `final` that `repeats` an earlier answer is shown once (the answer carries the turn's
+ *   statistics). The open question's own message is not repeated above its card.
+ * - `activities[]` of kind `tool` -> one tool row per call (`ToolActivityGroup`), statuses as
+ *   served (`denied` shows as a failed call with its reason); kind `tool_policy` -> the
+ *   "Tool policy" line. Other kinds (llm, subworkflow, timer, answer, event_wait) are not
+ *   transcript items.
+ * - `interaction` -> a `WorkflowWaitInteraction` carrying the view's `command` (answering goes
+ *   through `POST commands` with it).
+ */
+import type { ChatMessage } from "./chat_message_card.js";
+import type { WorkflowStatistics, WorkflowToolActivity } from "./workflow_evidence.js";
+import type { WorkflowWaitInteraction } from "./workflow_runtime.js";
+import { toolPolicyDecisionText, type WorkflowToolPolicyProvenance } from "./tool_policy.js";
+import { compareReplayOrder, type ReplayView, type ReplayViewActivity, type ReplayViewInteraction, type ReplayViewMessage, type ReplayViewToolCall } from "./replay_view.js";
+
+type Row = Record<string, unknown>;
+const str = (value: unknown): string => (typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "");
+const obj = (value: unknown): Row | null => (value && typeof value === "object" && !Array.isArray(value) ? (value as Row) : null);
+const TERMINAL = new Set(["completed", "failed", "cancelled"]);
+const FILE_TOOLS = new Set(["write_file", "create_file", "save_file", "edit_file", "update_file", "replace_in_file", "delete_file", "remove_file", "move_file", "rename_file", "copy_file"]);
+
+/**
+ * The served interaction as a raw runtime wait (same control, same target). `command` and
+ * `kind` ride along: an `event` interaction is answered with its resume command, never by
+ * re-deriving an event route.
+ */
+export function replayInteractionWait(interaction: ReplayViewInteraction): WorkflowWaitInteraction {
+  const details: Record<string, unknown> = { ...(interaction.details || {}) };
+  if (interaction.kind === "tool_approval") {
+    details.kind = "tool_approval";
+    details.tool_calls = Array.isArray(interaction.tool_calls) ? interaction.tool_calls : [];
+  }
+  const reason = interaction.kind === "ask_user" ? "user" : interaction.kind === "event" ? "event" : "tool_approval";
+  const wait: Record<string, unknown> = { wait_key: interaction.wait_key, reason, details };
+  if (interaction.prompt != null) wait.prompt = interaction.prompt;
+  if (Array.isArray(interaction.choices)) wait.choices = interaction.choices;
+  if (typeof interaction.allow_free_text === "boolean") wait.allow_free_text = interaction.allow_free_text;
+  return {
+    runId: interaction.run_id,
+    wait,
+    ...(interaction.step_id ? { stepId: interaction.step_id } : {}),
+    kind: interaction.kind,
+    ...(interaction.command ? { command: interaction.command } : {}),
+  };
+}
+
+function toolStatus(call: ReplayViewToolCall, activity: ReplayViewActivity): WorkflowToolActivity["status"] {
+  const s = str(call.status || activity.status).toLowerCase();
+  if (s === "completed") return "completed";
+  if (s === "waiting") return "waiting";
+  if (s === "running" || s === "started" || s === "pending") return "running";
+  return "failed"; // failed, denied, cancelled, partly_denied
+}
+
+function callPolicy(call: ReplayViewToolCall): WorkflowToolPolicyProvenance | undefined {
+  const decision = obj(call.policy_decision);
+  const kind = str(decision?.decision);
+  if (kind !== "auto_approved" && kind !== "denied") return undefined;
+  const setBy = obj(decision?.set_by);
+  const who = str(setBy?.user_id) || str(setBy?.client);
+  return {
+    decision: kind,
+    ...(str(call.decided_by) ? { source: str(call.decided_by) } : {}),
+    ...(str(call.matched) ? { matched: str(call.matched) } : {}),
+    ...(typeof decision?.revision === "number" ? { revision: decision.revision as number } : {}),
+    ...(who ? { setBy: who } : {}),
+    ...(str(decision?.set_at) ? { setAt: str(decision?.set_at) } : {}),
+  };
+}
+
+function errorText(call: ReplayViewToolCall, status: string): string | undefined {
+  if (typeof call.error === "string" && call.error.trim()) return call.error.trim();
+  const e = obj(call.error);
+  if (e) return str(e.message) || str(e.detail) || JSON.stringify(e);
+  if (status === "denied") return "Denied";
+  if (status === "cancelled") return "Cancelled";
+  return undefined;
+}
+
+/** One tool row per call of a `tool` activity. */
+export function replayToolActivities(activity: ReplayViewActivity): WorkflowToolActivity[] {
+  const calls = Array.isArray(activity.tool_calls) ? activity.tool_calls : [];
+  return calls.map((call, index) => {
+    const status = toolStatus(call, activity);
+    const served = str(call.status || activity.status).toLowerCase();
+    const policy = callPolicy(call);
+    const error = status === "failed" ? errorText(call, served) : undefined;
+    return {
+      id: `${activity.id}:${str(call.id) || index}`,
+      runId: activity.run_id,
+      name: str(call.name) || "tool",
+      ...(call.arguments !== undefined ? { arguments: call.arguments } : {}),
+      ...(call.output !== undefined ? { output: call.output } : {}),
+      status,
+      ...(status === "completed" ? { success: true } : status === "failed" ? { success: false } : {}),
+      ...(error ? { error } : {}),
+      ...(str(activity.started_at) ? { startedAt: str(activity.started_at) } : {}),
+      ...(str(activity.ended_at) ? { endedAt: str(activity.ended_at) } : {}),
+      ...(str(call.id) ? { callId: str(call.id) } : {}),
+      ...(policy ? { policy } : {}),
+    };
+  });
+}
+
+/** The transcript row of a tool call (the controller's own shape, shared). */
+export function toolActivityMessage(tool: WorkflowToolActivity): ChatMessage {
+  return { id: `tool:${tool.id}`, role: "system", kind: "tool_activity", title: "Tool activity", runId: tool.runId, toolActivity: tool, content: JSON.stringify({ tool: tool.name, status: tool.status, arguments: tool.arguments, output: tool.output, error: tool.error }, null, 2), ts: tool.endedAt || tool.startedAt };
+}
+
+function policyLine(activity: ReplayViewActivity): ChatMessage | null {
+  const decision = str(activity.decision);
+  if (decision !== "auto_approved" && decision !== "denied") return null;
+  const policy = obj(activity.policy);
+  const setBy = obj(policy?.set_by);
+  const who = str(setBy?.user_id) || str(setBy?.client);
+  const provenance: WorkflowToolPolicyProvenance = {
+    decision,
+    ...(str(activity.source) ? { source: str(activity.source) } : {}),
+    ...(typeof policy?.revision === "number" ? { revision: policy.revision as number } : {}),
+    ...(who ? { setBy: who } : {}),
+    ...(str(policy?.set_at) ? { setAt: str(policy?.set_at) } : {}),
+  };
+  return { id: `policy:${activity.id}`, role: "system", kind: "tool_policy_decision", title: "Tool policy", runId: activity.run_id, content: toolPolicyDecisionText(provenance), ts: str(activity.started_at) || undefined };
+}
+
+/** The turn's statistics from the view: `usage`, the tool calls, the files they changed, the span of its activities. */
+export function replayStatistics(view: ReplayView): WorkflowStatistics {
+  const usage = obj(view.usage) || {};
+  const files = new Set<string>();
+  let toolCalls = 0;
+  let llm = 0;
+  let start = Infinity;
+  let end = -Infinity;
+  for (const a of view.activities || []) {
+    const s = Date.parse(str(a.started_at));
+    const e = Date.parse(str(a.ended_at));
+    if (Number.isFinite(s)) start = Math.min(start, s);
+    if (Number.isFinite(e)) end = Math.max(end, e);
+    if (a.kind === "llm") llm += 1;
+    if (a.kind !== "tool") continue;
+    for (const call of a.tool_calls || []) {
+      toolCalls += 1;
+      if (str(call.status) !== "completed" || !FILE_TOOLS.has(str(call.name))) continue;
+      const args = obj(call.arguments) || {};
+      const path = str(args.destination) || str(args.destination_path) || str(args.file_path) || str(args.path) || str(args.filename);
+      if (path) files.add(path);
+    }
+  }
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+  const out: WorkflowStatistics = { llmCalls: num(usage.llm_calls) ?? llm, toolCalls, changedFiles: [...files] };
+  if (num(usage.input_tokens) !== undefined) out.inputTokens = num(usage.input_tokens);
+  if (num(usage.output_tokens) !== undefined) out.outputTokens = num(usage.output_tokens);
+  if (num(usage.total_tokens) !== undefined) out.totalTokens = num(usage.total_tokens);
+  if (Number.isFinite(start) && Number.isFinite(end)) out.durationMs = Math.max(0, end - start);
+  return out;
+}
+
+export type ReplayProjection = {
+  /** Transcript in the view's order: messages, tool rows and policy lines interleaved. */
+  messages: ChatMessage[];
+  /** Every tool row (also inside `messages`), by id. */
+  tools: WorkflowToolActivity[];
+  interaction: WorkflowWaitInteraction | null;
+  status: string;
+  displayStatus: string;
+  /** `${run_id}:${step_id}` of model calls still running (Stop evidence). */
+  openLlmCalls: string[];
+  /** `${run_id}:${step_id}` of model calls that ended (their live text is replaced). */
+  endedLlmCalls: string[];
+  /** Runs of the tree and their status. */
+  runStatus: Map<string, string>;
+  statistics: WorkflowStatistics;
+};
+
+function messageOf(m: ReplayViewMessage, statistics: WorkflowStatistics | undefined): ChatMessage {
+  const ts = Array.isArray(m.order) && typeof m.order[0] === "string" && m.order[0] ? (m.order[0] as string) : undefined;
+  const level = str(m.level).toLowerCase();
+  return {
+    id: m.id,
+    role: m.role,
+    kind: m.kind,
+    content: m.text,
+    runId: m.run_id,
+    ...(ts ? { ts } : {}),
+    ...(m.role === "system" ? { title: "Workflow", level: level === "error" ? "error" : level === "warn" || level === "warning" ? "warn" : "info" } : {}),
+    ...(Array.isArray(m.artifact_ids) && m.artifact_ids.length ? { artifactIds: [...m.artifact_ids] } : {}),
+    ...(statistics ? { statistics } : {}),
+  } as ChatMessage;
+}
+
+/** Project a whole view. */
+export function projectReplayView(view: ReplayView): ReplayProjection {
+  const root = view.root_run_id;
+  const statistics = replayStatistics(view);
+  const interaction = view.interaction ? replayInteractionWait(view.interaction) : null;
+  const openQuestion = view.interaction ? `${view.interaction.run_id}:${view.interaction.step_id || ""}:question` : "";
+  const finalOfRoot = (view.messages || []).find((m) => m.id === `${root}:final`);
+  const statsOn = finalOfRoot ? (finalOfRoot.repeats || finalOfRoot.id) : "";
+  type Item = { order?: unknown[]; id: string; message: ChatMessage };
+  const items: Item[] = [];
+  for (const m of view.messages || []) {
+    if (m.kind === "final" && m.repeats) continue;
+    if (m.kind === "question" && m.id === openQuestion) continue;
+    items.push({ order: m.order, id: m.id, message: messageOf(m, m.id === statsOn ? statistics : undefined) });
+  }
+  const tools: WorkflowToolActivity[] = [];
+  const openLlmCalls: string[] = [];
+  const endedLlmCalls: string[] = [];
+  for (const a of view.activities || []) {
+    if (a.kind === "tool") {
+      const rows = replayToolActivities(a);
+      tools.push(...rows);
+      rows.forEach((tool, i) => items.push({ order: [...(a.order || []), i], id: `${a.id}:${i}`, message: toolActivityMessage(tool) }));
+    } else if (a.kind === "tool_policy") {
+      const line = policyLine(a);
+      if (line) items.push({ order: a.order, id: a.id, message: line });
+    } else if (a.kind === "llm") {
+      for (const step of a.step_ids || []) (TERMINAL.has(a.status) ? endedLlmCalls : openLlmCalls).push(`${a.run_id}:${step}`);
+    }
+  }
+  items.sort((x, y) => compareReplayOrder(x, y));
+  const runStatus = new Map((view.runs || []).map((r) => [r.run_id, str(r.status).toLowerCase()]));
+  const status = str(view.status).toLowerCase() || "unknown";
+  return {
+    messages: items.map((x) => x.message),
+    tools,
+    interaction: TERMINAL.has(status) ? null : interaction,
+    status,
+    displayStatus: str(view.display_status),
+    openLlmCalls,
+    endedLlmCalls,
+    runStatus,
+    statistics,
+  };
+}
 
 ## panel-chat/src/automation_badges.tsx
 
@@ -16636,38 +17525,20 @@ import { ToolActivityGroup } from "./tool_activity.js";
 import { sessionPolicyClampedText } from "./tool_policy.js";
 import { WORKFLOW_INTERACTION_LABELS, type WorkflowInteraction, type WorkflowInteractionRemember, type WorkflowToolApprovalInteraction } from "./workflow_interaction.js";
 import type { ServerRecord, SessionToolPolicy, WorkflowRecord, WorkflowSessionController, WorkflowWaitInteraction } from "./workflow_runtime.js";
+import type { ReplayViewInteraction } from "./replay_view.js";
+import { replayInteractionWait } from "./replay_view_projection.js";
 
 /**
  * The served, tree-resolved pending interaction of the replay view
  * (`replay_view_v1.interaction`: the newest person-facing open wait in the
- * run tree, with a ready `command`).
- *
- * THIS IS A SEAM, NOT A DATA PATH: no gateway on `main` serves it yet (there
- * is no `GET /runs/{id}/view` and no `/view/stream`; the view is WIP on
- * abstractruntime `feat/replay-view`, root backlog 0993). Today's data path
- * stays the ledger fold + served `runs/{id}.waiting`
- * (`WorkflowSessionController` / `useWorkflowSession`). `presentInteraction`
- * accepts this shape so the panel does not change when the view ships; this
- * package never fetches a `/view` route.
- *
- * Shape as written by `ReplayView._interaction_of` (abstractruntime
- * `replay/view.py`): `details` has `tool_calls` stripped (they are top-level),
- * and `kind` is one of the person-facing kinds.
+ * run tree, with a ready `command`). `WorkflowSessionController` reads it from
+ * `GET runs/{id}/view` and its stream when the host transport provides
+ * `replayView` (see `replay_view.ts`); `presentInteraction` accepts it as well
+ * as a raw wait. Shape as written by `ReplayView._interaction_of`
+ * (abstractruntime 0.15.0 `replay/view.py`): `details` has `tool_calls`
+ * stripped (they are top-level).
  */
-export type ReplayInteraction = {
-  kind: "tool_approval" | "ask_user";
-  run_id: string;
-  wait_key: string;
-  step_id?: string | null;
-  seq?: number | null;
-  prompt?: string | null;
-  choices?: unknown[] | null;
-  allow_free_text?: boolean | null;
-  details?: Record<string, unknown> | null;
-  tool_calls?: unknown[] | null;
-  activity_id?: string | null;
-  command?: { type: "resume"; run_id: string; payload: { wait_key: string } };
-};
+export type ReplayInteraction = ReplayViewInteraction;
 
 /** True for a `replay_view_v1.interaction` (it has `run_id` + `wait_key`, a raw wait has `runId` + `wait`). */
 export function isReplayInteraction(value: unknown): value is ReplayInteraction {
@@ -16676,18 +17547,7 @@ export function isReplayInteraction(value: unknown): value is ReplayInteraction 
 }
 
 /** The raw runtime wait a replay interaction stands for (same control, same target). */
-export function replayInteractionWait(interaction: ReplayInteraction): WorkflowWaitInteraction {
-  const details: Record<string, unknown> = { ...(interaction.details || {}) };
-  if (interaction.kind === "tool_approval") {
-    details.kind = "tool_approval";
-    details.tool_calls = Array.isArray(interaction.tool_calls) ? interaction.tool_calls : [];
-  }
-  const wait: Record<string, unknown> = { wait_key: interaction.wait_key, reason: interaction.kind === "ask_user" ? "user" : "tool_approval", details };
-  if (interaction.prompt != null) wait.prompt = interaction.prompt;
-  if (Array.isArray(interaction.choices)) wait.choices = interaction.choices;
-  if (typeof interaction.allow_free_text === "boolean") wait.allow_free_text = interaction.allow_free_text;
-  return { runId: interaction.run_id, wait, ...(interaction.step_id ? { stepId: interaction.step_id } : {}) };
-}
+export { replayInteractionWait };
 
 export type PresentInteractionOptions = {
   /** The session's records: an event wait is routed from them (`resolveWorkflowEventTarget`). */
@@ -16751,7 +17611,7 @@ export type PresentInteractionOptions = {
 
 /** The controller methods the controls call. */
 export type InteractionController = Pick<WorkflowSessionController, "approve" | "approveWithPolicyChange" | "resume" | "emitEvent"> &
-  Partial<Pick<WorkflowSessionController, "approveAllForSession" | "approveKindForSession" | "denyToolForSession" | "denyKindForSession" | "sessionPolicyStatus">>;
+  Partial<Pick<WorkflowSessionController, "approveAllForSession" | "approveKindForSession" | "denyToolForSession" | "denyKindForSession" | "sessionPolicyStatus" | "answerEvent">>;
 
 /**
  * Converts a runtime wait into a control, or null when the wait is not one a
@@ -16971,6 +17831,28 @@ export function presentInteraction(
     };
   const key = String(wait.wait_key || "");
   if (wait.reason === "event" || key.startsWith("evt:")) {
+    // The replay view names the answer: its `command` resumes this wait with the payload
+    // (`answer_payload: "{payload}"`). No event route is derived from records.
+    const command = raw.command;
+    if (command) {
+      const answerEvent = controller.answerEvent;
+      if (typeof answerEvent !== "function") throw new Error("presentInteraction: an event wait from the replay view needs a WorkflowSessionController (answerEvent).");
+      const eventTarget = { runId: raw.runId, waitKey: key, stepId: raw.stepId };
+      return {
+        id,
+        kind: "event-wait",
+        title: "Waiting for your input",
+        eventName: key,
+        prompt: String(wait.prompt || "This workflow is waiting for an event."),
+        description: Array.isArray(wait.choices) && wait.choices.length ? `Expected: ${wait.choices.map((choice: unknown) => (typeof choice === "object" && choice !== null ? String((choice as any).label ?? (choice as any).value ?? "") : String(choice))).join(", ")}` : "The data you send resumes this wait.",
+        initialPayload: "{}",
+        payloadLabel: "Event data (JSON)",
+        sendLabel: "Send",
+        onSend: async (text) => {
+          await answerEvent.call(controller, JSON.parse(text || "{}"), eventTarget);
+        },
+      };
+    }
     const routing = resolveWorkflowEventTarget(raw, options.records || [], options.currentRun ?? null);
     const target = routing.target;
     const eventName = target?.name || "";
@@ -20417,6 +21299,46 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## Unreleased
+
+## 0.8.0 - 2026-10-28
+
+Packages: `@abstractframework/panel-chat` 0.6.0 (ui-kit unchanged at 0.9.2; panel-chat still needs ui-kit `^0.9.0`).
+
+### The chat renders the gateway's replay view (backlog 0040; root 0993, AbstractRuntime 0854)
+
+- `WorkflowTransport.replayView?` (optional, additive): with it, `WorkflowSessionController` renders a conversation
+  from AbstractGateway's replay view (`replay_view_v1`, gateway 0.17.0: `GET runs/{id}/view`, `GET runs/{id}/view/stream`)
+  instead of folding ledger records. One `GET /view` and one `GET runs/{id}` (for `paused`), then the view stream from
+  the ETag (`Last-Event-ID` = the last applied frame on reconnect). No history bundle, no ledger pages, no record fold
+  (`snapshot.records` stays empty), no 2 s `GET runs/{id}` poll; the root's ledger stream is opened only for live reply
+  text, from the view's cursor. Status, the interaction (wherever in the tree it waits), messages, tool rows, policy
+  lines, Stop states and the turn's statistics come from the view through `projectReplayView`; answers go through
+  `POST commands` with the view's resume `command` (`answerEvent(payload, target)` for an event wait).
+- `createReplayViewTransport({ fetch, advertised? })` builds it over the host's gateway fetch. `applyDelta` (port of
+  AbstractRuntime 0.15.0 `apply_delta`), `ReplayViewFold` (a repeated or older frame after a reconnect is not applied),
+  `SseParser`, `parseCursorToken`, `compareReplayOrder`, `ReplayViewUnavailableError`, `projectReplayView`,
+  `replayToolActivities`, `replayStatistics`, `toolActivityMessage` and the `ReplayView*` types are exported.
+- Capability gate: gateway 0.17.0 does not advertise the view in `discovery/capabilities`, so the controller probes
+  `GET /view` once per transport. Only the route-missing answer (FastAPI's `404 Not Found`, or 405) falls back to the
+  ledger fold, and the snapshot says so: `source: "ledger_fold"`, `sourceReason`, `workflowSourceLabel(snapshot)`
+  (`source: "replay_view"` and `view` otherwise). Any other failure of the view read is a load error.
+- `ReplayInteraction` is `ReplayViewInteraction` (adds `kind: "event"` and `answer_payload`); `replayInteractionWait`
+  keeps `kind` and `command` on the wait, and maps an event to `reason: "event"` (it was presented as a tool approval).
+- Checked against the gateway: `scripts/check_replay_view.mjs` folds the 15 conformance cases of AbstractRuntime 0.15.0
+  as captured from AbstractGateway 0.17.0 record by record (`scripts/fixtures/replay_view/`, regenerated by
+  `scripts/regen_replay_view_fixtures.py`): the folded view equals the bytes of `GET /view` at all 283 steps, every
+  skipped delta is caught, a stale frame is refused, 74 reconnect frames land on the GET.
+  `scripts/check_replay_view_session.mjs` covers the controller in view mode.
+- Measured on a 2,997-record run tree (scratch gateway 0.17.0): 3 requests and 1.21 MB instead of 509 requests and
+  5.60 MB; first render 17 ms instead of 147 ms (warm, median of 5), 123 ms instead of 166 ms on a fresh gateway.
+- `workflowProgress` reads the view's activities when the snapshot carries `view` ("Running a tool", "Thinking", tool
+  and token counts), since view mode folds no records.
+- Review fixes (adversarial review): a wait first served without a step id and then with one keeps one occurrence (no
+  second approval, no card coming back); a slower full re-read never replaces a newer folded view
+  (`ReplayViewFold.adopt` returns false); an accept-then-close stream does not reset the reconnect budget, and the live
+  reply stream stops with the view stream; no per-frame `GET runs/{id}` on trees over 32 runs.
+- Known gaps of the view (filed upstream): no kill-switch attribution (a forced stop reads "Stopped"), no tool command
+  sandbox, no per-call model timings; an EVENT wait without a prompt is not offered as "Send event".
 
 ## 0.7.2 - 2026-10-28
 
