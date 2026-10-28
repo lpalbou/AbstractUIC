@@ -42,7 +42,7 @@
  * a TTS host, or when a stat chip falls back to a plain `title`).
  */
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 
 const startOfDay = (d: Date): number => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 
@@ -112,6 +112,8 @@ function armDayTimer(): void {
     for (const listener of [...dayListeners]) listener();
     armDayTimer();
   }, Math.min(Math.max(1000, next.getTime() - now.getTime()), 3600000));
+  // Never keeps a non-browser runtime (a test, a server render) alive on its own.
+  (dayTimer as unknown as { unref?: () => void }).unref?.();
 }
 function subscribeDay(listener: () => void): () => void {
   dayListeners.add(listener);
@@ -124,9 +126,10 @@ function subscribeDay(listener: () => void): () => void {
     }
   };
 }
-const currentDay = () => localDayKey();
-
-/** The reader's calendar day (`localDayKey`); the component re-renders when it changes (local midnight). */
+/** The reader's calendar day (`localDayKey`); the component re-renders when it changes (local midnight).
+ *  Plain useState/useEffect (no useSyncExternalStore), so host test harnesses that stub React's basic hooks keep working. */
 export function useLocalDay(): string {
-  return useSyncExternalStore(subscribeDay, currentDay, currentDay);
+  const [day, setDay] = useState(() => localDayKey());
+  useEffect(() => subscribeDay(() => setDay(localDayKey())), []);
+  return day;
 }

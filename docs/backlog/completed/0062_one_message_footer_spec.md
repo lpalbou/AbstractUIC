@@ -59,4 +59,8 @@ reads "Listen to this response / Toggle voice output" where the kit says "Speak 
   listed; (4) the Docs assistant exception written into the spec; (6) epoch milliseconds and a bare date accepted,
   ISO `dateTime`; (7) doc comment moved back; (8) Windows paths split. Not changed: (9) a check crossing midnight
   between two lines (negligible).
+- `useLocalDay` is plain `useState` + `useEffect` over one shared, `unref`'d timer: a first `useSyncExternalStore`
+  version broke `check_chat_media.mjs` (its hook harness stubs the basic hooks only) and a non-`unref`'d timer kept the
+  Node checks alive. In the browser (AbstractCode web on the kit build, clock set to 23:59:50, fast-forwarded 20 s), a
+  message from 12:31 PM re-rendered from "12:31 PM" to "Yesterday · 12:31 PM" with no other update.
 - `npm test` (root) green.
