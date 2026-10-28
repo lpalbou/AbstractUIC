@@ -220,6 +220,7 @@ export {
   type ReplayViewToolCall,
   type ReplayViewInteraction,
   type ReplayViewTransport,
+  type ReplaySessionTurn,
   type ReplayViewFetch,
   type ReplayViewRead,
   type ReplayViewStreamOptions,

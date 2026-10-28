@@ -452,7 +452,19 @@ export type ReplayViewTransport = {
   getView(runId: string, options?: { ifNoneMatch?: string | null; at?: string | null; signal?: AbortSignal }): Promise<ReplayViewRead>;
   /** Resolves when the stream ends (a `done` frame, the server closing, or the signal); returns the bytes received. */
   streamView(runId: string, options: ReplayViewStreamOptions): Promise<{ bytes: number }>;
+  /**
+   * The conversation's turns: the session's root runs, oldest first (`GET runs?session_id=<id>
+   * &root_only=true`, AbstractGateway routes/gateway.py `list_runs`: `items[]` with `run_id`,
+   * `created_at`; pages of `limit` while `has_more`). The controller reads every earlier turn's
+   * view with it, so a reopened conversation shows all its turns, not only the last one.
+   * `createReplayViewTransport` provides it; a hand-built transport without it gets a labeled
+   * note instead of the earlier turns.
+   */
+  listSessionTurns?(sessionId: string, options?: { signal?: AbortSignal }): Promise<ReplaySessionTurn[]>;
 };
+
+/** One turn of a conversation, as `listSessionTurns` returns it. */
+export type ReplaySessionTurn = { run_id: string; created_at?: string };
 
 /**
  * A `fetch` bound to the gateway API: `path` is relative to it (`runs/<id>/view`); the host adds
@@ -499,6 +511,24 @@ export function createReplayViewTransport(options: { fetch: ReplayViewFetch; adv
       const view = JSON.parse(new TextDecoder().decode(raw)) as ReplayView;
       if (view?.version !== REPLAY_VIEW_VERSION) throw new Error(`Unsupported replay view version ${JSON.stringify(view?.version)} (this client reads ${REPLAY_VIEW_VERSION}).`);
       return { notModified: false, view, etag, bytes: raw.byteLength };
+    },
+    async listSessionTurns(sessionId, opts = {}) {
+      const turns: ReplaySessionTurn[] = [];
+      const limit = 100;
+      for (let offset = 0; ; offset += limit) {
+        const query = `session_id=${encodeURIComponent(sessionId)}&root_only=true&include_ledger_len=false&limit=${limit}&offset=${offset}`;
+        const res = await request(`runs?${query}`, { method: "GET", headers: { Accept: "application/json" }, ...(opts.signal ? { signal: opts.signal } : {}) });
+        if (!res.ok) throw await httpError(res);
+        const body = (await res.json()) as Row;
+        const items = Array.isArray(body.items) ? (body.items as Row[]) : [];
+        for (const item of items) {
+          const runId = typeof item?.run_id === "string" ? item.run_id : "";
+          if (runId) turns.push({ run_id: runId, ...(typeof item.created_at === "string" ? { created_at: item.created_at } : {}) });
+        }
+        if (body.has_more !== true || !items.length) break;
+      }
+      // The gateway lists most recent first; a conversation reads oldest first.
+      return turns.sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")));
     },
     async streamView(runId, opts) {
       const headers: Record<string, string> = { Accept: "text/event-stream" };

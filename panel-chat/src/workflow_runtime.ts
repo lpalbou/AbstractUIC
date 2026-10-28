@@ -499,6 +499,9 @@ export class WorkflowSessionController {
   private viewTerminalRuns = new Set<string>();
   /** The view stream ended (done, or gave up): the live-reply stream stops with it. */
   private viewStreamEnded = false;
+  /** Replay view mode: the conversation's EARLIER turns (one view read each, oldest first),
+   * shown before the loaded run's own messages. */
+  private viewEarlier: { messages: ChatMessage[]; tools: WorkflowToolActivity[] } = { messages: [], tools: [] };
 
   public constructor(private readonly transport: WorkflowTransport, private readonly options: WorkflowSessionControllerOptions = {}) {
     const interval = options.liveRenderIntervalMs ?? 60;
@@ -715,6 +718,7 @@ export class WorkflowSessionController {
     this.liveReplies.clear(); this.closedLiveCalls.clear(); this.shownLiveCalls.clear(); this.liveDirty.clear(); this.lastLiveRender = -Infinity;
     if (this.liveRenderTimer) { clearTimeout(this.liveRenderTimer); this.liveRenderTimer = null; }
     this.source = null; this.viewFold = null; this.viewRun = null; this.viewDigest = ""; this.viewAssistantIds.clear(); this.viewTerminalRuns.clear(); this.viewStreamEnded = false;
+    this.viewEarlier = { messages: [], tools: [] };
     this.set({ ...EMPTY });
   }
 
@@ -1065,7 +1069,64 @@ export class WorkflowSessionController {
     this.adoptView();
     void this.followView(id, generation);
     void this.followLiveReplies(id, generation);
+    // The loaded run is one turn of a conversation: its earlier turns are other root runs of the
+    // session, each with its own view (backlog 0058: a reopened conversation showed only its
+    // last turn). Rendered first from the loaded turn; the earlier ones are prepended.
+    await this.loadEarlierTurns(id, text(read.view.session_id), generation, signal);
     return true;
+  }
+
+  /** Read the views of the session's turns created before `runId` and keep their messages. */
+  private async loadEarlierTurns(runId: string, sessionId: string, generation: number, signal: AbortSignal): Promise<void> {
+    const rv = this.transport.replayView;
+    if (!rv || !sessionId) return;
+    if (!rv.listSessionTurns) {
+      this.viewEarlier = { messages: [{ id: `history:${sessionId}:unlisted`, role: "system", level: "warn", title: "History", content: "Earlier turns of this conversation are not shown: this app's replay view transport cannot list the conversation's turns (createReplayViewTransport provides listSessionTurns)." }], tools: [] };
+      this.adoptView();
+      return;
+    }
+    let turns: { run_id: string; created_at?: string }[];
+    try {
+      turns = await rv.listSessionTurns(sessionId, { signal });
+    } catch (error) {
+      if (!this.live(generation)) return;
+      if (authError(error)) throw error;
+      this.viewEarlier = { messages: [{ id: `history:${sessionId}:unlisted`, role: "system", level: "warn", title: "History", content: `Earlier turns of this conversation could not be listed: ${error instanceof Error ? error.message : String(error)}` }], tools: [] };
+      this.adoptView();
+      return;
+    }
+    if (!this.live(generation)) return;
+    const at = turns.findIndex((turn) => turn.run_id === runId);
+    // Turns before the loaded one (the list is oldest first); a run missing from the list
+    // (not a session root) has no earlier turns to show.
+    const earlier = at > 0 ? turns.slice(0, at) : [];
+    if (!earlier.length) return;
+    const read: ({ messages: ChatMessage[]; tools: WorkflowToolActivity[] } | null)[] = new Array(earlier.length).fill(null);
+    let next = 0;
+    const worker = async () => {
+      while (this.live(generation)) {
+        const index = next++;
+        if (index >= earlier.length) return;
+        const turnId = earlier[index].run_id;
+        try {
+          const got = await rv.getView(turnId, { signal });
+          if (got.notModified || !got.view) throw new Error("the gateway answered without a view");
+          const p = projectReplayView(got.view);
+          read[index] = { messages: p.messages, tools: p.tools };
+        } catch (error) {
+          if (!this.live(generation)) return;
+          if (authError(error)) throw error;
+          read[index] = { messages: [{ id: `history:${turnId}:unavailable`, role: "system", level: "warn", title: "History", content: `An earlier turn could not be restored (${turnId.slice(0, 8)}): ${error instanceof Error ? error.message : String(error)}` }], tools: [] };
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, earlier.length) }, () => worker()));
+    if (!this.live(generation)) return;
+    this.viewEarlier = {
+      messages: read.flatMap((turn) => turn?.messages || []),
+      tools: read.flatMap((turn) => turn?.tools || []),
+    };
+    this.adoptView();
   }
 
   /** Project the folded view into the snapshot (the ONE place view mode writes conversation state). */
@@ -1073,7 +1134,7 @@ export class WorkflowSessionController {
     const view = this.viewFold?.view;
     if (!view) return;
     const p = projectReplayView(view);
-    this.toolActivities = new Map(p.tools.map((tool) => [tool.id, tool]));
+    this.toolActivities = new Map([...this.viewEarlier.tools, ...p.tools].map((tool) => [tool.id, tool]));
     // Live text gives way to the durable record: a model call that ended, a new reply of its
     // run, or its run ending.
     for (const key of p.endedLlmCalls) if (!this.closedLiveCalls.has(key)) this.closeLiveReply(key);
@@ -1106,7 +1167,7 @@ export class WorkflowSessionController {
       run,
       status: p.status,
       displayStatus: done ? "" : p.displayStatus,
-      messages: [...p.messages, ...local],
+      messages: [...this.viewEarlier.messages, ...p.messages, ...local],
       interaction,
       loading: false,
       ...(done ? { autoApproveTools: false } : {}),
