@@ -46,13 +46,18 @@ const bounded = async (promise) => {
 function mount() {
   const cleanups = [];
   const errors = [];
+  const statuses = [];
   const internals = React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
   const previous = internals.ReactCurrentDispatcher.current;
   internals.ReactCurrentDispatcher.current = {
     useRef: (value) => ({ current: value }),
     useMemo: (fn) => fn(),
     useCallback: (fn) => fn,
-    useState: (value) => [value, (next) => { value = typeof next === "function" ? next(value) : next; }],
+    useState: (value) => [value, (next) => {
+      value = typeof next === "function" ? next(value) : next;
+      // The read-aloud state a host renders (`tts_playback`): recorded as it changes.
+      if (value && typeof value === "object" && "status" in value && "key" in value) statuses.push(value.status);
+    }],
     useEffect: (fn) => { const cleanup = fn(); if (cleanup) cleanups.push(cleanup); },
   };
   let voice;
@@ -62,7 +67,8 @@ function mount() {
       on_error: (error) => { if (error) errors.push(error); },
     });
   } finally { internals.ReactCurrentDispatcher.current = previous; }
-  return { voice, errors, unmount: () => cleanups.forEach((fn) => fn()) };
+  // The last status set (React drops an equal update; the record keeps every write).
+  return { voice, errors, statuses, status: () => statuses.at(-1) || "idle", unmount: () => cleanups.forEach((fn) => fn()) };
 }
 
 try {
@@ -86,17 +92,22 @@ try {
   const pending = h.voice.toggle_tts("play", "Read now");
   await tick();
   const request = requests.at(-1);
+  // QA (h) 2026-10-28: the button spins ONLY while the first audio is generated.
+  assert.equal(h.status(), "loading", "no audio yet: loading (the spinner)");
   send(request, audio);
   await tick();
   assert.ok(sources.at(-1).started, "playback starts before the stream finishes");
+  assert.equal(h.status(), "playing", "audio started: playing (Pause), never a spinner while speaking");
   const count = sources.length;
   await h.voice.toggle_tts("play", "Read now"); // pause
+  assert.equal(h.status(), "paused", "paused (Play)");
   assert.equal(request.signal.aborted, false, "pause keeps synthesis buffering");
   send(request, audio);
   await tick();
   assert.equal(sources.length, count, "new chunks cannot auto-play while paused");
   await h.voice.toggle_tts("play", "Read now"); // resume
   assert.equal(sources.length, count + 1);
+  assert.equal(h.status(), "playing", "resumed: playing (Pause)");
   send(request, '{"type":"done"}'); // final JSONL line need not end in newline
   request.body.close();
   await bounded(pending);

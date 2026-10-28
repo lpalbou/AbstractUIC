@@ -9,6 +9,42 @@ ships.
 
 ## Unreleased
 
+## 0.8.3 - 2026-10-28
+
+Packages: `@abstractframework/panel-chat` 0.6.3, `@abstractframework/ui-kit` 0.9.5 (app-server unchanged at 0.1.13;
+panel-chat still needs ui-kit `^0.9.0`). Operator QA (h), (i), (k) of 2026-10-28; backlog 0060.
+
+### Read aloud: a spinner only while loading, the speaker and copy buttons always visible (panel-chat)
+
+- The message toolbar's speaker and copy buttons are always visible: `panel_chat.css` hid them on hover-capable
+  devices until the pointer was over the reply (AbstractCode web had overridden that locally; Observer, Entity,
+  Continuum and Assistant web hid them), and with them the playback state. The generated `transcript.css` follows.
+- The speaker button's states are one table, `speakButtonView(state)` (exported, with the `SpeakState` type): the
+  spinner only while the first audio is generated (`loading`), Pause while audio plays, Play when paused (was the
+  speaker icon), the speaker when idle; the icon element is replaced per state (`data-speak-state` on the button).
+- `useGatewayVoice` already turns `playing` as the first streamed segment starts: verified in AbstractCode web on a
+  scratch gateway with Qwen3-TTS (spinner 0.2 s, then Pause for the 38 s reply) and now pinned in
+  `check_voice_stream.mjs` (loading, playing on first audio, paused, playing on resume).
+- Checks: `panel-chat/scripts/check_voice_playback.mjs` (25: each state's label, icon and spinner; no rule of
+  `panel_chat.css` or `transcript.css` hides the toolbar); mutants (spinner while playing, hover-only rule back,
+  paused without Play, no `playing` on the first segment) all red.
+
+### Readable voice labels, never ids (ui-kit; AbstractFramework ADR 0043, AbstractUIC ADR 0001 §10)
+
+- `AfVoiceSection`'s Engines row named the chosen voice by its id (AbstractCode web showed
+  "qwen3-tts · …-1.7B-Base · 250b665e…" for a cloned voice): it now reads the voice's name from the catalog of the
+  override's own route (`fetchCatalog(provider, model)`, once per change and when the editor opens or closes, so a
+  voice renamed in "Manage voices" shows its new name; not requested where the row is hidden): "… · Sisko".
+  `voiceTtsOverrideSummary(prefs, voiceName?)` takes the name; without one, an opaque id reads "a saved voice".
+- `VoiceSettings`: a saved voice the catalog does not list is "Saved voice (not listed)", never "<id> (saved)".
+- The speech model list is one row per model id with its role's label ("… -Base (clones)") even when the gateway's
+  list carries both the plain ids and the detailed `{id, role, label}` records.
+- A cloned voice's detail line names the cloning model it is bound to: "A cloned voice, made with
+  Qwen/Qwen3-TTS-12Hz-1.7B-Base: it is always spoken with that model, whatever speech model is chosen."
+  (AbstractVoice speaks a clone with the Base recorded in its metadata; the built-in voices are 1.7B Base clones.)
+- New helpers: `voiceNameInCatalog`, `voiceLabel`, `isOpaqueId`, `cloneModelOf`. Checks: `check_voice_library.mjs`
+  C6-C9; mutants (no dedupe, no clone line, the id as the saved label, the summary without the name) all red.
+
 ## 0.8.2 - 2026-10-28
 
 Packages: `@abstractframework/panel-chat` 0.6.2, `@abstractframework/ui-kit` 0.9.4 (app-server unchanged at 0.1.13;

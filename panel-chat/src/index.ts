@@ -28,7 +28,7 @@ export type { AssistantPanelProps, AssistantAsk, AssistantAskContext } from "./a
 export { ChatComposer } from "./chat_composer.js";
 export { Markdown, sameOriginImage, type MarkdownImages, type MarkdownProps } from "./markdown.js";
 export { JsonViewer } from "./json_viewer.js";
-export { ChatMessageCard } from "./chat_message_card.js";
+export { ChatMessageCard, speakButtonView } from "./chat_message_card.js";
 export { ChatThread } from "./chat_thread.js";
 export { ToolActivity, ToolActivityGroup, toolArguments, toolPreview } from "./tool_activity.js";
 export { ToolSandboxLine, toolSandbox, sandboxEvidence, type ToolSandbox, type ToolSandboxRow } from "./sandbox_line.js";
@@ -68,7 +68,7 @@ export {
   type StreamRepliesMode,
 } from "./llm_delta.js";
 
-export type { ChatAttachment, ChatLiveReply, ChatMedia, ChatMessage, ChatMessageLevel, ChatStat } from "./chat_message_card.js";
+export type { ChatAttachment, ChatLiveReply, ChatMedia, ChatMessage, ChatMessageLevel, ChatStat, SpeakState } from "./chat_message_card.js";
 export type {
   WorkflowChatProps,
 } from "./workflow_chat.js";

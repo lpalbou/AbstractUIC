@@ -1007,11 +1007,9 @@
   gap: 8px;
 }
 
-@media (hover: hover) {
-  .pc-chat-header-actions { opacity: 0; transition: opacity 120ms ease; }
-  .pc-chat-item:hover .pc-chat-header-actions,
-  .pc-chat-item:focus-within .pc-chat-header-actions { opacity: 1; }
-}
+/* The speaker and copy buttons are always visible (operator QA 2026-10-28): a hover-only
+ * toolbar hid read-aloud from anyone who did not know to hover, and its playback state
+ * (spinner, pause) with it. check_voice_playback.mjs pins that no rule hides them. */
 .pc-tool-group { min-width: 0; flex-shrink: 0; margin: 8px 0 12px; border: 1px solid var(--ui-border-1); border-radius: 10px; overflow: hidden; background: var(--ui-surface-1); }
 .pc-tool-group__heading { display: flex; align-items: center; gap: 8px; padding: 10px 12px; color: var(--text-secondary); font-size: 11px; border-bottom: 1px solid var(--ui-border-1); }
 .pc-tool-group__heading strong { color: var(--text-primary); font-weight: 600; }
@@ -2103,10 +2101,6 @@ button.pc-ws__name:hover {
 .pc-docs-assistant .pc-chat-header {
   gap: 8px;
   margin-bottom: 6px;
-}
-
-.pc-docs-assistant .pc-chat-header-actions {
-  opacity: 1;
 }
 
 .pc-docs-assistant .pc-chat-media__image {

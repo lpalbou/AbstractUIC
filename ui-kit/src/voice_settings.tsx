@@ -152,6 +152,61 @@ const names = (value: unknown): string[] =>
         .filter(Boolean)
     : [];
 
+/** The catalog's voice records (`items`, else the older `profiles` + `voices` lists). */
+function catalogVoices(catalog: VoiceCatalog | null | undefined): any[] {
+  if (!catalog) return [];
+  if (Array.isArray(catalog.items)) return catalog.items;
+  return [...(Array.isArray(catalog.profiles) ? catalog.profiles : []), ...(Array.isArray(catalog.voices) ? catalog.voices : [])];
+}
+
+/**
+ * A voice's readable name in a voice catalog (`label` / `display_name` / `name` of the item whose
+ * `id`, `voice_id` or `profile_id` is `id`), or "" when the catalog does not list it.
+ */
+export function voiceNameInCatalog(catalog: VoiceCatalog | null | undefined, id: string, provider?: string): string {
+  const want = String(id || "").trim();
+  if (!want) return "";
+  const matches = catalogVoices(catalog).filter((v) => v && (v.id === want || v.voice_id === want || v.profile_id === want));
+  // The same id under two engines: the one of the chosen provider first.
+  const item = (provider ? matches.find((v) => (v.provider || v.engine) === provider) : undefined) || matches[0];
+  return String(item?.label || item?.display_name || item?.name || "").trim();
+}
+
+/**
+ * A machine id nobody can read (a cloned voice's 32-hex id, a UUID). End-user interfaces never
+ * show one (AbstractFramework ADR 0043, AbstractUIC ADR 0001 "Readable labels"); a preset name
+ * ("aiden", "fr-female-camille") is readable and shown as it is.
+ */
+export function isOpaqueId(id: string): boolean {
+  const t = String(id || "").trim();
+  return /^[0-9a-f]{16,}$/i.test(t) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t);
+}
+
+/**
+ * What a person reads for a voice id: its name in the catalog; a readable id as it is; an opaque
+ * id the catalog does not (or not yet) list as "a saved voice".
+ */
+export function voiceLabel(id: string, catalog?: VoiceCatalog | null): string {
+  const name = voiceNameInCatalog(catalog, id);
+  if (name) return name;
+  const t = String(id || "").trim();
+  return isOpaqueId(t) ? "a saved voice" : t;
+}
+
+/**
+ * The cloning checkpoint a cloned voice is bound to: AbstractVoice speaks a clone with the model
+ * recorded when it was made (`meta.model_id`, served by AbstractGateway 0.17 as the item's `model` and
+ * `tags.model_id`;
+ * abstractvoice/cloning/manager.py `_get_engine_for_voice`), whatever speech model is selected.
+ * "" for a voice that is not a clone or names no model.
+ */
+export function cloneModelOf(item: any): string {
+  if (!item) return "";
+  const kinds: unknown[] = Array.isArray(item.voice_kinds) ? item.voice_kinds : [];
+  if (item.kind !== "clone" && !kinds.includes("clone")) return "";
+  return String(item.model || item.tags?.model_id || item.params?.meta?.model_id || "").trim();
+}
+
 /**
  * How long a voice choice waits before its sample is synthesized: going through several voices
  * quickly starts one synthesis (for the voice the user stops on), not one per voice — a gateway
@@ -436,11 +491,14 @@ export function VoiceSettings({
     })
     .sort((a, b) => GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group));
   const selectedDescription = String(selected?.tags?.description || "").trim();
+  // A clone is bound to the Base checkpoint that made it (QA (k) 2026-10-28): say which.
+  const selectedCloneModel = cloneModelOf(selected);
   if (voiceKey && !options.some((item) => item.value === voiceKey))
     options.unshift({
       value: voiceKey,
       group: "",
-      label: `${value.profile || value.voice} (saved)`,
+      // Not in the catalog (yet): its name is unknown, and an opaque id is never shown.
+      label: isOpaqueId(value.profile || value.voice || "") ? "Saved voice (not listed)" : `${value.profile || value.voice} (saved)`,
     });
   const update = (patch: Partial<VoicePreferences>) =>
     onChange({ ...value, ...patch });
@@ -471,17 +529,21 @@ export function VoiceSettings({
         }}
         fetchModels={async (provider) => {
           const next = await fetcher.current(provider);
-          const ids = names(
-            next.tts_models_by_provider?.[provider] ||
-              next.tts_models ||
-              next.models,
-          );
+          const listed: unknown = next.tts_models_by_provider?.[provider] || next.tts_models || next.models;
           // AbstractVoice >= 0.19.2 marks each model's role: a cloning checkpoint (Qwen3-TTS
-          // Base, the one a cloned voice is spoken with) is shown as "<id> (clones)".
-          const details: any[] = Array.isArray(next.tts_model_details_by_provider?.[provider])
-            ? next.tts_model_details_by_provider[provider]
-            : [];
-          const labelOf = new Map(details.filter((d) => d && d.id).map((d) => [String(d.id), String(d.label || (d.role === "cloning" ? `${d.id} (clones)` : d.id))]));
+          // Base, the one a cloned voice is spoken with) is shown as "<id> (clones)". The gateway
+          // serves the plain ids and the detailed `{id, role, label}` records; a list may carry
+          // both, so each model is ONE row (by id) with its role's label (QA (i) 2026-10-28).
+          const details: any[] = [
+            ...(Array.isArray(next.tts_model_details_by_provider?.[provider]) ? next.tts_model_details_by_provider[provider] : []),
+            ...(Array.isArray(listed) ? listed.filter((d) => d && typeof d === "object") : []),
+          ];
+          const labelOf = new Map<string, string>();
+          for (const d of details) {
+            const id = String(d?.id || "").trim();
+            if (id && !labelOf.has(id)) labelOf.set(id, String(d.label || (d.role === "cloning" ? `${id} (clones)` : id)));
+          }
+          const ids = [...new Set(names(listed).map((id) => String(id).trim()).filter(Boolean))];
           return ids.map((id) => ({ id, label: labelOf.get(id) || id }));
         }}
         providerLabel="Speech provider"
@@ -558,6 +620,12 @@ export function VoiceSettings({
         </p>
       ) : null}
       {selectedDescription ? <p className="af-voice-settings__description">{selectedDescription}</p> : null}
+      {selectedCloneModel ? (
+        <p className="af-voice-settings__description" data-voice-note="clone-model">
+          A cloned voice, made with {selectedCloneModel}: it is always spoken with that model, whatever speech model is
+          chosen.
+        </p>
+      ) : null}
       {loading ? <p role="status">Loading available voices…</p> : null}
       {error ? (
         <p role="alert">
