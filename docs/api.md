@@ -300,7 +300,10 @@ Components:
   usually `useGatewayVoice().tts_playback.status` for that message's key); the button follows
   `speakButtonView(state)` (0.6.3: spinner only while `loading`, Pause while playing, Play when paused, the speaker
   when idle; `data-speak-state` on the button). The speaker and copy buttons are always visible (0.6.3: no
-  hover-only toolbar).
+  hover-only toolbar). The meta line follows the [message footer spec](#message-footer) (0.6.4: the stamp carries
+  the date when the message is not from today, the speaker is on every assistant message of a TTS host, every
+  stat chip opens the structured panel); helpers `formatMessageStamp(ts, now?, locales?)`,
+  `messageStampTitle(ts, locales?)`, `localDayKey(now?)`.
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
 - `ChatComposer` (composer input + submit handling; IME-safe Enter)
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
@@ -310,6 +313,43 @@ Components:
 - Questions and approvals (0.5.0, backlog 0032): `WORKFLOW_INTERACTION_LABELS` is the one wording set (Deny / Allow once / Allow for this chat / Allow all enabled tools / Decide later; Submit / Continue without answering / Keep waiting). `WorkflowToolApprovalInteraction` adds `onApproveForSession?`, `onDefer?` (a dismissal sends nothing and never denies), `remember?: {label, checked, onChange}` (`WorkflowInteractionRemember`; the host words the scope), `disabledReason?` (the broad grants render disabled with the reason visible); its default labels are now "Allow once" / "Allow all enabled tools" (were "Approve" / "Allow all"). `WorkflowAskUserInteraction` adds `onSkip?` and `onDefer?`. `WorkflowInteractionPanel` takes `variant?: "panel" | "card"` (the compact card for "Needs you" lists and inboxes: same decisions, detail behind **Review**)
 - `WorkspaceBrowser` — a run's folder on the gateway host through the CONTRACTS §W routes (`GET /runs/{id}/workspace`, `/workspace/files`, `/workspace/content`): the root once as its short name (`workspaceShortName`; full path on hover) with **Open folder** (`onOpenFolder`, offered only when `workspaceCanOpenFolder`) and **Copy path** icons, breadcrumbs, folders first, then per file: name, size, generated date (relative, exact on hover) and a Download icon; "N entries hidden by the gateway's workspace rules". A click on a file previews it IN PLACE with `FileViewer` (0.3.1: no "Open" button; `fileActions(entry)` adds host actions such as "Attach"), or `onSelectFile` + `selectedPath` hand the selection to a host preview. Files are fetched with the host's credentials, never linked. Props: `fetchGateway(path, init)`, `runId` (an automation's id browses the automation's folder), `title`, `note?`, `onClose?`, `refreshKey?`, `className?`, `fileActions?`, `onOpenFolder?`, `copyText?`, `nowMs?`. Hook-free `WorkspaceBrowserView` and helpers: `loadWorkspaceView()`, `loadRunWorkspace()`, `listWorkspaceFolder()`, `readWorkspaceFile()`, `parseWorkspaceListing()` (malformed answers throw), `gatewayResponseError()`, `tabOpenPlan()`, `workspaceInfoUrl()` / `workspaceFilesUrl()` / `workspaceContentUrl()`, `workspaceCrumbs()`, `workspaceParent()`, `sortWorkspaceEntries()`, `workspaceHiddenNote()`, `formatBytes()`; types `GatewayFetch`, `RunWorkspace`, `WorkspaceEntry`, `WorkspaceListing`, `WorkspaceBrowserProps`, `WorkspaceBrowserViewProps`
 - `FileViewer` (0.3.1) — ui-kit `AfFileViewer` with panel-chat's `Markdown`; `useWorkspaceFilePreview(fetchGateway, runId, entry, refreshKey?)` loads one workspace file for it (a bounded Range read of at most `PREVIEW_TEXT_LIMIT` = 1 MiB for text kinds, an object URL for images, audio, video and PDF up to `PREVIEW_BLOB_LIMIT`, nothing for binaries; audio plays in the kit's `AfAudioPlayer`) and `filePreviewViewerProps(state)` maps the result (`FileViewer` also takes `markdownImages`, `inlineImage` and a host `renderMarkdown`); `readBoundedText()`, `responseTotal()`, `partialPreviewNote()`, `safeMarkdownImages()` (Markdown images only from the run's workspace)
+
+### Message footer
+
+One spec for every chat message of the framework (operator QA 2026-10-28; panel-chat 0.6.4, backlog 0062). The web
+apps get it from `ChatMessageCard` (through `WorkflowChat` / `ChatThread`); a local twin is a fork (ADR 0001). The
+AbstractAssistant desktop mirrors the same contents and words in its own Qt bubble. The source of truth is
+`panel-chat/src/message_footer.ts`; `panel-chat/scripts/check_message_footer.mjs` pins it.
+
+A message's meta line holds, in this order:
+
+1. **Stamp**: `formatMessageStamp(ts, now?, locales?)`, in the reader's locale and time zone.
+
+   | The message is from | The stamp reads |
+   |---|---|
+   | today | `12:46 AM` (the time only) |
+   | yesterday | `Yesterday · 10:52 PM` |
+   | earlier this year (or a later day) | `Oct 21 · 10:52 PM` |
+   | another year | `Oct 21, 2025 · 10:52 PM` |
+
+   Days are the reader's calendar days, not 24 h windows; the card re-derives the stamp when the day changes. The
+   full date and time is the stamp's hover text (`messageStampTitle(ts)`, on a `<time dateTime>` element). A missing
+   or malformed timestamp shows no stamp, never "Invalid Date".
+2. **Speaker**: on every assistant message whenever the host has a read-aloud path (`onSpeakToggle`), whatever the
+   message kind (an answer, a question, a warning, a reply from history, a reply with media or statistics, with or
+   without `renderFooter`). Always visible, never hover-only. States per `speakButtonView`: speaker, spinner only
+   while the first audio is generated, Pause while playing, Resume when paused. While the reply is still streaming,
+   or when it has no text, the speaker stays in place disabled with its reason as hover text ("Read aloud when the
+   reply is finished", "No text to read aloud"). No speaker on user or system messages; a tool-activity row and a
+   one-line hint (`variant: "hint"`) are not message cards and carry no meta line.
+3. **Copy**: on every card unless the host passes `showCopy={false}`; always visible.
+
+Under the body, the **stat chips** of a workflow turn (`message.statistics`): tokens, tools, files changed, duration.
+Every chip opens the structured `StatDetailPanel` on hover or keyboard focus (title and headline, sections, the
+ledger footnote; `statDetail(kind, statistics)` with `kind` `"tokens" | "time" | "tools" | "files"`), never a
+native multi-line `title` tooltip. A value the ledger did not report reads "not reported", never 0. Labels are words
+(ADR 0043): file names, counts, durations, never ids. A host chip (`ChatStat`) passes a `detail` for anything longer
+than a one-line `title`.
 
 Renderers:
 - `Markdown` (lightweight Markdown with real nested lists, marker progression, fenced code

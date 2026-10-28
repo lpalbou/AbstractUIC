@@ -9,6 +9,34 @@ ships.
 
 ## Unreleased
 
+## 0.8.4 - 2026-10-28
+
+Packages: `@abstractframework/panel-chat` 0.6.4 (ui-kit unchanged at 0.9.5, app-server at 0.1.13; panel-chat still
+needs ui-kit `^0.9.0`). Operator QA of 2026-10-28, item 2; backlog 0062.
+
+### One message footer spec, written once (panel-chat)
+
+- The spec is in `panel-chat/src/message_footer.ts` and [docs/api.md, Message footer](docs/api.md#message-footer):
+  stamp, speaker, copy, then the stat chips. The web apps get it from `ChatMessageCard`; the AbstractAssistant
+  desktop mirrors the same words natively.
+- The stamp shows the date when the message is not from today: `formatMessageStamp(ts, now?, locales?)` (exported)
+  reads `12:46 AM` today, `Yesterday · 10:52 PM`, `Oct 21 · 10:52 PM` earlier this year (or a later day),
+  `Oct 21, 2025 · 10:52 PM` another year, in the reader's locale and time zone (it was the time only, so a reply
+  from last week read like one from this morning). The full date is the stamp's hover text (`messageStampTitle`,
+  on a `<time dateTime>` element); the card re-derives the stamp when the reader's day changes (`localDayKey`).
+- The speaker is permanent on every assistant message of a host with a read-aloud path (`onSpeakToggle`): while the
+  reply streams, or when it has no text, it stays in place disabled with its reason as the hover text ("Read aloud
+  when the reply is finished", "No text to read aloud") instead of appearing only once the reply is done.
+- The "N files changed" chip opens the structured panel like the tokens, tools and duration chips (title "Files
+  changed", one row per file: its name, then its folder; capped at 30 with "and N more files"); it was a native
+  multi-line `title` tooltip. `StatDetailKind` adds `"files"`. `ChatStat.title` is documented as a one-line hint.
+- Checks: `panel-chat/scripts/check_message_footer.mjs` (44, in `npm test`): the stamp table (today, yesterday,
+  this year, another year, a future day, calendar-day and month boundaries, fr-FR, malformed), the card's dated stamp
+  and hover text, the speaker on seven assistant message kinds and with a `renderFooter` slot (disabled while
+  streaming / without text; never on user or system messages; never without a TTS host), every workflow chip
+  structured with no native `title`. Mutants (the date dropped in the helper, the card back to time only, the
+  speaker dropped while streaming, on history messages, on questions, the files chip back to a `title`) all red.
+
 ## 0.8.3 - 2026-10-28
 
 Packages: `@abstractframework/panel-chat` 0.6.3, `@abstractframework/ui-kit` 0.9.5 (app-server unchanged at 0.1.13;
