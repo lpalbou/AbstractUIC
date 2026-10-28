@@ -29,6 +29,8 @@ export { ChatComposer } from "./chat_composer.js";
 export { Markdown, sameOriginImage, type MarkdownImages, type MarkdownProps } from "./markdown.js";
 export { JsonViewer } from "./json_viewer.js";
 export { ChatMessageCard, speakButtonView } from "./chat_message_card.js";
+export { READ_ALOUD_INITIAL, readAloudStep, runIsLive } from "./read_aloud.js";
+export type { ReadAloudInput, ReadAloudReply, ReadAloudState } from "./read_aloud.js";
 export { formatMessageStamp, messageStampTitle, messageStampIso, localDayKey, useLocalDay } from "./message_footer.js";
 export { ChatThread } from "./chat_thread.js";
 export { ToolActivity, ToolActivityGroup, toolArguments, toolPreview } from "./tool_activity.js";
