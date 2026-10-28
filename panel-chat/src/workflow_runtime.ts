@@ -8,7 +8,7 @@ import type { ChatMessage } from "./chat_message_card.js";
 import { foldWorkflowTools, workflowEvidence, historyRecords, type WorkflowToolActivity } from "./workflow_evidence.js";
 import { toolPolicyDecision, toolPolicyDecisionText, type WorkflowToolPolicyProvenance } from "./tool_policy.js";
 import { describeStreamUnavailable, isLlmDeltaEnd, validateLlmDeltaEvent, type LlmDelta, type LlmDeltaEnd } from "./llm_delta.js";
-import { ReplayViewFold, type ReplayView, type ReplayViewTransport } from "./replay_view.js";
+import { REPLAY_SESSION_TURN_LIMIT, ReplayViewFold, type ReplaySessionTurn, type ReplayView, type ReplayViewTransport } from "./replay_view.js";
 import { projectReplayView, toolActivityMessage } from "./replay_view_projection.js";
 
 export type ServerRecord = Record<string, unknown>;
@@ -433,6 +433,11 @@ function cursorDigest(token: string | null | undefined): string {
 }
 
 /** Pure, small state controller usable by browser, desktop, or test harnesses. */
+/** Replay view mode: a conversation's finished earlier turns, kept across loads (see viewTurnCache). */
+type CachedTurn = { messages: ChatMessage[]; tools: WorkflowToolActivity[] };
+type TurnCache = { sessionId: string; transport: unknown; order: string[]; created: Map<string, string>; turns: Map<string, CachedTurn> };
+const emptyTurnCache = (): TurnCache => ({ sessionId: "", transport: null, order: [], created: new Map(), turns: new Map() });
+
 export class WorkflowSessionController {
   private snapshot: WorkflowSessionSnapshot = { ...EMPTY };
   private subscribers = new Set<Subscriber>();
@@ -499,6 +504,13 @@ export class WorkflowSessionController {
   private viewTerminalRuns = new Set<string>();
   /** The view stream ended (done, or gave up): the live-reply stream stops with it. */
   private viewStreamEnded = false;
+  /** Replay view mode: the conversation's EARLIER turns (one view read each, oldest first),
+   * shown before the loaded run's own messages. */
+  private viewEarlier: { messages: ChatMessage[]; tools: WorkflowToolActivity[] } = { messages: [], tools: [] };
+  /** The conversation's finished earlier turns, kept across `load()` calls of the same session
+   * (a new turn reloads the controller): a finished turn's view cannot change, so each is read
+   * once, and the transcript does not collapse to the new prompt while the list is re-read. */
+  private viewTurnCache: TurnCache = emptyTurnCache();
 
   public constructor(private readonly transport: WorkflowTransport, private readonly options: WorkflowSessionControllerOptions = {}) {
     const interval = options.liveRenderIntervalMs ?? 60;
@@ -715,10 +727,11 @@ export class WorkflowSessionController {
     this.liveReplies.clear(); this.closedLiveCalls.clear(); this.shownLiveCalls.clear(); this.liveDirty.clear(); this.lastLiveRender = -Infinity;
     if (this.liveRenderTimer) { clearTimeout(this.liveRenderTimer); this.liveRenderTimer = null; }
     this.source = null; this.viewFold = null; this.viewRun = null; this.viewDigest = ""; this.viewAssistantIds.clear(); this.viewTerminalRuns.clear(); this.viewStreamEnded = false;
+    this.viewEarlier = { messages: [], tools: [] };
     this.set({ ...EMPTY });
   }
 
-  dispose(): void { this.reset(); this.subscribers.clear(); }
+  dispose(): void { this.reset(); this.viewTurnCache = emptyTurnCache(); this.subscribers.clear(); }
 
   async load(runId: string): Promise<void> {
     const id = text(runId);
@@ -1065,7 +1078,92 @@ export class WorkflowSessionController {
     this.adoptView();
     void this.followView(id, generation);
     void this.followLiveReplies(id, generation);
+    // The loaded run is one turn of a conversation: its earlier turns are other root runs of the
+    // session, each with its own view (backlog 0058: a reopened conversation showed only its
+    // last turn). Rendered first from the loaded turn; the earlier ones are prepended.
+    await this.loadEarlierTurns(id, text(read.view.session_id), generation, signal);
     return true;
+  }
+
+  /** Read the views of the conversation's turns before `runId` and keep their messages. */
+  private async loadEarlierTurns(runId: string, sessionId: string, generation: number, signal: AbortSignal): Promise<void> {
+    const rv = this.transport.replayView;
+    if (!rv || !sessionId) return;
+    const note = (id: string, content: string): ChatMessage => ({ id, role: "system", level: "warn", title: "History", content });
+    if (!rv.listSessionTurns) {
+      this.viewEarlier = { messages: [note(`history:${sessionId}:unlisted`, "Earlier turns of this conversation are not shown: this app's replay view transport cannot list the conversation's turns (createReplayViewTransport provides listSessionTurns).")], tools: [] };
+      this.adoptView();
+      return;
+    }
+    // One cache per conversation AND transport (a host's new transport, e.g. another sign-in, starts over).
+    const cache = this.viewTurnCache.sessionId === sessionId && this.viewTurnCache.transport === rv ? this.viewTurnCache : { ...emptyTurnCache(), sessionId, transport: rv };
+    this.viewTurnCache = cache;
+    const show = (ids: string[], extra: Map<string, CachedTurn> = new Map(), head: ChatMessage[] = []) => {
+      const turns = ids.map((id) => cache.turns.get(id) || extra.get(id)).filter((turn): turn is CachedTurn => Boolean(turn));
+      this.viewEarlier = { messages: [...head, ...turns.flatMap((turn) => turn.messages)], tools: turns.flatMap((turn) => turn.tools) };
+    };
+    const knownAt = cache.order.indexOf(runId);
+    let earlier: string[];
+    let over = false;
+    if (knownAt >= 0 && cache.order.slice(0, knownAt).every((id) => cache.turns.has(id))) {
+      // A turn this controller has listed before: the turns before a run never change (the
+      // runtime cuts at its creation time), so no new listing.
+      earlier = cache.order.slice(0, knownAt);
+    } else {
+      // A new turn: the finished turns known to be older stay on screen while the list is re-read
+      // (no collapse to the new prompt); a turn of unknown age waits for the list.
+      const at = text(this.viewRun?.created_at);
+      const older = at ? cache.order.filter((id) => cache.turns.has(id) && cache.created.has(id) && cache.created.get(id)! < at) : [];
+      if (older.length) {
+        show(older);
+        this.adoptView();
+      }
+      let turns: ReplaySessionTurn[];
+      try {
+        turns = await rv.listSessionTurns(runId, { signal });
+      } catch (error) {
+        if (!this.live(generation)) return;
+        if (authError(error)) { this.viewTurnCache = emptyTurnCache(); throw error; }
+        show(older, new Map(), [note(`history:${sessionId}:unlisted`, `Earlier turns of this conversation could not be listed: ${error instanceof Error ? error.message : String(error)}`)]);
+        this.adoptView();
+        return;
+      }
+      if (!this.live(generation)) return;
+      over = turns.length > REPLAY_SESSION_TURN_LIMIT;
+      if (over) turns = turns.slice(turns.length - REPLAY_SESSION_TURN_LIMIT);
+      for (const turn of turns) if (turn.created_at) cache.created.set(turn.run_id, turn.created_at);
+      cache.order = turns.map((turn) => turn.run_id);
+      // The runtime's selection, cut at the loaded run (it is the last turn listed).
+      const listedAt = cache.order.indexOf(runId);
+      earlier = listedAt >= 0 ? cache.order.slice(0, listedAt) : cache.order.filter((id) => id !== runId);
+    }
+    const notes = new Map<string, CachedTurn>();
+    const missing = earlier.filter((id) => !cache.turns.has(id));
+    let next = 0;
+    const worker = async () => {
+      while (this.live(generation)) {
+        const turnId = missing[next++];
+        if (!turnId) return;
+        try {
+          const got = await rv.getView(turnId, { signal });
+          if (got.notModified || !got.view) throw new Error("the gateway answered without a view");
+          const p = projectReplayView(got.view);
+          if (terminal(p.status)) cache.turns.set(turnId, { messages: p.messages, tools: p.tools });
+          else
+            // Not finished: shown as it is now (not followed here), and said so; read again next time.
+            notes.set(turnId, { messages: [...p.messages, note(`history:${turnId}:open`, `This earlier turn is still ${p.status || "running"}; open it to follow or answer it.`)], tools: p.tools });
+        } catch (error) {
+          if (!this.live(generation)) return;
+          if (authError(error)) { this.viewTurnCache = emptyTurnCache(); throw error; }
+          notes.set(turnId, { messages: [note(`history:${turnId}:unavailable`, `An earlier turn could not be restored (${turnId.slice(0, 8)}): ${error instanceof Error ? error.message : String(error)}`)], tools: [] });
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, missing.length) }, () => worker()));
+    if (!this.live(generation)) return;
+    const head = over ? [note(`history:${sessionId}:limit`, `Only the last ${REPLAY_SESSION_TURN_LIMIT} turns of this conversation are shown.`)] : [];
+    show(earlier, notes, head);
+    this.adoptView();
   }
 
   /** Project the folded view into the snapshot (the ONE place view mode writes conversation state). */
@@ -1073,7 +1171,9 @@ export class WorkflowSessionController {
     const view = this.viewFold?.view;
     if (!view) return;
     const p = projectReplayView(view);
-    this.toolActivities = new Map(p.tools.map((tool) => [tool.id, tool]));
+    // A finished loaded turn is an earlier turn of the next one: keep it (see viewTurnCache).
+    if (terminal(p.status) && view.session_id && this.viewTurnCache.sessionId === view.session_id) this.viewTurnCache.turns.set(view.root_run_id, { messages: p.messages, tools: p.tools });
+    this.toolActivities = new Map([...this.viewEarlier.tools, ...p.tools].map((tool) => [tool.id, tool]));
     // Live text gives way to the durable record: a model call that ended, a new reply of its
     // run, or its run ending.
     for (const key of p.endedLlmCalls) if (!this.closedLiveCalls.has(key)) this.closeLiveReply(key);
@@ -1106,7 +1206,7 @@ export class WorkflowSessionController {
       run,
       status: p.status,
       displayStatus: done ? "" : p.displayStatus,
-      messages: [...p.messages, ...local],
+      messages: [...this.viewEarlier.messages, ...p.messages, ...local],
       interaction,
       loading: false,
       ...(done ? { autoApproveTools: false } : {}),

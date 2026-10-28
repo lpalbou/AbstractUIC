@@ -452,7 +452,26 @@ export type ReplayViewTransport = {
   getView(runId: string, options?: { ifNoneMatch?: string | null; at?: string | null; signal?: AbortSignal }): Promise<ReplayViewRead>;
   /** Resolves when the stream ends (a `done` frame, the server closing, or the signal); returns the bytes received. */
   streamView(runId: string, options: ReplayViewStreamOptions): Promise<{ bytes: number }>;
+  /**
+   * The conversation's turns up to and including `runId`, oldest first, as the runtime selects
+   * them (`select_session_turns`, the rule the ledger fold reads from the same bundle): the
+   * `session.turns` of `GET runs/{runId}/history_bundle?include_session=true` (AbstractGateway
+   * routes/gateway.py `get_run_history_bundle`), asked with no sub-runs, one ledger item and the
+   * replay detail so it stays small (the turns rows are still computed by the gateway with their
+   * statistics: a turns-only option is backlog 0059). At most `REPLAY_SESSION_TURN_LIMIT` + 1
+   * turns (the latest ones). The controller
+   * reads every earlier turn's view with it, so a reopened conversation shows all its turns.
+   * `createReplayViewTransport` provides it; a hand-built transport without it gets a labeled
+   * note instead of the earlier turns.
+   */
+  listSessionTurns?(runId: string, options?: { signal?: AbortSignal }): Promise<ReplaySessionTurn[]>;
 };
+
+/** One turn of a conversation, as `listSessionTurns` returns it. */
+export type ReplaySessionTurn = { run_id: string; created_at?: string };
+
+/** The most turns `listSessionTurns` asks for (the gateway's `session_turn_limit` default). */
+export const REPLAY_SESSION_TURN_LIMIT = 200;
 
 /**
  * A `fetch` bound to the gateway API: `path` is relative to it (`runs/<id>/view`); the host adds
@@ -499,6 +518,24 @@ export function createReplayViewTransport(options: { fetch: ReplayViewFetch; adv
       const view = JSON.parse(new TextDecoder().decode(raw)) as ReplayView;
       if (view?.version !== REPLAY_VIEW_VERSION) throw new Error(`Unsupported replay view version ${JSON.stringify(view?.version)} (this client reads ${REPLAY_VIEW_VERSION}).`);
       return { notModified: false, view, etag, bytes: raw.byteLength };
+    },
+    async listSessionTurns(runId, opts = {}) {
+      // One more than the limit: the controller says so only when a conversation exceeds it.
+      const query = `include_session=true&include_subruns=false&ledger_max_items=1&detail=replay&session_turn_limit=${REPLAY_SESSION_TURN_LIMIT + 1}`;
+      const res = await request(`runs/${encodeURIComponent(runId)}/history_bundle?${query}`, { method: "GET", headers: { Accept: "application/json" }, ...(opts.signal ? { signal: opts.signal } : {}) });
+      if (!res.ok) throw await httpError(res);
+      const body = (await res.json()) as Row;
+      const session = body.session && typeof body.session === "object" ? (body.session as Row) : null;
+      const rows = Array.isArray(session?.turns) ? (session!.turns as Row[]) : [];
+      const seen = new Set<string>();
+      const turns: ReplaySessionTurn[] = [];
+      for (const row of rows) {
+        const id = typeof row?.run_id === "string" ? row.run_id : "";
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        turns.push({ run_id: id, ...(typeof row.created_at === "string" ? { created_at: row.created_at } : {}) });
+      }
+      return turns;
     },
     async streamView(runId, opts) {
       const headers: Record<string, string> = { Accept: "text/event-stream" };
