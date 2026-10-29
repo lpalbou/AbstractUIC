@@ -9,6 +9,15 @@ ships.
 
 ## Unreleased
 
+_Nothing yet._
+
+## 0.8.8 - 2026-10-29
+
+Packages: `@abstractframework/ui-kit` 0.9.9; `@abstractframework/panel-chat` unchanged at 0.6.6 (its peer range
+`^0.9.8` covers 0.9.9); app-server unchanged. Operator findings of 2026-10-29: one compact aligned filter bar
+(0074, `AfFilterBar` + plain-HTML markup for the console islands) and the cloud provider cards with official
+brand marks (`CloudProviderCards`, keys checked before save, never an overwrite; marks with their licence notes).
+
 ### ui-kit
 
 - **Cloud provider cards: where to put a cloud API key** (operator finding 2026-10-29: "where do I configure the
