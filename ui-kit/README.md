@@ -52,6 +52,8 @@ This package provides:
 - **Modal and account rows**: `AfModal` (large dialog over a blurred backdrop, full-screen sheet on
   phones), `bindAfModal()`, the `af-row--admin|user|entity` tints, `af-kind-chip`, `af-nav-group` /
   `af-nav-footer` — see [Modal, account rows, grouped navigation](../docs/modal.md)
+- **Filter bar**: `AfFilterBar` (search field and toggles on one line, one row of chips per facet with
+  the label in a fixed column) and its plain-HTML markup functions — see [Filter bar](../docs/filter-bar.md)
 - **On/off settings and forms**: `AfSwitch` / `AfSwitchInput` (a switch labelled by the feature),
   `AfTabs`, the `af-form` / `af-card` / `af-tabs` styles, and the guards `findVerbToggleLabels()`
   and `checkLabelScale()` — see [On/off settings](../docs/state-toggles.md)
@@ -508,6 +510,7 @@ app. `scripts/check_responsive.mjs` and `scripts/check_viewport_vars.mjs` pin it
 - Adoption guide: [`docs/adoption-guide.md`](../docs/adoption-guide.md)
 - Theming: [`docs/theming.md`](../docs/theming.md)
 - Modal, account rows, grouped navigation: [`docs/modal.md`](../docs/modal.md)
+- Filter bar: [`docs/filter-bar.md`](../docs/filter-bar.md)
 - On/off settings, forms, tabs: [`docs/state-toggles.md`](../docs/state-toggles.md)
 - Console islands: [`docs/console-islands.md`](../docs/console-islands.md)
 - Automations: [`docs/automations.md`](../docs/automations.md)

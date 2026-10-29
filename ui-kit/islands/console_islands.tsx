@@ -23,6 +23,7 @@ import { Icon, type IconName } from "../src/icon.js";
 import { bindAfModal } from "../src/af_modal_core.js";
 import { bindAfMenu } from "../src/af_menu_core.js";
 import { acquireAfTooltips, bindAfTooltips } from "../src/af_tooltip_core.js";
+import { afFilterFacetsHtml, afFilterScopeButtonsHtml, afFilterScopeHtml } from "../src/af_filter_bar_core.js";
 import { THEME_SPECS, applyTheme } from "../src/theme.js";
 import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typography.js";
 import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
@@ -633,6 +634,11 @@ const api = {
   bindModal,
   bindMenu,
   bindTooltips,
+  // The filter bar's markup for plain-HTML hosts (kit after 0.9.8; docs/filter-bar.md): the SAME chips,
+  // facet rows and scope switch AfFilterBar renders. Additive members: apiVersion stays "2".
+  filterBarFacetsHtml: afFilterFacetsHtml,
+  filterBarScopeHtml: afFilterScopeHtml,
+  filterBarScopeButtonsHtml: afFilterScopeButtonsHtml,
   appIdentity,
   aboutVersionsFromGateway,
   applyAppearance,

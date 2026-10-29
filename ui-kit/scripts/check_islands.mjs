@@ -35,6 +35,13 @@ if (typeof api.islandConnectionStatus !== "function") fail("missing islandConnec
   }
   if (api.islandConnectionStatus({ phase: "connected", me: { ok: false } }) !== null) fail("islandConnectionStatus(me.ok false) must be null");
 }
+for (const fn of ["filterBarFacetsHtml", "filterBarScopeHtml", "filterBarScopeButtonsHtml"]) if (typeof api[fn] !== "function") fail(`missing ${fn}() (the filter bar markup, kit after 0.9.8)`);
+{
+  const rows = api.filterBarFacetsHtml([{ id: "quant", label: "Quantization", value: "all", options: [{ value: "all", label: "All" }, { value: "4bit", label: "4-bit", count: 3 }] }]);
+  if (!rows.includes('class="af-filterbar__facet"') || !rows.includes('data-af-facet="quant" data-af-value="4bit"') || !rows.includes('<span class="af-filterbar__count" aria-hidden="true">3</span>')) fail(`filterBarFacetsHtml() = ${rows}`);
+  const scope = api.filterBarScopeHtml({ label: "Search in", value: "hf", options: [{ value: "catalog", label: "Catalog" }, { value: "hf", label: "Hugging Face" }] });
+  if (!scope.includes('class="af-filterbar__scope"') || !scope.includes('data-af-scope="hf" aria-pressed="true"')) fail(`filterBarScopeHtml() = ${scope}`);
+}
 if (api.apiVersion !== "2") fail(`apiVersion ${api.apiVersion} (expected "2")`);
 if (api.kitVersion !== pkg.version) fail(`kitVersion ${api.kitVersion} != package ${pkg.version}`);
 const gw = api.appIdentity("abstractgateway", "0.0.1");
