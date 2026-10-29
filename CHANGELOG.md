@@ -9,6 +9,14 @@ ships.
 
 ## Unreleased
 
+_Nothing yet._
+
+## 0.8.7 - 2026-10-29
+
+Packages: `@abstractframework/ui-kit` 0.9.8, `@abstractframework/panel-chat` 0.6.6 (needs ui-kit `^0.9.8`); app-server at
+0.1.13. Operator rulings of 2026-10-29: the automation panel says everything in words (0072: trigger, failure reason, event
+wait, local times) and the tool-approval card is one bold line then one bullet per call (0073).
+
 ### ui-kit
 
 - **The tool-approval card reads in one glance** (operator ruling 2026-10-29, backlog 0073). A bold first line

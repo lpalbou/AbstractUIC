@@ -11,6 +11,13 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
 
+## What's new in 0.8.7
+
+`@abstractframework/ui-kit` 0.9.8 and `@abstractframework/panel-chat` 0.6.6: the automation panel says everything in
+words (the trigger, a failure reason as a sentence, an event wait that asks in words, local times); the tool-approval card
+opens with "The automation wants to use these tools:" (chat: "The assistant wants…") then one bullet per call, no count,
+no bold parameters ([changelog](./CHANGELOG.md#087---20261029)).
+
 ## What's new in 0.8.6
 
 `@abstractframework/ui-kit` 0.9.7: tool results read in words (`describeToolResult`,
