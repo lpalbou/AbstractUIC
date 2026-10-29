@@ -14,7 +14,7 @@ packaging). Full findings are distilled into the items below; each item
 carries its own code-reality citations.
 
 ## Counts
-- Planned: 16 (0001, 0003-0006, 0014, 0019, 0030-0036, 0039, 0040)
+- Planned: 17 (0001, 0003-0006, 0014, 0019, 0030-0036, 0039, 0040, 0066)
 - Proposed: 37 (0009-0013, 0017-0018, 0020-0022, 0024-0028, 0037-0038, 0041-0053 kit gaps K1-K13 from the adoptions, 2026-10-28; 0055-0057 from the release-closing aesthetic pass; 0059 turns-only listing; 0061 Create a voice follows a served cloning capability; 0062 Devices page island (discussion, with gateway 0965); 0063 Docs assistant read-aloud)
 - Completed: 10 (0002, 0007, 0008, 0023, 0026-theme-adoption, 0029, 0054, 0058, 0060, 0064)
 - Deprecated: 2 (0015, 0016 — superseded by 0033)
@@ -81,6 +81,7 @@ merge, or missing test rigs) — see each item's checklist.
 | 0039 | hosts move approve-all / approve-kind to the gateway's session tool policy | panel-chat consumers | Kit half shipped in 0.7.0 (#9, #11); each host builds the kit client, passes `sessionPolicy`, deletes its local approve-all |
 | 0040 | panel-chat renders the gateway's replay view | panel-chat + controller hosts | Kit half in panel-chat 0.6.0 (`replayView` transport, `applyDelta`, projection, labeled fallback; 15 conformance cases byte-equal to gateway 0.17.0); hosts add `replayView` (root 0993, runtime 0854) |
 | 0036 | app shell: top-right widgets + drawer system | ui-kit + panel-chat | Identity badge/menu, about fetch, enforced order; `AfDrawerSystem` (opaque panels, keep-alive, persisted, auto top offset); `AfAppShell` |
+| 0066 | `readAloudStep` export ships; its three consumers delete their inlined copies | panel-chat; Code web, Entity, Observer | Bump panel-chat before its next release (PR #26 added the export at 0.6.4 unchanged); then the hosts adopt by pin and delete `read_aloud.ts` copies (Code 0008, Entity 2026-10-29 item, Observer 0005) |
 
 ## Proposed ledger (promotion criteria in each item)
 | ID | Item | Consumers today | Blocked on |
