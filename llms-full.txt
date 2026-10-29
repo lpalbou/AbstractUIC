@@ -70,7 +70,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.8): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.9): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
 - [@abstractframework/panel-chat](panel-chat/README.md) (0.6.6, needs ui-kit ^0.9.8): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
@@ -168,6 +168,15 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
+
+## What's new in 0.8.8
+
+`@abstractframework/ui-kit` 0.9.9: one compact aligned filter bar (`AfFilterBar`: search and toggles on one
+line, one row of chips per facet with a fixed label column; the same markup for the console islands) and the cloud
+provider cards (`CloudProviderCards`: one card per cloud provider AbstractCore lists, the key checked before it is
+saved, a new connection never overwrites one, official brand marks with licence notes, a text badge where a
+brand's terms forbid the logo). `@abstractframework/panel-chat` stays 0.6.6
+([changelog](./CHANGELOG.md#088---20261029)).
 
 ## What's new in 0.8.7
 
@@ -273,6 +282,7 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 - Design rules (ADR 0001: one component per job, composed on the gateway's contracts): [`docs/adr/`](./docs/adr/README.md)
 - Theming & design tokens: [`docs/theming.md`](./docs/theming.md)
 - Modal dialog, menu, tooltip, account row tints, grouped navigation (`AfModal`, `bindModal`, `AfTooltip`, `bindTooltips`): [`docs/modal.md`](./docs/modal.md)
+- Filter bar (`AfFilterBar`, the plain-HTML markup): [`docs/filter-bar.md`](./docs/filter-bar.md)
 - On/off settings, sign-in card, forms and tabs (`AfSwitch`, `AfTabs`, guards, `randomId()`): [`docs/state-toggles.md`](./docs/state-toggles.md)
 - Responsive layout (breakpoints, touch sizes, sheets, drawers, viewport helpers): [`docs/responsive.md`](./docs/responsive.md)
 - API reference: [`docs/api.md`](./docs/api.md)
@@ -1775,6 +1785,40 @@ fails when a sheet is stale.
 4. `npm test -w @abstractframework/ui-kit`: `check_icons.mjs` renders every name and compares
    the union, `ICON_NAMES` and this table.
 
+## Brand marks
+
+The engines and cloud providers that the provider cards name are shown with the brand's own mark (`BrandMark`, or
+`brandMarkHtml(id)` for hosts that build HTML as strings), inlined in `ui-kit/src/brand_icons.tsx`: no page fetches
+a logo from anywhere. Each mark is drawn in its own colours on a light tile in every theme, because several brands
+forbid recolouring. The source rules, in order: the brand's own press or brand-kit SVG when its terms allow using it
+to identify the product; else the [Simple Icons](https://simpleicons.org) SVG (CC0 path data); else a readable text
+badge. Trademarks belong to their owners; a mark identifies the product a card configures and implies no
+endorsement. `ui-kit/scripts/check_brand_icons.mjs` fails when a card id has neither a mark nor a documented fallback,
+when a mark lacks its source, licence or date, or when a mark could reach outside itself.
+
+| Id | Brand | Origin | Source file | Licence or terms | Retrieved |
+| --- | --- | --- | --- | --- | --- |
+| `ollama` | Ollama | brand | <https://raw.githubusercontent.com/ollama/ollama/main/docs/ollama-logo.svg> | File is in the MIT-licensed ollama/ollama repo (Copyright (c) Ollama); MIT covers copyright only. Trademark of Ollama. [Terms](https://ollama.com/terms). Ollama ToS: "These Terms do not grant you any rights to use our branding without permission." No published brand guidelines; no recolour rule. | 2026-10-29 |
+| `lmstudio` | LM Studio | Simple Icons | <https://cdn.jsdelivr.net/npm/simple-icons@16.35.0/icons/lmstudio.svg> | CC0-1.0 (Simple Icons path data); icon contributed to Simple Icons by the LM Studio team (PRs simple-icons#14717, #14905); byte-identical to https://files.lmstudio.ai/lmstudio_icon2.svg. Trademark of Element Labs, Inc. [Terms](https://lmstudio.ai/brand). Brand page: "Do not recolor the logo or create unapproved color combinations." and "The permission we grant to you is non-exclusive and non-transferable." Identification is allowed: "Use LM Studio logo when referring to LM Studio". Simple Icons draws the path without a colour; it is filled with Simple Icons' recorded brand hex #000000 (black), the logo's own colour. | 2026-10-29 |
+| `vllm` | vLLM | Simple Icons | <https://cdn.jsdelivr.net/npm/simple-icons@16.35.0/icons/vllm.svg> | CC0-1.0 (Simple Icons path data); traced from vllm-project/media-kit vLLM-Logo.svg @79b2ea5. Trademark of the vLLM project. [Terms](https://github.com/vllm-project/media-kit). media-kit README: "Don't modify or distort the logo proportions"; "Use the appropriate version for your background (light/dark)". No explicit recolour ban. Simple Icons draws the path without a colour; it is filled with Simple Icons' recorded brand hex #30A2FF (vLLM blue). | 2026-10-29 |
+| `huggingface` | Hugging Face | brand | <https://huggingface.co/datasets/huggingface/brand-assets/resolve/main/hf-logo-monochrome.svg?download=true> | Official brand asset; the page says "Download the official Hugging Face brand assets to use in your projects." No licence or usage rules published (dataset has no card/licence). Trademark of Hugging Face, Inc. [Terms](https://huggingface.co/brand).  | 2026-10-29 |
+| `mlx` | MLX | brand | <https://raw.githubusercontent.com/ml-explore/mlx/main/docs/logo/mlx_logo.svg> | File is in the MIT-licensed ml-explore/mlx repo (docs/logo, added in #3308). MIT covers copyright only; marks belong to Apple. [Terms](https://github.com/ml-explore/mlx). No logo usage guidelines published in the repo. | 2026-10-29 |
+| `llamacpp` | llama.cpp | brand | <https://raw.githubusercontent.com/ggml-org/llama.cpp/master/media/llama1-icon-transparent.svg> | File is in the MIT-licensed ggml-org/llama.cpp repo (media/, added in #15891). MIT covers copyright; trademark of the ggml-org/llama.cpp project. [Terms](https://github.com/ggml-org/llama.cpp/blob/master/LICENSE). No logo usage guidelines published. | 2026-10-29 |
+| `openrouter` | OpenRouter | brand | <https://openrouter.ai/brand/logos/transparent/glyph/svg/glyph-ink.svg> | Official brand asset offered "ready to use"; no permission step or licence stated. Trademark of OpenRouter, Inc. [Terms](https://openrouter.ai/brand). "Please don't stretch, recolor, or remix the marks." Approved colourways only: Ink #03080A (light backgrounds) and Cloud #FCFCFE (dark backgrounds), plus Grape/Volt. | 2026-10-29 |
+
+Text badges (no logo):
+
+| Id | Brand | Badge | Why there is no logo | Retrieved |
+| --- | --- | --- | --- | --- |
+| `openai` | OpenAI | OAI | OpenAI's brand terms forbid it without permission: "Use the logo exactly as provided"; Don't "Use the logo without permission or outside OpenAI's terms"; Don't "modify it in any way"; Blossom: "DON'T add any colors to the Blossom"; "The permission we grant is non-exclusive (we can give it to others) and non-transferrable (you cannot give it to others)." [Terms](https://openai.com/brand/). | 2026-10-29 |
+| `anthropic` | Anthropic | ANT | Anthropic's trademark guidelines need its approval first: "You may only use our trademarks as specifically permitted by us and only in materials we approve beforehand." and "No alterations of our trademarks (changes to color, font, proportion, or otherwise) are permitted." [Terms](https://www.anthropic.com/legal/trademark-guidelines). | 2026-10-29 |
+| `portkey` | Portkey | PK | No usable logo: no brand kit, brand guidelines or licensed logo file found (portkey.ai/brand, /press, /brand-assets, /media-kit all 404; Portkey-AI/gateway repo (MIT) has no logo file). [Terms](https://portkey.ai/). | 2026-10-29 |
+| `openai-compatible` | OpenAI-compatible server | API | A protocol, not a brand: any server that speaks the OpenAI API (vLLM, llama.cpp, LocalAI, a private gateway). No logo applies. | 2026-10-29 |
+
+Adding a brand: add its id to `BRAND_CARD_IDS`, then either a `BRAND_ICONS` entry (the SVG's geometry and colours
+unchanged; editor metadata, titles and classes dropped; ids namespaced `af-brand-<id>-`) with its source, terms,
+licence, restrictions and date, or a `BRAND_FALLBACKS` entry saying why there is none; then a row above.
+
 ## docs/responsive.md
 
 # Responsive Layout
@@ -2231,6 +2275,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Cognition and phase surfaces: `AfPhaseRadio` (+ `RULED_PHASES`, `PHASE_DESCRIPTORS`, `normalizePhase()`, `reconcilePhaseList()`), `AfCognitionBloom` (+ bloom core: `createBloomState()`, `tickBloom()`, `drawBloomFrame()`, …), `AfConductGauge` (+ `conductAxes()`), `AfMemoryHintChip`
 - Automations: `AutomationPanel` (one automation: controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (create an automation: Repeat on a fixed UTC interval, Daily / Weekly / Monthly at a time of day in the account's time zone, once, or when an email arrives — the Gateway's own sentence for calendar rules through `previewSchedule`; "Email result" and result recipients), `AfTimeZonePicker` (the account time zone, over the Gateway's IANA list), the email fields `AfEmailTriggerFields` / `AfEmailOptionsFields` / `AfEmailSetupNotice`, `createAutomationsClient()` (one method per Gateway automation route, errors thrown as `AutomationApiError`), plus the pure presentation rules, retry-safe id helpers and the contract types. The complete list is in [Automations: Exports](./automations.md#exports)
 - Modal and account rows: `AfModal`, `bindAfModal()` (+ `afModalTabTarget()`, `afModalFocusables()`, `AF_MODAL_FOCUSABLE`), the helper floors `HELPER_MIN_PX`, `HELPER_MIN_TOUCH_PX`, `HELPER_TOUCH_MEDIA` — see [Modal, account rows, grouped navigation](./modal.md)
+- Filter bar: `AfFilterBar`, `AfFilterFacetRow`, and the plain-HTML markup functions `afFilterFacetsHtml()`, `afFilterFacetHtml()`, `afFilterChipHtml()`, `afFilterScopeHtml()`, `afFilterScopeButtonsHtml()` (+ `afFilterChipClass()`, `afFilterChipName()`, `afFilterFacetClass()`, `AF_FILTER_FACET_ATTR`, `AF_FILTER_VALUE_ATTR`, `AF_FILTER_SCOPE_ATTR`) — see [Filter bar](./filter-bar.md)
 - On/off settings and forms: `AfSwitch`, `AfSwitchInput` (a native `role="switch"` checkbox for uncontrolled forms) (+ `afSwitchNextState()`, `afSwitchIsActionable()`), `AfTabs` (+ `afTabsNextIndex()`), the guards `findVerbToggleLabels(source)` and `checkLabelScale(root)` (+ `LABEL_SCALE_SELECTOR`) — see [On/off settings](./state-toggles.md)
 - Workflow picker: `WorkflowPicker` (the one workflow chooser of every client: "Gateway default", then the groups "Shared" and "Mine", each entry with its version as a small detail line; no toggles), `useExecutableWorkflows({ interfaceId, request? | gatewayBaseUrl?, allVersions?, enabled?, reloadKey? })` (fetches `GET /api/gateway/bundles?executable_for=<interface>` with the app's own auth), `WorkflowPickerListbox`, and the pure core `executableWorkflowsPath()`, `parseExecutableWorkflows()` (throws `WorkflowPickerContractError` when the gateway ignores `executable_for`: no echo, an item without `owner`/`shipped`, an entrypoint that does not declare the interface), `workflowPickerGroups()`, `workflowPickerRows()`, `WORKFLOW_PICKER_DEFAULT` (`"@default"`), `WORKFLOW_PICKER_EMPTY`. The picker lists exactly what the gateway returns: which workflows a person sees is the gateway's availability rule (admins decide what is shared with users; users also see their own), never a client switch. Two modes: per interface (`interfaceId="abstractcode.agent.v1"`, for an app that runs one interface) and any interface (`interfaceId={null}`, for a launcher such as AbstractObserver: `GET /api/gateway/bundles`, every entrypoint that declares an interface, the interfaces as the detail line, `defaultInterface` names the interface "Gateway default" stands for); helpers `workflowPickerPath()`, `allWorkflowsPath()`, `parseWorkflowListing()`.
 - Ids and non-secure contexts: `randomId()` (v4 UUID over plain http too), `uuidV4FromBytes()`, `insecureContextReason(feature)` — see [Non-secure contexts](./state-toggles.md#non-secure-contexts)
@@ -2249,6 +2294,7 @@ self-contained script that defines `window.AfConsoleIslands` (`apiVersion` `"2"`
 `mountDrawerSystem(el, props)`, `islandConnectionStatus(connection)`, `mountSandboxChat(el, props)`,
 `mountProviderModelPicker(el, props)`, `mountToolModeEditor(el, props)`, `mountVoiceSettings(el, props)`,
 `mountVoiceSection(el, props)`, `mountWorkspaceChooser(el, props)`, `mountTimeZonePicker(el, props)`,
+`mountCloudProviderCards(el, props)`, `cloudProviders`, `brandMarks`,
 `bindModal`, `bindMenu`, `bindTooltips`, …). Build it with
 `npm run build:islands -w @abstractframework/ui-kit`. It is not included in the npm tarball.
 Full reference: [Console islands](./console-islands.md).
@@ -4450,9 +4496,14 @@ Serve both files from your own origin; the paths above are examples.
 | `mountWorkspaceChooser(el, props)` | `IslandHandle` | Mounts the kit `WorkspaceChooser` (`level`, `state`, `save`): the console's **Eligible workspaces** modal (`level: "gateway"`) and each account's Workspaces modal (`level: "account"`) (kit 0.8.3, round 11) |
 | `mountVoiceSection(el, props)` | `IslandHandle` | Mounts the kit `AfVoiceSection` (the whole voice settings: Engines, Output, Microphone, Replies) with the component's own props (`fetchCatalog`, `fetchDefaults`, `voiceLibrary`, `fetchLanguages`, `previewVoice`, `rows`, …) (kit 0.9.0, backlog 0035) |
 | `mountTimeZonePicker(el, props)` | `IslandHandle` | Mounts the kit `AfTimeZonePicker` (`block` = the preferences answer's `time_zone`, `id`, `onChange(zone \| null)`, `disabled`, `note`): the time zone row of the console's Accounts → Preferences modal (kit 0.8.7, round 16) |
+| `mountCloudProviderCards(el, props)` | `IslandHandle` | Mounts the kit `CloudProviderCards`: one card per cloud provider AbstractCore lists (`GET discovery/providers`, `local_provider: false`), an API-key field, "Check the key" ("Key works · 48 models" or one sentence why not) and "Save the key" (a NEW connection, `create_only`, never an overwrite). Props: `request(path, {method, body})`, `base` (the console passes `"/api/gateway"`), `scope`, `onConfigure(providerId)`, `onSaved(saved)`, `refreshKey`, `heading`. The gateway's setup guide and its Providers tab mount it (kit 0.9.9) |
+| `cloudProviders` | `object` | The cards' logic for a host's own key flow: `client(request, base)` (`listProviders`, `listConnections`, `checkKey`, `saveCheckedKey`), `keyCheckResult`, `freshConnectionId`, `text` (kit 0.9.9) |
+| `brandMarks` | `object` | Engines' and providers' official marks: `html(id, name?)` (inline `<span class="af-brand-mark">` with the SVG, or the documented text badge), `info(id)`, `cardIds` (kit 0.9.9; [icons.md](./icons.md#brand-marks)) |
 | `workspaceChooserText` | `object` | The WorkspaceChooser's wording table (`WORKSPACE_CHOOSER_TEXT`), e.g. the modal title `gatewayTitle` "Eligible workspaces" (kit 0.8.3) |
 | `workspaceAsState(answer, level)` | `object` | Turns a `GET/PUT /workspace/policy[/{account}]` answer into the chooser's `state`; throws on an older answer (kit 0.8.3) |
 | `bindTooltips(root?, options?)` | `() => void` | The kit tooltip on every `[data-af-tip]` element under `root` (default the document): 150 ms delay, keyboard focus, hoverable, Escape hides, kept inside the viewport; delegated, bind once; returns `release()` (kit 0.8.x, round 9; [modal.md](./modal.md#tooltip)) |
+| `filterBarFacetsHtml(facets, trailing?)` | `string` | The filter bar's facet rows as HTML: the same chips and rows `AfFilterBar` renders, escaped ([filter-bar.md](./filter-bar.md); kit after 0.9.8) |
+| `filterBarScopeHtml(scope)` / `filterBarScopeButtonsHtml(options, value)` | `string` | The filter bar's scope switch ("Catalog \| Hugging Face"), whole or its buttons (kit after 0.9.8) |
 | `appIdentity(id, version)` | `AppIdentity` | Identity facts for an AbstractFramework app; throws for an unknown id (kit 0.1.12+) |
 | `aboutVersionsFromGateway(payload, error?)` | `AfAboutVersions` | The About card's framework and gateway versions from a `GET /api/gateway/about` body, or `(null, reason)` after a failed request (kit 0.8.0+) |
 | `applyAppearance(settings)` | `void` | Applies a theme and typography settings to the document |
@@ -4732,6 +4783,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 - **Adoption guide**: [`adoption-guide.md`](./adoption-guide.md) — which shared component for which job (the chat surface, questions and approvals, attachments and media, tool selection and the chat's tool policy, the provider/model picker, voice, the app shell), and the contracts apps follow
 - **Design decisions (ADRs)**: [`adr/README.md`](./adr/README.md) — the durable rules the shared components follow; [ADR 0001](./adr/0001_shared_primitives_composed_on_gateway_contracts.md): one component per job, composed on the gateway's contracts, customized through props, slots and theme tokens
 - **Theming & design tokens**: [`theming.md`](./theming.md) — token vocabulary, the layout variables the app shell publishes, the 21 themes, migration rules for host apps
+- **Filter bar**: [`filter-bar.md`](./filter-bar.md) — `AfFilterBar`: search, toggles and one row of chips per facet, the plain-HTML markup and functions
 - **On/off settings**: [`state-toggles.md`](./state-toggles.md) — `AfSwitch`, the console markup, the terminal marker, the verb-toggle and label-scale guards, the sign-in card, forms, cards and tabs, `randomId()`
 - **Modal, account rows, grouped navigation**: [`modal.md`](./modal.md) — `AfModal` and its plain-HTML markup with `AfConsoleIslands.bindModal`, the menu and the themed tooltip (`AfTooltip`, `bindTooltips`), the account-kind row tints and chips, sidebar group captions with a bottom slot, and the 13 px / 14 px helper-text floor
 - **Icons**: [`icons.md`](./icons.md) — the `Icon` component, every icon name with its grid and typical use, the light and dark contact sheets, the drawing rules, and how to add an icon
@@ -4818,6 +4870,8 @@ This package provides:
 - **Modal and account rows**: `AfModal` (large dialog over a blurred backdrop, full-screen sheet on
   phones), `bindAfModal()`, the `af-row--admin|user|entity` tints, `af-kind-chip`, `af-nav-group` /
   `af-nav-footer` — see [Modal, account rows, grouped navigation](../docs/modal.md)
+- **Filter bar**: `AfFilterBar` (search field and toggles on one line, one row of chips per facet with
+  the label in a fixed column) and its plain-HTML markup functions — see [Filter bar](../docs/filter-bar.md)
 - **On/off settings and forms**: `AfSwitch` / `AfSwitchInput` (a switch labelled by the feature),
   `AfTabs`, the `af-form` / `af-card` / `af-tabs` styles, and the guards `findVerbToggleLabels()`
   and `checkLabelScale()` — see [On/off settings](../docs/state-toggles.md)
@@ -5274,6 +5328,7 @@ app. `scripts/check_responsive.mjs` and `scripts/check_viewport_vars.mjs` pin it
 - Adoption guide: [`docs/adoption-guide.md`](../docs/adoption-guide.md)
 - Theming: [`docs/theming.md`](../docs/theming.md)
 - Modal, account rows, grouped navigation: [`docs/modal.md`](../docs/modal.md)
+- Filter bar: [`docs/filter-bar.md`](../docs/filter-bar.md)
 - On/off settings, forms, tabs: [`docs/state-toggles.md`](../docs/state-toggles.md)
 - Console islands: [`docs/console-islands.md`](../docs/console-islands.md)
 - Automations: [`docs/automations.md`](../docs/automations.md)
@@ -6583,7 +6638,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.8.7",
+  "version": "0.8.8",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -6608,7 +6663,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.8",
+  "version": "0.9.9",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -6656,7 +6711,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_tool_call_words.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_top_bar_set.mjs && node scripts/check_session_tool_policy.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_tool_call_words.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_filter_bar.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_top_bar_set.mjs && node scripts/check_session_tool_policy.mjs && node scripts/check_brand_icons.mjs && node scripts/check_cloud_providers.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -7327,6 +7382,23 @@ export {
   type AfEmailTriggerFieldsProps,
 } from "./automations/email_fields.js";
 export { AfSwitch, AfSwitchInput, afSwitchIsActionable, afSwitchNextState, type AfSwitchProps } from "./af_switch.js";
+export { AfFilterBar, AfFilterFacetRow, type AfFilterBarProps, type AfFilterBarSearch, type AfFilterBarScope } from "./af_filter_bar.js";
+export {
+  afFilterChipHtml,
+  afFilterChipClass,
+  afFilterChipName,
+  afFilterFacetHtml,
+  afFilterFacetClass,
+  afFilterFacetsHtml,
+  afFilterScopeHtml,
+  afFilterScopeButtonsHtml,
+  AF_FILTER_FACET_ATTR,
+  AF_FILTER_VALUE_ATTR,
+  AF_FILTER_SCOPE_ATTR,
+  type AfFilterFacet,
+  type AfFilterOption,
+  type AfFilterScopeOption,
+} from "./af_filter_bar_core.js";
 export { findVerbToggleLabels, type VerbToggleHit } from "./state_toggle_lint.js";
 export { randomId, uuidV4FromBytes, insecureContextReason } from "./random_id.js";
 export { checkLabelScale, LABEL_SCALE_SELECTOR, type LabelScaleHit, type LabelScaleOptions, HELPER_SCALE_SELECTOR, HELPER_MIN_PX, HELPER_MIN_TOUCH_PX, HELPER_TOUCH_MEDIA } from "./label_scale.js";
@@ -7644,6 +7716,44 @@ export { SESSION_ID_PATTERN, sessionToolPolicyRoute } from "./gateway_paths.js";
 // Tool calls in words (operator QA 2026-10-29): approval cards never print raw JSON.
 export { describeToolCall, describeToolResult, groupToolCalls, prettyQuotes, readableKey, shortUrl, type ToolCallInput, type ToolCallWords, type ToolResultInput, type ToolResultWords } from "./tool_call_words.js";
 export { ToolCallWordsList, ToolResultWords as ToolResultWordsView, toolCallLine, type ToolCallWordsListProps, type ToolResultWordsProps } from "./tool_call_words_view.js";
+// Cloud provider cards and brand marks (operator finding 2026-10-29): one card per cloud provider
+// AbstractCore supports (key check before any save, never an overwrite), engines' and providers'
+// official marks inlined with their source, licence and date.
+export { CloudProviderCards, type CloudProviderCardsProps } from "./cloud_provider_cards.js";
+export {
+  CLOUD_PROVIDER_TEXT,
+  cloudProvidersClient,
+  cloudProvidersFromDiscovery,
+  connectionsFromProfiles,
+  connectionsFor,
+  connectionStatus,
+  connectionCreateBody,
+  connectionName,
+  freshConnectionId,
+  keyCheckResult,
+  savedSentence,
+  type CheckedKey,
+  type CloudConnection,
+  type CloudProvider,
+  type CloudProvidersClient,
+  type CloudRequest,
+  type KeyCheckAnswer,
+  type KeyCheckResult,
+  type SaveScope,
+  type SavedConnection,
+} from "./cloud_providers_core.js";
+export {
+  BRAND_ICONS,
+  BRAND_FALLBACKS,
+  BRAND_CARD_IDS,
+  BrandMark,
+  brandIconSvg,
+  brandMarkHtml,
+  brandMarkInfo,
+  type BrandIcon,
+  type BrandFallback,
+  type BrandMarkInfo,
+} from "./brand_icons.js";
 
 ## ui-kit/src/responsive.ts
 
@@ -13207,6 +13317,7 @@ import { Icon, type IconName } from "../src/icon.js";
 import { bindAfModal } from "../src/af_modal_core.js";
 import { bindAfMenu } from "../src/af_menu_core.js";
 import { acquireAfTooltips, bindAfTooltips } from "../src/af_tooltip_core.js";
+import { afFilterFacetsHtml, afFilterScopeButtonsHtml, afFilterScopeHtml } from "../src/af_filter_bar_core.js";
 import { THEME_SPECS, applyTheme } from "../src/theme.js";
 import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typography.js";
 import type { GatewayConnectionPhase } from "../src/use_gateway_connection.js";
@@ -13218,6 +13329,9 @@ import { AfVoiceSection, type AfVoiceSectionProps } from "../src/af_voice_sectio
 import { WorkspaceChooser, type WorkspaceChooserProps } from "../src/workspace_chooser.js";
 import { WORKSPACE_CHOOSER_TEXT, workspaceAsState } from "../src/workspace_chooser_core.js";
 import { AfTimeZonePicker, type AfTimeZonePickerProps } from "../src/time_zone_picker.js";
+import { CloudProviderCards, type CloudProviderCardsProps } from "../src/cloud_provider_cards.js";
+import { CLOUD_PROVIDER_TEXT, cloudProvidersClient, keyCheckResult, freshConnectionId } from "../src/cloud_providers_core.js";
+import { BRAND_CARD_IDS, brandMarkHtml, brandMarkInfo } from "../src/brand_icons.js";
 // panel-chat's REAL chat (the one AbstractCode's workspace renders): ChatThread +
 // ChatComposer with the standard Attach control, drop zone and paste-to-attach.
 import { WorkflowChat } from "../../panel-chat/src/workflow_chat.js";
@@ -13785,6 +13899,26 @@ export function mountDrawerSystem(el: Element, props: DrawerSystemIslandProps): 
   return mount(el, (p) => <DrawerSystemIsland {...p} />, props);
 }
 
+/**
+ * The kit CloudProviderCards (operator finding 2026-10-29): one card per cloud provider AbstractCore
+ * lists, an API-key field, "Check the key" ("Key works · 48 models" or why not) and "Save the key"
+ * (a NEW connection, create_only: never an overwrite). The setup guide's Local engines step and the
+ * Providers tab mount the same island. The host passes its JSON `request` (cookie + CSRF) and
+ * its API prefix as `base`. Additive member: apiVersion stays "2".
+ */
+export function mountCloudProviderCards(el: Element, props: CloudProviderCardsProps): IslandHandle<CloudProviderCardsProps> {
+  return mount(el, (p) => <CloudProviderCards {...p} />, props);
+}
+
+/**
+ * The cards' logic for a host's own key flow (the console's Default models → "Or use an API key"):
+ * the same check, sentence and create-only save. Additive.
+ */
+export const cloudProviders = { text: CLOUD_PROVIDER_TEXT, client: cloudProvidersClient, keyCheckResult, freshConnectionId };
+
+/** Engines' and providers' marks as HTML (the console's string-built engine cards). Additive. */
+export const brandMarks = { html: brandMarkHtml, info: brandMarkInfo, cardIds: BRAND_CARD_IDS };
+
 export function applyAppearance(settings: Partial<AppearanceSettings>): void {
   applyTheme(String(settings.theme || "dark"));
   applyTypography({ font_scale: settings.font_scale, header_density: settings.header_density });
@@ -13810,6 +13944,9 @@ const api = {
   islandConnectionStatus,
   mountWorkspaceChooser,
   mountTimeZonePicker,
+  mountCloudProviderCards,
+  cloudProviders,
+  brandMarks,
   // The chooser's ONE wording table and its answer parser (round 11): the console builds the
   // chooser state from GET /workspace/policy[/{account}] with workspaceAsState(answer, level).
   workspaceChooserText: WORKSPACE_CHOOSER_TEXT,
@@ -13817,6 +13954,11 @@ const api = {
   bindModal,
   bindMenu,
   bindTooltips,
+  // The filter bar's markup for plain-HTML hosts (kit after 0.9.8; docs/filter-bar.md): the SAME chips,
+  // facet rows and scope switch AfFilterBar renders. Additive members: apiVersion stays "2".
+  filterBarFacetsHtml: afFilterFacetsHtml,
+  filterBarScopeHtml: afFilterScopeHtml,
+  filterBarScopeButtonsHtml: afFilterScopeButtonsHtml,
   appIdentity,
   aboutVersionsFromGateway,
   applyAppearance,
@@ -21690,6 +21832,47 @@ ships.
 ## Unreleased
 
 _Nothing yet._
+
+## 0.8.8 - 2026-10-29
+
+Packages: `@abstractframework/ui-kit` 0.9.9; `@abstractframework/panel-chat` unchanged at 0.6.6 (its peer range
+`^0.9.8` covers 0.9.9); app-server unchanged. Operator findings of 2026-10-29: one compact aligned filter bar
+(0074, `AfFilterBar` + plain-HTML markup for the console islands) and the cloud provider cards with official
+brand marks (`CloudProviderCards`, keys checked before save, never an overwrite; marks with their licence notes).
+
+### ui-kit
+
+- **Cloud provider cards: where to put a cloud API key** (operator finding 2026-10-29: "where do I configure the
+  cloud engines?"). `CloudProviderCards` shows ONE card per cloud provider AbstractCore lists (the gateway's
+  `GET discovery/providers` rows with `local_provider: false`; today OpenAI, Anthropic, OpenRouter and Portkey), each
+  with its mark, its connection state (key fingerprint only), an API-key field, "Check the key" and one readable line:
+  "Key works · 48 models", or why not ("OpenRouter refused this key. Check that it was copied in full and is still
+  active."). The key is checked first (`POST …/discover-models`, which stores nothing); only a key that checked OK can
+  be saved, and editing it drops the check. Saving creates a NEW connection with a fresh id (`openai-key`,
+  `openai-key-2`, …) and `create_only: true`, so an existing connection is never overwritten (a 409 moves to the next
+  id). The field is emptied after the save; the key is never rendered. Logic in `cloud_providers_core.ts`
+  (`cloudProvidersClient`, `keyCheckResult`, `freshConnectionId`, …), shared with a host's own key flow. Console
+  islands: `mountCloudProviderCards`, `cloudProviders` (additive; apiVersion stays "2"). Check:
+  `scripts/check_cloud_providers.mjs`.
+
+- **Official marks for engines and cloud providers** (same finding: "replace the two-letter badges"). `BrandMark` /
+  `brandMarkHtml(id)` draw the brand's own logo, inlined (no request to any host), in its own colours on a light tile
+  in every theme. Ollama, Hugging Face, MLX, llama.cpp and OpenRouter come from the brands' own files; LM Studio and
+  vLLM from Simple Icons (CC0 path data). OpenAI and Anthropic keep a readable text badge because their brand terms
+  require permission or prior approval, Portkey because it publishes no usable logo; `openai-compatible` (a protocol)
+  reads "API". Each mark records its source file URL, its terms page, its licence and restrictions, and the date it
+  was taken (`brand_icons.tsx`, table in `docs/icons.md`). Console islands: `brandMarks`. Check:
+  `scripts/check_brand_icons.mjs` (every card id has a mark or a documented fallback; every mark has its licence note
+  and is self-contained).
+- **One filter bar** (operator design finding 2026-10-29, backlog 0074). `AfFilterBar`: a first line with the
+  search field and its on/off filters together (an optional scope switch leads it, the count closes it), then one
+  row per facet with the label in a fixed left column and the chips wrapping in the second column, never under the
+  label. Chips are the kit chip at one size with the count in muted small text; pressed is the accent hue. A
+  `trailing` control belongs to one facet. `sticky` keeps the first line under the header while the rows scroll
+  away. The chip, row and scope markup has one source (`af_filter_bar_core.ts`) for React and plain HTML; the
+  console islands expose it as `filterBarFacetsHtml`, `filterBarScopeHtml` and `filterBarScopeButtonsHtml`
+  (additive, `apiVersion` stays "2"). Styles: theme.css `af-filterbar`. Docs: `docs/filter-bar.md`. Check:
+  `check_filter_bar.mjs`.
 
 ## 0.8.7 - 2026-10-29
 
