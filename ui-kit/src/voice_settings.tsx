@@ -83,6 +83,25 @@ const GROUP_ORDER = ["Your voices", "Engine voices", "Shared voices"];
  * record's `kind` as well as `voice_kind`: the gateway's catalog merge sets `voice_kind: "voice"`
  * on a clone an engine also lists among its voices.
  */
+/**
+ * A cloned voice's reference clip length in seconds (AbstractVoice >= 0.19.4 `reference_seconds`:
+ * top level on `GET voice/clones/{id}`, `tags` / `params` on each `GET voice/clones` entry), or
+ * null when the record does not carry it (built-in voices, older AbstractVoice).
+ */
+export function voiceReferenceSeconds(item: any): number | null {
+  for (const v of [item?.reference_seconds, item?.tags?.reference_seconds, item?.params?.reference_seconds]) {
+    const n = typeof v === "number" ? v : typeof v === "string" && v.trim() ? Number(v) : NaN;
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
+
+/** "3.9 s reference" for a voice card (one decimal), or "" when the length is unknown. */
+export function voiceReferenceLabel(item: any): string {
+  const s = voiceReferenceSeconds(item);
+  return s === null ? "" : `${s.toFixed(1)} s reference`;
+}
+
 export function voiceGroup(item: any): string {
   const tags = (item && item.tags) || {};
   const scope = item?.params?.meta?.scope;
@@ -1051,7 +1070,7 @@ export function VoiceLibraryPanel({
                   <span className="af-voice-library__name">
                     {label(r)}
                     <span className="af-voice-library__meta">
-                      {[shared ? "Shared" : "Yours", lang ? voiceLanguageLabel(lang) : "", engine].filter(Boolean).join(" · ")}
+                      {[shared ? "Shared" : "Yours", lang ? voiceLanguageLabel(lang) : "", engine, voiceReferenceLabel(r)].filter(Boolean).join(" · ")}
                     </span>
                   </span>
                 )}

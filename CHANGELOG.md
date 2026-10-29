@@ -11,6 +11,12 @@ ships.
 
 ### ui-kit
 
+- **A voice card shows its reference length** (2026-10-29): `VoiceLibraryPanel`'s card adds "3.9 s reference" to its
+  meta line, read from AbstractVoice 0.19.4's `reference_seconds` (`tags` / `params` on `GET voice/clones`, top level on
+  `GET voice/clones/{id}`). Unknown (built-in voices, older AbstractVoice): nothing is shown. There is no "short
+  reference" warning: the measurements show the length does not predict a clone's drift. New exports
+  `voiceReferenceSeconds`, `voiceReferenceLabel`. Check: `scripts/check_voice_library.mjs`.
+
 - **The attention badge, defined once** (operator 2026-10-29, backlog 0067): `automation_controls.json` gains
   `icons.attention` (the `<Icon name="inbox">` glyph as SVG markup) and `attention` (the badge's words), exported as
   `ATTENTION_GLYPH`, `ATTENTION_TEXT`, `attentionBadgeTooltip(waiting, results)` and `attentionBadgeLabel(total)`.
