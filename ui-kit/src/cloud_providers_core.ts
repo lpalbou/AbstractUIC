@@ -194,7 +194,7 @@ const statusOf = (err: unknown): number => Number(err && typeof err === "object"
 /**
  * The gateway client of the cards (and of the console's Default models key flow). `request` is the
  * host's JSON request (cookie session + CSRF), rejecting a non-2xx answer with an Error carrying
- * `status`. Paths are under `base` (default "api/gateway", relative; the console passes "/api/gateway").
+ * `status`. Paths are under `base` (default "api/gateway", relative; a host passes its own prefix).
  */
 export function cloudProvidersClient(request: CloudRequest, base: string = GATEWAY_API_PATH) {
   const root = String(base || GATEWAY_API_PATH).replace(/\/+$/, "");

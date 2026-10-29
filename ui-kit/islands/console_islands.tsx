@@ -609,7 +609,7 @@ export function mountDrawerSystem(el: Element, props: DrawerSystemIslandProps): 
  * lists, an API-key field, "Check the key" ("Key works · 48 models" or why not) and "Save the key"
  * (a NEW connection, create_only: never an overwrite). The setup guide's Local engines step and the
  * Providers tab mount the same island. The host passes its JSON `request` (cookie + CSRF) and
- * `base: "/api/gateway"`. Additive member: apiVersion stays "2".
+ * its API prefix as `base`. Additive member: apiVersion stays "2".
  */
 export function mountCloudProviderCards(el: Element, props: CloudProviderCardsProps): IslandHandle<CloudProviderCardsProps> {
   return mount(el, (p) => <CloudProviderCards {...p} />, props);

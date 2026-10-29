@@ -27,7 +27,7 @@ import {
 
 export type CloudProviderCardsProps = {
   request: CloudRequest;
-  /** API base (default "api/gateway", relative). The console passes "/api/gateway". */
+  /** API base (default "api/gateway", relative); a host whose API lives elsewhere passes its own prefix. */
   base?: string;
   /** "gateway" (an admin: everyone on this gateway) or "user" (only me). Default "gateway". */
   scope?: SaveScope;
