@@ -9,7 +9,13 @@ ships.
 
 ## Unreleased
 
-_Nothing yet._
+### ui-kit
+
+- **Tool results in words, never raw JSON** (operator QA 2026-10-29, backlog 0070). `describeToolResult` and the
+  `ToolResultWordsView` component turn a tool's result into one sentence and up to three readable items: "Web search
+  returned 10 results" with the first titles, "Page fetch failed: timed out after 30 s", "Page skim returned “FDA
+  meeting” (fda.gov/…), 1,204 characters". This is the same rule as 0068's calls: hosts keep the JSON behind a
+  disclosure. Check: `scripts/check_tool_call_words.mjs`.
 
 ## 0.8.5 - 2026-10-29
 

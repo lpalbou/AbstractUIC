@@ -7559,3 +7559,7 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 .af-toolwords__muted { color: var(--text-muted); font-size: var(--font-size-sm); }
 .af-toolwords__fallback { display: inline-grid; gap: 2px; vertical-align: top; }
 .af-toolwords__line { display: block; }
+.af-toolresult { display: grid; gap: 2px; }
+.af-toolresult__sentence { margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm); }
+.af-toolresult.is-failed .af-toolresult__sentence { color: var(--error, var(--text-secondary)); }
+.af-toolresult__items { margin: 0; padding-left: 18px; color: var(--text-muted); font-size: var(--font-size-sm); overflow-wrap: anywhere; }

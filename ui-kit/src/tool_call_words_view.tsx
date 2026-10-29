@@ -5,7 +5,7 @@
  * ("2 web searches, 2 page fetches"). The tool's own name rides the chip's tooltip.
  */
 import React from "react";
-import { describeToolCall, groupToolCalls, type ToolCallInput } from "./tool_call_words.js";
+import { describeToolCall, describeToolResult, groupToolCalls, type ToolCallInput } from "./tool_call_words.js";
 
 export type ToolCallWordsListProps = {
   calls: readonly ToolCallInput[];
@@ -43,6 +43,27 @@ export function ToolCallWordsList(props: ToolCallWordsListProps): React.ReactEle
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+export type ToolResultWordsProps = {
+  /** The tool that produced the result, when known. */
+  name?: string | null;
+  result: unknown;
+  className?: string;
+};
+
+/** `ToolResultWords`: a tool result as a sentence and up to three readable items (see
+ * `describeToolResult`), never its JSON; hosts put the exact payload behind a disclosure. */
+export function ToolResultWords(props: ToolResultWordsProps): React.ReactElement {
+  const w = describeToolResult({ name: props.name, result: props.result });
+  return (
+    <div className={`af-toolresult${w.failed ? " is-failed" : ""}${props.className ? ` ${props.className}` : ""}`} data-tool={props.name || undefined}>
+      <p className="af-toolresult__sentence">{w.sentence}</p>
+      {w.items.length ? (
+        <ul className="af-toolresult__items">{w.items.map((item, i) => <li key={i}>{item}</li>)}</ul>
+      ) : null}
     </div>
   );
 }
