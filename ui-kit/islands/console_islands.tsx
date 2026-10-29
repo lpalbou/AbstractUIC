@@ -168,6 +168,9 @@ export type SandboxChatIslandProps = {
    */
   voice?: {
     tts?: (text: string) => Promise<ArrayBuffer>;
+    /** The voice `tts` speaks with (useGatewayVoice `tts_voice`); absent = the gateway's default,
+     * and a paused reply is then spoken again rather than resumed (it may be another voice now). */
+    tts_voice?: Record<string, unknown> | string | null;
     transcribe?: (blob: Blob, mime: string) => Promise<string>;
   } | null;
 };
@@ -291,6 +294,7 @@ export function SandboxChatIsland(props: SandboxChatIslandProps): React.ReactEle
   draftRef.current = props;
   const voice = useGatewayVoice({
     tts: props.voice?.tts,
+    tts_voice: props.voice?.tts_voice,
     transcribe: props.voice?.transcribe,
     on_transcript: (text) => {
       const words = String(text || "").trim();

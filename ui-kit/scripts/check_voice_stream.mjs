@@ -64,6 +64,8 @@ function mount() {
   try {
     voice = useGatewayVoice({
       tts_stream: (text, signal) => streamTtsJsonl({ path: "/tts", body: { text }, signal, headers: { "x-abstract-csrf": "token" } }),
+      // The voice the stream speaks with: a paused reply resumes only in the same voice.
+      tts_voice: { voice: "sisko" },
       on_error: (error) => { if (error) errors.push(error); },
     });
   } finally { internals.ReactCurrentDispatcher.current = previous; }
