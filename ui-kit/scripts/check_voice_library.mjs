@@ -554,7 +554,7 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
     {
       const calls = [];
       let voices = [
-        { id: "v1", name: "My voice", kind: "clone", engine: "omnivoice", language: "en", params: { meta: { scope: "personal" } } },
+        { id: "v1", name: "My voice", kind: "clone", engine: "omnivoice", language: "en", tags: { reference_seconds: 3.94 }, params: { meta: { scope: "personal" } } },
         { voice_id: "v2", name: "Team voice", kind: "clone", provider: "qwen3-tts", params: { meta: { scope: "library" } } },
         { id: "fr-female-camille", name: "Camille", kind: "clone", tags: { builtin: true } },
       ];
@@ -574,6 +574,8 @@ const voiceIds = (tree) => (byAria(tree, "AI voice")?.props.options || []).filte
       const row = (id) => findH(h.tree, (n) => n.props["data-voice-id"] === id);
       check("0035 the library lists the voices that can change", Boolean(row("v1")) && Boolean(row("v2")) && !row("fr-female-camille"));
       check("0035 a voice says whose it is", text(row("v1")).includes("Yours · English · omnivoice") && text(row("v2")).includes("Shared"), text(row("v1")));
+      // AbstractVoice 0.19.4 `reference_seconds`: the card shows the reference clip's length; unknown = nothing.
+      check("voice card shows the reference length", text(row("v1")).includes("3.9 s reference") && !text(row("v2")).includes("reference"), text(row("v1")) + " | " + text(row("v2")));
       check("0035 Share is offered for my voice, not for a shared one", Boolean(dataH(row("v1"), "data-action", "share-voice")) && !dataH(row("v2"), "data-action", "share-voice"));
       dataH(row("v1"), "data-action", "rename-voice").props.onClick();
       h.render();

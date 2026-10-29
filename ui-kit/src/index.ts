@@ -556,6 +556,8 @@ export {
   voiceLanguagesFromAnswer,
   voiceRecordId,
   type VoiceLibrary,
+  voiceReferenceSeconds,
+  voiceReferenceLabel,
   type VoiceRecord,
   type VoiceRecordFrom,
   type VoicePlayOn,

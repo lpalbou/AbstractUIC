@@ -11,6 +11,11 @@ ships.
 
 ### ui-kit
 
+- **A voice card shows its reference length** (2026-10-29): `VoiceLibraryPanel`'s card adds "3.9 s reference" to its
+  meta line, read from AbstractVoice 0.19.4's `reference_seconds` (`tags` / `params` on `GET voice/clones`, top level on
+  `GET voice/clones/{id}`). Unknown (built-in voices, older AbstractVoice): nothing is shown. There is no "short
+  reference" warning: the measurements show the length does not predict a clone's drift. New exports
+  `voiceReferenceSeconds`, `voiceReferenceLabel`. Check: `scripts/check_voice_library.mjs`.
 - **One account widget in the top bar** (operator 2026-10-29): signed in with `identity` on, `AfTopBarActions` shows ONE
   button with the person icon, the name and the connection light. Its menu holds who and which gateway, Copy user id
   and Disconnect, and there is no pill beside it. While a disconnect runs, the light turns amber and the item reads
