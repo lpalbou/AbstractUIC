@@ -20,7 +20,7 @@ Ecosystem context (external):
 Important integration notes:
 - Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
 - One shared component per user-facing job, composed on AbstractGateway's contracts (ADR 0001): use the job table in `docs/adoption-guide.md` before building anything app-local.
-- `@abstractframework/panel-chat` 0.6.4 needs `@abstractframework/ui-kit` `^0.9.0` (peer dependency); upgrade them together.
+- `@abstractframework/panel-chat` 0.6.5 needs `@abstractframework/ui-kit` `^0.9.6` (peer dependency); upgrade them together.
 - Only `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` perform network requests by default (each polls a metrics endpoint; optional Bearer auth).
 - Always import the package CSS from your app entrypoint (especially in Next.js). Start with `docs/getting-started.md` → `docs/api.md`.
 
@@ -70,8 +70,8 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.5): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
-- [@abstractframework/panel-chat](panel-chat/README.md) (0.6.4, needs ui-kit ^0.9.0): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
+- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.6): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/panel-chat](panel-chat/README.md) (0.6.5, needs ui-kit ^0.9.6): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -168,6 +168,15 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
+
+## What's new in 0.8.5
+
+`@abstractframework/ui-kit` 0.9.6: approval cards list tool calls in words, never raw JSON
+(`describeToolCall`, `ToolCallWordsList`); ONE account widget in the top bar; a voice change never replays the
+old voice (`useGatewayVoice` `tts_voice`); a cloned voice's card shows its reference length; a failed read-aloud
+says why. `@abstractframework/panel-chat` 0.6.5 (needs ui-kit `^0.9.6`): the chat's approval card renders the
+kit's list; read aloud speaks only a reply generated while the conversation is open
+([changelog](./CHANGELOG.md#085---20261029)).
 
 ## What's new in 0.8.4
 
@@ -6545,7 +6554,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -6570,7 +6579,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.5",
+  "version": "0.9.6",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -6618,7 +6627,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_session_tool_policy.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_tool_call_words.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_session_tool_policy.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -6646,7 +6655,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -6692,15 +6701,15 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && tsc -p scripts/types/tsconfig.json"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && tsc -p scripts/types/tsconfig.json"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.9.0",
+    "@abstractframework/ui-kit": "^0.9.6",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.9.0",
+    "@abstractframework/ui-kit": "^0.9.6",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -7010,7 +7019,7 @@ export {
   type AppearanceSettings,
   type AfAppearanceDialogProps,
 } from "./appearance.js";
-export { useGatewayVoice, streamTtsJsonl, voiceErrorSentence, MIN_RECORDING_MS, type GatewayVoice, type GatewayVoiceOptions, type TtsPlaybackStatus, type VoiceTranscription } from "./use_gateway_voice.js";
+export { useGatewayVoice, streamTtsJsonl, ttsErrorDetail, voiceErrorSentence, MIN_RECORDING_MS, type GatewayVoice, type GatewayVoiceOptions, type TtsPlaybackStatus, type VoiceTranscription } from "./use_gateway_voice.js";
 export { AfPhaseRadio, type AfPhaseRadioProps, type AfPhaseSlot } from "./af_phase_radio.js";
 export { AfCognitionBloom, type AfCognitionBloomProps } from "./af_cognition_bloom.js";
 export { AfConductGauge, type AfConductGaugeProps } from "./af_conduct_gauge.js";
@@ -7254,6 +7263,11 @@ export {
   CONTROL_LABELS,
   RUN_NOW_GROWING_LINE,
   RUN_NOW_GLYPH,
+  ATTENTION_GLYPH,
+  ATTENTION_TEXT,
+  attentionBadgeTooltip,
+  attentionBadgeLabel,
+  type AttentionText,
   RUN_NOW_NEXT_RUN_LINE,
   RUN_NOW_ONE_LINE,
   controlHint,
@@ -7445,11 +7459,13 @@ export {
   voiceLanguagesFromAnswer,
   voiceRecordId,
   type VoiceLibrary,
+  voiceReferenceSeconds,
+  voiceReferenceLabel,
   type VoiceRecord,
   type VoiceRecordFrom,
   type VoicePlayOn,
 } from "./voice_settings.js";
-export { voiceCaptureMode, type VoiceCaptureMode } from "./use_gateway_voice.js";
+export { voiceCaptureMode, ttsVoiceKey, type VoiceCaptureMode } from "./use_gateway_voice.js";
 export { recordingAbortError } from "./voice_devices.js";
 export { AfVoiceLevelMeter, useVoiceLevel, type AfVoiceLevelMeterProps, type VoiceLevelSource } from "./af_voice_level_meter.js";
 export { GATEWAY_VOICE_ROUTES, voiceClonePath, voiceCloneDeployPath, runVoiceTtsPath, runTranscribePath, entityVoicePath } from "./gateway_paths.js";
@@ -7552,7 +7568,7 @@ export {
   type AfDrawerStored,
 } from "./af_drawer_system.js";
 export { drawerTop, drawerFocusTarget } from "./af_drawer.js";
-export { topBarPillText, topBarConnection, identityTitle, useAfTopBarHeight, AF_TOPBAR_HEIGHT_VAR, type AfTopBarConnection } from "./af_top_bar_actions.js";
+export { topBarPillText, topBarConnection, identityTitle, accountTitle, useAfTopBarHeight, AF_TOPBAR_HEIGHT_VAR, type AfTopBarConnection } from "./af_top_bar_actions.js";
 export { principalFromConnection, principalLabel, gatewayHostLabel, AF_DEFAULT_TENANT, type AfPrincipal } from "./principal.js";
 export { fetchAboutVersions, ABOUT_VERSIONS_CHECKING, type AfGatewayFetch } from "./about.js";
 export type { GatewayPrincipalPayload } from "./gateway_connect_modal.js";
@@ -7590,6 +7606,10 @@ export {
 } from "./tool_layer_store.js";
 export { policySetLine, TOOL_SESSION_OFF_HELP, TOOL_POLICY_SCOPE_UNSAID } from "./tool_mode_editor.js";
 export { SESSION_ID_PATTERN, sessionToolPolicyRoute } from "./gateway_paths.js";
+
+// Tool calls in words (operator QA 2026-10-29): approval cards never print raw JSON.
+export { describeToolCall, groupToolCalls, prettyQuotes, readableKey, shortUrl, type ToolCallInput, type ToolCallWords } from "./tool_call_words.js";
+export { ToolCallWordsList, type ToolCallWordsListProps } from "./tool_call_words_view.js";
 
 ## ui-kit/src/responsive.ts
 
@@ -13258,6 +13278,9 @@ export type SandboxChatIslandProps = {
    */
   voice?: {
     tts?: (text: string) => Promise<ArrayBuffer>;
+    /** The voice `tts` speaks with (useGatewayVoice `tts_voice`); absent = the gateway's default,
+     * and a paused reply is then spoken again rather than resumed (it may be another voice now). */
+    tts_voice?: Record<string, unknown> | string | null;
     transcribe?: (blob: Blob, mime: string) => Promise<string>;
   } | null;
 };
@@ -13381,6 +13404,7 @@ export function SandboxChatIsland(props: SandboxChatIslandProps): React.ReactEle
   draftRef.current = props;
   const voice = useGatewayVoice({
     tts: props.voice?.tts,
+    tts_voice: props.voice?.tts_voice,
     transcribe: props.voice?.transcribe,
     on_transcript: (text) => {
       const words = String(text || "").trim();
@@ -15475,6 +15499,8 @@ export { ChatComposer } from "./chat_composer.js";
 export { Markdown, sameOriginImage, type MarkdownImages, type MarkdownProps } from "./markdown.js";
 export { JsonViewer } from "./json_viewer.js";
 export { ChatMessageCard, speakButtonView } from "./chat_message_card.js";
+export { READ_ALOUD_INITIAL, readAloudPhase, readAloudStep } from "./read_aloud.js";
+export type { ReadAloudInput, ReadAloudPhase, ReadAloudReply, ReadAloudState } from "./read_aloud.js";
 export { formatMessageStamp, messageStampTitle, messageStampIso, localDayKey, useLocalDay } from "./message_footer.js";
 export { ChatThread } from "./chat_thread.js";
 export { ToolActivity, ToolActivityGroup, toolArguments, toolPreview } from "./tool_activity.js";
@@ -17737,7 +17763,8 @@ export function WorkspaceBrowserView(p: WorkspaceBrowserViewProps): React.ReactE
 // (`workspace/interaction.tsx`), which the Observer had copied in part.
 import { resolveWorkflowEventTarget } from "./event_target.js";
 import { JsonViewer } from "./json_viewer.js";
-import { ToolActivityGroup } from "./tool_activity.js";
+import { ToolCallWordsList } from "@abstractframework/ui-kit";
+import { toolArguments } from "./tool_activity.js";
 import { sessionPolicyClampedText } from "./tool_policy.js";
 import { WORKFLOW_INTERACTION_LABELS, type WorkflowInteraction, type WorkflowInteractionRemember, type WorkflowToolApprovalInteraction } from "./workflow_interaction.js";
 import type { ServerRecord, SessionToolPolicy, WorkflowRecord, WorkflowSessionController, WorkflowWaitInteraction } from "./workflow_runtime.js";
@@ -17984,14 +18011,14 @@ export function presentInteraction(
       description: "Review the targets below. Allow once approves this batch only.",
       detail: (
         <div className="pc-approval-summary">
-          <ToolActivityGroup
-            tools={calls.map((call: any, index: number) => ({
-              id: String(call?.call_id || call?.id || index),
-              runId: raw.runId,
-              name: call?.name || "Tool",
-              arguments: call?.arguments,
-              status: "waiting" as const,
-            }))}
+          {/* The calls in words (the kit's ToolCallWordsList, ui-kit tool_call_words), the same
+              card as the automation panel's and the Assistant's; the exact arguments stay one click away. */}
+          <ToolCallWordsList
+            calls={calls.map((call: any) => {
+              const args = toolArguments(call?.arguments);
+              return { name: String(call?.name || "tool"), arguments: args && typeof args === "object" && !Array.isArray(args) ? (args as Record<string, unknown>) : null };
+            })}
+            label="Tool calls to approve"
           />
           <details>
             <summary>Review full tool arguments (JSON)</summary>
@@ -21526,6 +21553,77 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## Unreleased
+
+_Nothing yet._
+
+## 0.8.5 - 2026-10-29
+
+Packages: `@abstractframework/ui-kit` 0.9.6, `@abstractframework/panel-chat` 0.6.5 (needs ui-kit `^0.9.6`:
+its approval card renders the kit's `ToolCallWordsList`); app-server unchanged at 0.1.13. Operator QA of
+2026-10-29: tool calls in words (0068, 0069), one account widget, a voice change never replays the old voice,
+a voice card's reference length, a failed read-aloud's reason, the attention badge defined once (0067), read
+aloud only for a reply generated while open (0065).
+
+### ui-kit
+
+- **A voice card shows its reference length** (2026-10-29): `VoiceLibraryPanel`'s card adds "3.9 s reference" to its
+  meta line, read from AbstractVoice 0.19.4's `reference_seconds` (`tags` / `params` on `GET voice/clones`, top level on
+  `GET voice/clones/{id}`). Unknown (built-in voices, older AbstractVoice): nothing is shown. There is no "short
+  reference" warning: the measurements show the length does not predict a clone's drift. New exports
+  `voiceReferenceSeconds`, `voiceReferenceLabel`. Check: `scripts/check_voice_library.mjs`.
+- **One account widget in the top bar** (operator 2026-10-29): signed in with `identity` on, `AfTopBarActions` shows ONE
+  button with the person icon, the name and the connection light. Its menu holds who and which gateway, Copy user id
+  and Disconnect, and there is no pill beside it. While a disconnect runs, the light turns amber and the item reads
+  "Disconnecting…". `identity: "badge"` now renders the same widget. Connecting, signed out or `identity` off: the
+  connection pill, as before. New export `accountTitle` (the button's tooltip). Hosts' end-to-end tests that pressed
+  "Disconnect from gateway" now open the account menu and choose Disconnect. Check: `scripts/check_app_shell.mjs`.
+- **A voice change never replays the old voice** (operator 2026-10-29): `useGatewayVoice` ties the audio it keeps for
+  a paused message to (message, text, voice). New option `tts_voice`, the request's speech fields;
+  `gatewayVoiceOptions(prefs)` passes `voiceTtsRequest(prefs)`. A voice change drops a paused message's audio, so its
+  speaker goes back to idle and the next press speaks it in the new voice. The same voice resumes as before. A host
+  that names no voice never reuses kept audio (a paused message starts over). New export `ttsVoiceKey`. Checks:
+  `scripts/check_voice_hook.mjs`, `scripts/check_voice_stream.mjs`.
+- **Tool calls in words, never raw JSON** (operator QA 2026-10-29, backlog 0068). An approval card listed
+  `fetch_url {"include_full_content": false, …}`. `describeToolCall` / `groupToolCalls` and the `ToolCallWordsList`
+  component now render, for example, "Fetch the page fda.gov/news-events/…/public-meeting-10282026 (summary only,
+  without links)" and "Search the web for “Oct. 28, 2026” pharmaceutical FDA approval (10 results, US English,
+  moderate safe search)".
+  - The verb is a coloured chip, the key argument is highlighted, and the options are muted.
+  - Repeated tools are counted ("2 web searches, 2 page fetches").
+  - A tool without a template reads as "Key: value" lines, never braces.
+  - The automation wait card uses it.
+  - Shared cases for other clients: `tool_call_words.cases.json`. Check: `scripts/check_tool_call_words.mjs`.
+
+### ui-kit
+- **A failed read-aloud says why, never "[object Object]"** (2026-10-29, backlog 0068): when `/voice/tts/stream`
+  fails, `streamTtsJsonl` uses the typed answer's `detail.message` (`{reason_code, message, ...}`). A string `detail`
+  is unchanged, and `HTTP <status>` is the fallback. New export `ttsErrorDetail`. Check:
+  `scripts/check_voice_stream.mjs`.
+
+- **The attention badge, defined once** (operator 2026-10-29, backlog 0067): `automation_controls.json` gains
+  `icons.attention` (the `<Icon name="inbox">` glyph as SVG markup) and `attention` (the badge's words), exported as
+  `ATTENTION_GLYPH`, `ATTENTION_TEXT`, `attentionBadgeTooltip(waiting, results)` and `attentionBadgeLabel(total)`.
+  A client shows what waits for the person elsewhere as an icon and a count on its sessions control, never as a text
+  banner; the clients that vendor the file (the Assistant, the Code TUI) draw the same glyph and words. Check:
+  `scripts/check_automation_panel.mjs` (the glyph IS `<Icon name="inbox">`'s markup).
+
+### panel-chat
+
+- **Read aloud speaks only a reply generated while the conversation is open** (operator 2026-10-29, backlog 0065):
+  `readAloudStep` / `READ_ALOUD_INITIAL` / `readAloudPhase` hold the rule for every host — a reply is spoken by itself
+  only when its run was sent or seen in progress in this conversation and completed with it (a failed or stopped run
+  disarms); opening, reloading or switching to a conversation never
+  speaks its existing messages. Hosts that keep their own read-aloud effect (AbstractCode web, Observer, Entity)
+  adopt it on the next release (their effects baselined before the conversation had loaded, so its first loaded
+  reply was spoken). Check: `scripts/check_read_aloud.mjs`.
+
+### panel-chat
+
+- **The chat's tool-approval card lists the calls in words** (backlog 0069, adopting 0068). `presentInteraction`
+  now renders the kit's `ToolCallWordsList` ("Write the file **a.md**", "2 file writes"), as the automation wait card
+  and the Assistant do. The tool's name and its arguments no longer appear as the row text. The exact JSON stays
+  behind **Review full tool arguments (JSON)**. This covers AbstractCode web's chat approvals and the Observer's
+  automation discussions. Check: `scripts/check_present_interaction.mjs`.
 
 ## 0.8.4 - 2026-10-28
 
