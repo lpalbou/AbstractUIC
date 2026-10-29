@@ -102,7 +102,7 @@ used now (`disabled`) carries `af-filterbar__facet--disabled` and disables every
 - **First line**: `.af-filterbar__line` holds the field and the toggles and never wraps; the field
   shrinks first. The scope switch leads; the end slot closes the line (`margin-left: auto`) and
   moves to its own line when the width runs out.
-- **Facet rows**: a grid of `var(--af-filterbar-label-w)` (7rem; 6rem below 480 px) and
+- **Facet rows**: a grid of `var(--af-filterbar-label-w)` (7.5rem, wide enough for "QUANTIZATION" at phone text sizes) and
   `minmax(0, 1fr)`. The label is one line in column 1 with the chip height as its line box, so it
   aligns with the first chip row; the chips wrap inside column 2. No width query stacks the label
   over the chips.

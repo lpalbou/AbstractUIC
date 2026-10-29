@@ -4842,7 +4842,7 @@ html {
  * the top of the scroller while the facet rows scroll away. Consoles that vendor an older
  * kit copy this block verbatim until their vendored kit carries it. */
 .af-filterbar {
-  --af-filterbar-label-w: 7rem;
+  --af-filterbar-label-w: 7.5rem;
   --af-filterbar-chip-h: 28px;
   --af-filterbar-pad-x: 16px;
   --af-filterbar-top: 0px;
@@ -5122,7 +5122,6 @@ html {
 }
 @media (max-width: 479.98px) {
   .af-filterbar {
-    --af-filterbar-label-w: 6rem;
     --af-filterbar-pad-x: 12px;
   }
   .af-filterbar__lead {

@@ -14,7 +14,7 @@ side and wrap under their own label, chips of different heights (44 px ovals on 
 ## What shipped
 - `AfFilterBar` (`ui-kit/src/af_filter_bar.tsx`): a first line (optional scope switch, the search field with its
   toggles on ONE line, optional submit, the end slot for the count) and one row per facet: the label in a FIXED column
-  (`--af-filterbar-label-w`), the chips in the second column where they wrap. `trailing` puts a control of one facet
+  (`--af-filterbar-label-w`, 7.5rem), the chips in the second column where they wrap. `trailing` puts a control of one facet
   after its chips. `sticky` / `stuck` keep the first line under the header.
 - One markup source for React and plain HTML (`ui-kit/src/af_filter_bar_core.ts`): `afFilterFacetsHtml`,
   `afFilterFacetHtml`, `afFilterChipHtml`, `afFilterScopeHtml`, `afFilterScopeButtonsHtml`; the islands expose the
