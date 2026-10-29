@@ -3772,7 +3772,11 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--ui-border-2);
   background: var(--bg-secondary);
+  /* The standard text colour, whatever the run's tone (operator 2026-10-29: a dimmed one read poorly). */
+  color: var(--text-primary);
 }
+/* Opened at what needs the person (the attention rule): outlined for a moment. */
+.af-auto .is-attention-focus { outline: 2px solid var(--accent); outline-offset: 2px; transition: outline-color 0.4s ease; }
 .af-auto__confirm { border-color: var(--error-border); background: var(--error-subtle); }
 .af-auto__revise { border-color: var(--accent-border); gap: 12px; }
 .af-auto__revise textarea { width: 100%; box-sizing: border-box; resize: vertical; line-height: 1.45; }
