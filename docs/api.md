@@ -261,6 +261,7 @@ self-contained script that defines `window.AfConsoleIslands` (`apiVersion` `"2"`
 `mountDrawerSystem(el, props)`, `islandConnectionStatus(connection)`, `mountSandboxChat(el, props)`,
 `mountProviderModelPicker(el, props)`, `mountToolModeEditor(el, props)`, `mountVoiceSettings(el, props)`,
 `mountVoiceSection(el, props)`, `mountWorkspaceChooser(el, props)`, `mountTimeZonePicker(el, props)`,
+`mountCloudProviderCards(el, props)`, `cloudProviders`, `brandMarks`,
 `bindModal`, `bindMenu`, `bindTooltips`, …). Build it with
 `npm run build:islands -w @abstractframework/ui-kit`. It is not included in the npm tarball.
 Full reference: [Console islands](./console-islands.md).

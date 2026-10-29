@@ -34,6 +34,9 @@ import { AfVoiceSection, type AfVoiceSectionProps } from "../src/af_voice_sectio
 import { WorkspaceChooser, type WorkspaceChooserProps } from "../src/workspace_chooser.js";
 import { WORKSPACE_CHOOSER_TEXT, workspaceAsState } from "../src/workspace_chooser_core.js";
 import { AfTimeZonePicker, type AfTimeZonePickerProps } from "../src/time_zone_picker.js";
+import { CloudProviderCards, type CloudProviderCardsProps } from "../src/cloud_provider_cards.js";
+import { CLOUD_PROVIDER_TEXT, cloudProvidersClient, keyCheckResult, freshConnectionId } from "../src/cloud_providers_core.js";
+import { BRAND_CARD_IDS, brandMarkHtml, brandMarkInfo } from "../src/brand_icons.js";
 // panel-chat's REAL chat (the one AbstractCode's workspace renders): ChatThread +
 // ChatComposer with the standard Attach control, drop zone and paste-to-attach.
 import { WorkflowChat } from "../../panel-chat/src/workflow_chat.js";
@@ -601,6 +604,26 @@ export function mountDrawerSystem(el: Element, props: DrawerSystemIslandProps): 
   return mount(el, (p) => <DrawerSystemIsland {...p} />, props);
 }
 
+/**
+ * The kit CloudProviderCards (operator finding 2026-10-29): one card per cloud provider AbstractCore
+ * lists, an API-key field, "Check the key" ("Key works · 48 models" or why not) and "Save the key"
+ * (a NEW connection, create_only: never an overwrite). The setup guide's Local engines step and the
+ * Providers tab mount the same island. The host passes its JSON `request` (cookie + CSRF) and
+ * `base: "/api/gateway"`. Additive member: apiVersion stays "2".
+ */
+export function mountCloudProviderCards(el: Element, props: CloudProviderCardsProps): IslandHandle<CloudProviderCardsProps> {
+  return mount(el, (p) => <CloudProviderCards {...p} />, props);
+}
+
+/**
+ * The cards' logic for a host's own key flow (the console's Default models → "Or use an API key"):
+ * the same check, sentence and create-only save. Additive.
+ */
+export const cloudProviders = { text: CLOUD_PROVIDER_TEXT, client: cloudProvidersClient, keyCheckResult, freshConnectionId };
+
+/** Engines' and providers' marks as HTML (the console's string-built engine cards). Additive. */
+export const brandMarks = { html: brandMarkHtml, info: brandMarkInfo, cardIds: BRAND_CARD_IDS };
+
 export function applyAppearance(settings: Partial<AppearanceSettings>): void {
   applyTheme(String(settings.theme || "dark"));
   applyTypography({ font_scale: settings.font_scale, header_density: settings.header_density });
@@ -626,6 +649,9 @@ const api = {
   islandConnectionStatus,
   mountWorkspaceChooser,
   mountTimeZonePicker,
+  mountCloudProviderCards,
+  cloudProviders,
+  brandMarks,
   // The chooser's ONE wording table and its answer parser (round 11): the console builds the
   // chooser state from GET /workspace/policy[/{account}] with workspaceAsState(answer, level).
   workspaceChooserText: WORKSPACE_CHOOSER_TEXT,

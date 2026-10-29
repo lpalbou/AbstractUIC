@@ -7568,3 +7568,127 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 .af-toolresult__sentence { margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm); }
 .af-toolresult.is-failed .af-toolresult__sentence { color: var(--error, var(--text-secondary)); }
 .af-toolresult__items { margin: 0; padding-left: 18px; color: var(--text-muted); font-size: var(--font-size-sm); overflow-wrap: anywhere; }
+
+/* Brand marks (brand_icons.tsx): an engine's or provider's own logo, in its own colours, on a light
+ * tile in every theme (several brands forbid recolouring). A brand without a usable logo gets a
+ * readable text badge (accent tint, like the console's two-letter marks it replaces). */
+.af-brand-mark {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  padding: 7px;
+  border-radius: var(--radius-lg, 10px);
+  background: #ffffff;
+  border: 1px solid var(--ui-border-2, var(--ui-border-1));
+  overflow: hidden;
+}
+.af-brand-mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.af-brand-mark--text {
+  padding: 0;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border-color: var(--accent-border, var(--ui-border-2));
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Cloud provider cards (cloud_provider_cards.tsx): one card per cloud provider AbstractCore lists. */
+.af-cloud-providers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+  min-width: 0;
+}
+.af-cloud-providers__head {
+  display: grid;
+  gap: 4px;
+}
+.af-cloud-providers__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+.af-cloud-providers__lede,
+.af-cloud-providers__note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+}
+.af-cloud-providers__note.is-error {
+  color: var(--error);
+}
+.af-cloud-providers__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: var(--space-3, 12px);
+  min-width: 0;
+}
+.af-cloud-card {
+  gap: 10px;
+}
+.af-cloud-card__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.af-cloud-card__titles {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.af-cloud-card__name {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.af-cloud-card__status {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+.af-cloud-card__status.is-on {
+  color: var(--success);
+}
+.af-cloud-card__line {
+  margin: 0;
+  min-height: 1.4em;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.af-cloud-card__line.is-ok {
+  color: var(--success);
+  font-weight: 600;
+}
+.af-cloud-card__line.is-error {
+  color: var(--error);
+}
+.af-cloud-card__line:empty {
+  display: none;
+}
+.af-cloud-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.af-cloud-card__primary {
+  border-color: var(--accent-border, var(--accent));
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-weight: 600;
+}

@@ -712,3 +712,41 @@ export { SESSION_ID_PATTERN, sessionToolPolicyRoute } from "./gateway_paths.js";
 // Tool calls in words (operator QA 2026-10-29): approval cards never print raw JSON.
 export { describeToolCall, describeToolResult, groupToolCalls, prettyQuotes, readableKey, shortUrl, type ToolCallInput, type ToolCallWords, type ToolResultInput, type ToolResultWords } from "./tool_call_words.js";
 export { ToolCallWordsList, ToolResultWords as ToolResultWordsView, toolCallLine, type ToolCallWordsListProps, type ToolResultWordsProps } from "./tool_call_words_view.js";
+// Cloud provider cards and brand marks (operator finding 2026-10-29): one card per cloud provider
+// AbstractCore supports (key check before any save, never an overwrite), engines' and providers'
+// official marks inlined with their source, licence and date.
+export { CloudProviderCards, type CloudProviderCardsProps } from "./cloud_provider_cards.js";
+export {
+  CLOUD_PROVIDER_TEXT,
+  cloudProvidersClient,
+  cloudProvidersFromDiscovery,
+  connectionsFromProfiles,
+  connectionsFor,
+  connectionStatus,
+  connectionCreateBody,
+  connectionName,
+  freshConnectionId,
+  keyCheckResult,
+  savedSentence,
+  type CheckedKey,
+  type CloudConnection,
+  type CloudProvider,
+  type CloudProvidersClient,
+  type CloudRequest,
+  type KeyCheckAnswer,
+  type KeyCheckResult,
+  type SaveScope,
+  type SavedConnection,
+} from "./cloud_providers_core.js";
+export {
+  BRAND_ICONS,
+  BRAND_FALLBACKS,
+  BRAND_CARD_IDS,
+  BrandMark,
+  brandIconSvg,
+  brandMarkHtml,
+  brandMarkInfo,
+  type BrandIcon,
+  type BrandFallback,
+  type BrandMarkInfo,
+} from "./brand_icons.js";
