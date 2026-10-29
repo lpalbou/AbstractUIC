@@ -485,7 +485,22 @@ type AutomationControlsSpec = {
   run_now_next_run_line: string;
   run_now_growing_line: string;
   run_now_one_line: string;
-  icons: { run_now: { name: IconName; view_box: string; stroke_width: number; svg: string } };
+  icons: {
+    run_now: { name: IconName; view_box: string; stroke_width: number; svg: string };
+    attention: { name: IconName; view_box: string; stroke_width: number; svg: string };
+  };
+  attention: AttentionText;
+};
+
+/** The attention badge's words (`automation_controls.json` → `attention`). */
+export type AttentionText = {
+  doc: string;
+  waiting_one: string;
+  waiting_many: string;
+  result_one: string;
+  result_many: string;
+  open_hint: string;
+  label: string;
 };
 const SPEC = controlsSpec as AutomationControlsSpec;
 
@@ -526,6 +541,30 @@ export const RUN_NOW_ONE_LINE: string = SPEC.run_now_one_line;
 
 /** The run-now glyph as SVG markup, for clients that draw it without React (it IS `<Icon name="playCircle">`). */
 export const RUN_NOW_GLYPH: Readonly<{ name: IconName; view_box: string; stroke_width: number; svg: string }> = SPEC.icons.run_now;
+
+/**
+ * The attention badge on a client's sessions control (operator 2026-10-29: an icon and a count,
+ * not a text banner). The glyph IS `<Icon name="inbox">`, as SVG markup for clients that draw it
+ * without React (the Assistant, the Code TUI vendor this file).
+ */
+export const ATTENTION_GLYPH: Readonly<{ name: IconName; view_box: string; stroke_width: number; svg: string }> = SPEC.icons.attention;
+export const ATTENTION_TEXT: Readonly<AttentionText> = SPEC.attention;
+
+/** The badge's tooltip: one line per non-zero count, then the hint ("" when nothing waits). */
+export function attentionBadgeTooltip(waiting: number, results: number): string {
+  const t = SPEC.attention;
+  const lines: string[] = [];
+  if (waiting === 1) lines.push(t.waiting_one);
+  else if (waiting > 1) lines.push(t.waiting_many.replace("{n}", String(waiting)));
+  if (results === 1) lines.push(t.result_one);
+  else if (results > 1) lines.push(t.result_many.replace("{n}", String(results)));
+  return lines.length ? [...lines, t.open_hint].join("\n") : "";
+}
+
+/** The badge's accessible name ("3 waiting for you"); "" at zero. */
+export function attentionBadgeLabel(total: number): string {
+  return total > 0 ? SPEC.attention.label.replace("{n}", String(total)) : "";
+}
 
 /** The run-now line added when the summary carries a next run ("{time}" = `formatServedLocal` of the served `next_run_local`). */
 export const RUN_NOW_NEXT_RUN_LINE: string = SPEC.run_now_next_run_line;
