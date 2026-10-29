@@ -23,6 +23,10 @@ ships.
   - Shared cases for other clients: `tool_call_words.cases.json`. Check: `scripts/check_tool_call_words.mjs`.
 
 ### ui-kit
+- **A failed read-aloud says why, never "[object Object]"** (2026-10-29, backlog 0068): when `/voice/tts/stream`
+  fails, `streamTtsJsonl` uses the typed answer's `detail.message` (`{reason_code, message, ...}`). A string `detail`
+  is unchanged, and `HTTP <status>` is the fallback. New export `ttsErrorDetail`. Check:
+  `scripts/check_voice_stream.mjs`.
 
 - **The attention badge, defined once** (operator 2026-10-29, backlog 0067): `automation_controls.json` gains
   `icons.attention` (the `<Icon name="inbox">` glyph as SVG markup) and `attention` (the badge's words), exported as
