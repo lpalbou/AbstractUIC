@@ -23,6 +23,22 @@ ships.
   speaker goes back to idle and the next press speaks it in the new voice. The same voice resumes as before. A host
   that names no voice never reuses kept audio (a paused message starts over). New export `ttsVoiceKey`. Checks:
   `scripts/check_voice_hook.mjs`, `scripts/check_voice_stream.mjs`.
+- **Tool calls in words, never raw JSON** (operator QA 2026-10-29, backlog 0068). An approval card listed
+  `fetch_url {"include_full_content": false, …}`. `describeToolCall` / `groupToolCalls` and the `ToolCallWordsList`
+  component now render, for example, "Fetch the page fda.gov/news-events/…/public-meeting-10282026 (summary only,
+  without links)" and "Search the web for “Oct. 28, 2026” pharmaceutical FDA approval (10 results, US English,
+  moderate safe search)".
+  - The verb is a coloured chip, the key argument is highlighted, and the options are muted.
+  - Repeated tools are counted ("2 web searches, 2 page fetches").
+  - A tool without a template reads as "Key: value" lines, never braces.
+  - The automation wait card uses it.
+  - Shared cases for other clients: `tool_call_words.cases.json`. Check: `scripts/check_tool_call_words.mjs`.
+
+### ui-kit
+- **A failed read-aloud says why, never "[object Object]"** (2026-10-29, backlog 0068): when `/voice/tts/stream`
+  fails, `streamTtsJsonl` uses the typed answer's `detail.message` (`{reason_code, message, ...}`). A string `detail`
+  is unchanged, and `HTTP <status>` is the fallback. New export `ttsErrorDetail`. Check:
+  `scripts/check_voice_stream.mjs`.
 
 - **The attention badge, defined once** (operator 2026-10-29, backlog 0067): `automation_controls.json` gains
   `icons.attention` (the `<Icon name="inbox">` glyph as SVG markup) and `attention` (the badge's words), exported as

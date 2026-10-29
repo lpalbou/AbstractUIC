@@ -7548,3 +7548,14 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
 }
+
+/* Tool calls in words (tool_call_words_view.tsx): the verb chip, the key argument, muted options. */
+.af-toolwords { display: grid; gap: 4px; }
+.af-toolwords__group { margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm); }
+.af-toolwords__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.af-toolwords__call { line-height: 1.5; overflow-wrap: anywhere; }
+.af-toolwords__verb { display: inline-block; padding: 0 8px; border-radius: 999px; font-size: var(--font-size-xs); font-weight: 650; color: var(--accent); background: var(--accent-subtle); border: 1px solid var(--accent-border, var(--ui-border-2)); }
+.af-toolwords__key { color: var(--text-primary); font-weight: 650; }
+.af-toolwords__muted { color: var(--text-muted); font-size: var(--font-size-sm); }
+.af-toolwords__fallback { display: inline-grid; gap: 2px; vertical-align: top; }
+.af-toolwords__line { display: block; }

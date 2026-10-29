@@ -164,8 +164,7 @@ export async function* streamTtsJsonl(opts: {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      const detail = data && typeof data === "object" && (data as any).detail ? String((data as any).detail) : `HTTP ${res.status}`;
-      throw new Error(detail);
+      throw new Error(ttsErrorDetail(data, res.status));
     }
     if (!res.body) throw new Error("TTS stream has no body");
     const reader = res.body.getReader();
@@ -233,6 +232,21 @@ export type GatewayVoice = {
    */
   add_transcript_listener?: (fn: (text: string, info?: VoiceTranscription) => void) => () => void;
 };
+
+/**
+ * The words of a failed TTS answer: `detail` as a string, or a typed answer's `detail.message`
+ * (`{reason_code, message, ...}`), never "[object Object]"; `HTTP <status>` when there is neither.
+ */
+export function ttsErrorDetail(data: unknown, status: number): string {
+  const detail = data && typeof data === "object" ? (data as { detail?: unknown }).detail : undefined;
+  if (detail && typeof detail === "object") {
+    const message = (detail as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message.trim();
+    return `HTTP ${status}`;
+  }
+  if (detail !== undefined && detail !== null && String(detail).trim()) return String(detail);
+  return `HTTP ${status}`;
+}
 
 /** "Prefix: detail." — every voice failure reaches the user as one sentence. */
 export function voiceErrorSentence(prefix: string, e: unknown): string {

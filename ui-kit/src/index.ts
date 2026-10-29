@@ -116,7 +116,7 @@ export {
   type AppearanceSettings,
   type AfAppearanceDialogProps,
 } from "./appearance.js";
-export { useGatewayVoice, streamTtsJsonl, voiceErrorSentence, MIN_RECORDING_MS, type GatewayVoice, type GatewayVoiceOptions, type TtsPlaybackStatus, type VoiceTranscription } from "./use_gateway_voice.js";
+export { useGatewayVoice, streamTtsJsonl, ttsErrorDetail, voiceErrorSentence, MIN_RECORDING_MS, type GatewayVoice, type GatewayVoiceOptions, type TtsPlaybackStatus, type VoiceTranscription } from "./use_gateway_voice.js";
 export { AfPhaseRadio, type AfPhaseRadioProps, type AfPhaseSlot } from "./af_phase_radio.js";
 export { AfCognitionBloom, type AfCognitionBloomProps } from "./af_cognition_bloom.js";
 export { AfConductGauge, type AfConductGaugeProps } from "./af_conduct_gauge.js";
@@ -701,3 +701,7 @@ export {
 } from "./tool_layer_store.js";
 export { policySetLine, TOOL_SESSION_OFF_HELP, TOOL_POLICY_SCOPE_UNSAID } from "./tool_mode_editor.js";
 export { SESSION_ID_PATTERN, sessionToolPolicyRoute } from "./gateway_paths.js";
+
+// Tool calls in words (operator QA 2026-10-29): approval cards never print raw JSON.
+export { describeToolCall, groupToolCalls, prettyQuotes, readableKey, shortUrl, type ToolCallInput, type ToolCallWords } from "./tool_call_words.js";
+export { ToolCallWordsList, type ToolCallWordsListProps } from "./tool_call_words_view.js";
