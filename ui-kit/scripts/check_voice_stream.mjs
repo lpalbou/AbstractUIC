@@ -11,12 +11,12 @@ const requests = [];
 const sources = [];
 class AudioContext {
   state = "running";
-  currentTime = 0;
+  get currentTime() { return AudioContext.clock || 0; }
   destination = {};
   createGain() { return { gain: {}, connect() {}, disconnect() {} }; }
-  decodeAudioData() { return Promise.resolve({ duration: 1 }); }
+  decodeAudioData() { return Promise.resolve({ duration: AudioContext.nextDuration || 1 }); }
   createBufferSource() {
-    const source = { connect() {}, disconnect() {}, start() { source.started = true; }, stop() {}, onended: null };
+    const source = { connect() {}, disconnect() {}, start(when, offset) { source.started = true; source.when = when; source.offset = offset; }, stop() { source.stopped = true; }, onended: null };
     sources.push(source);
     return source;
   }
@@ -108,7 +108,9 @@ try {
   await tick();
   assert.equal(sources.length, count, "new chunks cannot auto-play while paused");
   await h.voice.toggle_tts("play", "Read now"); // resume
-  assert.equal(sources.length, count + 1);
+  // Gapless: resume schedules every buffered segment back to back (the one paused + the one that
+  // arrived while paused), not only the next one.
+  assert.equal(sources.length, count + 2);
   assert.equal(h.status(), "playing", "resumed: playing (Pause)");
   send(request, '{"type":"done"}'); // final JSONL line need not end in newline
   request.body.close();
@@ -116,6 +118,48 @@ try {
   assert.deepEqual(h.errors, []);
   h.unmount();
 
+  // GAPLESS (operator 2026-10-29, "short cuts every 2-4 s"): segments that arrive in a burst are
+  // scheduled back to back on the audio clock, never chained from `onended` (a chained start waits
+  // for the main thread). A segment arriving after playback ran dry starts at once (a real gap).
+  {
+    const g = mount();
+    const p = g.voice.toggle_tts("gapless", "A long reply");
+    await tick();
+    const req = requests.at(-1);
+    const before = sources.length;
+    AudioContext.nextDuration = 2.5;
+    send(req, audio + audio + audio);  // a burst of three 2.5 s segments
+    await tick(); await tick();
+    const mine = sources.slice(before);
+    assert.equal(mine.length, 3, "a burst of three segments is scheduled at once (not one per onended)");
+    for (let i = 1; i < mine.length; i++) {
+      assert.ok(Math.abs(mine[i].when - (mine[i - 1].when + 2.5)) < 1e-9, `segment ${i} starts exactly where segment ${i - 1} ends (${mine[i - 1].when} + 2.5 vs ${mine[i].when})`);
+    }
+    // Pause half a second into the second segment: resume continues from that exact offset, and
+    // the rest is scheduled back to back again.
+    AudioContext.clock = mine[1].when + 0.5;
+    await g.voice.toggle_tts("gapless", "A long reply"); // pause
+    assert.ok(mine.every((s) => s.stopped), "pause stops every scheduled segment");
+    const mark = sources.length;
+    await g.voice.toggle_tts("gapless", "A long reply"); // resume
+    const resumed = sources.slice(mark);
+    assert.equal(resumed.length, 2, "resume schedules the paused segment and the one after it");
+    assert.ok(Math.abs(resumed[0].offset - 0.5) < 1e-9, `resume starts 0.5 s into the paused segment (offset ${resumed[0].offset})`);
+    assert.ok(Math.abs(resumed[1].when - (resumed[0].when + 2.0)) < 1e-9, "the next segment starts exactly where the resumed one ends");
+    // Playback ran dry (the clock is past everything scheduled): a late segment starts at once.
+    for (const s of resumed) if (typeof s.onended === "function") s.onended();
+    AudioContext.clock = resumed[1].when + 10;
+    const late = sources.length;
+    send(req, audio);
+    await tick(); await tick();
+    assert.equal(sources.length, late + 1);
+    const lead = sources.at(-1).when - AudioContext.clock;
+    assert.ok(lead >= 0 && lead <= 0.03, `a segment after a real gap starts now (lead ${lead}), never in the past`);
+    g.voice.stop_tts();
+    await bounded(p);
+    AudioContext.nextDuration = 1;
+    AudioContext.clock = 0;
+  }
   for (const [body, expected] of [[audio, /before synthesis completed/], ['{"type":"error","error":"engine failed"}', /engine failed/], ["garbled\n", /invalid JSON/]]) {
     const stream = streamTtsJsonl({ path: "/tts", body: {} });
     const consume = (async () => { for await (const _chunk of stream) { /* drain */ } })();

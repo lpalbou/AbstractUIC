@@ -400,6 +400,13 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   const tts_stream_abort_ref = useRef<AbortController | null>(null);
   const tts_segments_ref = useRef<AudioBuffer[]>([]);
   const tts_seg_idx_ref = useRef(0);
+  // GAPLESS STREAMING (operator 2026-10-29: "short cuts every 2-4 s"): every buffered segment is
+  // scheduled AHEAD on the audio clock (`source.start(when)`, each starting exactly where the
+  // previous one ends), never chained from the previous `onended`. A chained start waits for the
+  // main thread (JSON, base64, decodeAudioData of a burst of segments) and is heard as a cut.
+  // `idx`: the segment; `at`: its start on the audio clock; `off`: the offset it starts from;
+  // `dur`: the seconds it plays. Playing = this list is not empty.
+  const tts_sched_ref = useRef<Array<{ src: AudioBufferSourceNode; idx: number; at: number; off: number; dur: number }>>([]);
   const tts_stream_done_ref = useRef(true);
   const tts_paused_ref = useRef(false);
   // WHAT the kept audio (paused buffer or stream segments) says and in which voice: message key,
@@ -447,6 +454,13 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   }, [opts.volume, opts.muted]);
 
   const stop_tts_source = useCallback((): void => {
+    const scheduled = tts_sched_ref.current;
+    tts_sched_ref.current = [];
+    for (const s of scheduled) {
+      try { s.src.onended = null; } catch { /* ignore */ }
+      try { s.src.stop(); } catch { /* ignore */ }
+      try { s.src.disconnect(); } catch { /* ignore */ }
+    }
     const src = tts_source_ref.current;
     tts_source_ref.current = null;
     if (!src) return;
@@ -561,12 +575,14 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
    * source — the fetch loop restarts playback as the next segment lands.
    */
   const start_stream_segment = (key: string, gen: number): void => {
-    if (gen !== tts_stream_gen_ref.current) return;
+    if (gen !== tts_stream_gen_ref.current || tts_paused_ref.current) return;
     const engine = ensure_tts_webaudio();
     if (!engine) return;
     const segs = tts_segments_ref.current;
-    const idx = tts_seg_idx_ref.current;
-    if (idx >= segs.length) {
+    const sched = tts_sched_ref.current;
+    const last = sched.length ? sched[sched.length - 1] : null;
+    let idx = last ? last.idx + 1 : tts_seg_idx_ref.current;
+    if (!last && idx >= segs.length) {
       if (tts_stream_done_ref.current) {
         // Played everything and the stream is finished.
         tts_key_ref.current = "";
@@ -576,32 +592,55 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       }
       return;
     }
-    const buffer = segs[idx];
     const { ctx, gain } = engine;
-    stop_tts_source();
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(gain);
-    const dur = Number.isFinite(Number(buffer.duration)) ? Number(buffer.duration) : 0;
-    const off = Math.max(0, Math.min(Number(tts_offset_ref.current || 0), dur > 0 ? Math.max(0, dur - 0.01) : 0));
-    tts_started_at_ref.current = ctx.currentTime - off;
-    tts_source_ref.current = source;
-    tts_key_ref.current = key;
-    source.onended = () => {
-      if (gen !== tts_stream_gen_ref.current) return;
-      if (tts_source_ref.current !== source) return;
-      tts_source_ref.current = null;
-      tts_seg_idx_ref.current = idx + 1;
-      tts_offset_ref.current = 0;
-      start_stream_segment(key, gen);
-    };
     try {
       if (ctx.state === "suspended") void ctx.resume();
     } catch {
       // ignore
     }
-    source.start(0, off);
+    // Back to back on the audio clock. A start in the past (the stream fell behind playback) is a
+    // real gap the network made; it starts now. A small lead lets the first start be exact.
+    const now = Number(ctx.currentTime || 0);
+    let when = last ? Math.max(last.at + last.dur, now) : now + 0.02;
+    for (; idx < segs.length; idx++) {
+      const buffer = segs[idx];
+      const dur = Number.isFinite(Number(buffer.duration)) ? Number(buffer.duration) : 0;
+      const off = !last && idx === tts_seg_idx_ref.current
+        ? Math.max(0, Math.min(Number(tts_offset_ref.current || 0), dur > 0 ? Math.max(0, dur - 0.01) : 0))
+        : 0;
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(gain);
+      const entry = { src: source, idx, at: when, off, dur: Math.max(0, dur - off) };
+      source.onended = () => {
+        if (gen !== tts_stream_gen_ref.current) return;
+        const list = tts_sched_ref.current;
+        const at = list.indexOf(entry);
+        if (at < 0) return;
+        list.splice(at, 1);
+        tts_seg_idx_ref.current = entry.idx + 1;
+        tts_offset_ref.current = 0;
+        // All scheduled audio played: the end of the reply, or starved until the next segment.
+        if (!list.length) start_stream_segment(key, gen);
+      };
+      source.start(when, off);
+      tts_sched_ref.current.push(entry);
+      when += entry.dur;
+    }
+    tts_started_at_ref.current = tts_sched_ref.current.length ? tts_sched_ref.current[0].at - tts_sched_ref.current[0].off : 0;
+    tts_key_ref.current = key;
     apply_tts_playback({ key, status: "playing" });
+  };
+  /** Where streamed playback is: the segment playing now and the offset into it (for pause). */
+  const stream_position = (now: number): { idx: number; off: number } => {
+    const sched = tts_sched_ref.current;
+    if (!sched.length) return { idx: tts_seg_idx_ref.current, off: 0 };
+    for (const s of sched) {
+      if (now < s.at) return { idx: s.idx, off: s.off };  // not started yet: from where it would
+      if (now < s.at + s.dur) return { idx: s.idx, off: s.off + (now - s.at) };
+    }
+    const tail = sched[sched.length - 1];
+    return { idx: tail.idx + 1, off: 0 };
   };
 
   const start_tts_stream = async (key: string, text: string, streamFn: NonNullable<GatewayVoiceOptions["tts_stream"]>): Promise<void> => {
@@ -650,7 +689,8 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
         tts_segments_ref.current.push(buffer);
         // First segment (or starved mid-stream): start speaking now — the
         // whole point of streaming. Never auto-start while user-paused.
-        if (!tts_source_ref.current && !tts_paused_ref.current) {
+        // Scheduled at once, back to back after what is already queued (gapless).
+        if (!tts_paused_ref.current) {
           tts_loading_key_ref.current = "";
           start_stream_segment(key, gen);
         }
@@ -664,7 +704,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       }
       // Starved-at-tail: nothing playing, not paused, and index already past
       // the end — close out to idle via the same path onended uses.
-      if (!tts_source_ref.current && !tts_paused_ref.current) start_stream_segment(key, gen);
+      if (!tts_sched_ref.current.length && !tts_paused_ref.current) start_stream_segment(key, gen);
     } catch (e: any) {
       if (gen !== tts_stream_gen_ref.current) return;
       set_error?.(voiceErrorSentence("Reading aloud failed", e));
@@ -703,7 +743,12 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       // started_at timestamp is stale from the finished segment — computing
       // an offset from it grows unbounded and, applied to the NEXT segment
       // on resume, skips nearly all of it (adversary P1, 2026-07-13).
-      if (tts_source_ref.current) {
+      if (tts_sched_ref.current.length) {
+        // Streamed: the segment playing now and the offset into it, from the audio clock.
+        const pos = stream_position(Number(engine.ctx.currentTime || 0));
+        tts_seg_idx_ref.current = pos.idx;
+        tts_offset_ref.current = pos.off;
+      } else if (tts_source_ref.current) {
         const off = Math.max(0, engine.ctx.currentTime - Number(tts_started_at_ref.current || 0));
         tts_offset_ref.current = off;
       } else {

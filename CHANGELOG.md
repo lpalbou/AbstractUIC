@@ -9,7 +9,16 @@ ships.
 
 ## Unreleased
 
-_Nothing yet._
+### ui-kit
+
+- **Gapless read-aloud** (operator 2026-10-29: "short cuts every 2-4 s" while speaking). `useGatewayVoice` scheduled
+  each streamed segment from the previous one's `onended`, so a segment's start waited for the main thread. A burst of
+  segments meant JSON, base64 and `decodeAudioData` work, and every boundary could be heard as a cut. Every buffered
+  segment is now scheduled AHEAD on the audio clock (`source.start(when)`), each one starting exactly where the
+  previous one ends. Pause stops them all and records the playing segment and offset from the audio clock; resume
+  schedules the rest back to back again. A segment that arrives after playback ran dry starts at once (a real network
+  gap, never a start in the past). Check: `scripts/check_voice_stream.mjs` (a burst of three segments is scheduled at
+  once and back to back; pause half a second into one resumes at that offset; a late segment starts now).
 
 ## 0.8.8 - 2026-10-29
 
