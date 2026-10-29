@@ -14,10 +14,15 @@ reply the load brought in counted as new and was spoken (AbstractCode web `works
 
 ## Fix
 
-`panel-chat/src/read_aloud.ts`: one pure rule, `readAloudStep(state, { scope, live, reply })` — armed only when a run
-of this conversation is seen in progress; then the first reply that was not there when the run started is spoken
-once. A conversation whose run is over when it is shown was never seen live: nothing is spoken. `runIsLive(status)`
-maps the controller's status (loading / idle / over are not live).
+`panel-chat/src/read_aloud.ts`: one pure rule, `readAloudStep(state, { scope, phase, reply })` — armed only when a run
+of this conversation is sent from here or seen in progress (`phase: "live"`); when it completes, the first reply that
+was not there when it started is spoken once; a failed or stopped run (`"ended"`) speaks nothing and disarms. A
+conversation whose run is over when it is shown was never live here: nothing is spoken. `readAloudPhase(status,
+sending)` maps the controller's status (loading / idle / unknown are `"none"`).
+
+A first version (review round 1, 2026-10-29) stayed armed after a failed run (a saved thread loaded later was
+spoken), counted unknown statuses as live and missed a run that went loading → completed without a live status: the
+phase input fixes all three.
 
 ## Evidence
 
