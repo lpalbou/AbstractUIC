@@ -26,5 +26,20 @@ check("key highlighted", html.includes('<strong class="af-toolwords__key">“Oct
 check("group line", html.includes("af-toolwords__group"));
 const panel = readFileSync(join(here, "..", "src", "automations", "AutomationPanel.tsx"), "utf8");
 check("the wait card uses the list, no JSON.stringify of arguments", panel.includes("<ToolCallWordsList") && !panel.includes("JSON.stringify(c.arguments"));
+// Tool RESULTS in words (operator QA 2026-10-29: "Recent session turns" printed raw result JSON).
+const skim = JSON.stringify({ success: true, query: "AI news", results: Array.from({ length: 10 }, (_, i) => ({ title: `Story ${i}`, url: `https://www.example.org/news/2026/story-${i}`, snippet: "…" })), counts: { returned: 10 } });
+const r1 = kit.describeToolResult({ name: "skim_websearch", result: skim });
+check("result: search count", r1.sentence === "Web search returned 10 results", r1.sentence);
+check("result: first titles", JSON.stringify(r1.items) === JSON.stringify(["Story 0 · example.org/news/…/story-0", "Story 1 · example.org/news/…/story-1", "Story 2 · example.org/news/…/story-2"]), JSON.stringify(r1.items));
+const r2 = kit.describeToolResult({ name: "fetch_url", result: { error: "timed out after 30 s" } });
+check("result: failure", r2.failed && r2.sentence === "Page fetch failed: timed out after 30 s", r2.sentence);
+const r3 = kit.describeToolResult({ name: "skim_url", result: { title: "FDA meeting", url: "https://www.fda.gov/news-events/a/b", content: "x".repeat(1204) } });
+check("result: a page", r3.sentence === "Page skim returned “FDA meeting” (fda.gov/news-events/…/b), 1,204 characters", r3.sentence);
+const r4 = kit.describeToolResult({ name: "make_report", result: { report_id: "r-1", pages: 3, sections: [1, 2] } });
+check("result: unknown tool, readable fields", r4.sentence === "Make report returned 3 fields" && JSON.stringify(r4.items) === JSON.stringify(["Report id: r-1", "Pages: 3"]), JSON.stringify(r4));
+const r5 = kit.describeToolResult({ result: "plain words" });
+check("result: plain text", r5.sentence === "The tool returned 11 characters of text", r5.sentence);
+const rhtml = renderToStaticMarkup(React.createElement(kit.ToolResultWordsView, { name: "skim_websearch", result: skim }));
+check("result view: no braces", !/[{}]/.test(rhtml.replace(/<[^>]*>/g, "")) && rhtml.includes('<p class="af-toolresult__sentence">Web search returned 10 results</p>'), rhtml);
 console.log(failed ? `check_tool_call_words: ${failed} FAILED` : "check_tool_call_words: OK");
 process.exit(failed ? 1 : 0);

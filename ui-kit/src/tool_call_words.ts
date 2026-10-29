@@ -159,3 +159,83 @@ export function groupToolCalls(calls: readonly ToolCallInput[]): string {
   }
   return [...counts.values()].map(({ n, noun }) => `${n} ${n === 1 ? noun[0] : noun[1]}`).join(", ");
 }
+
+// ---------------------------------------------------------------------------
+// Tool RESULTS in words (operator QA 2026-10-29: an approval dialog's "Recent session turns"
+// printed earlier tool results as raw JSON, e.g. a skim_websearch payload). The same rule as
+// the calls: one sentence and a few readable items, the JSON only behind a disclosure.
+// ---------------------------------------------------------------------------
+
+export type ToolResultInput = { name?: string | null; result: unknown };
+
+export type ToolResultWords = {
+  /** "Web search returned 10 results", "Page fetch failed: timeout", "Read file returned 1,204 characters". */
+  sentence: string;
+  /** Up to three readable items under the sentence: result titles (with their short URL), or "Key: value" lines. */
+  items: string[];
+  /** The tool reported a failure (`error`, `success: false`). */
+  failed: boolean;
+};
+
+function parsedResult(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const text = value.trim();
+  if (!(text.startsWith("{") || text.startsWith("["))) return value;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return value;
+  }
+}
+
+const RESULT_LISTS = ["results", "items", "hits", "matches", "entries", "files", "data"];
+
+/** One tool result in words. `name` is the tool that produced it, when known. */
+export function describeToolResult(input: ToolResultInput): ToolResultWords {
+  const name = str(input.name);
+  const subject = name ? (TEMPLATES[name] ? TEMPLATES[name].noun[0] : readableKey(name.includes("::") ? name.split("::").pop() || name : name).toLowerCase()) : "the tool";
+  const Subject = subject === "the tool" ? "The tool" : subject[0].toUpperCase() + subject.slice(1);
+  const value = parsedResult(input.result);
+  if (typeof value === "string") {
+    const n = value.length;
+    return { sentence: `${Subject} returned ${n.toLocaleString("en-US")} character${n === 1 ? "" : "s"} of text`, items: [], failed: false };
+  }
+  if (value === null || value === undefined) return { sentence: `${Subject} returned nothing`, items: [], failed: false };
+  if (Array.isArray(value)) return { sentence: `${Subject} returned ${value.length} item${value.length === 1 ? "" : "s"}`, items: listItems(value), failed: false };
+  if (typeof value !== "object") return { sentence: `${Subject} returned ${readableValue(value)}`, items: [], failed: false };
+  const obj = value as Record<string, unknown>;
+  const error = str(obj.error) || (obj.success === false ? str(obj.message) || "no reason given" : "");
+  if (error) return { sentence: `${Subject} failed: ${error}`, items: [], failed: true };
+  const listKey = RESULT_LISTS.find((k) => Array.isArray(obj[k]));
+  if (listKey) {
+    const list = obj[listKey] as unknown[];
+    const noun = listKey === "files" ? "file" : "result";
+    return { sentence: `${Subject} returned ${list.length} ${noun}${list.length === 1 ? "" : "s"}`, items: listItems(list), failed: false };
+  }
+  const title = str(obj.title);
+  const body = [obj.content, obj.text, obj.markdown, obj.body].find((x) => typeof x === "string") as string | undefined;
+  if (title || body !== undefined) {
+    const where = str(obj.url) ? ` (${shortUrl(str(obj.url))})` : "";
+    const size = body !== undefined ? `, ${body.length.toLocaleString("en-US")} characters` : "";
+    return { sentence: `${Subject} returned ${title ? `“${title}”` : "a page"}${where}${size}`, items: [], failed: false };
+  }
+  const scalars = Object.entries(obj).filter(([, v]) => v === null || typeof v !== "object");
+  return {
+    sentence: `${Subject} returned ${Object.keys(obj).length} field${Object.keys(obj).length === 1 ? "" : "s"}`,
+    items: scalars.slice(0, 3).map(([k, v]) => `${readableKey(k)}: ${readableValue(v)}`),
+    failed: false,
+  };
+}
+
+function listItems(list: unknown[]): string[] {
+  return list.slice(0, 3).map((item) => {
+    if (item && typeof item === "object" && !Array.isArray(item)) {
+      const o = item as Record<string, unknown>;
+      const label = str(o.title) || str(o.name) || str(o.path) || str(o.file_path) || str(o.url);
+      const url = str(o.url) && label !== str(o.url) ? ` · ${shortUrl(str(o.url))}` : "";
+      if (label) return `${label === str(o.url) ? shortUrl(label) : label}${url}`;
+      return Object.entries(o).filter(([, v]) => v === null || typeof v !== "object").slice(0, 2).map(([k, v]) => `${readableKey(k)}: ${readableValue(v)}`).join(", ");
+    }
+    return readableValue(item);
+  }).filter(Boolean);
+}
