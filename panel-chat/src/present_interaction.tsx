@@ -261,6 +261,7 @@ export function presentInteraction(
               return { name: String(call?.name || "tool"), arguments: args && typeof args === "object" && !Array.isArray(args) ? (args as Record<string, unknown>) : null };
             })}
             label="Tool calls to approve"
+            heading="The assistant wants to use these tools:"
           />
           <details>
             <summary>Review full tool arguments (JSON)</summary>

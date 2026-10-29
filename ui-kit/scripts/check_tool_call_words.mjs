@@ -22,8 +22,15 @@ check("group", kit.groupToolCalls(spec.group.calls) === spec.group.text, kit.gro
 const html = renderToStaticMarkup(React.createElement(kit.ToolCallWordsList, { calls: spec.cases.map((c) => c.call) }));
 check("no braces in the list", !/[{}]/.test(html.replace(/<[^>]*>/g, "")), html);
 check("verb chips", (html.match(/af-toolwords__verb/g) || []).length === spec.cases.length);
-check("key highlighted", html.includes('<strong class="af-toolwords__key">“Oct. 28, 2026” pharmaceutical FDA approval</strong>'));
-check("group line", html.includes("af-toolwords__group"));
+// Operator ruling 2026-10-29: plain text after the chip (no bold on parameters), no count line, one
+// bullet per call on one line with the whole sentence on its tooltip, a bold heading when given.
+check("no bold on the parameters, no count line", !html.includes("<strong") && !html.includes("af-toolwords__group") && html.includes("“Oct. 28, 2026” pharmaceutical FDA approval"));
+check("one line per call: the whole sentence on its tooltip", (html.match(/<li class="af-toolwords__call"[^>]*title="/g) || []).length === spec.cases.length);
+const headed = renderToStaticMarkup(React.createElement(kit.ToolCallWordsList, { calls: spec.cases.slice(0, 2).map((c) => c.call), heading: "The assistant wants to use these tools:", headingId: "h1" }));
+check("the heading is the only bold", headed.includes('<p class="af-toolwords__heading" id="h1"><strong>The assistant wants to use these tools:</strong></p>') && (headed.match(/<strong/g) || []).length === 1, headed);
+const theme = readFileSync(join(here, "..", "src", "theme.css"), "utf8");
+check("bullets cut with an ellipsis on one line", /\.af-toolwords__call \{[^}]*white-space: nowrap;[^}]*text-overflow: ellipsis/.test(theme) && /\.af-toolwords__list \{[^}]*list-style: disc/.test(theme));
+check("toolCallLine: fallback pairs on one line", kit.toolCallLine({ name: "make_report", arguments: { report_title: "Q3", pages: 3 } }) === "Report title: Q3 · Pages: 3");
 const panel = readFileSync(join(here, "..", "src", "automations", "AutomationPanel.tsx"), "utf8");
 check("the wait card uses the list, no JSON.stringify of arguments", panel.includes("<ToolCallWordsList") && !panel.includes("JSON.stringify(c.arguments"));
 // Tool RESULTS in words (operator QA 2026-10-29: "Recent session turns" printed raw result JSON).

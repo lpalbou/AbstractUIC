@@ -1015,6 +1015,9 @@ export type WaitAnswerFormProps = {
  * the prompt text: `ask_user` → `{response}`, `tool_approval` →
  * `{approved}`, `event` → `{payload}`. An unknown kind is shown, not answered.
  */
+/** The tool-approval card's first line (operator ruling 2026-10-29). */
+export const TOOL_APPROVAL_HEADING = "The automation wants to use these tools:";
+
 export function WaitAnswerForm(p: WaitAnswerFormProps): React.ReactElement {
   const w = p.wait;
   const promptId = `${p.idBase}-${w.run_id}-${w.wait_key}-prompt`;
@@ -1030,11 +1033,14 @@ export function WaitAnswerForm(p: WaitAnswerFormProps): React.ReactElement {
     const calls = waitToolCalls(w);
     return (
       <div className="af-auto-wait af-auto-wait--tool_approval" role="group" data-wait-key={w.wait_key} data-wait-kind={w.kind} aria-labelledby={promptId}>
-        {head("A tool call needs your approval.")}
+        {/* Operator ruling 2026-10-29: the bold first line (the card's only bold), one bullet per call. */}
         {calls && calls.length ? (
-          <ToolCallWordsList calls={calls} label="Tool calls to approve" className="af-auto-wait__calls" />
+          <ToolCallWordsList calls={calls} heading={TOOL_APPROVAL_HEADING} headingId={promptId} label="Tool calls to approve" className="af-auto-wait__calls" />
         ) : (
-          <p className="af-auto__hint">The gateway did not list the tool calls; open the run to see them before approving.</p>
+          <>
+            <p className="af-toolwords__heading" id={promptId}><strong>{TOOL_APPROVAL_HEADING}</strong></p>
+            <p className="af-auto__hint">The gateway did not list the tool calls; open the run to see them before approving.</p>
+          </>
         )}
         <div className="af-auto__row">
           <button type="button" className="af-auto__btn af-auto__btn--primary" data-action="wait-approve" disabled={p.busy} onClick={() => answer({ approved: true })}>

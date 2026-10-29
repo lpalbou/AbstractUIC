@@ -9,7 +9,12 @@ ships.
 
 ## Unreleased
 
-_Nothing yet._
+### ui-kit
+
+- **The tool-approval card reads in one glance** (operator ruling 2026-10-29, backlog 0073). A bold first line
+  ("The automation wants to use these tools:"; panel-chat's chat card says "The assistant …") is the card's only bold.
+  The count line is gone. Each call is one bullet on one line: the coloured tool chip, then plain text, cut with an
+  ellipsis when too long (the whole call is on its tooltip). Approve and Deny are unchanged.
 
 ## 0.8.6 - 2026-10-29
 

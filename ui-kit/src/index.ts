@@ -365,6 +365,7 @@ export {
   attentionBadgeTooltip,
   attentionBadgeLabel,
   attentionTarget,
+  TOOL_APPROVAL_HEADING,
   ATTENTION_FOCUS_MS,
   type AttentionText,
   RUN_NOW_NEXT_RUN_LINE,
@@ -708,4 +709,4 @@ export { SESSION_ID_PATTERN, sessionToolPolicyRoute } from "./gateway_paths.js";
 
 // Tool calls in words (operator QA 2026-10-29): approval cards never print raw JSON.
 export { describeToolCall, describeToolResult, groupToolCalls, prettyQuotes, readableKey, shortUrl, type ToolCallInput, type ToolCallWords, type ToolResultInput, type ToolResultWords } from "./tool_call_words.js";
-export { ToolCallWordsList, ToolResultWords as ToolResultWordsView, type ToolCallWordsListProps, type ToolResultWordsProps } from "./tool_call_words_view.js";
+export { ToolCallWordsList, ToolResultWords as ToolResultWordsView, toolCallLine, type ToolCallWordsListProps, type ToolResultWordsProps } from "./tool_call_words_view.js";

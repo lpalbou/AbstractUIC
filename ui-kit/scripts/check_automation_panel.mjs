@@ -121,7 +121,8 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("ask_user wait form labelled by its prompt", chunks[6].includes(`<form class="af-auto-wait af-auto-wait--ask_user" data-wait-key="${w.wait_key}" data-wait-kind="ask_user" aria-labelledby="`));
   // The call in words (operator QA 2026-10-29): its sentence, its tool on the chip's tooltip, no JSON.
   const twWords = kit.describeToolCall(tw.details[0]);
-  check("tool_approval wait: group labelled, kind label, tool call listed in words", chunks[6].includes('data-wait-kind="tool_approval"') && chunks[6].includes(">Approval needed</span>") && chunks[6].includes(`data-tool="${tw.details[0].name}"`) && chunks[6].includes(`title="${tw.details[0].name}">${esc(twWords.verb)}</span>`) && !chunks[6].includes(esc(JSON.stringify(tw.details[0].arguments, null, 2))), twWords.sentence);
+  // Operator ruling 2026-10-29: the bold first line labels the group (the card's only bold), each call one bullet in words, no JSON.
+  check("tool_approval wait: bold first line labels the group, tool call listed in words", chunks[6].includes('data-wait-kind="tool_approval"') && /<div class="af-auto-wait af-auto-wait--tool_approval"[^>]*aria-labelledby="([^"]+)"[\s\S]*?<p class="af-toolwords__heading" id="\1"><strong>/.test(chunks[6]) && chunks[6].includes(`data-tool="${tw.details[0].name}"`) && chunks[6].includes(`title="${tw.details[0].name}">${esc(twWords.verb)}</span>`) && !chunks[6].includes(esc(JSON.stringify(tw.details[0].arguments, null, 2))), twWords.sentence);
   check("tool_approval wait: Approve and Deny, no free text", enabled(chunks[6], "wait-approve") && enabled(chunks[6], "wait-deny") && (chunks[6].match(/aria-label="Your answer"/g) || []).length === 1);
   check("no wait controls on other occurrences", chunks.filter((c, i) => i !== 6).every((c) => !c.includes("af-auto-wait")));
   check("every pair has expandable run details with Open run ledger (and no raw ledger href)", chunks.every((c) => c.includes("<details class=\"af-auto-occ__details\"><summary>Run details</summary>") && c.includes('data-action="open-run"') && !/href="\/api\//.test(c)));
@@ -864,7 +865,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   check("real legacy row: marker, every control disabled with the legacy reason", leg.includes("Legacy schedule") && ["run_now", "stop_current", "edit", "archive"].every((a) => !enabled(leg, a)) && !toggleAvailable(leg) && leg.includes("Legacy schedule: managed with its existing controls."));
   check("real legacy row: the served rule, no revision", leg.includes(">Every hour (UTC)</dd>") && !leg.includes('data-fact="revision"'));
   const tw = occ.find((o) => o.index === 7).waits.find((x) => x.kind === "tool_approval");
-  check("real tool_approval wait has no prompt → the panel's own sentence", !("prompt" in tw) && mailHtml.includes("A tool call needs your approval."));
+  check("real tool_approval wait has no prompt → the card's bold first line", !("prompt" in tw) && mailHtml.includes(`<strong>${kit.TOOL_APPROVAL_HEADING}</strong>`));
 }
 
 // --- definition block (the optional `definition` prop is rendered) ----------------------------
