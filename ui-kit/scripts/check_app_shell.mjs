@@ -3,14 +3,17 @@
  * ui-primitives "shell" (backlog 0036, ADR 0001 §1 §5 §6): the top-right widget set and the
  * app shell around it.
  *
- * - ORDER (pinned): extras · docs · assistant · appearance · about · identity · pill.
- * - ONE wording: Connect / Connecting… / Disconnect / Disconnecting… (the pill AND the identity
- *   menu say Disconnect; a failed disconnect shows "Disconnect failed" beside the pill).
+ * - ORDER (pinned): extras · docs · assistant · appearance · about · account (or the pill).
+ * - ONE account widget (operator 2026-10-29): signed in with `identity` on, ONE button holds the
+ *   person icon, the name and the connection light, and its menu holds Disconnect; no pill beside
+ *   it. Connecting, signed out or `identity` off: the pill alone.
+ * - ONE wording: Connect / Connecting… / Disconnect / Disconnecting… (the pill AND the account
+ *   menu say Disconnect; a failed disconnect shows "Disconnect failed" left of the widget).
  * - Identity from the connection status (`status.gateway.principal`, the app-server relay of the
  *   gateway's /api/gateway/me): `principalFromConnection`, `principalLabel` (display name or user
- *   id; tenant only when not "default"), the gateway host; "badge" and "menu" (Copy user id,
- *   Disconnect, kit tooltip, no native title); nothing unless the phase is connected or without
- *   the prop (back-compat). `onSignOut` runs only after a disconnect that happened (hook shape).
+ *   id; tenant only when not "default"), the gateway host; "menu" (and "badge", now the same
+ *   widget): Copy user id, Disconnect, kit tooltip, no native title; nothing unless the phase is
+ *   connected or without the prop (back-compat: the pill alone). `onSignOut` runs only after a disconnect that happened (hook shape).
  * - The cluster owns the Appearance dialog when given {value, onChange}, and fetches About
  *   versions on open when given `fetch` (GET api/gateway/about), never when given `versions`.
  * - `--af-topbar-h`: the cluster publishes its header's bottom edge (ResizeObserver);
@@ -94,23 +97,27 @@ const full = (identity, conn) =>
     }),
   );
 {
-  const html = full("badge");
-  const marks = ['id="x-extra"', "af-topbar__btn--docs", "af-topbar__btn--assistant", "af-topbar__btn--appearance", "af-topbar__btn--about", 'data-af-identity="badge"', "af-topbar__pill"];
-  const at = marks.map((m) => html.indexOf(m));
-  check("ORDER extras · docs · assistant · appearance · about · identity · pill", at.every((v, i) => v >= 0 && (i === 0 || v > at[i - 1])), JSON.stringify(at));
-  check("badge: label + tooltip with the gateway host", html.includes(">alice</span>") && html.includes('data-af-tip="Signed in as alice · gateway gw.local:8080"'), html);
   const menu = full("menu");
-  const mat = ["af-topbar__btn--about", 'data-af-identity="menu"', "af-topbar__pill"].map((m) => menu.indexOf(m));
-  check("ORDER (menu): about · identity · pill", mat.every((v, i) => v >= 0 && (i === 0 || v > mat[i - 1])), JSON.stringify(mat));
-  check("menu: a menu button labelled with who and where", menu.includes('aria-haspopup="menu"') && menu.includes('aria-label="Account: Signed in as alice · gateway gw.local:8080"'), menu);
+  const marks = ['id="x-extra"', "af-topbar__btn--docs", "af-topbar__btn--assistant", "af-topbar__btn--appearance", "af-topbar__btn--about", 'data-af-identity="menu"'];
+  const at = marks.map((m) => menu.indexOf(m));
+  check("ORDER extras · docs · assistant · appearance · about · account", at.every((v, i) => v >= 0 && (i === 0 || v > at[i - 1])), JSON.stringify(at));
+  // ONE widget: person icon, name, light in ONE button; no pill beside it.
+  const button = (menu.match(/<button[^>]*af-topbar__identity--menu[^>]*>[\s\S]*?<\/button>/) || [""])[0];
+  check("account: one button with the person, the name and the connection light", /<svg[^>]*>/.test(button) && button.indexOf("<svg") < button.indexOf("af-topbar__identity-label"), button);
+  check("account: the name in the button", button.includes('<span class="af-topbar__identity-label">alice</span>'), button);
+  check("account: the connection light in the button", button.includes("af-topbar__dot af-topbar__dot--connected"), button);
+  check("account: no pill beside it (one widget)", !menu.includes("af-topbar__pill"), menu);
+  check("account: badge renders the same one widget", full("badge").includes("af-topbar__identity--menu") && !full("badge").includes("af-topbar__pill"), full("badge"));
+  check("menu: a menu button labelled with who, where and the light", menu.includes('aria-haspopup="menu"') && menu.includes('aria-label="Account: Signed in as alice · gateway gw.local:8080 · connected (Disconnect is in this menu)"'), menu);
   check("menu: header says who and which gateway", menu.includes("Signed in as alice") && menu.includes("Gateway gw.local:8080") && menu.includes('class="af-menu__header"'), menu);
   check("menu: Copy user id + Disconnect (one verb with the pill)", menu.includes('data-menu-id="copy-user-id"') && menu.includes(">Copy user id<") && menu.includes('data-menu-id="disconnect"') && menu.includes(">Disconnect<") && !menu.includes("Sign out"), menu);
   check("menu: Disconnect is the danger item", /data-menu-id="disconnect" class="af-menu__item af-menu__item--danger"/.test(menu), menu);
-  check("identity: kit tooltip, never a native title", html.includes('data-af-tip="Signed in as alice · gateway gw.local:8080"') && !/data-af-identity="badge"[^>]*title=/.test(html) && !/af-topbar__identity--menu"[^>]*title=/.test(menu) && menu.includes('data-af-tip="Signed in as alice · gateway gw.local:8080"'), menu);
-  check("identity: nothing beside a pill that is not connected (legacy shape, stale status)", !full("badge", { phase: "disconnected", onConnect: noop, onDisconnect: noop, status: status(alice) }).includes("data-af-identity"));
-  check("identity: tenant shown when not default", full("badge", { phase: "connected", onConnect: noop, onDisconnect: noop, status: status({ ...alice, tenant_id: "acme" }) }).includes(">acme/alice</span>"));
+  check("account: kit tooltip, never a native title", !/af-topbar__identity--menu"[^>]*title=/.test(menu) && menu.includes('data-af-tip="Signed in as alice · gateway gw.local:8080 · connected (Disconnect is in this menu)"'), menu);
+  const notConnected = full("menu", { phase: "disconnected", onConnect: noop, onDisconnect: noop, status: status(alice) });
+  check("not connected (stale status): the pill, no account", !notConnected.includes("data-af-identity") && notConnected.includes("af-topbar__pill"));
+  check("identity: tenant shown when not default", full("menu", { phase: "connected", onConnect: noop, onDisconnect: noop, status: status({ ...alice, tenant_id: "acme" }) }).includes(">acme/alice</span>"));
   check("identity: nothing while signed out", !full("menu", { phase: "disconnected", onConnect: noop, onDisconnect: noop, status: { ok: false, has_session: false, gateway_url: "x" } }).includes("data-af-identity"));
-  check("identity: nothing without the prop (back-compat)", !full(undefined).includes("data-af-identity") && !full(false).includes("data-af-identity"));
+  check("identity off: the pill alone (back-compat)", !full(undefined).includes("data-af-identity") && full(undefined).includes("af-topbar__pill") && !full(false).includes("data-af-identity"));
   Object.defineProperty(globalThis, "navigator", { value: {}, configurable: true, writable: true });
   check("menu: no Copy user id without a clipboard (no dead items)", !full("menu").includes("copy-user-id") && full("menu").includes(">Disconnect<"));
   Object.defineProperty(globalThis, "navigator", { value: { clipboard: { writeText: async () => undefined } }, configurable: true, writable: true });
@@ -127,7 +134,9 @@ const full = (identity, conn) =>
   await new Promise((r) => setImmediate(r));
   check("menu Disconnect: hook signOut then onSignOut", JSON.stringify(order) === JSON.stringify(["signOut", "onSignOut"]), JSON.stringify(order));
   order.length = 0;
-  const pill = () => find(t.current, (n) => typeof n.props.className === "string" && n.props.className.startsWith("af-topbar__pill"));
+  check("signed in with identity: no pill in the tree", !find(t.current, (n) => typeof n.props.className === "string" && n.props.className.startsWith("af-topbar__pill")));
+  const p = mountHook(AfTopBarActions, { connection: hookConn, onSignOut: () => order.push("onSignOut") });
+  const pill = () => find(p.current, (n) => typeof n.props.className === "string" && n.props.className.startsWith("af-topbar__pill"));
   pill().props.onClick();
   await new Promise((r) => setImmediate(r));
   check("pill Disconnect: the same disconnect", JSON.stringify(order) === JSON.stringify(["signOut", "onSignOut"]), JSON.stringify(order));
@@ -136,15 +145,20 @@ const full = (identity, conn) =>
   pill().props.onClick();
   await new Promise((r) => setImmediate(r));
   check("a failed disconnect never runs the host's state wipe", JSON.stringify(order) === JSON.stringify(["signOut"]), JSON.stringify(order));
+  p.rerender({ connection: { ...hookConn, signOutError: "gateway unreachable" } });
   t.rerender({ connection: { ...hookConn, signOutError: "gateway unreachable" } });
   const err = find(t.current, (n) => n.props.className === "af-topbar__signout-error");
   check("a failed disconnect is shown beside the pill", err && err.props.role === "alert" && err.props["data-af-tip"] === "Disconnect failed: gateway unreachable", JSON.stringify(err && err.props["data-af-tip"]));
   const errHtml = renderToStaticMarkup(h(AfTopBarActions, { connection: { phase: "connected", onConnect: noop, onDisconnect: noop, signOutError: "boom" } }));
   check("failure notice sits left of the pill", errHtml.indexOf("Disconnect failed") >= 0 && errHtml.indexOf("Disconnect failed") < errHtml.indexOf("af-topbar__pill"), errHtml);
   check("no failure notice without an error", !renderToStaticMarkup(h(AfTopBarActions, { connection: { phase: "connected", onConnect: noop, onDisconnect: noop } })).includes("Disconnect failed"));
+  t.rerender({ connection: { ...hookConn, signingOut: true } });
+  const busy = find(t.current, (n) => n.type === AfMenu);
+  check("disconnecting: the light turns amber and the item says Disconnecting…", busy && busy.props.items.find((i) => i.id === "disconnect").label === "Disconnecting…" && /disconnecting…/.test(busy.props.tip), JSON.stringify(busy && busy.props.tip));
   t.rerender({ connection: { ...hookConn, phase: "disconnected", connected: false, status: null } });
   order.length = 0;
-  pill().props.onClick();
+  const pillT = find(t.current, (n) => typeof n.props.className === "string" && n.props.className.startsWith("af-topbar__pill"));
+  pillT.props.onClick();
   check("pill Connect: opens the hook's modal", JSON.stringify(order) === JSON.stringify(["open"]), JSON.stringify(order));
   // Legacy shape: onDisconnect only (it may confirm first); onSignOut is never called.
   order.length = 0;
@@ -342,7 +356,7 @@ const full = (identity, conn) =>
       h("div", { id: "x-main" }, "MAIN"),
     ),
   );
-  const at = ['data-af-topbar=""', 'id="x-mark"', "AbstractFlow", 'id="x-lead"', "af-topbar__btn--docs", 'data-af-identity="badge"', "af-topbar__pill"].map((m) => html.indexOf(m));
+  const at = ['data-af-topbar=""', 'id="x-mark"', "AbstractFlow", 'id="x-lead"', "af-topbar__btn--docs", 'data-af-identity="menu"'].map((m) => html.indexOf(m));
   check("shell: header = brand · leading · cluster (in order)", at.every((v, i) => v >= 0 && (i === 0 || v > at[i - 1])), JSON.stringify(at));
   check("shell: docked nav on wide screens", /<nav class="af-shell__nav" aria-label="Navigation"[^>]*><ul id="x-nav">/.test(html), html);
   const main = html.indexOf('id="x-main"');

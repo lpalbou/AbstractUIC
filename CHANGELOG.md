@@ -11,6 +11,18 @@ ships.
 
 ### ui-kit
 
+- **One account widget in the top bar** (operator 2026-10-29): signed in with `identity` on, `AfTopBarActions` shows ONE
+  button with the person icon, the name and the connection light. Its menu holds who and which gateway, Copy user id
+  and Disconnect, and there is no pill beside it. While a disconnect runs, the light turns amber and the item reads
+  "Disconnecting…". `identity: "badge"` now renders the same widget. Connecting, signed out or `identity` off: the
+  connection pill, as before. New export `accountTitle` (the button's tooltip). Hosts' end-to-end tests that pressed
+  "Disconnect from gateway" now open the account menu and choose Disconnect. Check: `scripts/check_app_shell.mjs`.
+- **A voice change never replays the old voice** (operator 2026-10-29): `useGatewayVoice` ties the audio it keeps for
+  a paused message to (message, text, voice). New option `tts_voice`, the request's speech fields;
+  `gatewayVoiceOptions(prefs)` passes `voiceTtsRequest(prefs)`. A voice change drops a paused message's audio, so its
+  speaker goes back to idle and the next press speaks it in the new voice. The same voice resumes as before. A host
+  that names no voice never reuses kept audio (a paused message starts over). New export `ttsVoiceKey`. Checks:
+  `scripts/check_voice_hook.mjs`, `scripts/check_voice_stream.mjs`.
 - **Tool calls in words, never raw JSON** (operator QA 2026-10-29, backlog 0068). An approval card listed
   `fetch_url {"include_full_content": false, …}`. `describeToolCall` / `groupToolCalls` and the `ToolCallWordsList`
   component now render, for example, "Fetch the page fda.gov/news-events/…/public-meeting-10282026 (summary only,

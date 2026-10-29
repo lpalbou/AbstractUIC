@@ -560,7 +560,7 @@ export {
   type VoiceRecordFrom,
   type VoicePlayOn,
 } from "./voice_settings.js";
-export { voiceCaptureMode, type VoiceCaptureMode } from "./use_gateway_voice.js";
+export { voiceCaptureMode, ttsVoiceKey, type VoiceCaptureMode } from "./use_gateway_voice.js";
 export { recordingAbortError } from "./voice_devices.js";
 export { AfVoiceLevelMeter, useVoiceLevel, type AfVoiceLevelMeterProps, type VoiceLevelSource } from "./af_voice_level_meter.js";
 export { GATEWAY_VOICE_ROUTES, voiceClonePath, voiceCloneDeployPath, runVoiceTtsPath, runTranscribePath, entityVoicePath } from "./gateway_paths.js";
@@ -663,7 +663,7 @@ export {
   type AfDrawerStored,
 } from "./af_drawer_system.js";
 export { drawerTop, drawerFocusTarget } from "./af_drawer.js";
-export { topBarPillText, topBarConnection, identityTitle, useAfTopBarHeight, AF_TOPBAR_HEIGHT_VAR, type AfTopBarConnection } from "./af_top_bar_actions.js";
+export { topBarPillText, topBarConnection, identityTitle, accountTitle, useAfTopBarHeight, AF_TOPBAR_HEIGHT_VAR, type AfTopBarConnection } from "./af_top_bar_actions.js";
 export { principalFromConnection, principalLabel, gatewayHostLabel, AF_DEFAULT_TENANT, type AfPrincipal } from "./principal.js";
 export { fetchAboutVersions, ABOUT_VERSIONS_CHECKING, type AfGatewayFetch } from "./about.js";
 export type { GatewayPrincipalPayload } from "./gateway_connect_modal.js";

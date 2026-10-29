@@ -161,3 +161,4 @@ abstractcode-export-*.md
 # Local scratch space and virtualenvs
 untracked/
 .venv/
+/node_modules
