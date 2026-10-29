@@ -9,6 +9,16 @@ ships.
 
 ## Unreleased
 
+### panel-chat
+
+- **Read aloud speaks only a reply generated while the conversation is open** (operator 2026-10-29, backlog 0065):
+  `readAloudStep` / `READ_ALOUD_INITIAL` / `readAloudPhase` hold the rule for every host — a reply is spoken by itself
+  only when its run was sent or seen in progress in this conversation and completed with it (a failed or stopped run
+  disarms); opening, reloading or switching to a conversation never
+  speaks its existing messages. Hosts that keep their own read-aloud effect (AbstractCode web, Observer, Entity)
+  adopt it on the next release (their effects baselined before the conversation had loaded, so its first loaded
+  reply was spoken). Check: `scripts/check_read_aloud.mjs`.
+
 ## 0.8.4 - 2026-10-28
 
 Packages: `@abstractframework/panel-chat` 0.6.4 (ui-kit unchanged at 0.9.5, app-server at 0.1.13; panel-chat still
