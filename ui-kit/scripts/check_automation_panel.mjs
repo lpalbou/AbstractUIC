@@ -119,7 +119,9 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("#7 one button per choice", w.choices.every((c) => chunks[6].includes(`data-action="wait-choice">${esc(c)}</button>`)));
   check("#7 free-text answer control, labelled", chunks[6].includes('aria-label="Your answer"') && chunks[6].includes('data-action="wait-answer"'));
   check("ask_user wait form labelled by its prompt", chunks[6].includes(`<form class="af-auto-wait af-auto-wait--ask_user" data-wait-key="${w.wait_key}" data-wait-kind="ask_user" aria-labelledby="`));
-  check("tool_approval wait: group labelled, kind label, tool call listed with its arguments", chunks[6].includes('data-wait-kind="tool_approval"') && chunks[6].includes(">Approval needed</span>") && chunks[6].includes(`<code class="af-auto-wait__tool">${tw.details[0].name}</code>`) && chunks[6].includes(esc(JSON.stringify(tw.details[0].arguments, null, 2))));
+  // The call in words (operator QA 2026-10-29): its sentence, its tool on the chip's tooltip, no JSON.
+  const twWords = kit.describeToolCall(tw.details[0]);
+  check("tool_approval wait: group labelled, kind label, tool call listed in words", chunks[6].includes('data-wait-kind="tool_approval"') && chunks[6].includes(">Approval needed</span>") && chunks[6].includes(`data-tool="${tw.details[0].name}"`) && chunks[6].includes(`title="${tw.details[0].name}">${esc(twWords.verb)}</span>`) && !chunks[6].includes(esc(JSON.stringify(tw.details[0].arguments, null, 2))), twWords.sentence);
   check("tool_approval wait: Approve and Deny, no free text", enabled(chunks[6], "wait-approve") && enabled(chunks[6], "wait-deny") && (chunks[6].match(/aria-label="Your answer"/g) || []).length === 1);
   check("no wait controls on other occurrences", chunks.filter((c, i) => i !== 6).every((c) => !c.includes("af-auto-wait")));
   check("every pair has expandable run details with Open run ledger (and no raw ledger href)", chunks.every((c) => c.includes("<details class=\"af-auto-occ__details\"><summary>Run details</summary>") && c.includes('data-action="open-run"') && !/href="\/api\//.test(c)));
