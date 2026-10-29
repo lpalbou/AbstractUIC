@@ -70,7 +70,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.6): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.7): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
 - [@abstractframework/panel-chat](panel-chat/README.md) (0.6.5, needs ui-kit ^0.9.6): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
@@ -168,6 +168,13 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
+
+## What's new in 0.8.6
+
+`@abstractframework/ui-kit` 0.9.7: tool results read in words (`describeToolResult`,
+`ToolResultWordsView`); an automation panel opens at the item that needs you, outlined, with the wait card in the
+standard text colour (`openAt`); the top bar's About button has its own glyph and a page can host its own element in
+the kit's About dialog ([changelog](./CHANGELOG.md#086---20261029)).
 
 ## What's new in 0.8.5
 
@@ -1749,6 +1756,7 @@ fails when a sheet is stale.
 | `zoomOut` | 24 | Zoom out |
 | `fitView` | 24 | Fit everything in view |
 | `lock` | 24 | Lock |
+| `about` | 24 | About this app (the top bar's About button; a typographic "i" whose dot is wider than the stroke, in the same r 9 ring as `contrast`) |
 
 ## Adding an icon
 
@@ -4448,7 +4456,11 @@ Every mount returns `{ update(props), unmount() }`. Mounting into a missing elem
 ### `mountTopBar(el, props)`
 
 Renders the shared top-right cluster in the kit's enforced order: extras · docs · assistant ·
-appearance · about · identity · connection pill (always rightmost).
+appearance · about · account (always rightmost). Signed in with `identity` on, the account is ONE
+button (person icon, name, connection light) whose menu holds Signed in as / Gateway / Copy user
+id / Disconnect; otherwise (connecting, signed out, `identity` off) the connection pill holds that
+place. The four pieces every app shares (docs, appearance, About, account) are the kit's: change
+one in the kit and every app and the console change with it (operator ruling 2026-10-29).
 
 ```ts
 type TopBarIslandProps = {
@@ -4460,6 +4472,7 @@ type TopBarIslandProps = {
     versions?: AfAboutVersions;          // framework + gateway versions (apiVersion "2")
     onOpen?: () => void;                 // runs each time the About dialog opens
     label?: string;
+    extra?: HTMLElement | null;          // a page-owned element shown under the links (see below)
   } | null;
   extras?: Array<{
     id: string;          // becomes the element id
@@ -4559,8 +4572,17 @@ type AboutIslandProps = {
   onClose: () => void;
   identity: AppIdentity;      // islands.appIdentity("abstractgateway", version)
   versions?: AfAboutVersions; // or islands.aboutVersionsFromGateway(body)
+  extra?: HTMLElement | null; // a page-owned element shown under the links (see below)
 };
 ```
+
+`extra` (on `mountAbout` and on `mountTopBar`'s `about`; additive, apiVersion stays `"2"`) carries
+host content into the kit dialog, such as the console's "Check for updates / Update / Restart"
+section. The island moves the element (never a clone) into the dialog while it is open and puts it
+back where it was (same parent, same position) when the dialog closes, so the page's own script can
+still find it by id and update it while the dialog is closed. Keep it in a hidden container of the
+page. Rule and check: `hostElementInto` / `hostElementEffect` in `islands/console_islands.tsx`,
+`scripts/check_top_bar_set.mjs`.
 
 A missing version shows its note, otherwise "not reported" (framework) or "not connected"
 (gateway).
@@ -6554,7 +6576,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.8.5",
+  "version": "0.8.6",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -6579,7 +6601,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.6",
+  "version": "0.9.7",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -6627,7 +6649,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_tool_call_words.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_session_tool_policy.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_tool_call_words.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_top_bar_set.mjs && node scripts/check_session_tool_policy.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation"
   },
@@ -7267,6 +7289,8 @@ export {
   ATTENTION_TEXT,
   attentionBadgeTooltip,
   attentionBadgeLabel,
+  attentionTarget,
+  ATTENTION_FOCUS_MS,
   type AttentionText,
   RUN_NOW_NEXT_RUN_LINE,
   RUN_NOW_ONE_LINE,
@@ -7608,8 +7632,8 @@ export { policySetLine, TOOL_SESSION_OFF_HELP, TOOL_POLICY_SCOPE_UNSAID } from "
 export { SESSION_ID_PATTERN, sessionToolPolicyRoute } from "./gateway_paths.js";
 
 // Tool calls in words (operator QA 2026-10-29): approval cards never print raw JSON.
-export { describeToolCall, groupToolCalls, prettyQuotes, readableKey, shortUrl, type ToolCallInput, type ToolCallWords } from "./tool_call_words.js";
-export { ToolCallWordsList, type ToolCallWordsListProps } from "./tool_call_words_view.js";
+export { describeToolCall, describeToolResult, groupToolCalls, prettyQuotes, readableKey, shortUrl, type ToolCallInput, type ToolCallWords, type ToolResultInput, type ToolResultWords } from "./tool_call_words.js";
+export { ToolCallWordsList, ToolResultWords as ToolResultWordsView, type ToolCallWordsListProps, type ToolResultWordsProps } from "./tool_call_words_view.js";
 
 ## ui-kit/src/responsive.ts
 
@@ -13123,7 +13147,7 @@ tell the AbstractObserver and AbstractAssistant maintainers.
 // re-calls `update(props)` whenever it changes (no React knowledge needed).
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { AfTopBarActions } from "../src/af_top_bar_actions.js";
+import { AfTopBarActions, type AfTopBarActionsProps } from "../src/af_top_bar_actions.js";
 import { AfDrawerSystem, type AfDrawerPanel, type AfDrawerSystemProps } from "../src/af_drawer_system.js";
 import type { GatewayConnectionState } from "../src/gateway_connect_modal.js";
 import { AfAppearanceDialog, type AppearanceSettings } from "../src/appearance.js";
@@ -13176,8 +13200,13 @@ export type TopBarIslandProps = {
   docs?: { open: boolean; onToggle: () => void; label?: string } | null;
   assistant?: { open: boolean; onToggle: () => void; label?: string } | null;
   appearance?: { onOpen: () => void; label?: string } | null;
-  /** The About button + dialog, owned by the cluster (omit/null hides it). */
-  about?: { identity: AppIdentity; versions?: AfAboutVersions; onOpen?: () => void; label?: string } | null;
+  /**
+   * The About button + dialog, owned by the cluster (omit/null hides it). `extra` = a page-owned
+   * element shown in the kit dialog under its links (e.g. the console's update controls): moved in
+   * while the dialog is open, put back where it was when it closes (see `hostElementInto`).
+   * Additive (top-bar set, 2026-10-29): apiVersion stays "2".
+   */
+  about?: { identity: AppIdentity; versions?: AfAboutVersions; onOpen?: () => void; label?: string; extra?: HTMLElement | null } | null;
   extras?: IslandExtraAction[];
   /**
    * Who is signed in, left of the pill (kit identity: "badge" or "menu" with
@@ -13231,6 +13260,8 @@ export type AboutIslandProps = {
   identity: AppIdentity;
   /** Framework + gateway versions (kit 0.7.0 compact About; no package list). */
   versions?: AfAboutVersions;
+  /** A page-owned element shown under the links while open (moved in, put back on close). */
+  extra?: HTMLElement | null;
 };
 
 /** A composer attachment chip (the host uploads; the island only shows state). */
@@ -13316,14 +13347,26 @@ function extrasNode(extras: IslandExtraAction[] | undefined): React.ReactNode {
   );
 }
 
-function TopBarIsland(props: TopBarIslandProps): React.ReactElement {
+/** The kit About's `extra` for a page-owned element: hosted (moved in, put back on close), never cloned. */
+function aboutExtra(element: HTMLElement | null | undefined): React.ReactNode {
+  return element ? <HostElement element={element} className="af-island-host af-about-host" restore /> : undefined;
+}
+
+/** The island's About props as the kit's (`extra`: a page element, hosted). */
+export function islandAbout(about: TopBarIslandProps["about"]): AfTopBarActionsProps["about"] {
+  if (!about) return undefined;
+  const { extra, ...rest } = about;
+  return extra ? { ...rest, extra: aboutExtra(extra) } : rest;
+}
+
+export function TopBarIsland(props: TopBarIslandProps): React.ReactElement {
   const { me: _me, ...connection } = props.connection;
   return (
     <AfTopBarActions
       docs={props.docs || undefined}
       assistant={props.assistant || undefined}
       appearance={props.appearance || undefined}
-      about={props.about || undefined}
+      about={islandAbout(props.about)}
       extraActions={extrasNode(props.extras)}
       identity={props.identity || false}
       connection={{ ...connection, status: islandConnectionStatus(props.connection) }}
@@ -13340,14 +13383,49 @@ export type DrawerSystemIslandProps = Omit<AfDrawerSystemProps, "panels" | "chil
   main?: HTMLElement | null;
 };
 
-/** Hosts an element the page owns inside a React tree (moved in on mount, never cloned). */
-function HostElement(props: { element: HTMLElement; className?: string }): React.ReactElement {
+/** The DOM members `hostElementInto` uses (a structural type, so the check can pass plain objects). */
+export type HostedNode = { parentNode: HostedParent | null; nextSibling: HostedNode | null };
+export type HostedParent = { appendChild(n: HostedNode): unknown; insertBefore(n: HostedNode, ref: HostedNode | null): unknown };
+
+/**
+ * Move `element` into `box` (never cloned) and return the function that puts it back where it was
+ * (its former parent, before its former next sibling when that is still there), or null when it had
+ * no parent or is already in `box`. Put back only while it is still in `box`. The About dialog
+ * unmounts on close: without the put-back the page's element left the document with it, and the
+ * page's `getElementById` for it answered null until the next open.
+ */
+export function hostElementInto(box: HostedParent, element: HostedNode): (() => void) | null {
+  if (element.parentNode === box) return null;
+  const home = element.parentNode;
+  const before = element.nextSibling;
+  box.appendChild(element);
+  if (!home) return null;
+  return () => {
+    if (element.parentNode !== box) return;
+    if (before && before.parentNode === home) home.insertBefore(element, before);
+    else home.appendChild(element);
+  };
+}
+
+/**
+ * Hosts an element the page owns inside a React tree (moved in on mount, never cloned). `restore`:
+ * put it back where it was on unmount (a dialog's content); without it the element stays in the
+ * box (keep-alive panels never unmount).
+ */
+/** HostElement's effect: host `element` in `box`; the cleanup puts it back only with `restore`. */
+export function hostElementEffect(box: HostedParent | null, element: HostedNode, restore: boolean): (() => void) | undefined {
+  if (!box) return undefined;
+  const putBack = hostElementInto(box, element);
+  return restore && putBack ? putBack : undefined;
+}
+
+function HostElement(props: { element: HTMLElement; className?: string; restore?: boolean }): React.ReactElement {
   const ref = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const box = ref.current;
-    if (!box || props.element.parentNode === box) return;
-    box.appendChild(props.element);
-  }, [props.element]);
+  const restore = props.restore === true;
+  useEffect(
+    () => hostElementEffect(ref.current as unknown as HostedParent | null, props.element as unknown as HostedNode, restore),
+    [props.element, restore],
+  );
   return <div ref={ref} className={props.className || "af-island-host"} />;
 }
 
@@ -13509,8 +13587,14 @@ export function mountAppearance(el: Element, props: AppearanceIslandProps): Isla
   return mount(el, (p) => <AfAppearanceDialog {...p} />, props);
 }
 
+/** The About island: the kit AfAboutDialog; `extra` (a page element) is hosted under the links while open. */
+export function AboutIsland(props: AboutIslandProps): React.ReactElement | null {
+  const { extra, ...rest } = props;
+  return <AfAboutDialog {...rest} extra={aboutExtra(extra)} />;
+}
+
 export function mountAbout(el: Element, props: AboutIslandProps): IslandHandle<AboutIslandProps> {
-  return mount(el, (p) => <AfAboutDialog {...p} />, props);
+  return mount(el, (p) => <AboutIsland {...p} />, props);
 }
 
 /**
@@ -21555,6 +21639,34 @@ ships.
 ## Unreleased
 
 _Nothing yet._
+
+## 0.8.6 - 2026-10-29
+
+Packages: `@abstractframework/ui-kit` 0.9.7 (panel-chat unchanged at 0.6.5, needs ui-kit `^0.9.6`; app-server at 0.1.13).
+Operator QA of 2026-10-29: tool results in words (0070), an automation opens at what needs you with a readable wait
+card (0071), the top bar's About glyph and the console's About through the kit dialog (top-bar set).
+
+### ui-kit
+
+- **The About button has a legible icon, and the console's About can be the kit's** (operator ruling 2026-10-29:
+  the top bar's docs button, Appearance, About and account are the SAME kit components in every app and the
+  console). The About button now draws the new `about` glyph instead of `info`. `info` draws its dot at r 0.75, so
+  the dot is narrower than the 2-unit stroke of its own stem, and at 16 px it shrinks to a 1 px speck: the button
+  read as a ring with a dash. `about` is a typographic "i": the dot is r 1.5 (wider than the stem), the stem is 6
+  units long, and the ring is r 9, the same as `contrast` beside it. `info` is unchanged for notices. The console
+  islands gain `extra` on `mountTopBar`'s `about` and on `mountAbout`: a page-owned element (the console's
+  update controls) is shown in the kit `AfAboutDialog` while it is open, and put back where it was when it closes
+  (`hostElementInto`), so the console can drop its own About dialog. Additive; apiVersion stays "2". Check:
+  `scripts/check_top_bar_set.mjs`.
+
+- **Tool results in words, never raw JSON** (operator QA 2026-10-29, backlog 0070). `describeToolResult` and the
+  `ToolResultWordsView` component turn a tool's result into one sentence and up to three readable items: "Web search
+  returned 10 results" with the first titles, "Page fetch failed: timed out after 30 s", "Page skim returned “FDA
+  meeting” (fda.gov/…), 1,204 characters". This is the same rule as 0068's calls: hosts keep the JSON behind a
+  disclosure. Check: `scripts/check_tool_call_words.mjs`.
+- **An automation opens at what needs you** (operator 2026-10-29, backlog 0071). `AutomationPanel` scrolls to the
+  first unresolved wait's card (else the oldest unseen result's run) and outlines it for a moment. `openAt: "none"`
+  turns this off. The wait card's text uses the standard text colour.
 
 ## 0.8.5 - 2026-10-29
 
