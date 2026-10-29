@@ -9,6 +9,16 @@ ships.
 
 ## Unreleased
 
+_Nothing yet._
+
+## 0.8.5 - 2026-10-29
+
+Packages: `@abstractframework/ui-kit` 0.9.6, `@abstractframework/panel-chat` 0.6.5 (needs ui-kit `^0.9.6`:
+its approval card renders the kit's `ToolCallWordsList`); app-server unchanged at 0.1.13. Operator QA of
+2026-10-29: tool calls in words (0068, 0069), one account widget, a voice change never replays the old voice,
+a voice card's reference length, a failed read-aloud's reason, the attention badge defined once (0067), read
+aloud only for a reply generated while open (0065).
+
 ### ui-kit
 
 - **A voice card shows its reference length** (2026-10-29): `VoiceLibraryPanel`'s card adds "3.9 s reference" to its
