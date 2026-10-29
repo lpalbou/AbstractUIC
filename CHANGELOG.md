@@ -9,6 +9,14 @@ ships.
 
 ## Unreleased
 
+_Nothing yet._
+
+## 0.8.6 - 2026-10-29
+
+Packages: `@abstractframework/ui-kit` 0.9.7 (panel-chat unchanged at 0.6.5, needs ui-kit `^0.9.6`; app-server at 0.1.13).
+Operator QA of 2026-10-29: tool results in words (0070), an automation opens at what needs you with a readable wait
+card (0071), the top bar's About glyph and the console's About through the kit dialog (top-bar set).
+
 ### ui-kit
 
 - **The About button has a legible icon, and the console's About can be the kit's** (operator ruling 2026-10-29:
