@@ -13,7 +13,8 @@
 // mark has its source, licence and date, and no mark references anything outside itself.
 //
 // Trademarks: every mark belongs to its owner; it identifies the product a card configures and
-// implies no endorsement. MIT/CC0 cover the files' copyright, not the marks.
+// implies no endorsement. MIT/CC0 cover the files' copyright, not the marks, and the marks are NOT
+// covered by this kit's MIT licence (OpenAI's is used under OpenAI's own Marks usage terms).
 
 import React from "react";
 
@@ -120,6 +121,18 @@ export const BRAND_ICONS: Readonly<Record<string, BrandIcon>> = {
     viewBox: "0 0 250 250",
     body: "<defs/><g transform=\"translate(-995.51066,-129.70875)\"><path fill=\"#ff8236\" d=\"m 1163.3,226.8 -13.5,24 c -17.8,-13.7 -44.2,-15.7 -62,-1 -28.7,23.7 -26.7,78.5 18,78.8 12.5,0 23.1,-5.9 34.5,-9.8 l 6,23.9 c -10.1,4.7 -20.4,9.5 -31.5,11 -101.2,13.8 -95.4,-132.3 -3.9,-139.9 19.2,-1.6 36.1,3.4 52.5,13 z\"/><path fill=\"#ff8236\" d=\"m 1093.4,203.8 c -15.4,4.6 -29.7,13.1 -40.5,25 -2,-24.2 3.4,-73.1 30.3,-82.7 4,-1.4 17.7,-4.9 17.3,2.2 -0.4,7.1 -9.9,19.3 -12.2,25.9 -4,11.6 -0.3,19.6 5.2,29.7 z\"/><polygon fill=\"#ff8236\" points=\"1131.4,307.8 1116.4,307.8 1116.4,290.8 1099.4,290.8 1099.4,276.8 1114.9,276.8 1116.4,275.3 1116.4,258.8 1131.4,258.8 1131.4,276.8 1147.4,276.8 1147.4,290.8 1131.4,290.8 \"/><polygon fill=\"#ff8236\" points=\"1186.4,290.8 1186.4,307.8 1171.4,307.8 1171.4,290.8 1155.4,290.8 1155.4,276.8 1171.4,276.8 1171.4,258.8 1186.4,258.8 1186.4,275.3 1187.9,276.8 1203.4,276.8 1203.4,290.8 \"/><path fill=\"#ff8236\" d=\"m 1142.3,156.9 c 2,3 -9.3,15.9 -11.1,19.2 -5.2,9.8 -1.7,15.4 2.2,24.7 -11.3,-1.7 -21.8,-0.3 -33,1 2.5,-21.5 14.6,-52.8 41.9,-44.9 z\"/></g>",
   },
+  openai: {
+    id: "openai",
+    name: "OpenAI",
+    origin: "brand",
+    source: "https://cdn.openai.com/brand/openai-logos.zip",
+    terms: "https://openai.com/brand/",
+    licence: "OpenAI logo (the black Blossom, OpenAI-logos/SVGs/OAI_OpenAI-Blossom_Black.svg in the zip, unmodified; sha256 75c1e9fffa5e8c437bec1d67197a73992bca45d166c6ff23215185dea8fae92a), a trademark of OpenAI, used under OpenAI's Marks usage terms (non-exclusive, non-transferable, revocable); NOT covered by this kit's MIT licence. Terms read: \"By using our logos, you agree to our Marks usage terms.\" (https://openai.com/brand/) \"Use the logo only when it directly relates to OpenAI services.\" (https://openai.com/brand/) \"Use the logo exactly as provided and acknowledge that it belongs to OpenAI.\" (https://openai.com/brand/) \"Permission to use our Marks is limited in the following ways: Only use our Marks if they adhere to these brand guidelines.\" (https://openai.com/brand/) \"If you are an active OpenAI developer, you may truthfully identify the OpenAI technology you use.\" (https://openai.com/brand/)",
+    restrictions: "Shown exactly as provided, black, never recoloured or altered, only on the card that connects OpenAI's API (it \"directly relates to OpenAI services\"), never more prominent than the host's own name, with no partnership claim. Terms page read through the Wayback snapshot of 2026-10-21 (the live page answers 403 to non-browser clients). Counter-reading noted: \"However, everything about your app, product or company (including name, logo, description, slogan, tagline and screenshots) should be your own and should be free of OpenAI's brands (including products, services or model names; logos; or trademarks).\" (https://openai.com/brand/), read as being about the host's own branding.",
+    retrieved: "2026-10-29",
+    viewBox: "0 0 716 716",
+    body: "<path d=\"M508.749 317.399C516.777 287.314 508.991 253.884 485.389 230.282C461.788 206.681 428.36 198.895 398.273 206.923C376.231 184.928 343.39 174.956 311.148 183.596C278.906 192.234 255.45 217.292 247.36 247.361C217.291 255.451 192.233 278.91 183.595 311.149C174.957 343.391 184.927 376.232 206.924 398.274C198.896 428.359 206.683 461.789 230.284 485.391C253.885 508.992 287.313 516.779 317.401 508.75C339.442 530.745 372.286 540.717 404.525 532.079C436.767 523.441 460.223 498.384 468.313 468.315C498.383 460.224 523.44 436.766 532.078 404.526C540.716 372.285 530.747 339.443 508.749 317.402V317.399ZM470.899 244.776C486.892 260.77 493.488 282.601 490.687 303.412L415.577 260.046C412.411 258.218 408.509 258.218 405.345 260.046L317.401 310.82V277.526C317.401 275.191 318.652 273.005 320.676 271.837L387.644 233.174C414.178 218.353 448.346 222.223 470.901 244.776H470.899ZM357.837 311.144L398.275 334.491V381.185L357.837 404.532L317.398 381.185V334.491L357.837 311.144ZM264.776 269.693C265.207 239.305 285.644 211.649 316.453 203.393C338.3 197.54 360.505 202.744 377.127 215.573L302.014 258.937C298.848 260.764 296.898 264.144 296.898 267.798V369.346L268.065 352.699C266.043 351.531 264.776 349.353 264.776 347.017V269.691V269.693ZM203.391 316.454C209.244 294.608 224.854 277.978 244.276 269.999V356.73C244.276 360.384 246.226 363.763 249.392 365.591L337.337 416.365L308.503 433.013C306.481 434.181 303.961 434.188 301.939 433.02L234.971 394.357C208.868 378.789 195.138 347.261 203.391 316.454ZM244.775 470.9C228.781 454.906 222.186 433.075 224.986 412.264L300.096 455.63C303.263 457.457 307.164 457.457 310.328 455.63L398.273 404.856V438.149C398.273 440.485 397.022 442.671 394.997 443.839L328.029 482.502C301.495 497.322 267.327 493.452 244.772 470.9H244.775ZM450.897 445.982C450.466 476.371 430.029 504.027 399.22 512.283C377.373 518.136 355.168 512.932 338.547 500.102L413.659 456.738C416.826 454.911 418.775 451.532 418.775 447.877V346.329L447.609 362.977C449.631 364.145 450.897 366.323 450.897 368.659V445.985V445.982ZM512.282 399.221C506.429 421.068 490.819 437.697 471.397 445.676V358.946C471.397 355.292 469.448 351.912 466.281 350.085L378.336 299.311L407.17 282.663C409.192 281.495 411.712 281.487 413.734 282.655L480.702 321.318C506.805 336.887 520.536 368.415 512.282 399.221Z\" fill=\"black\"/>",
+  },
   openrouter: {
     id: "openrouter",
     name: "OpenRouter",
@@ -135,28 +148,28 @@ export const BRAND_ICONS: Readonly<Record<string, BrandIcon>> = {
 };
 
 export const BRAND_FALLBACKS: Readonly<Record<string, BrandFallback>> = {
-  openai: {
-    id: "openai",
-    name: "OpenAI",
-    text: "OAI",
-    terms: "https://openai.com/brand/",
-    reason: "OpenAI's brand terms forbid it without permission: \"Use the logo exactly as provided\"; Don't \"Use the logo without permission or outside OpenAI's terms\"; Don't \"modify it in any way\"; Blossom: \"DON'T add any colors to the Blossom\"; \"The permission we grant is non-exclusive (we can give it to others) and non-transferrable (you cannot give it to others).\"",
-    retrieved: "2026-10-29",
-  },
   anthropic: {
     id: "anthropic",
     name: "Anthropic",
     text: "ANT",
     terms: "https://www.anthropic.com/legal/trademark-guidelines",
-    reason: "Anthropic's trademark guidelines need its approval first: \"You may only use our trademarks as specifically permitted by us and only in materials we approve beforehand.\" and \"No alterations of our trademarks (changes to color, font, proportion, or otherwise) are permitted.\"",
+    reason: "Anthropic's trademark guidelines require its approval first: \"You may only use our trademarks as specifically permitted by us and only in materials we approve beforehand. We may terminate permission to use our trademarks at any time.\" (https://www.anthropic.com/legal/trademark-guidelines) \"We will supply an image (or images) of the trademark(s) for your use and specific requirements regarding size, pixels, spacing, and the like.\" (https://www.anthropic.com/legal/trademark-guidelines) \"If you have an existing business relationship with Anthropic and want to use our trademarks in a press release, on your website, or in another context, please email marketing@anthropic.com.\" (https://www.anthropic.com/legal/trademark-guidelines) Its press kit (https://www.anthropic.com/press-kit) ships logos with no usage terms, so it grants no permission.",
     retrieved: "2026-10-29",
   },
   portkey: {
     id: "portkey",
     name: "Portkey",
     text: "PK",
-    terms: "https://portkey.ai/",
-    reason: "No usable logo: no brand kit, brand guidelines or licensed logo file found (portkey.ai/brand, /press, /brand-assets, /media-kit all 404; Portkey-AI/gateway repo (MIT) has no logo file).",
+    terms: "https://portkey.ai/terms",
+    reason: "Portkey's terms forbid displaying its marks without written permission, and it publishes no brand kit: \"Except as set out in this section or elsewhere in our Legal Terms, no part of the Services and no Content or Marks may be copied, reproduced, aggregated, republished, uploaded, posted, publicly displayed, encoded, translated, transmitted, distributed, sold, licensed, or otherwise exploited for any commercial purpose whatsoever, without our express prior written permission.\" (https://portkey.ai/terms) \"The Content and Marks are provided in or through the Services \"AS IS\" for your internal business purpose only.\" (https://portkey.ai/terms)",
+    retrieved: "2026-10-29",
+  },
+  ovh: {
+    id: "ovh",
+    name: "OVH AI Endpoints",
+    text: "OVH",
+    terms: "https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf",
+    reason: "OVHcloud's Trademark Usage Policy (version of 12/30/2024) allows its text trademark, not its logo: \"1.2.Compatibility: You may use any OVHcloud Text Trademark (but not the OVHcloud Logo) in a referential phrase on promotional/advertising materials to describe that your product is compatible with the referenced OVHcloud product or technology, provided that the materials comply with the following requirements:\" (https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf) \"Any other use of the OVHcloud Trademarks requires a separate trademark license agreement with OVHcloud. The use of OVHcloud Logos always require the written permission of OVHcloud.\" (https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf) \"1.2.OVHcloud Logo: You may not use the OVHcloud Logo on or in connection with websites, products, packaging, manuals, advertising materials, or for any other purpose except pursuant to an express written trademark licence from OVHcloud.\" (https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf)",
     retrieved: "2026-10-29",
   },
   "openai-compatible": {
@@ -172,7 +185,7 @@ export const BRAND_FALLBACKS: Readonly<Record<string, BrandFallback>> = {
 /** The ids the provider cards name: the gateway's engine cards and AbstractCore's cloud providers. */
 export const BRAND_CARD_IDS = {
   engines: ["ollama", "lmstudio", "vllm", "huggingface", "mlx", "llamacpp"],
-  providers: ["openai", "anthropic", "openrouter", "portkey", "openai-compatible"],
+  providers: ["openai", "anthropic", "openrouter", "portkey", "ovh", "openai-compatible"],
 } as const;
 
 export type BrandMarkInfo =

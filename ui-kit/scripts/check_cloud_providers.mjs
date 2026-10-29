@@ -144,67 +144,126 @@ function fakeGateway({ taken = ["openai-key"], conflictOnce = false, models = ma
   check("4 the host's scope is sent", g.calls.filter((c) => c.method === "POST").pop().body.scope === "user");
 }
 
-// 3 + 5. The component, driven.
+// 6. OpenAI-compatible endpoints: the preset card(s) and the generic card, AbstractCore's
+// `openai-compatible` provider with a base URL.
+const { cloudCardsFromDiscovery, cardStatus, OPENAI_COMPATIBLE_PRESETS: PRESETS, GENERIC_COMPATIBLE_CARD: GENERIC, connectedSentence, slugId, validBaseUrl } = kit;
+const WITH_COMPAT = { items: [...DISCOVERY.items, { name: "openai-compatible", display_name: "OpenAI-Compatible", local_provider: true }] };
 {
-  const g = fakeGateway();
+  const cards = cloudCardsFromDiscovery(WITH_COMPAT);
+  check("6 cards: natives, then the presets, then the generic card", JSON.stringify(cards.map((c) => c.id)) === JSON.stringify(["anthropic", "openai", "openrouter", "portkey", ...PRESETS.map((p) => p.id), "openai-compatible"]), cards.map((c) => c.id));
+  check("6 no compatible cards when AbstractCore has no openai-compatible provider", cloudCardsFromDiscovery({ items: DISCOVERY.items.filter((i) => i.name !== "openai-compatible") }).every((c) => c.kind === "native"));
+  const ovh = PRESETS.find((p) => p.id === "ovh");
+  check("6 OVH AI Endpoints is a preset with an https base URL and its documentation", !!ovh && ovh.kind === "preset" && ovh.family === "openai-compatible" && /^https:\/\/[^/]+\/v1$/.test(ovh.baseUrl) && /^https:\/\//.test(ovh.docs), ovh);
+  check("6 the generic card", GENERIC.kind === "generic" && GENERIC.family === "openai-compatible" && GENERIC.name === "Other OpenAI-compatible endpoint");
+  check("6 connected sentence", connectedSentence(48) === "Connected · 48 models" && connectedSentence(1) === "Connected · 1 model");
+  check("6 slug ids", slugId("OVH AI Endpoints") === "ovh-ai-endpoints" && slugId("  ") === "endpoint");
+  check("6 base URL validation", validBaseUrl("https://api.mistral.ai/v1/") === "https://api.mistral.ai/v1" && validBaseUrl("api.mistral.ai") === "" && validBaseUrl("ftp://x") === "");
+  const conns = kit.connectionsFromProfiles({ profiles: [
+    { id: "ovh-ai-endpoints", provider_family: "openai-compatible", base_url: ovh.baseUrl + "/", api_key_set: true, api_key_fingerprint: "0badc0de99" },
+    { id: "mistral", provider_family: "openai-compatible", display_name: "Mistral", base_url: "https://api.mistral.ai/v1", api_key_set: true },
+    { id: "vllm", provider_family: "openai-compatible", base_url: "http://127.0.0.1:8000/v1" },
+  ] });
+  check("6 OVH card status from its base URL", cardStatus(ovh, conns) === "Connected · key 0badc0de", cardStatus(ovh, conns));
+  check("6 generic card: other cloud endpoints only (not OVH, not a local server)", cardStatus(GENERIC, conns) === "Connected · Mistral", cardStatus(GENERIC, conns));
+}
+
+// 3 + 5. The component, driven: ONE action per card (Connect / Reconnect).
+function gw({ taken = ["openai-key"], kind, models = many(48) } = {}) {
+  const g = fakeGateway({ taken, kind, models });
+  const inner = g.request;
+  g.request = async (path, init) => (path.endsWith("/discovery/providers") ? (g.calls.push({ path, method: init.method }), WITH_COMPAT) : inner(path, init));
+  return g;
+}
+{
+  const g = gw();
   const saves = [];
-  const card = mountHook(CloudProviderCards, { request: g.request, base: "/api/gateway", onSaved: (s) => saves.push(s), onConfigure: () => {} });
+  const card = mountHook(CloudProviderCards, { request: g.request, base: "/api/gateway", onSaved: (s) => saves.push(s) });
   await card.settle();
   const tree = () => card.current;
   const articles = () => findAll(tree(), (n) => n.props && n.props["data-cloud-provider"]);
-  check("1 one card per cloud provider", JSON.stringify(articles().map((a) => a.props["data-cloud-provider"])) === JSON.stringify(["anthropic", "openai", "openrouter", "portkey"]), articles().map((a) => a.props["data-cloud-provider"]));
+  const ids = articles().map((a) => a.props["data-cloud-provider"]);
+  check("1 one card per native provider, the presets, the generic card", JSON.stringify(ids) === JSON.stringify(["anthropic", "openai", "openrouter", "portkey", ...PRESETS.map((p) => p.id), "openai-compatible"]), ids);
   const inCard = (id, pred) => find(articles().find((a) => a.props["data-cloud-provider"] === id), pred);
-  const input = (id) => inCard(id, (n) => n.type === "input");
-  const button = (id, action) => inCard(id, (n) => n.type === "button" && n.props["data-action"] === action);
+  const input = (id, type = "password") => inCard(id, (n) => n.type === "input" && n.props.type === type);
+  const buttons = (id) => findAll(articles().find((a) => a.props["data-cloud-provider"] === id), (n) => n.type === "button");
+  const button = (id) => inCard(id, (n) => n.type === "button" && n.props["data-action"] === "connect");
   const line = (id) => inCard(id, (n) => n.props && "data-cloud-line" in n.props).props.children;
   const status = (id) => inCard(id, (n) => n.props && "data-cloud-status" in n.props).props.children;
+  check("3 ONE action per card", ids.every((id) => buttons(id).length === 1 && buttons(id)[0].props["data-action"] === "connect"), ids.map((id) => buttons(id).length));
+  check("3 Connect on a provider without a connection, Reconnect on one with", button("anthropic").props.children === T.connect && button("openai").props.children === T.reconnect, [button("anthropic").props.children, button("openai").props.children]);
   check("5 the key field is a password field, not autofilled", input("openai").props.type === "password" && input("openai").props.autoComplete === "off");
   check("5 status from the gateway's fingerprint", status("openai") === "Connected · key feedbeef" && status("anthropic") === "Not connected", [status("openai"), status("anthropic")]);
-  check("3 no Save before a check", !button("openai", "save") && !!button("openai", "check"));
-  check("More settings opens the host's editor", !!button("openai", "configure"));
-  button("openai", "check").props.onClick();
+  // An empty key is not sent.
+  button("anthropic").props.onClick();
   await card.settle();
-  check("3 an empty field is not sent", line("openai") === T.pasteFirst && !g.calls.some((c) => c.path.endsWith("discover-models")));
-  input("openai").props.onChange({ target: { value: KEY } });
+  check("3 an empty field is not sent", line("anthropic") === T.pasteFirst && !g.calls.some((c) => c.path.endsWith("discover-models")));
+  // Connect = check, then (only because it worked) save.
+  input("anthropic").props.onChange({ target: { value: KEY } });
   card.render();
-  button("openai", "check").props.onClick();
+  button("anthropic").props.onClick();
   await card.settle();
-  check("2 the card reads Key works · 48 models", line("openai") === "Key works · 48 models", line("openai"));
-  check("3 nothing stored by the check", !g.calls.some((c) => c.method === "POST" && c.path.endsWith("/provider-endpoint-profiles")));
-  check("4 a connected provider saves as a NEW connection", button("openai", "save")?.props.children === T.saveAnother);
-  // Editing the key after the check drops it: Save is gone until it is checked again.
-  input("openai").props.onChange({ target: { value: KEY + "x" } });
-  card.render();
-  check("3 an edited key must be checked again", !button("openai", "save") && !!button("openai", "check"));
-  input("openai").props.onChange({ target: { value: KEY } });
-  card.render();
-  button("openai", "check").props.onClick();
-  await card.settle();
-  button("openai", "save").props.onClick();
-  await card.settle();
+  const order = g.calls.filter((c) => c.method === "POST").map((c) => (c.path.endsWith("discover-models") ? "check" : "save"));
+  check("3 Connect checks the key BEFORE it stores it", JSON.stringify(order) === JSON.stringify(["check", "save"]), order);
   const post = g.calls.filter((c) => c.method === "POST" && c.path.endsWith("/provider-endpoint-profiles"));
-  check("4 the card's save is create_only with a fresh id", post.length === 1 && post[0].body.id === "openai-key-2" && post[0].body.create_only === true, post);
-  check("5 the field is emptied and the check dropped after the save", input("openai").props.value === "" && !button("openai", "save"));
-  check("5 saved line", line("openai") === "Saved as OpenAI (API key 2). Choose its models in Default models; the key is never shown again.", line("openai"));
-  check("onSaved tells the host", saves.length === 1 && saves[0].id === "openai-key-2");
+  check("4 a new connection: fresh id, create_only, never a PUT", post.length === 1 && post[0].body.id === "anthropic-key" && post[0].body.create_only === true && !g.calls.some((c) => c.method === "PUT"), post);
+  check("2 the line reads Connected · 48 models", line("anthropic") === "Connected · 48 models", line("anthropic"));
+  check("5 the field is emptied once connected", input("anthropic").props.value === "");
+  check("onSaved tells the host", saves.length === 1 && saves[0].id === "anthropic-key");
+  check("3 the card now offers Reconnect", button("anthropic").props.children === T.reconnect);
   const html = renderToStaticMarkup(React.createElement(React.Fragment, null, tree()));
   check("5 the key is nowhere in the rendered cards", !html.includes(KEY) && !html.includes(KEY.slice(0, 12)));
-  check("5 status refreshed after the save (2 connections)", status("openai") === "2 connections", status("openai"));
-  // A refused key: one sentence, no Save.
-  const g2 = fakeGateway({ kind: "auth" });
+  // Reconnect on OpenAI (connected as openai-key): a NEW connection, the existing one untouched.
+  input("openai").props.onChange({ target: { value: KEY } });
+  card.render();
+  button("openai").props.onClick();
+  await card.settle();
+  const openaiPost = g.calls.filter((c) => c.method === "POST" && c.path.endsWith("/provider-endpoint-profiles")).pop();
+  check("4 Reconnect saves openai-key-2, never overwrites openai-key", openaiPost.body.id === "openai-key-2" && openaiPost.body.create_only === true, openaiPost.body);
+  // The OVH preset: its base URL, no URL field.
+  const ovh = PRESETS.find((p) => p.id === "ovh");
+  check("6 the OVH card shows its preset URL and asks only for the key", !inCard("ovh", (n) => n.type === "input" && n.props.type === "url") && !!input("ovh"), ids);
+  input("ovh").props.onChange({ target: { value: KEY } });
+  card.render();
+  button("ovh").props.onClick();
+  await card.settle();
+  const ovhCheck = g.calls.filter((c) => c.path.endsWith("discover-models")).pop();
+  const ovhSave = g.calls.filter((c) => c.method === "POST" && c.path.endsWith("/provider-endpoint-profiles")).pop();
+  check("6 OVH: checked as openai-compatible at its preset URL", ovhCheck.body.provider_family === "openai-compatible" && ovhCheck.body.base_url === ovh.baseUrl, ovhCheck.body);
+  check("6 OVH: saved as a new openai-compatible connection with that URL", ovhSave.body.id === "ovh-ai-endpoints" && ovhSave.body.base_url === ovh.baseUrl && ovhSave.body.display_name === ovh.name && ovhSave.body.create_only === true, ovhSave.body);
+  // The generic card: Name, Base URL, key; a missing or bad URL is not sent.
+  check("6 the generic card has Name, Base URL and API key", !!input("openai-compatible", "text") && !!input("openai-compatible", "url") && !!input("openai-compatible"));
+  const before = g.calls.length;
+  input("openai-compatible").props.onChange({ target: { value: KEY } });
+  card.render();
+  button("openai-compatible").props.onClick();
+  await card.settle();
+  check("6 no base URL: a sentence, nothing sent", line("openai-compatible") === T.baseUrlFirst && g.calls.length === before, line("openai-compatible"));
+  input("openai-compatible", "text").props.onChange({ target: { value: "Mistral" } });
+  input("openai-compatible", "url").props.onChange({ target: { value: "https://api.mistral.ai/v1/" } });
+  card.render();
+  button("openai-compatible").props.onClick();
+  await card.settle();
+  const genCheck = g.calls.filter((c) => c.path.endsWith("discover-models")).pop();
+  const genSave = g.calls.filter((c) => c.method === "POST" && c.path.endsWith("/provider-endpoint-profiles")).pop();
+  check("6 generic: checked at the typed URL", genCheck.body.provider_family === "openai-compatible" && genCheck.body.base_url === "https://api.mistral.ai/v1", genCheck.body);
+  check("6 generic: saved under its name", genSave.body.id === "mistral" && genSave.body.display_name === "Mistral" && genSave.body.base_url === "https://api.mistral.ai/v1" && genSave.body.create_only === true, genSave.body);
+  check("6 generic: fields emptied once connected", input("openai-compatible", "url").props.value === "" && input("openai-compatible").props.value === "");
+  // A refused key: the reason, nothing stored.
+  const g2 = gw({ kind: "auth" });
   const c2 = mountHook(CloudProviderCards, { request: g2.request });
   await c2.settle();
   const a2 = () => findAll(c2.current, (n) => n.props && n.props["data-cloud-provider"] === "openrouter")[0];
   find(a2(), (n) => n.type === "input").props.onChange({ target: { value: KEY } });
   c2.render();
-  find(a2(), (n) => n.type === "button" && n.props["data-action"] === "check").props.onClick();
+  find(a2(), (n) => n.type === "button").props.onClick();
   await c2.settle();
   check("2 a refused key says why on its card", find(a2(), (n) => n.props && "data-cloud-line" in n.props).props.children === "OpenRouter refused this key. Check that it was copied in full and is still active.");
-  check("3 a refused key offers no Save", !find(a2(), (n) => n.type === "button" && n.props["data-action"] === "save"));
+  check("3 nothing stored on a failed check", !g2.calls.some((c) => c.method === "POST" && c.path.endsWith("/provider-endpoint-profiles")), g2.calls);
+  check("3 the key stays in the field to fix it", find(a2(), (n) => n.type === "input").props.value === KEY);
 }
 
 if (failures) {
   console.error(`check_cloud_providers: ${failures}/${checks} FAILED`);
   process.exit(1);
 }
-console.log(`check_cloud_providers: OK (${checks} checks: registry list, readable check, check before save, create-only fresh ids, key never rendered)`);
+console.log(`check_cloud_providers: OK (${checks} checks: registry list, presets + generic compatible card, one Connect action, check before save, create-only fresh ids, key never rendered)`);
