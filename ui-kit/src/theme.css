@@ -7975,6 +7975,18 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 .af-cloud-card__status.is-on {
   color: var(--success);
 }
+.af-cloud-card__hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.af-cloud-card__hint code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
 .af-cloud-card__line {
   margin: 0;
   min-height: 1.4em;

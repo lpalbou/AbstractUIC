@@ -14,6 +14,12 @@
 //   `<family>-key-2`, …) and is POSTed with `create_only: true` (the gateway answers 409 for a taken
 //   id; the save then takes the next id once);
 // - the key is never rendered and never kept after the save; connections show a fingerprint only.
+// - ONE action per card (operator 2026-10-29): Connect (Reconnect when the provider already has a
+//   connection) checks the key and, only when it works, saves it: "Connected · 48 models", or the
+//   reason, with nothing stored.
+// - OpenAI-compatible endpoints: AbstractCore's `openai-compatible` provider with a base URL. A preset
+//   card (OVH AI Endpoints) fixes the URL; the generic card takes a name, a base URL and a key, which
+//   covers Mistral, Groq, Together, Fireworks, DeepSeek, xAI, Google… through their /v1 URLs.
 
 import { GATEWAY_API_PATH } from "./gateway_paths.js";
 
@@ -29,6 +35,45 @@ export type CloudConnection = {
   enabled: boolean;
   /** From AbstractCore's config or the environment, not a gateway connection (`managed: false`). */
   configured: boolean;
+  /** The connection's base URL ("" = the provider's default). */
+  baseUrl: string;
+};
+
+/** What a card connects: a native AbstractCore provider, a preset OpenAI-compatible service, or any
+ *  OpenAI-compatible endpoint (generic: the person gives the name and the base URL). */
+export type CloudCard = {
+  id: string;
+  name: string;
+  /** The provider family sent to the gateway (`openai`, …, or `openai-compatible`). */
+  family: string;
+  kind: "native" | "preset" | "generic";
+  /** A preset's fixed base URL; "" for a native or the generic card. */
+  baseUrl: string;
+  /** A preset: the documentation the URL comes from. */
+  docs: string;
+};
+
+/** OpenAI-compatible services with their OWN card and a preset base URL. */
+export const OPENAI_COMPATIBLE_PRESETS: readonly CloudCard[] = [
+  {
+    id: "ovh",
+    name: "OVH AI Endpoints",
+    family: "openai-compatible",
+    kind: "preset",
+    // "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1 is the base endpoint used to call AI Endpoints
+    // models" (OVHcloud docs, AI Endpoints catalog API guide, updated July 31, 2026; read 2026-10-29).
+    baseUrl: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
+    docs: "https://docs.ovhcloud.com/en/guides/public-cloud/ai-machine-learning/ai-endpoints-catalog-api",
+  },
+];
+
+export const GENERIC_COMPATIBLE_CARD: CloudCard = {
+  id: "openai-compatible",
+  name: "Other OpenAI-compatible endpoint",
+  family: "openai-compatible",
+  kind: "generic",
+  baseUrl: "",
+  docs: "",
 };
 
 /** The answer of POST …/discover-models (gateway 0.20+: `error_kind`, redacted `error`). */
@@ -52,14 +97,20 @@ export type CloudRequest = (path: string, init: { method: "GET" | "POST"; body?:
 
 export const CLOUD_PROVIDER_TEXT = {
   title: "Cloud providers",
-  lede: "Use models from a cloud account: paste its API key, check it, then save it. The key stays on the gateway and is never shown again.",
+  lede: "Paste a provider's API key to use its models; the key stays on this gateway.",
   keyLabel: "API key",
+  nameLabel: "Name",
+  baseUrlLabel: "Base URL",
+  connect: "Connect",
+  reconnect: "Reconnect",
+  connecting: "Connecting…",
   check: "Check the key",
   checking: "Checking the key…",
   save: "Save the key",
   saveAnother: "Save as a new connection",
   saving: "Saving…",
-  more: "More settings",
+  baseUrlFirst: "Enter the endpoint's base URL, for example https://api.example.com/v1.",
+  genericHint: "Any service with an OpenAI-compatible /v1 API: Mistral, Groq, Together, Fireworks, DeepSeek, xAI, Google…",
   notConnected: "Not connected",
   pasteFirst: "Paste the API key first.",
   loading: "Loading the cloud providers…",
@@ -106,6 +157,7 @@ export function connectionsFromProfiles(payload: unknown): CloudConnection[] {
       fingerprint: str(p.api_key_fingerprint).slice(0, 8),
       enabled: p.enabled !== false,
       configured: p.managed === false || p.synthetic === true,
+      baseUrl: str(p.base_url),
     });
   }
   return out;
@@ -156,12 +208,22 @@ export function keyCheckResult(provider: Pick<CloudProvider, "id" | "name">, ans
   return { ...base, ok: false, sentence };
 }
 
+/** The first free id of `<stem>`, `<stem>-2`, … (a virtual `endpoint:<id>` counts as taken). */
+export function freshIdFromStem(stem: string, takenIds: Iterable<string>): string {
+  const taken = new Set([...takenIds].map((t) => String(t).toLowerCase().replace(/^endpoint:/, "")));
+  const base = String(stem || "endpoint").toLowerCase();
+  if (!taken.has(base)) return base;
+  for (let n = 2; ; n++) if (!taken.has(`${base}-${n}`)) return `${base}-${n}`;
+}
+
 /** The first free id of `<family>-key`, `<family>-key-2`, … (a virtual `endpoint:<id>` counts as taken). */
 export function freshConnectionId(family: string, takenIds: Iterable<string>): string {
-  const taken = new Set([...takenIds].map((t) => String(t).toLowerCase().replace(/^endpoint:/, "")));
-  const stem = `${family}-key`;
-  if (!taken.has(stem)) return stem;
-  for (let n = 2; ; n++) if (!taken.has(`${stem}-${n}`)) return `${stem}-${n}`;
+  return freshIdFromStem(`${family}-key`, takenIds);
+}
+
+/** A connection id stem from a name: "OVH AI Endpoints" → "ovh-ai-endpoints" (the gateway's id alphabet). */
+export function slugId(name: string): string {
+  return String(name || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "endpoint";
 }
 
 export function connectionName(provider: Pick<CloudProvider, "id" | "name">, id: string): string {
@@ -172,24 +234,74 @@ export function connectionName(provider: Pick<CloudProvider, "id" | "name">, id:
 export type SaveScope = "gateway" | "user";
 
 /** The POST body of a new connection: create_only, so a taken id is a 409, never an overwrite. */
-export function connectionCreateBody(provider: Pick<CloudProvider, "id" | "name">, id: string, apiKey: string, scope: SaveScope = "gateway") {
+export function connectionCreateBody(provider: Pick<CloudProvider, "id" | "name">, id: string, apiKey: string, scope: SaveScope = "gateway", extra?: { family?: string; baseUrl?: string; displayName?: string }) {
   return {
     id,
-    display_name: connectionName(provider, id),
-    provider_family: provider.id,
+    display_name: extra?.displayName || connectionName(provider, id),
+    provider_family: extra?.family || provider.id,
     api_key: apiKey,
-    base_url: "",
+    base_url: extra?.baseUrl || "",
     scope,
     capabilities: ["text"],
     create_only: true,
   };
 }
 
-export type CheckedKey = { family: string; apiKey: string; result: KeyCheckResult };
+/** "https://Host/v1/" → "https://host/v1": how a preset recognises its own connections. */
+export function normalizeBaseUrl(url: string): string {
+  const u = String(url || "").trim().replace(/\/+$/, "");
+  const m = /^(https?:\/\/[^/]+)(.*)$/i.exec(u);
+  return m ? m[1].toLowerCase() + m[2] : u;
+}
+
+/** A base URL a person typed: http(s) with a host, else "". */
+export function validBaseUrl(url: string): string {
+  const u = String(url || "").trim();
+  return /^https?:\/\/[^\s/?#]+[^\s]*$/i.test(u) ? u.replace(/\/+$/, "") : "";
+}
+
+const LOCAL_HOST = /^https?:\/\/(localhost|127\.|0\.0\.0\.0|\[::1\])/i;
+
+/** The cards: AbstractCore's native cloud providers, then (when its registry has `openai-compatible`)
+ *  the preset OpenAI-compatible services and the generic endpoint card. */
+export function cloudCardsFromDiscovery(payload: unknown): CloudCard[] {
+  const natives: CloudCard[] = cloudProvidersFromDiscovery(payload).map((p) => ({ id: p.id, name: p.name, family: p.id, kind: "native", baseUrl: "", docs: "" }));
+  const items = (payload && typeof payload === "object" ? (payload as any).items : null) as unknown;
+  const compatible = Array.isArray(items) && items.some((it) => it && typeof it === "object" && str((it as any).name).toLowerCase() === "openai-compatible" && !(it as any).provider_endpoint_profile);
+  return compatible ? [...natives, ...OPENAI_COMPATIBLE_PRESETS, GENERIC_COMPATIBLE_CARD] : natives;
+}
+
+/** The connections a card shows: its family's (native), its base URL's (preset), or the other
+ *  OpenAI-compatible cloud endpoints (generic; a server on this computer is a local engine's). */
+export function cardConnections(card: CloudCard, connections: CloudConnection[]): CloudConnection[] {
+  if (card.kind === "native") return connectionsFor(card.family, connections);
+  const compat = connections.filter((c) => c.family === "openai-compatible");
+  if (card.kind === "preset") return compat.filter((c) => normalizeBaseUrl(c.baseUrl) === normalizeBaseUrl(card.baseUrl));
+  const presetUrls = new Set(OPENAI_COMPATIBLE_PRESETS.map((p) => normalizeBaseUrl(p.baseUrl)));
+  return compat.filter((c) => c.baseUrl && !presetUrls.has(normalizeBaseUrl(c.baseUrl)) && !LOCAL_HOST.test(c.baseUrl));
+}
+
+/** The card's state line. A generic card names its endpoints instead of a fingerprint. */
+export function cardStatus(card: CloudCard, connections: CloudConnection[]): string {
+  if (card.kind === "native") return connectionStatus(card.family, connections);
+  const mine = cardConnections(card, connections);
+  if (!mine.length) return CLOUD_PROVIDER_TEXT.notConnected;
+  if (card.kind === "generic") return mine.length === 1 ? `Connected · ${mine[0].name}` : `${mine.length} endpoints connected`;
+  if (mine.length > 1) return `${mine.length} connections`;
+  return mine[0].keySet ? `Connected · key ${mine[0].fingerprint || "set"}` : "Connected · no key";
+}
+
+export type CheckedKey = { family: string; apiKey: string; baseUrl?: string; result: KeyCheckResult };
 
 export type SavedConnection = { id: string; provider: string; name: string; virtualProvider: string };
 
+export type ConnectResult = { ok: boolean; sentence: string; saved?: SavedConnection };
+
 const statusOf = (err: unknown): number => Number(err && typeof err === "object" ? (err as any).status : 0) || 0;
+
+type Target = Pick<CloudProvider, "id" | "name"> & Partial<Pick<CloudCard, "family" | "kind" | "baseUrl">>;
+const familyOf = (t: Target) => t.family || t.id;
+const isCompatible = (t: Target) => familyOf(t) === "openai-compatible";
 
 /**
  * The gateway client of the cards (and of the console's Default models key flow). `request` is the
@@ -200,33 +312,49 @@ export function cloudProvidersClient(request: CloudRequest, base: string = GATEW
   const root = String(base || GATEWAY_API_PATH).replace(/\/+$/, "");
   const path = (r: string) => `${root}/${r}`;
   const listConnections = async () => connectionsFromProfiles(await request(path("config/provider-endpoint-profiles"), { method: "GET" }));
-  return {
+  const fail = (t: Target, apiKey: string, sentence: string): CheckedKey => ({ family: familyOf(t), apiKey, result: { ok: false, family: familyOf(t), modelCount: 0, models: [], sentence } });
+  const client = {
     listProviders: async () => cloudProvidersFromDiscovery(await request(path("discovery/providers"), { method: "GET" })),
+    listCards: async () => cloudCardsFromDiscovery(await request(path("discovery/providers"), { method: "GET" })),
     listConnections,
-    /** Check a pasted key as a DRAFT: nothing is stored. */
-    async checkKey(provider: Pick<CloudProvider, "id" | "name">, apiKey: string): Promise<CheckedKey> {
+    /** Check a pasted key as a DRAFT: nothing is stored. An OpenAI-compatible target needs its base
+     *  URL (a preset's own, or `baseUrl`). */
+    async checkKey(target: Target, apiKey: string, baseUrl?: string): Promise<CheckedKey> {
       const key = String(apiKey || "").trim();
-      if (!key) return { family: provider.id, apiKey: "", result: { ok: false, family: provider.id, modelCount: 0, models: [], sentence: CLOUD_PROVIDER_TEXT.pasteFirst } };
+      const family = familyOf(target);
+      const url = isCompatible(target) ? validBaseUrl(target.baseUrl || baseUrl || "") : "";
+      if (isCompatible(target) && !url) return fail(target, key, CLOUD_PROVIDER_TEXT.baseUrlFirst);
+      if (!key) return fail(target, "", CLOUD_PROVIDER_TEXT.pasteFirst);
+      const body: Record<string, string> = { provider_family: family, api_key: key };
+      if (url) body.base_url = url;
       try {
-        const answer = (await request(path("config/provider-endpoint-profiles/discover-models"), {
-          method: "POST",
-          body: { provider_family: provider.id, api_key: key },
-        })) as KeyCheckAnswer;
-        return { family: provider.id, apiKey: key, result: keyCheckResult(provider, answer) };
+        const answer = (await request(path("config/provider-endpoint-profiles/discover-models"), { method: "POST", body })) as KeyCheckAnswer;
+        return { family, apiKey: key, baseUrl: url || undefined, result: keyCheckResult({ id: family, name: target.name }, answer) };
       } catch (err) {
-        return { family: provider.id, apiKey: key, result: keyCheckResult(provider, null, err) };
+        return { family, apiKey: key, baseUrl: url || undefined, result: keyCheckResult({ id: family, name: target.name }, null, err) };
       }
     },
-    /** Store a key that was checked OK as a NEW connection (fresh id, create_only). */
-    async saveCheckedKey(provider: Pick<CloudProvider, "id" | "name">, checked: CheckedKey | null, scope: SaveScope = "gateway"): Promise<SavedConnection> {
-      if (!checked || !checked.result.ok || checked.family !== provider.id || !checked.apiKey)
+    /** Store a key that was checked OK as a NEW connection (fresh id, create_only). `name` names a
+     *  generic endpoint's connection (default: its host). */
+    async saveCheckedKey(target: Target, checked: CheckedKey | null, scope: SaveScope = "gateway", name?: string): Promise<SavedConnection> {
+      const family = familyOf(target);
+      if (!checked || !checked.result.ok || checked.family !== family || !checked.apiKey || (isCompatible(target) && !checked.baseUrl))
         throw new Error("Check the key first: only a key that works is saved.");
+      const compat = isCompatible(target);
+      const host = compat ? (/^https?:\/\/([^/:]+)/i.exec(checked.baseUrl || "") || [])[1] || "" : "";
+      const label = compat ? (target.kind === "generic" ? (String(name || "").trim() || host || "OpenAI-compatible endpoint") : target.name) : "";
+      const stem = compat ? slugId(label) : `${family}-key`;
       const taken = (await listConnections()).map((c) => c.id);
       for (let attempt = 0; attempt < 2; attempt++) {
-        const id = freshConnectionId(provider.id, taken);
+        const id = freshIdFromStem(stem, taken);
+        const n = /-(\d+)$/.exec(id.slice(stem.length));
+        const displayName = compat ? `${label}${n ? ` ${n[1]}` : ""}` : connectionName(target, id);
         try {
-          await request(path("config/provider-endpoint-profiles"), { method: "POST", body: connectionCreateBody(provider, id, checked.apiKey, scope) });
-          return { id, provider: provider.id, name: connectionName(provider, id), virtualProvider: `endpoint:${id}` };
+          await request(path("config/provider-endpoint-profiles"), {
+            method: "POST",
+            body: connectionCreateBody(target, id, checked.apiKey, scope, { family, baseUrl: checked.baseUrl || "", displayName }),
+          });
+          return { id, provider: family, name: displayName, virtualProvider: `endpoint:${id}` };
         } catch (err) {
           if (statusOf(err) !== 409 || attempt) throw err;
           taken.push(id); // someone took it meanwhile: the next id, never that one
@@ -234,7 +362,25 @@ export function cloudProvidersClient(request: CloudRequest, base: string = GATEW
       }
       throw new Error("No free connection id.");
     },
+    /** ONE action: check the key and, only if it works, save it as a new connection.
+     *  "Connected · 48 models", or the reason (nothing stored). */
+    async connect(target: Target, input: { apiKey: string; baseUrl?: string; name?: string }, scope: SaveScope = "gateway"): Promise<ConnectResult> {
+      const checked = await client.checkKey(target, input.apiKey, input.baseUrl);
+      if (!checked.result.ok) return { ok: false, sentence: checked.result.sentence };
+      try {
+        const saved = await client.saveCheckedKey(target, checked, scope, input.name);
+        return { ok: true, sentence: connectedSentence(checked.result.modelCount), saved };
+      } catch (err) {
+        return { ok: false, sentence: `The key works but was not saved: ${err instanceof Error ? err.message : String(err)}` };
+      }
+    },
   };
+  return client;
+}
+
+/** "Connected · 48 models". */
+export function connectedSentence(modelCount: number): string {
+  return `Connected · ${plural(modelCount, "model")}`;
 }
 
 export type CloudProvidersClient = ReturnType<typeof cloudProvidersClient>;

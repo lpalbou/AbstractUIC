@@ -35,7 +35,10 @@ const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const ids = [...BRAND_CARD_IDS.engines, ...BRAND_CARD_IDS.providers];
 
 check("the engines the console cards show", JSON.stringify([...BRAND_CARD_IDS.engines].sort()) === JSON.stringify(["huggingface", "llamacpp", "lmstudio", "mlx", "ollama", "vllm"]), BRAND_CARD_IDS.engines.join(","));
-for (const id of ["openai", "anthropic", "openrouter", "portkey"]) check(`AbstractCore cloud provider ${id} is a card id`, BRAND_CARD_IDS.providers.includes(id));
+for (const id of ["openai", "anthropic", "openrouter", "portkey", "ovh", "openai-compatible"]) check(`cloud card ${id} is a card id`, BRAND_CARD_IDS.providers.includes(id));
+// Operator 2026-10-29: every brand without a mark says WHY in the brand's own words, with the URL.
+for (const id of ["anthropic", "portkey", "ovh"]) check(`${id}: the fallback quotes the brand's terms with their URL`, own(BRAND_FALLBACKS, id) && /"[^"]{20,}" \(https:\/\//.test(BRAND_FALLBACKS[id].reason), own(BRAND_FALLBACKS, id) ? BRAND_FALLBACKS[id].reason : "missing");
+check("openai: the official mark, outside the kit's MIT grant", own(BRAND_ICONS, "openai") && /NOT covered by this kit's MIT licence/.test(BRAND_ICONS.openai.licence));
 
 // 1.
 for (const id of ids) {
@@ -52,7 +55,8 @@ const URL_RE = /^https:\/\/[^\s"<>]+$/;
 for (const [id, m] of Object.entries(BRAND_ICONS)) {
   check(`2 ${id}: id matches its key`, m.id === id);
   check(`2 ${id}: name`, typeof m.name === "string" && m.name.length > 1);
-  check(`2 ${id}: source is the file's https URL`, URL_RE.test(m.source || "") && /\.svg(\?|$)/.test(m.source), m.source);
+  // The SVG file itself, or the brand's own archive that ships it (its member .svg named in the licence).
+  check(`2 ${id}: source is the file's https URL`, URL_RE.test(m.source || "") && (/\.svg(\?|$)/.test(m.source) || (/\.zip$/.test(m.source) && /\.svg\b/.test(m.licence))), m.source);
   check(`2 ${id}: terms page URL`, URL_RE.test(m.terms || ""), m.terms);
   check(`2 ${id}: licence in words`, typeof m.licence === "string" && m.licence.length >= 20, m.licence);
   check(`2 ${id}: restrictions recorded (may be empty only for a brand with none)`, typeof m.restrictions === "string");

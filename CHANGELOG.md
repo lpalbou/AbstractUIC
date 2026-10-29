@@ -11,6 +11,25 @@ ships.
 
 ### ui-kit
 
+- **Cloud provider cards: one Connect per card, OVH AI Endpoints and any OpenAI-compatible endpoint** (operator
+  feedback 2026-10-29). Each card has ONE action: **Connect** (**Reconnect** when the provider already has a
+  connection) checks the key and, only when it works, saves it as a NEW connection (fresh id, `create_only`): the line
+  reads "Connected · 48 models", or the reason, with nothing stored and the key kept in the field to fix. After the
+  native providers come **OVH AI Endpoints** (base URL preset to `https://oai.endpoints.kepler.ai.cloud.ovh.net/v1`,
+  OVHcloud docs) and **Other OpenAI-compatible endpoint** (Name, Base URL, API key: Mistral, Groq, Together, Fireworks,
+  DeepSeek, xAI, Google…), both AbstractCore's `openai-compatible` provider, shown only when the gateway's
+  AbstractCore lists it. "More settings" is gone from the cards (`onConfigure` removed). New in
+  `cloud_providers_core.ts`: `cloudCardsFromDiscovery`, `cardStatus`, `client.connect`, `client.listCards`,
+  `OPENAI_COMPATIBLE_PRESETS`, `GENERIC_COMPATIBLE_CARD`. Check: `scripts/check_cloud_providers.mjs`.
+
+- **OpenAI's official mark; Anthropic, Portkey and OVHcloud keep text badges with the brands' own words** (same
+  feedback: re-checked at the source on 2026-10-29). OpenAI's brand page allows its logo where it "directly relates to
+  OpenAI services", exactly as provided: the black Blossom from OpenAI's logo archive, outside the kit's MIT grant.
+  Anthropic's trademark guidelines require its prior approval, Portkey's terms forbid displaying its marks without
+  written permission, and OVHcloud's trademark policy allows its text trademark but never its logo without a written
+  licence: each badge carries the quoted sentence and its URL (`brand_icons.tsx`, `docs/icons.md`). Check:
+  `scripts/check_brand_icons.mjs` (a badge must quote its brand's terms with the URL).
+
 - **Gapless read-aloud** (operator 2026-10-29: "short cuts every 2-4 s" while speaking). `useGatewayVoice` scheduled
   each streamed segment from the previous one's `onended`, so a segment's start waited for the main thread. A burst of
   segments meant JSON, base64 and `decodeAudioData` work, and every boundary could be heard as a cut. Every buffered
