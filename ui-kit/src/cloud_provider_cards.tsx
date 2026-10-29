@@ -104,7 +104,9 @@ export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactE
 
   const list = providers || [];
   return (
-    <section className="af-cloud-providers" aria-label={T.title}>
+    // A div, not a <section>: hosts style bare sections as boxed panels (the console does), and the
+    // cards are already boxed.
+    <div className="af-cloud-providers" role="group" aria-label={T.title}>
       {heading ? (
         <div className="af-cloud-providers__head">
           <h3 className="af-cloud-providers__title">{T.title}</h3>
@@ -166,6 +168,6 @@ export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactE
           );
         })}
       </div>
-    </section>
+    </div>
   );
 }
