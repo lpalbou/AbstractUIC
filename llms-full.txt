@@ -70,7 +70,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.9): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.10): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
 - [@abstractframework/panel-chat](panel-chat/README.md) (0.6.6, needs ui-kit ^0.9.8): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
@@ -168,6 +168,14 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
+
+## What's new in 0.8.9
+
+`@abstractframework/ui-kit` 0.9.10: gapless read-aloud (`useGatewayVoice` schedules every streamed segment
+ahead on the audio clock; pause/resume from the clock) and the cloud provider cards v2 (`CloudProviderCards`: one
+Connect per card that checks then saves, an OVH AI Endpoints card, an "Other OpenAI-compatible endpoint" card, the
+official OpenAI mark with its provenance, text badges quoting the other brands' terms). `@abstractframework/panel-chat`
+stays 0.6.6 ([changelog](./CHANGELOG.md#089---20261029)).
 
 ## What's new in 0.8.8
 
@@ -1793,7 +1801,7 @@ a logo from anywhere. Each mark is drawn in its own colours on a light tile in e
 forbid recolouring. The source rules, in order: the brand's own press or brand-kit SVG when its terms allow using it
 to identify the product; else the [Simple Icons](https://simpleicons.org) SVG (CC0 path data); else a readable text
 badge. Trademarks belong to their owners; a mark identifies the product a card configures and implies no
-endorsement. `ui-kit/scripts/check_brand_icons.mjs` fails when a card id has neither a mark nor a documented fallback,
+endorsement, and the marks are not covered by the kit's MIT licence (OpenAI's is used under OpenAI's own Marks usage terms). `ui-kit/scripts/check_brand_icons.mjs` fails when a card id has neither a mark nor a documented fallback,
 when a mark lacks its source, licence or date, or when a mark could reach outside itself.
 
 | Id | Brand | Origin | Source file | Licence or terms | Retrieved |
@@ -1804,15 +1812,16 @@ when a mark lacks its source, licence or date, or when a mark could reach outsid
 | `huggingface` | Hugging Face | brand | <https://huggingface.co/datasets/huggingface/brand-assets/resolve/main/hf-logo-monochrome.svg?download=true> | Official brand asset; the page says "Download the official Hugging Face brand assets to use in your projects." No licence or usage rules published (dataset has no card/licence). Trademark of Hugging Face, Inc. [Terms](https://huggingface.co/brand).  | 2026-10-29 |
 | `mlx` | MLX | brand | <https://raw.githubusercontent.com/ml-explore/mlx/main/docs/logo/mlx_logo.svg> | File is in the MIT-licensed ml-explore/mlx repo (docs/logo, added in #3308). MIT covers copyright only; marks belong to Apple. [Terms](https://github.com/ml-explore/mlx). No logo usage guidelines published in the repo. | 2026-10-29 |
 | `llamacpp` | llama.cpp | brand | <https://raw.githubusercontent.com/ggml-org/llama.cpp/master/media/llama1-icon-transparent.svg> | File is in the MIT-licensed ggml-org/llama.cpp repo (media/, added in #15891). MIT covers copyright; trademark of the ggml-org/llama.cpp project. [Terms](https://github.com/ggml-org/llama.cpp/blob/master/LICENSE). No logo usage guidelines published. | 2026-10-29 |
+| `openai` | OpenAI | brand | <https://cdn.openai.com/brand/openai-logos.zip> | OpenAI logo (the black Blossom, OpenAI-logos/SVGs/OAI_OpenAI-Blossom_Black.svg in the zip, unmodified; sha256 75c1e9fffa5e8c437bec1d67197a73992bca45d166c6ff23215185dea8fae92a), a trademark of OpenAI, used under OpenAI's Marks usage terms (non-exclusive, non-transferable, revocable); NOT covered by this kit's MIT licence. Terms read: "By using our logos, you agree to our Marks usage terms." (https://openai.com/brand/) "Use the logo only when it directly relates to OpenAI services." (https://openai.com/brand/) "Use the logo exactly as provided and acknowledge that it belongs to OpenAI." (https://openai.com/brand/) "Permission to use our Marks is limited in the following ways: Only use our Marks if they adhere to these brand guidelines." (https://openai.com/brand/) "If you are an active OpenAI developer, you may truthfully identify the OpenAI technology you use." (https://openai.com/brand/) [Terms](https://openai.com/brand/). Shown exactly as provided, black, never recoloured or altered, only on the card that connects OpenAI's API (it "directly relates to OpenAI services"), never more prominent than the host's own name, with no partnership claim. Terms page read through the Wayback snapshot of 2026-10-21 (the live page answers 403 to non-browser clients). Counter-reading noted: "However, everything about your app, product or company (including name, logo, description, slogan, tagline and screenshots) should be your own and should be free of OpenAI's brands (including products, services or model names; logos; or trademarks)." (https://openai.com/brand/), read as being about the host's own branding. | 2026-10-29 |
 | `openrouter` | OpenRouter | brand | <https://openrouter.ai/brand/logos/transparent/glyph/svg/glyph-ink.svg> | Official brand asset offered "ready to use"; no permission step or licence stated. Trademark of OpenRouter, Inc. [Terms](https://openrouter.ai/brand). "Please don't stretch, recolor, or remix the marks." Approved colourways only: Ink #03080A (light backgrounds) and Cloud #FCFCFE (dark backgrounds), plus Grape/Volt. | 2026-10-29 |
 
-Text badges (no logo):
+Text badges (no logo), each with the brand's own words:
 
 | Id | Brand | Badge | Why there is no logo | Retrieved |
 | --- | --- | --- | --- | --- |
-| `openai` | OpenAI | OAI | OpenAI's brand terms forbid it without permission: "Use the logo exactly as provided"; Don't "Use the logo without permission or outside OpenAI's terms"; Don't "modify it in any way"; Blossom: "DON'T add any colors to the Blossom"; "The permission we grant is non-exclusive (we can give it to others) and non-transferrable (you cannot give it to others)." [Terms](https://openai.com/brand/). | 2026-10-29 |
-| `anthropic` | Anthropic | ANT | Anthropic's trademark guidelines need its approval first: "You may only use our trademarks as specifically permitted by us and only in materials we approve beforehand." and "No alterations of our trademarks (changes to color, font, proportion, or otherwise) are permitted." [Terms](https://www.anthropic.com/legal/trademark-guidelines). | 2026-10-29 |
-| `portkey` | Portkey | PK | No usable logo: no brand kit, brand guidelines or licensed logo file found (portkey.ai/brand, /press, /brand-assets, /media-kit all 404; Portkey-AI/gateway repo (MIT) has no logo file). [Terms](https://portkey.ai/). | 2026-10-29 |
+| `anthropic` | Anthropic | ANT | Anthropic's trademark guidelines require its approval first: "You may only use our trademarks as specifically permitted by us and only in materials we approve beforehand. We may terminate permission to use our trademarks at any time." (https://www.anthropic.com/legal/trademark-guidelines) "We will supply an image (or images) of the trademark(s) for your use and specific requirements regarding size, pixels, spacing, and the like." (https://www.anthropic.com/legal/trademark-guidelines) "If you have an existing business relationship with Anthropic and want to use our trademarks in a press release, on your website, or in another context, please email marketing@anthropic.com." (https://www.anthropic.com/legal/trademark-guidelines) Its press kit (https://www.anthropic.com/press-kit) ships logos with no usage terms, so it grants no permission. [Terms](https://www.anthropic.com/legal/trademark-guidelines). | 2026-10-29 |
+| `portkey` | Portkey | PK | Portkey's terms forbid displaying its marks without written permission, and it publishes no brand kit: "Except as set out in this section or elsewhere in our Legal Terms, no part of the Services and no Content or Marks may be copied, reproduced, aggregated, republished, uploaded, posted, publicly displayed, encoded, translated, transmitted, distributed, sold, licensed, or otherwise exploited for any commercial purpose whatsoever, without our express prior written permission." (https://portkey.ai/terms) "The Content and Marks are provided in or through the Services "AS IS" for your internal business purpose only." (https://portkey.ai/terms) [Terms](https://portkey.ai/terms). | 2026-10-29 |
+| `ovh` | OVH AI Endpoints | OVH | OVHcloud's Trademark Usage Policy (version of 12/30/2024) allows its text trademark, not its logo: "1.2.Compatibility: You may use any OVHcloud Text Trademark (but not the OVHcloud Logo) in a referential phrase on promotional/advertising materials to describe that your product is compatible with the referenced OVHcloud product or technology, provided that the materials comply with the following requirements:" (https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf) "Any other use of the OVHcloud Trademarks requires a separate trademark license agreement with OVHcloud. The use of OVHcloud Logos always require the written permission of OVHcloud." (https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf) "1.2.OVHcloud Logo: You may not use the OVHcloud Logo on or in connection with websites, products, packaging, manuals, advertising materials, or for any other purpose except pursuant to an express written trademark licence from OVHcloud." (https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf) [Terms](https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf). | 2026-10-29 |
 | `openai-compatible` | OpenAI-compatible server | API | A protocol, not a brand: any server that speaks the OpenAI API (vLLM, llama.cpp, LocalAI, a private gateway). No logo applies. | 2026-10-29 |
 
 Adding a brand: add its id to `BRAND_CARD_IDS`, then either a `BRAND_ICONS` entry (the SVG's geometry and colours
@@ -4496,8 +4505,8 @@ Serve both files from your own origin; the paths above are examples.
 | `mountWorkspaceChooser(el, props)` | `IslandHandle` | Mounts the kit `WorkspaceChooser` (`level`, `state`, `save`): the console's **Eligible workspaces** modal (`level: "gateway"`) and each account's Workspaces modal (`level: "account"`) (kit 0.8.3, round 11) |
 | `mountVoiceSection(el, props)` | `IslandHandle` | Mounts the kit `AfVoiceSection` (the whole voice settings: Engines, Output, Microphone, Replies) with the component's own props (`fetchCatalog`, `fetchDefaults`, `voiceLibrary`, `fetchLanguages`, `previewVoice`, `rows`, …) (kit 0.9.0, backlog 0035) |
 | `mountTimeZonePicker(el, props)` | `IslandHandle` | Mounts the kit `AfTimeZonePicker` (`block` = the preferences answer's `time_zone`, `id`, `onChange(zone \| null)`, `disabled`, `note`): the time zone row of the console's Accounts → Preferences modal (kit 0.8.7, round 16) |
-| `mountCloudProviderCards(el, props)` | `IslandHandle` | Mounts the kit `CloudProviderCards`: one card per cloud provider AbstractCore lists (`GET discovery/providers`, `local_provider: false`), an API-key field, "Check the key" ("Key works · 48 models" or one sentence why not) and "Save the key" (a NEW connection, `create_only`, never an overwrite). Props: `request(path, {method, body})`, `base` (the console passes `"/api/gateway"`), `scope`, `onConfigure(providerId)`, `onSaved(saved)`, `refreshKey`, `heading`. The gateway's setup guide and its Providers tab mount it (kit 0.9.9) |
-| `cloudProviders` | `object` | The cards' logic for a host's own key flow: `client(request, base)` (`listProviders`, `listConnections`, `checkKey`, `saveCheckedKey`), `keyCheckResult`, `freshConnectionId`, `text` (kit 0.9.9) |
+| `mountCloudProviderCards(el, props)` | `IslandHandle` | Mounts the kit `CloudProviderCards`: one card per cloud provider AbstractCore supports natively (`GET discovery/providers`, `local_provider: false`), then OVH AI Endpoints (an OpenAI-compatible preset) and "Other OpenAI-compatible endpoint" (Name, Base URL, API key). ONE action per card, **Connect** (**Reconnect** when it has a connection): the key is checked and, only when it works, saved as a NEW connection (`create_only`): "Connected · 48 models" or the reason. Props: `request(path, {method, body})`, `base` (the console passes its absolute API prefix), `scope`, `onSaved(saved)`, `refreshKey`, `heading` (kit 0.9.9; Connect, presets and the generic card: kit 0.9.10) |
+| `cloudProviders` | `object` | The cards' logic for a host's own key flow: `client(request, base)` (`listProviders`, `listCards`, `listConnections`, `checkKey`, `saveCheckedKey`, `connect`), `keyCheckResult`, `freshConnectionId`, `text` (kit 0.9.9; `listCards`/`connect`: 0.9.10) |
 | `brandMarks` | `object` | Engines' and providers' official marks: `html(id, name?)` (inline `<span class="af-brand-mark">` with the SVG, or the documented text badge), `info(id)`, `cardIds` (kit 0.9.9; [icons.md](./icons.md#brand-marks)) |
 | `workspaceChooserText` | `object` | The WorkspaceChooser's wording table (`WORKSPACE_CHOOSER_TEXT`), e.g. the modal title `gatewayTitle` "Eligible workspaces" (kit 0.8.3) |
 | `workspaceAsState(answer, level)` | `object` | Turns a `GET/PUT /workspace/policy[/{account}]` answer into the chooser's `state`; throws on an older answer (kit 0.8.3) |
@@ -6638,7 +6647,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.8.8",
+  "version": "0.8.9",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -6663,7 +6672,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.9",
+  "version": "0.9.10",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -7732,6 +7741,18 @@ export {
   freshConnectionId,
   keyCheckResult,
   savedSentence,
+  connectedSentence,
+  cloudCardsFromDiscovery,
+  cardConnections,
+  cardStatus,
+  freshIdFromStem,
+  slugId,
+  normalizeBaseUrl,
+  validBaseUrl,
+  OPENAI_COMPATIBLE_PRESETS,
+  GENERIC_COMPATIBLE_CARD,
+  type CloudCard,
+  type ConnectResult,
   type CheckedKey,
   type CloudConnection,
   type CloudProvider,
@@ -21832,6 +21853,44 @@ ships.
 ## Unreleased
 
 _Nothing yet._
+
+## 0.8.9 - 2026-10-29
+
+Packages: `@abstractframework/ui-kit` 0.9.10; `@abstractframework/panel-chat` unchanged at 0.6.6 (its peer range
+`^0.9.8` covers 0.9.10); app-server unchanged. Operator findings of 2026-10-29: gapless read-aloud (streamed
+segments scheduled ahead on the audio clock, #45) and the cloud provider cards v2 (one Connect per card that checks
+then saves, an OVH AI Endpoints card and an "Other OpenAI-compatible endpoint" card, the official OpenAI mark under
+its Marks terms, text badges quoting Anthropic/Portkey/OVH terms, #46).
+
+### ui-kit
+
+- **Cloud provider cards: one Connect per card, OVH AI Endpoints and any OpenAI-compatible endpoint** (operator
+  feedback 2026-10-29). Each card has ONE action: **Connect** (**Reconnect** when the provider already has a
+  connection) checks the key and, only when it works, saves it as a NEW connection (fresh id, `create_only`): the line
+  reads "Connected · 48 models", or the reason, with nothing stored and the key kept in the field to fix. After the
+  native providers come **OVH AI Endpoints** (base URL preset to `https://oai.endpoints.kepler.ai.cloud.ovh.net/v1`,
+  OVHcloud docs) and **Other OpenAI-compatible endpoint** (Name, Base URL, API key: Mistral, Groq, Together, Fireworks,
+  DeepSeek, xAI, Google…), both AbstractCore's `openai-compatible` provider, shown only when the gateway's
+  AbstractCore lists it. "More settings" is gone from the cards (`onConfigure` removed). New in
+  `cloud_providers_core.ts`: `cloudCardsFromDiscovery`, `cardStatus`, `client.connect`, `client.listCards`,
+  `OPENAI_COMPATIBLE_PRESETS`, `GENERIC_COMPATIBLE_CARD`. Check: `scripts/check_cloud_providers.mjs`.
+
+- **OpenAI's official mark; Anthropic, Portkey and OVHcloud keep text badges with the brands' own words** (same
+  feedback: re-checked at the source on 2026-10-29). OpenAI's brand page allows its logo where it "directly relates to
+  OpenAI services", exactly as provided: the black Blossom from OpenAI's logo archive, outside the kit's MIT grant.
+  Anthropic's trademark guidelines require its prior approval, Portkey's terms forbid displaying its marks without
+  written permission, and OVHcloud's trademark policy allows its text trademark but never its logo without a written
+  licence: each badge carries the quoted sentence and its URL (`brand_icons.tsx`, `docs/icons.md`). Check:
+  `scripts/check_brand_icons.mjs` (a badge must quote its brand's terms with the URL).
+
+- **Gapless read-aloud** (operator 2026-10-29: "short cuts every 2-4 s" while speaking). `useGatewayVoice` scheduled
+  each streamed segment from the previous one's `onended`, so a segment's start waited for the main thread. A burst of
+  segments meant JSON, base64 and `decodeAudioData` work, and every boundary could be heard as a cut. Every buffered
+  segment is now scheduled AHEAD on the audio clock (`source.start(when)`), each one starting exactly where the
+  previous one ends. Pause stops them all and records the playing segment and offset from the audio clock; resume
+  schedules the rest back to back again. A segment that arrives after playback ran dry starts at once (a real network
+  gap, never a start in the past). Check: `scripts/check_voice_stream.mjs` (a burst of three segments is scheduled at
+  once and back to back; pause half a second into one resumes at that offset; a late segment starts now).
 
 ## 0.8.8 - 2026-10-29
 

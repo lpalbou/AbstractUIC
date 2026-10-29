@@ -11,6 +11,14 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
 
+## What's new in 0.8.9
+
+`@abstractframework/ui-kit` 0.9.10: gapless read-aloud (`useGatewayVoice` schedules every streamed segment
+ahead on the audio clock; pause/resume from the clock) and the cloud provider cards v2 (`CloudProviderCards`: one
+Connect per card that checks then saves, an OVH AI Endpoints card, an "Other OpenAI-compatible endpoint" card, the
+official OpenAI mark with its provenance, text badges quoting the other brands' terms). `@abstractframework/panel-chat`
+stays 0.6.6 ([changelog](./CHANGELOG.md#089---20261029)).
+
 ## What's new in 0.8.8
 
 `@abstractframework/ui-kit` 0.9.9: one compact aligned filter bar (`AfFilterBar`: search and toggles on one

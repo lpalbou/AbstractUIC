@@ -9,6 +9,16 @@ ships.
 
 ## Unreleased
 
+_Nothing yet._
+
+## 0.8.9 - 2026-10-29
+
+Packages: `@abstractframework/ui-kit` 0.9.10; `@abstractframework/panel-chat` unchanged at 0.6.6 (its peer range
+`^0.9.8` covers 0.9.10); app-server unchanged. Operator findings of 2026-10-29: gapless read-aloud (streamed
+segments scheduled ahead on the audio clock, #45) and the cloud provider cards v2 (one Connect per card that checks
+then saves, an OVH AI Endpoints card and an "Other OpenAI-compatible endpoint" card, the official OpenAI mark under
+its Marks terms, text badges quoting Anthropic/Portkey/OVH terms, #46).
+
 ### ui-kit
 
 - **Cloud provider cards: one Connect per card, OVH AI Endpoints and any OpenAI-compatible endpoint** (operator
