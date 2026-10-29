@@ -997,6 +997,27 @@ for (const cls of [".af-auto__path", ".af-auto__notice--on", ".af-auto__actionba
   check("hideHeader names the section by the title", sectionTag.includes(`aria-label="${news.title}"`) && !sectionTag.includes("aria-labelledby"), sectionTag);
 }
 
+// The attention rule (operator 2026-10-29): an automation opens at what needs the person: the first
+// unresolved wait's card in the thread, else the run of the oldest unseen result. `attentionTarget`
+// is checked against a stand-in root, and its selectors against the panel's real markup.
+{
+  const { attentionTarget, ATTENTION_FOCUS_MS } = kit;
+  const calls = [];
+  const root = (found) => ({ querySelector: (sel) => { calls.push(sel); return found[sel] ?? null; } });
+  const waitEl = { id: "wait" }, runEl = { id: "run3" };
+  check("attention: the first wait card wins", attentionTarget(root({ ".af-auto-occ .af-auto-wait": waitEl, '.af-auto-occ[data-index="3"]': runEl }), 3) === waitEl);
+  check("attention: else the oldest unseen result's run", attentionTarget(root({ '.af-auto-occ[data-index="3"]': runEl }), 3) === runEl);
+  check("attention: nothing waits and nothing is new", attentionTarget(root({}), undefined) === null && attentionTarget(null, 3) === null);
+  check("attention: the outline lasts a moment", ATTENTION_FOCUS_MS > 1000 && ATTENTION_FOCUS_MS < 5000);
+  // The selectors match what the panel renders: a wait card inside a run, and each run's data-index.
+  const occAll = fx("occurrences.json").items;
+  const html = panel({ summary: fx("list.json").items[0], occurrences: occAll });
+  check("attention: a wait card is rendered inside a run (.af-auto-occ .af-auto-wait)", /<li class="af-auto-occ[^"]*"[^>]*>(?:(?!<\/li>)[\s\S])*class="af-auto-wait/.test(html));
+  check("attention: runs carry data-index", /<li class="af-auto-occ[^"]*" data-index="\d+"/.test(html));
+  const theme = readFileSync(join(here, "..", "src", "theme.css"), "utf8");
+  check("attention: the outline and the wait card's standard text colour are styled", theme.includes(".af-auto .is-attention-focus") && /\.af-auto-wait \{[^}]*color: var\(--text-primary\)/.test(theme));
+}
+
 if (failures) {
   console.error(`check_automation_panel: ${failures}/${checks} FAILED`);
   process.exit(1);

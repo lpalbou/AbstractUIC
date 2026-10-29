@@ -162,6 +162,11 @@ export type AutomationPanelProps = {
    * the panel then starts at the definition and the occurrences. Default false.
    */
   hideHeader?: boolean;
+  /** Where an automation opens (operator 2026-10-29: "if I click an attention icon, I should get
+   * directly to where you need my attention"). "attention" (default): the first unresolved wait's
+   * card in the thread, else the run of the oldest unseen result, scrolled into view and outlined
+   * for a moment; "none": the host decides. */
+  openAt?: "attention" | "none";
   /**
    * `GET /api/gateway/me/email` (the client's `getMyEmail()`): the Edit form
    * offers "Email result" and allowed recipients only when the account
@@ -1106,6 +1111,20 @@ export function WaitAnswerForm(p: WaitAnswerFormProps): React.ReactElement {
   );
 }
 
+/** How long the opened-at item stays outlined. */
+export const ATTENTION_FOCUS_MS = 2600;
+
+/** What an automation opens on (the attention rule): the first unresolved wait's card in the
+ * thread (runs are listed oldest first, so the first in the document), else the run of the oldest
+ * unseen result (`unseenIndex`), else nothing. */
+export function attentionTarget(root: ParentNode | null, unseenIndex?: number): HTMLElement | null {
+  if (!root) return null;
+  const wait = root.querySelector<HTMLElement>(".af-auto-occ .af-auto-wait");
+  if (wait) return wait;
+  if (typeof unseenIndex === "number") return root.querySelector<HTMLElement>(`.af-auto-occ[data-index="${unseenIndex}"]`);
+  return null;
+}
+
 export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
   const { row, tone, badge, statusText } = p.view;
   const idBase = `af-auto-occ-${row.run_id}`;
@@ -1391,6 +1410,21 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
       },
     );
   });
+
+  // The attention rule: once per automation, when its runs are on screen, go to what needs the person.
+  const openedAtRef = useRef<string | null>(null);
+  const openAt = props.openAt ?? "attention";
+  const firstUnseen = summary.attention.items[0]?.index;
+  useEffect(() => {
+    if (openAt !== "attention" || openedAtRef.current === summary.automation_id || !props.occurrences.length) return;
+    const target = attentionTarget(rootRef.current, firstUnseen);
+    if (!target) return;
+    openedAtRef.current = summary.automation_id;
+    (target as { scrollIntoView?: (o: object) => void }).scrollIntoView?.({ block: "start" });
+    target.classList.add("is-attention-focus");
+    const t = setTimeout(() => target.classList.remove("is-attention-focus"), ATTENTION_FOCUS_MS);
+    return () => clearTimeout(t);
+  }, [openAt, summary.automation_id, props.occurrences, firstUnseen]);
 
   const controls = automationControls(summary, props.occurrences, busy);
   const views = occurrenceViews(props.occurrences);

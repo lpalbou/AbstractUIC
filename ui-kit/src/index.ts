@@ -364,6 +364,8 @@ export {
   ATTENTION_TEXT,
   attentionBadgeTooltip,
   attentionBadgeLabel,
+  attentionTarget,
+  ATTENTION_FOCUS_MS,
   type AttentionText,
   RUN_NOW_NEXT_RUN_LINE,
   RUN_NOW_ONE_LINE,
