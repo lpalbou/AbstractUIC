@@ -41,11 +41,11 @@ import {
   emailUsable,
   isEmailTrigger,
   notifyLabel,
-  formatUtc,
   isApiError,
   currentOccurrenceLabel,
   mintUuid,
-  parseEventPayload,
+  eventPayloadFromWords,
+  failureReasonWords,
   WAIT_KIND_LABELS,
   waitToolCalls,
   occurrenceViews,
@@ -427,14 +427,18 @@ export function AutomationDefinitionBlock(props: {
         ) : null}
         <dt>Trigger</dt>
         <dd data-def="trigger">
-          {d.trigger.source_id}@{d.trigger.source_version} · {triggerSummary(d.trigger, props.served, { connections: props.triggerConnections, mailboxes: props.mailboxes })}
+          {/* In words (operator 2026-10-29); the exact configuration behind a disclosure. */}
+          {triggerSummary(d.trigger, props.served, { connections: props.triggerConnections, mailboxes: props.mailboxes })}
           {isEmailTrigger(d.trigger) ? <div className="af-auto__hint" data-def="email_rule">{emailTriggerLabel(d.trigger.config)}</div> : null}
-          <pre className="af-auto__json">{JSON.stringify(d.trigger.config, null, 2)}</pre>
+          <details className="af-auto__exact" data-def="trigger_config">
+            <summary>Exact configuration</summary>
+            <pre className="af-auto__json">{JSON.stringify(d.trigger.config, null, 2)}</pre>
+          </details>
         </dd>
         <dt>Context</dt>
         <dd data-def="context">{contextLabel(d.context.mode)}{d.context.mode === "growing" ? ` · ${Number(d.context.growing?.max_tokens ?? 50_000).toLocaleString()} tokens` : ""}</dd>
         <dt>Tools</dt>
-        <dd data-def="tool_approval">{approval === "ask" ? "Ask before each tool call (ask)" : approval === "auto" ? "Run without asking (auto)" : String(approval)}</dd>
+        <dd data-def="tool_approval">{approval === "ask" ? "Ask before each tool call" : approval === "auto" ? "Run without asking" : String(approval)}</dd>
         <dt>Notify</dt>
         <dd data-def="notify">{notifyLabel(d.notify)}</dd>
         {d.notify?.channels.includes("email") ? <><dt>Recipients</dt>
@@ -1062,13 +1066,14 @@ export function WaitAnswerForm(p: WaitAnswerFormProps): React.ReactElement {
         aria-labelledby={promptId}
         onSubmit={(e) => {
           e.preventDefault();
-          const parsed = parseEventPayload(fieldValue(e.currentTarget, "payload"));
+          const parsed = eventPayloadFromWords(fieldValue(e.currentTarget, "payload"));
           if (parsed.ok) answer({ payload: parsed.payload });
           else p.onWaitError?.(parsed.error);
         }}
       >
         {head("The run waits for an event.")}
-        <textarea name="payload" rows={3} aria-label="Event payload (JSON)" placeholder='{"key": "value"}' disabled={p.busy} />
+        <textarea name="payload" rows={3} aria-label="What happened" placeholder="What happened, in a few words (for example: the signed contract arrived)" disabled={p.busy} />
+        <p className="af-auto__hint">Your words are sent as the event's text.</p>
         <div className="af-auto__row">
           <button type="submit" className="af-auto__btn af-auto__btn--primary" data-action="wait-send-event" disabled={p.busy}>
             <IconLabel icon="send" label="Send event" />
@@ -1152,7 +1157,7 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
   return (
     <li className={`af-auto-occ af-auto-occ--${tone}`} data-index={row.index} data-tone={tone} aria-labelledby={`${idBase}-h`}>
       <div className={`af-auto-turn af-auto-turn--trigger${turnClass}`} data-turn="trigger">
-        <div className="af-auto-turn__meta" id={`${idBase}-h`} title={`${row.trigger.summary} · fired ${formatUtc(row.fired_at)}`}>
+        <div className="af-auto-turn__meta" id={`${idBase}-h`} title={`${row.trigger.summary} · fired ${whenWords(row.fired_at, { timeZone: p.timeZone, nowMs: p.nowMs, style: "day" })}`}>
           <span className="af-auto-turn__index">Run #{row.index}</span>
           {started ? ` · ${started}` : ""}
           {firedWords ? ` · ${firedWords}` : ""}
@@ -1181,7 +1186,7 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
           {badge ? <span className={`af-auto-badge af-auto-badge--${tone}`}>{badge}</span> : null}
           <span className="af-auto-turn__status">{statusText}</span>
           {/* One time format with the run's own line ("today 17:29"); the UTC time is the tooltip. */}
-          {row.finished_at ? <span title={formatUtc(row.finished_at)}> · {whenWords(row.finished_at, { timeZone: p.timeZone, nowMs: p.nowMs, style: "day" })}</span> : null}
+          {row.finished_at ? <span title={whenWords(row.finished_at, { timeZone: p.timeZone, nowMs: p.nowMs, style: "clock" })}> · {whenWords(row.finished_at, { timeZone: p.timeZone, nowMs: p.nowMs, style: "day" })}</span> : null}
         </div>
         {row.notify ? (
           <div className="af-auto-notify" data-notify="true">
@@ -1191,7 +1196,8 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
         ) : null}
         {row.failure ? (
           <div className="af-auto-failure" data-failure={row.failure.reason_code}>
-            <strong>{row.failure.reason_code}</strong>: {row.failure.message}{" "}
+            <strong>{failureReasonWords(row.failure.reason_code)}</strong>
+            {row.failure.message && row.failure.message.trim().toLowerCase() !== failureReasonWords(row.failure.reason_code).toLowerCase() ? `: ${row.failure.message}` : ""}{" "}
             <span className="af-auto-turn__muted">
               (after {row.failure.attempts} {row.failure.attempts === 1 ? "attempt" : "attempts"})
             </span>
@@ -1536,7 +1542,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
             {att.items.map((it) => (
               <li key={it.cursor} className={`af-auto__attention-item af-auto__attention-item--${it.kind}`} data-cursor={it.cursor}>
                 <span className={`af-auto-badge af-auto-badge--${it.kind === "failure" ? "failed" : "notified"}`}>{it.kind === "failure" ? "Failed" : "Notified"}</span>{" "}
-                <strong>{it.title}</strong> <span className="af-auto-turn__muted">#{it.index} · {formatUtc(it.at)}</span>
+                <strong>{it.title}</strong> <span className="af-auto-turn__muted">Run #{it.index} · {whenWords(it.at, { timeZone: summary.time_zone, nowMs: props.nowMs, style: "day" })}</span>
                 {it.body ? <div className="af-auto__attention-body">{render(it.body)}</div> : null}
               </li>
             ))}
@@ -1545,7 +1551,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
                 <span className="af-auto-badge af-auto-badge--waiting" data-wait-kind={w.kind}>
                   {WAIT_KIND_LABELS[w.kind] ?? "Waiting for you"}
                 </span>{" "}
-                <span className="af-auto-turn__muted">#{w.index}</span>
+                <span className="af-auto-turn__muted">Run #{w.index}</span>
                 {w.prompt ? <div className="af-auto__attention-body">{render(w.prompt)}</div> : null}
               </li>
             ))}

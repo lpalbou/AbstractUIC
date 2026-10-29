@@ -978,6 +978,46 @@ export function parseEventPayload(text: string): { ok: true; payload: Json } | {
   }
 }
 
+/** An event wait's answer from what the person typed (operator 2026-10-29: "a described input, not
+ * raw JSON"): words are sent as the event's `text`; something that starts like JSON (`{` or `[`) is
+ * sent as that data, and says so when it does not parse. Empty: say what happened. */
+export function eventPayloadFromWords(text: string): { ok: true; payload: Json } | { ok: false; error: string } {
+  const t = text.trim();
+  if (!t) return { ok: false, error: "Say what happened, in a few words." };
+  if (t.startsWith("{") || t.startsWith("[")) {
+    try {
+      return { ok: true, payload: JSON.parse(t) as Json };
+    } catch (e) {
+      return { ok: false, error: `That starts like event data (JSON) but is not valid: ${e instanceof Error ? e.message : String(e)}. Write it in words instead, or fix the data.` };
+    }
+  }
+  return { ok: true, payload: { text: t } };
+}
+
+/** A run failure's reason in words (operator 2026-10-29: never the reason code itself). */
+const FAILURE_WORDS: Record<string, string> = {
+  occurrence_failed: "The run failed",
+  run_failed: "The run failed",
+  timeout: "The run timed out",
+  timed_out: "The run timed out",
+  run_timeout: "The run timed out",
+  cancelled: "The run was cancelled",
+  occurrence_cancelled: "The run was cancelled",
+  tool_denied: "A tool call was denied",
+  tool_failed: "A tool failed",
+  model_unavailable: "The model was not available",
+  provider_error: "The model provider answered with an error",
+  rate_limited: "The model provider limited the requests",
+};
+
+export function failureReasonWords(code: string): string {
+  const c = String(code || "").trim().toLowerCase();
+  if (!c) return "The run failed";
+  if (FAILURE_WORDS[c]) return FAILURE_WORDS[c];
+  const words = c.replace(/[_-]+/g, " ").trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : "The run failed";
+}
+
 export const WAIT_KIND_LABELS: Record<string, string> = {
   ask_user: "Question for you",
   tool_approval: "Approval needed",

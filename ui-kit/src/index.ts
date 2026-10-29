@@ -252,6 +252,8 @@ export {
   WAIT_KIND_LABELS,
   waitToolCalls,
   parseEventPayload,
+  eventPayloadFromWords,
+  failureReasonWords,
   CONTROL_COMMANDS,
   SCHEDULE_PRESETS,
   STATUS_LABELS,

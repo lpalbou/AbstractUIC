@@ -43,6 +43,11 @@ card (0071), the top bar's About glyph and the console's About through the kit d
 - **An automation opens at what needs you** (operator 2026-10-29, backlog 0071). `AutomationPanel` scrolls to the
   first unresolved wait's card (else the oldest unseen result's run) and outlines it for a moment. `openAt: "none"`
   turns this off. The wait card's text uses the standard text colour.
+- **The automation panel says everything in words** (operator 2026-10-29, backlog 0072).
+  - The trigger is in words, with its configuration behind "Exact configuration".
+  - A failure's reason is a sentence ("The run timed out"), never its code.
+  - An event wait asks "what happened, in a few words" (words are sent as the event's text).
+  - Times use the person's zone everywhere: "Run #3 · today 14:13", and in the tooltips too.
 
 ## 0.8.5 - 2026-10-29
 
