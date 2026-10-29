@@ -964,6 +964,17 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   check("RUN_NOW_GLYPH viewBox/stroke match <Icon>", iconSvg.includes(`viewBox="${RUN_NOW_GLYPH.view_box}"`) && iconSvg.includes(`stroke-width="${RUN_NOW_GLYPH.stroke_width}"`));
   const btnMarkup = (new RegExp(`<button[^>]*data-action="run_now"[^>]*>([^]*?)</button>`).exec(html) || [])[1] || "";
   check("the Run now button draws that glyph", btnMarkup.includes(RUN_NOW_GLYPH.svg));
+  // The attention badge (operator 2026-10-29): the glyph IS <Icon name=inbox>, the words are the spec's.
+  const { ATTENTION_GLYPH, ATTENTION_TEXT, attentionBadgeTooltip: attentionTooltip, attentionBadgeLabel } = kit;
+  const inboxSvg = renderToStaticMarkup(React.createElement(Icon, { name: "inbox" }));
+  const inboxInner = (/^<svg[^>]*>([^]*)<\/svg>$/.exec(inboxSvg) || [])[1];
+  check("ATTENTION_GLYPH is <Icon name=inbox>'s markup", ATTENTION_GLYPH && ATTENTION_GLYPH.name === "inbox" && inboxInner === ATTENTION_GLYPH.svg, `${inboxInner} vs ${ATTENTION_GLYPH && ATTENTION_GLYPH.svg}`);
+  check("ATTENTION_GLYPH viewBox/stroke match <Icon>", inboxSvg.includes(`viewBox="${ATTENTION_GLYPH.view_box}"`) && inboxSvg.includes(`stroke-width="${ATTENTION_GLYPH.stroke_width}"`));
+  check("ATTENTION_TEXT is the canonical spec", eq(ATTENTION_TEXT, spec.attention));
+  check("attentionTooltip: one line per count, then the hint", attentionTooltip(1, 2) === "1 conversation is waiting for you\n2 new results from your automations\nClick to open it.", attentionTooltip(1, 2));
+  check("attentionTooltip: plural waits, one result", attentionTooltip(3, 1) === "3 conversations are waiting for you\n1 new result from your automations\nClick to open it.");
+  check("attentionTooltip: nothing waits -> empty", attentionTooltip(0, 0) === "");
+  check("attentionBadgeLabel", attentionBadgeLabel(3) === "3 waiting for you" && attentionBadgeLabel(0) === "");
 }
 
 // --- CSS ships in theme.css ------------------------------------------------------------------

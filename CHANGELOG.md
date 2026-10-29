@@ -9,6 +9,15 @@ ships.
 
 ## Unreleased
 
+### ui-kit
+
+- **The attention badge, defined once** (operator 2026-10-29, backlog 0067): `automation_controls.json` gains
+  `icons.attention` (the `<Icon name="inbox">` glyph as SVG markup) and `attention` (the badge's words), exported as
+  `ATTENTION_GLYPH`, `ATTENTION_TEXT`, `attentionBadgeTooltip(waiting, results)` and `attentionBadgeLabel(total)`.
+  A client shows what waits for the person elsewhere as an icon and a count on its sessions control, never as a text
+  banner; the clients that vendor the file (the Assistant, the Code TUI) draw the same glyph and words. Check:
+  `scripts/check_automation_panel.mjs` (the glyph IS `<Icon name="inbox">`'s markup).
+
 ### panel-chat
 
 - **Read aloud speaks only a reply generated while the conversation is open** (operator 2026-10-29, backlog 0065):
