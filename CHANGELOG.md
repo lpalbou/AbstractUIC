@@ -11,6 +11,28 @@ ships.
 
 ### ui-kit
 
+- **Cloud provider cards: where to put a cloud API key** (operator finding 2026-10-29: "where do I configure the
+  cloud engines?"). `CloudProviderCards` shows ONE card per cloud provider AbstractCore lists (the gateway's
+  `GET discovery/providers` rows with `local_provider: false`; today OpenAI, Anthropic, OpenRouter and Portkey), each
+  with its mark, its connection state (key fingerprint only), an API-key field, "Check the key" and one readable line:
+  "Key works · 48 models", or why not ("OpenRouter refused this key. Check that it was copied in full and is still
+  active."). The key is checked first (`POST …/discover-models`, which stores nothing); only a key that checked OK can
+  be saved, and editing it drops the check. Saving creates a NEW connection with a fresh id (`openai-key`,
+  `openai-key-2`, …) and `create_only: true`, so an existing connection is never overwritten (a 409 moves to the next
+  id). The field is emptied after the save; the key is never rendered. Logic in `cloud_providers_core.ts`
+  (`cloudProvidersClient`, `keyCheckResult`, `freshConnectionId`, …), shared with a host's own key flow. Console
+  islands: `mountCloudProviderCards`, `cloudProviders` (additive; apiVersion stays "2"). Check:
+  `scripts/check_cloud_providers.mjs`.
+
+- **Official marks for engines and cloud providers** (same finding: "replace the two-letter badges"). `BrandMark` /
+  `brandMarkHtml(id)` draw the brand's own logo, inlined (no request to any host), in its own colours on a light tile
+  in every theme. Ollama, Hugging Face, MLX, llama.cpp and OpenRouter come from the brands' own files; LM Studio and
+  vLLM from Simple Icons (CC0 path data). OpenAI and Anthropic keep a readable text badge because their brand terms
+  require permission or prior approval, Portkey because it publishes no usable logo; `openai-compatible` (a protocol)
+  reads "API". Each mark records its source file URL, its terms page, its licence and restrictions, and the date it
+  was taken (`brand_icons.tsx`, table in `docs/icons.md`). Console islands: `brandMarks`. Check:
+  `scripts/check_brand_icons.mjs` (every card id has a mark or a documented fallback; every mark has its licence note
+  and is self-contained).
 - **One filter bar** (operator design finding 2026-10-29, backlog 0074). `AfFilterBar`: a first line with the
   search field and its on/off filters together (an optional scope switch leads it, the count closes it), then one
   row per facet with the label in a fixed left column and the chips wrapping in the second column, never under the
