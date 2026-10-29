@@ -53,8 +53,10 @@ assert.ok(detail.includes("<summary>Review full tool arguments (JSON)</summary>"
 // the tool's raw name with its JSON (operator 2026-10-29); the JSON stays behind the disclosure only.
 assert.ok(detail.includes('class="af-toolwords"') && detail.includes('aria-label="Tool calls to approve"'), "the kit's tool-call words list");
 assert.ok(detail.includes('<span class="af-toolwords__verb" title="write_file">Write</span>'), "the verb chip, the tool's name on its tooltip");
-assert.ok(detail.includes('<strong class="af-toolwords__key">a.md</strong>') && detail.includes('<strong class="af-toolwords__key">b.md</strong>'), "each call's key argument");
-assert.ok(detail.includes("2 file writes"), "the group line counts the calls");
+// Operator ruling 2026-10-29: a bold first line (the only bold), one bullet per call, plain parameters, no count line.
+assert.ok(detail.includes('<p class="af-toolwords__heading"><strong>The assistant wants to use these tools:</strong></p>'), "the bold first line");
+assert.ok(detail.includes("the file a.md") && detail.includes("the file b.md") && !detail.includes("af-toolwords__key"), "each call's key argument, in plain text");
+assert.ok(!detail.includes("2 file writes") && (detail.split("<details>")[0].match(/<strong/g) || []).length === 1, "no count line; the heading is the only bold");
 assert.ok(!detail.split("<details>")[0].includes("<pre") && !detail.split("<details>")[0].includes("{&quot;"), "no JSON outside the disclosure");
 const strArgs = renderToStaticMarkup(React.createElement(React.Fragment, null, presentInteraction({ runId: "r", wait: { wait_key: "k", details: { mode: "approval_required", tool_calls: [{ name: "fetch_url", arguments: JSON.stringify({ url: "https://example.org/a" }) }] } } }, controller).detail));
 assert.ok(strArgs.includes('title="fetch_url">Fetch</span>') && strArgs.includes("example.org"), "string-encoded arguments are read too");
