@@ -88,7 +88,15 @@ export type IconName =
   | "zoomIn"
   | "zoomOut"
   | "fitView"
-  | "lock";
+  | "lock"
+  // The top bar's About button (operator 2026-10-29: "its icon is bad"). `info`
+  // draws its dot at r 0.75 (1.5 units), NARROWER than the 2-unit stroke of its
+  // own stem, so at 16 px the dot is a 1 px speck and the glyph reads as a ring
+  // with a dash. `about` is a typographic "i": a dot of r 1.5 (3 units, wider
+  // than the stem, so it reads as a dot at any size), a 6-unit stem, both
+  // centred in a ring of r 9 — the same ring as `contrast`, its neighbour in
+  // the cluster, so the two round buttons are one size. 24-grid, stroke 2.
+  | "about";
 
 /**
  * Every icon name, in declaration order (docs/icons.md lists the same set;
@@ -103,6 +111,7 @@ export const ICON_NAMES = [
   "contrast", "logout", "play", "stop", "folder", "file", "archive", "unarchive", "clock", "cog",
   "activity", "book", "compose", "image", "video", "camera", "music", "database", "branch", "loop",
   "variable", "minus", "divide", "function", "zoomIn", "zoomOut", "fitView", "lock",
+  "about",
 ] as const satisfies readonly IconName[];
 
 /** Compile-time guard: a name added to IconName but not to ICON_NAMES fails the build. */
@@ -234,6 +243,14 @@ function paths(name: IconName): React.ReactNode {
           <circle cx="12" cy="12" r="10" />
           <path d="M12 16v-4" />
           <circle cx="12" cy="8" r="0.75" fill="currentColor" stroke="none" />
+        </>
+      );
+    case "about":
+      return (
+        <>
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="7.5" r="1.5" fill="currentColor" stroke="none" />
+          <path d="M12 11v6" />
         </>
       );
     case "warning":

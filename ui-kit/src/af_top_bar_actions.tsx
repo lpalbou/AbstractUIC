@@ -356,7 +356,7 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
             about.onOpen?.();
           }}
         >
-          <Icon name="info" size={16} />
+          <Icon name="about" size={16} />
         </button>
       ) : null}
 

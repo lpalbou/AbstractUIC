@@ -11,6 +11,17 @@ ships.
 
 ### ui-kit
 
+- **The About button has a legible icon, and the console's About can be the kit's** (operator ruling 2026-10-29:
+  the top bar's docs button, Appearance, About and account are the SAME kit components in every app and the
+  console). The About button now draws the new `about` glyph instead of `info`. `info` draws its dot at r 0.75, so
+  the dot is narrower than the 2-unit stroke of its own stem, and at 16 px it shrinks to a 1 px speck: the button
+  read as a ring with a dash. `about` is a typographic "i": the dot is r 1.5 (wider than the stem), the stem is 6
+  units long, and the ring is r 9, the same as `contrast` beside it. `info` is unchanged for notices. The console
+  islands gain `extra` on `mountTopBar`'s `about` and on `mountAbout`: a page-owned element (the console's
+  update controls) is shown in the kit `AfAboutDialog` while it is open, and put back where it was when it closes
+  (`hostElementInto`), so the console can drop its own About dialog. Additive; apiVersion stays "2". Check:
+  `scripts/check_top_bar_set.mjs`.
+
 - **Tool results in words, never raw JSON** (operator QA 2026-10-29, backlog 0070). `describeToolResult` and the
   `ToolResultWordsView` component turn a tool's result into one sentence and up to three readable items: "Web search
   returned 10 results" with the first titles, "Page fetch failed: timed out after 30 s", "Page skim returned “FDA
