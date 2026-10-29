@@ -118,7 +118,11 @@ Every mount returns `{ update(props), unmount() }`. Mounting into a missing elem
 ### `mountTopBar(el, props)`
 
 Renders the shared top-right cluster in the kit's enforced order: extras · docs · assistant ·
-appearance · about · identity · connection pill (always rightmost).
+appearance · about · account (always rightmost). Signed in with `identity` on, the account is ONE
+button (person icon, name, connection light) whose menu holds Signed in as / Gateway / Copy user
+id / Disconnect; otherwise (connecting, signed out, `identity` off) the connection pill holds that
+place. The four pieces every app shares (docs, appearance, About, account) are the kit's: change
+one in the kit and every app and the console change with it (operator ruling 2026-10-29).
 
 ```ts
 type TopBarIslandProps = {
@@ -130,6 +134,7 @@ type TopBarIslandProps = {
     versions?: AfAboutVersions;          // framework + gateway versions (apiVersion "2")
     onOpen?: () => void;                 // runs each time the About dialog opens
     label?: string;
+    extra?: HTMLElement | null;          // a page-owned element shown under the links (see below)
   } | null;
   extras?: Array<{
     id: string;          // becomes the element id
@@ -229,8 +234,17 @@ type AboutIslandProps = {
   onClose: () => void;
   identity: AppIdentity;      // islands.appIdentity("abstractgateway", version)
   versions?: AfAboutVersions; // or islands.aboutVersionsFromGateway(body)
+  extra?: HTMLElement | null; // a page-owned element shown under the links (see below)
 };
 ```
+
+`extra` (on `mountAbout` and on `mountTopBar`'s `about`; additive, apiVersion stays `"2"`) carries
+host content into the kit dialog, such as the console's "Check for updates / Update / Restart"
+section. The island moves the element (never a clone) into the dialog while it is open and puts it
+back where it was (same parent, same position) when the dialog closes, so the page's own script can
+still find it by id and update it while the dialog is closed. Keep it in a hidden container of the
+page. Rule and check: `hostElementInto` / `hostElementEffect` in `islands/console_islands.tsx`,
+`scripts/check_top_bar_set.mjs`.
 
 A missing version shows its note, otherwise "not reported" (framework) or "not connected"
 (gateway).

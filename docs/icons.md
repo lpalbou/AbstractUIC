@@ -104,6 +104,7 @@ fails when a sheet is stale.
 | `zoomOut` | 24 | Zoom out |
 | `fitView` | 24 | Fit everything in view |
 | `lock` | 24 | Lock |
+| `about` | 24 | About this app (the top bar's About button; a typographic "i" whose dot is wider than the stroke, in the same r 9 ring as `contrast`) |
 
 ## Adding an icon
 

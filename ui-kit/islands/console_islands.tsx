@@ -13,7 +13,7 @@
 // re-calls `update(props)` whenever it changes (no React knowledge needed).
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { AfTopBarActions } from "../src/af_top_bar_actions.js";
+import { AfTopBarActions, type AfTopBarActionsProps } from "../src/af_top_bar_actions.js";
 import { AfDrawerSystem, type AfDrawerPanel, type AfDrawerSystemProps } from "../src/af_drawer_system.js";
 import type { GatewayConnectionState } from "../src/gateway_connect_modal.js";
 import { AfAppearanceDialog, type AppearanceSettings } from "../src/appearance.js";
@@ -66,8 +66,13 @@ export type TopBarIslandProps = {
   docs?: { open: boolean; onToggle: () => void; label?: string } | null;
   assistant?: { open: boolean; onToggle: () => void; label?: string } | null;
   appearance?: { onOpen: () => void; label?: string } | null;
-  /** The About button + dialog, owned by the cluster (omit/null hides it). */
-  about?: { identity: AppIdentity; versions?: AfAboutVersions; onOpen?: () => void; label?: string } | null;
+  /**
+   * The About button + dialog, owned by the cluster (omit/null hides it). `extra` = a page-owned
+   * element shown in the kit dialog under its links (e.g. the console's update controls): moved in
+   * while the dialog is open, put back where it was when it closes (see `hostElementInto`).
+   * Additive (top-bar set, 2026-10-29): apiVersion stays "2".
+   */
+  about?: { identity: AppIdentity; versions?: AfAboutVersions; onOpen?: () => void; label?: string; extra?: HTMLElement | null } | null;
   extras?: IslandExtraAction[];
   /**
    * Who is signed in, left of the pill (kit identity: "badge" or "menu" with
@@ -121,6 +126,8 @@ export type AboutIslandProps = {
   identity: AppIdentity;
   /** Framework + gateway versions (kit 0.7.0 compact About; no package list). */
   versions?: AfAboutVersions;
+  /** A page-owned element shown under the links while open (moved in, put back on close). */
+  extra?: HTMLElement | null;
 };
 
 /** A composer attachment chip (the host uploads; the island only shows state). */
@@ -206,14 +213,26 @@ function extrasNode(extras: IslandExtraAction[] | undefined): React.ReactNode {
   );
 }
 
-function TopBarIsland(props: TopBarIslandProps): React.ReactElement {
+/** The kit About's `extra` for a page-owned element: hosted (moved in, put back on close), never cloned. */
+function aboutExtra(element: HTMLElement | null | undefined): React.ReactNode {
+  return element ? <HostElement element={element} className="af-island-host af-about-host" restore /> : undefined;
+}
+
+/** The island's About props as the kit's (`extra`: a page element, hosted). */
+export function islandAbout(about: TopBarIslandProps["about"]): AfTopBarActionsProps["about"] {
+  if (!about) return undefined;
+  const { extra, ...rest } = about;
+  return extra ? { ...rest, extra: aboutExtra(extra) } : rest;
+}
+
+export function TopBarIsland(props: TopBarIslandProps): React.ReactElement {
   const { me: _me, ...connection } = props.connection;
   return (
     <AfTopBarActions
       docs={props.docs || undefined}
       assistant={props.assistant || undefined}
       appearance={props.appearance || undefined}
-      about={props.about || undefined}
+      about={islandAbout(props.about)}
       extraActions={extrasNode(props.extras)}
       identity={props.identity || false}
       connection={{ ...connection, status: islandConnectionStatus(props.connection) }}
@@ -230,14 +249,49 @@ export type DrawerSystemIslandProps = Omit<AfDrawerSystemProps, "panels" | "chil
   main?: HTMLElement | null;
 };
 
-/** Hosts an element the page owns inside a React tree (moved in on mount, never cloned). */
-function HostElement(props: { element: HTMLElement; className?: string }): React.ReactElement {
+/** The DOM members `hostElementInto` uses (a structural type, so the check can pass plain objects). */
+export type HostedNode = { parentNode: HostedParent | null; nextSibling: HostedNode | null };
+export type HostedParent = { appendChild(n: HostedNode): unknown; insertBefore(n: HostedNode, ref: HostedNode | null): unknown };
+
+/**
+ * Move `element` into `box` (never cloned) and return the function that puts it back where it was
+ * (its former parent, before its former next sibling when that is still there), or null when it had
+ * no parent or is already in `box`. Put back only while it is still in `box`. The About dialog
+ * unmounts on close: without the put-back the page's element left the document with it, and the
+ * page's `getElementById` for it answered null until the next open.
+ */
+export function hostElementInto(box: HostedParent, element: HostedNode): (() => void) | null {
+  if (element.parentNode === box) return null;
+  const home = element.parentNode;
+  const before = element.nextSibling;
+  box.appendChild(element);
+  if (!home) return null;
+  return () => {
+    if (element.parentNode !== box) return;
+    if (before && before.parentNode === home) home.insertBefore(element, before);
+    else home.appendChild(element);
+  };
+}
+
+/**
+ * Hosts an element the page owns inside a React tree (moved in on mount, never cloned). `restore`:
+ * put it back where it was on unmount (a dialog's content); without it the element stays in the
+ * box (keep-alive panels never unmount).
+ */
+/** HostElement's effect: host `element` in `box`; the cleanup puts it back only with `restore`. */
+export function hostElementEffect(box: HostedParent | null, element: HostedNode, restore: boolean): (() => void) | undefined {
+  if (!box) return undefined;
+  const putBack = hostElementInto(box, element);
+  return restore && putBack ? putBack : undefined;
+}
+
+function HostElement(props: { element: HTMLElement; className?: string; restore?: boolean }): React.ReactElement {
   const ref = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const box = ref.current;
-    if (!box || props.element.parentNode === box) return;
-    box.appendChild(props.element);
-  }, [props.element]);
+  const restore = props.restore === true;
+  useEffect(
+    () => hostElementEffect(ref.current as unknown as HostedParent | null, props.element as unknown as HostedNode, restore),
+    [props.element, restore],
+  );
   return <div ref={ref} className={props.className || "af-island-host"} />;
 }
 
@@ -399,8 +453,14 @@ export function mountAppearance(el: Element, props: AppearanceIslandProps): Isla
   return mount(el, (p) => <AfAppearanceDialog {...p} />, props);
 }
 
+/** The About island: the kit AfAboutDialog; `extra` (a page element) is hosted under the links while open. */
+export function AboutIsland(props: AboutIslandProps): React.ReactElement | null {
+  const { extra, ...rest } = props;
+  return <AfAboutDialog {...rest} extra={aboutExtra(extra)} />;
+}
+
 export function mountAbout(el: Element, props: AboutIslandProps): IslandHandle<AboutIslandProps> {
-  return mount(el, (p) => <AfAboutDialog {...p} />, props);
+  return mount(el, (p) => <AboutIsland {...p} />, props);
 }
 
 /**
