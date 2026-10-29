@@ -3,9 +3,11 @@
 // backlog 0036 "app shell").
 //
 // Enforced order (pinned by scripts/check_app_shell.mjs):
-//   [app extras] · docs · assistant · appearance · about · identity · pill
-// The connection pill is always rightmost and the identity sits immediately
-// left of it, so "who" and "which gateway" read together. The connection half
+//   [app extras] · docs · assistant · appearance · about · account
+// ONE ACCOUNT WIDGET, rightmost (operator, 2026-10-29: "(person) admin (status light)", Disconnect
+// inside its menu). Signed in with `identity` on, it is the person, their name and the connection
+// light in one button; the menu says who and which gateway, Copy user id, Disconnect. Otherwise
+// (connecting, signed out, or `identity` off) the same place holds the connection pill. The connection half
 // consumes useGatewayConnection's PHASE — three states, never a boolean (a
 // boolean flashes "Connect" over a live session during the boot probe;
 // code/web's hosted token exchange made this load-bearing, c1645). Pass the
@@ -89,10 +91,11 @@ export type AfTopBarActionsProps = {
     label?: string;
   };
   /**
-   * Who is signed in, immediately left of the pill (from the connection's
-   * status: `status.gateway.principal`). "badge" = icon + label;
-   * "menu" = the same, opening a menu (who, which gateway, Copy user id,
-   * Disconnect). Omit/false = hidden. Nothing renders unless the phase is connected.
+   * Who is signed in (from the connection's status: `status.gateway.principal`). On, and
+   * connected: ONE account button takes the pill's place: person icon, name, connection light;
+   * it opens the menu (who, which gateway, Copy user id, Disconnect). "badge" is the former
+   * read-only badge and now renders the same account button (one widget in every app).
+   * Omit/false = no identity: the connection pill alone.
    */
   identity?: "badge" | "menu" | false;
   /**
@@ -166,6 +169,11 @@ export function topBarConnection(
 export function identityTitle(p: AfPrincipal, gatewayUrl: string | null | undefined): string {
   const host = gatewayHostLabel(gatewayUrl);
   return `Signed in as ${principalLabel(p)}${host ? ` · gateway ${host}` : ""}`;
+}
+
+/** The account button's tooltip: who, which gateway, the light's meaning, and where Disconnect is. */
+export function accountTitle(p: AfPrincipal, gatewayUrl: string | null | undefined, signingOut: boolean): string {
+  return `${identityTitle(p, gatewayUrl)} · ${signingOut ? "disconnecting…" : "connected (Disconnect is in this menu)"}`;
 }
 
 /** The CSS variable the cluster publishes and `topOffset: "auto"` reads. */
@@ -256,45 +264,38 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
   const principal = props.identity && phase === "connected" ? principalFromConnection(conn.status) : null;
   const signOut = () => void conn.disconnect();
 
-  let identity: React.ReactNode = null;
+  // The account button (signed in, `identity` on) REPLACES the pill: one widget, never two.
+  let account: React.ReactNode = null;
   if (principal && props.identity) {
     const label = principalLabel(principal);
-    const title = identityTitle(principal, conn.status?.gateway_url);
-    const face = (
-      <>
-        <Icon name="user" size={14} />
-        <span className="af-topbar__identity-label">{label}</span>
-      </>
+    const title = accountTitle(principal, conn.status?.gateway_url, signingOut);
+    const copy = copyText(principal.userId);
+    const host = gatewayHostLabel(conn.status?.gateway_url);
+    account = (
+      <AfMenu
+        label={`Account: ${title}`}
+        tip={title}
+        className="af-topbar__account"
+        buttonClassName="af-topbar__identity af-topbar__identity--menu"
+        buttonContent={
+          <>
+            <Icon name="user" size={14} />
+            <span className="af-topbar__identity-label">{label}</span>
+            <span className={`af-topbar__dot af-topbar__dot--${signingOut ? "loading" : "connected"}`} data-af-identity="menu" aria-hidden="true" />
+          </>
+        }
+        header={
+          <span className="af-topbar__account-head">
+            <span className="af-topbar__account-who">Signed in as {label}</span>
+            {host ? <span className="af-topbar__account-host">Gateway {host}</span> : null}
+          </span>
+        }
+        items={[
+          { id: "copy-user-id", label: "Copy user id", onSelect: copy || (() => undefined), hidden: !copy },
+          { id: "disconnect", label: signingOut ? "Disconnecting…" : "Disconnect", onSelect: signingOut ? () => undefined : signOut, danger: true },
+        ]}
+      />
     );
-    if (props.identity === "badge") {
-      identity = (
-        <span className="af-topbar__identity af-topbar__identity--badge" data-af-identity="badge" data-af-tip={title} aria-label={title}>
-          {face}
-        </span>
-      );
-    } else {
-      const copy = copyText(principal.userId);
-      const host = gatewayHostLabel(conn.status?.gateway_url);
-      identity = (
-        <AfMenu
-          label={`Account: ${title}`}
-          tip={title}
-          className="af-topbar__account"
-          buttonClassName="af-topbar__identity af-topbar__identity--menu"
-          buttonContent={face}
-          header={
-            <span className="af-topbar__account-head" data-af-identity="menu">
-              <span className="af-topbar__account-who">Signed in as {label}</span>
-              {host ? <span className="af-topbar__account-host">Gateway {host}</span> : null}
-            </span>
-          }
-          items={[
-            { id: "copy-user-id", label: "Copy user id", onSelect: copy || (() => undefined), hidden: !copy },
-            { id: "disconnect", label: "Disconnect", onSelect: signOut, danger: true, hidden: signingOut },
-          ]}
-        />
-      );
-    }
   }
 
   return (
@@ -359,8 +360,6 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
         </button>
       ) : null}
 
-      {identity}
-
       {conn.signOutError ? (
         <span className="af-topbar__signout-error" role="alert" data-af-tip={`Disconnect failed: ${conn.signOutError}`} aria-label={`Disconnect failed: ${conn.signOutError}`}>
           <Icon name="warning" size={14} />
@@ -368,17 +367,19 @@ export function AfTopBarActions(props: AfTopBarActionsProps): React.ReactElement
         </span>
       ) : null}
 
-      <button
-        type="button"
-        className={`af-topbar__pill af-topbar__pill--${phase}`}
-        onClick={phase === "connected" ? signOut : conn.connect}
-        disabled={signingOut}
-        title={pill.title}
-        aria-label={pill.title}
-      >
-        <span className={`af-topbar__dot af-topbar__dot--${phase}`} aria-hidden="true" />
-        <span className="af-topbar__pill-label">{pill.label}</span>
-      </button>
+      {account || (
+        <button
+          type="button"
+          className={`af-topbar__pill af-topbar__pill--${phase}`}
+          onClick={phase === "connected" ? signOut : conn.connect}
+          disabled={signingOut}
+          title={pill.title}
+          aria-label={pill.title}
+        >
+          <span className={`af-topbar__dot af-topbar__dot--${phase}`} aria-hidden="true" />
+          <span className="af-topbar__pill-label">{pill.label}</span>
+        </button>
+      )}
 
       {about ? (
         <AfAboutDialog

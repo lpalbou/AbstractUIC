@@ -1,3 +1,4 @@
+import { ToolCallWordsList } from "../tool_call_words_view.js";
 import { AutomationToolsPicker } from "./automation_tools_picker.js";
 import { AutomationWorkflowPicker, type AutomationWorkflowPickerOptions } from "./automation_workflow_picker.js";
 import { prepareAutomationTarget } from "./prepare_target.js";
@@ -1026,14 +1027,7 @@ export function WaitAnswerForm(p: WaitAnswerFormProps): React.ReactElement {
       <div className="af-auto-wait af-auto-wait--tool_approval" role="group" data-wait-key={w.wait_key} data-wait-kind={w.kind} aria-labelledby={promptId}>
         {head("A tool call needs your approval.")}
         {calls && calls.length ? (
-          <ul className="af-auto-wait__calls" aria-label="Tool calls to approve">
-            {calls.map((c, i) => (
-              <li key={c.call_id ?? `${c.name}:${i}`} data-tool={c.name}>
-                <code className="af-auto-wait__tool">{c.name}</code>
-                <pre className="af-auto-wait__args">{JSON.stringify(c.arguments, null, 2)}</pre>
-              </li>
-            ))}
-          </ul>
+          <ToolCallWordsList calls={calls} label="Tool calls to approve" className="af-auto-wait__calls" />
         ) : (
           <p className="af-auto__hint">The gateway did not list the tool calls; open the run to see them before approving.</p>
         )}

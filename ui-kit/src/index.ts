@@ -116,7 +116,7 @@ export {
   type AppearanceSettings,
   type AfAppearanceDialogProps,
 } from "./appearance.js";
-export { useGatewayVoice, streamTtsJsonl, voiceErrorSentence, MIN_RECORDING_MS, type GatewayVoice, type GatewayVoiceOptions, type TtsPlaybackStatus, type VoiceTranscription } from "./use_gateway_voice.js";
+export { useGatewayVoice, streamTtsJsonl, ttsErrorDetail, voiceErrorSentence, MIN_RECORDING_MS, type GatewayVoice, type GatewayVoiceOptions, type TtsPlaybackStatus, type VoiceTranscription } from "./use_gateway_voice.js";
 export { AfPhaseRadio, type AfPhaseRadioProps, type AfPhaseSlot } from "./af_phase_radio.js";
 export { AfCognitionBloom, type AfCognitionBloomProps } from "./af_cognition_bloom.js";
 export { AfConductGauge, type AfConductGaugeProps } from "./af_conduct_gauge.js";
@@ -562,7 +562,7 @@ export {
   type VoiceRecordFrom,
   type VoicePlayOn,
 } from "./voice_settings.js";
-export { voiceCaptureMode, type VoiceCaptureMode } from "./use_gateway_voice.js";
+export { voiceCaptureMode, ttsVoiceKey, type VoiceCaptureMode } from "./use_gateway_voice.js";
 export { recordingAbortError } from "./voice_devices.js";
 export { AfVoiceLevelMeter, useVoiceLevel, type AfVoiceLevelMeterProps, type VoiceLevelSource } from "./af_voice_level_meter.js";
 export { GATEWAY_VOICE_ROUTES, voiceClonePath, voiceCloneDeployPath, runVoiceTtsPath, runTranscribePath, entityVoicePath } from "./gateway_paths.js";
@@ -665,7 +665,7 @@ export {
   type AfDrawerStored,
 } from "./af_drawer_system.js";
 export { drawerTop, drawerFocusTarget } from "./af_drawer.js";
-export { topBarPillText, topBarConnection, identityTitle, useAfTopBarHeight, AF_TOPBAR_HEIGHT_VAR, type AfTopBarConnection } from "./af_top_bar_actions.js";
+export { topBarPillText, topBarConnection, identityTitle, accountTitle, useAfTopBarHeight, AF_TOPBAR_HEIGHT_VAR, type AfTopBarConnection } from "./af_top_bar_actions.js";
 export { principalFromConnection, principalLabel, gatewayHostLabel, AF_DEFAULT_TENANT, type AfPrincipal } from "./principal.js";
 export { fetchAboutVersions, ABOUT_VERSIONS_CHECKING, type AfGatewayFetch } from "./about.js";
 export type { GatewayPrincipalPayload } from "./gateway_connect_modal.js";
@@ -703,3 +703,7 @@ export {
 } from "./tool_layer_store.js";
 export { policySetLine, TOOL_SESSION_OFF_HELP, TOOL_POLICY_SCOPE_UNSAID } from "./tool_mode_editor.js";
 export { SESSION_ID_PATTERN, sessionToolPolicyRoute } from "./gateway_paths.js";
+
+// Tool calls in words (operator QA 2026-10-29): approval cards never print raw JSON.
+export { describeToolCall, groupToolCalls, prettyQuotes, readableKey, shortUrl, type ToolCallInput, type ToolCallWords } from "./tool_call_words.js";
+export { ToolCallWordsList, type ToolCallWordsListProps } from "./tool_call_words_view.js";

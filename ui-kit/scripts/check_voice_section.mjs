@@ -242,8 +242,11 @@ for (const [name, fn] of Object.entries({ AfVoiceOutput, AfVoiceInput, gatewayVo
 }
 {
   const o = gatewayVoiceOptions({ output_device: "spk-1", reply_volume: 0.3, reply_muted: true, input_device: "mic-1", input_gain: 9, capture_mode: "toggle" });
-  check("0035 gatewayVoiceOptions maps every hook option", JSON.stringify(o) === JSON.stringify({ output_device_id: "spk-1", volume: 0.3, muted: true, input_device_id: "mic-1", input_gain: 1.5, capture_mode: "toggle" }), JSON.stringify(o));
-  check("0035 gatewayVoiceOptions defaults", JSON.stringify(gatewayVoiceOptions({})) === JSON.stringify({ output_device_id: "", volume: 1, muted: false, input_device_id: "", input_gain: 1, capture_mode: "hold" }));
+  check("0035 gatewayVoiceOptions maps every hook option", JSON.stringify(o) === JSON.stringify({ output_device_id: "spk-1", volume: 0.3, muted: true, input_device_id: "mic-1", input_gain: 1.5, capture_mode: "toggle", tts_voice: {} }), JSON.stringify(o));
+  // The voice fields ride as tts_voice (the hook ties kept audio to them; operator 2026-10-29).
+  const withVoice = gatewayVoiceOptions({ provider: "qwen3-tts", voice: "sisko", speed: 1.1, reply_volume: 0.5 });
+  check("gatewayVoiceOptions: the speech fields become tts_voice", JSON.stringify(withVoice.tts_voice) === JSON.stringify({ provider: "qwen3-tts", voice: "sisko", speed: 1.1 }), JSON.stringify(withVoice.tts_voice));
+  check("0035 gatewayVoiceOptions defaults", JSON.stringify(gatewayVoiceOptions({})) === JSON.stringify({ output_device_id: "", volume: 1, muted: false, input_device_id: "", input_gain: 1, capture_mode: "hold", tts_voice: {} }));
 }
 
 if (failures) {

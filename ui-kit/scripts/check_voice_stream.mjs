@@ -2,7 +2,7 @@
 // The small React dispatcher matches the other kit interaction checks; no DOM dependency.
 import assert from "node:assert/strict";
 import React from "react";
-import { streamTtsJsonl, useGatewayVoice } from "../dist/use_gateway_voice.js";
+import { streamTtsJsonl, ttsErrorDetail, useGatewayVoice } from "../dist/use_gateway_voice.js";
 
 const originalFetch = globalThis.fetch;
 const originalWindow = globalThis.window;
@@ -64,6 +64,8 @@ function mount() {
   try {
     voice = useGatewayVoice({
       tts_stream: (text, signal) => streamTtsJsonl({ path: "/tts", body: { text }, signal, headers: { "x-abstract-csrf": "token" } }),
+      // The voice the stream speaks with: a paused reply resumes only in the same voice.
+      tts_voice: { voice: "sisko" },
       on_error: (error) => { if (error) errors.push(error); },
     });
   } finally { internals.ReactCurrentDispatcher.current = previous; }
@@ -123,6 +125,19 @@ try {
     request.body.close();
     await assert.rejects(consume, expected);
     assert.equal(request.signal.aborted, true);
+  }
+  // A failed answer: a typed `detail` object gives its message, a string `detail` is unchanged,
+  // never "[object Object]" (the thin clients showed it for the gateway's typed 409).
+  assert.equal(ttsErrorDetail({ detail: { reason_code: "voice_unavailable", message: "The voice sisko is not available." } }, 409), "The voice sisko is not available.");
+  assert.equal(ttsErrorDetail({ detail: "engine busy" }, 503), "engine busy");
+  assert.equal(ttsErrorDetail({ detail: { reason_code: "x" } }, 409), "HTTP 409");
+  assert.equal(ttsErrorDetail(null, 500), "HTTP 500");
+  for (const [payload, expected] of [[{ detail: { reason_code: "voice_unavailable", message: "The voice sisko is not available." } }, /^The voice sisko is not available\.$/], [{ detail: "engine busy" }, /^engine busy$/]]) {
+    const saved = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: false, status: 409, json: async () => payload });
+    try {
+      await assert.rejects((async () => { for await (const _c of streamTtsJsonl({ path: "/tts", body: {} })) { /* drain */ } })(), (e) => expected.test(e.message) && !/object Object/.test(e.message));
+    } finally { globalThis.fetch = saved; }
   }
   console.log("check_voice_stream: cancellation, first audio, pause/resume, EOF and error checks green");
 } finally {

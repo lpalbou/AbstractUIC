@@ -86,6 +86,14 @@ export type GatewayVoiceOptions = {
    */
   tts_stream?: (text: string, signal?: AbortSignal) => AsyncIterable<ArrayBuffer>;
   /**
+   * The voice `tts` / `tts_stream` speak with: the request's speech fields (`voiceTtsRequest(prefs)`:
+   * provider, model, voice, profile, speed, ...; `gatewayVoiceOptions(prefs)` passes it). The audio
+   * the hook keeps for a message (to resume a paused one) is tied to (message, text, this voice):
+   * after a voice change the message is spoken again in the new voice, never resumed in the old one
+   * (operator, 2026-10-29). Absent: kept audio is never reused (a paused message starts over).
+   */
+  tts_voice?: Record<string, unknown> | string | null;
+  /**
    * Transcribe a recorded blob (absent = PTT unsupported). Returns the text,
    * or the text with the route that ran (shown beside the transcript).
    */
@@ -106,6 +114,17 @@ export type VoiceCaptureMode = "hold" | "toggle";
 export function voiceCaptureMode(value: unknown): VoiceCaptureMode {
   const v = value && typeof value === "object" ? (value as { capture_mode?: unknown }).capture_mode : value;
   return v === "toggle" ? "toggle" : "hold";
+}
+
+/**
+ * A stable key for a TTS voice (`GatewayVoiceOptions.tts_voice`): the same fields in any order give
+ * the same key; absent gives "" (no voice known).
+ */
+export function ttsVoiceKey(voice: GatewayVoiceOptions["tts_voice"]): string {
+  if (voice === undefined || voice === null) return "";
+  if (typeof voice === "string") return `s:${voice}`;
+  const keys = Object.keys(voice).filter((k) => voice[k] !== undefined && voice[k] !== null && voice[k] !== "").sort();
+  return `o:${JSON.stringify(keys.map((k) => [k, voice[k]]))}`;
 }
 
 /** A transcription result with the route that ran (`provider`/`model` from the gateway response). */
@@ -145,8 +164,7 @@ export async function* streamTtsJsonl(opts: {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      const detail = data && typeof data === "object" && (data as any).detail ? String((data as any).detail) : `HTTP ${res.status}`;
-      throw new Error(detail);
+      throw new Error(ttsErrorDetail(data, res.status));
     }
     if (!res.body) throw new Error("TTS stream has no body");
     const reader = res.body.getReader();
@@ -214,6 +232,21 @@ export type GatewayVoice = {
    */
   add_transcript_listener?: (fn: (text: string, info?: VoiceTranscription) => void) => () => void;
 };
+
+/**
+ * The words of a failed TTS answer: `detail` as a string, or a typed answer's `detail.message`
+ * (`{reason_code, message, ...}`), never "[object Object]"; `HTTP <status>` when there is neither.
+ */
+export function ttsErrorDetail(data: unknown, status: number): string {
+  const detail = data && typeof data === "object" ? (data as { detail?: unknown }).detail : undefined;
+  if (detail && typeof detail === "object") {
+    const message = (detail as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message.trim();
+    return `HTTP ${status}`;
+  }
+  if (detail !== undefined && detail !== null && String(detail).trim()) return String(detail);
+  return `HTTP ${status}`;
+}
 
 /** "Prefix: detail." — every voice failure reaches the user as one sentence. */
 export function voiceErrorSentence(prefix: string, e: unknown): string {
@@ -369,6 +402,14 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   const tts_seg_idx_ref = useRef(0);
   const tts_stream_done_ref = useRef(true);
   const tts_paused_ref = useRef(false);
+  // WHAT the kept audio (paused buffer or stream segments) says and in which voice: message key,
+  // text and the voice key at synthesis time. A paused message resumes only when all three still
+  // match; "" = nothing reusable (no voice known, or nothing kept).
+  const tts_audio_id_ref = useRef<string>("");
+  const tts_audio_id = (key: string, text: string): string => {
+    const voice = ttsVoiceKey(opts_ref.current.tts_voice);
+    return voice ? `${key}\u0001${text}\u0001${voice}` : "";
+  };
 
   const ensure_tts_webaudio = (): { ctx: AudioContext; gain: GainNode } | null => {
     try {
@@ -440,10 +481,21 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     tts_loading_key_ref.current = "";
     tts_key_ref.current = "";
     tts_buffer_ref.current = null;
+    tts_audio_id_ref.current = "";
     tts_offset_ref.current = 0;
     tts_started_at_ref.current = 0;
     apply_tts_playback({ key: "", status: "idle" });
   }, [stop_tts_source, apply_tts_playback]);
+
+  // A voice change drops the audio kept for a paused message: its speaker button goes back to
+  // idle, and the next press speaks it in the new voice.
+  const voice_key = ttsVoiceKey(opts.tts_voice);
+  const voice_key_ref = useRef(voice_key);
+  useEffect(() => {
+    if (voice_key_ref.current === voice_key) return;
+    voice_key_ref.current = voice_key;
+    if (tts_playback_ref.current.status === "paused") stop_tts();
+  }, [voice_key, stop_tts]);
 
   useEffect(() => {
     return () => {
@@ -572,6 +624,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     tts_started_at_ref.current = 0;
     tts_key_ref.current = key;
     tts_loading_key_ref.current = key;
+    tts_audio_id_ref.current = tts_audio_id(key, text);
     apply_tts_playback({ key, status: "loading" });
     set_error?.("");
 
@@ -661,7 +714,10 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       apply_tts_playback({ key, status: "paused" });
       return;
     }
-    if (is_same && playback.status === "paused") {
+    // Kept audio is reused only for the same message, text AND voice (a voice change means new audio).
+    const reusable = is_same && playback.status === "paused" && tts_audio_id_ref.current !== "" && tts_audio_id_ref.current === tts_audio_id(key, t);
+    if (is_same && playback.status === "paused" && !reusable) stop_tts();
+    if (reusable) {
       // Streaming resume: continue from the paused position in the segment
       // queue (buffering may have advanced while paused).
       if (tts_segments_ref.current.length > 0) {
@@ -716,6 +772,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
 
     tts_key_ref.current = key;
     tts_loading_key_ref.current = key;
+    tts_audio_id_ref.current = tts_audio_id(key, t);
     apply_tts_playback({ key, status: "loading" });
     set_error?.("");
 

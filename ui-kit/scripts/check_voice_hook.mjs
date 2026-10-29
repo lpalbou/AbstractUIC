@@ -123,6 +123,37 @@ ok("stable callbacks read state through ref twins");
     if (gain.gain.value !== 0) fail(`muted: a new reply starts silent (got ${gain.gain.value})`);
     h.unmount();
 
+    // Operator 2026-10-29: after a voice change, a paused message is spoken again in the NEW voice,
+    // never resumed from audio synthesized in the old one. Same voice: resume, no new synthesis.
+    {
+      const calls = [];
+      const v = mount((props) => useGatewayVoice(props), { tts: async (text) => (calls.push(text), new ArrayBuffer(8)), tts_voice: { provider: "qwen3-tts", voice: "sisko" } });
+      const status = () => (v.render(), v.tree.tts_playback.status);
+      await v.tree.toggle_tts("m1", "Read me"); await v.settle();
+      await v.tree.toggle_tts("m1", "Read me"); await v.settle();
+      if (status() !== "paused") fail(`a second press pauses (got ${status()})`);
+      await v.tree.toggle_tts("m1", "Read me"); await v.settle();
+      if (calls.length !== 1 || status() !== "playing") fail(`same voice: the paused audio resumes without a new synthesis (calls ${calls.length}, ${status()})`);
+      await v.tree.toggle_tts("m1", "Read me"); await v.settle();
+      v.rerender({ tts_voice: { provider: "qwen3-tts", voice: "ryan" } }); await v.settle();
+      if (status() !== "idle") fail(`a voice change drops the paused audio (status ${status()})`);
+      await v.tree.toggle_tts("m1", "Read me"); await v.settle();
+      if (calls.length !== 2) fail(`after a voice change the message is synthesized again in the new voice (calls ${calls.length})`);
+      // Same fields in another order: the same voice (no needless re-synthesis).
+      await v.tree.toggle_tts("m1", "Read me"); await v.settle();
+      v.rerender({ tts_voice: { voice: "ryan", provider: "qwen3-tts" } }); await v.settle();
+      if (status() !== "paused") fail(`the same voice in another key order keeps the paused audio (status ${status()})`);
+      v.unmount();
+      // A host that names no voice: kept audio is never reused (a paused message starts over).
+      const n = [];
+      const u = mount((props) => useGatewayVoice(props), { tts: async (text) => (n.push(text), new ArrayBuffer(8)) });
+      await u.tree.toggle_tts("m1", "Read me"); await u.settle();
+      await u.tree.toggle_tts("m1", "Read me"); await u.settle();
+      await u.tree.toggle_tts("m1", "Read me"); await u.settle();
+      if (n.length !== 2) fail(`no voice known: a paused message is synthesized again, never resumed (calls ${n.length})`);
+      u.unmount();
+    }
+
     // B1 (review 2026-10-27): a stop or cancel while the microphone is still opening (a permission
     // prompt) is honoured when the stream arrives: tracks stopped, nothing recorded.
     for (const how of ["stop", "cancel"]) {
@@ -165,7 +196,7 @@ ok("stable callbacks read state through ref twins");
   } finally {
     env.restore();
   }
-  ok("live level during real recording, mute, capture mode, transcript listeners (executed)");
+  ok("live level during real recording, mute, capture mode, transcript listeners, kept audio tied to the voice (executed)");
 }
 
 console.log("check_voice_hook: 5 pins green");
