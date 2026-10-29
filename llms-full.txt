@@ -20,7 +20,7 @@ Ecosystem context (external):
 Important integration notes:
 - Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
 - One shared component per user-facing job, composed on AbstractGateway's contracts (ADR 0001): use the job table in `docs/adoption-guide.md` before building anything app-local.
-- `@abstractframework/panel-chat` 0.6.5 needs `@abstractframework/ui-kit` `^0.9.6` (peer dependency); upgrade them together.
+- `@abstractframework/panel-chat` 0.6.6 needs `@abstractframework/ui-kit` `^0.9.8` (peer dependency); upgrade them together.
 - Only `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` perform network requests by default (each polls a metrics endpoint; optional Bearer auth).
 - Always import the package CSS from your app entrypoint (especially in Next.js). Start with `docs/getting-started.md` → `docs/api.md`.
 
@@ -70,8 +70,8 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.7): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
-- [@abstractframework/panel-chat](panel-chat/README.md) (0.6.5, needs ui-kit ^0.9.6): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
+- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.8): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/panel-chat](panel-chat/README.md) (0.6.6, needs ui-kit ^0.9.8): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -168,6 +168,13 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
+
+## What's new in 0.8.7
+
+`@abstractframework/ui-kit` 0.9.8 and `@abstractframework/panel-chat` 0.6.6: the automation panel says everything in
+words (the trigger, a failure reason as a sentence, an event wait that asks in words, local times); the tool-approval card
+opens with "The automation wants to use these tools:" (chat: "The assistant wants…") then one bullet per call, no count,
+no bold parameters ([changelog](./CHANGELOG.md#087---20261029)).
 
 ## What's new in 0.8.6
 
@@ -6576,7 +6583,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.8.6",
+  "version": "0.8.7",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -6601,7 +6608,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.7",
+  "version": "0.9.8",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -6677,7 +6684,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -6726,12 +6733,12 @@ npm test
     "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && tsc -p scripts/types/tsconfig.json"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.9.6",
+    "@abstractframework/ui-kit": "^0.9.8",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.9.6",
+    "@abstractframework/ui-kit": "^0.9.8",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -7177,6 +7184,8 @@ export {
   WAIT_KIND_LABELS,
   waitToolCalls,
   parseEventPayload,
+  eventPayloadFromWords,
+  failureReasonWords,
   CONTROL_COMMANDS,
   SCHEDULE_PRESETS,
   STATUS_LABELS,
@@ -7290,6 +7299,7 @@ export {
   attentionBadgeTooltip,
   attentionBadgeLabel,
   attentionTarget,
+  TOOL_APPROVAL_HEADING,
   ATTENTION_FOCUS_MS,
   type AttentionText,
   RUN_NOW_NEXT_RUN_LINE,
@@ -7633,7 +7643,7 @@ export { SESSION_ID_PATTERN, sessionToolPolicyRoute } from "./gateway_paths.js";
 
 // Tool calls in words (operator QA 2026-10-29): approval cards never print raw JSON.
 export { describeToolCall, describeToolResult, groupToolCalls, prettyQuotes, readableKey, shortUrl, type ToolCallInput, type ToolCallWords, type ToolResultInput, type ToolResultWords } from "./tool_call_words.js";
-export { ToolCallWordsList, ToolResultWords as ToolResultWordsView, type ToolCallWordsListProps, type ToolResultWordsProps } from "./tool_call_words_view.js";
+export { ToolCallWordsList, ToolResultWords as ToolResultWordsView, toolCallLine, type ToolCallWordsListProps, type ToolResultWordsProps } from "./tool_call_words_view.js";
 
 ## ui-kit/src/responsive.ts
 
@@ -13005,6 +13015,46 @@ export function parseEventPayload(text: string): { ok: true; payload: Json } | {
   }
 }
 
+/** An event wait's answer from what the person typed (operator 2026-10-29: "a described input, not
+ * raw JSON"): words are sent as the event's `text`; something that starts like JSON (`{` or `[`) is
+ * sent as that data, and says so when it does not parse. Empty: say what happened. */
+export function eventPayloadFromWords(text: string): { ok: true; payload: Json } | { ok: false; error: string } {
+  const t = text.trim();
+  if (!t) return { ok: false, error: "Say what happened, in a few words." };
+  if (t.startsWith("{") || t.startsWith("[")) {
+    try {
+      return { ok: true, payload: JSON.parse(t) as Json };
+    } catch (e) {
+      return { ok: false, error: `That starts like event data (JSON) but is not valid: ${e instanceof Error ? e.message : String(e)}. Write it in words instead, or fix the data.` };
+    }
+  }
+  return { ok: true, payload: { text: t } };
+}
+
+/** A run failure's reason in words (operator 2026-10-29: never the reason code itself). */
+const FAILURE_WORDS: Record<string, string> = {
+  occurrence_failed: "The run failed",
+  run_failed: "The run failed",
+  timeout: "The run timed out",
+  timed_out: "The run timed out",
+  run_timeout: "The run timed out",
+  cancelled: "The run was cancelled",
+  occurrence_cancelled: "The run was cancelled",
+  tool_denied: "A tool call was denied",
+  tool_failed: "A tool failed",
+  model_unavailable: "The model was not available",
+  provider_error: "The model provider answered with an error",
+  rate_limited: "The model provider limited the requests",
+};
+
+export function failureReasonWords(code: string): string {
+  const c = String(code || "").trim().toLowerCase();
+  if (!c) return "The run failed";
+  if (FAILURE_WORDS[c]) return FAILURE_WORDS[c];
+  const words = c.replace(/[_-]+/g, " ").trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : "The run failed";
+}
+
 export const WAIT_KIND_LABELS: Record<string, string> = {
   ask_user: "Question for you",
   tool_approval: "Approval needed",
@@ -18103,6 +18153,7 @@ export function presentInteraction(
               return { name: String(call?.name || "tool"), arguments: args && typeof args === "object" && !Array.isArray(args) ? (args as Record<string, unknown>) : null };
             })}
             label="Tool calls to approve"
+            heading="The assistant wants to use these tools:"
           />
           <details>
             <summary>Review full tool arguments (JSON)</summary>
@@ -21640,6 +21691,19 @@ ships.
 
 _Nothing yet._
 
+## 0.8.7 - 2026-10-29
+
+Packages: `@abstractframework/ui-kit` 0.9.8, `@abstractframework/panel-chat` 0.6.6 (needs ui-kit `^0.9.8`); app-server at
+0.1.13. Operator rulings of 2026-10-29: the automation panel says everything in words (0072: trigger, failure reason, event
+wait, local times) and the tool-approval card is one bold line then one bullet per call (0073).
+
+### ui-kit
+
+- **The tool-approval card reads in one glance** (operator ruling 2026-10-29, backlog 0073). A bold first line
+  ("The automation wants to use these tools:"; panel-chat's chat card says "The assistant …") is the card's only bold.
+  The count line is gone. Each call is one bullet on one line: the coloured tool chip, then plain text, cut with an
+  ellipsis when too long (the whole call is on its tooltip). Approve and Deny are unchanged.
+
 ## 0.8.6 - 2026-10-29
 
 Packages: `@abstractframework/ui-kit` 0.9.7 (panel-chat unchanged at 0.6.5, needs ui-kit `^0.9.6`; app-server at 0.1.13).
@@ -21667,6 +21731,11 @@ card (0071), the top bar's About glyph and the console's About through the kit d
 - **An automation opens at what needs you** (operator 2026-10-29, backlog 0071). `AutomationPanel` scrolls to the
   first unresolved wait's card (else the oldest unseen result's run) and outlines it for a moment. `openAt: "none"`
   turns this off. The wait card's text uses the standard text colour.
+- **The automation panel says everything in words** (operator 2026-10-29, backlog 0072).
+  - The trigger is in words, with its configuration behind "Exact configuration".
+  - A failure's reason is a sentence ("The run timed out"), never its code.
+  - An event wait asks "what happened, in a few words" (words are sent as the event's text).
+  - Times use the person's zone everywhere: "Run #3 · today 14:13", and in the tooltips too.
 
 ## 0.8.5 - 2026-10-29
 
