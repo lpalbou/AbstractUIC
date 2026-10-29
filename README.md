@@ -115,6 +115,7 @@ AbstractUIC does **not** depend on AbstractCore/AbstractRuntime directly (see th
 - Design rules (ADR 0001: one component per job, composed on the gateway's contracts): [`docs/adr/`](./docs/adr/README.md)
 - Theming & design tokens: [`docs/theming.md`](./docs/theming.md)
 - Modal dialog, menu, tooltip, account row tints, grouped navigation (`AfModal`, `bindModal`, `AfTooltip`, `bindTooltips`): [`docs/modal.md`](./docs/modal.md)
+- Filter bar (`AfFilterBar`, the plain-HTML markup): [`docs/filter-bar.md`](./docs/filter-bar.md)
 - On/off settings, sign-in card, forms and tabs (`AfSwitch`, `AfTabs`, guards, `randomId()`): [`docs/state-toggles.md`](./docs/state-toggles.md)
 - Responsive layout (breakpoints, touch sizes, sheets, drawers, viewport helpers): [`docs/responsive.md`](./docs/responsive.md)
 - API reference: [`docs/api.md`](./docs/api.md)

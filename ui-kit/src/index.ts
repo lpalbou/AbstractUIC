@@ -395,6 +395,23 @@ export {
   type AfEmailTriggerFieldsProps,
 } from "./automations/email_fields.js";
 export { AfSwitch, AfSwitchInput, afSwitchIsActionable, afSwitchNextState, type AfSwitchProps } from "./af_switch.js";
+export { AfFilterBar, AfFilterFacetRow, type AfFilterBarProps, type AfFilterBarSearch, type AfFilterBarScope } from "./af_filter_bar.js";
+export {
+  afFilterChipHtml,
+  afFilterChipClass,
+  afFilterChipName,
+  afFilterFacetHtml,
+  afFilterFacetClass,
+  afFilterFacetsHtml,
+  afFilterScopeHtml,
+  afFilterScopeButtonsHtml,
+  AF_FILTER_FACET_ATTR,
+  AF_FILTER_VALUE_ATTR,
+  AF_FILTER_SCOPE_ATTR,
+  type AfFilterFacet,
+  type AfFilterOption,
+  type AfFilterScopeOption,
+} from "./af_filter_bar_core.js";
 export { findVerbToggleLabels, type VerbToggleHit } from "./state_toggle_lint.js";
 export { randomId, uuidV4FromBytes, insecureContextReason } from "./random_id.js";
 export { checkLabelScale, LABEL_SCALE_SELECTOR, type LabelScaleHit, type LabelScaleOptions, HELPER_SCALE_SELECTOR, HELPER_MIN_PX, HELPER_MIN_TOUCH_PX, HELPER_TOUCH_MEDIA } from "./label_scale.js";
