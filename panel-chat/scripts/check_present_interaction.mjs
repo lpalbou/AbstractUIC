@@ -49,6 +49,15 @@ const detail = renderToStaticMarkup(React.createElement(React.Fragment, null, t.
 assert.ok(detail.startsWith('<div class="pc-approval-summary">'), "approval summary container");
 assert.ok(detail.includes("a.md") && detail.includes("b.md"), "every call's target is shown");
 assert.ok(detail.includes("<summary>Review full tool arguments (JSON)</summary>"), "full arguments behind a disclosure");
+// The calls in words: the kit's ToolCallWordsList (verb chip, the key argument, a group count), never
+// the tool's raw name with its JSON (operator 2026-10-29); the JSON stays behind the disclosure only.
+assert.ok(detail.includes('class="af-toolwords"') && detail.includes('aria-label="Tool calls to approve"'), "the kit's tool-call words list");
+assert.ok(detail.includes('<span class="af-toolwords__verb" title="write_file">Write</span>'), "the verb chip, the tool's name on its tooltip");
+assert.ok(detail.includes('<strong class="af-toolwords__key">a.md</strong>') && detail.includes('<strong class="af-toolwords__key">b.md</strong>'), "each call's key argument");
+assert.ok(detail.includes("2 file writes"), "the group line counts the calls");
+assert.ok(!detail.split("<details>")[0].includes("<pre") && !detail.split("<details>")[0].includes("{&quot;"), "no JSON outside the disclosure");
+const strArgs = renderToStaticMarkup(React.createElement(React.Fragment, null, presentInteraction({ runId: "r", wait: { wait_key: "k", details: { mode: "approval_required", tool_calls: [{ name: "fetch_url", arguments: JSON.stringify({ url: "https://example.org/a" }) }] } } }, controller).detail));
+assert.ok(strArgs.includes('title="fetch_url">Fetch</span>') && strArgs.includes("example.org"), "string-encoded arguments are read too");
 let policy = 0;
 const all = presentInteraction(toolWait, controller, { onPermissionsAll: async () => void (policy += 1) });
 assert.equal(all.approveAllLabel, "Allow all enabled tools");
