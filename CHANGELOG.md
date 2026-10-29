@@ -9,7 +9,17 @@ ships.
 
 ## Unreleased
 
-_Nothing yet._
+### ui-kit
+
+- **One filter bar** (operator design finding 2026-10-29, backlog 0074). `AfFilterBar`: a first line with the
+  search field and its on/off filters together (an optional scope switch leads it, the count closes it), then one
+  row per facet with the label in a fixed left column and the chips wrapping in the second column, never under the
+  label. Chips are the kit chip at one size with the count in muted small text; pressed is the accent hue. A
+  `trailing` control belongs to one facet. `sticky` keeps the first line under the header while the rows scroll
+  away. The chip, row and scope markup has one source (`af_filter_bar_core.ts`) for React and plain HTML; the
+  console islands expose it as `filterBarFacetsHtml`, `filterBarScopeHtml` and `filterBarScopeButtonsHtml`
+  (additive, `apiVersion` stays "2"). Styles: theme.css `af-filterbar`. Docs: `docs/filter-bar.md`. Check:
+  `check_filter_bar.mjs`.
 
 ## 0.8.7 - 2026-10-29
 
