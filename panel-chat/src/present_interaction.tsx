@@ -5,7 +5,8 @@
 // (`workspace/interaction.tsx`), which the Observer had copied in part.
 import { resolveWorkflowEventTarget } from "./event_target.js";
 import { JsonViewer } from "./json_viewer.js";
-import { ToolActivityGroup } from "./tool_activity.js";
+import { ToolCallWordsList } from "@abstractframework/ui-kit";
+import { toolArguments } from "./tool_activity.js";
 import { sessionPolicyClampedText } from "./tool_policy.js";
 import { WORKFLOW_INTERACTION_LABELS, type WorkflowInteraction, type WorkflowInteractionRemember, type WorkflowToolApprovalInteraction } from "./workflow_interaction.js";
 import type { ServerRecord, SessionToolPolicy, WorkflowRecord, WorkflowSessionController, WorkflowWaitInteraction } from "./workflow_runtime.js";
@@ -252,14 +253,14 @@ export function presentInteraction(
       description: "Review the targets below. Allow once approves this batch only.",
       detail: (
         <div className="pc-approval-summary">
-          <ToolActivityGroup
-            tools={calls.map((call: any, index: number) => ({
-              id: String(call?.call_id || call?.id || index),
-              runId: raw.runId,
-              name: call?.name || "Tool",
-              arguments: call?.arguments,
-              status: "waiting" as const,
-            }))}
+          {/* The calls in words (the kit's ToolCallWordsList, ui-kit tool_call_words), the same
+              card as the automation panel's and the Assistant's; the exact arguments stay one click away. */}
+          <ToolCallWordsList
+            calls={calls.map((call: any) => {
+              const args = toolArguments(call?.arguments);
+              return { name: String(call?.name || "tool"), arguments: args && typeof args === "object" && !Array.isArray(args) ? (args as Record<string, unknown>) : null };
+            })}
+            label="Tool calls to approve"
           />
           <details>
             <summary>Review full tool arguments (JSON)</summary>

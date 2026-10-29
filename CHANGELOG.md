@@ -45,6 +45,14 @@ ships.
   adopt it on the next release (their effects baselined before the conversation had loaded, so its first loaded
   reply was spoken). Check: `scripts/check_read_aloud.mjs`.
 
+### panel-chat
+
+- **The chat's tool-approval card lists the calls in words** (backlog 0069, adopting 0068). `presentInteraction`
+  now renders the kit's `ToolCallWordsList` ("Write the file **a.md**", "2 file writes"), as the automation wait card
+  and the Assistant do. The tool's name and its arguments no longer appear as the row text. The exact JSON stays
+  behind **Review full tool arguments (JSON)**. This covers AbstractCode web's chat approvals and the Observer's
+  automation discussions. Check: `scripts/check_present_interaction.mjs`.
+
 ## 0.8.4 - 2026-10-28
 
 Packages: `@abstractframework/panel-chat` 0.6.4 (ui-kit unchanged at 0.9.5, app-server at 0.1.13; panel-chat still
