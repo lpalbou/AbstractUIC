@@ -29,7 +29,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
 const kit = await import(join(root, "dist", "index.js"));
-const { AfTooltip, bindAfTooltips, afTooltipPlacement, AF_TOOLTIP_DELAY_MS, AF_TOOLTIP_ATTR } = kit;
+const { AfTooltip, bindAfTooltips, afTooltipPlacement, AF_TOOLTIP_DELAY_MS, AF_TOOLTIP_ATTR, AF_TOOLTIP_CONTENT_ATTR, afTooltipAttributes, afTooltipText } = kit;
 
 let failures = 0;
 let checks = 0;
@@ -74,6 +74,8 @@ class FakeEl {
     this.rect = { top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 };
     this.focusVisible = null; // null = the selector "is unsupported" (throws)
   }
+  get textContent() { return (this._text || "") + this.children.map(c => c.textContent).join(""); }
+  set textContent(value) { this._text = String(value); for (const c of this.children || []) c.parentNode = null; this.children = []; }
   get className() { return this.attrs.class || ""; }
   set className(v) { this.attrs.class = v; }
   get hidden() { return this.attrs.hidden !== undefined; }
@@ -255,6 +257,38 @@ const visible = (w) => { const t = tipEl(w); return !!t && !t.hidden; };
   check("child keeps its aria-label and gets no title", html.includes(`aria-label="Rotate alice&#x27;s token"`) && !html.includes("title="), html);
   const bare = renderToStaticMarkup(React.createElement(AfTooltip, { content: " " }, React.createElement("button", { type: "button" }, "x")));
   check("empty content leaves the child untouched", bare === `<button type="button">x</button>`, bare);
+}
+// Structured content uses the same delegated binder, safe DOM and accessibility path.
+{
+  const walk = n => [n, ...n.children.flatMap(walk)];
+  const content = {title:'Tight fit',description:'Free memory before loading.',facts:[{label:'Memory needed',value:'112 GB'},{label:'Available now',value:'59 GB',tone:'warning'}],sections:[{label:'Before downloading',items:['Free disk space.']}],note:'Estimates; see build details.'};
+  const attrs = afTooltipAttributes(content);
+  check('structured attributes retain complete readable fallback', attrs[AF_TOOLTIP_ATTR]===afTooltipText(content)&&attrs[AF_TOOLTIP_ATTR].includes('Available now: 59 GB'));
+  check('structured JSON round trips', JSON.stringify(JSON.parse(attrs[AF_TOOLTIP_CONTENT_ATTR]))===JSON.stringify(content));
+  const html = renderToStaticMarkup(React.createElement(AfTooltip,{content},React.createElement('span',{tabIndex:0},'Tight')));
+  check('React passes the same structured data, not a local renderer', html.includes('data-af-tip-content=')&&html.includes('Tight fit')&&!html.includes('title='));
+  const w=mkWorld(),{b,glyph}=mkButton(w,{'aria-label':'Tight',...attrs});const release=bindAfTooltips(w.doc);const t=tipEl(w);
+  w.dispatch('pointerover',glyph,{pointerType:'mouse'});advance(150);
+  check('structured title and semantic facts rendered', t.attrs['data-structured']==='true'&&walk(t).some(n=>n.className==='af-tooltip__title'&&n.textContent==='Tight fit')&&walk(t).filter(n=>n.tag==='dt').length===2&&walk(t).filter(n=>n.tag==='dd').length===2);
+  check('structured sections use lists',walk(t).some(n=>n.tag==='ul')&&walk(t).some(n=>n.tag==='li'&&n.textContent==='Free disk space.'));
+  check('structured fact tones are explicit',walk(t).some(n=>n.tag==='dd'&&n.attrs['data-tone']==='warning'));
+  check('structured tooltip describes its named anchor',b.attrs['aria-describedby']===t.attrs.id);
+  w.dispatch('scroll',t);check('internal tooltip scrolling does not dismiss it',visible(w));
+  w.dispatch('scroll',w.doc.body);check('outside scrolling still dismisses it',!visible(w));
+  const hostile={title:'<img src=x onerror=alert(1)>',facts:[{label:'<script>',value:'<svg onload=alert(1)>',tone:'warning onclick=evil'}]};
+  for(const [k,v] of Object.entries(afTooltipAttributes(hostile)))b.setAttribute(k,v);
+  w.dispatch('pointerover',glyph,{pointerType:'mouse'});advance(150);
+  check('untrusted strings stay literal; no caller HTML parsed',t.textContent.includes('<img src=x')&&!walk(t).some(n=>['img','script','svg'].includes(n.tag)));
+  check('untrusted tone cannot add an attribute',walk(t).filter(n=>n.tag==='dd').every(n=>n.attrs['data-tone']===undefined));
+  w.dispatch('pointerdown',b);
+  b.removeAttribute(AF_TOOLTIP_CONTENT_ATTR);b.setAttribute(AF_TOOLTIP_ATTR,'First paragraph\nSecond paragraph');
+  w.dispatch('pointerover',glyph,{pointerType:'mouse'});advance(150);
+  check('plain multiline strings get spaced paragraphs',t.attrs['data-structured']===undefined&&walk(t).filter(n=>n.className==='af-tooltip__paragraph').length===2);
+  w.dispatch('pointerdown',b);b.setAttribute(AF_TOOLTIP_CONTENT_ATTR,'{"facts":[]}');b.setAttribute(AF_TOOLTIP_ATTR,'Safe fallback');
+  const warn=console.warn,warnings=[];console.warn=(...a)=>warnings.push(a.join(' '));
+  try{w.dispatch('pointerover',glyph,{pointerType:'mouse'});advance(150);}finally{console.warn=warn;}
+  check('invalid structure warns and uses explicit fallback',t.textContent==='Safe fallback'&&warnings.some(s=>s.includes('#FALLBACK')));
+  release();
 }
 // 4) CSS
 {

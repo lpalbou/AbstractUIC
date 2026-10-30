@@ -5141,6 +5141,12 @@ html {
     display: none;
   }
 }
+/* Several quick filters may wrap on compact screens; the single-toggle bar keeps its line. */
+@media (max-width: 767.98px) {
+  .af-filterbar__line:has(.af-filterbar__toggles > :nth-child(2)) { flex-wrap: wrap; }
+  .af-filterbar__line:has(.af-filterbar__toggles > :nth-child(2)) .af-filterbar__toggles { flex-basis: 100%; flex-wrap: wrap; min-width: 0; gap: 8px 14px; }
+}
+
 /* af-filterbar:end */
 
 /* af-form:begin
@@ -7038,6 +7044,31 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   overflow-wrap: anywhere;
   pointer-events: auto;
 }
+
+.af-tooltip[data-structured="true"] {
+  width: min(320px, calc(100vw - 16px));
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 12px;
+  border-radius: var(--radius-md);
+}
+.af-tooltip { max-height: calc(100dvh - 16px); overflow-y: auto; }
+.af-tooltip__title { font-size: var(--font-size-base); font-weight: 650; line-height: 1.35; }
+.af-tooltip__description { margin: 5px 0 0; font-weight: 400; }
+.af-tooltip__facts { display: grid; gap: 5px; margin: 10px 0 0; }
+.af-tooltip__fact { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: baseline; }
+.af-tooltip__label { color: var(--text-secondary); font-weight: 400; }
+.af-tooltip__value { margin: 0; max-width: 180px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.af-tooltip__value[data-tone="muted"] { color: var(--text-secondary); }
+.af-tooltip__value[data-tone="success"] { color: var(--success); }
+.af-tooltip__value[data-tone="warning"] { color: var(--warning); }
+.af-tooltip__value[data-tone="danger"] { color: var(--error); }
+.af-tooltip__section { margin-top: 10px; }
+.af-tooltip__section-title { font-weight: 600; }
+.af-tooltip__list { margin: 4px 0 0; padding-left: 17px; font-weight: 400; }
+.af-tooltip__item + .af-tooltip__item { margin-top: 3px; }
+.af-tooltip__note { margin: 9px 0 0; color: var(--text-secondary); font-size: var(--font-size-sm); font-weight: 400; }
+.af-tooltip__paragraph { margin: 0; font-weight: 400; }
+.af-tooltip__paragraph + .af-tooltip__paragraph { margin-top: 6px; }
 
 .af-tooltip[hidden] {
   display: none;

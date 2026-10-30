@@ -559,7 +559,7 @@ export {
   type VoiceDevice,
 } from "./voice_devices.js";
 export { AfTooltip, useAfTooltips, type AfTooltipProps } from "./af_tooltip.js";
-export { bindAfTooltips, acquireAfTooltips, afTooltipPlacement, AF_TOOLTIP_DELAY_MS, AF_TOOLTIP_ATTR, type BindAfTooltipsOptions, type AfTooltipPlacement, type AfTooltipRect } from "./af_tooltip_core.js";
+export { bindAfTooltips, acquireAfTooltips, afTooltipPlacement, afTooltipText, afTooltipAttributes, AF_TOOLTIP_DELAY_MS, AF_TOOLTIP_ATTR, AF_TOOLTIP_CONTENT_ATTR, type AfTooltipContent, type BindAfTooltipsOptions, type AfTooltipPlacement, type AfTooltipRect } from "./af_tooltip_core.js";
 // ui-kit 0.8.7 (round 16, R16.1 A2): the account time-zone picker (preferences).
 export { AfTimeZonePicker, TIME_ZONE_GATEWAY_DEFAULT, timeZoneOptions, type AfTimeZonePickerProps, type TimeZonePreference } from "./time_zone_picker.js";
 // --- ui-primitives (voice) ---

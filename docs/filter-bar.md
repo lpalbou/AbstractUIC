@@ -117,3 +117,7 @@ used now (`disabled`) carries `af-filterbar__facet--disabled` and disables every
   the keyboard's search key submits (`enterkeyhint="search"`), so the field keeps its room.
 
 `ui-kit/scripts/check_filter_bar.mjs` pins the markup, the one-source rule and these CSS rules.
+
+When a host provides multiple quick toggles, the shared bar lets them wrap below
+the search field on compact screens. A single-toggle bar retains its existing
+one-line layout. Labels and switch semantics stay with the shared component.
