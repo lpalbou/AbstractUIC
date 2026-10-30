@@ -163,8 +163,8 @@ accessible name) and carries no `title`, so the browser's own tooltip never show
 - Placed above the button and centred, below when there is no room above, and kept 8 px inside
   the viewport, so it never widens the page and an ancestor's `overflow` never clips it
   (`position: fixed`, `z-index: var(--z-tooltip)` (1200), above menus).
-- Inverse surface from the active theme (`--text-primary` background, `--bg-primary` text): it
-  reads in every light and dark theme. Plain text only, wrapping at 280 px.
+- Surface and text follow the active theme (`--bg-secondary` background,
+  `--text-primary` text, `--ui-border-2` border). Plain text only, wrapping at 280 px.
 - While it shows, the button gets `aria-describedby` pointing at it when the sentence differs from
   the `aria-label`.
 

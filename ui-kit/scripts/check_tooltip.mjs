@@ -17,7 +17,7 @@
  * 3. AfTooltip SSR: the child gets data-af-tip, keeps its aria-label, gets no
  *    title; empty content leaves the child untouched.
  * 4. CSS contract (theme.css af-tooltip block): fixed, --z-tooltip above
- *    --z-popover, theme tokens (inverse surface) for light and dark, viewport
+ *    --z-popover, theme surface/text/border tokens for light and dark, viewport
  *    max-width, hidden rule.
  */
 import { readFileSync } from "node:fs";
@@ -264,7 +264,7 @@ const visible = (w) => { const t = tipEl(w); return !!t && !t.hidden; };
   const block = m ? m[0] : "";
   const rule = (/\.af-tooltip \{([\s\S]*?)\}/.exec(block) || [])[1] || "";
   check("fixed + --z-tooltip", /position:\s*fixed/.test(rule) && /z-index:\s*var\(--z-tooltip/.test(rule));
-  check("inverse surface from theme tokens (light and dark)", /background:\s*var\(--text-primary\)/.test(rule) && /color:\s*var\(--bg-primary\)/.test(rule));
+  check("surface, text and border follow the active theme", /background:\s*var\(--bg-secondary\)/.test(rule) && /color:\s*var\(--text-primary\)/.test(rule) && /border:\s*1px solid var\(--ui-border-2\)/.test(rule));
   check("never wider than the viewport", /max-width:\s*min\(280px,\s*calc\(100vw - 16px\)\)/.test(rule));
   check("hidden rule", /\.af-tooltip\[hidden\]\s*\{\s*display:\s*none;/.test(block));
   const z = (n) => Number((new RegExp(`--z-${n}:\\s*(\\d+)`).exec(css) || [])[1]);

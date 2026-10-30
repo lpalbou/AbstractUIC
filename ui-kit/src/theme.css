@@ -7014,8 +7014,8 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
  * AfConsoleIslands.bindTooltips in plain-HTML hosts). One element per
  * document, position: fixed (placed by afTooltipPlacement inside the
  * viewport, so no ancestor overflow clips it and it never widens the page),
- * above popovers. Inverse surface from the active theme's own tokens, so it
- * reads in every light and dark theme. Plain text, wraps at 280 px. */
+ * above popovers. Surface, text and border follow the active theme rather
+ * than inverting it. Plain text, wraps at 280 px. */
 .af-tooltip {
   position: fixed;
   top: 0;
@@ -7025,8 +7025,9 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   max-width: min(280px, calc(100vw - 16px));
   padding: 6px 10px;
   border-radius: var(--radius-sm);
-  background: var(--text-primary);
-  color: var(--bg-primary);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--ui-border-2);
   box-shadow: var(--ui-shadow-1);
   font-family: var(--font-sans, inherit);
   font-size: var(--font-size-md);
