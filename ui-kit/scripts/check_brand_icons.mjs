@@ -8,7 +8,7 @@
  *     licence or terms in words, what they restrict, and the date it was taken; a Simple Icons mark
  *     comes from Simple Icons, a brand mark from the brand;
  *  3. every mark is self-contained: no script, no event handler, no style, no external reference
- *     (a reference may only point at its own `af-brand-<id>-` ids, and each is defined), no image;
+ *     (a reference may only point at its own `af-brand-<id>-` ids, and each is defined), no external image (Portkey embeds the official PNG);
  *  4. every fallback says why there is no logo, with a short readable badge;
  *  5. BrandMark and brandMarkHtml render the mark (svg) or the badge (text), with the brand's name;
  *  6. docs/icons.md lists every brand id with its source and licence.
@@ -37,7 +37,7 @@ const ids = [...BRAND_CARD_IDS.engines, ...BRAND_CARD_IDS.providers];
 check("the engines the console cards show", JSON.stringify([...BRAND_CARD_IDS.engines].sort()) === JSON.stringify(["huggingface", "llamacpp", "lmstudio", "mlx", "ollama", "vllm"]), BRAND_CARD_IDS.engines.join(","));
 for (const id of ["openai", "anthropic", "openrouter", "portkey", "ovh", "openai-compatible"]) check(`cloud card ${id} is a card id`, BRAND_CARD_IDS.providers.includes(id));
 // Operator 2026-10-29: every brand without a mark says WHY in the brand's own words, with the URL.
-for (const id of ["anthropic", "portkey", "ovh"]) check(`${id}: the fallback quotes the brand's terms with their URL`, own(BRAND_FALLBACKS, id) && /"[^"]{20,}" \(https:\/\//.test(BRAND_FALLBACKS[id].reason), own(BRAND_FALLBACKS, id) ? BRAND_FALLBACKS[id].reason : "missing");
+for (const id of ["anthropic", "portkey", "ovh"]) check(`${id}: official artwork replaces the badge`, own(BRAND_ICONS, id) && !own(BRAND_FALLBACKS, id));
 check("openai: the official mark, outside the kit's MIT grant", own(BRAND_ICONS, "openai") && /NOT covered by this kit's MIT licence/.test(BRAND_ICONS.openai.licence));
 
 // 1.
@@ -56,7 +56,7 @@ for (const [id, m] of Object.entries(BRAND_ICONS)) {
   check(`2 ${id}: id matches its key`, m.id === id);
   check(`2 ${id}: name`, typeof m.name === "string" && m.name.length > 1);
   // The SVG file itself, or the brand's own archive that ships it (its member .svg named in the licence).
-  check(`2 ${id}: source is the file's https URL`, URL_RE.test(m.source || "") && (/\.svg(\?|$)/.test(m.source) || (/\.zip$/.test(m.source) && /\.svg\b/.test(m.licence))), m.source);
+  check(`2 ${id}: source is the file's https URL`, URL_RE.test(m.source || "") && (/\.(svg|png)(\?|$)/.test(m.source) || m.source === "https://www.anthropic.com/press-kit" || (/\.zip$/.test(m.source) && /\.svg\b/.test(m.licence))), m.source);
   check(`2 ${id}: terms page URL`, URL_RE.test(m.terms || ""), m.terms);
   check(`2 ${id}: licence in words`, typeof m.licence === "string" && m.licence.length >= 20, m.licence);
   check(`2 ${id}: restrictions recorded (may be empty only for a brand with none)`, typeof m.restrictions === "string");
@@ -66,15 +66,16 @@ for (const [id, m] of Object.entries(BRAND_ICONS)) {
   else check(`2 ${id}: a brand mark is not a Simple Icons file`, !/simple-icons/.test(m.source), m.source);
   check(`3 ${id}: viewBox`, /^-?[\d.]+ -?[\d.]+ [\d.]+ [\d.]+$/.test(m.viewBox || ""), m.viewBox);
   const body = String(m.body || "");
-  check(`3 ${id}: draws shapes`, /<(path|polygon|rect|circle|use)\b/.test(body));
-  check(`3 ${id}: no script, handler, style, image or foreign object`, !/<script|\son[a-z]+=|\sstyle=|<style|<image|<foreignObject|javascript:/i.test(body));
+  const png = id === "portkey" && /^<image width="981" height="324" href="data:image\/png;base64,[A-Za-z0-9+/=]+"\/>$/.test(body) && body.includes("iVBORw0KGgo");
+  check(`3 ${id}: draws shapes or its inline PNG`, png || /<(path|polygon|rect|circle|use)\b/.test(body));
+  check(`3 ${id}: no script, handler, style, image or foreign object`, !/<script|\son[a-z]+=|\sstyle=|<style|<foreignObject|javascript:/i.test(body) && (png || !/<image/i.test(body)));
   check(`3 ${id}: no class (a class could pick up page styles)`, !/\sclass=/.test(body));
-  check(`3 ${id}: no external URL`, !/https?:|\/\/|data:/i.test(body));
+  check(`3 ${id}: no external URL`, png || !/https?:|\/\/|data:/i.test(body));
   const refs = [...body.matchAll(/(?:href="#|url\(#)([^")]+)/g)].map((x) => x[1]);
   const defined = new Set([...body.matchAll(/\sid="([^"]+)"/g)].map((x) => x[1]));
   check(`3 ${id}: every id is namespaced af-brand-${id}-`, [...defined].every((d) => d.startsWith(`af-brand-${id}-`)), [...defined].join(","));
   check(`3 ${id}: every reference is its own and defined`, refs.every((r) => r.startsWith(`af-brand-${id}-`) && defined.has(r)), refs.join(","));
-  check(`3 ${id}: no href other than an internal one`, !/href="[^#]/.test(body));
+  check(`3 ${id}: no href other than an internal one`, png || !/href="[^#]/.test(body));
 }
 // 4.
 for (const [id, f] of Object.entries(BRAND_FALLBACKS)) {

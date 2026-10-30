@@ -7902,6 +7902,9 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   width: 100%;
   height: 100%;
 }
+.af-brand-mark[data-brand="ovh"],
+.af-brand-mark[data-brand="portkey"] { width: 96px; flex-basis: 96px; }
+.af-brand-mark[data-brand="portkey"] { background: #15151a; }
 .af-brand-mark--text {
   padding: 0;
   color: var(--accent);

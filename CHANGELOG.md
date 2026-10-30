@@ -9,7 +9,7 @@ ships.
 
 ## Unreleased
 
-_Nothing yet._
+- Use official Anthropic, Portkey and OVHcloud artwork in shared provider cards, replacing text badges (operator request, Gateway backlog 0985). Preserve source attribution, geometry, colours and offline rendering.
 
 ## 0.8.9 - 2026-10-29
 
