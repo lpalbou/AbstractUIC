@@ -488,6 +488,8 @@ export function ProviderModelPicker(
           modelLabel={props.modelLabel}
           allowGatewayDefault={compact}
           gatewayDefaultLabel={compact ? defaultLine : undefined}
+          gatewayDefaultProviderLabel={compact && discoveryDefault?.provider ? `${defaultLabel} · ${discoveryDefault.provider}` : undefined}
+          gatewayDefaultModelLabel={compact && discoveryDefault?.model ? `${defaultLabel} · ${discoveryDefault.model}` : undefined}
           allowCustomProvider={props.allowCustom !== false}
           allowCustomModel={props.allowCustom !== false}
           onChange={(next) =>
