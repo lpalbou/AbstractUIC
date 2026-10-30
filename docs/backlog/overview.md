@@ -14,9 +14,9 @@ packaging). Full findings are distilled into the items below; each item
 carries its own code-reality citations.
 
 ## Counts
-- Planned: 19
+- Planned: 18
 - Proposed: 37 (0009-0013, 0017-0018, 0020-0022, 0024-0028, 0037-0038, 0041-0053 kit gaps K1-K13 from the adoptions, 2026-10-28; 0055-0057 from the release-closing aesthetic pass; 0059 turns-only listing; 0061 Create a voice follows a served cloning capability; 0062 Devices page island (discussion, with gateway 0965); 0063 Docs assistant read-aloud)
-- Completed: 20
+- Completed: 21
 - Deprecated: 2 (0015, 0016 — superseded by 0033)
 - Recurrent: 1 (backlog hygiene)
 
@@ -172,4 +172,4 @@ merge, or missing test rigs) — see each item's checklist.
 
 2026-10-30: [0075](completed/0075_tooltips_follow_active_theme_surface.md) delivered operator-requested theme-matching tooltips (`fe951fd`); locally deployed in Gateway `a352234b`, with light/dark browser evidence. Counts reconciled against lifecycle files (topic README indexes excluded); prior overview missed one planned and nine completed files.
 
-2026-10-30: [0076 model manufacturer marks](planned/0076_model_manufacturer_brand_marks.md), shared adoption for Gateway 0994.
+2026-10-30: [0076 model manufacturer marks](completed/0076_model_manufacturer_brand_marks.md) delivered in `4d0347e`, locally adopted by Gateway 0994; 492 brand checks and live browser evidence.

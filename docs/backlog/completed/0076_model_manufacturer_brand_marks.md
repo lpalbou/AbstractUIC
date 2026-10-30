@@ -3,7 +3,9 @@
 > Package: abstractuic
 > Type: improvement
 > Created: 2026-10-30
-> Status: planned
+> Status: completed
+> Completed: 2026-10-30
+> Release: unreleased (Gateway local adoption deployed)
 > Priority: P1
 > Labels: ux, theme, seat-framework
 > Work-item id: abstractuic-0076
@@ -30,5 +32,22 @@ Build kit/islands; provenance/inline asset/React-and-HTML rendering checks and
 Gateway browser checks in light/dark/mobile; sync vendored console assets, scoped
 commits and live local deployment. Publication outside this request.
 
-- [ ] Implement and validate shared assets.
-- [ ] Verify Gateway adoption and record completion evidence.
+- [x] Implement and validate shared assets.
+- [x] Verify Gateway adoption and record completion evidence.
+
+## Completion report
+
+`4d0347e` adds official organization artwork for Qwen, Meta Llama, DeepSeek,
+Google, Mistral AI, Microsoft and NVIDIA with provenance and SHA-256, plus optional
+compact size on React BrandMark and vanilla brandMarkHtml. Actual CDN assets are
+WEBP, so checked raster support includes PNG/JPEG/WEBP; no image is re-encoded or
+redrawn. Seven original files total 28,572 bytes. Source/attribution details in
+[icons](../../icons.md); unknown brands keep text fallback.
+
+492 brand checks, TypeScript build, islands build, 42 tooltip, 32 top-bar checks,
+CSS balance, 21 theme-token blocks and 20 named-theme strict contrast pass.
+Gateway `9fd6038a`/`b3908d01` adopts the marks and regenerated assets; 162 browser
+assertions and live dark/light/mobile checks pass after healthy local redeploy.
+Cross-repo evidence: `abstractgateway/design/model-signals-0994/REVIEW.md` and
+`validation.json` (no model-management writes or page errors). Publication remains
+outside scope. No new ADR or residual implementation work; Agora unavailable.
