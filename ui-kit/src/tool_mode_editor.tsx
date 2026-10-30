@@ -11,6 +11,7 @@
 // Auto cap) are tool_plan.ts's, not re-derived here.
 import React, { useMemo, useState } from "react";
 import { AfOverrideRow } from "./af_settings_rows.js";
+import { Icon } from "./icon.js";
 import { AfTooltip } from "./af_tooltip.js";
 import { describeToolMode } from "./tool_policy_editor.js";
 import { formatExactTime } from "./relative_time.js";
@@ -89,6 +90,8 @@ export type ToolModeEditorProps = {
   open?: boolean;
   onToggle?: () => void;
   className?: string;
+  /** Compact settings: folded categories, concise rows and information tooltips. */
+  compact?: boolean;
 };
 
 function breakAtUnderscores(name: string): React.ReactNode {
@@ -111,8 +114,12 @@ export function policySetLine(policy: SessionToolPolicy | null | undefined): str
 export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
   const labels: ToolModeLabels = { ...TOOL_MODE_LABELS, ...(props.labels || {}) };
   const disabled = props.disabled === true;
+  const compact = props.compact === true;
+  const [showUnavailable, setShowUnavailable] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const allowList = props.allowListOnly === true;
   const value: ToolModeLayer = props.value || {};
+  const idPrefix = React.useId();
   const [query, setQuery] = useState("");
   const [openState, setOpenState] = useState(false);
 
@@ -187,7 +194,7 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
   const modeLabel = (m: ToolMode | "on") => labels[m];
 
   const editor = (
-    <div className={`af-tool-modes${props.className ? ` ${props.className}` : ""}`} data-layer={props.layer} data-allowlist={allowList ? "true" : undefined}>
+    <div className={`af-tool-modes${compact ? " af-tool-modes--compact" : ""}${props.className ? ` ${props.className}` : ""}`} data-layer={props.layer} data-allowlist={allowList ? "true" : undefined}>
       {banner ? (
         <div className={`af-tool-policy__mode is-${banner.tone}`}>
           <div className="af-tool-policy__mode-badge">Tool mode</div>
@@ -195,7 +202,7 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
           <div className="af-tool-policy__mode-detail">{banner.detail}</div>
         </div>
       ) : null}
-      {props.note ? <div className="af-tool-policy__note">{props.note}</div> : null}
+      {props.note && !compact ? <div className="af-tool-policy__note">{props.note}</div> : null}
       {props.warnings?.length ? (
         <div className="af-tool-modes__warnings" role="status" data-catalog-warnings="">
           {props.warnings.map((w, i) => (
@@ -210,8 +217,9 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
           placeholder="Search tools"
           aria-label="Search tools"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => { setQuery(e.target.value); setExpanded({}); }}
         />
+        {compact ? <AfTooltip content={[props.note, props.savedWhere, props.storage?.where].filter(Boolean).join(" ")}><button type="button" className="af-settings-help" aria-label="About tool permissions"><Icon name="info" size={16} /></button></AfTooltip> : null}
         <span className="af-tool-modes__count" data-tool-count="">
           {allowList
             ? `${enabledCount} of ${offered.length} tools on`
@@ -222,11 +230,11 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
             {TOOL_LAYER_RESET[props.layer]}
           </button>
         ) : null}
-        {props.storage ? (
+        {!compact && props.storage ? (
           <span className="af-tool-modes__saved" data-storage={props.storage.kind}>
             {props.storage.where}
           </span>
-        ) : props.savedWhere ? (
+        ) : !compact && props.savedWhere ? (
           <span className="af-tool-modes__saved">{props.savedWhere}</span>
         ) : null}
       </div>
@@ -265,14 +273,18 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
       {!props.catalog.length ? <div className="af-tool-policy__empty">The gateway offers no tools.</div> : null}
       {props.catalog.length && !groups.length ? <div className="af-tool-policy__empty">No tools match the search.</div> : null}
       {groups.map((group) => {
-        const live = group.items.filter((t) => t.offered);
+        const categoryItems = compact ? props.catalog.filter(t => t.toolset === group.toolset) : group.items;
+        const live = categoryItems.filter((t) => t.offered);
         const modes = new Set(live.map((t) => (allowList ? (modeOf(t) === "off" ? "off" : "on") : modeOf(t))));
         const uniform = modes.size === 1 ? [...modes][0] : undefined;
         const capped = !allowList ? live.filter((t) => !bulkAutoReaches(t)) : [];
+        const open = !compact || (expanded[group.toolset] ?? Boolean(query.trim()));
+        const regionId = `${idPrefix}-${encodeURIComponent(group.toolset)}`;
+        const groupName = <><span className="af-tool-modes__group-name">{compact ? group.toolset.replace(/[_-]/g, " ") : group.toolset}</span>{compact ? <span className="af-tool-modes__group-count">{live.length}</span> : null}</>;
         return (
-          <section key={group.toolset} className="af-tool-modes__group" data-toolset={group.toolset}>
+          <section key={group.toolset} className="af-tool-modes__group" data-toolset={group.toolset} hidden={compact && !query.trim() && !showUnavailable && !live.length}>
             <div className="af-tool-modes__group-head">
-              <span className="af-tool-modes__group-name">{group.toolset}</span>
+              {compact ? <button type="button" className="af-tool-modes__toggle" aria-label={`${open ? "Hide" : "Show"} ${group.toolset} tools`} aria-expanded={open} aria-controls={regionId} onClick={() => setExpanded(x => ({...x, [group.toolset]: !open}))}><Icon name={open ? "chevronDown" : "chevronRight"} size={14} />{groupName}</button> : groupName}
               {live.length ? (
                 <span className="af-tool-modes__group-state" data-group-state={uniform ?? "mixed"}>
                   {uniform ? modeLabel(uniform as ToolMode | "on") : "Mixed"}
@@ -287,15 +299,17 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
                     aria-pressed={uniform === m}
                     data-group-mode={`${group.toolset}:${m}`}
                     disabled={disabled || !live.length || (m === "auto" && capped.length === live.length)}
-                    title={m === "auto" && capped.length ? BULK_AUTO_CAP_SENTENCE : undefined}
-                    onClick={() => setGroup(group.items, m)}
+                    title={!compact && m === "auto" && capped.length ? BULK_AUTO_CAP_SENTENCE : undefined}
+                    onClick={() => setGroup(categoryItems, m)}
                   >
                     {modeLabel(m)}
                   </button>
                 ))}
               </div>
+            {compact && capped.length ? <AfTooltip content={BULK_AUTO_CAP_SENTENCE}><button type="button" className="af-settings-help" aria-label={`About Auto for ${group.toolset}`}><Icon name="info" size={15} /></button></AfTooltip> : null}
             </div>
-            {capped.length ? (
+            <div id={regionId} hidden={!open} className="af-tool-modes__items">
+            {!compact && capped.length ? (
               <div className="af-tool-modes__cap" data-bulk-cap={group.toolset}>
                 {BULK_AUTO_CAP_SENTENCE} {capped.length === 1 ? "1 tool here stays" : `${capped.length} tools here stay`} as it is: {capped.map((t) => t.name).join(", ")}.
               </div>
@@ -345,19 +359,20 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
                         </AfTooltip>
                       </div>
                     ) : null}
-                    {item.description ? <div className="af-tool-row__desc">{item.description}</div> : null}
-                    {item.whenToUse ? <div className="af-tool-row__hint">{item.whenToUse}</div> : null}
-                    {item.offered && item.defaultUnserved ? (
+                    {!compact && item.description ? <div className="af-tool-row__desc">{item.description}</div> : null}
+                    {!compact && item.whenToUse ? <div className="af-tool-row__hint">{item.whenToUse}</div> : null}
+                    {!compact && item.offered && item.defaultUnserved ? (
                       <div className="af-tool-mode-row__why" data-default-unserved={item.name}>
                         The gateway did not say whether this tool asks first; Ask is assumed.
                       </div>
                     ) : null}
-                    {!item.offered ? (
+                    {!compact && !item.offered ? (
                       <div className="af-tool-mode-row__why" data-why-disabled={item.name}>
                         {item.whyDisabled ? `Not offered by the gateway: ${item.whyDisabled}` : "Not offered by the gateway."}
                       </div>
                     ) : null}
                   </div>
+                  {compact ? <AfTooltip content={{title:item.name, description:[item.description, item.whenToUse, item.state?.tooltip, !item.offered ? item.whyDisabled || "Not offered by the gateway." : "", item.riskTier ? `Risk: ${item.riskTier}.` : ""].filter(Boolean).join(" ")}}><button type="button" className="af-settings-help" aria-label={`About ${item.name}`}><Icon name="info" size={16} /></button></AfTooltip> : null}
                   <div className="af-tool-modes__seg" role="group" aria-label={`Mode for ${item.name}`}>
                     {rowModes.map((m) => (
                       <button
@@ -376,9 +391,11 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
                 </div>
               );
             })}
+            </div>
           </section>
         );
       })}
+      {compact && !query.trim() && groups.some(g => !g.items.some(t => t.offered)) ? <button type="button" className="af-setting-btn af-setting-btn--quiet" aria-expanded={showUnavailable} onClick={() => setShowUnavailable(v => !v)}>{showUnavailable ? "Hide unavailable tools" : "Unavailable tools"}</button> : null}
     </div>
   );
 

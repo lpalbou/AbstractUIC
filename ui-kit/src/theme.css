@@ -8054,3 +8054,45 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 
 /* Compact manufacturer mark beside a model title; original artwork stays unchanged. */
 .af-brand-mark.af-brand-mark--sm { width: 24px; height: 24px; flex-basis: 24px; padding: 2px; border-radius: var(--radius-sm); }
+
+/* Compact settings keep descriptions available through the shared tooltip. */
+.af-settings-help { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 26px; height: 26px; min-height: 26px; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: help; }
+.af-settings-help:hover, .af-settings-help:focus-visible { color: var(--info); background: var(--ui-surface-2); }
+.af-settings-help:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+.af-tool-modes--compact .af-tool-modes__group { padding: 0; border-radius: var(--radius-md); }
+.af-tool-modes--compact .af-tool-modes__group-head { padding: 6px 8px; gap: 4px; flex-wrap: nowrap; }
+.af-tool-modes__toggle { display: inline-flex; align-items: center; gap: 6px; flex: 1; min-width: 0; min-height: 36px; padding: 0; border: 0; background: transparent; color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; }
+.af-tool-modes--compact .af-tool-modes__group-name { font-size: var(--font-size-sm); text-transform: capitalize; letter-spacing: normal; color: var(--text-primary); }
+.af-tool-modes__group-count { color: var(--text-muted); font-size: var(--font-size-xs); }
+.af-tool-modes--compact .af-tool-modes__group-state { display: none; }
+.af-tool-modes--compact .af-tool-modes__group-head .af-tool-modes__seg { margin-left: auto; }
+.af-tool-modes--compact .af-tool-modes__items[hidden] { display: none; }
+.af-tool-modes--compact .af-tool-mode-row { display: flex; align-items: center; gap: 4px; border: 0; border-top: 1px solid var(--ui-border-1); border-radius: 0; padding: 8px; background: transparent; }
+.af-tool-modes--compact .af-tool-mode-row__meta { flex: 1; min-width: 0; }
+.af-tool-modes--compact .af-tool-row__name { font-size: var(--font-size-sm); font-weight: 500; overflow-wrap: anywhere; }
+.af-tool-modes--compact .af-tool-row__badge { display: none; }
+.af-tool-modes--compact .af-tool-modes__seg-btn { padding: 4px 8px; min-height: 30px; }
+.af-tool-modes--compact .af-tool-modes__count { font-size: var(--font-size-xs); }
+.af-pmp__options { margin-top: 10px; }
+.af-pmp__options > summary { min-height: 36px; display: flex; align-items: center; gap: 6px; color: var(--text-secondary); cursor: pointer; font-size: var(--font-size-sm); }
+.af-pmp__options > summary::before { content: "›"; }
+.af-pmp__options[open] > summary::before { transform: rotate(90deg); }
+.af-pmp__options[open] > summary { margin-bottom: 6px; }
+@media (pointer: coarse) { .af-tool-modes--compact .af-tool-modes__seg-btn, .af-tool-modes__toggle { min-height: 44px; } }
+
+.af-workspace--compact { border: 0; padding: 0; background: transparent; }
+.af-workspace--compact .af-settings-group__head { margin-bottom: 8px; }
+.af-workspace--compact .af-workspace__body { gap: 10px; }
+.af-workspace--compact .af-workspace__badge { border: 0; padding: 0; color: var(--text-secondary); font-size: var(--font-size-sm); font-weight: 500; }
+.af-workspace--compact .af-workspace__row { padding: 8px 0; }
+.af-workspace--compact .af-workspace__caption { font-size: var(--font-size-xs); }
+.af-workspace__blocked-folders { list-style: none; padding: 6px 0; }
+.af-workspace__blocked-folders summary { cursor: pointer; color: var(--text-secondary); font-size: var(--font-size-sm); }
+.af-workspace__blocked-folders summary span { color: var(--text-muted); margin-left: 6px; }
+.af-workspace__blocked-folders ul { list-style: none; margin: 4px 0 0; padding: 0; }
+
+.af-tool-modes--compact .af-tool-modes__group[hidden] { display: none; }
+.af-tool-modes--compact .af-tool-modes__group-state[data-group-state="mixed"] { display: inline; font-size: var(--font-size-xxs); color: var(--text-muted); }
+
+.af-tool-modes__items { display: flex; flex-direction: column; gap: 8px; }
+.af-tool-modes--compact .af-tool-modes__items { gap: 0; }

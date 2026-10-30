@@ -222,6 +222,30 @@ const btn = (tree, key) => [...walk(tree)].find((n) => n.props["data-tool-mode"]
   check("allowListOnly On over an inherited Off uses the gateway's default", j(seen.at(-1)) === j({ write_file: "ask" }), j(seen.at(-1)));
 }
 
+// Compact groups remain operable while folded; search reveals matching rows.
+{
+  const seen = [];
+  const m = mount(ToolModeEditor, { catalog, layer: "app", value: {}, compact: true, onChange: v => seen.push(v) });
+  const items = () => [...walk(m.tree)].filter(n => n.props.className === "af-tool-modes__items");
+  check("compact categories start folded", items().length === 4 && items().every(n => n.props.hidden));
+  const toggle = [...walk(m.tree)].find(n => n.props["aria-label"] === "Show files tools");
+  toggle.props.onClick(); m.render();
+  check("category disclosure opens its rows", items().filter(n => !n.props.hidden).length === 1);
+  btn(m.tree, "files:off").props.onClick();
+  check("folded-category controls retain shared sparse semantics", j(seen.at(-1)) === j({read_file:"off",write_file:"off"}));
+  btn(m.tree, "write_file:auto").props.onClick();
+  check("compact individual control still writes one tool", j(seen.at(-1)) === j({write_file:"auto"}));
+  [...walk(m.tree)].find(n => n.props.type === "search").props.onChange({target:{value:"execute"}}); m.render();
+  check("search reveals its matching category", items().length === 1 && !items()[0].props.hidden);
+  [...walk(m.tree)].find(n => n.props["aria-label"] === "Hide shell tools").props.onClick(); m.render();
+  check("matching categories can still be folded while searching", items()[0].props.hidden);
+  [...walk(m.tree)].find(n => n.props.type === "search").props.onChange({target:{value:"read_file"}}); m.render();
+  btn(m.tree, "files:off").props.onClick();
+  check("category changes reach the whole category even during search", j(seen.at(-1)) === j({read_file:"off",write_file:"off"}));
+  const markup = render({compact:true});
+  check("compact row explanations use the shared info tooltip", markup.includes('aria-label="About read_file"') && !markup.includes('class="af-tool-row__desc"'));
+}
+
 // ---------------------------------------------------------------- the layer store
 {
   const mem = new Map();

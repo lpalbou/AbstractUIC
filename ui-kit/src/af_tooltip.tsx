@@ -1,7 +1,7 @@
 /*
  * AfTooltip — the kit's themed tooltip for React apps. Behaviour lives in
  * af_tooltip_core (shared with plain-HTML hosts through
- * `AfConsoleIslands.bindTooltips`): 150 ms delay on hover, shown on keyboard
+ * `AfConsoleIslands.bindTooltips`): 200 ms delay on hover, shown on keyboard
  * focus, hoverable, Escape / press / scroll hide it, placed above the anchor
  * (flipped below) and kept inside the viewport.
  *

@@ -25,6 +25,7 @@
 // aria-disabled, and its tooltip says why); Enter in the path field adds,
 // Escape clears it.
 import React, { useState } from "react";
+import { AfTooltip } from "./af_tooltip.js";
 import { AfSwitch } from "./af_switch.js";
 import { AfSettingsGroup } from "./af_settings_rows.js";
 import { Icon } from "./icon.js";
@@ -65,6 +66,8 @@ type Common = {
   /** Prefix for element ids (several choosers on one page). */
   idPrefix?: string;
   className?: string;
+  /** A concise folder list; policy explanations remain in the information tooltip. */
+  compact?: boolean;
 };
 
 export type WorkspaceChooserStoredProps = Common & {
@@ -102,6 +105,7 @@ export function workspaceRunState(value: WorkspaceRunValue | null, effective: Wo
 
 export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactElement {
   useAfTooltips();
+  const compact = props.compact === true;
   const id = props.idPrefix || "af-workspace";
   const [busy, setBusy] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -264,9 +268,11 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
   return (
     <AfSettingsGroup
       id={id}
-      className={`af-workspace af-workspace--${level}${props.className ? ` ${props.className}` : ""}`}
-      title={level === "gateway" ? T.gatewayTitle : T.title}
-      help={workspaceLevelHelp(level)}
+      className={`af-workspace af-workspace--${level}${compact ? " af-workspace--compact" : ""}${props.className ? ` ${props.className}` : ""}`}
+      title={compact ? "Folders" : level === "gateway" ? T.gatewayTitle : T.title}
+      variant={compact ? "flat" : "card"}
+      help={compact ? undefined : workspaceLevelHelp(level)}
+      aside={compact ? <AfTooltip content={{title:"Workspace access", description:workspaceLevelHelp(level), facts: view?.gatewayLine ? [{label:"Gateway limits", value:view.gatewayLine}] : [], note:T.privateNote}}><button type="button" className="af-settings-help" aria-label="About workspace access"><Icon name="info" size={16} /></button></AfTooltip> : undefined}
     >
       {props.loadError ? (
         <p className="af-workspace__refusal" role="alert" data-workspace="load-error">
@@ -278,7 +284,7 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
         </p>
       ) : (
         <div className="af-workspace__body" data-level={level} data-following={view.following ? "true" : "false"}>
-          {view.gatewayLine ? (
+          {!compact && view.gatewayLine ? (
             <p className="af-workspace__gateway" data-workspace="gateway-line">
               {view.gatewayLine}
             </p>
@@ -293,7 +299,7 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
               <AfSwitch
                 variant="row"
                 label={followLabel}
-                description={followHelp}
+                description={compact ? undefined : followHelp}
                 checked={view.following}
                 busy={busy === "follow"}
                 unavailableReason={blocked || (view.locked ? T.locked : null)}
@@ -307,22 +313,22 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
           ) : null}
           <div className="af-workspace__posture" data-workspace="posture" data-posture={view.posture}>
             {view.following || view.locked ? (
-              <span className="af-workspace__badge">{workspacePostureLabel(view.posture)}</span>
+              <span className="af-workspace__badge">{compact ? view.posture === "allowed_only" ? "Listed folders only" : "All except blocked folders" : workspacePostureLabel(view.posture)}</span>
             ) : (
               segmented<WorkspacePosture>(
                 T.postureLabel,
                 view.posture,
                 [
-                  { value: "allowed_only", text: T.postureAllowedOnly },
-                  { value: "any_except_denied", text: T.postureAnyExceptDenied },
+                  { value: "allowed_only", text: compact ? "Listed folders only" : T.postureAllowedOnly },
+                  { value: "any_except_denied", text: compact ? "All except blocked" : T.postureAnyExceptDenied },
                 ],
                 (p) => void change("posture", workspacePosturePayload(level, state.policy, p)),
                 "workspace-posture",
               )
             )}
-            <span className="af-workspace__note" data-workspace="posture-help">
+            {!compact ? <span className="af-workspace__note" data-workspace="posture-help">
               {workspacePostureHelp(view.posture)}
-            </span>
+            </span> : null}
             {status("posture")}
           </div>
           <ul className="af-workspace__list" aria-label={T.title} data-workspace="list">
@@ -332,12 +338,10 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
               </li>
             ) : null}
             {allowed.map(rowItem)}
-            {refused.length ? (
-              <li className="af-workspace__caption" data-workspace="caption-refused">
-                {T.deniedTitle}
-              </li>
-            ) : null}
-            {refused.map(rowItem)}
+            {compact && refused.length ? <li className="af-workspace__blocked-folders"><details><summary>Blocked folders <span>{refused.length}</span></summary><ul>{refused.map(rowItem)}</ul></details></li> : <>
+              {refused.length ? <li className="af-workspace__caption" data-workspace="caption-refused">{T.deniedTitle}</li> : null}
+              {refused.map(rowItem)}
+            </>}
             {view.everythingElse ? (
               <li className="af-workspace__row" data-workspace="everything-else" data-mode={view.everythingElse.mode}>
                 <span className="af-workspace__name">{T.everythingElse}</span>
@@ -403,14 +407,12 @@ export function WorkspaceChooser(props: WorkspaceChooserProps): React.ReactEleme
               {T.emptyAllowed}
             </p>
           ) : null}
-          {level === "session" || level === "run" ? (
+          {!compact && (level === "session" || level === "run") ? (
             <p className="af-workspace__note" data-workspace="private">
               {T.privateNote}
             </p>
           ) : null}
-          <p className="af-workspace__effective" data-workspace="effective">
-            {view.summary}
-          </p>
+          {!compact ? <p className="af-workspace__effective" data-workspace="effective">{view.summary}</p> : null}
           {props.footer ? <div className="af-workspace__footer">{props.footer}</div> : null}
         </div>
       )}

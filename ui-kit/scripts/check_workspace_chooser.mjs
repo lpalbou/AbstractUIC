@@ -108,6 +108,15 @@ const btn = (s, action) => (new RegExp(`<button[^>]*data-action="${action}"[^>]*
 const visibleText = (h) => h.replace(/<[^>]+>/g, " ");
 const noop = async () => {};
 
+// Compact settings preserve policy and controls without repeated policy paragraphs.
+{
+  const st = workspaceAsState(followingAnswer(), "account");
+  const markup = html({level:"account", state:st, save:noop, compact:true});
+  check("compact workspace retains the follow switch", markup.includes('data-action="workspace-follow-gateway"'));
+  check("compact workspace provides policy information on demand", markup.includes('aria-label="About workspace access"') && !markup.includes('data-workspace="gateway-line"') && !markup.includes('data-workspace="effective"'));
+  check("compact blocked paths are folded without losing their identity", markup.includes('Blocked folders') && markup.includes('data-path="/secrets"') && !/<details open/.test(markup));
+}
+
 // ---- Account level (configured).
 {
   const st = workspaceAsState(accountAnswer(), "account");

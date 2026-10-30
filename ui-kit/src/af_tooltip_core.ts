@@ -9,7 +9,7 @@
  *
  * bindAfTooltips(root, options) delegates on `root` (a Document or an
  * Element) until the returned release() is called:
- * - pointer hover on an anchor shows the tooltip after `delayMs` (150 ms);
+ * - pointer hover on an anchor shows the tooltip after `delayMs` (200 ms);
  *   touch hovers are ignored (a tap acts, it does not explain);
  * - KEYBOARD focus shows it after the same delay (focus that follows a
  *   pointer press does not — `:focus-visible` semantics, with a last-input
@@ -38,7 +38,7 @@ export type AfTooltipRect = { top: number; left: number; right: number; bottom: 
 export type AfTooltipPlacement = { top: number; left: number; side: "top" | "bottom" };
 
 /** Default show delay (ms) for hover and keyboard focus. */
-export const AF_TOOLTIP_DELAY_MS = 150;
+export const AF_TOOLTIP_DELAY_MS = 200;
 /** The attribute that carries an anchor's sentence. */
 export const AF_TOOLTIP_ATTR = "data-af-tip";
 
@@ -142,7 +142,7 @@ export function afTooltipPlacement(
 }
 
 export type BindAfTooltipsOptions = {
-  /** Show delay for hover and keyboard focus (default 150 ms). */
+  /** Show delay for hover and keyboard focus (default 200 ms). */
   delayMs?: number;
 };
 

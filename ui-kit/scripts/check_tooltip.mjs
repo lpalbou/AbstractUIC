@@ -3,7 +3,7 @@
  * Kit tooltip checks (round 9, DESIGN R9.2; docs/modal.md "Tooltip").
  *
  * 1. bindAfTooltips over a minimal fake DOM with a manual clock: nothing
- *    before 150 ms, shown at 150 ms with the anchor's sentence (textContent),
+ *    before 200 ms, shown at 200 ms with the anchor's sentence (textContent),
  *    role=tooltip, one element per binding; aria-describedby only when the
  *    sentence differs from the aria-label (and restored on hide); pointer
  *    leave hides (after the grace), moving onto the tooltip keeps it; touch
@@ -139,13 +139,13 @@ const visible = (w) => { const t = tipEl(w); return !!t && !t.hidden; };
   const release = bindAfTooltips(w.doc);
   const t = tipEl(w);
   check("one role=tooltip element appended to <body>, hidden", !!t && t.hidden && t.attrs.class === "af-tooltip" && !!t.attrs.id);
-  check("default delay is 150 ms", AF_TOOLTIP_DELAY_MS === 150);
+  check("default delay is 200 ms", AF_TOOLTIP_DELAY_MS === 200);
   t.rect = { top: 0, left: 0, right: 180, bottom: 30, width: 180, height: 30 };
   w.dispatch("pointerover", glyph, { pointerType: "mouse" });
-  advance(149);
-  check("nothing before 150 ms", !visible(w));
+  advance(199);
+  check("nothing before 200 ms", !visible(w));
   advance(1);
-  check("shown at 150 ms with the anchor's sentence", visible(w) && t.textContent === "Archive alice (kept, hidden)");
+  check("shown at 200 ms with the anchor's sentence", visible(w) && t.textContent === "Archive alice (kept, hidden)");
   check("aria-describedby -> tooltip when the sentence differs from aria-label", b.attrs["aria-describedby"] === t.attrs.id);
   check("placed above the anchor, centred", t.style.top === "364px" && t.style.left === "632px" && t.attrs["data-side"] === "top", JSON.stringify(t.style));
   w.dispatch("pointerout", b, { relatedTarget: t });
@@ -166,21 +166,21 @@ const visible = (w) => { const t = tipEl(w); return !!t && !t.hidden; };
   check("touch hovers are ignored", !visible(w));
   b.setAttribute(AF_TOOLTIP_ATTR, "Archive bob (kept, hidden)");
   w.dispatch("pointerover", glyph, { pointerType: "mouse" });
-  advance(150);
+  advance(200);
   check("the sentence is read at show time (re-rendered labels)", t.textContent === "Archive bob (kept, hidden)");
   w.dispatch("pointerdown", b);
   check("a press hides at once", !visible(w));
   w.dispatch("pointerover", glyph, { pointerType: "mouse" });
-  advance(150);
+  advance(200);
   w.dispatch("scroll", w.win);
   check("scroll hides", !visible(w));
   w.dispatch("pointerover", glyph, { pointerType: "mouse" });
-  advance(150);
+  advance(200);
   w.dispatch("resize", w.win);
   check("resize hides", !visible(w));
   w.dispatch("pointerover", glyph, { pointerType: "mouse" });
   w.doc.body.removeChild(b);
-  advance(150);
+  advance(200);
   check("an anchor removed before the delay shows nothing", !visible(w));
   release();
   check("release removes the tooltip element and every listener", !tipEl(w) && !(w.win.listeners.keydown || []).length && !(w.doc.listeners.pointerover || []).length && !(w.doc.listeners.pointerdown || []).length);
@@ -195,7 +195,7 @@ const visible = (w) => { const t = tipEl(w); return !!t && !t.hidden; };
   const t = tipEl(w);
   w.dispatch("keydown", w.doc.body, { key: "Tab" });
   w.dispatch("focusin", b);
-  advance(150);
+  advance(200);
   check("keyboard focus shows (fallback tracker: :focus-visible unsupported)", visible(w) && t.textContent === "Refresh");
   check("no aria-describedby when the sentence equals the aria-label", b.attrs["aria-describedby"] === undefined);
   const esc = w.dispatch("keydown", b, { key: "Escape" });
@@ -209,7 +209,7 @@ const visible = (w) => { const t = tipEl(w); return !!t && !t.hidden; };
   check("focus that follows a pointer press does not show", !visible(w));
   w.dispatch("keydown", other, { key: "Tab" });
   w.dispatch("focusin", other);
-  advance(150);
+  advance(200);
   check("keyboard focus on an anchor with an existing describedby appends the tooltip id", visible(w) && other.attrs["aria-describedby"] === `hint1 ${t.attrs.id}`);
   w.dispatch("focusout", other);
   check("blur hides and restores the anchor's own describedby", !visible(w) && other.attrs["aria-describedby"] === "hint1");
@@ -220,7 +220,7 @@ const visible = (w) => { const t = tipEl(w); return !!t && !t.hidden; };
   check(":focus-visible, when supported, decides (false = no tooltip)", !visible(w));
   other.focusVisible = true;
   w.dispatch("focusin", other);
-  advance(150);
+  advance(200);
   check(":focus-visible true shows", visible(w));
   const plain = new FakeEl(w.doc, "button", { "aria-label": "Plain" });
   w.doc.body.appendChild(plain);
@@ -268,7 +268,7 @@ const visible = (w) => { const t = tipEl(w); return !!t && !t.hidden; };
   const html = renderToStaticMarkup(React.createElement(AfTooltip,{content},React.createElement('span',{tabIndex:0},'Tight')));
   check('React passes the same structured data, not a local renderer', html.includes('data-af-tip-content=')&&html.includes('Tight fit')&&!html.includes('title='));
   const w=mkWorld(),{b,glyph}=mkButton(w,{'aria-label':'Tight',...attrs});const release=bindAfTooltips(w.doc);const t=tipEl(w);
-  w.dispatch('pointerover',glyph,{pointerType:'mouse'});advance(150);
+  w.dispatch('pointerover',glyph,{pointerType:'mouse'});advance(200);
   check('structured title and semantic facts rendered', t.attrs['data-structured']==='true'&&walk(t).some(n=>n.className==='af-tooltip__title'&&n.textContent==='Tight fit')&&walk(t).filter(n=>n.tag==='dt').length===2&&walk(t).filter(n=>n.tag==='dd').length===2);
   check('structured sections use lists',walk(t).some(n=>n.tag==='ul')&&walk(t).some(n=>n.tag==='li'&&n.textContent==='Free disk space.'));
   check('structured fact tones are explicit',walk(t).some(n=>n.tag==='dd'&&n.attrs['data-tone']==='warning'));
@@ -277,16 +277,16 @@ const visible = (w) => { const t = tipEl(w); return !!t && !t.hidden; };
   w.dispatch('scroll',w.doc.body);check('outside scrolling still dismisses it',!visible(w));
   const hostile={title:'<img src=x onerror=alert(1)>',facts:[{label:'<script>',value:'<svg onload=alert(1)>',tone:'warning onclick=evil'}]};
   for(const [k,v] of Object.entries(afTooltipAttributes(hostile)))b.setAttribute(k,v);
-  w.dispatch('pointerover',glyph,{pointerType:'mouse'});advance(150);
+  w.dispatch('pointerover',glyph,{pointerType:'mouse'});advance(200);
   check('untrusted strings stay literal; no caller HTML parsed',t.textContent.includes('<img src=x')&&!walk(t).some(n=>['img','script','svg'].includes(n.tag)));
   check('untrusted tone cannot add an attribute',walk(t).filter(n=>n.tag==='dd').every(n=>n.attrs['data-tone']===undefined));
   w.dispatch('pointerdown',b);
   b.removeAttribute(AF_TOOLTIP_CONTENT_ATTR);b.setAttribute(AF_TOOLTIP_ATTR,'First paragraph\nSecond paragraph');
-  w.dispatch('pointerover',glyph,{pointerType:'mouse'});advance(150);
+  w.dispatch('pointerover',glyph,{pointerType:'mouse'});advance(200);
   check('plain multiline strings get spaced paragraphs',t.attrs['data-structured']===undefined&&walk(t).filter(n=>n.className==='af-tooltip__paragraph').length===2);
   w.dispatch('pointerdown',b);b.setAttribute(AF_TOOLTIP_CONTENT_ATTR,'{"facts":[]}');b.setAttribute(AF_TOOLTIP_ATTR,'Safe fallback');
   const warn=console.warn,warnings=[];console.warn=(...a)=>warnings.push(a.join(' '));
-  try{w.dispatch('pointerover',glyph,{pointerType:'mouse'});advance(150);}finally{console.warn=warn;}
+  try{w.dispatch('pointerover',glyph,{pointerType:'mouse'});advance(200);}finally{console.warn=warn;}
   check('invalid structure warns and uses explicit fallback',t.textContent==='Safe fallback'&&warnings.some(s=>s.includes('#FALLBACK')));
   release();
 }
