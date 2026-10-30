@@ -8020,3 +8020,6 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   color: var(--accent);
   font-weight: 600;
 }
+
+/* Compact manufacturer mark beside a model title; original artwork stays unchanged. */
+.af-brand-mark.af-brand-mark--sm { width: 24px; height: 24px; flex-basis: 24px; padding: 2px; border-radius: var(--radius-sm); }

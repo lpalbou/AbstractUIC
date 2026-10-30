@@ -151,3 +151,22 @@ unchanged; editor metadata, titles and classes dropped; ids namespaced `af-brand
 licence, restrictions and date, or a `BRAND_FALLBACKS` entry saying why there is none; then a row above.
 
 2026-10-30 operator correction (Gateway backlog 0985): official Anthropic, Portkey and OVH artwork replaces the text badges. Portkey's official PNG is embedded byte-for-byte inside an SVG viewport; no logo makes a network request. Marks retain their owners' rights.
+
+## Model manufacturer marks
+
+The model catalog uses `BrandMark size="sm"` / `brandMarkHtml(id, name, "sm")`
+for a 24px title mark. These are unchanged avatars from manufacturers’ official
+model-publishing organizations, embedded as data images (no remote card requests).
+Original bytes, MIME, dimensions and SHA-256 are checked. Other vendors retain a
+readable neutral text badge, not another manufacturer’s logo. Artwork/trademarks
+belong to their owners; no copyright licence is inferred from model/code licences.
+
+| ID | Manufacturer profile | Artwork source |
+| --- | --- | --- |
+| `qwen` | https://huggingface.co/Qwen | https://cdn-avatars.huggingface.co/v1/production/uploads/6215ca5692c0ecfba9186921/hrRM50-6XcdWgg2AKpENG.jpeg |
+| `deepseek` | https://huggingface.co/deepseek-ai | https://cdn-avatars.huggingface.co/v1/production/uploads/6538815d1bdb3c40db94fbfa/xMBly9PUMphrFVMxLX4kq.png |
+| `google` | https://huggingface.co/google | https://cdn-avatars.huggingface.co/v1/production/uploads/5dd96eb166059660ed1ee413/WtA3YYitedOr9n02eHfJe.png |
+| `meta` | https://huggingface.co/meta-llama | https://cdn-avatars.huggingface.co/v1/production/uploads/646cf8084eefb026fb8fd8bc/oCTqufkdTkjyGodsx1vo1.png |
+| `mistral` | https://huggingface.co/mistralai | https://cdn-avatars.huggingface.co/v1/production/uploads/634c17653d11eaedd88b314d/9OgyfKstSZtbmsmuG8MbU.png |
+| `microsoft` | https://huggingface.co/microsoft | https://cdn-avatars.huggingface.co/v1/production/uploads/1583646260758-5e64858c87403103f9f1055d.png |
+| `nvidia` | https://huggingface.co/nvidia | https://cdn-avatars.huggingface.co/v1/production/uploads/65df9200dc3292a8983e5017/Vs5FPVCH-VZBipV3qKTuy.png |

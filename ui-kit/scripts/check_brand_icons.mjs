@@ -13,6 +13,7 @@
  *  5. BrandMark and brandMarkHtml render the mark (svg) or the badge (text), with the brand's name;
  *  6. docs/icons.md lists every brand id with its source and licence.
  */
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,7 +33,7 @@ function check(name, cond, detail) {
 }
 const { BRAND_ICONS, BRAND_FALLBACKS, BRAND_CARD_IDS, BrandMark, brandMarkHtml, brandIconSvg } = kit;
 const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
-const ids = [...BRAND_CARD_IDS.engines, ...BRAND_CARD_IDS.providers];
+const ids = [...BRAND_CARD_IDS.engines, ...BRAND_CARD_IDS.providers, ...BRAND_CARD_IDS.models];
 
 check("the engines the console cards show", JSON.stringify([...BRAND_CARD_IDS.engines].sort()) === JSON.stringify(["huggingface", "llamacpp", "lmstudio", "mlx", "ollama", "vllm"]), BRAND_CARD_IDS.engines.join(","));
 for (const id of ["openai", "anthropic", "openrouter", "portkey", "ovh", "openai-compatible"]) check(`cloud card ${id} is a card id`, BRAND_CARD_IDS.providers.includes(id));
@@ -56,7 +57,7 @@ for (const [id, m] of Object.entries(BRAND_ICONS)) {
   check(`2 ${id}: id matches its key`, m.id === id);
   check(`2 ${id}: name`, typeof m.name === "string" && m.name.length > 1);
   // The SVG file itself, or the brand's own archive that ships it (its member .svg named in the licence).
-  check(`2 ${id}: source is the file's https URL`, URL_RE.test(m.source || "") && (/\.(svg|png)(\?|$)/.test(m.source) || m.source === "https://www.anthropic.com/press-kit" || (/\.zip$/.test(m.source) && /\.svg\b/.test(m.licence))), m.source);
+  check(`2 ${id}: source is the file's https URL`, URL_RE.test(m.source || "") && (/\.(svg|png|jpe?g|webp)(\?|$)/.test(m.source) || m.source === "https://www.anthropic.com/press-kit" || (/\.zip$/.test(m.source) && /\.svg\b/.test(m.licence))), m.source);
   check(`2 ${id}: terms page URL`, URL_RE.test(m.terms || ""), m.terms);
   check(`2 ${id}: licence in words`, typeof m.licence === "string" && m.licence.length >= 20, m.licence);
   check(`2 ${id}: restrictions recorded (may be empty only for a brand with none)`, typeof m.restrictions === "string");
@@ -67,15 +68,23 @@ for (const [id, m] of Object.entries(BRAND_ICONS)) {
   check(`3 ${id}: viewBox`, /^-?[\d.]+ -?[\d.]+ [\d.]+ [\d.]+$/.test(m.viewBox || ""), m.viewBox);
   const body = String(m.body || "");
   const png = id === "portkey" && /^<image width="981" height="324" href="data:image\/png;base64,[A-Za-z0-9+/=]+"\/>$/.test(body) && body.includes("iVBORw0KGgo");
-  check(`3 ${id}: draws shapes or its inline PNG`, png || /<(path|polygon|rect|circle|use)\b/.test(body));
-  check(`3 ${id}: no script, handler, style, image or foreign object`, !/<script|\son[a-z]+=|\sstyle=|<style|<foreignObject|javascript:/i.test(body) && (png || !/<image/i.test(body)));
+  const raster = m.raster && /^<image width="(\d+)" height="(\d+)" href="data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)"\/>$/.exec(body);
+  if (m.raster) {
+    check(`3 ${id}: bounded raster dimensions and matching MIME`, raster && Number(raster[1]) === m.raster.width && Number(raster[2]) === m.raster.height && m.raster.width > 0 && m.raster.height > 0 && m.raster.width <= 4096 && m.raster.height <= 4096 && raster[3] === m.raster.mime);
+    const bytes = Buffer.from(raster ? raster[4] : '', 'base64');
+    check(`3 ${id}: original raster hash and byte limit`, bytes.length > 0 && bytes.length < 300000 && createHash('sha256').update(bytes).digest('hex') === m.raster.sha256);
+    check(`3 ${id}: encoded image signature matches MIME`, raster && (raster[3] === 'image/webp' ? bytes.subarray(0,4).toString() === 'RIFF' && bytes.subarray(8,12).toString() === 'WEBP' : raster[3] === 'image/png' ? bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])) : bytes[0] === 255 && bytes[1] === 216));
+  }
+  const embedded = png || !!raster;
+  check(`3 ${id}: draws shapes or its inline PNG`, embedded || /<(path|polygon|rect|circle|use)\b/.test(body));
+  check(`3 ${id}: no script, handler, style, image or foreign object`, !/<script|\son[a-z]+=|\sstyle=|<style|<foreignObject|javascript:/i.test(body) && (embedded || !/<image/i.test(body)));
   check(`3 ${id}: no class (a class could pick up page styles)`, !/\sclass=/.test(body));
-  check(`3 ${id}: no external URL`, png || !/https?:|\/\/|data:/i.test(body));
+  check(`3 ${id}: no external URL`, embedded || !/https?:|\/\/|data:/i.test(body));
   const refs = [...body.matchAll(/(?:href="#|url\(#)([^")]+)/g)].map((x) => x[1]);
   const defined = new Set([...body.matchAll(/\sid="([^"]+)"/g)].map((x) => x[1]));
   check(`3 ${id}: every id is namespaced af-brand-${id}-`, [...defined].every((d) => d.startsWith(`af-brand-${id}-`)), [...defined].join(","));
   check(`3 ${id}: every reference is its own and defined`, refs.every((r) => r.startsWith(`af-brand-${id}-`) && defined.has(r)), refs.join(","));
-  check(`3 ${id}: no href other than an internal one`, png || !/href="[^#]/.test(body));
+  check(`3 ${id}: no href other than an internal one`, embedded || !/href="[^#]/.test(body));
 }
 // 4.
 for (const [id, f] of Object.entries(BRAND_FALLBACKS)) {
@@ -101,6 +110,10 @@ for (const id of ids) {
 }
 check("5 an unlisted id gets initials, never another brand's mark", brandMarkHtml("groq", "Groq").includes(">Gr<") && !brandMarkHtml("groq").includes("<svg"));
 check("5 names are escaped", !brandMarkHtml("x", '"><img src=x>').includes("<img"));
+for (const id of BRAND_CARD_IDS.models) {
+  check(`compact ${id}: HTML size prop`, brandMarkHtml(id, undefined, 'sm').includes('af-brand-mark--sm'));
+  check(`compact ${id}: React size prop`, renderToStaticMarkup(React.createElement(BrandMark, {id, size:'sm'})).includes('af-brand-mark--sm'));
+}
 // 6.
 for (const [id, m] of Object.entries(BRAND_ICONS)) check(`6 docs/icons.md lists ${id} with its source`, doc.includes(`| \`${id}\` |`) && doc.includes(m.source), id);
 for (const id of Object.keys(BRAND_FALLBACKS)) check(`6 docs/icons.md lists the ${id} fallback`, doc.includes(`| \`${id}\` |`), id);
