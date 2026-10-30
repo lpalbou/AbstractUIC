@@ -162,3 +162,6 @@ abstractcode-export-*.md
 untracked/
 .venv/
 /node_modules
+
+# Local avatar gallery bundle
+ui-kit/examples/build/

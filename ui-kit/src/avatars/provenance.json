@@ -1,0 +1,9 @@
+{
+  "abi": 1,
+  "source": "abstracttui/crates/abstract-avatar",
+  "crate_version": "0.1.0",
+  "source_sha256": "0674612df18b2025dda2e66885a031d3edd0762bf9d2e42005b6f72f81172981",
+  "wasm_sha256": "19703bc2ec80d9118dd5917871280c168901fc24fc514c2bb934690fd7e04609",
+  "build": "python3 abstracttui/scripts/build_avatar_artifacts.py",
+  "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18)"
+}

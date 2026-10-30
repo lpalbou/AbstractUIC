@@ -135,6 +135,8 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [monitor-memory/src/memory_metrics_api.js](monitor-memory/src/memory_metrics_api.js): endpoint/auth/payload parsing contract
 - [monitor-memory/src/monitor_memory_widget.js](monitor-memory/src/monitor_memory_widget.js): custom element + controller behavior
 
+- [Activity avatars](docs/avatars.md): Shared procedural visuals, React/Canvas API and validation.
+
 ## Optional
 
 - [Publishing (maintainers)](docs/publishing.md): Release checklist and npm publish notes

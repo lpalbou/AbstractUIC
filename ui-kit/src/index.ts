@@ -779,3 +779,5 @@ export {
   type BrandFallback,
   type BrandMarkInfo,
 } from "./brand_icons.js";
+export { ActivityAvatar, type ActivityAvatarProps } from "./activity_avatar.js";
+export { AvatarRenderer, avatarDesigns, avatarPaletteFromCss, type AvatarPalette, type AvatarColor, type AvatarDesign, type AvatarPose, type AvatarSource } from "./avatar_renderer.js";
