@@ -2,6 +2,11 @@
 
 This page is a **practical map** of what each package exports and how you typically integrate it.
 
+For procedural portraits, `ActivityAvatar` and `AvatarRenderer` present the shared AbstractAvatar
+catalog. `AvatarQuality` selects bounded economy/balanced/high presentation; imperative creation
+accepts an optional `AbortSignal`. See [Activity avatars](avatars.md) for complete inputs,
+resolution/cadence budgets, lifecycle, errors and gallery usage.
+
 For compact conversation lists, `SessionCard`, `sessionActivityFromRuns`, `sessionReadTarget`,
 `createSessionReadClient`, `useSessionReads` and `SessionReadMarker` provide shared presentation
 and Gateway-owned, account-wide read receipts. See [Compact session cards](session-cards.md) for ownership and consumption rules.

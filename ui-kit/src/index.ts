@@ -780,11 +780,12 @@ export {
   type BrandFallback,
   type BrandMarkInfo,
 } from "./brand_icons.js";
-export { ActivityAvatar, type ActivityAvatarProps } from "./activity_avatar.js";
-export { AvatarRenderer, avatarDesigns, avatarPaletteFromCss, type AvatarPalette, type AvatarColor, type AvatarDesign, type AvatarPose, type AvatarSource } from "./avatar_renderer.js";
-
+export { ActivityAvatar, type ActivityAvatarProps, type AvatarQuality } from "./activity_avatar.js";
 export { SessionCard, type SessionCardProps } from "./session_card.js";
 export { AutomationCard, automationCardSchedule, automationCardNext, type AutomationCardProps } from "./automation_card.js";
 export { sessionContentRevision, sessionReadTarget, sessionOpeningReceipts, isConversationTurn, sessionNeedsAttention, sessionActivityFromRuns, sessionReadScope, SessionReadStore, type SessionActivity, type SessionReceipt } from "./session_activity.js";
 export { createSessionReadClient, sessionReadIdentity, sessionReadEventReceipt, type SessionReadClient, type SessionReadEvent } from "./session_read_client.js";
 export { useSessionReads, SessionReadMarker } from "./session_reads.js";
+export { AppleActivityAvatar } from "./apple_avatars.js";
+export { AppleAvatarEngine, APPLE_AVATARS, isAppleAvatar, type AppleAvatarDesign } from "./apple_avatar_engine.js";
+export { AvatarRenderer, avatarDesigns, avatarPaletteFromCss, parseAvatarFrame, type AvatarFrameDescriptor, type AvatarPalette, type AvatarColor, type AvatarDesign, type AvatarPose, type AvatarSource } from "./avatar_renderer.js";

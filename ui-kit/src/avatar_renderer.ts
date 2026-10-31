@@ -1,4 +1,4 @@
-/** Canvas adapter for the same Rust geometry used by AbstractTUI. No audio or network inference. */
+/** Canvas presentation of AbstractAvatar's shared procedural frames. */
 export type AvatarPose = "ready" | "thinking" | "working" | "listening" | "speaking" | "waiting" | "error";
 export type AvatarColor = readonly [
     number,
@@ -21,6 +21,16 @@ export interface AvatarDesign {
     watchCode: string;
     family: string;
 }
+/** Versioned frame request. Generation remains in AbstractAvatar, not a script interpreter. */
+export interface AvatarFrameDescriptor {
+    schema_version: 1;
+    style: string;
+    state: AvatarPose;
+    time: number;
+    level: number;
+    gaze?: readonly [number, number];
+    bands?: readonly number[];
+}
 interface Core extends WebAssembly.Exports {
     memory: WebAssembly.Memory;
     avatar_abi_version(): number;
@@ -31,12 +41,38 @@ interface Core extends WebAssembly.Exports {
     avatar_destroy(h: number): number;
     avatar_set_shade(h: number, material: number, index: number, rgba: number): number;
     avatar_set_gaze(h: number, x: number, y: number): number;
+    avatar_set_bands(h: number, b0: number, b1: number, b2: number, b3: number, b4: number, b5: number, b6: number, b7: number): number;
     avatar_render(h: number, style: number, pose: number, level: number, time: number, transparent: number): number;
     avatar_pixels(h: number): number;
     avatar_pixels_len(h: number): number;
 }
+/** Trusted local AbstractAvatar module bytes, useful for offline embedding and tests.
+ * Never pass untrusted uploaded/external Wasm; a frame descriptor contains data only. */
 export type AvatarSource = BufferSource;
 const poses: readonly AvatarPose[] = ["ready", "thinking", "working", "listening", "speaking", "waiting", "error"];
+const unit = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+
+export function parseAvatarFrame(value: unknown): AvatarFrameDescriptor {
+    if (value === null || typeof value !== "object" || Array.isArray(value))
+        throw new Error("Avatar frame must be an object");
+    const v = value as Record<string, unknown>;
+    if (Object.keys(v).some(key => !["schema_version", "style", "state", "time", "level", "gaze", "bands"].includes(key)))
+        throw new Error("Unknown avatar frame field");
+    if (v.schema_version !== 1 || typeof v.style !== "string" || !/^[a-z][a-z0-9_-]{0,63}$/.test(v.style)
+        || !poses.includes(v.state as AvatarPose) || typeof v.time !== "number" || !Number.isFinite(v.time)
+        || v.time < 0 || v.time > 86400 || !unit(v.level))
+        throw new Error("Invalid avatar frame version, style, state, time or level");
+    if (v.gaze !== undefined && (!Array.isArray(v.gaze) || v.gaze.length !== 2
+        || v.gaze.some(n => typeof n !== "number" || !Number.isFinite(n) || n < -1 || n > 1)))
+        throw new Error("Avatar gaze requires two normalized coordinates");
+    if (v.bands !== undefined && (!Array.isArray(v.bands) || v.bands.length !== 8 || !v.bands.every(unit)))
+        throw new Error("Avatar bands require eight normalized levels");
+    return {
+        schema_version: 1, style: v.style, state: v.state as AvatarPose, time: v.time, level: v.level,
+        ...(v.gaze === undefined ? {} : { gaze: [...v.gaze as number[]] as [number, number] }),
+        ...(v.bands === undefined ? {} : { bands: [...v.bands as number[]] }),
+    };
+}
 let shared: Promise<Core> | undefined;
 async function instantiate(source?: AvatarSource): Promise<Core> {
     let bytes: BufferSource;
@@ -48,9 +84,17 @@ async function instantiate(source?: AvatarSource): Promise<Core> {
             throw new Error(`Avatar renderer unavailable (${response.status})`);
         bytes = await response.arrayBuffer();
     }
-    const instance = (await WebAssembly.instantiate(bytes)).instance;
+    if (bytes.byteLength > 8 * 1024 * 1024)
+        throw new Error("Avatar renderer module exceeds the size limit");
+    const module = await WebAssembly.compile(bytes);
+    if (WebAssembly.Module.imports(module).length !== 0)
+        throw new Error("Avatar renderer must not import host capabilities");
+    const instance = await WebAssembly.instantiate(module);
     const core = instance.exports as Core;
-    if (core.avatar_abi_version() !== 1)
+    const functions = ["avatar_abi_version", "avatar_style_count", "avatar_style_field_ptr", "avatar_style_field_len",
+        "avatar_create", "avatar_destroy", "avatar_set_shade", "avatar_set_gaze", "avatar_set_bands", "avatar_render", "avatar_pixels", "avatar_pixels_len"];
+    if (!(core.memory instanceof WebAssembly.Memory) || core.memory.buffer.byteLength > 64 * 1024 * 1024
+        || functions.some(name => typeof core[name] !== "function") || core.avatar_abi_version() !== 1)
         throw new Error("Unsupported avatar renderer version");
     return core;
 }
@@ -62,9 +106,20 @@ async function load(source?: AvatarSource): Promise<Core> {
     return shared;
 }
 function catalog(core: Core): AvatarDesign[] {
-    const decoder = new TextDecoder();
-    const field = (s: number, f: number) => decoder.decode(new Uint8Array(core.memory.buffer, core.avatar_style_field_ptr(s, f) >>> 0, core.avatar_style_field_len(s, f)));
-    return Array.from({ length: core.avatar_style_count() }, (_, i) => ({ id: field(i, 0), name: field(i, 1), description: field(i, 2), watchCode: field(i, 3), family: field(i, 4) }));
+    const decoder = new TextDecoder("utf-8", { fatal: true });
+    const field = (s: number, f: number) => {
+        const start = core.avatar_style_field_ptr(s, f) >>> 0, length = core.avatar_style_field_len(s, f);
+        if (!Number.isInteger(length) || length < 0 || length > 512 || start + length > core.memory.buffer.byteLength)
+            throw new Error("Invalid avatar catalog field bounds");
+        return decoder.decode(new Uint8Array(core.memory.buffer, start, length));
+    };
+    const count = core.avatar_style_count();
+    if (!Number.isInteger(count) || count < 1 || count > 256)
+        throw new Error("Invalid avatar catalog size");
+    const designs = Array.from({ length: count }, (_, i) => ({ id: field(i, 0), name: field(i, 1), description: field(i, 2), watchCode: field(i, 3), family: field(i, 4) }));
+    if (new Set(designs.map(d => d.id)).size !== count || designs.some(d => !/^[a-z][a-z0-9_-]{0,63}$/.test(d.id)))
+        throw new Error("Invalid avatar catalog identity");
+    return designs;
 }
 export async function avatarDesigns(source?: AvatarSource): Promise<readonly AvatarDesign[]> { return catalog(await load(source)); }
 function pack(c: AvatarColor): number {
@@ -83,12 +138,12 @@ export class AvatarRenderer {
         if (!context)
             throw new Error("Avatar requires a Canvas 2D context");
         const image = context.createImageData(width, height);
+        this.designs = catalog(core);
         const h = core.avatar_create(width, height);
         if (!h)
             throw new Error("Avatar size or live renderer limit exceeded");
         this.handle = h;
         this.context = context;
-        this.designs = catalog(core);
         canvas.width = width;
         canvas.height = height;
         this.image = image;
@@ -98,11 +153,17 @@ export class AvatarRenderer {
         height?: number;
         palette: AvatarPalette;
         source?: AvatarSource;
+        signal?: AbortSignal;
     }): Promise<AvatarRenderer> {
         const width = options.width ?? 128, height = options.height ?? width;
         if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || width > 512 || height > 512)
             throw new Error("Avatar dimensions must be 1–512 pixels");
-        const renderer = new AvatarRenderer(await load(options.source), canvas, width, height);
+        if (options.signal?.aborted)
+            throw new DOMException("Avatar renderer creation cancelled", "AbortError");
+        const core = await load(options.source);
+        if (options.signal?.aborted)
+            throw new DOMException("Avatar renderer creation cancelled", "AbortError");
+        const renderer = new AvatarRenderer(core, canvas, width, height);
         try {
             renderer.setPalette(options.palette);
             return renderer;
@@ -125,7 +186,10 @@ export class AvatarRenderer {
             }
         }
     }
-    draw(style: string, pose: AvatarPose, level: number, time: number, gaze?: readonly [
+    draw(style: string, pose: AvatarPose, level: number, time: number, gaze?: readonly [number, number]): void {
+        this.renderFrame({ schema_version: 1, style, state: pose, level, time, ...(gaze === undefined ? {} : { gaze }) });
+    }
+    private paint(style: string, pose: AvatarPose, level: number, time: number, gaze?: readonly [
         number,
         number
     ]): void {
@@ -142,8 +206,23 @@ export class AvatarRenderer {
         if (result !== 0)
             throw new Error(`Avatar rendering failed (${result})`);
         const ptr = this.core.avatar_pixels(this.handle) >>> 0, len = this.core.avatar_pixels_len(this.handle);
+        if (len !== this.image.data.length || ptr + len > this.core.memory.buffer.byteLength
+            || this.core.memory.buffer.byteLength > 64 * 1024 * 1024)
+            throw new Error("Invalid avatar raster frame bounds");
         this.image.data.set(new Uint8Array(this.core.memory.buffer, ptr, len));
         this.context.putImageData(this.image, 0, 0);
+    }
+    /** Read a validated frame request using the shared generator's raster contract. */
+    renderFrame(value: AvatarFrameDescriptor): void {
+        const frame = parseAvatarFrame(value);
+        if (!this.handle)
+            throw new Error("Avatar renderer disposed");
+        // Absent measured bands mean the scalar envelope in every band, matching
+        // the native descriptor binding. An explicit zero vector means silence.
+        const bands = frame.bands ?? Array<number>(8).fill(frame.level);
+        if (this.core.avatar_set_bands(this.handle, bands[0], bands[1], bands[2], bands[3], bands[4], bands[5], bands[6], bands[7]) !== 0)
+            throw new Error("Avatar audio-band update failed");
+        this.paint(frame.style, frame.state, frame.level, frame.time, frame.gaze);
     }
     dispose(): void {
         if (this.handle) {

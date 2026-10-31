@@ -16,6 +16,17 @@ ships.
 - Shared session read clients persist consumption through the Gateway and synchronize across devices; failed writes retain unread marks.
 
 
+- Activity avatar quality levels select bounded display-density resolution and economy,
+  balanced or high frame budgets. Frame deadlines align with display refresh and skip missed
+  frames. Ready gaze can acknowledge clicks without consuming host actions. Canvas creation
+  accepts an AbortSignal; hidden, unmounted and resized views release their old renderer.
+
+- Activity avatars use AbstractAvatar's shared 44-design generator for shaded,
+  Watch-derived and woven forms. Add validated version-one frame descriptors,
+  optional frequency-band inputs and bounded paged previews. Existing Apple
+  component names delegate to the same renderer; imperative `AppleAvatarEngine.draw`
+  is asynchronous and its instances must be disposed after use.
+
 - Use official Anthropic, Portkey and OVHcloud artwork in shared provider cards, replacing text badges (operator request, Gateway backlog 0985). Preserve source attribution, geometry, colours and offline rendering.
 
 ## 0.8.9 - 2026-10-29
