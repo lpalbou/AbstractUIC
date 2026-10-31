@@ -1601,7 +1601,7 @@ export class WorkflowSessionController {
       if (name === "user_guidance") {
         const message = object(eventPayload);
         const seq = message?.seq;
-        if (message && Number.isInteger(seq) && Number(seq) > 0 && message.run_id === runId && message.id === `${runId}:guidance:${seq}` && record.node_id === "__host_user_guidance__" && record.idempotency_key === `system:user_guidance:${seq}` && typeof message.text === "string" && message.text.trim()) {
+        if (message && message.status === "accepted" && Number.isInteger(seq) && Number(seq) > 0 && message.run_id === runId && message.id === `${runId}:guidance:${seq}` && record.node_id === "__host_user_guidance__" && record.idempotency_key === `system:user_guidance:${seq}` && typeof message.text === "string" && message.text.trim()) {
           this.addMessage({ id: message.id, role: "user", kind: "guidance", source: "user_guidance", runId, content: message.text, ts: timestamp });
         }
       }
