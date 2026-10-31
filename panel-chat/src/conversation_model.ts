@@ -86,9 +86,9 @@ export function conversationSnapshot(snapshot: WorkflowSessionSnapshot): { statu
   const wait = row(interaction?.wait);
   const details = row(wait?.details);
   const question = row(details?.question);
-  const approval = interaction?.kind === "tool_approval" || details?.kind === "tool_approval" || wait?.reason === "tool_approval";
+  const approval = interaction?.kind === "tool_approval" || details?.kind === "tool_approval" || details?.mode === "approval_required" || wait?.reason === "tool_approval";
   let attention: ConversationAttention | null = null;
-  if (interaction && (approval || interaction.kind === "ask_user" || wait?.reason === "user")) {
+  if (interaction && (approval || interaction.kind === "ask_user" || wait?.reason === "user" || wait?.reason === "ask_user")) {
     attention = { id: `${interaction.runId}:${String(question?.id || wait?.wait_key || interaction.stepId || "")}`, kind: approval ? "approval" : "question", ...(question?.importance === "essential" || question?.importance === "clarification" ? { importance: question.importance } : {}), ...(typeof question?.deadline === "string" ? { deadline: question.deadline } : {}), ...(typeof question?.fallback === "string" ? { fallback: question.fallback } : {}) };
   } else if (snapshot.status === "completed") {
     attention = { id: `${String(snapshot.run?.run_id || "")}:completed`, kind: "completion" };

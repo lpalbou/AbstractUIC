@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { ChatMessage } from "./chat_message_card.js";
+import { ChatMessageCard, type ChatMessage, type ChatMessageCardProps } from "./chat_message_card.js";
 import type { WorkflowConnection } from "./workflow_runtime.js";
 import { DEFAULT_CONVERSATION_CUES, conversationCueStep, conversationNarrationStep, conversationMessages, conversationPages, conversationState, type AvatarConversationState, type ConversationAttention, type ConversationCue, type ConversationCueCursor, type ConversationCuePreferences } from "./conversation_model.js";
 
@@ -31,6 +31,8 @@ export type AvatarConversationProps = AvatarConversationOptions & {
   interaction?: React.ReactNode;
   /** Draft editing or other host-owned attention freezes rolling captions. */
   attended?: boolean;
+  /** Shared final/attachment rendering, with private reasoning removed before presentation. */
+  messageProps?: Omit<ChatMessageCardProps, "message">;
 };
 const labels: Record<AvatarConversationState, string> = {
   idle: "Ready", working: "Working", listening: "Listening — your words have not been submitted", speaking: "Speaking", question: "A question for you", approval: "Permission required", completed: "Completed", failed: "Work stopped", disconnected: "Connection interrupted",
@@ -104,6 +106,7 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
       {props.attention!.kind === "question" && props.attention!.importance === "clarification" ? <> {props.attention!.deadline ? `Answer by ${props.attention!.deadline}. ` : ""}{props.attention!.fallback ? `Without an answer: ${props.attention!.fallback}` : ""}</> : null}
     </p> : null}
     <div className="pc-avatar-conversation__captions" tabIndex={0} aria-label="Public subtitles" aria-live={attended ? "off" : "polite"}
+      onPointerDown={(event) => { if (event.pointerType === "touch") { interrupt(); setPaused(true); } }}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       onFocus={() => setFocused(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setFocused(false); }}>
       <p>{pages[page] || "Public updates and replies will appear here."}</p>
@@ -122,7 +125,7 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
     {history ? <ol className="pc-avatar-conversation__history" aria-label="Public conversation history">
       {messages.map((m, i) => <li key={`${m.runId || ""}:${m.id || i}`}>
         <strong>{m.role === "user" ? "You" : m.kind === "public_update" ? "Public update" : "Reply"}</strong>
-        <p>{m.content}</p>
+        <ChatMessageCard {...props.messageProps} message={{ ...m, reasoning: undefined, live: undefined, toolActivity: undefined }} />
         {m.publicUpdate?.sourceCallIds.length ? <details><summary>Sources</summary><ul>{m.publicUpdate.sourceCallIds.map((id) => <li key={id}>{id}</li>)}</ul></details> : null}
         <button type="button" aria-pressed={selected === m} onClick={() => { interrupt(); setSelected(m); setShown(m); setPage(0); props.onReplyContext?.(m); }}>Reply to this</button>
       </li>)}

@@ -715,6 +715,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
           {props.avatarConversation ? <AvatarConversation
             {...props.avatarConversation}
             messages={transcript.messages}
+            messageProps={{ ...props.messageProps, ...(props.renderMarkdown ? { renderMarkdown: props.renderMarkdown } : {}) }}
             attended={Boolean(props.draft.trim())}
             interaction={<>
               {props.interaction ? <WorkflowInteractionPanel interaction={props.interaction} disabled={disabled} /> : null}

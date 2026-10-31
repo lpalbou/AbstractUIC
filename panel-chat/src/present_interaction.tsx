@@ -298,11 +298,15 @@ export function presentInteraction(
     };
   }
   const askTarget = { runId: raw.runId, waitKey: String(wait.wait_key || ""), stepId: raw.stepId };
+  const question = details.question && typeof details.question === "object" && details.question.purpose === "conversation" ? details.question : null;
+  const essential = question?.importance === "essential";
+  const clarification = question?.importance === "clarification";
   if (wait.reason === "user" || wait.reason === "ask_user")
     return {
       id,
       kind: "ask-user",
-      title: "A question for you",
+      title: essential ? "Your answer is required" : clarification ? "A clarification for you" : "A question for you",
+      ...(essential ? { description: "This question needs your answer. I will keep waiting; silence does not grant permission." } : clarification ? { description: `${question.deadline ? `Answer by ${String(question.deadline)}. ` : ""}${question.fallback ? `Without an answer: ${String(question.fallback)}` : ""}` } : {}),
       prompt: String(wait.prompt || details.prompt || "How would you like to continue?"),
       allowFreeText: wait.allow_free_text !== false,
       choices: (Array.isArray(wait.choices) ? wait.choices : []).map((choice: any) =>
@@ -317,7 +321,7 @@ export function presentInteraction(
       onSubmit: async (answer) => {
         await controller.resume(answer, askTarget);
       },
-      ...(options.allowSkip
+      ...(options.allowSkip && !question
         ? {
             onSkip: async () => {
               await controller.resume("", askTarget);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { AvatarConversation, WorkflowChat, conversationMessages, conversationReply, conversationPages, conversationState, conversationSnapshot, conversationCueStep, DEFAULT_CONVERSATION_CUES, publicUpdate, projectReplayView, WorkflowSessionController } from "../dist/index.js";
+import { AvatarConversation, WorkflowChat, conversationMessages, conversationReply, conversationPages, conversationState, conversationSnapshot, conversationCueStep, conversationNarrationStep, DEFAULT_CONVERSATION_CUES, publicUpdate, projectReplayView, WorkflowSessionController, presentInteraction } from "../dist/index.js";
 
 const body = { id: "brief-1", text: "I found the supported format.", run_id: "run", session_id: "session", iteration: 2, source_call_ids: ["call-1"] };
 const update = publicUpdate(body, "run");
@@ -64,6 +64,29 @@ const projected = projectReplayView(view).messages[0];
 assert.equal(projected.source, "emit_event");
 assert.deepEqual(projected.publicUpdate.sourceCallIds, ["call-1"]);
 assert.equal(conversationMessages([projected]).length, 1, "served view works without ledger records");
+
+const narrationBase = { sessionKey: "session", connected: true, attended: false, enabled: true, messages: [m] };
+let narration = conversationNarrationStep(null, narrationBase);
+assert.equal(narration.message, null, "opening/replay never speaks");
+const nextUpdate = { ...m, id: "public:2", content: "A fresh update", publicUpdate: { ...update, id: "brief-2", text: "A fresh update" } };
+narration = conversationNarrationStep(narration.cursor, { ...narrationBase, messages: [m, nextUpdate] });
+assert.equal(narration.message, nextUpdate);
+for (const guard of [{ attended: true }, { listening: true }, { enabled: false }, { connected: false }]) {
+  const missed = { ...m, publicUpdate: { ...update, id: `missed-${JSON.stringify(guard)}` } };
+  narration = conversationNarrationStep(narration.cursor, { ...narrationBase, ...guard, messages: [m, missed] });
+  assert.equal(narration.message, null);
+  narration = conversationNarrationStep(narration.cursor, { ...narrationBase, messages: [m, missed] });
+  assert.equal(narration.message, null, "missed narration never queues on return");
+}
+narration = conversationNarrationStep(narration.cursor, { ...narrationBase, sessionKey: "other", messages: [m, nextUpdate] });
+assert.equal(narration.message, null, "session reset never narrates history");
+const questionController = { async resume() {}, async approve() {}, async emitEvent() {} };
+const essentialQuestion = presentInteraction({ runId: "run", wait: { reason: "user", wait_key: "q", details: { question: { id: "q", purpose: "conversation", importance: "essential" } } } }, questionController, { allowSkip: true });
+assert.equal(essentialQuestion.onSkip, undefined);
+assert(essentialQuestion.description.includes("keep waiting"));
+const clarificationQuestion = presentInteraction({ runId: "run", wait: { reason: "user", wait_key: "q", details: { question: { id: "q", purpose: "conversation", importance: "clarification", deadline: "2026-11-01T15:00:00Z", fallback: "Use the existing format." } } } }, questionController, { allowSkip: true });
+assert(clarificationQuestion.description.includes("2026-11-01T15:00:00Z") && clarificationQuestion.description.includes("Use the existing format."));
+assert.equal(clarificationQuestion.onSkip, undefined);
 
 const record = { status: "completed", run_id: "run", effect: { type: "emit_event", payload: { name: "public_update", payload: body } }, result: {} };
 const transport = { async getRun() { return { run_id: "run", status: "running" }; }, async getHistory() { return { run: { run_id: "run", status: "running" }, ledgers: { run: { items: [{ cursor: 1, record }, { cursor: 2, record }] } } }; }, async getLedger() { return { items: [] }; }, async streamLedger(_run, _after, _step, signal, open) { open?.(); await new Promise((resolve) => signal.addEventListener("abort", resolve, { once: true })); }, async submitCommand() { return { accepted: true }; } };
