@@ -41,7 +41,7 @@ const fetchGateway = async (path) => (fetched.push(path), { ok: true, status: 20
 // The panel item.
 const panel = docsAssistantPanel(source, fetchGateway, { connected: true, suggestions: ["How do I run a flow?"] });
 check("panel: opaque item shape", panel.id === "docs" && panel.label === "Docs assistant" && panel.icon === "book", JSON.stringify({ ...panel, content: undefined }));
-check("panel: drawer mode (no rail tab), right side, kept alive", panel.mode === "drawer" && panel.side === "right" && panel.keepAlive === "always" && panel.defaultWidth === 420);
+check("panel: drawer mode fills available height, right side, kept alive", panel.mode === "drawer" && panel.side === "right" && panel.keepAlive === "always" && panel.defaultWidth === 420 && panel.fill === true);
 check("panel: content is the docs conversation", panel.content.type === DocsAssistantPanelContent && panel.content.props.source === source && panel.content.props.fetchGateway === fetchGateway && panel.content.props.connected === true);
 const custom = docsAssistantPanel(source, fetchGateway, { connected: false, id: "help", mode: "rail", side: "left", label: "Help" });
 check("panel: id / mode / side / label overridable", custom.id === "help" && custom.mode === "rail" && custom.side === "left" && custom.label === "Help" && !("id" in custom.content.props) && !("mode" in custom.content.props));
