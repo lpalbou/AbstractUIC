@@ -143,6 +143,15 @@ export function watchLevel(stream: MediaStream, onLevel: (level: number) => void
   if (!C) return () => undefined;
   const ctx = new C();
   const source = ctx.createMediaStreamSource(stream);
+  try { void Promise.resolve(ctx.resume()).catch(() => undefined); } catch { /* optional meter */ }
+  let stop: () => void;
+  try { stop = watchAudioNodeLevel(ctx, source, onLevel, gain); }
+  catch (error) { source.disconnect(); void ctx.close?.(); throw error; }
+  return () => { stop(); void ctx.close?.(); };
+}
+
+/** Observe a node without rerouting playback or owning its context. No audio is synthesized. */
+export function watchAudioNodeLevel(ctx: AudioContext, source: AudioNode, onLevel: (level: number) => void, gain = 1): () => void {
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 1024;
   source.connect(analyser);
@@ -160,11 +169,12 @@ export function watchLevel(stream: MediaStream, onLevel: (level: number) => void
     alive = false;
     clearInterval(timer);
     try {
-      source.disconnect();
+      source.disconnect(analyser);
     } catch {
       /* already disconnected */
     }
-    void ctx.close?.();
+    analyser.disconnect?.();
+    onLevel(0);
   };
 }
 

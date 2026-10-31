@@ -1,0 +1,42 @@
+import assert from "node:assert/strict";
+import { mount, installFakeBrowser, sleep } from "./voice_harness.mjs";
+import { useGatewayVoice } from "../dist/use_gateway_voice.js";
+
+const env = installFakeBrowser();
+let h;
+try {
+  env.playMs = 60000;
+  const calls = [];
+  h = mount(useGatewayVoice, { tts: async (text) => (calls.push(text), new ArrayBuffer(8)), tts_voice: { provider: "test", voice: "test" } });
+  const playback = [], microphone = [];
+  const first = h.tree;
+  let off = first.subscribe_playback_level((v) => playback.push(v));
+  const offMic = first.subscribe_level((v) => microphone.push(v));
+  assert.equal(playback.at(-1), 0);
+  await h.tree.toggle_tts("reply", "Measured speech"); await h.settle();
+  const sets = h.stats.sets;
+  env.amplitude = .12; await sleep(120);
+  assert.equal(playback.at(-1), .5);
+  env.amplitude = .025; await sleep(120);
+  assert.equal(playback.at(-1), .1);
+  assert.equal(h.stats.sets, sets, "Output samples cannot rerender the hook owner");
+  assert.deepEqual(microphone, [0], "Output cannot enter the microphone channel");
+  await h.tree.toggle_tts("reply", "Measured speech"); await h.settle();
+  assert.equal(h.tree.tts_playback.status, "paused");
+  assert.equal(playback.at(-1), 0, "Pause clears the output envelope immediately");
+  let reads = env.log.analyserReads; await sleep(120); assert.equal(env.log.analyserReads, reads);
+  await h.tree.toggle_tts("reply", "Measured speech"); await h.settle();
+  await sleep(80); assert.ok(playback.at(-1) > 0);
+  assert.equal(calls.length, 1, "Metering cannot restart synthesis");
+  off(); reads = env.log.analyserReads; await sleep(120); assert.equal(env.log.analyserReads, reads, "No listeners means no sampling");
+  off = h.tree.subscribe_playback_level((v) => playback.push(v));
+  await sleep(80); assert.ok(playback.at(-1) > 0, "A late subscriber restarts observation of current playback");
+  h.tree.stop_tts(); assert.equal(playback.at(-1), 0);
+  reads = env.log.analyserReads; await sleep(120); assert.equal(env.log.analyserReads, reads);
+  assert.equal(h.tree.subscribe_playback_level, first.subscribe_playback_level, "Stable subscription identity");
+  off(); offMic(); h.unmount();
+  const lateSets = h.stats.lateSets;
+  await sleep(120);
+  assert.equal(h.stats.lateSets, lateSets, "No asynchronous updates after unmount");
+  console.log("Playback levels: real samples, independent channels, pause/resume, stop, subscribers and owner render isolation passed");
+} finally { h?.unmount(); env.restore(); }

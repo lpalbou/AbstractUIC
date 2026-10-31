@@ -36,7 +36,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { insecureContextReason } from "./random_id.js";
-import { clampVolume, inputGainSupported, microphoneErrorSentence, openMicrophone, watchLevel } from "./voice_devices.js";
+import { clampVolume, inputGainSupported, microphoneErrorSentence, openMicrophone, watchLevel, watchAudioNodeLevel } from "./voice_devices.js";
 
 export type TtsPlaybackStatus = "idle" | "loading" | "playing" | "paused";
 
@@ -224,6 +224,9 @@ export type GatewayVoice = {
    * Returns the unsubscribe function. Stable identity.
    */
   subscribe_level?: (fn: (level: number) => void) => () => void;
+  /** Measured reply output after volume/mute, 0 while paused, stopped or starved.
+   * Stable subscription; no microphone access and no owner re-renders per sample. */
+  subscribe_playback_level?: (fn: (level: number) => void) => () => void;
   /** The capture mode this hook was created with ("hold" unless `capture_mode: "toggle"`). */
   voice_capture_mode?: VoiceCaptureMode;
   /**
@@ -375,6 +378,21 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     [opts.transcribe]
   );
 
+  const playback_level = useRef(0);
+  const playback_listeners = useRef(new Set<(level: number) => void>());
+  const playback_meter_stop = useRef<(() => void) | null>(null);
+  const publish_playback_level = useCallback((v: number) => {
+    const q = Math.round(Math.min(1, Math.max(0, Number(v) || 0)) * 20) / 20;
+    if (q === playback_level.current) return;
+    playback_level.current = q;
+    for (const listener of Array.from(playback_listeners.current)) listener(q);
+  }, []);
+  const stop_playback_meter = useCallback(() => {
+    const stop = playback_meter_stop.current;
+    playback_meter_stop.current = null;
+    stop?.();
+    publish_playback_level(0);
+  }, [publish_playback_level]);
   const [tts_playback, set_tts_playback] = useState<{ key: string; status: TtsPlaybackStatus }>({ key: "", status: "idle" });
   // Ref twin (read from the stable callbacks) + shallow-equal write guard:
   // idle→idle (any unchanged pair) must NOT schedule a render — the
@@ -383,12 +401,31 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   const tts_playback_ref = useRef(tts_playback);
   const apply_tts_playback = useCallback((next: { key: string; status: TtsPlaybackStatus }) => {
     tts_playback_ref.current = next;
+    if (next.status !== "playing") stop_playback_meter();
     set_tts_playback((prev) => (prev.key === next.key && prev.status === next.status ? prev : next));
-  }, []);
+  }, [stop_playback_meter]);
   const tts_key_ref = useRef<string>("");
   const tts_loading_key_ref = useRef<string>("");
   const tts_ctx_ref = useRef<AudioContext | null>(null);
   const tts_gain_ref = useRef<GainNode | null>(null);
+  const start_playback_meter = useCallback(() => {
+    if (!playback_listeners.current.size || playback_meter_stop.current || tts_playback_ref.current.status !== "playing") return;
+    const ctx = tts_ctx_ref.current, gain = tts_gain_ref.current;
+    if (!ctx || !gain) return;
+    try {
+      playback_meter_stop.current = watchAudioNodeLevel(ctx, gain, (level) =>
+        publish_playback_level(ctx.state === "running" && tts_playback_ref.current.status === "playing" ? level : 0));
+    } catch { /* Optional presentation meter: playback remains available, level stays zero. */ }
+  }, [publish_playback_level]);
+  const subscribe_playback_level = useCallback((fn: (level: number) => void) => {
+    playback_listeners.current.add(fn);
+    fn(playback_level.current);
+    start_playback_meter();
+    return () => {
+      playback_listeners.current.delete(fn);
+      if (!playback_listeners.current.size) stop_playback_meter();
+    };
+  }, [start_playback_meter, stop_playback_meter]);
   const tts_source_ref = useRef<AudioBufferSourceNode | null>(null);
   const tts_buffer_ref = useRef<AudioBuffer | null>(null);
   const tts_offset_ref = useRef<number>(0);
@@ -454,6 +491,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   }, [opts.volume, opts.muted]);
 
   const stop_tts_source = useCallback((): void => {
+    stop_playback_meter();
     const scheduled = tts_sched_ref.current;
     tts_sched_ref.current = [];
     for (const s of scheduled) {
@@ -479,7 +517,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     } catch {
       // ignore
     }
-  }, []);
+  }, [stop_playback_meter]);
 
   // Stable identity (c2584 ask 1): touches only refs + the guarded setter, so
   // an idle stop is a full no-op — safe in any consumer dep array.
@@ -566,6 +604,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
 
     source.start(0, off);
     apply_tts_playback({ key, status: "playing" });
+    start_playback_meter();
   };
 
   /**
@@ -630,6 +669,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     tts_started_at_ref.current = tts_sched_ref.current.length ? tts_sched_ref.current[0].at - tts_sched_ref.current[0].off : 0;
     tts_key_ref.current = key;
     apply_tts_playback({ key, status: "playing" });
+    start_playback_meter();
   };
   /** Where streamed playback is: the segment playing now and the offset into it (for pause). */
   const stream_position = (now: number): { idx: number; off: number } => {
@@ -1117,6 +1157,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     cancel_voice_ptt_recording,
     voice_ptt_since,
     subscribe_level,
+    subscribe_playback_level,
     voice_capture_mode: voiceCaptureMode(opts.capture_mode),
     add_transcript_listener,
   };
