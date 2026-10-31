@@ -511,8 +511,8 @@ export function DocsAssistantPanel(props: DocsAssistantPanelProps): React.ReactE
           }
         />
       </div>
-      <div className="pc-docs-assistant__footer" title={`Answers come from ${props.source.name}'s documentation (llms.txt) through the gateway's docs-qa workflow.`}>
-        Grounded on {props.source.name}&rsquo;s documentation (llms.txt) · docs-qa
+      <div className="pc-docs-assistant__footer">
+        Based on {props.source.name} documentation.
       </div>
     </div>
   );
@@ -838,6 +838,7 @@ export function docsAssistantPanel(source: DocsAssistantSource, fetchGateway: Ga
     mode: mode || "drawer",
     side: side || "right",
     keepAlive: "always",
+    fill: true,
     defaultWidth: defaultWidth ?? 420,
     content: <DocsAssistantPanelContent source={source} fetchGateway={fetchGateway} {...chat} />,
   };
