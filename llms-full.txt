@@ -22047,7 +22047,7 @@ unread/attention/working/selection facts. It does not own networking or read rec
 receipt tracking in a native application remains host integration work.
 
 On desktop the archive icon is 28 px, hidden until card hover or keyboard focus.
-Touch/no-hover devices retain a visible 44 px target. Opening and archive remain sibling controls.
+Touch/no-hover devices retain a visible 44 px target. Opening and archive remain sibling controls. Cards use a darker theme-derived surface than section headers in every theme; unread and attention colors tint that surface without raising it above the header.
 
 ## Automation cards
 
@@ -22069,6 +22069,14 @@ only through the oldest-first prefix whose notice or answer footer passed the sa
 unobscured visibility check as a conversation. Loading a panel, skipping older notices, or
 replaying its ledger does not mark them seen. These server receipts are shared across devices;
 other clients may use broader acknowledgment policies.
+
+Hosts may pass `relatedReceipts` to the latest turn's `SessionReadMarker`: once that loaded
+answer is visible, the existing session revisions clear together. This matches opening a
+conversation rather than requiring a scroll through every older turn. The visibility marker
+captures that receipt batch when mounted; arrivals after it was consumed stay unread. Receipt
+keys remain immutable per run/outcome, so marking an earlier request cannot clear its later
+answer. Failures, failed loads, background/covered content and other account scopes retain the
+same visibility and isolation rules.
 
 ## docs/publishing.md
 

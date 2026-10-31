@@ -15,7 +15,7 @@ const receipt={sessionId:'a',revision:p.revision,updatedAt:window.receiptAt},rea
 return <><aside><SessionCard sessionId="a" title="A compact conversation with a two-line title" unread={reads.isUnread(receipt)} selected turnCount={4} toolCount={115} updatedAt={Date.now()-540000} nowMs={Date.now()} onOpen={()=>{}} onArchive={()=>{}}/>
 <SessionCard sessionId="b" title="Please review this tool approval" unread needsAttention turnCount={2} updatedAt={Date.now()} nowMs={Date.now()} onOpen={()=>{}}/>
 <SessionCard sessionId="c" title="Working on your question" working turnCount={1} nowMs={Date.now()} onOpen={()=>{}}/></aside>
-<main><div style={{height:p.down?1600:20}}>Loaded answer</div><SessionReadMarker ownerKey={p.scope} receipt={receipt} enabled onRead={r=>{window.consumed.push([p.scope,r.revision]);reads.markRead(r)}}/></main>
+<main><div style={{height:p.down?1600:20}}>Loaded answer</div><SessionReadMarker ownerKey={p.scope} receipt={receipt} enabled relatedReceipts={p.related} onRead={r=>{window.consumed.push([p.scope,r.revision]);reads.markRead(r)}}/></main>
 {p.covered&&<div style={{position:'fixed',inset:0,background:'var(--ui-bg)',zIndex:100}}>A drawer covers the answer</div>}</>}
 window.consumed=[];window.receiptAt=new Date(Date.now()+1000).toISOString();createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:root,loader:'tsx'},bundle:true,write:false,format:'esm'});
 const css=readFileSync(resolve(root,'src/theme.css'),'utf8');
@@ -47,5 +47,11 @@ assert.equal(await other.locator('.af-session-card').first().getAttribute('data-
 await page.evaluate(()=>window.setTest({revision:'cross-live',scope:'demo',covered:false,down:false}));await page.waitForTimeout(450);
 assert.equal(await other.locator('.af-session-card').first().getAttribute('data-unread'),null,'Real storage event updates the other client');
 const dir=process.env.SESSION_CAPTURE_DIR;if(dir){mkdirSync(dir,{recursive:true});await page.evaluate(()=>window.setTest({revision:'unread',scope:'demo',covered:false,down:true}));for(const theme of ['dark','light']){await page.evaluate(t=>document.documentElement.className="theme-"+t,theme);await page.screenshot({path:resolve(dir,`cards-${theme}.png`)});}}
+await page.bringToFront();
+await page.evaluate(()=>window.setTest({revision:'opened-latest',scope:'demo',covered:false,down:false,related:[{sessionId:'a',revision:'earlier-answer',updatedAt:window.receiptAt}]}));await page.waitForTimeout(400);
+assert.ok(await page.evaluate(()=>window.consumed.some(x=>x[1]==='earlier-answer')),'Opening the visible latest answer consumes the existing session snapshot');
+assert.ok(await page.evaluate(()=>window.consumed.some(x=>x[1]==='opened-latest')));
+await page.evaluate(()=>window.setTest({revision:'opened-latest',scope:'demo',covered:false,down:false,related:[{sessionId:'a',revision:'late-answer',updatedAt:window.receiptAt}]}));await page.waitForTimeout(400);
+assert.equal(await page.evaluate(()=>window.consumed.some(x=>x[1]==='late-answer')),false,'Later arrivals cannot broaden an already consumed opening');
 assert.deepEqual(errors,[]);console.log('session_cards_browser: PASS (offscreen, covered, background, scope race, shared receipts, account isolation)');
 }finally{await browser?.close();server.close();}

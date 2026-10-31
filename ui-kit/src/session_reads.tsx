@@ -26,7 +26,16 @@ export function useSessionReads(scope: string, observed: readonly SessionReceipt
 }
 
 /** Mount after loaded content; selection and background loads cannot acknowledge it. */
-export function SessionReadMarker(p: { receipt: SessionReceipt; enabled: boolean; ownerKey?: string; onRead: (p: SessionReceipt) => void }): React.ReactElement {
+export function SessionReadMarker(p: { receipt: SessionReceipt; enabled: boolean; ownerKey?: string; relatedReceipts?: readonly SessionReceipt[]; onRead: (p: SessionReceipt) => void }): React.ReactElement {
   return <VisibleContentMarker ownerKey={p.ownerKey} contentKey={`${p.receipt.sessionId}:${p.receipt.revision}:${p.receipt.updatedAt || ""}`}
-    enabled={p.enabled} onConsume={() => p.onRead(p.receipt)} />;
+    enabled={p.enabled} onConsume={() => {
+      // VisibleContentMarker captures this callback when its dwell begins.
+      // A later arrival cannot broaden this opening's snapshot retroactively.
+      const seen = new Set<string>();
+      for (const receipt of [...(p.relatedReceipts || []), p.receipt]) {
+        if (receipt.sessionId !== p.receipt.sessionId || seen.has(receipt.revision)) continue;
+        seen.add(receipt.revision);
+        p.onRead(receipt);
+      }
+    }} />;
 }
