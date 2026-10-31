@@ -716,7 +716,9 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
           {props.avatarConversation ? <AvatarConversation
             {...props.avatarConversation}
             messages={transcript.messages}
-            messageProps={{ ...props.messageProps, ...(props.renderMarkdown ? { renderMarkdown: props.renderMarkdown } : {}) }}
+            messageProps={{ ...props.messageProps,
+              ...(props.messageProps?.renderFooter ? { renderFooter: (m) => props.messageProps!.renderFooter!(props.messages.find((original) => original === m || (original.id && original.id === m.id)) || m) } : {}),
+              ...(props.renderMarkdown ? { renderMarkdown: props.renderMarkdown } : {}) }}
             attended={Boolean(props.draft.trim())}
             interaction={<>
               {props.interaction ? <WorkflowInteractionPanel interaction={props.interaction} disabled={disabled} /> : null}

@@ -33,6 +33,9 @@ assert.deepEqual(conversationMessages([
  {role:"system",kind:"question_outcome",source:"raw_reasoning",content:"PRIVATE fake outcome"},
  {role:"system",kind:"other",source:"emit_event",content:"PRIVATE arbitrary system event"},
 ]).map(m=>m.content),["No answer arrived. Keeping both options."],"Only canonical host question outcomes enter public history");
+const fileOnly = { id:"files",role:"assistant",kind:"attachments",content:"",artifactRefs:[{id:"output-file",runId:"run",name:"report.csv"}] };
+assert.equal(conversationMessages([fileOnly]).length,1,"A file-only final delivery remains reachable in public history");
+assert(renderToStaticMarkup(React.createElement(AvatarConversation,{sessionKey:"files",avatar:"Avatar",messages:[fileOnly]})).includes("A result file is ready"));
 assert.deepEqual(conversationPages("one two three four", 7), ["one two", "three", "four"]);
 assert.equal(conversationReply("My words", null, "run"), "My words");
 assert(conversationReply("My words", m, "run").endsWith("My words"));

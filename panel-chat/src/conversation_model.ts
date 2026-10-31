@@ -40,8 +40,9 @@ export function publicUpdate(value: unknown, runId: string): PublicUpdate | null
 export function conversationMessages(messages: readonly ChatMessage[]): ChatMessage[] {
   const seen = new Set<string>();
   return messages.filter((m) => {
-    if (m.live || m.toolActivity || !m.content.trim()) return false;
-    const allowed = m.role === "user" || (m.role === "assistant" && ["public_update", "answer", "final", "question"].includes(m.kind || "")) || (m.role === "system" && m.kind === "question_outcome" && m.source === "emit_event");
+    const hasFiles = Boolean(m.attachments?.length || m.artifactRefs?.length || m.media?.length);
+    if (m.live || m.toolActivity || (!m.content.trim() && !hasFiles)) return false;
+    const allowed = m.role === "user" || (m.role === "assistant" && ["public_update", "answer", "final", "question", "attachments"].includes(m.kind || "")) || (m.role === "system" && m.kind === "question_outcome" && m.source === "emit_event");
     if (!allowed || (m.kind === "public_update" && !m.publicUpdate)) return false;
     const key = `${m.runId || ""}:${m.publicUpdate?.id || m.id || `${m.kind}:${m.content}`}`;
     if (seen.has(key)) return false;

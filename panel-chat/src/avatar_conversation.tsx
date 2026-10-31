@@ -64,7 +64,8 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
   useEffect(() => { props.onAttendedChange?.(attended); return () => props.onAttendedChange?.(false); }, [attended, props.onAttendedChange]);
   const [shown, setShown] = useState(latest);
   const [page, setPage] = useState(0);
-  const pages = useMemo(() => conversationPages(shown?.content || ""), [shown?.content]);
+  const shownText = shown?.content || (shown?.attachments?.length || shown?.artifactRefs?.length || shown?.media?.length ? "A result file is ready. Open conversation history to view it." : "");
+  const pages = useMemo(() => conversationPages(shownText), [shownText]);
   const state = conversationState(props);
   const cursor = useRef<ConversationCueCursor | null>(null);
   const narrationCursor = useRef<ConversationCueCursor | null>(null);
