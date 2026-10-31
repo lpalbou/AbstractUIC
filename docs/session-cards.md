@@ -108,7 +108,9 @@ unobscured visibility check as a conversation. Loading a panel, skipping older n
 replaying its ledger does not mark them seen. These server receipts are shared across devices;
 other clients may use broader acknowledgment policies.
 
-Hosts may pass `relatedReceipts` to the latest turn's `SessionReadMarker`: once that loaded
+Hosts use `sessionOpeningReceipts(messages, content, displayedRunId)` to pass only loaded
+revisions to the latest turn's `SessionReadMarker` through `relatedReceipts`. Historical selected
+turns cannot consume a newer answer, and missing outcomes remain unread: once that loaded
 answer is visible, the existing session revisions clear together. This matches opening a
 conversation rather than requiring a scroll through every older turn. The visibility marker
 captures that receipt batch when mounted; arrivals after it was consumed stay unread. Receipt

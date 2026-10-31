@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
-import {SessionCard,SessionReadStore,sessionContentRevision,sessionActivityFromRuns,sessionReadScope,sessionReadTarget} from '../dist/session_cards.js';
+import {SessionCard,SessionReadStore,sessionContentRevision,sessionActivityFromRuns,sessionReadScope,sessionReadTarget,sessionOpeningReceipts} from '../dist/session_cards.js';
 const data=new Map();const storage={get length(){return data.size;},key:i=>[...data.keys()][i]??null,getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};
 const now=Date.parse('2026-10-31T12:00:00Z'),at=n=>new Date(now+n).toISOString();
 const store=new SessionReadStore('gateway/tenant/alice',storage,now),receipt=(status,time=1)=>({sessionId:'s',revision:sessionContentRevision('r',status),updatedAt:at(time)});
@@ -59,3 +59,21 @@ assert.ok(renderAuto({current_occurrence:{status:'running'}}).includes('data-wor
 assert.ok(renderAuto({last_occurrence:{status:'failed'}}).includes('is-failed'));
 assert.ok(!renderAuto({attention:{unseen_count:0,pending_waits:0,unread:false}}).includes('data-unread="true"'));
 console.log('Automation cards: Watch cadence/countdown, paused/ended states, waits, failure, new results and sibling controls passed');
+
+const opening=sessionActivityFromRuns({items:[
+  {run_id:'new',session_id:'s',status:'completed',created_at:at(4)},
+  {run_id:'late',session_id:'s',status:'completed',created_at:at(3)},
+  {run_id:'old',session_id:'s',status:'completed',created_at:at(2)},
+]}).s.content;
+const loaded=[{runId:'new',role:'assistant'},{runId:'late',role:'user'},{runId:'old',role:'assistant'}];
+assert.deepEqual(sessionOpeningReceipts(loaded,opening,'old'),[],'Opening historical content never clears a newer answer');
+assert.deepEqual(sessionOpeningReceipts(loaded,opening,'new').map(r=>r.runId),['new','old'],'A late completed run with only its prompt loaded remains unread');
+assert.deepEqual(sessionOpeningReceipts([],opening,'new'),[],'Failed/empty history never clears a revision');
+
+const wakeFacts=sessionActivityFromRuns({items:[
+ {run_id:'wake',session_id:'chat',role:'occurrence',session_kind:'chat',parent_run_id:'caller',status:'completed',created_at:at(3)},
+ {run_id:'tool',session_id:'chat',role:'descendant',session_kind:'chat',parent_run_id:'wake',status:'completed',created_at:at(4)},
+ {run_id:'auto',session_id:'auto',role:'controller',session_kind:'automation',status:'running'},
+]});
+assert.deepEqual(wakeFacts.chat.content.map(r=>r.runId),['wake'],'Chat wake outcomes participate in read state; descendants do not');
+assert.equal(wakeFacts.auto,undefined,'Automation state stays in its own attention lane');
