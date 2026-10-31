@@ -530,3 +530,7 @@ Attachment file previews use one modal header with the filename, Download and Cl
 and video previews fit their intrinsic aspect ratio within the viewport; text and PDF previews
 retain a readable document width. All previews keep the shared file renderer and authenticated,
 bounded loading behavior.
+
+`WorkflowSessionSnapshot.historyLoading` tracks restoration of earlier session turns separately
+from `loading` of the current answer. Read-consumption hosts wait for both to finish before
+mounting an opening's `SessionReadMarker`; the current answer remains progressively visible.

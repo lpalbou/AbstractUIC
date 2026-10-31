@@ -2629,6 +2629,10 @@ and video previews fit their intrinsic aspect ratio within the viewport; text an
 retain a readable document width. All previews keep the shared file renderer and authenticated,
 bounded loading behavior.
 
+`WorkflowSessionSnapshot.historyLoading` tracks restoration of earlier session turns separately
+from `loading` of the current answer. Read-consumption hosts wait for both to finish before
+mounting an opening's `SessionReadMarker`; the current answer remains progressively visible.
+
 ## docs/architecture.md
 
 # Architecture
@@ -22034,6 +22038,9 @@ Do not upload those baselines as factual user consumption. Gateway mode never wr
 baseline or silently falls back to browser-local state.
 
 Mount `SessionReadMarker` after successfully loaded content, normally in the message footer.
+With panel-chat, also wait until `snapshot.historyLoading` is false: `snapshot.loading` becomes
+false as soon as the current answer can render, while earlier session turns may still be loading.
+This keeps a previously read latest answer from prematurely finishing the opening receipt batch.
 It acknowledges only after 250 ms in the focused, visible document with the marker fully in
 view and unobscured. Selecting a session, loading in the background, failed history requests,
 and offscreen answers do not acknowledge content. `ownerKey` must be the account scope;
@@ -22451,6 +22458,9 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## Unreleased
+
+- Progressive conversation restoration exposes history readiness separately from the current answer, so opening read receipts include the loaded earlier turns.
+
 
 - Attachment previews fit media dimensions with one filename, Download and Close.
 - Shared session read clients persist consumption through the Gateway and synchronize across devices; failed writes retain unread marks.

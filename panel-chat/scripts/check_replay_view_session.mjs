@@ -452,11 +452,14 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
     gw.transport.replayView.listSessionTurns = async (runId) => { listings += 1; await gate; return order3.slice(0, order3.indexOf(runId) + 1).map((id) => ({ run_id: id, created_at: created(id) })); };
     const loading = ctl.load(v3open.root_run_id);
     await settle();
+    assert.equal(ctl.getSnapshot().loading, false, "the current turn renders progressively");
+    assert.equal(ctl.getSnapshot().historyLoading, true, "a rendered answer is not proof the opening history finished");
     const early = ctl.getSnapshot().messages.map((m) => m.id);
     assert.ok([...firstIds, ...secondIds].every((id) => early.includes(id)), "known older turns stay on screen while the list is re-read");
     release();
     await loading;
     await settle();
+    assert.equal(ctl.getSnapshot().historyLoading, false, "opening read snapshot is ready only after history is restored");
     const ids3 = ctl.getSnapshot().messages.map((m) => m.id);
     assert.deepEqual(reads, [v3open.root_run_id], `finished turns come from the cache (${JSON.stringify(reads)})`);
     assert.ok([...firstIds, ...secondIds].every((id) => ids3.includes(id)), "both earlier turns still shown");

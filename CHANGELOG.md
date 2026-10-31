@@ -9,6 +9,9 @@ ships.
 
 ## Unreleased
 
+- Progressive conversation restoration exposes history readiness separately from the current answer, so opening read receipts include the loaded earlier turns.
+
+
 - Attachment previews fit media dimensions with one filename, Download and Close.
 - Shared session read clients persist consumption through the Gateway and synchronize across devices; failed writes retain unread marks.
 

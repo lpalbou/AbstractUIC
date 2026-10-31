@@ -55,6 +55,9 @@ Do not upload those baselines as factual user consumption. Gateway mode never wr
 baseline or silently falls back to browser-local state.
 
 Mount `SessionReadMarker` after successfully loaded content, normally in the message footer.
+With panel-chat, also wait until `snapshot.historyLoading` is false: `snapshot.loading` becomes
+false as soon as the current answer can render, while earlier session turns may still be loading.
+This keeps a previously read latest answer from prematurely finishing the opening receipt batch.
 It acknowledges only after 250 ms in the focused, visible document with the marker fully in
 view and unobscured. Selecting a session, loading in the background, failed history requests,
 and offscreen answers do not acknowledge content. `ownerKey` must be the account scope;

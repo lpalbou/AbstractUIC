@@ -186,6 +186,9 @@ export type WorkflowSessionSnapshot = {
   /** Optional human-facing status emitted by `abstract.status` events. */
   displayStatus: string;
   loading: boolean;
+  /** Earlier session turns are still being restored. The current answer may
+   * already be rendered; hosts must wait before consuming an opening's history. */
+  historyLoading?: boolean;
   error: string | null;
   connection: WorkflowConnection;
   /** Browser/controller-local consent only; never persisted or a policy bypass. */
@@ -280,7 +283,7 @@ export type WorkflowSessionControllerOptions = {
 
 const EMPTY: WorkflowSessionSnapshot = {
   messages: [], records: [], run: null, interaction: null,
-  status: "idle", displayStatus: "", loading: false, error: null, connection: "idle", toolApprovalGranted: false, stop: null,
+  status: "idle", displayStatus: "", loading: false, historyLoading: false, error: null, connection: "idle", toolApprovalGranted: false, stop: null,
 };
 
 function object(value: unknown): ServerRecord | null {
@@ -741,7 +744,7 @@ export class WorkflowSessionController {
     const abort = new AbortController();
     this.controller = abort;
     this.rootRunId = id;
-    this.set({ ...this.snapshot, loading: true, status: "loading", error: null, connection: "connecting" });
+    this.set({ ...this.snapshot, loading: true, historyLoading: true, status: "loading", error: null, connection: "connecting" });
     try {
       if (await this.loadView(id, generation, abort.signal)) return;
       if (!this.live(generation)) return;
@@ -766,6 +769,7 @@ export class WorkflowSessionController {
         run: liveRun,
         status: runStatus,
         loading: false,
+        historyLoading: false,
         ...(currentWait && !terminal(runStatus) ? { interaction: this.interactionWith({ runId: id, wait: currentWait }) } : {}),
       });
       if (liveRun) this.updateRunState(id, liveRun);
@@ -1082,6 +1086,7 @@ export class WorkflowSessionController {
     // session, each with its own view (backlog 0058: a reopened conversation showed only its
     // last turn). Rendered first from the loaded turn; the earlier ones are prepended.
     await this.loadEarlierTurns(id, text(read.view.session_id), generation, signal);
+    if (this.live(generation)) this.set({ ...this.snapshot, historyLoading: false });
     return true;
   }
 
