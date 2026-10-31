@@ -259,6 +259,7 @@ export {
   STATUS_LABELS,
   apiErrorText,
   attentionAckCursor,
+  consumedAttentionCursor,
   attentionLabel,
   automationControls,
   buildCreateRequest,

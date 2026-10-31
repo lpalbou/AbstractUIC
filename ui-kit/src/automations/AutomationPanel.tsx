@@ -15,6 +15,7 @@ import { prepareAutomationTarget } from "./prepare_target.js";
 // pair) are hook-free so scripts/check_automation_panel.mjs can render them in
 // any state and invoke their handlers without a DOM.
 import React, { useEffect, useId, useRef, useState } from "react";
+import { VisibleContentMarker } from "../visible_content.js";
 import { Icon, type IconName } from "../icon.js";
 import { AfSwitch, AfSwitchInput } from "../af_switch.js";
 import { AfEmailSetupNotice } from "./email_fields.js";
@@ -28,7 +29,7 @@ import {
   formatServedLocal,
   nextRunLabel,
   SCHEDULE_TEXT,
-  attentionAckCursor,
+  consumedAttentionCursor,
   attentionLabel,
   automationControls,
   ActionIds,
@@ -957,6 +958,7 @@ export type OccurrencePairProps = {
   renderText?: RenderText;
   /** See `AutomationPanelProps.renderTurn`. */
   renderTurn?: RenderTurn;
+  readMarker?: React.ReactNode;
   /** See `AutomationPanelProps.onOpenWorkspace` (called with this occurrence's run id). */
   onOpenWorkspace?(runId: string): void;
   /** See `AutomationPanelProps.onOpenResource`. */
@@ -1228,6 +1230,7 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
         {row.waits.map((w) => (
           <WaitAnswerForm key={`${w.run_id}:${w.wait_key}`} wait={w} busy={p.busy} idBase={idBase} onAnswerWait={p.onAnswerWait} onWaitError={p.onWaitError} renderText={p.renderText} />
         ))}
+        {p.readMarker}
       </div>
       <div className="af-auto-occ__foot">
         <details className="af-auto-occ__details">
@@ -1401,10 +1404,22 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
     );
   };
 
-  // Acknowledge the attention items this panel displays: the LAST displayed
-  // item's cursor, recorded only once `/seen` succeeded; a failure is retried
-  // on the next render that brings a new summary.
-  const ack = attentionAckCursor(summary);
+  // Loading a summary is not consumption. Keep a bounded set of the current
+  // page's visibly consumed items; /seen may advance only through their prefix.
+  const consumedRef = useRef({ id: summary.automation_id, cursors: new Set<string>() });
+  const [, consumedChanged] = useState(0);
+  if (consumedRef.current.id !== summary.automation_id) consumedRef.current = { id: summary.automation_id, cursors: new Set() };
+  const currentCursors = new Set(summary.attention.items.map((it) => it.cursor));
+  for (const cursor of consumedRef.current.cursors) if (!currentCursors.has(cursor)) consumedRef.current.cursors.delete(cursor);
+  const markConsumed = (cursor: string) => {
+    const owner = summary.automation_id;
+    if (consumedRef.current.id !== owner || consumedRef.current.cursors.has(cursor)) return;
+    consumedRef.current.cursors.add(cursor);
+    consumedChanged((n) => n + 1);
+  };
+  const marker = (cursor: string) => <VisibleContentMarker key={`${summary.automation_id}:${cursor}`} ownerKey={summary.automation_id}
+    contentKey={cursor} enabled onConsume={() => markConsumed(cursor)} />;
+  const ack = consumedAttentionCursor(summary, consumedRef.current.cursors);
   const onSeenRef = useRef(props.onSeen);
   onSeenRef.current = props.onSeen;
   const seenRef = useRef<SeenAckTracker | null>(null);
@@ -1544,6 +1559,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
                 <span className={`af-auto-badge af-auto-badge--${it.kind === "failure" ? "failed" : "notified"}`}>{it.kind === "failure" ? "Failed" : "Notified"}</span>{" "}
                 <strong>{it.title}</strong> <span className="af-auto-turn__muted">Run #{it.index} · {whenWords(it.at, { timeZone: summary.time_zone, nowMs: props.nowMs, style: "day" })}</span>
                 {it.body ? <div className="af-auto__attention-body">{render(it.body)}</div> : null}
+                {marker(it.cursor)}
               </li>
             ))}
             {att.waits.map((w) => (
@@ -1579,6 +1595,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
                 discuss={controls.discuss}
                 renderText={render}
                 renderTurn={props.renderTurn}
+                readMarker={summary.attention.items.filter((it) => it.index === v.row.index).map((it) => marker(it.cursor))}
                 onOpenWorkspace={props.onOpenWorkspace}
                 onOpenResource={
                   props.onOpenResource

@@ -90,3 +90,9 @@ an amber diamond; a wait never looks like running. A current occurrence has a sp
 last run has a red dot. Counts and attention come from the automation summary; rendering or opening
 the card does not acknowledge unseen results. Pause/resume stays in the automation's editor/header.
 Hosts own archive confirmation, capability checks and commands, just as with conversation cards.
+
+Automation attention uses a gateway-owned, per-user monotone cursor. The shared panel advances
+only through the oldest-first prefix whose notice or answer footer passed the same focused,
+unobscured visibility check as a conversation. Loading a panel, skipping older notices, or
+replaying its ledger does not mark them seen. These server receipts are shared across devices;
+other clients may use broader acknowledgment policies.
