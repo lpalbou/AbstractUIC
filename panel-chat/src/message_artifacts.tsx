@@ -1,3 +1,4 @@
+import { ArtifactPreviewModal } from "./artifact_preview.js";
 import React, {
   createContext,
   useContext,
@@ -13,9 +14,14 @@ import {
 } from "@abstractframework/ui-kit";
 import type { ChatMessage } from "./chat_message_card.js";
 import { runBounded } from "./attachment_uploads.js";
-import { deliverBlob, gatewayResponseError } from "./workspace_browser.js";
+import {
+  internalArtifactPart,
+  internalArtifactMetadata,
+  type MessageArtifact,
+} from "./artifact_provenance.js";
+export type { MessageArtifact } from "./artifact_provenance.js";
+import { gatewayResponseError } from "./workspace_browser.js";
 
-export type MessageArtifact = { id: string; runId: string; name?: string };
 const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v)
     ? (v as Record<string, unknown>)
@@ -55,7 +61,8 @@ export function messageArtifactRefs(
       }
       return;
     }
-    Object.values(r).forEach((x) => {
+    Object.entries(r).forEach(([key, x]) => {
+      if (internalArtifactPart(key)) return;
       if (x && typeof x === "object") walk(x, depth + 1);
     });
   };
@@ -83,31 +90,24 @@ export function outputArtifacts(
   output: unknown,
   runId: string,
 ): MessageArtifact[] {
-  const r = obj(output);
+  const root = obj(output),
+    result = obj(root.result);
+  const fields = [
+    "attachments",
+    "artifacts",
+    "files",
+    "media",
+    "artifact",
+    "artifact_ref",
+    "image_artifact",
+    "audio_artifact",
+    "video_artifact",
+    "music_artifact",
+  ];
   return messageArtifactRefs(
-    [
-      r.attachments,
-      r.artifacts,
-      r.files,
-      r.image_artifact,
-      r.audio_artifact,
-      r.video_artifact,
-      r.music_artifact,
-      obj(r.meta).attachments,
-      obj(r.meta).files,
-      obj(r.meta).artifacts,
-      obj(r.meta).image_artifact,
-      obj(r.meta).video_artifact,
-      obj(r.meta).audio_artifact,
-      obj(r.meta).music_artifact,
-      ...(r.result
-        ? [
-            obj(r.result).attachments,
-            obj(r.result).artifacts,
-            obj(r.result).files,
-          ]
-        : []),
-    ],
+    [root, obj(root.meta), result, obj(result.meta)].flatMap((container) =>
+      fields.map((key) => container[key]),
+    ),
     runId,
   );
 }
@@ -181,7 +181,9 @@ export function useMessageArtifacts(
   // outcomes from authorized run snapshots; never infer attachments from tool bookkeeping.
   const missing = JSON.stringify(
     (JSON.parse(signature) as string[]).filter(
-      (id) => !messages.some((m) => m.runId === id && m.role === "assistant"),
+      (id) =>
+        !messages.some((m) => m.runId === id && m.role === "assistant") ||
+        messages.some((m) => m.runId === id && m.artifactReferencesUnresolved),
     ),
   );
   const [restored, setRestored] = useState<{
@@ -258,23 +260,10 @@ export function useMessageArtifacts(
         originalPrompt && inputs.owner === scope
           ? inputs.refs[m.runId || ""] || []
           : [];
-      const refs = [
-        ...(m.artifactRefs || []),
-        ...(m.artifactIds || [])
-          .filter(
-            (id) =>
-              ![...(m.artifactRefs || []), ...submitted].some(
-                (r) => r.id === id,
-              ),
-          )
-          .map((id) => ({ id, runId: m.runId || "" })),
-        ...submitted,
-      ];
+      const refs = [...(m.artifactRefs || []), ...submitted];
       const unique = [
         ...new Map(
-          refs
-            .filter((r) => r.id && r.runId)
-            .map((r) => [JSON.stringify([r.runId, r.id]), r]),
+          refs.filter((r) => r.id && r.runId).map((r) => [r.id, r]),
         ).values(),
       ];
       return unique.length ? { ...m, artifactRefs: unique } : m;
@@ -324,8 +313,8 @@ export function useMessageArtifacts(
             ...list[i],
             artifactRefs: [
               ...new Map(
-                [...(list[i].artifactRefs || []), ...refs].map((r) => [
-                  JSON.stringify([r.runId, r.id]),
+                [...refs, ...(list[i].artifactRefs || [])].map((r) => [
+                  r.id,
                   r,
                 ]),
               ).values(),
@@ -356,18 +345,24 @@ export function MessageArtifactChip({
   artifact: MessageArtifact;
 }): React.ReactElement {
   const fetchGateway = useContext(ArtifactFetchContext),
-    [name, setName] = useState(artifact.name || `Attachment ${artifact.id}`),
+    [name, setName] = useState(artifact.name || "Attached file"),
     [error, setError] = useState(""),
-    [busy, setBusy] = useState(false),
-    action = useRef<AbortController | null>(null);
+    [previewOpen, setPreviewOpen] = useState(false),
+    [internal, setInternal] = useState(false),
+    [metadataStatus, setMetadataStatus] = useState<
+      "loading" | "ready" | "error"
+    >("loading"),
+    [metadataAttempt, retryMetadata] = useState(0);
   const path = gatewayApiPath(
     `runs/${encodeURIComponent(artifact.runId)}/artifacts/${encodeURIComponent(artifact.id)}`,
   );
   useEffect(() => {
     const abort = new AbortController();
-    setName(artifact.name || `Attachment ${artifact.id}`);
+    setName(artifact.name || "Attached file");
     setError("");
-    setBusy(false);
+    setInternal(false);
+    setMetadataStatus("loading");
+
     if (fetchGateway)
       void fetchGateway(path, { signal: abort.signal })
         .then(async (r) => {
@@ -377,6 +372,11 @@ export function MessageArtifactChip({
             tags = obj(meta.tags),
             descriptor = obj(meta.descriptor),
             envelope = obj(meta.artifact_envelope_v1);
+          const hidden = internalArtifactMetadata(meta);
+          if (!abort.signal.aborted) {
+            setInternal(hidden);
+            setMetadataStatus("ready");
+          }
           const value =
             meta.filename ||
             meta.name ||
@@ -387,53 +387,46 @@ export function MessageArtifactChip({
             setName(value);
         })
         .catch((e) => {
-          if (!abort.signal.aborted)
+          if (!abort.signal.aborted) {
+            setMetadataStatus("error");
             setError(e instanceof Error ? e.message : String(e));
+          }
         });
     return () => {
       abort.abort();
-      action.current?.abort();
     };
-  }, [fetchGateway, path, artifact.name]);
+  }, [fetchGateway, path, metadataAttempt]);
+  useEffect(() => {
+    if (artifact.name) setName(artifact.name);
+  }, [artifact.name]);
+  if (internal) return <></>;
   return (
     <span className="pc-message-artifact">
       <button
         type="button"
         className="pc-chat-attachment-chip"
-        disabled={!fetchGateway || busy}
-        onClick={async () => {
-          if (!fetchGateway) return;
-          const abort = new AbortController();
-          action.current = abort;
-          setBusy(true);
-          setError("");
-          try {
-            const r = await fetchGateway(`${path}/content`, {
-              signal: abort.signal,
-            });
-            if (!r.ok)
-              throw await gatewayResponseError(
-                r,
-                "Attachment could not be opened",
-              );
-            const blob = await r.blob();
-            if (!abort.signal.aborted) deliverBlob(blob, name, "open");
-          } catch (e) {
-            if (!abort.signal.aborted)
-              setError(e instanceof Error ? e.message : String(e));
-          } finally {
-            if (!abort.signal.aborted) setBusy(false);
-          }
-        }}
+        aria-haspopup="dialog"
+        disabled={!fetchGateway || metadataStatus !== "ready"}
+        onClick={() => setPreviewOpen(true)}
       >
         <Icon name="paperclip" size={14} />
         <span className="pc-chat-attachment-name">{name}</span>
-        {busy && " · Opening…"}
       </button>
       {error && (
         <span role="status" className="pc-message-artifact__error">
-          {error} <span>Click the attachment to retry.</span>
+          {error}{" "}
+          <button type="button" onClick={() => retryMetadata((n) => n + 1)}>
+            Retry {name}
+          </button>
         </span>
+      )}
+      {previewOpen && fetchGateway && (
+        <ArtifactPreviewModal
+          name={name}
+          path={path}
+          fetchGateway={fetchGateway}
+          onClose={() => setPreviewOpen(false)}
+        />
       )}
     </span>
   );

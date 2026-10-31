@@ -72,3 +72,6 @@ account-switch dwell cancellation, and shared versus isolated receipts.
 AbstractTUI provides a controlled native `widgets::SessionCard` presenter with equivalent
 unread/attention/working/selection facts. It does not own networking or read receipts; adopting
 receipt tracking in a native application remains host integration work.
+
+On desktop the archive icon is 28 px, hidden until card hover or keyboard focus.
+Touch/no-hover devices retain a visible 44 px target. Opening and archive remain sibling controls.

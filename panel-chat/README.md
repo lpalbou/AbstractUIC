@@ -594,9 +594,21 @@ run snapshots. Settled historical lookups are cached per scope; failed reads exp
 Only attachment/output fields are inspected, excluding scratchpad and internal state artifacts.
 
 Metadata and input reads are bounded to four concurrent requests; file bytes load only on
-activation. Switching account/conversation cancels pending opens. Filename chips remain visible
-on read failure. The existing safe file opener displays active documents as inert source or
-provides a download. No credentials are put in a rendered file URL.
+activation. Switching account/conversation cancels pending previews and downloads. Real files
+open in the shared `AfModal` / `FileViewer`, including images, audio, video, PDF, JSON and text.
+Text previews stop at 1 MiB; media/PDF previews stop at 25 MiB even without a size header.
+Larger or unsupported files retain an explicit Download action. HTML/SVG/XML render as inert
+source. Closing the modal aborts reads and revokes its object URLs; Escape returns focus.
+Metadata failures keep the named file disabled with Retry until classification succeeds.
+No credentials are put in a rendered file URL.
+
+Opaque `artifactIds` remain replay evidence, never automatic attachment chips. The shared
+projection uses explicit file/media provenance and the owning run, rejecting scratchpad,
+provider traces, session/history/transcript branches and unlisted refs. Input/output recovery
+reads only declared attachment fields; requested JSON files remain eligible. Metadata tagged
+as internal offloads is suppressed. Files carried by a repeated final are merged into the
+visible answer. The conversation compatibility snapshot exports `useWorkflowSession` too, so
+both browser clients use this projection rather than an older installed controller.
 
 Bare HTTP(S) and `www` links are clickable in Markdown, JSON strings and tool parameter/result
 text. Whole URLs remain intact during highlighting; links open a separate tab with

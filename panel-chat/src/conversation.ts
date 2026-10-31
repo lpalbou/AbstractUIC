@@ -8,3 +8,5 @@ export {
 } from "./chat_message_card.js";
 export { ToolActivity, ToolActivityGroup } from "./tool_activity.js";
 export { submittedArtifacts, outputArtifacts } from "./message_artifacts.js";
+
+export {useWorkflowSession} from "./use_workflow_session.js";

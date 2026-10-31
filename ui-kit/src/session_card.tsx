@@ -45,6 +45,6 @@ export function SessionCard(p: SessionCardProps): React.ReactElement {
       </span>
     </button>
     {p.onArchive && <button type="button" className="af-session-card__archive" aria-label={`Archive ${p.title}`} title="Archive conversation"
-      disabled={p.disabled || p.archiveDisabled} onClick={p.onArchive}><Icon name="archive" size={16} /></button>}
+      disabled={p.disabled || p.archiveDisabled} onClick={p.onArchive}><Icon name="archive" size={14} /></button>}
   </div>;
 }

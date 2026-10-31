@@ -56,6 +56,8 @@ export type ChatMessage = {
    * file chips with its artifactFetch transport; hosts may also supply media.
    */
   artifactIds?: string[];
+  /** Unlisted replay refs require explicit output recovery, never raw-ID chips. */
+  artifactReferencesUnresolved?: boolean;
   artifactRefs?: MessageArtifact[];
 };
 
@@ -512,7 +514,7 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         </div>
       ) : null}
 
-      {(m.artifactRefs?.length || m.artifactIds?.length) ? <div className="pc-chat-attachments" aria-label="Attached files">{(m.artifactRefs || m.artifactIds?.map(id=>({id,runId:m.runId||""})) || []).map(a=><MessageArtifactChip key={`${a.runId}:${a.id}`} artifact={a}/>)}</div> : null}
+      {m.artifactRefs?.length ? <div className="pc-chat-attachments" aria-label="Attached files">{m.artifactRefs.map(a=><MessageArtifactChip key={`${a.runId}:${a.id}`} artifact={a}/>)}</div> : null}
       {attachments.length ? (
         <div className="pc-chat-attachments" aria-label="Attachments">
           {attachments.map((a, idx) => {

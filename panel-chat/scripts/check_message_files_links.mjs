@@ -81,7 +81,7 @@ for (const role of ["user", "assistant"])
         role,
         runId: "r",
         content: "Attached.",
-        artifactIds: ["file"],
+        artifactRefs: [{ id: "file", runId: "r", name: "report.json" }],
       },
     }),
     /Attached files/,
@@ -110,3 +110,87 @@ const mixed = html(ToolActivity, {
 assert.match(mixed, /href="https:\/\/example.com\/docs"/);
 assert.match(mixed, /href="https:\/\/www.example.org"/);
 assert.match(mixed, /href="https:\/\/example.net\/guide"/);
+
+import { projectReplayView } from "../dist/replay_view_projection.js";
+import { displayArtifactPath } from "../dist/artifact_provenance.js";
+import {
+  boundedPreviewBlob,
+  artifactPreviewKind,
+} from "../dist/artifact_preview.js";
+const projected = projectReplayView({
+  root_run_id: "r",
+  messages: [
+    {
+      id: "answer",
+      role: "assistant",
+      kind: "answer",
+      text: "Your JSON",
+      run_id: "r",
+    },
+    {
+      id: "r:final",
+      role: "assistant",
+      kind: "final",
+      text: "Your JSON",
+      run_id: "r",
+      repeats: "answer",
+      artifact_ids: ["json", "scratch", "session", "unknown"],
+    },
+  ],
+  artifacts: [
+    { id: "json", run_id: "child", path: "output.attachments[0]" },
+    { id: "scratch", run_id: "r", path: "output.scratchpad.node_traces.steps" },
+    { id: "session", run_id: "r", path: "output.session.artifacts[0]" },
+  ],
+  runs: [],
+});
+assert.equal(projected.messages.length, 1);
+assert.deepEqual(projected.messages[0].artifactRefs, [
+  { id: "json", runId: "child" },
+]);
+assert.equal(projected.messages[0].artifactReferencesUnresolved, true);
+assert.doesNotMatch(
+  html(ChatMessageCard, {
+    message: {
+      role: "assistant",
+      runId: "r",
+      content: "Hello",
+      artifactIds: ["session", "scratch"],
+    },
+  }),
+  /Attached files|Attachment session/,
+);
+assert.equal(displayArtifactPath("output.artifacts[0]"), true);
+assert.equal(displayArtifactPath("output.transcript.attachments[0]"), false);
+assert.equal(
+  displayArtifactPath("output._provider_request.image_artifact"),
+  false,
+);
+assert.equal(artifactPreviewKind("innocent.pdf", "text/html"), "text");
+assert.equal(artifactPreviewKind("picture.png", "image/svg+xml"), "text");
+let cancelled = false;
+await assert.rejects(
+  () =>
+    boundedPreviewBlob(
+      new Response(
+        new ReadableStream({
+          start(c) {
+            c.enqueue(new Uint8Array(6));
+          },
+          cancel() {
+            cancelled = true;
+          },
+        }),
+      ),
+      4,
+    ),
+  /too large/,
+);
+assert.equal(cancelled, true);
+
+assert.equal(artifactPreviewKind("photo.png","application/json"),"json");
+assert.equal(artifactPreviewKind("photo.png","text/plain"),"text");
+
+assert.deepEqual(outputArtifacts({result:{artifact_ref:{$artifact:"json",filename:"report.json"}}},"r"),[{id:"json",runId:"r",name:"report.json"}]);
+
+assert.deepEqual(outputArtifacts({media:[{$artifact:"sound",filename:"answer.wav"}]},"r"),[{id:"sound",runId:"r",name:"answer.wav"}]);
