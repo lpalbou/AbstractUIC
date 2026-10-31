@@ -9,6 +9,10 @@ ships.
 
 ## Unreleased
 
+- Attachment previews fit media dimensions with one filename, Download and Close.
+- Shared session read clients persist consumption through the Gateway and synchronize across devices; failed writes retain unread marks.
+
+
 - Use official Anthropic, Portkey and OVHcloud artwork in shared provider cards, replacing text badges (operator request, Gateway backlog 0985). Preserve source attribution, geometry, colours and offline rendering.
 
 ## 0.8.9 - 2026-10-29

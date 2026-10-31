@@ -147,7 +147,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Optional
 
-- [Compact session cards](docs/session-cards.md): Watch-style conversation cards, human attention and visibility-gated browser read receipts.
+- [Compact session cards](docs/session-cards.md): Watch-style conversation cards, human attention and visibility-gated Gateway read receipts.
 
 - [Publishing (maintainers)](docs/publishing.md): Release checklist and npm publish notes
 - [Development](docs/development.md): Local workflow, tests and contracts shared with other repositories
@@ -2101,8 +2101,8 @@ prevents the focus zoom.
 This page is a **practical map** of what each package exports and how you typically integrate it.
 
 For compact conversation lists, `SessionCard`, `sessionActivityFromRuns`, `sessionReadTarget`,
-`useSessionReads` and `SessionReadMarker` provide shared presentation and browser-local read
-receipts. See [Compact session cards](session-cards.md) for ownership and consumption rules.
+`createSessionReadClient`, `useSessionReads` and `SessionReadMarker` provide shared presentation
+and Gateway-owned, account-wide read receipts. See [Compact session cards](session-cards.md) for ownership and consumption rules.
 
 Source of truth:
 - React packages: exports in `*/src/index.ts` (compiled to `dist/` on publish; see `*/package.json`)
@@ -2623,6 +2623,11 @@ provide its Gateway `request` function for required-input checks, or supply
 `prepareTarget` to reuse a host’s schema validator. `AfScheduleDialog.workflowPicker`
 accepts the creation form’s picker. Changing workflows retains portable agent settings;
 workflow-specific inputs use the new workflow’s defaults.
+
+Attachment file previews use one modal header with the filename, Download and Close. Image
+and video previews fit their intrinsic aspect ratio within the viewport; text and PDF previews
+retain a readable document width. All previews keep the shared file renderer and authenticated,
+bounded loading behavior.
 
 ## docs/architecture.md
 
@@ -7922,6 +7927,7 @@ export { AvatarRenderer, avatarDesigns, avatarPaletteFromCss, type AvatarPalette
 export { SessionCard, type SessionCardProps } from "./session_card.js";
 export { AutomationCard, automationCardSchedule, automationCardNext, type AutomationCardProps } from "./automation_card.js";
 export { sessionContentRevision, sessionReadTarget, sessionNeedsAttention, sessionActivityFromRuns, sessionReadScope, SessionReadStore, type SessionActivity, type SessionReceipt } from "./session_activity.js";
+export { createSessionReadClient, sessionReadIdentity, sessionReadEventReceipt, type SessionReadClient, type SessionReadEvent } from "./session_read_client.js";
 export { useSessionReads, SessionReadMarker } from "./session_reads.js";
 
 ## ui-kit/src/responsive.ts
@@ -22009,14 +22015,23 @@ Checking every content receipt preserves late answers from older concurrent turn
 subworkflow waits are not requests for a person. Hosts must also merge authoritative child-run
 attention; failed or partial refreshes must not clear known pending questions.
 
-`useSessionReads(sessionReadScope(connection), observedReceipts)` stores browser-local
-receipts. Code and Assistant share them when served on the same origin for the same Gateway,
-tenant, user and runtime. Credentials are never included in the key. Other devices and browser
-origins keep independent unread state, matching the Watch's current per-device behavior.
-Old history is baselined on first use; new content thereafter can be unread. Storage failures
-are reported and the current page keeps an in-memory receipt. Retention is bounded to 4,096
-revision receipts per scope; very old evicted revisions with recently changed metadata may
-reappear as unread. Server-backed cross-device receipts are a separate follow-up.
+`createSessionReadClient(fetchGateway)` connects `useSessionReads(scope, observedReceipts, client)`
+to the caller's Gateway-owned read ledger. Supply the host's authenticated, CSRF-aware transport.
+Confirmed receipts are shared across browsers and devices for the same account and runtime.
+Existing personal event followers should call `reads.refresh()` on `session.read`; focused polling
+and reconnects recover missed delivery. Request and outcome receipts are independent, immutable
+run revisions. A failed or incomplete acknowledgment retains the unread mark and reports an error.
+
+The Gateway retains canonical receipts independently of the personal event stream's retention.
+Use `GET /api/gateway/me/session-reads?run_id=<id>&limit=1000` for visible turns (up to 100 run IDs
+per request), or replay with `after=<sequence>`. `POST` accepts `{receipts: [{session_id, run_id,
+status}]}` in batches of 100. Terminal status must match the stored conversation turn root;
+a request receipt never consumes its later answer. Reads never change workflow execution ledgers.
+
+Omitting `client` selects browser-local compatibility mode. That mode shares only within one
+origin, baselines older history on first use, and retains up to 4,096 revisions per scope.
+Do not upload those baselines as factual user consumption. Gateway mode never writes a local
+baseline or silently falls back to browser-local state.
 
 Mount `SessionReadMarker` after successfully loaded content, normally in the message footer.
 It acknowledges only after 250 ms in the focused, visible document with the marker fully in
@@ -22041,6 +22056,8 @@ Run `npm run build` and `node scripts/check_session_cards.mjs` in `ui-kit`. Opti
 `SESSION_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check_session_cards_browser.mjs`.
 The browser check exercises offscreen and occluded content, background visibility events,
 account-switch dwell cancellation, and shared versus isolated receipts.
+`node scripts/check_session_reads_remote_browser.mjs` additionally checks independent browser
+contexts, failed/incomplete writes, delayed responses, large batches and account isolation.
 
 AbstractTUI provides a controlled native `widgets::SessionCard` presenter with equivalent
 unread/attention/working/selection facts. It does not own networking or read receipts; adopting
@@ -22432,6 +22449,10 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## Unreleased
+
+- Attachment previews fit media dimensions with one filename, Download and Close.
+- Shared session read clients persist consumption through the Gateway and synchronize across devices; failed writes retain unread marks.
+
 
 - Use official Anthropic, Portkey and OVHcloud artwork in shared provider cards, replacing text badges (operator request, Gateway backlog 0985). Preserve source attribution, geometry, colours and offline rendering.
 

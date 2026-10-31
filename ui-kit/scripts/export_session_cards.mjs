@@ -23,7 +23,7 @@ for (const file of Object.keys(panel.metafile.inputs)) {
   if (!file.startsWith("dist/")) throw new Error("Unexpected automation panel dependency: " + file);
   manifest.sources[file]=hash(readFileSync(resolve(root,file)));
 }
-for (const name of ["session_cards", "session_card", "session_activity", "session_reads", "automation_card"]) {
+for (const name of ["session_cards", "session_card", "session_activity", "session_reads", "session_read_client", "automation_card"]) {
   const file=`dist/${name}.d.ts`, bytes=readFileSync(resolve(root,file));
   // Hosts already import the canonical wire types from their pinned UI kit.
   write(`${name}.d.ts`, bytes.toString().replace('"./automations/types.js"', '"@abstractframework/ui-kit"')); manifest.sources[file]=hash(bytes);

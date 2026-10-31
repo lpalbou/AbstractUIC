@@ -36,14 +36,23 @@ Checking every content receipt preserves late answers from older concurrent turn
 subworkflow waits are not requests for a person. Hosts must also merge authoritative child-run
 attention; failed or partial refreshes must not clear known pending questions.
 
-`useSessionReads(sessionReadScope(connection), observedReceipts)` stores browser-local
-receipts. Code and Assistant share them when served on the same origin for the same Gateway,
-tenant, user and runtime. Credentials are never included in the key. Other devices and browser
-origins keep independent unread state, matching the Watch's current per-device behavior.
-Old history is baselined on first use; new content thereafter can be unread. Storage failures
-are reported and the current page keeps an in-memory receipt. Retention is bounded to 4,096
-revision receipts per scope; very old evicted revisions with recently changed metadata may
-reappear as unread. Server-backed cross-device receipts are a separate follow-up.
+`createSessionReadClient(fetchGateway)` connects `useSessionReads(scope, observedReceipts, client)`
+to the caller's Gateway-owned read ledger. Supply the host's authenticated, CSRF-aware transport.
+Confirmed receipts are shared across browsers and devices for the same account and runtime.
+Existing personal event followers should call `reads.refresh()` on `session.read`; focused polling
+and reconnects recover missed delivery. Request and outcome receipts are independent, immutable
+run revisions. A failed or incomplete acknowledgment retains the unread mark and reports an error.
+
+The Gateway retains canonical receipts independently of the personal event stream's retention.
+Use `GET /api/gateway/me/session-reads?run_id=<id>&limit=1000` for visible turns (up to 100 run IDs
+per request), or replay with `after=<sequence>`. `POST` accepts `{receipts: [{session_id, run_id,
+status}]}` in batches of 100. Terminal status must match the stored conversation turn root;
+a request receipt never consumes its later answer. Reads never change workflow execution ledgers.
+
+Omitting `client` selects browser-local compatibility mode. That mode shares only within one
+origin, baselines older history on first use, and retains up to 4,096 revisions per scope.
+Do not upload those baselines as factual user consumption. Gateway mode never writes a local
+baseline or silently falls back to browser-local state.
 
 Mount `SessionReadMarker` after successfully loaded content, normally in the message footer.
 It acknowledges only after 250 ms in the focused, visible document with the marker fully in
@@ -68,6 +77,8 @@ Run `npm run build` and `node scripts/check_session_cards.mjs` in `ui-kit`. Opti
 `SESSION_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check_session_cards_browser.mjs`.
 The browser check exercises offscreen and occluded content, background visibility events,
 account-switch dwell cancellation, and shared versus isolated receipts.
+`node scripts/check_session_reads_remote_browser.mjs` additionally checks independent browser
+contexts, failed/incomplete writes, delayed responses, large batches and account isolation.
 
 AbstractTUI provides a controlled native `widgets::SessionCard` presenter with equivalent
 unread/attention/working/selection facts. It does not own networking or read receipts; adopting

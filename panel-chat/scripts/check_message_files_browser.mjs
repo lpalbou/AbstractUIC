@@ -22,7 +22,7 @@ window.failMeta=false;window.releaseMetadata=()=>{};window.calls=[];window.block
 async function gateway(path,init={}){window.calls.push(path);if(path.includes('blocked-state')&&!path.endsWith('/content')){await new Promise(r=>window.releaseMetadata=r);return Response.json({tags:{source:'node_trace_offload'}});}if(window.failMeta&&path.includes('user-file')&&!path.endsWith('/content'))return new Response('Forbidden',{status:403});if(path.endsWith('/input_data')){if(path.includes('/historic/'))return Response.json({input_data:{}});if(window.failInput)return new Response('History unavailable',{status:503});return Response.json({input_data:{context:{attachments:[{$artifact:'user-file',filename:'notes.txt',run_id:'memory'}]}}});}
 if(path.endsWith('/historic'))return Response.json({status:'completed',output:{attachments:[{$artifact:'historical-file',filename:'older-report.txt'}]}});
 if(path.includes('old-file')&&path.endsWith('/content'))await new Promise(r=>window.oldResolvers.push(r));
-if(path.endsWith('/content')&&path.includes('image-file'))return new Response(Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6fGQAAAAASUVORK5CYII='),c=>c.charCodeAt(0)),{headers:{'Content-Type':'image/png'}});
+if(path.endsWith('/content')&&path.includes('image-file')){const c=document.createElement('canvas');c.width=window.widePhoto?1200:500;c.height=window.widePhoto?400:800;c.getContext('2d').fillRect(0,0,c.width,c.height);return new Response(Uint8Array.from(atob(c.toDataURL().split(',')[1]),c=>c.charCodeAt(0)),{headers:{'Content-Type':'image/png'}});}
 if(path.endsWith('/content')&&path.includes('ai-file'))return Response.json({report:'requested JSON file'});
 if(path.endsWith('/content'))return new Response(path.includes('active-file')?'<script>window.pwned=true</script>':'A file from the Gateway',{headers:{'Content-Type':path.includes('active-file')?'text/html':'text/plain'}});
 return Response.json({tags:{filename:path.includes('old-file')?'Old file':path.includes('user-file')?'notes.txt':path.includes('active-file')?'untrusted.html':path.includes('historical-file')?'older-report.txt':path.includes('image-file')?'photo.png':path.includes('only-file')?'attachment-only.pdf':'report.json'}});}
@@ -172,6 +172,17 @@ try {
     .getByRole("dialog", { name: "photo.png", exact: true })
     .locator("img")
     .waitFor();
+  await page.waitForFunction(() => document.querySelector('.pc-artifact-preview__content')?.style.getPropertyValue('--pc-media-width') === '500px');
+  const fit = await page.getByRole('dialog').evaluate(el => {
+    const box=el.getBoundingClientRect(), img=el.querySelector('img').getBoundingClientRect();
+    const header=el.querySelector('.af-modal__header').getBoundingClientRect();
+    const download=el.querySelector('[aria-label="Download photo.png"]').getBoundingClientRect();
+    return {width:box.width,height:box.height,imageWidth:img.width,imageHeight:img.height,aligned:download.top>=header.top && download.bottom<=header.bottom,headCount:[...el.querySelectorAll('.af-modal__title,.af-file-viewer__name')].filter(n=>n.getClientRects().length).length};
+  });
+  assert(fit.width < 600 && fit.width >= fit.imageWidth, JSON.stringify(fit));
+  assert(fit.width-fit.imageWidth < 32 && fit.height-fit.imageHeight < 100, 'Portrait dialog hugs image');
+  assert(fit.aligned); assert.equal(fit.headCount,1,'One visible filename');
+  if(process.env.CHAT_CAPTURE_DIR) await page.getByRole('dialog').screenshot({path:resolve(process.env.CHAT_CAPTURE_DIR,'portrait-preview.png')});
   const blobUrl = await page
     .getByRole("dialog")
     .locator("img")
@@ -181,6 +192,16 @@ try {
     await page.evaluate((url) => window.revokedUrls.includes(url), blobUrl),
     true,
   );
+  await page.evaluate(()=>window.widePhoto=true);
+  await page.setViewportSize({width:390,height:700});
+  await page.getByRole('button',{name:'photo.png',exact:true}).click();
+  await page.waitForFunction(() => document.querySelector('.pc-artifact-preview__content')?.style.getPropertyValue('--pc-media-width') === '1200px');
+  const mobileFit=await page.getByRole('dialog').boundingBox();
+  assert(mobileFit.width<=360 && mobileFit.x>=14 && mobileFit.y>=0 && mobileFit.y+mobileFit.height<=700);
+  const mobileImage=await page.getByRole('dialog').locator('img').boundingBox();
+  assert(mobileFit.height-mobileImage.height<100,'Landscape preview has no empty full-screen panel');
+  await page.keyboard.press('Escape');
+  await page.setViewportSize({width:1200,height:1000});
   assert.equal(
     context.pages().length,
     pagesBefore,

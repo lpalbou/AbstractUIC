@@ -80,6 +80,7 @@ export function ArtifactPreviewModal(p: {
       kind: "binary",
     }),
     [attempt, retry] = useState(0),
+    [mediaSize, setMediaSize] = useState<{ url: string; width: number; height: number } | null>(null),
     [downloading, setDownloading] = useState(false),
     [downloadError, setDownloadError] = useState("");
   const previewAbort = useRef<AbortController | null>(null),
@@ -219,11 +220,13 @@ export function ArtifactPreviewModal(p: {
         download.current?.abort();
         p.onClose();
       }}
-      size="wide"
-      className="pc-artifact-preview"
+      className={`pc-artifact-preview pc-artifact-preview--${state.kind}`}
       footerNote={downloading ? "Downloading…" : downloadError || undefined}
       footer={state.status === "error" ? <button type="button" className="pc-artifact-preview__retry" onClick={()=>retry(n=>n+1)}>Retry preview</button> : undefined}
     >
+      <div className="pc-artifact-preview__content" style={mediaSize && mediaSize.url === state.url ? { "--pc-media-width": `${mediaSize.width}px`, "--pc-media-aspect": mediaSize.width / mediaSize.height } as React.CSSProperties : undefined}
+        onLoadCapture={e=>{const image=e.target; if(image instanceof HTMLImageElement && image.naturalWidth && image.naturalHeight && image.src === state.url) setMediaSize({url:image.src,width:image.naturalWidth,height:image.naturalHeight});}}
+        onLoadedMetadataCapture={e=>{const video=e.target; if(video instanceof HTMLVideoElement && video.videoWidth && video.videoHeight && video.src === state.url) setMediaSize({url:video.src,width:video.videoWidth,height:video.videoHeight});}}>
       <FileViewer
         name={p.name}
         onDownload={()=>void save()}
@@ -237,6 +240,7 @@ export function ArtifactPreviewModal(p: {
         markdownImages="link"
         inlineImage={() => false}
       />
+      </div>
     </AfModal>
   );
 }

@@ -3,8 +3,8 @@
 This page is a **practical map** of what each package exports and how you typically integrate it.
 
 For compact conversation lists, `SessionCard`, `sessionActivityFromRuns`, `sessionReadTarget`,
-`useSessionReads` and `SessionReadMarker` provide shared presentation and browser-local read
-receipts. See [Compact session cards](session-cards.md) for ownership and consumption rules.
+`createSessionReadClient`, `useSessionReads` and `SessionReadMarker` provide shared presentation
+and Gateway-owned, account-wide read receipts. See [Compact session cards](session-cards.md) for ownership and consumption rules.
 
 Source of truth:
 - React packages: exports in `*/src/index.ts` (compiled to `dist/` on publish; see `*/package.json`)
@@ -525,3 +525,8 @@ provide its Gateway `request` function for required-input checks, or supply
 `prepareTarget` to reuse a host’s schema validator. `AfScheduleDialog.workflowPicker`
 accepts the creation form’s picker. Changing workflows retains portable agent settings;
 workflow-specific inputs use the new workflow’s defaults.
+
+Attachment file previews use one modal header with the filename, Download and Close. Image
+and video previews fit their intrinsic aspect ratio within the viewport; text and PDF previews
+retain a readable document width. All previews keep the shared file renderer and authenticated,
+bounded loading behavior.
