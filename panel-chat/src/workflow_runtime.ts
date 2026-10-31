@@ -5,6 +5,7 @@
  * or React presentation.  Hosts supply those through WorkflowTransport.
  */
 import type { ChatMessage } from "./chat_message_card.js";
+import { publicUpdate } from "./conversation_model.js";
 import { foldWorkflowTools, workflowEvidence, historyRecords, type WorkflowToolActivity } from "./workflow_evidence.js";
 import { toolPolicyDecision, toolPolicyDecisionText, type WorkflowToolPolicyProvenance } from "./tool_policy.js";
 import { describeStreamUnavailable, isLlmDeltaEnd, validateLlmDeltaEvent, type LlmDelta, type LlmDeltaEnd } from "./llm_delta.js";
@@ -1588,7 +1589,7 @@ export class WorkflowSessionController {
       // answer_user can be an intermediate conversational turn (the fixture
       // deliberately emits one before an ask_user wait), so it must never
       // consume the root's single authoritative terminal-final identity.
-      if (content) this.addRunAssistantMessage(runId, { id: `answer:${runId}:${key}`, role: "assistant", content, ts: timestamp });
+      if (content) this.addRunAssistantMessage(runId, { id: `answer:${runId}:${key}`, role: "assistant", kind: "answer", runId, content, ts: timestamp });
     }
     // Reserved durable host UX events. `abstractcode.*` is retained as the
     // migration alias specified by ADR-0017; unknown events remain trace-only.
@@ -1597,6 +1598,10 @@ export class WorkflowSessionController {
       const emitted = object(result);
       const name = text(payload.name) || text(emitted?.name);
       const eventPayload = payload.payload !== undefined ? payload.payload : emitted?.payload;
+      if (name === "public_update") {
+        const update = publicUpdate(eventPayload, runId);
+        if (update) this.addMessage({ id: `public_update:${runId}:${update.id}`, role: "assistant", kind: "public_update", source: "public_update", runId, content: update.text, publicUpdate: update, ts: timestamp });
+      }
       if (["abstract.message", "abstractcode.message"].includes(name)) {
           const content = displayValue(eventPayload);
         if (content) {
@@ -1964,7 +1969,7 @@ export class WorkflowSessionController {
     this.closeLiveRepliesOfRun(runId);
     const id = `final:${runId}`;
     this.seenMessages.add(id);
-    const message: ChatMessage = { id, role: "assistant", content, ts, runId, statistics: workflowEvidence(this.snapshot.records).statistics };
+    const message: ChatMessage = { id, role: "assistant", kind: "final", content, ts, runId, statistics: workflowEvidence(this.snapshot.records).statistics };
     const index = this.snapshot.messages.findIndex((existing) => existing.id === id || (String(existing.id || "").startsWith(`answer:${runId}:`) && existing.content === content));
     if (index < 0) {
       this.set({ ...this.snapshot, messages: [...this.snapshot.messages, message] });

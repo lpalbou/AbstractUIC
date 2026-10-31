@@ -31,6 +31,7 @@ import {
   type WorkflowInteraction,
 } from "./workflow_interaction.js";
 import type { StreamRepliesMode } from "./llm_delta.js";
+import { AvatarConversation, type AvatarConversationOptions } from "./avatar_conversation.js";
 
 /** What the host's steer door answered (`POST commands {type:"inject_guidance"}`
  * answers `{accepted, duplicate, seq}`; ui-kit `SteerSubmitResult` fits). */
@@ -63,6 +64,8 @@ export type ChatToolbar = {
 };
 
 export type WorkflowChatProps = {
+  /** Optional second presentation; the existing controlled composer and actions stay mounted. */
+  avatarConversation?: AvatarConversationOptions;
   /** Fully controlled transcript. The host owns message persistence and identity. */
   messages: ChatMessage[];
   /** Authenticated app-origin artifact reads, never model-provided URLs. */
@@ -709,7 +712,15 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
               </button>
             </p>
           )}
-          <ChatThread
+          {props.avatarConversation ? <AvatarConversation
+            {...props.avatarConversation}
+            messages={transcript.messages}
+            attended={Boolean(props.draft.trim())}
+            interaction={<>
+              {props.interaction ? <WorkflowInteractionPanel interaction={props.interaction} disabled={disabled} /> : null}
+              {blocked ? <div className="pc-workflow-chat__blocked" role="status">{props.blockedNotice}</div> : null}
+            </>}
+          /> : <ChatThread
             messages={transcript.messages}
             empty={props.emptyState}
             autoScroll
@@ -747,7 +758,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
               </>
             }
             afterKey={`${props.interaction ? `${props.interaction.kind}:${props.interaction.id}` : ""}:${blocked ? "blocked" : ""}`}
-          />
+          />}
         </ArtifactFetchContext.Provider>
       </div>
       {error ? (
@@ -777,7 +788,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
       <div className="pc-workflow-chat__composer">
         <ChatComposer
           value={props.draft}
-          onChange={props.onDraftChange}
+          onChange={(draft) => { if (props.avatarConversation) props.avatarConversation.onInterruptSpeech?.(); props.onDraftChange(draft); }}
           onSubmit={() => void submit()}
           placeholder={props.placeholder || "Send a message"}
           ariaLabel="Message"

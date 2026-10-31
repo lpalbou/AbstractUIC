@@ -441,6 +441,32 @@ view against 509 requests and 5.60 MB with the ledger fold; first render 17 ms a
 
 ### Messages from the replay view
 
+`WorkflowChat` also offers an optional `avatarConversation` presentation. Omit it to keep
+the existing transcript. Pass `{sessionKey, avatar, ...conversationSnapshot(snapshot)}`;
+the host supplies the avatar React node and keeps its existing draft, attachments,
+steer/queue, cancellation and interaction callbacks. `AvatarConversation` is also available
+standalone with `messages` and an `interaction` slot. Only explicit typed `public_update`,
+answer/final/question messages and user input enter its public history. It never displays
+tool rows, reasoning, untyped assistant text or unvalidated live deltas. Both replay and
+ledger folding preserve public update identity, run, iteration and `sourceCallIds`.
+
+Subtitles show a three-line viewport with pages; hover, focus, draft editing, pause,
+history and reply selection freeze updates. History retains full text and source IDs.
+“Return to latest” resumes following. `onReplyContext` gives the selected public message;
+`conversationReply` quotes a selected public update and rejects cross-run guidance context.
+The host still submits replies through its normal execution path.
+
+`useAvatarConversationPreferences(ownerScope)` persists chat/avatar mode and independent
+visual/audio preferences for permissions, questions and completion; use an account-scoped
+key. Default mode is chat and audio is off. `onCue` receives fresh foreground attention
+revisions only. Optional `playConversationCue` plays a local earcon and rejects unsupported
+or blocked playback. The host should report those errors. Optional `narrate`/`onNarrate`
+request speech for newly observed public updates through the host's voice stack. Initial
+history, reconnects, reading, recording and session switches never replay queued speech.
+`onInterruptSpeech` runs before reply/voice/history actions and session cleanup. The
+component neither records audio nor starts TTS or a network request itself. Listening is
+labeled as unsubmitted input; permission decisions remain the existing explicit controls.
+
 `ChatMessage` carries a `replay_view_v1.messages[]` item (`projectReplayView` applies this
 mapping; a `final` that `repeats` an answer is shown once, the open question's own message is
 left to its card):

@@ -1,4 +1,5 @@
 import { replayMessageArtifacts } from "./artifact_provenance.js";
+import { publicUpdate } from "./conversation_model.js";
 /**
  * `replay_view_v1` -> what the chat renders: the transcript (`ChatMessage[]`), the tool rows,
  * the pending interaction, the status. Pure: no fetch, no state. `WorkflowSessionController`
@@ -313,6 +314,8 @@ function messageOf(
     kind: m.kind,
     content: m.text,
     runId: m.run_id,
+    ...(m.source ? { source: m.source } : {}),
+    ...(m.kind === "public_update" ? { publicUpdate: publicUpdate({ id: m.public_update_id || m.id, text: m.text, run_id: m.run_id, session_id: m.session_id, iteration: m.iteration, source_call_ids: m.source_call_ids }, m.run_id) || undefined } : {}),
     ...(ts ? { ts } : {}),
     ...(m.role === "system"
       ? {
