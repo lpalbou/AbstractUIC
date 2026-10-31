@@ -463,7 +463,13 @@ revisions only. Optional `playConversationCue` plays a local earcon and rejects 
 or blocked playback. The host should report those errors. Optional `narrate`/`onNarrate`
 request speech for newly observed public updates through the host's voice stack. Initial
 history, reconnects, reading, recording and session switches never replay queued speech.
-`onInterruptSpeech` runs before reply/voice/history actions and session cleanup. The
+`onInterruptSpeech` runs before reply/voice/history actions and session cleanup.
+Use `playbackControl` for pause/resume/silence actions, separately from `voiceControl`
+which interrupts old speech before capture. `onAttendedChange` lets hosts suppress their
+existing final-answer narration while the person reads or replies. Fresh question and
+approval cues remain eligible while reading; ordinary narration stays silent.
+Explicit host-authenticated `user_guidance` receipts preserve accepted human corrections
+in public history. An accepted receipt does not mean the assistant adopted the correction. The
 component neither records audio nor starts TTS or a network request itself. Listening is
 labeled as unsubmitted input; permission decisions remain the existing explicit controls.
 

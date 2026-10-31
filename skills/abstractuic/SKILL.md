@@ -80,3 +80,24 @@ See [Activity avatars](https://raw.githubusercontent.com/lpalbou/AbstractUIC/mai
 Use `SessionCard` for conversation rows and read `docs/session-cards.md` before integrating
 unread state. Keep unread, human attention and working facts independent. Host applications
 own transport and confirmation; reading must never resolve an approval or question.
+
+## Public avatar conversation
+
+`WorkflowChat.avatarConversation` adds an optional public view over the same controller,
+draft and interactions. Omit it for ordinary chat. Use `conversationSnapshot(snapshot)`
+for status, attention and replay guards; provide an owner-scoped `sessionKey`, actual
+avatar and existing voice callbacks. `AvatarConversation` also works standalone.
+Public history accepts validated public updates, user messages and typed answers/finals;
+never feed raw reasoning or private entity traces into a subtitle.
+
+Use `conversationReply` for a selected current-run public update. Send the original human
+words as `display_text` alongside guidance so durable accepted receipts preserve them.
+Answer the exact pending question through the controller; never substitute guidance for
+an approval. Essential questions wait indefinitely. Timed clarifications require a
+120–300 second deadline and declared fallback; silence is not consent.
+
+`onAttendedChange` suppresses host final narration while reading. Put microphone capture
+in `voiceControl` and playback actions in `playbackControl`; capture interrupts speech,
+playback pause/resume must retain its audio. Use existing voice transport. Scope
+`useAvatarConversationPreferences` by account and preserve silent replay on reconnect.
+See [panel-chat](https://raw.githubusercontent.com/lpalbou/AbstractUIC/main/panel-chat/README.md).

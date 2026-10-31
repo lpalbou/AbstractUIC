@@ -147,7 +147,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Optional
 
-- [Compact session cards](docs/session-cards.md): Watch-style conversation cards, human attention and visibility-gated browser read receipts.
+- [Compact session cards](docs/session-cards.md): Watch-style conversation cards, human attention and visibility-gated Gateway read receipts.
 
 - [Publishing (maintainers)](docs/publishing.md): Release checklist and npm publish notes
 - [Development](docs/development.md): Local workflow, tests and contracts shared with other repositories
@@ -2106,8 +2106,8 @@ accepts an optional `AbortSignal`. See [Activity avatars](avatars.md) for comple
 resolution/cadence budgets, lifecycle, errors and gallery usage.
 
 For compact conversation lists, `SessionCard`, `sessionActivityFromRuns`, `sessionReadTarget`,
-`useSessionReads` and `SessionReadMarker` provide shared presentation and browser-local read
-receipts. See [Compact session cards](session-cards.md) for ownership and consumption rules.
+`createSessionReadClient`, `useSessionReads` and `SessionReadMarker` provide shared presentation
+and Gateway-owned, account-wide read receipts. See [Compact session cards](session-cards.md) for ownership and consumption rules.
 
 Source of truth:
 - React packages: exports in `*/src/index.ts` (compiled to `dist/` on publish; see `*/package.json`)
@@ -2628,6 +2628,15 @@ provide its Gateway `request` function for required-input checks, or supply
 `prepareTarget` to reuse a host’s schema validator. `AfScheduleDialog.workflowPicker`
 accepts the creation form’s picker. Changing workflows retains portable agent settings;
 workflow-specific inputs use the new workflow’s defaults.
+
+Attachment file previews use one modal header with the filename, Download and Close. Image
+and video previews fit their intrinsic aspect ratio within the viewport; text and PDF previews
+retain a readable document width. All previews keep the shared file renderer and authenticated,
+bounded loading behavior.
+
+`WorkflowSessionSnapshot.historyLoading` tracks restoration of earlier session turns separately
+from `loading` of the current answer. Read-consumption hosts wait for both to finish before
+mounting an opening's `SessionReadMarker`; the current answer remains progressively visible.
 
 ## docs/architecture.md
 
@@ -4068,10 +4077,20 @@ switch, the timing line (`automationTiming()`), Run now, Stop, Edit and Archive.
 
 ### Attention and `/seen`
 
-After showing the attention items, the panel calls `onSeen(cursor)` with the cursor of the **last
-displayed** item, never `summary.attention.cursor`, so items it did not show stay unseen. A
-cursor counts as acknowledged only after `onSeen` resolves. A failed call is retried on the next
-render that brings a new `summary` object (your next poll), never in a loop.
+Loading or mounting the panel never acknowledges attention. A shared content marker waits
+250 ms at the end of a notice or its loaded answer, in the focused, visible document and without
+an obscuring surface. The panel calls `onSeen(cursor)` only for the consecutive oldest-first
+prefix of attention items consumed this way. Scrolling to a later result cannot clear earlier
+unseen notices. It never sends `summary.attention.cursor` merely because that summary loaded.
+
+A cursor counts as acknowledged only after `onSeen` resolves. A failed call is retried on the
+next render carrying a fresh `summary` object (the next poll), never in a local retry loop.
+Changing automations resets consumption and cancels pending visibility timers. Human waits
+remain live until answered; a seen receipt does not authorize or resolve them.
+
+Conversation and automation markers use the same visibility implementation. Published-package
+consumers receive the fix with the UI kit; compatibility snapshots also include the canonical
+`automation_panel.js` implementation for clients whose installed peer predates this behavior.
 
 ### Answering a wait
 
@@ -5875,6 +5894,38 @@ view against 509 requests and 5.60 MB with the ledger fold; first render 17 ms a
 
 ### Messages from the replay view
 
+`WorkflowChat` also offers an optional `avatarConversation` presentation. Omit it to keep
+the existing transcript. Pass `{sessionKey, avatar, ...conversationSnapshot(snapshot)}`;
+the host supplies the avatar React node and keeps its existing draft, attachments,
+steer/queue, cancellation and interaction callbacks. `AvatarConversation` is also available
+standalone with `messages` and an `interaction` slot. Only explicit typed `public_update`,
+answer/final/question messages and user input enter its public history. It never displays
+tool rows, reasoning, untyped assistant text or unvalidated live deltas. Both replay and
+ledger folding preserve public update identity, run, iteration and `sourceCallIds`.
+
+Subtitles show a three-line viewport with pages; hover, focus, draft editing, pause,
+history and reply selection freeze updates. History retains full text and source IDs.
+“Return to latest” resumes following. `onReplyContext` gives the selected public message;
+`conversationReply` quotes a selected public update and rejects cross-run guidance context.
+The host still submits replies through its normal execution path.
+
+`useAvatarConversationPreferences(ownerScope)` persists chat/avatar mode and independent
+visual/audio preferences for permissions, questions and completion; use an account-scoped
+key. Default mode is chat and audio is off. `onCue` receives fresh foreground attention
+revisions only. Optional `playConversationCue` plays a local earcon and rejects unsupported
+or blocked playback. The host should report those errors. Optional `narrate`/`onNarrate`
+request speech for newly observed public updates through the host's voice stack. Initial
+history, reconnects, reading, recording and session switches never replay queued speech.
+`onInterruptSpeech` runs before reply/voice/history actions and session cleanup.
+Use `playbackControl` for pause/resume/silence actions, separately from `voiceControl`
+which interrupts old speech before capture. `onAttendedChange` lets hosts suppress their
+existing final-answer narration while the person reads or replies. Fresh question and
+approval cues remain eligible while reading; ordinary narration stays silent.
+Explicit host-authenticated `user_guidance` receipts preserve accepted human corrections
+in public history. An accepted receipt does not mean the assistant adopted the correction. The
+component neither records audio nor starts TTS or a network request itself. Listening is
+labeled as unsubmitted input; permission decisions remain the existing explicit controls.
+
 `ChatMessage` carries a `replay_view_v1.messages[]` item (`projectReplayView` applies this
 mapping; a `final` that `repeats` an answer is shown once, the open question's own message is
 left to its card):
@@ -6929,7 +6980,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_message_files_links.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_docs_voice.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && tsc -p scripts/types/tsconfig.json"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_message_files_links.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_docs_voice.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && node scripts/check_avatar_conversation.mjs && tsc -p scripts/types/tsconfig.json"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.9.8",
@@ -7390,6 +7441,7 @@ export {
   STATUS_LABELS,
   apiErrorText,
   attentionAckCursor,
+  consumedAttentionCursor,
   attentionLabel,
   automationControls,
   buildCreateRequest,
@@ -7912,7 +7964,9 @@ export {
 } from "./brand_icons.js";
 export { ActivityAvatar, type ActivityAvatarProps, type AvatarQuality } from "./activity_avatar.js";
 export { SessionCard, type SessionCardProps } from "./session_card.js";
-export { sessionContentRevision, sessionReadTarget, sessionNeedsAttention, sessionActivityFromRuns, sessionReadScope, SessionReadStore, type SessionActivity, type SessionReceipt } from "./session_activity.js";
+export { AutomationCard, automationCardSchedule, automationCardNext, type AutomationCardProps } from "./automation_card.js";
+export { sessionContentRevision, sessionReadTarget, sessionOpeningReceipts, isConversationTurn, sessionNeedsAttention, sessionActivityFromRuns, sessionReadScope, SessionReadStore, type SessionActivity, type SessionReceipt } from "./session_activity.js";
+export { createSessionReadClient, sessionReadIdentity, sessionReadEventReceipt, type SessionReadClient, type SessionReadEvent } from "./session_read_client.js";
 export { useSessionReads, SessionReadMarker } from "./session_reads.js";
 export { AppleActivityAvatar } from "./apple_avatars.js";
 export { AppleAvatarEngine, APPLE_AVATARS, isAppleAvatar, type AppleAvatarDesign } from "./apple_avatar_engine.js";
@@ -12823,6 +12877,16 @@ export function attentionAckCursor(summary: AutomationSummary): string | null {
   return items.length ? items[items.length - 1].cursor : null;
 }
 
+/** Only the contiguous oldest-first prefix actually consumed may advance a shared seen cursor. */
+export function consumedAttentionCursor(summary: AutomationSummary, consumed: ReadonlySet<string>): string | null {
+  let cursor: string | null = null;
+  for (const item of summary.attention.items) {
+    if (!consumed.has(item.cursor)) break;
+    cursor = item.cursor;
+  }
+  return cursor;
+}
+
 export function attentionLabel(summary: AutomationSummary): string {
   const a = summary.attention;
   const parts: string[] = [];
@@ -16170,9 +16234,16 @@ export {
 export { TextLinks, textLinks } from "./text_links.js";
 export { messageArtifactRefs, submittedArtifacts, outputArtifacts, type MessageArtifact } from "./message_artifacts.js";
 
+export { AvatarConversation, type AvatarConversationOptions, type AvatarConversationProps } from "./avatar_conversation.js";
+export { DEFAULT_CONVERSATION_CUES, conversationMessages, conversationPages, conversationSnapshot, conversationState, conversationCueStep, publicUpdate, type AvatarConversationState, type ConversationAttention, type ConversationCue, type ConversationCuePreferences, type ConversationCueCursor, type PublicUpdate } from "./conversation_model.js";
+export { useAvatarConversationPreferences, playConversationCue } from "./conversation_preferences.js";
+export { conversationReply } from "./conversation_model.js";
+export { conversationNarrationStep } from "./conversation_model.js";
+
 ## panel-chat/src/chat_message_card.tsx
 
 import {MessageArtifactChip, type MessageArtifact} from "./message_artifacts.js";
+import type { PublicUpdate } from "./conversation_model.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { AfAudioPlayer, Icon, fileViewerKind, fileViewerNeedsText, formatFileSize, type IconName } from "@abstractframework/ui-kit";
@@ -16202,6 +16273,9 @@ export type ChatMessage = {
    * README's "Messages from the replay view" mapping.
    */
   kind?: string;
+  /** Original public channel attribution, retained through replay. */
+  source?: string;
+  publicUpdate?: PublicUpdate;
   toolActivity?: WorkflowToolActivity;
   statistics?: WorkflowStatistics;
   runId?: string;
@@ -16800,6 +16874,10 @@ export type ReplayViewMessage = {
   step_ids?: string[];
   seqs?: number[];
   source?: string;
+  source_call_ids?: string[];
+  session_id?: string;
+  iteration?: number;
+  public_update_id?: string;
   artifact_ids?: string[];
   order?: unknown[];
   /** A final answer that repeats an earlier answer names it here: show the text once. */
@@ -17322,6 +17400,7 @@ export function createReplayViewTransport(options: { fetch: ReplayViewFetch; adv
 ## panel-chat/src/replay_view_projection.ts
 
 import { replayMessageArtifacts } from "./artifact_provenance.js";
+import { publicUpdate } from "./conversation_model.js";
 /**
  * `replay_view_v1` -> what the chat renders: the transcript (`ChatMessage[]`), the tool rows,
  * the pending interaction, the status. Pure: no fetch, no state. `WorkflowSessionController`
@@ -17636,6 +17715,8 @@ function messageOf(
     kind: m.kind,
     content: m.text,
     runId: m.run_id,
+    ...(m.source ? { source: m.source } : {}),
+    ...(m.kind === "public_update" ? { publicUpdate: publicUpdate({ id: m.public_update_id || m.id, text: m.text, run_id: m.run_id, session_id: m.session_id, iteration: m.iteration, source_call_ids: m.source_call_ids }, m.run_id) || undefined } : {}),
     ...(ts ? { ts } : {}),
     ...(m.role === "system"
       ? {
@@ -18706,11 +18787,15 @@ export function presentInteraction(
     };
   }
   const askTarget = { runId: raw.runId, waitKey: String(wait.wait_key || ""), stepId: raw.stepId };
+  const question = details.question && typeof details.question === "object" && details.question.purpose === "conversation" ? details.question : null;
+  const essential = question?.importance === "essential";
+  const clarification = question?.importance === "clarification";
   if (wait.reason === "user" || wait.reason === "ask_user")
     return {
       id,
       kind: "ask-user",
-      title: "A question for you",
+      title: essential ? "Your answer is required" : clarification ? "A clarification for you" : "A question for you",
+      ...(essential ? { description: "This question needs your answer. I will keep waiting; silence does not grant permission." } : clarification ? { description: `${question.deadline ? `Answer by ${String(question.deadline)}. ` : ""}${question.fallback ? `Without an answer: ${String(question.fallback)}` : ""}` } : {}),
       prompt: String(wait.prompt || details.prompt || "How would you like to continue?"),
       allowFreeText: wait.allow_free_text !== false,
       choices: (Array.isArray(wait.choices) ? wait.choices : []).map((choice: any) =>
@@ -18725,7 +18810,7 @@ export function presentInteraction(
       onSubmit: async (answer) => {
         await controller.resume(answer, askTarget);
       },
-      ...(options.allowSkip
+      ...(options.allowSkip && !question
         ? {
             onSkip: async () => {
               await controller.resume("", askTarget);
@@ -22024,16 +22109,28 @@ Checking every content receipt preserves late answers from older concurrent turn
 subworkflow waits are not requests for a person. Hosts must also merge authoritative child-run
 attention; failed or partial refreshes must not clear known pending questions.
 
-`useSessionReads(sessionReadScope(connection), observedReceipts)` stores browser-local
-receipts. Code and Assistant share them when served on the same origin for the same Gateway,
-tenant, user and runtime. Credentials are never included in the key. Other devices and browser
-origins keep independent unread state, matching the Watch's current per-device behavior.
-Old history is baselined on first use; new content thereafter can be unread. Storage failures
-are reported and the current page keeps an in-memory receipt. Retention is bounded to 4,096
-revision receipts per scope; very old evicted revisions with recently changed metadata may
-reappear as unread. Server-backed cross-device receipts are a separate follow-up.
+`createSessionReadClient(fetchGateway)` connects `useSessionReads(scope, observedReceipts, client)`
+to the caller's Gateway-owned read ledger. Supply the host's authenticated, CSRF-aware transport.
+Confirmed receipts are shared across browsers and devices for the same account and runtime.
+Existing personal event followers should call `reads.refresh()` on `session.read`; focused polling
+and reconnects recover missed delivery. Request and outcome receipts are independent, immutable
+run revisions. A failed or incomplete acknowledgment retains the unread mark and reports an error.
+
+The Gateway retains canonical receipts independently of the personal event stream's retention.
+Use `GET /api/gateway/me/session-reads?run_id=<id>&limit=1000` for visible turns (up to 100 run IDs
+per request), or replay with `after=<sequence>`. `POST` accepts `{receipts: [{session_id, run_id,
+status}]}` in batches of 100. Terminal status must match the stored conversation turn root;
+a request receipt never consumes its later answer. Reads never change workflow execution ledgers.
+
+Omitting `client` selects browser-local compatibility mode. That mode shares only within one
+origin, baselines older history on first use, and retains up to 4,096 revisions per scope.
+Do not upload those baselines as factual user consumption. Gateway mode never writes a local
+baseline or silently falls back to browser-local state.
 
 Mount `SessionReadMarker` after successfully loaded content, normally in the message footer.
+With panel-chat, also wait until `snapshot.historyLoading` is false: `snapshot.loading` becomes
+false as soon as the current answer can render, while earlier session turns may still be loading.
+This keeps a previously read latest answer from prematurely finishing the opening receipt batch.
 It acknowledges only after 250 ms in the focused, visible document with the marker fully in
 view and unobscured. Selecting a session, loading in the background, failed history requests,
 and offscreen answers do not acknowledge content. `ownerKey` must be the account scope;
@@ -22056,13 +22153,46 @@ Run `npm run build` and `node scripts/check_session_cards.mjs` in `ui-kit`. Opti
 `SESSION_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check_session_cards_browser.mjs`.
 The browser check exercises offscreen and occluded content, background visibility events,
 account-switch dwell cancellation, and shared versus isolated receipts.
+`node scripts/check_session_reads_remote_browser.mjs` additionally checks independent browser
+contexts, failed/incomplete writes, delayed responses, large batches and account isolation.
 
 AbstractTUI provides a controlled native `widgets::SessionCard` presenter with equivalent
 unread/attention/working/selection facts. It does not own networking or read receipts; adopting
 receipt tracking in a native application remains host integration work.
 
 On desktop the archive icon is 28 px, hidden until card hover or keyboard focus.
-Touch/no-hover devices retain a visible 44 px target. Opening and archive remain sibling controls.
+Touch/no-hover devices retain a visible 44 px target. Opening and archive remain sibling controls. Cards use a darker theme-derived surface than section headers in every theme; unread and attention colors tint that surface without raising it above the header.
+
+## Automation cards
+
+`AutomationCard` uses the same visual shell, regular two-line title, metadata typography and
+hover/focus archive control as `SessionCard`. It is exported from the UI kit and included in the
+compatibility snapshot. Like the Watch, its metadata shows the served run count, compact cadence
+(`2h`, `Daily`, `Email`), and the time until the gateway's next run. Paused/ended automations say so
+instead of showing a countdown. The full served schedule remains in the tooltip and accessible
+name; clients never calculate a fire time. Hosts refresh `nowMs` once per minute while visible.
+
+Unseen automation results have an amber outline and count badge. Human waits add “Needs you” and
+an amber diamond; a wait never looks like running. A current occurrence has a spinner, and a failed
+last run has a red dot. Counts and attention come from the automation summary; rendering or opening
+the card does not acknowledge unseen results. Pause/resume stays in the automation's editor/header.
+Hosts own archive confirmation, capability checks and commands, just as with conversation cards.
+
+Automation attention uses a gateway-owned, per-user monotone cursor. The shared panel advances
+only through the oldest-first prefix whose notice or answer footer passed the same focused,
+unobscured visibility check as a conversation. Loading a panel, skipping older notices, or
+replaying its ledger does not mark them seen. These server receipts are shared across devices;
+other clients may use broader acknowledgment policies.
+
+Hosts use `sessionOpeningReceipts(messages, content, displayedRunId)` to pass only loaded
+revisions to the latest turn's `SessionReadMarker` through `relatedReceipts`. Historical selected
+turns cannot consume a newer answer, and missing outcomes remain unread: once that loaded
+answer is visible, the existing session revisions clear together. This matches opening a
+conversation rather than requiring a scroll through every older turn. The visibility marker
+captures that receipt batch when mounted; arrivals after it was consumed stay unread. Receipt
+keys remain immutable per run/outcome, so marking an earlier request cannot clear its later
+answer. Failures, failed loads, background/covered content and other account scopes retain the
+same visibility and isolation rules.
 
 ## docs/publishing.md
 
@@ -22418,6 +22548,13 @@ repository tag (the private root `package.json` version) and lists the package v
 ships.
 
 ## Unreleased
+
+- Progressive conversation restoration exposes history readiness separately from the current answer, so opening read receipts include the loaded earlier turns.
+
+
+- Attachment previews fit media dimensions with one filename, Download and Close.
+- Shared session read clients persist consumption through the Gateway and synchronize across devices; failed writes retain unread marks.
+
 
 - Activity avatar quality levels select bounded display-density resolution and economy,
   balanced or high frame budgets. Frame deadlines align with display refresh and skip missed
@@ -24973,3 +25110,24 @@ See [Activity avatars](https://raw.githubusercontent.com/lpalbou/AbstractUIC/mai
 Use `SessionCard` for conversation rows and read `docs/session-cards.md` before integrating
 unread state. Keep unread, human attention and working facts independent. Host applications
 own transport and confirmation; reading must never resolve an approval or question.
+
+## Public avatar conversation
+
+`WorkflowChat.avatarConversation` adds an optional public view over the same controller,
+draft and interactions. Omit it for ordinary chat. Use `conversationSnapshot(snapshot)`
+for status, attention and replay guards; provide an owner-scoped `sessionKey`, actual
+avatar and existing voice callbacks. `AvatarConversation` also works standalone.
+Public history accepts validated public updates, user messages and typed answers/finals;
+never feed raw reasoning or private entity traces into a subtitle.
+
+Use `conversationReply` for a selected current-run public update. Send the original human
+words as `display_text` alongside guidance so durable accepted receipts preserve them.
+Answer the exact pending question through the controller; never substitute guidance for
+an approval. Essential questions wait indefinitely. Timed clarifications require a
+120–300 second deadline and declared fallback; silence is not consent.
+
+`onAttendedChange` suppresses host final narration while reading. Put microphone capture
+in `voiceControl` and playback actions in `playbackControl`; capture interrupts speech,
+playback pause/resume must retain its audio. Use existing voice transport. Scope
+`useAvatarConversationPreferences` by account and preserve silent replay on reconnect.
+See [panel-chat](https://raw.githubusercontent.com/lpalbou/AbstractUIC/main/panel-chat/README.md).

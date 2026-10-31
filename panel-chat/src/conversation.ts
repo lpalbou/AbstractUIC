@@ -15,3 +15,4 @@ export { DEFAULT_CONVERSATION_CUES, conversationMessages, conversationPages, con
 export { useAvatarConversationPreferences, playConversationCue } from "./conversation_preferences.js";
 export { conversationReply } from "./conversation_model.js";
 export { conversationNarrationStep } from "./conversation_model.js";
+export { presentInteraction } from "./present_interaction.js";

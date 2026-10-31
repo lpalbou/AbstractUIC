@@ -2628,6 +2628,7 @@ button.pc-ws__name:hover {
   color: var(--text-primary, inherit);
 }
 .pc-workflow-chat__transcript > .pc-avatar-conversation { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.pc-avatar-conversation > * { flex-shrink: 0; }
 .pc-avatar-conversation__scene {
   display: grid;
   place-items: center;
@@ -2653,7 +2654,7 @@ button.pc-ws__name:hover {
 .pc-avatar-conversation button { font: inherit; color: inherit; background: transparent; border: 1px solid var(--ui-border-1, #7776); border-radius: .4rem; padding: .4rem .65rem; cursor: pointer; }
 .pc-avatar-conversation button:disabled { opacity: .5; cursor: default; }
 .pc-avatar-conversation button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-.pc-avatar-conversation__history { margin: 0; padding-inline-start: 1.5rem; max-height: 45vh; overflow-y: auto; overscroll-behavior: contain; }
+.pc-avatar-conversation__history { margin: 0; padding-inline-start: 1.5rem; }
 .pc-avatar-conversation__history > li { padding: .75rem .25rem; border-bottom: 1px solid var(--ui-border-1, #7774); }
 .pc-avatar-conversation__history p { white-space: pre-wrap; overflow-wrap: anywhere; margin: .4rem 0; }
 .pc-avatar-conversation__reply-context { margin: 0; }

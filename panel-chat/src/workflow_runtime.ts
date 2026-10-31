@@ -1598,6 +1598,13 @@ export class WorkflowSessionController {
       const emitted = object(result);
       const name = text(payload.name) || text(emitted?.name);
       const eventPayload = payload.payload !== undefined ? payload.payload : emitted?.payload;
+      if (name === "user_guidance") {
+        const message = object(eventPayload);
+        const seq = message?.seq;
+        if (message && Number.isInteger(seq) && Number(seq) > 0 && message.run_id === runId && message.id === `${runId}:guidance:${seq}` && record.node_id === "__host_user_guidance__" && record.idempotency_key === `system:user_guidance:${seq}` && typeof message.text === "string" && message.text.trim()) {
+          this.addMessage({ id: message.id, role: "user", kind: "guidance", source: "user_guidance", runId, content: message.text, ts: timestamp });
+        }
+      }
       if (name === "public_update") {
         const update = publicUpdate(eventPayload, runId);
         if (update) this.addMessage({ id: `public_update:${runId}:${update.id}`, role: "assistant", kind: "public_update", source: "public_update", runId, content: update.text, publicUpdate: update, ts: timestamp });

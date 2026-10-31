@@ -659,9 +659,10 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     </div>
   ) : null;
 
-  const steerLabel = activeSteerMode === "queue" ? "Queue" : "Steer";
+  const steerLabel = props.avatarConversation ? "Send" : activeSteerMode === "queue" ? "Queue" : "Steer";
   const steerNote = steerStatus
-    ? steerStatus.mode === "queue"
+    ? props.avatarConversation ? "Sent. Your message is available to the assistant."
+    : steerStatus.mode === "queue"
       ? `Queued for the next turn${typeof steerStatus.seq === "number" ? ` (seq ${steerStatus.seq})` : ""}.`
       : `${steerStatus.duplicate ? "Already queued" : "Queued"}${typeof steerStatus.seq === "number" ? ` (seq ${steerStatus.seq})` : ""}. ${
           steer?.parked
@@ -769,7 +770,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
             {error.action === "send"
               ? "send this message"
               : error.action === "steer"
-                ? activeSteerMode === "queue"
+                ? props.avatarConversation ? "send this message" : activeSteerMode === "queue"
                   ? "queue this message"
                   : "steer the run"
                 : error.action === "attach"
@@ -798,7 +799,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
           sendLabel={steering ? steerLabel : props.sendLabel}
           busyLabel={
             steering
-              ? activeSteerMode === "queue"
+              ? props.avatarConversation ? "Sending…" : activeSteerMode === "queue"
                 ? "Queueing…"
                 : "Steering…"
               : props.busyLabel

@@ -72,6 +72,7 @@ export function conversationPages(text: string, max = 180): string[] {
 }
 
 export function conversationState(input: { status?: AvatarConversationState; listening?: boolean; speaking?: boolean; connection?: WorkflowConnection; attention?: ConversationAttention | null }): AvatarConversationState {
+  if (input.status === "completed" || input.status === "failed") return input.listening ? "listening" : input.speaking ? "speaking" : input.status;
   if (input.connection && !["connected", "idle"].includes(input.connection)) return "disconnected";
   if (input.status === "paused") return "paused";
   if (input.attention?.kind === "approval") return "approval";
@@ -106,7 +107,8 @@ export function conversationCueStep(previous: ConversationCueCursor | null, inpu
   const seen = new Set(reset ? [] : previous.seen);
   const fresh = Boolean(key && !seen.has(key));
   if (key) seen.add(key);
-  const canCue = !reset && previous.connected && input.connected && !input.attended && fresh && input.attention;
+  const attentionNeeded = input.attention?.kind === "question" || input.attention?.kind === "approval";
+  const canCue = !reset && previous.connected && input.connected && (!input.attended || attentionNeeded) && fresh && input.attention;
   return { cursor: { sessionKey: input.sessionKey, connected: input.connected, seen: [...seen] }, cue: canCue ? { ...input.attention!, channels: { ...input.preferences[input.attention!.kind] } } : null };
 }
 
