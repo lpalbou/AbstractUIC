@@ -84,6 +84,7 @@ fails when a sheet is stale.
 | `file` | 24 | File |
 | `archive` | 24 | Archive |
 | `unarchive` | 24 | Unarchive |
+| `wrench` | 24 | Tool calls |
 | `clock` | 24 | Time, schedule |
 | `cog` | 24 | Settings (cog) |
 | `activity` | 24 | Activity |

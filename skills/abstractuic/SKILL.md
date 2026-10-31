@@ -39,3 +39,9 @@ See [panel-chat](../../panel-chat/README.md) and [ui-kit](../../ui-kit/README.md
 Tool and workspace controls express choices within Gateway limits. They cannot
 grant a capability the Gateway forbids. Preserve blocked/error feedback and use
 `AfTooltip` for brief, useful information; avoid repeating a label as help.
+
+## Compact session lists
+
+Use `SessionCard` for conversation rows and read `docs/session-cards.md` before integrating
+unread state. Keep unread, human attention and working facts independent. Host applications
+own transport and confirmation; reading must never resolve an approval or question.

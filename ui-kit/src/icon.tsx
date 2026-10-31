@@ -64,6 +64,7 @@ export type IconName =
   // 0.7.0: archive box with an up arrow (Unarchive).
   | "unarchive"
   | "clock"
+  | "wrench"
   // Rail drawer glyphs (ui-kit 0.6.0): the usual settings cog (the sliders
   // glyph stays "settings" for older callers) and an activity pulse. 24-grid.
   | "cog"
@@ -111,7 +112,7 @@ export const ICON_NAMES = [
   "contrast", "logout", "play", "stop", "folder", "file", "archive", "unarchive", "clock", "cog",
   "activity", "book", "compose", "image", "video", "camera", "music", "database", "branch", "loop",
   "variable", "minus", "divide", "function", "zoomIn", "zoomOut", "fitView", "lock",
-  "about",
+  "about", "wrench",
 ] as const satisfies readonly IconName[];
 
 /** Compile-time guard: a name added to IconName but not to ICON_NAMES fails the build. */
@@ -453,6 +454,8 @@ function paths(name: IconName): React.ReactNode {
           <path d="m9 14 3-3 3 3" />
         </>
       );
+    case "wrench":
+      return <path d="M14.5 6.5 18 3a6 6 0 0 0-7.6 7.6L3 18a2.1 2.1 0 0 0 3 3l7.4-7.4A6 6 0 0 0 21 6l-3.5 3.5-3-3Z" />;
     case "clock":
       // A plain clock face (hands at 12 and 3); `history` keeps its own glyph.
       return (

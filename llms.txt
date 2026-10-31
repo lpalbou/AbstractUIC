@@ -139,6 +139,8 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Optional
 
+- [Compact session cards](docs/session-cards.md): Watch-style conversation cards, human attention and visibility-gated browser read receipts.
+
 - [Publishing (maintainers)](docs/publishing.md): Release checklist and npm publish notes
 - [Development](docs/development.md): Local workflow, tests and contracts shared with other repositories
 - [Contributing](CONTRIBUTING.md): contribution workflow and expectations

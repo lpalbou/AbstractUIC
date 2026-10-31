@@ -2,6 +2,10 @@
 
 This page is a **practical map** of what each package exports and how you typically integrate it.
 
+For compact conversation lists, `SessionCard`, `sessionActivityFromRuns`, `sessionReadTarget`,
+`useSessionReads` and `SessionReadMarker` provide shared presentation and browser-local read
+receipts. See [Compact session cards](session-cards.md) for ownership and consumption rules.
+
 Source of truth:
 - React packages: exports in `*/src/index.ts` (compiled to `dist/` on publish; see `*/package.json`)
 - GPU widget: exports in `monitor-gpu/src/index.js` (types in `monitor-gpu/src/index.d.ts`)

@@ -781,3 +781,7 @@ export {
 } from "./brand_icons.js";
 export { ActivityAvatar, type ActivityAvatarProps } from "./activity_avatar.js";
 export { AvatarRenderer, avatarDesigns, avatarPaletteFromCss, type AvatarPalette, type AvatarColor, type AvatarDesign, type AvatarPose, type AvatarSource } from "./avatar_renderer.js";
+
+export { SessionCard, type SessionCardProps } from "./session_card.js";
+export { sessionContentRevision, sessionReadTarget, sessionNeedsAttention, sessionActivityFromRuns, sessionReadScope, SessionReadStore, type SessionActivity, type SessionReceipt } from "./session_activity.js";
+export { useSessionReads, SessionReadMarker } from "./session_reads.js";
