@@ -232,3 +232,6 @@ export {
   type ReplayFoldOutcome,
   type SseFrame,
 } from "./replay_view.js";
+
+export { TextLinks, textLinks } from "./text_links.js";
+export { messageArtifactRefs, submittedArtifacts, outputArtifacts, type MessageArtifact } from "./message_artifacts.js";

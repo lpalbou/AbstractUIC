@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { JsonTextLinks } from "./text_links.js";
 import { copyText } from "./utils.js";
 
 const FOLDED_DEPTH = 3;
@@ -39,17 +40,34 @@ function Token({
   return <span className={`pc-json-token ${kind}`}>{children}</span>;
 }
 
-function JsonStringValue(props: { value: string; expansionMode: JsonExpansionMode; expansionVersion: number }): React.ReactElement {
+function JsonStringValue(props: {
+  value: string;
+  expansionMode: JsonExpansionMode;
+  expansionVersion: number;
+}): React.ReactElement {
   const rendered = JSON.stringify(props.value);
-  const collapsible = rendered.length > 96 || rendered.includes("\\n") || rendered.includes("\\r") || rendered.includes("\\t");
-  const [open, setOpen] = useState(!collapsible || props.expansionMode === "unfolded");
+  const isUrl = /^https?:\/\/[^\s]+$/i.test(props.value);
+  const collapsible =
+    !isUrl &&
+    (rendered.length > 96 ||
+      rendered.includes("\\n") ||
+      rendered.includes("\\r") ||
+      rendered.includes("\\t"));
+  const [open, setOpen] = useState(
+    !collapsible || props.expansionMode === "unfolded",
+  );
 
   useEffect(() => {
     if (!collapsible) return;
     setOpen(props.expansionMode === "unfolded");
   }, [collapsible, props.expansionMode, props.expansionVersion]);
 
-  if (!collapsible) return <Token kind="string">{rendered}</Token>;
+  if (!collapsible)
+    return (
+      <span className="pc-json-token string">
+        <JsonTextLinks text={props.value} />
+      </span>
+    );
 
   return (
     <span className={`pc-json-string ${open ? "open" : "collapsed"}`}>
@@ -63,28 +81,56 @@ function JsonStringValue(props: { value: string; expansionMode: JsonExpansionMod
         {open ? "▾" : "▸"}
       </button>
       {open ? (
-        <span className="pc-json-token string pc-json-string__value">{rendered}</span>
+        <span className="pc-json-token string pc-json-string__value">
+          <JsonTextLinks text={props.value} />
+        </span>
       ) : (
-        <button type="button" className="pc-json-string__preview" onClick={() => setOpen(true)} aria-label="Expand string value">
-          <span className="pc-json-token string pc-json-string__preview_text">{rendered}</span>
-          <span className="pc-json-string__suffix">(...)</span>
-        </button>
+        <span className="pc-json-string__preview">
+          <span className="pc-json-token string pc-json-string__preview_text">
+            <JsonTextLinks text={props.value} />
+          </span>
+          <button
+            type="button"
+            className="pc-json-string__suffix"
+            onClick={() => setOpen(true)}
+            aria-label="Expand string value"
+          >
+            (...)
+          </button>
+        </span>
       )}
     </span>
   );
 }
 
-function renderPrimitive(value: unknown, expansionMode: JsonExpansionMode, expansionVersion: number): React.ReactElement {
+function renderPrimitive(
+  value: unknown,
+  expansionMode: JsonExpansionMode,
+  expansionVersion: number,
+): React.ReactElement {
   if (value === null) return <Token kind="null">null</Token>;
-  if (typeof value === "string") return <JsonStringValue value={value} expansionMode={expansionMode} expansionVersion={expansionVersion} />;
-  if (typeof value === "number") return <Token kind="number">{String(value)}</Token>;
-  if (typeof value === "boolean") return <Token kind="boolean">{value ? "true" : "false"}</Token>;
+  if (typeof value === "string")
+    return (
+      <JsonStringValue
+        value={value}
+        expansionMode={expansionMode}
+        expansionVersion={expansionVersion}
+      />
+    );
+  if (typeof value === "number")
+    return <Token kind="number">{String(value)}</Token>;
+  if (typeof value === "boolean")
+    return <Token kind="boolean">{value ? "true" : "false"}</Token>;
   return <Token kind="string">{JSON.stringify(String(value))}</Token>;
 }
 
 function countSummary(value: unknown): string {
-  if (isJsonArray(value)) return value.length === 1 ? "1 item" : `${value.length} items`;
-  if (isJsonObject(value)) return Object.keys(value).length === 1 ? "1 key" : `${Object.keys(value).length} keys`;
+  if (isJsonArray(value))
+    return value.length === 1 ? "1 item" : `${value.length} items`;
+  if (isJsonObject(value))
+    return Object.keys(value).length === 1
+      ? "1 key"
+      : `${Object.keys(value).length} keys`;
   return "";
 }
 
@@ -99,7 +145,15 @@ type JsonNodeProps = {
 };
 
 function JsonNode(props: JsonNodeProps): React.ReactElement {
-  const { label, value, depth, collapseAfterDepth, expansionMode, expansionVersion, trailingComma } = props;
+  const {
+    label,
+    value,
+    depth,
+    collapseAfterDepth,
+    expansionMode,
+    expansionVersion,
+    trailingComma,
+  } = props;
   const indentPx = depth * 14;
 
   const isObject = isJsonObject(value);
@@ -132,27 +186,49 @@ function JsonNode(props: JsonNodeProps): React.ReactElement {
   const containerOpen = isArray ? "[" : "{";
   const containerClose = isArray ? "]" : "}";
   const summaryText = countSummary(value);
-  const summaryValue = open ? `${containerOpen}` : `${containerOpen}…${containerClose}${summaryText ? `  (${summaryText})` : ""}`;
+  const summaryValue = open
+    ? `${containerOpen}`
+    : `${containerOpen}…${containerClose}${summaryText ? `  (${summaryText})` : ""}`;
 
   const entries = isArray
-    ? (value as unknown[]).map((v, i) => ({ key: String(i), label: undefined as string | undefined, value: v }))
-    : Object.entries(value as Record<string, unknown>).map(([k, v]) => ({ key: k, label: k, value: v }));
+    ? (value as unknown[]).map((v, i) => ({
+        key: String(i),
+        label: undefined as string | undefined,
+        value: v,
+      }))
+    : Object.entries(value as Record<string, unknown>).map(([k, v]) => ({
+        key: k,
+        label: k,
+        value: v,
+      }));
 
   return (
-    <details className="pc-json-viewer__details" open={open} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
-      <summary className="pc-json-viewer__summary" style={{ paddingLeft: indentPx }}>
+    <details
+      className="pc-json-viewer__details"
+      open={open}
+      onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
+    >
+      <summary
+        className="pc-json-viewer__summary"
+        style={{ paddingLeft: indentPx }}
+      >
         {prefix}
         <span className="pc-json-viewer__caret" aria-hidden="true">
           {open ? "▾" : "▸"}
         </span>
         <span className="pc-json-viewer__punct">{summaryValue}</span>
-        {!open && trailingComma ? <span className="pc-json-viewer__punct">,</span> : null}
+        {!open && trailingComma ? (
+          <span className="pc-json-viewer__punct">,</span>
+        ) : null}
       </summary>
 
       {open ? (
         <div className="pc-json-viewer__children">
           {entries.length === 0 ? (
-            <div className="pc-json-viewer__line" style={{ paddingLeft: indentPx }}>
+            <div
+              className="pc-json-viewer__line"
+              style={{ paddingLeft: indentPx }}
+            >
               <span className="pc-json-viewer__punct">{containerClose}</span>
               {trailingComma ? "," : ""}
             </div>
@@ -173,7 +249,10 @@ function JsonNode(props: JsonNodeProps): React.ReactElement {
                   />
                 );
               })}
-              <div className="pc-json-viewer__line" style={{ paddingLeft: indentPx }}>
+              <div
+                className="pc-json-viewer__line"
+                style={{ paddingLeft: indentPx }}
+              >
                 <span className="pc-json-viewer__punct">{containerClose}</span>
                 {trailingComma ? "," : ""}
               </div>
@@ -188,7 +267,10 @@ function JsonNode(props: JsonNodeProps): React.ReactElement {
 function tryParseJsonString(value: string): unknown {
   const trimmed = value.trim();
   if (!trimmed) return value;
-  if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
+  if (
+    (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+    (trimmed.startsWith("[") && trimmed.endsWith("]"))
+  ) {
     try {
       return JSON.parse(trimmed) as unknown;
     } catch {
@@ -198,22 +280,41 @@ function tryParseJsonString(value: string): unknown {
   return value;
 }
 
-export function JsonViewer(props: { value: unknown; className?: string; collapseAfterDepth?: number; showCopy?: boolean }): React.ReactElement {
+export function JsonViewer(props: {
+  value: unknown;
+  className?: string;
+  collapseAfterDepth?: number;
+  showCopy?: boolean;
+}): React.ReactElement {
   const { value, className, showCopy = true } = props;
-  const [expansion, setExpansion] = useState<{ mode: JsonExpansionMode; version: number }>({ mode: "folded", version: 0 });
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const [expansion, setExpansion] = useState<{
+    mode: JsonExpansionMode;
+    version: number;
+  }>({ mode: "folded", version: 0 });
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
   // collapseAfterDepth is the consumer's folded-mode depth; it was accepted
   // and silently ignored until 2026-07-11 (adversary find) — honor it.
   const foldedDepth =
-    typeof props.collapseAfterDepth === "number" && (Number.isFinite(props.collapseAfterDepth) || props.collapseAfterDepth === Infinity) && props.collapseAfterDepth >= 0
-      ? (props.collapseAfterDepth === Infinity ? Number.MAX_SAFE_INTEGER : Math.trunc(props.collapseAfterDepth))
+    typeof props.collapseAfterDepth === "number" &&
+    (Number.isFinite(props.collapseAfterDepth) ||
+      props.collapseAfterDepth === Infinity) &&
+    props.collapseAfterDepth >= 0
+      ? props.collapseAfterDepth === Infinity
+        ? Number.MAX_SAFE_INTEGER
+        : Math.trunc(props.collapseAfterDepth)
       : FOLDED_DEPTH;
-  const collapseAfterDepth = expansion.mode === "unfolded" ? UNFOLDED_DEPTH : foldedDepth;
+  const collapseAfterDepth =
+    expansion.mode === "unfolded" ? UNFOLDED_DEPTH : foldedDepth;
 
   // A string value that IS serialized JSON renders as its parsed tree
   // (parity with the monitor-flow/flow viewers; copy still copies the
   // original string verbatim).
-  const displayValue = useMemo(() => (typeof value === "string" ? tryParseJsonString(value) : value), [value]);
+  const displayValue = useMemo(
+    () => (typeof value === "string" ? tryParseJsonString(value) : value),
+    [value],
+  );
 
   const copyValue = useMemo(() => copyStringForJson(value), [value]);
   const cls = ["pc-json-viewer", className].filter(Boolean).join(" ");
@@ -251,12 +352,20 @@ export function JsonViewer(props: { value: unknown; className?: string; collapse
               })
             }
           >
-            {copyState === "copied" ? "Copied" : copyState === "failed" ? "Copy failed — select and copy" : "Copy JSON"}
+            {copyState === "copied"
+              ? "Copied"
+              : copyState === "failed"
+                ? "Copy failed — select and copy"
+                : "Copy JSON"}
           </button>
         ) : null}
       </div>
 
-      <div className="pc-json-viewer__tree" role="tree" aria-label="JSON viewer">
+      <div
+        className="pc-json-viewer__tree"
+        role="tree"
+        aria-label="JSON viewer"
+      >
         <JsonNode
           value={displayValue}
           depth={0}

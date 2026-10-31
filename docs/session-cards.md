@@ -2,6 +2,7 @@
 
 `SessionCard` is the shared React presenter used by AbstractCode web and AbstractAssistant
 web. Import it from `@abstractframework/ui-kit`, with `@abstractframework/ui-kit/theme.css`.
+Titles use regular weight at a compact size (13 px minimum, respecting larger font scaling).
 It follows the Watch layout: a two-line title, small turn/tool/time facts, and an independent
 archive button. Hosts own navigation, archive confirmation and transport.
 

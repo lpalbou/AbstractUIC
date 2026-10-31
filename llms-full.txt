@@ -5565,7 +5565,8 @@ the host.
 Use `interaction` for a pending `WorkflowInteraction`: `ask-user` supports
 choices and optional free text, `tool-approval` provides approve/deny actions,
 and `event-wait` sends a host-defined payload. The callbacks are injected: the
-component never fetches, polls, or resumes a workflow itself.
+component never starts or resumes a workflow itself. Its optional `artifactFetch` transport
+performs authenticated attachment reads only; execution remains host-owned.
 
 `renderMarkdown` is passed through to each `ChatThread` message card. Use it
 when the host owns a sanitizer or a richer Markdown renderer; the chat surface
@@ -6009,6 +6010,30 @@ Click the speaker to play, pause or resume. Opening history does not autoplay.
 Pass `voicePreferences` to use the app’s speech override, output device and volume;
 omit it to follow Gateway defaults. A kept-alive rail panel should pass
 `visible: false` while hidden to stop playback.
+
+### Message files, clickable links and structured tool results
+
+`WorkflowChat` uses the shared `ChatMessageCard`, `ToolActivity` and `ToolActivityGroup`.
+Pass `artifactFetch` (the host's authenticated app-origin fetch), `attachmentScope` (a non-secret
+account plus conversation identity), and `attachmentRun={{runId, output}}` for the active run.
+The chat displays user and assistant artifact references on the originating message, restoring
+submitted user files from `input_data` on older replay views. Explicit file-only outputs get an
+assistant card; historical file-only replies omitted by old views are restored from authorized
+run snapshots. Settled historical lookups are cached per scope; failed reads expose Retry.
+Only attachment/output fields are inspected, excluding scratchpad and internal state artifacts.
+
+Metadata and input reads are bounded to four concurrent requests; file bytes load only on
+activation. Switching account/conversation cancels pending opens. Filename chips remain visible
+on read failure. The existing safe file opener displays active documents as inert source or
+provides a download. No credentials are put in a rendered file URL.
+
+Bare HTTP(S) and `www` links are clickable in Markdown, JSON strings and tool parameter/result
+text. Whole URLs remain intact during highlighting; links open a separate tab with
+`noopener noreferrer`. Tool results that contain a JSON object/array serialized as a string use
+the same structured JSON viewer as object-valued results, including search tools.
+
+Run `node scripts/check_message_files_links.mjs` after building. Browser checks:
+`CHAT_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check_message_files_browser.mjs`.
 
 ## app-server/README.md
 
@@ -6887,7 +6912,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_docs_voice.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && tsc -p scripts/types/tsconfig.json"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_message_files_links.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_docs_voice.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && tsc -p scripts/types/tsconfig.json"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.9.8",
@@ -16124,8 +16149,12 @@ export {
   type SseFrame,
 } from "./replay_view.js";
 
+export { TextLinks, textLinks } from "./text_links.js";
+export { messageArtifactRefs, submittedArtifacts, outputArtifacts, type MessageArtifact } from "./message_artifacts.js";
+
 ## panel-chat/src/chat_message_card.tsx
 
+import {MessageArtifactChip, type MessageArtifact} from "./message_artifacts.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { AfAudioPlayer, Icon, fileViewerKind, fileViewerNeedsText, formatFileSize, type IconName } from "@abstractframework/ui-kit";
@@ -16179,10 +16208,11 @@ export type ChatMessage = {
   attachments?: ChatAttachment[];
   /**
    * Artifact ids this message carries (`replay_view_v1.messages[].artifact_ids`,
-   * or `$artifact` refs a host folded). Data only: a host resolves them into
-   * `media` / `attachments` (e.g. with a transport's `resolveArtifact`).
+   * or `$artifact` refs a host folded). WorkflowChat presents them as named
+   * file chips with its artifactFetch transport; hosts may also supply media.
    */
   artifactIds?: string[];
+  artifactRefs?: MessageArtifact[];
 };
 
 /**
@@ -16627,7 +16657,7 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
 
       {media.length ? (
         <div className="pc-chat-media">
-          {media.slice(0, 24).map((item, idx) => (
+          {media.map((item, idx) => (
             <ChatMediaItem
               key={item.id || `${item.kind}:${item.src}:${idx}`}
               item={item}
@@ -16638,9 +16668,10 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         </div>
       ) : null}
 
+      {(m.artifactRefs?.length || m.artifactIds?.length) ? <div className="pc-chat-attachments" aria-label="Attached files">{(m.artifactRefs || m.artifactIds?.map(id=>({id,runId:m.runId||""})) || []).map(a=><MessageArtifactChip key={`${a.runId}:${a.id}`} artifact={a}/>)}</div> : null}
       {attachments.length ? (
         <div className="pc-chat-attachments" aria-label="Attachments">
-          {attachments.slice(0, 24).map((a, idx) => {
+          {attachments.map((a, idx) => {
             const label = String(a.label || "").trim() || "attachment";
             const target = String(a.target || "").trim();
             const title = String(a.title || "").trim();
@@ -19046,6 +19077,8 @@ function MarkdownCodeBlock({ code, lang }: { code: string; lang: string }): Reac
   );
 }
 
+import { textLinks, splitTextLinks } from "./text_links.js";
+
 type InlineNode = React.ReactNode;
 
 type HighlightState = {
@@ -19056,9 +19089,10 @@ type HighlightState = {
   hits: number;
 };
 
-function highlightInline(text: string, state: HighlightState | null): InlineNode[] {
+function highlightInline(text: string, state: HighlightState | null, linkify = true): InlineNode[] {
   const s = String(text ?? "");
-  if (!state || !state.needles.length) return [s];
+  if (linkify) return splitTextLinks(s).map((part,i) => part.href ? <a key={i} className="pc-md_link" href={part.href} target="_blank" rel="noopener noreferrer">{highlightInline(part.text,state,false)}</a> : <React.Fragment key={i}>{highlightInline(part.text,state,false)}</React.Fragment>);
+  if (!state || !state.needles.length) return linkify ? textLinks(s) : [s];
 
   const out: InlineNode[] = [];
   const hayLower = s.toLowerCase();
@@ -19080,11 +19114,11 @@ function highlightInline(text: string, state: HighlightState | null): InlineNode
     }
 
     if (bestStart === -1 || !bestNeedle) {
-      out.push(s.slice(pos));
+      out.push(...(linkify ? textLinks(s.slice(pos)) : [s.slice(pos)]));
       break;
     }
 
-    if (bestStart > pos) out.push(s.slice(pos, bestStart));
+    if (bestStart > pos) out.push(...(linkify ? textLinks(s.slice(pos, bestStart)) : [s.slice(pos, bestStart)]));
     const id = state.hits === 0 && state.id ? state.id : undefined;
     const matchedText = s.slice(bestStart, bestStart + bestNeedle.length);
     out.push(
@@ -19235,8 +19269,8 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
             // the SPA fallback (full reload, state gone). Only "#" fragment
             // anchors stay same-tab (hash changes never unload).
             out.push(
-              <a key={`link:${i}`} className="pc-md_link" href={href} target={href.startsWith("#") ? undefined : "_blank"} rel="noreferrer">
-                {renderInline(label, highlight)}
+              <a key={`link:${i}`} className="pc-md_link" href={href} target={href.startsWith("#") ? undefined : "_blank"} rel="noopener noreferrer">
+                {highlight ? highlightInline(label, highlight, false) : label}
               </a>
             );
             i = hrefEnd + 1;
@@ -19251,7 +19285,7 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
       if (j !== -1) {
         flush();
         const inner = s.slice(i + 1, j);
-        out.push(<code key={`code:${i}`}>{highlight ? highlightInline(inner, highlight) : inner}</code>);
+        out.push(<code key={`code:${i}`}>{highlight ? highlightInline(inner, highlight) : textLinks(inner)}</code>);
         i = j + 1;
         continue;
       }
@@ -19283,7 +19317,7 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
       if (j !== -1) {
         flush();
         const inner = s.slice(i + 2, j);
-        out.push(<strong key={`bold:${i}`}>{highlight ? highlightInline(inner, highlight) : inner}</strong>);
+        out.push(<strong key={`bold:${i}`}>{highlight ? highlightInline(inner, highlight) : textLinks(inner)}</strong>);
         i = j + 2;
         continue;
       }
@@ -19294,7 +19328,7 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
       if (j !== -1) {
         flush();
         const inner = s.slice(i + 1, j);
-        out.push(<em key={`em:${i}`}>{highlight ? highlightInline(inner, highlight) : inner}</em>);
+        out.push(<em key={`em:${i}`}>{highlight ? highlightInline(inner, highlight) : textLinks(inner)}</em>);
         i = j + 1;
         continue;
       }
@@ -21727,6 +21761,7 @@ Demo bundles stay outside the published package.
 
 `SessionCard` is the shared React presenter used by AbstractCode web and AbstractAssistant
 web. Import it from `@abstractframework/ui-kit`, with `@abstractframework/ui-kit/theme.css`.
+Titles use regular weight at a compact size (13 px minimum, respecting larger font scaling).
 It follows the Watch layout: a two-line title, small turn/tool/time facts, and an independent
 archive button. Hosts own navigation, archive confirmation and transport.
 

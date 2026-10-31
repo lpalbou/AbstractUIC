@@ -1,20 +1,44 @@
-import React, { useEffect, useRef, useState } from "react";
+import {
+  ArtifactFetchContext,
+  useMessageArtifacts,
+  boundedArtifactFetch,
+} from "./message_artifacts.js";
+import type { AfGatewayFetch } from "@abstractframework/ui-kit";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon, useAfTooltips } from "@abstractframework/ui-kit";
 
-import { unattachedSendBlock, type ComposerAttachment } from "./attachment_uploads.js";
+import {
+  unattachedSendBlock,
+  type ComposerAttachment,
+} from "./attachment_uploads.js";
 import { ChatComposer } from "./chat_composer.js";
 import type { ChatMessage, ChatMessageCardProps } from "./chat_message_card.js";
 import { ChatThread } from "./chat_thread.js";
 import { ComposerAttachmentChips } from "./composer_attachments.js";
 import { chatToMarkdown, copyText, downloadTextFile } from "./utils.js";
-import { DragPresence, dragCarriesFiles, draggedFileCount, dropZoneLabel, droppedFiles, folderRefusal, pastedFiles } from "./file_drop.js";
-import { WorkflowInteractionPanel, type WorkflowInteraction } from "./workflow_interaction.js";
+import {
+  DragPresence,
+  dragCarriesFiles,
+  draggedFileCount,
+  dropZoneLabel,
+  droppedFiles,
+  folderRefusal,
+  pastedFiles,
+} from "./file_drop.js";
+import {
+  WorkflowInteractionPanel,
+  type WorkflowInteraction,
+} from "./workflow_interaction.js";
 import type { StreamRepliesMode } from "./llm_delta.js";
 
 /** What the host's steer door answered (`POST commands {type:"inject_guidance"}`
  * answers `{accepted, duplicate, seq}`; ui-kit `SteerSubmitResult` fits). */
-export type ChatSteerResult = { accepted: boolean; seq?: number; duplicate?: boolean };
+export type ChatSteerResult = {
+  accepted: boolean;
+  seq?: number;
+  duplicate?: boolean;
+};
 /** "guide": steer the live run (inject_guidance). "queue": hold the message for the next turn. */
 export type ChatSteerMode = "guide" | "queue";
 export type ChatSteer = {
@@ -41,6 +65,10 @@ export type ChatToolbar = {
 export type WorkflowChatProps = {
   /** Fully controlled transcript. The host owns message persistence and identity. */
   messages: ChatMessage[];
+  /** Authenticated app-origin artifact reads, never model-provided URLs. */
+  artifactFetch?: AfGatewayFetch;
+  attachmentScope?: string;
+  attachmentRun?: { runId: string; output: unknown };
   /** Fully controlled composer value. It is intentionally retained on failed sends. */
   draft: string;
   onDraftChange: (draft: string) => void;
@@ -49,7 +77,10 @@ export type WorkflowChatProps = {
    * draft. `signal` is aborted when the user presses Stop during this send
    * (or the chat unmounts): a request/response host ties its fetch to it.
    */
-  onSend: (draft: string, ctx: { signal: AbortSignal }) => void | Promise<unknown>;
+  onSend: (
+    draft: string,
+    ctx: { signal: AbortSignal },
+  ) => void | Promise<unknown>;
   busy?: boolean;
   /** Keep the composer active while busy, for hosts that queue/steer messages. */
   sendWhileBusy?: boolean;
@@ -69,7 +100,10 @@ export type WorkflowChatProps = {
    * busy the state stays visible in the button's place ("Stopped", or the
    * gateway's forced-stop text) until the next run.
    */
-  stopState?: { phase: "stopping" | "stopped" | "forced"; label: string } | null;
+  stopState?: {
+    phase: "stopping" | "stopped" | "forced";
+    label: string;
+  } | null;
   /** Read-only/observer mode. It disables all actions without hiding context. */
   disabled?: boolean;
   blockedNotice?: React.ReactNode;
@@ -122,24 +156,49 @@ export type WorkflowChatProps = {
 };
 
 function messageFor(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error || "Unknown error");
+  const message =
+    error instanceof Error ? error.message : String(error || "Unknown error");
   return message.trim() || "Unknown error";
 }
 
 /**
- * Controlled chat presentation for workflow hosts. It does not fetch, poll,
- * mutate transcript state, or resume workflows: all gateway semantics stay in
- * the embedding controller.
+ * Controlled chat presentation for workflow hosts. Optional artifactFetch supplies
+ * authenticated attachment reads; run execution, persistence and approvals stay
+ * with the embedding host and controller.
  */
 export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
   useAfTooltips();
+  const artifactFetch = useMemo(
+    () =>
+      props.artifactFetch
+        ? boundedArtifactFetch(props.artifactFetch)
+        : undefined,
+    [props.artifactFetch, props.attachmentScope],
+  );
+  const transcript = useMessageArtifacts(
+    props.messages,
+    artifactFetch,
+    props.attachmentScope || "",
+    props.attachmentRun,
+  );
   const [sendPending, setSendPending] = useState(false);
   const [cancelPending, setCancelPending] = useState(false);
   const [attachPending, setAttachPending] = useState(false);
-  const [error, setError] = useState<{ action: "send" | "cancel" | "attach" | "steer" | "toolbar"; message: string } | null>(null);
-  const [steerMode, setSteerMode] = useState<ChatSteerMode>(() => props.steer?.modes?.[0] || "guide");
-  const [steerStatus, setSteerStatus] = useState<{ mode: ChatSteerMode; seq?: number; duplicate: boolean } | null>(null);
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const [error, setError] = useState<{
+    action: "send" | "cancel" | "attach" | "steer" | "toolbar";
+    message: string;
+  } | null>(null);
+  const [steerMode, setSteerMode] = useState<ChatSteerMode>(
+    () => props.steer?.modes?.[0] || "guide",
+  );
+  const [steerStatus, setSteerStatus] = useState<{
+    mode: ChatSteerMode;
+    seq?: number;
+    duplicate: boolean;
+  } | null>(null);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
   const sendAbortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
   const sendInFlightRef = useRef(false);
@@ -165,14 +224,26 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
   const blocked = Boolean(props.blockedNotice);
   const disabled = Boolean(props.disabled) || blocked;
   const sending = Boolean(props.busy) || sendPending;
-  const composerBusy = sendPending || (Boolean(props.busy) && !props.sendWhileBusy);
+  const composerBusy =
+    sendPending || (Boolean(props.busy) && !props.sendWhileBusy);
   const stopState = props.stopState || null;
   const stopping = stopState?.phase === "stopping";
-  const steer = props.steer && typeof props.steer.onSteer === "function" ? props.steer : null;
-  const steerModes: ChatSteerMode[] = steer ? (steer.modes?.length ? steer.modes : ["guide"]) : [];
-  const activeSteerMode: ChatSteerMode = steerModes.includes(steerMode) ? steerMode : steerModes[0] || "guide";
+  const steer =
+    props.steer && typeof props.steer.onSteer === "function"
+      ? props.steer
+      : null;
+  const steerModes: ChatSteerMode[] = steer
+    ? steer.modes?.length
+      ? steer.modes
+      : ["guide"]
+    : [];
+  const activeSteerMode: ChatSteerMode = steerModes.includes(steerMode)
+    ? steerMode
+    : steerModes[0] || "guide";
   const steering = Boolean(steer) && Boolean(props.busy);
-  const attachmentItems = Array.isArray(props.attachmentItems) ? props.attachmentItems : [];
+  const attachmentItems = Array.isArray(props.attachmentItems)
+    ? props.attachmentItems
+    : [];
   // A "Queued (seq N)" note belongs to the run it was sent to: a new turn
   // (busy flips) clears it.
   useEffect(() => {
@@ -182,7 +253,10 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
   // ---- Drag-and-drop / paste to attach ---------------------------------
   const acceptsFiles = typeof props.onFiles === "function";
   const sectionRef = useRef<HTMLElement>(null);
-  const [drag, setDrag] = useState<{ count: number | null; over: boolean } | null>(null);
+  const [drag, setDrag] = useState<{
+    count: number | null;
+    over: boolean;
+  } | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const onFilesRef = useRef(props.onFiles);
   onFilesRef.current = props.onFiles;
@@ -193,20 +267,27 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     const handler = onFilesRef.current;
     if (!handler) return;
     if (disabledRef.current) {
-      setError({ action: "attach", message: "attachments are unavailable right now." });
+      setError({
+        action: "attach",
+        message: "attachments are unavailable right now.",
+      });
       return;
     }
-    if (folders.length) setError({ action: "attach", message: folderRefusal(folders) });
+    if (folders.length)
+      setError({ action: "attach", message: folderRefusal(folders) });
     else if (!files.length) {
       setError({ action: "attach", message: "the drop contained no files." });
       return;
     } else setError(null);
     if (!files.length) return;
-    setAnnouncement(`Attaching ${files.length} ${files.length === 1 ? "file" : "files"}…`);
+    setAnnouncement(
+      `Attaching ${files.length} ${files.length === 1 ? "file" : "files"}…`,
+    );
     try {
       await handler(files);
     } catch (reason) {
-      if (mountedRef.current) setError({ action: "attach", message: messageFor(reason) });
+      if (mountedRef.current)
+        setError({ action: "attach", message: messageFor(reason) });
     }
   };
   const deliverRef = useRef(deliverFiles);
@@ -217,7 +298,11 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     const presence = new DragPresence();
     let watchdog = 0;
     const inside = (target: EventTarget | null) =>
-      Boolean(sectionRef.current && target instanceof Node && sectionRef.current.contains(target));
+      Boolean(
+        sectionRef.current &&
+          target instanceof Node &&
+          sectionRef.current.contains(target),
+      );
     const hide = () => {
       presence.reset();
       if (watchdog) window.clearInterval(watchdog);
@@ -236,7 +321,11 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
       const over = inside(event.target);
       const count = draggedFileCount(event.dataTransfer);
       setDrag((previous) =>
-        previous && previous.over === over && previous.count === (count ?? previous.count) ? previous : { count: count ?? previous?.count ?? null, over },
+        previous &&
+        previous.over === over &&
+        previous.count === (count ?? previous.count)
+          ? previous
+          : { count: count ?? previous?.count ?? null, over },
       );
       arm();
     };
@@ -247,8 +336,17 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
       event.preventDefault();
       presence.over(Date.now());
       const over = inside(event.target);
-      if (event.dataTransfer) event.dataTransfer.dropEffect = over && !disabledRef.current ? "copy" : "none";
-      setDrag((previous) => (previous && previous.over === over ? previous : { count: previous?.count ?? draggedFileCount(event.dataTransfer), over }));
+      if (event.dataTransfer)
+        event.dataTransfer.dropEffect =
+          over && !disabledRef.current ? "copy" : "none";
+      setDrag((previous) =>
+        previous && previous.over === over
+          ? previous
+          : {
+              count: previous?.count ?? draggedFileCount(event.dataTransfer),
+              over,
+            },
+      );
       arm();
     };
     const onLeave = (event: DragEvent) => {
@@ -263,7 +361,10 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
       hide();
       if (handledElsewhere) return;
       if (!over) {
-        setError({ action: "attach", message: "drop files on the conversation to attach them." });
+        setError({
+          action: "attach",
+          message: "drop files on the conversation to attach them.",
+        });
         return;
       }
       const { files, folders } = droppedFiles(event.dataTransfer);
@@ -301,19 +402,39 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
 
   const dropZone = drag ? (
     <div
-      className={["pc-workflow-chat__dropzone", drag.over ? "is-over" : "", disabled ? "is-disabled" : ""].filter(Boolean).join(" ")}
+      className={[
+        "pc-workflow-chat__dropzone",
+        drag.over ? "is-over" : "",
+        disabled ? "is-disabled" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       aria-hidden="true"
     >
       <span className="pc-workflow-chat__dropzone-icon">
         <Icon name="paperclip" size={18} />
       </span>
       <span className="pc-workflow-chat__dropzone-text">
-        <strong>{disabled ? "Attachments are unavailable right now" : dropZoneLabel(drag.count)}</strong>
-        {disabled ? null : <span>{drag.over ? "Release to upload to this conversation" : "Drop anywhere on the conversation"}</span>}
+        <strong>
+          {disabled
+            ? "Attachments are unavailable right now"
+            : dropZoneLabel(drag.count)}
+        </strong>
+        {disabled ? null : (
+          <span>
+            {drag.over
+              ? "Release to upload to this conversation"
+              : "Drop anywhere on the conversation"}
+          </span>
+        )}
       </span>
     </div>
   ) : null;
-  const liveMessage = drag ? (disabled ? "Attachments are unavailable right now" : dropZoneLabel(drag.count)) : announcement;
+  const liveMessage = drag
+    ? disabled
+      ? "Attachments are unavailable right now"
+      : dropZoneLabel(drag.count)
+    : announcement;
 
   const submitSteer = async (draft: string) => {
     if (!steer) return;
@@ -329,13 +450,21 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
       // A 200 with accepted:false is a REFUSAL, not a queue: saying "Queued"
       // over it would lie (SteerComposer's rule).
       if (!result?.accepted && !result?.duplicate) {
-        setError({ action: "steer", message: "the gateway did not accept this message (accepted=false)." });
+        setError({
+          action: "steer",
+          message: "the gateway did not accept this message (accepted=false).",
+        });
         return;
       }
-      setSteerStatus({ mode, ...(typeof result.seq === "number" ? { seq: result.seq } : {}), duplicate: Boolean(result.duplicate) });
+      setSteerStatus({
+        mode,
+        ...(typeof result.seq === "number" ? { seq: result.seq } : {}),
+        duplicate: Boolean(result.duplicate),
+      });
       props.onDraftChange("");
     } catch (reason) {
-      if (mountedRef.current && sendSequenceRef.current === sequence) setError({ action: "steer", message: messageFor(reason) });
+      if (mountedRef.current && sendSequenceRef.current === sequence)
+        setError({ action: "steer", message: messageFor(reason) });
     } finally {
       if (mountedRef.current && sendSequenceRef.current === sequence) {
         sendInFlightRef.current = false;
@@ -349,7 +478,9 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     if (disabled || sendInFlightRef.current || !draft.trim()) return;
     if (steering) return void submitSteer(draft);
     if (!props.sendWhileBusy && props.busy) return;
-    const block = attachmentItems.length ? unattachedSendBlock(attachmentItems) : null;
+    const block = attachmentItems.length
+      ? unattachedSendBlock(attachmentItems)
+      : null;
     if (block) {
       setError({ action: "send", message: block });
       return;
@@ -366,7 +497,12 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     } catch (reason) {
       // Draft stays controlled by the host and is deliberately not cleared.
       // A send the user stopped is not a failure to report.
-      if (mountedRef.current && sendSequenceRef.current === sequence && !abort.signal.aborted) setError({ action: "send", message: messageFor(reason) });
+      if (
+        mountedRef.current &&
+        sendSequenceRef.current === sequence &&
+        !abort.signal.aborted
+      )
+        setError({ action: "send", message: messageFor(reason) });
     } finally {
       if (sendAbortRef.current === abort) sendAbortRef.current = null;
       if (mountedRef.current && sendSequenceRef.current === sequence) {
@@ -388,7 +524,8 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     try {
       await props.onCancel(signalOwner.signal);
     } catch (reason) {
-      if (mountedRef.current && cancelSequenceRef.current === sequence) setError({ action: "cancel", message: messageFor(reason) });
+      if (mountedRef.current && cancelSequenceRef.current === sequence)
+        setError({ action: "cancel", message: messageFor(reason) });
     } finally {
       if (mountedRef.current && cancelSequenceRef.current === sequence) {
         cancelInFlightRef.current = false;
@@ -406,7 +543,8 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     try {
       await props.onAttach();
     } catch (reason) {
-      if (mountedRef.current && attachSequenceRef.current === sequence) setError({ action: "attach", message: messageFor(reason) });
+      if (mountedRef.current && attachSequenceRef.current === sequence)
+        setError({ action: "attach", message: messageFor(reason) });
     } finally {
       if (mountedRef.current && attachSequenceRef.current === sequence) {
         attachInFlightRef.current = false;
@@ -425,7 +563,9 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
   const toolbar = props.toolbar || null;
   const transcriptMarkdown = (heading?: string) =>
     chatToMarkdown(
-      (Array.isArray(props.messages) ? props.messages : []).filter((m) => !m.toolActivity && !m.live && String(m.content || "").trim()),
+      (Array.isArray(props.messages) ? props.messages : []).filter(
+        (m) => !m.toolActivity && !m.live && String(m.content || "").trim(),
+      ),
       heading ? { heading } : undefined,
     );
   const runToolbar = async (action: () => void | Promise<unknown>) => {
@@ -434,33 +574,62 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     try {
       await action();
     } catch (reason) {
-      if (mountedRef.current) setError({ action: "toolbar", message: messageFor(reason) });
+      if (mountedRef.current)
+        setError({ action: "toolbar", message: messageFor(reason) });
     }
   };
   const copyTranscript = async () => {
     const ok = await copyText(transcriptMarkdown());
     if (!mountedRef.current) return;
     setCopyState(ok ? "copied" : "failed");
-    if (typeof window !== "undefined") window.setTimeout(() => mountedRef.current && setCopyState("idle"), 1200);
+    if (typeof window !== "undefined")
+      window.setTimeout(() => mountedRef.current && setCopyState("idle"), 1200);
   };
   const toolbarRow = toolbar ? (
-    <div className="pc-workflow-chat__toolbar" role="toolbar" aria-label="Conversation actions">
+    <div
+      className="pc-workflow-chat__toolbar"
+      role="toolbar"
+      aria-label="Conversation actions"
+    >
       {toolbar.onNewSession ? (
-        <button type="button" className="pc-workflow-chat__icon-button" data-toolbar="new" disabled={disabled} onClick={() => void runToolbar(toolbar.onNewSession!)}>
+        <button
+          type="button"
+          className="pc-workflow-chat__icon-button"
+          data-toolbar="new"
+          disabled={disabled}
+          onClick={() => void runToolbar(toolbar.onNewSession!)}
+        >
           <Icon name="plus" size={14} />
           <span>New chat</span>
         </button>
       ) : null}
       {toolbar.onClear ? (
-        <button type="button" className="pc-workflow-chat__icon-button" data-toolbar="clear" disabled={disabled} onClick={() => void runToolbar(toolbar.onClear!)}>
+        <button
+          type="button"
+          className="pc-workflow-chat__icon-button"
+          data-toolbar="clear"
+          disabled={disabled}
+          onClick={() => void runToolbar(toolbar.onClear!)}
+        >
           <Icon name="trash" size={14} />
           <span>Clear</span>
         </button>
       ) : null}
       {toolbar.copyTranscript ? (
-        <button type="button" className="pc-workflow-chat__icon-button" data-toolbar="copy" onClick={() => void copyTranscript()}>
+        <button
+          type="button"
+          className="pc-workflow-chat__icon-button"
+          data-toolbar="copy"
+          onClick={() => void copyTranscript()}
+        >
           <Icon name={copyState === "copied" ? "check" : "copy"} size={14} />
-          <span>{copyState === "copied" ? "Copied" : copyState === "failed" ? "Copy failed" : "Copy"}</span>
+          <span>
+            {copyState === "copied"
+              ? "Copied"
+              : copyState === "failed"
+                ? "Copy failed"
+                : "Copy"}
+          </span>
         </button>
       ) : null}
       {toolbar.exportTranscript ? (
@@ -469,8 +638,15 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
           className="pc-workflow-chat__icon-button"
           data-toolbar="export"
           onClick={() => {
-            const spec = toolbar.exportTranscript as { filename: string; heading?: string };
-            downloadTextFile({ filename: spec.filename, text: transcriptMarkdown(spec.heading), mime: "text/markdown;charset=utf-8" });
+            const spec = toolbar.exportTranscript as {
+              filename: string;
+              heading?: string;
+            };
+            downloadTextFile({
+              filename: spec.filename,
+              text: transcriptMarkdown(spec.heading),
+              mime: "text/markdown;charset=utf-8",
+            });
           }}
         >
           <Icon name="download" size={14} />
@@ -485,37 +661,94 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     ? steerStatus.mode === "queue"
       ? `Queued for the next turn${typeof steerStatus.seq === "number" ? ` (seq ${steerStatus.seq})` : ""}.`
       : `${steerStatus.duplicate ? "Already queued" : "Queued"}${typeof steerStatus.seq === "number" ? ` (seq ${steerStatus.seq})` : ""}. ${
-          steer?.parked ? "The run is waiting: your guidance delivers at its next wake (steers do not wake runs)." : "Delivers at the run's next loop boundary."
+          steer?.parked
+            ? "The run is waiting: your guidance delivers at its next wake (steers do not wake runs)."
+            : "Delivers at the run's next loop boundary."
         }`
     : "";
 
   return (
     <section
       ref={sectionRef}
-      className={["pc-workflow-chat", drag ? "pc-workflow-chat--dragging" : "", drag?.over ? "pc-workflow-chat--drag-over" : "", props.className].filter(Boolean).join(" ")}
+      className={[
+        "pc-workflow-chat",
+        drag ? "pc-workflow-chat--dragging" : "",
+        drag?.over ? "pc-workflow-chat--drag-over" : "",
+        props.className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
       aria-label="Workflow chat"
       data-stream-replies={props.streamReplies || "gateway_default"}
     >
       {props.header || toolbarRow ? (
-        <header className={["pc-workflow-chat__header", toolbarRow ? "pc-workflow-chat__header--toolbar" : ""].filter(Boolean).join(" ")}>
-          {props.header ? <div className="pc-workflow-chat__header-main">{props.header}</div> : null}
+        <header
+          className={[
+            "pc-workflow-chat__header",
+            toolbarRow ? "pc-workflow-chat__header--toolbar" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          {props.header ? (
+            <div className="pc-workflow-chat__header-main">{props.header}</div>
+          ) : null}
           {toolbarRow}
         </header>
       ) : null}
       <div className="pc-workflow-chat__transcript">
-        <ChatThread
-          messages={Array.isArray(props.messages) ? props.messages : []}
-          empty={props.emptyState}
-          autoScroll
-          messageProps={{ ...props.messageProps, ...(props.renderMarkdown ? { renderMarkdown: props.renderMarkdown } : {}) }}
-          after={
-            <>
-              {props.interaction ? <WorkflowInteractionPanel interaction={props.interaction} disabled={disabled} /> : null}
-              {blocked ? <div className="pc-workflow-chat__blocked" role="status">{props.blockedNotice}</div> : null}
-            </>
-          }
-          afterKey={`${props.interaction ? `${props.interaction.kind}:${props.interaction.id}` : ""}:${blocked ? "blocked" : ""}`}
-        />
+        <ArtifactFetchContext.Provider
+          key={props.attachmentScope}
+          value={artifactFetch}
+        >
+          {transcript.error && (
+            <p role="status" className="pc-workflow-chat__error">
+              {transcript.error}{" "}
+              <button type="button" onClick={transcript.retry}>
+                Retry attachment check
+              </button>
+            </p>
+          )}
+          <ChatThread
+            messages={transcript.messages}
+            empty={props.emptyState}
+            autoScroll
+            messageProps={{
+              ...props.messageProps,
+              ...(props.messageProps?.renderFooter
+                ? {
+                    renderFooter: (m) =>
+                      props.messageProps!.renderFooter!(
+                        props.messages.find(
+                          (original) =>
+                            original === m ||
+                            (original.id && original.id === m.id),
+                        ) || m,
+                      ),
+                  }
+                : {}),
+              ...(props.renderMarkdown
+                ? { renderMarkdown: props.renderMarkdown }
+                : {}),
+            }}
+            after={
+              <>
+                {props.interaction ? (
+                  <WorkflowInteractionPanel
+                    interaction={props.interaction}
+                    disabled={disabled}
+                  />
+                ) : null}
+                {blocked ? (
+                  <div className="pc-workflow-chat__blocked" role="status">
+                    {props.blockedNotice}
+                  </div>
+                ) : null}
+              </>
+            }
+            afterKey={`${props.interaction ? `${props.interaction.kind}:${props.interaction.id}` : ""}:${blocked ? "blocked" : ""}`}
+          />
+        </ArtifactFetchContext.Provider>
       </div>
       {error ? (
         <div className="pc-workflow-chat__error" role="alert">
@@ -551,13 +784,24 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
           disabled={disabled}
           busy={steering ? sendPending : composerBusy}
           sendLabel={steering ? steerLabel : props.sendLabel}
-          busyLabel={steering ? (activeSteerMode === "queue" ? "Queueing…" : "Steering…") : props.busyLabel}
+          busyLabel={
+            steering
+              ? activeSteerMode === "queue"
+                ? "Queueing…"
+                : "Steering…"
+              : props.busyLabel
+          }
           rows={2}
           leading={
             props.attachments || attachmentItems.length ? (
               <div className="pc-workflow-chat__attachments">
                 {attachmentItems.length ? (
-                  <ComposerAttachmentChips items={attachmentItems} onRemove={props.onRemoveAttachment} onRetry={props.onRetryAttachment} disabled={disabled} />
+                  <ComposerAttachmentChips
+                    items={attachmentItems}
+                    onRemove={props.onRemoveAttachment}
+                    onRetry={props.onRetryAttachment}
+                    disabled={disabled}
+                  />
                 ) : null}
                 {props.attachments}
               </div>
@@ -568,14 +812,25 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
           actions={
             <>
               {props.onAttach ? (
-                <button type="button" className="pc-workflow-chat__icon-button" aria-label="Attach file" data-af-tip="Attach a file" disabled={disabled || attachPending} onClick={() => void attach()}>
+                <button
+                  type="button"
+                  className="pc-workflow-chat__icon-button"
+                  aria-label="Attach file"
+                  data-af-tip="Attach a file"
+                  disabled={disabled || attachPending}
+                  onClick={() => void attach()}
+                >
                   <Icon name="paperclip" size={16} />
                   <span>{attachPending ? "Attaching…" : "Attach"}</span>
                 </button>
               ) : null}
               {props.composerExtras}
               {steering && steerModes.length > 1 ? (
-                <span className="pc-workflow-chat__steer-modes" role="group" aria-label="While the run is busy">
+                <span
+                  className="pc-workflow-chat__steer-modes"
+                  role="group"
+                  aria-label="While the run is busy"
+                >
                   {steerModes.map((mode) => (
                     <button
                       key={mode}
@@ -592,12 +847,23 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
                 </span>
               ) : null}
               {sending && props.onCancel ? (
-                <button type="button" className="pc-workflow-chat__stop" disabled={disabled || cancelPending || stopping} onClick={() => void cancel()}>
+                <button
+                  type="button"
+                  className="pc-workflow-chat__stop"
+                  disabled={disabled || cancelPending || stopping}
+                  onClick={() => void cancel()}
+                >
                   <Icon name="x" size={14} />
-                  <span>{cancelPending || stopping ? "Stopping…" : "Stop"}</span>
+                  <span>
+                    {cancelPending || stopping ? "Stopping…" : "Stop"}
+                  </span>
                 </button>
               ) : stopState ? (
-                <span className={`pc-workflow-chat__stop-state pc-workflow-chat__stop-state--${stopState.phase}`} role="status" aria-live="polite">
+                <span
+                  className={`pc-workflow-chat__stop-state pc-workflow-chat__stop-state--${stopState.phase}`}
+                  role="status"
+                  aria-live="polite"
+                >
                   {stopState.label}
                 </span>
               ) : null}
@@ -605,7 +871,11 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
           }
         />
         {steer ? (
-          <div className="pc-workflow-chat__steer-status" role="status" aria-live="polite">
+          <div
+            className="pc-workflow-chat__steer-status"
+            role="status"
+            aria-live="polite"
+          >
             {steerNote}
           </div>
         ) : null}
@@ -615,7 +885,9 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
           </div>
         ) : null}
       </div>
-      {props.footer ? <footer className="pc-workflow-chat__footer">{props.footer}</footer> : null}
+      {props.footer ? (
+        <footer className="pc-workflow-chat__footer">{props.footer}</footer>
+      ) : null}
     </section>
   );
 }

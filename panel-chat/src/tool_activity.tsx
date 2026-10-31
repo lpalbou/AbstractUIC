@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Icon } from "@abstractframework/ui-kit";
 import type { WorkflowToolActivity } from "./workflow_evidence.js";
+import { TextLinks } from "./text_links.js";
 import { JsonViewer } from "./json_viewer.js";
 import { copyText } from "./utils.js";
 import { ToolSandboxLine } from "./sandbox_line.js";
@@ -56,6 +57,7 @@ export function ToolActivity({
   const [copied, setCopied] = useState(false);
   const args = toolArguments(tool.arguments);
   const preview = toolPreview(tool.arguments);
+  const output = toolArguments(tool.output);
   // #TRUNCATION: paths abbreviate in the preview only. Title and expanded
   // parameters retain the exact target, including its directory and basename.
   const previewText =
@@ -104,7 +106,7 @@ export function ToolActivity({
           {preview.value ? (
             <>
               <span className="pc-tool-activity__key">{preview.label}</span>
-              {previewText}
+              <TextLinks text={previewText} />
             </>
           ) : (
             "No parameters"
@@ -146,7 +148,7 @@ export function ToolActivity({
         {tool.error ? (
           <>
             <h4>Error</h4>
-            <pre className="pc-tool-activity__output">{tool.error}</pre>
+            <pre className="pc-tool-activity__output"><TextLinks text={tool.error} /></pre>
           </>
         ) : null}
         <div className="pc-tool-activity__detail-heading">
@@ -174,7 +176,7 @@ export function ToolActivity({
                   ) : (
                     <code>
                       {typeof value === "string"
-                        ? value
+                        ? <TextLinks text={value} />
                         : JSON.stringify(value)}
                     </code>
                   )}
@@ -190,11 +192,11 @@ export function ToolActivity({
         {tool.output !== undefined ? (
           <>
             <h4>Result</h4>
-            {typeof tool.output === "string" ? (
-              <pre className="pc-tool-activity__output">{tool.output}</pre>
+            {typeof output === "string" ? (
+              <pre className="pc-tool-activity__output"><TextLinks text={output} /></pre>
             ) : (
               <div className="pc-tool-activity__output">
-                <JsonViewer value={tool.output} />
+                <JsonViewer value={output} />
               </div>
             )}
           </>

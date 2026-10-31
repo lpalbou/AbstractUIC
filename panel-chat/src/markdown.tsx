@@ -39,6 +39,8 @@ function MarkdownCodeBlock({ code, lang }: { code: string; lang: string }): Reac
   );
 }
 
+import { textLinks, splitTextLinks } from "./text_links.js";
+
 type InlineNode = React.ReactNode;
 
 type HighlightState = {
@@ -49,9 +51,10 @@ type HighlightState = {
   hits: number;
 };
 
-function highlightInline(text: string, state: HighlightState | null): InlineNode[] {
+function highlightInline(text: string, state: HighlightState | null, linkify = true): InlineNode[] {
   const s = String(text ?? "");
-  if (!state || !state.needles.length) return [s];
+  if (linkify) return splitTextLinks(s).map((part,i) => part.href ? <a key={i} className="pc-md_link" href={part.href} target="_blank" rel="noopener noreferrer">{highlightInline(part.text,state,false)}</a> : <React.Fragment key={i}>{highlightInline(part.text,state,false)}</React.Fragment>);
+  if (!state || !state.needles.length) return linkify ? textLinks(s) : [s];
 
   const out: InlineNode[] = [];
   const hayLower = s.toLowerCase();
@@ -73,11 +76,11 @@ function highlightInline(text: string, state: HighlightState | null): InlineNode
     }
 
     if (bestStart === -1 || !bestNeedle) {
-      out.push(s.slice(pos));
+      out.push(...(linkify ? textLinks(s.slice(pos)) : [s.slice(pos)]));
       break;
     }
 
-    if (bestStart > pos) out.push(s.slice(pos, bestStart));
+    if (bestStart > pos) out.push(...(linkify ? textLinks(s.slice(pos, bestStart)) : [s.slice(pos, bestStart)]));
     const id = state.hits === 0 && state.id ? state.id : undefined;
     const matchedText = s.slice(bestStart, bestStart + bestNeedle.length);
     out.push(
@@ -228,8 +231,8 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
             // the SPA fallback (full reload, state gone). Only "#" fragment
             // anchors stay same-tab (hash changes never unload).
             out.push(
-              <a key={`link:${i}`} className="pc-md_link" href={href} target={href.startsWith("#") ? undefined : "_blank"} rel="noreferrer">
-                {renderInline(label, highlight)}
+              <a key={`link:${i}`} className="pc-md_link" href={href} target={href.startsWith("#") ? undefined : "_blank"} rel="noopener noreferrer">
+                {highlight ? highlightInline(label, highlight, false) : label}
               </a>
             );
             i = hrefEnd + 1;
@@ -244,7 +247,7 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
       if (j !== -1) {
         flush();
         const inner = s.slice(i + 1, j);
-        out.push(<code key={`code:${i}`}>{highlight ? highlightInline(inner, highlight) : inner}</code>);
+        out.push(<code key={`code:${i}`}>{highlight ? highlightInline(inner, highlight) : textLinks(inner)}</code>);
         i = j + 1;
         continue;
       }
@@ -276,7 +279,7 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
       if (j !== -1) {
         flush();
         const inner = s.slice(i + 2, j);
-        out.push(<strong key={`bold:${i}`}>{highlight ? highlightInline(inner, highlight) : inner}</strong>);
+        out.push(<strong key={`bold:${i}`}>{highlight ? highlightInline(inner, highlight) : textLinks(inner)}</strong>);
         i = j + 2;
         continue;
       }
@@ -287,7 +290,7 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
       if (j !== -1) {
         flush();
         const inner = s.slice(i + 1, j);
-        out.push(<em key={`em:${i}`}>{highlight ? highlightInline(inner, highlight) : inner}</em>);
+        out.push(<em key={`em:${i}`}>{highlight ? highlightInline(inner, highlight) : textLinks(inner)}</em>);
         i = j + 1;
         continue;
       }

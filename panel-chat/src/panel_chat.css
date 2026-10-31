@@ -2584,3 +2584,7 @@ button.pc-ws__name:hover {
   .pc-workflow-interaction__more > summary,
   .pc-workflow-interaction__scope-details > summary { min-height: var(--tap-min, 44px); display: flex; align-items: center; }
 }
+
+.pc-message-artifact { display: inline-flex; flex-direction: column; gap: 4px; max-width: 100%; }
+.pc-message-artifact__error { color: var(--error); font-size: var(--font-size-sm); overflow-wrap: anywhere; }
+.pc-tool-activity__output a, .pc-json-viewer a { overflow-wrap: anywhere; }

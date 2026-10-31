@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFileSync,mkdirSync} from 'node:fs';
-import {pathToFileURL} from 'node:url';
+import {pathToFileURL,fileURLToPath} from 'node:url';
 import {resolve} from 'node:path';
 import {build} from 'esbuild';
+const root=fileURLToPath(new URL('../',import.meta.url));
 const {chromium}=await import(process.env.SESSION_PLAYWRIGHT_MODULE?pathToFileURL(resolve(process.env.SESSION_PLAYWRIGHT_MODULE)).href:'playwright');
 const bundle=await build({stdin:{contents:`
 import React,{useState} from 'react';import {createRoot} from 'react-dom/client';
@@ -16,13 +17,13 @@ return <><aside><SessionCard sessionId="a" title="A compact conversation with a 
 <SessionCard sessionId="c" title="Working on your question" working turnCount={1} nowMs={Date.now()} onOpen={()=>{}}/></aside>
 <main><div style={{height:p.down?1600:20}}>Loaded answer</div><SessionReadMarker ownerKey={p.scope} receipt={receipt} enabled onRead={r=>{window.consumed.push([p.scope,r.revision]);reads.markRead(r)}}/></main>
 {p.covered&&<div style={{position:'fixed',inset:0,background:'var(--ui-bg)',zIndex:100}}>A drawer covers the answer</div>}</>}
-window.consumed=[];window.receiptAt=new Date(Date.now()+1000).toISOString();createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,format:'esm'});
-const css=readFileSync('src/theme.css','utf8');
+window.consumed=[];window.receiptAt=new Date(Date.now()+1000).toISOString();createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:root,loader:'tsx'},bundle:true,write:false,format:'esm'});
+const css=readFileSync(resolve(root,'src/theme.css'),'utf8');
 const server=createServer((req,res)=>{res.setHeader('Content-Type',req.url==='/app.js'?'text/javascript':req.url==='/theme.css'?'text/css':'text/html');res.end(req.url==='/app.js'?bundle.outputFiles[0].contents:req.url==='/theme.css'?css:`<!doctype html><html data-theme="dark"><link rel="stylesheet" href="/theme.css"><style>body{margin:0;background:var(--ui-bg);color:var(--ui-fg);font-family:system-ui}aside{position:fixed;top:20px;left:20px;width:290px;display:grid;gap:10px}main{margin-left:340px;width:300px}button{font:inherit}</style><div id="root"></div><script type="module" src="/app.js"></script></html>`)});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
 try{
 browser=await chromium.launch();const context=await browser.newContext({viewport:{width:900,height:650}}),page=await context.newPage(),errors=[];
-page.on('pageerror',e=>errors.push(e.message));const base=`http://127.0.0.1:${server.address().port}`;await page.goto(base);await page.locator('.af-session-card').first().waitFor();await page.waitForTimeout(400);
+page.on('pageerror',e=>errors.push(e.message));const base=`http://127.0.0.1:${server.address().port}`;await page.goto(base);await page.locator('.af-session-card').first().waitFor();const titleStyle=await page.locator('.af-session-card__title').first().evaluate(el=>({weight:getComputedStyle(el).fontWeight,size:parseFloat(getComputedStyle(el).fontSize)}));assert.equal(titleStyle.weight,'400');assert.equal(titleStyle.size,13);assert.equal(await page.locator('.af-session-card__attention').evaluate(el=>getComputedStyle(el).fontWeight),'400');await page.waitForTimeout(400);
 assert.deepEqual(await page.evaluate(()=>window.consumed),[],'Offscreen answer stays unread');
 await page.evaluate(()=>window.setTest({revision:'covered',scope:'demo',covered:true,down:false}));await page.waitForTimeout(450);
 assert.deepEqual(await page.evaluate(()=>window.consumed),[],'Covered answer stays unread');

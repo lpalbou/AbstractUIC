@@ -136,7 +136,8 @@ the host.
 Use `interaction` for a pending `WorkflowInteraction`: `ask-user` supports
 choices and optional free text, `tool-approval` provides approve/deny actions,
 and `event-wait` sends a host-defined payload. The callbacks are injected: the
-component never fetches, polls, or resumes a workflow itself.
+component never starts or resumes a workflow itself. Its optional `artifactFetch` transport
+performs authenticated attachment reads only; execution remains host-owned.
 
 `renderMarkdown` is passed through to each `ChatThread` message card. Use it
 when the host owns a sanitizer or a richer Markdown renderer; the chat surface
@@ -580,3 +581,27 @@ Click the speaker to play, pause or resume. Opening history does not autoplay.
 Pass `voicePreferences` to use the app’s speech override, output device and volume;
 omit it to follow Gateway defaults. A kept-alive rail panel should pass
 `visible: false` while hidden to stop playback.
+
+### Message files, clickable links and structured tool results
+
+`WorkflowChat` uses the shared `ChatMessageCard`, `ToolActivity` and `ToolActivityGroup`.
+Pass `artifactFetch` (the host's authenticated app-origin fetch), `attachmentScope` (a non-secret
+account plus conversation identity), and `attachmentRun={{runId, output}}` for the active run.
+The chat displays user and assistant artifact references on the originating message, restoring
+submitted user files from `input_data` on older replay views. Explicit file-only outputs get an
+assistant card; historical file-only replies omitted by old views are restored from authorized
+run snapshots. Settled historical lookups are cached per scope; failed reads expose Retry.
+Only attachment/output fields are inspected, excluding scratchpad and internal state artifacts.
+
+Metadata and input reads are bounded to four concurrent requests; file bytes load only on
+activation. Switching account/conversation cancels pending opens. Filename chips remain visible
+on read failure. The existing safe file opener displays active documents as inert source or
+provides a download. No credentials are put in a rendered file URL.
+
+Bare HTTP(S) and `www` links are clickable in Markdown, JSON strings and tool parameter/result
+text. Whole URLs remain intact during highlighting; links open a separate tab with
+`noopener noreferrer`. Tool results that contain a JSON object/array serialized as a string use
+the same structured JSON viewer as object-valued results, including search tools.
+
+Run `node scripts/check_message_files_links.mjs` after building. Browser checks:
+`CHAT_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check_message_files_browser.mjs`.
