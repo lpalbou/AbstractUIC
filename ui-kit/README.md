@@ -528,3 +528,8 @@ The shared controls also support narrow settings panels:
 - `WorkspaceChooser compact` uses a flat folder list, folds blocked paths, and moves repeated policy explanations into a structured information tooltip. The Gateway still decides every permission and refusal.
 
 Information tooltips appear after 200ms of hover or keyboard focus, use the active theme, and dismiss with Escape. The standard layouts remain available when these options are omitted.
+
+`AfVoiceSection` accepts `compact` for a narrow settings drawer: route headers
+expand their editors, controls use the drawer width, and information buttons
+explain optional settings and browser limitations. Value, reset and change
+callbacks use the same preference contract as the standard layout.

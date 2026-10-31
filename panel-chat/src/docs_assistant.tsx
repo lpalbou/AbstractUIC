@@ -24,11 +24,12 @@
 // the component never builds credentials.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { AfDrawer, AfPanelHeaderActions, Icon, formatRelativeTime, gatewayApiPath, randomId, useAfTooltips, type AfDrawerPanel } from "@abstractframework/ui-kit";
+import { AfDrawer, AfPanelHeaderActions, Icon, formatRelativeTime, gatewayApiPath, randomId, useAfTooltips, type AfDrawerPanel, type VoiceClientPreferences } from "@abstractframework/ui-kit";
 
 import { ChatComposer } from "./chat_composer.js";
+import { useDocsVoice } from "./docs_voice.js";
 import { ChatThread } from "./chat_thread.js";
-import type { ChatAttachment, ChatMedia, ChatMessage } from "./chat_message_card.js";
+import type { ChatAttachment, ChatMedia, ChatMessage, ChatMessageCardProps } from "./chat_message_card.js";
 import { droppedFiles, dragCarriesFiles, folderRefusal, pastedFiles } from "./file_drop.js";
 import { llmDeltaFromSse, isLlmDeltaEnd } from "./llm_delta.js";
 import { gatewayResponseError, type GatewayFetch } from "./workspace_browser.js";
@@ -146,6 +147,8 @@ export type DocsAskContext = {
   onText?: (text: string) => void;
   /** The completed run's history receipt (`session_history`). */
   onHistory?: (history: unknown) => void;
+  /** The Gateway run owning this answer and its generated speech. */
+  onRun?: (runId: string) => void;
 };
 
 export type DocsAsk = (question: string, ctx: DocsAskContext) => Promise<string>;
@@ -216,6 +219,7 @@ export function makeDocsQaAsk(opts: {
     );
     const runId = String(started?.run_id || "");
     if (!runId) throw new Error("The gateway did not return a run id for the docs-qa workflow.");
+    ctx.onRun?.(runId);
 
     // Live text: best effort beside the poll (the poll is the authority).
     const live = new AbortController();
@@ -318,7 +322,7 @@ export async function loadDocsConversation(fetchGateway: GatewayFetch, item: Doc
     const status = String(run?.status || "").toLowerCase();
     out.push(
       answer
-        ? { id: `a-${runId}`, role: "assistant", title: appName, content: answer, ts: String(run?.updated_at || "") || undefined }
+        ? { id: `a-${runId}`, runId, role: "assistant", title: appName, content: answer, ts: String(run?.updated_at || "") || undefined }
         : { id: `a-${runId}`, role: "assistant", title: appName, level: "warn", content: status === "completed" ? "This answer was empty." : `No answer: the run is ${status || "unknown"}.` },
     );
   }
@@ -392,6 +396,8 @@ export type DocsAssistantPanelProps = {
   suggestions?: string[];
   onSuggestion?: (text: string) => void;
   placeholder?: string;
+  onSpeakToggle?: ChatMessageCardProps["onSpeakToggle"];
+  getSpeakState?: ChatMessageCardProps["getSpeakState"];
 };
 
 /** The stateless view (thread, composer, footer); the drawer owns the state. */
@@ -434,7 +440,7 @@ export function DocsAssistantPanel(props: DocsAssistantPanelProps): React.ReactE
         if (dropped.folders.length) props.onNotice?.(folderRefusal(dropped.folders));
       }}
     >
-      <ChatThread className="pc-docs-assistant__thread" messages={props.messages} autoScroll empty={empty} messageProps={{ showCopy: true }} />
+      <ChatThread className="pc-docs-assistant__thread" messages={props.messages} autoScroll empty={empty} messageProps={{ showCopy: true, onSpeakToggle: props.onSpeakToggle, getSpeakState: props.getSpeakState }} />
       {blocked ? <div className="pc-docs-assistant__blocked" role="status">{props.blockedNotice}</div> : null}
       {props.notice ? <div className="pc-docs-assistant__notice" role="status">{props.notice}</div> : null}
       <div className="pc-docs-assistant__composer">
@@ -521,6 +527,10 @@ export type DocsAssistantChatProps = {
   connected: boolean;
   suggestions?: string[];
   placeholder?: string;
+  /** App voice overrides and playback preferences; absent = Gateway defaults. */
+  voicePreferences?: VoiceClientPreferences;
+  /** A kept-alive rail host can stop playback when its panel is hidden. */
+  visible?: boolean;
   /** Test seam: replaces the docs-qa transport. */
   ask?: DocsAsk;
 };
@@ -548,7 +558,7 @@ function now(): string {
  * conversations, New conversation) and the body (history list or chat). The
  * drawer and the drawer-system panel render the same two halves.
  */
-function useDocsAssistantChat(props: DocsAssistantChatProps): { headerActions: React.ReactElement; body: React.ReactElement } {
+function useDocsAssistantChat(props: DocsAssistantChatProps, visible = props.visible !== false): { headerActions: React.ReactElement; body: React.ReactElement } {
   useAfTooltips();
   const { source } = props;
   const fetchRef = useRef(props.fetchGateway);
@@ -566,6 +576,7 @@ function useDocsAssistantChat(props: DocsAssistantChatProps): { headerActions: R
   const [files, setFiles] = useState<PendingFile[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const speech = useDocsVoice({ fetchGateway: props.fetchGateway, connected: props.connected, visible, scope: session.current, preferences: props.voicePreferences, onError: setNotice });
   const active = useRef<AbortController | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<{ state: "loading" | "ready" | "error"; items: DocsHistoryItem[]; error?: string }>({ state: "loading", items: [] });
@@ -583,6 +594,7 @@ function useDocsAssistantChat(props: DocsAssistantChatProps): { headerActions: R
   const openPast = useCallback(
     async (item: DocsHistoryItem) => {
       active.current?.abort();
+      speech.stop();
       setHistory((h) => ({ ...h, state: "loading" }));
       try {
         const past = await loadDocsConversation((path, init) => fetchRef.current(path, init), item, source.name);
@@ -649,7 +661,7 @@ function useDocsAssistantChat(props: DocsAssistantChatProps): { headerActions: R
       const user: ChatMessage = { id: `u-${randomId()}`, role: "user", content: question, ts: now(), ...(media.length ? { media } : {}), ...(chips.length ? { attachments: chips } : {}) };
       const replyId = `a-${randomId()}`;
       const base = [...messagesRef.current, user];
-      const pending: ChatMessage = { id: replyId, role: "assistant", title: source.name, content: "", ts: now(), live: { callId: replyId, reasoning: "", label: "answering" } };
+      let pending: ChatMessage = { id: replyId, role: "assistant", title: source.name, content: "", ts: now(), live: { callId: replyId, reasoning: "", label: "answering" } };
       setMessages([...base, pending]);
       setBusy(true);
       const controller = new AbortController();
@@ -660,12 +672,13 @@ function useDocsAssistantChat(props: DocsAssistantChatProps): { headerActions: R
           signal: controller.signal,
           sessionId: session.current,
           files: sending.map((f) => f.file),
+          onRun: (runId) => { pending = {...pending,runId}; if(!controller.signal.aborted)put(pending); },
           onText: (live) => {
             if (!controller.signal.aborted) put({ ...pending, content: live, live: { callId: replyId, reasoning: "", label: "streaming" } });
           },
           onHistory: (h) => setNotice(docsReplayNote(h)),
         });
-        if (!controller.signal.aborted) put({ id: replyId, role: "assistant", title: source.name, content: answer, ts: now() });
+        if (!controller.signal.aborted) put({ id: replyId, runId: pending.runId, role: "assistant", title: source.name, content: answer, ts: now() });
       } catch (e: any) {
         const stopped = controller.signal.aborted;
         put({
@@ -685,6 +698,7 @@ function useDocsAssistantChat(props: DocsAssistantChatProps): { headerActions: R
   );
 
   const newConversation = () => {
+    speech.stop();
     active.current?.abort();
     session.current = newDocsSessionId(source.app);
     setMessages([]);
@@ -726,6 +740,8 @@ function useDocsAssistantChat(props: DocsAssistantChatProps): { headerActions: R
       <DocsAssistantPanel
         source={source}
         messages={messages}
+        onSpeakToggle={speech.onSpeakToggle}
+        getSpeakState={speech.getSpeakState}
         draft={draft}
         onDraftChange={setDraft}
         onSend={() => void send(draft)}
@@ -758,7 +774,7 @@ function useDocsAssistantChat(props: DocsAssistantChatProps): { headerActions: R
  * keep-alive contract keeps the conversation and an in-flight answer).
  */
 export function DocsAssistantDrawer(props: DocsAssistantDrawerProps): React.ReactElement {
-  const { headerActions, body } = useDocsAssistantChat(props);
+  const { headerActions, body } = useDocsAssistantChat(props, props.open);
   return (
     <AfDrawer
       open={props.open}

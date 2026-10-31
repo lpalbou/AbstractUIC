@@ -570,3 +570,13 @@ See [Responsive layout](../docs/responsive.md). `scripts/check_responsive.mjs` p
 - API reference: [`docs/api.md`](../docs/api.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)
 - Troubleshooting: [`docs/troubleshooting.md`](../docs/troubleshooting.md)
+
+### Docs assistant speech
+
+`DocsAssistantDrawer` and `docsAssistantPanel` show a speaker on assistant replies
+when the Gateway has a configured speech route. Playback uses that reply’s run
+and the host’s authenticated `fetchGateway` for synthesis and its audio artifact.
+Click the speaker to play, pause or resume. Opening history does not autoplay.
+Pass `voicePreferences` to use the app’s speech override, output device and volume;
+omit it to follow Gateway defaults. A kept-alive rail panel should pass
+`visible: false` while hidden to stop playback.

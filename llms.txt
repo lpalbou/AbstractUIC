@@ -13,7 +13,7 @@ Important integration notes:
 - Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
 - One shared component per user-facing job, composed on AbstractGateway's contracts (ADR 0001): use the job table in `docs/adoption-guide.md` before building anything app-local.
 - `@abstractframework/panel-chat` 0.6.6 needs `@abstractframework/ui-kit` `^0.9.8` (peer dependency); upgrade them together.
-- Only `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` perform network requests by default (each polls a metrics endpoint; optional Bearer auth).
+- Metrics components poll their supplied endpoints. The connected Docs assistant reads Gateway voice defaults, and user actions use its injected authenticated transport for questions, history, attachments and manual speech.
 - Always import the package CSS from your app entrypoint (especially in Next.js). Start with `docs/getting-started.md` → `docs/api.md`.
 
 Quick commands:
@@ -147,3 +147,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Changelog](CHANGELOG.md): notable changes by version
 - [Acknowledgments](ACKNOWLEDGMENTS.md): upstream credits
 - [License](LICENSE): MIT license text
+
+## Agent usage
+
+- [AbstractUIC agent skill](skills/abstractuic/SKILL.md): shared components, authenticated Docs assistant and voice settings.

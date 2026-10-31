@@ -21,7 +21,7 @@ Important integration notes:
 - Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
 - One shared component per user-facing job, composed on AbstractGateway's contracts (ADR 0001): use the job table in `docs/adoption-guide.md` before building anything app-local.
 - `@abstractframework/panel-chat` 0.6.6 needs `@abstractframework/ui-kit` `^0.9.8` (peer dependency); upgrade them together.
-- Only `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` perform network requests by default (each polls a metrics endpoint; optional Bearer auth).
+- Metrics components poll their supplied endpoints. The connected Docs assistant reads Gateway voice defaults, and user actions use its injected authenticated transport for questions, history, attachments and manual speech.
 - Always import the package CSS from your app entrypoint (especially in Next.js). Start with `docs/getting-started.md` → `docs/api.md`.
 
 Quick commands:
@@ -155,6 +155,10 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Changelog](CHANGELOG.md): notable changes by version
 - [Acknowledgments](ACKNOWLEDGMENTS.md): upstream credits
 - [License](LICENSE): MIT license text
+
+## Agent usage
+
+- [AbstractUIC agent skill](skills/abstractuic/SKILL.md): shared components, authenticated Docs assistant and voice settings.
 
 ## README.md
 
@@ -5407,6 +5411,11 @@ The shared controls also support narrow settings panels:
 
 Information tooltips appear after 200ms of hover or keyboard focus, use the active theme, and dismiss with Escape. The standard layouts remain available when these options are omitted.
 
+`AfVoiceSection` accepts `compact` for a narrow settings drawer: route headers
+expand their editors, controls use the drawer width, and information buttons
+explain optional settings and browser limitations. Value, reset and change
+callbacks use the same preference contract as the standard layout.
+
 ## panel-chat/README.md
 
 # @abstractframework/panel-chat
@@ -5981,6 +5990,16 @@ See [Responsive layout](../docs/responsive.md). `scripts/check_responsive.mjs` p
 - API reference: [`docs/api.md`](../docs/api.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)
 - Troubleshooting: [`docs/troubleshooting.md`](../docs/troubleshooting.md)
+
+### Docs assistant speech
+
+`DocsAssistantDrawer` and `docsAssistantPanel` show a speaker on assistant replies
+when the Gateway has a configured speech route. Playback uses that reply’s run
+and the host’s authenticated `fetchGateway` for synthesis and its audio artifact.
+Click the speaker to play, pause or resume. Opening history does not autoplay.
+Pass `voicePreferences` to use the app’s speech override, output device and volume;
+omit it to follow Gateway defaults. A kept-alive rail panel should pass
+`visible: false` while hidden to stop playback.
 
 ## app-server/README.md
 
@@ -6859,7 +6878,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && tsc -p scripts/types/tsconfig.json"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_docs_voice.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && tsc -p scripts/types/tsconfig.json"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.9.8",
@@ -10594,6 +10613,15 @@ function NoPreview(): React.ReactElement {
 // override), "Change" reveals the editor in place, "Use gateway default"
 // appears only while an override is set.
 import React, { useId } from "react";
+import { AfTooltip } from "./af_tooltip.js";
+import { Icon } from "./icon.js";
+
+/** Internal presentation context: compact sections stack controls and disclose help. */
+export const AfCompactSettingsContext = React.createContext(false);
+function Help({label,children}:{label:string;children:React.ReactNode}) {
+  if (typeof children !== "string") return <span className="af-setting-row__help">{children}</span>;
+  return <AfTooltip content={children}><button type="button" className="af-settings-help" aria-label={label}><Icon name="info" size={16}/></button></AfTooltip>;
+}
 
 export type AfSettingsGroupProps = {
   title: string;
@@ -10609,6 +10637,7 @@ export type AfSettingsGroupProps = {
 };
 
 export function AfSettingsGroup(p: AfSettingsGroupProps): React.ReactElement {
+  const compact = React.useContext(AfCompactSettingsContext);
   const auto = useId();
   const titleId = `${p.id || auto}-title`;
   return (
@@ -10617,9 +10646,10 @@ export function AfSettingsGroup(p: AfSettingsGroupProps): React.ReactElement {
         <h3 className="af-settings-group__title" id={titleId}>
           {p.title}
         </h3>
+        {compact && p.help ? <Help label={`About ${p.title}`}>{p.help}</Help> : null}
         {p.aside ? <span className="af-settings-group__aside">{p.aside}</span> : null}
       </div>
-      {p.help ? <p className="af-settings-group__help">{p.help}</p> : null}
+      {!compact && p.help ? <p className="af-settings-group__help">{p.help}</p> : null}
       <div className="af-settings-group__rows">{p.children}</div>
     </section>
   );
@@ -10643,14 +10673,16 @@ export type AfSettingRowProps = {
 };
 
 export function AfSettingRow(p: AfSettingRowProps): React.ReactElement {
+  const compact = React.useContext(AfCompactSettingsContext);
   const Label = p.htmlFor ? "label" : "span";
   return (
-    <div className={`af-setting-row${p.stack ? " af-setting-row--stack" : ""}${p.className ? ` ${p.className}` : ""}`} data-setting={p.setting}>
+    <div className={`af-setting-row${p.stack || compact ? " af-setting-row--stack" : ""}${p.className ? ` ${p.className}` : ""}`} data-setting={p.setting}>
       <div className="af-setting-row__label">
         <Label className="af-setting-row__name" {...(p.htmlFor ? { htmlFor: p.htmlFor } : {})}>
           {p.label}
         </Label>
-        {p.help ? <span className="af-setting-row__help">{p.help}</span> : null}
+        {compact && p.help ? <Help label={typeof p.label === "string" ? `About ${p.label}` : "More information"}>{p.help}</Help> : null}
+        {!compact && p.help ? <span className="af-setting-row__help">{p.help}</span> : null}
       </div>
       {p.children !== undefined || p.trailing ? (
         <div className="af-setting-row__control">
@@ -10683,11 +10715,20 @@ export type AfOverrideRowProps = {
 
 /** "Gateway default" summary + Change + (while overridden) Use gateway default. */
 export function AfOverrideRow(p: AfOverrideRowProps): React.ReactElement {
+  const compact = React.useContext(AfCompactSettingsContext);
   const overridden = Boolean(p.overrideSummary);
   const editorId = useId();
   const summary = overridden
-    ? `${p.overrideSummary}${p.overrideOwner ? ` — ${p.overrideOwner}` : ""}`
+    ? `${p.overrideSummary}${!compact && p.overrideOwner ? ` — ${p.overrideOwner}` : ""}`
     : `Gateway default${p.defaultSummary ? ` · ${p.defaultSummary}` : ""}`;
+  if (compact) return <div className="af-override af-override--compact" data-setting={p.setting} data-overridden={overridden ? "true" : "false"}>
+    <button type="button" className="af-override__toggle" aria-label={`Change ${p.label}`} aria-expanded={p.open} aria-controls={editorId} disabled={p.disabled} onClick={p.onToggle}>
+      <span className="af-setting-row__name">{p.label}</span><Icon name={p.open ? "chevronDown" : "chevronRight"} size={16}/>
+      <span className="af-override__summary">{summary}</span>
+    </button>
+    {overridden && p.onReset ? <button type="button" className="af-setting-btn af-setting-btn--quiet" data-action="use-default" disabled={p.disabled} onClick={p.onReset}>Use gateway default</button> : null}
+    <div className="af-override__editor" id={editorId} hidden={!p.open}>{p.open ? p.children : null}</div>
+  </div>;
   return (
     <div className="af-override" data-setting={p.setting} data-overridden={overridden ? "true" : "false"}>
       <AfSettingRow
@@ -24480,3 +24521,47 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## skills/abstractuic/SKILL.md
+
+---
+name: abstractuic
+description: Integrate AbstractFramework shared React controls, authenticated chat and Docs assistants, and voice settings into browser clients.
+---
+
+# Use AbstractUIC
+
+Start with [the adoption guide](../../docs/adoption-guide.md) to choose an existing
+component for the user-facing job. The repository ships multiple npm packages;
+use the relevant package rather than importing a sibling app’s source.
+
+Import `@abstractframework/ui-kit/theme.css` and, for chat,
+`@abstractframework/panel-chat/panel_chat.css` in the host entry point. Use shared
+theme tokens and `Icon`; keep the host’s appearance and connection state authoritative.
+See [getting started](../../docs/getting-started.md) and [API](../../docs/api.md).
+
+## Docs assistant and voice
+
+Mount `DocsAssistantDrawer` from `@abstractframework/panel-chat` with `source`
+(`app`, `name`), `connected`, `open`, `onClose`, and the host’s authenticated
+`fetchGateway`. Keep it mounted while closed so its conversation survives.
+The transport must support JSON writes and binary artifact reads, applying the
+host’s session/CSRF or bearer authentication. Do not put credentials in component
+state, localStorage keys, rendered markup or URLs.
+
+The component resolves this app’s documentation through the Gateway and owns
+its history, attachments and question lifecycle. It shows per-reply speech when
+a voice route is configured. Pass `voicePreferences` when the app has overrides;
+otherwise the Gateway default applies. Speech is manual, with play/pause/resume.
+Opening past answers never speaks automatically. A rail host using
+`docsAssistantPanel` should provide `visible` so hiding it stops playback.
+
+Use `AfVoiceSection` for controlled engine, device, capture and playback settings;
+`compact` fits narrow drawers. Preserve its `value`/`onChange` and reset semantics.
+Use `useGatewayVoice` for playback/capture lifecycle instead of duplicating browser
+audio state. Gateway synthesis owns models; components record/play locally.
+See [panel-chat](../../panel-chat/README.md) and [ui-kit](../../ui-kit/README.md).
+
+Tool and workspace controls express choices within Gateway limits. They cannot
+grant a capability the Gateway forbids. Preserve blocked/error feedback and use
+`AfTooltip` for brief, useful information; avoid repeating a label as help.

@@ -8096,3 +8096,20 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 
 .af-tool-modes__items { display: flex; flex-direction: column; gap: 8px; }
 .af-tool-modes--compact .af-tool-modes__items { gap: 0; }
+
+/* Compact voice drawers: a readable route summary above full-width controls. */
+.af-voice-section--compact .af-settings-group { margin-bottom: 18px; }
+.af-voice-section--compact .af-settings-group__head { justify-content: space-between; }
+.af-voice-section--compact .af-setting-row { padding-block: 10px; gap: 8px; }
+.af-voice-section--compact .af-setting-row__label { display: flex; align-items: center; gap: 6px; }
+.af-voice-section--compact .af-setting-row__control { width: 100%; justify-content: flex-start; flex-wrap: nowrap; }
+.af-voice-section--compact .af-setting-row__control > .af-select { flex: 1; min-width: 0; }
+.af-voice-section--compact .af-setting-row__control > .af-voice-range { flex: 1; min-width: 0; }
+.af-override--compact { padding-block: 10px; }
+.af-override__toggle { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px 10px; width: 100%; padding: 0; border: 0; background: transparent; color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; }
+.af-override__toggle .af-override__summary { grid-column: 1 / -1; font-size: var(--font-size-sm); font-weight: 400; text-align: left; color: var(--text-secondary); overflow-wrap: anywhere; }
+.af-override__toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.af-override--compact > [data-action="use-default"] { margin-top: 6px; padding: 0; font-size: var(--font-size-sm); }
+.af-voice-section--compact .af-setting-row { align-items: stretch; }
+.af-voice-section--compact .af-setting-row__label { flex: none; flex-direction: row; justify-content: flex-start; align-self: stretch; width: 100%; text-align: left; }
+.af-voice-section--compact .af-setting-row__name { text-align: left; }
