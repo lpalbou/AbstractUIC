@@ -5899,7 +5899,7 @@ the existing transcript. Pass `{sessionKey, avatar, ...conversationSnapshot(snap
 the host supplies the avatar React node and keeps its existing draft, attachments,
 steer/queue, cancellation and interaction callbacks. `AvatarConversation` is also available
 standalone with `messages` and an `interaction` slot. Only explicit typed `public_update`,
-answer/final/question messages and user input enter its public history. It never displays
+answer/final/question messages, explicit host question outcomes and user input enter its public history. It never displays
 tool rows, reasoning, untyped assistant text or unvalidated live deltas. Both replay and
 ledger folding preserve public update identity, run, iteration and `sourceCallIds`.
 
@@ -25124,7 +25124,8 @@ avatar and existing voice callbacks. `AvatarConversation` also works standalone.
 Public history accepts validated public updates, user messages and typed answers/finals;
 never feed raw reasoning or private entity traces into a subtitle.
 
-Use `conversationReply` for a selected current-run public update. Send the original human
+Use `conversationReply` for a selected public update. For composed runs, pass only the
+current server view’s run tree as its optional fourth argument; historical run IDs are excluded. Send the original human
 words as `display_text` alongside guidance so durable accepted receipts preserve them.
 Answer the exact pending question through the controller; never substitute guidance for
 an approval. Essential questions wait indefinitely. Timed clarifications require a

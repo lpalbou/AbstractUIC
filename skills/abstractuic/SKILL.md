@@ -90,7 +90,8 @@ avatar and existing voice callbacks. `AvatarConversation` also works standalone.
 Public history accepts validated public updates, user messages and typed answers/finals;
 never feed raw reasoning or private entity traces into a subtitle.
 
-Use `conversationReply` for a selected current-run public update. Send the original human
+Use `conversationReply` for a selected public update. For composed runs, pass only the
+current server view’s run tree as its optional fourth argument; historical run IDs are excluded. Send the original human
 words as `display_text` alongside guidance so durable accepted receipts preserve them.
 Answer the exact pending question through the controller; never substitute guidance for
 an approval. Essential questions wait indefinitely. Timed clarifications require a

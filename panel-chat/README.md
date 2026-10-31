@@ -446,7 +446,7 @@ the existing transcript. Pass `{sessionKey, avatar, ...conversationSnapshot(snap
 the host supplies the avatar React node and keeps its existing draft, attachments,
 steer/queue, cancellation and interaction callbacks. `AvatarConversation` is also available
 standalone with `messages` and an `interaction` slot. Only explicit typed `public_update`,
-answer/final/question messages and user input enter its public history. It never displays
+answer/final/question messages, explicit host question outcomes and user input enter its public history. It never displays
 tool rows, reasoning, untyped assistant text or unvalidated live deltas. Both replay and
 ledger folding preserve public update identity, run, iteration and `sourceCallIds`.
 
