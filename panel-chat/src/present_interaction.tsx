@@ -301,12 +301,14 @@ export function presentInteraction(
   const question = details.question && typeof details.question === "object" && details.question.purpose === "conversation" ? details.question : null;
   const essential = question?.importance === "essential";
   const clarification = question?.importance === "clarification";
+  const deadlineTime = typeof question?.deadline === "string" && Number.isFinite(Date.parse(question.deadline))
+    ? new Date(question.deadline).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
   if (wait.reason === "user" || wait.reason === "ask_user")
     return {
       id,
       kind: "ask-user",
       title: essential ? "Your answer is required" : clarification ? "A clarification for you" : "A question for you",
-      ...(essential ? { description: "This question needs your answer. I will keep waiting; silence does not grant permission." } : clarification ? { description: `${question.deadline ? `Answer by ${String(question.deadline)}. ` : ""}${question.fallback ? `Without an answer: ${String(question.fallback)}` : ""}` } : {}),
+      ...(essential ? { description: "This question needs your answer. I will keep waiting; silence does not grant permission." } : clarification ? { description: `${deadlineTime ? `Answer by ${deadlineTime}. ` : ""}${question.fallback ? `Without an answer: ${String(question.fallback)}` : ""}` } : {}),
       prompt: String(wait.prompt || details.prompt || "How would you like to continue?"),
       allowFreeText: wait.allow_free_text !== false,
       choices: (Array.isArray(wait.choices) ? wait.choices : []).map((choice: any) =>

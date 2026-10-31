@@ -454,7 +454,9 @@ Subtitles show a three-line viewport with pages; hover, focus, draft editing, pa
 history and reply selection freeze updates. History retains full text and source IDs.
 “Return to latest” resumes following. `onReplyContext` gives the selected public message;
 `conversationReply` quotes a selected public update and rejects cross-run guidance context.
-The host still submits replies through its normal execution path.
+The host still submits replies through its normal execution path. For composed runs, pass
+only the current authoritative run tree as `conversationReply`’s optional fourth argument;
+this permits replying to the actual actor child while refusing historical or unrelated runs.
 
 `useAvatarConversationPreferences(ownerScope)` persists chat/avatar mode and independent
 visual/audio preferences for permissions, questions and completion; use an account-scoped

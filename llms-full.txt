@@ -5907,7 +5907,9 @@ Subtitles show a three-line viewport with pages; hover, focus, draft editing, pa
 history and reply selection freeze updates. History retains full text and source IDs.
 “Return to latest” resumes following. `onReplyContext` gives the selected public message;
 `conversationReply` quotes a selected public update and rejects cross-run guidance context.
-The host still submits replies through its normal execution path.
+The host still submits replies through its normal execution path. For composed runs, pass
+only the current authoritative run tree as `conversationReply`’s optional fourth argument;
+this permits replying to the actual actor child while refusing historical or unrelated runs.
 
 `useAvatarConversationPreferences(ownerScope)` persists chat/avatar mode and independent
 visual/audio preferences for permissions, questions and completion; use an account-scoped
@@ -18790,12 +18792,14 @@ export function presentInteraction(
   const question = details.question && typeof details.question === "object" && details.question.purpose === "conversation" ? details.question : null;
   const essential = question?.importance === "essential";
   const clarification = question?.importance === "clarification";
+  const deadlineTime = typeof question?.deadline === "string" && Number.isFinite(Date.parse(question.deadline))
+    ? new Date(question.deadline).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
   if (wait.reason === "user" || wait.reason === "ask_user")
     return {
       id,
       kind: "ask-user",
       title: essential ? "Your answer is required" : clarification ? "A clarification for you" : "A question for you",
-      ...(essential ? { description: "This question needs your answer. I will keep waiting; silence does not grant permission." } : clarification ? { description: `${question.deadline ? `Answer by ${String(question.deadline)}. ` : ""}${question.fallback ? `Without an answer: ${String(question.fallback)}` : ""}` } : {}),
+      ...(essential ? { description: "This question needs your answer. I will keep waiting; silence does not grant permission." } : clarification ? { description: `${deadlineTime ? `Answer by ${deadlineTime}. ` : ""}${question.fallback ? `Without an answer: ${String(question.fallback)}` : ""}` } : {}),
       prompt: String(wait.prompt || details.prompt || "How would you like to continue?"),
       allowFreeText: wait.allow_free_text !== false,
       choices: (Array.isArray(wait.choices) ? wait.choices : []).map((choice: any) =>

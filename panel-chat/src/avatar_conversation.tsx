@@ -41,7 +41,7 @@ export type AvatarConversationProps = AvatarConversationOptions & {
   messageProps?: Omit<ChatMessageCardProps, "message">;
 };
 const labels: Record<AvatarConversationState, string> = {
-  idle: "Ready", working: "Working", paused: "Paused — work resumes only when you continue", listening: "Listening — your words have not been submitted", speaking: "Speaking", question: "A question for you", approval: "Permission required", completed: "Completed", failed: "Work stopped", disconnected: "Connection interrupted",
+  idle: "Ready", working: "Working", paused: "Paused — work resumes only when you continue", listening: "Listening — your words have not been submitted", speaking: "Speaking", question: "A question for you", approval: "Permission required", completed: "Completed", failed: "Work stopped", connecting: "Connecting…", disconnected: "Connection interrupted",
 };
 
 /** Optional public presentation. No model, microphone, network or permission side effects. */
@@ -59,7 +59,7 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
   const [localPreferences, setLocalPreferences] = useState(DEFAULT_CONVERSATION_CUES);
   const preferences = props.preferences || localPreferences;
   const messages = useMemo(() => conversationMessages(props.messages), [props.messages]);
-  const latest = [...messages].reverse().find((m) => m.role === "assistant") || null;
+  const latest = [...messages].reverse().find((m) => m.role === "assistant" || m.kind === "question_outcome") || null;
   const attended = Boolean(props.attended || history || paused || hovered || focused || selected);
   useEffect(() => { props.onAttendedChange?.(attended); return () => props.onAttendedChange?.(false); }, [attended, props.onAttendedChange]);
   const [shown, setShown] = useState(latest);
@@ -135,7 +135,7 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
     </div>
     {history ? <ol className="pc-avatar-conversation__history" aria-label="Public conversation history">
       {messages.map((m, i) => <li key={`${m.runId || ""}:${m.id || i}`}>
-        <strong>{m.role === "user" ? "You" : m.kind === "public_update" ? "Public update" : "Reply"}</strong>
+        <strong>{m.role === "user" ? "You" : m.kind === "question_outcome" ? "Question status" : m.kind === "public_update" ? "Public update" : "Reply"}</strong>
         <ChatMessageCard {...props.messageProps} message={{ ...m, reasoning: undefined, live: undefined, toolActivity: undefined }} />
         {m.publicUpdate?.sourceCallIds.length ? <details><summary>Sources</summary><ul>{m.publicUpdate.sourceCallIds.map((id) => <li key={id}>{id}</li>)}</ul></details> : null}
         {m.publicUpdate ? <button type="button" aria-pressed={selected === m} onClick={() => { interrupt(); setSelected(m); setShown(m); setPage(0); props.onReplyContext?.(m); }}>Reply to this</button> : null}

@@ -28,10 +28,19 @@ assert(!defaultHtml.includes("pc-avatar-conversation"));
 const optionalHtml = renderToStaticMarkup(React.createElement(WorkflowChat, { messages, draft: "Retained draft", onDraftChange() {}, onSend() {}, avatarConversation: { sessionKey: "session", avatar: "Avatar" } }));
 assert(optionalHtml.includes("pc-avatar-conversation") && optionalHtml.includes("Retained draft"));
 assert(!optionalHtml.includes("PRIVATE"));
+assert.deepEqual(conversationMessages([
+ {role:"system",kind:"question_outcome",source:"emit_event",content:"No answer arrived. Keeping both options."},
+ {role:"system",kind:"question_outcome",source:"raw_reasoning",content:"PRIVATE fake outcome"},
+ {role:"system",kind:"other",source:"emit_event",content:"PRIVATE arbitrary system event"},
+]).map(m=>m.content),["No answer arrived. Keeping both options."],"Only canonical host question outcomes enter public history");
 assert.deepEqual(conversationPages("one two three four", 7), ["one two", "three", "four"]);
 assert.equal(conversationReply("My words", null, "run"), "My words");
 assert(conversationReply("My words", m, "run").endsWith("My words"));
 assert.throws(() => conversationReply("My words", m, "other"), /another run/);
+const childBrief = { ...m, runId: "child", publicUpdate: { ...update, runId: "child" } };
+assert.throws(() => conversationReply("Keep it", childBrief, "run"), /another run/);
+assert(conversationReply("Keep it", childBrief, "run", ["run", "child"]).includes('"run_id":"child"'), "A child in the authoritative current run tree remains a valid reply referent");
+assert.throws(() => conversationReply("Keep it", childBrief, "run", ["old-child"]), /another run/);
 
 const base = { sessionKey: "session", connected: true, attended: false, preferences: DEFAULT_CONVERSATION_CUES };
 const attention = { id: "wait1", kind: "approval" };
@@ -60,7 +69,7 @@ step = conversationCueStep(step.cursor, { ...base, sessionKey: "other", attentio
 assert.equal(step.cue, null, "session switch resets the baseline");
 assert.equal(conversationState({ listening: true, speaking: true, attention }), "approval");
 assert.equal(conversationState({ listening: true, speaking: true }), "listening");
-assert.equal(conversationState({ attention, connection: "reconnecting" }), "disconnected");
+assert.equal(conversationState({ attention, connection: "reconnecting" }), "connecting", "A pending connection read is not a failed connection");
 assert.equal(conversationState({ status: "paused", attention }), "paused");
 assert.equal(conversationState({ status: "completed", connection: "disconnected" }), "completed", "Normal finite stream closure cannot disguise completion as an outage");
 const snapshot = { status: "waiting", connection: "connected", run: { run_id: "run" }, interaction: { runId: "run", wait: { reason: "user", wait_key: "q", details: { question: { id: "q", importance: "essential" } } } } };
@@ -95,7 +104,7 @@ const essentialQuestion = presentInteraction({ runId: "run", wait: { reason: "us
 assert.equal(essentialQuestion.onSkip, undefined);
 assert(essentialQuestion.description.includes("keep waiting"));
 const clarificationQuestion = presentInteraction({ runId: "run", wait: { reason: "user", wait_key: "q", details: { question: { id: "q", purpose: "conversation", importance: "clarification", deadline: "2026-11-01T15:00:00Z", fallback: "Use the existing format." } } } }, questionController, { allowSkip: true });
-assert(clarificationQuestion.description.includes("2026-11-01T15:00:00Z") && clarificationQuestion.description.includes("Use the existing format."));
+assert(clarificationQuestion.description.includes("Answer by ") && !clarificationQuestion.description.includes("2026-11-01T15:00:00Z") && clarificationQuestion.description.includes("Use the existing format."));
 assert.equal(clarificationQuestion.onSkip, undefined);
 
 const record = { status: "completed", run_id: "run", effect: { type: "emit_event", payload: { name: "public_update", payload: body } }, result: {} };

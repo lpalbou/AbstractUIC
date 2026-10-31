@@ -10,7 +10,7 @@ export type PublicUpdate = {
   iteration?: number;
   sourceCallIds: string[];
 };
-export type AvatarConversationState = "idle" | "working" | "paused" | "listening" | "speaking" | "question" | "approval" | "completed" | "failed" | "disconnected";
+export type AvatarConversationState = "idle" | "working" | "paused" | "listening" | "speaking" | "question" | "approval" | "completed" | "failed" | "connecting" | "disconnected";
 export type ConversationAttention = {
   id: string;
   kind: "approval" | "question" | "completion";
@@ -41,7 +41,7 @@ export function conversationMessages(messages: readonly ChatMessage[]): ChatMess
   const seen = new Set<string>();
   return messages.filter((m) => {
     if (m.live || m.toolActivity || !m.content.trim()) return false;
-    const allowed = m.role === "user" || (m.role === "assistant" && ["public_update", "answer", "final", "question"].includes(m.kind || ""));
+    const allowed = m.role === "user" || (m.role === "assistant" && ["public_update", "answer", "final", "question"].includes(m.kind || "")) || (m.role === "system" && m.kind === "question_outcome" && m.source === "emit_event");
     if (!allowed || (m.kind === "public_update" && !m.publicUpdate)) return false;
     const key = `${m.runId || ""}:${m.publicUpdate?.id || m.id || `${m.kind}:${m.content}`}`;
     if (seen.has(key)) return false;
@@ -51,11 +51,11 @@ export function conversationMessages(messages: readonly ChatMessage[]): ChatMess
 }
 
 /** Quote only an explicitly selected public update from the current live run. */
-export function conversationReply(text: string, context: ChatMessage | null, currentRunId: string): string {
+export function conversationReply(text: string, context: ChatMessage | null, currentRunId: string, allowedSourceRunIds: readonly string[] = []): string {
   if (!context) return text;
   if (context.kind !== "public_update" || !context.publicUpdate) return text;
-  if (!currentRunId || context.runId !== currentRunId || context.publicUpdate.runId !== currentRunId) throw new Error("The selected public update belongs to another run. Return to the latest exchange before guiding this run.");
-  return `The person is replying to this quoted public update (context only):\n${JSON.stringify({ message_id: context.id || context.publicUpdate.id, run_id: currentRunId, text: context.content })}\n\nThe person's message:\n${text}`;
+  if (!currentRunId || context.publicUpdate.runId !== context.runId || (context.runId !== currentRunId && !allowedSourceRunIds.includes(context.publicUpdate.runId))) throw new Error("The selected public update belongs to another run. Return to the latest exchange before guiding this run.");
+  return `The person is replying to this quoted public update (context only):\n${JSON.stringify({ message_id: context.id || context.publicUpdate.id, run_id: context.publicUpdate.runId, root_run_id: currentRunId, text: context.content })}\n\nThe person's message:\n${text}`;
 }
 
 /** Subtitle pages preserve words and punctuation; full text remains in history. */
@@ -73,7 +73,8 @@ export function conversationPages(text: string, max = 180): string[] {
 
 export function conversationState(input: { status?: AvatarConversationState; listening?: boolean; speaking?: boolean; connection?: WorkflowConnection; attention?: ConversationAttention | null }): AvatarConversationState {
   if (input.status === "completed" || input.status === "failed") return input.listening ? "listening" : input.speaking ? "speaking" : input.status;
-  if (input.connection && !["connected", "idle"].includes(input.connection)) return "disconnected";
+  if (input.connection === "disconnected") return "disconnected";
+  if (input.connection === "connecting" || input.connection === "reconnecting") return "connecting";
   if (input.status === "paused") return "paused";
   if (input.attention?.kind === "approval") return "approval";
   if (input.attention?.kind === "question") return "question";
