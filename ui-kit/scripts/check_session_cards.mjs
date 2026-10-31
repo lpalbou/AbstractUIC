@@ -35,3 +35,27 @@ console.log('Session cards: receipt revisions, late acknowledgements, accounts, 
 const history=[{runId:"old",role:"user",content:"Earlier prompt"},{runId:"new",role:"assistant",content:"New answer"}];
 for(const status of ["failed","cancelled"]){const target=sessionReadTarget(history,"old",status);assert.equal(target.message,history[0]);assert.equal(target.outcome,status==="failed"?"Request failed.":"Request cancelled.");}
 assert.equal(sessionReadTarget(history,"absent","failed").message,undefined,"Unloaded history cannot be consumed");
+
+// Automation cards share the same shell but keep Watch-specific facts and amber new-run badges.
+const {AutomationCard,automationCardSchedule,automationCardNext}=await import('../dist/session_cards.js');
+const automation={automation_id:'auto',title:'Consolidate my notes',status:'active',trigger:{source_id:'schedule',source_version:2,config:{kind:'every',every:'120m'}},
+  occurrence_count:44,next_run_at:at(6*3600000),schedule_rule_text:'Every 2 hours (UTC)',attention:{unseen_count:3,pending_waits:0,unread:true}};
+const renderAuto=over=>renderToStaticMarkup(React.createElement(AutomationCard,{summary:{...automation,...over},nowMs:now,onOpen(){},onArchive(){}}));
+assert.equal(automationCardSchedule(automation),'2h');
+for(const [input,expected] of [['60s','1m'],['90m','90m'],['24h','1d'],['48h','2d'],['30s','30s']])
+  assert.equal(automationCardSchedule({...automation,trigger:{...automation.trigger,config:{every:input}}}),expected);
+for(const kind of ['daily','weekly','monthly','once']) assert.equal(automationCardSchedule({...automation,trigger:{...automation.trigger,config:{kind}}}),kind[0].toUpperCase()+kind.slice(1));
+assert.equal(automationCardSchedule({...automation,trigger:{source_id:'email.received',source_version:1,config:{}}}),'Email');
+assert.equal(automationCardNext(at(6*3600000),now),'6h');
+assert.equal(automationCardNext(at(-60000),now),'now');
+assert.equal(automationCardNext('invalid',now),'');
+let row=renderAuto({});assert.ok(row.includes('af-session-card af-automation-card')&&row.includes('data-unread="true"'));
+assert.ok(row.includes('44 runs')&&row.includes('Next run in 6h')&&row.includes('3 new results'));
+assert.doesNotMatch(row,/<strong|role="switch"|undefined|NaN/);
+row=renderAuto({status:'paused'});assert.ok(row.includes('Paused'));assert.ok(!row.includes('data-field="next"'));
+row=renderAuto({attention:{...automation.attention,pending_waits:1},current_occurrence:{status:'running'}});
+assert.ok(row.includes('data-attention="true"')&&row.includes('Needs you'));assert.ok(!row.includes('data-working="true"'));
+assert.ok(renderAuto({current_occurrence:{status:'running'}}).includes('data-working="true"'));
+assert.ok(renderAuto({last_occurrence:{status:'failed'}}).includes('is-failed'));
+assert.ok(!renderAuto({attention:{unseen_count:0,pending_waits:0,unread:false}}).includes('data-unread="true"'));
+console.log('Automation cards: Watch cadence/countdown, paused/ended states, waits, failure, new results and sibling controls passed');

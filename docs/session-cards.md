@@ -75,3 +75,18 @@ receipt tracking in a native application remains host integration work.
 
 On desktop the archive icon is 28 px, hidden until card hover or keyboard focus.
 Touch/no-hover devices retain a visible 44 px target. Opening and archive remain sibling controls.
+
+## Automation cards
+
+`AutomationCard` uses the same visual shell, regular two-line title, metadata typography and
+hover/focus archive control as `SessionCard`. It is exported from the UI kit and included in the
+compatibility snapshot. Like the Watch, its metadata shows the served run count, compact cadence
+(`2h`, `Daily`, `Email`), and the time until the gateway's next run. Paused/ended automations say so
+instead of showing a countdown. The full served schedule remains in the tooltip and accessible
+name; clients never calculate a fire time. Hosts refresh `nowMs` once per minute while visible.
+
+Unseen automation results have an amber outline and count badge. Human waits add “Needs you” and
+an amber diamond; a wait never looks like running. A current occurrence has a spinner, and a failed
+last run has a red dot. Counts and attention come from the automation summary; rendering or opening
+the card does not acknowledge unseen results. Pause/resume stays in the automation's editor/header.
+Hosts own archive confirmation, capability checks and commands, just as with conversation cards.

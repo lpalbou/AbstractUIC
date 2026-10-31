@@ -13,8 +13,10 @@ const manifest = { schema_version: 1, owner: "@abstractframework/ui-kit", source
 const result = await build({ absWorkingDir: root, entryPoints: ["dist/session_cards.js"], bundle: true, write: false, metafile: true, format: "esm", target: "es2020", external: ["react", "react/*"] });
 function write(name, bytes) { writeFileSync(resolve(out,name),bytes); manifest.artifacts[name]=hash(bytes); }
 write("session_cards.js", result.outputFiles[0].contents);
-for (const name of ["session_cards", "session_card", "session_activity", "session_reads"]) {
-  const file=`dist/${name}.d.ts`, bytes=readFileSync(resolve(root,file)); write(`${name}.d.ts`, bytes); manifest.sources[file]=hash(bytes);
+for (const name of ["session_cards", "session_card", "session_activity", "session_reads", "automation_card"]) {
+  const file=`dist/${name}.d.ts`, bytes=readFileSync(resolve(root,file));
+  // Hosts already import the canonical wire types from their pinned UI kit.
+  write(`${name}.d.ts`, bytes.toString().replace('"./automations/types.js"', '"@abstractframework/ui-kit"')); manifest.sources[file]=hash(bytes);
 }
 for (const file of Object.keys(result.metafile.inputs)) {
   if (dirname(resolve(root,file)) !== resolve(root,"dist")) throw new Error("Unexpected session component dependency");
