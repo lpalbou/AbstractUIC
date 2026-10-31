@@ -97,7 +97,7 @@ export function conversationSnapshot(snapshot: WorkflowSessionSnapshot): { statu
   } else if (snapshot.status === "completed") {
     attention = { id: `${String(snapshot.run?.run_id || "")}:completed`, kind: "completion" };
   }
-  const status: AvatarConversationState = snapshot.status === "paused" ? "paused" : snapshot.status === "completed" ? "completed" : ["failed", "cancelled"].includes(snapshot.status) ? "failed" : ["running", "waiting", "queued"].includes(snapshot.status) ? "working" : "idle";
+  const status: AvatarConversationState = snapshot.status === "completed" ? "completed" : ["failed", "cancelled"].includes(snapshot.status) ? "failed" : snapshot.run?.paused === true || snapshot.status === "paused" ? "paused" : ["running", "waiting", "queued"].includes(snapshot.status) ? "working" : "idle";
   return { status, connection: snapshot.connection, attention, replaying: Boolean(snapshot.loading || snapshot.historyLoading) };
 }
 

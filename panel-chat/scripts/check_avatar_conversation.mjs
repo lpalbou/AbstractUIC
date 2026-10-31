@@ -78,6 +78,7 @@ assert.equal(conversationState({ status: "completed", connection: "disconnected"
 const snapshot = { status: "waiting", connection: "connected", run: { run_id: "run" }, interaction: { runId: "run", wait: { reason: "user", wait_key: "q", details: { question: { id: "q", importance: "essential" } } } } };
 assert.equal(conversationSnapshot(snapshot).attention.importance, "essential");
 assert.equal(conversationSnapshot({ ...snapshot, status: "paused" }).status, "paused");
+assert.equal(conversationSnapshot({ ...snapshot, run:{run_id:"run",paused:true} }).status, "paused", "Gateway manual pause is a run flag even when lifecycle status stays waiting");
 assert.equal(conversationSnapshot({ ...snapshot, historyLoading: true }).replaying, true);
 assert.equal(conversationSnapshot({ ...snapshot, interaction: { ...snapshot.interaction, wait: { reason: "tool_approval" } }, toolApprovalGranted: true }).attention, null);
 
