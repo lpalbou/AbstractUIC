@@ -10,7 +10,7 @@ export type PublicUpdate = {
   iteration?: number;
   sourceCallIds: string[];
 };
-export type AvatarConversationState = "idle" | "working" | "listening" | "speaking" | "question" | "approval" | "completed" | "failed" | "disconnected";
+export type AvatarConversationState = "idle" | "working" | "paused" | "listening" | "speaking" | "question" | "approval" | "completed" | "failed" | "disconnected";
 export type ConversationAttention = {
   id: string;
   kind: "approval" | "question" | "completion";
@@ -73,6 +73,7 @@ export function conversationPages(text: string, max = 180): string[] {
 
 export function conversationState(input: { status?: AvatarConversationState; listening?: boolean; speaking?: boolean; connection?: WorkflowConnection; attention?: ConversationAttention | null }): AvatarConversationState {
   if (input.connection && !["connected", "idle"].includes(input.connection)) return "disconnected";
+  if (input.status === "paused") return "paused";
   if (input.attention?.kind === "approval") return "approval";
   if (input.attention?.kind === "question") return "question";
   if (input.listening) return "listening";
@@ -81,7 +82,7 @@ export function conversationState(input: { status?: AvatarConversationState; lis
 }
 
 /** Served interaction remains authoritative; this helper changes presentation only. */
-export function conversationSnapshot(snapshot: WorkflowSessionSnapshot): { status: AvatarConversationState; connection: WorkflowConnection; attention: ConversationAttention | null } {
+export function conversationSnapshot(snapshot: WorkflowSessionSnapshot): { status: AvatarConversationState; connection: WorkflowConnection; attention: ConversationAttention | null; replaying: boolean } {
   const interaction = snapshot.toolApprovalGranted ? null : snapshot.interaction;
   const wait = row(interaction?.wait);
   const details = row(wait?.details);
@@ -93,8 +94,8 @@ export function conversationSnapshot(snapshot: WorkflowSessionSnapshot): { statu
   } else if (snapshot.status === "completed") {
     attention = { id: `${String(snapshot.run?.run_id || "")}:completed`, kind: "completion" };
   }
-  const status: AvatarConversationState = snapshot.status === "completed" ? "completed" : ["failed", "cancelled"].includes(snapshot.status) ? "failed" : ["running", "waiting", "queued"].includes(snapshot.status) ? "working" : "idle";
-  return { status, connection: snapshot.connection, attention };
+  const status: AvatarConversationState = snapshot.status === "paused" ? "paused" : snapshot.status === "completed" ? "completed" : ["failed", "cancelled"].includes(snapshot.status) ? "failed" : ["running", "waiting", "queued"].includes(snapshot.status) ? "working" : "idle";
+  return { status, connection: snapshot.connection, attention, replaying: Boolean(snapshot.loading || snapshot.historyLoading) };
 }
 
 /** First observation, replay, history and reconnect establish a baseline, never a cue. */

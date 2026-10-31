@@ -12,6 +12,8 @@ export type AvatarConversationOptions = {
   listening?: boolean;
   speaking?: boolean;
   connection?: WorkflowConnection;
+  /** Snapshot/history reconstruction is a silent baseline, even if the stream is connected. */
+  replaying?: boolean;
   attention?: ConversationAttention | null;
   preferences?: ConversationCuePreferences;
   onPreferencesChange?: (preferences: ConversationCuePreferences) => void;
@@ -35,7 +37,7 @@ export type AvatarConversationProps = AvatarConversationOptions & {
   messageProps?: Omit<ChatMessageCardProps, "message">;
 };
 const labels: Record<AvatarConversationState, string> = {
-  idle: "Ready", working: "Working", listening: "Listening — your words have not been submitted", speaking: "Speaking", question: "A question for you", approval: "Permission required", completed: "Completed", failed: "Work stopped", disconnected: "Connection interrupted",
+  idle: "Ready", working: "Working", paused: "Paused — work resumes only when you continue", listening: "Listening — your words have not been submitted", speaking: "Speaking", question: "A question for you", approval: "Permission required", completed: "Completed", failed: "Work stopped", disconnected: "Connection interrupted",
 };
 
 /** Optional public presentation. No model, microphone, network or permission side effects. */
@@ -68,6 +70,9 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
     return () => { callbacks.current.onInterruptSpeech?.(); callbacks.current.onReplyContext?.(null); };
   }, []);
   useEffect(() => {
+    if (props.listening) callbacks.current.onInterruptSpeech?.();
+  }, [props.listening]);
+  useEffect(() => {
     if (!attended) { setShown(latest); setPage(0); }
   }, [latest, attended]);
   useEffect(() => {
@@ -76,17 +81,17 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
     return () => clearTimeout(timer);
   }, [attended, page, pages]);
   useEffect(() => {
-    const connected = (!props.connection || props.connection === "connected") && (typeof document === "undefined" || document.visibilityState !== "hidden");
+    const connected = !props.replaying && (!props.connection || props.connection === "connected") && (typeof document === "undefined" || document.visibilityState !== "hidden");
     const next = conversationCueStep(cursor.current, { sessionKey: props.sessionKey, connected, attended, attention: props.attention, preferences });
     cursor.current = next.cursor;
     if (next.cue) props.onCue?.(next.cue);
-  }, [props.sessionKey, props.connection, props.attention, props.onCue, attended, preferences]);
+  }, [props.sessionKey, props.connection, props.replaying, props.attention, props.onCue, attended, preferences]);
   useEffect(() => {
-    const connected = (!props.connection || props.connection === "connected") && (typeof document === "undefined" || document.visibilityState !== "hidden");
-    const next = conversationNarrationStep(narrationCursor.current, { sessionKey: props.sessionKey, connected, attended, enabled: Boolean(props.narrate), listening: props.listening, messages });
+    const connected = !props.replaying && (!props.connection || props.connection === "connected") && (typeof document === "undefined" || document.visibilityState !== "hidden");
+    const next = conversationNarrationStep(narrationCursor.current, { sessionKey: props.sessionKey, connected, attended, enabled: Boolean(props.narrate) && props.status !== "paused", listening: props.listening, messages });
     narrationCursor.current = next.cursor;
     if (next.message) { props.onInterruptSpeech?.(); props.onNarrate?.(next.message); }
-  }, [messages, props.sessionKey, props.connection, props.narrate, props.listening, props.onNarrate, props.onInterruptSpeech, attended]);
+  }, [messages, props.sessionKey, props.connection, props.replaying, props.status, props.narrate, props.listening, props.onNarrate, props.onInterruptSpeech, attended]);
 
   const interrupt = () => props.onInterruptSpeech?.();
   const follow = () => {

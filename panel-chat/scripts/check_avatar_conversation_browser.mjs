@@ -114,6 +114,16 @@ try {
   assert(!(await captions.textContent()).includes("Focus-pinned update"), "keyboard reading pins subtitles");
   await page.getByRole("button", { name: "Return to latest", exact: true }).click();
   await captions.getByText("Focus-pinned update", { exact: true }).waitFor();
+  await page.getByLabel("Host avatar").hover();
+  await page.evaluate(() => { window.events.length = 0; window.update({ replaying: true, messages: [window.publicMessage("historical", "Restored history update")] }); });
+  await page.waitForTimeout(30);
+  await page.evaluate(() => window.update({ replaying: false }));
+  await page.waitForTimeout(30);
+  assert(!(await page.evaluate(() => window.events)).includes("narrate:historical"), "history hydration is silent even on a connected stream");
+  await page.evaluate(() => window.update({ status: "paused", messages: [window.publicMessage("paused", "Paused run update")] }));
+  await page.waitForFunction(() => document.querySelector('[aria-label="Avatar conversation"]')?.getAttribute('data-state') === 'paused');
+  assert(!(await page.evaluate(() => window.events)).includes("narrate:paused"));
+  assert((await page.getByRole("status").textContent()).includes("Paused"));
   assert.deepEqual(errors, []);
   console.log("avatar browser: reading freeze, follow/history/reply, voice interruption, scoped preference reload, session reset and state precedence passed");
 } finally { await browser.close(); await new Promise((resolve) => server.close(resolve)); }
