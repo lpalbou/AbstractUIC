@@ -272,6 +272,8 @@ function drive(c) {
   const type = (t, value) => { field(t).props.onChange({ target: { value } }); c.render(); };
   const click = async (action) => { foot(action).props.onClick(); await c.settle(); };
   const open = async (id) => { buttons(id)[0].props.onClick(); await c.settle(); };
+  // Background discoveries chain several awaits: settle until the tree stops changing.
+  c.settleAll = async () => { for (let i = 0; i < 6; i += 1) await c.settle(); };
   // Every text a card renders outside its badge (the name and the button excepted).
   const cardTexts = (id) => findAll(article(id), (n) => n.props && typeof n.props.children === "string" && n.type !== "h4" && n.type !== "button" && !("data-cloud-status" in n.props)).map((n) => n.props.children).filter((t) => t.trim());
   return { tree, articles, article, buttons, status, cardTexts, modal, body, bodyAll, foot, field, line, type, click, open };
@@ -297,7 +299,14 @@ function drive(c) {
   check("8 Connect when nothing is stored, Edit when a connection exists", actionOf("anthropic") === "connect" && d.buttons("anthropic")[0].props.children === T.connect && actionOf("openai") === "edit" && d.buttons("openai")[0].props.children === T.edit, ids.map(actionOf));
   check("8 every connected card offers Edit, every other Connect", ids.every((id) => (d.status(id) === T.notConnected) === (actionOf(id) === "connect")), ids.map((id) => [id, d.status(id), actionOf(id)]));
   check("8 a CLEAR connected badge (green dot) vs a quiet Not connected", d.article("openai").props.className.includes("is-connected") && !!find(d.article("openai"), (n) => n.props && n.props.className === "af-cloud-card__dot") && !find(d.article("anthropic"), (n) => n.props && n.props.className === "af-cloud-card__dot"));
-  check("8 status = Connected, no fingerprint and never the key on the card", d.status("openai") === "Connected" && d.status("anthropic") === T.notConnected, [d.status("openai"), d.status("anthropic")]);
+  await c.settleAll();
+  // Every connected card shows its model count: ONE background discovery of the stored connection.
+  const bg = (id) => g.calls.filter((x) => x.path.endsWith("discover-models") && x.body && x.body.profile_id === id);
+  check("15 a connected row without a count triggers exactly ONE discovery (its stored connection, never a key)", bg("openai-key").length === 1 && !("api_key" in bg("openai-key")[0].body), g.calls.filter((x) => x.path.endsWith("discover-models")));
+  check("15 the count lands in the badge", d.status("openai") === "Connected · 48 models" && d.status("anthropic") === T.notConnected, [d.status("openai"), d.status("anthropic")]);
+  c.render();
+  await c.settleAll();
+  check("15 a re-render does not query again", bg("openai-key").length === 1);
   const FP = /\bkey\b|[0-9a-f]{8}/i;
   check("8 no card badge shows a key fingerprint", ids.every((id) => !FP.test(d.status(id))), ids.map(d.status));
   check("8 no modal until a button is pressed", !d.modal());
@@ -313,7 +322,8 @@ function drive(c) {
   check("8 an empty key is not sent", d.line() === T.pasteFirst && g.calls.length === before, d.line());
   d.type("password", KEY);
   await d.click("test");
-  const posts = () => g.calls.filter((x) => x.method === "POST").map((x) => (x.path.endsWith("discover-models") ? "check" : "save"));
+  // The modal's own requests (background count discoveries of stored connections, `profile_id`, excluded).
+  const posts = () => g.calls.filter((x) => x.method === "POST" && !(x.body && x.body.profile_id && !x.body.api_key)).map((x) => (x.path.endsWith("discover-models") ? "check" : "save"));
   check("8 Test checks the key and stores nothing", JSON.stringify(posts()) === JSON.stringify(["check"]) && d.line() === "Key works · 48 models", [posts(), d.line()]);
   await d.click("save");
   check("8 Save after a passing Test saves without testing again", JSON.stringify(posts()) === JSON.stringify(["check", "save"]), posts());
@@ -407,7 +417,10 @@ function drive(c) {
   d.type("text", "Mistral EU");
   const c3 = g.calls.length;
   await d.click("save");
-  const ren = g.calls.slice(c3).filter((x) => x.method !== "GET");
+  await c.settleAll();
+  const ren = g.calls.slice(c3).filter((x) => x.method !== "GET" && !(x.body && x.body.profile_id));
+  const rediscovered = g.calls.slice(c3).filter((x) => x.path.endsWith("discover-models") && x.body && x.body.profile_id === "compat-mistral");
+  check("15 a save without a test invalidates the count: discovered again, once", rediscovered.length === 1 && g.calls.indexOf(rediscovered[0]) > g.calls.findIndex((x, i) => i >= c3 && x.method === "PUT"), rediscovered);
   check("8 a rename alone: ONE PUT of the name (no test, no key)", ren.length === 1 && ren[0].method === "PUT" && JSON.stringify(ren[0].body) === JSON.stringify({ display_name: "Mistral EU" }), ren);
   // New endpoint from the Edit modal: Connect mode, empty fields.
   await d.open("openai-compatible");
@@ -445,20 +458,61 @@ function drive(c) {
 }
 {
   // Only a test of the STORED key adds a model count to the card; a typed, unsaved key does not.
+  // The background discovery of the stored connection fails here: the card stays "Connected".
   const g = gw();
+  let storedFails = true;
+  const inner = g.request;
+  g.request = async (path, init) => (path.endsWith("discover-models") && init.body.profile_id && storedFails
+    ? (g.calls.push({ path, method: init.method, body: init.body }), { ok: false, models: [], error_kind: "unreachable", error: "timed out" })
+    : inner(path, init));
   const c = mountHook(CloudProviderCards, { request: g.request });
   await c.settle();
   const d = drive(c);
+  await c.settleAll();
+  check("15 a failed discovery leaves Connected alone (no error on the card)", d.status("openai") === "Connected" && !d.cardTexts("openai").length, [d.status("openai"), d.cardTexts("openai")]);
   await d.open("openai");
   d.type("password", KEY);
   await d.click("test");
   check("10 a typed, unsaved key's test leaves the card as it was", d.line() === "Key works · 48 models" && d.status("openai") === "Connected", d.status("openai"));
   await d.click("cancel");
   check("10 and so does Cancel", d.status("openai") === "Connected", d.status("openai"));
+  storedFails = false;
   await d.open("openai");
   await d.click("test");
   check("10 a test of the STORED key adds its model count", d.status("openai") === "Connected · 48 models", d.status("openai"));
   await d.click("cancel");
+}
+{
+  // A row whose gateway row already carries discovered_model_count: no call, the count shows at once.
+  const g = gw({ taken: [], rows: [{ id: "openrouter-key", provider_family: "openrouter", api_key_set: true, api_key_fingerprint: "1234567890", discovered_model_count: 12 }] });
+  const c = mountHook(CloudProviderCards, { request: g.request });
+  for (let i = 0; i < 6; i += 1) await c.settle();
+  const d = drive(c);
+  check("15 the gateway's own count is used, no discovery call", d.status("openrouter") === "Connected · 12 models" && !g.calls.some((x) => x.path.endsWith("discover-models")), [d.status("openrouter"), g.calls.filter((x) => x.path.endsWith("discover-models"))]);
+}
+{
+  // Five connected cards without a count: at most 3 discoveries at once; "Connected · …" while pending.
+  const rows = ["anthropic", "openai", "openrouter", "portkey", "typesafe"].map((f) => ({ id: `${f}-key`, provider_family: f, api_key_set: true, api_key_fingerprint: "abcdef0123" }));
+  const g = gw({ taken: [], rows });
+  let running = 0;
+  let peak = 0;
+  const waiting = [];
+  const inner = g.request;
+  g.request = async (path, init) => {
+    if (!path.endsWith("discover-models")) return inner(path, init);
+    running += 1;
+    peak = Math.max(peak, running);
+    await new Promise((r) => waiting.push(r));
+    running -= 1;
+    return inner(path, init);
+  };
+  const c = mountHook(CloudProviderCards, { request: g.request });
+  for (let i = 0; i < 6; i += 1) await c.settle();
+  const d = drive(c);
+  check("15 at most 3 discoveries at once", running === 3 && peak === 3, [running, peak]);
+  check("15 pending cards read Connected · … (a quiet ellipsis)", rows.every((r) => d.status(r.provider_family) === "Connected · …"), rows.map((r) => d.status(r.provider_family)));
+  while (waiting.length) { waiting.shift()(); for (let i = 0; i < 4; i += 1) await c.settle(); }
+  check("15 every connected card then shows its count, one call each", rows.every((r) => d.status(r.provider_family) === "Connected · 48 models") && peak === 3 && g.calls.filter((x) => x.path.endsWith("discover-models")).length === 5, [rows.map((r) => d.status(r.provider_family)), peak]);
 }
 {
   // While a save is in flight the modal cannot be closed (Cancel disabled; ×, Escape, backdrop ignored).
@@ -543,7 +597,8 @@ function drive(c) {
   const c = mountHook(CloudProviderCards, { request: g.request });
   await c.settle();
   const d = drive(c);
-  check("8 a config key shows as Connected with Edit", d.status("anthropic") === "Connected" && d.buttons("anthropic")[0].props["data-action"] === "edit");
+  await c.settleAll();
+  check("8 a config key shows as Connected with Edit", d.status("anthropic") === "Connected · 48 models" && d.buttons("anthropic")[0].props["data-action"] === "edit");
   await d.open("anthropic");
   check("8 config connection: no Disconnect, says where it is set", !d.foot("disconnect") && !!d.body((n) => n.props && "data-cloud-configured" in n.props) && !!d.body((n) => n.props && n.props.children === T.keyConfiguredHint));
   const c0 = g.calls.length;

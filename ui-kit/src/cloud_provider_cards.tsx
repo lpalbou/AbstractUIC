@@ -64,6 +64,13 @@ type Draft = {
 };
 
 const NEW = "";
+/** Background model-count discoveries at once (operator 2026-11-02: every connected card shows its count). */
+export const CLOUD_DISCOVERY_CONCURRENCY = 3;
+const without = <T,>(all: Readonly<Record<string, T>>, id: string): Record<string, T> => {
+  const next = { ...all };
+  delete next[id];
+  return next;
+};
 const sigOf = (d: Pick<Draft, "baseUrl" | "connId">, key: string) => JSON.stringify([key.trim(), d.baseUrl.trim(), d.connId]);
 
 export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactElement {
@@ -82,6 +89,15 @@ export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactE
   const keyRef = useRef("");
   // A save or a disconnect in flight: Cancel, ×, Escape and the backdrop do not close the modal.
   const inflight = useRef(false);
+  // Model counts of connected cards, discovered in the background with the STORED connection (never a
+  // typed key), at most CLOUD_DISCOVERY_CONCURRENCY at once, once per connection per page session.
+  const [pending, setPending] = useState<Record<string, boolean>>({});
+  const known = useRef(new Set<string>()); // queued, running, found or failed: never asked twice
+  const queue = useRef<Array<{ card: CloudCard; conn: CloudConnection }>>([]);
+  const active = useRef(0);
+  const gen = useRef<Record<string, number>>({}); // bumped on Save/Disconnect: a late answer is dropped
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
   const loadConnections = useCallback(async () => {
     try {
@@ -101,6 +117,55 @@ export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactE
     return () => { live = false; };
   }, []);
   useEffect(() => { void loadConnections(); }, [loadConnections, refreshKey]);
+
+  const pump = () => {
+    while (active.current < CLOUD_DISCOVERY_CONCURRENCY && queue.current.length) {
+      const { card: c, conn: k } = queue.current.shift()!;
+      const g = gen.current[k.id] || 0;
+      active.current += 1;
+      // The existing discovery of the stored connection (discover-models, profile_id): nothing stored.
+      void client.current.checkConnection(c, { apiKey: "", connection: k })
+        .then((checked) => (checked.result.ok ? checked.result.modelCount : 0), () => 0)
+        .then((n) => {
+          active.current -= 1;
+          if (mounted.current && g === (gen.current[k.id] || 0)) {
+            // A failure leaves "Connected" alone; the reason is the modal's Test.
+            if (n > 0) setCounts((all) => ({ ...all, [k.id]: n }));
+            setPending((all) => without(all, k.id));
+          }
+          pump();
+        });
+    }
+  };
+  useEffect(() => {
+    if (!cards) return;
+    const next: Record<string, boolean> = {};
+    for (const c of cards) {
+      const mine = cardConnections(c, connections);
+      if (mine.length !== 1) continue; // several connections: the card says how many, no count
+      const k = mine[0];
+      if (k.modelCount > 0 || known.current.has(k.id)) continue; // the gateway's count, or asked already
+      known.current.add(k.id);
+      queue.current.push({ card: c, conn: k });
+      next[k.id] = true;
+    }
+    if (!Object.keys(next).length) return;
+    setPending((all) => ({ ...all, ...next }));
+    pump();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cards, connections]);
+  /** Save/Disconnect: forget this connection's count (a known one is set again by the caller). */
+  const invalidate = (id: string, count?: number) => {
+    gen.current[id] = (gen.current[id] || 0) + 1;
+    setPending((all) => without(all, id));
+    if (count && count > 0) {
+      known.current.add(id);
+      setCounts((all) => ({ ...all, [id]: count }));
+    } else {
+      known.current.delete(id);
+      setCounts((all) => without(all, id));
+    }
+  };
 
   const list = cards || [];
   const card = draft ? list.find((c) => c.id === draft.cardId) || null : null;
@@ -144,7 +209,7 @@ export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactE
       return null;
     }
     // Only a test of the STORED key describes the card; a typed, unsaved key does not.
-    if (target && checked.connectionId === target.id && !checked.apiKey) setCounts((all) => ({ ...all, [target.id]: checked.result.modelCount }));
+    if (target && checked.connectionId === target.id && !checked.apiKey) invalidate(target.id, checked.result.modelCount);
     patch({ busy: "", line: checked.result.sentence, tone: "ok", tested: { sig: sigOf(d, key), checked } });
     return checked;
   };
@@ -176,7 +241,8 @@ export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactE
       // A stale answer (another modal since): the store changed anyway, so the cards catch up.
       if (t !== token.current) return void loadConnections();
       // Saved: the tested key IS now the stored key, so its count describes the card.
-      if (checked) setCounts((all) => ({ ...all, [saved.id]: checked!.result.modelCount }));
+      // A tested save knows its count; a rename alone is discovered again.
+      invalidate(saved.id, checked ? checked.result.modelCount : 0);
       close();
       await loadConnections();
       onSaved?.(saved);
@@ -197,6 +263,7 @@ export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactE
     try {
       await client.current.removeConnection(conn);
       inflight.current = false;
+      invalidate(conn.id);
       if (t !== token.current) return void loadConnections();
       close();
       await loadConnections();
@@ -231,7 +298,7 @@ export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactE
       <div className="af-cloud-providers__grid">
         {list.map((c) => {
           const connected = cardConnections(c, connections).length > 0;
-          const status = cardStatus(c, connections, counts);
+          const status = cardStatus(c, connections, counts, pending);
           return (
             <article key={c.id} className={`af-card af-cloud-card af-cloud-card--${c.kind}${connected ? " is-connected" : ""}`} data-cloud-provider={c.id} data-cloud-kind={c.kind}>
               <div className="af-cloud-card__head">

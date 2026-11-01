@@ -43,11 +43,14 @@ const DISCOVERY = { items: [
 ] };
 const rows = new Map([["openai-key", { id: "openai-key", provider_family: "openai", display_name: "OpenAI (API key)", api_key_set: true, api_key_fingerprint: "ab12cd34ef" }]]);
 window.calls = [];
+// Background count discoveries (stored connection: profile_id) wait for the check to release them.
+window.discoveryGate = new Promise((r) => { window.releaseDiscovery = r; });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function request(path, init) {
   window.calls.push({ path, method: init.method, body: init.body });
   await wait(120);
   if (path.endsWith("/discovery/providers")) return DISCOVERY;
+  if (path.endsWith("/discover-models") && init.body.profile_id) await window.discoveryGate;
   if (path.endsWith("/discover-models")) return { ok: true, models: Array.from({ length: 48 }, (_, i) => "m" + i) };
   if (path.endsWith("/config/provider-endpoint-profiles") && init.method === "GET") return { profiles: [...rows.values()] };
   if (path.endsWith("/config/provider-endpoint-profiles") && init.method === "POST") {
@@ -88,14 +91,18 @@ try {
     page.on("console", (m) => logs.push(m.text()));
     await page.goto(origin);
     const card = (id) => page.locator(`[data-cloud-provider="${id}"]`);
-    await card("openai").locator("[data-cloud-status]").filter({ hasText: "Connected" }).waitFor();
+    // Every connected card shows its count: "Connected · …" while its discovery runs, then the count.
+    await card("openai").locator("[data-cloud-status]").filter({ hasText: "Connected · …" }).waitFor();
+    await page.evaluate(() => window.releaseDiscovery());
+    await card("openai").locator("[data-cloud-status]").filter({ hasText: "Connected · 48 models" }).waitFor();
+    ok(await page.evaluate(() => window.calls.filter((c) => c.path.endsWith("discover-models")).length === 1 && window.calls.filter((c) => c.path.endsWith("discover-models"))[0].body.profile_id === "openai-key" && !("api_key" in window.calls.filter((c) => c.path.endsWith("discover-models"))[0].body)), `${tag}: ONE background discovery, of the stored connection`);
 
     // The cards: mark, name, ONE status, ONE button; no field on a card.
     ok(await page.locator(".af-cloud-card").count() === 8, `${tag}: eight cards`);
     ok(JSON.stringify((await page.locator(".af-cloud-card__name").allTextContents()).slice(-2)) === JSON.stringify(["OpenAI-compatible endpoint", "System One-compatible endpoint"]), `${tag}: the two compatible cards come last, in order`);
     ok(await page.locator(".af-cloud-card input").count() === 0, `${tag}: no field on a card`);
     for (const id of ["anthropic", "openai", "typesafe", "systemone", "ovh", "openai-compatible"]) ok(await card(id).locator("button").count() === 1, `${tag}: ${id} has ONE button`);
-    ok((await card("openai").locator("[data-cloud-status]").textContent()) === "Connected", `${tag}: OpenAI's connected badge`);
+    ok((await card("openai").locator("[data-cloud-status]").textContent()) === "Connected · 48 models", `${tag}: OpenAI's connected badge with its count`);
     ok(!/\bkey\b|[0-9a-f]{8}/i.test((await page.locator("[data-cloud-status]").allTextContents()).join(" | ")), `${tag}: no card badge shows a key fingerprint`);
     ok(await card("openai").locator(".af-cloud-card__dot").isVisible(), `${tag}: the green dot`);
     ok((await card("openai").locator("button").textContent()) === "Edit" && (await card("anthropic").locator("button").textContent()) === "Connect", `${tag}: Edit when connected, Connect otherwise`);

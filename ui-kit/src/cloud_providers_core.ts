@@ -343,8 +343,9 @@ export function cardConnections(card: CloudCard, connections: CloudConnection[])
 /** The card's state line: "Not connected", "Connected" (a generic card names its endpoint:
  *  "Connected · Mistral"), or "N connections". With `counts` (connection id → models found by a
  *  test of the stored key) or the gateway's own `discovered_model_count`, a single connection adds
- *  " · 48 models". No key fingerprint on the card: the Edit modal shows it. */
-export function cardStatus(card: CloudCard, connections: CloudConnection[], counts?: Readonly<Record<string, number>>): string {
+ *  " · 48 models"; while that count is being discovered (`pending`), " · …". No key fingerprint on
+ *  the card: the Edit modal shows it. */
+export function cardStatus(card: CloudCard, connections: CloudConnection[], counts?: Readonly<Record<string, number>>, pending?: Readonly<Record<string, boolean>>): string {
   const mine = cardConnections(card, connections);
   const base = !mine.length ? CLOUD_PROVIDER_TEXT.notConnected
     : card.kind === "generic" ? (mine.length === 1 ? `Connected · ${mine[0].name}` : `${mine.length} endpoints connected`)
@@ -352,7 +353,9 @@ export function cardStatus(card: CloudCard, connections: CloudConnection[], coun
     : "Connected";
   if (mine.length !== 1) return base;
   const n = (counts && counts[mine[0].id]) || mine[0].modelCount;
-  return n > 0 ? `${base} · ${plural(n, "model")}` : base;
+  if (n > 0) return `${base} · ${plural(n, "model")}`;
+  // Its count is being discovered: a quiet ellipsis, never a spinner.
+  return pending && pending[mine[0].id] ? `${base} · …` : base;
 }
 
 /** The connection Edit opens first: a gateway connection before one from AbstractCore's config. */

@@ -21,8 +21,11 @@ ships.
   (`PUT config/provider-endpoint-profiles/{id}`) instead of adding one; Disconnect is
   `DELETE config/provider-endpoint-profiles/{id}`; both existing gateway routes. New client
   functions `checkConnection`, `updateConnection`, `removeConnection` and `cardEditTarget`;
-  `cardStatus` takes optional model counts (a card shows one only after its STORED key was
-  tested, or once a tested key is saved); `CloudRequest` methods add PUT and DELETE. The key field
+  `cardStatus` takes optional model counts and pending ids. Every connected card shows its model
+  count: the cards discover it in the background with the STORED connection (never a typed key),
+  at most 3 at once, once per connection per page (`discovered_model_count` from the gateway is used
+  without a call); "Connected · …" while pending, "Connected" alone if discovery fails; Save and
+  Disconnect invalidate it, and a typed, unsaved key's test never changes the card; `CloudRequest` methods add PUT and DELETE. The key field
   is uncontrolled: the key is held in a ref, never in state or a DOM attribute, and cleared when
   the modal closes. While a save or a disconnect is in flight the modal cannot be closed. New
   "OpenAI-compatible endpoint" connections get `compat-<name>` ids (existing ids unchanged),
