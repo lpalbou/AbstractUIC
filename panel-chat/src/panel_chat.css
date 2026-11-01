@@ -2701,6 +2701,28 @@ button.pc-ws__name:hover {
   flex: 1 0 auto;
 }
 .pc-avatar-conversation__scene > * { max-width: 100%; }
+.pc-avatar-conversation[data-has-request] .pc-avatar-conversation__scene {
+  flex: 0 0 auto;
+  min-height: 0;
+  height: clamp(64px, 12dvh, 112px);
+}
+.pc-avatar-conversation[data-has-request] .pc-avatar-conversation__scene > * {
+  width: clamp(64px, 12dvh, 112px) !important;
+  height: clamp(64px, 12dvh, 112px) !important;
+}
+.pc-avatar-conversation__request {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-width: 0;
+  background: var(--ui-surface-0, var(--bg-primary, #191a25));
+}
+.pc-avatar-conversation__request .pc-workflow-interaction__detail {
+  max-height: min(24dvh, 180px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.pc-avatar-conversation__request .pc-workflow-interaction { margin: 0; }
 .pc-avatar-conversation__status { text-align: center; margin: 0; font-weight: 600; }
 .pc-avatar-conversation__attention { border-inline-start: 3px solid currentColor; padding: .5rem .75rem; margin: 0; }
 .pc-avatar-conversation__attention[data-kind="approval"] { color: var(--warning, #d6a648); }

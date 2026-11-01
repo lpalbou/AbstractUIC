@@ -35,6 +35,8 @@ export type AvatarConversationProps = AvatarConversationOptions & {
   messages: ChatMessage[];
   /** Existing authoritative question or approval controls, supplied by the host. */
   interaction?: React.ReactNode;
+  /** Exact currently rendered request; an empty ID means the host deferred it. */
+  interactionId?: string;
   /** Draft editing or other host-owned attention freezes rolling captions. */
   attended?: boolean;
   /** Shared final/attachment rendering, with private reasoning removed before presentation. */
@@ -109,14 +111,16 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
     setLocalPreferences(next); props.onPreferencesChange?.(next);
   };
   const visibleAttention = props.attention && preferences[props.attention.kind].visual;
-  return <section className="pc-avatar-conversation" aria-label="Avatar conversation" data-state={state}>
+  const hasRequest = Boolean(props.interaction) && (props.interactionId === undefined || Boolean(props.interactionId));
+  return <section className="pc-avatar-conversation" aria-label="Avatar conversation" data-state={state} data-has-request={hasRequest || undefined}>
     <div className="pc-avatar-conversation__scene">{props.avatar}</div>
     <p className="pc-avatar-conversation__status" role="status">{labels[state]}</p>
-    {visibleAttention ? <p className="pc-avatar-conversation__attention" data-kind={props.attention!.kind}>
+    {visibleAttention && !hasRequest ? <p className="pc-avatar-conversation__attention" data-kind={props.attention!.kind}>
       {props.attention!.kind === "approval" ? "An explicit decision is required. Waiting never grants permission." : props.attention!.kind === "completion" ? "The result is ready in conversation history." : props.attention!.importance === "essential" ? "Your answer is required. I will keep waiting." : "Your input is welcome."}
       {props.attention!.kind === "question" && props.attention!.importance === "clarification" ? <> {props.attention!.deadline && Number.isFinite(Date.parse(props.attention!.deadline)) ? <>Answer by <time dateTime={props.attention!.deadline}>{new Date(props.attention!.deadline).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time>. </> : null}{props.attention!.fallback ? `Without an answer: ${props.attention!.fallback}` : ""}</> : null}
     </p> : null}
-    <div className="pc-avatar-conversation__captions" tabIndex={0} aria-label="Public subtitles" aria-live={attended ? "off" : "polite"}
+    {hasRequest ? <div className="pc-avatar-conversation__request">{props.interaction}</div> : null}
+    {!hasRequest || shown ? <div className="pc-avatar-conversation__captions" tabIndex={0} aria-label="Public subtitles" aria-live={attended ? "off" : "polite"}
       onPointerDown={(event) => { if (event.pointerType === "touch") { interrupt(); setPaused(true); } }}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       onFocus={() => setFocused(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setFocused(false); }}>
@@ -126,7 +130,7 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
         <span>{page + 1} / {pages.length}</span>
         <button type="button" disabled={page === pages.length - 1} onClick={() => { interrupt(); setPaused(true); setPage((p) => Math.min(pages.length - 1, p + 1)); }}>Next subtitle</button>
       </div> : null}
-    </div>
+    </div> : null}
     <div className="pc-avatar-conversation__actions">
       <button type="button" aria-pressed={paused} onClick={() => { interrupt(); setPaused((v) => !v); }}>{paused ? "Resume subtitles" : "Pause subtitles"}</button>
       <button type="button" aria-expanded={history} onClick={() => { interrupt(); setHistory((v) => !v); }}>Conversation history</button>
@@ -143,7 +147,7 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
       </li>)}
     </ol> : null}
     {selected ? <p className="pc-avatar-conversation__reply-context">Replying to the selected exchange. <button type="button" onClick={follow}>Clear reply context</button></p> : null}
-    {props.interaction}
+    {!hasRequest ? props.interaction : null}
     <details className="pc-avatar-conversation__preferences"><summary>Conversation cues</summary>
       <p>Cues apply while this conversation is open. Audio plays only when the host provides it.</p>
       {(["approval", "question", "completion"] as const).map((kind) => <fieldset key={kind}><legend>{kind === "approval" ? "Permission requests" : kind === "question" ? "Questions" : "Completion"}</legend>

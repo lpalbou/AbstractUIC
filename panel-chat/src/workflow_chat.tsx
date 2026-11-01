@@ -722,6 +722,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
               ...(props.messageProps?.renderFooter ? { renderFooter: (m) => props.messageProps!.renderFooter!(props.messages.find((original) => original === m || (original.id && original.id === m.id)) || m) } : {}),
               ...(props.renderMarkdown ? { renderMarkdown: props.renderMarkdown } : {}) }}
             attended={Boolean(props.draft.trim())}
+            interactionId={props.interaction ? `${props.interaction.kind}:${props.interaction.id}` : ""}
             interaction={<>
               {props.interaction ? <WorkflowInteractionPanel interaction={props.interaction} disabled={disabled} /> : null}
               {blocked ? <div className="pc-workflow-chat__blocked" role="status">{props.blockedNotice}</div> : null}
@@ -838,8 +839,8 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
                   disabled={disabled || attachPending}
                   onClick={() => void attach()}
                 >
-                  <Icon name="paperclip" size={16} />
-                  <span>{attachPending ? "Attaching…" : "Attach"}</span>
+                  <Icon name={props.composerVariant === "compact" ? "plus" : "paperclip"} size={16} />
+                  <span className={props.composerVariant === "compact" ? "pc-sr-only" : undefined}>{attachPending ? "Attaching…" : "Attach"}</span>
                 </button>
               ) : null}
               {props.composerExtras}
