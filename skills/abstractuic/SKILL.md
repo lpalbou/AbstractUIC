@@ -99,8 +99,8 @@ for status, attention and replay guards; provide an owner-scoped `sessionKey`, a
 avatar and existing voice callbacks. `AvatarConversation` also works standalone.
 Provide `interactionId` for a standalone view's actual pending request: the request
 controls take priority with a smaller avatar, ahead of captions and history. Use an
-empty string for no request or a deferred request; omitted `interactionId` keeps
-the attention-based compatibility behavior. `WorkflowChat` forwards its actual
+empty string for no request or a deferred request; omitted `interactionId` treats
+a supplied interaction as active. `WorkflowChat` forwards its actual
 interaction identity automatically.
 Public history accepts validated public updates, user messages and typed answers/finals;
 never feed raw reasoning or private entity traces into a subtitle.

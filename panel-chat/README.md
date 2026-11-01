@@ -493,7 +493,7 @@ labeled as unsubmitted input; permission decisions remain the existing explicit 
 A pending question or approval keeps its actual controls ahead of subtitles and history,
 with a smaller avatar while the request is open. Standalone `AvatarConversation` hosts
 should pass `interactionId` for that actual request, or `""` when it is absent or deferred.
-Omitting the prop retains the attention-based compatibility behavior. `WorkflowChat`
+Omitting the prop treats a supplied interaction as active. `WorkflowChat`
 forwards the current interaction identity. Only long tool details scroll inside the
 request; the decision buttons stay reachable.
 

@@ -19,7 +19,7 @@ const server=createServer((req,res)=>{if(req.url==='/entry.js'){res.setHeader('C
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE||undefined});
 try{const page=await browser.newPage({viewport:{width:1280,height:800},reducedMotion:'reduce'});page.setDefaultTimeout(8000);const errors=[];page.on('pageerror',e=>errors.push(String(e)));
-for(const viewport of [{width:1280,height:800},{width:390,height:844}]){
+for(const viewport of [{width:1280,height:800},{width:1000,height:650},{width:390,height:844}]){
  await page.setViewportSize(viewport);await page.goto('http://127.0.0.1:'+server.address().port);const allow=page.getByRole('button',{name:'Allow once',exact:true});await allow.waitFor();
  const visible=async locator=>locator.evaluate(el=>{const b=el.getBoundingClientRect();let top=0,bottom=innerHeight;for(let p=el.parentElement;p;p=p.parentElement){const s=getComputedStyle(p);if(/auto|scroll|hidden|clip/.test(s.overflowY)){const r=p.getBoundingClientRect();top=Math.max(top,r.top);bottom=Math.min(bottom,r.bottom);}}return b.top>=top&&b.bottom<=bottom;});
  const prompt=page.getByText('Allow read_file to run?',{exact:false});

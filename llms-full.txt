@@ -5948,7 +5948,7 @@ labeled as unsubmitted input; permission decisions remain the existing explicit 
 A pending question or approval keeps its actual controls ahead of subtitles and history,
 with a smaller avatar while the request is open. Standalone `AvatarConversation` hosts
 should pass `interactionId` for that actual request, or `""` when it is absent or deferred.
-Omitting the prop retains the attention-based compatibility behavior. `WorkflowChat`
+Omitting the prop treats a supplied interaction as active. `WorkflowChat`
 forwards the current interaction identity. Only long tool details scroll inside the
 request; the decision buttons stay reachable.
 
@@ -25286,8 +25286,8 @@ for status, attention and replay guards; provide an owner-scoped `sessionKey`, a
 avatar and existing voice callbacks. `AvatarConversation` also works standalone.
 Provide `interactionId` for a standalone view's actual pending request: the request
 controls take priority with a smaller avatar, ahead of captions and history. Use an
-empty string for no request or a deferred request; omitted `interactionId` keeps
-the attention-based compatibility behavior. `WorkflowChat` forwards its actual
+empty string for no request or a deferred request; omitted `interactionId` treats
+a supplied interaction as active. `WorkflowChat` forwards its actual
 interaction identity automatically.
 Public history accepts validated public updates, user messages and typed answers/finals;
 never feed raw reasoning or private entity traces into a subtitle.

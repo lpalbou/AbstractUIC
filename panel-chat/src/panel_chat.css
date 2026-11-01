@@ -2701,14 +2701,29 @@ button.pc-ws__name:hover {
   flex: 1 0 auto;
 }
 .pc-avatar-conversation__scene > * { max-width: 100%; }
+.pc-avatar-conversation[data-has-request] {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  grid-auto-rows: max-content;
+  align-content: start;
+}
+.pc-avatar-conversation[data-has-request] > * { grid-column: 1 / -1; }
 .pc-avatar-conversation[data-has-request] .pc-avatar-conversation__scene {
+  grid-column: 1;
+  grid-row: 1;
   flex: 0 0 auto;
   min-height: 0;
-  height: clamp(64px, 12dvh, 112px);
+  height: 48px;
 }
 .pc-avatar-conversation[data-has-request] .pc-avatar-conversation__scene > * {
-  width: clamp(64px, 12dvh, 112px) !important;
-  height: clamp(64px, 12dvh, 112px) !important;
+  width: 48px !important;
+  height: 48px !important;
+}
+.pc-avatar-conversation[data-has-request] .pc-avatar-conversation__status {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  text-align: start;
 }
 .pc-avatar-conversation__request {
   position: sticky;
@@ -2718,7 +2733,7 @@ button.pc-ws__name:hover {
   background: var(--ui-surface-0, var(--bg-primary, #191a25));
 }
 .pc-avatar-conversation__request .pc-workflow-interaction__detail {
-  max-height: min(24dvh, 180px);
+  max-height: clamp(48px, 10dvh, 96px);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
