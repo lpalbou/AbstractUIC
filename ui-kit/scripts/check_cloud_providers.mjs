@@ -191,7 +191,7 @@ const WITH_COMPAT = { items: [...DISCOVERY.items, { name: "openai-compatible", d
     { id: "mistral", provider_family: "openai-compatible", display_name: "Mistral", base_url: "https://api.mistral.ai/v1", api_key_set: true },
     { id: "vllm", provider_family: "openai-compatible", base_url: "http://127.0.0.1:8000/v1" },
   ] });
-  check("6 OVH card status from its base URL", cardStatus(ovh, conns) === "Connected · key 0badc0de", cardStatus(ovh, conns));
+  check("6 OVH card status from its base URL", cardStatus(ovh, conns) === "Connected", cardStatus(ovh, conns));
   check("6 generic card: other cloud endpoints only (not OVH, not a local server)", cardStatus(GENERIC, conns) === "Connected · Mistral", cardStatus(GENERIC, conns));
 }
 
@@ -208,8 +208,8 @@ const WITH_COMPAT = { items: [...DISCOVERY.items, { name: "openai-compatible", d
   const oaCard = { id: "openai", name: "OpenAI", family: "openai", kind: "native", baseUrl: "", docs: "" };
   check("7 a config connection is flagged, with its model count", configured.configured === true && configured.modelCount === 12 && managed.configured === false && managed.modelCount === 0);
   check("7 Edit opens the gateway connection before the config one", cardEditTarget(oaCard, conns).id === "openai-key");
-  check("7 status adds the models found (single connection)", cardStatus(oaCard, [managed], { "openai-key": 48 }) === "Connected · key feedbeef · 48 models" && cardStatus(oaCard, [configured]) === "Connected · key abcdef12 · 12 models", [cardStatus(oaCard, [managed], { "openai-key": 48 }), cardStatus(oaCard, [configured])]);
-  check("7 status: no count, no suffix; several connections, no count", cardStatus(oaCard, [managed]) === "Connected · key feedbeef" && cardStatus(oaCard, conns, { "openai-key": 48 }) === "2 connections");
+  check("7 status adds the models found (single connection)", cardStatus(oaCard, [managed], { "openai-key": 48 }) === "Connected · 48 models" && cardStatus(oaCard, [configured]) === "Connected · 12 models", [cardStatus(oaCard, [managed], { "openai-key": 48 }), cardStatus(oaCard, [configured])]);
+  check("7 status: no count, no suffix; several connections, no count", cardStatus(oaCard, [managed]) === "Connected" && cardStatus(oaCard, conns, { "openai-key": 48 }) === "2 connections");
   g.calls.length = 0;
   const stored = await client.checkConnection(oa, { apiKey: "", connection: managed });
   check("7 Test with no key typed tests the STORED key by its id (no api_key sent)", g.calls.length === 1 && JSON.stringify(g.calls[0].body) === JSON.stringify({ provider_family: "openai", profile_id: "openai-key" }) && stored.result.ok && stored.connectionId === "openai-key", g.calls);
@@ -295,7 +295,9 @@ function drive(c) {
   check("8 Connect when nothing is stored, Edit when a connection exists", actionOf("anthropic") === "connect" && d.buttons("anthropic")[0].props.children === T.connect && actionOf("openai") === "edit" && d.buttons("openai")[0].props.children === T.edit, ids.map(actionOf));
   check("8 every connected card offers Edit, every other Connect", ids.every((id) => (d.status(id) === T.notConnected) === (actionOf(id) === "connect")), ids.map((id) => [id, d.status(id), actionOf(id)]));
   check("8 a CLEAR connected badge (green dot) vs a quiet Not connected", d.article("openai").props.className.includes("is-connected") && !!find(d.article("openai"), (n) => n.props && n.props.className === "af-cloud-card__dot") && !find(d.article("anthropic"), (n) => n.props && n.props.className === "af-cloud-card__dot"));
-  check("8 status = the fingerprint, never the key", d.status("openai") === "Connected · key feedbeef" && d.status("anthropic") === T.notConnected, [d.status("openai"), d.status("anthropic")]);
+  check("8 status = Connected, no fingerprint and never the key on the card", d.status("openai") === "Connected" && d.status("anthropic") === T.notConnected, [d.status("openai"), d.status("anthropic")]);
+  const FP = /\bkey\b|[0-9a-f]{8}/i;
+  check("8 no card badge shows a key fingerprint", ids.every((id) => !FP.test(d.status(id))), ids.map(d.status));
   check("8 no modal until a button is pressed", !d.modal());
 
   // Connect Anthropic: the modal, a key-only form, Test, then Save.
@@ -316,7 +318,7 @@ function drive(c) {
   const created = g.calls.filter((x) => x.method === "POST" && x.path.endsWith("/provider-endpoint-profiles")).pop();
   check("8 a new connection: fresh id, create_only", created.body.id === "anthropic-key" && created.body.create_only === true && created.body.api_key === KEY, created.body);
   check("8 the modal closes once saved and the key is forgotten", !d.modal());
-  check("8 the card now shows Connected with the models found, and Edit", d.status("anthropic") === "Connected · key c0ffee00 · 48 models" && actionOf("anthropic") === "edit" && d.cardLine("anthropic") === "Connected · 48 models", [d.status("anthropic"), actionOf("anthropic"), d.cardLine("anthropic")]);
+  check("8 the card now shows Connected with the models found, and Edit", d.status("anthropic") === "Connected · 48 models" && actionOf("anthropic") === "edit" && d.cardLine("anthropic") === "Connected · 48 models", [d.status("anthropic"), actionOf("anthropic"), d.cardLine("anthropic")]);
   check("8 onSaved tells the host", saves.length === 1 && saves[0].id === "anthropic-key");
   check("8 the key is nowhere in the rendered cards", !renderToStaticMarkup(React.createElement(React.Fragment, null, d.tree())).includes(KEY.slice(0, 12)));
 
@@ -332,6 +334,7 @@ function drive(c) {
   check("8 Edit opens Edit <provider>", d.modal().props.title === "Edit OpenAI");
   check("8 Edit: the key field is empty, with the keep-or-replace hint", !("value" in d.field("password").props) && !("defaultValue" in d.field("password").props) && !!d.body((n) => n.props && n.props.children === T.keyKeepHint), d.field("password").props.value);
   check("8 Edit offers Disconnect", !!d.foot("disconnect"));
+  check("8 the Edit modal shows the stored key's fingerprint", d.field("password").props.placeholder === "Stored key feedbeef", d.field("password").props.placeholder);
   const c0 = g.calls.length;
   await d.click("test");
   const t1 = g.calls.slice(c0);
@@ -344,7 +347,7 @@ function drive(c) {
   const put = g.calls.filter((x) => x.method === "PUT");
   check("8 Edit Save with a new key: tested, then ONE PUT of openai-key with the key only", put.length === 1 && put[0].path.endsWith("/provider-endpoint-profiles/openai-key") && JSON.stringify(put[0].body) === JSON.stringify({ api_key: KEY }) && g.calls[g.calls.indexOf(put[0]) - 1].path.endsWith("discover-models"), put);
   check("8 Edit never creates a connection", g.calls.filter((x) => x.method === "POST" && x.path.endsWith("/provider-endpoint-profiles") && x.body.provider_family === "openai").length === 0);
-  check("8 the modal closed, the card shows the new fingerprint", !d.modal() && d.status("openai") === "Connected · key 5eed5eed · 48 models", d.status("openai"));
+  check("8 the modal closed, the card shows Connected", !d.modal() && d.status("openai") === "Connected · 48 models", d.status("openai"));
 
   // Disconnect: a confirmation, then ONE DELETE; the card goes back to Connect.
   await d.open("openai");
@@ -446,12 +449,12 @@ function drive(c) {
   await d.open("openai");
   d.type("password", KEY);
   await d.click("test");
-  check("10 a typed, unsaved key's test leaves the card as it was", d.line() === "Key works · 48 models" && d.status("openai") === "Connected · key feedbeef", d.status("openai"));
+  check("10 a typed, unsaved key's test leaves the card as it was", d.line() === "Key works · 48 models" && d.status("openai") === "Connected", d.status("openai"));
   await d.click("cancel");
-  check("10 and so does Cancel", d.status("openai") === "Connected · key feedbeef", d.status("openai"));
+  check("10 and so does Cancel", d.status("openai") === "Connected", d.status("openai"));
   await d.open("openai");
   await d.click("test");
-  check("10 a test of the STORED key adds its model count", d.status("openai") === "Connected · key feedbeef · 48 models", d.status("openai"));
+  check("10 a test of the STORED key adds its model count", d.status("openai") === "Connected · 48 models", d.status("openai"));
   await d.click("cancel");
 }
 {
@@ -537,7 +540,7 @@ function drive(c) {
   const c = mountHook(CloudProviderCards, { request: g.request });
   await c.settle();
   const d = drive(c);
-  check("8 a config key shows as Connected with Edit", d.status("anthropic") === "Connected · key 01234567" && d.buttons("anthropic")[0].props["data-action"] === "edit");
+  check("8 a config key shows as Connected with Edit", d.status("anthropic") === "Connected" && d.buttons("anthropic")[0].props["data-action"] === "edit");
   await d.open("anthropic");
   check("8 config connection: no Disconnect, says where it is set", !d.foot("disconnect") && !!d.body((n) => n.props && "data-cloud-configured" in n.props) && !!d.body((n) => n.props && n.props.children === T.keyConfiguredHint));
   const c0 = g.calls.length;

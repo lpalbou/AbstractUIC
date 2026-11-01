@@ -94,7 +94,8 @@ try {
     ok(await page.locator(".af-cloud-card").count() === 8, `${tag}: eight cards`);
     ok(await page.locator(".af-cloud-card input").count() === 0, `${tag}: no field on a card`);
     for (const id of ["anthropic", "openai", "typesafe", "systemone", "ovh", "openai-compatible"]) ok(await card(id).locator("button").count() === 1, `${tag}: ${id} has ONE button`);
-    ok((await card("openai").locator("[data-cloud-status]").textContent()) === "Connected · key ab12cd34", `${tag}: OpenAI's connected badge`);
+    ok((await card("openai").locator("[data-cloud-status]").textContent()) === "Connected", `${tag}: OpenAI's connected badge`);
+    ok(!/\bkey\b|[0-9a-f]{8}/i.test((await page.locator("[data-cloud-status]").allTextContents()).join(" | ")), `${tag}: no card badge shows a key fingerprint`);
     ok(await card("openai").locator(".af-cloud-card__dot").isVisible(), `${tag}: the green dot`);
     ok((await card("openai").locator("button").textContent()) === "Edit" && (await card("anthropic").locator("button").textContent()) === "Connect", `${tag}: Edit when connected, Connect otherwise`);
     ok(await card("typesafe").locator(".af-brand-mark svg image").count() === 1, `${tag}: TypeSafe's own icon`);
@@ -138,7 +139,7 @@ try {
     await shot(page, `cloud-modal-${tag}.png`);
     await dialog.getByRole("button", { name: "Save", exact: true }).click();
     await dialog.waitFor({ state: "detached" });
-    await card("anthropic").locator("[data-cloud-status]").filter({ hasText: "Connected · key c0ffee00 · 48 models" }).waitFor();
+    await card("anthropic").locator("[data-cloud-status]").filter({ hasText: "Connected · 48 models" }).waitFor();
     ok((await card("anthropic").locator("button").textContent()) === "Edit", `${tag}: Anthropic now offers Edit`);
     const html = await page.content();
     ok(!html.includes(KEY) && !logs.some((l) => l.includes(KEY)), `${tag}: the key is nowhere in the page or the console`);
@@ -150,6 +151,7 @@ try {
     await edit.waitFor();
     ok(await edit.getByText("Leave empty to keep the stored key; paste a new key to replace it.").isVisible(), `${tag}: the keep-or-replace hint`);
     ok((await edit.getByLabel("API key").inputValue()) === "", `${tag}: the key field starts empty on Edit`);
+    ok((await edit.getByLabel("API key").getAttribute("placeholder")) === "Stored key ab12cd34", `${tag}: the Edit modal shows the stored key's fingerprint`);
     await shot(page, `cloud-modal-edit-${tag}.png`);
     await page.keyboard.press("Escape");
     await edit.waitFor({ state: "detached" });

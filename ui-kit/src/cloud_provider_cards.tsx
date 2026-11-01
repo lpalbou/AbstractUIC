@@ -7,7 +7,8 @@
 // save or a disconnect (`onSaved` tells the host, which refreshes its own tables).
 //
 // Simpler cards (operator 2026-11-01): a card shows its mark, its name, ONE status line ("Not
-// connected", or a clear green "Connected · key ab12cd34 · 48 models") and ONE button: Connect when
+// connected", or a clear green "Connected · 48 models"; the key's fingerprint only in the Edit
+// modal) and ONE button: Connect when
 // nothing is stored, Edit when a connection exists. Both open the kit's AfModal with the fields of
 // that provider (Name first on the generic card, Base URL on the OpenAI-compatible cards, the API
 // key always, masked) and Test connection / Save / Cancel; Edit adds Disconnect. Save never stores

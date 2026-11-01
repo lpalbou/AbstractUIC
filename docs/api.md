@@ -280,7 +280,7 @@ Full reference: [Console islands](./console-islands.md).
 
 `CloudProviderCards` (islands `mountCloudProviderCards`) shows one card per cloud provider with
 its brand mark (`BrandMark`; a protocol such as System One gets the kit's `server` glyph), ONE
-status ("Not connected", or "Connected · key ab12cd34 · 48 models": a fingerprint, never the key)
+status ("Not connected", or "Connected · 48 models"; the stored key's fingerprint only in the Edit modal, never the key)
 and ONE button, Connect or Edit. Both open an `AfModal` with the provider's fields (a Base URL
 where the endpoint is user-supplied: the OpenAI-compatible cards and `NATIVE_ENDPOINT_RULES`, e.g.
 System One with an optional key) and Test

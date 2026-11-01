@@ -11,7 +11,7 @@ ships.
 
 - `@abstractframework/ui-kit` 0.9.12: simpler cloud provider cards. Each
   card shows its brand mark, its name, ONE status ("Not connected", or a clear green "Connected ·
-  key ab12cd34 · 48 models" with a dot; the fingerprint, never the key) and ONE button: Connect
+  48 models" with a dot; the stored key's fingerprint only in the Edit modal, never the key) and ONE button: Connect
   when nothing is stored, Edit when a connection exists. No field on the card any more: both
   buttons open an `AfModal` ("Connect <provider>" / "Edit <provider>", a full-screen sheet below
   768 px with 44 px targets) with the provider's fields (Name first on "Other OpenAI-compatible
