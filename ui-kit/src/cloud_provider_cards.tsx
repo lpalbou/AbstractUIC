@@ -1,6 +1,6 @@
 // CloudProviderCards — ONE card per cloud provider AbstractCore supports natively, then (when its
 // registry has `openai-compatible`) a card per preset OpenAI-compatible service (OVH AI Endpoints)
-// and the generic "Other OpenAI-compatible endpoint" card. The gateway's setup guide and its
+// and, LAST, the "OpenAI-compatible endpoint" and "System One-compatible endpoint" cards. The gateway's setup guide and its
 // Providers tab mount the same component (islands `mountCloudProviderCards`). Logic in
 // cloud_providers_core.ts; marks in brand_icons.tsx. The host passes its JSON `request` (cookie
 // session + CSRF); the component loads the cards and connections itself and re-loads them after a

@@ -344,7 +344,7 @@ export const BRAND_FALLBACKS: Readonly<Record<string, BrandFallback>> = {
   },
   systemone: {
     id: "systemone",
-    name: "System One endpoint",
+    name: "System One-compatible endpoint",
     text: "",
     glyph: "server",
     terms: "",

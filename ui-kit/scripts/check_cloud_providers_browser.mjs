@@ -39,7 +39,7 @@ const DISCOVERY = { items: [
   { name: "openrouter", display_name: "OpenRouter", local_provider: false },
   { name: "portkey", display_name: "Portkey", local_provider: false },
   { name: "typesafe", display_name: "TypeSafe (Jev)", local_provider: false },
-  { name: "systemone", display_name: "System One endpoint", local_provider: false },
+  { name: "systemone", display_name: "System One-compatible endpoint", local_provider: false },
 ] };
 const rows = new Map([["openai-key", { id: "openai-key", provider_family: "openai", display_name: "OpenAI (API key)", api_key_set: true, api_key_fingerprint: "ab12cd34ef" }]]);
 window.calls = [];
@@ -92,6 +92,7 @@ try {
 
     // The cards: mark, name, ONE status, ONE button; no field on a card.
     ok(await page.locator(".af-cloud-card").count() === 8, `${tag}: eight cards`);
+    ok(JSON.stringify((await page.locator(".af-cloud-card__name").allTextContents()).slice(-2)) === JSON.stringify(["OpenAI-compatible endpoint", "System One-compatible endpoint"]), `${tag}: the two compatible cards come last, in order`);
     ok(await page.locator(".af-cloud-card input").count() === 0, `${tag}: no field on a card`);
     for (const id of ["anthropic", "openai", "typesafe", "systemone", "ovh", "openai-compatible"]) ok(await card(id).locator("button").count() === 1, `${tag}: ${id} has ONE button`);
     ok((await card("openai").locator("[data-cloud-status]").textContent()) === "Connected", `${tag}: OpenAI's connected badge`);
@@ -165,8 +166,8 @@ try {
     ok((await card("openai").locator("button").textContent()) === "Connect", `${tag}: OpenAI is back to Connect`);
 
     // System One: a required, editable Base URL (focused) and an optional key; tested at that URL.
-    await card("systemone").getByRole("button", { name: "Connect System One endpoint" }).click();
-    const so = page.getByRole("dialog", { name: "Connect System One endpoint" });
+    await card("systemone").getByRole("button", { name: "Connect System One-compatible endpoint" }).click();
+    const so = page.getByRole("dialog", { name: "Connect System One-compatible endpoint" });
     await so.waitFor();
     const url = so.getByLabel("Base URL");
     ok(await url.evaluate((n) => n === document.activeElement && !n.readOnly && n.required && n.placeholder === "http://127.0.0.1:8000"), `${tag}: System One's Base URL is focused, editable, required`);
@@ -184,8 +185,8 @@ try {
     await so.waitFor({ state: "detached" });
 
     // The generic card: Name first (focused), Base URL, API key.
-    await card("openai-compatible").getByRole("button", { name: "Connect Other OpenAI-compatible endpoint" }).click();
-    const gen = page.getByRole("dialog", { name: "Connect Other OpenAI-compatible endpoint" });
+    await card("openai-compatible").getByRole("button", { name: "Connect OpenAI-compatible endpoint" }).click();
+    const gen = page.getByRole("dialog", { name: "Connect OpenAI-compatible endpoint" });
     await gen.waitFor();
     ok(await gen.getByLabel("Name").evaluate((n) => n === document.activeElement), `${tag}: Name has focus first`);
     ok(await gen.locator("input").evaluateAll((ns) => ns.map((n) => n.type).join(",")) === "text,url,password", `${tag}: Name, Base URL, API key`);

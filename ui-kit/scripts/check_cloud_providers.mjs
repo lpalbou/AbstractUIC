@@ -182,7 +182,7 @@ const WITH_COMPAT = { items: [...DISCOVERY.items, { name: "openai-compatible", d
   check("6 no compatible cards when AbstractCore has no openai-compatible provider", cloudCardsFromDiscovery({ items: DISCOVERY.items.filter((i) => i.name !== "openai-compatible") }).every((c) => c.kind === "native"));
   const ovh = PRESETS.find((p) => p.id === "ovh");
   check("6 OVH AI Endpoints is a preset with an https base URL and its documentation", !!ovh && ovh.kind === "preset" && ovh.family === "openai-compatible" && /^https:\/\/[^/]+\/v1$/.test(ovh.baseUrl) && /^https:\/\//.test(ovh.docs), ovh);
-  check("6 the generic card", GENERIC.kind === "generic" && GENERIC.family === "openai-compatible" && GENERIC.name === "Other OpenAI-compatible endpoint");
+  check("6 the generic card", GENERIC.kind === "generic" && GENERIC.family === "openai-compatible" && GENERIC.name === "OpenAI-compatible endpoint");
   check("6 connected sentence", connectedSentence(48) === "Connected · 48 models" && connectedSentence(1) === "Connected · 1 model");
   check("6 slug ids", slugId("OVH AI Endpoints") === "ovh-ai-endpoints" && slugId("  ") === "endpoint");
   check("6 base URL validation", validBaseUrl("https://api.mistral.ai/v1/") === "https://api.mistral.ai/v1" && validBaseUrl("api.mistral.ai") === "" && validBaseUrl("ftp://x") === "");
@@ -250,7 +250,7 @@ const WITH_COMPAT = { items: [...DISCOVERY.items, { name: "openai-compatible", d
 const { AfModal, brandMarkInfo } = kit;
 const WITH_DECISION = { items: [...WITH_COMPAT.items,
   { name: "typesafe", display_name: "TypeSafe (Jev)", local_provider: false, authentication_required: true },
-  { name: "systemone", display_name: "System One endpoint", local_provider: false, authentication_required: false }] };
+  { name: "systemone", display_name: "System One-compatible endpoint", local_provider: false, authentication_required: false }] };
 function gw(opts = {}) {
   const g = fakeGateway(opts);
   const inner = g.request;
@@ -282,7 +282,8 @@ function drive(c) {
   await c.settle();
   const d = drive(c);
   const ids = d.articles().map((a) => a.props["data-cloud-provider"]);
-  check("8 one card per native provider (TypeSafe, System One too), the presets, the generic card", JSON.stringify(ids) === JSON.stringify(["anthropic", "openai", "openrouter", "portkey", "typesafe", "systemone", ...PRESETS.map((p) => p.id), "openai-compatible"]), ids);
+  check("8 brand cards first (registry order, then the presets), the two compatible cards LAST in order", JSON.stringify(ids) === JSON.stringify(["anthropic", "openai", "openrouter", "portkey", "typesafe", ...PRESETS.map((p) => p.id), "openai-compatible", "systemone"]), ids);
+  check("8 the last two cards: OpenAI-compatible endpoint, then System One-compatible endpoint", JSON.stringify(d.articles().slice(-2).map((a) => find(a, (n) => n.type === "h4").props.children)) === JSON.stringify(["OpenAI-compatible endpoint", "System One-compatible endpoint"]), d.articles().slice(-2).map((a) => a.props["data-cloud-provider"]));
   // A card without artwork is red: every card's mark is official artwork, a kit glyph or a documented badge.
   for (const id of ids) {
     const mark = find(d.article(id), (n) => n.props && n.props.id === id && n.props.name !== undefined && typeof n.type === "function");
@@ -410,7 +411,7 @@ function drive(c) {
   await d.open("openai-compatible");
   d.body((n) => n.type === "select").props.onChange({ target: { value: "" } });
   c.render();
-  check("8 New endpoint switches to Connect with empty fields", d.modal().props.title === "Connect Other OpenAI-compatible endpoint" && d.field("text").props.value === "" && d.field("url").props.value === "" && !d.foot("disconnect"));
+  check("8 New endpoint switches to Connect with empty fields", d.modal().props.title === "Connect OpenAI-compatible endpoint" && d.field("text").props.value === "" && d.field("url").props.value === "" && !d.foot("disconnect"));
   await d.click("cancel");
 
   // System One (a native whose endpoint is USER-SUPPLIED, key optional): the general rule from
@@ -430,7 +431,7 @@ function drive(c) {
   const soCheck = g.calls.filter((x) => x.path.endsWith("discover-models")).pop();
   const soSave = g.calls.filter((x) => x.method === "POST" && x.path.endsWith("/provider-endpoint-profiles")).pop();
   check("9 System One without a key: tested at its Base URL through discover-models (no api_key)", JSON.stringify(soCheck.body) === JSON.stringify({ provider_family: "systemone", base_url: "http://127.0.0.1:8000" }), soCheck.body);
-  check("9 System One: saved as a new connection with that Base URL", soSave.body.id === "systemone-endpoint" && soSave.body.provider_family === "systemone" && soSave.body.base_url === "http://127.0.0.1:8000" && soSave.body.display_name === "System One endpoint (127.0.0.1)" && soSave.body.create_only === true, soSave.body);
+  check("9 System One: saved as a new connection with that Base URL", soSave.body.id === "systemone-endpoint" && soSave.body.provider_family === "systemone" && soSave.body.base_url === "http://127.0.0.1:8000" && soSave.body.display_name === "System One-compatible endpoint (127.0.0.1)" && soSave.body.create_only === true, soSave.body);
   check("9 System One now offers Edit", d.buttons("systemone")[0].props["data-action"] === "edit" && !d.modal());
   await d.open("systemone");
   check("9 System One Edit: its Base URL prefilled", d.field("url").props.value === "http://127.0.0.1:8000");
@@ -559,7 +560,7 @@ function drive(c) {
   const d = drive(c);
   await d.open("openai-compatible");
   const html = renderToStaticMarkup(React.createElement(React.Fragment, null, d.tree()));
-  check("8 the modal renders as the kit's AfModal dialog", html.includes('role="dialog"') && html.includes('aria-modal="true"') && html.includes("af-modal--narrow") && html.includes("af-cloud-modal") && html.includes(">Connect Other OpenAI-compatible endpoint</h2>"));
+  check("8 the modal renders as the kit's AfModal dialog", html.includes('role="dialog"') && html.includes('aria-modal="true"') && html.includes("af-modal--narrow") && html.includes("af-cloud-modal") && html.includes(">Connect OpenAI-compatible endpoint</h2>"));
   check("8 every field is labelled", ["name", "url", "key"].every((f) => html.includes(`for="af-cloud-${f}-openai-compatible"`) && html.includes(`id="af-cloud-${f}-openai-compatible"`)));
   check("8 the key field is a password field", /<input id="af-cloud-key-openai-compatible" type="password"/.test(html));
 }

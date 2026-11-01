@@ -147,7 +147,7 @@ Text badges or kit glyphs (no logo), each with the reason:
 | Id | Brand | Badge | Why there is no logo | Retrieved |
 | --- | --- | --- | --- | --- |
 | `openai-compatible` | OpenAI-compatible server | API | A protocol, not a brand: any server that speaks the OpenAI API (vLLM, llama.cpp, LocalAI, a private gateway). No logo applies. | 2026-10-29 |
-| `systemone` | System One endpoint | kit `server` glyph | A protocol, not a brand: any host that serves the System One decision API (POST /v1/systemone), such as a kev.serve / lev serve process or another AbstractCore server. No logo applies, so the kit's neutral server glyph is shown (`glyph: "server"`). | 2026-11-01 |
+| `systemone` | System One-compatible endpoint | kit `server` glyph | A protocol, not a brand: any host that serves the System One decision API (POST /v1/systemone), such as a kev.serve / lev serve process or another AbstractCore server. No logo applies, so the kit's neutral server glyph is shown (`glyph: "server"`). | 2026-11-01 |
 
 Adding a brand: add its id to `BRAND_CARD_IDS`, then either a `BRAND_ICONS` entry (the SVG's geometry and colours
 unchanged; editor metadata, titles and classes dropped; ids namespaced `af-brand-<id>-`) with its source, terms,

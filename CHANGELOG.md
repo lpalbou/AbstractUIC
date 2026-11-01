@@ -14,7 +14,7 @@ ships.
   48 models" with a dot; the stored key's fingerprint only in the Edit modal, never the key) and ONE button: Connect
   when nothing is stored, Edit when a connection exists. No field on the card any more: both
   buttons open an `AfModal` ("Connect <provider>" / "Edit <provider>", a full-screen sheet below
-  768 px with 44 px targets) with the provider's fields (Name first on "Other OpenAI-compatible
+  768 px with 44 px targets) with the provider's fields (Name first on "OpenAI-compatible
   endpoint", Base URL on the OpenAI-compatible cards, the API key masked and empty on Edit, where
   the stored key stays unless replaced), Test connection, Save (never stores an untested key) and
   Cancel; Edit adds Disconnect with a confirmation. Edit updates THAT connection in place
@@ -25,14 +25,16 @@ ships.
   tested, or once a tested key is saved); `CloudRequest` methods add PUT and DELETE. The key field
   is uncontrolled: the key is held in a ref, never in state or a DOM attribute, and cleared when
   the modal closes. While a save or a disconnect is in flight the modal cannot be closed. New
-  "Other OpenAI-compatible endpoint" connections get `compat-<name>` ids (existing ids unchanged),
+  "OpenAI-compatible endpoint" connections get `compat-<name>` ids (existing ids unchanged),
   so a typed name never shadows a native provider id. Clearing the Name on Edit says "Name is
   required.".
   A native provider whose endpoint is user-supplied declares it in `NATIVE_ENDPOINT_RULES`
   (System One: a required, editable Base URL, placeholder `http://127.0.0.1:8000`, and an
   optional API key, as AbstractCore's registry says); its test and save carry that base URL through
   the existing endpoint-profile routes. Cards carry `baseUrlField` ("none" | "preset" | "required"),
-  `baseUrlPlaceholder` and `apiKey` ("required" | "optional").
+  `baseUrlPlaceholder` and `apiKey` ("required" | "optional"). Card order: the brand cards first
+  (registry order, then OVH AI Endpoints), the protocol cards last: "OpenAI-compatible endpoint"
+  (formerly "Other OpenAI-compatible endpoint"), then "System One-compatible endpoint".
   Brand marks: TypeSafe's own icon (from typesafe.ai, with its terms), and a kit glyph fallback
   (`BrandFallback.glyph`) so the System One protocol shows the neutral `server` glyph instead of
   initials. `check_brand_icons.mjs` and `check_cloud_providers.mjs` now fail for a provider card

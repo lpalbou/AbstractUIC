@@ -95,7 +95,7 @@ export const OPENAI_COMPATIBLE_PRESETS: readonly CloudCard[] = [
 
 export const GENERIC_COMPATIBLE_CARD: CloudCard = {
   id: "openai-compatible",
-  name: "Other OpenAI-compatible endpoint",
+  name: "OpenAI-compatible endpoint",
   family: "openai-compatible",
   kind: "generic",
   baseUrl: "",
@@ -313,8 +313,9 @@ export function validBaseUrl(url: string): string {
 
 const LOCAL_HOST = /^https?:\/\/(localhost|127\.|0\.0\.0\.0|\[::1\])/i;
 
-/** The cards: AbstractCore's native cloud providers, then (when its registry has `openai-compatible`)
- *  the preset OpenAI-compatible services and the generic endpoint card. */
+/** The cards: AbstractCore's native cloud providers (brands, registry order), then (when its registry
+ *  has `openai-compatible`) the preset OpenAI-compatible services, then the protocol cards last:
+ *  the generic OpenAI-compatible endpoint, then natives with a user-supplied endpoint (System One). */
 export function cloudCardsFromDiscovery(payload: unknown): CloudCard[] {
   const natives: CloudCard[] = cloudProvidersFromDiscovery(payload).map((p) => {
     const rule = Object.prototype.hasOwnProperty.call(NATIVE_ENDPOINT_RULES, p.id) ? NATIVE_ENDPOINT_RULES[p.id] : null;
@@ -322,7 +323,11 @@ export function cloudCardsFromDiscovery(payload: unknown): CloudCard[] {
   });
   const items = (payload && typeof payload === "object" ? (payload as any).items : null) as unknown;
   const compatible = Array.isArray(items) && items.some((it) => it && typeof it === "object" && str((it as any).name).toLowerCase() === "openai-compatible" && !(it as any).provider_endpoint_profile);
-  return compatible ? [...natives, ...OPENAI_COMPATIBLE_PRESETS, GENERIC_COMPATIBLE_CARD] : natives;
+  // Brand cards first (registry order, then the presets), the protocol cards LAST: "OpenAI-compatible
+  // endpoint", then the natives whose endpoint is user-supplied ("System One-compatible endpoint").
+  const brands = natives.filter((c) => c.baseUrlField !== "required");
+  const protocols = natives.filter((c) => c.baseUrlField === "required");
+  return compatible ? [...brands, ...OPENAI_COMPATIBLE_PRESETS, GENERIC_COMPATIBLE_CARD, ...protocols] : [...brands, ...protocols];
 }
 
 /** The connections a card shows: its family's (native), its base URL's (preset), or the other
@@ -422,7 +427,7 @@ export function cloudProvidersClient(request: CloudRequest, base: string = GATEW
         throw new Error("Check the key first: only a key that works is saved.");
       const compat = isCompatible(target);
       const host = needsUrl(target) ? (/^https?:\/\/([^/:]+)/i.exec(checked.baseUrl || "") || [])[1] || "" : "";
-      // A native reached at a typed URL (System One) is named after its host: "System One endpoint (127.0.0.1)".
+      // A native reached at a typed URL (System One) is named after its host: "System One-compatible endpoint (127.0.0.1)".
       const urlNative = !compat && needsUrl(target);
       const label = compat ? (target.kind === "generic" ? (String(name || "").trim() || host || "OpenAI-compatible endpoint") : target.name) : urlNative ? `${target.name || family} (${host || "endpoint"})` : "";
       // The generic card's ids are prefixed (`compat-mistral`) so a typed name never shadows a native
