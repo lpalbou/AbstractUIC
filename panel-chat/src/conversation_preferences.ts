@@ -7,7 +7,7 @@ function read(scope: string): { mode: Mode; preferences: ConversationCuePreferen
     const raw = typeof localStorage === "undefined" ? null : localStorage.getItem(`abstract.conversation:${scope}`);
     if (!raw) return { mode: "chat", preferences: DEFAULT_CONVERSATION_CUES, error: null };
     const saved = JSON.parse(raw);
-    const preferences = Object.fromEntries((["approval", "question", "completion"] as const).map((kind) => [kind, { visual: saved.preferences?.[kind]?.visual !== false, audio: saved.preferences?.[kind]?.audio === true, haptic: saved.preferences?.[kind]?.haptic === true }])) as ConversationCuePreferences;
+    const preferences = Object.fromEntries((["approval", "question", "completion"] as const).map((kind) => [kind, { visual: saved.preferences?.[kind]?.visual !== false, audio: saved.preferences?.[kind]?.audio !== false, haptic: saved.preferences?.[kind]?.haptic === true }])) as ConversationCuePreferences;
     return { mode: saved.mode === "avatar" ? "avatar" : "chat", preferences, error: null };
   } catch (error) { return { mode: "chat", preferences: DEFAULT_CONVERSATION_CUES, error: `Conversation preferences could not be loaded: ${String(error)}` }; }
 }

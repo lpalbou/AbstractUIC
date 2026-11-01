@@ -18,6 +18,8 @@ ships.
   rendered their own Attach button next to the composer should pass `onAttach` instead; voice
   controls belong in the trailing slot. The former `variant="default"` value is gone
   (`"compact"` remains an alias of the default); the docs assistant composer starts at two rows.
+- Avatar conversation: no cue settings inside the view; visual and audio cues are both on by
+  default for permission requests, questions and completion, and a host's settings decide any change.
 - Avatar conversation: while a question or approval is open, the avatar scene is small beside its
   status at every viewport height, so the request and its controls stay visible.
 - Docs assistant: the footer reads "Powered by <app>’s documentation."; its composer is the

@@ -15,6 +15,7 @@ export type AvatarConversationOptions = {
   /** Snapshot/history reconstruction is a silent baseline, even if the stream is connected. */
   replaying?: boolean;
   attention?: ConversationAttention | null;
+  /** Cue channels per attention kind; both on by default. Hosts edit them in their settings, never inside this view. */
   preferences?: ConversationCuePreferences;
   onPreferencesChange?: (preferences: ConversationCuePreferences) => void;
   /** Foreground fresh-revision cues only. The host owns sounds/haptics. */
@@ -60,8 +61,7 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const [selected, setSelected] = useState<ChatMessage | null>(null);
-  const [localPreferences, setLocalPreferences] = useState(DEFAULT_CONVERSATION_CUES);
-  const preferences = props.preferences || localPreferences;
+  const preferences = props.preferences || DEFAULT_CONVERSATION_CUES;
   const messages = useMemo(() => conversationMessages(props.messages), [props.messages]);
   const latest = [...messages].reverse().find((m) => m.role === "assistant" || m.kind === "question_outcome") || null;
   const attended = Boolean(props.attended || history || paused || hovered || focused || selected);
@@ -108,10 +108,6 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
     setHistory(false); setPaused(false); setSelected(null); setShown(latest); setPage(0);
     props.onReplyContext?.(null);
   };
-  const preference = (kind: ConversationAttention["kind"], channel: "visual" | "audio", checked: boolean) => {
-    const next = { ...preferences, [kind]: { ...preferences[kind], [channel]: checked } };
-    setLocalPreferences(next); props.onPreferencesChange?.(next);
-  };
   const visibleAttention = props.attention && preferences[props.attention.kind].visual;
   const hasRequest = Boolean(props.interaction) && (props.interactionId === undefined || Boolean(props.interactionId));
   return <section className="pc-avatar-conversation" aria-label="Avatar conversation" data-state={state} data-has-request={hasRequest || undefined}>
@@ -150,11 +146,5 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
     </ol> : null}
     {selected ? <p className="pc-avatar-conversation__reply-context">Replying to the selected exchange. <button type="button" onClick={follow}>Clear reply context</button></p> : null}
     {!hasRequest ? props.interaction : null}
-    <details className="pc-avatar-conversation__preferences"><summary>Conversation cues</summary>
-      <p>Cues apply while this conversation is open. Audio plays only when the host provides it.</p>
-      {(["approval", "question", "completion"] as const).map((kind) => <fieldset key={kind}><legend>{kind === "approval" ? "Permission requests" : kind === "question" ? "Questions" : "Completion"}</legend>
-        {(["visual", "audio"] as const).map((channel) => <label key={channel}><input type="checkbox" checked={preferences[kind][channel]} onChange={(event) => preference(kind, channel, event.target.checked)} />{channel === "visual" ? "Visual cue" : "Audio cue"}</label>)}
-      </fieldset>)}
-    </details>
   </section>;
 }

@@ -20,10 +20,11 @@ export type ConversationAttention = {
 };
 export type ConversationCuePreferences = Record<ConversationAttention["kind"], { visual: boolean; audio: boolean; haptic?: boolean }>;
 export type ConversationCue = ConversationAttention & { channels: ConversationCuePreferences[ConversationAttention["kind"]] };
+/** The avatar always signals with both a visual and an audio cue; a host's settings can turn one off. */
 export const DEFAULT_CONVERSATION_CUES: ConversationCuePreferences = {
-  approval: { visual: true, audio: false, haptic: false },
-  question: { visual: true, audio: false, haptic: false },
-  completion: { visual: true, audio: false, haptic: false },
+  approval: { visual: true, audio: true, haptic: false },
+  question: { visual: true, audio: true, haptic: false },
+  completion: { visual: true, audio: true, haptic: false },
 };
 const row = (v: unknown): Record<string, unknown> | null => v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : null;
 
