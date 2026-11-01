@@ -5949,8 +5949,19 @@ A pending question or approval keeps its actual controls ahead of subtitles and 
 with a smaller avatar while the request is open. Standalone `AvatarConversation` hosts
 should pass `interactionId` for that actual request, or `""` when it is absent or deferred.
 Omitting the prop treats a supplied interaction as active. `WorkflowChat`
-forwards the current interaction identity. Only long tool details scroll inside the
+forwards the current interaction identity. Long request content scrolls inside the
 request; the decision buttons stay reachable.
+
+In Avatar mode, permissions use ordinary action and destination language with labeled
+decision icons. The assistant’s public explanation appears under “Why I’m asking” when
+it is bound to this exact request. Missing explanations are stated explicitly. This
+view does not show tool names, argument JSON or standing permission settings.
+Provide `avatarConversation.onTechnicalView` to open your existing detailed view from
+“Review details”. Unknown actions require detailed review before they can be allowed.
+Standalone hosts use `WorkflowInteractionPanel variant="conversation"` with
+`publicApprovalRequest(calls, wait.details.public_action, runId)` as the interaction’s
+`publicRequest`; `onReviewTechnical` opens their detailed view. The ordinary panel
+retains its full technical presentation and permission choices.
 
 Optional browser checks are `scripts/check_avatar_requests_browser.mjs` for request
 visibility on desktop/phone and `scripts/check_compact_composer_browser.mjs` for input
@@ -16271,6 +16282,7 @@ export { DEFAULT_CONVERSATION_CUES, conversationMessages, conversationPages, con
 export { useAvatarConversationPreferences, playConversationCue } from "./conversation_preferences.js";
 export { conversationReply } from "./conversation_model.js";
 export { conversationNarrationStep } from "./conversation_model.js";
+export { publicApprovalRequest, type PublicApprovalRequest } from "./public_approval.js";
 
 ## panel-chat/src/chat_composer.tsx
 
@@ -18656,6 +18668,7 @@ import { WORKFLOW_INTERACTION_LABELS, type WorkflowInteraction, type WorkflowInt
 import type { ServerRecord, SessionToolPolicy, WorkflowRecord, WorkflowSessionController, WorkflowWaitInteraction } from "./workflow_runtime.js";
 import type { ReplayViewInteraction } from "./replay_view.js";
 import { replayInteractionWait } from "./replay_view_projection.js";
+import { publicApprovalRequest } from "./public_approval.js";
 
 /**
  * The served, tree-resolved pending interaction of the replay view
@@ -18894,6 +18907,7 @@ export function presentInteraction(
       kind: "tool-approval",
       title: `${calls.length || "Requested"} ${calls.length === 1 ? "action needs" : "actions need"} permission`,
       toolName: names.join(", ") || "the requested tools",
+      publicRequest: publicApprovalRequest(calls, details.public_action, raw.runId),
       description: "Review the targets below. Allow once approves this batch only.",
       detail: (
         <div className="pc-approval-summary">
@@ -25289,6 +25303,12 @@ controls take priority with a smaller avatar, ahead of captions and history. Use
 empty string for no request or a deferred request; omitted `interactionId` treats
 a supplied interaction as active. `WorkflowChat` forwards its actual
 interaction identity automatically.
+Use `WorkflowInteractionPanel variant="conversation"` for public avatar requests, never
+the default technical panel. `presentInteraction` supplies plain actions/targets and
+checks `details.public_action` against the exact pending batch/run. `onTechnicalView`
+on avatar options (or panel `onReviewTechnical`) opens the host’s detailed view without
+answering. No raw reasoning or unrelated latest brève may supply the request’s reason.
+Unknown actions need detailed review; standing grants stay in the technical view.
 Public history accepts validated public updates, user messages and typed answers/finals;
 never feed raw reasoning or private entity traces into a subtitle.
 

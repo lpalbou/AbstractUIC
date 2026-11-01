@@ -12,6 +12,7 @@ import { WORKFLOW_INTERACTION_LABELS, type WorkflowInteraction, type WorkflowInt
 import type { ServerRecord, SessionToolPolicy, WorkflowRecord, WorkflowSessionController, WorkflowWaitInteraction } from "./workflow_runtime.js";
 import type { ReplayViewInteraction } from "./replay_view.js";
 import { replayInteractionWait } from "./replay_view_projection.js";
+import { publicApprovalRequest } from "./public_approval.js";
 
 /**
  * The served, tree-resolved pending interaction of the replay view
@@ -250,6 +251,7 @@ export function presentInteraction(
       kind: "tool-approval",
       title: `${calls.length || "Requested"} ${calls.length === 1 ? "action needs" : "actions need"} permission`,
       toolName: names.join(", ") || "the requested tools",
+      publicRequest: publicApprovalRequest(calls, details.public_action, raw.runId),
       description: "Review the targets below. Allow once approves this batch only.",
       detail: (
         <div className="pc-approval-summary">

@@ -124,3 +124,4 @@ assert.deepEqual(publicRows[0].publicUpdate.sourceCallIds, ["call-1"]);
 assert.deepEqual(controller.getSnapshot().messages.filter((entry) => entry.kind === "guidance").map((entry)=>entry.content), [humanBody.text], "Only host-authenticated accepted human guidance enters public history");
 controller.dispose();
 console.log("check_avatar_conversation: public-only projection, source/dedup, default chat, cue lifecycle, state precedence and reply scope passed");
+import './check_public_approval.mjs';

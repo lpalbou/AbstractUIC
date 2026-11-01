@@ -494,8 +494,19 @@ A pending question or approval keeps its actual controls ahead of subtitles and 
 with a smaller avatar while the request is open. Standalone `AvatarConversation` hosts
 should pass `interactionId` for that actual request, or `""` when it is absent or deferred.
 Omitting the prop treats a supplied interaction as active. `WorkflowChat`
-forwards the current interaction identity. Only long tool details scroll inside the
+forwards the current interaction identity. Long request content scrolls inside the
 request; the decision buttons stay reachable.
+
+In Avatar mode, permissions use ordinary action and destination language with labeled
+decision icons. The assistant’s public explanation appears under “Why I’m asking” when
+it is bound to this exact request. Missing explanations are stated explicitly. This
+view does not show tool names, argument JSON or standing permission settings.
+Provide `avatarConversation.onTechnicalView` to open your existing detailed view from
+“Review details”. Unknown actions require detailed review before they can be allowed.
+Standalone hosts use `WorkflowInteractionPanel variant="conversation"` with
+`publicApprovalRequest(calls, wait.details.public_action, runId)` as the interaction’s
+`publicRequest`; `onReviewTechnical` opens their detailed view. The ordinary panel
+retains its full technical presentation and permission choices.
 
 Optional browser checks are `scripts/check_avatar_requests_browser.mjs` for request
 visibility on desktop/phone and `scripts/check_compact_composer_browser.mjs` for input

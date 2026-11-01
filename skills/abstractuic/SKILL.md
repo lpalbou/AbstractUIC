@@ -102,6 +102,12 @@ controls take priority with a smaller avatar, ahead of captions and history. Use
 empty string for no request or a deferred request; omitted `interactionId` treats
 a supplied interaction as active. `WorkflowChat` forwards its actual
 interaction identity automatically.
+Use `WorkflowInteractionPanel variant="conversation"` for public avatar requests, never
+the default technical panel. `presentInteraction` supplies plain actions/targets and
+checks `details.public_action` against the exact pending batch/run. `onTechnicalView`
+on avatar options (or panel `onReviewTechnical`) opens the host’s detailed view without
+answering. No raw reasoning or unrelated latest brève may supply the request’s reason.
+Unknown actions need detailed review; standing grants stay in the technical view.
 Public history accepts validated public updates, user messages and typed answers/finals;
 never feed raw reasoning or private entity traces into a subtitle.
 

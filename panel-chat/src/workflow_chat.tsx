@@ -724,7 +724,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
             attended={Boolean(props.draft.trim())}
             interactionId={props.interaction ? `${props.interaction.kind}:${props.interaction.id}` : ""}
             interaction={<>
-              {props.interaction ? <WorkflowInteractionPanel interaction={props.interaction} disabled={disabled} /> : null}
+              {props.interaction ? <WorkflowInteractionPanel interaction={props.interaction} disabled={disabled} variant="conversation" onReviewTechnical={props.avatarConversation.onTechnicalView} /> : null}
               {blocked ? <div className="pc-workflow-chat__blocked" role="status">{props.blockedNotice}</div> : null}
             </>}
           /> : <ChatThread
