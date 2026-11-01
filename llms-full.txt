@@ -71,7 +71,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.11): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.12): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
 - [@abstractframework/panel-chat](panel-chat/README.md) (0.7.0, needs ui-kit ^0.9.8): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
@@ -1855,12 +1855,14 @@ when a mark lacks its source, licence or date, or when a mark could reach outsid
 | `anthropic` | Anthropic | brand | <https://www.anthropic.com/press-kit> | Anthropic symbol - Slate.svg from the official press-kit archive; original geometry and Slate colour. Trademark belongs to its owner; not relicensed under MIT. [Terms](https://www.anthropic.com/legal/trademark-guidelines). | 2026-10-30 |
 | `portkey` | Portkey | brand | <https://framerusercontent.com/images/jdaaBnPaidwn24qlm9oMGXntXP0.png> | Official Portkey website header logo, PNG embedded unchanged; sha256 06fe1d765a67fce602fd024dc236a15d80fd500a4ee977f93a8ee4774acff0c1. Trademark belongs to its owner; not relicensed under MIT. [Terms](https://portkey.ai/terms). | 2026-10-30 |
 | `ovh` | OVH AI Endpoints | brand | <https://www.ovhcloud.com/7af16cdb/contrib/ovh_theme_patternlab/images/logos/OVHcloud_logo.svg> | Official OVHcloud website sprite, ocmscloud_logo symbol; original paths and transforms, currentColor resolved to brand blue #000E9C. Trademark belongs to its owner; not relicensed under MIT. [Terms](https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf). | 2026-10-30 |
+| `typesafe` | TypeSafe | brand | <https://framerusercontent.com/images/kcuF2BEp5XaVfkmFB634IPRKQH0.png> | The apple-touch-icon that typesafe.ai's own home page declares, PNG embedded unchanged; sha256 40fe116f8438653bf6bad9b198f23371627f52b52b8654d6852e8345a014e585. TypeSafe publishes no brand or press page (typesafe.ai/brand, /press and /media-kit answer 404). Trademark belongs to TypeSafe AI, Inc.; not relicensed under MIT. [Terms](https://typesafe.ai/legal/terms): "Except as expressly authorized by TypeSafe, you may not use the Materials." Shown only on the TypeSafe (Jev) card, original colours, no endorsement claim. | 2026-11-01 |
 
-Text badges (no logo), each with the brand's own words:
+Text badges or kit glyphs (no logo), each with the reason:
 
 | Id | Brand | Badge | Why there is no logo | Retrieved |
 | --- | --- | --- | --- | --- |
 | `openai-compatible` | OpenAI-compatible server | API | A protocol, not a brand: any server that speaks the OpenAI API (vLLM, llama.cpp, LocalAI, a private gateway). No logo applies. | 2026-10-29 |
+| `systemone` | System One endpoint | kit `server` glyph | A protocol, not a brand: any host that serves the System One decision API (POST /v1/systemone), such as a kev.serve / lev serve process or another AbstractCore server. No logo applies, so the kit's neutral server glyph is shown (`glyph: "server"`). | 2026-11-01 |
 
 Adding a brand: add its id to `BRAND_CARD_IDS`, then either a `BRAND_ICONS` entry (the SVG's geometry and colours
 unchanged; editor metadata, titles and classes dropped; ids namespaced `af-brand-<id>-`) with its source, terms,
@@ -2377,6 +2379,19 @@ self-contained script that defines `window.AfConsoleIslands` (`apiVersion` `"2"`
 `bindModal`, `bindMenu`, `bindTooltips`, …). Build it with
 `npm run build:islands -w @abstractframework/ui-kit`. It is not included in the npm tarball.
 Full reference: [Console islands](./console-islands.md).
+
+`CloudProviderCards` (islands `mountCloudProviderCards`) shows one card per cloud provider with
+its brand mark (`BrandMark`; a protocol such as System One gets the kit's `server` glyph), ONE
+status ("Not connected", or "Connected · key ab12cd34 · 48 models": a fingerprint, never the key)
+and ONE button, Connect or Edit. Both open an `AfModal` with the provider's fields (a Base URL
+where the endpoint is user-supplied: the OpenAI-compatible cards and `NATIVE_ENDPOINT_RULES`, e.g.
+System One with an optional key) and Test
+connection / Save / Cancel; Edit adds Disconnect. The client behind it,
+`cloudProvidersClient(request, base)`, checks a key before anything is stored (`checkKey`, or
+`checkConnection` for a stored key), creates new connections with `create_only`
+(`saveCheckedKey`), updates one in place (`updateConnection`, PUT, only what changed) and removes
+one (`removeConnection`, DELETE); a connection from AbstractCore's config is never updated or
+removed from here.
 
 `SpeculationSelect` consumes `execution.speculation` from the host capability payload. It
 offers inheritance (`undefined`), Off (`false`), and only advertised depths. Explicit depths
@@ -4595,9 +4610,9 @@ Serve both files from your own origin; the paths above are examples.
 | `mountWorkspaceChooser(el, props)` | `IslandHandle` | Mounts the kit `WorkspaceChooser` (`level`, `state`, `save`): the console's **Eligible workspaces** modal (`level: "gateway"`) and each account's Workspaces modal (`level: "account"`) (kit 0.8.3, round 11) |
 | `mountVoiceSection(el, props)` | `IslandHandle` | Mounts the kit `AfVoiceSection` (the whole voice settings: Engines, Output, Microphone, Replies) with the component's own props (`fetchCatalog`, `fetchDefaults`, `voiceLibrary`, `fetchLanguages`, `previewVoice`, `rows`, …) (kit 0.9.0, backlog 0035) |
 | `mountTimeZonePicker(el, props)` | `IslandHandle` | Mounts the kit `AfTimeZonePicker` (`block` = the preferences answer's `time_zone`, `id`, `onChange(zone \| null)`, `disabled`, `note`): the time zone row of the console's Accounts → Preferences modal (kit 0.8.7, round 16) |
-| `mountCloudProviderCards(el, props)` | `IslandHandle` | Mounts the kit `CloudProviderCards`: one card per cloud provider AbstractCore supports natively (`GET discovery/providers`, `local_provider: false`), then OVH AI Endpoints (an OpenAI-compatible preset) and "Other OpenAI-compatible endpoint" (Name, Base URL, API key). ONE action per card, **Connect** (**Reconnect** when it has a connection): the key is checked and, only when it works, saved as a NEW connection (`create_only`): "Connected · 48 models" or the reason. Props: `request(path, {method, body})`, `base` (the console passes its absolute API prefix), `scope`, `onSaved(saved)`, `refreshKey`, `heading` (kit 0.9.9; Connect, presets and the generic card: kit 0.9.10) |
-| `cloudProviders` | `object` | The cards' logic for a host's own key flow: `client(request, base)` (`listProviders`, `listCards`, `listConnections`, `checkKey`, `saveCheckedKey`, `connect`), `keyCheckResult`, `freshConnectionId`, `text` (kit 0.9.9; `listCards`/`connect`: 0.9.10) |
-| `brandMarks` | `object` | Engines' and providers' official marks: `html(id, name?)` (inline `<span class="af-brand-mark">` with the SVG, or the documented text badge), `info(id)`, `cardIds` (kit 0.9.9; [icons.md](./icons.md#brand-marks)) |
+| `mountCloudProviderCards(el, props)` | `IslandHandle` | Mounts the kit `CloudProviderCards`: one card per cloud provider AbstractCore supports natively (`GET discovery/providers`, `local_provider: false`), then OVH AI Endpoints (an OpenAI-compatible preset) and "Other OpenAI-compatible endpoint". Each card shows its brand mark, its name, ONE status ("Not connected", or a green "Connected · key ab12cd34 · 48 models": the key's fingerprint, never the key; the model count once a test found it) and ONE button: **Connect** when nothing is stored, **Edit** when a connection exists. Both open the kit `AfModal` (a full-screen sheet below 768 px) titled "Connect <provider>" / "Edit <provider>" with the provider's fields (Name first on the generic card, Base URL on the OpenAI-compatible cards and on a native whose endpoint is user-supplied (`NATIVE_ENDPOINT_RULES`: System One, Base URL required, API key optional), the API key always, masked) and **Test connection** (`discover-models`, nothing stored), **Save** (tests first when the fields were not tested OK; Connect saves a NEW connection, `create_only`; Edit updates THAT connection with `PUT config/provider-endpoint-profiles/{id}`, the stored key kept unless a new one is typed) and **Cancel**; Edit adds **Disconnect** (`DELETE config/provider-endpoint-profiles/{id}`, after a confirmation). A connection set in AbstractCore's config or the environment is edited by adding a gateway connection and is not removable here. Props: `request(path, {method, body})` (GET, POST, PUT, DELETE), `base` (the console passes its absolute API prefix), `scope`, `onSaved(saved)` (also after a disconnect), `refreshKey`, `heading` (kit 0.9.9; presets and the generic card: 0.9.10; cards + modal, Edit, Disconnect: 0.9.12) |
+| `cloudProviders` | `object` | The cards' logic for a host's own key flow: `client(request, base)` (`listProviders`, `listCards`, `listConnections`, `checkKey`, `checkConnection`, `saveCheckedKey`, `updateConnection`, `removeConnection`, `connect`), `keyCheckResult`, `freshConnectionId`, `text` (kit 0.9.9; `listCards`/`connect`: 0.9.10; `checkConnection`/`updateConnection`/`removeConnection`: 0.9.12) |
+| `brandMarks` | `object` | Engines' and providers' official marks: `html(id, name?)` (inline `<span class="af-brand-mark">` with the SVG, the documented text badge, or a kit glyph for a protocol without a logo: `af-brand-mark--glyph`, System One's `server` glyph), `info(id)` (`kind`: `icon`, `text`, `glyph` or `unknown`), `cardIds` (kit 0.9.9; glyph fallback: 0.9.12; [icons.md](./icons.md#brand-marks)) |
 | `workspaceChooserText` | `object` | The WorkspaceChooser's wording table (`WORKSPACE_CHOOSER_TEXT`), e.g. the modal title `gatewayTitle` "Eligible workspaces" (kit 0.8.3) |
 | `workspaceAsState(answer, level)` | `object` | Turns a `GET/PUT /workspace/policy[/{account}]` answer into the chooser's `state`; throws on an older answer (kit 0.8.3) |
 | `bindTooltips(root?, options?)` | `() => void` | The kit tooltip on every `[data-af-tip]` element under `root` (default the document): 150 ms delay, keyboard focus, hoverable, Escape hides, kept inside the viewport; delegated, bind once; returns `release()` (kit 0.8.x, round 9; [modal.md](./modal.md#tooltip)) |
@@ -6907,7 +6922,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.11",
+  "version": "0.9.12",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -7984,12 +7999,14 @@ export {
   cloudCardsFromDiscovery,
   cardConnections,
   cardStatus,
+  cardEditTarget,
   freshIdFromStem,
   slugId,
   normalizeBaseUrl,
   validBaseUrl,
   OPENAI_COMPATIBLE_PRESETS,
   GENERIC_COMPATIBLE_CARD,
+  NATIVE_ENDPOINT_RULES,
   type CloudCard,
   type ConnectResult,
   type CheckedKey,
@@ -22772,6 +22789,35 @@ ships.
 
 ## Unreleased
 
+- `@abstractframework/ui-kit` 0.9.12: simpler cloud provider cards. Each
+  card shows its brand mark, its name, ONE status ("Not connected", or a clear green "Connected ·
+  key ab12cd34 · 48 models" with a dot; the fingerprint, never the key) and ONE button: Connect
+  when nothing is stored, Edit when a connection exists. No field on the card any more: both
+  buttons open an `AfModal` ("Connect <provider>" / "Edit <provider>", a full-screen sheet below
+  768 px with 44 px targets) with the provider's fields (Name first on "Other OpenAI-compatible
+  endpoint", Base URL on the OpenAI-compatible cards, the API key masked and empty on Edit, where
+  the stored key stays unless replaced), Test connection, Save (never stores an untested key) and
+  Cancel; Edit adds Disconnect with a confirmation. Edit updates THAT connection in place
+  (`PUT config/provider-endpoint-profiles/{id}`) instead of adding one; Disconnect is
+  `DELETE config/provider-endpoint-profiles/{id}`; both existing gateway routes. New client
+  functions `checkConnection`, `updateConnection`, `removeConnection` and `cardEditTarget`;
+  `cardStatus` takes optional model counts (a card shows one only after its STORED key was
+  tested, or once a tested key is saved); `CloudRequest` methods add PUT and DELETE. The key field
+  is uncontrolled: the key is held in a ref, never in state or a DOM attribute, and cleared when
+  the modal closes. While a save or a disconnect is in flight the modal cannot be closed. New
+  "Other OpenAI-compatible endpoint" connections get `compat-<name>` ids (existing ids unchanged),
+  so a typed name never shadows a native provider id. Clearing the Name on Edit says "Name is
+  required.".
+  A native provider whose endpoint is user-supplied declares it in `NATIVE_ENDPOINT_RULES`
+  (System One: a required, editable Base URL, placeholder `http://127.0.0.1:8000`, and an
+  optional API key, as AbstractCore's registry says); its test and save carry that base URL through
+  the existing endpoint-profile routes. Cards carry `baseUrlField` ("none" | "preset" | "required"),
+  `baseUrlPlaceholder` and `apiKey` ("required" | "optional").
+  Brand marks: TypeSafe's own icon (from typesafe.ai, with its terms), and a kit glyph fallback
+  (`BrandFallback.glyph`) so the System One protocol shows the neutral `server` glyph instead of
+  initials. `check_brand_icons.mjs` and `check_cloud_providers.mjs` now fail for a provider card
+  without artwork and for a connected card without Edit; `check_cloud_providers_browser.mjs`
+  drives card → modal → test → save → edit → disconnect in Chrome against a stub gateway.
 - `@abstractframework/panel-chat` 0.7.0: the rounded multiline composer is the default
   `ChatComposer` and `WorkflowChat` composer on every surface (chat, docs assistant, assistant
   panel); `variant="legacy"` / `composerVariant="legacy"` restores the flat layout. The composer

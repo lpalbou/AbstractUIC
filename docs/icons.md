@@ -140,12 +140,14 @@ when a mark lacks its source, licence or date, or when a mark could reach outsid
 | `anthropic` | Anthropic | brand | <https://www.anthropic.com/press-kit> | Anthropic symbol - Slate.svg from the official press-kit archive; original geometry and Slate colour. Trademark belongs to its owner; not relicensed under MIT. [Terms](https://www.anthropic.com/legal/trademark-guidelines). | 2026-10-30 |
 | `portkey` | Portkey | brand | <https://framerusercontent.com/images/jdaaBnPaidwn24qlm9oMGXntXP0.png> | Official Portkey website header logo, PNG embedded unchanged; sha256 06fe1d765a67fce602fd024dc236a15d80fd500a4ee977f93a8ee4774acff0c1. Trademark belongs to its owner; not relicensed under MIT. [Terms](https://portkey.ai/terms). | 2026-10-30 |
 | `ovh` | OVH AI Endpoints | brand | <https://www.ovhcloud.com/7af16cdb/contrib/ovh_theme_patternlab/images/logos/OVHcloud_logo.svg> | Official OVHcloud website sprite, ocmscloud_logo symbol; original paths and transforms, currentColor resolved to brand blue #000E9C. Trademark belongs to its owner; not relicensed under MIT. [Terms](https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf). | 2026-10-30 |
+| `typesafe` | TypeSafe | brand | <https://framerusercontent.com/images/kcuF2BEp5XaVfkmFB634IPRKQH0.png> | The apple-touch-icon that typesafe.ai's own home page declares, PNG embedded unchanged; sha256 40fe116f8438653bf6bad9b198f23371627f52b52b8654d6852e8345a014e585. TypeSafe publishes no brand or press page (typesafe.ai/brand, /press and /media-kit answer 404). Trademark belongs to TypeSafe AI, Inc.; not relicensed under MIT. [Terms](https://typesafe.ai/legal/terms): "Except as expressly authorized by TypeSafe, you may not use the Materials." Shown only on the TypeSafe (Jev) card, original colours, no endorsement claim. | 2026-11-01 |
 
-Text badges (no logo), each with the brand's own words:
+Text badges or kit glyphs (no logo), each with the reason:
 
 | Id | Brand | Badge | Why there is no logo | Retrieved |
 | --- | --- | --- | --- | --- |
 | `openai-compatible` | OpenAI-compatible server | API | A protocol, not a brand: any server that speaks the OpenAI API (vLLM, llama.cpp, LocalAI, a private gateway). No logo applies. | 2026-10-29 |
+| `systemone` | System One endpoint | kit `server` glyph | A protocol, not a brand: any host that serves the System One decision API (POST /v1/systemone), such as a kev.serve / lev serve process or another AbstractCore server. No logo applies, so the kit's neutral server glyph is shown (`glyph: "server"`). | 2026-11-01 |
 
 Adding a brand: add its id to `BRAND_CARD_IDS`, then either a `BRAND_ICONS` entry (the SVG's geometry and colours
 unchanged; editor metadata, titles and classes dropped; ids namespaced `af-brand-<id>-`) with its source, terms,

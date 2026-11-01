@@ -9,7 +9,8 @@
  *     comes from Simple Icons, a brand mark from the brand;
  *  3. every mark is self-contained: no script, no event handler, no style, no external reference
  *     (a reference may only point at its own `af-brand-<id>-` ids, and each is defined), no external image (Portkey embeds the official PNG);
- *  4. every fallback says why there is no logo, with a short readable badge;
+ *  4. every fallback says why there is no logo, with a short readable badge or a kit glyph (a
+ *     protocol, not a brand: System One gets the kit's `server` glyph);
  *  5. BrandMark and brandMarkHtml render the mark (svg) or the badge (text), with the brand's name;
  *  6. docs/icons.md lists every brand id with its source and licence.
  */
@@ -31,14 +32,20 @@ function check(name, cond, detail) {
   failures += 1;
   console.error(`  FAIL ${name}${detail !== undefined ? ` — ${detail}` : ""}`);
 }
-const { BRAND_ICONS, BRAND_FALLBACKS, BRAND_CARD_IDS, BrandMark, brandMarkHtml, brandIconSvg } = kit;
+const { BRAND_ICONS, BRAND_FALLBACKS, BRAND_CARD_IDS, BrandMark, brandMarkHtml, brandIconSvg, brandMarkInfo, ICON_NAMES } = kit;
 const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const ids = [...BRAND_CARD_IDS.engines, ...BRAND_CARD_IDS.providers, ...BRAND_CARD_IDS.models];
 
 check("the engines the console cards show", JSON.stringify([...BRAND_CARD_IDS.engines].sort()) === JSON.stringify(["huggingface", "llamacpp", "lmstudio", "mlx", "ollama", "vllm"]), BRAND_CARD_IDS.engines.join(","));
-for (const id of ["openai", "anthropic", "openrouter", "portkey", "ovh", "openai-compatible"]) check(`cloud card ${id} is a card id`, BRAND_CARD_IDS.providers.includes(id));
+for (const id of ["openai", "anthropic", "openrouter", "portkey", "typesafe", "systemone", "ovh", "openai-compatible"]) check(`cloud card ${id} is a card id`, BRAND_CARD_IDS.providers.includes(id));
 // Operator 2026-10-29: every brand without a mark says WHY in the brand's own words, with the URL.
-for (const id of ["anthropic", "portkey", "ovh"]) check(`${id}: official artwork replaces the badge`, own(BRAND_ICONS, id) && !own(BRAND_FALLBACKS, id));
+for (const id of ["anthropic", "portkey", "ovh", "typesafe"]) check(`${id}: official artwork replaces the badge`, own(BRAND_ICONS, id) && !own(BRAND_FALLBACKS, id));
+// Operator 2026-11-01 ("add the missing official brand icons"): TypeSafe's own icon from typesafe.ai
+// with its terms; System One is a protocol, so the kit's neutral server glyph, never initials.
+check("typesafe: TypeSafe's own site icon, with its terms", own(BRAND_ICONS, "typesafe") && BRAND_ICONS.typesafe.origin === "brand" && BRAND_ICONS.typesafe.terms === "https://typesafe.ai/legal/terms" && /NOT covered by this kit's MIT licence/.test(BRAND_ICONS.typesafe.licence) && !!BRAND_ICONS.typesafe.raster);
+check("systemone: the kit's server glyph through the fallback, with the reason", own(BRAND_FALLBACKS, "systemone") && BRAND_FALLBACKS.systemone.glyph === "server" && /protocol, not a brand/.test(BRAND_FALLBACKS.systemone.reason));
+// No provider card falls back to initials: every card id has artwork, a glyph or a documented badge.
+for (const id of BRAND_CARD_IDS.providers) check(`no initials for provider card ${id}`, brandMarkInfo(id).kind !== "unknown", brandMarkInfo(id).kind);
 check("openai: the official mark, outside the kit's MIT grant", own(BRAND_ICONS, "openai") && /NOT covered by this kit's MIT licence/.test(BRAND_ICONS.openai.licence));
 
 // 1.
@@ -89,7 +96,7 @@ for (const [id, m] of Object.entries(BRAND_ICONS)) {
 // 4.
 for (const [id, f] of Object.entries(BRAND_FALLBACKS)) {
   check(`4 ${id}: id matches its key`, f.id === id);
-  check(`4 ${id}: a short readable badge`, typeof f.text === "string" && /^[A-Za-z0-9]{2,3}$/.test(f.text), f.text);
+  check(`4 ${id}: a short readable badge or a kit glyph (one of them)`, f.glyph ? f.text === "" && ICON_NAMES.includes(f.glyph) : typeof f.text === "string" && /^[A-Za-z0-9]{2,3}$/.test(f.text), f.glyph || f.text);
   check(`4 ${id}: says why there is no logo`, typeof f.reason === "string" && f.reason.length >= 20, f.reason);
   check(`4 ${id}: retrieved date`, DATE.test(f.retrieved || ""));
   check(`4 ${id}: terms page when a brand has one`, f.terms === "" || URL_RE.test(f.terms), f.terms);
@@ -102,6 +109,9 @@ for (const id of ids) {
   if (own(BRAND_ICONS, id)) {
     check(`5 ${id}: BrandMark renders the svg`, /<svg viewBox="/.test(html) && html.includes(`data-brand="${id}"`) && !html.includes("af-brand-mark--text"), html.slice(0, 200));
     check(`5 ${id}: brandMarkHtml = the same mark`, str.includes(brandIconSvg(id)) && str.startsWith('<span class="af-brand-mark"'));
+  } else if (BRAND_FALLBACKS[id].glyph) {
+    check(`5 ${id}: the kit glyph (an svg, no text)`, html.includes("af-brand-mark--glyph") && /<svg[^>]*viewBox="0 0 16 16"/.test(html) && html.includes("<rect") && !html.includes("af-brand-mark--text"), html);
+    check(`5 ${id}: brandMarkHtml draws the same glyph`, str.includes("af-brand-mark--glyph") && /<svg[^>]*viewBox="0 0 16 16"/.test(str) && str.includes("<rect") && str.includes('stroke-width="1.4"') && !/className|strokeWidth/.test(str), str);
   } else {
     check(`5 ${id}: the text badge`, html.includes("af-brand-mark--text") && html.includes(`>${BRAND_FALLBACKS[id].text}<`) && !html.includes("<svg"), html);
     check(`5 ${id}: brandMarkHtml badge`, str.includes("af-brand-mark--text") && str.includes(`>${BRAND_FALLBACKS[id].text}<`));

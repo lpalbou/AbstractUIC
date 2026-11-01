@@ -278,6 +278,19 @@ self-contained script that defines `window.AfConsoleIslands` (`apiVersion` `"2"`
 `npm run build:islands -w @abstractframework/ui-kit`. It is not included in the npm tarball.
 Full reference: [Console islands](./console-islands.md).
 
+`CloudProviderCards` (islands `mountCloudProviderCards`) shows one card per cloud provider with
+its brand mark (`BrandMark`; a protocol such as System One gets the kit's `server` glyph), ONE
+status ("Not connected", or "Connected · key ab12cd34 · 48 models": a fingerprint, never the key)
+and ONE button, Connect or Edit. Both open an `AfModal` with the provider's fields (a Base URL
+where the endpoint is user-supplied: the OpenAI-compatible cards and `NATIVE_ENDPOINT_RULES`, e.g.
+System One with an optional key) and Test
+connection / Save / Cancel; Edit adds Disconnect. The client behind it,
+`cloudProvidersClient(request, base)`, checks a key before anything is stored (`checkKey`, or
+`checkConnection` for a stored key), creates new connections with `create_only`
+(`saveCheckedKey`), updates one in place (`updateConnection`, PUT, only what changed) and removes
+one (`removeConnection`, DELETE); a connection from AbstractCore's config is never updated or
+removed from here.
+
 `SpeculationSelect` consumes `execution.speculation` from the host capability payload. It
 offers inheritance (`undefined`), Off (`false`), and only advertised depths. Explicit depths
 serialize as `{mode: "native_mtp", num_draft_tokens: n, require_acceleration: true}`. It shows

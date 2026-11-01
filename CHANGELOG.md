@@ -9,6 +9,35 @@ ships.
 
 ## Unreleased
 
+- `@abstractframework/ui-kit` 0.9.12: simpler cloud provider cards. Each
+  card shows its brand mark, its name, ONE status ("Not connected", or a clear green "Connected ·
+  key ab12cd34 · 48 models" with a dot; the fingerprint, never the key) and ONE button: Connect
+  when nothing is stored, Edit when a connection exists. No field on the card any more: both
+  buttons open an `AfModal` ("Connect <provider>" / "Edit <provider>", a full-screen sheet below
+  768 px with 44 px targets) with the provider's fields (Name first on "Other OpenAI-compatible
+  endpoint", Base URL on the OpenAI-compatible cards, the API key masked and empty on Edit, where
+  the stored key stays unless replaced), Test connection, Save (never stores an untested key) and
+  Cancel; Edit adds Disconnect with a confirmation. Edit updates THAT connection in place
+  (`PUT config/provider-endpoint-profiles/{id}`) instead of adding one; Disconnect is
+  `DELETE config/provider-endpoint-profiles/{id}`; both existing gateway routes. New client
+  functions `checkConnection`, `updateConnection`, `removeConnection` and `cardEditTarget`;
+  `cardStatus` takes optional model counts (a card shows one only after its STORED key was
+  tested, or once a tested key is saved); `CloudRequest` methods add PUT and DELETE. The key field
+  is uncontrolled: the key is held in a ref, never in state or a DOM attribute, and cleared when
+  the modal closes. While a save or a disconnect is in flight the modal cannot be closed. New
+  "Other OpenAI-compatible endpoint" connections get `compat-<name>` ids (existing ids unchanged),
+  so a typed name never shadows a native provider id. Clearing the Name on Edit says "Name is
+  required.".
+  A native provider whose endpoint is user-supplied declares it in `NATIVE_ENDPOINT_RULES`
+  (System One: a required, editable Base URL, placeholder `http://127.0.0.1:8000`, and an
+  optional API key, as AbstractCore's registry says); its test and save carry that base URL through
+  the existing endpoint-profile routes. Cards carry `baseUrlField` ("none" | "preset" | "required"),
+  `baseUrlPlaceholder` and `apiKey` ("required" | "optional").
+  Brand marks: TypeSafe's own icon (from typesafe.ai, with its terms), and a kit glyph fallback
+  (`BrandFallback.glyph`) so the System One protocol shows the neutral `server` glyph instead of
+  initials. `check_brand_icons.mjs` and `check_cloud_providers.mjs` now fail for a provider card
+  without artwork and for a connected card without Edit; `check_cloud_providers_browser.mjs`
+  drives card → modal → test → save → edit → disconnect in Chrome against a stub gateway.
 - `@abstractframework/panel-chat` 0.7.0: the rounded multiline composer is the default
   `ChatComposer` and `WorkflowChat` composer on every surface (chat, docs assistant, assistant
   panel); `variant="legacy"` / `composerVariant="legacy"` restores the flat layout. The composer

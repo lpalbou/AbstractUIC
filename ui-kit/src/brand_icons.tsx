@@ -5,7 +5,9 @@
 // from, its licence or terms, and the date it was taken. The rules, in order:
 //   1. the brand's own official artwork to identify the product configured by the card;
 //   2. else the Simple Icons project's SVG (CC0 path data; trademarks stay with their owners);
-//   3. else a readable TEXT badge, with the reason (a brand that forbids use, or no logo exists).
+//   3. else a readable TEXT badge, or a neutral glyph from the kit's own icon set (`glyph`, e.g. the
+//      `server` glyph of a protocol that is not a brand), with the reason (a brand that forbids use,
+//      or no logo exists).
 // Marks are drawn in their OWN colours on a light tile (several brands forbid recolouring), never
 // recoloured to the theme. Geometry is the source file's, unchanged; only editor metadata, titles and
 // class-based styles were dropped (a class became its `fill`) and ids namespaced (`af-brand-<id>-…`).
@@ -17,6 +19,7 @@
 // covered by this kit's MIT licence (OpenAI's is used under OpenAI's own Marks usage terms).
 
 import React from "react";
+import { Icon, type IconName } from "./icon.js";
 
 export type BrandIcon = {
   id: string;
@@ -42,8 +45,10 @@ export type BrandIcon = {
 export type BrandFallback = {
   id: string;
   name: string;
-  /** The readable badge shown instead of a logo. */
+  /** The readable badge shown instead of a logo ("" when `glyph` is set). */
   text: string;
+  /** A neutral glyph from the kit's icon set instead of a text badge (a protocol, not a brand). */
+  glyph?: IconName;
   terms: string;
   /** Why there is no logo. */
   reason: string;
@@ -310,6 +315,22 @@ export const BRAND_ICONS: Readonly<Record<string, BrandIcon>> = {
     viewBox: "0 0 1024 730",
     body: "<path d=\"M795.893 0C915.776 0 1012.95 97.9963 1012.95 218.88C1012.95 339.764 915.776 437.76 795.893 437.76L1011.2 654.869C1038.55 682.447 1019.18 729.6 980.504 729.6H361.77C161.97 729.6 0 566.273 0 364.8C0 163.327 161.97 0 361.77 0L795.893 0ZM361.77 145.92C241.89 145.92 144.708 243.916 144.708 364.8C144.708 485.684 241.89 583.68 361.77 583.68C481.649 583.68 578.831 485.684 578.831 364.8C578.831 243.916 481.649 145.92 361.77 145.92Z\" fill=\"#03080A\"/>",
   },
+  typesafe: {
+    id: "typesafe",
+    name: "TypeSafe",
+    origin: "brand",
+    // The apple-touch-icon typesafe.ai's own home page declares (<link rel="apple-touch-icon">): the
+    // square TypeSafe mark, PNG embedded byte-for-byte. TypeSafe publishes no brand or press page
+    // (typesafe.ai/brand, /press and /media-kit answer 404 on 2026-11-01).
+    source: "https://framerusercontent.com/images/kcuF2BEp5XaVfkmFB634IPRKQH0.png",
+    terms: "https://typesafe.ai/legal/terms",
+    licence: "Official TypeSafe AI, Inc. website icon (the apple-touch-icon declared by https://typesafe.ai), embedded byte-for-byte; sha256 40fe116f8438653bf6bad9b198f23371627f52b52b8654d6852e8345a014e585. Trademark and artwork belong to TypeSafe AI, Inc.; NOT covered by this kit's MIT licence.",
+    restrictions: "Terms of Use (last updated Sep 19, 2026), section 4: \"All Materials included in the Site are the property of TypeSafe or its third-party licensors. Except as expressly authorized by TypeSafe, you may not use the Materials.\" No brand guidelines or logo licence published. Shown only on the TypeSafe (Jev) provider card that connects TypeSafe's own API, original colours and proportions, no redraw and no endorsement claim.",
+    retrieved: "2026-11-01",
+    raster: { mime: "image/png", width: 400, height: 400, sha256: "40fe116f8438653bf6bad9b198f23371627f52b52b8654d6852e8345a014e585" },
+    viewBox: "0 0 400 400",
+    body: "<image width=\"400\" height=\"400\" href=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAMAAAC3Ycb+AAAAElBMVEUXFxflUbpAIjfFSKGWO3t3MmNfAP0VAAAACXBIWXMAAAsTAAALEwEAmpwYAAAADnRFWHRTb2Z0d2FyZQBGaWdtYZ6xlmMAAAoySURBVHja7d3rltsoEIVRWqLe/5UnyerMjN1CoqCwOOir34m93NtHViEu6YuaqhJ/AkAoQAChAAGEAgQQChBAKEAoQAChAAGEAgQQChBAKEAoQAChAAGEAgQQChBAKEAoQAChAAGEAgQQChBAKEAoQAChAAGEAgQQChBAKEAoQAChngay2Q7IPJVTSlsGZJLat/Snth2QWeLxXRmQaeKxSkjUQSy9lQEyTTyWCElaKh4LhCStFQ/9kKTV4vEdkh2QWeLxHZIMyDTxkA5JEm8FlwtJWu9qpR2StGg8ZEOSlo2H6B1wWjcemm1iWjkeiiFJa93r6ockLR4PuZCk5eMhFpK0fjy07oDTE+Kh1CYqgOQthZRESARAgjhEQpIWbAWlQ5JW/zFXC0l6UDwkJm+lR8VDoE1M2ve6R9OANuk2MSnHY/s6nJdlyiFJuvH4/Uc9AqlrXAyQ4HhYoUfZfv9/3ZAk4XiUQSpJd0BC43EGUqeaAYmMxzmIaEiSYCtop+NcW6MtIK33uvtXLUjN62VA+uKRr0aCN98FEJC4eNSAXL4qIHHxqAK5ahMBiYtHJch5mwhI80BirnuauPkeAgPS2Qo2gZyEBJDOVrANpBwSQOLi4QIpuQMSFw8nyDE9IHHx8IJ87YB8dU+5Oh9sAuTGgURApmwFAZlppASQqeMByO0jJYDcOOXqCxCJVhCQyVpBQOaNByCTxaPAa4DcFI8Sb/E1AIkeKanlNUA+1grWvd7xKwESPVLiuPoZINPEoziTGpC74lGYSQ3IkHjk5lXpgIQOJLYszX0NCSB/3iFqILFp5fpLSACpAYn+MT95fUAqQGz8xg4GSDXI6Hi8vgsgVyD2qU3MDJAKkM/E43/vBcgpiH12jz8D5BTkk/H4+46AlEFy9GOUqvEAQAog0fGw9ssaIM5fD8dAWNOVDRAXiPMpowEyFMQ/TuwPCSD1IE2PUQyQQSCtj1GcIQGkEqTjKaNra3JAqkD65mPvBkgsSPducPUhAeQaJGLCaXVIALn8awZNOK0MCSAXIIHzsQ2QfpAcOWUoegISIN1bUuvtFasG4v1Cy+0VKwaSxyxKyYA0gbRd77VCogRik8xmBaRTxJTO3dH6DWm52NeP/hog/rss98XexA6nkutDfCHJcmcYC3bqtg+cz3V7SARBqkOSFQ/6VgSp+x43T3e8t03UBKloG7Lo8ayqIBch6ZwNfGNIZEFOX8V0zzAWBimGJGSy/F0hUQYpvFDAWpIb74C1QQ7+aJFHTGdA/DdHbxd7S0n7oG95kJeLffwJ7AZIxx1ROMcNIVkB5DskOY0pA6QlJK1rDGebKaQAsue2v/WPm6bDVbiTPXKXAAn5sf71PS8si55qXooGiHPNR6mnKK1TnykkKiCuNR+ln4HyxgHzhEQGpCsk+XI3oGlCIgTSHJK6/bLyHCFRAmkLSfWOcoHHmjwGpGGsyhx7LlZ4A/IG4rwD3ny7kl5fFAF5B3GFxNz79l6FBJCfINUh2Vp2tr4ICSAHIM2rB+s2MDsNCSCHIBUhOdx1o/KpoAHiBWlbalW9xV/ZG5ASyOnFvjBg7thz0QDxgpxc7HPAGVSFkAByAlIIyRZ0SpsB4gUZfI6hAQIIIIAAAggggAACCCCAAALI00EOR5AMkLtAzDv9BpCRICdPnUpz1AAZCGINc9QAGQZy+VD2MCSAjAJpnO0MyBiQyok9P5/MAjIExJpXjgMyACR3LIoFJBzEvVrNABkJkvtWjgMSC9K4mNMAGQOSu7dXACQQpGut83ebCEgciEVsMAZIFEjAVgC/QwJIEEjItla/QgJICMhWtSi85h8BEnPAfd1tVFuMABkAYh1tCiDhIFvXTgGARINY6znDgIwA+fHMwxsSQEJBct9h3IDEghQWa7pCAkgcSI7YXR+QKJDTzT/r74ABCQLJQcetARICYmFnGAESAFK5VbEB8hkQCz2xHpBOENdO3hmQ0SDOve4v20RAukAaNrq/aBMB6QFp2gj3PCSAdIC0bhWdARkD0rh59+nNFiA9l6ymzbuN35CBd1nuX/WrXgSQ3j7Ed9+70YcM79QdIcl06t1V83TJAkdOdkB6e+vakOTeQXxAIkOy9x9wB4hr1fM+Nh6AuL/fJ23iHnL+IyABWwNUP5mqaDEBiQnJHnWfBkhISCyskwEkICR7XBsDSMDNkkU2+oD0tok59rhzQPraxD36rHNAukISHI/CX/hE9DEgdSGJjkcpcOVnZA8C6TyMu2mGhLlHCJ4EEnBifUg8TkPyLJDevTVy6Hsd6j4NpGd7jS38jTIg7SFxToywxhd9IEhbSGzQWxggLSFxxmNrf+lngnhDYuFDZ8VXfyiI6w448F73+g0eC1LfJo6Nx3ub+FyQypAMj8dbm/hkkJqQ5A/E4yUkjwa5Xhi1f6jn/C8kDwc5D0n+4KjM35A8HeTke/3RePz7FQCk9NXO8XNbap62AOI/x7B9Elfj8D8gTpD6KRRtz8gAcYH4HsO3hAQQB4h7lkpDSACpB2lZsOAOCSC1IK2TuAyQISDt63l8XQsgVSB9cxwNkGCQ3vU8jpAAcg3Suc2cLySAXILELFioDQkgFyBx63kyIAEgket5qtpEQM5AIpe7VbaJgJyAhC9YqAgJIEWQ+PU8NSEBpACyx8ejKiSAHIPk8AUL5ysRATkFGRaP6zs3QA5ARsbjChuQHyA3xgOQAxAbGY9MH+IEiW4F3dkD5AXERl6txjQ2K4PcHo927CVBbo9H/sQfQAZk6AVllngIgdx6r/uxeMiAPCUeKiCPiYcIyI0jJR+6110NZGg8Pne1WgZknXgsAbI1v9c2XTwWAFEfKVkNZJF73VVAlouHOMh68ZAGWWAgcSmQJeOhC7LMSMkiIENbwe3WP4AiyEojJSuALDVSog+ydDwEQfIEJ8ACEvAX2yTiIQay4kjJI0F2mXioXbK2vNxIifqPuv+LLBUPxdteW2ukZIHG0PN1VovHhCCh3bRcPCYE8Z0Eqj9SMj9IWE9tclerWUFCQqIZj0lBmo75XiIe04JU7he+wEiJDEhHSATvdRVAmkOiHI+5QZpCoh2PyUEaxgWzYCuoBOL8wsvHY34QV5to8vFQAKluE+efcrUISGVITP9qJQPSeBiO0L2uGkjziVFq8dAB6T6a0FQ+pwxI1+mEKvGQAukIiQl9SCWQxpAIxUMNpCkkWesTioG4Q6IVD0EQ58LpLPfx9EAcbaJcPDRBqtvErPjZJEGqQmKSn0wU5DokilcraZCLkJjqx9IFObsDlo2HNkixTTTlzyQNchgS5XjIgxyExMQ/kDrIW0jE47ECyMtYStb/NAuA/BsS/XgsAvLdJuYlPsoaIL/axG2ND7IKyDoFCCAUIIBQgABCAQIIBQggFCAUIIBQgABCAQIIBQggFCAUIIBQgABCAQIIBQggFCAUIIBQgABCAQIIBQggFCAUIIBQgABCAQIIBQggFCAUIIBQ1fUPHtAcqiLRulkAAAAASUVORK5CYII=\"/>",
+  },
 };
 
 export const BRAND_FALLBACKS: Readonly<Record<string, BrandFallback>> = {
@@ -321,18 +342,28 @@ export const BRAND_FALLBACKS: Readonly<Record<string, BrandFallback>> = {
     reason: "A protocol, not a brand: any server that speaks the OpenAI API (vLLM, llama.cpp, LocalAI, a private gateway). No logo applies.",
     retrieved: "2026-10-29",
   },
+  systemone: {
+    id: "systemone",
+    name: "System One endpoint",
+    text: "",
+    glyph: "server",
+    terms: "",
+    reason: "A protocol, not a brand: any host that serves the System One decision API (POST /v1/systemone), such as a kev.serve / lev serve process or another AbstractCore server. No logo applies, so the kit's neutral server glyph is shown.",
+    retrieved: "2026-11-01",
+  },
 };
 
 /** The ids the provider cards name: the gateway's engine cards and AbstractCore's cloud providers. */
 export const BRAND_CARD_IDS = {
   engines: ["ollama", "lmstudio", "vllm", "huggingface", "mlx", "llamacpp"],
-  providers: ["openai", "anthropic", "openrouter", "portkey", "ovh", "openai-compatible"],
+  providers: ["openai", "anthropic", "openrouter", "portkey", "typesafe", "systemone", "ovh", "openai-compatible"],
   models: ["qwen", "deepseek", "google", "meta", "mistral", "microsoft", "nvidia"],
 } as const;
 
 export type BrandMarkInfo =
   | { kind: "icon"; icon: BrandIcon }
   | { kind: "text"; fallback: BrandFallback }
+  | { kind: "glyph"; fallback: BrandFallback & { glyph: IconName } }
   | { kind: "unknown"; text: string };
 
 const key = (id: string) => String(id || "").trim().toLowerCase();
@@ -341,12 +372,33 @@ const key = (id: string) => String(id || "").trim().toLowerCase();
 export function brandMarkInfo(id: string, name?: string): BrandMarkInfo {
   const k = key(id);
   if (Object.prototype.hasOwnProperty.call(BRAND_ICONS, k)) return { kind: "icon", icon: BRAND_ICONS[k] };
-  if (Object.prototype.hasOwnProperty.call(BRAND_FALLBACKS, k)) return { kind: "text", fallback: BRAND_FALLBACKS[k] };
+  if (Object.prototype.hasOwnProperty.call(BRAND_FALLBACKS, k)) {
+    const fallback = BRAND_FALLBACKS[k];
+    return fallback.glyph ? { kind: "glyph", fallback: fallback as BrandFallback & { glyph: IconName } } : { kind: "text", fallback };
+  }
   const label = String(name || id || "?").replace(/[^A-Za-z0-9]/g, "");
   return { kind: "unknown", text: (label.slice(0, 2) || "?").replace(/^./, (c) => c.toUpperCase()) };
 }
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);
+
+const ATTR: Readonly<Record<string, string>> = { className: "class", strokeWidth: "stroke-width", strokeLinecap: "stroke-linecap", strokeLinejoin: "stroke-linejoin", viewBox: "viewBox" };
+
+/** A kit glyph as HTML for string hosts: the Icon's own element tree (intrinsic svg elements only),
+ *  serialized, so brandMarkHtml and BrandMark draw the same paths. */
+function elementHtml(node: React.ReactNode): string {
+  if (node === null || node === undefined || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return escapeHtml(String(node));
+  if (Array.isArray(node)) return node.map(elementHtml).join("");
+  const el = node as React.ReactElement<Record<string, unknown>>;
+  const children = elementHtml(el.props.children as React.ReactNode);
+  if (typeof el.type !== "string") return children; // fragments
+  const attrs = Object.entries(el.props)
+    .filter(([n, v]) => n !== "children" && v !== undefined && v !== null && v !== false)
+    .map(([n, v]) => ` ${ATTR[n] || n.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${escapeHtml(String(v))}"`)
+    .join("");
+  return `<${el.type}${attrs}>${children}</${el.type}>`;
+}
 
 /** The SVG of a mark (inline, no external reference), or "" for an id without a logo. */
 export function brandIconSvg(id: string): string {
@@ -361,10 +413,11 @@ export function brandIconSvg(id: string): string {
  */
 export function brandMarkHtml(id: string, name?: string, size: "sm" | "md" = "md"): string {
   const info = brandMarkInfo(id, name);
-  const label = escapeHtml(String(name || (info.kind === "icon" ? info.icon.name : info.kind === "text" ? info.fallback.name : id) || id));
+  const label = escapeHtml(String(name || (info.kind === "icon" ? info.icon.name : info.kind !== "unknown" ? info.fallback.name : id) || id));
   const k = escapeHtml(key(id));
   const small = size === "sm" ? " af-brand-mark--sm" : "";
   if (info.kind === "icon") return `<span class="af-brand-mark${small}" data-brand="${k}" role="img" aria-label="${label}">${brandIconSvg(id)}</span>`;
+  if (info.kind === "glyph") return `<span class="af-brand-mark af-brand-mark--glyph${small}" data-brand="${k}" role="img" aria-label="${label}">${elementHtml(Icon({ name: info.fallback.glyph, size: 22 }))}</span>`;
   const text = escapeHtml(info.kind === "text" ? info.fallback.text : info.text);
   return `<span class="af-brand-mark af-brand-mark--text${small}" data-brand="${k}" role="img" aria-label="${label}">${text}</span>`;
 }
@@ -372,7 +425,14 @@ export function brandMarkHtml(id: string, name?: string, size: "sm" | "md" = "md
 export function BrandMark(props: { id: string; name?: string; className?: string; size?: "sm" | "md" }): React.ReactElement {
   const info = brandMarkInfo(props.id, props.name);
   const k = key(props.id);
-  const label = props.name || (info.kind === "icon" ? info.icon.name : info.kind === "text" ? info.fallback.name : props.id);
+  const label = props.name || (info.kind === "icon" ? info.icon.name : info.kind !== "unknown" ? info.fallback.name : props.id);
+  if (info.kind === "glyph") {
+    return (
+      <span className={`af-brand-mark af-brand-mark--glyph${props.size === "sm" ? " af-brand-mark--sm" : ""}${props.className ? ` ${props.className}` : ""}`} data-brand={k} role="img" aria-label={label}>
+        <Icon name={info.fallback.glyph} size={22} />
+      </span>
+    );
+  }
   if (info.kind === "icon") {
     return (
       <span className={`af-brand-mark${props.size === "sm" ? " af-brand-mark--sm" : ""}${props.className ? ` ${props.className}` : ""}`} data-brand={k} role="img" aria-label={label}
