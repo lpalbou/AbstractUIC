@@ -114,6 +114,8 @@ export type WorkflowChatProps = {
   header?: React.ReactNode;
   footer?: React.ReactNode;
   composerExtras?: React.ReactNode;
+  /** Optional compact rounded multiline presentation of the existing composer. */
+  composerVariant?: "default" | "compact";
   /** Optional host-owned attachment picker/action. */
   onAttach?: () => void | Promise<unknown>;
   /**
@@ -791,6 +793,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
       ) : null}
       <div className="pc-workflow-chat__composer">
         <ChatComposer
+          variant={props.composerVariant}
           value={props.draft}
           onChange={(draft) => { if (props.avatarConversation) props.avatarConversation.onInterruptSpeech?.(); props.onDraftChange(draft); }}
           onSubmit={() => void submit()}

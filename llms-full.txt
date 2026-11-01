@@ -19,6 +19,7 @@ Ecosystem context (external):
 
 Important integration notes:
 - Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
+- Chat input offers optional `ChatComposer.variant="compact"` / `WorkflowChat.composerVariant="compact"`: rounded multiline box, circular accessible Send, the same action/attachment slots and keyboard gates. Default layout is unchanged.
 - One shared component per user-facing job, composed on AbstractGateway's contracts (ADR 0001): use the job table in `docs/adoption-guide.md` before building anything app-local.
 - `@abstractframework/panel-chat` 0.6.6 needs `@abstractframework/ui-kit` `^0.9.8` (peer dependency); upgrade them together.
 - Metrics components poll their supplied endpoints. The connected Docs assistant reads Gateway voice defaults, and user actions use its injected authenticated transport for questions, history, attachments and manual speech.
@@ -118,6 +119,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [app-server/src/index.js](app-server/src/index.js): exports for `@abstractframework/app-server`
 - [app-server/src/index.d.ts](app-server/src/index.d.ts): TS types for the app-server exports
 - [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
+- [panel-chat/src/chat_composer.tsx](panel-chat/src/chat_composer.tsx): controlled multiline composer, default/compact presentation and IME-safe submission.
 - [panel-chat/src/chat_message_card.tsx](panel-chat/src/chat_message_card.tsx): `ChatMessage` / `ChatAttachment` / `ChatStat` contracts
 - [panel-chat/src/replay_view.ts](panel-chat/src/replay_view.ts): the replay view client (`applyDelta`, `ReplayViewFold`, `SseParser`, `createReplayViewTransport`)
 - [panel-chat/src/replay_view_projection.ts](panel-chat/src/replay_view_projection.ts): `projectReplayView` (view -> transcript, interaction, status)
@@ -5539,6 +5541,21 @@ export function ChatView() {
 }
 ```
 
+### Compact multiline composer
+
+Pass `variant="compact"` to `ChatComposer`, or `composerVariant="compact"` to
+`WorkflowChat`, for a rounded multiline box with a circular Send button. Omit the
+prop for the existing layout. Compact starts at two rows by default, honors an
+explicit `rows`, grows for several lines, then scrolls within a viewport cap.
+It also grows on browsers without native `field-sizing` support.
+
+The existing `actions`, `leading`, `overlay` and paste slots keep their behavior:
+attachment and voice actions stay available, with longer action groups wrapping
+inside the box. Send and busy labels remain the button's accessible name. Enter
+submits, Shift+Enter adds a line, and IME composition does not submit. Switching
+the variant preserves the controlled draft and the textarea node; the host still
+owns submission, attachments and failed-send recovery.
+
 ## Docs assistant
 
 `DocsAssistantDrawer` (0.4.0) is the ONE Docs assistant: the AbstractGateway console mounts it
@@ -5927,6 +5944,19 @@ Explicit host-authenticated `user_guidance` receipts preserve accepted human cor
 in public history. An accepted receipt does not mean the assistant adopted the correction. The
 component neither records audio nor starts TTS or a network request itself. Listening is
 labeled as unsubmitted input; permission decisions remain the existing explicit controls.
+
+A pending question or approval keeps its actual controls ahead of subtitles and history,
+with a smaller avatar while the request is open. Standalone `AvatarConversation` hosts
+should pass `interactionId` for that actual request, or `""` when it is absent or deferred.
+Omitting the prop retains the attention-based compatibility behavior. `WorkflowChat`
+forwards the current interaction identity. Only long tool details scroll inside the
+request; the decision buttons stay reachable.
+
+Optional browser checks are `scripts/check_avatar_requests_browser.mjs` for request
+visibility on desktop/phone and `scripts/check_compact_composer_browser.mjs` for input
+growth, keyboard gates, draft recovery and action slots. They accept an installed
+Playwright module through `PANEL_CHAT_PLAYWRIGHT_MODULE` and an optional browser through
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE`.
 
 `ChatMessage` carries a `replay_view_v1.messages[]` item (`projectReplayView` applies this
 mapping; a `final` that `repeats` an answer is shown once, the open question's own message is
@@ -16242,6 +16272,129 @@ export { useAvatarConversationPreferences, playConversationCue } from "./convers
 export { conversationReply } from "./conversation_model.js";
 export { conversationNarrationStep } from "./conversation_model.js";
 
+## panel-chat/src/chat_composer.tsx
+
+import React, { useCallback, useEffect, useRef } from "react";
+import { Icon } from "@abstractframework/ui-kit";
+
+export type ChatComposerProps = {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  /** Compact rounded multiline box; the existing layout is the default. */
+  variant?: "default" | "compact";
+  placeholder?: string;
+  /** Accessible name for the message field. Falls back to its placeholder. */
+  ariaLabel?: string;
+  disabled?: boolean;
+  busy?: boolean;
+  rows?: number;
+  autoFocus?: boolean;
+  className?: string;
+  textareaClassName?: string;
+  sendButtonClassName?: string;
+  sendLabel?: string;
+  busyLabel?: string;
+  actions?: React.ReactNode;
+  /** Rendered inside the composer box above the textarea (e.g. attachment chips). */
+  leading?: React.ReactNode;
+  /** Absolutely positioned layer over the composer box (e.g. a drop zone). */
+  overlay?: React.ReactNode;
+  onPaste?: React.ClipboardEventHandler<HTMLTextAreaElement>;
+};
+
+export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerProps>(function ChatComposer(
+  props: ChatComposerProps,
+  ref
+): React.ReactElement {
+  const compact = props.variant === "compact";
+  const rows = typeof props.rows === "number" && Number.isFinite(props.rows) ? Math.max(1, Math.trunc(props.rows)) : compact ? 2 : 3;
+  const disabled = Boolean(props.disabled);
+  const busy = Boolean(props.busy);
+  const can_submit = !disabled && !busy && Boolean(String(props.value || "").trim());
+  const sendLabel = busy ? props.busyLabel || "Thinking…" : props.sendLabel || "Send";
+  const textarea = useRef<HTMLTextAreaElement | null>(null);
+  const setTextarea = useCallback((element: HTMLTextAreaElement | null) => {
+    textarea.current = element;
+    if (typeof ref === "function") ref(element);
+    else if (ref) ref.current = element;
+  }, [ref]);
+
+  // Field sizing is native where available. Compact retains multiline growth
+  // on other engines, including after its containing pane is resized.
+  useEffect(() => {
+    const element = textarea.current;
+    if (!compact || !element || (typeof CSS !== "undefined" && CSS.supports?.("field-sizing", "content"))) return;
+    const resize = () => {
+      element.style.height = "0px";
+      const cap = parseFloat(getComputedStyle(element).maxHeight);
+      element.style.height = `${Math.min(element.scrollHeight, Number.isFinite(cap) ? cap : Infinity)}px`;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+    let width = element.clientWidth;
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
+      if (element.clientWidth !== width) { width = element.clientWidth; resize(); }
+    });
+    observer?.observe(element);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", resize); element.style.removeProperty("height"); };
+  }, [compact, props.value, rows]);
+
+  return (
+    <div className={["pc-composer", compact ? "pc-composer--compact" : "", props.className].filter(Boolean).join(" ")}>
+      {props.leading}
+      <textarea
+        ref={setTextarea}
+        className={["pc-composer__textarea", props.textareaClassName].filter(Boolean).join(" ")}
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+        rows={rows}
+        // The textarea auto-grows (CSS field-sizing) from `rows` lines up to a
+        // viewport-relative cap; the row count reaches the CSS as a variable.
+        style={{ ["--pc-composer-rows" as string]: String(rows) } as React.CSSProperties}
+        spellCheck={false}
+        autoCorrect="off"
+        autoCapitalize="off"
+        autoComplete="off"
+        placeholder={props.placeholder || ""}
+        aria-label={props.ariaLabel || props.placeholder || "Message"}
+        disabled={disabled}
+        autoFocus={Boolean(props.autoFocus)}
+        onPaste={props.onPaste}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" || e.shiftKey) return;
+          // Committing an IME composition with Enter must never send the
+          // message (CJK input); nativeEvent.isComposing covers the commit
+          // keystroke itself, keyCode 229 covers older engines.
+          if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+          e.preventDefault();
+          // Enter honors the same gate as the Send button — the busy/empty
+          // contract is the component's, not something every consumer must
+          // re-implement around a keyboard side door.
+          if (!can_submit) return;
+          props.onSubmit();
+        }}
+      />
+
+      <div className="pc-composer__row">
+        <div className="pc-composer__actions">{props.actions}</div>
+        <button
+          type="button"
+          className={[props.sendButtonClassName || "pc-btn", compact ? "pc-composer__send--compact" : ""].filter(Boolean).join(" ")}
+          aria-label={compact ? sendLabel : undefined}
+          title={compact ? sendLabel : undefined}
+          aria-busy={compact ? busy : undefined}
+          disabled={!can_submit}
+          onClick={() => props.onSubmit()}
+        >
+          {compact ? <Icon name={busy ? "loader" : "send"} size={17} /> : sendLabel}
+        </button>
+      </div>
+      {props.overlay}
+    </div>
+  );
+});
+
 ## panel-chat/src/chat_message_card.tsx
 
 import {MessageArtifactChip, type MessageArtifact} from "./message_artifacts.js";
@@ -25081,6 +25234,16 @@ Tool and workspace controls express choices within Gateway limits. They cannot
 grant a capability the Gateway forbids. Preserve blocked/error feedback and use
 `AfTooltip` for brief, useful information; avoid repeating a label as help.
 
+## Compact multiline chat input
+
+Use `ChatComposer` with `variant="compact"`, or `WorkflowChat` with
+`composerVariant="compact"`, for a rounded multiline composer. Omit the option
+for the existing layout. Compact defaults to two rows and grows to a bounded
+scrolling field; explicit `rows` remains the minimum. Keep host draft and submit
+callbacks unchanged. Attachments use `leading`; attachment, microphone and Stop
+controls keep their existing action slots and accessible labels. Do not replace
+them with a separate composer or hide actions to make a narrow pane fit.
+
 ## Procedural avatar presentation
 
 Use `ActivityAvatar` for any identifier from `await avatarDesigns()`. The 44-design
@@ -25121,6 +25284,11 @@ own transport and confirmation; reading must never resolve an approval or questi
 draft and interactions. Omit it for ordinary chat. Use `conversationSnapshot(snapshot)`
 for status, attention and replay guards; provide an owner-scoped `sessionKey`, actual
 avatar and existing voice callbacks. `AvatarConversation` also works standalone.
+Provide `interactionId` for a standalone view's actual pending request: the request
+controls take priority with a smaller avatar, ahead of captions and history. Use an
+empty string for no request or a deferred request; omitted `interactionId` keeps
+the attention-based compatibility behavior. `WorkflowChat` forwards its actual
+interaction identity automatically.
 Public history accepts validated public updates, user messages and typed answers/finals;
 never feed raw reasoning or private entity traces into a subtitle.
 

@@ -11,6 +11,7 @@ Ecosystem context (external):
 
 Important integration notes:
 - Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
+- Chat input offers optional `ChatComposer.variant="compact"` / `WorkflowChat.composerVariant="compact"`: rounded multiline box, circular accessible Send, the same action/attachment slots and keyboard gates. Default layout is unchanged.
 - One shared component per user-facing job, composed on AbstractGateway's contracts (ADR 0001): use the job table in `docs/adoption-guide.md` before building anything app-local.
 - `@abstractframework/panel-chat` 0.6.6 needs `@abstractframework/ui-kit` `^0.9.8` (peer dependency); upgrade them together.
 - Metrics components poll their supplied endpoints. The connected Docs assistant reads Gateway voice defaults, and user actions use its injected authenticated transport for questions, history, attachments and manual speech.
@@ -110,6 +111,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [app-server/src/index.js](app-server/src/index.js): exports for `@abstractframework/app-server`
 - [app-server/src/index.d.ts](app-server/src/index.d.ts): TS types for the app-server exports
 - [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
+- [panel-chat/src/chat_composer.tsx](panel-chat/src/chat_composer.tsx): controlled multiline composer, default/compact presentation and IME-safe submission.
 - [panel-chat/src/chat_message_card.tsx](panel-chat/src/chat_message_card.tsx): `ChatMessage` / `ChatAttachment` / `ChatStat` contracts
 - [panel-chat/src/replay_view.ts](panel-chat/src/replay_view.ts): the replay view client (`applyDelta`, `ReplayViewFold`, `SseParser`, `createReplayViewTransport`)
 - [panel-chat/src/replay_view_projection.ts](panel-chat/src/replay_view_projection.ts): `projectReplayView` (view -> transcript, interaction, status)

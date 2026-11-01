@@ -47,6 +47,16 @@ Tool and workspace controls express choices within Gateway limits. They cannot
 grant a capability the Gateway forbids. Preserve blocked/error feedback and use
 `AfTooltip` for brief, useful information; avoid repeating a label as help.
 
+## Compact multiline chat input
+
+Use `ChatComposer` with `variant="compact"`, or `WorkflowChat` with
+`composerVariant="compact"`, for a rounded multiline composer. Omit the option
+for the existing layout. Compact defaults to two rows and grows to a bounded
+scrolling field; explicit `rows` remains the minimum. Keep host draft and submit
+callbacks unchanged. Attachments use `leading`; attachment, microphone and Stop
+controls keep their existing action slots and accessible labels. Do not replace
+them with a separate composer or hide actions to make a narrow pane fit.
+
 ## Procedural avatar presentation
 
 Use `ActivityAvatar` for any identifier from `await avatarDesigns()`. The 44-design
@@ -87,6 +97,11 @@ own transport and confirmation; reading must never resolve an approval or questi
 draft and interactions. Omit it for ordinary chat. Use `conversationSnapshot(snapshot)`
 for status, attention and replay guards; provide an owner-scoped `sessionKey`, actual
 avatar and existing voice callbacks. `AvatarConversation` also works standalone.
+Provide `interactionId` for a standalone view's actual pending request: the request
+controls take priority with a smaller avatar, ahead of captions and history. Use an
+empty string for no request or a deferred request; omitted `interactionId` keeps
+the attention-based compatibility behavior. `WorkflowChat` forwards its actual
+interaction identity automatically.
 Public history accepts validated public updates, user messages and typed answers/finals;
 never feed raw reasoning or private entity traces into a subtitle.
 

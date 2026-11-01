@@ -86,6 +86,21 @@ export function ChatView() {
 }
 ```
 
+### Compact multiline composer
+
+Pass `variant="compact"` to `ChatComposer`, or `composerVariant="compact"` to
+`WorkflowChat`, for a rounded multiline box with a circular Send button. Omit the
+prop for the existing layout. Compact starts at two rows by default, honors an
+explicit `rows`, grows for several lines, then scrolls within a viewport cap.
+It also grows on browsers without native `field-sizing` support.
+
+The existing `actions`, `leading`, `overlay` and paste slots keep their behavior:
+attachment and voice actions stay available, with longer action groups wrapping
+inside the box. Send and busy labels remain the button's accessible name. Enter
+submits, Shift+Enter adds a line, and IME composition does not submit. Switching
+the variant preserves the controlled draft and the textarea node; the host still
+owns submission, attachments and failed-send recovery.
+
 ## Docs assistant
 
 `DocsAssistantDrawer` (0.4.0) is the ONE Docs assistant: the AbstractGateway console mounts it
@@ -474,6 +489,19 @@ Explicit host-authenticated `user_guidance` receipts preserve accepted human cor
 in public history. An accepted receipt does not mean the assistant adopted the correction. The
 component neither records audio nor starts TTS or a network request itself. Listening is
 labeled as unsubmitted input; permission decisions remain the existing explicit controls.
+
+A pending question or approval keeps its actual controls ahead of subtitles and history,
+with a smaller avatar while the request is open. Standalone `AvatarConversation` hosts
+should pass `interactionId` for that actual request, or `""` when it is absent or deferred.
+Omitting the prop retains the attention-based compatibility behavior. `WorkflowChat`
+forwards the current interaction identity. Only long tool details scroll inside the
+request; the decision buttons stay reachable.
+
+Optional browser checks are `scripts/check_avatar_requests_browser.mjs` for request
+visibility on desktop/phone and `scripts/check_compact_composer_browser.mjs` for input
+growth, keyboard gates, draft recovery and action slots. They accept an installed
+Playwright module through `PANEL_CHAT_PLAYWRIGHT_MODULE` and an optional browser through
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE`.
 
 `ChatMessage` carries a `replay_view_v1.messages[]` item (`projectReplayView` applies this
 mapping; a `final` that `repeats` an answer is shown once, the open question's own message is

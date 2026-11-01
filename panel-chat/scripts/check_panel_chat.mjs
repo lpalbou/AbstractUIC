@@ -273,3 +273,4 @@ if (failures > 0) {
   process.exit(1);
 }
 console.log("panel-chat rig: OK (markdown tables/lists/fences, JsonViewer collapseAfterDepth contract, message card guards)");
+await import("./check_compact_composer.mjs");

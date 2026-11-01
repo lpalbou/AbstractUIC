@@ -1,9 +1,12 @@
-import React from "react";
+import React, { useCallback, useEffect, useRef } from "react";
+import { Icon } from "@abstractframework/ui-kit";
 
 export type ChatComposerProps = {
   value: string;
   onChange: (value: string) => void;
   onSubmit: () => void;
+  /** Compact rounded multiline box; the existing layout is the default. */
+  variant?: "default" | "compact";
   placeholder?: string;
   /** Accessible name for the message field. Falls back to its placeholder. */
   ariaLabel?: string;
@@ -28,16 +31,44 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
   props: ChatComposerProps,
   ref
 ): React.ReactElement {
-  const rows = typeof props.rows === "number" && Number.isFinite(props.rows) ? Math.max(1, Math.trunc(props.rows)) : 3;
+  const compact = props.variant === "compact";
+  const rows = typeof props.rows === "number" && Number.isFinite(props.rows) ? Math.max(1, Math.trunc(props.rows)) : compact ? 2 : 3;
   const disabled = Boolean(props.disabled);
   const busy = Boolean(props.busy);
   const can_submit = !disabled && !busy && Boolean(String(props.value || "").trim());
+  const sendLabel = busy ? props.busyLabel || "Thinking…" : props.sendLabel || "Send";
+  const textarea = useRef<HTMLTextAreaElement | null>(null);
+  const setTextarea = useCallback((element: HTMLTextAreaElement | null) => {
+    textarea.current = element;
+    if (typeof ref === "function") ref(element);
+    else if (ref) ref.current = element;
+  }, [ref]);
+
+  // Field sizing is native where available. Compact retains multiline growth
+  // on other engines, including after its containing pane is resized.
+  useEffect(() => {
+    const element = textarea.current;
+    if (!compact || !element || (typeof CSS !== "undefined" && CSS.supports?.("field-sizing", "content"))) return;
+    const resize = () => {
+      element.style.height = "0px";
+      const cap = parseFloat(getComputedStyle(element).maxHeight);
+      element.style.height = `${Math.min(element.scrollHeight, Number.isFinite(cap) ? cap : Infinity)}px`;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+    let width = element.clientWidth;
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
+      if (element.clientWidth !== width) { width = element.clientWidth; resize(); }
+    });
+    observer?.observe(element);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", resize); element.style.removeProperty("height"); };
+  }, [compact, props.value, rows]);
 
   return (
-    <div className={["pc-composer", props.className].filter(Boolean).join(" ")}>
+    <div className={["pc-composer", compact ? "pc-composer--compact" : "", props.className].filter(Boolean).join(" ")}>
       {props.leading}
       <textarea
-        ref={ref}
+        ref={setTextarea}
         className={["pc-composer__textarea", props.textareaClassName].filter(Boolean).join(" ")}
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
@@ -73,11 +104,14 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
         <div className="pc-composer__actions">{props.actions}</div>
         <button
           type="button"
-          className={props.sendButtonClassName || "pc-btn"}
+          className={[props.sendButtonClassName || "pc-btn", compact ? "pc-composer__send--compact" : ""].filter(Boolean).join(" ")}
+          aria-label={compact ? sendLabel : undefined}
+          title={compact ? sendLabel : undefined}
+          aria-busy={compact ? busy : undefined}
           disabled={!can_submit}
           onClick={() => props.onSubmit()}
         >
-          {busy ? props.busyLabel || "Thinking…" : props.sendLabel || "Send"}
+          {compact ? <Icon name={busy ? "loader" : "send"} size={17} /> : sendLabel}
         </button>
       </div>
       {props.overlay}
