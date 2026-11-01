@@ -1,10 +1,15 @@
 /** Manual speech for the shared Docs assistant, using the answer's owning run. */
 import { useEffect, useRef, useState } from "react";
-import { gatewayApiPath, gatewayVoiceOptions, useGatewayVoice, voiceTtsRequest, type VoiceClientPreferences, type VoiceDefaults } from "@abstractframework/ui-kit";
+import { gatewayApiPath, gatewayVoiceOptions, sttRouteText, useGatewayVoice, voiceCaptureMode, voiceTtsRequest, type VoiceClientPreferences, type VoiceDefaults } from "@abstractframework/ui-kit";
 import { gatewayResponseError, type GatewayFetch } from "./workspace_browser.js";
 import type { ChatMessage, SpeakState } from "./chat_message_card.js";
 
 const EMPTY: VoiceClientPreferences = {};
+/** Why the browser withholds the microphone (plain http from another machine), or null. */
+export function microphoneUnavailableReason(): string | null {
+  if (typeof navigator === "undefined") return null;
+  return navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === "function" ? null : "The microphone needs a secure (https) page or this computer.";
+}
 export function docsVoiceAvailable(defaults: VoiceDefaults | null, preferences: VoiceClientPreferences = EMPTY): boolean {
   return Boolean(preferences.model || preferences.provider || defaults?.tts?.configured);
 }
@@ -56,5 +61,7 @@ export function useDocsVoice(props: {fetchGateway:GatewayFetch; connected:boolea
     void voice.toggle_tts(message.id || message.runId || "",message.content);
   } : undefined;
   const getSpeakState=(message:ChatMessage):SpeakState=>voice.tts_playback.key===(message.id || message.runId || "") ? voice.tts_playback.status : "idle";
-  return {onSpeakToggle,getSpeakState,stop:voice.stop_tts};
+  // Dictation: the same kit microphone as every chat composer, when the gateway transcribes.
+  const dictationAvailable=props.connected && defaults?.stt?.configured===true;
+  return {onSpeakToggle,getSpeakState,stop:voice.stop_tts,voice,dictationAvailable,captureMode:voiceCaptureMode(preferences.capture_mode),routeText:sttRouteText(preferences,defaults),microphoneReason:microphoneUnavailableReason()};
 }

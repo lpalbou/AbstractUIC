@@ -5572,7 +5572,7 @@ through the islands bundle (`mountDocsAssistant`) and every app mounts it in Rea
 top bar's `docs` slot (book icon). Pass `source: { app, name }` (`app` = `gateway` or the app id),
 the host's `fetchGateway(path, init)` (relative `api/gateway/...` paths with the host's
 credentials) and `connected`. It reads the app's llms.txt from `GET api/gateway/docs/corpus?app=<id>`,
-uploads attachments to the conversation's session, starts the gateway's shipped `docs-qa` workflow
+uploads attachments to the conversation's session, offers the kit dictation microphone beside Send when the gateway transcribes (the transcript lands in the draft), starts the gateway's shipped `docs-qa` workflow
 (`{prompt, docs, app}`, `use_session_history`, `context.attachments`), grows the reply from the run's
 `llm.delta` frames while polling the run, and shows the completed `output.response`. User messages
 sit on the right and answers on the left with Markdown, code, JSON, links and copy; the header
@@ -22781,10 +22781,15 @@ ships.
   rendered their own Attach button next to the composer should pass `onAttach` instead; voice
   controls belong in the trailing slot. The former `variant="default"` value is gone
   (`"compact"` remains an alias of the default); the docs assistant composer starts at two rows.
+- Avatar conversation: no cue settings inside the view; visual and audio cues are both on by
+  default for permission requests, questions and completion, and a host's settings decide any change.
 - Avatar conversation: while a question or approval is open, the avatar scene is small beside its
   status at every viewport height, so the request and its controls stay visible.
 - Docs assistant: the footer reads "Powered by <app>’s documentation."; its composer is the
-  shared rounded composer with the composer's own Attach button.
+  shared rounded composer with the composer's own Attach button and, when the gateway transcribes,
+  the kit dictation microphone beside Send (hold or tap to talk per the voice preferences; the
+  transcript lands in the draft). The drawer opens under the kit top bar by default (`topOffset`
+  defaults to "auto"), so every app keeps its top bar reachable.
 - `@abstractframework/ui-kit` 0.9.11: `mountChatComposer(el, props)` console island for
   plain-HTML chats; the Sandbox chat's dictation button sits beside Send.
 

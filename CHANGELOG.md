@@ -23,7 +23,10 @@ ships.
 - Avatar conversation: while a question or approval is open, the avatar scene is small beside its
   status at every viewport height, so the request and its controls stay visible.
 - Docs assistant: the footer reads "Powered by <app>’s documentation."; its composer is the
-  shared rounded composer with the composer's own Attach button.
+  shared rounded composer with the composer's own Attach button and, when the gateway transcribes,
+  the kit dictation microphone beside Send (hold or tap to talk per the voice preferences; the
+  transcript lands in the draft). The drawer opens under the kit top bar by default (`topOffset`
+  defaults to "auto"), so every app keeps its top bar reachable.
 - `@abstractframework/ui-kit` 0.9.11: `mountChatComposer(el, props)` console island for
   plain-HTML chats; the Sandbox chat's dictation button sits beside Send.
 

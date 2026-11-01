@@ -24,7 +24,7 @@
 // the component never builds credentials.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { AfDrawer, AfPanelHeaderActions, Icon, formatRelativeTime, gatewayApiPath, randomId, useAfTooltips, type AfDrawerPanel, type VoiceClientPreferences } from "@abstractframework/ui-kit";
+import { AfDrawer, AfPanelHeaderActions, AfVoiceMicButton, Icon, formatRelativeTime, gatewayApiPath, randomId, useAfTooltips, type AfDrawerPanel, type VoiceClientPreferences } from "@abstractframework/ui-kit";
 
 import { ChatComposer } from "./chat_composer.js";
 import { useDocsVoice } from "./docs_voice.js";
@@ -381,6 +381,8 @@ export type DocsAssistantPanelProps = {
   messages: ChatMessage[];
   draft: string;
   onDraftChange: (value: string) => void;
+  /** Controls beside Send (the dictation microphone); Stop joins them while answering. */
+  composerTrailingActions?: React.ReactNode;
   onSend: () => void;
   onStop?: () => void;
   busy?: boolean;
@@ -504,11 +506,16 @@ export function DocsAssistantPanel(props: DocsAssistantPanelProps): React.ReactE
               ) : null}
             </>
           }
-          trailingActions={busy && props.onStop ? (
+          trailingActions={props.composerTrailingActions || (busy && props.onStop) ? (
+            <>
+              {props.composerTrailingActions}
+              {busy && props.onStop ? (
                 <button type="button" className="pc-docs-assistant__icon-btn" aria-label="Stop" data-af-tip="Stop the answer" onClick={props.onStop}>
                   <Icon name="stop" size={14} />
                 </button>
               ) : null}
+            </>
+          ) : undefined}
         />
       </div>
       <div className="pc-docs-assistant__footer">
@@ -540,6 +547,7 @@ export type DocsAssistantDrawerProps = DocsAssistantChatProps & {
   open: boolean;
   onClose: () => void;
   width?: number;
+  /** Where the drawer starts. Default "auto": under the kit top bar (`--af-topbar-h`), so the bar stays reachable. */
   topOffset?: number | "auto";
   className?: string;
   /**
@@ -740,6 +748,16 @@ function useDocsAssistantChat(props: DocsAssistantChatProps, visible = props.vis
       <div hidden={historyOpen} style={{ display: historyOpen ? "none" : "contents" }}>
       <DocsAssistantPanel
         composerVariant={props.composerVariant}
+        composerTrailingActions={speech.dictationAvailable ? (
+          <AfVoiceMicButton
+            voice={speech.voice}
+            mode={speech.captureMode}
+            routeText={speech.routeText}
+            showStatus={false}
+            unavailableReason={speech.microphoneReason}
+            onTranscript={(text) => setDraft((current) => (current.trim() ? `${current.trim()} ${text.trim()}` : text.trim()))}
+          />
+        ) : undefined}
         source={source}
         messages={messages}
         onSpeakToggle={speech.onSpeakToggle}
@@ -789,7 +807,7 @@ export function DocsAssistantDrawer(props: DocsAssistantDrawerProps): React.Reac
         </span>
       }
       width={props.width || 420}
-      topOffset={props.topOffset}
+      topOffset={props.topOffset ?? "auto"}
       manageFocus={props.manageFocus === true}
       className={`pc-docs-assistant-drawer${props.className ? ` ${props.className}` : ""}`}
       headerActions={headerActions}

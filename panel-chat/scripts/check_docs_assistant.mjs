@@ -204,6 +204,14 @@ check("attachment chip on the question", panel.includes("shot.png") && panel.inc
 check("copy on every message", (panel.match(/aria-label="Copy message"/g) || []).length === 2);
 check("attach control + pending file chip", panel.includes('aria-label="Attach files"') && panel.includes("notes.txt") && panel.includes('aria-label="Remove notes.txt"'));
 check("one-line grounding footer", panel.includes("pc-docs-assistant__footer") && panel.includes("Powered by AbstractFlow’s documentation."));
+{
+  // The dictation microphone (a host-provided trailing control) sits beside Send; Stop joins it while answering.
+  const withMic = renderToStaticMarkup(React.createElement(DocsAssistantPanel, { source: { app: "flow", name: "AbstractFlow" }, messages: [], draft: "", onDraftChange() {}, onSend() {}, composerTrailingActions: React.createElement("button", { type: "button", "aria-label": "Hold to talk" }, "Mic") }));
+  check("dictation control in the trailing slot", /<div class="pc-composer__trailing"><button type="button" aria-label="Hold to talk">Mic<\/button><\/div>/.test(withMic));
+  const withMicBusy = renderToStaticMarkup(React.createElement(DocsAssistantPanel, { source: { app: "flow", name: "AbstractFlow" }, messages: [], draft: "", onDraftChange() {}, onSend() {}, busy: true, onStop() {}, composerTrailingActions: React.createElement("button", { type: "button", "aria-label": "Hold to talk" }, "Mic") }));
+  check("Stop joins the microphone while answering", /<div class="pc-composer__trailing"><button type="button" aria-label="Hold to talk">Mic<\/button><button type="button" class="pc-docs-assistant__icon-btn" aria-label="Stop"/.test(withMicBusy));
+  check("no empty trailing slot", !panel.includes("pc-composer__trailing"));
+}
 const blocked = renderToStaticMarkup(React.createElement(DocsAssistantPanel, { source, messages: [], draft: "", onDraftChange: noop, onSend: noop, blockedNotice: "Connect to the gateway to use the docs assistant.", suggestions: ["How do I run a flow?"] }));
 check("blocked: notice + disabled composer", blocked.includes("Connect to the gateway to use the docs assistant.") && /<textarea[^>]*disabled/.test(blocked));
 check("empty state names the app + suggestions", blocked.includes("Ask anything about AbstractFlow.") && blocked.includes("pc-docs-assistant__suggestion"));

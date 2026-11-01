@@ -116,7 +116,7 @@ through the islands bundle (`mountDocsAssistant`) and every app mounts it in Rea
 top bar's `docs` slot (book icon). Pass `source: { app, name }` (`app` = `gateway` or the app id),
 the host's `fetchGateway(path, init)` (relative `api/gateway/...` paths with the host's
 credentials) and `connected`. It reads the app's llms.txt from `GET api/gateway/docs/corpus?app=<id>`,
-uploads attachments to the conversation's session, starts the gateway's shipped `docs-qa` workflow
+uploads attachments to the conversation's session, offers the kit dictation microphone beside Send when the gateway transcribes (the transcript lands in the draft), starts the gateway's shipped `docs-qa` workflow
 (`{prompt, docs, app}`, `use_session_history`, `context.attachments`), grows the reply from the run's
 `llm.delta` frames while polling the run, and shows the completed `output.response`. User messages
 sit on the right and answers on the left with Markdown, code, JSON, links and copy; the header
