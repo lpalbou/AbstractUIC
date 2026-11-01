@@ -512,7 +512,7 @@ export function DocsAssistantPanel(props: DocsAssistantPanelProps): React.ReactE
         />
       </div>
       <div className="pc-docs-assistant__footer">
-        Based on {props.source.name} documentation.
+        Powered by {props.source.name}’s documentation.
       </div>
     </div>
   );

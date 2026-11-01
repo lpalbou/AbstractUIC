@@ -203,7 +203,7 @@ check("user image attachment rendered", panel.includes('src="blob:http://x/1"'))
 check("attachment chip on the question", panel.includes("shot.png") && panel.includes("pc-chat-attachment-chip"));
 check("copy on every message", (panel.match(/aria-label="Copy message"/g) || []).length === 2);
 check("attach control + pending file chip", panel.includes('aria-label="Attach files"') && panel.includes("notes.txt") && panel.includes('aria-label="Remove notes.txt"'));
-check("one-line grounding footer", panel.includes("pc-docs-assistant__footer") && panel.includes("Based on AbstractFlow documentation."));
+check("one-line grounding footer", panel.includes("pc-docs-assistant__footer") && panel.includes("Powered by AbstractFlow’s documentation."));
 const blocked = renderToStaticMarkup(React.createElement(DocsAssistantPanel, { source, messages: [], draft: "", onDraftChange: noop, onSend: noop, blockedNotice: "Connect to the gateway to use the docs assistant.", suggestions: ["How do I run a flow?"] }));
 check("blocked: notice + disabled composer", blocked.includes("Connect to the gateway to use the docs assistant.") && /<textarea[^>]*disabled/.test(blocked));
 check("empty state names the app + suggestions", blocked.includes("Ask anything about AbstractFlow.") && blocked.includes("pc-docs-assistant__suggestion"));
