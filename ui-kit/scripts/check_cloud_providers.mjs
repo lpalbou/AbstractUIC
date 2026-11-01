@@ -263,7 +263,6 @@ function drive(c) {
   const article = (id) => articles().find((a) => a.props["data-cloud-provider"] === id);
   const buttons = (id) => findAll(article(id), (n) => n.type === "button");
   const status = (id) => find(article(id), (n) => n.props && "data-cloud-status" in n.props).props.children;
-  const cardLine = (id) => find(article(id), (n) => n.props && "data-cloud-line" in n.props).props.children;
   const modal = () => find(tree(), (n) => n.type === AfModal);
   const body = (pred) => find(modal().props.children, pred);
   const bodyAll = (pred) => findAll(modal().props.children, pred);
@@ -273,7 +272,9 @@ function drive(c) {
   const type = (t, value) => { field(t).props.onChange({ target: { value } }); c.render(); };
   const click = async (action) => { foot(action).props.onClick(); await c.settle(); };
   const open = async (id) => { buttons(id)[0].props.onClick(); await c.settle(); };
-  return { tree, articles, article, buttons, status, cardLine, modal, body, bodyAll, foot, field, line, type, click, open };
+  // Every text a card renders outside its badge (the name and the button excepted).
+  const cardTexts = (id) => findAll(article(id), (n) => n.props && typeof n.props.children === "string" && n.type !== "h4" && n.type !== "button" && !("data-cloud-status" in n.props)).map((n) => n.props.children).filter((t) => t.trim());
+  return { tree, articles, article, buttons, status, cardTexts, modal, body, bodyAll, foot, field, line, type, click, open };
 }
 {
   const g = gw();
@@ -319,7 +320,8 @@ function drive(c) {
   const created = g.calls.filter((x) => x.method === "POST" && x.path.endsWith("/provider-endpoint-profiles")).pop();
   check("8 a new connection: fresh id, create_only", created.body.id === "anthropic-key" && created.body.create_only === true && created.body.api_key === KEY, created.body);
   check("8 the modal closes once saved and the key is forgotten", !d.modal());
-  check("8 the card now shows Connected with the models found, and Edit", d.status("anthropic") === "Connected · 48 models" && actionOf("anthropic") === "edit" && d.cardLine("anthropic") === "Connected · 48 models", [d.status("anthropic"), actionOf("anthropic"), d.cardLine("anthropic")]);
+  check("8 the card now shows Connected with the models found, and Edit", d.status("anthropic") === "Connected · 48 models" && actionOf("anthropic") === "edit", [d.status("anthropic"), actionOf("anthropic")]);
+  check("8 the badge is the card's ONLY status: no line repeats it (or anything else)", ids.every((id) => !d.cardTexts(id).length && !findAll(d.article(id), (n) => n.props && "data-cloud-line" in n.props).length), ids.map((id) => [id, d.cardTexts(id)]));
   check("8 onSaved tells the host", saves.length === 1 && saves[0].id === "anthropic-key");
   check("8 the key is nowhere in the rendered cards", !renderToStaticMarkup(React.createElement(React.Fragment, null, d.tree())).includes(KEY.slice(0, 12)));
 
@@ -360,7 +362,7 @@ function drive(c) {
   await d.click("disconnect-confirm");
   const del = g.calls.filter((x) => x.method === "DELETE");
   check("8 confirmed: ONE DELETE of that connection", del.length === 1 && del[0].path.endsWith("/provider-endpoint-profiles/openai-key"), del);
-  check("8 the card is back to Not connected / Connect, and says Disconnected.", !d.modal() && d.status("openai") === T.notConnected && actionOf("openai") === "connect" && d.cardLine("openai") === T.disconnected, [d.status("openai"), actionOf("openai")]);
+  check("8 the card is back to Not connected / Connect, with no other line", !d.modal() && d.status("openai") === T.notConnected && actionOf("openai") === "connect" && !d.cardTexts("openai").length, [d.status("openai"), actionOf("openai"), d.cardTexts("openai")]);
 
   // Cancel closes without a request.
   await d.open("portkey");

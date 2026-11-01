@@ -25,7 +25,6 @@ import {
   cardEditTarget,
   cardStatus,
   cloudProvidersClient,
-  connectedSentence,
   type CheckedKey,
   type CloudCard,
   type CloudConnection,
@@ -76,8 +75,6 @@ export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactE
   const [loadError, setLoadError] = useState("");
   // Models a test found this session, per connection id (the gateway lists no count for a saved one).
   const [counts, setCounts] = useState<Record<string, number>>({});
-  // The card's own one-line receipt after the modal closed ("Disconnected.").
-  const [notes, setNotes] = useState<Record<string, string>>({});
   const [draft, setDraft] = useState<Draft | null>(null);
   // Each open modal has a token: an answer that arrives after it closed (or another opened) is dropped.
   const token = useRef(0);
@@ -118,7 +115,6 @@ export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactE
 
   const open = (c: CloudCard) => {
     token.current += 1;
-    setNotes((all) => ({ ...all, [c.id]: "" }));
     keyRef.current = "";
     setDraft({ cardId: c.id, ...fieldsFor(c, cardEditTarget(c, connections)), keyRev: 0, busy: "", line: "", tone: "", tested: null, confirmRemove: false });
   };
@@ -181,7 +177,6 @@ export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactE
       if (t !== token.current) return void loadConnections();
       // Saved: the tested key IS now the stored key, so its count describes the card.
       if (checked) setCounts((all) => ({ ...all, [saved.id]: checked!.result.modelCount }));
-      setNotes((all) => ({ ...all, [card.id]: checked ? connectedSentence(checked.result.modelCount) : T.saved }));
       close();
       await loadConnections();
       onSaved?.(saved);
@@ -203,7 +198,6 @@ export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactE
       await client.current.removeConnection(conn);
       inflight.current = false;
       if (t !== token.current) return void loadConnections();
-      setNotes((all) => ({ ...all, [card.id]: T.disconnected }));
       close();
       await loadConnections();
       onSaved?.({ id: conn.id, provider: conn.family, name: conn.name, virtualProvider: `endpoint:${conn.id}` });
@@ -244,13 +238,13 @@ export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactE
                 <BrandMark id={c.id} name={c.name} />
                 <div className="af-cloud-card__titles">
                   <h4 className="af-cloud-card__name">{c.name}</h4>
-                  <span className={`af-cloud-card__badge${connected ? " is-on" : ""}`}>
+                  {/* The badge is the card's ONLY status (announced when it changes); results of Test/Save stay in the modal. */}
+                  <span className={`af-cloud-card__badge${connected ? " is-on" : ""}`} role="status" aria-live="polite">
                     {connected ? <span className="af-cloud-card__dot" aria-hidden="true" /> : null}
                     <span className="af-cloud-card__status" data-cloud-status>{status}</span>
                   </span>
                 </div>
               </div>
-              <p className="af-cloud-card__line" role="status" aria-live="polite" data-cloud-line>{notes[c.id] || ""}</p>
               <div className="af-cloud-card__actions">
                 <button type="button" className="af-setting-btn af-cloud-card__primary" data-action={connected ? "edit" : "connect"} disabled={disabled}
                   aria-label={`${connected ? T.edit : T.connect} ${c.name}`} onClick={() => open(c)}>

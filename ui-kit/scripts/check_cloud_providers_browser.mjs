@@ -142,6 +142,7 @@ try {
     await dialog.waitFor({ state: "detached" });
     await card("anthropic").locator("[data-cloud-status]").filter({ hasText: "Connected · 48 models" }).waitFor();
     ok((await card("anthropic").locator("button").textContent()) === "Edit", `${tag}: Anthropic now offers Edit`);
+    ok((await card("anthropic").innerText()).split("Connected · 48 models").length === 2, `${tag}: the card says its status once (badge only)`);
     const html = await page.content();
     ok(!html.includes(KEY) && !logs.some((l) => l.includes(KEY)), `${tag}: the key is nowhere in the page or the console`);
     ok(await page.evaluate(() => document.activeElement && document.activeElement.textContent) !== null, `${tag}: focus returned`);
