@@ -396,6 +396,7 @@ export type DocsAssistantPanelProps = {
   suggestions?: string[];
   onSuggestion?: (text: string) => void;
   placeholder?: string;
+  composerVariant?: import("./chat_composer.js").ChatComposerVariant;
   onSpeakToggle?: ChatMessageCardProps["onSpeakToggle"];
   getSpeakState?: ChatMessageCardProps["getSpeakState"];
 };
@@ -445,6 +446,7 @@ export function DocsAssistantPanel(props: DocsAssistantPanelProps): React.ReactE
       {props.notice ? <div className="pc-docs-assistant__notice" role="status">{props.notice}</div> : null}
       <div className="pc-docs-assistant__composer">
         <ChatComposer
+          variant={props.composerVariant}
           value={props.draft}
           onChange={props.onDraftChange}
           onSubmit={props.onSend}
@@ -452,7 +454,8 @@ export function DocsAssistantPanel(props: DocsAssistantPanelProps): React.ReactE
           ariaLabel={`Question about ${props.source.name}`}
           disabled={blocked}
           busy={busy}
-          rows={1}
+          onAttach={canAttach ? () => fileInput.current?.click() : undefined}
+          attachDisabled={busy}
           sendLabel="Send"
           busyLabel="Answering…"
           onPaste={(e) => {
@@ -484,9 +487,6 @@ export function DocsAssistantPanel(props: DocsAssistantPanelProps): React.ReactE
             <>
               {canAttach ? (
                 <>
-                  <button type="button" className="pc-docs-assistant__icon-btn" aria-label="Attach files" data-af-tip="Attach files to your question" disabled={busy} onClick={() => fileInput.current?.click()}>
-                    <Icon name="paperclip" size={16} />
-                  </button>
                   <input
                     ref={fileInput}
                     type="file"
@@ -502,13 +502,13 @@ export function DocsAssistantPanel(props: DocsAssistantPanelProps): React.ReactE
                   />
                 </>
               ) : null}
-              {busy && props.onStop ? (
+            </>
+          }
+          trailingActions={busy && props.onStop ? (
                 <button type="button" className="pc-docs-assistant__icon-btn" aria-label="Stop" data-af-tip="Stop the answer" onClick={props.onStop}>
                   <Icon name="stop" size={14} />
                 </button>
               ) : null}
-            </>
-          }
         />
       </div>
       <div className="pc-docs-assistant__footer">
@@ -527,6 +527,7 @@ export type DocsAssistantChatProps = {
   connected: boolean;
   suggestions?: string[];
   placeholder?: string;
+  composerVariant?: import("./chat_composer.js").ChatComposerVariant;
   /** App voice overrides and playback preferences; absent = Gateway defaults. */
   voicePreferences?: VoiceClientPreferences;
   /** A kept-alive rail host can stop playback when its panel is hidden. */
@@ -738,6 +739,7 @@ function useDocsAssistantChat(props: DocsAssistantChatProps, visible = props.vis
       ) : null}
       <div hidden={historyOpen} style={{ display: historyOpen ? "none" : "contents" }}>
       <DocsAssistantPanel
+        composerVariant={props.composerVariant}
         source={source}
         messages={messages}
         onSpeakToggle={speech.onSpeakToggle}

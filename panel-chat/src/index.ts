@@ -25,7 +25,7 @@ export {
   type DocsHistoryListProps,
 } from "./docs_assistant.js";
 export type { AssistantPanelProps, AssistantAsk, AssistantAskContext } from "./assistant_panel.js";
-export { ChatComposer } from "./chat_composer.js";
+export { ChatComposer, type ChatComposerProps, type ChatComposerVariant } from "./chat_composer.js";
 export { Markdown, sameOriginImage, type MarkdownImages, type MarkdownProps } from "./markdown.js";
 export { JsonViewer } from "./json_viewer.js";
 export { ChatMessageCard, speakButtonView } from "./chat_message_card.js";

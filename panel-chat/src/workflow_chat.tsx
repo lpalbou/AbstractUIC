@@ -114,8 +114,10 @@ export type WorkflowChatProps = {
   header?: React.ReactNode;
   footer?: React.ReactNode;
   composerExtras?: React.ReactNode;
-  /** Optional compact rounded multiline presentation of the existing composer. */
-  composerVariant?: "default" | "compact";
+  /** Host controls beside Send (e.g. voice); left-side controls stay in composerExtras. */
+  composerTrailingActions?: React.ReactNode;
+  /** Rounded multiline by default; `legacy` opts into the former layout. */
+  composerVariant?: import("./chat_composer.js").ChatComposerVariant;
   /** Optional host-owned attachment picker/action. */
   onAttach?: () => void | Promise<unknown>;
   /**
@@ -811,6 +813,9 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
               : props.busyLabel
           }
           rows={2}
+          onAttach={props.onAttach ? () => void attach() : undefined}
+          attachLabel="Attach file"
+          attachPending={attachPending}
           leading={
             props.attachments || attachmentItems.length ? (
               <div className="pc-workflow-chat__attachments">
@@ -830,19 +835,6 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
           onPaste={acceptsFiles ? onPaste : undefined}
           actions={
             <>
-              {props.onAttach ? (
-                <button
-                  type="button"
-                  className="pc-workflow-chat__icon-button"
-                  aria-label="Attach file"
-                  data-af-tip="Attach a file"
-                  disabled={disabled || attachPending}
-                  onClick={() => void attach()}
-                >
-                  <Icon name={props.composerVariant === "compact" ? "plus" : "paperclip"} size={16} />
-                  <span className={props.composerVariant === "compact" ? "pc-sr-only" : undefined}>{attachPending ? "Attaching…" : "Attach"}</span>
-                </button>
-              ) : null}
               {props.composerExtras}
               {steering && steerModes.length > 1 ? (
                 <span
@@ -865,6 +857,11 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
                   ))}
                 </span>
               ) : null}
+            </>
+          }
+          trailingActions={props.composerTrailingActions || (sending && props.onCancel) || stopState ? (
+            <>
+              {props.composerTrailingActions}
               {sending && props.onCancel ? (
                 <button
                   type="button"
@@ -887,7 +884,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
                 </span>
               ) : null}
             </>
-          }
+          ) : undefined}
         />
         {steer ? (
           <div

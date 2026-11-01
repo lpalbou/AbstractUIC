@@ -20,7 +20,8 @@ const result = await build({ absWorkingDir: root, bundle: true, write: false, fo
     <div id="workflow"><WorkflowChat messages={[]} draft={draft} onDraftChange={setDraft} composerVariant={variant} busy={busy}
       onSend={async(text)=>{window.calls.push(text);if(!window.succeed)throw Error('fixture rejected this send');setDraft('');}}
       onAttach={()=>window.events.push('attach')} attachments={<span>example.txt</span>}
-      composerExtras={<><button className="pc-workflow-chat__icon-button" onClick={()=>window.events.push('workspace')}>Workspace</button><span className="af-voice-mic"><button className="pc-workflow-chat__icon-button" aria-label="Microphone" onClick={()=>window.events.push('mic')}>Mic</button></span></>}
+      composerTrailingActions={<><button id="trail" className="pc-workflow-chat__icon-button" aria-label="Voice tools" onClick={()=>window.events.push('trail')}>Voice</button><span className="af-voice-mic"><button className="pc-workflow-chat__icon-button" aria-label="Microphone" onClick={()=>window.events.push('mic')}>Mic</button></span></>}
+      composerExtras={<><button className="pc-workflow-chat__icon-button" onClick={()=>window.events.push('workspace')}>Workspace</button></>}
       onCancel={async(signal)=>{window.events.push('stop:'+signal.aborted);setBusy(false);}}/>
     </div></>;
   }
@@ -44,9 +45,21 @@ try {
   await page.goto(origin);
   const scope = page.locator("#workflow"), field = scope.getByRole("textbox", { name: "Message", exact: true });
   await field.waitFor();
-  assert.equal(await page.locator("#default textarea").getAttribute("rows"), "3");
-  assert.equal(await page.locator("#default .pc-composer--compact").count(), 0);
+  assert.equal(await page.locator("#default textarea").getAttribute("rows"), "2");
+  assert.equal(await page.locator("#default .pc-composer--compact").count(), 1);
   assert.equal(await field.getAttribute("rows"), "2");
+  {
+    // Host trailing controls sit in the trailing slot, left of Send and vertically aligned with it.
+    assert.equal(await page.locator("#default .pc-composer__trailing").count(), 0, "no empty trailing slot");
+    const trail = await page.locator("#workflow .pc-composer__trailing #trail").boundingBox();
+    const send = await page.locator("#workflow .pc-composer__send--compact").boundingBox();
+    assert(trail && send && trail.x + trail.width <= send.x + 1 && Math.abs((trail.y + trail.height / 2) - (send.y + send.height / 2)) < 8, "trailing control beside Send");
+    await page.click("#workflow #trail"); assert(await page.evaluate(() => window.events.includes('trail')));
+    await page.setViewportSize({ width: 390, height: 844 });
+    const attach = await page.locator("#workflow .pc-composer__icon-action").boundingBox();
+    assert(attach && attach.width >= 36 && attach.height >= 36, "Attach keeps a usable target on a phone");
+    await page.setViewportSize({ width: 740, height: 800 });
+  }
   const initialHeight = await field.evaluate((node) => node.getBoundingClientRect().height);
   await field.fill("First line\nSecond line\nThird line\nFourth line\nFifth line\nSixth line");
   await page.waitForFunction((initial) => document.querySelector('#workflow textarea').getBoundingClientRect().height > initial + 30, initialHeight);
@@ -59,7 +72,7 @@ try {
   assert(circle.x - (micBox.x + micBox.width) < 24, "the known voice wrapper aligns beside Send");
   await attach.click(); await scope.getByRole("button", { name: "Microphone", exact: true }).click();
   await scope.getByRole("button", { name: "Workspace", exact: true }).click();
-  assert.deepEqual(await page.evaluate(() => window.events), ["attach", "mic", "workspace"]);
+  assert.deepEqual(await page.evaluate(() => window.events), ["trail", "attach", "mic", "workspace"]);
   await field.fill("Kept after failure"); await field.press("Shift+Enter");
   assert.equal(await field.inputValue(), "Kept after failure\n");
   await field.dispatchEvent("keydown", { key: "Enter", code: "Enter", keyCode: 229, isComposing: true, bubbles: true });
@@ -74,7 +87,7 @@ try {
   assert.equal(await page.evaluate(() => window.calls.length), 2);
   await field.press("Enter"); assert.equal(await page.evaluate(() => window.calls.length), 2);
   await field.fill("Preserved while switching");
-  await page.evaluate(() => { window.savedTextarea = document.querySelector('#workflow textarea'); window.setComposerVariant('default'); });
+  await page.evaluate(() => { window.savedTextarea = document.querySelector('#workflow textarea'); window.setComposerVariant('legacy'); });
   await scope.locator(".pc-composer--compact").waitFor({ state: "detached" });
   assert.equal(await field.inputValue(), "Preserved while switching");
   assert(await page.evaluate(() => window.savedTextarea === document.querySelector('#workflow textarea')));

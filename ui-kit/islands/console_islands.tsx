@@ -41,6 +41,7 @@ import { BRAND_CARD_IDS, brandMarkHtml, brandMarkInfo } from "../src/brand_icons
 // panel-chat's REAL chat (the one AbstractCode's workspace renders): ChatThread +
 // ChatComposer with the standard Attach control, drop zone and paste-to-attach.
 import { WorkflowChat } from "../../panel-chat/src/workflow_chat.js";
+import { ChatComposer, type ChatComposerProps } from "../../panel-chat/src/chat_composer.js";
 import type { ChatMessage } from "../../panel-chat/src/chat_message_card.js";
 // The shared docs assistant (round 8): the SAME drawer every app mounts.
 import { DocsAssistantDrawer, type DocsAssistantDrawerProps } from "../../panel-chat/src/docs_assistant.js";
@@ -187,6 +188,10 @@ export type SandboxChatIslandProps = {
 };
 
 export type IslandHandle<P> = { update: (props: P) => void; unmount: () => void };
+
+/** A controlled shared composer for a plain-HTML host. The host owns its draft and transport. */
+/** No attachment/paste/slot props: the plain-HTML console has nowhere to show chips yet. */
+export type ChatComposerIslandProps = Omit<ChatComposerProps, "actions" | "trailingActions" | "leading" | "overlay" | "onPaste" | "onAttach" | "attachLabel" | "attachDisabled" | "attachPending">;
 
 function extrasNode(extras: IslandExtraAction[] | undefined): React.ReactNode {
   const visible = (extras || []).filter((x) => x && !x.hidden);
@@ -401,7 +406,7 @@ export function SandboxChatIsland(props: SandboxChatIslandProps): React.ReactEle
   const mic = voice.voice_ptt_supported && !blocked ? (
     <button
       type="button"
-      className={`pc-workflow-chat__icon-button af-sandbox-chat__mic${voice.voice_ptt_recording ? " is-recording" : ""}`}
+      className={`pc-composer__icon-action af-sandbox-chat__mic${voice.voice_ptt_recording ? " is-recording" : ""}`}
       aria-label={voice.voice_ptt_recording ? "Recording — release to transcribe" : "Hold to dictate"}
       data-af-tip="Hold to dictate (Space or Enter on the keyboard)"
       aria-pressed={voice.voice_ptt_recording}
@@ -414,7 +419,7 @@ export function SandboxChatIsland(props: SandboxChatIslandProps): React.ReactEle
       onBlur={end}
     >
       <Icon name={voice.voice_ptt_busy ? "loader" : "mic"} size={16} />
-      <span>{voice.voice_ptt_recording ? "Listening…" : voice.voice_ptt_busy ? "Transcribing…" : "Dictate"}</span>
+      <span className="pc-sr-only">{voice.voice_ptt_recording ? "Listening…" : voice.voice_ptt_busy ? "Transcribing…" : "Dictate"}</span>
     </button>
   ) : null;
   const clear = props.onClear && messages.length ? (
@@ -439,7 +444,8 @@ export function SandboxChatIsland(props: SandboxChatIslandProps): React.ReactEle
       onAttach={props.onAttach}
       onFiles={props.onFiles}
       attachments={items.length ? <SandboxAttachmentChips items={items} onRemove={props.onRemoveAttachment} /> : null}
-      composerExtras={<>{mic}{clear}</>}
+      composerExtras={clear}
+      composerTrailingActions={mic}
       footer={voiceError ? <div className="pc-workflow-chat__error af-sandbox-chat__voice-error" role="alert">Voice: {voiceError}</div> : null}
       messageProps={{
         ...(voice.tts_supported ? { onSpeakToggle: (message: ChatMessage) => { void voice.toggle_tts(String(message.id || message.content), String(message.content || "")); } } : {}),
@@ -473,6 +479,11 @@ export function mountAbout(el: Element, props: AboutIslandProps): IslandHandle<A
  */
 export function mountSandboxChat(el: Element, props: SandboxChatIslandProps): IslandHandle<SandboxChatIslandProps> {
   return mount(el, (p) => <SandboxChatIsland {...p} />, props);
+}
+
+/** The same ChatComposer used by React chats, without a second keyboard or submit implementation. */
+export function mountChatComposer(el: Element, props: ChatComposerIslandProps): IslandHandle<ChatComposerIslandProps> {
+  return mount(el, (p) => <ChatComposer {...p} />, props);
 }
 
 /**
@@ -640,6 +651,7 @@ const api = {
   mountAppearance,
   mountAbout,
   mountSandboxChat,
+  mountChatComposer,
   mountProviderModelPicker,
   mountToolModeEditor,
   mountVoiceSettings,

@@ -9,6 +9,20 @@ ships.
 
 ## Unreleased
 
+- `@abstractframework/panel-chat` 0.7.0: the rounded multiline composer is the default
+  `ChatComposer` and `WorkflowChat` composer on every surface (chat, docs assistant, assistant
+  panel); `variant="legacy"` / `composerVariant="legacy"` restores the flat layout. The composer
+  renders its own Attach button (`onAttach`, `attachLabel`, `attachDisabled`, `attachPending`),
+  adds a `trailingActions` slot beside Send (`WorkflowChat composerTrailingActions`; Stop lives
+  there), `submitKey="mod-enter"`, `canSubmit`, `textareaId` and `ariaDescribedBy`. Hosts that
+  rendered their own Attach button next to the composer should pass `onAttach` instead; voice
+  controls belong in the trailing slot. The former `variant="default"` value is gone
+  (`"compact"` remains an alias of the default); the docs assistant composer starts at two rows.
+- Avatar conversation: while a question or approval is open, the avatar scene is small beside its
+  status at every viewport height, so the request and its controls stay visible.
+- `@abstractframework/ui-kit` 0.9.11: `mountChatComposer(el, props)` console island for
+  plain-HTML chats; the Sandbox chat's dictation button sits beside Send.
+
 - Progressive conversation restoration exposes history readiness separately from the current answer, so opening read receipts include the loaded earlier turns.
 
 

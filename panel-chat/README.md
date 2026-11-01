@@ -86,17 +86,25 @@ export function ChatView() {
 }
 ```
 
-### Compact multiline composer
+### The composer
 
-Pass `variant="compact"` to `ChatComposer`, or `composerVariant="compact"` to
-`WorkflowChat`, for a rounded multiline box with a circular Send button. Omit the
-prop for the existing layout. Compact starts at two rows by default, honors an
-explicit `rows`, grows for several lines, then scrolls within a viewport cap.
-It also grows on browsers without native `field-sizing` support.
+`ChatComposer` is a rounded multiline box with a circular Send button. It starts
+at two rows, honors an explicit `rows`, grows for several lines, then scrolls
+within a viewport cap; it also grows on browsers without native `field-sizing`
+support. Pass `variant="legacy"` to `ChatComposer`, or `composerVariant="legacy"`
+to `WorkflowChat`, for the flat three-row layout with a text Send button.
+`variant="compact"` is accepted as an alias of the default.
 
-The existing `actions`, `leading`, `overlay` and paste slots keep their behavior:
-attachment and voice actions stay available, with longer action groups wrapping
-inside the box. Send and busy labels remain the button's accessible name. Enter
+Slots: `leading` renders above the field (attachment chips), `actions` renders on
+the left of the action row, `trailingActions` renders on the right beside Send
+(voice controls, Stop), and `overlay` covers the box (a drop zone). Pass `onAttach`
+and the composer renders the Attach button itself (`attachLabel`, `attachDisabled`,
+`attachPending`); `WorkflowChat` wires its `onAttach` and `composerTrailingActions`
+the same way. `submitKey="mod-enter"` keeps chats that submit with Ctrl/Cmd+Enter;
+`canSubmit` lets a host enable Send for an attachment-only payload; `textareaId`
+and `ariaDescribedBy` connect a host label and help text to the field.
+
+Send and busy labels remain the button's accessible name. Enter
 submits, Shift+Enter adds a line, and IME composition does not submit. Switching
 the variant preserves the controlled draft and the textarea node; the host still
 owns submission, attachments and failed-send recovery.

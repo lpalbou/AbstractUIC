@@ -21,6 +21,8 @@ const api = sandbox.AfConsoleIslands;
 const fail = (msg) => { console.error(`check_islands: ${msg}`); process.exit(1); };
 if (!api) fail("bundle did not define AfConsoleIslands");
 for (const fn of ["mountTopBar", "mountAppearance", "mountAbout", "mountSandboxChat", "mountProviderModelPicker", "mountVoiceSettings", "mountVoiceSection", "mountDocsAssistant", "mountWorkspaceChooser", "bindModal", "bindMenu", "bindTooltips", "appIdentity", "applyAppearance"]) if (typeof api[fn] !== "function") fail(`missing ${fn}()`);
+// The Gateway console mounts its entity chat composer through this seam (api 2, kit 0.9.11+).
+if (typeof api.mountChatComposer !== "function") fail("missing mountChatComposer()");
 for (const fn of ["mountTopBar", "mountAppearance", "mountAbout", "mountSandboxChat", "mountProviderModelPicker", "mountToolModeEditor", "mountVoiceSettings", "mountDocsAssistant", "mountWorkspaceChooser", "bindModal", "bindMenu", "bindTooltips", "appIdentity", "applyAppearance"]) if (typeof api[fn] !== "function") fail(`missing ${fn}()`);
 for (const fn of ["mountTopBar", "mountAppearance", "mountAbout", "mountSandboxChat", "mountProviderModelPicker", "mountVoiceSettings", "mountDocsAssistant", "mountDrawerSystem", "mountWorkspaceChooser", "bindModal", "bindMenu", "bindTooltips", "appIdentity", "applyAppearance"]) if (typeof api[fn] !== "function") fail(`missing ${fn}()`);
 if (!api.workspaceChooserText || api.workspaceChooserText.postureAllowedOnly !== "Deny everything, allow listed workspaces" || api.workspaceChooserText.accessReadWrite !== "Read & write") fail("missing workspaceChooserText (the chooser wording table)");
