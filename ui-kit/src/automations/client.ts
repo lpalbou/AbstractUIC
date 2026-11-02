@@ -18,7 +18,7 @@ import type {
   AutomationCommandType,
   AutomationDetail,
   AutomationStatus,
-  AutomationSummary,
+  AutomationsPage,
   AttentionItem,
   CommandReceipt,
   CreateAutomationRequest,
@@ -98,7 +98,7 @@ export type ListAutomationsQuery = { status?: AutomationStatus; cursor?: string;
 export type PageQuery = { cursor?: string; limit?: number };
 
 export type AutomationsClient = {
-  listAutomations(query?: ListAutomationsQuery): Promise<Page<AutomationSummary>>;
+  listAutomations(query?: ListAutomationsQuery): Promise<AutomationsPage>;
   getAutomation(automationId: string): Promise<AutomationDetail>;
   createAutomation(body: CreateAutomationRequest): Promise<CreateAutomationResponse>;
   reviseAutomation(

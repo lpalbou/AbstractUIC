@@ -258,8 +258,27 @@ export type AutomationSummary = {
   legacy: boolean;
   revision: number | null;
   updated_at: Timestamp;
+  /**
+   * Where the list draws it (framework ADR 0048, AbstractGateway 0.20+): `active` (neither paused
+   * nor archived), `paused` (folded under "Paused · N") or `archived`. Absent from older gateways:
+   * draw the rows as served, with no Paused section.
+   */
+  section?: "active" | "paused" | "archived";
+  /** The instant the gateway orders the list by (the automation's last change; ADR 0048). */
+  last_activity_at?: Timestamp;
   capabilities: string[];
   session_kind: "automation";
+};
+
+/**
+ * `GET /automations`: one page in the gateway's order (ADR 0048: active first, then paused, each
+ * by `last_activity_at`) and the caller's counts, whatever the filter. The `_count` fields come from
+ * AbstractGateway 0.20+; `archived_automations` is the same archived count, from every version.
+ */
+export type AutomationsPage = Page<AutomationSummary> & {
+  paused_automations_count?: number;
+  archived_automations_count?: number;
+  archived_automations?: number;
 };
 
 export type OccurrenceArtifact = { artifact_id: string; name: string; mime_type: string; url: string };

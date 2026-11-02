@@ -191,6 +191,7 @@ export type {
   MyEmailStatus,
   NotifyChannel,
   AutomationSummary,
+  AutomationsPage,
   AutomationTarget,
   CommandReceipt,
   ContextMode,
