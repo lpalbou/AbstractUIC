@@ -337,9 +337,11 @@ export type ChatMessageCardProps = {
   /**
    * Per-message presentation. `"hint"` renders the message as one discreet
    * line (no avatar, header or copy): a system note such as "Rejoined the
-   * open visit". `undefined` keeps the full card.
+   * open visit". `"caption"` renders the message's content only (Markdown, media, files and
+   * attachments; no header, speaker, copy, reasoning, stats or footer) for subtitle-like
+   * surfaces such as the Avatar view's rolling captions. `undefined` keeps the full card.
    */
-  variant?: (message: ChatMessage) => "hint" | undefined;
+  variant?: (message: ChatMessage) => "hint" | "caption" | undefined;
   /** Host opener for `media` items of kind `"file"` (e.g. a side drawer).
    * Without it the file opens inline in the shared viewer. */
   onOpenMedia?: (item: ChatMedia) => void;
@@ -412,9 +414,11 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
   const has_text = Boolean(String(m.content || "").trim());
 
   if (m.toolActivity) return <ToolActivity tool={m.toolActivity} showCopy={props.showCopy} />;
-  const footer = props.renderFooter ? props.renderFooter(m) : null;
+  const variant = props.variant?.(m);
+  const caption = variant === "caption";
+  const footer = props.renderFooter && !caption ? props.renderFooter(m) : null;
   // A session-policy decision (contract §5) is an activity line, never a card.
-  if (props.variant?.(m) === "hint" || m.kind === "tool_policy_decision") {
+  if (variant === "hint" || m.kind === "tool_policy_decision") {
     const level = String(m.level || "").trim().toLowerCase();
     return (
       <div
@@ -430,10 +434,11 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
 
   return (
     <div
-      className={["pc-chat-item", `pc-chat-item--${role_ui.variant}`, live ? "pc-chat-item--live" : "", props.className].filter(Boolean).join(" ")}
+      className={["pc-chat-item", `pc-chat-item--${role_ui.variant}`, caption ? "pc-chat-item--caption" : "", live ? "pc-chat-item--live" : "", props.className].filter(Boolean).join(" ")}
       {...(live ? { "aria-busy": true } : {})}
+      {...(caption ? { "data-variant": "caption" } : {})}
     >
-      <div className="pc-chat-header">
+      {caption ? null : <div className="pc-chat-header">
         <div className="pc-chat-avatar" aria-hidden="true">
           <Icon name={role_ui.icon} size={14} />
         </div>
@@ -484,9 +489,9 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
             </button>
           ) : null}
         </div>
-      </div>
+      </div>}
 
-      {reasoning.trim() ? (
+      {reasoning.trim() && !caption ? (
         <details className="pc-chat-thinking">
           <summary>Thinking</summary>
           <div className="pc-chat-thinking-body">{reasoning}</div>
@@ -544,7 +549,7 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         </div>
       ) : null}
 
-      {stats.length ? (
+      {stats.length && !caption ? (
         <div className="pc-chat-stats" aria-label="Stats">
           {stats.slice(0, 12).map((s, idx) => {
             const label = String(s.label || "").trim();

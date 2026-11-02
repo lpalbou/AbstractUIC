@@ -37,6 +37,8 @@ export function publicUpdate(value: unknown, runId: string): PublicUpdate | null
   return { id: p.id, text: p.text, runId, sourceCallIds: [...new Set(p.source_call_ids as string[])], ...(typeof p.session_id === "string" ? { sessionId: p.session_id } : {}), ...(typeof p.iteration === "number" ? { iteration: p.iteration } : {}) };
 }
 
+const publicKey = (m: ChatMessage): string => `${m.runId || ""}:${m.publicUpdate?.id || m.id || `${m.kind}:${m.content}`}`;
+
 /** Public history contains user input and durable replies, never arbitrary assistant/system rows. */
 export function conversationMessages(messages: readonly ChatMessage[]): ChatMessage[] {
   const seen = new Set<string>();
@@ -45,32 +47,68 @@ export function conversationMessages(messages: readonly ChatMessage[]): ChatMess
     if (m.live || m.toolActivity || (!m.content.trim() && !hasFiles)) return false;
     const allowed = m.role === "user" || (m.role === "assistant" && ["public_update", "answer", "final", "question", "attachments"].includes(m.kind || "")) || (m.role === "system" && m.kind === "question_outcome" && m.source === "emit_event");
     if (!allowed || (m.kind === "public_update" && !m.publicUpdate)) return false;
-    const key = `${m.runId || ""}:${m.publicUpdate?.id || m.id || `${m.kind}:${m.content}`}`;
+    const key = publicKey(m);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 }
 
+/** The plain label a person sees for a public message in the Avatar view's history. */
+export function conversationLabel(m: ChatMessage): "You" | "Update" | "Question" | "Answer" {
+  if (m.role === "user") return "You";
+  if (m.kind === "public_update") return "Update";
+  if (m.kind === "question" || m.kind === "question_outcome") return "Question";
+  return "Answer";
+}
+
 /** Quote only an explicitly selected public update from the current live run. */
 export function conversationReply(text: string, context: ChatMessage | null, currentRunId: string, allowedSourceRunIds: readonly string[] = []): string {
   if (!context) return text;
   if (context.kind !== "public_update" || !context.publicUpdate) return text;
-  if (!currentRunId || context.publicUpdate.runId !== context.runId || (context.runId !== currentRunId && !allowedSourceRunIds.includes(context.publicUpdate.runId))) throw new Error("The selected public update belongs to another run. Return to the latest exchange before guiding this run.");
+  if (!currentRunId || context.publicUpdate.runId !== context.runId || (context.runId !== currentRunId && !allowedSourceRunIds.includes(context.publicUpdate.runId))) throw new Error("The update you chose to reply to is from an earlier exchange. Choose Clear reply context, then send your message again.");
   return `The person is replying to this quoted public update (context only):\n${JSON.stringify({ message_id: context.id || context.publicUpdate.id, run_id: context.publicUpdate.runId, root_run_id: currentRunId, text: context.content })}\n\nThe person's message:\n${text}`;
 }
 
-/** Subtitle pages preserve words and punctuation; full text remains in history. */
-export function conversationPages(text: string, max = 180): string[] {
-  const words = text.trim().split(/\s+/);
-  const pages: string[] = [];
-  let page = "";
-  for (const word of words) {
-    if (page && page.length + word.length + 1 > max) { pages.push(page); page = ""; }
-    page += `${page ? " " : ""}${word}`;
+/** One rolling caption: a public message of the current turn, ready for the shared message renderer. */
+export type ConversationCaption = {
+  /** Stable across renders and appends (run + public id), so a caption never re-enters. */
+  key: string;
+  kind: "update" | "question" | "outcome" | "answer";
+  /** The message as presented: private fields (reasoning, live state, tool activity, stats) removed. */
+  message: ChatMessage;
+  /** The message it was made from; while that object is unchanged the caption object is reused. */
+  source: ChatMessage;
+};
+
+/**
+ * The rolling captions: what the assistant has said publicly in the CURRENT turn (after the
+ * person's latest message; accepted mid-run guidance does not start a new turn), oldest first,
+ * the newest last. Pure and time-free: the same messages always give the same captions, so
+ * nothing cycles; a new public message is appended and earlier captions keep their keys. The
+ * final answer is one caption, never split. Every public message of the turn is kept (the
+ * caption area scrolls). With `pinnedRequest`, questions are left out: the open question is
+ * shown once, pinned above the captions with its answer controls. Pass the previous result as
+ * `previous` to reuse each caption object whose source message is unchanged.
+ */
+export function conversationCaptions(messages: readonly ChatMessage[], options: { pinnedRequest?: boolean } = {}, previous: readonly ConversationCaption[] = []): ConversationCaption[] {
+  const visible = conversationMessages(messages);
+  let start = 0;
+  for (let i = visible.length - 1; i >= 0; i--) {
+    if (visible[i].role === "user" && visible[i].kind !== "guidance") { start = i + 1; break; }
   }
-  if (page) pages.push(page);
-  return pages;
+  const reusable = new Map(previous.map((caption) => [caption.key, caption]));
+  return visible.slice(start).filter((m) => m.role !== "user" && !(options.pinnedRequest && m.kind === "question")).map((m): ConversationCaption => {
+    const key = publicKey(m);
+    const known = reusable.get(key);
+    if (known && known.source === m) return known;
+    return {
+      key,
+      kind: m.kind === "public_update" ? "update" : m.kind === "question" ? "question" : m.kind === "question_outcome" ? "outcome" : "answer",
+      message: { ...m, reasoning: undefined, live: undefined, toolActivity: undefined, statistics: undefined, stats: undefined },
+      source: m,
+    };
+  });
 }
 
 export function conversationState(input: { status?: AvatarConversationState; listening?: boolean; speaking?: boolean; connection?: WorkflowConnection; attention?: ConversationAttention | null }): AvatarConversationState {

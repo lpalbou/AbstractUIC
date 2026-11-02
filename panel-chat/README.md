@@ -239,7 +239,9 @@ const uploads = useAttachmentUploads({ upload: (file) => gateway.attachmentsUplo
   rows and live bubbles are left out).
 - **Per-message slots.** `messageProps.renderFooter(m)` renders under a card (e.g. a per-turn
   detail badge); `messageProps.variant(m)` returning `"hint"` renders the message as one discreet
-  line (system notes such as "Rejoined the open visit").
+  line (system notes such as "Rejoined the open visit"); returning `"caption"` renders only the
+  message's content (Markdown, media, files and attachments, without header, copy, speaker,
+  reasoning, stats or footer), as the Avatar view's captions do.
 - **Stop that aborts.** `onSend(draft, { signal })`: Stop aborts that signal and calls
   `onCancel(signal)` with it, so a request/response host stops its fetch (an aborted send is not
   reported as a failure). When no send is in flight (a ledger host), `onCancel` gets a signal
@@ -473,9 +475,33 @@ answer/final/question messages, explicit host question outcomes and user input e
 tool rows, reasoning, untyped assistant text or unvalidated live deltas. Both replay and
 ledger folding preserve public update identity, run, iteration and `sourceCallIds`.
 
-Subtitles show a three-line viewport with pages; hover, focus, draft editing, pause,
-history and reply selection freeze updates. History retains full text and source IDs.
-“Return to latest” resumes following. `onReplyContext` gives the selected public message;
+The view is one column that fits its container above the composer: the avatar takes the
+height that is left, then its status, any open question or approval, the captions, and the
+actions (**Conversation history**, the host's `voiceControl` and `playbackControl`; buttons
+are at least 44 px). Nothing in the view sits under the composer or auto-cycles.
+
+Captions are a realtime rolling list of what the assistant says publicly in the current
+turn (`conversationCaptions(messages)`: public updates, questions, question outcomes and
+the answer after the person's latest message, oldest first; every one is kept, the area
+scrolls). The newest caption enters at the bottom and older ones move up in a fixed-height
+area that always shows whole lines: 4 on desktop, 3 below 480 px and 2 while a request is
+open (CSS variable `--pc-avatar-caption-lines`). An edge fades whenever text continues past
+it: older captions above, the rest of a long answer below. While a question or approval is
+open it is shown once, pinned above the captions with its controls
+(`conversationCaptions(messages, { pinnedRequest: true })` leaves questions out). Pass the
+previous result as the third argument to reuse unchanged captions; each caption card
+re-renders only when its message changes. Each caption is rendered by `ChatMessageCard` with
+`variant: "caption"`, so Markdown, links, media and files display as in the conversation.
+The final answer is one caption, never split: when it is taller than the area it is shown
+from its first line and the area scrolls to read the rest; the full exchange stays in the
+host's conversation view. A visual completion cue marks the answer itself. Captions change
+only when messages change; reading, hovering or scrolling never pauses anything because
+nothing is scheduled.
+
+**Conversation history** shows the public history in place of the captions (with a smaller
+avatar) with full text under plain labels (`conversationLabel`: You, Update, Question,
+Answer); source IDs stay in the technical view. **Reply to this** selects a public update and
+returns to the captions. `onReplyContext` gives the selected public message;
 `conversationReply` quotes a selected public update and rejects cross-run guidance context.
 The host still submits replies through its normal execution path. For composed runs, pass
 only the current authoritative run tree as `conversationReply`’s optional fourth argument;
@@ -483,7 +509,8 @@ this permits replying to the actual actor child while refusing historical or unr
 
 `useAvatarConversationPreferences(ownerScope)` persists chat/avatar mode and independent
 visual/audio preferences for permissions, questions and completion; use an account-scoped
-key. Default mode is chat and audio is off. `onCue` receives fresh foreground attention
+key. Default mode is chat; visual and audio cues are both on (`DEFAULT_CONVERSATION_CUES`).
+Hosts expose these preferences in their own settings, never inside the Avatar view. `onCue` receives fresh foreground attention
 revisions only. Optional `playConversationCue` plays a local earcon and rejects unsupported
 or blocked playback. The host should report those errors. Optional `narrate`/`onNarrate`
 request speech for newly observed public updates through the host's voice stack. Initial
@@ -491,7 +518,8 @@ history, reconnects, reading, recording and session switches never replay queued
 `onInterruptSpeech` runs before reply/voice/history actions and session cleanup.
 Use `playbackControl` for pause/resume/silence actions, separately from `voiceControl`
 which interrupts old speech before capture. `onAttendedChange` lets hosts suppress their
-existing final-answer narration while the person reads or replies. Fresh question and
+existing final-answer narration while the person reads the history, selects a reply or
+writes a draft. Fresh question and
 approval cues remain eligible while reading; ordinary narration stays silent.
 Explicit host-authenticated `user_guidance` receipts preserve accepted human corrections
 in public history. An accepted receipt does not mean the assistant adopted the correction. The
@@ -516,8 +544,9 @@ Standalone hosts use `WorkflowInteractionPanel variant="conversation"` with
 `publicRequest`; `onReviewTechnical` opens their detailed view. The ordinary panel
 retains its full technical presentation and permission choices.
 
-Optional browser checks are `scripts/check_avatar_requests_browser.mjs` for request
-visibility on desktop/phone and `scripts/check_compact_composer_browser.mjs` for input
+Optional browser checks are `scripts/check_avatar_conversation_browser.mjs` for rolling
+captions, rendering and the view's geometry above the composer (1440 and 400 px, dark and
+light), `scripts/check_avatar_requests_browser.mjs` for request visibility on desktop/phone and `scripts/check_compact_composer_browser.mjs` for input
 growth, keyboard gates, draft recovery and action slots. They accept an installed
 Playwright module through `PANEL_CHAT_PLAYWRIGHT_MODULE` and an optional browser through
 `PLAYWRIGHT_CHROMIUM_EXECUTABLE`.
