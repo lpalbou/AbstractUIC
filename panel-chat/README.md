@@ -482,10 +482,15 @@ are at least 44 px). Nothing in the view sits under the composer or auto-cycles.
 
 Captions are a realtime rolling list of what the assistant says publicly in the current
 turn (`conversationCaptions(messages)`: public updates, questions, question outcomes and
-the answer after the person's latest message, oldest first). The newest caption enters at
-the bottom and older ones move up and fade at the top edge of a fixed-height area: 4 lines
-on desktop, 3 below 480 px and 2 while a request is open (CSS variable
-`--pc-avatar-caption-lines`). Each caption is rendered by `ChatMessageCard` with
+the answer after the person's latest message, oldest first; every one is kept, the area
+scrolls). The newest caption enters at the bottom and older ones move up in a fixed-height
+area that always shows whole lines: 4 on desktop, 3 below 480 px and 2 while a request is
+open (CSS variable `--pc-avatar-caption-lines`). An edge fades whenever text continues past
+it: older captions above, the rest of a long answer below. While a question or approval is
+open it is shown once, pinned above the captions with its controls
+(`conversationCaptions(messages, { pinnedRequest: true })` leaves questions out). Pass the
+previous result as the third argument to reuse unchanged captions; each caption card
+re-renders only when its message changes. Each caption is rendered by `ChatMessageCard` with
 `variant: "caption"`, so Markdown, links, media and files display as in the conversation.
 The final answer is one caption, never split: when it is taller than the area it is shown
 from its first line and the area scrolls to read the rest; the full exchange stays in the

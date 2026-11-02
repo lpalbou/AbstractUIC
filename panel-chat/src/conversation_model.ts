@@ -66,7 +66,7 @@ export function conversationLabel(m: ChatMessage): "You" | "Update" | "Question"
 export function conversationReply(text: string, context: ChatMessage | null, currentRunId: string, allowedSourceRunIds: readonly string[] = []): string {
   if (!context) return text;
   if (context.kind !== "public_update" || !context.publicUpdate) return text;
-  if (!currentRunId || context.publicUpdate.runId !== context.runId || (context.runId !== currentRunId && !allowedSourceRunIds.includes(context.publicUpdate.runId))) throw new Error("The selected public update belongs to another run. Return to the latest exchange before guiding this run.");
+  if (!currentRunId || context.publicUpdate.runId !== context.runId || (context.runId !== currentRunId && !allowedSourceRunIds.includes(context.publicUpdate.runId))) throw new Error("The update you chose to reply to is from an earlier exchange. Choose Clear reply context, then send your message again.");
   return `The person is replying to this quoted public update (context only):\n${JSON.stringify({ message_id: context.id || context.publicUpdate.id, run_id: context.publicUpdate.runId, root_run_id: currentRunId, text: context.content })}\n\nThe person's message:\n${text}`;
 }
 
@@ -75,7 +75,10 @@ export type ConversationCaption = {
   /** Stable across renders and appends (run + public id), so a caption never re-enters. */
   key: string;
   kind: "update" | "question" | "outcome" | "answer";
+  /** The message as presented: private fields (reasoning, live state, tool activity, stats) removed. */
   message: ChatMessage;
+  /** The message it was made from; while that object is unchanged the caption object is reused. */
+  source: ChatMessage;
 };
 
 /**
@@ -83,20 +86,29 @@ export type ConversationCaption = {
  * person's latest message; accepted mid-run guidance does not start a new turn), oldest first,
  * the newest last. Pure and time-free: the same messages always give the same captions, so
  * nothing cycles; a new public message is appended and earlier captions keep their keys. The
- * final answer is one caption, never split. At most `limit` captions (older ones have scrolled
- * out of the caption area; the full history stays in the conversation).
+ * final answer is one caption, never split. Every public message of the turn is kept (the
+ * caption area scrolls). With `pinnedRequest`, questions are left out: the open question is
+ * shown once, pinned above the captions with its answer controls. Pass the previous result as
+ * `previous` to reuse each caption object whose source message is unchanged.
  */
-export function conversationCaptions(messages: readonly ChatMessage[], limit = 12): ConversationCaption[] {
+export function conversationCaptions(messages: readonly ChatMessage[], options: { pinnedRequest?: boolean } = {}, previous: readonly ConversationCaption[] = []): ConversationCaption[] {
   const visible = conversationMessages(messages);
   let start = 0;
   for (let i = visible.length - 1; i >= 0; i--) {
     if (visible[i].role === "user" && visible[i].kind !== "guidance") { start = i + 1; break; }
   }
-  return visible.slice(start).filter((m) => m.role !== "user").slice(-Math.max(1, limit)).map((m) => ({
-    key: publicKey(m),
-    kind: m.kind === "public_update" ? "update" : m.kind === "question" ? "question" : m.kind === "question_outcome" ? "outcome" : "answer",
-    message: { ...m, reasoning: undefined, live: undefined, toolActivity: undefined, statistics: undefined, stats: undefined },
-  }));
+  const reusable = new Map(previous.map((caption) => [caption.key, caption]));
+  return visible.slice(start).filter((m) => m.role !== "user" && !(options.pinnedRequest && m.kind === "question")).map((m): ConversationCaption => {
+    const key = publicKey(m);
+    const known = reusable.get(key);
+    if (known && known.source === m) return known;
+    return {
+      key,
+      kind: m.kind === "public_update" ? "update" : m.kind === "question" ? "question" : m.kind === "question_outcome" ? "outcome" : "answer",
+      message: { ...m, reasoning: undefined, live: undefined, toolActivity: undefined, statistics: undefined, stats: undefined },
+      source: m,
+    };
+  });
 }
 
 export function conversationState(input: { status?: AvatarConversationState; listening?: boolean; speaking?: boolean; connection?: WorkflowConnection; attention?: ConversationAttention | null }): AvatarConversationState {

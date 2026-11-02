@@ -63,7 +63,20 @@ assert.deepEqual(live.map((c) => c.key), [captions[0].key, "run:next"], "realtim
 assert.deepEqual(conversationCaptions([...turn, { role: "user", content: "Another one" }]), [], "a new message from the person starts an empty turn");
 const long = "word ".repeat(600).trim();
 assert.deepEqual(conversationCaptions([{ role: "user", content: "Long" }, { id: "long", role: "assistant", kind: "final", content: long }]).map((c) => c.message.content), [long], "the final answer is one caption, never paginated");
-assert.deepEqual(conversationCaptions(Array.from({ length: 20 }, (_, i) => pub(`n${i}`, `Update ${i}`))).map((c) => c.message.content), Array.from({ length: 12 }, (_, i) => `Update ${i + 8}`), "bounded to the most recent captions");
+assert.deepEqual(conversationCaptions(Array.from({ length: 40 }, (_, i) => pub(`n${i}`, `Update ${i}`))).map((c) => c.message.content), Array.from({ length: 40 }, (_, i) => `Update ${i}`), "no silent bound: every public message of a long turn stays (the area scrolls)");
+// A pinned question or approval is shown once, above the captions with its controls.
+assert.deepEqual(conversationCaptions(turn, { pinnedRequest: true }).map((c) => c.kind), ["update", "update", "outcome", "answer"], "questions leave the captions while a request is pinned");
+const asking = [{ role: "user", content: "Lunch?" }, pub("p1", "Fixture is live."), { id: "q-open", role: "assistant", kind: "question", content: "Which restaurant should I keep?" }];
+const pinnedHtml = renderToStaticMarkup(React.createElement(AvatarConversation, { sessionKey: "pinned", avatar: "Avatar", messages: asking, interactionId: "ask:q-open", interaction: React.createElement("div", { className: "request" }, "Which restaurant should I keep?") }));
+assert.equal(pinnedHtml.split("Which restaurant should I keep?").length - 1, 1, "the open question is rendered once");
+assert(!pinnedHtml.includes('data-kind="question"') && pinnedHtml.includes("Fixture is live."), "captions keep the updates, not the pinned question");
+// Captions whose message is unchanged are reused (their card does not re-render on every live delta).
+const first = conversationCaptions(turn);
+const again = conversationCaptions([...turn], {}, first);
+assert(again.every((c, i) => c === first[i]), "unchanged messages reuse their caption objects");
+const edited = turn.map((t) => (t.id === "f1" ? { ...t, content: "A new ending." } : t));
+const afterEdit = conversationCaptions(edited, {}, first);
+assert(afterEdit.at(-1) !== first.at(-1) && afterEdit.at(-1).message.content === "A new ending." && afterEdit[0] === first[0], "a changed message gets a new caption; the others are kept");
 const captionHtml = renderToStaticMarkup(React.createElement(AvatarConversation, { sessionKey: "story", avatar: "Avatar", attention: { id: "done", kind: "completion" }, messages: [...turn.slice(3), { id: "f2", role: "assistant", kind: "final", content: "### Chapter one\n\nA [map](https://example.org/map) and **bold** words." }] }));
 assert(captionHtml.includes("<strong>bold</strong>") && captionHtml.includes("Chapter one") && !captionHtml.includes("**") && !captionHtml.includes("###"), "captions render through the shared Markdown renderer, never raw syntax");
 assert(captionHtml.includes('href="https://example.org/map"'), "links in captions are real links");
@@ -75,11 +88,11 @@ const avatarSource = readFileSync(new URL("../dist/avatar_conversation.js", impo
 assert(!/setTimeout|setInterval/.test(avatarSource), "the Avatar view schedules nothing: captions change only when messages change");
 assert.equal(conversationReply("My words", null, "run"), "My words");
 assert(conversationReply("My words", m, "run").endsWith("My words"));
-assert.throws(() => conversationReply("My words", m, "other"), /another run/);
+assert.throws(() => conversationReply("My words", m, "other"), /earlier exchange\. Choose Clear reply context/);
 const childBrief = { ...m, runId: "child", publicUpdate: { ...update, runId: "child" } };
-assert.throws(() => conversationReply("Keep it", childBrief, "run"), /another run/);
+assert.throws(() => conversationReply("Keep it", childBrief, "run"), /earlier exchange/);
 assert(conversationReply("Keep it", childBrief, "run", ["run", "child"]).includes('"run_id":"child"'), "A child in the authoritative current run tree remains a valid reply referent");
-assert.throws(() => conversationReply("Keep it", childBrief, "run", ["old-child"]), /another run/);
+assert.throws(() => conversationReply("Keep it", childBrief, "run", ["old-child"]), /earlier exchange/);
 
 const base = { sessionKey: "session", connected: true, attended: false, preferences: DEFAULT_CONVERSATION_CUES };
 const attention = { id: "wait1", kind: "approval" };

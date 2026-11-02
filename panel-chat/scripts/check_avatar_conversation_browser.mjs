@@ -75,7 +75,7 @@ try {
     const order = await captions.locator(":scope > li").allInnerTexts();
     assert.deepEqual(order.slice(-3), ["Writing the first scene.", "Adding a harbour.", "Almost done."], "newest caption last");
     assert(await captions.evaluate((el) => el.scrollTop > 0 && el.lastElementChild.getBoundingClientRect().bottom <= el.getBoundingClientRect().bottom + 1), "the newest caption is fully visible; older ones scrolled up");
-    await page.waitForFunction(() => document.querySelector(".pc-avatar-conversation__captions").hasAttribute("data-scrolled"), null, { timeout: 3000 }); // older captions fade at the top edge
+    await page.waitForFunction(() => document.querySelector(".pc-avatar-conversation__captions").hasAttribute("data-scrolled"), null, { timeout: 3000, polling: 100 }).catch(async (e) => { throw new Error("wait #1: " + JSON.stringify(await captions.evaluate((el) => ({ attrs: [...el.attributes].map((a) => a.name), top: el.scrollTop, h: el.clientHeight, sh: el.scrollHeight })))); }); // older captions fade at the top edge
     assert((await page.evaluate(() => window.events)).includes("narrate:public:u4"), "a fresh public update reaches the host's narration");
 
     // Nothing cycles: a minute later the captions are exactly where they were.
@@ -94,7 +94,13 @@ try {
     assert.equal(await final.count(), 1, "the answer is not paginated");
     assert(await final.evaluate((li) => { const box = li.parentElement.getBoundingClientRect(), top = li.getBoundingClientRect().top; return top >= box.top - 1 && top <= box.top + 24; }), "a long answer is shown from its first line");
     assert.equal(await final.getAttribute("data-attention"), "completion");
-    await page.waitForFunction(() => !document.querySelector(".pc-avatar-conversation__captions").hasAttribute("data-scrolled"), null, { timeout: 3000 }); // the answer's first line is not faded
+    await page.waitForFunction(() => document.querySelector(".pc-avatar-conversation__captions").hasAttribute("data-more"), null, { timeout: 3000, polling: 100 }).catch(async (e) => { throw new Error("wait #2: " + JSON.stringify(await captions.evaluate((el) => ({ attrs: [...el.attributes].map((a) => a.name), top: el.scrollTop, h: el.clientHeight, sh: el.scrollHeight })))); }); // more of the answer below: the bottom edge fades
+    assert(await captions.evaluate((el) => { const lh = parseFloat(getComputedStyle(el).lineHeight); const rows = el.clientHeight / lh; const tops = [...el.querySelectorAll(".pc-chat-content :is(p, li, h3)")].map((n) => (n.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop) / lh); return Math.abs(rows - Math.round(rows)) < 0.02 && tops.every((t) => Math.abs(t - Math.round(t)) < 0.05); }), "every caption line sits on the line grid, so no line is ever half shown");
+    await captions.evaluate((el) => { el.style.scrollBehavior = "auto"; el.scrollTop = el.scrollHeight; });
+    await page.waitForFunction(() => !document.querySelector(".pc-avatar-conversation__captions").hasAttribute("data-more"), null, { timeout: 3000, polling: 100 }).catch(async (e) => { throw new Error("wait #3: " + JSON.stringify(await captions.evaluate((el) => ({ attrs: [...el.attributes].map((a) => a.name), top: el.scrollTop, h: el.clientHeight, sh: el.scrollHeight })))); }); // at the end, no bottom fade
+    await captions.evaluate((el) => { el.scrollTop = el.querySelector('li[data-kind="answer"]').offsetTop; el.style.scrollBehavior = ""; });
+    await page.waitForFunction(() => document.querySelector(".pc-avatar-conversation__captions").hasAttribute("data-more"), null, { timeout: 3000, polling: 100 }).catch(async (e) => { throw new Error("wait #4: " + JSON.stringify(await captions.evaluate((el) => ({ attrs: [...el.attributes].map((a) => a.name), top: el.scrollTop, h: el.clientHeight, sh: el.scrollHeight })))); });
+    await page.waitForFunction(() => !document.querySelector(".pc-avatar-conversation__captions").hasAttribute("data-scrolled"), null, { timeout: 3000, polling: 100 }).catch(async (e) => { throw new Error("wait #5: " + JSON.stringify(await captions.evaluate((el) => ({ attrs: [...el.attributes].map((a) => a.name), top: el.scrollTop, h: el.clientHeight, sh: el.scrollHeight })))); }); // the answer's first line is not faded
     assert.equal(await page.getByText("The result is ready in conversation history.").count(), 0);
 
     // Layout: nothing of the avatar view sits under the composer; targets are at least 44 px.

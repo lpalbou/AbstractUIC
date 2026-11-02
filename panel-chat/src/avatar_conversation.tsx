@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChatMessageCard, type ChatMessage, type ChatMessageCardProps } from "./chat_message_card.js";
 import type { WorkflowConnection } from "./workflow_runtime.js";
-import { DEFAULT_CONVERSATION_CUES, conversationCaptions, conversationCueStep, conversationLabel, conversationNarrationStep, conversationMessages, conversationState, type AvatarConversationState, type ConversationAttention, type ConversationCue, type ConversationCueCursor, type ConversationCuePreferences } from "./conversation_model.js";
+import { DEFAULT_CONVERSATION_CUES, type ConversationCaption, conversationCaptions, conversationCueStep, conversationLabel, conversationNarrationStep, conversationMessages, conversationState, type AvatarConversationState, type ConversationAttention, type ConversationCue, type ConversationCueCursor, type ConversationCuePreferences } from "./conversation_model.js";
 
 export type AvatarConversationOptions = {
   /** Stable conversation identity, not the identity of each individual turn. */
@@ -61,14 +61,22 @@ export function AvatarConversation(props: AvatarConversationProps): React.ReactE
 }
 
 const captionVariant = () => "caption" as const;
+type CaptionCardProps = Pick<ChatMessageCardProps, "message" | "renderMarkdown" | "images" | "inlineImage" | "onOpenMedia" | "jsonCollapseAfterDepth">;
+/** Captions are content only (the shared renderer, caption variant), re-rendered only when their message or renderer changes. */
+const CaptionCard = React.memo(function CaptionCard(props: CaptionCardProps): React.ReactElement {
+  return <ChatMessageCard {...props} showCopy={false} variant={captionVariant} />;
+});
 
 function AvatarConversationSession(props: AvatarConversationProps): React.ReactElement {
   const [history, setHistory] = useState(false);
   const [selected, setSelected] = useState<ChatMessage | null>(null);
-  const [scrolled, setScrolled] = useState(false);
+  const [edges, setEdges] = useState({ top: false, bottom: false });
   const preferences = props.preferences || DEFAULT_CONVERSATION_CUES;
   const messages = useMemo(() => conversationMessages(props.messages), [props.messages]);
-  const captions = useMemo(() => conversationCaptions(props.messages), [props.messages]);
+  const hasRequest = Boolean(props.interaction) && (props.interactionId === undefined || Boolean(props.interactionId));
+  // Captions whose message did not change keep their object, so their card is not re-rendered.
+  const previousCaptions = useRef<ConversationCaption[]>([]);
+  const captions = useMemo(() => (previousCaptions.current = conversationCaptions(props.messages, { pinnedRequest: hasRequest }, previousCaptions.current)), [props.messages, hasRequest]);
   const attended = Boolean(props.attended || history || selected);
   useEffect(() => { props.onAttendedChange?.(attended); return () => props.onAttendedChange?.(false); }, [attended, props.onAttendedChange]);
   const state = conversationState(props);
@@ -87,18 +95,22 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
   // Realtime roll: each new caption enters at the bottom and pushes older ones up. A caption
   // taller than the area (a long final answer) is shown from its first line instead.
   const newest = captions.length ? captions[captions.length - 1].key : "";
+  // An edge fades while text continues past it: older captions above, more lines below (a long
+  // answer, or after scrolling back). A long newest caption shown from its first line keeps that
+  // line unfaded.
+  const measureEdges = (box: HTMLElement) => {
+    const last = box.lastElementChild as HTMLElement | null;
+    const top = box.scrollTop > 1 && !(last && Math.abs(last.offsetTop - box.scrollTop) <= 1);
+    const bottom = box.scrollTop + box.clientHeight < box.scrollHeight - 1;
+    setEdges((old) => (old.top === top && old.bottom === bottom ? old : { top, bottom }));
+  };
   useEffect(() => {
     const box = captionList.current;
-    const last = box?.lastElementChild as HTMLElement | null | undefined;
-    if (!box || !last) return;
-    box.scrollTop = last.offsetHeight > box.clientHeight ? last.offsetTop : box.scrollHeight;
-  }, [newest, history]);
-  // The top edge fades while text is cut there (older captions leaving), not when a caption starts exactly at it.
-  const onCaptionScroll = (event: React.UIEvent<HTMLOListElement>) => {
-    const box = event.currentTarget;
-    const starts = Array.from(box.children, (child) => (child as HTMLElement).offsetTop);
-    setScrolled(box.scrollTop > 1 && !starts.some((top) => Math.abs(top - box.scrollTop) <= 1));
-  };
+    if (!box) return;
+    const last = box.lastElementChild as HTMLElement | null;
+    if (last) box.scrollTop = last.offsetHeight > box.clientHeight ? last.offsetTop : box.scrollHeight;
+    measureEdges(box);
+  }, [newest, history, captions.length]);
   useEffect(() => {
     const connected = !props.replaying && (!props.connection || props.connection === "connected" || props.status === "completed" || props.status === "failed") && (typeof document === "undefined" || document.visibilityState !== "hidden");
     const next = conversationCueStep(cursor.current, { sessionKey: props.sessionKey, connected, attended, attention: props.attention, preferences });
@@ -115,9 +127,7 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
   const interrupt = () => props.onInterruptSpeech?.();
   const clearReply = () => { setSelected(null); props.onReplyContext?.(null); };
   const attention = props.attention && preferences[props.attention.kind].visual ? props.attention : null;
-  const hasRequest = Boolean(props.interaction) && (props.interactionId === undefined || Boolean(props.interactionId));
-  // Captions are content only: the shared renderer without header, copy, speaker, stats or footer.
-  const captionProps: Omit<ChatMessageCardProps, "message"> = { ...props.messageProps, renderFooter: undefined, onSpeakToggle: undefined, getSpeakState: undefined, showCopy: false, variant: captionVariant };
+  const shared = props.messageProps;
   return <section className="pc-avatar-conversation" aria-label="Avatar conversation" data-state={state} data-has-request={hasRequest || undefined} data-compact={hasRequest || history || undefined}>
     <div className="pc-avatar-conversation__presence">
       <div className="pc-avatar-conversation__scene">{props.avatar}</div>
@@ -135,10 +145,10 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
         {m.publicUpdate ? <button type="button" aria-pressed={selected === m} onClick={() => { interrupt(); setSelected(m); setHistory(false); props.onReplyContext?.(m); }}>Reply to this</button> : null}
       </li>)}
     </ol> : <ol ref={captionList} className="pc-avatar-conversation__captions" aria-label="Public subtitles" aria-live={attended ? "off" : "polite"} tabIndex={0}
-      data-scrolled={scrolled || undefined} onScroll={onCaptionScroll}>
+      data-scrolled={edges.top || undefined} data-more={edges.bottom || undefined} onScroll={(event) => measureEdges(event.currentTarget)}>
       {captions.map((caption, i) => <li key={caption.key} data-kind={caption.kind}
         data-attention={attention?.kind === "completion" && caption.kind === "answer" && i === captions.length - 1 ? "completion" : undefined}>
-        <ChatMessageCard {...captionProps} message={caption.message} />
+        <CaptionCard message={caption.message} renderMarkdown={shared?.renderMarkdown} images={shared?.images} inlineImage={shared?.inlineImage} onOpenMedia={shared?.onOpenMedia} jsonCollapseAfterDepth={shared?.jsonCollapseAfterDepth} />
       </li>)}
     </ol>}
     {selected ? <p className="pc-avatar-conversation__reply-context">Replying to the selected exchange. <button type="button" onClick={clearReply}>Clear reply context</button></p> : null}
