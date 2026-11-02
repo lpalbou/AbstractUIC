@@ -14,9 +14,9 @@ packaging). Full findings are distilled into the items below; each item
 carries its own code-reality citations.
 
 ## Counts
-- Planned: 17 (0001, 0003-0006, 0014, 0019, 0030-0036, 0039, 0040, 0066)
+- Planned: 18
 - Proposed: 37 (0009-0013, 0017-0018, 0020-0022, 0024-0028, 0037-0038, 0041-0053 kit gaps K1-K13 from the adoptions, 2026-10-28; 0055-0057 from the release-closing aesthetic pass; 0059 turns-only listing; 0061 Create a voice follows a served cloning capability; 0062 Devices page island (discussion, with gateway 0965); 0063 Docs assistant read-aloud)
-- Completed: 10 (0002, 0007, 0008, 0023, 0026-theme-adoption, 0029, 0054, 0058, 0060, 0064)
+- Completed: 22
 - Deprecated: 2 (0015, 0016 — superseded by 0033)
 - Recurrent: 1 (backlog hygiene)
 
@@ -169,3 +169,9 @@ merge, or missing test rigs) — see each item's checklist.
 - [completed/0002_light_theme_css_repair_phantom_tokens.md](completed/0002_light_theme_css_repair_phantom_tokens.md) — light-theme CSS repair (syntax token set, phantom tokens, sign-in card, toolbar class, error color; landed 07-13→07-16, tree-verified + moved 2026-07-17)
 - [completed/0023_gateway_console_theme_unification.md](completed/0023_gateway_console_theme_unification.md) — gateway console theme unification
 - [completed/0026_theme_system_universal_adoption.md](completed/0026_theme_system_universal_adoption.md) — theme system kit ownership + universal adoption (operator directive 2026-07-15; COMPLETE same-day — matrix FULL on every row)
+
+2026-10-30: [0075](completed/0075_tooltips_follow_active_theme_surface.md) delivered operator-requested theme-matching tooltips (`fe951fd`); locally deployed in Gateway `a352234b`, with light/dark browser evidence. Counts reconciled against lifecycle files (topic README indexes excluded); prior overview missed one planned and nine completed files.
+
+2026-10-30: [0076 model manufacturer marks](completed/0076_model_manufacturer_brand_marks.md) delivered in `4d0347e`, locally adopted by Gateway 0994; 492 brand checks and live browser evidence.
+
+2026-10-30: [0077 structured tooltips](completed/0077_structured_tooltip_content.md) delivered in `3833355`; safe shared title/fact/list rendering, 55 tooltip checks, locally adopted and live verified by Gateway 0995 (`15a26edc`). Evidence: `abstractgateway/design/model-tooltips-0995/REVIEW.md`.

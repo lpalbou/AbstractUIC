@@ -40,6 +40,7 @@ This package provides:
   with the Python helpers)
 - **Run and policy surfaces**: `PhaseCapabilityMatrix`, `CriticalActionDialog`, `SteerComposer`,
   `DisclosureList`, `AfChip`, `AfPhaseRadio`, cognition gauges
+- **Activity avatars**: `ActivityAvatar`, `AvatarRenderer`, `avatarDesigns` — six watch-inspired designs shared with AbstractTUI/native hosts, themed Canvas, reduced motion and optional Ready pointer tracking. See [Activity avatars](../docs/avatars.md).
 - **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk, live level, mute, hold or tap to
   talk), the standalone `AfVoiceOutput` / `AfVoiceInput` and `AfVoiceMicButton`,
   `AfVoiceLevelMeter`, `useVoicePreferences()`, `useVoiceDefaults()`, the voice library
@@ -517,3 +518,18 @@ app. `scripts/check_responsive.mjs` and `scripts/check_viewport_vars.mjs` pin it
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)
 - Troubleshooting: [`docs/troubleshooting.md`](../docs/troubleshooting.md)
 - Repo docs index: [`docs/README.md`](../docs/README.md)
+
+### Compact settings (0.9.12)
+
+The shared controls also support narrow settings panels:
+
+- `ProviderModelPicker` with `layout="compact"` and `optionsDisclosure` keeps provider/model selects visible and folds reasoning and MTP into **Reasoning & speed**.
+- `ToolModeEditor compact` starts categories folded, keeps category Off/Ask/Auto available, reveals individual controls on expansion, and opens matching groups while searching. Unavailable categories are behind **Unavailable tools**. Permission planning and bulk Auto limits remain unchanged.
+- `WorkspaceChooser compact` uses a flat folder list, folds blocked paths, and moves repeated policy explanations into a structured information tooltip. The Gateway still decides every permission and refusal.
+
+Information tooltips appear after 200ms of hover or keyboard focus, use the active theme, and dismiss with Escape. The standard layouts remain available when these options are omitted.
+
+`AfVoiceSection` accepts `compact` for a narrow settings drawer: route headers
+expand their editors, controls use the drawer width, and information buttons
+explain optional settings and browser limitations. Value, reset and change
+callbacks use the same preference contract as the standard layout.

@@ -8,6 +8,15 @@
 // override), "Change" reveals the editor in place, "Use gateway default"
 // appears only while an override is set.
 import React, { useId } from "react";
+import { AfTooltip } from "./af_tooltip.js";
+import { Icon } from "./icon.js";
+
+/** Internal presentation context: compact sections stack controls and disclose help. */
+export const AfCompactSettingsContext = React.createContext(false);
+function Help({label,children}:{label:string;children:React.ReactNode}) {
+  if (typeof children !== "string") return <span className="af-setting-row__help">{children}</span>;
+  return <AfTooltip content={children}><button type="button" className="af-settings-help" aria-label={label}><Icon name="info" size={16}/></button></AfTooltip>;
+}
 
 export type AfSettingsGroupProps = {
   title: string;
@@ -23,6 +32,7 @@ export type AfSettingsGroupProps = {
 };
 
 export function AfSettingsGroup(p: AfSettingsGroupProps): React.ReactElement {
+  const compact = React.useContext(AfCompactSettingsContext);
   const auto = useId();
   const titleId = `${p.id || auto}-title`;
   return (
@@ -31,9 +41,10 @@ export function AfSettingsGroup(p: AfSettingsGroupProps): React.ReactElement {
         <h3 className="af-settings-group__title" id={titleId}>
           {p.title}
         </h3>
+        {compact && p.help ? <Help label={`About ${p.title}`}>{p.help}</Help> : null}
         {p.aside ? <span className="af-settings-group__aside">{p.aside}</span> : null}
       </div>
-      {p.help ? <p className="af-settings-group__help">{p.help}</p> : null}
+      {!compact && p.help ? <p className="af-settings-group__help">{p.help}</p> : null}
       <div className="af-settings-group__rows">{p.children}</div>
     </section>
   );
@@ -57,14 +68,16 @@ export type AfSettingRowProps = {
 };
 
 export function AfSettingRow(p: AfSettingRowProps): React.ReactElement {
+  const compact = React.useContext(AfCompactSettingsContext);
   const Label = p.htmlFor ? "label" : "span";
   return (
-    <div className={`af-setting-row${p.stack ? " af-setting-row--stack" : ""}${p.className ? ` ${p.className}` : ""}`} data-setting={p.setting}>
+    <div className={`af-setting-row${p.stack || compact ? " af-setting-row--stack" : ""}${p.className ? ` ${p.className}` : ""}`} data-setting={p.setting}>
       <div className="af-setting-row__label">
         <Label className="af-setting-row__name" {...(p.htmlFor ? { htmlFor: p.htmlFor } : {})}>
           {p.label}
         </Label>
-        {p.help ? <span className="af-setting-row__help">{p.help}</span> : null}
+        {compact && p.help ? <Help label={typeof p.label === "string" ? `About ${p.label}` : "More information"}>{p.help}</Help> : null}
+        {!compact && p.help ? <span className="af-setting-row__help">{p.help}</span> : null}
       </div>
       {p.children !== undefined || p.trailing ? (
         <div className="af-setting-row__control">
@@ -97,11 +110,20 @@ export type AfOverrideRowProps = {
 
 /** "Gateway default" summary + Change + (while overridden) Use gateway default. */
 export function AfOverrideRow(p: AfOverrideRowProps): React.ReactElement {
+  const compact = React.useContext(AfCompactSettingsContext);
   const overridden = Boolean(p.overrideSummary);
   const editorId = useId();
   const summary = overridden
-    ? `${p.overrideSummary}${p.overrideOwner ? ` — ${p.overrideOwner}` : ""}`
+    ? `${p.overrideSummary}${!compact && p.overrideOwner ? ` — ${p.overrideOwner}` : ""}`
     : `Gateway default${p.defaultSummary ? ` · ${p.defaultSummary}` : ""}`;
+  if (compact) return <div className="af-override af-override--compact" data-setting={p.setting} data-overridden={overridden ? "true" : "false"}>
+    <button type="button" className="af-override__toggle" aria-label={`Change ${p.label}`} aria-expanded={p.open} aria-controls={editorId} disabled={p.disabled} onClick={p.onToggle}>
+      <span className="af-setting-row__name">{p.label}</span><Icon name={p.open ? "chevronDown" : "chevronRight"} size={16}/>
+      <span className="af-override__summary">{summary}</span>
+    </button>
+    {overridden && p.onReset ? <button type="button" className="af-setting-btn af-setting-btn--quiet" data-action="use-default" disabled={p.disabled} onClick={p.onReset}>Use gateway default</button> : null}
+    <div className="af-override__editor" id={editorId} hidden={!p.open}>{p.open ? p.children : null}</div>
+  </div>;
   return (
     <div className="af-override" data-setting={p.setting} data-overridden={overridden ? "true" : "false"}>
       <AfSettingRow

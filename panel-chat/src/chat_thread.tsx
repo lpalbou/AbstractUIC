@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import { ChatMessageCard, type ChatMessage, type ChatMessageCardProps } from "./chat_message_card.js";
+import {
+  ChatMessageCard,
+  type ChatMessage,
+  type ChatMessageCardProps,
+} from "./chat_message_card.js";
 import { ToolActivityGroup } from "./tool_activity.js";
 
 export type ChatThreadProps = {
@@ -24,18 +28,30 @@ function is_near_bottom(el: HTMLElement, thresholdPx: number): boolean {
 }
 
 export function ChatThread(props: ChatThreadProps): React.ReactElement {
-  const threshold = typeof props.autoScrollThresholdPx === "number" && Number.isFinite(props.autoScrollThresholdPx) ? props.autoScrollThresholdPx : 120;
+  const threshold =
+    typeof props.autoScrollThresholdPx === "number" &&
+    Number.isFinite(props.autoScrollThresholdPx)
+      ? props.autoScrollThresholdPx
+      : 120;
   const auto = props.autoScroll !== false;
   const list_ref = useRef<HTMLDivElement | null>(null);
   const bottom_ref = useRef<HTMLDivElement | null>(null);
   const [stick, set_stick] = useState(true);
 
-  const msgs = useMemo(() => (Array.isArray(props.messages) ? props.messages : []), [props.messages]);
+  const msgs = useMemo(
+    () => (Array.isArray(props.messages) ? props.messages : []),
+    [props.messages],
+  );
   const groups = useMemo(() => {
     const out: ChatMessage[][] = [];
     for (const message of msgs) {
       const last = out[out.length - 1];
-      if (message.toolActivity && last?.[0]?.toolActivity && last[0].runId === message.runId) last.push(message);
+      if (
+        message.toolActivity &&
+        last?.[0]?.toolActivity &&
+        last[0].runId === message.runId
+      )
+        last.push(message);
       else out.push([message]);
     }
     return out;
@@ -61,8 +77,12 @@ export function ChatThread(props: ChatThreadProps): React.ReactElement {
     let total = 0;
     for (const m of msgs) {
       total += String(m.content ?? "").length;
+      for (const file of m.artifactRefs || [])
+        total += file.id.length + (file.name?.length || 0) + 1;
+      total += (m.artifactIds?.length || 0) + (m.attachments?.length || 0);
       // Generated media arriving (a src filled in) moves the bottom too.
-      if (Array.isArray(m.media)) for (const item of m.media) total += String(item?.src ?? "").length + 1;
+      if (Array.isArray(m.media))
+        for (const item of m.media) total += String(item?.src ?? "").length + 1;
     }
     return `${msgs.length}:${total}:${String(props.afterKey ?? "")}`;
   }, [msgs, props.afterKey]);
@@ -95,12 +115,29 @@ export function ChatThread(props: ChatThreadProps): React.ReactElement {
   }, [auto, stick]);
 
   return (
-    <div ref={list_ref} className={["pc-chat-thread", props.className].filter(Boolean).join(" ")}>
+    <div
+      ref={list_ref}
+      className={["pc-chat-thread", props.className].filter(Boolean).join(" ")}
+    >
       {!msgs.length ? props.empty || null : null}
       {groups.map((group, idx) => {
         const m = group[0];
-        const key = String(m.id || "") || String(m.ts || "") + ":" + String(m.role || "") + ":" + idx;
-        return m.toolActivity ? <ToolActivityGroup key={key} tools={group.map(message => message.toolActivity!)} showCopy={props.messageProps?.showCopy} /> : <ChatMessageCard key={key} message={m} {...(props.messageProps || {})} />;
+        const key =
+          String(m.id || "") ||
+          String(m.ts || "") + ":" + String(m.role || "") + ":" + idx;
+        return m.toolActivity ? (
+          <ToolActivityGroup
+            key={key}
+            tools={group.map((message) => message.toolActivity!)}
+            showCopy={props.messageProps?.showCopy}
+          />
+        ) : (
+          <ChatMessageCard
+            key={key}
+            message={m}
+            {...(props.messageProps || {})}
+          />
+        );
       })}
       {props.after}
       <div ref={bottom_ref} />

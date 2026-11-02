@@ -12,6 +12,7 @@ import { WORKFLOW_INTERACTION_LABELS, type WorkflowInteraction, type WorkflowInt
 import type { ServerRecord, SessionToolPolicy, WorkflowRecord, WorkflowSessionController, WorkflowWaitInteraction } from "./workflow_runtime.js";
 import type { ReplayViewInteraction } from "./replay_view.js";
 import { replayInteractionWait } from "./replay_view_projection.js";
+import { publicApprovalRequest } from "./public_approval.js";
 
 /**
  * The served, tree-resolved pending interaction of the replay view
@@ -250,6 +251,7 @@ export function presentInteraction(
       kind: "tool-approval",
       title: `${calls.length || "Requested"} ${calls.length === 1 ? "action needs" : "actions need"} permission`,
       toolName: names.join(", ") || "the requested tools",
+      publicRequest: publicApprovalRequest(calls, details.public_action, raw.runId),
       description: "Review the targets below. Allow once approves this batch only.",
       detail: (
         <div className="pc-approval-summary">
@@ -298,11 +300,17 @@ export function presentInteraction(
     };
   }
   const askTarget = { runId: raw.runId, waitKey: String(wait.wait_key || ""), stepId: raw.stepId };
+  const question = details.question && typeof details.question === "object" && details.question.purpose === "conversation" ? details.question : null;
+  const essential = question?.importance === "essential";
+  const clarification = question?.importance === "clarification";
+  const deadlineTime = typeof question?.deadline === "string" && Number.isFinite(Date.parse(question.deadline))
+    ? new Date(question.deadline).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
   if (wait.reason === "user" || wait.reason === "ask_user")
     return {
       id,
       kind: "ask-user",
-      title: "A question for you",
+      title: essential ? "Your answer is required" : clarification ? "A clarification for you" : "A question for you",
+      ...(essential ? { description: "This question needs your answer. I will keep waiting; silence does not grant permission." } : clarification ? { description: `${deadlineTime ? `Answer by ${deadlineTime}. ` : ""}${question.fallback ? `Without an answer: ${String(question.fallback)}` : ""}` } : {}),
       prompt: String(wait.prompt || details.prompt || "How would you like to continue?"),
       allowFreeText: wait.allow_free_text !== false,
       choices: (Array.isArray(wait.choices) ? wait.choices : []).map((choice: any) =>
@@ -317,7 +325,7 @@ export function presentInteraction(
       onSubmit: async (answer) => {
         await controller.resume(answer, askTarget);
       },
-      ...(options.allowSkip
+      ...(options.allowSkip && !question
         ? {
             onSkip: async () => {
               await controller.resume("", askTarget);

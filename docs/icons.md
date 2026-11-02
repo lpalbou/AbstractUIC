@@ -84,6 +84,7 @@ fails when a sheet is stale.
 | `file` | 24 | File |
 | `archive` | 24 | Archive |
 | `unarchive` | 24 | Unarchive |
+| `wrench` | 24 | Tool calls |
 | `clock` | 24 | Time, schedule |
 | `cog` | 24 | Settings (cog) |
 | `activity` | 24 | Activity |
@@ -121,8 +122,7 @@ fails when a sheet is stale.
 The engines and cloud providers that the provider cards name are shown with the brand's own mark (`BrandMark`, or
 `brandMarkHtml(id)` for hosts that build HTML as strings), inlined in `ui-kit/src/brand_icons.tsx`: no page fetches
 a logo from anywhere. Each mark is drawn in its own colours on a light tile in every theme, because several brands
-forbid recolouring. The source rules, in order: the brand's own press or brand-kit SVG when its terms allow using it
-to identify the product; else the [Simple Icons](https://simpleicons.org) SVG (CC0 path data); else a readable text
+forbid recolouring. The source rules, in order: the brand's own official artwork to identify the configured product; else the [Simple Icons](https://simpleicons.org) SVG (CC0 path data); else a readable text
 badge. Trademarks belong to their owners; a mark identifies the product a card configures and implies no
 endorsement, and the marks are not covered by the kit's MIT licence (OpenAI's is used under OpenAI's own Marks usage terms). `ui-kit/scripts/check_brand_icons.mjs` fails when a card id has neither a mark nor a documented fallback,
 when a mark lacks its source, licence or date, or when a mark could reach outside itself.
@@ -137,16 +137,39 @@ when a mark lacks its source, licence or date, or when a mark could reach outsid
 | `llamacpp` | llama.cpp | brand | <https://raw.githubusercontent.com/ggml-org/llama.cpp/master/media/llama1-icon-transparent.svg> | File is in the MIT-licensed ggml-org/llama.cpp repo (media/, added in #15891). MIT covers copyright; trademark of the ggml-org/llama.cpp project. [Terms](https://github.com/ggml-org/llama.cpp/blob/master/LICENSE). No logo usage guidelines published. | 2026-10-29 |
 | `openai` | OpenAI | brand | <https://cdn.openai.com/brand/openai-logos.zip> | OpenAI logo (the black Blossom, OpenAI-logos/SVGs/OAI_OpenAI-Blossom_Black.svg in the zip, unmodified; sha256 75c1e9fffa5e8c437bec1d67197a73992bca45d166c6ff23215185dea8fae92a), a trademark of OpenAI, used under OpenAI's Marks usage terms (non-exclusive, non-transferable, revocable); NOT covered by this kit's MIT licence. Terms read: "By using our logos, you agree to our Marks usage terms." (https://openai.com/brand/) "Use the logo only when it directly relates to OpenAI services." (https://openai.com/brand/) "Use the logo exactly as provided and acknowledge that it belongs to OpenAI." (https://openai.com/brand/) "Permission to use our Marks is limited in the following ways: Only use our Marks if they adhere to these brand guidelines." (https://openai.com/brand/) "If you are an active OpenAI developer, you may truthfully identify the OpenAI technology you use." (https://openai.com/brand/) [Terms](https://openai.com/brand/). Shown exactly as provided, black, never recoloured or altered, only on the card that connects OpenAI's API (it "directly relates to OpenAI services"), never more prominent than the host's own name, with no partnership claim. Terms page read through the Wayback snapshot of 2026-10-21 (the live page answers 403 to non-browser clients). Counter-reading noted: "However, everything about your app, product or company (including name, logo, description, slogan, tagline and screenshots) should be your own and should be free of OpenAI's brands (including products, services or model names; logos; or trademarks)." (https://openai.com/brand/), read as being about the host's own branding. | 2026-10-29 |
 | `openrouter` | OpenRouter | brand | <https://openrouter.ai/brand/logos/transparent/glyph/svg/glyph-ink.svg> | Official brand asset offered "ready to use"; no permission step or licence stated. Trademark of OpenRouter, Inc. [Terms](https://openrouter.ai/brand). "Please don't stretch, recolor, or remix the marks." Approved colourways only: Ink #03080A (light backgrounds) and Cloud #FCFCFE (dark backgrounds), plus Grape/Volt. | 2026-10-29 |
+| `anthropic` | Anthropic | brand | <https://www.anthropic.com/press-kit> | Anthropic symbol - Slate.svg from the official press-kit archive; original geometry and Slate colour. Trademark belongs to its owner; not relicensed under MIT. [Terms](https://www.anthropic.com/legal/trademark-guidelines). | 2026-10-30 |
+| `portkey` | Portkey | brand | <https://framerusercontent.com/images/jdaaBnPaidwn24qlm9oMGXntXP0.png> | Official Portkey website header logo, PNG embedded unchanged; sha256 06fe1d765a67fce602fd024dc236a15d80fd500a4ee977f93a8ee4774acff0c1. Trademark belongs to its owner; not relicensed under MIT. [Terms](https://portkey.ai/terms). | 2026-10-30 |
+| `ovh` | OVH AI Endpoints | brand | <https://www.ovhcloud.com/7af16cdb/contrib/ovh_theme_patternlab/images/logos/OVHcloud_logo.svg> | Official OVHcloud website sprite, ocmscloud_logo symbol; original paths and transforms, currentColor resolved to brand blue #000E9C. Trademark belongs to its owner; not relicensed under MIT. [Terms](https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf). | 2026-10-30 |
+| `typesafe` | TypeSafe | brand | <https://framerusercontent.com/images/kcuF2BEp5XaVfkmFB634IPRKQH0.png> | The apple-touch-icon that typesafe.ai's own home page declares, PNG embedded unchanged; sha256 40fe116f8438653bf6bad9b198f23371627f52b52b8654d6852e8345a014e585. TypeSafe publishes no brand or press page (typesafe.ai/brand, /press and /media-kit answer 404). Trademark belongs to TypeSafe AI, Inc.; not relicensed under MIT. [Terms](https://typesafe.ai/legal/terms): "Except as expressly authorized by TypeSafe, you may not use the Materials." Shown only on the TypeSafe (Jev) card, original colours, no endorsement claim. | 2026-11-01 |
 
-Text badges (no logo), each with the brand's own words:
+Text badges or kit glyphs (no logo), each with the reason:
 
 | Id | Brand | Badge | Why there is no logo | Retrieved |
 | --- | --- | --- | --- | --- |
-| `anthropic` | Anthropic | ANT | Anthropic's trademark guidelines require its approval first: "You may only use our trademarks as specifically permitted by us and only in materials we approve beforehand. We may terminate permission to use our trademarks at any time." (https://www.anthropic.com/legal/trademark-guidelines) "We will supply an image (or images) of the trademark(s) for your use and specific requirements regarding size, pixels, spacing, and the like." (https://www.anthropic.com/legal/trademark-guidelines) "If you have an existing business relationship with Anthropic and want to use our trademarks in a press release, on your website, or in another context, please email marketing@anthropic.com." (https://www.anthropic.com/legal/trademark-guidelines) Its press kit (https://www.anthropic.com/press-kit) ships logos with no usage terms, so it grants no permission. [Terms](https://www.anthropic.com/legal/trademark-guidelines). | 2026-10-29 |
-| `portkey` | Portkey | PK | Portkey's terms forbid displaying its marks without written permission, and it publishes no brand kit: "Except as set out in this section or elsewhere in our Legal Terms, no part of the Services and no Content or Marks may be copied, reproduced, aggregated, republished, uploaded, posted, publicly displayed, encoded, translated, transmitted, distributed, sold, licensed, or otherwise exploited for any commercial purpose whatsoever, without our express prior written permission." (https://portkey.ai/terms) "The Content and Marks are provided in or through the Services "AS IS" for your internal business purpose only." (https://portkey.ai/terms) [Terms](https://portkey.ai/terms). | 2026-10-29 |
-| `ovh` | OVH AI Endpoints | OVH | OVHcloud's Trademark Usage Policy (version of 12/30/2024) allows its text trademark, not its logo: "1.2.Compatibility: You may use any OVHcloud Text Trademark (but not the OVHcloud Logo) in a referential phrase on promotional/advertising materials to describe that your product is compatible with the referenced OVHcloud product or technology, provided that the materials comply with the following requirements:" (https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf) "Any other use of the OVHcloud Trademarks requires a separate trademark license agreement with OVHcloud. The use of OVHcloud Logos always require the written permission of OVHcloud." (https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf) "1.2.OVHcloud Logo: You may not use the OVHcloud Logo on or in connection with websites, products, packaging, manuals, advertising materials, or for any other purpose except pursuant to an express written trademark licence from OVHcloud." (https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf) [Terms](https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf). | 2026-10-29 |
 | `openai-compatible` | OpenAI-compatible server | API | A protocol, not a brand: any server that speaks the OpenAI API (vLLM, llama.cpp, LocalAI, a private gateway). No logo applies. | 2026-10-29 |
+| `systemone` | System One-compatible endpoint | kit `server` glyph | A protocol, not a brand: any host that serves the System One decision API (POST /v1/systemone), such as a kev.serve / lev serve process or another AbstractCore server. No logo applies, so the kit's neutral server glyph is shown (`glyph: "server"`). | 2026-11-01 |
 
 Adding a brand: add its id to `BRAND_CARD_IDS`, then either a `BRAND_ICONS` entry (the SVG's geometry and colours
 unchanged; editor metadata, titles and classes dropped; ids namespaced `af-brand-<id>-`) with its source, terms,
 licence, restrictions and date, or a `BRAND_FALLBACKS` entry saying why there is none; then a row above.
+
+2026-10-30 operator correction (Gateway backlog 0985): official Anthropic, Portkey and OVH artwork replaces the text badges. Portkey's official PNG is embedded byte-for-byte inside an SVG viewport; no logo makes a network request. Marks retain their owners' rights.
+
+## Model manufacturer marks
+
+The model catalog uses `BrandMark size="sm"` / `brandMarkHtml(id, name, "sm")`
+for a 24px title mark. These are unchanged avatars from manufacturers’ official
+model-publishing organizations, embedded as data images (no remote card requests).
+Original bytes, MIME, dimensions and SHA-256 are checked. Other vendors retain a
+readable neutral text badge, not another manufacturer’s logo. Artwork/trademarks
+belong to their owners; no copyright licence is inferred from model/code licences.
+
+| ID | Manufacturer profile | Artwork source |
+| --- | --- | --- |
+| `qwen` | https://huggingface.co/Qwen | https://cdn-avatars.huggingface.co/v1/production/uploads/6215ca5692c0ecfba9186921/hrRM50-6XcdWgg2AKpENG.jpeg |
+| `deepseek` | https://huggingface.co/deepseek-ai | https://cdn-avatars.huggingface.co/v1/production/uploads/6538815d1bdb3c40db94fbfa/xMBly9PUMphrFVMxLX4kq.png |
+| `google` | https://huggingface.co/google | https://cdn-avatars.huggingface.co/v1/production/uploads/5dd96eb166059660ed1ee413/WtA3YYitedOr9n02eHfJe.png |
+| `meta` | https://huggingface.co/meta-llama | https://cdn-avatars.huggingface.co/v1/production/uploads/646cf8084eefb026fb8fd8bc/oCTqufkdTkjyGodsx1vo1.png |
+| `mistral` | https://huggingface.co/mistralai | https://cdn-avatars.huggingface.co/v1/production/uploads/634c17653d11eaedd88b314d/9OgyfKstSZtbmsmuG8MbU.png |
+| `microsoft` | https://huggingface.co/microsoft | https://cdn-avatars.huggingface.co/v1/production/uploads/1583646260758-5e64858c87403103f9f1055d.png |
+| `nvidia` | https://huggingface.co/nvidia | https://cdn-avatars.huggingface.co/v1/production/uploads/65df9200dc3292a8983e5017/Vs5FPVCH-VZBipV3qKTuy.png |

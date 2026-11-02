@@ -163,8 +163,8 @@ accessible name) and carries no `title`, so the browser's own tooltip never show
 - Placed above the button and centred, below when there is no room above, and kept 8 px inside
   the viewport, so it never widens the page and an ancestor's `overflow` never clips it
   (`position: fixed`, `z-index: var(--z-tooltip)` (1200), above menus).
-- Inverse surface from the active theme (`--text-primary` background, `--bg-primary` text): it
-  reads in every light and dark theme. Plain text only, wrapping at 280 px.
+- Surface and text follow the active theme (`--bg-secondary` background,
+  `--text-primary` text, `--ui-border-2` border). Short text wraps at 280 px; structured information uses a 320px panel.
 - While it shows, the button gets `aria-describedby` pointing at it when the sentence differs from
   the `aria-label`.
 
@@ -178,7 +178,7 @@ import { AfTooltip } from "@abstractframework/ui-kit";
 </AfTooltip>
 ```
 
-`AfTooltip` sets `data-af-tip` on its one child and binds the document-wide tooltip while mounted.
+`AfTooltip` accepts a string or `AfTooltipContent` and sets tooltip attributes on its one child and binds the document-wide tooltip while mounted.
 Markup that sets `data-af-tip` itself calls `useAfTooltips()` once in the tree.
 
 ### Plain HTML
@@ -290,3 +290,31 @@ heavier than 600. The constants are exported: `HELPER_MIN_PX` (13), `HELPER_MIN_
   clamps, the `AfTooltip` markup and the `af-tooltip` CSS contract.
 
 All of them run in `npm test` for `ui-kit`.
+
+### Structured information tooltips
+
+Use a short title and description, aligned facts, and labelled lists instead of
+concatenating diagnostics into a paragraph. Keep current actions in the hover;
+put exhaustive technical logs in an explicit details surface.
+
+```tsx
+<AfTooltip content={{
+  title: "Tight fit",
+  description: "Free memory before loading.",
+  facts: [{ label: "Memory needed", value: "112 GB" }, { label: "Available now", value: "59 GB", tone: "warning" }],
+  note: "Memory and context are estimates.",
+}}><span tabIndex={0}>Tight</span></AfTooltip>
+```
+
+`AfTooltipContent` fields: required `title`, optional `description`, `facts`
+(`label`, `value`, optional `tone`: muted/success/warning/danger), `sections`
+(`label`, `items: string[]`) and `note`. Everything is rendered with textContent,
+never caller HTML. Plain multiline strings render as spaced paragraphs. Tooltips
+remain non-interactive, viewport-bounded and hoverable; internal scrolling does
+not dismiss them. Existing focus, Escape and aria-describedby behavior applies.
+
+Plain HTML hosts use `AfConsoleIslands.tooltipAttributes(content)` (same helper
+as exported `afTooltipAttributes`). Escape each returned attribute value when
+building markup. It provides `data-af-tip` as the accessible/plain-text fallback
+and `data-af-tip-content` as JSON. Invalid JSON/schema warns with `#FALLBACK` and
+shows the explicit fallback. No arbitrary HTML or controls are supported.

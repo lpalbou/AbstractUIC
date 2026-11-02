@@ -42,6 +42,7 @@ export type AssistantPanelProps = {
    * (e.g. "Connect to the gateway to use the assistant"). */
   blockedNotice?: string;
   placeholder?: string;
+  composerVariant?: import("./chat_composer.js").ChatComposerVariant;
   className?: string;
   /** Controlled history (optional). Uncontrolled by default. */
   messages?: ChatMessage[];
@@ -158,6 +159,7 @@ export function AssistantPanel(props: AssistantPanelProps): React.ReactElement {
       </div>
       <div className="pc-assistant__composer">
         <ChatComposer
+          variant={props.composerVariant}
           value={draft}
           onChange={setDraft}
           onSubmit={() => void send(draft)}
@@ -165,7 +167,7 @@ export function AssistantPanel(props: AssistantPanelProps): React.ReactElement {
           disabled={blocked}
           busy={busy}
           rows={2}
-          actions={
+          trailingActions={
             busy ? (
               <button
                 type="button"

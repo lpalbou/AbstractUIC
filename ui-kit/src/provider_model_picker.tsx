@@ -98,6 +98,8 @@ export type ProviderModelPickerProps = {
   /** "segmented" (default): Gateway default | Custom. "compact": provider/model selects whose first
    * option is the gateway default (flow node panels). */
   layout?: "segmented" | "compact";
+  /** Keep reasoning and MTP available in a closed settings disclosure. */
+  optionsDisclosure?: boolean;
   /** Fields fed by a connected pin: shown as "Provided by connected pin", not editable. */
   pinned?: { provider?: boolean; model?: boolean; reasoning?: boolean; speculation?: boolean };
 };
@@ -358,6 +360,63 @@ export function ProviderModelPicker(
     (hasCapabilities || allowOverride) &&
     (reasoningOptions.length > 0 || (reasoningState === "unknown" && allowOverride));
 
+  const modelOptions = <>
+      {showOptions && pins.reasoning ? (
+        <div className="af-pmp__reasoning">
+          <label>{props.reasoningLabel || "Reasoning effort"}</label>
+          <div className="af-pmp__pinned" data-pinned="reasoning">{PINNED_FIELD_TEXT}</div>
+        </div>
+      ) : showOptions && showReasoning ? (
+        <div className="af-pmp__reasoning" data-reasoning-state={reasoningState}>
+          <label>{props.reasoningLabel || "Reasoning effort"}</label>
+          <AfSelect
+            ariaLabel={props.reasoningLabel || "Reasoning effort"}
+            placeholder={reasoningInherit}
+            value={value.reasoning || ""}
+            options={[{ value: "", label: reasoningInherit }, ...reasoningOptions]}
+            disabled={disabled || reasoning.loading || reasoningLocked}
+            onChange={(next) => props.onChange({ ...value, reasoning: next })}
+          />
+          {reasoningState === "unknown" && allowOverride ? (
+            <div className="af-pmp__hint" data-reasoning-unknown="">
+              {PICKER_REASONING_UNKNOWN}{" "}
+              <label className="af-pmp__override">
+                <input
+                  type="checkbox"
+                  checked={overrideUnknown}
+                  disabled={disabled}
+                  onChange={(e) => {
+                    setOverrideUnknown(e.target.checked);
+                    if (!e.target.checked && value.reasoning) props.onChange({ ...value, reasoning: "" });
+                  }}
+                />{" "}
+                {PICKER_REASONING_OVERRIDE}
+              </label>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {showOptions && props.enableSpeculation && pins.speculation ? (
+        <div className="af-pmp__speculation">
+          <label>MTP depth</label>
+          <div className="af-pmp__pinned" data-pinned="speculation">{PINNED_FIELD_TEXT}</div>
+        </div>
+      ) : showOptions && props.enableSpeculation ? <SpeculationSelect value={value.speculation} inheritLabel={inherit}
+        onChange={speculation => props.onChange({ ...value, speculation })}
+        capabilities={capabilityPayload} disabled={disabled} loading={reasoning.loading}
+        hideNote={Boolean(reasoning.error)} /> : null}
+      {showOptions && reasoning.error ? (
+        // One plain sentence for the user; the gateway's own cause stays available
+        // under Technical details (and in the console), never as the main text.
+        <div role="status" className="af-pmp__hint" data-discovery="unavailable">
+          {props.enableSpeculation ? PICKER_DISCOVERY_UNAVAILABLE : PICKER_REASONING_UNAVAILABLE}
+          <details className="af-pmp__details">
+            <summary>Technical details</summary>
+            <span>{reasoning.error}</span>
+          </details>
+        </div>
+      ) : null}
+  </>;
   return (
     <div
       className={`af-pmp${compact ? " af-pmp--compact" : ""}${props.className ? ` ${props.className}` : ""}`}
@@ -429,6 +488,8 @@ export function ProviderModelPicker(
           modelLabel={props.modelLabel}
           allowGatewayDefault={compact}
           gatewayDefaultLabel={compact ? defaultLine : undefined}
+          gatewayDefaultProviderLabel={compact && discoveryDefault?.provider ? `${defaultLabel} · ${discoveryDefault.provider}` : undefined}
+          gatewayDefaultModelLabel={compact && discoveryDefault?.model ? `${defaultLabel} · ${discoveryDefault.model}` : undefined}
           allowCustomProvider={props.allowCustom !== false}
           allowCustomModel={props.allowCustom !== false}
           onChange={(next) =>
@@ -441,61 +502,7 @@ export function ProviderModelPicker(
           }
         />
       )}
-      {showOptions && pins.reasoning ? (
-        <div className="af-pmp__reasoning">
-          <label>{props.reasoningLabel || "Reasoning effort"}</label>
-          <div className="af-pmp__pinned" data-pinned="reasoning">{PINNED_FIELD_TEXT}</div>
-        </div>
-      ) : showOptions && showReasoning ? (
-        <div className="af-pmp__reasoning" data-reasoning-state={reasoningState}>
-          <label>{props.reasoningLabel || "Reasoning effort"}</label>
-          <AfSelect
-            ariaLabel={props.reasoningLabel || "Reasoning effort"}
-            placeholder={reasoningInherit}
-            value={value.reasoning || ""}
-            options={[{ value: "", label: reasoningInherit }, ...reasoningOptions]}
-            disabled={disabled || reasoning.loading || reasoningLocked}
-            onChange={(next) => props.onChange({ ...value, reasoning: next })}
-          />
-          {reasoningState === "unknown" && allowOverride ? (
-            <div className="af-pmp__hint" data-reasoning-unknown="">
-              {PICKER_REASONING_UNKNOWN}{" "}
-              <label className="af-pmp__override">
-                <input
-                  type="checkbox"
-                  checked={overrideUnknown}
-                  disabled={disabled}
-                  onChange={(e) => {
-                    setOverrideUnknown(e.target.checked);
-                    if (!e.target.checked && value.reasoning) props.onChange({ ...value, reasoning: "" });
-                  }}
-                />{" "}
-                {PICKER_REASONING_OVERRIDE}
-              </label>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-      {showOptions && props.enableSpeculation && pins.speculation ? (
-        <div className="af-pmp__speculation">
-          <label>MTP depth</label>
-          <div className="af-pmp__pinned" data-pinned="speculation">{PINNED_FIELD_TEXT}</div>
-        </div>
-      ) : showOptions && props.enableSpeculation ? <SpeculationSelect value={value.speculation} inheritLabel={inherit}
-        onChange={speculation => props.onChange({ ...value, speculation })}
-        capabilities={capabilityPayload} disabled={disabled} loading={reasoning.loading}
-        hideNote={Boolean(reasoning.error)} /> : null}
-      {showOptions && reasoning.error ? (
-        // One plain sentence for the user; the gateway's own cause stays available
-        // under Technical details (and in the console), never as the main text.
-        <div role="status" className="af-pmp__hint" data-discovery="unavailable">
-          {props.enableSpeculation ? PICKER_DISCOVERY_UNAVAILABLE : PICKER_REASONING_UNAVAILABLE}
-          <details className="af-pmp__details">
-            <summary>Technical details</summary>
-            <span>{reasoning.error}</span>
-          </details>
-        </div>
-      ) : null}
+      {props.optionsDisclosure ? <details className="af-pmp__options"><summary>Reasoning & speed{value.reasoning ? ` · ${value.reasoning}` : ""}</summary>{modelOptions}</details> : modelOptions}
     </div>
   );
 }

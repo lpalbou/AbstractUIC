@@ -87,8 +87,10 @@ const source = { app: "flow", name: "AbstractFlow" };
   const gw = fakeGateway();
   const ask = makeDocsQaAsk({ fetchGateway: gw.fetchGateway, source, pollMs: 5 });
   const live = [];
+  const owningRuns = [];
   const file = new File([new Uint8Array([137, 80, 78, 71])], "shot.png", { type: "image/png" });
-  const answer = await ask("How do I run a flow?", { signal: new AbortController().signal, sessionId: "flow-docs-assistant:s1", files: [file], onText: (t) => live.push(t) });
+  const answer = await ask("How do I run a flow?", { signal: new AbortController().signal, sessionId: "flow-docs-assistant:s1", files: [file], onRun: id => owningRuns.push(id), onText: (t) => live.push(t) });
+  check("answer exposes its owning run for speech", owningRuns.join() === "run-1");
   check("answer from the completed run", answer === "Press **Run**.", answer);
   check("live text grows from the llm.delta frames", live.length >= 2 && live[0] === "Press " && live[live.length - 1] === "Press **Run**.", JSON.stringify(live));
   const paths = gw.calls.map((c) => c.path);
@@ -201,7 +203,15 @@ check("user image attachment rendered", panel.includes('src="blob:http://x/1"'))
 check("attachment chip on the question", panel.includes("shot.png") && panel.includes("pc-chat-attachment-chip"));
 check("copy on every message", (panel.match(/aria-label="Copy message"/g) || []).length === 2);
 check("attach control + pending file chip", panel.includes('aria-label="Attach files"') && panel.includes("notes.txt") && panel.includes('aria-label="Remove notes.txt"'));
-check("one-line grounding footer", panel.includes("pc-docs-assistant__footer") && panel.includes("Grounded on AbstractFlow’s documentation (llms.txt) · docs-qa"));
+check("one-line grounding footer", panel.includes("pc-docs-assistant__footer") && panel.includes("Powered by AbstractFlow’s documentation."));
+{
+  // The dictation microphone (a host-provided trailing control) sits beside Send; Stop joins it while answering.
+  const withMic = renderToStaticMarkup(React.createElement(DocsAssistantPanel, { source: { app: "flow", name: "AbstractFlow" }, messages: [], draft: "", onDraftChange() {}, onSend() {}, composerTrailingActions: React.createElement("button", { type: "button", "aria-label": "Hold to talk" }, "Mic") }));
+  check("dictation control in the trailing slot", /<div class="pc-composer__trailing"><button type="button" aria-label="Hold to talk">Mic<\/button><\/div>/.test(withMic));
+  const withMicBusy = renderToStaticMarkup(React.createElement(DocsAssistantPanel, { source: { app: "flow", name: "AbstractFlow" }, messages: [], draft: "", onDraftChange() {}, onSend() {}, busy: true, onStop() {}, composerTrailingActions: React.createElement("button", { type: "button", "aria-label": "Hold to talk" }, "Mic") }));
+  check("Stop joins the microphone while answering", /<div class="pc-composer__trailing"><button type="button" aria-label="Hold to talk">Mic<\/button><button type="button" class="pc-docs-assistant__icon-btn" aria-label="Stop"/.test(withMicBusy));
+  check("no empty trailing slot", !panel.includes("pc-composer__trailing"));
+}
 const blocked = renderToStaticMarkup(React.createElement(DocsAssistantPanel, { source, messages: [], draft: "", onDraftChange: noop, onSend: noop, blockedNotice: "Connect to the gateway to use the docs assistant.", suggestions: ["How do I run a flow?"] }));
 check("blocked: notice + disabled composer", blocked.includes("Connect to the gateway to use the docs assistant.") && /<textarea[^>]*disabled/.test(blocked));
 check("empty state names the app + suggestions", blocked.includes("Ask anything about AbstractFlow.") && blocked.includes("pc-docs-assistant__suggestion"));

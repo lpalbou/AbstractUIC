@@ -63,6 +63,7 @@ function walk(node, visit) {
   if (Array.isArray(node)) return node.forEach((n) => walk(n, visit));
   if (typeof node !== "object") return;
   if (node.type === AutomationReviseForm) return walk(harness(AutomationReviseForm).render(node.props), visit);
+  if (node.type?.name === "VisibleContentMarker") return visit(node);
   if (typeof node.type === "function") return walk(node.type(node.props), visit);
   visit(node);
   walk(node.props && node.props.children, visit);
@@ -646,25 +647,32 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   check("F7: after a gateway 409 the next click gets a new id", sent[4][2].command_id !== sent[5][2].command_id);
 }
 {
-  // F6: /seen acknowledged only after success; retried on the next render with a new summary.
+  // F6: a background render never reads. Visible items advance only a contiguous prefix.
   const calls6 = [];
   let fail = true;
   const props = { summary: mail, occurrences: occ, triggerSources: sources, busy: false, ...handlers, newId: () => "x", onSeen: (c) => { calls6.push(c); return fail ? Promise.reject(new TypeError("offline")) : Promise.resolve(); } };
   const h = harness(AutomationPanel);
-  h.render(props);
+  let tree = h.render(props);
   await flush();
-  h.render(props);
-  await flush();
+  check("F6: mounting never acknowledges unseen items", calls6.length === 0);
+  const markerMap = new Map();
+  walk(tree, (node) => { if (node.type?.name === "VisibleContentMarker") markerMap.set(node.props.contentKey, node); });
+  const markers = [...markerMap.values()];
+  check("F6: every attention item has a consumption marker", markers.length === mail.attention.items.length);
+  markers[1].props.onConsume(); h.render(props); await flush();
+  check("F6: seeing a later item cannot skip the oldest unread one", calls6.length === 0);
+  markers[0].props.onConsume(); h.render(props); await flush();
+  h.render(props); await flush();
   check("F6: failed /seen is not retried on the same summary (no loop)", eq(calls6, ["att1:2"]), JSON.stringify(calls6));
   fail = false;
-  const again = { ...props, summary: { ...mail } };
-  h.render(again);
-  await flush();
-  check("F6: retried on the next render with a new summary", eq(calls6, ["att1:2", "att1:2"]));
-  h.render({ ...props, summary: { ...mail } });
-  await flush();
+  h.render({ ...props, summary: { ...mail } }); await flush();
+  check("F6: consumed prefix retried with a fresh summary", eq(calls6, ["att1:2", "att1:2"]));
+  h.render({ ...props, summary: { ...mail } }); await flush();
   check("F6: once acknowledged, not sent again", calls6.length === 2);
+  h.render({ ...props, summary: { ...mail, automation_id: "another-owner" } }); await flush();
+  check("F6: switching automation resets visible consumption", calls6.length === 2);
 }
+
 {
   // F5: focus moves back to the opener when archive / revise / discuss close.
   const asked = [];

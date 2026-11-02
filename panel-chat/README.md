@@ -14,7 +14,7 @@ the [Adoption guide](../docs/adoption-guide.md)).
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` `^0.9.0` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.5.0 needs ui-kit 0.9.0.
+- `@abstractframework/ui-kit` `^0.9.8` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.7.0 needs ui-kit `^0.9.8` (AbstractUIC 0.9.0 ships ui-kit 0.9.12).
 
 ## Install
 
@@ -86,6 +86,29 @@ export function ChatView() {
 }
 ```
 
+### The composer
+
+`ChatComposer` is a rounded multiline box with a circular Send button. It starts
+at two rows, honors an explicit `rows`, grows for several lines, then scrolls
+within a viewport cap; it also grows on browsers without native `field-sizing`
+support. Pass `variant="legacy"` to `ChatComposer`, or `composerVariant="legacy"`
+to `WorkflowChat`, for the flat three-row layout with a text Send button.
+`variant="compact"` is accepted as an alias of the default.
+
+Slots: `leading` renders above the field (attachment chips), `actions` renders on
+the left of the action row, `trailingActions` renders on the right beside Send
+(voice controls, Stop), and `overlay` covers the box (a drop zone). Pass `onAttach`
+and the composer renders the Attach button itself (`attachLabel`, `attachDisabled`,
+`attachPending`); `WorkflowChat` wires its `onAttach` and `composerTrailingActions`
+the same way. `submitKey="mod-enter"` keeps chats that submit with Ctrl/Cmd+Enter;
+`canSubmit` lets a host enable Send for an attachment-only payload; `textareaId`
+and `ariaDescribedBy` connect a host label and help text to the field.
+
+Send and busy labels remain the button's accessible name. Enter
+submits, Shift+Enter adds a line, and IME composition does not submit. Switching
+the variant preserves the controlled draft and the textarea node; the host still
+owns submission, attachments and failed-send recovery.
+
 ## Docs assistant
 
 `DocsAssistantDrawer` (0.4.0) is the ONE Docs assistant: the AbstractGateway console mounts it
@@ -93,7 +116,7 @@ through the islands bundle (`mountDocsAssistant`) and every app mounts it in Rea
 top bar's `docs` slot (book icon). Pass `source: { app, name }` (`app` = `gateway` or the app id),
 the host's `fetchGateway(path, init)` (relative `api/gateway/...` paths with the host's
 credentials) and `connected`. It reads the app's llms.txt from `GET api/gateway/docs/corpus?app=<id>`,
-uploads attachments to the conversation's session, starts the gateway's shipped `docs-qa` workflow
+uploads attachments to the conversation's session, offers the kit dictation microphone beside Send when the gateway transcribes (the transcript lands in the draft), starts the gateway's shipped `docs-qa` workflow
 (`{prompt, docs, app}`, `use_session_history`, `context.attachments`), grows the reply from the run's
 `llm.delta` frames while polling the run, and shows the completed `output.response`. User messages
 sit on the right and answers on the left with Markdown, code, JSON, links and copy; the header
@@ -136,7 +159,8 @@ the host.
 Use `interaction` for a pending `WorkflowInteraction`: `ask-user` supports
 choices and optional free text, `tool-approval` provides approve/deny actions,
 and `event-wait` sends a host-defined payload. The callbacks are injected: the
-component never fetches, polls, or resumes a workflow itself.
+component never starts or resumes a workflow itself. Its optional `artifactFetch` transport
+performs authenticated attachment reads only; execution remains host-owned.
 
 `renderMarkdown` is passed through to each `ChatThread` message card. Use it
 when the host owns a sanitizer or a richer Markdown renderer; the chat surface
@@ -440,6 +464,64 @@ view against 509 requests and 5.60 MB with the ledger fold; first render 17 ms a
 
 ### Messages from the replay view
 
+`WorkflowChat` also offers an optional `avatarConversation` presentation. Omit it to keep
+the existing transcript. Pass `{sessionKey, avatar, ...conversationSnapshot(snapshot)}`;
+the host supplies the avatar React node and keeps its existing draft, attachments,
+steer/queue, cancellation and interaction callbacks. `AvatarConversation` is also available
+standalone with `messages` and an `interaction` slot. Only explicit typed `public_update`,
+answer/final/question messages, explicit host question outcomes and user input enter its public history. It never displays
+tool rows, reasoning, untyped assistant text or unvalidated live deltas. Both replay and
+ledger folding preserve public update identity, run, iteration and `sourceCallIds`.
+
+Subtitles show a three-line viewport with pages; hover, focus, draft editing, pause,
+history and reply selection freeze updates. History retains full text and source IDs.
+“Return to latest” resumes following. `onReplyContext` gives the selected public message;
+`conversationReply` quotes a selected public update and rejects cross-run guidance context.
+The host still submits replies through its normal execution path. For composed runs, pass
+only the current authoritative run tree as `conversationReply`’s optional fourth argument;
+this permits replying to the actual actor child while refusing historical or unrelated runs.
+
+`useAvatarConversationPreferences(ownerScope)` persists chat/avatar mode and independent
+visual/audio preferences for permissions, questions and completion; use an account-scoped
+key. Default mode is chat and audio is off. `onCue` receives fresh foreground attention
+revisions only. Optional `playConversationCue` plays a local earcon and rejects unsupported
+or blocked playback. The host should report those errors. Optional `narrate`/`onNarrate`
+request speech for newly observed public updates through the host's voice stack. Initial
+history, reconnects, reading, recording and session switches never replay queued speech.
+`onInterruptSpeech` runs before reply/voice/history actions and session cleanup.
+Use `playbackControl` for pause/resume/silence actions, separately from `voiceControl`
+which interrupts old speech before capture. `onAttendedChange` lets hosts suppress their
+existing final-answer narration while the person reads or replies. Fresh question and
+approval cues remain eligible while reading; ordinary narration stays silent.
+Explicit host-authenticated `user_guidance` receipts preserve accepted human corrections
+in public history. An accepted receipt does not mean the assistant adopted the correction. The
+component neither records audio nor starts TTS or a network request itself. Listening is
+labeled as unsubmitted input; permission decisions remain the existing explicit controls.
+
+A pending question or approval keeps its actual controls ahead of subtitles and history,
+with a smaller avatar while the request is open. Standalone `AvatarConversation` hosts
+should pass `interactionId` for that actual request, or `""` when it is absent or deferred.
+Omitting the prop treats a supplied interaction as active. `WorkflowChat`
+forwards the current interaction identity. Long request content scrolls inside the
+request; the decision buttons stay reachable.
+
+In Avatar mode, permissions use ordinary action and destination language with labeled
+decision icons. The assistant’s public explanation appears under “Why I’m asking” when
+it is bound to this exact request. Missing explanations are stated explicitly. This
+view does not show tool names, argument JSON or standing permission settings.
+Provide `avatarConversation.onTechnicalView` to open your existing detailed view from
+“Review details”. Unknown actions require detailed review before they can be allowed.
+Standalone hosts use `WorkflowInteractionPanel variant="conversation"` with
+`publicApprovalRequest(calls, wait.details.public_action, runId)` as the interaction’s
+`publicRequest`; `onReviewTechnical` opens their detailed view. The ordinary panel
+retains its full technical presentation and permission choices.
+
+Optional browser checks are `scripts/check_avatar_requests_browser.mjs` for request
+visibility on desktop/phone and `scripts/check_compact_composer_browser.mjs` for input
+growth, keyboard gates, draft recovery and action slots. They accept an installed
+Playwright module through `PANEL_CHAT_PLAYWRIGHT_MODULE` and an optional browser through
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE`.
+
 `ChatMessage` carries a `replay_view_v1.messages[]` item (`projectReplayView` applies this
 mapping; a `final` that `repeats` an answer is shown once, the open question's own message is
 left to its card):
@@ -570,3 +652,49 @@ See [Responsive layout](../docs/responsive.md). `scripts/check_responsive.mjs` p
 - API reference: [`docs/api.md`](../docs/api.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)
 - Troubleshooting: [`docs/troubleshooting.md`](../docs/troubleshooting.md)
+
+### Docs assistant speech
+
+`DocsAssistantDrawer` and `docsAssistantPanel` show a speaker on assistant replies
+when the Gateway has a configured speech route. Playback uses that reply’s run
+and the host’s authenticated `fetchGateway` for synthesis and its audio artifact.
+Click the speaker to play, pause or resume. Opening history does not autoplay.
+Pass `voicePreferences` to use the app’s speech override, output device and volume;
+omit it to follow Gateway defaults. A kept-alive rail panel should pass
+`visible: false` while hidden to stop playback.
+
+### Message files, clickable links and structured tool results
+
+`WorkflowChat` uses the shared `ChatMessageCard`, `ToolActivity` and `ToolActivityGroup`.
+Pass `artifactFetch` (the host's authenticated app-origin fetch), `attachmentScope` (a non-secret
+account plus conversation identity), and `attachmentRun={{runId, output}}` for the active run.
+The chat displays user and assistant artifact references on the originating message, restoring
+submitted user files from `input_data` on older replay views. Explicit file-only outputs get an
+assistant card; historical file-only replies omitted by old views are restored from authorized
+run snapshots. Settled historical lookups are cached per scope; failed reads expose Retry.
+Only attachment/output fields are inspected, excluding scratchpad and internal state artifacts.
+
+Metadata and input reads are bounded to four concurrent requests; file bytes load only on
+activation. Switching account/conversation cancels pending previews and downloads. Real files
+open in the shared `AfModal` / `FileViewer`, including images, audio, video, PDF, JSON and text.
+Text previews stop at 1 MiB; media/PDF previews stop at 25 MiB even without a size header.
+Larger or unsupported files retain an explicit Download action. HTML/SVG/XML render as inert
+source. Closing the modal aborts reads and revokes its object URLs; Escape returns focus.
+Metadata failures keep the named file disabled with Retry until classification succeeds.
+No credentials are put in a rendered file URL.
+
+Opaque `artifactIds` remain replay evidence, never automatic attachment chips. The shared
+projection uses explicit file/media provenance and the owning run, rejecting scratchpad,
+provider traces, session/history/transcript branches and unlisted refs. Input/output recovery
+reads only declared attachment fields; requested JSON files remain eligible. Metadata tagged
+as internal offloads is suppressed. Files carried by a repeated final are merged into the
+visible answer. The conversation compatibility snapshot exports `useWorkflowSession` too, so
+both browser clients use this projection rather than an older installed controller.
+
+Bare HTTP(S) and `www` links are clickable in Markdown, JSON strings and tool parameter/result
+text. Whole URLs remain intact during highlighting; links open a separate tab with
+`noopener noreferrer`. Tool results that contain a JSON object/array serialized as a string use
+the same structured JSON viewer as object-valued results, including search tools.
+
+Run `node scripts/check_message_files_links.mjs` after building. Browser checks:
+`CHAT_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check_message_files_browser.mjs`.

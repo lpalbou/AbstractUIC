@@ -1,7 +1,7 @@
 /*
  * AfTooltip — the kit's themed tooltip for React apps. Behaviour lives in
  * af_tooltip_core (shared with plain-HTML hosts through
- * `AfConsoleIslands.bindTooltips`): 150 ms delay on hover, shown on keyboard
+ * `AfConsoleIslands.bindTooltips`): 200 ms delay on hover, shown on keyboard
  * focus, hoverable, Escape / press / scroll hide it, placed above the anchor
  * (flipped below) and kept inside the viewport.
  *
@@ -15,7 +15,7 @@
  * useAfTooltips() once in the tree.
  */
 import React, { useEffect } from "react";
-import { acquireAfTooltips, AF_TOOLTIP_ATTR } from "./af_tooltip_core.js";
+import { acquireAfTooltips, afTooltipAttributes, afTooltipText, type AfTooltipContent } from "./af_tooltip_core.js";
 
 /** Bind the document-wide tooltip while the calling component is mounted. */
 export function useAfTooltips(): void {
@@ -27,16 +27,16 @@ export function useAfTooltips(): void {
 
 export type AfTooltipProps = {
   /** The sentence shown (plain text). Empty = no tooltip. */
-  content: string;
+  content: string | AfTooltipContent;
   children: React.ReactElement;
 };
 
 export function AfTooltip(props: AfTooltipProps): React.ReactElement {
   useAfTooltips();
   const child = React.Children.only(props.children);
-  const text = String(props.content || "").trim();
+  const text = afTooltipText(props.content);
   if (!text) return child;
-  return React.cloneElement(child, { [AF_TOOLTIP_ATTR]: text } as Record<string, unknown>);
+  return React.cloneElement(child, afTooltipAttributes(props.content) as Record<string, unknown>);
 }
 
 export default AfTooltip;

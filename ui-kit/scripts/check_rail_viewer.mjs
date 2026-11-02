@@ -285,6 +285,18 @@ const eq = (name, got, want) => check(name, got === want, `got ${JSON.stringify(
   check("resize: a drag in progress is not persisted", !(JSON.parse(store.k).widths || {}).settings && resized.length === 0, store.k);
   sideEl.props.setWidth(plist[1], 640, true);
   check("resize: the final width is persisted for THAT panel and reported", JSON.parse(store.k).widths.settings === 640 && JSON.parse(store.k).widths.files === 480 && JSON.stringify(resized) === JSON.stringify([["settings", 640]]), `${store.k} ${JSON.stringify(resized)}`);
+  // Selecting another panel, then rendering during a drag, must retain the
+  // newer active selection as well as the width when the host reloads.
+  host.rerender({ active: "settings" });
+  host.render();
+  const resizingSide = find(host.current, (n) => typeof n.type === "function" && n.type.name === "DrawerSide");
+  resizingSide.props.setWidth(plist[1], 670, false);
+  host.render();
+  resizingSide.props.setWidth(plist[1], 700, true);
+  check("resize retains the current panel after an intermediate render", JSON.parse(store.k).active.right === "settings", store.k);
+  calls.length = 0;
+  mountHook(AfDrawerSystem, { panels: plist, active: null, onActiveChange: (id, s) => calls.push([id, s]), ariaLabel: "P", overlay: false, storageKey: "k" });
+  check("reload after resizing restores the chosen panel", calls[0]?.[0] === "settings" && JSON.parse(store.k).widths.settings === 700, store.k);
   // F1 (review): a width stored by AfRailDrawer <= 0.8.9 survives the first write.
   eq("legacy round trip (pure)", railDrawerPanelWidth(railDrawerReadStored(railDrawerWriteStored({ ...railDrawerReadStored("700"), active: { right: "files" } })), { id: "settings" }), 700);
   store.legacy = "700";

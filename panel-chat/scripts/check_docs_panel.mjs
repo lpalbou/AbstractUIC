@@ -41,7 +41,7 @@ const fetchGateway = async (path) => (fetched.push(path), { ok: true, status: 20
 // The panel item.
 const panel = docsAssistantPanel(source, fetchGateway, { connected: true, suggestions: ["How do I run a flow?"] });
 check("panel: opaque item shape", panel.id === "docs" && panel.label === "Docs assistant" && panel.icon === "book", JSON.stringify({ ...panel, content: undefined }));
-check("panel: drawer mode (no rail tab), right side, kept alive", panel.mode === "drawer" && panel.side === "right" && panel.keepAlive === "always" && panel.defaultWidth === 420);
+check("panel: drawer mode fills available height, right side, kept alive", panel.mode === "drawer" && panel.side === "right" && panel.keepAlive === "always" && panel.defaultWidth === 420 && panel.fill === true);
 check("panel: content is the docs conversation", panel.content.type === DocsAssistantPanelContent && panel.content.props.source === source && panel.content.props.fetchGateway === fetchGateway && panel.content.props.connected === true);
 const custom = docsAssistantPanel(source, fetchGateway, { connected: false, id: "help", mode: "rail", side: "left", label: "Help" });
 check("panel: id / mode / side / label overridable", custom.id === "help" && custom.mode === "rail" && custom.side === "left" && custom.label === "Help" && !("id" in custom.content.props) && !("mode" in custom.content.props));
@@ -49,13 +49,13 @@ check("panel: id / mode / side / label overridable", custom.id === "help" && cus
 // Outside a system: header actions in place.
 const alone = renderToStaticMarkup(h(DocsAssistantPanelContent, { source, fetchGateway, connected: true }));
 check("content alone: header actions render in place", alone.includes('aria-label="Past conversations"') && alone.includes('aria-label="New conversation"'), alone);
-check("content alone: the grounding footer", alone.includes("Grounded on AbstractFlow"), alone);
+check("content alone: the grounding footer", alone.includes("Powered by AbstractFlow’s documentation."), alone);
 const blocked = renderToStaticMarkup(h(DocsAssistantPanelContent, { source, fetchGateway, connected: false }));
 check("content: signed out = the labeled blocked notice", blocked.includes("Connect to the gateway to use the docs assistant."), blocked);
 
 // Inside the drawer system: the header actions leave the body (they portal into the panel header once mounted).
 const inSystem = renderToStaticMarkup(h(kit.AfDrawerSystem, { panels: [panel], active: "docs", onActiveChange: () => {}, ariaLabel: "Panels", overlay: false }));
-check("system: the panel renders without a rail tab", inSystem.includes('aria-label="Docs assistant"') && !inSystem.includes('role="tablist"') && inSystem.includes("Grounded on AbstractFlow"), inSystem);
+check("system: the panel renders without a rail tab", inSystem.includes('aria-label="Docs assistant"') && !inSystem.includes('role="tablist"') && inSystem.includes("Powered by AbstractFlow’s documentation."), inSystem);
 check("system: header actions are not duplicated in the body", !inSystem.includes('aria-label="Past conversations"'), inSystem);
 check("system: the panel header has the actions slot", inSystem.includes('class="af-rail__head-slot"'), inSystem);
 

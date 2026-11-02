@@ -226,7 +226,7 @@ const picker = (extra) => ({
   check("compact: the default is the first option", sel?.props.allowGatewayDefault === true && sel?.props.gatewayDefaultLabel === "Gateway default · ollama / qwen3 · reasoning high · MTP depth 3", JSON.stringify({ a: sel?.props.allowGatewayDefault, l: sel?.props.gatewayDefaultLabel }));
   check("compact: providers listed without a Custom click", calls.includes("providers"), JSON.stringify(calls));
   const html = renderToStaticMarkup(h(ProviderModelSelect, { ...sel.props }));
-  check("compact: rendered first option names the default", html.includes("Gateway default · ollama / qwen3"));
+  check("compact: rendered first option names the default", html.includes("Gateway default · ollama") && html.includes("Gateway default · qwen3") && !html.includes("Gateway default · ollama / qwen3"));
   const seg = mount(ProviderModelPicker, picker({}));
   check("segmented stays the default layout", Boolean(first(seg.tree, (n) => n.props.role === "tablist")));
 }

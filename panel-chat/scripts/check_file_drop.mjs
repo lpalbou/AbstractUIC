@@ -108,7 +108,7 @@ assert.equal(dropZoneLabel(null), "Drop files to attach");
   const withFiles = renderToStaticMarkup(
     React.createElement(WorkflowChat, { ...base, onFiles() {}, attachments: React.createElement("span", { className: "host-chip" }, "a.txt") }),
   );
-  assert.match(withFiles, /<div class="pc-composer"><div class="pc-workflow-chat__attachments"><span class="host-chip">a\.txt<\/span><\/div><textarea/, "chips sit inside the composer, above the field");
+  assert.match(withFiles, /<div class="pc-composer pc-composer--compact"><div class="pc-workflow-chat__attachments"><span class="host-chip">a\.txt<\/span><\/div><textarea/, "chips sit inside the composer, above the field");
   assert.match(withFiles, /class="pc-sr-only" role="status" aria-live="polite"/);
   assert.doesNotMatch(withFiles, /pc-workflow-chat__dropzone/, "no drop zone before a drag");
   const without = renderToStaticMarkup(React.createElement(WorkflowChat, base));

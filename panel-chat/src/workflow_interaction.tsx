@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 
 import { Icon } from "@abstractframework/ui-kit";
 import { submitWorkflowInteraction, type WorkflowInteractionSubmission } from "./workflow_interaction_core.js";
+import type { PublicApprovalRequest } from "./public_approval.js";
 
 /**
  * The ONE wording set for questions and approvals (ADR 0001 §5, backlog 0032).
@@ -91,6 +92,8 @@ export type WorkflowAskUserInteraction = WorkflowInteractionBase & {
 export type WorkflowToolApprovalInteraction = WorkflowInteractionBase & {
   kind: "tool-approval";
   toolName: string;
+  /** Ordinary action/targets and an explicitly batch-bound public explanation. */
+  publicRequest?: PublicApprovalRequest;
   /** Human-readable detail, such as a redacted argument summary. */
   detail?: React.ReactNode;
   /** Default "Allow once". */
@@ -166,8 +169,12 @@ export type WorkflowInteractionPanelProps = {
    * `"panel"` (default): the full panel under a chat transcript.
    * `"card"`: a compact card for served-state lists (a "Needs you" board, an
    * inbox): same decisions and callbacks, detail folded behind "Review".
+   * `"conversation"`: public action/targets/purpose with labeled decision icons;
+   * technical arguments and standing policy choices stay in the host's detailed view.
    */
-  variant?: "panel" | "card";
+  variant?: "panel" | "card" | "conversation";
+  /** Switch the host to its existing technical view; this never submits a decision. */
+  onReviewTechnical?: () => void;
 };
 
 function errorMessage(error: unknown): string {
@@ -192,6 +199,7 @@ const L = WORKFLOW_INTERACTION_LABELS;
 export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): React.ReactElement {
   const interaction = props.interaction;
   const card = props.variant === "card";
+  const conversation = props.variant === "conversation";
   const [freeText, setFreeText] = useState("");
   const [payload, setPayload] = useState(() => (interaction.kind === "event-wait" ? interaction.initialPayload || "" : ""));
   const [pending, setPending] = useState<WorkflowInteractionSubmission | null>(null);
@@ -233,7 +241,7 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
       // A callback may report what its decision did not cover (a session
       // policy's `clamped` names): shown, never dropped.
       const note = result && typeof result === "object" && typeof (result as { outcomeNote?: unknown }).outcomeNote === "string" ? String((result as { outcomeNote: string }).outcomeNote) : "";
-      setOutcome(`Response sent. Waiting for the workflow to continue.${note ? ` ${note}` : ""}`);
+      setOutcome(conversation ? `Your choice was sent. I’m waiting for work to continue.${note ? " Some actions may still be blocked by your saved permissions; review the details if needed." : ""}` : `Response sent. Waiting for the workflow to continue.${note ? ` ${note}` : ""}`);
     } catch (error) {
       if (!mountedRef.current || activeKeyRef.current !== requestKey || sequenceRef.current !== sequence) return;
       setFailure({ submission, message: errorMessage(error) });
@@ -287,7 +295,7 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
     void run(failure.submission, () => submitWorkflowInteraction(interaction, failure.submission));
   };
 
-  const title = interaction.title || (interaction.kind === "tool-approval" ? "Tool approval required" : "Input required");
+  const title = conversation && interaction.kind === "tool-approval" ? interaction.publicRequest?.question || "May I take this next step?" : interaction.title || (interaction.kind === "tool-approval" ? "Tool approval required" : "Input required");
   const deferButton = (onDefer: (() => void | Promise<unknown>) | undefined, label: string) =>
     onDefer ? (
       <button type="button" className="pc-workflow-interaction__defer" data-decision="defer" disabled={disabled} onClick={() => void defer(onDefer)}>
@@ -350,6 +358,32 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
         ) : null}
       </div>
     );
+  } else if (interaction.kind === "tool-approval" && conversation) {
+    const request = interaction.publicRequest;
+    const needsReview = !request || request.reviewRequired;
+    body = <div className="pc-workflow-interaction__body pc-public-approval">
+      <div className="pc-public-approval__context" key={interactionKey}>
+      <div className="pc-public-approval__reason">
+        <p className="pc-public-approval__reason-label">Why I’m asking</p>
+        <p>{request?.explanation?.text || "The reason for this request isn’t available here."}</p>
+      </div>
+      {request?.actions.length ? <ul className="pc-public-approval__targets" aria-label="What this will do" data-uniform={request.actions.every((a) => a.kind === request.actions[0].kind) && !["write", "edit", "unknown"].includes(request.actions[0].kind) || undefined}>
+        {request.actions.map((action, index) => <li key={index}>
+          <Icon name={action.kind === "page" || action.kind === "search" ? "book" : action.kind === "write" || action.kind === "edit" ? "edit" : action.kind === "folder" ? "folder" : action.kind === "unknown" ? "info" : "file"} size={20} />
+          <span><span className="pc-public-approval__action">{action.label}</span>{action.target ? <span className="pc-public-approval__target">{action.target}</span> : null}</span>
+        </li>)}
+      </ul> : null}
+      {needsReview ? <p className="pc-public-approval__note">I can’t describe this request clearly here. Review the details before allowing it.</p> : <p className="pc-public-approval__note">Allow once covers only what is shown here. I’ll ask again for later requests.</p>}
+      </div>
+      <div className="pc-workflow-interaction__buttons pc-public-approval__buttons">
+        {deferButton(interaction.onDefer, interaction.deferLabel || L.decideLater)}
+        <button type="button" className="pc-workflow-interaction__deny" data-decision="deny" disabled={disabled} onClick={() => void run({ kind: "deny" }, interaction.onDeny)}><Icon name="x" size={18} />{pending?.kind === "deny" ? "Declining…" : interaction.denyLabel || L.deny}</button>
+        {!needsReview ? <button type="button" className="pc-btn" data-decision="approve" disabled={disabled} onClick={() => void run({ kind: "approve" }, interaction.onApprove)}><Icon name="check" size={18} />{pending?.kind === "approve" ? "Allowing…" : interaction.approveLabel || L.allowOnce}</button> : null}
+        {props.onReviewTechnical ? <button type="button" className="pc-public-approval__review" disabled={disabled} onClick={props.onReviewTechnical}><Icon name="list" size={18} />Review details</button> : null}
+      </div>
+      {needsReview && !props.onReviewTechnical ? <p className="pc-public-approval__note">Switch to the conversation’s detailed view to review this request.</p> : null}
+      {interaction.deniedNote ? <p className="pc-public-approval__note" role="note">Some of these actions are blocked by your saved permissions. Allow once cannot override that choice. Review details to see what is blocked.</p> : null}
+    </div>;
   } else if (interaction.kind === "tool-approval") {
     const reason = String(interaction.disabledReason || "").trim();
     const broadDisabled = disabled || Boolean(reason);
@@ -507,19 +541,19 @@ export function WorkflowInteractionPanel(props: WorkflowInteractionPanelProps): 
 
   return (
     <section
-      className={["pc-workflow-interaction", card ? "pc-workflow-interaction--card" : ""].filter(Boolean).join(" ")}
-      data-variant={card ? "card" : "panel"}
+      className={["pc-workflow-interaction", card ? "pc-workflow-interaction--card" : "", conversation ? "pc-workflow-interaction--conversation" : ""].filter(Boolean).join(" ")}
+      data-variant={props.variant || "panel"}
       aria-labelledby={`pc-workflow-interaction-${interactionKey}`}
     >
       <div className="pc-workflow-interaction__heading">
-        <Icon name={interaction.kind === "tool-approval" ? "warning" : interaction.kind === "event-wait" ? "history" : "info"} size={card ? 14 : 16} />
+        <Icon name={interaction.kind === "tool-approval" ? conversation ? "lock" : "warning" : interaction.kind === "event-wait" ? "history" : "info"} size={card ? 14 : 16} />
         <div>
-          <h3 tabIndex={-1} id={`pc-workflow-interaction-${interactionKey}`}>{title}</h3>
-          {interaction.description ? <div className="pc-workflow-interaction__description">{interaction.description}</div> : null}
+          <h3 className={conversation && interaction.kind === "tool-approval" ? "pc-workflow-interaction__prompt" : undefined} tabIndex={-1} id={`pc-workflow-interaction-${interactionKey}`}>{title}</h3>
+          {interaction.description && !(conversation && interaction.kind === "tool-approval") ? <div className="pc-workflow-interaction__description">{interaction.description}</div> : null}
         </div>
       </div>
       {body}
-      {failure ? <ActionError message={failure.message} onRetry={retry} disabled={disabled} /> : null}
+      {failure ? <ActionError message={conversation ? "Your choice could not be sent." : failure.message} onRetry={retry} disabled={disabled} /> : null}
       <div className="pc-workflow-interaction__outcome" aria-live="polite">{outcome}</div>
     </section>
   );

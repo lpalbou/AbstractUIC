@@ -302,10 +302,20 @@ switch, the timing line (`automationTiming()`), Run now, Stop, Edit and Archive.
 
 ### Attention and `/seen`
 
-After showing the attention items, the panel calls `onSeen(cursor)` with the cursor of the **last
-displayed** item, never `summary.attention.cursor`, so items it did not show stay unseen. A
-cursor counts as acknowledged only after `onSeen` resolves. A failed call is retried on the next
-render that brings a new `summary` object (your next poll), never in a loop.
+Loading or mounting the panel never acknowledges attention. A shared content marker waits
+250 ms at the end of a notice or its loaded answer, in the focused, visible document and without
+an obscuring surface. The panel calls `onSeen(cursor)` only for the consecutive oldest-first
+prefix of attention items consumed this way. Scrolling to a later result cannot clear earlier
+unseen notices. It never sends `summary.attention.cursor` merely because that summary loaded.
+
+A cursor counts as acknowledged only after `onSeen` resolves. A failed call is retried on the
+next render carrying a fresh `summary` object (the next poll), never in a local retry loop.
+Changing automations resets consumption and cancels pending visibility timers. Human waits
+remain live until answered; a seen receipt does not authorize or resolve them.
+
+Conversation and automation markers use the same visibility implementation. Published-package
+consumers receive the fix with the UI kit; compatibility snapshots also include the canonical
+`automation_panel.js` implementation for clients whose installed peer predates this behavior.
 
 ### Answering a wait
 

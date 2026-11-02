@@ -1,23 +1,31 @@
 // CloudProviderCards — ONE card per cloud provider AbstractCore supports natively, then (when its
 // registry has `openai-compatible`) a card per preset OpenAI-compatible service (OVH AI Endpoints)
-// and the generic "Other OpenAI-compatible endpoint" card. The gateway's setup guide and its
+// and, LAST, the "OpenAI-compatible endpoint" and "System One-compatible endpoint" cards. The gateway's setup guide and its
 // Providers tab mount the same component (islands `mountCloudProviderCards`). Logic in
 // cloud_providers_core.ts; marks in brand_icons.tsx. The host passes its JSON `request` (cookie
 // session + CSRF); the component loads the cards and connections itself and re-loads them after a
-// connect (`onSaved` tells the host, which refreshes its own tables).
+// save or a disconnect (`onSaved` tells the host, which refreshes its own tables).
 //
-// ONE action per card (operator 2026-10-29): Connect (Reconnect when the card already has a
-// connection) checks the key and, only when it works, saves it as a NEW connection: the line reads
-// "Connected · 48 models", or the reason, with nothing stored. The key is never rendered and is
-// forgotten once connected.
+// Simpler cards (operator 2026-11-01): a card shows its mark, its name, ONE status line ("Not
+// connected", or a clear green "Connected · 48 models"; the key's fingerprint only in the Edit
+// modal) and ONE button: Connect when
+// nothing is stored, Edit when a connection exists. Both open the kit's AfModal with the fields of
+// that provider (Name first on the generic card, Base URL on the OpenAI-compatible cards, the API
+// key always, masked) and Test connection / Save / Cancel; Edit adds Disconnect. Save never stores
+// an untested key: it tests first when the current fields were not tested OK. The key field is
+// UNCONTROLLED: the key lives in a ref (read at Test/Save, cleared on close), never in state and
+// never in a DOM attribute. While a save or a disconnect is in flight the modal cannot be closed.
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { AfModal } from "./af_modal.js";
 import { BrandMark } from "./brand_icons.js";
 import {
   CLOUD_PROVIDER_TEXT as T,
   cardConnections,
+  cardEditTarget,
   cardStatus,
   cloudProvidersClient,
+  type CheckedKey,
   type CloudCard,
   type CloudConnection,
   type CloudRequest,
@@ -39,16 +47,31 @@ export type CloudProviderCardsProps = {
   disabled?: boolean;
 };
 
-type CardState = {
-  key: string;
+/** The open modal: which card, which connection ("" = a new one), the fields and the last test. */
+type Draft = {
+  cardId: string;
+  connId: string;
   name: string;
   baseUrl: string;
-  busy: boolean;
+  /** Bumped when the key field changes (the key itself is in keyRef, never in state). */
+  keyRev: number;
+  busy: "" | "test" | "save" | "remove";
   line: string;
   tone: "" | "ok" | "error";
+  /** The fields the last successful test covered (key, URL, connection) and what it found. */
+  tested: { sig: string; checked: CheckedKey } | null;
+  confirmRemove: boolean;
 };
 
-const EMPTY: CardState = { key: "", name: "", baseUrl: "", busy: false, line: "", tone: "" };
+const NEW = "";
+/** Background model-count discoveries at once (operator 2026-11-02: every connected card shows its count). */
+export const CLOUD_DISCOVERY_CONCURRENCY = 3;
+const without = <T,>(all: Readonly<Record<string, T>>, id: string): Record<string, T> => {
+  const next = { ...all };
+  delete next[id];
+  return next;
+};
+const sigOf = (d: Pick<Draft, "baseUrl" | "connId">, key: string) => JSON.stringify([key.trim(), d.baseUrl.trim(), d.connId]);
 
 export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactElement {
   const { request, base, scope = "gateway", onSaved, refreshKey = 0, heading = true, disabled = false } = props;
@@ -57,13 +80,29 @@ export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactE
   const [cards, setCards] = useState<CloudCard[] | null>(null);
   const [connections, setConnections] = useState<CloudConnection[]>([]);
   const [loadError, setLoadError] = useState("");
-  const [states, setStates] = useState<Record<string, CardState>>({});
-  const st = (id: string): CardState => states[id] || EMPTY;
-  const patch = (id: string, next: Partial<CardState>) => setStates((all) => ({ ...all, [id]: { ...(all[id] || EMPTY), ...next } }));
+  // Models a test found this session, per connection id (the gateway lists no count for a saved one).
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [draft, setDraft] = useState<Draft | null>(null);
+  // Each open modal has a token: an answer that arrives after it closed (or another opened) is dropped.
+  const token = useRef(0);
+  // The typed key: a ref, read at Test/Save and cleared on close (never state, never an attribute).
+  const keyRef = useRef("");
+  // A save or a disconnect in flight: Cancel, ×, Escape and the backdrop do not close the modal.
+  const inflight = useRef(false);
+  // Model counts of connected cards, discovered in the background with the STORED connection (never a
+  // typed key), at most CLOUD_DISCOVERY_CONCURRENCY at once, once per connection per page session.
+  const [pending, setPending] = useState<Record<string, boolean>>({});
+  const known = useRef(new Set<string>()); // queued, running, found or failed: never asked twice
+  const queue = useRef<Array<{ card: CloudCard; conn: CloudConnection }>>([]);
+  const active = useRef(0);
+  const gen = useRef<Record<string, number>>({}); // bumped on Save/Disconnect: a late answer is dropped
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
   const loadConnections = useCallback(async () => {
     try {
       setConnections(await client.current.listConnections());
+      setLoadError((e) => (e.startsWith("The connections could not be loaded") ? "" : e));
     } catch (err) {
       setLoadError(`The connections could not be loaded: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -79,18 +118,170 @@ export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactE
   }, []);
   useEffect(() => { void loadConnections(); }, [loadConnections, refreshKey]);
 
-  const connect = async (card: CloudCard) => {
-    const s = st(card.id);
-    patch(card.id, { busy: true, line: T.connecting, tone: "" });
-    const res = await client.current.connect(card, { apiKey: s.key, baseUrl: s.baseUrl, name: s.name }, scope);
-    if (!res.ok) return patch(card.id, { busy: false, line: res.sentence, tone: "error" });
-    // Connected: the key is forgotten (the field emptied), the line says so.
-    patch(card.id, { key: "", name: "", baseUrl: "", busy: false, line: res.sentence, tone: "ok" });
-    await loadConnections();
-    if (res.saved) onSaved?.(res.saved);
+  const pump = () => {
+    while (active.current < CLOUD_DISCOVERY_CONCURRENCY && queue.current.length) {
+      const { card: c, conn: k } = queue.current.shift()!;
+      const g = gen.current[k.id] || 0;
+      active.current += 1;
+      // The existing discovery of the stored connection (discover-models, profile_id): nothing stored.
+      void client.current.checkConnection(c, { apiKey: "", connection: k })
+        .then((checked) => (checked.result.ok ? checked.result.modelCount : 0), () => 0)
+        .then((n) => {
+          active.current -= 1;
+          if (mounted.current && g === (gen.current[k.id] || 0)) {
+            // A failure leaves "Connected" alone; the reason is the modal's Test.
+            if (n > 0) setCounts((all) => ({ ...all, [k.id]: n }));
+            setPending((all) => without(all, k.id));
+          }
+          pump();
+        });
+    }
+  };
+  useEffect(() => {
+    if (!cards) return;
+    const next: Record<string, boolean> = {};
+    for (const c of cards) {
+      const mine = cardConnections(c, connections);
+      if (mine.length !== 1) continue; // several connections: the card says how many, no count
+      const k = mine[0];
+      if (k.modelCount > 0 || known.current.has(k.id)) continue; // the gateway's count, or asked already
+      known.current.add(k.id);
+      queue.current.push({ card: c, conn: k });
+      next[k.id] = true;
+    }
+    if (!Object.keys(next).length) return;
+    setPending((all) => ({ ...all, ...next }));
+    pump();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cards, connections]);
+  /** Save/Disconnect: forget this connection's count (a known one is set again by the caller). */
+  const invalidate = (id: string, count?: number) => {
+    gen.current[id] = (gen.current[id] || 0) + 1;
+    setPending((all) => without(all, id));
+    if (count && count > 0) {
+      known.current.add(id);
+      setCounts((all) => ({ ...all, [id]: count }));
+    } else {
+      known.current.delete(id);
+      setCounts((all) => without(all, id));
+    }
   };
 
   const list = cards || [];
+  const card = draft ? list.find((c) => c.id === draft.cardId) || null : null;
+  const mine = card ? cardConnections(card, connections) : [];
+  const conn = draft && draft.connId ? mine.find((c) => c.id === draft.connId) || null : null;
+
+  const fieldsFor = (c: CloudCard, target: CloudConnection | null) => ({
+    connId: target ? target.id : NEW,
+    name: c.kind === "generic" && target ? target.name : "",
+    baseUrl: c.baseUrlField === "preset" ? c.baseUrl : c.baseUrlField === "required" && target ? target.baseUrl : "",
+  });
+
+  const open = (c: CloudCard) => {
+    token.current += 1;
+    keyRef.current = "";
+    setDraft({ cardId: c.id, ...fieldsFor(c, cardEditTarget(c, connections)), keyRev: 0, busy: "", line: "", tone: "", tested: null, confirmRemove: false });
+  };
+  const close = () => {
+    if (inflight.current) return;
+    token.current += 1;
+    keyRef.current = "";
+    setDraft(null);
+  };
+  const patch = (next: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...next } : d));
+  // A field changed: the last test no longer covers it, and its sentence goes.
+  const edit = (next: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...next, line: "", tone: "", confirmRemove: false } : d));
+  const pickConnection = (id: string) => {
+    if (!card) return;
+    keyRef.current = "";
+    edit({ ...fieldsFor(card, mine.find((c) => c.id === id) || null), keyRev: (draft ? draft.keyRev : 0) + 1, tested: null });
+  };
+
+  const runTest = async (d: Draft, c: CloudCard, target: CloudConnection | null): Promise<CheckedKey | null> => {
+    const t = token.current;
+    patch({ busy: "test", line: T.testing, tone: "" });
+    const key = keyRef.current;
+    const checked = await client.current.checkConnection(c, { apiKey: key, baseUrl: d.baseUrl, connection: target });
+    if (t !== token.current) return null;
+    if (!checked.result.ok) {
+      patch({ busy: "", line: checked.result.sentence, tone: "error", tested: null });
+      return null;
+    }
+    // Only a test of the STORED key describes the card; a typed, unsaved key does not.
+    if (target && checked.connectionId === target.id && !checked.apiKey) invalidate(target.id, checked.result.modelCount);
+    patch({ busy: "", line: checked.result.sentence, tone: "ok", tested: { sig: sigOf(d, key), checked } });
+    return checked;
+  };
+
+  const test = () => { if (draft && card && !draft.busy) void runTest(draft, card, conn); };
+
+  const save = async () => {
+    if (!draft || !card || draft.busy) return;
+    const d = draft;
+    const t = token.current;
+    const key = keyRef.current;
+    // A connection from AbstractCore's config is not updated here: only a typed key adds a gateway one.
+    if (conn && conn.configured && !key.trim()) return patch({ line: T.pasteFirst, tone: "error" });
+    if (conn && card.kind === "generic" && !d.name.trim()) return patch({ line: T.nameRequired, tone: "error" });
+    const nameOnly = !!conn && !conn.configured && !key.trim() && d.baseUrl.trim() === (card.baseUrlField === "required" ? conn.baseUrl : d.baseUrl.trim());
+    // Today's rule: nothing is stored untested. A name change alone stores no key and needs no test.
+    let checked: CheckedKey | null = null;
+    if (!nameOnly) {
+      checked = d.tested && d.tested.sig === sigOf(d, key) ? d.tested.checked : await runTest(d, card, conn);
+      if (!checked || t !== token.current) return;
+    }
+    patch({ busy: "save", line: T.saving, tone: "" });
+    inflight.current = true;
+    try {
+      const saved = conn && !conn.configured
+        ? await client.current.updateConnection(card, conn, checked, { name: card.kind === "generic" ? d.name : undefined })
+        : await client.current.saveCheckedKey(card, checked, scope, d.name);
+      inflight.current = false;
+      // A stale answer (another modal since): the store changed anyway, so the cards catch up.
+      if (t !== token.current) return void loadConnections();
+      // Saved: the tested key IS now the stored key, so its count describes the card.
+      // A tested save knows its count; a rename alone is discovered again.
+      invalidate(saved.id, checked ? checked.result.modelCount : 0);
+      close();
+      await loadConnections();
+      onSaved?.(saved);
+    } catch (err) {
+      inflight.current = false;
+      if (t !== token.current) return void loadConnections();
+      const why = err instanceof Error ? err.message : String(err);
+      patch({ busy: "", line: why === T.nothingChanged ? why : `Not saved: ${why}`, tone: "error" });
+    }
+  };
+
+  const remove = async () => {
+    if (!draft || !card || !conn || draft.busy) return;
+    if (!draft.confirmRemove) return patch({ confirmRemove: true, line: "", tone: "" });
+    const t = token.current;
+    patch({ busy: "remove", line: T.disconnecting, tone: "" });
+    inflight.current = true;
+    try {
+      await client.current.removeConnection(conn);
+      inflight.current = false;
+      invalidate(conn.id);
+      if (t !== token.current) return void loadConnections();
+      close();
+      await loadConnections();
+      onSaved?.({ id: conn.id, provider: conn.family, name: conn.name, virtualProvider: `endpoint:${conn.id}` });
+    } catch (err) {
+      inflight.current = false;
+      if (t !== token.current) return void loadConnections();
+      patch({ busy: "", confirmRemove: false, line: `Not disconnected: ${err instanceof Error ? err.message : String(err)}`, tone: "error" });
+    }
+  };
+
+  const onEnter = (e: React.KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); void save(); } };
+  const editing = !!conn;
+  const busy = !!draft?.busy;
+  const fid = (f: string) => `af-cloud-${f}-${draft ? draft.cardId : ""}`;
+  // Connection choice: several connections, or the generic card (which can always add an endpoint).
+  const choices = card && (mine.length > 1 || (card.kind === "generic" && mine.length > 0));
+
   return (
     // A div, not a <section>: hosts style bare sections as boxed panels (the console does), and the
     // cards are already boxed.
@@ -105,56 +296,116 @@ export function CloudProviderCards(props: CloudProviderCardsProps): React.ReactE
       {loadError ? <p className="af-cloud-providers__note is-error" role="alert">{loadError}</p> : null}
       {cards !== null && !list.length && !loadError ? <p className="af-cloud-providers__note">{T.none}</p> : null}
       <div className="af-cloud-providers__grid">
-        {list.map((card) => {
-          const s = st(card.id);
-          const mine = cardConnections(card, connections);
-          const status = cardStatus(card, connections);
-          const fid = (f: string) => `af-cloud-${f}-${card.id}`;
-          const lineId = fid("line");
-          const submit = () => { if (!s.busy) void connect(card); };
-          const onEnter = (e: React.KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); submit(); } };
+        {list.map((c) => {
+          const connected = cardConnections(c, connections).length > 0;
+          const status = cardStatus(c, connections, counts, pending);
           return (
-            <article key={card.id} className={`af-card af-cloud-card af-cloud-card--${card.kind}`} data-cloud-provider={card.id} data-cloud-kind={card.kind}>
+            <article key={c.id} className={`af-card af-cloud-card af-cloud-card--${c.kind}${connected ? " is-connected" : ""}`} data-cloud-provider={c.id} data-cloud-kind={c.kind}>
               <div className="af-cloud-card__head">
-                <BrandMark id={card.id} name={card.name} />
+                <BrandMark id={c.id} name={c.name} />
                 <div className="af-cloud-card__titles">
-                  <h4 className="af-cloud-card__name">{card.name}</h4>
-                  <span className={`af-cloud-card__status${mine.length ? " is-on" : ""}`} data-cloud-status>{status}</span>
+                  <h4 className="af-cloud-card__name">{c.name}</h4>
+                  {/* The badge is the card's ONLY status (announced when it changes); results of Test/Save stay in the modal. */}
+                  <span className={`af-cloud-card__badge${connected ? " is-on" : ""}`} role="status" aria-live="polite">
+                    {connected ? <span className="af-cloud-card__dot" aria-hidden="true" /> : null}
+                    <span className="af-cloud-card__status" data-cloud-status>{status}</span>
+                  </span>
                 </div>
               </div>
-              {card.kind === "generic" ? <p className="af-cloud-card__hint">{T.genericHint}</p> : null}
-              {card.kind === "preset" ? <p className="af-cloud-card__hint" data-cloud-preset-url><code>{card.baseUrl}</code></p> : null}
-              <div className="af-form af-cloud-card__form">
-                {card.kind === "generic" ? (
-                  <>
-                    <div className="af-form__field">
-                      <label className="af-form__label" htmlFor={fid("name")}>{T.nameLabel}</label>
-                      <input id={fid("name")} type="text" autoComplete="off" spellCheck={false} placeholder="Mistral" value={s.name} disabled={disabled || s.busy}
-                        onChange={(e) => patch(card.id, { name: e.target.value, line: "", tone: "" })} onKeyDown={onEnter} />
-                    </div>
-                    <div className="af-form__field">
-                      <label className="af-form__label" htmlFor={fid("url")}>{T.baseUrlLabel}</label>
-                      <input id={fid("url")} type="url" autoComplete="off" spellCheck={false} placeholder="https://api.mistral.ai/v1" value={s.baseUrl} disabled={disabled || s.busy}
-                        onChange={(e) => patch(card.id, { baseUrl: e.target.value, line: "", tone: "" })} onKeyDown={onEnter} />
-                    </div>
-                  </>
-                ) : null}
-                <div className="af-form__field">
-                  <label className="af-form__label" htmlFor={fid("key")}>{T.keyLabel}</label>
-                  <input id={fid("key")} type="password" autoComplete="off" spellCheck={false} value={s.key} disabled={disabled || s.busy} aria-describedby={lineId}
-                    onChange={(e) => patch(card.id, { key: e.target.value, line: "", tone: "" })} onKeyDown={onEnter} />
-                </div>
-              </div>
-              <p id={lineId} className={`af-cloud-card__line${s.tone ? ` is-${s.tone}` : ""}`} role="status" aria-live="polite" data-cloud-line>{s.line}</p>
               <div className="af-cloud-card__actions">
-                <button type="button" className="af-setting-btn af-cloud-card__primary" data-action="connect" disabled={disabled || s.busy} onClick={submit}>
-                  {s.busy ? T.connecting : mine.length && card.kind !== "generic" ? T.reconnect : T.connect}
+                <button type="button" className="af-setting-btn af-cloud-card__primary" data-action={connected ? "edit" : "connect"} disabled={disabled}
+                  aria-label={`${connected ? T.edit : T.connect} ${c.name}`} onClick={() => open(c)}>
+                  {connected ? T.edit : T.connect}
                 </button>
               </div>
             </article>
           );
         })}
       </div>
+      {draft && card ? (
+        <AfModal
+          open
+          size="narrow"
+          className="af-cloud-modal"
+          onClose={close}
+          title={`${editing ? T.editTitle : T.connectTitle} ${card.name}`}
+          footer={
+            <div className="af-cloud-modal__actions">
+              {editing && !conn!.configured ? (
+                draft.confirmRemove ? (
+                  <span className="af-cloud-modal__confirm" data-cloud-confirm>
+                    <span className="af-cloud-modal__confirm-text">Remove {conn!.name}? Models that use it stop working.</span>
+                    <button type="button" className="af-setting-btn" data-action="keep" disabled={busy} onClick={() => patch({ confirmRemove: false })}>{T.keep}</button>
+                    <button type="button" className="af-setting-btn af-cloud-modal__danger" data-action="disconnect-confirm" disabled={busy || disabled} onClick={() => void remove()}>
+                      {draft.busy === "remove" ? T.disconnecting : T.disconnect}
+                    </button>
+                  </span>
+                ) : (
+                  <button type="button" className="af-setting-btn af-cloud-modal__danger af-cloud-modal__disconnect" data-action="disconnect" disabled={busy || disabled} onClick={() => void remove()}>
+                    {T.disconnect}
+                  </button>
+                )
+              ) : null}
+              {!draft.confirmRemove ? (
+                <span className="af-cloud-modal__main">
+                  <button type="button" className="af-setting-btn" data-action="cancel" disabled={draft.busy === "save" || draft.busy === "remove"} onClick={close}>{T.cancel}</button>
+                  <button type="button" className="af-setting-btn" data-action="test" disabled={busy || disabled} onClick={test}>
+                    {draft.busy === "test" ? T.testing : T.test}
+                  </button>
+                  <button type="button" className="af-setting-btn af-cloud-card__primary" data-action="save" disabled={busy || disabled} onClick={() => void save()}>
+                    {draft.busy === "save" ? T.saving : T.saveModal}
+                  </button>
+                </span>
+              ) : null}
+            </div>
+          }
+        >
+          <div className="af-form af-cloud-modal__form" data-cloud-modal={card.id}>
+            {choices ? (
+              <div className="af-form__field">
+                <label className="af-form__label" htmlFor={fid("conn")}>{T.connectionLabel}</label>
+                <select id={fid("conn")} value={draft.connId} disabled={busy} onChange={(e) => pickConnection(e.target.value)}>
+                  {mine.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}{c.keySet ? ` · key ${c.fingerprint || "set"}` : ""}</option>
+                  ))}
+                  {card.kind === "generic" ? <option value={NEW}>{T.newEndpoint}</option> : null}
+                </select>
+              </div>
+            ) : null}
+            {card.kind === "generic" ? (
+              <div className="af-form__field">
+                <label className="af-form__label" htmlFor={fid("name")}>{T.nameLabel}</label>
+                <input id={fid("name")} type="text" autoComplete="off" spellCheck={false} placeholder="Mistral" value={draft.name} disabled={busy}
+                  data-af-autofocus={editing ? undefined : true} onChange={(e) => edit({ name: e.target.value })} onKeyDown={onEnter} />
+                {!editing ? <p className="af-form__help">{T.genericHint}</p> : null}
+              </div>
+            ) : null}
+            {card.baseUrlField !== "none" ? (
+              <div className="af-form__field">
+                <label className="af-form__label" htmlFor={fid("url")}>{T.baseUrlLabel}</label>
+                <input id={fid("url")} type="url" autoComplete="off" spellCheck={false} placeholder={card.baseUrlPlaceholder} value={draft.baseUrl}
+                  readOnly={card.baseUrlField === "preset"} required={card.baseUrlField === "required"} aria-required={card.baseUrlField === "required" ? true : undefined}
+                  data-af-autofocus={card.baseUrlField === "required" && card.kind !== "generic" && !editing ? true : undefined}
+                  disabled={busy} onChange={(e) => edit({ baseUrl: e.target.value })} onKeyDown={onEnter} />
+                {card.baseUrlField === "preset" && card.docs ? (
+                  <p className="af-form__help">Fixed for {card.name} (<a href={card.docs} target="_blank" rel="noreferrer">its documentation</a>).</p>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="af-form__field">
+              <label className="af-form__label" htmlFor={fid("key")}>{card.apiKey === "optional" ? T.keyOptionalLabel : T.keyLabel}</label>
+              {/* Uncontrolled: no value prop, so the key never becomes a DOM attribute; remounted per connection. */}
+              <input key={`key-${draft.connId}`} id={fid("key")} type="password" autoComplete="off" spellCheck={false} disabled={busy}
+                placeholder={editing && conn!.keySet ? `Stored key ${conn!.fingerprint || ""}`.trim() : ""}
+                data-af-autofocus={card.baseUrlField === "required" && !editing ? undefined : true}
+                aria-describedby={`${fid("keyhelp")} ${fid("line")}`} onChange={(e) => { keyRef.current = e.target.value; edit({ keyRev: draft.keyRev + 1 }); }} onKeyDown={onEnter} />
+              <p id={fid("keyhelp")} className="af-form__help">{editing ? (conn!.configured ? T.keyConfiguredHint : T.keyKeepHint) : card.apiKey === "optional" ? T.keyOptionalHint : ""}</p>
+            </div>
+            {editing && conn!.configured ? <p className="af-form__help" data-cloud-configured>{T.configuredNoRemove}</p> : null}
+            <p id={fid("line")} className={`af-cloud-card__line af-cloud-modal__line${draft.tone ? ` is-${draft.tone}` : ""}`} role="status" aria-live="polite" data-cloud-modal-line>{draft.line}</p>
+          </div>
+        </AfModal>
+      ) : null}
     </div>
   );
 }

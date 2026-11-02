@@ -489,6 +489,16 @@ export function attentionAckCursor(summary: AutomationSummary): string | null {
   return items.length ? items[items.length - 1].cursor : null;
 }
 
+/** Only the contiguous oldest-first prefix actually consumed may advance a shared seen cursor. */
+export function consumedAttentionCursor(summary: AutomationSummary, consumed: ReadonlySet<string>): string | null {
+  let cursor: string | null = null;
+  for (const item of summary.attention.items) {
+    if (!consumed.has(item.cursor)) break;
+    cursor = item.cursor;
+  }
+  return cursor;
+}
+
 export function attentionLabel(summary: AutomationSummary): string {
   const a = summary.attention;
   const parts: string[] = [];

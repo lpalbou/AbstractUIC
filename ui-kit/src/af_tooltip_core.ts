@@ -9,7 +9,7 @@
  *
  * bindAfTooltips(root, options) delegates on `root` (a Document or an
  * Element) until the returned release() is called:
- * - pointer hover on an anchor shows the tooltip after `delayMs` (150 ms);
+ * - pointer hover on an anchor shows the tooltip after `delayMs` (200 ms);
  *   touch hovers are ignored (a tap acts, it does not explain);
  * - KEYBOARD focus shows it after the same delay (focus that follows a
  *   pointer press does not — `:focus-visible` semantics, with a last-input
@@ -29,17 +29,92 @@
  *   it never widens the page and is never clipped by an ancestor's overflow;
  * - the anchor's sentence is read when the tooltip SHOWS (a re-rendered
  *   label is picked up), and an anchor removed meanwhile shows nothing.
- * Theming: theme.css `af-tooltip` block (inverse surface from the active
- * theme's tokens: readable in every light and dark theme).
+ * Structured content uses data-af-tip-content plus a plain-text fallback.
+ * DOM nodes are created with textContent only; caller HTML is never rendered.
+ * Theming: theme.css `af-tooltip` block, active surface/text/border tokens.
  */
 
 export type AfTooltipRect = { top: number; left: number; right: number; bottom: number };
 export type AfTooltipPlacement = { top: number; left: number; side: "top" | "bottom" };
 
 /** Default show delay (ms) for hover and keyboard focus. */
-export const AF_TOOLTIP_DELAY_MS = 150;
+export const AF_TOOLTIP_DELAY_MS = 200;
 /** The attribute that carries an anchor's sentence. */
 export const AF_TOOLTIP_ATTR = "data-af-tip";
+
+/** Structured, non-interactive information; plain strings remain the short-tooltip API. */
+export type AfTooltipContent = {
+  title: string;
+  description?: string;
+  facts?: Array<{ label: string; value: string; tone?: "muted" | "success" | "warning" | "danger" }>;
+  sections?: Array<{ label: string; items: string[] }>;
+  note?: string;
+};
+export const AF_TOOLTIP_CONTENT_ATTR = "data-af-tip-content";
+
+/** Accessible fallback, also useful to non-structured hosts. */
+export function afTooltipText(content: string | AfTooltipContent): string {
+  if (typeof content === "string") return content.trim();
+  return [content.title, content.description,
+    ...(content.facts || []).map(f => `${f.label}: ${f.value}`),
+    ...(content.sections || []).flatMap(s => [s.label, ...s.items]), content.note,
+  ].filter(Boolean).join("\n");
+}
+
+/** Attribute values for React or string-markup hosts (HTML hosts escape these values). */
+export function afTooltipAttributes(content: string | AfTooltipContent): Record<string, string> {
+  const attrs: Record<string, string> = { [AF_TOOLTIP_ATTR]: afTooltipText(content) };
+  if (typeof content !== "string") attrs[AF_TOOLTIP_CONTENT_ATTR] = JSON.stringify(content);
+  return attrs;
+}
+
+function structured(value: unknown): value is AfTooltipContent {
+  if (!value || typeof value !== "object") return false;
+  const v = value as AfTooltipContent;
+  return typeof v.title === "string" && !!v.title.trim()
+    && [v.description, v.note].every(x => x === undefined || typeof x === "string")
+    && (v.facts === undefined || Array.isArray(v.facts) && v.facts.every(f => f && typeof f.label === "string" && typeof f.value === "string"))
+    && (v.sections === undefined || Array.isArray(v.sections) && v.sections.every(s => s && typeof s.label === "string" && Array.isArray(s.items) && s.items.every(x => typeof x === "string")));
+}
+
+/** All children are text nodes/elements, never parsed caller markup. */
+function renderContent(doc: Document, tip: HTMLElement, content: string | AfTooltipContent): void {
+  tip.textContent = "";
+  tip.removeAttribute("data-structured");
+  const add = (parent: HTMLElement, tag: string, cls: string, text?: string) => {
+    const node = doc.createElement(tag);
+    node.className = cls;
+    if (text !== undefined) node.textContent = text;
+    parent.appendChild(node);
+    return node;
+  };
+  if (typeof content === "string") {
+    const paragraphs = content.split(/\n+/).map(s => s.trim()).filter(Boolean);
+    if (paragraphs.length <= 1) tip.textContent = content;
+    else for (const text of paragraphs) add(tip, "p", "af-tooltip__paragraph", text);
+    return;
+  }
+  tip.setAttribute("data-structured", "true");
+  add(tip, "div", "af-tooltip__title", content.title);
+  if (content.description) add(tip, "p", "af-tooltip__description", content.description);
+  if (content.facts?.length) {
+    const facts = add(tip, "dl", "af-tooltip__facts");
+    for (const fact of content.facts) {
+      const row = add(facts, "div", "af-tooltip__fact");
+      add(row, "dt", "af-tooltip__label", fact.label);
+      const val = add(row, "dd", "af-tooltip__value", fact.value);
+      if (fact.tone && ["muted", "success", "warning", "danger"].includes(fact.tone)) val.setAttribute("data-tone", fact.tone);
+    }
+  }
+  for (const section of content.sections || []) {
+    if (!section.items.length) continue;
+    const group = add(tip, "div", "af-tooltip__section");
+    if (section.label) add(group, "div", "af-tooltip__section-title", section.label);
+    const list = add(group, "ul", "af-tooltip__list");
+    for (const item of section.items) add(list, "li", "af-tooltip__item", item);
+  }
+  if (content.note) add(tip, "p", "af-tooltip__note", content.note);
+}
 
 /** Where a tooltip of `size` goes for an anchor at `anchor` in a `viewport` (gap 6 px, margin 8 px). */
 export function afTooltipPlacement(
@@ -67,14 +142,19 @@ export function afTooltipPlacement(
 }
 
 export type BindAfTooltipsOptions = {
-  /** Show delay for hover and keyboard focus (default 150 ms). */
+  /** Show delay for hover and keyboard focus (default 200 ms). */
   delayMs?: number;
 };
 
 let tooltipSeq = 0;
 
-function tipOf(el: Element | null): string {
+function tipOf(el: Element | null): string | AfTooltipContent {
   if (!el) return "";
+  const raw = el.getAttribute(AF_TOOLTIP_CONTENT_ATTR);
+  if (raw) {
+    try { const value: unknown = JSON.parse(raw); if (structured(value)) return value; } catch { /* use the explicit fallback */ }
+    console.warn("#FALLBACK: invalid structured tooltip; using its plain-text fallback");
+  }
   return String(el.getAttribute(AF_TOOLTIP_ATTR) || "").trim();
 }
 
@@ -82,7 +162,7 @@ function anchorFrom(target: EventTarget | null, root: Node): HTMLElement | null 
   const el = target as Element | null;
   if (!el || typeof (el as Element).closest !== "function") return null;
   const a = el.closest(`[${AF_TOOLTIP_ATTR}]`) as HTMLElement | null;
-  if (!a || !root.contains(a) || !tipOf(a)) return null;
+  if (!a || !root.contains(a) || !afTooltipText(tipOf(a))) return null;
   return a;
 }
 
@@ -145,10 +225,11 @@ export function bindAfTooltips(root: Document | Element, options: BindAfTooltips
     clearShow();
     clearHide();
     if (anchor && anchor !== el) hide();
-    const text = tipOf(el);
+    const content = tipOf(el);
+    const text = afTooltipText(content);
     if (!text || el.isConnected === false) return;
     anchor = el;
-    tip.textContent = text;
+    renderContent(doc, tip, content);
     tip.hidden = false;
     const aria = String(el.getAttribute("aria-label") || "").trim();
     if (aria !== text) {
@@ -237,7 +318,7 @@ export function bindAfTooltips(root: Document | Element, options: BindAfTooltips
     }
     if (!e.metaKey && !e.ctrlKey && !e.altKey) keyboard = true;
   };
-  const onScrollOrResize = () => hide();
+  const onScrollOrResize = (e: Event) => { if (e.type === "scroll" && tip.contains(e.target as Node)) return; hide(); };
 
   const r = root as Node;
   r.addEventListener("pointerover", onOver);

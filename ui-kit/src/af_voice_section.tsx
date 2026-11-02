@@ -30,7 +30,7 @@ import React, { useEffect, useRef, useState, type ReactNode } from "react";
 import { AfSelect } from "./af_select.js";
 import { AfSwitch } from "./af_switch.js";
 import { ProviderModelPicker } from "./provider_model_picker.js";
-import { AfOverrideRow, AfSettingRow, AfSettingsGroup } from "./af_settings_rows.js";
+import { AfCompactSettingsContext, AfOverrideRow, AfSettingRow, AfSettingsGroup } from "./af_settings_rows.js";
 import {
   VOICE_LANGUAGE_LABELS,
   VoiceSettings,
@@ -198,6 +198,8 @@ export type AfVoiceSectionProps = {
   outputSelectable?: boolean;
   /** Inside a host card (e.g. a "Voice" settings group): sub-sections render flat, never a card in a card. */
   nested?: boolean;
+  /** Stacked controls and concise summaries for a narrow settings drawer. */
+  compact?: boolean;
   /** Voice creation through the gateway (`voice/design`, `voice/clones`); absent = no "Create a voice" panel. Alias of `voiceLibrary`. */
   createVoice?: VoiceCreation;
   /**
@@ -309,7 +311,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
     };
   }, [disabled, hasLanguages, sttEngine, rows.microphone]);
 
-  const ttsDefault = voiceDefaultSummary(defaults.value, "tts", defaults.failed);
+  const ttsDefault = voiceDefaultSummary(defaults.value, "tts", defaults.failed) + (p.compact && defaults.value?.tts?.configured && defaults.value.tts.voice ? ` · ${defaults.value.tts.voice}` : "");
   const sttDefault = voiceDefaultSummary(defaults.value, "stt", defaults.failed);
   const notes = [defaults.value?.tts, defaults.value?.stt].map((e) => (e && !e.configured ? e.note : "")).filter(Boolean);
   // The gateway's served hint for a configured route, verbatim (speech input on Apple silicon).
@@ -329,14 +331,14 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
   const autoSend = value.auto_send ?? p.captureDefaults?.auto_send ?? false;
 
   return (
-    <div className={`af-voice-section${p.className ? ` ${p.className}` : ""}`}>
+    <AfCompactSettingsContext.Provider value={p.compact === true}><div className={`af-voice-section${p.compact ? " af-voice-section--compact" : ""}${p.className ? ` ${p.className}` : ""}`}>
       {p.unavailableReason ? (
         <p className="af-settings-group__help" role="status">
           {p.unavailableReason}
         </p>
       ) : null}
       {showEngines ? (
-        <AfSettingsGroup variant={flat} title="Engines" help="Which engines speak and listen.">
+        <AfSettingsGroup variant={flat} title={p.compact ? "Voice & transcription" : "Engines"} help={p.compact ? `Choose the speech engines for ${owner}. Leave them unchanged to use Gateway defaults.` : "Which engines speak and listen."}>
           {p.ttsSlot ? (
             <div className="af-voice-section__tts-slot" data-voice-slot="tts">
               {p.ttsSlot}
@@ -382,6 +384,7 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
               disabled={disabled}
             >
               <ProviderModelPicker
+                layout={p.compact ? "compact" : undefined}
                 value={{ provider: value.stt_provider || "", model: value.stt_model || "" }}
                 onChange={(next) => update({ stt_provider: next.provider, stt_model: next.model })}
                 fetchProviders={async () => {
@@ -507,6 +510,6 @@ export function AfVoiceSection(p: AfVoiceSectionProps): React.ReactElement {
           </AfSettingRow>
         </AfSettingsGroup>
       ) : null}
-    </div>
+    </div></AfCompactSettingsContext.Provider>
   );
 }

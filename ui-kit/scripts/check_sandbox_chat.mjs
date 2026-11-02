@@ -32,7 +32,7 @@ check("mountSandboxChat is exported", typeof mod.mountSandboxChat === "function"
 const base = { messages: [], draft: "", onDraftChange() {}, onSend() {}, placeholder: "Ask a question." };
 const empty = render({ ...base, onAttach() {}, onClear() {}, emptyText: "No messages yet — pick an output mode." });
 check("panel-chat composer textarea", empty.includes('class="pc-composer__textarea"') && empty.includes('placeholder="Ask a question."'));
-check("standard Attach control", empty.includes('aria-label="Attach file"') && empty.includes("pc-workflow-chat__icon-button"));
+check("standard Attach control", empty.includes('aria-label="Attach file"') && empty.includes("pc-composer__icon-action"));
 check("empty state text", empty.includes("No messages yet — pick an output mode."));
 check("no Clear on an empty thread", !empty.includes('aria-label="Clear chat"'));
 check("panel-chat thread surface", empty.includes("pc-chat-thread") && empty.includes("af-sandbox-chat"));

@@ -49,6 +49,9 @@ export type ProviderModelSelectProps = {
 
   allowGatewayDefault?: boolean; // enables empty option
   gatewayDefaultLabel?: string;
+  /** Field-specific default names for compact forms; falls back to gatewayDefaultLabel. */
+  gatewayDefaultProviderLabel?: string;
+  gatewayDefaultModelLabel?: string;
   providerLabel?: string;
   modelLabel?: string;
   providerPlaceholder?: string;
@@ -77,6 +80,9 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
   const allow_gateway_default = props.allowGatewayDefault !== false;
   const gateway_default_label = String(props.gatewayDefaultLabel || "(gateway default)");
 
+  const default_provider_label = props.gatewayDefaultProviderLabel || gateway_default_label;
+  const default_model_label = props.gatewayDefaultModelLabel || gateway_default_label;
+
   const provider_label = String(props.providerLabel || "Provider");
   const model_label = String(props.modelLabel || "Model");
   const provider_placeholder = String(props.providerPlaceholder || "(select)");
@@ -95,7 +101,7 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
   const model_disabled = disabled || Boolean(props.loadingModels);
 
   const provider_options: AfSelectOption[] = [
-    ...(allow_gateway_default ? [{ value: "", label: gateway_default_label } satisfies AfSelectOption] : []),
+    ...(allow_gateway_default ? [{ value: "", label: default_provider_label } satisfies AfSelectOption] : []),
     ...providers.map((p) => ({ value: p.name, label: p.display_name ? `${p.display_name} (${p.name})` : p.name })),
     ...(props.markSaved && provider_value && !providers.some((p) => p.name === provider_value)
       ? [{ value: provider_value, label: saved(provider_value, "provider", props.loadingProviders, props.providerError) }]
@@ -103,7 +109,7 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
   ];
 
   const model_options: AfSelectOption[] = [
-    ...(allow_gateway_default ? [{ value: "", label: gateway_default_label } satisfies AfSelectOption] : []),
+    ...(allow_gateway_default ? [{ value: "", label: default_model_label } satisfies AfSelectOption] : []),
     ...models.map((m) => ({ value: m, label: props.modelDisplayNames?.[m] || m })),
     ...(props.markSaved && model_value && !models.includes(model_value)
       ? [{ value: model_value, label: saved(model_value, "model", props.loadingModels, props.modelError) }]
@@ -130,7 +136,7 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
         {props.providerPinned ? pinned("provider", provider_value) : <AfSelect
           value={provider_value}
           options={provider_options}
-          placeholder={allow_gateway_default ? gateway_default_label : provider_placeholder}
+          placeholder={allow_gateway_default ? default_provider_label : provider_placeholder}
           disabled={provider_disabled}
           loading={Boolean(props.loadingProviders)}
           searchable
@@ -154,7 +160,7 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
         {props.modelPinned ? pinned("model", model_value) : <AfSelect
           value={model_value}
           options={model_options}
-          placeholder={allow_gateway_default ? gateway_default_label : model_placeholder}
+          placeholder={allow_gateway_default ? default_model_label : model_placeholder}
           disabled={model_disabled}
           loading={Boolean(props.loadingModels)}
           searchable

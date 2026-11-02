@@ -5,6 +5,7 @@
  * or React presentation.  Hosts supply those through WorkflowTransport.
  */
 import type { ChatMessage } from "./chat_message_card.js";
+import { publicUpdate } from "./conversation_model.js";
 import { foldWorkflowTools, workflowEvidence, historyRecords, type WorkflowToolActivity } from "./workflow_evidence.js";
 import { toolPolicyDecision, toolPolicyDecisionText, type WorkflowToolPolicyProvenance } from "./tool_policy.js";
 import { describeStreamUnavailable, isLlmDeltaEnd, validateLlmDeltaEvent, type LlmDelta, type LlmDeltaEnd } from "./llm_delta.js";
@@ -186,6 +187,9 @@ export type WorkflowSessionSnapshot = {
   /** Optional human-facing status emitted by `abstract.status` events. */
   displayStatus: string;
   loading: boolean;
+  /** Earlier session turns are still being restored. The current answer may
+   * already be rendered; hosts must wait before consuming an opening's history. */
+  historyLoading?: boolean;
   error: string | null;
   connection: WorkflowConnection;
   /** Browser/controller-local consent only; never persisted or a policy bypass. */
@@ -280,7 +284,7 @@ export type WorkflowSessionControllerOptions = {
 
 const EMPTY: WorkflowSessionSnapshot = {
   messages: [], records: [], run: null, interaction: null,
-  status: "idle", displayStatus: "", loading: false, error: null, connection: "idle", toolApprovalGranted: false, stop: null,
+  status: "idle", displayStatus: "", loading: false, historyLoading: false, error: null, connection: "idle", toolApprovalGranted: false, stop: null,
 };
 
 function object(value: unknown): ServerRecord | null {
@@ -741,7 +745,7 @@ export class WorkflowSessionController {
     const abort = new AbortController();
     this.controller = abort;
     this.rootRunId = id;
-    this.set({ ...this.snapshot, loading: true, status: "loading", error: null, connection: "connecting" });
+    this.set({ ...this.snapshot, loading: true, historyLoading: true, status: "loading", error: null, connection: "connecting" });
     try {
       if (await this.loadView(id, generation, abort.signal)) return;
       if (!this.live(generation)) return;
@@ -766,6 +770,7 @@ export class WorkflowSessionController {
         run: liveRun,
         status: runStatus,
         loading: false,
+        historyLoading: false,
         ...(currentWait && !terminal(runStatus) ? { interaction: this.interactionWith({ runId: id, wait: currentWait }) } : {}),
       });
       if (liveRun) this.updateRunState(id, liveRun);
@@ -1082,6 +1087,7 @@ export class WorkflowSessionController {
     // session, each with its own view (backlog 0058: a reopened conversation showed only its
     // last turn). Rendered first from the loaded turn; the earlier ones are prepended.
     await this.loadEarlierTurns(id, text(read.view.session_id), generation, signal);
+    if (this.live(generation)) this.set({ ...this.snapshot, historyLoading: false });
     return true;
   }
 
@@ -1583,7 +1589,7 @@ export class WorkflowSessionController {
       // answer_user can be an intermediate conversational turn (the fixture
       // deliberately emits one before an ask_user wait), so it must never
       // consume the root's single authoritative terminal-final identity.
-      if (content) this.addRunAssistantMessage(runId, { id: `answer:${runId}:${key}`, role: "assistant", content, ts: timestamp });
+      if (content) this.addRunAssistantMessage(runId, { id: `answer:${runId}:${key}`, role: "assistant", kind: "answer", runId, content, ts: timestamp });
     }
     // Reserved durable host UX events. `abstractcode.*` is retained as the
     // migration alias specified by ADR-0017; unknown events remain trace-only.
@@ -1592,6 +1598,17 @@ export class WorkflowSessionController {
       const emitted = object(result);
       const name = text(payload.name) || text(emitted?.name);
       const eventPayload = payload.payload !== undefined ? payload.payload : emitted?.payload;
+      if (name === "user_guidance") {
+        const message = object(eventPayload);
+        const seq = message?.seq;
+        if (message && message.status === "accepted" && Number.isInteger(seq) && Number(seq) > 0 && message.run_id === runId && message.id === `${runId}:guidance:${seq}` && record.node_id === "__host_user_guidance__" && record.idempotency_key === `system:user_guidance:${seq}` && typeof message.text === "string" && message.text.trim()) {
+          this.addMessage({ id: message.id, role: "user", kind: "guidance", source: "user_guidance", runId, content: message.text, ts: timestamp });
+        }
+      }
+      if (name === "public_update") {
+        const update = publicUpdate(eventPayload, runId);
+        if (update) this.addMessage({ id: `public_update:${runId}:${update.id}`, role: "assistant", kind: "public_update", source: "public_update", runId, content: update.text, publicUpdate: update, ts: timestamp });
+      }
       if (["abstract.message", "abstractcode.message"].includes(name)) {
           const content = displayValue(eventPayload);
         if (content) {
@@ -1959,7 +1976,7 @@ export class WorkflowSessionController {
     this.closeLiveRepliesOfRun(runId);
     const id = `final:${runId}`;
     this.seenMessages.add(id);
-    const message: ChatMessage = { id, role: "assistant", content, ts, runId, statistics: workflowEvidence(this.snapshot.records).statistics };
+    const message: ChatMessage = { id, role: "assistant", kind: "final", content, ts, runId, statistics: workflowEvidence(this.snapshot.records).statistics };
     const index = this.snapshot.messages.findIndex((existing) => existing.id === id || (String(existing.id || "").startsWith(`answer:${runId}:`) && existing.content === content));
     if (index < 0) {
       this.set({ ...this.snapshot, messages: [...this.snapshot.messages, message] });

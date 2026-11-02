@@ -19,9 +19,10 @@ Ecosystem context (external):
 
 Important integration notes:
 - Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
+- Chat input is one rounded multiline `ChatComposer` everywhere (circular accessible Send, composer-owned Attach, `leading`/`actions`/`trailingActions` slots, `submitKey`, `canSubmit`); `variant="legacy"` / `WorkflowChat.composerVariant="legacy"` restores the flat layout.
 - One shared component per user-facing job, composed on AbstractGateway's contracts (ADR 0001): use the job table in `docs/adoption-guide.md` before building anything app-local.
-- `@abstractframework/panel-chat` 0.6.6 needs `@abstractframework/ui-kit` `^0.9.8` (peer dependency); upgrade them together.
-- Only `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` perform network requests by default (each polls a metrics endpoint; optional Bearer auth).
+- `@abstractframework/panel-chat` 0.7.0 needs `@abstractframework/ui-kit` `^0.9.8` (peer dependency); upgrade them together.
+- Metrics components poll their supplied endpoints. The connected Docs assistant reads Gateway voice defaults, and user actions use its injected authenticated transport for questions, history, attachments and manual speech.
 - Always import the package CSS from your app entrypoint (especially in Next.js). Start with `docs/getting-started.md` → `docs/api.md`.
 
 Quick commands:
@@ -57,6 +58,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [ADR 0001](docs/adr/0001_shared_primitives_composed_on_gateway_contracts.md): the design rule — one component per job, composed on the gateway's contracts, gateway default first, one wording set, customized through props/slots/tokens, never forked
 - [Theming](docs/theming.md): design-token vocabulary, the layout variables the app shell publishes (`--af-topbar-h`, `--af-panel-w`), 21-theme system, adoption/migration rules for host apps
 - [Modal, account rows, grouped navigation](docs/modal.md): `AfModal` (960 px × 90vh dialog over a blurred backdrop, full-screen sheet under 768 px, focus trap, Escape/backdrop close), its plain-HTML markup and `AfConsoleIslands.bindModal` / `bindAfModal`, the `af-row--admin|user|entity` tints with `af-kind-chip`, `af-nav-group` captions and `af-nav-footer`, and the `--af-helper-size` floor (13 px desktop, 14 px touch)
+- [Filter bar](docs/filter-bar.md): `AfFilterBar` (search field and on/off filters on one line, one row of chips per facet with a fixed label column, optional scope switch and sticky first line) and the plain-HTML markup the console islands expose (`filterBarFacetsHtml`, `filterBarScopeHtml`, `filterBarScopeButtonsHtml`)
 - [On/off settings](docs/state-toggles.md): `AfSwitch` (a `role="switch"` labelled by the feature, highlighted when on; unavailable = `aria-disabled` + reason), the `af-switch` CSS block the consoles copy, the terminal `[x]`/`[ ]`/`[-]` marker, `findVerbToggleLabels` (the guard against "Email off"/"Email on" labels), `checkLabelScale` (labels at body size), unavailable-reason strings, the sign-in card classes, `af-form`/`af-card`/`af-tabs` + `AfTabs`, and `randomId()` / `insecureContextReason()` for plain-http pages
 - [Icons](docs/icons.md): the `Icon` component (`name`, `size`, `title`), `ICON_NAMES`, every icon name with its grid (24-grid stroke 2, 16-grid stroke 1.4) and typical use, light and dark contact sheets, how to add an icon
 - [Responsive layout](docs/responsive.md): breakpoints (480/768/1024/1440 px, short and touch axes), 44 px touch targets and 16 px form text on touch screens, bottom-sheet dialogs and drawers above the keyboard, container queries and their thresholds, `installViewportVars()` / `viewportVarsFrom()`, the font-size order, and how a host app adopts them
@@ -65,13 +67,13 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [FAQ](docs/faq.md): bundling/CSS/SSR and per-package notes
 - [Troubleshooting](docs/troubleshooting.md): symptoms, checks and fixes (unstyled components, SSR errors, widget polling, app-server 400/401/403, live replies, images shown as links, stale islands bundle, plain-http copy/voice/ids)
 - [Automations](docs/automations.md): configurable growing-context budgets and result email; show and manage AbstractGateway automations — `AutomationPanel` (icon controls, an Edit form a host can open through `editOpen`, runs as chat pairs, typed wait answers), `AfScheduleDialog` (Repeat on fixed UTC intervals, Daily / Weekly / Monthly / Once on the account's time zone with the Gateway's own sentence via `previewSchedule`, **When an email arrives** with typed filters, **Email result**, recipients, workflow and tool selection), the served next run (`nextRunLabel`), `AfTimeZonePicker`, `createAutomationsClient()` and its error model, retry-safe ids, panel-chat `ScheduleThisAction` / `FromAutomationBadge`, the canonical fixtures and the export list
-- [Console islands](docs/console-islands.md): `window.AfConsoleIslands` (apiVersion "2": mountTopBar, mountAppearance, mountAbout, mountDocsAssistant, mountDrawerSystem, mountSandboxChat, mountProviderModelPicker, mountToolModeEditor, mountVoiceSettings, mountVoiceSection, mountWorkspaceChooser, mountTimeZonePicker, bindModal, bindMenu, bindTooltips, appIdentity, aboutVersionsFromGateway, islandConnectionStatus, applyAppearance) for pages that are not React apps; repository build, not in the npm package
+- [Console islands](docs/console-islands.md): `window.AfConsoleIslands` (apiVersion "2": mountTopBar, mountAppearance, mountAbout, mountDocsAssistant, mountDrawerSystem, mountSandboxChat, mountChatComposer, mountProviderModelPicker, mountToolModeEditor, mountVoiceSettings, mountVoiceSection, mountWorkspaceChooser, mountTimeZonePicker, bindModal, bindMenu, bindTooltips, appIdentity, aboutVersionsFromGateway, islandConnectionStatus, applyAppearance) for pages that are not React apps; repository build, not in the npm package
 - [Docs index](docs/README.md): full docs navigation
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.10): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
-- [@abstractframework/panel-chat](panel-chat/README.md) (0.6.6, needs ui-kit ^0.9.8): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
+- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.12): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/panel-chat](panel-chat/README.md) (0.7.0, needs ui-kit ^0.9.8): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -118,6 +120,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [app-server/src/index.js](app-server/src/index.js): exports for `@abstractframework/app-server`
 - [app-server/src/index.d.ts](app-server/src/index.d.ts): TS types for the app-server exports
 - [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
+- [panel-chat/src/chat_composer.tsx](panel-chat/src/chat_composer.tsx): controlled rounded multiline composer (legacy variant), composer-owned Attach, action slots and IME-safe submission.
 - [panel-chat/src/chat_message_card.tsx](panel-chat/src/chat_message_card.tsx): `ChatMessage` / `ChatAttachment` / `ChatStat` contracts
 - [panel-chat/src/replay_view.ts](panel-chat/src/replay_view.ts): the replay view client (`applyDelta`, `ReplayViewFold`, `SseParser`, `createReplayViewTransport`)
 - [panel-chat/src/replay_view_projection.ts](panel-chat/src/replay_view_projection.ts): `projectReplayView` (view -> transcript, interaction, status)
@@ -143,8 +146,13 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [monitor-memory/src/memory_metrics_api.js](monitor-memory/src/memory_metrics_api.js): endpoint/auth/payload parsing contract
 - [monitor-memory/src/monitor_memory_widget.js](monitor-memory/src/monitor_memory_widget.js): custom element + controller behavior
 
+- [Activity avatars](docs/avatars.md): Shared procedural visuals, React/Canvas API and validation.
+
 ## Optional
 
+- [Compact session cards](docs/session-cards.md): Watch-style conversation cards, human attention and visibility-gated Gateway read receipts.
+
+- [Installation (legacy stub)](docs/installation.md): kept for old links; points to Getting started
 - [Publishing (maintainers)](docs/publishing.md): Release checklist and npm publish notes
 - [Development](docs/development.md): Local workflow, tests and contracts shared with other repositories
 - [Contributing](CONTRIBUTING.md): contribution workflow and expectations
@@ -153,6 +161,10 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [Changelog](CHANGELOG.md): notable changes by version
 - [Acknowledgments](ACKNOWLEDGMENTS.md): upstream credits
 - [License](LICENSE): MIT license text
+
+## Agent usage
+
+- [AbstractUIC agent skill](skills/abstractuic/SKILL.md): shared components, authenticated Docs assistant and voice settings.
 
 ## README.md
 
@@ -168,6 +180,18 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
+
+## What's new in 0.9.0
+
+`@abstractframework/panel-chat` 0.7.0 (needs ui-kit `^0.9.8`): the rounded multiline composer is the default
+`ChatComposer` on every surface, with its own Attach button and a `trailingActions` slot beside Send
+(`variant="legacy"` restores the flat layout); an optional public avatar conversation view (`AvatarConversation`);
+message attachments and safe links rendered by shared conversation components; the Docs assistant gains reply
+speech, a dictation microphone beside Send, and opens under the top bar. `@abstractframework/ui-kit` 0.9.12:
+cloud provider cards with one Connect/Edit button and a connection modal (Test, Save, Disconnect), Watch-style
+`SessionCard` / `AutomationCard` with visibility-gated read receipts, `ActivityAvatar` (44 shared procedural
+designs), structured tooltips, model manufacturer marks, compact model/tool/workspace settings controls
+([changelog](./CHANGELOG.md#090---2026-11-02)).
 
 ## What's new in 0.8.9
 
@@ -414,7 +438,7 @@ picker, voice, the app shell) has one shared component: start from the job table
 ## Requirements
 
 - React packages declare `react@^18` and `react-dom@^18` as peer dependencies (see each `*/package.json`).
-- `@abstractframework/panel-chat` 0.5.0 declares `@abstractframework/ui-kit@^0.9.0` as a peer dependency: install and upgrade the two together.
+- `@abstractframework/panel-chat` 0.7.0 declares `@abstractframework/ui-kit@^0.9.8` as a peer dependency: install and upgrade the two together (AbstractUIC 0.9.0 ships ui-kit 0.9.12).
 - `@abstractframework/monitor-active-memory` also declares `reactflow@^11` as a peer dependency.
 - Packages are ESM (`"type": "module"`). In web apps, use a bundler that can consume ESM and CSS.
 
@@ -747,7 +771,7 @@ The kit absorbs proven app components rather than speculating:
 - `npm test` in `ui-kit` runs the full guard chain (build, matrix cores, theme tokens, palette
   seeds parity, About and identity checks, theme contrast, console islands); the publish hook
   runs the same chain.
-- `@abstractframework/panel-chat` 0.5.0 needs `@abstractframework/ui-kit` `^0.9.0` (peer
+- `@abstractframework/panel-chat` 0.7.0 needs `@abstractframework/ui-kit` `^0.9.8` (peer
   dependency): upgrade both together. The two built packages share the session tool-policy
   client types, which the repository's release gate checks.
 - Pages that vendor the [console islands](./console-islands.md) bundle rebuild and re-vendor it
@@ -1307,8 +1331,8 @@ accessible name) and carries no `title`, so the browser's own tooltip never show
 - Placed above the button and centred, below when there is no room above, and kept 8 px inside
   the viewport, so it never widens the page and an ancestor's `overflow` never clips it
   (`position: fixed`, `z-index: var(--z-tooltip)` (1200), above menus).
-- Inverse surface from the active theme (`--text-primary` background, `--bg-primary` text): it
-  reads in every light and dark theme. Plain text only, wrapping at 280 px.
+- Surface and text follow the active theme (`--bg-secondary` background,
+  `--text-primary` text, `--ui-border-2` border). Short text wraps at 280 px; structured information uses a 320px panel.
 - While it shows, the button gets `aria-describedby` pointing at it when the sentence differs from
   the `aria-label`.
 
@@ -1322,7 +1346,7 @@ import { AfTooltip } from "@abstractframework/ui-kit";
 </AfTooltip>
 ```
 
-`AfTooltip` sets `data-af-tip` on its one child and binds the document-wide tooltip while mounted.
+`AfTooltip` accepts a string or `AfTooltipContent` and sets tooltip attributes on its one child and binds the document-wide tooltip while mounted.
 Markup that sets `data-af-tip` itself calls `useAfTooltips()` once in the tree.
 
 ### Plain HTML
@@ -1434,6 +1458,160 @@ heavier than 600. The constants are exported: `HELPER_MIN_PX` (13), `HELPER_MIN_
   clamps, the `AfTooltip` markup and the `af-tooltip` CSS contract.
 
 All of them run in `npm test` for `ui-kit`.
+
+### Structured information tooltips
+
+Use a short title and description, aligned facts, and labelled lists instead of
+concatenating diagnostics into a paragraph. Keep current actions in the hover;
+put exhaustive technical logs in an explicit details surface.
+
+```tsx
+<AfTooltip content={{
+  title: "Tight fit",
+  description: "Free memory before loading.",
+  facts: [{ label: "Memory needed", value: "112 GB" }, { label: "Available now", value: "59 GB", tone: "warning" }],
+  note: "Memory and context are estimates.",
+}}><span tabIndex={0}>Tight</span></AfTooltip>
+```
+
+`AfTooltipContent` fields: required `title`, optional `description`, `facts`
+(`label`, `value`, optional `tone`: muted/success/warning/danger), `sections`
+(`label`, `items: string[]`) and `note`. Everything is rendered with textContent,
+never caller HTML. Plain multiline strings render as spaced paragraphs. Tooltips
+remain non-interactive, viewport-bounded and hoverable; internal scrolling does
+not dismiss them. Existing focus, Escape and aria-describedby behavior applies.
+
+Plain HTML hosts use `AfConsoleIslands.tooltipAttributes(content)` (same helper
+as exported `afTooltipAttributes`). Escape each returned attribute value when
+building markup. It provides `data-af-tip` as the accessible/plain-text fallback
+and `data-af-tip-content` as JSON. Invalid JSON/schema warns with `#FALLBACK` and
+shows the explicit fallback. No arbitrary HTML or controls are supported.
+
+## docs/filter-bar.md
+
+# Filter bar (`AfFilterBar`)
+
+One compact, aligned filter bar for a searchable list: a first line with the search field and its
+on/off filters, then one row per facet with the facet's label in a fixed left column and its
+chips in the second column. It replaces ad-hoc rows of pill chips that wrap under their own label.
+
+Operator design finding (2026-10-29, the AbstractGateway console's Models page): one bar from the
+kit; one chip size with the counts in muted small text; one row per facet with the label in a
+fixed column and the chips wrapping under the chips, never under the label; the search field and
+its toggle on the same first line; no stray toggles.
+
+```
+[Catalog | Hugging Face] [Search ............................] [o Fits this computer]   96 of 96 models
+QUANTIZATION   (All) (4-bit 186) (8-bit 128) (Other 161) | [o Every quant]
+PROVIDER       (All) (Ollama 94) (MLX 123) (Hugging Face 205) (LM Studio 46) (MLX images & video 4)
+               (Diffusers 2) (Supertonic 1)
+CAPABILITY     (All) (Text 253) (Thinking 136) (Tools 253) (Vision 75)
+```
+
+## React
+
+```tsx
+import { AfFilterBar, AfSwitch } from "@abstractframework/ui-kit";
+
+<AfFilterBar
+  ariaLabel="Filter the model catalog"
+  scope={{ label: "Search in", value: mode, options: [{ value: "catalog", label: "Catalog" }, { value: "hf", label: "Hugging Face" }], onChange: setMode }}
+  search={{ value: q, onChange: setQ, ariaLabel: "Search the model catalog", placeholder: "Search by model" }}
+  toggles={<AfSwitch variant="sm" label="Fits this computer" checked={fits} onChange={setFits} />}
+  end={<span>{shown} of {total} models</span>}
+  facets={[
+    { id: "quant", label: "Quantization", value: quant, options: [{ value: "all", label: "All" }, { value: "4bit", label: "4-bit", count: 186 }] },
+  ]}
+  trailing={{ quant: <AfSwitch variant="sm" label="Every quant" checked={every} onChange={setEvery} /> }}
+  onSelect={(facetId, value) => setFilter(facetId, value)}
+  sticky
+/>
+```
+
+| Prop | Type | Meaning |
+| --- | --- | --- |
+| `facets` | `AfFilterFacet[]` | `{ id, label, value, options: [{ value, label, count?, disabled?, title? }], disabled? }`, one row each |
+| `onSelect` | `(facetId, value) => void` | A chip was clicked |
+| `scope` | `{ label, options, value, onChange } \| null` | Optional segmented switch that leads the first line |
+| `search` | `{ value, onChange, ariaLabel, placeholder?, onSubmit?, submitLabel? } \| null` | The search field; Enter calls `onSubmit`; `submitLabel` adds a button |
+| `toggles` | `ReactNode` | On/off filters beside the field: `AfSwitch variant="sm"` |
+| `end` | `ReactNode` | The first line's end: the count, the filters in words, actions |
+| `trailing` | `Record<facetId, ReactNode>` | A control that belongs to one facet, after its chips |
+| `ariaLabel` | `string` | The first line's `role="search"` name (default "Filters") |
+| `sticky` / `stuck` | `boolean` | The first line stays at the top of the scroller; `stuck` (the host measures it) gives it its own bottom edge |
+
+The component is hook-free: the host owns every value. `AfFilterFacetRow` renders one row for
+hosts that lay rows out themselves.
+
+## Plain HTML (the console path)
+
+The chip, facet-row and scope markup has ONE source, `ui-kit/src/af_filter_bar_core.ts`, which
+the React component renders. Plain-HTML hosts call the same functions: `afFilterFacetsHtml(facets,
+trailing?)`, `afFilterFacetHtml(facet, trailingHtml?)`, `afFilterScopeHtml({label, options,
+value})` and `afFilterScopeButtonsHtml(options, value)` (exported by the package and, for pages
+that are not React apps, by the console islands as `filterBarFacetsHtml`, `filterBarScopeHtml`
+and `filterBarScopeButtonsHtml`). They escape every label, value and title; `trailing` markup is
+the host's and is inserted as given.
+
+The markup contract:
+
+```html
+<div class="af-filterbar [af-filterbar--sticky] [af-filterbar--stuck]">
+  <div class="af-filterbar__lead" role="search" aria-label="Filter the model catalog">
+    <div class="af-filterbar__scope" role="group" aria-label="Search in">
+      <button type="button" class="af-filterbar__scope-btn" data-af-scope="catalog" aria-pressed="true">Catalog</button>
+      <button type="button" class="af-filterbar__scope-btn" data-af-scope="hf" aria-pressed="false">Hugging Face</button>
+    </div>
+    <div class="af-filterbar__line">
+      <input type="search" class="af-filterbar__search" aria-label="…" enterkeyhint="search">
+      <button type="button" class="af-filterbar__submit" [hidden]>Search</button>
+      <span class="af-filterbar__toggles"><!-- af-switch af-switch--sm (or af-switch--native) --></span>
+    </div>
+    <div class="af-filterbar__end"><!-- count, actions --></div>
+  </div>
+  <div class="af-filterbar__facets">
+    <div class="af-filterbar__facet" role="group" aria-label="Quantization" data-af-facet-row="quant">
+      <span class="af-filterbar__label" aria-hidden="true">Quantization</span>
+      <div class="af-filterbar__chips">
+        <button type="button" class="af-chip af-chip--neutral af-chip--button af-filterbar__chip"
+                data-af-facet="quant" data-af-value="4bit" aria-pressed="false" aria-label="4-bit, 186">
+          <span class="af-chip__label">4-bit</span><span class="af-filterbar__count" aria-hidden="true">186</span>
+        </button>
+        <span class="af-filterbar__trailing"><!-- a control of this facet --></span>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+A host listens for clicks on `[data-af-facet]` (read `data-af-value`) and `[data-af-scope]`.
+A chip whose count is 0 carries `af-filterbar__chip--zero` (muted, dashed); a facet that cannot be
+used now (`disabled`) carries `af-filterbar__facet--disabled` and disables every chip.
+
+## Layout rules (theme.css `af-filterbar:begin` .. `af-filterbar:end`)
+
+- **First line**: `.af-filterbar__line` holds the field and the toggles and never wraps; the field
+  shrinks first. The scope switch leads; the end slot closes the line (`margin-left: auto`) and
+  moves to its own line when the width runs out.
+- **Facet rows**: a grid of `var(--af-filterbar-label-w)` (7.5rem, wide enough for "QUANTIZATION" at phone text sizes) and
+  `minmax(0, 1fr)`. The label is one line in column 1 with the chip height as its line box, so it
+  aligns with the first chip row; the chips wrap inside column 2. No width query stacks the label
+  over the chips.
+- **Chips**: the kit chip (`af-chip--button`: its hue recipe and its touch hit area) at one size,
+  `--af-filterbar-chip-h` (28 px). Pressed = the accent hue. The count is `--text-muted`,
+  `--font-size-xs`, tabular figures.
+- **Sticky**: `af-filterbar--sticky` makes the wrapper `display: contents`, so the first line
+  sticks to the scroller (`top: var(--af-filterbar-top)`) while the facet rows scroll away. In
+  that mode both parts are items of the host's layout: cancel the host's gap between them.
+- **Touch** (`pointer: coarse`): the pills keep their geometry with an invisible 44 px hit area;
+  the field is 44 px with 16 px text. On a phone with a touch screen the submit button is hidden:
+  the keyboard's search key submits (`enterkeyhint="search"`), so the field keeps its room.
+
+`ui-kit/scripts/check_filter_bar.mjs` pins the markup, the one-source rule and these CSS rules.
+
+When a host provides multiple quick toggles, the shared bar lets them wrap below
+the search field on compact screens. A single-toggle bar retains its existing
+one-line layout. Labels and switch semantics stay with the shared component.
 
 ## docs/state-toggles.md
 
@@ -1761,6 +1939,7 @@ fails when a sheet is stale.
 | `file` | 24 | File |
 | `archive` | 24 | Archive |
 | `unarchive` | 24 | Unarchive |
+| `wrench` | 24 | Tool calls |
 | `clock` | 24 | Time, schedule |
 | `cog` | 24 | Settings (cog) |
 | `activity` | 24 | Activity |
@@ -1798,8 +1977,7 @@ fails when a sheet is stale.
 The engines and cloud providers that the provider cards name are shown with the brand's own mark (`BrandMark`, or
 `brandMarkHtml(id)` for hosts that build HTML as strings), inlined in `ui-kit/src/brand_icons.tsx`: no page fetches
 a logo from anywhere. Each mark is drawn in its own colours on a light tile in every theme, because several brands
-forbid recolouring. The source rules, in order: the brand's own press or brand-kit SVG when its terms allow using it
-to identify the product; else the [Simple Icons](https://simpleicons.org) SVG (CC0 path data); else a readable text
+forbid recolouring. The source rules, in order: the brand's own official artwork to identify the configured product; else the [Simple Icons](https://simpleicons.org) SVG (CC0 path data); else a readable text
 badge. Trademarks belong to their owners; a mark identifies the product a card configures and implies no
 endorsement, and the marks are not covered by the kit's MIT licence (OpenAI's is used under OpenAI's own Marks usage terms). `ui-kit/scripts/check_brand_icons.mjs` fails when a card id has neither a mark nor a documented fallback,
 when a mark lacks its source, licence or date, or when a mark could reach outside itself.
@@ -1814,19 +1992,42 @@ when a mark lacks its source, licence or date, or when a mark could reach outsid
 | `llamacpp` | llama.cpp | brand | <https://raw.githubusercontent.com/ggml-org/llama.cpp/master/media/llama1-icon-transparent.svg> | File is in the MIT-licensed ggml-org/llama.cpp repo (media/, added in #15891). MIT covers copyright; trademark of the ggml-org/llama.cpp project. [Terms](https://github.com/ggml-org/llama.cpp/blob/master/LICENSE). No logo usage guidelines published. | 2026-10-29 |
 | `openai` | OpenAI | brand | <https://cdn.openai.com/brand/openai-logos.zip> | OpenAI logo (the black Blossom, OpenAI-logos/SVGs/OAI_OpenAI-Blossom_Black.svg in the zip, unmodified; sha256 75c1e9fffa5e8c437bec1d67197a73992bca45d166c6ff23215185dea8fae92a), a trademark of OpenAI, used under OpenAI's Marks usage terms (non-exclusive, non-transferable, revocable); NOT covered by this kit's MIT licence. Terms read: "By using our logos, you agree to our Marks usage terms." (https://openai.com/brand/) "Use the logo only when it directly relates to OpenAI services." (https://openai.com/brand/) "Use the logo exactly as provided and acknowledge that it belongs to OpenAI." (https://openai.com/brand/) "Permission to use our Marks is limited in the following ways: Only use our Marks if they adhere to these brand guidelines." (https://openai.com/brand/) "If you are an active OpenAI developer, you may truthfully identify the OpenAI technology you use." (https://openai.com/brand/) [Terms](https://openai.com/brand/). Shown exactly as provided, black, never recoloured or altered, only on the card that connects OpenAI's API (it "directly relates to OpenAI services"), never more prominent than the host's own name, with no partnership claim. Terms page read through the Wayback snapshot of 2026-10-21 (the live page answers 403 to non-browser clients). Counter-reading noted: "However, everything about your app, product or company (including name, logo, description, slogan, tagline and screenshots) should be your own and should be free of OpenAI's brands (including products, services or model names; logos; or trademarks)." (https://openai.com/brand/), read as being about the host's own branding. | 2026-10-29 |
 | `openrouter` | OpenRouter | brand | <https://openrouter.ai/brand/logos/transparent/glyph/svg/glyph-ink.svg> | Official brand asset offered "ready to use"; no permission step or licence stated. Trademark of OpenRouter, Inc. [Terms](https://openrouter.ai/brand). "Please don't stretch, recolor, or remix the marks." Approved colourways only: Ink #03080A (light backgrounds) and Cloud #FCFCFE (dark backgrounds), plus Grape/Volt. | 2026-10-29 |
+| `anthropic` | Anthropic | brand | <https://www.anthropic.com/press-kit> | Anthropic symbol - Slate.svg from the official press-kit archive; original geometry and Slate colour. Trademark belongs to its owner; not relicensed under MIT. [Terms](https://www.anthropic.com/legal/trademark-guidelines). | 2026-10-30 |
+| `portkey` | Portkey | brand | <https://framerusercontent.com/images/jdaaBnPaidwn24qlm9oMGXntXP0.png> | Official Portkey website header logo, PNG embedded unchanged; sha256 06fe1d765a67fce602fd024dc236a15d80fd500a4ee977f93a8ee4774acff0c1. Trademark belongs to its owner; not relicensed under MIT. [Terms](https://portkey.ai/terms). | 2026-10-30 |
+| `ovh` | OVH AI Endpoints | brand | <https://www.ovhcloud.com/7af16cdb/contrib/ovh_theme_patternlab/images/logos/OVHcloud_logo.svg> | Official OVHcloud website sprite, ocmscloud_logo symbol; original paths and transforms, currentColor resolved to brand blue #000E9C. Trademark belongs to its owner; not relicensed under MIT. [Terms](https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf). | 2026-10-30 |
+| `typesafe` | TypeSafe | brand | <https://framerusercontent.com/images/kcuF2BEp5XaVfkmFB634IPRKQH0.png> | The apple-touch-icon that typesafe.ai's own home page declares, PNG embedded unchanged; sha256 40fe116f8438653bf6bad9b198f23371627f52b52b8654d6852e8345a014e585. TypeSafe publishes no brand or press page (typesafe.ai/brand, /press and /media-kit answer 404). Trademark belongs to TypeSafe AI, Inc.; not relicensed under MIT. [Terms](https://typesafe.ai/legal/terms): "Except as expressly authorized by TypeSafe, you may not use the Materials." Shown only on the TypeSafe (Jev) card, original colours, no endorsement claim. | 2026-11-01 |
 
-Text badges (no logo), each with the brand's own words:
+Text badges or kit glyphs (no logo), each with the reason:
 
 | Id | Brand | Badge | Why there is no logo | Retrieved |
 | --- | --- | --- | --- | --- |
-| `anthropic` | Anthropic | ANT | Anthropic's trademark guidelines require its approval first: "You may only use our trademarks as specifically permitted by us and only in materials we approve beforehand. We may terminate permission to use our trademarks at any time." (https://www.anthropic.com/legal/trademark-guidelines) "We will supply an image (or images) of the trademark(s) for your use and specific requirements regarding size, pixels, spacing, and the like." (https://www.anthropic.com/legal/trademark-guidelines) "If you have an existing business relationship with Anthropic and want to use our trademarks in a press release, on your website, or in another context, please email marketing@anthropic.com." (https://www.anthropic.com/legal/trademark-guidelines) Its press kit (https://www.anthropic.com/press-kit) ships logos with no usage terms, so it grants no permission. [Terms](https://www.anthropic.com/legal/trademark-guidelines). | 2026-10-29 |
-| `portkey` | Portkey | PK | Portkey's terms forbid displaying its marks without written permission, and it publishes no brand kit: "Except as set out in this section or elsewhere in our Legal Terms, no part of the Services and no Content or Marks may be copied, reproduced, aggregated, republished, uploaded, posted, publicly displayed, encoded, translated, transmitted, distributed, sold, licensed, or otherwise exploited for any commercial purpose whatsoever, without our express prior written permission." (https://portkey.ai/terms) "The Content and Marks are provided in or through the Services "AS IS" for your internal business purpose only." (https://portkey.ai/terms) [Terms](https://portkey.ai/terms). | 2026-10-29 |
-| `ovh` | OVH AI Endpoints | OVH | OVHcloud's Trademark Usage Policy (version of 12/30/2024) allows its text trademark, not its logo: "1.2.Compatibility: You may use any OVHcloud Text Trademark (but not the OVHcloud Logo) in a referential phrase on promotional/advertising materials to describe that your product is compatible with the referenced OVHcloud product or technology, provided that the materials comply with the following requirements:" (https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf) "Any other use of the OVHcloud Trademarks requires a separate trademark license agreement with OVHcloud. The use of OVHcloud Logos always require the written permission of OVHcloud." (https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf) "1.2.OVHcloud Logo: You may not use the OVHcloud Logo on or in connection with websites, products, packaging, manuals, advertising materials, or for any other purpose except pursuant to an express written trademark licence from OVHcloud." (https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf) [Terms](https://www.ovhcloud.com/sites/default/files/external_files/trademark-usage-policy-en-30december-24.pdf). | 2026-10-29 |
 | `openai-compatible` | OpenAI-compatible server | API | A protocol, not a brand: any server that speaks the OpenAI API (vLLM, llama.cpp, LocalAI, a private gateway). No logo applies. | 2026-10-29 |
+| `systemone` | System One-compatible endpoint | kit `server` glyph | A protocol, not a brand: any host that serves the System One decision API (POST /v1/systemone), such as a kev.serve / lev serve process or another AbstractCore server. No logo applies, so the kit's neutral server glyph is shown (`glyph: "server"`). | 2026-11-01 |
 
 Adding a brand: add its id to `BRAND_CARD_IDS`, then either a `BRAND_ICONS` entry (the SVG's geometry and colours
 unchanged; editor metadata, titles and classes dropped; ids namespaced `af-brand-<id>-`) with its source, terms,
 licence, restrictions and date, or a `BRAND_FALLBACKS` entry saying why there is none; then a row above.
+
+2026-10-30 operator correction (Gateway backlog 0985): official Anthropic, Portkey and OVH artwork replaces the text badges. Portkey's official PNG is embedded byte-for-byte inside an SVG viewport; no logo makes a network request. Marks retain their owners' rights.
+
+## Model manufacturer marks
+
+The model catalog uses `BrandMark size="sm"` / `brandMarkHtml(id, name, "sm")`
+for a 24px title mark. These are unchanged avatars from manufacturers’ official
+model-publishing organizations, embedded as data images (no remote card requests).
+Original bytes, MIME, dimensions and SHA-256 are checked. Other vendors retain a
+readable neutral text badge, not another manufacturer’s logo. Artwork/trademarks
+belong to their owners; no copyright licence is inferred from model/code licences.
+
+| ID | Manufacturer profile | Artwork source |
+| --- | --- | --- |
+| `qwen` | https://huggingface.co/Qwen | https://cdn-avatars.huggingface.co/v1/production/uploads/6215ca5692c0ecfba9186921/hrRM50-6XcdWgg2AKpENG.jpeg |
+| `deepseek` | https://huggingface.co/deepseek-ai | https://cdn-avatars.huggingface.co/v1/production/uploads/6538815d1bdb3c40db94fbfa/xMBly9PUMphrFVMxLX4kq.png |
+| `google` | https://huggingface.co/google | https://cdn-avatars.huggingface.co/v1/production/uploads/5dd96eb166059660ed1ee413/WtA3YYitedOr9n02eHfJe.png |
+| `meta` | https://huggingface.co/meta-llama | https://cdn-avatars.huggingface.co/v1/production/uploads/646cf8084eefb026fb8fd8bc/oCTqufkdTkjyGodsx1vo1.png |
+| `mistral` | https://huggingface.co/mistralai | https://cdn-avatars.huggingface.co/v1/production/uploads/634c17653d11eaedd88b314d/9OgyfKstSZtbmsmuG8MbU.png |
+| `microsoft` | https://huggingface.co/microsoft | https://cdn-avatars.huggingface.co/v1/production/uploads/1583646260758-5e64858c87403103f9f1055d.png |
+| `nvidia` | https://huggingface.co/nvidia | https://cdn-avatars.huggingface.co/v1/production/uploads/65df9200dc3292a8983e5017/Vs5FPVCH-VZBipV3qKTuy.png |
 
 ## docs/responsive.md
 
@@ -2042,6 +2243,15 @@ prevents the focus zoom.
 # API Reference
 
 This page is a **practical map** of what each package exports and how you typically integrate it.
+
+For procedural portraits, `ActivityAvatar` and `AvatarRenderer` present the shared AbstractAvatar
+catalog. `AvatarQuality` selects bounded economy/balanced/high presentation; imperative creation
+accepts an optional `AbortSignal`. See [Activity avatars](avatars.md) for complete inputs,
+resolution/cadence budgets, lifecycle, errors and gallery usage.
+
+For compact conversation lists, `SessionCard`, `sessionActivityFromRuns`, `sessionReadTarget`,
+`createSessionReadClient`, `useSessionReads` and `SessionReadMarker` provide shared presentation
+and Gateway-owned, account-wide read receipts. See [Compact session cards](session-cards.md) for ownership and consumption rules.
 
 Source of truth:
 - React packages: exports in `*/src/index.ts` (compiled to `dist/` on publish; see `*/package.json`)
@@ -2274,6 +2484,8 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Voice preferences and defaults (0.9.0, backlog 0035): `useVoicePreferences(storageKey | null)` → `[prefs, setPrefs]` kept in localStorage under `storageKey`, in sync across the page's components with the same key and across the app's tabs (`storage` event); `null` = in memory only. `loadVoicePreferences(key)`, `saveVoicePreferences(key, prefs)`. `useVoiceDefaults(fetchDefaults | null, key?)` → `{value, failed, reload}`: `GET voice/defaults` once per `key` (another gateway or account), nothing without a gateway; pass `value` to `AfVoiceSection.defaults`.
 - Voice routes (0.9.0, `gateway_paths.ts`): `GATEWAY_VOICE_ROUTES` (`defaults`, `voices`, `languages`, `clones`, `design`, `compatibility`), `voiceClonePath(id)`, `voiceCloneDeployPath(id)`, `runVoiceTtsPath(runId, stream?)`, `runTranscribePath(runId)`, `entityVoicePath(name, "" | "tts" | "tts/stream")` — relative to the gateway API: wrap with `gatewayApiPath()`.
 - Live level (0.9.0, backlog 0035): `AfVoiceLevelMeter` (`source?`, `level?`, `label?`, `origin?`, `inline?`, `className?`) and `useVoiceLevel(source)` subscribe to `voice.subscribe_level`, so only the meter re-renders while the user speaks (`VoiceLevelSource`). `recordSample` honours an abort at every step: an abort before the microphone has opened closes it as the stream arrives and rejects with `recordingAbortError()` (`name: "AbortError"`).
+- Reply output level: `useVoiceLevel(voice, "playback")` and `AfVoiceLevelMeter channel="playback"` use the optional stable `voice.subscribe_playback_level(fn)` subscription. They measure the existing playback graph after volume/mute, without opening a microphone or synthesizing another sound. Silence, pause, stop and completion report zero. Sampling runs only while playing with a subscriber; only subscribing views re-render. The default channel remains the microphone.
+
 - Relative time (0.8.0): `formatRelativeTime(ts, nowMs)` ("just now", "5 min ago", "3 h ago", "yesterday", "4 days ago", then "Oct 2"; future "in 14 h"), `formatExactTime(ts)` ("Oct 2, 2026, 14:05"), `formatShortDate(ts, nowMs)`, `timeValueMs(ts)` — deterministic (the caller passes now), no seconds, no year within the same year.
 - Icons (0.8.0): `cog` (the usual settings gear; `settings` stays the sliders glyph), `activity` and `unarchive` (archive box with an up arrow).
 - App chrome: `AfTopBarActions` — the top-right cluster, in this enforced order: app `extraActions` · docs · assistant · appearance · about · identity · connection pill (always rightmost; pinned by `check_app_shell.mjs`). `connection` takes `useGatewayConnection()`'s return value (preferred: the pill and the identity menu's **Disconnect** both call its `signOut()`, then the host's `onSignOut?` ONLY when `signOut()` resolved true, i.e. the session is gone; its `signOutError` shows as "Disconnect failed" beside the pill) or the legacy `AfTopBarConnection` `{phase, signingOut?, onConnect, onDisconnect, status?, signOutError?}` (then `onDisconnect` alone runs; `onSignOut` is ignored). One verb for ending the session: pill Connect / Connecting… / Disconnect / Disconnecting… (`topBarPillText`; accessible name "Disconnect from gateway"), menu item **Disconnect**. `identity?: "badge" | "menu" | false` — who is signed in (`principalLabel`), immediately left of the pill, only while the phase is connected, explained by the kit tooltip (`data-af-tip`, no native title); `"menu"` = an `AfMenu` whose header says "Signed in as …" and "Gateway <host>", items **Copy user id** (only where the clipboard API exists) and **Disconnect**. `appearance` = `{onOpen, label?}` (host dialog) or `{value, onChange, label?, title?, note?}` (the cluster renders `AfAppearanceDialog`). `about={{ identity, versions?, fetch?, extra?, onOpen?, label? }}` adds the About button and dialog; with `fetch` (the host's gateway fetch, `AfGatewayFetch`) and no `versions` the cluster GETs `api/gateway/about` each time the dialog opens (`fetchAboutVersions`, "checking…" while in flight, "unavailable (HTTP 401)" on failure; an answer after close is dropped); `extra` is host content in the dialog. The cluster publishes `--af-topbar-h` (its header's bottom edge, viewport-relative; updated on the header's resize, window resize and scroll; removed on unmount unless another publisher wrote it since; `useAfTopBarHeight`, `publishHeight={false}` opts out). `AfDrawer` (non-modal, keeps children mounted; `side="left"`, `backdrop`; full width below 768 px; `topOffset: number | "auto"`; **behaviour change**: focus now moves in on open — `[data-autofocus]`, else the first text field (skipped on touch screens, so no soft keyboard), else the first control, else the drawer — and back to the opener on close when focus was inside; `manageFocus={false}` opts out), `AfAppearanceDialog` + `useAppearanceSettings()` / `appearanceStorageKey()` / `APPEARANCE_DEFAULTS`. `AfMenu` takes an optional non-interactive `header` and a kit tooltip `tip`. `useGatewayConnection().signOut()` now resolves `true` when the session is gone, `false` otherwise (never rejects).
@@ -2290,6 +2502,9 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Ids and non-secure contexts: `randomId()` (v4 UUID over plain http too), `uuidV4FromBytes()`, `insecureContextReason(feature)` — see [Non-secure contexts](./state-toggles.md#non-secure-contexts)
 - Icons: `Icon`, `IconName`, `ICON_NAMES` (65 glyphs, 24-grid and 16-grid families; 0.8.6 adds `image`, `video`, `camera`, `music`, `database`, `branch`, `loop`, `variable`, `minus`, `divide`, `function`, `zoomIn`, `zoomOut`, `fitView`, `lock`). Every name, the style rules and the contact sheet: [Icons](./icons.md)
 - Palette seeds: `@abstractframework/ui-kit/palette_seeds.json` (generated 4-token palette per theme)
+- Structured tooltips (0.9.12): `afTooltipAttributes(content)` returns the attributes for a tooltip given as a string or an `AfTooltipContent` (`title`, `facts`, `sections` of labelled lists, `note`; carried in `AF_TOOLTIP_CONTENT_ATTR`, `data-af-tip-content`); `afTooltipText(content)` is its plain-text, accessible fallback. The tooltip renders as text, never as HTML.
+- Automation attention (0.9.12): `consumedAttentionCursor(summary, consumed)` returns the cursor of the contiguous oldest-first prefix of `summary.attention.items` the viewer actually consumed (a set of cursors), or `null`; only that prefix may advance a shared seen cursor.
+- Cloud provider cards (0.9.12): `cardEditTarget(card, connections)` returns the connection the card's Edit opens: a gateway connection before one from AbstractCore's config, or `null`.
 
 See: [`ui-kit/README.md`](../ui-kit/README.md) and the [Adoption guide](./adoption-guide.md).
 
@@ -2308,6 +2523,19 @@ self-contained script that defines `window.AfConsoleIslands` (`apiVersion` `"2"`
 `npm run build:islands -w @abstractframework/ui-kit`. It is not included in the npm tarball.
 Full reference: [Console islands](./console-islands.md).
 
+`CloudProviderCards` (islands `mountCloudProviderCards`) shows one card per cloud provider with
+its brand mark (`BrandMark`; a protocol such as System One gets the kit's `server` glyph), ONE
+status ("Not connected", or "Connected · 48 models"; the stored key's fingerprint only in the Edit modal, never the key)
+and ONE button, Connect or Edit. Both open an `AfModal` with the provider's fields (a Base URL
+where the endpoint is user-supplied: the OpenAI-compatible cards and `NATIVE_ENDPOINT_RULES`, e.g.
+System One with an optional key) and Test
+connection / Save / Cancel; Edit adds Disconnect. The client behind it,
+`cloudProvidersClient(request, base)`, checks a key before anything is stored (`checkKey`, or
+`checkConnection` for a stored key), creates new connections with `create_only`
+(`saveCheckedKey`), updates one in place (`updateConnection`, PUT, only what changed) and removes
+one (`removeConnection`, DELETE); a connection from AbstractCore's config is never updated or
+removed from here.
+
 `SpeculationSelect` consumes `execution.speculation` from the host capability payload. It
 offers inheritance (`undefined`), Off (`false`), and only advertised depths. Explicit depths
 serialize as `{mode: "native_mtp", num_draft_tokens: n, require_acceleration: true}`. It shows
@@ -2324,6 +2552,7 @@ Purpose: chat-thread UI primitives with lightweight Markdown/JSON rendering.
 
 Components:
 - `DocsAssistantDrawer` (0.4.0) — the Docs assistant of the console and every app: kit drawer + panel-chat thread (user right, assistant left; Markdown, code, JSON, links, images per the image policy; copy), attachments (`attachments/upload` to the conversation's session → `context.attachments`), streaming (`llm.delta` on `runs/{id}/ledger/stream`), Stop, icon-only New conversation and close, one-line grounding footer. Props `open`, `onClose`, `source: { app, name }`, `fetchGateway`, `connected`, `suggestions?`, `placeholder?`, `width?`, `topOffset?`, `className?`. Grounding: `GET api/gateway/docs/corpus?app=<id>` → the shipped `docs-qa` workflow (`DOCS_QA_WORKFLOW`); one gateway session per conversation. `topOffset` also takes `"auto"`; `manageFocus` (default false: the drawer keeps its earlier focus behaviour) opts into the kit drawer's focus handling. In an `AfDrawerSystem`: `docsAssistantPanel(source, fetchGateway, { connected, suggestions?, placeholder?, ask?, id?, label?, mode?, side?, defaultWidth? })` returns an `AfDrawerPanel` (drawer mode, kept alive) whose content, `DocsAssistantPanelContent`, is the same conversation with its header actions in the panel header (0.9.0, backlog 0036). Exports `DocsAssistantPanel` (stateless view), `makeDocsQaAsk`, `docsQaStartBody`, `docsCorpusPath`, `docsAnswerFromRun`, `docsReplayNote`, `newDocsSessionId`, `sseFrames`
+- Message links and files (0.7.0): `TextLinks` / `textLinks(text)` render the whole `http(s)://` and `www.` URLs of a plain text as links (other schemes stay text; the text is never interpreted as HTML). `messageArtifactRefs(value, runId)`, `submittedArtifacts(body, runId)` and `outputArtifacts(output, runId)` collect the files a message carries (`MessageArtifact`) from the attachment and output fields only, never from internal run bookkeeping.
 - `AssistantPanel` (docs Q&A surface with an injected `ask(question, { signal, history })` transport returning a Promise or an AsyncIterable of deltas; never fetches); `assistantDrawerPanel({ ask, assistantName?, …, id?, label?, icon?, mode?, side?, defaultWidth? })` returns it as an `AfDrawerPanel` (drawer mode, kept alive) for an app assistant such as Continuum's advisor (0.9.0, backlog 0036)
 - `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions; `streamReplies?: "gateway_default" | "on" | "off"`); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
 - One chat surface (0.5.0, backlog 0030; ADR 0001): `WorkflowChat` also takes
@@ -2348,7 +2577,7 @@ Components:
   stat chip opens the structured panel); helpers `formatMessageStamp(ts, now?, locales?)`,
   `messageStampTitle(ts, locales?)`, `messageStampIso(ts)`, `localDayKey(now?)`, `useLocalDay()`.
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
-- `ChatComposer` (composer input + submit handling; IME-safe Enter)
+- `ChatComposer` (rounded multiline composer; `variant="legacy"` for the flat layout; `leading` / `actions` / `trailingActions` / `overlay` slots, composer-owned Attach via `onAttach`, `submitKey`, `canSubmit`; IME-safe Enter)
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
 - `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll?, approveAllScope?, onAllowForSession?, approveAllDisabledReason?, remember?, onDefer?, allowSkip? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow for this chat" only with `onAllowForSession`, "Allow all enabled tools" only with `onPermissionsAll` — its scope sentence names no storage scope unless the host passes `approveAllScope`, e.g. "for this Gateway account" —, "Decide later" only with `onDefer`, a per-tool remember checkbox only with `remember(toolNames)`), question (`ask_user`, choices as buttons and free text; "Continue without answering" with `allowSkip` resumes with an empty answer, "Keep waiting" with `onDefer`) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. The first argument may also be a `ReplayInteraction` (the shape of `replay_view_v1.interaction`) — it produces the same control as the raw wait (`isReplayInteraction()`, `replayInteractionWait()`); a wait that carries the view's `command` (`WorkflowWaitInteraction.command`, `kind`) and is an event is answered with `controller.answerEvent(payload, target)` (the view's resume command), never through an event route. A tool approval with a broad grant carries `broadScopeSummary` (one always-visible line; the full scope sentences go in the "What the broader choices allow" disclosure and the buttons' tooltips; 0.6.1). Types `PresentInteractionOptions`, `InteractionController` (adds optional `answerEvent`), `ReplayInteraction`
 - Replay view (0.6.0, backlog 0040; root 0993, runtime 0854; AbstractGateway >= 0.17.0 `GET runs/{id}/view` + `/view/stream`): `WorkflowTransport.replayView?: ReplayViewTransport` (`{advertised?, getView(runId, {ifNoneMatch?, at?, signal?}) → {notModified, view?, etag, bytes}, streamView(runId, {lastEventId?, signal, onOpen?, onFrame}) → {bytes}, listSessionTurns?(runId, {signal?}) → ReplaySessionTurn[]}`; `listSessionTurns`, 0.6.2: the conversation's turns up to `runId` as the runtime selects them, from a small `history_bundle?include_session=true`; the controller shows every earlier turn's view before the loaded one, finished turns cached per conversation, at most `REPLAY_SESSION_TURN_LIMIT` = 200), built over the host's gateway fetch by `createReplayViewTransport({ fetch(path, init), advertised? })` (`path` relative to the gateway API). With it the controller renders from the view: one `GET /view` + `GET runs/{id}`, then `/view/stream` from the ETag (`Last-Event-ID` = the last applied frame), no history bundle, no ledger pages, no record fold, no timed poll; the root's ledger stream only for live reply text. Snapshot `source: "replay_view" | "ledger_fold"`, `sourceReason` (why not the view: no `replayView` in the transport, `advertised: false`, or the gateway's route-missing 404/405, probed once per transport; any other failure is a load error), `view` (the folded view); `workflowSourceLabel(snapshot)`. Client pieces: `applyDelta(view, delta)` (port of AbstractRuntime 0.15.0 `apply_delta`), `ReplayViewFold` (`adopt(view, etag)`, `apply(frame) → "view"|"delta"|"duplicate"|"stale"|"done"|"ignored"`: a repeated or older frame is not applied), `SseParser`, `parseCursorToken()`, `compareReplayOrder()`, `ReplayViewUnavailableError`, `projectReplayView(view) → {messages, tools, interaction, status, displayStatus, openLlmCalls, endedLlmCalls, runStatus, statistics}`, `replayToolActivities()`, `replayStatistics()`, `toolActivityMessage()`, constants `REPLAY_VIEW_VERSION`, `REPLAY_SCALAR_KEYS`, `REPLAY_LIST_KEYS`; types `ReplayView`, `ReplayViewDelta`, `ReplayViewCursor`, `ReplayViewRun`, `ReplayViewMessage`, `ReplayViewActivity`, `ReplayViewToolCall`, `ReplayViewInteraction`, `ReplayViewTransport`, `ReplayViewFetch`, `ReplayViewRead`, `ReplayViewStreamOptions`, `ReplayViewHttpError`, `ReplayFoldOutcome`, `SseFrame`, `ReplayProjection`, `WorkflowSessionSource`. Checked against the gateway: the 15 conformance cases captured from AbstractGateway 0.17.0 fold to the exact bytes of `GET /view` after every record (`panel-chat/scripts/check_replay_view.mjs`). See the [README](../panel-chat/README.md#replay-view-the-gateways-reconstruction)
@@ -2561,6 +2790,15 @@ provide its Gateway `request` function for required-input checks, or supply
 accepts the creation form’s picker. Changing workflows retains portable agent settings;
 workflow-specific inputs use the new workflow’s defaults.
 
+Attachment file previews use one modal header with the filename, Download and Close. Image
+and video previews fit their intrinsic aspect ratio within the viewport; text and PDF previews
+retain a readable document width. All previews keep the shared file renderer and authenticated,
+bounded loading behavior.
+
+`WorkflowSessionSnapshot.historyLoading` tracks restoration of earlier session turns separately
+from `loading` of the current answer. Read-consumption hosts wait for both to finish before
+mounting an opening's `SessionReadMarker`; the current answer remains progressively visible.
+
 ## docs/architecture.md
 
 # Architecture
@@ -2647,7 +2885,7 @@ flowchart LR
     MEM["@abstractframework/monitor-memory"]
   end
 
-  CHAT -->|"peer dep ^0.9.0<br/>(Icon, AfFileViewer, AfDrawer, drawer-system panels,<br/>session tool-policy client types)"| UIKIT
+  CHAT -->|"peer dep ^0.9.8<br/>(Icon, AfFileViewer, AfDrawer, drawer-system panels,<br/>session tool-policy client types)"| UIKIT
   AMX -->|"peer dep"| ReactFlow["reactflow (peer dependency)"]
   FLOW -->|"peer dep"| React["react / react-dom (peer dependency)"]
   CHAT -->|"peer dep"| React
@@ -2657,7 +2895,7 @@ flowchart LR
 ```
 
 Evidence:
-- panel-chat imports from `@abstractframework/ui-kit` (for example `Icon` in `panel-chat/src/chat_message_card.tsx`, `AfFileViewer` in `panel-chat/src/file_viewer.tsx`, the session tool-policy types in `panel-chat/src/workflow_runtime.ts`), declared as a peer dependency (`^0.9.0`) in `panel-chat/package.json`. Upgrade the two packages together; the repository's release gate (`scripts/check_cross_dist_types.mjs`) checks that the two built packages agree on the shared client types.
+- panel-chat imports from `@abstractframework/ui-kit` (for example `Icon` in `panel-chat/src/chat_message_card.tsx`, `AfFileViewer` in `panel-chat/src/file_viewer.tsx`, the session tool-policy types in `panel-chat/src/workflow_runtime.ts`), declared as a peer dependency (`^0.9.8`) in `panel-chat/package.json`. Upgrade the two packages together; the repository's release gate (`scripts/check_cross_dist_types.mjs`) checks that the two built packages agree on the shared client types.
 - `monitor-active-memory/package.json` declares `reactflow` (and `react` / `react-dom`) as peer dependencies.
 
 ## Design rules: one component per job (ADR 0001)
@@ -4000,10 +4238,20 @@ switch, the timing line (`automationTiming()`), Run now, Stop, Edit and Archive.
 
 ### Attention and `/seen`
 
-After showing the attention items, the panel calls `onSeen(cursor)` with the cursor of the **last
-displayed** item, never `summary.attention.cursor`, so items it did not show stay unseen. A
-cursor counts as acknowledged only after `onSeen` resolves. A failed call is retried on the next
-render that brings a new `summary` object (your next poll), never in a loop.
+Loading or mounting the panel never acknowledges attention. A shared content marker waits
+250 ms at the end of a notice or its loaded answer, in the focused, visible document and without
+an obscuring surface. The panel calls `onSeen(cursor)` only for the consecutive oldest-first
+prefix of attention items consumed this way. Scrolling to a later result cannot clear earlier
+unseen notices. It never sends `summary.attention.cursor` merely because that summary loaded.
+
+A cursor counts as acknowledged only after `onSeen` resolves. A failed call is retried on the
+next render carrying a fresh `summary` object (the next poll), never in a local retry loop.
+Changing automations resets consumption and cancels pending visibility timers. Human waits
+remain live until answered; a seen receipt does not authorize or resolve them.
+
+Conversation and automation markers use the same visibility implementation. Published-package
+consumers receive the fix with the UI kit; compatibility snapshots also include the canonical
+`automation_panel.js` implementation for clients whose installed peer predates this behavior.
 
 ### Answering a wait
 
@@ -4494,6 +4742,7 @@ Serve both files from your own origin; the paths above are examples.
 | `mountAppearance(el, props)` | `IslandHandle` | Mounts `AfAppearanceDialog` into `el` |
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
 | `mountSandboxChat(el, props)` | `IslandHandle` | Mounts the Sandbox chat: panel-chat's thread and composer (`messages`, `draft`, `onDraftChange`, `onSend`, attachments, drop and paste) with voice through `useGatewayVoice` (kit 0.4.0) |
+| `mountChatComposer(el, props)` | `IslandHandle` | Mounts panel-chat's `ChatComposer` alone for a plain-HTML chat the host drives itself (`value`, `onChange`, `onSubmit`, `disabled`, `busy`, `textareaId`, `ariaDescribedBy`, `placeholder`); no attachment or slot props (kit 0.9.12) |
 | `mountProviderModelPicker(el, props)` | `IslandHandle` | Mounts the kit `ProviderModelPicker` with its own props (kit 0.4.0; see [below](#mountprovidermodelpickerel-props-and-mountvoicesettingsel-props)) |
 | `mountVoiceSettings(el, props)` | `IslandHandle` | Mounts the kit `VoiceSettings` voice picker; its props carry `voiceLibrary` and `previewVoice` (kit 0.4.0; library and sample 0.9.0) |
 | `mountToolModeEditor(el, props)` | `IslandHandle` | Mounts the kit `ToolModeEditor` over a served `GET /api/gateway/discovery/tools` answer (kit 0.9.0; see [below](#mounttoolmodeeditorel-props)) |
@@ -4505,9 +4754,9 @@ Serve both files from your own origin; the paths above are examples.
 | `mountWorkspaceChooser(el, props)` | `IslandHandle` | Mounts the kit `WorkspaceChooser` (`level`, `state`, `save`): the console's **Eligible workspaces** modal (`level: "gateway"`) and each account's Workspaces modal (`level: "account"`) (kit 0.8.3, round 11) |
 | `mountVoiceSection(el, props)` | `IslandHandle` | Mounts the kit `AfVoiceSection` (the whole voice settings: Engines, Output, Microphone, Replies) with the component's own props (`fetchCatalog`, `fetchDefaults`, `voiceLibrary`, `fetchLanguages`, `previewVoice`, `rows`, …) (kit 0.9.0, backlog 0035) |
 | `mountTimeZonePicker(el, props)` | `IslandHandle` | Mounts the kit `AfTimeZonePicker` (`block` = the preferences answer's `time_zone`, `id`, `onChange(zone \| null)`, `disabled`, `note`): the time zone row of the console's Accounts → Preferences modal (kit 0.8.7, round 16) |
-| `mountCloudProviderCards(el, props)` | `IslandHandle` | Mounts the kit `CloudProviderCards`: one card per cloud provider AbstractCore supports natively (`GET discovery/providers`, `local_provider: false`), then OVH AI Endpoints (an OpenAI-compatible preset) and "Other OpenAI-compatible endpoint" (Name, Base URL, API key). ONE action per card, **Connect** (**Reconnect** when it has a connection): the key is checked and, only when it works, saved as a NEW connection (`create_only`): "Connected · 48 models" or the reason. Props: `request(path, {method, body})`, `base` (the console passes its absolute API prefix), `scope`, `onSaved(saved)`, `refreshKey`, `heading` (kit 0.9.9; Connect, presets and the generic card: kit 0.9.10) |
-| `cloudProviders` | `object` | The cards' logic for a host's own key flow: `client(request, base)` (`listProviders`, `listCards`, `listConnections`, `checkKey`, `saveCheckedKey`, `connect`), `keyCheckResult`, `freshConnectionId`, `text` (kit 0.9.9; `listCards`/`connect`: 0.9.10) |
-| `brandMarks` | `object` | Engines' and providers' official marks: `html(id, name?)` (inline `<span class="af-brand-mark">` with the SVG, or the documented text badge), `info(id)`, `cardIds` (kit 0.9.9; [icons.md](./icons.md#brand-marks)) |
+| `mountCloudProviderCards(el, props)` | `IslandHandle` | Mounts the kit `CloudProviderCards`: one card per cloud provider AbstractCore supports natively (`GET discovery/providers`, `local_provider: false`), then OVH AI Endpoints (an OpenAI-compatible preset), and LAST the protocol cards "OpenAI-compatible endpoint" and "System One-compatible endpoint" (AbstractCore's `systemone`). Each card shows its brand mark, its name, ONE status ("Not connected", or a green "Connected · 48 models": every connected card discovers its count in the background with its STORED connection, at most 3 at once and once per page, "Connected · …" while pending and plain "Connected" if that fails; the key's fingerprint only in the Edit modal, never the key) and ONE button: **Connect** when nothing is stored, **Edit** when a connection exists. Both open the kit `AfModal` (a full-screen sheet below 768 px) titled "Connect <provider>" / "Edit <provider>" with the provider's fields (Name first on "OpenAI-compatible endpoint", Base URL on the OpenAI-compatible cards and on a native whose endpoint is user-supplied (`NATIVE_ENDPOINT_RULES`: System One, Base URL required, API key optional), the API key always, masked) and **Test connection** (`discover-models`, nothing stored), **Save** (tests first when the fields were not tested OK; Connect saves a NEW connection, `create_only`; Edit updates THAT connection with `PUT config/provider-endpoint-profiles/{id}`, the stored key kept unless a new one is typed) and **Cancel**; Edit adds **Disconnect** (`DELETE config/provider-endpoint-profiles/{id}`, after a confirmation). A connection set in AbstractCore's config or the environment is edited by adding a gateway connection and is not removable here. Props: `request(path, {method, body})` (GET, POST, PUT, DELETE), `base` (the console passes its absolute API prefix), `scope`, `onSaved(saved)` (also after a disconnect), `refreshKey`, `heading` (kit 0.9.9; presets and the generic card: 0.9.10; cards + modal, Edit, Disconnect: 0.9.12) |
+| `cloudProviders` | `object` | The cards' logic for a host's own key flow: `client(request, base)` (`listProviders`, `listCards`, `listConnections`, `checkKey`, `checkConnection`, `saveCheckedKey`, `updateConnection`, `removeConnection`, `connect`), `keyCheckResult`, `freshConnectionId`, `text` (kit 0.9.9; `listCards`/`connect`: 0.9.10; `checkConnection`/`updateConnection`/`removeConnection`: 0.9.12) |
+| `brandMarks` | `object` | Engines' and providers' official marks: `html(id, name?)` (inline `<span class="af-brand-mark">` with the SVG, the documented text badge, or a kit glyph for a protocol without a logo: `af-brand-mark--glyph`, System One's `server` glyph), `info(id)` (`kind`: `icon`, `text`, `glyph` or `unknown`), `cardIds` (kit 0.9.9; glyph fallback: 0.9.12; [icons.md](./icons.md#brand-marks)) |
 | `workspaceChooserText` | `object` | The WorkspaceChooser's wording table (`WORKSPACE_CHOOSER_TEXT`), e.g. the modal title `gatewayTitle` "Eligible workspaces" (kit 0.8.3) |
 | `workspaceAsState(answer, level)` | `object` | Turns a `GET/PUT /workspace/policy[/{account}]` answer into the chooser's `state`; throws on an older answer (kit 0.8.3) |
 | `bindTooltips(root?, options?)` | `() => void` | The kit tooltip on every `[data-af-tip]` element under `root` (default the document): 150 ms delay, keyboard focus, hoverable, Escape hides, kept inside the viewport; delegated, bind once; returns `release()` (kit 0.8.x, round 9; [modal.md](./modal.md#tooltip)) |
@@ -4795,6 +5044,8 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 - **Filter bar**: [`filter-bar.md`](./filter-bar.md) — `AfFilterBar`: search, toggles and one row of chips per facet, the plain-HTML markup and functions
 - **On/off settings**: [`state-toggles.md`](./state-toggles.md) — `AfSwitch`, the console markup, the terminal marker, the verb-toggle and label-scale guards, the sign-in card, forms, cards and tabs, `randomId()`
 - **Modal, account rows, grouped navigation**: [`modal.md`](./modal.md) — `AfModal` and its plain-HTML markup with `AfConsoleIslands.bindModal`, the menu and the themed tooltip (`AfTooltip`, `bindTooltips`), the account-kind row tints and chips, sidebar group captions with a bottom slot, and the 13 px / 14 px helper-text floor
+- **Activity avatars**: [`avatars.md`](./avatars.md) — one shared Rust/Wasm geometry/catalog, React/Canvas and native adapters, lifecycle, themes, pointer tracking and gallery checks
+- **Compact session cards**: [`session-cards.md`](./session-cards.md) — `SessionCard` and `AutomationCard`: Watch-style conversation and automation rows, human attention, and visibility-gated Gateway read receipts (`useSessionReads`, `createSessionReadClient`)
 - **Icons**: [`icons.md`](./icons.md) — the `Icon` component, every icon name with its grid and typical use, the light and dark contact sheets, the drawing rules, and how to add an icon
 - **Responsive layout**: [`responsive.md`](./responsive.md) — breakpoints, touch sizes, bottom sheets and drawers, container queries, the viewport helpers, the font-size order, and how a host app adopts them
 - **Automations**: [`automations.md`](./automations.md) — show and manage AbstractGateway automations: `AutomationPanel` (controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (schedules and **When an email arrives** triggers, **Email result**, result recipients) and its tool-approval consent line, `createAutomationsClient()` and its error model, retry-safe ids, the panel-chat schedule action and badge, the canonical fixtures and how to regenerate them, and the export list
@@ -4867,6 +5118,7 @@ This package provides:
   with the Python helpers)
 - **Run and policy surfaces**: `PhaseCapabilityMatrix`, `CriticalActionDialog`, `SteerComposer`,
   `DisclosureList`, `AfChip`, `AfPhaseRadio`, cognition gauges
+- **Activity avatars**: `ActivityAvatar`, `AvatarRenderer`, `avatarDesigns` — six watch-inspired designs shared with AbstractTUI/native hosts, themed Canvas, reduced motion and optional Ready pointer tracking. See [Activity avatars](../docs/avatars.md).
 - **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk, live level, mute, hold or tap to
   talk), the standalone `AfVoiceOutput` / `AfVoiceInput` and `AfVoiceMicButton`,
   `AfVoiceLevelMeter`, `useVoicePreferences()`, `useVoiceDefaults()`, the voice library
@@ -5345,6 +5597,21 @@ app. `scripts/check_responsive.mjs` and `scripts/check_viewport_vars.mjs` pin it
 - Troubleshooting: [`docs/troubleshooting.md`](../docs/troubleshooting.md)
 - Repo docs index: [`docs/README.md`](../docs/README.md)
 
+### Compact settings (0.9.12)
+
+The shared controls also support narrow settings panels:
+
+- `ProviderModelPicker` with `layout="compact"` and `optionsDisclosure` keeps provider/model selects visible and folds reasoning and MTP into **Reasoning & speed**.
+- `ToolModeEditor compact` starts categories folded, keeps category Off/Ask/Auto available, reveals individual controls on expansion, and opens matching groups while searching. Unavailable categories are behind **Unavailable tools**. Permission planning and bulk Auto limits remain unchanged.
+- `WorkspaceChooser compact` uses a flat folder list, folds blocked paths, and moves repeated policy explanations into a structured information tooltip. The Gateway still decides every permission and refusal.
+
+Information tooltips appear after 200ms of hover or keyboard focus, use the active theme, and dismiss with Escape. The standard layouts remain available when these options are omitted.
+
+`AfVoiceSection` accepts `compact` for a narrow settings drawer: route headers
+expand their editors, controls use the drawer width, and information buttons
+explain optional settings and browser limitations. Value, reset and change
+callbacks use the same preference contract as the standard layout.
+
 ## panel-chat/README.md
 
 # @abstractframework/panel-chat
@@ -5363,7 +5630,7 @@ the [Adoption guide](../docs/adoption-guide.md)).
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` `^0.9.0` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.5.0 needs ui-kit 0.9.0.
+- `@abstractframework/ui-kit` `^0.9.8` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.7.0 needs ui-kit `^0.9.8` (AbstractUIC 0.9.0 ships ui-kit 0.9.12).
 
 ## Install
 
@@ -5435,6 +5702,29 @@ export function ChatView() {
 }
 ```
 
+### The composer
+
+`ChatComposer` is a rounded multiline box with a circular Send button. It starts
+at two rows, honors an explicit `rows`, grows for several lines, then scrolls
+within a viewport cap; it also grows on browsers without native `field-sizing`
+support. Pass `variant="legacy"` to `ChatComposer`, or `composerVariant="legacy"`
+to `WorkflowChat`, for the flat three-row layout with a text Send button.
+`variant="compact"` is accepted as an alias of the default.
+
+Slots: `leading` renders above the field (attachment chips), `actions` renders on
+the left of the action row, `trailingActions` renders on the right beside Send
+(voice controls, Stop), and `overlay` covers the box (a drop zone). Pass `onAttach`
+and the composer renders the Attach button itself (`attachLabel`, `attachDisabled`,
+`attachPending`); `WorkflowChat` wires its `onAttach` and `composerTrailingActions`
+the same way. `submitKey="mod-enter"` keeps chats that submit with Ctrl/Cmd+Enter;
+`canSubmit` lets a host enable Send for an attachment-only payload; `textareaId`
+and `ariaDescribedBy` connect a host label and help text to the field.
+
+Send and busy labels remain the button's accessible name. Enter
+submits, Shift+Enter adds a line, and IME composition does not submit. Switching
+the variant preserves the controlled draft and the textarea node; the host still
+owns submission, attachments and failed-send recovery.
+
 ## Docs assistant
 
 `DocsAssistantDrawer` (0.4.0) is the ONE Docs assistant: the AbstractGateway console mounts it
@@ -5442,7 +5732,7 @@ through the islands bundle (`mountDocsAssistant`) and every app mounts it in Rea
 top bar's `docs` slot (book icon). Pass `source: { app, name }` (`app` = `gateway` or the app id),
 the host's `fetchGateway(path, init)` (relative `api/gateway/...` paths with the host's
 credentials) and `connected`. It reads the app's llms.txt from `GET api/gateway/docs/corpus?app=<id>`,
-uploads attachments to the conversation's session, starts the gateway's shipped `docs-qa` workflow
+uploads attachments to the conversation's session, offers the kit dictation microphone beside Send when the gateway transcribes (the transcript lands in the draft), starts the gateway's shipped `docs-qa` workflow
 (`{prompt, docs, app}`, `use_session_history`, `context.attachments`), grows the reply from the run's
 `llm.delta` frames while polling the run, and shows the completed `output.response`. User messages
 sit on the right and answers on the left with Markdown, code, JSON, links and copy; the header
@@ -5485,7 +5775,8 @@ the host.
 Use `interaction` for a pending `WorkflowInteraction`: `ask-user` supports
 choices and optional free text, `tool-approval` provides approve/deny actions,
 and `event-wait` sends a host-defined payload. The callbacks are injected: the
-component never fetches, polls, or resumes a workflow itself.
+component never starts or resumes a workflow itself. Its optional `artifactFetch` transport
+performs authenticated attachment reads only; execution remains host-owned.
 
 `renderMarkdown` is passed through to each `ChatThread` message card. Use it
 when the host owns a sanitizer or a richer Markdown renderer; the chat surface
@@ -5789,6 +6080,64 @@ view against 509 requests and 5.60 MB with the ledger fold; first render 17 ms a
 
 ### Messages from the replay view
 
+`WorkflowChat` also offers an optional `avatarConversation` presentation. Omit it to keep
+the existing transcript. Pass `{sessionKey, avatar, ...conversationSnapshot(snapshot)}`;
+the host supplies the avatar React node and keeps its existing draft, attachments,
+steer/queue, cancellation and interaction callbacks. `AvatarConversation` is also available
+standalone with `messages` and an `interaction` slot. Only explicit typed `public_update`,
+answer/final/question messages, explicit host question outcomes and user input enter its public history. It never displays
+tool rows, reasoning, untyped assistant text or unvalidated live deltas. Both replay and
+ledger folding preserve public update identity, run, iteration and `sourceCallIds`.
+
+Subtitles show a three-line viewport with pages; hover, focus, draft editing, pause,
+history and reply selection freeze updates. History retains full text and source IDs.
+“Return to latest” resumes following. `onReplyContext` gives the selected public message;
+`conversationReply` quotes a selected public update and rejects cross-run guidance context.
+The host still submits replies through its normal execution path. For composed runs, pass
+only the current authoritative run tree as `conversationReply`’s optional fourth argument;
+this permits replying to the actual actor child while refusing historical or unrelated runs.
+
+`useAvatarConversationPreferences(ownerScope)` persists chat/avatar mode and independent
+visual/audio preferences for permissions, questions and completion; use an account-scoped
+key. Default mode is chat and audio is off. `onCue` receives fresh foreground attention
+revisions only. Optional `playConversationCue` plays a local earcon and rejects unsupported
+or blocked playback. The host should report those errors. Optional `narrate`/`onNarrate`
+request speech for newly observed public updates through the host's voice stack. Initial
+history, reconnects, reading, recording and session switches never replay queued speech.
+`onInterruptSpeech` runs before reply/voice/history actions and session cleanup.
+Use `playbackControl` for pause/resume/silence actions, separately from `voiceControl`
+which interrupts old speech before capture. `onAttendedChange` lets hosts suppress their
+existing final-answer narration while the person reads or replies. Fresh question and
+approval cues remain eligible while reading; ordinary narration stays silent.
+Explicit host-authenticated `user_guidance` receipts preserve accepted human corrections
+in public history. An accepted receipt does not mean the assistant adopted the correction. The
+component neither records audio nor starts TTS or a network request itself. Listening is
+labeled as unsubmitted input; permission decisions remain the existing explicit controls.
+
+A pending question or approval keeps its actual controls ahead of subtitles and history,
+with a smaller avatar while the request is open. Standalone `AvatarConversation` hosts
+should pass `interactionId` for that actual request, or `""` when it is absent or deferred.
+Omitting the prop treats a supplied interaction as active. `WorkflowChat`
+forwards the current interaction identity. Long request content scrolls inside the
+request; the decision buttons stay reachable.
+
+In Avatar mode, permissions use ordinary action and destination language with labeled
+decision icons. The assistant’s public explanation appears under “Why I’m asking” when
+it is bound to this exact request. Missing explanations are stated explicitly. This
+view does not show tool names, argument JSON or standing permission settings.
+Provide `avatarConversation.onTechnicalView` to open your existing detailed view from
+“Review details”. Unknown actions require detailed review before they can be allowed.
+Standalone hosts use `WorkflowInteractionPanel variant="conversation"` with
+`publicApprovalRequest(calls, wait.details.public_action, runId)` as the interaction’s
+`publicRequest`; `onReviewTechnical` opens their detailed view. The ordinary panel
+retains its full technical presentation and permission choices.
+
+Optional browser checks are `scripts/check_avatar_requests_browser.mjs` for request
+visibility on desktop/phone and `scripts/check_compact_composer_browser.mjs` for input
+growth, keyboard gates, draft recovery and action slots. They accept an installed
+Playwright module through `PANEL_CHAT_PLAYWRIGHT_MODULE` and an optional browser through
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE`.
+
 `ChatMessage` carries a `replay_view_v1.messages[]` item (`projectReplayView` applies this
 mapping; a `final` that `repeats` an answer is shown once, the open question's own message is
 left to its card):
@@ -5919,6 +6268,52 @@ See [Responsive layout](../docs/responsive.md). `scripts/check_responsive.mjs` p
 - API reference: [`docs/api.md`](../docs/api.md)
 - Architecture: [`docs/architecture.md`](../docs/architecture.md)
 - Troubleshooting: [`docs/troubleshooting.md`](../docs/troubleshooting.md)
+
+### Docs assistant speech
+
+`DocsAssistantDrawer` and `docsAssistantPanel` show a speaker on assistant replies
+when the Gateway has a configured speech route. Playback uses that reply’s run
+and the host’s authenticated `fetchGateway` for synthesis and its audio artifact.
+Click the speaker to play, pause or resume. Opening history does not autoplay.
+Pass `voicePreferences` to use the app’s speech override, output device and volume;
+omit it to follow Gateway defaults. A kept-alive rail panel should pass
+`visible: false` while hidden to stop playback.
+
+### Message files, clickable links and structured tool results
+
+`WorkflowChat` uses the shared `ChatMessageCard`, `ToolActivity` and `ToolActivityGroup`.
+Pass `artifactFetch` (the host's authenticated app-origin fetch), `attachmentScope` (a non-secret
+account plus conversation identity), and `attachmentRun={{runId, output}}` for the active run.
+The chat displays user and assistant artifact references on the originating message, restoring
+submitted user files from `input_data` on older replay views. Explicit file-only outputs get an
+assistant card; historical file-only replies omitted by old views are restored from authorized
+run snapshots. Settled historical lookups are cached per scope; failed reads expose Retry.
+Only attachment/output fields are inspected, excluding scratchpad and internal state artifacts.
+
+Metadata and input reads are bounded to four concurrent requests; file bytes load only on
+activation. Switching account/conversation cancels pending previews and downloads. Real files
+open in the shared `AfModal` / `FileViewer`, including images, audio, video, PDF, JSON and text.
+Text previews stop at 1 MiB; media/PDF previews stop at 25 MiB even without a size header.
+Larger or unsupported files retain an explicit Download action. HTML/SVG/XML render as inert
+source. Closing the modal aborts reads and revokes its object URLs; Escape returns focus.
+Metadata failures keep the named file disabled with Retry until classification succeeds.
+No credentials are put in a rendered file URL.
+
+Opaque `artifactIds` remain replay evidence, never automatic attachment chips. The shared
+projection uses explicit file/media provenance and the owning run, rejecting scratchpad,
+provider traces, session/history/transcript branches and unlisted refs. Input/output recovery
+reads only declared attachment fields; requested JSON files remain eligible. Metadata tagged
+as internal offloads is suppressed. Files carried by a repeated final are merged into the
+visible answer. The conversation compatibility snapshot exports `useWorkflowSession` too, so
+both browser clients use this projection rather than an older installed controller.
+
+Bare HTTP(S) and `www` links are clickable in Markdown, JSON strings and tool parameter/result
+text. Whole URLs remain intact during highlighting; links open a separate tab with
+`noopener noreferrer`. Tool results that contain a JSON object/array serialized as a string use
+the same structured JSON viewer as object-valued results, including search tools.
+
+Run `node scripts/check_message_files_links.mjs` after building. Browser checks:
+`CHAT_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check_message_files_browser.mjs`.
 
 ## app-server/README.md
 
@@ -6647,7 +7042,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.8.9",
+  "version": "0.9.0",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -6672,7 +7067,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.10",
+  "version": "0.9.12",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -6718,11 +7113,14 @@ npm test
     "README.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/copy_avatar_wasm.mjs",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_tool_call_words.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_filter_bar.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_top_bar_set.mjs && node scripts/check_session_tool_policy.mjs && node scripts/check_brand_icons.mjs && node scripts/check_cloud_providers.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_playback_level.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_tool_call_words.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_filter_bar.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_session_cards.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_top_bar_set.mjs && node scripts/check_session_tool_policy.mjs && node scripts/check_brand_icons.mjs && node scripts/check_cloud_providers.mjs && node scripts/check_avatar.mjs && node scripts/check_avatar_quality.mjs && node scripts/check_apple_avatars.mjs && node scripts/check_avatar_audio.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
-    "prepublishOnly": "npm test && npm run test:speculation"
+    "prepublishOnly": "npm test && npm run test:speculation",
+    "demo:avatars:build": "node scripts/build_avatar_gallery.mjs",
+    "test:avatars": "npm run build && node scripts/check_avatar.mjs && node scripts/check_avatar_quality.mjs && node scripts/check_apple_avatars.mjs && node scripts/check_avatar_audio.mjs",
+    "test:avatars:browser": "npm run demo:avatars:build && node scripts/check_avatar_browser.mjs"
   },
   "peerDependencies": {
     "react": "^18.0.0",
@@ -6748,7 +7146,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.6.6",
+  "version": "0.7.0",
   "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -6794,7 +7192,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && tsc -p scripts/types/tsconfig.json"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_message_files_links.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_docs_voice.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && node scripts/check_avatar_conversation.mjs && tsc -p scripts/types/tsconfig.json"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.9.8",
@@ -7255,6 +7653,7 @@ export {
   STATUS_LABELS,
   apiErrorText,
   attentionAckCursor,
+  consumedAttentionCursor,
   attentionLabel,
   automationControls,
   buildCreateRequest,
@@ -7555,7 +7954,7 @@ export {
   type VoiceDevice,
 } from "./voice_devices.js";
 export { AfTooltip, useAfTooltips, type AfTooltipProps } from "./af_tooltip.js";
-export { bindAfTooltips, acquireAfTooltips, afTooltipPlacement, AF_TOOLTIP_DELAY_MS, AF_TOOLTIP_ATTR, type BindAfTooltipsOptions, type AfTooltipPlacement, type AfTooltipRect } from "./af_tooltip_core.js";
+export { bindAfTooltips, acquireAfTooltips, afTooltipPlacement, afTooltipText, afTooltipAttributes, AF_TOOLTIP_DELAY_MS, AF_TOOLTIP_ATTR, AF_TOOLTIP_CONTENT_ATTR, type AfTooltipContent, type BindAfTooltipsOptions, type AfTooltipPlacement, type AfTooltipRect } from "./af_tooltip_core.js";
 // ui-kit 0.8.7 (round 16, R16.1 A2): the account time-zone picker (preferences).
 export { AfTimeZonePicker, TIME_ZONE_GATEWAY_DEFAULT, timeZoneOptions, type AfTimeZonePickerProps, type TimeZonePreference } from "./time_zone_picker.js";
 // --- ui-primitives (voice) ---
@@ -7745,12 +8144,14 @@ export {
   cloudCardsFromDiscovery,
   cardConnections,
   cardStatus,
+  cardEditTarget,
   freshIdFromStem,
   slugId,
   normalizeBaseUrl,
   validBaseUrl,
   OPENAI_COMPATIBLE_PRESETS,
   GENERIC_COMPATIBLE_CARD,
+  NATIVE_ENDPOINT_RULES,
   type CloudCard,
   type ConnectResult,
   type CheckedKey,
@@ -7775,6 +8176,15 @@ export {
   type BrandFallback,
   type BrandMarkInfo,
 } from "./brand_icons.js";
+export { ActivityAvatar, type ActivityAvatarProps, type AvatarQuality } from "./activity_avatar.js";
+export { SessionCard, type SessionCardProps } from "./session_card.js";
+export { AutomationCard, automationCardSchedule, automationCardNext, type AutomationCardProps } from "./automation_card.js";
+export { sessionContentRevision, sessionReadTarget, sessionOpeningReceipts, isConversationTurn, sessionNeedsAttention, sessionActivityFromRuns, sessionReadScope, SessionReadStore, type SessionActivity, type SessionReceipt } from "./session_activity.js";
+export { createSessionReadClient, sessionReadIdentity, sessionReadEventReceipt, type SessionReadClient, type SessionReadEvent } from "./session_read_client.js";
+export { useSessionReads, SessionReadMarker } from "./session_reads.js";
+export { AppleActivityAvatar } from "./apple_avatars.js";
+export { AppleAvatarEngine, APPLE_AVATARS, isAppleAvatar, type AppleAvatarDesign } from "./apple_avatar_engine.js";
+export { AvatarRenderer, avatarDesigns, avatarPaletteFromCss, parseAvatarFrame, type AvatarFrameDescriptor, type AvatarPalette, type AvatarColor, type AvatarDesign, type AvatarPose, type AvatarSource } from "./avatar_renderer.js";
 
 ## ui-kit/src/responsive.ts
 
@@ -10015,7 +10425,9 @@ export function AfDrawerSystem(props: AfDrawerSystemProps): React.ReactElement {
   const { panels, onActiveChange, storageKey } = props;
   const [stored, setStored] = useState<AfDrawerStored>(() => readStored(storageKey));
   const storedRef = useRef(stored);
-  storedRef.current = stored;
+  // Active-panel persistence updates the ref without changing widths. Keep that
+  // newer snapshot when rendering; a resize must not overwrite it with the
+  // initial active selection from the width state.
   const onResizeRef = useRef(props.onResize);
   onResizeRef.current = props.onResize;
 
@@ -10525,6 +10937,15 @@ function NoPreview(): React.ReactElement {
 // override), "Change" reveals the editor in place, "Use gateway default"
 // appears only while an override is set.
 import React, { useId } from "react";
+import { AfTooltip } from "./af_tooltip.js";
+import { Icon } from "./icon.js";
+
+/** Internal presentation context: compact sections stack controls and disclose help. */
+export const AfCompactSettingsContext = React.createContext(false);
+function Help({label,children}:{label:string;children:React.ReactNode}) {
+  if (typeof children !== "string") return <span className="af-setting-row__help">{children}</span>;
+  return <AfTooltip content={children}><button type="button" className="af-settings-help" aria-label={label}><Icon name="info" size={16}/></button></AfTooltip>;
+}
 
 export type AfSettingsGroupProps = {
   title: string;
@@ -10540,6 +10961,7 @@ export type AfSettingsGroupProps = {
 };
 
 export function AfSettingsGroup(p: AfSettingsGroupProps): React.ReactElement {
+  const compact = React.useContext(AfCompactSettingsContext);
   const auto = useId();
   const titleId = `${p.id || auto}-title`;
   return (
@@ -10548,9 +10970,10 @@ export function AfSettingsGroup(p: AfSettingsGroupProps): React.ReactElement {
         <h3 className="af-settings-group__title" id={titleId}>
           {p.title}
         </h3>
+        {compact && p.help ? <Help label={`About ${p.title}`}>{p.help}</Help> : null}
         {p.aside ? <span className="af-settings-group__aside">{p.aside}</span> : null}
       </div>
-      {p.help ? <p className="af-settings-group__help">{p.help}</p> : null}
+      {!compact && p.help ? <p className="af-settings-group__help">{p.help}</p> : null}
       <div className="af-settings-group__rows">{p.children}</div>
     </section>
   );
@@ -10574,14 +10997,16 @@ export type AfSettingRowProps = {
 };
 
 export function AfSettingRow(p: AfSettingRowProps): React.ReactElement {
+  const compact = React.useContext(AfCompactSettingsContext);
   const Label = p.htmlFor ? "label" : "span";
   return (
-    <div className={`af-setting-row${p.stack ? " af-setting-row--stack" : ""}${p.className ? ` ${p.className}` : ""}`} data-setting={p.setting}>
+    <div className={`af-setting-row${p.stack || compact ? " af-setting-row--stack" : ""}${p.className ? ` ${p.className}` : ""}`} data-setting={p.setting}>
       <div className="af-setting-row__label">
         <Label className="af-setting-row__name" {...(p.htmlFor ? { htmlFor: p.htmlFor } : {})}>
           {p.label}
         </Label>
-        {p.help ? <span className="af-setting-row__help">{p.help}</span> : null}
+        {compact && p.help ? <Help label={typeof p.label === "string" ? `About ${p.label}` : "More information"}>{p.help}</Help> : null}
+        {!compact && p.help ? <span className="af-setting-row__help">{p.help}</span> : null}
       </div>
       {p.children !== undefined || p.trailing ? (
         <div className="af-setting-row__control">
@@ -10614,11 +11039,20 @@ export type AfOverrideRowProps = {
 
 /** "Gateway default" summary + Change + (while overridden) Use gateway default. */
 export function AfOverrideRow(p: AfOverrideRowProps): React.ReactElement {
+  const compact = React.useContext(AfCompactSettingsContext);
   const overridden = Boolean(p.overrideSummary);
   const editorId = useId();
   const summary = overridden
-    ? `${p.overrideSummary}${p.overrideOwner ? ` — ${p.overrideOwner}` : ""}`
+    ? `${p.overrideSummary}${!compact && p.overrideOwner ? ` — ${p.overrideOwner}` : ""}`
     : `Gateway default${p.defaultSummary ? ` · ${p.defaultSummary}` : ""}`;
+  if (compact) return <div className="af-override af-override--compact" data-setting={p.setting} data-overridden={overridden ? "true" : "false"}>
+    <button type="button" className="af-override__toggle" aria-label={`Change ${p.label}`} aria-expanded={p.open} aria-controls={editorId} disabled={p.disabled} onClick={p.onToggle}>
+      <span className="af-setting-row__name">{p.label}</span><Icon name={p.open ? "chevronDown" : "chevronRight"} size={16}/>
+      <span className="af-override__summary">{summary}</span>
+    </button>
+    {overridden && p.onReset ? <button type="button" className="af-setting-btn af-setting-btn--quiet" data-action="use-default" disabled={p.disabled} onClick={p.onReset}>Use gateway default</button> : null}
+    <div className="af-override__editor" id={editorId} hidden={!p.open}>{p.open ? p.children : null}</div>
+  </div>;
   return (
     <div className="af-override" data-setting={p.setting} data-overridden={overridden ? "true" : "false"}>
       <AfSettingRow
@@ -12657,6 +13091,16 @@ export function attentionAckCursor(summary: AutomationSummary): string | null {
   return items.length ? items[items.length - 1].cursor : null;
 }
 
+/** Only the contiguous oldest-first prefix actually consumed may advance a shared seen cursor. */
+export function consumedAttentionCursor(summary: AutomationSummary, consumed: ReadonlySet<string>): string | null {
+  let cursor: string | null = null;
+  for (const item of summary.attention.items) {
+    if (!consumed.has(item.cursor)) break;
+    cursor = item.cursor;
+  }
+  return cursor;
+}
+
 export function attentionLabel(summary: AutomationSummary): string {
   const a = summary.attention;
   const parts: string[] = [];
@@ -13337,7 +13781,7 @@ import { appIdentity, type AppIdentity } from "../src/identity.js";
 import { Icon, type IconName } from "../src/icon.js";
 import { bindAfModal } from "../src/af_modal_core.js";
 import { bindAfMenu } from "../src/af_menu_core.js";
-import { acquireAfTooltips, bindAfTooltips } from "../src/af_tooltip_core.js";
+import { acquireAfTooltips, bindAfTooltips, afTooltipAttributes } from "../src/af_tooltip_core.js";
 import { afFilterFacetsHtml, afFilterScopeButtonsHtml, afFilterScopeHtml } from "../src/af_filter_bar_core.js";
 import { THEME_SPECS, applyTheme } from "../src/theme.js";
 import { FONT_SCALES, HEADER_DENSITIES, applyTypography } from "../src/typography.js";
@@ -13356,6 +13800,7 @@ import { BRAND_CARD_IDS, brandMarkHtml, brandMarkInfo } from "../src/brand_icons
 // panel-chat's REAL chat (the one AbstractCode's workspace renders): ChatThread +
 // ChatComposer with the standard Attach control, drop zone and paste-to-attach.
 import { WorkflowChat } from "../../panel-chat/src/workflow_chat.js";
+import { ChatComposer, type ChatComposerProps } from "../../panel-chat/src/chat_composer.js";
 import type { ChatMessage } from "../../panel-chat/src/chat_message_card.js";
 // The shared docs assistant (round 8): the SAME drawer every app mounts.
 import { DocsAssistantDrawer, type DocsAssistantDrawerProps } from "../../panel-chat/src/docs_assistant.js";
@@ -13502,6 +13947,10 @@ export type SandboxChatIslandProps = {
 };
 
 export type IslandHandle<P> = { update: (props: P) => void; unmount: () => void };
+
+/** A controlled shared composer for a plain-HTML host. The host owns its draft and transport. */
+/** No attachment/paste/slot props: the plain-HTML console has nowhere to show chips yet. */
+export type ChatComposerIslandProps = Omit<ChatComposerProps, "actions" | "trailingActions" | "leading" | "overlay" | "onPaste" | "onAttach" | "attachLabel" | "attachDisabled" | "attachPending">;
 
 function extrasNode(extras: IslandExtraAction[] | undefined): React.ReactNode {
   const visible = (extras || []).filter((x) => x && !x.hidden);
@@ -13716,7 +14165,7 @@ export function SandboxChatIsland(props: SandboxChatIslandProps): React.ReactEle
   const mic = voice.voice_ptt_supported && !blocked ? (
     <button
       type="button"
-      className={`pc-workflow-chat__icon-button af-sandbox-chat__mic${voice.voice_ptt_recording ? " is-recording" : ""}`}
+      className={`pc-composer__icon-action af-sandbox-chat__mic${voice.voice_ptt_recording ? " is-recording" : ""}`}
       aria-label={voice.voice_ptt_recording ? "Recording — release to transcribe" : "Hold to dictate"}
       data-af-tip="Hold to dictate (Space or Enter on the keyboard)"
       aria-pressed={voice.voice_ptt_recording}
@@ -13729,7 +14178,7 @@ export function SandboxChatIsland(props: SandboxChatIslandProps): React.ReactEle
       onBlur={end}
     >
       <Icon name={voice.voice_ptt_busy ? "loader" : "mic"} size={16} />
-      <span>{voice.voice_ptt_recording ? "Listening…" : voice.voice_ptt_busy ? "Transcribing…" : "Dictate"}</span>
+      <span className="pc-sr-only">{voice.voice_ptt_recording ? "Listening…" : voice.voice_ptt_busy ? "Transcribing…" : "Dictate"}</span>
     </button>
   ) : null;
   const clear = props.onClear && messages.length ? (
@@ -13754,7 +14203,8 @@ export function SandboxChatIsland(props: SandboxChatIslandProps): React.ReactEle
       onAttach={props.onAttach}
       onFiles={props.onFiles}
       attachments={items.length ? <SandboxAttachmentChips items={items} onRemove={props.onRemoveAttachment} /> : null}
-      composerExtras={<>{mic}{clear}</>}
+      composerExtras={clear}
+      composerTrailingActions={mic}
       footer={voiceError ? <div className="pc-workflow-chat__error af-sandbox-chat__voice-error" role="alert">Voice: {voiceError}</div> : null}
       messageProps={{
         ...(voice.tts_supported ? { onSpeakToggle: (message: ChatMessage) => { void voice.toggle_tts(String(message.id || message.content), String(message.content || "")); } } : {}),
@@ -13788,6 +14238,11 @@ export function mountAbout(el: Element, props: AboutIslandProps): IslandHandle<A
  */
 export function mountSandboxChat(el: Element, props: SandboxChatIslandProps): IslandHandle<SandboxChatIslandProps> {
   return mount(el, (p) => <SandboxChatIsland {...p} />, props);
+}
+
+/** The same ChatComposer used by React chats, without a second keyboard or submit implementation. */
+export function mountChatComposer(el: Element, props: ChatComposerIslandProps): IslandHandle<ChatComposerIslandProps> {
+  return mount(el, (p) => <ChatComposer {...p} />, props);
 }
 
 /**
@@ -13955,6 +14410,7 @@ const api = {
   mountAppearance,
   mountAbout,
   mountSandboxChat,
+  mountChatComposer,
   mountProviderModelPicker,
   mountToolModeEditor,
   mountVoiceSettings,
@@ -13975,6 +14431,7 @@ const api = {
   bindModal,
   bindMenu,
   bindTooltips,
+  tooltipAttributes: afTooltipAttributes,
   // The filter bar's markup for plain-HTML hosts (kit after 0.9.8; docs/filter-bar.md): the SAME chips,
   // facet rows and scope switch AfFilterBar renders. Additive members: apiVersion stays "2".
   filterBarFacetsHtml: afFilterFacetsHtml,
@@ -15792,7 +16249,7 @@ export {
   type DocsHistoryListProps,
 } from "./docs_assistant.js";
 export type { AssistantPanelProps, AssistantAsk, AssistantAskContext } from "./assistant_panel.js";
-export { ChatComposer } from "./chat_composer.js";
+export { ChatComposer, type ChatComposerProps, type ChatComposerVariant } from "./chat_composer.js";
 export { Markdown, sameOriginImage, type MarkdownImages, type MarkdownProps } from "./markdown.js";
 export { JsonViewer } from "./json_viewer.js";
 export { ChatMessageCard, speakButtonView } from "./chat_message_card.js";
@@ -16000,8 +16457,174 @@ export {
   type SseFrame,
 } from "./replay_view.js";
 
+export { TextLinks, textLinks } from "./text_links.js";
+export { messageArtifactRefs, submittedArtifacts, outputArtifacts, type MessageArtifact } from "./message_artifacts.js";
+
+export { AvatarConversation, type AvatarConversationOptions, type AvatarConversationProps } from "./avatar_conversation.js";
+export { DEFAULT_CONVERSATION_CUES, conversationMessages, conversationPages, conversationSnapshot, conversationState, conversationCueStep, publicUpdate, type AvatarConversationState, type ConversationAttention, type ConversationCue, type ConversationCuePreferences, type ConversationCueCursor, type PublicUpdate } from "./conversation_model.js";
+export { useAvatarConversationPreferences, playConversationCue } from "./conversation_preferences.js";
+export { conversationReply } from "./conversation_model.js";
+export { conversationNarrationStep } from "./conversation_model.js";
+export { publicApprovalRequest, type PublicApprovalRequest } from "./public_approval.js";
+
+## panel-chat/src/chat_composer.tsx
+
+import React, { useCallback, useEffect, useRef } from "react";
+import { Icon } from "@abstractframework/ui-kit";
+
+/** Rounded multiline is the shared default; `legacy` restores the former flat layout. */
+export type ChatComposerVariant = "compact" | "legacy";
+
+export type ChatComposerProps = {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  /** Omit for the shared rounded multiline composer; `legacy` restores the former layout. */
+  variant?: ChatComposerVariant;
+  placeholder?: string;
+  /** Accessible name for the message field. Falls back to its placeholder. */
+  ariaLabel?: string;
+  textareaId?: string;
+  ariaDescribedBy?: string;
+  disabled?: boolean;
+  busy?: boolean;
+  rows?: number;
+  autoFocus?: boolean;
+  className?: string;
+  textareaClassName?: string;
+  sendButtonClassName?: string;
+  sendLabel?: string;
+  busyLabel?: string;
+  /** Host eligibility for attachment-only or other valid payloads. Busy/disabled still win. */
+  canSubmit?: boolean;
+  /** Preserve multiline-first chats that submit with Ctrl/Cmd+Enter. */
+  submitKey?: "enter" | "mod-enter";
+  actions?: React.ReactNode;
+  /** Controls next to Send, such as a microphone or Stop. */
+  trailingActions?: React.ReactNode;
+  /** Shared attachment control; the host owns its file chooser and upload lifecycle. */
+  onAttach?: () => void;
+  attachLabel?: string;
+  attachDisabled?: boolean;
+  attachPending?: boolean;
+  /** Rendered inside the composer box above the textarea (e.g. attachment chips). */
+  leading?: React.ReactNode;
+  /** Absolutely positioned layer over the composer box (e.g. a drop zone). */
+  overlay?: React.ReactNode;
+  onPaste?: React.ClipboardEventHandler<HTMLTextAreaElement>;
+};
+
+export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerProps>(function ChatComposer(
+  props: ChatComposerProps,
+  ref
+): React.ReactElement {
+  const compact = props.variant !== "legacy";
+  const rows = typeof props.rows === "number" && Number.isFinite(props.rows) ? Math.max(1, Math.trunc(props.rows)) : compact ? 2 : 3;
+  const disabled = Boolean(props.disabled);
+  const busy = Boolean(props.busy);
+  const can_submit = !disabled && !busy && (props.canSubmit ?? Boolean(String(props.value || "").trim()));
+  const sendLabel = busy ? props.busyLabel || "Thinking…" : props.sendLabel || "Send";
+  const textarea = useRef<HTMLTextAreaElement | null>(null);
+  const fallbackSizing = useRef(false);
+  const setTextarea = useCallback((element: HTMLTextAreaElement | null) => {
+    textarea.current = element;
+    if (typeof ref === "function") ref(element);
+    else if (ref) ref.current = element;
+  }, [ref]);
+  const resizeTextarea = useCallback(() => {
+    const element = textarea.current;
+    if (!element || !fallbackSizing.current) return;
+    element.style.height = "0px";
+    const cap = parseFloat(getComputedStyle(element).maxHeight);
+    element.style.height = `${Math.min(element.scrollHeight, Number.isFinite(cap) ? cap : Infinity)}px`;
+  }, []);
+
+  // Field sizing is native where available. Compact retains multiline growth
+  // on other engines, including after its containing pane is resized.
+  useEffect(() => {
+    const element = textarea.current;
+    if (!compact || !element || (typeof CSS !== "undefined" && CSS.supports?.("field-sizing", "content"))) return;
+    fallbackSizing.current = true;
+    resizeTextarea();
+    window.addEventListener("resize", resizeTextarea);
+    let width = element.clientWidth;
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
+      if (element.clientWidth !== width) { width = element.clientWidth; resizeTextarea(); }
+    });
+    observer?.observe(element);
+    return () => { fallbackSizing.current = false; observer?.disconnect(); window.removeEventListener("resize", resizeTextarea); element.style.removeProperty("height"); };
+  }, [compact, resizeTextarea]);
+  useEffect(() => { resizeTextarea(); }, [props.value, rows, resizeTextarea]);
+
+  return (
+    <div className={["pc-composer", compact ? "pc-composer--compact" : "", props.className].filter(Boolean).join(" ")}>
+      {props.leading}
+      <textarea
+        id={props.textareaId}
+        ref={setTextarea}
+        className={["pc-composer__textarea", props.textareaClassName].filter(Boolean).join(" ")}
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+        rows={rows}
+        // The textarea auto-grows (CSS field-sizing) from `rows` lines up to a
+        // viewport-relative cap; the row count reaches the CSS as a variable.
+        style={{ ["--pc-composer-rows" as string]: String(rows) } as React.CSSProperties}
+        spellCheck={false}
+        autoCorrect="off"
+        autoCapitalize="off"
+        autoComplete="off"
+        placeholder={props.placeholder || ""}
+        aria-label={props.ariaLabel || props.placeholder || "Message"}
+        aria-describedby={props.ariaDescribedBy}
+        disabled={disabled}
+        autoFocus={Boolean(props.autoFocus)}
+        onPaste={props.onPaste}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" || e.shiftKey) return;
+          if (props.submitKey === "mod-enter" && !e.ctrlKey && !e.metaKey) return;
+          // Committing an IME composition with Enter must never send the
+          // message (CJK input); nativeEvent.isComposing covers the commit
+          // keystroke itself, keyCode 229 covers older engines.
+          if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+          e.preventDefault();
+          // Enter honors the same gate as the Send button — the busy/empty
+          // contract is the component's, not something every consumer must
+          // re-implement around a keyboard side door.
+          if (!can_submit) return;
+          props.onSubmit();
+        }}
+      />
+
+      <div className="pc-composer__row">
+        <div className="pc-composer__actions">
+          {props.onAttach ? <button type="button" className={compact ? "pc-composer__icon-action" : "pc-composer__icon-action pc-workflow-chat__icon-button"} aria-label={props.attachLabel || "Attach files"} data-af-tip={props.attachLabel || "Attach files"} aria-busy={props.attachPending || undefined} disabled={disabled || props.attachDisabled || props.attachPending} onClick={props.onAttach}>
+            <Icon name={props.attachPending ? "loader" : compact ? "plus" : "paperclip"} size={16} />
+            <span className={compact ? "pc-sr-only" : undefined}>{props.attachPending ? "Attaching…" : props.attachLabel || "Attach"}</span>
+          </button> : null}
+          {props.actions}
+        </div>
+        {props.trailingActions ? <div className="pc-composer__trailing">{props.trailingActions}</div> : null}
+        <button
+          type="button"
+          className={[props.sendButtonClassName || "pc-btn", compact ? "pc-composer__send--compact" : ""].filter(Boolean).join(" ")}
+          aria-label={compact ? sendLabel : undefined}
+          data-af-tip={compact ? sendLabel : undefined}
+          aria-busy={compact ? busy : undefined}
+          disabled={!can_submit}
+          onClick={() => props.onSubmit()}
+        >
+          {compact ? <Icon name={busy ? "loader" : "send"} size={17} /> : sendLabel}
+        </button>
+      </div>
+      {props.overlay}
+    </div>
+  );
+});
+
 ## panel-chat/src/chat_message_card.tsx
 
+import {MessageArtifactChip, type MessageArtifact} from "./message_artifacts.js";
+import type { PublicUpdate } from "./conversation_model.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { AfAudioPlayer, Icon, fileViewerKind, fileViewerNeedsText, formatFileSize, type IconName } from "@abstractframework/ui-kit";
@@ -16031,6 +16654,9 @@ export type ChatMessage = {
    * README's "Messages from the replay view" mapping.
    */
   kind?: string;
+  /** Original public channel attribution, retained through replay. */
+  source?: string;
+  publicUpdate?: PublicUpdate;
   toolActivity?: WorkflowToolActivity;
   statistics?: WorkflowStatistics;
   runId?: string;
@@ -16055,10 +16681,13 @@ export type ChatMessage = {
   attachments?: ChatAttachment[];
   /**
    * Artifact ids this message carries (`replay_view_v1.messages[].artifact_ids`,
-   * or `$artifact` refs a host folded). Data only: a host resolves them into
-   * `media` / `attachments` (e.g. with a transport's `resolveArtifact`).
+   * or `$artifact` refs a host folded). WorkflowChat presents them as named
+   * file chips with its artifactFetch transport; hosts may also supply media.
    */
   artifactIds?: string[];
+  /** Unlisted replay refs require explicit output recovery, never raw-ID chips. */
+  artifactReferencesUnresolved?: boolean;
+  artifactRefs?: MessageArtifact[];
 };
 
 /**
@@ -16503,7 +17132,7 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
 
       {media.length ? (
         <div className="pc-chat-media">
-          {media.slice(0, 24).map((item, idx) => (
+          {media.map((item, idx) => (
             <ChatMediaItem
               key={item.id || `${item.kind}:${item.src}:${idx}`}
               item={item}
@@ -16514,9 +17143,10 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         </div>
       ) : null}
 
+      {m.artifactRefs?.length ? <div className="pc-chat-attachments" aria-label="Attached files">{m.artifactRefs.map(a=><MessageArtifactChip key={`${a.runId}:${a.id}`} artifact={a}/>)}</div> : null}
       {attachments.length ? (
         <div className="pc-chat-attachments" aria-label="Attachments">
-          {attachments.slice(0, 24).map((a, idx) => {
+          {attachments.map((a, idx) => {
             const label = String(a.label || "").trim() || "attachment";
             const target = String(a.target || "").trim();
             const title = String(a.title || "").trim();
@@ -16625,6 +17255,10 @@ export type ReplayViewMessage = {
   step_ids?: string[];
   seqs?: number[];
   source?: string;
+  source_call_ids?: string[];
+  session_id?: string;
+  iteration?: number;
+  public_update_id?: string;
   artifact_ids?: string[];
   order?: unknown[];
   /** A final answer that repeats an earlier answer names it here: show the text once. */
@@ -17146,6 +17780,8 @@ export function createReplayViewTransport(options: { fetch: ReplayViewFetch; adv
 
 ## panel-chat/src/replay_view_projection.ts
 
+import { replayMessageArtifacts } from "./artifact_provenance.js";
+import { publicUpdate } from "./conversation_model.js";
 /**
  * `replay_view_v1` -> what the chat renders: the transcript (`ChatMessage[]`), the tool rows,
  * the pending interaction, the status. Pure: no fetch, no state. `WorkflowSessionController`
@@ -17164,33 +17800,80 @@ export function createReplayViewTransport(options: { fetch: ReplayViewFetch; adv
  *   through `POST commands` with it).
  */
 import type { ChatMessage } from "./chat_message_card.js";
-import type { WorkflowStatistics, WorkflowToolActivity } from "./workflow_evidence.js";
+import type {
+  WorkflowStatistics,
+  WorkflowToolActivity,
+} from "./workflow_evidence.js";
 import type { WorkflowWaitInteraction } from "./workflow_runtime.js";
-import { toolPolicyDecisionText, type WorkflowToolPolicyProvenance } from "./tool_policy.js";
-import { compareReplayOrder, type ReplayView, type ReplayViewActivity, type ReplayViewInteraction, type ReplayViewMessage, type ReplayViewToolCall } from "./replay_view.js";
+import {
+  toolPolicyDecisionText,
+  type WorkflowToolPolicyProvenance,
+} from "./tool_policy.js";
+import {
+  compareReplayOrder,
+  type ReplayView,
+  type ReplayViewActivity,
+  type ReplayViewInteraction,
+  type ReplayViewMessage,
+  type ReplayViewToolCall,
+} from "./replay_view.js";
 
 type Row = Record<string, unknown>;
-const str = (value: unknown): string => (typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "");
-const obj = (value: unknown): Row | null => (value && typeof value === "object" && !Array.isArray(value) ? (value as Row) : null);
+const str = (value: unknown): string =>
+  typeof value === "string"
+    ? value.trim()
+    : typeof value === "number"
+      ? String(value)
+      : "";
+const obj = (value: unknown): Row | null =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Row)
+    : null;
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
-const FILE_TOOLS = new Set(["write_file", "create_file", "save_file", "edit_file", "update_file", "replace_in_file", "delete_file", "remove_file", "move_file", "rename_file", "copy_file"]);
+const FILE_TOOLS = new Set([
+  "write_file",
+  "create_file",
+  "save_file",
+  "edit_file",
+  "update_file",
+  "replace_in_file",
+  "delete_file",
+  "remove_file",
+  "move_file",
+  "rename_file",
+  "copy_file",
+]);
 
 /**
  * The served interaction as a raw runtime wait (same control, same target). `command` and
  * `kind` ride along: an `event` interaction is answered with its resume command, never by
  * re-deriving an event route.
  */
-export function replayInteractionWait(interaction: ReplayViewInteraction): WorkflowWaitInteraction {
+export function replayInteractionWait(
+  interaction: ReplayViewInteraction,
+): WorkflowWaitInteraction {
   const details: Record<string, unknown> = { ...(interaction.details || {}) };
   if (interaction.kind === "tool_approval") {
     details.kind = "tool_approval";
-    details.tool_calls = Array.isArray(interaction.tool_calls) ? interaction.tool_calls : [];
+    details.tool_calls = Array.isArray(interaction.tool_calls)
+      ? interaction.tool_calls
+      : [];
   }
-  const reason = interaction.kind === "ask_user" ? "user" : interaction.kind === "event" ? "event" : "tool_approval";
-  const wait: Record<string, unknown> = { wait_key: interaction.wait_key, reason, details };
+  const reason =
+    interaction.kind === "ask_user"
+      ? "user"
+      : interaction.kind === "event"
+        ? "event"
+        : "tool_approval";
+  const wait: Record<string, unknown> = {
+    wait_key: interaction.wait_key,
+    reason,
+    details,
+  };
   if (interaction.prompt != null) wait.prompt = interaction.prompt;
   if (Array.isArray(interaction.choices)) wait.choices = interaction.choices;
-  if (typeof interaction.allow_free_text === "boolean") wait.allow_free_text = interaction.allow_free_text;
+  if (typeof interaction.allow_free_text === "boolean")
+    wait.allow_free_text = interaction.allow_free_text;
   return {
     runId: interaction.run_id,
     wait,
@@ -17200,7 +17883,10 @@ export function replayInteractionWait(interaction: ReplayViewInteraction): Workf
   };
 }
 
-function toolStatus(call: ReplayViewToolCall, activity: ReplayViewActivity): WorkflowToolActivity["status"] {
+function toolStatus(
+  call: ReplayViewToolCall,
+  activity: ReplayViewActivity,
+): WorkflowToolActivity["status"] {
   const s = str(call.status || activity.status).toLowerCase();
   if (s === "completed") return "completed";
   if (s === "waiting") return "waiting";
@@ -17208,7 +17894,9 @@ function toolStatus(call: ReplayViewToolCall, activity: ReplayViewActivity): Wor
   return "failed"; // failed, denied, cancelled, partly_denied
 }
 
-function callPolicy(call: ReplayViewToolCall): WorkflowToolPolicyProvenance | undefined {
+function callPolicy(
+  call: ReplayViewToolCall,
+): WorkflowToolPolicyProvenance | undefined {
   const decision = obj(call.policy_decision);
   const kind = str(decision?.decision);
   if (kind !== "auto_approved" && kind !== "denied") return undefined;
@@ -17218,14 +17906,20 @@ function callPolicy(call: ReplayViewToolCall): WorkflowToolPolicyProvenance | un
     decision: kind,
     ...(str(call.decided_by) ? { source: str(call.decided_by) } : {}),
     ...(str(call.matched) ? { matched: str(call.matched) } : {}),
-    ...(typeof decision?.revision === "number" ? { revision: decision.revision as number } : {}),
+    ...(typeof decision?.revision === "number"
+      ? { revision: decision.revision as number }
+      : {}),
     ...(who ? { setBy: who } : {}),
     ...(str(decision?.set_at) ? { setAt: str(decision?.set_at) } : {}),
   };
 }
 
-function errorText(call: ReplayViewToolCall, status: string): string | undefined {
-  if (typeof call.error === "string" && call.error.trim()) return call.error.trim();
+function errorText(
+  call: ReplayViewToolCall,
+  status: string,
+): string | undefined {
+  if (typeof call.error === "string" && call.error.trim())
+    return call.error.trim();
   const e = obj(call.error);
   if (e) return str(e.message) || str(e.detail) || JSON.stringify(e);
   if (status === "denied") return "Denied";
@@ -17234,7 +17928,9 @@ function errorText(call: ReplayViewToolCall, status: string): string | undefined
 }
 
 /** One tool row per call of a `tool` activity. */
-export function replayToolActivities(activity: ReplayViewActivity): WorkflowToolActivity[] {
+export function replayToolActivities(
+  activity: ReplayViewActivity,
+): WorkflowToolActivity[] {
   const calls = Array.isArray(activity.tool_calls) ? activity.tool_calls : [];
   return calls.map((call, index) => {
     const status = toolStatus(call, activity);
@@ -17248,13 +17944,21 @@ export function replayToolActivities(activity: ReplayViewActivity): WorkflowTool
       ...(call.arguments !== undefined ? { arguments: call.arguments } : {}),
       ...(call.output !== undefined ? { output: call.output } : {}),
       status,
-      ...(status === "completed" ? { success: true } : status === "failed" ? { success: false } : {}),
+      ...(status === "completed"
+        ? { success: true }
+        : status === "failed"
+          ? { success: false }
+          : {}),
       ...(error ? { error } : {}),
-      ...(str(activity.started_at) ? { startedAt: str(activity.started_at) } : {}),
+      ...(str(activity.started_at)
+        ? { startedAt: str(activity.started_at) }
+        : {}),
       ...(str(activity.ended_at) ? { endedAt: str(activity.ended_at) } : {}),
       // A person decided (the view sets `outcome` only once every call of the batch is decided,
       // AbstractRuntime replay/view.py:1050-1051); a wait cut short by the run's end has none.
-      ...(activity.wait?.kind === "tool_approval" && activity.wait.outcome ? { approvalWait: true } : {}),
+      ...(activity.wait?.kind === "tool_approval" && activity.wait.outcome
+        ? { approvalWait: true }
+        : {}),
       ...(str(call.id) ? { callId: str(call.id) } : {}),
       ...(policy ? { policy } : {}),
     };
@@ -17263,7 +17967,26 @@ export function replayToolActivities(activity: ReplayViewActivity): WorkflowTool
 
 /** The transcript row of a tool call (the controller's own shape, shared). */
 export function toolActivityMessage(tool: WorkflowToolActivity): ChatMessage {
-  return { id: `tool:${tool.id}`, role: "system", kind: "tool_activity", title: "Tool activity", runId: tool.runId, toolActivity: tool, content: JSON.stringify({ tool: tool.name, status: tool.status, arguments: tool.arguments, output: tool.output, error: tool.error }, null, 2), ts: tool.endedAt || tool.startedAt };
+  return {
+    id: `tool:${tool.id}`,
+    role: "system",
+    kind: "tool_activity",
+    title: "Tool activity",
+    runId: tool.runId,
+    toolActivity: tool,
+    content: JSON.stringify(
+      {
+        tool: tool.name,
+        status: tool.status,
+        arguments: tool.arguments,
+        output: tool.output,
+        error: tool.error,
+      },
+      null,
+      2,
+    ),
+    ts: tool.endedAt || tool.startedAt,
+  };
 }
 
 function policyLine(activity: ReplayViewActivity): ChatMessage | null {
@@ -17275,11 +17998,21 @@ function policyLine(activity: ReplayViewActivity): ChatMessage | null {
   const provenance: WorkflowToolPolicyProvenance = {
     decision,
     ...(str(activity.source) ? { source: str(activity.source) } : {}),
-    ...(typeof policy?.revision === "number" ? { revision: policy.revision as number } : {}),
+    ...(typeof policy?.revision === "number"
+      ? { revision: policy.revision as number }
+      : {}),
     ...(who ? { setBy: who } : {}),
     ...(str(policy?.set_at) ? { setAt: str(policy?.set_at) } : {}),
   };
-  return { id: `policy:${activity.id}`, role: "system", kind: "tool_policy_decision", title: "Tool policy", runId: activity.run_id, content: toolPolicyDecisionText(provenance), ts: str(activity.started_at) || undefined };
+  return {
+    id: `policy:${activity.id}`,
+    role: "system",
+    kind: "tool_policy_decision",
+    title: "Tool policy",
+    runId: activity.run_id,
+    content: toolPolicyDecisionText(provenance),
+    ts: str(activity.started_at) || undefined,
+  };
 }
 
 /** The turn's statistics from the view: `usage`, the tool calls, the files they changed, the span of its activities. */
@@ -17299,18 +18032,33 @@ export function replayStatistics(view: ReplayView): WorkflowStatistics {
     if (a.kind !== "tool") continue;
     for (const call of a.tool_calls || []) {
       toolCalls += 1;
-      if (str(call.status) !== "completed" || !FILE_TOOLS.has(str(call.name))) continue;
+      if (str(call.status) !== "completed" || !FILE_TOOLS.has(str(call.name)))
+        continue;
       const args = obj(call.arguments) || {};
-      const path = str(args.destination) || str(args.destination_path) || str(args.file_path) || str(args.path) || str(args.filename);
+      const path =
+        str(args.destination) ||
+        str(args.destination_path) ||
+        str(args.file_path) ||
+        str(args.path) ||
+        str(args.filename);
       if (path) files.add(path);
     }
   }
-  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
-  const out: WorkflowStatistics = { llmCalls: num(usage.llm_calls) ?? llm, toolCalls, changedFiles: [...files] };
-  if (num(usage.input_tokens) !== undefined) out.inputTokens = num(usage.input_tokens);
-  if (num(usage.output_tokens) !== undefined) out.outputTokens = num(usage.output_tokens);
-  if (num(usage.total_tokens) !== undefined) out.totalTokens = num(usage.total_tokens);
-  if (Number.isFinite(start) && Number.isFinite(end)) out.durationMs = Math.max(0, end - start);
+  const num = (v: unknown) =>
+    typeof v === "number" && Number.isFinite(v) ? v : undefined;
+  const out: WorkflowStatistics = {
+    llmCalls: num(usage.llm_calls) ?? llm,
+    toolCalls,
+    changedFiles: [...files],
+  };
+  if (num(usage.input_tokens) !== undefined)
+    out.inputTokens = num(usage.input_tokens);
+  if (num(usage.output_tokens) !== undefined)
+    out.outputTokens = num(usage.output_tokens);
+  if (num(usage.total_tokens) !== undefined)
+    out.totalTokens = num(usage.total_tokens);
+  if (Number.isFinite(start) && Number.isFinite(end))
+    out.durationMs = Math.max(0, end - start);
   return out;
 }
 
@@ -17331,18 +18079,42 @@ export type ReplayProjection = {
   statistics: WorkflowStatistics;
 };
 
-function messageOf(m: ReplayViewMessage, statistics: WorkflowStatistics | undefined): ChatMessage {
-  const ts = Array.isArray(m.order) && typeof m.order[0] === "string" && m.order[0] ? (m.order[0] as string) : undefined;
+function messageOf(
+  m: ReplayViewMessage,
+  statistics: WorkflowStatistics | undefined,
+  artifacts: ReadonlyMap<string, Record<string, unknown>>,
+): ChatMessage {
+  const ts =
+    Array.isArray(m.order) && typeof m.order[0] === "string" && m.order[0]
+      ? (m.order[0] as string)
+      : undefined;
   const level = str(m.level).toLowerCase();
+  const files = replayMessageArtifacts(m, artifacts);
   return {
     id: m.id,
     role: m.role,
     kind: m.kind,
     content: m.text,
     runId: m.run_id,
+    ...(m.source ? { source: m.source } : {}),
+    ...(m.kind === "public_update" ? { publicUpdate: publicUpdate({ id: m.public_update_id || m.id, text: m.text, run_id: m.run_id, session_id: m.session_id, iteration: m.iteration, source_call_ids: m.source_call_ids }, m.run_id) || undefined } : {}),
     ...(ts ? { ts } : {}),
-    ...(m.role === "system" ? { title: "Workflow", level: level === "error" ? "error" : level === "warn" || level === "warning" ? "warn" : "info" } : {}),
-    ...(Array.isArray(m.artifact_ids) && m.artifact_ids.length ? { artifactIds: [...m.artifact_ids] } : {}),
+    ...(m.role === "system"
+      ? {
+          title: "Workflow",
+          level:
+            level === "error"
+              ? "error"
+              : level === "warn" || level === "warning"
+                ? "warn"
+                : "info",
+        }
+      : {}),
+    ...(Array.isArray(m.artifact_ids) && m.artifact_ids.length
+      ? { artifactIds: [...m.artifact_ids] }
+      : {}),
+    artifactRefs: files.refs,
+    artifactReferencesUnresolved: files.unresolved,
     ...(statistics ? { statistics } : {}),
   } as ChatMessage;
 }
@@ -17351,16 +18123,48 @@ function messageOf(m: ReplayViewMessage, statistics: WorkflowStatistics | undefi
 export function projectReplayView(view: ReplayView): ReplayProjection {
   const root = view.root_run_id;
   const statistics = replayStatistics(view);
-  const interaction = view.interaction ? replayInteractionWait(view.interaction) : null;
-  const openQuestion = view.interaction ? `${view.interaction.run_id}:${view.interaction.step_id || ""}:question` : "";
-  const finalOfRoot = (view.messages || []).find((m) => m.id === `${root}:final`);
-  const statsOn = finalOfRoot ? (finalOfRoot.repeats || finalOfRoot.id) : "";
+  const interaction = view.interaction
+    ? replayInteractionWait(view.interaction)
+    : null;
+  const openQuestion = view.interaction
+    ? `${view.interaction.run_id}:${view.interaction.step_id || ""}:question`
+    : "";
+  const finalOfRoot = (view.messages || []).find(
+    (m) => m.id === `${root}:final`,
+  );
+  const statsOn = finalOfRoot ? finalOfRoot.repeats || finalOfRoot.id : "";
   type Item = { order?: unknown[]; id: string; message: ChatMessage };
   const items: Item[] = [];
+  const artifactIndex = new Map(
+    (view.artifacts || []).map((entry) => [String(entry.id || ""), entry]),
+  );
+  const repeatedFiles = new Map<string, string[]>();
+  for (const message of view.messages || [])
+    if (message.repeats)
+      repeatedFiles.set(message.repeats, [
+        ...(repeatedFiles.get(message.repeats) || []),
+        ...(message.artifact_ids || []),
+      ]);
   for (const m of view.messages || []) {
     if (m.kind === "final" && m.repeats) continue;
     if (m.kind === "question" && m.id === openQuestion) continue;
-    items.push({ order: m.order, id: m.id, message: messageOf(m, m.id === statsOn ? statistics : undefined) });
+    items.push({
+      order: m.order,
+      id: m.id,
+      message: messageOf(
+        {
+          ...m,
+          artifact_ids: [
+            ...new Set([
+              ...(m.artifact_ids || []),
+              ...(repeatedFiles.get(m.id) || []),
+            ]),
+          ],
+        },
+        m.id === statsOn ? statistics : undefined,
+        artifactIndex,
+      ),
+    });
   }
   const tools: WorkflowToolActivity[] = [];
   const openLlmCalls: string[] = [];
@@ -17369,16 +18173,27 @@ export function projectReplayView(view: ReplayView): ReplayProjection {
     if (a.kind === "tool") {
       const rows = replayToolActivities(a);
       tools.push(...rows);
-      rows.forEach((tool, i) => items.push({ order: [...(a.order || []), i], id: `${a.id}:${i}`, message: toolActivityMessage(tool) }));
+      rows.forEach((tool, i) =>
+        items.push({
+          order: [...(a.order || []), i],
+          id: `${a.id}:${i}`,
+          message: toolActivityMessage(tool),
+        }),
+      );
     } else if (a.kind === "tool_policy") {
       const line = policyLine(a);
       if (line) items.push({ order: a.order, id: a.id, message: line });
     } else if (a.kind === "llm") {
-      for (const step of a.step_ids || []) (TERMINAL.has(a.status) ? endedLlmCalls : openLlmCalls).push(`${a.run_id}:${step}`);
+      for (const step of a.step_ids || [])
+        (TERMINAL.has(a.status) ? endedLlmCalls : openLlmCalls).push(
+          `${a.run_id}:${step}`,
+        );
     }
   }
   items.sort((x, y) => compareReplayOrder(x, y));
-  const runStatus = new Map((view.runs || []).map((r) => [r.run_id, str(r.status).toLowerCase()]));
+  const runStatus = new Map(
+    (view.runs || []).map((r) => [r.run_id, str(r.status).toLowerCase()]),
+  );
   const status = str(view.status).toLowerCase() || "unknown";
   return {
     messages: items.map((x) => x.message),
@@ -18067,6 +18882,7 @@ import { WORKFLOW_INTERACTION_LABELS, type WorkflowInteraction, type WorkflowInt
 import type { ServerRecord, SessionToolPolicy, WorkflowRecord, WorkflowSessionController, WorkflowWaitInteraction } from "./workflow_runtime.js";
 import type { ReplayViewInteraction } from "./replay_view.js";
 import { replayInteractionWait } from "./replay_view_projection.js";
+import { publicApprovalRequest } from "./public_approval.js";
 
 /**
  * The served, tree-resolved pending interaction of the replay view
@@ -18305,6 +19121,7 @@ export function presentInteraction(
       kind: "tool-approval",
       title: `${calls.length || "Requested"} ${calls.length === 1 ? "action needs" : "actions need"} permission`,
       toolName: names.join(", ") || "the requested tools",
+      publicRequest: publicApprovalRequest(calls, details.public_action, raw.runId),
       description: "Review the targets below. Allow once approves this batch only.",
       detail: (
         <div className="pc-approval-summary">
@@ -18353,11 +19170,17 @@ export function presentInteraction(
     };
   }
   const askTarget = { runId: raw.runId, waitKey: String(wait.wait_key || ""), stepId: raw.stepId };
+  const question = details.question && typeof details.question === "object" && details.question.purpose === "conversation" ? details.question : null;
+  const essential = question?.importance === "essential";
+  const clarification = question?.importance === "clarification";
+  const deadlineTime = typeof question?.deadline === "string" && Number.isFinite(Date.parse(question.deadline))
+    ? new Date(question.deadline).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
   if (wait.reason === "user" || wait.reason === "ask_user")
     return {
       id,
       kind: "ask-user",
-      title: "A question for you",
+      title: essential ? "Your answer is required" : clarification ? "A clarification for you" : "A question for you",
+      ...(essential ? { description: "This question needs your answer. I will keep waiting; silence does not grant permission." } : clarification ? { description: `${deadlineTime ? `Answer by ${deadlineTime}. ` : ""}${question.fallback ? `Without an answer: ${String(question.fallback)}` : ""}` } : {}),
       prompt: String(wait.prompt || details.prompt || "How would you like to continue?"),
       allowFreeText: wait.allow_free_text !== false,
       choices: (Array.isArray(wait.choices) ? wait.choices : []).map((choice: any) =>
@@ -18372,7 +19195,7 @@ export function presentInteraction(
       onSubmit: async (answer) => {
         await controller.resume(answer, askTarget);
       },
-      ...(options.allowSkip
+      ...(options.allowSkip && !question
         ? {
             onSkip: async () => {
               await controller.resume("", askTarget);
@@ -18922,6 +19745,8 @@ function MarkdownCodeBlock({ code, lang }: { code: string; lang: string }): Reac
   );
 }
 
+import { textLinks, splitTextLinks } from "./text_links.js";
+
 type InlineNode = React.ReactNode;
 
 type HighlightState = {
@@ -18932,9 +19757,10 @@ type HighlightState = {
   hits: number;
 };
 
-function highlightInline(text: string, state: HighlightState | null): InlineNode[] {
+function highlightInline(text: string, state: HighlightState | null, linkify = true): InlineNode[] {
   const s = String(text ?? "");
-  if (!state || !state.needles.length) return [s];
+  if (linkify) return splitTextLinks(s).map((part,i) => part.href ? <a key={i} className="pc-md_link" href={part.href} target="_blank" rel="noopener noreferrer">{highlightInline(part.text,state,false)}</a> : <React.Fragment key={i}>{highlightInline(part.text,state,false)}</React.Fragment>);
+  if (!state || !state.needles.length) return linkify ? textLinks(s) : [s];
 
   const out: InlineNode[] = [];
   const hayLower = s.toLowerCase();
@@ -18956,11 +19782,11 @@ function highlightInline(text: string, state: HighlightState | null): InlineNode
     }
 
     if (bestStart === -1 || !bestNeedle) {
-      out.push(s.slice(pos));
+      out.push(...(linkify ? textLinks(s.slice(pos)) : [s.slice(pos)]));
       break;
     }
 
-    if (bestStart > pos) out.push(s.slice(pos, bestStart));
+    if (bestStart > pos) out.push(...(linkify ? textLinks(s.slice(pos, bestStart)) : [s.slice(pos, bestStart)]));
     const id = state.hits === 0 && state.id ? state.id : undefined;
     const matchedText = s.slice(bestStart, bestStart + bestNeedle.length);
     out.push(
@@ -19111,8 +19937,8 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
             // the SPA fallback (full reload, state gone). Only "#" fragment
             // anchors stay same-tab (hash changes never unload).
             out.push(
-              <a key={`link:${i}`} className="pc-md_link" href={href} target={href.startsWith("#") ? undefined : "_blank"} rel="noreferrer">
-                {renderInline(label, highlight)}
+              <a key={`link:${i}`} className="pc-md_link" href={href} target={href.startsWith("#") ? undefined : "_blank"} rel="noopener noreferrer">
+                {highlight ? highlightInline(label, highlight, false) : label}
               </a>
             );
             i = hrefEnd + 1;
@@ -19127,7 +19953,7 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
       if (j !== -1) {
         flush();
         const inner = s.slice(i + 1, j);
-        out.push(<code key={`code:${i}`}>{highlight ? highlightInline(inner, highlight) : inner}</code>);
+        out.push(<code key={`code:${i}`}>{highlight ? highlightInline(inner, highlight) : textLinks(inner)}</code>);
         i = j + 1;
         continue;
       }
@@ -19159,7 +19985,7 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
       if (j !== -1) {
         flush();
         const inner = s.slice(i + 2, j);
-        out.push(<strong key={`bold:${i}`}>{highlight ? highlightInline(inner, highlight) : inner}</strong>);
+        out.push(<strong key={`bold:${i}`}>{highlight ? highlightInline(inner, highlight) : textLinks(inner)}</strong>);
         i = j + 2;
         continue;
       }
@@ -19170,7 +19996,7 @@ function renderInline(text: string, highlight: HighlightState | null): InlineNod
       if (j !== -1) {
         flush();
         const inner = s.slice(i + 1, j);
-        out.push(<em key={`em:${i}`}>{highlight ? highlightInline(inner, highlight) : inner}</em>);
+        out.push(<em key={`em:${i}`}>{highlight ? highlightInline(inner, highlight) : textLinks(inner)}</em>);
         i = j + 1;
         continue;
       }
@@ -21497,6 +22323,272 @@ export function registerMonitorMemoryWidget(tagName = "monitor-memory") {
   globalThis.customElements.define(tagName, MonitorMemoryElement);
 }
 
+## docs/avatars.md
+
+# Activity avatars
+
+`ActivityAvatar`, `AvatarRenderer` and `avatarDesigns` present the procedural
+[AbstractAvatar](https://github.com/lpalbou/AbstractAvatar) catalog. Its shared Rust
+generator is compiled to WebAssembly for browsers. The catalog contains 44 designs:
+the six shaded forms, all 34 Watch picker designs, three additional Watch shape
+variants and the iPhone woven orb. Native Apple applications retain their SwiftUI
+implementations; the shared library preserves the source design vocabulary without
+claiming pixel-identical output from different platform renderers.
+
+Use catalog identifiers such as `halo`, `hover`, `watch-halo`, `watch-rover`,
+`watch-shape-kitty` and `iphone-weave`. A shaded style and a similarly named Watch
+style are distinct designs. Persist identifiers rather than numeric ABI codes.
+`await avatarDesigns()` supplies labels, descriptions, families and reference codes.
+
+## React presentation
+
+```tsx
+import { ActivityAvatar } from '@abstractframework/ui-kit';
+import '@abstractframework/ui-kit/theme.css';
+
+<ActivityAvatar design="watch-halo" pose="listening" level={microphoneLevel}
+  size={192} quality="balanced" active={panelVisible} animated={animationsEnabled}
+  onError={error => reportVisualFailure(error.message)} />
+```
+
+Hosts supply actual activity and audio levels, own preferences and compose accessible
+activation controls. The component presents images; it does not capture audio, speak,
+run inference or execute tools. It loads its bundled Wasm artifact and produces
+straight-alpha RGBA pixels, transparent outside the artwork. A rendering failure
+clears the image, labels it unavailable and calls `onError`.
+
+| Input | Default | Meaning |
+|---|---|---|
+| design | halo | Stable identifier from the canonical catalog |
+| pose | ready | ready, thinking, working, listening, speaking, waiting, error |
+| level | 0 | Observed audio level in 0–1; zero represents silence |
+| bands | absent | Optional eight observed frequency-band levels in 0–1 |
+| size | 128 | CSS side in pixels, greater than zero and at most 4096 |
+| quality | balanced | Resolution and frame-rate budget: economy, balanced or high |
+| active | true | False releases the renderer and hides the canvas |
+| animated | true | False renders explicit state changes without an animation clock |
+| followCursor | false | Ready gaze follows pointer movement and clicks, expiring after two seconds |
+| palette | CSS tokens | Explicit `AvatarPalette` or semantic kit theme tokens |
+| label / className / onError | optional | Accessibility, styling and failure reporting |
+
+| Quality | Maximum raster side | Maximum pixel ratio | Ready fps | Waiting fps | Active / gaze fps |
+|---|---|---|---|---|---|
+| economy | 256 | 1.5 | 2 | 6 | 12 |
+| balanced | 384 | 2 | 6 | 10 | 24 |
+| high | 512 | 3 | 12 | 12 | 30 |
+
+Raster size follows CSS size and display pixel ratio within the selected budget;
+display-density changes rebuild the renderer. Use economy for multiple previews
+and high for a prominent portrait when the CPU budget allows it. Raster work grows
+with pixel area, so doubling each side costs roughly four times as many samples.
+Animation uses display-aligned deadlines, skips missed frames and never catches
+up with bursts. Frame rates are upper targets rather than guaranteed throughput.
+
+Error is static. Touch, other poses and reduced motion
+ignore gaze. Cursor data is transient and stays local. Offscreen/inactive canvases,
+hidden documents, context loss and unmount stop scheduling; a hidden animation's
+clock pauses. Reduced motion renders explicit state/audio updates without motion.
+Theme changes refresh palette ramps. Bind `active` for application-specific hiding.
+
+A silent settings preview may explicitly supply a sample level. Do not fabricate
+levels in a live listening/speaking view. Store preferences in the host; the renderer
+holds neither account/session identity nor microphone state.
+
+## Frame descriptors and Canvas
+
+A version-one descriptor is an inert JSON object naming a catalog design and frame
+inputs. It is not a program, downloaded scene or executable plugin. AbstractAvatar
+owns the generation equations; clients present their raster output. The interchange
+pixels are conventional row-major RGBA8 with straight alpha.
+
+```ts
+import { AvatarRenderer, avatarPaletteFromCss, parseAvatarFrame } from '@abstractframework/ui-kit';
+const renderer = await AvatarRenderer.create(canvas, {
+  width: 192, palette: avatarPaletteFromCss(canvas),
+});
+const frame = parseAvatarFrame({
+  schema_version: 1, style: 'watch-halo', state: 'speaking',
+  time: 1.25, level: 0.6, gaze: [0, 0],
+});
+renderer.renderFrame(frame);
+renderer.dispose();
+```
+
+`parseAvatarFrame` rejects unknown fields, unsupported versions, invalid states,
+nonfinite numbers and malformed vectors. Time is seconds in 0–86400, level and
+each of eight optional bands are 0–1, and optional gaze is two coordinates in
+−1–1. The renderer also requires the style to exist in its catalog. The imperative
+caller owns scheduling, visibility, gaze expiry and disposal. Its existing
+`draw(style, pose, level, time, gaze)` convenience method remains available.
+
+An optional `source: BufferSource` supplies **trusted local AbstractAvatar Wasm**,
+for offline embedding or tests. Do not use uploaded or externally supplied code.
+An optional `signal: AbortSignal` cancels asynchronous renderer creation before a
+native handle is allocated; rejected cancellation has the name `AbortError`.
+Frame descriptors never select Wasm bytes or URLs. Modules must have no host imports
+and the expected ABI; dimensions are 1–512 pixels, with at most 16 live renderers.
+Native callers can use AbstractAvatar's C ABI or Python `Renderer` binding.
+
+Bundlers must retain the asset referenced by
+`new URL('./avatars/avatar_core.wasm', import.meta.url)`. Serve it over HTTP and
+allow WebAssembly compilation in the application's CSP. No alternative design or
+renderer is silently substituted on failure. Normal npm builds need no Rust toolchain.
+
+## Compatibility exports
+
+`AppleActivityAvatar` is a thin `ActivityAvatar` wrapper whose default design is
+`watch-halo`. `APPLE_AVATARS` and `isAppleAvatar` retain metadata for the original
+seven Apple-derived preview identifiers; use `avatarDesigns()` for the full catalog.
+They do not contain a second procedural engine.
+
+`AppleAvatarEngine` remains an imperative Canvas adapter. Await its asynchronous
+`draw(context, size, design, pose, level, time, staticFrame)` call and call
+`dispose()` when finished. It delegates to `AvatarRenderer`; hosts own its frame clock.
+
+## Gallery
+
+The [gallery](../ui-kit/examples/avatar_gallery.html) provides all designs and seven
+activity states with level, motion and theme controls. It pages six previews at a
+time and defaults to economy quality. **Focus designs** presents Halo, Wave, Hover,
+Rings and Eye together; use Quality to compare sharper output and smoother motion.
+The gallery keeps the number of live renderers bounded. The canonical catalog and JSON
+schema are documented in [AbstractAvatar](https://github.com/lpalbou/AbstractAvatar).
+
+## docs/session-cards.md
+
+# Compact session cards
+
+`SessionCard` is the shared React presenter used by AbstractCode web and AbstractAssistant
+web. Import it from `@abstractframework/ui-kit`, with `@abstractframework/ui-kit/theme.css`.
+Titles use regular weight at a compact size (13 px minimum, respecting larger font scaling).
+It follows the Watch layout: a two-line title, small turn/tool/time facts, and an independent
+archive button. Hosts own navigation, archive confirmation and transport.
+
+| Fact | Presentation | Source |
+|---|---|---|
+| Unread | Cyan border and dot | Content revision absent from the viewer's read receipts |
+| Needs attention | Orange border, diamond and “Needs you” | An actual human question or approval |
+| Working | Animated ring; static with reduced motion | Running or queued work |
+| Selected | Separate selection treatment | Host navigation |
+
+Orange takes priority over cyan without changing the underlying unread fact. Unknown counts
+are hidden, zero tools are omitted, and partial totals use `≥`. Buttons remain separate and
+keyboard accessible; archive does not open the session. `nowMs` is supplied by the host so
+rendering and relative-time tests remain deterministic.
+
+```tsx
+<SessionCard sessionId={session.id} title={session.title}
+  selected={selected} unread={unread} needsAttention={humanWait} working={running}
+  turnCount={session.turns} toolCount={session.tools} countsPartial={partial}
+  updatedAt={session.updatedAt} nowMs={Date.now()}
+  onOpen={openSession} onArchive={askToArchive} />
+```
+
+## Read receipts and consumption
+
+`sessionActivityFromRuns` groups root runs and exposes a `content` receipt per run.
+`sessionContentRevision` distinguishes the request from its completed, failed or cancelled
+outcome. Changes to title, tools or other metadata do not create another message revision.
+Checking every content receipt preserves late answers from older concurrent turns.
+`sessionNeedsAttention` recognizes only `waiting.reason=user`; timers, paused runs and
+subworkflow waits are not requests for a person. Hosts must also merge authoritative child-run
+attention; failed or partial refreshes must not clear known pending questions.
+
+`createSessionReadClient(fetchGateway)` connects `useSessionReads(scope, observedReceipts, client)`
+to the caller's Gateway-owned read ledger. Supply the host's authenticated, CSRF-aware transport.
+Confirmed receipts are shared across browsers and devices for the same account and runtime.
+Existing personal event followers should call `reads.refresh()` on `session.read`; focused polling
+and reconnects recover missed delivery. Request and outcome receipts are independent, immutable
+run revisions. A failed or incomplete acknowledgment retains the unread mark and reports an error.
+
+The Gateway retains canonical receipts independently of the personal event stream's retention.
+Use `GET /api/gateway/me/session-reads?run_id=<id>&limit=1000` for visible turns (up to 100 run IDs
+per request), or replay with `after=<sequence>`. `POST` accepts `{receipts: [{session_id, run_id,
+status}]}` in batches of 100. Terminal status must match the stored conversation turn root;
+a request receipt never consumes its later answer. Reads never change workflow execution ledgers.
+
+Omitting `client` selects browser-local compatibility mode. That mode shares only within one
+origin, baselines older history on first use, and retains up to 4,096 revisions per scope.
+Do not upload those baselines as factual user consumption. Gateway mode never writes a local
+baseline or silently falls back to browser-local state.
+
+Mount `SessionReadMarker` after successfully loaded content, normally in the message footer.
+With panel-chat, also wait until `snapshot.historyLoading` is false: `snapshot.loading` becomes
+false as soon as the current answer can render, while earlier session turns may still be loading.
+This keeps a previously read latest answer from prematurely finishing the opening receipt batch.
+It acknowledges only after 250 ms in the focused, visible document with the marker fully in
+view and unobscured. Selecting a session, loading in the background, failed history requests,
+and offscreen answers do not acknowledge content. `ownerKey` must be the account scope;
+reset host history on scope changes. Reading never resolves or authorizes a wait.
+
+`sessionReadTarget(messages, runId, status)` chooses the loaded message footer. For failed
+or cancelled runs, render its explicit `outcome` before the marker: seeing only the question
+is not seeing its failure. This applies to historical turns as well as the current turn.
+Hosts must disable markers while content cannot be consumed and must never mount them on
+an unloaded placeholder.
+
+## Compatibility snapshots and validation
+
+Clients pinned to older published UI kit versions use generated `abstractsessions` snapshots.
+`ui-kit/scripts/export_session_cards.mjs --out <directory>` emits the canonical bundled code,
+CSS, declarations and SHA256 provenance. Both clients' `sync:sessions` scripts refresh that
+snapshot; their builds verify its integrity. There is one implementation owner, not two forks.
+
+Run `npm run build` and `node scripts/check_session_cards.mjs` in `ui-kit`. Optional browser QA:
+`SESSION_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check_session_cards_browser.mjs`.
+The browser check exercises offscreen and occluded content, background visibility events,
+account-switch dwell cancellation, and shared versus isolated receipts.
+`node scripts/check_session_reads_remote_browser.mjs` additionally checks independent browser
+contexts, failed/incomplete writes, delayed responses, large batches and account isolation.
+
+AbstractTUI provides a controlled native `widgets::SessionCard` presenter with equivalent
+unread/attention/working/selection facts. It does not own networking or read receipts; adopting
+receipt tracking in a native application remains host integration work.
+
+On desktop the archive icon is 28 px, hidden until card hover or keyboard focus.
+Touch/no-hover devices retain a visible 44 px target. Opening and archive remain sibling controls. Cards use a darker theme-derived surface than section headers in every theme; unread and attention colors tint that surface without raising it above the header.
+
+## Automation cards
+
+`AutomationCard` uses the same visual shell, regular two-line title, metadata typography and
+hover/focus archive control as `SessionCard`. It is exported from the UI kit and included in the
+compatibility snapshot. Like the Watch, its metadata shows the served run count, compact cadence
+(`2h`, `Daily`, `Email`), and the time until the gateway's next run. Paused/ended automations say so
+instead of showing a countdown. The full served schedule remains in the tooltip and accessible
+name; clients never calculate a fire time. Hosts refresh `nowMs` once per minute while visible.
+
+Unseen automation results have an amber outline and count badge. Human waits add “Needs you” and
+an amber diamond; a wait never looks like running. A current occurrence has a spinner, and a failed
+last run has a red dot. Counts and attention come from the automation summary; rendering or opening
+the card does not acknowledge unseen results. Pause/resume stays in the automation's editor/header.
+Hosts own archive confirmation, capability checks and commands, just as with conversation cards.
+
+Automation attention uses a gateway-owned, per-user monotone cursor. The shared panel advances
+only through the oldest-first prefix whose notice or answer footer passed the same focused,
+unobscured visibility check as a conversation. Loading a panel, skipping older notices, or
+replaying its ledger does not mark them seen. These server receipts are shared across devices;
+other clients may use broader acknowledgment policies.
+
+Hosts use `sessionOpeningReceipts(messages, content, displayedRunId)` to pass only loaded
+revisions to the latest turn's `SessionReadMarker` through `relatedReceipts`. Historical selected
+turns cannot consume a newer answer, and missing outcomes remain unread: once that loaded
+answer is visible, the existing session revisions clear together. This matches opening a
+conversation rather than requiring a scroll through every older turn. The visibility marker
+captures that receipt batch when mounted; arrivals after it was consumed stay unread. Receipt
+keys remain immutable per run/outcome, so marking an earlier request cannot clear its later
+answer. Failures, failed loads, background/covered content and other account scopes retain the
+same visibility and isolation rules.
+
+## docs/installation.md
+
+# Installation & Integration
+
+This page is kept for backwards compatibility.
+
+Start here instead:
+
+- [Getting started](./getting-started.md)
+
 ## docs/publishing.md
 
 # Publishing (Maintainers)
@@ -21520,7 +22612,7 @@ The tagged workflow does the publishing; these steps prepare the tag it needs.
    root `package.json` to the release version; the tag names the root version.
 1. Bump the `@abstractframework/ui-kit` range in `panel-chat/package.json`
    (`peerDependencies` + `devDependencies`) — `npm version` does not touch it. A panel-chat
-   release that uses new kit exports raises the floor to that kit version (0.5.0 needs `^0.9.0`).
+   release that uses new kit exports raises the floor to that kit version (for example panel-chat 0.5.0 raised it to `^0.9.0`).
 1. Promote the `## Unreleased` section of [`CHANGELOG.md`](../CHANGELOG.md) to
    `## <x.y.z> - <YYYY-MM-DD>`. The release workflow reads this exact heading to
    build the GitHub release notes, so the version and format must match.
@@ -21853,6 +22945,127 @@ ships.
 ## Unreleased
 
 _Nothing yet._
+
+## 0.9.0 - 2026-11-02
+
+Packages: `@abstractframework/ui-kit` 0.9.12 (from 0.9.10; it includes the unpublished 0.9.11),
+`@abstractframework/panel-chat` 0.7.0 (from 0.6.6; peer range on ui-kit unchanged at `^0.9.8`, which it still
+satisfies); app-server 0.1.13, monitor-flow, monitor-gpu and monitor-memory 0.1.10 and monitor-active-memory 0.2.2
+unchanged. Who is affected: apps on panel-chat get the rounded multiline composer by default (see the migration
+note below); apps on the kit gain the cloud provider connection modal, the Watch-style session and automation
+cards with read receipts, activity avatars and structured tooltips. Upgrade panel-chat and ui-kit together.
+
+### ui-kit
+
+- **Simpler cloud provider cards.** Each
+  card shows its brand mark, its name, ONE status ("Not connected", or a clear green "Connected ·
+  48 models" with a dot; the stored key's fingerprint only in the Edit modal, never the key) and ONE button: Connect
+  when nothing is stored, Edit when a connection exists. No field on the card any more: both
+  buttons open an `AfModal` ("Connect <provider>" / "Edit <provider>", a full-screen sheet below
+  768 px with 44 px targets) with the provider's fields (Name first on "OpenAI-compatible
+  endpoint", Base URL on the OpenAI-compatible cards, the API key masked and empty on Edit, where
+  the stored key stays unless replaced), Test connection, Save (never stores an untested key) and
+  Cancel; Edit adds Disconnect with a confirmation. Edit updates THAT connection in place
+  (`PUT config/provider-endpoint-profiles/{id}`) instead of adding one; Disconnect is
+  `DELETE config/provider-endpoint-profiles/{id}`; both existing gateway routes. New client
+  functions `checkConnection`, `updateConnection`, `removeConnection` and `cardEditTarget`;
+  `cardStatus` takes optional model counts and pending ids. Every connected card shows its model
+  count: the cards discover it in the background with the STORED connection (never a typed key),
+  at most 3 at once, once per connection per page (`discovered_model_count` from the gateway is used
+  without a call); "Connected · …" while pending, "Connected" alone if discovery fails; Save and
+  Disconnect invalidate it, and a typed, unsaved key's test never changes the card; `CloudRequest` methods add PUT and DELETE. The key field
+  is uncontrolled: the key is held in a ref, never in state or a DOM attribute, and cleared when
+  the modal closes. While a save or a disconnect is in flight the modal cannot be closed. New
+  "OpenAI-compatible endpoint" connections get `compat-<name>` ids (existing ids unchanged),
+  so a typed name never shadows a native provider id. Clearing the Name on Edit says "Name is
+  required.".
+  A native provider whose endpoint is user-supplied declares it in `NATIVE_ENDPOINT_RULES`
+  (System One: a required, editable Base URL, placeholder `http://127.0.0.1:8000`, and an
+  optional API key, as AbstractCore's registry says); its test and save carry that base URL through
+  the existing endpoint-profile routes. Cards carry `baseUrlField` ("none" | "preset" | "required"),
+  `baseUrlPlaceholder` and `apiKey` ("required" | "optional"). Card order: the brand cards first
+  (registry order, then OVH AI Endpoints), the protocol cards last: "OpenAI-compatible endpoint"
+  (formerly "Other OpenAI-compatible endpoint"), then "System One-compatible endpoint".
+  Brand marks: TypeSafe's own icon (from typesafe.ai, with its terms), and a kit glyph fallback
+  (`BrandFallback.glyph`) so the System One protocol shows the neutral `server` glyph instead of
+  initials. `check_brand_icons.mjs` and `check_cloud_providers.mjs` now fail for a provider card
+  without artwork and for a connected card without Edit; `check_cloud_providers_browser.mjs`
+  drives card → modal → test → save → edit → disconnect in Chrome against a stub gateway.
+- **Watch-style session and automation cards.** `SessionCard` and `AutomationCard` (on the shared
+  `CompactActivityCard`): a two-line title, small turn/tool/time facts, unread, "Needs you" and failure states, and an
+  independent archive button; the automation card shows the gateway's served next run (`next_run_at`) only. Read
+  receipts are visibility-gated: `useSessionReads`, `SessionReadMarker` and `createSessionReadClient` persist what a
+  viewer actually saw through the gateway, synchronized across devices; a failed write keeps the unread mark.
+  `consumedAttentionCursor` advances a shared seen cursor only over the attention items actually consumed.
+  See [session-cards.md](docs/session-cards.md).
+- Shared session read clients persist consumption through the Gateway and synchronize across devices; failed writes retain unread marks.
+- **Activity avatars.** `ActivityAvatar`, `AvatarRenderer` and `avatarDesigns` present AbstractAvatar's procedural
+  catalog (44 designs) from one shared Rust generator compiled to WebAssembly; `AppleActivityAvatar` and
+  `AppleAvatarEngine` delegate to the same renderer. See [avatars.md](docs/avatars.md).
+- Activity avatars use AbstractAvatar's shared 44-design generator for shaded,
+  Watch-derived and woven forms. Add validated version-one frame descriptors,
+  optional frequency-band inputs and bounded paged previews. Existing Apple
+  component names delegate to the same renderer; imperative `AppleAvatarEngine.draw`
+  is asynchronous and its instances must be disposed after use.
+- Activity avatar quality levels select bounded display-density resolution and economy,
+  balanced or high frame budgets. Frame deadlines align with display refresh and skip missed
+  frames. Ready gaze can acknowledge clicks without consuming host actions. Canvas creation
+  accepts an AbortSignal; hidden, unmounted and resized views release their old renderer.
+- **Structured tooltips.** A tooltip can carry a title, facts, labelled lists and a note (`afTooltipAttributes`,
+  `AF_TOOLTIP_CONTENT_ATTR`, plain-text fallback `afTooltipText`), rendered as text on the active theme's surfaces.
+- **Model manufacturer marks.** Compact brand marks for model manufacturers in the model pickers.
+- **Compact settings controls.** Compact model, tool and workspace settings controls; compact model pickers name each
+  inherited route field separately; compact voice settings.
+- **Reply output level.** `useGatewayVoice` and `AfVoiceLevelMeter` expose the measured level of a spoken reply,
+  independently of microphone capture.
+- **Official Anthropic, Portkey and OVHcloud artwork** in the shared provider cards, replacing the text badges. Preserve source attribution, geometry, colours and offline rendering.
+- **Chat composer island.** `mountChatComposer(el, props)` console island for
+  plain-HTML chats; the Sandbox chat's dictation button sits beside Send.
+
+### panel-chat
+
+- **One rounded multiline composer.** The rounded multiline composer is the default
+  `ChatComposer` and `WorkflowChat` composer on every surface (chat, docs assistant, assistant
+  panel); `variant="legacy"` / `composerVariant="legacy"` restores the flat layout. The composer
+  renders its own Attach button (`onAttach`, `attachLabel`, `attachDisabled`, `attachPending`),
+  adds a `trailingActions` slot beside Send (`WorkflowChat composerTrailingActions`; Stop lives
+  there), `submitKey="mod-enter"`, `canSubmit`, `textareaId` and `ariaDescribedBy`. Hosts that
+  rendered their own Attach button next to the composer should pass `onAttach` instead; voice
+  controls belong in the trailing slot. The former `variant="default"` value is gone
+  (`"compact"` remains an alias of the default); the docs assistant composer starts at two rows.
+- **Avatar conversation view (optional).** `AvatarConversation` presents a session as a public conversation beside an
+  activity avatar: subtitles of the reply, corrections, questions and approvals with plain public action wording
+  (`publicApprovalRequest`), restored history and outcomes, pause flags read from the gateway, and visual and audio
+  cues (`useAvatarConversationPreferences`, `playConversationCue`, `conversationState` and the other
+  `conversation_model` helpers).
+- Avatar conversation: no cue settings inside the view; visual and audio cues are both on by
+  default for permission requests, questions and completion, and a host's settings decide any change.
+- Avatar conversation: while a question or approval is open, the avatar scene is small beside its
+  status at every viewport height, so the request and its controls stay visible.
+- Docs assistant: the footer reads "Powered by <app>’s documentation."; its composer is the
+  shared rounded composer with the composer's own Attach button and, when the gateway transcribes,
+  the kit dictation microphone beside Send (hold or tap to talk per the voice preferences; the
+  transcript lands in the draft). The drawer opens under the kit top bar by default (`topOffset`
+  defaults to "auto"), so every app keeps its top bar reachable.
+- **Docs reply speech.** The Docs assistant can read its replies aloud with the shared voice settings.
+- **Message attachments and safe links.** Messages render their delivered attachments (previews in a dialog fitted
+  to the media, with one filename, Download and Close) and the whole `http(s)://` / `www.` URLs of their text as links
+  (`TextLinks`, `textLinks`); internal run artifacts stay hidden (`messageArtifactRefs`, `submittedArtifacts`,
+  `outputArtifacts`).
+- Attachment previews fit media dimensions with one filename, Download and Close.
+- Progressive conversation restoration exposes history readiness separately from the current answer, so opening read receipts include the loaded earlier turns.
+- Human guidance in a public conversation requires accepted host provenance.
+
+### Migration
+
+- `ChatComposer` and `WorkflowChat` render the rounded multiline composer by default (two rows in the Docs assistant).
+  Pass `variant="legacy"` (`composerVariant="legacy"` on `WorkflowChat`) to keep the flat layout. A host that rendered
+  its own Attach button beside the composer passes `onAttach` instead; voice and Stop controls go in
+  `trailingActions` (`composerTrailingActions`).
+- `DocsAssistantDrawer` opens under the kit top bar by default (`topOffset` defaults to `"auto"`); pass a number to
+  keep a fixed offset.
+- Cloud provider cards: `CloudRequest` accepts `PUT` and `DELETE`; a host's `request` function must handle them for
+  Edit and Disconnect.
 
 ## 0.8.9 - 2026-10-29
 
@@ -24310,3 +25523,131 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## skills/abstractuic/SKILL.md
+
+---
+name: abstractuic
+description: Integrate AbstractFramework shared React controls, authenticated chat and Docs assistants, and voice settings into browser clients.
+compatibility: Requires @abstractframework/ui-kit 0.9.12 and @abstractframework/panel-chat 0.7.0 or later (their documented exports).
+metadata:
+  package: "@abstractframework/ui-kit"
+  package-version: "0.9.12"
+---
+
+# Use AbstractUIC
+
+This skill describes the source revision. Compare the installed package and its
+type declarations before using source features; the installed version's docs win.
+
+Start with [the adoption guide](https://raw.githubusercontent.com/lpalbou/AbstractUIC/main/docs/adoption-guide.md) to choose an existing
+component for the user-facing job. The repository ships multiple npm packages;
+use the relevant package rather than importing a sibling app’s source.
+
+Import `@abstractframework/ui-kit/theme.css` and, for chat,
+`@abstractframework/panel-chat/panel_chat.css` in the host entry point. Use shared
+theme tokens and `Icon`; keep the host’s appearance and connection state authoritative.
+See [getting started](https://raw.githubusercontent.com/lpalbou/AbstractUIC/main/docs/getting-started.md) and [API](https://raw.githubusercontent.com/lpalbou/AbstractUIC/main/docs/api.md).
+
+## Docs assistant and voice
+
+Mount `DocsAssistantDrawer` from `@abstractframework/panel-chat` with `source`
+(`app`, `name`), `connected`, `open`, `onClose`, and the host’s authenticated
+`fetchGateway`. Keep it mounted while closed so its conversation survives.
+The transport must support JSON writes and binary artifact reads, applying the
+host’s session/CSRF or bearer authentication. Do not put credentials in component
+state, localStorage keys, rendered markup or URLs.
+
+The component resolves this app’s documentation through the Gateway and owns
+its history, attachments and question lifecycle. It shows per-reply speech when
+a voice route is configured. Pass `voicePreferences` when the app has overrides;
+otherwise the Gateway default applies. Speech is manual, with play/pause/resume.
+Opening past answers never speaks automatically. A rail host using
+`docsAssistantPanel` should provide `visible` so hiding it stops playback.
+
+Use `AfVoiceSection` for controlled engine, device, capture and playback settings;
+`compact` fits narrow drawers. Preserve its `value`/`onChange` and reset semantics.
+Use `useGatewayVoice` for playback/capture lifecycle instead of duplicating browser
+audio state. Gateway synthesis owns models; components record/play locally.
+See [panel-chat](https://raw.githubusercontent.com/lpalbou/AbstractUIC/main/panel-chat/README.md) and [ui-kit](https://raw.githubusercontent.com/lpalbou/AbstractUIC/main/ui-kit/README.md).
+
+Tool and workspace controls express choices within Gateway limits. They cannot
+grant a capability the Gateway forbids. Preserve blocked/error feedback and use
+`AfTooltip` for brief, useful information; avoid repeating a label as help.
+
+## Compact multiline chat input
+
+Use `ChatComposer` with `variant="compact"`, or `WorkflowChat` with
+`composerVariant="compact"`, for a rounded multiline composer. Omit the option
+for the existing layout. Compact defaults to two rows and grows to a bounded
+scrolling field; explicit `rows` remains the minimum. Keep host draft and submit
+callbacks unchanged. Attachments use `leading`; attachment, microphone and Stop
+controls keep their existing action slots and accessible labels. Do not replace
+them with a separate composer or hide actions to make a narrow pane fit.
+
+## Procedural avatar presentation
+
+Use `ActivityAvatar` for any identifier from `await avatarDesigns()`. The 44-design
+catalog is generated by AbstractAvatar; the browser component presents its bundled
+Wasm output. Bind `active` to actual host visibility and `animated` to preferences;
+hidden/reduced-motion views stop their animation clocks. Pass observed level in
+0–1 and optional eight frequency bands, with no microphone or inference inside
+the component. Settings previews may explicitly supply a sample level.
+
+Confirm the installed type declarations expose `AvatarQuality` before passing
+`quality`. Choose economy for multiple previews (256 px / 12 active fps), balanced
+for one portrait (384 px / 24 active fps, the default), or high for a prominent
+portrait (512 px / 30 active fps). These are upper budgets; pixel area and higher
+cadence increase CPU work. Display-density changes rebuild the bounded renderer.
+`followCursor` observes movement and clicks without consuming host actions; gaze
+expires after two seconds and is disabled by reduced motion or non-Ready poses.
+
+For Canvas, create `AvatarRenderer`, pass a version-one object through
+`parseAvatarFrame`, call `renderFrame`, then `dispose` when the view closes. A frame
+contains `schema_version: 1`, `style`, `state`, bounded seconds `time`, and `level`;
+optional `gaze` has two coordinates in −1–1 and `bands` has eight values in 0–1.
+Absent bands use the scalar envelope. Descriptors contain data only; they cannot
+select executable code, files or URLs. A custom Wasm `source` must be trusted local
+AbstractAvatar bytes. Keep no more than 16 renderers live; page large galleries.
+An optional `AbortSignal` cancels asynchronous creation with `AbortError` before
+allocating a native handle. Dispose successfully created renderers explicitly.
+See [Activity avatars](https://raw.githubusercontent.com/lpalbou/AbstractUIC/main/docs/avatars.md) for the full API and compatibility exports.
+
+## Compact session lists
+
+Use `SessionCard` for conversation rows and read `docs/session-cards.md` before integrating
+unread state. Keep unread, human attention and working facts independent. Host applications
+own transport and confirmation; reading must never resolve an approval or question.
+
+## Public avatar conversation
+
+`WorkflowChat.avatarConversation` adds an optional public view over the same controller,
+draft and interactions. Omit it for ordinary chat. Use `conversationSnapshot(snapshot)`
+for status, attention and replay guards; provide an owner-scoped `sessionKey`, actual
+avatar and existing voice callbacks. `AvatarConversation` also works standalone.
+Provide `interactionId` for a standalone view's actual pending request: the request
+controls take priority with a smaller avatar, ahead of captions and history. Use an
+empty string for no request or a deferred request; omitted `interactionId` treats
+a supplied interaction as active. `WorkflowChat` forwards its actual
+interaction identity automatically.
+Use `WorkflowInteractionPanel variant="conversation"` for public avatar requests, never
+the default technical panel. `presentInteraction` supplies plain actions/targets and
+checks `details.public_action` against the exact pending batch/run. `onTechnicalView`
+on avatar options (or panel `onReviewTechnical`) opens the host’s detailed view without
+answering. No raw reasoning or unrelated latest brève may supply the request’s reason.
+Unknown actions need detailed review; standing grants stay in the technical view.
+Public history accepts validated public updates, user messages and typed answers/finals;
+never feed raw reasoning or private entity traces into a subtitle.
+
+Use `conversationReply` for a selected public update. For composed runs, pass only the
+current server view’s run tree as its optional fourth argument; historical run IDs are excluded. Send the original human
+words as `display_text` alongside guidance so durable accepted receipts preserve them.
+Answer the exact pending question through the controller; never substitute guidance for
+an approval. Essential questions wait indefinitely. Timed clarifications require a
+120–300 second deadline and declared fallback; silence is not consent.
+
+`onAttendedChange` suppresses host final narration while reading. Put microphone capture
+in `voiceControl` and playback actions in `playbackControl`; capture interrupts speech,
+playback pause/resume must retain its audio. Use existing voice transport. Scope
+`useAvatarConversationPreferences` by account and preserve silent replay on reconnect.
+See [panel-chat](https://raw.githubusercontent.com/lpalbou/AbstractUIC/main/panel-chat/README.md).

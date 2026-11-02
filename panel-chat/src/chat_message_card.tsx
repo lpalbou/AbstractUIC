@@ -1,3 +1,5 @@
+import {MessageArtifactChip, type MessageArtifact} from "./message_artifacts.js";
+import type { PublicUpdate } from "./conversation_model.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { AfAudioPlayer, Icon, fileViewerKind, fileViewerNeedsText, formatFileSize, type IconName } from "@abstractframework/ui-kit";
@@ -27,6 +29,9 @@ export type ChatMessage = {
    * README's "Messages from the replay view" mapping.
    */
   kind?: string;
+  /** Original public channel attribution, retained through replay. */
+  source?: string;
+  publicUpdate?: PublicUpdate;
   toolActivity?: WorkflowToolActivity;
   statistics?: WorkflowStatistics;
   runId?: string;
@@ -51,10 +56,13 @@ export type ChatMessage = {
   attachments?: ChatAttachment[];
   /**
    * Artifact ids this message carries (`replay_view_v1.messages[].artifact_ids`,
-   * or `$artifact` refs a host folded). Data only: a host resolves them into
-   * `media` / `attachments` (e.g. with a transport's `resolveArtifact`).
+   * or `$artifact` refs a host folded). WorkflowChat presents them as named
+   * file chips with its artifactFetch transport; hosts may also supply media.
    */
   artifactIds?: string[];
+  /** Unlisted replay refs require explicit output recovery, never raw-ID chips. */
+  artifactReferencesUnresolved?: boolean;
+  artifactRefs?: MessageArtifact[];
 };
 
 /**
@@ -499,7 +507,7 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
 
       {media.length ? (
         <div className="pc-chat-media">
-          {media.slice(0, 24).map((item, idx) => (
+          {media.map((item, idx) => (
             <ChatMediaItem
               key={item.id || `${item.kind}:${item.src}:${idx}`}
               item={item}
@@ -510,9 +518,10 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         </div>
       ) : null}
 
+      {m.artifactRefs?.length ? <div className="pc-chat-attachments" aria-label="Attached files">{m.artifactRefs.map(a=><MessageArtifactChip key={`${a.runId}:${a.id}`} artifact={a}/>)}</div> : null}
       {attachments.length ? (
         <div className="pc-chat-attachments" aria-label="Attachments">
-          {attachments.slice(0, 24).map((a, idx) => {
+          {attachments.map((a, idx) => {
             const label = String(a.label || "").trim() || "attachment";
             const target = String(a.target || "").trim();
             const title = String(a.title || "").trim();

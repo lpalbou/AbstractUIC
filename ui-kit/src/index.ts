@@ -259,6 +259,7 @@ export {
   STATUS_LABELS,
   apiErrorText,
   attentionAckCursor,
+  consumedAttentionCursor,
   attentionLabel,
   automationControls,
   buildCreateRequest,
@@ -559,7 +560,7 @@ export {
   type VoiceDevice,
 } from "./voice_devices.js";
 export { AfTooltip, useAfTooltips, type AfTooltipProps } from "./af_tooltip.js";
-export { bindAfTooltips, acquireAfTooltips, afTooltipPlacement, AF_TOOLTIP_DELAY_MS, AF_TOOLTIP_ATTR, type BindAfTooltipsOptions, type AfTooltipPlacement, type AfTooltipRect } from "./af_tooltip_core.js";
+export { bindAfTooltips, acquireAfTooltips, afTooltipPlacement, afTooltipText, afTooltipAttributes, AF_TOOLTIP_DELAY_MS, AF_TOOLTIP_ATTR, AF_TOOLTIP_CONTENT_ATTR, type AfTooltipContent, type BindAfTooltipsOptions, type AfTooltipPlacement, type AfTooltipRect } from "./af_tooltip_core.js";
 // ui-kit 0.8.7 (round 16, R16.1 A2): the account time-zone picker (preferences).
 export { AfTimeZonePicker, TIME_ZONE_GATEWAY_DEFAULT, timeZoneOptions, type AfTimeZonePickerProps, type TimeZonePreference } from "./time_zone_picker.js";
 // --- ui-primitives (voice) ---
@@ -749,12 +750,14 @@ export {
   cloudCardsFromDiscovery,
   cardConnections,
   cardStatus,
+  cardEditTarget,
   freshIdFromStem,
   slugId,
   normalizeBaseUrl,
   validBaseUrl,
   OPENAI_COMPATIBLE_PRESETS,
   GENERIC_COMPATIBLE_CARD,
+  NATIVE_ENDPOINT_RULES,
   type CloudCard,
   type ConnectResult,
   type CheckedKey,
@@ -779,3 +782,12 @@ export {
   type BrandFallback,
   type BrandMarkInfo,
 } from "./brand_icons.js";
+export { ActivityAvatar, type ActivityAvatarProps, type AvatarQuality } from "./activity_avatar.js";
+export { SessionCard, type SessionCardProps } from "./session_card.js";
+export { AutomationCard, automationCardSchedule, automationCardNext, type AutomationCardProps } from "./automation_card.js";
+export { sessionContentRevision, sessionReadTarget, sessionOpeningReceipts, isConversationTurn, sessionNeedsAttention, sessionActivityFromRuns, sessionReadScope, SessionReadStore, type SessionActivity, type SessionReceipt } from "./session_activity.js";
+export { createSessionReadClient, sessionReadIdentity, sessionReadEventReceipt, type SessionReadClient, type SessionReadEvent } from "./session_read_client.js";
+export { useSessionReads, SessionReadMarker } from "./session_reads.js";
+export { AppleActivityAvatar } from "./apple_avatars.js";
+export { AppleAvatarEngine, APPLE_AVATARS, isAppleAvatar, type AppleAvatarDesign } from "./apple_avatar_engine.js";
+export { AvatarRenderer, avatarDesigns, avatarPaletteFromCss, parseAvatarFrame, type AvatarFrameDescriptor, type AvatarPalette, type AvatarColor, type AvatarDesign, type AvatarPose, type AvatarSource } from "./avatar_renderer.js";

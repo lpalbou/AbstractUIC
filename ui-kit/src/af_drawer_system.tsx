@@ -582,7 +582,9 @@ export function AfDrawerSystem(props: AfDrawerSystemProps): React.ReactElement {
   const { panels, onActiveChange, storageKey } = props;
   const [stored, setStored] = useState<AfDrawerStored>(() => readStored(storageKey));
   const storedRef = useRef(stored);
-  storedRef.current = stored;
+  // Active-panel persistence updates the ref without changing widths. Keep that
+  // newer snapshot when rendering; a resize must not overwrite it with the
+  // initial active selection from the width state.
   const onResizeRef = useRef(props.onResize);
   onResizeRef.current = props.onResize;
 
