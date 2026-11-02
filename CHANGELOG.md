@@ -9,6 +9,14 @@ ships.
 
 ## Unreleased
 
+### ui-kit
+
+- **`AutomationSummary.section` and `last_activity_at`, `AutomationsPage` counts** (framework ADR
+  0048). The automation row type carries the gateway's `section` (`active`, `paused`, `archived`) and
+  `last_activity_at`; `listAutomations` returns `AutomationsPage`, a page with
+  `paused_automations_count`, `archived_automations_count` and `archived_automations`. All optional:
+  older gateways serve none of them, and apps then draw the rows as served with no Paused section.
+
 ### panel-chat
 
 - **Avatar view: realtime rolling captions.** The Avatar view (`AvatarConversation`, and
