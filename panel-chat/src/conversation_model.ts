@@ -54,6 +54,14 @@ export function conversationMessages(messages: readonly ChatMessage[]): ChatMess
   });
 }
 
+/** The plain label a person sees for a public message in the Avatar view's history. */
+export function conversationLabel(m: ChatMessage): "You" | "Update" | "Question" | "Answer" {
+  if (m.role === "user") return "You";
+  if (m.kind === "public_update") return "Update";
+  if (m.kind === "question" || m.kind === "question_outcome") return "Question";
+  return "Answer";
+}
+
 /** Quote only an explicitly selected public update from the current live run. */
 export function conversationReply(text: string, context: ChatMessage | null, currentRunId: string, allowedSourceRunIds: readonly string[] = []): string {
   if (!context) return text;

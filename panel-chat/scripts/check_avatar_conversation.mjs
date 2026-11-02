@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "node:fs";
-import { AvatarConversation, WorkflowChat, conversationCaptions, conversationMessages, conversationReply, conversationState, conversationSnapshot, conversationCueStep, conversationNarrationStep, DEFAULT_CONVERSATION_CUES, publicUpdate, projectReplayView, WorkflowSessionController, presentInteraction } from "../dist/index.js";
+import { AvatarConversation, WorkflowChat, conversationCaptions, conversationLabel, conversationMessages, conversationReply, conversationState, conversationSnapshot, conversationCueStep, conversationNarrationStep, DEFAULT_CONVERSATION_CUES, publicUpdate, projectReplayView, WorkflowSessionController, presentInteraction } from "../dist/index.js";
 
 const body = { id: "brief-1", text: "I found the supported format.", run_id: "run", session_id: "session", iteration: 2, source_call_ids: ["call-1"] };
 const update = publicUpdate(body, "run");
@@ -70,6 +70,7 @@ assert(captionHtml.includes('href="https://example.org/map"'), "links in caption
 assert(captionHtml.includes("pc-chat-item--caption") && !captionHtml.includes("Copy message"), "caption density: content only, no card chrome");
 assert(captionHtml.includes('data-attention="completion"') && !captionHtml.includes("conversation history."), "completion is shown on the answer itself, not as a pointer elsewhere");
 for (const removed of ["Previous subtitle", "Next subtitle", "Pause subtitles", "Return to latest", " / "]) assert(!captionHtml.includes(removed), `no pager control: ${removed}`);
+assert.deepEqual(turn.filter((t) => conversationMessages([t]).length).map(conversationLabel), ["You", "Update", "Answer", "You", "Update", "You", "Update", "Question", "Question", "Answer"], "plain history labels");
 const avatarSource = readFileSync(new URL("../dist/avatar_conversation.js", import.meta.url), "utf8");
 assert(!/setTimeout|setInterval/.test(avatarSource), "the Avatar view schedules nothing: captions change only when messages change");
 assert.equal(conversationReply("My words", null, "run"), "My words");

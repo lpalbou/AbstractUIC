@@ -19,7 +19,10 @@ ships.
   The view fits above the composer at every width: the avatar scales to the space left and the
   actions (Conversation history, Talk, read-aloud) keep 44 px targets. 4 caption lines on
   desktop, 3 on phones, 2 while a question or approval is open (`--pc-avatar-caption-lines`).
-- **New:** `conversationCaptions(messages)` (and type `ConversationCaption`), and
+- **Avatar history in plain words.** Entries are labelled You, Update, Question or Answer
+  (`conversationLabel`); raw source call ids are no longer listed there (they stay in the
+  technical view).
+- **New:** `conversationCaptions(messages)` (and type `ConversationCaption`), `conversationLabel`, and
   `ChatMessageCard` `variant: "caption"` (content only, no card chrome).
 - **Removed:** `conversationPages` and the subtitle pager controls (Previous / Next subtitle,
   Pause subtitles, Return to latest). Hovering or focusing the captions no longer freezes them,

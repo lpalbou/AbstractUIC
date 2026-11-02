@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChatMessageCard, type ChatMessage, type ChatMessageCardProps } from "./chat_message_card.js";
 import type { WorkflowConnection } from "./workflow_runtime.js";
-import { DEFAULT_CONVERSATION_CUES, conversationCaptions, conversationCueStep, conversationNarrationStep, conversationMessages, conversationState, type AvatarConversationState, type ConversationAttention, type ConversationCue, type ConversationCueCursor, type ConversationCuePreferences } from "./conversation_model.js";
+import { DEFAULT_CONVERSATION_CUES, conversationCaptions, conversationCueStep, conversationLabel, conversationNarrationStep, conversationMessages, conversationState, type AvatarConversationState, type ConversationAttention, type ConversationCue, type ConversationCueCursor, type ConversationCuePreferences } from "./conversation_model.js";
 
 export type AvatarConversationOptions = {
   /** Stable conversation identity, not the identity of each individual turn. */
@@ -130,9 +130,8 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
     {hasRequest ? <div className="pc-avatar-conversation__request">{props.interaction}</div> : null}
     {history ? <ol className="pc-avatar-conversation__history" aria-label="Public conversation history" tabIndex={0}>
       {messages.map((m, i) => <li key={`${m.runId || ""}:${m.id || i}`}>
-        <strong>{m.role === "user" ? "You" : m.kind === "question_outcome" ? "Question status" : m.kind === "public_update" ? "Public update" : "Reply"}</strong>
+        <strong>{conversationLabel(m)}</strong>
         <ChatMessageCard {...props.messageProps} message={{ ...m, reasoning: undefined, live: undefined, toolActivity: undefined }} />
-        {m.publicUpdate?.sourceCallIds.length ? <details><summary>Sources</summary><ul>{m.publicUpdate.sourceCallIds.map((id) => <li key={id}>{id}</li>)}</ul></details> : null}
         {m.publicUpdate ? <button type="button" aria-pressed={selected === m} onClick={() => { interrupt(); setSelected(m); setHistory(false); props.onReplyContext?.(m); }}>Reply to this</button> : null}
       </li>)}
     </ol> : <ol ref={captionList} className="pc-avatar-conversation__captions" aria-label="Public subtitles" aria-live={attended ? "off" : "polite"} tabIndex={0}

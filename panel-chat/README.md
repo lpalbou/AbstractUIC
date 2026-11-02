@@ -494,7 +494,8 @@ only when messages change; reading, hovering or scrolling never pauses anything 
 nothing is scheduled.
 
 **Conversation history** shows the public history in place of the captions (with a smaller
-avatar) and retains full text and source IDs; **Reply to this** selects a public update and
+avatar) with full text under plain labels (`conversationLabel`: You, Update, Question,
+Answer); source IDs stay in the technical view. **Reply to this** selects a public update and
 returns to the captions. `onReplyContext` gives the selected public message;
 `conversationReply` quotes a selected public update and rejects cross-run guidance context.
 The host still submits replies through its normal execution path. For composed runs, pass

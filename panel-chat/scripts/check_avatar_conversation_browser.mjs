@@ -115,6 +115,8 @@ try {
     await page.getByRole("button", { name: "Conversation history", exact: true }).click();
     const history = page.getByRole("list", { name: "Public conversation history" });
     await history.getByText("Almost done.", { exact: true }).waitFor();
+    const historyText = await history.innerText();
+    assert(!/Public update|Sources|call-u\d/.test(historyText) && historyText.includes("Update") && historyText.includes("Answer"), "history uses plain labels and no technical ids");
     const gh = await geometry(page);
     assert(gh.viewOverflow <= 1 && gh.actionsBottom <= gh.composerTop + 1, "history keeps the actions above the composer");
     await history.getByRole("button", { name: "Reply to this", exact: true }).first().click();
