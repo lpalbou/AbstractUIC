@@ -11,7 +11,9 @@ claiming pixel-identical output from different platform renderers.
 Use catalog identifiers such as `halo`, `hover`, `watch-halo`, `watch-rover`,
 `watch-shape-kitty` and `iphone-weave`. A shaded style and a similarly named Watch
 style are distinct designs. Persist identifiers rather than numeric ABI codes.
-`await avatarDesigns()` supplies labels, descriptions, families and reference codes.
+`await avatarDesigns()` supplies labels, descriptions, families, reference codes and
+`gaze`: `"eyes"` for designs whose eyes may follow the pointer (the shaded `hover`,
+`eye` and `rover`, the Watch designs with eyes such as `watch-face`, `watch-eye` and `watch-hover`), `"none"` for every other design.
 
 ## React presentation
 
@@ -40,7 +42,7 @@ clears the image, labels it unavailable and calls `onError`.
 | quality | balanced | Resolution and frame-rate budget: economy, balanced or high |
 | active | true | False releases the renderer and hides the canvas |
 | animated | true | False renders explicit state changes without an animation clock |
-| followCursor | false | Ready gaze follows pointer movement and clicks, expiring after two seconds |
+| followCursor | false | For a design with `gaze: "eyes"`, the eyes follow pointer movement and clicks in Ready, easing back to centre after two idle seconds; any other design ignores the pointer |
 | palette | CSS tokens | Explicit `AvatarPalette` or semantic kit theme tokens |
 | label / className / onError | optional | Accessibility, styling and failure reporting |
 
@@ -56,6 +58,12 @@ and high for a prominent portrait when the CPU budget allows it. Raster work gro
 with pixel area, so doubling each side costs roughly four times as many samples.
 Animation uses display-aligned deadlines, skips missed frames and never catches
 up with bursts. Frame rates are upper targets rather than guaranteed throughput.
+
+The avatar itself never moves toward the pointer: no translation, rotation or tilt of
+the canvas or the drawing. Only the eyes of a `gaze: "eyes"` design follow it, and
+they ease toward it over about 150 ms. `avatarGazeTarget(design, pointer, bounds)`
+is the shared rule: it returns the normalized target for an eyes design and
+`undefined` for any other design, touch input or empty bounds.
 
 Error is static. Touch, other poses and reduced motion
 ignore gaze. Cursor data is transient and stays local. Offscreen/inactive canvases,
@@ -90,8 +98,9 @@ renderer.dispose();
 `parseAvatarFrame` rejects unknown fields, unsupported versions, invalid states,
 nonfinite numbers and malformed vectors. Time is seconds in 0–86400, level and
 each of eight optional bands are 0–1, and optional gaze is two coordinates in
-−1–1. The renderer also requires the style to exist in its catalog. The imperative
-caller owns scheduling, visibility, gaze expiry and disposal. Its existing
+−1–1. Gaze moves only the eyes of a `gaze: "eyes"` design and changes nothing for
+any other design. The renderer also requires the style to exist in its catalog. The imperative
+caller owns scheduling, visibility, gaze easing and expiry, and disposal. Its existing
 `draw(style, pose, level, time, gaze)` convenience method remains available.
 
 An optional `source: BufferSource` supplies **trusted local AbstractAvatar Wasm**,

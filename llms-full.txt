@@ -5118,7 +5118,7 @@ This package provides:
   with the Python helpers)
 - **Run and policy surfaces**: `PhaseCapabilityMatrix`, `CriticalActionDialog`, `SteerComposer`,
   `DisclosureList`, `AfChip`, `AfPhaseRadio`, cognition gauges
-- **Activity avatars**: `ActivityAvatar`, `AvatarRenderer`, `avatarDesigns` — six watch-inspired designs shared with AbstractTUI/native hosts, themed Canvas, reduced motion and optional Ready pointer tracking. See [Activity avatars](../docs/avatars.md).
+- **Activity avatars**: `ActivityAvatar`, `AvatarRenderer`, `avatarDesigns` — six watch-inspired designs shared with AbstractTUI/native hosts, themed Canvas, reduced motion and, for designs with eyes, optional eyes that follow the pointer. See [Activity avatars](../docs/avatars.md).
 - **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk, live level, mute, hold or tap to
   talk), the standalone `AfVoiceOutput` / `AfVoiceInput` and `AfVoiceMicButton`,
   `AfVoiceLevelMeter`, `useVoicePreferences()`, `useVoiceDefaults()`, the voice library
@@ -8214,7 +8214,7 @@ export { createSessionReadClient, sessionReadIdentity, sessionReadEventReceipt, 
 export { useSessionReads, SessionReadMarker } from "./session_reads.js";
 export { AppleActivityAvatar } from "./apple_avatars.js";
 export { AppleAvatarEngine, APPLE_AVATARS, isAppleAvatar, type AppleAvatarDesign } from "./apple_avatar_engine.js";
-export { AvatarRenderer, avatarDesigns, avatarPaletteFromCss, parseAvatarFrame, type AvatarFrameDescriptor, type AvatarPalette, type AvatarColor, type AvatarDesign, type AvatarPose, type AvatarSource } from "./avatar_renderer.js";
+export { AvatarRenderer, avatarDesigns, avatarGazeTarget, avatarPaletteFromCss, parseAvatarFrame, type AvatarFrameDescriptor, type AvatarPalette, type AvatarColor, type AvatarDesign, type AvatarPose, type AvatarSource } from "./avatar_renderer.js";
 
 ## ui-kit/src/responsive.ts
 
@@ -22392,7 +22392,9 @@ claiming pixel-identical output from different platform renderers.
 Use catalog identifiers such as `halo`, `hover`, `watch-halo`, `watch-rover`,
 `watch-shape-kitty` and `iphone-weave`. A shaded style and a similarly named Watch
 style are distinct designs. Persist identifiers rather than numeric ABI codes.
-`await avatarDesigns()` supplies labels, descriptions, families and reference codes.
+`await avatarDesigns()` supplies labels, descriptions, families, reference codes and
+`gaze`: `"eyes"` for designs whose eyes may follow the pointer (the shaded `hover`,
+`eye` and `rover`, the Watch designs with eyes such as `watch-face`, `watch-eye` and `watch-hover`), `"none"` for every other design.
 
 ## React presentation
 
@@ -22421,7 +22423,7 @@ clears the image, labels it unavailable and calls `onError`.
 | quality | balanced | Resolution and frame-rate budget: economy, balanced or high |
 | active | true | False releases the renderer and hides the canvas |
 | animated | true | False renders explicit state changes without an animation clock |
-| followCursor | false | Ready gaze follows pointer movement and clicks, expiring after two seconds |
+| followCursor | false | For a design with `gaze: "eyes"`, the eyes follow pointer movement and clicks in Ready, easing back to centre after two idle seconds; any other design ignores the pointer |
 | palette | CSS tokens | Explicit `AvatarPalette` or semantic kit theme tokens |
 | label / className / onError | optional | Accessibility, styling and failure reporting |
 
@@ -22437,6 +22439,12 @@ and high for a prominent portrait when the CPU budget allows it. Raster work gro
 with pixel area, so doubling each side costs roughly four times as many samples.
 Animation uses display-aligned deadlines, skips missed frames and never catches
 up with bursts. Frame rates are upper targets rather than guaranteed throughput.
+
+The avatar itself never moves toward the pointer: no translation, rotation or tilt of
+the canvas or the drawing. Only the eyes of a `gaze: "eyes"` design follow it, and
+they ease toward it over about 150 ms. `avatarGazeTarget(design, pointer, bounds)`
+is the shared rule: it returns the normalized target for an eyes design and
+`undefined` for any other design, touch input or empty bounds.
 
 Error is static. Touch, other poses and reduced motion
 ignore gaze. Cursor data is transient and stays local. Offscreen/inactive canvases,
@@ -22471,8 +22479,9 @@ renderer.dispose();
 `parseAvatarFrame` rejects unknown fields, unsupported versions, invalid states,
 nonfinite numbers and malformed vectors. Time is seconds in 0–86400, level and
 each of eight optional bands are 0–1, and optional gaze is two coordinates in
-−1–1. The renderer also requires the style to exist in its catalog. The imperative
-caller owns scheduling, visibility, gaze expiry and disposal. Its existing
+−1–1. Gaze moves only the eyes of a `gaze: "eyes"` design and changes nothing for
+any other design. The renderer also requires the style to exist in its catalog. The imperative
+caller owns scheduling, visibility, gaze easing and expiry, and disposal. Its existing
 `draw(style, pose, level, time, gaze)` convenience method remains available.
 
 An optional `source: BufferSource` supplies **trusted local AbstractAvatar Wasm**,
@@ -23000,6 +23009,14 @@ ships.
 
 ### ui-kit
 
+- **Avatars: only eyes follow the pointer.** `ActivityAvatar` with `followCursor` sends the
+  pointer to the renderer only for designs whose catalog entry has `gaze: "eyes"` (the shaded
+  `hover`, `eye` and `rover`, the Watch designs with eyes such as `watch-face`, `watch-eye` and `watch-hover`); the eyes ease toward it over about
+  150 ms and back to centre after two idle seconds. Orbs, forms and every other design no
+  longer respond to the pointer, and no avatar moves, tilts or shifts toward it.
+  `AvatarDesign` gains `gaze: "eyes" | "none"`, and `avatarGazeTarget(design, pointer, bounds)`
+  exposes the shared rule. The bundled AbstractAvatar Wasm is refreshed to the generator whose
+  gaze moves only eyes.
 - **`AutomationSummary.section` and `last_activity_at`, `AutomationsPage` counts** (framework ADR
   0048). The automation row type carries the gateway's `section` (`active`, `paused`, `archived`) and
   `last_activity_at`; `listAutomations` returns `AutomationsPage`, a page with
@@ -25686,8 +25703,12 @@ Confirm the installed type declarations expose `AvatarQuality` before passing
 for one portrait (384 px / 24 active fps, the default), or high for a prominent
 portrait (512 px / 30 active fps). These are upper budgets; pixel area and higher
 cadence increase CPU work. Display-density changes rebuild the bounded renderer.
-`followCursor` observes movement and clicks without consuming host actions; gaze
-expires after two seconds and is disabled by reduced motion or non-Ready poses.
+`followCursor` observes movement and clicks without consuming host actions. Only a
+design whose catalog entry has `gaze: "eyes"` responds: its eyes ease toward the
+pointer and back to centre after two idle seconds; the avatar never translates,
+rotates or tilts, and every other design ignores the pointer. Gaze is disabled by
+reduced motion, touch and non-Ready poses. Use `avatarGazeTarget` for the same rule
+in a custom Canvas host.
 
 For Canvas, create `AvatarRenderer`, pass a version-one object through
 `parseAvatarFrame`, call `renderFrame`, then `dispose` when the view closes. A frame

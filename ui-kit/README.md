@@ -40,7 +40,7 @@ This package provides:
   with the Python helpers)
 - **Run and policy surfaces**: `PhaseCapabilityMatrix`, `CriticalActionDialog`, `SteerComposer`,
   `DisclosureList`, `AfChip`, `AfPhaseRadio`, cognition gauges
-- **Activity avatars**: `ActivityAvatar`, `AvatarRenderer`, `avatarDesigns` — six watch-inspired designs shared with AbstractTUI/native hosts, themed Canvas, reduced motion and optional Ready pointer tracking. See [Activity avatars](../docs/avatars.md).
+- **Activity avatars**: `ActivityAvatar`, `AvatarRenderer`, `avatarDesigns` — six watch-inspired designs shared with AbstractTUI/native hosts, themed Canvas, reduced motion and, for designs with eyes, optional eyes that follow the pointer. See [Activity avatars](../docs/avatars.md).
 - **Voice**: `useGatewayVoice()` (streaming TTS + push-to-talk, live level, mute, hold or tap to
   talk), the standalone `AfVoiceOutput` / `AfVoiceInput` and `AfVoiceMicButton`,
   `AfVoiceLevelMeter`, `useVoicePreferences()`, `useVoiceDefaults()`, the voice library

@@ -791,4 +791,4 @@ export { createSessionReadClient, sessionReadIdentity, sessionReadEventReceipt, 
 export { useSessionReads, SessionReadMarker } from "./session_reads.js";
 export { AppleActivityAvatar } from "./apple_avatars.js";
 export { AppleAvatarEngine, APPLE_AVATARS, isAppleAvatar, type AppleAvatarDesign } from "./apple_avatar_engine.js";
-export { AvatarRenderer, avatarDesigns, avatarPaletteFromCss, parseAvatarFrame, type AvatarFrameDescriptor, type AvatarPalette, type AvatarColor, type AvatarDesign, type AvatarPose, type AvatarSource } from "./avatar_renderer.js";
+export { AvatarRenderer, avatarDesigns, avatarGazeTarget, avatarPaletteFromCss, parseAvatarFrame, type AvatarFrameDescriptor, type AvatarPalette, type AvatarColor, type AvatarDesign, type AvatarPose, type AvatarSource } from "./avatar_renderer.js";
