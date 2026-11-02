@@ -21,7 +21,15 @@ try{
  browser=await chromium.launch({headless:true,...(process.env.AVATAR_BROWSER_CHANNEL?{channel:process.env.AVATAR_BROWSER_CHANNEL}:{})});
  const page=await browser.newPage({viewport:{width:1280,height:1050}}),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
- await page.addInitScript(()=>{window.avatarFrameCount=0;const put=CanvasRenderingContext2D.prototype.putImageData;CanvasRenderingContext2D.prototype.putImageData=function(...args){window.avatarFrameCount++;return put.apply(this,args);};});
+ await page.addInitScript(()=>{window.avatarFrameCount=0;window.canvasFrames=new Map();const put=CanvasRenderingContext2D.prototype.putImageData;CanvasRenderingContext2D.prototype.putImageData=function(...args){window.avatarFrameCount++;window.canvasFrames.set(this.canvas,(window.canvasFrames.get(this.canvas)??0)+1);return put.apply(this,args);};
+  // Record every gaze value the renderer draws with.
+  window.gazeRenders=[];const instantiate=WebAssembly.instantiate;
+  WebAssembly.instantiate=async(...args)=>{const made=await instantiate.apply(WebAssembly,args),instance=made.instance??made,e=instance.exports,last=new Map();
+   const exports={...e,
+    avatar_set_gaze:(h,x,y)=>{last.set(h,[x,y]);return e.avatar_set_gaze(h,x,y);},
+    avatar_render:(h,style,...rest)=>{const [x,y]=last.get(h)??[0,0];if(x||y)window.gazeRenders.push({style,x,y});return e.avatar_render(h,style,...rest);}};
+   return made.instance?{...made,instance:{exports}}:{exports};};
+ });
  const ready=(expected=6)=>page.waitForFunction(n=>document.querySelectorAll('canvas').length===n&&[...document.querySelectorAll('canvas')].every(c=>c.getContext('2d').getImageData(0,0,c.width,c.height).data.some((v,i)=>i%4===3&&v>0)),expected);
  await page.goto(`http://127.0.0.1:${server.address().port}/examples/avatar_gallery.html`);await ready();
  assert.equal(await page.getByRole('alert').count(),0);
@@ -36,10 +44,34 @@ try{
  assert.equal(await page.locator('canvas').nth(1).evaluate(c=>c.toDataURL()),errorImage);
  await page.getByLabel('Phase', {exact:true}).selectOption('ready');await page.waitForTimeout(100);
  const readyFrames=await frames(1100);assert(readyFrames>0&&readyFrames<=18,`ready cadence ${readyFrames}`);
- // Active pointer gives a bounded faster sampling clock, then returns to2fps.
+ // The pointer never moves an avatar element, and reaches the renderer only as a gaze
+ // target for designs whose catalog gives them eyes; spheres get nothing.
+ const catalog=await page.evaluate(async()=>(await (await import('/dist/avatar_renderer.js')).avatarDesigns()).map(d=>({id:d.id,gaze:d.gaze})));
+ const eyeIds=catalog.filter(d=>d.gaze==='eyes').map(d=>d.id);assert(eyeIds.includes('hover')&&!eyeIds.includes('halo')&&!eyeIds.includes('watch-halo'),`eyes designs ${eyeIds}`);
+ const boxes=()=>page.locator('canvas').evaluateAll(nodes=>nodes.map(c=>{const r=c.getBoundingClientRect();return [r.x,r.y,r.width,r.height,getComputedStyle(c).transform,getComputedStyle(c.parentElement).transform].join();}));
+ const shownIds=await page.locator('article[data-design]').evaluateAll(nodes=>nodes.map(n=>n.dataset.design)),pageEyes=shownIds.filter(id=>eyeIds.includes(id));
+ assert(pageEyes.length>0&&pageEyes.length<shownIds.length,'the first page shows designs with and without eyes');
+ const framesOf=ids=>page.locator('article[data-design]').evaluateAll((nodes,ids)=>nodes.filter(n=>ids.includes(n.dataset.design)).map(n=>window.canvasFrames.get(n.querySelector('canvas'))??0),ids);
+ const placed=await boxes();await page.evaluate(()=>{window.gazeRenders=[];});
+ const eyesBefore=await framesOf(pageEyes),othersBefore=await framesOf(shownIds.filter(id=>!pageEyes.includes(id)));
+ // Active pointer gives the eyes design a bounded faster sampling clock, then it returns to its idle rate.
  await page.mouse.move(20,350);await page.waitForTimeout(100);
- const gazeFrames=await frames(500);assert(gazeFrames>=24&&gazeFrames<=42,`gaze cadence ${gazeFrames}`);
- await page.waitForTimeout(1700);const idleFrames=await frames(1100);assert(idleFrames>0&&idleFrames<=18,`gaze did not expire ${idleFrames}`);
+ const gazeFrames=await frames(500),eyesGaze=(await framesOf(pageEyes)).map((n,i)=>n-eyesBefore[i]),othersIdle=(await framesOf(shownIds.filter(id=>!pageEyes.includes(id)))).map((n,i)=>n-othersBefore[i]);
+ assert(eyesGaze.every(n=>n>=4&&n<=10),`eyes gaze cadence ${eyesGaze}`);assert(othersIdle.every(n=>n<=3),`designs without eyes kept their idle cadence ${othersIdle}`);
+ // The eyes ease toward the pointer (~150 ms), never jump to it.
+ const hoverIndex=catalog.findIndex(d=>d.id==='hover');
+ const toward=await page.evaluate(i=>window.gazeRenders.filter(r=>r.style===i).map(r=>Math.abs(r.x)),hoverIndex);
+ assert(toward.length>=3&&toward[0]<.9&&toward.at(-1)>.95&&toward.every((v,i)=>i===0||v>=toward[i-1]-1e-6),`gaze eases toward the pointer ${toward.map(v=>v.toFixed(2))}`);
+ for(let i=0;i<8;i++){await page.mouse.move(40+i*150,60+i*110);await page.waitForTimeout(40);}
+ assert.deepEqual(await boxes(),placed,'no avatar is translated, rotated or tilted by the pointer');
+ const gazed=await page.evaluate(()=>window.gazeRenders.map(r=>r.style));
+ assert(gazed.length>0,'the eyes design received the gaze target');
+ assert.deepEqual([...new Set(gazed.map(i=>catalog[i].id))].sort(),[...pageEyes].sort(),'only eyes designs receive a gaze target');
+ // Two idle seconds later the eyes ease back to the centre, then the idle cadence resumes.
+ await page.evaluate(()=>{window.gazeRenders=[];});await page.waitForTimeout(2900);
+ const back=await page.evaluate(i=>window.gazeRenders.filter(r=>r.style===i).map(r=>Math.hypot(r.x,r.y)),hoverIndex);
+ assert(back.some(v=>v>.1&&v<.9)&&back.at(-1)<.05,`gaze eases back to centre ${back.map(v=>v.toFixed(2))}`);
+ const idleFrames=await frames(1100);assert(idleFrames>0&&idleFrames<=18,`gaze did not expire ${idleFrames}`);
  await page.emulateMedia({reducedMotion:'reduce'});await page.waitForTimeout(100);const reduced=await count();await page.mouse.move(700,600);await page.waitForTimeout(1100);assert.equal(await count(),reduced,'reduced motion must stop animation and tracking');
  await page.getByRole('button',{name:'Light / dark'}).click();
  if(process.env.AVATAR_CAPTURE_DIR)await page.screenshot({path:path.join(process.env.AVATAR_CAPTURE_DIR,'web-light.png'),fullPage:true});
@@ -67,9 +99,9 @@ try{
  assert.equal(seen.size,44,'gallery must expose every canonical design');
  // Quality changes and display-DPR changes must rebuild bounded backing frames,
  // release old handles, and retain the selected design/activity.
+ const focusIds=['watch-halo','watch-wave','watch-hover','watch-rings','watch-eye'];
  await page.getByRole('button',{name:'Focus designs',exact:true}).click();await ready(5);
- assert.deepEqual(await page.locator('article[data-design]').evaluateAll(nodes=>nodes.map(n=>n.dataset.design)),
-  ['watch-halo','watch-wave','watch-hover','watch-rings','watch-eye']);
+ assert.deepEqual(await page.locator('article[data-design]').evaluateAll(nodes=>nodes.map(n=>n.dataset.design)),focusIds);
  await page.emulateMedia({reducedMotion:'reduce'});
  await page.getByLabel('Quality',{exact:true}).selectOption('high');
  await page.evaluate(()=>{Object.defineProperty(window,'devicePixelRatio',{configurable:true,value:3});window.dispatchEvent(new Event('resize'));});
@@ -83,8 +115,10 @@ try{
  // Observe pointerdown without swallowing the original host action.
  await page.emulateMedia({reducedMotion:'no-preference'});
  await page.getByLabel('Phase',{exact:true}).selectOption('ready');await page.waitForTimeout(2100);
- await page.evaluate(()=>window.dispatchEvent(new PointerEvent('pointerdown',{clientX:5,clientY:5,pointerType:'mouse',bubbles:true,cancelable:true})));
- const clickFrames=await frames(500);assert(clickFrames>=20&&clickFrames<=40,`click gaze cadence ${clickFrames}`);
+ await page.evaluate(()=>{window.gazeRenders=[];window.dispatchEvent(new PointerEvent('pointerdown',{clientX:5,clientY:5,pointerType:'mouse',bubbles:true,cancelable:true}));});
+ const clickFrames=await frames(500),focusEyes=focusIds.filter(id=>eyeIds.includes(id));
+ assert.deepEqual([...new Set(await page.evaluate(()=>window.gazeRenders.map(r=>r.style)))].map(i=>catalog[i].id).sort(),focusEyes.sort(),'a click gazes only with eyes designs');
+ assert(clickFrames<=focusEyes.length*8+5*3,`click gaze cadence ${clickFrames}`);
  await page.getByRole('button',{name:'Pause motion',exact:true}).click();await page.waitForTimeout(100);
  assert.equal(await frames(400),0,'pause motion must cancel both timeout and animation frame');
  const presentationTiming=await page.evaluate(async()=>{
@@ -109,5 +143,5 @@ try{
   return measurements;
  });
  assert.deepEqual(errors,[]);
- console.log({styles:seen.size,phases:7,maxLiveRenderers:6,readyFramesIn1_1s:readyFrames,gazeFramesIn500ms:gazeFrames,clickFramesIn500ms:clickFrames,postIdleFramesIn1_1s:idleFrames,reducedMotionFrames:0,unmountCycles:5,contextRecovery:true,qualityAndDprResizing:true,presentationTiming,consoleErrors:errors});
+ console.log({styles:seen.size,phases:7,maxLiveRenderers:6,readyFramesIn1_1s:readyFrames,gazeFramesIn500ms:gazeFrames,eyesGazeFramesIn500ms:eyesGaze,eyesDesigns:eyeIds,clickFramesIn500ms:clickFrames,postIdleFramesIn1_1s:idleFrames,reducedMotionFrames:0,unmountCycles:5,contextRecovery:true,qualityAndDprResizing:true,presentationTiming,consoleErrors:errors});
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}

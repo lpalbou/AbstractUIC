@@ -71,8 +71,12 @@ Confirm the installed type declarations expose `AvatarQuality` before passing
 for one portrait (384 px / 24 active fps, the default), or high for a prominent
 portrait (512 px / 30 active fps). These are upper budgets; pixel area and higher
 cadence increase CPU work. Display-density changes rebuild the bounded renderer.
-`followCursor` observes movement and clicks without consuming host actions; gaze
-expires after two seconds and is disabled by reduced motion or non-Ready poses.
+`followCursor` observes movement and clicks without consuming host actions. Only a
+design whose catalog entry has `gaze: "eyes"` responds: its eyes ease toward the
+pointer and back to centre after two idle seconds; the avatar never translates,
+rotates or tilts, and every other design ignores the pointer. Gaze is disabled by
+reduced motion, touch and non-Ready poses. Use `avatarGazeTarget` for the same rule
+in a custom Canvas host.
 
 For Canvas, create `AvatarRenderer`, pass a version-one object through
 `parseAvatarFrame`, call `renderFrame`, then `dispose` when the view closes. A frame

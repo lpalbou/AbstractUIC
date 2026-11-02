@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {performance} from 'node:perf_hooks';
-import {AvatarRenderer,avatarDesigns,parseAvatarFrame} from '../dist/avatar_renderer.js';
+import {AvatarRenderer,avatarDesigns,avatarGazeTarget,parseAvatarFrame} from '../dist/avatar_renderer.js';
 const bytes=await readFile(new URL('../src/avatars/avatar_core.wasm',import.meta.url));
 const mod=await WebAssembly.compile(bytes);assert.deepEqual(WebAssembly.Module.imports(mod),[],'renderer must have no host/network imports');
 const {instance}=await WebAssembly.instantiate(bytes);const c=instance.exports;
@@ -9,6 +9,19 @@ assert.equal(c.avatar_abi_version(),1);assert.equal(c.avatar_create(0,32),0);ass
 const designs=await avatarDesigns(bytes);assert.deepEqual(designs.slice(0,6).map(d=>d.id),['halo','hover','vortex','eclipse','eye','rover']);assert.equal(designs[5].watchCode,'Q');
 assert.equal(designs.length,44,'complete shared catalog');assert.equal(new Set(designs.map(d=>d.id)).size,44);
 for(const id of ['watch-halo','watch-galaxy','watch-shape-kitty','iphone-weave'])assert(designs.some(d=>d.id===id),`missing ${id}`);
+// Only a design whose catalog says it has eyes may receive a pointer gaze target; a catalog
+// without the field (or any other value) is "none" and nothing follows the pointer.
+for(const d of designs)assert(d.gaze==='eyes'||d.gaze==='none',`gaze field of ${d.id}`);
+for(const id of ['halo','watch-halo','watch-vortex','watch-galaxy'])assert.equal(designs.find(d=>d.id===id).gaze,'none',`${id} is a sphere: nothing follows`);
+for(const id of ['hover','eye','rover','watch-hover','watch-eye'])assert.equal(designs.find(d=>d.id===id).gaze,'eyes',`${id} has eyes`);
+const box={x:100,y:200,width:200,height:100},eyes={...designs[0],gaze:'eyes'};
+assert.deepEqual(avatarGazeTarget(eyes,{clientX:300,clientY:200,pointerType:'mouse'},box),[1,-1]);
+assert.deepEqual(avatarGazeTarget(eyes,{clientX:150,clientY:275,pointerType:'pen'},box),[-.5,.5]);
+assert.deepEqual(avatarGazeTarget(eyes,{clientX:-1e9,clientY:1e9},box),[-1,1],'gaze is clamped');
+for(const d of designs.filter(d=>d.gaze==='none'))assert.equal(avatarGazeTarget(d,{clientX:300,clientY:200,pointerType:'mouse'},box),undefined,`${d.id} has no eyes`);
+assert.equal(avatarGazeTarget(undefined,{clientX:300,clientY:200},box),undefined,'unknown design');
+assert.equal(avatarGazeTarget(eyes,{clientX:300,clientY:200,pointerType:'touch'},box),undefined,'touch never steers gaze');
+assert.equal(avatarGazeTarget(eyes,{clientX:300,clientY:200},{...box,width:0}),undefined,'empty bounds');
 const handles=[];for(let i=0;i<16;i++){const h=c.avatar_create(8,8);assert.notEqual(h,0);handles.push(h);}assert.equal(c.avatar_create(8,8),0);for(const h of handles)assert.equal(c.avatar_destroy(h),0);
 const h=c.avatar_create(64,64);assert.equal(c.avatar_render(h,0,0,.6,1.1,1),-5);
 for(let m=0;m<3;m++)for(let i=0;i<256;i++)assert.equal(c.avatar_set_shade(h,m,i,((i<<24)|(Math.round(i*.7)<<16)|(Math.round(i*.4)<<8)|255)>>>0),0);
@@ -29,9 +42,15 @@ for(let style=0;style<6;style++) {
   const data=Buffer.from(new Uint8Array(c.memory.buffer,c.avatar_pixels(h)>>>0,c.avatar_pixels_len(h)));frames.push(data);
   if(process.argv[2]) {const native=await readFile(`${process.argv[2]}/${style}-gaze-${gaze}.rgba`);assert.equal(native.length,data.length);for(let i=0;i<native.length;i++)nativeDiff=Math.max(nativeDiff,Math.abs(native[i]-data[i]));}
  }
- assert.notDeepEqual(frames[0],frames[1],`ready gaze missing for style ${style}`);
+ // Gaze moves the eyes of an eyes design, and not one pixel of any other design.
+ if(designs[style].gaze==='eyes')assert.notDeepEqual(frames[0],frames[1],`ready gaze missing for eyes design ${designs[style].id}`);
+ else assert.deepEqual(frames[0],frames[1],`${designs[style].id} has no eyes: gaze must not move it`);
  assert.equal(c.avatar_render(h,style,6,.6,1.1,1),0);const error=Buffer.from(new Uint8Array(c.memory.buffer,c.avatar_pixels(h)>>>0,c.avatar_pixels_len(h)));
  c.avatar_set_gaze(h,-1,-1);c.avatar_render(h,style,6,.6,3.5,1);assert.deepEqual(Buffer.from(new Uint8Array(c.memory.buffer,c.avatar_pixels(h)>>>0,c.avatar_pixels_len(h))),error,'Error ignores gaze and animation time');
+}
+for(let style=0;style<designs.length;style++){
+ const frame=g=>{c.avatar_set_gaze(h,g,g);c.avatar_render(h,style,0,.6,1.1,1);return Buffer.from(new Uint8Array(c.memory.buffer,c.avatar_pixels(h)>>>0,c.avatar_pixels_len(h)));};
+ const moved=!frame(-1).equals(frame(1));assert.equal(moved,designs[style].gaze==='eyes',`${designs[style].id}: gaze ${moved?'moves':'does not move'} a "${designs[style].gaze}" design`);
 }
 assert(nativeDiff<=2,`native/Wasm gaze pixel error ${nativeDiff}`);
 assert.equal(c.avatar_destroy(h),0);assert.equal(c.avatar_pixels_len(h),0);assert.equal(c.avatar_render(h,0,0,0,0,1),-1);

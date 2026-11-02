@@ -11,6 +11,14 @@ ships.
 
 ### ui-kit
 
+- **Avatars: only eyes follow the pointer.** `ActivityAvatar` with `followCursor` sends the
+  pointer to the renderer only for designs whose catalog entry has `gaze: "eyes"` (the shaded
+  `hover`, `eye` and `rover`, the Watch designs with eyes such as `watch-face`, `watch-eye` and `watch-hover`); the eyes ease toward it over about
+  150 ms and back to centre after two idle seconds. Orbs, forms and every other design no
+  longer respond to the pointer, and no avatar moves, tilts or shifts toward it.
+  `AvatarDesign` gains `gaze: "eyes" | "none"`, and `avatarGazeTarget(design, pointer, bounds)`
+  exposes the shared rule. The bundled AbstractAvatar Wasm is refreshed to the generator whose
+  gaze moves only eyes.
 - **`AutomationSummary.section` and `last_activity_at`, `AutomationsPage` counts** (framework ADR
   0048). The automation row type carries the gateway's `section` (`active`, `paused`, `archived`) and
   `last_activity_at`; `listAutomations` returns `AutomationsPage`, a page with
