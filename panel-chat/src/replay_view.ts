@@ -50,6 +50,8 @@ export type ReplayViewMessage = {
   seqs?: number[];
   source?: string;
   source_call_ids?: string[];
+  /** Public updates: the actor's type, "progress" or "finding". */
+  update_kind?: "progress" | "finding";
   session_id?: string;
   iteration?: number;
   public_update_id?: string;

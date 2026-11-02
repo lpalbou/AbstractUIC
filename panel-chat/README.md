@@ -241,7 +241,7 @@ const uploads = useAttachmentUploads({ upload: (file) => gateway.attachmentsUplo
   detail badge); `messageProps.variant(m)` returning `"hint"` renders the message as one discreet
   line (system notes such as "Rejoined the open visit"); returning `"caption"` renders only the
   message's content (Markdown, media, files and attachments, without header, copy, speaker,
-  reasoning, stats or footer), as the Avatar view's captions do.
+  reasoning, stats or footer), as the Avatar view's live line and findings do.
 - **Stop that aborts.** `onSend(draft, { signal })`: Stop aborts that signal and calls
   `onCancel(signal)` with it, so a request/response host stops its fetch (an aborted send is not
   reported as a failure). When no send is in flight (a ledger host), `onCancel` gets a signal
@@ -473,39 +473,42 @@ steer/queue, cancellation and interaction callbacks. `AvatarConversation` is als
 standalone with `messages` and an `interaction` slot. Only explicit typed `public_update`,
 answer/final/question messages, explicit host question outcomes and user input enter its public history. It never displays
 tool rows, reasoning, untyped assistant text or unvalidated live deltas. Both replay and
-ledger folding preserve public update identity, run, iteration and `sourceCallIds`.
+ledger folding preserve public update identity, run, iteration, `sourceCallIds` and the
+actor's own type, `kind`: `"finding"` for a fact or piece of evidence it established,
+`"progress"` for what it is doing (event `kind`, replay `update_kind`; an update without it is
+progress). The view uses the type as given and never infers it from the text.
 
 The view is one column that fits its container above the composer: the avatar takes the
-height that is left, then its status, any open question or approval, the captions, and the
-actions (**Conversation history**, the host's `voiceControl` and `playbackControl`; buttons
-are at least 44 px). Nothing in the view sits under the composer or auto-cycles.
+height that is left, then its status, any open question or approval, one live line, the
+answer, and the actions (the host's `voiceControl` and `playbackControl`; buttons are at
+least 44 px). Nothing in the view sits under the composer or auto-cycles.
 
-Captions are a realtime rolling list of what the assistant says publicly in the current
-turn (`conversationCaptions(messages)`: public updates, questions, question outcomes and
-the answer after the person's latest message, oldest first; every one is kept, the area
-scrolls). The newest caption enters at the bottom and older ones move up in a fixed-height
-area that always shows whole lines: 4 on desktop, 3 below 480 px and 2 while a request is
-open (CSS variable `--pc-avatar-caption-lines`). An edge fades whenever text continues past
-it: older captions above, the rest of a long answer below. While a question or approval is
-open it is shown once, pinned above the captions with its controls
-(`conversationCaptions(messages, { pinnedRequest: true })` leaves questions out). Pass the
-previous result as the third argument to reuse unchanged captions; each caption card
-re-renders only when its message changes. Each caption is rendered by `ChatMessageCard` with
-`variant: "caption"`, so Markdown, links, media and files display as in the conversation.
-The final answer is one caption, never split: when it is taller than the area it is shown
-from its first line and the area scrolls to read the rest; the full exchange stays in the
-host's conversation view. A visual completion cue marks the answer itself. Captions change
-only when messages change; reading, hovering or scrolling never pauses anything because
-nothing is scheduled.
+The live line is the latest public update of the current turn (or a question or question
+outcome), replaced as soon as a new one arrives: `conversationLive(messages)` returns
+`{ line, answer, personKey }` for the messages after the person's latest message (accepted
+mid-run guidance does not start a turn). It is rendered by `ChatMessageCard` with
+`variant: "caption"`, so Markdown, links, media and files display as in the conversation,
+three lines at most. Clicking it (or Enter) holds it open in full and offers **Reply to this**
+(public updates only) and **Latest**, which returns to following. `onReplyContext` gives the
+held update; the person's next message (`personKey` changes) ends the reply and the line
+follows again. `conversationReply` quotes a held public update and rejects cross-run guidance
+context. The host still submits replies through its normal execution path. For composed runs,
+pass only the current authoritative run tree as `conversationReply`’s optional fourth
+argument; this permits replying to the actual actor child while refusing historical or
+unrelated runs. While a question or approval is open it is shown once, pinned above the line
+with its controls (`conversationLive(messages, { pinnedRequest: true })` leaves questions out).
+When the answer arrives after the last update, the line gives way to the answer: one normal
+message through the shared renderer, shown once, scrolling in place when long, with a visual
+completion cue on it. Private reasoning and statistics never reach the view.
 
-**Conversation history** shows the public history in place of the captions (with a smaller
-avatar) with full text under plain labels (`conversationLabel`: You, Update, Question,
-Answer); source IDs stay in the technical view. **Reply to this** selects a public update and
-returns to the captions. `onReplyContext` gives the selected public message;
-`conversationReply` quotes a selected public update and rejects cross-run guidance context.
-The host still submits replies through its normal execution path. For composed runs, pass
-only the current authoritative run tree as `conversationReply`’s optional fourth argument;
-this permits replying to the actual actor child while refusing historical or unrelated runs.
+**Findings** accumulate what the actor reported as `kind: "finding"` across the
+conversation's runs, the newest last (`conversationFindings(messages)`). Each is a compact card
+(two lines) that opens to its full text and its sources: the results it cited
+(`sourceCallIds`) that the conversation holds, shown by what they read (a link, a file, a
+query), never by call id or tool name. On a view at least 720 px wide the panel floats beside
+the avatar; on a narrower view it is a bottom sheet the person opens with **Findings** and
+closes with **Close** (or Escape). With no findings there is no panel and no button. The view
+re-renders a card only when its finding changes.
 
 `useAvatarConversationPreferences(ownerScope)` persists chat/avatar mode and independent
 visual/audio preferences for permissions, questions and completion; use an account-scoped
@@ -515,10 +518,10 @@ revisions only. Optional `playConversationCue` plays a local earcon and rejects 
 or blocked playback. The host should report those errors. Optional `narrate`/`onNarrate`
 request speech for newly observed public updates through the host's voice stack. Initial
 history, reconnects, reading, recording and session switches never replay queued speech.
-`onInterruptSpeech` runs before reply/voice/history actions and session cleanup.
+`onInterruptSpeech` runs before holding the line, opening the findings, voice and session cleanup.
 Use `playbackControl` for pause/resume/silence actions, separately from `voiceControl`
 which interrupts old speech before capture. `onAttendedChange` lets hosts suppress their
-existing final-answer narration while the person reads the history, selects a reply or
+existing final-answer narration while the person holds the line, reads the findings sheet or
 writes a draft. Fresh question and
 approval cues remain eligible while reading; ordinary narration stays silent.
 Explicit host-authenticated `user_guidance` receipts preserve accepted human corrections
@@ -526,7 +529,7 @@ in public history. An accepted receipt does not mean the assistant adopted the c
 component neither records audio nor starts TTS or a network request itself. Listening is
 labeled as unsubmitted input; permission decisions remain the existing explicit controls.
 
-A pending question or approval keeps its actual controls ahead of subtitles and history,
+A pending question or approval keeps its actual controls ahead of the live line,
 with a smaller avatar while the request is open. Standalone `AvatarConversation` hosts
 should pass `interactionId` for that actual request, or `""` when it is absent or deferred.
 Omitting the prop treats a supplied interaction as active. `WorkflowChat`
@@ -544,8 +547,8 @@ Standalone hosts use `WorkflowInteractionPanel variant="conversation"` with
 `publicRequest`; `onReviewTechnical` opens their detailed view. The ordinary panel
 retains its full technical presentation and permission choices.
 
-Optional browser checks are `scripts/check_avatar_conversation_browser.mjs` for rolling
-captions, rendering and the view's geometry above the composer (1440 and 400 px, dark and
+Optional browser checks are `scripts/check_avatar_conversation_browser.mjs` for the live
+line, the findings panel and sheet, rendering and the view's geometry above the composer (1440 and 400 px, dark and
 light), `scripts/check_avatar_requests_browser.mjs` for request visibility on desktop/phone and `scripts/check_compact_composer_browser.mjs` for input
 growth, keyboard gates, draft recovery and action slots. They accept an installed
 Playwright module through `PANEL_CHAT_PLAYWRIGHT_MODULE` and an optional browser through
