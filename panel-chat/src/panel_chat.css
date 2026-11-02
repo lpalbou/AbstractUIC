@@ -2811,6 +2811,8 @@ button.pc-ws__name:hover {
 .pc-avatar-conversation__captions .pc-chat-item--caption .pc-chat-content > :last-child { margin-bottom: 0; }
 .pc-avatar-conversation__captions .pc-chat-item--caption :is(.pc-chat-media, .pc-chat-attachments) { margin-top: .4em; font-size: .85em; }
 .pc-avatar-conversation__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .5rem; }
+/* Host-supplied control groups (voiceControl, playbackControl) wrap and space like the row itself. */
+.pc-avatar-conversation__actions > span { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .5rem; }
 .pc-avatar-conversation button { font: inherit; color: inherit; background: transparent; border: 1px solid var(--ui-border-1, #7776); border-radius: .4rem; padding: .4rem .65rem; cursor: pointer; }
 .pc-avatar-conversation__actions button { min-height: 44px; min-width: 44px; }
 .pc-avatar-conversation button:disabled { opacity: .5; cursor: default; }

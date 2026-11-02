@@ -26,7 +26,7 @@ const result = await build({
         avatarConversation={{...input, avatar:<Orb/>, narrate:true, onNarrate:(m)=>window.events.push('narrate:'+m.id),
           onInterruptSpeech:()=>window.events.push('interrupt'), onReplyContext:(m)=>window.events.push('reply:'+(m?.id||'none')),
           voiceControl:<button type='button' onClick={()=>window.events.push('voice')}>Talk</button>,
-          playbackControl:<span role='group' aria-label='Voice controls'><button type='button' aria-pressed='false'>Read new replies aloud</button></span>}}/>;
+          playbackControl:<span role='group' aria-label='Voice controls'><button type='button' aria-pressed='false'>Read new replies aloud</button><button type='button'>Silence voice</button></span>}}/>;
     }
     createRoot(document.getElementById('root')).render(<Harness/>);
   ` },
@@ -102,6 +102,7 @@ try {
     assert(g.viewOverflow <= 1, `the avatar view fits its area without scrolling (${g.viewOverflow}px over) at ${viewport.width}px`);
     assert(g.actionsBottom <= g.composerTop + 1 && g.listBottom <= g.composerTop + 1, `captions and actions sit above the composer at ${viewport.width}px`);
     for (const b of g.buttons) assert(b.h >= 44 && b.w >= 44 && b.bottom <= g.composerTop + 1, `${b.name}: ≥44 px and above the composer`);
+    assert(await page.evaluate(() => { const bs = [...document.querySelectorAll(".pc-avatar-conversation__actions button")].map((b) => b.getBoundingClientRect()); return bs.every((x, i) => bs.every((y, j) => i === j || x.right <= y.left - 4 || y.right <= x.left - 4 || x.bottom <= y.top - 4 || y.bottom <= x.top - 4)); }), "action buttons never touch or overlap");
     assert(g.avatar.height >= 48 && g.avatar.bottom <= g.composerTop, `the avatar stays visible above the composer (${g.avatar.height}px)`);
     assert(g.textSize >= 16 && g.textSize === g.listSize, `captions are set at caption size, not chat size (${g.textSize}px)`);
     assert(Math.abs(g.lines - lines) < 0.2, `${lines} caption lines at ${viewport.width}px (got ${g.lines.toFixed(2)})`);
