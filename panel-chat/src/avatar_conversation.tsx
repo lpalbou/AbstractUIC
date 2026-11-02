@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ChatMessageCard, type ChatMessage, type ChatMessageCardProps } from "./chat_message_card.js";
 import type { WorkflowConnection } from "./workflow_runtime.js";
-import { toolPreview } from "./tool_activity.js";
 import { TextLinks } from "./text_links.js";
+import type { WorkflowToolActivity } from "./workflow_evidence.js";
 import { DEFAULT_CONVERSATION_CUES, conversationCueStep, conversationFindings, conversationLive, conversationNarrationStep, conversationMessages, conversationState, type AvatarConversationState, type ConversationAttention, type ConversationCue, type ConversationCueCursor, type ConversationCuePreferences, type ConversationFinding } from "./conversation_model.js";
 
 export type AvatarConversationOptions = {
@@ -69,31 +69,57 @@ const ContentCard = React.memo(function ContentCard(props: CardProps & { message
   return <ChatMessageCard {...props} showCopy={false} variant={contentOnly} />;
 });
 const cardProps = (shared?: Omit<ChatMessageCardProps, "message">): CardProps => ({ renderMarkdown: shared?.renderMarkdown, images: shared?.images, inlineImage: shared?.inlineImage, onOpenMedia: shared?.onOpenMedia, jsonCollapseAfterDepth: shared?.jsonCollapseAfterDepth });
-/** A click on a link or control inside expandable content acts on that element, not on the content. */
+/** A click on a link or control inside opened content acts on that element, not on the content. */
 const ownClick = (event: React.SyntheticEvent): boolean => !(event.target as Element).closest?.("a, button, input, textarea, select, summary, video, audio");
-const activateKey = (event: React.KeyboardEvent, act: () => void) => {
-  if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
-  event.preventDefault();
-  act();
-};
+/** What a cited result reads in plain words: its address, file or query; nothing else is shown. */
+const SOURCE_FIELDS = ["url", "file_path", "path", "query"];
+function sourceText(tool: WorkflowToolActivity): string {
+  const args = tool.arguments && typeof tool.arguments === "object" && !Array.isArray(tool.arguments) ? tool.arguments as Record<string, unknown> : {};
+  const value = SOURCE_FIELDS.map((field) => args[field]).find((v) => typeof v === "string" && v.trim());
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * Content that opens on click. While closed, a real button covers it (so its links are never
+ * nested inside a button) and is named by the content; once open, the content's own links work.
+ */
+function Expandable(props: { className: string; open: boolean; onOpen: () => void; openerRef?: React.Ref<HTMLButtonElement>; children: React.ReactNode } & Omit<React.HTMLAttributes<HTMLDivElement>, "className" | "children">): React.ReactElement {
+  const { className, open, onOpen, openerRef, children, ...rest } = props;
+  const id = useId();
+  return <div {...rest} className={`${className} pc-avatar-conversation__expandable`} data-open={open || undefined}>
+    <div id={id}>{children}</div>
+    {open ? null : <button ref={openerRef} type="button" className="pc-avatar-conversation__opener" aria-expanded={false} aria-labelledby={id} onClick={onOpen} />}
+  </div>;
+}
 
 /** One finding: its text (shortened until opened) and, when opened, the results it cited. */
 const FindingCard = React.memo(function FindingCard(props: CardProps & { finding: ConversationFinding; onOpen: () => void }): React.ReactElement {
   const [open, setOpen] = useState(false);
+  const opener = useRef<HTMLButtonElement | null>(null);
+  const body = useRef<HTMLDivElement | null>(null);
+  const reopen = useRef(false);
   const { finding, onOpen, ...card } = props;
-  const toggle = () => { if (!open) onOpen(); setOpen(!open); };
-  const sources = finding.sources.map((tool) => ({ id: tool.id, text: toolPreview(tool.arguments).value })).filter((source) => source.text);
-  return <div className="pc-avatar-conversation__finding" data-open={open || undefined}>
-    <div className="pc-avatar-conversation__expandable" role="button" tabIndex={0} aria-expanded={open}
-      onClick={(event) => { if (ownClick(event)) toggle(); }} onKeyDown={(event) => activateKey(event, toggle)}>
+  useEffect(() => {
+    if (open) body.current?.focus();
+    else if (reopen.current) { reopen.current = false; opener.current?.focus(); }
+  }, [open]);
+  const close = () => { reopen.current = true; setOpen(false); };
+  const sources = finding.sources.map((tool) => ({ id: tool.id, text: sourceText(tool) })).filter((source) => source.text);
+  return <div ref={body} className="pc-avatar-conversation__finding" data-open={open || undefined} tabIndex={open ? -1 : undefined}
+    onClick={(event) => { if (open && ownClick(event)) close(); }}
+    onKeyDown={(event) => { if (open && event.key === "Escape") { event.stopPropagation(); close(); } }}>
+    <Expandable className="pc-avatar-conversation__finding-text" open={open} openerRef={opener} onOpen={() => { onOpen(); setOpen(true); }}>
       <ContentCard {...card} message={finding.message} />
-    </div>
+    </Expandable>
     {open && sources.length ? <ul className="pc-avatar-conversation__sources" aria-label="Sources">
       {sources.map((source) => <li key={source.id}><TextLinks text={source.text} /></li>)}
     </ul> : null}
   </div>;
 }, (a, b) => a.finding.message === b.finding.message && a.finding.sources.length === b.finding.sources.length && a.finding.sources.every((tool, i) => tool === b.finding.sources[i])
-  && a.renderMarkdown === b.renderMarkdown && a.images === b.images && a.inlineImage === b.inlineImage && a.onOpenMedia === b.onOpenMedia && a.jsonCollapseAfterDepth === b.jsonCollapseAfterDepth);
+  && a.onOpen === b.onOpen && a.renderMarkdown === b.renderMarkdown && a.images === b.images && a.inlineImage === b.inlineImage && a.onOpenMedia === b.onOpenMedia && a.jsonCollapseAfterDepth === b.jsonCollapseAfterDepth);
+
+/** The width at which Findings float beside the avatar instead of opening as a sheet (panel_chat.css). */
+const FLOATING_FINDINGS_WIDTH = 720;
 
 function AvatarConversationSession(props: AvatarConversationProps): React.ReactElement {
   // A held line stays in place, opened, until the person chooses Latest; otherwise the line follows.
@@ -140,24 +166,50 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
     if (next.message) { props.onInterruptSpeech?.(); props.onNarrate?.(next.message); }
   }, [messages, props.sessionKey, props.connection, props.replaying, props.status, props.narrate, props.listening, props.onNarrate, props.onInterruptSpeech, attended]);
 
-  const interrupt = () => props.onInterruptSpeech?.();
+  // Stable, so memoized finding cards always reach the host's current callback.
+  const interrupt = useCallback(() => callbacks.current.onInterruptSpeech?.(), []);
   const line = held || live.line;
+  const section = useRef<HTMLElement | null>(null);
+  const liveArea = useRef<HTMLDivElement | null>(null);
+  const lineActions = useRef<HTMLDivElement | null>(null);
+  const toggle = useRef<HTMLButtonElement | null>(null);
+  const closeButton = useRef<HTMLButtonElement | null>(null);
+  // Focus follows the person: into the held line's actions, back to the line on Latest.
+  const wasHeld = useRef(false);
+  useEffect(() => {
+    if (held) lineActions.current?.querySelector("button")?.focus();
+    else if (wasHeld.current) (liveArea.current?.querySelector<HTMLElement>(".pc-avatar-conversation__opener") || liveArea.current)?.focus();
+    wasHeld.current = Boolean(held);
+  }, [held]);
   const hold = () => { if (!line) return; interrupt(); setHeld(line); };
   const reply = () => { if (!held) return; interrupt(); setReplying(true); props.onReplyContext?.(held); };
   const latest = () => { setHeld(null); if (replying) { setReplying(false); props.onReplyContext?.(null); } };
+  // The sheet takes focus when opened and returns it to Findings when closed.
+  useEffect(() => { if (findingsOpen) closeButton.current?.focus(); }, [findingsOpen]);
+  const openFindings = () => { interrupt(); setFindingsOpen(true); };
+  const closeFindings = () => { setFindingsOpen(false); toggle.current?.focus(); };
+  // Findings float on a wide view: a sheet left open on a narrow one closes when the view widens.
+  useEffect(() => {
+    const el = section.current;
+    if (!findingsOpen || !el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => { if (entry.contentRect.width >= FLOATING_FINDINGS_WIDTH) setFindingsOpen(false); });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [findingsOpen]);
   const attention = props.attention && preferences[props.attention.kind].visual ? props.attention : null;
   const card = cardProps(props.messageProps);
   const { renderFooter: _footer, ...answerProps } = props.messageProps || {};
-  return <section className="pc-avatar-conversation" aria-label="Avatar conversation" data-state={state} data-has-request={hasRequest || undefined} data-compact={hasRequest || undefined}
-    data-has-findings={findings.length ? "" : undefined} data-findings-open={findings.length && findingsOpen ? "" : undefined}>
+  return <section ref={section} className="pc-avatar-conversation" aria-label="Avatar conversation" data-state={state} data-has-request={hasRequest || undefined} data-compact={hasRequest || undefined}
+    data-has-findings={findings.length ? "" : undefined} data-findings-open={findings.length && findingsOpen ? "" : undefined}
+    onKeyDown={(event) => { if (event.key === "Escape" && findingsOpen && findings.length) closeFindings(); }}>
     <div className="pc-avatar-conversation__presence">
       <div className="pc-avatar-conversation__scene">{props.avatar}</div>
       <p className="pc-avatar-conversation__status" role="status">{labels[state]}</p>
     </div>
-    {findings.length ? <aside className="pc-avatar-conversation__findings" aria-label="Findings" onKeyDown={(event) => { if (event.key === "Escape" && findingsOpen) setFindingsOpen(false); }}>
+    {findings.length ? <aside className="pc-avatar-conversation__findings" aria-label="Findings">
       <div className="pc-avatar-conversation__findings-head">
         <h2>Findings</h2>
-        <button type="button" className="pc-avatar-conversation__findings-close" onClick={() => setFindingsOpen(false)}>Close</button>
+        <button ref={closeButton} type="button" className="pc-avatar-conversation__findings-close" onClick={closeFindings}>Close</button>
       </div>
       <ol>{findings.map((finding) => <li key={finding.key}><FindingCard {...card} finding={finding} onOpen={interrupt} /></li>)}</ol>
     </aside> : null}
@@ -166,22 +218,21 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
       {attention.kind === "question" && attention.importance === "clarification" ? <> {attention.deadline && Number.isFinite(Date.parse(attention.deadline)) ? <>Answer by <time dateTime={attention.deadline}>{new Date(attention.deadline).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time>. </> : null}{attention.fallback ? `Without an answer: ${attention.fallback}` : ""}</> : null}
     </p> : null}
     {hasRequest ? <div className="pc-avatar-conversation__request">{props.interaction}</div> : null}
-    <div className="pc-avatar-conversation__live" aria-live={attended ? "off" : "polite"}>
-      {line ? <div key={held ? "held" : line.id || line.content} className="pc-avatar-conversation__line pc-avatar-conversation__expandable" data-held={held ? "" : undefined}
-        {...(held ? {} : { role: "button", tabIndex: 0, "aria-expanded": false, onClick: (event: React.MouseEvent) => { if (ownClick(event)) hold(); }, onKeyDown: (event: React.KeyboardEvent) => activateKey(event, hold) })}>
+    <div ref={liveArea} className="pc-avatar-conversation__live" aria-live={attended ? "off" : "polite"} tabIndex={-1}>
+      {line ? <Expandable key={line.id || line.content} className="pc-avatar-conversation__line" open={Boolean(held)} onOpen={hold}>
         <ContentCard {...card} message={line} />
-      </div> : null}
-      {held ? <div className="pc-avatar-conversation__line-actions">
+      </Expandable> : null}
+      {held ? <div ref={lineActions} className="pc-avatar-conversation__line-actions">
         {held.kind === "public_update" ? <button type="button" aria-pressed={replying} onClick={reply}>Reply to this</button> : null}
         <button type="button" onClick={latest}>Latest</button>
       </div> : null}
     </div>
-    {live.answer ? <div className="pc-avatar-conversation__answer" data-attention={attention?.kind === "completion" ? "completion" : undefined}>
-      <ChatMessageCard {...answerProps} message={live.answer} />
+    {live.answers.length ? <div className="pc-avatar-conversation__answer" aria-live={attended ? "off" : "polite"} data-attention={attention?.kind === "completion" ? "completion" : undefined}>
+      {live.answers.map((answer) => <ChatMessageCard key={answer.id || answer.content} {...answerProps} message={answer} />)}
     </div> : null}
     {!hasRequest ? props.interaction : null}
     <div className="pc-avatar-conversation__actions">
-      {findings.length ? <button type="button" className="pc-avatar-conversation__findings-toggle" aria-expanded={findingsOpen} onClick={() => { if (!findingsOpen) interrupt(); setFindingsOpen(!findingsOpen); }}>Findings</button> : null}
+      {findings.length ? <button ref={toggle} type="button" className="pc-avatar-conversation__findings-toggle" aria-expanded={findingsOpen} onClick={() => (findingsOpen ? closeFindings() : openFindings())}>Findings</button> : null}
       {props.voiceControl ? <span onPointerDownCapture={interrupt} onKeyDownCapture={(event) => { if (event.key === "Enter" || event.key === " ") interrupt(); }}>{props.voiceControl}</span> : null}
       {props.playbackControl}
     </div>

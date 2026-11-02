@@ -31,7 +31,7 @@ ships.
   no findings there is no panel. Nothing auto-cycles, and the view holds no settings or counters.
 - **Public updates are typed.** `PublicUpdate.kind` is `"progress"` or `"finding"`, as the actor
   typed it (ledger event `kind`, replay view `update_kind`); an update without it is progress.
-- **New:** `conversationLive(messages, { pinnedRequest }?)` (`{ line, answer, personKey }`),
+- **New:** `conversationLive(messages, { pinnedRequest }?)` (`{ line, answers, personKey }`),
   `conversationFindings(messages)`, types `ConversationLive` and `ConversationFinding`, and
   `ChatMessageCard` `variant: "caption"` (content only, no card chrome).
 - **Removed from the Avatar view:** the subtitle pager (`conversationPages`, Previous / Next

@@ -32,16 +32,14 @@ const result = await build({
     createRoot(document.getElementById('root')).render(<Harness/>);
   ` },
 });
-const css = readFileSync(new URL("../src/panel_chat.css", import.meta.url), "utf8");
-const themes = {
-  dark: "--text-primary:#e6e9f5;--text-secondary:#a9b1cf;--ui-surface-0:#12131c;--ui-surface-1:#1d1f2c;--ui-border-1:#3a4060;background:#12131c;color:#e6e9f5",
-  light: "--text-primary:#1d2030;--text-secondary:#4a5068;--ui-surface-0:#ffffff;--ui-surface-1:#f2f3f8;--ui-border-1:#c9cddc;background:#ffffff;color:#1d2030",
-};
+// The kit's real theme tokens (dark by default, `theme-light` on the root), so translucent
+// surface tokens show through exactly as they do in the apps.
+const css = readFileSync(new URL("../../ui-kit/src/theme.css", import.meta.url), "utf8") + "\n" + readFileSync(new URL("../src/panel_chat.css", import.meta.url), "utf8");
 const server = createServer((req, res) => {
   const theme = new URL(req.url, "http://x").searchParams.get("theme") === "light" ? "light" : "dark";
   if (req.url === "/entry.js") { res.setHeader("content-type", "text/javascript"); res.end(result.outputFiles[0].text); }
   else if (req.url === "/style.css") { res.setHeader("content-type", "text/css"); res.end(css); }
-  else { res.setHeader("content-type", "text/html"); res.end(`<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"><style>html,body,#root{margin:0;height:100%;font:16px system-ui}#root{display:flex;flex-direction:column}.pc-workflow-chat{height:100%;${themes[theme]}}</style></head><body><div id="root"></div><script type="module" src="/entry.js"></script></body></html>`); }
+  else { res.setHeader("content-type", "text/html"); res.end(`<html class="${theme === "light" ? "theme-light" : ""}"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"><style>html,body,#root{margin:0;height:100%;font:16px system-ui}#root{display:flex;flex-direction:column}.pc-workflow-chat{height:100%;background:var(--bg-primary);color:var(--text-primary)}</style></head><body><div id="root"></div><script type="module" src="/entry.js"></script></body></html>`); }
 });
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const base = `http://127.0.0.1:${server.address().port}/`;
@@ -98,6 +96,8 @@ try {
       await page.getByRole("button", { name: "Findings", exact: true }).click();
     } else assert.equal(await page.getByRole("button", { name: "Findings", exact: true }).isVisible(), false, "wide: the panel is always shown, no toggle");
     await panel.waitFor({ state: "visible" });
+    if (!wide) assert.equal(await page.evaluate(() => document.activeElement?.textContent), "Close", "the sheet takes focus");
+    assert.equal(await panel.evaluate((el) => { const c = getComputedStyle(el).backgroundColor.match(/[\d.]+/g).map(Number); return c.length < 4 || c[3] === 1; }), true, "the panel is opaque with the kit's real theme tokens");
     assert.deepEqual((await cards.allInnerTexts()).map((t) => t.trim()), ["Ships of that era carried a bell to mark the watches.", "The harbour in the story is based on Saint-Malo."], "findings only, newest last, rendered (no raw Markdown)");
     let g = await geometry(page);
     if (wide) {
@@ -109,15 +109,22 @@ try {
     }
     if (process.env.AVATAR_SHOTS) { mkdirSync(process.env.AVATAR_SHOTS, { recursive: true }); await page.screenshot({ path: `${process.env.AVATAR_SHOTS}/panel-chat-avatar-${viewport.width}-${theme}${wide ? "" : "-findings"}.png` }); }
     // A finding opens to its full text and the result it cited.
-    await cards.first().locator(".pc-avatar-conversation__expandable").click();
+    assert.equal(await page.locator('[role="button"] a, button a').count(), 0, "no link is nested inside a button");
+    await cards.first().getByRole("button").click();
     const source = cards.first().getByRole("list", { name: "Sources" });
     await source.waitFor();
     assert.equal(await source.getByRole("link").getAttribute("href"), "https://example.org/ships", "the cited result, as a link");
     assert(!/c1|fetch_url|call/.test(await cards.first().innerText()), "no technical ids or tool names");
     assert.equal(await cards.nth(1).getByRole("list", { name: "Sources" }).count(), 0, "a finding with no cited result shows no sources");
-    await cards.first().locator(".pc-avatar-conversation__expandable").press("Enter");
-    assert.equal(await source.count(), 0, "Enter closes it again");
+    await page.keyboard.press("Escape");
+    assert.equal(await source.count(), 0, "Escape closes the finding again");
+    assert.equal(await cards.first().getByRole("button").evaluate((el) => el === document.activeElement), true, "focus returns to the finding");
     if (!wide) {
+      assert.equal(await panel.isVisible(), true, "Escape on a finding closes the finding, not the sheet");
+      await page.keyboard.press("Escape");
+      await panel.waitFor({ state: "hidden" });
+      assert.equal(await page.evaluate(() => document.activeElement?.textContent), "Findings", "focus returns to Findings");
+      await page.getByRole("button", { name: "Findings", exact: true }).click();
       await page.getByRole("button", { name: "Close", exact: true }).click();
       await panel.waitFor({ state: "hidden" });
       if (process.env.AVATAR_SHOTS) await page.screenshot({ path: `${process.env.AVATAR_SHOTS}/panel-chat-avatar-${viewport.width}-${theme}.png` });
@@ -127,6 +134,7 @@ try {
     await page.evaluate(() => window.events.length = 0);
     await line.click();
     await page.getByRole("button", { name: "Reply to this", exact: true }).waitFor();
+    assert.equal(await page.evaluate(() => document.activeElement?.textContent), "Reply to this", "holding the line moves focus to its actions");
     await msgs(page, [["pub", "u5", "Adding a harbour."]]);
     await page.waitForTimeout(50);
     assert.equal(await lineText(page), "Writing the first scene.", "a held line stays while the person reads it");
@@ -135,13 +143,14 @@ try {
     assert.deepEqual((await page.evaluate(() => window.events)).filter((e) => e.startsWith("reply:")), ["reply:public:u4"]);
     await page.getByRole("button", { name: "Latest", exact: true }).click();
     await page.waitForFunction(() => document.querySelector(".pc-avatar-conversation__line")?.innerText.trim() === "Adding a harbour.");
+    assert.equal(await page.evaluate(() => document.activeElement?.classList.contains("pc-avatar-conversation__opener")), true, "Latest returns focus to the line");
     assert.equal(await page.getByRole("button", { name: "Latest", exact: true }).count(), 0, "following again: no Latest");
     assert.equal((await page.evaluate(() => window.events)).at(-1), "reply:none");
     // The person's next message ends a reply to a held line.
     await line.click();
     await page.getByRole("button", { name: "Reply to this", exact: true }).click();
     await page.evaluate(() => { document.__msgs = [...document.__msgs, { id: "g1", role: "user", kind: "guidance", source: "user_guidance", content: "Make the captain kinder" }]; window.update({ messages: document.__msgs }); });
-    await page.waitForFunction(() => !document.querySelector(".pc-avatar-conversation__line[data-held]"));
+    await page.waitForFunction(() => !document.querySelector(".pc-avatar-conversation__line[data-open]"));
     assert.equal((await page.evaluate(() => window.events)).at(-1), "reply:none", "the reply context ends when the person sends");
 
     // Nothing cycles: a minute later the line is exactly where it was.

@@ -485,10 +485,11 @@ least 44 px). Nothing in the view sits under the composer or auto-cycles.
 
 The live line is the latest public update of the current turn (or a question or question
 outcome), replaced as soon as a new one arrives: `conversationLive(messages)` returns
-`{ line, answer, personKey }` for the messages after the person's latest message (accepted
+`{ line, answers, personKey }` for the messages after the person's latest message (accepted
 mid-run guidance does not start a turn). It is rendered by `ChatMessageCard` with
 `variant: "caption"`, so Markdown, links, media and files display as in the conversation,
-three lines at most. Clicking it (or Enter) holds it open in full and offers **Reply to this**
+three lines at most. Clicking it (a real button covers the closed line, named by its text) holds
+it open in full, moves focus to its actions and offers **Reply to this**
 (public updates only) and **Latest**, which returns to following. `onReplyContext` gives the
 held update; the person's next message (`personKey` changes) ends the reply and the line
 follows again. `conversationReply` quotes a held public update and rejects cross-run guidance
@@ -497,17 +498,21 @@ pass only the current authoritative run tree as `conversationReply`’s optional
 argument; this permits replying to the actual actor child while refusing historical or
 unrelated runs. While a question or approval is open it is shown once, pinned above the line
 with its controls (`conversationLive(messages, { pinnedRequest: true })` leaves questions out).
-When the answer arrives after the last update, the line gives way to the answer: one normal
-message through the shared renderer, shown once, scrolling in place when long, with a visual
-completion cue on it. Private reasoning and statistics never reach the view.
+When the answer arrives after the last update, the line gives way to the answer: normal
+messages through the shared renderer (its text, and a files row when there is one), each shown
+once, announced politely, scrolling in place when long, with a visual completion cue on them. Private reasoning and statistics never reach the view.
 
 **Findings** accumulate what the actor reported as `kind: "finding"` across the
 conversation's runs, the newest last (`conversationFindings(messages)`). Each is a compact card
 (two lines) that opens to its full text and its sources: the results it cited
-(`sourceCallIds`) that the conversation holds, shown by what they read (a link, a file, a
-query), never by call id or tool name. On a view at least 720 px wide the panel floats beside
+(`sourceCallIds`) that the conversation holds, shown by their `url`, `file_path`, `path` or
+`query` argument (a cited call with none of these is not listed), never by call id, tool name or
+command. On a view at least 720 px wide the panel floats beside
 the avatar; on a narrower view it is a bottom sheet the person opens with **Findings** and
-closes with **Close** (or Escape). With no findings there is no panel and no button. The view
+closes with **Close** or Escape; the sheet takes focus when it opens and gives it back to
+**Findings** when it closes, and it closes by itself when the view becomes wide enough for the
+floating panel. An open finding closes with a click on its text or Escape. With no findings there
+is no panel and no button. The view
 re-renders a card only when its finding changes.
 
 `useAvatarConversationPreferences(ownerScope)` persists chat/avatar mode and independent

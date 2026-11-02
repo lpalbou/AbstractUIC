@@ -77,16 +77,16 @@ function present(m: ChatMessage): ChatMessage {
 
 /** What the Avatar view shows for the current turn (after the person's latest message; accepted mid-run guidance does not start a turn). */
 export type ConversationLive = {
-  /** The latest public update, question or question outcome, replaced as new ones arrive; null once the answer came after it. */
+  /** The latest public update, question or question outcome, replaced as new ones arrive; null once an answer came after it. */
   line: ChatMessage | null;
-  /** The turn's answer, shown once as a message. */
-  answer: ChatMessage | null;
+  /** The turn's answer messages (its text, files), each shown once as a message. */
+  answers: ChatMessage[];
   /** Identity of the person's latest message (guidance included): a new one ends a reply to an earlier line. */
   personKey: string;
 };
 
 /**
- * The live line and the answer. Pure and time-free: the same messages always give the same
+ * The live line and the answer messages. Pure and time-free: the same messages always give the same
  * result. With `pinnedRequest`, questions are left out: the open question is shown once, pinned
  * above the line with its answer controls.
  */
@@ -96,18 +96,19 @@ export function conversationLive(messages: readonly ChatMessage[], options: { pi
   let personKey = "";
   for (let i = visible.length - 1; i >= 0; i--) {
     if (visible[i].role !== "user") continue;
-    if (!personKey) personKey = `${i}:${publicKey(visible[i])}`;
+    if (!personKey) personKey = publicKey(visible[i]);
     if (visible[i].kind !== "guidance") { start = i + 1; break; }
   }
   let line = -1;
-  let answer = -1;
+  let answered = -1;
+  const answers: ChatMessage[] = [];
   for (let i = start; i < visible.length; i++) {
     const m = visible[i];
     if (m.role === "user") continue;
     if (m.kind === "public_update" || m.kind === "question_outcome" || (m.kind === "question" && !options.pinnedRequest)) line = i;
-    else if (m.kind !== "question") answer = i;
+    else if (m.kind !== "question") { answered = i; answers.push(present(m)); }
   }
-  return { line: line > answer ? present(visible[line]) : null, answer: answer >= 0 ? present(visible[answer]) : null, personKey };
+  return { line: line > answered ? present(visible[line]) : null, answers, personKey };
 }
 
 /** A finding the actor reported, with the results it cited that this conversation holds. */
