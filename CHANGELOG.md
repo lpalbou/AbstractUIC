@@ -16,6 +16,13 @@ ships.
   `last_activity_at`; `listAutomations` returns `AutomationsPage`, a page with
   `paused_automations_count`, `archived_automations_count` and `archived_automations`. All optional:
   older gateways serve none of them, and apps then draw the rows as served with no Paused section.
+- **Provider logos only with permission** (operator ruling 2026-11-02, AbstractFramework backlog
+  1100). Anthropic, OVHcloud, Portkey, Ollama, DeepSeek, NVIDIA, Google, Meta and Microsoft show
+  their name as a text badge in the mark's slot (`BrandMark`, `brandMarkHtml`; `brandIconSvg` gives
+  ""), until their owners approve in writing; OpenAI, OpenRouter, Hugging Face, LM Studio and
+  Mistral keep their logos. One exported table, `BRAND_LOGO_PERMITTED`, decides; switching a brand
+  back to its logo is its `logoPermitted: true`. `docs/icons.md` gains a "Shown as" column, and
+  `check_brand_icons.mjs` fails when a brand awaiting permission renders any logo.
 
 ### panel-chat
 

@@ -774,6 +774,7 @@ export {
 export {
   BRAND_ICONS,
   BRAND_FALLBACKS,
+  BRAND_LOGO_PERMITTED,
   BRAND_CARD_IDS,
   BrandMark,
   brandIconSvg,

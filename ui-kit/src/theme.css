@@ -7934,17 +7934,22 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   width: 100%;
   height: 100%;
 }
-.af-brand-mark[data-brand="ovh"],
-.af-brand-mark[data-brand="portkey"] { width: 96px; flex-basis: 96px; }
-.af-brand-mark[data-brand="portkey"] { background: #15151a; }
+.af-brand-mark:not(.af-brand-mark--text)[data-brand="ovh"],
+.af-brand-mark:not(.af-brand-mark--text)[data-brand="portkey"] { width: 96px; flex-basis: 96px; }
+.af-brand-mark:not(.af-brand-mark--text)[data-brand="portkey"] { background: #15151a; }
 /* A protocol, not a brand (System One): the kit's own neutral glyph, in the theme's text colour. */
 .af-brand-mark--glyph {
   padding: 8px;
   color: var(--text-secondary);
   background: var(--ui-surface-2, var(--bg-secondary));
 }
+/* A brand's name instead of its logo (BRAND_LOGO_PERMITTED, backlog 1100): the slot's height, as wide
+ * as the name needs. */
 .af-brand-mark--text {
-  padding: 0;
+  flex-basis: auto;
+  width: auto;
+  min-width: 40px;
+  padding: 0 8px;
   color: var(--accent);
   background: var(--accent-subtle);
   border-color: var(--accent-border, var(--ui-border-2));
@@ -8147,6 +8152,7 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 
 /* Compact manufacturer mark beside a model title; original artwork stays unchanged. */
 .af-brand-mark.af-brand-mark--sm { width: 24px; height: 24px; flex-basis: 24px; padding: 2px; border-radius: var(--radius-sm); }
+.af-brand-mark--text.af-brand-mark--sm { width: auto; min-width: 24px; flex-basis: auto; padding: 0 6px; font-size: var(--font-size-xs); }
 
 /* Compact settings keep descriptions available through the shared tooltip. */
 .af-settings-help { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 26px; height: 26px; min-height: 26px; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: help; }
