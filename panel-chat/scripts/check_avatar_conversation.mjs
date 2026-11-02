@@ -147,6 +147,11 @@ const projected = projectedAll[0];
 assert.equal(projected.source, "emit_event");
 assert.deepEqual(projected.publicUpdate.sourceCallIds, ["call-1"]);
 assert.deepEqual(projectedAll.map((p) => p.publicUpdate.kind), ["progress", "finding"], "the served view's update_kind is projected unchanged; absent = progress");
+// A served tool row keyed by a runtime call id carries the model's call_id: the id a finding cites.
+const citedView = { ...view, messages: [{ id: "brief-4", role: "assistant", kind: "public_update", update_kind: "finding", text: "Parking is free.", run_id: "run", source: "emit_event", source_call_ids: ["read-1"], iteration: 2 }],
+  activities: [{ id: "run:exec", run_id: "run", kind: "tool", effect_type: "tool_calls", name: "fetch_url", status: "completed", order: ["2026-11-03T00:00:00Z", "run", 1], tool_calls: [{ id: "rtcall_abc_1", call_id: "read-1", name: "fetch_url", arguments: { url: "https://example.org/parking" }, status: "completed" }] }] };
+const cited = conversationFindings(projectReplayView(citedView).messages);
+assert.deepEqual(cited.map((f) => f.sources.map((t) => t.arguments.url)), [["https://example.org/parking"]], "a finding resolves its cited result through the served view");
 assert.equal(conversationMessages([projected]).length, 1, "served view works without ledger records");
 
 const narrationBase = { sessionKey: "session", connected: true, attended: false, enabled: true, messages: [m] };

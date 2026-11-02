@@ -64,6 +64,8 @@ export type ReplayViewMessage = {
 
 export type ReplayViewToolCall = {
   id?: string;
+  /** The model's own call id, when the row is keyed by a runtime call id (`id`). */
+  call_id?: string;
   name?: string;
   arguments?: unknown;
   status?: string;

@@ -177,7 +177,7 @@ export function replayToolActivities(
       ...(activity.wait?.kind === "tool_approval" && activity.wait.outcome
         ? { approvalWait: true }
         : {}),
-      ...(str(call.id) ? { callId: str(call.id) } : {}),
+      ...(str(call.call_id) || str(call.id) ? { callId: str(call.call_id) || str(call.id) } : {}),
       ...(policy ? { policy } : {}),
     };
   });
