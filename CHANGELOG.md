@@ -19,8 +19,9 @@ ships.
 - **Provider logos only with permission** (operator ruling 2026-11-02, AbstractFramework backlog
   1100). Anthropic, OVHcloud, Portkey, Ollama, DeepSeek, NVIDIA, Google, Meta and Microsoft show
   their name as a text badge in the mark's slot (`BrandMark`, `brandMarkHtml`; `brandIconSvg` gives
-  ""), until their owners approve in writing; OpenAI, OpenRouter, Hugging Face, LM Studio and
-  Mistral keep their logos. One exported table, `BRAND_LOGO_PERMITTED`, decides; switching a brand
+  ""), until their owners approve in writing; OpenAI, OpenRouter, Hugging Face and LM Studio keep
+  their logos. Mistral also shows its name until its official brand-kit file replaces the Hugging
+  Face avatar (the kit's download host refused the file). One exported table, `BRAND_LOGO_PERMITTED`, decides; switching a brand
   back to its logo is its `logoPermitted: true`. `docs/icons.md` gains a "Shown as" column, and
   `check_brand_icons.mjs` fails when a brand awaiting permission renders any logo.
 

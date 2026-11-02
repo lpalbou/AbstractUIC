@@ -369,7 +369,10 @@ export const BRAND_LOGO_PERMITTED: Readonly<Record<string, { logoPermitted: bool
   openrouter: { logoPermitted: true, badge: "OpenRouter" },
   huggingface: { logoPermitted: true, badge: "Hugging Face" },
   lmstudio: { logoPermitted: true, badge: "LM Studio" },
-  mistral: { logoPermitted: true, badge: "Mistral AI" },
+  // The ruling keeps Mistral's logo from its official brand-kit file (https://mistral.ai/brand/). The
+  // shipped drawing is its Hugging Face avatar, and the kit's files (cms.globalaegis.net, linked from
+  // that page) refused this download (Cloudflare 403, 2026-11-03): name until the kit file replaces it.
+  mistral: { logoPermitted: false, badge: "Mistral AI" },
   // Not part of the 2026-11-02 ruling: unchanged.
   qwen: { logoPermitted: true, badge: "Qwen" },
   vllm: { logoPermitted: true, badge: "vLLM" },
@@ -411,7 +414,7 @@ export function brandMarkInfo(id: string, name?: string): BrandMarkInfo {
     const icon = BRAND_ICONS[k];
     const permission = BRAND_LOGO_PERMITTED[k];
     if (permission.logoPermitted) return { kind: "icon", icon };
-    return { kind: "text", fallback: { id: k, name: icon.name, text: permission.badge, terms: icon.terms, reason: "The brand's terms ask for written permission to show its logo and none is on record (backlog 1100), so its name is shown instead.", retrieved: "2026-11-02" } };
+    return { kind: "text", fallback: { id: k, name: icon.name, text: permission.badge, terms: icon.terms, reason: "No written permission (or, for Mistral, no official brand-kit file) is on record for this logo (backlog 1100), so its name is shown instead.", retrieved: "2026-11-02" } };
   }
   if (Object.prototype.hasOwnProperty.call(BRAND_FALLBACKS, k)) {
     const fallback = BRAND_FALLBACKS[k];

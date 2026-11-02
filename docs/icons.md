@@ -159,7 +159,9 @@ none; then a row above.
 2026-11-02 operator ruling (AbstractFramework backlog 1100): a logo is shown only where the brand's terms allow
 it or its owner has approved it in writing. Anthropic, OVHcloud, Portkey, Ollama, DeepSeek, NVIDIA, Google, Meta
 and Microsoft have no approval on record, so their cards show the brand's name as a text badge in the same slot
-("Shown as" above); their artwork stays recorded. One table decides: `BRAND_LOGO_PERMITTED` in
+("Shown as" above); their artwork stays recorded. Mistral's logo is allowed from its official brand-kit file
+(<https://mistral.ai/brand/>), but the shipped drawing is its Hugging Face avatar and the kit's download host
+refused the file on 2026-11-03, so Mistral shows its name until the kit file replaces the avatar. One table decides: `BRAND_LOGO_PERMITTED` in
 `ui-kit/src/brand_icons.tsx`. When an approval arrives, record its date, scope and sender in the entry's
 `retrieved`/`restrictions` and its row here, set `logoPermitted: true`, and change "Shown as" to `logo`;
 `check_brand_icons.mjs` fails until the table, the rows and its list of brands awaiting permission agree.
@@ -179,6 +181,6 @@ belong to their owners; no copyright licence is inferred from model/code licence
 | `deepseek` | name badge "DeepSeek" (backlog 1100) | https://huggingface.co/deepseek-ai | https://cdn-avatars.huggingface.co/v1/production/uploads/6538815d1bdb3c40db94fbfa/xMBly9PUMphrFVMxLX4kq.png |
 | `google` | name badge "Google" (backlog 1100) | https://huggingface.co/google | https://cdn-avatars.huggingface.co/v1/production/uploads/5dd96eb166059660ed1ee413/WtA3YYitedOr9n02eHfJe.png |
 | `meta` | name badge "Meta" (backlog 1100) | https://huggingface.co/meta-llama | https://cdn-avatars.huggingface.co/v1/production/uploads/646cf8084eefb026fb8fd8bc/oCTqufkdTkjyGodsx1vo1.png |
-| `mistral` | logo | https://huggingface.co/mistralai | https://cdn-avatars.huggingface.co/v1/production/uploads/634c17653d11eaedd88b314d/9OgyfKstSZtbmsmuG8MbU.png |
+| `mistral` | name badge "Mistral AI" (backlog 1100) | https://huggingface.co/mistralai | https://cdn-avatars.huggingface.co/v1/production/uploads/634c17653d11eaedd88b314d/9OgyfKstSZtbmsmuG8MbU.png |
 | `microsoft` | name badge "Microsoft" (backlog 1100) | https://huggingface.co/microsoft | https://cdn-avatars.huggingface.co/v1/production/uploads/1583646260758-5e64858c87403103f9f1055d.png |
 | `nvidia` | name badge "NVIDIA" (backlog 1100) | https://huggingface.co/nvidia | https://cdn-avatars.huggingface.co/v1/production/uploads/65df9200dc3292a8983e5017/Vs5FPVCH-VZBipV3qKTuy.png |

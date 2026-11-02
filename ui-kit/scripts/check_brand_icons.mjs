@@ -137,8 +137,8 @@ for (const id of BRAND_CARD_IDS.models) {
 // 6.
 for (const [id, m] of Object.entries(BRAND_ICONS)) check(`6 docs/icons.md lists ${id} with its source`, doc.includes(`| \`${id}\` |`) && doc.includes(m.source), id);
 // 7. The ruling, written out here so a flip in the table is a deliberate, reviewed change of this list.
-const AWAITING = ["anthropic", "deepseek", "google", "meta", "microsoft", "nvidia", "ollama", "ovh", "portkey"];
-for (const id of ["openai", "openrouter", "huggingface", "lmstudio", "mistral"]) check(`7 ${id}: its logo is shown (its terms allow it)`, own(BRAND_LOGO_PERMITTED, id) && BRAND_LOGO_PERMITTED[id].logoPermitted === true);
+const AWAITING = ["anthropic", "deepseek", "google", "meta", "microsoft", "mistral", "nvidia", "ollama", "ovh", "portkey"];
+for (const id of ["openai", "openrouter", "huggingface", "lmstudio"]) check(`7 ${id}: its logo is shown (its terms allow it)`, own(BRAND_LOGO_PERMITTED, id) && BRAND_LOGO_PERMITTED[id].logoPermitted === true);
 check("7 exactly the brands awaiting written permission hide their logo", JSON.stringify(Object.keys(BRAND_LOGO_PERMITTED).filter((id) => !BRAND_LOGO_PERMITTED[id].logoPermitted).sort()) === JSON.stringify(AWAITING), Object.keys(BRAND_LOGO_PERMITTED).filter((id) => !BRAND_LOGO_PERMITTED[id].logoPermitted).join(","));
 check("7 every mark has a permission row and every row a mark", JSON.stringify(Object.keys(BRAND_ICONS).sort()) === JSON.stringify(Object.keys(BRAND_LOGO_PERMITTED).sort()));
 for (const [id, p] of Object.entries(BRAND_LOGO_PERMITTED)) {
