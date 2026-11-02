@@ -9,7 +9,20 @@ ships.
 
 ## Unreleased
 
-- `@abstractframework/ui-kit` 0.9.12: simpler cloud provider cards. Each
+_Nothing yet._
+
+## 0.9.0 - 2026-11-02
+
+Packages: `@abstractframework/ui-kit` 0.9.12 (from 0.9.10; it includes the unpublished 0.9.11),
+`@abstractframework/panel-chat` 0.7.0 (from 0.6.6; peer range on ui-kit unchanged at `^0.9.8`, which it still
+satisfies); app-server 0.1.13, monitor-flow, monitor-gpu and monitor-memory 0.1.10 and monitor-active-memory 0.2.2
+unchanged. Who is affected: apps on panel-chat get the rounded multiline composer by default (see the migration
+note below); apps on the kit gain the cloud provider connection modal, the Watch-style session and automation
+cards with read receipts, activity avatars and structured tooltips. Upgrade panel-chat and ui-kit together.
+
+### ui-kit
+
+- **Simpler cloud provider cards.** Each
   card shows its brand mark, its name, ONE status ("Not connected", or a clear green "Connected ·
   48 models" with a dot; the stored key's fingerprint only in the Edit modal, never the key) and ONE button: Connect
   when nothing is stored, Edit when a connection exists. No field on the card any more: both
@@ -43,7 +56,40 @@ ships.
   initials. `check_brand_icons.mjs` and `check_cloud_providers.mjs` now fail for a provider card
   without artwork and for a connected card without Edit; `check_cloud_providers_browser.mjs`
   drives card → modal → test → save → edit → disconnect in Chrome against a stub gateway.
-- `@abstractframework/panel-chat` 0.7.0: the rounded multiline composer is the default
+- **Watch-style session and automation cards.** `SessionCard` and `AutomationCard` (on the shared
+  `CompactActivityCard`): a two-line title, small turn/tool/time facts, unread, "Needs you" and failure states, and an
+  independent archive button; the automation card shows the gateway's served next run (`next_run_at`) only. Read
+  receipts are visibility-gated: `useSessionReads`, `SessionReadMarker` and `createSessionReadClient` persist what a
+  viewer actually saw through the gateway, synchronized across devices; a failed write keeps the unread mark.
+  `consumedAttentionCursor` advances a shared seen cursor only over the attention items actually consumed.
+  See [session-cards.md](docs/session-cards.md).
+- Shared session read clients persist consumption through the Gateway and synchronize across devices; failed writes retain unread marks.
+- **Activity avatars.** `ActivityAvatar`, `AvatarRenderer` and `avatarDesigns` present AbstractAvatar's procedural
+  catalog (44 designs) from one shared Rust generator compiled to WebAssembly; `AppleActivityAvatar` and
+  `AppleAvatarEngine` delegate to the same renderer. See [avatars.md](docs/avatars.md).
+- Activity avatars use AbstractAvatar's shared 44-design generator for shaded,
+  Watch-derived and woven forms. Add validated version-one frame descriptors,
+  optional frequency-band inputs and bounded paged previews. Existing Apple
+  component names delegate to the same renderer; imperative `AppleAvatarEngine.draw`
+  is asynchronous and its instances must be disposed after use.
+- Activity avatar quality levels select bounded display-density resolution and economy,
+  balanced or high frame budgets. Frame deadlines align with display refresh and skip missed
+  frames. Ready gaze can acknowledge clicks without consuming host actions. Canvas creation
+  accepts an AbortSignal; hidden, unmounted and resized views release their old renderer.
+- **Structured tooltips.** A tooltip can carry a title, facts, labelled lists and a note (`afTooltipAttributes`,
+  `AF_TOOLTIP_CONTENT_ATTR`, plain-text fallback `afTooltipText`), rendered as text on the active theme's surfaces.
+- **Model manufacturer marks.** Compact brand marks for model manufacturers in the model pickers.
+- **Compact settings controls.** Compact model, tool and workspace settings controls; compact model pickers name each
+  inherited route field separately; compact voice settings.
+- **Reply output level.** `useGatewayVoice` and `AfVoiceLevelMeter` expose the measured level of a spoken reply,
+  independently of microphone capture.
+- **Official Anthropic, Portkey and OVHcloud artwork** in the shared provider cards, replacing the text badges. Preserve source attribution, geometry, colours and offline rendering.
+- **Chat composer island.** `mountChatComposer(el, props)` console island for
+  plain-HTML chats; the Sandbox chat's dictation button sits beside Send.
+
+### panel-chat
+
+- **One rounded multiline composer.** The rounded multiline composer is the default
   `ChatComposer` and `WorkflowChat` composer on every surface (chat, docs assistant, assistant
   panel); `variant="legacy"` / `composerVariant="legacy"` restores the flat layout. The composer
   renders its own Attach button (`onAttach`, `attachLabel`, `attachDisabled`, `attachPending`),
@@ -52,6 +98,11 @@ ships.
   rendered their own Attach button next to the composer should pass `onAttach` instead; voice
   controls belong in the trailing slot. The former `variant="default"` value is gone
   (`"compact"` remains an alias of the default); the docs assistant composer starts at two rows.
+- **Avatar conversation view (optional).** `AvatarConversation` presents a session as a public conversation beside an
+  activity avatar: subtitles of the reply, corrections, questions and approvals with plain public action wording
+  (`publicApprovalRequest`), restored history and outcomes, pause flags read from the gateway, and visual and audio
+  cues (`useAvatarConversationPreferences`, `playConversationCue`, `conversationState` and the other
+  `conversation_model` helpers).
 - Avatar conversation: no cue settings inside the view; visual and audio cues are both on by
   default for permission requests, questions and completion, and a host's settings decide any change.
 - Avatar conversation: while a question or approval is open, the avatar scene is small beside its
@@ -61,28 +112,25 @@ ships.
   the kit dictation microphone beside Send (hold or tap to talk per the voice preferences; the
   transcript lands in the draft). The drawer opens under the kit top bar by default (`topOffset`
   defaults to "auto"), so every app keeps its top bar reachable.
-- `@abstractframework/ui-kit` 0.9.11: `mountChatComposer(el, props)` console island for
-  plain-HTML chats; the Sandbox chat's dictation button sits beside Send.
-
-- Progressive conversation restoration exposes history readiness separately from the current answer, so opening read receipts include the loaded earlier turns.
-
-
+- **Docs reply speech.** The Docs assistant can read its replies aloud with the shared voice settings.
+- **Message attachments and safe links.** Messages render their delivered attachments (previews in a dialog fitted
+  to the media, with one filename, Download and Close) and the whole `http(s)://` / `www.` URLs of their text as links
+  (`TextLinks`, `textLinks`); internal run artifacts stay hidden (`messageArtifactRefs`, `submittedArtifacts`,
+  `outputArtifacts`).
 - Attachment previews fit media dimensions with one filename, Download and Close.
-- Shared session read clients persist consumption through the Gateway and synchronize across devices; failed writes retain unread marks.
+- Progressive conversation restoration exposes history readiness separately from the current answer, so opening read receipts include the loaded earlier turns.
+- Human guidance in a public conversation requires accepted host provenance.
 
+### Migration
 
-- Activity avatar quality levels select bounded display-density resolution and economy,
-  balanced or high frame budgets. Frame deadlines align with display refresh and skip missed
-  frames. Ready gaze can acknowledge clicks without consuming host actions. Canvas creation
-  accepts an AbortSignal; hidden, unmounted and resized views release their old renderer.
-
-- Activity avatars use AbstractAvatar's shared 44-design generator for shaded,
-  Watch-derived and woven forms. Add validated version-one frame descriptors,
-  optional frequency-band inputs and bounded paged previews. Existing Apple
-  component names delegate to the same renderer; imperative `AppleAvatarEngine.draw`
-  is asynchronous and its instances must be disposed after use.
-
-- Use official Anthropic, Portkey and OVHcloud artwork in shared provider cards, replacing text badges (operator request, Gateway backlog 0985). Preserve source attribution, geometry, colours and offline rendering.
+- `ChatComposer` and `WorkflowChat` render the rounded multiline composer by default (two rows in the Docs assistant).
+  Pass `variant="legacy"` (`composerVariant="legacy"` on `WorkflowChat`) to keep the flat layout. A host that rendered
+  its own Attach button beside the composer passes `onAttach` instead; voice and Stop controls go in
+  `trailingActions` (`composerTrailingActions`).
+- `DocsAssistantDrawer` opens under the kit top bar by default (`topOffset` defaults to `"auto"`); pass a number to
+  keep a fixed offset.
+- Cloud provider cards: `CloudRequest` accepts `PUT` and `DELETE`; a host's `request` function must handle them for
+  Edit and Disconnect.
 
 ## 0.8.9 - 2026-10-29
 

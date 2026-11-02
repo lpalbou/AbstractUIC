@@ -94,7 +94,7 @@ Serve both files from your own origin; the paths above are examples.
 | `mountAppearance(el, props)` | `IslandHandle` | Mounts `AfAppearanceDialog` into `el` |
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
 | `mountSandboxChat(el, props)` | `IslandHandle` | Mounts the Sandbox chat: panel-chat's thread and composer (`messages`, `draft`, `onDraftChange`, `onSend`, attachments, drop and paste) with voice through `useGatewayVoice` (kit 0.4.0) |
-| `mountChatComposer(el, props)` | `IslandHandle` | Mounts panel-chat's `ChatComposer` alone for a plain-HTML chat the host drives itself (`value`, `onChange`, `onSubmit`, `disabled`, `busy`, `textareaId`, `ariaDescribedBy`, `placeholder`); no attachment or slot props (kit 0.9.11) |
+| `mountChatComposer(el, props)` | `IslandHandle` | Mounts panel-chat's `ChatComposer` alone for a plain-HTML chat the host drives itself (`value`, `onChange`, `onSubmit`, `disabled`, `busy`, `textareaId`, `ariaDescribedBy`, `placeholder`); no attachment or slot props (kit 0.9.12) |
 | `mountProviderModelPicker(el, props)` | `IslandHandle` | Mounts the kit `ProviderModelPicker` with its own props (kit 0.4.0; see [below](#mountprovidermodelpickerel-props-and-mountvoicesettingsel-props)) |
 | `mountVoiceSettings(el, props)` | `IslandHandle` | Mounts the kit `VoiceSettings` voice picker; its props carry `voiceLibrary` and `previewVoice` (kit 0.4.0; library and sample 0.9.0) |
 | `mountToolModeEditor(el, props)` | `IslandHandle` | Mounts the kit `ToolModeEditor` over a served `GET /api/gateway/discovery/tools` answer (kit 0.9.0; see [below](#mounttoolmodeeditorel-props)) |

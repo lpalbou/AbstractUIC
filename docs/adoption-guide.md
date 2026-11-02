@@ -139,7 +139,7 @@ The kit absorbs proven app components rather than speculating:
 - `npm test` in `ui-kit` runs the full guard chain (build, matrix cores, theme tokens, palette
   seeds parity, About and identity checks, theme contrast, console islands); the publish hook
   runs the same chain.
-- `@abstractframework/panel-chat` 0.5.0 needs `@abstractframework/ui-kit` `^0.9.0` (peer
+- `@abstractframework/panel-chat` 0.7.0 needs `@abstractframework/ui-kit` `^0.9.8` (peer
   dependency): upgrade both together. The two built packages share the session tool-policy
   client types, which the repository's release gate checks.
 - Pages that vendor the [console islands](./console-islands.md) bundle rebuild and re-vendor it

@@ -11,6 +11,18 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
 
+## What's new in 0.9.0
+
+`@abstractframework/panel-chat` 0.7.0 (needs ui-kit `^0.9.8`): the rounded multiline composer is the default
+`ChatComposer` on every surface, with its own Attach button and a `trailingActions` slot beside Send
+(`variant="legacy"` restores the flat layout); an optional public avatar conversation view (`AvatarConversation`);
+message attachments and safe links rendered by shared conversation components; the Docs assistant gains reply
+speech, a dictation microphone beside Send, and opens under the top bar. `@abstractframework/ui-kit` 0.9.12:
+cloud provider cards with one Connect/Edit button and a connection modal (Test, Save, Disconnect), Watch-style
+`SessionCard` / `AutomationCard` with visibility-gated read receipts, `ActivityAvatar` (44 shared procedural
+designs), structured tooltips, model manufacturer marks, compact model/tool/workspace settings controls
+([changelog](./CHANGELOG.md#090---2026-11-02)).
+
 ## What's new in 0.8.9
 
 `@abstractframework/ui-kit` 0.9.10: gapless read-aloud (`useGatewayVoice` schedules every streamed segment

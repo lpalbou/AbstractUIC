@@ -1,10 +1,10 @@
 ---
 name: abstractuic
 description: Integrate AbstractFramework shared React controls, authenticated chat and Docs assistants, and voice settings into browser clients.
-compatibility: Requires the installed package's documented exports. Quality and AbortSignal avatar options are source features pending the next ui-kit release; verify ActivityAvatarProps.quality and AvatarRenderer.create options before using them.
+compatibility: Requires @abstractframework/ui-kit 0.9.12 and @abstractframework/panel-chat 0.7.0 or later (their documented exports).
 metadata:
   package: "@abstractframework/ui-kit"
-  package-version: "unreleased"
+  package-version: "0.9.12"
 ---
 
 # Use AbstractUIC

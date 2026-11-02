@@ -58,6 +58,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [ADR 0001](docs/adr/0001_shared_primitives_composed_on_gateway_contracts.md): the design rule — one component per job, composed on the gateway's contracts, gateway default first, one wording set, customized through props/slots/tokens, never forked
 - [Theming](docs/theming.md): design-token vocabulary, the layout variables the app shell publishes (`--af-topbar-h`, `--af-panel-w`), 21-theme system, adoption/migration rules for host apps
 - [Modal, account rows, grouped navigation](docs/modal.md): `AfModal` (960 px × 90vh dialog over a blurred backdrop, full-screen sheet under 768 px, focus trap, Escape/backdrop close), its plain-HTML markup and `AfConsoleIslands.bindModal` / `bindAfModal`, the `af-row--admin|user|entity` tints with `af-kind-chip`, `af-nav-group` captions and `af-nav-footer`, and the `--af-helper-size` floor (13 px desktop, 14 px touch)
+- [Filter bar](docs/filter-bar.md): `AfFilterBar` (search field and on/off filters on one line, one row of chips per facet with a fixed label column, optional scope switch and sticky first line) and the plain-HTML markup the console islands expose (`filterBarFacetsHtml`, `filterBarScopeHtml`, `filterBarScopeButtonsHtml`)
 - [On/off settings](docs/state-toggles.md): `AfSwitch` (a `role="switch"` labelled by the feature, highlighted when on; unavailable = `aria-disabled` + reason), the `af-switch` CSS block the consoles copy, the terminal `[x]`/`[ ]`/`[-]` marker, `findVerbToggleLabels` (the guard against "Email off"/"Email on" labels), `checkLabelScale` (labels at body size), unavailable-reason strings, the sign-in card classes, `af-form`/`af-card`/`af-tabs` + `AfTabs`, and `randomId()` / `insecureContextReason()` for plain-http pages
 - [Icons](docs/icons.md): the `Icon` component (`name`, `size`, `title`), `ICON_NAMES`, every icon name with its grid (24-grid stroke 2, 16-grid stroke 1.4) and typical use, light and dark contact sheets, how to add an icon
 - [Responsive layout](docs/responsive.md): breakpoints (480/768/1024/1440 px, short and touch axes), 44 px touch targets and 16 px form text on touch screens, bottom-sheet dialogs and drawers above the keyboard, container queries and their thresholds, `installViewportVars()` / `viewportVarsFrom()`, the font-size order, and how a host app adopts them
@@ -151,6 +152,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 - [Compact session cards](docs/session-cards.md): Watch-style conversation cards, human attention and visibility-gated Gateway read receipts.
 
+- [Installation (legacy stub)](docs/installation.md): kept for old links; points to Getting started
 - [Publishing (maintainers)](docs/publishing.md): Release checklist and npm publish notes
 - [Development](docs/development.md): Local workflow, tests and contracts shared with other repositories
 - [Contributing](CONTRIBUTING.md): contribution workflow and expectations
@@ -178,6 +180,18 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
+
+## What's new in 0.9.0
+
+`@abstractframework/panel-chat` 0.7.0 (needs ui-kit `^0.9.8`): the rounded multiline composer is the default
+`ChatComposer` on every surface, with its own Attach button and a `trailingActions` slot beside Send
+(`variant="legacy"` restores the flat layout); an optional public avatar conversation view (`AvatarConversation`);
+message attachments and safe links rendered by shared conversation components; the Docs assistant gains reply
+speech, a dictation microphone beside Send, and opens under the top bar. `@abstractframework/ui-kit` 0.9.12:
+cloud provider cards with one Connect/Edit button and a connection modal (Test, Save, Disconnect), Watch-style
+`SessionCard` / `AutomationCard` with visibility-gated read receipts, `ActivityAvatar` (44 shared procedural
+designs), structured tooltips, model manufacturer marks, compact model/tool/workspace settings controls
+([changelog](./CHANGELOG.md#090---2026-11-02)).
 
 ## What's new in 0.8.9
 
@@ -424,7 +438,7 @@ picker, voice, the app shell) has one shared component: start from the job table
 ## Requirements
 
 - React packages declare `react@^18` and `react-dom@^18` as peer dependencies (see each `*/package.json`).
-- `@abstractframework/panel-chat` 0.5.0 declares `@abstractframework/ui-kit@^0.9.0` as a peer dependency: install and upgrade the two together.
+- `@abstractframework/panel-chat` 0.7.0 declares `@abstractframework/ui-kit@^0.9.8` as a peer dependency: install and upgrade the two together (AbstractUIC 0.9.0 ships ui-kit 0.9.12).
 - `@abstractframework/monitor-active-memory` also declares `reactflow@^11` as a peer dependency.
 - Packages are ESM (`"type": "module"`). In web apps, use a bundler that can consume ESM and CSS.
 
@@ -757,7 +771,7 @@ The kit absorbs proven app components rather than speculating:
 - `npm test` in `ui-kit` runs the full guard chain (build, matrix cores, theme tokens, palette
   seeds parity, About and identity checks, theme contrast, console islands); the publish hook
   runs the same chain.
-- `@abstractframework/panel-chat` 0.5.0 needs `@abstractframework/ui-kit` `^0.9.0` (peer
+- `@abstractframework/panel-chat` 0.7.0 needs `@abstractframework/ui-kit` `^0.9.8` (peer
   dependency): upgrade both together. The two built packages share the session tool-policy
   client types, which the repository's release gate checks.
 - Pages that vendor the [console islands](./console-islands.md) bundle rebuild and re-vendor it
@@ -1472,6 +1486,132 @@ as exported `afTooltipAttributes`). Escape each returned attribute value when
 building markup. It provides `data-af-tip` as the accessible/plain-text fallback
 and `data-af-tip-content` as JSON. Invalid JSON/schema warns with `#FALLBACK` and
 shows the explicit fallback. No arbitrary HTML or controls are supported.
+
+## docs/filter-bar.md
+
+# Filter bar (`AfFilterBar`)
+
+One compact, aligned filter bar for a searchable list: a first line with the search field and its
+on/off filters, then one row per facet with the facet's label in a fixed left column and its
+chips in the second column. It replaces ad-hoc rows of pill chips that wrap under their own label.
+
+Operator design finding (2026-10-29, the AbstractGateway console's Models page): one bar from the
+kit; one chip size with the counts in muted small text; one row per facet with the label in a
+fixed column and the chips wrapping under the chips, never under the label; the search field and
+its toggle on the same first line; no stray toggles.
+
+```
+[Catalog | Hugging Face] [Search ............................] [o Fits this computer]   96 of 96 models
+QUANTIZATION   (All) (4-bit 186) (8-bit 128) (Other 161) | [o Every quant]
+PROVIDER       (All) (Ollama 94) (MLX 123) (Hugging Face 205) (LM Studio 46) (MLX images & video 4)
+               (Diffusers 2) (Supertonic 1)
+CAPABILITY     (All) (Text 253) (Thinking 136) (Tools 253) (Vision 75)
+```
+
+## React
+
+```tsx
+import { AfFilterBar, AfSwitch } from "@abstractframework/ui-kit";
+
+<AfFilterBar
+  ariaLabel="Filter the model catalog"
+  scope={{ label: "Search in", value: mode, options: [{ value: "catalog", label: "Catalog" }, { value: "hf", label: "Hugging Face" }], onChange: setMode }}
+  search={{ value: q, onChange: setQ, ariaLabel: "Search the model catalog", placeholder: "Search by model" }}
+  toggles={<AfSwitch variant="sm" label="Fits this computer" checked={fits} onChange={setFits} />}
+  end={<span>{shown} of {total} models</span>}
+  facets={[
+    { id: "quant", label: "Quantization", value: quant, options: [{ value: "all", label: "All" }, { value: "4bit", label: "4-bit", count: 186 }] },
+  ]}
+  trailing={{ quant: <AfSwitch variant="sm" label="Every quant" checked={every} onChange={setEvery} /> }}
+  onSelect={(facetId, value) => setFilter(facetId, value)}
+  sticky
+/>
+```
+
+| Prop | Type | Meaning |
+| --- | --- | --- |
+| `facets` | `AfFilterFacet[]` | `{ id, label, value, options: [{ value, label, count?, disabled?, title? }], disabled? }`, one row each |
+| `onSelect` | `(facetId, value) => void` | A chip was clicked |
+| `scope` | `{ label, options, value, onChange } \| null` | Optional segmented switch that leads the first line |
+| `search` | `{ value, onChange, ariaLabel, placeholder?, onSubmit?, submitLabel? } \| null` | The search field; Enter calls `onSubmit`; `submitLabel` adds a button |
+| `toggles` | `ReactNode` | On/off filters beside the field: `AfSwitch variant="sm"` |
+| `end` | `ReactNode` | The first line's end: the count, the filters in words, actions |
+| `trailing` | `Record<facetId, ReactNode>` | A control that belongs to one facet, after its chips |
+| `ariaLabel` | `string` | The first line's `role="search"` name (default "Filters") |
+| `sticky` / `stuck` | `boolean` | The first line stays at the top of the scroller; `stuck` (the host measures it) gives it its own bottom edge |
+
+The component is hook-free: the host owns every value. `AfFilterFacetRow` renders one row for
+hosts that lay rows out themselves.
+
+## Plain HTML (the console path)
+
+The chip, facet-row and scope markup has ONE source, `ui-kit/src/af_filter_bar_core.ts`, which
+the React component renders. Plain-HTML hosts call the same functions: `afFilterFacetsHtml(facets,
+trailing?)`, `afFilterFacetHtml(facet, trailingHtml?)`, `afFilterScopeHtml({label, options,
+value})` and `afFilterScopeButtonsHtml(options, value)` (exported by the package and, for pages
+that are not React apps, by the console islands as `filterBarFacetsHtml`, `filterBarScopeHtml`
+and `filterBarScopeButtonsHtml`). They escape every label, value and title; `trailing` markup is
+the host's and is inserted as given.
+
+The markup contract:
+
+```html
+<div class="af-filterbar [af-filterbar--sticky] [af-filterbar--stuck]">
+  <div class="af-filterbar__lead" role="search" aria-label="Filter the model catalog">
+    <div class="af-filterbar__scope" role="group" aria-label="Search in">
+      <button type="button" class="af-filterbar__scope-btn" data-af-scope="catalog" aria-pressed="true">Catalog</button>
+      <button type="button" class="af-filterbar__scope-btn" data-af-scope="hf" aria-pressed="false">Hugging Face</button>
+    </div>
+    <div class="af-filterbar__line">
+      <input type="search" class="af-filterbar__search" aria-label="…" enterkeyhint="search">
+      <button type="button" class="af-filterbar__submit" [hidden]>Search</button>
+      <span class="af-filterbar__toggles"><!-- af-switch af-switch--sm (or af-switch--native) --></span>
+    </div>
+    <div class="af-filterbar__end"><!-- count, actions --></div>
+  </div>
+  <div class="af-filterbar__facets">
+    <div class="af-filterbar__facet" role="group" aria-label="Quantization" data-af-facet-row="quant">
+      <span class="af-filterbar__label" aria-hidden="true">Quantization</span>
+      <div class="af-filterbar__chips">
+        <button type="button" class="af-chip af-chip--neutral af-chip--button af-filterbar__chip"
+                data-af-facet="quant" data-af-value="4bit" aria-pressed="false" aria-label="4-bit, 186">
+          <span class="af-chip__label">4-bit</span><span class="af-filterbar__count" aria-hidden="true">186</span>
+        </button>
+        <span class="af-filterbar__trailing"><!-- a control of this facet --></span>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+A host listens for clicks on `[data-af-facet]` (read `data-af-value`) and `[data-af-scope]`.
+A chip whose count is 0 carries `af-filterbar__chip--zero` (muted, dashed); a facet that cannot be
+used now (`disabled`) carries `af-filterbar__facet--disabled` and disables every chip.
+
+## Layout rules (theme.css `af-filterbar:begin` .. `af-filterbar:end`)
+
+- **First line**: `.af-filterbar__line` holds the field and the toggles and never wraps; the field
+  shrinks first. The scope switch leads; the end slot closes the line (`margin-left: auto`) and
+  moves to its own line when the width runs out.
+- **Facet rows**: a grid of `var(--af-filterbar-label-w)` (7.5rem, wide enough for "QUANTIZATION" at phone text sizes) and
+  `minmax(0, 1fr)`. The label is one line in column 1 with the chip height as its line box, so it
+  aligns with the first chip row; the chips wrap inside column 2. No width query stacks the label
+  over the chips.
+- **Chips**: the kit chip (`af-chip--button`: its hue recipe and its touch hit area) at one size,
+  `--af-filterbar-chip-h` (28 px). Pressed = the accent hue. The count is `--text-muted`,
+  `--font-size-xs`, tabular figures.
+- **Sticky**: `af-filterbar--sticky` makes the wrapper `display: contents`, so the first line
+  sticks to the scroller (`top: var(--af-filterbar-top)`) while the facet rows scroll away. In
+  that mode both parts are items of the host's layout: cancel the host's gap between them.
+- **Touch** (`pointer: coarse`): the pills keep their geometry with an invisible 44 px hit area;
+  the field is 44 px with 16 px text. On a phone with a touch screen the submit button is hidden:
+  the keyboard's search key submits (`enterkeyhint="search"`), so the field keeps its room.
+
+`ui-kit/scripts/check_filter_bar.mjs` pins the markup, the one-source rule and these CSS rules.
+
+When a host provides multiple quick toggles, the shared bar lets them wrap below
+the search field on compact screens. A single-toggle bar retains its existing
+one-line layout. Labels and switch semantics stay with the shared component.
 
 ## docs/state-toggles.md
 
@@ -2362,6 +2502,9 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Ids and non-secure contexts: `randomId()` (v4 UUID over plain http too), `uuidV4FromBytes()`, `insecureContextReason(feature)` — see [Non-secure contexts](./state-toggles.md#non-secure-contexts)
 - Icons: `Icon`, `IconName`, `ICON_NAMES` (65 glyphs, 24-grid and 16-grid families; 0.8.6 adds `image`, `video`, `camera`, `music`, `database`, `branch`, `loop`, `variable`, `minus`, `divide`, `function`, `zoomIn`, `zoomOut`, `fitView`, `lock`). Every name, the style rules and the contact sheet: [Icons](./icons.md)
 - Palette seeds: `@abstractframework/ui-kit/palette_seeds.json` (generated 4-token palette per theme)
+- Structured tooltips (0.9.12): `afTooltipAttributes(content)` returns the attributes for a tooltip given as a string or an `AfTooltipContent` (`title`, `facts`, `sections` of labelled lists, `note`; carried in `AF_TOOLTIP_CONTENT_ATTR`, `data-af-tip-content`); `afTooltipText(content)` is its plain-text, accessible fallback. The tooltip renders as text, never as HTML.
+- Automation attention (0.9.12): `consumedAttentionCursor(summary, consumed)` returns the cursor of the contiguous oldest-first prefix of `summary.attention.items` the viewer actually consumed (a set of cursors), or `null`; only that prefix may advance a shared seen cursor.
+- Cloud provider cards (0.9.12): `cardEditTarget(card, connections)` returns the connection the card's Edit opens: a gateway connection before one from AbstractCore's config, or `null`.
 
 See: [`ui-kit/README.md`](../ui-kit/README.md) and the [Adoption guide](./adoption-guide.md).
 
@@ -2409,6 +2552,7 @@ Purpose: chat-thread UI primitives with lightweight Markdown/JSON rendering.
 
 Components:
 - `DocsAssistantDrawer` (0.4.0) — the Docs assistant of the console and every app: kit drawer + panel-chat thread (user right, assistant left; Markdown, code, JSON, links, images per the image policy; copy), attachments (`attachments/upload` to the conversation's session → `context.attachments`), streaming (`llm.delta` on `runs/{id}/ledger/stream`), Stop, icon-only New conversation and close, one-line grounding footer. Props `open`, `onClose`, `source: { app, name }`, `fetchGateway`, `connected`, `suggestions?`, `placeholder?`, `width?`, `topOffset?`, `className?`. Grounding: `GET api/gateway/docs/corpus?app=<id>` → the shipped `docs-qa` workflow (`DOCS_QA_WORKFLOW`); one gateway session per conversation. `topOffset` also takes `"auto"`; `manageFocus` (default false: the drawer keeps its earlier focus behaviour) opts into the kit drawer's focus handling. In an `AfDrawerSystem`: `docsAssistantPanel(source, fetchGateway, { connected, suggestions?, placeholder?, ask?, id?, label?, mode?, side?, defaultWidth? })` returns an `AfDrawerPanel` (drawer mode, kept alive) whose content, `DocsAssistantPanelContent`, is the same conversation with its header actions in the panel header (0.9.0, backlog 0036). Exports `DocsAssistantPanel` (stateless view), `makeDocsQaAsk`, `docsQaStartBody`, `docsCorpusPath`, `docsAnswerFromRun`, `docsReplayNote`, `newDocsSessionId`, `sseFrames`
+- Message links and files (0.7.0): `TextLinks` / `textLinks(text)` render the whole `http(s)://` and `www.` URLs of a plain text as links (other schemes stay text; the text is never interpreted as HTML). `messageArtifactRefs(value, runId)`, `submittedArtifacts(body, runId)` and `outputArtifacts(output, runId)` collect the files a message carries (`MessageArtifact`) from the attachment and output fields only, never from internal run bookkeeping.
 - `AssistantPanel` (docs Q&A surface with an injected `ask(question, { signal, history })` transport returning a Promise or an AsyncIterable of deltas; never fetches); `assistantDrawerPanel({ ask, assistantName?, …, id?, label?, icon?, mode?, side?, defaultWidth? })` returns it as an `AfDrawerPanel` (drawer mode, kept alive) for an app assistant such as Continuum's advisor (0.9.0, backlog 0036)
 - `WorkflowChat` + `WorkflowInteractionPanel` (controlled workflow chat and pending `ask-user` / `tool-approval` / `event-wait` interactions; `streamReplies?: "gateway_default" | "on" | "off"`); `WorkflowSessionController`, `useWorkflowSession`, `workflowPendingInteraction()`, `resolveWorkflowEventTarget()` (injected `WorkflowTransport`)
 - One chat surface (0.5.0, backlog 0030; ADR 0001): `WorkflowChat` also takes
@@ -2741,7 +2885,7 @@ flowchart LR
     MEM["@abstractframework/monitor-memory"]
   end
 
-  CHAT -->|"peer dep ^0.9.0<br/>(Icon, AfFileViewer, AfDrawer, drawer-system panels,<br/>session tool-policy client types)"| UIKIT
+  CHAT -->|"peer dep ^0.9.8<br/>(Icon, AfFileViewer, AfDrawer, drawer-system panels,<br/>session tool-policy client types)"| UIKIT
   AMX -->|"peer dep"| ReactFlow["reactflow (peer dependency)"]
   FLOW -->|"peer dep"| React["react / react-dom (peer dependency)"]
   CHAT -->|"peer dep"| React
@@ -2751,7 +2895,7 @@ flowchart LR
 ```
 
 Evidence:
-- panel-chat imports from `@abstractframework/ui-kit` (for example `Icon` in `panel-chat/src/chat_message_card.tsx`, `AfFileViewer` in `panel-chat/src/file_viewer.tsx`, the session tool-policy types in `panel-chat/src/workflow_runtime.ts`), declared as a peer dependency (`^0.9.0`) in `panel-chat/package.json`. Upgrade the two packages together; the repository's release gate (`scripts/check_cross_dist_types.mjs`) checks that the two built packages agree on the shared client types.
+- panel-chat imports from `@abstractframework/ui-kit` (for example `Icon` in `panel-chat/src/chat_message_card.tsx`, `AfFileViewer` in `panel-chat/src/file_viewer.tsx`, the session tool-policy types in `panel-chat/src/workflow_runtime.ts`), declared as a peer dependency (`^0.9.8`) in `panel-chat/package.json`. Upgrade the two packages together; the repository's release gate (`scripts/check_cross_dist_types.mjs`) checks that the two built packages agree on the shared client types.
 - `monitor-active-memory/package.json` declares `reactflow` (and `react` / `react-dom`) as peer dependencies.
 
 ## Design rules: one component per job (ADR 0001)
@@ -4598,7 +4742,7 @@ Serve both files from your own origin; the paths above are examples.
 | `mountAppearance(el, props)` | `IslandHandle` | Mounts `AfAppearanceDialog` into `el` |
 | `mountAbout(el, props)` | `IslandHandle` | Mounts `AfAboutDialog` into `el` (kit 0.1.12+) |
 | `mountSandboxChat(el, props)` | `IslandHandle` | Mounts the Sandbox chat: panel-chat's thread and composer (`messages`, `draft`, `onDraftChange`, `onSend`, attachments, drop and paste) with voice through `useGatewayVoice` (kit 0.4.0) |
-| `mountChatComposer(el, props)` | `IslandHandle` | Mounts panel-chat's `ChatComposer` alone for a plain-HTML chat the host drives itself (`value`, `onChange`, `onSubmit`, `disabled`, `busy`, `textareaId`, `ariaDescribedBy`, `placeholder`); no attachment or slot props (kit 0.9.11) |
+| `mountChatComposer(el, props)` | `IslandHandle` | Mounts panel-chat's `ChatComposer` alone for a plain-HTML chat the host drives itself (`value`, `onChange`, `onSubmit`, `disabled`, `busy`, `textareaId`, `ariaDescribedBy`, `placeholder`); no attachment or slot props (kit 0.9.12) |
 | `mountProviderModelPicker(el, props)` | `IslandHandle` | Mounts the kit `ProviderModelPicker` with its own props (kit 0.4.0; see [below](#mountprovidermodelpickerel-props-and-mountvoicesettingsel-props)) |
 | `mountVoiceSettings(el, props)` | `IslandHandle` | Mounts the kit `VoiceSettings` voice picker; its props carry `voiceLibrary` and `previewVoice` (kit 0.4.0; library and sample 0.9.0) |
 | `mountToolModeEditor(el, props)` | `IslandHandle` | Mounts the kit `ToolModeEditor` over a served `GET /api/gateway/discovery/tools` answer (kit 0.9.0; see [below](#mounttoolmodeeditorel-props)) |
@@ -4901,6 +5045,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 - **On/off settings**: [`state-toggles.md`](./state-toggles.md) — `AfSwitch`, the console markup, the terminal marker, the verb-toggle and label-scale guards, the sign-in card, forms, cards and tabs, `randomId()`
 - **Modal, account rows, grouped navigation**: [`modal.md`](./modal.md) — `AfModal` and its plain-HTML markup with `AfConsoleIslands.bindModal`, the menu and the themed tooltip (`AfTooltip`, `bindTooltips`), the account-kind row tints and chips, sidebar group captions with a bottom slot, and the 13 px / 14 px helper-text floor
 - **Activity avatars**: [`avatars.md`](./avatars.md) — one shared Rust/Wasm geometry/catalog, React/Canvas and native adapters, lifecycle, themes, pointer tracking and gallery checks
+- **Compact session cards**: [`session-cards.md`](./session-cards.md) — `SessionCard` and `AutomationCard`: Watch-style conversation and automation rows, human attention, and visibility-gated Gateway read receipts (`useSessionReads`, `createSessionReadClient`)
 - **Icons**: [`icons.md`](./icons.md) — the `Icon` component, every icon name with its grid and typical use, the light and dark contact sheets, the drawing rules, and how to add an icon
 - **Responsive layout**: [`responsive.md`](./responsive.md) — breakpoints, touch sizes, bottom sheets and drawers, container queries, the viewport helpers, the font-size order, and how a host app adopts them
 - **Automations**: [`automations.md`](./automations.md) — show and manage AbstractGateway automations: `AutomationPanel` (controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (schedules and **When an email arrives** triggers, **Email result**, result recipients) and its tool-approval consent line, `createAutomationsClient()` and its error model, retry-safe ids, the panel-chat schedule action and badge, the canonical fixtures and how to regenerate them, and the export list
@@ -5452,7 +5597,7 @@ app. `scripts/check_responsive.mjs` and `scripts/check_viewport_vars.mjs` pin it
 - Troubleshooting: [`docs/troubleshooting.md`](../docs/troubleshooting.md)
 - Repo docs index: [`docs/README.md`](../docs/README.md)
 
-### Compact settings (unreleased)
+### Compact settings (0.9.12)
 
 The shared controls also support narrow settings panels:
 
@@ -5485,7 +5630,7 @@ the [Adoption guide](../docs/adoption-guide.md)).
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` `^0.9.0` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.5.0 needs ui-kit 0.9.0.
+- `@abstractframework/ui-kit` `^0.9.8` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.7.0 needs ui-kit `^0.9.8` (AbstractUIC 0.9.0 ships ui-kit 0.9.12).
 
 ## Install
 
@@ -6897,7 +7042,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.8.9",
+  "version": "0.9.0",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -22434,6 +22579,16 @@ keys remain immutable per run/outcome, so marking an earlier request cannot clea
 answer. Failures, failed loads, background/covered content and other account scopes retain the
 same visibility and isolation rules.
 
+## docs/installation.md
+
+# Installation & Integration
+
+This page is kept for backwards compatibility.
+
+Start here instead:
+
+- [Getting started](./getting-started.md)
+
 ## docs/publishing.md
 
 # Publishing (Maintainers)
@@ -22457,7 +22612,7 @@ The tagged workflow does the publishing; these steps prepare the tag it needs.
    root `package.json` to the release version; the tag names the root version.
 1. Bump the `@abstractframework/ui-kit` range in `panel-chat/package.json`
    (`peerDependencies` + `devDependencies`) — `npm version` does not touch it. A panel-chat
-   release that uses new kit exports raises the floor to that kit version (0.5.0 needs `^0.9.0`).
+   release that uses new kit exports raises the floor to that kit version (for example panel-chat 0.5.0 raised it to `^0.9.0`).
 1. Promote the `## Unreleased` section of [`CHANGELOG.md`](../CHANGELOG.md) to
    `## <x.y.z> - <YYYY-MM-DD>`. The release workflow reads this exact heading to
    build the GitHub release notes, so the version and format must match.
@@ -22789,7 +22944,20 @@ ships.
 
 ## Unreleased
 
-- `@abstractframework/ui-kit` 0.9.12: simpler cloud provider cards. Each
+_Nothing yet._
+
+## 0.9.0 - 2026-11-02
+
+Packages: `@abstractframework/ui-kit` 0.9.12 (from 0.9.10; it includes the unpublished 0.9.11),
+`@abstractframework/panel-chat` 0.7.0 (from 0.6.6; peer range on ui-kit unchanged at `^0.9.8`, which it still
+satisfies); app-server 0.1.13, monitor-flow, monitor-gpu and monitor-memory 0.1.10 and monitor-active-memory 0.2.2
+unchanged. Who is affected: apps on panel-chat get the rounded multiline composer by default (see the migration
+note below); apps on the kit gain the cloud provider connection modal, the Watch-style session and automation
+cards with read receipts, activity avatars and structured tooltips. Upgrade panel-chat and ui-kit together.
+
+### ui-kit
+
+- **Simpler cloud provider cards.** Each
   card shows its brand mark, its name, ONE status ("Not connected", or a clear green "Connected ·
   48 models" with a dot; the stored key's fingerprint only in the Edit modal, never the key) and ONE button: Connect
   when nothing is stored, Edit when a connection exists. No field on the card any more: both
@@ -22823,7 +22991,40 @@ ships.
   initials. `check_brand_icons.mjs` and `check_cloud_providers.mjs` now fail for a provider card
   without artwork and for a connected card without Edit; `check_cloud_providers_browser.mjs`
   drives card → modal → test → save → edit → disconnect in Chrome against a stub gateway.
-- `@abstractframework/panel-chat` 0.7.0: the rounded multiline composer is the default
+- **Watch-style session and automation cards.** `SessionCard` and `AutomationCard` (on the shared
+  `CompactActivityCard`): a two-line title, small turn/tool/time facts, unread, "Needs you" and failure states, and an
+  independent archive button; the automation card shows the gateway's served next run (`next_run_at`) only. Read
+  receipts are visibility-gated: `useSessionReads`, `SessionReadMarker` and `createSessionReadClient` persist what a
+  viewer actually saw through the gateway, synchronized across devices; a failed write keeps the unread mark.
+  `consumedAttentionCursor` advances a shared seen cursor only over the attention items actually consumed.
+  See [session-cards.md](docs/session-cards.md).
+- Shared session read clients persist consumption through the Gateway and synchronize across devices; failed writes retain unread marks.
+- **Activity avatars.** `ActivityAvatar`, `AvatarRenderer` and `avatarDesigns` present AbstractAvatar's procedural
+  catalog (44 designs) from one shared Rust generator compiled to WebAssembly; `AppleActivityAvatar` and
+  `AppleAvatarEngine` delegate to the same renderer. See [avatars.md](docs/avatars.md).
+- Activity avatars use AbstractAvatar's shared 44-design generator for shaded,
+  Watch-derived and woven forms. Add validated version-one frame descriptors,
+  optional frequency-band inputs and bounded paged previews. Existing Apple
+  component names delegate to the same renderer; imperative `AppleAvatarEngine.draw`
+  is asynchronous and its instances must be disposed after use.
+- Activity avatar quality levels select bounded display-density resolution and economy,
+  balanced or high frame budgets. Frame deadlines align with display refresh and skip missed
+  frames. Ready gaze can acknowledge clicks without consuming host actions. Canvas creation
+  accepts an AbortSignal; hidden, unmounted and resized views release their old renderer.
+- **Structured tooltips.** A tooltip can carry a title, facts, labelled lists and a note (`afTooltipAttributes`,
+  `AF_TOOLTIP_CONTENT_ATTR`, plain-text fallback `afTooltipText`), rendered as text on the active theme's surfaces.
+- **Model manufacturer marks.** Compact brand marks for model manufacturers in the model pickers.
+- **Compact settings controls.** Compact model, tool and workspace settings controls; compact model pickers name each
+  inherited route field separately; compact voice settings.
+- **Reply output level.** `useGatewayVoice` and `AfVoiceLevelMeter` expose the measured level of a spoken reply,
+  independently of microphone capture.
+- **Official Anthropic, Portkey and OVHcloud artwork** in the shared provider cards, replacing the text badges. Preserve source attribution, geometry, colours and offline rendering.
+- **Chat composer island.** `mountChatComposer(el, props)` console island for
+  plain-HTML chats; the Sandbox chat's dictation button sits beside Send.
+
+### panel-chat
+
+- **One rounded multiline composer.** The rounded multiline composer is the default
   `ChatComposer` and `WorkflowChat` composer on every surface (chat, docs assistant, assistant
   panel); `variant="legacy"` / `composerVariant="legacy"` restores the flat layout. The composer
   renders its own Attach button (`onAttach`, `attachLabel`, `attachDisabled`, `attachPending`),
@@ -22832,6 +23033,11 @@ ships.
   rendered their own Attach button next to the composer should pass `onAttach` instead; voice
   controls belong in the trailing slot. The former `variant="default"` value is gone
   (`"compact"` remains an alias of the default); the docs assistant composer starts at two rows.
+- **Avatar conversation view (optional).** `AvatarConversation` presents a session as a public conversation beside an
+  activity avatar: subtitles of the reply, corrections, questions and approvals with plain public action wording
+  (`publicApprovalRequest`), restored history and outcomes, pause flags read from the gateway, and visual and audio
+  cues (`useAvatarConversationPreferences`, `playConversationCue`, `conversationState` and the other
+  `conversation_model` helpers).
 - Avatar conversation: no cue settings inside the view; visual and audio cues are both on by
   default for permission requests, questions and completion, and a host's settings decide any change.
 - Avatar conversation: while a question or approval is open, the avatar scene is small beside its
@@ -22841,28 +23047,25 @@ ships.
   the kit dictation microphone beside Send (hold or tap to talk per the voice preferences; the
   transcript lands in the draft). The drawer opens under the kit top bar by default (`topOffset`
   defaults to "auto"), so every app keeps its top bar reachable.
-- `@abstractframework/ui-kit` 0.9.11: `mountChatComposer(el, props)` console island for
-  plain-HTML chats; the Sandbox chat's dictation button sits beside Send.
-
-- Progressive conversation restoration exposes history readiness separately from the current answer, so opening read receipts include the loaded earlier turns.
-
-
+- **Docs reply speech.** The Docs assistant can read its replies aloud with the shared voice settings.
+- **Message attachments and safe links.** Messages render their delivered attachments (previews in a dialog fitted
+  to the media, with one filename, Download and Close) and the whole `http(s)://` / `www.` URLs of their text as links
+  (`TextLinks`, `textLinks`); internal run artifacts stay hidden (`messageArtifactRefs`, `submittedArtifacts`,
+  `outputArtifacts`).
 - Attachment previews fit media dimensions with one filename, Download and Close.
-- Shared session read clients persist consumption through the Gateway and synchronize across devices; failed writes retain unread marks.
+- Progressive conversation restoration exposes history readiness separately from the current answer, so opening read receipts include the loaded earlier turns.
+- Human guidance in a public conversation requires accepted host provenance.
 
+### Migration
 
-- Activity avatar quality levels select bounded display-density resolution and economy,
-  balanced or high frame budgets. Frame deadlines align with display refresh and skip missed
-  frames. Ready gaze can acknowledge clicks without consuming host actions. Canvas creation
-  accepts an AbortSignal; hidden, unmounted and resized views release their old renderer.
-
-- Activity avatars use AbstractAvatar's shared 44-design generator for shaded,
-  Watch-derived and woven forms. Add validated version-one frame descriptors,
-  optional frequency-band inputs and bounded paged previews. Existing Apple
-  component names delegate to the same renderer; imperative `AppleAvatarEngine.draw`
-  is asynchronous and its instances must be disposed after use.
-
-- Use official Anthropic, Portkey and OVHcloud artwork in shared provider cards, replacing text badges (operator request, Gateway backlog 0985). Preserve source attribution, geometry, colours and offline rendering.
+- `ChatComposer` and `WorkflowChat` render the rounded multiline composer by default (two rows in the Docs assistant).
+  Pass `variant="legacy"` (`composerVariant="legacy"` on `WorkflowChat`) to keep the flat layout. A host that rendered
+  its own Attach button beside the composer passes `onAttach` instead; voice and Stop controls go in
+  `trailingActions` (`composerTrailingActions`).
+- `DocsAssistantDrawer` opens under the kit top bar by default (`topOffset` defaults to `"auto"`); pass a number to
+  keep a fixed offset.
+- Cloud provider cards: `CloudRequest` accepts `PUT` and `DELETE`; a host's `request` function must handle them for
+  Edit and Disconnect.
 
 ## 0.8.9 - 2026-10-29
 
@@ -25326,10 +25529,10 @@ SOFTWARE.
 ---
 name: abstractuic
 description: Integrate AbstractFramework shared React controls, authenticated chat and Docs assistants, and voice settings into browser clients.
-compatibility: Requires the installed package's documented exports. Quality and AbortSignal avatar options are source features pending the next ui-kit release; verify ActivityAvatarProps.quality and AvatarRenderer.create options before using them.
+compatibility: Requires @abstractframework/ui-kit 0.9.12 and @abstractframework/panel-chat 0.7.0 or later (their documented exports).
 metadata:
   package: "@abstractframework/ui-kit"
-  package-version: "unreleased"
+  package-version: "0.9.12"
 ---
 
 # Use AbstractUIC

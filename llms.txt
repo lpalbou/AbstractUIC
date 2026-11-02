@@ -50,6 +50,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [ADR 0001](docs/adr/0001_shared_primitives_composed_on_gateway_contracts.md): the design rule — one component per job, composed on the gateway's contracts, gateway default first, one wording set, customized through props/slots/tokens, never forked
 - [Theming](docs/theming.md): design-token vocabulary, the layout variables the app shell publishes (`--af-topbar-h`, `--af-panel-w`), 21-theme system, adoption/migration rules for host apps
 - [Modal, account rows, grouped navigation](docs/modal.md): `AfModal` (960 px × 90vh dialog over a blurred backdrop, full-screen sheet under 768 px, focus trap, Escape/backdrop close), its plain-HTML markup and `AfConsoleIslands.bindModal` / `bindAfModal`, the `af-row--admin|user|entity` tints with `af-kind-chip`, `af-nav-group` captions and `af-nav-footer`, and the `--af-helper-size` floor (13 px desktop, 14 px touch)
+- [Filter bar](docs/filter-bar.md): `AfFilterBar` (search field and on/off filters on one line, one row of chips per facet with a fixed label column, optional scope switch and sticky first line) and the plain-HTML markup the console islands expose (`filterBarFacetsHtml`, `filterBarScopeHtml`, `filterBarScopeButtonsHtml`)
 - [On/off settings](docs/state-toggles.md): `AfSwitch` (a `role="switch"` labelled by the feature, highlighted when on; unavailable = `aria-disabled` + reason), the `af-switch` CSS block the consoles copy, the terminal `[x]`/`[ ]`/`[-]` marker, `findVerbToggleLabels` (the guard against "Email off"/"Email on" labels), `checkLabelScale` (labels at body size), unavailable-reason strings, the sign-in card classes, `af-form`/`af-card`/`af-tabs` + `AfTabs`, and `randomId()` / `insecureContextReason()` for plain-http pages
 - [Icons](docs/icons.md): the `Icon` component (`name`, `size`, `title`), `ICON_NAMES`, every icon name with its grid (24-grid stroke 2, 16-grid stroke 1.4) and typical use, light and dark contact sheets, how to add an icon
 - [Responsive layout](docs/responsive.md): breakpoints (480/768/1024/1440 px, short and touch axes), 44 px touch targets and 16 px form text on touch screens, bottom-sheet dialogs and drawers above the keyboard, container queries and their thresholds, `installViewportVars()` / `viewportVarsFrom()`, the font-size order, and how a host app adopts them
@@ -143,6 +144,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 - [Compact session cards](docs/session-cards.md): Watch-style conversation cards, human attention and visibility-gated Gateway read receipts.
 
+- [Installation (legacy stub)](docs/installation.md): kept for old links; points to Getting started
 - [Publishing (maintainers)](docs/publishing.md): Release checklist and npm publish notes
 - [Development](docs/development.md): Local workflow, tests and contracts shared with other repositories
 - [Contributing](CONTRIBUTING.md): contribution workflow and expectations

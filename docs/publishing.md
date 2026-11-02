@@ -19,7 +19,7 @@ The tagged workflow does the publishing; these steps prepare the tag it needs.
    root `package.json` to the release version; the tag names the root version.
 1. Bump the `@abstractframework/ui-kit` range in `panel-chat/package.json`
    (`peerDependencies` + `devDependencies`) — `npm version` does not touch it. A panel-chat
-   release that uses new kit exports raises the floor to that kit version (0.5.0 needs `^0.9.0`).
+   release that uses new kit exports raises the floor to that kit version (for example panel-chat 0.5.0 raised it to `^0.9.0`).
 1. Promote the `## Unreleased` section of [`CHANGELOG.md`](../CHANGELOG.md) to
    `## <x.y.z> - <YYYY-MM-DD>`. The release workflow reads this exact heading to
    build the GitHub release notes, so the version and format must match.

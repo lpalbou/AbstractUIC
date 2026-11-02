@@ -519,7 +519,7 @@ app. `scripts/check_responsive.mjs` and `scripts/check_viewport_vars.mjs` pin it
 - Troubleshooting: [`docs/troubleshooting.md`](../docs/troubleshooting.md)
 - Repo docs index: [`docs/README.md`](../docs/README.md)
 
-### Compact settings (unreleased)
+### Compact settings (0.9.12)
 
 The shared controls also support narrow settings panels:
 

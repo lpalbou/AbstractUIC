@@ -49,13 +49,13 @@ check("panel: id / mode / side / label overridable", custom.id === "help" && cus
 // Outside a system: header actions in place.
 const alone = renderToStaticMarkup(h(DocsAssistantPanelContent, { source, fetchGateway, connected: true }));
 check("content alone: header actions render in place", alone.includes('aria-label="Past conversations"') && alone.includes('aria-label="New conversation"'), alone);
-check("content alone: the grounding footer", alone.includes("Based on AbstractFlow"), alone);
+check("content alone: the grounding footer", alone.includes("Powered by AbstractFlow’s documentation."), alone);
 const blocked = renderToStaticMarkup(h(DocsAssistantPanelContent, { source, fetchGateway, connected: false }));
 check("content: signed out = the labeled blocked notice", blocked.includes("Connect to the gateway to use the docs assistant."), blocked);
 
 // Inside the drawer system: the header actions leave the body (they portal into the panel header once mounted).
 const inSystem = renderToStaticMarkup(h(kit.AfDrawerSystem, { panels: [panel], active: "docs", onActiveChange: () => {}, ariaLabel: "Panels", overlay: false }));
-check("system: the panel renders without a rail tab", inSystem.includes('aria-label="Docs assistant"') && !inSystem.includes('role="tablist"') && inSystem.includes("Based on AbstractFlow"), inSystem);
+check("system: the panel renders without a rail tab", inSystem.includes('aria-label="Docs assistant"') && !inSystem.includes('role="tablist"') && inSystem.includes("Powered by AbstractFlow’s documentation."), inSystem);
 check("system: header actions are not duplicated in the body", !inSystem.includes('aria-label="Past conversations"'), inSystem);
 check("system: the panel header has the actions slot", inSystem.includes('class="af-rail__head-slot"'), inSystem);
 
