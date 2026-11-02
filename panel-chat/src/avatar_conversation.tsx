@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChatMessageCard, type ChatMessage, type ChatMessageCardProps } from "./chat_message_card.js";
 import type { WorkflowConnection } from "./workflow_runtime.js";
-import { DEFAULT_CONVERSATION_CUES, conversationCueStep, conversationNarrationStep, conversationMessages, conversationPages, conversationState, type AvatarConversationState, type ConversationAttention, type ConversationCue, type ConversationCueCursor, type ConversationCuePreferences } from "./conversation_model.js";
+import { DEFAULT_CONVERSATION_CUES, conversationCaptions, conversationCueStep, conversationNarrationStep, conversationMessages, conversationState, type AvatarConversationState, type ConversationAttention, type ConversationCue, type ConversationCueCursor, type ConversationCuePreferences } from "./conversation_model.js";
 
 export type AvatarConversationOptions = {
   /** Stable conversation identity, not the identity of each individual turn. */
@@ -40,39 +40,41 @@ export type AvatarConversationProps = AvatarConversationOptions & {
   interaction?: React.ReactNode;
   /** Exact currently rendered request; an empty ID means the host deferred it. */
   interactionId?: string;
-  /** Draft editing or other host-owned attention freezes rolling captions. */
+  /** Draft editing or other host-owned attention: silences narration and non-essential cues. Captions keep rolling. */
   attended?: boolean;
-  /** Shared final/attachment rendering, with private reasoning removed before presentation. */
+  /** Shared message rendering (captions and history), with private reasoning removed before presentation. */
   messageProps?: Omit<ChatMessageCardProps, "message">;
 };
 const labels: Record<AvatarConversationState, string> = {
   idle: "Ready", working: "Working", paused: "Paused — work resumes only when you continue", listening: "Listening — your words have not been submitted", speaking: "Speaking", question: "A question for you", approval: "Permission required", completed: "Completed", failed: "Work stopped", connecting: "Connecting…", disconnected: "Connection interrupted",
 };
 
-/** Optional public presentation. No model, microphone, network or permission side effects. */
+/**
+ * Optional public presentation: the avatar, its status, the current turn's public messages as
+ * realtime rolling captions (newest at the bottom, never cycling), any open question or
+ * approval, and the person's actions (history, voice, playback), all above the host's composer.
+ * No model, microphone, network or permission side effects.
+ */
 export function AvatarConversation(props: AvatarConversationProps): React.ReactElement {
-  // Keyed child resets reading/selection state immediately on a conversation switch.
+  // Keyed child resets history/selection state immediately on a conversation switch.
   return <AvatarConversationSession key={props.sessionKey} {...props} />;
 }
 
+const captionVariant = () => "caption" as const;
+
 function AvatarConversationSession(props: AvatarConversationProps): React.ReactElement {
   const [history, setHistory] = useState(false);
-  const [paused, setPaused] = useState(false);
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
   const [selected, setSelected] = useState<ChatMessage | null>(null);
+  const [scrolled, setScrolled] = useState(false);
   const preferences = props.preferences || DEFAULT_CONVERSATION_CUES;
   const messages = useMemo(() => conversationMessages(props.messages), [props.messages]);
-  const latest = [...messages].reverse().find((m) => m.role === "assistant" || m.kind === "question_outcome") || null;
-  const attended = Boolean(props.attended || history || paused || hovered || focused || selected);
+  const captions = useMemo(() => conversationCaptions(props.messages), [props.messages]);
+  const attended = Boolean(props.attended || history || selected);
   useEffect(() => { props.onAttendedChange?.(attended); return () => props.onAttendedChange?.(false); }, [attended, props.onAttendedChange]);
-  const [shown, setShown] = useState(latest);
-  const [page, setPage] = useState(0);
-  const shownText = shown?.content || (shown?.attachments?.length || shown?.artifactRefs?.length || shown?.media?.length ? "A result file is ready. Open conversation history to view it." : "");
-  const pages = useMemo(() => conversationPages(shownText), [shownText]);
   const state = conversationState(props);
   const cursor = useRef<ConversationCueCursor | null>(null);
   const narrationCursor = useRef<ConversationCueCursor | null>(null);
+  const captionList = useRef<HTMLOListElement | null>(null);
   const callbacks = useRef(props);
   callbacks.current = props;
 
@@ -82,14 +84,21 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
   useEffect(() => {
     if (props.listening) callbacks.current.onInterruptSpeech?.();
   }, [props.listening]);
+  // Realtime roll: each new caption enters at the bottom and pushes older ones up. A caption
+  // taller than the area (a long final answer) is shown from its first line instead.
+  const newest = captions.length ? captions[captions.length - 1].key : "";
   useEffect(() => {
-    if (!attended) { setShown(latest); setPage(0); }
-  }, [latest, attended]);
-  useEffect(() => {
-    if (attended || page >= pages.length - 1) return;
-    const timer = setTimeout(() => setPage((p) => p + 1), Math.max(6500, (pages[page]?.length || 0) * 55));
-    return () => clearTimeout(timer);
-  }, [attended, page, pages]);
+    const box = captionList.current;
+    const last = box?.lastElementChild as HTMLElement | null | undefined;
+    if (!box || !last) return;
+    box.scrollTop = last.offsetHeight > box.clientHeight ? last.offsetTop : box.scrollHeight;
+  }, [newest, history]);
+  // The top edge fades while text is cut there (older captions leaving), not when a caption starts exactly at it.
+  const onCaptionScroll = (event: React.UIEvent<HTMLOListElement>) => {
+    const box = event.currentTarget;
+    const starts = Array.from(box.children, (child) => (child as HTMLElement).offsetTop);
+    setScrolled(box.scrollTop > 1 && !starts.some((top) => Math.abs(top - box.scrollTop) <= 1));
+  };
   useEffect(() => {
     const connected = !props.replaying && (!props.connection || props.connection === "connected" || props.status === "completed" || props.status === "failed") && (typeof document === "undefined" || document.visibilityState !== "hidden");
     const next = conversationCueStep(cursor.current, { sessionKey: props.sessionKey, connected, attended, attention: props.attention, preferences });
@@ -104,47 +113,41 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
   }, [messages, props.sessionKey, props.connection, props.replaying, props.status, props.narrate, props.listening, props.onNarrate, props.onInterruptSpeech, attended]);
 
   const interrupt = () => props.onInterruptSpeech?.();
-  const follow = () => {
-    setHistory(false); setPaused(false); setSelected(null); setShown(latest); setPage(0);
-    props.onReplyContext?.(null);
-  };
-  const visibleAttention = props.attention && preferences[props.attention.kind].visual;
+  const clearReply = () => { setSelected(null); props.onReplyContext?.(null); };
+  const attention = props.attention && preferences[props.attention.kind].visual ? props.attention : null;
   const hasRequest = Boolean(props.interaction) && (props.interactionId === undefined || Boolean(props.interactionId));
-  return <section className="pc-avatar-conversation" aria-label="Avatar conversation" data-state={state} data-has-request={hasRequest || undefined}>
-    <div className="pc-avatar-conversation__scene">{props.avatar}</div>
-    <p className="pc-avatar-conversation__status" role="status">{labels[state]}</p>
-    {visibleAttention && !hasRequest ? <p className="pc-avatar-conversation__attention" data-kind={props.attention!.kind}>
-      {props.attention!.kind === "approval" ? "An explicit decision is required. Waiting never grants permission." : props.attention!.kind === "completion" ? "The result is ready in conversation history." : props.attention!.importance === "essential" ? "Your answer is required. I will keep waiting." : "Your input is welcome."}
-      {props.attention!.kind === "question" && props.attention!.importance === "clarification" ? <> {props.attention!.deadline && Number.isFinite(Date.parse(props.attention!.deadline)) ? <>Answer by <time dateTime={props.attention!.deadline}>{new Date(props.attention!.deadline).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time>. </> : null}{props.attention!.fallback ? `Without an answer: ${props.attention!.fallback}` : ""}</> : null}
+  // Captions are content only: the shared renderer without header, copy, speaker, stats or footer.
+  const captionProps: Omit<ChatMessageCardProps, "message"> = { ...props.messageProps, renderFooter: undefined, onSpeakToggle: undefined, getSpeakState: undefined, showCopy: false, variant: captionVariant };
+  return <section className="pc-avatar-conversation" aria-label="Avatar conversation" data-state={state} data-has-request={hasRequest || undefined} data-compact={hasRequest || history || undefined}>
+    <div className="pc-avatar-conversation__presence">
+      <div className="pc-avatar-conversation__scene">{props.avatar}</div>
+      <p className="pc-avatar-conversation__status" role="status">{labels[state]}</p>
+    </div>
+    {attention && attention.kind !== "completion" && !hasRequest ? <p className="pc-avatar-conversation__attention" data-kind={attention.kind}>
+      {attention.kind === "approval" ? "An explicit decision is required. Waiting never grants permission." : attention.importance === "essential" ? "Your answer is required. I will keep waiting." : "Your input is welcome."}
+      {attention.kind === "question" && attention.importance === "clarification" ? <> {attention.deadline && Number.isFinite(Date.parse(attention.deadline)) ? <>Answer by <time dateTime={attention.deadline}>{new Date(attention.deadline).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time>. </> : null}{attention.fallback ? `Without an answer: ${attention.fallback}` : ""}</> : null}
     </p> : null}
     {hasRequest ? <div className="pc-avatar-conversation__request">{props.interaction}</div> : null}
-    {!hasRequest || shown ? <div className="pc-avatar-conversation__captions" tabIndex={0} aria-label="Public subtitles" aria-live={attended ? "off" : "polite"}
-      onPointerDown={(event) => { if (event.pointerType === "touch") { interrupt(); setPaused(true); } }}
-      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      onFocus={() => setFocused(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setFocused(false); }}>
-      <p>{pages[page] || "Public updates and replies will appear here."}</p>
-      {pages.length > 1 ? <div className="pc-avatar-conversation__pages">
-        <button type="button" disabled={page === 0} onClick={() => { interrupt(); setPaused(true); setPage((p) => Math.max(0, p - 1)); }}>Previous subtitle</button>
-        <span>{page + 1} / {pages.length}</span>
-        <button type="button" disabled={page === pages.length - 1} onClick={() => { interrupt(); setPaused(true); setPage((p) => Math.min(pages.length - 1, p + 1)); }}>Next subtitle</button>
-      </div> : null}
-    </div> : null}
-    <div className="pc-avatar-conversation__actions">
-      <button type="button" aria-pressed={paused} onClick={() => { interrupt(); setPaused((v) => !v); }}>{paused ? "Resume subtitles" : "Pause subtitles"}</button>
-      <button type="button" aria-expanded={history} onClick={() => { interrupt(); setHistory((v) => !v); }}>Conversation history</button>
-      {attended ? <button type="button" onClick={follow}>Return to latest</button> : null}
-      {props.voiceControl ? <span onPointerDownCapture={interrupt} onKeyDownCapture={(event) => { if (event.key === "Enter" || event.key === " ") interrupt(); }}>{props.voiceControl}</span> : null}
-      {props.playbackControl}
-    </div>
-    {history ? <ol className="pc-avatar-conversation__history" aria-label="Public conversation history">
+    {history ? <ol className="pc-avatar-conversation__history" aria-label="Public conversation history" tabIndex={0}>
       {messages.map((m, i) => <li key={`${m.runId || ""}:${m.id || i}`}>
         <strong>{m.role === "user" ? "You" : m.kind === "question_outcome" ? "Question status" : m.kind === "public_update" ? "Public update" : "Reply"}</strong>
         <ChatMessageCard {...props.messageProps} message={{ ...m, reasoning: undefined, live: undefined, toolActivity: undefined }} />
         {m.publicUpdate?.sourceCallIds.length ? <details><summary>Sources</summary><ul>{m.publicUpdate.sourceCallIds.map((id) => <li key={id}>{id}</li>)}</ul></details> : null}
-        {m.publicUpdate ? <button type="button" aria-pressed={selected === m} onClick={() => { interrupt(); setSelected(m); setShown(m); setPage(0); props.onReplyContext?.(m); }}>Reply to this</button> : null}
+        {m.publicUpdate ? <button type="button" aria-pressed={selected === m} onClick={() => { interrupt(); setSelected(m); setHistory(false); props.onReplyContext?.(m); }}>Reply to this</button> : null}
       </li>)}
-    </ol> : null}
-    {selected ? <p className="pc-avatar-conversation__reply-context">Replying to the selected exchange. <button type="button" onClick={follow}>Clear reply context</button></p> : null}
+    </ol> : <ol ref={captionList} className="pc-avatar-conversation__captions" aria-label="Public subtitles" aria-live={attended ? "off" : "polite"} tabIndex={0}
+      data-scrolled={scrolled || undefined} onScroll={onCaptionScroll}>
+      {captions.map((caption, i) => <li key={caption.key} data-kind={caption.kind}
+        data-attention={attention?.kind === "completion" && caption.kind === "answer" && i === captions.length - 1 ? "completion" : undefined}>
+        <ChatMessageCard {...captionProps} message={caption.message} />
+      </li>)}
+    </ol>}
+    {selected ? <p className="pc-avatar-conversation__reply-context">Replying to the selected exchange. <button type="button" onClick={clearReply}>Clear reply context</button></p> : null}
     {!hasRequest ? props.interaction : null}
+    <div className="pc-avatar-conversation__actions">
+      <button type="button" aria-expanded={history} onClick={() => { interrupt(); setHistory((v) => !v); }}>Conversation history</button>
+      {props.voiceControl ? <span onPointerDownCapture={interrupt} onKeyDownCapture={(event) => { if (event.key === "Enter" || event.key === " ") interrupt(); }}>{props.voiceControl}</span> : null}
+      {props.playbackControl}
+    </div>
   </section>;
 }

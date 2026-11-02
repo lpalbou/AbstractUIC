@@ -37,6 +37,8 @@ export function publicUpdate(value: unknown, runId: string): PublicUpdate | null
   return { id: p.id, text: p.text, runId, sourceCallIds: [...new Set(p.source_call_ids as string[])], ...(typeof p.session_id === "string" ? { sessionId: p.session_id } : {}), ...(typeof p.iteration === "number" ? { iteration: p.iteration } : {}) };
 }
 
+const publicKey = (m: ChatMessage): string => `${m.runId || ""}:${m.publicUpdate?.id || m.id || `${m.kind}:${m.content}`}`;
+
 /** Public history contains user input and durable replies, never arbitrary assistant/system rows. */
 export function conversationMessages(messages: readonly ChatMessage[]): ChatMessage[] {
   const seen = new Set<string>();
@@ -45,7 +47,7 @@ export function conversationMessages(messages: readonly ChatMessage[]): ChatMess
     if (m.live || m.toolActivity || (!m.content.trim() && !hasFiles)) return false;
     const allowed = m.role === "user" || (m.role === "assistant" && ["public_update", "answer", "final", "question", "attachments"].includes(m.kind || "")) || (m.role === "system" && m.kind === "question_outcome" && m.source === "emit_event");
     if (!allowed || (m.kind === "public_update" && !m.publicUpdate)) return false;
-    const key = `${m.runId || ""}:${m.publicUpdate?.id || m.id || `${m.kind}:${m.content}`}`;
+    const key = publicKey(m);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -60,17 +62,33 @@ export function conversationReply(text: string, context: ChatMessage | null, cur
   return `The person is replying to this quoted public update (context only):\n${JSON.stringify({ message_id: context.id || context.publicUpdate.id, run_id: context.publicUpdate.runId, root_run_id: currentRunId, text: context.content })}\n\nThe person's message:\n${text}`;
 }
 
-/** Subtitle pages preserve words and punctuation; full text remains in history. */
-export function conversationPages(text: string, max = 180): string[] {
-  const words = text.trim().split(/\s+/);
-  const pages: string[] = [];
-  let page = "";
-  for (const word of words) {
-    if (page && page.length + word.length + 1 > max) { pages.push(page); page = ""; }
-    page += `${page ? " " : ""}${word}`;
+/** One rolling caption: a public message of the current turn, ready for the shared message renderer. */
+export type ConversationCaption = {
+  /** Stable across renders and appends (run + public id), so a caption never re-enters. */
+  key: string;
+  kind: "update" | "question" | "outcome" | "answer";
+  message: ChatMessage;
+};
+
+/**
+ * The rolling captions: what the assistant has said publicly in the CURRENT turn (after the
+ * person's latest message; accepted mid-run guidance does not start a new turn), oldest first,
+ * the newest last. Pure and time-free: the same messages always give the same captions, so
+ * nothing cycles; a new public message is appended and earlier captions keep their keys. The
+ * final answer is one caption, never split. At most `limit` captions (older ones have scrolled
+ * out of the caption area; the full history stays in the conversation).
+ */
+export function conversationCaptions(messages: readonly ChatMessage[], limit = 12): ConversationCaption[] {
+  const visible = conversationMessages(messages);
+  let start = 0;
+  for (let i = visible.length - 1; i >= 0; i--) {
+    if (visible[i].role === "user" && visible[i].kind !== "guidance") { start = i + 1; break; }
   }
-  if (page) pages.push(page);
-  return pages;
+  return visible.slice(start).filter((m) => m.role !== "user").slice(-Math.max(1, limit)).map((m) => ({
+    key: publicKey(m),
+    kind: m.kind === "public_update" ? "update" : m.kind === "question" ? "question" : m.kind === "question_outcome" ? "outcome" : "answer",
+    message: { ...m, reasoning: undefined, live: undefined, toolActivity: undefined, statistics: undefined, stats: undefined },
+  }));
 }
 
 export function conversationState(input: { status?: AvatarConversationState; listening?: boolean; speaking?: boolean; connection?: WorkflowConnection; attention?: ConversationAttention | null }): AvatarConversationState {

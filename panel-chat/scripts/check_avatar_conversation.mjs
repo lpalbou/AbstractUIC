@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { AvatarConversation, WorkflowChat, conversationMessages, conversationReply, conversationPages, conversationState, conversationSnapshot, conversationCueStep, conversationNarrationStep, DEFAULT_CONVERSATION_CUES, publicUpdate, projectReplayView, WorkflowSessionController, presentInteraction } from "../dist/index.js";
+import { readFileSync } from "node:fs";
+import { AvatarConversation, WorkflowChat, conversationCaptions, conversationMessages, conversationReply, conversationState, conversationSnapshot, conversationCueStep, conversationNarrationStep, DEFAULT_CONVERSATION_CUES, publicUpdate, projectReplayView, WorkflowSessionController, presentInteraction } from "../dist/index.js";
 
 const body = { id: "brief-1", text: "I found the supported format.", run_id: "run", session_id: "session", iteration: 2, source_call_ids: ["call-1"] };
 const update = publicUpdate(body, "run");
@@ -36,8 +37,41 @@ assert.deepEqual(conversationMessages([
 ]).map(m=>m.content),["No answer arrived. Keeping both options."],"Only canonical host question outcomes enter public history");
 const fileOnly = { id:"files",role:"assistant",kind:"attachments",content:"",artifactRefs:[{id:"output-file",runId:"run",name:"report.csv"}] };
 assert.equal(conversationMessages([fileOnly]).length,1,"A file-only final delivery remains reachable in public history");
-assert(renderToStaticMarkup(React.createElement(AvatarConversation,{sessionKey:"files",avatar:"Avatar",messages:[fileOnly]})).includes("A result file is ready"));
-assert.deepEqual(conversationPages("one two three four", 7), ["one two", "three", "four"]);
+assert(renderToStaticMarkup(React.createElement(AvatarConversation,{sessionKey:"files",avatar:"Avatar",messages:[fileOnly]})).includes("report.csv"),"A file-only answer shows its file in the captions");
+
+// Rolling captions (1097): the current turn's public messages, oldest first, never cycling.
+const pub = (id, text, runId = "run") => ({ id: `public:${id}`, role: "assistant", kind: "public_update", runId, content: text, publicUpdate: { id, text, runId, sourceCallIds: [] } });
+const turn = [
+  { role: "user", content: "First question" }, pub("old", "Earlier turn update"), { id: "f0", role: "assistant", kind: "final", content: "Earlier answer" },
+  { role: "user", content: "Tell me a story" }, pub("a", "I am looking for a good setting."),
+  { id: "g1", role: "user", kind: "guidance", source: "user_guidance", content: "Make it about the ocean" },
+  { role: "assistant", content: "PRIVATE untyped" }, pub("b", "I picked the ocean, as you asked."),
+  { id: "q1", role: "assistant", kind: "question", content: "Should the ship have a name?" },
+  { role: "system", kind: "question_outcome", source: "emit_event", content: "No answer arrived. I chose a name." },
+  { id: "f1", role: "assistant", kind: "final", content: "Once, a ship named **The Tidekeeper** sailed.", reasoning: "PRIVATE reasoning", statistics: { totalTokens: 9 } },
+];
+const captions = conversationCaptions(turn);
+assert.deepEqual(captions.map((c) => c.message.content), ["I am looking for a good setting.", "I picked the ocean, as you asked.", "Should the ship have a name?", "No answer arrived. I chose a name.", "Once, a ship named **The Tidekeeper** sailed."], "current turn only, oldest first, guidance does not start a turn, the person's words are not captions");
+assert.deepEqual(captions.map((c) => c.kind), ["update", "update", "question", "outcome", "answer"]);
+assert.equal(captions.at(-1).message.reasoning, undefined, "private reasoning never reaches a caption");
+assert.equal(captions.at(-1).message.statistics, undefined);
+assert.deepEqual(conversationCaptions(turn), captions, "pure and time-free: the same messages always give the same captions (nothing cycles)");
+const appended = conversationCaptions([...turn.slice(0, 8), pub("c", "Now writing the story."), ...turn.slice(8)]);
+assert.deepEqual(appended.map((c) => c.key).filter((k) => k !== appended[2].key), captions.map((c) => c.key), "a new public message enters without re-keying the others");
+const live = conversationCaptions([...turn.slice(0, 5), pub("next", "Next update")]);
+assert.deepEqual(live.map((c) => c.key), [captions[0].key, "run:next"], "realtime append: the newest caption is last, earlier keys are stable");
+assert.deepEqual(conversationCaptions([...turn, { role: "user", content: "Another one" }]), [], "a new message from the person starts an empty turn");
+const long = "word ".repeat(600).trim();
+assert.deepEqual(conversationCaptions([{ role: "user", content: "Long" }, { id: "long", role: "assistant", kind: "final", content: long }]).map((c) => c.message.content), [long], "the final answer is one caption, never paginated");
+assert.deepEqual(conversationCaptions(Array.from({ length: 20 }, (_, i) => pub(`n${i}`, `Update ${i}`))).map((c) => c.message.content), Array.from({ length: 12 }, (_, i) => `Update ${i + 8}`), "bounded to the most recent captions");
+const captionHtml = renderToStaticMarkup(React.createElement(AvatarConversation, { sessionKey: "story", avatar: "Avatar", attention: { id: "done", kind: "completion" }, messages: [...turn.slice(3), { id: "f2", role: "assistant", kind: "final", content: "### Chapter one\n\nA [map](https://example.org/map) and **bold** words." }] }));
+assert(captionHtml.includes("<strong>bold</strong>") && captionHtml.includes("Chapter one") && !captionHtml.includes("**") && !captionHtml.includes("###"), "captions render through the shared Markdown renderer, never raw syntax");
+assert(captionHtml.includes('href="https://example.org/map"'), "links in captions are real links");
+assert(captionHtml.includes("pc-chat-item--caption") && !captionHtml.includes("Copy message"), "caption density: content only, no card chrome");
+assert(captionHtml.includes('data-attention="completion"') && !captionHtml.includes("conversation history."), "completion is shown on the answer itself, not as a pointer elsewhere");
+for (const removed of ["Previous subtitle", "Next subtitle", "Pause subtitles", "Return to latest", " / "]) assert(!captionHtml.includes(removed), `no pager control: ${removed}`);
+const avatarSource = readFileSync(new URL("../dist/avatar_conversation.js", import.meta.url), "utf8");
+assert(!/setTimeout|setInterval/.test(avatarSource), "the Avatar view schedules nothing: captions change only when messages change");
 assert.equal(conversationReply("My words", null, "run"), "My words");
 assert(conversationReply("My words", m, "run").endsWith("My words"));
 assert.throws(() => conversationReply("My words", m, "other"), /another run/);

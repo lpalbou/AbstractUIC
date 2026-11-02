@@ -109,7 +109,12 @@ on avatar options (or panel `onReviewTechnical`) opens the host’s detailed vie
 answering. No raw reasoning or unrelated latest brève may supply the request’s reason.
 Unknown actions need detailed review; standing grants stay in the technical view.
 Public history accepts validated public updates, user messages and typed answers/finals;
-never feed raw reasoning or private entity traces into a subtitle.
+never feed raw reasoning or private entity traces into a subtitle. Captions are
+`conversationCaptions(messages)`: the current turn's public messages, oldest first, rendered
+through `ChatMessageCard` `variant: "caption"`; they roll in realtime and never cycle. Mount the
+view in a container with a definite height (as `WorkflowChat` does) so its actions stay above
+the composer; tune the caption height with `--pc-avatar-caption-lines`, not by adding controls.
+The view holds no settings: cue preferences belong in the host's settings.
 
 Use `conversationReply` for a selected public update. For composed runs, pass only the
 current server view’s run tree as its optional fourth argument; historical run IDs are excluded. Send the original human
