@@ -9,6 +9,15 @@ ships.
 
 ## Unreleased
 
+## 0.10.0 - 2026-11-03
+
+Packages: `@abstractframework/ui-kit` 0.9.13 (from 0.9.12), `@abstractframework/panel-chat` 0.8.0 (from 0.7.0;
+peer range on ui-kit raised to `^0.9.13`); app-server 0.1.13, monitor-flow, monitor-gpu and monitor-memory 0.1.10
+and monitor-active-memory 0.2.2 unchanged. Who is affected: apps on the kit get eyes-only avatar gaze, name badges
+for providers whose logo is not yet permitted, and the Paused / Archived automation sections; apps on panel-chat
+get the new Avatar view, and code that used its subtitle pager (`conversationPages`, `conversationLabel`) must move
+to `conversationLive` / `conversationFindings` (see Removed below). Upgrade panel-chat and ui-kit together.
+
 ### ui-kit
 
 - **Avatars: only eyes follow the pointer.** `ActivityAvatar` with `followCursor` sends the
@@ -17,8 +26,8 @@ ships.
   150 ms and back to centre after two idle seconds. Orbs, forms and every other design no
   longer respond to the pointer, and no avatar moves, tilts or shifts toward it.
   `AvatarDesign` gains `gaze: "eyes" | "none"`, and `avatarGazeTarget(design, pointer, bounds)`
-  exposes the shared rule. The bundled AbstractAvatar Wasm is refreshed to the generator whose
-  gaze moves only eyes.
+  exposes the shared rule. The bundled AbstractAvatar Wasm is built from the released
+  AbstractAvatar 0.1.1, whose gaze moves only eyes.
 - **`AutomationSummary.section` and `last_activity_at`, `AutomationsPage` counts** (framework ADR
   0048). The automation row type carries the gateway's `section` (`active`, `paused`, `archived`) and
   `last_activity_at`; `listAutomations` returns `AutomationsPage`, a page with

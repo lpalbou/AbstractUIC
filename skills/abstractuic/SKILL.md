@@ -1,10 +1,10 @@
 ---
 name: abstractuic
 description: Integrate AbstractFramework shared React controls, authenticated chat and Docs assistants, and voice settings into browser clients.
-compatibility: Requires @abstractframework/ui-kit 0.9.12 and @abstractframework/panel-chat 0.7.0 or later (their documented exports).
+compatibility: Requires @abstractframework/ui-kit 0.9.13 and @abstractframework/panel-chat 0.8.0 or later (their documented exports).
 metadata:
   package: "@abstractframework/ui-kit"
-  package-version: "0.9.12"
+  package-version: "0.9.13"
 ---
 
 # Use AbstractUIC

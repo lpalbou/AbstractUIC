@@ -21,7 +21,7 @@ Important integration notes:
 - Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
 - Chat input is one rounded multiline `ChatComposer` everywhere (circular accessible Send, composer-owned Attach, `leading`/`actions`/`trailingActions` slots, `submitKey`, `canSubmit`); `variant="legacy"` / `WorkflowChat.composerVariant="legacy"` restores the flat layout.
 - One shared component per user-facing job, composed on AbstractGateway's contracts (ADR 0001): use the job table in `docs/adoption-guide.md` before building anything app-local.
-- `@abstractframework/panel-chat` 0.7.0 needs `@abstractframework/ui-kit` `^0.9.8` (peer dependency); upgrade them together.
+- `@abstractframework/panel-chat` 0.8.0 needs `@abstractframework/ui-kit` `^0.9.13` (peer dependency); upgrade them together.
 - Metrics components poll their supplied endpoints. The connected Docs assistant reads Gateway voice defaults, and user actions use its injected authenticated transport for questions, history, attachments and manual speech.
 - Always import the package CSS from your app entrypoint (especially in Next.js). Start with `docs/getting-started.md` → `docs/api.md`.
 
@@ -72,8 +72,8 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.12): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
-- [@abstractframework/panel-chat](panel-chat/README.md) (0.7.0, needs ui-kit ^0.9.8): the one chat surface WorkflowChat over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
+- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.13): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/panel-chat](panel-chat/README.md) (0.8.0, needs ui-kit ^0.9.13): the one chat surface WorkflowChat, the Avatar view AvatarConversation (one live line + Findings panel; conversationLive, conversationFindings) over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -180,6 +180,17 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
+
+## What's new in 0.10.0
+
+`@abstractframework/panel-chat` 0.8.0 (needs ui-kit `^0.9.13`): the Avatar view (`AvatarConversation`) shows one
+live line, the latest public update of the turn, with **Reply to this** and **Latest**, and a **Findings** panel
+that collects what the assistant reported as findings; the turn's answer appears once, as a message. The subtitle
+pager (`conversationPages`) and the in-view history are removed: use `conversationLive` and `conversationFindings`.
+`@abstractframework/ui-kit` 0.9.13: only eyes follow the pointer on avatars that have them (`avatarGazeTarget`),
+providers whose logo is not yet permitted show their name as a text badge (`BRAND_LOGO_PERMITTED`), and the
+automations list carries the gateway's Active / Paused / Archived sections (`AutomationsPage`)
+([changelog](./CHANGELOG.md#0100---2026-11-03)).
 
 ## What's new in 0.9.0
 
@@ -771,7 +782,7 @@ The kit absorbs proven app components rather than speculating:
 - `npm test` in `ui-kit` runs the full guard chain (build, matrix cores, theme tokens, palette
   seeds parity, About and identity checks, theme contrast, console islands); the publish hook
   runs the same chain.
-- `@abstractframework/panel-chat` 0.7.0 needs `@abstractframework/ui-kit` `^0.9.8` (peer
+- `@abstractframework/panel-chat` 0.8.0 needs `@abstractframework/ui-kit` `^0.9.13` (peer
   dependency): upgrade both together. The two built packages share the session tool-policy
   client types, which the repository's release gate checks.
 - Pages that vendor the [console islands](./console-islands.md) bundle rebuild and re-vendor it
@@ -2516,6 +2527,9 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Structured tooltips (0.9.12): `afTooltipAttributes(content)` returns the attributes for a tooltip given as a string or an `AfTooltipContent` (`title`, `facts`, `sections` of labelled lists, `note`; carried in `AF_TOOLTIP_CONTENT_ATTR`, `data-af-tip-content`); `afTooltipText(content)` is its plain-text, accessible fallback. The tooltip renders as text, never as HTML.
 - Automation attention (0.9.12): `consumedAttentionCursor(summary, consumed)` returns the cursor of the contiguous oldest-first prefix of `summary.attention.items` the viewer actually consumed (a set of cursors), or `null`; only that prefix may advance a shared seen cursor.
 - Cloud provider cards (0.9.12): `cardEditTarget(card, connections)` returns the connection the card's Edit opens: a gateway connection before one from AbstractCore's config, or `null`.
+- Avatar gaze (0.9.13): `AvatarDesign.gaze` (`"eyes"` | `"none"`) and `avatarGazeTarget(design, pointer, bounds)`: with `followCursor`, only a design with eyes follows the pointer, and only its eyes move. See [Activity avatars](./avatars.md).
+- Brand logos (0.9.13): `BRAND_LOGO_PERMITTED` decides which brands show their logo; the others show their name as a text badge in the mark's slot (`BrandMark`, `brandMarkHtml`; `brandIconSvg` returns `""`). See [Icons](./icons.md).
+- Automation sections (0.9.13, ADR 0048): `AutomationSummary.section` (`"active"` | `"paused"` | `"archived"`) and `last_activity_at`; `listAutomations` returns `AutomationsPage` (`paused_automations_count?`, `archived_automations_count?`, `archived_automations?`). All optional: older gateways serve none of them. See [Automations](./automations.md).
 
 See: [`ui-kit/README.md`](../ui-kit/README.md) and the [Adoption guide](./adoption-guide.md).
 
@@ -2589,6 +2603,7 @@ Components:
   `messageStampTitle(ts, locales?)`, `messageStampIso(ts)`, `localDayKey(now?)`, `useLocalDay()`.
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
 - `ChatComposer` (rounded multiline composer; `variant="legacy"` for the flat layout; `leading` / `actions` / `trailingActions` / `overlay` slots, composer-owned Attach via `onAttach`, `submitKey`, `canSubmit`; IME-safe Enter)
+- Avatar view (0.8.0, backlog 1097): `AvatarConversation` (and `WorkflowChat` with `avatarConversation`) shows the avatar, one live line (the latest public update of the turn, with **Reply to this** and **Latest**) and a **Findings** panel. Pure models: `conversationLive(messages, { pinnedRequest? })` → `ConversationLive` (`line`, `answers`, `personKey`), `conversationFindings(messages)` → `ConversationFinding[]`, `conversationReply(text, context, currentRunId, allowedSourceRunIds?)`. `PublicUpdate.kind` is `"progress"` or `"finding"` (absent = progress). Removed in 0.8.0: `conversationPages` and `conversationLabel`. See [`panel-chat/README.md`](../panel-chat/README.md#messages-from-the-replay-view).
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
 - `presentInteraction(wait, controller, { records?, currentRun?, onPermissionsAll?, approveAllScope?, onAllowForSession?, approveAllDisabledReason?, remember?, onDefer?, allowSkip? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (targets via `ToolActivityGroup`, full arguments behind a disclosure; Allow once / Deny, plus "Allow for this chat" only with `onAllowForSession`, "Allow all enabled tools" only with `onPermissionsAll` — its scope sentence names no storage scope unless the host passes `approveAllScope`, e.g. "for this Gateway account" —, "Decide later" only with `onDefer`, a per-tool remember checkbox only with `remember(toolNames)`), question (`ask_user`, choices as buttons and free text; "Continue without answering" with `allowSkip` resumes with an empty answer, "Keep waiting" with `onDefer`) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. The first argument may also be a `ReplayInteraction` (the shape of `replay_view_v1.interaction`) — it produces the same control as the raw wait (`isReplayInteraction()`, `replayInteractionWait()`); a wait that carries the view's `command` (`WorkflowWaitInteraction.command`, `kind`) and is an event is answered with `controller.answerEvent(payload, target)` (the view's resume command), never through an event route. A tool approval with a broad grant carries `broadScopeSummary` (one always-visible line; the full scope sentences go in the "What the broader choices allow" disclosure and the buttons' tooltips; 0.6.1). Types `PresentInteractionOptions`, `InteractionController` (adds optional `answerEvent`), `ReplayInteraction`
 - Replay view (0.6.0, backlog 0040; root 0993, runtime 0854; AbstractGateway >= 0.17.0 `GET runs/{id}/view` + `/view/stream`): `WorkflowTransport.replayView?: ReplayViewTransport` (`{advertised?, getView(runId, {ifNoneMatch?, at?, signal?}) → {notModified, view?, etag, bytes}, streamView(runId, {lastEventId?, signal, onOpen?, onFrame}) → {bytes}, listSessionTurns?(runId, {signal?}) → ReplaySessionTurn[]}`; `listSessionTurns`, 0.6.2: the conversation's turns up to `runId` as the runtime selects them, from a small `history_bundle?include_session=true`; the controller shows every earlier turn's view before the loaded one, finished turns cached per conversation, at most `REPLAY_SESSION_TURN_LIMIT` = 200), built over the host's gateway fetch by `createReplayViewTransport({ fetch(path, init), advertised? })` (`path` relative to the gateway API). With it the controller renders from the view: one `GET /view` + `GET runs/{id}`, then `/view/stream` from the ETag (`Last-Event-ID` = the last applied frame), no history bundle, no ledger pages, no record fold, no timed poll; the root's ledger stream only for live reply text. Snapshot `source: "replay_view" | "ledger_fold"`, `sourceReason` (why not the view: no `replayView` in the transport, `advertised: false`, or the gateway's route-missing 404/405, probed once per transport; any other failure is a load error), `view` (the folded view); `workflowSourceLabel(snapshot)`. Client pieces: `applyDelta(view, delta)` (port of AbstractRuntime 0.15.0 `apply_delta`), `ReplayViewFold` (`adopt(view, etag)`, `apply(frame) → "view"|"delta"|"duplicate"|"stale"|"done"|"ignored"`: a repeated or older frame is not applied), `SseParser`, `parseCursorToken()`, `compareReplayOrder()`, `ReplayViewUnavailableError`, `projectReplayView(view) → {messages, tools, interaction, status, displayStatus, openLlmCalls, endedLlmCalls, runStatus, statistics}`, `replayToolActivities()`, `replayStatistics()`, `toolActivityMessage()`, constants `REPLAY_VIEW_VERSION`, `REPLAY_SCALAR_KEYS`, `REPLAY_LIST_KEYS`; types `ReplayView`, `ReplayViewDelta`, `ReplayViewCursor`, `ReplayViewRun`, `ReplayViewMessage`, `ReplayViewActivity`, `ReplayViewToolCall`, `ReplayViewInteraction`, `ReplayViewTransport`, `ReplayViewFetch`, `ReplayViewRead`, `ReplayViewStreamOptions`, `ReplayViewHttpError`, `ReplayFoldOutcome`, `SseFrame`, `ReplayProjection`, `WorkflowSessionSource`. Checked against the gateway: the 15 conformance cases captured from AbstractGateway 0.17.0 fold to the exact bytes of `GET /view` after every record (`panel-chat/scripts/check_replay_view.mjs`). See the [README](../panel-chat/README.md#replay-view-the-gateways-reconstruction)
@@ -2896,7 +2911,7 @@ flowchart LR
     MEM["@abstractframework/monitor-memory"]
   end
 
-  CHAT -->|"peer dep ^0.9.8<br/>(Icon, AfFileViewer, AfDrawer, drawer-system panels,<br/>session tool-policy client types)"| UIKIT
+  CHAT -->|"peer dep ^0.9.13<br/>(Icon, AfFileViewer, AfDrawer, drawer-system panels,<br/>session tool-policy client types)"| UIKIT
   AMX -->|"peer dep"| ReactFlow["reactflow (peer dependency)"]
   FLOW -->|"peer dep"| React["react / react-dom (peer dependency)"]
   CHAT -->|"peer dep"| React
@@ -2906,7 +2921,7 @@ flowchart LR
 ```
 
 Evidence:
-- panel-chat imports from `@abstractframework/ui-kit` (for example `Icon` in `panel-chat/src/chat_message_card.tsx`, `AfFileViewer` in `panel-chat/src/file_viewer.tsx`, the session tool-policy types in `panel-chat/src/workflow_runtime.ts`), declared as a peer dependency (`^0.9.8`) in `panel-chat/package.json`. Upgrade the two packages together; the repository's release gate (`scripts/check_cross_dist_types.mjs`) checks that the two built packages agree on the shared client types.
+- panel-chat imports from `@abstractframework/ui-kit` (for example `Icon` in `panel-chat/src/chat_message_card.tsx`, `AfFileViewer` in `panel-chat/src/file_viewer.tsx`, the session tool-policy types in `panel-chat/src/workflow_runtime.ts`), declared as a peer dependency (`^0.9.13`) in `panel-chat/package.json`. Upgrade the two packages together; the repository's release gate (`scripts/check_cross_dist_types.mjs`) checks that the two built packages agree on the shared client types.
 - `monitor-active-memory/package.json` declares `reactflow` (and `react` / `react-dom`) as peer dependencies.
 
 ## Design rules: one component per job (ADR 0001)
@@ -4423,7 +4438,7 @@ id source; default `crypto.randomUUID`).
 
 | Method | Route |
 | --- | --- |
-| `listAutomations({status?, cursor?, limit?})` | `GET /api/gateway/automations` |
+| `listAutomations({status?, cursor?, limit?})` → `AutomationsPage` (rows with `section` and `last_activity_at`, plus `paused_automations_count`, `archived_automations_count`) | `GET /api/gateway/automations` |
 | `getAutomation(id)` | `GET /api/gateway/automations/{id}` |
 | `createAutomation(body)` | `POST /api/gateway/automations` |
 | `reviseAutomation(id, {changes, expected_revision?, command_id?})` | `PATCH /api/gateway/automations/{id}` |
@@ -5641,7 +5656,7 @@ the [Adoption guide](../docs/adoption-guide.md)).
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` `^0.9.8` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.7.0 needs ui-kit `^0.9.8` (AbstractUIC 0.9.0 ships ui-kit 0.9.12).
+- `@abstractframework/ui-kit` `^0.9.13` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.8.0 needs ui-kit `^0.9.13` (AbstractUIC 0.10.0 ships ui-kit 0.9.13).
 
 ## Install
 
@@ -7090,7 +7105,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -7115,7 +7130,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.12",
+  "version": "0.9.13",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -7194,7 +7209,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -7243,12 +7258,12 @@ npm test
     "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_message_files_links.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_docs_voice.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && node scripts/check_avatar_conversation.mjs && tsc -p scripts/types/tsconfig.json"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.9.8",
+    "@abstractframework/ui-kit": "^0.9.13",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.9.8",
+    "@abstractframework/ui-kit": "^0.9.13",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -23031,6 +23046,15 @@ ships.
 
 ## Unreleased
 
+## 0.10.0 - 2026-11-03
+
+Packages: `@abstractframework/ui-kit` 0.9.13 (from 0.9.12), `@abstractframework/panel-chat` 0.8.0 (from 0.7.0;
+peer range on ui-kit raised to `^0.9.13`); app-server 0.1.13, monitor-flow, monitor-gpu and monitor-memory 0.1.10
+and monitor-active-memory 0.2.2 unchanged. Who is affected: apps on the kit get eyes-only avatar gaze, name badges
+for providers whose logo is not yet permitted, and the Paused / Archived automation sections; apps on panel-chat
+get the new Avatar view, and code that used its subtitle pager (`conversationPages`, `conversationLabel`) must move
+to `conversationLive` / `conversationFindings` (see Removed below). Upgrade panel-chat and ui-kit together.
+
 ### ui-kit
 
 - **Avatars: only eyes follow the pointer.** `ActivityAvatar` with `followCursor` sends the
@@ -23039,8 +23063,8 @@ ships.
   150 ms and back to centre after two idle seconds. Orbs, forms and every other design no
   longer respond to the pointer, and no avatar moves, tilts or shifts toward it.
   `AvatarDesign` gains `gaze: "eyes" | "none"`, and `avatarGazeTarget(design, pointer, bounds)`
-  exposes the shared rule. The bundled AbstractAvatar Wasm is refreshed to the generator whose
-  gaze moves only eyes.
+  exposes the shared rule. The bundled AbstractAvatar Wasm is built from the released
+  AbstractAvatar 0.1.1, whose gaze moves only eyes.
 - **`AutomationSummary.section` and `last_activity_at`, `AutomationsPage` counts** (framework ADR
   0048). The automation row type carries the gateway's `section` (`active`, `paused`, `archived`) and
   `last_activity_at`; `listAutomations` returns `AutomationsPage`, a page with
@@ -25662,10 +25686,10 @@ SOFTWARE.
 ---
 name: abstractuic
 description: Integrate AbstractFramework shared React controls, authenticated chat and Docs assistants, and voice settings into browser clients.
-compatibility: Requires @abstractframework/ui-kit 0.9.12 and @abstractframework/panel-chat 0.7.0 or later (their documented exports).
+compatibility: Requires @abstractframework/ui-kit 0.9.13 and @abstractframework/panel-chat 0.8.0 or later (their documented exports).
 metadata:
   package: "@abstractframework/ui-kit"
-  package-version: "0.9.12"
+  package-version: "0.9.13"
 ---
 
 # Use AbstractUIC
