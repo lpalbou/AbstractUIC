@@ -149,8 +149,10 @@ try {
     // The person's next message ends a reply to a held line.
     await line.click();
     await page.getByRole("button", { name: "Reply to this", exact: true }).click();
+    await page.locator(".pc-composer textarea").focus();
     await page.evaluate(() => { document.__msgs = [...document.__msgs, { id: "g1", role: "user", kind: "guidance", source: "user_guidance", content: "Make the captain kinder" }]; window.update({ messages: document.__msgs }); });
     await page.waitForFunction(() => !document.querySelector(".pc-avatar-conversation__line[data-open]"));
+    assert.equal(await page.evaluate(() => document.activeElement?.tagName), "TEXTAREA", "sending never takes focus out of the composer");
     assert.equal((await page.evaluate(() => window.events)).at(-1), "reply:none", "the reply context ends when the person sends");
 
     // Nothing cycles: a minute later the line is exactly where it was.

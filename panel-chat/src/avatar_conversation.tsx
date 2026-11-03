@@ -174,16 +174,17 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
   const lineActions = useRef<HTMLDivElement | null>(null);
   const toggle = useRef<HTMLButtonElement | null>(null);
   const closeButton = useRef<HTMLButtonElement | null>(null);
-  // Focus follows the person: into the held line's actions, back to the line on Latest.
-  const wasHeld = useRef(false);
+  // Focus follows the person: into the held line's actions, and back to the line only when they
+  // choose Latest (never when their own message ends the hold: focus stays where they typed).
+  const focusLine = useRef(false);
   useEffect(() => {
     if (held) lineActions.current?.querySelector("button")?.focus();
-    else if (wasHeld.current) (liveArea.current?.querySelector<HTMLElement>(".pc-avatar-conversation__opener") || liveArea.current)?.focus();
-    wasHeld.current = Boolean(held);
+    else if (focusLine.current) (liveArea.current?.querySelector<HTMLElement>(".pc-avatar-conversation__opener") || liveArea.current)?.focus();
+    focusLine.current = false;
   }, [held]);
   const hold = () => { if (!line) return; interrupt(); setHeld(line); };
   const reply = () => { if (!held) return; interrupt(); setReplying(true); props.onReplyContext?.(held); };
-  const latest = () => { setHeld(null); if (replying) { setReplying(false); props.onReplyContext?.(null); } };
+  const latest = () => { focusLine.current = true; setHeld(null); if (replying) { setReplying(false); props.onReplyContext?.(null); } };
   // The sheet takes focus when opened and returns it to Findings when closed.
   useEffect(() => { if (findingsOpen) closeButton.current?.focus(); }, [findingsOpen]);
   const openFindings = () => { interrupt(); setFindingsOpen(true); };
