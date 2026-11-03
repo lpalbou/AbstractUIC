@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "node:fs";
-import { AvatarConversation, WorkflowChat, conversationCaptions, conversationLabel, conversationMessages, conversationReply, conversationState, conversationSnapshot, conversationCueStep, conversationNarrationStep, DEFAULT_CONVERSATION_CUES, publicUpdate, projectReplayView, WorkflowSessionController, presentInteraction } from "../dist/index.js";
+import { AvatarConversation, WorkflowChat, conversationFindings, conversationLive, conversationMessages, conversationReply, conversationState, conversationSnapshot, conversationCueStep, conversationNarrationStep, DEFAULT_CONVERSATION_CUES, publicUpdate, projectReplayView, WorkflowSessionController, presentInteraction } from "../dist/index.js";
 
 const body = { id: "brief-1", text: "I found the supported format.", run_id: "run", session_id: "session", iteration: 2, source_call_ids: ["call-1"] };
 const update = publicUpdate(body, "run");
-assert.deepEqual(update, { id: "brief-1", text: body.text, runId: "run", sessionId: "session", iteration: 2, sourceCallIds: ["call-1"] });
+assert.deepEqual(update, { id: "brief-1", text: body.text, runId: "run", sessionId: "session", iteration: 2, sourceCallIds: ["call-1"], kind: "progress" });
+assert.equal(publicUpdate({ ...body, kind: "finding" }, "run").kind, "finding", "the actor's own type is kept");
+for (const kind of ["progress", "evidence", "Finding", null, ["finding"]]) assert.equal(publicUpdate({ ...body, kind }, "run").kind, "progress", `only an explicit "finding" is a finding: ${JSON.stringify(kind)}`);
 assert.equal(publicUpdate({ ...body, run_id: "other" }, "run"), null);
 assert.equal(publicUpdate({ ...body, source_call_ids: "call-1" }, "run"), null);
 const m = { id: "public:1", role: "assistant", kind: "public_update", runId: "run", content: body.text, publicUpdate: update };
@@ -22,7 +24,7 @@ assert.deepEqual(conversationMessages(messages).map((entry) => entry.content), [
 const html = renderToStaticMarkup(React.createElement(AvatarConversation, { sessionKey: "session", messages, avatar: React.createElement("span", null, "Avatar") }));
 assert(!html.includes("PRIVATE"));
 assert(html.includes("Avatar") && html.includes("The answer is ready."));
-assert(html.includes("Conversation history") && !html.includes("Conversation cues"), "no cue settings inside the avatar view");
+assert(!html.includes("Conversation history") && !html.includes("Conversation cues"), "no history pane and no cue settings inside the avatar view");
 assert.equal((html.match(/type="checkbox"/g) || []).length, 0);
 for (const kind of ["approval", "question", "completion"]) assert(DEFAULT_CONVERSATION_CUES[kind].visual && DEFAULT_CONVERSATION_CUES[kind].audio, `${kind}: both cue channels on by default`);
 const defaultHtml = renderToStaticMarkup(React.createElement(WorkflowChat, { messages: [], draft: "Retained draft", onDraftChange() {}, onSend() {} }));
@@ -37,58 +39,69 @@ assert.deepEqual(conversationMessages([
 ]).map(m=>m.content),["No answer arrived. Keeping both options."],"Only canonical host question outcomes enter public history");
 const fileOnly = { id:"files",role:"assistant",kind:"attachments",content:"",artifactRefs:[{id:"output-file",runId:"run",name:"report.csv"}] };
 assert.equal(conversationMessages([fileOnly]).length,1,"A file-only final delivery remains reachable in public history");
-assert(renderToStaticMarkup(React.createElement(AvatarConversation,{sessionKey:"files",avatar:"Avatar",messages:[fileOnly]})).includes("report.csv"),"A file-only answer shows its file in the captions");
+assert(renderToStaticMarkup(React.createElement(AvatarConversation,{sessionKey:"files",avatar:"Avatar",messages:[fileOnly]})).includes("report.csv"),"A file-only answer shows its file");
 
-// Rolling captions (1097): the current turn's public messages, oldest first, never cycling.
-const pub = (id, text, runId = "run") => ({ id: `public:${id}`, role: "assistant", kind: "public_update", runId, content: text, publicUpdate: { id, text, runId, sourceCallIds: [] } });
+// The live line, the answer and the findings (1097): typed by the actor, never inferred.
+const pub = (id, text, runId = "run", kind = "progress", sourceCallIds = []) => ({ id: `public:${id}`, role: "assistant", kind: "public_update", runId, content: text, publicUpdate: { id, text, runId, sourceCallIds, kind } });
+const tool = (callId, args, runId = "run") => ({ id: `tool:${callId}`, role: "system", kind: "tool_activity", content: "PRIVATE tool row", toolActivity: { id: `${runId}:${callId}`, runId, name: "fetch_url", callId, arguments: args, status: "completed" } });
 const turn = [
-  { role: "user", content: "First question" }, pub("old", "Earlier turn update"), { id: "f0", role: "assistant", kind: "final", content: "Earlier answer" },
+  { role: "user", content: "First question" }, pub("old", "Earlier turn update"), pub("old-f", "The museum opens at 9.", "run", "finding"), { id: "f0", role: "assistant", kind: "final", content: "Earlier answer" },
   { role: "user", content: "Tell me a story" }, pub("a", "I am looking for a good setting."),
   { id: "g1", role: "user", kind: "guidance", source: "user_guidance", content: "Make it about the ocean" },
-  { role: "assistant", content: "PRIVATE untyped" }, pub("b", "I picked the ocean, as you asked."),
+  { role: "assistant", content: "PRIVATE untyped" }, tool("c1", { url: "https://example.org/ships" }), pub("b", "Ships of that era carried a **bell**.", "run", "finding", ["c1", "unknown-call"]),
   { id: "q1", role: "assistant", kind: "question", content: "Should the ship have a name?" },
   { role: "system", kind: "question_outcome", source: "emit_event", content: "No answer arrived. I chose a name." },
-  { id: "f1", role: "assistant", kind: "final", content: "Once, a ship named **The Tidekeeper** sailed.", reasoning: "PRIVATE reasoning", statistics: { totalTokens: 9 } },
 ];
-const captions = conversationCaptions(turn);
-assert.deepEqual(captions.map((c) => c.message.content), ["I am looking for a good setting.", "I picked the ocean, as you asked.", "Should the ship have a name?", "No answer arrived. I chose a name.", "Once, a ship named **The Tidekeeper** sailed."], "current turn only, oldest first, guidance does not start a turn, the person's words are not captions");
-assert.deepEqual(captions.map((c) => c.kind), ["update", "update", "question", "outcome", "answer"]);
-assert.equal(captions.at(-1).message.reasoning, undefined, "private reasoning never reaches a caption");
-assert.equal(captions.at(-1).message.statistics, undefined);
-assert.deepEqual(conversationCaptions(turn), captions, "pure and time-free: the same messages always give the same captions (nothing cycles)");
-const appended = conversationCaptions([...turn.slice(0, 8), pub("c", "Now writing the story."), ...turn.slice(8)]);
-assert.deepEqual(appended.map((c) => c.key).filter((k) => k !== appended[2].key), captions.map((c) => c.key), "a new public message enters without re-keying the others");
-const live = conversationCaptions([...turn.slice(0, 5), pub("next", "Next update")]);
-assert.deepEqual(live.map((c) => c.key), [captions[0].key, "run:next"], "realtime append: the newest caption is last, earlier keys are stable");
-assert.deepEqual(conversationCaptions([...turn, { role: "user", content: "Another one" }]), [], "a new message from the person starts an empty turn");
-const long = "word ".repeat(600).trim();
-assert.deepEqual(conversationCaptions([{ role: "user", content: "Long" }, { id: "long", role: "assistant", kind: "final", content: long }]).map((c) => c.message.content), [long], "the final answer is one caption, never paginated");
-assert.deepEqual(conversationCaptions(Array.from({ length: 40 }, (_, i) => pub(`n${i}`, `Update ${i}`))).map((c) => c.message.content), Array.from({ length: 40 }, (_, i) => `Update ${i}`), "no silent bound: every public message of a long turn stays (the area scrolls)");
-// A pinned question or approval is shown once, above the captions with its controls.
-assert.deepEqual(conversationCaptions(turn, { pinnedRequest: true }).map((c) => c.kind), ["update", "update", "outcome", "answer"], "questions leave the captions while a request is pinned");
+const final = { id: "f1", role: "assistant", kind: "final", content: "Once, a ship named **The Tidekeeper** sailed.", reasoning: "PRIVATE reasoning", statistics: { totalTokens: 9 } };
+let liveNow = conversationLive(turn);
+assert.equal(liveNow.line.content, "No answer arrived. I chose a name.", "the line is the latest public message of the turn");
+assert.deepEqual(liveNow.answers, []);
+assert.equal(conversationLive(turn, { pinnedRequest: true }).line.content, "No answer arrived. I chose a name.");
+assert.equal(conversationLive(turn.slice(0, 11), { pinnedRequest: true }).line.content, "Ships of that era carried a **bell**.", "a pinned question is shown once, above, not as the line");
+assert.equal(conversationLive(turn.slice(0, 11)).line.content, "Should the ship have a name?", "without a pinned request the question is the line");
+assert.deepEqual(conversationLive(turn), liveNow, "pure and time-free");
+assert.equal(conversationLive(turn).line, liveNow.line, "an unchanged message keeps its presented object (memoized cards do not re-render)");
+liveNow = conversationLive([...turn, final]);
+assert.equal(liveNow.line, null, "once the answer arrives after the last update, the line yields to the answer");
+assert.deepEqual(liveNow.answers.map((a) => a.content), [final.content]);
+assert.equal(liveNow.answers[0].reasoning, undefined, "private reasoning never reaches the view");
+assert.equal(liveNow.answers[0].statistics, undefined, "no counters in the view");
+const filesAfter = { id: "files-f1", role: "assistant", kind: "attachments", content: "", artifactRefs: [{ id: "csv", runId: "run", name: "story.csv" }] };
+assert.deepEqual(conversationLive([...turn, final, filesAfter]).answers.map((a) => a.id), ["f1", "files-f1"], "a files row after the answer keeps the answer's text: each is shown once");
+assert.equal(conversationLive([...turn, final]).personKey, conversationLive([turn[0], { id: "restored", role: "assistant", kind: "attachments", content: "", artifactRefs: [{ id: "x", runId: "run", name: "x.csv" }] }, ...turn.slice(1), final]).personKey, "restored rows inserted earlier do not change the person key (a held line stays held)");
+assert.equal(conversationLive([...turn, final, pub("late", "One more check.")]).line.content, "One more check.", "a later update in the same turn is the line again");
+const nextTurn = conversationLive([...turn, final, { role: "user", content: "Another one" }]);
+assert(nextTurn.line === null && nextTurn.answers.length === 0, "a new message from the person starts an empty turn");
+assert.notEqual(nextTurn.personKey, liveNow.personKey);
+assert.notEqual(conversationLive([...turn, { id: "g2", role: "user", kind: "guidance", source: "user_guidance", content: "Shorter" }]).personKey, conversationLive(turn).personKey, "guidance changes the person key (ends a reply) without starting a turn");
+assert.equal(conversationLive([...turn, { id: "g2", role: "user", kind: "guidance", source: "user_guidance", content: "Shorter" }]).line.content, "No answer arrived. I chose a name.");
+const found = conversationFindings([...turn, final]);
+assert.deepEqual(found.map((f) => f.message.content), ["The museum opens at 9.", "Ships of that era carried a **bell**."], "every finding of the conversation, across turns, newest last; progress updates are not findings");
+assert.deepEqual(found[1].sources.map((s) => s.arguments.url), ["https://example.org/ships"], "cited results the conversation holds, in order; an unknown call is left out");
+assert.deepEqual(found[0].sources, []);
+assert.deepEqual(conversationFindings([tool("c1", { url: "https://other.example" }, "other-run"), pub("x", "Fact.", "run", "finding", ["c1"])])[0].sources, [], "a call id is matched within the finding's own run only");
+assert.deepEqual(conversationFindings(turn.filter((m) => m.publicUpdate?.kind !== "finding")), [], "no findings: nothing to show");
+const findingHtml = renderToStaticMarkup(React.createElement(AvatarConversation, { sessionKey: "story", avatar: "Avatar", attention: { id: "done", kind: "completion" }, messages: [...turn, { id: "f2", role: "assistant", kind: "final", content: "### Chapter one\n\nA [map](https://example.org/map) and **bold** words." }] }));
+assert(findingHtml.includes('aria-label="Findings"') && findingHtml.includes("The museum opens at 9.") && findingHtml.includes("<strong>bell</strong>"), "the findings panel renders through the shared renderer");
+assert(!findingHtml.includes("I am looking for a good setting."), "progress updates are not findings and are not the line once answered");
+assert(findingHtml.includes("<strong>bold</strong>") && findingHtml.includes("Chapter one") && !findingHtml.includes("**") && !findingHtml.includes("###"), "the answer renders through the shared Markdown renderer, never raw syntax");
+assert(findingHtml.includes('href="https://example.org/map"'), "links in the answer are real links");
+assert.equal(findingHtml.split("Chapter one").length - 1, 1, "the answer is shown once");
+assert(findingHtml.includes('data-attention="completion"'), "completion is shown on the answer itself");
+assert(!findingHtml.includes("PRIVATE"));
+for (const removed of ["Previous subtitle", "Next subtitle", "Pause subtitles", "Return to latest", "Public subtitles", "Conversation history", "Clear reply context"]) assert(!findingHtml.includes(removed), `removed: ${removed}`);
+assert(!/\b\d+ findings?\b/i.test(findingHtml), "no counters");
+const noFindings = renderToStaticMarkup(React.createElement(AvatarConversation, { sessionKey: "s", avatar: "Avatar", messages: turn.slice(4, 6) }));
+assert(!noFindings.includes("Findings") && noFindings.includes("I am looking for a good setting."), "no findings: no panel and no Findings button; the live line shows the update");
 const asking = [{ role: "user", content: "Lunch?" }, pub("p1", "Fixture is live."), { id: "q-open", role: "assistant", kind: "question", content: "Which restaurant should I keep?" }];
 const pinnedHtml = renderToStaticMarkup(React.createElement(AvatarConversation, { sessionKey: "pinned", avatar: "Avatar", messages: asking, interactionId: "ask:q-open", interaction: React.createElement("div", { className: "request" }, "Which restaurant should I keep?") }));
 assert.equal(pinnedHtml.split("Which restaurant should I keep?").length - 1, 1, "the open question is rendered once");
-assert(!pinnedHtml.includes('data-kind="question"') && pinnedHtml.includes("Fixture is live."), "captions keep the updates, not the pinned question");
-// Captions whose message is unchanged are reused (their card does not re-render on every live delta).
-const first = conversationCaptions(turn);
-const again = conversationCaptions([...turn], {}, first);
-assert(again.every((c, i) => c === first[i]), "unchanged messages reuse their caption objects");
-const edited = turn.map((t) => (t.id === "f1" ? { ...t, content: "A new ending." } : t));
-const afterEdit = conversationCaptions(edited, {}, first);
-assert(afterEdit.at(-1) !== first.at(-1) && afterEdit.at(-1).message.content === "A new ending." && afterEdit[0] === first[0], "a changed message gets a new caption; the others are kept");
-const captionHtml = renderToStaticMarkup(React.createElement(AvatarConversation, { sessionKey: "story", avatar: "Avatar", attention: { id: "done", kind: "completion" }, messages: [...turn.slice(3), { id: "f2", role: "assistant", kind: "final", content: "### Chapter one\n\nA [map](https://example.org/map) and **bold** words." }] }));
-assert(captionHtml.includes("<strong>bold</strong>") && captionHtml.includes("Chapter one") && !captionHtml.includes("**") && !captionHtml.includes("###"), "captions render through the shared Markdown renderer, never raw syntax");
-assert(captionHtml.includes('href="https://example.org/map"'), "links in captions are real links");
-assert(captionHtml.includes("pc-chat-item--caption") && !captionHtml.includes("Copy message"), "caption density: content only, no card chrome");
-assert(captionHtml.includes('data-attention="completion"') && !captionHtml.includes("conversation history."), "completion is shown on the answer itself, not as a pointer elsewhere");
-for (const removed of ["Previous subtitle", "Next subtitle", "Pause subtitles", "Return to latest", " / "]) assert(!captionHtml.includes(removed), `no pager control: ${removed}`);
-assert.deepEqual(turn.filter((t) => conversationMessages([t]).length).map(conversationLabel), ["You", "Update", "Answer", "You", "Update", "You", "Update", "Question", "Question", "Answer"], "plain history labels");
+assert(pinnedHtml.includes("Fixture is live.") && pinnedHtml.indexOf("Which restaurant") < pinnedHtml.indexOf("Fixture is live."), "the request is pinned above the live line");
 const avatarSource = readFileSync(new URL("../dist/avatar_conversation.js", import.meta.url), "utf8");
-assert(!/setTimeout|setInterval/.test(avatarSource), "the Avatar view schedules nothing: captions change only when messages change");
+assert(!/setTimeout|setInterval/.test(avatarSource), "the Avatar view schedules nothing: it changes only when messages change");
 assert.equal(conversationReply("My words", null, "run"), "My words");
 assert(conversationReply("My words", m, "run").endsWith("My words"));
-assert.throws(() => conversationReply("My words", m, "other"), /earlier exchange\. Choose Clear reply context/);
+assert.throws(() => conversationReply("My words", m, "other"), /earlier exchange\. Choose Latest/);
 const childBrief = { ...m, runId: "child", publicUpdate: { ...update, runId: "child" } };
 assert.throws(() => conversationReply("Keep it", childBrief, "run"), /earlier exchange/);
 assert(conversationReply("Keep it", childBrief, "run", ["run", "child"]).includes('"run_id":"child"'), "A child in the authoritative current run tree remains a valid reply referent");
@@ -131,10 +144,17 @@ assert.equal(conversationSnapshot({ ...snapshot, run:{run_id:"run",paused:true} 
 assert.equal(conversationSnapshot({ ...snapshot, historyLoading: true }).replaying, true);
 assert.equal(conversationSnapshot({ ...snapshot, interaction: { ...snapshot.interaction, wait: { reason: "tool_approval" } }, toolApprovalGranted: true }).attention, null);
 
-const view = { version: "replay_view_v1", root_run_id: "run", status: "running", runs: [], messages: [{ id: "brief-1", role: "assistant", kind: "public_update", text: body.text, run_id: "run", source: "emit_event", source_call_ids: body.source_call_ids, iteration: 2 }], activities: [], artifacts: [] };
-const projected = projectReplayView(view).messages[0];
+const view = { version: "replay_view_v1", root_run_id: "run", status: "running", runs: [], messages: [{ id: "brief-1", role: "assistant", kind: "public_update", text: body.text, run_id: "run", source: "emit_event", source_call_ids: body.source_call_ids, iteration: 2 }, { id: "brief-2", role: "assistant", kind: "public_update", update_kind: "finding", text: "A fact.", run_id: "run", source: "emit_event", source_call_ids: [], iteration: 3 }], activities: [], artifacts: [] };
+const projectedAll = projectReplayView(view).messages;
+const projected = projectedAll[0];
 assert.equal(projected.source, "emit_event");
 assert.deepEqual(projected.publicUpdate.sourceCallIds, ["call-1"]);
+assert.deepEqual(projectedAll.map((p) => p.publicUpdate.kind), ["progress", "finding"], "the served view's update_kind is projected unchanged; absent = progress");
+// A served tool row keyed by a runtime call id carries the model's call_id: the id a finding cites.
+const citedView = { ...view, messages: [{ id: "brief-4", role: "assistant", kind: "public_update", update_kind: "finding", text: "Parking is free.", run_id: "run", source: "emit_event", source_call_ids: ["read-1"], iteration: 2 }],
+  activities: [{ id: "run:exec", run_id: "run", kind: "tool", effect_type: "tool_calls", name: "fetch_url", status: "completed", order: ["2026-11-03T00:00:00Z", "run", 1], tool_calls: [{ id: "rtcall_abc_1", call_id: "read-1", name: "fetch_url", arguments: { url: "https://example.org/parking" }, status: "completed" }] }] };
+const cited = conversationFindings(projectReplayView(citedView).messages);
+assert.deepEqual(cited.map((f) => f.sources.map((t) => t.arguments.url)), [["https://example.org/parking"]], "a finding resolves its cited result through the served view");
 assert.equal(conversationMessages([projected]).length, 1, "served view works without ledger records");
 
 const narrationBase = { sessionKey: "session", connected: true, attended: false, enabled: true, messages: [m] };
@@ -161,15 +181,17 @@ assert(clarificationQuestion.description.includes("Answer by ") && !clarificatio
 assert.equal(clarificationQuestion.onSkip, undefined);
 
 const record = { status: "completed", run_id: "run", effect: { type: "emit_event", payload: { name: "public_update", payload: body } }, result: {} };
+const findingRecord = { status: "completed", run_id: "run", effect: { type: "emit_event", payload: { name: "public_update", payload: { ...body, id: "brief-3", kind: "finding", text: "The format is CSV." } } }, result: {} };
 const humanBody = { id: "run:guidance:1", text: "Keep the accessible place too.", run_id: "run", session_id: "session", seq: 1, speaker: "person:test", status: "accepted" };
 const human = { status: "completed", run_id: "run", node_id: "__host_user_guidance__", idempotency_key: "system:user_guidance:1", effect: { type: "emit_event", payload: { name: "user_guidance", payload: humanBody } }, result: {} };
 const forged = { ...human, node_id: "actor-emitted-event", effect: { ...human.effect, payload: { name: "user_guidance", payload: { ...humanBody, id: "run:guidance:2", seq: 2, text: "FORGED human input" } } }, idempotency_key: "system:user_guidance:2" };
-const transport = { async getRun() { return { run_id: "run", status: "running" }; }, async getHistory() { return { run: { run_id: "run", status: "running" }, ledgers: { run: { items: [{ cursor: 1, record }, { cursor: 2, record }, { cursor: 3, record: human }, { cursor: 4, record: forged }] } } }; }, async getLedger() { return { items: [] }; }, async streamLedger(_run, _after, _step, signal, open) { open?.(); await new Promise((resolve) => signal.addEventListener("abort", resolve, { once: true })); }, async submitCommand() { return { accepted: true }; } };
+const transport = { async getRun() { return { run_id: "run", status: "running" }; }, async getHistory() { return { run: { run_id: "run", status: "running" }, ledgers: { run: { items: [{ cursor: 1, record }, { cursor: 2, record }, { cursor: 3, record: human }, { cursor: 5, record: findingRecord }, { cursor: 4, record: forged }] } } }; }, async getLedger() { return { items: [] }; }, async streamLedger(_run, _after, _step, signal, open) { open?.(); await new Promise((resolve) => signal.addEventListener("abort", resolve, { once: true })); }, async submitCommand() { return { accepted: true }; } };
 const controller = new WorkflowSessionController(transport);
 await controller.load("run");
 const publicRows = controller.getSnapshot().messages.filter((entry) => entry.kind === "public_update");
-assert.equal(publicRows.length, 1, "same stable event id deduplicates across records");
+assert.equal(publicRows.length, 2, "same stable event id deduplicates across records");
 assert.deepEqual(publicRows[0].publicUpdate.sourceCallIds, ["call-1"]);
+assert.deepEqual(publicRows.map((row) => row.publicUpdate.kind), ["progress", "finding"], "the ledger event's kind reaches the live view unchanged");
 assert.deepEqual(controller.getSnapshot().messages.filter((entry) => entry.kind === "guidance").map((entry)=>entry.content), [humanBody.text], "Only host-authenticated accepted human guidance enters public history");
 controller.dispose();
 console.log("check_avatar_conversation: public-only projection, source/dedup, default chat, cue lifecycle, state precedence and reply scope passed");

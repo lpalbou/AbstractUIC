@@ -102,7 +102,7 @@ draft and interactions. Omit it for ordinary chat. Use `conversationSnapshot(sna
 for status, attention and replay guards; provide an owner-scoped `sessionKey`, actual
 avatar and existing voice callbacks. `AvatarConversation` also works standalone.
 Provide `interactionId` for a standalone view's actual pending request: the request
-controls take priority with a smaller avatar, ahead of captions and history. Use an
+controls take priority with a smaller avatar, pinned above the live line. Use an
 empty string for no request or a deferred request; omitted `interactionId` treats
 a supplied interaction as active. `WorkflowChat` forwards its actual
 interaction identity automatically.
@@ -113,11 +113,13 @@ on avatar options (or panel `onReviewTechnical`) opens the host’s detailed vie
 answering. No raw reasoning or unrelated latest brève may supply the request’s reason.
 Unknown actions need detailed review; standing grants stay in the technical view.
 Public history accepts validated public updates, user messages and typed answers/finals;
-never feed raw reasoning or private entity traces into a subtitle. Captions are
-`conversationCaptions(messages)`: the current turn's public messages, oldest first, rendered
-through `ChatMessageCard` `variant: "caption"`; they roll in realtime and never cycle. Mount the
+never feed raw reasoning or private entity traces into the view. `conversationLive(messages)`
+gives the ONE live line (the latest public update of the current turn, replaced as new ones
+arrive) and the turn's answer, shown once; `conversationFindings(messages)` gives the
+conversation's findings, newest last, with the results each cited. A finding is only an update
+the actor typed `kind: "finding"` (replay `update_kind`); never infer it from text. Mount the
 view in a container with a definite height (as `WorkflowChat` does) so its actions stay above
-the composer; tune the caption height with `--pc-avatar-caption-lines`, not by adding controls.
+the composer; do not add controls or counters to it.
 The view holds no settings: cue preferences belong in the host's settings.
 
 Use `conversationReply` for a selected public update. For composed runs, pass only the

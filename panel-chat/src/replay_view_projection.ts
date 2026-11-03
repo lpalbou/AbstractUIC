@@ -177,7 +177,7 @@ export function replayToolActivities(
       ...(activity.wait?.kind === "tool_approval" && activity.wait.outcome
         ? { approvalWait: true }
         : {}),
-      ...(str(call.id) ? { callId: str(call.id) } : {}),
+      ...(str(call.call_id) || str(call.id) ? { callId: str(call.call_id) || str(call.id) } : {}),
       ...(policy ? { policy } : {}),
     };
   });
@@ -315,7 +315,7 @@ function messageOf(
     content: m.text,
     runId: m.run_id,
     ...(m.source ? { source: m.source } : {}),
-    ...(m.kind === "public_update" ? { publicUpdate: publicUpdate({ id: m.public_update_id || m.id, text: m.text, run_id: m.run_id, session_id: m.session_id, iteration: m.iteration, source_call_ids: m.source_call_ids }, m.run_id) || undefined } : {}),
+    ...(m.kind === "public_update" ? { publicUpdate: publicUpdate({ id: m.public_update_id || m.id, text: m.text, run_id: m.run_id, session_id: m.session_id, iteration: m.iteration, source_call_ids: m.source_call_ids, kind: m.update_kind }, m.run_id) || undefined } : {}),
     ...(ts ? { ts } : {}),
     ...(m.role === "system"
       ? {

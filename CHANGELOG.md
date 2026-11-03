@@ -35,30 +35,27 @@ ships.
 
 ### panel-chat
 
-- **Avatar view: realtime rolling captions.** The Avatar view (`AvatarConversation`, and
-  `WorkflowChat` with `avatarConversation`) shows what the assistant says publicly in the
-  current turn as a rolling list: the newest caption enters at the bottom, older ones move up,
-  nothing auto-cycles. The area always shows whole lines and fades at an edge where text
-  continues (older captions above, the rest of a long answer below); every caption of the turn
-  is kept. An open question or approval appears once, pinned above the captions. Captions are rendered by the shared message renderer
-  (Markdown, links, media, files); the final answer is one caption, shown from its first line.
-  The view fits above the composer at every width: the avatar scales to the space left and the
-  actions (Conversation history, Talk, read-aloud) keep 44 px targets. 4 caption lines on
-  desktop, 3 on phones, 2 while a question or approval is open (`--pc-avatar-caption-lines`).
-- **Avatar history in plain words.** Entries are labelled You, Update, Question or Answer
-  (`conversationLabel`); raw source call ids are no longer listed there (they stay in the
-  technical view).
-- `conversationReply` refuses a reply to an update from an earlier exchange with: "The update you
-  chose to reply to is from an earlier exchange. Choose Clear reply context, then send your
-  message again."
-- **New:** `conversationCaptions(messages, { pinnedRequest }?, previous?)` (and type
-  `ConversationCaption`), `conversationLabel`, and
+- **Avatar view: one live line and a Findings panel.** The Avatar view (`AvatarConversation`,
+  and `WorkflowChat` with `avatarConversation`) shows the avatar and, under it, ONE live line: the
+  latest public update of the current turn, replaced as soon as a new one arrives, rendered by
+  the shared message renderer (Markdown, links, media, files). Clicking the line holds it open
+  with **Reply to this** and **Latest** (back to following). An open question or approval stays
+  pinned above the line. The turn's answer appears once, as a normal message. A **Findings**
+  panel accumulates what the assistant reported as findings during the conversation, the newest
+  last; each card opens to its full text and the results it cited. It floats beside the avatar
+  on a view at least 720 px wide and is a bottom sheet (Findings / Close) on a narrower one; with
+  no findings there is no panel. Nothing auto-cycles, and the view holds no settings or counters.
+- **Public updates are typed.** `PublicUpdate.kind` is `"progress"` or `"finding"`, as the actor
+  typed it (ledger event `kind`, replay view `update_kind`); an update without it is progress.
+- **New:** `conversationLive(messages, { pinnedRequest }?)` (`{ line, answers, personKey }`),
+  `conversationFindings(messages)`, types `ConversationLive` and `ConversationFinding`, and
   `ChatMessageCard` `variant: "caption"` (content only, no card chrome).
-- **Removed:** `conversationPages` and the subtitle pager controls (Previous / Next subtitle,
-  Pause subtitles, Return to latest). Hovering or focusing the captions no longer freezes them,
-  and `attended` no longer freezes captions (it still silences narration and non-essential
-  cues). A completion is marked on the answer instead of the line "The result is ready in
-  conversation history.". Hosts that re-sync the shared conversation bundle need no code change.
+- **Removed from the Avatar view:** the subtitle pager (`conversationPages`, Previous / Next
+  subtitle, Pause subtitles, Return to latest), the in-view Conversation history and its
+  `conversationLabel`, and Clear reply context (choose **Latest** instead). `conversationReply`
+  refuses a reply to an update from an earlier exchange with: "The update you chose to reply to is
+  from an earlier exchange. Choose Latest, then send your message again." Hosts that re-sync the
+  shared conversation bundle need no code change.
 
 ## 0.9.0 - 2026-11-02
 

@@ -2570,7 +2570,7 @@ Components:
   - `steer?: ChatSteer` (`{ onSteer(text, mode) → Promise<{accepted, seq?, duplicate?}>, modes?: ("guide"|"queue")[], parked? }`): while `busy` the send button reads **Steer** (or **Queue**; with both modes a **Guide this run / Queue next turn** switch), the host posts it (ui-kit `submitSteer`), and the status line says "Queued (seq N). Delivers at the run's next loop boundary." only for an accepted steer (`accepted:false` is shown as a refusal and the draft stays);
   - typed chips `attachmentItems?: ComposerAttachment[]` (`{id, name, size?, state: "queued"|"uploading"|"attached"|"refused"|"failed", thumbnailUrl?, error?}`) with `onRemoveAttachment(id)` / `onRetryAttachment(id)`; Send refuses while a chip is not attached (`unattachedSendBlock`). The `attachments` ReactNode slot stays as the escape hatch. `useAttachmentUploads({ upload, maxBytes?, concurrency?, thumbnail? })` → `{ items, attached, add, remove, retry, clear, sendBlock, announcement }` (AbstractCode's upload queue: refusal over the gateway's `maxAttachmentBytes` before any request, 3 uploads in flight, the gateway's words on a failure, Retry); `ComposerAttachmentChips`; helpers `uploadRefusal()`, `uploadFailure()`, `uploadAnnouncement()`, `runBounded()`, `UPLOAD_CONCURRENCY`;
   - `toolbar?: ChatToolbar` (`{ onNewSession?, onClear?, exportTranscript?: {filename, heading?} | false, copyTranscript? }`): **New chat**, **Clear**, **Copy**, **Export** in the header row, each only when injected (Copy/Export use `chatToMarkdown`);
-  - `messageProps.renderFooter?(m)` (per-message slot under the card) and `messageProps.variant?(m) → "hint" | "caption"` (`"hint"`: a system note as one discreet line; `"caption"`: content only — Markdown, media, files, attachments — for subtitle surfaces such as the Avatar view); `messageProps.onOpenMedia?(item)` (host opener for file media);
+  - `messageProps.renderFooter?(m)` (per-message slot under the card) and `messageProps.variant?(m) → "hint" | "caption"` (`"hint"`: a system note as one discreet line; `"caption"`: content only — Markdown, media, files, attachments — for surfaces such as the Avatar view's live line and findings); `messageProps.onOpenMedia?(item)` (host opener for file media);
   - `onSend(draft, { signal })` and `onCancel(signal)`: Stop aborts the in-flight send's `AbortSignal` and hands it to `onCancel` (a request/response host ties its fetch to it).
   - Types `ChatSteer`, `ChatSteerMode`, `ChatSteerResult`, `ChatToolbar`, `ComposerAttachment`, `ComposerAttachmentState`, `UseAttachmentUploadsOptions`, `AttachmentUploads`, `ComposerAttachmentChipsProps`
 - Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry), the event-name constants `LLM_DELTA_EVENT` / `LLM_DELTA_END_EVENT`; types `LlmDelta`, `LlmDeltaEnd`, `LlmDeltaEvent`, `LlmDeltaChannel`, `LlmDeltaEndReason`, `LlmStreamUnavailableDetail`, `StreamRepliesMode`; controller option `liveRenderIntervalMs` (default 60, also on `useWorkflowSession`). See [panel-chat README](../panel-chat/README.md#live-replies-streaming)
@@ -5868,7 +5868,7 @@ const uploads = useAttachmentUploads({ upload: (file) => gateway.attachmentsUplo
   detail badge); `messageProps.variant(m)` returning `"hint"` renders the message as one discreet
   line (system notes such as "Rejoined the open visit"); returning `"caption"` renders only the
   message's content (Markdown, media, files and attachments, without header, copy, speaker,
-  reasoning, stats or footer), as the Avatar view's captions do.
+  reasoning, stats or footer), as the Avatar view's live line and findings do.
 - **Stop that aborts.** `onSend(draft, { signal })`: Stop aborts that signal and calls
   `onCancel(signal)` with it, so a request/response host stops its fetch (an aborted send is not
   reported as a failure). When no send is in flight (a ledger host), `onCancel` gets a signal
@@ -6100,39 +6100,47 @@ steer/queue, cancellation and interaction callbacks. `AvatarConversation` is als
 standalone with `messages` and an `interaction` slot. Only explicit typed `public_update`,
 answer/final/question messages, explicit host question outcomes and user input enter its public history. It never displays
 tool rows, reasoning, untyped assistant text or unvalidated live deltas. Both replay and
-ledger folding preserve public update identity, run, iteration and `sourceCallIds`.
+ledger folding preserve public update identity, run, iteration, `sourceCallIds` and the
+actor's own type, `kind`: `"finding"` for a fact or piece of evidence it established,
+`"progress"` for what it is doing (event `kind`, replay `update_kind`; an update without it is
+progress). The view uses the type as given and never infers it from the text.
 
 The view is one column that fits its container above the composer: the avatar takes the
-height that is left, then its status, any open question or approval, the captions, and the
-actions (**Conversation history**, the host's `voiceControl` and `playbackControl`; buttons
-are at least 44 px). Nothing in the view sits under the composer or auto-cycles.
+height that is left, then its status, any open question or approval, one live line, the
+answer, and the actions (the host's `voiceControl` and `playbackControl`; buttons are at
+least 44 px). Nothing in the view sits under the composer or auto-cycles.
 
-Captions are a realtime rolling list of what the assistant says publicly in the current
-turn (`conversationCaptions(messages)`: public updates, questions, question outcomes and
-the answer after the person's latest message, oldest first; every one is kept, the area
-scrolls). The newest caption enters at the bottom and older ones move up in a fixed-height
-area that always shows whole lines: 4 on desktop, 3 below 480 px and 2 while a request is
-open (CSS variable `--pc-avatar-caption-lines`). An edge fades whenever text continues past
-it: older captions above, the rest of a long answer below. While a question or approval is
-open it is shown once, pinned above the captions with its controls
-(`conversationCaptions(messages, { pinnedRequest: true })` leaves questions out). Pass the
-previous result as the third argument to reuse unchanged captions; each caption card
-re-renders only when its message changes. Each caption is rendered by `ChatMessageCard` with
-`variant: "caption"`, so Markdown, links, media and files display as in the conversation.
-The final answer is one caption, never split: when it is taller than the area it is shown
-from its first line and the area scrolls to read the rest; the full exchange stays in the
-host's conversation view. A visual completion cue marks the answer itself. Captions change
-only when messages change; reading, hovering or scrolling never pauses anything because
-nothing is scheduled.
+The live line is the latest public update of the current turn (or a question or question
+outcome), replaced as soon as a new one arrives: `conversationLive(messages)` returns
+`{ line, answers, personKey }` for the messages after the person's latest message (accepted
+mid-run guidance does not start a turn). It is rendered by `ChatMessageCard` with
+`variant: "caption"`, so Markdown, links, media and files display as in the conversation,
+three lines at most. Clicking it (a real button covers the closed line, named by its text) holds
+it open in full, moves focus to its actions and offers **Reply to this**
+(public updates only) and **Latest**, which returns to following. `onReplyContext` gives the
+held update; the person's next message (`personKey` changes) ends the reply and the line
+follows again. `conversationReply` quotes a held public update and rejects cross-run guidance
+context. The host still submits replies through its normal execution path. For composed runs,
+pass only the current authoritative run tree as `conversationReply`’s optional fourth
+argument; this permits replying to the actual actor child while refusing historical or
+unrelated runs. While a question or approval is open it is shown once, pinned above the line
+with its controls (`conversationLive(messages, { pinnedRequest: true })` leaves questions out).
+When the answer arrives after the last update, the line gives way to the answer: normal
+messages through the shared renderer (its text, and a files row when there is one), each shown
+once, announced politely, scrolling in place when long, with a visual completion cue on them. Private reasoning and statistics never reach the view.
 
-**Conversation history** shows the public history in place of the captions (with a smaller
-avatar) with full text under plain labels (`conversationLabel`: You, Update, Question,
-Answer); source IDs stay in the technical view. **Reply to this** selects a public update and
-returns to the captions. `onReplyContext` gives the selected public message;
-`conversationReply` quotes a selected public update and rejects cross-run guidance context.
-The host still submits replies through its normal execution path. For composed runs, pass
-only the current authoritative run tree as `conversationReply`’s optional fourth argument;
-this permits replying to the actual actor child while refusing historical or unrelated runs.
+**Findings** accumulate what the actor reported as `kind: "finding"` across the
+conversation's runs, the newest last (`conversationFindings(messages)`). Each is a compact card
+(two lines) that opens to its full text and its sources: the results it cited
+(`sourceCallIds`) that the conversation holds, shown by their `url`, `file_path`, `path` or
+`query` argument (a cited call with none of these is not listed), never by call id, tool name or
+command. On a view at least 720 px wide the panel floats beside
+the avatar; on a narrower view it is a bottom sheet the person opens with **Findings** and
+closes with **Close** or Escape; the sheet takes focus when it opens and gives it back to
+**Findings** when it closes, and it closes by itself when the view becomes wide enough for the
+floating panel. An open finding closes with a click on its text or Escape. With no findings there
+is no panel and no button. The view
+re-renders a card only when its finding changes.
 
 `useAvatarConversationPreferences(ownerScope)` persists chat/avatar mode and independent
 visual/audio preferences for permissions, questions and completion; use an account-scoped
@@ -6142,10 +6150,10 @@ revisions only. Optional `playConversationCue` plays a local earcon and rejects 
 or blocked playback. The host should report those errors. Optional `narrate`/`onNarrate`
 request speech for newly observed public updates through the host's voice stack. Initial
 history, reconnects, reading, recording and session switches never replay queued speech.
-`onInterruptSpeech` runs before reply/voice/history actions and session cleanup.
+`onInterruptSpeech` runs before holding the line, opening the findings, voice and session cleanup.
 Use `playbackControl` for pause/resume/silence actions, separately from `voiceControl`
 which interrupts old speech before capture. `onAttendedChange` lets hosts suppress their
-existing final-answer narration while the person reads the history, selects a reply or
+existing final-answer narration while the person holds the line, reads the findings sheet or
 writes a draft. Fresh question and
 approval cues remain eligible while reading; ordinary narration stays silent.
 Explicit host-authenticated `user_guidance` receipts preserve accepted human corrections
@@ -6153,7 +6161,7 @@ in public history. An accepted receipt does not mean the assistant adopted the c
 component neither records audio nor starts TTS or a network request itself. Listening is
 labeled as unsubmitted input; permission decisions remain the existing explicit controls.
 
-A pending question or approval keeps its actual controls ahead of subtitles and history,
+A pending question or approval keeps its actual controls ahead of the live line,
 with a smaller avatar while the request is open. Standalone `AvatarConversation` hosts
 should pass `interactionId` for that actual request, or `""` when it is absent or deferred.
 Omitting the prop treats a supplied interaction as active. `WorkflowChat`
@@ -6171,8 +6179,8 @@ Standalone hosts use `WorkflowInteractionPanel variant="conversation"` with
 `publicRequest`; `onReviewTechnical` opens their detailed view. The ordinary panel
 retains its full technical presentation and permission choices.
 
-Optional browser checks are `scripts/check_avatar_conversation_browser.mjs` for rolling
-captions, rendering and the view's geometry above the composer (1440 and 400 px, dark and
+Optional browser checks are `scripts/check_avatar_conversation_browser.mjs` for the live
+line, the findings panel and sheet, rendering and the view's geometry above the composer (1440 and 400 px, dark and
 light), `scripts/check_avatar_requests_browser.mjs` for request visibility on desktop/phone and `scripts/check_compact_composer_browser.mjs` for input
 growth, keyboard gates, draft recovery and action slots. They accept an installed
 Playwright module through `PANEL_CHAT_PLAYWRIGHT_MODULE` and an optional browser through
@@ -16522,7 +16530,7 @@ export { TextLinks, textLinks } from "./text_links.js";
 export { messageArtifactRefs, submittedArtifacts, outputArtifacts, type MessageArtifact } from "./message_artifacts.js";
 
 export { AvatarConversation, type AvatarConversationOptions, type AvatarConversationProps } from "./avatar_conversation.js";
-export { DEFAULT_CONVERSATION_CUES, conversationCaptions, conversationLabel, conversationMessages, conversationSnapshot, conversationState, conversationCueStep, publicUpdate, type AvatarConversationState, type ConversationCaption, type ConversationAttention, type ConversationCue, type ConversationCuePreferences, type ConversationCueCursor, type PublicUpdate } from "./conversation_model.js";
+export { DEFAULT_CONVERSATION_CUES, conversationFindings, conversationLive, conversationMessages, conversationSnapshot, conversationState, conversationCueStep, publicUpdate, type AvatarConversationState, type ConversationFinding, type ConversationLive, type ConversationAttention, type ConversationCue, type ConversationCuePreferences, type ConversationCueCursor, type PublicUpdate } from "./conversation_model.js";
 export { useAvatarConversationPreferences, playConversationCue } from "./conversation_preferences.js";
 export { conversationReply } from "./conversation_model.js";
 export { conversationNarrationStep } from "./conversation_model.js";
@@ -17025,7 +17033,7 @@ export type ChatMessageCardProps = {
    * line (no avatar, header or copy): a system note such as "Rejoined the
    * open visit". `"caption"` renders the message's content only (Markdown, media, files and
    * attachments; no header, speaker, copy, reasoning, stats or footer) for subtitle-like
-   * surfaces such as the Avatar view's rolling captions. `undefined` keeps the full card.
+   * surfaces such as the Avatar view's live line and findings. `undefined` keeps the full card.
    */
   variant?: (message: ChatMessage) => "hint" | "caption" | undefined;
   /** Host opener for `media` items of kind `"file"` (e.g. a side drawer).
@@ -17322,6 +17330,8 @@ export type ReplayViewMessage = {
   seqs?: number[];
   source?: string;
   source_call_ids?: string[];
+  /** Public updates: the actor's type, "progress" or "finding". */
+  update_kind?: "progress" | "finding";
   session_id?: string;
   iteration?: number;
   public_update_id?: string;
@@ -17334,6 +17344,8 @@ export type ReplayViewMessage = {
 
 export type ReplayViewToolCall = {
   id?: string;
+  /** The model's own call id, when the row is keyed by a runtime call id (`id`). */
+  call_id?: string;
   name?: string;
   arguments?: unknown;
   status?: string;
@@ -18025,7 +18037,7 @@ export function replayToolActivities(
       ...(activity.wait?.kind === "tool_approval" && activity.wait.outcome
         ? { approvalWait: true }
         : {}),
-      ...(str(call.id) ? { callId: str(call.id) } : {}),
+      ...(str(call.call_id) || str(call.id) ? { callId: str(call.call_id) || str(call.id) } : {}),
       ...(policy ? { policy } : {}),
     };
   });
@@ -18163,7 +18175,7 @@ function messageOf(
     content: m.text,
     runId: m.run_id,
     ...(m.source ? { source: m.source } : {}),
-    ...(m.kind === "public_update" ? { publicUpdate: publicUpdate({ id: m.public_update_id || m.id, text: m.text, run_id: m.run_id, session_id: m.session_id, iteration: m.iteration, source_call_ids: m.source_call_ids }, m.run_id) || undefined } : {}),
+    ...(m.kind === "public_update" ? { publicUpdate: publicUpdate({ id: m.public_update_id || m.id, text: m.text, run_id: m.run_id, session_id: m.session_id, iteration: m.iteration, source_call_ids: m.source_call_ids, kind: m.update_kind }, m.run_id) || undefined } : {}),
     ...(ts ? { ts } : {}),
     ...(m.role === "system"
       ? {
@@ -23045,30 +23057,27 @@ ships.
 
 ### panel-chat
 
-- **Avatar view: realtime rolling captions.** The Avatar view (`AvatarConversation`, and
-  `WorkflowChat` with `avatarConversation`) shows what the assistant says publicly in the
-  current turn as a rolling list: the newest caption enters at the bottom, older ones move up,
-  nothing auto-cycles. The area always shows whole lines and fades at an edge where text
-  continues (older captions above, the rest of a long answer below); every caption of the turn
-  is kept. An open question or approval appears once, pinned above the captions. Captions are rendered by the shared message renderer
-  (Markdown, links, media, files); the final answer is one caption, shown from its first line.
-  The view fits above the composer at every width: the avatar scales to the space left and the
-  actions (Conversation history, Talk, read-aloud) keep 44 px targets. 4 caption lines on
-  desktop, 3 on phones, 2 while a question or approval is open (`--pc-avatar-caption-lines`).
-- **Avatar history in plain words.** Entries are labelled You, Update, Question or Answer
-  (`conversationLabel`); raw source call ids are no longer listed there (they stay in the
-  technical view).
-- `conversationReply` refuses a reply to an update from an earlier exchange with: "The update you
-  chose to reply to is from an earlier exchange. Choose Clear reply context, then send your
-  message again."
-- **New:** `conversationCaptions(messages, { pinnedRequest }?, previous?)` (and type
-  `ConversationCaption`), `conversationLabel`, and
+- **Avatar view: one live line and a Findings panel.** The Avatar view (`AvatarConversation`,
+  and `WorkflowChat` with `avatarConversation`) shows the avatar and, under it, ONE live line: the
+  latest public update of the current turn, replaced as soon as a new one arrives, rendered by
+  the shared message renderer (Markdown, links, media, files). Clicking the line holds it open
+  with **Reply to this** and **Latest** (back to following). An open question or approval stays
+  pinned above the line. The turn's answer appears once, as a normal message. A **Findings**
+  panel accumulates what the assistant reported as findings during the conversation, the newest
+  last; each card opens to its full text and the results it cited. It floats beside the avatar
+  on a view at least 720 px wide and is a bottom sheet (Findings / Close) on a narrower one; with
+  no findings there is no panel. Nothing auto-cycles, and the view holds no settings or counters.
+- **Public updates are typed.** `PublicUpdate.kind` is `"progress"` or `"finding"`, as the actor
+  typed it (ledger event `kind`, replay view `update_kind`); an update without it is progress.
+- **New:** `conversationLive(messages, { pinnedRequest }?)` (`{ line, answers, personKey }`),
+  `conversationFindings(messages)`, types `ConversationLive` and `ConversationFinding`, and
   `ChatMessageCard` `variant: "caption"` (content only, no card chrome).
-- **Removed:** `conversationPages` and the subtitle pager controls (Previous / Next subtitle,
-  Pause subtitles, Return to latest). Hovering or focusing the captions no longer freezes them,
-  and `attended` no longer freezes captions (it still silences narration and non-essential
-  cues). A completion is marked on the answer instead of the line "The result is ready in
-  conversation history.". Hosts that re-sync the shared conversation bundle need no code change.
+- **Removed from the Avatar view:** the subtitle pager (`conversationPages`, Previous / Next
+  subtitle, Pause subtitles, Return to latest), the in-view Conversation history and its
+  `conversationLabel`, and Clear reply context (choose **Latest** instead). `conversationReply`
+  refuses a reply to an update from an earlier exchange with: "The update you chose to reply to is
+  from an earlier exchange. Choose Latest, then send your message again." Hosts that re-sync the
+  shared conversation bundle need no code change.
 
 ## 0.9.0 - 2026-11-02
 
@@ -25754,7 +25763,7 @@ draft and interactions. Omit it for ordinary chat. Use `conversationSnapshot(sna
 for status, attention and replay guards; provide an owner-scoped `sessionKey`, actual
 avatar and existing voice callbacks. `AvatarConversation` also works standalone.
 Provide `interactionId` for a standalone view's actual pending request: the request
-controls take priority with a smaller avatar, ahead of captions and history. Use an
+controls take priority with a smaller avatar, pinned above the live line. Use an
 empty string for no request or a deferred request; omitted `interactionId` treats
 a supplied interaction as active. `WorkflowChat` forwards its actual
 interaction identity automatically.
@@ -25765,11 +25774,13 @@ on avatar options (or panel `onReviewTechnical`) opens the host’s detailed vie
 answering. No raw reasoning or unrelated latest brève may supply the request’s reason.
 Unknown actions need detailed review; standing grants stay in the technical view.
 Public history accepts validated public updates, user messages and typed answers/finals;
-never feed raw reasoning or private entity traces into a subtitle. Captions are
-`conversationCaptions(messages)`: the current turn's public messages, oldest first, rendered
-through `ChatMessageCard` `variant: "caption"`; they roll in realtime and never cycle. Mount the
+never feed raw reasoning or private entity traces into the view. `conversationLive(messages)`
+gives the ONE live line (the latest public update of the current turn, replaced as new ones
+arrive) and the turn's answer, shown once; `conversationFindings(messages)` gives the
+conversation's findings, newest last, with the results each cited. A finding is only an update
+the actor typed `kind: "finding"` (replay `update_kind`); never infer it from text. Mount the
 view in a container with a definite height (as `WorkflowChat` does) so its actions stay above
-the composer; tune the caption height with `--pc-avatar-caption-lines`, not by adding controls.
+the composer; do not add controls or counters to it.
 The view holds no settings: cue preferences belong in the host's settings.
 
 Use `conversationReply` for a selected public update. For composed runs, pass only the
