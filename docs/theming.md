@@ -36,7 +36,7 @@ anything you build with them matches the kit in all 21 themes.
 
 | Group | Tokens | Use for |
 |---|---|---|
-| Backgrounds | `--bg-primary`, `--bg-secondary`, `--bg-tertiary`, `--bg-card` | Page, panel, inset, and card surfaces |
+| Backgrounds | `--bg-primary`, `--bg-secondary`, `--bg-tertiary`, `--bg-card` | Page, panel, inset, and card surfaces. `--bg-card` is translucent in most themes; a layer that floats over content (popover, menu, drawer, dialog, sticky bar) uses `--bg-secondary`, which is solid in every theme |
 | Text | `--text-primary`, `--text-secondary`, `--text-muted` | Body, secondary copy, hints/placeholders |
 | Accent | `--accent`, `--accent-hover` | Primary actions, active states, links to act on |
 | Status | `--error`, `--success`, `--warning`, `--info` (+ `--error-border`, `--error-subtle`, …) | Semantic states only — never decoration |
