@@ -17,6 +17,9 @@
 // Trademarks: every mark belongs to its owner; it identifies the product a card configures and
 // implies no endorsement. MIT/CC0 cover the files' copyright, not the marks, and the marks are NOT
 // covered by this kit's MIT licence (OpenAI's is used under OpenAI's own Marks usage terms).
+//
+// A logo is SHOWN only where BRAND_LOGO_PERMITTED says so (operator ruling 2026-11-02, backlog 1100);
+// every other brand shows its name as a text badge in the same slot.
 
 import React from "react";
 import { Icon, type IconName } from "./icon.js";
@@ -353,6 +356,41 @@ export const BRAND_FALLBACKS: Readonly<Record<string, BrandFallback>> = {
   },
 };
 
+/**
+ * Whether each brand's logo may be shown (operator ruling 2026-11-02, backlog 1100
+ * `docs/backlog/proposed/1100_request_logo_permission_from_providers.md` in AbstractFramework).
+ * `false`: the brand's terms ask for written permission and none is on record, so its card shows
+ * `badge` (the brand's name) as a text badge; the drawing stays in BRAND_ICONS. When an approval
+ * arrives: record its date, scope and sender in the entry's `retrieved`/`restrictions` and its
+ * docs/icons.md row, then set `logoPermitted: true` here. That is the whole switch.
+ */
+export const BRAND_LOGO_PERMITTED: Readonly<Record<string, { logoPermitted: boolean; badge: string }>> = {
+  openai: { logoPermitted: true, badge: "OpenAI" },
+  openrouter: { logoPermitted: true, badge: "OpenRouter" },
+  huggingface: { logoPermitted: true, badge: "Hugging Face" },
+  lmstudio: { logoPermitted: true, badge: "LM Studio" },
+  // The ruling keeps Mistral's logo from its official brand-kit file (https://mistral.ai/brand/). The
+  // shipped drawing is its Hugging Face avatar, and the kit's files (cms.globalaegis.net, linked from
+  // that page) refused this download (Cloudflare 403, 2026-11-03): name until the kit file replaces it.
+  mistral: { logoPermitted: false, badge: "Mistral AI" },
+  // Not part of the 2026-11-02 ruling: unchanged.
+  qwen: { logoPermitted: true, badge: "Qwen" },
+  vllm: { logoPermitted: true, badge: "vLLM" },
+  mlx: { logoPermitted: true, badge: "MLX" },
+  llamacpp: { logoPermitted: true, badge: "llama.cpp" },
+  typesafe: { logoPermitted: true, badge: "TypeSafe" },
+  // Written permission needed, none on record (backlog 1100).
+  anthropic: { logoPermitted: false, badge: "Anthropic" },
+  ovh: { logoPermitted: false, badge: "OVHcloud" },
+  portkey: { logoPermitted: false, badge: "Portkey" },
+  ollama: { logoPermitted: false, badge: "Ollama" },
+  deepseek: { logoPermitted: false, badge: "DeepSeek" },
+  nvidia: { logoPermitted: false, badge: "NVIDIA" },
+  google: { logoPermitted: false, badge: "Google" },
+  meta: { logoPermitted: false, badge: "Meta" },
+  microsoft: { logoPermitted: false, badge: "Microsoft" },
+};
+
 /** The ids the provider cards name: the gateway's engine cards and AbstractCore's cloud providers. */
 export const BRAND_CARD_IDS = {
   engines: ["ollama", "lmstudio", "vllm", "huggingface", "mlx", "llamacpp"],
@@ -368,10 +406,16 @@ export type BrandMarkInfo =
 
 const key = (id: string) => String(id || "").trim().toLowerCase();
 
-/** The mark of `id`: its icon, its documented text badge, or (an id nobody listed) its initials. */
+/** The mark of `id`: its icon (when its logo may be shown), its name or documented text badge, or
+ *  (an id nobody listed) its initials. */
 export function brandMarkInfo(id: string, name?: string): BrandMarkInfo {
   const k = key(id);
-  if (Object.prototype.hasOwnProperty.call(BRAND_ICONS, k)) return { kind: "icon", icon: BRAND_ICONS[k] };
+  if (Object.prototype.hasOwnProperty.call(BRAND_ICONS, k)) {
+    const icon = BRAND_ICONS[k];
+    const permission = BRAND_LOGO_PERMITTED[k];
+    if (permission.logoPermitted) return { kind: "icon", icon };
+    return { kind: "text", fallback: { id: k, name: icon.name, text: permission.badge, terms: icon.terms, reason: "No written permission (or, for Mistral, no official brand-kit file) is on record for this logo (backlog 1100), so its name is shown instead.", retrieved: "2026-11-02" } };
+  }
   if (Object.prototype.hasOwnProperty.call(BRAND_FALLBACKS, k)) {
     const fallback = BRAND_FALLBACKS[k];
     return fallback.glyph ? { kind: "glyph", fallback: fallback as BrandFallback & { glyph: IconName } } : { kind: "text", fallback };

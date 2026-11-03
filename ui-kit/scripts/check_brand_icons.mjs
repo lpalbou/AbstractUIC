@@ -12,7 +12,11 @@
  *  4. every fallback says why there is no logo, with a short readable badge or a kit glyph (a
  *     protocol, not a brand: System One gets the kit's `server` glyph);
  *  5. BrandMark and brandMarkHtml render the mark (svg) or the badge (text), with the brand's name;
- *  6. docs/icons.md lists every brand id with its source and licence.
+ *  6. docs/icons.md lists every brand id with its source and licence;
+ *  7. a logo is shown only where BRAND_LOGO_PERMITTED allows it (operator ruling 2026-11-02, backlog
+ *     1100): every mark has a row, the brands awaiting written permission render their NAME and no
+ *     logo (no svg, no embedded image) through BrandMark, brandMarkHtml and brandIconSvg, at both
+ *     sizes, and docs/icons.md says which.
  */
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -32,14 +36,15 @@ function check(name, cond, detail) {
   failures += 1;
   console.error(`  FAIL ${name}${detail !== undefined ? ` — ${detail}` : ""}`);
 }
-const { BRAND_ICONS, BRAND_FALLBACKS, BRAND_CARD_IDS, BrandMark, brandMarkHtml, brandIconSvg, brandMarkInfo, ICON_NAMES } = kit;
+const { BRAND_ICONS, BRAND_FALLBACKS, BRAND_LOGO_PERMITTED, BRAND_CARD_IDS, BrandMark, brandMarkHtml, brandIconSvg, brandMarkInfo, ICON_NAMES } = kit;
 const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const ids = [...BRAND_CARD_IDS.engines, ...BRAND_CARD_IDS.providers, ...BRAND_CARD_IDS.models];
 
 check("the engines the console cards show", JSON.stringify([...BRAND_CARD_IDS.engines].sort()) === JSON.stringify(["huggingface", "llamacpp", "lmstudio", "mlx", "ollama", "vllm"]), BRAND_CARD_IDS.engines.join(","));
 for (const id of ["openai", "anthropic", "openrouter", "portkey", "typesafe", "systemone", "ovh", "openai-compatible"]) check(`cloud card ${id} is a card id`, BRAND_CARD_IDS.providers.includes(id));
 // Operator 2026-10-29: every brand without a mark says WHY in the brand's own words, with the URL.
-for (const id of ["anthropic", "portkey", "ovh", "typesafe"]) check(`${id}: official artwork replaces the badge`, own(BRAND_ICONS, id) && !own(BRAND_FALLBACKS, id));
+// The official artwork stays recorded (BRAND_ICONS) even where it may not be shown yet (7.).
+for (const id of ["anthropic", "portkey", "ovh", "typesafe"]) check(`${id}: official artwork recorded, no protocol fallback`, own(BRAND_ICONS, id) && !own(BRAND_FALLBACKS, id));
 // Operator 2026-11-01 ("add the missing official brand icons"): TypeSafe's own icon from typesafe.ai
 // with its terms; System One is a protocol, so the kit's neutral server glyph, never initials.
 check("typesafe: TypeSafe's own site icon, with its terms", own(BRAND_ICONS, "typesafe") && BRAND_ICONS.typesafe.origin === "brand" && BRAND_ICONS.typesafe.terms === "https://typesafe.ai/legal/terms" && /NOT covered by this kit's MIT licence/.test(BRAND_ICONS.typesafe.licence) && !!BRAND_ICONS.typesafe.raster);
@@ -102,11 +107,16 @@ for (const [id, f] of Object.entries(BRAND_FALLBACKS)) {
   check(`4 ${id}: terms page when a brand has one`, f.terms === "" || URL_RE.test(f.terms), f.terms);
 }
 // 5.
+const shown = (id) => own(BRAND_ICONS, id) && BRAND_LOGO_PERMITTED[id].logoPermitted;
 for (const id of ids) {
   const html = renderToStaticMarkup(React.createElement(BrandMark, { id }));
   const str = brandMarkHtml(id);
   const name = own(BRAND_ICONS, id) ? BRAND_ICONS[id].name : BRAND_FALLBACKS[id].name;
-  if (own(BRAND_ICONS, id)) {
+  if (own(BRAND_ICONS, id) && !shown(id)) {
+    const badge = BRAND_LOGO_PERMITTED[id].badge;
+    check(`5 ${id}: BrandMark shows the name badge`, html.includes("af-brand-mark--text") && html.includes(`>${badge}<`), html.slice(0, 200));
+    check(`5 ${id}: brandMarkHtml shows the name badge`, str.includes("af-brand-mark--text") && str.includes(`>${badge}<`), str.slice(0, 200));
+  } else if (own(BRAND_ICONS, id)) {
     check(`5 ${id}: BrandMark renders the svg`, /<svg viewBox="/.test(html) && html.includes(`data-brand="${id}"`) && !html.includes("af-brand-mark--text"), html.slice(0, 200));
     check(`5 ${id}: brandMarkHtml = the same mark`, str.includes(brandIconSvg(id)) && str.startsWith('<span class="af-brand-mark"'));
   } else if (BRAND_FALLBACKS[id].glyph) {
@@ -126,6 +136,24 @@ for (const id of BRAND_CARD_IDS.models) {
 }
 // 6.
 for (const [id, m] of Object.entries(BRAND_ICONS)) check(`6 docs/icons.md lists ${id} with its source`, doc.includes(`| \`${id}\` |`) && doc.includes(m.source), id);
+// 7. The ruling, written out here so a flip in the table is a deliberate, reviewed change of this list.
+const AWAITING = ["anthropic", "deepseek", "google", "meta", "microsoft", "mistral", "nvidia", "ollama", "ovh", "portkey"];
+for (const id of ["openai", "openrouter", "huggingface", "lmstudio"]) check(`7 ${id}: its logo is shown (its terms allow it)`, own(BRAND_LOGO_PERMITTED, id) && BRAND_LOGO_PERMITTED[id].logoPermitted === true);
+check("7 exactly the brands awaiting written permission hide their logo", JSON.stringify(Object.keys(BRAND_LOGO_PERMITTED).filter((id) => !BRAND_LOGO_PERMITTED[id].logoPermitted).sort()) === JSON.stringify(AWAITING), Object.keys(BRAND_LOGO_PERMITTED).filter((id) => !BRAND_LOGO_PERMITTED[id].logoPermitted).join(","));
+check("7 every mark has a permission row and every row a mark", JSON.stringify(Object.keys(BRAND_ICONS).sort()) === JSON.stringify(Object.keys(BRAND_LOGO_PERMITTED).sort()));
+for (const [id, p] of Object.entries(BRAND_LOGO_PERMITTED)) {
+  check(`7 ${id}: a boolean and a readable name badge`, typeof p.logoPermitted === "boolean" && typeof p.badge === "string" && /^[A-Za-z][A-Za-z0-9 .]{1,13}$/.test(p.badge), JSON.stringify(p));
+  const row = doc.split("\n").find((l) => l.startsWith(`| \`${id}\` |`)) || "";
+  check(`7 docs/icons.md row of ${id} says ${p.logoPermitted ? "logo" : "name badge"}`, p.logoPermitted ? row.includes("| logo |") : row.includes(`| name badge "${p.badge}" (backlog 1100) |`), row.slice(0, 120));
+}
+for (const id of AWAITING) {
+  for (const size of ["md", "sm"]) {
+    const outs = [renderToStaticMarkup(React.createElement(BrandMark, { id, size })), brandMarkHtml(id, undefined, size)];
+    for (const out of outs) check(`7 ${id} (${size}): no logo drawn, the name instead`, !/<svg|<image|data:image/i.test(out) && out.includes(`>${BRAND_LOGO_PERMITTED[id].badge}<`) && out.includes("af-brand-mark--text"), out.slice(0, 160));
+  }
+  check(`7 ${id}: brandIconSvg gives no logo`, brandIconSvg(id) === "");
+  check(`7 ${id}: brandMarkInfo is the name badge with the reason`, brandMarkInfo(id).kind === "text" && /backlog 1100/.test(brandMarkInfo(id).fallback.reason));
+}
 for (const id of Object.keys(BRAND_FALLBACKS)) check(`6 docs/icons.md lists the ${id} fallback`, doc.includes(`| \`${id}\` |`), id);
 
 if (failures) {

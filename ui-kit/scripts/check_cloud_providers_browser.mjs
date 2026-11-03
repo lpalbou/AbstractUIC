@@ -108,7 +108,9 @@ try {
     ok((await card("openai").locator("button").textContent()) === "Edit" && (await card("anthropic").locator("button").textContent()) === "Connect", `${tag}: Edit when connected, Connect otherwise`);
     ok(await card("typesafe").locator(".af-brand-mark svg image").count() === 1, `${tag}: TypeSafe's own icon`);
     ok(await card("systemone").locator(".af-brand-mark--glyph svg rect").count() === 2, `${tag}: System One's server glyph`);
-    ok(await page.locator(".af-brand-mark--text").count() === 1, `${tag}: only the generic card keeps a text badge (API)`);
+    // Backlog 1100: Anthropic, Portkey and OVHcloud show their names until written permission; the generic card says API.
+    ok(JSON.stringify(await page.locator(".af-brand-mark--text").allTextContents()) === JSON.stringify(["Anthropic", "Portkey", "OVHcloud", "API"]), `${tag}: name badges for the brands awaiting permission, API for the generic card`);
+    ok(await page.locator('.af-brand-mark[data-brand="anthropic"] svg, .af-brand-mark[data-brand="portkey"] svg, .af-brand-mark[data-brand="ovh"] svg').count() === 0, `${tag}: no logo for the brands awaiting permission`);
     const dot = await card("openai").locator(".af-cloud-card__dot").evaluate((n) => getComputedStyle(n).backgroundColor);
     ok(/rgb\(/.test(dot) && dot !== "rgba(0, 0, 0, 0)", `${tag}: the dot is coloured (${dot})`);
     if (phone) {
