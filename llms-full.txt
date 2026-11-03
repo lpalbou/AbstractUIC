@@ -21,7 +21,7 @@ Important integration notes:
 - Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
 - Chat input is one rounded multiline `ChatComposer` everywhere (circular accessible Send, composer-owned Attach, `leading`/`actions`/`trailingActions` slots, `submitKey`, `canSubmit`); `variant="legacy"` / `WorkflowChat.composerVariant="legacy"` restores the flat layout.
 - One shared component per user-facing job, composed on AbstractGateway's contracts (ADR 0001): use the job table in `docs/adoption-guide.md` before building anything app-local.
-- `@abstractframework/panel-chat` 0.8.0 needs `@abstractframework/ui-kit` `^0.9.13` (peer dependency); upgrade them together.
+- `@abstractframework/panel-chat` 0.8.1 needs `@abstractframework/ui-kit` `^0.9.13` (peer dependency); upgrade them together.
 - Metrics components poll their supplied endpoints. The connected Docs assistant reads Gateway voice defaults, and user actions use its injected authenticated transport for questions, history, attachments and manual speech.
 - Always import the package CSS from your app entrypoint (especially in Next.js). Start with `docs/getting-started.md` → `docs/api.md`.
 
@@ -72,8 +72,8 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.13): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
-- [@abstractframework/panel-chat](panel-chat/README.md) (0.8.0, needs ui-kit ^0.9.13): the one chat surface WorkflowChat, the Avatar view AvatarConversation (one live line + Findings panel; conversationLive, conversationFindings) over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
+- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.14): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/panel-chat](panel-chat/README.md) (0.8.1, needs ui-kit ^0.9.13): the one chat surface WorkflowChat, the Avatar view AvatarConversation (one live line + Findings panel; conversationLive, conversationFindings) over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (one wording set: Deny / Allow once / Allow for this chat / Allow all enabled tools; Decide later; card variant), a chat's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated, labeled local fallback; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -180,6 +180,12 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
+
+## What's new in 0.10.1
+
+`@abstractframework/ui-kit` 0.9.14: the select picker's list, drawers, sheets and dialogs are opaque in every
+theme. `@abstractframework/panel-chat` 0.8.1: in the Avatar view an open question or approval stays fully on
+screen with its buttons at every window size ([changelog](./CHANGELOG.md#0101---2026-11-03)).
 
 ## What's new in 0.10.0
 
@@ -782,7 +788,7 @@ The kit absorbs proven app components rather than speculating:
 - `npm test` in `ui-kit` runs the full guard chain (build, matrix cores, theme tokens, palette
   seeds parity, About and identity checks, theme contrast, console islands); the publish hook
   runs the same chain.
-- `@abstractframework/panel-chat` 0.8.0 needs `@abstractframework/ui-kit` `^0.9.13` (peer
+- `@abstractframework/panel-chat` 0.8.1 needs `@abstractframework/ui-kit` `^0.9.13` (peer
   dependency): upgrade both together. The two built packages share the session tool-policy
   client types, which the repository's release gate checks.
 - Pages that vendor the [console islands](./console-islands.md) bundle rebuild and re-vendor it
@@ -1078,7 +1084,7 @@ anything you build with them matches the kit in all 21 themes.
 
 | Group | Tokens | Use for |
 |---|---|---|
-| Backgrounds | `--bg-primary`, `--bg-secondary`, `--bg-tertiary`, `--bg-card` | Page, panel, inset, and card surfaces |
+| Backgrounds | `--bg-primary`, `--bg-secondary`, `--bg-tertiary`, `--bg-card` | Page, panel, inset, and card surfaces. `--bg-card` is translucent in most themes; a layer that floats over content (popover, menu, drawer, dialog, sticky bar) uses `--bg-secondary`, which is solid in every theme |
 | Text | `--text-primary`, `--text-secondary`, `--text-muted` | Body, secondary copy, hints/placeholders |
 | Accent | `--accent`, `--accent-hover` | Primary actions, active states, links to act on |
 | Status | `--error`, `--success`, `--warning`, `--info` (+ `--error-border`, `--error-subtle`, …) | Semantic states only — never decoration |
@@ -5656,7 +5662,7 @@ the [Adoption guide](../docs/adoption-guide.md)).
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` `^0.9.13` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.8.0 needs ui-kit `^0.9.13` (AbstractUIC 0.10.0 ships ui-kit 0.9.13).
+- `@abstractframework/ui-kit` `^0.9.13` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.8.1 needs ui-kit `^0.9.13` (AbstractUIC 0.10.1 ships ui-kit 0.9.14).
 
 ## Install
 
@@ -6123,7 +6129,11 @@ progress). The view uses the type as given and never infers it from the text.
 The view is one column that fits its container above the composer: the avatar takes the
 height that is left, then its status, any open question or approval, one live line, the
 answer, and the actions (the host's `voiceControl` and `playbackControl`; buttons are at
-least 44 px). Nothing in the view sits under the composer or auto-cycles.
+least 44 px). Nothing in the view sits under the composer or auto-cycles. An open question or
+approval keeps its full height, pinned at the top of the view, and what follows it (live line,
+answer, actions) scrolls when the view is short; it is never taller than the view, so on a very
+short view its context (why, targets, details) scrolls inside it while its heading and buttons
+stay on screen.
 
 The live line is the latest public update of the current turn (or a question or question
 outcome), replaced as soon as a new one arrives: `conversationLive(messages)` returns
@@ -7105,7 +7115,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -7130,7 +7140,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.13",
+  "version": "0.9.14",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -7178,7 +7188,7 @@ npm test
   "scripts": {
     "build": "tsc && node scripts/copy_avatar_wasm.mjs",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_playback_level.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_tool_call_words.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_filter_bar.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_session_cards.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_top_bar_set.mjs && node scripts/check_session_tool_policy.mjs && node scripts/check_brand_icons.mjs && node scripts/check_cloud_providers.mjs && node scripts/check_avatar.mjs && node scripts/check_avatar_quality.mjs && node scripts/check_apple_avatars.mjs && node scripts/check_avatar_audio.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/check_opaque_surfaces.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_playback_level.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_tool_call_words.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_filter_bar.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_session_cards.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_top_bar_set.mjs && node scripts/check_session_tool_policy.mjs && node scripts/check_brand_icons.mjs && node scripts/check_cloud_providers.mjs && node scripts/check_avatar.mjs && node scripts/check_avatar_quality.mjs && node scripts/check_apple_avatars.mjs && node scripts/check_avatar_audio.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation",
     "demo:avatars:build": "node scripts/build_avatar_gallery.mjs",
@@ -7209,7 +7219,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -23046,6 +23056,32 @@ ships.
 
 ## Unreleased
 
+## 0.10.1 - 2026-11-03
+
+Packages: `@abstractframework/ui-kit` 0.9.14 (from 0.9.13), `@abstractframework/panel-chat` 0.8.1 (from 0.8.0;
+peer range on ui-kit unchanged at `^0.9.13`); the other packages unchanged. Who is affected: every app that uses
+the kit's select picker, menus, drawers or dialogs, and every app that shows the Avatar view. Apps that vendor
+panel-chat's conversation bundle re-sync it.
+
+### ui-kit
+
+- **Pickers, drawers and dialogs are opaque.** The select picker's list (`AfSelect`), the critical-action and
+  appearance dialogs, app sheets (`.af-sheet`), the side drawer, an overlay drawer-system panel and the schedule
+  dialog's sticky action bar were painted with `--bg-card`, which is translucent in most themes, so the content
+  underneath showed through (the field's text between the search box and the first option). They now use
+  `--bg-secondary`, solid in every theme, like the menu, the workflow picker and the modal already did.
+  `check_opaque_surfaces.mjs` (in `npm test`) keeps every floating layer on it.
+
+### panel-chat
+
+- **An open question or approval stays fully on screen in the Avatar view.** In 0.8.0 the request region shrank
+  to the space left by the avatar row and the actions and scrolled inside itself, so on a laptop-height app
+  (1000×650 under the host's bars) the heading showed and **Allow once** sat below a clip with no visible way to
+  reach it. The region now keeps its full height, pinned at the top of the view; what follows it scrolls when
+  the view is short, and it is never taller than the view: on a very short view (400×700 under the host's bars)
+  its context (why, targets) scrolls inside it while the heading and the buttons stay visible.
+  `check_avatar_requests_browser.mjs` adds host-chrome viewports at 1000×650, 400×700 and 1440×960.
+
 ## 0.10.0 - 2026-11-03
 
 Packages: `@abstractframework/ui-kit` 0.9.13 (from 0.9.12), `@abstractframework/panel-chat` 0.8.0 (from 0.7.0;
@@ -25686,10 +25722,10 @@ SOFTWARE.
 ---
 name: abstractuic
 description: Integrate AbstractFramework shared React controls, authenticated chat and Docs assistants, and voice settings into browser clients.
-compatibility: Requires @abstractframework/ui-kit 0.9.13 and @abstractframework/panel-chat 0.8.0 or later (their documented exports).
+compatibility: Requires @abstractframework/ui-kit 0.9.14 and @abstractframework/panel-chat 0.8.1 or later (their documented exports).
 metadata:
   package: "@abstractframework/ui-kit"
-  package-version: "0.9.13"
+  package-version: "0.9.14"
 ---
 
 # Use AbstractUIC

@@ -11,6 +11,12 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
 
+## What's new in 0.10.1
+
+`@abstractframework/ui-kit` 0.9.14: the select picker's list, drawers, sheets and dialogs are opaque in every
+theme. `@abstractframework/panel-chat` 0.8.1: in the Avatar view an open question or approval stays fully on
+screen with its buttons at every window size ([changelog](./CHANGELOG.md#0101---2026-11-03)).
+
 ## What's new in 0.10.0
 
 `@abstractframework/panel-chat` 0.8.0 (needs ui-kit `^0.9.13`): the Avatar view (`AvatarConversation`) shows one

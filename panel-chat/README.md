@@ -14,7 +14,7 @@ the [Adoption guide](../docs/adoption-guide.md)).
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` `^0.9.13` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.8.0 needs ui-kit `^0.9.13` (AbstractUIC 0.10.0 ships ui-kit 0.9.13).
+- `@abstractframework/ui-kit` `^0.9.13` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.8.1 needs ui-kit `^0.9.13` (AbstractUIC 0.10.1 ships ui-kit 0.9.14).
 
 ## Install
 
@@ -481,7 +481,11 @@ progress). The view uses the type as given and never infers it from the text.
 The view is one column that fits its container above the composer: the avatar takes the
 height that is left, then its status, any open question or approval, one live line, the
 answer, and the actions (the host's `voiceControl` and `playbackControl`; buttons are at
-least 44 px). Nothing in the view sits under the composer or auto-cycles.
+least 44 px). Nothing in the view sits under the composer or auto-cycles. An open question or
+approval keeps its full height, pinned at the top of the view, and what follows it (live line,
+answer, actions) scrolls when the view is short; it is never taller than the view, so on a very
+short view its context (why, targets, details) scrolls inside it while its heading and buttons
+stay on screen.
 
 The live line is the latest public update of the current turn (or a question or question
 outcome), replaced as soon as a new one arrives: `conversationLive(messages)` returns

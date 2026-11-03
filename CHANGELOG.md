@@ -9,6 +9,32 @@ ships.
 
 ## Unreleased
 
+## 0.10.1 - 2026-11-03
+
+Packages: `@abstractframework/ui-kit` 0.9.14 (from 0.9.13), `@abstractframework/panel-chat` 0.8.1 (from 0.8.0;
+peer range on ui-kit unchanged at `^0.9.13`); the other packages unchanged. Who is affected: every app that uses
+the kit's select picker, menus, drawers or dialogs, and every app that shows the Avatar view. Apps that vendor
+panel-chat's conversation bundle re-sync it.
+
+### ui-kit
+
+- **Pickers, drawers and dialogs are opaque.** The select picker's list (`AfSelect`), the critical-action and
+  appearance dialogs, app sheets (`.af-sheet`), the side drawer, an overlay drawer-system panel and the schedule
+  dialog's sticky action bar were painted with `--bg-card`, which is translucent in most themes, so the content
+  underneath showed through (the field's text between the search box and the first option). They now use
+  `--bg-secondary`, solid in every theme, like the menu, the workflow picker and the modal already did.
+  `check_opaque_surfaces.mjs` (in `npm test`) keeps every floating layer on it.
+
+### panel-chat
+
+- **An open question or approval stays fully on screen in the Avatar view.** In 0.8.0 the request region shrank
+  to the space left by the avatar row and the actions and scrolled inside itself, so on a laptop-height app
+  (1000×650 under the host's bars) the heading showed and **Allow once** sat below a clip with no visible way to
+  reach it. The region now keeps its full height, pinned at the top of the view; what follows it scrolls when
+  the view is short, and it is never taller than the view: on a very short view (400×700 under the host's bars)
+  its context (why, targets) scrolls inside it while the heading and the buttons stay visible.
+  `check_avatar_requests_browser.mjs` adds host-chrome viewports at 1000×650, 400×700 and 1440×960.
+
 ## 0.10.0 - 2026-11-03
 
 Packages: `@abstractframework/ui-kit` 0.9.13 (from 0.9.12), `@abstractframework/panel-chat` 0.8.0 (from 0.7.0;

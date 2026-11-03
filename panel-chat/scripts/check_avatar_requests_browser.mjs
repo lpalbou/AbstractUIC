@@ -48,13 +48,21 @@ try {
   for (const raw of ['read_file','fetch_url','execute_command','SECRET_JSON','SECRET_COMMAND','"arguments"','"call_id"','Allow for this chat','Allow all enabled tools']) assert(!text.includes(raw), `Public request leaked ${raw}`);
   for (const label of ['Deny','Allow once']) { const button = page.getByRole('button',{name:label,exact:true}); if(await button.count()) assert.equal(await button.locator('svg').count(),1,`${label} has labeled iconography`); }
  };
- for (const viewport of [{width:1280,height:800},{width:1000,height:650},{width:390,height:844}]) {
-  await page.setViewportSize(viewport); await page.goto('http://127.0.0.1:'+server.address().port);
+ // `chrome`: the host's own bars above the chat (AbstractCode web spends ~230px on its header, run
+ // bar and actions row), so the Avatar view gets ~300px at 1000x650: the size where 0.8.0 clipped
+ // the approval under the composer.
+ for (const viewport of [{width:1280,height:800},{width:1000,height:650},{width:390,height:844},{width:1000,height:650,chrome:230},{width:400,height:700,chrome:230,tight:true},{width:1440,height:960,chrome:230}]) {
+  await page.setViewportSize({width:viewport.width,height:viewport.height}); await page.goto('http://127.0.0.1:'+server.address().port);
+  if (viewport.chrome) await page.evaluate((h)=>{document.getElementById('root').style.cssText='height:calc(100% - '+h+'px);margin-top:'+h+'px';},viewport.chrome);
   const allow = page.getByRole('button',{name:'Allow once',exact:true}); await allow.waitFor();
   await page.getByRole('heading',{name:'May I read these 2 webpages?',exact:true}).waitFor(); await checkPublic();
-  for (const locator of [page.locator('.pc-workflow-interaction__prompt'),page.getByText(WHY,{exact:true}),...URLS.map(url=>page.getByText(url,{exact:true})),allow,page.getByRole('button',{name:'Deny',exact:true}),page.getByRole('button',{name:'Review details',exact:true})]) assert(await visible(locator),`Two-page why/targets/actions clipped at ${viewport.width}x${viewport.height}: ${await locator.textContent()}`);
+  if(process.env.AVATAR_REQUEST_SHOTS){mkdirSync(process.env.AVATAR_REQUEST_SHOTS,{recursive:true});await page.screenshot({path:process.env.AVATAR_REQUEST_SHOTS+'/approval-pages-'+viewport.width+'x'+viewport.height+(viewport.chrome?'-chrome':'')+'.png'});}
+  // Too short for the whole card (400x700 under host chrome): the heading, the why and every button
+  // stay on screen and the targets scroll inside their bounded context, never the card itself.
+  const reachable = viewport.tight ? URLS.slice(0, 1) : URLS;
+  if (viewport.tight) { const last = page.getByText(URLS.at(-1),{exact:true}); await last.scrollIntoViewIfNeeded(); assert(await visible(last),`Last target unreachable at ${viewport.width}x${viewport.height}`); for (const b of ['Deny','Allow once','Review details']) assert(await visible(page.getByRole('button',{name:b,exact:true})),`${b} scrolled away with the targets at ${viewport.width}x${viewport.height}`); assert(await visible(page.locator('.pc-workflow-interaction__prompt')),'Heading scrolled away with the targets'); await page.locator('.pc-avatar-conversation__request .pc-public-approval__context').evaluate(el => { el.scrollTop = 0; }); }
+  for (const locator of [page.locator('.pc-workflow-interaction__prompt'),page.getByText(WHY,{exact:true}),...reachable.map(url=>page.getByText(url,{exact:true})),allow,page.getByRole('button',{name:'Deny',exact:true}),page.getByRole('button',{name:'Review details',exact:true})]) assert(await visible(locator),`Two-page why/targets/actions clipped at ${viewport.width}x${viewport.height}${viewport.chrome?' under '+viewport.chrome+'px of host chrome':''}: ${await locator.textContent()}`);
   assert.equal((await page.evaluate(()=>window.events)).length,0,'Rendering never grants permission');
-  if(process.env.AVATAR_REQUEST_SHOTS){mkdirSync(process.env.AVATAR_REQUEST_SHOTS,{recursive:true});await page.screenshot({path:process.env.AVATAR_REQUEST_SHOTS+'/approval-pages-'+viewport.width+'.png'});}
   await allow.click(); assert.deepEqual((await page.evaluate(()=>window.events)).map(e=>e.slice(0,2)),[['approve',true]]);
   await page.evaluate(()=>window.mode('six')); await page.getByRole('heading',{name:'May I read these 6 files?',exact:true}).waitFor(); await checkPublic();
   assert(await visible(page.getByText('I want to compare these six notes before choosing a summary.',{exact:true})));
