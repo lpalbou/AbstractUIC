@@ -77,7 +77,11 @@ try{
  if(process.env.AVATAR_CAPTURE_DIR)await page.screenshot({path:path.join(process.env.AVATAR_CAPTURE_DIR,'web-light.png'),fullPage:true});
  await page.emulateMedia({reducedMotion:'no-preference'});await page.waitForTimeout(100);
  await page.locator('canvas').evaluateAll(nodes=>nodes.forEach(c=>c.dispatchEvent(new Event('contextlost',{cancelable:true}))));const lost=await count();await page.waitForTimeout(300);assert.equal(await count(),lost,'lost contexts retain no clock');
- await page.locator('canvas').evaluateAll(nodes=>nodes.forEach(c=>c.dispatchEvent(new Event('contextrestored'))));assert((await frames(600))>0,'restored contexts render again');
+ // A restored context is redrawn AT ONCE (inside the event), every canvas; then the clock resumes.
+ // Counted inside the same evaluate: a count read after the event would miss the redraw and depend on the cadence's phase.
+ const redrawn=await page.locator('canvas').evaluateAll(nodes=>nodes.map(c=>{const before=window.canvasFrames.get(c)??0;c.dispatchEvent(new Event('contextrestored'));return (window.canvasFrames.get(c)??0)-before;}));
+ assert(redrawn.every(n=>n===1),`restored contexts render again at once ${redrawn}`);
+ const resumed=await count();await page.waitForFunction(n=>window.avatarFrameCount>n,resumed,{timeout:3000});
  for(let i=0;i<5;i++){await page.getByRole('button',{name:'Hide avatars'}).click();assert.equal(await page.locator('canvas').count(),0);await page.getByRole('button',{name:'Show avatars'}).click();await ready();}
  await page.getByRole('button',{name:'Hide avatars'}).click();assert.equal(await frames(300),0,'unmounted avatars retain no clock');
  await page.getByRole('button',{name:'Show avatars'}).click();await ready();
