@@ -11,6 +11,17 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
 
+## What's new in 0.10.0
+
+`@abstractframework/panel-chat` 0.8.0 (needs ui-kit `^0.9.13`): the Avatar view (`AvatarConversation`) shows one
+live line, the latest public update of the turn, with **Reply to this** and **Latest**, and a **Findings** panel
+that collects what the assistant reported as findings; the turn's answer appears once, as a message. The subtitle
+pager (`conversationPages`) and the in-view history are removed: use `conversationLive` and `conversationFindings`.
+`@abstractframework/ui-kit` 0.9.13: only eyes follow the pointer on avatars that have them (`avatarGazeTarget`),
+providers whose logo is not yet permitted show their name as a text badge (`BRAND_LOGO_PERMITTED`), and the
+automations list carries the gateway's Active / Paused / Archived sections (`AutomationsPage`)
+([changelog](./CHANGELOG.md#0100---2026-11-03)).
+
 ## What's new in 0.9.0
 
 `@abstractframework/panel-chat` 0.7.0 (needs ui-kit `^0.9.8`): the rounded multiline composer is the default

@@ -476,7 +476,7 @@ id source; default `crypto.randomUUID`).
 
 | Method | Route |
 | --- | --- |
-| `listAutomations({status?, cursor?, limit?})` | `GET /api/gateway/automations` |
+| `listAutomations({status?, cursor?, limit?})` → `AutomationsPage` (rows with `section` and `last_activity_at`, plus `paused_automations_count`, `archived_automations_count`) | `GET /api/gateway/automations` |
 | `getAutomation(id)` | `GET /api/gateway/automations/{id}` |
 | `createAutomation(body)` | `POST /api/gateway/automations` |
 | `reviseAutomation(id, {changes, expected_revision?, command_id?})` | `PATCH /api/gateway/automations/{id}` |
