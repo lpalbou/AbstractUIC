@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { ChatMessageCard, type ChatMessage, type ChatMessageCardProps } from "./chat_message_card.js";
+import { ChatMessageCard, speakButtonView, type ChatMessage, type ChatMessageCardProps } from "./chat_message_card.js";
+import { Icon } from "@abstractframework/ui-kit";
 import type { WorkflowConnection } from "./workflow_runtime.js";
 import { TextLinks } from "./text_links.js";
 import type { WorkflowToolActivity } from "./workflow_evidence.js";
@@ -200,6 +201,8 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
   const attention = props.attention && preferences[props.attention.kind].visual ? props.attention : null;
   const card = cardProps(props.messageProps);
   const { renderFooter: _footer, ...answerProps } = props.messageProps || {};
+  const lineSpeech = line?.kind === "public_update" && props.messageProps?.onSpeakToggle
+    ? speakButtonView(props.messageProps.getSpeakState?.(line) || "idle") : null;
   return <section ref={section} className="pc-avatar-conversation" aria-label="Avatar conversation" data-state={state} data-has-request={hasRequest || undefined} data-compact={hasRequest || undefined}
     data-has-findings={findings.length ? "" : undefined} data-findings-open={findings.length && findingsOpen ? "" : undefined}
     onKeyDown={(event) => { if (event.key === "Escape" && findingsOpen && findings.length) closeFindings(); }}>
@@ -223,6 +226,10 @@ function AvatarConversationSession(props: AvatarConversationProps): React.ReactE
       {line ? <Expandable key={line.id || line.content} className="pc-avatar-conversation__line" open={Boolean(held)} onOpen={hold}>
         <ContentCard {...card} message={line} />
       </Expandable> : null}
+      {line && lineSpeech ? <button type="button" className="pc-chat-icon-btn" aria-label={lineSpeech.title} title={lineSpeech.title}
+        onClick={() => props.messageProps?.onSpeakToggle?.(line)}>
+        <Icon key={lineSpeech.icon} name={lineSpeech.icon} size={22} className={lineSpeech.spinning ? "pc-chat-speak-spinner" : undefined} />
+      </button> : null}
       {held ? <div ref={lineActions} className="pc-avatar-conversation__line-actions">
         {held.kind === "public_update" ? <button type="button" aria-pressed={replying} onClick={reply}>Reply to this</button> : null}
         <button type="button" onClick={latest}>Latest</button>

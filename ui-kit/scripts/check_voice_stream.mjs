@@ -1,7 +1,7 @@
 // Execute the real hook and transport with a stalled fetch body and fake Web Audio.
 // The small React dispatcher matches the other kit interaction checks; no DOM dependency.
 import assert from "node:assert/strict";
-import React from "react";
+import { mount as mountHook } from "./voice_harness.mjs";
 import { streamTtsJsonl, ttsErrorDetail, useGatewayVoice } from "../dist/use_gateway_voice.js";
 
 const originalFetch = globalThis.fetch;
@@ -10,7 +10,16 @@ const originalAudioContext = globalThis.AudioContext;
 const requests = [];
 const sources = [];
 class AudioContext {
-  state = "running";
+  state = AudioContext.initialState || "running";
+  constructor() { (AudioContext.instances ||= []).push(this); }
+  resume() {
+    if (this.resumeBlocked ?? AudioContext.resumeBlocked) {
+      return new Promise((resolve, reject) => { (this.pendingResumes ||= []).push({ resolve, reject }); });
+    }
+    this.state = "running";
+    this.onstatechange?.();
+    return Promise.resolve();
+  }
   get currentTime() { return AudioContext.clock || 0; }
   destination = {};
   createGain() { return { gain: {}, connect() {}, disconnect() {} }; }
@@ -43,34 +52,24 @@ const bounded = async (promise) => {
   try { return await Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("Stalled cancellation")), 1000); })]); }
   finally { clearTimeout(timer); }
 };
-function mount() {
-  const cleanups = [];
+function mount(options = {}) {
   const errors = [];
-  const statuses = [];
-  const internals = React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
-  const previous = internals.ReactCurrentDispatcher.current;
-  internals.ReactCurrentDispatcher.current = {
-    useRef: (value) => ({ current: value }),
-    useMemo: (fn) => fn(),
-    useCallback: (fn) => fn,
-    useState: (value) => [value, (next) => {
-      value = typeof next === "function" ? next(value) : next;
-      // The read-aloud state a host renders (`tts_playback`): recorded as it changes.
-      if (value && typeof value === "object" && "status" in value && "key" in value) statuses.push(value.status);
-    }],
-    useEffect: (fn) => { const cleanup = fn(); if (cleanup) cleanups.push(cleanup); },
+  let currentError = "";
+  const h = mountHook((props) => useGatewayVoice(props), {
+    tts_stream: (text, signal) => streamTtsJsonl({ path: "/tts", body: { text }, signal, headers: { "x-abstract-csrf": "token" } }),
+    tts_voice: { voice: "sisko" },
+    on_error: (error) => { currentError = error; if (error) errors.push(error); },
+    ...options,
+  });
+  return {
+    get voice() { h.render(); return h.tree; },
+    errors,
+    error: () => currentError,
+    status: () => (h.render(), h.tree.tts_playback.status),
+    speaking: () => (h.render(), h.tree.tts_speaking),
+    rerender: (props) => h.rerender(props),
+    unmount: () => h.unmount(),
   };
-  let voice;
-  try {
-    voice = useGatewayVoice({
-      tts_stream: (text, signal) => streamTtsJsonl({ path: "/tts", body: { text }, signal, headers: { "x-abstract-csrf": "token" } }),
-      // The voice the stream speaks with: a paused reply resumes only in the same voice.
-      tts_voice: { voice: "sisko" },
-      on_error: (error) => { if (error) errors.push(error); },
-    });
-  } finally { internals.ReactCurrentDispatcher.current = previous; }
-  // The last status set (React drops an equal update; the record keeps every write).
-  return { voice, errors, statuses, status: () => statuses.at(-1) || "idle", unmount: () => cleanups.forEach((fn) => fn()) };
 }
 
 try {
@@ -160,6 +159,121 @@ try {
     AudioContext.nextDuration = 1;
     AudioContext.clock = 0;
   }
+  // The avatar reports audible speech; the message still offers Pause during a network gap.
+  {
+    const g = mount();
+    const p = g.voice.toggle_tts("starved", "A streamed reply");
+    await tick();
+    const req = requests.at(-1);
+    assert.equal(g.speaking(), false, "no first audio: avatar is not speaking");
+    send(req, audio); await tick();
+    assert.equal(g.speaking(), true, "a running audio source speaks");
+    const first = sources.at(-1);
+    AudioContext.clock = first.when + 1;
+    first.onended();
+    assert.equal(g.status(), "playing", "buffering retains the message Pause action");
+    assert.equal(g.speaking(), false, "stream starvation is silent, never Speaking");
+    await g.voice.toggle_tts("starved", "A streamed reply");
+    assert.equal(g.status(), "paused", "Pause works even in the gap");
+    const count = sources.length;
+    send(req, audio); await tick();
+    assert.equal(sources.length, count, "buffering while paused cannot start audio");
+    assert.equal(g.speaking(), false);
+    await g.voice.toggle_tts("starved", "A streamed reply");
+    assert.equal(sources.at(-1).offset, 0, "resume after starvation starts the next segment at zero");
+    assert.equal(g.speaking(), true);
+    g.rerender({ muted: true });
+    assert.equal(g.speaking(), false, "muted output cannot say Speaking");
+    g.rerender({ muted: false, volume: 0 });
+    assert.equal(g.speaking(), false, "zero volume cannot say Speaking");
+    g.rerender({ volume: 0.5 });
+    assert.equal(g.speaking(), true, "unmuted audible output resumes Speaking");
+    g.voice.stop_tts(); await bounded(p);
+    assert.equal(g.speaking(), false, "Stop clears audible state");
+    g.unmount(); AudioContext.clock = 0;
+  }
+
+  // A browser may block autoplay indefinitely. A later explicit Play resumes the already
+  // queued source, including after interruption halfway through a non-streamed reply.
+  for (const streamed of [false, true]) {
+    AudioContext.initialState = "suspended";
+    AudioContext.resumeBlocked = true;
+    let syntheses = 0;
+    const g = mount(streamed ? {} : { tts_stream: undefined, tts: async () => { syntheses++; return new ArrayBuffer(8); } });
+    const p = g.voice.toggle_tts("blocked", "Read this");
+    await tick();
+    const req = streamed ? requests.at(-1) : null;
+    if (req) { send(req, audio); await tick(); } else await bounded(p);
+    const ctx = AudioContext.instances.at(-1), source = sources.at(-1), count = sources.length;
+    assert.equal(g.status(), "paused", "suspended audio offers Play");
+    assert.equal(g.speaking(), false, "queued source on suspended context is silent");
+    ctx.resumeBlocked = false;
+    await g.voice.toggle_tts("blocked", "Read this"); await tick();
+    assert.equal(g.status(), "playing");
+    assert.equal(g.speaking(), true, "explicit Play unlocks the queued audio");
+    assert.equal(sources.length, count, "unlock does not restart the source");
+    AudioContext.clock = source.when + 0.5;
+    ctx.state = "suspended"; ctx.onstatechange();
+    assert.equal(g.status(), "paused");
+    assert.equal(g.speaking(), false, "browser suspension clears Speaking");
+    await g.voice.toggle_tts("blocked", "Read this"); await tick();
+    assert.equal(g.speaking(), true);
+    assert.equal(sources.length, count, "resume from browser suspension preserves source and offset");
+    assert.equal(source.stopped, undefined, "the retained source was never stopped");
+    if (!streamed) assert.equal(syntheses, 1, "resume never resynthesizes the message");
+    g.voice.stop_tts(); if (streamed) await bounded(p);
+    g.unmount();
+    AudioContext.initialState = "running"; AudioContext.resumeBlocked = false; AudioContext.clock = 0;
+  }
+
+  // A current autoplay refusal is visible, and a successful explicit retry clears that notice.
+  {
+    AudioContext.initialState = "suspended"; AudioContext.resumeBlocked = true;
+    const g = mount({ tts_stream: undefined, tts: async () => new ArrayBuffer(8) });
+    await g.voice.toggle_tts("retry", "Read this");
+    const ctx = AudioContext.instances.at(-1);
+    ctx.pendingResumes[0].reject(new Error("autoplay refused")); await tick();
+    assert.match(g.error(), /paused by the browser/i, "current browser refusal explains recovery");
+    assert.equal(g.status(), "paused");
+    assert.equal(g.speaking(), false);
+    ctx.resumeBlocked = false;
+    await g.voice.toggle_tts("retry", "Read this"); await tick();
+    assert.equal(g.speaking(), true);
+    assert.equal(g.error(), "", "successful Play clears the browser refusal notice");
+    g.voice.stop_tts(); g.unmount();
+    AudioContext.initialState = "running"; AudioContext.resumeBlocked = false;
+  }
+
+  // Browser-paused audio is still tied to the exact message text, just like user-paused audio.
+  {
+    const spoken = [];
+    const g = mount({ tts_stream: undefined, tts: async (text) => { spoken.push(text); return new ArrayBuffer(8); } });
+    await g.voice.toggle_tts("edited", "Original words");
+    const ctx = AudioContext.instances.at(-1);
+    ctx.state = "suspended"; ctx.onstatechange();
+    await g.voice.toggle_tts("edited", "Corrected words");
+    assert.deepEqual(spoken, ["Original words", "Corrected words"], "same id with changed words cannot resume obsolete audio");
+    g.voice.stop_tts(); g.unmount();
+  }
+
+  // A rejected old browser resume must not report a playback error on a replacement reply.
+  for (const action of ["stop", "replace"]) {
+    AudioContext.initialState = "suspended"; AudioContext.resumeBlocked = true;
+    const g = mount({ tts_stream: undefined, tts: async () => new ArrayBuffer(8) });
+    await g.voice.toggle_tts("old", "Old reply");
+    const ctx = AudioContext.instances.at(-1), oldResume = ctx.pendingResumes[0];
+    if (action === "stop") g.voice.stop_tts();
+    else {
+      ctx.resumeBlocked = false;
+      await g.voice.toggle_tts("new", "Replacement reply");
+      assert.equal(g.speaking(), true);
+    }
+    oldResume.reject(new Error("old autoplay rejection")); await tick();
+    assert.deepEqual(g.errors, [], "obsolete resume rejection cannot surface against another reply");
+    assert.equal(g.status(), action === "stop" ? "idle" : "playing");
+    g.voice.stop_tts(); g.unmount();
+    AudioContext.initialState = "running"; AudioContext.resumeBlocked = false;
+  }
   for (const [body, expected] of [[audio, /before synthesis completed/], ['{"type":"error","error":"engine failed"}', /engine failed/], ["garbled\n", /invalid JSON/]]) {
     const stream = streamTtsJsonl({ path: "/tts", body: {} });
     const consume = (async () => { for await (const _chunk of stream) { /* drain */ } })();
@@ -183,7 +297,7 @@ try {
       await assert.rejects((async () => { for await (const _c of streamTtsJsonl({ path: "/tts", body: {} })) { /* drain */ } })(), (e) => expected.test(e.message) && !/object Object/.test(e.message));
     } finally { globalThis.fetch = saved; }
   }
-  console.log("check_voice_stream: cancellation, first audio, pause/resume, EOF and error checks green");
+  console.log("check_voice_stream: cancellation, audible state, autoplay, suspension, starvation, pause/resume, EOF and error checks green");
 } finally {
   globalThis.fetch = originalFetch;
   globalThis.window = originalWindow;

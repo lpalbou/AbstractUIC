@@ -205,6 +205,8 @@ export async function* streamTtsJsonl(opts: {
 
 export type GatewayVoice = {
   tts_supported: boolean;
+  /** Audio is scheduled on a running context with nonzero output gain (false while buffering). */
+  tts_speaking: boolean;
   tts_playback: { key: string; status: TtsPlaybackStatus };
   toggle_tts: (msg_key: string, text: string) => Promise<void>;
   stop_tts: () => void;
@@ -393,6 +395,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     stop?.();
     publish_playback_level(0);
   }, [publish_playback_level]);
+  const [tts_speaking, set_tts_speaking] = useState(false);
   const [tts_playback, set_tts_playback] = useState<{ key: string; status: TtsPlaybackStatus }>({ key: "", status: "idle" });
   // Ref twin (read from the stable callbacks) + shallow-equal write guard:
   // idle→idle (any unchanged pair) must NOT schedule a render — the
@@ -401,7 +404,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   const tts_playback_ref = useRef(tts_playback);
   const apply_tts_playback = useCallback((next: { key: string; status: TtsPlaybackStatus }) => {
     tts_playback_ref.current = next;
-    if (next.status !== "playing") stop_playback_meter();
+    if (next.status !== "playing") { stop_playback_meter(); set_tts_speaking(false); }
     set_tts_playback((prev) => (prev.key === next.key && prev.status === next.status ? prev : next));
   }, [stop_playback_meter]);
   const tts_key_ref = useRef<string>("");
@@ -450,9 +453,49 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   // text and the voice key at synthesis time. A paused message resumes only when all three still
   // match; "" = nothing reusable (no voice known, or nothing kept).
   const tts_audio_id_ref = useRef<string>("");
+  const tts_resume_attempt_ref = useRef(0);
+  const tts_resume_error_ref = useRef(false);
   const tts_audio_id = (key: string, text: string): string => {
     const voice = ttsVoiceKey(opts_ref.current.tts_voice);
     return voice ? `${key}\u0001${text}\u0001${voice}` : "";
+  };
+
+  // A queued or suspended source is not audible playback. Keep the message button and
+  // avatar on the same state, including gaps between streamed segments and browser suspension.
+  const sync_tts_playback = () => {
+    const key = tts_key_ref.current;
+    if (!key) return;
+    const hasAudio = Boolean(tts_source_ref.current || tts_sched_ref.current.length);
+    const status: TtsPlaybackStatus = tts_paused_ref.current ? "paused"
+      : hasAudio ? (tts_ctx_ref.current?.state === "running" ? "playing" : "paused")
+      : tts_stream_done_ref.current ? "idle" : (tts_segments_ref.current.length ? "playing" : "loading");
+    apply_tts_playback({ key: status === "idle" ? "" : key, status });
+    const audible = status === "playing" && hasAudio && tts_ctx_ref.current?.state === "running" && Boolean(tts_gain_ref.current?.gain.value);
+    set_tts_speaking(audible);
+    if (audible) start_playback_meter(); else stop_playback_meter();
+  };
+
+  // Request resume in the initiating click, before synthesis awaits. An autoplay-blocked
+  // resume can remain pending: do not claim to be speaking while the context is suspended.
+  const request_tts_resume = (ctx: AudioContext) => {
+    if (ctx.state === "running") return;
+    const attempt = tts_resume_attempt_ref.current;
+    const failed = () => {
+      if (attempt === tts_resume_attempt_ref.current && tts_ctx_ref.current === ctx && tts_key_ref.current) {
+        sync_tts_playback();
+        tts_resume_error_ref.current = true;
+        set_error?.("Audio playback is paused by the browser. Press Play to try again.");
+      }
+    };
+    try { void ctx.resume().then(() => {
+      if (attempt !== tts_resume_attempt_ref.current) return;
+      sync_tts_playback();
+      if (ctx.state === "running" && tts_resume_error_ref.current) {
+        tts_resume_error_ref.current = false;
+        set_error?.("");
+      }
+    }, failed); }
+    catch { failed(); }
   };
 
   const ensure_tts_webaudio = (): { ctx: AudioContext; gain: GainNode } | null => {
@@ -467,17 +510,13 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
         gain.connect(ctx.destination);
         tts_ctx_ref.current = ctx;
         tts_gain_ref.current = gain;
+        ctx.onstatechange = sync_tts_playback;
       }
       const ctx = tts_ctx_ref.current;
       const gain = tts_gain_ref.current;
       if (!ctx || !gain) return null;
       apply_sink(ctx, opts_ref.current.output_device_id || "");
       gain.gain.value = clampVolume(opts_ref.current.volume) * (opts_ref.current.muted ? 0 : 1);
-      try {
-        if (ctx.state === "suspended") void ctx.resume();
-      } catch {
-        // ignore
-      }
       return { ctx, gain };
     } catch {
       return null;
@@ -487,7 +526,10 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   // Volume and mute apply at once, also to a reply that is playing (a muted reply goes silent now).
   useEffect(() => {
     const gain = tts_gain_ref.current;
-    if (gain) gain.gain.value = clampVolume(opts.volume) * (opts.muted ? 0 : 1);
+    if (gain) {
+      gain.gain.value = clampVolume(opts.volume) * (opts.muted ? 0 : 1);
+      sync_tts_playback();
+    }
   }, [opts.volume, opts.muted]);
 
   const stop_tts_source = useCallback((): void => {
@@ -522,6 +564,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   // Stable identity (c2584 ask 1): touches only refs + the guarded setter, so
   // an idle stop is a full no-op — safe in any consumer dep array.
   const stop_tts = useCallback((): void => {
+    tts_resume_attempt_ref.current += 1;
     stop_tts_source();
     tts_stream_gen_ref.current += 1; // invalidates any in-flight stream loop
     tts_stream_abort_ref.current?.abort();
@@ -574,11 +617,6 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     const engine = ensure_tts_webaudio();
     if (!engine) throw new Error("TTS playback is not supported in this browser");
     const { ctx, gain } = engine;
-    try {
-      if (ctx.state === "suspended") await ctx.resume();
-    } catch {
-      // ignore
-    }
 
     if (generation !== tts_stream_gen_ref.current) return;
     stop_tts_source();
@@ -603,15 +641,14 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     };
 
     source.start(0, off);
-    apply_tts_playback({ key, status: "playing" });
-    start_playback_meter();
+    sync_tts_playback();
   };
 
   /**
    * Streaming playback: play the segment at tts_seg_idx from tts_offset,
    * chaining to the next on end. Starvation (index past the buffered tail
-   * while the stream is still fetching) leaves status "playing" with no
-   * source — the fetch loop restarts playback as the next segment lands.
+   * while the stream is still fetching) keeps the Pause action available, but
+   * tts_speaking is false. The next segment makes the avatar speak again.
    */
   const start_stream_segment = (key: string, gen: number): void => {
     if (gen !== tts_stream_gen_ref.current || tts_paused_ref.current) return;
@@ -628,15 +665,12 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
         tts_offset_ref.current = 0;
         tts_started_at_ref.current = 0;
         apply_tts_playback({ key: "", status: "idle" });
+      } else {
+        sync_tts_playback();
       }
       return;
     }
     const { ctx, gain } = engine;
-    try {
-      if (ctx.state === "suspended") void ctx.resume();
-    } catch {
-      // ignore
-    }
     // Back to back on the audio clock. A start in the past (the stream fell behind playback) is a
     // real gap the network made; it starts now. A small lead lets the first start be exact.
     const now = Number(ctx.currentTime || 0);
@@ -668,8 +702,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     }
     tts_started_at_ref.current = tts_sched_ref.current.length ? tts_sched_ref.current[0].at - tts_sched_ref.current[0].off : 0;
     tts_key_ref.current = key;
-    apply_tts_playback({ key, status: "playing" });
-    start_playback_meter();
+    sync_tts_playback();
   };
   /** Where streamed playback is: the segment playing now and the offset into it (for pause). */
   const stream_position = (now: number): { idx: number; off: number } => {
@@ -758,6 +791,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   // fresh), playback state through its ref twin — never the render closure.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const toggle_tts = useCallback(async (msg_key: string, text: string): Promise<void> => {
+    tts_resume_attempt_ref.current += 1;
     const key = String(msg_key || "").trim();
     const t = String(text || "").trim();
     if (!key || !t) return;
@@ -776,7 +810,16 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     }
 
     const playback = tts_playback_ref.current;
+    if (playback.status !== "playing") request_tts_resume(engine.ctx);
     const is_same = playback.key === key;
+    // Browser suspension freezes the audio clock, retaining the current source and offset.
+    // Resume that source, not a new buffer starting at the last user-pause position.
+    if (is_same && playback.status === "paused" && !tts_paused_ref.current
+        && tts_audio_id_ref.current !== "" && tts_audio_id_ref.current === tts_audio_id(key, t)
+        && (tts_source_ref.current || tts_sched_ref.current.length)) {
+      sync_tts_playback();
+      return;
+    }
     if (is_same && playback.status === "playing") {
       // Compute the offset ONLY while a source is actually playing. During
       // stream starvation (index past the buffered tail, no source) the
@@ -808,11 +851,6 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       if (tts_segments_ref.current.length > 0) {
         set_error?.("");
         tts_paused_ref.current = false;
-        // Render "playing" even when resume lands in a starved window (index
-        // past the buffered tail): playback auto-continues the moment the
-        // next segment arrives, and a stuck "paused" label over auto-playing
-        // audio is the dishonest render (adversary find).
-        apply_tts_playback({ key, status: "playing" });
         start_stream_segment(key, tts_stream_gen_ref.current);
         return;
       }
@@ -1147,6 +1185,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   return {
     tts_supported,
     tts_playback,
+    tts_speaking,
     toggle_tts,
     stop_tts,
     voice_ptt_supported,

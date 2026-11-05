@@ -332,6 +332,7 @@
 
 .pc-chat-icon-btn svg {
   display: block;
+  flex-shrink: 0;
 }
 
 .pc-chat-icon-btn:hover {

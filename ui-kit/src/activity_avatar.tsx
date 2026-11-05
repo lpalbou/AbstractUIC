@@ -18,7 +18,7 @@ export interface ActivityAvatarProps {
     onError?: (error: Error) => void;
 }
 /** Presentation only; a host can wrap this in its own accessible activation control. */
-export function ActivityAvatar({ design = "halo", pose = "ready", level = 0, bands, size = 128, quality = "balanced", animated = true, active = true, followCursor = false, palette, className, label, onError }: ActivityAvatarProps): React.ReactElement {
+export function ActivityAvatar({ design = "watch-hover", pose = "ready", level = 0, bands, size = 128, quality = "balanced", animated = true, active = true, followCursor = false, palette, className, label, onError }: ActivityAvatarProps): React.ReactElement {
     const canvas = useRef<HTMLCanvasElement>(null), latest = useRef({ design, pose, level, bands });
     latest.current = { design, pose, level, bands };
     const [error, setError] = useState(false), errorHandler = useRef(onError);
