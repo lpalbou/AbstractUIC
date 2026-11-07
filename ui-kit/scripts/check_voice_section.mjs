@@ -89,7 +89,7 @@ check("volume shows 100 % by default", html.includes("100 %"));
 const vol = render({ defaults: ROUTES, value: { reply_volume: 0.4 } });
 check("volume value reflects the preference", vol.includes('value="40"') && vol.includes("40 %"));
 const safari = render({ defaults: ROUTES, outputSelectable: false });
-check("Safari: cannot choose a speaker, stated", safari.includes("Safari does not let a page choose the output device") && /aria-label="Output device"[^>]*disabled|disabled[^>]*aria-label="Output device"/.test(safari));
+check("Safari: follows the macOS output, stated; the control stays enabled", (safari.includes("Safari follows the system output chosen in macOS Sound settings.") || safari.includes("This browser follows the system output chosen in the system sound settings.")) && !/aria-label="Output device"[^>]*disabled|disabled[^>]*aria-label="Output device"/.test(safari));
 
 // --- microphone: picker + Test + live meter ----------------------------------
 check("input device picker", html.includes('aria-label="Input device"'));
@@ -242,11 +242,11 @@ for (const [name, fn] of Object.entries({ AfVoiceOutput, AfVoiceInput, gatewayVo
 }
 {
   const o = gatewayVoiceOptions({ output_device: "spk-1", reply_volume: 0.3, reply_muted: true, input_device: "mic-1", input_gain: 9, capture_mode: "toggle" });
-  check("0035 gatewayVoiceOptions maps every hook option", JSON.stringify(o) === JSON.stringify({ output_device_id: "spk-1", volume: 0.3, muted: true, input_device_id: "mic-1", input_gain: 1.5, capture_mode: "toggle", tts_voice: {} }), JSON.stringify(o));
+  check("0035 gatewayVoiceOptions maps every hook option", JSON.stringify(o) === JSON.stringify({ output_device_id: "spk-1", volume: 0.3, muted: true, input_device_id: "mic-1", input_gain: 1.5, capture_mode: "toggle", tts_voice: {}, unlock_on_gesture: false }), JSON.stringify(o));
   // The voice fields ride as tts_voice (the hook ties kept audio to them; operator 2026-10-29).
   const withVoice = gatewayVoiceOptions({ provider: "qwen3-tts", voice: "sisko", speed: 1.1, reply_volume: 0.5 });
   check("gatewayVoiceOptions: the speech fields become tts_voice", JSON.stringify(withVoice.tts_voice) === JSON.stringify({ provider: "qwen3-tts", voice: "sisko", speed: 1.1 }), JSON.stringify(withVoice.tts_voice));
-  check("0035 gatewayVoiceOptions defaults", JSON.stringify(gatewayVoiceOptions({})) === JSON.stringify({ output_device_id: "", volume: 1, muted: false, input_device_id: "", input_gain: 1, capture_mode: "hold", tts_voice: {} }));
+  check("0035 gatewayVoiceOptions defaults", JSON.stringify(gatewayVoiceOptions({})) === JSON.stringify({ output_device_id: "", volume: 1, muted: false, input_device_id: "", input_gain: 1, capture_mode: "hold", tts_voice: {}, unlock_on_gesture: false }));
 }
 
 if (failures) {

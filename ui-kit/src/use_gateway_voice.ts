@@ -36,7 +36,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { insecureContextReason } from "./random_id.js";
-import { clampVolume, inputGainSupported, microphoneErrorSentence, openMicrophone, watchLevel, watchAudioNodeLevel } from "./voice_devices.js";
+import { clampVolume, closeAudioContext, inputGainSupported, microphoneErrorSentence, onAudioOutputEvent, openMicrophone, watchLevel, watchAudioNodeLevel } from "./voice_devices.js";
 
 export type TtsPlaybackStatus = "idle" | "loading" | "playing" | "paused";
 
@@ -93,6 +93,13 @@ export type GatewayVoiceOptions = {
    * (operator, 2026-10-29). Absent: kept audio is never reused (a paused message starts over).
    */
   tts_voice?: Record<string, unknown> | string | null;
+  /**
+   * Replies are spoken by themselves (the `read_aloud` preference; `gatewayVoiceOptions` maps it).
+   * Safari starts sound only from a click or a key press, and a reply arrives seconds after one:
+   * with this set, the person's clicks and key presses open the reply player (or re-open it on the
+   * current system output after a device change or 30 s of silence), so the next reply can play.
+   */
+  unlock_on_gesture?: boolean;
   /**
    * Transcribe a recorded blob (absent = PTT unsupported). Returns the text,
    * or the text with the route that ran (shown beside the transcript).
@@ -351,6 +358,18 @@ export function audioOutputSelectable(): boolean {
   return Boolean(Ctx && Ctx.prototype && typeof Ctx.prototype.setSinkId === "function");
 }
 
+/** The page is handling a click or key press right now (`navigator.userActivation`; false when unknown). */
+function user_gesture(): boolean {
+  return (globalThis as any).navigator?.userActivation?.isActive === true;
+}
+
+/**
+ * Silence after which a Play click (or, with `unlock_on_gesture`, any click or key press) opens a
+ * new reply player instead of reusing the old one: a context kept across a change of the system
+ * output can stay on an output unit that no longer reaches it (Safari), and nothing reports it.
+ */
+export const TTS_REOPEN_AFTER_IDLE_MS = 30_000;
+
 const applied_sinks = new WeakMap<object, string>();
 function apply_sink(ctx: AudioContext, device: string): void {
   const anyCtx = ctx as any;
@@ -411,6 +430,13 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   const tts_loading_key_ref = useRef<string>("");
   const tts_ctx_ref = useRef<AudioContext | null>(null);
   const tts_gain_ref = useRef<GainNode | null>(null);
+  // The reply player's lifecycle across output changes: `stale` = the devices changed while it
+  // was busy (dropped once it is idle); `closing` = a close in flight (a new context waits for it,
+  // else WebKit would mix the new one into the old output unit); `idle_since` = when it went quiet.
+  const tts_ctx_stale_ref = useRef(false);
+  const tts_ctx_closing_ref = useRef<Promise<void> | null>(null);
+  const tts_idle_since_ref = useRef(Date.now());
+  const stop_tts_ref = useRef<() => void>(() => undefined);
   const start_playback_meter = useCallback(() => {
     if (!playback_listeners.current.size || playback_meter_stop.current || tts_playback_ref.current.status !== "playing") return;
     const ctx = tts_ctx_ref.current, gain = tts_gain_ref.current;
@@ -497,12 +523,46 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
         set_error?.("Audio playback is paused by the browser. Press Play to try again.");
       }
     };
+    // WebKit never rejects a resume it refuses (no user gesture): the promise just waits. Say so
+    // after a moment instead of showing a Play button that silently does nothing.
+    const refused = setTimeout(() => { if (ctx.state !== "running" && ctx.state !== "closed") failed(); }, 1500);
     try { void ctx.resume().then(() => {
+      clearTimeout(refused);
       if (attempt !== tts_resume_attempt_ref.current) return;
       sync_tts_playback();
       if (ctx.state === "running") clear_tts_resume_error();
-    }, failed); }
-    catch { failed(); }
+    }, () => { clearTimeout(refused); failed(); }); }
+    catch { clearTimeout(refused); failed(); }
+  };
+
+  /**
+   * Drop the reply player's audio graph: the next playback opens a new context on the current
+   * system output. Resolves once the old context is closed. Playback must be stopped first.
+   */
+  const release_tts_ctx = (): Promise<void> => {
+    const ctx = tts_ctx_ref.current;
+    const gain = tts_gain_ref.current;
+    tts_ctx_stale_ref.current = false;
+    if (!ctx) return tts_ctx_closing_ref.current || Promise.resolve();
+    stop_playback_meter();
+    tts_ctx_ref.current = null;
+    tts_gain_ref.current = null;
+    try { ctx.onstatechange = null; } catch { /* ignore */ }
+    try { gain?.disconnect(); } catch { /* ignore */ }
+    const closing = closeAudioContext(ctx).then(() => {
+      if (tts_ctx_closing_ref.current === closing) tts_ctx_closing_ref.current = null;
+    });
+    tts_ctx_closing_ref.current = closing;
+    tts_idle_since_ref.current = Date.now();
+    return closing;
+  };
+
+  /** A new reply player on the current system output, started inside the user's gesture. */
+  const reopen_tts_ctx = async (): Promise<void> => {
+    await release_tts_ctx();
+    const engine = ensure_tts_webaudio();
+    if (!engine) return;
+    try { void Promise.resolve(engine.ctx.resume()).catch(() => undefined); } catch { /* the next Play retries */ }
   };
 
   const ensure_tts_webaudio = (): { ctx: AudioContext; gain: GainNode } | null => {
@@ -529,6 +589,55 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       return null;
     }
   };
+
+  // Output changes (ui-kit 0.9.21; operator 2026-11-07: replies and the speaker Test silent on
+  // Bluetooth headphones until the macOS output was switched away and back). "reopen" = the user's
+  // Re-open audio (a click: the new context starts at once); "devicechange" = the browser's
+  // devices changed: an idle player is dropped now, a busy one once it is idle.
+  const tts_supported_ref = useRef(false);
+  tts_supported_ref.current = tts_supported;
+  useEffect(() => onAudioOutputEvent(async (event) => {
+    const had = Boolean(tts_ctx_ref.current);
+    if (event === "reopen") {
+      stop_tts_ref.current();
+      if (had && tts_supported_ref.current) await reopen_tts_ctx();
+      else await release_tts_ctx();
+      return;
+    }
+    if (!had) return;
+    if (tts_playback_ref.current.status === "idle") await release_tts_ctx();
+    else tts_ctx_stale_ref.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), []);
+  useEffect(() => {
+    if (tts_playback.status !== "idle") return;
+    tts_idle_since_ref.current = Date.now();
+    if (tts_ctx_stale_ref.current) void release_tts_ctx();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tts_playback.status]);
+  // Read aloud on: a click or key press while idle opens the player (or re-opens it when it is
+  // missing, suspended, stale or quiet for TTS_REOPEN_AFTER_IDLE_MS) so a reply arriving later
+  // can start without one.
+  const unlock_on_gesture = opts.unlock_on_gesture === true;
+  useEffect(() => {
+    if (!unlock_on_gesture || typeof window === "undefined" || typeof window.addEventListener !== "function") return;
+    let busy = false;
+    const onGesture = () => {
+      if (busy || !tts_supported_ref.current || tts_playback_ref.current.status !== "idle") return;
+      const ctx = tts_ctx_ref.current;
+      const fresh = ctx && !tts_ctx_stale_ref.current && ctx.state === "running" && Date.now() - tts_idle_since_ref.current <= TTS_REOPEN_AFTER_IDLE_MS;
+      if (fresh) return;
+      busy = true;
+      void reopen_tts_ctx().finally(() => { busy = false; });
+    };
+    window.addEventListener("pointerdown", onGesture, true);
+    window.addEventListener("keydown", onGesture, true);
+    return () => {
+      window.removeEventListener("pointerdown", onGesture, true);
+      window.removeEventListener("keydown", onGesture, true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unlock_on_gesture]);
 
   // Volume and mute apply at once, also to a reply that is playing (a muted reply goes silent now).
   useEffect(() => {
@@ -590,6 +699,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     clear_tts_resume_error();
     apply_tts_playback({ key: "", status: "idle" });
   }, [stop_tts_source, apply_tts_playback]);
+  stop_tts_ref.current = stop_tts;
 
   // A voice change drops the audio kept for a paused message: its speaker button goes back to
   // idle, and the next press speaks it in the new voice.
@@ -813,6 +923,20 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       set_error?.("Reading aloud is not available on this gateway.");
       return;
     }
+
+    // A Play click that is not pausing or resuming the person's own pause opens a new reply
+    // player when the old one cannot be trusted: not running (held back by the browser,
+    // interrupted), stale after a device change, or quiet for TTS_REOPEN_AFTER_IDLE_MS. The new
+    // context starts on the current system output; the reply starts over in it.
+    const before = tts_playback_ref.current;
+    const old_ctx = tts_ctx_ref.current;
+    if (user_gesture() && old_ctx && before.status !== "playing" && !tts_paused_ref.current
+        && (tts_ctx_stale_ref.current || old_ctx.state !== "running"
+          || (before.status === "idle" && Date.now() - tts_idle_since_ref.current > TTS_REOPEN_AFTER_IDLE_MS))) {
+      stop_tts();
+      await release_tts_ctx();
+    }
+    if (tts_ctx_closing_ref.current) await tts_ctx_closing_ref.current;
 
     const engine = ensure_tts_webaudio();
     if (!engine) {

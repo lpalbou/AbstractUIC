@@ -10,14 +10,18 @@
 // `gatewayVoiceOptions()` maps them). `value` may be the whole preference
 // object: `onChange` returns it with the patch merged.
 //
-// Safari cannot route Web Audio to a chosen speaker: the picker stays on
-// System default and says so. The Test chime plays on the chosen speaker at the
+// The Output device control is always usable (operator 2026-11-07: "we should always be able to
+// change that"). Where the browser routes Web Audio to a chosen speaker (Chromium: setSinkId) it
+// lists the speakers (their names after one microphone permission) and switches. Everywhere it
+// offers "Follow the system output (default)" and "Re-open audio", which rebuilds every audio graph
+// of the page on the current system output (`reopenAudioOutput`); Safari, which cannot choose a
+// speaker, says it follows the macOS output. The Test chime plays on the chosen speaker at the
 // reply volume, also while replies are muted (a test the user asked for).
 import React, { useEffect, useId, useRef, useState } from "react";
 import { AfSelect } from "./af_select.js";
 import { AfSettingRow } from "./af_settings_rows.js";
 import { audioOutputSelectable } from "./use_gateway_voice.js";
-import { clampVolume, listVoiceDevices, playTestTone, type VoiceDevice } from "./voice_devices.js";
+import { clampVolume, listVoiceDevices, playTestTone, reopenAudioOutput, unlockDeviceLabels, type VoiceDevice } from "./voice_devices.js";
 
 /** The preferences voice OUT reads and writes. */
 export type VoiceOutputValue = {
@@ -47,6 +51,10 @@ export type AfVoiceOutputProps<T extends VoiceOutputValue = VoiceOutputValue> = 
   outputSelectable?: boolean;
   /** The Mute toggle (default true; pass false where the host does not pass `muted` to `useGatewayVoice`). Unmute is always shown while muted. */
   showMute?: boolean;
+  /** Re-open audio (default: `reopenAudioOutput`, every long-lived audio graph of the page). */
+  reopenAudio?: () => Promise<void>;
+  /** Reveal the speakers' names (default: `unlockDeviceLabels`, one microphone permission). */
+  unlockLabels?: () => Promise<void>;
   /** Why voice cannot be configured now; disables every control. */
   unavailableReason?: string | null;
   /** Re-read the device list when this changes (the microphone permission was just granted). */
@@ -58,8 +66,19 @@ export type AfVoiceOutputProps<T extends VoiceOutputValue = VoiceOutputValue> = 
 
 const percent = (v: number) => `${Math.round(v * 100)} %`;
 
-export const SAFARI_OUTPUT_NOTE =
-  "Safari does not let a page choose the output device: replies play on the system output (change it in the system sound settings).";
+export const SAFARI_OUTPUT_NOTE = "Safari follows the system output chosen in macOS Sound settings.";
+/** The same fact for another browser that cannot choose a speaker (Firefox). */
+export const SYSTEM_OUTPUT_NOTE = "This browser follows the system output chosen in the system sound settings.";
+
+function systemOutputNote(): string {
+  const ua = String((globalThis as any).navigator?.userAgent || "");
+  return /Safari\//.test(ua) && !/Chrom(e|ium)\/|Firefox\/|Edg\//.test(ua) ? SAFARI_OUTPUT_NOTE : SYSTEM_OUTPUT_NOTE;
+}
+
+/** The Output device entries that act instead of choosing a speaker. */
+export const OUTPUT_ACTION_REOPEN = "action:reopen-audio";
+export const OUTPUT_ACTION_NAMES = "action:speaker-names";
+export const OUTPUT_DEFAULT_LABEL = "Follow the system output (default)";
 
 export function AfVoiceOutput<T extends VoiceOutputValue>(p: AfVoiceOutputProps<T>): React.ReactElement {
   const disabled = Boolean(p.unavailableReason);
@@ -101,17 +120,36 @@ export function AfVoiceOutput<T extends VoiceOutputValue>(p: AfVoiceOutputProps<
     void playTestTone({ deviceId: selectable ? value.output_device || "" : "", volume })
       .then(() => {
         if (!alive.current) return;
-        const heard = "Chime played. Heard nothing? Pick another output or raise the volume.";
+        const heard = "Chime played. Heard nothing? Pick Re-open audio, another output, or raise the volume.";
         setNote({ text: muted ? `${heard} Replies are muted: unmute them to hear them.` : heard, tone: "ok" });
       })
       .catch((e) => alive.current && setNote({ text: `The speaker test failed: ${String(e?.message || e).replace(/\.$/, "")}.`, tone: "error" }));
   };
 
+  const reopen = () => {
+    setNote({ text: "Re-opening audio…", tone: "info" });
+    void (p.reopenAudio || reopenAudioOutput)()
+      .then(() => alive.current && setNote({ text: "Audio re-opened on the current system output. Press Test to hear it.", tone: "ok" }))
+      .catch((e) => alive.current && setNote({ text: `Audio could not be re-opened: ${String(e?.message || e).replace(/\.$/, "")}.`, tone: "error" }));
+  };
+  const showNames = () => {
+    void (p.unlockLabels || unlockDeviceLabels)()
+      .then(() => loadDevices())
+      .catch((e) => alive.current && setNote({ text: `The speaker names stay hidden: ${String(e?.message || e).replace(/\.$/, "")}.`, tone: "error" }));
+  };
+  const choose = (id: string) => {
+    if (id === OUTPUT_ACTION_REOPEN) return reopen();
+    if (id === OUTPUT_ACTION_NAMES) return showNames();
+    update({ output_device: id });
+  };
+
   const saved = value.output_device || "";
   const options = [
-    { value: "", label: "System default" },
-    ...outputs.devices.map((o) => ({ value: o.id, label: o.label })),
-    ...(saved && !outputs.devices.some((o) => o.id === saved) ? [{ value: saved, label: "Saved speaker (not connected)" }] : []),
+    { value: "", label: OUTPUT_DEFAULT_LABEL },
+    ...(selectable ? outputs.devices.map((o) => ({ value: o.id, label: o.label })) : []),
+    ...(selectable && saved && !outputs.devices.some((o) => o.id === saved) ? [{ value: saved, label: "Saved speaker (not connected)" }] : []),
+    ...(selectable && !outputs.labelled ? [{ value: OUTPUT_ACTION_NAMES, label: "Show the speakers (asks for the microphone once)" }] : []),
+    { value: OUTPUT_ACTION_REOPEN, label: "Re-open audio" },
   ];
   const deviceLabel = p.labels?.device || "Output device";
   const volumeLabel = p.labels?.volume || "Reply volume";
@@ -120,7 +158,7 @@ export function AfVoiceOutput<T extends VoiceOutputValue>(p: AfVoiceOutputProps<
       <AfSettingRow
         label={deviceLabel}
         setting="output-device"
-        help={selectable ? undefined : SAFARI_OUTPUT_NOTE}
+        help={selectable ? undefined : systemOutputNote()}
         trailing={
           <button type="button" className="af-setting-btn" data-action="test-speaker" disabled={disabled} onClick={test}>
             {p.labels?.test || "Test"}
@@ -129,13 +167,13 @@ export function AfVoiceOutput<T extends VoiceOutputValue>(p: AfVoiceOutputProps<
       >
         <AfSelect
           ariaLabel={deviceLabel}
-          placeholder="System default"
+          placeholder={OUTPUT_DEFAULT_LABEL}
           value={selectable ? saved : ""}
           options={options}
-          disabled={disabled || !selectable}
+          disabled={disabled}
           searchable={false}
           onOpen={loadDevices}
-          onChange={(id) => update({ output_device: id })}
+          onChange={choose}
         />
       </AfSettingRow>
       {note.text ? (

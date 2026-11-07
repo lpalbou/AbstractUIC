@@ -199,5 +199,104 @@ ok("stable callbacks read state through ref twins");
   ok("live level during real recording, mute, capture mode, transcript listeners, kept audio tied to the voice (executed)");
 }
 
-console.log("check_voice_hook: 5 pins green");
+// 6) Output changes (operator 2026-11-07: on Bluetooth headphones the reply AND the speaker Test
+// stayed silent until the macOS output was switched away and back). WebKit mixes every context of
+// the page into one output unit kept while any context lives, so the hook never keeps its reply
+// player across a device change: executed on the real hook.
+{
+  const { mount, installFakeBrowser, sleep } = await import("./voice_harness.mjs");
+  const { useGatewayVoice } = await import("../dist/use_gateway_voice.js");
+  const { reopenAudioOutput } = await import("../dist/voice_devices.js");
+  const env = installFakeBrowser();
+  try {
+    const errors = [];
+    const v = mount((props) => useGatewayVoice(props), { tts: async () => new ArrayBuffer(8), on_error: (m) => m && errors.push(m) });
+    const status = () => (v.render(), v.tree.tts_playback.status);
+    const untilIdle = async () => { for (let i = 0; i < 40 && status() !== "idle"; i++) { await sleep(10); await v.settle(); } await v.settle(); };
+    await v.tree.toggle_tts("m1", "Read me"); await v.settle();
+    const first = env.log.contexts.at(-1);
+    await untilIdle();
+    // a) A device change while idle closes the player now; the next reply opens a new one.
+    env.deviceChange(); await sleep(5);
+    if (first.state !== "closed") fail("devicechange while idle: the reply player's context is closed");
+    await v.tree.toggle_tts("m2", "Again"); await v.settle();
+    const second = env.log.contexts.at(-1);
+    if (second === first || second.state === "closed") fail("after a device change the next reply plays on a new context");
+    await untilIdle();
+    // b) A device change mid-reply never cuts it: the player is dropped once the reply ends.
+    env.playMs = 80;
+    await v.tree.toggle_tts("m3", "A longer reply"); await v.settle();
+    if (status() !== "playing") fail(`the long reply plays (got ${status()})`);
+    env.deviceChange(); await sleep(5);
+    if (second.state === "closed") fail("devicechange mid-reply: the playing context is kept until the reply ends");
+    await untilIdle(); await sleep(5);
+    if (second.state !== "closed") fail("devicechange mid-reply: the stale context is closed once idle");
+    env.playMs = 5;
+    // c) A Play click on a player the browser holds back (suspended, interrupted) opens a new one.
+    await v.tree.toggle_tts("m4", "x"); await v.settle(); await untilIdle();
+    const held = env.log.contexts.at(-1);
+    held.state = "suspended";
+    env.gesture = true;
+    await v.tree.toggle_tts("m5", "y"); await v.settle();
+    env.gesture = false;
+    if (held.state !== "closed" || env.log.contexts.at(-1) === held) fail("a Play click on a held-back context opens a new one");
+    await untilIdle();
+    // ... and so does a Play click after TTS_REOPEN_AFTER_IDLE_MS of silence (no event reports a
+    // macOS output switch to Safari). Without a click the context is reused (none could start).
+    const { TTS_REOPEN_AFTER_IDLE_MS } = await import("../dist/use_gateway_voice.js");
+    if (TTS_REOPEN_AFTER_IDLE_MS !== 30_000) fail(`TTS_REOPEN_AFTER_IDLE_MS is 30 s (got ${TTS_REOPEN_AFTER_IDLE_MS})`);
+    const quiet = env.log.contexts.at(-1);
+    await v.tree.toggle_tts("m6", "z"); await v.settle(); await untilIdle();
+    if (env.log.contexts.at(-1) !== quiet) fail("no click, no device change: the reply player is reused");
+    const realNow = Date.now;
+    Date.now = () => realNow() + TTS_REOPEN_AFTER_IDLE_MS + 1000;
+    env.gesture = true;
+    await v.tree.toggle_tts("m7", "later"); await v.settle();
+    env.gesture = false;
+    Date.now = realNow;
+    if (quiet.state !== "closed" || env.log.contexts.at(-1) === quiet) fail("a Play click after a long silence opens a new reply player");
+    await untilIdle();
+    // d) Re-open audio: playback stops, the context is closed and a new one opens at once.
+    const current = env.log.contexts.at(-1);
+    const count = env.log.contexts.length;
+    await reopenAudioOutput();
+    if (current.state !== "closed" || env.log.contexts.length !== count + 1) fail(`Re-open audio closes the player and opens one new context (closed: ${current.state}, new: ${env.log.contexts.length - count})`);
+    // e) WebKit never rejects a resume it refuses: after 1.5 s the person is told, not left with a dead Play.
+    const blocked = env.log.contexts.at(-1);
+    blocked.state = "suspended";
+    blocked.resume = () => new Promise(() => undefined);
+    errors.length = 0;
+    env.playMs = 5000; // a suspended context plays nothing: the fake source must not end by itself
+    await v.tree.toggle_tts("m8", "blocked"); await v.settle();
+    await sleep(1600);
+    env.playMs = 5;
+    if (!errors.includes("Audio playback is paused by the browser. Press Play to try again.")) fail(`a refused resume is said within 1.5 s (errors: ${JSON.stringify(errors)})`);
+    v.tree.stop_tts();
+    v.unmount();
+    // f) Read aloud on (unlock_on_gesture): a click or key press while idle opens the player on the
+    // current output, so a reply that arrives later can start; a fresh player is reused.
+    env.log.windowAdd.length = 0;
+    const plain = mount((props) => useGatewayVoice(props), { tts: async () => new ArrayBuffer(8) });
+    await plain.settle();
+    if (env.log.windowAdd.includes("pointerdown")) fail("read aloud off: no gesture listener");
+    plain.unmount();
+    const u = mount((props) => useGatewayVoice(props), { tts: async () => new ArrayBuffer(8), unlock_on_gesture: true });
+    await u.settle();
+    const n0 = env.log.contexts.length;
+    env.dispatch("pointerdown"); await sleep(5);
+    if (env.log.contexts.length !== n0 + 1) fail(`unlock_on_gesture: a click opens the reply player (new contexts: ${env.log.contexts.length - n0})`);
+    env.dispatch("keydown"); await sleep(5);
+    if (env.log.contexts.length !== n0 + 1) fail("unlock_on_gesture: a running, fresh player is reused");
+    env.log.contexts.at(-1).state = "suspended";
+    env.dispatch("keydown"); await sleep(5);
+    if (env.log.contexts.length !== n0 + 2 || env.log.contexts.at(-2).state !== "closed") fail("unlock_on_gesture: a held-back player is replaced on the next key press");
+    u.unmount();
+    if (env.log.contexts.at(-1).state !== "closed") fail("unmount closes the reply player");
+  } finally {
+    env.restore();
+  }
+  ok("output changes: devicechange (idle now, busy once idle), Play click on a held-back or long-quiet player, Re-open audio, refused resume said, read-aloud gesture unlock (executed)");
+}
+
+console.log("check_voice_hook: 6 pins green");
 await import("./check_voice_stream.mjs");

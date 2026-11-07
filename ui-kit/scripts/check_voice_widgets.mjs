@@ -89,14 +89,72 @@ try {
     h.rerender({ value: { ...muted, reply_muted: false } });
     check("Output: showMute=false hides Mute while not muted", !byData(h.tree, "data-action", "mute-replies"));
     h.unmount();
-    const safari = mount(AfVoiceOutput, { value: { output_device: "spk-1" }, onChange: () => undefined, outputSelectable: false });
+    // Operator 2026-11-07: "we should always be able to change that". Safari cannot choose a
+    // speaker: the control stays enabled and offers what is possible.
+    let reopened = 0;
+    const safariChanges = [];
+    const safari = mount(AfVoiceOutput, { value: { output_device: "spk-1" }, onChange: (v) => safariChanges.push(v), outputSelectable: false, reopenAudio: async () => { reopened += 1; } });
     await safari.settle();
     env.log.sinks.length = 0;
     byData(safari.tree, "data-action", "test-speaker").props.onClick();
     await sleep(560);
-    check("Output (Safari): the picker is disabled on System default", byAria(safari.tree, "Output device")?.props.disabled === true && byAria(safari.tree, "Output device")?.props.value === "");
+    const picker = () => byAria(safari.tree, "Output device");
+    check("Output (Safari): the picker is enabled", picker()?.props.disabled === false, String(picker()?.props.disabled));
+    check("Output (Safari): Follow the system output (default) + Re-open audio", JSON.stringify(picker()?.props.options.map((o) => o.label)) === JSON.stringify(["Follow the system output (default)", "Re-open audio"]) && picker()?.props.value === "", JSON.stringify(picker()?.props.options));
     check("Output (Safari): the Test uses the system output", env.log.sinks.length === 0, JSON.stringify(env.log.sinks));
+    picker().props.onChange(kit.OUTPUT_ACTION_REOPEN);
+    await sleep(5);
+    safari.render();
+    check("Output (Safari): Re-open audio rebuilds the audio, stores nothing", reopened === 1 && safariChanges.length === 0, `${reopened} ${JSON.stringify(safariChanges)}`);
+    check("Output (Safari): Re-open audio says it is done", text(byData(safari.tree, "data-voice-note", "speaker")) === "Audio re-opened on the current system output. Press Test to hear it.", text(byData(safari.tree, "data-voice-note", "speaker")));
     safari.unmount();
+    // The sentence names Safari only in Safari.
+    {
+      const nav = globalThis.navigator;
+      const help = (ua) => {
+        Object.defineProperty(globalThis, "navigator", { value: { ...nav, userAgent: ua }, configurable: true, writable: true });
+        const m = mount(AfVoiceOutput, { value: {}, onChange: () => undefined, outputSelectable: false });
+        const row = find(m.tree, (n) => n.props.setting === "output-device");
+        m.unmount();
+        return row?.props.help;
+      };
+      check("Output (Safari): one sentence, Safari follows the macOS output", help("Mozilla/5.0 (Macintosh) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15") === "Safari follows the system output chosen in macOS Sound settings.");
+      check("Output (Firefox): the same fact without naming Safari", help("Mozilla/5.0 (Macintosh; rv:140.0) Gecko/20100101 Firefox/140.0") === "This browser follows the system output chosen in the system sound settings.");
+      Object.defineProperty(globalThis, "navigator", { value: nav, configurable: true, writable: true });
+    }
+    // Chromium before the microphone permission: the speakers have no names yet; one entry asks.
+    const saved = env.devices;
+    env.devices = [{ kind: "audiooutput", deviceId: "", label: "" }];
+    let unlocked = 0;
+    const chrome = mount(AfVoiceOutput, { value: {}, onChange: () => undefined, outputSelectable: true, unlockLabels: async () => { unlocked += 1; env.devices = saved; } });
+    await chrome.settle();
+    const cp = () => byAria(chrome.tree, "Output device");
+    check("Output (Chromium, no names yet): enabled, Show the speakers offered", cp()?.props.disabled === false && cp()?.props.options.some((o) => o.value === kit.OUTPUT_ACTION_NAMES), JSON.stringify(cp()?.props.options));
+    cp().props.onChange(kit.OUTPUT_ACTION_NAMES);
+    await sleep(5);
+    await chrome.settle();
+    check("Output (Chromium): after the permission the speakers are listed", unlocked === 1 && cp()?.props.options.some((o) => o.value === "spk-1" && o.label === "Desk speakers") && !cp()?.props.options.some((o) => o.value === kit.OUTPUT_ACTION_NAMES), JSON.stringify(cp()?.props.options));
+    check("Output (Chromium): Re-open audio is offered too", cp()?.props.options.at(-1)?.label === "Re-open audio");
+    chrome.unmount();
+    // The Test chime: resolves once its last note ended on the audio clock, never on a guess; a
+    // context the browser keeps from running is a failure, never "Chime played".
+    {
+      env.playMs = 120;
+      let done = false;
+      const tone = kit.playTestTone({}).then(() => (done = true));
+      await sleep(60);
+      check("Test chime: still playing before the last note ended", !done);
+      await tone;
+      check("Test chime: resolved after the last note ended", done && env.log.oscillators.length >= 2);
+      env.playMs = 5;
+      const Real = globalThis.AudioContext;
+      globalThis.AudioContext = class extends Real { constructor() { super(); this.state = "suspended"; } };
+      globalThis.window.AudioContext = globalThis.AudioContext;
+      const failed = await kit.playTestTone({}).then(() => "", (e) => String(e.message));
+      globalThis.AudioContext = Real;
+      globalThis.window.AudioContext = Real;
+      check("Test chime: a held-back context fails with a sentence", failed === "The browser held the sound back: press Test again", failed);
+    }
   }
 
   // ------------------------------------------------------------------ AfVoiceInput

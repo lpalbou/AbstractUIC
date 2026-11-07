@@ -78,7 +78,7 @@ export type VoiceClientPreferences = VoicePreferences & {
  */
 export function gatewayVoiceOptions(
   prefs: VoiceClientPreferences,
-): Pick<GatewayVoiceOptions, "output_device_id" | "volume" | "muted" | "input_device_id" | "input_gain" | "capture_mode" | "tts_voice"> {
+): Pick<GatewayVoiceOptions, "output_device_id" | "volume" | "muted" | "input_device_id" | "input_gain" | "capture_mode" | "tts_voice" | "unlock_on_gesture"> {
   return {
     output_device_id: prefs.output_device || "",
     volume: clampVolume(prefs.reply_volume),
@@ -88,6 +88,8 @@ export function gatewayVoiceOptions(
     capture_mode: voiceCaptureMode(prefs.capture_mode),
     // The voice the requests speak with: kept audio is tied to it (a voice change never resumes old audio).
     tts_voice: voiceTtsRequest(prefs),
+    // Read aloud on: clicks and key presses keep the reply player open, so a new reply can play.
+    unlock_on_gesture: prefs.read_aloud === true,
   };
 }
 

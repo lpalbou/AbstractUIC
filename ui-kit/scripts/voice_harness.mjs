@@ -150,7 +150,9 @@ export function installFakeBrowser() {
     ],
     /** getUserMedia resolves after this many ms (a permission prompt); 0 = at once. */
     gumDelay: 0,
-    log: { getUserMedia: [], streams: [], sinks: [], recorders: [], windowAdd: [], windowRemove: [], gains: [], contexts: [], sources: [], enumerate: 0, analyserReads: 0 },
+    log: { getUserMedia: [], streams: [], sinks: [], recorders: [], windowAdd: [], windowRemove: [], gains: [], contexts: [], closed: [], oscillators: [], sources: [], enumerate: 0, analyserReads: 0 },
+    /** `navigator.userActivation.isActive` (a click or key press is being handled). */
+    gesture: false,
     store: new Map(),
   };
   class FakeTrack {
@@ -187,7 +189,10 @@ export function installFakeBrowser() {
       return g;
     }
     createOscillator() {
-      return { frequency: {}, connect() {}, start() {}, stop() {} };
+      // Like Web Audio: onended fires once the scheduled stop has played (here after env.playMs).
+      const o = { frequency: {}, connect() {}, start() {}, stop() { setTimeout(() => o.onended?.(), env.playMs ?? 5); }, onended: null };
+      env.log.oscillators.push(o);
+      return o;
     }
     createAnalyser() {
       return {
@@ -229,6 +234,8 @@ export function installFakeBrowser() {
       return Promise.resolve({ duration: 0.01 });
     }
     close() {
+      this.state = "closed";
+      env.log.closed.push(this);
       return Promise.resolve();
     }
   }
@@ -266,7 +273,10 @@ export function installFakeBrowser() {
     setItem: (k, v) => env.store.set(k, String(v)),
     removeItem: (k) => env.store.delete(k),
   };
+  const deviceTarget = new EventTarget();
   const mediaDevices = {
+    addEventListener: (type, fn) => deviceTarget.addEventListener(type, fn),
+    removeEventListener: (type, fn) => deviceTarget.removeEventListener(type, fn),
     getUserMedia: (constraints) => {
       env.log.getUserMedia.push(constraints);
       const stream = new FakeStream();
@@ -287,7 +297,8 @@ export function installFakeBrowser() {
   define("window", fakeWindow);
   define("AudioContext", FakeAudioContext);
   define("MediaRecorder", FakeMediaRecorder);
-  define("navigator", { mediaDevices });
+  define("navigator", { mediaDevices, userActivation: { get isActive() { return env.gesture; } } });
+  env.deviceChange = () => deviceTarget.dispatchEvent(new Event("devicechange"));
   define("localStorage", storage);
   define("addEventListener", add);
   define("removeEventListener", remove);

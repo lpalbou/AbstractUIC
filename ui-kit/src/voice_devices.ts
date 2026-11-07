@@ -294,18 +294,26 @@ export async function playOnDevice(data: Blob | ArrayBuffer, opts: { deviceId?: 
   }
 }
 
-/** The speaker Test: a short two-note chime on the chosen output at `volume`. */
+/**
+ * The speaker Test: a short two-note chime on the chosen output at `volume`. Resolves once the
+ * chime has played out of the device (its last note ended on the audio clock, plus the output's
+ * own latency — a Bluetooth headset adds a fifth of a second or more), never on a wall-clock guess
+ * that can close the context before a slow output has started. Throws when the browser keeps the
+ * context from running (nothing was played; never "Chime played").
+ */
 export async function playTestTone(opts: { deviceId?: string; volume?: number } = {}): Promise<void> {
   const C = audioContextCtor();
   if (!C) throw new Error("This browser cannot play audio.");
   const ctx = new C();
   try {
     if (opts.deviceId && typeof ctx.setSinkId === "function") await ctx.setSinkId(opts.deviceId);
-    if (ctx.state === "suspended") await ctx.resume?.();
+    if (ctx.state !== "running") await ctx.resume?.();
+    if (ctx.state !== "running") throw new Error("The browser held the sound back: press Test again");
     const gain = ctx.createGain();
     gain.connect(ctx.destination);
     const peak = 0.3 * clampVolume(opts.volume);
     const t0 = ctx.currentTime + 0.02;
+    let last: any = null;
     [660, 880].forEach((freq, i) => {
       const osc = ctx.createOscillator();
       const env = ctx.createGain();
@@ -318,11 +326,89 @@ export async function playTestTone(opts: { deviceId?: string; volume?: number } 
       env.gain.exponentialRampToValueAtTime(0.0001, start + 0.2);
       osc.start(start);
       osc.stop(start + 0.21);
+      last = osc;
     });
-    await new Promise((resolve) => setTimeout(resolve, 520));
+    // The last note's end on the audio clock (bounded: a context that stalls cannot hang the Test).
+    await new Promise<void>((resolve) => {
+      const guard = setTimeout(resolve, 2500);
+      last.onended = () => {
+        clearTimeout(guard);
+        resolve();
+      };
+    });
+    const tail = Math.max(Number(ctx.outputLatency) || 0, Number(ctx.baseLatency) || 0);
+    await new Promise((resolve) => setTimeout(resolve, Math.ceil(tail * 1000) + 120));
   } finally {
     void ctx.close?.();
   }
+}
+
+// ---------------------------------------------------------------- the audio output, re-opened
+//
+// WebKit (Safari) mixes every AudioContext of a page that has the same sample rate and channel
+// count into ONE output unit (WebCore SharedAudioDestination), opened when the first of them
+// starts and kept while any of them is alive. A page that keeps a context alive (the spoken-reply
+// player of `useGatewayVoice`) keeps that output unit, and a fresh context (the speaker Test)
+// plays through the same unit. When that unit no longer reaches the system output (seen with
+// Bluetooth headphones, 2026-11-07: silent replies AND a silent Test until the macOS output was
+// switched away and back), only closing every context lets the next one open the current system
+// output. Holders of a long-lived context subscribe here; Settings → Output → "Re-open audio"
+// (`reopenAudioOutput`) and the browser's `devicechange` reach every one of them.
+
+/** Why a holder must drop its audio graph: the user asked ("reopen") or the devices changed. */
+export type AudioOutputEvent = "reopen" | "devicechange";
+type AudioOutputListener = (event: AudioOutputEvent) => void | Promise<unknown>;
+const audioOutputListeners = new Set<AudioOutputListener>();
+let stopDeviceWatch: (() => void) | null = null;
+
+function notifyAudioOutput(event: AudioOutputEvent): Promise<void> {
+  return Promise.all(
+    Array.from(audioOutputListeners).map((fn) => Promise.resolve().then(() => fn(event)).catch(() => undefined)),
+  ).then(() => undefined);
+}
+
+/**
+ * Hear "reopen" / "devicechange" for a long-lived audio graph; returns the unsubscribe function.
+ * The first subscriber starts watching `navigator.mediaDevices` "devicechange", the last one stops.
+ */
+export function onAudioOutputEvent(fn: AudioOutputListener): () => void {
+  audioOutputListeners.add(fn);
+  if (!stopDeviceWatch) {
+    const m = md();
+    if (m && typeof m.addEventListener === "function") {
+      const onChange = () => void notifyAudioOutput("devicechange");
+      m.addEventListener("devicechange", onChange);
+      stopDeviceWatch = () => m.removeEventListener?.("devicechange", onChange);
+    }
+  }
+  return () => {
+    audioOutputListeners.delete(fn);
+    if (!audioOutputListeners.size && stopDeviceWatch) {
+      stopDeviceWatch();
+      stopDeviceWatch = null;
+    }
+  };
+}
+
+/**
+ * Rebuild every long-lived audio graph of the page on the current system output (Settings →
+ * Output → "Re-open audio"). Call it from the click: each holder closes its context, waits until
+ * it is closed, and opens a new one while the click still counts as a user gesture.
+ */
+export function reopenAudioOutput(): Promise<void> {
+  return notifyAudioOutput("reopen");
+}
+
+/** Close a context and wait until it is closed (bounded: a close that never settles cannot hang the caller). */
+export function closeAudioContext(ctx: { close?: () => Promise<unknown>; state?: string } | null | undefined, ms = 1000): Promise<void> {
+  if (!ctx || ctx.state === "closed" || typeof ctx.close !== "function") return Promise.resolve();
+  let closing: Promise<unknown>;
+  try {
+    closing = Promise.resolve(ctx.close()).catch(() => undefined);
+  } catch {
+    return Promise.resolve();
+  }
+  return Promise.race([closing, new Promise((resolve) => setTimeout(resolve, ms))]).then(() => undefined);
 }
 
 /** Volume preference (0..1; absent = 1). */

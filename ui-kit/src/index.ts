@@ -599,7 +599,7 @@ export { AfTimeZonePicker, TIME_ZONE_GATEWAY_DEFAULT, timeZoneOptions, type AfTi
 // --- ui-primitives (voice) ---
 // 0035: voice IN / voice OUT as standalone composables, the one microphone button, the
 // preference and defaults hooks, the voice library, the gateway's voice routes.
-export { AfVoiceOutput, SAFARI_OUTPUT_NOTE, type AfVoiceOutputProps, type AfVoiceOutputLabels, type VoiceOutputValue, type VoiceDeviceLister } from "./af_voice_output.js";
+export { AfVoiceOutput, SAFARI_OUTPUT_NOTE, SYSTEM_OUTPUT_NOTE, OUTPUT_ACTION_REOPEN, OUTPUT_ACTION_NAMES, OUTPUT_DEFAULT_LABEL, type AfVoiceOutputProps, type AfVoiceOutputLabels, type VoiceOutputValue, type VoiceDeviceLister } from "./af_voice_output.js";
 export { AfVoiceInput, clampInputGain, type AfVoiceInputProps, type AfVoiceInputLabels, type VoiceInputValue } from "./af_voice_input.js";
 export { AfVoiceMicButton, VOICE_MIC_TEXT, type AfVoiceMicButtonProps } from "./af_voice_mic_button.js";
 export { useVoiceDefaults, type VoiceDefaultsState } from "./use_voice_defaults.js";
@@ -620,6 +620,8 @@ export {
 } from "./voice_settings.js";
 export { voiceCaptureMode, ttsVoiceKey, type VoiceCaptureMode } from "./use_gateway_voice.js";
 export { recordingAbortError } from "./voice_devices.js";
+// ui-kit 0.9.21: rebuild long-lived audio graphs on the current system output (Re-open audio, devicechange).
+export { reopenAudioOutput, onAudioOutputEvent, closeAudioContext, type AudioOutputEvent } from "./voice_devices.js";
 export { AfVoiceLevelMeter, useVoiceLevel, type AfVoiceLevelMeterProps, type VoiceLevelSource } from "./af_voice_level_meter.js";
 export { GATEWAY_VOICE_ROUTES, voiceClonePath, voiceCloneDeployPath, runVoiceTtsPath, runTranscribePath, entityVoicePath } from "./gateway_paths.js";
 // --- ui-primitives (tools-models) ---
