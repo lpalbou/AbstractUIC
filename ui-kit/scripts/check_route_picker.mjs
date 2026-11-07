@@ -315,6 +315,10 @@ const LADDER = ["none", "minimal", "low", "medium", "high", "xhigh"];
   const k = mount(ProviderModelPicker, picker({ enableSpeculation: true, onChange: (next) => { kept = next; }, value: { provider: "airelays", model: "m", reasoning: "high", speculation: false }, fetchModelCapabilities: async () => ({ capabilities: {} }) }));
   await k.settle();
   check("no served facts: nothing is cleared (unknown is not unsupported)", kept === null, JSON.stringify(kept));
+  let pinnedEmit = null;
+  const pz = mount(ProviderModelPicker, picker({ enableSpeculation: true, pinned: { reasoning: true, speculation: true }, onChange: (next) => { pinnedEmit = next; }, value: { provider: "airelays", model: "gpt-5.6-terra", reasoning: "ultra", speculation: DEPTH }, fetchModelCapabilities: async () => ({ capabilities: { reasoning_levels: ["low"] }, execution: { speculation: { supported: false, reason: "x", supported_depths: [] } } }) }));
+  await pz.settle();
+  check("pinned fields are never cleared (opening a pinned node changes nothing)", pinnedEmit === null, JSON.stringify(pinnedEmit));
 }
 if (routeFailures) {
   console.error(`check_route_picker: ${routeFailures} FAILED`);

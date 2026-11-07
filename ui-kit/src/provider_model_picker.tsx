@@ -275,8 +275,8 @@ export function ProviderModelPicker(
     loading: boolean;
   }>({ levels: [], error: "", loading: false });
   const [overrideUnknown, setOverrideUnknown] = useState(false);
-  const latest = useRef({ value, onChange: props.onChange });
-  latest.current = { value, onChange: props.onChange };
+  const latest = useRef({ value, onChange: props.onChange, pins });
+  latest.current = { value, onChange: props.onChange, pins };
   const hasCapabilities = Boolean(props.fetchModelCapabilities);
   const [capabilityPayload, setCapabilityPayload] = useState<unknown>();
   useEffect(() => {
@@ -299,9 +299,15 @@ export function ProviderModelPicker(
         // A held reasoning level or MTP depth this model's card rules out is cleared, not just
         // hidden: hidden-but-held would still be sent by a host without the send-time check, and the
         // user could not see or clear it. Unknown facts and an explicit Off are kept.
-        const held = latest.current.value;
+        // Pinned fields belong to a connected pin, never to this picker: they are left alone.
+        const { value: held, pins: heldPins } = latest.current;
         const cleared = clearUnusableModelOptions(held, payload);
-        if (cleared !== held) latest.current.onChange(cleared);
+        const next = {
+          ...held,
+          reasoning: heldPins.reasoning ? held.reasoning : cleared.reasoning,
+          speculation: heldPins.speculation ? held.speculation : cleared.speculation,
+        };
+        if (next.reasoning !== held.reasoning || next.speculation !== held.speculation) latest.current.onChange(next);
         const { levels, support } = reasoningFacts(payload);
         setReasoning({ levels, support, error: "", loading: false });
       })
