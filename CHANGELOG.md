@@ -7,6 +7,28 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.10 - 2026-11-07 (local build, not published)
+
+Packages: `@abstractframework/panel-chat` 0.9.3 (from 0.9.2), `@abstractframework/ui-kit` 0.9.21 (from 0.9.20). Other packages retain their published versions.
+
+### Fixed
+
+- **After a stop the composer is idle again** (operator 2026-11-07: "it should not show stopped"). Once a stopped run is
+  over the composer shows the microphone and Send, nothing else: the "Stopped" chip in the Stop button's place is gone.
+  The outcome belongs to the run status: `workflowProgress` says "Stopped", and for a forced stop its detail is the
+  gateway's own text, as recorded.
+- **Spoken replies and the speaker Test follow output changes** (operator 2026-11-07, Safari on Bluetooth headphones:
+  Read aloud on but nothing read, Play and Test silent until the macOS output was switched away and back). WebKit mixes
+  every AudioContext of a page into one output unit, kept while any context lives; `useGatewayVoice` kept its context for
+  the life of the page. The reply player is now dropped on `devicechange` (at once when idle, after the reply when busy),
+  re-opened by a Play click when it is held back, stale or quiet for 30 s, and by the new **Re-open audio**. With Read
+  aloud on (`gatewayVoiceOptions` sets `unlock_on_gesture`), clicks and key presses open the player so a reply arriving
+  later can play in Safari; a resume the browser refuses is said after 1.5 s. The speaker Test waits for its last note
+  (plus the output's latency) instead of 520 ms, and never says "Chime played" when nothing could play.
+- **The Output device control is always usable** (operator: "we should always be able to change that"). It offers
+  "Follow the system output (default)", the speakers where the browser can switch them (Chromium; their names after one
+  microphone permission), and "Re-open audio". In Safari it says it follows the output chosen in macOS Sound settings.
+
 ## 0.10.9 - 2026-11-07
 
 Packages: `@abstractframework/panel-chat` 0.9.2 (from 0.9.1), `@abstractframework/ui-kit` 0.9.20 (from 0.9.19). Other packages retain their published versions.
