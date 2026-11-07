@@ -19,7 +19,7 @@ function Harness(){
  const controller={approve:async(value,target)=>{window.events.push(['approve',value,target]);if(window.rejectNext){window.rejectNext=false;throw Error('SECRET_PROVIDER_FAILURE');}if(window.hold)await new Promise(resolve=>window.release=resolve);},resume:async(text,target)=>window.events.push(['answer',text,target]),emitEvent:async()=>{}};
  const wait=question?{reason:'user',wait_key:'question:'+state.revision,prompt:'Which restaurant should I keep?',details:{question:{id:'question:'+state.revision,purpose:'conversation',importance:'essential'}}}:{reason:'tool_approval',wait_key:'approval:'+state.revision,details:{kind:'tool_approval',tool_calls:calls,public_action:publicAction}};
  window.requestTarget={runId,waitKey:wait.wait_key};
- const interaction=presentInteraction({runId,wait},controller,{onPermissionsAll:async()=>window.events.push(['broad-all']),onAllowForSession:async()=>window.events.push(['broad-session'])});
+ const interaction=presentInteraction({runId,wait},controller);
  return <WorkflowChat messages={[]} draft={draft} onDraftChange={setDraft} onSend={()=>{}} interaction={interaction} busy composerVariant='compact'
   avatarConversation={state.technical?undefined:{sessionKey:'session',avatar:<div role='img' aria-label='Avatar' style={{width:320,height:320,borderRadius:'50%',background:'#94783a'}}/>,status:'working',connection:'connected',attention:{id:state.mode+state.revision,kind:question?'question':'approval'},onTechnicalView:()=>{window.events.push(['review']);setState(s=>({...s,technical:true}));}}}/>;
 }createRoot(document.getElementById('root')).render(<Harness/>);` } });
@@ -46,7 +46,7 @@ try {
  const checkPublic = async () => {
   const text = await page.locator('.pc-avatar-conversation__request').innerText();
   for (const raw of ['read_file','fetch_url','execute_command','SECRET_JSON','SECRET_COMMAND','"arguments"','"call_id"','Allow for this chat','Allow all enabled tools']) assert(!text.includes(raw), `Public request leaked ${raw}`);
-  for (const label of ['Deny','Allow once']) { const button = page.getByRole('button',{name:label,exact:true}); if(await button.count()) assert.equal(await button.locator('svg').count(),1,`${label} has labeled iconography`); }
+  for (const label of ['Deny','Allow']) { const button = page.getByRole('button',{name:label,exact:true}); if(await button.count()) assert.equal(await button.locator('svg').count(),1,`${label} has labeled iconography`); }
  };
  // `chrome`: the host's own bars above the chat (AbstractCode web spends ~230px on its header, run
  // bar and actions row), so the Avatar view gets ~300px at 1000x650: the size where 0.8.0 clipped
@@ -54,13 +54,13 @@ try {
  for (const viewport of [{width:1280,height:800},{width:1000,height:650},{width:390,height:844},{width:1000,height:650,chrome:230},{width:400,height:700,chrome:230,tight:true},{width:1440,height:960,chrome:230}]) {
   await page.setViewportSize({width:viewport.width,height:viewport.height}); await page.goto('http://127.0.0.1:'+server.address().port);
   if (viewport.chrome) await page.evaluate((h)=>{document.getElementById('root').style.cssText='height:calc(100% - '+h+'px);margin-top:'+h+'px';},viewport.chrome);
-  const allow = page.getByRole('button',{name:'Allow once',exact:true}); await allow.waitFor();
+  const allow = page.getByRole('button',{name:'Allow',exact:true}); await allow.waitFor();
   await page.getByRole('heading',{name:'May I read these 2 webpages?',exact:true}).waitFor(); await checkPublic();
   if(process.env.AVATAR_REQUEST_SHOTS){mkdirSync(process.env.AVATAR_REQUEST_SHOTS,{recursive:true});await page.screenshot({path:process.env.AVATAR_REQUEST_SHOTS+'/approval-pages-'+viewport.width+'x'+viewport.height+(viewport.chrome?'-chrome':'')+'.png'});}
   // Too short for the whole card (400x700 under host chrome): the heading, the why and every button
   // stay on screen and the targets scroll inside their bounded context, never the card itself.
   const reachable = viewport.tight ? URLS.slice(0, 1) : URLS;
-  if (viewport.tight) { const last = page.getByText(URLS.at(-1),{exact:true}); await last.scrollIntoViewIfNeeded(); assert(await visible(last),`Last target unreachable at ${viewport.width}x${viewport.height}`); for (const b of ['Deny','Allow once','Review details']) assert(await visible(page.getByRole('button',{name:b,exact:true})),`${b} scrolled away with the targets at ${viewport.width}x${viewport.height}`); assert(await visible(page.locator('.pc-workflow-interaction__prompt')),'Heading scrolled away with the targets'); await page.locator('.pc-avatar-conversation__request .pc-public-approval__context').evaluate(el => { el.scrollTop = 0; }); }
+  if (viewport.tight) { const last = page.getByText(URLS.at(-1),{exact:true}); await last.scrollIntoViewIfNeeded(); assert(await visible(last),`Last target unreachable at ${viewport.width}x${viewport.height}`); for (const b of ['Deny','Allow','Review details']) assert(await visible(page.getByRole('button',{name:b,exact:true})),`${b} scrolled away with the targets at ${viewport.width}x${viewport.height}`); assert(await visible(page.locator('.pc-workflow-interaction__prompt')),'Heading scrolled away with the targets'); await page.locator('.pc-avatar-conversation__request .pc-public-approval__context').evaluate(el => { el.scrollTop = 0; }); }
   for (const locator of [page.locator('.pc-workflow-interaction__prompt'),page.getByText(WHY,{exact:true}),...reachable.map(url=>page.getByText(url,{exact:true})),allow,page.getByRole('button',{name:'Deny',exact:true}),page.getByRole('button',{name:'Review details',exact:true})]) assert(await visible(locator),`Two-page why/targets/actions clipped at ${viewport.width}x${viewport.height}${viewport.chrome?' under '+viewport.chrome+'px of host chrome':''}: ${await locator.textContent()}`);
   assert.equal((await page.evaluate(()=>window.events)).length,0,'Rendering never grants permission');
   await allow.click(); assert.deepEqual((await page.evaluate(()=>window.events)).map(e=>e.slice(0,2)),[['approve',true]]);
@@ -68,17 +68,17 @@ try {
   assert(await visible(page.getByText('I want to compare these six notes before choosing a summary.',{exact:true})));
   const last = page.getByText('notes-5.txt',{exact:true}); await last.scrollIntoViewIfNeeded();
   assert(await visible(last),'Six-batch targets are reachable inside their bounded context');
-  assert(await visible(page.getByRole('button',{name:'Deny',exact:true})) && await visible(page.getByRole('button',{name:'Allow once',exact:true})),'Six-batch scrolling retains decision controls');
+  assert(await visible(page.getByRole('button',{name:'Deny',exact:true})) && await visible(page.getByRole('button',{name:'Allow',exact:true})),'Six-batch scrolling retains decision controls');
   await page.getByRole('button',{name:'Deny',exact:true}).click(); assert.deepEqual((await page.evaluate(()=>window.events)).at(-1).slice(0,2),['approve',false]);
   await page.evaluate(()=>window.mode('question')); const response=page.getByRole('textbox',{name:'Response',exact:true}); await response.waitFor(); assert(await visible(response),'Question input clipped');
   await response.fill('Keep Riverside'); await page.getByRole('button',{name:'Submit',exact:true}).click(); assert.deepEqual((await page.evaluate(()=>window.events)).at(-1).slice(0,2),['answer','Keep Riverside']);
  }
  await page.evaluate(()=>{window.events=[];window.mode('unbound');}); await page.getByText(MISSING,{exact:true}).waitFor(); assert.equal(await page.getByText(WHY,{exact:true}).count(),0,'Unbound observations cannot become a why'); await checkPublic();
- await page.evaluate(()=>window.mode('unknown')); await page.getByText('I can’t describe this request clearly here. Review the details before allowing it.',{exact:true}).waitFor(); assert.equal(await page.getByRole('button',{name:'Allow once',exact:true}).count(),0,'Unknown actions require technical review'); await checkPublic();
- await page.evaluate(()=>window.mode('unsafe-web')); await page.getByText('A website request that needs a closer look',{exact:true}).first().waitFor(); assert.equal(await page.getByRole('button',{name:'Allow once',exact:true}).count(),0,'POST/data requests require detailed review'); await checkPublic();
+ await page.evaluate(()=>window.mode('unknown')); await page.getByText('I can’t describe this request clearly here. Review the details before allowing it.',{exact:true}).waitFor(); assert.equal(await page.getByRole('button',{name:'Allow',exact:true}).count(),0,'Unknown actions require technical review'); await checkPublic();
+ await page.evaluate(()=>window.mode('unsafe-web')); await page.getByText('A website request that needs a closer look',{exact:true}).first().waitFor(); assert.equal(await page.getByRole('button',{name:'Allow',exact:true}).count(),0,'POST/data requests require detailed review'); await checkPublic();
  await page.getByRole('button',{name:'Review details',exact:true}).click(); await page.locator('.pc-avatar-conversation').waitFor({state:'detached'}); assert.deepEqual(await page.evaluate(()=>window.events),[['review']],'Changing view sends no decision');
  await page.evaluate(()=>{window.events=[];window.mode('pages');window.rejectNext=true;});
- await page.locator('.pc-avatar-conversation').waitFor(); const allow = page.getByRole('button',{name:'Allow once',exact:true}); await allow.waitFor(); const target=await page.evaluate(()=>window.requestTarget); await allow.click();
+ await page.locator('.pc-avatar-conversation').waitFor(); const allow = page.getByRole('button',{name:'Allow',exact:true}); await allow.waitFor(); const target=await page.evaluate(()=>window.requestTarget); await allow.click();
  await page.getByRole('alert').filter({hasText:'Your choice could not be sent.'}).waitFor(); assert(!(await page.locator('body').innerText()).includes('SECRET_PROVIDER_FAILURE'),'Plain errors do not leak provider details');
  await page.evaluate(()=>window.hold=true); await page.getByRole('button',{name:'Try again',exact:true}).click(); await page.getByRole('button',{name:'Allowing…',exact:true}).waitFor();
  assert.equal((await page.evaluate(()=>window.events)).length,2,'Retry resends only the captured decision');

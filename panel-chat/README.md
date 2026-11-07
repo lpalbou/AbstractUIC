@@ -215,7 +215,7 @@ const uploads = useAttachmentUploads({ upload: (file) => gateway.attachmentsUplo
   onRetryAttachment={uploads.retry}
   toolbar={{ onNewSession: newSession, exportTranscript: { filename: "conversation.md" }, copyTranscript: true }}
   messageProps={{ renderFooter: (m) => (m.detail ? <TurnBadge detail={m.detail} /> : null), variant: (m) => (m.role === "system" ? "hint" : undefined) }}
-  interaction={presentInteraction(workflowPendingInteraction(snapshot), controller, { onPermissionsAll, approveAllScope: "in this browser", onDefer: hide })}
+  interaction={presentInteraction(workflowPendingInteraction(snapshot), controller, { sessionPolicy: true, onDefer: hide })}
 />
 ```
 
@@ -251,24 +251,31 @@ const uploads = useAttachmentUploads({ upload: (file) => gateway.attachmentsUplo
 
 `presentInteraction(wait, controller, options)` maps a runtime wait to the `interaction`
 control, with ONE wording set (`WORKFLOW_INTERACTION_LABELS`, ADR 0001 §5, backlog 0032).
-The native AbstractAssistant (Qt, iPhone) is the reference: deny / allow once / allow for
-this chat / allow all, and a dismissal defers, never denies.
+A tool approval offers exactly three decisions (operator ruling 2026-11-07: "Deny, Allow (this
+tool), Allow All (ALL tools). but the scope is ONLY FOR THIS SESSION"); a dismissal defers, never
+denies. Nothing the card does changes the app's default tool settings.
 
-| Decision | Label | Offered when | What it sends |
+| Decision | Label | Offered when | What it does |
 |---|---|---|---|
-| Deny | Deny | always | `resume {approved: false}` |
-| Allow once | Allow once | always | `resume {approved: true}` for this batch |
-| Allow for this chat | Allow for this chat | `onAllowForSession` | this batch, then the host's chat-scoped grant |
-| Allow all enabled tools | Allow all enabled tools | `onPermissionsAll` | this batch, then the host's standing policy |
+| Deny | Deny | always | `resume {approved: false}`: refuses this request |
+| Allow | Allow | always | `sessionPolicy` + gateway mode: this request's tools for the rest of this session (`approveToolsForSession`), then `resume {approved: true}`; otherwise this request only |
+| Allow All | Allow All | `sessionPolicy` + gateway mode | every tool for the rest of this session (`approveAllForSession`), then `resume {approved: true}` |
 | Decide later | Decide later | `onDefer` | nothing (the run keeps waiting) |
 | Answer | Submit / a choice button | always (free text when `allow_free_text`) | `resume {response}` |
 | Continue without answering | Continue without answering | `allowSkip` | `resume {response: ""}` |
 | Keep waiting | Keep waiting | `onDefer` | nothing |
 
-- The allow-all sentence names no storage scope by default; pass `approveAllScope` with the
-  host's truth ("for this Gateway account", "in this browser").
-- `remember(toolNames)` returns a host-worded per-tool checkbox (`{label, checked, onChange}`).
-- `approveAllDisabledReason` renders the broad grants disabled with the reason visible.
+- The card keeps its title ("1 action needs permission"), the calls in words ("Run the command
+  …") and the **Review full tool arguments (JSON)** disclosure; the reach of Allow and Allow All
+  is on their tooltips, never in a paragraph.
+- Without a session grant (no `sessionPolicy`, or a gateway that cannot keep one) one line says
+  so: "Allow covers this request only." or "This gateway cannot keep a choice for the session, so
+  Allow covers this request only." Allow All is not offered then.
+- Removed in 0.9.0: `onPermissionsAll`, `approveAllScope`, `onAllowForSession`,
+  `approveAllDisabledReason`, `remember`, and `sessionPolicy: { toolsetOf, ask, maxRiskRank }`
+  (now `sessionPolicy: true`); on the panel, `onApproveForSession`, `approveKinds`,
+  `denyOptions`, `broadScopeSummary`, `approveAllDescription`, `approveForSessionDescription`,
+  `policySummary`, `notCovered`, `disabledReason` and `remember`.
 - `WorkflowInteractionPanel` `variant="card"` is the compact form for served-state lists (a
   "Needs you" board, an inbox): same decisions and callbacks, detail behind **Review**.
 - `presentInteraction` also accepts a `ReplayInteraction`: the shape of
@@ -282,11 +289,11 @@ this chat / allow all, and a dismissal defers, never denies.
 #### Session tool policy (stored on the gateway)
 
 With the session tool policy (contract v1; gateway routes
-`GET/PUT/POST/DELETE /api/gateway/sessions/{session_id}/tool-policy`), "Allow for this chat" is
-stored for the chat (the gateway's session) and the runtime runs the covered calls of every run of
-the chat with no approval wait. It needs an AbstractGateway that advertises
+`GET/PUT/POST/DELETE /api/gateway/sessions/{session_id}/tool-policy`), Allow and Allow All are
+stored for the session (the gateway's session) and the runtime runs the covered calls of every run
+of the session with no approval wait. It needs an AbstractGateway that advertises
 `capabilities.session_tool_policy.supported` in `GET discovery/capabilities`; on a gateway that
-does not, the controller keeps the labeled local grant below.
+does not, Allow covers the shown request only and Allow All is not offered.
 
 ```ts
 // Only when GET discovery/capabilities serves capabilities.session_tool_policy.supported === true.
@@ -294,58 +301,33 @@ const controller = new WorkflowSessionController(transport, { sessionToolPolicy:
 // The capability read failed: say so (mode "unavailable"); no client at all = "local-fallback".
 controller.setSessionToolPolicyClient(null, { reason: "Could not read the gateway's capabilities (HTTP 502)." });
 // Re-present on every snapshot change: the mode is the controller's, never a prop.
-const interaction = presentInteraction(workflowPendingInteraction(snapshot), controller, {
-  sessionPolicy: { toolsetOf: (name) => toolsetByName[name], ask: toolsSetToAsk },
-});
+const interaction = presentInteraction(workflowPendingInteraction(snapshot), controller, { sessionPolicy: true });
 ```
 
 - **One source for the mode:** `presentInteraction` reads `controller.sessionPolicyStatus()`
-  (mode, reason, `clamped`), so a control always says what its click does.
-- **Order:** "Allow for this chat" (`approveAllForSession`: `{approve:{all:true}}`) and
-  "Allow all <toolset> tools for this chat" (`approveKindForSession`: `{approve:{kinds}}`)
-  write the policy FIRST, then answer the shown wait `{approved:true}` (the policy never
-  answers a wait that already exists). A failed write answers nothing. When the write
-  succeeds but the shown request changed meanwhile (or the chat was closed), the error says
-  the chat's tool policy was saved and that request was not answered.
-- **Ask:** `sessionPolicy.ask` (the person's explicit Ask tools) is sent on every write, so a
-  broad approve never overrides them.
-- **Toolsets** come from the call's `toolset`, else the host's `toolsetOf(name)` (the `toolset`
-  of the tool's `GET discovery/tools` row). A tool with neither gets no kind button.
+  (mode, reason, stored policy), so a control always does what it says.
+- **Order:** Allow (`approveToolsForSession`: `{approve:{tools:[<this request's tools>]}}`) and
+  Allow All (`approveAllForSession`: `{approve:{all:true}}`) write the policy FIRST, then answer
+  the shown wait `{approved:true}` (the policy never answers a wait that already exists). A
+  failed write answers nothing. When the write succeeds but the shown request changed meanwhile
+  (or the session was closed), the error says the tool policy was saved and that request was not
+  answered. The card sends no `ask`: Allow All means every tool the gateway authorizes for you.
+- **What the gateway stores:** `all` is expanded when it is written to the tools the gateway
+  authorizes for the caller at that moment; a tool enabled later is not covered. Approvals never
+  reach automation runs, runs that read text other people wrote, or entity visits (the gateway's
+  `scope` words); a deny reaches every run of the session.
 - **Not covered:** what the gateway did not store (`clamped`) is in `snapshot.sessionPolicyClamped`
-  and `onSessionPolicy`, shows after the decision, and on the next approval as
-  "Not covered: send_email (not authorized)".
+  and `onSessionPolicy`, and the decision's outcome says "Not covered: send_email (not authorized)".
 - **Older gateway** (`supported` absent or false, or no client): `sessionPolicyMode` is
-  `"local-fallback"`; the previous local grant stays and says what it does: **Allow for this run**
-  with "Allowed until this run ends, in this browser only — the gateway cannot store chat
-  policies." (or **Allow for this chat** with "Allowed for this chat in this browser only — …"
-  when the host passes its own `onAllowForSession`).
+  `"local-fallback"`; Allow answers the shown request and the card says so in one line.
 - **Capability read failed:** `sessionPolicyMode` is `"unavailable"` with `sessionPolicyReason`;
-  no chat grant is offered or made ("Allow for this chat is unavailable: <reason> Allow once
-  still works."); Allow once and Deny work as always.
-- **Deny for the chat:** under **More**, "Always deny <tool> in this chat" and "Always deny
-  <toolset> tools in this chat" (`denyToolForSession` / `denyKindForSession`). Before the click
-  and in its confirmation the panel says what a deny reaches: every run of this chat,
-  automations and runs that read other people's text included, until reset; a request shown
-  before it is refused even if approved later. A deny is sent with the policy's current
-  revision (read first when unknown); a 409 says "Someone changed this chat's policy; re-read"
-  and refreshes it. When the stored policy denies a tool of a later batch, the panel names it
-  and "Allow once" reports "The gateway refuses <tool>: denied by this chat's policy", never a
-  success.
-- **Where it applies:** every policy response carries the gateway's `scope` words
-  (`{approve, deny}`, top-level). The panel shows them exactly as served, after a decision
-  ("Applies: …") and in the policy summary line; without them it says "The gateway did not say
-  where this grant applies." (the kit never composes that sentence). The client must carry the
-  response's `scope` onto the policy it returns (`SessionToolPolicy.scope`).
-- **What "all" includes:** `all` and kinds include tools whose destination the model picks
-  (`fetch_url`, `browser_probe`, `send_email`) on purpose; only the Ask list keeps them asking.
-  The description says so: with no Ask list, "Nothing is set to Ask, so … are included"; with
-  one, "Tools set to Ask keep asking: …". A host with no Ask list sends no `ask`.
-- **Where the scope is read (0.6.1):** one line stays visible under the decisions
-  (`broadScopeSummary`: the broad grants keep allowing later calls of this chat until reset, plus
-  the Ask sentence above); the full sentences ("Each of “Allow for this chat” (every tool) or
-  “Allow all web tools for this chat” (that toolset only) approves …") are in the disclosure
-  "What the broader choices allow" and on every broad button as its tooltip. "Allow once" is the
-  card's one primary button; the broader grants are neutral.
+  no session grant is offered or made; Allow and Deny answer the shown request.
+- **Deny for the session:** the controller keeps `denyToolForSession` / `denyKindForSession` /
+  `approveKindForSession` for hosts that expose them elsewhere (never on the card). A deny is sent
+  with the policy's current revision (read first when unknown); a 409 says "Someone changed this
+  chat's policy; re-read" and refreshes it. When the stored policy denies a tool of a later batch,
+  the card names it and Allow reports "The gateway refuses <tool>: denied by this session's
+  policy", never a success.
 - **Merge only adds:** a write never narrows or re-expands an earlier `all`/kinds. Undoing an
   approve is a reset (`resetSessionPolicy`, DELETE), never a merge. A reset is revision-guarded:
   the controller reads first when it has no revision (the policy's, or ui-kit's client

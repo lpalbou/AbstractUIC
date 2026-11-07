@@ -212,18 +212,19 @@ and panel-chat first" means a `dist/` is absent: run `npm run build`. A type err
 package changed the shared shape: change both together (ui-kit `session_tool_policy.ts`, panel-chat
 `workflow_runtime.ts`) and rebuild.
 
-## "Allow for this chat" reads "Allow for this run", or no chat grant is offered
+## The approval card shows "Allow covers this request only", or no Allow All
 
-The chat grant is stored on the gateway only when the host injects a `SessionToolPolicyClient` and
-`GET discovery/capabilities` serves `capabilities.session_tool_policy.supported === true`.
+Allow and Allow All last for the session only when the host passes `sessionPolicy: true`, injects a
+`SessionToolPolicyClient`, and `GET discovery/capabilities` serves
+`capabilities.session_tool_policy.supported === true`.
 
-- **"Allow for this run" with "Allowed until this run ends, in this browser only — …"**: no
-  supported client (the gateway does not advertise the capability, or the host injected none).
-  The grant applies to this run in this browser. Check the gateway's capabilities answer and that
-  the host passes `sessionToolPolicy` to `WorkflowSessionController`.
-- **No chat grant, with a reason**: the host recorded a failed capability read
-  (`setSessionToolPolicyClient(null, { reason })`). Allow once still works; reload once the gateway
-  answers.
+- **"Allow covers this request only."**: the host did not ask for a session grant
+  (`presentInteraction` without `sessionPolicy`).
+- **"This gateway cannot keep a choice for the session, so Allow covers this request only."**: no
+  supported client (the gateway does not advertise the capability, or the host injected none), or
+  the host recorded a failed capability read (`setSessionToolPolicyClient(null, { reason })`).
+  Check the gateway's capabilities answer and that the host passes `sessionToolPolicy` to
+  `WorkflowSessionController`; reload once the gateway answers.
 - **"Someone changed this chat's policy; re-read it before deciding again"**: another client
   changed the policy (a revision conflict). The chat has refreshed it; decide again.
 

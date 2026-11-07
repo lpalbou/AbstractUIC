@@ -8,7 +8,7 @@ import { JsonViewer } from "./json_viewer.js";
 import { ToolCallWordsList } from "@abstractframework/ui-kit";
 import { toolArguments } from "./tool_activity.js";
 import { sessionPolicyClampedText } from "./tool_policy.js";
-import { WORKFLOW_INTERACTION_LABELS, type WorkflowInteraction, type WorkflowInteractionRemember, type WorkflowToolApprovalInteraction } from "./workflow_interaction.js";
+import { WORKFLOW_INTERACTION_LABELS, type WorkflowInteraction } from "./workflow_interaction.js";
 import type { ServerRecord, SessionToolPolicy, WorkflowRecord, WorkflowSessionController, WorkflowWaitInteraction } from "./workflow_runtime.js";
 import type { ReplayViewInteraction } from "./replay_view.js";
 import { replayInteractionWait } from "./replay_view_projection.js";
@@ -40,64 +40,30 @@ export type PresentInteractionOptions = {
   records?: WorkflowRecord[];
   /** The run the wait belongs to, when the host has it. */
   currentRun?: ServerRecord | null;
-  /**
-   * Offer "Allow all enabled tools" on a tool approval: approves the batch,
-   * then the host switches its tool policy to all (`permissions: all`).
-   * Omit it and only Allow once / Deny are offered.
-   */
-  onPermissionsAll?: () => Promise<void>;
-  /**
-   * Where the "Allow all enabled tools" policy is kept, in the host's words
-   * ("for this Gateway account", "in this browser"). Only the host knows; the
-   * default sentence asserts no scope (backlog 0032: AbstractCode said
-   * "Gateway account" over per-browser storage).
-   */
-  approveAllScope?: string;
-  /**
-   * Offer "Allow for this chat": approves this batch, then the host turns on
-   * its chat-scoped grant (e.g. a session-level tool policy it applies to
-   * every run of this conversation with `setToolApprovalPolicy`). The host
-   * owns the scope because a chat spans several runs: the controller's own
-   * `allowAllToolsForRun` ends with the run. Omit it and the button is not
-   * offered.
-   */
-  onAllowForSession?: () => Promise<void>;
-  /** Why the broad grants cannot be offered for this batch (rendered disabled, reason visible). */
-  approveAllDisabledReason?: string;
-  /** Host-owned per-tool "remember" checkbox for this batch's tool names. */
-  remember?: (toolNames: string[]) => WorkflowInteractionRemember | null | undefined;
   /** "Decide later" / "Keep waiting": the host dismisses the control. Nothing is sent. */
   onDefer?: () => void | Promise<unknown>;
   /** Offer "Continue without answering" on a question: resumes with an empty answer. */
   allowSkip?: boolean;
   /**
-   * Turn on the chat's tool policy controls (session tool policy contract v1).
-   * The MODE is the controller's (`controller.sessionPolicyStatus()`), never a
-   * host prop, so the controls always say what the click will do:
-   * - `"gateway"`: "Allow for this chat" writes `{approve:{all:true}}` THEN answers
-   *   the shown wait; each toolset of the batch gets "Allow all <toolset> tools for
-   *   this chat" (`{approve:{kinds:[toolset]}}`). `toolsetOf(name)` maps a tool to the
-   *   `toolset` of its `GET discovery/tools` row; a call carrying `toolset` wins; a
-   *   tool with neither gets no kind button. The controller's `clamped` renders
-   *   "Not covered: …".
-   * - `"local-fallback"`: the host's `onAllowForSession` ("Allow for this chat",
-   *   labeled browser-only), else the controller's run-scoped grant ("Allow for this
-   *   run", labeled).
-   * - `"unavailable"`: no chat grant; the reason is shown; Allow once still works.
-   * Re-present on every snapshot change (the mode can change).
+   * A tool approval offers exactly Deny, Allow and Allow All (operator ruling 2026-11-07).
+   * `sessionPolicy: true` makes Allow and Allow All last for the rest of this session, on the
+   * gateway's session tool policy (contract v1). The MODE is the controller's
+   * (`controller.sessionPolicyStatus()`), never a host prop, so the card always does what it says:
+   * - `"gateway"`: Allow writes `{approve:{tools:[<this request's tools>]}}`, Allow All writes
+   *   `{approve:{all:true}}`, each THEN answers the shown wait. Nothing else is written: never
+   *   the app's default tool settings.
+   * - `"local-fallback"` / `"unavailable"`: no session grant exists; Allow answers this request
+   *   only, one line says so, and Allow All is not offered.
+   * Without it (a host with no conversation session, e.g. an automation's discussion: the
+   * session grant never reaches automation runs), Allow answers this request only, said in one
+   * line. Re-present on every snapshot change (the mode can change).
    */
-  sessionPolicy?: {
-    toolsetOf?: (toolName: string) => string | undefined;
-    /** The person's explicit Ask tools: sent on every write so a broad approve never overrides them. */
-    ask?: readonly string[];
-    /** Contract `approve.max_risk_rank` for "Allow for this chat" (default: unset). */
-    maxRiskRank?: number;
-  };
+  sessionPolicy?: boolean;
 };
 
 /** The controller methods the controls call. */
-export type InteractionController = Pick<WorkflowSessionController, "approve" | "approveWithPolicyChange" | "resume" | "emitEvent"> &
-  Partial<Pick<WorkflowSessionController, "approveAllForSession" | "approveKindForSession" | "denyToolForSession" | "denyKindForSession" | "sessionPolicyStatus" | "answerEvent">>;
+export type InteractionController = Pick<WorkflowSessionController, "approve" | "resume" | "emitEvent"> &
+  Partial<Pick<WorkflowSessionController, "approveToolsForSession" | "approveAllForSession" | "sessionPolicyStatus" | "answerEvent">>;
 
 /**
  * Converts a runtime wait into a control, or null when the wait is not one a
@@ -117,142 +83,49 @@ export function presentInteraction(
     const calls: any[] = Array.isArray(details.tool_calls) ? details.tool_calls : [];
     const target = { runId: raw.runId, waitKey: String(wait.wait_key || ""), stepId: raw.stepId };
     const names = [...new Set(calls.map((call: any) => String(call?.name || "tool")))];
-    const onPermissionsAll = options.onPermissionsAll;
-    const onAllowForSession = options.onAllowForSession;
-    const scope = String(options.approveAllScope || "").trim();
-    const remember = options.remember?.(names) || undefined;
     const L = WORKFLOW_INTERACTION_LABELS;
-    // The host's chat-scoped grant (pre-session-policy path, kept as-is).
-    const hostChatGrant = onAllowForSession
-      ? {
-          approveForSessionLabel: L.allowForChat,
-          approveForSessionDescription: "Allow for this chat approves this batch and the enabled tools for the rest of this chat. Unchecked tools stay unavailable; questions still need your answer.",
-          onApproveForSession: async () => {
-            let grant: Promise<void> | undefined;
-            await controller.approveWithPolicyChange(target, () => {
-              grant = onAllowForSession();
-            });
-            // The batch is approved; a failed chat-wide grant is shown, never swallowed.
-            if (grant)
-              await grant.catch((error: unknown) => {
-                throw new Error(`This batch was allowed, but "Allow for this chat" could not be turned on: ${error instanceof Error ? error.message : String(error)}`);
-              });
-          },
-        }
-      : {};
-    let sessionFields: Partial<WorkflowToolApprovalInteraction> = hostChatGrant;
-    // Tools of this batch the chat's stored policy denies (gateway mode): the gateway refuses them even if allowed once.
+    const tools = names.join(", ") || "the requested tools";
+    const answerOnce = async () => {
+      await controller.approve(true, target);
+    };
+    // Allow and Allow All: the session's grant on the gateway, or this request only.
+    let onApprove: () => Promise<unknown> = answerOnce;
+    let onApproveAll: (() => Promise<unknown>) | undefined;
+    let scopeNote: string | undefined = L.allowThisRequestNote;
+    // Tools of this batch the session's stored policy denies: the gateway refuses them even if allowed.
     let refusedByPolicy: string[] = [];
-    const policy = options.sessionPolicy;
-    if (policy) {
+    if (options.sessionPolicy) {
+      const approveToolsForSession = controller.approveToolsForSession;
       const approveAllForSession = controller.approveAllForSession;
-      const approveKindForSession = controller.approveKindForSession;
-      const denyToolForSession = controller.denyToolForSession;
-      const denyKindForSession = controller.denyKindForSession;
       const sessionPolicyStatus = controller.sessionPolicyStatus;
-      if (
-        typeof approveAllForSession !== "function" ||
-        typeof approveKindForSession !== "function" ||
-        typeof denyToolForSession !== "function" ||
-        typeof denyKindForSession !== "function" ||
-        typeof sessionPolicyStatus !== "function"
-      )
-        throw new Error("presentInteraction: sessionPolicy needs a WorkflowSessionController (approveAllForSession, approveKindForSession, denyToolForSession, denyKindForSession, sessionPolicyStatus).");
+      if (typeof approveToolsForSession !== "function" || typeof approveAllForSession !== "function" || typeof sessionPolicyStatus !== "function")
+        throw new Error("presentInteraction: sessionPolicy needs a WorkflowSessionController (approveToolsForSession, approveAllForSession, sessionPolicyStatus).");
       const status = sessionPolicyStatus.call(controller);
-      const ask = policy.ask ? [...policy.ask] : undefined;
-      // Where the grant applies: the gateway's words, exactly as served; never composed here.
-      const applies = (stored: SessionToolPolicy | null | undefined, which: "approve" | "deny") => {
-        const words = String(stored?.scope?.[which] || "").trim();
-        return words ? `Applies: ${words}` : L.noScopeNote;
-      };
-      const covered = (result: SessionToolPolicy | null) => ({
-        outcomeNote: [sessionPolicyClampedText(result?.clamped), applies(result, "approve")].filter(Boolean).join(" "),
-      });
-      const denied = (result: SessionToolPolicy | null) => ({ outcomeNote: `${L.denyForChatNote} ${applies(result, "deny")}` });
-      const notCovered = sessionPolicyClampedText(status.clamped);
-      if (status.mode === "unavailable") {
-        sessionFields = { scopeNote: L.unavailablePolicyNote(status.reason || "") };
-      } else if (status.mode === "gateway") {
-        // Toolsets come from the wait's calls (`toolset`) or the host's
-        // `GET discovery/tools` rows (`toolsetOf`); an unknown one is never guessed.
-        const toolsets = [
-          ...new Set(
-            calls
-              .map((call: any) => String(call?.toolset || "").trim() || String(policy.toolsetOf?.(String(call?.name || "")) || "").trim())
-              .filter(Boolean),
-          ),
-        ] as string[];
-        // all/kinds include tools whose destination the model chooses, on purpose (contract §3);
-        // only the person's Ask list keeps them asking. Say which.
-        const askNames = (ask || []).map((name) => String(name).trim()).filter(Boolean);
-        const asking = askNames.length
-          ? `Tools set to Ask keep asking: ${askNames.join(", ")}.`
-          : "Nothing is set to Ask, so tools that reach destinations the model picks (fetch_url, browser_probe, send_email) are included.";
+      if (status.mode === "gateway") {
         const stored = status.policy;
         refusedByPolicy = stored ? names.filter((name) => Object.prototype.hasOwnProperty.call(stored.deny || {}, name)) : [];
-        sessionFields = {
-          approveForSessionLabel: L.allowForChat,
-          // The real button labels, never a "<toolset>" placeholder; alternatives, each with
-          // its reach (release-closing polish).
-          approveForSessionDescription: toolsets.length
-            ? `Each of ${(() => {
-                const items = [`“${L.allowForChat}” (every tool)`, ...toolsets.map((kind) => `“${L.allowKindForChat(kind)}” (that toolset only)`)];
-                return `${items.slice(0, -1).join(", ")} or ${items[items.length - 1]}`;
-              })()} approves this batch and stores a policy for this chat on the gateway: the later tool calls it covers, in every run of this chat, run without asking, until the policy is reset. ${asking} Tools the gateway does not authorize stay uncovered.`
-            : `“${L.allowForChat}” approves this batch and stores a policy for this chat on the gateway: later tool calls of every run of this chat run without asking, until the policy is reset. ${asking} Tools the gateway does not authorize stay uncovered.`,
-          // Always visible under the decisions (the full sentences are in the disclosure): what
-          // a broad grant reaches, and the Ask warning, before any click.
-          broadScopeSummary: `The broader choices keep allowing later tool calls of this chat until the policy is reset. ${asking}`,
-          onApproveForSession: async () =>
-            covered(await approveAllForSession.call(controller, target, { ...(policy.maxRiskRank !== undefined ? { maxRiskRank: policy.maxRiskRank } : {}), ...(ask ? { ask } : {}) })),
-          approveKinds: toolsets.map((kind) => ({
-            kind,
-            label: L.allowKindForChat(kind),
-            onApprove: async () => covered(await approveKindForSession.call(controller, target, kind, ask ? { ask } : {})),
-          })),
-          denyOptions: [
-            ...names.map((name) => ({
-              key: `tool:${name}`,
-              label: L.denyToolForChat(name),
-              onDeny: async () => denied(await denyToolForSession.call(controller, target, name, ask ? { ask } : {})),
-            })),
-            ...toolsets.map((kind) => ({
-              key: `kind:${kind}`,
-              label: L.denyKindForChat(kind),
-              onDeny: async () => denied(await denyKindForSession.call(controller, target, kind, ask ? { ask } : {})),
-            })),
-          ],
-          ...(refusedByPolicy.length
-            ? { deniedNote: `Denied by this chat's policy: ${refusedByPolicy.join(", ")}. The gateway refuses ${refusedByPolicy.length === 1 ? "it" : "them"} even if allowed once.` }
-            : {}),
-          ...(stored
-            ? {
-                policySummary: `This chat's policy: ${Object.keys(stored.approve || {}).length} tools allowed without asking, ${Object.keys(stored.deny || {}).length} denied. ${applies(stored, "approve")}`,
-              }
-            : {}),
-          ...(notCovered ? { notCovered } : {}),
+        // What the gateway did not store (`clamped`) is said after the click, never dropped.
+        const covered = (result: SessionToolPolicy | null) => {
+          const notCovered = sessionPolicyClampedText(result?.clamped);
+          return notCovered ? { outcomeNote: notCovered } : undefined;
         };
+        onApprove = async () => {
+          const result = await approveToolsForSession.call(controller, target, names);
+          // Sent, but not a success: the session's policy denies these, and deny wins (contract §4.3).
+          return refusedByPolicy.length ? { outcomeNote: `The gateway refuses ${refusedByPolicy.join(", ")}: denied by this session's policy.` } : covered(result);
+        };
+        onApproveAll = async () => covered(await approveAllForSession.call(controller, target, {}));
+        scopeNote = undefined;
       } else {
-        // No silent hedge: the local grant is labeled with its real scope.
-        sessionFields = onAllowForSession
-          ? { ...hostChatGrant, scopeNote: L.localChatPolicyNote }
-          : {
-              // The grant ends with the run: the button says so (ADR 0001 §5).
-              approveForSessionLabel: L.allowForRun,
-              onApproveForSession: async () => {
-                await approveAllForSession.call(controller, target, {});
-              },
-              scopeNote: L.localRunPolicyNote,
-            };
+        scopeNote = L.noSessionGrantNote;
       }
     }
     return {
       id,
       kind: "tool-approval",
       title: `${calls.length || "Requested"} ${calls.length === 1 ? "action needs" : "actions need"} permission`,
-      toolName: names.join(", ") || "the requested tools",
+      toolName: tools,
       publicRequest: publicApprovalRequest(calls, details.public_action, raw.runId),
-      description: "Review the targets below. Allow once approves this batch only.",
       detail: (
         <div className="pc-approval-summary">
           {/* The calls in words (the kit's ToolCallWordsList, ui-kit tool_call_words), the same
@@ -271,29 +144,15 @@ export function presentInteraction(
           </details>
         </div>
       ),
-      approveLabel: WORKFLOW_INTERACTION_LABELS.allowOnce,
-      denyLabel: WORKFLOW_INTERACTION_LABELS.deny,
-      approveAllLabel: onPermissionsAll ? WORKFLOW_INTERACTION_LABELS.allowAll : undefined,
-      approveAllDescription: onPermissionsAll
-        ? `Sets permissions: all${scope ? ` ${scope}` : ""}, including future turns. Unchecked tools stay unavailable; explicit Ask overrides and Gateway restrictions remain enforced. Questions still need your answer.`
-        : undefined,
-      ...(onPermissionsAll ? { broadScopeSummary: `“${WORKFLOW_INTERACTION_LABELS.allowAll}” changes your tool permissions for future turns too.` } : {}),
-      ...sessionFields,
-      ...(options.approveAllDisabledReason ? { disabledReason: options.approveAllDisabledReason } : {}),
-      ...(remember ? { remember } : {}),
+      approveLabel: L.allow,
+      denyLabel: L.deny,
+      ...(onApproveAll ? { approveTitle: L.allowTitle(tools), approveAllLabel: L.allowAll, approveAllTitle: L.allowAllTitle, onApproveAll } : {}),
+      ...(scopeNote ? { scopeNote } : {}),
+      ...(refusedByPolicy.length
+        ? { deniedNote: `Denied by this session's policy: ${refusedByPolicy.join(", ")}. The gateway refuses ${refusedByPolicy.length === 1 ? "it" : "them"} even if allowed.` }
+        : {}),
       ...(options.onDefer ? { onDefer: options.onDefer } : {}),
-      onApproveAll: onPermissionsAll
-        ? async () => {
-            await controller.approveWithPolicyChange(target, () => {
-              void onPermissionsAll();
-            });
-          }
-        : undefined,
-      onApprove: async () => {
-        await controller.approve(true, target);
-        // Sent, but not a success: the chat's policy denies these, and deny wins (contract §4.3).
-        return refusedByPolicy.length ? { outcomeNote: `The gateway refuses ${refusedByPolicy.join(", ")}: denied by this chat's policy.` } : undefined;
-      },
+      onApprove,
       onDeny: async () => {
         await controller.approve(false, target);
       },

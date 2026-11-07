@@ -7,6 +7,33 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.7 - 2026-11-07
+
+Packages: `@abstractframework/panel-chat` 0.9.0 (from 0.8.2). Other packages retain their published versions.
+
+### Changed
+
+- **The tool permission card offers exactly three choices: Deny, Allow and Allow All** (`@abstractframework/panel-chat`
+  `presentInteraction`, `WorkflowInteractionPanel`; operator 2026-11-07: "Normally we said we have Deny, Allow, Allow
+  All (all tools). Do not over complexify that." / "Deny, Allow (this tool), Allow All (ALL tools). but the scope is
+  ONLY FOR THIS SESSION. it doesn't change the default set by users in the app settings"). Deny refuses the request.
+  Allow allows the requested tool for the rest of this session; Allow All allows every tool for the rest of this
+  session. Both are stored in the gateway's session tool policy before the request is answered, and nothing the card
+  does changes the app's default tool settings. The card keeps its title, the calls in words and **Review full tool
+  arguments (JSON)**; "Allow once", "Allow for this chat", "Allow all <toolset> tools for this chat", "Allow all
+  enabled tools", "Always deny … in this chat" (More), "Allow for this run", the scope paragraphs and "What the broader
+  choices allow" are gone. The Avatar view's request offers the same three. On a gateway that cannot keep a session
+  choice, Allow covers the shown request only, one line says so, and Allow All is not offered.
+- **Breaking (props):** `presentInteraction` takes `sessionPolicy: true` (was `{ toolsetOf, ask, maxRiskRank }`; an
+  object still works at run time but no longer type-checks), and drops `onPermissionsAll`, `approveAllScope`,
+  `onAllowForSession`, `approveAllDisabledReason` and `remember`. `WorkflowToolApprovalInteraction` adds
+  `approveTitle` / `approveAllTitle` and drops `onApproveForSession`, `approveForSessionLabel`,
+  `approveForSessionDescription`, `broadScopeSummary`, `approveAllDescription`, `approveKinds`, `denyOptions`,
+  `policySummary`, `notCovered`, `disabledReason` and `remember` (with the `WorkflowInteractionRemember` type).
+  `WORKFLOW_INTERACTION_LABELS` is Deny / Allow / Allow All plus the tooltips and the two one-line notes. The
+  controller adds `approveToolsForSession(target, tools)`; its kind and deny methods stay for hosts that expose them
+  elsewhere.
+
 ## 0.10.6 - 2026-11-07
 
 Packages: `@abstractframework/ui-kit` 0.9.19 (from 0.9.18). Other packages retain their published versions.

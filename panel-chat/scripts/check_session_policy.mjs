@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
  * Session tool policy (contract v1, 2026-10-27; gateway branch feat/session-tool-policy):
- * "Allow for this chat" / "Allow all <toolset> tools for this chat" WRITE the conversation's
- * policy on the gateway, then answer the shown wait, so the gate never flashes again.
+ * the approval card's Allow (this tool) and Allow All (every tool) WRITE the session's policy
+ * on the gateway, then answer the shown wait, so the gate never flashes again (operator ruling
+ * 2026-11-07: Deny / Allow / Allow All, for this session only).
  *
  *  A. order: the policy write resolves BEFORE the resume is sent (a resume first is red);
  *  B. kinds / deny selectors and their answers;
- *  C. supported=false or no client → local fallback (the client-side grant) + labeled line;
+ *  C. supported=false or no client → no session grant: Allow covers the request, one line says so;
  *  D. `clamped` is surfaced (snapshot, callback, "Not covered: …"), never dropped;
- *  E. presentInteraction offers a kind button only for toolsets present (call.toolset or the
- *     host's toolsetOf from GET discovery/tools), never guessed;
+ *  E. the card: Allow writes {approve:{tools}}, Allow All {approve:{all:true}}, nothing else;
  *  F. `abstract.tool_policy_decision` folds to an ACTIVITY line + tool-row provenance, never an
  *     interaction;
  *  G. locality is decided by the URL parser: "\u0000blob:…" is local (download, no new tab).
@@ -172,20 +172,16 @@ const target = { runId: "root", waitKey: "approve:1", stepId: "step:approve:1" }
   const h = await harness({ client: unsupported });
   h.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }]));
   const wait = h.controller.getSnapshot().interaction;
-  const local = presentInteraction(wait, h.controller, { sessionPolicy: { toolsetOf: () => "web" } });
-  check("C fallback: labeled line (run scope)", local.scopeNote === L.localRunPolicyNote && /gateway cannot store chat policies/.test(local.scopeNote), local.scopeNote);
-  // Review F2: the button says what it does (the grant ends with the run).
-  check("C fallback: the run-scoped button says so", local.approveForSessionLabel === "Allow for this run" && L.allowForRun === "Allow for this run", local.approveForSessionLabel);
-  // Review F1: the mode comes from the controller, never from a host prop.
-  const claimed = presentInteraction(wait, h.controller, { sessionPolicy: { mode: "gateway", toolsetOf: () => "web" } });
-  check("C a host claiming gateway mode cannot override the controller", claimed.scopeNote === L.localRunPolicyNote && claimed.approveForSessionLabel === "Allow for this run" && !claimed.approveKinds?.length && !/on the gateway/.test(claimed.approveForSessionDescription || ""), claimed);
-  check("C fallback: no kind buttons", !local.approveKinds?.length);
-  const hostChat = presentInteraction(wait, h.controller, { onAllowForSession: async () => {}, sessionPolicy: {} });
-  check("C fallback with the host's chat grant: labeled chat line", hostChat.scopeNote === L.localChatPolicyNote && typeof hostChat.onApproveForSession === "function");
+  const local = presentInteraction(wait, h.controller, { sessionPolicy: true });
+  check("C fallback: one line says Allow covers this request only", local.scopeNote === L.noSessionGrantNote && /cannot keep a choice for the session/.test(local.scopeNote), local.scopeNote);
+  check("C fallback: no Allow All (no session grant exists)", local.onApproveAll === undefined && local.approveAllLabel === undefined, local);
+  const before = h.commands.length;
+  await local.onApprove();
+  check("C fallback: Allow answers this request, no session or browser grant", h.commands.length === before + 1 && h.commands.at(-1).payload.payload.approved === true && h.controller.getSnapshot().autoApproveTools !== true, h.controller.getSnapshot().autoApproveTools);
   const html = renderToStaticMarkup(React.createElement(WorkflowInteractionPanel, { interaction: local }));
-  check("C the panel renders the labeled line", html.includes('data-scope-note="">Allowed until this run ends, in this browser only — the gateway cannot store chat policies.<') && html.includes('data-decision="approve-session"') && html.includes(">Allow for this run<"), html.slice(-700));
+  check("C the panel renders the line and only Deny / Allow", html.includes(`data-scope-note="">${L.noSessionGrantNote}<`) && html.includes('data-decision="approve"') && !html.includes('data-decision="approve-all"'), html.slice(-700));
   const legacy = presentInteraction(wait, h.controller, {});
-  check("C without sessionPolicy nothing changes", legacy.scopeNote === undefined && legacy.approveKinds === undefined && legacy.onApproveForSession === undefined);
+  check("C without sessionPolicy: Allow covers this request only", legacy.scopeNote === L.allowThisRequestNote && legacy.onApproveAll === undefined);
 }
 
 // ------------------------------------------------------------- D. clamped surfaced
@@ -195,66 +191,50 @@ const target = { runId: "root", waitKey: "approve:1", stepId: "step:approve:1" }
   const f = fakeClient(async () => policyOf({ clamped }));
   const h = await harness({ client: f.client, onSessionPolicy: (policy, list) => seen.push(list) });
   h.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }]));
-  const control = presentInteraction(h.controller.getSnapshot().interaction, h.controller, { sessionPolicy: {} });
-  const result = await control.onApproveForSession();
+  const control = presentInteraction(h.controller.getSnapshot().interaction, h.controller, { sessionPolicy: true });
+  const result = await control.onApprove();
   check("D clamped reaches the snapshot", JSON.stringify(h.controller.getSnapshot().sessionPolicyClamped) === JSON.stringify(clamped));
   check("D clamped reaches the host callback", JSON.stringify(seen.at(-1)) === JSON.stringify(clamped));
   check("D the decision reports what is not covered", String(result?.outcomeNote || "").startsWith("Not covered: send_email (not authorized); nope (unknown kind)"), result);
   check("D clamped text", sessionPolicyClampedText([]) === "");
   h.emit(approvalRecord("approve:2", [{ name: "send_email", call_id: "c2" }]));
-  const next = presentInteraction(h.controller.getSnapshot().interaction, h.controller, { sessionPolicy: {} });
+  const next = presentInteraction(h.controller.getSnapshot().interaction, h.controller, { sessionPolicy: true });
   const html = renderToStaticMarkup(React.createElement(WorkflowInteractionPanel, { interaction: next }));
-  check("D the next approval says what the policy does not cover", html.includes('data-not-covered="">Not covered: send_email (not authorized); nope (unknown kind)<'), html.slice(-500));
+  check("D the next card carries no explanatory line (the note is said after a decision)", !html.includes("Not covered") && !html.includes("pc-workflow-interaction__scope"), html.slice(-500));
   // The panel shows the note after the decision.
-  const p = mount(WorkflowInteractionPanel, { interaction: { id: "x", kind: "tool-approval", toolName: "t", onApprove: () => {}, onDeny: () => {}, onApproveForSession: async () => ({ outcomeNote: "Not covered: a (not authorized)" }) } });
-  byData(p.tree, "data-decision", "approve-session").props.onClick();
+  const p = mount(WorkflowInteractionPanel, { interaction: { id: "x", kind: "tool-approval", toolName: "t", onApprove: async () => ({ outcomeNote: "Not covered: a (not authorized)" }), onDeny: () => {} } });
+  byData(p.tree, "data-decision", "approve").props.onClick();
   await p.settle();
   check("D the panel outcome carries the note", /Not covered: a \(not authorized\)/.test(textOf(p.tree)), textOf(p.tree));
 }
 
-// ------------------------------------------------------------- E. kinds offered only for toolsets present
+// ------------------------------------------------------------- E. the card: Allow (this tool) / Allow All (every tool), session only
 {
   const f = fakeClient();
   const h = await harness({ client: f.client });
-  h.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }, { name: "read_file", call_id: "c2" }, { name: "mystery", call_id: "c3" }, { name: "web_search", call_id: "c4", toolset: "search" }]));
-  const toolsets = { fetch_url: "web", read_file: "files", web_search: "web" };
-  const control = presentInteraction(h.controller.getSnapshot().interaction, h.controller, { sessionPolicy: { toolsetOf: (name) => toolsets[name] } });
-  check("E one kind per toolset present; the call's own toolset wins; unknown never guessed", JSON.stringify(control.approveKinds.map((k) => k.kind)) === JSON.stringify(["web", "files", "search"]), control.approveKinds.map((k) => k.kind));
-  check("E kind label", control.approveKinds[0].label === "Allow all web tools for this chat");
-  check("E gateway mode: no local scope line", control.scopeNote === undefined);
-  check("E Allow for this chat offered", control.approveForSessionLabel === "Allow for this chat" && /stores? a policy for this chat on the gateway/.test(control.approveForSessionDescription));
-  await control.approveKinds[1].onApprove();
-  check("E the kind button writes that kind, then answers", f.calls.at(-1)[1].approve.kinds[0] === "files" && h.commands.at(-1).payload.payload.approved === true);
-  const none = presentInteraction(h.controller.getSnapshot().interaction, h.controller, { sessionPolicy: {} });
-  check("E no toolsetOf and no call toolset: only the call's own", JSON.stringify(none.approveKinds.map((k) => k.kind)) === JSON.stringify(["search"]));
+  h.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }, { name: "read_file", call_id: "c2" }, { name: "fetch_url", call_id: "c3" }]));
+  const control = presentInteraction(h.controller.getSnapshot().interaction, h.controller, { sessionPolicy: true });
+  check("E gateway mode: no scope line", control.scopeNote === undefined);
+  check("E exactly Allow and Allow All besides Deny", control.approveLabel === "Allow" && control.approveAllLabel === "Allow All" && control.denyLabel === "Deny" && typeof control.onApproveAll === "function");
+  await control.onApprove();
+  check("E Allow writes this request's tools for the session (no ask, nothing else), then answers", JSON.stringify(f.calls.at(-1)) === JSON.stringify(["merge", { approve: { tools: ["fetch_url", "read_file"] }, client: "panel-chat" }]) && h.commands.at(-1).payload.payload.approved === true, f.calls.at(-1));
+  h.emit(approvalRecord("approve:2", [{ name: "execute_command", call_id: "c4" }]));
+  const all = presentInteraction(h.controller.getSnapshot().interaction, h.controller, { sessionPolicy: true });
+  await all.onApproveAll();
+  check("E Allow All writes every tool for the session (no ask), then answers", JSON.stringify(f.calls.at(-1)) === JSON.stringify(["merge", { approve: { all: true }, client: "panel-chat" }]) && h.commands.at(-1).payload.payload.approved === true && h.commands.at(-1).payload.wait_key === "approve:2", f.calls.at(-1));
+  check("E only merges were written (the session policy, never anything else)", f.calls.every((c) => c[0] === "merge" || c[0] === "get"), f.calls);
   const html = renderToStaticMarkup(React.createElement(WorkflowInteractionPanel, { interaction: control }));
-  check("E the panel renders a kind button per toolset", (html.match(/data-decision="approve-kind"/g) || []).length === 3 && /data-kind="web"[^>]*>Allow all web tools for this chat</.test(html));
-  const bare = renderToStaticMarkup(React.createElement(WorkflowInteractionPanel, { interaction: { id: "y", kind: "tool-approval", toolName: "t", onApprove: () => {}, onDeny: () => {} } }));
-  check("E no kinds unless injected", !bare.includes("approve-kind"));
-  // Release-closing polish (2026-10-28): the scope sentence names the real buttons, never a
-  // "<toolset>" placeholder, and sits in one disclosure (and each button's tooltip), not as
-  // always-open paragraphs that push the decision off a phone screen.
-  check("E the scope sentence names the real buttons as alternatives, each with its reach", !/<toolset>/.test(control.approveForSessionDescription) && control.approveForSessionDescription.startsWith("Each of “Allow for this chat” (every tool), “Allow all web tools for this chat” (that toolset only), “Allow all files tools for this chat” (that toolset only) or “Allow all search tools for this chat” (that toolset only) approves this batch and stores a policy for this chat on the gateway: the later tool calls it covers"), control.approveForSessionDescription);
-  {
-    const f0 = fakeClient();
-    const h0 = await harness({ client: f0.client });
-    h0.emit(approvalRecord("approve:0", [{ name: "mystery", call_id: "c0" }]));
-    const single = presentInteraction(h0.controller.getSnapshot().interaction, h0.controller, { sessionPolicy: {} });
-    check("E no toolset at all: the singular sentence", single.approveKinds.length === 0 && single.approveForSessionDescription.startsWith("“Allow for this chat” approves this batch and stores a policy for this chat on the gateway: later tool calls of every run of this chat run without asking"), single.approveForSessionDescription);
-  }
-  check("E the always-visible summary carries the Ask warning", /keep allowing later tool calls of this chat/.test(control.broadScopeSummary) && /fetch_url, browser_probe, send_email\) are included/.test(control.broadScopeSummary), control.broadScopeSummary);
-  const summaryAt = html.indexOf('data-scope-summary="">');
-  check("E the summary is rendered open, before any disclosure", summaryAt > 0 && summaryAt < html.indexOf("<details", html.indexOf('data-decision="approve-all"') > 0 ? html.indexOf('data-decision="approve-all"') : html.indexOf('data-decision="approve-session"')), html.slice(0, 600));
-  check("E every kind button carries the scope as its tooltip", (html.match(/data-decision="approve-kind"[^>]*title="Each of /g) || []).length === 3 || (html.match(/title="Each of [^"]*"[^>]*data-decision="approve-kind"/g) || []).length === 3, html.slice(0, 2000));
-  const desc = `>${control.approveForSessionDescription}</p>`;
-  const detailsAt = html.indexOf('<details class="pc-workflow-interaction__scope-details" data-scope-details="">');
-  const descAt = html.indexOf(desc);
-  check("E the scope text sits inside the disclosure", detailsAt >= 0 && descAt > detailsAt && html.indexOf("</details>", detailsAt) > descAt, html.slice(-900));
-  check("E the scope text is rendered once as text (no open paragraph outside the disclosure)", html.split(desc).length - 1 === 1);
-  check("E the broad button carries the scope as its tooltip", /data-decision="approve-session"[^>]*title="Each of /.test(html) || /title="Each of [^"]*"[^>]*data-decision="approve-session"/.test(html), html.slice(0, 1500));
+  const decisions = [...html.matchAll(/data-decision="([^"]+)"/g)].map((m) => m[1]);
+  check("E the panel renders exactly deny / approve / approve-all", JSON.stringify(decisions) === JSON.stringify(["deny", "approve", "approve-all"]), decisions);
+  for (const gone of ["approve-kind", "approve-session", "deny-chat", "data-scope-summary", "data-scope-details", "data-policy-summary", "data-not-covered", "<summary>More</summary>"]) check(`E no ${gone}`, !html.includes(gone));
   let threw = false;
-  try { presentInteraction(h.controller.getSnapshot().interaction, { approve: async () => {}, approveWithPolicyChange: async () => {}, resume: async () => {}, emitEvent: async () => {} }, { sessionPolicy: {} }); } catch { threw = true; }
+  try { presentInteraction(h.controller.getSnapshot().interaction, { approve: async () => {}, resume: async () => {}, emitEvent: async () => {} }, { sessionPolicy: true }); } catch { threw = true; }
   check("E a controller without the policy methods fails loudly", threw);
+  // The controller method itself: names deduplicated, an empty list refused.
+  h.emit(approvalRecord("approve:3", [{ name: "fetch_url", call_id: "c5" }]));
+  let empty = "";
+  await h.controller.approveToolsForSession({ runId: "root", waitKey: "approve:3", stepId: "step:approve:3" }, [" ", ""]).catch((e) => (empty = e.message));
+  check("E approveToolsForSession refuses an empty tool list", /No tool/.test(empty), empty);
 }
 
 // ------------------------------------------------------------- F. the ledger record is an activity
@@ -309,14 +289,6 @@ const target = { runId: "root", waitKey: "approve:1", stepId: "step:approve:1" }
   h.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }]));
   await h.controller.approveAllForSession(target, { ask: ["send_email", "execute_command"] });
   check("H approve-all carries the person's Ask tools", JSON.stringify(f.calls.at(-1)[1]) === JSON.stringify({ approve: { all: true }, ask: ["send_email", "execute_command"], client: "panel-chat" }), f.calls.at(-1));
-  h.emit(approvalRecord("approve:2", [{ name: "fetch_url", call_id: "c2" }]));
-  const control = presentInteraction(h.controller.getSnapshot().interaction, h.controller, { sessionPolicy: { ask: ["send_email"], toolsetOf: () => "web" } });
-  await control.approveKinds[0].onApprove();
-  check("H a kind grant from the panel carries ask", JSON.stringify(f.calls.at(-1)[1].ask) === JSON.stringify(["send_email"]), f.calls.at(-1));
-  h.emit(approvalRecord("approve:3", [{ name: "fetch_url", call_id: "c3" }]));
-  const chatControl = presentInteraction(h.controller.getSnapshot().interaction, h.controller, { sessionPolicy: { ask: ["delete_file"] } });
-  await chatControl.onApproveForSession();
-  check("H Allow for this chat from the panel carries ask", JSON.stringify(f.calls.at(-1)[1]) === JSON.stringify({ approve: { all: true }, ask: ["delete_file"], client: "panel-chat" }), f.calls.at(-1));
 
   // Port from #10: a failed capability read is "unavailable" with a reason (not "local-fallback").
   const u = await harness({ client: undefined });
@@ -326,11 +298,11 @@ const target = { runId: "root", waitKey: "approve:1", stepId: "step:approve:1" }
   u.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }]));
   let refusal = "";
   await u.controller.approveAllForSession(target).catch((e) => (refusal = e.message));
-  check("H unavailable: a chat grant refuses with the reason", /HTTP 502/.test(refusal) && /Allow once still works/.test(refusal) && u.commands.length === 0 && u.controller.getSnapshot().autoApproveTools !== true, refusal);
-  const unavailable = presentInteraction(u.controller.getSnapshot().interaction, u.controller, { sessionPolicy: { toolsetOf: () => "web" }, onAllowForSession: async () => {} });
-  check("H unavailable: no chat or kind grant offered; the reason is shown", unavailable.onApproveForSession === undefined && !unavailable.approveKinds?.length && /HTTP 502/.test(unavailable.scopeNote || ""), unavailable.scopeNote);
+  check("H unavailable: a session grant refuses with the reason", /HTTP 502/.test(refusal) && !/Allow once/.test(refusal) && u.commands.length === 0 && u.controller.getSnapshot().autoApproveTools !== true, refusal);
+  const unavailable = presentInteraction(u.controller.getSnapshot().interaction, u.controller, { sessionPolicy: true });
+  check("H unavailable: no Allow All; one line says Allow covers this request", unavailable.onApproveAll === undefined && unavailable.scopeNote === L.noSessionGrantNote, unavailable.scopeNote);
   await unavailable.onApprove();
-  check("H unavailable: Allow once still works", u.commands.at(-1)?.payload.payload.approved === true);
+  check("H unavailable: Allow answers the request", u.commands.at(-1)?.payload.payload.approved === true);
   u.controller.setSessionToolPolicyClient(fakeClient().client);
   check("H a later supported client turns gateway mode on", u.controller.getSnapshot().sessionPolicyMode === "gateway" && !u.controller.getSnapshot().sessionPolicyReason);
 
@@ -393,34 +365,27 @@ const target = { runId: "root", waitKey: "approve:1", stepId: "step:approve:1" }
     approve: "every run of this conversation (turns and their delegated child runs), except automation runs, runs that read text other people wrote, and entity visits",
     deny: "every run of this conversation, automation runs and untrusted-input runs included",
   };
-  // 1. `scope` is rendered exactly as served; absent → said so, never composed.
+  // 1. The served `scope` is not composed into the card (operator ruling 2026-11-07: no explanatory blocks).
   const withScope = fakeClient(async () => policyOf({ scope: SCOPE }));
   const h1 = await harness({ client: withScope.client });
   h1.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }]));
-  const r1 = await presentInteraction(h1.controller.getSnapshot().interaction, h1.controller, { sessionPolicy: {} }).onApproveForSession();
-  check("I1 after the decision: Applies: <served approve scope>", String(r1?.outcomeNote || "").includes(`Applies: ${SCOPE.approve}`), r1);
-  const noScope = fakeClient(async () => policyOf());
-  const h1b = await harness({ client: noScope.client });
-  h1b.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }]));
-  const r1b = await presentInteraction(h1b.controller.getSnapshot().interaction, h1b.controller, { sessionPolicy: {} }).onApproveForSession();
-  check("I1 no served scope: says the gateway did not say", String(r1b?.outcomeNote || "").includes("The gateway did not say where this grant applies.") && !/every run/.test(String(r1b?.outcomeNote || "")), r1b);
+  const r1 = await presentInteraction(h1.controller.getSnapshot().interaction, h1.controller, { sessionPolicy: true }).onApprove();
+  check("I1 after Allow: no scope prose when everything was stored", r1 === undefined, r1);
   h1.emit(approvalRecord("approve:2", [{ name: "send_email", call_id: "c2" }]));
-  const summary = renderToStaticMarkup(React.createElement(WorkflowInteractionPanel, { interaction: presentInteraction(h1.controller.getSnapshot().interaction, h1.controller, { sessionPolicy: {} }) }));
-  check("I1 the policy summary carries the served scope", summary.includes("data-policy-summary") && summary.includes(`Applies: ${SCOPE.approve}`), summary.slice(-900));
+  const summary = renderToStaticMarkup(React.createElement(WorkflowInteractionPanel, { interaction: presentInteraction(h1.controller.getSnapshot().interaction, h1.controller, { sessionPolicy: true }) }));
+  check("I1 no policy summary on the card", !summary.includes("data-policy-summary") && !summary.includes("Applies:"), summary.slice(-900));
 
   // 2. Deny: offered (More), states its reach before the click, sent with the current revision, answers {approved:false}.
   const d = fakeClient(async () => policyOf({ scope: SCOPE, revision: 6, deny: { fetch_url: "tool" } }));
   const h2 = await harness({ client: d.client });
   await h2.controller.loadSessionPolicy();
   h2.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1", toolset: "web" }]));
-  const control2 = presentInteraction(h2.controller.getSnapshot().interaction, h2.controller, { sessionPolicy: {} });
+  const control2 = presentInteraction(h2.controller.getSnapshot().interaction, h2.controller, { sessionPolicy: true });
   const html2 = renderToStaticMarkup(React.createElement(WorkflowInteractionPanel, { interaction: control2 }));
-  check("I2 deny for the chat is offered, per tool and per toolset", html2.includes('data-decision="deny-chat"') && html2.includes(">Always deny fetch_url in this chat<") && html2.includes(">Always deny web tools in this chat<"), html2.slice(-1500));
-  check("I2 the deny's reach is stated before the click", html2.includes(L.denyForChatNote.replace(/'/g, "&#x27;")) && /automation/.test(L.denyForChatNote) && /approved later/.test(L.denyForChatNote), L.denyForChatNote);
-  const r2 = await control2.denyOptions.find((o) => o.key === "tool:fetch_url").onDeny();
-  check("I2 deny is sent with the current revision", JSON.stringify(d.calls.at(-1)) === JSON.stringify(["merge", { deny: { tools: ["fetch_url"] }, if_revision: 5, client: "panel-chat" }]), d.calls.at(-1));
+  check("I2 no 'Always deny' on the card", !html2.includes('data-decision="deny-chat"') && !html2.includes("Always deny"), html2.slice(-1500));
+  await h2.controller.denyToolForSession(target, "fetch_url");
+  check("I2 the controller's deny is sent with the current revision", JSON.stringify(d.calls.at(-1)) === JSON.stringify(["merge", { deny: { tools: ["fetch_url"] }, if_revision: 5, client: "panel-chat" }]), d.calls.at(-1));
   check("I2 deny answers the shown wait {approved:false}", h2.commands.at(-1)?.payload.payload.approved === false);
-  check("I2 deny confirmation: its reach + Applies: <served deny scope>", String(r2?.outcomeNote || "").includes(L.denyForChatNote) && String(r2?.outcomeNote || "").includes(`Applies: ${SCOPE.deny}`), r2);
   const firstDeny = fakeClient(async () => policyOf({ revision: 1 }));
   firstDeny.client.get = async () => { firstDeny.calls.push(["get"]); return policyOf({ revision: 9 }); };
   const h2b = await harness({ client: firstDeny.client });
@@ -428,22 +393,14 @@ const target = { runId: "root", waitKey: "approve:1", stepId: "step:approve:1" }
   await h2b.controller.denyToolForSession(target, "fetch_url");
   check("I2 no revision known yet: it is read first", firstDeny.calls[0][0] === "get" && firstDeny.calls[1][1].if_revision === 9, firstDeny.calls);
 
-  // 2b. A later Allow once on a tool this chat denies is shown as refused by the gateway, not a success.
+  // 2b. A later Allow on a tool this session denies is shown as refused by the gateway, not a success.
   h2.emit(approvalRecord("approve:3", [{ name: "fetch_url", call_id: "c3" }]));
-  const control3 = presentInteraction(h2.controller.getSnapshot().interaction, h2.controller, { sessionPolicy: {} });
-  check("I2b the denied tool is named before Allow once", /fetch_url/.test(control3.deniedNote || "") && /refuses/.test(control3.deniedNote || ""), control3.deniedNote);
+  const control3 = presentInteraction(h2.controller.getSnapshot().interaction, h2.controller, { sessionPolicy: true });
+  check("I2b the denied tool is named before Allow", /fetch_url/.test(control3.deniedNote || "") && /refuses/.test(control3.deniedNote || ""), control3.deniedNote);
   const once = await control3.onApprove();
-  check("I2b Allow once on a denied tool reports the gateway's refusal", /refuse/.test(String(once?.outcomeNote || "")) && /fetch_url/.test(String(once?.outcomeNote || "")), once);
+  check("I2b Allow on a denied tool reports the gateway's refusal", /refuse/.test(String(once?.outcomeNote || "")) && /fetch_url/.test(String(once?.outcomeNote || "")), once);
   const html3 = renderToStaticMarkup(React.createElement(WorkflowInteractionPanel, { interaction: control3 }));
   check("I2b the panel shows it", html3.includes("data-denied-note"), html3.slice(-800));
-
-  // 3. all/kinds include model-chosen destinations unless set to Ask; the description says which.
-  const h3 = await harness({ client: fakeClient().client });
-  h3.emit(approvalRecord("approve:1", [{ name: "fetch_url", call_id: "c1" }]));
-  const noAsk = presentInteraction(h3.controller.getSnapshot().interaction, h3.controller, { sessionPolicy: {} });
-  check("I3 no Ask list: the description says those tools are included", /fetch_url, browser_probe, send_email/.test(noAsk.approveForSessionDescription) && /included/.test(noAsk.approveForSessionDescription), noAsk.approveForSessionDescription);
-  const withAsk = presentInteraction(h3.controller.getSnapshot().interaction, h3.controller, { sessionPolicy: { ask: ["send_email"] } });
-  check("I3 an Ask list: the description names what keeps asking", /keep asking: send_email/.test(withAsk.approveForSessionDescription), withAsk.approveForSessionDescription);
 
   // 4. A 409 on a revision-guarded write: "someone changed this chat's policy; re-read".
   const c4 = fakeClient(async () => { const e = new Error("revision_conflict"); e.code = "revision_conflict"; e.status = 409; throw e; });
@@ -522,4 +479,4 @@ if (failures) {
   console.error(`check_session_policy: ${failures} of ${checks} failed`);
   process.exit(1);
 }
-console.log(`check_session_policy: OK (${checks} checks: write-then-answer order, kinds/denials, labeled local fallback, clamped surfaced, kinds only for toolsets present, policy record = activity, parser locality)`);
+console.log(`check_session_policy: OK (${checks} checks: write-then-answer order, kinds/denials, no session grant said in one line, clamped surfaced, the card's Allow / Allow All write only the session policy, policy record = activity, parser locality)`);

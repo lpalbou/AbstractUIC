@@ -34,6 +34,27 @@ the local one.
   labeled local fallback "Allow for this run", `scope` as served, clamped as "Not covered: …"),
   and the `abstract.tool_policy_decision` record folded as an activity line, never an interaction.
 
+## Update 2026-11-07: the operator's ruling simplifies the card (panel-chat 0.9.0, AbstractUIC 0.10.7)
+
+Operator, verbatim: "Normally we said we have Deny, Allow, Allow All (all tools). Do not over
+complexify that." / "Deny, Allow (this tool), Allow All (ALL tools). but the scope is ONLY FOR THIS
+SESSION. it doesn't change the default set by users in the app settings" / "it NEVER changes the
+default of abstractcode, it only changes the permissions for a session".
+
+- The card offers exactly Deny, Allow and Allow All. With `presentInteraction(..., { sessionPolicy:
+  true })` and a controller in gateway mode, Allow writes `{approve:{tools:[<this request's tools>]}}`
+  (new controller method `approveToolsForSession`) and Allow All `{approve:{all:true}}`, each before
+  the shown wait is answered; no `ask` is sent (Allow All is every tool the gateway authorizes). On a
+  gateway without the capability, Allow answers the request only and the card says so in one line.
+- Gone from the card and the options: "Allow once", "Allow for this chat", "Allow all <toolset> tools
+  for this chat", "Always deny … in this chat" (More), "Allow for this run", the scope paragraphs and
+  "What the broader choices allow"; `onPermissionsAll`, `approveAllScope`, `onAllowForSession`,
+  `approveAllDisabledReason`, `remember`, `sessionPolicy: {toolsetOf, ask, maxRiskRank}`.
+- So each host half below now passes `sessionPolicy: true` (not `{ ask, toolsetOf }`) and deletes any
+  app-level "allow all" layer. AbstractCode web did it in web 0.15.5 (its backlog 0006 closed: the
+  per-browser "Allow all enabled tools" layer is removed). The acceptance item about `ask` and
+  `toolsetOf` is superseded.
+
 ## Why
 - AbstractCode web passes `onPermissionsAll` to `presentInteraction` (`abstractcode/web/src/workspace/app.tsx`
   ~l.451-456): "Allow all" flips a per-browser preference (`permissions: "all"`) and the controller's
@@ -61,7 +82,7 @@ delete the local approve-all preference and the standing-permission answering; s
 ## Acceptance
 - [ ] Each host PR: the gate no longer flashes for a chat-wide grant (a ledger of a covered call shows the
       `abstract.tool_policy_decision` activity and no `waiting` record); on a 0.15.x gateway the fallback is labeled.
-- [ ] The host sends `ask` = its explicit Ask tools on every write; `toolsetOf` wired from `discovery/tools`.
+- [x] ~~The host sends `ask` = its explicit Ask tools on every write; `toolsetOf` wired from `discovery/tools`.~~ Superseded 2026-11-07 (operator ruling above): the card sends neither.
 - [ ] Deletion list executed; app tests green.
 - [ ] Release gate keeps `scripts/check_cross_dist_types.mjs` (ui-kit dist and panel-chat dist agree on the client shape).
 
