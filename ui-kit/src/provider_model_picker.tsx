@@ -27,6 +27,11 @@
 // anyway); `layout: "compact"` (selects with the default as first option);
 // `pinned` fields ("Provided by connected pin"); a saved value the gateway no
 // longer lists stays visible as "(saved)". No model-name heuristics.
+//
+// Operator rule 2026-11-07: reasoning and MTP follow the SELECTED model. Changing the provider or
+// the model, or going back to the gateway default, resets both to the gateway default (nothing
+// sent); a saved level or depth the model's capability card rules out is not shown as chosen.
+// Hosts send through `resolveSendableModelOptions` (model_options.ts) so it never reaches a run.
 import React, { useEffect, useRef, useState } from "react";
 import {
   PINNED_FIELD_TEXT,
@@ -37,6 +42,7 @@ import { AfSelect, type AfSelectOption } from "./af_select.js";
 import { SpeculationSelect } from "./speculation_select.js";
 import type { SpeculationValue } from "./speculation_control.js";
 import { gatewayDefaultLabel, type GatewayModelDefault } from "./gateway_models.js";
+import { clearUnusableModelOptions, reasoningFacts, resetModelOptions, usableReasoning } from "./model_options.js";
 
 export type ProviderModelPickerValue = {
   /** Empty strings = gateway default (the default mode). */
@@ -269,6 +275,8 @@ export function ProviderModelPicker(
     loading: boolean;
   }>({ levels: [], error: "", loading: false });
   const [overrideUnknown, setOverrideUnknown] = useState(false);
+  const latest = useRef({ value, onChange: props.onChange, pins });
+  latest.current = { value, onChange: props.onChange, pins };
   const hasCapabilities = Boolean(props.fetchModelCapabilities);
   const [capabilityPayload, setCapabilityPayload] = useState<unknown>();
   useEffect(() => {
@@ -288,25 +296,19 @@ export function ProviderModelPicker(
         if (!alive) return;
         if (payload?.error) throw new Error(String(payload.error));
         setCapabilityPayload(payload);
-        const caps = payload?.capabilities || payload || {};
-        const values = caps.reasoning_levels || caps.thinking_levels;
-        const levels = Array.isArray(values)
-          ? [
-              ...new Set(
-                values.filter(
-                  (v): v is string =>
-                    typeof v === "string" && Boolean(v.trim()),
-                ),
-              ),
-            ]
-          : [];
-        if (
-          !levels.length &&
-          caps.thinking_support === true &&
-          caps.thinking_control?.prompt_disable_token
-        )
-          levels.push("off", "auto");
-        const support = typeof caps.thinking_support === "boolean" ? caps.thinking_support : undefined;
+        // A held reasoning level or MTP depth this model's card rules out is cleared, not just
+        // hidden: hidden-but-held would still be sent by a host without the send-time check, and the
+        // user could not see or clear it. Unknown facts and an explicit Off are kept.
+        // Pinned fields belong to a connected pin, never to this picker: they are left alone.
+        const { value: held, pins: heldPins } = latest.current;
+        const cleared = clearUnusableModelOptions(held, payload);
+        const next = {
+          ...held,
+          reasoning: heldPins.reasoning ? held.reasoning : cleared.reasoning,
+          speculation: heldPins.speculation ? held.speculation : cleared.speculation,
+        };
+        if (next.reasoning !== held.reasoning || next.speculation !== held.speculation) latest.current.onChange(next);
+        const { levels, support } = reasoningFacts(payload);
         setReasoning({ levels, support, error: "", loading: false });
       })
       .catch((error) => {
@@ -329,15 +331,18 @@ export function ProviderModelPicker(
   const showOptions = !isDefault || props.optionsInDefaultMode !== false;
   const ladder = props.reasoningLadder ? [...new Set(props.reasoningLadder.filter((v) => typeof v === "string" && v.trim()))] : null;
   // Served facts only: levels advertised → supported; thinking_support false → unsupported; else unknown.
+  // thinking_support false wins over listed levels, exactly as usableReasoning decides.
   const reasoningState: "loading" | "supported" | "unsupported" | "unknown" = reasoning.loading
     ? "loading"
-    : reasoning.levels.length || reasoning.support === true
-      ? "supported"
-      : reasoning.support === false
-        ? "unsupported"
+    : reasoning.support === false
+      ? "unsupported"
+      : reasoning.levels.length || reasoning.support === true
+        ? "supported"
         : "unknown";
   const allowOverride = props.unknownReasoning === "allow-override" && Boolean(ladder?.length);
-  const saved = String(value.reasoning || "").trim();
+  // A saved level the served facts rule out for this model is not shown as chosen (never sent).
+  const stored = String(value.reasoning || "").trim();
+  const saved = reasoning.loading || reasoning.error || !hasCapabilities ? stored : usableReasoning(stored, capabilityPayload);
   let reasoningOptions: AfSelectOption[] = [];
   let reasoningLocked = false;
   if (!ladder) {
@@ -372,7 +377,7 @@ export function ProviderModelPicker(
           <AfSelect
             ariaLabel={props.reasoningLabel || "Reasoning effort"}
             placeholder={reasoningInherit}
-            value={value.reasoning || ""}
+            value={saved}
             options={[{ value: "", label: reasoningInherit }, ...reasoningOptions]}
             disabled={disabled || reasoning.loading || reasoningLocked}
             onChange={(next) => props.onChange({ ...value, reasoning: next })}
@@ -430,12 +435,7 @@ export function ProviderModelPicker(
           className={`af-pmp__seg-btn${isDefault ? " is-active" : ""}`}
           onClick={() => {
             setCustom(false);
-            props.onChange({
-              ...value,
-              provider: "",
-              model: "",
-              ...(hasCapabilities ? { reasoning: "" } : {}),
-            });
+            props.onChange(resetModelOptions({ ...value, provider: "", model: "" }));
           }}
           disabled={disabled}
           title={defaultLine}
@@ -493,16 +493,13 @@ export function ProviderModelPicker(
           allowCustomProvider={props.allowCustom !== false}
           allowCustomModel={props.allowCustom !== false}
           onChange={(next) =>
-            props.onChange({
-              ...value,
-              provider: next.provider,
-              model: next.model,
-              ...(hasCapabilities ? { reasoning: "" } : {}),
-            })
+            next.provider === providerName && next.model === modelName
+              ? undefined
+              : props.onChange(resetModelOptions({ ...value, provider: next.provider, model: next.model }))
           }
         />
       )}
-      {props.optionsDisclosure ? <details className="af-pmp__options"><summary>Reasoning & speed{value.reasoning ? ` · ${value.reasoning}` : ""}</summary>{modelOptions}</details> : modelOptions}
+      {props.optionsDisclosure ? <details className="af-pmp__options"><summary>Reasoning & speed{saved ? ` · ${saved}` : ""}</summary>{modelOptions}</details> : modelOptions}
     </div>
   );
 }

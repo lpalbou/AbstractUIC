@@ -53,6 +53,11 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Typography: `FONT_SCALES`, `HEADER_DENSITIES`, `applyTypography()`, `getFontScaleSpec()`, `getHeaderDensitySpec()`
 - Responsive: `AF_BREAKPOINTS` (`{ xs: 480, sm: 768, md: 1024, lg: 1440 }`), `AF_MEDIA` (the media query strings), `useAfMedia(query)`, `installViewportVars()` (sets `--vv-height` / `--keyboard-inset`, returns a cleanup), `viewportVarsFrom(innerHeight, { height, offsetTop, scale })` and the `AfVisualViewportSample` type — see [Responsive layout](./responsive.md)
 - Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker` (gateway-default mode + provider→models cascade, injected transports), `FontScaleSelect`, `HeaderDensitySelect`, `ToolModeEditor` (tool selection, below), `ToolPolicyEditor` (deprecated for one minor in favour of `ToolModeEditor`; reads the served `approval_default` first, `default_approval` as an alias, and renders a row decided by `TOOL_POLICY_DEFAULTS` with the "Kit default" label; a tool's optional `state` = a server-reported badge with the kit tooltip; `toolPolicySelectionToLayer(selection, catalog)` converts its value to a sparse app layer), `MultiSelect`
+- Model options follow the model: `usableSpeculation(value, card)`, `usableReasoning(value, card)`,
+  `sendableModelOptions({reasoning, speculation}, card)`, `resolveSendableModelOptions(options,
+  fetchCapabilities?)` (send-time guard: fetches the card only when something is set; an unreadable
+  card sends no MTP), `resetModelOptions(value)` (reasoning `""`, speculation `undefined`) and
+  `reasoningFacts(card)`.
 - MTP: `SpeculationSelect`, `speculationCapability()`, `normalizeSpeculationValue()`,
   `speculationSelection()`, `speculationFromSelection()` and `SpeculationValue` /
   `SpeculationCapability` types. Enable `ProviderModelPicker`'s `enableSpeculation` for text
@@ -78,8 +83,11 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   select; `layout: "segmented" | "compact"` — compact drops the Gateway default | Custom segment
   for provider/model selects whose first option is the named default, providers listed at once
   (node panels); `pinned: {provider?, model?, reasoning?, speculation?}` shows "Provided by
-  connected pin" (`PINNED_FIELD_TEXT`) instead of those controls. A saved provider, model,
-  reasoning level or MTP depth the gateway no longer lists stays selectable as "x (saved)" — only
+  connected pin" (`PINNED_FIELD_TEXT`) instead of those controls. Changing the provider or the model
+  (or choosing Gateway default) resets reasoning and MTP to the gateway default
+  (`resetModelOptions`, operator rule 2026-11-07). A reasoning level or MTP depth the model's
+  capability card rules out is not shown as chosen and is never offered as "(saved)"; a saved
+  provider or model the gateway no longer lists stays selectable as "x (saved)" — only
   the value the picker was mounted with, never a value typed now, never while that list failed
   (`ProviderModelSelect` `markSaved: boolean | {provider?, model?}`, `providerPinned`, `modelPinned`). MTP choices keep
   `require_acceleration: true` (the gateway console's Defaults modal writes `strict=false`; not
@@ -327,9 +335,11 @@ one (`removeConnection`, DELETE); a connection from AbstractCore's config is nev
 removed from here.
 
 `SpeculationSelect` consumes `execution.speculation` from the host capability payload. It
-offers inheritance (`undefined`), Off (`false`), and only advertised depths. Explicit depths
-serialize as `{mode: "native_mtp", num_draft_tokens: n, require_acceleration: true}`. It shows
-readiness/reload reasons and preserves unavailable saved choices; it never infers support
+offers inheritance (`undefined`), and — only when `execution.speculation.supported` is true —
+Off (`false`) and the advertised depths. Explicit depths serialize as
+`{mode: "native_mtp", num_draft_tokens: n, require_acceleration: true}`. Unsupported or unknown:
+disabled on inheritance, the gateway's `message` (else a plain sentence) with its `reason` under
+Technical details; a saved depth the card does not list is not shown as chosen. It never infers support
 from model names, performs network requests, downloads artifacts, or loads a model. Hosts
 own persistence and provider/model/endpoint-scoped discovery.
 

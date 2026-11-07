@@ -213,7 +213,8 @@ const picker = (extra) => ({
   check("a typed value is not labeled (saved)", typed.includes("typed-now") && !typed.includes("typed-now (saved)"));
   const failed = renderToStaticMarkup(h(ProviderModelSelect, { provider: "ollama", model: "gone", providers: [], models: [], providerError: "#FALLBACK provider discovery failed: x", modelError: "#FALLBACK model discovery failed: x", markSaved: { provider: "ollama", model: "gone" }, onChange() {} }));
   check("no (saved) while discovery failed", !failed.includes("(saved)"), failed.slice(0, 300));
-  check("(saved) reasoning label", reasoningSelect(m.tree)?.props.options.some((o) => o.value === "ultra" && o.label === "ultra (saved)"), JSON.stringify(reasoningSelect(m.tree)?.props.options));
+  // Operator rule 2026-11-07: a saved level the model does not advertise is never offered or sent.
+  check("a saved level the model does not advertise is not offered", !reasoningSelect(m.tree)?.props.options.some((o) => o.value === "ultra") && reasoningSelect(m.tree)?.props.value === "", JSON.stringify(reasoningSelect(m.tree)?.props));
 }
 
 // compact layout: no segment; the default is the first option of the selects; providers listed at once.
@@ -274,6 +275,50 @@ const LADDER = ["none", "minimal", "low", "medium", "high", "xhigh"];
   const unsupported = mount(ProviderModelPicker, picker({ value: { provider: "ollama", model: "m" }, reasoningLadder: LADDER, unknownReasoning: "allow-override", fetchModelCapabilities: async () => ({ capabilities: { thinking_support: false } }) }));
   await unsupported.settle();
   check("a model that does not reason: no select", !reasoningSelect(unsupported.tree));
+}
+
+// Operator rule 2026-11-07: changing the model or provider (or going back to the gateway default)
+// resets reasoning AND MTP to the gateway default, with or without capability discovery.
+{
+  const DEPTH = { mode: "native_mtp", num_draft_tokens: 2, require_acceleration: true };
+  for (const [label, extra] of [["with discovery", { fetchModelCapabilities: async () => ({ capabilities: { reasoning_levels: ["low", "high"] }, execution: { speculation: { supported: true, supported_depths: [2] } } }) }], ["without discovery", {}]]) {
+    for (const layout of ["segmented", "compact"]) {
+      let last = null;
+      const m = mount(ProviderModelPicker, picker({ layout, enableSpeculation: true, value: { provider: "ollama", model: "qwen3", reasoning: "high", speculation: DEPTH }, onChange: (v) => { last = v; }, ...extra }));
+      await m.settle();
+      const sel = first(m.tree, (n) => n.type === ProviderModelSelect);
+      sel.props.onChange({ provider: "ollama", model: "other" });
+      check(`${label}/${layout}: model change resets reasoning and MTP`, last && last.model === "other" && last.reasoning === "" && last.speculation === undefined, JSON.stringify(last));
+      last = null;
+      sel.props.onChange({ provider: "lmstudio", model: "" });
+      check(`${label}/${layout}: provider change resets reasoning and MTP`, last && last.provider === "lmstudio" && last.reasoning === "" && last.speculation === undefined, JSON.stringify(last));
+      if (layout === "segmented") {
+        last = null;
+        first(m.tree, (n) => n.props["data-default-choice"] === "").props.onClick();
+        check(`${label}: back to Gateway default resets reasoning and MTP`, last && last.provider === "" && last.reasoning === "" && last.speculation === undefined, JSON.stringify(last));
+      }
+    }
+  }
+  // The incident: a saved "MTP depth 2" on a model whose card says no MTP is not shown as chosen.
+  const m = mount(ProviderModelPicker, picker({ enableSpeculation: true, value: { provider: "airelays", model: "gpt-5.6-terra", speculation: DEPTH }, fetchModelCapabilities: async () => ({ capabilities: {}, execution: { speculation: { supported: false, reason: "native_mtp_backend_unavailable", supported_depths: [] } } }) }));
+  await m.settle();
+  const spec = first(m.tree, (n) => n.props.inheritLabel !== undefined && n.props.capabilities !== undefined);
+  const inner = spec && first(spec.type(spec.props), (n) => n.props.ariaLabel === "MTP depth");
+  check("unsupported model: MTP disabled, the saved depth not shown", inner?.props.disabled === true && inner?.props.value === "", JSON.stringify(inner?.props));
+  // ...and cleared, not just hidden (kit review 2026-11-07): a host without the send-time check
+  // would still send a hidden-but-held depth, and the user could not see or clear it.
+  let cleared = null;
+  const c = mount(ProviderModelPicker, picker({ enableSpeculation: true, onChange: (next) => { cleared = next; }, value: { provider: "airelays", model: "gpt-5.6-terra", reasoning: "ultra", speculation: DEPTH }, fetchModelCapabilities: async () => ({ capabilities: { reasoning_levels: ["low", "high"] }, execution: { speculation: { supported: false, reason: "native_mtp_backend_unavailable", supported_depths: [] } } }) }));
+  await c.settle();
+  check("unsupported model: the held depth and unlisted level are cleared to the default", cleared && cleared.speculation === undefined && cleared.reasoning === "" && cleared.model === "gpt-5.6-terra", JSON.stringify(cleared));
+  let kept = null;
+  const k = mount(ProviderModelPicker, picker({ enableSpeculation: true, onChange: (next) => { kept = next; }, value: { provider: "airelays", model: "m", reasoning: "high", speculation: false }, fetchModelCapabilities: async () => ({ capabilities: {} }) }));
+  await k.settle();
+  check("no served facts: nothing is cleared (unknown is not unsupported)", kept === null, JSON.stringify(kept));
+  let pinnedEmit = null;
+  const pz = mount(ProviderModelPicker, picker({ enableSpeculation: true, pinned: { reasoning: true, speculation: true }, onChange: (next) => { pinnedEmit = next; }, value: { provider: "airelays", model: "gpt-5.6-terra", reasoning: "ultra", speculation: DEPTH }, fetchModelCapabilities: async () => ({ capabilities: { reasoning_levels: ["low"] }, execution: { speculation: { supported: false, reason: "x", supported_depths: [] } } }) }));
+  await pz.settle();
+  check("pinned fields are never cleared (opening a pinned node changes nothing)", pinnedEmit === null, JSON.stringify(pinnedEmit));
 }
 if (routeFailures) {
   console.error(`check_route_picker: ${routeFailures} FAILED`);

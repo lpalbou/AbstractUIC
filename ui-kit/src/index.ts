@@ -4,8 +4,9 @@ export { AF_BREAKPOINTS, AF_MEDIA, installViewportVars, useAfMedia, viewportVars
 export { AfSelect, type AfSelectProps, type AfSelectOption } from "./af_select.js";
 export { ProviderModelSelect, type ProviderModelSelectProps, type ProviderOption } from "./provider_model_select.js";
 export { ProviderModelPicker, PICKER_DISCOVERY_UNAVAILABLE, PICKER_REASONING_UNAVAILABLE, type ProviderModelPickerProps, type ProviderModelPickerValue } from "./provider_model_picker.js";
-export { SpeculationSelect } from "./speculation_select.js";
+export { SpeculationSelect, SPECULATION_UNKNOWN, SPECULATION_UNSUPPORTED } from "./speculation_select.js";
 export { normalizeSpeculationValue, speculationCapability, speculationSelection, speculationFromSelection, type SpeculationValue, type SpeculationCapability } from "./speculation_control.js";
+export { reasoningFacts, usableSpeculation, usableReasoning, sendableModelOptions, resolveSendableModelOptions, resetModelOptions, clearUnusableModelOptions, type ModelOptions, type ReasoningFacts } from "./model_options.js";
 export {
   GatewaySessionSignInCard,
   type GatewaySessionSignInCardProps,

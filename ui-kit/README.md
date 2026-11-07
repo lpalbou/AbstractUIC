@@ -146,8 +146,18 @@ decide, and the row says so ("Kit default").
 
 `SpeculationSelect` is the shared inheritance / Off / depth selector. Pass the execution host's
 complete model-capability payload as `capabilities`; only depths advertised under
-`execution.speculation.supported_depths` are offered. Missing capability data is shown as
-unknown, not guessed from a model name. Saved unavailable selections remain visible.
+`execution.speculation.supported_depths` are offered, and Off and the depths appear only when
+`execution.speculation.supported` is true. Otherwise the control is disabled on the gateway
+default and says why (the gateway's `message`, else "This model does not support MTP.", with its
+`reason` under Technical details). Missing capability data is never guessed from a model name.
+
+Reasoning and MTP follow the selected model: changing the provider or the model in
+`ProviderModelPicker` resets both to the gateway default (`resetModelOptions`), and a saved level
+or depth the model cannot use is not shown as chosen. At send time pass the stored choice through
+`resolveSendableModelOptions(options, () => transport.fetchModelCapabilities(model, provider))`
+(or `sendableModelOptions(options, card)` when the card is at hand): it returns only what the
+model's capability card allows, sends no MTP when the card cannot be read, and costs no request
+when nothing is chosen.
 
 `ProviderModelPicker` names the gateway default when given `fetchGatewayDefault`
 ("Gateway default · ollama / qwen3 · reasoning high"); `createGatewayModelTransport(request)`

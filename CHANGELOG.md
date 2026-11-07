@@ -7,6 +7,34 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.5 - 2026-11-07
+
+Packages: `@abstractframework/ui-kit` 0.9.18 (from 0.9.17). Other packages retain their published versions.
+
+### Changed
+
+- **Changing the model resets reasoning and MTP to the gateway default** (`@abstractframework/ui-kit`
+  `ProviderModelPicker`, `SpeculationSelect`; operator 2026-11-07: "MTP should only ever be selected for MTP-capable
+  models. When changing a model from the dropdown, always go back to default for reasoning and MTP, in every app").
+  A saved "MTP depth 2, required" was sent with a model that has no MTP and the gateway refused every run. Any
+  provider or model change, and choosing Gateway default, now resets both. MTP depths, and Off, are offered only when
+  the gateway's capability card for the selected model says MTP is supported; otherwise the control is disabled and
+  shows the gateway's reason. A saved level or depth the selected model's card rules out is cleared back to the
+  gateway default as soon as the card arrives, not just hidden; unknown facts and an explicit Off are kept. Saved flows,
+  automations and entity minds that the gateway runs later are covered by AbstractGateway 0.21.0, which drops an MTP
+  request the model cannot honour; each app picks the rule up when it moves to this kit.
+- **New `resolveSendableModelOptions`** (`model_options.ts`): the one check an app runs before sending. It asks the
+  gateway's capability card only when a reasoning level or MTP depth is set, and sends no MTP when the card cannot be
+  read, so an app never sends a depth the model cannot honour. An explicit Off is always kept, so a gateway default
+  with MTP on can never run against the user's choice. `clearUnusableModelOptions` is the matching clean-up.
+
+- **`EntityCard` reads as a person's card, not a code panel** (`@abstractframework/ui-kit`; operator 2026-11-07:
+  "it looks very system, coder; better separation between header and body"). The proportional UI font everywhere;
+  the head (portrait, name, now line with a dot in the phase's colour) on a faint wash of the entity's colour,
+  separated from the body by a hairline; sentence-case section labels at reading size; interests as a soft list;
+  the facts and the actions as quiet footers; the phase radio spans the card. Same information, same words.
+- **`AfPhaseRadio` uses the UI font** instead of monospace (its pills read as code tags), at the small text size.
+
 ## 0.10.4 - 2026-11-07
 
 Packages: `@abstractframework/ui-kit` 0.9.17 (from 0.9.16). Other packages retain their published versions.

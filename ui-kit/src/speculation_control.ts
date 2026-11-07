@@ -8,7 +8,10 @@ export type SpeculationValue = false | {
 export type SpeculationCapability = {
   supported: boolean;
   ready: boolean | null;
+  /** The gateway's code for why MTP cannot run (for details/logs). */
   reason: string | null;
+  /** The gateway's sentence for people, when it gives one. */
+  message: string | null;
   supported_depths: number[];
   default: unknown;
   requires_reload: boolean | null;
@@ -29,6 +32,7 @@ export function speculationCapability(payload: unknown): SpeculationCapability |
     supported: value.supported,
     ready: typeof value.ready === "boolean" ? value.ready : null,
     reason: typeof value.reason === "string" ? value.reason : null,
+    message: typeof value.message === "string" && value.message.trim() ? value.message : null,
     supported_depths: value.supported && Array.isArray(value.supported_depths)
       ? [...new Set<number>(value.supported_depths.filter((n: unknown) => typeof n === "number" && Number.isInteger(n) && n > 0))]
       : [],

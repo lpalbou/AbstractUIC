@@ -85,6 +85,10 @@ assert.ok(compact.includes('What sustained attention looks like')&&!compact.incl
 assert.ok(!compact.includes('On its mind')&&!compact.includes('Latest lesson')&&!compact.includes('33 lessons learned'));
 assert.ok(compact.includes('Its own time stopped after repeated failures'));
 assert.match(render({tile,density:'compact',href:'/e',target:'_blank'}),/<a class="af-entity-card__head" href="\/e" target="_blank" rel="noreferrer"/);
+// No last moment yet: words, never a bare dash (design review 2026-11-07); the head carries the phase dot.
+const no_moment=render({tile:{...tile,last_moment:null},density:'compact'});
+assert.match(no_moment,/data-field="moment"><span class="af-entity-card__label">Last moment<\/span><span class="af-entity-card__line af-entity-card__empty"[^>]*>None yet<\/span>/);
+assert.ok(no_moment.includes('class="af-entity-card__dot"')&&no_moment.includes('data-now="sleep"'),'the phase dot and its key');
 
 // Loading: the roster's name and look at once, placeholders in every row, no facts invented.
 html=render({tile:null,name:'Castor',look:{style:'watch-halo',color:'#39a5d0'}});t=text(html);

@@ -96,6 +96,10 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
   const age = entityAgeWords(tile?.age_days);
   const model = tile?.mind?.model || "";
   const counts = entityCountsWords(tile?.counts);
+  // The phase dot's key: the phase, or "resting" (awake under phase sleep: nothing running).
+  const nowKey = tile?.now ? (tile.now.phase === "sleep" && tile.now.state === "awake" ? "resting" : tile.now.phase) : "";
+  // The entity's own colour tints the head band (its identity), when it has one.
+  const cardStyle = look?.color ? ({ "--af-entity-color": look.color } as React.CSSProperties) : undefined;
   const loading = !tile && status === "loading";
   const unavailable = !tile && status !== "loading";
 
@@ -107,6 +111,7 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
         {tile ? (
           <span className="af-entity-card__now" title={now.exact || undefined}>
             {/* One line of text that wraps between facts ("\u00a0· " keeps a dot off the start of a line). */}
+            <span className="af-entity-card__dot" aria-hidden="true" />
             {now.label}
             {now.busy ? (
               <>
@@ -145,9 +150,11 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
       data-density={density}
       data-status={status}
       data-phase={tile?.now?.phase || undefined}
+      data-now={tile?.now ? nowKey : undefined}
       data-trouble={trouble ? "true" : undefined}
       aria-busy={loading || undefined}
       aria-label={name || "Entity"}
+      style={cardStyle}
     >
       {headEl}
       {trouble ? (
@@ -208,7 +215,7 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
           ) : moment ? (
             <Line text={`${moment}${momentWhen ? ` · ${momentWhen}` : ""}`} title={formatExactTime(tile?.last_moment?.at) || undefined} />
           ) : (
-            <Line className="af-entity-card__empty" text="—" />
+            <Line className="af-entity-card__empty" text="None yet" />
           )}
         </section>
       </div>

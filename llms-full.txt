@@ -182,6 +182,12 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
 
+## What's new in 0.10.5
+
+`@abstractframework/ui-kit` 0.9.18: changing the model resets reasoning and MTP to the gateway default, and MTP is
+offered only for models the gateway says support it; `EntityCard` reads as a person's card, with a clear head and a
+reading font ([changelog](./CHANGELOG.md#0105---2026-11-07)).
+
 ## What's new in 0.10.3
 
 `@abstractframework/ui-kit` 0.9.17 adds `EntityCard`, one card for an entity in every app, drawn from
@@ -688,7 +694,7 @@ not a customization point; when the component cannot do what you need, ask for t
 | Connect the browser to a Gateway | `useGatewayConnection` + `GatewayConnectModal` (+ `@abstractframework/app-server` proxy) | The whole connection state machine is the hook — do not hand-roll it (see below) |
 | Server-side session proxy | `@abstractframework/app-server` (`createGatewaySessionProxy`) | Token→HttpOnly-cookie exchange, CSRF, URL pinning; tokens never rest client-side |
 | Searchable select / combobox | `AfSelect` | Keyboard nav + ARIA built in; `variant="panel"` for forms |
-| Provider + model pickers (+ reasoning, MTP) | `ProviderModelPicker` (`layout="compact"` for node panels, `pinned` for connected pins) over `createGatewayModelTransport(request)`; `withRunModel` for the run input; `ProviderModelSelect` for a plain provider/model pair | "Gateway default" is first and named (`fetchGatewayDefault`: "Gateway default · ollama / qwen3"); the reasoning ladder comes from the gateway (`reasoningLadder`), never a client list or a model-name rule; saved values stay visible "(saved)" |
+| Provider + model pickers (+ reasoning, MTP) | `ProviderModelPicker` (`layout="compact"` for node panels, `pinned` for connected pins) over `createGatewayModelTransport(request)`; `withRunModel` for the run input; `ProviderModelSelect` for a plain provider/model pair | "Gateway default" is first and named (`fetchGatewayDefault`: "Gateway default · ollama / qwen3"); the reasoning ladder comes from the gateway (`reasoningLadder`), never a client list or a model-name rule; a saved provider/model stays visible "(saved)"; changing the provider or model resets reasoning and MTP to the gateway default, MTP is offered only when the model's capability card says supported, and the send path uses `resolveSendableModelOptions` so a value the model cannot use is never sent |
 | App top bar + About | `AfTopBarActions` with `connection={useGatewayConnection(...)}`, `identity="menu"`, `appearance={{ value, onChange }}`, `about={{ identity: appIdentity(id, version), fetch: fetchGateway }}` (or `AfAboutDialog` / inline `AfAbout` directly) | Order is the kit's (extras · docs · assistant · appearance · about · identity · pill); the cluster owns the Appearance and About dialogs and GETs `api/gateway/about` on open — delete app-local about fetchers; identity facts come from the kit's descriptor; the card shows no package list; `about.extra` for host controls inside the dialog |
 | Who is signed in | `AfTopBarActions` `identity="badge" \| "menu"` (+ `principalFromConnection`, `principalLabel`) | Reads `status.gateway.principal` (the gateway's `/me`), only while the pill is connected; shows the user id (tenant only when not `default`) and the gateway host in the kit tooltip; the menu's **Disconnect** = the pill's (`signOut()`, then your `onSignOut` state wipe only when the disconnect happened; a failure shows "Disconnect failed" beside the pill). The gateway serves no display name / e-mail / avatar |
 | App shell (header + top-right cluster + side panels + nav) | `AfAppShell` (`topBar`, `drawers`, `nav`, children) | Composition of the rows below; the header publishes `--af-topbar-h` so every `topOffset: "auto"` drawer opens under it — delete app-side header measurers |
@@ -2340,6 +2346,11 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Typography: `FONT_SCALES`, `HEADER_DENSITIES`, `applyTypography()`, `getFontScaleSpec()`, `getHeaderDensitySpec()`
 - Responsive: `AF_BREAKPOINTS` (`{ xs: 480, sm: 768, md: 1024, lg: 1440 }`), `AF_MEDIA` (the media query strings), `useAfMedia(query)`, `installViewportVars()` (sets `--vv-height` / `--keyboard-inset`, returns a cleanup), `viewportVarsFrom(innerHeight, { height, offsetTop, scale })` and the `AfVisualViewportSample` type — see [Responsive layout](./responsive.md)
 - Inputs: `AfSelect`, `ThemeSelect`, `ProviderModelSelect`, `ProviderModelPicker` (gateway-default mode + provider→models cascade, injected transports), `FontScaleSelect`, `HeaderDensitySelect`, `ToolModeEditor` (tool selection, below), `ToolPolicyEditor` (deprecated for one minor in favour of `ToolModeEditor`; reads the served `approval_default` first, `default_approval` as an alias, and renders a row decided by `TOOL_POLICY_DEFAULTS` with the "Kit default" label; a tool's optional `state` = a server-reported badge with the kit tooltip; `toolPolicySelectionToLayer(selection, catalog)` converts its value to a sparse app layer), `MultiSelect`
+- Model options follow the model: `usableSpeculation(value, card)`, `usableReasoning(value, card)`,
+  `sendableModelOptions({reasoning, speculation}, card)`, `resolveSendableModelOptions(options,
+  fetchCapabilities?)` (send-time guard: fetches the card only when something is set; an unreadable
+  card sends no MTP), `resetModelOptions(value)` (reasoning `""`, speculation `undefined`) and
+  `reasoningFacts(card)`.
 - MTP: `SpeculationSelect`, `speculationCapability()`, `normalizeSpeculationValue()`,
   `speculationSelection()`, `speculationFromSelection()` and `SpeculationValue` /
   `SpeculationCapability` types. Enable `ProviderModelPicker`'s `enableSpeculation` for text
@@ -2365,8 +2376,11 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   select; `layout: "segmented" | "compact"` — compact drops the Gateway default | Custom segment
   for provider/model selects whose first option is the named default, providers listed at once
   (node panels); `pinned: {provider?, model?, reasoning?, speculation?}` shows "Provided by
-  connected pin" (`PINNED_FIELD_TEXT`) instead of those controls. A saved provider, model,
-  reasoning level or MTP depth the gateway no longer lists stays selectable as "x (saved)" — only
+  connected pin" (`PINNED_FIELD_TEXT`) instead of those controls. Changing the provider or the model
+  (or choosing Gateway default) resets reasoning and MTP to the gateway default
+  (`resetModelOptions`, operator rule 2026-11-07). A reasoning level or MTP depth the model's
+  capability card rules out is not shown as chosen and is never offered as "(saved)"; a saved
+  provider or model the gateway no longer lists stays selectable as "x (saved)" — only
   the value the picker was mounted with, never a value typed now, never while that list failed
   (`ProviderModelSelect` `markSaved: boolean | {provider?, model?}`, `providerPinned`, `modelPinned`). MTP choices keep
   `require_acceleration: true` (the gateway console's Defaults modal writes `strict=false`; not
@@ -2614,9 +2628,11 @@ one (`removeConnection`, DELETE); a connection from AbstractCore's config is nev
 removed from here.
 
 `SpeculationSelect` consumes `execution.speculation` from the host capability payload. It
-offers inheritance (`undefined`), Off (`false`), and only advertised depths. Explicit depths
-serialize as `{mode: "native_mtp", num_draft_tokens: n, require_acceleration: true}`. It shows
-readiness/reload reasons and preserves unavailable saved choices; it never infers support
+offers inheritance (`undefined`), and — only when `execution.speculation.supported` is true —
+Off (`false`) and the advertised depths. Explicit depths serialize as
+`{mode: "native_mtp", num_draft_tokens: n, require_acceleration: true}`. Unsupported or unknown:
+disabled on inheritance, the gateway's `message` (else a plain sentence) with its `reason` under
+Technical details; a saved depth the card does not list is not shown as chosen. It never infers support
 from model names, performs network requests, downloads artifacts, or loads a model. Hosts
 own persistence and provider/model/endpoint-scoped discovery.
 
@@ -5303,8 +5319,18 @@ decide, and the row says so ("Kit default").
 
 `SpeculationSelect` is the shared inheritance / Off / depth selector. Pass the execution host's
 complete model-capability payload as `capabilities`; only depths advertised under
-`execution.speculation.supported_depths` are offered. Missing capability data is shown as
-unknown, not guessed from a model name. Saved unavailable selections remain visible.
+`execution.speculation.supported_depths` are offered, and Off and the depths appear only when
+`execution.speculation.supported` is true. Otherwise the control is disabled on the gateway
+default and says why (the gateway's `message`, else "This model does not support MTP.", with its
+`reason` under Technical details). Missing capability data is never guessed from a model name.
+
+Reasoning and MTP follow the selected model: changing the provider or the model in
+`ProviderModelPicker` resets both to the gateway default (`resetModelOptions`), and a saved level
+or depth the model cannot use is not shown as chosen. At send time pass the stored choice through
+`resolveSendableModelOptions(options, () => transport.fetchModelCapabilities(model, provider))`
+(or `sendableModelOptions(options, card)` when the card is at hand): it returns only what the
+model's capability card allows, sends no MTP when the card cannot be read, and costs no request
+when nothing is chosen.
 
 `ProviderModelPicker` names the gateway default when given `fetchGatewayDefault`
 ("Gateway default · ollama / qwen3 · reasoning high"); `createGatewayModelTransport(request)`
@@ -7163,7 +7189,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.10.4",
+  "version": "0.10.5",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -7188,7 +7214,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.17",
+  "version": "0.9.18",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -7520,8 +7546,9 @@ export { AF_BREAKPOINTS, AF_MEDIA, installViewportVars, useAfMedia, viewportVars
 export { AfSelect, type AfSelectProps, type AfSelectOption } from "./af_select.js";
 export { ProviderModelSelect, type ProviderModelSelectProps, type ProviderOption } from "./provider_model_select.js";
 export { ProviderModelPicker, PICKER_DISCOVERY_UNAVAILABLE, PICKER_REASONING_UNAVAILABLE, type ProviderModelPickerProps, type ProviderModelPickerValue } from "./provider_model_picker.js";
-export { SpeculationSelect } from "./speculation_select.js";
+export { SpeculationSelect, SPECULATION_UNKNOWN, SPECULATION_UNSUPPORTED } from "./speculation_select.js";
 export { normalizeSpeculationValue, speculationCapability, speculationSelection, speculationFromSelection, type SpeculationValue, type SpeculationCapability } from "./speculation_control.js";
+export { reasoningFacts, usableSpeculation, usableReasoning, sendableModelOptions, resolveSendableModelOptions, resetModelOptions, clearUnusableModelOptions, type ModelOptions, type ReasoningFacts } from "./model_options.js";
 export {
   GatewaySessionSignInCard,
   type GatewaySessionSignInCardProps,
@@ -22814,6 +22841,11 @@ instead of the full identity card.
 | Facts | "3 months old · Thinks with gpt-5.6-sol", "33 lessons learned · 29 open problems · 78 open questions · 261 sleeps" | `age_days`, `mind`, `counts` |
 | Actions | The host's controls (phase radio, buttons), at the bottom | `actions` prop |
 
+Layout: the head (portrait, name, the now line with a small dot in the phase's colour) sits on a faint
+wash of the entity's own colour and is separated from the body by a hairline; the body's sections have
+sentence-case labels; the facts and the actions are quiet footers. The card always uses the proportional
+UI font (`--font-sans`), even inside a host that sets a monospace font, and so does the phase radio.
+
 Words are decided once, in `entity_card_words.ts` (`entityNowWords`, `entityMomentWords`,
 `entityTroubleWords`, `entityAgeWords`, `entityCountsWords`, `entityDurationWords`, `entityWhenWords`): no event
 names, no ids, no abbreviated units ("12 minutes ago", never "12 min"). A moment or trouble kind the kit does not know is not shown. Counts
@@ -23205,6 +23237,34 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## 0.10.5 - 2026-11-07
+
+Packages: `@abstractframework/ui-kit` 0.9.18 (from 0.9.17). Other packages retain their published versions.
+
+### Changed
+
+- **Changing the model resets reasoning and MTP to the gateway default** (`@abstractframework/ui-kit`
+  `ProviderModelPicker`, `SpeculationSelect`; operator 2026-11-07: "MTP should only ever be selected for MTP-capable
+  models. When changing a model from the dropdown, always go back to default for reasoning and MTP, in every app").
+  A saved "MTP depth 2, required" was sent with a model that has no MTP and the gateway refused every run. Any
+  provider or model change, and choosing Gateway default, now resets both. MTP depths, and Off, are offered only when
+  the gateway's capability card for the selected model says MTP is supported; otherwise the control is disabled and
+  shows the gateway's reason. A saved level or depth the selected model's card rules out is cleared back to the
+  gateway default as soon as the card arrives, not just hidden; unknown facts and an explicit Off are kept. Saved flows,
+  automations and entity minds that the gateway runs later are covered by AbstractGateway 0.21.0, which drops an MTP
+  request the model cannot honour; each app picks the rule up when it moves to this kit.
+- **New `resolveSendableModelOptions`** (`model_options.ts`): the one check an app runs before sending. It asks the
+  gateway's capability card only when a reasoning level or MTP depth is set, and sends no MTP when the card cannot be
+  read, so an app never sends a depth the model cannot honour. An explicit Off is always kept, so a gateway default
+  with MTP on can never run against the user's choice. `clearUnusableModelOptions` is the matching clean-up.
+
+- **`EntityCard` reads as a person's card, not a code panel** (`@abstractframework/ui-kit`; operator 2026-11-07:
+  "it looks very system, coder; better separation between header and body"). The proportional UI font everywhere;
+  the head (portrait, name, now line with a dot in the phase's colour) on a faint wash of the entity's colour,
+  separated from the body by a hairline; sentence-case section labels at reading size; interests as a soft list;
+  the facts and the actions as quiet footers; the phase radio spans the card. Same information, same words.
+- **`AfPhaseRadio` uses the UI font** instead of monospace (its pills read as code tags), at the small text size.
 
 ## 0.10.4 - 2026-11-07
 
@@ -25951,7 +26011,7 @@ description: Integrate AbstractFramework shared React controls, authenticated ch
 compatibility: Requires @abstractframework/ui-kit 0.9.15 and @abstractframework/panel-chat 0.8.2 or later (their documented exports).
 metadata:
   package: "@abstractframework/ui-kit"
-  package-version: "0.9.17"
+  package-version: "0.9.18"
 ---
 
 # Use AbstractUIC
