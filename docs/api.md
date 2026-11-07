@@ -231,8 +231,11 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   `watchCode`), the engine and its voices (a "Speech model" choice only when the engine has more
   than one; "Automatic" by default), and "Create a new voice". Save sends the whole record
   (`IdentitySave`): a voice chosen without its model takes the model a clone is bound to, else the
-  engine's first model; the record's speed and quality are kept while the voice stays the same.
-  Nothing is retried. `refusal` makes it read-only with that sentence. Pure rules:
+  first model the catalog lists it under, else the engine's first model; Save waits while the voices
+  are being read (a voice just created is not guessed a model); choosing another speech model asks
+  for the voice again; the record's speed and quality are kept while the voice stays the same; any
+  edit clears the previous status line (and its Download). A refusal (an error carrying a `status`
+  or a `download`) is shown as it is; any other failure reads "Not saved: …". Nothing is retried. `refusal` makes it read-only with that sentence. Pure rules:
   `identityFormOf`, `identityFormChanged`, `identitySaveOf`, `identityDesignOptions`,
   `identityEngines`, `identityModels`, `identityHistoryRevs`, `identityHistoryRows`,
   `identityByWhom`, `identityWhenText`, `identityVoiceText`. Pinned by `check_identity_panel.mjs`.

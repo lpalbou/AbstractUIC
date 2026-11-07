@@ -17,7 +17,7 @@
  * gateway's own sentence is shown, never a voice in its place. Everything that talks to the gateway
  * is injected (`client`); the rules are pure functions exported for tests.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ActivityAvatar } from "./activity_avatar.js";
 import { AfSelect, type AfSelectOption } from "./af_select.js";
 import { avatarDesigns, type AvatarDesign } from "./avatar_renderer.js";
@@ -104,13 +104,18 @@ export type IdentitySaveStep = { body: IdentitySave } | { error: string } | null
 /**
  * What Save sends: the whole record. A voice chosen without its speech model (one voice offered by
  * several models, or a voice just created) takes the model it is bound to (a clone's), else the
- * engine's first listed model (`models`). The record's speed and quality are kept while the voice
+ * first model the catalog lists it under (`servedBy`), else the engine's first model (`models`). The record's speed and quality are kept while the voice
  * stays the same. null = no voice chosen yet (an identity always names its voice).
  */
-export function identitySaveOf(form: IdentityForm, record: IdentityRecord | null, opts: { models?: readonly string[]; boundModel?: string } = {}): IdentitySaveStep {
+export function identitySaveOf(
+  form: IdentityForm,
+  record: IdentityRecord | null,
+  opts: { models?: readonly string[]; boundModel?: string; servedBy?: readonly string[] } = {},
+): IdentitySaveStep {
   const v = chosenVoice(form);
   if (!v) return null;
-  const model = v.model || String(opts.boundModel || "").trim() || String(opts.models?.[0] || "").trim();
+  const served = (opts.servedBy || []).map((m) => String(m || "").trim()).filter(Boolean);
+  const model = v.model || String(opts.boundModel || "").trim() || served[0] || String(opts.models?.[0] || "").trim();
   if (!model) return { error: `Not saved: ${v.provider} lists no speech model for this voice.` };
   const voice: IdentitySave["voice"] = { provider: v.provider, model, voice: v.voice };
   const kept = record?.voice;
@@ -151,7 +156,9 @@ export function identityModels(catalog: VoiceCatalog | null | undefined, provide
     if (id && !labelOf.has(id)) labelOf.set(id, String(d.label || (d.role === "cloning" ? `${id} (clones)` : id)));
   }
   const ids = Array.isArray(listed) ? listed.map((m) => String((m as any)?.id ?? m ?? "").trim()).filter(Boolean) : [];
-  return [...new Set(ids)].map((id) => ({ id, label: labelOf.get(id) || id }));
+  // A model id is often a repository path ("Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"): its last part reads.
+  const short = (id: string) => id.split("/").filter(Boolean).pop() || id;
+  return [...new Set(ids)].map((id) => ({ id, label: labelOf.get(id) || short(id) }));
 }
 
 // ------------------------------------------------------------------ history (pure)
@@ -248,6 +255,8 @@ export function IdentityPanel({ name, client, refusal, onSaved, previewOn, recor
   const [engineCatalog, setEngineCatalog] = useState<VoiceCatalog | null>(null);
   const [voiceCatalog, setVoiceCatalog] = useState<VoiceCatalog | null>(null);
   const [catalogError, setCatalogError] = useState("");
+  const [enginesError, setEnginesError] = useState("");
+  const ids = useId();
   const [voicesLoading, setVoicesLoading] = useState(false);
   const [language, setLanguage] = useState("");
   const [creating, setCreating] = useState(false);
@@ -298,9 +307,9 @@ export function IdentityPanel({ name, client, refusal, onSaved, previewOn, recor
       .then((c) => {
         if (!alive) return;
         setEngines(identityEngines(c));
-        if (c?.error && !identityEngines(c).length) setCatalogError(String(c.error));
+        if (c?.error && !identityEngines(c).length) setEnginesError(String(c.error));
       })
-      .catch((e: Error) => alive && (setEngines([]), setCatalogError(e.message)));
+      .catch((e: Error) => alive && (setEngines([]), setEnginesError(e.message)));
     return () => {
       alive = false;
     };
@@ -339,10 +348,18 @@ export function IdentityPanel({ name, client, refusal, onSaved, previewOn, recor
   const choices = useMemo(() => voiceChoices(voiceCatalog || {}, form?.voice || {}, language), [voiceCatalog, form?.voice, language]);
   const description = String(choices.selected?.tags?.description || "").trim();
   const boundModel = cloneModelOf(choices.selected);
+  // The models the catalog lists the chosen voice under (one voice may be served by several).
+  const chosenId = String(form?.voice.voice || form?.voice.profile || "");
+  const servedBy = choices.entries.filter((e) => e?.id === chosenId && (!e.provider || e.provider === provider)).map((e) => String(e.model || ""));
+  // A voice the list does not show yet (just created, the list being read again) has no known
+  // model: Save waits for the list rather than guess one the voice may not be spoken with.
+  const voiceKnown = Boolean(choices.selected) || Boolean(form?.voice.model);
+  const saveOpts = { models: models.map((m) => m.id), boundModel, servedBy };
 
   const save = async () => {
     if (!form || !record || saving) return;
-    const step = identitySaveOf(form, record, { models: models.map((m) => m.id), boundModel });
+    if (voicesLoading || !voiceKnown) return;
+    const step = identitySaveOf(form, record, saveOpts);
     if (!step) return;
     if ("error" in step) {
       setStatus({ text: step.error, tone: "error" });
@@ -357,8 +374,12 @@ export function IdentityPanel({ name, client, refusal, onSaved, previewOn, recor
       onSaved?.(saved);
     } catch (e) {
       // The gateway's sentence as it is; nothing is retried.
-      const err = e as IdentityRefusalError;
-      setStatus({ text: err.message || String(e), tone: "error", download: err.download || null });
+      // A refusal (it carries the gateway's status or a download) is shown as it is; anything else
+      // (the network) says the save did not happen.
+      const err = e as IdentityRefusalError & { status?: number };
+      const refusal = typeof err.status === "number" || Boolean(err.download);
+      const words = String(err.message || e).trim();
+      setStatus({ text: refusal ? words : `Not saved: ${words.replace(/\.$/, "")}.`, tone: "error", download: err.download || null });
     } finally {
       setSaving(false);
     }
@@ -392,14 +413,21 @@ export function IdentityPanel({ name, client, refusal, onSaved, previewOn, recor
     );
 
   const designName = designs.find((d) => d.id === form.style)?.name || form.style;
-  const step = identitySaveOf(form, record, { models: models.map((m) => m.id), boundModel });
+  const step = identitySaveOf(form, record, saveOpts);
   const changed = identityFormChanged(form, record);
-  const setVoice = (patch: Partial<VoicePreferences>) => setForm((f) => (f ? { ...f, voice: { ...f.voice, ...patch } } : f));
+  // Every edit starts a new story: an older "Saved." or refusal (and its Download) no longer applies.
+  const edit = (fn: (f: IdentityForm) => IdentityForm) => {
+    setStatus(null);
+    setForm((f) => (f ? fn(f) : f));
+  };
+  const setVoice = (patch: Partial<VoicePreferences>) => edit((f) => ({ ...f, voice: { ...f.voice, ...patch } }));
+  const lookId = `${ids}-look`;
+  const voiceId = `${ids}-voice`;
 
   return (
     <div className={rootClass} data-identity-panel>
-      <section className="af-identity__card" aria-labelledby="af-identity-look">
-        <h3 className="af-identity__title" id="af-identity-look">
+      <section className="af-identity__card" aria-labelledby={lookId}>
+        <h3 className="af-identity__title" id={lookId}>
           Look
         </h3>
         <div className="af-identity__look">
@@ -409,13 +437,13 @@ export function IdentityPanel({ name, client, refusal, onSaved, previewOn, recor
               <>
                 <label className="af-identity__field">
                   <span>Design</span>
-                  <AfSelect ariaLabel="Avatar design" value={form.style} options={identityDesignOptions(designs, form.style)} searchable onChange={(style) => style && setForm((f) => (f ? { ...f, style } : f))} />
+                  <AfSelect ariaLabel="Avatar design" value={form.style} options={identityDesignOptions(designs, form.style)} searchable onChange={(style) => style && edit((f) => ({ ...f, style }))} />
                 </label>
                 <label className="af-identity__field af-identity__field--color">
                   <span>Colour</span>
                   <input type="color" aria-label="Avatar colour" value={form.color} onChange={(e) => {
                       const color = e.target.value.toLowerCase();
-                      setForm((f) => (f ? { ...f, color } : f));
+                      edit((f) => ({ ...f, color }));
                     }} />
                 </label>
               </>
@@ -430,8 +458,8 @@ export function IdentityPanel({ name, client, refusal, onSaved, previewOn, recor
         </div>
       </section>
 
-      <section className="af-identity__card" aria-labelledby="af-identity-voice">
-        <h3 className="af-identity__title" id="af-identity-voice">
+      <section className="af-identity__card" aria-labelledby={voiceId}>
+        <h3 className="af-identity__title" id={voiceId}>
           Voice
         </h3>
         {record.voice === null && noVoice ? (
@@ -502,7 +530,7 @@ export function IdentityPanel({ name, client, refusal, onSaved, previewOn, recor
               </p>
             ) : null}
             {description ? <p className="af-identity__hint">{description}</p> : null}
-            {boundModel ? <p className="af-identity__hint">A cloned voice: it is always spoken with {boundModel}.</p> : null}
+            {boundModel ? <p className="af-identity__hint">A cloned voice: it always speaks with the model that made it.</p> : null}
             {provider && models.length > 1 && !boundModel ? (
               <label className="af-identity__field">
                 <span>Speech model</span>
@@ -512,11 +540,18 @@ export function IdentityPanel({ name, client, refusal, onSaved, previewOn, recor
                   searchable={false}
                   options={[{ value: "", label: "Automatic" }, ...models.map((m) => ({ value: m.id, label: m.label }))]}
                   onChange={(next) => {
+                    // Another model may not offer this voice: choose again (as in VoiceSettings).
+                    if (next === model) return;
                     reset();
-                    setVoice({ model: next });
+                    setVoice({ model: next, voice: "", profile: "" });
                   }}
                 />
               </label>
+            ) : null}
+            {enginesError ? (
+              <p className="af-identity__status af-identity__status--error" role="alert">
+                The voice engines could not be listed: {enginesError.replace(/\.$/, "")}.
+              </p>
             ) : null}
             {catalogError ? (
               <p className="af-identity__status af-identity__status--error" role="alert">
@@ -585,7 +620,7 @@ export function IdentityPanel({ name, client, refusal, onSaved, previewOn, recor
                 {status.download.size_mb ? `Download (${status.download.size_mb} MB)` : "Download"}
               </button>
             ) : null}
-            <button type="button" className="af-setting-btn af-identity__save" data-action="identity-save" disabled={saving || !step || !changed} onClick={() => void save()}>
+            <button type="button" className="af-setting-btn af-identity__save" data-action="identity-save" disabled={saving || !step || !changed || voicesLoading || !voiceKnown} onClick={() => void save()}>
               {saving ? "Saving…" : "Save"}
             </button>
           </div>

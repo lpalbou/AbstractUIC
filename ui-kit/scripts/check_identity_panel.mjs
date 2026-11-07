@@ -63,6 +63,7 @@ const rec = (rev, over = {}) => ({ rev, avatar: { style: "watch-lotus", color: "
   check("another voice drops them", eq(identitySaveOf(other, r2).body.voice, { provider: "openai", model: "tts-1", voice: "nova" }));
   const noModel = { ...form, voice: { provider: "qwen3-tts", model: "", voice: "v-1" } };
   check("a voice without its model takes the engine's first model", identitySaveOf(noModel, rec(1), { models: ["qwen-a", "qwen-b"] }).body?.voice.model === "qwen-a");
+  check("a voice takes the first model the catalog lists it under", identitySaveOf(noModel, rec(1), { models: ["qwen-a", "qwen-b"], servedBy: ["qwen-b"] }).body?.voice.model === "qwen-b");
   check("a clone takes the model it is bound to", identitySaveOf(noModel, rec(1), { models: ["qwen-a"], boundModel: "qwen-base" }).body?.voice.model === "qwen-base");
   check("no model anywhere: a plain sentence, nothing sent", eq(identitySaveOf(noModel, rec(1), { models: [] }), { error: "Not saved: qwen3-tts lists no speech model for this voice." }));
   check("no voice: nothing to save", identitySaveOf({ ...form, voice: {} }, rec(1)) === null && identitySaveOf({ ...form, voice: { provider: "openai" } }, rec(1)) === null);
@@ -80,6 +81,7 @@ const rec = (rev, over = {}) => ({ rev, avatar: { style: "watch-lotus", color: "
   const opts = identityDesignOptions(designs, "watch-lotus");
   check("only designs the Watch draws, the current one kept", eq(opts.map((o) => o.value), ["watch-lotus", "watch-halo"]), opts);
   check("engines from the catalog", eq(identityEngines({ tts_providers: ["openai", "qwen3-tts", "openai"] }), ["openai", "qwen3-tts"]));
+  check("a repository model id reads by its last part", identityModels({ tts_models_by_provider: { q: ["Qwen/Qwen3-TTS-Base"] } }, "q")[0].label === "Qwen3-TTS-Base");
   check(
     "models with the cloning role in words",
     eq(identityModels({ tts_models_by_provider: { q: ["a", "b"] }, tts_model_details_by_provider: { q: [{ id: "b", role: "cloning" }] } }, "q"), [{ id: "a", label: "a" }, { id: "b", label: "b (clones)" }]),
@@ -211,6 +213,10 @@ const JARGON = ["profile", "provider", "Gateway default", "Custom", "revision"];
   await settled(h);
   check("Download starts the offered action, and does not save", log.download.length === 1 && log.download[0].body.artifact === "kokoro-big" && log.save.length === 1);
   check("the download in words", text(byData(h.tree, "data-identity-status", true)).startsWith("Downloading the voice model"));
+  // An edit after a refusal: the old sentence and its Download go (they were about another record).
+  byAria(h.tree, "Voice").props.onChange(byAria(h.tree, "Voice").props.options.find((o) => o.label === "Alloy").value);
+  await settled(h);
+  check("an edit clears the stale status and its Download", !byData(h.tree, "data-identity-status", true) && !byData(h.tree, "data-action", "identity-download"));
   h.unmount();
 }
 
@@ -227,6 +233,8 @@ const JARGON = ["profile", "provider", "Gateway default", "Custom", "revision"];
   const before = log.catalog.length;
   await client.createVoice.design({ description: "warm" });
   panel.props.onCreated("v-new", "qwen3-tts");
+  h.render();
+  check("Save waits while the list is read again (the new voice's model is not known yet)", save(h).props.disabled === true);
   await settled(h);
   check("the list is read again", log.catalog.length > before);
   check("the new voice is selected", byAria(h.tree, "Voice")?.props.options.find((o) => o.value === byAria(h.tree, "Voice").props.value)?.label.startsWith("My voice"), byAria(h.tree, "Voice")?.props);
@@ -235,6 +243,36 @@ const JARGON = ["profile", "provider", "Gateway default", "Custom", "revision"];
   save(h).props.onClick();
   await settled(h);
   check("Save sends the clone's own model", eq(log.save[0]?.voice, { provider: "qwen3-tts", model: "Qwen-Base", voice: "v-new" }), log.save);
+  h.unmount();
+}
+
+{
+  // A save that never reached the gateway says it did not happen; a model change asks for the voice again.
+  const { client } = makeClient(rec(1, { voice: null, set_by: "default" }));
+  client.save = async () => Promise.reject(new TypeError("Failed to fetch"));
+  const h = mount(IdentityPanel, { name: "castor", client });
+  await settled(h);
+  byAria(h.tree, "Voice engine").props.onChange("qwen3-tts");
+  await settled(h);
+  byAria(h.tree, "Voice").props.onChange(byAria(h.tree, "Voice").props.options.find((o) => o.label.startsWith("Vivian")).value);
+  await settled(h);
+  save(h).props.onClick();
+  await settled(h);
+  check("a network failure: Not saved, in words", text(byData(h.tree, "data-identity-status", true)) === "Not saved: Failed to fetch.", text(byData(h.tree, "data-identity-status", true)));
+  byAria(h.tree, "Speech model").props.onChange("Qwen-Base");
+  await settled(h);
+  check("another speech model asks for the voice again", byAria(h.tree, "Voice").props.value === "" && save(h).props.disabled === true);
+  h.unmount();
+}
+
+{
+  // The engines cannot be listed: the reason stays on screen.
+  const { client } = makeClient(rec(3));
+  const inner = client.voiceCatalog;
+  client.voiceCatalog = async (provider, model) => (provider ? inner(provider, model) : Promise.reject(new Error("HTTP 502")));
+  const h = mount(IdentityPanel, { name: "castor", client });
+  await settled(h);
+  check("an engine list failure is said", panelText(h).includes("The voice engines could not be listed: HTTP 502."), panelText(h));
   h.unmount();
 }
 
