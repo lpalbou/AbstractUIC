@@ -7,6 +7,21 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.6 - 2026-11-07
+
+Packages: `@abstractframework/ui-kit` 0.9.19 (from 0.9.18). Other packages retain their published versions.
+
+### Fixed
+
+- **An OpenAI-compatible endpoint can be tested and saved without an API key** (`@abstractframework/ui-kit`
+  `CloudProviderCards`; operator 2026-11-07: "if there aren't any API token, I should still be able to click Test", "and
+  to save that endpoint"). The generic "OpenAI-compatible endpoint" card asked for a key first, so a server that takes
+  none (LM Studio, vLLM or llama.cpp on another machine) could be neither tested nor saved. Its key field now reads
+  "API key (optional)" with "Only if the endpoint asks for one."; Test and Save send no key, and a server that needs one
+  answers with its own error. The preset cards keep their required key. Use it with AbstractGateway 0.21.0 or later:
+  older gateways can fall back to a key configured on the gateway (AbstractCore's `openai_compatible` key or
+  `OPENAI_API_KEY`) and send it to the address typed here.
+
 ## 0.10.5 - 2026-11-07
 
 Packages: `@abstractframework/ui-kit` 0.9.18 (from 0.9.17). Other packages retain their published versions.

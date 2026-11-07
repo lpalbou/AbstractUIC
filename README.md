@@ -11,6 +11,11 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
 
+## What's new in 0.10.6
+
+`@abstractframework/ui-kit` 0.9.19: an OpenAI-compatible endpoint that takes no API key (LM Studio, vLLM or llama.cpp
+on another machine) can be tested and saved ([changelog](./CHANGELOG.md#0106---2026-11-07)).
+
 ## What's new in 0.10.5
 
 `@abstractframework/ui-kit` 0.9.18: changing the model resets reasoning and MTP to the gateway default, and MTP is
