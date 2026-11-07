@@ -7,6 +7,26 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.3 - 2026-11-07
+
+Packages: `@abstractframework/ui-kit` 0.9.16 (from 0.9.15). Other packages retain their published
+versions (panel-chat stays 0.8.2; its `^0.9.15` range accepts 0.9.16). Who is affected: every app that
+shows an animated avatar (AbstractCode's and AbstractEntity's Avatar views, AbstractAssistant's voice
+stage once it re-syncs its vendored avatar copy).
+
+### Fixed
+
+- **The avatar no longer stutters while it rests.** A `balanced` or `high` avatar (the default is
+  `balanced`) now draws Ready and Waiting at its full rate, 24 or 30 frames per second. Before, Ready
+  ("Completed" in the Avatar view) drew 6 frames per second and Waiting 10. The pictures are
+  unchanged. `economy`, meant for grids of small previews, keeps its slower idle rate. Measured on
+  the Avatar view's 320 px avatar: 6 to 24 frames per second; one animated avatar uses about a fifth
+  of one CPU core while it is shown, as a speaking avatar already did.
+- **A small avatar is drawn at its small size.** When a stylesheet shows the canvas smaller than its
+  `size` (the 40 px avatar beside a question or approval in the Avatar view), the frame is drawn for
+  that side instead of the full-size 384 px one. That is about 23 times fewer pixels per frame for
+  the same picture.
+
 ## 0.10.2 - 2026-11-07
 
 Packages: `@abstractframework/ui-kit` 0.9.15 and `@abstractframework/panel-chat` 0.8.2.

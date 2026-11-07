@@ -52,8 +52,9 @@ clears the image, labels it unavailable and calls `onError`.
 | balanced | 384 | 2 | 24 | 24 | 24 |
 | high | 512 | 3 | 30 | 30 | 30 |
 
-Raster size follows CSS size and display pixel ratio within the selected budget;
-display-density changes rebuild the renderer. Use economy for multiple previews
+Raster size follows the side the canvas is shown at (never more than `size`, so a host
+stylesheet that shows it smaller gets a smaller raster) and the display pixel ratio, within
+the selected budget; display-size and display-density changes rebuild the renderer. Use economy for multiple previews
 and high for a prominent portrait when the CPU budget allows it. Raster work grows
 with pixel area, so doubling each side costs roughly four times as many samples.
 A balanced or high portrait moves at one rate in every animated pose, so a resting
