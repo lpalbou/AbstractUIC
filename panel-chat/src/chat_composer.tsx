@@ -29,7 +29,13 @@ export type ChatComposerProps = {
   /** Preserve multiline-first chats that submit with Ctrl/Cmd+Enter. */
   submitKey?: "enter" | "mod-enter";
   actions?: React.ReactNode;
-  /** Controls next to Send, such as a microphone or Stop. */
+  /**
+   * The primary round button turns into Stop (compact variant): an arrow-to-square
+   * morph, same size and place. `active` = Stop right now; `stopping` = the stop
+   * was asked and is settling (aria-busy). Absent = the button is only ever Send.
+   */
+  stop?: { active: boolean; stopping?: boolean; onStop: () => void; label?: string };
+  /** Controls next to Send, such as a microphone. */
   trailingActions?: React.ReactNode;
   /** Shared attachment control; the host owns its file chooser and upload lifecycle. */
   onAttach?: () => void;
@@ -52,6 +58,9 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
   const disabled = Boolean(props.disabled);
   const busy = Boolean(props.busy);
   const can_submit = !disabled && !busy && (props.canSubmit ?? Boolean(String(props.value || "").trim()));
+  const stopSpec = compact ? props.stop : undefined;
+  const stopMode = Boolean(stopSpec?.active);
+  const stopping = stopMode && Boolean(stopSpec?.stopping);
   const sendLabel = busy ? props.busyLabel || "Thinking…" : props.sendLabel || "Send";
   const textarea = useRef<HTMLTextAreaElement | null>(null);
   const fallbackSizing = useRef(false);
@@ -136,13 +145,24 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
         <button
           type="button"
           className={[props.sendButtonClassName || "pc-btn", compact ? "pc-composer__send--compact" : ""].filter(Boolean).join(" ")}
-          aria-label={compact ? sendLabel : undefined}
-          data-af-tip={compact ? sendLabel : undefined}
-          aria-busy={compact ? busy : undefined}
-          disabled={!can_submit}
-          onClick={() => props.onSubmit()}
+          aria-label={compact ? (stopMode ? stopSpec?.label || "Stop" : sendLabel) : undefined}
+          data-af-tip={compact ? (stopMode ? (stopping ? "Stopping…" : stopSpec?.label || "Stop") : sendLabel) : undefined}
+          aria-busy={compact ? (stopMode ? stopping : busy) : undefined}
+          data-mode={stopSpec ? (stopping ? "stopping" : stopMode ? "stop" : "send") : undefined}
+          disabled={stopMode ? disabled || stopping : !can_submit}
+          onClick={() => (stopMode ? stopSpec?.onStop() : props.onSubmit())}
         >
-          {compact ? <Icon name={busy ? "loader" : "send"} size={17} /> : sendLabel}
+          {compact ? (
+            stopSpec ? (
+              <span className="pc-composer__morph" aria-hidden="true">
+                <Icon name="send" size={17} />
+                <Icon name="stop" size={17} />
+                <Icon name="loader" size={17} />
+              </span>
+            ) : (
+              <Icon name={busy ? "loader" : "send"} size={17} />
+            )
+          ) : sendLabel}
         </button>
       </div>
       {props.overlay}

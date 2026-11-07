@@ -58,9 +58,9 @@ const render = (el, props) => renderToStaticMarkup(React.createElement(el, props
   };
   const chat = render(WorkflowChat, { ...base, busy: true, sendWhileBusy: true, sendLabel: "Queue", header: "Run 42", footer: "Connected" });
   check("WorkflowChat renders its controlled draft", chat.includes("keep this draft"));
-  check("WorkflowChat renders the stop control while busy", chat.includes("Stop"));
+  check("WorkflowChat renders the stop control while busy (empty draft)", render(WorkflowChat, { ...base, draft: "", busy: true, sendWhileBusy: true, sendLabel: "Queue" }).includes('aria-label="Stop"'));
   check("WorkflowChat renders attachment control", chat.includes("Attach"));
-  check("WorkflowChat permits host queue wording while busy", chat.includes("Queue") && chat.includes("Stop"));
+  check("WorkflowChat permits host queue wording while busy (typed text: the button is Queue, not Stop)", chat.includes('aria-label="Queue"') && !chat.includes('aria-label="Stop"'));
   const sanitized = render(WorkflowChat, {
     ...base,
     renderMarkdown: (text) => React.createElement("span", { className: "sanitized-markdown" }, `safe:${text}`),

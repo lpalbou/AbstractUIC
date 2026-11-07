@@ -209,7 +209,7 @@ check("one-line grounding footer", panel.includes("pc-docs-assistant__footer") &
   const withMic = renderToStaticMarkup(React.createElement(DocsAssistantPanel, { source: { app: "flow", name: "AbstractFlow" }, messages: [], draft: "", onDraftChange() {}, onSend() {}, composerTrailingActions: React.createElement("button", { type: "button", "aria-label": "Hold to talk" }, "Mic") }));
   check("dictation control in the trailing slot", /<div class="pc-composer__trailing"><button type="button" aria-label="Hold to talk">Mic<\/button><\/div>/.test(withMic));
   const withMicBusy = renderToStaticMarkup(React.createElement(DocsAssistantPanel, { source: { app: "flow", name: "AbstractFlow" }, messages: [], draft: "", onDraftChange() {}, onSend() {}, busy: true, onStop() {}, composerTrailingActions: React.createElement("button", { type: "button", "aria-label": "Hold to talk" }, "Mic") }));
-  check("Stop joins the microphone while answering", /<div class="pc-composer__trailing"><button type="button" aria-label="Hold to talk">Mic<\/button><button type="button" class="pc-docs-assistant__icon-btn" aria-label="Stop"/.test(withMicBusy));
+  check("Stop joins the microphone while answering", /<div class="pc-composer__trailing"><button type="button" aria-label="Hold to talk">Mic<\/button><\/div><button type="button" class="pc-btn pc-composer__send--compact" aria-label="Stop"/.test(withMicBusy));
   check("no empty trailing slot", !panel.includes("pc-composer__trailing"));
 }
 const blocked = renderToStaticMarkup(React.createElement(DocsAssistantPanel, { source, messages: [], draft: "", onDraftChange: noop, onSend: noop, blockedNotice: "Connect to the gateway to use the docs assistant.", suggestions: ["How do I run a flow?"] }));

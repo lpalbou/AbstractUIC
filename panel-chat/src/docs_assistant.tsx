@@ -456,6 +456,7 @@ export function DocsAssistantPanel(props: DocsAssistantPanelProps): React.ReactE
           ariaLabel={`Question about ${props.source.name}`}
           disabled={blocked}
           busy={busy}
+          stop={props.onStop && props.composerVariant !== "legacy" ? { active: busy, onStop: props.onStop } : undefined}
           onAttach={canAttach ? () => fileInput.current?.click() : undefined}
           attachDisabled={busy}
           sendLabel="Send"
@@ -506,10 +507,10 @@ export function DocsAssistantPanel(props: DocsAssistantPanelProps): React.ReactE
               ) : null}
             </>
           }
-          trailingActions={props.composerTrailingActions || (busy && props.onStop) ? (
+          trailingActions={props.composerTrailingActions || (busy && props.onStop && props.composerVariant === "legacy") ? (
             <>
               {props.composerTrailingActions}
-              {busy && props.onStop ? (
+              {busy && props.onStop && props.composerVariant === "legacy" ? (
                 <button type="button" className="pc-docs-assistant__icon-btn" aria-label="Stop" data-af-tip="Stop the answer" onClick={props.onStop}>
                   <Icon name="stop" size={14} />
                 </button>

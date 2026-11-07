@@ -115,10 +115,11 @@ const llmStarted = { cursor: 1, record: { run_id: child, step_id: "llm-1", statu
 {
   const base = { messages: [], draft: "", onDraftChange() {}, onSend() {}, onCancel() {} };
   const render = (props) => renderToStaticMarkup(React.createElement(WorkflowChat, { ...base, ...props }));
-  assert.match(render({ busy: true }), />Stop</);
+  assert.match(render({ busy: true }), /aria-label="Stop"/);
   const stopping = render({ busy: true, stopState: { phase: "stopping", label: "Stopping…" } });
-  assert.match(stopping, /Stopping…/);
-  assert.match(stopping, /pc-workflow-chat__stop"[^>]*disabled/);
+  assert.match(stopping, /data-mode="stopping"/);
+  assert.match(stopping, /aria-label="Stop"[^>]*aria-busy="true"[^>]*data-mode="stopping"[^>]*disabled/);
+  assert(!/class="pc-workflow-chat__stop"/.test(stopping), "no separate Stopping… button");
   assert.match(render({ busy: false, stopState: { phase: "stopped", label: "Stopped" } }), /pc-workflow-chat__stop-state--stopped[^>]*>Stopped</);
   const forced = render({ busy: false, stopState: { phase: "forced", label: "Stop forced at 10 s: inference killed" } });
   assert.match(forced, /pc-workflow-chat__stop-state--forced[^>]*>Stop forced at 10 s: inference killed</);

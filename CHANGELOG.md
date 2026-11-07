@@ -19,6 +19,13 @@ Packages: `@abstractframework/panel-chat` 0.9.2 (from 0.9.1), `@abstractframewor
   the group's width, with the same sentence. A decision that arrives before its group, or that covers several groups,
   attaches to the first group of its run; a decision with no group in the transcript still shows as its own line.
   The decision message now carries its `runId`. The per-row provenance is unchanged.
+- **The composer keeps two buttons at all times** (operator 2026-11-07: "the send button must mutate with a nice animation
+  in a stop button icon"). The microphone and one round primary button. Idle it is Send (arrow). While a run is active
+  and nothing can be sent it becomes Stop: the arrow turns and fades into a square in about 170 ms (static under reduced
+  motion), with a faint red tint on the square. While stopping, the same button spins and is `aria-busy`; the separate
+  "Stop" / "Stopping…" text button is gone. With text typed during a run it is Send (Steer / Queue) again, and
+  "Guide this run / Queue next turn" is unchanged. The Docs assistant uses the same button. `ChatComposer` takes a
+  `stop` prop for this; the `legacy` variant keeps its old Stop button.
 - **Session cards no longer shout** (operator 2026-11-07: "the highlight border is much too visible ... this is a
   professional UI"). ui-kit `SessionCard` and the automation card drew a 2 px accent frame for the selected card and a
   full-strength amber or teal border for "Needs you" and new results. The border is now a hairline tinted from the

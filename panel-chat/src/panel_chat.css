@@ -449,6 +449,18 @@
 }
 .pc-composer--compact .pc-composer__send--compact:disabled { opacity: .45; }
 .pc-composer--compact .pc-composer__send--compact[aria-busy="true"] > svg { animation: pc-compact-send-spin 1s linear infinite; }
+/* Send and Stop are one button: the arrow and the square cross-fade with a small scale and turn. */
+.pc-composer__morph { position: relative; display: inline-grid; place-items: center; width: 17px; height: 17px; }
+.pc-composer__morph > svg { grid-area: 1 / 1; transition: opacity 170ms ease, transform 170ms ease; }
+.pc-composer__morph > svg:nth-child(2) { color: color-mix(in srgb, var(--error) 45%, currentColor); }
+.pc-composer__send--compact[data-mode="send"] .pc-composer__morph > svg:nth-child(n+2),
+.pc-composer__send--compact[data-mode="stop"] .pc-composer__morph > svg:nth-child(3),
+.pc-composer__send--compact[data-mode="stopping"] .pc-composer__morph > svg:nth-child(-n+2) { opacity: 0; }
+.pc-composer__send--compact[data-mode="send"] .pc-composer__morph > svg:nth-child(2) { transform: scale(.5) rotate(-90deg); }
+.pc-composer__send--compact[data-mode="stop"] .pc-composer__morph > svg:nth-child(1) { transform: scale(.5) rotate(90deg); }
+.pc-composer__send--compact[data-mode="stopping"] .pc-composer__morph > svg:nth-child(3) { animation: pc-compact-send-spin 1s linear infinite; }
+.pc-composer__send--compact[data-mode="stopping"]:disabled { opacity: .7; }
+.pc-composer__send--compact[data-mode="stop"]:disabled { opacity: .45; }
 @keyframes pc-compact-send-spin { to { transform: rotate(360deg); } }
 @media (pointer: coarse) {
   .pc-composer--compact .pc-composer__row > .pc-composer__send--compact {
@@ -460,6 +472,8 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .pc-composer--compact .pc-composer__send--compact[aria-busy="true"] > svg { animation: none; }
+  .pc-composer__morph > svg { transition: none; }
+  .pc-composer__send--compact[data-mode="stopping"] .pc-composer__morph > svg:nth-child(3) { animation: none; }
 }
 
 /* ------------------------------------------------------------------ */

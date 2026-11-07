@@ -14,7 +14,7 @@ AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t
 ## What's new in 0.10.9
 
 `@abstractframework/panel-chat` 0.9.2: the session-policy sentence ("Allowed by this chat's policy ...") sits directly
-under the tool group it covers instead of floating a message away. `@abstractframework/ui-kit` 0.9.20: session and
+under the tool group it covers instead of floating a message away, and the composer's Send button turns into Stop (always two buttons). `@abstractframework/ui-kit` 0.9.20: session and
 automation cards use a hairline, theme-tinted border; "Needs you", working and unread are carried by the marker and the
 words, not a coloured frame ([changelog](./CHANGELOG.md#0109---2026-11-07)).
 
