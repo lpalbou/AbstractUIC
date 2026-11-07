@@ -38,6 +38,28 @@ export function ActivityAvatar({ design = "watch-hover", pose = "ready", level =
         window.addEventListener("resize", refresh, { passive: true });
         return () => { window.removeEventListener("resize", refresh); query?.removeEventListener("change", refresh); };
     }, []);
+    // The raster follows the side the canvas is actually shown at, never more than `size`: a host
+    // stylesheet may shrink the canvas (a compact 40px avatar beside a question), and drawing
+    // the full-size raster there costs many times the pixels for the same picture.
+    const [shown, setShown] = useState<number>();
+    useEffect(() => {
+        const el = canvas.current;
+        if (!el)
+            return;
+        const observer = new ResizeObserver(entries => {
+            const box = entries[0]?.contentRect;
+            const side = box ? Math.ceil(Math.min(box.width, box.height)) : 0;
+            if (side > 0)
+                setShown(side);
+        });
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
+    // An invalid size or quality is reported through onError by the renderer effect (resolution 0).
+    const raster = () => Math.min(avatarResolution(size, pixelRatio, quality), avatarResolution(Math.min(size, shown ?? size), pixelRatio, quality));
+    let resolution = 0;
+    try { resolution = raster(); }
+    catch { /* rethrown below, inside the effect */ }
     // Equal palette contents must not recreate a renderer on parent/audio updates.
     const paletteKey = palette ? JSON.stringify(palette) : "theme";
     useEffect(() => {
@@ -177,8 +199,8 @@ export function ActivityAvatar({ design = "watch-hover", pose = "ready", level =
         }
         Promise.resolve().then(() => {
             if (disposed) return;
-            const resolution = avatarResolution(size, pixelRatio, quality);
-            return AvatarRenderer.create(el, { width: resolution, height: resolution, palette: palette ?? avatarPaletteFromCss(el), signal: abort.signal });
+            const side = resolution || raster();
+            return AvatarRenderer.create(el, { width: side, height: side, palette: palette ?? avatarPaletteFromCss(el), signal: abort.signal });
         }).then(r => {
             if (!r) return;
             if (disposed) {
@@ -206,7 +228,7 @@ export function ActivityAvatar({ design = "watch-hover", pose = "ready", level =
             el.removeEventListener("contextrestored", contextRestored);
             renderer?.dispose();
         };
-    }, [size, pixelRatio, quality, paletteKey, animated, active, followCursor]);
+    }, [resolution, quality, paletteKey, animated, active, followCursor]);
     useEffect(() => { canvas.current?.dispatchEvent(new Event("avatar-update")); }, [design, pose]);
     // Audio producers cannot reset or outrun the clock; reduced motion allows explicit data updates.
     useEffect(() => { if (!animated || matchMedia("(prefers-reduced-motion: reduce)").matches)

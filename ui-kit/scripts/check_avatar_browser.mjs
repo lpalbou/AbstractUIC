@@ -132,6 +132,12 @@ try{
   const before=await all();await page.waitForTimeout(1000);const rate=(await all()).map((n,i)=>n-before[i]);
   assert(rate.every(n=>n>=18&&n<=27),`balanced ${phase} cadence per canvas ${rate}`);
  }
+ // A host stylesheet that shows the canvas smaller (the compact avatar beside a question) gets a
+ // raster for the side actually shown, not the full-size one; it grows back with the canvas.
+ await page.evaluate(()=>{const s=document.createElement('style');s.id='compact-avatars';s.textContent='article canvas{width:48px!important;height:48px!important}';document.head.append(s);});
+ await page.waitForFunction(()=>[...document.querySelectorAll('canvas')].every(c=>c.width===48),null,{timeout:3000}).catch(async()=>{throw new Error(`compact raster ${await page.locator('canvas').evaluateAll(n=>n.map(c=>c.width))}`);});await ready(5);
+ await page.evaluate(()=>document.getElementById('compact-avatars').remove());
+ await page.waitForFunction(()=>[...document.querySelectorAll('canvas')].every(c=>c.width===192),null,{timeout:3000});await ready(5);
  await page.getByLabel('Phase',{exact:true}).selectOption('ready');
  await page.getByRole('button',{name:'Pause motion',exact:true}).click();await page.waitForTimeout(100);
  assert.equal(await frames(400),0,'pause motion must cancel both timeout and animation frame');
