@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { AvatarRenderer, avatarGazeTarget, avatarPaletteFromCss, type AvatarPalette, type AvatarPose } from "./avatar_renderer.js";
 import { avatarFrameInterval, avatarResolution, type AvatarQuality } from "./avatar_quality.js";
 export type { AvatarQuality } from "./avatar_quality.js";
+/** The shown side is rounded up to this step and settles for this long before the raster follows it. */
+const SHOWN_STEP = 16, SHOWN_SETTLE_MS = 150;
 export interface ActivityAvatarProps {
     design?: string;
     pose?: AvatarPose;
@@ -39,24 +41,36 @@ export function ActivityAvatar({ design = "watch-hover", pose = "ready", level =
         return () => { window.removeEventListener("resize", refresh); query?.removeEventListener("change", refresh); };
     }, []);
     // The raster follows the side the canvas is actually shown at, never more than `size`: a host
-    // stylesheet may shrink the canvas (a compact 40px avatar beside a question), and drawing
-    // the full-size raster there costs many times the pixels for the same picture.
+    // stylesheet may shrink the canvas (the compact 48px avatar beside a question), and drawing
+    // the full-size raster there costs many times the pixels for the same picture. The side is
+    // rounded up to 16px steps and a later change waits until the size has been steady for 150ms,
+    // so a fluid canvas (a window being dragged) rebuilds its renderer once, not on every frame.
+    // `undefined` = not measured yet (no renderer is built before the first measurement, so a
+    // shrunken canvas is never built twice on mount); 0 = not laid out, use `size`.
     const [shown, setShown] = useState<number>();
     useEffect(() => {
         const el = canvas.current;
         if (!el)
             return;
+        let settle: ReturnType<typeof setTimeout> | undefined, first = true;
         const observer = new ResizeObserver(entries => {
             const box = entries[0]?.contentRect;
-            const side = box ? Math.ceil(Math.min(box.width, box.height)) : 0;
-            if (side > 0)
+            const side = box ? Math.ceil(Math.min(box.width, box.height) / SHOWN_STEP) * SHOWN_STEP : 0;
+            if (first) {
+                first = false;
                 setShown(side);
+                return;
+            }
+            if (settle !== undefined)
+                clearTimeout(settle);
+            // A canvas that stops being laid out keeps its renderer until it is shown again.
+            settle = side > 0 ? setTimeout(() => { settle = undefined; setShown(side); }, SHOWN_SETTLE_MS) : undefined;
         });
         observer.observe(el);
-        return () => observer.disconnect();
+        return () => { observer.disconnect(); if (settle !== undefined) clearTimeout(settle); };
     }, []);
     // An invalid size or quality is reported through onError by the renderer effect (resolution 0).
-    const raster = () => Math.min(avatarResolution(size, pixelRatio, quality), avatarResolution(Math.min(size, shown ?? size), pixelRatio, quality));
+    const raster = () => Math.min(avatarResolution(size, pixelRatio, quality), avatarResolution(Math.min(size, shown || size), pixelRatio, quality));
     let resolution = 0;
     try { resolution = raster(); }
     catch { /* rethrown below, inside the effect */ }
@@ -64,7 +78,7 @@ export function ActivityAvatar({ design = "watch-hover", pose = "ready", level =
     const paletteKey = palette ? JSON.stringify(palette) : "theme";
     useEffect(() => {
         const el = canvas.current;
-        if (!el || !active)
+        if (!el || !active || shown === undefined)
             return;
         const abort = new AbortController();
         let disposed = false, renderer: AvatarRenderer | undefined, visible = true, lost = false;
@@ -228,7 +242,7 @@ export function ActivityAvatar({ design = "watch-hover", pose = "ready", level =
             el.removeEventListener("contextrestored", contextRestored);
             renderer?.dispose();
         };
-    }, [resolution, quality, paletteKey, animated, active, followCursor]);
+    }, [resolution, shown === undefined, quality, paletteKey, animated, active, followCursor]);
     useEffect(() => { canvas.current?.dispatchEvent(new Event("avatar-update")); }, [design, pose]);
     // Audio producers cannot reset or outrun the clock; reduced motion allows explicit data updates.
     useEffect(() => { if (!animated || matchMedia("(prefers-reduced-motion: reduce)").matches)

@@ -23,9 +23,11 @@ stage once it re-syncs its vendored avatar copy).
   the Avatar view's 320 px avatar: 6 to 24 frames per second; one animated avatar uses about a fifth
   of one CPU core while it is shown, as a speaking avatar already did.
 - **A small avatar is drawn at its small size.** When a stylesheet shows the canvas smaller than its
-  `size` (the 40 px avatar beside a question or approval in the Avatar view), the frame is drawn for
-  that side instead of the full-size 384 px one. That is about 23 times fewer pixels per frame for
-  the same picture.
+  `size` (the 48 px avatar beside a question or approval in the Avatar view), the frame is drawn for
+  that side instead of the full-size one: 96 px instead of 384 px on a Retina screen, about 16 times
+  fewer pixels per frame for the same picture. The shown side is rounded up to 16 px steps and a
+  resize is followed once it has been steady for 150 ms, so dragging the window rebuilds the avatar
+  once rather than on every frame.
 
 ## 0.10.2 - 2026-11-07
 

@@ -21,15 +21,18 @@ try{
  browser=await chromium.launch({headless:true,...(process.env.AVATAR_BROWSER_CHANNEL?{channel:process.env.AVATAR_BROWSER_CHANNEL}:{})});
  const page=await browser.newPage({viewport:{width:1280,height:1050}}),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
- await page.addInitScript(()=>{window.avatarFrameCount=0;window.canvasFrames=new Map();const put=CanvasRenderingContext2D.prototype.putImageData;CanvasRenderingContext2D.prototype.putImageData=function(...args){window.avatarFrameCount++;window.canvasFrames.set(this.canvas,(window.canvasFrames.get(this.canvas)??0)+1);return put.apply(this,args);};
+ const instrument=()=>{window.avatarFrameCount=0;window.canvasFrames=new Map();const put=CanvasRenderingContext2D.prototype.putImageData;CanvasRenderingContext2D.prototype.putImageData=function(...args){window.avatarFrameCount++;window.canvasFrames.set(this.canvas,(window.canvasFrames.get(this.canvas)??0)+1);return put.apply(this,args);};
   // Record every gaze value the renderer draws with.
   window.gazeRenders=[];const instantiate=WebAssembly.instantiate;
   WebAssembly.instantiate=async(...args)=>{const made=await instantiate.apply(WebAssembly,args),instance=made.instance??made,e=instance.exports,last=new Map();
    const exports={...e,
     avatar_set_gaze:(h,x,y)=>{last.set(h,[x,y]);return e.avatar_set_gaze(h,x,y);},
-    avatar_render:(h,style,...rest)=>{const [x,y]=last.get(h)??[0,0];if(x||y)window.gazeRenders.push({style,x,y});return e.avatar_render(h,style,...rest);}};
+    avatar_render:(h,style,...rest)=>{const [x,y]=last.get(h)??[0,0];if(x||y)window.gazeRenders.push({style,x,y});return e.avatar_render(h,style,...rest);},
+    // Count renderer (Wasm handle) creations: a resize must not rebuild per frame.
+    avatar_create:(...a)=>{window.avatarCreates=(window.avatarCreates??0)+1;return e.avatar_create(...a);}};
    return made.instance?{...made,instance:{exports}}:{exports};};
- });
+ };
+ await page.addInitScript(instrument);
  const ready=(expected=6)=>page.waitForFunction(n=>document.querySelectorAll('canvas').length===n&&[...document.querySelectorAll('canvas')].every(c=>c.getContext('2d').getImageData(0,0,c.width,c.height).data.some((v,i)=>i%4===3&&v>0)),expected);
  await page.goto(`http://127.0.0.1:${server.address().port}/examples/avatar_gallery.html`);await ready();
  assert.equal(await page.getByRole('alert').count(),0);
@@ -138,6 +141,17 @@ try{
  await page.waitForFunction(()=>[...document.querySelectorAll('canvas')].every(c=>c.width===48),null,{timeout:3000}).catch(async()=>{throw new Error(`compact raster ${await page.locator('canvas').evaluateAll(n=>n.map(c=>c.width))}`);});await ready(5);
  await page.evaluate(()=>document.getElementById('compact-avatars').remove());
  await page.waitForFunction(()=>[...document.querySelectorAll('canvas')].every(c=>c.width===192),null,{timeout:3000});await ready(5);
+ // A fluid canvas (the Avatar view follows the window) shrinking a little on every frame for
+ // ~0.7 s rebuilds each renderer once after it settles, not once per frame; the raster lands on
+ // the 16px step at or above the shown side (100 -> 112).
+ const createsBefore=await page.evaluate(()=>window.avatarCreates);
+ await page.evaluate(()=>new Promise(done=>{const s=document.createElement('style');s.id='drag-avatars';document.head.append(s);let w=192;
+  const step=()=>{w-=2;s.textContent=`article canvas{width:${w}px!important;height:${w}px!important}`;if(w>100)requestAnimationFrame(step);else done();};requestAnimationFrame(step);}));
+ await page.waitForTimeout(600);const dragCreates=await page.evaluate(n=>window.avatarCreates-n,createsBefore);
+ assert(dragCreates<=5*2,`a drag-resize rebuilt the renderers ${dragCreates} times for 5 avatars`);
+ assert.deepEqual(await page.locator('canvas').evaluateAll(n=>n.map(c=>c.width)),[112,112,112,112,112],'the dragged raster settles on the 16px step');
+ await page.evaluate(()=>document.getElementById('drag-avatars').remove());
+ await page.waitForFunction(()=>[...document.querySelectorAll('canvas')].every(c=>c.width===192),null,{timeout:3000});await ready(5);
  await page.getByLabel('Phase',{exact:true}).selectOption('ready');
  await page.getByRole('button',{name:'Pause motion',exact:true}).click();await page.waitForTimeout(100);
  assert.equal(await frames(400),0,'pause motion must cancel both timeout and animation frame');
@@ -162,6 +176,20 @@ try{
   }finally{canvas.remove();}
   return measurements;
  });
+ // Retina (DPR 2): the raster is the shown side x the pixel ratio within the budget, a canvas
+ // mounted smaller than its size is built once (at the shown side, not first at full size),
+ // and the compact 48px avatar draws 96px frames instead of 384px ones.
+ const retina=await browser.newPage({viewport:{width:1280,height:1050},deviceScaleFactor:2});
+ retina.on('pageerror',e=>errors.push(e.message));await retina.addInitScript(instrument);
+ await retina.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>{const s=document.createElement('style');s.id='compact-avatars';s.textContent='article canvas{width:48px!important;height:48px!important}';document.head.append(s);}));
+ const widths=(page,n)=>page.waitForFunction(n=>{const c=[...document.querySelectorAll('canvas')];return c.length>0&&c.every(c=>c.width===n);},n,{timeout:5000}).catch(async()=>{throw new Error(`retina raster ${await page.locator('canvas').evaluateAll(n=>n.map(c=>c.width))}, expected ${n}`);});
+ await retina.goto(`http://127.0.0.1:${server.address().port}/examples/avatar_gallery.html`);
+ await widths(retina,72); // economy: 48 CSS px x min(2, 1.5)
+ await retina.waitForTimeout(300);const mountCreates=await retina.evaluate(()=>window.avatarCreates);
+ assert.equal(mountCreates,await retina.locator('canvas').count(),'each avatar mounted smaller than its size is built once');
+ await retina.getByLabel('Quality',{exact:true}).selectOption('balanced');await widths(retina,96);
+ await retina.evaluate(()=>document.getElementById('compact-avatars').remove());await widths(retina,384);
+ await retina.close();
  assert.deepEqual(errors,[]);
- console.log({styles:seen.size,phases:7,maxLiveRenderers:6,readyFramesIn1_1s:readyFrames,gazeFramesIn500ms:gazeFrames,eyesGazeFramesIn500ms:eyesGaze,eyesDesigns:eyeIds,clickFramesIn500ms:clickFrames,postIdleFramesIn1_1s:idleFrames,reducedMotionFrames:0,unmountCycles:5,contextRecovery:true,qualityAndDprResizing:true,presentationTiming,consoleErrors:errors});
+ console.log({retinaMountCreates:mountCreates,dragResizeCreatesFor5:dragCreates,styles:seen.size,phases:7,maxLiveRenderers:6,readyFramesIn1_1s:readyFrames,gazeFramesIn500ms:gazeFrames,eyesGazeFramesIn500ms:eyesGaze,eyesDesigns:eyeIds,clickFramesIn500ms:clickFrames,postIdleFramesIn1_1s:idleFrames,reducedMotionFrames:0,unmountCycles:5,contextRecovery:true,qualityAndDprResizing:true,presentationTiming,consoleErrors:errors});
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
