@@ -83,6 +83,23 @@ assert.equal(
   "grouping cannot move tools across an intervening message",
 );
 assert.equal((split.match(/class="pc-chat-header"/g) || []).length, 1);
+
+// The session-policy sentence is attached to the tool group it covers (never a separate item).
+const NOTE = "Allowed by this chat's policy (set by admin at Nov 7, 2026, 19:49)";
+const policy = (id, runId = "root", content = NOTE) => ({ id, role: "system", kind: "tool_policy_decision", title: "Tool policy", content, runId });
+const countOf = (html, re) => (html.match(re) || []).length;
+const after = render(ChatThread, { messages: [message(), message({ ...tool, id: "root:2" }), policy("p1")] });
+assert.equal(countOf(after, /class="pc-tool-group"/g), 1);
+assert.equal(countOf(after, /class="pc-chat-hint"/g), 0, "the decision is not a separate transcript item");
+assert(after.indexOf("pc-tool-group__policy") > after.lastIndexOf("</details>") && after.includes(NOTE.replace(/'/g, "&#x27;")), "note sits below the group rows");
+const before = render(ChatThread, { messages: [policy("p1"), message()] });
+assert.equal(countOf(before, /class="pc-chat-hint"/g), 0);
+assert.equal(countOf(before, /pc-tool-group__policy/g), 1, "decision arriving before its group attaches to it");
+const twoGroups = render(ChatThread, { messages: [message(), { id: "a", role: "assistant", content: "x" }, message({ ...tool, id: "root:2" }), policy("p1")] });
+assert.equal(countOf(twoGroups, /pc-tool-group__policy/g), 1, "attached to one group only");
+assert(twoGroups.indexOf("pc-tool-group__policy") < twoGroups.indexOf(">x<"), "attached to the FIRST covered group");
+const lost = render(ChatThread, { messages: [policy("p1", "other"), message()] });
+assert.equal(countOf(lost, /class="pc-chat-hint"/g), 1, "a decision with no covered group is never lost");
 console.log(
   "tool presentation: compact grouping, escaped full evidence, keyboard-native disclosure and host copy policy OK",
 );

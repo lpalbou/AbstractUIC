@@ -257,6 +257,10 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     ? steerMode
     : steerModes[0] || "guide";
   const steering = Boolean(steer) && Boolean(props.busy);
+  const composerBusyNow = steering ? sendPending : composerBusy;
+  const hasDraftText = Boolean(String(props.draft || "").trim());
+  // One primary button: Send, or Stop while a run is active and nothing can be sent.
+  const stopActive = Boolean(sending && props.onCancel) && (!hasDraftText || composerBusyNow);
   const attachmentItems = Array.isArray(props.attachmentItems)
     ? props.attachmentItems
     : [];
@@ -817,7 +821,8 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
           placeholder={props.placeholder || "Send a message"}
           ariaLabel="Message"
           disabled={disabled}
-          busy={steering ? sendPending : composerBusy}
+          busy={composerBusyNow}
+          stop={props.onCancel && props.composerVariant !== "legacy" ? { active: stopActive, stopping: cancelPending || stopping, onStop: () => void cancel() } : undefined}
           sendLabel={steering ? steerLabel : props.sendLabel}
           busyLabel={
             steering
@@ -873,10 +878,10 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
               ) : null}
             </>
           }
-          trailingActions={props.composerTrailingActions || (sending && props.onCancel) || stopState ? (
+          trailingActions={props.composerTrailingActions || (props.composerVariant === "legacy" && sending && props.onCancel) || (stopState && !(sending && props.onCancel)) ? (
             <>
               {props.composerTrailingActions}
-              {sending && props.onCancel ? (
+              {props.composerVariant === "legacy" && sending && props.onCancel ? (
                 <button
                   type="button"
                   className="pc-workflow-chat__stop"
@@ -888,7 +893,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
                     {cancelPending || stopping ? "Stopping…" : "Stop"}
                   </span>
                 </button>
-              ) : stopState ? (
+              ) : stopState && !(sending && props.onCancel) ? (
                 <span
                   className={`pc-workflow-chat__stop-state pc-workflow-chat__stop-state--${stopState.phase}`}
                   role="status"

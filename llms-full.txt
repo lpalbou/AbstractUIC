@@ -182,6 +182,13 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
 
+## What's new in 0.10.9
+
+`@abstractframework/panel-chat` 0.9.2: the session-policy sentence ("Allowed by this chat's policy ...") sits directly
+under the tool group it covers instead of floating a message away, and the composer's Send button turns into Stop (always two buttons). `@abstractframework/ui-kit` 0.9.20: session and
+automation cards use a hairline, theme-tinted border; "Needs you", working and unread are carried by the marker and the
+words, not a coloured frame ([changelog](./CHANGELOG.md#0109---2026-11-07)).
+
 ## What's new in 0.10.8
 
 `@abstractframework/panel-chat` 0.9.1: the compact message of the web Assistant is now the shared default (small
@@ -7200,7 +7207,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.10.8",
+  "version": "0.10.9",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -7225,7 +7232,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.19",
+  "version": "0.9.20",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -7305,7 +7312,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -7351,7 +7358,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_message_files_links.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_docs_voice.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && node scripts/check_avatar_conversation.mjs && node scripts/check_chat_defaults.mjs && tsc -p scripts/types/tsconfig.json"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_message_files_links.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_composer_stop.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_docs_voice.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && node scripts/check_avatar_conversation.mjs && node scripts/check_chat_defaults.mjs && tsc -p scripts/types/tsconfig.json"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.9.15",
@@ -16727,7 +16734,13 @@ export type ChatComposerProps = {
   /** Preserve multiline-first chats that submit with Ctrl/Cmd+Enter. */
   submitKey?: "enter" | "mod-enter";
   actions?: React.ReactNode;
-  /** Controls next to Send, such as a microphone or Stop. */
+  /**
+   * The primary round button turns into Stop (compact variant): an arrow-to-square
+   * morph, same size and place. `active` = Stop right now; `stopping` = the stop
+   * was asked and is settling (aria-busy). Absent = the button is only ever Send.
+   */
+  stop?: { active: boolean; stopping?: boolean; onStop: () => void; label?: string };
+  /** Controls next to Send, such as a microphone. */
   trailingActions?: React.ReactNode;
   /** Shared attachment control; the host owns its file chooser and upload lifecycle. */
   onAttach?: () => void;
@@ -16750,6 +16763,9 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
   const disabled = Boolean(props.disabled);
   const busy = Boolean(props.busy);
   const can_submit = !disabled && !busy && (props.canSubmit ?? Boolean(String(props.value || "").trim()));
+  const stopSpec = compact ? props.stop : undefined;
+  const stopMode = Boolean(stopSpec?.active);
+  const stopping = stopMode && Boolean(stopSpec?.stopping);
   const sendLabel = busy ? props.busyLabel || "Thinking…" : props.sendLabel || "Send";
   const textarea = useRef<HTMLTextAreaElement | null>(null);
   const fallbackSizing = useRef(false);
@@ -16834,13 +16850,24 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
         <button
           type="button"
           className={[props.sendButtonClassName || "pc-btn", compact ? "pc-composer__send--compact" : ""].filter(Boolean).join(" ")}
-          aria-label={compact ? sendLabel : undefined}
-          data-af-tip={compact ? sendLabel : undefined}
-          aria-busy={compact ? busy : undefined}
-          disabled={!can_submit}
-          onClick={() => props.onSubmit()}
+          aria-label={compact ? (stopMode ? stopSpec?.label || "Stop" : sendLabel) : undefined}
+          data-af-tip={compact ? (stopMode ? (stopping ? "Stopping…" : stopSpec?.label || "Stop") : sendLabel) : undefined}
+          aria-busy={compact ? (stopMode ? stopping : busy) : undefined}
+          data-mode={stopSpec ? (stopping ? "stopping" : stopMode ? "stop" : "send") : undefined}
+          disabled={stopMode ? disabled || stopping : !can_submit}
+          onClick={() => (stopMode ? stopSpec?.onStop() : props.onSubmit())}
         >
-          {compact ? <Icon name={busy ? "loader" : "send"} size={17} /> : sendLabel}
+          {compact ? (
+            stopSpec ? (
+              <span className="pc-composer__morph" aria-hidden="true">
+                <Icon name="send" size={17} />
+                <Icon name="stop" size={17} />
+                <Icon name="loader" size={17} />
+              </span>
+            ) : (
+              <Icon name={busy ? "loader" : "send"} size={17} />
+            )
+          ) : sendLabel}
         </button>
       </div>
       {props.overlay}
@@ -23109,6 +23136,31 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.9 - 2026-11-07
+
+Packages: `@abstractframework/panel-chat` 0.9.2 (from 0.9.1), `@abstractframework/ui-kit` 0.9.20 (from 0.9.19). Other packages retain their published versions.
+
+### Changed
+
+- **The session-policy sentence sits right under the tool group it covers** (operator 2026-11-07: "the italic text must be
+  much closer to the tool execution panel, just below in fact"). "Allowed by this chat's policy (set by ...)" was its own
+  transcript item, one item gap below the "Tools" panel. It is now a small muted italic note attached to the group, at
+  the group's width, with the same sentence. A decision that arrives before its group, or that covers several groups,
+  attaches to the first group of its run; a decision with no group in the transcript still shows as its own line.
+  The decision message now carries its `runId`. The per-row provenance is unchanged.
+- **The composer keeps two buttons at all times** (operator 2026-11-07: "the send button must mutate with a nice animation
+  in a stop button icon"). The microphone and one round primary button. Idle it is Send (arrow). While a run is active
+  and nothing can be sent it becomes Stop: the arrow turns and fades into a square in about 170 ms (static under reduced
+  motion), with a faint red tint on the square. While stopping, the same button spins and is `aria-busy`; the separate
+  "Stop" / "Stopping…" text button is gone. With text typed during a run it is Send (Steer / Queue) again, and
+  "Guide this run / Queue next turn" is unchanged. The Docs assistant uses the same button. `ChatComposer` takes a
+  `stop` prop for this; the `legacy` variant keeps its old Stop button.
+- **Session cards no longer shout** (operator 2026-11-07: "the highlight border is much too visible ... this is a
+  professional UI"). ui-kit `SessionCard` and the automation card drew a 2 px accent frame for the selected card and a
+  full-strength amber or teal border for "Needs you" and new results. The border is now a hairline tinted from the
+  theme tokens, the selected card is a soft accent background with a thin accent line, and the state is carried by
+  the existing marker and words ("Needs you", the working spinner, the unread count).
+
 ## 0.10.8 - 2026-11-07
 
 Packages: `@abstractframework/panel-chat` 0.9.1 (from 0.9.0). Other packages retain their published versions.
@@ -25943,7 +25995,7 @@ description: Integrate AbstractFramework shared React controls, authenticated ch
 compatibility: Requires @abstractframework/ui-kit 0.9.15 and @abstractframework/panel-chat 0.9.0 or later (their documented exports).
 metadata:
   package: "@abstractframework/ui-kit"
-  package-version: "0.9.19"
+  package-version: "0.9.20"
 ---
 
 # Use AbstractUIC

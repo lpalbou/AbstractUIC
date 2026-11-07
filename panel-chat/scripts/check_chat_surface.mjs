@@ -258,8 +258,8 @@ const html = (props) => renderToStaticMarkup(React.createElement(WorkflowChat, {
   composerOf(h.tree).props.onSubmit();
   await h.settle();
   check("E onSend receives an AbortSignal", sendSignal instanceof AbortSignal && !sendSignal.aborted);
-  const stop = find(h.tree, (n) => n.props?.className === "pc-workflow-chat__stop");
-  check("E Stop shows during a request/response send", Boolean(stop));
+  const stop = { props: { onClick: composerOf(h.tree).props.stop?.onStop } };
+  check("E Stop shows during a request/response send", composerOf(h.tree).props.stop?.active === true);
   stop.props.onClick();
   await h.settle();
   check("E Stop aborts the send's signal", sendSignal?.aborted === true);
@@ -274,7 +274,7 @@ const html = (props) => renderToStaticMarkup(React.createElement(WorkflowChat, {
   check("E unmount aborts the in-flight send", unmountSignal instanceof AbortSignal && unmountSignal.aborted);
   let ledgerSignal = null;
   const l = mount(WorkflowChat, { ...base, busy: true, onCancel: (signal) => void (ledgerSignal = signal) });
-  find(l.tree, (n) => n.props?.className === "pc-workflow-chat__stop").props.onClick();
+  composerOf(l.tree).props.stop.onStop();
   await l.settle();
   check("E no send in flight: onCancel still gets an aborted AbortSignal", ledgerSignal instanceof AbortSignal && ledgerSignal.aborted);
 }

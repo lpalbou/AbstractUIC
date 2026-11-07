@@ -1644,7 +1644,7 @@ export class WorkflowSessionController {
       if (name === "abstract.tool_policy_decision") {
         const decision = toolPolicyDecision(object(eventPayload));
         if (decision) {
-          this.addMessage({ id: `policy:${runId}:${key}`, role: "system", kind: "tool_policy_decision", title: "Tool policy", content: toolPolicyDecisionText(decision.provenance), ts: timestamp });
+          this.addMessage({ id: `policy:${runId}:${key}`, role: "system", kind: "tool_policy_decision", title: "Tool policy", runId, content: toolPolicyDecisionText(decision.provenance), ts: timestamp });
           for (const call of decision.calls) {
             const provenance = { ...decision.provenance, ...(call.matched ? { matched: call.matched } : {}) };
             this.toolPolicyByCall.set(`${runId}:${call.callId}`, provenance);

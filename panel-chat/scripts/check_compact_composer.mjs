@@ -25,7 +25,7 @@ assert(chat.includes("pc-composer--compact") && chat.includes('aria-label="Attac
 assert.equal((chat.match(/class="pc-composer__icon-action"/g) || []).length, 1, "exactly one Attach button, owned by the composer");
 assert(!chat.includes("pc-composer__trailing"), "no empty trailing slot when nothing trails");
 const stopping = renderToStaticMarkup(React.createElement(WorkflowChat, { messages: [], draft: "", onDraftChange() {}, onSend() {}, busy: true, onCancel() {}, composerTrailingActions: React.createElement("button", { "aria-label": "Voice" }, "Voice") }));
-assert(/<div class="pc-composer__trailing"><button aria-label="Voice">Voice<\/button><button type="button" class="pc-workflow-chat__stop"/.test(stopping), "host trailing control then Stop sit in the trailing slot beside Send");
+assert(/<div class="pc-composer__trailing"><button aria-label="Voice">Voice<\/button><\/div><button type="button" class="pc-btn pc-composer__send--compact" aria-label="Stop"/.test(stopping), "host control, then the ONE primary button that is Stop while a run is active");
 const legacyAttach = renderToStaticMarkup(React.createElement(ChatComposer, { ...base, variant: "legacy", onAttach() {}, attachLabel: "Attach file" }));
 assert(legacyAttach.includes('class="pc-composer__icon-action pc-workflow-chat__icon-button"') && legacyAttach.includes('data-af-tip="Attach file"') && !legacyAttach.includes(' title="Attach'), "legacy Attach keeps the bordered icon-button look and the kit tooltip");
 const pending = renderToStaticMarkup(React.createElement(ChatComposer, { ...base, onAttach() {}, attachPending: true, textareaId: "entity-chat-input", ariaDescribedBy: "entity-chat-input-help", canSubmit: false }));
@@ -38,6 +38,6 @@ const docs=renderToStaticMarkup(React.createElement(DocsAssistantPanel,{source:{
 assert(docs.includes('pc-composer--compact') && docs.includes('rows="2"') && docs.includes('aria-label="Attach files"'));
 assert.equal((docs.match(/aria-label="Attach files"/g) || []).length, 1, "Docs renders one Attach button");
 const docsBusy=renderToStaticMarkup(React.createElement(DocsAssistantPanel,{source:{id:"test",name:"Test"},messages:[],draft:"Question",onDraftChange(){},onSend(){},onAddFiles(){},busy:true,onStop(){}}));
-assert(/<div class="pc-composer__trailing"><button type="button" class="pc-docs-assistant__icon-btn" aria-label="Stop"/.test(docsBusy), "Docs Stop sits in the trailing slot");
+assert(/<button type="button" class="pc-btn pc-composer__send--compact" aria-label="Stop"/.test(docsBusy) && !docsBusy.includes("pc-docs-assistant__icon-btn"), "Docs Stop is the composer's one primary button");
 assert(renderToStaticMarkup(React.createElement(AssistantPanel,{ask:async()=>"Reply"})).includes('pc-composer--compact'));
 console.log("composer defaults: standalone, workflow, Docs and assistant rounded; legacy opt-in, accessible states and slots passed");
