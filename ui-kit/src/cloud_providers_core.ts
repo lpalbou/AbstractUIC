@@ -24,8 +24,9 @@
 //   `removeConnection`); a connection set in AbstractCore's config or the environment is neither
 //   updated nor removed from here (a typed key becomes a NEW gateway connection instead).
 // - OpenAI-compatible endpoints: AbstractCore's `openai-compatible` provider with a base URL. A preset
-//   card (OVH AI Endpoints) fixes the URL; the generic card takes a name, a base URL and a key, which
-//   covers Mistral, Groq, Together, Fireworks, DeepSeek, xAI, Google… through their /v1 URLs.
+//   card (OVH AI Endpoints) fixes the URL; the generic card takes a name, a base URL and an optional
+//   key, which covers Mistral, Groq, Together, Fireworks, DeepSeek, xAI, Google… through their /v1
+//   URLs, and servers that take no key (LM Studio, vLLM, llama.cpp on another machine).
 
 import { GATEWAY_API_PATH } from "./gateway_paths.js";
 
