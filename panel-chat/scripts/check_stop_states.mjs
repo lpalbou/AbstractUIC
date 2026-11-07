@@ -10,6 +10,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { WorkflowSessionController } from "../dist/workflow_runtime.js";
 import { WorkflowChat } from "../dist/workflow_chat.js";
+import { workflowProgress } from "../dist/workflow_progress.js";
 
 const root = "root-run";
 const child = "child-run";
@@ -120,10 +121,18 @@ const llmStarted = { cursor: 1, record: { run_id: child, step_id: "llm-1", statu
   assert.match(stopping, /data-mode="stopping"/);
   assert.match(stopping, /aria-label="Stop"[^>]*aria-busy="true"[^>]*data-mode="stopping"[^>]*disabled/);
   assert(!/class="pc-workflow-chat__stop"/.test(stopping), "no separate Stopping… button");
-  assert.match(render({ busy: false, stopState: { phase: "stopped", label: "Stopped" } }), /pc-workflow-chat__stop-state--stopped[^>]*>Stopped</);
-  const forced = render({ busy: false, stopState: { phase: "forced", label: "Stop forced at 10 s: inference killed" } });
-  assert.match(forced, /pc-workflow-chat__stop-state--forced[^>]*>Stop forced at 10 s: inference killed</);
+  // After a stop the composer is idle again: Send only, no "Stopped" chip (operator 2026-11-07:
+  // "it should not show stopped"). The outcome is the run status's (workflowProgress).
+  for (const stopState of [{ phase: "stopped", label: "Stopped" }, { phase: "forced", label: "Stop forced at 10 s: inference killed" }]) {
+    const idle = render({ busy: false, stopState });
+    assert.doesNotMatch(idle, /stop-state|>Stopped<|Stop forced/, `${stopState.phase}: nothing but the idle composer`);
+    assert.match(idle, /aria-label="Send"[^>]*data-mode="send"/, `${stopState.phase}: the primary button is Send`);
+  }
   assert.doesNotMatch(render({ busy: false }), /stop-state/);
+  const stopped = workflowProgress({ status: "cancelled", loading: false, connection: "connected", error: null, interaction: null, records: [], run: null, stop: { phase: "stopped", label: "Stopped" } });
+  assert.deepEqual([stopped.label, stopped.detail], ["Stopped", ""], "run status: Stopped");
+  const forcedProgress = workflowProgress({ status: "cancelled", loading: false, connection: "connected", error: null, interaction: null, records: [], run: null, stop: { phase: "forced", label: "Stop forced at 10 s: inference killed" } });
+  assert.deepEqual([forcedProgress.label, forcedProgress.detail], ["Stopped", "Stop forced at 10 s: inference killed"], "run status: the forced-stop text, as recorded");
 }
 
 console.log("check_stop_states: ok");

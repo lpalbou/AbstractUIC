@@ -29,7 +29,7 @@ export function workflowProgress(
     | "run"
     | "displayStatus"
   > &
-    Partial<Pick<WorkflowSessionSnapshot, "toolApprovalGranted" | "view">>,
+    Partial<Pick<WorkflowSessionSnapshot, "toolApprovalGranted" | "view" | "stop">>,
 ): WorkflowProgress {
   // Replay view mode folds no records: the view's activities are the evidence.
   const view = snapshot.view || null;
@@ -58,7 +58,9 @@ export function workflowProgress(
         : snapshot.status === "failed"
           ? "Run failed"
           : "Stopped",
-      "",
+      // A forced stop's own text (the gateway's kill switch record) is the
+      // detail of "Stopped": the run status says it, the composer does not.
+      snapshot.status !== "completed" && snapshot.stop?.phase === "forced" ? snapshot.stop.label : "",
       snapshot.status === "failed"
         ? "error"
         : snapshot.status === "completed"

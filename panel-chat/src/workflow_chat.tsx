@@ -108,9 +108,10 @@ export type WorkflowChatProps = {
   onCancel?: (signal: AbortSignal) => void | Promise<unknown>;
   /**
    * Ledger-derived Stop state (`WorkflowSessionSnapshot.stop`). While busy the
-   * Stop button reads "Stopping…" for `stopping`; once the host is no longer
-   * busy the state stays visible in the button's place ("Stopped", or the
-   * gateway's forced-stop text) until the next run.
+   * Stop button reads "Stopping…" for `stopping`. Once the host is no longer
+   * busy the composer is back to idle (Send, the host's trailing actions,
+   * nothing else): the outcome ("Stopped", or the gateway's forced-stop text)
+   * belongs to the host's run status (`workflowProgress`), never the composer.
    */
   stopState?: {
     phase: "stopping" | "stopped" | "forced";
@@ -878,7 +879,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
               ) : null}
             </>
           }
-          trailingActions={props.composerTrailingActions || (props.composerVariant === "legacy" && sending && props.onCancel) || (stopState && !(sending && props.onCancel)) ? (
+          trailingActions={props.composerTrailingActions || (props.composerVariant === "legacy" && sending && props.onCancel) ? (
             <>
               {props.composerTrailingActions}
               {props.composerVariant === "legacy" && sending && props.onCancel ? (
@@ -893,14 +894,6 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
                     {cancelPending || stopping ? "Stopping…" : "Stop"}
                   </span>
                 </button>
-              ) : stopState && !(sending && props.onCancel) ? (
-                <span
-                  className={`pc-workflow-chat__stop-state pc-workflow-chat__stop-state--${stopState.phase}`}
-                  role="status"
-                  aria-live="polite"
-                >
-                  {stopState.label}
-                </span>
               ) : null}
             </>
           ) : undefined}
