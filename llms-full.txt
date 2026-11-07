@@ -151,6 +151,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 ## Optional
 
 - [Compact session cards](docs/session-cards.md): Watch-style conversation cards, human attention and visibility-gated Gateway read receipts.
+- [Entity card](docs/entity-card.md): `EntityCard`, an entity at a glance from AbstractGateway's tile read, in plain words; full and compact, loading/stale/unavailable.
 
 - [Installation (legacy stub)](docs/installation.md): kept for old links; points to Getting started
 - [Publishing (maintainers)](docs/publishing.md): Release checklist and npm publish notes
@@ -2293,6 +2294,10 @@ resolution/cadence budgets, lifecycle, errors and gallery usage.
 For compact conversation lists, `SessionCard`, `sessionActivityFromRuns`, `sessionReadTarget`,
 `createSessionReadClient`, `useSessionReads` and `SessionReadMarker` provide shared presentation
 and Gateway-owned, account-wide read receipts. See [Compact session cards](session-cards.md) for ownership and consumption rules.
+
+For entities, `EntityCard` draws AbstractGateway's tile read (`GET /entities/{name}/tile`) in plain words,
+full or compact, with loading, stale and unavailable states; `entityNowWords`, `entityMomentWords` and the
+other `entity*Words` helpers are the shared wording. See [Entity card](entity-card.md).
 
 Source of truth:
 - React packages: exports in `*/src/index.ts` (compiled to `dist/` on publish; see `*/package.json`)
@@ -5116,6 +5121,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 - **Modal, account rows, grouped navigation**: [`modal.md`](./modal.md) — `AfModal` and its plain-HTML markup with `AfConsoleIslands.bindModal`, the menu and the themed tooltip (`AfTooltip`, `bindTooltips`), the account-kind row tints and chips, sidebar group captions with a bottom slot, and the 13 px / 14 px helper-text floor
 - **Activity avatars**: [`avatars.md`](./avatars.md) — one shared Rust/Wasm geometry/catalog, React/Canvas and native adapters, lifecycle, themes, pointer tracking and gallery checks
 - **Compact session cards**: [`session-cards.md`](./session-cards.md) — `SessionCard` and `AutomationCard`: Watch-style conversation and automation rows, human attention, and visibility-gated Gateway read receipts (`useSessionReads`, `createSessionReadClient`)
+- **Entity card**: [`entity-card.md`](./entity-card.md) — `EntityCard`: an entity at a glance from AbstractGateway's tile read (who, now and for how long, into lately, on its mind, last moment, age, mind, counts), full and compact, loading/stale/unavailable states, the shared words
 - **Icons**: [`icons.md`](./icons.md) — the `Icon` component, every icon name with its grid and typical use, the light and dark contact sheets, the drawing rules, and how to add an icon
 - **Responsive layout**: [`responsive.md`](./responsive.md) — breakpoints, touch sizes, bottom sheets and drawers, container queries, the viewport helpers, the font-size order, and how a host app adopts them
 - **Automations**: [`automations.md`](./automations.md) — show and manage AbstractGateway automations: `AutomationPanel` (controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (schedules and **When an email arrives** triggers, **Email result**, result recipients) and its tool-approval consent line, `createAutomationsClient()` and its error model, retry-safe ids, the panel-chat schedule action and badge, the canonical fixtures and how to regenerate them, and the export list
@@ -7227,12 +7233,13 @@ npm test
   "scripts": {
     "build": "tsc && node scripts/copy_avatar_wasm.mjs",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/check_opaque_surfaces.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_playback_level.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_tool_call_words.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_filter_bar.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_session_cards.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_identity_panel.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_top_bar_set.mjs && node scripts/check_session_tool_policy.mjs && node scripts/check_brand_icons.mjs && node scripts/check_cloud_providers.mjs && node scripts/check_avatar.mjs && node scripts/check_avatar_quality.mjs && node scripts/check_apple_avatars.mjs && node scripts/check_avatar_audio.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/check_opaque_surfaces.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_playback_level.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_tool_call_words.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_filter_bar.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_session_cards.mjs && node scripts/check_entity_card.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_identity_panel.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_top_bar_set.mjs && node scripts/check_session_tool_policy.mjs && node scripts/check_brand_icons.mjs && node scripts/check_cloud_providers.mjs && node scripts/check_avatar.mjs && node scripts/check_avatar_quality.mjs && node scripts/check_apple_avatars.mjs && node scripts/check_avatar_audio.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation",
     "demo:avatars:build": "node scripts/build_avatar_gallery.mjs",
     "test:avatars": "npm run build && node scripts/check_avatar.mjs && node scripts/check_avatar_quality.mjs && node scripts/check_apple_avatars.mjs && node scripts/check_avatar_audio.mjs",
-    "test:avatars:browser": "npm run demo:avatars:build && node scripts/check_avatar_browser.mjs"
+    "test:avatars:browser": "npm run demo:avatars:build && node scripts/check_avatar_browser.mjs",
+    "test:entity-card:browser": "npm run build && node scripts/build_entity_card_gallery.mjs && node scripts/check_entity_card_browser.mjs"
   },
   "peerDependencies": {
     "react": "^18.0.0",
@@ -8323,6 +8330,20 @@ export {
 } from "./brand_icons.js";
 export { ActivityAvatar, type ActivityAvatarProps, type AvatarQuality } from "./activity_avatar.js";
 export { SessionCard, type SessionCardProps } from "./session_card.js";
+// An entity at a glance (gateway backlog 1012: `GET /entities/{name}/tile`): one card for every app.
+export { EntityCard, type EntityCardProps, type EntityCardStatus, type EntityCardDensity } from "./entity_card.js";
+export {
+  entityAgeWords,
+  entityCardSummary,
+  entityCountsWords,
+  entityDurationWords,
+  entityMomentWords,
+  entityNowWords,
+  entityTroubleWords,
+  entityWhenWords,
+  type EntityTile,
+  type EntityTilePhase,
+} from "./entity_card_words.js";
 export { AutomationCard, automationCardSchedule, automationCardNext, type AutomationCardProps } from "./automation_card.js";
 export { sessionContentRevision, sessionReadTarget, sessionOpeningReceipts, isConversationTurn, sessionNeedsAttention, sessionActivityFromRuns, sessionReadScope, SessionReadStore, type SessionActivity, type SessionReceipt } from "./session_activity.js";
 export { createSessionReadClient, sessionReadIdentity, sessionReadEventReceipt, type SessionReadClient, type SessionReadEvent } from "./session_read_client.js";
@@ -22768,6 +22789,56 @@ keys remain immutable per run/outcome, so marking an earlier request cannot clea
 answer. Failures, failed loads, background/covered content and other account scopes retain the
 same visibility and isolation rules.
 
+## docs/entity-card.md
+
+# Entity card
+
+`EntityCard` shows an entity at a glance, the same way in every app (AbstractObserver's Board,
+AbstractEntity's home grid). Import it from `@abstractframework/ui-kit`, with
+`@abstractframework/ui-kit/theme.css`. It draws the tile AbstractGateway serves at
+`GET /api/gateway/entities/{name}/tile` (gateway backlog 1012, `tile_version` 1): about 2 KB
+instead of the full identity card.
+
+| Row | What a person reads | From the tile |
+|---|---|---|
+| Who | Its look (identity design and colour), its name | `look`, `name` |
+| Now | "Asleep · for 3 months", "In a visit · busy now · for 12 min", "On its own time", "Working on a task", "Stopped" | `now.phase`, `now.busy`, `now.since` |
+| Warning | "Its own time stopped after repeated failures (Aug 1)" | `now.trouble` |
+| Into lately | Its newest interests, in its own words (up to three; one in compact) | `into_lately` |
+| On its mind | "A problem: …" or "A question: …", the newest open one | `on_its_mind` |
+| Latest lesson | Its newest lesson | `latest_lesson` |
+| Last moment | "A visit ended · 1 h ago", "Moved to its own time", "Was given a mission" | `last_moment` |
+| Facts | "3 months old · mind gpt-5.6-sol", "33 lessons learned · 29 open problems · 78 open questions · 261 sleeps" | `age_days`, `mind`, `counts` |
+| Actions | The host's controls (phase radio, buttons), at the bottom | `actions` prop |
+
+Words are decided once, in `entity_card_words.ts` (`entityNowWords`, `entityMomentWords`,
+`entityTroubleWords`, `entityAgeWords`, `entityCountsWords`, `entityDurationWords`): no event names,
+no ids, no unit abbreviations. A moment or trouble kind the kit does not know is not shown. Counts
+show only when they are not zero.
+
+`density="compact"` (a strip tile) keeps who, now, the warning, one interest and the last moment.
+`density="full"` (a grid card, the default) shows every row.
+
+States: `status="loading"` (nothing read yet; the roster's `name` and `look` show at once and every
+row holds its final size, so the card does not move when the tile arrives; only the warning row is
+added when there is one), `"ready"`, `"stale"` (the last tile, with "As of 12 min ago — newer details
+could not be read" from `asOfMs`), `"unavailable"` ("Details unavailable right now"; the reason is
+the tooltip only).
+
+```tsx
+<EntityCard tile={tile} status={status} name={row.name} look={row.identity?.avatar}
+  asOfMs={tileReadAt} nowMs={Date.now()} density="compact"
+  href={`${entityAppHref}?entity=${encodeURIComponent(row.name)}`} target="_blank" />
+```
+
+The head is a link (`href`) or a button (`onOpen`) whose accessible name is one sentence
+(`entityCardSummary`). The card is fluid; it is checked at 1440 px and 400 px.
+
+Checks: `node scripts/check_entity_card.mjs` (words and markup, part of `npm test`) and
+`npm run test:entity-card:browser` (Chromium: drawn looks, no overflow at 1440 and 400 px, loading
+holds the loaded size, plain words; `ENTITY_CARD_SHOTS=<dir>` saves the screenshots). The gallery is
+`examples/entity_cards.html` after `node scripts/build_entity_card_gallery.mjs`.
+
 ## docs/installation.md
 
 # Installation & Integration
@@ -23130,6 +23201,20 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## Unreleased
+
+### Added
+
+- **`EntityCard`: an entity at a glance, one card for every app** (`@abstractframework/ui-kit`). It draws
+  AbstractGateway's new tile read (`GET /entities/{name}/tile`, gateway backlog 1012) in plain words: its look and
+  name; what it is doing now and for how long ("Asleep · for 3 months", "In a visit · busy now · for 12 min"); a
+  warning when its own time stopped after repeated failures; what it is into lately, what is on its mind and its latest
+  lesson, in its own words; its last moment ("A visit ended · 1 h ago"); its age, its model and the counts a person reads
+  ("33 lessons learned · 29 open problems"). Full (grid) and compact (strip) densities, host actions at the bottom;
+  loading holds the final size, stale says "As of …", unavailable says so in a few words. The words live once in
+  `entity_card_words.ts`. Checked in Chromium at 1440 and 400 px. AbstractObserver's Board and AbstractEntity's home
+  grid adopt it next.
 
 ## 0.10.3 - 2026-11-07
 

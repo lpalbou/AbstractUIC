@@ -11,6 +11,10 @@ For compact conversation lists, `SessionCard`, `sessionActivityFromRuns`, `sessi
 `createSessionReadClient`, `useSessionReads` and `SessionReadMarker` provide shared presentation
 and Gateway-owned, account-wide read receipts. See [Compact session cards](session-cards.md) for ownership and consumption rules.
 
+For entities, `EntityCard` draws AbstractGateway's tile read (`GET /entities/{name}/tile`) in plain words,
+full or compact, with loading, stale and unavailable states; `entityNowWords`, `entityMomentWords` and the
+other `entity*Words` helpers are the shared wording. See [Entity card](entity-card.md).
+
 Source of truth:
 - React packages: exports in `*/src/index.ts` (compiled to `dist/` on publish; see `*/package.json`)
 - GPU widget: exports in `monitor-gpu/src/index.js` (types in `monitor-gpu/src/index.d.ts`)
