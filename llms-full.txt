@@ -182,6 +182,11 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
 
+## What's new in 0.10.6
+
+`@abstractframework/ui-kit` 0.9.19: an OpenAI-compatible endpoint that takes no API key (LM Studio, vLLM or llama.cpp
+on another machine) can be tested and saved ([changelog](./CHANGELOG.md#0106---2026-11-07)).
+
 ## What's new in 0.10.5
 
 `@abstractframework/ui-kit` 0.9.18: changing the model resets reasoning and MTP to the gateway default, and MTP is
@@ -7189,7 +7194,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.10.5",
+  "version": "0.10.6",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -7214,7 +7219,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.18",
+  "version": "0.9.19",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -23238,6 +23243,19 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.6 - 2026-11-07
+
+Packages: `@abstractframework/ui-kit` 0.9.19 (from 0.9.18). Other packages retain their published versions.
+
+### Fixed
+
+- **An OpenAI-compatible endpoint can be tested and saved without an API key** (`@abstractframework/ui-kit`
+  `CloudProviderCards`; operator 2026-11-07: "if there aren't any API token, I should still be able to click Test", "and
+  to save that endpoint"). The generic "OpenAI-compatible endpoint" card asked for a key first, so a server that takes
+  none (LM Studio, vLLM or llama.cpp on another machine) could be neither tested nor saved. Its key field now reads
+  "API key (optional)" with "Only if the endpoint asks for one."; Test asks the server without a key, and a server that
+  needs one answers with its own error. The preset cards keep their required key.
+
 ## 0.10.5 - 2026-11-07
 
 Packages: `@abstractframework/ui-kit` 0.9.18 (from 0.9.17). Other packages retain their published versions.
@@ -26011,7 +26029,7 @@ description: Integrate AbstractFramework shared React controls, authenticated ch
 compatibility: Requires @abstractframework/ui-kit 0.9.15 and @abstractframework/panel-chat 0.8.2 or later (their documented exports).
 metadata:
   package: "@abstractframework/ui-kit"
-  package-version: "0.9.18"
+  package-version: "0.9.19"
 ---
 
 # Use AbstractUIC

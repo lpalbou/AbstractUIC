@@ -102,7 +102,9 @@ export const GENERIC_COMPATIBLE_CARD: CloudCard = {
   docs: "",
   baseUrlField: "required",
   baseUrlPlaceholder: "https://api.mistral.ai/v1",
-  apiKey: "required",
+  // Optional (operator 2026-11-07): many OpenAI-compatible servers (LM Studio, vLLM, llama.cpp on
+  // another machine) take no key; a server that does answers Test with its own error.
+  apiKey: "optional",
 };
 
 /** The answer of POST …/discover-models (gateway 0.20+: `error_kind`, redacted `error`). */

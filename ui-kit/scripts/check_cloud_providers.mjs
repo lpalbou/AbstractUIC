@@ -427,13 +427,24 @@ function drive(c) {
   d.body((n) => n.type === "select").props.onChange({ target: { value: "" } });
   c.render();
   check("8 New endpoint switches to Connect with empty fields", d.modal().props.title === "Connect OpenAI-compatible endpoint" && d.field("text").props.value === "" && d.field("url").props.value === "" && !d.foot("disconnect"));
-  await d.click("cancel");
+  // A server that takes no key (operator 2026-11-07: LM Studio on another machine): the key field
+  // says optional, and Test and Save both go through without one.
+  check("8 generic: the key field says optional", !!d.body((n) => n.type === "label" && n.props.children === T.keyOptionalLabel));
+  d.type("text", "theforge");
+  d.type("url", "http://192.168.1.7:1234/v1");
+  const cK = g.calls.length;
+  await d.click("test");
+  const keylessTest = g.calls.slice(cK).find((x) => x.path.endsWith("discover-models"));
+  check("8 generic without a key: Test asks the server, no key sent", !!keylessTest && !("api_key" in keylessTest.body) && keylessTest.body.base_url === "http://192.168.1.7:1234/v1", keylessTest && keylessTest.body);
+  await d.click("save");
+  const keylessSave = g.calls.slice(cK).filter((x) => x.method === "POST" && x.path.endsWith("/provider-endpoint-profiles")).pop();
+  check("8 generic without a key: Save creates the connection", !!keylessSave && keylessSave.body.id === "compat-theforge" && keylessSave.body.base_url === "http://192.168.1.7:1234/v1" && !keylessSave.body.api_key, keylessSave && keylessSave.body);
 
   // System One (a native whose endpoint is USER-SUPPLIED, key optional): the general rule from
   // NATIVE_ENDPOINT_RULES, not a branch. A System One modal without its Base URL field is red.
   const so = kit.cloudCardsFromDiscovery(WITH_DECISION).find((x) => x.id === "systemone");
   const fields = (id) => { const x = kit.cloudCardsFromDiscovery(WITH_DECISION).find((y) => y.id === id); return `${x.baseUrlField}/${x.apiKey}`; };
-  check("9 endpoint rules: System One required/optional, OVH preset, generic required, natives none", fields("systemone") === "required/optional" && fields("ovh") === "preset/required" && fields("openai-compatible") === "required/required" && fields("anthropic") === "none/required" && fields("typesafe") === "none/required", ["systemone", "ovh", "openai-compatible", "anthropic", "typesafe"].map(fields));
+  check("9 endpoint rules: System One required/optional, OVH preset, generic key optional, natives none", fields("systemone") === "required/optional" && fields("ovh") === "preset/required" && fields("openai-compatible") === "required/optional" && fields("anthropic") === "none/required" && fields("typesafe") === "none/required", ["systemone", "ovh", "openai-compatible", "anthropic", "typesafe"].map(fields));
   check("9 System One's placeholder is a local endpoint", so.baseUrlPlaceholder === "http://127.0.0.1:8000");
   await d.open("systemone");
   check("9 System One: a Base URL field, editable, required, with its placeholder", !!d.field("url") && d.field("url").props.readOnly === false && d.field("url").props.required === true && d.field("url").props.placeholder === "http://127.0.0.1:8000", d.field("url") && d.field("url").props);
