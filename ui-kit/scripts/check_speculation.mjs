@@ -39,7 +39,8 @@ console.log('speculation controls: passed');
   assert.equal(usableSpeculation({...depth2,num_draft_tokens:7}, supported), undefined, 'a depth the card does not list is dropped');
   assert.equal(usableSpeculation(false, supported), false);
   assert.equal(usableSpeculation(depth2, unsupported), undefined, 'the incident: depth 2 on a model without MTP');
-  assert.equal(usableSpeculation(false, unsupported), undefined, 'Off is not sent to a model without MTP either');
+  assert.equal(usableSpeculation(false, unsupported), false, 'an explicit Off is kept: never an MTP selection');
+  assert.equal(usableSpeculation(false, undefined), false, 'unreadable card: Off is kept, so a gateway default with MTP on cannot override it');
   assert.equal(usableSpeculation(depth2, undefined), undefined, 'no card = no MTP');
   // Reasoning: dropped when the served facts say the model cannot use it; unknown facts keep it.
   assert.equal(usableReasoning('high', unsupported), 'high');
@@ -56,6 +57,14 @@ console.log('speculation controls: passed');
   assert.deepEqual(await resolveSendableModelOptions({reasoning:'high',speculation:depth2}, async () => { throw new Error('down'); }), {reasoning:'high'});
   assert.deepEqual(await resolveSendableModelOptions({reasoning:'high',speculation:depth2}, async () => ({error:'unknown model'})), {reasoning:'high'});
   assert.deepEqual(await resolveSendableModelOptions({speculation:depth2}, undefined), {}, 'no capability transport = no MTP');
+  assert.deepEqual(await resolveSendableModelOptions({speculation:false}, async () => { throw new Error('down'); }), {speculation:false}, 'Off survives an unreadable card');
+  // A held value the served card rules out is cleared (not just hidden); unknown facts keep it.
+  const { clearUnusableModelOptions } = kit;
+  const held = {provider:'p',model:'m',reasoning:'ultra',speculation:depth2};
+  assert.deepEqual(clearUnusableModelOptions(held, unsupported), {provider:'p',model:'m',reasoning:'',speculation:undefined});
+  assert.equal(clearUnusableModelOptions(held, {}), held, 'no served facts: nothing cleared, same object');
+  assert.deepEqual(clearUnusableModelOptions({reasoning:'low',speculation:false}, unsupported), {reasoning:'low',speculation:false}, 'usable level and Off kept');
+  assert.deepEqual(clearUnusableModelOptions({reasoning:'high',speculation:depth2}, {capabilities:{thinking_support:false,reasoning_levels:['high']}}), {reasoning:'',speculation:depth2}, 'thinking_support false wins over listed levels; MTP untouched without a speculation card');
   // The reset every model dropdown applies.
   assert.deepEqual(resetModelOptions({provider:'a',model:'b',reasoning:'high',speculation:depth2,other:1}), {provider:'a',model:'b',reasoning:'',speculation:undefined,other:1});
 

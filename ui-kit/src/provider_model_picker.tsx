@@ -42,7 +42,7 @@ import { AfSelect, type AfSelectOption } from "./af_select.js";
 import { SpeculationSelect } from "./speculation_select.js";
 import type { SpeculationValue } from "./speculation_control.js";
 import { gatewayDefaultLabel, type GatewayModelDefault } from "./gateway_models.js";
-import { reasoningFacts, resetModelOptions, usableReasoning } from "./model_options.js";
+import { clearUnusableModelOptions, reasoningFacts, resetModelOptions, usableReasoning } from "./model_options.js";
 
 export type ProviderModelPickerValue = {
   /** Empty strings = gateway default (the default mode). */
@@ -275,6 +275,8 @@ export function ProviderModelPicker(
     loading: boolean;
   }>({ levels: [], error: "", loading: false });
   const [overrideUnknown, setOverrideUnknown] = useState(false);
+  const latest = useRef({ value, onChange: props.onChange });
+  latest.current = { value, onChange: props.onChange };
   const hasCapabilities = Boolean(props.fetchModelCapabilities);
   const [capabilityPayload, setCapabilityPayload] = useState<unknown>();
   useEffect(() => {
@@ -294,6 +296,12 @@ export function ProviderModelPicker(
         if (!alive) return;
         if (payload?.error) throw new Error(String(payload.error));
         setCapabilityPayload(payload);
+        // A held reasoning level or MTP depth this model's card rules out is cleared, not just
+        // hidden: hidden-but-held would still be sent by a host without the send-time check, and the
+        // user could not see or clear it. Unknown facts and an explicit Off are kept.
+        const held = latest.current.value;
+        const cleared = clearUnusableModelOptions(held, payload);
+        if (cleared !== held) latest.current.onChange(cleared);
         const { levels, support } = reasoningFacts(payload);
         setReasoning({ levels, support, error: "", loading: false });
       })
@@ -317,12 +325,13 @@ export function ProviderModelPicker(
   const showOptions = !isDefault || props.optionsInDefaultMode !== false;
   const ladder = props.reasoningLadder ? [...new Set(props.reasoningLadder.filter((v) => typeof v === "string" && v.trim()))] : null;
   // Served facts only: levels advertised → supported; thinking_support false → unsupported; else unknown.
+  // thinking_support false wins over listed levels, exactly as usableReasoning decides.
   const reasoningState: "loading" | "supported" | "unsupported" | "unknown" = reasoning.loading
     ? "loading"
-    : reasoning.levels.length || reasoning.support === true
-      ? "supported"
-      : reasoning.support === false
-        ? "unsupported"
+    : reasoning.support === false
+      ? "unsupported"
+      : reasoning.levels.length || reasoning.support === true
+        ? "supported"
         : "unknown";
   const allowOverride = props.unknownReasoning === "allow-override" && Boolean(ladder?.length);
   // A saved level the served facts rule out for this model is not shown as chosen (never sent).

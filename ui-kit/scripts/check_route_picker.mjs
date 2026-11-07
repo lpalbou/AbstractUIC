@@ -305,6 +305,16 @@ const LADDER = ["none", "minimal", "low", "medium", "high", "xhigh"];
   const spec = first(m.tree, (n) => n.props.inheritLabel !== undefined && n.props.capabilities !== undefined);
   const inner = spec && first(spec.type(spec.props), (n) => n.props.ariaLabel === "MTP depth");
   check("unsupported model: MTP disabled, the saved depth not shown", inner?.props.disabled === true && inner?.props.value === "", JSON.stringify(inner?.props));
+  // ...and cleared, not just hidden (kit review 2026-11-07): a host without the send-time check
+  // would still send a hidden-but-held depth, and the user could not see or clear it.
+  let cleared = null;
+  const c = mount(ProviderModelPicker, picker({ enableSpeculation: true, onChange: (next) => { cleared = next; }, value: { provider: "airelays", model: "gpt-5.6-terra", reasoning: "ultra", speculation: DEPTH }, fetchModelCapabilities: async () => ({ capabilities: { reasoning_levels: ["low", "high"] }, execution: { speculation: { supported: false, reason: "native_mtp_backend_unavailable", supported_depths: [] } } }) }));
+  await c.settle();
+  check("unsupported model: the held depth and unlisted level are cleared to the default", cleared && cleared.speculation === undefined && cleared.reasoning === "" && cleared.model === "gpt-5.6-terra", JSON.stringify(cleared));
+  let kept = null;
+  const k = mount(ProviderModelPicker, picker({ enableSpeculation: true, onChange: (next) => { kept = next; }, value: { provider: "airelays", model: "m", reasoning: "high", speculation: false }, fetchModelCapabilities: async () => ({ capabilities: {} }) }));
+  await k.settle();
+  check("no served facts: nothing is cleared (unknown is not unsupported)", kept === null, JSON.stringify(kept));
 }
 if (routeFailures) {
   console.error(`check_route_picker: ${routeFailures} FAILED`);

@@ -1,7 +1,8 @@
 // Reasoning effort and MTP follow the SELECTED model (operator rule 2026-11-07):
 // - MTP is offered and sent only when the gateway's capability card for that model says it is
 //   supported, at a depth the card lists. No card, an unsupported card or an unlisted depth sends
-//   nothing (not even "Off").
+//   no depth. An explicit "Off" is always kept: it is never an MTP selection, and dropping it would
+//   let a gateway default with MTP on run against the user's choice.
 // - Changing the model or provider resets reasoning and MTP to the gateway default (nothing sent).
 // - A saved reasoning level or MTP depth the current model cannot use is never sent.
 // Served facts only: no model-name heuristics. Every app gets this by reusing the kit controls
@@ -28,9 +29,9 @@ export function reasoningFacts(payload: unknown): ReasoningFacts {
 export function usableSpeculation(value: unknown, payload: unknown): SpeculationValue | undefined {
   const normalized = normalizeSpeculationValue(value);
   if (normalized === undefined) return undefined;
+  if (normalized === false) return false;
   const caps = speculationCapability(payload);
   if (!caps?.supported) return undefined;
-  if (normalized === false) return false;
   return caps.supported_depths.includes(normalized.num_draft_tokens) ? normalized : undefined;
 }
 
@@ -55,7 +56,7 @@ export function sendableModelOptions(options: ModelOptions | null | undefined, p
  * Send-time guard: reads the capability card of the model the request will use (the host's
  * `fetchCapabilities`, e.g. `() => transport.fetchModelCapabilities(model, provider)`) only when a
  * reasoning level or an MTP value is set, and returns what that model can use. A card that cannot
- * be read sends no MTP (reasoning is kept: unknown is not unsupported).
+ * be read sends no MTP depth (an explicit Off is kept; reasoning is kept: unknown is not unsupported).
  */
 export async function resolveSendableModelOptions(
   options: ModelOptions | null | undefined,
@@ -74,6 +75,21 @@ export async function resolveSendableModelOptions(
     }
   }
   return sendableModelOptions({ reasoning, speculation }, payload);
+}
+
+/**
+ * The value with a held reasoning level or MTP depth that the served card rules out cleared back to
+ * the gateway default (same object when nothing changes). Unknown facts keep the value; an explicit
+ * MTP Off is kept; an MTP depth is cleared only on a served speculation card.
+ */
+export function clearUnusableModelOptions<T extends ModelOptions>(value: T, payload: unknown): T {
+  let next = value;
+  const reasoning = typeof value.reasoning === "string" ? value.reasoning.trim() : "";
+  if (reasoning && !usableReasoning(reasoning, payload)) next = { ...next, reasoning: "" };
+  const held = normalizeSpeculationValue(value.speculation);
+  if (held && speculationCapability(payload) && usableSpeculation(held, payload) === undefined)
+    next = { ...next, speculation: undefined };
+  return next;
 }
 
 /** The reset every model/provider dropdown applies: reasoning and MTP back to the gateway default. */

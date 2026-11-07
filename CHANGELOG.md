@@ -19,10 +19,14 @@ Packages: `@abstractframework/ui-kit` 0.9.18 (from 0.9.17). Other packages retai
   A saved "MTP depth 2, required" was sent with a model that has no MTP and the gateway refused every run. Any
   provider or model change, and choosing Gateway default, now resets both. MTP depths, and Off, are offered only when
   the gateway's capability card for the selected model says MTP is supported; otherwise the control is disabled and
-  shows the gateway's reason. A saved level or depth the model cannot use is not shown as chosen.
+  shows the gateway's reason. A saved level or depth the selected model's card rules out is cleared back to the
+  gateway default as soon as the card arrives, not just hidden; unknown facts and an explicit Off are kept. Saved flows,
+  automations and entity minds that the gateway runs later are covered by AbstractGateway 0.21.0, which drops an MTP
+  request the model cannot honour; each app picks the rule up when it moves to this kit.
 - **New `resolveSendableModelOptions`** (`model_options.ts`): the one check an app runs before sending. It asks the
   gateway's capability card only when a reasoning level or MTP depth is set, and sends no MTP when the card cannot be
-  read, so an app never sends a speed-up the model cannot honour.
+  read, so an app never sends a depth the model cannot honour. An explicit Off is always kept, so a gateway default
+  with MTP on can never run against the user's choice. `clearUnusableModelOptions` is the matching clean-up.
 
 - **`EntityCard` reads as a person's card, not a code panel** (`@abstractframework/ui-kit`; operator 2026-11-07:
   "it looks very system, coder; better separation between header and body"). The proportional UI font everywhere;
