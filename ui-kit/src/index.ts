@@ -6,6 +6,7 @@ export { ProviderModelSelect, type ProviderModelSelectProps, type ProviderOption
 export { ProviderModelPicker, PICKER_DISCOVERY_UNAVAILABLE, PICKER_REASONING_UNAVAILABLE, type ProviderModelPickerProps, type ProviderModelPickerValue } from "./provider_model_picker.js";
 export { SpeculationSelect } from "./speculation_select.js";
 export { normalizeSpeculationValue, speculationCapability, speculationSelection, speculationFromSelection, type SpeculationValue, type SpeculationCapability } from "./speculation_control.js";
+export { reasoningFacts, usableSpeculation, usableReasoning, sendableModelOptions, resolveSendableModelOptions, resetModelOptions, type ModelOptions, type ReasoningFacts } from "./model_options.js";
 export {
   GatewaySessionSignInCard,
   type GatewaySessionSignInCardProps,
