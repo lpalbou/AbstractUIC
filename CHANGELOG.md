@@ -7,7 +7,15 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## Unreleased
+## 0.10.2 - 2026-11-07
+
+Packages: `@abstractframework/ui-kit` 0.9.15 and `@abstractframework/panel-chat` 0.8.2.
+Other packages retain their published versions.
+
+### Fixed
+
+- Voice controls and avatars reflect audible playback, browser suspension and delayed synthesis; repeated clicks during synthesis do not create duplicate speech requests.
+- Avatar conversations use the composer microphone and message playback control without duplicate microphone or read-aloud buttons. Message borders and action icons follow the shared theme.
 
 ## 0.10.1 - 2026-11-03
 

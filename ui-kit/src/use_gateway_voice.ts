@@ -468,6 +468,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     const hasAudio = Boolean(tts_source_ref.current || tts_sched_ref.current.length);
     const status: TtsPlaybackStatus = tts_paused_ref.current ? "paused"
       : hasAudio ? (tts_ctx_ref.current?.state === "running" ? "playing" : "paused")
+      : tts_loading_key_ref.current === key ? "loading"
       : tts_stream_done_ref.current ? "idle" : (tts_segments_ref.current.length ? "playing" : "loading");
     apply_tts_playback({ key: status === "idle" ? "" : key, status });
     const audible = status === "playing" && hasAudio && tts_ctx_ref.current?.state === "running" && Boolean(tts_gain_ref.current?.gain.value);
@@ -641,6 +642,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     };
 
     source.start(0, off);
+    tts_loading_key_ref.current = "";
     sync_tts_playback();
   };
 
@@ -911,7 +913,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       await start_tts_playback(key, buffer, 0);
     } catch (e: any) {
       if (tts_stream_gen_ref.current !== gen) return; // superseded/stopped: swallow the stale failure
-      if (tts_loading_key_ref.current === key) {
+      if (tts_loading_key_ref.current === key || tts_key_ref.current === key) {
         tts_loading_key_ref.current = "";
         tts_key_ref.current = "";
         apply_tts_playback({ key: "", status: "idle" });

@@ -73,6 +73,37 @@ function mount(options = {}) {
 }
 
 try {
+  // Resuming a browser context while synthesis is pending must not clear loading.
+  // Repeated clicks must share the outstanding synthesis, including its decode wait.
+  AudioContext.initialState = "suspended";
+  let resolveSynthesis;
+  let resolveDecode;
+  let synthesisCalls = 0;
+  const slow = mount({ tts_stream: undefined, tts: () => {
+    synthesisCalls += 1;
+    return new Promise((resolve) => { resolveSynthesis = resolve; });
+  } });
+  const slowPending = slow.voice.toggle_tts("slow", "Read once");
+  const slowContext = AudioContext.instances.at(-1);
+  slowContext.decodeAudioData = () => new Promise((resolve) => { resolveDecode = resolve; });
+  await tick();
+  assert.equal(slow.status(), "loading", "context resume preserves pending synthesis");
+  assert.equal(slow.speaking(), false);
+  await slow.voice.toggle_tts("slow", "Read once");
+  assert.equal(synthesisCalls, 1, "repeat click cannot synthesize twice");
+  resolveSynthesis(new ArrayBuffer(1));
+  await tick();
+  slowContext.onstatechange?.();
+  assert.equal(slow.status(), "loading", "decode wait remains loading");
+  await slow.voice.toggle_tts("slow", "Read once");
+  assert.equal(synthesisCalls, 1);
+  resolveDecode({ duration: 1 });
+  await slowPending;
+  assert.equal(slow.status(), "playing");
+  slow.voice.stop_tts();
+  slow.unmount();
+  AudioContext.initialState = "running";
+
   for (const action of ["stop", "supersede", "unmount"]) {
     const h = mount();
     const pending = h.voice.toggle_tts("first", "Read me");

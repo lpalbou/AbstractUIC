@@ -181,6 +181,13 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
 
+## What's new in 0.10.2
+
+`@abstractframework/ui-kit` 0.9.15 and `@abstractframework/panel-chat` 0.8.2 align
+voice state with audible playback, keep pending synthesis visible, and simplify
+avatar conversation controls. The listening avatar responds to microphone energy
+([changelog](./CHANGELOG.md#0102---2026-11-07)).
+
 ## What's new in 0.10.1
 
 `@abstractframework/ui-kit` 0.9.14: the select picker's list, drawers, sheets and dialogs are opaque in every
@@ -7115,7 +7122,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -7140,7 +7147,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.14",
+  "version": "0.9.15",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -7219,7 +7226,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -7268,12 +7275,12 @@ npm test
     "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_message_files_links.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_docs_voice.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && node scripts/check_avatar_conversation.mjs && tsc -p scripts/types/tsconfig.json"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.9.13",
+    "@abstractframework/ui-kit": "^0.9.15",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.9.13",
+    "@abstractframework/ui-kit": "^0.9.15",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -23054,7 +23061,15 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## Unreleased
+## 0.10.2 - 2026-11-07
+
+Packages: `@abstractframework/ui-kit` 0.9.15 and `@abstractframework/panel-chat` 0.8.2.
+Other packages retain their published versions.
+
+### Fixed
+
+- Voice controls and avatars reflect audible playback, browser suspension and delayed synthesis; repeated clicks during synthesis do not create duplicate speech requests.
+- Avatar conversations use the composer microphone and message playback control without duplicate microphone or read-aloud buttons. Message borders and action icons follow the shared theme.
 
 ## 0.10.1 - 2026-11-03
 
@@ -25722,10 +25737,10 @@ SOFTWARE.
 ---
 name: abstractuic
 description: Integrate AbstractFramework shared React controls, authenticated chat and Docs assistants, and voice settings into browser clients.
-compatibility: Requires @abstractframework/ui-kit 0.9.14 and @abstractframework/panel-chat 0.8.1 or later (their documented exports).
+compatibility: Requires @abstractframework/ui-kit 0.9.15 and @abstractframework/panel-chat 0.8.2 or later (their documented exports).
 metadata:
   package: "@abstractframework/ui-kit"
-  package-version: "0.9.14"
+  package-version: "0.9.15"
 ---
 
 # Use AbstractUIC
