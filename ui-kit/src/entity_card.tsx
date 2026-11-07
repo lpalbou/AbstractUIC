@@ -215,7 +215,7 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
           ) : moment ? (
             <Line text={`${moment}${momentWhen ? ` · ${momentWhen}` : ""}`} title={formatExactTime(tile?.last_moment?.at) || undefined} />
           ) : (
-            <Line className="af-entity-card__empty" text="—" />
+            <Line className="af-entity-card__empty" text="None yet" />
           )}
         </section>
       </div>
