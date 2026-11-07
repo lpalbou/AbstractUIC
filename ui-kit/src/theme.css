@@ -8431,7 +8431,7 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 .af-entity-card[data-density="compact"] { --af-entity-pad-x: 12px; border-radius: 12px; }
 .af-entity-card[data-trouble] { border-color: var(--warning-border); }
 .af-entity-card__head { display: flex; align-items: center; gap: 12px; min-width: 0; margin: 0; padding: 14px var(--af-entity-pad-x) 13px; border: 0; border-bottom: 1px solid var(--ui-border-1); border-radius: 0; background: var(--af-entity-tint); color: inherit; font: inherit; text-align: left; text-decoration: none; }
-.af-entity-card[data-density="compact"] .af-entity-card__head { gap: 10px; padding: 10px var(--af-entity-pad-x) 9px; }
+.af-entity-card[data-density="compact"] .af-entity-card__head { gap: 10px; padding: 9px var(--af-entity-pad-x) 8px; }
 button.af-entity-card__head { width: 100%; }
 .af-entity-card__head:last-child { border-bottom: 0; }
 button.af-entity-card__head, a.af-entity-card__head { cursor: pointer; }
@@ -8459,11 +8459,11 @@ a.af-entity-card__head:hover .af-entity-card__name, button.af-entity-card__head:
 .af-entity-card__trouble { margin: 12px var(--af-entity-pad-x) 0; padding: 8px 11px; border: 1px solid var(--warning-border); border-radius: 10px; background: var(--warning-subtle); color: var(--text-primary); font-size: var(--font-size-sm, 12px); line-height: 1.4; }
 .af-entity-card[data-density="compact"] .af-entity-card__trouble { margin-top: 9px; padding: 6px 9px; }
 .af-entity-card__body { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 14px var(--af-entity-pad-x) 14px; }
-.af-entity-card[data-density="compact"] .af-entity-card__body { gap: 8px; padding: 10px var(--af-entity-pad-x) 11px; }
+.af-entity-card[data-density="compact"] .af-entity-card__body { gap: 6px; padding: 8px var(--af-entity-pad-x) 10px; }
 .af-entity-card__section { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .af-entity-card[data-density="compact"] .af-entity-card__section { gap: 1px; }
 .af-entity-card__label { color: var(--text-secondary); font-size: var(--font-size-sm, 12px); font-weight: 600; letter-spacing: normal; text-transform: none; }
-.af-entity-card[data-density="compact"] .af-entity-card__label { color: var(--text-muted); font-size: var(--font-size-xs, 11px); font-weight: 600; }
+.af-entity-card[data-density="compact"] .af-entity-card__label { color: color-mix(in srgb, var(--text-secondary) 80%, var(--text-muted)); font-size: var(--font-size-xs, 11px); font-weight: 600; }
 .af-entity-card__list { display: flex; flex-direction: column; gap: 1px; margin: 0; padding: 0; list-style: none; }
 /* A full card's interests read as a soft bulleted list; a compact one has a single line. */
 .af-entity-card[data-density="full"] .af-entity-card__list > li { position: relative; padding-left: 13px; }

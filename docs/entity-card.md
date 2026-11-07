@@ -18,6 +18,11 @@ instead of the full identity card.
 | Facts | "3 months old · Thinks with gpt-5.6-sol", "33 lessons learned · 29 open problems · 78 open questions · 261 sleeps" | `age_days`, `mind`, `counts` |
 | Actions | The host's controls (phase radio, buttons), at the bottom | `actions` prop |
 
+Layout: the head (portrait, name, the now line with a small dot in the phase's colour) sits on a faint
+wash of the entity's own colour and is separated from the body by a hairline; the body's sections have
+sentence-case labels; the facts and the actions are quiet footers. The card always uses the proportional
+UI font (`--font-sans`), even inside a host that sets a monospace font, and so does the phase radio.
+
 Words are decided once, in `entity_card_words.ts` (`entityNowWords`, `entityMomentWords`,
 `entityTroubleWords`, `entityAgeWords`, `entityCountsWords`, `entityDurationWords`, `entityWhenWords`): no event
 names, no ids, no abbreviated units ("12 minutes ago", never "12 min"). A moment or trouble kind the kit does not know is not shown. Counts
