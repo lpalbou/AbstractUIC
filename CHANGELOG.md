@@ -7,6 +7,25 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## Unreleased
+
+Package: `@abstractframework/ui-kit` (the version is set when the kit branches are merged into one release).
+
+### Added
+
+- `IdentityPanel`: an entity's look and voice on one page, with one Save (framework ADR 0052,
+  `GET/PUT /entities/{name}/identity`). From top to bottom: the avatar as it will be drawn, with its
+  design and colour; the voice engine, then a voice the gateway offers for it (choosing a voice plays
+  a sample when the app can synthesize one); "Create a new voice" from a description or a recording
+  when none fits; the history of earlier looks and voices; then the status line and Save. A refusal
+  shows the gateway's sentence as it is, with a Download button when the gateway offers one. A record
+  without a voice shows the gateway's reason. Someone who may not change the identity sees it in
+  words, with the reason. Apps inject the gateway calls (`IdentityClient`). The panel's rules are
+  exported as pure functions (`identitySaveOf`, `identityFormChanged`, `identityHistoryRows`, …).
+- `useVoiceSample`, `voiceSampleButton`, `voiceChoices` and `voiceChoicePatch`: the voice sample
+  player and the catalog-to-choices rules that `VoiceSettings` uses, now exported so other voice
+  pickers behave the same way. `VoiceSettings` itself is unchanged.
+
 ## 0.10.2 - 2026-11-07
 
 Packages: `@abstractframework/ui-kit` 0.9.15 and `@abstractframework/panel-chat` 0.8.2.

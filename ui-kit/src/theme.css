@@ -7290,6 +7290,158 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+/* IdentityPanel (identity_panel.tsx): an entity's look and voice, one Save. Two cards (Look,
+ * Voice), the history disclosure, then the status line and the actions at the bottom. Stacks at
+ * phone width (the avatar above its fields). */
+.af-identity {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  color: var(--text-primary);
+}
+.af-identity__card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--ui-border-1);
+  border-radius: var(--radius-md);
+  background: var(--ui-surface-2);
+}
+.af-identity__title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+}
+.af-identity__look {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 16px;
+  min-width: 0;
+}
+.af-identity__avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: var(--radius-md);
+  background: var(--ui-overlay-bg, rgba(0, 0, 0, 0.18));
+  overflow: hidden;
+}
+.af-identity__fields {
+  display: grid;
+  gap: 10px;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.af-identity__field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+.af-identity__field--color input[type="color"] {
+  width: 64px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input, var(--bg-primary));
+  cursor: pointer;
+}
+.af-identity__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.af-identity__hint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+.af-identity__swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid var(--ui-border-1);
+  vertical-align: middle;
+}
+.af-identity__create-toggle {
+  justify-self: start;
+}
+.af-identity__history > summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+.af-identity__history-list {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+}
+.af-identity__history-row {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.af-identity__history-detail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+.af-identity__status {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.af-identity__status--ok {
+  color: var(--text-primary);
+}
+.af-identity__status--error {
+  padding-left: 8px;
+  border-left: 3px solid var(--error);
+  color: var(--text-primary);
+}
+.af-identity__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ui-border-1);
+}
+.af-identity__actions > .af-identity__status {
+  flex: 1 1 240px;
+}
+.af-identity__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+.af-identity__save {
+  min-width: 96px;
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 22%, var(--ui-overlay-bg, transparent));
+  font-weight: 600;
+}
 .af-voice-library {
   display: grid;
   gap: 8px;

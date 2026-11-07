@@ -2497,6 +2497,28 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   carries (`VoiceCreation.clone` accepts `provider` / `model`; absent = the gateway's default).
   One language label table: `VOICE_LANGUAGE_LABELS`; `voiceLanguagesFromAnswer(answer, kind,
   provider?)` reads a `GET voice/languages` answer; `voiceRecordId(record)`.
+- Identity (Unreleased, framework ADR 0052): `IdentityPanel({ name, client, refusal?, onSaved?, previewOn?, recordFrom? })`
+  is an entity's look and voice with one Save. `client` (`IdentityClient`) carries the gateway:
+  `read(rev?)` (`GET /entities/{name}/identity[?rev=N]` → its `identity`), `save(body)` (`PUT`,
+  resolves with the new record; a refusal rejects with an Error whose message is the gateway's sentence
+  and whose `download` is the offered download, if any), `voiceCatalog(provider?, model?)`
+  (`GET voice/voices`), and optionally `noVoiceNote()` (`GET /entities/{name}/voice` `note`),
+  `previewVoice` (as in `VoiceSettings`), `createVoice` (`VoiceCreation`), `startDownload(action)`
+  and `designs()` (default `avatarDesigns()`). The panel offers the designs the Watch can draw (a
+  `watchCode`), the engine and its voices (a "Speech model" choice only when the engine has more
+  than one; "Automatic" by default), and "Create a new voice". Save sends the whole record
+  (`IdentitySave`): a voice chosen without its model takes the model a clone is bound to, else the
+  engine's first model; the record's speed and quality are kept while the voice stays the same.
+  Nothing is retried. `refusal` makes it read-only with that sentence. Pure rules:
+  `identityFormOf`, `identityFormChanged`, `identitySaveOf`, `identityDesignOptions`,
+  `identityEngines`, `identityModels`, `identityHistoryRevs`, `identityHistoryRows`,
+  `identityByWhom`, `identityWhenText`, `identityVoiceText`. Pinned by `check_identity_panel.mjs`.
+- Voice choosers (Unreleased): `useVoiceSample(previewVoice, previewOn)` → `{ sample, choose,
+  toggle, reset }` (one sample at a time, the `VOICE_SAMPLE_DEBOUNCE_MS` wait, the cached replay),
+  `voiceSampleButton(sample, onClick, disabled?)` (the play/stop toggle element),
+  `voiceChoices(catalog, value, language?)` (`{ entries, options, voiceKey, selected, languages,
+  hasLanguageFilter }`: the grouped options, one entry per voice served by several models, a saved
+  voice kept as "(saved)") and `voiceChoicePatch(key, value)`. `VoiceSettings` is built on them.
 - Gateway connection: `GatewayConnectModal` + `useGatewayConnection()` (the connection state machine: boot probe, auto-open on resolved disconnect, self-close on sign-in), plus helpers `fetchGatewayConnection()`, `signInGateway()`, `signOutGateway()`, `gatewayStatusBadge()` (reads `GatewayConnectionState.gateway_status`, app-server 0.1.13: 0 "Gateway at <host> did not answer — is it running?", 502/503/504 "Gateway unavailable", other 5xx "Gateway error", other 4xx "check the gateway URL", 401/403 or no field "Session rejected — sign in again"; ui-kit 0.9.3), `normalizeGatewayUrl()`; `GatewaySessionSignInCard` is the underlying form card. `GatewayConnectionState.gateway` is the gateway's `GET /api/gateway/me` body relayed by the app server: `principal` (`GatewayPrincipalPayload`: `user_id`, `tenant_id`, `roles`, `scopes`, `token_fingerprint`, `runtime_id`, `source`, `admin`), `auth` (`mode`, `user_auth_enabled`), `routing` (`mode`, `one_user_one_runtime`). The hook's behaviour is pinned by `check_gateway_connection.mjs`.
 - Signed-in principal (0.9.0, backlog 0036): `principalFromConnection(status)` → `AfPrincipal | null` (`userId`, `tenantId?`, `runtimeId?`, `roles?`, `scopes?`, `source?`, `admin?`; `displayName?` / `email?` / `avatarUrl?` are typed for a host that has them: the gateway serves none), null unless the status is connected (`isGatewayConnected`); `principalLabel(p)` — the one wording: display name, else user id, prefixed `tenant/` only when the tenant is not `default` (`AF_DEFAULT_TENANT`); `gatewayHostLabel(gateway_url)`.
 - Phase capability matrix: `PhaseCapabilityMatrix` + a framework-free core (`validateMatrixPayload()`, `resolveCellView()`, `applyCellAction()`, `reconcilePatches()`, `serializeCellPatches()`)
@@ -5133,6 +5155,7 @@ This package provides:
   (with `createGatewayModelTransport`, `withRunModel`: "Gateway default · provider / model"
   first), `SpeculationSelect`, `ToolModeEditor` (with `tool_plan` helpers and
   `createToolLayerStore`; `ToolPolicyEditor` deprecated), `VoiceSettings`
+- **An entity's identity**: `IdentityPanel` (look and voice, one Save; framework ADR 0052)
 - **A chat's tool policy on the gateway**: `createSessionToolPolicyClient`,
   `sessionToolPolicyCapability`, `sessionPolicyFromLayer` / `layerFromSessionPolicy` (the client
   panel-chat's `WorkflowSessionController` and the tool layer store use)
@@ -7195,7 +7218,7 @@ npm test
   "scripts": {
     "build": "tsc && node scripts/copy_avatar_wasm.mjs",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/check_opaque_surfaces.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_playback_level.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_tool_call_words.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_filter_bar.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_session_cards.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_top_bar_set.mjs && node scripts/check_session_tool_policy.mjs && node scripts/check_brand_icons.mjs && node scripts/check_cloud_providers.mjs && node scripts/check_avatar.mjs && node scripts/check_avatar_quality.mjs && node scripts/check_apple_avatars.mjs && node scripts/check_avatar_audio.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/check_opaque_surfaces.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_playback_level.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_tool_call_words.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_filter_bar.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_session_cards.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_identity_panel.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_top_bar_set.mjs && node scripts/check_session_tool_policy.mjs && node scripts/check_brand_icons.mjs && node scripts/check_cloud_providers.mjs && node scripts/check_avatar.mjs && node scripts/check_avatar_quality.mjs && node scripts/check_apple_avatars.mjs && node scripts/check_avatar_audio.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation",
     "demo:avatars:build": "node scripts/build_avatar_gallery.mjs",
@@ -7634,10 +7657,41 @@ export {
   voiceLabel,
   isOpaqueId,
   cloneModelOf,
+  voiceChoices,
+  voiceChoicePatch,
+  useVoiceSample,
+  voiceSampleButton,
+  type VoiceChoices,
+  type VoiceSampleState,
   type VoicePreferences,
   type VoiceCatalog,
   type VoiceCreation,
 } from "./voice_settings.js";
+export {
+  IdentityPanel,
+  identityFormOf,
+  identityFormChanged,
+  identitySaveOf,
+  identityDesignOptions,
+  identityEngines,
+  identityModels,
+  identityHistoryRevs,
+  identityHistoryRows,
+  identityByWhom,
+  identityWhenText,
+  identityVoiceText,
+  type IdentityPanelProps,
+  type IdentityClient,
+  type IdentityRecord,
+  type IdentityLook,
+  type IdentityVoice,
+  type IdentitySave,
+  type IdentitySaveStep,
+  type IdentityDownload,
+  type IdentityRefusalError,
+  type IdentityForm,
+  type IdentityHistoryRow,
+} from "./identity_panel.js";
 export {
   RULED_PHASES,
   PHASE_DESCRIPTORS,
@@ -23060,6 +23114,25 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## Unreleased
+
+Package: `@abstractframework/ui-kit` (the version is set when the kit branches are merged into one release).
+
+### Added
+
+- `IdentityPanel`: an entity's look and voice on one page, with one Save (framework ADR 0052,
+  `GET/PUT /entities/{name}/identity`). From top to bottom: the avatar as it will be drawn, with its
+  design and colour; the voice engine, then a voice the gateway offers for it (choosing a voice plays
+  a sample when the app can synthesize one); "Create a new voice" from a description or a recording
+  when none fits; the history of earlier looks and voices; then the status line and Save. A refusal
+  shows the gateway's sentence as it is, with a Download button when the gateway offers one. A record
+  without a voice shows the gateway's reason. Someone who may not change the identity sees it in
+  words, with the reason. Apps inject the gateway calls (`IdentityClient`). The panel's rules are
+  exported as pure functions (`identitySaveOf`, `identityFormChanged`, `identityHistoryRows`, …).
+- `useVoiceSample`, `voiceSampleButton`, `voiceChoices` and `voiceChoicePatch`: the voice sample
+  player and the catalog-to-choices rules that `VoiceSettings` uses, now exported so other voice
+  pickers behave the same way. `VoiceSettings` itself is unchanged.
 
 ## 0.10.2 - 2026-11-07
 
