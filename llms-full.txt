@@ -184,6 +184,9 @@ AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t
 
 ## What's new in 0.10.3
 
+`@abstractframework/ui-kit` 0.9.17 adds `EntityCard`, one card for an entity in every app, drawn from
+AbstractGateway 0.21.0's tile read ([changelog](./CHANGELOG.md#0104---2026-11-07)).
+
 `@abstractframework/ui-kit` 0.9.16: a resting avatar moves as smoothly as a speaking one
 (24 frames per second in the Avatar view, was 6), and a small avatar is drawn at its
 small size ([changelog](./CHANGELOG.md#0103---2026-11-07)).
@@ -7160,7 +7163,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.10.3",
+  "version": "0.10.4",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -7185,7 +7188,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.16",
+  "version": "0.9.17",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -23203,7 +23206,10 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## Unreleased
+## 0.10.4 - 2026-11-07
+
+Packages: `@abstractframework/ui-kit` 0.9.17 (from 0.9.16). Other packages retain their published versions.
+Needs AbstractGateway 0.21.0 for the tile read; on older gateways hosts fall back to their card reads.
 
 ### Added
 
@@ -25945,7 +25951,7 @@ description: Integrate AbstractFramework shared React controls, authenticated ch
 compatibility: Requires @abstractframework/ui-kit 0.9.15 and @abstractframework/panel-chat 0.8.2 or later (their documented exports).
 metadata:
   package: "@abstractframework/ui-kit"
-  package-version: "0.9.16"
+  package-version: "0.9.17"
 ---
 
 # Use AbstractUIC

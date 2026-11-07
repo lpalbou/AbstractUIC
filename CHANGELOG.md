@@ -7,7 +7,10 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## Unreleased
+## 0.10.4 - 2026-11-07
+
+Packages: `@abstractframework/ui-kit` 0.9.17 (from 0.9.16). Other packages retain their published versions.
+Needs AbstractGateway 0.21.0 for the tile read; on older gateways hosts fall back to their card reads.
 
 ### Added
 
