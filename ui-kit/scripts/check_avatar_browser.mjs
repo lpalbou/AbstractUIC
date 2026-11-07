@@ -123,6 +123,16 @@ try{
  const clickFrames=await frames(500),focusEyes=focusIds.filter(id=>eyeIds.includes(id));
  assert.deepEqual([...new Set(await page.evaluate(()=>window.gazeRenders.map(r=>r.style)))].map(i=>catalog[i].id).sort(),focusEyes.sort(),'a click gazes only with eyes designs');
  assert(clickFrames<=focusEyes.length*8+5*3,`click gaze cadence ${clickFrames}`);
+ // The default (balanced) portrait rests as smoothly as it speaks: Ready and Waiting draw at
+ // its 24 fps active rate, not the 6/10 fps stutter. Counted per canvas, after the rebuild settles.
+ await page.getByLabel('Quality',{exact:true}).selectOption('balanced');await ready(5);
+ for(const phase of ['ready','waiting']){
+  await page.getByLabel('Phase',{exact:true}).selectOption(phase);await page.waitForTimeout(400);
+  const all=()=>page.locator('canvas').evaluateAll(nodes=>nodes.map(c=>window.canvasFrames.get(c)??0));
+  const before=await all();await page.waitForTimeout(1000);const rate=(await all()).map((n,i)=>n-before[i]);
+  assert(rate.every(n=>n>=18&&n<=27),`balanced ${phase} cadence per canvas ${rate}`);
+ }
+ await page.getByLabel('Phase',{exact:true}).selectOption('ready');
  await page.getByRole('button',{name:'Pause motion',exact:true}).click();await page.waitForTimeout(100);
  assert.equal(await frames(400),0,'pause motion must cancel both timeout and animation frame');
  const presentationTiming=await page.evaluate(async()=>{
