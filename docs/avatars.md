@@ -34,7 +34,7 @@ clears the image, labels it unavailable and calls `onError`.
 
 | Input | Default | Meaning |
 |---|---|---|
-| design | halo | Stable identifier from the canonical catalog |
+| design | watch-hover | Stable identifier from the canonical catalog |
 | pose | ready | ready, thinking, working, listening, speaking, waiting, error |
 | level | 0 | Observed audio level in 0–1; zero represents silence |
 | bands | absent | Optional eight observed frequency-band levels in 0–1 |

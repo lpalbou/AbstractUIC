@@ -7,7 +7,26 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## Unreleased
+## 0.10.2 - 2026-11-07
+
+Packages: `@abstractframework/ui-kit` 0.9.15 and `@abstractframework/panel-chat` 0.8.2.
+Other packages retain their published versions.
+
+### Fixed
+
+- Read-aloud no longer stays on "loading" when the browser blocks audio playback. Voice controls and
+  avatars say "speaking" only while the audio is audible. Play after the browser suspended playback
+  resumes the same audio without synthesizing it again, also in apps that pass no voice selection.
+- When the browser refuses playback, a notice explains it; the notice now clears once audio plays,
+  when the browser resumes playback by itself, or on Stop.
+
+### Changed
+
+- `useGatewayVoice()` returns `tts_speaking`: true only while spoken audio is audible.
+- Avatar conversation: the live line has its own read-aloud button; completed answers no longer
+  carry an accent border; buttons inside messages follow the shared theme.
+- The selected session card is clearly highlighted (accent outline, stronger tint, bold title).
+- `ActivityAvatar` defaults to the `watch-hover` design (was `halo`).
 
 ## 0.10.1 - 2026-11-03
 

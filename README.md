@@ -11,6 +11,13 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
 
+## What's new in 0.10.2
+
+`@abstractframework/ui-kit` 0.9.15 and `@abstractframework/panel-chat` 0.8.2 align
+voice state with audible playback, resume browser-paused read-aloud without synthesizing it
+again, add a read-aloud button to the avatar conversation's live line and highlight the selected
+session card ([changelog](./CHANGELOG.md#0102---2026-11-07)).
+
 ## What's new in 0.10.1
 
 `@abstractframework/ui-kit` 0.9.14: the select picker's list, drawers, sheets and dialogs are opaque in every
