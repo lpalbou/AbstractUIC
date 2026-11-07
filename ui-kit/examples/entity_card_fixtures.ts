@@ -84,6 +84,17 @@ export const TILES: Record<string, EntityTile> = {
     last_moment: { kind: "pause", at: ago(3 * D) },
     counts: { open_questions: 2, open_problems: 1, lessons: 1, interests: 4, sleeps: 9 },
   }),
+  resting: base({
+    name: "Wilhelmina-Ottoline of the North Shore Lighthouse",
+    look: { style: "watch-hover", color: "#d06a39" },
+    age_days: 12,
+    mind: { model: "lmstudio-community/Qwen3.6-27B-MLX-4bit-DWQ-instruct-2607", source: "entity" },
+    now: { phase: "sleep", state: "awake", detail: "resting", busy: false, since: ago(20 * 1000), trouble: null },
+    into_lately: [{ text: "https://example.org/a/very/long/address/without/any/space/that/must/never/push/the/card/wider/than/the/screen/0123456789", at: ago(D) }],
+    on_its_mind: { kind: "question", text: "Supercalifragilisticexpialidociousnessandmorewordsgluedtogetherwithoutanyspaceatalltotestwrapping?", at: ago(D) },
+    last_moment: { kind: "wake", at: ago(20 * 1000) },
+    counts: { open_questions: 1, open_problems: 0, lessons: 0, interests: 1, sleeps: 3 },
+  }),
   newborn: base({
     name: "Selka",
     look: null,

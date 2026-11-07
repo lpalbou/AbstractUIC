@@ -13,11 +13,12 @@ ships.
 
 - **`EntityCard`: an entity at a glance, one card for every app** (`@abstractframework/ui-kit`). It draws
   AbstractGateway's new tile read (`GET /entities/{name}/tile`, gateway backlog 1012) in plain words: its look and
-  name; what it is doing now and for how long ("Asleep · for 3 months", "In a visit · busy now · for 12 min"); a
+  name; what it is doing now and for how long ("Asleep · for 3 months", "In a visit · busy now · for 12 minutes",
+  "Resting · just now"); a
   warning when its own time stopped after repeated failures; what it is into lately, what is on its mind and its latest
-  lesson, in its own words; its last moment ("A visit ended · 1 h ago"); its age, its model and the counts a person reads
+  lesson, in its own words; its last moment ("A visit ended · 1 hour ago"); its age, its model and the counts a person reads
   ("33 lessons learned · 29 open problems"). Full (grid) and compact (strip) densities, host actions at the bottom;
-  loading holds the final size, stale says "As of …", unavailable says so in a few words. The words live once in
+  loading holds the final size, stale says how old the details are, unavailable says so in one line. The words live once in
   `entity_card_words.ts`. Checked in Chromium at 1440 and 400 px. AbstractObserver's Board and AbstractEntity's home
   grid adopt it next.
 

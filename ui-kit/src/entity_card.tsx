@@ -48,7 +48,9 @@ function EntityOrb({ name, look, size }: { name: string; look?: { style?: string
   if (look?.style) {
     return (
       <span className="af-entity-card__orb" style={style} aria-hidden="true">
-        <ActivityAvatar design={look.style} pose="ready" size={size} animated={false} quality="balanced" />
+        {/* A still portrait: the listening pose at a mid level draws every design's shape (the
+          * ready pose draws a halo or a galaxy as a faint dot and the wave as a flat line). */}
+        <ActivityAvatar design={look.style} pose="listening" level={0.5} size={size} animated={false} quality="high" />
       </span>
     );
   }
@@ -104,9 +106,15 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
         {name ? <span className="af-entity-card__name">{name}</span> : <Skeleton width="45%" />}
         {tile ? (
           <span className="af-entity-card__now" title={now.exact || undefined}>
-            <span>{now.label}</span>
-            {now.busy ? <span className="af-entity-card__busy">busy now</span> : null}
-            {now.since ? <span className="af-entity-card__since">{now.since}</span> : null}
+            {/* One line of text that wraps between facts ("\u00a0· " keeps a dot off the start of a line). */}
+            {now.label}
+            {now.busy ? (
+              <>
+                {"\u00a0· "}
+                <span className="af-entity-card__busy">busy now</span>
+              </>
+            ) : null}
+            {now.since ? `\u00a0· ${now.since}` : null}
           </span>
         ) : loading ? (
           <Skeleton width="62%" />
@@ -148,6 +156,7 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
         </p>
       ) : null}
 
+      {unavailable ? null : (
       <div className="af-entity-card__body">
         <section className="af-entity-card__section" data-field="into" data-reserve={compact ? 1 : 3}>
           <span className="af-entity-card__label">Into lately</span>
@@ -162,7 +171,7 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
               ))}
             </ul>
           ) : (
-            <Line className="af-entity-card__empty" text={unavailable ? "—" : "Nothing yet"} />
+            <Line className="af-entity-card__empty" text="Nothing yet" />
           )}
         </section>
 
@@ -174,7 +183,7 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
             ) : mind ? (
               <Line text={`${mind.kind === "problem" ? "A problem: " : "A question: "}${mind.text}`} lines={2} />
             ) : (
-              <Line className="af-entity-card__empty" text={unavailable ? "—" : "Nothing open"} lines={2} />
+              <Line className="af-entity-card__empty" text="Nothing open" lines={2} />
             )}
           </section>
         ) : null}
@@ -187,7 +196,7 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
             ) : lesson ? (
               <Line text={lesson.text} lines={1} />
             ) : (
-              <Line className="af-entity-card__empty" text={unavailable ? "—" : "None yet"} />
+              <Line className="af-entity-card__empty" text="None yet" />
             )}
           </section>
         ) : null}
@@ -203,8 +212,9 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
           )}
         </section>
       </div>
+      )}
 
-      {!compact ? (
+      {!compact && !unavailable ? (
         <div className="af-entity-card__facts" data-field="facts">
           {loading ? (
             <>
@@ -215,11 +225,7 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
             <>
               <span className="af-entity-card__fact-row">
                 {age ? <span>{age}</span> : null}
-                {model ? (
-                  <span title="The model it thinks with">
-                    <span className="af-entity-card__fact-key">mind</span> {model}
-                  </span>
-                ) : null}
+                {model ? <span title={`It thinks with the model ${model}`}>Thinks with {model}</span> : null}
               </span>
               <Line className="af-entity-card__counts" text={counts.join(" · ")} lines={2} />
             </>
@@ -229,7 +235,7 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
 
       {status === "stale" && tile ? (
         <p className="af-entity-card__stale" role="note">
-          {p.asOfMs ? `As of ${entityWhenWords(new Date(p.asOfMs).toISOString(), p.nowMs)}` : "Not the latest"} — newer details could not be read
+          {p.asOfMs ? `Details from ${entityWhenWords(p.asOfMs, p.nowMs)}; newer ones could not be read` : "Newer details could not be read"}
         </p>
       ) : null}
 

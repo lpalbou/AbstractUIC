@@ -45,7 +45,7 @@ try{
    const overflow=[...document.querySelectorAll('.af-entity-card')].filter(c=>c.scrollWidth>c.clientWidth+1).length;
    return {pair,plain,text,docW:document.documentElement.scrollWidth,winW:innerWidth,overflow,cards:document.querySelectorAll('.af-entity-card').length};
   });
-  assert.equal(m.cards,18,'every gallery card renders');
+  assert.equal(m.cards,20,'every gallery card renders');
   assert.ok(m.docW<=m.winW,`no horizontal scroll at ${label} (${m.docW} > ${m.winW})`);
   assert.equal(m.overflow,0,`no card overflows its width at ${label}`);
   // A loading card holds the loaded card's size, whatever the loaded card says (a full life or a newborn).
@@ -53,7 +53,12 @@ try{
   assert.equal(new Set(m.plain).size,1,`compact cards without a trouble share one height at ${label} (${m.plain})`);
   // Plain words only: no event names, no unit abbreviations, nothing undefined.
   for(const bad of [/\b[a-z]+_[a-z_]+\b/,/\bundefined\b/,/\bNaN\b/,/\btk\b/,/\bnull\b/,/identity changed/i,/session closed/i]) assert.doesNotMatch(m.text,bad,`${bad} at ${label}`);
-  for(const want of ['Asleep','for 3 months','Its own time stopped after repeated failures','In a visit','busy now','On its own time','Stopped','Born today','Details unavailable right now','As of 12 min ago','Moved to its own time','A visit ended','33 lessons learned','78 open questions','mind']) assert.ok(m.text.includes(want),`"${want}" at ${label}`);
+  for(const want of ['Asleep','for 3 months','Its own time stopped after repeated failures','In a visit','busy now','On its own time','Stopped','Resting','Born today','Details unavailable right now','Details from 12 minutes ago','Moved to its own time','A visit ended','33 lessons learned','78 open questions','Thinks with']) assert.ok(m.text.includes(want),`"${want}" at ${label}`);
+  // Abbreviated units are not plain words.
+  assert.doesNotMatch(m.text,/\b\d+ (min|h|d|tk)\b/,`abbreviated units at ${label}`);
+  // Actions line up across a grid row (the card stretches; actions sit at its bottom).
+  const rows=await page.evaluate(()=>{const by=new Map();for(const c of document.querySelectorAll('[data-testid="grid"] .af-entity-card')){const a=c.querySelector('.af-entity-card__actions');if(!a)continue;const top=Math.round(c.getBoundingClientRect().top);(by.get(top)||by.set(top,[]).get(top)).push(Math.round(a.getBoundingClientRect().bottom));}return [...by.values()];});
+  for(const r of rows) assert.equal(new Set(r).size,1,`actions line up in a grid row at ${label} (${r})`);
   if(shots){
    await page.screenshot({path:path.join(shots,`entity-cards-${label}.png`),fullPage:true});
    const grid=await page.$('[data-testid="grid"]');await grid.screenshot({path:path.join(shots,`entity-cards-grid-${label}.png`)});

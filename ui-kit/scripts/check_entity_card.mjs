@@ -3,13 +3,22 @@
 import assert from 'node:assert/strict';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
-import {EntityCard,entityAgeWords,entityCountsWords,entityDurationWords,entityMomentWords,entityNowWords,entityTroubleWords} from '../dist/index.js';
+import {EntityCard,entityAgeWords,entityCountsWords,entityDurationWords,entityMomentWords,entityNowWords,entityTroubleWords,entityWhenWords} from '../dist/index.js';
 const NOW=Date.parse('2026-11-07T12:00:00Z'),ago=ms=>new Date(NOW-ms).toISOString(),MIN=60000,H=60*MIN,D=24*H;
 
 // Durations and ages in plain words.
-assert.equal(entityDurationWords(30*1000),'a moment');
-assert.equal(entityDurationWords(5*MIN),'5 min');
-assert.equal(entityDurationWords(3*H),'3 h');
+// No abbreviated units (operator rule: plain words).
+assert.equal(entityDurationWords(30*1000),'');
+assert.equal(entityDurationWords(1*MIN),'1 minute');
+assert.equal(entityDurationWords(5*MIN),'5 minutes');
+assert.equal(entityDurationWords(1*H),'1 hour');
+assert.equal(entityDurationWords(3*H),'3 hours');
+assert.equal(entityWhenWords(ago(20*1000),NOW),'just now');
+assert.equal(entityWhenWords(ago(12*MIN),NOW),'12 minutes ago');
+assert.equal(entityWhenWords(ago(3*H),NOW),'3 hours ago');
+assert.equal(entityWhenWords(ago(1.5*D),NOW),'yesterday');
+assert.equal(entityWhenWords(ago(4*D),NOW),'4 days ago');
+assert.equal(entityWhenWords('2026-08-02T10:00:00Z',NOW),'Aug 2');
 assert.equal(entityDurationWords(1*D),'1 day');
 assert.equal(entityDurationWords(45*D),'45 days');
 assert.equal(entityDurationWords(97*D),'3 months');
@@ -22,7 +31,11 @@ assert.equal(entityNowWords({phase:'sleep',detail:'resting',busy:false,since:ago
 assert.equal(entityNowWords({phase:'sleep',detail:'dreaming',busy:false,since:null,trouble:null},NOW).label,'Asleep, dreaming');
 assert.equal(entityNowWords({phase:'visit',detail:null,busy:true,since:ago(12*MIN),trouble:null},NOW).label,'In a visit');
 assert.equal(entityNowWords({phase:'personal',detail:null,busy:true,since:null,trouble:null},NOW).busy,true);
-assert.equal(entityNowWords({phase:'work',detail:null,busy:false,since:null,trouble:null},NOW).label,'Working on a task');
+assert.equal(entityNowWords({phase:'work',detail:null,busy:false,since:null,trouble:null},NOW).label,'Working');
+// Awake with nothing running is the resting default (phase sleep): "Resting", never "Asleep".
+assert.equal(entityNowWords({phase:'sleep',state:'awake',detail:'resting',busy:false,since:ago(20*1000),trouble:null},NOW).label,'Resting');
+assert.equal(entityNowWords({phase:'sleep',state:'awake',detail:'resting',busy:false,since:ago(20*1000),trouble:null},NOW).since,'just now');
+assert.equal(entityNowWords({phase:'sleep',state:'asleep',detail:'resting',busy:false,since:ago(2*H),trouble:null},NOW).label,'Asleep');
 assert.equal(entityNowWords({phase:'stopped',detail:null,busy:true,since:null,trouble:null},NOW).busy,false);
 assert.equal(entityNowWords({phase:'personal',detail:null,busy:false,since:null,trouble:null},NOW).since,'','no since, no words');
 
@@ -58,10 +71,10 @@ const text=html=>html.replace(/<[^>]+>/g,' ').replace(/&#x27;/g,"'").replace(/\s
 let html=render({tile,onOpen(){},actions:React.createElement('button',{type:'button','data-x':'act'},'Wake')});
 let t=text(html);
 for(const want of ['Ephemeral','Asleep','for 3 months','Its own time stopped after repeated failures (Aug 1)','Into lately','What sustained attention looks like','On its mind','A problem: The coherence tests were never run',
- 'Latest lesson','Fix your own tools at once','Last moment','A visit ended','3 months old','gpt-5.6-sol','33 lessons learned · 29 open problems · 78 open questions · 261 sleeps']) assert.ok(t.includes(want),want);
+ 'Latest lesson','Fix your own tools at once','Last moment','A visit ended','3 months old','Thinks with gpt-5.6-sol','33 lessons learned · 29 open problems · 78 open questions · 261 sleeps']) assert.ok(t.includes(want),want);
 assert.ok(!t.includes('A fourth'),'at most three interests');
 assert.ok(html.includes('data-trouble="true"')&&html.includes('data-phase="sleep"')&&html.includes('role="note"'));
-assert.match(html,/<button type="button" class="af-entity-card__head"[^>]*aria-label="Ephemeral\. Asleep, for 3 months\./,'the head opens the entity and says it in one sentence');
+assert.match(html,/<button type="button" class="af-entity-card__head"[^>]*aria-label="Ephemeral\. Asleep, for 3 months"/,'the head opens the entity: who and what it is doing now (the body is not repeated)');
 assert.ok(html.indexOf('af-entity-card__actions')>html.indexOf('af-entity-card__facts'),'actions at the bottom');
 assert.ok(html.trimEnd().endsWith('Wake</button></div></article>'),'actions are the last row');
 assert.doesNotMatch(t,/\b[a-z]+_[a-z_]+\b|undefined|NaN|\bnull\b|\btk\b|ephemeral@|endpoint:/,'plain words only');
@@ -82,11 +95,12 @@ assert.ok(!t.includes('Nothing yet')&&!t.includes('Asleep'),'loading claims noth
 // Unavailable: says so in a few words, the reason only on hover.
 html=render({tile:null,status:'unavailable',name:'Veya',reason:'HTTP 500: Internal Server Error'});t=text(html);
 assert.ok(t.includes('Details unavailable right now')&&!t.includes('HTTP 500')&&html.includes('title="HTTP 500: Internal Server Error"'));
+assert.ok(!t.includes('Into lately')&&!t.includes('Last moment'),'unavailable is one line, not empty sections');
 
 // Stale: the last tile with since when.
 t=text(render({tile,status:'stale',asOfMs:NOW-12*MIN}));
-assert.ok(t.includes('As of 12 min ago — newer details could not be read'));
-assert.ok(!text(render({tile})).includes('As of'),'a fresh card never says "as of"');
+assert.ok(t.includes('Details from 12 minutes ago; newer ones could not be read'));
+assert.ok(!text(render({tile})).includes('Details from'),'a fresh card never says how old it is');
 
 // No look: a quiet disc with the initial, never a broken canvas.
 html=render({tile:{...tile,look:null}});assert.ok(html.includes('is-plain')&&!html.includes('<canvas'));
