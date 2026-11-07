@@ -85,8 +85,8 @@ const render = (el, props) => renderToStaticMarkup(React.createElement(el, props
     interaction: { kind: "event-wait", id: "wait-1", prompt: "Provide payload", onSend: async () => {} },
   });
   check("ask-user interaction renders choices", ask.includes("Yes") && ask.includes("Submit"));
-  // ADR 0001 §5 / backlog 0032: the default wording is the one set (Allow once / Deny), never "Approve".
-  check("tool approval interaction renders both decisions", approval.includes(">Allow once<") && approval.includes(">Deny<") && !approval.includes(">Approve<"));
+  // ADR 0001 §5 / operator ruling 2026-11-07: the default wording is Deny / Allow, never "Approve" or "Allow once".
+  check("tool approval interaction renders both decisions", approval.includes(">Allow<") && approval.includes(">Deny<") && !approval.includes(">Approve<") && !approval.includes("Allow once"));
   check("event wait interaction renders explicit send", wait.includes("Send event"));
 
   // A retry uses the snapshot taken when the choice was clicked. It must not

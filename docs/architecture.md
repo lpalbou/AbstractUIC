@@ -108,8 +108,8 @@ components follow; the [Adoption guide](./adoption-guide.md) is its job table. I
   host injects; it never re-derives server policy, and a missing value is a labeled fallback.
 - **The gateway default is shown first** ("Gateway default · ollama / qwen3"), and an override can
   be undone ("Use gateway default").
-- **One wording set per job**, decided in the kit (Deny / Allow once / Allow for this chat / Allow
-  all enabled tools; Hold to talk / Tap to talk; a voice plays when chosen, with one play/stop toggle).
+- **One wording set per job**, decided in the kit (Deny / Allow / Allow All, the allows for this
+  session only; Hold to talk / Tap to talk; a voice plays when chosen, with one play/stop toggle).
 
 ```mermaid
 flowchart TB
@@ -155,10 +155,11 @@ flowchart LR
 
 ### Tool approvals and the chat's tool policy
 
-When the gateway advertises `capabilities.session_tool_policy`, "Allow for this chat" and "Allow
-all <toolset> tools for this chat" write the chat's policy first and only then answer the wait
-shown, so later calls of every run of the chat run without a wait. Without the capability, the
-grant stays local and labeled ("Allow for this run").
+When the gateway advertises `capabilities.session_tool_policy`, Allow (this request's tools) and
+Allow All (every tool) write the session's policy first and only then answer the wait shown, so
+later calls of every run of the session run without a wait. Nothing is written to the app's
+default tool settings. Without the capability, Allow answers the shown request only and the card
+says so in one line.
 
 ```mermaid
 sequenceDiagram
@@ -168,14 +169,14 @@ sequenceDiagram
   participant P as SessionToolPolicyClient (host-injected)
   participant G as AbstractGateway
   G-->>S: run waits for a tool approval (served waiting)
-  S-->>C: interaction: Deny / Allow once / Allow for this chat / …
-  U->>C: Allow for this chat
+  S-->>C: interaction: Deny / Allow / Allow All
+  U->>C: Allow All
   C->>S: approveAllForSession(target)
-  S->>P: merge({approve, ask}) with the chat's Ask tools
+  S->>P: merge({approve: {all: true}})
   P->>G: POST sessions/{id}/tool-policy
   G-->>P: policy (revision, scope, clamped)
   S->>G: answer the shown wait {approved: true}
-  Note over C: "Applies: …" as served, "Not covered: …" for clamped entries
+  Note over C: "Not covered: …" for clamped entries
 ```
 
 ### One repository, several frameworks (convention)

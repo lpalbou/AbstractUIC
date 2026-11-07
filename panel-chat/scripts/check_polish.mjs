@@ -5,8 +5,8 @@
  *     formatDuration ("4.2s", "3m 26s"), never "205.8s" / "215s";
  *  B. a tool call that waited for the person's approval says its time includes that wait
  *     (the replay view's activities[].wait.kind == "tool_approval" -> approvalWait);
- *  C. "Allow once" (the narrowest grant) is the one accent-tinted primary of the approval
- *     card; the broader grants are neutral (panel_chat.css).
+ *  C. "Allow" (the requested tool) is the one accent-tinted primary of the approval card;
+ *     "Allow All" is neutral (panel_chat.css).
  * Run after `npm run build`.
  */
 import { readFileSync } from "node:fs";
@@ -86,9 +86,9 @@ const rules = (selector) =>
     .map((m) => m[2])
     .join(";");
 const primary = rules('.pc-workflow-interaction__buttons > [data-decision="approve"]');
-check("C Allow once is the accent-tinted primary", /background:\s*color-mix\(in srgb, var\(--accent\) 22%/.test(primary) && /border:\s*1px solid color-mix\(in srgb, var\(--accent\) 55%/.test(primary), primary);
-const broad = rules(".pc-workflow-interaction__allow-session") + rules(".pc-workflow-interaction__allow-all");
-check("C the broader grants are not accent-tinted", broad && !/accent/.test(broad), broad);
+check("C Allow is the accent-tinted primary", /background:\s*color-mix\(in srgb, var\(--accent\) 22%/.test(primary) && /border:\s*1px solid color-mix\(in srgb, var\(--accent\) 55%/.test(primary), primary);
+const broad = rules(".pc-workflow-interaction__allow-all");
+check("C Allow All is not accent-tinted", broad && !/accent/.test(broad), broad);
 
-console.log(failures ? `check_polish: ${failures} of ${checks} failed` : `check_polish: OK (${checks} checks: one duration format, approval wait labeled, Allow once primary)`);
+console.log(failures ? `check_polish: ${failures} of ${checks} failed` : `check_polish: OK (${checks} checks: one duration format, approval wait labeled, Allow primary)`);
 if (failures) process.exit(1);

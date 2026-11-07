@@ -12,10 +12,6 @@ assert.equal(typeof presentInteraction, "function", "export presentInteraction")
 const calls = [];
 const controller = {
   approve: async (approved, target) => void calls.push(["approve", approved, target]),
-  approveWithPolicyChange: async (target, onApproved) => {
-    calls.push(["approveWithPolicyChange", target]);
-    onApproved();
-  },
   resume: async (answer, target) => void calls.push(target ? ["resume", answer, target] : ["resume", answer]),
   emitEvent: async (event) => void calls.push(["emitEvent", event]),
 };
@@ -39,10 +35,12 @@ assert.equal(t.kind, "tool-approval", "approval_required wins over reason=user")
 assert.equal(t.id, "run-1:approve:1:step-9");
 assert.equal(t.title, "2 actions need permission");
 assert.equal(t.toolName, "write_file", "tool names deduplicated");
-assert.equal(t.onApproveAll, undefined, "no Allow-all without the host's policy switch");
+assert.equal(t.onApproveAll, undefined, "no Allow All without a session grant");
 assert.equal(t.approveAllLabel, undefined);
+assert.equal(t.description, undefined, "no explanatory description under the title");
+assert.equal(t.scopeNote, "Allow covers this request only.", "without a session grant, Allow says it covers this request only");
 await t.onApprove();
-assert.deepEqual(calls.at(-1), ["approve", true, target], "Allow once → approve(true, exact target)");
+assert.deepEqual(calls.at(-1), ["approve", true, target], "Allow (no session grant) → approve(true, exact target)");
 await t.onDeny();
 assert.deepEqual(calls.at(-1), ["approve", false, target], "Deny → approve(false, exact target)");
 const detail = renderToStaticMarkup(React.createElement(React.Fragment, null, t.detail));
@@ -60,13 +58,40 @@ assert.ok(!detail.includes("2 file writes") && (detail.split("<details>")[0].mat
 assert.ok(!detail.split("<details>")[0].includes("<pre") && !detail.split("<details>")[0].includes("{&quot;"), "no JSON outside the disclosure");
 const strArgs = renderToStaticMarkup(React.createElement(React.Fragment, null, presentInteraction({ runId: "r", wait: { wait_key: "k", details: { mode: "approval_required", tool_calls: [{ name: "fetch_url", arguments: JSON.stringify({ url: "https://example.org/a" }) }] } } }, controller).detail));
 assert.ok(strArgs.includes('title="fetch_url">Fetch</span>') && strArgs.includes("example.org"), "string-encoded arguments are read too");
-let policy = 0;
-const all = presentInteraction(toolWait, controller, { onPermissionsAll: async () => void (policy += 1) });
-assert.equal(all.approveAllLabel, "Allow all enabled tools");
-assert.match(all.approveAllDescription, /permissions: all/);
-await all.onApproveAll();
-assert.deepEqual(calls.at(-1), ["approveWithPolicyChange", target], "Allow all → approveWithPolicyChange(target)");
-assert.equal(policy, 1, "the host's policy switch runs once the batch is approved");
+// Allow and Allow All for the rest of this session: the controller's session tool policy (gateway mode).
+const sessionCalls = [];
+const sessionController = (mode, policy = null) => ({
+  ...controller,
+  sessionPolicyStatus: () => ({ mode, clamped: [], policy, ...(mode === "unavailable" ? { reason: "HTTP 502" } : {}) }),
+  approveToolsForSession: async (target, tools) => (sessionCalls.push(["tools", target, tools]), { approve: Object.fromEntries(tools.map((n) => [n, "tool"])), deny: {}, clamped: [] }),
+  approveAllForSession: async (target, options) => (sessionCalls.push(["all", target, options]), { approve: { write_file: "all" }, deny: {}, clamped: [] }),
+});
+const gw = presentInteraction(toolWait, sessionController("gateway"), { sessionPolicy: true });
+assert.equal(gw.approveLabel, "Allow");
+assert.equal(gw.approveAllLabel, "Allow All");
+assert.equal(gw.denyLabel, "Deny");
+assert.equal(gw.approveTitle, "Allow write_file for the rest of this session");
+assert.equal(gw.approveAllTitle, "Allow every tool for the rest of this session");
+assert.equal(gw.scopeNote, undefined, "a session grant needs no note");
+const beforeSession = calls.length;
+await gw.onApprove();
+assert.deepEqual(sessionCalls.at(-1), ["tools", target, ["write_file"]], "Allow → approveToolsForSession(exact target, this request's tools)");
+await gw.onApproveAll();
+assert.deepEqual(sessionCalls.at(-1), ["all", target, {}], "Allow All → approveAllForSession(exact target), every tool");
+assert.equal(calls.length, beforeSession, "the session grants answer the wait themselves (write first, then answer)");
+await gw.onDeny();
+assert.deepEqual(calls.at(-1), ["approve", false, target], "Deny refuses this request only");
+for (const mode of ["local-fallback", "unavailable"]) {
+  const degraded = presentInteraction(toolWait, sessionController(mode), { sessionPolicy: true });
+  assert.equal(degraded.onApproveAll, undefined, `${mode}: no Allow All (no session grant exists)`);
+  assert.equal(degraded.scopeNote, "This gateway cannot keep a choice for the session, so Allow covers this request only.", `${mode}: one line says so`);
+  await degraded.onApprove();
+  assert.deepEqual(calls.at(-1), ["approve", true, target], `${mode}: Allow answers this request`);
+}
+assert.throws(() => presentInteraction(toolWait, controller, { sessionPolicy: true }), /needs a WorkflowSessionController/, "sessionPolicy without a session controller fails loudly");
+const denied = presentInteraction(toolWait, sessionController("gateway", { approve: {}, deny: { write_file: "tool" } }), { sessionPolicy: true });
+assert.match(denied.deniedNote, /Denied by this session's policy: write_file/);
+assert.match(String((await denied.onApprove())?.outcomeNote), /refuses write_file/, "Allow on a denied tool reports the refusal");
 const single = presentInteraction({ runId: "r", wait: { wait_key: "k", details: { kind: "tool_approval", tool_calls: [{ name: "shell" }] } } }, controller);
 assert.equal(single.kind, "tool-approval", "details.kind=tool_approval is an approval too");
 assert.equal(single.title, "1 action needs permission");
@@ -107,52 +132,37 @@ assert.equal(calls.length, before, "nothing emitted");
 
 
 // --- ui-primitives (chat): questions and approvals, backlog 0032 ----------------------
-// The ONE wording set (ADR 0001 §5): Deny / Allow once / Allow for this chat / Allow all
-// enabled tools; a dismissal defers, never denies; the scope sentence is the host's.
+// The ONE wording set (ADR 0001 §5; operator ruling 2026-11-07): Deny / Allow / Allow All;
+// a dismissal defers, never denies.
 {
   const { WORKFLOW_INTERACTION_LABELS: W, WorkflowInteractionPanel, isReplayInteraction, replayInteractionWait } = pc;
   assert.deepEqual(
-    [W.deny, W.allowOnce, W.allowForChat, W.allowAll, W.decideLater, W.skip, W.keepWaiting],
-    ["Deny", "Allow once", "Allow for this chat", "Allow all enabled tools", "Decide later", "Continue without answering", "Keep waiting"],
+    [W.deny, W.allow, W.allowAll, W.decideLater, W.skip, W.keepWaiting],
+    ["Deny", "Allow", "Allow All", "Decide later", "Continue without answering", "Keep waiting"],
     "the one wording set",
   );
-  assert.equal(t.approveLabel, "Allow once");
+  for (const gone of ["allowOnce", "allowForChat", "allowKindForChat", "allowForRun", "denyToolForChat", "denyKindForChat"]) assert.equal(W[gone], undefined, `no ${gone}`);
+  assert.equal(t.approveLabel, "Allow");
   assert.equal(t.denyLabel, "Deny");
-  for (const key of ["onApproveForSession", "onDefer", "remember", "disabledReason"]) assert.equal(t[key], undefined, `${key} only when the host injects it`);
+  for (const key of ["onDefer", "onApproveForSession", "approveKinds", "denyOptions", "remember", "disabledReason", "broadScopeSummary", "approveAllDescription", "approveForSessionDescription", "policySummary"]) assert.equal(gw[key], undefined, `${key} is not on the card`);
   assert.equal(ask.onSkip, undefined, "Continue without answering only when the host asks for it");
   assert.equal(ask.onDefer, undefined, "Keep waiting only when the host injects it");
-
-  // Neutral scope by default: the kit never claims account scope on its own.
-  assert.doesNotMatch(all.approveAllDescription, /account|browser|device/i, "the default scope sentence asserts no storage scope");
-  const scoped = presentInteraction(toolWait, controller, { onPermissionsAll: async () => {}, approveAllScope: "for this Gateway account" });
-  assert.match(scoped.approveAllDescription, /^Sets permissions: all for this Gateway account, including future turns\./, "the host's scope sentence");
-
-  // Allow for this chat: approve this batch, then the host's chat-scoped grant.
-  let session = 0;
-  const sess2 = presentInteraction(toolWait, controller, { onAllowForSession: async () => void (session += 1) });
-  assert.equal(sess2.approveForSessionLabel, "Allow for this chat");
-  assert.match(sess2.approveForSessionDescription, /rest of this chat/);
-  await sess2.onApproveForSession();
-  assert.deepEqual(calls.at(-1), ["approveWithPolicyChange", target], "Allow for this chat → approveWithPolicyChange(exact target)");
-  assert.equal(session, 1, "the host's chat grant runs once the batch is approved");
+  for (const gone of ["onPermissionsAll", "approveAllScope", "onAllowForSession", "remember"]) {
+    const legacy = presentInteraction(toolWait, controller, { [gone]: async () => {} });
+    assert.equal(legacy.onApproveAll, undefined, `the removed ${gone} option offers nothing`);
+  }
 
   // Decide later / Keep waiting send nothing; Continue without answering resumes empty.
   let deferred = 0;
   const before = calls.length;
-  const later = presentInteraction(toolWait, controller, { onDefer: () => void (deferred += 1), approveAllDisabledReason: "Not offered: a tool is disabled on the gateway.", remember: (names) => ({ label: `Always allow ${names.join(", ")} in this browser`, checked: false, onChange: () => {} }) });
+  const later = presentInteraction(toolWait, controller, { onDefer: () => void (deferred += 1) });
   later.onDefer();
   assert.equal(deferred, 1);
   assert.equal(calls.length, before, "a deferral sends no command (never a deny)");
-  assert.equal(later.disabledReason, "Not offered: a tool is disabled on the gateway.");
-  assert.equal(later.remember.label, "Always allow write_file in this browser", "remember is per tool, worded by the host");
   const skip = presentInteraction({ runId: "run-2", wait: { wait_key: "ask:1", reason: "ask_user", prompt: "Which day?" } }, controller, { allowSkip: true, onDefer: () => {} });
   assert.equal(typeof skip.onDefer, "function", "Keep waiting on a question when injected");
   await skip.onSkip();
   assert.deepEqual(calls.at(-1), ["resume", "", { runId: "run-2", waitKey: "ask:1", stepId: undefined }], "Continue without answering resumes with an empty answer, targeted at the question shown");
-
-  // Review L3: a failed chat-wide grant is surfaced, never an unhandled rejection.
-  const failing = presentInteraction(toolWait, controller, { onAllowForSession: async () => { throw new Error("storage full"); } });
-  await assert.rejects(() => failing.onApproveForSession(), /could not be turned on: storage full/, "a failed Allow for this chat is shown to the person");
 
   // replay_view_v1.interaction → the same control as the raw wait.
   const replayTool = {
@@ -170,7 +180,7 @@ assert.equal(calls.length, before, "nothing emitted");
     "replay tool calls render the same review",
   );
   await fromReplay.onApprove();
-  assert.deepEqual(calls.at(-1), ["approve", true, target], "replay Allow once → the same exact target");
+  assert.deepEqual(calls.at(-1), ["approve", true, target], "replay Allow → the same exact target");
   const replayAsk = { kind: "ask_user", run_id: "run-2", wait_key: "ask:1", step_id: null, prompt: "Which day?", choices: ["Monday", { value: "tue", label: "Tuesday", description: "after 2 pm" }], allow_free_text: false, details: {}, tool_calls: null };
   const askReplay = presentInteraction(replayAsk, controller);
   assert.deepEqual({ ...askReplay, onSubmit: 0 }, { ...ask, onSubmit: 0 }, "replay question = raw question");
@@ -184,19 +194,23 @@ assert.equal(calls.length, before, "nothing emitted");
   const bare = { id: "x", kind: "tool-approval", toolName: "shell", onApprove: noop, onDeny: noop };
   const plain = html(bare);
   assert.match(plain, /data-decision="deny"[^>]*>Deny</, "default Deny");
-  assert.match(plain, /data-decision="approve"[^>]*>Allow once</, "default Allow once (never 'Approve')");
-  for (const d of ["defer", "approve-session", "approve-all"]) assert.ok(!plain.includes(`data-decision="${d}"`), `no ${d} unless injected`);
-  assert.ok(!plain.includes("pc-workflow-interaction__remember"), "no remember checkbox unless injected");
-  const full = html({ ...bare, onApproveForSession: noop, onApproveAll: noop, onDefer: noop, remember: { label: "Always allow shell in this browser", checked: true, onChange: noop } });
+  assert.match(plain, /data-decision="approve"[^>]*>Allow</, "default Allow (never 'Approve' or 'Allow once')");
+  for (const d of ["defer", "approve-all"]) assert.ok(!plain.includes(`data-decision="${d}"`), `no ${d} unless injected`);
+  // The card (operator ruling 2026-11-07): exactly three decisions, no explanatory blocks.
+  const three = html(gw);
+  const buttons = [...three.matchAll(/<button[^>]*data-decision="([^"]+)"[^>]*>([^<]*)</g)].map((m) => [m[1], m[2]]);
+  assert.deepEqual(buttons, [["deny", "Deny"], ["approve", "Allow"], ["approve-all", "Allow All"]], "exactly Deny, Allow, Allow All");
+  assert.match(three, /data-decision="approve"[^>]*title="Allow write_file for the rest of this session"/, "Allow's reach on its tooltip");
+  assert.match(three, /data-decision="approve-all"[^>]*title="Allow every tool for the rest of this session"/, "Allow All's reach on its tooltip");
+  for (const gone of ["Allow once", "Allow for this chat", "Allow all enabled tools", "for this chat", "Review the targets below", "The broader choices", "What the broader choices allow", "<summary>More</summary>", "Always deny", "type=\"checkbox\""]) assert.ok(!three.includes(gone), `no "${gone}" on the card`);
+  assert.ok(three.includes("<summary>Review full tool arguments (JSON)</summary>"), "the JSON disclosure stays");
+  assert.ok(three.includes(">2 actions need permission</h3>"), "the title stays");
+  assert.ok(!three.includes("pc-workflow-interaction__scope"), "no scope paragraph on a session grant");
+  const full = html({ ...bare, onApproveAll: noop, onDefer: noop });
   assert.match(full, /data-decision="defer"[^>]*>Decide later</);
-  assert.match(full, /data-decision="approve-session"[^>]*>Allow for this chat</);
-  assert.match(full, /data-decision="approve-all"[^>]*>Allow all enabled tools</);
-  assert.match(full, /<input type="checkbox" checked=""\/><span>Always allow shell in this browser<\/span>/, "remember checkbox with the host's label");
-  const blocked = html({ ...bare, onApproveForSession: noop, onApproveAll: noop, disabledReason: "Not offered: this batch includes a tool the gateway does not list." });
-  assert.match(blocked, /data-decision="approve-session" disabled=""/, "session grant disabled with a reason");
-  assert.match(blocked, /data-decision="approve-all" disabled=""/, "allow-all disabled with a reason");
-  assert.match(blocked, /data-decision="approve">Allow once</, "Allow once stays available");
-  assert.ok(blocked.includes("Not offered: this batch includes a tool the gateway does not list."), "the reason is visible");
+  assert.match(full, /data-decision="approve-all"[^>]*>Allow All</);
+  const noted = html({ ...bare, scopeNote: "Allow covers this request only." });
+  assert.ok(noted.includes('data-scope-note="">Allow covers this request only.<'), "the one-line note when there is no session grant");
   const askHtml = html({ id: "q", kind: "ask-user", prompt: "Pick", choices: [{ id: "a", label: "A" }], allowFreeText: true, onSubmit: noop, onSkip: noop, onDefer: noop });
   assert.match(askHtml, /data-decision="choice"[^>]*><span>A</, "choices render as buttons");
   assert.ok(askHtml.includes('aria-label="Response"'), "free text when allowed");
@@ -209,7 +223,7 @@ assert.equal(calls.length, before, "nothing emitted");
   assert.ok(cardHtml.includes('class="pc-workflow-interaction pc-workflow-interaction--card" data-variant="card"'), "card variant");
   assert.match(cardHtml, /<details class="pc-workflow-interaction__review"><summary>Review<\/summary>/, "card folds the detail behind Review");
   assert.ok(cardHtml.includes("long explainer"), "card keeps the description (e.g. why an event cannot be sent)");
-  assert.match(cardHtml, /data-decision="approve"[^>]*>Allow once</, "card keeps the same decisions");
+  assert.match(cardHtml, /data-decision="approve"[^>]*>Allow</, "card keeps the same decisions");
   assert.ok(html(bare).includes('data-variant="panel"'), "panel is the default variant");
 
   // Behaviour (hook harness): a deferral never settles; a skip settles once.
@@ -232,4 +246,4 @@ assert.equal(calls.length, before, "nothing emitted");
   assert.equal(byData(q.tree, "data-decision", "skip").props.disabled, true, "skip settles like an answer");
 }
 
-console.log("check_present_interaction: OK (+ 0032 wording set, session/defer/skip only when injected, neutral scope, card variant, replay input)");
+console.log("check_present_interaction: OK (Deny / Allow / Allow All for this session, nothing else on the card, defer/skip only when injected, card variant, replay input)");

@@ -201,7 +201,7 @@ test("new occurrences of the same wait key retain distinct commands while prior 
   await flush();
 });
 
-test("Allow once authorizes the current whole batch but no subsequent batch", async t => {
+test("approving one request authorizes the current whole batch but no subsequent batch", async t => {
   const h = await harness(t);
   h.emit("root", approval("batch:1", ["write_file", "execute_command"]));
   await h.controller.approve(true, target("root", "batch:1"));
@@ -600,7 +600,7 @@ test("a failed automatic approval brings the question back", async t => {
   assert(snapshot.messages.some(m => m.toolActivity?.status === "waiting"), "raw waiting status is restored");
 });
 
-test("an accepted Allow once runs the batch; a Deny keeps the question until the ledger resumes", async t => {
+test("an accepted approval runs the batch; a Deny keeps the question until the ledger resumes", async t => {
   const h = await harness(t);
   h.emit("root", approval("allow"));
   assert.equal(workflowProgress(h.controller.getSnapshot()).label, "Approval needed");

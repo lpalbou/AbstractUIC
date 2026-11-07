@@ -15,9 +15,15 @@ assert.equal(publicApprovalRequest([{...toolCalls[0],call_id:''}],context,'r').e
 const controller={approve:async()=>{},resume:async()=>{},emitEvent:async()=>{}};
 const interaction=presentInteraction({runId:'r',wait:{wait_key:'approval:1',details:{kind:'tool_approval',tool_calls:toolCalls,public_action:context}}},controller);
 const markup=renderToStaticMarkup(React.createElement(WorkflowInteractionPanel,{interaction,variant:'conversation',onReviewTechnical:()=>{}}));
-assert.match(markup,/May I read these 2 webpages/);assert.match(markup,/Why I’m asking/);assert.ok(markup.includes(context.text));assert.match(markup,/aibriefs.news/);assert.match(markup,/Allow once/);assert.match(markup,/Deny/);assert.match(markup,/Review details/);
-for(const term of ['fetch_url','JSON','Tool calls','summary only','Allow all enabled tools','Allow for this chat'])assert.ok(!markup.includes(term),'No technical permission panel in Avatar: '+term);
+assert.match(markup,/May I read these 2 webpages/);assert.match(markup,/Why I’m asking/);assert.ok(markup.includes(context.text));assert.match(markup,/aibriefs.news/);assert.match(markup,/<\/svg>Allow<\/button>/);assert.ok(!markup.includes('Allow once'));assert.match(markup,/Deny/);assert.match(markup,/Review details/);
+for(const term of ['fetch_url','JSON','Tool calls','summary only','Allow all enabled tools','Allow for this chat','covers only what is shown'])assert.ok(!markup.includes(term),'No technical permission panel in Avatar: '+term);
 assert.equal((markup.match(/<svg/g)||[]).length,6,'Header, two destinations and labeled choices use shared icons');
+// Operator ruling 2026-11-07: the same three decisions in the Avatar view when the session keeps them.
+const sessionController={...controller,sessionPolicyStatus:()=>({mode:'gateway',clamped:[],policy:null}),approveToolsForSession:async()=>null,approveAllForSession:async()=>null};
+const session=presentInteraction({runId:'r',wait:{wait_key:'approval:1',details:{kind:'tool_approval',tool_calls:toolCalls,public_action:context}}},sessionController,{sessionPolicy:true});
+const sessionMarkup=renderToStaticMarkup(React.createElement(WorkflowInteractionPanel,{interaction:session,variant:'conversation',onReviewTechnical:()=>{}}));
+assert.deepEqual([...sessionMarkup.matchAll(/data-decision="([^"]+)"/g)].map(m=>m[1]),['deny','approve','approve-all'],'Avatar: Deny, Allow, Allow All');
+assert.match(sessionMarkup,/<\/svg>Allow All<\/button>/);assert.ok(!sessionMarkup.includes('pc-public-approval__note'),'no explanatory note when the session keeps the choice');
 const technical=renderToStaticMarkup(React.createElement(WorkflowInteractionPanel,{interaction}));assert.match(technical,/fetch_url/);assert.match(technical,/JSON/);
 const unknown={...interaction,publicRequest:publicApprovalRequest([{call_id:'u',name:'mcp::server::secret_tool',arguments:{command:'private syntax'}}],null,'r')};
 const review=renderToStaticMarkup(React.createElement(WorkflowInteractionPanel,{interaction:unknown,variant:'conversation'}));assert.ok(!review.includes('data-decision="approve"'));assert.ok(!review.includes('secret_tool'));assert.match(review,/Review the details before allowing/);assert.match(review,/isn’t available here/);

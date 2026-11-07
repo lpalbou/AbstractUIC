@@ -92,8 +92,10 @@ and run panel wants; it is not a dependency of this release.
    so a tool the gateway adds later follows the gateway, and the states are deny / approve /
    approve-all (`off` / `ask` / `auto` on the wire, normalized at the edges).
 
-5. **One wording set per job.** Labels are decided once in the kit (tool approval: Deny / Allow
-   once / Allow for this chat / Allow all enabled tools; decide later is never a deny; the voice
+5. **One wording set per job.** Labels are decided once in the kit (tool approval: Deny / Allow /
+   Allow All, the two allows for the rest of the session only and never a change to the app's
+   defaults — operator ruling 2026-11-07, panel-chat 0.9.0, replacing Deny / Allow once / Allow for
+   this chat / Allow all enabled tools; decide later is never a deny; the voice
    capture button: Hold to talk / Tap to talk; preview: Play sample; the unset choice: Gateway
    default). Apps may relabel through props only when the job itself differs, not for taste.
 
