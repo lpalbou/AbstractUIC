@@ -39,7 +39,7 @@ import {
 
 // ------------------------------------------------------------------ the record (ADR 0052)
 
-export type IdentityLook = { style: string; color: string; source?: string; watch_code?: string };
+export type IdentityLook = { style: string; color: string; source?: string; watch_code?: string | null };
 export type IdentityVoice = { provider: string; model: string; voice: string; speed?: number | null; quality_preset?: string | null; source?: string };
 /** One revision of an identity record as `GET /identity` serves it (`identity`). */
 export type IdentityRecord = { rev: number; avatar: IdentityLook; voice: IdentityVoice | null; set_at: string; set_by: string };
@@ -68,7 +68,7 @@ export type IdentityClient = {
   /** "Create a new voice" through the gateway's voice library (absent: not offered). */
   createVoice?: VoiceCreation;
   /** Start the download a refusal offered (absent: no Download button). */
-  startDownload?(action: IdentityDownload): Promise<void>;
+  startDownload?(action: IdentityDownload): Promise<unknown>;
   /** The avatar designs (default: the kit's catalog). */
   designs?(): Promise<readonly AvatarDesign[]>;
 };
