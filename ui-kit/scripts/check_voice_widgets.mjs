@@ -151,9 +151,28 @@ try {
       globalThis.AudioContext = class extends Real { constructor() { super(); this.state = "suspended"; } };
       globalThis.window.AudioContext = globalThis.AudioContext;
       const failed = await kit.playTestTone({}).then(() => "", (e) => String(e.message));
+      check("Test chime: a held-back context fails with the sentence", failed === kit.CHIME_FAILED, failed);
+      // Review 2026-11-08 R5: a resume that never settles (WebKit refusing) is bounded at 3 s.
+      globalThis.AudioContext = class extends Real { constructor() { super(); this.state = "suspended"; } resume() { return new Promise(() => undefined); } };
+      globalThis.window.AudioContext = globalThis.AudioContext;
+      let t = Date.now();
+      const hung = await kit.playTestTone({}).then(() => "", (e) => String(e.message));
+      check("Test chime: a resume that never answers fails within 3 s", hung === kit.CHIME_FAILED && Date.now() - t < 3500 && Date.now() - t >= 2900, `${hung} after ${Date.now() - t} ms`);
+      // Review 2026-11-08 D2: a last note that never ends is a failure, never "Chime played".
+      globalThis.AudioContext = class extends Real { createOscillator() { const o = super.createOscillator(); o.stop = () => undefined; return o; } };
+      globalThis.window.AudioContext = globalThis.AudioContext;
+      t = Date.now();
+      const silent = await kit.playTestTone({}).then(() => "RESOLVED", (e) => String(e.message));
+      check("Test chime: a chime that never ends fails with the sentence after 2.5 s", silent === "The chime did not finish on this output; pick another output or raise the volume." && Date.now() - t >= 2400, `${silent} after ${Date.now() - t} ms`);
+      // ... and the widget shows that sentence as it is.
+      const w = mount(AfVoiceOutput, { value: {}, onChange: () => undefined, outputSelectable: true });
+      await w.settle();
+      byData(w.tree, "data-action", "test-speaker").props.onClick();
+      await sleep(2700); w.render();
+      check("Test chime: the widget shows the failure sentence, not 'Chime played'", text(byData(w.tree, "data-voice-note", "speaker")) === kit.CHIME_FAILED, text(byData(w.tree, "data-voice-note", "speaker")));
+      w.unmount();
       globalThis.AudioContext = Real;
       globalThis.window.AudioContext = Real;
-      check("Test chime: a held-back context fails with a sentence", failed === "The browser held the sound back: press Test again", failed);
     }
   }
 

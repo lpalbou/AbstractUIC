@@ -621,7 +621,7 @@ export {
 export { voiceCaptureMode, ttsVoiceKey, type VoiceCaptureMode } from "./use_gateway_voice.js";
 export { recordingAbortError } from "./voice_devices.js";
 // ui-kit 0.9.21: rebuild long-lived audio graphs on the current system output (Re-open audio, devicechange).
-export { reopenAudioOutput, onAudioOutputEvent, closeAudioContext, type AudioOutputEvent } from "./voice_devices.js";
+export { reopenAudioOutput, onAudioOutputEvent, closeAudioContext, CHIME_FAILED, type AudioOutputEvent } from "./voice_devices.js";
 export { AfVoiceLevelMeter, useVoiceLevel, type AfVoiceLevelMeterProps, type VoiceLevelSource } from "./af_voice_level_meter.js";
 export { GATEWAY_VOICE_ROUTES, voiceClonePath, voiceCloneDeployPath, runVoiceTtsPath, runTranscribePath, entityVoicePath } from "./gateway_paths.js";
 // --- ui-primitives (tools-models) ---

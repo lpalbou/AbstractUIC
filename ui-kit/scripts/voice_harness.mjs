@@ -170,8 +170,10 @@ export function installFakeBrowser() {
   }
   const param = () => ({ value: 1, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} });
   class FakeAudioContext {
-    constructor() {
+    constructor(options) {
       this.state = "running";
+      this.sampleRate = options?.sampleRate || 48000;
+      this.resumes = 0;
       this.currentTime = 0;
       this.destination = {};
       env.log.contexts.push(this);
@@ -181,6 +183,7 @@ export function installFakeBrowser() {
       return Promise.resolve();
     }
     resume() {
+      this.resumes += 1;
       return Promise.resolve();
     }
     createGain() {

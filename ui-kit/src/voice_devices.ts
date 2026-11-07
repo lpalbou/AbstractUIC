@@ -294,12 +294,30 @@ export async function playOnDevice(data: Blob | ArrayBuffer, opts: { deviceId?: 
   }
 }
 
+/** What the speaker Test says when the chime could not be played to its end on the output. */
+export const CHIME_FAILED = "The chime did not finish on this output; pick another output or raise the volume.";
+
+function chimeFailure(): Error {
+  return Object.assign(new Error(CHIME_FAILED), { name: "ChimeError" });
+}
+
+/** Resolve with `promise`, or reject with the chime failure after `ms`. */
+function withinChimeTime<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(chimeFailure()), ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
 /**
  * The speaker Test: a short two-note chime on the chosen output at `volume`. Resolves once the
  * chime has played out of the device (its last note ended on the audio clock, plus the output's
- * own latency — a Bluetooth headset adds a fifth of a second or more), never on a wall-clock guess
- * that can close the context before a slow output has started. Throws when the browser keeps the
- * context from running (nothing was played; never "Chime played").
+ * own latency — a Bluetooth headset adds a fifth of a second or more). Every wait is bounded and a
+ * bound reached is a failure (`CHIME_FAILED`, `name: "ChimeError"`), never "Chime played": a
+ * context that does not start within 3 s, or a chime whose last note has not ended 2.5 s later.
  */
 export async function playTestTone(opts: { deviceId?: string; volume?: number } = {}): Promise<void> {
   const C = audioContextCtor();
@@ -307,8 +325,9 @@ export async function playTestTone(opts: { deviceId?: string; volume?: number } 
   const ctx = new C();
   try {
     if (opts.deviceId && typeof ctx.setSinkId === "function") await ctx.setSinkId(opts.deviceId);
-    if (ctx.state !== "running") await ctx.resume?.();
-    if (ctx.state !== "running") throw new Error("The browser held the sound back: press Test again");
+    // WebKit never rejects a resume it refuses: the wait is bounded.
+    if (ctx.state !== "running") await withinChimeTime(Promise.resolve(ctx.resume?.()), 3000);
+    if (ctx.state !== "running") throw chimeFailure();
     const gain = ctx.createGain();
     gain.connect(ctx.destination);
     const peak = 0.3 * clampVolume(opts.volume);
@@ -328,14 +347,8 @@ export async function playTestTone(opts: { deviceId?: string; volume?: number } 
       osc.stop(start + 0.21);
       last = osc;
     });
-    // The last note's end on the audio clock (bounded: a context that stalls cannot hang the Test).
-    await new Promise<void>((resolve) => {
-      const guard = setTimeout(resolve, 2500);
-      last.onended = () => {
-        clearTimeout(guard);
-        resolve();
-      };
-    });
+    // The last note's end on the audio clock; not ended within 2.5 s = it did not play.
+    await withinChimeTime(new Promise<void>((resolve) => { last.onended = () => resolve(); }), 2500);
     const tail = Math.max(Number(ctx.outputLatency) || 0, Number(ctx.baseLatency) || 0);
     await new Promise((resolve) => setTimeout(resolve, Math.ceil(tail * 1000) + 120));
   } finally {
@@ -361,10 +374,17 @@ type AudioOutputListener = (event: AudioOutputEvent) => void | Promise<unknown>;
 const audioOutputListeners = new Set<AudioOutputListener>();
 let stopDeviceWatch: (() => void) | null = null;
 
+// Listeners run synchronously, inside the click that asked (a new player must start there).
 function notifyAudioOutput(event: AudioOutputEvent): Promise<void> {
-  return Promise.all(
-    Array.from(audioOutputListeners).map((fn) => Promise.resolve().then(() => fn(event)).catch(() => undefined)),
-  ).then(() => undefined);
+  const pending: Array<Promise<unknown>> = [];
+  for (const fn of Array.from(audioOutputListeners)) {
+    try {
+      pending.push(Promise.resolve(fn(event)).catch(() => undefined));
+    } catch {
+      /* one holder failing never stops the others */
+    }
+  }
+  return Promise.all(pending).then(() => undefined);
 }
 
 /**
@@ -392,8 +412,8 @@ export function onAudioOutputEvent(fn: AudioOutputListener): () => void {
 
 /**
  * Rebuild every long-lived audio graph of the page on the current system output (Settings →
- * Output → "Re-open audio"). Call it from the click: each holder closes its context, waits until
- * it is closed, and opens a new one while the click still counts as a user gesture.
+ * Output → "Re-open audio"). Call it from the click: each holder opens its new context at once,
+ * inside the click, and closes the old one after.
  */
 export function reopenAudioOutput(): Promise<void> {
   return notifyAudioOutput("reopen");

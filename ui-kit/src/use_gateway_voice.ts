@@ -370,6 +370,9 @@ function user_gesture(): boolean {
  */
 export const TTS_REOPEN_AFTER_IDLE_MS = 30_000;
 
+/** The hook that keeps the page's one Read aloud player (`unlock_on_gesture`), if any. */
+let read_aloud_owner: object | null = null;
+
 const applied_sinks = new WeakMap<object, string>();
 function apply_sink(ctx: AudioContext, device: string): void {
   const anyCtx = ctx as any;
@@ -431,10 +434,12 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   const tts_ctx_ref = useRef<AudioContext | null>(null);
   const tts_gain_ref = useRef<GainNode | null>(null);
   // The reply player's lifecycle across output changes: `stale` = the devices changed while it
-  // was busy (dropped once it is idle); `closing` = a close in flight (a new context waits for it,
-  // else WebKit would mix the new one into the old output unit); `idle_since` = when it went quiet.
+  // was busy (dropped once it is idle); `last_rate` = the sample rate of the player last dropped
+  // (the next one uses another, see ensure_tts_webaudio); `idle_since` = when it went quiet.
   const tts_ctx_stale_ref = useRef(false);
-  const tts_ctx_closing_ref = useRef<Promise<void> | null>(null);
+  const tts_last_rate_ref = useRef(0);
+  // At most one hook of the page keeps a player open for Read aloud (`unlock_on_gesture`).
+  const owner_token = useRef({});
   const tts_idle_since_ref = useRef(Date.now());
   const stop_tts_ref = useRef<() => void>(() => undefined);
   const start_playback_meter = useCallback(() => {
@@ -536,30 +541,30 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   };
 
   /**
-   * Drop the reply player's audio graph: the next playback opens a new context on the current
-   * system output. Resolves once the old context is closed. Playback must be stopped first.
+   * Drop the reply player: the next playback opens a new context on the current system output.
+   * The old one closes in the background; nothing ever waits for it (a wait would take the next
+   * playback out of the click that asked for it). Playback must be stopped first.
    */
-  const release_tts_ctx = (): Promise<void> => {
+  const release_tts_ctx = (): void => {
     const ctx = tts_ctx_ref.current;
     const gain = tts_gain_ref.current;
     tts_ctx_stale_ref.current = false;
-    if (!ctx) return tts_ctx_closing_ref.current || Promise.resolve();
+    if (!ctx) return;
     stop_playback_meter();
     tts_ctx_ref.current = null;
     tts_gain_ref.current = null;
+    tts_last_rate_ref.current = Number(ctx.sampleRate) || 0;
     try { ctx.onstatechange = null; } catch { /* ignore */ }
     try { gain?.disconnect(); } catch { /* ignore */ }
-    const closing = closeAudioContext(ctx).then(() => {
-      if (tts_ctx_closing_ref.current === closing) tts_ctx_closing_ref.current = null;
-    });
-    tts_ctx_closing_ref.current = closing;
-    tts_idle_since_ref.current = Date.now();
-    return closing;
+    void closeAudioContext(ctx);
   };
 
-  /** A new reply player on the current system output, started inside the user's gesture. */
-  const reopen_tts_ctx = async (): Promise<void> => {
-    await release_tts_ctx();
+  /**
+   * A new reply player NOW, inside the click or key press that asked for it (Safari starts sound
+   * only there), then the old one closed. Synchronous: no await before the new context resumes.
+   */
+  const replace_tts_ctx = (): void => {
+    release_tts_ctx();
     const engine = ensure_tts_webaudio();
     if (!engine) return;
     try { void Promise.resolve(engine.ctx.resume()).catch(() => undefined); } catch { /* the next Play retries */ }
@@ -571,7 +576,14 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       const Ctx = w?.AudioContext || w?.webkitAudioContext;
       if (!Ctx) return null;
       if (!tts_ctx_ref.current) {
-        const ctx: AudioContext = new Ctx();
+        // WebKit mixes every context with the same sample rate and channel count into one output
+        // unit, kept while any of them lives. The context this one replaces may still be closing:
+        // a different rate gives the new player its own output unit, opened on the current output.
+        const avoid = tts_last_rate_ref.current;
+        let ctx: AudioContext;
+        try { ctx = avoid ? new Ctx({ sampleRate: avoid === 48000 ? 44100 : 48000 }) : new Ctx(); }
+        catch { ctx = new Ctx(); }
+        tts_idle_since_ref.current = Date.now();
         const gain = ctx.createGain();
         gain.gain.value = 1;
         gain.connect(ctx.destination);
@@ -596,45 +608,49 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   // devices changed: an idle player is dropped now, a busy one once it is idle.
   const tts_supported_ref = useRef(false);
   tts_supported_ref.current = tts_supported;
-  useEffect(() => onAudioOutputEvent(async (event) => {
-    const had = Boolean(tts_ctx_ref.current);
+  const owns_read_aloud = () => read_aloud_owner === owner_token.current;
+  useEffect(() => onAudioOutputEvent((event) => {
     if (event === "reopen") {
       stop_tts_ref.current();
-      if (had && tts_supported_ref.current) await reopen_tts_ctx();
-      else await release_tts_ctx();
+      if (owns_read_aloud() && tts_supported_ref.current) replace_tts_ctx();
+      else release_tts_ctx();
       return;
     }
-    if (!had) return;
-    if (tts_playback_ref.current.status === "idle") await release_tts_ctx();
+    if (!tts_ctx_ref.current) return;
+    if (tts_playback_ref.current.status === "idle") release_tts_ctx();
     else tts_ctx_stale_ref.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), []);
+  // Idle: a stale player is dropped; so is any player not kept for Read aloud (a Play click opens
+  // a new one inside the click), so a page never keeps idle players running.
   useEffect(() => {
     if (tts_playback.status !== "idle") return;
     tts_idle_since_ref.current = Date.now();
-    if (tts_ctx_stale_ref.current) void release_tts_ctx();
+    if (tts_ctx_stale_ref.current || !owns_read_aloud()) release_tts_ctx();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tts_playback.status]);
-  // Read aloud on: a click or key press while idle opens the player (or re-opens it when it is
-  // missing, suspended, stale or quiet for TTS_REOPEN_AFTER_IDLE_MS) so a reply arriving later
-  // can start without one.
+  // Read aloud on: this hook keeps the page's one reply player (the first hook that asks; others
+  // do not). A click or key press while idle opens it, or replaces it when it is missing, held
+  // back, stale or quiet for TTS_REOPEN_AFTER_IDLE_MS, so a reply arriving later can start without
+  // one. Read aloud off (or unmount) gives the player up.
   const unlock_on_gesture = opts.unlock_on_gesture === true;
   useEffect(() => {
     if (!unlock_on_gesture || typeof window === "undefined" || typeof window.addEventListener !== "function") return;
-    let busy = false;
+    if (read_aloud_owner && read_aloud_owner !== owner_token.current) return;
+    read_aloud_owner = owner_token.current;
     const onGesture = () => {
-      if (busy || !tts_supported_ref.current || tts_playback_ref.current.status !== "idle") return;
+      if (!tts_supported_ref.current || tts_playback_ref.current.status !== "idle") return;
       const ctx = tts_ctx_ref.current;
       const fresh = ctx && !tts_ctx_stale_ref.current && ctx.state === "running" && Date.now() - tts_idle_since_ref.current <= TTS_REOPEN_AFTER_IDLE_MS;
-      if (fresh) return;
-      busy = true;
-      void reopen_tts_ctx().finally(() => { busy = false; });
+      if (!fresh) replace_tts_ctx();
     };
     window.addEventListener("pointerdown", onGesture, true);
     window.addEventListener("keydown", onGesture, true);
     return () => {
       window.removeEventListener("pointerdown", onGesture, true);
       window.removeEventListener("keydown", onGesture, true);
+      if (read_aloud_owner === owner_token.current) read_aloud_owner = null;
+      if (tts_playback_ref.current.status === "idle") release_tts_ctx();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unlock_on_gesture]);
@@ -927,16 +943,16 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     // A Play click that is not pausing or resuming the person's own pause opens a new reply
     // player when the old one cannot be trusted: not running (held back by the browser,
     // interrupted), stale after a device change, or quiet for TTS_REOPEN_AFTER_IDLE_MS. The new
-    // context starts on the current system output; the reply starts over in it.
+    // context starts on the current system output, synchronously inside the click (no await
+    // before it resumes); the reply starts over in it.
     const before = tts_playback_ref.current;
     const old_ctx = tts_ctx_ref.current;
     if (user_gesture() && old_ctx && before.status !== "playing" && !tts_paused_ref.current
         && (tts_ctx_stale_ref.current || old_ctx.state !== "running"
           || (before.status === "idle" && Date.now() - tts_idle_since_ref.current > TTS_REOPEN_AFTER_IDLE_MS))) {
       stop_tts();
-      await release_tts_ctx();
+      replace_tts_ctx();
     }
-    if (tts_ctx_closing_ref.current) await tts_ctx_closing_ref.current;
 
     const engine = ensure_tts_webaudio();
     if (!engine) {

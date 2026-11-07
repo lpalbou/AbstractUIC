@@ -120,10 +120,12 @@ export function AfVoiceOutput<T extends VoiceOutputValue>(p: AfVoiceOutputProps<
     void playTestTone({ deviceId: selectable ? value.output_device || "" : "", volume })
       .then(() => {
         if (!alive.current) return;
-        const heard = "Chime played. Heard nothing? Pick Re-open audio, another output, or raise the volume.";
+        const heard = selectable
+          ? "Chime played. Heard nothing? Pick Re-open audio, another output, or raise the volume."
+          : "Chime played. Heard nothing? Pick Re-open audio, or raise the volume.";
         setNote({ text: muted ? `${heard} Replies are muted: unmute them to hear them.` : heard, tone: "ok" });
       })
-      .catch((e) => alive.current && setNote({ text: `The speaker test failed: ${String(e?.message || e).replace(/\.$/, "")}.`, tone: "error" }));
+      .catch((e) => alive.current && setNote({ text: e?.name === "ChimeError" ? String(e.message) : `The speaker test failed: ${String(e?.message || e).replace(/\.$/, "")}.`, tone: "error" }));
   };
 
   const reopen = () => {

@@ -48,6 +48,8 @@ export function useDocsVoice(props: {fetchGateway:GatewayFetch; connected:boolea
   const available=props.connected && docsVoiceAvailable(defaults,preferences);
   const voice=useGatewayVoice({
     ...gatewayVoiceOptions(preferences),
+    // The Docs assistant never reads by itself: it keeps no player open (the host's own hook does).
+    unlock_on_gesture: false,
     tts_stream: available ? async function* (text,signal) {
       const message=selected.current;
       if (!message) throw new Error("Choose a reply to read aloud.");
