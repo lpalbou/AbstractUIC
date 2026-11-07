@@ -23,6 +23,7 @@
  *   --accent   (NO fallback — theme.css required)
  *   --accent-border
  *   --accent-subtle
+ *   --bg-card
  *   --bg-secondary
  *   --border
  *   --error   (NO fallback — theme.css required)
@@ -32,7 +33,6 @@
  *   --font-mono   (NO fallback — theme.css required)
  *   --font-sans   (NO fallback — theme.css required)
  *   --font-size-base
- *   --font-size-md
  *   --font-size-sm
  *   --font-size-xs
  *   --font-size-xxs
@@ -62,13 +62,13 @@
  *   --warning-subtle
  *   --warning-text
  *
- * CLASS SET (100): pc-chat-attachment-chip, pc-chat-attachment-name, pc-chat-attachment-target, pc-chat-attachment-target--client, pc-chat-attachment-target--repo, pc-chat-attachment-target--server, pc-chat-attachments, pc-chat-avatar, pc-chat-body, pc-chat-footer, pc-chat-header, pc-chat-header-actions, pc-chat-header-spacer, pc-chat-hint, pc-chat-hint--error, pc-chat-hint--warn, pc-chat-icon-btn, pc-chat-icon-btn--copied, pc-chat-icon-btn--failed, pc-chat-item, pc-chat-item--assistant, pc-chat-item--error, pc-chat-item--report_bug, pc-chat-item--report_feature, pc-chat-item--status, pc-chat-item--user, pc-chat-item--warn, pc-chat-live-caption, pc-chat-live-dot, pc-chat-live-indicator, pc-chat-media, pc-chat-media__audio, pc-chat-media__caption, pc-chat-media__error, pc-chat-media__file-name, pc-chat-media__file-open, pc-chat-media__file-row, pc-chat-media__file-size, pc-chat-media__image, pc-chat-media__item, pc-chat-media__item--file, pc-chat-media__link, pc-chat-media__transcript, pc-chat-media__transcript-text, pc-chat-media__video, pc-chat-role, pc-chat-speak-spinner, pc-chat-stat, pc-chat-stat--clickable, pc-chat-stat--detail, pc-chat-stat-icon, pc-chat-stat-label, pc-chat-stats, pc-chat-thinking, pc-chat-thinking-body, pc-chat-thread, pc-chat-time, pc-stat-detail, pc-stat-detail-foot, pc-stat-detail-head, pc-stat-detail-heading, pc-stat-detail-headline, pc-stat-detail-hint, pc-stat-detail-note, pc-stat-detail-rows, pc-stat-detail-section, pc-stat-detail-table, pc-stat-detail-title, pc-stat-detail-value, pc-stat-detail-value--absent, pc-tool-activity, pc-tool-activity--completed, pc-tool-activity--failed, pc-tool-activity--running, pc-tool-activity--waiting, pc-tool-activity__chevron, pc-tool-activity__detail, pc-tool-activity__detail-heading, pc-tool-activity__duration, pc-tool-activity__error, pc-tool-activity__key, pc-tool-activity__output, pc-tool-activity__parameters, pc-tool-activity__policy, pc-tool-activity__policy-line, pc-tool-activity__preview, pc-tool-activity__state-icon, pc-tool-activity__status, pc-tool-activity__summary, pc-tool-group, pc-tool-group__completed, pc-tool-group__failed, pc-tool-group__heading, pc-tool-group__running, pc-tool-group__waiting, pc-tool-sandbox, pc-tool-sandbox__builtin, pc-tool-sandbox__line, pc-tool-sandbox__mode, pc-tool-sandbox__rows
+ * CLASS SET (104): pc-chat-attachment-chip, pc-chat-attachment-name, pc-chat-attachment-target, pc-chat-attachment-target--client, pc-chat-attachment-target--repo, pc-chat-attachment-target--server, pc-chat-attachments, pc-chat-avatar, pc-chat-body, pc-chat-footer, pc-chat-header, pc-chat-header-actions, pc-chat-header-spacer, pc-chat-hint, pc-chat-hint--error, pc-chat-hint--warn, pc-chat-icon-btn, pc-chat-icon-btn--copied, pc-chat-icon-btn--failed, pc-chat-item, pc-chat-item--assistant, pc-chat-item--error, pc-chat-item--report_bug, pc-chat-item--report_feature, pc-chat-item--status, pc-chat-item--user, pc-chat-item--warn, pc-chat-live-caption, pc-chat-live-dot, pc-chat-live-indicator, pc-chat-media, pc-chat-media__audio, pc-chat-media__caption, pc-chat-media__error, pc-chat-media__file-name, pc-chat-media__file-open, pc-chat-media__file-row, pc-chat-media__file-size, pc-chat-media__image, pc-chat-media__item, pc-chat-media__item--file, pc-chat-media__link, pc-chat-media__transcript, pc-chat-media__transcript-text, pc-chat-media__video, pc-chat-role, pc-chat-speak-spinner, pc-chat-stat, pc-chat-stat--clickable, pc-chat-stat--detail, pc-chat-stat-icon, pc-chat-stat-label, pc-chat-stats, pc-chat-thinking, pc-chat-thinking-body, pc-chat-thread, pc-chat-time, pc-chat-working, pc-md, pc-stat-detail, pc-stat-detail-foot, pc-stat-detail-head, pc-stat-detail-heading, pc-stat-detail-headline, pc-stat-detail-hint, pc-stat-detail-note, pc-stat-detail-rows, pc-stat-detail-section, pc-stat-detail-table, pc-stat-detail-title, pc-stat-detail-value, pc-stat-detail-value--absent, pc-tool-activity, pc-tool-activity--completed, pc-tool-activity--failed, pc-tool-activity--running, pc-tool-activity--waiting, pc-tool-activity__chevron, pc-tool-activity__detail, pc-tool-activity__detail-heading, pc-tool-activity__duration, pc-tool-activity__error, pc-tool-activity__key, pc-tool-activity__output, pc-tool-activity__parameters, pc-tool-activity__policy, pc-tool-activity__policy-line, pc-tool-activity__preview, pc-tool-activity__state-icon, pc-tool-activity__status, pc-tool-activity__summary, pc-tool-group, pc-tool-group__completed, pc-tool-group__failed, pc-tool-group__heading, pc-tool-group__running, pc-tool-group__waiting, pc-tool-sandbox, pc-tool-sandbox__builtin, pc-tool-sandbox__line, pc-tool-sandbox__mode, pc-tool-sandbox__rows, pc-working-dots, pc-working-dots__dot
  */
 
 .pc-chat-thread {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
   min-width: 0;
   max-width: 100%;
   overflow: auto;
@@ -90,28 +90,31 @@
  *   - entity + flow consume it via the package import.
  * The corner-cut signature (user: bottom-right, assistant: bottom-left) and
  * the variant vocabulary (user/assistant/status/warn/error/report_*) are the
- * contract surface. */
+ * contract surface.
+ * The compact message (panel-chat 0.9.1, operator 2026-11-07): the web
+ * Assistant's recipe became the default so every app looks the same unless it
+ * overrides — a light card with a small name and time (UI font, never
+ * monospace), no avatar tile, the user's message a tinted bubble with no frame. */
 .pc-chat-item {
   position: relative;
-  border-radius: 12px;
+  border-radius: 20px;
   border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
-  background: var(--ui-surface-1, rgba(0, 0, 0, 0.18));
-  padding: 12px 14px;
-  max-width: min(92%, var(--reading-max, 86ch));
+  background: var(--bg-card, var(--ui-surface-1, rgba(0, 0, 0, 0.18)));
+  padding: 16px 18px;
+  max-width: min(96%, var(--reading-max, 86ch));
 }
 
 .pc-chat-item--user {
   align-self: flex-end;
+  max-width: min(85%, var(--reading-max, 86ch));
   background: var(--info-subtle, rgba(96, 165, 250, 0.10));
-  border-color: var(--info-border, rgba(96, 165, 250, 0.30));
-  border-bottom-right-radius: var(--radius-sm, 6px);
+  border-color: transparent;
+  border-bottom-right-radius: 7px;
 }
 
 .pc-chat-item--assistant {
   align-self: flex-start;
-  background: var(--accent-subtle, rgba(233, 69, 96, 0.10));
-  border-color: var(--accent-border, rgba(233, 69, 96, 0.30));
-  border-bottom-left-radius: var(--radius-sm, 6px);
+  border-bottom-left-radius: 7px;
 }
 
 .pc-chat-item--status {
@@ -157,19 +160,21 @@
 .pc-chat-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 7px;
+  margin-bottom: 9px;
   min-width: 0;
 }
 
+/* The name says who speaks: the avatar tile stays in the markup (an app may
+ * show it) but is not part of the default message. */
 .pc-chat-avatar {
+  display: none;
   width: 24px;
   height: 24px;
   border-radius: 999px;
   background: var(--ui-surface-2, rgba(255, 255, 255, 0.06));
   border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
   color: var(--text-secondary, rgba(255, 255, 255, 0.70));
-  display: flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
@@ -207,8 +212,8 @@
 }
 
 .pc-chat-role {
-  font-weight: 650;
-  font-size: var(--font-size-md, 13px);
+  font-weight: 600;
+  font-size: var(--font-size-sm, 12px);
   color: var(--text-primary, rgba(255, 255, 255, 0.92));
   min-width: 0;
 }
@@ -219,9 +224,9 @@
 }
 
 .pc-chat-time {
-  font-size: var(--font-size-xs, 11px);
+  font-size: var(--font-size-xxs, 10px);
   color: var(--text-muted, rgba(255, 255, 255, 0.55));
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: inherit;
 }
 
 .pc-chat-header-actions {
@@ -305,9 +310,8 @@
   .pc-tool-group__heading { flex-wrap: wrap; }
 }
 @container pc-thread (max-width: 359.98px) {
-  .pc-chat-item { max-width: 100%; padding: 10px 12px; }
+  .pc-chat-item { max-width: 100%; padding: 12px 14px; }
   .pc-chat-item--user { max-width: 94%; }
-  .pc-chat-header { gap: 8px; margin-bottom: 8px; }
 }
 @media (pointer: coarse) {
   .pc-tool-activity__summary { min-height: 44px; }
@@ -371,6 +375,52 @@
   color: var(--text-primary, rgba(255, 255, 255, 0.92));
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+/* The message body (panel-chat 0.9.1, as the web Assistant shows it): the
+ * Markdown's first and last blocks add no margin inside the card. */
+.pc-chat-item .pc-chat-body .pc-md > :first-child { margin-top: 0; }
+.pc-chat-item .pc-chat-body .pc-md > :last-child { margin-bottom: 0; }
+
+/* Working dots (WorkingDots; WorkflowChat `working`): where the assistant's
+ * reply will appear, three dots rise in turn — the desktop Assistant's
+ * thinking dots. Static under reduced motion. */
+.pc-chat-working {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid var(--ui-border-1, rgba(255, 255, 255, 0.10));
+  border-radius: 20px;
+  border-bottom-left-radius: 7px;
+  background: var(--bg-card, var(--ui-surface-1, rgba(0, 0, 0, 0.18)));
+}
+.pc-working-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 40px;
+  height: 18px;
+}
+.pc-working-dots__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted, rgba(255, 255, 255, 0.55));
+  opacity: 0.55;
+  animation: pc-working-dot 0.74s ease-in-out infinite;
+}
+.pc-working-dots__dot:nth-child(2) { animation-delay: 0.11s; }
+.pc-working-dots__dot:nth-child(3) { animation-delay: 0.22s; }
+@keyframes pc-working-dot {
+  0% { transform: translateY(0); background: var(--accent, rgba(120, 170, 255, 0.9)); opacity: 0.92; }
+  25% { transform: translateY(-4.5px); background: var(--accent, rgba(120, 170, 255, 0.9)); opacity: 0.92; }
+  50% { transform: translateY(0); background: var(--accent, rgba(120, 170, 255, 0.9)); opacity: 0.92; }
+  50.01%, 100% { transform: translateY(0); background: var(--text-muted, rgba(255, 255, 255, 0.55)); opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pc-working-dots__dot { animation: none; }
 }
 
 /* Live (streaming) assistant reply */
