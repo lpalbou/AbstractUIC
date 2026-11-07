@@ -14,9 +14,9 @@ AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t
 ## What's new in 0.10.2
 
 `@abstractframework/ui-kit` 0.9.15 and `@abstractframework/panel-chat` 0.8.2 align
-voice state with audible playback, keep pending synthesis visible, and simplify
-avatar conversation controls. The listening avatar responds to microphone energy
-([changelog](./CHANGELOG.md#0102---2026-11-07)).
+voice state with audible playback, resume browser-paused read-aloud without synthesizing it
+again, add a read-aloud button to the avatar conversation's live line and highlight the selected
+session card ([changelog](./CHANGELOG.md#0102---2026-11-07)).
 
 ## What's new in 0.10.1
 

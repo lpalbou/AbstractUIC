@@ -453,8 +453,16 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   // text and the voice key at synthesis time. A paused message resumes only when all three still
   // match; "" = nothing reusable (no voice known, or nothing kept).
   const tts_audio_id_ref = useRef<string>("");
+  // WHICH message and text the held audio says, voice or not: a source the browser only
+  // suspended is still this message's audio, so its resume needs no voice identity.
+  const tts_audio_text_ref = useRef<string>("");
   const tts_resume_attempt_ref = useRef(0);
   const tts_resume_error_ref = useRef(false);
+  const clear_tts_resume_error = () => {
+    if (!tts_resume_error_ref.current) return;
+    tts_resume_error_ref.current = false;
+    set_error?.("");
+  };
   const tts_audio_id = (key: string, text: string): string => {
     const voice = ttsVoiceKey(opts_ref.current.tts_voice);
     return voice ? `${key}\u0001${text}\u0001${voice}` : "";
@@ -471,6 +479,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
       : tts_loading_key_ref.current === key ? "loading"
       : tts_stream_done_ref.current ? "idle" : (tts_segments_ref.current.length ? "playing" : "loading");
     apply_tts_playback({ key: status === "idle" ? "" : key, status });
+    if (tts_ctx_ref.current?.state === "running") clear_tts_resume_error();
     const audible = status === "playing" && hasAudio && tts_ctx_ref.current?.state === "running" && Boolean(tts_gain_ref.current?.gain.value);
     set_tts_speaking(audible);
     if (audible) start_playback_meter(); else stop_playback_meter();
@@ -491,10 +500,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     try { void ctx.resume().then(() => {
       if (attempt !== tts_resume_attempt_ref.current) return;
       sync_tts_playback();
-      if (ctx.state === "running" && tts_resume_error_ref.current) {
-        tts_resume_error_ref.current = false;
-        set_error?.("");
-      }
+      if (ctx.state === "running") clear_tts_resume_error();
     }, failed); }
     catch { failed(); }
   };
@@ -578,8 +584,10 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     tts_key_ref.current = "";
     tts_buffer_ref.current = null;
     tts_audio_id_ref.current = "";
+    tts_audio_text_ref.current = "";
     tts_offset_ref.current = 0;
     tts_started_at_ref.current = 0;
+    clear_tts_resume_error();
     apply_tts_playback({ key: "", status: "idle" });
   }, [stop_tts_source, apply_tts_playback]);
 
@@ -739,6 +747,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     tts_key_ref.current = key;
     tts_loading_key_ref.current = key;
     tts_audio_id_ref.current = tts_audio_id(key, text);
+    tts_audio_text_ref.current = `${key}\u0001${text}`;
     apply_tts_playback({ key, status: "loading" });
     set_error?.("");
 
@@ -817,7 +826,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     // Browser suspension freezes the audio clock, retaining the current source and offset.
     // Resume that source, not a new buffer starting at the last user-pause position.
     if (is_same && playback.status === "paused" && !tts_paused_ref.current
-        && tts_audio_id_ref.current !== "" && tts_audio_id_ref.current === tts_audio_id(key, t)
+        && tts_audio_text_ref.current === `${key}\u0001${t}`
         && (tts_source_ref.current || tts_sched_ref.current.length)) {
       sync_tts_playback();
       return;
@@ -898,6 +907,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     tts_key_ref.current = key;
     tts_loading_key_ref.current = key;
     tts_audio_id_ref.current = tts_audio_id(key, t);
+    tts_audio_text_ref.current = `${key}\u0001${t}`;
     apply_tts_playback({ key, status: "loading" });
     set_error?.("");
 

@@ -14,8 +14,19 @@ Other packages retain their published versions.
 
 ### Fixed
 
-- Voice controls and avatars reflect audible playback, browser suspension and delayed synthesis; repeated clicks during synthesis do not create duplicate speech requests.
-- Avatar conversations use the composer microphone and message playback control without duplicate microphone or read-aloud buttons. Message borders and action icons follow the shared theme.
+- Read-aloud no longer stays on "loading" when the browser blocks audio playback. Voice controls and
+  avatars say "speaking" only while the audio is audible. Play after the browser suspended playback
+  resumes the same audio without synthesizing it again, also in apps that pass no voice selection.
+- When the browser refuses playback, a notice explains it; the notice now clears once audio plays,
+  when the browser resumes playback by itself, or on Stop.
+
+### Changed
+
+- `useGatewayVoice()` returns `tts_speaking`: true only while spoken audio is audible.
+- Avatar conversation: the live line has its own read-aloud button; completed answers no longer
+  carry an accent border; buttons inside messages follow the shared theme.
+- The selected session card is clearly highlighted (accent outline, stronger tint, bold title).
+- `ActivityAvatar` defaults to the `watch-hover` design (was `halo`).
 
 ## 0.10.1 - 2026-11-03
 

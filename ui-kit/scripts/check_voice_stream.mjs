@@ -226,11 +226,12 @@ try {
 
   // A browser may block autoplay indefinitely. A later explicit Play resumes the already
   // queued source, including after interruption halfway through a non-streamed reply.
-  for (const streamed of [false, true]) {
+  // Hosts that pass no voice selection (Entity, Code web, the Assistant web app) resume the same way.
+  for (const tts_voice of [{ voice: "sisko" }, undefined]) for (const streamed of [false, true]) {
     AudioContext.initialState = "suspended";
     AudioContext.resumeBlocked = true;
     let syntheses = 0;
-    const g = mount(streamed ? {} : { tts_stream: undefined, tts: async () => { syntheses++; return new ArrayBuffer(8); } });
+    const g = mount(streamed ? { tts_voice } : { tts_voice, tts_stream: undefined, tts: async () => { syntheses++; return new ArrayBuffer(8); } });
     const p = g.voice.toggle_tts("blocked", "Read this");
     await tick();
     const req = streamed ? requests.at(-1) : null;
@@ -271,6 +272,21 @@ try {
     await g.voice.toggle_tts("retry", "Read this"); await tick();
     assert.equal(g.speaking(), true);
     assert.equal(g.error(), "", "successful Play clears the browser refusal notice");
+    g.voice.stop_tts(); g.unmount();
+    AudioContext.initialState = "running"; AudioContext.resumeBlocked = false;
+  }
+
+  // The refusal notice also clears when the browser resumes playback by itself, and on Stop.
+  for (const recovery of ["browser", "stop"]) {
+    AudioContext.initialState = "suspended"; AudioContext.resumeBlocked = true;
+    const g = mount({ tts_stream: undefined, tts: async () => new ArrayBuffer(8) });
+    await g.voice.toggle_tts("notice", "Read this");
+    const ctx = AudioContext.instances.at(-1);
+    ctx.pendingResumes[0].reject(new Error("autoplay refused")); await tick();
+    assert.match(g.error(), /paused by the browser/i);
+    if (recovery === "browser") { ctx.state = "running"; ctx.onstatechange(); }
+    else g.voice.stop_tts();
+    assert.equal(g.error(), "", `the browser refusal notice clears (${recovery})`);
     g.voice.stop_tts(); g.unmount();
     AudioContext.initialState = "running"; AudioContext.resumeBlocked = false;
   }
