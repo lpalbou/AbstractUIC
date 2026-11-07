@@ -7,6 +7,31 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.11 - 2026-11-08 (local build, not published)
+
+Packages: `@abstractframework/panel-chat` 0.9.4 (from 0.9.3), `@abstractframework/ui-kit` 0.9.22 (from 0.9.21). Other packages retain their published versions.
+
+### Fixed
+
+- **A new reply player starts inside the click that asked for it.** A Play click, **Re-open audio** and, with Read
+  aloud on, a click or key press, open the new audio context and ask it to start before anything is awaited (Safari
+  counts a click only while it is being handled), then close the old one in the background. The new context uses
+  another sample rate than the one it replaces, so WebKit gives it its own output unit while the old one closes.
+- **At most one reply player per page stays open, and only for Read aloud.** A player not kept for Read aloud is
+  closed once its reply ends (Play opens a new one); the first hook with Read aloud on keeps the page's one player
+  (the Docs assistant keeps none); turning Read aloud off releases it.
+- **The speaker Test never claims a chime it did not finish.** Starting the output is bounded at 3 s and the chime's
+  last note at 2.5 s; either bound reached says "The chime did not finish on this output; pick another output or
+  raise the volume." In Safari the success note no longer suggests another output.
+
+### Known limits
+
+- If the devices change while the model is still thinking (headphones connect after Send), Safari cannot start the
+  reply without a click: after 1.5 s it says "Audio playback is paused by the browser. Press Play to try again."
+- Safari reports no event when the output is switched in macOS Sound settings. A reply less than 30 s after your last
+  click or key press plays on the player opened before the switch and may be silent with no message; Play (after
+  30 s of silence) or **Re-open audio** moves it to the current output.
+
 ## 0.10.10 - 2026-11-07 (local build, not published)
 
 Packages: `@abstractframework/panel-chat` 0.9.3 (from 0.9.2), `@abstractframework/ui-kit` 0.9.21 (from 0.9.20). Other packages retain their published versions.
