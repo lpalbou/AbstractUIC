@@ -7,6 +7,17 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## Unreleased
+
+### Changed
+
+- **`EntityCard` reads as a person's card, not a code panel** (`@abstractframework/ui-kit`; operator 2026-11-07:
+  "it looks very system, coder; better separation between header and body"). The proportional UI font everywhere;
+  the head (portrait, name, now line with a dot in the phase's colour) on a faint wash of the entity's colour,
+  separated from the body by a hairline; sentence-case section labels at reading size; interests as a soft list;
+  the facts and the actions as quiet footers; the phase radio spans the card. Same information, same words.
+- **`AfPhaseRadio` uses the UI font** instead of monospace (its pills read as code tags), at the small text size.
+
 ## 0.10.4 - 2026-11-07
 
 Packages: `@abstractframework/ui-kit` 0.9.17 (from 0.9.16). Other packages retain their published versions.
