@@ -13,6 +13,9 @@ AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t
 
 ## What's new in 0.10.3
 
+`@abstractframework/ui-kit` 0.9.17 adds `EntityCard`, one card for an entity in every app, drawn from
+AbstractGateway 0.21.0's tile read ([changelog](./CHANGELOG.md#0104---2026-11-07)).
+
 `@abstractframework/ui-kit` 0.9.16: a resting avatar moves as smoothly as a speaking one
 (24 frames per second in the Avatar view, was 6), and a small avatar is drawn at its
 small size ([changelog](./CHANGELOG.md#0103---2026-11-07)).

@@ -817,6 +817,20 @@ export {
 } from "./brand_icons.js";
 export { ActivityAvatar, type ActivityAvatarProps, type AvatarQuality } from "./activity_avatar.js";
 export { SessionCard, type SessionCardProps } from "./session_card.js";
+// An entity at a glance (gateway backlog 1012: `GET /entities/{name}/tile`): one card for every app.
+export { EntityCard, type EntityCardProps, type EntityCardStatus, type EntityCardDensity } from "./entity_card.js";
+export {
+  entityAgeWords,
+  entityCardSummary,
+  entityCountsWords,
+  entityDurationWords,
+  entityMomentWords,
+  entityNowWords,
+  entityTroubleWords,
+  entityWhenWords,
+  type EntityTile,
+  type EntityTilePhase,
+} from "./entity_card_words.js";
 export { AutomationCard, automationCardSchedule, automationCardNext, type AutomationCardProps } from "./automation_card.js";
 export { sessionContentRevision, sessionReadTarget, sessionOpeningReceipts, isConversationTurn, sessionNeedsAttention, sessionActivityFromRuns, sessionReadScope, SessionReadStore, type SessionActivity, type SessionReceipt } from "./session_activity.js";
 export { createSessionReadClient, sessionReadIdentity, sessionReadEventReceipt, type SessionReadClient, type SessionReadEvent } from "./session_read_client.js";

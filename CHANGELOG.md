@@ -7,6 +7,24 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.4 - 2026-11-07
+
+Packages: `@abstractframework/ui-kit` 0.9.17 (from 0.9.16). Other packages retain their published versions.
+Needs AbstractGateway 0.21.0 for the tile read; on older gateways hosts fall back to their card reads.
+
+### Added
+
+- **`EntityCard`: an entity at a glance, one card for every app** (`@abstractframework/ui-kit`). It draws
+  AbstractGateway's new tile read (`GET /entities/{name}/tile`, gateway backlog 1012) in plain words: its look and
+  name; what it is doing now and for how long ("Asleep · for 3 months", "In a visit · busy now · for 12 minutes",
+  "Resting · just now"); a
+  warning when its own time stopped after repeated failures; what it is into lately, what is on its mind and its latest
+  lesson, in its own words; its last moment ("A visit ended · 1 hour ago"); its age, its model and the counts a person reads
+  ("33 lessons learned · 29 open problems"). Full (grid) and compact (strip) densities, host actions at the bottom;
+  loading holds the final size, stale says how old the details are, unavailable says so in one line. The words live once in
+  `entity_card_words.ts`. Checked in Chromium at 1440 and 400 px. AbstractObserver's Board and AbstractEntity's home
+  grid adopt it next.
+
 ## 0.10.3 - 2026-11-07
 
 Packages: `@abstractframework/ui-kit` 0.9.16 (from 0.9.15). Other packages retain their published

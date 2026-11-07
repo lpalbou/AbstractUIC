@@ -8412,3 +8412,49 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 .af-automation-card__schedule > span { overflow: hidden; text-overflow: ellipsis; }
 .af-session-card__meta > .af-automation-card__unseen { margin-left: auto; justify-content: center; min-width: 18px; box-sizing: border-box; padding: 1px 5px; border-radius: 9px; background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); font-weight: 400; }
 /* End shared session cards. */
+
+/* Entity card (EntityCard, gateway backlog 1012): an entity at a glance — who, what it is doing
+ * now and for how long, what it is into lately, what is on its mind, its last moment, age, mind and
+ * counts; host actions at the bottom. Fluid: it fills its cell from a 400 px phone to a wide grid.
+ * Every text row reserves its lines (`data-lines`), so the loading placeholder holds the final
+ * size and a card never jumps when its tile arrives. */
+.af-entity-card { --af-entity-lh: 1.35; --af-entity-muted: var(--text-secondary); display: flex; flex-direction: column; gap: 10px; min-width: 0; width: 100%; box-sizing: border-box; padding: 12px 14px; border: 1px solid var(--ui-border-1); border-radius: var(--radius-lg, 14px); background: var(--bg-card); color: var(--text-primary); font-size: var(--font-size-sm, 13px); line-height: var(--af-entity-lh); }
+.af-entity-card[data-density="compact"] { gap: 7px; padding: 10px 11px; }
+.af-entity-card[data-trouble] { border-color: var(--warning-border); }
+.af-entity-card__head { display: flex; align-items: center; gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: var(--radius-md, 10px); background: transparent; color: inherit; font: inherit; text-align: left; text-decoration: none; }
+button.af-entity-card__head, a.af-entity-card__head { cursor: pointer; }
+.af-entity-card__head:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+a.af-entity-card__head:hover .af-entity-card__name, button.af-entity-card__head:hover .af-entity-card__name { text-decoration: underline; text-underline-offset: 3px; }
+.af-entity-card__orb { display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; overflow: hidden; }
+.af-entity-card__orb canvas { display: block; width: 100%; height: 100%; }
+.af-entity-card__orb.is-plain { background: color-mix(in srgb, var(--af-entity-color, var(--text-secondary)) 28%, var(--bg-secondary)); color: var(--text-primary); font-weight: 600; font-size: var(--font-size-base, 14px); }
+.af-entity-card__who { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.af-entity-card__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--font-size-base, 14px); font-weight: 600; min-height: calc(var(--af-entity-lh) * 1em); }
+.af-entity-card__now { display: block; color: var(--af-entity-muted); min-height: calc(var(--af-entity-lh) * 1em); }
+.af-entity-card[data-density="compact"] .af-entity-card__now { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.af-entity-card__busy { color: var(--text-primary); font-weight: 500; }
+.af-entity-card[data-phase="stopped"] .af-entity-card__now { color: var(--text-primary); }
+.af-entity-card__note { font-style: italic; }
+.af-entity-card__trouble { margin: 0; padding: 6px 9px; border: 1px solid var(--warning-border); border-radius: var(--radius-md, 10px); background: var(--warning-subtle); color: var(--text-primary); font-size: var(--font-size-xs, 12px); }
+.af-entity-card__body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.af-entity-card[data-density="compact"] .af-entity-card__body { gap: 5px; }
+.af-entity-card__section { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.af-entity-card__label { color: var(--text-muted); font-size: var(--font-size-xxs, 11px); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.af-entity-card__list { display: flex; flex-direction: column; gap: 0; margin: 0; padding: 0; list-style: none; }
+.af-entity-card__section[data-reserve="3"] > :not(.af-entity-card__label) { min-height: calc(var(--af-entity-lh) * 3em); }
+.af-entity-card__line { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; overflow-wrap: anywhere; min-height: calc(var(--af-entity-lh) * 1em); }
+.af-entity-card__line[data-lines="2"] { -webkit-line-clamp: 2; min-height: calc(var(--af-entity-lh) * 2em); }
+.af-entity-card__empty { color: var(--text-muted); }
+.af-entity-card__facts { display: flex; flex-direction: column; gap: 2px; padding-top: 8px; border-top: 1px solid var(--ui-border-1); color: var(--af-entity-muted); font-size: var(--font-size-xs, 12px); }
+.af-entity-card__fact-row { display: flex; column-gap: 10px; min-width: 0; min-height: calc(var(--af-entity-lh) * 1em); overflow: hidden; white-space: nowrap; }
+.af-entity-card__fact-row > span { overflow: hidden; text-overflow: ellipsis; }
+.af-entity-card__fact-row > span:first-child { flex-shrink: 0; }
+.af-entity-card__stale { margin: 0; color: var(--text-muted); font-size: var(--font-size-xs, 12px); font-style: italic; }
+.af-entity-card__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--ui-border-1); }
+.af-entity-card__sk { display: block; height: calc(var(--af-entity-lh) * 1em); max-width: 100%; border-radius: 6px; background: color-mix(in srgb, var(--text-secondary) 14%, transparent); animation: af-entity-card-pulse 1.4s ease-in-out infinite; }
+.af-entity-card__sk[data-lines="2"] { height: calc(var(--af-entity-lh) * 2em); }
+.af-entity-card__sk[data-lines="3"] { height: calc(var(--af-entity-lh) * 3em); }
+@keyframes af-entity-card-pulse { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .af-entity-card__sk { animation: none; } }
+@media (max-width: 479.98px) { .af-entity-card { padding: 11px 12px; } .af-entity-card__actions > * { flex: 1 1 auto; } }
+/* End entity card. */
