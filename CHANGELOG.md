@@ -7,6 +7,25 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.8 - 2026-11-07
+
+Packages: `@abstractframework/panel-chat` 0.9.1 (from 0.9.0). Other packages retain their published versions.
+
+### Changed
+
+- **The shared message is the compact one, for every app** (operator 2026-11-07: "we should have a default styling
+  with our abstractuic/ so normally things should appear in the same way, unless overridden"). The web Assistant's
+  look became the panel-chat default: a light card (16/18 padding, 20 px corners, the 7 px corner cut), a small
+  speaker name, the time in the interface font (never monospace), no avatar tile, 16 px between messages, and the
+  Markdown body without outer margins. Your message is a tinted bubble without a frame, at most 85% wide. An app
+  that wants another look overrides these classes; Code no longer does.
+
+### Added
+
+- **`WorkingDots`, and `WorkflowChat` `working` / `workingLabel`.** Three dots rise in turn (the desktop
+  Assistant's thinking dots) at the transcript's tail while the assistant works on a reply; the host passes its run
+  state. They are not shown while an interaction waits on the person, and they stand still under reduced motion.
+
 ## 0.10.7 - 2026-11-07
 
 Packages: `@abstractframework/panel-chat` 0.9.0 (from 0.8.2). Other packages retain their published versions.

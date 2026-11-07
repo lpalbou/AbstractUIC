@@ -15,6 +15,7 @@ import {
 import { ChatComposer } from "./chat_composer.js";
 import type { ChatMessage, ChatMessageCardProps } from "./chat_message_card.js";
 import { ChatThread } from "./chat_thread.js";
+import { WorkingDots } from "./working_dots.js";
 import { ComposerAttachmentChips } from "./composer_attachments.js";
 import { chatToMarkdown, copyText, downloadTextFile } from "./utils.js";
 import {
@@ -85,6 +86,14 @@ export type WorkflowChatProps = {
     ctx: { signal: AbortSignal },
   ) => void | Promise<unknown>;
   busy?: boolean;
+  /**
+   * The assistant is working on a reply (the host's run state, e.g. `workflowProgress(...).tone
+   * === "working"`): three rising dots (`WorkingDots`) sit at the transcript's tail, where the
+   * reply will appear. Not shown while an interaction waits on the person, nor in the Avatar view.
+   */
+  working?: boolean;
+  /** Accessible name of the working dots. Default "Working". */
+  workingLabel?: string;
   /** Keep the composer active while busy, for hosts that queue/steer messages. */
   sendWhileBusy?: boolean;
   sendLabel?: string;
@@ -753,6 +762,11 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
             }}
             after={
               <>
+                {props.working && !props.interaction ? (
+                  <div className="pc-chat-working">
+                    <WorkingDots label={props.workingLabel || "Working"} />
+                  </div>
+                ) : null}
                 {props.interaction ? (
                   <WorkflowInteractionPanel
                     interaction={props.interaction}
@@ -766,7 +780,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
                 ) : null}
               </>
             }
-            afterKey={`${props.interaction ? `${props.interaction.kind}:${props.interaction.id}` : ""}:${blocked ? "blocked" : ""}`}
+            afterKey={`${props.interaction ? `${props.interaction.kind}:${props.interaction.id}` : ""}:${blocked ? "blocked" : ""}:${props.working && !props.interaction ? "working" : ""}`}
           />}
         </ArtifactFetchContext.Provider>
       </div>

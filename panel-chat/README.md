@@ -271,6 +271,12 @@ denies. Nothing the card does changes the app's default tool settings.
 - Without a session grant (no `sessionPolicy`, or a gateway that cannot keep one) one line says
   so: "Allow covers this request only." or "This gateway cannot keep a choice for the session, so
   Allow covers this request only." Allow All is not offered then.
+- `working` (with `workingLabel`) shows `WorkingDots`, three dots rising in turn at the transcript's tail,
+  while the assistant works on a reply; pass the run state (for example
+  `workflowProgress(snapshot).tone === "working"`). Hidden while an interaction waits on the person;
+  static under reduced motion. `WorkingDots` is exported for other surfaces.
+- The default message (0.9.1) is the web Assistant's compact card: small name, time in the interface
+  font, no avatar tile. Apps override the `pc-chat-*` classes only to differ on purpose.
 - Removed in 0.9.0: `onPermissionsAll`, `approveAllScope`, `onAllowForSession`,
   `approveAllDisabledReason`, `remember`, and `sessionPolicy: { toolsetOf, ask, maxRiskRank }`
   (now `sessionPolicy: true`); on the panel, `onApproveForSession`, `approveKinds`,
