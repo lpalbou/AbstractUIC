@@ -220,6 +220,31 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
   carries (`VoiceCreation.clone` accepts `provider` / `model`; absent = the gateway's default).
   One language label table: `VOICE_LANGUAGE_LABELS`; `voiceLanguagesFromAnswer(answer, kind,
   provider?)` reads a `GET voice/languages` answer; `voiceRecordId(record)`.
+- Identity (Unreleased, framework ADR 0052): `IdentityPanel({ name, client, refusal?, onSaved?, previewOn?, recordFrom? })`
+  is an entity's look and voice with one Save. `client` (`IdentityClient`) carries the gateway:
+  `read(rev?)` (`GET /entities/{name}/identity[?rev=N]` → its `identity`), `save(body)` (`PUT`,
+  resolves with the new record; a refusal rejects with an Error whose message is the gateway's sentence
+  and whose `download` is the offered download, if any), `voiceCatalog(provider?, model?)`
+  (`GET voice/voices`), and optionally `noVoiceNote()` (`GET /entities/{name}/voice` `note`),
+  `previewVoice` (as in `VoiceSettings`), `createVoice` (`VoiceCreation`), `startDownload(action)`
+  and `designs()` (default `avatarDesigns()`). The panel offers the designs the Watch can draw (a
+  `watchCode`), the engine and its voices (a "Speech model" choice only when the engine has more
+  than one; "Automatic" by default), and "Create a new voice". Save sends the whole record
+  (`IdentitySave`): a voice chosen without its model takes the model a clone is bound to, else the
+  first model the catalog lists it under, else the engine's first model; Save waits while the voices
+  are being read (a voice just created is not guessed a model); choosing another speech model asks
+  for the voice again; the record's speed and quality are kept while the voice stays the same; any
+  edit clears the previous status line (and its Download). A refusal (an error carrying a `status`
+  or a `download`) is shown as it is; any other failure reads "Not saved: …". Nothing is retried. `refusal` makes it read-only with that sentence. Pure rules:
+  `identityFormOf`, `identityFormChanged`, `identitySaveOf`, `identityDesignOptions`,
+  `identityEngines`, `identityModels`, `identityHistoryRevs`, `identityHistoryRows`,
+  `identityByWhom`, `identityWhenText`, `identityVoiceText`. Pinned by `check_identity_panel.mjs`.
+- Voice choosers (Unreleased): `useVoiceSample(previewVoice, previewOn)` → `{ sample, choose,
+  toggle, reset }` (one sample at a time, the `VOICE_SAMPLE_DEBOUNCE_MS` wait, the cached replay),
+  `voiceSampleButton(sample, onClick, disabled?)` (the play/stop toggle element),
+  `voiceChoices(catalog, value, language?)` (`{ entries, options, voiceKey, selected, languages,
+  hasLanguageFilter }`: the grouped options, one entry per voice served by several models, a saved
+  voice kept as "(saved)") and `voiceChoicePatch(key, value)`. `VoiceSettings` is built on them.
 - Gateway connection: `GatewayConnectModal` + `useGatewayConnection()` (the connection state machine: boot probe, auto-open on resolved disconnect, self-close on sign-in), plus helpers `fetchGatewayConnection()`, `signInGateway()`, `signOutGateway()`, `gatewayStatusBadge()` (reads `GatewayConnectionState.gateway_status`, app-server 0.1.13: 0 "Gateway at <host> did not answer — is it running?", 502/503/504 "Gateway unavailable", other 5xx "Gateway error", other 4xx "check the gateway URL", 401/403 or no field "Session rejected — sign in again"; ui-kit 0.9.3), `normalizeGatewayUrl()`; `GatewaySessionSignInCard` is the underlying form card. `GatewayConnectionState.gateway` is the gateway's `GET /api/gateway/me` body relayed by the app server: `principal` (`GatewayPrincipalPayload`: `user_id`, `tenant_id`, `roles`, `scopes`, `token_fingerprint`, `runtime_id`, `source`, `admin`), `auth` (`mode`, `user_auth_enabled`), `routing` (`mode`, `one_user_one_runtime`). The hook's behaviour is pinned by `check_gateway_connection.mjs`.
 - Signed-in principal (0.9.0, backlog 0036): `principalFromConnection(status)` → `AfPrincipal | null` (`userId`, `tenantId?`, `runtimeId?`, `roles?`, `scopes?`, `source?`, `admin?`; `displayName?` / `email?` / `avatarUrl?` are typed for a host that has them: the gateway serves none), null unless the status is connected (`isGatewayConnected`); `principalLabel(p)` — the one wording: display name, else user id, prefixed `tenant/` only when the tenant is not `default` (`AF_DEFAULT_TENANT`); `gatewayHostLabel(gateway_url)`.
 - Phase capability matrix: `PhaseCapabilityMatrix` + a framework-free core (`validateMatrixPayload()`, `resolveCellView()`, `applyCellAction()`, `reconcilePatches()`, `serializeCellPatches()`)

@@ -7,6 +7,43 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.3 - 2026-11-07
+
+Packages: `@abstractframework/ui-kit` 0.9.16 (from 0.9.15). Other packages retain their published
+versions (panel-chat stays 0.8.2; its `^0.9.15` range accepts 0.9.16). Who is affected: every app that
+shows an animated avatar or an entity's identity settings (AbstractCode's and AbstractEntity's Avatar views, AbstractAssistant's voice
+stage once it re-syncs its vendored avatar copy).
+
+### Fixed
+
+- **The avatar no longer stutters while it rests.** A `balanced` or `high` avatar (the default is
+  `balanced`) now draws Ready and Waiting at its full rate, 24 or 30 frames per second. Before, Ready
+  ("Completed" in the Avatar view) drew 6 frames per second and Waiting 10. The pictures are
+  unchanged. `economy`, meant for grids of small previews, keeps its slower idle rate. Measured on
+  the Avatar view's 320 px avatar: 6 to 24 frames per second; one animated avatar uses about a fifth
+  of one CPU core while it is shown, as a speaking avatar already did.
+- **A small avatar is drawn at its small size.** When a stylesheet shows the canvas smaller than its
+  `size` (the 48 px avatar beside a question or approval in the Avatar view), the frame is drawn for
+  that side instead of the full-size one: 96 px instead of 384 px on a Retina screen, about 16 times
+  fewer pixels per frame for the same picture. The shown side is rounded up to 16 px steps and a
+  resize is followed once it has been steady for 150 ms, so dragging the window rebuilds the avatar
+  once rather than on every frame.
+
+### Added
+
+- `IdentityPanel`: an entity's look and voice on one page, with one Save (framework ADR 0052,
+  `GET/PUT /entities/{name}/identity`). From top to bottom: the avatar as it will be drawn, with its
+  design and colour; the voice engine, then a voice the gateway offers for it (choosing a voice plays
+  a sample when the app can synthesize one); "Create a new voice" from a description or a recording
+  when none fits; the history of earlier looks and voices; then the status line and Save. A refusal
+  shows the gateway's sentence as it is, with a Download button when the gateway offers one. A record
+  without a voice shows the gateway's reason. Someone who may not change the identity sees it in
+  words, with the reason. Apps inject the gateway calls (`IdentityClient`). The panel's rules are
+  exported as pure functions (`identitySaveOf`, `identityFormChanged`, `identityHistoryRows`, …).
+- `useVoiceSample`, `voiceSampleButton`, `voiceChoices` and `voiceChoicePatch`: the voice sample
+  player and the catalog-to-choices rules that `VoiceSettings` uses, now exported so other voice
+  pickers behave the same way. `VoiceSettings` itself is unchanged.
+
 ## 0.10.2 - 2026-11-07
 
 Packages: `@abstractframework/ui-kit` 0.9.15 and `@abstractframework/panel-chat` 0.8.2.

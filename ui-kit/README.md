@@ -16,6 +16,7 @@ This package provides:
   (with `createGatewayModelTransport`, `withRunModel`: "Gateway default · provider / model"
   first), `SpeculationSelect`, `ToolModeEditor` (with `tool_plan` helpers and
   `createToolLayerStore`; `ToolPolicyEditor` deprecated), `VoiceSettings`
+- **An entity's identity**: `IdentityPanel` (look and voice, one Save; framework ADR 0052)
 - **A chat's tool policy on the gateway**: `createSessionToolPolicyClient`,
   `sessionToolPolicyCapability`, `sessionPolicyFromLayer` / `layerFromSessionPolicy` (the client
   panel-chat's `WorkflowSessionController` and the tool layer store use)

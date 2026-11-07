@@ -49,13 +49,20 @@ clears the image, labels it unavailable and calls `onError`.
 | Quality | Maximum raster side | Maximum pixel ratio | Ready fps | Waiting fps | Active / gaze fps |
 |---|---|---|---|---|---|
 | economy | 256 | 1.5 | 2 | 6 | 12 |
-| balanced | 384 | 2 | 6 | 10 | 24 |
-| high | 512 | 3 | 12 | 12 | 30 |
+| balanced | 384 | 2 | 24 | 24 | 24 |
+| high | 512 | 3 | 30 | 30 | 30 |
 
-Raster size follows CSS size and display pixel ratio within the selected budget;
-display-density changes rebuild the renderer. Use economy for multiple previews
+Raster size follows the side the canvas is shown at (never more than `size`, so a host
+stylesheet that shows it smaller gets a smaller raster) and the display pixel ratio, within
+the selected budget; display-size and display-density changes rebuild the renderer. The
+shown side is rounded up to 16 px steps and a size change is followed once it has been steady for
+150 ms, so a fluid canvas (one that follows the window) rebuilds once per resize, not per frame. Use economy for multiple previews
 and high for a prominent portrait when the CPU budget allows it. Raster work grows
 with pixel area, so doubling each side costs roughly four times as many samples.
+A balanced or high portrait moves at one rate in every animated pose, so a resting
+avatar is as smooth as a speaking one; only economy slows down while idle. Each frame
+is drawn on the page's main thread: a 384-pixel frame takes about 6–13 ms on an Apple
+M-series Mac, so one animated 320-pixel portrait uses about a fifth of one core.
 Animation uses display-aligned deadlines, skips missed frames and never catches
 up with bursts. Frame rates are upper targets rather than guaranteed throughput.
 
