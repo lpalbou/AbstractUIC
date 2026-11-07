@@ -77,3 +77,17 @@ const wakeFacts=sessionActivityFromRuns({items:[
 ]});
 assert.deepEqual(wakeFacts.chat.content.map(r=>r.runId),['wake'],'Chat wake outcomes participate in read state; descendants do not');
 assert.equal(wakeFacts.auto,undefined,'Automation state stays in its own attention lane');
+
+// Professional UI: state is carried by the marker and the words, never by a loud frame.
+{
+  const {readFileSync}=await import('node:fs');
+  const css=readFileSync(new URL('../src/theme.css',import.meta.url),'utf8');
+  const rule=sel=>{const line=css.split('\n').find(l=>l.startsWith(sel+' {'));assert.ok(line,'rule '+sel+' exists');return line;};
+  for(const sel of ['.af-session-card[data-unread]','.af-session-card[data-attention]','.af-session-card[data-selected]']){
+    const line=rule(sel);
+    assert.ok(!/border-color:\s*var\(--(warning|accent|af-session-new)\)/.test(line),sel+' must not use a full-strength frame colour');
+    assert.ok(!/inset 0 0 0 2px/.test(line),sel+' must not draw a 2px frame');
+    assert.ok(!/\d\s*px\s+var\(--(accent|warning)\)/.test(line),sel+' must not draw a thick coloured line');
+  }
+  assert.ok(css.indexOf('.af-session-card[data-selected] {')>css.indexOf('.af-session-card[data-attention] {'),'selected is the last state rule: it wins over unread and attention');
+}

@@ -260,6 +260,7 @@ const target = { runId: "root", waitKey: "approve:1", stepId: "step:approve:1" }
   const at = formatExactTime("2026-10-27T10:00:00+00:00");
   check("F an allowed decision is an activity line with provenance", lines[0] === `Allowed by this chat's policy (set by admin at ${at})`, lines);
   check("F a denied decision is an activity line", lines[1] === "Denied by this chat's policy", lines);
+  check("F the decision lines carry their run id (so the thread can attach them to the tool group)", snap.messages.filter((m) => m.kind === "tool_policy_decision").every((m) => typeof m.runId === "string" && m.runId), snap.messages.filter((m) => m.kind === "tool_policy_decision"));
   check("F never an interaction", snap.interaction === null);
   const row = (callId) => snap.messages.find((m) => m.toolActivity?.callId === callId)?.toolActivity;
   check("F the covered call's row carries the provenance (record first)", row("c1")?.policy?.decision === "auto_approved" && row("c1")?.policy?.matched === "kind:web" && row("c1")?.policy?.setBy === "admin", row("c1"));

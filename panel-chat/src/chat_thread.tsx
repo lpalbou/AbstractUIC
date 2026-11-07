@@ -43,8 +43,16 @@ export function ChatThread(props: ChatThreadProps): React.ReactElement {
     [props.messages],
   );
   const groups = useMemo(() => {
+    // A session-policy decision is a note on the tool group it covers, not an
+    // item of its own: it joins the FIRST group of its run (wherever it
+    // arrived), and stays a standalone line only when the run has no group.
+    const toolRuns = new Set<string>();
+    for (const message of msgs) if (message.toolActivity && message.runId) toolRuns.add(message.runId);
+    const attachable = (message: ChatMessage) =>
+      message.kind === "tool_policy_decision" && !message.toolActivity && Boolean(message.runId) && toolRuns.has(message.runId!);
     const out: ChatMessage[][] = [];
     for (const message of msgs) {
+      if (attachable(message)) continue;
       const last = out[out.length - 1];
       if (
         message.toolActivity &&
@@ -54,7 +62,17 @@ export function ChatThread(props: ChatThreadProps): React.ReactElement {
         last.push(message);
       else out.push([message]);
     }
-    return out;
+    const notes = new Map<ChatMessage[], string[]>();
+    for (const message of msgs) {
+      if (!attachable(message)) continue;
+      const home = out.find((group) => group[0].toolActivity && group[0].runId === message.runId);
+      if (!home) continue;
+      const list = notes.get(home) || [];
+      const text = String(message.content || "").trim();
+      if (text && !list.includes(text)) list.push(text);
+      notes.set(home, list);
+    }
+    return out.map((group) => ({ group, notes: notes.get(group) || [] }));
   }, [msgs]);
 
   useEffect(() => {
@@ -120,7 +138,7 @@ export function ChatThread(props: ChatThreadProps): React.ReactElement {
       className={["pc-chat-thread", props.className].filter(Boolean).join(" ")}
     >
       {!msgs.length ? props.empty || null : null}
-      {groups.map((group, idx) => {
+      {groups.map(({ group, notes }, idx) => {
         const m = group[0];
         const key =
           String(m.id || "") ||
@@ -129,6 +147,7 @@ export function ChatThread(props: ChatThreadProps): React.ReactElement {
           <ToolActivityGroup
             key={key}
             tools={group.map((message) => message.toolActivity!)}
+            notes={notes}
             showCopy={props.messageProps?.showCopy}
           />
         ) : (

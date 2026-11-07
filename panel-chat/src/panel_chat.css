@@ -1088,7 +1088,10 @@
 /* The speaker and copy buttons are always visible (operator QA 2026-10-28): a hover-only
  * toolbar hid read-aloud from anyone who did not know to hover, and its playback state
  * (spinner, pause) with it. check_voice_playback.mjs pins that no rule hides them. */
-.pc-tool-group { min-width: 0; flex-shrink: 0; margin: 8px 0 12px; border: 1px solid var(--ui-border-1); border-radius: 10px; overflow: hidden; background: var(--ui-surface-1); }
+.pc-tool-stack { min-width: 0; flex-shrink: 0; margin: 8px 0 12px; }
+.pc-tool-group { min-width: 0; flex-shrink: 0; margin: 0; border: 1px solid var(--ui-border-1); border-radius: 10px; overflow: hidden; background: var(--ui-surface-1); }
+.pc-tool-group__notes { margin: 3px 0 0; padding: 0 2px; }
+.pc-tool-group__policy { margin: 0; color: var(--text-secondary); font-size: 11px; font-style: italic; line-height: 1.4; overflow-wrap: anywhere; }
 .pc-tool-group__heading { display: flex; align-items: center; gap: 8px; padding: 10px 12px; color: var(--text-secondary); font-size: 11px; border-bottom: 1px solid var(--ui-border-1); }
 .pc-tool-group__heading strong { color: var(--text-primary); font-weight: 600; }
 .pc-tool-group__heading > div { flex: 1; }

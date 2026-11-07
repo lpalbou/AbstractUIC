@@ -7,6 +7,24 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.9 - 2026-11-07
+
+Packages: `@abstractframework/panel-chat` 0.9.2 (from 0.9.1), `@abstractframework/ui-kit` 0.9.20 (from 0.9.19). Other packages retain their published versions.
+
+### Changed
+
+- **The session-policy sentence sits right under the tool group it covers** (operator 2026-11-07: "the italic text must be
+  much closer to the tool execution panel, just below in fact"). "Allowed by this chat's policy (set by ...)" was its own
+  transcript item, one item gap below the "Tools" panel. It is now a small muted italic note attached to the group, at
+  the group's width, with the same sentence. A decision that arrives before its group, or that covers several groups,
+  attaches to the first group of its run; a decision with no group in the transcript still shows as its own line.
+  The decision message now carries its `runId`. The per-row provenance is unchanged.
+- **Session cards no longer shout** (operator 2026-11-07: "the highlight border is much too visible ... this is a
+  professional UI"). ui-kit `SessionCard` and the automation card drew a 2 px accent frame for the selected card and a
+  full-strength amber or teal border for "Needs you" and new results. The border is now a hairline tinted from the
+  theme tokens, the selected card is a soft accent background with a thin accent line, and the state is carried by
+  the existing marker and words ("Needs you", the working spinner, the unread count).
+
 ## 0.10.8 - 2026-11-07
 
 Packages: `@abstractframework/panel-chat` 0.9.1 (from 0.9.0). Other packages retain their published versions.

@@ -210,13 +210,17 @@ export function ToolActivity({
 export function ToolActivityGroup({
   tools,
   showCopy,
+  notes,
 }: {
   tools: WorkflowToolActivity[];
   showCopy?: boolean;
+  /** Muted sentences shown directly under the group (the session-policy decision). */
+  notes?: string[];
 }): React.ReactElement {
   const count = (status: WorkflowToolActivity["status"]) =>
     tools.filter((tool) => tool.status === status).length;
   return (
+    <div className="pc-tool-stack">
     <section className="pc-tool-group" aria-label="Tool activity">
       <div className="pc-tool-group__heading">
         <Icon name="terminal" size={14} />
@@ -250,5 +254,13 @@ export function ToolActivityGroup({
         <ToolActivity key={tool.id} tool={tool} showCopy={showCopy} />
       ))}
     </section>
+    {notes?.length ? (
+      <div className="pc-tool-group__notes">
+        {notes.map((note) => (
+          <p key={note} className="pc-tool-group__policy">{note}</p>
+        ))}
+      </div>
+    ) : null}
+    </div>
   );
 }
