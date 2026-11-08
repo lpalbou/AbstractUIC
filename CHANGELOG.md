@@ -19,7 +19,8 @@ Packages: `@abstractframework/panel-chat` 0.9.8 (from 0.9.7). Other packages ret
   raised afterwards was never shown. They now keep trying while the run is live, backing off to one attempt every
   30 seconds (a hidden tab waits until it is shown), with the state "reconnecting" and the fault meanwhile. Every
   reconnection reads the conversation's whole view again first, so a question or an approval raised during the gap
-  appears as soon as the server is back.
+  appears as soon as the server is back, and the conversation reads as connected again from that read (a quiet live
+  stream can take seconds to answer).
 
 ## 0.10.15 - 2026-11-08 (local build, not published)
 

@@ -1264,6 +1264,9 @@ export class WorkflowSessionController {
         if (failures) {
           await this.refreshView(generation);
           if (!this.live(generation) || this.viewFold !== fold) return;
+          // The server answered with the current view: the page is current again, before the
+          // resumed stream's first byte (a quiet view stream can take seconds to answer).
+          this.set({ ...this.snapshot, connection: "connected", error: null });
         }
         await rv.streamView(runId, {
           lastEventId: fold.lastEventId,

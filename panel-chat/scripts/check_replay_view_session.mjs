@@ -603,6 +603,13 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
     async streamView(_runId, opts) {
       counts.streamView += 1;
       if (gap && drops < DROPS) { drops += 1; throw new TypeError("Failed to fetch"); }
+      // Back: a quiet view stream answers only when it has something to say (the gateway flushes
+      // its headers with the first frame); the re-read view already made the page current.
+      if (gap) {
+        opened.push(opts.lastEventId);
+        await new Promise((resolve) => opts.signal.addEventListener("abort", resolve, { once: true }));
+        return { bytes: 0 };
+      }
       opts.onOpen?.();
       opened.push(opts.lastEventId);
       if (!gap) {
@@ -611,8 +618,6 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
         gap = true;
         throw new TypeError("network error");
       }
-      // Back: the resumed stream replays nothing (a restarted gateway, a lost buffer).
-      await new Promise((resolve) => opts.signal.addEventListener("abort", resolve, { once: true }));
       return { bytes: 0 };
     },
   };
@@ -643,8 +648,9 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
   assert.equal(snap.connection, "connected", "healed");
   assert.equal(snap.error, null, "the transient error is cleared once the stream is back");
   assert.ok(counts.getView >= 1 + DROPS + 1, `the view is read again at every reconnection (${counts.getView})`);
-  assert.equal(opened.at(-1), after.cursor.token, "the stream resumes after the re-read view");
+  assert.equal(counts.streamView, 2, "one stream before the gap, one after (the gap's attempts fail at the view read)");
   ctl.dispose();
+  assert.deepEqual(opened, ["before-gap", after.cursor.token], "the stream resumes after the re-read view");
   ok();
 }
 
