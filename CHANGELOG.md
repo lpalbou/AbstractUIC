@@ -7,6 +7,20 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.16 - 2026-11-08 (local build, not published)
+
+Packages: `@abstractframework/panel-chat` 0.9.8 (from 0.9.7). Other packages retain their versions (ui-kit 0.9.25).
+
+### Fixed
+
+- **A conversation reconnects after its server comes back, and shows what happened while it was away.** The live
+  streams of a running conversation gave up after five quick reconnects (about three seconds) and read
+  "Disconnected": a restart of the app server or the gateway under an open page left it stale, and an approval
+  raised afterwards was never shown. They now keep trying while the run is live, backing off to one attempt every
+  30 seconds (a hidden tab waits until it is shown), with the state "reconnecting" and the fault meanwhile. Every
+  reconnection reads the conversation's whole view again first, so a question or an approval raised during the gap
+  appears as soon as the server is back.
+
 ## 0.10.15 - 2026-11-08 (local build, not published)
 
 Packages: `@abstractframework/panel-chat` 0.9.7 (from 0.9.6). Other packages retain their versions (ui-kit 0.9.25).
