@@ -327,12 +327,15 @@ await reconnectController.load("reconnect");
 await new Promise((resolve) => setTimeout(resolve, 2600));
 assert.equal(reconnectController.getSnapshot().connection, "reconnecting", "past the old budget of five: still trying");
 assert.ok(ledgerAttempts >= 5 && ledgerAttempts <= 6, `backed off, not spinning (${ledgerAttempts} attempts in 2.6 s)`);
-assert.match(reconnectController.getSnapshot().error || "", /network down/i);
+// The fault is this client's notice, not the run's error (operator 2026-11-08).
+assert.equal(reconnectController.getSnapshot().error, null);
+assert.equal(reconnectController.getSnapshot().unreachable?.reason, "network down");
+assert.equal(reconnectController.getSnapshot().unreachable?.retrying, true);
 networkDown = false;
 const healBy = Date.now() + 6_000;
 while (Date.now() < healBy && reconnectController.getSnapshot().connection !== "connected") await new Promise((resolve) => setTimeout(resolve, 50));
 assert.equal(reconnectController.getSnapshot().connection, "connected", "the returning stream heals it");
-assert.equal(reconnectController.getSnapshot().error, null);
+assert.equal(reconnectController.getSnapshot().unreachable, null, "the notice clears when the stream is back");
 reconnectController.dispose();
 
 // A 401/403 is not retried with the same principal. The transport owns its

@@ -634,23 +634,92 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
   await settle();
   assert.equal(workflowPendingInteraction(ctl.getSnapshot()), null, "before the gap: no wait");
   const states = new Set();
+  const runStatus = (snap) => { const p = workflowProgress(snap); return `${p.label} | ${p.detail} | ${p.tone}`; };
+  const lastView = runStatus(ctl.getSnapshot());
+  const gapStatus = new Set();
+  const notices = [];
   const started = Date.now();
   while (Date.now() - started < 15_000 && !workflowPendingInteraction(ctl.getSnapshot())) {
-    states.add(ctl.getSnapshot().connection);
+    const snap = ctl.getSnapshot();
+    states.add(snap.connection);
+    if (snap.unreachable) { gapStatus.add(runStatus(snap)); notices.push(snap.unreachable); }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   assert.ok(drops >= DROPS, `the stream stayed away for ${DROPS} reconnects (${drops})`);
   assert.ok(states.has("reconnecting"), "the gap reads as reconnecting");
   assert.ok(!states.has("disconnected"), `never a final "disconnected" while the run is live (${[...states]})`);
+  // Operator 2026-11-08: the run status during the gap is the last one the view gave, unchanged;
+  // the client's trouble is its own notice.
+  assert.ok(notices.length > 0 && notices.every((n) => n.retrying && /Failed to fetch|network error/.test(n.reason)), JSON.stringify(notices.slice(0, 2)));
+  assert.deepEqual([...gapStatus], [lastView], "the run status bar's text is the last view's during the gap");
   const snap = ctl.getSnapshot();
   assert.equal(workflowPendingInteraction(snap)?.runId, childId, "the approval raised during the gap is shown, from the re-read view");
   assert.equal(workflowProgress(snap).label, "Approval needed");
   assert.equal(snap.connection, "connected", "healed");
-  assert.equal(snap.error, null, "the transient error is cleared once the stream is back");
+  assert.equal(snap.error, null, "the gap never became the run's error");
+  assert.equal(snap.unreachable, null, "the notice clears once the gateway answers");
   assert.ok(counts.getView >= 1 + DROPS + 1, `the view is read again at every reconnection (${counts.getView})`);
   assert.equal(counts.streamView, 2, "one stream before the gap, one after (the gap's attempts fail at the view read)");
   ctl.dispose();
   assert.deepEqual(opened, ["before-gap", after.cursor.token], "the stream resumes after the re-read view");
+  ok();
+}
+
+// ---- "Stop retrying" and "Retry now" (operator 2026-11-08) ------------------------------------
+// The client's own notice offers both: Stop pauses the automatic attempts (no request at all
+// until Retry now); Retry now reconnects at once and re-reads the view first.
+{
+  const { views } = load("a_delegated_child_approval");
+  const view = views[21];
+  let down = false;
+  const counts = { getView: 0, streamView: 0 };
+  const replayView = {
+    async getView(_runId, opts = {}) {
+      counts.getView += 1;
+      if (down) throw new TypeError("Failed to fetch");
+      const etag = `"${view.cursor.token}"`;
+      if (opts.ifNoneMatch === etag) return { notModified: true, etag, bytes: 0 };
+      return { notModified: false, view: clone(view), etag, bytes: 1 };
+    },
+    async listSessionTurns(runId) { return [{ run_id: runId, created_at: "2026-11-08T03:28:00Z" }]; },
+    async streamView(_runId, opts) {
+      counts.streamView += 1;
+      if (down) throw new TypeError("Failed to fetch");
+      opts.onOpen?.();
+      if (counts.streamView === 1) { await new Promise((resolve) => setTimeout(resolve, 20)); down = true; throw new TypeError("network error"); }
+      await new Promise((resolve) => opts.signal.addEventListener("abort", resolve, { once: true }));
+      return { bytes: 0 };
+    },
+  };
+  const transport = {
+    async getRun(runId) { return { run_id: runId, status: "waiting" }; },
+    async getHistory() { return { ledgers: {} }; },
+    async getLedger() { return { items: [], next_after: 0 }; },
+    async streamLedger(_runId, _after, _onStep, signal, onOpen) { onOpen?.(); await new Promise((resolve) => signal.addEventListener("abort", resolve, { once: true })); },
+    async submitCommand() { return { accepted: true }; },
+    replayView,
+  };
+  const ctl = new WorkflowSessionController(transport);
+  await ctl.load(view.root_run_id);
+  const until = async (check, what, ms = 5_000) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end) { if (check()) return; await new Promise((resolve) => setTimeout(resolve, 20)); }
+    assert.fail(`timed out: ${what}`);
+  };
+  await until(() => ctl.getSnapshot().unreachable, "the drop is noticed");
+  assert.equal(ctl.getSnapshot().unreachable.retrying, true);
+  ctl.stopRetrying();
+  assert.equal(ctl.getSnapshot().unreachable.retrying, false, "the notice says it is not retrying");
+  const stoppedAt = counts.getView + counts.streamView;
+  await new Promise((resolve) => setTimeout(resolve, 1_500));
+  assert.equal(counts.getView + counts.streamView, stoppedAt, "Stop retrying: no attempt at all");
+  assert.equal(workflowProgress(ctl.getSnapshot()).label, "Approval needed", "the run status stays the view's");
+  down = false;
+  const reads = counts.getView;
+  ctl.retryNow();
+  await until(() => counts.getView > reads, "Retry now re-reads the view", 300);
+  await until(() => ctl.getSnapshot().unreachable === null && ctl.getSnapshot().connection === "connected", "healed after Retry now", 1_000);
+  ctl.dispose();
   ok();
 }
 

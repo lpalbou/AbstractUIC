@@ -71,27 +71,9 @@ export function workflowProgress(
   // (operator 2026-11-08: a Stop with no answer on a slow gateway reads as ignored).
   if (snapshot.stop?.phase === "stopping")
     return result("Stopping…", "", "working");
-  // A dropped LEDGER STREAM is not a dropped gateway. `watch()` keeps polling
-  // `catchUp()`/`getRun()` over REST after the stream gives up, so the run
-  // really is progressing and the answer really does arrive — announcing
-  // "Disconnected" over a working run reads as "the app is offline" and was
-  // the most confusing thing on the screen. Say what is actually degraded,
-  // and only claim disconnection when nothing is arriving at all: the run has
-  // stopped advancing (no records) or the transport reported an error.
-  if (
-    snapshot.connection === "reconnecting" ||
-    snapshot.connection === "disconnected"
-  ) {
-    const stalled = (projected ? false : !snapshot.records?.length) || Boolean(snapshot.error);
-    if (stalled)
-      return result(
-        snapshot.connection === "reconnecting" ? "Reconnecting" : "Disconnected",
-        String(snapshot.error || "Live activity is unavailable"),
-        "waiting",
-      );
-    // Degraded, not down: fall through to the run's real state (Working,
-    // Approval needed, …) so the strip keeps describing the RUN.
-  }
+  // The run's state comes from the ledger view only (operator 2026-11-08): this client's
+  // trouble reaching the gateway is its own notice (`snapshot.unreachable`), never the run's
+  // status. During a gap the last state the view gave stands unchanged.
   if (snapshot.status === "paused" || snapshot.run?.paused === true)
     return result("Paused", "Resume when you’re ready", "waiting");
   const wait = object(snapshot.interaction?.wait),

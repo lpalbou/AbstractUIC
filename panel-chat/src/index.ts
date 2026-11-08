@@ -88,6 +88,7 @@ export type {
   GatewayCommand,
   ServerRecord,
   WorkflowConnection,
+  WorkflowUnreachable,
   WorkflowRecord,
   WorkflowSessionSnapshot,
   WorkflowSessionControllerOptions,

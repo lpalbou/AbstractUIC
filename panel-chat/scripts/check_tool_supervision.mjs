@@ -450,12 +450,18 @@ test("terminal root authority dominates pending tools, stale waits, and lost str
   }
 });
 
-test("progress distinguishes approval, questions, optional event triggers, pause, and disconnection", () => {
+test("progress distinguishes approval, questions, optional event triggers and pause; never this client's connection", () => {
   assert.equal(progress({ interaction: { runId: "child", wait: approval("a").result.wait } }).label, "Approval needed");
   assert.equal(progress({ interaction: { runId: "child", wait: question("q").result.wait } }).label, "Your answer is needed");
   assert.equal(progress({ interaction: { runId: "root", wait: { reason: "event", wait_key: "evt:changed" } } }).label, "Waiting for an event");
   assert.equal(progress({ status: "paused", interaction: { runId: "child", wait: approval("a").result.wait } }).label, "Paused");
-  assert.equal(progress({ connection: "disconnected" }).label, "Disconnected");
+  // Operator 2026-11-08: the run's state comes from the ledger view only; a client that cannot
+  // reach the gateway says so in its own notice (`unreachable`), never in the run status.
+  const gap = { reason: "Failed to fetch", retrying: true, since: "2026-11-08T12:21:34Z" };
+  for (const connection of ["reconnecting", "disconnected"]) {
+    assert.equal(progress({ connection, unreachable: gap, interaction: { runId: "child", wait: approval("a").result.wait } }).label, "Approval needed");
+    assert.deepEqual(progress({ connection, unreachable: gap, error: "Failed to fetch" }), progress({}), `${connection}: the run status is the view's, unchanged`);
+  }
 });
 
 test("active tool progress identifies the actual tool without invented usage", () => {

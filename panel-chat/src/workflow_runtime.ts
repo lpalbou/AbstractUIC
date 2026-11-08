@@ -176,6 +176,9 @@ export type WorkflowToolApprovalPolicy = { enabledTools: readonly string[]; auto
 
 export type WorkflowConnection = "idle" | "connecting" | "connected" | "reconnecting" | "disconnected";
 
+/** See `WorkflowSessionSnapshot.unreachable`. */
+export type WorkflowUnreachable = { reason: string; retrying: boolean; since: string };
+
 export type WorkflowSessionSnapshot = {
   messages: ChatMessage[];
   records: WorkflowRecord[];
@@ -192,6 +195,13 @@ export type WorkflowSessionSnapshot = {
   historyLoading?: boolean;
   error: string | null;
   connection: WorkflowConnection;
+  /**
+   * This client cannot reach the gateway right now (a live stream or the view re-read failed):
+   * the reason, whether it is retrying on its own, and when it last had the gateway's word
+   * (ISO). A client-side notice only (operator 2026-11-08): the run's state and its waits stay
+   * what the ledger view last said. Null while the gateway answers.
+   */
+  unreachable?: WorkflowUnreachable | null;
   /** Browser/controller-local consent only; never persisted or a policy bypass. */
   autoApproveTools?: boolean;
   /**
@@ -284,7 +294,7 @@ export type WorkflowSessionControllerOptions = {
 
 const EMPTY: WorkflowSessionSnapshot = {
   messages: [], records: [], run: null, interaction: null,
-  status: "idle", displayStatus: "", loading: false, historyLoading: false, error: null, connection: "idle", toolApprovalGranted: false, stop: null,
+  status: "idle", displayStatus: "", loading: false, historyLoading: false, error: null, connection: "idle", unreachable: null, toolApprovalGranted: false, stop: null,
 };
 
 function object(value: unknown): ServerRecord | null {
@@ -517,6 +527,10 @@ export class WorkflowSessionController {
   private viewTerminalRuns = new Set<string>();
   /** The view stream ended (done, or gave up): the live-reply stream stops with it. */
   private viewStreamEnded = false;
+  /** "Stop retrying" (operator 2026-11-08): no automatic reconnection until "Retry now". */
+  private retryPaused = false;
+  /** The waits of the reconnection loops, woken by "Retry now". */
+  private readonly retryWakers = new Set<() => void>();
   /** Replay view mode: the conversation's EARLIER turns (one view read each, oldest first),
    * shown before the loaded run's own messages. */
   private viewEarlier: { messages: ChatMessage[]; tools: WorkflowToolActivity[] } = { messages: [], tools: [] };
@@ -752,6 +766,7 @@ export class WorkflowSessionController {
     this.liveReplies.clear(); this.closedLiveCalls.clear(); this.shownLiveCalls.clear(); this.liveDirty.clear(); this.lastLiveRender = -Infinity;
     if (this.liveRenderTimer) { clearTimeout(this.liveRenderTimer); this.liveRenderTimer = null; }
     this.source = null; this.viewFold = null; this.viewRun = null; this.viewDigest = ""; this.viewAssistantIds.clear(); this.viewTerminalRuns.clear(); this.viewStreamEnded = false;
+    this.retryPaused = false; this.retryWakers.clear();
     this.viewEarlier = { messages: [], tools: [] };
     this.set({ ...EMPTY });
   }
@@ -1266,14 +1281,14 @@ export class WorkflowSessionController {
           if (!this.live(generation) || this.viewFold !== fold) return;
           // The server answered with the current view: the page is current again, before the
           // resumed stream's first byte (a quiet view stream can take seconds to answer).
-          this.set({ ...this.snapshot, connection: "connected", error: null });
+          this.set({ ...this.snapshot, connection: "connected", unreachable: null });
         }
         await rv.streamView(runId, {
           lastEventId: fold.lastEventId,
           signal: this.controller!.signal,
           onOpen: () => {
             if (!this.live(generation)) return;
-            this.set({ ...this.snapshot, connection: "connected", error: null });
+            this.set({ ...this.snapshot, connection: "connected", error: null, unreachable: null });
           },
           onFrame: (frame) => {
             if (!this.live(generation) || this.viewFold !== fold) return;
@@ -1288,8 +1303,8 @@ export class WorkflowSessionController {
       } catch (error) {
         if (!this.live(generation)) return;
         failures += 1;
-        this.fail(error, false);
-        if (authError(error)) { this.set({ ...this.snapshot, connection: "disconnected" }); return; }
+        if (authError(error)) { this.fail(error, false); this.set({ ...this.snapshot, connection: "disconnected" }); return; }
+        this.unreach(error);
       }
       if (!this.live(generation)) break;
       // No final give-up (backlog 1163): the page keeps trying, backing off to every 30 s, and
@@ -1429,7 +1444,7 @@ export class WorkflowSessionController {
           streamConnected = true;
           // Polling is only lifecycle convergence. A usable SSE response or
           // received ledger item is the evidence this actual stream healed.
-          this.set({ ...this.snapshot, connection: "connected", error: null });
+          this.set({ ...this.snapshot, connection: "connected", error: null, unreachable: null });
         };
         // Every (re)connect starts from the gateway's snapshots: drop the live
         // text this stream delivered before, so nothing is shown twice.
@@ -1453,7 +1468,8 @@ export class WorkflowSessionController {
       } catch (error) {
         if (!this.live(generation)) return;
         attempt += 1;
-        this.fail(error, false);
+        if (authError(error)) this.fail(error, false);
+        else this.unreach(error);
         // An auth switch cannot heal by retrying the same credentials. The
         // host receives the error and recreates the controller with a new
         // non-secret authScopeKey when the principal changes.
@@ -2052,26 +2068,65 @@ export class WorkflowSessionController {
     const signal = this.controller?.signal;
     if (!signal || signal.aborted) return;
     const activeSignal: AbortSignal = signal;
-    await new Promise<void>((resolve) => {
-      const timer = setTimeout(done, delayMs);
-      const onAbort = () => { clearTimeout(timer); done(); };
-      function done() {
-        activeSignal.removeEventListener("abort", onAbort);
-        resolve();
-      }
-      activeSignal.addEventListener("abort", onAbort, { once: true });
-    });
-    // A hidden tab does not retry; it tries again as soon as it is shown.
-    if (typeof document === "undefined" || typeof document.addEventListener !== "function" || document.visibilityState !== "hidden" || activeSignal.aborted) return;
-    await new Promise<void>((resolve) => {
-      const done = () => {
-        document.removeEventListener("visibilitychange", onVisibility);
-        activeSignal.removeEventListener("abort", done);
-        resolve();
-      };
-      const onVisibility = () => { if (document.visibilityState !== "hidden") done(); };
-      document.addEventListener("visibilitychange", onVisibility);
-      activeSignal.addEventListener("abort", done, { once: true });
+    // Resolves after `ms` (null: only when woken), on "Retry now", or when the controller ends.
+    const wakers = this.retryWakers;
+    const pause = (ms: number | null, extra?: (wake: () => void) => () => void) =>
+      new Promise<void>((resolve) => {
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        let stopExtra: (() => void) | undefined;
+        const done = () => {
+          if (timer !== null) clearTimeout(timer);
+          stopExtra?.();
+          wakers.delete(done);
+          activeSignal.removeEventListener("abort", done);
+          resolve();
+        };
+        if (ms !== null) timer = setTimeout(done, ms);
+        stopExtra = extra?.(done);
+        wakers.add(done);
+        activeSignal.addEventListener("abort", done, { once: true });
+      });
+    let woken = false;
+    const markWoken = () => { woken = true; };
+    this.retryWakers.add(markWoken);
+    try {
+      await pause(delayMs);
+      // "Stop retrying": no attempt until "Retry now" (or the controller ends).
+      while (this.retryPaused && !activeSignal.aborted) await pause(null);
+      if (woken) return; // "Retry now": at once, whatever the tab
+      // A hidden tab does not retry; it tries again as soon as it is shown.
+      if (typeof document === "undefined" || typeof document.addEventListener !== "function" || document.visibilityState !== "hidden" || activeSignal.aborted) return;
+      await pause(null, (wake) => {
+        const onVisibility = () => { if (document.visibilityState !== "hidden") wake(); };
+        document.addEventListener("visibilitychange", onVisibility);
+        return () => document.removeEventListener("visibilitychange", onVisibility);
+      });
+    } finally {
+      this.retryWakers.delete(markWoken);
+    }
+  }
+
+  /** The gateway did not answer a live stream or the view re-read: a client-side notice. */
+  private unreach(error: unknown): void {
+    const reason = error instanceof Error ? error.message : text(object(error)?.detail) || String(error);
+    this.set({
+      ...this.snapshot,
+      connection: "reconnecting",
+      unreachable: { reason, retrying: !this.retryPaused, since: this.snapshot.unreachable?.since || new Date().toISOString() },
     });
   }
+
+  /** "Retry now": the waiting reconnection runs at once (it re-reads the view first). */
+  retryNow(): void {
+    this.retryPaused = false;
+    if (this.snapshot.unreachable && !this.snapshot.unreachable.retrying) this.set({ ...this.snapshot, unreachable: { ...this.snapshot.unreachable, retrying: true } });
+    for (const wake of [...this.retryWakers]) wake();
+  }
+
+  /** "Stop retrying": no automatic attempt until `retryNow()`. */
+  stopRetrying(): void {
+    this.retryPaused = true;
+    if (this.snapshot.unreachable?.retrying) this.set({ ...this.snapshot, unreachable: { ...this.snapshot.unreachable, retrying: false } });
+  }
+
 }
