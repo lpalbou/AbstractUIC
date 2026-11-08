@@ -7,6 +7,40 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.12 - 2026-11-08 (local build, not published)
+
+Packages: `@abstractframework/panel-chat` 0.9.5 (from 0.9.4), `@abstractframework/ui-kit` 0.9.23 (from 0.9.22). Other packages retain their published versions.
+
+### Fixed
+
+- **"Stopping…" at once.** `workflowProgress` says "Stopping…" as soon as this client asks to stop, until the ledger
+  proves the stop ("Stopped"); a Stop on a slow gateway no longer looks ignored.
+- **No stale tooltip after a state change.** A kit tooltip hides when its anchor's sentence changes while it is shown
+  (the composer's Stop became Send after a stop and kept a "Stop" tooltip under a resting pointer).
+- **Read aloud off really releases.** A reply whose speech is still loading is not spoken any more and the kept player
+  is closed; a reply already speaking finishes, then its player is closed. The Docs assistant's opt-out from keeping a
+  player is pinned by `docsVoiceOptions` and a test.
+- **Read aloud on a touch screen.** The keep-alive also listens to `touchend` and `click` (on iOS a tap activates the
+  page at its end, not on `pointerdown`); one tap opens one player.
+- **The speaker Test's failure in Safari** offers Re-open audio, never "pick another output" (no speaker choice there).
+
+### Known limits
+
+- Headphones connected while the model is thinking: Safari cannot start the reply by itself; after 1.5 s it says
+  "Audio playback is paused by the browser. Press Play to try again." (unchanged).
+- The macOS output switched less than 30 s after the last click or key press: the next reply may be silent with no
+  message; Play (after 30 s of silence) or Re-open audio moves it (unchanged).
+- A saved speaker that is no longer connected: replies fall back to the system default output without saying so
+  (`setSinkId` failures are not reported yet).
+- Other apps (Assistant web, Entity, the console islands) still show "Stopped" in their composer until they are
+  rebuilt on panel-chat 0.9.3 or later.
+- The separate output unit for a rebuilt player relies on WebKit's current behaviour (one output unit per sample rate
+  and channel count), not on a web standard.
+- The Output device sentence names macOS on iPhone and iPad Safari, and Chrome or Firefox on iOS get the Safari
+  sentence (user-agent based).
+- A context that takes more than 1 s to close is left closing while the new player starts.
+- "Request cancelled." is still shown inside the person's own message after a stop.
+
 ## 0.10.11 - 2026-11-08 (local build, not published)
 
 Packages: `@abstractframework/panel-chat` 0.9.4 (from 0.9.3), `@abstractframework/ui-kit` 0.9.22 (from 0.9.21). Other packages retain their published versions.
