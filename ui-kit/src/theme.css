@@ -8497,3 +8497,14 @@ a.af-entity-card__head:hover .af-entity-card__name, button.af-entity-card__head:
 @media (prefers-reduced-motion: reduce) { .af-entity-card__sk { animation: none; } }
 @media (max-width: 479.98px) { .af-entity-card { --af-entity-pad-x: 14px; } .af-entity-card[data-density="compact"] { --af-entity-pad-x: 12px; } }
 /* End entity card. */
+/* Iteration limit field (IterationLimitField, 0.9.26): the same look as an app's number field; an app passes its own field class for the wrapper. */
+.af-limit-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.af-limit-field__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.af-limit-field__row > input { flex: 1 1 8rem; min-width: 0; width: 100%; padding: 10px; border: 1px solid var(--ui-border-2); border-radius: 6px; background-color: var(--bg-primary); color: var(--text-primary); font-size: var(--font-size-sm, 13px); }
+.af-limit-field__reset { flex: none; padding: 6px 10px; border: 1px solid var(--ui-border-2); border-radius: var(--radius-sm, 6px); background: transparent; color: var(--text-secondary); font-size: var(--font-size-xs, 12px); cursor: pointer; }
+.af-limit-field__reset:hover:not(:disabled), .af-limit-field__reset:focus-visible { color: var(--text-primary); background: var(--ui-surface-2); }
+.af-limit-field__reset:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+.af-limit-field__msg { margin: 0; font-size: var(--font-size-xs, 12px); line-height: 1.6; color: var(--text-secondary); }
+.af-limit-field__msg--warn { color: var(--warning); }
+.af-limit-field__msg--error { color: var(--error); }
+/* End iteration limit field. */

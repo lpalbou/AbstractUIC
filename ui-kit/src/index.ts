@@ -555,6 +555,7 @@ export {
   type WorkspaceRequest,
 } from "./workspace_chooser_core.js";
 export { AfSettingsGroup, AfSettingRow, AfOverrideRow, type AfSettingsGroupProps, type AfSettingRowProps, type AfOverrideRowProps } from "./af_settings_rows.js";
+export { IterationLimitField, iterationLimitDefaultFrom, iterationLimitFromInput, iterationLimitProblem, iterationLimitDefaultLabel, iterationLimitAppliedText, type IterationLimitFieldProps, type IterationLimitValue, type IterationLimitDefault, type IterationLimitApplied } from "./iteration_limit_field.js";
 export {
   AfVoiceSection,
   VOICE_LATENCY_OPTIONS,
