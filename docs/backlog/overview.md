@@ -14,7 +14,7 @@ packaging). Full findings are distilled into the items below; each item
 carries its own code-reality citations.
 
 ## Counts
-- Planned: 19
+- Planned: 20
 - Proposed: 39 (0009-0013, 0017-0018, 0020-0022, 0024-0028, 0037-0038, 0041-0053 kit gaps K1-K13 from the adoptions, 2026-10-28; 0055-0057 from the release-closing aesthetic pass; 0059 turns-only listing; 0061 Create a voice follows a served cloning capability; 0062 Devices page island (discussion, with gateway 0965); 0063 Docs assistant read-aloud; 0078 approval card overflow cue on short views, from the 0.10.1 review; 0079 one shared module for slow per-entity card reads)
 - Completed: 22
 - Deprecated: 2 (0015, 0016 — superseded by 0033)
@@ -65,6 +65,7 @@ merge, or missing test rigs) — see each item's checklist.
 ## Planned ledger
 | ID | Item | Area | One line |
 |---|---|---|---|
+| [1157](planned/1157_entity_card_into_lately_whole_and_a_compact_density.md) | EntityCard: "Into lately" whole behind a reveal; a compact chip density (ADR 0053 §2/§4) | Planned | from the Observer Board round 2, 2026-11-08 |
 | [1155](planned/1155_tool_call_words_show_whole_values_behind_a_reveal.md) | Tool-call descriptions show whole URLs/arguments behind a reveal (ADR 0053 §2); `tool_call_words.js:53,195,200,207` cut them silently | Planned | from the Observer Board review 2026-11-08 |
 | 0001 | af_select keyboard/a11y/fork | ui-kit | Keyboard-complete combobox; absorb flow's fork features; delete the fork |
 | 0003 | one JsonViewer | panel-chat/monitor-flow | Collapse the 4-source fork family; honor collapseAfterDepth |
