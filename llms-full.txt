@@ -746,6 +746,7 @@ not a customization point; when the component cannot do what you need, ask for t
 | Voice input controls | `AfVoiceInput` | Input device + **Test**, live level meter (`levelSource={voice}`: only the meter re-renders while the user speaks), Input level, **Show names** |
 | Microphone button | `AfVoiceMicButton` | **Hold to talk** / **Tap to talk** (the hook's `capture_mode`), live meter, "Recording… 3 s", "Transcribing… · route"; the host decides what a transcript does (`onTranscript`, `auto_send`) |
 | Compact settings rows | `AfSettingsGroup`, `AfSettingRow`, `AfOverrideRow` | "Gateway default" until the user overrides it; **Use gateway default** returns to it |
+| Iteration limit | `IterationLimitField`, `iterationLimitDefaultFrom`, `iterationLimitFromInput` | "Gateway default (N)" until the user types a limit; send it as `_limits.max_iterations` |
 | File preview | `AfFileViewer` (ui-kit) or `FileViewer` + `useWorkspaceFilePreview` (panel-chat, for run workspace files) | Markdown, highlighted code, JSON, images, audio, video, PDF, text; the host fetches with its own credentials |
 | Side panels (rail tabs, docs/assistant drawers, left palette, canvas panels) | `AfDrawerSystem` | Panels are opaque `{id, label, icon, content}` + `side`, `mode`, `keepAlive`, `errorBoundary`, `fill`; docked from 1024 px, floating below; per-panel widths and the open panel (docked only) under ONE `storageKey`; `railLabelStyle: "vertical-text"`; `request: "id#nonce"`. Delete app-local side-tab rails, active-panel persistence and error boundaries |
 | Side panels on a vertical icon rail (existing callers) | `AfRailDrawer` | A thin wrapper over `AfDrawerSystem`; new code uses `AfDrawerSystem` |
@@ -2591,6 +2592,7 @@ Key exports (authoritative list: `ui-kit/src/index.ts`):
 - Audio player (0.8.0): `AfAudioPlayer` (`src`, `name?`, `peaks?`, `className?`) — the shared audio viewer: play/pause, a waveform you click or drag to seek, elapsed / total time. The waveform is decoded from `src` with the Web Audio API (pass `peaks` to skip decoding); when decoding is unavailable or fails, the bars stay flat with the reason in the waveform's tooltip and playback still works. Keyboard: the waveform is a `slider` (Left/Right ±5 s, Home/End, Space/Enter play or pause). Pure helpers: `audioPeaks(samples, bars?)` (normalised 0..1 per bar), `formatAudioTime(seconds)` (`"1:03"`, `"--:--"` when unknown), `audioSeekTime(x, width, duration)`, `AUDIO_WAVEFORM_BARS` (72).
 - Code highlighting (0.8.0): `AfCodeBlock` (`text`, `language` = a file name or a language, `lineNumbers?`) — wraps long lines, never scrolls sideways; `highlightCode(text, codeLanguage(name))` is a dependency-free lexer (comment / string / number / keyword tokens; joining the tokens returns the input).
 - Settings rows (0.8.0): `AfSettingsGroup` (titled card; `variant="flat"` inside another card; `aside` for e.g. "Revision 4"), `AfSettingRow` (label + one-line help left, control right; wraps in a narrow panel), `AfOverrideRow` — the "Gateway default unless overridden" row: summary (`Gateway default · x` or `<override> — <owner>`), **Change** opens the editor in place, **Use gateway default** only while overridden.
+- Iteration limit (0.9.26): `IterationLimitField` — the per-conversation "Iteration limit" number field (min 1). Props `value` (`IterationLimitValue`, a string; `""` = unset), `onChange`, `disabled`, `gatewayDefault` (`iterationLimitDefaultFrom(discovery)` reads `capabilities.agent_limits.max_iterations` from `GET /api/gateway/discovery/capabilities`), `applied` (the `limits` receipt `{max_iterations, source: request|gateway_default|builtin}` of the last `POST /runs/start`), `label`, `className` (the app's own field class, for the same look as its other fields), `id`. Empty, the placeholder names what applies: "Gateway default (12)", "Workflow default" (nothing stored), "Gateway default" (an older gateway). A value that is not a whole number of 1 or more gets a sentence; past `warn_above` (200) a warning line, never a refusal; **Use default** clears it. Send `iterationLimitFromInput(value)` as `input_data._limits.max_iterations` (undefined = send nothing). Helpers: `iterationLimitProblem`, `iterationLimitDefaultLabel`, `iterationLimitAppliedText`.
 - Workspaces (0.8.3, round 11): `WorkspaceChooser` — the one workspace chooser of the console (Accounts → **Eligible workspaces** and each account's modal), AbstractCode, Observer, Flow (the Assistant copies `WORKSPACE_CHOOSER_TEXT` verbatim). One component, four levels through `level`: `"gateway"` (the admin's eligible set; a row's mode is its cap), `"account"` (an account's default, humans and entities), `"session"` (one conversation's subset, stored on the session by the gateway) and `"run"` (a one-off run without a session: nothing is PUT; the host keeps the value). There is no shared workspace: a run's private workspace is automatic and always Read & write. It shows, top to bottom: **Gateway: <gateway_summary>** verbatim (not at the gateway level); **Follow the gateway policy** (account) or **Use my default** (session, run) as a state-showing switch — ON sends `{configured: false}`, OFF starts from what applies now; the posture as a segmented control ("Deny everything, allow listed workspaces" / "Allow everything, refuse listed workspaces"); **Allowed workspaces** / **Refused workspaces** rows, each `path · Read & write | Read-only | Refused · remove` (a mode above the gateway's cap, read from `effective.folders[].cap`, stays focusable but `aria-disabled` with the kit tooltip "The gateway allows this workspace read-only"; the remove icon's tooltip is "Remove <path>"); **Everything else** under the second posture; the **Add a workspace path** row (+ **Choose…** when the host passes `choose`); the effective line verbatim; an optional `footer`. Every change is ONE call, never a Save button: stored levels `<WorkspaceChooser level="gateway"|"account"|"session" state={workspaceAsState(answer, level)} save={(payload) => …} />` (payload = the full body `{configured: true, posture, default_mode, folders}` or `{configured: false}`; at the gateway level `{posture, default_mode, folders}`; a `save` that resolves with a chooser state is shown at once); run level `<WorkspaceChooser level="run" value={WorkspaceRunValue | null} effective={dry-run answer} onChange={(next | null) => …} />`. A rejection shows the gateway's sentence + "Not saved." under the control. Helpers: `workspaceChooserClient(request, {level, account?, session?}, base = GATEWAY_API_PATH)` → `{path, load(), save(payload)}` over `GET/PUT /workspace/policy`, `/workspace/policy/{account|me}`, `/sessions/{id}/workspaces`; `workspaceDryRun(request, account = "me")` → `POST /workspace/effective/{account} {workspace}`; `workspaceAsState` / `workspaceAsPolicy` / `workspaceAsEffective` refuse an older answer (one carrying `shared_workspace`, or missing `configured`, `cap`, `summary`, `gateway_summary`) loudly; `effective.default_mode` may be `null` under "Deny everything, allow listed workspaces" (the follow switch then sends the policy read's own `default_mode`); `workspaceErrorSentence` reads an `Error`, `{detail: {message}}`, `{detail: "…"}` or `{message}`. No policy logic: no path checks, no clamp, no cap computation (`check_workspace_chooser.mjs`).
 - Voice section (0.8.0): `AfVoiceSection` — the Assistant's Settings → Voice layout, four groups: **Engines** (Text → speech, Speech → text as `AfOverrideRow`s), **Output** (output device where `audioOutputSelectable()`, with a **Test** chime on the chosen speaker; Reply volume), **Microphone** (input device; **Test** records 3 s with a live level meter and plays it back, or says why it could not: blocked, no device, device gone, in use, silence; Spoken language, which rides on transcription requests and skips detection; Input level 50–150 % where Web Audio allows) and **Replies** (Read aloud switch; Voice latency from `VOICE_LATENCY_OPTIONS`, only when the gateway advertises `quality_preset`). Device names appear after one microphone permission (**Show names**). Safari cannot choose a speaker: the picker stays on System default and says so. Required prop `fetchDefaults: () => Promise<VoiceDefaults>` (`GET /api/gateway/voice/defaults`, the gateway's `output.voice` / `input.voice` routes) is the only source of "Gateway default · provider / model" ("not set" / "unknown" otherwise); `defaults` passes them when the host already holds them. Value `VoiceClientPreferences` (`VoicePreferences` + `stt_provider`, `stt_model`, `stt_language`, `output_device`, `input_device`, `input_gain`, `reply_volume`, `read_aloud`); `voiceTtsRequest()` / `voiceSttRequest()` pick what a request carries (`voiceSttRequest` sends `language`). `nested` renders its sub-sections flat. `createVoice` (a `VoiceCreation`) adds "Create a voice" under the voice select. The Engines row names the overriding voice by its catalog name, read from the override's own route (0.9.5: `voiceTtsOverrideSummary(prefs, voiceName?)`; never an opaque id, AbstractFramework ADR 0043). Helpers (`voice_devices.ts`): `voiceDefaultSummary`, `sttRouteText`, `transcribingLine`, `microphoneErrorSentence`, `listVoiceDevices`, `unlockDeviceLabels`, `recordSample`, `playTestTone`, `playOnDevice`.
   0.9.0 (backlog 0035): the **Output** and **Microphone** groups are the standalone `AfVoiceOutput` and `AfVoiceInput` below. New props: `rows?: AfVoiceSectionRows` (`tts`, `stt`, `output`, `microphone`, `replies` default shown; `mute` and `capture` default hidden, shown only where the host honours them; an entity that speaks with its own voice passes `{tts: false}`), `ttsSlot?: ReactNode` (a host-owned voice picker shown in Engines in place of the Text → speech row), `voiceLibrary?: VoiceLibrary` (wins over `createVoice`), `previewVoice?(prefs, text?, opts?)` (choosing a voice plays it, with the play/stop toggle; played on the chosen speaker at the reply volume), `fetchLanguages?(kind, provider?) => Promise<string[]>` (`GET voice/languages?kind=stt&provider=`: Spoken language lists the transcription engine's languages, the override's else the gateway default's; failed or open = the kit table; a saved language outside the list stays as "(saved)"), `captureDefaults?` (what an unset `capture_mode` / `auto_send` means in this host), `levelSource?` (the `voice` from `useGatewayVoice`: the Microphone meter moves during a real recording; only the meter re-renders). A muted preference always shows **Unmute**, even where the Mute row is not opted in. New `VoiceClientPreferences` keys: `reply_muted`, `capture_mode` (`"hold"` | `"toggle"`), `auto_send`; with `rows.capture` the Microphone group shows **Microphone button** (Hold to talk / Tap to talk, `VOICE_CAPTURE_OPTIONS`) and **Send what you say automatically**. `voiceCaptureMode(value | prefs)` is the one reading of `capture_mode` (anything but `"toggle"` is hold). `gatewayVoiceOptions(prefs)` maps the preferences to the hook's `output_device_id`, `volume`, `muted`, `input_device_id`, `input_gain`, `capture_mode`. `VOICE_LANGUAGE_OPTIONS` now lists the kit's 15 languages (`VOICE_LANGUAGE_LABELS`).
@@ -7207,7 +7209,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.10.9",
+  "version": "0.10.17",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -7232,7 +7234,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.20",
+  "version": "0.9.26",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -7280,7 +7282,7 @@ npm test
   "scripts": {
     "build": "tsc && node scripts/copy_avatar_wasm.mjs",
     "build:islands": "node scripts/build_islands.mjs",
-    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/check_opaque_surfaces.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_playback_level.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_tool_call_words.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_filter_bar.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_session_cards.mjs && node scripts/check_entity_card.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_identity_panel.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_top_bar_set.mjs && node scripts/check_session_tool_policy.mjs && node scripts/check_brand_icons.mjs && node scripts/check_cloud_providers.mjs && node scripts/check_avatar.mjs && node scripts/check_avatar_quality.mjs && node scripts/check_apple_avatars.mjs && node scripts/check_avatar_audio.mjs",
+    "test": "node scripts/check_no_src_twins.mjs && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/check_theme_tokens.mjs && node scripts/check_css_balanced.mjs && node scripts/check_polish_css.mjs && node scripts/check_opaque_surfaces.mjs && node scripts/generate_palette_seeds.mjs --check && npm run build && node scripts/check_responsive.mjs && node scripts/check_viewport_vars.mjs && node scripts/check_matrix_core.mjs && node scripts/check_matrix_wrapper.mjs && node scripts/check_phase_radio.mjs && node scripts/check_cognition_bloom.mjs && node scripts/check_conduct_core.mjs && node scripts/check_voice_hook.mjs && node scripts/check_playback_level.mjs && node scripts/check_about.mjs && node scripts/check_automation_fixtures.mjs && node scripts/check_gateway_paths.mjs && node scripts/check_automation_client.mjs && node scripts/check_automation_panel.mjs && node scripts/check_tool_call_words.mjs && node scripts/check_automation_email.mjs && node scripts/check_state_toggles.mjs && node scripts/check_filter_bar.mjs && node scripts/check_modal_rows.mjs && node scripts/check_modal.mjs && node scripts/check_menu.mjs && node scripts/check_tooltip.mjs && node scripts/check_random_id.mjs && node scripts/check_timing_line.mjs && node scripts/check_trigger_words.mjs && node scripts/check_schedule_when.mjs && node scripts/check_forms_signin.mjs && node scripts/audit_theme_contrast.mjs --strict && tsc -p islands/tsconfig.json && node scripts/check_islands.mjs && node scripts/check_sandbox_chat.mjs && node scripts/check_workflow_picker.mjs && node scripts/check_route_picker.mjs && node scripts/check_rail_viewer.mjs && node scripts/check_audio_player.mjs && node scripts/check_unarchive.mjs && node scripts/check_voice_section.mjs && node scripts/check_voice_library.mjs && node scripts/check_workspace_chooser.mjs && node scripts/check_tool_state.mjs && node scripts/check_session_cards.mjs && node scripts/check_entity_card.mjs && node scripts/check_icons.mjs && node scripts/generate_icon_sheet.mjs --check && node scripts/check_file_viewer_video.mjs && node scripts/check_voice_widgets.mjs && node scripts/check_identity_panel.mjs && node scripts/check_tool_plan.mjs && node scripts/check_tool_mode_editor.mjs && node scripts/check_gateway_models.mjs && node scripts/check_speculation.mjs && node scripts/check_iteration_limit_field.mjs && node scripts/check_gateway_connection.mjs && node scripts/check_app_shell.mjs && node scripts/check_top_bar_set.mjs && node scripts/check_session_tool_policy.mjs && node scripts/check_brand_icons.mjs && node scripts/check_cloud_providers.mjs && node scripts/check_avatar.mjs && node scripts/check_avatar_quality.mjs && node scripts/check_apple_avatars.mjs && node scripts/check_avatar_audio.mjs",
     "test:speculation": "npm run build && node scripts/check_speculation.mjs",
     "prepublishOnly": "npm test && npm run test:speculation",
     "demo:avatars:build": "node scripts/build_avatar_gallery.mjs",
@@ -7312,7 +7314,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.9.2",
+  "version": "0.9.9",
   "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -7358,7 +7360,7 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_message_files_links.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_composer_stop.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_docs_voice.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && node scripts/check_avatar_conversation.mjs && node scripts/check_chat_defaults.mjs && tsc -p scripts/types/tsconfig.json"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_message_files_links.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_composer_stop.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_docs_voice.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_mentions.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_replay_turn_gaps.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && node scripts/check_avatar_conversation.mjs && node scripts/check_chat_defaults.mjs && tsc -p scripts/types/tsconfig.json"
   },
   "peerDependencies": {
     "@abstractframework/ui-kit": "^0.9.15",
@@ -8115,6 +8117,7 @@ export {
   type WorkspaceRequest,
 } from "./workspace_chooser_core.js";
 export { AfSettingsGroup, AfSettingRow, AfOverrideRow, type AfSettingsGroupProps, type AfSettingRowProps, type AfOverrideRowProps } from "./af_settings_rows.js";
+export { IterationLimitField, iterationLimitDefaultFrom, iterationLimitFromInput, iterationLimitProblem, iterationLimitDefaultLabel, iterationLimitAppliedText, type IterationLimitFieldProps, type IterationLimitValue, type IterationLimitDefault, type IterationLimitApplied } from "./iteration_limit_field.js";
 export {
   AfVoiceSection,
   VOICE_LATENCY_OPTIONS,
@@ -8159,7 +8162,7 @@ export { AfTimeZonePicker, TIME_ZONE_GATEWAY_DEFAULT, timeZoneOptions, type AfTi
 // --- ui-primitives (voice) ---
 // 0035: voice IN / voice OUT as standalone composables, the one microphone button, the
 // preference and defaults hooks, the voice library, the gateway's voice routes.
-export { AfVoiceOutput, SAFARI_OUTPUT_NOTE, type AfVoiceOutputProps, type AfVoiceOutputLabels, type VoiceOutputValue, type VoiceDeviceLister } from "./af_voice_output.js";
+export { AfVoiceOutput, SAFARI_OUTPUT_NOTE, SYSTEM_OUTPUT_NOTE, OUTPUT_ACTION_REOPEN, OUTPUT_ACTION_NAMES, OUTPUT_DEFAULT_LABEL, type AfVoiceOutputProps, type AfVoiceOutputLabels, type VoiceOutputValue, type VoiceDeviceLister } from "./af_voice_output.js";
 export { AfVoiceInput, clampInputGain, type AfVoiceInputProps, type AfVoiceInputLabels, type VoiceInputValue } from "./af_voice_input.js";
 export { AfVoiceMicButton, VOICE_MIC_TEXT, type AfVoiceMicButtonProps } from "./af_voice_mic_button.js";
 export { useVoiceDefaults, type VoiceDefaultsState } from "./use_voice_defaults.js";
@@ -8180,6 +8183,8 @@ export {
 } from "./voice_settings.js";
 export { voiceCaptureMode, ttsVoiceKey, type VoiceCaptureMode } from "./use_gateway_voice.js";
 export { recordingAbortError } from "./voice_devices.js";
+// ui-kit 0.9.21: rebuild long-lived audio graphs on the current system output (Re-open audio, devicechange).
+export { reopenAudioOutput, onAudioOutputEvent, closeAudioContext, CHIME_FAILED, CHIME_FAILED_SYSTEM, type AudioOutputEvent } from "./voice_devices.js";
 export { AfVoiceLevelMeter, useVoiceLevel, type AfVoiceLevelMeterProps, type VoiceLevelSource } from "./af_voice_level_meter.js";
 export { GATEWAY_VOICE_ROUTES, voiceClonePath, voiceCloneDeployPath, runVoiceTtsPath, runTranscribePath, entityVoicePath } from "./gateway_paths.js";
 // --- ui-primitives (tools-models) ---
@@ -8379,7 +8384,7 @@ export {
 export { ActivityAvatar, type ActivityAvatarProps, type AvatarQuality } from "./activity_avatar.js";
 export { SessionCard, type SessionCardProps } from "./session_card.js";
 // An entity at a glance (gateway backlog 1012: `GET /entities/{name}/tile`): one card for every app.
-export { EntityCard, type EntityCardProps, type EntityCardStatus, type EntityCardDensity } from "./entity_card.js";
+export { EntityCard, type EntityCardProps, type EntityCardStatus, type EntityCardDensity, type EntityCardAttention } from "./entity_card.js";
 export {
   entityAgeWords,
   entityCardSummary,
@@ -16483,6 +16488,25 @@ export {
 } from "./docs_assistant.js";
 export type { AssistantPanelProps, AssistantAsk, AssistantAskContext } from "./assistant_panel.js";
 export { ChatComposer, type ChatComposerProps, type ChatComposerVariant } from "./chat_composer.js";
+export {
+  addMention,
+  applyMentionPick,
+  mentionKey,
+  mentionSendPayload,
+  mentionTriggerAt,
+  moveMentionActive,
+  removeMention,
+  usableCandidates,
+  MENTION_QUERY_MAX,
+  type ChatComposerSend,
+  type ChatMention,
+  type ChatMentionCandidate,
+  type ChatMentionKind,
+  type ChatMentionSent,
+  type MentionTrigger,
+} from "./mentions.js";
+export { chatAuthorOf, chatAuthorView, chatAvatarLookOf, type ChatAuthor, type ChatAuthorKind, type ChatAuthorMarkKind, type ChatAuthorView, type ChatAvatarLook } from "./chat_author.js";
+export { ChatAuthorMark, type ChatAuthorMarkProps } from "./author_mark.js";
 export { Markdown, sameOriginImage, type MarkdownImages, type MarkdownProps } from "./markdown.js";
 export { JsonViewer } from "./json_viewer.js";
 export { ChatMessageCard, speakButtonView } from "./chat_message_card.js";
@@ -16545,6 +16569,7 @@ export type {
   GatewayCommand,
   ServerRecord,
   WorkflowConnection,
+  WorkflowUnreachable,
   WorkflowRecord,
   WorkflowSessionSnapshot,
   WorkflowSessionControllerOptions,
@@ -16703,8 +16728,29 @@ export { publicApprovalRequest, type PublicApprovalRequest } from "./public_appr
 
 ## panel-chat/src/chat_composer.tsx
 
-import React, { useCallback, useEffect, useRef } from "react";
-import { Icon } from "@abstractframework/ui-kit";
+import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { AfChip, Icon } from "@abstractframework/ui-kit";
+
+import { ChatAuthorMark } from "./author_mark.js";
+import {
+  addMention,
+  applyMentionPick,
+  mentionKey,
+  mentionSendPayload,
+  mentionTriggerAt,
+  moveMentionActive,
+  removeMention,
+  usableCandidates,
+  type ChatComposerSend,
+  type ChatMention,
+  type ChatMentionCandidate,
+} from "./mentions.js";
+
+const NO_MENTIONS: ChatMention[] = [];
+type MentionsFound = { query: string; items: ChatMentionCandidate[]; status: "loading" | "ready" | "error" };
+const NOTHING_FOUND: MentionsFound = { query: "", items: [], status: "loading" };
+// Caret placement after a pick runs before paint in a browser; the server has no layout.
+const useCaretEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 /** Rounded multiline is the shared default; `legacy` restores the former flat layout. */
 export type ChatComposerVariant = "compact" | "legacy";
@@ -16712,7 +16758,42 @@ export type ChatComposerVariant = "compact" | "legacy";
 export type ChatComposerProps = {
   value: string;
   onChange: (value: string) => void;
-  onSubmit: () => void;
+  /** Send (Enter or the button). `onSend` wins when given. */
+  onSubmit?: () => void;
+  /**
+   * Send with the picked mentions: `{text, mentions: [{id, name, kind, index}]}`, mentions in
+   * the order they were picked. Wins over `onSubmit`. Uncontrolled chips are cleared once it
+   * returns (or its promise resolves); a throw or a rejection keeps them.
+   */
+  onSend?: (send: ChatComposerSend) => void | Promise<unknown>;
+  /**
+   * `@` mentions. Typing `@` opens a list of the names this returns for the query typed after
+   * it (the HOST decides the source, e.g. `GET /entities`; it is called as the person types, so
+   * cache in the host). A pick becomes a chip bound to that candidate; an `@` that was not
+   * picked stays plain text. Absent: no list and no chips (today's composer).
+   */
+  mentionCandidates?: (query: string) => Promise<ChatMentionCandidate[]>;
+  /** Controlled chips. Omit to let the composer keep them. */
+  mentions?: ChatMention[];
+  onMentionsChange?: (mentions: ChatMention[]) => void;
+  /**
+   * The sentence shown under a chip the first time its name is picked in this conversation
+   * (e.g. "Castor will read this conversation's history"). The host writes it; null = none.
+   */
+  mentionNotice?: (candidate: ChatMentionCandidate) => string | null | undefined;
+  /** The conversation "the first time" counts in (e.g. the session id); a new key starts over. */
+  mentionSessionKey?: string;
+  /**
+   * The host's sentence when mentions cannot be used here (e.g. an older gateway without the
+   * mentions route: "This gateway does not offer mentions yet"). Typing `@` then shows this
+   * sentence instead of names (no new chip), and it stays under any chips already picked.
+   */
+  mentionsUnavailable?: string | null;
+  /**
+   * A sentence the host shows about the last mentions it sent (e.g. "Castor is in another
+   * conversation."); shown above the field, with or without chips, until the host clears it.
+   */
+  mentionStatus?: string | null;
   /** Omit for the shared rounded multiline composer; `legacy` restores the former layout. */
   variant?: ChatComposerVariant;
   placeholder?: string;
@@ -16768,6 +16849,8 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
   const stopping = stopMode && Boolean(stopSpec?.stopping);
   const sendLabel = busy ? props.busyLabel || "Thinking…" : props.sendLabel || "Send";
   const textarea = useRef<HTMLTextAreaElement | null>(null);
+  const latest = useRef(props);
+  latest.current = props;
   const fallbackSizing = useRef(false);
   const setTextarea = useCallback((element: HTMLTextAreaElement | null) => {
     textarea.current = element;
@@ -16799,15 +16882,180 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
   }, [compact, resizeTextarea]);
   useEffect(() => { resizeTextarea(); }, [props.value, rows, resizeTextarea]);
 
+  // ---- @ mentions (off unless the host feeds names) ------------------------------------
+  const mentionsOn = typeof props.mentionCandidates === "function";
+  const controlledMentions = props.mentions !== undefined;
+  const [ownMentions, setOwnMentions] = useState<ChatMention[]>(NO_MENTIONS);
+  const mentions = mentionsOn ? (controlledMentions ? props.mentions || NO_MENTIONS : ownMentions) : NO_MENTIONS;
+  const mentionsRef = useRef(mentions);
+  mentionsRef.current = mentions;
+  const setMentions = useCallback((next: ChatMention[]) => {
+    mentionsRef.current = next;
+    if (latest.current.mentions === undefined) setOwnMentions(next);
+    latest.current.onMentionsChange?.(next);
+  }, []);
+  const [caret, setCaret] = useState<number | null>(null);
+  const [focused, setFocused] = useState(false);
+  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
+  const trigger = mentionsOn && focused && !disabled && caret !== null ? mentionTriggerAt(props.value, caret) : null;
+  const open = Boolean(trigger) && trigger?.start !== dismissedAt;
+  const unavailable = mentionsOn ? String(props.mentionsUnavailable || "").trim() : "";
+  const mentionStatus = mentionsOn ? String(props.mentionStatus || "").trim() : "";
+  // Unavailable: the list says why and the host's feed is not asked.
+  const query = open && trigger && !unavailable ? trigger.query : null;
+  // Escape closes the list for THIS `@`; a new `@` (or moving off it) opens it again.
+  useEffect(() => { if (dismissedAt !== null && trigger?.start !== dismissedAt) setDismissedAt(null); }, [trigger?.start, dismissedAt]);
+  const [found, setFound] = useState<MentionsFound>(NOTHING_FOUND);
+  const [active, setActive] = useState(0);
+  const loadSeq = useRef(0);
+  useEffect(() => {
+    if (query === null) { loadSeq.current += 1; setFound(NOTHING_FOUND); return; }
+    const seq = ++loadSeq.current;
+    setActive(0);
+    let pending: Promise<unknown>;
+    try { pending = Promise.resolve(latest.current.mentionCandidates?.(query)); }
+    catch (reason) { pending = Promise.reject(reason); }
+    pending.then(
+      (items) => { if (seq === loadSeq.current) setFound({ query, items: usableCandidates(items), status: "ready" }); },
+      () => { if (seq === loadSeq.current) setFound({ query, items: [], status: "error" }); },
+    );
+  }, [query]);
+  // While the names for a new query load, the previous names stay (no flicker per keystroke).
+  const shown: MentionsFound = query === null ? NOTHING_FOUND : found.query === query ? found : { query, items: found.items, status: "loading" };
+  const activeIndex = shown.items.length ? Math.min(Math.max(active, 0), shown.items.length - 1) : -1;
+  const listId = `${useId()}mentions`;
+  const optionId = (i: number) => `${listId}-${i}`;
+
+  // First pick of a name in this conversation: the host's sentence under the chips.
+  const noticed = useRef<{ key: string | undefined; seen: Set<string> }>({ key: props.mentionSessionKey, seen: new Set() });
+  if (noticed.current.key !== props.mentionSessionKey) noticed.current = { key: props.mentionSessionKey, seen: new Set() };
+  const [notices, setNotices] = useState<Array<{ key: string; text: string }>>([]);
+  useEffect(() => { if (!mentions.length && notices.length) setNotices([]); }, [mentions.length, notices.length]);
+  const chipKeys = new Set(mentions.map(mentionKey));
+  const visibleNotices = notices.filter((n) => chipKeys.has(n.key));
+
+  const pendingCaret = useRef<number | null>(null);
+  useCaretEffect(() => {
+    const element = textarea.current;
+    if (pendingCaret.current === null || !element) return;
+    const at = Math.min(pendingCaret.current, element.value.length);
+    pendingCaret.current = null;
+    element.setSelectionRange(at, at);
+  }, [props.value]);
+
+  const pick = (candidate: ChatMentionCandidate) => {
+    if (!trigger) return;
+    const at = textarea.current ? textarea.current.selectionStart : caret ?? props.value.length;
+    const next = applyMentionPick(props.value, trigger, at);
+    pendingCaret.current = next.caret;
+    setCaret(next.caret);
+    props.onChange(next.text);
+    const key = mentionKey(candidate);
+    const noticeText = noticed.current.seen.has(key) ? "" : String(props.mentionNotice?.(candidate) || "").trim();
+    noticed.current.seen.add(key);
+    if (noticeText) setNotices((prev) => [...prev.filter((n) => n.key !== key), { key, text: noticeText }]);
+    setMentions(addMention(mentionsRef.current, candidate));
+  };
+
+  const submit = () => {
+    const p = latest.current;
+    if (!p.onSend) { p.onSubmit?.(); return; }
+    const result = p.onSend(mentionSendPayload(p.value, mentionsOn ? mentionsRef.current : NO_MENTIONS));
+    if (p.mentions !== undefined || !mentionsOn) return;
+    const clear = () => setOwnMentions(NO_MENTIONS);
+    if (result && typeof (result as Promise<unknown>).then === "function") void (result as Promise<unknown>).then(clear);
+    else clear();
+  };
+
+  const mentionChips = mentionsOn && (mentions.length || mentionStatus) ? (
+    <div className="pc-mention-chips" role="group" aria-label="Mentioned">
+      {mentionStatus ? (
+        <div className="pc-mention-notice pc-mention-notice--status" role="status">
+          <Icon name="info" size={13} />
+          <span>{mentionStatus}</span>
+        </div>
+      ) : null}
+      {mentions.map((m) => (
+        <AfChip
+          key={mentionKey(m)}
+          tone="accent"
+          className="pc-mention-chip"
+          title={m.kind === "entity" ? `${m.name} (entity)` : `${m.name} (agent)`}
+          {...(disabled ? {} : { onRemove: () => setMentions(removeMention(mentionsRef.current, mentionKey(m))), removeLabel: `Remove ${m.name}` })}
+        >
+          <ChatAuthorMark mark={m.kind} look={m.avatar} initial={m.name} size={14} />
+          <span className="pc-mention-chip__name" data-mention-kind={m.kind}>@{m.name}</span>
+        </AfChip>
+      ))}
+      {visibleNotices.map((n) => (
+        <div key={n.key} className="pc-mention-notice" role="status">
+          <Icon name="info" size={13} />
+          <span>{n.text}</span>
+        </div>
+      ))}
+      {unavailable && mentions.length ? (
+        <div className="pc-mention-notice pc-mention-notice--unavailable" role="status">
+          <Icon name="warning" size={13} />
+          <span>{unavailable}</span>
+        </div>
+      ) : null}
+    </div>
+  ) : null;
+
+  const mentionList = open && unavailable ? (
+    <div className="pc-mention-popover" data-status="unavailable">
+      <div className="pc-mention-empty" role="status">{unavailable}</div>
+    </div>
+  ) : open ? (
+    <div className="pc-mention-popover" data-status={shown.status}>
+      {shown.items.length ? (
+        <ul id={listId} className="pc-mention-list" role="listbox" aria-label="Mention someone">
+          {shown.items.map((c, i) => (
+            <li
+              key={mentionKey(c)}
+              id={optionId(i)}
+              role="option"
+              aria-selected={i === activeIndex}
+              className="pc-mention-option"
+              data-kind={c.kind}
+              // The field keeps the focus (and the caret) while the pointer picks.
+              onMouseDown={(e) => e.preventDefault()}
+              onMouseEnter={() => setActive(i)}
+              onClick={() => pick(c)}
+            >
+              <ChatAuthorMark mark={c.kind} look={c.avatar} initial={c.name} size={22} />
+              <span className="pc-mention-option__text">
+                <span className="pc-mention-option__name">{c.name}</span>
+                {c.hint ? <span className="pc-mention-option__hint">{c.hint}</span> : null}
+              </span>
+              <span className="pc-mention-option__kind">{c.kind}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="pc-mention-empty" role="status">
+          {shown.status === "loading"
+            ? "Looking for names…"
+            : shown.status === "error"
+              ? "The names could not be loaded."
+              : shown.query
+                ? `No name matches “${shown.query}”.`
+                : "No one to mention here."}
+        </div>
+      )}
+    </div>
+  ) : null;
+
   return (
     <div className={["pc-composer", compact ? "pc-composer--compact" : "", props.className].filter(Boolean).join(" ")}>
       {props.leading}
+      {mentionChips}
       <textarea
         id={props.textareaId}
         ref={setTextarea}
         className={["pc-composer__textarea", props.textareaClassName].filter(Boolean).join(" ")}
         value={props.value}
-        onChange={(e) => props.onChange(e.target.value)}
+        onChange={(e) => { if (mentionsOn) setCaret(e.target.selectionStart); props.onChange(e.target.value); }}
         rows={rows}
         // The textarea auto-grows (CSS field-sizing) from `rows` lines up to a
         // viewport-relative cap; the row count reaches the CSS as a variable.
@@ -16819,10 +17067,40 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
         placeholder={props.placeholder || ""}
         aria-label={props.ariaLabel || props.placeholder || "Message"}
         aria-describedby={props.ariaDescribedBy}
+        {...(mentionsOn
+          ? {
+              "aria-autocomplete": "list" as const,
+              ...(open && shown.items.length ? { "aria-controls": listId } : {}),
+              ...(open && activeIndex >= 0 ? { "aria-activedescendant": optionId(activeIndex) } : {}),
+              onSelect: (e: React.SyntheticEvent<HTMLTextAreaElement>) => setCaret(e.currentTarget.selectionStart),
+              onFocus: (e: React.FocusEvent<HTMLTextAreaElement>) => { setFocused(true); setCaret(e.currentTarget.selectionStart); },
+              onBlur: () => setFocused(false),
+            }
+          : {})}
         disabled={disabled}
         autoFocus={Boolean(props.autoFocus)}
         onPaste={props.onPaste}
         onKeyDown={(e) => {
+          if (open && !(e.nativeEvent.isComposing || e.keyCode === 229)) {
+            const count = shown.items.length;
+            if ((e.key === "ArrowDown" || e.key === "ArrowUp") && count) {
+              e.preventDefault();
+              setActive(moveMentionActive(activeIndex, count, e.key === "ArrowDown" ? 1 : -1));
+              return;
+            }
+            if ((e.key === "Enter" || e.key === "Tab") && !e.shiftKey && activeIndex >= 0) {
+              e.preventDefault();
+              pick(shown.items[activeIndex]);
+              return;
+            }
+            if (e.key === "Escape") {
+              // Closes the list only (a drawer around the chat stays open).
+              e.preventDefault();
+              e.stopPropagation();
+              setDismissedAt(trigger ? trigger.start : null);
+              return;
+            }
+          }
           if (e.key !== "Enter" || e.shiftKey) return;
           if (props.submitKey === "mod-enter" && !e.ctrlKey && !e.metaKey) return;
           // Committing an IME composition with Enter must never send the
@@ -16834,7 +17112,7 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
           // contract is the component's, not something every consumer must
           // re-implement around a keyboard side door.
           if (!can_submit) return;
-          props.onSubmit();
+          submit();
         }}
       />
 
@@ -16855,7 +17133,7 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
           aria-busy={compact ? (stopMode ? stopping : busy) : undefined}
           data-mode={stopSpec ? (stopping ? "stopping" : stopMode ? "stop" : "send") : undefined}
           disabled={stopMode ? disabled || stopping : !can_submit}
-          onClick={() => (stopMode ? stopSpec?.onStop() : props.onSubmit())}
+          onClick={() => (stopMode ? stopSpec?.onStop() : submit())}
         >
           {compact ? (
             stopSpec ? (
@@ -16870,6 +17148,7 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
           ) : sendLabel}
         </button>
       </div>
+      {mentionList}
       {props.overlay}
     </div>
   );
@@ -16881,7 +17160,7 @@ import {MessageArtifactChip, type MessageArtifact} from "./message_artifacts.js"
 import type { PublicUpdate } from "./conversation_model.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import { AfAudioPlayer, Icon, fileViewerKind, fileViewerNeedsText, formatFileSize, type IconName } from "@abstractframework/ui-kit";
+import { AfAudioPlayer, AfChip, Icon, fileViewerKind, fileViewerNeedsText, formatFileSize, type IconName } from "@abstractframework/ui-kit";
 
 import { fileRawLink, isLocalObjectUrl } from "./chat_media.js";
 import { FileViewer } from "./file_viewer.js";
@@ -16890,8 +17169,10 @@ import type { MarkdownImages } from "./markdown.js";
 import { copyText } from "./utils.js";
 import { ToolActivity } from "./tool_activity.js";
 import type { WorkflowStatistics, WorkflowToolActivity } from "./workflow_evidence.js";
-import { StatChip, formatDuration, statDetail, type StatDetail } from "./stat_detail.js";
+import { ChatStatsRow, workflowStats, type ChatStat } from "./chat_stats.js";
 import { formatMessageStamp, messageStampIso, messageStampTitle, useLocalDay } from "./message_footer.js";
+import { chatAuthorView, type ChatAuthor } from "./chat_author.js";
+import { ChatAuthorMark } from "./author_mark.js";
 
 export type ChatMessageLevel = "info" | "warn" | "error";
 
@@ -16910,6 +17191,14 @@ export type ChatMessage = {
   kind?: string;
   /** Original public channel attribution, retained through replay. */
   source?: string;
+  /**
+   * Who wrote this turn (the gateway's turn `author`: `{kind, name, entity_id, identity_ref,
+   * avatar: {style, color}}`). On an assistant-side message the header shows the author's
+   * mark (an entity's orb, the agent's mark), its name and a kind tag. Null or absent (an
+   * older gateway): the header is today's, `title || "Agent"` and no mark. User messages
+   * ignore it.
+   */
+  author?: ChatAuthor | null;
   publicUpdate?: PublicUpdate;
   toolActivity?: WorkflowToolActivity;
   statistics?: WorkflowStatistics;
@@ -16995,37 +17284,7 @@ export type ChatAttachment = {
   onClick?: () => void;
 };
 
-export type ChatStat = {
-  id?: string;
-  label: string;
-  /** A ONE-line hint. A multi-line explanation is a `detail` (the message footer spec:
-   *  every workflow chip opens the structured panel, never a native multi-line tooltip). */
-  title?: string;
-  icon?: React.ReactNode;
-  onClick?: () => void;
-  /** Structured detail (tokens / time / tools). When present the chip opens
-   *  a hover/focus panel instead of a native one-line `title`. */
-  detail?: StatDetail;
-};
-
-/** The workflow stat chips (2026-09-22 rework). The native `title` held one
- *  or two lines ("Input: 5,996 · Output: 423"); the ledger carries the cache
- *  split, measured TTFT, generation rate, speculation and per-tool timing.
- *  `statDetail` (pure, see stat_detail.tsx) folds them into sections; the
- *  chip renders them as a structured panel. Absent metrics read "not
- *  reported", never 0. */
-function workflowStats(metrics: WorkflowStatistics): ChatStat[] {
-  const tokens = metrics.totalTokens !== undefined ? statDetail("tokens", metrics) : null;
-  const tools = statDetail("tools", metrics);
-  const time = metrics.durationMs !== undefined ? statDetail("time", metrics) : null;
-  return [
-    ...(tokens ? [{ label: `${metrics.totalTokens!.toLocaleString()} tokens`, detail: tokens }] : []),
-    { label: `${metrics.toolCalls} ${metrics.toolCalls === 1 ? "tool" : "tools"}`, detail: tools },
-    ...(metrics.changedFiles.length ? [{ label: `${metrics.changedFiles.length} ${metrics.changedFiles.length === 1 ? "file" : "files"} changed`, detail: statDetail("files", metrics) }] : []),
-    // One duration format across the chat (the stat panel, the tool rows, this chip): "4.2s", "3m 35s".
-    ...(time ? [{ label: formatDuration(metrics.durationMs), detail: time }] : []),
-  ];
-}
+export type { ChatStat } from "./chat_stats.js";
 
 type RoleUI = { label: string; icon: IconName; variant: string };
 
@@ -17254,6 +17513,8 @@ export function speakButtonView(state: SpeakState): { icon: IconName; title: str
 export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement {
   const m = props.message;
   const role_ui = useMemo(() => _role_ui(m), [m.kind, m.level, m.role, m.title]);
+  // "Who answered" (operator 2026-11-08): assistant-side messages only; null keeps today's header.
+  const author = role_ui.variant === "assistant" ? chatAuthorView(m.author, m.title) : null;
   // `ChatMessage.ts` is an ISO string; a malformed one renders no stamp, never "Invalid Date".
   const raw_ts = m.ts;
   // Re-derived when the reader's calendar day changes ("10:52 PM" becomes "Yesterday · 10:52 PM"):
@@ -17316,12 +17577,24 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
       className={["pc-chat-item", `pc-chat-item--${role_ui.variant}`, caption ? "pc-chat-item--caption" : "", live ? "pc-chat-item--live" : "", props.className].filter(Boolean).join(" ")}
       {...(live ? { "aria-busy": true } : {})}
       {...(caption ? { "data-variant": "caption" } : {})}
+      {...(author ? { "data-author": author.mark } : {})}
     >
       {caption ? null : <div className="pc-chat-header">
-        <div className="pc-chat-avatar" aria-hidden="true">
-          <Icon name={role_ui.icon} size={14} />
-        </div>
-        <span className="pc-chat-role">{role_ui.label}</span>
+        {author ? (
+          <div className="pc-chat-avatar pc-chat-avatar--author" aria-hidden="true">
+            <ChatAuthorMark mark={author.mark} look={author.look} initial={author.initial} size={22} />
+          </div>
+        ) : (
+          <div className="pc-chat-avatar" aria-hidden="true">
+            <Icon name={role_ui.icon} size={14} />
+          </div>
+        )}
+        <span className="pc-chat-role">{author ? author.name : role_ui.label}</span>
+        {author?.tag ? (
+          <AfChip size="sm" tone="muted" className="pc-chat-author-kind">
+            {author.tag}
+          </AfChip>
+        ) : null}
         {live ? (
           <span className="pc-chat-live-indicator" title={live.label ? `Pending: ${live.label}` : "The reply is still being written"}>
             <span className="pc-chat-live-dot" aria-hidden="true" />
@@ -17428,31 +17701,7 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         </div>
       ) : null}
 
-      {stats.length && !caption ? (
-        <div className="pc-chat-stats" aria-label="Stats">
-          {stats.slice(0, 12).map((s, idx) => {
-            const label = String(s.label || "").trim();
-            if (!label) return null;
-            if (s.detail)
-              return <StatChip key={s.id || `${label}:${idx}`} label={label} detail={s.detail} icon={s.icon} onClick={s.onClick} />;
-            const title = String(s.title || "").trim();
-            const clickable = typeof s.onClick === "function";
-            const StatElement = clickable ? "button" : "span";
-            return (
-              <StatElement
-                key={s.id || `${label}:${idx}`}
-                {...(clickable ? { type: "button" as const } : {})}
-                className={["pc-chat-stat", clickable ? "pc-chat-stat--clickable" : ""].filter(Boolean).join(" ")}
-                title={title || undefined}
-                onClick={clickable ? () => s.onClick?.() : undefined}
-              >
-                {s.icon ? <span className="pc-chat-stat-icon" aria-hidden="true">{s.icon}</span> : null}
-                <span className="pc-chat-stat-label">{label}</span>
-              </StatElement>
-            );
-          })}
-        </div>
-      ) : null}
+      {stats.length && !caption ? <ChatStatsRow stats={stats} /> : null}
 
       {footer != null && footer !== false ? <div className="pc-chat-footer">{footer}</div> : null}
     </div>
@@ -17483,6 +17732,8 @@ export default ChatMessageCard;
  * `GET /view` after EVERY record (fixtures: `scripts/fixtures/replay_view/`, regenerated by
  * `scripts/regen_replay_view_fixtures.py` against a real gateway).
  */
+
+import type { ChatAuthor } from "./chat_author.js";
 
 export type ReplayViewJson = Record<string, unknown>;
 
@@ -17525,6 +17776,9 @@ export type ReplayViewMessage = {
   /** A final answer that repeats an earlier answer names it here: show the text once. */
   repeats?: string;
   level?: string | null;
+  /** Who wrote the turn (gateway turn surfaces, 2026-11-08): `{kind, name, entity_id,
+   * identity_ref, avatar: {style, color}}`; null or absent on an older gateway. */
+  author?: ChatAuthor | null;
 };
 
 export type ReplayViewToolCall = {
@@ -18063,6 +18317,7 @@ import { publicUpdate } from "./conversation_model.js";
  *   through `POST commands` with it).
  */
 import type { ChatMessage } from "./chat_message_card.js";
+import { chatAuthorOf } from "./chat_author.js";
 import type {
   WorkflowStatistics,
   WorkflowToolActivity,
@@ -18360,6 +18615,8 @@ function messageOf(
     content: m.text,
     runId: m.run_id,
     ...(m.source ? { source: m.source } : {}),
+    // The turn's author when the gateway sends one (null stays null: "no author known").
+    ...(m.author !== undefined ? { author: chatAuthorOf(m.author) } : {}),
     ...(m.kind === "public_update" ? { publicUpdate: publicUpdate({ id: m.public_update_id || m.id, text: m.text, run_id: m.run_id, session_id: m.session_id, iteration: m.iteration, source_call_ids: m.source_call_ids, kind: m.update_kind }, m.run_id) || undefined } : {}),
     ...(ts ? { ts } : {}),
     ...(m.role === "system"
@@ -18382,13 +18639,33 @@ function messageOf(
   } as ChatMessage;
 }
 
+/**
+ * An open event wait the view lists as a machine `signal` (runtime replay `wait_kind`: an event
+ * wait with no prompt and no choices is not person-facing, so `view.interaction` is null), as
+ * the raw runtime wait it is: `reason: "event"` on its canonical `evt:` key. The conversation then
+ * reads "Waiting for an event" (never "Working") and the host can still deliver that event by hand
+ * (`presentInteraction` resolves its route from the key and the run, and no `command` is
+ * invented). Only `evt:` keys: other signals carry no event to deliver.
+ */
+export function replaySignalWait(view: ReplayView): WorkflowWaitInteraction | null {
+  for (const w of view.open_waits || []) {
+    const key = str(w.wait_key);
+    if (str(w.kind) !== "signal" || !key.startsWith("evt:")) continue;
+    const runId = str(w.run_id);
+    if (!runId) continue;
+    const stepId = str(w.step_id);
+    return { runId, wait: { wait_key: key, reason: "event" }, ...(stepId ? { stepId } : {}), kind: "event" };
+  }
+  return null;
+}
+
 /** Project a whole view. */
 export function projectReplayView(view: ReplayView): ReplayProjection {
   const root = view.root_run_id;
   const statistics = replayStatistics(view);
   const interaction = view.interaction
     ? replayInteractionWait(view.interaction)
-    : null;
+    : replaySignalWait(view);
   const openQuestion = view.interaction
     ? `${view.interaction.run_id}:${view.interaction.step_id || ""}:question`
     : "";
@@ -18454,6 +18731,12 @@ export function projectReplayView(view: ReplayView): ReplayProjection {
     }
   }
   items.sort((x, y) => compareReplayOrder(x, y));
+  // A turn with no final message (a tools-only workflow): its statistics go on the turn's last
+  // rendered item when that is its tool group (the group shows them under its rows).
+  if (!statsOn && items.length) {
+    const last = items[items.length - 1].message;
+    if (last.toolActivity) items[items.length - 1] = { ...items[items.length - 1], message: { ...last, statistics } };
+  }
   const runStatus = new Map(
     (view.runs || []).map((r) => [r.run_id, str(r.status).toLowerCase()]),
   );
@@ -22751,6 +23034,9 @@ show only when they are not zero.
 
 `density="compact"` (a strip tile) keeps who, now, the warning, one interest and the last moment.
 `density="full"` (a grid card, the default) shows every row.
+`attention="marker"` (0.9.25) draws the warning as a small ring on the "now" line instead of the boxed note —
+the sentence whole in its tooltip and in the head's accessible name — so a strip of compact cards keeps one height;
+the default `attention="note"` draws the box.
 
 States: `status="loading"` (nothing read yet; the roster's `name` and `look` show at once and every
 row holds its final size, so the card does not move when the tile arrives; only the warning row is
@@ -23135,6 +23421,202 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## [Unreleased]
+
+Packages: `@abstractframework/panel-chat` (version set at release; still 0.9.9 in `package.json`) and
+`@abstractframework/ui-kit` 0.9.26 (local build, not published). Apps that vendor panel-chat (`src/vendor/abstractchat`) must re-sync from a fresh build; a same-version
+repack leaves `node_modules` and the vendored copy stale.
+
+### Added
+
+- **ui-kit: `IterationLimitField`, one shared "Iteration limit" control for every app** (operator 2026-11-08). A number
+  input (min 1) whose empty state names what applies: "Gateway default (12)" when the gateway stores
+  `agents.max_iterations`, "Workflow default" when it does not, "Gateway default" on a gateway that does not say. A
+  value that is not a whole number of 1 or more gets a plain sentence (`aria-invalid`); past the gateway's
+  `warn_above` (200) a warning line, never a refusal; "Use default" clears it; with the last start's `limits` receipt
+  (`applied`) it says which limit that run got ("Last run: 12 iterations (gateway default)."). An app passes its own
+  field class (`className`) for the same look as its other fields. Helpers: `iterationLimitDefaultFrom(discovery)`
+  reads `capabilities.agent_limits.max_iterations`, `iterationLimitFromInput(value)` is what to send as
+  `input_data._limits.max_iterations`, `iterationLimitProblem`, `iterationLimitDefaultLabel`,
+  `iterationLimitAppliedText`; types `IterationLimitValue`, `IterationLimitDefault`, `IterationLimitApplied`. Check:
+  `scripts/check_iteration_limit_field.mjs` (in `npm test`).
+- **`@` mentions in the composer ("@entity from any chat window").** `ChatComposer` and `WorkflowChat` take
+  `mentionCandidates(query)`: typing `@` opens a list of the names the host returns (keyboard: arrows,
+  Enter/Tab to pick, Escape to close; pointer too; full width on a phone). A pick becomes a removable chip bound to
+  that name, never editable text; an `@` that was not picked stays plain text (the kit never reads `@` out of the
+  text). `ChatComposer.onSend` and `WorkflowChat.onSend(draft, ctx)` carry the picks as
+  `mentions: [{id, name, kind, index}]` in pick order (`index` = the gateway's `mention_index`); the chips clear
+  when the send succeeds and stay when it fails. `mentionNotice(candidate)` gives the sentence shown the first
+  time a name is picked in a conversation (`mentionSessionKey`), e.g. "Castor will read this conversation's
+  history"; `mentionStatus` shows the host's sentence about the last send ("Castor is in another
+  conversation."); `mentionsUnavailable` shows the host's sentence instead of names on a gateway without the
+  mentions route. Without `mentionCandidates` the composer is exactly as before. Steers carry the mentions too
+  (`onSteer(text, mode, {mentions})`). Pure helpers exported: `mentionTriggerAt`, `applyMentionPick`,
+  `addMention`, `removeMention`, `mentionSendPayload`, `usableCandidates`.
+- **The left bubble says who answered.** `ChatMessage.author` takes the gateway's turn author
+  (`{kind: "entity"|"agent"|"person", name, entity_id, identity_ref, avatar: {style, color}}`, nulls kept): an
+  assistant message shows the author's mark (an entity's orb drawn by the kit's `ActivityAvatar` in its colour, or
+  its initial disc without a design; the agent's mark), its name and a small "entity"/"agent" tag. With no author
+  (an older gateway) the card is byte-for-byte today's (pinned by a fixture captured before the change); user
+  bubbles ignore it. The replay projection passes `author` through from the view's messages. New exports:
+  `ChatAuthor`, `chatAuthorOf`, `chatAuthorView`, `ChatAuthorMark` (also in the vendored `conversation` entry).
+- Checks: `scripts/check_mentions.mjs` (in `npm test`, 119 checks, 18 mutants red) and the optional
+  `scripts/check_mentions_browser.mjs` (desktop and 400 px, dark and light; `--shots <dir>`).
+
+## 0.10.17 - 2026-11-08 (local build, not published)
+
+Packages: `@abstractframework/panel-chat` 0.9.9 (from 0.9.8). Other packages retain their versions (ui-kit 0.9.25).
+
+### Changed
+
+- **The run status never shows this client's connection.** It says what the gateway's view last said ("Approval
+  needed", "Working", …) and keeps it unchanged while the page cannot reach the gateway; it no longer reads
+  "Reconnecting" or "Disconnected".
+- **Trouble reaching the gateway is a notice of its own, with Retry now and Stop retrying.** The controller's
+  snapshot carries `unreachable` (`reason`, `retrying`, `since`) instead of putting the fault in `error`;
+  `retryNow()` reconnects at once (reading the view again first) and `stopRetrying()` pauses the automatic attempts
+  until Retry now. It still never gives up on its own, backs off to 30 seconds, and waits while the tab is hidden.
+
+## 0.10.16 - 2026-11-08 (local build, not published)
+
+Packages: `@abstractframework/panel-chat` 0.9.8 (from 0.9.7). Other packages retain their versions (ui-kit 0.9.25).
+
+### Fixed
+
+- **A conversation reconnects after its server comes back, and shows what happened while it was away.** The live
+  streams of a running conversation gave up after five quick reconnects (about three seconds) and read
+  "Disconnected": a restart of the app server or the gateway under an open page left it stale, and an approval
+  raised afterwards was never shown. They now keep trying while the run is live, backing off to one attempt every
+  30 seconds (a hidden tab waits until it is shown), with the state "reconnecting" and the fault meanwhile. Every
+  reconnection reads the conversation's whole view again first, so a question or an approval raised during the gap
+  appears as soon as the server is back, and the conversation reads as connected again from that read (a quiet live
+  stream can take seconds to answer).
+
+## 0.10.15 - 2026-11-08 (local build, not published)
+
+Packages: `@abstractframework/panel-chat` 0.9.7 (from 0.9.6). Other packages retain their versions (ui-kit 0.9.25).
+
+### Fixed
+
+- **An event wait reads "Waiting for an event" again, with its manual event form.** Since the conversation renders
+  from the replay view (panel-chat 0.6.0, 2026-10-28), an event wait with no prompt or choices (the runtime classes
+  it a machine `signal`: the view serves no interaction for it) read "Working" and the host's "Waiting for an event"
+  card with "Event data (JSON)" / "Send event" was unreachable. The projection now presents an open `signal` wait on
+  a canonical `evt:` key as that wait (`replaySignalWait`): the run status says "Waiting for an event" and
+  `presentInteraction` offers the form, routing the event from the key and the run (no command is invented). The
+  runtime's classification is unchanged.
+- **A tools-only turn shows its statistics again.** The turn's chips ("1 tool · 1 file changed", tokens, time) rode
+  only on the run's final message; a workflow that ends after its tools has none, so they were gone. They now sit
+  under the turn's tool group when that group is the turn's last item (`ToolActivityGroup` `statistics`, the shared
+  `ChatStatsRow`).
+
+## 0.10.14 - 2026-11-08 (local build, not published)
+
+Packages: `@abstractframework/ui-kit` 0.9.25 (from 0.9.24). Other packages retain their published versions.
+
+### Added
+
+- **`EntityCard attention="marker"`**: the card's one trouble ("Its own time stopped after repeated failures
+  (Aug 1)") as a small warning ring on the "now" line instead of the boxed note — its sentence whole in the ring's
+  tooltip and in the head's accessible name. A strip of compact cards keeps one height (Observer's Board,
+  operator 2026-11-08: "remove that warning, so that all cards have the same (smaller) height"). The default stays
+  `"note"`; the full card is unchanged.
+
+## 0.10.13 - 2026-11-08 (local build, not published)
+
+Packages: `@abstractframework/panel-chat` 0.9.6 (from 0.9.5, rebuilt on the kit), `@abstractframework/ui-kit` 0.9.24 (from 0.9.23). Other packages retain their published versions.
+
+### Fixed
+
+- **Read aloud off also releases a paused reply's player.** A reply the person paused is dropped (Play speaks it
+  again) and its player closes; before, it stayed open until resumed or stopped.
+
+### Corrected (0.10.12 overclaimed)
+
+- "Read aloud off really releases" held for a loading or an idle reply, not for a paused one (fixed above). A reply
+  already speaking still finishes before its player closes.
+
+## 0.10.12 - 2026-11-08 (local build, not published)
+
+Packages: `@abstractframework/panel-chat` 0.9.5 (from 0.9.4), `@abstractframework/ui-kit` 0.9.23 (from 0.9.22). Other packages retain their published versions.
+
+### Fixed
+
+- **"Stopping…" at once.** `workflowProgress` says "Stopping…" as soon as this client asks to stop, until the ledger
+  proves the stop ("Stopped"); a Stop on a slow gateway no longer looks ignored.
+- **No stale tooltip after a state change.** A kit tooltip hides when its anchor's sentence changes while it is shown
+  (the composer's Stop became Send after a stop and kept a "Stop" tooltip under a resting pointer).
+- **Read aloud off really releases.** A reply whose speech is still loading is not spoken any more and the kept player
+  is closed; a reply already speaking finishes, then its player is closed. The Docs assistant's opt-out from keeping a
+  player is pinned by `docsVoiceOptions` and a test.
+- **Read aloud on a touch screen.** The keep-alive also listens to `touchend` and `click` (on iOS a tap activates the
+  page at its end, not on `pointerdown`); one tap opens one player.
+- **The speaker Test's failure in Safari** offers Re-open audio, never "pick another output" (no speaker choice there).
+
+### Known limits
+
+- Headphones connected while the model is thinking: Safari cannot start the reply by itself; after 1.5 s it says
+  "Audio playback is paused by the browser. Press Play to try again." (unchanged).
+- The macOS output switched less than 30 s after the last click or key press: the next reply may be silent with no
+  message; Play (after 30 s of silence) or Re-open audio moves it (unchanged).
+- A saved speaker that is no longer connected: replies fall back to the system default output without saying so
+  (`setSinkId` failures are not reported yet).
+- Other apps (Assistant web, Entity, the console islands) still show "Stopped" in their composer until they are
+  rebuilt on panel-chat 0.9.3 or later.
+- The separate output unit for a rebuilt player relies on WebKit's current behaviour (one output unit per sample rate
+  and channel count), not on a web standard.
+- The Output device sentence names macOS on iPhone and iPad Safari, and Chrome or Firefox on iOS get the Safari
+  sentence (user-agent based).
+- A context that takes more than 1 s to close is left closing while the new player starts.
+- "Request cancelled." is still shown inside the person's own message after a stop.
+
+## 0.10.11 - 2026-11-08 (local build, not published)
+
+Packages: `@abstractframework/panel-chat` 0.9.4 (from 0.9.3), `@abstractframework/ui-kit` 0.9.22 (from 0.9.21). Other packages retain their published versions.
+
+### Fixed
+
+- **A new reply player starts inside the click that asked for it.** A Play click, **Re-open audio** and, with Read
+  aloud on, a click or key press, open the new audio context and ask it to start before anything is awaited (Safari
+  counts a click only while it is being handled), then close the old one in the background. The new context uses
+  another sample rate than the one it replaces, so WebKit gives it its own output unit while the old one closes.
+- **At most one reply player per page stays open, and only for Read aloud.** A player not kept for Read aloud is
+  closed once its reply ends (Play opens a new one); the first hook with Read aloud on keeps the page's one player
+  (the Docs assistant keeps none); turning Read aloud off releases it.
+- **The speaker Test never claims a chime it did not finish.** Starting the output is bounded at 3 s and the chime's
+  last note at 2.5 s; either bound reached says "The chime did not finish on this output; pick another output or
+  raise the volume." In Safari the success note no longer suggests another output.
+
+### Known limits
+
+- If the devices change while the model is still thinking (headphones connect after Send), Safari cannot start the
+  reply without a click: after 1.5 s it says "Audio playback is paused by the browser. Press Play to try again."
+- Safari reports no event when the output is switched in macOS Sound settings. A reply less than 30 s after your last
+  click or key press plays on the player opened before the switch and may be silent with no message; Play (after
+  30 s of silence) or **Re-open audio** moves it to the current output.
+
+## 0.10.10 - 2026-11-07 (local build, not published)
+
+Packages: `@abstractframework/panel-chat` 0.9.3 (from 0.9.2), `@abstractframework/ui-kit` 0.9.21 (from 0.9.20). Other packages retain their published versions.
+
+### Fixed
+
+- **After a stop the composer is idle again** (operator 2026-11-07: "it should not show stopped"). Once a stopped run is
+  over the composer shows the microphone and Send, nothing else: the "Stopped" chip in the Stop button's place is gone.
+  The outcome belongs to the run status: `workflowProgress` says "Stopped", and for a forced stop its detail is the
+  gateway's own text, as recorded.
+- **Spoken replies and the speaker Test follow output changes** (operator 2026-11-07, Safari on Bluetooth headphones:
+  Read aloud on but nothing read, Play and Test silent until the macOS output was switched away and back). WebKit mixes
+  every AudioContext of a page into one output unit, kept while any context lives; `useGatewayVoice` kept its context for
+  the life of the page. The reply player is now dropped on `devicechange` (at once when idle, after the reply when busy),
+  re-opened by a Play click when it is held back, stale or quiet for 30 s, and by the new **Re-open audio**. With Read
+  aloud on (`gatewayVoiceOptions` sets `unlock_on_gesture`), clicks and key presses open the player so a reply arriving
+  later can play in Safari; a resume the browser refuses is said after 1.5 s. The speaker Test waits for its last note
+  (plus the output's latency) instead of 520 ms, and never says "Chime played" when nothing could play.
+- **The Output device control is always usable** (operator: "we should always be able to change that"). It offers
+  "Follow the system output (default)", the speakers where the browser can switch them (Chromium; their names after one
+  microphone permission), and "Re-open audio". In Safari it says it follows the output chosen in macOS Sound settings.
 
 ## 0.10.9 - 2026-11-07
 

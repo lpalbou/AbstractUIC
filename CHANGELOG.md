@@ -9,12 +9,23 @@ ships.
 
 ## [Unreleased]
 
-Packages: `@abstractframework/panel-chat` (version set at release; still 0.9.9 in `package.json`). ui-kit is
-unchanged. Apps that vendor panel-chat (`src/vendor/abstractchat`) must re-sync from a fresh build; a same-version
+Packages: `@abstractframework/panel-chat` (version set at release; still 0.9.9 in `package.json`) and
+`@abstractframework/ui-kit` 0.9.26 (local build, not published). Apps that vendor panel-chat (`src/vendor/abstractchat`) must re-sync from a fresh build; a same-version
 repack leaves `node_modules` and the vendored copy stale.
 
 ### Added
 
+- **ui-kit: `IterationLimitField`, one shared "Iteration limit" control for every app** (operator 2026-11-08). A number
+  input (min 1) whose empty state names what applies: "Gateway default (12)" when the gateway stores
+  `agents.max_iterations`, "Workflow default" when it does not, "Gateway default" on a gateway that does not say. A
+  value that is not a whole number of 1 or more gets a plain sentence (`aria-invalid`); past the gateway's
+  `warn_above` (200) a warning line, never a refusal; "Use default" clears it; with the last start's `limits` receipt
+  (`applied`) it says which limit that run got ("Last run: 12 iterations (gateway default)."). An app passes its own
+  field class (`className`) for the same look as its other fields. Helpers: `iterationLimitDefaultFrom(discovery)`
+  reads `capabilities.agent_limits.max_iterations`, `iterationLimitFromInput(value)` is what to send as
+  `input_data._limits.max_iterations`, `iterationLimitProblem`, `iterationLimitDefaultLabel`,
+  `iterationLimitAppliedText`; types `IterationLimitValue`, `IterationLimitDefault`, `IterationLimitApplied`. Check:
+  `scripts/check_iteration_limit_field.mjs` (in `npm test`).
 - **`@` mentions in the composer ("@entity from any chat window").** `ChatComposer` and `WorkflowChat` take
   `mentionCandidates(query)`: typing `@` opens a list of the names the host returns (keyboard: arrows,
   Enter/Tab to pick, Escape to close; pointer too; full width on a phone). A pick becomes a removable chip bound to
