@@ -7,6 +7,24 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.15 - 2026-11-08 (local build, not published)
+
+Packages: `@abstractframework/panel-chat` 0.9.7 (from 0.9.6). Other packages retain their versions (ui-kit 0.9.25).
+
+### Fixed
+
+- **An event wait reads "Waiting for an event" again, with its manual event form.** Since the conversation renders
+  from the replay view (panel-chat 0.6.0, 2026-10-28), an event wait with no prompt or choices (the runtime classes
+  it a machine `signal`: the view serves no interaction for it) read "Working" and the host's "Waiting for an event"
+  card with "Event data (JSON)" / "Send event" was unreachable. The projection now presents an open `signal` wait on
+  a canonical `evt:` key as that wait (`replaySignalWait`): the run status says "Waiting for an event" and
+  `presentInteraction` offers the form, routing the event from the key and the run (no command is invented). The
+  runtime's classification is unchanged.
+- **A tools-only turn shows its statistics again.** The turn's chips ("1 tool · 1 file changed", tokens, time) rode
+  only on the run's final message; a workflow that ends after its tools has none, so they were gone. They now sit
+  under the turn's tool group when that group is the turn's last item (`ToolActivityGroup` `statistics`, the shared
+  `ChatStatsRow`).
+
 ## 0.10.14 - 2026-11-08 (local build, not published)
 
 Packages: `@abstractframework/ui-kit` 0.9.25 (from 0.9.24). Other packages retain their published versions.
