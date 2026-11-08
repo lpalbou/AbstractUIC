@@ -7,6 +7,20 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.13 - 2026-11-08 (local build, not published)
+
+Packages: `@abstractframework/panel-chat` 0.9.6 (from 0.9.5, rebuilt on the kit), `@abstractframework/ui-kit` 0.9.24 (from 0.9.23). Other packages retain their published versions.
+
+### Fixed
+
+- **Read aloud off also releases a paused reply's player.** A reply the person paused is dropped (Play speaks it
+  again) and its player closes; before, it stayed open until resumed or stopped.
+
+### Corrected (0.10.12 overclaimed)
+
+- "Read aloud off really releases" held for a loading or an idle reply, not for a paused one (fixed above). A reply
+  already speaking still finishes before its player closes.
+
 ## 0.10.12 - 2026-11-08 (local build, not published)
 
 Packages: `@abstractframework/panel-chat` 0.9.5 (from 0.9.4), `@abstractframework/ui-kit` 0.9.23 (from 0.9.22). Other packages retain their published versions.
