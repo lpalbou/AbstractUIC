@@ -87,6 +87,8 @@ export function iterationLimitAppliedText(applied: IterationLimitApplied | null 
   const n = applied.max_iterations;
   if (applied.source === "request" && n !== null) return `Last run: ${n} iterations (this conversation's limit).`;
   if (applied.source === "gateway_default" && n !== null) return `Last run: ${n} iterations (gateway default).`;
+  // builtin: the framework default the gateway reports (AbstractRuntime DEFAULT_MAX_ITERATIONS); older gateways send null.
+  if (applied.source === "builtin" && n !== null) return `Last run: ${n} iterations (default).`;
   return "Last run: the workflow's own limit.";
 }
 

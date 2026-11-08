@@ -38,5 +38,8 @@ assert.match(big, /300 iterations is a lot/); assert.match(big, /af-limit-field_
 const applied = render({ value: '', gatewayDefault: iterationLimitDefaultFrom(stored), applied: { max_iterations: 12, source: 'gateway_default' } });
 assert.match(applied, /Last run: 12 iterations \(gateway default\)\./);
 assert.match(render({ value: '', applied: { max_iterations: null, source: 'builtin' } }), /Last run: the workflow&#x27;s own limit\./);
+// Gateways since 2026-11-08 report the framework default (50) on a start without a value.
+assert.match(render({ value: '', applied: { max_iterations: 50, source: 'builtin' } }), /Last run: 50 iterations \(default\)\./);
+assert.equal(iterationLimitDefaultLabel({ value: 50, source: 'default', warnAbove: 200 }), 'Gateway default (50)');
 assert.match(render({ value: '5', disabled: true }), /disabled=""/);
 console.log('iteration limit field: passed');

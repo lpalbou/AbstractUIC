@@ -25,7 +25,9 @@ repack leaves `node_modules` and the vendored copy stale.
   reads `capabilities.agent_limits.max_iterations`, `iterationLimitFromInput(value)` is what to send as
   `input_data._limits.max_iterations`, `iterationLimitProblem`, `iterationLimitDefaultLabel`,
   `iterationLimitAppliedText`; types `IterationLimitValue`, `IterationLimitDefault`, `IterationLimitApplied`. Check:
-  `scripts/check_iteration_limit_field.mjs` (in `npm test`).
+  `scripts/check_iteration_limit_field.mjs` (in `npm test`). With gateways that serve the framework default (50,
+  AbstractRuntime `DEFAULT_MAX_ITERATIONS`) the empty state reads "Gateway default (50)" and a start without a value
+  reads "Last run: 50 iterations (default)."; the kit carries no copy of the number.
 - **`@` mentions in the composer ("@entity from any chat window").** `ChatComposer` and `WorkflowChat` take
   `mentionCandidates(query)`: typing `@` opens a list of the names the host returns (keyboard: arrows,
   Enter/Tab to pick, Escape to close; pointer too; full width on a phone). A pick becomes a removable chip bound to
