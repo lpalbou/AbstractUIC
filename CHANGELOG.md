@@ -7,6 +7,20 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.17 - 2026-11-08 (local build, not published)
+
+Packages: `@abstractframework/panel-chat` 0.9.9 (from 0.9.8). Other packages retain their versions (ui-kit 0.9.25).
+
+### Changed
+
+- **The run status never shows this client's connection.** It says what the gateway's view last said ("Approval
+  needed", "Working", …) and keeps it unchanged while the page cannot reach the gateway; it no longer reads
+  "Reconnecting" or "Disconnected".
+- **Trouble reaching the gateway is a notice of its own, with Retry now and Stop retrying.** The controller's
+  snapshot carries `unreachable` (`reason`, `retrying`, `since`) instead of putting the fault in `error`;
+  `retryNow()` reconnects at once (reading the view again first) and `stopRetrying()` pauses the automatic attempts
+  until Retry now. It still never gives up on its own, backs off to 30 seconds, and waits while the tab is hidden.
+
 ## 0.10.16 - 2026-11-08 (local build, not published)
 
 Packages: `@abstractframework/panel-chat` 0.9.8 (from 0.9.7). Other packages retain their versions (ui-kit 0.9.25).
