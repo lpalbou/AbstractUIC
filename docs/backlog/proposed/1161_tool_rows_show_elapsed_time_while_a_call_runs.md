@@ -2,7 +2,7 @@
 
 > Package: AbstractUIC panel-chat (tool rows in the replay view projection and the tool group component)
 > Type: defect (root ADR 0053 §3: a waiting state says what it waits for)
-> Status: planned
+> Status: proposed (2026-11-08: the operator did not ask for it; a display aid only, no budget and no interrupt anywhere)
 > Created: 2026-11-08 (operator incident 2026-11-08 03:31, Code web: two `search_files` spinners read "Running" for eight minutes with no figure; "you would think it works and it's just slow? no it isn't")
 > Priority: P1
 > Labels: panel-chat, tool-calls, waiting-state
@@ -11,8 +11,8 @@
 
 A completed tool row shows its duration ("Done 0.0s"); a running one shows a spinner and the word "Running"
 only. After a minute the reader cannot tell a slow search from a hung one, and the operator read it as a
-crash. The record knows when the call started (the ledger's `tool_calls started` entry; runtime 1159 adds
-`started_at`/`duration_ms` and progress notes).
+crash. The record knows when the call started (the ledger's `tool_calls started` entry; runtime 1159 was deprecated the same day; the row would use the
+ledger's started timestamp only).
 
 ## Scope
 
