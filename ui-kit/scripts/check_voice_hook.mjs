@@ -358,8 +358,10 @@ ok("stable callbacks read state through ref twins");
     if (env.log.sources.length !== sourcesBefore || slow.tree.tts_playback.status !== "idle") fail(`Read aloud off while loading: the reply is not spoken (sources ${env.log.sources.length - sourcesBefore}, ${slow.tree.tts_playback.status})`);
     if (live().length !== 0) fail(`Read aloud off while loading: no player left running (${live().map((c) => c.sampleRate).join(",")})`);
     slow.unmount();
-    // Review 2026-11-08 (d): Read aloud off while the person has a reply PAUSED: its player closes.
-    const pausedHook = mount((props) => useGatewayVoice(props), { tts, unlock_on_gesture: true, tts_voice: { voice: "v" } });
+    // Review 2026-11-08 (d), R15: Read aloud off while the person has a reply PAUSED: the paused
+    // audio is dropped (the message is idle again, its Play speaks it anew) and its player closes.
+    let syntheses = 0;
+    const pausedHook = mount((props) => useGatewayVoice(props), { tts: async () => (syntheses += 1, new ArrayBuffer(8)), unlock_on_gesture: true, tts_voice: { voice: "v" } });
     await pausedHook.settle();
     env.playMs = 5000;
     await pausedHook.tree.toggle_tts("h1", "Pause me"); await pausedHook.settle();
@@ -368,6 +370,11 @@ ok("stable callbacks read state through ref twins");
     if ((pausedHook.render(), pausedHook.tree.tts_playback.status) !== "paused") fail(`the reply is paused (got ${pausedHook.tree.tts_playback.status})`);
     pausedHook.rerender({ unlock_on_gesture: false }); await pausedHook.settle(); await sleep(1);
     if (live().length !== 0) fail(`Read aloud off with a paused reply: its player is closed (${live().length} running)`);
+    if ((pausedHook.render(), pausedHook.tree.tts_playback.status) !== "idle") fail(`Read aloud off with a paused reply: the paused audio is dropped, the message idle (got ${pausedHook.tree.tts_playback.status})`);
+    const spoken = syntheses;
+    await pausedHook.tree.toggle_tts("h1", "Pause me"); await pausedHook.settle();
+    if (syntheses !== spoken + 1) fail(`after Read aloud off, Play on the paused message speaks it anew (syntheses ${spoken} → ${syntheses})`);
+    pausedHook.tree.stop_tts();
     pausedHook.unmount();
     v.unmount();
   } finally {
