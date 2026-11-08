@@ -568,5 +568,85 @@ function gateway({ name, at = 0, auto = false, viewError = null, runs = {}, adve
   ok();
 }
 
+// ---- The view stream drops for ~10 s and comes back (backlog 1163) -----------------------------
+// 2026-11-08: the Code app server restarted under an open page; the controller spent its five
+// reconnects in about three seconds, said "Disconnected", and the tool approval raised later was
+// never shown. Now: no final give-up while the run is live (capped backoff), the state says
+// "reconnecting" meanwhile, and every reconnection reads the whole view again first, so a wait
+// raised during the gap shows even when the resumed stream replays nothing.
+{
+  const { views } = load("a_delegated_child_approval");
+  const after = views[21];
+  const childId = after.open_waits.find((w) => w.kind === "tool_approval").run_id;
+  const before = clone(after);
+  before.status = "running";
+  before.display_status = "running";
+  before.interaction = null;
+  before.open_waits = before.open_waits.filter((w) => w.kind !== "tool_approval");
+  before.runs = before.runs.map((r) => (r.run_id === childId ? { ...r, status: "running" } : r));
+  before.cursor = { ...before.cursor, token: "before-gap", records: before.cursor.records - 1, runs: { ...before.cursor.runs, [childId]: before.cursor.runs[childId] - 1 } };
+  let gap = false;
+  let drops = 0;
+  const DROPS = 5; // with the first stream's drop: six failures, one more than the old budget of five, ~10 s
+  const counts = { getView: 0, streamView: 0 };
+  const opened = [];
+  const replayView = {
+    async getView(_runId, opts = {}) {
+      counts.getView += 1;
+      if (gap && drops < DROPS) { drops += 1; throw new TypeError("Failed to fetch"); } // the server is still away
+      const view = gap ? after : before;
+      const etag = `"${view.cursor.token}"`;
+      if (opts.ifNoneMatch === etag) return { notModified: true, etag, bytes: 0 };
+      return { notModified: false, view: clone(view), etag, bytes: 1 };
+    },
+    async listSessionTurns(runId) { return [{ run_id: runId, created_at: "2026-11-08T03:28:00Z" }]; },
+    async streamView(_runId, opts) {
+      counts.streamView += 1;
+      if (gap && drops < DROPS) { drops += 1; throw new TypeError("Failed to fetch"); }
+      opts.onOpen?.();
+      opened.push(opts.lastEventId);
+      if (!gap) {
+        // The first stream: open, then the server goes away.
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        gap = true;
+        throw new TypeError("network error");
+      }
+      // Back: the resumed stream replays nothing (a restarted gateway, a lost buffer).
+      await new Promise((resolve) => opts.signal.addEventListener("abort", resolve, { once: true }));
+      return { bytes: 0 };
+    },
+  };
+  const transport = {
+    async getRun(runId) { return { run_id: runId, status: gap && drops >= DROPS ? "waiting" : "running" }; },
+    async getHistory() { return { ledgers: {} }; },
+    async getLedger() { return { items: [], next_after: 0 }; },
+    async streamLedger(_runId, _after, _onStep, signal, onOpen) { onOpen?.(); await new Promise((resolve) => signal.addEventListener("abort", resolve, { once: true })); },
+    async submitCommand() { return { accepted: true }; },
+    replayView,
+  };
+  const ctl = new WorkflowSessionController(transport);
+  await ctl.load(before.root_run_id);
+  await settle();
+  assert.equal(workflowPendingInteraction(ctl.getSnapshot()), null, "before the gap: no wait");
+  const states = new Set();
+  const started = Date.now();
+  while (Date.now() - started < 15_000 && !workflowPendingInteraction(ctl.getSnapshot())) {
+    states.add(ctl.getSnapshot().connection);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  assert.ok(drops >= DROPS, `the stream stayed away for ${DROPS} reconnects (${drops})`);
+  assert.ok(states.has("reconnecting"), "the gap reads as reconnecting");
+  assert.ok(!states.has("disconnected"), `never a final "disconnected" while the run is live (${[...states]})`);
+  const snap = ctl.getSnapshot();
+  assert.equal(workflowPendingInteraction(snap)?.runId, childId, "the approval raised during the gap is shown, from the re-read view");
+  assert.equal(workflowProgress(snap).label, "Approval needed");
+  assert.equal(snap.connection, "connected", "healed");
+  assert.equal(snap.error, null, "the transient error is cleared once the stream is back");
+  assert.ok(counts.getView >= 1 + DROPS + 1, `the view is read again at every reconnection (${counts.getView})`);
+  assert.equal(opened.at(-1), after.cursor.token, "the stream resumes after the re-read view");
+  ctl.dispose();
+  ok();
+}
+
 console.log(`check_replay_view_session: ${checks} groups OK`);
 process.exit(0);

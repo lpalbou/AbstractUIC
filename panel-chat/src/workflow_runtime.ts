@@ -311,6 +311,15 @@ function terminal(status: string): boolean {
   return ["completed", "failed", "cancelled"].includes(status.toLowerCase());
 }
 
+/**
+ * The wait before reconnection attempt `failures` (1, 2, …) of a live stream: 150 ms doubling to a
+ * 30 s ceiling. There is no last attempt while the run is live (backlog 1163: a server restart
+ * under an open page must never leave it stale).
+ */
+export function reconnectDelay(failures: number): number {
+  return Math.min(30_000, 150 * 2 ** Math.max(0, failures - 1));
+}
+
 function authError(error: unknown): boolean {
   const value = object(error);
   const status = Number(value?.status ?? value?.statusCode);
@@ -1249,6 +1258,13 @@ export class WorkflowSessionController {
     while (this.live(generation) && this.viewFold === fold && !fold.terminal) {
       this.set({ ...this.snapshot, connection: failures ? "reconnecting" : "connecting" });
       try {
+        // Every reconnection reads the whole view again first (backlog 1163): a wait raised while
+        // the stream was away (the app server or the gateway restarted) shows at once, whatever
+        // the resumed stream replays.
+        if (failures) {
+          await this.refreshView(generation);
+          if (!this.live(generation) || this.viewFold !== fold) return;
+        }
         await rv.streamView(runId, {
           lastEventId: fold.lastEventId,
           signal: this.controller!.signal,
@@ -1272,13 +1288,14 @@ export class WorkflowSessionController {
         this.fail(error, false);
         if (authError(error)) { this.set({ ...this.snapshot, connection: "disconnected" }); return; }
       }
-      if (failures >= 5 || !this.live(generation)) break;
-      await this.waitForRetry(Math.min(2000, 150 * 2 ** (failures - 1)));
+      if (!this.live(generation)) break;
+      // No final give-up (backlog 1163): the page keeps trying, backing off to every 30 s, and
+      // waits while the tab is hidden.
+      await this.waitForRetry(reconnectDelay(failures));
     }
     this.viewStreamEnded = true;
     if (!this.live(generation) || this.viewFold !== fold) return;
-    if (fold.terminal || terminal(this.snapshot.status)) { this.set({ ...this.snapshot, connection: "disconnected" }); return; }
-    this.set({ ...this.snapshot, connection: "disconnected", error: this.snapshot.error || "Replay view stream reconnect limit reached. Reconnect the workflow to continue." });
+    this.set({ ...this.snapshot, connection: "disconnected" });
   }
 
   /**
@@ -1304,8 +1321,7 @@ export class WorkflowSessionController {
           failures += 1;
           if (authError(error)) { this.fail(error); return; }
         }
-        if (failures >= 5) return;
-        await this.waitForRetry(Math.min(2000, 150 * 2 ** (failures - 1)));
+        await this.waitForRetry(reconnectDelay(failures));
       }
     } finally {
       if (this.live(generation)) this.closeLiveRepliesVia(runId);
@@ -1443,19 +1459,12 @@ export class WorkflowSessionController {
           return;
         }
       }
-      if (attempt >= 5 || !this.live(generation)) break;
-      await this.waitForRetry(Math.min(2000, 150 * 2 ** (attempt - 1)));
+      if (!this.live(generation)) break;
+      // No final give-up (backlog 1163); the stream resumes from the held cursor.
+      await this.waitForRetry(reconnectDelay(attempt));
     }
     if (!this.live(generation)) return;
-    if (terminal(statusOf(this.runStates.get(runId) || null))) {
-      this.set({ ...this.snapshot, connection: "disconnected" });
-      return;
-    }
-    this.set({
-      ...this.snapshot,
-      connection: "disconnected",
-      error: this.snapshot.error || "Ledger stream reconnect limit reached. Reconnect the workflow to continue.",
-    });
+    this.set({ ...this.snapshot, connection: "disconnected" });
   }
 
   private async ingestHistory(history: unknown, fallbackRunId: string, generation: number): Promise<void> {
@@ -2036,11 +2045,11 @@ export class WorkflowSessionController {
     }
   }
 
-  private waitForRetry(delayMs: number): Promise<void> {
+  private async waitForRetry(delayMs: number): Promise<void> {
     const signal = this.controller?.signal;
-    if (!signal || signal.aborted) return Promise.resolve();
+    if (!signal || signal.aborted) return;
     const activeSignal: AbortSignal = signal;
-    return new Promise((resolve) => {
+    await new Promise<void>((resolve) => {
       const timer = setTimeout(done, delayMs);
       const onAbort = () => { clearTimeout(timer); done(); };
       function done() {
@@ -2048,6 +2057,18 @@ export class WorkflowSessionController {
         resolve();
       }
       activeSignal.addEventListener("abort", onAbort, { once: true });
+    });
+    // A hidden tab does not retry; it tries again as soon as it is shown.
+    if (typeof document === "undefined" || typeof document.addEventListener !== "function" || document.visibilityState !== "hidden" || activeSignal.aborted) return;
+    await new Promise<void>((resolve) => {
+      const done = () => {
+        document.removeEventListener("visibilitychange", onVisibility);
+        activeSignal.removeEventListener("abort", done);
+        resolve();
+      };
+      const onVisibility = () => { if (document.visibilityState !== "hidden") done(); };
+      document.addEventListener("visibilitychange", onVisibility);
+      activeSignal.addEventListener("abort", done, { once: true });
     });
   }
 }

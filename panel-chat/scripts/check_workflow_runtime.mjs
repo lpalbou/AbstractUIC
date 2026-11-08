@@ -1,7 +1,7 @@
 // Lightweight no-network contract check for the transport-injected runtime.
 // Run after `npm run build`: node scripts/check_workflow_runtime.mjs
 import assert from "node:assert/strict";
-import { WorkflowSessionController } from "../dist/workflow_runtime.js";
+import { WorkflowSessionController, reconnectDelay } from "../dist/workflow_runtime.js";
 
 const commands = [];
 const streams = [];
@@ -303,19 +303,36 @@ assert.equal(terminalController.getSnapshot().status, "completed");
 assert.equal(terminalController.getSnapshot().interaction, null, "terminal root cannot retain a stale accepted wait");
 terminalController.dispose();
 
-// Reconnects are bounded. A permanent stream fault ends in a visible,
-// disconnected state instead of an immortal background retry loop.
+// A stream fault is retried while the run is live, with no final give-up
+// (backlog 1163: a server restart under an open page left it stale for
+// seven hours): the state reads "reconnecting" with the fault meanwhile, the
+// waits back off (150 ms doubling, capped at 30 s), and a stream that comes
+// back heals it.
+assert.deepEqual([1, 2, 3, 8, 9, 20].map(reconnectDelay), [150, 300, 600, 19_200, 30_000, 30_000]);
+let networkDown = true;
+let ledgerAttempts = 0;
 const reconnectController = new WorkflowSessionController({
   async getRun() { return { run_id: "reconnect", status: "running" }; },
   async getHistory() { return { run: { run_id: "reconnect", status: "running" }, ledgers: { reconnect: { items: [] } } }; },
   async getLedger(_runId, after) { return { items: [], next_after: after }; },
-  async streamLedger() { throw new Error("network down"); },
+  async streamLedger(_runId, _after, _onStep, signal, onOpen) {
+    ledgerAttempts += 1;
+    if (networkDown) throw new Error("network down");
+    onOpen?.();
+    await new Promise((resolve) => signal.addEventListener("abort", resolve, { once: true }));
+  },
   async submitCommand() { return { accepted: true }; },
 });
 await reconnectController.load("reconnect");
 await new Promise((resolve) => setTimeout(resolve, 2600));
-assert.equal(reconnectController.getSnapshot().connection, "disconnected");
-assert.match(reconnectController.getSnapshot().error || "", /network down|reconnect limit/i);
+assert.equal(reconnectController.getSnapshot().connection, "reconnecting", "past the old budget of five: still trying");
+assert.ok(ledgerAttempts >= 5 && ledgerAttempts <= 6, `backed off, not spinning (${ledgerAttempts} attempts in 2.6 s)`);
+assert.match(reconnectController.getSnapshot().error || "", /network down/i);
+networkDown = false;
+const healBy = Date.now() + 6_000;
+while (Date.now() < healBy && reconnectController.getSnapshot().connection !== "connected") await new Promise((resolve) => setTimeout(resolve, 50));
+assert.equal(reconnectController.getSnapshot().connection, "connected", "the returning stream heals it");
+assert.equal(reconnectController.getSnapshot().error, null);
 reconnectController.dispose();
 
 // A 401/403 is not retried with the same principal. The transport owns its
