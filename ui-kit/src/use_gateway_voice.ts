@@ -656,11 +656,12 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     return () => {
       for (const type of events) window.removeEventListener(type, onGesture, true);
       if (read_aloud_owner === owner_token.current) read_aloud_owner = null;
-      // Read aloud off: a reply still loading is not spoken any more and the kept player goes
-      // now; a reply already speaking finishes, then its player goes (not kept any more).
+      // Read aloud off: a reply still loading is not spoken any more, a paused one is dropped
+      // (Play speaks it again), and the kept player goes now; a reply already speaking finishes,
+      // then its player goes (not kept any more).
       const status = tts_playback_ref.current.status;
-      if (status === "loading") stop_tts_ref.current();
-      if (status === "idle" || status === "loading") release_tts_ctx();
+      if (status === "loading" || status === "paused") stop_tts_ref.current();
+      if (status !== "playing") release_tts_ctx();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unlock_on_gesture]);
