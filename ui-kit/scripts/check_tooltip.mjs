@@ -235,6 +235,33 @@ const visible = (w) => { const t = tipEl(w); return !!t && !t.hidden; };
   advance(0);
   check("delayMs option honoured", visible(custom));
 }
+// 1c) the anchor's sentence changes while shown (D4, review 2026-11-08: the composer's Stop
+// became Send after a stop and kept a "Stop" tooltip): the tooltip hides; the next hover reads anew.
+{
+  const w = mkWorld();
+  const observers = [];
+  w.win.MutationObserver = class {
+    constructor(cb) { this.cb = cb; }
+    observe(el, opts) { this.el = el; this.filter = opts.attributeFilter; observers.push(this); }
+    disconnect() { const i = observers.indexOf(this); if (i >= 0) observers.splice(i, 1); }
+  };
+  const { b, glyph } = mkButton(w, { "aria-label": "Stop", [AF_TOOLTIP_ATTR]: "Stop" });
+  const set = b.setAttribute.bind(b);
+  b.setAttribute = (n, v) => { set(n, v); for (const o of [...observers]) if (o.el === b && o.filter.includes(n)) o.cb([{ attributeName: n }]); };
+  const release = bindAfTooltips(w.doc);
+  w.dispatch("pointerover", glyph, { pointerType: "mouse" });
+  advance(200);
+  check("1c shown: Stop", visible(w) && tipEl(w).textContent === "Stop");
+  b.setAttribute(AF_TOOLTIP_ATTR, "Send");
+  check("1c the anchor became Send: the old sentence is gone at once", !visible(w) && tipEl(w).textContent === "");
+  check("1c the watch ends with the tooltip", observers.length === 0);
+  w.dispatch("pointerout", b, { relatedTarget: w.doc.body });
+  w.dispatch("pointerover", glyph, { pointerType: "mouse" });
+  advance(200);
+  check("1c the next hover shows the new sentence", visible(w) && tipEl(w).textContent === "Send");
+  release();
+}
+
 // 2) placement
 {
   const P = (a, s, v) => afTooltipPlacement(a, s, v);

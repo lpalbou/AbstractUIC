@@ -21,7 +21,7 @@ import React, { useEffect, useId, useRef, useState } from "react";
 import { AfSelect } from "./af_select.js";
 import { AfSettingRow } from "./af_settings_rows.js";
 import { audioOutputSelectable } from "./use_gateway_voice.js";
-import { clampVolume, listVoiceDevices, playTestTone, reopenAudioOutput, unlockDeviceLabels, type VoiceDevice } from "./voice_devices.js";
+import { CHIME_FAILED, CHIME_FAILED_SYSTEM, clampVolume, listVoiceDevices, playTestTone, reopenAudioOutput, unlockDeviceLabels, type VoiceDevice } from "./voice_devices.js";
 
 /** The preferences voice OUT reads and writes. */
 export type VoiceOutputValue = {
@@ -125,7 +125,7 @@ export function AfVoiceOutput<T extends VoiceOutputValue>(p: AfVoiceOutputProps<
           : "Chime played. Heard nothing? Pick Re-open audio, or raise the volume.";
         setNote({ text: muted ? `${heard} Replies are muted: unmute them to hear them.` : heard, tone: "ok" });
       })
-      .catch((e) => alive.current && setNote({ text: e?.name === "ChimeError" ? String(e.message) : `The speaker test failed: ${String(e?.message || e).replace(/\.$/, "")}.`, tone: "error" }));
+      .catch((e) => alive.current && setNote({ text: e?.name === "ChimeError" ? (selectable ? CHIME_FAILED : CHIME_FAILED_SYSTEM) : `The speaker test failed: ${String(e?.message || e).replace(/\.$/, "")}.`, tone: "error" }));
   };
 
   const reopen = () => {

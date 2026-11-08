@@ -171,6 +171,14 @@ try {
       await sleep(2700); w.render();
       check("Test chime: the widget shows the failure sentence, not 'Chime played'", text(byData(w.tree, "data-voice-note", "speaker")) === kit.CHIME_FAILED, text(byData(w.tree, "data-voice-note", "speaker")));
       w.unmount();
+      // Safari (no speaker choice in the page): the sentence never says "pick another output".
+      const ws = mount(AfVoiceOutput, { value: {}, onChange: () => undefined, outputSelectable: false });
+      await ws.settle();
+      byData(ws.tree, "data-action", "test-speaker").props.onClick();
+      await sleep(2700); ws.render();
+      const safariNote = text(byData(ws.tree, "data-voice-note", "speaker"));
+      check("Test chime (Safari): the failure sentence offers Re-open audio, not another output", safariNote === kit.CHIME_FAILED_SYSTEM && !/another output/.test(safariNote), safariNote);
+      ws.unmount();
       globalThis.AudioContext = Real;
       globalThis.window.AudioContext = Real;
     }

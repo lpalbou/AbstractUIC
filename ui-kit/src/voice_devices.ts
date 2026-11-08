@@ -296,6 +296,8 @@ export async function playOnDevice(data: Blob | ArrayBuffer, opts: { deviceId?: 
 
 /** What the speaker Test says when the chime could not be played to its end on the output. */
 export const CHIME_FAILED = "The chime did not finish on this output; pick another output or raise the volume.";
+/** The same, where the page cannot choose a speaker (Safari): no "another output" to pick. */
+export const CHIME_FAILED_SYSTEM = "The chime did not finish on this output; pick Re-open audio or raise the volume.";
 
 function chimeFailure(): Error {
   return Object.assign(new Error(CHIME_FAILED), { name: "ChimeError" });

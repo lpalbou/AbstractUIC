@@ -127,6 +127,7 @@ ok("stable callbacks read state through ref twins");
     // never resumed from audio synthesized in the old one. Same voice: resume, no new synthesis.
     {
       const calls = [];
+      env.playMs = 5000; // a reply plays until paused (a 5 ms fake reply could end between two presses on a loaded machine)
       const v = mount((props) => useGatewayVoice(props), { tts: async (text) => (calls.push(text), new ArrayBuffer(8)), tts_voice: { provider: "qwen3-tts", voice: "sisko" } });
       const status = () => (v.render(), v.tree.tts_playback.status);
       await v.tree.toggle_tts("m1", "Read me"); await v.settle();
@@ -151,7 +152,9 @@ ok("stable callbacks read state through ref twins");
       await u.tree.toggle_tts("m1", "Read me"); await u.settle();
       await u.tree.toggle_tts("m1", "Read me"); await u.settle();
       if (n.length !== 2) fail(`no voice known: a paused message is synthesized again, never resumed (calls ${n.length})`);
+      u.tree.stop_tts();
       u.unmount();
+      env.playMs = 5;
     }
 
     // B1 (review 2026-10-27): a stop or cancel while the microphone is still opening (a permission
@@ -325,7 +328,36 @@ ok("stable callbacks read state through ref twins");
     const n2 = env.log.contexts.length;
     env.dispatch("pointerdown");
     if (env.log.contexts.length !== n2 + 1) fail("after Read aloud was turned off elsewhere, the next Read aloud hook keeps the player");
-    next.unmount();
+    // R11 (review 2026-11-08): on a touch screen the activation is the tap's end. A touch
+    // pointerdown opens nothing; touchend does; the click of the same tap keeps that new player.
+    const touchPlayer = env.log.contexts.at(-1);
+    touchPlayer.state = "suspended";
+    await sleep(1050); // older than the one-second grace of a player still starting
+    const n3 = env.log.contexts.length;
+    env.dispatch("pointerdown", { pointerType: "touch" });
+    if (env.log.contexts.length !== n3) fail("a touch pointerdown (no user activation on iOS) opens no player");
+    env.dispatch("touchend");
+    if (env.log.contexts.length !== n3 + 1) fail("touchend (the tap's activation) opens the player");
+    env.log.contexts.at(-1).state = "suspended"; // still starting
+    env.dispatch("click");
+    if (env.log.contexts.length !== n3 + 1) fail("the click of the same tap keeps the player that is still starting");
+    // R2 (review 2026-11-08): Read aloud off while a reply's speech is still loading: that reply is
+    // not spoken any more and no player is left running.
+    let release;
+    const slow = mount((props) => useGatewayVoice(props), { tts: () => new Promise((r) => { release = r; }), unlock_on_gesture: true });
+    await slow.settle();
+    next.unmount(); // frees the ownership for `slow`
+    slow.rerender({ unlock_on_gesture: false }); await slow.settle();
+    slow.rerender({ unlock_on_gesture: true }); await slow.settle();
+    env.dispatch("keydown");
+    void slow.tree.toggle_tts("s1", "Still loading"); await slow.settle();
+    if ((slow.render(), slow.tree.tts_playback.status) !== "loading") fail(`the slow reply is loading (got ${slow.tree.tts_playback.status})`);
+    slow.rerender({ unlock_on_gesture: false }); await slow.settle(); await sleep(1);
+    const sourcesBefore = env.log.sources.length;
+    release(new ArrayBuffer(8)); await sleep(5); await slow.settle();
+    if (env.log.sources.length !== sourcesBefore || slow.tree.tts_playback.status !== "idle") fail(`Read aloud off while loading: the reply is not spoken (sources ${env.log.sources.length - sourcesBefore}, ${slow.tree.tts_playback.status})`);
+    if (live().length !== 0) fail(`Read aloud off while loading: no player left running (${live().map((c) => c.sampleRate).join(",")})`);
+    slow.unmount();
     v.unmount();
   } finally {
     env.restore();

@@ -438,6 +438,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
   // (the next one uses another, see ensure_tts_webaudio); `idle_since` = when it went quiet.
   const tts_ctx_stale_ref = useRef(false);
   const tts_last_rate_ref = useRef(0);
+  const tts_ctx_opened_at_ref = useRef(0);
   // At most one hook of the page keeps a player open for Read aloud (`unlock_on_gesture`).
   const owner_token = useRef({});
   const tts_idle_since_ref = useRef(Date.now());
@@ -584,6 +585,7 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
         try { ctx = avoid ? new Ctx({ sampleRate: avoid === 48000 ? 44100 : 48000 }) : new Ctx(); }
         catch { ctx = new Ctx(); }
         tts_idle_since_ref.current = Date.now();
+        tts_ctx_opened_at_ref.current = Date.now();
         const gain = ctx.createGain();
         gain.gain.value = 1;
         gain.connect(ctx.destination);
@@ -638,19 +640,27 @@ export function useGatewayVoice(opts: GatewayVoiceOptions): GatewayVoice {
     if (!unlock_on_gesture || typeof window === "undefined" || typeof window.addEventListener !== "function") return;
     if (read_aloud_owner && read_aloud_owner !== owner_token.current) return;
     read_aloud_owner = owner_token.current;
-    const onGesture = () => {
+    // A tap is a user activation only at its end on touch screens (iOS Safari): `touchend` and
+    // `click` there; `pointerdown` for a mouse or pen; `keydown`. One gesture fires several of
+    // them: a player opened in the last second is still starting and is kept.
+    const onGesture = (e: Event) => {
+      if (e.type === "pointerdown" && (e as PointerEvent).pointerType === "touch") return;
       if (!tts_supported_ref.current || tts_playback_ref.current.status !== "idle") return;
       const ctx = tts_ctx_ref.current;
+      if (ctx && Date.now() - tts_ctx_opened_at_ref.current < 1000) return;
       const fresh = ctx && !tts_ctx_stale_ref.current && ctx.state === "running" && Date.now() - tts_idle_since_ref.current <= TTS_REOPEN_AFTER_IDLE_MS;
       if (!fresh) replace_tts_ctx();
     };
-    window.addEventListener("pointerdown", onGesture, true);
-    window.addEventListener("keydown", onGesture, true);
+    const events = ["pointerdown", "touchend", "click", "keydown"];
+    for (const type of events) window.addEventListener(type, onGesture, true);
     return () => {
-      window.removeEventListener("pointerdown", onGesture, true);
-      window.removeEventListener("keydown", onGesture, true);
+      for (const type of events) window.removeEventListener(type, onGesture, true);
       if (read_aloud_owner === owner_token.current) read_aloud_owner = null;
-      if (tts_playback_ref.current.status === "idle") release_tts_ctx();
+      // Read aloud off: a reply still loading is not spoken any more and the kept player goes
+      // now; a reply already speaking finishes, then its player goes (not kept any more).
+      const status = tts_playback_ref.current.status;
+      if (status === "loading") stop_tts_ref.current();
+      if (status === "idle" || status === "loading") release_tts_ctx();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unlock_on_gesture]);

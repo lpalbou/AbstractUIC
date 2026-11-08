@@ -188,6 +188,10 @@ export function bindAfTooltips(root: Document | Element, options: BindAfTooltips
   let hideTimer: ReturnType<typeof setTimeout> | null = null;
   let keyboard = false; // last input was a key (for :focus-visible fallback)
   let describedBefore: string | null = null;
+  // The shown anchor's sentence is watched: when it changes (a button that changed its job, e.g.
+  // Stop → Send after a stop), the tooltip hides instead of keeping the old words.
+  const MO = (win as unknown as { MutationObserver?: typeof MutationObserver }).MutationObserver;
+  let watch: { disconnect(): void } | null = null;
 
   const clearShow = () => {
     if (showTimer) clearTimeout(showTimer);
@@ -217,6 +221,8 @@ export function bindAfTooltips(root: Document | Element, options: BindAfTooltips
       else anchor.removeAttribute("aria-describedby");
     }
     describedBefore = null;
+    watch?.disconnect();
+    watch = null;
     anchor = null;
     tip.hidden = true;
     tip.textContent = "";
@@ -236,6 +242,13 @@ export function bindAfTooltips(root: Document | Element, options: BindAfTooltips
       const prev = el.getAttribute("aria-describedby");
       describedBefore = prev && prev !== tipId ? prev : null;
       el.setAttribute("aria-describedby", describedBefore ? `${describedBefore} ${tipId}` : tipId);
+    }
+    if (typeof MO === "function") {
+      const observer = new MO(() => {
+        if (anchor === el) hide();
+      });
+      observer.observe(el, { attributes: true, attributeFilter: [AF_TOOLTIP_ATTR, AF_TOOLTIP_CONTENT_ATTR] });
+      watch = observer;
     }
     place();
   };
