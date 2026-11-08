@@ -31,6 +31,15 @@ export async function docsSpeech(fetchGateway: GatewayFetch, message: Pick<ChatM
   return audio.arrayBuffer();
 }
 
+/**
+ * The voice options the Docs assistant runs with: the person's devices, volume and voice, but it
+ * never reads by itself, so it keeps no player open for Read aloud (the host's own hook does; a
+ * page keeps one such player).
+ */
+export function docsVoiceOptions(preferences: VoiceClientPreferences) {
+  return { ...gatewayVoiceOptions(preferences), unlock_on_gesture: false };
+}
+
 export function useDocsVoice(props: {fetchGateway:GatewayFetch; connected:boolean; visible:boolean; scope:string; preferences?:VoiceClientPreferences; onError:(message:string)=>void}) {
   const current = useRef(props); current.current = props;
   const selected = useRef<ChatMessage | null>(null);
@@ -47,9 +56,7 @@ export function useDocsVoice(props: {fetchGateway:GatewayFetch; connected:boolea
   const preferences=props.preferences || EMPTY;
   const available=props.connected && docsVoiceAvailable(defaults,preferences);
   const voice=useGatewayVoice({
-    ...gatewayVoiceOptions(preferences),
-    // The Docs assistant never reads by itself: it keeps no player open (the host's own hook does).
-    unlock_on_gesture: false,
+    ...docsVoiceOptions(preferences),
     tts_stream: available ? async function* (text,signal) {
       const message=selected.current;
       if (!message) throw new Error("Choose a reply to read aloud.");

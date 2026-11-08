@@ -67,6 +67,10 @@ export function workflowProgress(
           ? "success"
           : "neutral",
     );
+  // This client asked to stop and the ledger has not proven it yet: the run status says so at once
+  // (operator 2026-11-08: a Stop with no answer on a slow gateway reads as ignored).
+  if (snapshot.stop?.phase === "stopping")
+    return result("Stopping…", "", "working");
   // A dropped LEDGER STREAM is not a dropped gateway. `watch()` keeps polling
   // `catchUp()`/`getRun()` over REST after the stream gives up, so the run
   // really is progressing and the answer really does arrive — announcing

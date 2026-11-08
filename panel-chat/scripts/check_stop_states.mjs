@@ -129,6 +129,8 @@ const llmStarted = { cursor: 1, record: { run_id: child, step_id: "llm-1", statu
     assert.match(idle, /aria-label="Send"[^>]*data-mode="send"/, `${stopState.phase}: the primary button is Send`);
   }
   assert.doesNotMatch(render({ busy: false }), /stop-state/);
+  const stoppingProgress = workflowProgress({ status: "running", loading: false, connection: "connected", error: null, interaction: null, records: [], run: null, stop: { phase: "stopping", label: "Stopping…" } });
+  assert.equal(stoppingProgress.label, "Stopping…", "run status: Stopping… at once after the press");
   const stopped = workflowProgress({ status: "cancelled", loading: false, connection: "connected", error: null, interaction: null, records: [], run: null, stop: { phase: "stopped", label: "Stopped" } });
   assert.deepEqual([stopped.label, stopped.detail], ["Stopped", ""], "run status: Stopped");
   const forcedProgress = workflowProgress({ status: "cancelled", loading: false, connection: "connected", error: null, interaction: null, records: [], run: null, stop: { phase: "forced", label: "Stop forced at 10 s: inference killed" } });

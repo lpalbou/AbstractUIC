@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
-import {docsSpeech,docsVoiceAvailable} from '../dist/docs_voice.js';
+import {docsSpeech,docsVoiceAvailable,docsVoiceOptions} from '../dist/docs_voice.js';
 import {DocsAssistantPanel} from '../dist/docs_assistant.js';
 assert.equal(docsVoiceAvailable(null),false);
 assert.equal(docsVoiceAvailable({tts:{configured:false}}),false);
@@ -28,4 +28,7 @@ for(const app of ['Code','Gateway','Observer','Continuum','Flow','Entity','Note'
  const withoutVoice=renderToStaticMarkup(React.createElement(DocsAssistantPanel,props));
  assert.equal(withoutVoice.includes('data-speak-state'),false);
 }
-console.log('check_docs_voice: availability, authenticated run/artifact transport, overrides, abort/error paths and shared speakers for8 app identities PASS');
+// Review 2026-11-08 R2: the Docs assistant keeps no Read aloud player, even with Read aloud on.
+assert.equal(docsVoiceOptions({read_aloud:true}).unlock_on_gesture,false);
+assert.equal(docsVoiceOptions({read_aloud:true,output_device:'spk'}).output_device_id,'spk');
+console.log('check_docs_voice: Read aloud keeps no Docs player, availability, authenticated run/artifact transport, overrides, abort/error paths and shared speakers for8 app identities PASS');
