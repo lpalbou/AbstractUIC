@@ -25,3 +25,7 @@ reader can reach.
 - Tests: a 466-char argument renders a short line AND exposes the whole text; removing the reveal turns the test red.
 - Consumers: Observer (board request line), Code (Activity tool lines), Assistant web (tool cards) take `fullText`
   at their next kit bump.
+
+## Release
+
+Next release (operator 2026-11-08 14:00: credits; the stored halves are done, this is the display reveal).

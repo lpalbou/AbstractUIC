@@ -23,3 +23,7 @@ component. Observer (Board entity strip), Entity and the consoles all render thi
 - Tests: a 300-character "Into lately" is reachable whole; removing the reveal turns the test red; the compact chip's
   height is bounded (≤ 72 px) in the kit's own render test.
 - Consumers: Observer Board strip, Entity list, console entity islands take the chip variant at their next kit bump.
+
+## Release
+
+Next release (operator 2026-11-08 14:00: credits; the stored halves are done, this is the display reveal).
