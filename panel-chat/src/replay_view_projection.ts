@@ -337,13 +337,33 @@ function messageOf(
   } as ChatMessage;
 }
 
+/**
+ * An open event wait the view lists as a machine `signal` (runtime replay `wait_kind`: an event
+ * wait with no prompt and no choices is not person-facing, so `view.interaction` is null), as
+ * the raw runtime wait it is: `reason: "event"` on its canonical `evt:` key. The conversation then
+ * reads "Waiting for an event" (never "Working") and the host can still deliver that event by hand
+ * (`presentInteraction` resolves its route from the key and the run, and no `command` is
+ * invented). Only `evt:` keys: other signals carry no event to deliver.
+ */
+export function replaySignalWait(view: ReplayView): WorkflowWaitInteraction | null {
+  for (const w of view.open_waits || []) {
+    const key = str(w.wait_key);
+    if (str(w.kind) !== "signal" || !key.startsWith("evt:")) continue;
+    const runId = str(w.run_id);
+    if (!runId) continue;
+    const stepId = str(w.step_id);
+    return { runId, wait: { wait_key: key, reason: "event" }, ...(stepId ? { stepId } : {}), kind: "event" };
+  }
+  return null;
+}
+
 /** Project a whole view. */
 export function projectReplayView(view: ReplayView): ReplayProjection {
   const root = view.root_run_id;
   const statistics = replayStatistics(view);
   const interaction = view.interaction
     ? replayInteractionWait(view.interaction)
-    : null;
+    : replaySignalWait(view);
   const openQuestion = view.interaction
     ? `${view.interaction.run_id}:${view.interaction.step_id || ""}:question`
     : "";
@@ -409,6 +429,12 @@ export function projectReplayView(view: ReplayView): ReplayProjection {
     }
   }
   items.sort((x, y) => compareReplayOrder(x, y));
+  // A turn with no final message (a tools-only workflow): its statistics go on the turn's last
+  // rendered item when that is its tool group (the group shows them under its rows).
+  if (!statsOn && items.length) {
+    const last = items[items.length - 1].message;
+    if (last.toolActivity) items[items.length - 1] = { ...items[items.length - 1], message: { ...last, statistics } };
+  }
   const runStatus = new Map(
     (view.runs || []).map((r) => [r.run_id, str(r.status).toLowerCase()]),
   );

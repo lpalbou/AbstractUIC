@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Icon } from "@abstractframework/ui-kit";
-import type { WorkflowToolActivity } from "./workflow_evidence.js";
+import type { WorkflowStatistics, WorkflowToolActivity } from "./workflow_evidence.js";
+import { ChatStatsRow, workflowStats } from "./chat_stats.js";
 import { TextLinks } from "./text_links.js";
 import { JsonViewer } from "./json_viewer.js";
 import { copyText } from "./utils.js";
@@ -211,11 +212,15 @@ export function ToolActivityGroup({
   tools,
   showCopy,
   notes,
+  statistics,
 }: {
   tools: WorkflowToolActivity[];
   showCopy?: boolean;
   /** Muted sentences shown directly under the group (the session-policy decision). */
   notes?: string[];
+  /** The turn's statistics when the group is the turn's last item (a tools-only turn has no
+   * final message to carry them): the same chips as a reply's, under the group. */
+  statistics?: WorkflowStatistics;
 }): React.ReactElement {
   const count = (status: WorkflowToolActivity["status"]) =>
     tools.filter((tool) => tool.status === status).length;
@@ -261,6 +266,7 @@ export function ToolActivityGroup({
         ))}
       </div>
     ) : null}
+    {statistics ? <ChatStatsRow stats={workflowStats(statistics)} /> : null}
     </div>
   );
 }

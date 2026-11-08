@@ -148,6 +148,7 @@ export function ChatThread(props: ChatThreadProps): React.ReactElement {
             key={key}
             tools={group.map((message) => message.toolActivity!)}
             notes={notes}
+            statistics={group[group.length - 1].statistics}
             showCopy={props.messageProps?.showCopy}
           />
         ) : (
