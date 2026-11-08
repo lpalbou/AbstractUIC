@@ -110,4 +110,17 @@ assert.ok(!text(render({tile})).includes('Details from'),'a fresh card never say
 html=render({tile:{...tile,look:null}});assert.ok(html.includes('is-plain')&&!html.includes('<canvas'));
 // An unknown moment kind shows the empty mark, never the raw kind.
 t=text(render({tile:{...tile,last_moment:{kind:'blueprint_edited',at:ago(H)}}}));assert.ok(!t.includes('blueprint'));
-console.log('Entity card: durations, ages, now, trouble, moments, counts, full/compact markup, loading, unavailable, stale and plain words passed');
+// attention="marker": no box, a mark on the now line whose tooltip and the head's name carry the sentence whole.
+{
+  const boxed=render({tile,density:'compact',href:'/e'});
+  const marked=render({tile,density:'compact',href:'/e',attention:'marker'});
+  assert.ok(boxed.includes('af-entity-card__trouble'));
+  assert.ok(!marked.includes('af-entity-card__trouble'));
+  assert.match(marked,/<span class="af-entity-card__attention" title="Its own time stopped after repeated failures[^"]*" aria-hidden="true"><\/span>/);
+  assert.match(marked,/<a class="af-entity-card__head" href="\/e" aria-label="[^"]*\. Its own time stopped after repeated failures/);
+  assert.ok(marked.includes('data-trouble="true"'));
+  // No trouble, no marker; the default stays the note.
+  const calm=render({tile:{...tile,now:{...tile.now,trouble:null}},density:'compact',attention:'marker'});
+  assert.ok(!calm.includes('af-entity-card__attention')&&!calm.includes('af-entity-card__trouble'));
+}
+console.log('Entity card: durations, ages, now, trouble, moments, counts, full/compact markup, attention marker, loading, unavailable, stale and plain words passed');

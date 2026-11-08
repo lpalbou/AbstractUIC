@@ -14,6 +14,10 @@ import {
 
 export type EntityCardStatus = "loading" | "ready" | "stale" | "unavailable";
 export type EntityCardDensity = "full" | "compact";
+/** How a card shows its one trouble: "note" (a boxed sentence under the head, the default) or
+ * "marker" (a small warning mark on the "now" line, the sentence whole in its tooltip and in the
+ * head's accessible name) — a strip of compact cards keeps one height (Observer 2026-11-08). */
+export type EntityCardAttention = "note" | "marker";
 
 export interface EntityCardProps {
   /** The tile payload (`GET /entities/{name}/tile`), or null while it is not read. */
@@ -33,6 +37,8 @@ export interface EntityCardProps {
   /** "full" (a grid card, every fact) or "compact" (a strip tile: who, now, trouble, one interest,
    * the last moment). Default "full". */
   density?: EntityCardDensity;
+  /** "note" (default) or "marker": see EntityCardAttention. */
+  attention?: EntityCardAttention;
   /** The card's head opens the entity: a link (`href`) or a handler (`onOpen`). */
   href?: string;
   target?: string;
@@ -88,6 +94,7 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
   const orbSize = compact ? 36 : 48;
   const now = entityNowWords(tile?.now, p.nowMs);
   const trouble = entityTroubleWords(tile?.now?.trouble, p.nowMs);
+  const marker = Boolean(trouble) && p.attention === "marker";
   const interests = (tile?.into_lately ?? []).filter((i) => i && i.text).slice(0, compact ? 1 : 3);
   const moment = entityMomentWords(tile?.last_moment);
   const momentWhen = moment ? entityWhenWords(tile?.last_moment?.at, p.nowMs) : "";
@@ -120,6 +127,9 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
               </>
             ) : null}
             {now.since ? `\u00a0· ${now.since}` : null}
+            {marker ? (
+              <span className="af-entity-card__attention" title={trouble} aria-hidden="true" />
+            ) : null}
           </span>
         ) : loading ? (
           <Skeleton width="62%" />
@@ -131,7 +141,8 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
       </span>
     </>
   );
-  const headLabel = tile ? entityCardSummary(tile, p.nowMs) : name;
+  // A marker's sentence is read with the head (the box is not drawn).
+  const headLabel = tile ? `${entityCardSummary(tile, p.nowMs)}${marker ? `. ${trouble}` : ""}` : name;
   const headEl = p.href ? (
     <a className="af-entity-card__head" href={p.href} target={p.target} rel={p.target === "_blank" ? "noreferrer" : undefined} aria-label={headLabel || undefined}>
       {head}
@@ -157,7 +168,7 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
       style={cardStyle}
     >
       {headEl}
-      {trouble ? (
+      {trouble && !marker ? (
         <p className="af-entity-card__trouble" role="note">
           {trouble}
         </p>

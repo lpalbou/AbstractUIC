@@ -8459,6 +8459,9 @@ a.af-entity-card__head:hover .af-entity-card__name, button.af-entity-card__head:
 .af-entity-card__note { font-style: italic; }
 .af-entity-card__trouble { margin: 12px var(--af-entity-pad-x) 0; padding: 8px 11px; border: 1px solid var(--warning-border); border-radius: 10px; background: var(--warning-subtle); color: var(--text-primary); font-size: var(--font-size-sm, 12px); line-height: 1.4; }
 .af-entity-card[data-density="compact"] .af-entity-card__trouble { margin-top: 9px; padding: 6px 9px; }
+/* attention="marker": the trouble as a small warning ring on the "now" line (its sentence in the tooltip and the
+ * head's accessible name), so a strip of compact cards keeps one height. */
+.af-entity-card__attention { display: inline-block; width: 8px; height: 8px; margin-left: 7px; border: 2px solid var(--warning); border-radius: 50%; vertical-align: 0; box-sizing: border-box; }
 .af-entity-card__body { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 14px var(--af-entity-pad-x) 14px; }
 .af-entity-card[data-density="compact"] .af-entity-card__body { gap: 6px; padding: 8px var(--af-entity-pad-x) 10px; }
 .af-entity-card__section { display: flex; flex-direction: column; gap: 3px; min-width: 0; }

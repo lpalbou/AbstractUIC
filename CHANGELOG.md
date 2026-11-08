@@ -7,6 +7,18 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.14 - 2026-11-08 (local build, not published)
+
+Packages: `@abstractframework/ui-kit` 0.9.25 (from 0.9.24). Other packages retain their published versions.
+
+### Added
+
+- **`EntityCard attention="marker"`**: the card's one trouble ("Its own time stopped after repeated failures
+  (Aug 1)") as a small warning ring on the "now" line instead of the boxed note — its sentence whole in the ring's
+  tooltip and in the head's accessible name. A strip of compact cards keeps one height (Observer's Board,
+  operator 2026-11-08: "remove that warning, so that all cards have the same (smaller) height"). The default stays
+  `"note"`; the full card is unchanged.
+
 ## 0.10.13 - 2026-11-08 (local build, not published)
 
 Packages: `@abstractframework/panel-chat` 0.9.6 (from 0.9.5, rebuilt on the kit), `@abstractframework/ui-kit` 0.9.24 (from 0.9.23). Other packages retain their published versions.

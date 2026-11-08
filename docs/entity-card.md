@@ -30,6 +30,9 @@ show only when they are not zero.
 
 `density="compact"` (a strip tile) keeps who, now, the warning, one interest and the last moment.
 `density="full"` (a grid card, the default) shows every row.
+`attention="marker"` (0.9.25) draws the warning as a small ring on the "now" line instead of the boxed note —
+the sentence whole in its tooltip and in the head's accessible name — so a strip of compact cards keeps one height;
+the default `attention="note"` draws the box.
 
 States: `status="loading"` (nothing read yet; the roster's `name` and `look` show at once and every
 row holds its final size, so the card does not move when the tile arrives; only the warning row is
