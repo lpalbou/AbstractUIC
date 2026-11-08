@@ -26,6 +26,25 @@ export {
 } from "./docs_assistant.js";
 export type { AssistantPanelProps, AssistantAsk, AssistantAskContext } from "./assistant_panel.js";
 export { ChatComposer, type ChatComposerProps, type ChatComposerVariant } from "./chat_composer.js";
+export {
+  addMention,
+  applyMentionPick,
+  mentionKey,
+  mentionSendPayload,
+  mentionTriggerAt,
+  moveMentionActive,
+  removeMention,
+  usableCandidates,
+  MENTION_QUERY_MAX,
+  type ChatComposerSend,
+  type ChatMention,
+  type ChatMentionCandidate,
+  type ChatMentionKind,
+  type ChatMentionSent,
+  type MentionTrigger,
+} from "./mentions.js";
+export { chatAuthorOf, chatAuthorView, chatAvatarLookOf, type ChatAuthor, type ChatAuthorKind, type ChatAuthorMarkKind, type ChatAuthorView, type ChatAvatarLook } from "./chat_author.js";
+export { ChatAuthorMark, type ChatAuthorMarkProps } from "./author_mark.js";
 export { Markdown, sameOriginImage, type MarkdownImages, type MarkdownProps } from "./markdown.js";
 export { JsonViewer } from "./json_viewer.js";
 export { ChatMessageCard, speakButtonView } from "./chat_message_card.js";

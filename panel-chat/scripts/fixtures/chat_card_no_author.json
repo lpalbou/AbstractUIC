@@ -1,0 +1,49 @@
+{
+  "assistant": {
+    "message": {
+      "id": "a1",
+      "role": "assistant",
+      "content": "Hello **there**"
+    },
+    "html": "<div class=\"pc-chat-item pc-chat-item--assistant\"><div class=\"pc-chat-header\"><div class=\"pc-chat-avatar\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" role=\"presentation\"><path d=\"M12 2v3\"></path><rect x=\"5\" y=\"6\" width=\"14\" height=\"14\" rx=\"3\"></rect><circle cx=\"9\" cy=\"13\" r=\"1\" fill=\"currentColor\" stroke=\"none\"></circle><circle cx=\"15\" cy=\"13\" r=\"1\" fill=\"currentColor\" stroke=\"none\"></circle><path d=\"M9 17h6\"></path></svg></div><span class=\"pc-chat-role\">Agent</span><span class=\"pc-chat-header-spacer\"></span><div class=\"pc-chat-header-actions\"><button class=\"pc-chat-icon-btn\" type=\"button\" aria-label=\"Speak (TTS)\" title=\"Speak (TTS)\" data-speak-state=\"idle\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" role=\"presentation\"><path d=\"M11 5L6 9H2v6h4l5 4V5z\"></path><path d=\"M15.5 8.5a5 5 0 0 1 0 7\"></path><path d=\"M18 6a9 9 0 0 1 0 12\"></path></svg></button><button class=\"pc-chat-icon-btn\" type=\"button\" aria-label=\"Copy message\" title=\"Copy\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" role=\"presentation\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\"></rect><path d=\"M5 15V5a2 2 0 0 1 2-2h10\"></path></svg></button></div></div><div class=\"pc-chat-body\"><div class=\"pc-chat-content\"><div class=\"pc-md\"><p class=\"pc-md_p\">Hello <strong>there</strong></p></div></div></div></div>"
+  },
+  "assistant_titled": {
+    "message": {
+      "id": "a2",
+      "role": "assistant",
+      "content": "From Castor",
+      "title": "Castor"
+    },
+    "html": "<div class=\"pc-chat-item pc-chat-item--assistant\"><div class=\"pc-chat-header\"><div class=\"pc-chat-avatar\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" role=\"presentation\"><path d=\"M12 2v3\"></path><rect x=\"5\" y=\"6\" width=\"14\" height=\"14\" rx=\"3\"></rect><circle cx=\"9\" cy=\"13\" r=\"1\" fill=\"currentColor\" stroke=\"none\"></circle><circle cx=\"15\" cy=\"13\" r=\"1\" fill=\"currentColor\" stroke=\"none\"></circle><path d=\"M9 17h6\"></path></svg></div><span class=\"pc-chat-role\">Castor</span><span class=\"pc-chat-header-spacer\"></span><div class=\"pc-chat-header-actions\"><button class=\"pc-chat-icon-btn\" type=\"button\" aria-label=\"Speak (TTS)\" title=\"Speak (TTS)\" data-speak-state=\"idle\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" role=\"presentation\"><path d=\"M11 5L6 9H2v6h4l5 4V5z\"></path><path d=\"M15.5 8.5a5 5 0 0 1 0 7\"></path><path d=\"M18 6a9 9 0 0 1 0 12\"></path></svg></button><button class=\"pc-chat-icon-btn\" type=\"button\" aria-label=\"Copy message\" title=\"Copy\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" role=\"presentation\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\"></rect><path d=\"M5 15V5a2 2 0 0 1 2-2h10\"></path></svg></button></div></div><div class=\"pc-chat-body\"><div class=\"pc-chat-content\"><div class=\"pc-md\"><p class=\"pc-md_p\">From Castor</p></div></div></div></div>"
+  },
+  "assistant_live": {
+    "message": {
+      "id": "a3",
+      "role": "assistant",
+      "content": "partial",
+      "live": {
+        "callId": "c1",
+        "reasoning": "thinking",
+        "caption": "sub-agent · researcher"
+      }
+    },
+    "html": "<div class=\"pc-chat-item pc-chat-item--assistant pc-chat-item--live\" aria-busy=\"true\"><div class=\"pc-chat-header\"><div class=\"pc-chat-avatar\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" role=\"presentation\"><path d=\"M12 2v3\"></path><rect x=\"5\" y=\"6\" width=\"14\" height=\"14\" rx=\"3\"></rect><circle cx=\"9\" cy=\"13\" r=\"1\" fill=\"currentColor\" stroke=\"none\"></circle><circle cx=\"15\" cy=\"13\" r=\"1\" fill=\"currentColor\" stroke=\"none\"></circle><path d=\"M9 17h6\"></path></svg></div><span class=\"pc-chat-role\">Agent</span><span class=\"pc-chat-live-indicator\" title=\"The reply is still being written\"><span class=\"pc-chat-live-dot\" aria-hidden=\"true\"></span>streaming</span><span class=\"pc-chat-live-caption\">sub-agent · researcher</span><span class=\"pc-chat-header-spacer\"></span><div class=\"pc-chat-header-actions\"><button class=\"pc-chat-icon-btn\" type=\"button\" aria-label=\"Read aloud when the reply is finished\" title=\"Read aloud when the reply is finished\" data-speak-state=\"unavailable\" aria-disabled=\"true\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" role=\"presentation\"><path d=\"M11 5L6 9H2v6h4l5 4V5z\"></path><path d=\"M15.5 8.5a5 5 0 0 1 0 7\"></path><path d=\"M18 6a9 9 0 0 1 0 12\"></path></svg></button><button class=\"pc-chat-icon-btn\" type=\"button\" aria-label=\"Copy message\" title=\"Copy\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" role=\"presentation\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\"></rect><path d=\"M5 15V5a2 2 0 0 1 2-2h10\"></path></svg></button></div></div><details class=\"pc-chat-thinking\"><summary>Thinking</summary><div class=\"pc-chat-thinking-body\">thinking</div></details><div class=\"pc-chat-body\"><div class=\"pc-chat-content\"><div class=\"pc-md\"><p class=\"pc-md_p\">partial</p></div></div></div></div>"
+  },
+  "user": {
+    "message": {
+      "id": "u1",
+      "role": "user",
+      "content": "Hi"
+    },
+    "html": "<div class=\"pc-chat-item pc-chat-item--user\"><div class=\"pc-chat-header\"><div class=\"pc-chat-avatar\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" role=\"presentation\"><circle cx=\"12\" cy=\"8\" r=\"4\"></circle><path d=\"M4 21a8 8 0 0 1 16 0\"></path></svg></div><span class=\"pc-chat-role\">You</span><span class=\"pc-chat-header-spacer\"></span><div class=\"pc-chat-header-actions\"><button class=\"pc-chat-icon-btn\" type=\"button\" aria-label=\"Copy message\" title=\"Copy\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" role=\"presentation\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\"></rect><path d=\"M5 15V5a2 2 0 0 1 2-2h10\"></path></svg></button></div></div><div class=\"pc-chat-body\"><div class=\"pc-chat-content\"><div class=\"pc-md\"><p class=\"pc-md_p\">Hi</p></div></div></div></div>"
+  },
+  "system": {
+    "message": {
+      "id": "s1",
+      "role": "system",
+      "content": "Note",
+      "level": "warn"
+    },
+    "html": "<div class=\"pc-chat-item pc-chat-item--warn\"><div class=\"pc-chat-header\"><div class=\"pc-chat-avatar\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" role=\"presentation\"><path d=\"M12 3l10 18H2L12 3z\"></path><path d=\"M12 9v4\"></path><circle cx=\"12\" cy=\"17\" r=\"0.75\" fill=\"currentColor\" stroke=\"none\"></circle></svg></div><span class=\"pc-chat-role\">Warning</span><span class=\"pc-chat-header-spacer\"></span><div class=\"pc-chat-header-actions\"><button class=\"pc-chat-icon-btn\" type=\"button\" aria-label=\"Copy message\" title=\"Copy\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" role=\"presentation\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\"></rect><path d=\"M5 15V5a2 2 0 0 1 2-2h10\"></path></svg></button></div></div><div class=\"pc-chat-body\"><div class=\"pc-chat-content\"><div class=\"pc-md\"><p class=\"pc-md_p\">Note</p></div></div></div></div>"
+  }
+}

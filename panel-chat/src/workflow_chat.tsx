@@ -33,6 +33,7 @@ import {
 } from "./workflow_interaction.js";
 import type { StreamRepliesMode } from "./llm_delta.js";
 import { AvatarConversation, type AvatarConversationOptions } from "./avatar_conversation.js";
+import { mentionSendPayload, type ChatMention, type ChatMentionCandidate, type ChatMentionSent } from "./mentions.js";
 
 /** What the host's steer door answered (`POST commands {type:"inject_guidance"}`
  * answers `{accepted, duplicate, seq}`; ui-kit `SteerSubmitResult` fits). */
@@ -49,7 +50,7 @@ export type ChatSteer = {
    * `submitSteer` posts `inject_guidance` through the app-origin proxy) or
    * queues it for the next turn. The chat never fetches.
    */
-  onSteer: (text: string, mode: ChatSteerMode) => Promise<ChatSteerResult>;
+  onSteer: (text: string, mode: ChatSteerMode, ctx?: { mentions: ChatMentionSent[] }) => Promise<ChatSteerResult>;
   /** Default `["guide"]`. With both, the busy composer offers a mode switch. */
   modes?: ChatSteerMode[];
   /** The run is parked on a wait: guidance delivers at its next wake (steers do not wake runs). */
@@ -80,11 +81,29 @@ export type WorkflowChatProps = {
    * Submit a chat message. Async failures are surfaced locally and keep the
    * draft. `signal` is aborted when the user presses Stop during this send
    * (or the chat unmounts): a request/response host ties its fetch to it.
+   * `mentions`: the names picked with `@` (`mentionCandidates`), in order,
+   * `index` = the gateway's `mention_index`; empty without a pick. The chips
+   * clear once this resolves and stay when it fails, like the draft.
    */
   onSend: (
     draft: string,
-    ctx: { signal: AbortSignal },
+    ctx: { signal: AbortSignal; mentions: ChatMentionSent[] },
   ) => void | Promise<unknown>;
+  /**
+   * `@` mentions in the composer: the names to offer for the query typed after
+   * `@` (the host decides the source, e.g. `GET /entities`). Absent: no list,
+   * no chips. See `ChatComposer`.
+   */
+  mentionCandidates?: (query: string) => Promise<ChatMentionCandidate[]>;
+  /** The sentence under a chip on the first pick of its name in this conversation. */
+  mentionNotice?: (candidate: ChatMentionCandidate) => string | null | undefined;
+  /** The conversation "the first pick" counts in (e.g. the session id). */
+  mentionSessionKey?: string;
+  /** The host's sentence when mentions cannot be used (e.g. "This gateway does not offer
+   * mentions yet"): `@` shows it instead of names. See `ChatComposer`. */
+  mentionsUnavailable?: string | null;
+  /** A sentence about the last mentions sent (e.g. "Castor is in another conversation."). */
+  mentionStatus?: string | null;
   busy?: boolean;
   /**
    * The assistant is working on a reply (the host's run state, e.g. `workflowProgress(...).tone
@@ -216,6 +235,9 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
     "idle",
   );
+  const [mentions, setMentions] = useState<ChatMention[]>([]);
+  const mentionsOn = typeof props.mentionCandidates === "function";
+  const sentMentions = () => (mentionsOn ? mentionSendPayload("", mentions).mentions : []);
   const sendAbortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
   const sendInFlightRef = useRef(false);
@@ -466,7 +488,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     setSteerStatus(null);
     setSendPending(true);
     try {
-      const result = await steer.onSteer(draft, mode);
+      const result = await steer.onSteer(draft, mode, { mentions: sentMentions() });
       if (!mountedRef.current || sendSequenceRef.current !== sequence) return;
       // A 200 with accepted:false is a REFUSAL, not a queue: saying "Queued"
       // over it would lie (SteerComposer's rule).
@@ -482,6 +504,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
         ...(typeof result.seq === "number" ? { seq: result.seq } : {}),
         duplicate: Boolean(result.duplicate),
       });
+      setMentions([]);
       props.onDraftChange("");
     } catch (reason) {
       if (mountedRef.current && sendSequenceRef.current === sequence)
@@ -514,7 +537,8 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     setSteerStatus(null);
     setSendPending(true);
     try {
-      await props.onSend(draft, { signal: abort.signal });
+      await props.onSend(draft, { signal: abort.signal, mentions: sentMentions() });
+      if (mountedRef.current && sendSequenceRef.current === sequence) setMentions([]);
     } catch (reason) {
       // Draft stays controlled by the host and is deliberately not cleared.
       // A send the user stopped is not a failure to report.
@@ -819,6 +843,17 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
           value={props.draft}
           onChange={(draft) => { if (props.avatarConversation) props.avatarConversation.onInterruptSpeech?.(); props.onDraftChange(draft); }}
           onSubmit={() => void submit()}
+          {...(mentionsOn
+            ? {
+                mentionCandidates: props.mentionCandidates,
+                mentions,
+                onMentionsChange: setMentions,
+                mentionNotice: props.mentionNotice,
+                mentionSessionKey: props.mentionSessionKey,
+                mentionsUnavailable: props.mentionsUnavailable,
+                mentionStatus: props.mentionStatus,
+              }
+            : {})}
           placeholder={props.placeholder || "Send a message"}
           ariaLabel="Message"
           disabled={disabled}

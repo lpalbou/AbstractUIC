@@ -7,6 +7,37 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## [Unreleased]
+
+Packages: `@abstractframework/panel-chat` (version set at release; still 0.9.9 in `package.json`). ui-kit is
+unchanged. Apps that vendor panel-chat (`src/vendor/abstractchat`) must re-sync from a fresh build; a same-version
+repack leaves `node_modules` and the vendored copy stale.
+
+### Added
+
+- **`@` mentions in the composer ("@entity from any chat window").** `ChatComposer` and `WorkflowChat` take
+  `mentionCandidates(query)`: typing `@` opens a list of the names the host returns (keyboard: arrows,
+  Enter/Tab to pick, Escape to close; pointer too; full width on a phone). A pick becomes a removable chip bound to
+  that name, never editable text; an `@` that was not picked stays plain text (the kit never reads `@` out of the
+  text). `ChatComposer.onSend` and `WorkflowChat.onSend(draft, ctx)` carry the picks as
+  `mentions: [{id, name, kind, index}]` in pick order (`index` = the gateway's `mention_index`); the chips clear
+  when the send succeeds and stay when it fails. `mentionNotice(candidate)` gives the sentence shown the first
+  time a name is picked in a conversation (`mentionSessionKey`), e.g. "Castor will read this conversation's
+  history"; `mentionStatus` shows the host's sentence about the last send ("Castor is in another
+  conversation."); `mentionsUnavailable` shows the host's sentence instead of names on a gateway without the
+  mentions route. Without `mentionCandidates` the composer is exactly as before. Steers carry the mentions too
+  (`onSteer(text, mode, {mentions})`). Pure helpers exported: `mentionTriggerAt`, `applyMentionPick`,
+  `addMention`, `removeMention`, `mentionSendPayload`, `usableCandidates`.
+- **The left bubble says who answered.** `ChatMessage.author` takes the gateway's turn author
+  (`{kind: "entity"|"agent"|"person", name, entity_id, identity_ref, avatar: {style, color}}`, nulls kept): an
+  assistant message shows the author's mark (an entity's orb drawn by the kit's `ActivityAvatar` in its colour, or
+  its initial disc without a design; the agent's mark), its name and a small "entity"/"agent" tag. With no author
+  (an older gateway) the card is byte-for-byte today's (pinned by a fixture captured before the change); user
+  bubbles ignore it. The replay projection passes `author` through from the view's messages. New exports:
+  `ChatAuthor`, `chatAuthorOf`, `chatAuthorView`, `ChatAuthorMark` (also in the vendored `conversation` entry).
+- Checks: `scripts/check_mentions.mjs` (in `npm test`, 119 checks, 18 mutants red) and the optional
+  `scripts/check_mentions_browser.mjs` (desktop and 400 px, dark and light; `--shots <dir>`).
+
 ## 0.10.17 - 2026-11-08 (local build, not published)
 
 Packages: `@abstractframework/panel-chat` 0.9.9 (from 0.9.8). Other packages retain their versions (ui-kit 0.9.25).

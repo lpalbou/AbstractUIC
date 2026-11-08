@@ -19,6 +19,8 @@
  * `scripts/regen_replay_view_fixtures.py` against a real gateway).
  */
 
+import type { ChatAuthor } from "./chat_author.js";
+
 export type ReplayViewJson = Record<string, unknown>;
 
 /** `replay_view_v1.interaction`: the newest open person-facing wait of the tree. */
@@ -60,6 +62,9 @@ export type ReplayViewMessage = {
   /** A final answer that repeats an earlier answer names it here: show the text once. */
   repeats?: string;
   level?: string | null;
+  /** Who wrote the turn (gateway turn surfaces, 2026-11-08): `{kind, name, entity_id,
+   * identity_ref, avatar: {style, color}}`; null or absent on an older gateway. */
+  author?: ChatAuthor | null;
 };
 
 export type ReplayViewToolCall = {

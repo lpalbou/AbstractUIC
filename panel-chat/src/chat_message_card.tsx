@@ -2,7 +2,7 @@ import {MessageArtifactChip, type MessageArtifact} from "./message_artifacts.js"
 import type { PublicUpdate } from "./conversation_model.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import { AfAudioPlayer, Icon, fileViewerKind, fileViewerNeedsText, formatFileSize, type IconName } from "@abstractframework/ui-kit";
+import { AfAudioPlayer, AfChip, Icon, fileViewerKind, fileViewerNeedsText, formatFileSize, type IconName } from "@abstractframework/ui-kit";
 
 import { fileRawLink, isLocalObjectUrl } from "./chat_media.js";
 import { FileViewer } from "./file_viewer.js";
@@ -13,6 +13,8 @@ import { ToolActivity } from "./tool_activity.js";
 import type { WorkflowStatistics, WorkflowToolActivity } from "./workflow_evidence.js";
 import { ChatStatsRow, workflowStats, type ChatStat } from "./chat_stats.js";
 import { formatMessageStamp, messageStampIso, messageStampTitle, useLocalDay } from "./message_footer.js";
+import { chatAuthorView, type ChatAuthor } from "./chat_author.js";
+import { ChatAuthorMark } from "./author_mark.js";
 
 export type ChatMessageLevel = "info" | "warn" | "error";
 
@@ -31,6 +33,14 @@ export type ChatMessage = {
   kind?: string;
   /** Original public channel attribution, retained through replay. */
   source?: string;
+  /**
+   * Who wrote this turn (the gateway's turn `author`: `{kind, name, entity_id, identity_ref,
+   * avatar: {style, color}}`). On an assistant-side message the header shows the author's
+   * mark (an entity's orb, the agent's mark), its name and a kind tag. Null or absent (an
+   * older gateway): the header is today's, `title || "Agent"` and no mark. User messages
+   * ignore it.
+   */
+  author?: ChatAuthor | null;
   publicUpdate?: PublicUpdate;
   toolActivity?: WorkflowToolActivity;
   statistics?: WorkflowStatistics;
@@ -345,6 +355,8 @@ export function speakButtonView(state: SpeakState): { icon: IconName; title: str
 export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement {
   const m = props.message;
   const role_ui = useMemo(() => _role_ui(m), [m.kind, m.level, m.role, m.title]);
+  // "Who answered" (operator 2026-11-08): assistant-side messages only; null keeps today's header.
+  const author = role_ui.variant === "assistant" ? chatAuthorView(m.author, m.title) : null;
   // `ChatMessage.ts` is an ISO string; a malformed one renders no stamp, never "Invalid Date".
   const raw_ts = m.ts;
   // Re-derived when the reader's calendar day changes ("10:52 PM" becomes "Yesterday · 10:52 PM"):
@@ -407,12 +419,24 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
       className={["pc-chat-item", `pc-chat-item--${role_ui.variant}`, caption ? "pc-chat-item--caption" : "", live ? "pc-chat-item--live" : "", props.className].filter(Boolean).join(" ")}
       {...(live ? { "aria-busy": true } : {})}
       {...(caption ? { "data-variant": "caption" } : {})}
+      {...(author ? { "data-author": author.mark } : {})}
     >
       {caption ? null : <div className="pc-chat-header">
-        <div className="pc-chat-avatar" aria-hidden="true">
-          <Icon name={role_ui.icon} size={14} />
-        </div>
-        <span className="pc-chat-role">{role_ui.label}</span>
+        {author ? (
+          <div className="pc-chat-avatar pc-chat-avatar--author" aria-hidden="true">
+            <ChatAuthorMark mark={author.mark} look={author.look} initial={author.initial} size={22} />
+          </div>
+        ) : (
+          <div className="pc-chat-avatar" aria-hidden="true">
+            <Icon name={role_ui.icon} size={14} />
+          </div>
+        )}
+        <span className="pc-chat-role">{author ? author.name : role_ui.label}</span>
+        {author?.tag ? (
+          <AfChip size="sm" tone="muted" className="pc-chat-author-kind">
+            {author.tag}
+          </AfChip>
+        ) : null}
         {live ? (
           <span className="pc-chat-live-indicator" title={live.label ? `Pending: ${live.label}` : "The reply is still being written"}>
             <span className="pc-chat-live-dot" aria-hidden="true" />

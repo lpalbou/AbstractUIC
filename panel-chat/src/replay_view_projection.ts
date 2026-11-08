@@ -18,6 +18,7 @@ import { publicUpdate } from "./conversation_model.js";
  *   through `POST commands` with it).
  */
 import type { ChatMessage } from "./chat_message_card.js";
+import { chatAuthorOf } from "./chat_author.js";
 import type {
   WorkflowStatistics,
   WorkflowToolActivity,
@@ -315,6 +316,8 @@ function messageOf(
     content: m.text,
     runId: m.run_id,
     ...(m.source ? { source: m.source } : {}),
+    // The turn's author when the gateway sends one (null stays null: "no author known").
+    ...(m.author !== undefined ? { author: chatAuthorOf(m.author) } : {}),
     ...(m.kind === "public_update" ? { publicUpdate: publicUpdate({ id: m.public_update_id || m.id, text: m.text, run_id: m.run_id, session_id: m.session_id, iteration: m.iteration, source_call_ids: m.source_call_ids, kind: m.update_kind }, m.run_id) || undefined } : {}),
     ...(ts ? { ts } : {}),
     ...(m.role === "system"
