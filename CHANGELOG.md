@@ -62,7 +62,8 @@ repack leaves `node_modules` and the vendored copy stale.
   already picked is not offered again ("Already mentioned."). While `mentionsUnavailable` is set, chips picked
   earlier are not sent. At phone width the `@` list spans the composer. New pure helpers for hosts:
   `mentionResend(pending, text, mentions)` (a resend of the same words asks only those chips, first index kept,
-  never a new turn), `uniqueMentions`, `unsentMentionsOf`, `mentionsAfterSend`; also in the `conversation` entry.
+  never a new turn), `uniqueMentions`, `unsentMentionsOf`, `mentionsStoppedError`; also in the `conversation` entry
+  (`mentionsAfterSend`, the composer's own chip rule, is in the package entry only).
   Checks: `check_mentions.mjs` 157 checks (11 new mutants red), the browser check asserts the 400 px list width.
 
 ## 0.10.17 - 2026-11-08 (local build, not published)
