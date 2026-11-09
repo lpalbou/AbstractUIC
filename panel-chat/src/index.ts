@@ -32,8 +32,13 @@ export {
   mentionKey,
   mentionSendPayload,
   mentionTriggerAt,
+  mentionResend,
+  mentionsAfterSend,
+  mentionsStoppedError,
   moveMentionActive,
   removeMention,
+  uniqueMentions,
+  unsentMentionsOf,
   usableCandidates,
   MENTION_QUERY_MAX,
   type ChatComposerSend,
@@ -41,6 +46,8 @@ export {
   type ChatMentionCandidate,
   type ChatMentionKind,
   type ChatMentionSent,
+  type ChatMentionsUnsent,
+  type MentionResend,
   type MentionTrigger,
 } from "./mentions.js";
 export { chatAuthorOf, chatAuthorView, chatAvatarLookOf, type ChatAuthor, type ChatAuthorKind, type ChatAuthorMarkKind, type ChatAuthorView, type ChatAvatarLook } from "./chat_author.js";

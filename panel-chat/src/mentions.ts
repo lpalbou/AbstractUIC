@@ -97,6 +97,86 @@ export function mentionSendPayload(text: string, mentions: readonly ChatMention[
   };
 }
 
+/**
+ * A send whose mentions stopped partway (an entity could not answer, a call failed): the chips
+ * NOT answered (the failed one and those after it) are what the composer keeps for a resend.
+ * A host's `onSend` / `onSteer` names them as `unsentMentions` on what it settles with: the
+ * value it resolves, or the error it rejects with (`mentionsStoppedError`).
+ */
+export type ChatMentionsUnsent = { unsentMentions: ChatMentionSent[] };
+
+/** The chips a settled send names to keep (`unsentMentions` on its value or its error);
+ * null when it names none (an array, empty included, is a choice). */
+export function unsentMentionsOf(settled: unknown): ChatMentionSent[] | null {
+  if (!settled || typeof settled !== "object") return null;
+  const list = (settled as { unsentMentions?: unknown }).unsentMentions;
+  if (!Array.isArray(list)) return null;
+  return list.filter((m): m is ChatMentionSent => Boolean(m) && typeof m === "object" && typeof (m as ChatMentionSent).id === "string" && ((m as ChatMentionSent).kind === "entity" || (m as ChatMentionSent).kind === "agent"));
+}
+
+/** The error a host rejects a send with when its mentions stopped partway: the sentence to show
+ * and the chips to keep (`unsentMentions`). */
+export function mentionsStoppedError(sentence: string, unsent: readonly ChatMentionSent[]): Error & ChatMentionsUnsent {
+  return Object.assign(new Error(sentence), { unsentMentions: unsent.map((m) => ({ ...m })) });
+}
+
+/**
+ * The chips once a send settled. `sent`: the chips the composer held when it sent. Those are
+ * removed, except the ones `keep` names (a send that stopped partway keeps its unsent chips for
+ * the resend). Chips picked WHILE the send was in flight are not the send's and stay, in order.
+ */
+export function mentionsAfterSend(
+  now: readonly ChatMention[],
+  sent: readonly Pick<ChatMentionCandidate, "kind" | "id">[],
+  keep: readonly Pick<ChatMentionCandidate, "kind" | "id">[] = [],
+): ChatMention[] {
+  const gone = new Set(sent.map(mentionKey));
+  for (const m of keep) gone.delete(mentionKey(m));
+  return now.filter((m) => !gone.has(mentionKey(m)));
+}
+
+/**
+ * What a send stopped partway leaves for the resend: its words, the person's own turn they were
+ * sent with (`repeat_of`; null when none), and the mentions not answered, with their first `index`.
+ */
+export type MentionResend = { text: string; repeatOf: string | null; unsent: ChatMentionSent[] };
+
+/**
+ * The mentions to ask when a send RESENDS `pending`, or null when it is a new message.
+ * A resend = the same words (trimmed) with at least one chip: it asks ONLY those chips, each
+ * entity once, with the same `repeat_of` and never a new turn of the person (the host's rule).
+ * A chip that was unsent keeps its first index; a chip added since is numbered after them.
+ */
+export function mentionResend(
+  pending: MentionResend | null | undefined,
+  text: string,
+  mentions: readonly ChatMentionSent[],
+): ChatMentionSent[] | null {
+  if (!pending || !mentions.length || String(text ?? "").trim() !== String(pending.text ?? "").trim()) return null;
+  const first = new Map(pending.unsent.map((m) => [mentionKey(m), m.index]));
+  let next = pending.unsent.reduce((top, m) => Math.max(top, m.index + 1), 0);
+  const seen = new Set<string>();
+  const out: ChatMentionSent[] = [];
+  for (const m of mentions) {
+    const key = mentionKey(m);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ id: m.id, name: m.name, kind: m.kind, index: first.get(key) ?? next++ });
+  }
+  return out.sort((a, b) => a.index - b.index);
+}
+
+/** A message's mentions, each name once: the first occurrence keeps its place and index. */
+export function uniqueMentions<M extends Pick<ChatMentionCandidate, "kind" | "id">>(mentions: readonly M[]): M[] {
+  const seen = new Set<string>();
+  return mentions.filter((m) => {
+    const key = mentionKey(m);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 /** The highlighted option after an arrow key: wraps at both ends; -1 when the list is empty. */
 export function moveMentionActive(active: number, count: number, delta: number): number {
   if (count <= 0) return -1;

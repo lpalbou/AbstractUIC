@@ -33,7 +33,7 @@ import {
 } from "./workflow_interaction.js";
 import type { StreamRepliesMode } from "./llm_delta.js";
 import { AvatarConversation, type AvatarConversationOptions } from "./avatar_conversation.js";
-import { mentionSendPayload, type ChatMention, type ChatMentionCandidate, type ChatMentionSent } from "./mentions.js";
+import { mentionSendPayload, mentionsAfterSend, unsentMentionsOf, type ChatMention, type ChatMentionCandidate, type ChatMentionSent } from "./mentions.js";
 
 /** What the host's steer door answered (`POST commands {type:"inject_guidance"}`
  * answers `{accepted, duplicate, seq}`; ui-kit `SteerSubmitResult` fits). */
@@ -82,8 +82,12 @@ export type WorkflowChatProps = {
    * draft. `signal` is aborted when the user presses Stop during this send
    * (or the chat unmounts): a request/response host ties its fetch to it.
    * `mentions`: the names picked with `@` (`mentionCandidates`), in order,
-   * `index` = the gateway's `mention_index`; empty without a pick. The chips
-   * clear once this resolves and stay when it fails, like the draft.
+   * `index` = the gateway's `mention_index`; empty without a pick (and while
+   * `mentionsUnavailable`). The chips of this send clear once it resolves and
+   * stay when it fails, like the draft; chips picked while it is in flight
+   * always stay. A send whose mentions stopped partway names the chips to keep
+   * as `unsentMentions` on what it resolves or rejects with
+   * (`mentionsStoppedError`): only those stay, for the resend.
    */
   onSend: (
     draft: string,
@@ -237,7 +241,15 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
   );
   const [mentions, setMentions] = useState<ChatMention[]>([]);
   const mentionsOn = typeof props.mentionCandidates === "function";
-  const sentMentions = () => (mentionsOn ? mentionSendPayload("", mentions).mentions : []);
+  // While mentions are unavailable (an older gateway) the chips already picked are not sent.
+  const sentMentions = () => (mentionsOn && !String(props.mentionsUnavailable || "").trim() ? mentionSendPayload("", mentions).mentions : []);
+  // The chips a send held, and what they become once it settles: its own chips go, except the
+  // `unsentMentions` it names (a partial stop); chips picked meanwhile stay (`mentionsAfterSend`).
+  const settleMentions = (held: readonly ChatMention[], settled: unknown, failed: boolean) => {
+    const keep = unsentMentionsOf(settled);
+    if (failed && keep === null) return;
+    setMentions((now) => mentionsAfterSend(now, held, keep ?? []));
+  };
   const sendAbortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
   const sendInFlightRef = useRef(false);
@@ -487,6 +499,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     setError(null);
     setSteerStatus(null);
     setSendPending(true);
+    const held = mentionsOn ? mentions : [];
     try {
       const result = await steer.onSteer(draft, mode, { mentions: sentMentions() });
       if (!mountedRef.current || sendSequenceRef.current !== sequence) return;
@@ -504,11 +517,13 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
         ...(typeof result.seq === "number" ? { seq: result.seq } : {}),
         duplicate: Boolean(result.duplicate),
       });
-      setMentions([]);
+      settleMentions(held, result, false);
       props.onDraftChange("");
     } catch (reason) {
-      if (mountedRef.current && sendSequenceRef.current === sequence)
+      if (mountedRef.current && sendSequenceRef.current === sequence) {
         setError({ action: "steer", message: messageFor(reason) });
+        settleMentions(held, reason, true);
+      }
     } finally {
       if (mountedRef.current && sendSequenceRef.current === sequence) {
         sendInFlightRef.current = false;
@@ -536,9 +551,10 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     setError(null);
     setSteerStatus(null);
     setSendPending(true);
+    const held = mentionsOn ? mentions : [];
     try {
-      await props.onSend(draft, { signal: abort.signal, mentions: sentMentions() });
-      if (mountedRef.current && sendSequenceRef.current === sequence) setMentions([]);
+      const result = await props.onSend(draft, { signal: abort.signal, mentions: sentMentions() });
+      if (mountedRef.current && sendSequenceRef.current === sequence) settleMentions(held, result, false);
     } catch (reason) {
       // Draft stays controlled by the host and is deliberately not cleared.
       // A send the user stopped is not a failure to report.
@@ -548,6 +564,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
         !abort.signal.aborted
       )
         setError({ action: "send", message: messageFor(reason) });
+      if (mountedRef.current && sendSequenceRef.current === sequence) settleMentions(held, reason, true);
     } finally {
       if (sendAbortRef.current === abort) sendAbortRef.current = null;
       if (mountedRef.current && sendSequenceRef.current === sequence) {

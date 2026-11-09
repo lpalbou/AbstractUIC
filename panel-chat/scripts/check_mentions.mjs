@@ -4,6 +4,8 @@
 //     (fixture captured from the 0.9.9 card BEFORE the change: scripts/fixtures/chat_card_no_author.json);
 //  C. the composer's list, keyboard, chips, notice and send (hook harness, no DOM);
 //  D. WorkflowChat passes the mentions to onSend / onSteer and clears them on success only;
+//     a send that stopped partway keeps only its unsent chips; chips picked during a send stay
+//     (client review 2026-11-09 B1/S1/S6/N1/N3/N4);
 //  E. the replay projection carries a turn's author through.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -19,8 +21,14 @@ import {
   moveMentionActive,
   removeMention,
   usableCandidates,
+  unsentMentionsOf,
+  mentionsStoppedError,
+  mentionsAfterSend,
+  mentionResend,
+  uniqueMentions,
   MENTION_QUERY_MAX,
 } from "../dist/mentions.js";
+import * as conversationEntry from "../dist/conversation.js";
 import { chatAuthorOf, chatAuthorView } from "../dist/chat_author.js";
 import { ChatMessageCard } from "../dist/chat_message_card.js";
 import { ChatComposer } from "../dist/chat_composer.js";
@@ -67,6 +75,31 @@ eq(
   "A19 candidates without id/name/known kind, and duplicates, are dropped",
 );
 eq(usableCandidates("nope"), [], "A20 a non-list is no candidates");
+{
+  // A send that stopped partway (review 2026-11-09 B1): the unsent chips, named by the host.
+  const sentC = { id: "castor", name: "Castor", kind: "entity", index: 0 };
+  const sentP = { id: "pollux", name: "Pollux", kind: "entity", index: 1 };
+  const err = mentionsStoppedError("Pollux cannot answer right now.", [sentP]);
+  ok(err instanceof Error && err.message === "Pollux cannot answer right now.", "A30 the stop is an Error with the sentence");
+  eq(unsentMentionsOf(err), [sentP], "A31 it names the unsent chips");
+  eq(unsentMentionsOf({ unsentMentions: [] }), [], "A32 an empty list is a choice (keep none)");
+  eq([unsentMentionsOf(new Error("x")), unsentMentionsOf(undefined), unsentMentionsOf({ unsentMentions: "pollux" })], [null, null, null], "A33 nothing named: null");
+  eq(unsentMentionsOf({ unsentMentions: [sentP, { id: 3 }, null, { id: "x", kind: "robot" }] }), [sentP], "A34 unreadable entries are dropped");
+  const hypnos = { id: "hypnos", name: "Hypnos", kind: "entity" };
+  eq(mentionsAfterSend([castor, pollux, hypnos], [castor, pollux]).map((m) => m.id), ["hypnos"], "A35 a send's chips go; a chip picked meanwhile stays");
+  eq(mentionsAfterSend([castor, pollux, hypnos], [castor, pollux], [sentP]).map((m) => m.id), ["pollux", "hypnos"], "A36 the unsent chip stays, in its place");
+  eq(mentionsAfterSend([hypnos], [castor, pollux], [sentP]).map((m) => m.id), ["hypnos"], "A37 an unsent chip removed meanwhile is not brought back");
+  // The resend: same words + chips = only those mentions, first index kept; else a new message.
+  const pending = { text: "  does the plan hold?", repeatOf: "run-1", unsent: [sentP] };
+  eq(mentionResend(pending, "does the plan hold? ", [{ ...sentP, index: 0 }]), [sentP], "A38 a resend asks the unsent chip with its first index");
+  eq(mentionResend(pending, "does the plan hold?", [{ ...sentP, index: 0 }, { ...hypnos, index: 1 }, { ...sentP, index: 2 }]), [sentP, { ...hypnos, index: 2 }], "A39 a chip added since is numbered after; each name once");
+  eq(mentionResend(pending, "another question", [{ ...sentP, index: 0 }]), null, "A40 other words: a new message");
+  eq(mentionResend(pending, "does the plan hold?", []), null, "A41 no chip: not a resend");
+  eq(mentionResend(null, "does the plan hold?", [sentP]), null, "A42 nothing pending: a new message");
+  eq(uniqueMentions([sentC, sentP, { ...sentC, index: 2 }]), [sentC, sentP], "A43 each name once, the first keeps its index");
+  for (const name of ["mentionResend", "mentionsStoppedError", "unsentMentionsOf", "uniqueMentions"])
+    ok(typeof index[name] === "function" && typeof conversationEntry[name] === "function", `A44 ${name} exported (package and conversation entry)`);
+}
 
 const entityAuthor = { kind: "entity", name: "Castor", entity_id: "ent-castor", identity_ref: "identity:castor", avatar: { style: "watch-lotus", color: "#3366cc" } };
 const agentAuthor = { kind: "agent", name: "Basic agent", entity_id: null, identity_ref: null, avatar: null };
@@ -228,6 +261,52 @@ function composerHarness(extra = {}) {
   ok(unhandled.length === 1, "C31 the failure is not swallowed");
 }
 {
+  // N1: Enter while the names are still loading never sends the typed `@cas` as text.
+  let release;
+  const slow = composerHarness({ onSend: (p) => void slow.log.sends.push(p), mentionCandidates: (q) => new Promise((r) => { release = () => r([castor].filter((c) => c.name.toLowerCase().startsWith(q))); }) });
+  slow.focus();
+  slow.type("@cas");
+  slow.h.render();
+  ok(textOf(find(slow.h.tree, (n) => n.props && n.props.className === "pc-mention-empty")).includes("Looking for names"), "C46 the list is loading");
+  const e = slow.key("Enter");
+  ok(e.prevented && slow.log.sends.length === 0, "C47 Enter while the names load sends nothing");
+  release();
+  await slow.h.settle();
+  slow.key("Enter");
+  eq([slow.chipsOf().length, slow.log.sends.length], [1, 0], "C48 once loaded, Enter picks");
+  // N4: a name already picked is not offered again (its pick would only eat the typed @…).
+  slow.type("@ca");
+  await slow.h.settle();
+  release?.();
+  await slow.h.settle();
+  eq(slow.options().length, 0, "C49 the picked name is not offered again");
+  ok(textOf(find(slow.h.tree, (n) => n.props && n.props.className === "pc-mention-empty")) === "Already mentioned.", "C50 the list says why");
+}
+{
+  // Uncontrolled composer: a chip picked while the send is in flight stays (S6); a partial stop
+  // keeps the unsent chips it names.
+  let finish;
+  const c = composerHarness({ onSend: () => new Promise((r) => { finish = r; }) });
+  c.focus();
+  c.type("@cas");
+  await c.h.settle();
+  c.key("Enter");
+  c.type("hi");
+  c.key("Enter");
+  c.type("@pol");
+  await c.h.settle();
+  c.key("Enter");
+  eq(c.chipsOf().map((n) => n.key), ["entity:castor", "entity:pollux"], "C51 Pollux picked while the send is in flight");
+  finish();
+  await c.h.settle();
+  eq(c.chipsOf().map((n) => n.key), ["entity:pollux"], "C52 the send's chip goes, the new one stays");
+  c.type("again");
+  c.key("Enter");
+  finish({ unsentMentions: [{ id: "pollux", name: "Pollux", kind: "entity", index: 0 }] });
+  await c.h.settle();
+  eq(c.chipsOf().map((n) => n.key), ["entity:pollux"], "C53 a resolved partial stop keeps the unsent chip it names");
+}
+{
   let sentence = 0;
   const c = composerHarness({ mentionNotice: (cand) => (sentence += 1, `${cand.name} will read this conversation's history`), mentionSessionKey: "s1" });
   c.focus();
@@ -275,6 +354,19 @@ function composerHarness(extra = {}) {
   eq(sends, [{ text: "ask @", mentions: [] }], "C41 unavailable: Enter sends the text as typed");
   const held = composerHarness({ mentionsUnavailable: NO_ROUTE, mentions: [castor] });
   ok(held.notices().includes(NO_ROUTE) && held.chipsOf()[0].props.onRemove, "C42 unavailable with chips already picked: the sentence under them, chips still removable");
+  const heldSends = [];
+  const unsentHeld = composerHarness({ mentionsUnavailable: NO_ROUTE, onSend: (p) => void heldSends.push(p) });
+  unsentHeld.h.rerender({ mentionsUnavailable: null });
+  unsentHeld.focus();
+  unsentHeld.type("@cas");
+  await unsentHeld.h.settle();
+  unsentHeld.key("Enter");
+  unsentHeld.h.rerender({ mentionsUnavailable: NO_ROUTE });
+  unsentHeld.type("hi");
+  unsentHeld.key("Enter");
+  await unsentHeld.h.settle();
+  eq(heldSends, [{ text: "hi", mentions: [] }], "C42b unavailable: a chip picked before is not sent (N3)");
+  eq(unsentHeld.chipsOf().length, 0, "C42c and it clears with the send");
   const status = composerHarness({ mentionStatus: "Castor is in another conversation." });
   eq(textOf(find(status.h.tree, (n) => n.props && n.props.className === "pc-mention-notice pc-mention-notice--status")), "Castor is in another conversation.", "C43 the host's outcome sentence shows without chips");
   status.h.rerender({ mentionStatus: null });
@@ -320,6 +412,68 @@ const composerOf = (tree) => find(tree, (n) => n.type === ChatComposer);
   await w.settle();
   eq(steered[0].mentions.map((m) => m.id), ["pollux"], "D5 a steer carries them too");
   w.unmount();
+}
+{
+  // Review 2026-11-09 B1/S1/S6: a send that stopped partway keeps ONLY its unsent chips; a chip
+  // picked while a send is in flight is kept for the next one.
+  const sent = [];
+  let settle;
+  const w = mount(WorkflowChat, {
+    messages: [],
+    draft: "does the plan hold?",
+    onDraftChange() {},
+    onSend: (draft, ctx) => { sent.push(ctx.mentions); return new Promise((resolve, reject) => { settle = { resolve, reject }; }); },
+    mentionCandidates: async () => [castor, pollux],
+  });
+  composerOf(w.tree).props.onMentionsChange([castor, pollux]);
+  w.render();
+  composerOf(w.tree).props.onSubmit();
+  await w.settle();
+  settle.reject(mentionsStoppedError("Pollux cannot answer right now.", [{ id: "pollux", name: "Pollux", kind: "entity", index: 1 }]));
+  await w.settle();
+  eq(composerOf(w.tree).props.mentions.map((m) => m.id), ["pollux"], "D8 a 503 after Castor answered: only Pollux stays (Castor is never asked again)");
+  composerOf(w.tree).props.onSubmit();
+  await w.settle();
+  eq(sent[1].map((m) => [m.id, m.index]), [["pollux", 0]], "D10 the resend carries only the kept chip");
+  settle.resolve({ unsentMentions: [] });
+  await w.settle();
+  eq(composerOf(w.tree).props.mentions.length, 0, "D11 a resolved send naming none keeps none");
+  // S6: Hypnos picked while the send is in flight survives its success.
+  const hypnos = { id: "hypnos", name: "Hypnos", kind: "entity" };
+  composerOf(w.tree).props.onMentionsChange([castor]);
+  w.render();
+  composerOf(w.tree).props.onSubmit();
+  await w.settle();
+  composerOf(w.tree).props.onMentionsChange([castor, hypnos]);
+  w.render();
+  settle.resolve();
+  await w.settle();
+  eq(composerOf(w.tree).props.mentions.map((m) => m.id), ["hypnos"], "D12 a chip picked during the send stays for the next one");
+  // A plain failure still keeps every chip (like the draft).
+  composerOf(w.tree).props.onSubmit();
+  await w.settle();
+  settle.reject(new Error("offline"));
+  await w.settle();
+  eq(composerOf(w.tree).props.mentions.map((m) => m.id), ["hypnos"], "D13 a failure naming no chips keeps them all");
+  // N3: unavailable, the chips are not sent.
+  w.rerender({ mentionsUnavailable: "This gateway does not offer mentions yet." });
+  composerOf(w.tree).props.onSubmit();
+  await w.settle();
+  eq(sent.at(-1), [], "D14 unavailable: chips already picked are not sent");
+  settle.resolve();
+  await w.settle();
+  eq(composerOf(w.tree).props.mentions.length, 0, "D15 and they clear with the send");
+  // The steer door: a partial stop keeps only the unsent chips too.
+  w.rerender({ mentionsUnavailable: undefined, busy: true, steer: { onSteer: async () => { throw mentionsStoppedError("Pollux cannot answer right now.", [{ id: "pollux", name: "Pollux", kind: "entity", index: 1 }]); } } });
+  composerOf(w.tree).props.onMentionsChange([castor, pollux]);
+  w.render();
+  composerOf(w.tree).props.onSubmit();
+  await w.settle();
+  eq(composerOf(w.tree).props.mentions.map((m) => m.id), ["pollux"], "D16 a steer that stopped partway keeps only the unsent chip");
+  w.unmount();
+}
+{
+  const sent = [];
   const off = mount(WorkflowChat, { messages: [], draft: "hi", onDraftChange() {}, onSend: async (d, ctx) => void sent.push({ off: ctx.mentions }) });
   ok(!("mentionCandidates" in composerOf(off.tree).props) && !("mentions" in composerOf(off.tree).props), "D6 without the feed the composer is today's");
   composerOf(off.tree).props.onSubmit();

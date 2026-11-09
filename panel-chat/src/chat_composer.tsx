@@ -7,9 +7,11 @@ import {
   applyMentionPick,
   mentionKey,
   mentionSendPayload,
+  mentionsAfterSend,
   mentionTriggerAt,
   moveMentionActive,
   removeMention,
+  unsentMentionsOf,
   usableCandidates,
   type ChatComposerSend,
   type ChatMention,
@@ -191,7 +193,11 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
     );
   }, [query]);
   // While the names for a new query load, the previous names stay (no flicker per keystroke).
-  const shown: MentionsFound = query === null ? NOTHING_FOUND : found.query === query ? found : { query, items: found.items, status: "loading" };
+  const loaded: MentionsFound = query === null ? NOTHING_FOUND : found.query === query ? found : { query, items: found.items, status: "loading" };
+  // A name already picked is not offered again (a pick of it would only eat the typed `@…`).
+  const pickedKeys = new Set(mentions.map(mentionKey));
+  const shown: MentionsFound = { ...loaded, items: loaded.items.filter((c) => !pickedKeys.has(mentionKey(c))) };
+  const alreadyPicked = loaded.items.length > 0 && shown.items.length === 0;
   const activeIndex = shown.items.length ? Math.min(Math.max(active, 0), shown.items.length - 1) : -1;
   const listId = `${useId()}mentions`;
   const optionId = (i: number) => `${listId}-${i}`;
@@ -230,11 +236,24 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
   const submit = () => {
     const p = latest.current;
     if (!p.onSend) { p.onSubmit?.(); return; }
-    const result = p.onSend(mentionSendPayload(p.value, mentionsOn ? mentionsRef.current : NO_MENTIONS));
+    // While mentions are unavailable (an older gateway) the chips already picked are not sent.
+    const held = mentionsOn ? mentionsRef.current : NO_MENTIONS;
+    const usable = mentionsOn && !String(p.mentionsUnavailable || "").trim();
+    const result = p.onSend(mentionSendPayload(p.value, usable ? held : NO_MENTIONS));
     if (p.mentions !== undefined || !mentionsOn) return;
-    const clear = () => setOwnMentions(NO_MENTIONS);
-    if (result && typeof (result as Promise<unknown>).then === "function") void (result as Promise<unknown>).then(clear);
-    else clear();
+    // This send's chips go once it is through (chips picked meanwhile stay); a send that
+    // stopped partway keeps the `unsentMentions` it names, and a failed send keeps them all.
+    const settle = (settled: unknown, failed: boolean) => {
+      const keep = unsentMentionsOf(settled);
+      if (failed && keep === null) return;
+      setMentions(mentionsAfterSend(mentionsRef.current, held, keep ?? []));
+    };
+    if (result && typeof (result as Promise<unknown>).then === "function")
+      void (result as Promise<unknown>).then(
+        (value) => settle(value, false),
+        (reason) => { settle(reason, true); throw reason; },
+      );
+    else settle(result, false);
   };
 
   const mentionChips = mentionsOn && (mentions.length || mentionStatus) ? (
@@ -308,7 +327,9 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
             ? "Looking for names…"
             : shown.status === "error"
               ? "The names could not be loaded."
-              : shown.query
+              : alreadyPicked
+                ? "Already mentioned."
+                : shown.query
                 ? `No name matches “${shown.query}”.`
                 : "No one to mention here."}
         </div>
@@ -361,6 +382,12 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
             if ((e.key === "Enter" || e.key === "Tab") && !e.shiftKey && activeIndex >= 0) {
               e.preventDefault();
               pick(shown.items[activeIndex]);
+              return;
+            }
+            // The names are still loading: Enter waits for them (it would send the typed `@…` as
+            // text, with no mention). Escape closes the list; then Enter sends.
+            if (e.key === "Enter" && !e.shiftKey && !unavailable && shown.status === "loading") {
+              e.preventDefault();
               return;
             }
             if (e.key === "Escape") {

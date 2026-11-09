@@ -106,6 +106,11 @@ try {
     assert.equal(await list.getByRole("option").count(), 3, `${label}: three names`);
     const geo = await page.evaluate(() => { const r = document.querySelector(".pc-mention-popover").getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, vw: innerWidth, overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth }; });
     assert(geo.left >= 0 && geo.right <= geo.vw && geo.top >= 0 && geo.overflowX <= 0, `${label}: the list fits the screen ${JSON.stringify(geo)}`);
+    if (viewport.width <= 480) {
+      // A phone: the list spans the composer (review 2026-11-09 N8: its 22rem cap left a 36 px gap).
+      const span = await page.evaluate(() => { const p = document.querySelector(".pc-mention-popover").getBoundingClientRect(), c = document.querySelector(".pc-mention-popover").parentElement.getBoundingClientRect(); return { gap: Math.round(c.right - p.right), left: Math.round(p.left - c.left) }; });
+      assert(Math.abs(span.gap) <= 1 && Math.abs(span.left) <= 1, `${label}: the list spans the composer ${JSON.stringify(span)}`);
+    }
     const composer = page.locator(".pc-workflow-chat__composer");
     const around = async (name) => {
       const a = await page.locator(".pc-mention-popover").boundingBox().catch(() => null), b = await composer.boundingBox();

@@ -51,6 +51,19 @@ repack leaves `node_modules` and the vendored copy stale.
 - Checks: `scripts/check_mentions.mjs` (in `npm test`, 119 checks, 18 mutants red) and the optional
   `scripts/check_mentions_browser.mjs` (desktop and 400 px, dark and light; `--shots <dir>`).
 
+### Fixed
+
+- **Mentions, client review 2026-11-09.** A send whose mentions stopped partway (an entity could not answer)
+  keeps ONLY the chips not answered: the host names them as `unsentMentions` on what `onSend`/`onSteer` resolves or
+  rejects with (`mentionsStoppedError(sentence, unsent)`); a failure naming none still keeps every chip. A chip
+  picked while a send is in flight is no longer wiped when that send ends (only the send's own chips go). Enter
+  while the `@` list still reads "Looking for names…" waits instead of sending the typed `@…` as text. A name
+  already picked is not offered again ("Already mentioned."). While `mentionsUnavailable` is set, chips picked
+  earlier are not sent. At phone width the `@` list spans the composer. New pure helpers for hosts:
+  `mentionResend(pending, text, mentions)` (a resend of the same words asks only those chips, first index kept,
+  never a new turn), `uniqueMentions`, `unsentMentionsOf`, `mentionsAfterSend`; also in the `conversation` entry.
+  Checks: `check_mentions.mjs` 155 checks (10 new mutants red), the browser check asserts the 400 px list width.
+
 ## 0.10.17 - 2026-11-08 (local build, not published)
 
 Packages: `@abstractframework/panel-chat` 0.9.9 (from 0.9.8). Other packages retain their versions (ui-kit 0.9.25).
