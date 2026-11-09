@@ -5832,6 +5832,8 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
   [Mentioning entities and agents](#mentioning-entities-and-agents))
 - Who answered: `ChatMessage.author` (`ChatAuthor`), `chatAuthorOf`, `chatAuthorView`, `ChatAuthorMark`
   (see [Who answered](#who-answered))
+- What a reply kept: `ChatMessage.notices` (`ChatNotice`), `ChatNoticeBadges`, the card's `onNoticeOpen`,
+  `chatNoticesOf`, `chatNoticeView` (see [What a reply kept](#what-a-reply-kept))
 
 ## Usage (typical)
 
@@ -5984,6 +5986,33 @@ User messages ignore `author`. `projectReplayView` carries each view message's `
 Apps that vendor `src/conversation.ts` get `ChatComposer`, `mentionSendPayload`, `mentionResend`,
 `mentionsStoppedError`, `uniqueMentions`, `unsentMentionsOf`, the mention types, `chatAuthorOf`,
 `chatAuthorView`, `ChatAuthorMark` and the author types from that entry.
+
+### What a reply kept
+
+AbstractRuntime serves an entity's reply without its bracket markers ("[kept in diary - …]",
+"[learned: "…"]") and, beside it, what the turn formed: `ChatMessage.notices?: ChatNotice[]`,
+`ChatNotice = {kind, record_id, title, text?, visibility?, staged?}` with `kind` one of `"diary"`,
+`"question"`, `"lesson"`, `"interest"`, `"realization"`. The card shows one badge per notice under
+the reply text: the kind's icon and word, then the title. A private diary entry (`visibility:
+"private"`, no title, no words) reads "private diary entry"; an untitled notice shows the first words
+of its `text` (the string is never cut; the badge clips it); a notice staged for the visit's close
+(`staged: true`, `record_id: null`) adds a soft "forming…". The kit never reads a marker out of the
+text: a badge exists only for a served notice. Hint and caption cards show no badges.
+
+- `ChatMessageCard` `onNoticeOpen?(notice, message)`: the host opens what a badge names (for example
+  the record's detail by `record_id`). Return `false` when it opened nothing; the badge then opens its
+  own panel. Without it, a click opens a small panel under the badges with the title and the words,
+  whole (a private entry: one sentence and no words; a staged one: "Forming: it is kept when the visit
+  closes."). Keyboard: badges are buttons; Escape closes the panel and returns focus to its badge.
+  `ChatThread` and `WorkflowChat` pass it through `messageProps`.
+- The lanes carry the served lists: `projectReplayView` (a view answer message's `notices`) and
+  `WorkflowSessionController` (a session turn row's `notices`, a ledger ANSWER_USER payload's
+  `notices`). A host lane sets `notices` itself (e.g. from a visit turn's `reply_notices`).
+- `chatNoticesOf(value)` reads a served list: only objects with a `kind` (a list of plain strings,
+  an operator log, is not notices). `chatNoticeView(notice)` says what one badge shows;
+  `CHAT_NOTICE_WORDS` holds its sentences. `ChatNoticeBadges({notices, onOpen?})` renders the row on
+  its own. Types: `ChatNotice`, `ChatNoticeKind`, `ChatNoticeView`, `ChatNoticeBadgesProps` (also in
+  the vendored `conversation` entry).
 
 ## Docs assistant
 
@@ -7331,7 +7360,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.10.17",
+  "version": "0.10.18",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -7356,7 +7385,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.26",
+  "version": "0.9.27",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -7436,7 +7465,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.9.9",
+  "version": "0.9.10",
   "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -7482,15 +7511,15 @@ npm test
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm test",
-    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_message_files_links.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_composer_stop.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_docs_voice.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_mentions.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_replay_turn_gaps.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && node scripts/check_avatar_conversation.mjs && node scripts/check_chat_defaults.mjs && tsc -p scripts/types/tsconfig.json"
+    "test": "npm run build && tsc --noEmit --noUnusedLocals --noUnusedParameters -p . && node scripts/extract_transcript_slice.mjs --check && node scripts/check_panel_chat.mjs && node scripts/check_chat_media.mjs && node scripts/check_workflow_runtime.mjs && node scripts/check_workflow_evidence.mjs && node scripts/check_event_target.mjs && node scripts/check_tool_supervision.mjs && node scripts/check_message_files_links.mjs && node scripts/check_tool_presentation.mjs && node scripts/check_composer_stop.mjs && node scripts/check_stop_states.mjs && node scripts/check_file_drop.mjs && node scripts/check_live_replies.mjs && node scripts/check_automation_badges.mjs && node scripts/check_automation_markdown.mjs && node scripts/check_present_interaction.mjs && node scripts/check_workspace_browser.mjs && node scripts/check_approval_sync.mjs && node scripts/check_responsive.mjs && node scripts/check_secure_context.mjs && node scripts/check_docs_assistant.mjs && node scripts/check_docs_voice.mjs && node scripts/check_tool_sandbox.mjs && node scripts/check_chat_surface.mjs && node scripts/check_mentions.mjs && node scripts/check_notices.mjs && node scripts/check_docs_panel.mjs && node scripts/check_session_policy.mjs && node scripts/check_replay_view.mjs && node scripts/check_replay_view_session.mjs && node scripts/check_replay_turn_gaps.mjs && node scripts/check_polish.mjs && node scripts/check_voice_playback.mjs && node scripts/check_message_footer.mjs && node scripts/check_read_aloud.mjs && node scripts/check_avatar_conversation.mjs && node scripts/check_chat_defaults.mjs && tsc -p scripts/types/tsconfig.json"
   },
   "peerDependencies": {
-    "@abstractframework/ui-kit": "^0.9.15",
+    "@abstractframework/ui-kit": "^0.9.27",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@abstractframework/ui-kit": "^0.9.15",
+    "@abstractframework/ui-kit": "^0.9.27",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "react": "^18.0.0",
@@ -16639,6 +16668,8 @@ export { ChatAuthorMark, type ChatAuthorMarkProps } from "./author_mark.js";
 export { Markdown, sameOriginImage, type MarkdownImages, type MarkdownProps } from "./markdown.js";
 export { JsonViewer } from "./json_viewer.js";
 export { ChatMessageCard, speakButtonView } from "./chat_message_card.js";
+export { CHAT_NOTICE_KINDS, CHAT_NOTICE_WORDS, chatNoticesOf, chatNoticeView, type ChatNotice, type ChatNoticeKind, type ChatNoticeView } from "./chat_notices.js";
+export { ChatNoticeBadges, type ChatNoticeBadgesProps } from "./chat_notice_badges.js";
 export { READ_ALOUD_INITIAL, readAloudPhase, readAloudStep } from "./read_aloud.js";
 export type { ReadAloudInput, ReadAloudPhase, ReadAloudReply, ReadAloudState } from "./read_aloud.js";
 export { formatMessageStamp, messageStampTitle, messageStampIso, localDayKey, useLocalDay } from "./message_footer.js";
@@ -17629,6 +17660,8 @@ import { ChatStatsRow, workflowStats, type ChatStat } from "./chat_stats.js";
 import { formatMessageStamp, messageStampIso, messageStampTitle, useLocalDay } from "./message_footer.js";
 import { chatAuthorView, type ChatAuthor } from "./chat_author.js";
 import { ChatAuthorMark } from "./author_mark.js";
+import type { ChatNotice } from "./chat_notices.js";
+import { ChatNoticeBadges } from "./chat_notice_badges.js";
 
 export type ChatMessageLevel = "info" | "warn" | "error";
 
@@ -17687,6 +17720,13 @@ export type ChatMessage = {
   /** Unlisted replay refs require explicit output recovery, never raw-ID chips. */
   artifactReferencesUnresolved?: boolean;
   artifactRefs?: MessageArtifact[];
+  /**
+   * What the reply formed (AbstractRuntime turn notices: a diary entry, a lesson, an interest,
+   * a question, a realization), served BESIDE the reply text, never parsed out of it: one badge
+   * each under the text (`ChatNoticeBadges`). The replay projection carries a view answer's
+   * `notices` here; a host sets it from its own lane (`notices` / `reply_notices`).
+   */
+  notices?: ChatNotice[];
 };
 
 /**
@@ -17932,13 +17972,19 @@ export type ChatMessageCardProps = {
    * Per-message presentation. `"hint"` renders the message as one discreet
    * line (no avatar, header or copy): a system note such as "Rejoined the
    * open visit". `"caption"` renders the message's content only (Markdown, media, files and
-   * attachments; no header, speaker, copy, reasoning, stats or footer) for subtitle-like
+   * attachments; no header, speaker, copy, reasoning, stats, notice badges or footer) for subtitle-like
    * surfaces such as the Avatar view's live line and findings. `undefined` keeps the full card.
    */
   variant?: (message: ChatMessage) => "hint" | "caption" | undefined;
   /** Host opener for `media` items of kind `"file"` (e.g. a side drawer).
    * Without it the file opens inline in the shared viewer. */
   onOpenMedia?: (item: ChatMedia) => void;
+  /**
+   * Host opener for a notice badge (`message.notices`), e.g. the record's detail panel by its
+   * `record_id`. Return `false` when nothing was opened: the badge opens its own panel (title and
+   * words). Without it every badge opens its own panel.
+   */
+  onNoticeOpen?: (notice: ChatNotice, message: ChatMessage) => void | boolean;
 };
 
 /** The read-aloud state a host reports for a message (`useGatewayVoice().tts_playback.status`). */
@@ -18118,6 +18164,8 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
         </div>
       ) : null}
 
+      {m.notices?.length && !caption ? <ChatNoticeBadges notices={m.notices} onOpen={props.onNoticeOpen ? (notice) => props.onNoticeOpen!(notice, m) : undefined} /> : null}
+
       {media.length ? (
         <div className="pc-chat-media">
           {media.map((item, idx) => (
@@ -18190,6 +18238,7 @@ export default ChatMessageCard;
  */
 
 import type { ChatAuthor } from "./chat_author.js";
+import type { ChatNotice } from "./chat_notices.js";
 
 export type ReplayViewJson = Record<string, unknown>;
 
@@ -18235,6 +18284,10 @@ export type ReplayViewMessage = {
   /** Who wrote the turn (gateway turn surfaces, 2026-11-08): `{kind, name, entity_id,
    * identity_ref, avatar: {style, color}}`; null or absent on an older gateway. */
   author?: ChatAuthor | null;
+  /** What the answering turn formed, served beside its words on an `answer` message (AbstractRuntime
+   * 09cbad7, turn notices): `[{kind, record_id, title, text?, visibility?, staged?}]`; absent or null
+   * when it formed nothing. */
+  notices?: ChatNotice[] | null;
 };
 
 export type ReplayViewToolCall = {
@@ -18762,7 +18815,7 @@ import { publicUpdate } from "./conversation_model.js";
  * it directly.
  *
  * Mapping (panel-chat README "Messages from the replay view"):
- * - `messages[]` -> `ChatMessage` (`id`, `runId`, `kind`, `artifactIds`; `ts` = the item's time).
+ * - `messages[]` -> `ChatMessage` (`id`, `runId`, `kind`, `artifactIds`, `notices`; `ts` = the item's time).
  *   A `final` that `repeats` an earlier answer is shown once (the answer carries the turn's
  *   statistics). The open question's own message is not repeated above its card.
  * - `activities[]` of kind `tool` -> one tool row per call (`ToolActivityGroup`), statuses as
@@ -18774,6 +18827,7 @@ import { publicUpdate } from "./conversation_model.js";
  */
 import type { ChatMessage } from "./chat_message_card.js";
 import { chatAuthorOf } from "./chat_author.js";
+import { chatNoticesOf } from "./chat_notices.js";
 import type {
   WorkflowStatistics,
   WorkflowToolActivity,
@@ -19064,6 +19118,7 @@ function messageOf(
       : undefined;
   const level = str(m.level).toLowerCase();
   const files = replayMessageArtifacts(m, artifacts);
+  const notices = chatNoticesOf(m.notices);
   return {
     id: m.id,
     role: m.role,
@@ -19073,6 +19128,8 @@ function messageOf(
     ...(m.source ? { source: m.source } : {}),
     // The turn's author when the gateway sends one (null stays null: "no author known").
     ...(m.author !== undefined ? { author: chatAuthorOf(m.author) } : {}),
+    // What the turn formed, beside its words (the answer message's `notices`): one badge each.
+    ...(notices.length ? { notices } : {}),
     ...(m.kind === "public_update" ? { publicUpdate: publicUpdate({ id: m.public_update_id || m.id, text: m.text, run_id: m.run_id, session_id: m.session_id, iteration: m.iteration, source_call_ids: m.source_call_ids, kind: m.update_kind }, m.run_id) || undefined } : {}),
     ...(ts ? { ts } : {}),
     ...(m.role === "system"
@@ -23880,9 +23937,31 @@ ships.
 
 ## [Unreleased]
 
-Packages: `@abstractframework/panel-chat` (version set at release; still 0.9.9 in `package.json`) and
-`@abstractframework/ui-kit` 0.9.26 (local build, not published). Apps that vendor panel-chat (`src/vendor/abstractchat`) must re-sync from a fresh build; a same-version
-repack leaves `node_modules` and the vendored copy stale.
+### Added
+
+- **panel-chat: what a reply kept, as badges under its words** (AbstractRuntime 09cbad7, turn notices). The runtime
+  serves an entity's reply without its bracket markers ("[kept in diary - …]", "[learned: "…"]") and, beside it,
+  `notices: [{kind: "diary"|"question"|"lesson"|"interest"|"realization", record_id, title, text?, visibility?,
+  staged?}]`. `ChatMessage.notices` takes them and `ChatMessageCard` shows one badge per notice under the reply text
+  (`ChatNoticeBadges`): the kind's icon and word, then the title; "private diary entry" for a private one (no words);
+  an untitled one shows the first words of its text (never cut in the string); a staged one (formed at the visit's
+  close, `record_id` null) reads "forming…". A click goes to the host (`onNoticeOpen(notice, message)`, e.g. the
+  record's detail by `record_id`; return `false` when nothing opened); without it the badge opens a small panel with
+  the title and the words, whole. Keyboard reachable, wraps at phone width, kit tokens. Hint and caption cards show
+  no badges. `projectReplayView` carries a view answer message's `notices` (`ReplayViewMessage.notices`), and
+  `WorkflowSessionController` a session turn row's and a ledger ANSWER_USER payload's, so apps that render the
+  replay view through the kit show the badges with no host change. Pure helpers `chatNoticesOf` (only objects with a
+  `kind`: a list of plain strings, the operator's log, is not notices) and `chatNoticeView`; `CHAT_NOTICE_WORDS`,
+  `CHAT_NOTICE_KINDS`; types `ChatNotice`, `ChatNoticeKind`, `ChatNoticeView`, `ChatNoticeBadgesProps` (package and
+  the vendored `conversation` entry). The kit reads no marker out of text. Check: `scripts/check_notices.mjs` (in
+  `npm test`, 81 checks; 16 mutants red). `transcript.css` regenerated (the badges are in the transcript slice).
+  Publishing this needs a panel-chat patch past 0.9.10 (0.9.11).
+
+## 0.10.18 - 2026-11-09
+
+Packages: `@abstractframework/ui-kit` 0.9.27 (from 0.9.26) and `@abstractframework/panel-chat` 0.9.10 (from 0.9.9;
+its `@abstractframework/ui-kit` range is now `^0.9.27`). Other packages retain their versions. Apps that vendor
+panel-chat (`src/vendor/abstractchat`) re-sync from the 0.9.10 build.
 
 ### Added
 
@@ -23933,7 +24012,8 @@ repack leaves `node_modules` and the vendored copy stale.
   already picked is not offered again ("Already mentioned."). While `mentionsUnavailable` is set, chips picked
   earlier are not sent. At phone width the `@` list spans the composer. New pure helpers for hosts:
   `mentionResend(pending, text, mentions)` (a resend of the same words asks only those chips, first index kept,
-  never a new turn), `uniqueMentions`, `unsentMentionsOf`, `mentionsAfterSend`; also in the `conversation` entry.
+  never a new turn), `uniqueMentions`, `unsentMentionsOf`, `mentionsStoppedError`; also in the `conversation` entry
+  (`mentionsAfterSend`, the composer's own chip rule, is in the package entry only).
   Checks: `check_mentions.mjs` 157 checks (11 new mutants red), the browser check asserts the 400 px list width.
 
 ## 0.10.17 - 2026-11-08 (local build, not published)

@@ -7,7 +7,7 @@ import { publicUpdate } from "./conversation_model.js";
  * it directly.
  *
  * Mapping (panel-chat README "Messages from the replay view"):
- * - `messages[]` -> `ChatMessage` (`id`, `runId`, `kind`, `artifactIds`; `ts` = the item's time).
+ * - `messages[]` -> `ChatMessage` (`id`, `runId`, `kind`, `artifactIds`, `notices`; `ts` = the item's time).
  *   A `final` that `repeats` an earlier answer is shown once (the answer carries the turn's
  *   statistics). The open question's own message is not repeated above its card.
  * - `activities[]` of kind `tool` -> one tool row per call (`ToolActivityGroup`), statuses as
@@ -19,6 +19,7 @@ import { publicUpdate } from "./conversation_model.js";
  */
 import type { ChatMessage } from "./chat_message_card.js";
 import { chatAuthorOf } from "./chat_author.js";
+import { chatNoticesOf } from "./chat_notices.js";
 import type {
   WorkflowStatistics,
   WorkflowToolActivity,
@@ -309,6 +310,7 @@ function messageOf(
       : undefined;
   const level = str(m.level).toLowerCase();
   const files = replayMessageArtifacts(m, artifacts);
+  const notices = chatNoticesOf(m.notices);
   return {
     id: m.id,
     role: m.role,
@@ -318,6 +320,8 @@ function messageOf(
     ...(m.source ? { source: m.source } : {}),
     // The turn's author when the gateway sends one (null stays null: "no author known").
     ...(m.author !== undefined ? { author: chatAuthorOf(m.author) } : {}),
+    // What the turn formed, beside its words (the answer message's `notices`): one badge each.
+    ...(notices.length ? { notices } : {}),
     ...(m.kind === "public_update" ? { publicUpdate: publicUpdate({ id: m.public_update_id || m.id, text: m.text, run_id: m.run_id, session_id: m.session_id, iteration: m.iteration, source_call_ids: m.source_call_ids, kind: m.update_kind }, m.run_id) || undefined } : {}),
     ...(ts ? { ts } : {}),
     ...(m.role === "system"

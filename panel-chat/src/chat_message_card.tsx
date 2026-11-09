@@ -15,6 +15,8 @@ import { ChatStatsRow, workflowStats, type ChatStat } from "./chat_stats.js";
 import { formatMessageStamp, messageStampIso, messageStampTitle, useLocalDay } from "./message_footer.js";
 import { chatAuthorView, type ChatAuthor } from "./chat_author.js";
 import { ChatAuthorMark } from "./author_mark.js";
+import type { ChatNotice } from "./chat_notices.js";
+import { ChatNoticeBadges } from "./chat_notice_badges.js";
 
 export type ChatMessageLevel = "info" | "warn" | "error";
 
@@ -73,6 +75,13 @@ export type ChatMessage = {
   /** Unlisted replay refs require explicit output recovery, never raw-ID chips. */
   artifactReferencesUnresolved?: boolean;
   artifactRefs?: MessageArtifact[];
+  /**
+   * What the reply formed (AbstractRuntime turn notices: a diary entry, a lesson, an interest,
+   * a question, a realization), served BESIDE the reply text, never parsed out of it: one badge
+   * each under the text (`ChatNoticeBadges`). The replay projection carries a view answer's
+   * `notices` here; a host sets it from its own lane (`notices` / `reply_notices`).
+   */
+  notices?: ChatNotice[];
 };
 
 /**
@@ -318,13 +327,19 @@ export type ChatMessageCardProps = {
    * Per-message presentation. `"hint"` renders the message as one discreet
    * line (no avatar, header or copy): a system note such as "Rejoined the
    * open visit". `"caption"` renders the message's content only (Markdown, media, files and
-   * attachments; no header, speaker, copy, reasoning, stats or footer) for subtitle-like
+   * attachments; no header, speaker, copy, reasoning, stats, notice badges or footer) for subtitle-like
    * surfaces such as the Avatar view's live line and findings. `undefined` keeps the full card.
    */
   variant?: (message: ChatMessage) => "hint" | "caption" | undefined;
   /** Host opener for `media` items of kind `"file"` (e.g. a side drawer).
    * Without it the file opens inline in the shared viewer. */
   onOpenMedia?: (item: ChatMedia) => void;
+  /**
+   * Host opener for a notice badge (`message.notices`), e.g. the record's detail panel by its
+   * `record_id`. Return `false` when nothing was opened: the badge opens its own panel (title and
+   * words). Without it every badge opens its own panel.
+   */
+  onNoticeOpen?: (notice: ChatNotice, message: ChatMessage) => void | boolean;
 };
 
 /** The read-aloud state a host reports for a message (`useGatewayVoice().tts_playback.status`). */
@@ -503,6 +518,8 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
           />
         </div>
       ) : null}
+
+      {m.notices?.length && !caption ? <ChatNoticeBadges notices={m.notices} onOpen={props.onNoticeOpen ? (notice) => props.onNoticeOpen!(notice, m) : undefined} /> : null}
 
       {media.length ? (
         <div className="pc-chat-media">

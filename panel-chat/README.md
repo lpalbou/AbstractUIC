@@ -73,6 +73,8 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
   [Mentioning entities and agents](#mentioning-entities-and-agents))
 - Who answered: `ChatMessage.author` (`ChatAuthor`), `chatAuthorOf`, `chatAuthorView`, `ChatAuthorMark`
   (see [Who answered](#who-answered))
+- What a reply kept: `ChatMessage.notices` (`ChatNotice`), `ChatNoticeBadges`, the card's `onNoticeOpen`,
+  `chatNoticesOf`, `chatNoticeView` (see [What a reply kept](#what-a-reply-kept))
 
 ## Usage (typical)
 
@@ -225,6 +227,33 @@ User messages ignore `author`. `projectReplayView` carries each view message's `
 Apps that vendor `src/conversation.ts` get `ChatComposer`, `mentionSendPayload`, `mentionResend`,
 `mentionsStoppedError`, `uniqueMentions`, `unsentMentionsOf`, the mention types, `chatAuthorOf`,
 `chatAuthorView`, `ChatAuthorMark` and the author types from that entry.
+
+### What a reply kept
+
+AbstractRuntime serves an entity's reply without its bracket markers ("[kept in diary - …]",
+"[learned: "…"]") and, beside it, what the turn formed: `ChatMessage.notices?: ChatNotice[]`,
+`ChatNotice = {kind, record_id, title, text?, visibility?, staged?}` with `kind` one of `"diary"`,
+`"question"`, `"lesson"`, `"interest"`, `"realization"`. The card shows one badge per notice under
+the reply text: the kind's icon and word, then the title. A private diary entry (`visibility:
+"private"`, no title, no words) reads "private diary entry"; an untitled notice shows the first words
+of its `text` (the string is never cut; the badge clips it); a notice staged for the visit's close
+(`staged: true`, `record_id: null`) adds a soft "forming…". The kit never reads a marker out of the
+text: a badge exists only for a served notice. Hint and caption cards show no badges.
+
+- `ChatMessageCard` `onNoticeOpen?(notice, message)`: the host opens what a badge names (for example
+  the record's detail by `record_id`). Return `false` when it opened nothing; the badge then opens its
+  own panel. Without it, a click opens a small panel under the badges with the title and the words,
+  whole (a private entry: one sentence and no words; a staged one: "Forming: it is kept when the visit
+  closes."). Keyboard: badges are buttons; Escape closes the panel and returns focus to its badge.
+  `ChatThread` and `WorkflowChat` pass it through `messageProps`.
+- The lanes carry the served lists: `projectReplayView` (a view answer message's `notices`) and
+  `WorkflowSessionController` (a session turn row's `notices`, a ledger ANSWER_USER payload's
+  `notices`). A host lane sets `notices` itself (e.g. from a visit turn's `reply_notices`).
+- `chatNoticesOf(value)` reads a served list: only objects with a `kind` (a list of plain strings,
+  an operator log, is not notices). `chatNoticeView(notice)` says what one badge shows;
+  `CHAT_NOTICE_WORDS` holds its sentences. `ChatNoticeBadges({notices, onOpen?})` renders the row on
+  its own. Types: `ChatNotice`, `ChatNoticeKind`, `ChatNoticeView`, `ChatNoticeBadgesProps` (also in
+  the vendored `conversation` entry).
 
 ## Docs assistant
 

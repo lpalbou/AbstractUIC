@@ -97,7 +97,7 @@ export function ChatThread(props: ChatThreadProps): React.ReactElement {
       total += String(m.content ?? "").length;
       for (const file of m.artifactRefs || [])
         total += file.id.length + (file.name?.length || 0) + 1;
-      total += (m.artifactIds?.length || 0) + (m.attachments?.length || 0);
+      total += (m.artifactIds?.length || 0) + (m.attachments?.length || 0) + (m.notices?.length || 0);
       // Generated media arriving (a src filled in) moves the bottom too.
       if (Array.isArray(m.media))
         for (const item of m.media) total += String(item?.src ?? "").length + 1;

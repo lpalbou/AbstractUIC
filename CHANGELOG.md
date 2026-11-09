@@ -7,6 +7,28 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## [Unreleased]
+
+### Added
+
+- **panel-chat: what a reply kept, as badges under its words** (AbstractRuntime 09cbad7, turn notices). The runtime
+  serves an entity's reply without its bracket markers ("[kept in diary - …]", "[learned: "…"]") and, beside it,
+  `notices: [{kind: "diary"|"question"|"lesson"|"interest"|"realization", record_id, title, text?, visibility?,
+  staged?}]`. `ChatMessage.notices` takes them and `ChatMessageCard` shows one badge per notice under the reply text
+  (`ChatNoticeBadges`): the kind's icon and word, then the title; "private diary entry" for a private one (no words);
+  an untitled one shows the first words of its text (never cut in the string); a staged one (formed at the visit's
+  close, `record_id` null) reads "forming…". A click goes to the host (`onNoticeOpen(notice, message)`, e.g. the
+  record's detail by `record_id`; return `false` when nothing opened); without it the badge opens a small panel with
+  the title and the words, whole, brought into view inside the thread (never by scrolling the page). Keyboard reachable, wraps at phone width, kit tokens. Hint and caption cards show
+  no badges. `projectReplayView` carries a view answer message's `notices` (`ReplayViewMessage.notices`), and
+  `WorkflowSessionController` a session turn row's and a ledger ANSWER_USER payload's, so apps that render the
+  replay view through the kit show the badges with no host change. Pure helpers `chatNoticesOf` (only objects with a
+  `kind`: a list of plain strings, the operator's log, is not notices) and `chatNoticeView`; `CHAT_NOTICE_WORDS`,
+  `CHAT_NOTICE_KINDS`; types `ChatNotice`, `ChatNoticeKind`, `ChatNoticeView`, `ChatNoticeBadgesProps` (package and
+  the vendored `conversation` entry). The kit reads no marker out of text. Check: `scripts/check_notices.mjs` (in
+  `npm test`, 81 checks; 16 mutants red). `transcript.css` regenerated (the badges are in the transcript slice).
+  Publishing this needs a panel-chat patch past 0.9.10 (0.9.11).
+
 ## 0.10.18 - 2026-11-09
 
 Packages: `@abstractframework/ui-kit` 0.9.27 (from 0.9.26) and `@abstractframework/panel-chat` 0.9.10 (from 0.9.9;

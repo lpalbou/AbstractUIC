@@ -5,6 +5,7 @@
  * or React presentation.  Hosts supply those through WorkflowTransport.
  */
 import type { ChatMessage } from "./chat_message_card.js";
+import { chatNoticesOf } from "./chat_notices.js";
 import { publicUpdate } from "./conversation_model.js";
 import { foldWorkflowTools, workflowEvidence, historyRecords, type WorkflowToolActivity } from "./workflow_evidence.js";
 import { toolPolicyDecision, toolPolicyDecisionText, type WorkflowToolPolicyProvenance } from "./tool_policy.js";
@@ -1539,7 +1540,9 @@ export class WorkflowSessionController {
     const answer = authoritative || (historicalRun ? text(turn.answer) || messageText(turn.output) : "");
     const evidence = this.historicalEvidence.get(runId);
     for (const tool of evidence?.tools || []) this.upsertTool(tool);
-    if (answer) this.addRunAssistantMessage(runId, { id: `final:${runId}`, role: "assistant", content: answer, runId, statistics: evidence?.statistics, ts: text(turn.updated_at) || undefined });
+    // What the answering turn formed, served beside the answer on the session row (`turn.notices`).
+    const notices = chatNoticesOf(turn.notices);
+    if (answer) this.addRunAssistantMessage(runId, { id: `final:${runId}`, role: "assistant", content: answer, runId, statistics: evidence?.statistics, ts: text(turn.updated_at) || undefined, ...(notices.length ? { notices } : {}) });
   }
 
   /** Fetch only returned prior session roots, with bounded fan-out. */
@@ -1629,7 +1632,9 @@ export class WorkflowSessionController {
       // answer_user can be an intermediate conversational turn (the fixture
       // deliberately emits one before an ask_user wait), so it must never
       // consume the root's single authoritative terminal-final identity.
-      if (content) this.addRunAssistantMessage(runId, { id: `answer:${runId}:${key}`, role: "assistant", kind: "answer", runId, content, ts: timestamp });
+      // What the turn formed, beside its words (the ANSWER_USER payload's `notices`).
+      const notices = chatNoticesOf(object(eff.payload)?.notices);
+      if (content) this.addRunAssistantMessage(runId, { id: `answer:${runId}:${key}`, role: "assistant", kind: "answer", runId, content, ts: timestamp, ...(notices.length ? { notices } : {}) });
     }
     // Reserved durable host UX events. `abstractcode.*` is retained as the
     // migration alias specified by ADR-0017; unknown events remain trace-only.
