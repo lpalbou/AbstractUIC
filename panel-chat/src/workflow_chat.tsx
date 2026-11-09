@@ -518,7 +518,8 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
         duplicate: Boolean(result.duplicate),
       });
       settleMentions(held, result, false);
-      props.onDraftChange("");
+      // A steer whose mentions stopped partway keeps the words with its unsent chips (the resend).
+      if (!unsentMentionsOf(result)?.length) props.onDraftChange("");
     } catch (reason) {
       if (mountedRef.current && sendSequenceRef.current === sequence) {
         setError({ action: "steer", message: messageFor(reason) });

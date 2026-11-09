@@ -473,6 +473,29 @@ const composerOf = (tree) => find(tree, (n) => n.type === ChatComposer);
   w.unmount();
 }
 {
+  // A steer the host RESOLVES naming unsent chips (its own status line said why): the words stay too.
+  const drafts = [];
+  const w = mount(WorkflowChat, {
+    messages: [],
+    draft: "does the plan hold?",
+    onDraftChange: (d) => drafts.push(d),
+    onSend: async () => {},
+    mentionCandidates: async () => [castor, pollux],
+    busy: true,
+    steer: { onSteer: async () => ({ accepted: true, unsentMentions: [{ id: "pollux", name: "Pollux", kind: "entity", index: 1 }] }) },
+  });
+  composerOf(w.tree).props.onMentionsChange([castor, pollux]);
+  w.render();
+  composerOf(w.tree).props.onSubmit();
+  await w.settle();
+  eq([composerOf(w.tree).props.mentions.map((m) => m.id), drafts], [["pollux"], []], "D17 a resolved partial steer keeps the words and only the unsent chip");
+  w.rerender({ steer: { onSteer: async () => ({ accepted: true }) } });
+  composerOf(w.tree).props.onSubmit();
+  await w.settle();
+  eq([composerOf(w.tree).props.mentions.length, drafts], [0, [""]], "D18 a whole steer clears both");
+  w.unmount();
+}
+{
   const sent = [];
   const off = mount(WorkflowChat, { messages: [], draft: "hi", onDraftChange() {}, onSend: async (d, ctx) => void sent.push({ off: ctx.mentions }) });
   ok(!("mentionCandidates" in composerOf(off.tree).props) && !("mentions" in composerOf(off.tree).props), "D6 without the feed the composer is today's");
