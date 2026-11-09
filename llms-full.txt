@@ -73,7 +73,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 ## Packages
 
 - [@abstractframework/ui-kit](ui-kit/README.md) (0.9.15): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
-- [@abstractframework/panel-chat](panel-chat/README.md) (0.9.0, needs ui-kit ^0.9.15): the one chat surface WorkflowChat, the Avatar view AvatarConversation (one live line + Findings panel; conversationLive, conversationFindings) over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (a tool approval offers exactly Deny / Allow / Allow All, the allows for this session only; Decide later; card variant), a session's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated; without it Allow covers the request only; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
+- [@abstractframework/panel-chat](panel-chat/README.md) (0.9.0, needs ui-kit ^0.9.15): the one chat surface WorkflowChat, the Avatar view AvatarConversation (one live line + Findings panel; conversationLive, conversationFindings) over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (a tool approval offers exactly Deny / Allow / Allow All, the allows for this session only; Decide later; card variant), a session's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated; without it Allow covers the request only; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, `@` mentions in the composer (mentionCandidates → chips; onSend carries {text, mentions}; unsentMentions / mentionResend for a send that stopped partway) and who answered on each reply (ChatMessage.author, chatAuthorView, ChatAuthorMark), chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -120,8 +120,10 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [app-server/src/index.js](app-server/src/index.js): exports for `@abstractframework/app-server`
 - [app-server/src/index.d.ts](app-server/src/index.d.ts): TS types for the app-server exports
 - [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
-- [panel-chat/src/chat_composer.tsx](panel-chat/src/chat_composer.tsx): controlled rounded multiline composer (legacy variant), composer-owned Attach, action slots and IME-safe submission.
-- [panel-chat/src/chat_message_card.tsx](panel-chat/src/chat_message_card.tsx): `ChatMessage` / `ChatAttachment` / `ChatStat` contracts
+- [panel-chat/src/chat_composer.tsx](panel-chat/src/chat_composer.tsx): controlled rounded multiline composer (legacy variant), composer-owned Attach, action slots, IME-safe submission and the `@` mention list and chips.
+- [panel-chat/src/mentions.ts](panel-chat/src/mentions.ts): mention rules and host helpers (`ChatMentionCandidate`, `ChatComposerSend`, `mentionResend`, `mentionsAfterSend`, `mentionsStoppedError`)
+- [panel-chat/src/chat_author.ts](panel-chat/src/chat_author.ts): `ChatAuthor` (the gateway's turn author), `chatAuthorOf`, `chatAuthorView`
+- [panel-chat/src/chat_message_card.tsx](panel-chat/src/chat_message_card.tsx): `ChatMessage` (incl. `author`) / `ChatAttachment` / `ChatStat` contracts
 - [panel-chat/src/replay_view.ts](panel-chat/src/replay_view.ts): the replay view client (`applyDelta`, `ReplayViewFold`, `SseParser`, `createReplayViewTransport`)
 - [panel-chat/src/replay_view_projection.ts](panel-chat/src/replay_view_projection.ts): `projectReplayView` (view -> transcript, interaction, status)
 - [panel-chat/src/automation_badges.tsx](panel-chat/src/automation_badges.tsx): `ScheduleThisAction` and `FromAutomationBadge`
@@ -739,6 +741,7 @@ not a customization point; when the component cannot do what you need, ask for t
 | App assistant (an app's own Q&A, e.g. Continuum's advisor) | `AssistantPanel` (panel-chat) in `AfDrawer`, or `assistantDrawerPanel({ ask, assistantName })` in `AfDrawerSystem`, toggled by `AfTopBarActions` `assistant` | Transport injected (`ask(question, { signal, history })`), never fetches |
 | Questions and approvals | `presentInteraction(wait, controller, options)` → `WorkflowChat` `interaction` (or `WorkflowInteractionPanel`, `variant="card"` for "Needs you" lists and inboxes) | One wording set (`WORKFLOW_INTERACTION_LABELS`): a tool approval offers exactly Deny / Allow / Allow All (panel-chat 0.9.0); Decide later and Keep waiting send nothing (a dismissal never denies); Continue without answering resumes empty. Accepts a `replay_view_v1.interaction` (`ReplayInteraction`) once a gateway serves it. Session tool policy: inject a `SessionToolPolicyClient` when `capabilities.session_tool_policy.supported` and pass `sessionPolicy: true` (the mode is the controller's): Allow keeps this request's tools and Allow All every tool for the rest of this session on the gateway (written before the wait is answered); nothing writes the app's default tool settings; on an older gateway, or after a failed capability read, Allow answers the request only and one line says so |
 | Attachments and generated media | Composer: `WorkflowChat` `attachmentItems` + `useAttachmentUploads`. Messages: `ChatMessage.media` (`image` / `audio` with `transcript` / `video` / `file`), filled with `chatMediaFromArtifact` from the transport's `resolveArtifact` | Chips name their state (Waiting, Uploading, refused with both sizes, failed with the gateway's words and Retry); Send refuses while one is not attached. Files open in the shared `AfFileViewer`; speech-to-text shows as a **Transcript** caption; music rides on audio. The host fetches with its own credentials |
+| `@` mentions and who answered | `WorkflowChat` / `ChatComposer` `mentionCandidates` (+ `mentionNotice`, `mentionSessionKey`, `mentionStatus`, `mentionsUnavailable`); `ChatMessage.author` | A mention is a chip picked from the names your host feeds (for example `GET /entities`), never `@` read out of the text; `onSend` carries `{text, mentions}` and your host posts each mention in order. A send that stopped partway names its `unsentMentions` (`mentionsStoppedError`) so only those chips stay; `mentionResend` tells a resend of the same words from a new message. Pass the gateway's turn `author` through: the card shows the entity's orb or the agent mark, the name and a kind tag, and a message without one renders as before. See [Mentioning entities and agents](../panel-chat/README.md#mentioning-entities-and-agents) |
 | Markdown / JSON rendering | `Markdown`, `JsonViewer` (panel-chat) | Also exported standalone |
 | TTS playback + push-to-talk | `useGatewayVoice` (+ `streamTtsJsonl`) | Injected `tts`/`tts_stream`/`transcribe` functions; streaming with pause/resume; output and input device, volume and input level options |
 | Voice settings page | `AfVoiceSection` (+ `useVoicePreferences(storageKey)`, `useVoiceDefaults(fetchDefaults)`) | Pass `fetchDefaults` (`GET /api/gateway/voice/defaults`): "Gateway default · provider / model" comes only from it; the host stores the overrides (`useVoicePreferences`: same-tab and cross-tab sync). Pass `voiceLibrary` (`design` → `POST voice/design`, `clone` → multipart `POST voice/clones`, `list` / `rename` / `remove` / `share` over `voice/clones[/{id}]` and `voice/clones/{id}/deploy`; `createVoice` is its alias) to let people create and manage their own voices, `fetchLanguages` (`GET voice/languages`), `previewVoice` (choosing a voice plays it; a play/stop toggle beside the select). `rows={{tts: false}}` + `ttsSlot` where the host owns the voice (an entity); `rows.mute` / `rows.capture` only where the host honours `reply_muted` / `capture_mode` / `auto_send` (`useGatewayVoice({...gatewayVoiceOptions(prefs), ...})`) |
@@ -2689,8 +2692,8 @@ Components:
 - File drop and paste: `WorkflowChat`'s `onFiles(files)` turns on the drop zone and paste-to-attach (folders are refused with a visible message); the pure helpers behind it are exported too: `dragCarriesFiles()`, `draggedFileCount()`, `dropZoneLabel()`, `droppedFiles()`, `folderRefusal()`, `pastedFileName()`, `pastedFiles()`, `DragPresence` (see `panel-chat/src/file_drop.ts`)
 - `ToolActivity`, `ToolActivityGroup` (tool-call rendering; a process-spawning call shows its command-sandbox line first in its detail), `toolSandbox(result)` + `ToolSandboxLine` (the line `Sandbox: <label> · N workspaces enforced` / `Sandbox: none — refused` and the enforced paths, from the ledger's `output.sandbox`), `StatDetailPanel` + `statDetail()` (token/time/tool statistics), `formatDuration(ms)` (the chat's one duration format, "4.2s" / "3m 26s"; 0.6.1). A tool row whose `WorkflowToolActivity.approvalWait` is set (the call waited for the person's decision: the replay view's `wait.kind == "tool_approval"` with an `outcome`, or the ledger's `waiting` approval row) reads "3m 26s incl. approval wait" (0.6.1)
 - `ChatThread` (thread container; renders a list of messages)
-- `ChatMessageCard` (single message rendering; `message.title` names the speaker — assistants
-  render their entity/agent name when provided, falling back to "Agent"). Read aloud:
+- `ChatMessageCard` (single message rendering; `message.author` names who answered, see "Who answered" below; without it
+  `message.title` names the speaker — assistants render their entity/agent name when provided, falling back to "Agent"). Read aloud:
   `onSpeakToggle(message)` + `getSpeakState(message) → SpeakState` (`"idle" | "loading" | "playing" | "paused"`,
   usually `useGatewayVoice().tts_playback.status` for that message's key); the button follows
   `speakButtonView(state)` (0.6.3: spinner only while `loading`, Pause while playing, Play when paused, the speaker
@@ -2701,6 +2704,8 @@ Components:
   `messageStampTitle(ts, locales?)`, `messageStampIso(ts)`, `localDayKey(now?)`, `useLocalDay()`.
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
 - `ChatComposer` (rounded multiline composer; `variant="legacy"` for the flat layout; `leading` / `actions` / `trailingActions` / `overlay` slots, composer-owned Attach via `onAttach`, `submitKey`, `canSubmit`; IME-safe Enter)
+- `@` mentions: `ChatComposer` and `WorkflowChat` take `mentionCandidates?(query) → Promise<ChatMentionCandidate[]>` (`{id, name, kind: "entity"|"agent", avatar?, hint?}`; the host decides the source, e.g. `GET /entities`; absent = no list, no chips), controlled `mentions?` / `onMentionsChange?`, `mentionNotice?(candidate)` (the sentence shown the first time a name is picked in the conversation `mentionSessionKey?`), `mentionStatus?` (the host's sentence about the last mentions sent) and `mentionsUnavailable?` (the host's sentence instead of names; chips picked earlier are not sent). `ChatComposer.onSend?(send)` gets `ChatComposerSend` = `{text, mentions: [{id, name, kind, index}]}` (text as typed, picks in order, `index` = the gateway's `mention_index`) and wins over `onSubmit`; `WorkflowChat` passes `mentions` in `onSend(draft, {signal, mentions})` and `steer.onSteer(text, mode, {mentions})`. A pick is a chip bound to the candidate; an `@` that was not picked stays text (the kit never reads `@` out of the text). Chips: a send's chips go when it resolves; a rejection keeps them; a send that stopped partway keeps only the chips it names as `unsentMentions` on its value or error (`mentionsStoppedError(sentence, unsent)`); chips picked while a send is in flight stay. List states: "Looking for names…" (Enter waits), "The names could not be loaded.", "No name matches “…”.", "No one to mention here.", "Already mentioned.". Helpers `mentionSendPayload()`, `mentionResend(pending, text, mentions)` (after a stop, the same words ask only the unsent chips with their first index; other words → null, a new message), `mentionsAfterSend()`, `unsentMentionsOf()`, `uniqueMentions()`, `mentionTriggerAt()`, `applyMentionPick()`, `addMention()`, `removeMention()`, `mentionKey()`, `moveMentionActive()`, `usableCandidates()`, `MENTION_QUERY_MAX` (48); types `ChatComposerSend`, `ChatMention`, `ChatMentionCandidate`, `ChatMentionKind`, `ChatMentionSent`, `ChatMentionsUnsent`, `MentionResend`, `MentionTrigger`. The host posts the mentions (AbstractGateway `POST /api/gateway/sessions/{session_id}/mentions`, one at a time in `index` order). See the [README](../panel-chat/README.md#mentioning-entities-and-agents)
+- Who answered: `ChatMessage.author?: ChatAuthor | null` (`{kind: "entity"|"agent"|"person", name, entity_id, identity_ref, avatar: {style, color} | null}`, the gateway's turn author, every field present). An assistant-side card with an author shows its mark (an entity's orb through ui-kit `ActivityAvatar`, or its initial disc without a design; the agent mark), its name and an "entity" / "agent" tag; null or absent = the header as before (`title || "Agent"`); user messages ignore it; `projectReplayView` passes it through. `chatAuthorOf(value)` (unknown kinds refused), `chatAvatarLookOf()`, `chatAuthorView(author, title?) → {name, tag, mark, look, initial} | null` (name falls back to `title`, then "Entity" / "Agent" / "Someone"), `ChatAuthorMark({mark, look?, initial?, size, className?})` (decorative); types `ChatAuthor`, `ChatAuthorKind`, `ChatAuthorMarkKind`, `ChatAuthorView`, `ChatAvatarLook`, `ChatAuthorMarkProps`. See the [README](../panel-chat/README.md#who-answered)
 - Avatar view (0.8.0, backlog 1097): `AvatarConversation` (and `WorkflowChat` with `avatarConversation`) shows the avatar, one live line (the latest public update of the turn, with **Reply to this** and **Latest**) and a **Findings** panel. Pure models: `conversationLive(messages, { pinnedRequest? })` → `ConversationLive` (`line`, `answers`, `personKey`), `conversationFindings(messages)` → `ConversationFinding[]`, `conversationReply(text, context, currentRunId, allowedSourceRunIds?)`. `PublicUpdate.kind` is `"progress"` or `"finding"` (absent = progress). Removed in 0.8.0: `conversationPages` and `conversationLabel`. See [`panel-chat/README.md`](../panel-chat/README.md#messages-from-the-replay-view).
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
 - `presentInteraction(wait, controller, { records?, currentRun?, sessionPolicy?, onDefer?, allowSkip? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (the calls in words, full arguments behind the "Review full tool arguments (JSON)" disclosure; exactly **Deny** / **Allow** / **Allow All** (0.9.0, operator ruling 2026-11-07): with `sessionPolicy: true` and a controller in gateway mode, Allow keeps this request's tools and Allow All every tool for the rest of this session on the gateway's session tool policy; otherwise Allow answers this request only, one line says so, and Allow All is not offered; nothing writes the app's default tool settings; "Decide later" only with `onDefer`), question (`ask_user`, choices as buttons and free text; "Continue without answering" with `allowSkip` resumes with an empty answer, "Keep waiting" with `onDefer`) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. The first argument may also be a `ReplayInteraction` (the shape of `replay_view_v1.interaction`) — it produces the same control as the raw wait (`isReplayInteraction()`, `replayInteractionWait()`); a wait that carries the view's `command` (`WorkflowWaitInteraction.command`, `kind`) and is an event is answered with `controller.answerEvent(payload, target)` (the view's resume command), never through an event route. Removed in 0.9.0: `onPermissionsAll`, `approveAllScope`, `onAllowForSession`, `approveAllDisabledReason`, `remember`, `sessionPolicy: {toolsetOf, ask, maxRiskRank}`. Types `PresentInteractionOptions`, `InteractionController` (needs `approve`, `resume`, `emitEvent`; optional `approveToolsForSession`, `approveAllForSession`, `sessionPolicyStatus`, `answerEvent`), `ReplayInteraction`
@@ -2759,7 +2764,7 @@ Renderers:
 - `JsonViewer` (collapsible tree; honors `collapseAfterDepth`; auto-parses JSON strings)
 
 Types:
-- `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`; optional `live: ChatLiveReply` (`callId`, `reasoning`, `caption?`) marks a reply still being streamed; `kind?` and `artifactIds?` carry a `replay_view_v1.messages[]` item's kind and `artifact_ids`, see the [README mapping](../panel-chat/README.md#messages-from-the-replay-view)), `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
+- `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`; optional `author: ChatAuthor | null` names who wrote the turn; optional `live: ChatLiveReply` (`callId`, `reasoning`, `caption?`) marks a reply still being streamed; `kind?` and `artifactIds?` carry a `replay_view_v1.messages[]` item's kind and `artifact_ids`, see the [README mapping](../panel-chat/README.md#messages-from-the-replay-view)), `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
 - `ChatMedia` (0.5.0, backlog 0031): `kind` is `"image" | "audio" | "video" | "file"`; a `"file"` (`name`, `contentType`, `size?`, `text?` for text kinds) opens in the shared `AfFileViewer` inline behind **Open** (nothing loads before) or in the host's `onOpenMedia`; audio takes `transcript?` (speech-to-text, shown as a collapsible **Transcript** caption); music rides on audio. `WorkflowTransport.resolveArtifact?(runId, artifactId, signal?) → ResolvedArtifact` (`{src, contentType, name?, size?}`, the host reads `GET runs/{id}/artifacts/{artifact_id}` and `/content`) with `chatMediaFromArtifact(resolved, extra?)` (image/audio/video inline, everything else a file; its raw link is the host's `href` — pass the gateway's sandboxed content URL — or the object URL for an allowlist of inert types only, always as a download link (concrete subtypes, no wildcard; never HTML/SVG/XML/XSL or an unlisted type; `contentType` must be the Blob's type): `fileRawLink()`, `objectUrlRawLinkSafe()`, `isLocalObjectUrl()`; SVG never rendered) and `chatMediaForArtifacts(runId, ids, resolve)` (rejects when one cannot be resolved). The controller does not yet fold `$artifact` refs or generated-media ledger events into `message.media` itself
 
 Utilities:
@@ -5820,6 +5825,13 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
   (see [Attachments and generated media](#attachments-and-generated-media))
 - Automations: `ScheduleThisAction` (a "Schedule this…" button for a chat header slot) and
   `FromAutomationBadge` — see [Automations](../docs/automations.md#panel-chat-pieces)
+- `@` mentions: `ChatComposer` / `WorkflowChat` `mentionCandidates`, `mentions` / `onMentionsChange`,
+  `mentionNotice`, `mentionSessionKey`, `mentionStatus`, `mentionsUnavailable`; `onSend` carries
+  `{text, mentions}`; helpers `mentionSendPayload`, `mentionResend`, `mentionsAfterSend`,
+  `mentionsStoppedError`, `unsentMentionsOf`, `uniqueMentions` (see
+  [Mentioning entities and agents](#mentioning-entities-and-agents))
+- Who answered: `ChatMessage.author` (`ChatAuthor`), `chatAuthorOf`, `chatAuthorView`, `ChatAuthorMark`
+  (see [Who answered](#who-answered))
 
 ## Usage (typical)
 
@@ -5862,6 +5874,116 @@ Send and busy labels remain the button's accessible name. Enter
 submits, Shift+Enter adds a line, and IME composition does not submit. Switching
 the variant preserves the controlled draft and the textarea node; the host still
 owns submission, attachments and failed-send recovery.
+
+### Mentioning entities and agents
+
+Pass `mentionCandidates(query)` and the composer lets the person mention someone by name:
+typing `@` opens a list of the names your host returns, and a pick becomes a chip. The kit
+sends nothing itself; your host posts each mention (on AbstractGateway,
+`POST /api/gateway/sessions/{session_id}/mentions`, one at a time, in `index` order) and writes
+the sentences the composer shows. Without `mentionCandidates` the composer has no list and no
+chips. `ChatComposer` takes the props below. `WorkflowChat` takes `mentionCandidates`,
+`mentionNotice`, `mentionSessionKey`, `mentionStatus` and `mentionsUnavailable`, keeps the chips
+itself, and hands them to `onSend(draft, {signal, mentions})` and `steer.onSteer(text, mode, {mentions})`.
+
+| `ChatComposer` prop | What it does |
+|---|---|
+| `mentionCandidates?: (query) => Promise<ChatMentionCandidate[]>` | The names to offer for the text typed after `@` (for example the entities `GET /api/gateway/entities` returns for the account). It is called as the person types, so cache the source in the host. |
+| `mentions?: ChatMention[]`, `onMentionsChange?(mentions)` | Controlled chips. Omit `mentions` to let the composer keep them. |
+| `onSend?: (send: ChatComposerSend) => void \| Promise<unknown>` | Send with the picks: `{text, mentions: [{id, name, kind, index}]}`, `text` exactly as typed, `mentions` in pick order, `index` the gateway's `mention_index` (0, 1, …). Wins over `onSubmit`. |
+| `mentionNotice?(candidate) => string \| null` | The sentence shown under a chip the first time its name is picked in this conversation, such as "Castor will read this conversation's history." |
+| `mentionSessionKey?: string` | The conversation that "first time" counts in (the session id); a new key starts over. |
+| `mentionStatus?: string \| null` | Your sentence about the last mentions sent ("Castor is in another conversation."), shown above the field until you clear it. |
+| `mentionsUnavailable?: string \| null` | Your sentence when mentions cannot be used here, such as "This gateway does not offer mentions yet." Typing `@` then shows it instead of names, no new chip can be picked, and chips picked earlier are not sent. |
+
+A candidate is `ChatMentionCandidate = {id, name, kind: "entity" | "agent", avatar?: {style, color} | null, hint?}`
+(`hint` is a short second line in the list). `usableCandidates(value)` keeps the rows that have an
+id, a name and a known kind, each once.
+
+**The list.** It opens when the `@` starts the text or follows a space and only non-space characters
+sit between it and the caret (`mentionTriggerAt`), so `me@host` does not open it; it follows at most
+`MENTION_QUERY_MAX` (48) characters. Arrow keys move, Enter or Tab picks, Escape closes the list
+only, and the pointer works too; at phone width the list spans the composer. While the names load
+it reads "Looking for names…" and Enter waits instead of sending the typed `@…` as text. It also
+reads "The names could not be loaded.", "No name matches “cas”.", "No one to mention here." or, when
+every match is already a chip, "Already mentioned."
+
+**Chips.** A pick replaces the typed `@query` with a chip bound to that candidate (`@Castor`, with
+Remove), never editable text, and each name is one chip. An `@` that was not picked stays plain
+text: the kit never reads `@` out of the text on send.
+
+**What happens to the chips when a send settles.** The chips a send carried are removed once
+`onSend` returns or its promise resolves; a throw or a rejection keeps them all. A send whose
+mentions stopped partway (an entity could not answer) names the chips to keep as `unsentMentions`
+on the value it resolves with or the error it rejects with (build the error with
+`mentionsStoppedError(sentence, unsent)`): only those stay, ready for the resend. Chips picked
+while a send is in flight are not that send's, so they stay when it settles. A steer that resolves
+naming `unsentMentions` keeps the words in the draft as well. With controlled `mentions` you apply
+these rules yourself with the same helpers.
+
+```tsx
+<WorkflowChat
+  messages={snapshot.messages}
+  draft={draft}
+  onDraftChange={setDraft}
+  mentionCandidates={async (query) => matchNames(await loadEntityNames(), query)}
+  mentionNotice={(c) => (c.kind === "entity" ? `${c.name} will read this conversation's history.` : null)}
+  mentionSessionKey={sessionId}
+  mentionStatus={mentionStatus}
+  mentionsUnavailable={routeMissing ? "This gateway does not offer mentions yet." : null}
+  onSend={async (text, { signal, mentions }) => {
+    const turn = await startTurn(text, signal);
+    // Ask each mention in order, the next once the previous answered.
+    const outcome = await askMentions(sessionId, text, uniqueMentions(mentions), { repeatOf: turn, signal });
+    if (outcome.stopped) throw mentionsStoppedError(outcome.sentence, outcome.unsent);
+    setDraft("");
+  }}
+/>
+```
+
+Here `loadEntityNames`, `matchNames`, `startTurn` and `askMentions` are your host's code.
+
+Helpers for hosts:
+
+- `mentionSendPayload(text, mentions)` builds the send; `uniqueMentions(mentions)` keeps each name
+  once, the first keeping its place and `index`.
+- `unsentMentionsOf(settled)` reads `unsentMentions` from a value or an error (null when it names
+  none); `mentionsStoppedError(sentence, unsent)` builds that error.
+- `mentionsAfterSend(now, sent, keep?)` returns the chips once a send settled (the send's chips go,
+  except `keep`; chips picked meanwhile stay).
+- `mentionResend(pending, text, mentions)`: after a stop, keep `pending: MentionResend` =
+  `{text, repeatOf, unsent}`. When the person sends the same words again (trimmed) with chips, it
+  returns the mentions to ask: only those chips, each once, an unsent chip with its first `index`,
+  a chip added since numbered after them. Any other words return null: a new message. Your host
+  then asks only those, with the same `repeat_of`, and starts no new turn.
+- `mentionTriggerAt`, `applyMentionPick`, `addMention`, `removeMention`, `mentionKey`,
+  `moveMentionActive`, `usableCandidates`, `MENTION_QUERY_MAX`.
+- Types: `ChatComposerSend`, `ChatMention`, `ChatMentionCandidate`, `ChatMentionKind`,
+  `ChatMentionSent`, `ChatMentionsUnsent`, `MentionResend`, `MentionTrigger`.
+
+### Who answered
+
+`ChatMessage.author?: ChatAuthor | null` takes the gateway's turn author unchanged:
+`ChatAuthor = {kind: "entity" | "agent" | "person", name, entity_id, identity_ref, avatar: {style, color} | null}`,
+every field present (null when unknown). On an assistant-side message the header shows the
+author's mark, its name and a small kind tag ("entity" or "agent"; none for a person). An entity's
+mark is its orb, drawn by ui-kit's `ActivityAvatar` in its design and colour, or its initial on a
+disc tinted by its colour when it has no design; an agent shows the agent mark. Without an author
+(null or absent, as from an older gateway) the header is unchanged: `title || "Agent"` and no mark.
+User messages ignore `author`. `projectReplayView` carries each view message's `author` through.
+
+- `chatAuthorOf(value)` returns a `ChatAuthor` or null; an unknown kind is refused, so the card
+  renders as it does without an author. `chatAvatarLookOf(value)` reads a look.
+- `chatAuthorView(author, title?)` returns what the header shows, `{name, tag, mark, look, initial}`,
+  or null without an author; the name falls back to `title`, then "Entity", "Agent" or "Someone".
+- `ChatAuthorMark({mark, look?, initial?, size, className?})` draws the same mark for your own
+  surfaces (a session list, a header). It is decorative: the name beside it is the accessible text.
+- Types: `ChatAuthor`, `ChatAuthorKind`, `ChatAuthorMarkKind`, `ChatAuthorView`, `ChatAvatarLook`,
+  `ChatAuthorMarkProps`.
+
+Apps that vendor `src/conversation.ts` get `ChatComposer`, `mentionSendPayload`, `mentionResend`,
+`mentionsStoppedError`, `uniqueMentions`, `unsentMentionsOf`, the mention types, `chatAuthorOf`,
+`chatAuthorView`, `ChatAuthorMark` and the author types from that entry.
 
 ## Docs assistant
 
@@ -16494,8 +16616,13 @@ export {
   mentionKey,
   mentionSendPayload,
   mentionTriggerAt,
+  mentionResend,
+  mentionsAfterSend,
+  mentionsStoppedError,
   moveMentionActive,
   removeMention,
+  uniqueMentions,
+  unsentMentionsOf,
   usableCandidates,
   MENTION_QUERY_MAX,
   type ChatComposerSend,
@@ -16503,6 +16630,8 @@ export {
   type ChatMentionCandidate,
   type ChatMentionKind,
   type ChatMentionSent,
+  type ChatMentionsUnsent,
+  type MentionResend,
   type MentionTrigger,
 } from "./mentions.js";
 export { chatAuthorOf, chatAuthorView, chatAvatarLookOf, type ChatAuthor, type ChatAuthorKind, type ChatAuthorMarkKind, type ChatAuthorView, type ChatAvatarLook } from "./chat_author.js";
@@ -16737,9 +16866,11 @@ import {
   applyMentionPick,
   mentionKey,
   mentionSendPayload,
+  mentionsAfterSend,
   mentionTriggerAt,
   moveMentionActive,
   removeMention,
+  unsentMentionsOf,
   usableCandidates,
   type ChatComposerSend,
   type ChatMention,
@@ -16921,7 +17052,11 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
     );
   }, [query]);
   // While the names for a new query load, the previous names stay (no flicker per keystroke).
-  const shown: MentionsFound = query === null ? NOTHING_FOUND : found.query === query ? found : { query, items: found.items, status: "loading" };
+  const loaded: MentionsFound = query === null ? NOTHING_FOUND : found.query === query ? found : { query, items: found.items, status: "loading" };
+  // A name already picked is not offered again (a pick of it would only eat the typed `@…`).
+  const pickedKeys = new Set(mentions.map(mentionKey));
+  const shown: MentionsFound = { ...loaded, items: loaded.items.filter((c) => !pickedKeys.has(mentionKey(c))) };
+  const alreadyPicked = loaded.items.length > 0 && shown.items.length === 0;
   const activeIndex = shown.items.length ? Math.min(Math.max(active, 0), shown.items.length - 1) : -1;
   const listId = `${useId()}mentions`;
   const optionId = (i: number) => `${listId}-${i}`;
@@ -16960,11 +17095,24 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
   const submit = () => {
     const p = latest.current;
     if (!p.onSend) { p.onSubmit?.(); return; }
-    const result = p.onSend(mentionSendPayload(p.value, mentionsOn ? mentionsRef.current : NO_MENTIONS));
+    // While mentions are unavailable (an older gateway) the chips already picked are not sent.
+    const held = mentionsOn ? mentionsRef.current : NO_MENTIONS;
+    const usable = mentionsOn && !String(p.mentionsUnavailable || "").trim();
+    const result = p.onSend(mentionSendPayload(p.value, usable ? held : NO_MENTIONS));
     if (p.mentions !== undefined || !mentionsOn) return;
-    const clear = () => setOwnMentions(NO_MENTIONS);
-    if (result && typeof (result as Promise<unknown>).then === "function") void (result as Promise<unknown>).then(clear);
-    else clear();
+    // This send's chips go once it is through (chips picked meanwhile stay); a send that
+    // stopped partway keeps the `unsentMentions` it names, and a failed send keeps them all.
+    const settle = (settled: unknown, failed: boolean) => {
+      const keep = unsentMentionsOf(settled);
+      if (failed && keep === null) return;
+      setMentions(mentionsAfterSend(mentionsRef.current, held, keep ?? []));
+    };
+    if (result && typeof (result as Promise<unknown>).then === "function")
+      void (result as Promise<unknown>).then(
+        (value) => settle(value, false),
+        (reason) => { settle(reason, true); throw reason; },
+      );
+    else settle(result, false);
   };
 
   const mentionChips = mentionsOn && (mentions.length || mentionStatus) ? (
@@ -17038,7 +17186,9 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
             ? "Looking for names…"
             : shown.status === "error"
               ? "The names could not be loaded."
-              : shown.query
+              : alreadyPicked
+                ? "Already mentioned."
+                : shown.query
                 ? `No name matches “${shown.query}”.`
                 : "No one to mention here."}
         </div>
@@ -17091,6 +17241,12 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
             if ((e.key === "Enter" || e.key === "Tab") && !e.shiftKey && activeIndex >= 0) {
               e.preventDefault();
               pick(shown.items[activeIndex]);
+              return;
+            }
+            // The names are still loading: Enter waits for them (it would send the typed `@…` as
+            // text, with no mention). Escape closes the list; then Enter sends.
+            if (e.key === "Enter" && !e.shiftKey && !unavailable && shown.status === "loading") {
+              e.preventDefault();
               return;
             }
             if (e.key === "Escape") {
@@ -17153,6 +17309,306 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
     </div>
   );
 });
+
+## panel-chat/src/mentions.ts
+
+/**
+ * `@` mentions in the composer ("@entity from any chat window", operator 2026-11-08).
+ *
+ * A mention is STRUCTURED: the person types `@`, picks a name from a list the HOST feeds
+ * (`mentionCandidates`), and the pick becomes a chip bound to that candidate. The kit never
+ * reads `@` out of the text on send (no-heuristics ruling): an `@` that was not picked stays
+ * plain text. The only text rule here is the input-time trigger (an `@` the person is typing
+ * at the caret opens the list), the same rule as any completion popup.
+ *
+ * DOM-free; checked by `scripts/check_mentions.mjs`.
+ */
+
+import type { ChatAvatarLook } from "./chat_author.js";
+
+export type ChatMentionKind = "entity" | "agent";
+
+/** One name the host offers (e.g. from `GET /entities`). */
+export type ChatMentionCandidate = {
+  id: string;
+  name: string;
+  kind: ChatMentionKind;
+  avatar?: ChatAvatarLook | null;
+  /** A short second line in the list (e.g. "your research partner"). */
+  hint?: string;
+};
+
+/** A chip in the composer: the candidate it was picked from. */
+export type ChatMention = ChatMentionCandidate;
+
+/** A mention as sent: `index` is its position among the message's mentions (0, 1, …),
+ * the gateway's `mention_index`. */
+export type ChatMentionSent = { id: string; name: string; kind: ChatMentionKind; index: number };
+
+/** What a send carries: the text exactly as typed, and the picked mentions in order. */
+export type ChatComposerSend = { text: string; mentions: ChatMentionSent[] };
+
+/** The `@` being typed at the caret: where it starts and what follows it. */
+export type MentionTrigger = { start: number; query: string };
+
+/** The longest query the list follows; past it the `@` is just text. */
+export const MENTION_QUERY_MAX = 48;
+
+function isSpace(ch: string): boolean {
+  return ch === " " || ch === "\n" || ch === "\t" || ch === "\r" || ch === "\u00a0";
+}
+
+/**
+ * The `@` the person is typing at `caret`, or null. It opens the list when it starts the
+ * text or follows a space, and nothing but non-space characters sit between it and the
+ * caret ("me@host" and "@ " do not open it).
+ */
+export function mentionTriggerAt(text: string, caret: number): MentionTrigger | null {
+  const value = String(text || "");
+  const end = Math.max(0, Math.min(Math.trunc(Number(caret) || 0), value.length));
+  for (let i = end - 1; i >= 0 && end - i - 1 <= MENTION_QUERY_MAX; i -= 1) {
+    const ch = value.charAt(i);
+    if (isSpace(ch)) return null;
+    if (ch === "@") {
+      if (i > 0 && !isSpace(value.charAt(i - 1))) return null;
+      return { start: i, query: value.slice(i + 1, end) };
+    }
+  }
+  return null;
+}
+
+/** The text once a pick replaces the typed `@query`, and where the caret goes. */
+export function applyMentionPick(text: string, trigger: MentionTrigger, caret: number): { text: string; caret: number } {
+  const value = String(text || "");
+  const end = Math.max(trigger.start, Math.min(Math.trunc(Number(caret) || 0), value.length));
+  let after = value.slice(end);
+  const before = value.slice(0, trigger.start);
+  // "hi @cas there" -> "hi there": one space, not two; "@cas hi" -> "hi".
+  if ((before === "" || before.endsWith(" ")) && after.startsWith(" ")) after = after.slice(1);
+  return { text: before + after, caret: before.length };
+}
+
+export function mentionKey(m: Pick<ChatMentionCandidate, "kind" | "id">): string {
+  return `${m.kind}:${m.id}`;
+}
+
+/** The chips once `candidate` is picked: appended, once (a second pick of the same name is a no-op). */
+export function addMention(list: readonly ChatMention[], candidate: ChatMentionCandidate): ChatMention[] {
+  const key = mentionKey(candidate);
+  if (list.some((m) => mentionKey(m) === key)) return [...list];
+  return [...list, { ...candidate }];
+}
+
+export function removeMention(list: readonly ChatMention[], key: string): ChatMention[] {
+  return list.filter((m) => mentionKey(m) !== key);
+}
+
+/** A send: the text as typed and the chips in the order they appear (picked), numbered. */
+export function mentionSendPayload(text: string, mentions: readonly ChatMention[]): ChatComposerSend {
+  return {
+    text: String(text ?? ""),
+    mentions: mentions.map((m, index) => ({ id: m.id, name: m.name, kind: m.kind, index })),
+  };
+}
+
+/**
+ * A send whose mentions stopped partway (an entity could not answer, a call failed): the chips
+ * NOT answered (the failed one and those after it) are what the composer keeps for a resend.
+ * A host's `onSend` / `onSteer` names them as `unsentMentions` on what it settles with: the
+ * value it resolves, or the error it rejects with (`mentionsStoppedError`).
+ */
+export type ChatMentionsUnsent = { unsentMentions: ChatMentionSent[] };
+
+/** The chips a settled send names to keep (`unsentMentions` on its value or its error);
+ * null when it names none (an array, empty included, is a choice). */
+export function unsentMentionsOf(settled: unknown): ChatMentionSent[] | null {
+  if (!settled || typeof settled !== "object") return null;
+  const list = (settled as { unsentMentions?: unknown }).unsentMentions;
+  if (!Array.isArray(list)) return null;
+  return list.filter((m): m is ChatMentionSent => Boolean(m) && typeof m === "object" && typeof (m as ChatMentionSent).id === "string" && ((m as ChatMentionSent).kind === "entity" || (m as ChatMentionSent).kind === "agent"));
+}
+
+/** The error a host rejects a send with when its mentions stopped partway: the sentence to show
+ * and the chips to keep (`unsentMentions`). */
+export function mentionsStoppedError(sentence: string, unsent: readonly ChatMentionSent[]): Error & ChatMentionsUnsent {
+  return Object.assign(new Error(sentence), { unsentMentions: unsent.map((m) => ({ ...m })) });
+}
+
+/**
+ * The chips once a send settled. `sent`: the chips the composer held when it sent. Those are
+ * removed, except the ones `keep` names (a send that stopped partway keeps its unsent chips for
+ * the resend). Chips picked WHILE the send was in flight are not the send's and stay, in order.
+ */
+export function mentionsAfterSend(
+  now: readonly ChatMention[],
+  sent: readonly Pick<ChatMentionCandidate, "kind" | "id">[],
+  keep: readonly Pick<ChatMentionCandidate, "kind" | "id">[] = [],
+): ChatMention[] {
+  const gone = new Set(sent.map(mentionKey));
+  for (const m of keep) gone.delete(mentionKey(m));
+  return now.filter((m) => !gone.has(mentionKey(m)));
+}
+
+/**
+ * What a send stopped partway leaves for the resend: its words, the person's own turn they were
+ * sent with (`repeat_of`; null when none), and the mentions not answered, with their first `index`.
+ */
+export type MentionResend = { text: string; repeatOf: string | null; unsent: ChatMentionSent[] };
+
+/**
+ * The mentions to ask when a send RESENDS `pending`, or null when it is a new message.
+ * A resend = the same words (trimmed) with at least one chip: it asks ONLY those chips, each
+ * entity once, with the same `repeat_of` and never a new turn of the person (the host's rule).
+ * A chip that was unsent keeps its first index; a chip added since is numbered after them.
+ */
+export function mentionResend(
+  pending: MentionResend | null | undefined,
+  text: string,
+  mentions: readonly ChatMentionSent[],
+): ChatMentionSent[] | null {
+  if (!pending || !mentions.length || String(text ?? "").trim() !== String(pending.text ?? "").trim()) return null;
+  const first = new Map(pending.unsent.map((m) => [mentionKey(m), m.index]));
+  let next = pending.unsent.reduce((top, m) => Math.max(top, m.index + 1), 0);
+  const seen = new Set<string>();
+  const out: ChatMentionSent[] = [];
+  for (const m of mentions) {
+    const key = mentionKey(m);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ id: m.id, name: m.name, kind: m.kind, index: first.get(key) ?? next++ });
+  }
+  return out.sort((a, b) => a.index - b.index);
+}
+
+/** A message's mentions, each name once: the first occurrence keeps its place and index. */
+export function uniqueMentions<M extends Pick<ChatMentionCandidate, "kind" | "id">>(mentions: readonly M[]): M[] {
+  const seen = new Set<string>();
+  return mentions.filter((m) => {
+    const key = mentionKey(m);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** The highlighted option after an arrow key: wraps at both ends; -1 when the list is empty. */
+export function moveMentionActive(active: number, count: number, delta: number): number {
+  if (count <= 0) return -1;
+  if (active < 0) return delta < 0 ? count - 1 : 0;
+  return (((active + delta) % count) + count) % count;
+}
+
+/** Candidates the list can show: an id, a name and a known kind; the rest are dropped. */
+export function usableCandidates(value: unknown): ChatMentionCandidate[] {
+  if (!Array.isArray(value)) return [];
+  const out: ChatMentionCandidate[] = [];
+  const seen = new Set<string>();
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object") continue;
+    const c = raw as Record<string, unknown>;
+    const id = typeof c.id === "string" ? c.id.trim() : "";
+    const name = typeof c.name === "string" ? c.name.trim() : "";
+    const kind = c.kind === "entity" || c.kind === "agent" ? c.kind : null;
+    if (!id || !name || !kind) continue;
+    const key = `${kind}:${id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const hint = typeof c.hint === "string" && c.hint.trim() ? c.hint.trim() : undefined;
+    const avatar = c.avatar && typeof c.avatar === "object" ? (c.avatar as ChatAvatarLook) : undefined;
+    out.push({ id, name, kind, ...(avatar ? { avatar } : {}), ...(hint ? { hint } : {}) });
+  }
+  return out;
+}
+
+## panel-chat/src/chat_author.ts
+
+/**
+ * Who wrote a turn ("@entity from any chat window", operator 2026-11-08).
+ *
+ * `ChatAuthor` is the gateway's turn-surface shape, kept field for field so a host passes it
+ * through unchanged: `{kind, name, entity_id, identity_ref, avatar: {style, color}}`, every
+ * field present (null when unknown, never omitted). A message without an author (an older
+ * gateway) renders exactly as before: the header shows `message.title || "Agent"` and no tile.
+ *
+ * DOM-free: the card and the composer's mention list share these rules; checked by
+ * `scripts/check_mentions.mjs`.
+ */
+
+export type ChatAuthorKind = "entity" | "agent" | "person";
+
+/** An identity look (framework ADR 0052): the AbstractAvatar design and its colour. */
+export type ChatAvatarLook = { style: string | null; color: string | null };
+
+export type ChatAuthor = {
+  kind: ChatAuthorKind;
+  name: string | null;
+  entity_id: string | null;
+  identity_ref: string | null;
+  avatar: ChatAvatarLook | null;
+};
+
+const KINDS: readonly ChatAuthorKind[] = ["entity", "agent", "person"];
+
+function text(value: unknown): string | null {
+  const s = typeof value === "string" ? value.trim() : "";
+  return s ? s : null;
+}
+
+/** A look, or null when it carries neither a design nor a colour. */
+export function chatAvatarLookOf(value: unknown): ChatAvatarLook | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  const style = text(v.style);
+  const color = text(v.color);
+  return style || color ? { style, color } : null;
+}
+
+/**
+ * The author a wire value names, or null for anything that is not one (absent, null, an
+ * unknown kind). Unknown kinds are refused, never guessed: the card then renders as today.
+ */
+export function chatAuthorOf(value: unknown): ChatAuthor | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  const kind = typeof v.kind === "string" ? (v.kind.trim().toLowerCase() as ChatAuthorKind) : null;
+  if (!kind || !KINDS.includes(kind)) return null;
+  return { kind, name: text(v.name), entity_id: text(v.entity_id), identity_ref: text(v.identity_ref), avatar: chatAvatarLookOf(v.avatar) };
+}
+
+/** What a mark draws: the entity's design (or its initial disc), the agent's mark, a person. */
+export type ChatAuthorMarkKind = "entity" | "agent" | "person";
+
+export type ChatAuthorView = {
+  /** The name shown in the header. */
+  name: string;
+  /** The small kind tag beside the name ("entity" / "agent"); none for a person. */
+  tag: "entity" | "agent" | null;
+  mark: ChatAuthorMarkKind;
+  /** The entity's look when it has one (a design draws the orb; a colour alone tints the disc). */
+  look: ChatAvatarLook | null;
+  /** The disc's letter when there is no design. */
+  initial: string;
+};
+
+const FALLBACK_NAME: Record<ChatAuthorKind, string> = { entity: "Entity", agent: "Agent", person: "Someone" };
+
+/**
+ * The header of an assistant-side message with an author: its name (the author's, else the
+ * host's `title`, else the kind's word), its kind tag and its mark. Null without an author,
+ * so the card keeps today's header.
+ */
+export function chatAuthorView(author: ChatAuthor | null | undefined, title?: string | null): ChatAuthorView | null {
+  const a = chatAuthorOf(author);
+  if (!a) return null;
+  const name = a.name || text(title) || FALLBACK_NAME[a.kind];
+  return {
+    name,
+    tag: a.kind === "person" ? null : a.kind,
+    mark: a.kind,
+    look: a.kind === "entity" ? a.avatar : null,
+    initial: name.charAt(0).toUpperCase(),
+  };
+}
 
 ## panel-chat/src/chat_message_card.tsx
 
@@ -23440,7 +23896,9 @@ repack leaves `node_modules` and the vendored copy stale.
   reads `capabilities.agent_limits.max_iterations`, `iterationLimitFromInput(value)` is what to send as
   `input_data._limits.max_iterations`, `iterationLimitProblem`, `iterationLimitDefaultLabel`,
   `iterationLimitAppliedText`; types `IterationLimitValue`, `IterationLimitDefault`, `IterationLimitApplied`. Check:
-  `scripts/check_iteration_limit_field.mjs` (in `npm test`).
+  `scripts/check_iteration_limit_field.mjs` (in `npm test`). With gateways that serve the framework default (50,
+  AbstractRuntime `DEFAULT_MAX_ITERATIONS`) the empty state reads "Gateway default (50)" and a start without a value
+  reads "Last run: 50 iterations (default)."; the kit carries no copy of the number.
 - **`@` mentions in the composer ("@entity from any chat window").** `ChatComposer` and `WorkflowChat` take
   `mentionCandidates(query)`: typing `@` opens a list of the names the host returns (keyboard: arrows,
   Enter/Tab to pick, Escape to close; pointer too; full width on a phone). A pick becomes a removable chip bound to
@@ -23463,6 +23921,20 @@ repack leaves `node_modules` and the vendored copy stale.
   `ChatAuthor`, `chatAuthorOf`, `chatAuthorView`, `ChatAuthorMark` (also in the vendored `conversation` entry).
 - Checks: `scripts/check_mentions.mjs` (in `npm test`, 119 checks, 18 mutants red) and the optional
   `scripts/check_mentions_browser.mjs` (desktop and 400 px, dark and light; `--shots <dir>`).
+
+### Fixed
+
+- **Mentions, client review 2026-11-09.** A send whose mentions stopped partway (an entity could not answer)
+  keeps ONLY the chips not answered: the host names them as `unsentMentions` on what `onSend`/`onSteer` resolves or
+  rejects with (`mentionsStoppedError(sentence, unsent)`); a failure naming none still keeps every chip, and a steer
+  that resolves naming them keeps the words too (the host's status line says why). A chip
+  picked while a send is in flight is no longer wiped when that send ends (only the send's own chips go). Enter
+  while the `@` list still reads "Looking for names…" waits instead of sending the typed `@…` as text. A name
+  already picked is not offered again ("Already mentioned."). While `mentionsUnavailable` is set, chips picked
+  earlier are not sent. At phone width the `@` list spans the composer. New pure helpers for hosts:
+  `mentionResend(pending, text, mentions)` (a resend of the same words asks only those chips, first index kept,
+  never a new turn), `uniqueMentions`, `unsentMentionsOf`, `mentionsAfterSend`; also in the `conversation` entry.
+  Checks: `check_mentions.mjs` 157 checks (11 new mutants red), the browser check asserts the 400 px list width.
 
 ## 0.10.17 - 2026-11-08 (local build, not published)
 
