@@ -8,8 +8,9 @@
 
 import { formatExactTime, formatShortDate, timeValueMs } from "./relative_time.js";
 
-/** The ruled phase words, plus "stopped" (the kill switch: no phase is active). */
-export type EntityTilePhase = "sleep" | "visit" | "personal" | "work" | "stopped";
+/** The ruled phase words, plus the two statuses the tile serves: "idle" (awake and reachable,
+ * nothing of its own running) and "stopped" (the kill switch: no phase is active). */
+export type EntityTilePhase = "sleep" | "visit" | "personal" | "work" | "idle" | "stopped";
 
 /** The tile payload (`GET /entities/{name}/tile`, tile_version 1). */
 export type EntityTile = {
@@ -64,12 +65,14 @@ const PHASE_WORDS: Record<EntityTilePhase, string> = {
   visit: "In a visit",
   personal: "On its own time",
   work: "Working",
+  idle: "Awake",
   stopped: "Stopped",
 };
 
 /** The card's "now" line: what it is doing, busy this instant, and for how long.
  * e.g. "Asleep · for 3 months", "On its own time · busy now · for 12 minutes", "Asleep, dreaming",
- * "Resting · just now" (awake with nothing running: the resting default). */
+ * "Resting · just now" (awake with nothing running: the resting default), "Awake · for 5 minutes"
+ * (phase idle: awake and reachable, nothing of its own running). */
 export function entityNowWords(now: EntityTile["now"] | null | undefined, nowMs: number): { label: string; busy: boolean; since: string; exact: string } {
   if (!now) return { label: "", busy: false, since: "", exact: "" };
   const resting = now.phase === "sleep" && now.state === "awake";
@@ -200,9 +203,11 @@ export type EntityCardAct = "watch" | "retry" | "resume";
 
 /** The words of the card's acts: the button labels, their labels while in flight, their tooltips. */
 export const ENTITY_CARD_ACT_WORDS: Record<EntityCardAct, { label: string; pending: string; title: string }> = {
-  watch: { label: "Watch", pending: "Opening…", title: "Open its page: watch it and talk with it." },
-  retry: { label: "Retry", pending: "Retrying…", title: "Start its own time again." },
-  resume: { label: "Resume", pending: "Resuming…", title: "Resume it: it comes back awake and can be visited. Its own time starts again only when you grant it." },
+  // No pronoun in the kit's words: the served sentence beside them is the only one with one
+  // (round 2b, 2026-11-10: "His own…" served, "It stopped…" and "Resume it" read as three people).
+  watch: { label: "Watch", pending: "Opening…", title: "Open the page: watch and talk." },
+  retry: { label: "Retry", pending: "Retrying…", title: "Start own time again." },
+  resume: { label: "Resume", pending: "Resuming…", title: "Resume: back awake and open to visits. Own time waits for your grant." },
 };
 
 /** An act's accessible name, naming the entity: "Watch Castor", "Retry Castor's own time",
@@ -213,10 +218,11 @@ export function entityCardActName(act: EntityCardAct, name: string, busy: boolea
   return act === "retry" ? `${verb} ${name}'s own time` : `${verb} ${name}`;
 }
 
-/** Why own time stopped unexpectedly, when the loop stopped itself after repeated failures. */
+/** Why own time stopped unexpectedly, when the loop stopped itself after repeated failures (no
+ * pronoun: it sits under the served sentence, which has its own). */
 export function entityFailuresWords(at: string | number | null | undefined, nowMs: number): string {
   const when = formatShortDate(at, nowMs);
-  return `It stopped after repeated failures${when ? ` (${when})` : ""}; its memory is intact.`;
+  return `Stopped after repeated failures${when ? ` (${when})` : ""}; memory intact.`;
 }
 
 /** What the card offers for one served life state: Watch while the entity is not stopped; the box

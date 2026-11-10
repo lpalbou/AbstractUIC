@@ -24,7 +24,7 @@ release); other packages unchanged. Apps that vendor panel-chat (`src/vendor/abs
   (`{text, refused?}`: the last act's answer, the gateway's refusal as an alert). "Watch" is a primary
   button in the head band, beside the head (never inside its link), while the entity is not stopped.
   A served `blocked` draws a warning box under the head: `blocked.sentence`, then for `loop_crashed`
-  the reason (the loop's served note, else "It stopped after repeated failures (Aug 1); its memory is
+  the reason (the loop's served note, else "Stopped after repeated failures (Aug 1); memory
   intact." when the loop stopped itself) and "Retry" when `blocked.action == "retry"`. Stopped draws a
   quiet box: the served sentence and "Resume". Given a `life`, its box replaces the tile's warning.
   Pure helpers `entityCardActs`, `entityCardActName`, `entityFailuresWords`, `ENTITY_CARD_ACT_WORDS`;
@@ -34,6 +34,16 @@ release); other packages unchanged. Apps that vendor panel-chat (`src/vendor/abs
   button's callback; 15 mutants red) and `npm run test:entity-card:browser` (the acts page
   `examples/entity_cards.html?acts` at 1440 and 400 px: Watch inside the head band, Retry beside
   the reason, Resume, clicks, in flight, refused). Docs: `docs/entity-card.md`.
+- **ui-kit `EntityCard`: review round 2b fixes** (2026-11-10). An idle entity (`now.phase: "idle"`,
+  served by the tile for an awake entity with nothing of its own running) reads "Awake" on the head
+  and in its accessible name (it was a lone dot); `EntityTilePhase` gains `"idle"`. An act in flight
+  waits with `aria-disabled` and no click handler instead of `disabled`, so keyboard focus stays on
+  the pressed Retry or Resume. The kit's own words on the box carry no pronoun ("Stopped after
+  repeated failures (Nov 10); memory intact.", tooltips "Open the page: watch and talk.", "Start own
+  time again.", "Resume: back awake and open to visits. Own time waits for your grant."): the served
+  sentence is the only one with one. Checks: `check_entity_card.mjs` (idle words and head, no pronoun,
+  aria-disabled never disabled, a waiting act has no handler; 9 mutants red),
+  `check_entity_card_browser.mjs` (focus stays on Retry in flight and once answered).
 
 ### Changed
 

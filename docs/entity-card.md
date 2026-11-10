@@ -9,7 +9,7 @@ instead of the full identity card.
 | Row | What a person reads | From the tile |
 |---|---|---|
 | Who | Its look (identity design and colour), its name | `look`, `name` |
-| Now | "Asleep · for 3 months", "Resting · just now" (awake, nothing running), "In a visit · busy now · for 12 minutes", "On its own time", "Working", "Stopped" | `now.phase`, `now.state`, `now.busy`, `now.since` |
+| Now | "Asleep · for 3 months", "Resting · just now" (awake, nothing running), "Awake · for 5 minutes" (`now.phase` idle: awake and reachable, nothing of its own running), "In a visit · busy now · for 12 minutes", "On its own time", "Working", "Stopped" | `now.phase`, `now.state`, `now.busy`, `now.since` |
 | Warning | "Its own time stopped after repeated failures (Aug 1)" | `now.trouble` |
 | Into lately | Its newest interests, in its own words (up to three; one in compact) | `into_lately` |
 | On its mind | "A problem: …" or "A question: …", the newest open one | `on_its_mind` |
@@ -64,18 +64,21 @@ the card decides nothing the gateway did not serve:
 - `onRetry`: "Retry" (`POST /api/gateway/entities/{name}/lifecycle {action: "retry"}`), in a warning
   box under the head when the served `blocked.action` is `"retry"`. The box says `blocked.sentence`,
   then, for `blocked.code == "loop_crashed"`, the reason: the loop's served `note` when it has one,
-  else "It stopped after repeated failures (Aug 1); its memory is intact." when the loop stopped
+  else "Stopped after repeated failures (Aug 1); memory intact." when the loop stopped
   itself (`stopped_by: "failures"`, or the tile's `own_time_failed` trouble when no `loop` is
   given). A blocked state without an act shows its sentence only.
 - `onResume`: "Resume" (`POST /api/gateway/entities/{name}/lifecycle {action: "resume"}`), in a
   quiet box with the served sentence while `life.stopped`.
 - `pending`: the act in flight (`"watch" | "retry" | "resume"`): its button reads "Retrying…" /
-  "Resuming…" / "Opening…", and every act waits.
+  "Resuming…" / "Opening…", and every act waits (`aria-disabled`, clicks ignored; never `disabled`,
+  so keyboard focus stays on the button that was pressed).
 - `notice`: `{text, refused?}`, the last act's answer in one sentence under the box: the gateway's
   refusal (`refused: true`, announced as an alert), or what happens next.
 
 Given a `life`, its box replaces the tile's warning (note or marker): the served state is the newer
-truth and carries the act. Each button's accessible name names the entity ("Watch Castor", "Retry
+truth and carries the act. The served sentence is the only one with a pronoun: the kit's reason and
+tooltips have none ("Start own time again.", "Open the page: watch and talk.").
+Each button's accessible name names the entity ("Watch Castor", "Retry
 Castor's own time", "Resume Castor"); `entityCardActs` (the pure view), `entityCardActName`,
 `entityFailuresWords` and `ENTITY_CARD_ACT_WORDS` are exported.
 

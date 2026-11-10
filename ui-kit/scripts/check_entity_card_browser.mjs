@@ -94,12 +94,15 @@ try{
    await watch.click();assert.equal(await page.getAttribute('body','data-last-act'),'watch:Mira');
    const crashed=acts.nth(1);
    assert.ok((await crashed.innerText()).includes('His own time stopped unexpectedly. Retry to start it again.'));
-   assert.ok((await crashed.innerText()).includes('It stopped after repeated failures (Aug 1); its memory is intact.'));
+   assert.ok((await crashed.innerText()).includes('Stopped after repeated failures (Aug 1); memory intact.'));
    assert.equal(await crashed.locator('.af-entity-card__watch').count(),1,'a failed entity can still be watched');
    await crashed.locator('.af-entity-card__retry').click();assert.equal(await page.getAttribute('body','data-last-act'),'retry:Ephemeral');
    assert.equal(await crashed.locator('.af-entity-card__retry').innerText(),'Retrying…');
-   assert.ok(await crashed.locator('.af-entity-card__watch').isDisabled(),'every act waits while one is in flight');
+   assert.equal(await crashed.locator('.af-entity-card__watch').getAttribute('aria-disabled'),'true','every act waits while one is in flight');
+   assert.ok(await crashed.locator('.af-entity-card__retry').evaluate(b=>document.activeElement===b),`focus stays on Retry while in flight at ${label}`);
+   await crashed.locator('.af-entity-card__watch').evaluate(b=>b.click());assert.equal(await page.getAttribute('body','data-last-act'),'retry:Ephemeral','a waiting act ignores a click');
    await page.waitForFunction(()=>document.querySelectorAll('[data-testid="acts"] .af-entity-card')[1].querySelector('.af-entity-card__retry').innerText==='Retry');
+   assert.ok(await crashed.locator('.af-entity-card__retry').evaluate(b=>document.activeElement===b),`focus stays on Retry once answered at ${label}`);
    const stopped=acts.nth(2);
    assert.equal(await stopped.locator('.af-entity-card__watch').count(),0,'a stopped entity offers Resume, not Watch');
    assert.ok((await stopped.innerText()).includes('Stopped. Nothing runs until you resume him.'));

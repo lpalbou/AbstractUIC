@@ -8447,7 +8447,7 @@ a.af-entity-card__head:hover .af-entity-card__name, button.af-entity-card__head:
 .af-entity-card__now { display: block; color: var(--af-entity-muted); min-height: calc(var(--af-entity-lh) * 1em); }
 .af-entity-card[data-density="compact"] .af-entity-card__now { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--font-size-sm, 12px); }
 /* The phase dot: the phase radio's colour (visit blue, work green, own time gold, asleep violet);
- * resting and stopped are neutral. Words carry the meaning; the dot only echoes it. */
+ * resting, awake (idle) and stopped are neutral. Words carry the meaning; the dot only echoes it. */
 .af-entity-card__dot { display: inline-block; width: 7px; height: 7px; margin: 0 7px 1px 1px; border-radius: 50%; vertical-align: middle; background: var(--text-muted); }
 .af-entity-card[data-now="visit"] .af-entity-card__dot { background: var(--entity-memory); }
 .af-entity-card[data-now="work"] .af-entity-card__dot { background: var(--entity-diary); }
@@ -8494,9 +8494,10 @@ a.af-entity-card__head:hover .af-entity-card__name, button.af-entity-card__head:
 .af-entity-card__top > .af-entity-card__head { flex: 1 1 auto; min-width: 0; border-bottom: 0; background: transparent; }
 .af-entity-card__act { display: inline-flex; flex: none; align-items: center; justify-content: center; gap: 6px; min-height: 32px; padding: 5px 12px; border: 1px solid var(--ui-border-2); border-radius: var(--radius-md); background: var(--ui-surface-2); color: var(--text-primary); font: inherit; font-size: var(--font-size-sm, 12px); font-weight: 600; line-height: 1.2; white-space: nowrap; cursor: pointer; transition: background-color 120ms ease, border-color 120ms ease; }
 .af-entity-card__act.is-primary { border-color: var(--accent-border); background: var(--accent-subtle); }
-.af-entity-card__act:hover:not(:disabled) { border-color: var(--accent); }
+.af-entity-card__act:hover:not([aria-disabled="true"]) { border-color: var(--accent); }
 .af-entity-card__act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.af-entity-card__act:disabled { cursor: default; opacity: 0.6; }
+/* In flight: every act waits with aria-disabled (never disabled: focus stays on the pressed button). */
+.af-entity-card__act[aria-disabled="true"] { cursor: default; opacity: 0.6; }
 .af-entity-card__act[aria-busy="true"] { opacity: 1; }
 .af-entity-card__act-icon { flex: none; color: var(--accent); }
 .af-entity-card__life { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 12px var(--af-entity-pad-x) 0; padding: 9px 11px; border: 1px solid var(--ui-border-2); border-radius: 10px; background: var(--ui-surface-2); color: var(--text-primary); font-size: var(--font-size-sm, 12px); line-height: 1.4; }

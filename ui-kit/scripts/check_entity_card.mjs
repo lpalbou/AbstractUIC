@@ -38,6 +38,9 @@ assert.equal(entityNowWords({phase:'sleep',state:'awake',detail:'resting',busy:f
 assert.equal(entityNowWords({phase:'sleep',state:'asleep',detail:'resting',busy:false,since:ago(2*H),trouble:null},NOW).label,'Asleep');
 assert.equal(entityNowWords({phase:'stopped',detail:null,busy:true,since:null,trouble:null},NOW).busy,false);
 assert.equal(entityNowWords({phase:'personal',detail:null,busy:false,since:null,trouble:null},NOW).since,'','no since, no words');
+// Idle (served by the tile: awake and reachable, nothing of its own running): "Awake", never a lone dot.
+assert.equal(entityNowWords({phase:'idle',state:'awake',detail:null,busy:false,since:ago(5*MIN),trouble:null},NOW).label,'Awake');
+assert.equal(entityNowWords({phase:'idle',state:'awake',detail:null,busy:false,since:ago(5*MIN),trouble:null},NOW).since,'for 5 minutes');
 
 // The trouble: own time stopped after failures; an unknown trouble kind is not shown.
 assert.equal(entityTroubleWords({kind:'own_time_failed',at:'2026-08-01T11:39:22Z'},NOW),'Its own time stopped after repeated failures (Aug 1)');
@@ -78,6 +81,10 @@ assert.match(html,/<button type="button" class="af-entity-card__head"[^>]*aria-l
 assert.ok(html.indexOf('af-entity-card__actions')>html.indexOf('af-entity-card__facts'),'actions at the bottom');
 assert.ok(html.trimEnd().endsWith('Wake</button></div></article>'),'actions are the last row');
 assert.doesNotMatch(t,/\b[a-z]+_[a-z_]+\b|undefined|NaN|\bnull\b|\btk\b|ephemeral@|endpoint:/,'plain words only');
+// Idle (castor, aletheia, Doorcheck on the live tile 2026-11-10): the head says "Awake", in words and in its name.
+const idle=render({tile:{...tile,now:{phase:'idle',state:'awake',detail:null,busy:false,since:ago(5*MIN),trouble:null}},onOpen(){}});
+assert.match(idle,/<button type="button" class="af-entity-card__head"[^>]*aria-label="Ephemeral\. Awake, for 5 minutes"/,'an idle head names what it is doing now');
+assert.match(idle,/<span class="af-entity-card__dot" aria-hidden="true"><\/span>Awake\u00a0· for 5 minutes<\/span>/,'an idle head is never a lone dot');
 
 // Compact: who, now, trouble, one interest, last moment — nothing else.
 const compact=text(render({tile,density:'compact',href:'/entity?entity=ephemeral',target:'_blank'}));
@@ -134,12 +141,12 @@ t=text(render({tile:{...tile,last_moment:{kind:'blueprint_edited',at:ago(H)}}}))
   assert.deepEqual(entityCardActs(null,null,null,NOW),{watch:true,box:null},'no life: Watch only');
   assert.deepEqual(entityCardActs(IDLE,null,null,NOW),{watch:true,box:null});
   assert.deepEqual(entityCardActs(STOPPED,FAILED_LOOP,null,NOW),{watch:false,box:{tone:'stopped',sentence:'Stopped. Nothing runs until you resume him.',reason:'',act:'resume'}},'stopped: Resume, never Watch');
-  assert.deepEqual(entityCardActs(CRASHED,FAILED_LOOP,null,NOW),{watch:true,box:{tone:'blocked',sentence:'His own time stopped unexpectedly. Retry to start it again.',reason:'It stopped after repeated failures (Nov 7); its memory is intact.',act:'retry'}});
-  assert.equal(entityFailuresWords(null,NOW),'It stopped after repeated failures; its memory is intact.');
+  assert.deepEqual(entityCardActs(CRASHED,FAILED_LOOP,null,NOW),{watch:true,box:{tone:'blocked',sentence:'His own time stopped unexpectedly. Retry to start it again.',reason:'Stopped after repeated failures (Nov 7); memory intact.',act:'retry'}});
+  assert.equal(entityFailuresWords(null,NOW),'Stopped after repeated failures; memory intact.');
   // The loop's served note is the reason when it carries one (the gateway's words win).
   assert.equal(entityCardActs(CRASHED,{running:false,note:'The provider did not answer within 75 seconds.'},null,NOW).box.reason,'The provider did not answer within 75 seconds.');
   // No loop given: the tile's own_time_failed trouble says the same.
-  assert.equal(entityCardActs(CRASHED,null,{kind:'own_time_failed',at:'2026-11-06T10:00:00Z'},NOW).box.reason,'It stopped after repeated failures (Nov 6); its memory is intact.');
+  assert.equal(entityCardActs(CRASHED,null,{kind:'own_time_failed',at:'2026-11-06T10:00:00Z'},NOW).box.reason,'Stopped after repeated failures (Nov 6); memory intact.');
   // A loop that ended for another reason, or no fact at all: no reason invented.
   assert.equal(entityCardActs(CRASHED,{running:false,stopped_by:'operator-interrupt'},null,NOW).box.reason,'');
   assert.equal(entityCardActs(CRASHED,null,null,NOW).box.reason,'');
@@ -152,11 +159,14 @@ t=text(render({tile:{...tile,last_moment:{kind:'blueprint_edited',at:ago(H)}}}))
   assert.equal(entityCardActName('watch','Castor',false),'Watch Castor');
   assert.equal(entityCardActName('retry','Castor',true),"Retrying Castor's own time");
   assert.equal(entityCardActName('resume','Castor',false),'Resume Castor');
+  // One pronoun per box: the served sentence's. The kit's own lines and tooltips carry none.
+  for(const [act,w] of Object.entries(ENTITY_CARD_ACT_WORDS)) for(const v of Object.values(w)) assert.doesNotMatch(v,/\b(it|its|he|his|him|she|her|they|their|them)\b/i,`no pronoun in the ${act} words: ${v}`);
+  assert.doesNotMatch(entityFailuresWords('2026-11-07T09:40:00Z',NOW),/\b(it|its|he|his|him|she|her|they|their|them)\b/i,'no pronoun in the failures reason');
 
   // The markup. Watch: a primary button in the head band, beside the head (never inside its button).
   const calls=[];const cb={onWatch:()=>calls.push('watch'),onRetry:()=>calls.push('retry'),onResume:()=>calls.push('resume')};
   const ok=render({tile,onOpen(){},life:IDLE,...cb});
-  assert.match(ok,/<div class="af-entity-card__top"><button type="button" class="af-entity-card__head"[^>]*>[\s\S]*?<\/button><button type="button" class="af-entity-card__act af-entity-card__watch is-primary" aria-label="Watch Ephemeral" title="Open its page: watch it and talk with it\.">[\s\S]*?<span>Watch<\/span>/);
+  assert.match(ok,/<div class="af-entity-card__top"><button type="button" class="af-entity-card__head"[^>]*>[\s\S]*?<\/button><button type="button" class="af-entity-card__act af-entity-card__watch is-primary" aria-label="Watch Ephemeral" title="Open the page: watch and talk\.">[\s\S]*?<span>Watch<\/span>/);
   assert.ok(!ok.includes('af-entity-card__life')&&!ok.includes('af-entity-card__trouble'),'served and calm: no box (the tile\'s old warning steps aside)');
   assert.ok(!ok.includes('data-trouble'),'no warning frame when the served state is calm');
   // No life: Watch still offered; the tile's warning as before.
@@ -166,7 +176,7 @@ t=text(render({tile:{...tile,last_moment:{kind:'blueprint_edited',at:ago(H)}}}))
   assert.ok(!render({tile,life:IDLE}).includes('af-entity-card__watch'));
   // Failure: the served sentence, the reason and Retry on the card; Watch stays.
   const crashed=render({tile,life:CRASHED,loop:FAILED_LOOP,...cb});
-  assert.match(crashed,/<div class="af-entity-card__life" data-tone="blocked" role="note"><p class="af-entity-card__life-text"><span class="af-entity-card__life-sentence">His own time stopped unexpectedly\. Retry to start it again\.<\/span><span class="af-entity-card__life-reason">It stopped after repeated failures \(Nov 7\); its memory is intact\.<\/span><\/p><button type="button" class="af-entity-card__act af-entity-card__retry is-primary" aria-label="Retry Ephemeral&#x27;s own time"[^>]*>[\s\S]*?<span>Retry<\/span><\/button><\/div>/);
+  assert.match(crashed,/<div class="af-entity-card__life" data-tone="blocked" role="note"><p class="af-entity-card__life-text"><span class="af-entity-card__life-sentence">His own time stopped unexpectedly\. Retry to start it again\.<\/span><span class="af-entity-card__life-reason">Stopped after repeated failures \(Nov 7\); memory intact\.<\/span><\/p><button type="button" class="af-entity-card__act af-entity-card__retry is-primary" aria-label="Retry Ephemeral&#x27;s own time"[^>]*>[\s\S]*?<span>Retry<\/span><\/button><\/div>/);
   assert.ok(crashed.includes('af-entity-card__watch')&&crashed.includes('data-trouble="true"')&&crashed.includes('data-life="blocked"'));
   assert.ok(!crashed.includes('af-entity-card__trouble'),'one warning: the served box, not the tile note too');
   assert.ok(!crashed.includes('Resume'),'no Resume while not stopped');
@@ -179,8 +189,11 @@ t=text(render({tile:{...tile,last_moment:{kind:'blueprint_edited',at:ago(H)}}}))
   assert.ok(stopped.includes('data-life="stopped"')&&!stopped.includes('data-trouble'),'stopped is a state, not a warning');
   // In flight: the act says so and every act waits; the answer is one sentence (a refusal as served).
   const busy=render({tile,life:CRASHED,loop:FAILED_LOOP,...cb,pending:'retry'});
-  assert.match(busy,/class="af-entity-card__act af-entity-card__retry is-primary" disabled="" aria-busy="true" aria-label="Retrying Ephemeral&#x27;s own time"[^>]*>[\s\S]*?<span>Retrying…<\/span>/);
-  assert.match(busy,/class="af-entity-card__act af-entity-card__watch is-primary" disabled=""/,'Watch waits while an act is in flight');
+  assert.match(busy,/class="af-entity-card__act af-entity-card__retry is-primary" aria-disabled="true" aria-busy="true" aria-label="Retrying Ephemeral&#x27;s own time"[^>]*>[\s\S]*?<span>Retrying…<\/span>/);
+  assert.match(busy,/class="af-entity-card__act af-entity-card__watch is-primary" aria-disabled="true"/,'Watch waits while an act is in flight');
+  // Never `disabled`: a disabled button drops keyboard focus to the page (round 2b, 2026-11-10).
+  assert.ok(!/<button[^>]*\bdisabled=""/.test(busy)&&!/<button[^>]*\bdisabled=""/.test(crashed),'in flight with aria-disabled, never disabled');
+  assert.ok(!crashed.includes('aria-disabled'),'nothing waits when no act is in flight');
   const refused=render({tile,life:STOPPED,...cb,notice:{text:'Only an admin can grant his own time, stop or resume him.',refused:true}});
   assert.match(refused,/<p class="af-entity-card__notice" data-refused="true" role="alert">Only an admin can grant his own time, stop or resume him\.<\/p>/);
   assert.match(render({tile,life:IDLE,notice:{text:'Own time is off; he stays awake.'}}),/<p class="af-entity-card__notice" role="status">Own time is off; he stays awake\.<\/p>/);
@@ -202,7 +215,9 @@ t=text(render({tile:{...tile,last_moment:{kind:'blueprint_edited',at:ago(H)}}}))
   for(const b of buttons({life:CRASHED,loop:FAILED_LOOP,...cb})) b.button.props.onClick();
   for(const b of buttons({life:STOPPED,...cb})) b.button.props.onClick();
   assert.deepEqual(calls,['watch','retry','resume'],'Watch, Retry and Resume call onWatch, onRetry and onResume');
-  assert.deepEqual(buttons({life:CRASHED,...cb,pending:'watch'}).map(b=>b.button.props.disabled),[true,true],'one act at a time');
-  assert.deepEqual(buttons({life:CRASHED,...cb}).map(b=>b.button.props.disabled),[false,false]);
+  // One act at a time: while one is in flight every button waits (aria-disabled) and has no click handler.
+  const waiting=buttons({life:CRASHED,...cb,pending:'watch'});
+  assert.deepEqual(waiting.map(b=>[b.button.props['aria-disabled'],b.button.props.onClick,b.button.props.disabled]),[[true,undefined,undefined],[true,undefined,undefined]],'one act at a time');
+  assert.deepEqual(buttons({life:CRASHED,...cb}).map(b=>[b.button.props['aria-disabled'],typeof b.button.props.onClick,b.button.props.disabled]),[[undefined,'function',undefined],[undefined,'function',undefined]]);
 }
 console.log('Entity card: durations, ages, now, trouble, moments, counts, full/compact markup, attention marker, loading, unavailable, stale, acts (Watch, Retry with the reason, Resume, in flight, answers, callbacks) and plain words passed');

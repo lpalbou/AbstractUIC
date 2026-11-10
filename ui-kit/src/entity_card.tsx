@@ -81,17 +81,20 @@ export interface EntityCardProps {
   className?: string;
 }
 
-/** One act's button (no hooks: the checks expand it). */
+/** One act's button (no hooks: the checks expand it). While an act is in flight every act waits
+ * with `aria-disabled` and no click handler, never `disabled`: a disabled button drops keyboard
+ * focus to the page, and the person pressing Retry would lose their place. */
 function ActButton({ act, onClick, pending, name, primary }: { act: EntityCardAct; onClick: () => void; pending: EntityCardAct | null; name: string; primary?: boolean }): React.ReactElement {
   const words = ENTITY_CARD_ACT_WORDS[act];
   const busy = pending === act;
+  const waiting = pending !== null;
   const icon = act === "retry" ? "refresh" : act === "resume" ? "play" : null;
   return (
     <button
       type="button"
       className={`af-entity-card__act af-entity-card__${act}${primary ? " is-primary" : ""}`}
-      onClick={onClick}
-      disabled={pending !== null}
+      onClick={waiting ? undefined : onClick}
+      aria-disabled={waiting || undefined}
       aria-busy={busy || undefined}
       aria-label={entityCardActName(act, name, busy)}
       title={words.title}
