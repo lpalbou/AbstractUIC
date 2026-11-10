@@ -268,6 +268,9 @@
   color: var(--text-primary, rgba(255, 255, 255, 0.92));
   font-weight: 600;
 }
+.pc-author-mark--plain[data-initial]::before {
+  content: attr(data-initial);
+}
 
 .pc-author-mark--agent {
   background: var(--accent-subtle, rgba(233, 69, 96, 0.10));

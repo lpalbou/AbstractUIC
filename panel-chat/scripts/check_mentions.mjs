@@ -696,6 +696,7 @@ eq(projected.find((m) => m.id === "q2").author, { kind: "person", name: null, en
   eq(mentionTokensPlain(tokens, [first, later]), two, "F7 a token outside the words gets its \"@Name\" back");
   eq(mentionTokenText("odd \uFDD0 text @Castor", [{ ...castorSent, start: 11 }]), null, "F8 a text already holding the token characters is not tokenized");
   ok(typeof index.messageMentionsPlaced === "function" && typeof index.ChatMentionChip === "function" && typeof index.mentionChipFace === "function", "F9 exported from the package");
+  ok(typeof conversationEntry.ChatMentionChip === "function" && conversationEntry.MENTION_CARD_REST_MS === 150, "F9b and from the conversation entry the apps vendor");
 
   const errors = [];
   const realError = console.error;
