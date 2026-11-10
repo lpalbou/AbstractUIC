@@ -12,6 +12,9 @@ export type ChatAuthorMarkProps = {
   initial?: string;
   size: number;
   className?: string;
+  /** The disc's letter is drawn, not written (`data-initial`, CSS), so a selection around the
+   * mark never copies it (a mention chip inside a message's words). Default: written. */
+  drawnInitial?: boolean;
 };
 
 /**
@@ -34,8 +37,8 @@ export function ChatAuthorMark(props: ChatAuthorMarkProps): React.ReactElement {
   }
   if (props.mark === "entity") {
     return (
-      <span className={`${className} pc-author-mark--plain`} style={{ ...style, fontSize: Math.max(9, Math.round(props.size * 0.5)) }} aria-hidden="true">
-        {(props.initial || "?").charAt(0).toUpperCase()}
+      <span className={`${className} pc-author-mark--plain`} style={{ ...style, fontSize: Math.max(9, Math.round(props.size * 0.5)) }} aria-hidden="true" {...(props.drawnInitial ? { "data-initial": (props.initial || "?").charAt(0).toUpperCase() } : {})}>
+        {props.drawnInitial ? null : (props.initial || "?").charAt(0).toUpperCase()}
       </span>
     );
   }

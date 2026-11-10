@@ -34,6 +34,8 @@ export function ChatMessageContent(props: {
    * `renderMarkdown`, not in a JSON message).
    */
   mentions?: readonly ChatMessageMention[];
+  /** The host's card for a mention chip, shown after a 150 ms rest on it (`ChatMentionChip`). */
+  renderMentionCard?: (mention: ChatMessageMention) => React.ReactNode | null;
 }): React.ReactElement {
   const text = String(props.text ?? "");
   // Memoized on text: an unmemoized parse gives the viewer a new object
@@ -66,7 +68,7 @@ export function ChatMessageContent(props: {
     const tree = Markdown({ text: tokens, images: props.images, inlineImage: props.inlineImage });
     return (
       <div className={cls}>
-        {withMentionChips(tree, placed, (m, key) => <ChatMentionChip key={key} mention={m} />)}
+        {withMentionChips(tree, placed, (m, key) => <ChatMentionChip key={key} mention={m} renderCard={props.renderMentionCard} />)}
       </div>
     );
   }

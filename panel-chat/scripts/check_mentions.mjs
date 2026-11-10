@@ -10,6 +10,9 @@
 //  E. the replay projection carries a turn's author through;
 //  F. a sent message's mentions are the composer's chips in its bubble, placed by
 //     `mentions[].start` (never by reading "@"); no valid start: plain words + one #SEAM.
+//  G. the host's card for a chip (`renderMentionCard`): called after a 150 ms rest (pointer or
+//     keyboard focus), shown below the chip in the viewport, gone on leave/blur/Escape; nothing
+//     without the prop or when it returns null.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import React from "react";
@@ -53,6 +56,7 @@ import { ChatComposer } from "../dist/chat_composer.js";
 import { WorkflowChat } from "../dist/workflow_chat.js";
 import { projectReplayView } from "../dist/replay_view_projection.js";
 import * as index from "../dist/index.js";
+import { ChatMentionChip, MENTION_CARD_REST_MS, mentionCardPlacement } from "../dist/mention_chip.js";
 
 let checks = 0;
 const ok = (cond, label) => { assert.ok(cond, label); checks += 1; };
@@ -707,11 +711,12 @@ eq(projected.find((m) => m.id === "q2").author, { kind: "person", name: null, en
     eq(chipsIn(userBubble), ["entity:ent-castor"], "F10 the user's bubble draws the chip");
     const chip = userBubble.slice(userBubble.indexOf('<span class="pc-mention-chip '), userBubble.indexOf("</span> how are you"));
     ok(chip.includes('<span class="pc-mention-chip__at">@<span class="pc-mention-chip__mark">') && chip.includes("<canvas") && chip.includes('data-design="watch-lotus"'), "F11 the chip: the entity's orb over the \"@\"");
-    ok(chip.includes('<span class="pc-mention-chip__name" data-mention-kind="entity">Castor</span>') && !/×|aria-label="Remove/.test(chip), "F12 the chip: the name, no ×");
+    ok(chip.includes('<span class="pc-mention-chip__name">Castor</span>') && !/×|aria-label="Remove/.test(chip), "F12 the chip: the name, no ×");
     eq(words(userBubble), said, "F13 the words around the chip are the text (a selection copies \"@Castor\")");
     const composerChip = composerMarkup({ value: said, mentionCandidates: async () => [], mentions: [{ id: "ent-castor", name: "Castor", kind: "entity", avatar: look, start: 3 }] });
     const faceOf = (html) => { const from = html.indexOf('<span class="pc-mention-chip__at">'); return html.slice(from, html.indexOf("</span></span>", html.indexOf('class="pc-mention-chip__name"', from)) + 7); };
-    eq(faceOf(userBubble), faceOf(composerChip), "F14 the same face as the composer's chip");
+    eq(faceOf(userBubble), faceOf(composerChip).replace(' data-mention-kind="entity">Castor<', ">Castor<"), "F14 the same face as the composer's chip");
+    ok(!/class="pc-mention-chip__name" data-mention-kind=/.test(userBubble) && /class="pc-mention-chip__name" data-mention-kind="entity"/.test(composerChip), "F14b only the composer's chips match .pc-mention-chip__name[data-mention-kind] (Code reads the composer's chips by it)");
     const reply = bubble({ role: "assistant", content: "Ask @Nerin about it.", author: entityAuthor, mentions: [{ id: "nerin", name: "Nerin", kind: "agent", index: 0, start: 4 }] });
     ok(chipsIn(reply).join() === "agent:nerin" && reply.includes("pc-author-mark--agent"), "F15 a reply bubble with mentions draws them (an agent: its mark)");
     const md = "**@Castor** said `@Nerin`\n```\n@Pollux code\n```\n- with @Vega";
@@ -737,6 +742,93 @@ eq(projected.find((m) => m.id === "q2").author, { kind: "person", name: null, en
   }
   const css2 = readFileSync(new URL("../src/panel_chat.css", import.meta.url), "utf8");
   ok(/\.pc-mention-chip__mark \{[^}]*user-select: none;/.test(css2), "F26 the chip's mark is not selectable (a copy reads \"@Name\")");
+  ok(/\.pc-mention-chip--message \.pc-mention-chip__at \{\s*font-size: 0;/.test(css2) && /\.pc-mention-chip--message \.pc-mention-chip__mark \{\s*position: static;/.test(css2), "F27 in a message the mark is in the line, the \"@\" zero size (an out-of-flow mark puts a line break in a copy)");
+  const disc = renderToStaticMarkup(React.createElement(index.ChatMentionChip, { mention: { id: "pollux", name: "Pollux", kind: "entity", index: 0, start: 0, avatar: { style: null, color: "#cc6633" } } }));
+  ok(disc.includes('data-initial="P"></span>') && !disc.includes(">P<") && /\.pc-author-mark--plain\[data-initial\]::before \{\s*content: attr\(data-initial\);/.test(css2), "F28 a disc's initial in a message chip is drawn, not written (a copy never reads \"@PPollux\")");
 }
 
-console.log(`check_mentions: ${checks} checks green (trigger/pick/order/payload, chips in the text: place/edit/select/clipboard, author labels, card pinned to today without an author, composer list/keys/inline chips/notice/send, WorkflowChat, replay, chips in message bubbles)`);
+// ---- G. the host's card for a mention chip ------------------------------------------------
+{
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const said = "Hi @Castor how are you doing ?";
+  const mention = { id: "ent-castor", name: "Castor", kind: "entity", index: 0, start: 3 };
+  eq(MENTION_CARD_REST_MS, 150, "G1 the rest before a card is 150 ms");
+  const phone = { width: 400, height: 800 };
+  eq(mentionCardPlacement({ top: 100, left: 40, bottom: 118 }, { width: 300, height: 200 }, phone), { top: 124, left: 40, side: "below" }, "G2 below the chip, on its left edge");
+  eq(mentionCardPlacement({ top: 100, left: 300, bottom: 118 }, { width: 320, height: 200 }, phone).left, 72, "G3 a 400 px viewport: kept 8 px inside its right edge");
+  eq(mentionCardPlacement({ top: 100, left: 2, bottom: 118 }, { width: 300, height: 200 }, phone).left, 8, "G4 and 8 px inside its left edge");
+  eq(mentionCardPlacement({ top: 700, left: 40, bottom: 718 }, { width: 300, height: 200 }, phone), { top: 494, left: 40, side: "above" }, "G5 no room below: above the chip");
+  eq(mentionCardPlacement({ top: 100, left: 40, bottom: 118 }, { width: 300, height: 790 }, phone), { top: 8, left: 40, side: "below" }, "G6 room nowhere: as low as it fits, inside the viewport");
+
+  const calls = [];
+  const renderCard = (m) => { calls.push(m); return React.createElement("div", { className: "host-card" }, `${m.name}'s card`); };
+  const chipOf = (tree) => find(tree, (n) => n.props && typeof n.props.className === "string" && n.props.className.includes("pc-mention-chip--message"));
+  const cardOf = (tree) => find(tree, (n) => n.props && n.props.className === "pc-mention-card");
+  const h = mount(ChatMentionChip, { mention, renderCard });
+  const chip = () => chipOf(h.tree);
+  eq(chip().props.tabIndex, 0, "G7 with a card the chip takes the keyboard focus");
+  chip().props.onMouseEnter();
+  h.render();
+  ok(calls.length === 0 && !cardOf(h.tree), "G8 the pointer arrives: nothing yet");
+  await sleep(100);
+  h.render();
+  ok(calls.length === 0 && !cardOf(h.tree), "G9 at 100 ms: still nothing, the host is not asked");
+  await sleep(70);
+  h.render();
+  ok(calls.length >= 1 && calls[0] === mention, "G10 after the 150 ms rest renderMentionCard is called with the mention");
+  const shownCard = cardOf(h.tree);
+  ok(Boolean(shownCard) && textOf(shownCard) === "Castor's card", "G11 the host's card shows in the popover");
+  eq(chip().props["aria-describedby"], shownCard.props.id, "G12 the chip is described by its card");
+  chip().props.onMouseLeave();
+  h.render();
+  shownCard.props.onMouseEnter();
+  await sleep(160);
+  h.render();
+  ok(Boolean(cardOf(h.tree)), "G13 the pointer crossing from the chip to the card keeps it");
+  cardOf(h.tree).props.onMouseLeave();
+  await sleep(160);
+  h.render();
+  ok(!cardOf(h.tree), "G14 leaving it closes it");
+  chip().props.onFocus();
+  await sleep(170);
+  h.render();
+  ok(Boolean(cardOf(h.tree)), "G15 keyboard focus shows it after the same rest");
+  chip().props.onKeyDown({ key: "Escape" });
+  h.render();
+  ok(!cardOf(h.tree), "G16 Escape closes it");
+  chip().props.onBlur({ relatedTarget: null });
+  chip().props.onFocus();
+  await sleep(170);
+  h.render();
+  chip().props.onBlur({ relatedTarget: null });
+  h.render();
+  ok(!cardOf(h.tree), "G17 blur closes it");
+  const asked = calls.length;
+  chip().props.onMouseEnter();
+  await sleep(60);
+  chip().props.onMouseLeave();
+  await sleep(200);
+  h.render();
+  ok(calls.length === asked && !cardOf(h.tree), "G18 a pass over the chip shorter than the rest: no card, the host is not asked");
+  h.unmount();
+
+  const none = mount(ChatMentionChip, { mention, renderCard: () => null });
+  chipOf(none.tree).props.onMouseEnter();
+  await sleep(170);
+  none.render();
+  ok(!cardOf(none.tree) && chipOf(none.tree).props["aria-describedby"] === undefined, "G19 renderMentionCard returns null: nothing shows (no placeholder)");
+  none.unmount();
+  const bare = mount(ChatMentionChip, { mention });
+  const bareChip = chipOf(bare.tree);
+  ok(!("tabIndex" in bareChip.props) && !("onMouseEnter" in bareChip.props) && !("onFocus" in bareChip.props), "G20 without renderMentionCard: no focus stop, no hover");
+  bare.unmount();
+
+  const chipTag = (html) => (html.match(/<span class="pc-mention-chip pc-mention-chip--inline pc-mention-chip--message"[^>]*>/) || [""])[0];
+  const viaCard = (props) => renderToStaticMarkup(React.createElement(ChatMessageCard, { message: { role: "assistant", content: said, author: entityAuthor, mentions: [mention] }, ...props }));
+  ok(chipTag(viaCard({ renderMentionCard: renderCard })).includes('tabindex="0"'), "G21 ChatMessageCard hands renderMentionCard to its chips");
+  ok(chipTag(viaCard({})) !== "" && !chipTag(viaCard({})).includes("tabindex"), "G22 without it the chips are words only");
+  const css3 = readFileSync(new URL("../src/panel_chat.css", import.meta.url), "utf8");
+  ok(/\.pc-mention-card \{[^}]*position: fixed;[^}]*width: min\(20rem, calc\(100vw - 16px\)\);[^}]*max-height:[^}]*overflow: auto;/.test(css3), "G23 the card fits a 400 px viewport (and scrolls when taller)");
+}
+
+console.log(`check_mentions: ${checks} checks green (trigger/pick/order/payload, chips in the text: place/edit/select/clipboard, author labels, card pinned to today without an author, composer list/keys/inline chips/notice/send, WorkflowChat, replay, chips in message bubbles, their hover card)`);

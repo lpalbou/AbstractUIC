@@ -63,13 +63,13 @@ export function AvatarConversation(props: AvatarConversationProps): React.ReactE
   return <AvatarConversationSession key={props.sessionKey} {...props} />;
 }
 
-type CardProps = Pick<ChatMessageCardProps, "renderMarkdown" | "images" | "inlineImage" | "onOpenMedia" | "jsonCollapseAfterDepth">;
+type CardProps = Pick<ChatMessageCardProps, "renderMarkdown" | "images" | "inlineImage" | "onOpenMedia" | "jsonCollapseAfterDepth" | "renderMentionCard">;
 const contentOnly = () => "caption" as const;
 /** Content only (the shared renderer: Markdown, links, media, files), re-rendered only when its message or renderer changes. */
 const ContentCard = React.memo(function ContentCard(props: CardProps & { message: ChatMessage }): React.ReactElement {
   return <ChatMessageCard {...props} showCopy={false} variant={contentOnly} />;
 });
-const cardProps = (shared?: Omit<ChatMessageCardProps, "message">): CardProps => ({ renderMarkdown: shared?.renderMarkdown, images: shared?.images, inlineImage: shared?.inlineImage, onOpenMedia: shared?.onOpenMedia, jsonCollapseAfterDepth: shared?.jsonCollapseAfterDepth });
+const cardProps = (shared?: Omit<ChatMessageCardProps, "message">): CardProps => ({ renderMarkdown: shared?.renderMarkdown, images: shared?.images, inlineImage: shared?.inlineImage, onOpenMedia: shared?.onOpenMedia, jsonCollapseAfterDepth: shared?.jsonCollapseAfterDepth, renderMentionCard: shared?.renderMentionCard });
 /** A click on a link or control inside opened content acts on that element, not on the content. */
 const ownClick = (event: React.SyntheticEvent): boolean => !(event.target as Element).closest?.("a, button, input, textarea, select, summary, video, audio");
 /** What a cited result reads in plain words: its address, file or query; nothing else is shown. */

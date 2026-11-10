@@ -73,7 +73,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 ## Packages
 
 - [@abstractframework/ui-kit](ui-kit/README.md) (0.9.28): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
-- [@abstractframework/panel-chat](panel-chat/README.md) (0.9.12, needs ui-kit ^0.9.28): the one chat surface WorkflowChat, the Avatar view AvatarConversation (one live line + Findings panel; conversationLive, conversationFindings) over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (a tool approval offers exactly Deny / Allow / Allow All, the allows for this session only; Decide later; card variant), a session's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated; without it Allow covers the request only; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, `@` mentions in the composer (mentionCandidates → a chip inside the text where `@query` was, drawn by a mirror over the textarea; onSend carries {text, mentions: [{id, name, kind, index, start}]}, each chip written "@Name" in text; unsentMentions / mentionResend for a send that stopped partway) and who answered on each reply (ChatMessage.author, chatAuthorView, ChatAuthorMark), what a reply kept as badges under its words (ChatMessage.notices, ChatNoticeBadges, onNoticeOpen; served turn notices, never markers read from text), chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
+- [@abstractframework/panel-chat](panel-chat/README.md) (0.9.12, needs ui-kit ^0.9.28): the one chat surface WorkflowChat, the Avatar view AvatarConversation (one live line + Findings panel; conversationLive, conversationFindings) over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (a tool approval offers exactly Deny / Allow / Allow All, the allows for this session only; Decide later; card variant), a session's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated; without it Allow covers the request only; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, `@` mentions in the composer (mentionCandidates → a chip inside the text where `@query` was, drawn by a mirror over the textarea; onSend carries {text, mentions: [{id, name, kind, index, start}]}, each chip written "@Name" in text; unsentMentions / mentionResend for a send that stopped partway; the same chips in the bubbles from ChatMessage.mentions, placed by start, and the host's card on a chip after a 150 ms rest via renderMentionCard) and who answered on each reply (ChatMessage.author, chatAuthorView, ChatAuthorMark), what a reply kept as badges under its words (ChatMessage.notices, ChatNoticeBadges, onNoticeOpen; served turn notices, never markers read from text), chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -121,7 +121,8 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [app-server/src/index.d.ts](app-server/src/index.d.ts): TS types for the app-server exports
 - [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
 - [panel-chat/src/chat_composer.tsx](panel-chat/src/chat_composer.tsx): controlled rounded multiline composer (legacy variant), composer-owned Attach, action slots, IME-safe submission, the `@` mention list and the chips inside the text (a mirror over the textarea).
-- [panel-chat/src/mentions.ts](panel-chat/src/mentions.ts): mention rules and host helpers (`ChatMentionCandidate`, `ChatComposerSend`, `mentionSendPayload`, `mentionsInText`, `mentionsAfterEdit`, `mentionResend`, `mentionsAfterSend`, `mentionsStoppedError`)
+- [panel-chat/src/mentions.ts](panel-chat/src/mentions.ts): mention rules and host helpers (`ChatMentionCandidate`, `ChatComposerSend`, `mentionSendPayload`, `mentionsInText`, `mentionsAfterEdit`, `mentionResend`, `mentionsAfterSend`, `mentionsStoppedError`, `ChatMessageMention`, `messageMentionsPlaced`)
+- [panel-chat/src/mention_chip.tsx](panel-chat/src/mention_chip.tsx): the mention chip in a message's words (`ChatMentionChip`, the composer's face `mentionChipFace`) and the host's card on it after a 150 ms rest (`renderCard`, `mentionCardPlacement`)
 - [panel-chat/src/chat_author.ts](panel-chat/src/chat_author.ts): `ChatAuthor` (the gateway's turn author), `chatAuthorOf`, `chatAuthorView`
 - [panel-chat/src/chat_notices.ts](panel-chat/src/chat_notices.ts): `ChatNotice` (a served turn notice), `chatNoticesOf`, `chatNoticeView`, `CHAT_NOTICE_WORDS`; [chat_notice_badges.tsx](panel-chat/src/chat_notice_badges.tsx): `ChatNoticeBadges`
 - [panel-chat/src/chat_message_card.tsx](panel-chat/src/chat_message_card.tsx): `ChatMessage` (incl. `author`, `notices`) / `ChatAttachment` / `ChatStat` contracts
@@ -753,7 +754,7 @@ not a customization point; when the component cannot do what you need, ask for t
 | App assistant (an app's own Q&A, e.g. Continuum's advisor) | `AssistantPanel` (panel-chat) in `AfDrawer`, or `assistantDrawerPanel({ ask, assistantName })` in `AfDrawerSystem`, toggled by `AfTopBarActions` `assistant` | Transport injected (`ask(question, { signal, history })`), never fetches |
 | Questions and approvals | `presentInteraction(wait, controller, options)` → `WorkflowChat` `interaction` (or `WorkflowInteractionPanel`, `variant="card"` for "Needs you" lists and inboxes) | One wording set (`WORKFLOW_INTERACTION_LABELS`): a tool approval offers exactly Deny / Allow / Allow All (panel-chat 0.9.0); Decide later and Keep waiting send nothing (a dismissal never denies); Continue without answering resumes empty. Accepts a `replay_view_v1.interaction` (`ReplayInteraction`) once a gateway serves it. Session tool policy: inject a `SessionToolPolicyClient` when `capabilities.session_tool_policy.supported` and pass `sessionPolicy: true` (the mode is the controller's): Allow keeps this request's tools and Allow All every tool for the rest of this session on the gateway (written before the wait is answered); nothing writes the app's default tool settings; on an older gateway, or after a failed capability read, Allow answers the request only and one line says so |
 | Attachments and generated media | Composer: `WorkflowChat` `attachmentItems` + `useAttachmentUploads`. Messages: `ChatMessage.media` (`image` / `audio` with `transcript` / `video` / `file`), filled with `chatMediaFromArtifact` from the transport's `resolveArtifact` | Chips name their state (Waiting, Uploading, refused with both sizes, failed with the gateway's words and Retry); Send refuses while one is not attached. Files open in the shared `AfFileViewer`; speech-to-text shows as a **Transcript** caption; music rides on audio. The host fetches with its own credentials |
-| `@` mentions, who answered, what a reply kept | `WorkflowChat` / `ChatComposer` `mentionCandidates` (+ `mentionNotice`, `mentionSessionKey`, `mentionStatus`, `mentionsUnavailable`); `ChatMessage.author`; `ChatMessage.notices` (+ the card's `onNoticeOpen`) | A mention is a chip picked from the names your host feeds (for example `GET /entities`), placed inside the text where the typed `@query` was, never `@` read out of the text; `onSend` carries `{text, mentions: [{id, name, kind, index, start}]}` (each chip written `@Name` in `text`, `start` its offset, `index` its order) and your host posts each mention in order. A send that stopped partway names its `unsentMentions` (`mentionsStoppedError`) so only those chips stay; `mentionResend` tells a resend of the same words from a new message. Pass the gateway's turn `author` through: the card shows the entity's orb or the agent mark, the name and a kind tag, and a message without one renders as before. Pass the served turn `notices` through too: one badge per diary entry, question, lesson, interest or realization under the reply; the kit never reads a marker out of the text. See [Mentioning entities and agents](../panel-chat/README.md#mentioning-entities-and-agents) and [What a reply kept](../panel-chat/README.md#what-a-reply-kept) |
+| `@` mentions, who answered, what a reply kept | `WorkflowChat` / `ChatComposer` `mentionCandidates` (+ `mentionNotice`, `mentionSessionKey`, `mentionStatus`, `mentionsUnavailable`); `ChatMessage.mentions` (+ the card's `renderMentionCard`); `ChatMessage.author`; `ChatMessage.notices` (+ the card's `onNoticeOpen`) | A mention is a chip picked from the names your host feeds (for example `GET /entities`), placed inside the text where the typed `@query` was, never `@` read out of the text; `onSend` carries `{text, mentions: [{id, name, kind, index, start}]}` (each chip written `@Name` in `text`, `start` its offset, `index` its order) and your host posts each mention in order. Set `ChatMessage.mentions` on sent messages and the bubbles show the same chips, placed by `start`; give `messageProps.renderMentionCard` to show your card (e.g. the kit's `EntityCard`) after a 150 ms rest on a chip. A send that stopped partway names its `unsentMentions` (`mentionsStoppedError`) so only those chips stay; `mentionResend` tells a resend of the same words from a new message. Pass the gateway's turn `author` through: the card shows the entity's orb or the agent mark, the name and a kind tag, and a message without one renders as before. Pass the served turn `notices` through too: one badge per diary entry, question, lesson, interest or realization under the reply; the kit never reads a marker out of the text. See [Mentioning entities and agents](../panel-chat/README.md#mentioning-entities-and-agents) and [What a reply kept](../panel-chat/README.md#what-a-reply-kept) |
 | Markdown / JSON rendering | `Markdown`, `JsonViewer` (panel-chat) | Also exported standalone |
 | TTS playback + push-to-talk | `useGatewayVoice` (+ `streamTtsJsonl`) | Injected `tts`/`tts_stream`/`transcribe` functions; streaming with pause/resume; output and input device, volume and input level options |
 | Voice settings page | `AfVoiceSection` (+ `useVoicePreferences(storageKey)`, `useVoiceDefaults(fetchDefaults)`) | Pass `fetchDefaults` (`GET /api/gateway/voice/defaults`): "Gateway default · provider / model" comes only from it; the host stores the overrides (`useVoicePreferences`: same-tab and cross-tab sync). Pass `voiceLibrary` (`design` → `POST voice/design`, `clone` → multipart `POST voice/clones`, `list` / `rename` / `remove` / `share` over `voice/clones[/{id}]` and `voice/clones/{id}/deploy`; `createVoice` is its alias) to let people create and manage their own voices, `fetchLanguages` (`GET voice/languages`), `previewVoice` (choosing a voice plays it; a play/stop toggle beside the select). `rows={{tts: false}}` + `ttsSlot` where the host owns the voice (an entity); `rows.mute` / `rows.capture` only where the host honours `reply_muted` / `capture_mode` / `auto_send` (`useGatewayVoice({...gatewayVoiceOptions(prefs), ...})`) |
@@ -2717,7 +2718,7 @@ Components:
   `messageStampTitle(ts, locales?)`, `messageStampIso(ts)`, `localDayKey(now?)`, `useLocalDay()`.
 - `ChatMessageContent` (message body renderer; JSON autodetect + Markdown)
 - `ChatComposer` (rounded multiline composer; `variant="legacy"` for the flat layout; `leading` / `actions` / `trailingActions` / `overlay` slots, composer-owned Attach via `onAttach`, `submitKey`, `canSubmit`; IME-safe Enter)
-- `@` mentions: `ChatComposer` and `WorkflowChat` take `mentionCandidates?(query) → Promise<ChatMentionCandidate[]>` (`{id, name, kind: "entity"|"agent", avatar?, hint?}`; the host decides the source, e.g. `GET /entities`; absent = no list, no chips), controlled `mentions?` / `onMentionsChange?`, `mentionNotice?(candidate)` (the sentence shown the first time a name is picked in the conversation `mentionSessionKey?`), `mentionStatus?` (the host's sentence about the last mentions sent) and `mentionsUnavailable?` (the host's sentence instead of names; chips picked earlier are not sent). `ChatComposer.onSend?(send)` gets `ChatComposerSend` = `{text, mentions: [{id, name, kind, index, start}]}` (0.9.12: `text` as shown, each chip written `@Name`; the chips in text order, `index` = the gateway's `mention_index`, `start` = the UTF-16 offset of the chip's `@Name` in `text`) and wins over `onSubmit`; `WorkflowChat` passes `mentions` in `onSend(draft, {signal, mentions})` and `steer.onSteer(text, mode, {mentions})`. A pick is a chip inside the sentence, where the typed `@query` was (0.9.12; it was a removable chip above the field), bound to the candidate: `ChatMention` is the candidate plus `start`, and a chip whose `@Name` is not at its `start` is neither drawn nor sent (a cleared and restored draft gets its chips back). Backspace after a chip (Delete before) removes it whole, the caret steps over it, undo and redo restore it, and a copy holding chips pastes back as chips (`MENTION_CLIPBOARD_TYPE`); an `@` that was not picked stays text (the kit never reads `@` out of the text). Known limits: the chips are drawn by an `aria-hidden` mirror layer over the native `<textarea>`, so a chip cannot be bold, padded or bordered; deleting a letter inside a chip turns it to plain text; a screen reader hears the chips through the field's accessible description ("mention: Castor"). Chips: a send's chips go when it resolves; a rejection keeps them; a send that stopped partway keeps only the chips it names as `unsentMentions` on its value or error (`mentionsStoppedError(sentence, unsent)`); chips picked while a send is in flight stay. List states: "Looking for names…" (Enter waits), "The names could not be loaded.", "No name matches “…”.", "No one to mention here.", "Already mentioned.". Helpers `mentionSendPayload()`, the DOM-free chip rules `mentionsInText()`, `mentionsAfterEdit()`, `mentionEditSpan()`, `mentionsWithInserted()`, `mentionPickEdit()`, `mentionAtCaret()`, `mentionSelection()`, `mentionClipboard()` / `mentionsFromClipboard()`, `mentionText()`, `mentionEnd()`, `mentionResend(pending, text, mentions)` (after a stop, the same words ask only the unsent chips with their first index; other words → null, a new message), `mentionsAfterSend()`, `unsentMentionsOf()`, `uniqueMentions()`, `mentionTriggerAt()`, `applyMentionPick()`, `addMention()`, `removeMention()`, `mentionKey()`, `moveMentionActive()`, `usableCandidates()`, `MENTION_QUERY_MAX` (48); types `ChatComposerSend`, `ChatMention`, `ChatMentionCandidate`, `ChatMentionKind`, `ChatMentionSent`, `ChatMentionsUnsent`, `MentionResend`, `MentionTrigger`, `MentionEditSpan`, `MentionPickEdit`. The host posts the mentions (AbstractGateway `POST /api/gateway/sessions/{session_id}/mentions`, one at a time in `index` order). See the [README](../panel-chat/README.md#mentioning-entities-and-agents)
+- `@` mentions: `ChatComposer` and `WorkflowChat` take `mentionCandidates?(query) → Promise<ChatMentionCandidate[]>` (`{id, name, kind: "entity"|"agent", avatar?, hint?}`; the host decides the source, e.g. `GET /entities`; absent = no list, no chips), controlled `mentions?` / `onMentionsChange?`, `mentionNotice?(candidate)` (the sentence shown the first time a name is picked in the conversation `mentionSessionKey?`), `mentionStatus?` (the host's sentence about the last mentions sent) and `mentionsUnavailable?` (the host's sentence instead of names; chips picked earlier are not sent). `ChatComposer.onSend?(send)` gets `ChatComposerSend` = `{text, mentions: [{id, name, kind, index, start}]}` (0.9.12: `text` as shown, each chip written `@Name`; the chips in text order, `index` = the gateway's `mention_index`, `start` = the UTF-16 offset of the chip's `@Name` in `text`) and wins over `onSubmit`; `WorkflowChat` passes `mentions` in `onSend(draft, {signal, mentions})` and `steer.onSteer(text, mode, {mentions})`. A pick is a chip inside the sentence, where the typed `@query` was (0.9.12; it was a removable chip above the field), bound to the candidate: `ChatMention` is the candidate plus `start`, and a chip whose `@Name` is not at its `start` is neither drawn nor sent (a cleared and restored draft gets its chips back). Backspace after a chip (Delete before) removes it whole, the caret steps over it, undo and redo restore it, and a copy holding chips pastes back as chips (`MENTION_CLIPBOARD_TYPE`); an `@` that was not picked stays text (the kit never reads `@` out of the text). Known limits: the chips are drawn by an `aria-hidden` mirror layer over the native `<textarea>`, so a chip cannot be bold, padded or bordered; deleting a letter inside a chip turns it to plain text; a screen reader hears the chips through the field's accessible description ("mention: Castor"). Chips: a send's chips go when it resolves; a rejection keeps them; a send that stopped partway keeps only the chips it names as `unsentMentions` on its value or error (`mentionsStoppedError(sentence, unsent)`); chips picked while a send is in flight stay. List states: "Looking for names…" (Enter waits), "The names could not be loaded.", "No name matches “…”.", "No one to mention here.", "Already mentioned.". Helpers `mentionSendPayload()`, the DOM-free chip rules `mentionsInText()`, `mentionsAfterEdit()`, `mentionEditSpan()`, `mentionsWithInserted()`, `mentionPickEdit()`, `mentionAtCaret()`, `mentionSelection()`, `mentionClipboard()` / `mentionsFromClipboard()`, `mentionText()`, `mentionEnd()`, `mentionResend(pending, text, mentions)` (after a stop, the same words ask only the unsent chips with their first index; other words → null, a new message), `mentionsAfterSend()`, `unsentMentionsOf()`, `uniqueMentions()`, `mentionTriggerAt()`, `applyMentionPick()`, `addMention()`, `removeMention()`, `mentionKey()`, `moveMentionActive()`, `usableCandidates()`, `MENTION_QUERY_MAX` (48); types `ChatComposerSend`, `ChatMention`, `ChatMentionCandidate`, `ChatMentionKind`, `ChatMentionSent`, `ChatMentionsUnsent`, `MentionResend`, `MentionTrigger`, `MentionEditSpan`, `MentionPickEdit`. The host posts the mentions (AbstractGateway `POST /api/gateway/sessions/{session_id}/mentions`, one at a time in `index` order). In the thread (0.9.13): `ChatMessage.mentions?: ChatMessageMention[]` (`{id, name, kind, index, start, avatar?}`, what the send carried) draws each mention in the bubble as the composer's chip (orb or agent mark over the "@", the name, no ×), placed by `start` (only where `text.startsWith("@" + name, start)`; the kit never scans for "@"); one without a valid start keeps its plain words and is logged once as `console.error("#SEAM …")` (also with a host `renderMarkdown` or a JSON message); `content` is unchanged, so copy, read-aloud and export keep "@Name". The card prop `renderMentionCard?: (mention: ChatMessageMention) => ReactNode | null` (through `messageProps` on `ChatThread` / `WorkflowChat`) is called after a 150 ms rest on a chip (`MENTION_CARD_REST_MS`; pointer or keyboard focus) and its result shows in a popover below the chip, inside the viewport (`mentionCardPlacement`), gone on leave, blur or Escape; null or absent shows nothing. Exports `ChatMentionChip`, `mentionChipFace`, `messageMentionsPlaced`, `MENTION_CARD_REST_MS`, `mentionCardPlacement`; types `ChatMessageMention`, `ChatMentionChipProps`, `MentionCardPlacement`. See the [README](../panel-chat/README.md#mentioning-entities-and-agents)
 - Who answered: `ChatMessage.author?: ChatAuthor | null` (`{kind: "entity"|"agent"|"person", name, entity_id, identity_ref, avatar: {style, color} | null}`, the gateway's turn author, every field present). An assistant-side card with an author shows its mark (an entity's orb through ui-kit `ActivityAvatar`, or its initial disc without a design; the agent mark), its name and an "entity" / "agent" tag; null or absent = the header as before (`title || "Agent"`); user messages ignore it; `projectReplayView` passes it through. `chatAuthorOf(value)` (unknown kinds refused), `chatAvatarLookOf()`, `chatAuthorView(author, title?) → {name, tag, mark, look, initial} | null` (name falls back to `title`, then "Entity" / "Agent" / "Someone"), `ChatAuthorMark({mark, look?, initial?, size, className?})` (decorative); types `ChatAuthor`, `ChatAuthorKind`, `ChatAuthorMarkKind`, `ChatAuthorView`, `ChatAvatarLook`, `ChatAuthorMarkProps`. See the [README](../panel-chat/README.md#who-answered)
 - What a reply kept (0.9.11): `ChatMessage.notices?: ChatNotice[]` (`{kind: "diary"|"question"|"lesson"|"interest"|"realization", record_id: string | null, title, text?, visibility?, staged?}`, the turn notices AbstractRuntime serves beside a reply it serves without bracket markers). `ChatMessageCard` shows one badge per notice under the reply text: the kind's icon and word, then the title; "private diary entry" for `visibility: "private"` (no words); an untitled notice shows its `text` (clipped by CSS, never cut in the string); `staged: true` (forms at the visit's close, `record_id` null) adds "forming…"; a notice served twice shows once, the first (the same `record_id`; without one, the same kind and title, or the same words when untitled); a notice that names nothing (no record, no title, no words, neither private nor forming) shows no badge; a badge's accessible name is words only ("Lesson: Visits are durable (forming)"); hint and caption cards show none. `onNoticeOpen?(notice, message)` on the card (through `messageProps` in `ChatThread` / `WorkflowChat`) lets the host open what a badge names, e.g. the record by `record_id`; return `false` when it opened nothing and the badge opens its own panel (title and words, whole; Escape closes it and refocuses the badge). `projectReplayView` carries a view answer message's `notices` (`ReplayViewMessage.notices`) and `WorkflowSessionController` a session turn row's and a ledger ANSWER_USER payload's. `chatNoticesOf(value)` (only objects with a `kind`), `chatNoticeView(notice, index?) → ChatNoticeView`, `ChatNoticeBadges({notices, onOpen?, className?})`, `CHAT_NOTICE_WORDS`, `CHAT_NOTICE_KINDS`; types `ChatNotice`, `ChatNoticeKind`, `ChatNoticeView`, `ChatNoticeBadgesProps`. The kit never reads a marker out of the text. See the [README](../panel-chat/README.md#what-a-reply-kept)
 - Avatar view (0.8.0, backlog 1097): `AvatarConversation` (and `WorkflowChat` with `avatarConversation`) shows the avatar, one live line (the latest public update of the turn, with **Reply to this** and **Latest**) and a **Findings** panel. Pure models: `conversationLive(messages, { pinnedRequest? })` → `ConversationLive` (`line`, `answers`, `personKey`), `conversationFindings(messages)` → `ConversationFinding[]`, `conversationReply(text, context, currentRunId, allowedSourceRunIds?)`. `PublicUpdate.kind` is `"progress"` or `"finding"` (absent = progress). Removed in 0.8.0: `conversationPages` and `conversationLabel`. See [`panel-chat/README.md`](../panel-chat/README.md#messages-from-the-replay-view).
@@ -5841,7 +5842,8 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
   `FromAutomationBadge` — see [Automations](../docs/automations.md#panel-chat-pieces)
 - `@` mentions: `ChatComposer` / `WorkflowChat` `mentionCandidates`, `mentions` / `onMentionsChange`,
   `mentionNotice`, `mentionSessionKey`, `mentionStatus`, `mentionsUnavailable`; `onSend` carries
-  `{text, mentions}`; helpers `mentionSendPayload`, `mentionResend`, `mentionsAfterSend`,
+  `{text, mentions}`; chips in the bubbles from `ChatMessage.mentions`, the card's `renderMentionCard`
+  on a chip after a 150 ms rest; helpers `mentionSendPayload`, `mentionResend`, `mentionsAfterSend`,
   `mentionsStoppedError`, `unsentMentionsOf`, `uniqueMentions` (see
   [Mentioning entities and agents](#mentioning-entities-and-agents))
 - Who answered: `ChatMessage.author` (`ChatAuthor`), `chatAuthorOf`, `chatAuthorView`, `ChatAuthorMark`
@@ -6021,7 +6023,43 @@ Helpers for hosts:
 - `mentionTriggerAt`, `applyMentionPick`, `addMention`, `removeMention`, `mentionKey`,
   `moveMentionActive`, `usableCandidates`, `MENTION_QUERY_MAX`.
 - Types: `ChatComposerSend`, `ChatMention`, `ChatMentionCandidate`, `ChatMentionKind`,
-  `ChatMentionSent`, `ChatMentionsUnsent`, `MentionResend`, `MentionTrigger`.
+  `ChatMentionSent`, `ChatMentionsUnsent`, `ChatMessageMention`, `MentionResend`, `MentionTrigger`.
+
+**Mentions in the thread.** Set `ChatMessage.mentions` on a sent message (the person's, or a reply
+that names someone) to what its send carried, `{id, name, kind, index, start}`, adding `avatar:
+{style, color}` when your roster knows it. The card draws each one in the bubble as the composer's
+chip (the entity's orb or the agent's mark over the "@", then the name, no ×), at its `start`: the
+kit never looks for "@" in the text. A mention whose `@Name` is not at its `start` (no `start`, or
+other words there) keeps its plain words and is logged once with `console.error("#SEAM …")`, so a
+host that forgot `start` sees it. Copy, read-aloud and export keep the plain `@Name` words
+(`content` is unchanged). Chips are drawn by the kit's Markdown: with your own `renderMarkdown`,
+or in a JSON message, the words stay plain (also logged as `#SEAM`). The chip is exported as
+`ChatMentionChip`; `messageMentionsPlaced(text, mentions)` tells which mentions are placed.
+
+**A card on a chip.** Give the card (or `ChatThread` / `WorkflowChat` through `messageProps`)
+`renderMentionCard?: (mention: ChatMessageMention) => ReactNode | null` and a chip in a message
+shows your card for that name once the pointer rests on it for 150 ms (`MENTION_CARD_REST_MS`), or
+once it holds the keyboard focus that long (the chip is then a focus stop). The kit calls it only
+then, with the message's mention (`{id, name, kind, index, start, avatar?}`), and shows the result in
+a small popover below the chip, kept inside the viewport (above it when there is no room below;
+at most the viewport's width less 16 px, so a 400 px phone fits). It goes when the pointer leaves
+the chip and the card (the pointer may cross from one to the other), when the focus leaves both,
+or on Escape. Return null for a name you have no card for: nothing shows, no placeholder. Without
+the prop a chip is words only. The kit's `EntityCard` sits in the popover without a second frame.
+
+```tsx
+<WorkflowChat
+  /* … */
+  messageProps={{
+    renderMentionCard: (m) => {
+      const entity = m.kind === "entity" ? roster.find((e) => e.id === m.id) : null;
+      return entity ? <EntityCard {...entityCardProps(entity)} density="compact" /> : null;
+    },
+  }}
+/>
+```
+
+Here `roster` and `entityCardProps` are your host's code.
 
 ### Who answered
 
@@ -16728,6 +16766,7 @@ export {
   mentionsWithInserted,
   mentionText,
   mentionTriggerAt,
+  messageMentionsPlaced,
   MENTION_CLIPBOARD_TYPE,
   mentionResend,
   mentionsAfterSend,
@@ -16744,6 +16783,7 @@ export {
   type ChatMentionKind,
   type ChatMentionSent,
   type ChatMentionsUnsent,
+  type ChatMessageMention,
   type MentionEditSpan,
   type MentionPickEdit,
   type MentionResend,
@@ -16751,6 +16791,7 @@ export {
 } from "./mentions.js";
 export { chatAuthorOf, chatAuthorView, chatAvatarLookOf, type ChatAuthor, type ChatAuthorKind, type ChatAuthorMarkKind, type ChatAuthorView, type ChatAvatarLook } from "./chat_author.js";
 export { ChatAuthorMark, type ChatAuthorMarkProps } from "./author_mark.js";
+export { ChatMentionChip, MENTION_CARD_REST_MS, mentionCardPlacement, mentionChipFace, type ChatMentionChipProps, type MentionCardPlacement } from "./mention_chip.js";
 export { Markdown, sameOriginImage, type MarkdownImages, type MarkdownProps } from "./markdown.js";
 export { JsonViewer } from "./json_viewer.js";
 export { ChatMessageCard, speakButtonView } from "./chat_message_card.js";
@@ -16978,6 +17019,7 @@ import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState
 import { Icon } from "@abstractframework/ui-kit";
 
 import { ChatAuthorMark } from "./author_mark.js";
+import { mentionChipFace } from "./mention_chip.js";
 import {
   MENTION_CLIPBOARD_TYPE,
   mentionAtCaret,
@@ -17397,8 +17439,7 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
       if (start > at) parts.push(value.slice(at, start));
       parts.push(
         <span key={mentionKey(m)} className="pc-mention-chip pc-mention-chip--inline" data-mention-key={mentionKey(m)} data-mention-kind={m.kind}>
-          <span className="pc-mention-chip__at">@<span className="pc-mention-chip__mark"><ChatAuthorMark mark={m.kind} look={m.avatar} initial={m.name} size={14} /></span></span>
-          <span className="pc-mention-chip__name" data-mention-kind={m.kind}>{m.name}</span>
+          {mentionChipFace(m)}
         </span>,
       );
       at = mentionEnd(m);
@@ -18061,6 +18102,353 @@ export function usableCandidates(value: unknown): ChatMentionCandidate[] {
   return out;
 }
 
+// ---- mentions in a message of the thread ------------------------------------------------
+
+/**
+ * A mention in a message the thread shows (`ChatMessage.mentions`): as the send carried it
+ * ({id, name, kind, index, start}, `start` = the UTF-16 offset of its "@Name" in the message's
+ * text), plus the look of its chip (`avatar`) when the host knows it (e.g. from its roster).
+ */
+export type ChatMessageMention = ChatMentionSent & { avatar?: ChatAvatarLook | null };
+
+/**
+ * Where a message's mentions sit: `placed` are those whose "@Name" is at their `start` in
+ * `text` (structural offsets, the text is never scanned for "@"), in text order; one that
+ * overlaps an earlier one is not placed. `unplaced` are the rest (no valid `start`, another
+ * text there, or not a mention at all): their words stay plain text.
+ */
+export function messageMentionsPlaced<M extends ChatMessageMention>(text: string, mentions: readonly M[] | null | undefined): { placed: M[]; unplaced: M[] } {
+  const value = String(text ?? "");
+  const list = Array.isArray(mentions) ? mentions : [];
+  const valid: M[] = [];
+  const unplaced: M[] = [];
+  for (const m of list) {
+    const ok = m != null && typeof m === "object" && typeof m.id === "string" && typeof m.name === "string" && m.name !== ""
+      && (m.kind === "entity" || m.kind === "agent") && startOf(m) !== null && value.startsWith(mentionText(m), m.start as number);
+    (ok ? valid : unplaced).push(m);
+  }
+  valid.sort((a, b) => (a.start as number) - (b.start as number));
+  const placed: M[] = [];
+  let end = 0;
+  for (const m of valid) {
+    if ((m.start as number) < end) { unplaced.push(m); continue; }
+    placed.push(m);
+    end = mentionEnd(m);
+  }
+  return { placed, unplaced };
+}
+
+/**
+ * The card draws a message's chips through its Markdown: each placed "@Name" is swapped for a
+ * token (two Unicode noncharacters around its number in `placed`, characters reserved for a
+ * program's internal use and inert to Markdown), and the rendered words put the chip where its
+ * token landed (`mentionTokenParts`); anything that is not shown as words (a code block, an
+ * attribute) gets "@Name" back (`mentionTokensPlain`). Null: the text already holds one of
+ * those characters, so no token can be told apart from it.
+ */
+export const MENTION_TOKEN_OPEN = "\uFDD0";
+export const MENTION_TOKEN_CLOSE = "\uFDD1";
+
+export function mentionTokenText(text: string, placed: readonly ChatMessageMention[]): string | null {
+  const value = String(text ?? "");
+  if (value.includes(MENTION_TOKEN_OPEN) || value.includes(MENTION_TOKEN_CLOSE)) return null;
+  let out = "";
+  let at = 0;
+  placed.forEach((m, k) => {
+    out += value.slice(at, m.start as number) + MENTION_TOKEN_OPEN + String(k) + MENTION_TOKEN_CLOSE;
+    at = mentionEnd(m);
+  });
+  return out + value.slice(at);
+}
+
+/** A string of rendered words split at its tokens: words, and each token's number. */
+export function mentionTokenParts(s: string): Array<string | number> {
+  const value = String(s ?? "");
+  const parts: Array<string | number> = [];
+  let words = "";
+  let at = 0;
+  for (let open = value.indexOf(MENTION_TOKEN_OPEN); open !== -1; open = value.indexOf(MENTION_TOKEN_OPEN, at)) {
+    const close = value.indexOf(MENTION_TOKEN_CLOSE, open + 1);
+    const digits = close === -1 ? "" : value.slice(open + 1, close);
+    if (!digits || [...digits].some((ch) => ch < "0" || ch > "9")) {
+      words += value.slice(at, open + 1);
+      at = open + 1;
+      continue;
+    }
+    words += value.slice(at, open);
+    if (words) parts.push(words);
+    words = "";
+    parts.push(Number(digits));
+    at = close + 1;
+  }
+  words += value.slice(at);
+  if (words) parts.push(words);
+  return parts;
+}
+
+/** `s` with each token back to its "@Name" (a token of no mention: removed). */
+export function mentionTokensPlain(s: string, placed: readonly Pick<ChatMessageMention, "name">[]): string {
+  return mentionTokenParts(s).map((p) => (typeof p === "number" ? (placed[p] ? mentionText(placed[p]) : "") : p)).join("");
+}
+
+## panel-chat/src/mention_chip.tsx
+
+import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
+import { ChatAuthorMark } from "./author_mark.js";
+import type { ChatAvatarLook } from "./chat_author.js";
+import {
+  MENTION_TOKEN_OPEN,
+  mentionKey,
+  mentionTokenParts,
+  mentionTokensPlain,
+  type ChatMentionKind,
+  type ChatMessageMention,
+} from "./mentions.js";
+
+/**
+ * A mention chip's face, the same in the composer and in a message: the entity's orb (or the
+ * agent's mark) over the "@", then the name. The "@" stays in the words (transparent), so a
+ * selection copies "@Name"; the mark is not selectable (in a message its initial is drawn, not
+ * written: `drawnInitial`). Only the composer's name carries
+ * `data-mention-kind` (`.pc-mention-chip__name[data-mention-kind]` = the chips in the composer,
+ * which hosts read); a message's chip carries its kind on the chip itself.
+ */
+export function mentionChipFace(m: { kind: ChatMentionKind; name: string; avatar?: ChatAvatarLook | null }, where: "composer" | "message" = "composer"): React.ReactNode {
+  return (
+    <>
+      <span className="pc-mention-chip__at">@<span className="pc-mention-chip__mark"><ChatAuthorMark mark={m.kind} look={m.avatar} initial={m.name} size={14} {...(where === "message" ? { drawnInitial: true } : {})} /></span></span>
+      <span className="pc-mention-chip__name" {...(where === "composer" ? { "data-mention-kind": m.kind } : {})}>{m.name}</span>
+    </>
+  );
+}
+
+/** How long the pointer (or the keyboard focus) rests on a chip before its card shows. */
+export const MENTION_CARD_REST_MS = 150;
+/** The pointer may cross from the chip to its card (and back) within this time. */
+const MENTION_CARD_GRACE_MS = 120;
+const CARD_GAP = 6;
+const VIEWPORT_MARGIN = 8;
+// Placement runs before paint in a browser; the server has no layout.
+const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+export type MentionCardPlacement = { top: number; left: number; side: "below" | "above" };
+
+/**
+ * Where a chip's card goes (viewport pixels, `position: fixed`): below the chip, its left edge
+ * on the chip's, kept 8 px inside the viewport; above the chip only when it does not fit below
+ * and does above; neither: as low as it fits.
+ */
+export function mentionCardPlacement(
+  anchor: { top: number; left: number; bottom: number },
+  size: { width: number; height: number },
+  viewport: { width: number; height: number },
+): MentionCardPlacement {
+  const below = anchor.bottom + CARD_GAP;
+  const above = anchor.top - CARD_GAP - size.height;
+  const fitsBelow = below + size.height <= viewport.height - VIEWPORT_MARGIN;
+  const side = !fitsBelow && above >= VIEWPORT_MARGIN ? "above" : "below";
+  const top = side === "above" ? above : Math.max(VIEWPORT_MARGIN, Math.min(below, viewport.height - VIEWPORT_MARGIN - size.height));
+  const left = Math.max(VIEWPORT_MARGIN, Math.min(anchor.left, viewport.width - VIEWPORT_MARGIN - size.width));
+  return { top, left, side };
+}
+
+export type ChatMentionChipProps = {
+  /** The mention as the message carries it ({id, name, kind, index, start}, `avatar` optional). */
+  mention: ChatMessageMention;
+  /**
+   * The host's card for this mention (e.g. the entity's card from its roster), shown in a small
+   * popover below the chip after a 150 ms rest on it (pointer or keyboard focus); it goes on
+   * leave, blur or Escape. Called only then; null shows nothing. Absent: the chip is words only.
+   */
+  renderCard?: (mention: ChatMessageMention) => React.ReactNode | null;
+};
+
+/** A mention inside a message's words: the composer's chip, without the ×. */
+export function ChatMentionChip(props: ChatMentionChipProps): React.ReactElement {
+  const m = props.mention;
+  const hover = typeof props.renderCard === "function";
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<MentionCardPlacement | null>(null);
+  const chipRef = useRef<HTMLSpanElement | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const rest = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const grace = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Escape from inside the card gives the focus back to the chip without showing the card again.
+  const refocused = useRef(false);
+  const id = `pc-mention-card-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+
+  const stop = (timer: { current: ReturnType<typeof setTimeout> | null }) => {
+    if (timer.current !== null) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  const close = useCallback(() => {
+    stop(rest);
+    stop(grace);
+    setOpen(false);
+  }, []);
+  const arm = () => {
+    stop(grace);
+    if (open || rest.current !== null) return;
+    rest.current = setTimeout(() => {
+      rest.current = null;
+      setOpen(true);
+    }, MENTION_CARD_REST_MS);
+  };
+  const leaveSoon = () => {
+    stop(rest);
+    stop(grace);
+    grace.current = setTimeout(() => {
+      grace.current = null;
+      setOpen(false);
+    }, MENTION_CARD_GRACE_MS);
+  };
+  useEffect(() => () => { stop(rest); stop(grace); }, []);
+  const inside = (node: EventTarget | null, ...boxes: Array<HTMLElement | null>) =>
+    Boolean(node) && boxes.some((box) => Boolean(box && box.contains(node as Node)));
+
+  const content = open && hover ? props.renderCard!(m) : null;
+  const shown = content !== null && content !== undefined && content !== false;
+
+  useBeforePaint(() => {
+    if (!shown) {
+      setPos(null);
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const place = () => {
+      const chip = chipRef.current;
+      const card = cardRef.current;
+      if (!chip || !card) return;
+      setPos(mentionCardPlacement(chip.getBoundingClientRect(), { width: card.offsetWidth, height: card.offsetHeight }, { width: window.innerWidth, height: window.innerHeight }));
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    // The host's card may grow once its data is in.
+    const observer = typeof ResizeObserver === "undefined" || !cardRef.current ? null : new ResizeObserver(place);
+    if (observer && cardRef.current) observer.observe(cardRef.current);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [shown]);
+
+  useEffect(() => {
+    if (!shown || typeof document === "undefined") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      // Only this press: a drawer around the chat stays open.
+      e.preventDefault();
+      if (inside(document.activeElement, cardRef.current)) {
+        refocused.current = true;
+        chipRef.current?.focus();
+      }
+      close();
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [shown, close]);
+
+  const card = shown ? (
+    <div
+      ref={cardRef}
+      id={id}
+      className="pc-mention-card"
+      role="group"
+      aria-label={m.name}
+      data-side={pos?.side}
+      onMouseEnter={() => stop(grace)}
+      onMouseLeave={leaveSoon}
+      onBlur={(e) => { if (!inside(e.relatedTarget, cardRef.current, chipRef.current)) close(); }}
+      style={{ top: pos?.top ?? 0, left: pos?.left ?? 0, visibility: pos ? "visible" : "hidden" }}
+    >
+      {content}
+    </div>
+  ) : null;
+
+  return (
+    <>
+      <span
+        ref={chipRef}
+        className="pc-mention-chip pc-mention-chip--inline pc-mention-chip--message"
+        data-mention-key={mentionKey(m)}
+        data-mention-kind={m.kind}
+        {...(hover
+          ? {
+              tabIndex: 0,
+              "aria-describedby": shown ? id : undefined,
+              onMouseEnter: arm,
+              onMouseLeave: leaveSoon,
+              onFocus: () => {
+                if (refocused.current) refocused.current = false;
+                else arm();
+              },
+              onBlur: (e: React.FocusEvent<HTMLSpanElement>) => { if (!inside(e.relatedTarget, cardRef.current)) close(); },
+              onKeyDown: (e: React.KeyboardEvent<HTMLSpanElement>) => { if (e.key === "Escape" && (open || rest.current !== null)) close(); },
+            }
+          : {})}
+      >
+        {mentionChipFace(m, "message")}
+      </span>
+      {card && typeof document !== "undefined" ? createPortal(card, document.body) : card}
+    </>
+  );
+}
+
+/**
+ * The rendered words of a message (`node`, a Markdown tree whose text carried a token for each
+ * placed mention: `mentionTokenText`) with each token turned into its chip (`chip`). A token
+ * that lands anywhere but in the words (a code block's code, an attribute) gets its "@Name"
+ * back. Elements without a token are returned as they were.
+ */
+export function withMentionChips(
+  node: React.ReactNode,
+  placed: readonly ChatMessageMention[],
+  chip: (mention: ChatMessageMention, key: string) => React.ReactNode,
+): React.ReactNode {
+  const walk = (value: React.ReactNode, key: string | undefined): React.ReactNode => {
+    if (typeof value === "string") {
+      if (!value.includes(MENTION_TOKEN_OPEN)) return value;
+      const parts = mentionTokenParts(value).map((p, i) => (typeof p === "number" ? (placed[p] ? chip(placed[p], `${key ?? "m"}:${i}`) : null) : p));
+      return React.createElement(React.Fragment, key === undefined ? null : { key }, ...parts);
+    }
+    if (Array.isArray(value)) {
+      let changed = false;
+      const out = value.map((child, i) => {
+        const next = walk(child as React.ReactNode, `mt${i}`);
+        if (next !== child) changed = true;
+        return next;
+      });
+      return changed ? out : value;
+    }
+    if (React.isValidElement(value)) {
+      const props = value.props as Record<string, unknown>;
+      const patch: Record<string, unknown> = {};
+      let changed = false;
+      let children: React.ReactNode = props.children as React.ReactNode;
+      for (const [name, prop] of Object.entries(props)) {
+        if (name === "children") {
+          const next = walk(prop as React.ReactNode, undefined);
+          if (next !== prop) { children = next; changed = true; }
+        } else if (typeof prop === "string" && prop.includes(MENTION_TOKEN_OPEN)) {
+          patch[name] = mentionTokensPlain(prop, placed);
+          changed = true;
+        }
+      }
+      if (!changed) return value;
+      // Children go back as arguments, as the element was written (no list-key warnings).
+      return "children" in props
+        ? React.cloneElement(value, patch, ...(Array.isArray(children) ? children : [children]))
+        : React.cloneElement(value, patch);
+    }
+    return value;
+  };
+  return walk(node, undefined);
+}
+
 ## panel-chat/src/chat_author.ts
 
 /**
@@ -18301,6 +18689,7 @@ import { chatAuthorView, type ChatAuthor } from "./chat_author.js";
 import { ChatAuthorMark } from "./author_mark.js";
 import type { ChatNotice } from "./chat_notices.js";
 import { ChatNoticeBadges } from "./chat_notice_badges.js";
+import type { ChatMessageMention } from "./mentions.js";
 
 export type ChatMessageLevel = "info" | "warn" | "error";
 
@@ -18366,6 +18755,12 @@ export type ChatMessage = {
    * `notices` here; a host sets it from its own lane (`notices` / `reply_notices`).
    */
   notices?: ChatNotice[];
+  /**
+   * The mentions the message carries, as its send did ({id, name, kind, index, start}; `avatar`:
+   * the chip's look when the host knows it). Each is drawn in the words as the composer's chip,
+   * placed by its `start` (the text is never read for "@"); copy and read-aloud keep "@Name".
+   */
+  mentions?: ChatMessageMention[];
 };
 
 /**
@@ -18624,6 +19019,13 @@ export type ChatMessageCardProps = {
    * words). Without it every badge opens its own panel.
    */
   onNoticeOpen?: (notice: ChatNotice, message: ChatMessage) => void | boolean;
+  /**
+   * The card for a mention chip in a message's words (`message.mentions`), e.g. the entity's
+   * card from your roster: shown in a small popover below the chip after a 150 ms rest on it
+   * (pointer or keyboard focus), gone on leave, blur or Escape. Called only then, with the
+   * mention ({id, name, kind, index, start, avatar?}); null shows nothing. Absent: no card.
+   */
+  renderMentionCard?: (mention: ChatMessageMention) => React.ReactNode | null;
 };
 
 /** The read-aloud state a host reports for a message (`useGatewayVoice().tts_playback.status`). */
@@ -18799,6 +19201,8 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
             jsonCollapseAfterDepth={props.jsonCollapseAfterDepth}
             images={props.images || (role_ui.variant === "user" ? "inline" : "link")}
             inlineImage={props.inlineImage}
+            mentions={m.mentions}
+            renderMentionCard={props.renderMentionCard}
           />
         </div>
       ) : null}
@@ -21222,7 +21626,22 @@ import React, { useMemo } from "react";
 
 import { JsonViewer } from "./json_viewer.js";
 import { Markdown, type MarkdownImages } from "./markdown.js";
+import { ChatMentionChip, withMentionChips } from "./mention_chip.js";
+import { mentionKey, mentionTokenText, messageMentionsPlaced, type ChatMessageMention } from "./mentions.js";
 import { tryParseJson } from "./utils.js";
+
+const seamsLogged = new Set<string>();
+/** A mention the card cannot draw as a chip: said once, loudly (#SEAM), never dropped silently. */
+function mentionSeam(reason: string, text: string, mentions: readonly unknown[]): void {
+  for (const m of mentions) {
+    const key = m && typeof m === "object" ? `${mentionKey(m as ChatMessageMention)}@${String((m as ChatMessageMention).start)}` : String(m);
+    const seen = `${reason}\u0000${key}\u0000${text}`;
+    if (seamsLogged.has(seen)) continue;
+    if (seamsLogged.size >= 500) seamsLogged.clear();
+    seamsLogged.add(seen);
+    console.error(`#SEAM panel-chat: ${reason}; its words stay plain text.`, m);
+  }
+}
 
 export function ChatMessageContent(props: {
   text: string;
@@ -21232,6 +21651,15 @@ export function ChatMessageContent(props: {
   /** Passed to `Markdown` (default `"inline"` here; chat cards pass `"link"` for non-user messages). */
   images?: MarkdownImages;
   inlineImage?: (src: string) => boolean;
+  /**
+   * The message's mentions ({id, name, kind, index, start}): each one whose "@Name" sits at its
+   * `start` in `text` is drawn as the composer's chip, in place. One without a valid `start`
+   * keeps its plain words (logged once as `#SEAM`). Drawn by the kit's Markdown only (not with
+   * `renderMarkdown`, not in a JSON message).
+   */
+  mentions?: readonly ChatMessageMention[];
+  /** The host's card for a mention chip, shown after a 150 ms rest on it (`ChatMentionChip`). */
+  renderMentionCard?: (mention: ChatMessageMention) => React.ReactNode | null;
 }): React.ReactElement {
   const text = String(props.text ?? "");
   // Memoized on text: an unmemoized parse gives the viewer a new object
@@ -21239,8 +21667,11 @@ export function ChatMessageContent(props: {
   // (adversary find 2026-07-12).
   const parsed = useMemo(() => tryParseJson(text), [text]);
   const cls = ["pc-chat-content", props.className].filter(Boolean).join(" ");
+  const where = useMemo(() => (props.mentions?.length ? messageMentionsPlaced(text, props.mentions) : null), [text, props.mentions]);
+  if (where?.unplaced.length) mentionSeam("a message mention has no valid start (its \"@Name\" is not at mentions[].start in the text)", text, where.unplaced);
 
   if (parsed !== null) {
+    if (where?.placed.length) mentionSeam("a JSON message cannot draw mention chips", text, where.placed);
     return (
       <div className={cls}>
         <JsonViewer value={parsed} collapseAfterDepth={props.jsonCollapseAfterDepth} />
@@ -21249,7 +21680,21 @@ export function ChatMessageContent(props: {
   }
 
   if (props.renderMarkdown) {
+    if (where?.placed.length) mentionSeam("mention chips are drawn by the kit's Markdown, not by a host renderMarkdown", text, where.placed);
     return <div className={cls}>{props.renderMarkdown(text)}</div>;
+  }
+
+  const placed = where?.placed ?? [];
+  const tokens = placed.length ? mentionTokenText(text, placed) : null;
+  if (placed.length && tokens === null) mentionSeam("the message text holds the characters the chips are placed with (U+FDD0/U+FDD1)", text, placed);
+  if (tokens !== null) {
+    // `Markdown` is a plain function (no hooks): its tree is walked to put each chip in place.
+    const tree = Markdown({ text: tokens, images: props.images, inlineImage: props.inlineImage });
+    return (
+      <div className={cls}>
+        {withMentionChips(tree, placed, (m, key) => <ChatMentionChip key={key} mention={m} renderCard={props.renderMentionCard} />)}
+      </div>
+    );
   }
 
   return (

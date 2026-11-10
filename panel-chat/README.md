@@ -68,7 +68,8 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
   `FromAutomationBadge` — see [Automations](../docs/automations.md#panel-chat-pieces)
 - `@` mentions: `ChatComposer` / `WorkflowChat` `mentionCandidates`, `mentions` / `onMentionsChange`,
   `mentionNotice`, `mentionSessionKey`, `mentionStatus`, `mentionsUnavailable`; `onSend` carries
-  `{text, mentions}`; chips in the bubbles from `ChatMessage.mentions`; helpers `mentionSendPayload`, `mentionResend`, `mentionsAfterSend`,
+  `{text, mentions}`; chips in the bubbles from `ChatMessage.mentions`, the card's `renderMentionCard`
+  on a chip after a 150 ms rest; helpers `mentionSendPayload`, `mentionResend`, `mentionsAfterSend`,
   `mentionsStoppedError`, `unsentMentionsOf`, `uniqueMentions` (see
   [Mentioning entities and agents](#mentioning-entities-and-agents))
 - Who answered: `ChatMessage.author` (`ChatAuthor`), `chatAuthorOf`, `chatAuthorView`, `ChatAuthorMark`
@@ -260,6 +261,31 @@ host that forgot `start` sees it. Copy, read-aloud and export keep the plain `@N
 (`content` is unchanged). Chips are drawn by the kit's Markdown: with your own `renderMarkdown`,
 or in a JSON message, the words stay plain (also logged as `#SEAM`). The chip is exported as
 `ChatMentionChip`; `messageMentionsPlaced(text, mentions)` tells which mentions are placed.
+
+**A card on a chip.** Give the card (or `ChatThread` / `WorkflowChat` through `messageProps`)
+`renderMentionCard?: (mention: ChatMessageMention) => ReactNode | null` and a chip in a message
+shows your card for that name once the pointer rests on it for 150 ms (`MENTION_CARD_REST_MS`), or
+once it holds the keyboard focus that long (the chip is then a focus stop). The kit calls it only
+then, with the message's mention (`{id, name, kind, index, start, avatar?}`), and shows the result in
+a small popover below the chip, kept inside the viewport (above it when there is no room below;
+at most the viewport's width less 16 px, so a 400 px phone fits). It goes when the pointer leaves
+the chip and the card (the pointer may cross from one to the other), when the focus leaves both,
+or on Escape. Return null for a name you have no card for: nothing shows, no placeholder. Without
+the prop a chip is words only. The kit's `EntityCard` sits in the popover without a second frame.
+
+```tsx
+<WorkflowChat
+  /* … */
+  messageProps={{
+    renderMentionCard: (m) => {
+      const entity = m.kind === "entity" ? roster.find((e) => e.id === m.id) : null;
+      return entity ? <EntityCard {...entityCardProps(entity)} density="compact" /> : null;
+    },
+  }}
+/>
+```
+
+Here `roster` and `entityCardProps` are your host's code.
 
 ### Who answered
 

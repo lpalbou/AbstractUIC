@@ -347,6 +347,13 @@ export type ChatMessageCardProps = {
    * words). Without it every badge opens its own panel.
    */
   onNoticeOpen?: (notice: ChatNotice, message: ChatMessage) => void | boolean;
+  /**
+   * The card for a mention chip in a message's words (`message.mentions`), e.g. the entity's
+   * card from your roster: shown in a small popover below the chip after a 150 ms rest on it
+   * (pointer or keyboard focus), gone on leave, blur or Escape. Called only then, with the
+   * mention ({id, name, kind, index, start, avatar?}); null shows nothing. Absent: no card.
+   */
+  renderMentionCard?: (mention: ChatMessageMention) => React.ReactNode | null;
 };
 
 /** The read-aloud state a host reports for a message (`useGatewayVoice().tts_playback.status`). */
@@ -523,6 +530,7 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
             images={props.images || (role_ui.variant === "user" ? "inline" : "link")}
             inlineImage={props.inlineImage}
             mentions={m.mentions}
+            renderMentionCard={props.renderMentionCard}
           />
         </div>
       ) : null}
