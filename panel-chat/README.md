@@ -237,8 +237,12 @@ AbstractRuntime serves an entity's reply without its bracket markers ("[kept in 
 the reply text: the kind's icon and word, then the title. A private diary entry (`visibility:
 "private"`, no title, no words) reads "private diary entry"; an untitled notice shows the first words
 of its `text` (the string is never cut; the badge clips it); a notice staged for the visit's close
-(`staged: true`, `record_id: null`) adds a soft "forming…". The kit never reads a marker out of the
-text: a badge exists only for a served notice. Hint and caption cards show no badges.
+(`staged: true`, `record_id: null`) adds a soft "forming…". A notice served twice shows one badge, the
+first (the same `record_id`; without one, the same kind and title, or the same words when untitled); a
+notice that names nothing (no record, no title, no words, neither private nor forming) shows none. A
+badge's accessible name is words only ("Lesson: Visits are durable (forming)", line breaks read as
+spaces). The kit never reads a marker out of the text: a badge exists only for a served notice. Hint
+and caption cards show no badges.
 
 - `ChatMessageCard` `onNoticeOpen?(notice, message)`: the host opens what a badge names (for example
   the record's detail by `record_id`). Return `false` when it opened nothing; the badge then opens its

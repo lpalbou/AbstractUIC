@@ -25,6 +25,26 @@ function revealInScroller(el: HTMLElement | null): void {
   }
 }
 
+/**
+ * The notices the row shows, in the served order. A notice served twice shows once, the first: the
+ * same `record_id`; without a record id, the same badge (kind, title, else his words, private,
+ * forming). A notice that names nothing (no record, no title, no words, neither private nor forming)
+ * shows no badge: it would be the kind word alone with nothing to open.
+ */
+function shownNotices(raw: unknown): ChatNotice[] {
+  const seen = new Set<string>();
+  const out: ChatNotice[] = [];
+  for (const notice of chatNoticesOf(raw)) {
+    const view = chatNoticeView(notice);
+    if (!notice.record_id && !view.label && !view.staged) continue;
+    const same = notice.record_id ? `record:${notice.record_id}` : JSON.stringify([view.kind, view.label, view.private, view.staged]);
+    if (seen.has(same)) continue;
+    seen.add(same);
+    out.push(notice);
+  }
+  return out;
+}
+
 export type ChatNoticeBadgesProps = {
   notices: readonly ChatNotice[] | null | undefined;
   /**
@@ -36,9 +56,10 @@ export type ChatNoticeBadgesProps = {
   className?: string;
 };
 
-/** One row of badges, one per notice, in the served order. Nothing when there is no notice. */
+/** One row of badges, one per notice, in the served order (a duplicate once, an empty notice none).
+ * Nothing when there is no notice to show. */
 export function ChatNoticeBadges(props: ChatNoticeBadgesProps): React.ReactElement | null {
-  const notices = useMemo(() => chatNoticesOf(props.notices), [props.notices]);
+  const notices = useMemo(() => shownNotices(props.notices), [props.notices]);
   const views = useMemo(() => notices.map((n, i) => chatNoticeView(n, i)), [notices]);
   const [openKey, setOpenKey] = useState<string | null>(null);
   const buttons = useRef(new Map<string, HTMLButtonElement>());

@@ -50,6 +50,8 @@ export const CHAT_NOTICE_WORDS = {
   group: "Kept from this reply",
   private: "private diary entry",
   staged: "forming…",
+  /** The staged word in a badge's accessible name (no ellipsis glyph for a screen reader to say). */
+  stagedSpoken: "forming",
   privateNote: "A private diary entry: its words are not shown in the conversation.",
   stagedNote: "Forming: it is kept when the visit closes.",
   close: "Close",
@@ -94,7 +96,7 @@ export type ChatNoticeView = {
   private: boolean;
   /** Forms at the visit's close (no record yet). */
   staged: boolean;
-  /** The badge's accessible name. */
+  /** The badge's accessible name: words only (his line breaks read as spaces, no glyph). */
   ariaLabel: string;
 };
 
@@ -109,6 +111,7 @@ export function chatNoticeView(notice: ChatNotice, index = 0): ChatNoticeView {
   const label = isPrivate ? (kind === "diary" ? CHAT_NOTICE_WORDS.private : `private ${word}`) : title || text;
   const fromText = !isPrivate && !title && Boolean(text);
   const Word = word.charAt(0).toUpperCase() + word.slice(1);
+  const spoken = label.split(/\s+/).filter(Boolean).join(" ");
   return {
     key: `${index}:${kind}:${notice.record_id || ""}`,
     kind,
@@ -118,7 +121,7 @@ export function chatNoticeView(notice: ChatNotice, index = 0): ChatNoticeView {
     fromText,
     private: isPrivate,
     staged,
-    ariaLabel: `${Word}${label ? `: ${label}` : ""}${staged ? ` (${CHAT_NOTICE_WORDS.staged})` : ""}`,
+    ariaLabel: `${Word}${spoken ? `: ${spoken}` : ""}${staged ? ` (${CHAT_NOTICE_WORDS.stagedSpoken})` : ""}`,
   };
 }
 

@@ -29,9 +29,13 @@ panel-chat (`src/vendor/abstractchat`) re-sync from the 0.9.11 build.
   replay view through the kit show the badges with no host change. Pure helpers `chatNoticesOf` (only objects with a
   `kind`: a list of plain strings, the operator's log, is not notices) and `chatNoticeView`; `CHAT_NOTICE_WORDS`;
   types `ChatNotice`, `ChatNoticeKind`, `ChatNoticeView`, `ChatNoticeBadgesProps` (package and the vendored
-  `conversation` entry); `CHAT_NOTICE_KINDS` (package entry only). The kit reads no marker out of text. Check:
-  `scripts/check_notices.mjs` (in `npm test`, 81 checks; 16 mutants red). `transcript.css` regenerated (the badges
-  are in the transcript slice).
+  `conversation` entry); `CHAT_NOTICE_KINDS` (package entry only). The kit reads no marker out of text. A notice
+  served twice shows one badge, the first (the same `record_id`; without one, the same kind and title, or the same
+  words when untitled); a notice that names nothing (no record, no title, no words, neither private nor forming)
+  shows no badge, and a reply whose notices are all empty shows no row. A badge's accessible name is words only:
+  "(forming)" without the ellipsis glyph (`CHAT_NOTICE_WORDS.stagedSpoken`; the badge still reads "forming…"), his
+  line breaks read as spaces. Check: `scripts/check_notices.mjs` (in `npm test`, 92 checks; 28 mutants red).
+  `transcript.css` regenerated (the badges are in the transcript slice).
 
 ## 0.10.18 - 2026-11-09
 

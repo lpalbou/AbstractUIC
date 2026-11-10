@@ -1,7 +1,8 @@
 // Turn notices as badges (AbstractRuntime 09cbad7, 2026-11-09): the reply is served without its
 // bracket markers and, beside it, `notices: [{kind, record_id, title, text?, visibility?, staged?}]`.
 //  A. pure: chatNoticesOf (the runtime's notice-shaped rule) and chatNoticeView (what a badge says);
-//  B. ChatNoticeBadges: host opener, its `false` fallback, the own panel, keyboard (hook harness, no DOM);
+//  B. ChatNoticeBadges: host opener, its `false` fallback, the own panel, keyboard (hook harness, no DOM),
+//     a duplicate shown once (the first), an empty notice shown not at all, accessible names in words only;
 //  C. ChatMessageCard: the row under the reply text, onNoticeOpen(notice, message), none in hint/caption,
 //     no row without notices;
 //  D. the lanes carry them: the replay projection (answer message `notices`), the session controller
@@ -46,7 +47,7 @@ eq([vd.word, vd.icon, vd.label, vd.fromText, vd.private, vd.staged], ["diary", "
 eq(vd.ariaLabel, "Diary: the first durable visit", "A9 its accessible name");
 const vl = chatNoticeView(lesson, 1);
 eq([vl.word, vl.icon, vl.label, vl.staged], ["lesson", "check", "Visits are durable", true], "A10 a staged lesson keeps its title and is staged");
-eq(vl.ariaLabel, `Lesson: Visits are durable (${CHAT_NOTICE_WORDS.staged})`, "A11 staged is said");
+eq(vl.ariaLabel, "Lesson: Visits are durable (forming)", "A11 staged is said, in a word (the badge's ellipsis glyph is not spoken)");
 const vp = chatNoticeView(privateDiary, 2);
 eq([vp.label, vp.icon, vp.private, vp.fromText], ["private diary entry", "lock", true, false], "A12 a private diary entry: 'private diary entry', a lock");
 eq(chatNoticeView({ ...privateDiary, title: "leaked title", text: "leaked words" }).label, "private diary entry", "A13 a private entry never shows a title or words, even if some were sent");
@@ -58,6 +59,13 @@ eq(["question", "interest", "realization"].map((kind) => chatNoticeView({ kind, 
 const other = chatNoticeView({ kind: "open_problem", record_id: "x", title: "t" });
 eq([other.word, other.icon], ["open problem", "info"], "A18 another kind keeps its own word");
 ok(new Set(served.map((n, i) => chatNoticeView(n, i).key)).size === 3, "A19 keys are distinct");
+eq(vu.ariaLabel, "Interest: How the garden survives a dry August, and what the soil keeps.", "A20 his line break reads as a space in the accessible name (the label keeps it)");
+{
+  // No stray glyph in any accessible name: no ellipsis, line break, tab, disclosure arrow or bullet.
+  const glyph = /[\u2026\n\r\t\u25b4\u25b8\u25be\u25b9\u00b7\u2022]/;
+  const names = [...served, untitled, { kind: "question", record_id: "ex:q", title: "" }, { kind: "open_problem", record_id: null, title: "", text: "line one\n\tline two", staged: true }].map((n, i) => chatNoticeView(n, i).ariaLabel);
+  ok(names.every((name) => !glyph.test(name) && name === name.trim() && !/ {2}/.test(name)), `A21 accessible names are words only: ${JSON.stringify(names)}`);
+}
 
 // ---- B. the badge row ---------------------------------------------------------------------
 const isBadge = (n) => n.type === "button" && typeof n.props.className === "string" && n.props.className.split(" ").includes("pc-chat-notice");
@@ -71,7 +79,7 @@ const keyEvent = (key) => { const e = { key, stopped: false, stopPropagation() {
   const badges = findAll(h.tree, isBadge);
   eq(badges.length, 3, "B3 one badge per notice");
   eq(badges.map((b) => b.props["data-notice-kind"]), ["diary", "lesson", "diary"], "B4 in the served order");
-  eq(badges.map((b) => b.props["aria-label"]), ["Diary: the first durable visit", "Lesson: Visits are durable (forming…)", "Diary: private diary entry"], "B5 accessible names");
+  eq(badges.map((b) => b.props["aria-label"]), ["Diary: the first durable visit", "Lesson: Visits are durable (forming)", "Diary: private diary entry"], "B5 accessible names");
   ok(textOf(badges[1]).includes(CHAT_NOTICE_WORDS.staged) && "data-staged" in badges[1].props && badges[1].props.className.includes("pc-chat-notice--staged"), "B6 staged reads 'forming…'");
   ok("data-private" in badges[2].props && textOf(badges[2]).includes("private diary entry"), "B7 the private badge");
   ok(textOf(find(h.tree, (n) => n.props && n.props.role === "group")).includes("the first durable visit"), "B8 the title is on the badge");
@@ -143,6 +151,35 @@ const keyEvent = (key) => { const e = { key, stopped: false, stopPropagation() {
   h.unmount();
 }
 
+{
+  // A notice served twice shows once, the first (adversarial review 2026-11-10, N5).
+  const sameRecord = { ...diary, title: "a second title for the same record" };
+  const sameStaged = { ...lesson, text: "Other words for the same lesson." };
+  const otherKind = { kind: "realization", record_id: null, title: "Visits are durable", staged: true };
+  const untitledA = { kind: "interest", record_id: null, title: "", text: "Tide tables", staged: true };
+  const untitledB = { kind: "interest", record_id: null, title: "", text: "Harbour lights", staged: true };
+  const asked = [];
+  const h = mount(ChatNoticeBadges, { notices: [diary, sameRecord, lesson, sameStaged, otherKind, untitledA, untitledB, { ...untitledA }, { ...lesson, title: "  Visits are durable  " }], onOpen: (n) => { asked.push(n); return false; } });
+  const badges = findAll(h.tree, isBadge);
+  eq(badges.map((b) => b.props["aria-label"]), ["Diary: the first durable visit", "Lesson: Visits are durable (forming)", "Realization: Visits are durable (forming)", "Interest: Tide tables (forming)", "Interest: Harbour lights (forming)"], "B28 the same record_id once; without one the same kind and title once (spaces aside); another kind or other untitled words stay");
+  ok(!textOf(find(h.tree, (n) => n.props && n.props.role === "group")).includes("a second title"), "B29 the first wins: the later title of the same record is not shown");
+  badges[1].props.onClick();
+  h.render();
+  eq(asked, [lesson], "B30 the host is handed the first notice");
+  ok(textOf(panelOf(h.tree)).includes("A visit survives a restart.") && !textOf(panelOf(h.tree)).includes("Other words"), "B31 its own panel shows the first notice's words");
+  eq(new Set(findAll(h.tree, isBadge).map((b) => b.key)).size, 5, "B32 keys stay distinct");
+  h.unmount();
+}
+{
+  // A notice that names nothing renders no badge (adversarial review 2026-11-10).
+  const empty = { kind: "question", record_id: null, title: "" };
+  const blank = { kind: "lesson", record_id: "  ", title: "   ", text: " \n " };
+  eq(mount(ChatNoticeBadges, { notices: [empty, blank] }).tree, null, "B33 only empty notices: no row at all");
+  const h = mount(ChatNoticeBadges, { notices: [empty, { kind: "question", record_id: "ex:q", title: "" }, { kind: "diary", record_id: null, title: "", visibility: "private" }, { kind: "lesson", record_id: null, title: "", staged: true }, blank] });
+  eq(findAll(h.tree, isBadge).map((b) => b.props["aria-label"]), ["Question", "Diary: private diary entry", "Lesson (forming)"], "B34 the empty ones drop; a record to open, a private entry or a forming one still shows");
+  h.unmount();
+}
+
 // ---- C. the card --------------------------------------------------------------------------
 {
   const reply = { id: "a1", role: "assistant", title: "Castor", content: "Kept.\n\nGood to see you.", notices: served, media: [{ kind: "image", src: "/x.png", label: "Garden" }] };
@@ -165,6 +202,10 @@ const keyEvent = (key) => { const e = { key, stopped: false, stopPropagation() {
   badges.props.onOpen(diary);
   ok(got.length === 1 && got[0][0] === diary && got[0][1] === reply, "C10 onNoticeOpen(notice, message)");
   ok(find(mount(ChatMessageCard, { message: reply }).tree, (n) => n.type === ChatNoticeBadges).props.onOpen === undefined, "C11 no host opener: the row opens its own panel");
+  const hollow = renderToStaticMarkup(React.createElement(ChatMessageCard, { message: { ...reply, notices: [{ kind: "question", record_id: null, title: "" }] } }));
+  ok(!hollow.includes("pc-chat-notice") && hollow.includes("Good to see you."), "C12 a reply whose only notice is empty: no row, the reply as before");
+  const twice = renderToStaticMarkup(React.createElement(ChatMessageCard, { message: { ...reply, notices: [diary, { ...diary }] } }));
+  eq((twice.match(/class="pc-chat-notice /g) || []).length, 1, "C13 a notice served twice: one badge on the card");
 }
 
 // ---- D. the lanes -------------------------------------------------------------------------
