@@ -40,7 +40,7 @@ picker, voice, the app shell) has one shared component: start from the job table
 ## Requirements
 
 - React packages declare `react@^18` and `react-dom@^18` as peer dependencies (see each `*/package.json`).
-- `@abstractframework/panel-chat` 0.9.12 declares `@abstractframework/ui-kit@^0.9.28` as a peer dependency: install and upgrade the two together (AbstractUIC 0.10.20 ships ui-kit 0.9.28).
+- `@abstractframework/panel-chat` 0.9.13 declares `@abstractframework/ui-kit@^0.9.28` as a peer dependency: install and upgrade the two together (AbstractUIC 0.10.21 ships ui-kit 0.9.28).
 - `@abstractframework/monitor-active-memory` also declares `reactflow@^11` as a peer dependency.
 - Packages are ESM (`"type": "module"`). In web apps, use a bundler that can consume ESM and CSS.
 

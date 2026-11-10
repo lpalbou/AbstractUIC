@@ -7,6 +7,37 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.21 - 2026-11-10
+
+Packages: `@abstractframework/panel-chat` 0.9.13 (from 0.9.12; still needs `@abstractframework/ui-kit` `^0.9.28`).
+Other packages retain their versions. Apps that vendor panel-chat (`src/vendor/abstractchat`) re-sync from the 0.9.13
+build.
+
+### Added
+
+- **A name you mention shows in the conversation the way it did while you typed** (operator 2026-11-10). A sent
+  message that names an entity or an agent with `@` shows each name as the same chip as in the composer: the
+  entity's orb (or the agent's mark) and the name, in your own message and in a reply that names someone. Hosts set
+  `ChatMessage.mentions` to what the send carried (`{id, name, kind, index, start}`, `avatar` optional); each chip
+  is placed by its `start` in the text, never by looking for "@". A mention without a valid `start` keeps its plain
+  words and is logged once as `#SEAM` in the console. Copying the message, reading it aloud and exporting it keep
+  the plain "@Name" words. New exports: `ChatMentionChip`, `mentionChipFace`, `messageMentionsPlaced`, type
+  `ChatMessageMention`.
+- **Rest on a name to see its card.** With the new card prop `renderMentionCard(mention)` (through `messageProps`
+  on `ChatThread` / `WorkflowChat`), resting the pointer on a name chip for 0.15 s, or tabbing to it, opens the
+  app's card for that name (for example the kit's `EntityCard`) in a small popover below the chip that stays
+  inside the screen, a phone's included. It closes when the pointer leaves the chip and the card, when the focus
+  leaves, or on Escape. A name the app has no card for shows nothing. New exports: `MENTION_CARD_REST_MS`,
+  `mentionCardPlacement`; the conversation entry the apps vendor also exports `ChatMentionChip`,
+  `MENTION_CARD_REST_MS` and type `ChatMessageMention`.
+
+### Changed
+
+- **No more "… will read this conversation's history" suggestion.** The operator removed the composer's note rows
+  ("The agent stays out of this message.", "Castor will read this conversation's history."). The kit never wrote
+  them: apps pass them through `mentionNotice` and `mentionStatus`, which stay for other sentences. The docs no
+  longer suggest the history line.
+
 ## 0.10.20 - 2026-11-10
 
 Packages: `@abstractframework/ui-kit` 0.9.28 (from 0.9.27) and `@abstractframework/panel-chat` 0.9.12 (from 0.9.11;
