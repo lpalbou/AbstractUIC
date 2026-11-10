@@ -14,7 +14,7 @@ the [Adoption guide](../docs/adoption-guide.md)).
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` `^0.9.15` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.8.1 needs ui-kit `^0.9.13` (AbstractUIC 0.10.1 ships ui-kit 0.9.14).
+- `@abstractframework/ui-kit` `^0.9.27` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `ActivityAvatar` for an author's orb, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.9.11 needs ui-kit `^0.9.27` (AbstractUIC 0.10.19 ships ui-kit 0.9.27).
 
 ## Install
 

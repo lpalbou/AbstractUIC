@@ -21,7 +21,7 @@ Important integration notes:
 - Components are **host-driven**: hosts provide data + callbacks; packages don’t import host code.
 - Chat input is one rounded multiline `ChatComposer` everywhere (circular accessible Send, composer-owned Attach, `leading`/`actions`/`trailingActions` slots, `submitKey`, `canSubmit`); `variant="legacy"` / `WorkflowChat.composerVariant="legacy"` restores the flat layout.
 - One shared component per user-facing job, composed on AbstractGateway's contracts (ADR 0001): use the job table in `docs/adoption-guide.md` before building anything app-local.
-- `@abstractframework/panel-chat` 0.9.0 needs `@abstractframework/ui-kit` `^0.9.15` (peer dependency); upgrade them together.
+- `@abstractframework/panel-chat` 0.9.11 needs `@abstractframework/ui-kit` `^0.9.27` (peer dependency); upgrade them together.
 - Metrics components poll their supplied endpoints. The connected Docs assistant reads Gateway voice defaults, and user actions use its injected authenticated transport for questions, history, attachments and manual speech.
 - Always import the package CSS from your app entrypoint (especially in Next.js). Start with `docs/getting-started.md` → `docs/api.md`.
 
@@ -72,8 +72,8 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.15): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
-- [@abstractframework/panel-chat](panel-chat/README.md) (0.9.0, needs ui-kit ^0.9.15): the one chat surface WorkflowChat, the Avatar view AvatarConversation (one live line + Findings panel; conversationLive, conversationFindings) over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (a tool approval offers exactly Deny / Allow / Allow All, the allows for this session only; Decide later; card variant), a session's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated; without it Allow covers the request only; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, `@` mentions in the composer (mentionCandidates → chips; onSend carries {text, mentions}; unsentMentions / mentionResend for a send that stopped partway) and who answered on each reply (ChatMessage.author, chatAuthorView, ChatAuthorMark), chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
+- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.27): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/panel-chat](panel-chat/README.md) (0.9.11, needs ui-kit ^0.9.27): the one chat surface WorkflowChat, the Avatar view AvatarConversation (one live line + Findings panel; conversationLive, conversationFindings) over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (a tool approval offers exactly Deny / Allow / Allow All, the allows for this session only; Decide later; card variant), a session's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated; without it Allow covers the request only; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, `@` mentions in the composer (mentionCandidates → chips; onSend carries {text, mentions}; unsentMentions / mentionResend for a send that stopped partway) and who answered on each reply (ChatMessage.author, chatAuthorView, ChatAuthorMark), what a reply kept as badges under its words (ChatMessage.notices, ChatNoticeBadges, onNoticeOpen; served turn notices, never markers read from text), chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -123,7 +123,8 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [panel-chat/src/chat_composer.tsx](panel-chat/src/chat_composer.tsx): controlled rounded multiline composer (legacy variant), composer-owned Attach, action slots, IME-safe submission and the `@` mention list and chips.
 - [panel-chat/src/mentions.ts](panel-chat/src/mentions.ts): mention rules and host helpers (`ChatMentionCandidate`, `ChatComposerSend`, `mentionResend`, `mentionsAfterSend`, `mentionsStoppedError`)
 - [panel-chat/src/chat_author.ts](panel-chat/src/chat_author.ts): `ChatAuthor` (the gateway's turn author), `chatAuthorOf`, `chatAuthorView`
-- [panel-chat/src/chat_message_card.tsx](panel-chat/src/chat_message_card.tsx): `ChatMessage` (incl. `author`) / `ChatAttachment` / `ChatStat` contracts
+- [panel-chat/src/chat_notices.ts](panel-chat/src/chat_notices.ts): `ChatNotice` (a served turn notice), `chatNoticesOf`, `chatNoticeView`, `CHAT_NOTICE_WORDS`; [chat_notice_badges.tsx](panel-chat/src/chat_notice_badges.tsx): `ChatNoticeBadges`
+- [panel-chat/src/chat_message_card.tsx](panel-chat/src/chat_message_card.tsx): `ChatMessage` (incl. `author`, `notices`) / `ChatAttachment` / `ChatStat` contracts
 - [panel-chat/src/replay_view.ts](panel-chat/src/replay_view.ts): the replay view client (`applyDelta`, `ReplayViewFold`, `SseParser`, `createReplayViewTransport`)
 - [panel-chat/src/replay_view_projection.ts](panel-chat/src/replay_view_projection.ts): `projectReplayView` (view -> transcript, interaction, status)
 - [panel-chat/src/automation_badges.tsx](panel-chat/src/automation_badges.tsx): `ScheduleThisAction` and `FromAutomationBadge`
@@ -183,6 +184,15 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 > Packages are ESM and ship CSS alongside JS. See `docs/getting-started.md` for required CSS imports and Next.js notes.
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
+
+## What's new in 0.10.19
+
+`@abstractframework/panel-chat` 0.9.11 (needs ui-kit `^0.9.27`): a reply shows what it kept as badges under its words
+(`ChatMessage.notices`, `ChatNoticeBadges`, `onNoticeOpen`): a diary entry, a question, a lesson, an interest or a
+realization, served beside the reply by AbstractRuntime ([What a reply kept](./panel-chat/README.md#what-a-reply-kept)).
+`@abstractframework/ui-kit` 0.9.27 with panel-chat 0.9.10 (0.10.18) added `@` mentions in the composer, who answered on
+each reply (`ChatMessage.author`) and the shared `IterationLimitField`. Changes since 0.10.9 are in the
+[changelog](./CHANGELOG.md#01019---2026-11-10).
 
 ## What's new in 0.10.9
 
@@ -506,7 +516,7 @@ picker, voice, the app shell) has one shared component: start from the job table
 ## Requirements
 
 - React packages declare `react@^18` and `react-dom@^18` as peer dependencies (see each `*/package.json`).
-- `@abstractframework/panel-chat` 0.7.0 declares `@abstractframework/ui-kit@^0.9.8` as a peer dependency: install and upgrade the two together (AbstractUIC 0.9.0 ships ui-kit 0.9.12).
+- `@abstractframework/panel-chat` 0.9.11 declares `@abstractframework/ui-kit@^0.9.27` as a peer dependency: install and upgrade the two together (AbstractUIC 0.10.19 ships ui-kit 0.9.27).
 - `@abstractframework/monitor-active-memory` also declares `reactflow@^11` as a peer dependency.
 - Packages are ESM (`"type": "module"`). In web apps, use a bundler that can consume ESM and CSS.
 
@@ -741,7 +751,7 @@ not a customization point; when the component cannot do what you need, ask for t
 | App assistant (an app's own Q&A, e.g. Continuum's advisor) | `AssistantPanel` (panel-chat) in `AfDrawer`, or `assistantDrawerPanel({ ask, assistantName })` in `AfDrawerSystem`, toggled by `AfTopBarActions` `assistant` | Transport injected (`ask(question, { signal, history })`), never fetches |
 | Questions and approvals | `presentInteraction(wait, controller, options)` → `WorkflowChat` `interaction` (or `WorkflowInteractionPanel`, `variant="card"` for "Needs you" lists and inboxes) | One wording set (`WORKFLOW_INTERACTION_LABELS`): a tool approval offers exactly Deny / Allow / Allow All (panel-chat 0.9.0); Decide later and Keep waiting send nothing (a dismissal never denies); Continue without answering resumes empty. Accepts a `replay_view_v1.interaction` (`ReplayInteraction`) once a gateway serves it. Session tool policy: inject a `SessionToolPolicyClient` when `capabilities.session_tool_policy.supported` and pass `sessionPolicy: true` (the mode is the controller's): Allow keeps this request's tools and Allow All every tool for the rest of this session on the gateway (written before the wait is answered); nothing writes the app's default tool settings; on an older gateway, or after a failed capability read, Allow answers the request only and one line says so |
 | Attachments and generated media | Composer: `WorkflowChat` `attachmentItems` + `useAttachmentUploads`. Messages: `ChatMessage.media` (`image` / `audio` with `transcript` / `video` / `file`), filled with `chatMediaFromArtifact` from the transport's `resolveArtifact` | Chips name their state (Waiting, Uploading, refused with both sizes, failed with the gateway's words and Retry); Send refuses while one is not attached. Files open in the shared `AfFileViewer`; speech-to-text shows as a **Transcript** caption; music rides on audio. The host fetches with its own credentials |
-| `@` mentions and who answered | `WorkflowChat` / `ChatComposer` `mentionCandidates` (+ `mentionNotice`, `mentionSessionKey`, `mentionStatus`, `mentionsUnavailable`); `ChatMessage.author` | A mention is a chip picked from the names your host feeds (for example `GET /entities`), never `@` read out of the text; `onSend` carries `{text, mentions}` and your host posts each mention in order. A send that stopped partway names its `unsentMentions` (`mentionsStoppedError`) so only those chips stay; `mentionResend` tells a resend of the same words from a new message. Pass the gateway's turn `author` through: the card shows the entity's orb or the agent mark, the name and a kind tag, and a message without one renders as before. See [Mentioning entities and agents](../panel-chat/README.md#mentioning-entities-and-agents) |
+| `@` mentions, who answered, what a reply kept | `WorkflowChat` / `ChatComposer` `mentionCandidates` (+ `mentionNotice`, `mentionSessionKey`, `mentionStatus`, `mentionsUnavailable`); `ChatMessage.author`; `ChatMessage.notices` (+ the card's `onNoticeOpen`) | A mention is a chip picked from the names your host feeds (for example `GET /entities`), never `@` read out of the text; `onSend` carries `{text, mentions}` and your host posts each mention in order. A send that stopped partway names its `unsentMentions` (`mentionsStoppedError`) so only those chips stay; `mentionResend` tells a resend of the same words from a new message. Pass the gateway's turn `author` through: the card shows the entity's orb or the agent mark, the name and a kind tag, and a message without one renders as before. Pass the served turn `notices` through too: one badge per diary entry, question, lesson, interest or realization under the reply; the kit never reads a marker out of the text. See [Mentioning entities and agents](../panel-chat/README.md#mentioning-entities-and-agents) and [What a reply kept](../panel-chat/README.md#what-a-reply-kept) |
 | Markdown / JSON rendering | `Markdown`, `JsonViewer` (panel-chat) | Also exported standalone |
 | TTS playback + push-to-talk | `useGatewayVoice` (+ `streamTtsJsonl`) | Injected `tts`/`tts_stream`/`transcribe` functions; streaming with pause/resume; output and input device, volume and input level options |
 | Voice settings page | `AfVoiceSection` (+ `useVoicePreferences(storageKey)`, `useVoiceDefaults(fetchDefaults)`) | Pass `fetchDefaults` (`GET /api/gateway/voice/defaults`): "Gateway default · provider / model" comes only from it; the host stores the overrides (`useVoicePreferences`: same-tab and cross-tab sync). Pass `voiceLibrary` (`design` → `POST voice/design`, `clone` → multipart `POST voice/clones`, `list` / `rename` / `remove` / `share` over `voice/clones[/{id}]` and `voice/clones/{id}/deploy`; `createVoice` is its alias) to let people create and manage their own voices, `fetchLanguages` (`GET voice/languages`), `previewVoice` (choosing a voice plays it; a play/stop toggle beside the select). `rows={{tts: false}}` + `ttsSlot` where the host owns the voice (an entity); `rows.mute` / `rows.capture` only where the host honours `reply_muted` / `capture_mode` / `auto_send` (`useGatewayVoice({...gatewayVoiceOptions(prefs), ...})`) |
@@ -841,7 +851,7 @@ The kit absorbs proven app components rather than speculating:
 - `npm test` in `ui-kit` runs the full guard chain (build, matrix cores, theme tokens, palette
   seeds parity, About and identity checks, theme contrast, console islands); the publish hook
   runs the same chain.
-- `@abstractframework/panel-chat` 0.9.1 needs `@abstractframework/ui-kit` `^0.9.15` (peer
+- `@abstractframework/panel-chat` 0.9.11 needs `@abstractframework/ui-kit` `^0.9.27` (peer
   dependency): upgrade both together. The two built packages share the session tool-policy
   client types, which the repository's release gate checks.
 - Pages that vendor the [console islands](./console-islands.md) bundle rebuild and re-vendor it
@@ -2706,6 +2716,7 @@ Components:
 - `ChatComposer` (rounded multiline composer; `variant="legacy"` for the flat layout; `leading` / `actions` / `trailingActions` / `overlay` slots, composer-owned Attach via `onAttach`, `submitKey`, `canSubmit`; IME-safe Enter)
 - `@` mentions: `ChatComposer` and `WorkflowChat` take `mentionCandidates?(query) → Promise<ChatMentionCandidate[]>` (`{id, name, kind: "entity"|"agent", avatar?, hint?}`; the host decides the source, e.g. `GET /entities`; absent = no list, no chips), controlled `mentions?` / `onMentionsChange?`, `mentionNotice?(candidate)` (the sentence shown the first time a name is picked in the conversation `mentionSessionKey?`), `mentionStatus?` (the host's sentence about the last mentions sent) and `mentionsUnavailable?` (the host's sentence instead of names; chips picked earlier are not sent). `ChatComposer.onSend?(send)` gets `ChatComposerSend` = `{text, mentions: [{id, name, kind, index}]}` (text as typed, picks in order, `index` = the gateway's `mention_index`) and wins over `onSubmit`; `WorkflowChat` passes `mentions` in `onSend(draft, {signal, mentions})` and `steer.onSteer(text, mode, {mentions})`. A pick is a chip bound to the candidate; an `@` that was not picked stays text (the kit never reads `@` out of the text). Chips: a send's chips go when it resolves; a rejection keeps them; a send that stopped partway keeps only the chips it names as `unsentMentions` on its value or error (`mentionsStoppedError(sentence, unsent)`); chips picked while a send is in flight stay. List states: "Looking for names…" (Enter waits), "The names could not be loaded.", "No name matches “…”.", "No one to mention here.", "Already mentioned.". Helpers `mentionSendPayload()`, `mentionResend(pending, text, mentions)` (after a stop, the same words ask only the unsent chips with their first index; other words → null, a new message), `mentionsAfterSend()`, `unsentMentionsOf()`, `uniqueMentions()`, `mentionTriggerAt()`, `applyMentionPick()`, `addMention()`, `removeMention()`, `mentionKey()`, `moveMentionActive()`, `usableCandidates()`, `MENTION_QUERY_MAX` (48); types `ChatComposerSend`, `ChatMention`, `ChatMentionCandidate`, `ChatMentionKind`, `ChatMentionSent`, `ChatMentionsUnsent`, `MentionResend`, `MentionTrigger`. The host posts the mentions (AbstractGateway `POST /api/gateway/sessions/{session_id}/mentions`, one at a time in `index` order). See the [README](../panel-chat/README.md#mentioning-entities-and-agents)
 - Who answered: `ChatMessage.author?: ChatAuthor | null` (`{kind: "entity"|"agent"|"person", name, entity_id, identity_ref, avatar: {style, color} | null}`, the gateway's turn author, every field present). An assistant-side card with an author shows its mark (an entity's orb through ui-kit `ActivityAvatar`, or its initial disc without a design; the agent mark), its name and an "entity" / "agent" tag; null or absent = the header as before (`title || "Agent"`); user messages ignore it; `projectReplayView` passes it through. `chatAuthorOf(value)` (unknown kinds refused), `chatAvatarLookOf()`, `chatAuthorView(author, title?) → {name, tag, mark, look, initial} | null` (name falls back to `title`, then "Entity" / "Agent" / "Someone"), `ChatAuthorMark({mark, look?, initial?, size, className?})` (decorative); types `ChatAuthor`, `ChatAuthorKind`, `ChatAuthorMarkKind`, `ChatAuthorView`, `ChatAvatarLook`, `ChatAuthorMarkProps`. See the [README](../panel-chat/README.md#who-answered)
+- What a reply kept (0.9.11): `ChatMessage.notices?: ChatNotice[]` (`{kind: "diary"|"question"|"lesson"|"interest"|"realization", record_id: string | null, title, text?, visibility?, staged?}`, the turn notices AbstractRuntime serves beside a reply it serves without bracket markers). `ChatMessageCard` shows one badge per notice under the reply text: the kind's icon and word, then the title; "private diary entry" for `visibility: "private"` (no words); an untitled notice shows its `text` (clipped by CSS, never cut in the string); `staged: true` (forms at the visit's close, `record_id` null) adds "forming…"; hint and caption cards show none. `onNoticeOpen?(notice, message)` on the card (through `messageProps` in `ChatThread` / `WorkflowChat`) lets the host open what a badge names, e.g. the record by `record_id`; return `false` when it opened nothing and the badge opens its own panel (title and words, whole; Escape closes it and refocuses the badge). `projectReplayView` carries a view answer message's `notices` (`ReplayViewMessage.notices`) and `WorkflowSessionController` a session turn row's and a ledger ANSWER_USER payload's. `chatNoticesOf(value)` (only objects with a `kind`), `chatNoticeView(notice, index?) → ChatNoticeView`, `ChatNoticeBadges({notices, onOpen?, className?})`, `CHAT_NOTICE_WORDS`, `CHAT_NOTICE_KINDS`; types `ChatNotice`, `ChatNoticeKind`, `ChatNoticeView`, `ChatNoticeBadgesProps`. The kit never reads a marker out of the text. See the [README](../panel-chat/README.md#what-a-reply-kept)
 - Avatar view (0.8.0, backlog 1097): `AvatarConversation` (and `WorkflowChat` with `avatarConversation`) shows the avatar, one live line (the latest public update of the turn, with **Reply to this** and **Latest**) and a **Findings** panel. Pure models: `conversationLive(messages, { pinnedRequest? })` → `ConversationLive` (`line`, `answers`, `personKey`), `conversationFindings(messages)` → `ConversationFinding[]`, `conversationReply(text, context, currentRunId, allowedSourceRunIds?)`. `PublicUpdate.kind` is `"progress"` or `"finding"` (absent = progress). Removed in 0.8.0: `conversationPages` and `conversationLabel`. See [`panel-chat/README.md`](../panel-chat/README.md#messages-from-the-replay-view).
 - Automations: `ScheduleThisAction` (a "Schedule this…" header action) and `FromAutomationBadge` (a "from automation <title> · #<n>" marker); listed with their types in [Automations: Exports](./automations.md#exports)
 - `presentInteraction(wait, controller, { records?, currentRun?, sessionPolicy?, onDefer?, allowSkip? })` — the one mapping from a runtime wait (`workflowPendingInteraction(snapshot)`) to the `WorkflowChat` `interaction` control: tool approval (the calls in words, full arguments behind the "Review full tool arguments (JSON)" disclosure; exactly **Deny** / **Allow** / **Allow All** (0.9.0, operator ruling 2026-11-07): with `sessionPolicy: true` and a controller in gateway mode, Allow keeps this request's tools and Allow All every tool for the rest of this session on the gateway's session tool policy; otherwise Allow answers this request only, one line says so, and Allow All is not offered; nothing writes the app's default tool settings; "Decide later" only with `onDefer`), question (`ask_user`, choices as buttons and free text; "Continue without answering" with `allowSkip` resumes with an empty answer, "Keep waiting" with `onDefer`) and event wait (routed with `resolveWorkflowEventTarget`, refused when unroutable); subworkflow waits are `null`. The first argument may also be a `ReplayInteraction` (the shape of `replay_view_v1.interaction`) — it produces the same control as the raw wait (`isReplayInteraction()`, `replayInteractionWait()`); a wait that carries the view's `command` (`WorkflowWaitInteraction.command`, `kind`) and is an event is answered with `controller.answerEvent(payload, target)` (the view's resume command), never through an event route. Removed in 0.9.0: `onPermissionsAll`, `approveAllScope`, `onAllowForSession`, `approveAllDisabledReason`, `remember`, `sessionPolicy: {toolsetOf, ask, maxRiskRank}`. Types `PresentInteractionOptions`, `InteractionController` (needs `approve`, `resume`, `emitEvent`; optional `approveToolsForSession`, `approveAllForSession`, `sessionPolicyStatus`, `answerEvent`), `ReplayInteraction`
@@ -2764,7 +2775,7 @@ Renderers:
 - `JsonViewer` (collapsible tree; honors `collapseAfterDepth`; auto-parses JSON strings)
 
 Types:
-- `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`; optional `author: ChatAuthor | null` names who wrote the turn; optional `live: ChatLiveReply` (`callId`, `reasoning`, `caption?`) marks a reply still being streamed; `kind?` and `artifactIds?` carry a `replay_view_v1.messages[]` item's kind and `artifact_ids`, see the [README mapping](../panel-chat/README.md#messages-from-the-replay-view)), `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
+- `ChatMessage` (message model rendered by `ChatThread` and `ChatMessageCard`; optional `author: ChatAuthor | null` names who wrote the turn; optional `notices: ChatNotice[]` lists what the turn kept (badges under the reply); optional `live: ChatLiveReply` (`callId`, `reasoning`, `caption?`) marks a reply still being streamed; `kind?` and `artifactIds?` carry a `replay_view_v1.messages[]` item's kind and `artifact_ids`, see the [README mapping](../panel-chat/README.md#messages-from-the-replay-view)), `ChatLiveReply`, `ChatAttachment`, `ChatMessageLevel`, `ChatStat` (see `panel-chat/src/chat_message_card.tsx`)
 - `ChatMedia` (0.5.0, backlog 0031): `kind` is `"image" | "audio" | "video" | "file"`; a `"file"` (`name`, `contentType`, `size?`, `text?` for text kinds) opens in the shared `AfFileViewer` inline behind **Open** (nothing loads before) or in the host's `onOpenMedia`; audio takes `transcript?` (speech-to-text, shown as a collapsible **Transcript** caption); music rides on audio. `WorkflowTransport.resolveArtifact?(runId, artifactId, signal?) → ResolvedArtifact` (`{src, contentType, name?, size?}`, the host reads `GET runs/{id}/artifacts/{artifact_id}` and `/content`) with `chatMediaFromArtifact(resolved, extra?)` (image/audio/video inline, everything else a file; its raw link is the host's `href` — pass the gateway's sandboxed content URL — or the object URL for an allowlist of inert types only, always as a download link (concrete subtypes, no wildcard; never HTML/SVG/XML/XSL or an unlisted type; `contentType` must be the Blob's type): `fileRawLink()`, `objectUrlRawLinkSafe()`, `isLocalObjectUrl()`; SVG never rendered) and `chatMediaForArtifacts(runId, ids, resolve)` (rejects when one cannot be resolved). The controller does not yet fold `$artifact` refs or generated-media ledger events into `message.media` itself
 
 Utilities:
@@ -3014,7 +3025,7 @@ flowchart LR
     MEM["@abstractframework/monitor-memory"]
   end
 
-  CHAT -->|"peer dep ^0.9.15<br/>(Icon, AfFileViewer, AfDrawer, drawer-system panels,<br/>session tool-policy client types)"| UIKIT
+  CHAT -->|"peer dep ^0.9.27<br/>(Icon, AfFileViewer, AfDrawer, drawer-system panels,<br/>ActivityAvatar, session tool-policy client types)"| UIKIT
   AMX -->|"peer dep"| ReactFlow["reactflow (peer dependency)"]
   FLOW -->|"peer dep"| React["react / react-dom (peer dependency)"]
   CHAT -->|"peer dep"| React
@@ -3024,7 +3035,7 @@ flowchart LR
 ```
 
 Evidence:
-- panel-chat imports from `@abstractframework/ui-kit` (for example `Icon` in `panel-chat/src/chat_message_card.tsx`, `AfFileViewer` in `panel-chat/src/file_viewer.tsx`, the session tool-policy types in `panel-chat/src/workflow_runtime.ts`), declared as a peer dependency (`^0.9.15`) in `panel-chat/package.json`. Upgrade the two packages together; the repository's release gate (`scripts/check_cross_dist_types.mjs`) checks that the two built packages agree on the shared client types.
+- panel-chat imports from `@abstractframework/ui-kit` (for example `Icon` in `panel-chat/src/chat_message_card.tsx`, `AfFileViewer` in `panel-chat/src/file_viewer.tsx`, the session tool-policy types in `panel-chat/src/workflow_runtime.ts`), declared as a peer dependency (`^0.9.27`) in `panel-chat/package.json`. Upgrade the two packages together; the repository's release gate (`scripts/check_cross_dist_types.mjs`) checks that the two built packages agree on the shared client types.
 - `monitor-active-memory/package.json` declares `reactflow` (and `react` / `react-dom`) as peer dependencies.
 
 ## Design rules: one component per job (ADR 0001)
@@ -5773,7 +5784,7 @@ the [Adoption guide](../docs/adoption-guide.md)).
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` `^0.9.15` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.8.1 needs ui-kit `^0.9.13` (AbstractUIC 0.10.1 ships ui-kit 0.9.14).
+- `@abstractframework/ui-kit` `^0.9.27` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `ActivityAvatar` for an author's orb, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.9.11 needs ui-kit `^0.9.27` (AbstractUIC 0.10.19 ships ui-kit 0.9.27).
 
 ## Install
 
@@ -7360,7 +7371,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.10.18",
+  "version": "0.10.19",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -7465,7 +7476,7 @@ npm test
 
 {
   "name": "@abstractframework/panel-chat",
-  "version": "0.9.10",
+  "version": "0.9.11",
   "description": "The chat surface for AbstractFramework apps on AbstractGateway: workflow chat with live replies, questions and approvals, a chat's tool policy on the gateway, attachments and generated media, the Docs assistant, and Markdown/JSON rendering.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -17641,6 +17652,132 @@ export function chatAuthorView(author: ChatAuthor | null | undefined, title?: st
   };
 }
 
+## panel-chat/src/chat_notices.ts
+
+/**
+ * What a reply formed, shown as badges under its words (AbstractRuntime turn notices,
+ * 2026-11-09). The runtime serves the reply WITHOUT its bracket markers
+ * ("[kept in diary - …]", "[learned: "…"]") and, beside it, a structured list:
+ *
+ *   [{kind: "diary"|"question"|"lesson"|"interest"|"realization",
+ *     record_id: <graph id of the formed record> | null,
+ *     title: <as formed; "" while it is still being written>,
+ *     text?: <his words, whole>,
+ *     visibility?: "private",        a private diary entry: title "" and no words
+ *     staged?: true}]                a visit-lane election that forms at the visit's close
+ *                                    (record_id null until then)
+ *
+ * The kit never reads a marker out of the text: a badge exists only for a served notice.
+ * This module is pure (no DOM, no React): `chatNoticesOf` reads a served list, `chatNoticeView`
+ * says what one badge shows. `ChatNoticeBadges` (chat_notice_badges.tsx) renders the row.
+ */
+import type { IconName } from "@abstractframework/ui-kit";
+
+/** The kinds the runtime serves today. Another kind still renders, with its own word. */
+export type ChatNoticeKind = "diary" | "question" | "lesson" | "interest" | "realization";
+
+/** One structured turn notice, as served (snake_case kept: the host hands it back to its gateway). */
+export type ChatNotice = {
+  kind: ChatNoticeKind | (string & {});
+  /** The graph id of the formed record; null while it is staged for the visit's close. */
+  record_id: string | null;
+  /** The title as formed ("" while it is still being written, and for a private entry). */
+  title: string;
+  /** His words, whole (absent for a private entry and for most diary entries). */
+  text?: string;
+  /** "private": a private diary entry; it carries no words. */
+  visibility?: string;
+  /** A visit-lane lesson, interest or realization that forms at the visit's close. */
+  staged?: boolean;
+};
+
+export const CHAT_NOTICE_KINDS: readonly ChatNoticeKind[] = ["diary", "question", "lesson", "interest", "realization"];
+
+const ICONS: Record<ChatNoticeKind, IconName> = {
+  diary: "book",
+  question: "chat",
+  lesson: "check",
+  interest: "activity",
+  realization: "sparkle",
+};
+
+/** The words for the badge's own sentences (exported so hosts and checks use the same ones). */
+export const CHAT_NOTICE_WORDS = {
+  group: "Kept from this reply",
+  private: "private diary entry",
+  staged: "forming…",
+  privateNote: "A private diary entry: its words are not shown in the conversation.",
+  stagedNote: "Forming: it is kept when the visit closes.",
+  close: "Close",
+} as const;
+
+/**
+ * The notices of a served list (a reply's `notices` / `reply_notices`): only notice-shaped
+ * items (an object with a `kind`), the runtime's own rule (`history_bundle.turn_notices_of`); a
+ * list of plain strings (an operator log) is not this list. Fields are copied as served, never
+ * derived from text.
+ */
+export function chatNoticesOf(raw: unknown): ChatNotice[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ChatNotice[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const r = item as Record<string, unknown>;
+    const kind = typeof r.kind === "string" ? r.kind.trim().toLowerCase() : "";
+    if (!kind) continue;
+    const id = typeof r.record_id === "string" && r.record_id.trim() ? r.record_id.trim() : null;
+    const notice: ChatNotice = { kind, record_id: id, title: typeof r.title === "string" ? r.title : "" };
+    if (typeof r.text === "string") notice.text = r.text;
+    if (typeof r.visibility === "string" && r.visibility.trim()) notice.visibility = r.visibility.trim();
+    if (r.staged === true) notice.staged = true;
+    out.push(notice);
+  }
+  return out;
+}
+
+/** What one badge says. */
+export type ChatNoticeView = {
+  key: string;
+  kind: string;
+  /** The kind's word ("diary", "lesson", …). */
+  word: string;
+  icon: IconName;
+  /** After the word: the title; "private diary entry"; else his words (whole; the badge shows
+   *  their first words, the panel all of them); "" = the word alone. */
+  label: string;
+  /** The label is his words (the title is still empty). */
+  fromText: boolean;
+  private: boolean;
+  /** Forms at the visit's close (no record yet). */
+  staged: boolean;
+  /** The badge's accessible name. */
+  ariaLabel: string;
+};
+
+export function chatNoticeView(notice: ChatNotice, index = 0): ChatNoticeView {
+  const kind = String(notice.kind || "").trim().toLowerCase();
+  const known = (CHAT_NOTICE_KINDS as readonly string[]).includes(kind) ? (kind as ChatNoticeKind) : null;
+  const word = known || kind.replace(/_/g, " ");
+  const isPrivate = String(notice.visibility || "").trim().toLowerCase() === "private";
+  const staged = notice.staged === true;
+  const title = String(notice.title || "").trim();
+  const text = typeof notice.text === "string" ? notice.text.trim() : "";
+  const label = isPrivate ? (kind === "diary" ? CHAT_NOTICE_WORDS.private : `private ${word}`) : title || text;
+  const fromText = !isPrivate && !title && Boolean(text);
+  const Word = word.charAt(0).toUpperCase() + word.slice(1);
+  return {
+    key: `${index}:${kind}:${notice.record_id || ""}`,
+    kind,
+    word,
+    icon: isPrivate ? "lock" : known ? ICONS[known] : "info",
+    label,
+    fromText,
+    private: isPrivate,
+    staged,
+    ariaLabel: `${Word}${label ? `: ${label}` : ""}${staged ? ` (${CHAT_NOTICE_WORDS.staged})` : ""}`,
+  };
+}
+
 ## panel-chat/src/chat_message_card.tsx
 
 import {MessageArtifactChip, type MessageArtifact} from "./message_artifacts.js";
@@ -23935,7 +24072,11 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## [Unreleased]
+## 0.10.19 - 2026-11-10
+
+Packages: `@abstractframework/panel-chat` 0.9.11 (from 0.9.10; its `@abstractframework/ui-kit` range stays
+`^0.9.27`). `@abstractframework/ui-kit` stays 0.9.27; other packages retain their versions. Apps that vendor
+panel-chat (`src/vendor/abstractchat`) re-sync from the 0.9.11 build.
 
 ### Added
 
@@ -23947,15 +24088,15 @@ ships.
   an untitled one shows the first words of its text (never cut in the string); a staged one (formed at the visit's
   close, `record_id` null) reads "forming…". A click goes to the host (`onNoticeOpen(notice, message)`, e.g. the
   record's detail by `record_id`; return `false` when nothing opened); without it the badge opens a small panel with
-  the title and the words, whole. Keyboard reachable, wraps at phone width, kit tokens. Hint and caption cards show
-  no badges. `projectReplayView` carries a view answer message's `notices` (`ReplayViewMessage.notices`), and
+  the title and the words, whole, brought into view inside the thread (never by scrolling the page). Keyboard
+  reachable, wraps at phone width, kit tokens. Hint and caption cards show no badges. `projectReplayView` carries a view answer message's `notices` (`ReplayViewMessage.notices`), and
   `WorkflowSessionController` a session turn row's and a ledger ANSWER_USER payload's, so apps that render the
   replay view through the kit show the badges with no host change. Pure helpers `chatNoticesOf` (only objects with a
-  `kind`: a list of plain strings, the operator's log, is not notices) and `chatNoticeView`; `CHAT_NOTICE_WORDS`,
-  `CHAT_NOTICE_KINDS`; types `ChatNotice`, `ChatNoticeKind`, `ChatNoticeView`, `ChatNoticeBadgesProps` (package and
-  the vendored `conversation` entry). The kit reads no marker out of text. Check: `scripts/check_notices.mjs` (in
-  `npm test`, 81 checks; 16 mutants red). `transcript.css` regenerated (the badges are in the transcript slice).
-  Publishing this needs a panel-chat patch past 0.9.10 (0.9.11).
+  `kind`: a list of plain strings, the operator's log, is not notices) and `chatNoticeView`; `CHAT_NOTICE_WORDS`;
+  types `ChatNotice`, `ChatNoticeKind`, `ChatNoticeView`, `ChatNoticeBadgesProps` (package and the vendored
+  `conversation` entry); `CHAT_NOTICE_KINDS` (package entry only). The kit reads no marker out of text. Check:
+  `scripts/check_notices.mjs` (in `npm test`, 81 checks; 16 mutants red). `transcript.css` regenerated (the badges
+  are in the transcript slice).
 
 ## 0.10.18 - 2026-11-09
 
@@ -27029,7 +27170,7 @@ description: Integrate AbstractFramework shared React controls, authenticated ch
 compatibility: Requires @abstractframework/ui-kit 0.9.15 and @abstractframework/panel-chat 0.9.0 or later (their documented exports).
 metadata:
   package: "@abstractframework/ui-kit"
-  package-version: "0.9.20"
+  package-version: "0.9.27"
 ---
 
 # Use AbstractUIC

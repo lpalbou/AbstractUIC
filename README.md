@@ -11,6 +11,15 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
 
+## What's new in 0.10.19
+
+`@abstractframework/panel-chat` 0.9.11 (needs ui-kit `^0.9.27`): a reply shows what it kept as badges under its words
+(`ChatMessage.notices`, `ChatNoticeBadges`, `onNoticeOpen`): a diary entry, a question, a lesson, an interest or a
+realization, served beside the reply by AbstractRuntime ([What a reply kept](./panel-chat/README.md#what-a-reply-kept)).
+`@abstractframework/ui-kit` 0.9.27 with panel-chat 0.9.10 (0.10.18) added `@` mentions in the composer, who answered on
+each reply (`ChatMessage.author`) and the shared `IterationLimitField`. Changes since 0.10.9 are in the
+[changelog](./CHANGELOG.md#01019---2026-11-10).
+
 ## What's new in 0.10.9
 
 `@abstractframework/panel-chat` 0.9.2: the session-policy sentence ("Allowed by this chat's policy ...") sits directly
