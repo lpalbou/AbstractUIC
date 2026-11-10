@@ -121,7 +121,8 @@ owns submission, attachments and failed-send recovery.
 ### Mentioning entities and agents
 
 Pass `mentionCandidates(query)` and the composer lets the person mention someone by name:
-typing `@` opens a list of the names your host returns, and a pick becomes a chip. The kit
+typing `@` opens a list of the names your host returns, and a pick puts a chip in the text, where
+the typed `@query` was ("Hi @Castor how are you doing ?"). The kit
 sends nothing itself; your host posts each mention (on AbstractGateway,
 `POST /api/gateway/sessions/{session_id}/mentions`, one at a time, in `index` order) and writes
 the sentences the composer shows. Without `mentionCandidates` the composer has no list and no
@@ -132,9 +133,9 @@ itself, and hands them to `onSend(draft, {signal, mentions})` and `steer.onSteer
 | `ChatComposer` prop | What it does |
 |---|---|
 | `mentionCandidates?: (query) => Promise<ChatMentionCandidate[]>` | The names to offer for the text typed after `@` (for example the entities `GET /api/gateway/entities` returns for the account). It is called as the person types, so cache the source in the host. |
-| `mentions?: ChatMention[]`, `onMentionsChange?(mentions)` | Controlled chips. Omit `mentions` to let the composer keep them. |
-| `onSend?: (send: ChatComposerSend) => void \| Promise<unknown>` | Send with the picks: `{text, mentions: [{id, name, kind, index}]}`, `text` exactly as typed, `mentions` in pick order, `index` the gateway's `mention_index` (0, 1, …). Wins over `onSubmit`. |
-| `mentionNotice?(candidate) => string \| null` | The sentence shown under a chip the first time its name is picked in this conversation, such as "Castor will read this conversation's history." |
+| `mentions?: ChatMention[]`, `onMentionsChange?(mentions)` | Controlled chips, each with `start` (where its "@Name" sits in `value`), reported in text order after every edit. Omit `mentions` to let the composer keep them. |
+| `onSend?: (send: ChatComposerSend) => void \| Promise<unknown>` | Send with the picks: `{text, mentions: [{id, name, kind, index, start}]}` (see **The serialization** below). Wins over `onSubmit`. |
+| `mentionNotice?(candidate) => string \| null` | The sentence shown above the field the first time a name is picked in this conversation, while its chip is in the text, such as "Castor will read this conversation's history." |
 | `mentionSessionKey?: string` | The conversation that "first time" counts in (the session id); a new key starts over. |
 | `mentionStatus?: string \| null` | Your sentence about the last mentions sent ("Castor is in another conversation."), shown above the field until you clear it. |
 | `mentionsUnavailable?: string \| null` | Your sentence when mentions cannot be used here, such as "This gateway does not offer mentions yet." Typing `@` then shows it instead of names, no new chip can be picked, and chips picked earlier are not sent. |
@@ -151,9 +152,38 @@ it reads "Looking for names…" and Enter waits instead of sending the typed `@�
 reads "The names could not be loaded.", "No name matches “cas”.", "No one to mention here." or, when
 every match is already a chip, "Already mentioned."
 
-**Chips.** A pick replaces the typed `@query` with a chip bound to that candidate (`@Castor`, with
-Remove), never editable text, and each name is one chip. An `@` that was not picked stays plain
-text: the kit never reads `@` out of the text on send.
+**Chips, in the text.** A pick replaces the typed `@query` with the chip's text, `@` + the name
+(`@Castor`), followed by one space unless one follows already, and binds a chip to it: the name on
+an accent pill with the entity's orb (or the agent's mark) over the `@`, no ×. Each name is one chip
+per message. Typing goes on around it. Backspace just after a chip (Delete just before one) removes
+it whole; typing over or deleting a selection that cuts into one removes it; deleting a letter
+inside one (a phone keyboard's word edit) turns it to plain text. The caret steps over a chip and a
+selection takes it whole. Undo and redo bring a chip back with its words. A copy that holds chips
+puts them on the clipboard beside the plain text (`MENTION_CLIPBOARD_TYPE`); pasting that copy in a
+composer brings them back. Any other text, an `@castor` typed or pasted from elsewhere included,
+stays plain text: the kit never reads `@` out of the text. The field's accessible description
+names each chip ("mention: Castor"); the host's notices stay above the field.
+
+How it is drawn: the field stays a `<textarea>` (native typing, IME, undo, paste as plain text,
+Enter and Shift+Enter, mobile keyboards, auto-grow and max height). While chips are in the text its
+glyphs are transparent (the caret and the selection stay its own) and a pointer-transparent mirror
+over it (`.pc-composer__mirror`), laid out with the field's own text styles, draws the same words
+with each chip in place. A chip therefore takes exactly the width of its `@Name`: host CSS must not
+give `.pc-mention-chip--inline` padding, margin, border or another font weight.
+
+**The serialization.** `onSend` (and `WorkflowChat`'s `ctx.mentions`) carry:
+
+- `text`: the message as shown, each chip written as `@` + its name, for example
+  `"Hi @Castor how are you doing ?"`;
+- `mentions`: the chips in text order, `{id, name, kind, index, start}`: `index` is 0, 1, … (the
+  gateway's `mention_index`), `start` the UTF-16 offset of the chip's `@Name` in `text`, so
+  `text.slice(start, start + name.length + 1) === "@" + name`. An `@name` that was not picked has no
+  entry.
+
+`ChatMention` (a chip in the composer) is the candidate plus `start`. A chip whose `@Name` is not at
+its `start` is not in the message: not drawn, not sent. So a draft the host clears and later
+restores (the words of a failed send) gets its chips back, and the person's next edit drops chips
+whose words are gone.
 
 **What happens to the chips when a send settles.** The chips a send carried are removed once
 `onSend` returns or its promise resolves; a throw or a rejection keeps them all. A send whose
@@ -188,8 +218,11 @@ Here `loadEntityNames`, `matchNames`, `startTurn` and `askMentions` are your hos
 
 Helpers for hosts:
 
-- `mentionSendPayload(text, mentions)` builds the send; `uniqueMentions(mentions)` keeps each name
-  once, the first keeping its place and `index`.
+- `mentionSendPayload(text, mentions)` builds the send (the chips in `text`, in text order, numbered
+  and placed); `uniqueMentions(mentions)` keeps each name once, the first keeping its place and `index`.
+- The chips in the text, DOM-free: `mentionsInText(text, mentions)`, `mentionsAfterEdit(prev, next,
+  mentions, caret?)`, `mentionEditSpan`, `mentionsWithInserted`, `mentionPickEdit`, `mentionAtCaret`,
+  `mentionSelection`, `mentionClipboard` / `mentionsFromClipboard`, `mentionText`, `mentionEnd`.
 - `unsentMentionsOf(settled)` reads `unsentMentions` from a value or an error (null when it names
   none); `mentionsStoppedError(sentence, unsent)` builds that error.
 - `mentionsAfterSend(now, sent, keep?)` returns the chips once a send settled (the send's chips go,

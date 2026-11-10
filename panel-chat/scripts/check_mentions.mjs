@@ -2,7 +2,8 @@
 //  A. pure mention rules (trigger, pick, chip order, send payload) and author labelling;
 //  B. the card's author header, with today's markup pinned when there is no author
 //     (fixture captured from the 0.9.9 card BEFORE the change: scripts/fixtures/chat_card_no_author.json);
-//  C. the composer's list, keyboard, chips, notice and send (hook harness, no DOM);
+//  C. the composer's list, keyboard, chips IN the text (operator 2026-11-10), notice and send
+//     (hook harness, no DOM; the browser half is check_inline_mentions_browser.mjs);
 //  D. WorkflowChat passes the mentions to onSend / onSteer and clears them on success only;
 //     a send that stopped partway keeps only its unsent chips; chips picked during a send stay
 //     (client review 2026-11-09 B1/S1/S6/N1/N3/N4);
@@ -15,7 +16,18 @@ import { mount, findAll, find, textOf } from "./hook_harness.mjs";
 import {
   addMention,
   applyMentionPick,
+  mentionAtCaret,
+  mentionClipboard,
+  mentionEditSpan,
   mentionKey,
+  mentionPickEdit,
+  mentionSelection,
+  mentionsAfterEdit,
+  mentionsFromClipboard,
+  mentionsInText,
+  mentionsWithInserted,
+  mentionText,
+  MENTION_CLIPBOARD_TYPE,
   mentionSendPayload,
   mentionTriggerAt,
   moveMentionActive,
@@ -63,11 +75,50 @@ eq(chips.map((m) => m.id), ["pollux", "castor"], "A13 chips keep the pick order;
 eq(addMention(chips, { ...coder, id: "castor" }).length, 3, "A14 an agent and an entity with one id are two names");
 eq(removeMention(chips, mentionKey(pollux)).map((m) => m.id), ["castor"], "A15 remove drops that chip only");
 eq(
-  mentionSendPayload("ask @bob too", chips),
-  { text: "ask @bob too", mentions: [{ id: "pollux", name: "Pollux", kind: "entity", index: 0 }, { id: "castor", name: "Castor", kind: "entity", index: 1 }] },
-  "A16 the send: text as typed (an unpicked @bob stays text), mentions in order, numbered",
+  mentionSendPayload("Hi @Pollux and @Castor, ask @bob too", [{ ...castor, start: 15 }, { ...pollux, start: 3 }]),
+  { text: "Hi @Pollux and @Castor, ask @bob too", mentions: [{ id: "pollux", name: "Pollux", kind: "entity", index: 0, start: 3 }, { id: "castor", name: "Castor", kind: "entity", index: 1, start: 15 }] },
+  "A16 the send: the text as shown, the chips in TEXT order, index 0, 1 and start (an unpicked @bob stays text)",
 );
 eq(mentionSendPayload("hi", []).mentions, [], "A17 no chip, no mention");
+eq(mentionSendPayload("ask @bob too", chips).mentions, [], "A17b chips not placed in the text (no start) are not sent");
+eq(mentionSendPayload("Hi @Castro", [{ ...castor, start: 3 }]).mentions, [], "A17c a chip whose words changed under it is not sent");
+{
+  // The chips in the text (operator 2026-11-10): "@Name" at `start`.
+  const text = "Hi @Castor and @Pollux";
+  eq(mentionText(castor), "@Castor", "A45 a chip's text is @ + its name");
+  eq(mentionsInText(text, [{ ...pollux, start: 15 }, { ...castor, start: 3 }, { ...castor, start: 3 }]).map((m) => [m.id, m.start]), [["castor", 3], ["pollux", 15]], "A46 in text order, each name once");
+  eq(mentionsInText(text, [{ ...castor, start: 4 }, { ...pollux }, { ...pollux, start: -1 }]), [], "A47 a chip not at its start, or with none, is not in the text");
+  eq(mentionsInText("@Cas@Castor", [{ ...castor, id: "c2", name: "Cas", start: 0 }, { ...castor, start: 4 }]).length, 2, "A48 two chips side by side");
+  eq(mentionEditSpan("x @Castor", "x @@Castor", 3), { start: 2, prevEnd: 2, nextEnd: 3 }, "A49 the caret anchors an insertion: an @ typed before a chip is before it");
+  eq(mentionEditSpan("x @Castor", "x @@Castor"), { start: 3, prevEnd: 3, nextEnd: 4 }, "A50 without the caret the greedy span would land inside it");
+  eq(mentionEditSpan("abc", "abc", 3), { start: 3, prevEnd: 3, nextEnd: 3 }, "A51 no change, an empty span");
+  const at = [{ ...castor, start: 3 }, { ...pollux, start: 15 }];
+  eq(mentionsAfterEdit(text, "Hi! @Castor and @Pollux", at, 3).map((m) => [m.id, m.start]), [["castor", 4], ["pollux", 16]], "A52 typing before a chip moves it");
+  eq(mentionsAfterEdit(text, "Hi @Castorx and @Pollux", at, 11).map((m) => [m.id, m.start]), [["castor", 3], ["pollux", 16]], "A53 typing right after a chip keeps it, the next one moves");
+  eq(mentionsAfterEdit(text, "Hi @Castr and @Pollux", at, 8).map((m) => m.id), ["pollux"], "A54 a letter deleted inside a chip drops it (the rest is plain text)");
+  eq(mentionsAfterEdit(text, "Hi  and @Pollux", at, 3).map((m) => [m.id, m.start]), [["pollux", 8]], "A55 the chip deleted whole");
+  eq(mentionsAfterEdit(text, "Hey and @Pollux", at, 3).map((m) => m.id), ["pollux"], "A56 typed over: gone");
+  eq(mentionsAfterEdit("x @Castor", "x @@Castor", [{ ...castor, start: 2 }], 3).map((m) => m.start), [3], "A57 an @ typed just before a chip: the chip moves, intact");
+  eq(mentionsAfterEdit(text, "Hi @Castor and @Pollux", [{ ...castor, start: 9 }, { ...pollux, start: 15 }], 22).map((m) => m.id), ["pollux"], "A58 only chips that were in the text are carried");
+  eq(mentionsWithInserted("Hi @Castor @Pollux", [{ ...castor, start: 3 }], 11, [{ ...pollux, start: 0 }]).map((m) => [m.id, m.start]), [["castor", 3], ["pollux", 11]], "A59 pasted chips placed where they landed");
+  eq(mentionsWithInserted("@Castor Hi @Castor", [{ ...castor, start: 11 }], 0, [{ ...castor, start: 0 }]).map((m) => [m.id, m.start]), [["castor", 11]], "A60 a pasted second chip of one name stays text");
+  eq(mentionPickEdit("Hi @cas", { start: 3, query: "cas" }, 7, castor), { from: 3, to: 7, insert: "@Castor ", text: "Hi @Castor ", caret: 11 }, "A61 a pick: @Castor where @cas was, one space after");
+  eq(mentionPickEdit("Hi @cas there", { start: 3, query: "cas" }, 7, castor), { from: 3, to: 7, insert: "@Castor", text: "Hi @Castor there", caret: 11 }, "A62 a space already follows: none added, the caret after it");
+  eq([mentionAtCaret(text, at, 10, "before")?.id, mentionAtCaret(text, at, 15, "after")?.id, mentionAtCaret(text, at, 9, "before")], ["castor", "pollux", null], "A63 the chip Backspace / Delete would take");
+  eq(mentionSelection(text, at, 4, 4, 3), { start: 10, end: 10 }, "A64 a step into a chip from its start lands after it");
+  eq(mentionSelection(text, at, 9, 9, 10), { start: 3, end: 3 }, "A65 a step in from its end lands before it");
+  eq([mentionSelection(text, at, 5, 5, 20), mentionSelection(text, at, 8, 8, null)], [{ start: 3, end: 3 }, { start: 10, end: 10 }], "A66 a click inside goes to the nearer edge");
+  eq(mentionSelection(text, at, 1, 6), { start: 1, end: 10 }, "A67 a range that cuts a chip takes it whole");
+  eq(mentionSelection(text, at, 12, 12), { start: 12, end: 12 }, "A68 outside the chips nothing moves");
+  const copied = mentionClipboard(text, at, 0, 13);
+  eq(JSON.parse(copied), { v: 1, text: "Hi @Castor an", mentions: [{ id: "castor", name: "Castor", kind: "entity", avatar: castor.avatar, start: 3 }] }, "A69 a copy carries the chips wholly inside it");
+  eq(mentionClipboard(text, at, 0, 2), null, "A70 no chip inside, nothing extra");
+  eq(mentionsFromClipboard(copied, "Hi @Castor an")?.map((m) => [m.id, m.start, m.avatar?.style]), [["castor", 3, "watch-lotus"]], "A71 a paste of that copy brings its chip");
+  eq([mentionsFromClipboard(copied, "Hi @Castor and more"), mentionsFromClipboard("{bad", "x"), mentionsFromClipboard(null, "x"), mentionsFromClipboard(JSON.stringify({ v: 2, text: "x", mentions: [] }), "x")], [null, null, null, null], "A72 other text, garbage or another version: plain text");
+  eq(mentionsFromClipboard(JSON.stringify({ v: 1, text: "@Castor", mentions: [{ id: "castor", name: "Castor", kind: "robot", start: 0 }, { id: "p", name: "Pollux", kind: "entity", start: 0 }] }), "@Castor"), null, "A73 an unknown kind or a name not at its start brings nothing");
+  ok(MENTION_CLIPBOARD_TYPE === "application/x-abstractframework-mentions+json", "A74 the clipboard type");
+  eq(mentionResend({ text: "x", repeatOf: null, unsent: [] }, "x", [{ id: "castor", name: "Castor", kind: "entity", index: 0, start: 3 }]), [{ id: "castor", name: "Castor", kind: "entity", index: 0, start: 3 }], "A75 a resend keeps where the chip is");
+}
 eq([moveMentionActive(0, 3, 1), moveMentionActive(2, 3, 1), moveMentionActive(0, 3, -1), moveMentionActive(-1, 3, -1), moveMentionActive(0, 0, 1)], [1, 0, 2, 2, -1], "A18 arrows wrap");
 eq(
   usableCandidates([castor, { id: "", name: "x", kind: "entity" }, { id: "y", name: "Y", kind: "robot" }, null, { ...castor }, coder]).map(mentionKey),
@@ -147,6 +198,20 @@ const plain = composerMarkup({});
 eq(composerMarkup({ mentions: [castor], mentionNotice: () => "x" }), plain, "C1 without mentionCandidates the composer is today's (chips and notices ignored)");
 ok(!/pc-mention|aria-autocomplete/.test(plain), "C2 no list, no chip, no autocomplete without the host feed");
 ok(/aria-autocomplete="list"/.test(composerMarkup({ mentionCandidates: async () => [] })), "C3 with the feed the field announces its list");
+{
+  // The chips are IN the text: a mirror over the field draws them where their "@Name" is.
+  const html = composerMarkup({ value: "Hi @Castor and @Basic agent", mentionCandidates: async () => [], mentions: [{ ...castor, start: 3 }, { ...coder, start: 15 }] });
+  ok(/<textarea[^>]*data-mention-overlay=""/.test(html), "C60 chips in the text: the field's glyphs give way to the mirror");
+  ok(/<div class="pc-composer__mirror" aria-hidden="true">Hi <span class="pc-mention-chip pc-mention-chip--inline" data-mention-key="entity:castor" data-mention-kind="entity"><span class="pc-mention-chip__at">@<span class="pc-mention-chip__mark">/.test(html), "C61 the mirror: the words, then the chip in place (its mark over the @)");
+  eq([...html.matchAll(/class="pc-mention-chip__name" data-mention-kind="(\w+)"/g)].map((m) => m[1]), ["entity", "agent"], "C62 each chip's name carries its kind (the markup Code reads)");
+  const mirrorHtml = html.slice(html.indexOf('class="pc-composer__mirror"'), html.indexOf('class="pc-sr-only"'));
+  ok(/<span class="pc-mention-chip__name" data-mention-kind="entity">Castor<\/span><\/span> and <span/.test(mirrorHtml) && /pc-author-mark--agent/.test(mirrorHtml) && !/<button|Remove /.test(mirrorHtml), "C63 the name follows its mark; no x on a chip");
+  const described = html.match(/aria-describedby="([^"]+)"/)[1];
+  ok(html.includes(`<span id="${described}" class="pc-sr-only">mention: Castor, mention: Basic agent</span>`), "C64 the field's description names each chip (\"mention: Castor\")");
+  const none = composerMarkup({ value: "Hi @Castor", mentionCandidates: async () => [], mentions: [{ ...castor, start: 4 }] });
+  ok(!/pc-composer__mirror|data-mention-overlay|aria-describedby/.test(none), "C65 a chip not at its place in the text: no mirror, the field as always");
+  ok(/aria-describedby="host-help [^"]+"/.test(composerMarkup({ value: "@Castor", ariaDescribedBy: "host-help", mentionCandidates: async () => [], mentions: [{ ...castor, start: 0 }] })), "C66 the host's description comes first");
+}
 
 const keyEvent = (key, extra = {}) => {
   const e = { key, shiftKey: false, ctrlKey: false, metaKey: false, keyCode: 0, nativeEvent: { isComposing: false }, prevented: false, stopped: false, ...extra };
@@ -155,22 +220,24 @@ const keyEvent = (key, extra = {}) => {
   return e;
 };
 function composerHarness(extra = {}) {
-  const log = { queries: [], sends: [], submits: 0, changes: [] };
+  const log = { queries: [], sends: [], submits: 0, changes: [], chips: [] };
   const props = {
     value: "",
     onChange: (v) => { log.changes.push(v); h.rerender({ value: v }); },
     onSubmit: () => { log.submits += 1; },
+    onMentionsChange: (next) => { log.chips.push(next); },
     mentionCandidates: async (q) => { log.queries.push(q); return [castor, pollux, coder].filter((c) => c.name.toLowerCase().startsWith(q.toLowerCase())); },
     ...extra,
   };
   const h = mount((p) => ChatComposer.render(p, null), props);
   const field = () => find(h.tree, (n) => n.type === "textarea");
-  const type = (value) => { field().props.onChange({ target: { value, selectionStart: value.length } }); };
+  // An edit as the browser reports it: the new value, the caret after it, and its input type.
+  const type = (value, caret = value.length, inputType = "insertText") => { field().props.onChange({ target: { value, selectionStart: caret, selectionEnd: caret }, nativeEvent: { inputType } }); };
   const focus = () => field().props.onFocus({ currentTarget: { selectionStart: field().props.value.length } });
   const options = () => findAll(h.tree, (n) => n.props && n.props.role === "option");
   const key = (k, x) => { const e = keyEvent(k, x); field().props.onKeyDown(e); h.render(); return e; };
-  const chipsOf = () => findAll(h.tree, (n) => n.props && typeof n.props.className === "string" && n.props.className.includes("pc-mention-chip") && n.props.tone === "accent");
-  const notices = () => findAll(h.tree, (n) => n.props && typeof n.props.className === "string" && n.props.className.startsWith("pc-mention-notice")).map((n) => textOf(n));
+  const chipsOf = () => findAll(h.tree, (n) => n.props && typeof n.props.className === "string" && n.props.className.includes("pc-mention-chip--inline")).map((n) => n.props["data-mention-key"]);
+  const notices = () => findAll(h.tree, (n) => n.props && typeof n.props.className === "string" && n.props.className.startsWith("pc-mention-notice ") || (n.props && n.props.className === "pc-mention-notice")).map((n) => textOf(n));
   return { h, log, field, type, focus, options, key, chipsOf, notices };
 }
 {
@@ -197,22 +264,23 @@ function composerHarness(extra = {}) {
   e = c.key("Enter");
   ok(e.prevented, "C11 Enter picks (does not send)");
   eq(c.log.sends.length, 0, "C12 nothing was sent by the pick");
-  eq(c.log.changes.at(-1), "ask ", "C13 the typed @ is replaced by the chip");
-  eq(c.chipsOf().map((n) => n.key), ["entity:pollux"], "C14 the picked name is a chip");
+  eq(c.log.changes.at(-1), "ask @Pollux ", "C13 the typed @ becomes the chip's @Pollux, in the text, one space after");
+  eq(c.chipsOf(), ["entity:pollux"], "C14 the picked name is a chip, in the text");
+  eq(c.log.chips.at(-1).map((m) => [m.id, m.start]), [["pollux", 4]], "C14b onMentionsChange: the chip and where it sits");
   eq(c.options().length, 0, "C15 the list closes after a pick");
-  c.type("ask @ca");
+  c.type("ask @Pollux @ca");
   await c.h.settle();
   e = c.key("Tab");
-  ok(e.prevented && c.chipsOf().length === 2, "C16 Tab picks too");
-  c.type("ask both @bob");
+  ok(e.prevented && c.chipsOf().length === 2 && c.field().props.value === "ask @Pollux @Castor ", "C16 Tab picks too");
+  c.type("ask @Pollux @Castor both @bob");
   await c.h.settle();
   eq(c.options().length, 0, "C17 no match, no option");
   ok(textOf(find(c.h.tree, (n) => n.props && n.props.className === "pc-mention-empty")).includes("No name matches"), "C18 the empty list says so in words");
   e = c.key("Enter");
-  eq(c.log.sends, [{ text: "ask both @bob", mentions: [{ id: "pollux", name: "Pollux", kind: "entity", index: 0 }, { id: "castor", name: "Castor", kind: "entity", index: 1 }] }], "C19 Enter sends: text as typed (@bob stays text), chips in order");
+  eq(c.log.sends, [{ text: "ask @Pollux @Castor both @bob", mentions: [{ id: "pollux", name: "Pollux", kind: "entity", index: 0, start: 4 }, { id: "castor", name: "Castor", kind: "entity", index: 1, start: 12 }] }], "C19 Enter sends: the text as shown, the chips in text order (@bob stays text)");
   eq(c.log.submits, 0, "C20 onSend wins over onSubmit");
   await c.h.settle();
-  eq(c.chipsOf().length, 0, "C21 uncontrolled chips clear after a send");
+  eq(c.chipsOf(), [], "C21 uncontrolled chips clear after a send (the draft is the host's)");
 }
 {
   const c = composerHarness();
@@ -237,7 +305,7 @@ function composerHarness(extra = {}) {
   c.h.render();
   await c.h.settle();
   c.key("Enter");
-  ok(c.chipsOf().length === 1, "C28 back in the field the list is there to pick from");
+  ok(c.chipsOf().length === 1 && c.field().props.value === "@c @Castor ", "C28 back in the field the list is there to pick from");
   c.type("hello");
   c.key("Enter");
   eq(c.log.submits, 1, "C29 without onSend, Enter is today's onSubmit");
@@ -248,7 +316,7 @@ function composerHarness(extra = {}) {
   failing.type("@");
   await failing.h.settle();
   failing.key("Enter");
-  failing.type("hi");
+  failing.type("@Castor hi");
   // The composer's own derived promise rejects (visible as an unhandled rejection); swallow it here.
   const unhandled = [];
   const onUnhandled = (r) => unhandled.push(r);
@@ -274,8 +342,8 @@ function composerHarness(extra = {}) {
   await slow.h.settle();
   slow.key("Enter");
   eq([slow.chipsOf().length, slow.log.sends.length], [1, 0], "C48 once loaded, Enter picks");
-  // N4: a name already picked is not offered again (its pick would only eat the typed @…).
-  slow.type("@ca");
+  // N4: a name already in the text is not offered again.
+  slow.type("@Castor @ca");
   await slow.h.settle();
   release?.();
   await slow.h.settle();
@@ -291,20 +359,20 @@ function composerHarness(extra = {}) {
   c.type("@cas");
   await c.h.settle();
   c.key("Enter");
-  c.type("hi");
+  c.type("@Castor hi");
   c.key("Enter");
-  c.type("@pol");
+  c.type("@Castor hi @pol");
   await c.h.settle();
   c.key("Enter");
-  eq(c.chipsOf().map((n) => n.key), ["entity:castor", "entity:pollux"], "C51 Pollux picked while the send is in flight");
+  eq(c.chipsOf(), ["entity:castor", "entity:pollux"], "C51 Pollux picked while the send is in flight");
   finish();
   await c.h.settle();
-  eq(c.chipsOf().map((n) => n.key), ["entity:pollux"], "C52 the send's chip goes, the new one stays");
-  c.type("again");
+  eq(c.log.chips.at(-1).map((m) => m.id), ["pollux"], "C52 the send's chip goes, the new one stays");
+  c.type("@Castor hi @Pollux again");
   c.key("Enter");
   finish({ unsentMentions: [{ id: "pollux", name: "Pollux", kind: "entity", index: 0 }] });
   await c.h.settle();
-  eq(c.chipsOf().map((n) => n.key), ["entity:pollux"], "C53 a resolved partial stop keeps the unsent chip it names");
+  eq(c.chipsOf(), ["entity:pollux"], "C53 a resolved partial stop keeps the unsent chip it names");
 }
 {
   let sentence = 0;
@@ -314,17 +382,16 @@ function composerHarness(extra = {}) {
   await c.h.settle();
   c.key("Enter");
   eq(c.notices(), ["Castor will read this conversation's history"], "C32 first pick of a name: the host's sentence");
-  const chip = c.chipsOf()[0];
-  eq(chip.props.removeLabel, "Remove Castor", "C33 the chip is removable, by name");
-  chip.props.onRemove();
+  ok(!find(c.h.tree, (n) => n.props && (n.props.onRemove || /^Remove /.test(String(n.props["aria-label"] || "")))), "C33 a chip has no x: it goes as its words go");
+  c.type("", 0, "deleteContentBackward");
   c.h.render();
-  eq([c.chipsOf().length, c.notices().length], [0, 0], "C34 removing the chip removes its notice");
+  eq([c.chipsOf().length, c.notices().length], [0, 0], "C34 deleting the chip's words removes the chip and its notice");
   c.type("@cas");
   await c.h.settle();
   c.key("Enter");
   eq([c.chipsOf().length, c.notices().length, sentence], [1, 0, 1], "C35 a second pick in the same conversation: no notice again");
   c.h.rerender({ mentionSessionKey: "s2" });
-  c.chipsOf()[0].props.onRemove();
+  c.type("", 0, "deleteContentBackward");
   c.h.render();
   c.type("@cas");
   await c.h.settle();
@@ -332,12 +399,81 @@ function composerHarness(extra = {}) {
   eq(c.notices().length, 1, "C36 a new conversation shows it again");
 }
 {
-  let controlled = [castor];
-  const c = composerHarness({ mentions: controlled, onMentionsChange: (next) => { controlled = next; c.h.rerender({ mentions: next }); }, disabled: true });
-  ok(c.chipsOf().length === 1 && c.chipsOf()[0].props.onRemove === undefined, "C37 controlled chips render; a disabled composer cannot remove them");
+  let controlled = [{ ...castor, start: 3 }];
+  const c = composerHarness({ value: "Hi @Castor", mentions: controlled, onMentionsChange: (next) => { controlled = next; c.h.rerender({ mentions: next }); }, disabled: true });
+  ok(c.chipsOf().length === 1, "C37 controlled chips render in the text");
   c.h.rerender({ disabled: false });
-  c.chipsOf()[0].props.onRemove();
-  eq(controlled, [], "C38 controlled: removal goes through onMentionsChange");
+  c.type("Hi @Castor and you", 18);
+  eq(controlled.map((m) => [m.id, m.start]), [["castor", 3]], "C38 controlled: an edit around the chip keeps it");
+  c.type("Hey @Castor and you", 2);
+  eq(controlled.map((m) => [m.id, m.start]), [["castor", 4]], "C38b moved with the text, through onMentionsChange");
+  c.type("Hey @Cstor and you", 6, "deleteContentBackward");
+  eq(controlled, [], "C38c a letter deleted inside it: the chip goes, the rest is plain text");
+  // An undo that brings its words back brings the chip back.
+  c.type("Hey @Castor and you", 11, "historyUndo");
+  eq(controlled.map((m) => [m.id, m.start]), [["castor", 4]], "C38d undo restores the chip with its words");
+  c.type("Hey @Cstor and you", 6, "historyRedo");
+  eq(controlled, [], "C38e redo takes it again");
+}
+{
+  // Backspace just after a chip selects it whole (the key's own deletion removes it); Delete before.
+  const c = composerHarness({ value: "Hi @Castor x", mentions: [{ ...castor, start: 3 }], onMentionsChange() {} });
+  const target = (at) => ({ value: "Hi @Castor x", selectionStart: at, selectionEnd: at, set: null, setSelectionRange(a, b) { this.set = [a, b]; } });
+  const back = target(10);
+  c.key("Backspace", { currentTarget: back });
+  eq(back.set, [3, 10], "C54 Backspace after a chip selects it whole");
+  const del = target(3);
+  c.key("Delete", { currentTarget: del });
+  eq(del.set, [3, 10], "C55 Delete before it too");
+  const away = target(11);
+  c.key("Backspace", { currentTarget: away });
+  eq(away.set, null, "C56 elsewhere Backspace is the browser's own");
+  const composing = target(10);
+  c.key("Backspace", { currentTarget: composing, nativeEvent: { isComposing: true } });
+  eq(composing.set, null, "C57 never while composing");
+}
+{
+  // A typed "@Castor" that was never picked is text; the "@" of a chip opens no list.
+  const sends = [];
+  const c = composerHarness({ onSend: (p) => void sends.push(p) });
+  c.focus();
+  c.type("ping @Castor");
+  await c.h.settle();
+  c.key("Escape");
+  c.key("Enter");
+  eq(sends.at(-1), { text: "ping @Castor", mentions: [] }, "C58 an unpicked @Castor is text");
+  const d = composerHarness({ value: "Hi @Castor", mentions: [{ ...castor, start: 3 }] });
+  d.focus();
+  d.field().props.onSelect({ currentTarget: { value: "Hi @Castor", selectionStart: 10, selectionEnd: 10, setSelectionRange() {} } });
+  await d.h.settle();
+  ok(!find(d.h.tree, (n) => n.props && n.props.className === "pc-mention-popover"), "C59 the caret just after a chip opens no list");
+}
+{
+  // Copy / paste: only chips this composer copied come back as chips.
+  const clip = (data = {}) => ({ data: { ...data }, getData(t) { return this.data[t] ?? ""; }, setData(t, v) { this.data[t] = v; } });
+  const ev = (clipboardData, field) => { const e = { clipboardData, currentTarget: field, defaultPrevented: false }; e.preventDefault = () => { e.defaultPrevented = true; }; return e; };
+  const c = composerHarness({ value: "Hi @Castor x", mentions: [{ ...castor, start: 3 }] });
+  const copy = ev(clip(), { value: "Hi @Castor x", selectionStart: 0, selectionEnd: 10 });
+  c.field().props.onCopy(copy);
+  ok(copy.defaultPrevented && copy.clipboardData.data["text/plain"] === "Hi @Castor" && JSON.parse(copy.clipboardData.data[MENTION_CLIPBOARD_TYPE]).mentions[0].start === 3, "C67 a copy holding a chip carries it beside the plain words");
+  const plainCopy = ev(clip(), { value: "Hi @Castor x", selectionStart: 11, selectionEnd: 12 });
+  c.field().props.onCopy(plainCopy);
+  ok(!plainCopy.defaultPrevented, "C68 a copy without chips is the browser's own");
+  const p = composerHarness();
+  p.focus();
+  p.type("Re: ");
+  const paste = ev(clip({ "text/plain": "Hi @Castor", [MENTION_CLIPBOARD_TYPE]: copy.clipboardData.data[MENTION_CLIPBOARD_TYPE] }), { value: "Re: ", selectionStart: 4, selectionEnd: 4 });
+  p.field().props.onPaste(paste);
+  p.h.render();
+  ok(paste.defaultPrevented && p.field().props.value === "Re: Hi @Castor", "C69 pasting that copy types its words in");
+  eq(p.log.chips.at(-1).map((m) => [m.id, m.start]), [["castor", 7]], "C70 and its chip, where it landed");
+  const plainPaste = ev(clip({ "text/plain": " and @Pollux" }), { value: "Re: Hi @Castor", selectionStart: 14, selectionEnd: 14 });
+  p.field().props.onPaste(plainPaste);
+  ok(!plainPaste.defaultPrevented && p.chipsOf().length === 1, "C71 plain text with @Pollux: the browser's plain paste, no chip");
+  const files = composerHarness({ onPaste: (e) => e.preventDefault() });
+  const hostPaste = ev(clip({ "text/plain": "Hi @Castor", [MENTION_CLIPBOARD_TYPE]: copy.clipboardData.data[MENTION_CLIPBOARD_TYPE] }), { value: "", selectionStart: 0, selectionEnd: 0 });
+  files.field().props.onPaste(hostPaste);
+  eq([files.log.changes.length, files.chipsOf().length], [0, 0], "C72 the host's onPaste runs first and its preventDefault (pasted files) keeps the composer out");
 }
 {
   // Older gateway (contract 2026-11-08: no mentions route): the host's one sentence, never silence.
@@ -352,8 +488,8 @@ function composerHarness(extra = {}) {
   eq([c.log.queries.length, c.options().length], [0, 0], "C40 unavailable: the feed is not asked, no name to pick");
   c.key("Enter");
   eq(sends, [{ text: "ask @", mentions: [] }], "C41 unavailable: Enter sends the text as typed");
-  const held = composerHarness({ mentionsUnavailable: NO_ROUTE, mentions: [castor] });
-  ok(held.notices().includes(NO_ROUTE) && held.chipsOf()[0].props.onRemove, "C42 unavailable with chips already picked: the sentence under them, chips still removable");
+  const held = composerHarness({ value: "@Castor hi", mentionsUnavailable: NO_ROUTE, mentions: [{ ...castor, start: 0 }] });
+  ok(held.notices().includes(NO_ROUTE) && held.chipsOf().length === 1, "C42 unavailable with chips already in the text: the sentence above the field, the chips still there");
   const heldSends = [];
   const unsentHeld = composerHarness({ mentionsUnavailable: NO_ROUTE, onSend: (p) => void heldSends.push(p) });
   unsentHeld.h.rerender({ mentionsUnavailable: null });
@@ -362,15 +498,15 @@ function composerHarness(extra = {}) {
   await unsentHeld.h.settle();
   unsentHeld.key("Enter");
   unsentHeld.h.rerender({ mentionsUnavailable: NO_ROUTE });
-  unsentHeld.type("hi");
+  unsentHeld.type("@Castor hi");
   unsentHeld.key("Enter");
   await unsentHeld.h.settle();
-  eq(heldSends, [{ text: "hi", mentions: [] }], "C42b unavailable: a chip picked before is not sent (N3)");
-  eq(unsentHeld.chipsOf().length, 0, "C42c and it clears with the send");
+  eq(heldSends, [{ text: "@Castor hi", mentions: [] }], "C42b unavailable: a chip picked before is not sent (N3)");
+  eq(unsentHeld.log.chips.at(-1), [], "C42c and it clears with the send");
   const status = composerHarness({ mentionStatus: "Castor is in another conversation." });
   eq(textOf(find(status.h.tree, (n) => n.props && n.props.className === "pc-mention-notice pc-mention-notice--status")), "Castor is in another conversation.", "C43 the host's outcome sentence shows without chips");
   status.h.rerender({ mentionStatus: null });
-  ok(!find(status.h.tree, (n) => n.props && n.props.className === "pc-mention-chips"), "C44 cleared by the host, gone");
+  ok(!find(status.h.tree, (n) => n.props && n.props.className === "pc-mention-notices"), "C44 cleared by the host, gone");
   ok(!/pc-mention/.test(composerMarkup({ mentionStatus: "x", mentionsUnavailable: "y" })), "C45 both sentences need the feature on (mentionCandidates)");
 }
 
@@ -381,7 +517,7 @@ const composerOf = (tree) => find(tree, (n) => n.type === ChatComposer);
   let fail = false;
   const w = mount(WorkflowChat, {
     messages: [],
-    draft: "what do you think?",
+    draft: "@Castor @Pollux what do you think?",
     onDraftChange() {},
     onSend: async (draft, ctx) => { sent.push({ draft, mentions: ctx.mentions }); if (fail) throw new Error("no"); },
     mentionCandidates: async () => [castor, pollux],
@@ -393,12 +529,12 @@ const composerOf = (tree) => find(tree, (n) => n.type === ChatComposer);
   comp = composerOf(w.tree);
   eq([comp.props.mentionsUnavailable, comp.props.mentionStatus], ["no route", "busy elsewhere"], "D1b the host's sentences reach the composer");
   w.rerender({ mentionsUnavailable: undefined, mentionStatus: undefined });
-  comp.props.onMentionsChange([castor, pollux]);
+  comp.props.onMentionsChange([{ ...pollux, start: 8 }, { ...castor, start: 0 }]);
   w.render();
   fail = true;
   composerOf(w.tree).props.onSubmit();
   await w.settle();
-  eq(sent[0].mentions.map((m) => [m.id, m.index]), [["castor", 0], ["pollux", 1]], "D2 onSend gets the mentions in order");
+  eq(sent[0].mentions.map((m) => [m.id, m.index, m.start]), [["castor", 0, 0], ["pollux", 1, 8]], "D2 onSend gets the chips in the draft, in text order, numbered and placed");
   eq(composerOf(w.tree).props.mentions.length, 2, "D3 a failed send keeps the chips (like the draft)");
   fail = false;
   composerOf(w.tree).props.onSubmit();
@@ -406,11 +542,16 @@ const composerOf = (tree) => find(tree, (n) => n.type === ChatComposer);
   eq(composerOf(w.tree).props.mentions.length, 0, "D4 a successful send clears them");
   const steered = [];
   w.rerender({ busy: true, steer: { onSteer: async (t, m, ctx) => { steered.push(ctx); return { accepted: true }; } } });
-  composerOf(w.tree).props.onMentionsChange([pollux]);
+  composerOf(w.tree).props.onMentionsChange([{ ...pollux, start: 8 }]);
   w.render();
   composerOf(w.tree).props.onSubmit();
   await w.settle();
-  eq(steered[0].mentions.map((m) => m.id), ["pollux"], "D5 a steer carries them too");
+  eq(steered[0].mentions.map((m) => [m.id, m.index, m.start]), [["pollux", 0, 8]], "D5 a steer carries them too");
+  composerOf(w.tree).props.onMentionsChange([{ ...pollux, start: 3 }]);
+  w.render();
+  composerOf(w.tree).props.onSubmit();
+  await w.settle();
+  eq(steered[1].mentions, [], "D5b a chip whose words are not in the draft is not sent");
   w.unmount();
 }
 {
@@ -420,12 +561,13 @@ const composerOf = (tree) => find(tree, (n) => n.type === ChatComposer);
   let settle;
   const w = mount(WorkflowChat, {
     messages: [],
-    draft: "does the plan hold?",
+    draft: "@Castor @Pollux does the plan hold?",
     onDraftChange() {},
     onSend: (draft, ctx) => { sent.push(ctx.mentions); return new Promise((resolve, reject) => { settle = { resolve, reject }; }); },
     mentionCandidates: async () => [castor, pollux],
   });
-  composerOf(w.tree).props.onMentionsChange([castor, pollux]);
+  const atC = { ...castor, start: 0 }, atP = { ...pollux, start: 8 };
+  composerOf(w.tree).props.onMentionsChange([atC, atP]);
   w.render();
   composerOf(w.tree).props.onSubmit();
   await w.settle();
@@ -434,17 +576,17 @@ const composerOf = (tree) => find(tree, (n) => n.type === ChatComposer);
   eq(composerOf(w.tree).props.mentions.map((m) => m.id), ["pollux"], "D8 a 503 after Castor answered: only Pollux stays (Castor is never asked again)");
   composerOf(w.tree).props.onSubmit();
   await w.settle();
-  eq(sent[1].map((m) => [m.id, m.index]), [["pollux", 0]], "D10 the resend carries only the kept chip");
+  eq(sent[1].map((m) => [m.id, m.index, m.start]), [["pollux", 0, 8]], "D10 the resend carries only the kept chip");
   settle.resolve({ unsentMentions: [] });
   await w.settle();
   eq(composerOf(w.tree).props.mentions.length, 0, "D11 a resolved send naming none keeps none");
   // S6: Hypnos picked while the send is in flight survives its success.
   const hypnos = { id: "hypnos", name: "Hypnos", kind: "entity" };
-  composerOf(w.tree).props.onMentionsChange([castor]);
+  composerOf(w.tree).props.onMentionsChange([atC]);
   w.render();
   composerOf(w.tree).props.onSubmit();
   await w.settle();
-  composerOf(w.tree).props.onMentionsChange([castor, hypnos]);
+  composerOf(w.tree).props.onMentionsChange([atC, hypnos]);
   w.render();
   settle.resolve();
   await w.settle();
@@ -465,7 +607,7 @@ const composerOf = (tree) => find(tree, (n) => n.type === ChatComposer);
   eq(composerOf(w.tree).props.mentions.length, 0, "D15 and they clear with the send");
   // The steer door: a partial stop keeps only the unsent chips too.
   w.rerender({ mentionsUnavailable: undefined, busy: true, steer: { onSteer: async () => { throw mentionsStoppedError("Pollux cannot answer right now.", [{ id: "pollux", name: "Pollux", kind: "entity", index: 1 }]); } } });
-  composerOf(w.tree).props.onMentionsChange([castor, pollux]);
+  composerOf(w.tree).props.onMentionsChange([atC, atP]);
   w.render();
   composerOf(w.tree).props.onSubmit();
   await w.settle();
@@ -522,4 +664,4 @@ ok(projected.find((m) => m.id === "b").author === null, "E2 author null stays nu
 ok(!("author" in projected.find((m) => m.id === "q")), "E3 no author on the wire, no author key (older gateways project as before)");
 eq(projected.find((m) => m.id === "q2").author, { kind: "person", name: null, entity_id: null, identity_ref: null, avatar: null }, "E4 a user turn's author passes too (the card leaves person bubbles as they are: B4/B5)");
 
-console.log(`check_mentions: ${checks} checks green (trigger/pick/order/payload, author labels, card pinned to today without an author, composer list/keys/chips/notice/send, WorkflowChat, replay)`);
+console.log(`check_mentions: ${checks} checks green (trigger/pick/order/payload, chips in the text: place/edit/select/clipboard, author labels, card pinned to today without an author, composer list/keys/inline chips/notice/send, WorkflowChat, replay)`);

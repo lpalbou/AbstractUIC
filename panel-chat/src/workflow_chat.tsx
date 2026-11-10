@@ -81,9 +81,10 @@ export type WorkflowChatProps = {
    * Submit a chat message. Async failures are surfaced locally and keep the
    * draft. `signal` is aborted when the user presses Stop during this send
    * (or the chat unmounts): a request/response host ties its fetch to it.
-   * `mentions`: the names picked with `@` (`mentionCandidates`), in order,
-   * `index` = the gateway's `mention_index`; empty without a pick (and while
-   * `mentionsUnavailable`). The chips of this send clear once it resolves and
+   * `mentions`: the names picked with `@` (`mentionCandidates`) that are in
+   * `draft` (each chip written there as "@Name"), in text order: `index` = the
+   * gateway's `mention_index` (0, 1, …), `start` = where its "@Name" sits in
+   * `draft`; empty without a pick (and while `mentionsUnavailable`). The chips of this send clear once it resolves and
    * stay when it fails, like the draft; chips picked while it is in flight
    * always stay. A send whose mentions stopped partway names the chips to keep
    * as `unsentMentions` on what it resolves or rejects with
@@ -242,7 +243,8 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
   const [mentions, setMentions] = useState<ChatMention[]>([]);
   const mentionsOn = typeof props.mentionCandidates === "function";
   // While mentions are unavailable (an older gateway) the chips already picked are not sent.
-  const sentMentions = () => (mentionsOn && !String(props.mentionsUnavailable || "").trim() ? mentionSendPayload("", mentions).mentions : []);
+  // The chips in `draft` (each "@Name" at its `start`), in text order: `index` 0, 1, … and `start`.
+  const sentMentions = (draft: string) => (mentionsOn && !String(props.mentionsUnavailable || "").trim() ? mentionSendPayload(draft, mentions).mentions : []);
   // The chips a send held, and what they become once it settles: its own chips go, except the
   // `unsentMentions` it names (a partial stop); chips picked meanwhile stay (`mentionsAfterSend`).
   const settleMentions = (held: readonly ChatMention[], settled: unknown, failed: boolean) => {
@@ -501,7 +503,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     setSendPending(true);
     const held = mentionsOn ? mentions : [];
     try {
-      const result = await steer.onSteer(draft, mode, { mentions: sentMentions() });
+      const result = await steer.onSteer(draft, mode, { mentions: sentMentions(draft) });
       if (!mountedRef.current || sendSequenceRef.current !== sequence) return;
       // A 200 with accepted:false is a REFUSAL, not a queue: saying "Queued"
       // over it would lie (SteerComposer's rule).
@@ -554,7 +556,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
     setSendPending(true);
     const held = mentionsOn ? mentions : [];
     try {
-      const result = await props.onSend(draft, { signal: abort.signal, mentions: sentMentions() });
+      const result = await props.onSend(draft, { signal: abort.signal, mentions: sentMentions(draft) });
       if (mountedRef.current && sendSequenceRef.current === sequence) settleMentions(held, result, false);
     } catch (reason) {
       // Draft stays controlled by the host and is deliberately not cleared.

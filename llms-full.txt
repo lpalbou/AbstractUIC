@@ -73,7 +73,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 ## Packages
 
 - [@abstractframework/ui-kit](ui-kit/README.md) (0.9.27): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
-- [@abstractframework/panel-chat](panel-chat/README.md) (0.9.11, needs ui-kit ^0.9.27): the one chat surface WorkflowChat, the Avatar view AvatarConversation (one live line + Findings panel; conversationLive, conversationFindings) over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (a tool approval offers exactly Deny / Allow / Allow All, the allows for this session only; Decide later; card variant), a session's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated; without it Allow covers the request only; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, `@` mentions in the composer (mentionCandidates → chips; onSend carries {text, mentions}; unsentMentions / mentionResend for a send that stopped partway) and who answered on each reply (ChatMessage.author, chatAuthorView, ChatAuthorMark), what a reply kept as badges under its words (ChatMessage.notices, ChatNoticeBadges, onNoticeOpen; served turn notices, never markers read from text), chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
+- [@abstractframework/panel-chat](panel-chat/README.md) (0.9.11, needs ui-kit ^0.9.27): the one chat surface WorkflowChat, the Avatar view AvatarConversation (one live line + Findings panel; conversationLive, conversationFindings) over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (a tool approval offers exactly Deny / Allow / Allow All, the allows for this session only; Decide later; card variant), a session's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated; without it Allow covers the request only; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, `@` mentions in the composer (mentionCandidates → a chip inside the text where `@query` was, drawn by a mirror over the textarea; onSend carries {text, mentions: [{id, name, kind, index, start}]}, each chip written "@Name" in text; unsentMentions / mentionResend for a send that stopped partway) and who answered on each reply (ChatMessage.author, chatAuthorView, ChatAuthorMark), what a reply kept as badges under its words (ChatMessage.notices, ChatNoticeBadges, onNoticeOpen; served turn notices, never markers read from text), chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
 - [@abstractframework/monitor-active-memory](monitor-active-memory/README.md): KG + Active Memory explorer (ReactFlow)
@@ -120,8 +120,8 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 - [app-server/src/index.js](app-server/src/index.js): exports for `@abstractframework/app-server`
 - [app-server/src/index.d.ts](app-server/src/index.d.ts): TS types for the app-server exports
 - [panel-chat/src/index.ts](panel-chat/src/index.ts): exports for `@abstractframework/panel-chat`
-- [panel-chat/src/chat_composer.tsx](panel-chat/src/chat_composer.tsx): controlled rounded multiline composer (legacy variant), composer-owned Attach, action slots, IME-safe submission and the `@` mention list and chips.
-- [panel-chat/src/mentions.ts](panel-chat/src/mentions.ts): mention rules and host helpers (`ChatMentionCandidate`, `ChatComposerSend`, `mentionResend`, `mentionsAfterSend`, `mentionsStoppedError`)
+- [panel-chat/src/chat_composer.tsx](panel-chat/src/chat_composer.tsx): controlled rounded multiline composer (legacy variant), composer-owned Attach, action slots, IME-safe submission, the `@` mention list and the chips inside the text (a mirror over the textarea).
+- [panel-chat/src/mentions.ts](panel-chat/src/mentions.ts): mention rules and host helpers (`ChatMentionCandidate`, `ChatComposerSend`, `mentionSendPayload`, `mentionsInText`, `mentionsAfterEdit`, `mentionResend`, `mentionsAfterSend`, `mentionsStoppedError`)
 - [panel-chat/src/chat_author.ts](panel-chat/src/chat_author.ts): `ChatAuthor` (the gateway's turn author), `chatAuthorOf`, `chatAuthorView`
 - [panel-chat/src/chat_notices.ts](panel-chat/src/chat_notices.ts): `ChatNotice` (a served turn notice), `chatNoticesOf`, `chatNoticeView`, `CHAT_NOTICE_WORDS`; [chat_notice_badges.tsx](panel-chat/src/chat_notice_badges.tsx): `ChatNoticeBadges`
 - [panel-chat/src/chat_message_card.tsx](panel-chat/src/chat_message_card.tsx): `ChatMessage` (incl. `author`, `notices`) / `ChatAttachment` / `ChatStat` contracts
@@ -751,7 +751,7 @@ not a customization point; when the component cannot do what you need, ask for t
 | App assistant (an app's own Q&A, e.g. Continuum's advisor) | `AssistantPanel` (panel-chat) in `AfDrawer`, or `assistantDrawerPanel({ ask, assistantName })` in `AfDrawerSystem`, toggled by `AfTopBarActions` `assistant` | Transport injected (`ask(question, { signal, history })`), never fetches |
 | Questions and approvals | `presentInteraction(wait, controller, options)` → `WorkflowChat` `interaction` (or `WorkflowInteractionPanel`, `variant="card"` for "Needs you" lists and inboxes) | One wording set (`WORKFLOW_INTERACTION_LABELS`): a tool approval offers exactly Deny / Allow / Allow All (panel-chat 0.9.0); Decide later and Keep waiting send nothing (a dismissal never denies); Continue without answering resumes empty. Accepts a `replay_view_v1.interaction` (`ReplayInteraction`) once a gateway serves it. Session tool policy: inject a `SessionToolPolicyClient` when `capabilities.session_tool_policy.supported` and pass `sessionPolicy: true` (the mode is the controller's): Allow keeps this request's tools and Allow All every tool for the rest of this session on the gateway (written before the wait is answered); nothing writes the app's default tool settings; on an older gateway, or after a failed capability read, Allow answers the request only and one line says so |
 | Attachments and generated media | Composer: `WorkflowChat` `attachmentItems` + `useAttachmentUploads`. Messages: `ChatMessage.media` (`image` / `audio` with `transcript` / `video` / `file`), filled with `chatMediaFromArtifact` from the transport's `resolveArtifact` | Chips name their state (Waiting, Uploading, refused with both sizes, failed with the gateway's words and Retry); Send refuses while one is not attached. Files open in the shared `AfFileViewer`; speech-to-text shows as a **Transcript** caption; music rides on audio. The host fetches with its own credentials |
-| `@` mentions, who answered, what a reply kept | `WorkflowChat` / `ChatComposer` `mentionCandidates` (+ `mentionNotice`, `mentionSessionKey`, `mentionStatus`, `mentionsUnavailable`); `ChatMessage.author`; `ChatMessage.notices` (+ the card's `onNoticeOpen`) | A mention is a chip picked from the names your host feeds (for example `GET /entities`), never `@` read out of the text; `onSend` carries `{text, mentions}` and your host posts each mention in order. A send that stopped partway names its `unsentMentions` (`mentionsStoppedError`) so only those chips stay; `mentionResend` tells a resend of the same words from a new message. Pass the gateway's turn `author` through: the card shows the entity's orb or the agent mark, the name and a kind tag, and a message without one renders as before. Pass the served turn `notices` through too: one badge per diary entry, question, lesson, interest or realization under the reply; the kit never reads a marker out of the text. See [Mentioning entities and agents](../panel-chat/README.md#mentioning-entities-and-agents) and [What a reply kept](../panel-chat/README.md#what-a-reply-kept) |
+| `@` mentions, who answered, what a reply kept | `WorkflowChat` / `ChatComposer` `mentionCandidates` (+ `mentionNotice`, `mentionSessionKey`, `mentionStatus`, `mentionsUnavailable`); `ChatMessage.author`; `ChatMessage.notices` (+ the card's `onNoticeOpen`) | A mention is a chip picked from the names your host feeds (for example `GET /entities`), placed inside the text where the typed `@query` was, never `@` read out of the text; `onSend` carries `{text, mentions: [{id, name, kind, index, start}]}` (each chip written `@Name` in `text`, `start` its offset, `index` its order) and your host posts each mention in order. A send that stopped partway names its `unsentMentions` (`mentionsStoppedError`) so only those chips stay; `mentionResend` tells a resend of the same words from a new message. Pass the gateway's turn `author` through: the card shows the entity's orb or the agent mark, the name and a kind tag, and a message without one renders as before. Pass the served turn `notices` through too: one badge per diary entry, question, lesson, interest or realization under the reply; the kit never reads a marker out of the text. See [Mentioning entities and agents](../panel-chat/README.md#mentioning-entities-and-agents) and [What a reply kept](../panel-chat/README.md#what-a-reply-kept) |
 | Markdown / JSON rendering | `Markdown`, `JsonViewer` (panel-chat) | Also exported standalone |
 | TTS playback + push-to-talk | `useGatewayVoice` (+ `streamTtsJsonl`) | Injected `tts`/`tts_stream`/`transcribe` functions; streaming with pause/resume; output and input device, volume and input level options |
 | Voice settings page | `AfVoiceSection` (+ `useVoicePreferences(storageKey)`, `useVoiceDefaults(fetchDefaults)`) | Pass `fetchDefaults` (`GET /api/gateway/voice/defaults`): "Gateway default · provider / model" comes only from it; the host stores the overrides (`useVoicePreferences`: same-tab and cross-tab sync). Pass `voiceLibrary` (`design` → `POST voice/design`, `clone` → multipart `POST voice/clones`, `list` / `rename` / `remove` / `share` over `voice/clones[/{id}]` and `voice/clones/{id}/deploy`; `createVoice` is its alias) to let people create and manage their own voices, `fetchLanguages` (`GET voice/languages`), `previewVoice` (choosing a voice plays it; a play/stop toggle beside the select). `rows={{tts: false}}` + `ttsSlot` where the host owns the voice (an entity); `rows.mute` / `rows.capture` only where the host honours `reply_muted` / `capture_mode` / `auto_send` (`useGatewayVoice({...gatewayVoiceOptions(prefs), ...})`) |
@@ -5892,7 +5892,8 @@ owns submission, attachments and failed-send recovery.
 ### Mentioning entities and agents
 
 Pass `mentionCandidates(query)` and the composer lets the person mention someone by name:
-typing `@` opens a list of the names your host returns, and a pick becomes a chip. The kit
+typing `@` opens a list of the names your host returns, and a pick puts a chip in the text, where
+the typed `@query` was ("Hi @Castor how are you doing ?"). The kit
 sends nothing itself; your host posts each mention (on AbstractGateway,
 `POST /api/gateway/sessions/{session_id}/mentions`, one at a time, in `index` order) and writes
 the sentences the composer shows. Without `mentionCandidates` the composer has no list and no
@@ -5903,9 +5904,9 @@ itself, and hands them to `onSend(draft, {signal, mentions})` and `steer.onSteer
 | `ChatComposer` prop | What it does |
 |---|---|
 | `mentionCandidates?: (query) => Promise<ChatMentionCandidate[]>` | The names to offer for the text typed after `@` (for example the entities `GET /api/gateway/entities` returns for the account). It is called as the person types, so cache the source in the host. |
-| `mentions?: ChatMention[]`, `onMentionsChange?(mentions)` | Controlled chips. Omit `mentions` to let the composer keep them. |
-| `onSend?: (send: ChatComposerSend) => void \| Promise<unknown>` | Send with the picks: `{text, mentions: [{id, name, kind, index}]}`, `text` exactly as typed, `mentions` in pick order, `index` the gateway's `mention_index` (0, 1, …). Wins over `onSubmit`. |
-| `mentionNotice?(candidate) => string \| null` | The sentence shown under a chip the first time its name is picked in this conversation, such as "Castor will read this conversation's history." |
+| `mentions?: ChatMention[]`, `onMentionsChange?(mentions)` | Controlled chips, each with `start` (where its "@Name" sits in `value`), reported in text order after every edit. Omit `mentions` to let the composer keep them. |
+| `onSend?: (send: ChatComposerSend) => void \| Promise<unknown>` | Send with the picks: `{text, mentions: [{id, name, kind, index, start}]}` (see **The serialization** below). Wins over `onSubmit`. |
+| `mentionNotice?(candidate) => string \| null` | The sentence shown above the field the first time a name is picked in this conversation, while its chip is in the text, such as "Castor will read this conversation's history." |
 | `mentionSessionKey?: string` | The conversation that "first time" counts in (the session id); a new key starts over. |
 | `mentionStatus?: string \| null` | Your sentence about the last mentions sent ("Castor is in another conversation."), shown above the field until you clear it. |
 | `mentionsUnavailable?: string \| null` | Your sentence when mentions cannot be used here, such as "This gateway does not offer mentions yet." Typing `@` then shows it instead of names, no new chip can be picked, and chips picked earlier are not sent. |
@@ -5922,9 +5923,38 @@ it reads "Looking for names…" and Enter waits instead of sending the typed `@�
 reads "The names could not be loaded.", "No name matches “cas”.", "No one to mention here." or, when
 every match is already a chip, "Already mentioned."
 
-**Chips.** A pick replaces the typed `@query` with a chip bound to that candidate (`@Castor`, with
-Remove), never editable text, and each name is one chip. An `@` that was not picked stays plain
-text: the kit never reads `@` out of the text on send.
+**Chips, in the text.** A pick replaces the typed `@query` with the chip's text, `@` + the name
+(`@Castor`), followed by one space unless one follows already, and binds a chip to it: the name on
+an accent pill with the entity's orb (or the agent's mark) over the `@`, no ×. Each name is one chip
+per message. Typing goes on around it. Backspace just after a chip (Delete just before one) removes
+it whole; typing over or deleting a selection that cuts into one removes it; deleting a letter
+inside one (a phone keyboard's word edit) turns it to plain text. The caret steps over a chip and a
+selection takes it whole. Undo and redo bring a chip back with its words. A copy that holds chips
+puts them on the clipboard beside the plain text (`MENTION_CLIPBOARD_TYPE`); pasting that copy in a
+composer brings them back. Any other text, an `@castor` typed or pasted from elsewhere included,
+stays plain text: the kit never reads `@` out of the text. The field's accessible description
+names each chip ("mention: Castor"); the host's notices stay above the field.
+
+How it is drawn: the field stays a `<textarea>` (native typing, IME, undo, paste as plain text,
+Enter and Shift+Enter, mobile keyboards, auto-grow and max height). While chips are in the text its
+glyphs are transparent (the caret and the selection stay its own) and a pointer-transparent mirror
+over it (`.pc-composer__mirror`), laid out with the field's own text styles, draws the same words
+with each chip in place. A chip therefore takes exactly the width of its `@Name`: host CSS must not
+give `.pc-mention-chip--inline` padding, margin, border or another font weight.
+
+**The serialization.** `onSend` (and `WorkflowChat`'s `ctx.mentions`) carry:
+
+- `text`: the message as shown, each chip written as `@` + its name, for example
+  `"Hi @Castor how are you doing ?"`;
+- `mentions`: the chips in text order, `{id, name, kind, index, start}`: `index` is 0, 1, … (the
+  gateway's `mention_index`), `start` the UTF-16 offset of the chip's `@Name` in `text`, so
+  `text.slice(start, start + name.length + 1) === "@" + name`. An `@name` that was not picked has no
+  entry.
+
+`ChatMention` (a chip in the composer) is the candidate plus `start`. A chip whose `@Name` is not at
+its `start` is not in the message: not drawn, not sent. So a draft the host clears and later
+restores (the words of a failed send) gets its chips back, and the person's next edit drops chips
+whose words are gone.
 
 **What happens to the chips when a send settles.** The chips a send carried are removed once
 `onSend` returns or its promise resolves; a throw or a rejection keeps them all. A send whose
@@ -5959,8 +5989,11 @@ Here `loadEntityNames`, `matchNames`, `startTurn` and `askMentions` are your hos
 
 Helpers for hosts:
 
-- `mentionSendPayload(text, mentions)` builds the send; `uniqueMentions(mentions)` keeps each name
-  once, the first keeping its place and `index`.
+- `mentionSendPayload(text, mentions)` builds the send (the chips in `text`, in text order, numbered
+  and placed); `uniqueMentions(mentions)` keeps each name once, the first keeping its place and `index`.
+- The chips in the text, DOM-free: `mentionsInText(text, mentions)`, `mentionsAfterEdit(prev, next,
+  mentions, caret?)`, `mentionEditSpan`, `mentionsWithInserted`, `mentionPickEdit`, `mentionAtCaret`,
+  `mentionSelection`, `mentionClipboard` / `mentionsFromClipboard`, `mentionText`, `mentionEnd`.
 - `unsentMentionsOf(settled)` reads `unsentMentions` from a value or an error (null when it names
   none); `mentionsStoppedError(sentence, unsent)` builds that error.
 - `mentionsAfterSend(now, sent, keep?)` returns the chips once a send settled (the send's chips go,
@@ -16666,9 +16699,21 @@ export { ChatComposer, type ChatComposerProps, type ChatComposerVariant } from "
 export {
   addMention,
   applyMentionPick,
+  mentionAtCaret,
+  mentionClipboard,
+  mentionEditSpan,
+  mentionEnd,
   mentionKey,
+  mentionPickEdit,
+  mentionSelection,
   mentionSendPayload,
+  mentionsAfterEdit,
+  mentionsFromClipboard,
+  mentionsInText,
+  mentionsWithInserted,
+  mentionText,
   mentionTriggerAt,
+  MENTION_CLIPBOARD_TYPE,
   mentionResend,
   mentionsAfterSend,
   mentionsStoppedError,
@@ -16684,6 +16729,8 @@ export {
   type ChatMentionKind,
   type ChatMentionSent,
   type ChatMentionsUnsent,
+  type MentionEditSpan,
+  type MentionPickEdit,
   type MentionResend,
   type MentionTrigger,
 } from "./mentions.js";
@@ -16913,18 +16960,25 @@ export { publicApprovalRequest, type PublicApprovalRequest } from "./public_appr
 ## panel-chat/src/chat_composer.tsx
 
 import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { AfChip, Icon } from "@abstractframework/ui-kit";
+import { Icon } from "@abstractframework/ui-kit";
 
 import { ChatAuthorMark } from "./author_mark.js";
 import {
-  addMention,
-  applyMentionPick,
+  MENTION_CLIPBOARD_TYPE,
+  mentionAtCaret,
+  mentionClipboard,
+  mentionEnd,
   mentionKey,
+  mentionPickEdit,
+  mentionSelection,
   mentionSendPayload,
+  mentionsAfterEdit,
   mentionsAfterSend,
+  mentionsFromClipboard,
+  mentionsInText,
+  mentionsWithInserted,
   mentionTriggerAt,
   moveMentionActive,
-  removeMention,
   unsentMentionsOf,
   usableCandidates,
   type ChatComposerSend,
@@ -16933,6 +16987,21 @@ import {
 } from "./mentions.js";
 
 const NO_MENTIONS: ChatMention[] = [];
+/** The chips the person can undo back to: the text and its chips after each edit (newest last). */
+const HISTORY_MAX = 200;
+/**
+ * The field's own text styles a mirror must share to lay out its words exactly where the field
+ * draws them (the chips are drawn by a mirror over the field: see `ChatComposer`).
+ */
+const MIRROR_STYLE = [
+  "font-family", "font-size", "font-weight", "font-style", "font-variant", "font-stretch", "font-kerning",
+  "font-feature-settings", "font-variation-settings", "font-optical-sizing", "line-height", "letter-spacing",
+  "word-spacing", "text-indent", "text-transform", "text-align", "text-rendering", "tab-size", "white-space",
+  "word-break", "overflow-wrap", "hyphens", "direction", "unicode-bidi", "padding-top", "padding-right",
+  "padding-bottom", "padding-left", "color", "-webkit-font-smoothing",
+];
+const sameChips = (a: readonly ChatMention[], b: readonly ChatMention[]) =>
+  a.length === b.length && a.every((m, i) => mentionKey(m) === mentionKey(b[i]) && m.start === b[i].start);
 type MentionsFound = { query: string; items: ChatMentionCandidate[]; status: "loading" | "ready" | "error" };
 const NOTHING_FOUND: MentionsFound = { query: "", items: [], status: "loading" };
 // Caret placement after a pick runs before paint in a browser; the server has no layout.
@@ -16947,24 +17016,32 @@ export type ChatComposerProps = {
   /** Send (Enter or the button). `onSend` wins when given. */
   onSubmit?: () => void;
   /**
-   * Send with the picked mentions: `{text, mentions: [{id, name, kind, index}]}`, mentions in
-   * the order they were picked. Wins over `onSubmit`. Uncontrolled chips are cleared once it
-   * returns (or its promise resolves); a throw or a rejection keeps them.
+   * Send with the picked mentions: `{text, mentions: [{id, name, kind, index, start}]}`. `text` is
+   * the message as shown, each chip written as "@" + its name; `mentions` are the chips in text
+   * order, `index` 0, 1, … (the gateway's `mention_index`) and `start` where the chip's "@Name"
+   * sits in `text`. Wins over `onSubmit`. Uncontrolled chips are cleared once it returns (or its
+   * promise resolves); a throw or a rejection keeps them.
    */
   onSend?: (send: ChatComposerSend) => void | Promise<unknown>;
   /**
    * `@` mentions. Typing `@` opens a list of the names this returns for the query typed after
    * it (the HOST decides the source, e.g. `GET /entities`; it is called as the person types, so
-   * cache in the host). A pick becomes a chip bound to that candidate; an `@` that was not
-   * picked stays plain text. Absent: no list and no chips (today's composer).
+   * cache in the host). A pick puts a chip bound to that candidate in the text, in place of the
+   * typed `@query`; an `@` that was not picked stays plain text. Absent: no list and no chips.
    */
   mentionCandidates?: (query: string) => Promise<ChatMentionCandidate[]>;
-  /** Controlled chips. Omit to let the composer keep them. */
+  /**
+   * Controlled chips, each with `start` (where its "@Name" sits in `value`); `onMentionsChange`
+   * gets them in text order after every edit. A chip whose "@Name" is not at its `start` is not
+   * in the message (not drawn, not sent) until the text holds it there again (a draft the host
+   * restores after a failed send); the person's next edit drops it. Omit to let the composer keep them.
+   */
   mentions?: ChatMention[];
   onMentionsChange?: (mentions: ChatMention[]) => void;
   /**
-   * The sentence shown under a chip the first time its name is picked in this conversation
-   * (e.g. "Castor will read this conversation's history"). The host writes it; null = none.
+   * The sentence shown above the field the first time a name is picked in this conversation
+   * (e.g. "Castor will read this conversation's history"), while its chip is in the text. The
+   * host writes it; null = none.
    */
   mentionNotice?: (candidate: ChatMentionCandidate) => string | null | undefined;
   /** The conversation "the first time" counts in (e.g. the session id); a new key starts over. */
@@ -17018,6 +17095,7 @@ export type ChatComposerProps = {
   leading?: React.ReactNode;
   /** Absolutely positioned layer over the composer box (e.g. a drop zone). */
   overlay?: React.ReactNode;
+  /** Runs first; a `preventDefault()` here (e.g. pasted files) keeps the composer's own paste out. */
   onPaste?: React.ClipboardEventHandler<HTMLTextAreaElement>;
 };
 
@@ -17080,10 +17158,31 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
     if (latest.current.mentions === undefined) setOwnMentions(next);
     latest.current.onMentionsChange?.(next);
   }, []);
+  // The chips in the text right now (each one's "@Name" at its `start`), in text order.
+  const inText = mentionsOn ? mentionsInText(String(props.value ?? ""), mentions) : NO_MENTIONS;
+  const overlay = inText.length > 0;
+  // The text the chips are placed against: the field's value as of the last render or edit.
+  const textRef = useRef(String(props.value ?? ""));
+  textRef.current = String(props.value ?? "");
+  const history = useRef<Array<{ text: string; mentions: ChatMention[] }>>([]);
+  const remember = (text: string, chips: ChatMention[]) => {
+    const h = history.current;
+    const last = h[h.length - 1];
+    if (last && last.text === text && sameChips(last.mentions, chips)) return;
+    h.push({ text, mentions: chips });
+    if (h.length > HISTORY_MAX) h.splice(0, h.length - HISTORY_MAX);
+  };
+  // A pick or a paste of chips in flight: the chips its text brings, placed at `at` once it lands.
+  const pendingInsert = useRef<{ at: number; mentions: ChatMention[] } | null>(null);
+  const composingRef = useRef(false);
+  const [composing, setComposing] = useState(false);
+  const lastCaret = useRef<number | null>(null);
   const [caret, setCaret] = useState<number | null>(null);
   const [focused, setFocused] = useState(false);
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
-  const trigger = mentionsOn && focused && !disabled && caret !== null ? mentionTriggerAt(props.value, caret) : null;
+  // An `@` that is a chip's own is not one being typed.
+  const typed = mentionsOn && focused && !disabled && caret !== null ? mentionTriggerAt(props.value, caret) : null;
+  const trigger = typed && !inText.some((m) => typed.start >= (m.start as number) && typed.start < mentionEnd(m)) ? typed : null;
   const open = Boolean(trigger) && trigger?.start !== dismissedAt;
   const unavailable = mentionsOn ? String(props.mentionsUnavailable || "").trim() : "";
   const mentionStatus = mentionsOn ? String(props.mentionStatus || "").trim() : "";
@@ -17108,20 +17207,20 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
   }, [query]);
   // While the names for a new query load, the previous names stay (no flicker per keystroke).
   const loaded: MentionsFound = query === null ? NOTHING_FOUND : found.query === query ? found : { query, items: found.items, status: "loading" };
-  // A name already picked is not offered again (a pick of it would only eat the typed `@…`).
-  const pickedKeys = new Set(mentions.map(mentionKey));
+  // A name already in the text is not offered again (one chip per name and message).
+  const pickedKeys = new Set(inText.map(mentionKey));
   const shown: MentionsFound = { ...loaded, items: loaded.items.filter((c) => !pickedKeys.has(mentionKey(c))) };
   const alreadyPicked = loaded.items.length > 0 && shown.items.length === 0;
   const activeIndex = shown.items.length ? Math.min(Math.max(active, 0), shown.items.length - 1) : -1;
   const listId = `${useId()}mentions`;
   const optionId = (i: number) => `${listId}-${i}`;
 
-  // First pick of a name in this conversation: the host's sentence under the chips.
+  // First pick of a name in this conversation: the host's sentence above the field.
   const noticed = useRef<{ key: string | undefined; seen: Set<string> }>({ key: props.mentionSessionKey, seen: new Set() });
   if (noticed.current.key !== props.mentionSessionKey) noticed.current = { key: props.mentionSessionKey, seen: new Set() };
   const [notices, setNotices] = useState<Array<{ key: string; text: string }>>([]);
   useEffect(() => { if (!mentions.length && notices.length) setNotices([]); }, [mentions.length, notices.length]);
-  const chipKeys = new Set(mentions.map(mentionKey));
+  const chipKeys = new Set(inText.map(mentionKey));
   const visibleNotices = notices.filter((n) => chipKeys.has(n.key));
 
   const pendingCaret = useRef<number | null>(null);
@@ -17133,19 +17232,167 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
     element.setSelectionRange(at, at);
   }, [props.value]);
 
+  /**
+   * The chips once the person's edit turned the text into `next` (`caret`: where the caret is
+   * now). A pick or a paste in flight places its own chips; an undo or a redo brings back the
+   * chips that text had; any other edit keeps, moves or drops the chips around it.
+   */
+  const edited = (next: string, caretNow: number | null, inputType: string) => {
+    const prev = textRef.current;
+    const now = mentionsRef.current;
+    remember(prev, mentionsInText(prev, now));
+    const pending = pendingInsert.current;
+    pendingInsert.current = null;
+    let chips: ChatMention[];
+    const back = inputType === "historyUndo" || inputType === "historyRedo"
+      ? [...history.current].reverse().find((h) => h.text === next)
+      : undefined;
+    if (back) chips = mentionsInText(next, back.mentions);
+    else chips = mentionsAfterEdit(prev, next, now, caretNow);
+    if (pending) chips = mentionsWithInserted(next, chips, pending.at, pending.mentions);
+    textRef.current = next;
+    remember(next, chips);
+    if (!sameChips(now, chips)) setMentions(chips);
+  };
+
+  /**
+   * Types `text` over the field's selection as the person would (the browser's own editing
+   * command, so undo and redo hold it), bringing `chips` (placed relative to its start). Without
+   * that command (a server render, a test harness) the composer writes the text itself.
+   */
+  const typeIn = (text: string, chips: ChatMention[], range: { from: number; to: number }, caretAfter?: number) => {
+    const element = textarea.current;
+    if (element && typeof document !== "undefined" && typeof document.execCommand === "function") {
+      if (document.activeElement !== element) element.focus();
+      pendingInsert.current = { at: range.from, mentions: chips };
+      let typedIn = false;
+      if (document.activeElement === element) {
+        element.setSelectionRange(range.from, range.to);
+        try { typedIn = document.execCommand(text ? "insertText" : "delete", false, text); } catch { typedIn = false; }
+      }
+      if (typedIn && pendingInsert.current === null) {
+        if (typeof caretAfter === "number" && caretAfter !== element.selectionEnd) element.setSelectionRange(caretAfter, caretAfter);
+        setCaret(element.selectionEnd);
+        return;
+      }
+      pendingInsert.current = null;
+    }
+    const value = textRef.current;
+    const next = value.slice(0, range.from) + text + value.slice(range.to);
+    const at = typeof caretAfter === "number" ? caretAfter : range.from + text.length;
+    pendingInsert.current = { at: range.from, mentions: chips };
+    edited(next, range.from + text.length, "insertText");
+    pendingCaret.current = at;
+    setCaret(at);
+    latest.current.onChange(next);
+  };
+
   const pick = (candidate: ChatMentionCandidate) => {
     if (!trigger) return;
     const at = textarea.current ? textarea.current.selectionStart : caret ?? props.value.length;
-    const next = applyMentionPick(props.value, trigger, at);
-    pendingCaret.current = next.caret;
-    setCaret(next.caret);
-    props.onChange(next.text);
+    const edit = mentionPickEdit(textRef.current, trigger, at, candidate);
     const key = mentionKey(candidate);
     const noticeText = noticed.current.seen.has(key) ? "" : String(props.mentionNotice?.(candidate) || "").trim();
     noticed.current.seen.add(key);
     if (noticeText) setNotices((prev) => [...prev.filter((n) => n.key !== key), { key, text: noticeText }]);
-    setMentions(addMention(mentionsRef.current, candidate));
+    typeIn(edit.insert, [{ ...candidate, start: 0 }], { from: edit.from, to: edit.to }, edit.caret);
   };
+
+  // The caret never rests inside a chip: it steps over it, and a selection takes chips whole.
+  const keepOffChips = (element: HTMLTextAreaElement) => {
+    const from = lastCaret.current;
+    lastCaret.current = element.selectionEnd;
+    if (composingRef.current || !inText.length) return;
+    const kept = mentionSelection(element.value, mentionsRef.current, element.selectionStart, element.selectionEnd, from);
+    if (kept.start === element.selectionStart && kept.end === element.selectionEnd) return;
+    element.setSelectionRange(kept.start, kept.end, element.selectionDirection || "none");
+    lastCaret.current = kept.end;
+  };
+
+  // A click or a touch settles the caret after its own events (a textarea's selection lands on
+  // `selectionchange`, which React's onSelect does not follow there): the document's event too.
+  const keepOff = useRef(keepOffChips);
+  keepOff.current = keepOffChips;
+  useEffect(() => {
+    if (!overlay || typeof document === "undefined") return;
+    const onSelection = () => { const element = textarea.current; if (element && document.activeElement === element) keepOff.current(element); };
+    document.addEventListener("selectionchange", onSelection, true);
+    return () => document.removeEventListener("selectionchange", onSelection, true);
+  }, [overlay]);
+
+  // A copy that holds chips carries them (MENTION_CLIPBOARD_TYPE) beside its plain text.
+  const copyChips = (e: React.ClipboardEvent<HTMLTextAreaElement>, cut: boolean) => {
+    const element = e.currentTarget;
+    const from = element.selectionStart;
+    const to = element.selectionEnd;
+    if (!mentionsOn || from === to || !e.clipboardData) return;
+    const data = mentionClipboard(element.value, mentionsRef.current, from, to);
+    if (!data) return;
+    e.preventDefault();
+    e.clipboardData.setData("text/plain", element.value.slice(from, to));
+    e.clipboardData.setData(MENTION_CLIPBOARD_TYPE, data);
+    if (cut && !disabled) typeIn("", [], { from, to });
+  };
+
+  // ---- the chips in the text: a mirror of the field draws them where their words are ---------
+  // The field stays a <textarea> (native typing, IME, undo, mobile keyboards). While chips are in
+  // the text, its glyphs are transparent and a mirror over it (same box, same text styles, same
+  // words, pointer-transparent) draws the text with each chip styled in place.
+  const mirror = useRef<HTMLDivElement | null>(null);
+  const placeMirror = useCallback(() => {
+    const element = textarea.current;
+    const layer = mirror.current;
+    if (!element || !layer || typeof getComputedStyle !== "function") return;
+    const style = getComputedStyle(element);
+    for (const name of MIRROR_STYLE) layer.style.setProperty(name, style.getPropertyValue(name));
+    // Exact (fractional) geometry: offsetTop/clientWidth round to whole pixels, and half a pixel
+    // moves every glyph. The box is the field's padding box, less any scrollbar.
+    const parent = layer.offsetParent as HTMLElement | null;
+    const box = element.getBoundingClientRect();
+    const origin = parent ? parent.getBoundingClientRect() : { left: 0, top: 0 };
+    const px = (name: string) => parseFloat(style.getPropertyValue(name)) || 0;
+    const [bl, br, bt, bb] = [px("border-left-width"), px("border-right-width"), px("border-top-width"), px("border-bottom-width")];
+    const barX = Math.max(0, element.offsetWidth - element.clientWidth - Math.round(bl + br));
+    const barY = Math.max(0, element.offsetHeight - element.clientHeight - Math.round(bt + bb));
+    layer.style.left = `${box.left - origin.left - (parent ? parent.clientLeft : 0) + bl}px`;
+    layer.style.top = `${box.top - origin.top - (parent ? parent.clientTop : 0) + bt}px`;
+    layer.style.width = `${box.width - bl - br - barX}px`;
+    layer.style.height = `${box.height - bt - bb - barY}px`;
+    layer.scrollTop = element.scrollTop;
+    layer.scrollLeft = element.scrollLeft;
+  }, []);
+  useCaretEffect(() => { if (overlay) placeMirror(); });
+  useEffect(() => {
+    const element = textarea.current;
+    if (!overlay || !element) return;
+    element.addEventListener("scroll", placeMirror);
+    window.addEventListener("resize", placeMirror);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(placeMirror);
+    observer?.observe(element);
+    return () => { observer?.disconnect(); element.removeEventListener("scroll", placeMirror); window.removeEventListener("resize", placeMirror); };
+  }, [overlay, placeMirror]);
+  const mirrorDescription = `${useId()}mentioned`;
+  const mirrorText = (() => {
+    if (!overlay) return null;
+    const value = String(props.value ?? "");
+    const parts: React.ReactNode[] = [];
+    let at = 0;
+    for (const m of inText) {
+      const start = m.start as number;
+      if (start > at) parts.push(value.slice(at, start));
+      parts.push(
+        <span key={mentionKey(m)} className="pc-mention-chip pc-mention-chip--inline" data-mention-key={mentionKey(m)} data-mention-kind={m.kind}>
+          <span className="pc-mention-chip__at">@<span className="pc-mention-chip__mark"><ChatAuthorMark mark={m.kind} look={m.avatar} initial={m.name} size={14} /></span></span>
+          <span className="pc-mention-chip__name" data-mention-kind={m.kind}>{m.name}</span>
+        </span>,
+      );
+      at = mentionEnd(m);
+    }
+    if (at < value.length) parts.push(value.slice(at));
+    // A last empty line (text ending in a newline) is a line the field draws too.
+    if (value.endsWith("\n")) parts.push("\u200b");
+    return parts;
+  })();
 
   const submit = () => {
     const p = latest.current;
@@ -17170,33 +17417,22 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
     else settle(result, false);
   };
 
-  const mentionChips = mentionsOn && (mentions.length || mentionStatus) ? (
-    <div className="pc-mention-chips" role="group" aria-label="Mentioned">
+  // The host's sentences above the field (the chips themselves are in the text).
+  const mentionLines = mentionsOn && (mentionStatus || visibleNotices.length || (unavailable && inText.length)) ? (
+    <div className="pc-mention-notices">
       {mentionStatus ? (
         <div className="pc-mention-notice pc-mention-notice--status" role="status">
           <Icon name="info" size={13} />
           <span>{mentionStatus}</span>
         </div>
       ) : null}
-      {mentions.map((m) => (
-        <AfChip
-          key={mentionKey(m)}
-          tone="accent"
-          className="pc-mention-chip"
-          title={m.kind === "entity" ? `${m.name} (entity)` : `${m.name} (agent)`}
-          {...(disabled ? {} : { onRemove: () => setMentions(removeMention(mentionsRef.current, mentionKey(m))), removeLabel: `Remove ${m.name}` })}
-        >
-          <ChatAuthorMark mark={m.kind} look={m.avatar} initial={m.name} size={14} />
-          <span className="pc-mention-chip__name" data-mention-kind={m.kind}>@{m.name}</span>
-        </AfChip>
-      ))}
       {visibleNotices.map((n) => (
         <div key={n.key} className="pc-mention-notice" role="status">
           <Icon name="info" size={13} />
           <span>{n.text}</span>
         </div>
       ))}
-      {unavailable && mentions.length ? (
+      {unavailable && inText.length ? (
         <div className="pc-mention-notice pc-mention-notice--unavailable" role="status">
           <Icon name="warning" size={13} />
           <span>{unavailable}</span>
@@ -17254,13 +17490,21 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
   return (
     <div className={["pc-composer", compact ? "pc-composer--compact" : "", props.className].filter(Boolean).join(" ")}>
       {props.leading}
-      {mentionChips}
+      {mentionLines}
       <textarea
         id={props.textareaId}
         ref={setTextarea}
         className={["pc-composer__textarea", props.textareaClassName].filter(Boolean).join(" ")}
         value={props.value}
-        onChange={(e) => { if (mentionsOn) setCaret(e.target.selectionStart); props.onChange(e.target.value); }}
+        onChange={(e) => {
+          if (mentionsOn) {
+            const field = e.target;
+            const at = typeof field.selectionEnd === "number" ? field.selectionEnd : field.selectionStart;
+            setCaret(typeof field.selectionStart === "number" ? field.selectionStart : null);
+            edited(field.value, typeof at === "number" ? at : null, String((e.nativeEvent as InputEvent | undefined)?.inputType || ""));
+          }
+          props.onChange(e.target.value);
+        }}
         rows={rows}
         // The textarea auto-grows (CSS field-sizing) from `rows` lines up to a
         // viewport-relative cap; the row count reaches the CSS as a variable.
@@ -17271,21 +17515,46 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
         autoComplete="off"
         placeholder={props.placeholder || ""}
         aria-label={props.ariaLabel || props.placeholder || "Message"}
-        aria-describedby={props.ariaDescribedBy}
+        aria-describedby={[props.ariaDescribedBy, overlay ? mirrorDescription : ""].filter(Boolean).join(" ") || undefined}
         {...(mentionsOn
           ? {
               "aria-autocomplete": "list" as const,
               ...(open && shown.items.length ? { "aria-controls": listId } : {}),
               ...(open && activeIndex >= 0 ? { "aria-activedescendant": optionId(activeIndex) } : {}),
-              onSelect: (e: React.SyntheticEvent<HTMLTextAreaElement>) => setCaret(e.currentTarget.selectionStart),
+              ...(overlay ? { "data-mention-overlay": "" } : {}),
+              ...(overlay && composing ? { "data-composing": "" } : {}),
+              onSelect: (e: React.SyntheticEvent<HTMLTextAreaElement>) => { keepOffChips(e.currentTarget); setCaret(e.currentTarget.selectionStart); },
               onFocus: (e: React.FocusEvent<HTMLTextAreaElement>) => { setFocused(true); setCaret(e.currentTarget.selectionStart); },
               onBlur: () => setFocused(false),
+              onCopy: (e: React.ClipboardEvent<HTMLTextAreaElement>) => copyChips(e, false),
+              onCut: (e: React.ClipboardEvent<HTMLTextAreaElement>) => copyChips(e, true),
+              onCompositionStart: () => { composingRef.current = true; setComposing(true); },
+              onCompositionEnd: () => { composingRef.current = false; setComposing(false); },
             }
           : {})}
         disabled={disabled}
         autoFocus={Boolean(props.autoFocus)}
-        onPaste={props.onPaste}
+        onPaste={(e) => {
+          props.onPaste?.(e);
+          if (e.defaultPrevented || !mentionsOn || !e.clipboardData) return;
+          // Only chips this composer copied come back as chips; any other text is plain text.
+          const plain = e.clipboardData.getData("text/plain");
+          const chips = mentionsFromClipboard(e.clipboardData.getData(MENTION_CLIPBOARD_TYPE), plain);
+          if (!chips) return;
+          e.preventDefault();
+          const field = e.currentTarget;
+          typeIn(plain, chips, { from: field.selectionStart, to: field.selectionEnd });
+        }}
         onKeyDown={(e) => {
+          // Backspace just after a chip (Delete just before one) takes the whole chip: the chip
+          // is selected and the key's own deletion removes it (one undo step, as typed).
+          if (mentionsOn && (e.key === "Backspace" || e.key === "Delete") && !(e.nativeEvent.isComposing || e.keyCode === 229)) {
+            const field = e.currentTarget;
+            if (field && field.selectionStart === field.selectionEnd) {
+              const chip = mentionAtCaret(field.value, mentionsRef.current, field.selectionStart, e.key === "Backspace" ? "before" : "after");
+              if (chip) field.setSelectionRange(chip.start as number, mentionEnd(chip));
+            }
+          }
           if (open && !(e.nativeEvent.isComposing || e.keyCode === 229)) {
             const count = shown.items.length;
             if ((e.key === "ArrowDown" || e.key === "ArrowUp") && count) {
@@ -17359,6 +17628,14 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
           ) : sendLabel}
         </button>
       </div>
+      {overlay ? (
+        <div ref={mirror} className="pc-composer__mirror" aria-hidden="true" data-composing={composing ? "" : undefined}>
+          {mirrorText}
+        </div>
+      ) : null}
+      {overlay ? (
+        <span id={mirrorDescription} className="pc-sr-only">{inText.map((m) => `mention: ${m.name}`).join(", ")}</span>
+      ) : null}
       {mentionList}
       {props.overlay}
     </div>
@@ -17368,13 +17645,25 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
 ## panel-chat/src/mentions.ts
 
 /**
- * `@` mentions in the composer ("@entity from any chat window", operator 2026-11-08).
+ * `@` mentions in the composer ("@entity from any chat window", operator 2026-11-08; inline in
+ * the text, operator 2026-11-10).
  *
  * A mention is STRUCTURED: the person types `@`, picks a name from a list the HOST feeds
- * (`mentionCandidates`), and the pick becomes a chip bound to that candidate. The kit never
- * reads `@` out of the text on send (no-heuristics ruling): an `@` that was not picked stays
- * plain text. The only text rule here is the input-time trigger (an `@` the person is typing
- * at the caret opens the list), the same rule as any completion popup.
+ * (`mentionCandidates`), and the pick puts a chip bound to that candidate INTO the text, where the
+ * `@query` was. The chip's text is its display form, `@` + the name ("@Castor"); the chip itself
+ * is the candidate plus `start`, where that text sits. The kit never reads `@` out of the text
+ * (no-heuristics ruling): an `@name` that was not picked (typed, or pasted from elsewhere) stays
+ * plain text. The only text rule here is the input-time trigger (an `@` the person is typing at
+ * the caret opens the list), the same rule as any completion popup.
+ *
+ * The serialization a send carries (`mentionSendPayload`):
+ *   text      the message as shown, each chip written as "@" + its name, e.g.
+ *             "Hi @Castor how are you doing ?"
+ *   mentions  the chips in TEXT order: {id, name, kind, index, start}, where
+ *             index = 0, 1, 2… (the chip's place among the message's mentions, the gateway's
+ *                     `mention_index`), and
+ *             start = the UTF-16 offset of its "@Name" in `text`, so
+ *                     text.slice(start, start + name.length + 1) === "@" + name.
  *
  * DOM-free; checked by `scripts/check_mentions.mjs`.
  */
@@ -17393,14 +17682,19 @@ export type ChatMentionCandidate = {
   hint?: string;
 };
 
-/** A chip in the composer: the candidate it was picked from. */
-export type ChatMention = ChatMentionCandidate;
+/**
+ * A chip in the composer: the candidate it was picked from, and `start`, the UTF-16 offset of its
+ * "@Name" in the composer's text. A chip whose "@Name" is not at `start` (no `start`, or the text
+ * changed under it) is not in the message: it is not drawn and not sent.
+ */
+export type ChatMention = ChatMentionCandidate & { start?: number };
 
-/** A mention as sent: `index` is its position among the message's mentions (0, 1, …),
- * the gateway's `mention_index`. */
-export type ChatMentionSent = { id: string; name: string; kind: ChatMentionKind; index: number };
+/** A mention as sent: `index` is its place among the message's mentions in text order (0, 1, …),
+ * the gateway's `mention_index`; `start` is where its "@Name" sits in the sent text (the composer
+ * always sets it). */
+export type ChatMentionSent = { id: string; name: string; kind: ChatMentionKind; index: number; start?: number };
 
-/** What a send carries: the text exactly as typed, and the picked mentions in order. */
+/** What a send carries: the text as shown (each chip as "@Name"), and its mentions in text order. */
 export type ChatComposerSend = { text: string; mentions: ChatMentionSent[] };
 
 /** The `@` being typed at the caret: where it starts and what follows it. */
@@ -17432,7 +17726,8 @@ export function mentionTriggerAt(text: string, caret: number): MentionTrigger | 
   return null;
 }
 
-/** The text once a pick replaces the typed `@query`, and where the caret goes. */
+/** The text once a pick REMOVES the typed `@query`, and where the caret goes (the chips-above
+ * composer up to panel-chat 0.9.11; the composer now uses `mentionPickEdit`). */
 export function applyMentionPick(text: string, trigger: MentionTrigger, caret: number): { text: string; caret: number } {
   const value = String(text || "");
   const end = Math.max(trigger.start, Math.min(Math.trunc(Number(caret) || 0), value.length));
@@ -17458,12 +17753,188 @@ export function removeMention(list: readonly ChatMention[], key: string): ChatMe
   return list.filter((m) => mentionKey(m) !== key);
 }
 
-/** A send: the text as typed and the chips in the order they appear (picked), numbered. */
+/** A send: the text as shown and the chips that are in it, in text order, numbered (`index`) and
+ * placed (`start`). A chip not in the text (`mentionsInText`) is not sent. */
 export function mentionSendPayload(text: string, mentions: readonly ChatMention[]): ChatComposerSend {
+  const value = String(text ?? "");
   return {
-    text: String(text ?? ""),
-    mentions: mentions.map((m, index) => ({ id: m.id, name: m.name, kind: m.kind, index })),
+    text: value,
+    mentions: mentionsInText(value, mentions).map((m, index) => ({ id: m.id, name: m.name, kind: m.kind, index, start: m.start as number })),
   };
+}
+
+// ---- chips in the text ------------------------------------------------------------------
+
+/** A chip's text in the message: "@" and its name, the display form ("@Castor"). */
+export function mentionText(m: Pick<ChatMentionCandidate, "name">): string {
+  return `@${m.name}`;
+}
+
+function startOf(m: { start?: unknown }): number | null {
+  const s = m.start;
+  return typeof s === "number" && Number.isInteger(s) && s >= 0 ? s : null;
+}
+
+/** Where a chip's "@Name" ends in the text (`start` + its length). */
+export function mentionEnd(m: ChatMention): number {
+  return (startOf(m) ?? 0) + mentionText(m).length;
+}
+
+/**
+ * The chips that are in `text`: each one's "@Name" sits at its `start`. In text order, each name
+ * once; of two that overlap, the earlier one.
+ */
+export function mentionsInText<M extends ChatMention>(text: string, mentions: readonly M[]): M[] {
+  const value = String(text ?? "");
+  const placed = mentions
+    .filter((m) => { const s = startOf(m); return s !== null && value.startsWith(mentionText(m), s); })
+    .sort((a, b) => (a.start as number) - (b.start as number));
+  const out: M[] = [];
+  const seen = new Set<string>();
+  let end = 0;
+  for (const m of placed) {
+    const key = mentionKey(m);
+    if (seen.has(key) || (m.start as number) < end) continue;
+    seen.add(key);
+    out.push(m);
+    end = mentionEnd(m);
+  }
+  return out;
+}
+
+/** The span an edit changed: `[start, prevEnd)` of the old text became `[start, nextEnd)` of the new. */
+export type MentionEditSpan = { start: number; prevEnd: number; nextEnd: number };
+
+/**
+ * What changed between `prev` and `next`. `caret` (where the caret is in `next` right after the
+ * edit) anchors the end of the change when the text after it is unchanged: typing "@" just before
+ * a chip "@Castor" is then an insertion before the chip, never one inside it.
+ */
+export function mentionEditSpan(prev: string, next: string, caret?: number | null): MentionEditSpan {
+  const a = String(prev ?? "");
+  const b = String(next ?? "");
+  const max = Math.min(a.length, b.length);
+  let p = 0;
+  while (p < max && a.charCodeAt(p) === b.charCodeAt(p)) p += 1;
+  if (typeof caret === "number" && Number.isInteger(caret) && caret >= 0 && caret <= b.length) {
+    const tail = b.length - caret;
+    if (tail <= a.length && a.endsWith(b.slice(caret))) {
+      const start = Math.min(p, a.length - tail, caret);
+      return { start, prevEnd: a.length - tail, nextEnd: caret };
+    }
+  }
+  let s = 0;
+  while (s < max - p && a.charCodeAt(a.length - 1 - s) === b.charCodeAt(b.length - 1 - s)) s += 1;
+  return { start: p, prevEnd: a.length - s, nextEnd: b.length - s };
+}
+
+/**
+ * The chips once the person edited `prev` into `next`: a chip before the change stays, one after
+ * it moves with the text, and one the change touched is gone (deleted, typed over, or cut into:
+ * its remaining letters are plain text). Only chips that were in `prev` are carried.
+ */
+export function mentionsAfterEdit<M extends ChatMention>(prev: string, next: string, mentions: readonly M[], caret?: number | null): M[] {
+  const span = mentionEditSpan(prev, next, caret);
+  const delta = span.nextEnd - span.prevEnd;
+  const out: M[] = [];
+  for (const m of mentionsInText(prev, mentions)) {
+    const start = m.start as number;
+    if (mentionEnd(m) <= span.start) out.push(m);
+    else if (start >= span.prevEnd) out.push(delta ? { ...m, start: start + delta } : m);
+  }
+  return mentionsInText(next, out);
+}
+
+/**
+ * `mentions` plus `added` (chips with `start` relative to `at`, e.g. pasted), placed in `text` at
+ * `at`. A name already in the text is not added twice (the pasted one stays plain text).
+ */
+export function mentionsWithInserted<M extends ChatMention>(text: string, mentions: readonly M[], at: number, added: readonly M[]): M[] {
+  const here = mentionsInText(text, mentions);
+  const keys = new Set(here.map(mentionKey));
+  const placed = added.filter((m) => !keys.has(mentionKey(m))).map((m) => ({ ...m, start: at + (startOf(m) ?? 0) }));
+  return mentionsInText(text, [...here, ...placed]);
+}
+
+/** A pick: the chip's "@Name" replaces the typed `@query` (`from`..`to`), with one space after it
+ * unless a space follows; `caret` goes after that space. */
+export type MentionPickEdit = { from: number; to: number; insert: string; text: string; caret: number };
+
+export function mentionPickEdit(text: string, trigger: MentionTrigger, caret: number, candidate: Pick<ChatMentionCandidate, "name">): MentionPickEdit {
+  const value = String(text ?? "");
+  const from = Math.max(0, Math.min(trigger.start, value.length));
+  const to = Math.max(from, Math.min(Math.trunc(Number(caret) || 0), value.length));
+  const spaced = isSpace(value.charAt(to));
+  const insert = mentionText(candidate) + (spaced ? "" : " ");
+  return { from, to, insert, text: value.slice(0, from) + insert + value.slice(to), caret: from + insert.length + (spaced ? 1 : 0) };
+}
+
+/** The chip that ends at `caret` ("before": what Backspace deletes) or starts there ("after":
+ * what Delete deletes), or null. */
+export function mentionAtCaret<M extends ChatMention>(text: string, mentions: readonly M[], caret: number, side: "before" | "after"): M | null {
+  return mentionsInText(text, mentions).find((m) => (side === "before" ? mentionEnd(m) === caret : m.start === caret)) ?? null;
+}
+
+/**
+ * The selection kept off the inside of chips. A caret inside a chip goes to the edge it moved
+ * across (`from`, the caret one step before) or else the nearer one; a range that cuts a chip
+ * grows to cover it whole.
+ */
+export function mentionSelection(text: string, mentions: readonly ChatMention[], start: number, end: number, from?: number | null): { start: number; end: number } {
+  let s = start;
+  let e = end;
+  for (const m of mentionsInText(text, mentions)) {
+    const a = m.start as number;
+    const b = mentionEnd(m);
+    if (s === e) {
+      if (s <= a || s >= b) continue;
+      const nearer = s - a <= b - s ? a : b;
+      const to = typeof from === "number" && Math.abs(s - from) === 1 ? (from <= a ? b : from >= b ? a : nearer) : nearer;
+      return { start: to, end: to };
+    }
+    if (s > a && s < b) s = a;
+    if (e > a && e < b) e = b;
+  }
+  return { start: s, end: e };
+}
+
+/** The clipboard type that carries chips between copies and pastes of the composer. */
+export const MENTION_CLIPBOARD_TYPE = "application/x-abstractframework-mentions+json";
+
+/** What a copy of `text[from, to)` puts on the clipboard under `MENTION_CLIPBOARD_TYPE`: the
+ * chips wholly inside it, `start` relative to `from`; null when it holds none. */
+export function mentionClipboard(text: string, mentions: readonly ChatMention[], from: number, to: number): string | null {
+  const value = String(text ?? "");
+  const inside = mentionsInText(value, mentions).filter((m) => (m.start as number) >= from && mentionEnd(m) <= to);
+  if (!inside.length) return null;
+  return JSON.stringify({
+    v: 1,
+    text: value.slice(from, to),
+    mentions: inside.map((m) => ({ id: m.id, name: m.name, kind: m.kind, ...(m.avatar ? { avatar: m.avatar } : {}), ...(m.hint ? { hint: m.hint } : {}), start: (m.start as number) - from })),
+  });
+}
+
+/**
+ * The chips a paste brings: only those a copy of this composer put on the clipboard
+ * (`mentionClipboard`), and only when the pasted plain text is exactly what that copy held
+ * (`start` relative to the paste). Anything else is plain text: an "@name" is never read out of it.
+ */
+export function mentionsFromClipboard(data: string | null | undefined, plain: string): ChatMention[] | null {
+  if (!data) return null;
+  let parsed: unknown;
+  try { parsed = JSON.parse(data); } catch { return null; }
+  if (!parsed || typeof parsed !== "object") return null;
+  const box = parsed as { v?: unknown; text?: unknown; mentions?: unknown };
+  if (box.v !== 1 || typeof box.text !== "string" || box.text !== plain || !Array.isArray(box.mentions)) return null;
+  const out: ChatMention[] = [];
+  for (const raw of box.mentions) {
+    const [candidate] = usableCandidates([raw]);
+    const start = raw && typeof raw === "object" ? startOf(raw as { start?: unknown }) : null;
+    if (!candidate || start === null || !plain.startsWith(mentionText(candidate), start)) continue;
+    out.push({ ...candidate, start });
+  }
+  const placed = mentionsInText(plain, out);
+  return placed.length ? placed : null;
 }
 
 /**
@@ -17530,7 +18001,7 @@ export function mentionResend(
     const key = mentionKey(m);
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push({ id: m.id, name: m.name, kind: m.kind, index: first.get(key) ?? next++ });
+    out.push({ id: m.id, name: m.name, kind: m.kind, index: first.get(key) ?? next++, ...(typeof m.start === "number" ? { start: m.start } : {}) });
   }
   return out.sort((a, b) => a.index - b.index);
 }
@@ -24131,7 +24602,8 @@ ships.
 
 ## [Unreleased]
 
-Needs `@abstractframework/ui-kit` 0.9.28 (the version is bumped at release); other packages unchanged.
+Needs `@abstractframework/ui-kit` 0.9.28 and `@abstractframework/panel-chat` 0.9.12 (the versions are bumped at
+release); other packages unchanged. Apps that vendor panel-chat (`src/vendor/abstractchat`) re-sync from the 0.9.12 build.
 
 ### Added
 
@@ -24155,6 +24627,36 @@ Needs `@abstractframework/ui-kit` 0.9.28 (the version is bumped at release); oth
   button's callback; 15 mutants red) and `npm run test:entity-card:browser` (the acts page
   `examples/entity_cards.html?acts` at 1440 and 400 px: Watch inside the head band, Retry beside
   the reason, Resume, clicks, in flight, refused). Docs: `docs/entity-card.md`.
+
+### Changed
+
+- **panel-chat: an `@` mention is a chip INSIDE the sentence** (operator, second test round 2026-11-10:
+  the chips above the text were "terrible visually and not the inline in text I was requesting"). A pick
+  now puts the chip where the typed `@cas` was ("Hi @Castor how are you doing ?"): its name on an accent
+  pill with the entity's orb (or the agent's mark) over the `@`, no ×. The field stays a `<textarea>`
+  (native typing, IME, undo, paste as plain text, Enter / Shift+Enter, mobile keyboards, auto-grow and
+  max height unchanged): while chips are in the text its glyphs are transparent and a pointer-transparent
+  mirror over it, laid out with the field's own text styles, draws the same words with each chip in
+  place. Backspace just after a chip (Delete just before) removes it whole; typing over a selection
+  that cuts into one removes it; deleting a letter inside one turns it to plain text; the caret steps
+  over a chip and a selection takes it whole; undo and redo bring the chip back with its words; a copy
+  holding chips pastes back as chips (`MENTION_CLIPBOARD_TYPE` beside the plain text), while plain
+  text, "@castor" included, is never read as a mention. The field's description names each chip
+  ("mention: Castor"). The host's notices (first use, `mentionStatus`, `mentionsUnavailable`) stay
+  above the field. **Serialization:** `text` is the message as shown, each chip written as `@` + its name;
+  `mentions` are the chips in text order, `{id, name, kind, index, start}`, `index` 0, 1, … (the
+  gateway's `mention_index`, unchanged) and `start` the UTF-16 offset of its "@Name" in `text`
+  (new). `ChatMention` carries `start` (where the chip sits in the composer's text); a chip whose
+  "@Name" is not at its `start` is neither drawn nor sent, so a draft the host clears and restores
+  (a failed send) gets its chips back. `WorkflowChat` sends the chips in the draft. New pure helpers:
+  `mentionsInText`, `mentionsAfterEdit`, `mentionEditSpan`, `mentionsWithInserted`, `mentionPickEdit`,
+  `mentionAtCaret`, `mentionSelection`, `mentionClipboard`, `mentionsFromClipboard`, `mentionText`,
+  `mentionEnd`. The removable chips above the field (`.pc-mention-chips`, `AfChip` with Remove) are
+  gone; the notices sit in `.pc-mention-notices`. Checks: `check_mentions.mjs` (215: the pure rules,
+  the composer in the hook harness) and the optional `check_inline_mentions_browser.mjs` (Chromium and
+  WebKit, desktop and 400 px: pick, typing around, two chips, a chip at the end, removal, undo/redo,
+  caret, copy/paste, IME, the send, a restored draft, and the mirror's words compared pixel for pixel
+  with the field's, wrapped and scrolled).
 
 ## 0.10.19 - 2026-11-10
 

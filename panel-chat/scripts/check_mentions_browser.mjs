@@ -1,5 +1,6 @@
 // Optional real-browser check (Chrome) of "@entity from any chat window": the composer's
-// @ list (keyboard and pointer), chips and notice, the send payload, and the author header
+// @ list (keyboard and pointer), chips (in the text: check_inline_mentions_browser.mjs has the
+// editing behaviours) and notice, the send payload, and the author header
 // (entity orb, agent mark, no author = today's header), at desktop and phone (400 px) width.
 // PANEL_CHAT_PLAYWRIGHT_MODULE may point to an installed Playwright ESM entrypoint and
 // PLAYWRIGHT_CHROMIUM_EXECUTABLE to a local Chrome. `--shots <dir>` also saves screenshots.
@@ -123,8 +124,8 @@ try {
     await page.keyboard.press("ArrowDown");
     assert.equal(await field.getAttribute("aria-activedescendant"), await list.getByRole("option").nth(1).getAttribute("id"));
     await page.keyboard.press("Enter");
-    assert.equal(await field.inputValue(), "Ask ", `${label}: the typed @ became a chip`);
-    assert(await field.evaluate((el) => document.activeElement === el && el.selectionStart === 4), `${label}: focus and caret stay`);
+    assert.equal(await field.inputValue(), "Ask @Pollux ", `${label}: the typed @ became a chip, in the text`);
+    assert(await field.evaluate((el) => document.activeElement === el && el.selectionStart === 12), `${label}: focus stays, the caret after the chip`);
     assert.equal(await list.count(), 0, `${label}: the list closed`);
     // Pointer: click a name.
     await field.pressSequentially("@c");
@@ -135,16 +136,18 @@ try {
     await page.getByText("No name matches").waitFor();
     await page.keyboard.press("Escape");
     assert.equal(await page.locator(".pc-mention-popover").count(), 0, `${label}: Escape closes the list`);
-    await field.fill("Ask what you two think of the second plan?");
+    for (let i = 0; i < 6; i += 1) await page.keyboard.press("Backspace");
+    await field.pressSequentially("what do you two think of the second plan?");
+    assert.equal(await field.inputValue(), "Ask @Pollux @Castor what do you two think of the second plan?");
     const chipsNow = await page.locator(".pc-mention-chip__name").allTextContents();
-    assert.deepEqual(chipsNow, ["@Pollux", "@Castor"], `${label}: two chips in pick order`);
+    assert.deepEqual(chipsNow, ["Pollux", "Castor"], `${label}: two chips in text order`);
     assert.equal(await page.locator(".pc-mention-notice").count(), 2, `${label}: one notice per entity on first use`);
     await page.waitForTimeout(150);
     // (b) a message with two chips.
     await around(`${label}-b-two-chips`);
     await page.keyboard.press("Enter");
     await page.waitForFunction(() => window.sent.length === 1);
-    assert.deepEqual(await page.evaluate(() => window.sent[0]), { text: "Ask what you two think of the second plan?", mentions: [{ id: "pollux", name: "Pollux", kind: "entity", index: 0 }, { id: "castor", name: "Castor", kind: "entity", index: 1 }] }, `${label}: the send`);
+    assert.deepEqual(await page.evaluate(() => window.sent[0]), { text: "Ask @Pollux @Castor what do you two think of the second plan?", mentions: [{ id: "pollux", name: "Pollux", kind: "entity", index: 0, start: 4 }, { id: "castor", name: "Castor", kind: "entity", index: 1, start: 12 }] }, `${label}: the send`);
     await page.locator(".pc-mention-chip").first().waitFor({ state: "detached" });
     // A plain @ that was never picked is sent as text, with no mention.
     await field.pressSequentially("ping @castor");

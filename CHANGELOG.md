@@ -9,7 +9,8 @@ ships.
 
 ## [Unreleased]
 
-Needs `@abstractframework/ui-kit` 0.9.28 (the version is bumped at release); other packages unchanged.
+Needs `@abstractframework/ui-kit` 0.9.28 and `@abstractframework/panel-chat` 0.9.12 (the versions are bumped at
+release); other packages unchanged. Apps that vendor panel-chat (`src/vendor/abstractchat`) re-sync from the 0.9.12 build.
 
 ### Added
 
@@ -33,6 +34,36 @@ Needs `@abstractframework/ui-kit` 0.9.28 (the version is bumped at release); oth
   button's callback; 15 mutants red) and `npm run test:entity-card:browser` (the acts page
   `examples/entity_cards.html?acts` at 1440 and 400 px: Watch inside the head band, Retry beside
   the reason, Resume, clicks, in flight, refused). Docs: `docs/entity-card.md`.
+
+### Changed
+
+- **panel-chat: an `@` mention is a chip INSIDE the sentence** (operator, second test round 2026-11-10:
+  the chips above the text were "terrible visually and not the inline in text I was requesting"). A pick
+  now puts the chip where the typed `@cas` was ("Hi @Castor how are you doing ?"): its name on an accent
+  pill with the entity's orb (or the agent's mark) over the `@`, no ×. The field stays a `<textarea>`
+  (native typing, IME, undo, paste as plain text, Enter / Shift+Enter, mobile keyboards, auto-grow and
+  max height unchanged): while chips are in the text its glyphs are transparent and a pointer-transparent
+  mirror over it, laid out with the field's own text styles, draws the same words with each chip in
+  place. Backspace just after a chip (Delete just before) removes it whole; typing over a selection
+  that cuts into one removes it; deleting a letter inside one turns it to plain text; the caret steps
+  over a chip and a selection takes it whole; undo and redo bring the chip back with its words; a copy
+  holding chips pastes back as chips (`MENTION_CLIPBOARD_TYPE` beside the plain text), while plain
+  text, "@castor" included, is never read as a mention. The field's description names each chip
+  ("mention: Castor"). The host's notices (first use, `mentionStatus`, `mentionsUnavailable`) stay
+  above the field. **Serialization:** `text` is the message as shown, each chip written as `@` + its name;
+  `mentions` are the chips in text order, `{id, name, kind, index, start}`, `index` 0, 1, … (the
+  gateway's `mention_index`, unchanged) and `start` the UTF-16 offset of its "@Name" in `text`
+  (new). `ChatMention` carries `start` (where the chip sits in the composer's text); a chip whose
+  "@Name" is not at its `start` is neither drawn nor sent, so a draft the host clears and restores
+  (a failed send) gets its chips back. `WorkflowChat` sends the chips in the draft. New pure helpers:
+  `mentionsInText`, `mentionsAfterEdit`, `mentionEditSpan`, `mentionsWithInserted`, `mentionPickEdit`,
+  `mentionAtCaret`, `mentionSelection`, `mentionClipboard`, `mentionsFromClipboard`, `mentionText`,
+  `mentionEnd`. The removable chips above the field (`.pc-mention-chips`, `AfChip` with Remove) are
+  gone; the notices sit in `.pc-mention-notices`. Checks: `check_mentions.mjs` (215: the pure rules,
+  the composer in the hook harness) and the optional `check_inline_mentions_browser.mjs` (Chromium and
+  WebKit, desktop and 400 px: pick, typing around, two chips, a chip at the end, removal, undo/redo,
+  caret, copy/paste, IME, the send, a restored draft, and the mirror's words compared pixel for pixel
+  with the field's, wrapped and scrolled).
 
 ## 0.10.19 - 2026-11-10
 
