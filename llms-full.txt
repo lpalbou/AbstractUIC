@@ -154,7 +154,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 ## Optional
 
 - [Compact session cards](docs/session-cards.md): Watch-style conversation cards, human attention and visibility-gated Gateway read receipts.
-- [Entity card](docs/entity-card.md): `EntityCard`, an entity at a glance from AbstractGateway's tile read, in plain words; full and compact, loading/stale/unavailable.
+- [Entity card](docs/entity-card.md): `EntityCard`, an entity at a glance from AbstractGateway's tile read, in plain words; full and compact, loading/stale/unavailable; Watch, Retry (with the served reason) and Resume from the served life state.
 
 - [Installation (legacy stub)](docs/installation.md): kept for old links; points to Getting started
 - [Publishing (maintainers)](docs/publishing.md): Release checklist and npm publish notes
@@ -2347,7 +2347,8 @@ For compact conversation lists, `SessionCard`, `sessionActivityFromRuns`, `sessi
 and Gateway-owned, account-wide read receipts. See [Compact session cards](session-cards.md) for ownership and consumption rules.
 
 For entities, `EntityCard` draws AbstractGateway's tile read (`GET /entities/{name}/tile`) in plain words,
-full or compact, with loading, stale and unavailable states; `entityNowWords`, `entityMomentWords` and the
+full or compact, with loading, stale and unavailable states, and its acts from the served life state
+(`life`, `loop`; `onWatch`, `onRetry`, `onResume`, `pending`, `notice`); `entityNowWords`, `entityMomentWords` and the
 other `entity*Words` helpers are the shared wording. See [Entity card](entity-card.md).
 
 Source of truth:
@@ -5188,7 +5189,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 - **Modal, account rows, grouped navigation**: [`modal.md`](./modal.md) — `AfModal` and its plain-HTML markup with `AfConsoleIslands.bindModal`, the menu and the themed tooltip (`AfTooltip`, `bindTooltips`), the account-kind row tints and chips, sidebar group captions with a bottom slot, and the 13 px / 14 px helper-text floor
 - **Activity avatars**: [`avatars.md`](./avatars.md) — one shared Rust/Wasm geometry/catalog, React/Canvas and native adapters, lifecycle, themes, pointer tracking and gallery checks
 - **Compact session cards**: [`session-cards.md`](./session-cards.md) — `SessionCard` and `AutomationCard`: Watch-style conversation and automation rows, human attention, and visibility-gated Gateway read receipts (`useSessionReads`, `createSessionReadClient`)
-- **Entity card**: [`entity-card.md`](./entity-card.md) — `EntityCard`: an entity at a glance from AbstractGateway's tile read (who, now and for how long, into lately, on its mind, last moment, age, mind, counts), full and compact, loading/stale/unavailable states, the shared words
+- **Entity card**: [`entity-card.md`](./entity-card.md) — `EntityCard`: an entity at a glance from AbstractGateway's tile read (who, now and for how long, into lately, on its mind, last moment, age, mind, counts), full and compact, loading/stale/unavailable states, the acts (Watch, Retry with the served reason, Resume) from the served life state, the shared words
 - **Icons**: [`icons.md`](./icons.md) — the `Icon` component, every icon name with its grid and typical use, the light and dark contact sheets, the drawing rules, and how to add an icon
 - **Responsive layout**: [`responsive.md`](./responsive.md) — breakpoints, touch sizes, bottom sheets and drawers, container queries, the viewport helpers, the font-size order, and how a host app adopts them
 - **Automations**: [`automations.md`](./automations.md) — show and manage AbstractGateway automations: `AutomationPanel` (controls, runs as chat pairs, typed wait answers), `AfScheduleDialog` (schedules and **When an email arrives** triggers, **Email result**, result recipients) and its tool-approval consent line, `createAutomationsClient()` and its error model, retry-safe ids, the panel-chat schedule action and badge, the canonical fixtures and how to regenerate them, and the export list
@@ -8550,16 +8551,24 @@ export {
 export { ActivityAvatar, type ActivityAvatarProps, type AvatarQuality } from "./activity_avatar.js";
 export { SessionCard, type SessionCardProps } from "./session_card.js";
 // An entity at a glance (gateway backlog 1012: `GET /entities/{name}/tile`): one card for every app.
-export { EntityCard, type EntityCardProps, type EntityCardStatus, type EntityCardDensity, type EntityCardAttention } from "./entity_card.js";
+export { EntityCard, type EntityCardProps, type EntityCardStatus, type EntityCardDensity, type EntityCardAttention, type EntityCardNotice } from "./entity_card.js";
 export {
+  ENTITY_CARD_ACT_WORDS,
   entityAgeWords,
+  entityCardActName,
+  entityCardActs,
   entityCardSummary,
+  entityFailuresWords,
   entityCountsWords,
   entityDurationWords,
   entityMomentWords,
   entityNowWords,
   entityTroubleWords,
   entityWhenWords,
+  type EntityCardAct,
+  type EntityCardActsView,
+  type EntityCardLife,
+  type EntityCardLoop,
   type EntityTile,
   type EntityTilePhase,
 } from "./entity_card_words.js";
@@ -23677,6 +23686,8 @@ instead of the full identity card.
 | Latest lesson | Its newest lesson | `latest_lesson` |
 | Last moment | "A visit ended · 1 hour ago", "Moved to its own time", "Was given a mission" | `last_moment` |
 | Facts | "3 months old · Thinks with gpt-5.6-sol", "33 lessons learned · 29 open problems · 78 open questions · 261 sleeps" | `age_days`, `mind`, `counts` |
+| Watch | A primary "Watch" button in the head band, while the entity is not stopped | `onWatch` prop, `life.stopped` |
+| Box | The served sentence and its act: "Stopped. Nothing runs until you resume him." with Resume; "His own time stopped unexpectedly. Retry to start it again." with the reason and Retry | `life` (served `life_state`), `loop` (served `/loop`) |
 | Actions | The host's controls (phase radio, buttons), at the bottom | `actions` prop |
 
 Layout: the head (portrait, name, the now line with a small dot in the phase's colour) sits on a faint
@@ -23707,14 +23718,53 @@ nothing else; the reason is the tooltip only).
   href={`${entityAppHref}?entity=${encodeURIComponent(row.name)}`} target="_blank" />
 ```
 
+## Acts: Watch, Retry, Resume
+
+The card is how a person starts the discussion with an entity, and a failure never leaves them
+hanging (operator, 2026-11-10). The host passes what the gateway serves and one callback per act;
+the card decides nothing the gateway did not serve:
+
+- `life`: the served life state (`GET /api/gateway/entities/{name}/life_state`, the phase bar
+  contract): `{phase, stopped, sentence, blocked: {code, sentence, action} | null}`, as served.
+- `loop`: the served own-time loop (`GET /api/gateway/entities/{name}/loop`): `{stopped_by, note,
+  updated_at}`.
+- `onWatch`: "Watch", a primary button in the head band (beside the head, never inside its link),
+  shown while the entity is not stopped (and when no `life` is given). The host opens the entity:
+  its page, its conversation.
+- `onRetry`: "Retry" (`POST /api/gateway/entities/{name}/lifecycle {action: "retry"}`), in a warning
+  box under the head when the served `blocked.action` is `"retry"`. The box says `blocked.sentence`,
+  then, for `blocked.code == "loop_crashed"`, the reason: the loop's served `note` when it has one,
+  else "It stopped after repeated failures (Aug 1); its memory is intact." when the loop stopped
+  itself (`stopped_by: "failures"`, or the tile's `own_time_failed` trouble when no `loop` is
+  given). A blocked state without an act shows its sentence only.
+- `onResume`: "Resume" (`POST /api/gateway/entities/{name}/lifecycle {action: "resume"}`), in a
+  quiet box with the served sentence while `life.stopped`.
+- `pending`: the act in flight (`"watch" | "retry" | "resume"`): its button reads "Retrying…" /
+  "Resuming…" / "Opening…", and every act waits.
+- `notice`: `{text, refused?}`, the last act's answer in one sentence under the box: the gateway's
+  refusal (`refused: true`, announced as an alert), or what happens next.
+
+Given a `life`, its box replaces the tile's warning (note or marker): the served state is the newer
+truth and carries the act. Each button's accessible name names the entity ("Watch Castor", "Retry
+Castor's own time", "Resume Castor"); `entityCardActs` (the pure view), `entityCardActName`,
+`entityFailuresWords` and `ENTITY_CARD_ACT_WORDS` are exported.
+
+```tsx
+<EntityCard tile={tile} name={row.name} nowMs={Date.now()} onOpen={open}
+  life={servedLifeState} loop={servedLoop}
+  onWatch={open} onRetry={() => lifecycle("retry")} onResume={() => lifecycle("resume")}
+  pending={inFlight} notice={answer} actions={<PhaseBar />} />
+```
+
 The head is a link (`href`) or a button (`onOpen`) whose accessible name is who and what it is doing
 (`entityCardSummary`); the body is read after it. The look is drawn as a still portrait (the listening pose
 at a mid level, so every design shows its shape). The card is fluid; it is checked at 1440 px and 400 px.
 
 Checks: `node scripts/check_entity_card.mjs` (words and markup, part of `npm test`) and
 `npm run test:entity-card:browser` (Chromium: drawn looks, no overflow at 1440 and 400 px, loading
-holds the loaded size, plain words; `ENTITY_CARD_SHOTS=<dir>` saves the screenshots). The gallery is
-`examples/entity_cards.html` after `node scripts/build_entity_card_gallery.mjs`.
+holds the loaded size, plain words, and the acts on `examples/entity_cards.html?acts`: Watch in the head
+band, Retry beside the reason, Resume, in flight, refused; `ENTITY_CARD_SHOTS=<dir>` saves the screenshots).
+The gallery is `examples/entity_cards.html` after `node scripts/build_entity_card_gallery.mjs`.
 
 ## docs/installation.md
 
@@ -24078,6 +24128,33 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## [Unreleased]
+
+Needs `@abstractframework/ui-kit` 0.9.28 (the version is bumped at release); other packages unchanged.
+
+### Added
+
+- **ui-kit `EntityCard`: Watch, Retry and Resume on the card** (operator, second test round
+  2026-11-10: "watch" must be a clear button, it is how a person starts the discussion with an
+  entity; a failure never leaves him hanging; a stopped entity offers Resume on the card). New props
+  fed by the host from what AbstractGateway serves: `life` (`GET /entities/{name}/life_state`:
+  `{phase, stopped, sentence, blocked: {code, sentence, action}}`), `loop` (`GET /entities/{name}/loop`:
+  `{stopped_by, note, updated_at}`), and the callbacks `onWatch`, `onRetry`, `onResume`; `pending`
+  (the act in flight: "Retrying…", "Resuming…", "Opening…", every act waits) and `notice`
+  (`{text, refused?}`: the last act's answer, the gateway's refusal as an alert). "Watch" is a primary
+  button in the head band, beside the head (never inside its link), while the entity is not stopped.
+  A served `blocked` draws a warning box under the head: `blocked.sentence`, then for `loop_crashed`
+  the reason (the loop's served note, else "It stopped after repeated failures (Aug 1); its memory is
+  intact." when the loop stopped itself) and "Retry" when `blocked.action == "retry"`. Stopped draws a
+  quiet box: the served sentence and "Resume". Given a `life`, its box replaces the tile's warning.
+  Pure helpers `entityCardActs`, `entityCardActName`, `entityFailuresWords`, `ENTITY_CARD_ACT_WORDS`;
+  types `EntityCardLife`, `EntityCardLoop`, `EntityCardAct`, `EntityCardActsView`,
+  `EntityCardNotice`. Kit tokens only; 44 px touch targets on coarse pointers. Checks:
+  `scripts/check_entity_card.mjs` (the view, the markup of each state, in flight, answers, each
+  button's callback; 15 mutants red) and `npm run test:entity-card:browser` (the acts page
+  `examples/entity_cards.html?acts` at 1440 and 400 px: Watch inside the head band, Retry beside
+  the reason, Resume, clicks, in flight, refused). Docs: `docs/entity-card.md`.
 
 ## 0.10.19 - 2026-11-10
 

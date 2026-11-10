@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
-import {EntityCard,entityAgeWords,entityCountsWords,entityDurationWords,entityMomentWords,entityNowWords,entityTroubleWords,entityWhenWords} from '../dist/index.js';
+import {EntityCard,ENTITY_CARD_ACT_WORDS,entityAgeWords,entityCardActName,entityCardActs,entityCountsWords,entityDurationWords,entityFailuresWords,entityMomentWords,entityNowWords,entityTroubleWords,entityWhenWords} from '../dist/index.js';
 const NOW=Date.parse('2026-11-07T12:00:00Z'),ago=ms=>new Date(NOW-ms).toISOString(),MIN=60000,H=60*MIN,D=24*H;
 
 // Durations and ages in plain words.
@@ -123,4 +123,86 @@ t=text(render({tile:{...tile,last_moment:{kind:'blueprint_edited',at:ago(H)}}}))
   const calm=render({tile:{...tile,now:{...tile.now,trouble:null}},density:'compact',attention:'marker'});
   assert.ok(!calm.includes('af-entity-card__attention')&&!calm.includes('af-entity-card__trouble'));
 }
-console.log('Entity card: durations, ages, now, trouble, moments, counts, full/compact markup, attention marker, loading, unavailable, stale and plain words passed');
+
+// The card's acts (operator 2026-11-10): Watch, Retry with the reason, Resume — from the served life state.
+{
+  const STOPPED={phase:'stopped',stopped:true,sentence:'Stopped. Nothing runs until you resume him.',blocked:null};
+  const CRASHED={phase:'idle',stopped:false,sentence:'Awake and reachable; his own time stopped unexpectedly.',blocked:{code:'loop_crashed',sentence:'His own time stopped unexpectedly. Retry to start it again.',action:'retry'}};
+  const IDLE={phase:'idle',stopped:false,sentence:'Awake and reachable; nothing of his own is running.',blocked:null};
+  const FAILED_LOOP={running:false,stopped_by:'failures',updated_at:'2026-11-07T09:40:00Z'};
+  // The view: Watch unless stopped; the box from the served sentences; the reason only for loop_crashed.
+  assert.deepEqual(entityCardActs(null,null,null,NOW),{watch:true,box:null},'no life: Watch only');
+  assert.deepEqual(entityCardActs(IDLE,null,null,NOW),{watch:true,box:null});
+  assert.deepEqual(entityCardActs(STOPPED,FAILED_LOOP,null,NOW),{watch:false,box:{tone:'stopped',sentence:'Stopped. Nothing runs until you resume him.',reason:'',act:'resume'}},'stopped: Resume, never Watch');
+  assert.deepEqual(entityCardActs(CRASHED,FAILED_LOOP,null,NOW),{watch:true,box:{tone:'blocked',sentence:'His own time stopped unexpectedly. Retry to start it again.',reason:'It stopped after repeated failures (Nov 7); its memory is intact.',act:'retry'}});
+  assert.equal(entityFailuresWords(null,NOW),'It stopped after repeated failures; its memory is intact.');
+  // The loop's served note is the reason when it carries one (the gateway's words win).
+  assert.equal(entityCardActs(CRASHED,{running:false,note:'The provider did not answer within 75 seconds.'},null,NOW).box.reason,'The provider did not answer within 75 seconds.');
+  // No loop given: the tile's own_time_failed trouble says the same.
+  assert.equal(entityCardActs(CRASHED,null,{kind:'own_time_failed',at:'2026-11-06T10:00:00Z'},NOW).box.reason,'It stopped after repeated failures (Nov 6); its memory is intact.');
+  // A loop that ended for another reason, or no fact at all: no reason invented.
+  assert.equal(entityCardActs(CRASHED,{running:false,stopped_by:'operator-interrupt'},null,NOW).box.reason,'');
+  assert.equal(entityCardActs(CRASHED,null,null,NOW).box.reason,'');
+  // Another blocked code: its sentence and its act, no loop reason read.
+  const START_FAILED={...IDLE,blocked:{code:'own_time_start_failed',sentence:'His own time could not start: no model is set.',action:'retry'}};
+  assert.deepEqual(entityCardActs(START_FAILED,FAILED_LOOP,null,NOW).box,{tone:'blocked',sentence:'His own time could not start: no model is set.',reason:'',act:'retry'});
+  const ARCHIVED={...IDLE,blocked:{code:'entity_archived',sentence:'He is archived; restore him from the roster first.',action:null}};
+  assert.equal(entityCardActs(ARCHIVED,null,null,NOW).box.act,null,'a blocked state without an act offers none');
+  assert.deepEqual(Object.fromEntries(Object.entries(ENTITY_CARD_ACT_WORDS).map(([k,v])=>[k,v.label])),{watch:'Watch',retry:'Retry',resume:'Resume'},'verbs on the buttons');
+  assert.equal(entityCardActName('watch','Castor',false),'Watch Castor');
+  assert.equal(entityCardActName('retry','Castor',true),"Retrying Castor's own time");
+  assert.equal(entityCardActName('resume','Castor',false),'Resume Castor');
+
+  // The markup. Watch: a primary button in the head band, beside the head (never inside its button).
+  const calls=[];const cb={onWatch:()=>calls.push('watch'),onRetry:()=>calls.push('retry'),onResume:()=>calls.push('resume')};
+  const ok=render({tile,onOpen(){},life:IDLE,...cb});
+  assert.match(ok,/<div class="af-entity-card__top"><button type="button" class="af-entity-card__head"[^>]*>[\s\S]*?<\/button><button type="button" class="af-entity-card__act af-entity-card__watch is-primary" aria-label="Watch Ephemeral" title="Open its page: watch it and talk with it\.">[\s\S]*?<span>Watch<\/span>/);
+  assert.ok(!ok.includes('af-entity-card__life')&&!ok.includes('af-entity-card__trouble'),'served and calm: no box (the tile\'s old warning steps aside)');
+  assert.ok(!ok.includes('data-trouble'),'no warning frame when the served state is calm');
+  // No life: Watch still offered; the tile's warning as before.
+  const nolife=render({tile,onOpen(){},onWatch(){}});
+  assert.ok(nolife.includes('af-entity-card__watch')&&nolife.includes('af-entity-card__trouble'));
+  // No onWatch: no Watch.
+  assert.ok(!render({tile,life:IDLE}).includes('af-entity-card__watch'));
+  // Failure: the served sentence, the reason and Retry on the card; Watch stays.
+  const crashed=render({tile,life:CRASHED,loop:FAILED_LOOP,...cb});
+  assert.match(crashed,/<div class="af-entity-card__life" data-tone="blocked" role="note"><p class="af-entity-card__life-text"><span class="af-entity-card__life-sentence">His own time stopped unexpectedly\. Retry to start it again\.<\/span><span class="af-entity-card__life-reason">It stopped after repeated failures \(Nov 7\); its memory is intact\.<\/span><\/p><button type="button" class="af-entity-card__act af-entity-card__retry is-primary" aria-label="Retry Ephemeral&#x27;s own time"[^>]*>[\s\S]*?<span>Retry<\/span><\/button><\/div>/);
+  assert.ok(crashed.includes('af-entity-card__watch')&&crashed.includes('data-trouble="true"')&&crashed.includes('data-life="blocked"'));
+  assert.ok(!crashed.includes('af-entity-card__trouble'),'one warning: the served box, not the tile note too');
+  assert.ok(!crashed.includes('Resume'),'no Resume while not stopped');
+  // Without the host's onRetry the reason shows, no button.
+  assert.ok(!render({tile,life:CRASHED,loop:FAILED_LOOP}).includes('af-entity-card__retry'));
+  // Stopped: the served sentence and Resume; no Watch, no Retry.
+  const stopped=render({tile:{...tile,now:{...tile.now,phase:'stopped',trouble:null}},life:STOPPED,...cb});
+  assert.match(stopped,/<div class="af-entity-card__life" data-tone="stopped" role="note"><p class="af-entity-card__life-text"><span class="af-entity-card__life-sentence">Stopped\. Nothing runs until you resume him\.<\/span><\/p><button type="button" class="af-entity-card__act af-entity-card__resume is-primary" aria-label="Resume Ephemeral"[^>]*>[\s\S]*?<span>Resume<\/span><\/button><\/div>/);
+  assert.ok(!stopped.includes('af-entity-card__watch')&&!stopped.includes('af-entity-card__retry'));
+  assert.ok(stopped.includes('data-life="stopped"')&&!stopped.includes('data-trouble'),'stopped is a state, not a warning');
+  // In flight: the act says so and every act waits; the answer is one sentence (a refusal as served).
+  const busy=render({tile,life:CRASHED,loop:FAILED_LOOP,...cb,pending:'retry'});
+  assert.match(busy,/class="af-entity-card__act af-entity-card__retry is-primary" disabled="" aria-busy="true" aria-label="Retrying Ephemeral&#x27;s own time"[^>]*>[\s\S]*?<span>Retrying…<\/span>/);
+  assert.match(busy,/class="af-entity-card__act af-entity-card__watch is-primary" disabled=""/,'Watch waits while an act is in flight');
+  const refused=render({tile,life:STOPPED,...cb,notice:{text:'Only an admin can grant his own time, stop or resume him.',refused:true}});
+  assert.match(refused,/<p class="af-entity-card__notice" data-refused="true" role="alert">Only an admin can grant his own time, stop or resume him\.<\/p>/);
+  assert.match(render({tile,life:IDLE,notice:{text:'Own time is off; he stays awake.'}}),/<p class="af-entity-card__notice" role="status">Own time is off; he stays awake\.<\/p>/);
+  assert.ok(!render({tile,life:IDLE,notice:{text:''}}).includes('af-entity-card__notice'),'an empty answer shows nothing');
+  // Compact (a strip tile): the same acts.
+  const compactCrashed=render({tile,density:'compact',href:'/e',life:CRASHED,loop:FAILED_LOOP,...cb,attention:'marker'});
+  assert.ok(compactCrashed.includes('af-entity-card__retry')&&compactCrashed.includes('af-entity-card__watch')&&!compactCrashed.includes('af-entity-card__attention'));
+  // Plain words on every state.
+  for(const h of [ok,crashed,stopped,busy,refused]) assert.doesNotMatch(text(h),/\b[a-z]+_[a-z_]+\b|undefined|NaN|\bnull\b/,'plain words');
+
+  // The callbacks: each button calls its own host callback (the tree, expanded where it is ours).
+  const expand=(el,out=[])=>{
+    if(!el||typeof el!=='object')return out;
+    if(Array.isArray(el)){for(const c of el)expand(c,out);return out;}
+    if(typeof el.type==='function'&&el.props&&'act' in el.props){const b=el.type(el.props);out.push({act:el.props.act,button:b});return out;}
+    expand(el.props?.children,out);return out;
+  };
+  const buttons=(props)=>expand(EntityCard({tile,nowMs:NOW,...props}));
+  for(const b of buttons({life:CRASHED,loop:FAILED_LOOP,...cb})) b.button.props.onClick();
+  for(const b of buttons({life:STOPPED,...cb})) b.button.props.onClick();
+  assert.deepEqual(calls,['watch','retry','resume'],'Watch, Retry and Resume call onWatch, onRetry and onResume');
+  assert.deepEqual(buttons({life:CRASHED,...cb,pending:'watch'}).map(b=>b.button.props.disabled),[true,true],'one act at a time');
+  assert.deepEqual(buttons({life:CRASHED,...cb}).map(b=>b.button.props.disabled),[false,false]);
+}
+console.log('Entity card: durations, ages, now, trouble, moments, counts, full/compact markup, attention marker, loading, unavailable, stale, acts (Watch, Retry with the reason, Resume, in flight, answers, callbacks) and plain words passed');

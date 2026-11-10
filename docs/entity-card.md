@@ -16,6 +16,8 @@ instead of the full identity card.
 | Latest lesson | Its newest lesson | `latest_lesson` |
 | Last moment | "A visit ended · 1 hour ago", "Moved to its own time", "Was given a mission" | `last_moment` |
 | Facts | "3 months old · Thinks with gpt-5.6-sol", "33 lessons learned · 29 open problems · 78 open questions · 261 sleeps" | `age_days`, `mind`, `counts` |
+| Watch | A primary "Watch" button in the head band, while the entity is not stopped | `onWatch` prop, `life.stopped` |
+| Box | The served sentence and its act: "Stopped. Nothing runs until you resume him." with Resume; "His own time stopped unexpectedly. Retry to start it again." with the reason and Retry | `life` (served `life_state`), `loop` (served `/loop`) |
 | Actions | The host's controls (phase radio, buttons), at the bottom | `actions` prop |
 
 Layout: the head (portrait, name, the now line with a small dot in the phase's colour) sits on a faint
@@ -46,11 +48,50 @@ nothing else; the reason is the tooltip only).
   href={`${entityAppHref}?entity=${encodeURIComponent(row.name)}`} target="_blank" />
 ```
 
+## Acts: Watch, Retry, Resume
+
+The card is how a person starts the discussion with an entity, and a failure never leaves them
+hanging (operator, 2026-11-10). The host passes what the gateway serves and one callback per act;
+the card decides nothing the gateway did not serve:
+
+- `life`: the served life state (`GET /api/gateway/entities/{name}/life_state`, the phase bar
+  contract): `{phase, stopped, sentence, blocked: {code, sentence, action} | null}`, as served.
+- `loop`: the served own-time loop (`GET /api/gateway/entities/{name}/loop`): `{stopped_by, note,
+  updated_at}`.
+- `onWatch`: "Watch", a primary button in the head band (beside the head, never inside its link),
+  shown while the entity is not stopped (and when no `life` is given). The host opens the entity:
+  its page, its conversation.
+- `onRetry`: "Retry" (`POST /api/gateway/entities/{name}/lifecycle {action: "retry"}`), in a warning
+  box under the head when the served `blocked.action` is `"retry"`. The box says `blocked.sentence`,
+  then, for `blocked.code == "loop_crashed"`, the reason: the loop's served `note` when it has one,
+  else "It stopped after repeated failures (Aug 1); its memory is intact." when the loop stopped
+  itself (`stopped_by: "failures"`, or the tile's `own_time_failed` trouble when no `loop` is
+  given). A blocked state without an act shows its sentence only.
+- `onResume`: "Resume" (`POST /api/gateway/entities/{name}/lifecycle {action: "resume"}`), in a
+  quiet box with the served sentence while `life.stopped`.
+- `pending`: the act in flight (`"watch" | "retry" | "resume"`): its button reads "Retrying…" /
+  "Resuming…" / "Opening…", and every act waits.
+- `notice`: `{text, refused?}`, the last act's answer in one sentence under the box: the gateway's
+  refusal (`refused: true`, announced as an alert), or what happens next.
+
+Given a `life`, its box replaces the tile's warning (note or marker): the served state is the newer
+truth and carries the act. Each button's accessible name names the entity ("Watch Castor", "Retry
+Castor's own time", "Resume Castor"); `entityCardActs` (the pure view), `entityCardActName`,
+`entityFailuresWords` and `ENTITY_CARD_ACT_WORDS` are exported.
+
+```tsx
+<EntityCard tile={tile} name={row.name} nowMs={Date.now()} onOpen={open}
+  life={servedLifeState} loop={servedLoop}
+  onWatch={open} onRetry={() => lifecycle("retry")} onResume={() => lifecycle("resume")}
+  pending={inFlight} notice={answer} actions={<PhaseBar />} />
+```
+
 The head is a link (`href`) or a button (`onOpen`) whose accessible name is who and what it is doing
 (`entityCardSummary`); the body is read after it. The look is drawn as a still portrait (the listening pose
 at a mid level, so every design shows its shape). The card is fluid; it is checked at 1440 px and 400 px.
 
 Checks: `node scripts/check_entity_card.mjs` (words and markup, part of `npm test`) and
 `npm run test:entity-card:browser` (Chromium: drawn looks, no overflow at 1440 and 400 px, loading
-holds the loaded size, plain words; `ENTITY_CARD_SHOTS=<dir>` saves the screenshots). The gallery is
-`examples/entity_cards.html` after `node scripts/build_entity_card_gallery.mjs`.
+holds the loaded size, plain words, and the acts on `examples/entity_cards.html?acts`: Watch in the head
+band, Retry beside the reason, Resume, in flight, refused; `ENTITY_CARD_SHOTS=<dir>` saves the screenshots).
+The gallery is `examples/entity_cards.html` after `node scripts/build_entity_card_gallery.mjs`.

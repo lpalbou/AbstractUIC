@@ -169,3 +169,82 @@ export function entityCardSummary(tile: EntityTile, nowMs: number): string {
   const now = entityNowWords(tile.now, nowMs);
   return [tile.name, [now.label, now.busy ? "busy now" : "", now.since].filter(Boolean).join(", ")].filter(Boolean).join(". ");
 }
+
+// ---------------------------------------------------------------- the card's acts (Watch, Retry, Resume)
+// Operator 2026-11-10 (second test round): the card is how a person starts the discussion with an
+// entity, so "Watch" is a clear button; a failure never leaves him hanging (the reason and a Retry on
+// the card); a stopped entity offers Resume on the card. The host feeds the served life state (the
+// phase bar contract, `GET /entities/{name}/life_state`) and the served own-time loop
+// (`GET /entities/{name}/loop`); the card decides nothing the gateway did not serve.
+
+/** The served life state a card acts on: the `life_state` fields, as served. */
+export type EntityCardLife = {
+  phase: string;
+  stopped: boolean;
+  /** The gateway's one sentence for now ("Stopped. Nothing runs until you resume him."). */
+  sentence: string;
+  /** Why a phase the toggles allow is not running, and the act that unblocks it ("retry"). */
+  blocked: { code: string; sentence: string; action: string | null } | null;
+};
+
+/** The served own-time loop (`GET /entities/{name}/loop`): why it stopped. */
+export type EntityCardLoop = {
+  running?: boolean;
+  stopped_by?: string | null;
+  note?: string | null;
+  updated_at?: string | null;
+};
+
+/** One act a card offers. */
+export type EntityCardAct = "watch" | "retry" | "resume";
+
+/** The words of the card's acts: the button labels, their labels while in flight, their tooltips. */
+export const ENTITY_CARD_ACT_WORDS: Record<EntityCardAct, { label: string; pending: string; title: string }> = {
+  watch: { label: "Watch", pending: "Opening…", title: "Open its page: watch it and talk with it." },
+  retry: { label: "Retry", pending: "Retrying…", title: "Start its own time again." },
+  resume: { label: "Resume", pending: "Resuming…", title: "Resume it: it comes back awake and can be visited. Its own time starts again only when you grant it." },
+};
+
+/** An act's accessible name, naming the entity: "Watch Castor", "Retry Castor's own time",
+ * "Resume Castor" (while in flight: "Retrying Castor's own time"...). */
+export function entityCardActName(act: EntityCardAct, name: string, busy: boolean): string {
+  const verb = busy ? ENTITY_CARD_ACT_WORDS[act].pending.replace(/…$/, "") : ENTITY_CARD_ACT_WORDS[act].label;
+  if (!name) return verb;
+  return act === "retry" ? `${verb} ${name}'s own time` : `${verb} ${name}`;
+}
+
+/** Why own time stopped unexpectedly, when the loop stopped itself after repeated failures. */
+export function entityFailuresWords(at: string | number | null | undefined, nowMs: number): string {
+  const when = formatShortDate(at, nowMs);
+  return `It stopped after repeated failures${when ? ` (${when})` : ""}; its memory is intact.`;
+}
+
+/** What the card offers for one served life state: Watch while the entity is not stopped; the box
+ * under the head (the served sentence, the reason, the act that answers it): Resume while stopped,
+ * Retry when the gateway offers it (`blocked.action == "retry"`), no act for a blocked state that
+ * offers none (its sentence says what to do). The reason is read only for `loop_crashed`: the loop's
+ * served note, else the kit's words for a loop that stopped itself after repeated failures
+ * (`stopped_by: "failures"`, or the tile's `own_time_failed` trouble when no loop is given). */
+export type EntityCardActsView = {
+  watch: boolean;
+  box: { tone: "stopped" | "blocked"; sentence: string; reason: string; act: "retry" | "resume" | null } | null;
+};
+
+export function entityCardActs(
+  life: EntityCardLife | null | undefined,
+  loop: EntityCardLoop | null | undefined,
+  trouble: EntityTile["now"]["trouble"] | null | undefined,
+  nowMs: number,
+): EntityCardActsView {
+  if (!life) return { watch: true, box: null };
+  if (life.stopped) return { watch: false, box: { tone: "stopped", sentence: life.sentence, reason: "", act: "resume" } };
+  const blocked = life.blocked;
+  if (!blocked) return { watch: true, box: null };
+  let reason = "";
+  if (blocked.code === "loop_crashed") {
+    const note = typeof loop?.note === "string" ? loop.note.trim() : "";
+    if (note) reason = note;
+    else if (loop ? loop.stopped_by === "failures" : trouble?.kind === "own_time_failed") reason = entityFailuresWords(loop ? loop.updated_at : trouble?.at, nowMs);
+  }
+  return { watch: true, box: { tone: "blocked", sentence: blocked.sentence, reason, act: blocked.action === "retry" ? "retry" : null } };
+}

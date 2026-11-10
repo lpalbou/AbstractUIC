@@ -146,7 +146,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 ## Optional
 
 - [Compact session cards](docs/session-cards.md): Watch-style conversation cards, human attention and visibility-gated Gateway read receipts.
-- [Entity card](docs/entity-card.md): `EntityCard`, an entity at a glance from AbstractGateway's tile read, in plain words; full and compact, loading/stale/unavailable.
+- [Entity card](docs/entity-card.md): `EntityCard`, an entity at a glance from AbstractGateway's tile read, in plain words; full and compact, loading/stale/unavailable; Watch, Retry (with the served reason) and Resume from the served life state.
 
 - [Installation (legacy stub)](docs/installation.md): kept for old links; points to Getting started
 - [Publishing (maintainers)](docs/publishing.md): Release checklist and npm publish notes

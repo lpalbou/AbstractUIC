@@ -7,6 +7,33 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## [Unreleased]
+
+Needs `@abstractframework/ui-kit` 0.9.28 (the version is bumped at release); other packages unchanged.
+
+### Added
+
+- **ui-kit `EntityCard`: Watch, Retry and Resume on the card** (operator, second test round
+  2026-11-10: "watch" must be a clear button, it is how a person starts the discussion with an
+  entity; a failure never leaves him hanging; a stopped entity offers Resume on the card). New props
+  fed by the host from what AbstractGateway serves: `life` (`GET /entities/{name}/life_state`:
+  `{phase, stopped, sentence, blocked: {code, sentence, action}}`), `loop` (`GET /entities/{name}/loop`:
+  `{stopped_by, note, updated_at}`), and the callbacks `onWatch`, `onRetry`, `onResume`; `pending`
+  (the act in flight: "Retrying…", "Resuming…", "Opening…", every act waits) and `notice`
+  (`{text, refused?}`: the last act's answer, the gateway's refusal as an alert). "Watch" is a primary
+  button in the head band, beside the head (never inside its link), while the entity is not stopped.
+  A served `blocked` draws a warning box under the head: `blocked.sentence`, then for `loop_crashed`
+  the reason (the loop's served note, else "It stopped after repeated failures (Aug 1); its memory is
+  intact." when the loop stopped itself) and "Retry" when `blocked.action == "retry"`. Stopped draws a
+  quiet box: the served sentence and "Resume". Given a `life`, its box replaces the tile's warning.
+  Pure helpers `entityCardActs`, `entityCardActName`, `entityFailuresWords`, `ENTITY_CARD_ACT_WORDS`;
+  types `EntityCardLife`, `EntityCardLoop`, `EntityCardAct`, `EntityCardActsView`,
+  `EntityCardNotice`. Kit tokens only; 44 px touch targets on coarse pointers. Checks:
+  `scripts/check_entity_card.mjs` (the view, the markup of each state, in flight, answers, each
+  button's callback; 15 mutants red) and `npm run test:entity-card:browser` (the acts page
+  `examples/entity_cards.html?acts` at 1440 and 400 px: Watch inside the head band, Retry beside
+  the reason, Resume, clicks, in flight, refused). Docs: `docs/entity-card.md`.
+
 ## 0.10.19 - 2026-11-10
 
 Packages: `@abstractframework/panel-chat` 0.9.11 (from 0.9.10; its `@abstractframework/ui-kit` range stays

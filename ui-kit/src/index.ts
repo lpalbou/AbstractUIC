@@ -822,16 +822,24 @@ export {
 export { ActivityAvatar, type ActivityAvatarProps, type AvatarQuality } from "./activity_avatar.js";
 export { SessionCard, type SessionCardProps } from "./session_card.js";
 // An entity at a glance (gateway backlog 1012: `GET /entities/{name}/tile`): one card for every app.
-export { EntityCard, type EntityCardProps, type EntityCardStatus, type EntityCardDensity, type EntityCardAttention } from "./entity_card.js";
+export { EntityCard, type EntityCardProps, type EntityCardStatus, type EntityCardDensity, type EntityCardAttention, type EntityCardNotice } from "./entity_card.js";
 export {
+  ENTITY_CARD_ACT_WORDS,
   entityAgeWords,
+  entityCardActName,
+  entityCardActs,
   entityCardSummary,
+  entityFailuresWords,
   entityCountsWords,
   entityDurationWords,
   entityMomentWords,
   entityNowWords,
   entityTroubleWords,
   entityWhenWords,
+  type EntityCardAct,
+  type EntityCardActsView,
+  type EntityCardLife,
+  type EntityCardLoop,
   type EntityTile,
   type EntityTilePhase,
 } from "./entity_card_words.js";

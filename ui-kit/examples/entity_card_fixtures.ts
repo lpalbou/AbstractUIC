@@ -1,7 +1,7 @@
 // Real-looking tiles (`GET /entities/{name}/tile`, tile_version 1) for the EntityCard checks and
 // gallery: one per state a person meets on the Board and the home grid. Invented words; the shapes
 // and the distribution of fields follow tiles read from a real gateway on 2026-11-07.
-import type { EntityTile } from "../src/entity_card_words.js";
+import type { EntityCardLife, EntityCardLoop, EntityTile } from "../src/entity_card_words.js";
 
 export const NOW_MS = Date.parse("2026-11-07T12:00:00Z");
 const ago = (ms: number) => new Date(NOW_MS - ms).toISOString();
@@ -105,3 +105,17 @@ export const TILES: Record<string, EntityTile> = {
     last_moment: { kind: "sleep", at: ago(2 * H) },
   }),
 };
+
+// The served life states the card's acts follow (`GET /entities/{name}/life_state`, the phase bar
+// contract's examples) and the loop of an own time that stopped itself after repeated failures.
+export const LIFE: Record<"idle" | "crashed" | "stopped", EntityCardLife> = {
+  idle: { phase: "idle", stopped: false, sentence: "Awake and reachable; nothing of his own is running.", blocked: null },
+  crashed: {
+    phase: "idle",
+    stopped: false,
+    sentence: "Awake and reachable; his own time stopped unexpectedly.",
+    blocked: { code: "loop_crashed", sentence: "His own time stopped unexpectedly. Retry to start it again.", action: "retry" },
+  },
+  stopped: { phase: "stopped", stopped: true, sentence: "Stopped. Nothing runs until you resume him.", blocked: null },
+};
+export const FAILED_LOOP: EntityCardLoop = { running: false, stopped_by: "failures", updated_at: ago(98 * D) };

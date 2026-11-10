@@ -12,7 +12,8 @@ For compact conversation lists, `SessionCard`, `sessionActivityFromRuns`, `sessi
 and Gateway-owned, account-wide read receipts. See [Compact session cards](session-cards.md) for ownership and consumption rules.
 
 For entities, `EntityCard` draws AbstractGateway's tile read (`GET /entities/{name}/tile`) in plain words,
-full or compact, with loading, stale and unavailable states; `entityNowWords`, `entityMomentWords` and the
+full or compact, with loading, stale and unavailable states, and its acts from the served life state
+(`life`, `loop`; `onWatch`, `onRetry`, `onResume`, `pending`, `notice`); `entityNowWords`, `entityMomentWords` and the
 other `entity*Words` helpers are the shared wording. See [Entity card](entity-card.md).
 
 Source of truth:

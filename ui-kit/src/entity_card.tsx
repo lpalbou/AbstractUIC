@@ -1,14 +1,21 @@
 import React from "react";
 import { ActivityAvatar } from "./activity_avatar.js";
+import { Icon } from "./icon.js";
 import { formatExactTime } from "./relative_time.js";
 import {
+  ENTITY_CARD_ACT_WORDS,
   entityAgeWords,
+  entityCardActName,
+  entityCardActs,
   entityCardSummary,
   entityCountsWords,
   entityMomentWords,
   entityNowWords,
   entityTroubleWords,
   entityWhenWords,
+  type EntityCardAct,
+  type EntityCardLife,
+  type EntityCardLoop,
   type EntityTile,
 } from "./entity_card_words.js";
 
@@ -18,6 +25,13 @@ export type EntityCardDensity = "full" | "compact";
  * "marker" (a small warning mark on the "now" line, the sentence whole in its tooltip and in the
  * head's accessible name) — a strip of compact cards keeps one height (Observer 2026-11-08). */
 export type EntityCardAttention = "note" | "marker";
+
+/** The answer to the card's last act, one sentence: the gateway's refusal (`refused`), or what
+ * happens next. */
+export interface EntityCardNotice {
+  text: string;
+  refused?: boolean;
+}
 
 export interface EntityCardProps {
   /** The tile payload (`GET /entities/{name}/tile`), or null while it is not read. */
@@ -45,7 +59,48 @@ export interface EntityCardProps {
   onOpen?: () => void;
   /** Host actions (phase radio, buttons), drawn at the bottom of the card. */
   actions?: React.ReactNode;
+  /** The served life state (`GET /entities/{name}/life_state`: phase, stopped, sentence, blocked):
+   * what the card's own acts follow. Given, its box (stopped, or blocked with the served sentence
+   * and reason) replaces the tile's warning. Null or absent: the card offers Watch only. */
+  life?: EntityCardLife | null;
+  /** The served own-time loop (`GET /entities/{name}/loop`): why it stopped (its note, or
+   * `stopped_by: "failures"`), read under a Retry. */
+  loop?: EntityCardLoop | null;
+  /** "Watch": open the entity (its page, its conversation), a primary button in the head while it
+   * is not stopped. */
+  onWatch?: () => void;
+  /** "Retry" (`POST /entities/{name}/lifecycle {action: "retry"}`), offered when the served
+   * `blocked.action` is "retry", beside the reason. */
+  onRetry?: () => void;
+  /** "Resume" (`POST /entities/{name}/lifecycle {action: "resume"}`), offered while stopped. */
+  onResume?: () => void;
+  /** The act in flight: its button says so ("Retrying…") and every act waits. */
+  pending?: EntityCardAct | null;
+  /** The last act's answer, one sentence (the gateway's refusal, as served). */
+  notice?: EntityCardNotice | null;
   className?: string;
+}
+
+/** One act's button (no hooks: the checks expand it). */
+function ActButton({ act, onClick, pending, name, primary }: { act: EntityCardAct; onClick: () => void; pending: EntityCardAct | null; name: string; primary?: boolean }): React.ReactElement {
+  const words = ENTITY_CARD_ACT_WORDS[act];
+  const busy = pending === act;
+  const icon = act === "retry" ? "refresh" : act === "resume" ? "play" : null;
+  return (
+    <button
+      type="button"
+      className={`af-entity-card__act af-entity-card__${act}${primary ? " is-primary" : ""}`}
+      onClick={onClick}
+      disabled={pending !== null}
+      aria-busy={busy || undefined}
+      aria-label={entityCardActName(act, name, busy)}
+      title={words.title}
+    >
+      {icon ? <Icon name={icon} size={14} className="af-entity-card__act-icon" /> : null}
+      <span>{busy ? words.pending : words.label}</span>
+      {act === "watch" ? <Icon name="chevronRight" size={14} className="af-entity-card__act-icon" /> : null}
+    </button>
+  );
 }
 
 function EntityOrb({ name, look, size }: { name: string; look?: { style?: string | null; color?: string | null } | null; size: number }): React.ReactElement {
@@ -94,7 +149,9 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
   const orbSize = compact ? 36 : 48;
   const now = entityNowWords(tile?.now, p.nowMs);
   const trouble = entityTroubleWords(tile?.now?.trouble, p.nowMs);
-  const marker = Boolean(trouble) && p.attention === "marker";
+  // The tile's warning (box or marker) steps aside when the host passes the served life state: its
+  // box is the newer truth and carries the act.
+  const marker = Boolean(trouble) && p.attention === "marker" && !p.life;
   const interests = (tile?.into_lately ?? []).filter((i) => i && i.text).slice(0, compact ? 1 : 3);
   const moment = entityMomentWords(tile?.last_moment);
   const momentWhen = moment ? entityWhenWords(tile?.last_moment?.at, p.nowMs) : "";
@@ -109,6 +166,12 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
   const cardStyle = look?.color ? ({ "--af-entity-color": look.color } as React.CSSProperties) : undefined;
   const loading = !tile && status === "loading";
   const unavailable = !tile && status !== "loading";
+  // The card's own acts, from the served life state (the tile's warning steps aside for its box).
+  const acts = entityCardActs(p.life, p.loop, tile?.now?.trouble, p.nowMs);
+  const pending = p.pending ?? null;
+  const box = acts.box;
+  const boxAct = box?.act === "retry" ? (p.onRetry ? "retry" : null) : box?.act === "resume" ? (p.onResume ? "resume" : null) : null;
+  const showTrouble = Boolean(trouble) && !marker && !p.life;
 
   const head = (
     <>
@@ -143,7 +206,7 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
   );
   // A marker's sentence is read with the head (the box is not drawn).
   const headLabel = tile ? `${entityCardSummary(tile, p.nowMs)}${marker ? `. ${trouble}` : ""}` : name;
-  const headEl = p.href ? (
+  const headEl0 = p.href ? (
     <a className="af-entity-card__head" href={p.href} target={p.target} rel={p.target === "_blank" ? "noreferrer" : undefined} aria-label={headLabel || undefined}>
       {head}
     </a>
@@ -154,6 +217,16 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
   ) : (
     <div className="af-entity-card__head">{head}</div>
   );
+  // Watch sits in the head band, beside the head (never inside its link or button).
+  const headEl =
+    acts.watch && p.onWatch ? (
+      <div className="af-entity-card__top">
+        {headEl0}
+        <ActButton act="watch" onClick={p.onWatch} pending={pending} name={name} primary />
+      </div>
+    ) : (
+      headEl0
+    );
 
   return (
     <article
@@ -162,15 +235,30 @@ export function EntityCard(p: EntityCardProps): React.ReactElement {
       data-status={status}
       data-phase={tile?.now?.phase || undefined}
       data-now={tile?.now ? nowKey : undefined}
-      data-trouble={trouble ? "true" : undefined}
+      data-trouble={showTrouble || marker || box?.tone === "blocked" ? "true" : undefined}
+      data-life={box?.tone}
       aria-busy={loading || undefined}
       aria-label={name || "Entity"}
       style={cardStyle}
     >
       {headEl}
-      {trouble && !marker ? (
+      {showTrouble ? (
         <p className="af-entity-card__trouble" role="note">
           {trouble}
+        </p>
+      ) : null}
+      {box ? (
+        <div className="af-entity-card__life" data-tone={box.tone} role="note">
+          <p className="af-entity-card__life-text">
+            <span className="af-entity-card__life-sentence">{box.sentence}</span>
+            {box.reason ? <span className="af-entity-card__life-reason">{box.reason}</span> : null}
+          </p>
+          {boxAct ? <ActButton act={boxAct} onClick={(boxAct === "retry" ? p.onRetry : p.onResume)!} pending={pending} name={name} primary /> : null}
+        </div>
+      ) : null}
+      {p.notice && p.notice.text ? (
+        <p className="af-entity-card__notice" data-refused={p.notice.refused ? "true" : undefined} role={p.notice.refused ? "alert" : "status"}>
+          {p.notice.text}
         </p>
       ) : null}
 
