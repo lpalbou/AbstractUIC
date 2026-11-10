@@ -14,7 +14,7 @@ the [Adoption guide](../docs/adoption-guide.md)).
 Declared in `panel-chat/package.json`:
 
 - `react@^18`, `react-dom@^18`
-- `@abstractframework/ui-kit` `^0.9.27` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `ActivityAvatar` for an author's orb, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.9.11 needs ui-kit `^0.9.27` (AbstractUIC 0.10.19 ships ui-kit 0.9.27).
+- `@abstractframework/ui-kit` `^0.9.28` (icons, the responsive tokens, `AfFileViewer` / relative time for the workspace browser and `FileViewer`, `AfAudioPlayer` for audio previews and chat media, `ActivityAvatar` for an author's orb, `AfDrawerSystem` panels, and the session tool-policy client types). Upgrade the two packages together: panel-chat 0.9.12 needs ui-kit `^0.9.28` (AbstractUIC 0.10.20 ships ui-kit 0.9.28).
 
 ## Install
 
@@ -170,6 +170,19 @@ glyphs are transparent (the caret and the selection stay its own) and a pointer-
 over it (`.pc-composer__mirror`), laid out with the field's own text styles, draws the same words
 with each chip in place. A chip therefore takes exactly the width of its `@Name`: host CSS must not
 give `.pc-mention-chip--inline` padding, margin, border or another font weight.
+
+**Known limits (0.9.12).** These follow from keeping the native field:
+
+- The chips are drawn by a pointer-transparent mirror layer over the field, not inside it: while a
+  chip is in the text the field's own glyphs are transparent and the mirror, which copies the
+  field's computed text styles (font, spacing, padding, colour), draws the words. A text effect it
+  does not copy, such as a text shadow, does not show while chips are in the text.
+- A chip cannot be bold, padded or bordered: it takes exactly the width of its `@Name` in the
+  field's font, so the pill is a background and a box shadow only.
+- Deleting a letter inside a chip (a phone keyboard's word edit) turns it to plain text: the
+  mention is no longer sent.
+- A screen reader hears a chip through the field's accessible description ("mention: Castor"),
+  not as a separate element: the mirror is `aria-hidden`.
 
 **The serialization.** `onSend` (and `WorkflowChat`'s `ctx.mentions`) carry:
 

@@ -80,7 +80,8 @@ truth and carries the act. The served sentence is the only one with a pronoun: t
 tooltips have none ("Start own time again.", "Open the page: watch and talk.").
 Each button's accessible name names the entity ("Watch Castor", "Retry
 Castor's own time", "Resume Castor"); `entityCardActs` (the pure view), `entityCardActName`,
-`entityFailuresWords` and `ENTITY_CARD_ACT_WORDS` are exported.
+`entityFailuresWords` and `ENTITY_CARD_ACT_WORDS` are exported (ui-kit 0.9.28), with the types `EntityCardLife`,
+`EntityCardLoop`, `EntityCardAct`, `EntityCardActsView` and `EntityCardNotice`.
 
 ```tsx
 <EntityCard tile={tile} name={row.name} nowMs={Date.now()} onOpen={open}

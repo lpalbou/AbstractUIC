@@ -7,10 +7,11 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## [Unreleased]
+## 0.10.20 - 2026-11-10
 
-Needs `@abstractframework/ui-kit` 0.9.28 and `@abstractframework/panel-chat` 0.9.12 (the versions are bumped at
-release); other packages unchanged. Apps that vendor panel-chat (`src/vendor/abstractchat`) re-sync from the 0.9.12 build.
+Packages: `@abstractframework/ui-kit` 0.9.28 (from 0.9.27) and `@abstractframework/panel-chat` 0.9.12 (from 0.9.11;
+its `@abstractframework/ui-kit` range is now `^0.9.28`). Other packages retain their versions. Apps that vendor
+panel-chat (`src/vendor/abstractchat`) re-sync from the 0.9.12 build.
 
 ### Added
 
