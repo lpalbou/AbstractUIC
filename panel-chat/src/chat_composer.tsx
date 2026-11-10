@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState
 import { Icon } from "@abstractframework/ui-kit";
 
 import { ChatAuthorMark } from "./author_mark.js";
+import { mentionChipFace } from "./mention_chip.js";
 import {
   MENTION_CLIPBOARD_TYPE,
   mentionAtCaret,
@@ -421,8 +422,7 @@ export const ChatComposer = React.forwardRef<HTMLTextAreaElement, ChatComposerPr
       if (start > at) parts.push(value.slice(at, start));
       parts.push(
         <span key={mentionKey(m)} className="pc-mention-chip pc-mention-chip--inline" data-mention-key={mentionKey(m)} data-mention-kind={m.kind}>
-          <span className="pc-mention-chip__at">@<span className="pc-mention-chip__mark"><ChatAuthorMark mark={m.kind} look={m.avatar} initial={m.name} size={14} /></span></span>
-          <span className="pc-mention-chip__name" data-mention-kind={m.kind}>{m.name}</span>
+          {mentionChipFace(m)}
         </span>,
       );
       at = mentionEnd(m);

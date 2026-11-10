@@ -68,7 +68,7 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
   `FromAutomationBadge` — see [Automations](../docs/automations.md#panel-chat-pieces)
 - `@` mentions: `ChatComposer` / `WorkflowChat` `mentionCandidates`, `mentions` / `onMentionsChange`,
   `mentionNotice`, `mentionSessionKey`, `mentionStatus`, `mentionsUnavailable`; `onSend` carries
-  `{text, mentions}`; helpers `mentionSendPayload`, `mentionResend`, `mentionsAfterSend`,
+  `{text, mentions}`; chips in the bubbles from `ChatMessage.mentions`; helpers `mentionSendPayload`, `mentionResend`, `mentionsAfterSend`,
   `mentionsStoppedError`, `unsentMentionsOf`, `uniqueMentions` (see
   [Mentioning entities and agents](#mentioning-entities-and-agents))
 - Who answered: `ChatMessage.author` (`ChatAuthor`), `chatAuthorOf`, `chatAuthorView`, `ChatAuthorMark`
@@ -248,7 +248,18 @@ Helpers for hosts:
 - `mentionTriggerAt`, `applyMentionPick`, `addMention`, `removeMention`, `mentionKey`,
   `moveMentionActive`, `usableCandidates`, `MENTION_QUERY_MAX`.
 - Types: `ChatComposerSend`, `ChatMention`, `ChatMentionCandidate`, `ChatMentionKind`,
-  `ChatMentionSent`, `ChatMentionsUnsent`, `MentionResend`, `MentionTrigger`.
+  `ChatMentionSent`, `ChatMentionsUnsent`, `ChatMessageMention`, `MentionResend`, `MentionTrigger`.
+
+**Mentions in the thread.** Set `ChatMessage.mentions` on a sent message (the person's, or a reply
+that names someone) to what its send carried, `{id, name, kind, index, start}`, adding `avatar:
+{style, color}` when your roster knows it. The card draws each one in the bubble as the composer's
+chip (the entity's orb or the agent's mark over the "@", then the name, no ×), at its `start`: the
+kit never looks for "@" in the text. A mention whose `@Name` is not at its `start` (no `start`, or
+other words there) keeps its plain words and is logged once with `console.error("#SEAM …")`, so a
+host that forgot `start` sees it. Copy, read-aloud and export keep the plain `@Name` words
+(`content` is unchanged). Chips are drawn by the kit's Markdown: with your own `renderMarkdown`,
+or in a JSON message, the words stay plain (also logged as `#SEAM`). The chip is exported as
+`ChatMentionChip`; `messageMentionsPlaced(text, mentions)` tells which mentions are placed.
 
 ### Who answered
 

@@ -7,7 +7,9 @@
 //  D. WorkflowChat passes the mentions to onSend / onSteer and clears them on success only;
 //     a send that stopped partway keeps only its unsent chips; chips picked during a send stay
 //     (client review 2026-11-09 B1/S1/S6/N1/N3/N4);
-//  E. the replay projection carries a turn's author through.
+//  E. the replay projection carries a turn's author through;
+//  F. a sent message's mentions are the composer's chips in its bubble, placed by
+//     `mentions[].start` (never by reading "@"); no valid start: plain words + one #SEAM.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import React from "react";
@@ -39,6 +41,10 @@ import {
   mentionResend,
   uniqueMentions,
   MENTION_QUERY_MAX,
+  messageMentionsPlaced,
+  mentionTokenText,
+  mentionTokenParts,
+  mentionTokensPlain,
 } from "../dist/mentions.js";
 import * as conversationEntry from "../dist/conversation.js";
 import { chatAuthorOf, chatAuthorView } from "../dist/chat_author.js";
@@ -664,4 +670,73 @@ ok(projected.find((m) => m.id === "b").author === null, "E2 author null stays nu
 ok(!("author" in projected.find((m) => m.id === "q")), "E3 no author on the wire, no author key (older gateways project as before)");
 eq(projected.find((m) => m.id === "q2").author, { kind: "person", name: null, entity_id: null, identity_ref: null, avatar: null }, "E4 a user turn's author passes too (the card leaves person bubbles as they are: B4/B5)");
 
-console.log(`check_mentions: ${checks} checks green (trigger/pick/order/payload, chips in the text: place/edit/select/clipboard, author labels, card pinned to today without an author, composer list/keys/inline chips/notice/send, WorkflowChat, replay)`);
+// ---- F. mentions in a message's bubble ----------------------------------------------------
+{
+  const said = "Hi @Castor how are you doing ?";
+  const castorSent = { id: "ent-castor", name: "Castor", kind: "entity", index: 0, start: 3 };
+  const nerinSent = { id: "nerin", name: "Nerin", kind: "entity", index: 1, start: 13 };
+  eq(messageMentionsPlaced(said, [castorSent]), { placed: [castorSent], unplaced: [] }, "F1 a mention whose \"@Name\" is at its start is placed");
+  const noStart = { id: "ent-castor", name: "Castor", kind: "entity", index: 0 };
+  const wrongStart = { ...castorSent, start: 4 };
+  const pastEnd = { ...castorSent, start: 99 };
+  const notAMention = { name: "Castor", start: 3 };
+  eq(messageMentionsPlaced(said, [noStart, wrongStart, pastEnd, notAMention]).placed, [], "F2 no start, another text at start, past the end, or no id/kind: not placed (the text is never scanned for \"@\")");
+  const two = "@Nerin and @Castor";
+  const later = { ...castorSent, start: 11 };
+  const first = { ...nerinSent, start: 0 };
+  eq(messageMentionsPlaced(two, [later, first]).placed.map((m) => m.name), ["Nerin", "Castor"], "F3 placed in text order whatever the list order");
+  eq(messageMentionsPlaced("@Castor", [castorSent, { ...castorSent, start: 0 }, { id: "c", name: "Cas", kind: "entity", index: 1, start: 0 }]).placed.length, 1, "F4 overlapping mentions: the first one only");
+  const tokens = mentionTokenText(two, [first, later]);
+  ok(tokens !== null && !tokens.includes("@"), "F5 each placed \"@Name\" becomes a token");
+  eq(mentionTokenParts(tokens), [0, " and ", 1], "F6 the rendered words split back at the tokens");
+  eq(mentionTokensPlain(tokens, [first, later]), two, "F7 a token outside the words gets its \"@Name\" back");
+  eq(mentionTokenText("odd \uFDD0 text @Castor", [{ ...castorSent, start: 11 }]), null, "F8 a text already holding the token characters is not tokenized");
+  ok(typeof index.messageMentionsPlaced === "function" && typeof index.ChatMentionChip === "function" && typeof index.mentionChipFace === "function", "F9 exported from the package");
+
+  const errors = [];
+  const realError = console.error;
+  console.error = (...args) => errors.push(args.map(String).join(" "));
+  try {
+    const bubble = (message, props = {}) => renderToStaticMarkup(React.createElement(ChatMessageCard, { message, ...props }));
+    const body = (html) => html.slice(html.indexOf('<div class="pc-chat-body">'));
+    const chipsIn = (html) => [...html.matchAll(/<span class="pc-mention-chip pc-mention-chip--inline pc-mention-chip--message" data-mention-key="([^"]+)"/g)].map((x) => x[1]);
+    // The words a selection copies: the mark (aria-hidden, unselectable) left out.
+    const words = (html) => body(html).replace(/<span class="pc-mention-chip__mark">[^]*?<\/span><\/span>/g, "</span>").replace(/<[^>]+>/g, "");
+    const look = { style: "watch-lotus", color: "#3366cc" };
+    const userBubble = bubble({ role: "user", content: said, mentions: [{ ...castorSent, avatar: look }] });
+    eq(chipsIn(userBubble), ["entity:ent-castor"], "F10 the user's bubble draws the chip");
+    const chip = userBubble.slice(userBubble.indexOf('<span class="pc-mention-chip '), userBubble.indexOf("</span> how are you"));
+    ok(chip.includes('<span class="pc-mention-chip__at">@<span class="pc-mention-chip__mark">') && chip.includes("<canvas") && chip.includes('data-design="watch-lotus"'), "F11 the chip: the entity's orb over the \"@\"");
+    ok(chip.includes('<span class="pc-mention-chip__name" data-mention-kind="entity">Castor</span>') && !/×|aria-label="Remove/.test(chip), "F12 the chip: the name, no ×");
+    eq(words(userBubble), said, "F13 the words around the chip are the text (a selection copies \"@Castor\")");
+    const composerChip = composerMarkup({ value: said, mentionCandidates: async () => [], mentions: [{ id: "ent-castor", name: "Castor", kind: "entity", avatar: look, start: 3 }] });
+    const faceOf = (html) => { const from = html.indexOf('<span class="pc-mention-chip__at">'); return html.slice(from, html.indexOf("</span></span>", html.indexOf('class="pc-mention-chip__name"', from)) + 7); };
+    eq(faceOf(userBubble), faceOf(composerChip), "F14 the same face as the composer's chip");
+    const reply = bubble({ role: "assistant", content: "Ask @Nerin about it.", author: entityAuthor, mentions: [{ id: "nerin", name: "Nerin", kind: "agent", index: 0, start: 4 }] });
+    ok(chipsIn(reply).join() === "agent:nerin" && reply.includes("pc-author-mark--agent"), "F15 a reply bubble with mentions draws them (an agent: its mark)");
+    const md = "**@Castor** said `@Nerin`\n```\n@Pollux code\n```\n- with @Vega";
+    const at = (name) => md.indexOf(`@${name}`);
+    const mdBubble = bubble({ role: "assistant", content: md, mentions: [{ ...castorSent, start: at("Castor") }, { ...nerinSent, start: at("Nerin") }, { id: "pollux", name: "Pollux", kind: "entity", index: 2, start: at("Pollux") }, { id: "vega", name: "Vega", kind: "entity", index: 3, start: at("Vega") }] });
+    eq(chipsIn(mdBubble), ["entity:ent-castor", "entity:nerin", "entity:vega"], "F16 chips inside Markdown (bold, inline code, a list item)");
+    ok(mdBubble.includes("<code>@Pollux code</code>") && !mdBubble.includes("\uFDD0") && !mdBubble.includes("\uFDD1"), "F17 a mention in a code block keeps its plain words; no token leaks");
+    eq(errors, [], "F18 placed mentions log nothing");
+
+    const fallback = bubble({ role: "user", content: said, mentions: [noStart] });
+    eq(chipsIn(fallback), [], "F19 a mention without a valid start draws no chip");
+    ok(body(fallback).includes(`<p class="pc-md_p">${said}</p>`), "F20 its \"@Name\" stays as plain words");
+    eq(errors.length, 1, "F21 the missing start is logged");
+    ok(errors[0].startsWith("#SEAM panel-chat:") && errors[0].includes("no valid start"), "F22 as a #SEAM");
+    bubble({ role: "user", content: said, mentions: [noStart] });
+    eq(errors.length, 1, "F23 once per message, not per render");
+    const card0 = bubble({ role: "user", content: said });
+    eq(bubble({ role: "user", content: said, mentions: [] }), card0, "F24 no mentions: the bubble is today's");
+    const hosted = bubble({ role: "user", content: said, mentions: [castorSent] }, { renderMarkdown: (t) => React.createElement("p", null, t) });
+    ok(chipsIn(hosted).length === 0 && errors.length === 2 && errors[1].includes("renderMarkdown"), "F25 a host renderMarkdown: plain words, said as a #SEAM (never dropped silently)");
+  } finally {
+    console.error = realError;
+  }
+  const css2 = readFileSync(new URL("../src/panel_chat.css", import.meta.url), "utf8");
+  ok(/\.pc-mention-chip__mark \{[^}]*user-select: none;/.test(css2), "F26 the chip's mark is not selectable (a copy reads \"@Name\")");
+}
+
+console.log(`check_mentions: ${checks} checks green (trigger/pick/order/payload, chips in the text: place/edit/select/clipboard, author labels, card pinned to today without an author, composer list/keys/inline chips/notice/send, WorkflowChat, replay, chips in message bubbles)`);

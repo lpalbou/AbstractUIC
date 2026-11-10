@@ -17,6 +17,7 @@ import { chatAuthorView, type ChatAuthor } from "./chat_author.js";
 import { ChatAuthorMark } from "./author_mark.js";
 import type { ChatNotice } from "./chat_notices.js";
 import { ChatNoticeBadges } from "./chat_notice_badges.js";
+import type { ChatMessageMention } from "./mentions.js";
 
 export type ChatMessageLevel = "info" | "warn" | "error";
 
@@ -82,6 +83,12 @@ export type ChatMessage = {
    * `notices` here; a host sets it from its own lane (`notices` / `reply_notices`).
    */
   notices?: ChatNotice[];
+  /**
+   * The mentions the message carries, as its send did ({id, name, kind, index, start}; `avatar`:
+   * the chip's look when the host knows it). Each is drawn in the words as the composer's chip,
+   * placed by its `start` (the text is never read for "@"); copy and read-aloud keep "@Name".
+   */
+  mentions?: ChatMessageMention[];
 };
 
 /**
@@ -515,6 +522,7 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
             jsonCollapseAfterDepth={props.jsonCollapseAfterDepth}
             images={props.images || (role_ui.variant === "user" ? "inline" : "link")}
             inlineImage={props.inlineImage}
+            mentions={m.mentions}
           />
         </div>
       ) : null}

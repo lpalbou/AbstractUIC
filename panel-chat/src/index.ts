@@ -43,6 +43,7 @@ export {
   mentionsWithInserted,
   mentionText,
   mentionTriggerAt,
+  messageMentionsPlaced,
   MENTION_CLIPBOARD_TYPE,
   mentionResend,
   mentionsAfterSend,
@@ -59,6 +60,7 @@ export {
   type ChatMentionKind,
   type ChatMentionSent,
   type ChatMentionsUnsent,
+  type ChatMessageMention,
   type MentionEditSpan,
   type MentionPickEdit,
   type MentionResend,
@@ -66,6 +68,7 @@ export {
 } from "./mentions.js";
 export { chatAuthorOf, chatAuthorView, chatAvatarLookOf, type ChatAuthor, type ChatAuthorKind, type ChatAuthorMarkKind, type ChatAuthorView, type ChatAvatarLook } from "./chat_author.js";
 export { ChatAuthorMark, type ChatAuthorMarkProps } from "./author_mark.js";
+export { ChatMentionChip, mentionChipFace, type ChatMentionChipProps } from "./mention_chip.js";
 export { Markdown, sameOriginImage, type MarkdownImages, type MarkdownProps } from "./markdown.js";
 export { JsonViewer } from "./json_viewer.js";
 export { ChatMessageCard, speakButtonView } from "./chat_message_card.js";

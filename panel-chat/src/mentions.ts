@@ -399,3 +399,92 @@ export function usableCandidates(value: unknown): ChatMentionCandidate[] {
   }
   return out;
 }
+
+// ---- mentions in a message of the thread ------------------------------------------------
+
+/**
+ * A mention in a message the thread shows (`ChatMessage.mentions`): as the send carried it
+ * ({id, name, kind, index, start}, `start` = the UTF-16 offset of its "@Name" in the message's
+ * text), plus the look of its chip (`avatar`) when the host knows it (e.g. from its roster).
+ */
+export type ChatMessageMention = ChatMentionSent & { avatar?: ChatAvatarLook | null };
+
+/**
+ * Where a message's mentions sit: `placed` are those whose "@Name" is at their `start` in
+ * `text` (structural offsets, the text is never scanned for "@"), in text order; one that
+ * overlaps an earlier one is not placed. `unplaced` are the rest (no valid `start`, another
+ * text there, or not a mention at all): their words stay plain text.
+ */
+export function messageMentionsPlaced<M extends ChatMessageMention>(text: string, mentions: readonly M[] | null | undefined): { placed: M[]; unplaced: M[] } {
+  const value = String(text ?? "");
+  const list = Array.isArray(mentions) ? mentions : [];
+  const valid: M[] = [];
+  const unplaced: M[] = [];
+  for (const m of list) {
+    const ok = m != null && typeof m === "object" && typeof m.id === "string" && typeof m.name === "string" && m.name !== ""
+      && (m.kind === "entity" || m.kind === "agent") && startOf(m) !== null && value.startsWith(mentionText(m), m.start as number);
+    (ok ? valid : unplaced).push(m);
+  }
+  valid.sort((a, b) => (a.start as number) - (b.start as number));
+  const placed: M[] = [];
+  let end = 0;
+  for (const m of valid) {
+    if ((m.start as number) < end) { unplaced.push(m); continue; }
+    placed.push(m);
+    end = mentionEnd(m);
+  }
+  return { placed, unplaced };
+}
+
+/**
+ * The card draws a message's chips through its Markdown: each placed "@Name" is swapped for a
+ * token (two Unicode noncharacters around its number in `placed`, characters reserved for a
+ * program's internal use and inert to Markdown), and the rendered words put the chip where its
+ * token landed (`mentionTokenParts`); anything that is not shown as words (a code block, an
+ * attribute) gets "@Name" back (`mentionTokensPlain`). Null: the text already holds one of
+ * those characters, so no token can be told apart from it.
+ */
+export const MENTION_TOKEN_OPEN = "\uFDD0";
+export const MENTION_TOKEN_CLOSE = "\uFDD1";
+
+export function mentionTokenText(text: string, placed: readonly ChatMessageMention[]): string | null {
+  const value = String(text ?? "");
+  if (value.includes(MENTION_TOKEN_OPEN) || value.includes(MENTION_TOKEN_CLOSE)) return null;
+  let out = "";
+  let at = 0;
+  placed.forEach((m, k) => {
+    out += value.slice(at, m.start as number) + MENTION_TOKEN_OPEN + String(k) + MENTION_TOKEN_CLOSE;
+    at = mentionEnd(m);
+  });
+  return out + value.slice(at);
+}
+
+/** A string of rendered words split at its tokens: words, and each token's number. */
+export function mentionTokenParts(s: string): Array<string | number> {
+  const value = String(s ?? "");
+  const parts: Array<string | number> = [];
+  let words = "";
+  let at = 0;
+  for (let open = value.indexOf(MENTION_TOKEN_OPEN); open !== -1; open = value.indexOf(MENTION_TOKEN_OPEN, at)) {
+    const close = value.indexOf(MENTION_TOKEN_CLOSE, open + 1);
+    const digits = close === -1 ? "" : value.slice(open + 1, close);
+    if (!digits || [...digits].some((ch) => ch < "0" || ch > "9")) {
+      words += value.slice(at, open + 1);
+      at = open + 1;
+      continue;
+    }
+    words += value.slice(at, open);
+    if (words) parts.push(words);
+    words = "";
+    parts.push(Number(digits));
+    at = close + 1;
+  }
+  words += value.slice(at);
+  if (words) parts.push(words);
+  return parts;
+}
+
+/** `s` with each token back to its "@Name" (a token of no mention: removed). */
+export function mentionTokensPlain(s: string, placed: readonly Pick<ChatMessageMention, "name">[]): string {
+  return mentionTokenParts(s).map((p) => (typeof p === "number" ? (placed[p] ? mentionText(placed[p]) : "") : p)).join("");
+}

@@ -459,6 +459,13 @@
   transform: translate(-50%, -50%);
   display: inline-flex;
   line-height: 0;
+  /* A selection copies the chip's "@Name", never the mark's initial. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* A chip in a message's words (ChatMessage.mentions): the composer's chip, kept on one line. */
+.pc-mention-chip--message {
+  white-space: nowrap;
 }
 .pc-mention-notice {
   flex: 1 1 100%;
