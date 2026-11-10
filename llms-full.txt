@@ -5910,7 +5910,7 @@ itself, and hands them to `onSend(draft, {signal, mentions})` and `steer.onSteer
 | `mentionCandidates?: (query) => Promise<ChatMentionCandidate[]>` | The names to offer for the text typed after `@` (for example the entities `GET /api/gateway/entities` returns for the account). It is called as the person types, so cache the source in the host. |
 | `mentions?: ChatMention[]`, `onMentionsChange?(mentions)` | Controlled chips, each with `start` (where its "@Name" sits in `value`), reported in text order after every edit. Omit `mentions` to let the composer keep them. |
 | `onSend?: (send: ChatComposerSend) => void \| Promise<unknown>` | Send with the picks: `{text, mentions: [{id, name, kind, index, start}]}` (see **The serialization** below). Wins over `onSubmit`. |
-| `mentionNotice?(candidate) => string \| null` | The sentence shown above the field the first time a name is picked in this conversation, while its chip is in the text, such as "Castor will read this conversation's history." |
+| `mentionNotice?(candidate) => string \| null` | A sentence shown above the field the first time a name is picked in this conversation, while its chip is in the text. Leave it out unless the person needs to know something the chip does not say: the chip already shows who is mentioned (the operator removed the "Castor will read this conversation's history." line, 2026-11-10). |
 | `mentionSessionKey?: string` | The conversation that "first time" counts in (the session id); a new key starts over. |
 | `mentionStatus?: string \| null` | Your sentence about the last mentions sent ("Castor is in another conversation."), shown above the field until you clear it. |
 | `mentionsUnavailable?: string \| null` | Your sentence when mentions cannot be used here, such as "This gateway does not offer mentions yet." Typing `@` then shows it instead of names, no new chip can be picked, and chips picked earlier are not sent. |
@@ -5988,7 +5988,6 @@ these rules yourself with the same helpers.
   draft={draft}
   onDraftChange={setDraft}
   mentionCandidates={async (query) => matchNames(await loadEntityNames(), query)}
-  mentionNotice={(c) => (c.kind === "entity" ? `${c.name} will read this conversation's history.` : null)}
   mentionSessionKey={sessionId}
   mentionStatus={mentionStatus}
   mentionsUnavailable={routeMissing ? "This gateway does not offer mentions yet." : null}
@@ -17096,9 +17095,10 @@ export type ChatComposerProps = {
   mentions?: ChatMention[];
   onMentionsChange?: (mentions: ChatMention[]) => void;
   /**
-   * The sentence shown above the field the first time a name is picked in this conversation
-   * (e.g. "Castor will read this conversation's history"), while its chip is in the text. The
-   * host writes it; null = none.
+   * A sentence shown above the field the first time a name is picked in this conversation,
+   * while its chip is in the text. The host writes it; null = none. Leave it out unless it says
+   * something the chip does not (the "… will read this conversation's history" line was removed,
+   * operator 2026-11-10).
    */
   mentionNotice?: (candidate: ChatMentionCandidate) => string | null | undefined;
   /** The conversation "the first time" counts in (e.g. the session id); a new key starts over. */
