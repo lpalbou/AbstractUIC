@@ -11,15 +11,15 @@ Reusable UI packages for AbstractFramework clients: React components, small Web 
 
 AbstractUIC is **UI-only**: hosts provide data + callbacks; the packages don’t import host code. The only packages that perform network requests by default are `@abstractframework/monitor-gpu` and `@abstractframework/monitor-memory` (each polls a metrics endpoint; see `monitor-gpu/src/gpu_metrics_api.js` and `monitor-memory/src/memory_metrics_api.js`). Clients such as the `ui-kit` automations client send requests only through the `fetch` you inject.
 
-## What's new in 0.10.21
+## What's new in 0.10.22
 
-`@abstractframework/panel-chat` 0.9.13 (needs ui-kit `^0.9.28`): a name mentioned with `@` shows in the sent message
-as the same chip as in the composer (`ChatMessage.mentions`, placed by each mention's `start`), and resting on it for
-0.15 s shows the app's card for that name (`renderMentionCard`)
-([Mentioning entities and agents](./panel-chat/README.md#mentioning-entities-and-agents)). In 0.10.20, ui-kit 0.9.28
-gave `EntityCard` its Watch, Retry and Resume ([Acts](./docs/entity-card.md#acts-watch-retry-resume)) and panel-chat
-0.9.12 put the `@` chip inside the sentence. Changes since 0.10.9 are in the
-[changelog](./CHANGELOG.md#01021---2026-11-10).
+`@abstractframework/panel-chat` 0.9.14 (needs ui-kit `^0.9.28`): a reply that resolved one of the entity's questions
+shows a "question resolved" badge (`question_resolved` notices, [What a reply kept](./panel-chat/README.md#what-a-reply-kept)),
+and a live reply with nothing to show yet draws the working dots. In 0.10.21, panel-chat 0.9.13 showed `@` mentions as
+chips in the sent messages, with the app's card on a 0.15 s rest
+([Mentioning entities and agents](./panel-chat/README.md#mentioning-entities-and-agents)); in 0.10.20, ui-kit 0.9.28
+gave `EntityCard` its Watch, Retry and Resume ([Acts](./docs/entity-card.md#acts-watch-retry-resume)). Changes since
+0.10.9 are in the [changelog](./CHANGELOG.md#01022---2026-11-11).
 
 ## What's new in 0.10.9
 

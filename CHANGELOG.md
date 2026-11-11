@@ -7,6 +7,30 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.22 - 2026-11-11
+
+Packages: `@abstractframework/panel-chat` 0.9.14 (from 0.9.13; still needs `@abstractframework/ui-kit` `^0.9.28`).
+Other packages retain their versions. Apps that vendor panel-chat (`src/vendor/abstractchat`) re-sync from the 0.9.14
+build.
+
+### Added
+
+- **A resolved question shows under the reply.** When an entity's reply resolves one of its questions, AbstractRuntime
+  serves the turn notice `{kind: "question_resolved", record_id: <the question's graph id>, title: <its title>}`.
+  Its badge reads "question resolved: <title>" on one line (a long title is cut with an ellipsis and shows whole on
+  hover); a click opens it through the card's `onNoticeOpen`, by its `record_id`, like every badge. A private one
+  (`title: ""`, `visibility: "private"`) reads "a question resolved (private)". `ChatNoticeKind` and
+  `CHAT_NOTICE_KINDS` gain `"question_resolved"`; `ChatNoticeView.fullTitle`;
+  `CHAT_NOTICE_WORDS.privateQuestionResolved` / `privateQuestionNote`.
+
+### Fixed
+
+- **A reply that is starting no longer shows an empty bubble.** A live reply with no words and no media yet shows
+  the three working dots in its body, named by what it waits for (`live.label`, e.g. "answering"; default
+  "Working"). The conversation entry the apps vendor exports `WorkingDots`.
+- **Long conversations with mentions stay light.** A message's mention chips are made once per text, not again on
+  every re-render (each streamed frame re-renders the thread).
+
 ## 0.10.21 - 2026-11-10
 
 Packages: `@abstractframework/panel-chat` 0.9.13 (from 0.9.12; still needs `@abstractframework/ui-kit` `^0.9.28`).
