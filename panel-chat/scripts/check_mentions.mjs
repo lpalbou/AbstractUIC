@@ -745,6 +745,22 @@ eq(projected.find((m) => m.id === "q2").author, { kind: "person", name: null, en
   ok(/\.pc-mention-chip__mark \{[^}]*user-select: none;/.test(css2), "F26 the chip's mark is not selectable (a copy reads \"@Name\")");
   ok(/\.pc-mention-chip--message \.pc-mention-chip__at \{\s*font-size: 0;/.test(css2) && /\.pc-mention-chip--message \.pc-mention-chip__mark \{\s*position: static;/.test(css2), "F27 in a message the mark is in the line, the \"@\" zero size (an out-of-flow mark puts a line break in a copy)");
   const disc = renderToStaticMarkup(React.createElement(index.ChatMentionChip, { mention: { id: "pollux", name: "Pollux", kind: "entity", index: 0, start: 0, avatar: { style: null, color: "#cc6633" } } }));
+  {
+    // NTH-1: the words with their chips are made once per text and mentions, not on every render
+    // (a streamed frame re-renders the whole thread); a new card callback each render is used as is.
+    const { ChatMessageContent } = await import("../dist/message_content.js");
+    const mentionsOnce = [castorSent];
+    const card1 = () => "card one";
+    const h = mount(ChatMessageContent, { text: said, mentions: mentionsOnce, renderMentionCard: card1 });
+    const first = h.tree.props.children;
+    h.rerender({ renderMentionCard: () => "card two" });
+    ok(h.tree.props.children === first, "F29 the same words with chips on a re-render (memoized, even with a new card callback)");
+    const chipEl = find(h.tree, (n) => n.props && n.props.mention && typeof n.props.renderCard === "function");
+    eq(chipEl.props.renderCard(castorSent), "card two", "F30 a chip asks the latest card callback");
+    h.rerender({ text: "Bye @Castor", mentions: [{ ...castorSent, start: 4 }] });
+    ok(h.tree.props.children !== first, "F31 new words: made again");
+    h.unmount();
+  }
   ok(disc.includes('data-initial="P"></span>') && !disc.includes(">P<") && /\.pc-author-mark--plain\[data-initial\]::before \{\s*content: attr\(data-initial\);/.test(css2), "F28 a disc's initial in a message chip is drawn, not written (a copy never reads \"@PPollux\")");
 }
 
