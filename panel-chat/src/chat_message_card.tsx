@@ -17,6 +17,7 @@ import { chatAuthorView, type ChatAuthor } from "./chat_author.js";
 import { ChatAuthorMark } from "./author_mark.js";
 import type { ChatNotice } from "./chat_notices.js";
 import { ChatNoticeBadges } from "./chat_notice_badges.js";
+import { WorkingDots } from "./working_dots.js";
 import type { ChatMessageMention } from "./mentions.js";
 
 export type ChatMessageLevel = "info" | "warn" | "error";
@@ -51,7 +52,9 @@ export type ChatMessage = {
   /**
    * Present while this assistant reply is still being streamed by the model
    * (see `WorkflowSessionController`). The card shows a streaming indicator,
-   * and the model's reasoning in a collapsed "Thinking" block.
+   * and the model's reasoning in a collapsed "Thinking" block. While it has no
+   * text and no media yet, its body shows the working dots (`WorkingDots`),
+   * named by `live.label` ("answering"; default "Working").
    */
   live?: ChatLiveReply;
   /**
@@ -532,6 +535,11 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
             mentions={m.mentions}
             renderMentionCard={props.renderMentionCard}
           />
+        </div>
+      ) : live && !media.length ? (
+        // A live reply with nothing to show yet: the working dots, named by what it waits for.
+        <div className="pc-chat-body pc-chat-body--working">
+          <WorkingDots label={live.label || "Working"} />
         </div>
       ) : null}
 

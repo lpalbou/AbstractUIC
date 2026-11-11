@@ -513,7 +513,8 @@ denies. Nothing the card does changes the app's default tool settings.
 - `working` (with `workingLabel`) shows `WorkingDots`, three dots rising in turn at the transcript's tail,
   while the assistant works on a reply; pass the run state (for example
   `workflowProgress(snapshot).tone === "working"`). Hidden while an interaction waits on the person;
-  static under reduced motion. `WorkingDots` is exported for other surfaces.
+  static under reduced motion. `WorkingDots` is exported for other surfaces (also from the vendored
+  `conversation` entry, 0.9.14).
 - The default message (0.9.1) is the web Assistant's compact card: small name, time in the interface
   font, no avatar tile. Apps override the `pc-chat-*` classes only to differ on purpose.
 - Removed in 0.9.0: `onPermissionsAll`, `approveAllScope`, `onAllowForSession`,
@@ -823,7 +824,10 @@ the whole text so far) and `llm.delta_end` (the model call ended). They carry no
 - One bubble per model call (`live:<runId>:<callId>` in `snapshot.messages`,
   with a `live` field). Reasoning is shown in a collapsed "Thinking" block,
   never mixed into the reply text. A reply from a sub-run carries a
-  "sub-agent · <node>" caption. The text is re-rendered at most every 60 ms
+  "sub-agent · <node>" caption. While a live message has no text and no media yet,
+  its body shows the working dots (`WorkingDots`), named by `live.label` (for
+  example "answering"; default "Working"), so the bubble is never empty (0.9.14).
+  The text is re-rendered at most every 60 ms
   (`liveRenderIntervalMs` controller option; 0 renders every frame); the
   latest text always lands at the end of the interval.
 - The bubble goes away when the call's ledger record or the run's assistant

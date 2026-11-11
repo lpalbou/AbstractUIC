@@ -2701,7 +2701,7 @@ Components:
   - `messageProps.renderFooter?(m)` (per-message slot under the card) and `messageProps.variant?(m) → "hint" | "caption"` (`"hint"`: a system note as one discreet line; `"caption"`: content only — Markdown, media, files, attachments — for surfaces such as the Avatar view's live line and findings); `messageProps.onOpenMedia?(item)` (host opener for file media);
   - `onSend(draft, { signal })` and `onCancel(signal)`: Stop aborts the in-flight send's `AbortSignal` and hands it to `onCancel` (a request/response host ties its fetch to it).
   - Types `ChatSteer`, `ChatSteerMode`, `ChatSteerResult`, `ChatToolbar`, `ComposerAttachment`, `ComposerAttachmentState`, `UseAttachmentUploadsOptions`, `AttachmentUploads`, `ComposerAttachmentChipsProps`
-- Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry), the event-name constants `LLM_DELTA_EVENT` / `LLM_DELTA_END_EVENT`; types `LlmDelta`, `LlmDeltaEnd`, `LlmDeltaEvent`, `LlmDeltaChannel`, `LlmDeltaEndReason`, `LlmStreamUnavailableDetail`, `StreamRepliesMode`; controller option `liveRenderIntervalMs` (default 60, also on `useWorkflowSession`). See [panel-chat README](../panel-chat/README.md#live-replies-streaming)
+- Live replies: `WorkflowTransport.streamLedger(runId, after, onStep, signal, onOpen?, onDelta?)` — `onDelta(event: LlmDelta | LlmDeltaEnd)` receives the gateway's `llm.delta` / `llm.delta_end` frames (never the ledger cursor); `llmDeltaFromSse(eventName, data)`, `validateLlmDeltaEvent(value, eventName?)`, `isLlmDeltaEnd()`, `describeStreamUnavailable(detail?)`, `streamRepliesRuntime(mode)` (→ the `_runtime.stream` run-input entry), the event-name constants `LLM_DELTA_EVENT` / `LLM_DELTA_END_EVENT`; types `LlmDelta`, `LlmDeltaEnd`, `LlmDeltaEvent`, `LlmDeltaChannel`, `LlmDeltaEndReason`, `LlmStreamUnavailableDetail`, `StreamRepliesMode`; controller option `liveRenderIntervalMs` (default 60, also on `useWorkflowSession`). See [panel-chat README](../panel-chat/README.md#live-replies-streaming) While a live message (`ChatMessage.live`) has no text and no media, its body shows `WorkingDots` named by `live.label` (default "Working") (0.9.14); `WorkingDots` is also exported from the vendored `conversation` entry.
 - File drop and paste: `WorkflowChat`'s `onFiles(files)` turns on the drop zone and paste-to-attach (folders are refused with a visible message); the pure helpers behind it are exported too: `dragCarriesFiles()`, `draggedFileCount()`, `dropZoneLabel()`, `droppedFiles()`, `folderRefusal()`, `pastedFileName()`, `pastedFiles()`, `DragPresence` (see `panel-chat/src/file_drop.ts`)
 - `ToolActivity`, `ToolActivityGroup` (tool-call rendering; a process-spawning call shows its command-sandbox line first in its detail), `toolSandbox(result)` + `ToolSandboxLine` (the line `Sandbox: <label> · N workspaces enforced` / `Sandbox: none — refused` and the enforced paths, from the ledger's `output.sandbox`), `StatDetailPanel` + `statDetail()` (token/time/tool statistics), `formatDuration(ms)` (the chat's one duration format, "4.2s" / "3m 26s"; 0.6.1). A tool row whose `WorkflowToolActivity.approvalWait` is set (the call waited for the person's decision: the replay view's `wait.kind == "tool_approval"` with an `outcome`, or the ledger's `waiting` approval row) reads "3m 26s incl. approval wait" (0.6.1)
 - `ChatThread` (thread container; renders a list of messages)
@@ -6286,7 +6286,8 @@ denies. Nothing the card does changes the app's default tool settings.
 - `working` (with `workingLabel`) shows `WorkingDots`, three dots rising in turn at the transcript's tail,
   while the assistant works on a reply; pass the run state (for example
   `workflowProgress(snapshot).tone === "working"`). Hidden while an interaction waits on the person;
-  static under reduced motion. `WorkingDots` is exported for other surfaces.
+  static under reduced motion. `WorkingDots` is exported for other surfaces (also from the vendored
+  `conversation` entry, 0.9.14).
 - The default message (0.9.1) is the web Assistant's compact card: small name, time in the interface
   font, no avatar tile. Apps override the `pc-chat-*` classes only to differ on purpose.
 - Removed in 0.9.0: `onPermissionsAll`, `approveAllScope`, `onAllowForSession`,
@@ -6596,7 +6597,10 @@ the whole text so far) and `llm.delta_end` (the model call ended). They carry no
 - One bubble per model call (`live:<runId>:<callId>` in `snapshot.messages`,
   with a `live` field). Reasoning is shown in a collapsed "Thinking" block,
   never mixed into the reply text. A reply from a sub-run carries a
-  "sub-agent · <node>" caption. The text is re-rendered at most every 60 ms
+  "sub-agent · <node>" caption. While a live message has no text and no media yet,
+  its body shows the working dots (`WorkingDots`), named by `live.label` (for
+  example "answering"; default "Working"), so the bubble is never empty (0.9.14).
+  The text is re-rendered at most every 60 ms
   (`liveRenderIntervalMs` controller option; 0 renders every frame); the
   latest text always lands at the end of the interval.
 - The bubble goes away when the call's ledger record or the run's assistant
@@ -18708,6 +18712,7 @@ import { chatAuthorView, type ChatAuthor } from "./chat_author.js";
 import { ChatAuthorMark } from "./author_mark.js";
 import type { ChatNotice } from "./chat_notices.js";
 import { ChatNoticeBadges } from "./chat_notice_badges.js";
+import { WorkingDots } from "./working_dots.js";
 import type { ChatMessageMention } from "./mentions.js";
 
 export type ChatMessageLevel = "info" | "warn" | "error";
@@ -18742,7 +18747,9 @@ export type ChatMessage = {
   /**
    * Present while this assistant reply is still being streamed by the model
    * (see `WorkflowSessionController`). The card shows a streaming indicator,
-   * and the model's reasoning in a collapsed "Thinking" block.
+   * and the model's reasoning in a collapsed "Thinking" block. While it has no
+   * text and no media yet, its body shows the working dots (`WorkingDots`),
+   * named by `live.label` ("answering"; default "Working").
    */
   live?: ChatLiveReply;
   /**
@@ -19223,6 +19230,11 @@ export function ChatMessageCard(props: ChatMessageCardProps): React.ReactElement
             mentions={m.mentions}
             renderMentionCard={props.renderMentionCard}
           />
+        </div>
+      ) : live && !media.length ? (
+        // A live reply with nothing to show yet: the working dots, named by what it waits for.
+        <div className="pc-chat-body pc-chat-body--working">
+          <WorkingDots label={live.label || "Working"} />
         </div>
       ) : null}
 

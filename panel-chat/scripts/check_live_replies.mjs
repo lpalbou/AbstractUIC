@@ -472,6 +472,17 @@ for (const [status, output] of [["failed", null], ["cancelled", null], ["complet
   assert.doesNotMatch(plain, /streaming|pc-chat-thinking|Earlier text/); ok();
   const bare = renderToStaticMarkup(React.createElement(ChatMessageCard, { message: { ...liveMessage, live: { callId: "c", reasoning: "" } } }));
   assert.doesNotMatch(bare, /pc-chat-thinking|pc-chat-live-caption/); ok();
+  // A live reply with no text and no media yet (W5, 2026-11-11): the working dots in its body, named
+  // by what it waits for; never once the text arrives, never on a finished empty message.
+  const waiting = renderToStaticMarkup(React.createElement(ChatMessageCard, { message: { id: "w", role: "assistant", content: "", live: { callId: "c", reasoning: "", label: "answering" } } }));
+  assert.match(waiting, /<div class="pc-chat-body pc-chat-body--working"><span class="pc-working-dots" role="img" aria-label="answering">/, "a live reply without text draws the working dots, named by live.label"); ok();
+  const unnamed = renderToStaticMarkup(React.createElement(ChatMessageCard, { message: { id: "w", role: "assistant", content: "", live: { callId: "c", reasoning: "planning" } } }));
+  assert.match(unnamed, /pc-chat-thinking[^]*<span class="pc-working-dots" role="img" aria-label="Working">/, "without a label: Working (the thinking block above)"); ok();
+  assert.doesNotMatch(card, /pc-working-dots/, "the text arrived: no dots"); ok();
+  const withMedia = renderToStaticMarkup(React.createElement(ChatMessageCard, { message: { id: "w", role: "assistant", content: "", live: { callId: "c", reasoning: "", label: "generating image" }, media: [{ kind: "image", src: "/x.png" }] } }));
+  assert.doesNotMatch(withMedia, /pc-working-dots/, "media to show: no dots"); ok();
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(ChatMessageCard, { message: { id: "e", role: "assistant", content: "" } })), /pc-working-dots/, "a finished empty message: no dots"); ok();
+  assert.equal(typeof (await import("../dist/conversation.js")).WorkingDots, "function", "the conversation entry the apps vendor exports WorkingDots"); ok();
 
   const base = { messages: [liveMessage], draft: "", onDraftChange() {}, onSend() {} };
   const chat = renderToStaticMarkup(React.createElement(WorkflowChat, { ...base, streamReplies: "on" }));
