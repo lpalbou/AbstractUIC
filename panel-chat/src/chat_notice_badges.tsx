@@ -114,6 +114,7 @@ export function ChatNoticeBadges(props: ChatNoticeBadgesProps): React.ReactEleme
             {...(v.staged ? { "data-staged": "" } : {})}
             {...(v.private ? { "data-private": "" } : {})}
             aria-label={v.ariaLabel}
+            {...(v.fullTitle ? { title: v.fullTitle } : {})}
             {...(openKey === v.key ? { "aria-expanded": true, "aria-controls": panelId } : props.onOpen ? {} : { "aria-expanded": false })}
             onClick={() => activate(i)}
             onKeyDown={onKeyDown}
@@ -140,7 +141,7 @@ export function ChatNoticeBadges(props: ChatNoticeBadgesProps): React.ReactEleme
             </button>
           </div>
           {text ? <p className="pc-chat-notice-pop__text">{text}</p> : null}
-          {shown.view.private ? <p className="pc-chat-notice-pop__note">{CHAT_NOTICE_WORDS.privateNote}</p> : null}
+          {shown.view.private ? <p className="pc-chat-notice-pop__note">{shown.view.kind === "question_resolved" ? CHAT_NOTICE_WORDS.privateQuestionNote : CHAT_NOTICE_WORDS.privateNote}</p> : null}
           {shown.view.staged ? <p className="pc-chat-notice-pop__note">{CHAT_NOTICE_WORDS.stagedNote}</p> : null}
         </div>
       ) : null}
