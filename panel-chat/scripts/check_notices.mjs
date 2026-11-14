@@ -7,14 +7,17 @@
 //     no row without notices;
 //  D. the lanes carry them: the replay projection (answer message `notices`), the session controller
 //     (session turn row `turn.notices`, ledger ANSWER_USER payload `notices`);
-//  E. the CSS ships, the entries export it.
+//  E. the CSS ships, the entries export it;
+//  Q. a resolved question (`question_resolved`, runtime 2026-11-11): "question resolved: <title>",
+//     one line, the whole title on hover, opened through onNoticeOpen by its record_id; private:
+//     "a question resolved (private)".
 // Run after `npm run build`: node scripts/check_notices.mjs
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { mount, find, findAll, textOf } from "./hook_harness.mjs";
-import { CHAT_NOTICE_WORDS, chatNoticesOf, chatNoticeView } from "../dist/chat_notices.js";
+import { CHAT_NOTICE_KINDS, CHAT_NOTICE_WORDS, chatNoticesOf, chatNoticeView } from "../dist/chat_notices.js";
 import { ChatNoticeBadges } from "../dist/chat_notice_badges.js";
 import { ChatMessageCard } from "../dist/chat_message_card.js";
 import { projectReplayView } from "../dist/replay_view_projection.js";
@@ -65,6 +68,44 @@ eq(vu.ariaLabel, "Interest: How the garden survives a dry August, and what the s
   const glyph = /[\u2026\n\r\t\u25b4\u25b8\u25be\u25b9\u00b7\u2022]/;
   const names = [...served, untitled, { kind: "question", record_id: "ex:q", title: "" }, { kind: "open_problem", record_id: null, title: "", text: "line one\n\tline two", staged: true }].map((n, i) => chatNoticeView(n, i).ariaLabel);
   ok(names.every((name) => !glyph.test(name) && name === name.trim() && !/ {2}/.test(name)), `A21 accessible names are words only: ${JSON.stringify(names)}`);
+}
+
+// ---- Q. a resolved question -------------------------------------------------------------
+{
+  const longTitle = "Why does the north bed stay wet after a dry week, when the south bed dries in a day?";
+  const resolved = { kind: "question_resolved", record_id: "ex:question-41c2", title: longTitle };
+  const hidden = { kind: "question_resolved", record_id: "ex:question-77", title: "", visibility: "private" };
+  eq(chatNoticesOf([resolved, hidden]), [resolved, hidden], "Q1 the runtime's shape reads as served ({kind, record_id, title}, visibility)");
+  ok(CHAT_NOTICE_KINDS.includes("question_resolved"), "Q2 a known kind");
+  const v = chatNoticeView(resolved);
+  eq([v.word, v.icon, v.label, v.private, v.fullTitle], ["question resolved", "check", longTitle, false, longTitle], "Q3 its word, a check, its title; the whole title for the hover");
+  eq(v.ariaLabel, `Question resolved: ${longTitle}`, "Q4 read as \"question resolved: <title>\"");
+  const vh = chatNoticeView(hidden);
+  eq([vh.label, vh.icon, vh.private, vh.fullTitle], ["a question resolved (private)", "lock", true, ""], "Q5 private: \"a question resolved (private)\", a lock, no title to show");
+  eq(chatNoticeView({ ...hidden, title: "leaked" }).label, "a question resolved (private)", "Q6 a private one never shows a title, even if one was sent");
+  const html = renderToStaticMarkup(React.createElement(ChatNoticeBadges, { notices: [resolved, hidden] }));
+  const badge = (html.match(/<button[^>]*data-notice-kind="question_resolved"[^>]*>[^]*?<\/button>/g) || []);
+  eq(badge.length, 2, "Q7 one badge each");
+  ok(badge[0].includes(`title="${longTitle.replace(/'/g, "&#x27;")}"`) && badge[0].includes('class="pc-chat-notice pc-chat-notice--question_resolved"'), "Q8 the whole title on hover");
+  ok(badge[0].includes('<span class="pc-chat-notice__kind">question resolved</span><span class="pc-chat-notice__label">') && badge[0].includes(longTitle), "Q9 the badge: \"question resolved\" then the title");
+  ok(!/title=/.test(badge[1].replace(/aria-label="[^"]*"/, "")) && badge[1].includes(">a question resolved (private)<") && badge[1].includes("data-private"), "Q10 the private badge: its sentence, no hover title");
+  const css = readFileSync(new URL("../src/panel_chat.css", import.meta.url), "utf8");
+  ok(/\.pc-chat-notice__label \{[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap;/.test(css), "Q11 one line, ellipsised");
+  const opened = [];
+  const h = mount(ChatNoticeBadges, { notices: [resolved], onOpen: (n) => { opened.push(n); } });
+  findAll(h.tree, (n) => n.type === "button" && n.props["data-notice-kind"] === "question_resolved")[0].props.onClick();
+  eq(opened.map((n) => n.record_id), ["ex:question-41c2"], "Q12 a click hands the host the notice, by the question's record_id");
+  h.unmount();
+  const own = mount(ChatNoticeBadges, { notices: [hidden] });
+  own.tree && findAll(own.tree, (n) => n.type === "button" && n.props["data-notice-kind"] === "question_resolved")[0].props.onClick();
+  own.render();
+  ok(textOf(find(own.tree, (n) => n.props && n.props.className === "pc-chat-notice-pop")).includes(CHAT_NOTICE_WORDS.privateQuestionNote), "Q13 without a host, a private one's panel says it is private (not a diary entry)");
+  own.unmount();
+  const seen = [];
+  const card = mount(ChatMessageCard, { message: { id: "a", role: "assistant", content: "That settles it.", notices: [resolved] }, onNoticeOpen: (n, m) => { seen.push([n.record_id, m.id]); } });
+  find(card.tree, (n) => n.type === ChatNoticeBadges).props.onOpen(resolved);
+  eq(seen, [["ex:question-41c2", "a"]], "Q14 under a reply it opens through onNoticeOpen(notice, message)");
+  card.unmount();
 }
 
 // ---- B. the badge row ---------------------------------------------------------------------

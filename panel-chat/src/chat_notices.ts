@@ -3,13 +3,17 @@
  * 2026-11-09). The runtime serves the reply WITHOUT its bracket markers
  * ("[kept in diary - …]", "[learned: "…"]") and, beside it, a structured list:
  *
- *   [{kind: "diary"|"question"|"lesson"|"interest"|"realization",
+ *   [{kind: "diary"|"question"|"question_resolved"|"lesson"|"interest"|"realization",
  *     record_id: <graph id of the formed record> | null,
  *     title: <as formed; "" while it is still being written>,
  *     text?: <his words, whole>,
- *     visibility?: "private",        a private diary entry: title "" and no words
+ *     visibility?: "private",        a private diary entry or resolved question: title "" and no words
  *     staged?: true}]                a visit-lane election that forms at the visit's close
  *                                    (record_id null until then)
+ *
+ * A `question_resolved` notice names a question of his that this reply resolved:
+ * {kind: "question_resolved", record_id: <the question's graph id>, title: <its title>}; a private
+ * one has title "" and visibility "private".
  *
  * The kit never reads a marker out of the text: a badge exists only for a served notice.
  * This module is pure (no DOM, no React): `chatNoticesOf` reads a served list, `chatNoticeView`
@@ -18,7 +22,7 @@
 import type { IconName } from "@abstractframework/ui-kit";
 
 /** The kinds the runtime serves today. Another kind still renders, with its own word. */
-export type ChatNoticeKind = "diary" | "question" | "lesson" | "interest" | "realization";
+export type ChatNoticeKind = "diary" | "question" | "question_resolved" | "lesson" | "interest" | "realization";
 
 /** One structured turn notice, as served (snake_case kept: the host hands it back to its gateway). */
 export type ChatNotice = {
@@ -35,11 +39,12 @@ export type ChatNotice = {
   staged?: boolean;
 };
 
-export const CHAT_NOTICE_KINDS: readonly ChatNoticeKind[] = ["diary", "question", "lesson", "interest", "realization"];
+export const CHAT_NOTICE_KINDS: readonly ChatNoticeKind[] = ["diary", "question", "question_resolved", "lesson", "interest", "realization"];
 
 const ICONS: Record<ChatNoticeKind, IconName> = {
   diary: "book",
   question: "chat",
+  question_resolved: "check",
   lesson: "check",
   interest: "activity",
   realization: "sparkle",
@@ -49,10 +54,13 @@ const ICONS: Record<ChatNoticeKind, IconName> = {
 export const CHAT_NOTICE_WORDS = {
   group: "Kept from this reply",
   private: "private diary entry",
+  /** A private resolved question's badge (it carries no title). */
+  privateQuestionResolved: "a question resolved (private)",
   staged: "forming…",
   /** The staged word in a badge's accessible name (no ellipsis glyph for a screen reader to say). */
   stagedSpoken: "forming",
   privateNote: "A private diary entry: its words are not shown in the conversation.",
+  privateQuestionNote: "A private question: its words are not shown in the conversation.",
   stagedNote: "Forming: it is kept when the visit closes.",
   close: "Close",
 } as const;
@@ -98,17 +106,21 @@ export type ChatNoticeView = {
   staged: boolean;
   /** The badge's accessible name: words only (his line breaks read as spaces, no glyph). */
   ariaLabel: string;
+  /** The whole title, shown on hover where the badge cuts it (a resolved question); "" = none. */
+  fullTitle: string;
 };
 
 export function chatNoticeView(notice: ChatNotice, index = 0): ChatNoticeView {
   const kind = String(notice.kind || "").trim().toLowerCase();
   const known = (CHAT_NOTICE_KINDS as readonly string[]).includes(kind) ? (kind as ChatNoticeKind) : null;
-  const word = known || kind.replace(/_/g, " ");
+  const word = (known || kind).replace(/_/g, " ");
   const isPrivate = String(notice.visibility || "").trim().toLowerCase() === "private";
   const staged = notice.staged === true;
   const title = String(notice.title || "").trim();
   const text = typeof notice.text === "string" ? notice.text.trim() : "";
-  const label = isPrivate ? (kind === "diary" ? CHAT_NOTICE_WORDS.private : `private ${word}`) : title || text;
+  const label = isPrivate
+    ? kind === "diary" ? CHAT_NOTICE_WORDS.private : kind === "question_resolved" ? CHAT_NOTICE_WORDS.privateQuestionResolved : `private ${word}`
+    : title || text;
   const fromText = !isPrivate && !title && Boolean(text);
   const Word = word.charAt(0).toUpperCase() + word.slice(1);
   const spoken = label.split(/\s+/).filter(Boolean).join(" ");
@@ -122,6 +134,7 @@ export function chatNoticeView(notice: ChatNotice, index = 0): ChatNoticeView {
     private: isPrivate,
     staged,
     ariaLabel: `${Word}${spoken ? `: ${spoken}` : ""}${staged ? ` (${CHAT_NOTICE_WORDS.stagedSpoken})` : ""}`,
+    fullTitle: kind === "question_resolved" && !isPrivate ? title : "",
   };
 }
 

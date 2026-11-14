@@ -315,15 +315,22 @@ Apps that vendor `src/conversation.ts` get `ChatComposer`, `mentionSendPayload`,
 AbstractRuntime serves an entity's reply without its bracket markers ("[kept in diary - …]",
 "[learned: "…"]") and, beside it, what the turn formed: `ChatMessage.notices?: ChatNotice[]`,
 `ChatNotice = {kind, record_id, title, text?, visibility?, staged?}` with `kind` one of `"diary"`,
-`"question"`, `"lesson"`, `"interest"`, `"realization"`. The card shows one badge per notice under
-the reply text: the kind's icon and word, then the title. A private diary entry (`visibility:
-"private"`, no title, no words) reads "private diary entry"; an untitled notice shows the first words
+`"question"`, `"question_resolved"`, `"lesson"`, `"interest"`, `"realization"`. The card shows one badge
+per notice under the reply text: the kind's icon and word, then the title. A private diary entry
+(`visibility: "private"`, no title, no words) reads "private diary entry"; an untitled notice shows the first words
 of its `text` (the string is never cut; the badge clips it); a notice staged for the visit's close
 (`staged: true`, `record_id: null`) adds a soft "forming…". A notice served twice shows one badge, the
 first (the same `record_id`; without one, the same kind and title, or the same words when untitled); a
 notice that names nothing (no record, no title, no words, neither private nor forming) shows none. A
 badge's accessible name is words only ("Lesson: Visits are durable (forming)", line breaks read as
-spaces). The kit never reads a marker out of the text: a badge exists only for a served notice. Hint
+spaces).
+
+A question of his that the reply resolved comes as `{kind: "question_resolved", record_id: <the
+question's graph id>, title: <its title>}` (0.9.14). Its badge reads "question resolved: <title>" on
+one line, the title ellipsised and whole on hover (the badge's `title`); a click hands the notice to
+`onNoticeOpen`, so the host opens the question by its `record_id`. A private one (`title: ""`,
+`visibility: "private"`) reads "a question resolved (private)"; its own panel says only that it is
+private. The kit never reads a marker out of the text: a badge exists only for a served notice. Hint
 and caption cards show no badges.
 
 - `ChatMessageCard` `onNoticeOpen?(notice, message)`: the host opens what a badge names (for example
@@ -506,7 +513,8 @@ denies. Nothing the card does changes the app's default tool settings.
 - `working` (with `workingLabel`) shows `WorkingDots`, three dots rising in turn at the transcript's tail,
   while the assistant works on a reply; pass the run state (for example
   `workflowProgress(snapshot).tone === "working"`). Hidden while an interaction waits on the person;
-  static under reduced motion. `WorkingDots` is exported for other surfaces.
+  static under reduced motion. `WorkingDots` is exported for other surfaces (also from the vendored
+  `conversation` entry, 0.9.14).
 - The default message (0.9.1) is the web Assistant's compact card: small name, time in the interface
   font, no avatar tile. Apps override the `pc-chat-*` classes only to differ on purpose.
 - Removed in 0.9.0: `onPermissionsAll`, `approveAllScope`, `onAllowForSession`,
@@ -816,7 +824,10 @@ the whole text so far) and `llm.delta_end` (the model call ended). They carry no
 - One bubble per model call (`live:<runId>:<callId>` in `snapshot.messages`,
   with a `live` field). Reasoning is shown in a collapsed "Thinking" block,
   never mixed into the reply text. A reply from a sub-run carries a
-  "sub-agent · <node>" caption. The text is re-rendered at most every 60 ms
+  "sub-agent · <node>" caption. While a live message has no text and no media yet,
+  its body shows the working dots (`WorkingDots`), named by `live.label` (for
+  example "answering"; default "Working"), so the bubble is never empty (0.9.14).
+  The text is re-rendered at most every 60 ms
   (`liveRenderIntervalMs` controller option; 0 renders every frame); the
   latest text always lands at the end of the interval.
 - The bubble goes away when the call's ledger record or the run's assistant
