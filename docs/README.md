@@ -52,3 +52,5 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 - KG + Active Memory explorer (ReactFlow): [`monitor-active-memory/README.md`](../monitor-active-memory/README.md)
 - GPU widget (custom element + imperative API): [`monitor-gpu/README.md`](../monitor-gpu/README.md)
 - Host memory widget (custom element + imperative API): [`monitor-memory/README.md`](../monitor-memory/README.md)
+
+- [AbstractUIC agent skill](../skills/abstractuic/SKILL.md): package selection, shared chat and authenticated proxy integration.

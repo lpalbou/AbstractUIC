@@ -474,6 +474,10 @@ See [`docs/development.md`](./docs/development.md).
 
 MIT (see [`LICENSE`](./LICENSE)).
 
+## For AI agents
+
+Register and use [the AbstractUIC integration skill](https://github.com/lpalbou/AbstractUIC/blob/v0.10.22/skills/abstractuic/SKILL.md) for package selection, shared chat notices and authenticated proxy integration.
+
 ## docs/getting-started.md
 
 # Getting Started
@@ -5219,6 +5223,8 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 - KG + Active Memory explorer (ReactFlow): [`monitor-active-memory/README.md`](../monitor-active-memory/README.md)
 - GPU widget (custom element + imperative API): [`monitor-gpu/README.md`](../monitor-gpu/README.md)
 - Host memory widget (custom element + imperative API): [`monitor-memory/README.md`](../monitor-memory/README.md)
+
+- [AbstractUIC agent skill](../skills/abstractuic/SKILL.md): package selection, shared chat and authenticated proxy integration.
 
 ## ui-kit/README.md
 
@@ -25100,7 +25106,7 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## 0.10.22 - 2026-11-11
+## 0.10.22 - 2026-11-14
 
 Packages: `@abstractframework/panel-chat` 0.9.14 (from 0.9.13; still needs `@abstractframework/ui-kit` `^0.9.28`).
 Other packages retain their versions. Apps that vendor panel-chat (`src/vendor/abstractchat`) re-sync from the 0.9.14
@@ -28323,10 +28329,12 @@ SOFTWARE.
 ---
 name: abstractuic
 description: Integrate AbstractFramework shared React controls, authenticated chat and Docs assistants, and voice settings into browser clients.
-compatibility: Requires @abstractframework/ui-kit 0.9.15 and @abstractframework/panel-chat 0.9.0 or later (their documented exports).
+compatibility: Requires @abstractframework/ui-kit 0.9.28 and @abstractframework/panel-chat 0.9.14 for the documented resolved-question notices and live-reply behavior.
 metadata:
   package: "@abstractframework/ui-kit"
   package-version: "0.9.28"
+  panel-chat-version: "0.9.14"
+  repository-version: "0.10.22"
 ---
 
 # Use AbstractUIC
@@ -28456,3 +28464,13 @@ in `voiceControl` and playback actions in `playbackControl`; capture interrupts 
 playback pause/resume must retain its audio. Use existing voice transport. Scope
 `useAvatarConversationPreferences` by account and preserve silent replay on reconnect.
 See [panel-chat](https://raw.githubusercontent.com/lpalbou/AbstractUIC/main/panel-chat/README.md).
+
+## Reply notices and pending replies
+
+With panel-chat 0.9.14, pass the Gateway-served `question_resolved` notice through to the
+shared message card. Its `record_id` names the resolved question, not the answering diary
+entry. Route `onNoticeOpen` to that record. Respect `visibility: "private"` and an empty
+title; never derive private prose from another field. `ChatNoticeView.fullTitle` carries the
+complete accessible title. A live reply with no content uses WorkingDots; avoid adding a
+second placeholder in the consumer. Mentions are made once per text, so pass stable text
+values instead of re-parsing the rendered HTML.

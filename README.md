@@ -298,3 +298,7 @@ See [`docs/development.md`](./docs/development.md).
 ## License
 
 MIT (see [`LICENSE`](./LICENSE)).
+
+## For AI agents
+
+Register and use [the AbstractUIC integration skill](https://github.com/lpalbou/AbstractUIC/blob/v0.10.22/skills/abstractuic/SKILL.md) for package selection, shared chat notices and authenticated proxy integration.

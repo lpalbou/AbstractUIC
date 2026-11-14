@@ -1,10 +1,12 @@
 ---
 name: abstractuic
 description: Integrate AbstractFramework shared React controls, authenticated chat and Docs assistants, and voice settings into browser clients.
-compatibility: Requires @abstractframework/ui-kit 0.9.15 and @abstractframework/panel-chat 0.9.0 or later (their documented exports).
+compatibility: Requires @abstractframework/ui-kit 0.9.28 and @abstractframework/panel-chat 0.9.14 for the documented resolved-question notices and live-reply behavior.
 metadata:
   package: "@abstractframework/ui-kit"
   package-version: "0.9.28"
+  panel-chat-version: "0.9.14"
+  repository-version: "0.10.22"
 ---
 
 # Use AbstractUIC
@@ -134,3 +136,13 @@ in `voiceControl` and playback actions in `playbackControl`; capture interrupts 
 playback pause/resume must retain its audio. Use existing voice transport. Scope
 `useAvatarConversationPreferences` by account and preserve silent replay on reconnect.
 See [panel-chat](https://raw.githubusercontent.com/lpalbou/AbstractUIC/main/panel-chat/README.md).
+
+## Reply notices and pending replies
+
+With panel-chat 0.9.14, pass the Gateway-served `question_resolved` notice through to the
+shared message card. Its `record_id` names the resolved question, not the answering diary
+entry. Route `onNoticeOpen` to that record. Respect `visibility: "private"` and an empty
+title; never derive private prose from another field. `ChatNoticeView.fullTitle` carries the
+complete accessible title. A live reply with no content uses WorkingDots; avoid adding a
+second placeholder in the consumer. Mentions are made once per text, so pass stable text
+values instead of re-parsing the rendered HTML.
