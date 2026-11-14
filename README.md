@@ -19,7 +19,7 @@ and a live reply with nothing to show yet draws the working dots. In 0.10.21, pa
 chips in the sent messages, with the app's card on a 0.15 s rest
 ([Mentioning entities and agents](./panel-chat/README.md#mentioning-entities-and-agents)); in 0.10.20, ui-kit 0.9.28
 gave `EntityCard` its Watch, Retry and Resume ([Acts](./docs/entity-card.md#acts-watch-retry-resume)). Changes since
-0.10.9 are in the [changelog](./CHANGELOG.md#01022---2026-11-11).
+0.10.9 are in the [changelog](./CHANGELOG.md#01022---2026-11-14).
 
 ## What's new in 0.10.9
 
