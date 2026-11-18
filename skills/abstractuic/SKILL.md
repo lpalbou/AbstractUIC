@@ -5,8 +5,8 @@ compatibility: Requires @abstractframework/ui-kit 0.9.28 and @abstractframework/
 metadata:
   package: "@abstractframework/ui-kit"
   package-version: "0.9.28"
-  panel-chat-version: "0.9.14"
-  repository-version: "0.10.22"
+  panel-chat-version: "0.9.15"
+  repository-version: "0.10.23"
 ---
 
 # Use AbstractUIC

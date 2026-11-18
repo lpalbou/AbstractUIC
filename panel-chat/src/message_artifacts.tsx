@@ -1,4 +1,4 @@
-import { ArtifactPreviewModal } from "./artifact_preview.js";
+import { ArtifactPreviewModal, boundedPreviewBlob } from "./artifact_preview.js";
 import React, {
   createContext,
   useContext,
@@ -339,6 +339,14 @@ export function useMessageArtifacts(
 export const ArtifactFetchContext = createContext<AfGatewayFetch | undefined>(
   undefined,
 );
+/** A raster picture, by the artifact's own metadata (SVG is markup: it stays a file). */
+export function artifactIsPicture(meta: unknown): boolean {
+  const m = obj(meta);
+  const type = [m.content_type, obj(m.tags).content_type, obj(m.descriptor).content_type]
+    .find((v) => typeof v === "string" && v) as string | undefined;
+  const mime = String(type || "").split(";", 1)[0].trim().toLowerCase();
+  return mime.startsWith("image/") && mime !== "image/svg+xml";
+}
 export function MessageArtifactChip({
   artifact,
 }: {
@@ -352,7 +360,12 @@ export function MessageArtifactChip({
     [metadataStatus, setMetadataStatus] = useState<
       "loading" | "ready" | "error"
     >("loading"),
-    [metadataAttempt, retryMetadata] = useState(0);
+    [metadataAttempt, retryMetadata] = useState(0),
+    // A picture is shown as itself: its thumbnail is the button that opens the preview.
+    [isImage, setIsImage] = useState(false),
+    [nearView, setNearView] = useState(false),
+    [thumbnail, setThumbnail] = useState(""),
+    rootRef = useRef<HTMLSpanElement>(null);
   const path = gatewayApiPath(
     `runs/${encodeURIComponent(artifact.runId)}/artifacts/${encodeURIComponent(artifact.id)}`,
   );
@@ -361,6 +374,7 @@ export function MessageArtifactChip({
     setName(artifact.name || "Attached file");
     setError("");
     setInternal(false);
+    setIsImage(false);
     setMetadataStatus("loading");
 
     if (fetchGateway)
@@ -375,6 +389,7 @@ export function MessageArtifactChip({
           const hidden = internalArtifactMetadata(meta);
           if (!abort.signal.aborted) {
             setInternal(hidden);
+            setIsImage(!hidden && artifactIsPicture(meta));
             setMetadataStatus("ready");
           }
           const value =
@@ -399,19 +414,66 @@ export function MessageArtifactChip({
   useEffect(() => {
     if (artifact.name) setName(artifact.name);
   }, [artifact.name]);
+  // Load a picture's bytes only once it is near the viewport: a long conversation does not
+  // download every picture it holds, nor queue them ahead of other attachments' metadata.
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!isImage || nearView || !el) return;
+    if (typeof IntersectionObserver === "undefined") return setNearView(true);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setNearView(true);
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isImage, nearView]);
+  useEffect(() => {
+    if (!isImage || !nearView || !fetchGateway) return;
+    const abort = new AbortController();
+    let url = "";
+    void fetchGateway(`${path}/content`, { signal: abort.signal })
+      .then(async (r) => {
+        if (!r.ok) throw await gatewayResponseError(r, "Picture unavailable");
+        const blob = await boundedPreviewBlob(r);
+        if (abort.signal.aborted) return;
+        url = URL.createObjectURL(blob);
+        setThumbnail(url);
+      })
+      // No thumbnail: the chip below still opens the preview, which reports the failure.
+      .catch(() => {});
+    return () => {
+      abort.abort();
+      setThumbnail("");
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [isImage, nearView, fetchGateway, path]);
   if (internal) return <></>;
   return (
-    <span className="pc-message-artifact">
-      <button
-        type="button"
-        className="pc-chat-attachment-chip"
-        aria-haspopup="dialog"
-        disabled={!fetchGateway || metadataStatus !== "ready"}
-        onClick={() => setPreviewOpen(true)}
-      >
-        <Icon name="paperclip" size={14} />
-        <span className="pc-chat-attachment-name">{name}</span>
-      </button>
+    <span className="pc-message-artifact" ref={rootRef}>
+      {thumbnail ? (
+        <button
+          type="button"
+          className="pc-message-artifact__thumbnail"
+          aria-haspopup="dialog"
+          title={name}
+          onClick={() => setPreviewOpen(true)}
+        >
+          <img src={thumbnail} alt={name} />
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="pc-chat-attachment-chip"
+          aria-haspopup="dialog"
+          disabled={!fetchGateway || metadataStatus !== "ready"}
+          onClick={() => setPreviewOpen(true)}
+        >
+          <Icon name="paperclip" size={14} />
+          <span className="pc-chat-attachment-name">{name}</span>
+        </button>
+      )}
       {error && (
         <span role="status" className="pc-message-artifact__error">
           {error}{" "}
