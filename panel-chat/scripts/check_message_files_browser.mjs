@@ -25,7 +25,7 @@ if(path.includes('old-file')&&path.endsWith('/content'))await new Promise(r=>win
 if(path.endsWith('/content')&&path.includes('image-file')){const c=document.createElement('canvas');c.width=window.widePhoto?1200:500;c.height=window.widePhoto?400:800;c.getContext('2d').fillRect(0,0,c.width,c.height);return new Response(Uint8Array.from(atob(c.toDataURL().split(',')[1]),c=>c.charCodeAt(0)),{headers:{'Content-Type':'image/png'}});}
 if(path.endsWith('/content')&&path.includes('ai-file'))return Response.json({report:'requested JSON file'});
 if(path.endsWith('/content'))return new Response(path.includes('active-file')?'<script>window.pwned=true</script>':'A file from the Gateway',{headers:{'Content-Type':path.includes('active-file')?'text/html':'text/plain'}});
-return Response.json({tags:{filename:path.includes('old-file')?'Old file':path.includes('user-file')?'notes.txt':path.includes('active-file')?'untrusted.html':path.includes('historical-file')?'older-report.txt':path.includes('image-file')?'photo.png':path.includes('only-file')?'attachment-only.pdf':'report.json'}});}
+return Response.json({tags:{filename:path.includes('old-file')?'Old file':path.includes('user-file')?'notes.txt':path.includes('active-file')?'untrusted.html':path.includes('historical-file')?'older-report.txt':path.includes('image-file')?'photo.png':path.includes('only-file')?'attachment-only.pdf':'report.json'},...(path.includes('image-file')?{content_type:'image/png'}:{})});}
 const tools=['web_search','skim_websearch','fetch_url'].map((name,i)=>({id:'tool'+i,role:'system',runId:'run',content:'',toolActivity:{id:'tool'+i,runId:'run',name,status:'completed',arguments:{url:'https://example.org/input'},output:JSON.stringify({success:true,results:[{url:'https://example.org/result',title:'A result'}]})}}));
 function App(){const [scope,setScope]=useState('alice'),[mode,setMode]=useState('normal'),[version,setVersion]=useState(0);window.setVersion=setVersion;window.setScope=setScope;window.setMode=setMode;
 const messages=mode==='internal'?[{id:'state',role:'assistant',runId:'run',content:'No files delivered',artifactRefs:[{id:'blocked-state',runId:'run',name:'state.json'}]}]:mode==='old'?[{id:'old',role:'assistant',runId:'old-run',content:'Old account',artifactRefs:[{id:'old-file',runId:'old-run',name:'Old file'}]}]:[
@@ -103,10 +103,26 @@ try {
       .count(),
     1,
   );
+  // A picture shows as a thumbnail button (named by the picture); other files keep the chip.
+  await page.locator(".pc-message-artifact__thumbnail img").waitFor();
   assert.equal(
-    await page.evaluate(() => window.calls.some((p) => p.endsWith("/content"))),
+    await page.locator(".pc-message-artifact__thumbnail").getAttribute("aria-haspopup"),
+    "dialog",
+  );
+  assert.equal(
+    await page.locator(".pc-chat-attachment-chip", { hasText: "photo.png" }).count(),
+    0,
+  );
+  assert.equal(
+    await page.locator(".pc-chat-attachment-chip", { hasText: "report.json" }).count(),
+    1,
+  );
+  assert.equal(
+    await page.evaluate(() =>
+      window.calls.some((p) => p.endsWith("/content") && !p.includes("image-file")),
+    ),
     false,
-    "Bytes load only when activated",
+    "Bytes load only when activated (a picture's thumbnail excepted)",
   );
   for (const link of await page.locator('a[href^="https://"]').all()) {
     assert.equal(await link.getAttribute("target"), "_blank");
@@ -167,7 +183,7 @@ try {
       revoke(url);
     };
   });
-  await page.getByRole("button", { name: "photo.png", exact: true }).click();
+  await page.locator(".pc-message-artifact__thumbnail").click();
   await page
     .getByRole("dialog", { name: "photo.png", exact: true })
     .locator("img")

@@ -8,7 +8,8 @@ import { ChatMessageCard } from "../dist/chat_message_card.js";
 import {
   submittedArtifacts,
   outputArtifacts,
-} from "../dist/message_artifacts.js";
+  artifactIsPicture,
+} from "../dist/index.js";
 const html = (C, p) => render(React.createElement(C, p));
 const links = html(TextLinks, {
   text: "See https://example.com/a_(b). Or www.example.org/path?x=1&y=2; javascript:alert(1) <script>bad</script>",
@@ -194,3 +195,10 @@ assert.equal(artifactPreviewKind("photo.png","text/plain"),"text");
 assert.deepEqual(outputArtifacts({result:{artifact_ref:{$artifact:"json",filename:"report.json"}}},"r"),[{id:"json",runId:"r",name:"report.json"}]);
 
 assert.deepEqual(outputArtifacts({media:[{$artifact:"sound",filename:"answer.wav"}]},"r"),[{id:"sound",runId:"r",name:"answer.wav"}]);
+
+// A raster picture (by its metadata type) is shown as a thumbnail; SVG and untyped files keep the chip.
+assert.equal(artifactIsPicture({content_type:"image/png"}),true);
+assert.equal(artifactIsPicture({tags:{content_type:"IMAGE/JPEG; q=1"}}),true);
+assert.equal(artifactIsPicture({content_type:"image/svg+xml"}),false);
+assert.equal(artifactIsPicture({filename:"photo.png"}),false);
+assert.equal(artifactIsPicture(null),false);

@@ -7,6 +7,23 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.23 - 2026-11-18
+
+Packages: `@abstractframework/panel-chat` 0.9.15 (from 0.9.14; still needs `@abstractframework/ui-kit` `^0.9.28`).
+Other packages retain their versions. Apps that vendor panel-chat (`src/vendor/abstractchat`) re-sync from the 0.9.15
+build.
+
+### Changed
+
+- **A picture attached to a message shows as itself.** An attachment whose metadata `content_type` is a raster image
+  (`image/*`, not SVG) shows as a thumbnail of at most 320 x 240 instead of the paperclip chip; clicking it, or
+  pressing Enter on it, opens the same preview. Its bytes load only when the message is near the viewport, through
+  the host's `artifactFetch` like every attachment read. Other files keep the chip, and so does a picture whose
+  thumbnail cannot be loaded. New export: `artifactIsPicture(meta)`.
+- **The preview shows a picture at its real size.** The attachment preview shows a picture one image pixel per CSS
+  pixel: the dialog takes the picture's size up to the window, and a larger picture scrolls inside it instead of
+  being scaled down.
+
 ## 0.10.22 - 2026-11-14
 
 Packages: `@abstractframework/panel-chat` 0.9.14 (from 0.9.13; still needs `@abstractframework/ui-kit` `^0.9.28`).
