@@ -72,7 +72,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.28): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.29): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
 - [@abstractframework/panel-chat](panel-chat/README.md) (0.9.15, needs ui-kit ^0.9.28): the one chat surface WorkflowChat, the Avatar view AvatarConversation (one live line + Findings panel; conversationLive, conversationFindings) over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (a tool approval offers exactly Deny / Allow / Allow All, the allows for this session only; Decide later; card variant), a session's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated; without it Allow covers the request only; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, `@` mentions in the composer (mentionCandidates → a chip inside the text where `@query` was, drawn by a mirror over the textarea; onSend carries {text, mentions: [{id, name, kind, index, start}]}, each chip written "@Name" in text; unsentMentions / mentionResend for a send that stopped partway; the same chips in the bubbles from ChatMessage.mentions, placed by start, and the host's card on a chip after a 150 ms rest via renderMentionCard) and who answered on each reply (ChatMessage.author, chatAuthorView, ChatAuthorMark), what a reply kept as badges under its words (ChatMessage.notices, ChatNoticeBadges, onNoticeOpen; served turn notices, never markers read from text; kinds diary, question, question_resolved {kind, record_id, title} "question resolved: <title>", lesson, interest, realization), chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
@@ -3964,7 +3964,9 @@ See: [Console islands](./console-islands.md).
   `/api/gateway/automations`. Open the request in the browser's network panel and check its URL
   and body.
 - **"Sign in to the gateway to manage automations."** (`unauthorized`): the browser session has no
-  Gateway credentials; sign in through the connection modal (see the `app-server` entry above).
+  Gateway credentials, or its session ended (for example after a password change); sign in through
+  the connection modal (see the `app-server` entry above), or, for an app opened at
+  `/apps/<id>/`, open it again from the console.
 - **`crypto.randomUUID is unavailable`**: the page runs outside a secure context (plain `http://`
   on a host other than `localhost`). Serve it over HTTPS or pass `newId` to
   `createAutomationsClient()`, `newId` to `AutomationPanel` and `newRequestId` to
@@ -4599,6 +4601,12 @@ try {
 
 - A non-2xx answer without that envelope, or a 2xx answer that is not a JSON object, throws an
   `AutomationApiError` with `code: "invalid_response"` — never a silent success.
+- A 401 without that envelope throws `code: "unauthorized"`, with the refusal's own sentence as
+  the message: the app server's proxy answers `{"detail": "Gateway sign-in required"}` when the
+  browser has no session, and the Gateway's `/apps/<id>/` mount answers
+  `{"reason": "app_sign_in_required", "message": "Open <App> from the gateway console to sign in."}`
+  once the app's session ended (a password change ends every other session of the account). Both
+  refuse before the Gateway's automation routes run.
 - Transport failures (the `fetch` promise rejects) propagate unchanged.
 - `parseApiError(status, body)` is exported for hosts with their own transport.
 
@@ -7477,7 +7485,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.10.23",
+  "version": "0.10.24",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -7502,7 +7510,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.28",
+  "version": "0.9.29",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -12920,7 +12928,8 @@ export type ApiError = { status: number; code: string; message: string; field?: 
 // `{"detail": {"reason_code", "message", "field"?, "command_id"?}}` and is
 // thrown as an `AutomationApiError` whose `code` is `detail.reason_code`. A
 // non-2xx without that envelope, or a 2xx that is not JSON, throws
-// `invalid_response` — never a silent success.
+// `invalid_response` — never a silent success. A 401 without it (the app
+// proxy's or the `/apps/<id>/` mount's sign-in refusal) throws `unauthorized`.
 import { gatewayApiPath, joinBaseUrl } from "../gateway_paths.js";
 import { randomId } from "../random_id.js";
 import type {
@@ -12978,10 +12987,17 @@ export class AutomationApiError extends Error implements ApiError {
 
 /**
  * Parse an error body into an `ApiError`. Only the contract envelope yields
- * its `reason_code`; any other shape is `invalid_response` (status kept).
+ * its `reason_code`; any other shape is `invalid_response` (status kept) —
+ * except a 401, which is `unauthorized` whoever answered it: the app's own
+ * proxy without a session (`{"detail": "Gateway sign-in required"}`) and the
+ * gateway's `/apps/<id>/` mount once the app's session ended
+ * (`{"reason": "app_sign_in_required", "message": ...}`) refuse before any
+ * automation route runs, so their 401 carries no envelope. Their own sentence
+ * is kept as the message.
  */
 export function parseApiError(status: number, body: unknown): ApiError {
-  const detail = body && typeof body === "object" ? (body as { detail?: unknown }).detail : undefined;
+  const b = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>) : undefined;
+  const detail = b?.detail;
   if (detail && typeof detail === "object" && !Array.isArray(detail)) {
     const d = detail as Record<string, unknown>;
     if (typeof d.reason_code === "string" && d.reason_code && typeof d.message === "string") {
@@ -12990,6 +13006,10 @@ export function parseApiError(status: number, body: unknown): ApiError {
       if (typeof d.command_id === "string") out.command_id = d.command_id;
       return out;
     }
+  }
+  if (status === 401) {
+    const said = [b?.message, detail].find((v): v is string => typeof v === "string" && v.trim() !== "");
+    return { status, code: "unauthorized", message: said ?? "The gateway asked to sign in again (HTTP 401)." };
   }
   return { status, code: "invalid_response", message: `The gateway answered HTTP ${status} without an automation error envelope.` };
 }
@@ -17019,7 +17039,7 @@ export {
 } from "./replay_view.js";
 
 export { TextLinks, textLinks } from "./text_links.js";
-export { messageArtifactRefs, submittedArtifacts, outputArtifacts, type MessageArtifact } from "./message_artifacts.js";
+export { messageArtifactRefs, submittedArtifacts, outputArtifacts, artifactIsPicture, type MessageArtifact } from "./message_artifacts.js";
 
 export { AvatarConversation, type AvatarConversationOptions, type AvatarConversationProps } from "./avatar_conversation.js";
 export { DEFAULT_CONVERSATION_CUES, conversationFindings, conversationLive, conversationMessages, conversationSnapshot, conversationState, conversationCueStep, publicUpdate, type AvatarConversationState, type ConversationFinding, type ConversationLive, type ConversationAttention, type ConversationCue, type ConversationCuePreferences, type ConversationCueCursor, type PublicUpdate } from "./conversation_model.js";
@@ -25105,6 +25125,22 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## 0.10.24 - 2026-11-24
+
+Packages: `@abstractframework/ui-kit` 0.9.29 (from 0.9.28). Other packages retain their versions. Apps that list
+automations with the kit client (AbstractCode web, AbstractObserver) pick it up when they are rebuilt on it.
+
+### Fixed
+
+- **A signed-out app says "sign in", not "an unexpected answer".** `createAutomationsClient()` / `parseApiError()`
+  read a 401 without the automation error envelope as `unauthorized` (the panel's "Sign in to the gateway to manage
+  automations."), with the refusal's own sentence as the message. Those 401s come from in front of the Gateway's
+  automation routes: the app server's proxy without a session (`{"detail": "Gateway sign-in required"}`) and the
+  Gateway's `/apps/<id>/` mount once the app's session ended (`{"reason": "app_sign_in_required", ...}`; a password
+  change ends every other session of the account). They used to read "The gateway gave an unexpected answer. The
+  gateway answered HTTP 401 without an automation error envelope." in AbstractCode's Automations list. Any other
+  status without the envelope is still `invalid_response`.
 
 ## 0.10.23 - 2026-11-18
 

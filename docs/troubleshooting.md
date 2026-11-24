@@ -158,7 +158,9 @@ See: [Console islands](./console-islands.md).
   `/api/gateway/automations`. Open the request in the browser's network panel and check its URL
   and body.
 - **"Sign in to the gateway to manage automations."** (`unauthorized`): the browser session has no
-  Gateway credentials; sign in through the connection modal (see the `app-server` entry above).
+  Gateway credentials, or its session ended (for example after a password change); sign in through
+  the connection modal (see the `app-server` entry above), or, for an app opened at
+  `/apps/<id>/`, open it again from the console.
 - **`crypto.randomUUID is unavailable`**: the page runs outside a secure context (plain `http://`
   on a host other than `localhost`). Serve it over HTTPS or pass `newId` to
   `createAutomationsClient()`, `newId` to `AutomationPanel` and `newRequestId` to
