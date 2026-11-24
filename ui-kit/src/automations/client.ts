@@ -9,7 +9,8 @@
 // `{"detail": {"reason_code", "message", "field"?, "command_id"?}}` and is
 // thrown as an `AutomationApiError` whose `code` is `detail.reason_code`. A
 // non-2xx without that envelope, or a 2xx that is not JSON, throws
-// `invalid_response` — never a silent success.
+// `invalid_response` — never a silent success. A 401 without it (the app
+// proxy's or the `/apps/<id>/` mount's sign-in refusal) throws `unauthorized`.
 import { gatewayApiPath, joinBaseUrl } from "../gateway_paths.js";
 import { randomId } from "../random_id.js";
 import type {
@@ -67,10 +68,17 @@ export class AutomationApiError extends Error implements ApiError {
 
 /**
  * Parse an error body into an `ApiError`. Only the contract envelope yields
- * its `reason_code`; any other shape is `invalid_response` (status kept).
+ * its `reason_code`; any other shape is `invalid_response` (status kept) —
+ * except a 401, which is `unauthorized` whoever answered it: the app's own
+ * proxy without a session (`{"detail": "Gateway sign-in required"}`) and the
+ * gateway's `/apps/<id>/` mount once the app's session ended
+ * (`{"reason": "app_sign_in_required", "message": ...}`) refuse before any
+ * automation route runs, so their 401 carries no envelope. Their own sentence
+ * is kept as the message.
  */
 export function parseApiError(status: number, body: unknown): ApiError {
-  const detail = body && typeof body === "object" ? (body as { detail?: unknown }).detail : undefined;
+  const b = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>) : undefined;
+  const detail = b?.detail;
   if (detail && typeof detail === "object" && !Array.isArray(detail)) {
     const d = detail as Record<string, unknown>;
     if (typeof d.reason_code === "string" && d.reason_code && typeof d.message === "string") {
@@ -79,6 +87,10 @@ export function parseApiError(status: number, body: unknown): ApiError {
       if (typeof d.command_id === "string") out.command_id = d.command_id;
       return out;
     }
+  }
+  if (status === 401) {
+    const said = [b?.message, detail].find((v): v is string => typeof v === "string" && v.trim() !== "");
+    return { status, code: "unauthorized", message: said ?? "The gateway asked to sign in again (HTTP 401)." };
   }
   return { status, code: "invalid_response", message: `The gateway answered HTTP ${status} without an automation error envelope.` };
 }

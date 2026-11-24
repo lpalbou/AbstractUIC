@@ -514,6 +514,12 @@ try {
 
 - A non-2xx answer without that envelope, or a 2xx answer that is not a JSON object, throws an
   `AutomationApiError` with `code: "invalid_response"` — never a silent success.
+- A 401 without that envelope throws `code: "unauthorized"`, with the refusal's own sentence as
+  the message: the app server's proxy answers `{"detail": "Gateway sign-in required"}` when the
+  browser has no session, and the Gateway's `/apps/<id>/` mount answers
+  `{"reason": "app_sign_in_required", "message": "Open <App> from the gateway console to sign in."}`
+  once the app's session ended (a password change ends every other session of the account). Both
+  refuse before the Gateway's automation routes run.
 - Transport failures (the `fetch` promise rejects) propagate unchanged.
 - `parseApiError(status, body)` is exported for hosts with their own transport.
 

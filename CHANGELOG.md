@@ -7,6 +7,22 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## Unreleased
+
+Packages: `@abstractframework/ui-kit` (a patch release over 0.9.28). Apps that list automations with the kit client
+(AbstractCode web, AbstractObserver) pick it up when they are rebuilt on it.
+
+### Fixed
+
+- **A signed-out app says "sign in", not "an unexpected answer".** `createAutomationsClient()` / `parseApiError()`
+  read a 401 without the automation error envelope as `unauthorized` (the panel's "Sign in to the gateway to manage
+  automations."), with the refusal's own sentence as the message. Those 401s come from in front of the Gateway's
+  automation routes: the app server's proxy without a session (`{"detail": "Gateway sign-in required"}`) and the
+  Gateway's `/apps/<id>/` mount once the app's session ended (`{"reason": "app_sign_in_required", ...}`; a password
+  change ends every other session of the account). They used to read "The gateway gave an unexpected answer. The
+  gateway answered HTTP 401 without an automation error envelope." in AbstractCode's Automations list. Any other
+  status without the envelope is still `invalid_response`.
+
 ## 0.10.23 - 2026-11-18
 
 Packages: `@abstractframework/panel-chat` 0.9.15 (from 0.9.14; still needs `@abstractframework/ui-kit` `^0.9.28`).

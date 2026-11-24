@@ -167,6 +167,20 @@ for (const [name, status, body, text] of odd) {
   const err = await thrown(createAutomationsClient({ fetch: s.fetch, newId }).listAutomations());
   check(`${name} → invalid_response ${status}`, err instanceof AutomationApiError && err.code === "invalid_response" && err.status === status, err && `${err.code}`);
 }
+// A 401 is a sign-in refusal whoever answers it: the app's own proxy (no session cookie) and the
+// gateway's /apps/<id>/ mount (the app's session ended) refuse before the gateway's automation
+// routes run, in their own shapes. The person reads "sign in", never "an unexpected answer".
+for (const [name, body, text, message] of [
+  ["app-server proxy, no session", { detail: "Gateway sign-in required" }, undefined, "Gateway sign-in required"],
+  ["gateway /apps/<id>/ mount, session ended", { ok: false, reason: "app_sign_in_required", message: "Open Code from the gateway console to sign in." }, undefined, "Open Code from the gateway console to sign in."],
+  ["401 without a readable body", null, "", null],
+]) {
+  const s = stub(() => (text !== undefined ? { status: 401, text } : { status: 401, body }));
+  const err = await thrown(createAutomationsClient({ fetch: s.fetch, newId }).listAutomations());
+  check(`401 ${name} → unauthorized`, err instanceof AutomationApiError && err.code === "unauthorized" && err.status === 401, err && `${err.code}: ${err.message}`);
+  check(`401 ${name}: the refusal's own words`, err && (message === null ? err.message.length > 0 && !/envelope/.test(err.message) : err.message === message), err && err.message);
+  check(`401 ${name}: the panel says sign in`, err && kit.apiErrorText(err).title === kit.API_ERROR_TEXT.unauthorized);
+}
 for (const [name, text] of [["2xx non-JSON", "ok"], ["2xx empty", ""], ["2xx JSON null", "null"]]) {
   const s = stub(() => ({ status: 200, text }));
   const err = await thrown(createAutomationsClient({ fetch: s.fetch, newId }).listTriggerSources());
