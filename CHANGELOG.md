@@ -7,10 +7,10 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
-## Unreleased
+## 0.10.24 - 2026-11-24
 
-Packages: `@abstractframework/ui-kit` (a patch release over 0.9.28). Apps that list automations with the kit client
-(AbstractCode web, AbstractObserver) pick it up when they are rebuilt on it.
+Packages: `@abstractframework/ui-kit` 0.9.29 (from 0.9.28). Other packages retain their versions. Apps that list
+automations with the kit client (AbstractCode web, AbstractObserver) pick it up when they are rebuilt on it.
 
 ### Fixed
 
