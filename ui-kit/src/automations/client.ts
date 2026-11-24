@@ -10,7 +10,7 @@
 // thrown as an `AutomationApiError` whose `code` is `detail.reason_code`. A
 // non-2xx without that envelope, or a 2xx that is not JSON, throws
 // `invalid_response` — never a silent success. A 401 without it (the app
-// proxy's or the `/apps/<id>/` mount's sign-in refusal) throws `unauthorized`.
+// proxy's or the /apps/<id>/ mount's sign-in refusal) throws `unauthorized`.
 import { gatewayApiPath, joinBaseUrl } from "../gateway_paths.js";
 import { randomId } from "../random_id.js";
 import type {
@@ -71,7 +71,7 @@ export class AutomationApiError extends Error implements ApiError {
  * its `reason_code`; any other shape is `invalid_response` (status kept) —
  * except a 401, which is `unauthorized` whoever answered it: the app's own
  * proxy without a session (`{"detail": "Gateway sign-in required"}`) and the
- * gateway's `/apps/<id>/` mount once the app's session ended
+ * gateway's /apps/<id>/ mount once the app's session ended
  * (`{"reason": "app_sign_in_required", "message": ...}`) refuse before any
  * automation route runs, so their 401 carries no envelope. Their own sentence
  * is kept as the message.
