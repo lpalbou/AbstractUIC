@@ -15,14 +15,19 @@ it up when it re-syncs its session-card snapshot (`npm run sync:sessions`).
 ### Added
 
 - **A conversation card can be renamed in place.** `SessionCard` takes an optional `onRename(title)`. With it, a
-  Rename action (before archive, shown like it on hover and keyboard focus, a visible 44 px target on touch), F2 on
-  the row and a double-click on the title swap the title for a one-line input outside the open button: prefilled and
-  selected, `maxLength` 120, `dir="auto"`, labelled "Rename conversation". Enter calls `onRename` with the trimmed
-  text (never for an unchanged name; `""` asks the host to clear it; not while an input method composes), Escape and
-  blur cancel, and focus goes back to the row. While the returned promise is pending the input is disabled; a refusal
-  keeps the typed text in the open input for the host's error and a retry. Nothing inside the editor opens, archives
-  or reaches a list's key handler. Without `onRename` the card's markup is unchanged (checked against the 0.9.29
-  markup); the AbstractUIC browser check `ui-kit/scripts/check_session_card_rename_browser.mjs` drives every case.
+  Rename action (before archive, shown like it on hover and keyboard focus, a visible 44 px target on touch) and a
+  plain F2 on the row swap the title for a one-line input outside the open button: prefilled with the title cut to
+  120 characters and selected, `maxLength` 120, `dir="auto"`, labelled "Rename conversation", described by the row's
+  counts. Enter calls `onRename` with the trimmed text, at most 120 characters (never for an unchanged name; `""`
+  asks the host to clear it; not while an input method composes; a held Enter repeats nothing), Escape and blur
+  cancel. While the returned promise is pending the input is read-only and keeps focus; a refusal keeps the typed
+  text in the open input for the host's error and a retry. Focus returns to the row (or the input after a refusal)
+  only when it is still in the editor, never from where the person went meanwhile. Two more optional props:
+  `onRenameEditingChange(editing)` (the editor opened, or closed after any pending save) and `renameErrorId` (the
+  host's error element describes the input, `aria-invalid`). Nothing inside the editor opens, archives or reaches a
+  list's key handler. Without `onRename` the card's markup is unchanged (checked against the published 0.9.29 build's
+  markup, rendered in UTC); the browser check `ui-kit/scripts/check_session_card_rename_browser.mjs` drives every
+  case.
 
 ## 0.10.24 - 2026-11-24
 

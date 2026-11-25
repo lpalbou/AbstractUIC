@@ -92,8 +92,11 @@ assert.equal(wakeFacts.auto,undefined,'Automation state stays in its own attenti
   assert.ok(css.indexOf('.af-session-card[data-selected] {')>css.indexOf('.af-session-card[data-attention] {'),'selected is the last state rule: it wins over unread and attention');
 }
 
-// Rename is optional: without onRename every card renders byte for byte as ui-kit 0.9.29 did.
+// Rename is optional: without onRename every card renders byte for byte as ui-kit 0.9.29 did. The
+// fixture is the published 0.9.29 build's markup in UTC: the clock's exact-time tooltip is local
+// time, so the comparison renders in UTC too (Node applies a TZ change at once), whatever the machine.
 {
+  const zone=process.env.TZ;process.env.TZ='UTC';
   const {readFileSync}=await import('node:fs');
   const before=JSON.parse(readFileSync(new URL('./fixtures/session_card_markup_0.9.29.json',import.meta.url),'utf8'));
   const card={sessionId:'s',title:'A full title',nowMs:now+60000,updatedAt:at(0),turnCount:2,toolCount:7,onOpen(){}};
@@ -103,6 +106,7 @@ assert.equal(wakeFacts.auto,undefined,'Automation state stays in its own attenti
     assert.equal(renderToStaticMarkup(React.createElement(SessionCard,{...props,onRename:undefined})),before[name],`${name}: onRename undefined is no rename`);
   }
   assert.equal(renderToStaticMarkup(React.createElement(AutomationCard,{summary:{automation_id:'a',title:'T',status:'active',trigger:{source_id:'manual',source_version:1,config:{}},occurrence_count:2,attention:{unseen_count:0,pending_waits:0,unread:false}},nowMs:now,onOpen(){},onArchive(){}})),before.automation,'Automation card unchanged');
+  if(zone===undefined)delete process.env.TZ;else process.env.TZ=zone;
   const renamable=renderToStaticMarkup(React.createElement(SessionCard,{...card,onArchive(){},onRename(){}}));
   assert.equal((renamable.match(/<button/g)||[]).length,3,'open, rename and archive are three sibling buttons');
   assert.doesNotMatch(renamable,/<button[^>]*>(?:(?!<\/button>)[\s\S])*<button/,'no control nests inside another');
