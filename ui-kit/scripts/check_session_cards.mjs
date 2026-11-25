@@ -91,3 +91,35 @@ assert.equal(wakeFacts.auto,undefined,'Automation state stays in its own attenti
   }
   assert.ok(css.indexOf('.af-session-card[data-selected] {')>css.indexOf('.af-session-card[data-attention] {'),'selected is the last state rule: it wins over unread and attention');
 }
+
+// Rename is optional: without onRename every card renders byte for byte as ui-kit 0.9.29 did. The
+// fixture is the published 0.9.29 build's markup in UTC: the clock's exact-time tooltip is local
+// time, so the comparison renders in UTC too (Node applies a TZ change at once), whatever the machine.
+{
+  const zone=process.env.TZ;process.env.TZ='UTC';
+  const {readFileSync}=await import('node:fs');
+  const before=JSON.parse(readFileSync(new URL('./fixtures/session_card_markup_0.9.29.json',import.meta.url),'utf8'));
+  const card={sessionId:'s',title:'A full title',nowMs:now+60000,updatedAt:at(0),turnCount:2,toolCount:7,onOpen(){}};
+  const variants={plain:card,archive:{...card,onArchive(){}},states:{...card,onArchive(){},unread:true,needsAttention:true,selected:true,countsPartial:true,archiveDisabled:true},disabled:{...card,disabled:true,working:true,className:'x'}};
+  for(const [name,props] of Object.entries(variants)){
+    assert.equal(renderToStaticMarkup(React.createElement(SessionCard,props)),before[name],`${name}: unchanged without onRename`);
+    assert.equal(renderToStaticMarkup(React.createElement(SessionCard,{...props,onRename:undefined})),before[name],`${name}: onRename undefined is no rename`);
+  }
+  assert.equal(renderToStaticMarkup(React.createElement(AutomationCard,{summary:{automation_id:'a',title:'T',status:'active',trigger:{source_id:'manual',source_version:1,config:{}},occurrence_count:2,attention:{unseen_count:0,pending_waits:0,unread:false}},nowMs:now,onOpen(){},onArchive(){}})),before.automation,'Automation card unchanged');
+  if(zone===undefined)delete process.env.TZ;else process.env.TZ=zone;
+  const renamable=renderToStaticMarkup(React.createElement(SessionCard,{...card,onArchive(){},onRename(){}}));
+  assert.equal((renamable.match(/<button/g)||[]).length,3,'open, rename and archive are three sibling buttons');
+  assert.doesNotMatch(renamable,/<button[^>]*>(?:(?!<\/button>)[\s\S])*<button/,'no control nests inside another');
+  assert.doesNotMatch(renamable,/<input/,'the editor opens only on request');
+  assert.match(renamable,/<button type="button" class="af-session-card__rename" aria-label="Rename A full title" title="Rename conversation" aria-keyshortcuts="F2">/);
+  assert.ok(renamable.indexOf('af-session-card__rename')<renamable.indexOf('af-session-card__archive'),'Rename sits before archive');
+  assert.match(renamable,/class="af-session-card__open"[^>]*aria-keyshortcuts="F2"/,'the row announces F2');
+  assert.match(renamable,/<span class="af-session-card__title" title="A full title" dir="auto">/,'a name in any script direction');
+  assert.match(renderToStaticMarkup(React.createElement(SessionCard,{...card,disabled:true,onRename(){}})),/class="af-session-card__rename"[^>]*disabled=""/,'a disabled card cannot be renamed');
+  const css=readFileSync(new URL('../src/theme.css',import.meta.url),'utf8');
+  const block=css.slice(css.indexOf('/* Session facts are controlled by the host;'),css.indexOf('/* End shared session cards. */'));
+  for(const rule of ['.af-session-card:hover .af-session-card__rename','.af-session-card__open:focus-visible ~ .af-session-card__rename','.af-session-card__rename:focus-visible ~ .af-session-card__archive','@media (hover: none), (pointer: coarse) { .af-session-card__rename { flex-basis: 44px','.af-session-card__title-input {','.af-session-card__edit {'])
+    assert.ok(block.includes(rule),`exported card CSS has ${rule}`);
+  assert.ok(block.includes('.af-session-card__open:focus-visible ~ .af-session-card__archive'),'archive still shows when the row has keyboard focus, with or without rename between them');
+  console.log('Session card rename: unchanged markup without onRename, sibling Rename action, F2 hint, dir=auto, disabled, hover/focus/touch CSS passed');
+}

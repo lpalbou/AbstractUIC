@@ -72,7 +72,7 @@ If you cannot follow links, use `llms-full.txt` (generated; inlines the contents
 
 ## Packages
 
-- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.29): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
+- [@abstractframework/ui-kit](ui-kit/README.md) (0.9.30): theme tokens (21 themes) and the responsive layer (breakpoints, touch sizes, sheets, viewport helpers); app shell (AfAppShell) with the top-right cluster (AfTopBarActions: extras · docs · assistant · appearance · about · signed-in identity · connection pill; principalFromConnection), drawer system (AfDrawerSystem; AfRailDrawer wraps it), appearance dialog and compact About card (AfAbout / AfAboutDialog, fetchAboutVersions, aboutVersionsFromGateway) + AbstractFramework identity helpers; Gateway connect modal + useGatewayConnection hook; inputs: AfSelect, ProviderModelPicker naming the gateway default (createGatewayModelTransport, withRunModel, reasoningLadder), ToolModeEditor (Off / Ask / Auto per tool; tool_plan helpers, createToolLayerStore; ToolPolicyEditor deprecated) and a chat's tool policy stored on the gateway (createSessionToolPolicyClient, sessionPolicyFromLayer); voice: AfVoiceSection (rows, ttsSlot, voiceLibrary, fetchLanguages, previewVoice), the standalone AfVoiceOutput / AfVoiceInput, AfVoiceMicButton (Hold to talk / Tap to talk), AfVoiceLevelMeter, useGatewayVoice (streaming TTS, push-to-talk, live level, mute), useVoicePreferences, useVoiceDefaults, VoiceLibraryPanel, GATEWAY_VOICE_ROUTES; file viewer (AfFileViewer with video, AfCodeBlock, AfAudioPlayer waveform audio player); settings rows (AfSettingsGroup, AfSettingRow, AfOverrideRow); relative time; console islands; phase capability matrix, critical action dialog, steer composer, disclosure list, chips, icons; automations panel (Active switch) + schedule dialog + client; AfSwitch, AfTabs, AfModal, randomId
 - [@abstractframework/panel-chat](panel-chat/README.md) (0.9.15, needs ui-kit ^0.9.28): the one chat surface WorkflowChat, the Avatar view AvatarConversation (one live line + Findings panel; conversationLive, conversationFindings) over WorkflowSessionController, rendered from AbstractGateway's replay view when the transport has `replayView` (createReplayViewTransport, applyDelta, ReplayViewFold, projectReplayView; labeled ledger-fold fallback) (steer/queue, typed attachment chips + useAttachmentUploads, toolbar, per-message slots, onSend signal + onCancel, file media + STT transcripts via chatMediaFromArtifact / resolveArtifact), live replies (`llm.delta`), presentInteraction + WorkflowInteractionPanel (a tool approval offers exactly Deny / Allow / Allow All, the allows for this session only; Decide later; card variant), a session's tool policy stored on the gateway (controller option sessionToolPolicy, capability-gated; without it Allow covers the request only; policy decisions as activity lines), DocsAssistantDrawer + docsAssistantPanel, AssistantPanel + assistantDrawerPanel, ScheduleThisAction + FromAutomationBadge, WorkspaceBrowser + FileViewer / useWorkspaceFilePreview, `@` mentions in the composer (mentionCandidates → a chip inside the text where `@query` was, drawn by a mirror over the textarea; onSend carries {text, mentions: [{id, name, kind, index, start}]}, each chip written "@Name" in text; unsentMentions / mentionResend for a send that stopped partway; the same chips in the bubbles from ChatMessage.mentions, placed by start, and the host's card on a chip after a 150 ms rest via renderMentionCard) and who answered on each reply (ChatMessage.author, chatAuthorView, ChatAuthorMark), what a reply kept as badges under its words (ChatMessage.notices, ChatNoticeBadges, onNoticeOpen; served turn notices, never markers read from text; kinds diary, question, question_resolved {kind, record_id, title} "question resolved: <title>", lesson, interest, realization), chat thread/message UI (one message footer spec: dated stamp, permanent speaker, copy, structured stat chips) + markdown/json renderers
 - [@abstractframework/app-server](app-server/README.md): Node server side for apps: serving under the gateway's `/apps/<id>/` (base path, forwarded client address, identity header), the shared launch flags (`--gateway-url`, `--port`, `--host`), the local gateway pointer reader, and the gateway-session proxy (token → HttpOnly cookies, CSRF, URL pinning, forwarded client address + app-proxy marker; no runtime deps)
 - [@abstractframework/monitor-flow](monitor-flow/README.md): agent-cycle trace viewer + ledger adapter
@@ -2350,7 +2350,8 @@ resolution/cadence budgets, lifecycle, errors and gallery usage.
 
 For compact conversation lists, `SessionCard`, `sessionActivityFromRuns`, `sessionReadTarget`,
 `createSessionReadClient`, `useSessionReads` and `SessionReadMarker` provide shared presentation
-and Gateway-owned, account-wide read receipts. See [Compact session cards](session-cards.md) for ownership and consumption rules.
+and Gateway-owned, account-wide read receipts; `SessionCard`'s optional `onRename` edits the name in place.
+See [Compact session cards](session-cards.md) for ownership, consumption and rename rules.
 
 For entities, `EntityCard` draws AbstractGateway's tile read (`GET /entities/{name}/tile`) in plain words,
 full or compact, with loading, stale and unavailable states, and its acts from the served life state
@@ -5202,7 +5203,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 - **On/off settings**: [`state-toggles.md`](./state-toggles.md) — `AfSwitch`, the console markup, the terminal marker, the verb-toggle and label-scale guards, the sign-in card, forms, cards and tabs, `randomId()`
 - **Modal, account rows, grouped navigation**: [`modal.md`](./modal.md) — `AfModal` and its plain-HTML markup with `AfConsoleIslands.bindModal`, the menu and the themed tooltip (`AfTooltip`, `bindTooltips`), the account-kind row tints and chips, sidebar group captions with a bottom slot, and the 13 px / 14 px helper-text floor
 - **Activity avatars**: [`avatars.md`](./avatars.md) — one shared Rust/Wasm geometry/catalog, React/Canvas and native adapters, lifecycle, themes, pointer tracking and gallery checks
-- **Compact session cards**: [`session-cards.md`](./session-cards.md) — `SessionCard` and `AutomationCard`: Watch-style conversation and automation rows, human attention, and visibility-gated Gateway read receipts (`useSessionReads`, `createSessionReadClient`)
+- **Compact session cards**: [`session-cards.md`](./session-cards.md) — `SessionCard` and `AutomationCard`: Watch-style conversation and automation rows (optional in-place rename), human attention, and visibility-gated Gateway read receipts (`useSessionReads`, `createSessionReadClient`)
 - **Entity card**: [`entity-card.md`](./entity-card.md) — `EntityCard`: an entity at a glance from AbstractGateway's tile read (who, now and for how long, into lately, on its mind, last moment, age, mind, counts), full and compact, loading/stale/unavailable states, the acts (Watch, Retry with the served reason, Resume) from the served life state, the shared words
 - **Icons**: [`icons.md`](./icons.md) — the `Icon` component, every icon name with its grid and typical use, the light and dark contact sheets, the drawing rules, and how to add an icon
 - **Responsive layout**: [`responsive.md`](./responsive.md) — breakpoints, touch sizes, bottom sheets and drawers, container queries, the viewport helpers, the font-size order, and how a host app adopts them
@@ -7485,7 +7486,7 @@ npm test
 
 {
   "name": "@abstractframework/abstractuic-monorepo",
-  "version": "0.10.24",
+  "version": "0.10.25",
   "private": true,
   "description": "AbstractUIC - UI packages for AbstractFramework",
   "workspaces": [
@@ -7510,7 +7511,7 @@ npm test
 
 {
   "name": "@abstractframework/ui-kit",
-  "version": "0.9.29",
+  "version": "0.9.30",
   "description": "Shared theme tokens and React components for AbstractFramework apps on AbstractGateway: app shell and signed-in identity, drawer system, gateway connection, provider/model picker, tool editor and chat tool policy, voice settings and microphone button, file viewer, automations, console islands.",
   "type": "module",
   "author": "Laurent-Philippe Albou",
@@ -12929,7 +12930,7 @@ export type ApiError = { status: number; code: string; message: string; field?: 
 // thrown as an `AutomationApiError` whose `code` is `detail.reason_code`. A
 // non-2xx without that envelope, or a 2xx that is not JSON, throws
 // `invalid_response` — never a silent success. A 401 without it (the app
-// proxy's or the `/apps/<id>/` mount's sign-in refusal) throws `unauthorized`.
+// proxy's or the /apps/<id>/ mount's sign-in refusal) throws `unauthorized`.
 import { gatewayApiPath, joinBaseUrl } from "../gateway_paths.js";
 import { randomId } from "../random_id.js";
 import type {
@@ -12990,7 +12991,7 @@ export class AutomationApiError extends Error implements ApiError {
  * its `reason_code`; any other shape is `invalid_response` (status kept) —
  * except a 401, which is `unauthorized` whoever answered it: the app's own
  * proxy without a session (`{"detail": "Gateway sign-in required"}`) and the
- * gateway's `/apps/<id>/` mount once the app's session ended
+ * gateway's /apps/<id>/ mount once the app's session ended
  * (`{"reason": "app_sign_in_required", "message": ...}`) refuse before any
  * automation route runs, so their 401 carries no envelope. Their own sentence
  * is kept as the message.
@@ -24564,6 +24565,48 @@ rendering and relative-time tests remain deterministic.
   onOpen={openSession} onArchive={askToArchive} />
 ```
 
+## Rename (optional)
+
+Pass `onRename(title)` to let the person rename a conversation in place. Without it the card
+renders exactly as before (no Rename action, no extra attribute). With it:
+
+- A **Rename** action (pencil icon, accessible name `Rename <title>`) sits before archive and
+  shows like archive: on hover and on keyboard focus of the row, always visible as a 44 px target
+  on touch/no-hover devices. **F2** on the focused row (plain F2: not held, no Shift, Ctrl, Alt or
+  Meta) also starts editing; the row's open button announces `aria-keyshortcuts="F2"`. A click or
+  a double-click on the title opens the conversation, as without rename.
+- The title becomes a one-line input labelled "Rename conversation", outside the open button
+  (the open button, Rename and archive give way while editing), prefilled with the title cut to
+  120 characters (code points), all text selected, `maxLength` 120, `dir="auto"` (the shown title
+  is `dir="auto"` too). The row's counts and time are the input's description.
+- **Enter** calls `onRename` with the trimmed text, at most 120 characters, once (a held Enter
+  repeats nothing and never goes on to open the conversation); an unchanged name makes no call; an
+  empty one calls `onRename("")` (the host clears its stored name). Enter while an input method is
+  composing (`isComposing`, key code 229) belongs to the input method.
+- **Escape** cancels. **Blur cancels** too, so a stray click never renames; the window itself
+  losing focus does not. The kit has no other inline edit, so this is the rule for it.
+- A returned **promise** makes the input read-only (`aria-busy`, the working ring) until it
+  settles: focus stays in it, typing, a second Enter, Escape and blur do nothing. On success the
+  editor closes. On **rejection** it stays open with the typed text, editable, so nothing typed
+  is lost and Enter retries; the host shows the error (the card stays presentational). Pass the
+  id of the host's error element as `renameErrorId`: the input is then described by it and marked
+  `aria-invalid`.
+- Focus moves only when it is still in the editor (or was dropped on the page by the editor
+  closing): Enter, Escape and a settled save return it to the row's open button, a refusal to the
+  input; if the person moved elsewhere meanwhile (the composer, another control), focus stays there.
+- `onRenameEditingChange(editing)` tells the host when the editor opens (`true`) and when it
+  closes, after any pending save (`false`), e.g. to keep the row listed while it is being renamed.
+- Keys, clicks and pointer presses inside the editor never open the conversation, never archive,
+  and never bubble to a list or page handler. A `title` change while editing (a list refresh) does
+  not touch the text being typed. If the host withdraws `onRename` (or disables the card) the
+  editor closes, once a pending save has settled.
+
+```tsx
+<SessionCard ... onRename={(title) => renameOnGateway(session.id, title)}
+  onRenameEditingChange={(editing) => setRenaming(editing ? session.id : null)}
+  renameErrorId={error ? "rename-error" : undefined} />
+```
+
 ## Read receipts and consumption
 
 `sessionActivityFromRuns` groups root runs and exposes a `content` receipt per run.
@@ -24614,8 +24657,11 @@ Clients pinned to older published UI kit versions use generated `abstractsession
 CSS, declarations and SHA256 provenance. Both clients' `sync:sessions` scripts refresh that
 snapshot; their builds verify its integrity. There is one implementation owner, not two forks.
 
-Run `npm run build` and `node scripts/check_session_cards.mjs` in `ui-kit`. Optional browser QA:
-`SESSION_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check_session_cards_browser.mjs`.
+Run `npm run build` and `node scripts/check_session_cards.mjs` in `ui-kit` (it also compares the
+markup without `onRename` with `scripts/fixtures/session_card_markup_0.9.29.json`). Optional browser QA:
+`SESSION_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check_session_cards_browser.mjs`,
+and the same variable for `node scripts/check_session_card_rename_browser.mjs` (every rename trigger,
+key, blur, pending, refusal, focus return, IME, long and right-to-left names, touch).
 The browser check exercises offscreen and occluded content, background visibility events,
 account-switch dwell cancellation, and shared versus isolated receipts.
 `node scripts/check_session_reads_remote_browser.mjs` additionally checks independent browser
@@ -24625,7 +24671,7 @@ AbstractTUI provides a controlled native `widgets::SessionCard` presenter with e
 unread/attention/working/selection facts. It does not own networking or read receipts; adopting
 receipt tracking in a native application remains host integration work.
 
-On desktop the archive icon is 28 px, hidden until card hover or keyboard focus.
+On desktop the archive icon (and the Rename icon, when offered) is 28 px, hidden until card hover or keyboard focus.
 Touch/no-hover devices retain a visible 44 px target. Opening and archive remain sibling controls. Cards use a darker theme-derived surface than section headers in every theme; unread and attention colors tint that surface without raising it above the header.
 
 ## Automation cards
@@ -25125,6 +25171,28 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## 0.10.25 - 2026-11-25
+
+Packages: `@abstractframework/ui-kit` 0.9.30 (from 0.9.29). Other packages retain their versions. AbstractCode web picks
+it up when it re-syncs its session-card snapshot (`npm run sync:sessions`).
+
+### Added
+
+- **A conversation card can be renamed in place.** `SessionCard` takes an optional `onRename(title)`. With it, a
+  Rename action (before archive, shown like it on hover and keyboard focus, a visible 44 px target on touch) and a
+  plain F2 on the row swap the title for a one-line input outside the open button: prefilled with the title cut to
+  120 characters and selected, `maxLength` 120, `dir="auto"`, labelled "Rename conversation", described by the row's
+  counts. Enter calls `onRename` with the trimmed text, at most 120 characters (never for an unchanged name; `""`
+  asks the host to clear it; not while an input method composes; a held Enter repeats nothing), Escape and blur
+  cancel. While the returned promise is pending the input is read-only and keeps focus; a refusal keeps the typed
+  text in the open input for the host's error and a retry. Focus returns to the row (or the input after a refusal)
+  only when it is still in the editor, never from where the person went meanwhile. Two more optional props:
+  `onRenameEditingChange(editing)` (the editor opened, or closed after any pending save) and `renameErrorId` (the
+  host's error element describes the input, `aria-invalid`). Nothing inside the editor opens, archives or reaches a
+  list's key handler. Without `onRename` the card's markup is unchanged (checked against the published 0.9.29 build's
+  markup, rendered in UTC); the browser check `ui-kit/scripts/check_session_card_rename_browser.mjs` drives every
+  case.
 
 ## 0.10.24 - 2026-11-24
 

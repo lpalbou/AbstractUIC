@@ -26,6 +26,48 @@ rendering and relative-time tests remain deterministic.
   onOpen={openSession} onArchive={askToArchive} />
 ```
 
+## Rename (optional)
+
+Pass `onRename(title)` to let the person rename a conversation in place. Without it the card
+renders exactly as before (no Rename action, no extra attribute). With it:
+
+- A **Rename** action (pencil icon, accessible name `Rename <title>`) sits before archive and
+  shows like archive: on hover and on keyboard focus of the row, always visible as a 44 px target
+  on touch/no-hover devices. **F2** on the focused row (plain F2: not held, no Shift, Ctrl, Alt or
+  Meta) also starts editing; the row's open button announces `aria-keyshortcuts="F2"`. A click or
+  a double-click on the title opens the conversation, as without rename.
+- The title becomes a one-line input labelled "Rename conversation", outside the open button
+  (the open button, Rename and archive give way while editing), prefilled with the title cut to
+  120 characters (code points), all text selected, `maxLength` 120, `dir="auto"` (the shown title
+  is `dir="auto"` too). The row's counts and time are the input's description.
+- **Enter** calls `onRename` with the trimmed text, at most 120 characters, once (a held Enter
+  repeats nothing and never goes on to open the conversation); an unchanged name makes no call; an
+  empty one calls `onRename("")` (the host clears its stored name). Enter while an input method is
+  composing (`isComposing`, key code 229) belongs to the input method.
+- **Escape** cancels. **Blur cancels** too, so a stray click never renames; the window itself
+  losing focus does not. The kit has no other inline edit, so this is the rule for it.
+- A returned **promise** makes the input read-only (`aria-busy`, the working ring) until it
+  settles: focus stays in it, typing, a second Enter, Escape and blur do nothing. On success the
+  editor closes. On **rejection** it stays open with the typed text, editable, so nothing typed
+  is lost and Enter retries; the host shows the error (the card stays presentational). Pass the
+  id of the host's error element as `renameErrorId`: the input is then described by it and marked
+  `aria-invalid`.
+- Focus moves only when it is still in the editor (or was dropped on the page by the editor
+  closing): Enter, Escape and a settled save return it to the row's open button, a refusal to the
+  input; if the person moved elsewhere meanwhile (the composer, another control), focus stays there.
+- `onRenameEditingChange(editing)` tells the host when the editor opens (`true`) and when it
+  closes, after any pending save (`false`), e.g. to keep the row listed while it is being renamed.
+- Keys, clicks and pointer presses inside the editor never open the conversation, never archive,
+  and never bubble to a list or page handler. A `title` change while editing (a list refresh) does
+  not touch the text being typed. If the host withdraws `onRename` (or disables the card) the
+  editor closes, once a pending save has settled.
+
+```tsx
+<SessionCard ... onRename={(title) => renameOnGateway(session.id, title)}
+  onRenameEditingChange={(editing) => setRenaming(editing ? session.id : null)}
+  renameErrorId={error ? "rename-error" : undefined} />
+```
+
 ## Read receipts and consumption
 
 `sessionActivityFromRuns` groups root runs and exposes a `content` receipt per run.
@@ -76,8 +118,11 @@ Clients pinned to older published UI kit versions use generated `abstractsession
 CSS, declarations and SHA256 provenance. Both clients' `sync:sessions` scripts refresh that
 snapshot; their builds verify its integrity. There is one implementation owner, not two forks.
 
-Run `npm run build` and `node scripts/check_session_cards.mjs` in `ui-kit`. Optional browser QA:
-`SESSION_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check_session_cards_browser.mjs`.
+Run `npm run build` and `node scripts/check_session_cards.mjs` in `ui-kit` (it also compares the
+markup without `onRename` with `scripts/fixtures/session_card_markup_0.9.29.json`). Optional browser QA:
+`SESSION_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check_session_cards_browser.mjs`,
+and the same variable for `node scripts/check_session_card_rename_browser.mjs` (every rename trigger,
+key, blur, pending, refusal, focus return, IME, long and right-to-left names, touch).
 The browser check exercises offscreen and occluded content, background visibility events,
 account-switch dwell cancellation, and shared versus isolated receipts.
 `node scripts/check_session_reads_remote_browser.mjs` additionally checks independent browser
@@ -87,7 +132,7 @@ AbstractTUI provides a controlled native `widgets::SessionCard` presenter with e
 unread/attention/working/selection facts. It does not own networking or read receipts; adopting
 receipt tracking in a native application remains host integration work.
 
-On desktop the archive icon is 28 px, hidden until card hover or keyboard focus.
+On desktop the archive icon (and the Rename icon, when offered) is 28 px, hidden until card hover or keyboard focus.
 Touch/no-hover devices retain a visible 44 px target. Opening and archive remain sibling controls. Cards use a darker theme-derived surface than section headers in every theme; unread and attention colors tint that surface without raising it above the header.
 
 ## Automation cards
