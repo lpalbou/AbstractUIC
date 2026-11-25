@@ -7,6 +7,23 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## Unreleased
+
+Packages: `@abstractframework/ui-kit` (a patch release over 0.9.29). AbstractCode web picks it up when it re-syncs its
+session-card snapshot (`npm run sync:sessions`).
+
+### Added
+
+- **A conversation card can be renamed in place.** `SessionCard` takes an optional `onRename(title)`. With it, a
+  Rename action (before archive, shown like it on hover and keyboard focus, a visible 44 px target on touch), F2 on
+  the row and a double-click on the title swap the title for a one-line input outside the open button: prefilled and
+  selected, `maxLength` 120, `dir="auto"`, labelled "Rename conversation". Enter calls `onRename` with the trimmed
+  text (never for an unchanged name; `""` asks the host to clear it; not while an input method composes), Escape and
+  blur cancel, and focus goes back to the row. While the returned promise is pending the input is disabled; a refusal
+  keeps the typed text in the open input for the host's error and a retry. Nothing inside the editor opens, archives
+  or reaches a list's key handler. Without `onRename` the card's markup is unchanged (checked against the 0.9.29
+  markup); the AbstractUIC browser check `ui-kit/scripts/check_session_card_rename_browser.mjs` drives every case.
+
 ## 0.10.24 - 2026-11-24
 
 Packages: `@abstractframework/ui-kit` 0.9.29 (from 0.9.28). Other packages retain their versions. Apps that list

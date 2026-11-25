@@ -9,7 +9,8 @@ resolution/cadence budgets, lifecycle, errors and gallery usage.
 
 For compact conversation lists, `SessionCard`, `sessionActivityFromRuns`, `sessionReadTarget`,
 `createSessionReadClient`, `useSessionReads` and `SessionReadMarker` provide shared presentation
-and Gateway-owned, account-wide read receipts. See [Compact session cards](session-cards.md) for ownership and consumption rules.
+and Gateway-owned, account-wide read receipts; `SessionCard`'s optional `onRename` edits the name in place.
+See [Compact session cards](session-cards.md) for ownership, consumption and rename rules.
 
 For entities, `EntityCard` draws AbstractGateway's tile read (`GET /entities/{name}/tile`) in plain words,
 full or compact, with loading, stale and unavailable states, and its acts from the served life state

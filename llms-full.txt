@@ -2350,7 +2350,8 @@ resolution/cadence budgets, lifecycle, errors and gallery usage.
 
 For compact conversation lists, `SessionCard`, `sessionActivityFromRuns`, `sessionReadTarget`,
 `createSessionReadClient`, `useSessionReads` and `SessionReadMarker` provide shared presentation
-and Gateway-owned, account-wide read receipts. See [Compact session cards](session-cards.md) for ownership and consumption rules.
+and Gateway-owned, account-wide read receipts; `SessionCard`'s optional `onRename` edits the name in place.
+See [Compact session cards](session-cards.md) for ownership, consumption and rename rules.
 
 For entities, `EntityCard` draws AbstractGateway's tile read (`GET /entities/{name}/tile`) in plain words,
 full or compact, with loading, stale and unavailable states, and its acts from the served life state
@@ -5202,7 +5203,7 @@ AbstractUIC is part of the [AbstractFramework](https://github.com/lpalbou/Abstra
 - **On/off settings**: [`state-toggles.md`](./state-toggles.md) — `AfSwitch`, the console markup, the terminal marker, the verb-toggle and label-scale guards, the sign-in card, forms, cards and tabs, `randomId()`
 - **Modal, account rows, grouped navigation**: [`modal.md`](./modal.md) — `AfModal` and its plain-HTML markup with `AfConsoleIslands.bindModal`, the menu and the themed tooltip (`AfTooltip`, `bindTooltips`), the account-kind row tints and chips, sidebar group captions with a bottom slot, and the 13 px / 14 px helper-text floor
 - **Activity avatars**: [`avatars.md`](./avatars.md) — one shared Rust/Wasm geometry/catalog, React/Canvas and native adapters, lifecycle, themes, pointer tracking and gallery checks
-- **Compact session cards**: [`session-cards.md`](./session-cards.md) — `SessionCard` and `AutomationCard`: Watch-style conversation and automation rows, human attention, and visibility-gated Gateway read receipts (`useSessionReads`, `createSessionReadClient`)
+- **Compact session cards**: [`session-cards.md`](./session-cards.md) — `SessionCard` and `AutomationCard`: Watch-style conversation and automation rows (optional in-place rename), human attention, and visibility-gated Gateway read receipts (`useSessionReads`, `createSessionReadClient`)
 - **Entity card**: [`entity-card.md`](./entity-card.md) — `EntityCard`: an entity at a glance from AbstractGateway's tile read (who, now and for how long, into lately, on its mind, last moment, age, mind, counts), full and compact, loading/stale/unavailable states, the acts (Watch, Retry with the served reason, Resume) from the served life state, the shared words
 - **Icons**: [`icons.md`](./icons.md) — the `Icon` component, every icon name with its grid and typical use, the light and dark contact sheets, the drawing rules, and how to add an icon
 - **Responsive layout**: [`responsive.md`](./responsive.md) — breakpoints, touch sizes, bottom sheets and drawers, container queries, the viewport helpers, the font-size order, and how a host app adopts them
@@ -12929,7 +12930,7 @@ export type ApiError = { status: number; code: string; message: string; field?: 
 // thrown as an `AutomationApiError` whose `code` is `detail.reason_code`. A
 // non-2xx without that envelope, or a 2xx that is not JSON, throws
 // `invalid_response` — never a silent success. A 401 without it (the app
-// proxy's or the `/apps/<id>/` mount's sign-in refusal) throws `unauthorized`.
+// proxy's or the /apps/<id>/ mount's sign-in refusal) throws `unauthorized`.
 import { gatewayApiPath, joinBaseUrl } from "../gateway_paths.js";
 import { randomId } from "../random_id.js";
 import type {
@@ -12990,7 +12991,7 @@ export class AutomationApiError extends Error implements ApiError {
  * its `reason_code`; any other shape is `invalid_response` (status kept) —
  * except a 401, which is `unauthorized` whoever answered it: the app's own
  * proxy without a session (`{"detail": "Gateway sign-in required"}`) and the
- * gateway's `/apps/<id>/` mount once the app's session ended
+ * gateway's /apps/<id>/ mount once the app's session ended
  * (`{"reason": "app_sign_in_required", "message": ...}`) refuse before any
  * automation route runs, so their 401 carries no envelope. Their own sentence
  * is kept as the message.
@@ -24564,6 +24565,36 @@ rendering and relative-time tests remain deterministic.
   onOpen={openSession} onArchive={askToArchive} />
 ```
 
+## Rename (optional)
+
+Pass `onRename(title)` to let the person rename a conversation in place. Without it the card
+renders exactly as before (no Rename action, no extra attribute). With it:
+
+- A **Rename** action (pencil icon, accessible name `Rename <title>`) sits before archive and
+  shows like archive: on hover and on keyboard focus of the row, always visible as a 44 px target
+  on touch/no-hover devices. **F2** on the focused row and a **double-click** on the title also
+  start editing (the row's open button announces `aria-keyshortcuts="F2"`).
+- The title becomes a one-line input labelled "Rename conversation", outside the open button
+  (the open button, Rename and archive give way while editing), prefilled with the title, all
+  text selected, `maxLength` 120, `dir="auto"` (the shown title is `dir="auto"` too).
+- **Enter** calls `onRename` with the trimmed text, once; an unchanged name makes no call; an
+  empty one calls `onRename("")` (the host clears its stored name). Enter while an input method
+  is composing (`isComposing`, key code 229) belongs to the input method.
+- **Escape** cancels. **Blur cancels** too, so a stray click never renames; the window itself
+  losing focus does not. The kit has no other inline edit, so this is the rule for it.
+- A returned **promise** disables the input (`aria-busy`, the working ring) until it settles; a
+  second Enter, Escape and blur are ignored meanwhile. On success the editor closes. On
+  **rejection** the editor stays open with the typed text, enabled and focused, so nothing typed
+  is lost and Enter retries; the host shows the error (the card stays presentational).
+- Leaving with Enter or Escape returns focus to the row's open button. Keys, clicks and pointer
+  presses inside the editor never open the conversation, never archive, and never bubble to a
+  list or page handler. A `title` change while editing (a list refresh) does not touch the text
+  being typed.
+
+```tsx
+<SessionCard ... onRename={(title) => renameOnGateway(session.id, title)} />
+```
+
 ## Read receipts and consumption
 
 `sessionActivityFromRuns` groups root runs and exposes a `content` receipt per run.
@@ -24614,8 +24645,11 @@ Clients pinned to older published UI kit versions use generated `abstractsession
 CSS, declarations and SHA256 provenance. Both clients' `sync:sessions` scripts refresh that
 snapshot; their builds verify its integrity. There is one implementation owner, not two forks.
 
-Run `npm run build` and `node scripts/check_session_cards.mjs` in `ui-kit`. Optional browser QA:
-`SESSION_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check_session_cards_browser.mjs`.
+Run `npm run build` and `node scripts/check_session_cards.mjs` in `ui-kit` (it also compares the
+markup without `onRename` with `scripts/fixtures/session_card_markup_0.9.29.json`). Optional browser QA:
+`SESSION_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node scripts/check_session_cards_browser.mjs`,
+and the same variable for `node scripts/check_session_card_rename_browser.mjs` (every rename trigger,
+key, blur, pending, refusal, focus return, IME, long and right-to-left names, touch).
 The browser check exercises offscreen and occluded content, background visibility events,
 account-switch dwell cancellation, and shared versus isolated receipts.
 `node scripts/check_session_reads_remote_browser.mjs` additionally checks independent browser
@@ -24625,7 +24659,7 @@ AbstractTUI provides a controlled native `widgets::SessionCard` presenter with e
 unread/attention/working/selection facts. It does not own networking or read receipts; adopting
 receipt tracking in a native application remains host integration work.
 
-On desktop the archive icon is 28 px, hidden until card hover or keyboard focus.
+On desktop the archive icon (and the Rename icon, when offered) is 28 px, hidden until card hover or keyboard focus.
 Touch/no-hover devices retain a visible 44 px target. Opening and archive remain sibling controls. Cards use a darker theme-derived surface than section headers in every theme; unread and attention colors tint that surface without raising it above the header.
 
 ## Automation cards
@@ -25125,6 +25159,23 @@ This project is a **multi-package repository**. Since 0.1.10 each package is ver
 independently: a package is bumped only when it changes. A release heading names the
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
+
+## Unreleased
+
+Packages: `@abstractframework/ui-kit` (a patch release over 0.9.29). AbstractCode web picks it up when it re-syncs its
+session-card snapshot (`npm run sync:sessions`).
+
+### Added
+
+- **A conversation card can be renamed in place.** `SessionCard` takes an optional `onRename(title)`. With it, a
+  Rename action (before archive, shown like it on hover and keyboard focus, a visible 44 px target on touch), F2 on
+  the row and a double-click on the title swap the title for a one-line input outside the open button: prefilled and
+  selected, `maxLength` 120, `dir="auto"`, labelled "Rename conversation". Enter calls `onRename` with the trimmed
+  text (never for an unchanged name; `""` asks the host to clear it; not while an input method composes), Escape and
+  blur cancel, and focus goes back to the row. While the returned promise is pending the input is disabled; a refusal
+  keeps the typed text in the open input for the host's error and a retry. Nothing inside the editor opens, archives
+  or reaches a list's key handler. Without `onRename` the card's markup is unchanged (checked against the 0.9.29
+  markup); the AbstractUIC browser check `ui-kit/scripts/check_session_card_rename_browser.mjs` drives every case.
 
 ## 0.10.24 - 2026-11-24
 
