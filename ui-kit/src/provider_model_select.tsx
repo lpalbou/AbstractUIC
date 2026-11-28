@@ -66,6 +66,8 @@ export type ProviderModelSelectProps = {
    * selectable, labeled "(saved)" once its list has loaded without an error. `true` marks any such
    * value; `{provider, model}` marks only those stored values (a value typed now is not "saved"). */
   markSaved?: boolean | { provider?: string; model?: string };
+  /** What follows that value in its label (default "(saved)"). */
+  savedSuffix?: string;
   /** The provider / model comes from a connected pin (a flow node): shown, not editable. */
   providerPinned?: boolean;
   modelPinned?: boolean;
@@ -95,7 +97,7 @@ export function ProviderModelSelect(props: ProviderModelSelectProps): React.Reac
   const models = normalize_models(props.models);
   const savedOnly = typeof props.markSaved === "object" ? props.markSaved : null;
   const saved = (v: string, field: "provider" | "model", loading: boolean | undefined, error: string | undefined) =>
-    props.markSaved && !loading && !error && (!savedOnly || savedOnly[field] === v) ? `${v} (saved)` : v;
+    props.markSaved && !loading && !error && (!savedOnly || savedOnly[field] === v) ? `${v} ${props.savedSuffix || "(saved)"}` : v;
 
   const provider_disabled = disabled || Boolean(props.loadingProviders);
   const model_disabled = disabled || Boolean(props.loadingModels);

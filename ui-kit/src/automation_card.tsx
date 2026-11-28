@@ -46,6 +46,20 @@ export interface AutomationCardProps {
   archiveTitle?: string;
   disabled?: boolean;
   className?: string;
+  /**
+   * A stopped automation (status `failed`, `resume` listed): the row shows **Restart**, which calls
+   * this (the host sends `automation.resume`). Absent = no button.
+   */
+  onRestart?: () => void;
+  /** The restart is being sent: the button is busy and disabled. */
+  restartBusy?: boolean;
+  /**
+   * The Restart button's words, passed by the host (the kit's `AUTOMATION_EDIT_WORDS.failed.restart`
+   * / `.restart_hint`). This card is also exported as a self-contained snapshot for clients on an
+   * older kit, so it imports nothing from `automations/`.
+   */
+  restartLabel?: string;
+  restartHint?: string;
 }
 
 /** Controlled Watch-style automation row. Pause/resume belongs in the editor, not the list. */
@@ -59,6 +73,7 @@ export function AutomationCard(p: AutomationCardProps): React.ReactElement {
   const nextAt = s.next_run_at;
   const next = s.status === "active" ? automationCardNext(nextAt, p.nowMs) : "";
   const state = s.status === "paused" ? "Paused" : s.status === "archived" ? "Archived" : s.status === "failed" ? "Failed" : s.status === "completed" ? "Ended" : "";
+  const restartable = Boolean(p.onRestart) && Boolean(p.restartLabel) && s.status === "failed" && !s.legacy && s.capabilities.includes("resume");
   const count = Number.isSafeInteger(s.occurrence_count) && s.occurrence_count >= 0 ? s.occurrence_count : null;
   const rule = s.trigger_text || s.schedule_rule_text || cadence;
   const description = [pending ? "Needs you" : working ? "Running" : "", failed ? "Last run failed" : "", unseen ? `${unseen} new results` : "",
@@ -66,7 +81,10 @@ export function AutomationCard(p: AutomationCardProps): React.ReactElement {
   return <CompactActivityCard title={s.title || "Automation"} description={description} selected={p.selected}
     className={`af-automation-card${p.className ? ` ${p.className}` : ""}`} unread={unseen > 0 || s.attention.unread} needsAttention={pending} working={working} failed={failed}
     openAttributes={{ "data-automation-id": s.automation_id, "data-status": s.status }} disabled={p.disabled}
-    onOpen={p.onOpen} onArchive={p.onArchive} archiveDisabled={p.archiveDisabled} archiveTitle={p.archiveTitle || "Archive automation"}
+    onOpen={p.onOpen} onArchive={p.onArchive}
+    action={restartable ? <button type="button" className="af-automation-card__restart" data-action="restart" disabled={p.disabled || p.restartBusy}
+      aria-busy={p.restartBusy || undefined} title={p.restartHint} aria-description={p.restartHint}
+      onClick={p.onRestart}><Icon name={p.restartBusy ? "loader" : "refresh"} size={14} /><span>{p.restartLabel}</span></button> : undefined} archiveDisabled={p.archiveDisabled} archiveTitle={p.archiveTitle || "Archive automation"}
     metadata={<>
       {count !== null && <span data-field="runs" title={`Ran ${count} times`} aria-label={`${count} runs`}><Icon name="loop" size={14} /><span aria-hidden="true">{count}</span></span>}
       <span className="af-automation-card__schedule" data-field="cadence" title={rule} aria-label={state || rule}>

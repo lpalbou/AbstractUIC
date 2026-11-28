@@ -25,6 +25,8 @@ export function CompactActivityCard(p: {
   metadata: React.ReactNode;
   onOpen: () => void;
   onArchive?: () => void;
+  /** Optional host button beside the row's actions (an automation's Restart); hidden while renaming. */
+  action?: React.ReactNode;
   /**
    * Optional rename. When set, a Rename action (beside archive) and F2 on the row swap the title
    * for a one-line input outside the open button. Enter calls this with the trimmed text (at most
@@ -126,6 +128,7 @@ export function CompactActivityCard(p: {
       </span>
       <span className="af-session-card__meta">{p.metadata}</span>
     </button>}
+    {p.action && !open ? p.action : null}
     {p.onRename && !open && <button type="button" className="af-session-card__rename" aria-label={`Rename ${p.title}`} title="Rename conversation" aria-keyshortcuts="F2"
       disabled={p.disabled} onClick={startEdit}><Icon name="edit" size={14} /></button>}
     {p.onArchive && !open && <button type="button" className="af-session-card__archive" aria-label={`Archive ${p.title}`} title={p.archiveTitle || "Archive conversation"}

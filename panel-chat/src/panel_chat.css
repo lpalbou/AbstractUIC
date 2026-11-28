@@ -1695,6 +1695,191 @@
   margin-top: 6px;
 }
 
+/* The thread's "load earlier" control (an automation's older runs): quiet, centred, at the top. */
+.pc-chat-earlier {
+  display: flex;
+  justify-content: center;
+}
+.pc-chat-earlier__button {
+  border: 1px solid var(--ui-border-1);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-xs, 12px);
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.pc-chat-earlier__button:hover:not(:disabled) { color: var(--text-primary); border-color: var(--ui-border-2, var(--ui-border-1)); }
+.pc-chat-earlier__button:disabled { cursor: progress; opacity: 0.7; }
+
+/* The thread's jump buttons (operator 2026-11-28): two small round buttons at the right edge, above
+ * the composer, shown while the person scrolls and a moment after; lifted above a message's own
+ * actions (copy, speaker) when they would cover them (--pc-jump-lift, measured). They take no room
+ * in the thread: a zero-height sticky row at its end. */
+.pc-chat-jump {
+  position: sticky;
+  bottom: 0;
+  align-self: flex-end;
+  flex: none;
+  width: 0;
+  height: 0;
+  margin-top: -16px;
+  z-index: 2;
+  pointer-events: none;
+}
+.pc-chat-jump__stack {
+  position: absolute;
+  right: 6px;
+  bottom: calc(10px + var(--pc-jump-lift, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+.pc-chat-jump[data-visible="true"] .pc-chat-jump__stack,
+.pc-chat-jump__stack:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+.pc-chat-jump__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--ui-border-2, var(--ui-border-1));
+  border-radius: 50%;
+  background: var(--ui-surface-2, var(--bg-secondary));
+  color: var(--text-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+.pc-chat-jump__button[hidden] { display: none; }
+.pc-chat-jump__button:hover { border-color: var(--accent-border, var(--ui-border-2)); }
+.pc-chat-jump__button:focus-visible { outline: 2px solid var(--focus-ring, var(--accent)); outline-offset: 2px; }
+.pc-chat-jump__up { transform: rotate(180deg); }
+@media (pointer: coarse) {
+  .pc-chat-jump__button { width: 44px; height: 44px; }
+}
+/* Phones: the buttons never sit over a message's text. The row is a real band at the thread's
+ * bottom edge, just above the composer (it takes its own room after the last message): the two
+ * buttons side by side at its right, a smaller circle inside a 44px hit area, the chat's surface
+ * behind them while they show, so text scrolls under the edge, never under a button. The band is
+ * below every message, so no lift is needed. */
+@media (max-width: 479.98px) {
+  .pc-chat-jump {
+    align-self: stretch;
+    width: auto;
+    height: var(--tap-min, 44px);
+    margin-top: -8px;
+  }
+  .pc-chat-jump::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--ui-surface-0, var(--bg-primary));
+    opacity: 0;
+    transition: opacity 0.18s ease;
+  }
+  .pc-chat-jump[data-visible="true"]::before,
+  .pc-chat-jump:focus-within::before { opacity: 1; }
+  .pc-chat-jump[data-visible="true"] { pointer-events: auto; }
+  .pc-chat-jump__stack {
+    right: 0;
+    bottom: 0;
+    flex-direction: row;
+    gap: 2px;
+  }
+  .pc-chat-jump__button {
+    position: relative;
+    isolation: isolate;
+    width: var(--tap-min, 44px);
+    height: var(--tap-min, 44px);
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .pc-chat-jump__button::before {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    z-index: -1;
+    box-sizing: border-box;
+    border: 1px solid var(--ui-border-2, var(--ui-border-1));
+    border-radius: 50%;
+    background: var(--ui-surface-2, var(--bg-secondary));
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  }
+  .pc-chat-jump__button:hover::before { border-color: var(--accent-border, var(--ui-border-2)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pc-chat-jump__stack,
+  .pc-chat-jump::before { transition: none; }
+}
+
+/* An automation run's per-message extras (`AutomationChat`), in the card's footer: one small,
+ * quiet line, never a frame. */
+.pc-auto-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs, 12px);
+  line-height: 1.4;
+}
+.pc-auto-foot--sent:empty { display: none; }
+.pc-auto-foot__action {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.pc-auto-foot__action:hover { color: var(--text-primary); }
+.pc-auto-foot__new {
+  display: inline-flex;
+  flex-direction: column;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--accent-subtle, color-mix(in srgb, var(--accent) 16%, transparent));
+  color: var(--accent);
+  font-weight: 600;
+}
+.pc-auto-foot__sent-message {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs, 12px);
+}
+.pc-auto-foot__sent-message > summary { cursor: pointer; }
+.pc-auto-foot__sent-body { margin-top: 6px; color: var(--text-primary); font-size: var(--font-size-sm, 13px); }
+/* Touch: every clickable thing in a run's footer (Context, the "message sent" disclosure, the host's
+ * links on its line) is a 44px row; the text stays as small as on a mouse. */
+@media (pointer: coarse) {
+  .pc-auto-foot__action,
+  .pc-auto-foot__sent-message > summary,
+  .pc-auto-foot a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min, 44px);
+  }
+  /* Context is a short word: its target is 44px wide as well as tall. */
+  .pc-auto-foot__action { min-width: var(--tap-min, 44px); }
+}
+.pc-automation-chat__empty {
+  margin: 24px auto;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
 .pc-chat-attachments {
   margin-top: 10px;
   display: flex;
@@ -3273,4 +3458,54 @@ button.pc-ws__name:hover {
 }
 @media (prefers-reduced-motion: reduce) {
   .pc-avatar-conversation *, .pc-avatar-conversation *::before, .pc-avatar-conversation *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* The Context of an automation run (run_context.tsx; moved from AbstractObserver, spec H): what the
+ * run was given, in the kit's modal. Earlier messages are the shared chat card; the history
+ * window's "left out" marker shows where older turns were dropped. */
+.pc-run-ctx { display: flex; flex-direction: column; gap: 14px; min-width: 0; color: var(--text-primary); }
+.pc-run-ctx__summary { margin: 0; font-weight: 600; }
+.pc-run-ctx__loading { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--text-secondary); }
+.pc-run-ctx__warn,
+.pc-run-ctx__error { margin: 0; color: var(--error); font-size: var(--font-size-sm); }
+.pc-run-ctx__heading { margin-bottom: 8px; color: var(--text-secondary); font-size: var(--font-size-sm); font-weight: 600; }
+.pc-run-ctx__count { color: var(--text-muted); font-weight: 400; }
+.pc-run-ctx__messages { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.pc-run-ctx__messages > li { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pc-run-ctx__fold-marker {
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px dashed var(--warning-border, var(--ui-border-2));
+  border-radius: var(--radius-md, 8px);
+  background: var(--warning-subtle, transparent);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+.pc-run-ctx__fold > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.pc-run-ctx__fold > summary:hover { background: var(--ui-overlay-bg-hover); }
+.pc-run-ctx__fold > summary { list-style: none; }
+.pc-run-ctx__fold > summary::-webkit-details-marker { display: none; }
+.pc-run-ctx__fold > summary::before { content: "▸"; flex: none; color: var(--text-muted); }
+.pc-run-ctx__fold[open] > summary::before { content: "▾"; }
+.pc-run-ctx__text { min-width: 0; padding: 6px 8px 8px; overflow-wrap: anywhere; }
+.pc-run-ctx__trigger { padding-left: 10px; border-left: 2px solid var(--ui-border-2); }
+.pc-run-ctx__block + .pc-run-ctx__block { margin-top: 8px; }
+.pc-run-ctx__label { padding: 4px 8px 0; color: var(--text-secondary); font-size: var(--font-size-sm); }
+.pc-run-ctx__facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 10px; margin: 4px 8px 0; }
+.pc-run-ctx__facts dt { color: var(--text-secondary); }
+.pc-run-ctx__facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.pc-run-ctx__raw { margin: 4px 8px 0; }
+@media (pointer: coarse) {
+  .pc-run-ctx__fold > summary { min-height: 44px; }
 }

@@ -26,6 +26,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { mountHook, findAll } from "./hook_harness.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const kit = await import(join(here, "..", "dist", "index.js"));
@@ -147,7 +148,7 @@ const NOT_SET_UP_HTML = `Connect a mailbox first — `;
 {
   const unknown = dlg({});
   check("dialog: email trigger offered", unknown.includes("When an email arrives"));
-  check("dialog: unknown email status → trigger disabled", /<input type="radio" name="[^"]+" disabled="" value="email"\/> When an email arrives/.test(unknown), (/.{80}value="email".{40}/.exec(unknown) || [""])[0]);
+  check("dialog: unknown email status → trigger disabled", /<option value="email" disabled="">When an email arrives<\/option>/.test(unknown), (/.{80}value="email".{40}/.exec(unknown) || [""])[0]);
   check("dialog: unknown email status → the notice", unknown.includes(NOT_SET_UP_HTML) && unknown.includes('data-email-setup="missing"'));
   check("dialog: unknown → Email result disabled", /<button type="button" role="switch" class="af-switch af-switch--row af-switch--unavailable" data-action="notify-email" aria-checked="false" aria-disabled="true"[^>]*>.*?Email result/.test(unknown));
   const notConfigured = dlg({ emailStatus: { configured: false, effective_enabled: false } });
@@ -160,7 +161,7 @@ const NOT_SET_UP_HTML = `Connect a mailbox first — `;
   const link = find(t0, (n) => n.props && n.props["data-action"] === "open-my-email");
   check("dialog: open My email is a button calling the host", link.length >= 1 && (link[0].props.onClick(), opened === 1));
   const ok = dlg({ emailStatus: { configured: true, effective_enabled: true } });
-  check("dialog: usable → trigger enabled, no notice", /<input type="radio" name="[^"]+" value="email"\/> When an email arrives/.test(ok) && !ok.includes('data-email-setup="missing"'));
+  check("dialog: usable → trigger enabled, no notice", /<option value="email">When an email arrives<\/option>/.test(ok) && !ok.includes('data-email-setup="missing"'));
   check("dialog: usable → email options enabled", /<button type="button" role="switch" class="af-switch af-switch--row" data-action="notify-email" aria-checked="false"[^>]*>.*?Email result/.test(ok) && !/data-action="notify-email"[^>]*aria-disabled/.test(ok) && !ok.includes(`> ${esc(spec.email.recipients_self)}`));
 }
 {
@@ -170,7 +171,7 @@ const NOT_SET_UP_HTML = `Connect a mailbox first — `;
   const props = { open: true, onClose() {}, target, newRequestId: () => "rq", emailStatus: usable, onSubmit: (b) => { bodies.push(b); return Promise.resolve(); } };
   const tree = () => h.render(props);
   find(tree(), (x) => x.type === "textarea")[0].props.onChange({ target: { value: "Summarise new mail" } });
-  find(tree(), (x) => x.type === "input" && x.props.value === "email")[0].props.onChange();
+  find(tree(), (x) => x.type === "select" && x.props.name === "schedule_kind")[0].props.onChange({ target: { value: "email" } });
   const html = renderToStaticMarkup(tree());
   check("dialog: email chosen → filters, interval (1 hour shown), max batch, rule, untrusted note", html.includes('name="email_from_in"') && html.includes('name="email_from_domain_in"') && html.includes('name="email_to_in"') && html.includes('name="email_subject_contains"') && html.includes('name="email_has_attachment"') && /name="email_every_amount" value="1"/.test(html) && /<option value="h" selected="">hours<\/option>/.test(html) && html.includes('name="email_max_batch" type="number" min="1" max="1000" step="1" value="100"') && html.includes('data-email-rule="interval"') && html.includes('data-email-rule="untrusted"'), html.slice(0, 0));
   check("dialog: email chosen → no schedule presets", !html.includes(">every 5 minutes</button>"));
@@ -210,14 +211,28 @@ const NOT_SET_UP_HTML = `Connect a mailbox first — `;
   check("without a definition no email fields", kit.reviseFormFrom(summary).notifyEmail === null && kit.reviseFormFrom(summary).emailRecipients === null);
   // The Edit form's own fields.
   const html = renderToStaticMarkup(React.createElement(parts.AutomationReviseForm, { summary, definition: def, busy: false, errors: [], onSubmit() {}, onCancel() {}, emailStatus: { configured: true, effective_enabled: true } }));
-  check("edit form: email interval legend + rule, notify, recipients", html.includes(`<legend>${spec.email.every_label}</legend>`) && html.includes('data-email-rule="interval"') && html.includes('name="notify_email"') && html.includes('name="email_recipients"') && !html.includes('data-email-setup="missing"'));
+  check("edit form: email interval label + rule, the Email result switch", html.includes(`<span>${spec.email.every_label}</span>`) && html.includes('data-email-rule="interval"') && /role="switch"[^>]*data-action="notify-email" aria-checked="false"/.test(html) && !html.includes('data-email-setup="missing"'));
   const locked = renderToStaticMarkup(React.createElement(parts.AutomationReviseForm, { summary, definition: def, busy: false, errors: [], onSubmit() {}, onCancel() {} }));
-  check("edit form without a usable account: notice; turning on is disabled", locked.includes(NOT_SET_UP_HTML) && /<input type="checkbox" role="switch" class="af-switch__input" name="notify_email" disabled=""/.test(locked));
+  check("edit form without a usable account: notice; turning on is unavailable", locked.includes(NOT_SET_UP_HTML) && /role="switch"[^>]*data-action="notify-email" aria-checked="false" aria-disabled="true"/.test(locked));
   const onAlready = renderToStaticMarkup(React.createElement(parts.AutomationReviseForm, { summary, definition: { ...def, notify: { channels: ["console", "email"] } }, busy: false, errors: [], onSubmit() {}, onCancel() {} }));
-  check("edit form without a usable account: an option already on can be turned off", /<input type="checkbox" role="switch" class="af-switch__input" name="notify_email" checked=""/.test(onAlready) && !/name="notify_email"[^>]*disabled/.test(onAlready));
-  const els = { title: { value: summary.title }, every_amount: { value: "3" }, every_unit: { value: "h" }, context: { value: summary.context_mode }, prompt: { value: "Summarise." }, tool_approval: { value: "auto" }, notify_email: { checked: true }, email_recipients: { value: "list" }, email_recipient_list: { value: "c@x.test" } };
-  const read = parts.readReviseForm({ elements: { namedItem: (k) => els[k] ?? null } }, f0);
-  check("readReviseForm reads the email fields", read.every === "3h" && read.notifyEmail === true && eq(read.emailRecipients, { mode: "list", addresses: "c@x.test" }), JSON.stringify(read));
+  check("edit form without a usable account: an option already on can be turned off", /role="switch"[^>]*data-action="notify-email" aria-checked="true"/.test(onAlready) && !/data-action="notify-email"[^>]*aria-disabled/.test(onAlready) && onAlready.includes('data-action="email-recipients"'));
+  // The controlled form: interval, Email result on, recipients "Me and these addresses", then Save.
+  const sent = [];
+  const h = mountHook(parts.AutomationReviseForm, { summary, definition: def, busy: false, errors: [], onSubmit: (f) => sent.push(f), onCancel() {}, previewSchedule: async () => ({}), emailStatus: { configured: true, effective_enabled: true } });
+  const el = (pred) => findAll(h.current, pred)[0];
+  el((n) => n.type === kit.AfEveryFields).props.onAmount("3");
+  h.render();
+  el((n) => n.type === kit.AfSwitch && n.props.action === "notify-email").props.onChange(true);
+  h.render();
+  el((n) => n.type === kit.AfSegmented && n.props.action === "email-recipients").props.onChange("list");
+  h.render();
+  el((n) => n.props.name === "email_recipient_list").props.onChange({ target: { value: "c@x.test" } });
+  h.render();
+  el((n) => n.type === "form").props.onSubmit({ preventDefault() {} });
+  h.unmount();
+  const read = sent[0];
+  check("the Edit form hands over the email fields", read && read.every === "3h" && read.notifyEmail === true && eq(read.emailRecipients, { mode: "list", addresses: "c@x.test" }), JSON.stringify(read));
+  check("…and a save sends them", eq(kit.reviseChanges(summary, read, def), { trigger: { source_id: "email.received", source_version: 1, config: { account: "self", folder: "INBOX", uses_model: true, every: "3h", max_batch: 100, filter: { from_in: ["a@x.test"] } } }, notify: { channels: ["console", "email"], recipients: ["self", "c@x.test"] } }), JSON.stringify(kit.reviseChanges(summary, read, def)));
   // Definition block.
   const block = renderToStaticMarkup(React.createElement(parts.AutomationDefinitionBlock, { definition: { schema_version: 2, revision: 2, title: "t", controller: { bundle_ref: "c@1", flow_id: "controller" }, target: { workflow_id: "w", ...def.target }, trigger: summary.trigger, context: { mode: "independent", growing: {} }, policy: { serial: true, misfire: "coalesce", failure: "continue", retry: { max_attempts: 3, backoff: { initial: "30s", factor: 2, max: "10m" } }, tool_approval: "auto", email_allowed_recipients: ["self", "boss@example.test"] }, notify: { channels: ["console", "email"], recipients: ["self", "boss@example.test"] }, session_id: "s", workspace_root: "/w", created_at: "2026-09-30T00:00:00Z", archived_at: null } }));
   check("definition block: notify + may email + email trigger label", block.includes('data-def="notify">In the console and by email') && block.includes('data-def="email_recipients">Me and boss@example.test') && block.includes('data-def="trigger">When mail arrives in your main mailbox') && !block.includes("email.received@1") && block.includes('data-def="email_rule">when an email arrives'));

@@ -7,6 +7,291 @@ independently: a package is bumped only when it changes. A release heading names
 repository tag (the private root `package.json` version) and lists the package versions it
 ships.
 
+## 0.10.26 - 2026-11-27
+
+Packages: `@abstractframework/ui-kit` 0.9.31 (from 0.9.30) and `@abstractframework/panel-chat` 0.9.16 (from 0.9.15;
+still needs `@abstractframework/ui-kit` `^0.9.28`). Other packages retain their versions. Apps that edit automations
+with the kit panel (AbstractObserver) offer the model once they pass `modelPickerOptions`; apps that list automations
+switch to the kit's groups and fold; apps that vendor panel-chat (`src/vendor/abstractchat`) re-sync from the 0.9.16
+build.
+
+### Added
+
+- **A stopped automation has a button that restarts it** (operator 2026-11-28: "a user MUST have a
+  way to reactivate it"). The header's notice now carries the button that fixes it
+  (`automationNotice()`, `AutomationNoticeLine`, `useAutomationNoticeAction()`): a failed
+  automation shows its two lines (the explanation, then the Gateway's reason) and a filled **Restart** (sends `automation.resume`; busy while
+  sent; the Gateway's refusal in the notice; "Back on. Next run: …" on success); a paused one with
+  a served reason shows **Edit** (at the Flow section, when `flow_missing`) or **Turn back on**; an
+  archived one **Unarchive** when listed. `AutomationCard` takes `onRestart` / `restartBusy` and
+  shows **Restart** on a stopped automation's row (`CompactActivityCard` takes an `action`). The
+  raw error (`AutomationSummary.failed_detail`) shows only under Details, "Technical details".
+  New words: `failed.restart`, `failed.restart_hint`, `failed.restarted`, `failed.back_on`, `failed.turn_on`,
+  `failed.edit_flow_hint`, `failed.technical`.
+- **An automation reads as a chat** (operator 2026-11-27: "the trigger is the equivalent of the user
+  message; the response is the AI response"). panel-chat's new **`AutomationChat`** renders an
+  automation's runs through the shared `WorkflowChat` thread, as it is: per run a user message (the
+  run's task, stamped when it fired) and an assistant message (the answer, stamped when it finished,
+  with the card's speaker, copy, Markdown and file chips). A run in progress is the card's working
+  state with the live line in its footer; a failed run the card's error level; a run waiting on you
+  the thread's question / approval panel. An unseen result says "New" in its answer's footer and the
+  thread opens there (else at the newest run's task). Small footers only: "Run #33 · on schedule" and
+  Context under the task; where the result went (the host's line) and the message that was sent
+  (when it differs from the answer) under the answer. A composer ("Talk about its latest run") when
+  the host passes `onTalk`. `automationChatMessages()`, `automationWaitInteraction()` are its rules.
+- **The header as one detached card**: ui-kit's **`AutomationHeaderCard`**: row 1 the title and the
+  state badge, row 2 the buttons, row 3 the parameters as chips (Task, Flow, Schedule, Next run,
+  Memory, Model, Tools, Results, Workspaces, Files). A chip opens the Edit dialog **at its section**
+  (`AutomationReviseForm` `openSection`, `automationEditSections()`); a host that edits on its own
+  page learns which one: `onEditOpenChange(true, section)` (the Edit button, Cancel and a save still
+  ask with `open` alone). On a narrow pane the chips are one row that scrolls sideways inside the
+  card, its right edge faded (the kit's rail fade) so it reads as a row that scrolls. On a touch
+  screen every button and chip of the card is a 44 px target; the chips keep their compact pill.
+- **The run's own task, never the frame line**: `automationRunTask(row)` reads the gateway's new
+  `OccurrenceRow.task`; without it, the runtime's frame line is removed only when it equals, character
+  for character, the one rebuilt from the row (`automationTriggerFrame`, which needs
+  `trigger.source_version`). `automationOpening()`, `unseenRuns()`; `VisibleContentMarker` is exported.
+- **Jump buttons in every chat** (operator 2026-11-28): `ChatThread` shows two small round buttons at
+  its right edge, "Go to the beginning" and "Go to the latest" (`CHAT_JUMP_WORDS`, panel-chat's own
+  strings), while the person scrolls and a moment after (`CHAT_JUMP_HIDE_MS`); the first is hidden
+  at the very top, the second at the very bottom; a click jumps (smoothly unless reduced motion is
+  set); they stay while pointed at or focused, are 44 px on touch screens, and lift above a
+  message's own actions (copy, speaker) instead of covering them (`chatJumpLift`). On a phone (under
+  480 px) they never sit over message text: they are side by side in a 44 px band at the thread's
+  bottom edge, just above the composer, a smaller circle inside a 44 px hit area, with the chat's
+  surface behind them while they show. The thread's own
+  following never shows them. With earlier messages not loaded, "beginning" is the earliest loaded
+  one and the thread's "load earlier" then applies.
+- **`ChatThread` / `WorkflowChat` `earlier`**: the thread's own "load earlier" control at its top;
+  the person's scroll to the top asks too, and their place is kept when the messages arrive.
+  `WorkflowChat` `composer={false}` draws no composer (a thread with nothing to send).
+
+- **The Edit form can change the model an automation runs on.** `AutomationPanel` and `AutomationReviseForm` take an
+  optional `modelPickerOptions` (`AutomationModelPickerOptions`: `fetchProviders`, `fetchModels`,
+  `fetchModelCapabilities`, `fetchGatewayDefault`, `reasoningLadder`, `defaultModeLabel`, `defaultHint`; a
+  `createGatewayModelTransport(request)` provides the fetchers). With it and a `definition`, a **Model** field right after Task
+  holds the compact `ProviderModelPicker` (provider, model, and reasoning and MTP under **Reasoning & speed**); Save
+  sends the choice as `changes.target`, together with a task, tool or workflow change in the same save. With no model
+  chosen the field and the Details card read "Workflow / Gateway default" (the workflow's own model when it declares
+  one, else the Gateway's default); `defaultModeLabel` lets a host say "Gateway default". When the Gateway's model list
+  for the saved provider is not empty and does not contain the saved model, the field warns "The gateway does not list
+  this model. Runs may fail until you choose another one." and the model reads "(not listed)". The model is saved only
+  after a change the person made in the field. Without `modelPickerOptions` the form is unchanged. Escape in an open dropdown of the form closes the dropdown, not the
+  form.
+- **The Details card names the model**: "ollama / qwen3 · reasoning high · MTP depth 3", or the default.
+- **One mapping of where an automation's model is stored**: `automationModelFrom(input)` and
+  `withAutomationModel(input, value)` (`AutomationModelValue`), the keys AbstractCode's automation settings write
+  (`provider`/`model` and `_runtime.provider`/`_runtime.model`, `_runtime.thinking`, `_runtime.speculation`; an unset
+  value removes its key). `ReviseForm.model` carries the form's choice.
+- **`ProviderModelPicker` `savedUnavailableText`** (optional): one warning line, and "(not listed)" instead of
+  "(saved)" on the stored model, when its provider's model list loaded, is not empty and does not contain it.
+  `onChange` gets a second argument `{automatic: true}` when the picker clears an option the model rules out.
+  `savedUnavailableSuffix` names that label's suffix (the automation form passes the words file's "(not listed)";
+  absent = "(saved)"). `ProviderModelSelect` takes `savedSuffix` (what follows a stored value, default "(saved)").
+  Existing pickers are unchanged.
+- **Shared automation words**: `ui-kit/src/automations/automation_edit_words.json`, exported typed as
+  `AUTOMATION_EDIT_WORDS` (`AutomationEditWords`): the Edit form's words, the Failed group's and the live line's.
+  Clients that cannot import the kit vendor it byte for byte. The Model field's sentences ("Workflow / Gateway
+  default", "The gateway does not list this model. …", "(not listed)", the half-pair error) now come from it.
+- **Shared model cases**: `ui-kit/scripts/fixtures/automations/automation_model_cases.json` (19 read and 152 write
+  cases of `automationModelFrom` / `withAutomationModel`), run by the new `check_automation_model_cases.mjs`; every
+  port passes them. The six contract fixtures and `CHECKSUMS.sha256` are unchanged.
+- **Failed and Paused folds in a list of automations.** `automationGroups(rows, page?)` → `{active, failed, paused}`
+  (each `{rows, count}`, in the served order): a row is in Failed when `section === "failed"` or `status ===
+  "failed"`, in Paused when `section === "paused"`; Failed and Paused count the served `failed_automations_count` /
+  `paused_automations_count`, else their rows, and 0 without rows. `AutomationGroupFold` draws one fold ("Failed ·
+  2", absent at zero, controlled by the host); `readAutomationGroupOpen()` / `writeAutomationGroupOpen()` remember
+  each app's choice per group (Failed open by default, Paused folded). Types: `section` gains `"failed"`
+  (`AutomationSection`), the list page gains `failed_automations_count`.
+- **An automation opens on its latest run.** The panel decides ONCE per automation (`OpeningOnce`), on the first
+  render that shows its runs: what needs the person as before (a wait to answer, else the oldest unseen result,
+  outlined), otherwise the START of the newest run at the top of the scroll area (`openingTarget()`,
+  `newestRunRow()`). A refresh, new rows or a wait that arrives later no longer scroll (the opening effect used to
+  re-run on every refresh until it found a target). Each run row carries `data-run-id`. A short newest run that is last
+  cannot reach the top: the list is then at its end with that run whole (no spacer). **Load earlier runs** keeps what
+  the person looks at in place by anchor: the first run row showing, by its `data-run-id`, gets back the top it had in
+  the scroll area (`scrollParentOf()`, `visibleRunAnchor()`, `anchoredScrollTop()`); adding the height that was added
+  moved it when the button changed or margins collapsed (18 px at 1440 wide, 6 px at 400, in Observer). A run in
+  progress reads "Running" once: the status text beside the badge is no longer repeated ("Running running"), and a
+  `backoff` one is said by the live line's "Waiting to retry (attempt N)".
+- **The live line of a run in progress**, under its "Running" badge: `2:14 · Search the web for AI news` and `7 steps
+  so far`, from the Gateway's `summary.current_occurrence.live` (`AutomationLive`, detail route only;
+  `current_occurrence.run_id` is now `string | null`); "Waiting to retry (attempt 2)" in backoff and "Starting…" while
+  admitted. `automationLiveWords(current)` (the words file and `describeToolCall`; a `live` it cannot word is null: the row reads "Running"),
+  `liveElapsed()` (`m:ss`, `h:mm:ss`, clamped at zero) and `AutomationLiveLine` (ticks each second, its two rows
+  reserved) are exported for other hosts. No `live` = the row as before. `automationRefreshMs(summary, hostMs,
+  visible)` tells a host to re-read the open automation every 3 s while a run is in progress and the page is visible.
+- **A failed automation can be edited and turned back on** when the Gateway lists it: `automationControls()` accepts
+  status `failed` for Edit, Resume and Archive as `capabilities` list them, and the Active switch is off and enabled
+  and sends `automation.resume`. The header says "This automation hit a problem and has not restarted by itself. You
+  can restart it now." (with its Restart button) and, on its own line, the served `failed_reason` verbatim
+  (`automationFailedNote()`). A paused automation shows the
+  served `paused_reason` the same way, only while paused (`automationPausedNote()`; the automation card has no
+  reason line and shows neither). Types: `failed_reason`, `paused_reason`, `flow_missing`. A failed automation whose capabilities list none of these (an older Gateway) is unchanged.
+- **panel-chat 0.9.16: `WorkflowChat` / `ChatThread` `openAt={{key, messageId}}`** opens a thread at that message,
+  at the top, instead of at the bottom (the Assistant web's automation page, on its newest run's Task message): once
+  per `key`, and the thread does not follow the bottom again until the person scrolls there. Absent, every chat is
+  unchanged, and the markup is the same either way (`check_chat_open_at.mjs`). `ChatThreadProps` is exported.
+- **`AfSegmented`**: one choice of 2 to 4 options, drawn as an inset track whose chosen option is tinted with the
+  accent and carries a check mark (`role="radiogroup"`, one tab stop, arrows / Home / End choose and move focus;
+  fewer than 2 or more than 4 options throws). `afSegmentedMove()` and `afSegmentedTabStop()` are its keyboard rule.
+- **Buttons that look like buttons** (`theme.css`): `af-btn` with `--primary` (filled with the theme's accent, the
+  most vivid thing on a form), `--secondary` (raised), `--quiet` and `--danger`, each with an icon, hover, pressed
+  and a visible focus ring, 44 px on a touch screen. From the existing tokens; no new colour, no new token.
+- **`ProviderModelPicker` `errorWords`** (optional): the sentences shown when the providers, the models or the
+  Gateway's default cannot be read, each with `{reason}`. Absent = the "#FALLBACK … discovery failed" lines as before.
+- **The automation words file** gains `edit.first_run_after_save`, `edit.task_required`, `edit.title_required`,
+  `edit.model_errors.{providers, models, default}` and `groups.remember_failed`. Clients that vendor it re-copy it.
+- **Tools reader for hosts**: `automationToolChoice()`, `automationToolModes(catalog, definition, all?)` (listed tools
+  as listed, unmentioned = Ask, not among the automation's tools = Off), `namedToolPolicyOf()`,
+  `namedToolPolicyFromModes()`, `toolsOnOf()`, `perToolRevise()`; type `AutomationNamedToolPolicy`
+  (`definition.policy.tool_policy`; `AutomationPolicyInput.tool_policy` takes `null` to remove it).
+- **A run's trigger and answer ARE the shared chat message** (`AutomationPanel` `turnChrome="card"`, set by
+  panel-chat's `AutomationPanelWithMarkdown`, which hosts now mount): the time is inside each card (the reader's zone
+  and locale), the answer has the speaker when the host passes its voice props (`messageProps`), copy and Markdown
+  are the card's, the run's files are the card's chips (the trigger's from the run's inputs, the answer's from the
+  run's `artifacts`; storage offloads hidden), and a run in progress is the card's working state with the live line
+  in its footer. The frame keeps the run line ("Run #21 · run by hand", the automation's time as its tooltip, the
+  Context button on it), the status badge, wait forms, the unseen marker, Run details and "Discuss this run".
+  `AutomationTurn` gains `chrome`, `ts`, `live`, `artifacts`; the wrapper gains `answerFooter(turn)` and
+  `readRunContext`; panel-chat exports `AutomationTurnCard`, `automationTurnMessage()`, `runInputFiles()` and
+  `internalArtifactMetadata()`, which now also hides `run_store_offload`, `ledger_effect_offload` and
+  `ledger_result_offload`. While the cards' files and pictures load, the opening holds its place
+  (`OPENING_HOLD_MS`). Without `turnChrome` the panel renders exactly as before.
+- **The run Context view is panel-chat's** (`RunContextDialog`, `RunContextBody`, `runContextView()`, moved from
+  AbstractObserver): the earlier runs carried in are chat cards labelled by their run ("The task · Run #3", from the
+  message's own `metadata.run_id`), the history window's "older messages were left out" marker is shown, the raw
+  inputs are the chat's `JsonViewer`.
+- **`AfFoldToggle`**: the kit's one fold header (chevron, `aria-expanded`, `aria-controls`), wrapped by
+  `AutomationGroupFold` and by hosts' list disclosures. `AfChipButton` takes `action` (`data-action`).
+- New words in `automation_edit_words.json`: `run.working`, `header.*` (the header's chips, Files, Workspaces,
+  Details, the archived line) and `context.left_out`, `context.run_label`.
+
+### Changed
+
+- **A failed run that has an answer shows the answer, nothing more**: `AutomationChat` no longer
+  appends the row's `failure.message` under it (for these runs the gateway's generic "The run
+  finished without success and gave no reason.", which contradicted the answer). The failure sentence
+  is the message only when the run has no answer text; both are at the card's error level.
+- **Touch targets in an automation's view**: the run footer's Context, "The message that was sent"
+  and the host's links are 44 px rows on a touch screen, and `.af-auto__btn` reaches 44 px there
+  again (its `af-btn` alias rule, later in `theme.css`, held it at 36 px). Context (41 px) and the
+  header's icon-only action buttons in a narrow pane (Edit, Details, Archive…: 36 px) are 44 px wide
+  as well. In a narrow pane the header's controls stay on ONE row, each at least 44 px on a touch screen: the Active
+  switch shows its state alone (its label stays its accessible name; the status pill says it in
+  words), the row's gap is 4 px, the buttons keep their size (a wrapped one no longer stretches
+  across the card), and Run now / Stop take the room left, showing their icon alone when the room is
+  too small for their words (their name stays as aria-label; the tooltip is their hint).
+- **A side read that fails shows nothing on an automation's message** (operator 2026-11-28: a run the
+  gateway no longer has is not an error a person can act on): `AutomationChat` shows no file chips
+  for a run whose inputs cannot be read, and its messages carry no `runId`, so the shared chat's own
+  attachment check (which says "Message attachments could not be checked" for ordinary
+  conversations, unchanged) never runs on them.
+- **`AutomationHeader`** has three rows (title + state; the buttons on their own row; the parameter
+  chips) instead of buttons beside the title and a task paragraph. The task is the Task chip; the runs
+  and attention chips are gone (not parameters). `AutomationPanel` keeps working unchanged otherwise:
+  it stays for hosts on a frozen snapshot (AbstractCode web); new hosts mount `AutomationHeaderCard` +
+  `AutomationChat`.
+
+- **The automation Edit form is redone** (`AutomationReviseForm`, now in `AutomationEditForm.tsx`; same name, same
+  props, plus new optional ones). Sections as cards, in this order: What it does (Title, Task, Flow) · Model ·
+  Schedule · Memory · Tools · Results, each an icon, a title and at most one hint. Fields are inset, choices are a
+  switch, an `AfSegmented` or a select (no bare radio lists or checkboxes), actions are `af-btn` buttons; the action
+  bar sticks to the bottom of the form (the apply note, then Cancel and **Save changes**, which fill the width on a
+  phone). Save is disabled until something changed; Cancel, Escape or × with changes ask "Discard your changes?" —
+  **Keep editing** / **Discard changes**. From the panel's Edit button the form opens in the kit's modal (about
+  820 px, blurred backdrop, a full-screen sheet on a phone; a backdrop click does not close it) and a refused save
+  is said inside it; `presentation="inline"` (the default) keeps it where a host puts it, as AbstractCode's Workflow
+  panel does (`heading={null}`, no `onCancel`, `submitLabel="Save"`). Hosts can hold Title and Task themselves
+  (`title` / `onTitleChange`, `task` / `onTaskChange`) and say they have a change of their own (`hostChanged`).
+- **Schedule in Edit**: the kind is a select (Repeat · Daily · Weekly · Monthly; never Once), so an interval
+  automation can become "every day at 08:00" and back. A change of kind writes `schedule@2` with the new rule and the
+  kept `time_zone`, `count` and `until`, never `start_at` or `anchor` (`reviseChanges`); the line under it is the
+  Gateway's preview of what the save writes ("First run: one interval after you save." for Repeat). The kind control
+  and the Every fields are extracted (`AfScheduleKind`, `AfEveryFields`) and shared with `AfScheduleDialog`, which
+  renders exactly as before. Labels no longer say "(UTC)".
+- **Tools in Edit**: one choice — Run without asking · Ask before each · Choose per tool (with the host's
+  `toolCatalog`: the kit's `ToolModeEditor`). The first two write only `policy.tool_approval` and remove a named
+  `policy.tool_policy`; Choose per tool writes the named policy, `tool_approval` "ask" when any tool asks, and the
+  tool lists when a tool was turned off or on; untouched writes nothing. The Edit form no longer reads
+  `availableTools` (the "Select · N of M" list; the prop is gone from the form, and the panel's is no longer read);
+  `AutomationPanel` passes its new `toolCatalog` prop down.
+- **Memory in Edit** is the switch "Builds on earlier runs" with "Reads up to (tokens of its earlier runs)".
+- **A flow that is not installed** (`summary.flow_missing`, whatever the status) reads "(not installed)" in the Flow
+  field, the section says "This flow is no longer installed. Choose another one to save.", and Save stays disabled
+  until another flow is chosen (`AutomationWorkflowPicker` `currentSuffix`).
+- `reviseChanges` says "Title is required." / "Task is required." from the words file (same sentences), and so
+  the interval and check-interval errors (`edit.interval_invalid`, `edit.check_interval_min`).
+- **Review fixes (gate 3).** The live line never throws: a `live` the kit cannot word (an unknown state, a tool
+  state without its call, an unreadable `started_at`) reads "Running" as without one. "Waiting to retry (attempt
+  N)" and the header's "Now" show the served attempt (the runtime already stores the one about to run; it read one
+  too high). A disabled Save stays a filled accent button, dimmed. Focus rings in the form are `--info`. Escape in
+  the tools search box clears it (`ToolModeEditor`) and never reaches the form; after **Keep editing** focus
+  returns to Cancel. The "not installed" note goes once another flow is chosen, and says only "This flow is no
+  longer installed." without a flow picker. A mail check without a stored interval starts on the email default
+  and sends what is set. "Choose per tool" on an automation without a tool list (it runs its flow's own tools,
+  which no host can read) starts from the Gateway's defaults and says "Choosing per tool replaces the flow's own
+  tools with this selection."; the editor is driven as the automation's layer over the Gateway's modes, so its
+  "Default" chips are true. The Details card reads "Choose per tool" for a named policy. Plain words: the memory
+  budget's hint, the picker's labels (`ProviderModelPicker` `optionsLabel`), "runs only when someone presses Run
+  now" for a manual automation. The three-way tools choice stays one connected row on a phone.
+- **Words file**: added `edit.flow_not_installed_short`, `edit.no_schedule_manual`, `edit.tools_replace_flow`,
+  `edit.interval_invalid`, `edit.check_interval_min`, `edit.fields.memory_budget_hint`; removed
+  `failed.reason_prefix` (unused: the Gateway serves a whole sentence).
+- **A run reads as its trigger, then its response, once** (operator 2026-11-27: the Observer showed a run's answer
+  twice). A run's `notify` whose text (its body, else its title) is the answer's, both trimmed and compared exactly,
+  is no longer drawn above the answer: it is a delivery fact (the "Notified" badge stays). A notify that differs, or
+  one on a run with no answer, shows AFTER the answer, labelled "The message that was sent" (`notifyShown(row)`;
+  words `run.notify_sent`).
+- **A run's context, one way to look.** `AutomationPanel` takes an optional `onOpenContext({runId, index})`: each
+  run's trigger turn then shows ONE **Context** button (a quiet `af-btn` with an icon, called with the run's own id)
+  and no "What the agent received". Hosts that do not pass it are unchanged. Words `context.*` (the button and the
+  host's view of what a run was given: `button`, `button_hint`, `title`, `loading`, `failed`, `builds_on`,
+  `builds_on_no_numbers`, `starts_fresh`, `count_differs`, `instructions`, `system`, `context_task`, `earlier`,
+  `from_task`, `from_answer`, `trigger`, `details`, `model`, `tools`, `no_tools`, `raw`).
+- **A run in progress is said once**: with its live line shown, the "Running…" placeholder under it is gone.
+- **The failed note no longer tells the person that restarting is their job** (operator 2026-11-28: "only a user
+  decides when an automation is started, paused, stopped or archived"; the Gateway now restarts a stopped automation
+  by itself right after the tick that failed and when it starts; this notice shows when that did not work):
+  `failed.explain` reads "This automation hit a problem and has not restarted by itself. You can restart it now.",
+  and a stopped automation shows it, with its **Restart** button, then the Gateway's `failed_reason` (now a plain
+  fact: "It stopped on 7 Nov while starting run #38.") on its own line (`AutomationNotice.reason`). The explanation
+  and the button go together: `automationFailedNote()` gives it only when `automationControls().resume.enabled`, and
+  `AutomationNoticeLine` (which now returns null when it has nothing to say) drops it when the host passes no
+  `onAction`. Without the button the served reason alone.
+- **A title has no length limit** (the runtime accepts any). The Edit form, `reviseChanges` and the create dialog
+  (`AfScheduleDialog`, `buildCreateRequest`) no longer cap it at 120 characters: an automation whose stored title is
+  longer opened as "changed" with Save enabled and could not be saved ("Title is at most 120 characters."). The
+  default title (the task's first line) is still cut at 120. Word `edit.title_too_long` removed.
+- **"Load earlier runs" stays put while the rows above settle**: after the restore, the anchor row is re-applied
+  from a `ResizeObserver` on the run list until the person scrolls (wheel, touch, a key, a press on the scroll area)
+  or `EARLIER_HOLD_MS` (1 s) has passed (the view drifted by the late height of the rows just added).
+- `AutomationGroupFold`'s toggle has its own type size (`--font-size-sm`): "Failed · 1" no longer takes the host's
+  font size. On a phone, the three-way tools choice keeps each check mark beside its label on one line (the label a
+  step smaller, wrapping under itself).
+
+- **One header, no folds** (`AutomationHeader`): line 1 the title, the state and the buttons — the Active switch, ONE
+  Run now / Stop button (Stop while a run is in progress; Run now filled as the primary), Edit, Details, Archive,
+  each with an icon and a tooltip, no "⋯" menu (on a narrow pane Edit, Details and Archive show their icon only);
+  line 2 the task in at most two lines; line 3 one row of chips (`AfChip`, one height, an icon each, the whole fact
+  in the tooltip): flow, when, next run (relative; the date in the tooltip), runs, memory, model (when chosen),
+  attention (warning, when non-zero), Files, and the host's chip (`headerChip`). The reason line shows only what a
+  person can act on (failed, paused with a reason, archived); why a button is disabled is its tooltip and its
+  `aria-describedby`, no longer a visible line ("Nothing is running" is gone with the separate Stop button). The
+  "Details" fold is a button opening the kit's modal (`AutomationDetailsDialog` around `AutomationDefinitionBlock`,
+  now a plain list: the flow with its version, the exact trigger configuration, tools, results and recipients,
+  retries, folder, the workspaces rule, revision). No longer shown: "Attention: nothing new", "Runs: 21", the
+  Context sentence, "Now", the paused hint line.
+- **One button vocabulary**: `af-auto__btn` (+ `--primary`, `--danger`, `--quiet`) is an alias of `af-btn` (plain =
+  `--secondary`): every button of the panel, its header, a run row and the Edit form looks the same.
+- **The create dialog's schedule kind is the Edit form's select** (`AfScheduleKind`, six kinds: never a radio row);
+  the control has no radio presentation any more.
+
+### Removed
+
+- `readReviseForm()` (the old form's reader of uncontrolled fields; the form is controlled now).
+- `AfScheduleKind` `presentation="radios"`.
+
 ## 0.10.25 - 2026-11-25
 
 Packages: `@abstractframework/ui-kit` 0.9.30 (from 0.9.29). Other packages retain their versions. AbstractCode web picks

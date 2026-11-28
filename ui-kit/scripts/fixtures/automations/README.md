@@ -32,3 +32,12 @@ vendored copy (the Assistant's `tests/basic/fixtures/automations/`) byte for byt
 The AbstractFramework repository's `scripts/check_identity_sync.py` compares the copies against these
 canonical files, one group per file. A fixture change is a contract change:
 tell the AbstractObserver and AbstractAssistant maintainers.
+
+## Shared case files
+
+New cases are new files next to the six above; they are not part of the contract set nor of
+`CHECKSUMS.sha256`. `automation_model_cases.json`: the read cases (`input` → `value`) and write
+cases (`input` + `value` → `output`, or the `error` thrown) of an automation's model choice in
+`definition.target.input_data` (`automationModelFrom` / `withAutomationModel`). Every port, TypeScript
+and Python, passes all of them; `node scripts/check_automation_model_cases.mjs` runs the kit's. A
+client's vendored copy gets its own byte-identity test in that client.

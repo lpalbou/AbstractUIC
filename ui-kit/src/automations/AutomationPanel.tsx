@@ -1,7 +1,9 @@
 import { ToolCallWordsList } from "../tool_call_words_view.js";
-import { AutomationToolsPicker } from "./automation_tools_picker.js";
-import { AutomationWorkflowPicker, type AutomationWorkflowPickerOptions } from "./automation_workflow_picker.js";
+import type { AutomationWorkflowPickerOptions } from "./automation_workflow_picker.js";
 import { prepareAutomationTarget } from "./prepare_target.js";
+import { AUTOMATION_EDIT_WORDS } from "./automation_words.js";
+import { AutomationLiveLine } from "./automation_live_line.js";
+import { automationLiveWords } from "./automation_live.js";
 // AutomationPanel — one automation, rendered from server truth (contract G).
 //
 // Controlled: the host fetches (see ./client.ts) and passes the summary, the
@@ -14,36 +16,33 @@ import { prepareAutomationTarget } from "./prepare_target.js";
 // The pieces below the panel (header, controls bar, revise form, occurrence
 // pair) are hook-free so scripts/check_automation_panel.mjs can render them in
 // any state and invoke their handlers without a DOM.
-import React, { useEffect, useId, useRef, useState } from "react";
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { VisibleContentMarker } from "../visible_content.js";
 import { Icon, type IconName } from "../icon.js";
-import { AfSwitch, AfSwitchInput } from "../af_switch.js";
-import { AfEmailSetupNotice } from "./email_fields.js";
-import { AfCalendarRuleFields, AfServedSchedule, calendarRuleOf, calendarStateOf, type CalendarRuleState, type PreviewSchedule, useSchedulePreview, withCalendarRule } from "./schedule_when.js";
+import { AfSwitch } from "../af_switch.js";
+import { AfChip, AfChipButton, type AfChipTone } from "../af_chip.js";
+import { AfModal } from "../af_modal.js";
+import type { PreviewSchedule } from "./schedule_when.js";
+import type { ToolCatalogItem } from "../tool_plan.js";
+import { AutomationReviseForm, automationModelWords, type AutomationEditSection, type AutomationModelPickerOptions } from "./AutomationEditForm.js";
 import controlsSpec from "./automation_controls.json" with { type: "json" };
 import { occurrenceEventCard, whenWords, type OccurrenceEventCard } from "./trigger_words.js";
 import {
   apiErrorText,
-  CALENDAR_KINDS,
-  calendarConfigFrom,
   formatServedLocal,
   nextRunLabel,
-  SCHEDULE_TEXT,
+  relativeIn,
+  DEFAULT_GROWING_MAX_TOKENS,
   consumedAttentionCursor,
-  attentionLabel,
   automationControls,
   ActionIds,
   CONTROL_COMMANDS,
   contextLabel,
-  GROWING_CONTEXT_HELP,
-  EMAIL_TEXT,
   emailRecipientsLabel,
   emailTriggerLabel,
-  emailUsable,
   isEmailTrigger,
   notifyLabel,
   isApiError,
-  currentOccurrenceLabel,
   mintUuid,
   eventPayloadFromWords,
   failureReasonWords,
@@ -51,9 +50,8 @@ import {
   waitToolCalls,
   occurrenceViews,
   pickFocusTarget,
-  parseDuration,
   reviseChanges,
-  reviseFormFrom,
+  automationModelFrom,
   SeenAckTracker,
   STATUS_LABELS,
   triggerSummary,
@@ -61,8 +59,6 @@ import {
   type ControlId,
   type ControlState,
   type OccurrenceView,
-  type ReviseDefinition,
-  type ReviseForm,
 } from "./panel_core.js";
 import type {
   ApiError,
@@ -71,21 +67,23 @@ import type {
   AutomationStatus,
   AutomationSummary,
   CommandReceipt,
-  ContextMode,
+  CurrentOccurrence,
   JsonObject,
   Mailbox,
   MyEmailStatus,
+  OccurrenceArtifact,
   OccurrenceRow,
   OccurrenceWait,
   TriggerSourceEntry,
   TriggerSource,
   TriggerConnection,
-  ToolApprovalPolicy,
 } from "./types.js";
 
 export type AutomationPanelProps = {
   prepareTarget?(target: NonNullable<AutomationChanges["target"]>): Promise<NonNullable<AutomationChanges["target"]>>;
   workflowPickerOptions?: AutomationWorkflowPickerOptions;
+  /** The Edit form's Model field (see `AutomationReviseFormProps.modelPickerOptions`). Absent = no Model field. */
+  modelPickerOptions?: AutomationModelPickerOptions;
   summary: AutomationSummary;
   definition?: AutomationDefinition;
   occurrences: OccurrenceRow[];
@@ -128,6 +126,16 @@ export type AutomationPanelProps = {
    */
   renderTurn?: RenderTurn;
   /**
+   * `"card"` (spec F; `AutomationPanelWithMarkdown` sets it): each turn IS the shared chat card —
+   * the card shows the time (the reader's), the files and a run's working state, so the panel drops
+   * its own times, its file list and its bubble around the trigger, and calls `renderTurn` for a run
+   * in progress too (`AutomationTurn.chrome`, `ts`, `live`, `artifacts`). Needs `renderTurn`.
+   * Absent = the turns as before.
+   */
+  turnChrome?: "card";
+  /** A chip the host adds at the end of the header's chip row (Observer: Workspaces, opening its chooser). */
+  headerChip?: AutomationHeaderChip;
+  /**
    * Opens a run's folder (the host's workspace browser; a local app may open
    * it in the file manager). Called with the automation id (= its controller
    * run) from the header's Workspace fact, and with an occurrence's run id
@@ -135,6 +143,13 @@ export type AutomationPanelProps = {
    * to the JSON route carries no bearer token and shows no files.
    */
   onOpenWorkspace?(runId: string): void;
+  /**
+   * Opens what a run was given (the host's context view: earlier runs carried in, the trigger
+   * message as the agent received it). When passed, each run's trigger turn shows ONE "Context"
+   * button and no "What the agent received" disclosure (one way to look, not two). Absent: the
+   * disclosure as before. Called with the occurrence's own run id and its index.
+   */
+  onOpenContext?(run: { runId: string; index: number }): void;
   /**
    * Opens a file the gateway links in its data — a run's ledger JSON, an
    * artifact — through the host's credentials (panel-chat
@@ -160,7 +175,8 @@ export type AutomationPanelProps = {
   onEditOpenChange?(open: boolean): void;
   /**
    * The host draws its own header and controls (AbstractCode's automation header):
-   * the panel then starts at the definition and the occurrences. Default false.
+   * the panel then starts at the occurrences (the Details dialog is the header's, so it is the
+   * host's too). Default false.
    */
   hideHeader?: boolean;
   /** Where an automation opens (operator 2026-10-29: "if I click an attention icon, I should get
@@ -168,13 +184,17 @@ export type AutomationPanelProps = {
    * card in the thread, else the run of the oldest unseen result, scrolled into view and outlined
    * for a moment; "none": the host decides. */
   openAt?: "attention" | "none";
+  /** No longer read by the Edit form (see `toolCatalog`). */
+  availableTools?: string[];
+  /** The gateway's tool catalog (`normalizeToolCatalog` of discovery/tools): the Edit form then offers
+   * "Choose per tool" (`AutomationReviseFormProps.toolCatalog`). */
+  toolCatalog?: readonly ToolCatalogItem[];
   /**
    * `GET /api/gateway/me/email` (the client's `getMyEmail()`): the Edit form
    * offers "Email result" and allowed recipients only when the account
    * is usable (an option already on can still be turned off); otherwise it
    * shows "Connect a mailbox first — open My email".
    */
-  availableTools?: string[];
   emailStatus?: MyEmailStatus | null;
   onOpenMyEmail?: () => void;
   /** The gateway's dry-run schedule description (the Edit form shows a calendar rule's served sentence and next run). */
@@ -244,6 +264,20 @@ export type AutomationTurn = {
   /** The occurrence index (#N) and its run. */
   index: number;
   runId: string;
+  /**
+   * Set only by a panel with `turnChrome="card"`: the card draws the time, the files and the
+   * working state, and the panel draws none of them. Absent = the turn as before (text only).
+   */
+  chrome?: "card";
+  /** When it was said (the served ISO time): `fired_at` for the trigger, `finished_at` for the answer. Card chrome only. */
+  ts?: string;
+  /**
+   * The answer of a run in progress, not written yet (card chrome only): the card shows its working
+   * state. `current` is the summary's `current_occurrence` when it is this run (its live line), else null.
+   */
+  live?: { current: CurrentOccurrence | null; nowMs?: number };
+  /** The run's files (the occurrence's `artifacts`), on the answer turn. Card chrome only. */
+  artifacts?: OccurrenceArtifact[];
 };
 
 export type RenderTurn = (turn: AutomationTurn) => React.ReactNode;
@@ -307,81 +341,352 @@ export function triggerSourceProblem(summary: AutomationSummary, sources: Array<
   return null;
 }
 
+/**
+ * What the header says about a FAILED (stopped) automation (spec D), as two lines: `explain`,
+ * `failed.explain` ("… has not restarted by itself. You can restart it now."), on exactly the
+ * condition of its Restart button (`automationControls(s).resume.enabled`), then `reason`, the
+ * served `failed_reason` as served (a plain fact: what happened and when) when there is one.
+ * Without Restart the reason alone (the explanation would promise a restart nobody can do; a host
+ * that draws no button gets the same from `AutomationNoticeLine`). Null for any other status, and
+ * for a failed automation an older gateway serves neither for (the header is then as before).
+ */
+export function automationFailedNote(s: AutomationSummary): { explain: string | null; reason: string | null } | null {
+  if (s.status !== "failed") return null;
+  const reason = typeof s.failed_reason === "string" && s.failed_reason.trim() ? s.failed_reason : null;
+  const explain = automationControls(s, [], false).resume.enabled ? AUTOMATION_EDIT_WORDS.failed.explain : null;
+  return explain || reason ? { explain, reason } : null;
+}
+
+/** What the header says about a PAUSED automation: the served `paused_reason` as served (a whole
+ * sentence), only while it is paused; null otherwise (a pause by the person serves none). */
+export function automationPausedNote(s: Pick<AutomationSummary, "status" | "paused_reason">): string | null {
+  return s.status === "paused" && typeof s.paused_reason === "string" && s.paused_reason.trim() ? s.paused_reason : null;
+}
+
+/** The one action a header notice carries: a command the gateway lists for it, or the Edit form at a section. */
+export type AutomationNoticeAction =
+  | { kind: "command"; command: string; label: string; hint: string; icon: IconName }
+  | { kind: "edit"; section: AutomationEditSection; label: string; hint: string; icon: IconName };
+
+/** The header's one notice: what a person can act on, in one sentence, with the button that fixes it. */
+export type AutomationNotice = {
+  /** `failed`, `paused_reason` or `archived` (the element's `data-fact`). */
+  fact: "failed" | "paused_reason" | "archived";
+  tone: "error" | "warning" | "neutral";
+  icon: IconName;
+  text: string;
+  /** The text is the gateway's sentence (`failed_reason` / `paused_reason`), not the kit's words. */
+  served: boolean;
+  /** A second line under `text`: the served `failed_reason` of a stopped automation that can be restarted (`text` is then `failed.explain`). */
+  reason?: string | null;
+  action: AutomationNoticeAction | null;
+};
+
+/**
+ * The header's notice for a stopped, gateway-paused or archived automation, and its one action:
+ * failed → its two lines (`automationFailedNote`: the explanation, then the served reason; the
+ * reason alone without Restart) and **Restart** (`automation.resume`) when the gateway lists `resume`; paused with a served `paused_reason` → the sentence and **Edit** at
+ * the Flow section when `flow_missing` is true (and the form shows it: `editSections`), otherwise
+ * **Turn back on** (`automation.resume`); archived → its line and **Unarchive** when listed. Each
+ * action is offered only when `automationControls` enables it. Null for anything else.
+ */
+export function automationNotice(s: AutomationSummary, editSections?: ReadonlySet<AutomationEditSection>): AutomationNotice | null {
+  const F = AUTOMATION_EDIT_WORDS.failed;
+  const c = automationControls(s, [], false);
+  const resume = (label: string, hint: string, icon: IconName): AutomationNoticeAction | null =>
+    c.resume.enabled ? { kind: "command", command: CONTROL_COMMANDS.resume, label, hint, icon } : null;
+  if (s.status === "failed") {
+    const note = automationFailedNote(s);
+    if (!note) return null;
+    const text = (note.explain ?? note.reason) as string;
+    return { fact: "failed", tone: "error", icon: "error", text, served: note.explain === null, reason: note.explain !== null ? note.reason : null, action: resume(F.restart, F.restart_hint, "refresh") };
+  }
+  if (s.status === "paused") {
+    const why = automationPausedNote(s);
+    if (!why) return null;
+    const action: AutomationNoticeAction | null =
+      s.flow_missing === true
+        ? editSections?.has("what")
+          ? { kind: "edit", section: "what", label: CONTROL_LABELS.revise, hint: F.edit_flow_hint, icon: CONTROL_ICONS.revise }
+          : null
+        : resume(F.turn_on, CONTROL_HINTS.resume, CONTROL_ICONS.resume);
+    return { fact: "paused_reason", tone: "warning", icon: "pause", text: why, served: true, action };
+  }
+  if (s.status === "archived") {
+    return {
+      fact: "archived",
+      tone: "neutral",
+      icon: "archive",
+      text: AUTOMATION_EDIT_WORDS.header.archived,
+      served: false,
+      action: c.unarchive.enabled ? { kind: "command", command: CONTROL_COMMANDS.unarchive, label: CONTROL_LABELS.unarchive, hint: CONTROL_HINTS.unarchive, icon: CONTROL_ICONS.unarchive } : null,
+    };
+  }
+  return null;
+}
+
+/** The notice's state while its action is sent: busy, the gateway's refusal, or the confirmation line. */
+export type AutomationNoticeState = { busy?: boolean; error?: string | null; done?: string | null };
+
+/**
+ * ONE notice line: the sentence (and, for a stopped automation, the served reason on its own line
+ * under it) and, in it, the filled button that fixes it; `error` (the
+ * gateway's own sentence) shows in the line, the button still there. (`done`, the confirmation,
+ * replaces the line in `AutomationHeader`.) Hook-free.
+ */
+export function AutomationNoticeLine(props: { notice: AutomationNotice; state?: AutomationNoticeState; disabled?: boolean; onAction?(action: AutomationNoticeAction): void }): React.ReactElement | null {
+  const st = props.state ?? {};
+  const a = props.onAction ? props.notice.action : null;
+  // A stopped automation's explanation and its Restart go together: a host that draws no button
+  // shows the gateway's sentence alone (no line at all without one).
+  const bare = props.notice.fact === "failed" && !a && !props.notice.served;
+  if (bare && !props.notice.reason) return null;
+  const n: AutomationNotice = bare ? { ...props.notice, text: props.notice.reason as string, served: true, reason: null } : props.notice;
+  const toneClass = n.tone === "error" ? "af-auto__failed" : n.tone === "warning" ? "af-auto__note af-auto__note--warning" : "af-auto__note";
+  return (
+    <div className={`${toneClass} af-auto__notice-line`} role="note" data-fact={n.fact}>
+      <Icon name={n.icon} size={14} className="af-auto__btn-icon" />
+      <span className="af-auto__notice-words">
+        <span data-fact={n.fact === "failed" && n.served ? "failed_reason" : undefined}>{n.text}</span>
+        {n.reason ? <span data-fact="failed_reason">{n.reason}</span> : null}
+        {st.error ? (
+          <span className="af-auto__notice-error" role="alert" data-fact="notice_error">
+            {st.error}
+          </span>
+        ) : null}
+      </span>
+      {a ? (
+        <button
+          type="button"
+          className="af-auto__btn af-auto__btn--primary af-auto__notice-btn"
+          data-action={a.kind === "edit" ? "notice-edit" : `notice-${a.command === CONTROL_COMMANDS.unarchive ? "unarchive" : n.fact === "failed" ? "restart" : "resume"}`}
+          disabled={props.disabled || st.busy === true}
+          aria-busy={st.busy === true || undefined}
+          title={a.hint}
+          aria-description={a.hint}
+          onClick={() => props.onAction?.(a)}
+        >
+          <Icon name={st.busy ? "loader" : a.icon} size={14} className="af-auto__btn-icon" />
+          <span>{a.label}</span>
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The notice's button, for a header host (`AutomationHeaderCard`, `AutomationPanel`): a command
+ * goes through `onCommand` with the host's `ActionIds` (one id per action, reused on a retry after
+ * a transport failure); while it is sent the button is busy; a refusal puts the gateway's own
+ * sentence in the notice; success shows "Back on. Next run: …" (the served next run; "Back on."
+ * while the summary is not yet served active) where the notice was, for `NOTICE_MS`. An edit action calls `openEdit(section)`.
+ */
+export function useAutomationNoticeAction(
+  summary: AutomationSummary,
+  ids: ActionIds,
+  onCommand: (type: string, payload: JsonObject | undefined, meta: { command_id: string }) => Promise<unknown>,
+  openEdit: (section: AutomationEditSection) => void,
+  nowMs?: number,
+): { state: AutomationNoticeState; onAction(action: AutomationNoticeAction): void } {
+  const [st, setSt] = useState<{ id: string; busy?: boolean; error?: string; done?: string } | null>(null);
+  const done = st?.done;
+  useEffect(() => {
+    if (!done) return;
+    const t = setTimeout(() => setSt(null), NOTICE_MS);
+    return () => clearTimeout(t);
+  }, [done]);
+  const mine = st && st.id === summary.automation_id ? st : null;
+  const F = AUTOMATION_EDIT_WORDS.failed;
+  const state: AutomationNoticeState = mine
+    ? {
+        busy: mine.busy === true,
+        error: mine.error ?? null,
+        // The next run once the refreshed summary serves it active ("Back on." until then).
+        done:
+          mine.done === CONTROL_COMMANDS.resume
+            ? summary.status === "active"
+              ? fillWords(F.restarted, { when: nextRunLabel(summary, nowMs ?? Date.now()) })
+              : F.back_on
+            : mine.done
+              ? (COMMAND_NOTICES[mine.done] ?? null)
+              : null,
+      }
+    : {};
+  const onAction = (a: AutomationNoticeAction) => {
+    if (a.kind === "edit") {
+      openEdit(a.section);
+      return;
+    }
+    const id = summary.automation_id;
+    const signature = `command:${a.command}`;
+    setSt({ id, busy: true });
+    onCommand(a.command, undefined, { command_id: ids.idFor(signature) }).then(
+      () => {
+        ids.settle(signature, { ok: true });
+        setSt({ id, done: a.command });
+      },
+      (error: unknown) => {
+        ids.settle(signature, { ok: false, error });
+        const e = toApiError(error);
+        setSt({ id, error: e.message.trim() || apiErrorText(e).title });
+      },
+    );
+  };
+  return { state, onAction };
+}
+
+/** A chip the host adds to the header (the Workspaces chip): its one-line summary; a press opens the host's chooser. */
+export type AutomationHeaderChip = {
+  label: string;
+  /** The whole fact (default: the label). */
+  title?: string;
+  onClick(): void;
+};
+
+const fillWords = (s: string, values: Record<string, string | number>): string => s.replace(/\{(\w+)\}/g, (_m, k: string) => String(values[k] ?? ""));
+
+/** One fact of the header's chip row: an icon, a short text, and the whole fact as its tooltip. */
+function HeaderChip(props: { fact: string; icon: IconName; text: string; title: string; tone?: AfChipTone; onClick?: () => void; action?: string; ariaLabel?: string }): React.ReactElement {
+  const inner = (
+    <>
+      <Icon name={props.icon} size={13} className="af-auto__chip-icon" />
+      <span className="af-auto__chip-text">{props.text}</span>
+    </>
+  );
+  return (
+    <li className="af-auto__chip" data-fact={props.fact}>
+      {props.onClick ? (
+        <AfChipButton tone={props.tone ?? "neutral"} title={props.title} ariaLabel={props.ariaLabel ?? props.title} onClick={props.onClick} {...(props.action ? { action: props.action } : {})}>
+          {inner}
+        </AfChipButton>
+      ) : (
+        <AfChip tone={props.tone ?? "neutral"} title={props.title}>
+          {inner}
+        </AfChip>
+      )}
+    </li>
+  );
+}
+
+/**
+ * The header (operator 2026-11-27, "a clear top header well detached that shows the parameters and
+ * enable changing them"): ONE header, no folds, three rows. Row 1 the title (the row's whole width
+ * up to the state badge) and the state badge; row 2 the host's buttons (`controls`: the
+ * `AutomationControlsBar`); row 3 the parameters as chips, each with the whole fact in its tooltip:
+ * Task · Flow · Schedule · Next run · Memory · Model · Tools · Results · the host's chip
+ * (Workspaces) · Files. A chip whose section the Edit form shows (`editSections`) opens it there
+ * (`onEditSection`); Next run is never editable. Runs and attention are not parameters: they are
+ * not here. A reason line only for what a person can act on: failed, paused with a reason,
+ * archived. Hook-free.
+ */
 export function AutomationHeader(props: {
-  /** The flow's name for a person ("Release digest"): the **Flow** fact. Never the target's id. */
+  /** The flow's name for a person ("Release digest"): the **Flow** chip. Never the target's id. */
   workflowLabel?: string;
   summary: AutomationSummary;
+  /** The committed definition: the task line, the memory budget and the model chip read it. */
+  definition?: AutomationDefinition;
   triggerSources: Array<TriggerSource | TriggerSourceEntry>;
   titleId?: string;
   nowMs?: number;
   onOpenWorkspace?(runId: string): void;
   triggerConnections?: readonly TriggerConnection[] | null;
   mailboxes?: readonly Mailbox[] | null;
+  /** The buttons on line 1 (the panel's `AutomationControlsBar`). */
+  controls?: React.ReactNode;
+  /** The host's chip in row 3, before Files (Observer: Workspaces). */
+  extraChip?: AutomationHeaderChip;
+  /** The Edit form's sections for this automation (`automationEditSections`); empty or absent =
+   * no chip opens the form (an automation that cannot be edited). */
+  editSections?: ReadonlySet<AutomationEditSection>;
+  /** A chip was clicked: open the Edit form at that section. */
+  onEditSection?(section: AutomationEditSection): void;
+  /** What runs when no model is chosen (the Model chip; default "Workflow / Gateway default"). */
+  defaultModelLabel?: string;
+  /** The notice's button was pressed (`automationNotice`): absent = the notice shows no button. */
+  onNoticeAction?(action: AutomationNoticeAction): void;
+  /** The notice's action in flight, refused, or done (the confirmation line). */
+  noticeState?: AutomationNoticeState;
+  /** Everything is disabled while a command is in flight. */
+  busy?: boolean;
 }): React.ReactElement {
   const s = props.summary;
-  const current = currentOccurrenceLabel(s);
+  const d = props.definition;
+  const W = AUTOMATION_EDIT_WORDS.header;
   const problem = triggerSourceProblem(s, props.triggerSources);
+  const nowMs = props.nowMs ?? Date.now();
+  const notice = automationNotice(s, props.editSections);
+  const taskValue = (d?.target.input_data as { prompt?: unknown } | undefined)?.prompt;
+  const task = typeof taskValue === "string" ? taskValue.trim() : "";
+  const rule = triggerSummary(s.trigger, s, { connections: props.triggerConnections, mailboxes: props.mailboxes });
   // The next run is the gateway's (served `next_run_local` + `next_run_at`); the kit never computes it.
-  const next = nextRunLabel(s, props.nowMs ?? Date.now());
+  const nextShown = Boolean(s.next_run_at && s.next_run_local);
+  const growing = s.context_mode === "growing";
+  const budget = d?.context.mode === "growing" ? Number(d.context.growing?.max_tokens ?? DEFAULT_GROWING_MAX_TOKENS) : null;
+  const model = d ? automationModelFrom(d.target.input_data) : null;
+  const E = AUTOMATION_EDIT_WORDS.edit;
+  const sections = props.onEditSection ? props.editSections : undefined;
+  // A chip whose section the Edit form shows opens it there; its tooltip says so.
+  const edit = (section: AutomationEditSection, title: string): { title: string; onClick?: () => void; action?: string } =>
+    sections?.has(section) ? { title: `${title}\n${W.change_hint}`, onClick: () => props.onEditSection?.(section), action: `edit-${section}` } : { title };
+  const tools = d ? (d.policy.tool_policy ? E.tools.per_tool : d.policy.tool_approval === "ask" ? E.tools.ask : d.policy.tool_approval === "auto" ? E.tools.auto : String(d.policy.tool_approval)) : null;
+  const results = d ? notifyLabel(d.notify) : null;
+  const modelWords = model ? (model.provider && model.model ? `${model.provider} / ${model.model}` : props.defaultModelLabel || E.model_default) : null;
+  const taskLine = task.split("\n")[0] ?? "";
   return (
     <header className="af-auto__head">
       <div className="af-auto__titlebar">
-        <h2 className="af-auto__title" id={props.titleId} tabIndex={-1}>
+        <h2 className="af-auto__title" id={props.titleId} tabIndex={-1} title={s.title}>
           {s.title}
         </h2>
         <AutomationStateLabel status={s.status} />
         {s.legacy ? <span className="af-auto__legacy">Legacy schedule</span> : null}
       </div>
-      <dl className="af-auto__facts">
-        {props.workflowLabel ? <><dt>Flow</dt><dd data-fact="workflow">{props.workflowLabel}</dd></> : null}
-        <dt>When</dt>
-        <dd data-fact="trigger">
-          {triggerSummary(s.trigger, s, { connections: props.triggerConnections, mailboxes: props.mailboxes })}
-          {problem ? (
-            <span className="af-auto__warn" role="note">
-              {" "}
-              {problem}
-            </span>
-          ) : null}
-        </dd>
-        <dt>Context</dt>
-        <dd data-fact="context">{contextLabel(s.context_mode)}</dd>
-        {current ? (
-          <>
-            <dt>Now</dt>
-            <dd data-fact="current" className="is-notable">
-              {current}
-            </dd>
-          </>
+      {props.controls ? <div className="af-auto__actionrow">{props.controls}</div> : null}
+      <ul className="af-auto__chips" aria-label={W.parameters}>
+        {task ? <HeaderChip fact="task" icon="compose" text={taskLine} {...edit("what", fillWords(W.task_title, { task }))} /> : null}
+        {props.workflowLabel ? <HeaderChip fact="workflow" icon="branch" text={props.workflowLabel} {...edit("what", fillWords(W.flow_title, { name: props.workflowLabel }))} /> : null}
+        <HeaderChip
+          fact="trigger"
+          icon="clock"
+          text={rule}
+          tone={problem ? "warning" : "neutral"}
+          {...edit("schedule", [fillWords(W.when_title, { rule }), problem].filter(Boolean).join("\n"))}
+        />
+        {nextShown ? (
+          <HeaderChip fact="next" icon="playCircle" text={fillWords(W.next, { when: relativeIn(String(s.next_run_at), nowMs) })} title={fillWords(W.next_title, { when: nextRunLabel(s, nowMs) })} />
         ) : null}
-        <dt>Next run</dt>
-        <dd data-fact="next">{next}</dd>
-        <dt>Runs</dt>
-        <dd data-fact="count">{s.occurrence_count}</dd>
+        <HeaderChip
+          fact="context"
+          icon="book"
+          text={growing ? E.fields.memory_switch : W.memory_off}
+          {...edit("memory", growing ? (budget !== null ? fillWords(W.memory_on_title, { tokens: budget.toLocaleString("en-US") }) : E.fields.memory_on) : E.fields.memory_off)}
+        />
+        {model && modelWords ? <HeaderChip fact="model" icon="sparkle" text={modelWords} {...edit("model", fillWords(W.model_title, { model: automationModelWords(model, props.defaultModelLabel) }))} /> : null}
+        {tools ? <HeaderChip fact="tools" icon="wrench" text={tools} {...edit("tools", fillWords(W.tools_title, { tools }))} /> : null}
+        {results ? <HeaderChip fact="results" icon="inbox" text={results} {...edit("results", fillWords(W.results_title, { results }))} /> : null}
+        {props.extraChip ? (
+          <HeaderChip
+            fact="workspaces"
+            action="open-workspaces"
+            icon="board"
+            text={props.extraChip.label}
+            title={props.extraChip.title ?? props.extraChip.label}
+            onClick={props.extraChip.onClick}
+          />
+        ) : null}
         {s.workspace_root && props.onOpenWorkspace ? (
-          <>
-            <dt>Files</dt>
-            <dd data-fact="workspace" className="af-auto__workspace">
-              {/* The folder's path is under Details (UX review 2026-10-25 #4: no paths in the person's view). */}
-              <button
-                type="button"
-                className="af-auto__path"
-                data-action="open-workspace"
-                title={`Browse the automation's folder\n${s.workspace_root}`}
-                aria-label="Browse the automation's files"
-                onClick={() => props.onOpenWorkspace?.(s.automation_id)}
-              >
-                <Icon name="folder" size={14} className="af-auto__path-icon" />
-                <span>Browse its files</span>
-              </button>
-            </dd>
-          </>
+          // The folder's path is under Details (UX review 2026-10-25 #4: no paths in the person's view).
+          <HeaderChip fact="workspace" action="open-workspace" icon="folder" text={W.files} title={W.files_title} onClick={() => props.onOpenWorkspace?.(s.automation_id)} />
         ) : null}
-        <dt>Attention</dt>
-        <dd data-fact="attention" className={s.attention.unread || s.attention.pending_waits ? "is-notable" : undefined}>
-          {attentionLabel(s)}
-        </dd>
-      </dl>
+      </ul>
+      {props.noticeState?.done ? (
+        <p className="af-auto__note af-auto__note--ok" role="status" data-fact="notice_done">
+          <Icon name="check" size={14} className="af-auto__btn-icon" />
+          <span>{props.noticeState.done}</span>
+        </p>
+      ) : notice ? (
+        <AutomationNoticeLine notice={notice} state={props.noticeState} disabled={props.busy} onAction={props.onNoticeAction} />
+      ) : null}
     </header>
   );
 }
@@ -389,19 +694,23 @@ export function AutomationHeader(props: {
 // --- definition ------------------------------------------------------------------
 
 /**
- * The committed definition (`GET /automations/{id}` → `definition`) as a
- * card right under the controls, collapsed by default (`open` to start
- * expanded): target workflow, task, trigger config, context, policy (incl.
- * tool approval) and revision.
+ * The committed definition (`GET /automations/{id}` → `definition`) as the inspection facts the
+ * header's Details button opens in the kit's modal (spec G; no fold): flow version, task, model, the
+ * trigger in words and its exact configuration, memory, tools, where results go and recipients,
+ * retries, folder path, the workspaces rule (the host's, when given) and revision.
  */
 export function AutomationDefinitionBlock(props: {
   definition: AutomationDefinition;
   renderText?: RenderText;
-  open?: boolean;
   /** The summary's served `schedule_rule_text` (a schedule@2 rule reads only that). */
   served?: Pick<AutomationSummary, "schedule_rule_text"> | null;
   triggerConnections?: readonly TriggerConnection[] | null;
   mailboxes?: readonly Mailbox[] | null;
+  /** What runs when no model is chosen (`AutomationModelPickerOptions.defaultModeLabel`; default
+   * "Workflow / Gateway default"). */
+  defaultModelLabel?: string;
+  /** The workspaces rule in words (the host's one-line summary, e.g. Observer's Workspaces chip). */
+  workspaces?: string;
 }): React.ReactElement {
   const d = props.definition;
   const render = props.renderText ?? plainTextRenderer;
@@ -409,14 +718,9 @@ export function AutomationDefinitionBlock(props: {
   const retry = d.policy.retry;
   const approval = d.policy.tool_approval;
   return (
-    <details className="af-auto__definition" data-definition-revision={d.revision} open={props.open}>
-      <summary>
-        <Icon name="chevronRight" size={14} className="af-auto__definition-chevron" />
-        <Icon name="file" size={14} />
-        <span className="af-auto__definition-title">Details</span>
-      </summary>
+    <div className="af-auto__definition" data-definition-revision={d.revision}>
       <dl className="af-auto__facts">
-        <dt>Target</dt>
+        <dt>Flow</dt>
         <dd data-def="target">
           <code>{d.target.workflow_id}</code>
         </dd>
@@ -426,20 +730,23 @@ export function AutomationDefinitionBlock(props: {
             <dd data-def="prompt">{render(task)}</dd>
           </>
         ) : null}
+        <dt>Model</dt>
+        <dd data-def="model">{automationModelWords(automationModelFrom(d.target.input_data), props.defaultModelLabel)}</dd>
         <dt>Trigger</dt>
         <dd data-def="trigger">
           {/* In words (operator 2026-10-29); the exact configuration behind a disclosure. */}
           {triggerSummary(d.trigger, props.served, { connections: props.triggerConnections, mailboxes: props.mailboxes })}
           {isEmailTrigger(d.trigger) ? <div className="af-auto__hint" data-def="email_rule">{emailTriggerLabel(d.trigger.config)}</div> : null}
-          <details className="af-auto__exact" data-def="trigger_config">
-            <summary>Exact configuration</summary>
-            <pre className="af-auto__json">{JSON.stringify(d.trigger.config, null, 2)}</pre>
-          </details>
+        </dd>
+        <dt>Exact configuration</dt>
+        <dd data-def="trigger_config">
+          <pre className="af-auto__json">{JSON.stringify(d.trigger.config, null, 2)}</pre>
         </dd>
         <dt>Context</dt>
         <dd data-def="context">{contextLabel(d.context.mode)}{d.context.mode === "growing" ? ` · ${Number(d.context.growing?.max_tokens ?? 50_000).toLocaleString()} tokens` : ""}</dd>
         <dt>Tools</dt>
-        <dd data-def="tool_approval">{approval === "ask" ? "Ask before each tool call" : approval === "auto" ? "Run without asking" : String(approval)}</dd>
+        {/* A named per-tool policy is what runs (its tool_approval is not read): the Edit form's third choice. */}
+        <dd data-def="tool_approval">{d.policy.tool_policy ? AUTOMATION_EDIT_WORDS.edit.tools.per_tool : approval === "ask" ? "Ask before each tool call" : approval === "auto" ? "Run without asking" : String(approval)}</dd>
         <dt>Notify</dt>
         <dd data-def="notify">{notifyLabel(d.notify)}</dd>
         {d.notify?.channels.includes("email") ? <><dt>Recipients</dt>
@@ -456,10 +763,38 @@ export function AutomationDefinitionBlock(props: {
             </dd>
           </>
         ) : null}
+        {props.workspaces ? (
+          <>
+            <dt>Workspaces</dt>
+            <dd data-def="workspaces">{props.workspaces}</dd>
+          </>
+        ) : null}
         <dt>Revision</dt>
         <dd data-def="revision">{d.revision}</dd>
       </dl>
-    </details>
+    </div>
+  );
+}
+
+/** The header's Details button opens this: the kit's modal around `AutomationDefinitionBlock`. */
+export function AutomationDetailsDialog(props: {
+  open: boolean;
+  onClose(): void;
+  summary: Pick<AutomationSummary, "title"> & Partial<Pick<AutomationSummary, "status" | "failed_detail">>;
+  children: React.ReactNode;
+}): React.ReactElement | null {
+  // The raw error a stopped automation died on: here only, never in the header's notice.
+  const detail = props.summary.status === "failed" && typeof props.summary.failed_detail === "string" ? props.summary.failed_detail.trim() : "";
+  return (
+    <AfModal open={props.open} onClose={props.onClose} size="narrow" className="af-auto__details-dialog" title={fillWords(AUTOMATION_EDIT_WORDS.header.details_title, { title: props.summary.title })}>
+      {detail ? (
+        <div className="af-auto__technical" data-fact="failed_detail">
+          <p className="af-auto__technical-label">{AUTOMATION_EDIT_WORDS.failed.technical}</p>
+          <pre className="af-auto__technical-text">{detail}</pre>
+        </div>
+      ) : null}
+      {props.children}
+    </AfModal>
   );
 }
 
@@ -477,6 +812,9 @@ export type AutomationControlsBarProps = {
   onToggleRevise(): void;
   onAskArchive(): void;
   onCancelArchive(): void;
+  /** The Details button (absent = no button): opens the inspection facts in the kit's modal. */
+  onOpenDetails?(): void;
+  detailsOpen?: boolean;
   /** Feedback on the last action, shown next to the buttons until dismissed. */
   notice?: string | null;
   onDismissNotice?(): void;
@@ -636,24 +974,32 @@ export function AutomationControlsBar(p: AutomationControlsBarProps): React.Reac
   // An archived automation shows Unarchive in place of Archive (0.7.0); the
   // other controls stay visible, disabled with the "Archived" reason.
   const archived = p.summary.status === "archived";
-  const shown: ControlId[] = ["active", "run_now", "stop_current", "revise", archived ? "unarchive" : "archive"];
+  // ONE Run now / Stop button (spec G): Stop while a run is in progress (the served
+  // `current_occurrence`), Run now otherwise.
+  const runId: ControlId = p.summary.current_occurrence ? "stop_current" : "run_now";
+  // A stopped automation cannot run until it is restarted: its notice carries Restart, and a
+  // dimmed primary "Run now" next to it read as a second, broken way to start it.
+  const stopped = p.summary.status === "failed";
+  const shown: ControlId[] = ["active", ...(stopped ? [] : [runId]), "revise", archived ? "unarchive" : "archive"];
   const why = disabledReasons(c, shown, p.idBase ?? `af-auto-${p.summary.automation_id}`);
-  const btn = (id: ControlId, onClick: () => void, extra?: { pressed?: boolean; danger?: boolean; action?: string; label?: string }) => {
+  const btn = (id: ControlId, onClick: () => void, extra?: { pressed?: boolean; tone?: "primary" | "danger"; action?: string; label?: string }) => {
     const hint = controlHint(id, p.summary);
+    const label = extra?.label ?? CONTROL_LABELS[id];
     return (
     <button
       key={id}
       type="button"
-      className={`af-auto__btn${extra?.danger ? " af-auto__btn--danger" : ""}`}
+      className={`af-auto__btn${extra?.tone ? ` af-auto__btn--${extra.tone}` : ""}`}
       data-action={extra?.action ?? id}
       disabled={!c[id].enabled}
       title={c[id].enabled ? hint : `${c[id].reason}\n${hint}`}
+      aria-label={label}
       aria-description={hint}
       aria-describedby={why.describedBy[id]}
       aria-pressed={extra?.pressed}
       onClick={onClick}
     >
-      <IconLabel icon={CONTROL_ICONS[id]} label={extra?.label ?? CONTROL_LABELS[id]} />
+      <IconLabel icon={CONTROL_ICONS[id]} label={label} />
     </button>
     );
   };
@@ -673,10 +1019,23 @@ export function AutomationControlsBar(p: AutomationControlsBarProps): React.Reac
             hint={controlHint("active", p.summary)}
             onChange={() => p.onCommand(activeToggleCommand(p.summary))}
           />
-          {btn("run_now", () => p.onCommand(CONTROL_COMMANDS.run_now))}
-          {btn("stop_current", () => p.onCommand(CONTROL_COMMANDS.stop_current))}
+          {stopped ? null : runId === "run_now" ? btn("run_now", () => p.onCommand(CONTROL_COMMANDS.run_now), { tone: "primary" }) : btn("stop_current", () => p.onCommand(CONTROL_COMMANDS.stop_current), { tone: "danger" })}
           {btn("revise", p.onToggleRevise, { pressed: p.reviseOpen, action: "edit" })}
-          {archived ? btn("unarchive", () => p.onCommand(CONTROL_COMMANDS.unarchive)) : btn("archive", p.onAskArchive, { danger: true, label: "Archive…" })}
+          {p.onOpenDetails ? (
+            <button
+              type="button"
+              className="af-auto__btn"
+              data-action="details"
+              aria-haspopup="dialog"
+              aria-expanded={p.detailsOpen === true}
+              aria-label={AUTOMATION_EDIT_WORDS.header.details}
+              title={AUTOMATION_EDIT_WORDS.header.details_hint}
+              onClick={p.onOpenDetails}
+            >
+              <IconLabel icon="info" label={AUTOMATION_EDIT_WORDS.header.details} />
+            </button>
+          ) : null}
+          {archived ? btn("unarchive", () => p.onCommand(CONTROL_COMMANDS.unarchive)) : btn("archive", p.onAskArchive, { label: "Archive…" })}
         </div>
         <span className={`af-auto__notice${p.notice ? " af-auto__notice--on" : ""}`} role="status" tabIndex={-1}>
           {p.notice ? (
@@ -692,18 +1051,16 @@ export function AutomationControlsBar(p: AutomationControlsBarProps): React.Reac
           ) : null}
         </span>
       </div>
+      {/* Why a button is disabled: its tooltip and its aria-describedby (spec G: the header's one
+          visible reason line is the failed / paused / archived note a person can act on). */}
       {why.lines.length ? (
-        <p className="af-auto__reasons">
-          <Icon name="info" size={12} className="af-auto__reasons-icon" />
+        <p className="af-auto__reasons af-auto__sr-only">
           {why.lines.map((l) => (
             <span key={l.id} id={l.id}>
               {l.text}
             </span>
           ))}
         </p>
-      ) : null}
-      {p.summary.status === "paused" && c.run_now.enabled ? (
-        <p className="af-auto__hint">Paused: scheduled runs are skipped. Run now works and keeps it paused.</p>
       ) : null}
       {p.confirmingArchive && !archived ? (
         <div className="af-auto__confirm" role="group" aria-label="Confirm archive">
@@ -725,220 +1082,8 @@ export function AutomationControlsBar(p: AutomationControlsBarProps): React.Reac
 }
 
 // --- revise ------------------------------------------------------------------------
-
-const UNIT_OPTIONS: Array<[string, string]> = [
-  ["m", "minutes"],
-  ["h", "hours"],
-  ["d", "days"],
-];
-
-/** Read the Edit form's fields (uncontrolled inputs) into a `ReviseForm`. */
-export function readReviseForm(form: { elements: { namedItem(name: string): unknown } }, fallback: ReviseForm): ReviseForm {
-  const val = (name: string): string | null => {
-    const el = form.elements.namedItem(name) as { value?: string } | null;
-    return el && typeof el.value === "string" ? el.value : null;
-  };
-  const amount = val("every_amount");
-  const unit = val("every_unit");
-  const every = amount !== null && unit !== null ? `${amount.trim()}${unit}` : fallback.every;
-  const ctx = form.elements.namedItem("context") as { value?: string } | null;
-  const context = (ctx && (ctx.value === "growing" || ctx.value === "independent") ? ctx.value : fallback.context) as ContextMode;
-  const prompt = val("prompt");
-  const tools = form.elements.namedItem("tool_approval") as { value?: string } | null;
-  const toolApproval = (tools && (tools.value === "auto" || tools.value === "ask") ? tools.value : fallback.toolApproval ?? null) as ToolApprovalPolicy | null;
-  const notifyEl = form.elements.namedItem("notify_email") as { checked?: boolean } | null;
-  const notifyEmail = notifyEl && typeof notifyEl.checked === "boolean" ? notifyEl.checked : fallback.notifyEmail ?? null;
-  const rcpt = form.elements.namedItem("email_recipients") as { value?: string } | null;
-  const list = val("email_recipient_list");
-  const emailRecipients =
-    rcpt && (rcpt.value === "self" || rcpt.value === "list") ? { mode: rcpt.value as "self" | "list", addresses: list ?? "" } : fallback.emailRecipients ?? null;
-  return { title: val("title") ?? fallback.title, every, context, growingMaxTokens: val("growing_max_tokens") === null ? fallback.growingMaxTokens : Number(val("growing_max_tokens")), prompt: prompt ?? fallback.prompt ?? null, toolApproval, notifyEmail, emailRecipients };
-}
-
-
-export type AutomationReviseFormProps = {
-  workflowPickerOptions?: AutomationWorkflowPickerOptions;
-  summary: AutomationSummary;
-  /** The committed definition: with it the form also edits the task (`input_data.prompt`) and tool approval. */
-  definition?: ReviseDefinition | null;
-  busy: boolean;
-  errors: string[];
-  onSubmit(form: ReviseForm): void;
-  /** Absent = no Cancel button (a host that shows the form permanently, e.g. a Settings panel). */
-  onCancel?(): void;
-  /** The form heading (default "Edit automation"); null hides it (the host titles the card). */
-  heading?: string | null;
-  /** The submit label (default "Save changes"). */
-  submitLabel?: string;
-  /** See `AutomationPanelProps.emailStatus`. */
-  availableTools?: string[];
-  emailStatus?: MyEmailStatus | null;
-  onOpenMyEmail?: () => void;
-  /** The gateway's dry-run schedule description (a calendar rule's sentence and next run are served). */
-  previewSchedule: PreviewSchedule;
-};
-
-/** The Edit form: everything `PATCH /automations/{id}` can change that this kit knows how to show, prefilled. */
-export function AutomationReviseForm(p: AutomationReviseFormProps): React.ReactElement {
-  const initial = reviseFormFrom(p.summary, p.definition);
-  const [target, setTarget] = useState<ReviseForm["target"]>();
-  const [selectedTools, setSelectedTools] = useState(initial.tools ?? null);
-  const [contextMode, setContextMode] = useState(initial.context);
-  const [emailResult, setEmailResult] = useState(Boolean(initial.notifyEmail));
-  // The calendar fields, kept across kind switches; null for a trigger that is not a calendar rule.
-  const [calKind, setCalKind] = useState(initial.calendar?.kind ?? null);
-  const [calState, setCalState] = useState<CalendarRuleState | null>(initial.calendar ? calendarStateOf(initial.calendar) : null);
-  const calendar = calKind && calState ? calendarRuleOf(calKind, calState) : null;
-  // The edited rule as the gateway will store it (the automation keeps its own time zone).
-  const calendarTrigger = (() => {
-    if (!calendar) return null;
-    const built = calendarConfigFrom(calendar);
-    if (!built.config) return null;
-    const zone = (p.summary.trigger.config as { time_zone?: unknown }).time_zone;
-    return { source_id: p.summary.trigger.source_id, source_version: p.summary.trigger.source_version, config: { ...(built.config as JsonObject), ...(typeof zone === "string" ? { time_zone: zone } : {}) } };
-  })();
-  const described = useSchedulePreview(calendarTrigger, p.previewSchedule);
-  const d = initial.every ? parseDuration(initial.every) : null;
-  const units = d && d.unit === "s" ? [["s", "seconds"] as [string, string], ...UNIT_OPTIONS] : UNIT_OPTIONS;
-  const base = `af-auto-revise-${p.summary.automation_id}`;
-  const usable = emailUsable(p.emailStatus);
-  const emailTrigger = isEmailTrigger(p.summary.trigger);
-  return (
-    <form
-      className="af-auto__revise"
-      aria-labelledby={`${base}-heading`}
-      onSubmit={(e) => {
-        e.preventDefault();
-        p.onSubmit({ ...readReviseForm(e.currentTarget, initial), ...(calendar ? { calendar } : {}), ...(target ? { target } : {}), ...(p.availableTools !== undefined ? { tools: selectedTools } : {}) });
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape" && p.onCancel) {
-          e.preventDefault();
-          p.onCancel();
-        }
-      }}
-    >
-      {p.heading === null ? (
-        <span id={`${base}-heading`} hidden>
-          Edit automation
-        </span>
-      ) : (
-        <h3 className="af-auto__form-title" id={`${base}-heading`}>
-          <Icon name="edit" size={14} /> {p.heading ?? "Edit automation"}
-        </h3>
-      )}
-      {p.definition && p.workflowPickerOptions ? <AutomationWorkflowPicker target={target || p.definition.target} options={p.workflowPickerOptions} onChange={setTarget} /> : null}
-      <label className="af-auto__field" htmlFor={`${base}-title`}>
-        <span>Title</span>
-        <input id={`${base}-title`} name="title" defaultValue={initial.title} maxLength={120} required />
-      </label>
-      {initial.prompt !== null && initial.prompt !== undefined ? (
-        <label className="af-auto__field" htmlFor={`${base}-prompt`}>
-          <span>Task</span>
-          <textarea id={`${base}-prompt`} name="prompt" defaultValue={initial.prompt} rows={Math.min(10, Math.max(3, initial.prompt.split("\n").length + 1))} required />
-        </label>
-      ) : null}
-      {d ? (
-        <fieldset className="af-auto__field">
-          <legend>{emailTrigger ? EMAIL_TEXT.every_label : "Repeat every (UTC)"}</legend>
-          <div className="af-auto__row">
-            <input name="every_amount" type="number" min={1} step={1} defaultValue={d.amount} aria-label="Interval amount" />
-            <select name="every_unit" defaultValue={d.unit} aria-label="Interval unit">
-              {units.map(([v, l]) => (
-                <option key={v} value={v}>
-                  {l}
-                </option>
-              ))}
-            </select>
-          </div>
-          {emailTrigger ? <p className="af-auto__hint" data-email-rule="interval">{EMAIL_TEXT.interval_rule}</p> : null}
-        </fieldset>
-      ) : calendar ? (
-        <fieldset className="af-auto__field" data-field="calendar">
-          <legend>{SCHEDULE_TEXT.legend}</legend>
-          <div className="af-auto__row" role="radiogroup" aria-label="Schedule kind">
-            {CALENDAR_KINDS.map((k) => (
-              <label key={k}>
-                <input type="radio" name={`${base}-calendar-kind`} value={k} checked={calendar.kind === k} disabled={p.busy} onChange={() => setCalKind(k)} />{" "}
-                {SCHEDULE_TEXT[`kind_${k}`]}
-              </label>
-            ))}
-          </div>
-          <AfCalendarRuleFields value={calendar} onChange={(next) => setCalState((prev) => withCalendarRule(prev ?? calendarStateOf(next), next))} idBase={base} disabled={p.busy} />
-          <AfServedSchedule state={described} whose="automation" />
-        </fieldset>
-      ) : (
-        <p className="af-auto__hint">This trigger has no interval to change.</p>
-      )}
-      <fieldset className="af-auto__field">
-        <legend>Context</legend>
-        <label>
-          <input type="radio" name="context" value="independent" defaultChecked={initial.context === "independent"} onChange={() => setContextMode("independent")} /> Independent — each run starts fresh
-        </label>
-        <label>
-          <input type="radio" name="context" value="growing" defaultChecked={initial.context === "growing"} onChange={() => setContextMode("growing")} /> Growing — each run sees the previous runs
-        </label>
-        <div hidden={contextMode !== "growing"}>
-        <label className="af-auto__field">
-          <span>Max growing context (tokens)</span>
-          <input name="growing_max_tokens" type="number" min={1} step={1} disabled={p.busy || contextMode !== "growing"} defaultValue={initial.growingMaxTokens} />
-          <span className="af-auto__hint">{GROWING_CONTEXT_HELP}</span>
-        </label>
-        </div>
-      </fieldset>
-      {initial.toolApproval ? (
-        <fieldset className="af-auto__field">
-          <legend>Tools</legend>
-          {p.availableTools !== undefined ? <AutomationToolsPicker availableTools={p.availableTools} value={selectedTools} onChange={setSelectedTools} disabled={p.busy} /> : null}
-          <label>
-            <input type="radio" name="tool_approval" value="auto" defaultChecked={initial.toolApproval === "auto"} /> Run without asking
-          </label>
-          <label>
-            <input type="radio" name="tool_approval" value="ask" defaultChecked={initial.toolApproval === "ask"} /> Ask before each tool call
-          </label>
-        </fieldset>
-      ) : null}
-      {initial.notifyEmail !== null && initial.notifyEmail !== undefined && initial.emailRecipients ? (
-        <fieldset className="af-auto__field" data-field="email">
-          <legend>Mailbox</legend>
-          {!usable ? <AfEmailSetupNotice status={p.emailStatus} onOpenMyEmail={p.onOpenMyEmail} /> : null}
-          {/* Without a usable account an option already on can still be switched off, never on. */}
-          <AfSwitchInput variant="row" action="notify-email" name="notify_email" label={EMAIL_TEXT.notify_label} defaultChecked={Boolean(initial.notifyEmail)} onChange={setEmailResult} unavailableReason={!usable && !initial.notifyEmail ? "Connect a mailbox first." : null} />
-          <p className="af-auto__hint">{EMAIL_TEXT.notify_hint} Turn on Email result to choose yourself or other email addresses.</p>
-          <div hidden={!emailResult}><fieldset className="af-auto__field" disabled={!emailResult} data-field="email-recipients">
-            <legend>{EMAIL_TEXT.recipients_legend}</legend>
-            <label>
-              <input type="radio" name="email_recipients" value="self" defaultChecked={initial.emailRecipients.mode === "self"} /> {EMAIL_TEXT.recipients_self}
-            </label>
-            <label>
-              <input type="radio" name="email_recipients" value="list" defaultChecked={initial.emailRecipients.mode === "list"} disabled={!usable && initial.emailRecipients.mode !== "list"} /> {EMAIL_TEXT.recipients_list}
-            </label>
-            <textarea name="email_recipient_list" aria-label={EMAIL_TEXT.recipients_list} rows={2} spellCheck={false} defaultValue={initial.emailRecipients.addresses} disabled={!usable && initial.emailRecipients.mode !== "list"} />
-            <p className="af-auto__hint">{EMAIL_TEXT.recipients_hint}</p>
-          </fieldset></div>
-        </fieldset>
-      ) : null}
-      <p className="af-auto__hint">Changes apply from the next run; runs that a new schedule would have had in the past are not made up.</p>
-      {p.errors.length ? (
-        <ul className="af-auto__form-errors" role="alert">
-          {p.errors.map((e) => (
-            <li key={e}>{e}</li>
-          ))}
-        </ul>
-      ) : null}
-      <div className="af-auto__row">
-        <button type="submit" className="af-auto__btn af-auto__btn--primary" data-action="edit-save" disabled={p.busy}>
-          <IconLabel icon="check" label={p.submitLabel ?? "Save changes"} />
-        </button>
-        {p.onCancel ? (
-          <button type="button" className="af-auto__btn" data-action="edit-cancel" onClick={p.onCancel}>
-            <IconLabel icon="x" label="Cancel" />
-          </button>
-        ) : null}
-      </div>
-    </form>
-  );
-}
+// The Edit form lives in ./AutomationEditForm.tsx (spec E); re-exported here under its names.
+export { AutomationReviseForm, type AutomationReviseFormProps, type AutomationModelPickerOptions } from "./AutomationEditForm.js";
 
 // --- occurrences -----------------------------------------------------------------
 
@@ -958,11 +1103,15 @@ export type OccurrencePairProps = {
   renderText?: RenderText;
   /** See `AutomationPanelProps.renderTurn`. */
   renderTurn?: RenderTurn;
+  /** See `AutomationPanelProps.turnChrome` (read only with `renderTurn`). */
+  turnChrome?: "card";
   readMarker?: React.ReactNode;
   /** See `AutomationPanelProps.onOpenWorkspace` (called with this occurrence's run id). */
   onOpenWorkspace?(runId: string): void;
   /** See `AutomationPanelProps.onOpenResource`. */
   onOpenResource?(resource: GatewayResource): void;
+  /** See `AutomationPanelProps.onOpenContext`. */
+  onOpenContext?(run: { runId: string; index: number }): void;
   /** What arrived (`occurrenceEventCard` of the run's `input_data.event`): the card above the task. */
   eventCard?: OccurrenceEventCard | null;
   /**
@@ -974,6 +1123,9 @@ export type OccurrencePairProps = {
   /** The automation's time zone (the summary's `time_zone`) for the run's time; default the viewer's. */
   timeZone?: string;
   nowMs?: number;
+  /** The summary's `current_occurrence` when it is THIS row's run: its live line (`AutomationLiveLine`)
+   * shows under the badge. Absent = the row as before. */
+  current?: CurrentOccurrence | null;
 };
 
 /**
@@ -1001,6 +1153,19 @@ export function occurrenceStartWords(row: Pick<OccurrenceRow, "trigger">): strin
 
 /** The summary of the disclosure that holds the raw text an occurrence's agent received. */
 export const RECEIVED_LABEL = "What the agent received";
+
+/**
+ * Whether a run's notification is shown under its answer. The response is shown once, in the answer
+ * bubble: a notification whose text (its body, else its title) is the answer's text, both trimmed
+ * and compared exactly, is a delivery fact only (the "Notified" badge says it) and is not shown.
+ * One whose text differs, or a run with no answer, shows it, after the answer.
+ */
+export function notifyShown(row: Pick<OccurrenceRow, "notify" | "answer">): boolean {
+  if (!row.notify) return false;
+  const sent = (row.notify.body || "").trim() || (row.notify.title || "").trim();
+  const answer = (row.answer || "").trim();
+  return !answer || sent !== answer;
+}
 
 function fieldValue(form: HTMLFormElement, name: string): string {
   const el = form.elements.namedItem(name) as { value?: string } | null;
@@ -1138,14 +1303,146 @@ export function attentionTarget(root: ParentNode | null, unseenIndex?: number): 
   return null;
 }
 
+/** The selector of the newest run's row: runs are listed oldest first, so the timeline's last one. */
+export const NEWEST_RUN_SELECTOR = ".af-auto__timeline > li.af-auto-occ:last-child";
+
+/** The newest run's row (`NEWEST_RUN_SELECTOR`), or null. */
+export function newestRunRow(root: ParentNode | null): HTMLElement | null {
+  return root ? root.querySelector<HTMLElement>(NEWEST_RUN_SELECTOR) : null;
+}
+
+/**
+ * Where an opening lands (spec B): what needs the person (`attentionTarget`: a wait to answer,
+ * else the oldest unseen result), else the START of the newest run (`newestRunRow`). Null when no
+ * run is on screen.
+ */
+export function openingTarget(root: ParentNode | null, unseenIndex?: number): { el: HTMLElement; reason: "attention" | "latest" } | null {
+  const attention = attentionTarget(root, unseenIndex);
+  if (attention) return { el: attention, reason: "attention" };
+  const latest = newestRunRow(root);
+  return latest ? { el: latest, reason: "latest" } : null;
+}
+
+/**
+ * The opening is decided ONCE per automation (selecting it in a list): `decide` answers true
+ * exactly once per `key` (the automation's id), on the first render that shows its runs, and
+ * false on every later render (a refresh, new rows, a live-line change, a wait that arrives
+ * later). An automation that has no run (`runCount` 0) is decided at once, with nothing to scroll
+ * to; one whose runs are still loading (none shown, some counted) waits for them.
+ */
+export class OpeningOnce {
+  private decided: string | null = null;
+  decide(key: string, rowsShown: number, runCount: number): boolean {
+    if (this.decided === key) return false;
+    if (rowsShown === 0 && runCount > 0) return false;
+    this.decided = key;
+    return rowsShown > 0;
+  }
+}
+
+type ScrollBox = { scrollTop: number; scrollHeight: number; clientHeight: number; parentElement: ScrollBox | null };
+/**
+ * The element that scrolls `el` vertically: the nearest ancestor whose `overflow-y` lets it scroll
+ * and whose content overflows it, else the document's scrolling element (`fallback`).
+ */
+export function scrollParentOf<T extends ScrollBox>(el: T | null, styleOf: (node: T) => { overflowY: string }, fallback: T | null): T | null {
+  for (let node = (el?.parentElement ?? null) as T | null; node; node = node.parentElement as T | null) {
+    const o = styleOf(node).overflowY;
+    if ((o === "auto" || o === "scroll" || o === "overlay") && node.scrollHeight > node.clientHeight) return node;
+  }
+  return fallback;
+}
+
+/** A run row's place on screen: its `data-run-id`, its top and bottom (viewport px). */
+export type RunRowPlace = { runId: string; top: number; bottom: number };
+
+/**
+ * The run row "Load earlier runs" keeps in place: the first row (in the order given, oldest first)
+ * that shows in the scroll area `[boxTop, boxBottom)`, with its top relative to the area's top.
+ * Null when no row shows.
+ */
+export function visibleRunAnchor(rows: readonly RunRowPlace[], boxTop: number, boxBottom: number): { runId: string; offset: number } | null {
+  for (const r of rows) if (r.bottom > boxTop && r.top < boxBottom) return { runId: r.runId, offset: r.top - boxTop };
+  return null;
+}
+
+/**
+ * The scroll offset that puts a row at `wantedOffset` from the top of the scroll area, given its
+ * offset now (`rowOffset`), within what the content allows (0 … scrollHeight − clientHeight).
+ * "Load earlier runs": the anchor row back at the offset it had before the click. The opening
+ * (spec B), the same rule with `wantedOffset` 0: the newest run's start at the top when the content
+ * allows; otherwise the list is at its end, where a newest run shorter than the area shows whole
+ * (`scrollIntoView({block: "start"})`, which the panel uses for the opening, clamps the same way).
+ */
+export function anchoredScrollTop(scrollTop: number, rowOffset: number, wantedOffset: number, scrollHeight: number, clientHeight: number): number {
+  const max = Math.max(0, scrollHeight - clientHeight);
+  return Math.min(max, Math.max(0, scrollTop + rowOffset - wantedOffset));
+}
+
+/** How long "Load earlier runs" keeps re-applying its anchor while the rows above it settle. */
+export const EARLIER_HOLD_MS = 1000;
+/** How long the opening (card chrome) holds its place while the cards' files and pictures load. */
+export const OPENING_HOLD_MS = 3000;
+
+/**
+ * Keeps a run row at `offset` from the top of `box`'s scroll area while `list` changes size (late
+ * content in the rows just added: cards a host fills in a later commit, images), until the person
+ * scrolls (wheel, touch, a key, a press on the scroll area or its scrollbar) or `EARLIER_HOLD_MS`
+ * has passed, whichever comes first. Returns the stop (idempotent); everything is disconnected then.
+ */
+function holdRunAnchor(box: HTMLElement, list: Element, rowOf: () => HTMLElement | undefined, offset: number, holdMs: number = EARLIER_HOLD_MS): () => void {
+  const doc = box.ownerDocument;
+  const win = doc.defaultView as (Window & typeof globalThis) | null;
+  if (!win || typeof win.ResizeObserver !== "function") return () => {};
+  const pageScroller = box === doc.scrollingElement || box === doc.documentElement;
+  const target: EventTarget = pageScroller ? win : box;
+  const personEvents = ["wheel", "touchstart", "pointerdown", "mousedown"] as const;
+  let stopped = false;
+  const apply = () => {
+    const row = rowOf();
+    if (!row || !box.isConnected) return stop();
+    box.scrollTop = anchoredScrollTop(box.scrollTop, row.getBoundingClientRect().top - scrollAreaOf(box).top, offset, box.scrollHeight, box.clientHeight);
+  };
+  const ro = new win.ResizeObserver(() => {
+    if (!stopped) apply();
+  });
+  const timer = win.setTimeout(() => stop(), holdMs);
+  function stop(): void {
+    if (stopped) return;
+    stopped = true;
+    ro.disconnect();
+    win!.clearTimeout(timer);
+    for (const e of personEvents) target.removeEventListener(e, stop, true);
+    win!.removeEventListener("keydown", stop, true);
+  }
+  for (const e of personEvents) target.addEventListener(e, stop, { capture: true, passive: true });
+  win.addEventListener("keydown", stop, { capture: true, passive: true });
+  ro.observe(list);
+  return stop;
+}
+
+/** The top and bottom (viewport px) of the area `box` scrolls: the viewport for the page's scroller. */
+function scrollAreaOf(box: HTMLElement): { top: number; bottom: number } {
+  const doc = box.ownerDocument;
+  if (box === doc.scrollingElement || box === doc.documentElement) return { top: 0, bottom: box.clientHeight };
+  const top = box.getBoundingClientRect().top + (box.clientTop || 0);
+  return { top, bottom: top + box.clientHeight };
+}
+
+const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
 export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
   const { row, tone, badge, statusText } = p.view;
   const idBase = `af-auto-occ-${row.run_id}`;
   const render = p.renderText ?? plainTextRenderer;
   const discussOk = p.discuss.enabled && p.view.canDiscuss && !p.busy;
   const discussWhy = !p.discuss.enabled ? p.discuss.reason ?? "Not available." : !p.view.canDiscuss ? "Available once this run finishes." : null;
-  const turn = (kind: AutomationTurn["kind"], text: string) =>
-    p.renderTurn ? p.renderTurn({ kind, role: kind === "trigger" ? "user" : "assistant", text, index: row.index, runId: row.run_id }) : render(text);
+  // Card chrome (spec F): the shared chat card draws the time, the files and the working state.
+  const card = p.turnChrome === "card" && !!p.renderTurn;
+  const turn = (kind: AutomationTurn["kind"], text: string, extra?: Pick<AutomationTurn, "ts" | "live" | "artifacts">) =>
+    p.renderTurn
+      ? p.renderTurn({ kind, role: kind === "trigger" ? "user" : "assistant", text, index: row.index, runId: row.run_id, ...(card ? { chrome: "card" as const, ...extra } : {}) })
+      : render(text);
   const turnClass = p.renderTurn ? " af-auto-turn--card" : "";
   // The task alone when the turn is the runtime's framing of it — its one-line trigger header, then
   // the task verbatim, then nothing or the appended events (structure, not prose); the whole
@@ -1154,16 +1451,45 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
   const showTask = taskOfTurn(row.user_turn, task) !== null;
   const started = occurrenceStartWords(row);
   const firedWords = whenWords(row.fired_at, { timeZone: p.timeZone, nowMs: p.nowMs, style: "day" });
+  // Only when there is a line to show: the pair stays hook-free otherwise (the row as before).
+  const liveShown = !!(p.current && automationLiveWords(p.current));
   const empty =
     tone === "failed" ? (row.failure ? "No answer." : "No answer: the run failed.") : tone === "waiting" ? "Waiting for your answer." : tone === "running" ? "Running…" : "No answer.";
+  const contextButton = p.onOpenContext ? (
+    <button
+      type="button"
+      className="af-btn af-btn--quiet af-auto-context-btn"
+      data-action="open-context"
+      title={AUTOMATION_EDIT_WORDS.context.button_hint}
+      aria-label={`${AUTOMATION_EDIT_WORDS.context.button} · Run #${row.index}`}
+      onClick={() => p.onOpenContext?.({ runId: row.run_id, index: row.index })}
+    >
+      <Icon name="info" size={14} className="af-btn__icon" />
+      <span>{AUTOMATION_EDIT_WORDS.context.button}</span>
+    </button>
+  ) : null;
+  const firedTitle = `${row.trigger.summary} · fired ${whenWords(row.fired_at, { timeZone: p.timeZone, nowMs: p.nowMs, style: "day" })}`;
+  // Card chrome: a run in progress has no answer yet; its card shows the working state.
+  const liveAnswer = card && !row.answer && tone === "running";
   return (
-    <li className={`af-auto-occ af-auto-occ--${tone}`} data-index={row.index} data-tone={tone} aria-labelledby={`${idBase}-h`}>
+    <li className={`af-auto-occ af-auto-occ--${tone}`} data-index={row.index} data-tone={tone} data-run-id={row.run_id} aria-labelledby={`${idBase}-h`} {...(card ? { "data-chrome": "card" } : {})}>
       <div className={`af-auto-turn af-auto-turn--trigger${turnClass}`} data-turn="trigger">
-        <div className="af-auto-turn__meta" id={`${idBase}-h`} title={`${row.trigger.summary} · fired ${whenWords(row.fired_at, { timeZone: p.timeZone, nowMs: p.nowMs, style: "day" })}`}>
+        {card ? (
+          // The run line: no time (it is in the card, in the reader's zone); the automation's zone is the tooltip.
+          <div className="af-auto-turn__meta af-auto-turn__runline" title={firedTitle}>
+            <span className="af-auto-turn__runwords" id={`${idBase}-h`}>
+              <span className="af-auto-turn__index">Run #{row.index}</span>
+              {started ? ` · ${started}` : ""}
+            </span>
+            {contextButton}
+          </div>
+        ) : (
+        <div className="af-auto-turn__meta" id={`${idBase}-h`} title={firedTitle}>
           <span className="af-auto-turn__index">Run #{row.index}</span>
           {started ? ` · ${started}` : ""}
           {firedWords ? ` · ${firedWords}` : ""}
         </div>
+        )}
         {p.eventCard ? (
           <div className="af-auto-event" data-event-card="true">
             <Icon name="inbox" size={14} className="af-auto__btn-icon" />
@@ -1175,8 +1501,10 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
           </div>
         ) : null}
         {/* A flow with no task (it reads only what arrived) has no message: no empty bubble (UX re-review #14). */}
-        {(showTask ? task : row.user_turn).trim() ? <div className="af-auto-turn__text">{turn("trigger", showTask ? task : row.user_turn)}</div> : null}
-        {showTask ? (
+        {(showTask ? task : row.user_turn).trim() ? <div className="af-auto-turn__text">{turn("trigger", showTask ? task : row.user_turn, { ts: row.fired_at })}</div> : null}
+        {p.onOpenContext ? (
+          card ? null : <div className="af-auto-turn__context">{contextButton}</div>
+        ) : showTask ? (
           <details className="af-auto-received" data-received="true">
             <summary>{RECEIVED_LABEL}</summary>
             <div className="af-auto-received__body">{render(row.user_turn)}</div>
@@ -1184,18 +1512,23 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
         ) : null}
       </div>
       <div className={`af-auto-turn af-auto-turn--answer${turnClass}`} data-turn="answer">
+        {card ? (
+          badge || statusText ? (
+            <div className="af-auto-turn__meta">
+              {badge ? <span className={`af-auto-badge af-auto-badge--${tone}`}>{badge}</span> : null}
+              {statusText ? <span className="af-auto-turn__status">{statusText}</span> : null}
+            </div>
+          ) : null
+        ) : (
         <div className="af-auto-turn__meta">
           {badge ? <span className={`af-auto-badge af-auto-badge--${tone}`}>{badge}</span> : null}
-          <span className="af-auto-turn__status">{statusText}</span>
+          {statusText ? <span className="af-auto-turn__status">{statusText}</span> : null}
           {/* One time format with the run's own line ("today 17:29"); the UTC time is the tooltip. */}
           {row.finished_at ? <span title={whenWords(row.finished_at, { timeZone: p.timeZone, nowMs: p.nowMs, style: "clock" })}> · {whenWords(row.finished_at, { timeZone: p.timeZone, nowMs: p.nowMs, style: "day" })}</span> : null}
         </div>
-        {row.notify ? (
-          <div className="af-auto-notify" data-notify="true">
-            <strong>{row.notify.title}</strong>
-            {row.notify.body ? <div className="af-auto-notify__body">{render(row.notify.body)}</div> : null}
-          </div>
-        ) : null}
+        )}
+        {/* Card chrome: the live line is the card's footer (the host's renderer draws it). */}
+        {liveShown && !liveAnswer ? <AutomationLiveLine current={p.current!} nowMs={p.nowMs} /> : null}
         {row.failure ? (
           <div className="af-auto-failure" data-failure={row.failure.reason_code}>
             <strong>{failureReasonWords(row.failure.reason_code)}</strong>
@@ -1205,8 +1538,32 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
             </span>
           </div>
         ) : null}
-        {row.answer ? <div className="af-auto-turn__text">{turn("answer", row.answer)}</div> : <div className="af-auto-turn__empty">{empty}</div>}
-        {row.artifacts.length ? (
+        {/* The live line already says the run is in progress: no "Running…" under it too. */}
+        {card ? (
+          row.answer || liveAnswer || row.artifacts.length ? (
+            <>
+              {!row.answer && !liveAnswer ? <div className="af-auto-turn__empty">{empty}</div> : null}
+              <div className="af-auto-turn__text">
+                {turn("answer", row.answer ?? "", {
+                  ...(row.finished_at ? { ts: row.finished_at } : {}),
+                  ...(liveAnswer ? { live: { current: p.current ?? null, ...(p.nowMs !== undefined ? { nowMs: p.nowMs } : {}) } } : {}),
+                  artifacts: row.artifacts,
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="af-auto-turn__empty">{empty}</div>
+          )
+        ) : row.answer ? <div className="af-auto-turn__text">{turn("answer", row.answer)}</div> : liveShown ? null : <div className="af-auto-turn__empty">{empty}</div>}
+        {/* What the person was sent, after the response, only when it is not the response itself. */}
+        {row.notify && notifyShown(row) ? (
+          <div className="af-auto-notify" data-notify="true">
+            <span className="af-auto-notify__label">{AUTOMATION_EDIT_WORDS.run.notify_sent}</span>
+            <strong>{row.notify.title}</strong>
+            {row.notify.body ? <div className="af-auto-notify__body">{render(row.notify.body)}</div> : null}
+          </div>
+        ) : null}
+        {row.artifacts.length && !card ? (
           <ul className="af-auto-artifacts" aria-label="Artifacts">
             {row.artifacts.map((a) => (
               <li key={a.artifact_id}>
@@ -1319,7 +1676,7 @@ export function OccurrencePair(p: OccurrencePairProps): React.ReactElement {
 export const NOTICE_MS = 5000;
 
 // A notice names the NEW STATE (operator rule 2026-09-30), never the command that was sent.
-const COMMAND_NOTICES: Record<string, string> = {
+export const COMMAND_NOTICES: Readonly<Record<string, string>> = {
   [CONTROL_COMMANDS.pause]: "Automation paused.",
   [CONTROL_COMMANDS.resume]: "Automation active.",
   [CONTROL_COMMANDS.run_now]: "Run requested.",
@@ -1356,6 +1713,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
   };
   const [reviseErrors, setReviseErrors] = useState<string[]>([]);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [discussAt, setDiscussAt] = useState<number | null>(null);
   const [localError, setLocalError] = useState<ApiError | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -1387,6 +1745,11 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
   const idsRef = useRef<ActionIds | null>(null);
   if (!idsRef.current) idsRef.current = new ActionIds(props.newId ?? mintUuid);
   const ids = idsRef.current;
+  // The header notice's button (Restart / Turn back on / Unarchive; Edit opens the form).
+  const noticeAction = useAutomationNoticeAction(summary, ids, props.onCommand, () => {
+    setReviseErrors([]);
+    setReviseOpen(true);
+  }, props.nowMs);
 
   const report = (e: unknown) => setLocalError(toApiError(e));
   const act = <T,>(signature: string, run: (id: string) => Promise<T>, done: (value: T) => void) => {
@@ -1438,20 +1801,86 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
     );
   });
 
-  // The attention rule: once per automation, when its runs are on screen, go to what needs the person.
-  const openedAtRef = useRef<string | null>(null);
+  // The opening (spec B), decided ONCE per automation when its runs are on screen: what needs the
+  // person (outlined for a moment), else the start of the newest run, at the top of the scroll area.
+  const openingRef = useRef<OpeningOnce | null>(null);
+  if (!openingRef.current) openingRef.current = new OpeningOnce();
+  const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openAt = props.openAt ?? "attention";
   const firstUnseen = summary.attention.items[0]?.index;
+  const cardChrome = props.turnChrome === "card" && !!props.renderTurn;
   useEffect(() => {
-    if (openAt !== "attention" || openedAtRef.current === summary.automation_id || !props.occurrences.length) return;
-    const target = attentionTarget(rootRef.current, firstUnseen);
+    if (openAt !== "attention") return;
+    if (!(openingRef.current as OpeningOnce).decide(summary.automation_id, props.occurrences.length, summary.occurrence_count)) return;
+    const target = openingTarget(rootRef.current, firstUnseen);
     if (!target) return;
-    openedAtRef.current = summary.automation_id;
-    (target as { scrollIntoView?: (o: object) => void }).scrollIntoView?.({ block: "start" });
-    target.classList.add("is-attention-focus");
-    const t = setTimeout(() => target.classList.remove("is-attention-focus"), ATTENTION_FOCUS_MS);
-    return () => clearTimeout(t);
-  }, [openAt, summary.automation_id, props.occurrences, firstUnseen]);
+    (target.el as { scrollIntoView?: (o: object) => void }).scrollIntoView?.({ block: "start" });
+    // Card chrome: files and pictures in the cards load after this commit (their names, their
+    // thumbnails), above and below; the opening's rule is held while they settle, until the person
+    // scrolls: the target's start at the top of the scroll area, as far as the content allows (a
+    // newest run too short to reach the top follows the end as content grows below it).
+    if (cardChrome && typeof getComputedStyle === "function") {
+      const el = target.el;
+      const doc = el.ownerDocument;
+      const box = scrollParentOf<HTMLElement>(el, (n) => getComputedStyle(n), (doc.scrollingElement as HTMLElement | null) ?? doc.documentElement);
+      const list = rootRef.current?.querySelector(".af-auto__timeline");
+      if (box && list) {
+        holdRef.current?.();
+        holdRef.current = holdRunAnchor(box, list, () => (el.isConnected ? el : undefined), 0, OPENING_HOLD_MS);
+      }
+    }
+    if (target.reason !== "attention") return;
+    const el = target.el;
+    el.classList.add("is-attention-focus");
+    if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+    focusTimerRef.current = setTimeout(() => el.classList.remove("is-attention-focus"), ATTENTION_FOCUS_MS);
+  }, [openAt, summary.automation_id, props.occurrences, summary.occurrence_count, firstUnseen, cardChrome]);
+  useEffect(() => () => {
+    if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+  }, []);
+
+  // "Load earlier runs" keeps what the person looks at in place, by ANCHOR: the click remembers the
+  // first run row showing in the scroll area and its top there; once the earlier rows are in, the
+  // scroll is set so that same row (`data-run-id`) has the same top — whatever the button and the
+  // margins above it did meanwhile.
+  const earlierRef = useRef<{ key: string; rows: number; box: HTMLElement; runId: string; offset: number } | null>(null);
+  // The anchor stays held a moment after the restore (`holdRunAnchor`): rows above it keep changing
+  // height after the commit that added them.
+  const holdRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => holdRef.current?.(), []);
+  const runRows = () => Array.from(rootRef.current?.querySelectorAll<HTMLElement>("li.af-auto-occ[data-run-id]") ?? []);
+  const loadEarlier = () => {
+    earlierRef.current = null;
+    holdRef.current?.();
+    holdRef.current = null;
+    const rows = runRows();
+    if (rows.length) {
+      const doc = rows[0].ownerDocument;
+      const box = scrollParentOf<HTMLElement>(rows[0], (n) => getComputedStyle(n), (doc.scrollingElement as HTMLElement | null) ?? doc.documentElement);
+      if (box) {
+        const area = scrollAreaOf(box);
+        const anchor = visibleRunAnchor(rows.map((r) => { const b = r.getBoundingClientRect(); return { runId: r.getAttribute("data-run-id") ?? "", top: b.top, bottom: b.bottom }; }), area.top, area.bottom);
+        if (anchor) earlierRef.current = { key: summary.automation_id, rows: props.occurrences.length, box, ...anchor };
+      }
+    }
+    props.onLoadMore();
+  };
+  useBeforePaint(() => {
+    const pending = earlierRef.current;
+    if (!pending) return;
+    const row = runRows().find((r) => r.getAttribute("data-run-id") === pending.runId);
+    if (pending.key !== summary.automation_id || !row || !pending.box.isConnected) {
+      earlierRef.current = null;
+      return;
+    }
+    if (props.occurrences.length <= pending.rows) return;
+    earlierRef.current = null;
+    const box = pending.box;
+    box.scrollTop = anchoredScrollTop(box.scrollTop, row.getBoundingClientRect().top - scrollAreaOf(box).top, pending.offset, box.scrollHeight, box.clientHeight);
+    holdRef.current?.();
+    const list = row.parentElement;
+    holdRef.current = list ? holdRunAnchor(box, list, () => runRows().find((r) => r.getAttribute("data-run-id") === pending.runId), pending.offset) : null;
+  }, [props.occurrences, summary.automation_id]);
 
   const controls = automationControls(summary, props.occurrences, busy);
   const views = occurrenceViews(props.occurrences);
@@ -1464,11 +1893,27 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
   const shownError = localError ?? props.error ?? null;
   const errText = shownError ? apiErrorText(shownError) : null;
   const att = summary.attention;
+  const current = summary.current_occurrence;
 
   return (
     <section ref={rootRef} className={`af-auto${props.className ? ` ${props.className}` : ""}`} {...(props.hideHeader ? { "aria-label": summary.title } : { "aria-labelledby": titleId })} aria-busy={busy} data-text-rendering={props.renderText ? "rich" : "unformatted"}>
       {props.hideHeader ? null : <>
-      <AutomationHeader summary={summary} workflowLabel={props.workflowName} triggerSources={props.triggerSources} titleId={titleId} nowMs={props.nowMs} onOpenWorkspace={props.onOpenWorkspace} triggerConnections={props.triggerConnections} mailboxes={props.mailboxes} />
+      <AutomationHeader
+        summary={summary}
+        definition={props.definition}
+        workflowLabel={props.workflowName}
+        triggerSources={props.triggerSources}
+        titleId={titleId}
+        nowMs={props.nowMs}
+        onOpenWorkspace={props.onOpenWorkspace}
+        triggerConnections={props.triggerConnections}
+        mailboxes={props.mailboxes}
+        extraChip={props.headerChip}
+        editSections={editable ? new Set<AutomationEditSection>(["what"]) : undefined}
+        onNoticeAction={noticeAction.onAction}
+        noticeState={noticeAction.state}
+        busy={busy}
+        controls={
       <AutomationControlsBar
         summary={summary}
         occurrences={props.occurrences}
@@ -1478,6 +1923,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
         notice={notice}
         onDismissNotice={() => setNotice(null)}
         idBase={`${titleId}-ctl`}
+        {...(props.definition ? { onOpenDetails: () => setDetailsOpen(true), detailsOpen } : {})}
         onCommand={(type) =>
           act(`command:${type}`, (command_id) => props.onCommand(type, undefined, { command_id }), () => {
             if (type === CONTROL_COMMANDS.archive) {
@@ -1497,15 +1943,25 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
           setFocusAfter(['[data-action="archive"]']);
         }}
       />
+        }
+      />
+      {props.definition ? (
+        <AutomationDetailsDialog open={detailsOpen} onClose={() => setDetailsOpen(false)} summary={summary}>
+          <AutomationDefinitionBlock definition={props.definition} renderText={render} served={summary} triggerConnections={props.triggerConnections} mailboxes={props.mailboxes} defaultModelLabel={props.modelPickerOptions?.defaultModeLabel} {...(props.headerChip ? { workspaces: props.headerChip.label } : {})} />
+        </AutomationDetailsDialog>
+      ) : null}
       </>}
       {reviseOpen && editBase ? (
         <AutomationReviseForm
+          presentation="dialog"
           summary={editBase.summary}
           definition={editBase.definition}
           busy={busy}
-          errors={reviseErrors}
-          availableTools={props.availableTools}
+          // A refused save is said inside the dialog too (the panel's error line is behind it).
+          errors={localError ? [...reviseErrors, `${apiErrorText(localError).title} ${apiErrorText(localError).detail}`.trim()] : reviseErrors}
+          toolCatalog={props.toolCatalog}
           workflowPickerOptions={props.workflowPickerOptions}
+          modelPickerOptions={props.modelPickerOptions}
           emailStatus={props.emailStatus}
           onOpenMyEmail={props.onOpenMyEmail}
           previewSchedule={props.previewSchedule}
@@ -1535,8 +1991,6 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
             });
           }}
         />
-      ) : props.definition ? (
-        <AutomationDefinitionBlock definition={props.definition} renderText={render} served={summary} triggerConnections={props.triggerConnections} mailboxes={props.mailboxes} />
       ) : null}
       {errText ? (
         <div className="af-auto__error" role="alert" data-code={shownError?.code}>
@@ -1575,7 +2029,7 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
         </section>
       ) : null}
       {more > 0 ? (
-        <button type="button" className="af-auto__btn af-auto__more" data-action="load-more" disabled={busy} onClick={props.onLoadMore}>
+        <button type="button" className="af-auto__btn af-auto__more" data-action="load-more" disabled={busy} onClick={loadEarlier}>
           <IconLabel icon="history" label={`Load earlier runs (${more} more)`} />
         </button>
       ) : null}
@@ -1592,11 +2046,14 @@ export function AutomationPanel(props: AutomationPanelProps): React.ReactElement
                 task={typeof task === "string" ? task : undefined}
                 timeZone={summary.time_zone}
                 nowMs={props.nowMs}
+                current={current && current.run_id === v.row.run_id ? current : null}
                 discuss={controls.discuss}
                 renderText={render}
                 renderTurn={props.renderTurn}
+                {...(props.turnChrome ? { turnChrome: props.turnChrome } : {})}
                 readMarker={summary.attention.items.filter((it) => it.index === v.row.index).map((it) => marker(it.cursor))}
                 onOpenWorkspace={props.onOpenWorkspace}
+                onOpenContext={props.onOpenContext}
                 onOpenResource={
                   props.onOpenResource
                     ? (resource) => {

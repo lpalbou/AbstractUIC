@@ -218,6 +218,15 @@ export function ToolModeEditor(props: ToolModeEditorProps): React.ReactElement {
           aria-label="Search tools"
           value={query}
           onChange={(e) => { setQuery(e.target.value); setExpanded({}); }}
+          // Escape with a search typed clears it and goes no further (an enclosing form or dialog
+          // never closes on it); on an empty box it is left to the page.
+          onKeyDown={(e) => {
+            if (e.key !== "Escape" || !query) return;
+            e.preventDefault();
+            e.stopPropagation();
+            setQuery("");
+            setExpanded({});
+          }}
         />
         {compact ? <AfTooltip content={[props.note, props.savedWhere, props.storage?.where].filter(Boolean).join(" ")}><button type="button" className="af-settings-help" aria-label="About tool permissions"><Icon name="info" size={16} /></button></AfTooltip> : null}
         <span className="af-tool-modes__count" data-tool-count="">

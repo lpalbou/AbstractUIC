@@ -128,8 +128,9 @@ check("panel: no card and no disclosure when the turn does not carry the task (r
 const summary = { automation_id: "a1", title: "Release digest", status: "active", trigger: { binding_id: "b", ...feed }, context_mode: "growing", time_zone: "Europe/Paris", schedule_text: "feed.item@1", schedule_rule_text: "feed.item@1", occurrence_count: 1, attention: { unread: false, unseen_count: 0, pending_waits: 0, items: [], waits: [], cursor: null }, capabilities: ["pause", "run_now", "revise", "archive", "discuss"], revision: 1, last_occurrence: null, current_occurrence: null, workspace_root: "/data/workspaces/session-automation-1" };
 const panel = (extra) => renderToStaticMarkup(React.createElement(kit.AutomationPanel, { summary, occurrences: [row], triggerSources: [], busy: false, onRevise: async () => ({}), onCommand: async () => ({}), onDiscuss: async () => ({}), onSeen: async () => {}, onLoadMore() {}, onOpenRun() {}, onAnswerWait: async () => {}, previewSchedule: async () => ({}), nowMs: NOW, ...extra }));
 const full = panel({ triggerConnections: connections, mailboxes, occurrenceEvents: { r1: feedEvent } });
-check("panel header: the trigger by name, never the served id text", full.includes('data-fact="trigger">When Release notes has a new item') && !/data-fact="trigger">[^<]*feed\.item@1/.test(full));
-check("panel header: Next run of an event-driven automation", full.includes('data-fact="next">when something new arrives</dd>'));
+const head = full.split("</header>")[0];
+check("panel header: the trigger by name (its chip), never the served id text", /data-fact="trigger">[^]*?<span class="af-auto__chip-text">When Release notes has a new item<\/span>/.test(head) && !/af-auto__chip-text">[^<]*feed\.item@1/.test(head));
+check("panel header: an event-driven automation has no Next run chip (its When chip says when it runs)", !head.includes('data-fact="next"'));
 check("panel: occurrenceEvents feed the card", full.includes('data-event-card="true"') && full.includes("1 new item: “Release 0.13”"));
 check("panel: no card without occurrenceEvents (absent input)", !panel({ triggerConnections: connections }).includes("data-event-card"));
 check("panel header: no folder path, no revision", !full.includes("/data/workspaces/session-automation-1") && !full.includes('data-fact="revision"'));

@@ -62,7 +62,10 @@ function walk(node, visit) {
   if (node === null || node === undefined || typeof node === "boolean") return;
   if (Array.isArray(node)) return node.forEach((n) => walk(n, visit));
   if (typeof node !== "object") return;
-  if (node.type === AutomationReviseForm) return walk(harness(AutomationReviseForm).render(node.props), visit);
+  if (node.type === AutomationReviseForm || node.type === kit.AfModal) {
+    visit(node);
+    return walk(harness(node.type).render(node.props), visit);
+  }
   if (node.type?.name === "VisibleContentMarker") return visit(node);
   if (typeof node.type === "function") return walk(node.type(node.props), visit);
   visit(node);
@@ -74,12 +77,42 @@ const find = (tree, pred) => {
   return out;
 };
 const byAction = (tree, action) => find(tree, (n) => n.props && n.props["data-action"] === action);
+// The Edit form's own element tree (function components left unrendered: their props are asserted).
+const shallowAll = (node, pred, out = []) => {
+  if (Array.isArray(node)) { for (const n of node) shallowAll(n, pred, out); return out; }
+  if (!node || typeof node !== "object" || !node.props) return out;
+  if (pred(node)) out.push(node);
+  shallowAll(node.props.children, pred, out);
+  return out;
+};
+// Drives one Edit form under the hook harness: its state persists across renders.
+function editHarness(props) {
+  const h = harness(AutomationReviseForm, false);
+  let tree = h.render(props);
+  const api = {
+    get tree() { return tree; },
+    rerender(next) { if (next) props = { ...props, ...next }; tree = h.render(props); return tree; },
+    el: (pred) => shallowAll(tree, pred)[0],
+    all: (pred) => shallowAll(tree, pred),
+    type(name, value) { api.el((n) => n.props.name === name).props.onChange({ target: { value } }); api.rerender(); },
+    action: (a) => api.el((n) => n.props["data-action"] === a),
+    form: () => api.el((n) => n.type === "form"),
+    save() { api.form().props.onSubmit({ preventDefault() {} }); api.rerender(); },
+  };
+  return api;
+}
 const button = (html, action) => {
   const m = new RegExp(`<button[^>]*data-action="${action}"[^>]*>`).exec(html);
   return m ? m[0] : null;
 };
 // The "Active" state toggle (operator 2026-09-30): aria-pressed, aria-disabled when unavailable.
 const toggle = (html) => button(html, "active");
+// One chip of the header's row (spec G): its text and its tooltip (the whole fact), or null.
+const chip = (html, fact) => {
+  const m = new RegExp(`<li class="af-auto__chip" data-fact="${fact}">([\\s\\S]*?)</li>`).exec(html);
+  if (!m) return null;
+  return { text: m[1].replace(/<[^>]+>/g, ""), title: (/title="([^"]*)"/.exec(m[1]) || [])[1] ?? "", tone: (/af-chip--(neutral|warning|error|success|info|accent|muted)/.exec(m[1]) || [])[1] ?? "", html: m[1] };
+};
 const toggleOn = (html) => /role="switch"[^>]*aria-checked="true"/.test(toggle(html) || "");
 const toggleAvailable = (html) => toggle(html) !== null && !/aria-disabled="true"/.test(toggle(html));
 const noVerbPair = (html) => button(html, "pause") === null && button(html, "resume") === null;
@@ -132,64 +165,68 @@ const mailHtml = panel({ summary: mail, occurrences: occ });
   check("Discuss labelled in plain words (the fork's details are its hint)", mailHtml.includes(`<span>${esc(DISCUSS_LABEL)}</span></button>`) && DISCUSS_LABEL === "Discuss this run");
   check("no stale 'read-only workspace' wording", !mailHtml.includes("read-only workspace") && !mailHtml.includes("forked session"));
   check("Discuss disabled on the waiting occurrence only", chunks.every((c, i) => (/data-action="discuss" disabled=""/.test(c)) === (i === 6)));
-  check("header: the served rule (Every 30 minutes (UTC)), growing, next run", mailHtml.includes(">Every 30 minutes (UTC)</dd>") && mailHtml.includes("Growing — each run sees the previous runs") && mailHtml.includes('data-fact="next">2026-09-27 09:00 Europe/Paris (in 25 min)</dd>'));
-  check("header: attention 2 unseen + 2 waiting, notable", mailHtml.includes('class="is-notable">2 unseen · 2 waiting for you</dd>'));
+  check("header: the served rule (Every 30 minutes (UTC)), builds on earlier runs, next run relative with the full date in its tooltip", chip(mailHtml, "trigger")?.text === "Every 30 minutes (UTC)" && chip(mailHtml, "context")?.text === "Builds on earlier runs" && chip(mailHtml, "next")?.text === "Next in 25 min" && chip(mailHtml, "next")?.title === "Next run: 2026-09-27 09:00 Europe/Paris (in 25 min)", JSON.stringify([chip(mailHtml, "trigger"), chip(mailHtml, "next")]));
+  // Operator 2026-11-27: the header shows the parameters; runs and attention are not parameters (the
+  // unread count is the list's).
+  check("header: no attention chip and no runs chip (not parameters)", chip(mailHtml, "attention") === null && chip(mailHtml, "count") === null, JSON.stringify(chip(mailHtml, "attention")));
+  check("header: one header, no fold, no labelled rows (spec G)", !/<header class="af-auto__head">[\s\S]*?<details/.test(mailHtml.split("</header>")[0] + "</header>") && !mailHtml.includes("<dt>Attention</dt>") && !mailHtml.includes("<dt>Runs</dt>") && !mailHtml.includes("<dt>Context</dt>") && !mailHtml.includes("<dt>Now</dt>"));
   check("attention strip lists both items oldest first", mailHtml.indexOf('data-cursor="att1:1"') > 0 && mailHtml.indexOf('data-cursor="att1:2"') > mailHtml.indexOf('data-cursor="att1:1"'));
   check("attention strip lists the pending wait", mailHtml.includes("af-auto__attention-item--wait"));
   check("controls: Active toggle pressed and available; run now disabled while an occurrence waits; stop current enabled", toggleOn(mailHtml) && toggleAvailable(mailHtml) && !enabled(mailHtml, "run_now") && enabled(mailHtml, "stop_current"));
   check("controls: no Pause/Resume verb buttons, the toggle is labelled Active", noVerbPair(mailHtml) && /data-action="active"[^>]*>.*?<span class="af-switch__label">Active<\/span><\/span><\/button>/.test(mailHtml));
   check("controls: labelled toolbar", mailHtml.includes('role="toolbar" aria-label="Automation controls"'));
-  check("section labelled by the title, aria-busy false", /<section class="af-auto" aria-labelledby="([^"]+)" aria-busy="false" data-text-rendering="unformatted">/.test(mailHtml) && /<h2 class="af-auto__title" id="[^"]+" tabindex="-1">Inbox triage<\/h2>/.test(mailHtml));
+  check("section labelled by the title, aria-busy false", /<section class="af-auto" aria-labelledby="([^"]+)" aria-busy="false" data-text-rendering="unformatted">/.test(mailHtml) && /<h2 class="af-auto__title" id="[^"]+" tabindex="-1" title="Inbox triage">Inbox triage<\/h2>/.test(mailHtml));
   check("all occurrences loaded → no load-more", button(mailHtml, "load-more") === null);
 }
 
 // --- News monitor: every 8 hours, load more ---------------------------------------------
 {
   const html = panel({ summary: news, occurrences: [] });
-  check("news: the served rule Every 8 hours (UTC)", html.includes(">Every 8 hours (UTC)</dd>"));
-  check("news: independent", html.includes("Independent — each run starts fresh"));
-  check("news: next run (served next_run_local cut + relative from next_run_at)", html.includes('data-fact="next">2026-09-27 10:00 Europe/Paris (in 1 h 25 min)</dd>'));
+  check("news: the served rule Every 8 hours (UTC)", chip(html, "trigger")?.text === "Every 8 hours (UTC)" && chip(html, "trigger")?.title === "When it runs: Every 8 hours (UTC)");
+  check("news: starts fresh", chip(html, "context")?.text === "Starts fresh" && chip(html, "context")?.title === "Each run starts fresh.");
+  check("news: next run (relative from next_run_at; the served next_run_local cut in the tooltip)", chip(html, "next")?.text === "Next in 1 h 25 min" && chip(html, "next")?.title === "Next run: 2026-09-27 10:00 Europe/Paris (in 1 h 25 min)", JSON.stringify(chip(html, "next")));
   // R16.1 A4: the header shows the SERVED next run: a changed gateway value changes the display, and
   // next_fire_at alone (no served next_run_*) shows nothing scheduled.
-  check("news: a different served next_run_local/at changes the Next run fact", panel({ summary: { ...news, next_run_local: "2026-09-27T11:30:00+02:00", next_run_at: "2026-09-27T09:30:00+00:00" } }).includes('data-fact="next">2026-09-27 11:30 Europe/Paris (in 2 h 55 min)</dd>'));
-  check("news: next_fire_at without the served fields = none scheduled (never computed)", panel({ summary: { ...news, next_run_local: undefined, next_run_at: undefined } }).includes('data-fact="next">none scheduled</dd>'));
+  check("news: a different served next_run_local/at changes the Next run chip", chip(panel({ summary: { ...news, next_run_local: "2026-09-27T11:30:00+02:00", next_run_at: "2026-09-27T09:30:00+00:00" } }), "next")?.title === "Next run: 2026-09-27 11:30 Europe/Paris (in 2 h 55 min)");
+  check("news: next_fire_at without the served fields = no Next run chip (never computed)", chip(panel({ summary: { ...news, next_run_local: undefined, next_run_at: undefined } }), "next") === null);
   check("news: nothing in flight → no 'Now' fact", !html.includes('data-fact="current"'));
   // UX review 2026-10-25 #4: no folder path, revision or workflow id in the header (they are under Details).
   check("news: no folder path, revision or target id in the header without onOpenWorkspace", !html.includes('data-fact="workspace"') && !html.includes(news.workspace_root) && !html.includes('data-fact="revision"') && !html.includes('data-fact="workflow"') && button(html, "open-workspace") === null);
   const wpath = renderToStaticMarkup(React.createElement(parts.WrappingPath, { path: news.workspace_root }));
   check("WrappingPath: the path wraps at its separators (<wbr> after each /), text unchanged", wpath.includes("/<wbr/>") && wpath.includes("-<wbr/>") && wpath.replace(/<[^>]+>/g, "") === news.workspace_root);
-  check("news: the flow's name when the host gives it (Flow), never the target id", panel({ summary: news, workflowName: "Release digest" }).includes('<dt>Flow</dt><dd data-fact="workflow">Release digest</dd>'));
-  check("news: attention quiet", html.includes('data-fact="attention">nothing new</dd>') && !html.includes("af-auto__attention\""));
-  check("news: Active switch on and available, run now enabled, stop current disabled", toggleOn(html) && toggleAvailable(html) && enabled(html, "run_now") && !enabled(html, "stop_current"));
+  check("news: the flow's name when the host gives it (Flow), never the target id", chip(panel({ summary: news, workflowName: "Release digest" }), "workflow")?.text === "Release digest");
+  check("news: attention quiet = no attention chip", chip(html, "attention") === null && !html.includes("af-auto__attention\""));
+  check("news: no runs chip (the runs count is not a parameter)", chip(html, "count") === null, JSON.stringify(chip(html, "count")));
+  check("news: Active switch on and available, ONE Run now button (no Stop while nothing runs)", toggleOn(html) && toggleAvailable(html) && enabled(html, "run_now") && button(html, "stop_current") === null);
   check("news: load more (6 more)", enabled(html, "load-more") && html.includes("Load earlier runs (6 more)"));
   check("news: no runs text", html.includes("No runs yet."));
 }
 
 // --- current_occurrence / next_fire_at (runtime 64ee72a) --------------------------------------
 {
-  check("mail: 'Run #7 running' from current_occurrence", mailHtml.includes('<dt>Now</dt><dd data-fact="current" class="is-notable">Run #7 running</dd>'));
-  check("mail: next run shown WHILE an occurrence runs (active + scheduled)", mailHtml.includes('data-fact="next">2026-09-27 09:00 Europe/Paris (in 25 min)'));
+  check("mail: a run in flight (current_occurrence) → the ONE button is Stop", enabled(mailHtml, "stop_current") && button(mailHtml, "run_now") === null && !mailHtml.includes('data-fact="current"'));
+  check("mail: next run shown WHILE an occurrence runs (active + scheduled)", chip(mailHtml, "next")?.title === "Next run: 2026-09-27 09:00 Europe/Paris (in 25 min)");
   // Never inferred from last_occurrence: a waiting last occurrence with current_occurrence null shows nothing in flight.
   const stale = panel({ summary: { ...mail, current_occurrence: null }, occurrences: [] });
   check("no 'Now' when current_occurrence is null, even if last_occurrence is waiting", mail.last_occurrence.status === "waiting" && !stale.includes('data-fact="current"'));
   check("controls follow current_occurrence, not last_occurrence (run now on, stop off)", enabled(stale, "run_now") && !enabled(stale, "stop_current"));
   const flying = panel({ summary: { ...news, current_occurrence: { index: 7, run_id: news.last_occurrence.run_id, attempt: 2, status: "backoff" } }, occurrences: [] });
-  check("in-flight occurrence on a row whose last occurrence is completed → Now + stop enabled", flying.includes(">Run #7 waiting to retry (attempt 3)</dd>") && enabled(flying, "stop_current") && !enabled(flying, "run_now"));
+  check("in-flight occurrence on a row whose last occurrence is completed → Stop enabled, no Run now", enabled(flying, "stop_current") && button(flying, "run_now") === null);
   const L = kit.currentOccurrenceLabel;
   check("labels: running / starting / attempt / none", L(mail) === "Run #7 running" && L({ current_occurrence: { index: 3, run_id: "r", attempt: 1, status: "admitted" } }) === "Run #3 starting" && L({ current_occurrence: { index: 3, run_id: "r", attempt: 2, status: "running" } }) === "Run #3 running (attempt 2)" && L(news) === null && L({}) === null);
   const R = kit.relativeIn;
   check("relativeIn: min / h / d / due", R("2026-09-27T06:36:00Z", NOW) === "in 1 min" && R("2026-09-27T09:35:00Z", NOW) === "in 3 h" && R("2026-09-29T08:35:00Z", NOW) === "in 2 d 2 h" && R("2026-09-27T06:00:00Z", NOW) === "due now");
-  check("paused: no next run time, no Now", jour.current_occurrence === null && panel({ summary: jour }).includes('data-fact="next">none while paused</dd>'));
+  check("paused: no Next run chip, no Now", jour.current_occurrence === null && chip(panel({ summary: jour }), "next") === null);
 }
 
 // --- Journal (paused): run now while paused ------------------------------------------
 {
   const html = panel({ summary: jour, occurrences: [] });
-  check("journal: the served rule with its bounds, verbatim", html.includes(`>${esc(jour.schedule_rule_text)}</dd>`) && jour.schedule_rule_text.includes("12 runs max"));
+  check("journal: the served rule with its bounds, verbatim", chip(html, "trigger")?.text === esc(jour.schedule_rule_text) && jour.schedule_rule_text.includes("12 runs max"));
   check("journal: Active toggle plain (paused) and available; no Pause/Resume buttons", !toggleOn(html) && toggleAvailable(html) && noVerbPair(html) && /data-action="active"[^>]*aria-checked="false"/.test(html));
   check("journal: RUN NOW ENABLED WHILE PAUSED", enabled(html, "run_now"));
-  check("journal: paused hint says run now keeps it paused", html.includes("Run now works and keeps it paused."));
-  check("journal: next run none while paused", html.includes(">none while paused</dd>"));
+  check("journal: no paused hint line (spec G: only reasons a person can act on); Run now's tooltip says it", !html.includes("Run now works and keeps it paused.") && (button(html, "run_now") || "").includes("title="));
+  check("journal: no Next run chip while paused", chip(html, "next") === null);
   check("journal: status chip reads the word Paused then the pause icon", html.includes('af-auto__status--paused" data-state="paused"><span class="af-auto__status-word">Paused</span><svg'));
   check("journal: edit + archive enabled", enabled(html, "edit") && enabled(html, "archive"));
 }
@@ -330,7 +367,7 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   const opened = [];
   const hdr = AutomationHeader({ summary: news, triggerSources: sources, nowMs: NOW, onOpenWorkspace: (id) => opened.push(id) });
   const hbtn = byAction(hdr, "open-workspace");
-  check("header: folder button on the Files fact (the path only in its tooltip)", hbtn.length === 1 && find(hbtn[0], (n) => n.type === "svg").length === 1 && hbtn[0].props["aria-label"] === "Browse the automation's files" && String(hbtn[0].props.title).endsWith(news.workspace_root));
+  check("header: the Files chip is a button with a folder icon (no path in the person's view)", hbtn.length === 1 && find(hbtn[0], (n) => n.type === "svg").length === 1 && hbtn[0].props["aria-label"] === "Browse the automation's files" && !String(hbtn[0].props.title).includes(news.workspace_root));
   hbtn[0].props.onClick();
   check("header folder → onOpenWorkspace(automation_id)", eq(opened, [news.automation_id]));
   const views = kit.occurrenceViews(occ);
@@ -404,22 +441,32 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   check("revise: blank title rejected", eq(kit.reviseChanges(news, { title: " ", every: "8h", context: "independent" }), { errors: ["Title is required."] }));
   check("revise: bad interval rejected", "errors" in kit.reviseChanges(news, { title: news.title, every: "0h", context: "independent" }));
   const submitted = [];
-  const f = React.createElement(AutomationReviseForm, { summary: news, busy: false, errors: [], onSubmit: (v) => submitted.push(v), onCancel() {} });
+  const f = React.createElement(AutomationReviseForm, { summary: news, busy: false, errors: [], onSubmit: (v) => submitted.push(v), onCancel() {}, previewSchedule: async () => ({}) });
   const html = renderToStaticMarkup(f);
-  check("edit form: headed Edit automation; title, interval, context fields labelled", /<form class="af-auto__revise" aria-labelledby="([^"]+)"><h3 class="af-auto__form-title" id="\1"><svg[^]*<\/svg> Edit automation<\/h3>/.test(html) && html.includes('name="title"') && html.includes('aria-label="Interval amount"') && html.includes('<legend>Repeat every (UTC)</legend>') && html.includes('value="growing"'));
-  const vals = { title: "News (6h)", every_amount: "6", every_unit: "h", context: "growing" };
-  submitted.push(parts.readReviseForm({ elements: { namedItem: (k) => (k in vals ? { value: vals[k] } : null) } }, kit.reviseFormFrom(news)));
-  check("edit form reads its fields", eq(submitted[0], { title: "News (6h)", every: "6h", context: "growing", growingMaxTokens: 50000, prompt: null, toolApproval: null, notifyEmail: null, emailRecipients: null }), JSON.stringify(submitted[0]));
-  check("edit form without a definition offers no task / tools", !html.includes('name="prompt"') && !html.includes('name="tool_approval"'));
+  check("edit form: headed Edit automation; title, interval, memory labelled; no (UTC) label", /<form class="af-auto__revise" data-presentation="inline" aria-labelledby="([^"]+)"[^>]*><h3 class="af-auto__form-title" id="\1"><svg[^]*<\/svg> Edit automation<\/h3>/.test(html) && html.includes('name="title"') && html.includes('aria-label="Interval amount"') && html.includes('data-action="memory"') && html.includes(">Builds on earlier runs<") && !html.includes("Repeat every (UTC)"));
+  // The form is controlled: type, switch, save (the values it hands over are what reviseChanges sends).
+  const ed = editHarness({ summary: news, busy: false, errors: [], onSubmit: (v) => submitted.push(v), onCancel() {}, previewSchedule: async () => ({}) });
+  ed.type("title", "News (6h)");
+  ed.el((n) => n.type === kit.AfEveryFields).props.onAmount("6");
+  ed.rerender();
+  ed.el((n) => n.props.action === "memory").props.onChange(true);
+  ed.rerender();
+  ed.save();
+  check("edit form submits its fields", submitted.length === 1 && submitted[0].title === "News (6h)" && submitted[0].every === "6h" && submitted[0].context === "growing" && submitted[0].growingMaxTokens === 50000 && submitted[0].prompt === null && submitted[0].toolApproval === null, JSON.stringify(submitted[0]));
+  check("…and those are the changes a save sends", eq(kit.reviseChanges(news, submitted[0]), { title: "News (6h)", trigger: { source_id: "schedule", source_version: 1, config: { ...news.trigger.config, every: "6h" } }, context: { mode: "growing" } }), JSON.stringify(kit.reviseChanges(news, submitted[0])));
+  check("edit form without a definition offers no task / tools", !html.includes('name="prompt"') && !html.includes('data-action="tool-choice"'));
   check("edit form: Save changes + Cancel, with icons; never 'revision'", /data-action="edit-save"[^>]*><svg[^]*?<span>Save changes<\/span>/.test(html) && /data-action="edit-cancel"[^>]*><svg[^]*?<span>Cancel<\/span>/.test(html) && !/Revis|revision/.test(html));
   // With the committed definition: the task and tool approval are editable too.
   const def = { target: { workflow_id: "basic-agent@0.1.0:main", bundle_ref: "basic-agent@0.1.0", flow_id: "main", input_data: { prompt: "Search the AI news.", provider: "p", model: "m" } }, policy: { tool_approval: "auto" } };
   const sub2 = [];
-  const f2 = React.createElement(AutomationReviseForm, { summary: news, definition: def, busy: false, errors: [], onSubmit: (v) => sub2.push(v), onCancel() {} });
+  const f2 = React.createElement(AutomationReviseForm, { summary: news, definition: def, busy: false, errors: [], onSubmit: (v) => sub2.push(v), onCancel() {}, previewSchedule: async () => ({}) });
   const html2 = renderToStaticMarkup(f2);
-  check("edit form + definition: task prefilled, tools radios", /<textarea[^>]*name="prompt"[^>]*>Search the AI news.<\/textarea>/.test(html2) && /name="tool_approval" checked="" value="auto"/.test(html2) && html2.includes('value="ask"'));
-  const vals2 = { title: news.title, every_amount: "8", every_unit: "h", context: "independent", prompt: "Search the AI news, twice.", tool_approval: "ask" };
-  sub2.push(parts.readReviseForm({ elements: { namedItem: (k) => (k in vals2 ? { value: vals2[k] } : null) } }, kit.reviseFormFrom(news, def)));
+  check("edit form + definition: task prefilled, tools choice (auto chosen, ask offered)", /<textarea[^>]*name="prompt"[^>]*>Search the AI news.<\/textarea>/.test(html2) && /aria-checked="true"[^>]*data-value="auto"/.test(html2) && /aria-checked="false"[^>]*data-value="ask"/.test(html2));
+  const ed2 = editHarness({ summary: news, definition: def, busy: false, errors: [], onSubmit: (v) => sub2.push(v), onCancel() {}, previewSchedule: async () => ({}) });
+  ed2.type("prompt", "Search the AI news, twice.");
+  ed2.el((n) => n.props.action === "tool-choice").props.onChange("ask");
+  ed2.rerender();
+  ed2.save();
   check("edit form + definition reads task and tools", sub2[0].prompt === "Search the AI news, twice." && sub2[0].toolApproval === "ask", JSON.stringify(sub2[0]));
   const ch = kit.reviseChanges(news, sub2[0], def);
   check("new task → changes.target = the definition's target, input_data kept, prompt replaced", eq(ch.target, { bundle_ref: "basic-agent@0.1.0", flow_id: "main", input_data: { prompt: "Search the AI news, twice.", provider: "p", model: "m" } }), JSON.stringify(ch));
@@ -493,7 +540,7 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   const html = dlg({ initialPrompt: "Monitor memory usage", workflowPicker: React.createElement("div", { id: "host-picker" }, "picker") });
   check("dialog: modal, labelled", html.includes('role="dialog" aria-modal="true" aria-labelledby=') && html.includes(">Schedule a task<"));
   check("dialog: What with host picker slot + prompt", html.includes("<legend>What</legend>") && html.includes('id="host-picker"') && html.includes(">Monitor memory usage</textarea>") && html.includes("Choose what to run."));
-  check("dialog: When presets incl. every 24 hours", html.includes("<legend>When</legend>") && ["every 5 minutes", "every 30 minutes", "every hour", "every 8 hours", "every 24 hours", "every 7 days"].every((l) => html.includes(`>${l}</button>`)));
+  check("dialog: When (the kind select's label) + presets incl. every 24 hours", /<label class="af-auto__field af-edit__field" for="[^"]+"><span>When<\/span><select[^>]*name="schedule_kind"/.test(html) && ["every 5 minutes", "every 30 minutes", "every hour", "every 8 hours", "every 24 hours", "every 7 days"].every((l) => html.includes(`>${l}</button>`)));
   check("dialog: the default Repeat line waits for the gateway (no kit sentence)", !html.includes("Runs every 24 hours (UTC)") && (html.includes('data-preview="loading"') || html.includes('data-preview="idle"')));
   check("dialog: once-at option", html.includes("Once at…"));
   check("dialog: context Independent/Growing", /<input type="radio" name="[^"]+" checked="" value="independent"\/>/.test(html) && /<input type="radio" name="[^"]+" value="growing"\/>/.test(html));
@@ -504,7 +551,7 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   const ws = dlg({ workspaces: React.createElement("div", { id: "host-workspaces" }, "chooser") });
   check("dialog: Workspaces slot = visible group (one heading: the chooser's) after Tools, before Mailbox", /data-field="workspaces" role="group" aria-label="Workspaces"><div id="host-workspaces">chooser<\/div><\/div>/.test(ws) && !ws.includes("<legend>Workspaces</legend>") && ws.indexOf('data-field="tool-approval"') < ws.indexOf('data-field="workspaces"') && ws.indexOf('data-field="workspaces"') < ws.indexOf('data-field="email"'));
   check("dialog: Workspaces slot sends nothing itself (no workspace in the markup outside the slot)", ws.split("host-workspaces").length === 2);
-  check("dialog: the six kinds in order (Repeat, Daily, Weekly, Monthly, Once at…, email)", (() => { const at = ["every", "daily", "weekly", "monthly", "once", "email"].map((v) => html.indexOf(`value="${v}"`)); return at.every((i, k) => i > 0 && (k === 0 || i > at[k - 1])); })() && [">Repeat<", " Daily</label>", " Weekly</label>", " Monthly</label>", " Once at…</label>"].every((w) => html.includes(w.replace(">Repeat<", " Repeat</label>"))));
+  check("dialog: the six kinds in order (Repeat, Daily, Weekly, Monthly, Once at…, email)", (() => { const at = ["every", "daily", "weekly", "monthly", "once", "email"].map((v) => html.indexOf(`value="${v}"`)); return at.every((i, k) => i > 0 && (k === 0 || i > at[k - 1])); })() && ["Repeat", "Daily", "Weekly", "Monthly", "Once at…"].every((w) => new RegExp(`<option value="[a-z]+"( selected="")?>${w}</option>`).test(html)) && !/role="radiogroup" aria-label="Schedule kind"/.test(html));
   check("dialog: no calendar sentence composed by the kit (served only)", !/Every day at|every day at|Monthly on|Every Mon/.test(html));
   const err = dlg({ error: kit.parseApiError(422, fx("errors.json").items.find((e) => e.body.detail.reason_code === "invalid_definition").body) });
   check("dialog: shows an API error", err.includes('data-code="invalid_definition"'));
@@ -524,23 +571,24 @@ check("unknown code falls back to a generic sentence naming it", kit.apiErrorTex
   check("waiting row: Discuss reason is visible", mailHtml.includes(">Available once this run finishes.</span>"));
 }
 
-// --- F5: visible reasons for disabled controls (aria-describedby) --------------------------
+// --- F5: reasons for disabled controls (aria-describedby + tooltip; spec G: no visible line) ------
 {
-  const html = panel({ summary: mail, occurrences: occ });
+  const html = panel({ summary: { ...news, status: "completed" }, occurrences: occ });
   const b = button(html, "run_now");
   const ref = (/aria-describedby="([^"]+)"/.exec(b) || [])[1];
   check("disabled Run now references a reason", !!ref, b);
-  check("…and the reason is VISIBLE, compact and muted (tooltips on disabled buttons are unreliable)", ref && new RegExp(`<p class="af-auto__reasons"><svg[^]*?</svg><span id="${ref.replace(/[:]/g, "\\:")}">Run now: An occurrence is in progress.</span>`).test(html) && !/af-auto__reasons af-auto__sr-only/.test(html), ref);
-  check("enabled controls carry no reason", !/aria-describedby/.test(button(html, "active")) && !/aria-describedby/.test(button(html, "edit")) && !/title="(Already|Nothing|Working|The automation)/.test(button(html, "active")));
-  check("the disabled control's reason is also its tooltip (first line, then the hint)", /<button[^>]*data-action="run_now"[^>]*title="An occurrence is in progress.\n/.test(html));
+  check("…the reason is read by assistive tech, not drawn as a line (spec G: a reason line only for what a person can act on)", ref && new RegExp(`<p class="af-auto__reasons af-auto__sr-only"><span id="${ref.replace(/[:]/g, "\\:")}">[^<]*Run now[^<]*: The automation has ended.</span>`).test(html), ref);
+  check("enabled controls carry no reason", !/aria-describedby/.test(button(html, "edit")) && !/title="(Already|Nothing|Working)/.test(button(html, "edit")));
+  check("the disabled control's reason is also its tooltip (first line, then the hint)", /<button[^>]*data-action="run_now"[^>]*title="The automation has ended.\n/.test(html));
+  check("no 'Nothing is running' anywhere (the ONE Run now / Stop button)", !panel({ summary: news, occurrences: occ }).includes("Nothing is running"));
   const busy = panel({ summary: news, occurrences: [], busy: true });
-  check("busy: one shared reason line for all controls", busy.includes("Active, Run now, Stop current, Edit, Archive: Working…"));
+  check("busy: one shared reason for all controls", busy.includes("Active, Run now, Edit, Archive: Working…"));
   const fake = (sel) => ({ querySelector: (q) => sel[q] ?? null });
   const mk = (name, disabled = false) => ({ name, disabled, focus() {} });
   const { pickFocusTarget } = await import(join(here, "..", "dist", "automations", "panel_core.js"));
   check("pickFocusTarget skips a disabled opener → notice", pickFocusTarget(fake({ a: mk("a", true), b: mk("b") }), ["a", "b"]).name === "b");
   check("pickFocusTarget: none → null", pickFocusTarget(fake({}), ["a"]) === null && pickFocusTarget(null, ["a"]) === null);
-  check("title is a focus fallback", /<h2 class="af-auto__title" id="[^"]+" tabindex="-1">/.test(html));
+  check("title is a focus fallback", /<h2 class="af-auto__title" id="[^"]+" tabindex="-1"[^>]*>/.test(html));
 }
 
 // A persisted custom budget survives hydration, unrelated edits and mode changes.
@@ -619,6 +667,15 @@ function harness(Component, runEffects = true) {
   };
 }
 const flush = () => new Promise((r) => setTimeout(r, 0));
+// The panel with its Details dialog opened (the header's Details button), as markup: the page, then the dialog.
+function withDetailsOpen(props) {
+  const h = harness(AutomationPanel, false);
+  const full = { triggerSources: sources, occurrences: [], busy: false, nowMs: NOW, ...handlers, ...props };
+  byAction(h.render(full), "details")[0].props.onClick();
+  const tree = h.render(full);
+  const m = find(tree, (n) => n.type === kit.AfModal && n.props.open)[0];
+  return m ? renderToStaticMarkup(React.createElement("div", null, m.props.children)) : "";
+}
 {
   // F7: one command_id per user action, reused on retry after a transport failure.
   const seen = [];
@@ -792,9 +849,13 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   const toolbar = (/<div class="af-auto__controls" role="toolbar"[^]*?<\/div>/.exec(html) || [""])[0];
   const all = [...toolbar.matchAll(/<button\b[^>]*>[^]*?<\/button>/g)].map((m) => m[0]);
   // The Active state switch leads the bar; it is a switch (track + thumb), not an action button.
-  check("the bar leads with the Active switch", all.length === 5 && /^<button type="button" role="switch"[^>]*data-action="active"/.test(all[0]), all[0]);
+  check("the bar leads with the Active switch: Active · Stop (a run is in flight) · Edit · Archive", all.length === 4 && /^<button type="button" role="switch"[^>]*data-action="active"/.test(all[0]) && /data-action="stop_current"/.test(all[1]) && /data-action="edit"/.test(all[2]) && /data-action="archive"/.test(all[3]), all.map((b) => b.slice(0, 90)).join("\n"));
   const btns = all.filter((b) => !/role="switch"/.test(b));
-  check("every control button starts with its icon, then its label", btns.length === 4 && btns.every((b) => /^<button\b[^>]*><svg\b[^]*<\/svg><span>[^<]+<\/span><\/button>$/.test(b)), btns.join("\n"));
+  check("every control button starts with its icon, then its label, and is named by its label", btns.length === 3 && btns.every((b) => /^<button\b[^>]*aria-label="[^"]+"[^>]*><svg\b[^]*<\/svg><span>[^<]+<\/span><\/button>$/.test(b)), btns.join("\n"));
+  const withDef = panel({ summary: news, occurrences: [], definition: { schema_version: 1, revision: 1, title: news.title, controller: { bundle_ref: "c@1", flow_id: "controller" }, target: { workflow_id: "w@1:main", bundle_ref: "w@1", flow_id: "main", input_data: { prompt: "Do it." } }, trigger: news.trigger, context: { mode: "independent" }, policy: { serial: true, misfire: "coalesce", failure: "continue", retry: { max_attempts: 1, backoff: { initial: "30s", factor: 2, max: "10m" } }, tool_approval: "auto" }, session_id: "s", created_at: "x", archived_at: null } });
+  const defBar = [...((/<div class="af-auto__controls" role="toolbar"[^]*?<\/div>/.exec(withDef) || [""])[0]).matchAll(/data-action="([^"]+)"/g)].map((m) => m[1]);
+  check("with a definition: Active · Run now · Edit · Details · Archive, Run now the primary (spec G)", eq(defBar, ["active", "run_now", "edit", "details", "archive"]) && /class="af-auto__btn af-auto__btn--primary" data-action="run_now"/.test(withDef), JSON.stringify(defBar));
+  check("no ⋯ menu in the header", !withDef.split("</header>")[0].includes("⋯") && !/aria-haspopup="menu"/.test(withDef.split("</header>")[0]));
   check("the Edit control reads Edit (data-action=edit)", /data-action="edit"[^>]*><svg[^]*?<span>Edit<\/span>/.test(toolbar) && !/Revise/.test(html));
   const allButtons = [...html.matchAll(/<button\b[^>]*>[^]*?<\/button>/g)].map((m) => m[0]).filter((b) => !/data-action="wait-choice"/.test(b) && !/role="switch"/.test(b));
   check("every action button in the panel carries an icon (wait choices are the choice text)", allButtons.every((b) => /^<button\b[^>]*>(<svg\b|<span[^>]*><svg\b)/.test(b) || /af-auto__linkbtn/.test(b)), allButtons.filter((b) => !/^<button\b[^>]*><svg\b/.test(b)).join("\n").slice(0, 400));
@@ -823,8 +884,9 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   const open = { ...props, editOpen: true };
   const tree = h.render(open, root);
   check("opening focuses the form's first field", focused.includes('.af-auto__revise [name="title"]'));
-  const vals = { title: jour.title, every_amount: "7", every_unit: "d", context: jour.context_mode, prompt: "Summarise the week in three bullets.", tool_approval: "auto" };
-  find(tree, (n) => n.type === "form")[0].props.onSubmit({ preventDefault() {}, currentTarget: { elements: { namedItem: (k) => (k in vals ? { value: vals[k] } : null) } } });
+  check("the panel opens the form in the kit's modal (backdrop click does not close it)", (() => { const m = find(tree, (n) => n.type === kit.AfModal && n.props.open && n.props.closeOnBackdrop === false)[0]; return m && m.props.closeOnBackdrop === false && find(tree, (n) => n.type === AutomationReviseForm)[0].props.presentation === "dialog"; })());
+  // The form hands the panel what the person edited (the form's own checks drive the typing).
+  find(tree, (n) => n.type === AutomationReviseForm)[0].props.onSubmit({ ...kit.reviseFormFrom(jour, definition), prompt: "Summarise the week in three bullets." });
   await flush();
   check("Save → ONE onRevise(changes, expected_revision = summary.revision, {command_id})", revised.length === 1 && revised[0].expected === jour.revision && revised[0].meta.command_id === "cmd-e1" && eq(revised[0].changes, { target: { bundle_ref: "basic-agent@0.1.0", flow_id: "main", input_data: { prompt: "Summarise the week in three bullets." } } }), JSON.stringify(revised));
   check("…then asks the host to close the form", eq(asked, [true, false]));
@@ -855,11 +917,10 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   const renamed = { ...jour, title: "Renamed elsewhere", revision: jour.revision + 1 };
   const refreshed = { ...base3, summary: renamed, definition: { ...definition, title: "Renamed elsewhere", revision: jour.revision + 1 } };
   const tree3 = h3.render(refreshed, root);
-  const form3 = find(tree3, (n) => n.type === "form")[0];
+  const form3 = find(tree3, (n) => n.type === AutomationReviseForm)[0];
   const titleInput = find(tree3, (n) => n.type === "input" && n.props.name === "title")[0];
-  check("an open form keeps the values it opened with across a refresh", titleInput && titleInput.props.defaultValue === jour.title, titleInput && titleInput.props.defaultValue);
-  const vals3 = { title: jour.title, every_amount: "7", every_unit: "d", context: jour.context_mode, prompt: "Summarise the week, briefly.", tool_approval: "auto" };
-  form3.props.onSubmit({ preventDefault() {}, currentTarget: { elements: { namedItem: (k) => (k in vals3 ? { value: vals3[k] } : null) } } });
+  check("an open form keeps the values it opened with across a refresh", titleInput && titleInput.props.value === jour.title && form3.props.summary === jour, titleInput && titleInput.props.value);
+  form3.props.onSubmit({ ...kit.reviseFormFrom(form3.props.summary, form3.props.definition), prompt: "Summarise the week, briefly." });
   await flush();
   check("save after a concurrent rename: expected_revision is the revision the form opened with", staleSent.length === 1 && staleSent[0].expected === jour.revision, JSON.stringify(staleSent));
   check("save after a concurrent rename: no title change (the rename is not reverted)", staleSent.length === 1 && !("title" in staleSent[0].changes) && staleSent[0].changes.target && staleSent[0].changes.target.input_data.prompt === "Summarise the week, briefly.", JSON.stringify(staleSent));
@@ -867,7 +928,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   h3.render({ ...refreshed, editOpen: false }, root);
   const reopened = h3.render(refreshed, root);
   const t4 = find(reopened, (n) => n.type === "input" && n.props.name === "title")[0];
-  check("reopening the form starts from the current automation", t4 && t4.props.defaultValue === "Renamed elsewhere");
+  check("reopening the form starts from the current automation", t4 && t4.props.value === "Renamed elsewhere");
 }
 
 // --- real gateway formats ----------------------------------------------------------------------
@@ -884,7 +945,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   check("fired time in the person's zone (kit date rule)", firedWords && mailHtml.includes(`fired ${esc(firedWords)}`) && !mailHtml.includes("fired 2026-09-27 04:00 UTC"), firedWords);
   const leg = panel({ summary: legacyRow, occurrences: [] });
   check("real legacy row: marker, every control disabled with the legacy reason", leg.includes("Legacy schedule") && ["run_now", "stop_current", "edit", "archive"].every((a) => !enabled(leg, a)) && !toggleAvailable(leg) && leg.includes("Legacy schedule: managed with its existing controls."));
-  check("real legacy row: the served rule, no revision", leg.includes(">Every hour (UTC)</dd>") && !leg.includes('data-fact="revision"'));
+  check("real legacy row: the served rule, no revision", chip(leg, "trigger")?.text === "Every hour (UTC)" && !leg.includes('data-fact="revision"'));
   const tw = occ.find((o) => o.index === 7).waits.find((x) => x.kind === "tool_approval");
   check("real tool_approval wait has no prompt → the card's bold first line", !("prompt" in tw) && mailHtml.includes(`<strong>${kit.TOOL_APPROVAL_HEADING}</strong>`));
 }
@@ -901,20 +962,32 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
     session_id: "s", workspace_root: "/w", created_at: "2026-09-25T08:00:00.108652+00:00", archived_at: null,
   };
   const html = panel({ summary: news, occurrences: [], definition });
-  const block = (html.match(/<details class="af-auto__definition"[\s\S]*?<\/dl><\/details>/) || [""])[0];
-  check("definition: collapsed card, chevron + icon + 'Details' (no revision on its title; the Revision row is inside)", /^<details class="af-auto__definition" data-definition-revision="1"><summary><svg[^]*?<\/svg><svg[^]*?<\/svg><span class="af-auto__definition-title">Details<\/span><\/summary>/.test(block), block.slice(0, 300));
-  check("definition: target workflow", block.includes('data-def="target"><code>basic-agent@0.1.0:main</code>'));
-  // The trigger in words; its exact configuration behind a disclosure, never the source id.
-  check("definition: trigger in words, configuration behind a disclosure", block.includes('data-def="trigger">Every 8 hours (UTC)') && !block.includes("schedule@1") && /<details class="af-auto__exact" data-def="trigger_config"><summary>Exact configuration<\/summary><pre class="af-auto__json">/.test(block) && block.includes(esc(JSON.stringify(news.trigger.config, null, 2))));
+  const blockOf = (def, extra) => renderToStaticMarkup(React.createElement(parts.AutomationDefinitionBlock, { definition: def, served: news, ...extra }));
+  const block = blockOf(definition);
+  check("definition: a plain list (spec G: no fold), the revision inside", /^<div class="af-auto__definition" data-definition-revision="1"><dl class="af-auto__facts">/.test(block) && !/<details|<summary/.test(block), block.slice(0, 200));
+  check("definition: the flow with its version", block.includes('<dt>Flow</dt><dd data-def="target"><code>basic-agent@0.1.0:main</code>'));
+  // The trigger in words; its exact configuration shown as such (no disclosure), never the source id.
+  check("definition: trigger in words, then its exact configuration", block.includes('data-def="trigger">Every 8 hours (UTC)') && !block.includes("schedule@1") && /<dt>Exact configuration<\/dt><dd data-def="trigger_config"><pre class="af-auto__json">/.test(block) && block.includes(esc(JSON.stringify(news.trigger.config, null, 2))));
   check("definition: context", block.includes('data-def="context">Independent — each run starts fresh'));
   check("definition: tool approval auto", block.includes('data-def="tool_approval">Run without asking<'));
   check("definition: retry policy", block.includes('data-def="retry">3 attempts, backoff 30s ×2 up to 10m'));
   check("definition: revision", block.includes('data-def="revision">1</dd>'));
-  const ask = panel({ summary: news, occurrences: [], definition: { ...definition, revision: 3, policy: { ...definition.policy, tool_approval: "ask" } } });
-  check("definition: tool approval ask + new revision (inside, not on the title)", ask.includes('data-def="tool_approval">Ask before each tool call<') && ask.includes('data-def="revision">3</dd>') && !ask.includes("af-auto__definition-meta"));
-  check("definition: absent prop → no block", !panel({ summary: news, occurrences: [] }).includes("af-auto__definition"));
-  check("definition: right under the controls (one click away)", html.indexOf("</header>") < html.indexOf('role="toolbar"') && html.indexOf('role="toolbar"') < html.indexOf("af-auto__definition") && html.indexOf("af-auto__definition") < html.indexOf("af-auto__timeline") + (html.includes("af-auto__timeline") ? 0 : html.length));
-  check("definition: replaced by the Edit form while it is open", !panel({ summary: news, occurrences: [], definition, editOpen: true }).includes('class="af-auto__definition"') && panel({ summary: news, occurrences: [], definition, editOpen: true }).includes('class="af-auto__revise"'));
+  check("definition: the host's workspaces rule when given", blockOf(definition, { workspaces: "Your default folders" }).includes('<dt>Workspaces</dt><dd data-def="workspaces">Your default folders</dd>') && !block.includes('data-def="workspaces"'));
+  const ask = blockOf({ ...definition, revision: 3, policy: { ...definition.policy, tool_approval: "ask" } });
+  check("definition: tool approval ask + new revision", ask.includes('data-def="tool_approval">Ask before each tool call<') && ask.includes('data-def="revision">3</dd>'));
+  check("definition: absent prop → no Details button, no block", !panel({ summary: news, occurrences: [] }).includes("af-auto__definition") && button(panel({ summary: news, occurrences: [] }), "details") === null);
+  check("definition: not drawn in the panel until Details is pressed", !html.includes("af-auto__definition") && button(html, "details") !== null && /aria-haspopup="dialog"/.test(button(html, "details")));
+  // Details opens the kit's modal with the list (the harness renders the panel's hooks).
+  const hd = harness(AutomationPanel, false);
+  const dprops = { summary: news, occurrences: [], definition, triggerSources: sources, busy: false, nowMs: NOW, ...handlers };
+  byAction(hd.render(dprops), "details")[0].props.onClick();
+  const dtree = hd.render(dprops);
+  const dmodal = find(dtree, (n) => n.type === kit.AfModal && n.props.open)[0];
+  const dhtml = dmodal ? renderToStaticMarkup(React.createElement("div", null, dmodal.props.children)) : "";
+  check("Details → the kit's modal, titled by the automation, holding the inspection list", !!dmodal && String(dmodal.props.title).includes(news.title) && dhtml.includes('data-def="trigger_config"') && dhtml.includes('data-def="revision"'), dhtml.slice(0, 120));
+  dmodal?.props.onClose();
+  check("Details closes", !find(hd.render(dprops), (n) => n.type === kit.AfModal && n.props.open).length);
+  check("definition: the Edit form opens without the Details list", panel({ summary: news, occurrences: [], definition, editOpen: true }).includes('class="af-auto__revise"'));
 }
 
 // --- text rendering seam (operator ruling: the SHARED chat renderer, never plain text) -------
@@ -941,9 +1014,9 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
     ...occ.flatMap((o) => o.waits).filter((w) => w.prompt).map((w) => w.prompt),
     ...mail.attention.items.filter((i) => i.body).map((i) => i.body),
     ...mail.attention.waits.filter((w) => w.prompt).map((w) => w.prompt),
-    "Triage my **inbox**.",
   ];
-  check("renderText gets every user_turn, answer, notify body, wait prompt, attention body and the definition task", want.every((t) => seen.includes(t)), JSON.stringify(want.filter((t) => !seen.includes(t)).slice(0, 2)));
+  check("the header's Task chip: the task's first line as written (clipped by CSS), whole in its tooltip; no task paragraph", chip(rich, "task")?.text === "Triage my **inbox**." && chip(rich, "task")?.title === "Task: Triage my **inbox**." && !rich.includes('class="af-auto__task"'), JSON.stringify(chip(rich, "task")));
+  check("renderText gets every user_turn, answer, notify body, wait prompt and attention body", want.every((t) => seen.includes(t)), JSON.stringify(want.filter((t) => !seen.includes(t)).slice(0, 2)));
   check("the ask_user wait prompt itself goes through renderText", /<div class="af-auto-wait__prompt" id="[^"]+"><span class="af-auto-wait__kind">Question for you<\/span><div class="spy-rendered">R<\/div><\/div>/.test(rich));
   check("renderText output is what the panel shows", (rich.match(/class="spy-rendered"/g) || []).length === seen.length);
   check("with renderText → section marked rich, nothing unformatted", rich.includes('data-text-rendering="rich"') && !rich.includes("data-unformatted"));
@@ -976,7 +1049,8 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   const want = esc(controlHint("run_now", active));
   check("Run now button: title = hint", b && b.includes(`title="${want}"`), b);
   check("Run now button: aria-description = hint", b && b.includes(`aria-description="${want}"`), b);
-  check("every bar control carries its hint", [["active", "active"], ["stop_current", "stop_current"], ["edit", "revise"], ["archive", "archive"]].every(([a, id]) => (button(html, a) || "").includes(`aria-description="${esc(CONTROL_HINTS[id])}"`)));
+  const flyingHtml = panel({ summary: { ...active, current_occurrence: { index: 1, run_id: "r", attempt: 1, status: "running" } }, occurrences: [] });
+  check("every bar control carries its hint", [["active", "active"], ["edit", "revise"], ["archive", "archive"]].every(([a, id]) => (button(html, a) || "").includes(`aria-description="${esc(CONTROL_HINTS[id])}"`)) && (button(flyingHtml, "stop_current") || "").includes(`aria-description="${esc(CONTROL_HINTS.stop_current)}"`));
   const pausedHtml = panel({ summary: { ...active, status: "paused", next_fire_at: undefined }, occurrences: [] });
   check("the paused Active switch carries its hint", (button(pausedHtml, "active") || "").includes(`title="${esc(CONTROL_HINTS.active)}"`));
   const occHtml = panel({ summary: mail, occurrences: occ });
@@ -1039,6 +1113,271 @@ for (const cls of [".af-auto__path", ".af-auto__notice--on", ".af-auto__actionba
   check("attention: runs carry data-index", /<li class="af-auto-occ[^"]*" data-index="\d+"/.test(html));
   const theme = readFileSync(join(here, "..", "src", "theme.css"), "utf8");
   check("attention: the outline and the wait card's standard text colour are styled", theme.includes(".af-auto .is-attention-focus") && /\.af-auto-wait \{[^}]*color: var\(--text-primary\)/.test(theme));
+}
+
+// --- the automation's model: one mapping, the Edit form's Model field, the Details row ----------
+{
+  const stable = (v) => Array.isArray(v) ? `[${v.map(stable).join(",")}]` : v && typeof v === "object" ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stable(v[k])}`).join(",")}}` : JSON.stringify(v);
+  const same = (a, b) => stable(a) === stable(b);
+  const MTP3 = { mode: "native_mtp", num_draft_tokens: 3, require_acceleration: true };
+  // AbstractCode web's automation settings write, transcribed for the model keys only
+  // (abstractcode web/src/workspace/automation_settings.ts:59-62 setOrDelete, :70-87 provider/model,
+  // thinking, speculation and the emptied `_runtime`). The kit's mapping must write exactly this.
+  const codeWebWrite = (input, prefs) => {
+    const setOrDelete = (t, k, v) => { if (v === undefined || v === null || v === "" || (Array.isArray(v) && !v.length)) delete t[k]; else t[k] = v; };
+    const obj = (v) => (v && typeof v === "object" && !Array.isArray(v) ? { ...v } : {});
+    const next = obj(input);
+    const runtime = obj(next._runtime);
+    const both = Boolean(prefs.provider && prefs.model);
+    setOrDelete(next, "provider", both ? prefs.provider : "");
+    setOrDelete(next, "model", both ? prefs.model : "");
+    setOrDelete(runtime, "provider", both ? prefs.provider : "");
+    setOrDelete(runtime, "model", both ? prefs.model : "");
+    setOrDelete(runtime, "thinking", prefs.reasoning);
+    setOrDelete(runtime, "speculation", prefs.speculation);
+    if (Object.keys(runtime).length) next._runtime = runtime;
+    else delete next._runtime;
+    return next;
+  };
+  const inputs = [
+    {},
+    { prompt: "Task" },
+    { prompt: "Task", provider: "mlx", model: "gone-27B", _runtime: { provider: "mlx", model: "gone-27B", thinking: "high", speculation: MTP3 } },
+    { prompt: "Task", _runtime: { provider: "mlx", model: "gone-27B" } },
+    { prompt: "Task", provider: "mlx", model: "gone-27B", _runtime: { provider: "mlx", model: "gone-27B", thinking: "high", allowed_tools: ["read_file"] } },
+    { prompt: "Task", _runtime: {} },
+    { prompt: "Task", _runtime: { speculation: false } },
+    // Stored as some writer left them: kept as is, never normalized (AbstractCode writes them back raw).
+    { prompt: "Task", _runtime: { provider: "mlx", model: "m", speculation: { mode: "native_mtp", num_draft_tokens: 3 }, thinking: "high " } },
+    { prompt: "Task", _runtime: { speculation: { mode: "off" } } },
+    { prompt: "Task", provider: "a", _runtime: { model: "b" } },
+  ];
+  const values = [
+    { provider: "", model: "" },
+    { provider: "ollama", model: "qwen3" },
+    { provider: "ollama", model: "qwen3", reasoning: "low" },
+    { provider: "ollama", model: "qwen3", reasoning: "high", speculation: MTP3 },
+    { provider: "ollama", model: "qwen3", speculation: false },
+    { provider: "", model: "", reasoning: "medium" },
+    { provider: "", model: "", reasoning: "", speculation: false },
+    { provider: "mlx", model: "m", reasoning: "high ", speculation: { mode: "native_mtp", num_draft_tokens: 3 } },
+  ];
+  let parity = 0;
+  for (const input of inputs) for (const value of values) {
+    const frozen = JSON.stringify(input);
+    const kitOut = kit.withAutomationModel(input, value);
+    const codeOut = codeWebWrite(input, value);
+    check(`model write == AbstractCode web's (${frozen} + ${JSON.stringify(value)})`, same(kitOut, codeOut), `${stable(kitOut)} != ${stable(codeOut)}`);
+    check(`model write never mutates its input (${frozen})`, JSON.stringify(input) === frozen);
+    check(`model round trip (${JSON.stringify(value)})`, same(kit.automationModelFrom(kitOut), { provider: value.provider, model: value.model, ...(value.reasoning ? { reasoning: value.reasoning } : {}), ...(value.speculation !== undefined ? { speculation: value.speculation } : {}) }), stable(kit.automationModelFrom(kitOut)));
+    parity += 1;
+  }
+  check("model parity matrix ran", parity === inputs.length * values.length);
+  // Back to the default: every model key goes, at both levels; an emptied `_runtime` goes too.
+  const pinned = inputs[2];
+  const cleared = kit.withAutomationModel(pinned, { provider: "", model: "" });
+  check("default removes every model key at both levels and the emptied _runtime", same(cleared, { prompt: "Task" }), stable(cleared));
+  const keepsTools = kit.withAutomationModel(inputs[4], { provider: "", model: "" });
+  check("default keeps the rest of _runtime", same(keepsTools, { prompt: "Task", _runtime: { allowed_tools: ["read_file"] } }), stable(keepsTools));
+  check("no key is ever written as \"\"", !JSON.stringify(kit.withAutomationModel(pinned, { provider: "", model: "", reasoning: "" })).includes('""'));
+  let threw = "";
+  try { kit.withAutomationModel(pinned, { provider: "ollama", model: "" }); } catch (e) { threw = e.message; }
+  check("half a pair throws in the mapping", threw === "Choose both a provider and a model, or use the gateway default.", threw);
+  // Reading: top level first, else _runtime, only as a pair.
+  check("read: top-level pair", same(kit.automationModelFrom({ provider: "a", model: "b", _runtime: { provider: "x", model: "y" } }), { provider: "a", model: "b" }));
+  check("read: _runtime pair", same(kit.automationModelFrom({ _runtime: { provider: "x", model: "y", thinking: "high", speculation: false } }), { provider: "x", model: "y", reasoning: "high", speculation: false }));
+  check("read: half a pair reads as nothing chosen", same(kit.automationModelFrom({ provider: "a", _runtime: { thinking: "low" } }), { provider: "", model: "", reasoning: "low" }));
+  check("read: nothing", same(kit.automationModelFrom(undefined), { provider: "", model: "" }) && same(kit.automationModelFrom({}), { provider: "", model: "" }));
+
+  // reviseFormFrom / reviseChanges.
+  const definition = { target: { workflow_id: "basic-agent@0.1.0:main", bundle_ref: "basic-agent@0.1.0", flow_id: "main", input_data: pinned }, policy: { tool_approval: "auto" } };
+  const form = kit.reviseFormFrom(news, definition);
+  check("reviseFormFrom fills the model", same(form.model, { provider: "mlx", model: "gone-27B", reasoning: "high", speculation: MTP3 }), stable(form.model));
+  check("reviseFormFrom without a definition: model null", kit.reviseFormFrom(news).model === null);
+  check("no model change → null", kit.reviseChanges(news, form, definition) === null);
+  check("model not offered (undefined) → null", kit.reviseChanges(news, { ...form, model: undefined }, definition) === null);
+  const chosen = { provider: "ollama", model: "qwen3" };
+  const ch = kit.reviseChanges(news, { ...form, model: chosen }, definition);
+  check("new model → changes.target with the model written by the mapping", same(ch, { target: { bundle_ref: "basic-agent@0.1.0", flow_id: "main", input_data: kit.withAutomationModel(pinned, chosen) } }), stable(ch));
+  check("new model drops the old reasoning/MTP (the picker resets them)", !("thinking" in ch.target.input_data._runtime) && !("speculation" in ch.target.input_data._runtime));
+  const toDefault = kit.reviseChanges(news, { ...form, model: { provider: "", model: "" } }, definition);
+  check("back to the default removes every model key", same(toDefault.target.input_data, { prompt: "Task" }), stable(toDefault));
+  const half = kit.reviseChanges(news, { ...form, model: { provider: "ollama", model: "" } }, definition);
+  check("half a pair is a form error, not a throw", same(half, { errors: ["Choose both a provider and a model, or use the gateway default."] }), stable(half));
+  const rawDef = { ...definition, target: { ...definition.target, input_data: inputs[7] } };
+  const rawForm = kit.reviseFormFrom(news, rawDef);
+  check("a stored MTP value is read as stored", same(rawForm.model.speculation, { mode: "native_mtp", num_draft_tokens: 3 }) && rawForm.model.reasoning === "high ", stable(rawForm.model));
+  check("…and an unchanged model sends nothing", kit.reviseChanges(news, rawForm, rawDef) === null);
+  const rawReasoning = kit.reviseChanges(news, { ...rawForm, model: { ...rawForm.model, reasoning: "low" } }, rawDef);
+  check("…and a reasoning change keeps the stored MTP value as is", same(rawReasoning.target.input_data._runtime.speculation, { mode: "native_mtp", num_draft_tokens: 3 }), stable(rawReasoning));
+  // Composition: task, tools, model in one save; then a workflow change keeps the model with its reasoning/MTP.
+  const both = kit.reviseChanges(news, { ...form, prompt: "New task", tools: ["read_file"], model: { provider: "ollama", model: "qwen3", reasoning: "low", speculation: false } }, definition);
+  const bi = both.target.input_data;
+  check("task + tools + model in one save", bi.prompt === "New task" && same(bi.tools, ["read_file"]) && same(bi._runtime.allowed_tools, ["read_file"]) && bi.provider === "ollama" && bi.model === "qwen3" && bi._runtime.provider === "ollama" && bi._runtime.model === "qwen3" && bi._runtime.thinking === "low" && bi._runtime.speculation === false, stable(bi));
+  const moved = kit.reviseChanges(news, { ...form, prompt: "New task", target: { bundle_ref: "other@2", flow_id: "agent" }, model: { provider: "ollama", model: "qwen3", reasoning: "low", speculation: MTP3 } }, definition);
+  const mi = moved.target.input_data;
+  check("workflow change keeps the chosen model, reasoning and MTP", moved.target.bundle_ref === "other@2" && mi.prompt === "New task" && mi.provider === "ollama" && mi.model === "qwen3" && same(mi._runtime, { provider: "ollama", model: "qwen3", thinking: "low", speculation: MTP3 }), stable(moved));
+  const movedDefault = kit.reviseChanges(news, { ...form, target: { bundle_ref: "other@2", flow_id: "agent" }, model: { provider: "", model: "" } }, definition);
+  check("workflow change + default model: no model key survives", same(movedDefault.target.input_data, { prompt: "Task" }), stable(movedDefault));
+
+  // The Edit form: the Model field only with modelPickerOptions AND a definition.
+  const transport = kit.createGatewayModelTransport(async () => ({ items: [] }));
+  const opts = { fetchProviders: transport.fetchProviders, fetchModels: transport.fetchModels, fetchModelCapabilities: transport.fetchModelCapabilities };
+  const formHtml = (props) => renderToStaticMarkup(React.createElement(AutomationReviseForm, { summary: news, busy: false, errors: [], onSubmit() {}, onCancel() {}, ...props }));
+  const withField = formHtml({ definition, modelPickerOptions: opts });
+  check("Model field with options + definition: the Model section", /data-section="model"[^>]*>[^]*?<h3 class="af-edit__section-title"[^>]*>Model<\/h3>[^]*?<div class="af-edit__field af-edit__model" data-field="model"><div class="af-pmp af-pmp--compact/.test(withField), withField.slice(withField.indexOf('data-field="model"') - 40, withField.indexOf('data-field="model"') + 200));
+  check("Model section right after What it does (Title, Task), before Schedule", withField.indexOf('name="prompt"') < withField.indexOf('data-field="model"') && withField.indexOf('data-field="model"') < withField.indexOf('data-section="schedule"'));
+  check("Model field: default named plainly", withField.includes("Workflow / Gateway default"));
+  check("no Model field without options", !formHtml({ definition }).includes('data-field="model"'));
+  check("no Model field without a definition", !formHtml({ modelPickerOptions: opts }).includes('data-field="model"'));
+  check("Model field: host wording for the default", formHtml({ definition, modelPickerOptions: { ...opts, defaultModeLabel: "Gateway default" } }).includes("Gateway default") && !formHtml({ definition, modelPickerOptions: { ...opts, defaultModeLabel: "Gateway default" } }).includes("Workflow / Gateway default"));
+  {
+    const at = withField.indexOf('data-field="model"');
+    const end = at < 0 ? -1 : withField.indexOf("</section>", at);
+    check("Model field: no jargon (and the field is there to read)", at >= 0 && end > at && !/\bpin|input_data|definition|revision/i.test(withField.slice(at, end)), `at=${at} end=${end}`);
+  }
+  // Submitting: the picker's value reaches ReviseForm.model only when the options were passed.
+  // A save needs a change: every submit below also renames (a title change never touches the target).
+  const submitWith = (props, pick, meta) => {
+    const out = [];
+    const ed = editHarness({ summary: news, busy: false, errors: [], onSubmit: (v) => out.push(v), onCancel() {}, previewSchedule: async () => ({}), definition, ...props });
+    const picker = ed.el((n) => n.type === kit.ProviderModelPicker);
+    if (pick && picker) { picker.props.onChange(pick, meta); ed.rerender(); }
+    const saveBefore = ed.action("edit-save").props.disabled;
+    ed.type("title", "Renamed");
+    ed.save();
+    return { out: out[0], picker, saveBefore };
+  };
+  const sent = submitWith({ modelPickerOptions: opts }, { provider: "ollama", model: "qwen3" });
+  check("the picker is controlled, disabled while busy, configured like Code web", sent.picker && sent.picker.props.layout === "compact" && sent.picker.props.optionsDisclosure === true && sent.picker.props.enableSpeculation === true && sent.picker.props.disabled === false && same(sent.picker.props.value, form.model));
+  check("submitted ReviseForm.model = the picker's value", same(sent.out.model, { provider: "ollama", model: "qwen3" }), stable(sent.out));
+  check("…and saves as a target change", kit.reviseChanges(news, sent.out, definition)?.target?.input_data?._runtime?.model === "qwen3");
+  // The rule: the model is sent iff at least one NON-automatic onChange happened. On mount the picker
+  // clears a stored level the model rules out with `{automatic: true}`: that alone sends nothing.
+  const automatic = submitWith({ modelPickerOptions: opts }, { ...form.model, reasoning: "" }, { automatic: true });
+  check("an automatic clean-up alone sends no target (and enables no Save)", automatic.saveBefore === true && same(automatic.out.model, form.model) && kit.reviseChanges(news, automatic.out, definition)?.target === undefined, stable(automatic.out.model));
+  check("…while a model the person chose enables Save at once", sent.saveBefore === false);
+  const chosenByHand = submitWith({ modelPickerOptions: opts }, { ...form.model, reasoning: "" });
+  check("a change the person made (no pointer event needed) is sent", chosenByHand.out.model.reasoning === "" && kit.reviseChanges(news, chosenByHand.out, definition)?.target?.input_data?._runtime?.thinking === undefined && "target" in kit.reviseChanges(news, chosenByHand.out, definition), stable(chosenByHand.out.model));
+  {
+    // Looking without choosing: the field has no pointer/key tracking at all, so opening "Reasoning &
+    // speed", focusing or pressing keys reaches the form only through onChange, and none happened.
+    const out = [];
+    const ed = editHarness({ summary: news, busy: false, errors: [], onSubmit: (v) => out.push(v), onCancel() {}, previewSchedule: async () => ({}), definition, modelPickerOptions: opts });
+    const field = ed.el((n) => n.props["data-field"] === "model");
+    const handlers = Object.keys(field.props).filter((k) => /^on[A-Z]/.test(k));
+    check("the Model field tracks no pointer or key events", handlers.length === 0, handlers.join(","));
+    ed.el((n) => n.type === kit.ProviderModelPicker).props.onChange({ ...form.model, reasoning: "" }, { automatic: true });
+    ed.rerender();
+    ed.type("title", "Renamed");
+    ed.save();
+    check("looking, then the automatic clean-up: a title-only save sends no target", out.length === 1 && kit.reviseChanges(news, out[0], definition)?.target === undefined && kit.reviseChanges(news, out[0], definition)?.title === "Renamed");
+    ed.el((n) => n.type === kit.ProviderModelPicker).props.onChange({ ...form.model, provider: "ollama", model: "qwen3", reasoning: "" });
+    ed.rerender();
+    ed.el((n) => n.type === kit.ProviderModelPicker).props.onChange({ ...form.model, reasoning: "" }, { automatic: true });
+    ed.rerender();
+    ed.save();
+    check("after a choice, a later automatic clean-up is part of what is sent", same(out[1].model, { ...form.model, reasoning: "" }), stable(out[1]?.model));
+  }
+  check("the form passes the model error sentences from the words file (no raw #FALLBACK line)", same(sent.picker.props.errorWords, kit.AUTOMATION_EDIT_WORDS.edit.model_errors));
+  check("the form passes the warning sentence", sent.picker.props.savedUnavailableText === "The gateway does not list this model. Runs may fail until you choose another one.");
+  check("…and the label suffix, both from the words file", sent.picker.props.savedUnavailableText === kit.AUTOMATION_EDIT_WORDS.edit.model_not_listed && sent.picker.props.savedUnavailableSuffix === kit.AUTOMATION_EDIT_WORDS.edit.model_not_listed_suffix && sent.picker.props.savedUnavailableSuffix === "(not listed)", String(sent.picker.props.savedUnavailableSuffix));
+  // Escape: a control that handled it (an open dropdown closing) keeps the form; otherwise it cancels.
+  {
+    let cancelled = 0;
+    const tree = editHarness({ summary: news, busy: false, errors: [], onSubmit() {}, onCancel: () => { cancelled += 1; }, previewSchedule: async () => ({}), definition, modelPickerOptions: opts }).tree;
+    tree.props.onKeyDown({ key: "Escape", defaultPrevented: true, preventDefault() {} });
+    check("Escape handled by a dropdown does not cancel the form", cancelled === 0);
+    tree.props.onKeyDown({ key: "Escape", defaultPrevented: false, preventDefault() {} });
+    check("Escape on the form cancels it", cancelled === 1);
+  }
+  const notOffered = submitWith({}, null);
+  check("without options ReviseForm.model is absent", !("model" in notOffered.out) && !notOffered.picker, stable(notOffered.out));
+  const busyTree = harness(AutomationReviseForm, false).render({ summary: news, busy: true, errors: [], onSubmit() {}, previewSchedule: async () => ({}), definition, modelPickerOptions: opts });
+  check("the picker is disabled while busy", shallowAll(busyTree, (n) => n.type === kit.ProviderModelPicker)[0]?.props.disabled === true);
+
+  // The Details row.
+  const details = (input, extra) => {
+    const html = withDetailsOpen({ summary: news, ...extra, definition: { schema_version: 1, revision: 1, title: news.title, controller: { bundle_ref: "c@1", flow_id: "controller" }, target: { workflow_id: "basic-agent@0.1.0:main", bundle_ref: "basic-agent@0.1.0", flow_id: "main", input_data: input }, trigger: news.trigger, context: { mode: "independent" }, policy: { serial: true, misfire: "coalesce", failure: "continue", retry: { max_attempts: 3, backoff: { initial: "30s", factor: 2, max: "10m" } }, tool_approval: "auto" }, session_id: "s", created_at: "2026-09-25T08:00:00Z", archived_at: null } });
+    return (html.match(/<dd data-def="model">([^<]*)<\/dd>/) || [null, null])[1];
+  };
+  check("Details: Model row after Task", (() => { const html = withDetailsOpen({ summary: news, definition: { schema_version: 1, revision: 1, title: news.title, controller: { bundle_ref: "c@1", flow_id: "controller" }, target: { workflow_id: "w", bundle_ref: "b@1", flow_id: "main", input_data: { prompt: "Do it." } }, trigger: news.trigger, context: { mode: "independent" }, policy: { serial: true, misfire: "coalesce", failure: "continue", retry: { max_attempts: 1, backoff: { initial: "30s", factor: 2, max: "10m" } }, tool_approval: "auto" }, session_id: "s", created_at: "x", archived_at: null } }); return html.indexOf('data-def="prompt"') < html.indexOf('data-def="model"') && html.indexOf('data-def="model"') < html.indexOf('data-def="trigger"'); })());
+  check("Details: pinned model in words", details(pinned) === "mlx / gone-27B · reasoning high · MTP depth 3", details(pinned));
+  check("Details: MTP off", details({ _runtime: { provider: "a", model: "b", speculation: false } }) === "a / b · MTP off", details({ _runtime: { provider: "a", model: "b", speculation: false } }));
+  // Every stored MTP shape check_speculation.mjs lists, read through normalizeSpeculationValue.
+  for (const [shape, words] of [
+    [{ mode: "off" }, "a / b · MTP off"],
+    [{ mode: "native_mtp", num_draft_tokens: 2 }, "a / b · MTP depth 2"],
+    [true, "a / b"],
+    ["native_mtp", "a / b"],
+    [{ mode: "native_mtp" }, "a / b"],
+    [{ mode: "native_mtp", num_draft_tokens: true }, "a / b"],
+    [{ mode: "native_mtp", num_draft_tokens: 2.5 }, "a / b"],
+  ]) check(`Details: stored MTP ${JSON.stringify(shape)}`, details({ _runtime: { provider: "a", model: "b", speculation: shape } }) === words, details({ _runtime: { provider: "a", model: "b", speculation: shape } }));
+  check("Details: default + stored MTP off", details({ _runtime: { speculation: { mode: "off" } } }) === "Workflow / Gateway default · MTP off", details({ _runtime: { speculation: { mode: "off" } } }));
+  // The panel passes modelPickerOptions down to its Edit form.
+  {
+    const fullDef = { schema_version: 1, revision: news.revision, title: news.title, controller: { bundle_ref: "c@1", flow_id: "controller" }, target: { workflow_id: "basic-agent@0.1.0:main", bundle_ref: "basic-agent@0.1.0", flow_id: "main", input_data: pinned }, trigger: news.trigger, context: { mode: "independent" }, policy: { serial: true, misfire: "coalesce", failure: "continue", retry: { max_attempts: 3, backoff: { initial: "30s", factor: 2, max: "10m" } }, tool_approval: "auto" }, session_id: "s", created_at: "x", archived_at: null };
+    const open = panel({ summary: news, definition: fullDef, editOpen: true, modelPickerOptions: opts });
+    check("panel: Edit open with modelPickerOptions shows the Model field", open.includes('class="af-auto__revise"') && open.includes('data-field="model"'));
+    check("panel: Edit open without modelPickerOptions shows none", !panel({ summary: news, definition: fullDef, editOpen: true }).includes('data-field="model"'));
+  }
+  check("Details: nothing chosen", details({ prompt: "x" }) === "Workflow / Gateway default", details({ prompt: "x" }));
+  check("Details: nothing chosen, reasoning set", details({ _runtime: { thinking: "low" } }) === "Workflow / Gateway default · reasoning low", details({ _runtime: { thinking: "low" } }));
+  check("Details: the host's wording for the default", details({}, { modelPickerOptions: { ...opts, defaultModeLabel: "Gateway default" } }) === "Gateway default");
+}
+
+// --- A run reads as trigger, then response, once (operator 2026-11-27: the notification repeated
+// the answer). And the Context button (onOpenContext), and one "running" on a run in progress.
+{
+  const W = kit.AUTOMATION_EDIT_WORDS;
+  const task = "Write today's digest.";
+  const base = { run_id: "rn", index: 5, attempts: 1, fired_at: "2026-09-27T06:00:00Z", finished_at: "2026-09-27T06:01:00Z", status: "completed", trigger: { source_id: "schedule", summary: "schedule" }, user_turn: `[Trigger schedule@1 · occurrence 5 · fired 2026-09-27T06:00:00Z]\n${task}`, answer: "# Digest\n\nThree things happened.", notify: null, artifacts: [], waits: [], ledger_url: "/api/gateway/runs/rn/ledger" };
+  const pairOf = (row, extra = {}) => renderToStaticMarkup(OccurrencePair({ view: kit.occurrenceViews([row])[0], busy: false, discuss: { enabled: true }, discussOpen: false, onOpenRun() {}, onAnswerWait() {}, onDiscussOpen() {}, onDiscussCancel() {}, onDiscussSubmit() {}, task, nowMs: NOW, ...extra }));
+  const count = (html, s) => html.split(s).length - 1;
+  const same = pairOf({ ...base, notify: { title: "Evolution of AI", body: `  ${base.answer}\n` } });
+  check("notify = answer (after trimming): the answer shows once, no notify block", count(same, "Three things happened.") === 1 && !same.includes('data-notify="true"') && !same.includes("Evolution of AI"), same);
+  check("…the Notified badge stays", same.includes("af-auto-badge--notified"));
+  check("notifyShown: same text → false", kit.notifyShown({ notify: { title: "t", body: " x " }, answer: "x" }) === false);
+  const differs = pairOf({ ...base, notify: { title: "2 urgent", body: "Reply to Clara." } });
+  const answerAt = differs.indexOf('class="af-auto-turn__text"', differs.indexOf('data-turn="answer"'));
+  check("notify differs: the message that was sent shows AFTER the answer, labelled", differs.includes('data-notify="true"') && differs.indexOf('data-notify="true"') > answerAt && answerAt > 0 && differs.includes(`<span class="af-auto-notify__label">${W.run.notify_sent}</span>`) && differs.includes("<strong>2 urgent</strong>") && differs.includes("Reply to Clara."), differs);
+  check("…the label is in the words file", W.run.notify_sent === "The message that was sent");
+  const noAnswer = pairOf({ ...base, answer: "", notify: { title: "Heads up", body: "Something changed." } });
+  check("no answer: the notify block stays", noAnswer.includes('data-notify="true"') && noAnswer.includes("Something changed.") && kit.notifyShown({ notify: { title: "Heads up", body: "Something changed." }, answer: "  " }) === true);
+  const titleOnly = { notify: { title: "Done.", body: "" }, answer: "Done." };
+  check("a notification without a body compares its title", kit.notifyShown(titleOnly) === false && kit.notifyShown({ ...titleOnly, answer: "Other." }) === true);
+  const noNotify = pairOf(base);
+  check("no notify: no block, the answer once", !noNotify.includes('data-notify="true"') && count(noNotify, "Three things happened.") === 1 && kit.notifyShown(base) === false);
+
+  // Context: one button in the trigger turn, and then no "What the agent received".
+  const seen = [];
+  const pairTree = OccurrencePair({ view: kit.occurrenceViews([base])[0], busy: false, discuss: { enabled: true }, discussOpen: false, onOpenRun() {}, onAnswerWait() {}, onDiscussOpen() {}, onDiscussCancel() {}, onDiscussSubmit() {}, task, nowMs: NOW, onOpenContext: (r) => seen.push(r) });
+  const withCtx = renderToStaticMarkup(pairTree);
+  const trig = withCtx.slice(withCtx.indexOf('data-turn="trigger"'), withCtx.indexOf('data-turn="answer"'));
+  check("onOpenContext: ONE Context button, in the trigger turn, a real kit button with an icon", count(withCtx, 'data-action="open-context"') === 1 && trig.includes('data-action="open-context"') && /<button type="button" class="af-btn af-btn--quiet af-auto-context-btn"/.test(trig) && trig.includes("af-btn__icon") && trig.includes(`<span>${W.context.button}</span>`), trig);
+  check("onOpenContext: no 'What the agent received' disclosure (one way to look)", !withCtx.includes("af-auto-received") && !withCtx.includes(parts.RECEIVED_LABEL));
+  const findBtn = (n) => {
+    if (!n || typeof n !== "object") return null;
+    if (Array.isArray(n)) { for (const c of n) { const f = findBtn(c); if (f) return f; } return null; }
+    if (n.props?.["data-action"] === "open-context") return n;
+    return findBtn(n.props?.children);
+  };
+  findBtn(pairTree)?.props.onClick();
+  check("the Context button hands the run's own id and index", eq(seen, [{ runId: "rn", index: 5 }]), JSON.stringify(seen));
+  const withoutCtx = pairOf(base);
+  check("without onOpenContext: the disclosure as before, no Context button", withoutCtx.includes(`<summary>${parts.RECEIVED_LABEL}</summary>`) && !withoutCtx.includes('data-action="open-context"'));
+  check("the Context words", W.context.button === "Context" && W.context.button_hint === "What this run was given");
+  const panelCtx = panel({ summary: mail, occurrences: occ, onOpenContext() {} });
+  check("panel: onOpenContext reaches every run", count(panelCtx, 'data-action="open-context"') === new Set(occ.map((o) => o.run_id)).size && !panelCtx.includes("af-auto-received"), String(count(panelCtx, 'data-action="open-context"')));
+
+  // G3: a run in progress says "running" once — the live line, no "Running…" placeholder under it.
+  const running = { ...base, status: "running", answer: "", finished_at: undefined };
+  const current = { index: 5, run_id: "rn", attempt: 1, status: "running", live: { started_at: "2026-09-27T06:00:00Z", state: "thinking", tool: null, attempt: 1, steps_done: 2 } };
+  const live = pairOf(running, { current });
+  check("running with the live line: no 'Running…' placeholder", live.includes("af-auto-live") && !live.includes("Running…"), live);
+  const noLive = pairOf(running);
+  check("running without a live line: the placeholder as before", noLive.includes("Running…"));
 }
 
 if (failures) {

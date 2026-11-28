@@ -25,7 +25,7 @@ import { automationToolSelection, withAutomationTools } from "./tool_selection.j
 import React, { useEffect, useId, useRef, useState } from "react";
 import { trapTabKey } from "../about.js";
 import { AfEmailOptionsFields, AfEmailSetupNotice, AfEmailTriggerFields } from "./email_fields.js";
-import { AfCalendarRuleFields, AfServedSchedule, type CalendarRuleState, calendarRuleOf, DEFAULT_CALENDAR_STATE, type PreviewSchedule, useSchedulePreview, withCalendarRule } from "./schedule_when.js";
+import { AfCalendarRuleFields, AfEveryFields, AfScheduleKind, AfServedSchedule, type CalendarRuleState, calendarRuleOf, DEFAULT_CALENDAR_STATE, type PreviewSchedule, useSchedulePreview, withCalendarRule } from "./schedule_when.js";
 import {
   ActionIds,
   DEFAULT_GROWING_MAX_TOKENS,
@@ -258,27 +258,22 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
           </fieldset>
 
           <fieldset className="af-auto__field">
-            <legend>{SCHEDULE_TEXT.legend}</legend>
-            <div className="af-auto__row" role="radiogroup" aria-label="Schedule kind">
-              <label>
-                <input type="radio" name={id("kind")} value="every" checked={shownKind === "every"} onChange={() => pickKind("every")} /> {SCHEDULE_TEXT.kind_every}
-              </label>
-              <label>
-                <input type="radio" name={id("kind")} value="daily" checked={kind === "daily"} onChange={() => pickKind("daily")} /> {SCHEDULE_TEXT.kind_daily}
-              </label>
-              <label>
-                <input type="radio" name={id("kind")} value="weekly" checked={kind === "weekly"} onChange={() => pickKind("weekly")} /> {SCHEDULE_TEXT.kind_weekly}
-              </label>
-              <label>
-                <input type="radio" name={id("kind")} value="monthly" checked={kind === "monthly"} onChange={() => pickKind("monthly")} /> {SCHEDULE_TEXT.kind_monthly}
-              </label>
-              <label>
-                <input type="radio" name={id("kind")} value="once" checked={kind === "once"} onChange={() => pickKind("once")} /> {SCHEDULE_TEXT.kind_once}
-              </label>
-              <label>
-                <input type="radio" name={id("kind")} value="email" checked={emailKind} disabled={!usable} onChange={() => pickKind("email")} /> {EMAIL_TEXT.trigger_label}
-              </label>
-            </div>
+            {/* Six kinds: the same select as the Edit form (spec E/H: 2-4 = AfSegmented, 5+ = a select);
+                its label is the group's name ("When"). */}
+            <AfScheduleKind
+              presentation="select"
+              name={id("kind")}
+              value={shownKind}
+              options={[
+                { value: "every", label: SCHEDULE_TEXT.kind_every },
+                { value: "daily", label: SCHEDULE_TEXT.kind_daily },
+                { value: "weekly", label: SCHEDULE_TEXT.kind_weekly },
+                { value: "monthly", label: SCHEDULE_TEXT.kind_monthly },
+                { value: "once", label: SCHEDULE_TEXT.kind_once },
+                { value: "email", label: EMAIL_TEXT.trigger_label, disabled: !usable },
+              ]}
+              onChange={(k) => pickKind(k as WhenKind)}
+            />
             {!usable ? <AfEmailSetupNotice status={props.emailStatus} onOpenMyEmail={props.onOpenMyEmail} /> : null}
             {emailKind ? (
               <AfEmailTriggerFields value={{ ...email, usesModel: props.targetUsesModel !== false }} onChange={setEmail} idBase={base} />
@@ -305,15 +300,7 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
                     ) : null,
                   )}
                 </div>
-                <div className="af-auto__row">
-                  <span>{SCHEDULE_TEXT.every_label}</span>
-                  <input type="number" min={1} step={1} value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="Interval amount" />
-                  <select value={unit} onChange={(e) => setUnit(e.target.value as UnitKey)} aria-label="Interval unit">
-                    <option value="m">minutes</option>
-                    <option value="h">hours</option>
-                    <option value="d">days</option>
-                  </select>
-                </div>
+                <AfEveryFields amount={amount} unit={unit} onAmount={setAmount} onUnit={(u) => setUnit(u as UnitKey)} />
               </>
             ) : (
               <label className="af-auto__field" htmlFor={id("once")}>
@@ -394,7 +381,7 @@ export function AfScheduleDialog(props: AfScheduleDialogProps): React.ReactEleme
             <legend>Title and limits</legend>
             <label className="af-auto__field" htmlFor={id("title")}>
               <span>Title</span>
-              <input id={id("title")} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder="Defaults to the task's first line" />
+              <input id={id("title")} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Defaults to the task's first line" />
             </label>
             {shownKind === "every" || calendarKind ? (
               <>

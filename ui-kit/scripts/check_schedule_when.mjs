@@ -112,7 +112,7 @@ check("triggerSummary(schedule@1) = the served words verbatim; absent = plain wo
 }
 check("timing line of the daily row", kit.automationTiming(brief, NOW).line === "Every day at 08:00 (Europe/Paris) · last 33 min ago · next in 23 h", kit.automationTiming(brief, NOW).line);
 const header = ssr(h(parts.AutomationHeader, { summary: brief, triggerSources: fx("trigger-sources.json").items, nowMs: NOW }));
-check("header: When = served rule, Next run = served local, schedule@2 is a listed source", header.includes('data-fact="trigger">Every day at 08:00 (Europe/Paris)</dd>') && header.includes('data-fact="next">2026-09-28 08:00 Europe/Paris (in 23 h 25 min)</dd>') && !header.includes("does not list the trigger source"));
+check("header: When = served rule, Next run = served local, schedule@2 is a listed source", /data-fact="trigger">[^]*?title="When it runs: Every day at 08:00 \(Europe\/Paris\)"[^]*?>Every day at 08:00 \(Europe\/Paris\)<\/span>/.test(header) && /data-fact="next">[^]*?title="Next run: 2026-09-28 08:00 Europe\/Paris \(in 23 h 25 min\)"[^]*?>Next in 23 h 25 min<\/span>/.test(header) && !header.includes("does not list the trigger source"), header.slice(0, 200));
 
 // --- Edit form: the calendar rule -----------------------------------------------------------------
 const def = { context: { mode: "independent", growing: {} }, target: { bundle_ref: "b@1", flow_id: "main", input_data: { prompt: "Brief me" } }, policy: { tool_approval: "auto" } };
@@ -125,7 +125,8 @@ check("reviseChanges: the limits (max runs, stop at) are kept with the new rule"
 check("reviseChanges: an unchanged rule changes nothing", kit.reviseChanges(brief, form, def) === null);
 check("reviseChanges: an invalid rule says why", eq(kit.reviseChanges(brief, { ...form, calendar: { kind: "weekly", days: [], at: "09:15" } }, def), { errors: [T.error_days] }));
 const editHtml = ssr(h(parts.AutomationReviseForm, { summary: brief, definition: def, busy: false, errors: [], onSubmit() {}, previewSchedule: async () => preview }));
-check("Edit form: the calendar fieldset (kinds + time) instead of Repeat every", editHtml.includes('data-field="calendar"') && editHtml.includes(`<legend>${T.legend}</legend>`) && editHtml.includes('checked="" value="daily"') && !editHtml.includes("Repeat every (UTC)"));
+check("Edit form: the schedule (a kind select on Daily + the time) instead of Repeat every", editHtml.includes('data-field="calendar"') && editHtml.includes(`<span>${T.legend}</span><select`) && /<option value="daily" selected="">Daily<\/option>/.test(editHtml) && editHtml.includes('name="calendar_at"') && !editHtml.includes("Repeat every (UTC)"));
+check("Edit form: an unchanged rule shows the served sentence and the automation's zone", editHtml.includes(`data-preview="current">${esc(brief.schedule_text)}</p>`) && editHtml.includes("this automation&#x27;s time zone"));
 
 // --- time-zone picker -----------------------------------------------------------------------------
 const block = { value: null, gateway_default: "Europe/Paris", effective: "Europe/Paris", label: "Time zone", help: "Daily, weekly and monthly automations run on this clock.", choices: ["America/Los_Angeles", "Europe/Paris", "UTC"] };

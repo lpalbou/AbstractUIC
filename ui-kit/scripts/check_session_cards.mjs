@@ -123,3 +123,16 @@ assert.equal(wakeFacts.auto,undefined,'Automation state stays in its own attenti
   assert.ok(block.includes('.af-session-card__open:focus-visible ~ .af-session-card__archive'),'archive still shows when the row has keyboard focus, with or without rename between them');
   console.log('Session card rename: unchanged markup without onRename, sibling Rename action, F2 hint, dir=auto, disabled, hover/focus/touch CSS passed');
 }
+{
+  // A stopped automation's row carries Restart (operator 2026-11-28): only with onRestart, status failed, resume listed.
+  const failedAuto={...automation,status:'failed',capabilities:['revise','resume','archive']};
+  let restarts=0;
+  const card=(over,extra={})=>React.createElement(AutomationCard,{summary:{...failedAuto,...over},nowMs:now,onOpen(){},onArchive(){},onRestart(){restarts++;},restartLabel:"Restart",restartHint:"Turn it back on and schedule its next run.",...extra});
+  const html=renderToStaticMarkup(card({}));
+  assert.match(html,/<button type="button" class="af-automation-card__restart" data-action="restart"[^>]*title="Turn it back on and schedule its next run\."[^>]*>.*<span>Restart<\/span><\/button>/,'failed + resume: Restart on the row');
+  assert.doesNotMatch(renderToStaticMarkup(card({capabilities:['archive']})),/data-action="restart"/,'no resume listed: no Restart');
+  assert.doesNotMatch(renderToStaticMarkup(card({status:'active'})),/data-action="restart"/,'active: no Restart');
+  assert.doesNotMatch(renderToStaticMarkup(card({},{onRestart:undefined})),/data-action="restart"/,'no host action: no Restart');
+  assert.match(renderToStaticMarkup(card({},{restartBusy:true})),/data-action="restart" disabled="" aria-busy="true"/,'sending: busy and disabled');
+  console.log('Automation card Restart: shown only for a stopped automation the gateway can resume, busy while sent');
+}

@@ -308,9 +308,11 @@ const LADDER = ["none", "minimal", "low", "medium", "high", "xhigh"];
   // ...and cleared, not just hidden (kit review 2026-11-07): a host without the send-time check
   // would still send a hidden-but-held depth, and the user could not see or clear it.
   let cleared = null;
-  const c = mount(ProviderModelPicker, picker({ enableSpeculation: true, onChange: (next) => { cleared = next; }, value: { provider: "airelays", model: "gpt-5.6-terra", reasoning: "ultra", speculation: DEPTH }, fetchModelCapabilities: async () => ({ capabilities: { reasoning_levels: ["low", "high"] }, execution: { speculation: { supported: false, reason: "native_mtp_backend_unavailable", supported_depths: [] } } }) }));
+  let clearedMeta = null;
+  const c = mount(ProviderModelPicker, picker({ enableSpeculation: true, onChange: (next, meta) => { cleared = next; clearedMeta = meta; }, value: { provider: "airelays", model: "gpt-5.6-terra", reasoning: "ultra", speculation: DEPTH }, fetchModelCapabilities: async () => ({ capabilities: { reasoning_levels: ["low", "high"] }, execution: { speculation: { supported: false, reason: "native_mtp_backend_unavailable", supported_depths: [] } } }) }));
   await c.settle();
   check("unsupported model: the held depth and unlisted level are cleared to the default", cleared && cleared.speculation === undefined && cleared.reasoning === "" && cleared.model === "gpt-5.6-terra", JSON.stringify(cleared));
+  check("the clean-up says it is automatic (onChange's second argument)", clearedMeta?.automatic === true, JSON.stringify(clearedMeta));
   let kept = null;
   const k = mount(ProviderModelPicker, picker({ enableSpeculation: true, onChange: (next) => { kept = next; }, value: { provider: "airelays", model: "m", reasoning: "high", speculation: false }, fetchModelCapabilities: async () => ({ capabilities: {} }) }));
   await k.settle();
@@ -319,6 +321,76 @@ const LADDER = ["none", "minimal", "low", "medium", "high", "xhigh"];
   const pz = mount(ProviderModelPicker, picker({ enableSpeculation: true, pinned: { reasoning: true, speculation: true }, onChange: (next) => { pinnedEmit = next; }, value: { provider: "airelays", model: "gpt-5.6-terra", reasoning: "ultra", speculation: DEPTH }, fetchModelCapabilities: async () => ({ capabilities: { reasoning_levels: ["low"] }, execution: { speculation: { supported: false, reason: "x", supported_depths: [] } } }) }));
   await pz.settle();
   check("pinned fields are never cleared (opening a pinned node changes nothing)", pinnedEmit === null, JSON.stringify(pinnedEmit));
+}
+// savedUnavailableText (opt-in): ONE sentence when the stored provider/model is not among the lists
+// the gateway served — decided from those lists only: never while a list loads, never after it
+// failed, never for a served value, never for a value chosen now, never without the prop.
+{
+  const GONE = "The gateway does not list this model. Runs may fail until you choose another one.";
+  const sentence = (tree) => first(tree, (n) => n.props["data-saved-unavailable"] === "");
+  const saved = { provider: "mlx", model: "Jundot/Qwen3.8-27B-oQ4e-mtp" };
+  const served = (extra) => picker({ layout: "compact", value: saved, savedUnavailableText: GONE, savedUnavailableSuffix: "(not listed)", fetchProviders: async () => [{ name: "mlx" }, { name: "ollama" }], fetchModels: async (p) => (p === "mlx" ? ["mlx-community/Qwen3-4B"] : ["qwen3"]), ...extra });
+  // First paint (no effect has run, no list was asked for yet).
+  check("unavailable: not said on first paint, before any list loads", !renderToStaticMarkup(h(ProviderModelPicker, served({}))).includes("no longer available"));
+  const gone = mount(ProviderModelPicker, served({}));
+  check("unavailable: not said before the lists load", !sentence(gone.tree));
+  await gone.settle();
+  check("unavailable: the saved model is not served → one sentence", sentence(gone.tree)?.props.children === GONE && all(gone.tree, (n) => n.props["data-saved-unavailable"] === "").length === 1, JSON.stringify(sentence(gone.tree)?.props));
+  check("unavailable: a warning status line (the kit's warning class)", sentence(gone.tree)?.props.role === "status" && String(sentence(gone.tree)?.props.className).split(" ").includes("af-auto__warn"), String(sentence(gone.tree)?.props.className));
+  const goneSel = first(gone.tree, (n) => n.type === ProviderModelSelect);
+  check("unavailable: the stored model reads (not listed)", goneSel?.props.savedSuffix === "(not listed)" && renderToStaticMarkup(h(ProviderModelSelect, goneSel.props)).includes("Jundot/Qwen3.8-27B-oQ4e-mtp (not listed)"), String(goneSel?.props.savedSuffix));
+  const plain = mount(ProviderModelPicker, served({ savedUnavailableText: undefined }));
+  await plain.settle();
+  const plainSel = first(plain.tree, (n) => n.type === ProviderModelSelect);
+  check("unavailable: without the prop the stored model still reads (saved)", plainSel?.props.savedSuffix === undefined && renderToStaticMarkup(h(ProviderModelSelect, plainSel.props)).includes("Jundot/Qwen3.8-27B-oQ4e-mtp (saved)"));
+  const emptyList = mount(ProviderModelPicker, served({ fetchModels: async () => [] }));
+  await emptyList.settle();
+  const emptySel = first(emptyList.tree, (n) => n.type === ProviderModelSelect);
+  check("unavailable: a loaded but EMPTY model list → no sentence (a provider down or without a key answers [])", !sentence(emptyList.tree));
+  check("unavailable: …and the label stays (saved)", emptySel?.props.savedSuffix === undefined, String(emptySel?.props.savedSuffix));
+  const noProvider = mount(ProviderModelPicker, served({ fetchProviders: async () => [{ name: "ollama" }], fetchModels: async () => { throw new Error("unknown provider"); } }));
+  await noProvider.settle();
+  check("unavailable: provider not served and its model list failed → nothing", !sentence(noProvider.tree));
+  const unlistedProvider = mount(ProviderModelPicker, served({ fetchProviders: async () => [{ name: "ollama" }] }));
+  await unlistedProvider.settle();
+  check("unavailable: provider not served but its model list loaded without the model → the sentence", sentence(unlistedProvider.tree)?.props.children === GONE);
+  const listed = mount(ProviderModelPicker, served({ fetchModels: async () => ["Jundot/Qwen3.8-27B-oQ4e-mtp"] }));
+  await listed.settle();
+  check("unavailable: a served model → nothing", !sentence(listed.tree));
+  const failedModels = mount(ProviderModelPicker, served({ fetchModels: async () => { throw new Error("down"); } }));
+  await failedModels.settle();
+  check("unavailable: the model list failed → nothing", !sentence(failedModels.tree));
+  const failedProviders = mount(ProviderModelPicker, served({ fetchProviders: async () => { throw new Error("down"); }, fetchModels: async () => { throw new Error("down"); } }));
+  await failedProviders.settle();
+  check("unavailable: both lists failed → nothing", !sentence(failedProviders.tree));
+  let release;
+  const slow = mount(ProviderModelPicker, served({ fetchModels: () => new Promise((r) => { release = () => r(["other"]); }) }));
+  await slow.settle();
+  check("unavailable: nothing while the model list loads", !sentence(slow.tree));
+  release();
+  await slow.settle();
+  check("unavailable: …said once it loaded without the model", sentence(slow.tree)?.props.children === GONE);
+  const off = mount(ProviderModelPicker, served({ savedUnavailableText: undefined }));
+  await off.settle();
+  check("unavailable: without the prop nothing changes", !sentence(off.tree));
+  const empty = mount(ProviderModelPicker, served({ value: { provider: "", model: "" } }));
+  await empty.settle();
+  check("unavailable: nothing chosen → nothing", !sentence(empty.tree));
+  gone.rerender({ value: { provider: "mlx", model: "mlx-community/Qwen3-4B" } });
+  await gone.settle();
+  check("unavailable: gone once another served model is chosen", !sentence(gone.tree));
+  gone.rerender({ value: { provider: "mlx", model: "typed-now" } });
+  await gone.settle();
+  check("unavailable: a value typed now is not the saved one → nothing", !sentence(gone.tree));
+  const busy = mount(ProviderModelPicker, served({ disabled: true }));
+  await busy.settle();
+  check("unavailable: nothing while disabled (no lists are read)", !sentence(busy.tree));
+  const saving = mount(ProviderModelPicker, served({}));
+  await saving.settle();
+  check("unavailable: said before the save", Boolean(sentence(saving.tree)));
+  saving.rerender({ disabled: true });
+  await saving.settle();
+  check("unavailable: nothing once disabled after the lists loaded (a save in flight)", !sentence(saving.tree));
 }
 if (routeFailures) {
   console.error(`check_route_picker: ${routeFailures} FAILED`);
