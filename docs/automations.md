@@ -87,7 +87,11 @@ import { AutomationChat, renderAutomationText } from "@abstractframework/panel-c
 **`AutomationHeaderCard`** (ui-kit) is the header as one card with its own surface and edge and a
 gap below it. Row 1: the title (the row's whole width up to the state badge) and the state badge.
 Row 2: the buttons on their own row (Active switch, ONE Run now / Stop, Edit, Details, Archive; on a
-narrow pane the secondary ones show their icon, each keeps its name as tooltip). Row 3: the
+narrow pane they stay ONE row, each at least 44 px on a touch screen: the switch shows its state
+alone, its label kept for assistive technology; the secondary ones show their icon, each keeps its
+name as its accessible name and its hint as tooltip; Run now / Stop takes the room left and shows
+its icon alone when that room is too small for its words; a button that ever wraps keeps its size).
+Row 3: the
 parameters as chips: Task (its first line; whole in the tooltip), Flow, Schedule, Next run, Memory,
 Model, Tools, Results, the host's chip (`headerChip`, AbstractObserver's Workspaces) and Files. A
 chip whose section the Edit form shows opens the Edit dialog **at that section**
@@ -241,7 +245,8 @@ name for a person, shown as **Flow**), `renderText` and `renderTurn` (required i
   tooltip (no "⋯" menu): the **Active** switch · ONE **Run now** / **Stop** button (Stop while the
   served `current_occurrence` exists; Run now, the filled primary, otherwise) · **Edit** ·
   **Details** (with a `definition`) · **Archive…** (Unarchive when archived). On a narrow pane Edit,
-  Details and Archive show their icon only (each keeps its name and tooltip). Line 2: the task
+  Details and Archive show their icon only (each keeps its name as accessible name, its hint as tooltip), the switch its state
+  alone, and Run now / Stop its icon alone when the row has no room for its words: one row. Line 2: the task
   (`definition.target.input_data.prompt`), at most two lines, whole in its tooltip and in Details.
   Line 3: one row of chips (the kit's `AfChip` / `AfChipButton`, one height, an icon each, the whole
   fact in the tooltip): **flow** (`workflowName`) · **when** (`triggerWords()`: every schedule is the
@@ -254,16 +259,20 @@ name for a person, shown as **Flow**), `renderText` and `renderTurn` (required i
   you", warning tone, only when non-zero) · **Files** (a chip calling
   `onOpenWorkspace(automation_id)` when that prop is given; the path is under Details) · the host's
   `headerChip`. Not shown any more: "Attention: nothing new", "Runs: 21", the Context sentence,
-  "Now". A reason line appears only for what a person can act on: a **failed** automation's served
-  `failed_reason` verbatim, and only it (a whole sentence that already says what to do), else, when
-  the Gateway lists `resume` for it, "This automation stopped. Check it, then turn it back on."
-  (`failed.explain`; `automationFailedNote(summary)` returns `{explain, reason}` or null); a
+  "Now". A reason line appears only for what a person can act on: a **failed** (stopped)
+  automation that can be restarted shows two lines with its Restart button: "This automation hit
+  a problem and has not restarted by itself. You can restart it now." (`failed.explain`), then, on
+  its own line, the served `failed_reason` verbatim (a plain fact, such as "It stopped on 7 Nov
+  while starting run #38."). The explanation shows on exactly the button's condition
+  (`automationControls(summary).resume.enabled`, and a host that handles the notice's action);
+  without the button the served reason alone (the explanation would promise a restart nobody can
+  do); `automationFailedNote(summary)` returns `{explain, reason}` or null; a
   **paused** automation's served `paused_reason` (`automationPausedNote(summary)`, warning tone); an
   **archived** one's "Archived: it does not run. Its history stays readable." Why a button is
   disabled is its tooltip and its `aria-describedby` text, never a visible line.
 - **The notice carries the button that fixes it** (`automationNotice(summary, editSections)`, one
-  piece for the three cases; `AutomationNoticeLine` draws it): a **failed** automation's sentence
-  with a filled **Restart** button (`failed.restart`, tooltip `failed.restart_hint`) when the
+  piece for the three cases; `AutomationNoticeLine` draws it): a **failed** automation's lines
+  (`text`, then `reason` on its own line) with a filled **Restart** button (`failed.restart`, tooltip `failed.restart_hint`) when the
   Gateway lists `resume`; a **paused** one with a served `paused_reason`: **Edit** opening the Edit
   dialog at the Flow section when `flow_missing` is true, otherwise **Turn back on**; an
   **archived** one: **Unarchive** when listed. Restart and Turn back on send `automation.resume`,

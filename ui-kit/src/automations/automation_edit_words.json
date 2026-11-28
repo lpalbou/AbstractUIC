@@ -60,7 +60,7 @@
     "remember_failed": "Could not remember the folded section: {reason}"
   },
   "failed": {
-    "explain": "This automation stopped. Check it, then turn it back on.",
+    "explain": "This automation hit a problem and has not restarted by itself. You can restart it now.",
     "restart": "Restart",
     "restart_hint": "Turn it back on and schedule its next run.",
     "restarted": "Back on. Next run: {when}.",

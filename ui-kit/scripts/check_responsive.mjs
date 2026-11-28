@@ -213,10 +213,57 @@ for (const sel of [".af-gateway-signin__actions", ".af-appearance__actions", ".a
     const d = resolve(coarse_all, ".af-auto-headcard .af-auto__icon-btn");
     if (d["min-width"] !== "var(--tap-min)" || d["min-height"] !== "var(--tap-min)") fail("coarse: the header card's dismiss buttons must be tap-min in both axes");
   }
+  // A narrow pane shows the action row's secondary buttons as their icon only (36px wide): they stay 44px wide on touch.
+  if (resolve(coarse_all, ".af-auto__actionrow .af-auto__controls > .af-auto__btn")["min-width"] !== "var(--tap-min)") fail("coarse: the header's action buttons must be tap-min wide (icon-only in a narrow pane)");
   const narrow = blocks_of(/@container af-auto \(max-width: 559\.98px\)\s*\{/g);
   const row = resolve(narrow, ".af-auto__chips");
   if (row["overflow-x"] !== "auto" || row["flex-wrap"] !== "nowrap") fail("narrow header: the chips are ONE row that scrolls inside the card (overflow-x: auto, flex-wrap: nowrap)");
   if (!/linear-gradient\(to right, black calc\(100% - 16px\), transparent\)/.test(row["mask-image"] || "") || row["padding-right"] !== "16px") fail(`narrow header: the scrolling chip row needs the rail's edge fade (mask-image) with its 16px reserved (got mask ${row["mask-image"]}, padding-right ${row["padding-right"]})`);
+  // The header's controls: ONE row on a phone, every control 44 px (operator 2026-11-28: no
+  // full-width Archive bar on a second row). The switch shows its state alone (its label visually
+  // hidden, kept for assistive tech), the buttons never stretch, Run now / Stop take the room left
+  // and drop to their icon when it is too small.
+  const label = resolve(narrow, ".af-auto__actionrow .af-auto__switch .af-switch__text");
+  const hidden = label.position === "absolute" && label.width === "1px" && label.height === "1px" && label.overflow === "hidden" && /rect\(0 0 0 0\)/.test(label.clip || "");
+  // On a wide pane the switch's label stays visible: nothing outside the narrow-pane blocks hides it.
+  {
+    let wide = css;
+    for (const m of [...css.matchAll(/@container af-auto \(max-width: [0-9.]+px\)\s*\{/g)].reverse()) {
+      let i = m.index + m[0].length, depth = 1;
+      while (depth && i < css.length) { if (css[i] === "{") depth += 1; else if (css[i] === "}") depth -= 1; i += 1; }
+      wide = wide.slice(0, m.index) + wide.slice(i);
+    }
+    for (const sel of [".af-auto__actionrow .af-auto__switch .af-switch__text", ".af-auto__switch .af-switch__text", ".af-switch__text", ".af-switch__label"]) {
+      const d = resolve(wide, sel);
+      if (d.position === "absolute" || d.clip || d.display === "none" || d.visibility === "hidden" || d.width === "1px") fail(`wide pane: the switch's label must stay visible (${sel} is hidden outside the narrow-pane rules: ${JSON.stringify(d)})`);
+    }
+  }
+  // The switch is a 44px target on a touch screen, and the narrow pane does not cap its height.
+  if (resolve(coarse_all, ".af-switch")["min-height"] !== "var(--tap-min)") fail("coarse: the switch (.af-switch) must be var(--tap-min) tall on a touch screen");
+  {
+    const s = resolve(narrow, ".af-auto__actionrow .af-auto__switch");
+    if (s.height || s["max-height"]) fail(`narrow header: the switch's height must not be capped (it is 44px on touch), got ${JSON.stringify(s)}`);
+  }
+  if (resolve(narrow, ".af-auto__actionrow .af-auto__switch").position !== "relative") fail("narrow header: the switch must hold its hidden label (position: relative), or the label's absolute box grows the page's scroll area");
+  if (!hidden) fail(`narrow header: the Active switch's label must be visually hidden (the .af-auto__sr-only declarations), got ${JSON.stringify(label)}`);
+  if (resolve(narrow, ".af-auto__actionrow .af-auto__controls > .af-auto__btn").flex !== "none") fail("narrow header: the action buttons keep their size (flex: none): a wrapped one never stretches across the card");
+  const main = resolve(narrow, ".af-auto__actionrow .af-auto__controls > .af-auto__btn--primary");
+  const stop = resolve(narrow, ".af-auto__actionrow .af-auto__controls > .af-auto__btn--danger");
+  if (JSON.stringify(stop) !== JSON.stringify(main)) fail("narrow header: Stop (danger) follows the same rule as Run now");
+  if (main.flex !== "1 1 0" || main["min-width"] !== "var(--tap-min, 44px)" || main["flex-wrap"] !== "wrap" || main.overflow !== "hidden") fail(`narrow header: Run now / Stop take the room left (flex: 1 1 0), stay 44px wide and drop their words when the room is too small (flex-wrap: wrap; overflow: hidden), got ${JSON.stringify(main)}`);
+  // The row's minimum at the phone widths: switch (track + its padding) + Run now/Stop at its icon +
+  // three icon buttons, all at least 44px, and four gaps; the room is the phone width less a host's
+  // 16px gutters, the card's narrow padding and its 1px border.
+  const px = (v) => Number(String(v).replace("px", ""));
+  const gap = px(resolve(narrow, ".af-auto__actionrow .af-auto__controls").gap);
+  const cardPad = px(resolve(narrow, ".af-auto-headcard").padding);
+  const sw = resolve(css, ".af-switch");
+  const switchW = Math.max(44, px(sw["--af-switch-w"]) + 2 * px(String(sw.padding).split(/\s+/)[1] ?? sw.padding));
+  for (const phone of [360, 375, 400, 430]) {
+    const room = phone - 2 * 16 - 2 * cardPad - 2;
+    const need = switchW + 4 * 44 + 4 * gap;
+    if (!(need <= room)) fail(`narrow header at ${phone}px: the controls need ${need}px on one row, the card has ${room}px`);
+  }
 }
 
 // E. containers

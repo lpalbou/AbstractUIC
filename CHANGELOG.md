@@ -20,7 +20,7 @@ build.
 - **A stopped automation has a button that restarts it** (operator 2026-11-28: "a user MUST have a
   way to reactivate it"). The header's notice now carries the button that fixes it
   (`automationNotice()`, `AutomationNoticeLine`, `useAutomationNoticeAction()`): a failed
-  automation shows its sentence and a filled **Restart** (sends `automation.resume`; busy while
+  automation shows its two lines (the explanation, then the Gateway's reason) and a filled **Restart** (sends `automation.resume`; busy while
   sent; the Gateway's refusal in the notice; "Back on. Next run: …" on success); a paused one with
   a served reason shows **Edit** (at the Flow section, when `flow_missing`) or **Turn back on**; an
   archived one **Unarchive** when listed. `AutomationCard` takes `onRestart` / `restartBusy` and
@@ -123,8 +123,9 @@ build.
   visible)` tells a host to re-read the open automation every 3 s while a run is in progress and the page is visible.
 - **A failed automation can be edited and turned back on** when the Gateway lists it: `automationControls()` accepts
   status `failed` for Edit, Resume and Archive as `capabilities` list them, and the Active switch is off and enabled
-  and sends `automation.resume`. The header says "This automation stopped. Check it, then turn it back on." (with
-  `resume` listed) and the served `failed_reason` verbatim (`automationFailedNote()`). A paused automation shows the
+  and sends `automation.resume`. The header says "This automation hit a problem and has not restarted by itself. You
+  can restart it now." (with its Restart button) and, on its own line, the served `failed_reason` verbatim
+  (`automationFailedNote()`). A paused automation shows the
   served `paused_reason` the same way, only while paused (`automationPausedNote()`; the automation card has no
   reason line and shows neither). Types: `failed_reason`, `paused_reason`, `flow_missing`. A failed automation whose capabilities list none of these (an older Gateway) is unchanged.
 - **panel-chat 0.9.16: `WorkflowChat` / `ChatThread` `openAt={{key, messageId}}`** opens a thread at that message,
@@ -174,7 +175,13 @@ build.
   is the message only when the run has no answer text; both are at the card's error level.
 - **Touch targets in an automation's view**: the run footer's Context, "The message that was sent"
   and the host's links are 44 px rows on a touch screen, and `.af-auto__btn` reaches 44 px there
-  again (its `af-btn` alias rule, later in `theme.css`, held it at 36 px).
+  again (its `af-btn` alias rule, later in `theme.css`, held it at 36 px). Context (41 px) and the
+  header's icon-only action buttons in a narrow pane (Edit, Details, Archive…: 36 px) are 44 px wide
+  as well. In a narrow pane the header's controls stay on ONE row, each at least 44 px on a touch screen: the Active
+  switch shows its state alone (its label stays its accessible name; the status pill says it in
+  words), the row's gap is 4 px, the buttons keep their size (a wrapped one no longer stretches
+  across the card), and Run now / Stop take the room left, showing their icon alone when the room is
+  too small for their words (their name stays as aria-label; the tooltip is their hint).
 - **A side read that fails shows nothing on an automation's message** (operator 2026-11-28: a run the
   gateway no longer has is not an error a person can act on): `AutomationChat` shows no file chips
   for a run whose inputs cannot be read, and its messages carry no `runId`, so the shared chat's own
@@ -243,8 +250,15 @@ build.
   `builds_on_no_numbers`, `starts_fresh`, `count_differs`, `instructions`, `system`, `context_task`, `earlier`,
   `from_task`, `from_answer`, `trigger`, `details`, `model`, `tools`, `no_tools`, `raw`).
 - **A run in progress is said once**: with its live line shown, the "Running…" placeholder under it is gone.
-- **The failed note says the reason once**: when the Gateway serves `failed_reason` (a whole sentence that already
-  says what to do), only it shows; `failed.explain` is for a failed automation served without a reason.
+- **The failed note no longer tells the person that restarting is their job** (operator 2026-11-28: "only a user
+  decides when an automation is started, paused, stopped or archived"; the Gateway now restarts a stopped automation
+  by itself right after the tick that failed and when it starts; this notice shows when that did not work):
+  `failed.explain` reads "This automation hit a problem and has not restarted by itself. You can restart it now.",
+  and a stopped automation shows it, with its **Restart** button, then the Gateway's `failed_reason` (now a plain
+  fact: "It stopped on 7 Nov while starting run #38.") on its own line (`AutomationNotice.reason`). The explanation
+  and the button go together: `automationFailedNote()` gives it only when `automationControls().resume.enabled`, and
+  `AutomationNoticeLine` (which now returns null when it has nothing to say) drops it when the host passes no
+  `onAction`. Without the button the served reason alone.
 - **A title has no length limit** (the runtime accepts any). The Edit form, `reviseChanges` and the create dialog
   (`AfScheduleDialog`, `buildCreateRequest`) no longer cap it at 120 characters: an automation whose stored title is
   longer opened as "changed" with Save enabled and could not be saved ("Title is at most 120 characters."). The

@@ -342,16 +342,18 @@ export function triggerSourceProblem(summary: AutomationSummary, sources: Array<
 }
 
 /**
- * What the header says about a FAILED automation (spec D): the served `failed_reason` as served (a
- * whole sentence that already says what to do) when there is one, and only it; `failed.explain`
- * only when no reason is served and the gateway lists `resume` for it (it can be turned back on).
- * Null for any other status, and for a failed automation an older gateway serves neither for (the
- * header is then as before).
+ * What the header says about a FAILED (stopped) automation (spec D), as two lines: `explain`,
+ * `failed.explain` ("… has not restarted by itself. You can restart it now."), on exactly the
+ * condition of its Restart button (`automationControls(s).resume.enabled`), then `reason`, the
+ * served `failed_reason` as served (a plain fact: what happened and when) when there is one.
+ * Without Restart the reason alone (the explanation would promise a restart nobody can do; a host
+ * that draws no button gets the same from `AutomationNoticeLine`). Null for any other status, and
+ * for a failed automation an older gateway serves neither for (the header is then as before).
  */
-export function automationFailedNote(s: Pick<AutomationSummary, "status" | "capabilities" | "failed_reason">): { explain: string | null; reason: string | null } | null {
+export function automationFailedNote(s: AutomationSummary): { explain: string | null; reason: string | null } | null {
   if (s.status !== "failed") return null;
   const reason = typeof s.failed_reason === "string" && s.failed_reason.trim() ? s.failed_reason : null;
-  const explain = !reason && Array.isArray(s.capabilities) && s.capabilities.includes("resume") ? AUTOMATION_EDIT_WORDS.failed.explain : null;
+  const explain = automationControls(s, [], false).resume.enabled ? AUTOMATION_EDIT_WORDS.failed.explain : null;
   return explain || reason ? { explain, reason } : null;
 }
 
@@ -375,13 +377,15 @@ export type AutomationNotice = {
   text: string;
   /** The text is the gateway's sentence (`failed_reason` / `paused_reason`), not the kit's words. */
   served: boolean;
+  /** A second line under `text`: the served `failed_reason` of a stopped automation that can be restarted (`text` is then `failed.explain`). */
+  reason?: string | null;
   action: AutomationNoticeAction | null;
 };
 
 /**
  * The header's notice for a stopped, gateway-paused or archived automation, and its one action:
- * failed → the served sentence (`automationFailedNote`) and **Restart** (`automation.resume`) when
- * the gateway lists `resume`; paused with a served `paused_reason` → the sentence and **Edit** at
+ * failed → its two lines (`automationFailedNote`: the explanation, then the served reason; the
+ * reason alone without Restart) and **Restart** (`automation.resume`) when the gateway lists `resume`; paused with a served `paused_reason` → the sentence and **Edit** at
  * the Flow section when `flow_missing` is true (and the form shows it: `editSections`), otherwise
  * **Turn back on** (`automation.resume`); archived → its line and **Unarchive** when listed. Each
  * action is offered only when `automationControls` enables it. Null for anything else.
@@ -394,7 +398,8 @@ export function automationNotice(s: AutomationSummary, editSections?: ReadonlySe
   if (s.status === "failed") {
     const note = automationFailedNote(s);
     if (!note) return null;
-    return { fact: "failed", tone: "error", icon: "error", text: (note.reason ?? note.explain) as string, served: note.reason !== null, action: resume(F.restart, F.restart_hint, "refresh") };
+    const text = (note.explain ?? note.reason) as string;
+    return { fact: "failed", tone: "error", icon: "error", text, served: note.explain === null, reason: note.explain !== null ? note.reason : null, action: resume(F.restart, F.restart_hint, "refresh") };
   }
   if (s.status === "paused") {
     const why = automationPausedNote(s);
@@ -424,20 +429,26 @@ export function automationNotice(s: AutomationSummary, editSections?: ReadonlySe
 export type AutomationNoticeState = { busy?: boolean; error?: string | null; done?: string | null };
 
 /**
- * ONE notice line: the sentence and, in it, the filled button that fixes it; `error` (the
+ * ONE notice line: the sentence (and, for a stopped automation, the served reason on its own line
+ * under it) and, in it, the filled button that fixes it; `error` (the
  * gateway's own sentence) shows in the line, the button still there. (`done`, the confirmation,
  * replaces the line in `AutomationHeader`.) Hook-free.
  */
-export function AutomationNoticeLine(props: { notice: AutomationNotice; state?: AutomationNoticeState; disabled?: boolean; onAction?(action: AutomationNoticeAction): void }): React.ReactElement {
-  const n = props.notice;
+export function AutomationNoticeLine(props: { notice: AutomationNotice; state?: AutomationNoticeState; disabled?: boolean; onAction?(action: AutomationNoticeAction): void }): React.ReactElement | null {
   const st = props.state ?? {};
-  const a = props.onAction ? n.action : null;
+  const a = props.onAction ? props.notice.action : null;
+  // A stopped automation's explanation and its Restart go together: a host that draws no button
+  // shows the gateway's sentence alone (no line at all without one).
+  const bare = props.notice.fact === "failed" && !a && !props.notice.served;
+  if (bare && !props.notice.reason) return null;
+  const n: AutomationNotice = bare ? { ...props.notice, text: props.notice.reason as string, served: true, reason: null } : props.notice;
   const toneClass = n.tone === "error" ? "af-auto__failed" : n.tone === "warning" ? "af-auto__note af-auto__note--warning" : "af-auto__note";
   return (
     <div className={`${toneClass} af-auto__notice-line`} role="note" data-fact={n.fact}>
       <Icon name={n.icon} size={14} className="af-auto__btn-icon" />
       <span className="af-auto__notice-words">
         <span data-fact={n.fact === "failed" && n.served ? "failed_reason" : undefined}>{n.text}</span>
+        {n.reason ? <span data-fact="failed_reason">{n.reason}</span> : null}
         {st.error ? (
           <span className="af-auto__notice-error" role="alert" data-fact="notice_error">
             {st.error}

@@ -3688,6 +3688,8 @@
   .af-auto__chips > .af-auto__chip { align-items: center; min-height: var(--tap-min); }
   /* The card's bare dismiss buttons (a refused action, a notice) reach the 44px target. */
   .af-auto-headcard .af-auto__icon-btn { min-width: var(--tap-min); min-height: var(--tap-min); }
+  /* The action row's buttons are 44px wide too when a narrow pane shows their icon only. */
+  .af-auto__actionrow .af-auto__controls > .af-auto__btn { min-width: var(--tap-min); }
 }
 /* The reason line (archived; paused with a reason): neutral or warning; failed keeps .af-auto__failed. */
 .af-auto__note {
@@ -3709,6 +3711,37 @@
 @container af-auto (max-width: 559.98px) {
   .af-auto__actionrow .af-auto__controls > .af-auto__btn:not(.af-auto__btn--primary):not(.af-auto__btn--danger) > span { display: none; }
   .af-auto__actionrow .af-auto__controls > .af-auto__btn:not(.af-auto__btn--primary):not(.af-auto__btn--danger) { padding-inline: 10px; }
+  /* ONE row of controls on a phone, each at least 44 px: the switch shows its state alone (its
+   * label stays its accessible name, visually hidden as .af-auto__sr-only; the status pill says
+   * it in words), a tighter gap, and the buttons keep their size (never stretched when wrapped). */
+  /* (the switch holds its hidden label: an absolute box outside any positioned ancestor would
+   * grow the document's scroll area from inside a page that scrolls) */
+  .af-auto__actionrow .af-auto__switch { position: relative; }
+  .af-auto__actionrow .af-auto__switch .af-switch__text { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .af-auto__actionrow .af-auto__controls { gap: 4px; }
+  .af-auto__actionrow .af-auto__controls > .af-auto__btn { flex: none; }
+  /* Run now / Stop take the room left (basis 0: the row never breaks to make room for their words)
+   * and never wrap their words. When that room is too narrow
+   * for the words, the words drop to a second line that is clipped away: the icon alone shows
+   * (the name stays: aria-label and tooltip). The icon's line is the words' height either way,
+   * so the icon stays centred. */
+  .af-auto__actionrow .af-auto__controls > .af-auto__btn--primary,
+  .af-auto__actionrow .af-auto__controls > .af-auto__btn--danger {
+    flex: 1 1 0;
+    min-width: var(--tap-min, 44px);
+    flex-wrap: wrap;
+    align-content: flex-start;
+    row-gap: 100px;
+    overflow: hidden;
+    max-height: 36px;
+    padding-block: calc((36px - 1.2em) / 2);
+  }
+  .af-auto__actionrow .af-auto__controls > .af-auto__btn--primary > .af-auto__btn-icon,
+  .af-auto__actionrow .af-auto__controls > .af-auto__btn--danger > .af-auto__btn-icon { margin-block: calc((1.2em - 14px) / 2); }
+  @media (pointer: coarse) {
+    .af-auto__actionrow .af-auto__controls > .af-auto__btn--primary,
+    .af-auto__actionrow .af-auto__controls > .af-auto__btn--danger { max-height: var(--tap-min, 44px); padding-block: calc((var(--tap-min, 44px) - 1.2em) / 2); }
+  }
   /* The parameters: ONE swipeable row inside the card, never four wrapped ones. */
   .af-auto__chips { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
   /* It says it scrolls: the kit's rail fade at the right edge (.af-disclosure__rail), with the

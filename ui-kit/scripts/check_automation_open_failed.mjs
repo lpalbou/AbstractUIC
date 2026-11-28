@@ -297,17 +297,50 @@ const el = (id) => {
   // A completed automation never becomes revivable.
   const done = kit.automationControls({ ...news, status: "completed", capabilities: ["archive", "discuss", "resume"] });
   check("completed: still ended", !done.active.enabled && done.active.reason === "The automation has ended." && !done.resume.enabled);
-  // The header.
-  const head = (s) => renderToStaticMarkup(h(parts.AutomationHeader, { summary: s, triggerSources: sources, nowMs: NOW }));
-  const withReason = head({ ...failed, failed_reason: "Its flow is no longer installed. Choose another one." });
-  check("header: a served reason alone, as served (a whole sentence, no prefix, never the explanation too)", withReason.includes(`data-fact="failed"`) && !withReason.includes(WORDS.failed.explain) && withReason.includes('<span data-fact="failed_reason">Its flow is no longer installed. Choose another one.</span>') && !withReason.includes("It stopped:") && !("reason_prefix" in WORDS.failed), withReason);
-  check("header: the note says the reason once (the pure rule: explain is null when a reason is served)", kit.automationFailedNote({ ...failed, failed_reason: "Its flow is no longer installed. Choose another one." })?.explain === null);
+  // The header (a host that handles the notice's button: it draws Restart).
+  const head = (s) => renderToStaticMarkup(h(parts.AutomationHeader, { summary: s, triggerSources: sources, nowMs: NOW, onNoticeAction() {} }));
+  const withReason = head({ ...failed, failed_reason: "It stopped on 7 Nov while starting run #38." });
+  check(
+    "header: two lines, the explanation then the served reason as served (no prefix)",
+    withReason.includes(`data-fact="failed"`) &&
+      WORDS.failed.explain === "This automation hit a problem and has not restarted by itself. You can restart it now." &&
+      withReason.includes(`<span>${WORDS.failed.explain}</span><span data-fact="failed_reason">It stopped on 7 Nov while starting run #38.</span>`) &&
+      !withReason.includes("It stopped:") &&
+      !("reason_prefix" in WORDS.failed),
+    withReason,
+  );
+  check("header: the pure rule, both lines when resume is listed and a reason is served", isDeepStrictEqual(kit.automationFailedNote({ ...failed, failed_reason: "It stopped on 7 Nov." }), { explain: WORDS.failed.explain, reason: "It stopped on 7 Nov." }));
   const noReason = head(failed);
   check("header: the explanation alone when no reason is served", noReason.includes(WORDS.failed.explain) && !noReason.includes('data-fact="failed_reason"'));
+  // The explanation and Restart always together (adversarial review 2026-11-28): every way the
+  // button can be missing (resume not listed, busy, a host that draws no button) drops the sentence
+  // too, leaving the gateway's sentence alone or no line at all.
+  {
+    const R = "It stopped on 7 Nov while starting run #38.";
+    const plain = (s, extra = {}) => renderToStaticMarkup(h(parts.AutomationHeader, { summary: s, triggerSources: sources, nowMs: NOW, ...extra }));
+    const cases = [
+      ["resume listed, host action", head({ ...failed, failed_reason: R })],
+      ["resume listed, no reason, host action", head(failed)],
+      ["resume listed, no host action", plain({ ...failed, failed_reason: R })],
+      ["resume listed, no reason, no host action", plain(failed)],
+      ["resume not listed", head({ ...older, failed_reason: R })],
+      ["legacy schedule (resume not enabled)", head({ ...failed, legacy: true, failed_reason: R })],
+    ];
+    for (const [name, html] of cases) {
+      const said = html.includes(WORDS.failed.explain);
+      const button = html.includes('data-action="notice-restart"');
+      check(`header: the explanation and Restart together (${name})`, said === button, { said, button });
+    }
+    check("header: no host action, the served reason alone", plain({ ...failed, failed_reason: R }).includes(`<span data-fact="failed_reason">${R}</span>`) && !plain({ ...failed, failed_reason: R }).includes(WORDS.failed.explain));
+    check("header: no host action and no reason, no failed line", !plain(failed).includes('data-fact="failed"'));
+    check("pure rule: no explanation when Restart is not enabled", kit.automationFailedNote({ ...failed, legacy: true, failed_reason: R })?.explain === null);
+  }
   const olderHead = head(older);
   check("header: an older gateway's failed automation reads as before", !olderHead.includes('data-fact="failed"') && olderHead === head({ ...older, failed_reason: "" }));
   check("header: an active automation has no failed line", !head(news).includes('data-fact="failed"') && kit.automationFailedNote(news) === null);
-  check("header: a served reason without resume still says why", kit.automationFailedNote({ ...older, failed_reason: "Stopped by the runtime." })?.reason === "Stopped by the runtime." && kit.automationFailedNote({ ...older, failed_reason: "Stopped by the runtime." })?.explain === null);
+  check("header: a served reason without resume still says why, alone (no restart promised)", kit.automationFailedNote({ ...older, failed_reason: "Stopped by the runtime." })?.reason === "Stopped by the runtime." && kit.automationFailedNote({ ...older, failed_reason: "Stopped by the runtime." })?.explain === null);
+  const olderReason = head({ ...older, failed_reason: "Stopped by the runtime." });
+  check("header: without resume the served reason is the one line", olderReason.includes('<span data-fact="failed_reason">Stopped by the runtime.</span>') && !olderReason.includes(WORDS.failed.explain), olderReason);
 }
 
 // --- the notice always carries the button that fixes it (operator 2026-11-28) ---------------------
@@ -319,7 +352,7 @@ const el = (id) => {
   const n = kit.automationNotice(failed);
   check("failed + resume: the notice's action is Restart, sending automation.resume", n?.fact === "failed" && n.action?.kind === "command" && n.action.command === "automation.resume" && n.action.label === WORDS.failed.restart && n.action.hint === WORDS.failed.restart_hint, JSON.stringify(n));
   const html = head(failed);
-  check("failed: ONE notice with the sentence and a filled Restart button in it", (html.match(/role="note"/g) || []).length === 1 && /data-fact="failed"[^>]*>.*It stopped on 7 Nov while starting run #38\..*<button type="button" class="af-auto__btn af-auto__btn--primary af-auto__notice-btn" data-action="notice-restart"[^>]*>.*<span>Restart<\/span><\/button><\/div>/.test(html), html.slice(html.indexOf("af-auto__failed")));
+  check("failed: ONE notice with the two lines and a filled Restart button in it", (html.match(/role="note"/g) || []).length === 1 && /data-fact="failed"[^>]*>.*This automation hit a problem and has not restarted by itself\. You can restart it now\.<\/span><span data-fact="failed_reason">It stopped on 7 Nov while starting run #38\.<\/span>.*<button type="button" class="af-auto__btn af-auto__btn--primary af-auto__notice-btn" data-action="notice-restart"[^>]*>.*<span>Restart<\/span><\/button><\/div>/.test(html), html.slice(html.indexOf("af-auto__failed")));
   check("failed: the raw error never in the header", !html.includes("not found in registry"));
   check("failed: no button without a host action", !head(failed, { onNoticeAction: undefined }).includes("notice-restart"));
   check("failed without resume listed: the sentence, no button", !head({ ...failed, capabilities: ["archive", "discuss"] }).includes("notice-restart") && kit.automationNotice({ ...failed, capabilities: ["archive", "discuss"] })?.action === null);

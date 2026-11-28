@@ -94,6 +94,8 @@ for (const sel of [".pc-workflow-chat__composer", ".pc-assistant__composer"]) {
 for (const sel of [".pc-auto-foot__action", ".pc-auto-foot__sent-message > summary", ".pc-auto-foot a"]) {
   if (resolve(coarse, sel)["min-height"] !== "var(--tap-min, 44px)") fail(`coarse: the run footer's ${sel} must be a 44px row (min-height: var(--tap-min, 44px))`);
 }
+// Context is one short word (41px at 12px): its touch target is 44px wide as well (2026-11-28).
+if (resolve(coarse, ".pc-auto-foot__action")["min-width"] !== "var(--tap-min, 44px)") fail("coarse: the run footer's Context button must be 44px wide too (min-width: var(--tap-min, 44px))");
 {
   const phone = blocks_of(css, /@media \(max-width: 479\.98px\)\s*\{/g);
   const band = resolve(phone, ".pc-chat-jump");
