@@ -140,6 +140,75 @@ export function AfTimeZoneLine(props: { timeZone: string; whose?: "account" | "a
   );
 }
 
+/** One kind of the "When" control (the words are `SCHEDULE_TEXT.kind_*` / `EMAIL_TEXT.trigger_label`). */
+export type ScheduleKindOption = { value: string; label: string; disabled?: boolean };
+
+/**
+ * The "When" kind control, shared by AfScheduleDialog and the Edit form: a labelled select (six
+ * kinds: spec E/H, 2-4 exclusive options are AfSegmented, five or more a select; the create
+ * dialog's radio row is gone). Controlled; `value` is the kind shown chosen.
+ */
+export function AfScheduleKind(props: {
+  presentation: "select";
+  /** The select's id. */
+  name: string;
+  value: string;
+  options: ReadonlyArray<ScheduleKindOption>;
+  onChange(kind: string): void;
+  disabled?: boolean;
+  /** The select's visible label (default `SCHEDULE_TEXT.legend`). */
+  label?: string;
+}): React.ReactElement {
+  return (
+    <label className="af-auto__field af-edit__field" htmlFor={props.name}>
+      <span>{props.label ?? SCHEDULE_TEXT.legend}</span>
+      <select id={props.name} name="schedule_kind" value={props.value} disabled={props.disabled} onChange={(e) => props.onChange(e.target.value)}>
+        {props.options.map((o) => (
+          <option key={o.value} value={o.value} disabled={o.disabled}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+export type EveryUnit = "s" | "m" | "h" | "d";
+/** The interval units (seconds only for a stored interval in seconds: an email check). */
+export const EVERY_UNITS: ReadonlyArray<[EveryUnit, string]> = [
+  ["m", "minutes"],
+  ["h", "hours"],
+  ["d", "days"],
+];
+export const EVERY_UNIT_SECONDS: [EveryUnit, string] = ["s", "seconds"];
+
+/** "Every [N] [unit]" (controlled), shared by AfScheduleDialog (Repeat) and the Edit form. */
+export function AfEveryFields(props: {
+  amount: string;
+  unit: EveryUnit;
+  onAmount(next: string): void;
+  onUnit(next: EveryUnit): void;
+  /** Default `EVERY_UNITS`. */
+  units?: ReadonlyArray<[EveryUnit, string]>;
+  /** The visible label (default `SCHEDULE_TEXT.every_label`). */
+  label?: string;
+  disabled?: boolean;
+}): React.ReactElement {
+  return (
+    <div className="af-auto__row">
+      <span>{props.label ?? SCHEDULE_TEXT.every_label}</span>
+      <input type="number" min={1} step={1} value={props.amount} disabled={props.disabled} onChange={(e) => props.onAmount(e.target.value)} aria-label="Interval amount" />
+      <select value={props.unit} disabled={props.disabled} onChange={(e) => props.onUnit(e.target.value as EveryUnit)} aria-label="Interval unit">
+        {(props.units ?? EVERY_UNITS).map(([v, l]) => (
+          <option key={v} value={v}>
+            {l}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export type PreviewSchedule = (trigger: TriggerSpec) => Promise<SchedulePreview>;
 export type PreviewState =
   | { phase: "idle" }

@@ -124,6 +124,8 @@ export type AfChipButtonProps = ChipCommonProps & {
    * wrapper-ref workaround it replaces.
    */
   tabIndex?: number;
+  /** `data-action` on the button (clients and tests find it by this). */
+  action?: string;
 };
 
 export function AfChipButton(props: AfChipButtonProps): React.ReactElement {
@@ -139,6 +141,7 @@ export function AfChipButton(props: AfChipButtonProps): React.ReactElement {
       aria-label={props.ariaLabel}
       disabled={props.disabled}
       tabIndex={props.tabIndex}
+      {...(props.action ? { "data-action": props.action } : {})}
     >
       <span className="af-chip__label">{props.children}</span>
     </button>

@@ -215,6 +215,7 @@ export type {
   AutomationDefinition,
   AutomationDetail,
   AutomationPolicyInput,
+  AutomationNamedToolPolicy,
   AutomationStatus,
   AutomationNotify,
   EmailEventPayload,
@@ -228,6 +229,9 @@ export type {
   CommandReceipt,
   ContextMode,
   CurrentOccurrence,
+  AutomationLive,
+  AutomationLiveState,
+  AutomationSection,
   CreateAutomationRequest,
   CreateAutomationResponse,
   DiscussResponse,
@@ -335,6 +339,9 @@ export {
   GROWING_CONTEXT_HELP,
   reviseChanges,
   reviseFormFrom,
+  automationModelFrom,
+  withAutomationModel,
+  type AutomationModelValue,
   scheduleLabel,
   triggerSummary,
   activeToggleCommand,
@@ -385,11 +392,30 @@ export {
   type CalendarWhen,
   type PreviewSchedule,
   type PreviewState,
+  AfScheduleKind,
+  AfEveryFields,
+  EVERY_UNITS,
+  type ScheduleKindOption,
+  type EveryUnit,
 } from "./automations/schedule_when.js";
+export { editScheduleKinds, automationModelWords, automationEditSections, type AutomationEditSection } from "./automations/AutomationEditForm.js";
+export { AutomationHeaderCard, type AutomationHeaderCardProps } from "./automations/automation_header_card.js";
+export { VisibleContentMarker } from "./visible_content.js";
+export { automationTriggerFrame, automationRunTask, unseenRuns, automationOpening } from "./automations/automation_thread.js";
+export {
+  automationToolChoice,
+  automationToolModes,
+  namedToolPolicyOf,
+  namedToolPolicyFromModes,
+  perToolRevise,
+  toolsOnOf,
+  type AutomationToolChoice,
+} from "./automations/automation_tool_choice.js";
 export {
   AutomationPanel,
   AutomationReviseForm,
   type AutomationReviseFormProps,
+  type AutomationModelPickerOptions,
   AutomationStateLabel,
   CONTROL_ICONS,
   CONTROL_HINTS,
@@ -401,6 +427,25 @@ export {
   attentionBadgeTooltip,
   attentionBadgeLabel,
   attentionTarget,
+  newestRunRow,
+  NEWEST_RUN_SELECTOR,
+  openingTarget,
+  OpeningOnce,
+  scrollParentOf,
+  visibleRunAnchor,
+  anchoredScrollTop,
+  EARLIER_HOLD_MS,
+  OPENING_HOLD_MS,
+  type AutomationHeaderChip,
+  type RunRowPlace,
+  automationFailedNote,
+  automationPausedNote,
+  automationNotice,
+  AutomationNoticeLine,
+  useAutomationNoticeAction,
+  type AutomationNotice,
+  type AutomationNoticeAction,
+  type AutomationNoticeState,
   TOOL_APPROVAL_HEADING,
   ATTENTION_FOCUS_MS,
   type AttentionText,
@@ -409,6 +454,7 @@ export {
   controlHint,
   DISCUSS_LABEL,
   RECEIVED_LABEL,
+  notifyShown,
   taskOfTurn,
   occurrenceStartWords,
   STATUS_ICONS,
@@ -419,6 +465,23 @@ export {
   type RenderText,
   type RenderTurn,
 } from "./automations/AutomationPanel.js";
+export { AUTOMATION_EDIT_WORDS, type AutomationEditWords } from "./automations/automation_words.js";
+export {
+  automationGroups,
+  automationGroupLabel,
+  automationGroupOpenKey,
+  readAutomationGroupOpen,
+  writeAutomationGroupOpen,
+  AUTOMATION_GROUP_DEFAULT_OPEN,
+  type AutomationGroup,
+  type AutomationGroups,
+  type AutomationGroupId,
+  type AutomationFoldGroup,
+} from "./automations/automation_groups.js";
+export { AutomationGroupFold, type AutomationGroupFoldProps } from "./automations/automation_group_fold.js";
+export { AfFoldToggle, type AfFoldToggleProps } from "./af_fold_toggle.js";
+export { automationLiveWords, liveElapsed, automationRefreshMs, LIVE_REFRESH_MS, type AutomationLiveWords } from "./automations/automation_live.js";
+export { AutomationLiveLine, type AutomationLiveLineProps } from "./automations/automation_live_line.js";
 export { AfScheduleDialog, dialogPreviewTrigger, dialogShowsZone, type AfScheduleDialogProps } from "./automations/AfScheduleDialog.js";
 export {
   AfEmailOptionsFields,
@@ -429,6 +492,7 @@ export {
   type AfEmailTriggerFieldsProps,
 } from "./automations/email_fields.js";
 export { AfSwitch, AfSwitchInput, afSwitchIsActionable, afSwitchNextState, type AfSwitchProps } from "./af_switch.js";
+export { AfSegmented, afSegmentedMove, afSegmentedTabStop, AF_SEGMENTED_MIN, AF_SEGMENTED_MAX, type AfSegmentedOption, type AfSegmentedProps } from "./af_segmented.js";
 export { AfFilterBar, AfFilterFacetRow, type AfFilterBarProps, type AfFilterBarSearch, type AfFilterBarScope } from "./af_filter_bar.js";
 export {
   afFilterChipHtml,

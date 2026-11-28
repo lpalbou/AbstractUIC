@@ -1,0 +1,3209 @@
+{
+  "about": "An automation's model choice in definition.target.input_data: read cases (input -> value) and write cases (input + value -> output, or error). Canonical copy: abstractuic ui-kit; every client port must pass all cases.",
+  "read": [
+    {
+      "input": {},
+      "value": {
+        "provider": "",
+        "model": ""
+      }
+    },
+    {
+      "input": {
+        "prompt": "p"
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      }
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "allowed_tools": [
+            "web_search"
+          ]
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "a/b"
+      }
+    },
+    {
+      "input": {
+        "provider": "ollama",
+        "model": "qwen3"
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "lmstudio",
+          "model": "qwen/qwen3-4b"
+        }
+      },
+      "value": {
+        "provider": "lmstudio",
+        "model": "qwen/qwen3-4b"
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx"
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      }
+    },
+    {
+      "input": {
+        "model": "x"
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "_runtime": {
+          "model": "m"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "m"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "p"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "high"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "a/b",
+        "reasoning": "high"
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "speculation": false
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "a/b",
+        "speculation": false
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 3
+          }
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "a/b",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 3
+        }
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "speculation": {
+            "mode": "off"
+          }
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "speculation": {
+          "mode": "off"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "",
+        "model": "",
+        "_runtime": {}
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      }
+    },
+    {
+      "input": {
+        "provider": 7,
+        "model": 8
+      },
+      "value": {
+        "provider": "7",
+        "model": "8"
+      }
+    },
+    {
+      "input": {
+        "_runtime": "bad"
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      }
+    },
+    {
+      "input": {
+        "_runtime": [
+          "x"
+        ]
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      }
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "tools": [
+          "a"
+        ],
+        "workspace": {
+          "configured": false
+        },
+        "_runtime": {
+          "operator_email": "me@example.org"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      }
+    }
+  ],
+  "write": [
+    {
+      "input": {},
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {}
+    },
+    {
+      "input": {},
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        }
+      }
+    },
+    {
+      "input": {},
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "_runtime": {
+          "provider": "ollama",
+          "model": "qwen3",
+          "thinking": "high"
+        }
+      }
+    },
+    {
+      "input": {},
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": false
+        }
+      }
+    },
+    {
+      "input": {},
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        }
+      }
+    },
+    {
+      "input": {},
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {},
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {},
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "prompt": "p"
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {
+        "prompt": "p"
+      }
+    },
+    {
+      "input": {
+        "prompt": "p"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "prompt": "p",
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        }
+      }
+    },
+    {
+      "input": {
+        "prompt": "p"
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "prompt": "p",
+        "provider": "ollama",
+        "model": "qwen3",
+        "_runtime": {
+          "provider": "ollama",
+          "model": "qwen3",
+          "thinking": "high"
+        }
+      }
+    },
+    {
+      "input": {
+        "prompt": "p"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "prompt": "p",
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": false
+        }
+      }
+    },
+    {
+      "input": {
+        "prompt": "p"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "prompt": "p",
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "prompt": "p"
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "prompt": "p",
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "prompt": "p"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "prompt": "p"
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "allowed_tools": [
+            "web_search"
+          ]
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {
+        "prompt": "p",
+        "_runtime": {
+          "allowed_tools": [
+            "web_search"
+          ]
+        }
+      }
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "allowed_tools": [
+            "web_search"
+          ]
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "prompt": "p",
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit",
+          "allowed_tools": [
+            "web_search"
+          ]
+        }
+      }
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "allowed_tools": [
+            "web_search"
+          ]
+        }
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "prompt": "p",
+        "provider": "ollama",
+        "model": "qwen3",
+        "_runtime": {
+          "provider": "ollama",
+          "model": "qwen3",
+          "allowed_tools": [
+            "web_search"
+          ],
+          "thinking": "high"
+        }
+      }
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "allowed_tools": [
+            "web_search"
+          ]
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "prompt": "p",
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "allowed_tools": [
+            "web_search"
+          ],
+          "speculation": false
+        }
+      }
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "allowed_tools": [
+            "web_search"
+          ]
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "prompt": "p",
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "allowed_tools": [
+            "web_search"
+          ],
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "allowed_tools": [
+            "web_search"
+          ]
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "prompt": "p",
+        "_runtime": {
+          "allowed_tools": [
+            "web_search"
+          ],
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "allowed_tools": [
+            "web_search"
+          ]
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "allowed_tools": [
+            "web_search"
+          ]
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "provider": "ollama",
+        "model": "qwen3"
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {}
+    },
+    {
+      "input": {
+        "provider": "ollama",
+        "model": "qwen3"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "ollama",
+        "model": "qwen3"
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "_runtime": {
+          "provider": "ollama",
+          "model": "qwen3",
+          "thinking": "high"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "ollama",
+        "model": "qwen3"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": false
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "ollama",
+        "model": "qwen3"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "ollama",
+        "model": "qwen3"
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "ollama",
+        "model": "qwen3"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "provider": "ollama",
+        "model": "qwen3"
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "lmstudio",
+          "model": "qwen/qwen3-4b"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {}
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "lmstudio",
+          "model": "qwen/qwen3-4b"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        },
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "lmstudio",
+          "model": "qwen/qwen3-4b"
+        }
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "_runtime": {
+          "provider": "ollama",
+          "model": "qwen3",
+          "thinking": "high"
+        },
+        "provider": "ollama",
+        "model": "qwen3"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "lmstudio",
+          "model": "qwen/qwen3-4b"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": false
+        },
+        "provider": "mlx",
+        "model": "x/y"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "lmstudio",
+          "model": "qwen/qwen3-4b"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        },
+        "provider": "mlx",
+        "model": "x/y"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "lmstudio",
+          "model": "qwen/qwen3-4b"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "lmstudio",
+          "model": "qwen/qwen3-4b"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "lmstudio",
+          "model": "qwen/qwen3-4b"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "provider": "mlx"
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {}
+    },
+    {
+      "input": {
+        "provider": "mlx"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx"
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "_runtime": {
+          "provider": "ollama",
+          "model": "qwen3",
+          "thinking": "high"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": false
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx"
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "provider": "mlx"
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "model": "x"
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {}
+    },
+    {
+      "input": {
+        "model": "x"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit",
+        "provider": "mlx",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        }
+      }
+    },
+    {
+      "input": {
+        "model": "x"
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "model": "qwen3",
+        "provider": "ollama",
+        "_runtime": {
+          "provider": "ollama",
+          "model": "qwen3",
+          "thinking": "high"
+        }
+      }
+    },
+    {
+      "input": {
+        "model": "x"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "model": "x/y",
+        "provider": "mlx",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": false
+        }
+      }
+    },
+    {
+      "input": {
+        "model": "x"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "model": "x/y",
+        "provider": "mlx",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "model": "x"
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "model": "x"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "model": "x"
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "_runtime": {
+          "model": "m"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {}
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "_runtime": {
+          "model": "m"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "provider": "mlx",
+        "_runtime": {
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit",
+          "provider": "mlx"
+        },
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "_runtime": {
+          "model": "m"
+        }
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "provider": "ollama",
+        "_runtime": {
+          "model": "qwen3",
+          "provider": "ollama",
+          "thinking": "high"
+        },
+        "model": "qwen3"
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "_runtime": {
+          "model": "m"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "provider": "mlx",
+        "_runtime": {
+          "model": "x/y",
+          "provider": "mlx",
+          "speculation": false
+        },
+        "model": "x/y"
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "_runtime": {
+          "model": "m"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "provider": "mlx",
+        "_runtime": {
+          "model": "x/y",
+          "provider": "mlx",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        },
+        "model": "x/y"
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "_runtime": {
+          "model": "m"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "_runtime": {
+          "model": "m"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "_runtime": {
+          "model": "m"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "p"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {}
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "p"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        },
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "p"
+        }
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "_runtime": {
+          "provider": "ollama",
+          "model": "qwen3",
+          "thinking": "high"
+        },
+        "provider": "ollama",
+        "model": "qwen3"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "p"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": false
+        },
+        "provider": "mlx",
+        "model": "x/y"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "p"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        },
+        "provider": "mlx",
+        "model": "x/y"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "p"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "p"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "_runtime": {
+          "provider": "p"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "high"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {}
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "high"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "high"
+        }
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "_runtime": {
+          "provider": "ollama",
+          "model": "qwen3",
+          "thinking": "high"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "high"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": false
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "high"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "high"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "high"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "high"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "speculation": false
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {}
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "speculation": false
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "speculation": false
+        }
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "_runtime": {
+          "provider": "ollama",
+          "model": "qwen3",
+          "thinking": "high"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "speculation": false
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": false
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "speculation": false
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          },
+          "thinking": "low"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "speculation": false
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "speculation": false
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "speculation": false
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 3
+          }
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {}
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 3
+          }
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 3
+          }
+        }
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "_runtime": {
+          "provider": "ollama",
+          "model": "qwen3",
+          "thinking": "high"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 3
+          }
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": false
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 3
+          }
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 3
+          }
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 3
+          }
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "provider": "mlx",
+        "model": "a/b",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "a/b",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 3
+          }
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {}
+    },
+    {
+      "input": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        },
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "high",
+          "provider": "ollama",
+          "model": "qwen3"
+        },
+        "provider": "ollama",
+        "model": "qwen3"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": false
+        },
+        "provider": "mlx",
+        "model": "x/y"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "low",
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        },
+        "provider": "mlx",
+        "model": "x/y"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "_runtime": {
+          "speculation": {
+            "mode": "off"
+          }
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {}
+    },
+    {
+      "input": {
+        "_runtime": {
+          "speculation": {
+            "mode": "off"
+          }
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        },
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "speculation": {
+            "mode": "off"
+          }
+        }
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "_runtime": {
+          "provider": "ollama",
+          "model": "qwen3",
+          "thinking": "high"
+        },
+        "provider": "ollama",
+        "model": "qwen3"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "speculation": {
+            "mode": "off"
+          }
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "_runtime": {
+          "speculation": false,
+          "provider": "mlx",
+          "model": "x/y"
+        },
+        "provider": "mlx",
+        "model": "x/y"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "speculation": {
+            "mode": "off"
+          }
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "_runtime": {
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          },
+          "provider": "mlx",
+          "model": "x/y",
+          "thinking": "low"
+        },
+        "provider": "mlx",
+        "model": "x/y"
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "speculation": {
+            "mode": "off"
+          }
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "_runtime": {
+          "speculation": {
+            "mode": "off"
+          }
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "_runtime": {
+          "speculation": {
+            "mode": "off"
+          }
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "provider": "",
+        "model": "",
+        "_runtime": {}
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {}
+    },
+    {
+      "input": {
+        "provider": "",
+        "model": "",
+        "_runtime": {}
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "",
+        "model": "",
+        "_runtime": {}
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "_runtime": {
+          "provider": "ollama",
+          "model": "qwen3",
+          "thinking": "high"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "",
+        "model": "",
+        "_runtime": {}
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": false
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "",
+        "model": "",
+        "_runtime": {}
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "",
+        "model": "",
+        "_runtime": {}
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": "",
+        "model": "",
+        "_runtime": {}
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "provider": "",
+        "model": "",
+        "_runtime": {}
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "provider": 7,
+        "model": 8
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {}
+    },
+    {
+      "input": {
+        "provider": 7,
+        "model": 8
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": 7,
+        "model": 8
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "_runtime": {
+          "provider": "ollama",
+          "model": "qwen3",
+          "thinking": "high"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": 7,
+        "model": 8
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": false
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": 7,
+        "model": 8
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "provider": "mlx",
+        "model": "x/y",
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": 7,
+        "model": 8
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "provider": 7,
+        "model": 8
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "provider": 7,
+        "model": 8
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "_runtime": "bad"
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {}
+    },
+    {
+      "input": {
+        "_runtime": "bad"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        },
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      }
+    },
+    {
+      "input": {
+        "_runtime": "bad"
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "_runtime": {
+          "provider": "ollama",
+          "model": "qwen3",
+          "thinking": "high"
+        },
+        "provider": "ollama",
+        "model": "qwen3"
+      }
+    },
+    {
+      "input": {
+        "_runtime": "bad"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": false
+        },
+        "provider": "mlx",
+        "model": "x/y"
+      }
+    },
+    {
+      "input": {
+        "_runtime": "bad"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        },
+        "provider": "mlx",
+        "model": "x/y"
+      }
+    },
+    {
+      "input": {
+        "_runtime": "bad"
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "_runtime": "bad"
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "_runtime": "bad"
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "_runtime": [
+          "x"
+        ]
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {}
+    },
+    {
+      "input": {
+        "_runtime": [
+          "x"
+        ]
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "_runtime": {
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        },
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      }
+    },
+    {
+      "input": {
+        "_runtime": [
+          "x"
+        ]
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "_runtime": {
+          "provider": "ollama",
+          "model": "qwen3",
+          "thinking": "high"
+        },
+        "provider": "ollama",
+        "model": "qwen3"
+      }
+    },
+    {
+      "input": {
+        "_runtime": [
+          "x"
+        ]
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": false
+        },
+        "provider": "mlx",
+        "model": "x/y"
+      }
+    },
+    {
+      "input": {
+        "_runtime": [
+          "x"
+        ]
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "_runtime": {
+          "provider": "mlx",
+          "model": "x/y",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        },
+        "provider": "mlx",
+        "model": "x/y"
+      }
+    },
+    {
+      "input": {
+        "_runtime": [
+          "x"
+        ]
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "_runtime": {
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "_runtime": [
+          "x"
+        ]
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "_runtime": [
+          "x"
+        ]
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "tools": [
+          "a"
+        ],
+        "workspace": {
+          "configured": false
+        },
+        "_runtime": {
+          "operator_email": "me@example.org"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": ""
+      },
+      "output": {
+        "prompt": "p",
+        "tools": [
+          "a"
+        ],
+        "workspace": {
+          "configured": false
+        },
+        "_runtime": {
+          "operator_email": "me@example.org"
+        }
+      }
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "tools": [
+          "a"
+        ],
+        "workspace": {
+          "configured": false
+        },
+        "_runtime": {
+          "operator_email": "me@example.org"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      },
+      "output": {
+        "prompt": "p",
+        "tools": [
+          "a"
+        ],
+        "workspace": {
+          "configured": false
+        },
+        "_runtime": {
+          "operator_email": "me@example.org",
+          "provider": "mlx",
+          "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+        },
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.8-27B-MTP-4bit"
+      }
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "tools": [
+          "a"
+        ],
+        "workspace": {
+          "configured": false
+        },
+        "_runtime": {
+          "operator_email": "me@example.org"
+        }
+      },
+      "value": {
+        "provider": "ollama",
+        "model": "qwen3",
+        "reasoning": "high"
+      },
+      "output": {
+        "prompt": "p",
+        "tools": [
+          "a"
+        ],
+        "workspace": {
+          "configured": false
+        },
+        "_runtime": {
+          "operator_email": "me@example.org",
+          "provider": "ollama",
+          "model": "qwen3",
+          "thinking": "high"
+        },
+        "provider": "ollama",
+        "model": "qwen3"
+      }
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "tools": [
+          "a"
+        ],
+        "workspace": {
+          "configured": false
+        },
+        "_runtime": {
+          "operator_email": "me@example.org"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "speculation": false
+      },
+      "output": {
+        "prompt": "p",
+        "tools": [
+          "a"
+        ],
+        "workspace": {
+          "configured": false
+        },
+        "_runtime": {
+          "operator_email": "me@example.org",
+          "provider": "mlx",
+          "model": "x/y",
+          "speculation": false
+        },
+        "provider": "mlx",
+        "model": "x/y"
+      }
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "tools": [
+          "a"
+        ],
+        "workspace": {
+          "configured": false
+        },
+        "_runtime": {
+          "operator_email": "me@example.org"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": "x/y",
+        "reasoning": "low",
+        "speculation": {
+          "mode": "native_mtp",
+          "num_draft_tokens": 2
+        }
+      },
+      "output": {
+        "prompt": "p",
+        "tools": [
+          "a"
+        ],
+        "workspace": {
+          "configured": false
+        },
+        "_runtime": {
+          "operator_email": "me@example.org",
+          "provider": "mlx",
+          "model": "x/y",
+          "thinking": "low",
+          "speculation": {
+            "mode": "native_mtp",
+            "num_draft_tokens": 2
+          }
+        },
+        "provider": "mlx",
+        "model": "x/y"
+      }
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "tools": [
+          "a"
+        ],
+        "workspace": {
+          "configured": false
+        },
+        "_runtime": {
+          "operator_email": "me@example.org"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "",
+        "reasoning": "medium"
+      },
+      "output": {
+        "prompt": "p",
+        "tools": [
+          "a"
+        ],
+        "workspace": {
+          "configured": false
+        },
+        "_runtime": {
+          "operator_email": "me@example.org",
+          "thinking": "medium"
+        }
+      }
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "tools": [
+          "a"
+        ],
+        "workspace": {
+          "configured": false
+        },
+        "_runtime": {
+          "operator_email": "me@example.org"
+        }
+      },
+      "value": {
+        "provider": "mlx",
+        "model": ""
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    },
+    {
+      "input": {
+        "prompt": "p",
+        "tools": [
+          "a"
+        ],
+        "workspace": {
+          "configured": false
+        },
+        "_runtime": {
+          "operator_email": "me@example.org"
+        }
+      },
+      "value": {
+        "provider": "",
+        "model": "m"
+      },
+      "error": "Choose both a provider and a model, or use the gateway default."
+    }
+  ]
+}

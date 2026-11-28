@@ -4,10 +4,13 @@ import type { AutomationTarget } from "./types.js";
 import { automationTargetValue } from "./target_selection.js";
 
 export type AutomationWorkflowPickerOptions = Omit<WorkflowPickerProps, "value" | "onChange">;
-export function AutomationWorkflowPicker(props: { target: AutomationTarget; options: AutomationWorkflowPickerOptions; onChange(target: AutomationTarget): void }): React.ReactElement {
+export function AutomationWorkflowPicker(props: { target: AutomationTarget; options: AutomationWorkflowPickerOptions; onChange(target: AutomationTarget): void;
+  /** After the current flow's name, e.g. "(not installed)" (the words file's `edit.flow_not_installed_suffix`). */
+  currentSuffix?: string }): React.ReactElement {
   const value = automationTargetValue(props.target);
+  const name = flowNameOf(value, props.options);
   return <div className="af-auto__field"><span>Flow</span><WorkflowPicker {...props.options}
-    ariaLabel="Automation flow" value={value} currentLabel={{ name: flowNameOf(value, props.options) }}
+    ariaLabel="Automation flow" value={value} currentLabel={{ name: props.currentSuffix ? `${name} ${props.currentSuffix}` : name }}
     onChange={(next, entry) => props.onChange(next === "@default"
       ? { flow_id: "@default", interface: props.options.interfaceId || props.options.defaultInterface || "abstractcode.agent.v1" }
       : { bundle_ref: `${entry!.bundleId}@${entry!.bundleVersion}`, flow_id: entry!.flowId })} /></div>;

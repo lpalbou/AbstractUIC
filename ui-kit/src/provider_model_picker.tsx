@@ -54,7 +54,9 @@ export type ProviderModelPickerValue = {
 
 export type ProviderModelPickerProps = {
   value: ProviderModelPickerValue;
-  onChange: (next: ProviderModelPickerValue) => void;
+  /** `meta.automatic`: the picker's own clean-up (a stored reasoning level or MTP depth the selected
+   * model's capabilities rule out), not a choice the person made. */
+  onChange: (next: ProviderModelPickerValue, meta?: { automatic?: boolean }) => void;
 
   /** Injected transports. Return shapes are normalized defensively. */
   fetchProviders: () => Promise<ProviderOption[]>;
@@ -108,6 +110,21 @@ export type ProviderModelPickerProps = {
   optionsDisclosure?: boolean;
   /** Fields fed by a connected pin: shown as "Provided by connected pin", not editable. */
   pinned?: { provider?: boolean; model?: boolean; reasoning?: boolean; speculation?: boolean };
+  /** Opt-in: one warning line shown under the selects while the value is still the stored one the
+   * picker was mounted with and its provider's model list, loaded successfully and not empty, does not
+   * list its model (an exact match). Never while the list loads, after it failed, when it is empty, or
+   * while the picker is disabled; that stored value's label then reads `savedUnavailableSuffix`
+   * instead of "(saved)". Absent = never shown, and "(saved)" as before. */
+  savedUnavailableText?: string;
+  /** With `savedUnavailableText`: the stored value's label suffix while it is shown, e.g. "(not
+   * listed)" (the automation words file's `edit.model_not_listed_suffix`). Absent = "(saved)". */
+  savedUnavailableSuffix?: string;
+  /** Opt-in: the sentences shown when the providers, the models or the gateway's default cannot be
+   * read, each with `{reason}` (the automation words file's `edit.model_errors`). Absent = the
+   * "#FALLBACK … discovery failed" lines and the default sentence as before. */
+  errorWords?: { providers: string; models: string; default: string };
+  /** With `optionsDisclosure`: the disclosure's label (default "Reasoning & speed"). */
+  optionsLabel?: string;
 };
 
 /** Shown when the reasoning facts of the selected model are unknown and the host allows an override. */
@@ -141,6 +158,8 @@ export function ProviderModelPicker(
   const [providers, setProviders] = useState<ProviderOption[]>([]);
   const [providersLoading, setProvidersLoading] = useState(false);
   const [providersError, setProvidersError] = useState("");
+  // Which provider's model list loaded successfully.
+  const [modelsLoadedFor, setModelsLoadedFor] = useState<string | null>(null);
   const [models, setModels] = useState<string[]>([]);
   const [modelNames, setModelNames] = useState<Record<string, string>>({});
   const [modelsLoading, setModelsLoading] = useState(false);
@@ -199,8 +218,9 @@ export function ProviderModelPicker(
       } catch (e: any) {
         if (!alive) return;
         setProviders([]);
+        const reason = String(e?.message || e);
         setProvidersError(
-          `#FALLBACK provider discovery failed: ${String(e?.message || e)}`,
+          fetchers.current.errorWords ? fetchers.current.errorWords.providers.replace("{reason}", reason) : `#FALLBACK provider discovery failed: ${reason}`,
         );
       } finally {
         if (alive) setProvidersLoading(false);
@@ -213,6 +233,7 @@ export function ProviderModelPicker(
 
   const providerName = String(value.provider || "").trim();
   useEffect(() => {
+    setModelsLoadedFor(null);
     if (!providerName || disabled || pins.model) {
       setModels([]);
       setModelsError("");
@@ -237,11 +258,13 @@ export function ProviderModelPicker(
         }
         setModels(ids);
         setModelNames(labels);
+        setModelsLoadedFor(providerName);
       } catch (e: any) {
         if (!alive) return;
         setModels([]);
+        const reason = String(e?.message || e);
         setModelsError(
-          `#FALLBACK model discovery failed: ${String(e?.message || e)}`,
+          fetchers.current.errorWords ? fetchers.current.errorWords.models.replace("{reason}", reason) : `#FALLBACK model discovery failed: ${reason}`,
         );
       } finally {
         if (alive) setModelsLoading(false);
@@ -256,6 +279,22 @@ export function ProviderModelPicker(
   // config, discovery lane blind spots), labeled "(saved)" by
   // ProviderModelSelect `markSaved` once its list has loaded.
   const modelName = String(value.model || "").trim();
+  const savedRoute = mountedRoute.current;
+  const savedUnavailable =
+    Boolean(props.savedUnavailableText) &&
+    !disabled &&
+    !pins.provider &&
+    !pins.model &&
+    Boolean(savedRoute.provider && savedRoute.model) &&
+    providerName === savedRoute.provider &&
+    modelName === savedRoute.model &&
+    // An empty list is no evidence: some providers answer [] without an error when they are down or
+    // have no key.
+    modelsLoadedFor === providerName &&
+    !modelsLoading &&
+    !modelsError &&
+    models.length > 0 &&
+    !models.includes(modelName);
 
   const defaultLabel = props.defaultModeLabel || "Gateway default";
   const defaultLine =
@@ -307,7 +346,7 @@ export function ProviderModelPicker(
           reasoning: heldPins.reasoning ? held.reasoning : cleared.reasoning,
           speculation: heldPins.speculation ? held.speculation : cleared.speculation,
         };
-        if (next.reasoning !== held.reasoning || next.speculation !== held.speculation) latest.current.onChange(next);
+        if (next.reasoning !== held.reasoning || next.speculation !== held.speculation) latest.current.onChange(next, { automatic: true });
         const { levels, support } = reasoningFacts(payload);
         setReasoning({ levels, support, error: "", loading: false });
       })
@@ -460,7 +499,9 @@ export function ProviderModelPicker(
       {defaultState.status === "error" || defaultState.status === "unusable" ? (
         <div role="status" className="af-pmp__hint" data-gateway-default-problem={defaultState.status}>
           {defaultState.status === "error"
-            ? `The gateway's default could not be read: ${defaultState.message}`
+            ? props.errorWords
+              ? props.errorWords.default.replace("{reason}", defaultState.message)
+              : `The gateway's default could not be read: ${defaultState.message}`
             : `Gateway warning: ${defaultState.message}`}
         </div>
       ) : null}
@@ -477,6 +518,7 @@ export function ProviderModelPicker(
           models={models}
           modelDisplayNames={modelNames}
           markSaved={mountedRoute.current}
+          savedSuffix={savedUnavailable ? props.savedUnavailableSuffix : undefined}
           providerPinned={pins.provider}
           modelPinned={pins.model}
           disabled={disabled}
@@ -499,7 +541,12 @@ export function ProviderModelPicker(
           }
         />
       )}
-      {props.optionsDisclosure ? <details className="af-pmp__options"><summary>Reasoning & speed{saved ? ` · ${saved}` : ""}</summary>{modelOptions}</details> : modelOptions}
+      {savedUnavailable ? (
+        <div role="status" className="af-pmp__hint af-auto__warn" data-saved-unavailable="">
+          {props.savedUnavailableText}
+        </div>
+      ) : null}
+      {props.optionsDisclosure ? <details className="af-pmp__options"><summary>{props.optionsLabel || "Reasoning & speed"}{saved ? ` · ${saved}` : ""}</summary>{modelOptions}</details> : modelOptions}
     </div>
   );
 }

@@ -3629,8 +3629,98 @@
   font-size: var(--font-size-sm);
 }
 .af-auto[aria-busy="true"] { cursor: progress; }
-.af-auto__head { display: flex; flex-direction: column; gap: 8px; }
-.af-auto__titlebar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* ONE header (operator 2026-11-27): row 1 the title (the whole row up to the state badge) + the
+ * state, row 2 the buttons on their own row, row 3 the parameters as one calm row of chips (one
+ * height, an icon each, neutral unless the fact needs you), then the one reason line a person can
+ * act on. No fold. */
+.af-auto__head { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.af-auto__titlebar { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.af-auto__titlebar > .af-auto__title { flex: 1 1 auto; min-width: 0; }
+.af-auto__titlebar > .af-auto__status { flex: none; padding: 3px 10px; }
+.af-auto__actionrow { display: flex; min-width: 0; }
+.af-auto__actionrow > .af-auto__controls-wrap { flex: 1 1 auto; min-width: 0; }
+.af-auto__actionrow .af-auto__controls { gap: 6px; }
+.af-auto__actionrow .af-auto__controls > .af-auto__btn { padding-inline: 12px; font-size: var(--font-size-sm); }
+/* The header as its own card (`AutomationHeaderCard`): its own surface and edge, a clear gap
+ * below; the host keeps it at the top of the pane while the thread scrolls under it. */
+.af-auto-headcard {
+  flex: none;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  margin: 0 0 14px;
+  border: 1px solid var(--ui-border-2);
+  border-radius: var(--radius-lg);
+  background: var(--ui-surface-1);
+}
+.af-auto-headcard .af-auto__chip[data-fact="task"] .af-chip { max-width: min(100%, 18rem); }
+.af-auto__task {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.af-auto__chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.af-auto__chip { display: flex; min-width: 0; max-width: 100%; }
+.af-auto__chips .af-chip {
+  box-sizing: border-box;
+  height: 26px;
+  max-width: min(100%, 30rem);
+  padding: 0 10px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  line-height: 1;
+}
+.af-auto__chips .af-chip__label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.af-auto__chip-icon { flex: none; opacity: 0.9; }
+.af-auto__chip-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A chip that opens something reads as pressable: a firmer edge, the pointer, the kit's hover. */
+.af-auto__chips .af-chip--button { border-color: color-mix(in srgb, var(--af-chip-hue) 55%, transparent); }
+.af-auto__chips .af-chip--button:hover:not(:disabled) { border-color: var(--accent-border); color: var(--text-primary); }
+@media (pointer: coarse) {
+  .af-auto__chips .af-chip { height: 34px; }
+  /* Each chip's slot is a 44px row: the chip stays a 34px pill and its 44px ::after hit area (the
+   * touch block below) fits inside the row, even where the row scrolls and clips. */
+  .af-auto__chips > .af-auto__chip { align-items: center; min-height: var(--tap-min); }
+  /* The card's bare dismiss buttons (a refused action, a notice) reach the 44px target. */
+  .af-auto-headcard .af-auto__icon-btn { min-width: var(--tap-min); min-height: var(--tap-min); }
+}
+/* The reason line (archived; paused with a reason): neutral or warning; failed keeps .af-auto__failed. */
+.af-auto__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ui-border-2);
+  background: var(--ui-overlay-bg);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.af-auto__note .af-auto__btn-icon { margin-top: 2px; color: var(--text-secondary); }
+.af-auto__note--warning { border-color: var(--warning-border); background: var(--warning-subtle); }
+.af-auto__note--warning .af-auto__btn-icon { color: var(--warning); }
+/* Narrow panes: the secondary buttons show their icon only (each keeps its name: aria-label + tooltip). */
+@container af-auto (max-width: 559.98px) {
+  .af-auto__actionrow .af-auto__controls > .af-auto__btn:not(.af-auto__btn--primary):not(.af-auto__btn--danger) > span { display: none; }
+  .af-auto__actionrow .af-auto__controls > .af-auto__btn:not(.af-auto__btn--primary):not(.af-auto__btn--danger) { padding-inline: 10px; }
+  /* The parameters: ONE swipeable row inside the card, never four wrapped ones. */
+  .af-auto__chips { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  /* It says it scrolls: the kit's rail fade at the right edge (.af-disclosure__rail), with the
+   * same room reserved at the row's end so the last chip, scrolled into view, is never faded. */
+  .af-auto__chips { padding-right: 16px; -webkit-mask-image: linear-gradient(to right, black calc(100% - 16px), transparent); mask-image: linear-gradient(to right, black calc(100% - 16px), transparent); }
+  .af-auto__chips::-webkit-scrollbar { display: none; }
+  .af-auto__chips > .af-auto__chip { flex: none; }
+  .af-auto__chips .af-chip { max-width: 16rem; }
+  /* The next chip peeks at the edge: the row says it scrolls. */
+  .af-auto-headcard .af-auto__chip[data-fact="task"] .af-chip { max-width: 11rem; }
+  .af-auto-headcard { padding: 12px; }
+}
 .af-auto__title { margin: 0; font-size: var(--font-size-lg); font-weight: 700; overflow-wrap: anywhere; }
 .af-auto__status,
 .af-auto__legacy,
@@ -3728,6 +3818,13 @@
 .af-auto__form-title { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--font-size-md); font-weight: 700; }
 /* Turns rendered as shared chat cards (renderTurn): the card is the bubble. */
 .af-auto-turn--card.af-auto-turn--trigger { padding: 0; background: none; }
+/* Card chrome (spec F, `turnChrome="card"`): the chat card IS the bubble — no 85% wrapper around the
+ * trigger; the card places itself (the person's message right, the answer left). The run line
+ * carries the run's number, how it started and the Context button; the time is in the card. */
+.af-auto-occ[data-chrome="card"] > .af-auto-turn--trigger { align-self: stretch; max-width: none; padding: 0; border-radius: 0; background: none; }
+.af-auto-occ[data-chrome="card"] .af-auto-turn__text { display: flex; flex-direction: column; min-width: 0; }
+.af-auto-turn__runline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 28px; }
+.af-auto-turn__runline .af-auto-context-btn { margin-left: auto; }
 .af-auto__facts {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
@@ -3742,35 +3839,15 @@
 .af-auto__actionbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .af-auto__controls,
 .af-auto__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.af-auto__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--ui-border-2);
-  background: var(--ui-overlay-bg);
-  color: var(--text-primary);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 120ms ease, border-color 120ms ease, filter 120ms ease;
-}
-.af-auto__btn:hover:not(:disabled) { filter: brightness(1.12); }
-.af-auto__btn:disabled { cursor: default; opacity: 0.55; }
-.af-auto__btn:focus-visible,
+/* `.af-auto__btn` is an ALIAS of the kit's one button vocabulary `.af-btn` (spec H): see the af-edit
+ * block — plain = --secondary (raised), --primary filled with the accent, --danger, --quiet. */
 .af-auto-occ__details > summary:focus-visible,
 .af-schedule__advanced > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.af-auto__btn[aria-pressed="true"],
-.af-auto__btn--primary { border-color: var(--accent-border); background: var(--accent-subtle); }
-.af-auto__btn--danger { border-color: var(--error-border); background: var(--error-subtle); }
-.af-auto__btn--quiet { background: transparent; font-weight: 500; }
 .af-auto__more { align-self: center; }
 .af-auto__hint,
 .af-auto-turn__muted,
 .af-auto__empty { margin: 0; color: var(--text-muted); font-size: var(--font-size-xs); }
 .af-auto__confirm,
-.af-auto__revise,
 .af-auto-discuss,
 .af-auto-wait {
   display: flex;
@@ -3786,9 +3863,6 @@
 /* Opened at what needs the person (the attention rule): outlined for a moment. */
 .af-auto .is-attention-focus { outline: 2px solid var(--accent); outline-offset: 2px; transition: outline-color 0.4s ease; }
 .af-auto__confirm { border-color: var(--error-border); background: var(--error-subtle); }
-.af-auto__revise { border-color: var(--accent-border); gap: 12px; }
-.af-auto__revise textarea { width: 100%; box-sizing: border-box; resize: vertical; line-height: 1.45; }
-.af-auto__revise fieldset.af-auto__field > label { display: flex; align-items: center; gap: 6px; }
 .af-auto__confirm p { margin: 0; }
 .af-auto__field { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .af-auto__field > legend,
@@ -3796,9 +3870,6 @@
 .af-auto input:not([type="radio"]),
 .af-auto select,
 .af-auto textarea,
-.af-auto__revise input:not([type="radio"]):not([type="checkbox"]),
-.af-auto__revise select,
-.af-auto__revise textarea,
 .af-schedule input:not([type="radio"]),
 .af-schedule select,
 .af-schedule textarea {
@@ -3811,7 +3882,6 @@
   min-width: 0;
 }
 .af-auto input[type="number"],
-.af-auto__revise input[type="number"],
 .af-schedule input[type="number"] { width: 6em; }
 .af-auto__form-errors { margin: 0; padding-left: 18px; color: var(--error); }
 .af-auto__error {
@@ -3875,7 +3945,108 @@
 .af-auto-badge--waiting { border-color: var(--warning-border); background: var(--warning-subtle); }
 .af-auto-badge--notified { border-color: var(--info-border); background: var(--info-subtle); }
 .af-auto-badge--running { border-color: var(--accent-border); background: var(--accent-subtle); }
+/* The live line of a run in progress (automations spec C): one row for "2:14 · what it does",
+   one for "7 steps so far". Both rows are reserved and never wrap, so nothing below moves. */
+.af-auto-live {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: calc(2 * 1.4em);
+  line-height: 1.4;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+.af-auto-live__now,
+.af-auto-live__steps { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.af-auto-live__elapsed { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text-primary); }
+.af-auto-live__steps { color: var(--text-muted); }
+/* A failed automation's header line (spec D): what happened and what to do. */
+.af-auto__failed {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--error-border);
+  background: var(--error-subtle);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.af-auto__failed .af-auto__btn-icon { margin-top: 2px; color: var(--error); }
+/* The header's one notice: the sentence, then the button that fixes it (it wraps under on a phone). */
+.af-auto__notice-line { flex-wrap: wrap; align-items: center; row-gap: 8px; }
+.af-auto__notice-line > .af-auto__btn-icon { align-self: flex-start; }
+.af-auto__notice-words { flex: 1 1 14em; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.af-auto__notice-error { color: var(--error); font-weight: 600; }
+.af-auto__notice-btn { flex: 0 0 auto; margin-inline-start: auto; }
+.af-auto__notice-btn .af-auto__btn-icon { margin-top: 0; color: inherit; }
+.af-auto__note--ok .af-auto__btn-icon { color: var(--success); }
+/* Details: the raw error a stopped automation died on, selectable. */
+.af-auto__technical { margin: 0 0 12px; }
+.af-auto__technical-label { margin: 0 0 4px; font-weight: 600; color: var(--text-secondary); }
+.af-auto__technical-text {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ui-border-2);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+/* A fold of the automation list ("Failed · 2", "Paused · 3"): header button, then the host's rows. */
+.af-auto-group { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 0; }
+.af-auto-group__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  /* Its own size from the kit's scale: the host's font size never makes "Failed · 1" larger than the cards. */
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  line-height: 1.3;
+  cursor: pointer;
+}
+.af-auto-group__toggle:hover { background: var(--ui-overlay-bg); color: var(--text-primary); }
+/* AfFoldToggle's own look, for a host that passes no class of its own. */
+.af-fold-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.af-fold-toggle:hover { background: var(--ui-overlay-bg); color: var(--text-primary); }
+.af-fold-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (pointer: coarse) { .af-fold-toggle { min-height: 44px; } }
+.af-auto-group__toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.af-auto-group[data-section="failed"] .af-auto-group__icon { color: var(--error); }
+.af-auto-group__chevron,
+.af-auto-group__icon { flex: none; }
+@media (pointer: coarse) {
+  .af-auto-group__toggle { min-height: 44px; }
+}
 .af-auto-notify { padding: 4px 8px; border-left: 2px solid var(--info); }
+.af-auto-notify__label { display: block; margin-bottom: 2px; color: var(--text-muted); font-size: var(--font-size-xs); font-weight: 600; }
+.af-auto-turn__context { display: flex; justify-content: flex-end; margin-top: 4px; }
+.af-btn.af-auto-context-btn { min-height: 28px; padding: 3px 10px; font-size: var(--font-size-sm); }
+@media (pointer: coarse) { .af-btn.af-auto-context-btn { min-height: var(--tap-min); } }
 /* What arrived, above the task (UX review 2026-10-25 #3): "Release notes · 1 new item: “…” · 15:13". */
 .af-auto-event {
   display: flex;
@@ -5598,6 +5769,305 @@ html.af-modal-open body {
   }
 }
 /* af-modal:end */
+
+/* af-edit:begin
+ * The automation Edit form (AutomationEditForm.tsx, spec E) and the two vocabularies it brings to
+ * the kit, from existing tokens only:
+ *  - ACTIONS `.af-btn`: --primary FILLED with the accent (the most vivid thing on screen),
+ *    --secondary RAISED (a lighter surface, a shadow), --quiet (accent text), --danger (error tint).
+ *    Every button: an icon, hover, pressed, a visible focus ring.
+ *  - CHOICES `.af-seg` (AfSegmented): an inset track whose chosen segment is raised.
+ *  - FIELDS inside the form: INSET (darker than their card: --ui-surface-3), thin border, focus ring.
+ * A button never shares a field's background and border. */
+.af-btn,
+.af-auto__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 7px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, filter 120ms ease, transform 60ms ease;
+}
+.af-btn__icon { flex: none; }
+/* Focus is --info, never the accent: in several themes the accent is red, which reads as an error. */
+.af-btn:focus-visible,
+.af-auto__btn:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+.af-btn:active:not(:disabled),
+.af-auto__btn:active:not(:disabled) { transform: translateY(1px); }
+/* A disabled button keeps its kind (a filled Save stays filled), dimmed: never an empty box. */
+.af-btn:disabled,
+.af-auto__btn:disabled { cursor: not-allowed; opacity: 0.45; box-shadow: none; transform: none; filter: none; }
+/* The alias's plain button is --secondary (zero-specificity :where, so its kinds below win). */
+.af-auto__btn:where(:not(.af-auto__btn--primary, .af-auto__btn--danger, .af-auto__btn--quiet)) {
+  border-color: var(--ui-border-2);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--bg-primary) 60%, transparent);
+}
+.af-auto__btn:where(:not(.af-auto__btn--primary, .af-auto__btn--danger, .af-auto__btn--quiet)):hover:not(:disabled) { border-color: var(--accent-border); filter: brightness(1.06); }
+.af-auto__btn:where(:not(.af-auto__btn--primary, .af-auto__btn--danger, .af-auto__btn--quiet)):active:not(:disabled) { filter: brightness(0.95); box-shadow: none; }
+.af-auto__btn[aria-pressed="true"] { border-color: var(--accent-border); background: var(--accent-subtle); }
+.af-btn--primary,
+.af-auto__btn--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg-primary);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--accent) 30%, transparent), 0 4px 14px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+.af-btn--primary:hover:not(:disabled),
+.af-auto__btn--primary:hover:not(:disabled) { filter: brightness(1.08); box-shadow: 0 1px 2px color-mix(in srgb, var(--accent) 35%, transparent), 0 6px 18px color-mix(in srgb, var(--accent) 42%, transparent); }
+.af-btn--primary:active:not(:disabled),
+.af-auto__btn--primary:active:not(:disabled) { filter: brightness(0.94); box-shadow: 0 1px 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+.af-btn--secondary {
+  border-color: var(--ui-border-2);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--bg-primary) 60%, transparent);
+}
+.af-btn--secondary:hover:not(:disabled) { border-color: var(--accent-border); filter: brightness(1.06); }
+.af-btn--secondary:active:not(:disabled) { filter: brightness(0.95); box-shadow: none; }
+.af-btn--quiet,
+.af-auto__btn--quiet { background: transparent; color: var(--accent); }
+.af-btn--quiet:hover:not(:disabled),
+.af-auto__btn--quiet:hover:not(:disabled) { background: var(--accent-subtle); }
+.af-btn--danger,
+.af-auto__btn--danger { border-color: var(--error-border); background: var(--error-subtle); color: var(--text-primary); }
+.af-btn--danger .af-btn__icon,
+.af-auto__btn--danger .af-auto__btn-icon { color: var(--error); }
+.af-btn--danger:hover:not(:disabled),
+.af-auto__btn--danger:hover:not(:disabled) { border-color: var(--error); }
+@media (prefers-reduced-motion: reduce) {
+  .af-btn,
+  .af-auto__btn { transition: none; }
+  .af-btn:active:not(:disabled),
+  .af-auto__btn:active:not(:disabled) { transform: none; }
+}
+
+/* AfSegmented: one inset track (like a field), the chosen segment raised with an accent edge. */
+.af-seg {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: stretch;
+  gap: 2px;
+  max-width: 100%;
+  padding: 3px;
+  border: 1px solid var(--ui-border-2);
+  border-radius: var(--radius-md);
+  background: var(--ui-surface-3);
+}
+.af-seg--fill { display: flex; width: 100%; }
+.af-seg--fill > .af-seg__opt { flex: 1 1 0; }
+.af-seg__opt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 30px;
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.af-seg__label { min-width: 0; overflow-wrap: anywhere; }
+.af-seg__opt:hover:not(:disabled):not(.is-checked) { color: var(--text-primary); background: var(--ui-overlay-bg-hover); }
+.af-seg__opt.is-checked {
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg-secondary));
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--accent-border);
+}
+.af-seg__opt.is-checked .af-seg__icon { color: var(--accent); }
+.af-seg__check { flex: none; color: var(--accent); }
+.af-seg__opt:focus-visible { outline: 2px solid var(--info); outline-offset: 1px; position: relative; z-index: 1; }
+.af-seg__opt:disabled { cursor: not-allowed; opacity: 0.5; }
+@media (prefers-reduced-motion: reduce) { .af-seg__opt { transition: none; } }
+
+/* The form: a calm column of section cards, one type scale. */
+.af-auto__revise {
+  container: af-edit / inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  line-height: 1.45;
+}
+.af-edit__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--ui-border-1);
+  border-radius: var(--radius-lg);
+  background: var(--ui-surface-2);
+}
+.af-edit__section-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.af-edit__section-icon { flex: none; color: var(--accent); }
+.af-edit__section-title { margin: 0; font-size: var(--font-size-base); font-weight: 650; line-height: 1.3; color: var(--text-primary); }
+.af-edit__section-body { display: flex; flex-direction: column; gap: 14px; min-width: 0; margin-top: 6px; }
+.af-edit__hint { margin: 0; color: var(--text-muted); font-size: var(--font-size-sm); line-height: 1.45; }
+.af-edit__served { margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm); }
+.af-edit__note { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 8px 10px; border-radius: var(--radius-md); border: 1px solid var(--ui-border-1); color: var(--text-secondary); font-size: var(--font-size-sm); }
+.af-edit__note.is-warning { border-color: var(--warning-border); background: var(--warning-subtle); color: var(--text-primary); }
+.af-edit__note-icon { flex: none; margin-top: 2px; color: var(--warning); }
+.af-edit__note-icon.is-info { color: var(--info); }
+.af-edit__field,
+.af-auto__revise .af-auto__field { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.af-edit__label,
+.af-auto__revise .af-auto__field > span,
+.af-auto__revise .af-schedule__calendar label,
+.af-auto__revise .af-auto__row > span { color: var(--text-secondary); font-size: var(--font-size-sm); font-weight: 600; margin: 0; }
+.af-edit__schedule { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+/* Day chips: choices, so an unpicked day is neutral (inset) and a picked one tinted with its check. */
+.af-auto__revise .af-schedule__day { min-height: 30px; padding-inline: 10px; }
+.af-auto__revise .af-schedule__day:not([aria-pressed="true"]) { border-color: var(--ui-border-2); background: var(--ui-surface-3); color: var(--text-secondary); }
+.af-edit__schedule .af-edit__field { max-width: 22rem; }
+.af-auto__revise .af-auto__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+/* FIELDS: inset. Text, numbers, selects, textareas, and the pickers' field-like triggers. */
+.af-auto__revise input:not([type="radio"]):not([type="checkbox"]),
+.af-auto__revise select,
+.af-auto__revise textarea,
+.af-auto__revise .af-workflow-picker__trigger,
+.af-auto__revise .af-select-trigger {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--ui-border-2);
+  border-radius: var(--radius-md);
+  background-color: var(--ui-surface-3);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--font-size-md);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--bg-primary) 45%, transparent);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.af-auto__revise select:not([multiple]) {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 32px;
+  background-image: var(--af-select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 8px;
+}
+.af-auto__revise textarea { width: 100%; resize: vertical; line-height: 1.5; max-height: calc(var(--vh-full) * 0.4); }
+.af-auto__revise .af-edit__field > input,
+.af-auto__revise .af-edit__field > select,
+.af-auto__revise .af-workflow-picker,
+.af-auto__revise .af-workflow-picker__trigger { width: 100%; }
+.af-auto__revise input[type="number"] { width: 8em; }
+.af-auto__revise .af-edit__field > input[type="number"] { width: 12em; max-width: 100%; }
+.af-auto__revise input[type="time"] { width: auto; min-width: 8em; }
+.af-auto__revise input:not([type="radio"]):not([type="checkbox"]):hover:not(:disabled):not(:focus),
+.af-auto__revise select:hover:not(:disabled):not(:focus),
+.af-auto__revise textarea:hover:not(:disabled):not(:focus) { border-color: color-mix(in srgb, var(--text-secondary) 45%, var(--ui-border-2)); }
+.af-auto__revise input:not([type="radio"]):not([type="checkbox"]):focus,
+.af-auto__revise select:focus,
+.af-auto__revise textarea:focus,
+.af-auto__revise .af-workflow-picker__trigger:focus-visible,
+.af-auto__revise .af-select-trigger:focus-visible {
+  outline: none;
+  border-color: var(--info);
+  box-shadow: 0 0 0 3px var(--info-border), inset 0 1px 2px color-mix(in srgb, var(--bg-primary) 45%, transparent);
+}
+.af-auto__revise :disabled { cursor: not-allowed; }
+.af-auto__revise input:disabled,
+.af-auto__revise select:disabled,
+.af-auto__revise textarea:disabled { opacity: 0.6; }
+.af-auto__revise .af-switch--row { width: 100%; padding: 2px 0; }
+.af-edit__tools { min-width: 0; max-height: 26rem; overflow: auto; padding: 4px; border: 1px solid var(--ui-border-1); border-radius: var(--radius-md); background: var(--bg-secondary); }
+.af-auto__revise > .af-auto__form-errors { padding: 8px 12px 8px 28px; border: 1px solid var(--error-border); border-radius: var(--radius-md); background: var(--error-subtle); }
+/* The action bar: sticks to the bottom of the form (the dialog body or the host's scroll). */
+.af-edit__bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px 12px;
+  margin-top: 2px;
+  padding: 12px 0;
+  border-top: 1px solid var(--ui-border-1);
+  background: var(--bg-secondary);
+}
+.af-edit__bar-note { flex: 1 1 14rem; min-width: 0; margin: 0; color: var(--text-muted); font-size: var(--font-size-sm); }
+.af-edit__bar-question { color: var(--text-primary); font-weight: 600; }
+.af-edit__bar-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-left: auto; }
+.af-edit__bar.is-asking { border-top-color: var(--warning-border); }
+/* The pickers' own labels read as this form's labels (one type scale). */
+.af-auto__revise .af-pmp label { display: block; margin: 0 0 6px; color: var(--text-secondary); font-size: var(--font-size-sm); font-weight: 600; }
+.af-auto__revise .af-pmp__details > summary { color: var(--text-secondary); font-size: var(--font-size-sm); font-weight: 600; }
+.af-auto__revise .af-pmp__options { margin-top: 0; }
+.af-auto__revise .af-pmp__options > summary { min-height: 28px; font-weight: 600; }
+/* One chevron for every field-like select (the native ones draw --af-select-chevron too). */
+.af-auto__revise .af-select-caret { flex: none; width: 12px; height: 8px; font-size: 0; background: var(--af-select-chevron) center / 12px 8px no-repeat; }
+/* In the dialog: a reading width; the bar spans the dialog's width and sits on its bottom edge. */
+.af-modal.af-edit-dialog { width: min(820px, calc(100vw - 32px)); }
+.af-edit-dialog .af-modal__body { padding-bottom: 0; }
+.af-edit-dialog .af-edit__bar { margin-inline: -20px; padding: 12px 20px calc(12px + var(--safe-bottom, 0px)); }
+@container af-edit (max-width: 519.98px) {
+  .af-edit__section { padding: 12px 12px 14px; }
+  /* A narrow form keeps ONE connected group: the labels wrap inside their segments. */
+  /* The mark stays beside its label on one line; a long label wraps under itself, a step smaller. */
+  .af-seg__opt { padding-inline: 6px; gap: 4px; flex-wrap: nowrap; }
+  .af-seg__opt > .af-seg__label { font-size: var(--font-size-xs); }
+  .af-edit__bar-actions { flex: 1 1 100%; margin-left: 0; }
+  .af-edit__bar-actions > .af-btn { flex: 1 1 0; }
+  .af-edit__schedule .af-edit__field { max-width: none; }
+}
+/* Opened at a section (a header chip): the section's head shows under the dialog's top edge. */
+.af-edit-dialog .af-edit__section { scroll-margin-top: 12px; }
+@media (max-width: 767.98px) {
+  /* The phone's full-screen sheet (af-modal), not the reading width. */
+  .af-modal.af-edit-dialog { width: 100%; }
+  /* The sheet scrolls under its sticky header: a section opened at its top clears it. */
+  .af-edit-dialog .af-edit__section { scroll-margin-top: calc(64px + var(--safe-top, 0px)); }
+  .af-edit-dialog .af-edit__bar { margin-inline: calc(-16px - var(--safe-left, 0px)) calc(-16px - var(--safe-right, 0px)); padding-inline: calc(16px + var(--safe-left, 0px)) calc(16px + var(--safe-right, 0px)); }
+}
+@media (pointer: coarse) {
+  /* .af-auto__btn too: its alias rule above (min-height: 36px) comes after the general touch block
+   * and would otherwise win on a touch screen. */
+  .af-btn,
+  .af-auto__btn,
+  .af-seg__opt,
+  .af-auto__revise .af-workflow-picker__trigger,
+  .af-auto__revise .af-select-trigger,
+  .af-auto__revise input:not([type="radio"]):not([type="checkbox"]),
+  .af-auto__revise select,
+  .af-auto__revise .af-schedule__day { min-height: var(--tap-min); }
+  .af-auto__revise .af-schedule__day { min-width: var(--tap-min); }
+  .af-auto__revise .af-settings-help { min-width: var(--tap-min); min-height: var(--tap-min); }
+  .af-auto__revise input:not([type="radio"]):not([type="checkbox"]),
+  .af-auto__revise select,
+  .af-auto__revise textarea { font-size: var(--font-size-input); }
+}
+/* af-edit:end */
 
 /* af-menu:begin
  * AfMenu (React) and plain-HTML hosts (bindMenu in the console islands) share
@@ -8425,6 +8895,10 @@ tr.af-row--entity > :first-child { box-shadow: inset 3px 0 0 var(--af-row-mark-e
 :root .af-session-card.af-automation-card { --af-session-new: var(--warning); }
 .af-automation-card .af-session-card__meta { flex-wrap: wrap; row-gap: 4px; }
 .af-automation-card__schedule { flex-shrink: 1; overflow: hidden; }
+/* A stopped automation's Restart: a filled button always visible on the row (not a hover action). */
+.af-automation-card__restart { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; align-self: center; min-height: 28px; padding: 2px 10px; margin-right: 6px; border: 1px solid var(--accent); border-radius: 6px; background: var(--accent); color: var(--bg-primary); font: inherit; font-weight: 600; cursor: pointer; }
+.af-automation-card__restart:disabled { opacity: 0.6; cursor: default; }
+@media (hover: none), (pointer: coarse) { .af-automation-card__restart { min-height: 44px; } }
 .af-automation-card__schedule > span { overflow: hidden; text-overflow: ellipsis; }
 .af-session-card__meta > .af-automation-card__unseen { margin-left: auto; justify-content: center; min-width: 18px; box-sizing: border-box; padding: 1px 5px; border-radius: 9px; background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); font-weight: 400; }
 /* End shared session cards. */

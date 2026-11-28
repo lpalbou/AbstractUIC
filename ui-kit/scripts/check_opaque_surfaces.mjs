@@ -40,6 +40,8 @@ const FLOATING = [
   ".af-drawer",
   ".af-schedule .af-appearance__actions",
   ".af-rail--overlay .af-rail__panel-wrap",
+  // The automation Edit form's sticky action bar (fields scroll under it).
+  ".af-edit__bar",
 ];
 for (const selector of FLOATING) {
   const values = backgrounds(selector);

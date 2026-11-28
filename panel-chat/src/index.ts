@@ -77,7 +77,7 @@ export { ChatNoticeBadges, type ChatNoticeBadgesProps } from "./chat_notice_badg
 export { READ_ALOUD_INITIAL, readAloudPhase, readAloudStep } from "./read_aloud.js";
 export type { ReadAloudInput, ReadAloudPhase, ReadAloudReply, ReadAloudState } from "./read_aloud.js";
 export { formatMessageStamp, messageStampTitle, messageStampIso, localDayKey, useLocalDay } from "./message_footer.js";
-export { ChatThread } from "./chat_thread.js";
+export { ChatThread, CHAT_JUMP_HIDE_MS, CHAT_JUMP_WORDS, chatJumpLift, type ChatThreadProps } from "./chat_thread.js";
 export { WorkingDots } from "./working_dots.js";
 export { ToolActivity, ToolActivityGroup, toolArguments, toolPreview } from "./tool_activity.js";
 export { ToolSandboxLine, toolSandbox, sandboxEvidence, type ToolSandbox, type ToolSandboxRow } from "./sandbox_line.js";
@@ -160,11 +160,38 @@ export {
 export {
   AUTOMATION_TURN_TITLES,
   AutomationPanelWithMarkdown,
+  AutomationTurnCard,
   automationRenderers,
+  automationTurnMessage,
   renderAutomationText,
   renderAutomationTurn,
+  runInputFiles,
   type AutomationPanelWithMarkdownProps,
 } from "./automation_markdown.js";
+export {
+  AutomationChat,
+  AUTOMATION_NOTE_KIND,
+  automationAnswerMessageId,
+  automationAskedWait,
+  automationChatMessages,
+  automationTaskMessageId,
+  automationWaitInteraction,
+  type AutomationChatProps,
+  type AutomationRunInputs,
+} from "./automation_chat.js";
+export {
+  RunContextBody,
+  RunContextDialog,
+  carriedMessage,
+  runContextSummarySentence,
+  runContextView,
+  type CarriedMessage,
+  type RunContextData,
+  type RunContextReader,
+  type RunContextState,
+  type RunContextSummary,
+  type RunContextTarget,
+} from "./run_context.js";
 export { presentInteraction, type InteractionController, type PresentInteractionOptions } from "./present_interaction.js";
 export {
   WorkspaceBrowser,
@@ -282,6 +309,7 @@ export {
 
 export { TextLinks, textLinks } from "./text_links.js";
 export { messageArtifactRefs, submittedArtifacts, outputArtifacts, artifactIsPicture, type MessageArtifact } from "./message_artifacts.js";
+export { internalArtifactMetadata } from "./artifact_provenance.js";
 
 export { AvatarConversation, type AvatarConversationOptions, type AvatarConversationProps } from "./avatar_conversation.js";
 export { DEFAULT_CONVERSATION_CUES, conversationFindings, conversationLive, conversationMessages, conversationSnapshot, conversationState, conversationCueStep, publicUpdate, type AvatarConversationState, type ConversationFinding, type ConversationLive, type ConversationAttention, type ConversationCue, type ConversationCuePreferences, type ConversationCueCursor, type PublicUpdate } from "./conversation_model.js";

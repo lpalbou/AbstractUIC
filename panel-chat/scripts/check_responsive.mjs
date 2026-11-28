@@ -89,5 +89,24 @@ for (const sel of [".pc-workflow-chat__composer", ".pc-assistant__composer"]) {
   if (!/padding-bottom:\s*max\(10px, var\(--safe-bottom, 0px\)\)/.test(all)) fail(`${sel} must clear the home indicator (padding-bottom: max(10px, var(--safe-bottom, 0px)))`);
 }
 
+// E. an automation run's footer and the thread's jump buttons on a phone (2026-11-28: footer
+// actions were 15px tall; at 400px the stacked jump buttons sat over message text).
+for (const sel of [".pc-auto-foot__action", ".pc-auto-foot__sent-message > summary", ".pc-auto-foot a"]) {
+  if (resolve(coarse, sel)["min-height"] !== "var(--tap-min, 44px)") fail(`coarse: the run footer's ${sel} must be a 44px row (min-height: var(--tap-min, 44px))`);
+}
+{
+  const phone = blocks_of(css, /@media \(max-width: 479\.98px\)\s*\{/g);
+  const band = resolve(phone, ".pc-chat-jump");
+  if (band.height !== "var(--tap-min, 44px)" || band["align-self"] !== "stretch") fail(`phone: the jump row must be a real 44px band across the thread's bottom edge (height: var(--tap-min, 44px); align-self: stretch), got ${JSON.stringify(band)}`);
+  if (!/--ui-surface-0/.test(resolve(phone, ".pc-chat-jump::before").background || "")) fail("phone: the jump band must put the chat's surface behind the buttons (::before background var(--ui-surface-0, …)), so text scrolls under the edge, never under a button");
+  const st = resolve(phone, ".pc-chat-jump__stack");
+  if (st["flex-direction"] !== "row" || st.bottom !== "0") fail(`phone: the jump buttons sit side by side at the band's bottom, never lifted over text (flex-direction: row; bottom: 0), got ${JSON.stringify(st)}`);
+  const b = resolve(phone, ".pc-chat-jump__button");
+  if (b.width !== "var(--tap-min, 44px)" || b.height !== "var(--tap-min, 44px)") fail("phone: each jump button keeps a 44px hit area");
+  if (!/^\d+px$/.test(resolve(phone, ".pc-chat-jump__button::before").inset || "")) fail("phone: the visible circle is drawn smaller inside the 44px hit area (::before inset)");
+  const tr = strip(readFileSync(join(here, "..", "transcript.css"), "utf8"));
+  if (resolve(blocks_of(tr, /@media \(max-width: 479\.98px\)\s*\{/g), ".pc-chat-jump").height !== "var(--tap-min, 44px)") fail("transcript.css lacks the phone jump band: regenerate it (node scripts/extract_transcript_slice.mjs)");
+}
+
 if (failures) { console.error(`check_responsive (panel-chat): ${failures} failure(s)`); process.exit(1); }
 console.log("check_responsive (panel-chat): OK (containers, desktop-safe thresholds, 44px touch targets, 16px composer, auto-grow, safe area)");

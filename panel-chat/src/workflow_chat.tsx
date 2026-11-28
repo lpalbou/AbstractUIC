@@ -14,7 +14,7 @@ import {
 } from "./attachment_uploads.js";
 import { ChatComposer } from "./chat_composer.js";
 import type { ChatMessage, ChatMessageCardProps } from "./chat_message_card.js";
-import { ChatThread } from "./chat_thread.js";
+import { ChatThread, type ChatThreadProps } from "./chat_thread.js";
 import { WorkingDots } from "./working_dots.js";
 import { ComposerAttachmentChips } from "./composer_attachments.js";
 import { chatToMarkdown, copyText, downloadTextFile } from "./utils.js";
@@ -70,6 +70,17 @@ export type WorkflowChatProps = {
   avatarConversation?: AvatarConversationOptions;
   /** Fully controlled transcript. The host owns message persistence and identity. */
   messages: ChatMessage[];
+  /**
+   * Opens the thread with this message at the top instead of at the bottom, once per `key`
+   * (`ChatThreadProps.openAt`; e.g. an automation's id and its newest run's first message).
+   * Absent = the thread sticks to the bottom, as before.
+   */
+  openAt?: ChatThreadProps["openAt"];
+  /** Earlier messages the host can load (`ChatThreadProps.earlier`): the thread's "load earlier"
+   * control, and the person's scroll to the top. Absent = none. */
+  earlier?: ChatThreadProps["earlier"];
+  /** `false`: no composer (a read-only thread whose host offers no message to send). Default true. */
+  composer?: boolean;
   /** Authenticated app-origin artifact reads, never model-provided URLs. */
   artifactFetch?: AfGatewayFetch;
   attachmentScope?: string;
@@ -791,6 +802,8 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
             messages={transcript.messages}
             empty={props.emptyState}
             autoScroll
+            openAt={props.openAt}
+            {...(props.earlier ? { earlier: props.earlier } : {})}
             messageProps={{
               ...props.messageProps,
               ...(props.messageProps?.renderFooter
@@ -857,7 +870,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
           ) : null}
         </div>
       ) : null}
-      <div className="pc-workflow-chat__composer">
+      {props.composer === false ? null : <div className="pc-workflow-chat__composer">
         <ChatComposer
           variant={props.composerVariant}
           value={props.draft}
@@ -967,7 +980,7 @@ export function WorkflowChat(props: WorkflowChatProps): React.ReactElement {
             {liveMessage}
           </div>
         ) : null}
-      </div>
+      </div>}
       {props.footer ? (
         <footer className="pc-workflow-chat__footer">{props.footer}</footer>
       ) : null}

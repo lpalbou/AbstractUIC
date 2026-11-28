@@ -84,6 +84,9 @@ export function internalArtifactMetadata(
   return (
     [
       "node_trace_offload",
+      "run_store_offload",
+      "ledger_effect_offload",
+      "ledger_result_offload",
       "run_output_offload",
       "run_input_offload",
       "conversation_offload",

@@ -180,6 +180,45 @@ for (const sel of [".af-gateway-signin__actions", ".af-appearance__actions", ".a
   if (resolve(narrow, ".af-tool-policy .af-tool-row__approval")["grid-column"] !== "2") fail("narrow tool policy must wrap the approval select under the name (grid-column: 2)");
 }
 
+// L. the automation header card on a touch screen (2026-11-28: its buttons were 36px, its chips'
+// hit areas clipped to 34px, its chip row cut mid-chip with no sign that it scrolls).
+{
+  // Every rule in file order with its at-rule context, to see which one WINS for a selector.
+  const rules = [];
+  const stack = [];
+  let start = 0;
+  for (let i = 0; i < css.length; i += 1) {
+    if (css[i] === "{") {
+      const prelude = css.slice(start, i).split(";").at(-1).trim();
+      if (prelude.startsWith("@")) stack.push(prelude);
+      else {
+        const end = css.indexOf("}", i);
+        rules.push({ sels: prelude.split(",").map((x) => x.trim()), body: css.slice(i + 1, end), ctx: [...stack] });
+        i = end;
+      }
+      start = i + 1;
+    } else if (css[i] === "}") {
+      stack.pop();
+      start = i + 1;
+    }
+  }
+  // On a touch screen at any width: rules outside any at-rule and rules in a plain coarse block.
+  const applies = (r) => r.ctx.every((c) => /^@media\s*\(pointer:\s*coarse\)$/.test(c));
+  for (const sel of [".af-btn", ".af-auto__btn"]) {
+    const last = rules.filter((r) => applies(r) && r.sels.includes(sel) && /(^|;)\s*min-height\s*:/.test(r.body)).at(-1);
+    if (!last || !last.ctx.length || !/min-height:\s*var\(--tap-min\)/.test(last.body)) fail(`touch: the last min-height rule for ${sel} must be the coarse var(--tap-min) one (a later plain rule wins the cascade): ${last ? last.body.trim().slice(0, 80) : "none"}`);
+  }
+  if (resolve(coarse_all, ".af-auto__chips > .af-auto__chip")["min-height"] !== "var(--tap-min)") fail("coarse: each header chip's slot (.af-auto__chips > .af-auto__chip) must be a var(--tap-min) row so the chip's ::after hit area is not clipped");
+  {
+    const d = resolve(coarse_all, ".af-auto-headcard .af-auto__icon-btn");
+    if (d["min-width"] !== "var(--tap-min)" || d["min-height"] !== "var(--tap-min)") fail("coarse: the header card's dismiss buttons must be tap-min in both axes");
+  }
+  const narrow = blocks_of(/@container af-auto \(max-width: 559\.98px\)\s*\{/g);
+  const row = resolve(narrow, ".af-auto__chips");
+  if (row["overflow-x"] !== "auto" || row["flex-wrap"] !== "nowrap") fail("narrow header: the chips are ONE row that scrolls inside the card (overflow-x: auto, flex-wrap: nowrap)");
+  if (!/linear-gradient\(to right, black calc\(100% - 16px\), transparent\)/.test(row["mask-image"] || "") || row["padding-right"] !== "16px") fail(`narrow header: the scrolling chip row needs the rail's edge fade (mask-image) with its 16px reserved (got mask ${row["mask-image"]}, padding-right ${row["padding-right"]})`);
+}
+
 // E. containers
 for (const [sel, name] of [[".af-gateway-signin", "af-signin"], [".af-appearance", "af-dialog"], [".af-auto", "af-auto"], [".af-tool-policy", "af-tool-policy"], [".af-drawer__body", "af-drawer"]]) {
   const re = new RegExp(`${sel.replace(/[.]/g, "\\.")}\\s*\\{[^}]*container:\\s*${name}\\s*/\\s*inline-size`);

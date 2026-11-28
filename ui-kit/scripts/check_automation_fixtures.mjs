@@ -35,7 +35,10 @@ function check(name, cond, detail) {
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 // --- checksums -------------------------------------------------------------------
-const present = readdirSync(dir).filter((f) => f.endsWith(".json")).sort();
+// Shared case files that live next to the contract fixtures (new cases = new files; each has its
+// own check, e.g. check_automation_model_cases.mjs) and are not part of the six-file contract set.
+const CASE_FILES = ["automation_model_cases.json"];
+const present = readdirSync(dir).filter((f) => f.endsWith(".json") && !CASE_FILES.includes(f)).sort();
 check("fixture set is exactly the six contract files", eq(present, FILES), JSON.stringify(present));
 const sums = FILES.map((f) => `${createHash("sha256").update(readFileSync(join(dir, f))).digest("hex")}  ${f}`).join("\n") + "\n";
 const sumsPath = join(dir, "CHECKSUMS.sha256");

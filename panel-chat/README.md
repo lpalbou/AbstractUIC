@@ -64,8 +64,18 @@ See `panel-chat/src/index.ts` for the authoritative export list. Common entry po
 - Generated media: `ChatMedia` kind `"file"` and audio `transcript`,
   `chatMediaFromArtifact`, `chatMediaForArtifacts`, `WorkflowTransport.resolveArtifact`
   (see [Attachments and generated media](#attachments-and-generated-media))
-- Automations: `ScheduleThisAction` (a "Schedule this…" button for a chat header slot) and
-  `FromAutomationBadge` — see [Automations](../docs/automations.md#panel-chat-pieces)
+- Jump buttons: every `ChatThread` shows "Go to the beginning" / "Go to the latest" round buttons
+  while the person scrolls (`CHAT_JUMP_WORDS`, `CHAT_JUMP_HIDE_MS`, `chatJumpLift`); on a phone
+  (under 480 px) they sit side by side in a band at the thread's bottom edge, never over message text
+- Automations: `AutomationChat` (an automation's runs as THIS chat's thread: each run's task a user
+  message, its answer an assistant message, small footers, "load earlier", a composer with
+  `onTalk`; mount it under ui-kit's `AutomationHeaderCard`), `ScheduleThisAction` (a "Schedule
+  this…" button for a chat header slot), `FromAutomationBadge`, `AutomationPanelWithMarkdown` (for
+  hosts on a frozen snapshot; the kit panel in card chrome: each run's
+  trigger and answer ARE this chat's message card — its stamp, speaker with `messageProps`, copy,
+  file chips with `fetchGateway`, working state; `answerFooter(turn)`, `readRunContext`), and the
+  run Context view `RunContextDialog` / `RunContextBody` / `runContextView` — see
+  [Automations](../docs/automations.md#panel-chat-pieces)
 - `@` mentions: `ChatComposer` / `WorkflowChat` `mentionCandidates`, `mentions` / `onMentionsChange`,
   `mentionNotice`, `mentionSessionKey`, `mentionStatus`, `mentionsUnavailable`; `onSend` carries
   `{text, mentions}`; chips in the bubbles from `ChatMessage.mentions`, the card's `renderMentionCard`
@@ -404,6 +414,15 @@ performs authenticated attachment reads only; execution remains host-owned.
 `renderMarkdown` is passed through to each `ChatThread` message card. Use it
 when the host owns a sanitizer or a richer Markdown renderer; the chat surface
 does not make a separate unsafe rendering path.
+
+`openAt={{ key, messageId }}` (0.9.16; also on `ChatThread`) opens the thread
+with that message at the TOP instead of at the bottom, for example an
+automation's runs opened on the newest run's first message. It is decided once
+per `key` (the automation's id): the first render that carries the message
+places it, and the thread does not follow the bottom again (new messages,
+growing replies, a later `messageId`) until the person scrolls to the bottom
+themselves. Absent, the thread sticks to the bottom as before; the markup is
+the same either way.
 
 The composer is controlled. Clear `draft` in the host only after `onSend`
 resolves; a rejected callback retains it and the component offers a retry.

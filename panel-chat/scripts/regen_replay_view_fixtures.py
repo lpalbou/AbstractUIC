@@ -67,7 +67,6 @@ def main() -> int:
     tmp = Path(tempfile.mkdtemp(prefix="replay-fixtures-"))
     os.environ.update({
         "ABSTRACTGATEWAY_DATA_DIR": str(tmp / "runtime"),
-        "ABSTRACTGATEWAY_FLOWS_DIR": str(tmp / "flows"),
         "ABSTRACTGATEWAY_WORKFLOW_SOURCE": "bundle",
         "ABSTRACTGATEWAY_AUTH_TOKEN": TOKEN,
         "ABSTRACTGATEWAY_ALLOWED_ORIGINS": "*",
@@ -77,6 +76,11 @@ def main() -> int:
     })
     (tmp / "flows").mkdir(parents=True)
     (tmp / "home").mkdir(parents=True)
+    # The gateway's workflow folder is a parameter (`serve --flows-dir`), not an environment variable;
+    # the app runs in process here, so the folder is named the in-process way.
+    from abstractgateway import workflow_folder
+
+    workflow_folder.chosen = (tmp / "flows").resolve()
 
     from fastapi.testclient import TestClient
 

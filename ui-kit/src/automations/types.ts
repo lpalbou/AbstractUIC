@@ -217,8 +217,33 @@ export type LastOccurrence = {
   notify: Notify | null;
 };
 
-/** The occurrence in flight (`admitted` → `running`; `backoff` between retry attempts). */
-export type CurrentOccurrence = { index: number; run_id: string; attempt: number; status: "admitted" | "running" | "backoff" };
+/** What a running run is doing now (`AutomationLive.state`). A run waiting to retry has no `live`
+ * (`CurrentOccurrence.status` `"backoff"` says so). */
+export type AutomationLiveState = "starting" | "thinking" | "tool" | "waiting";
+/**
+ * The live line of the run in progress (`GET /automations/{id}` → `summary.current_occurrence.live`,
+ * folded once by the gateway from its replay view; served on the detail route only, never on the
+ * list, and absent when it cannot be computed, while the occurrence is only admitted and while it
+ * waits to retry). `tool` is set only while `state` is `"tool"` (its arguments bounded by the
+ * gateway: at most 8 plain values, strings cut at 200 characters); `attempt` is the attempt running
+ * (1-based); `steps_done` = tool calls that ended in this attempt.
+ */
+export type AutomationLive = {
+  started_at: Timestamp;
+  state: AutomationLiveState;
+  tool: { name: string; arguments: JsonObject } | null;
+  attempt: number;
+  steps_done: number;
+};
+
+/**
+ * The occurrence in flight (`admitted` → `running`; `backoff` between retry attempts). `run_id` is
+ * null while it is only admitted; `live` only on the detail route, while running (see `AutomationLive`).
+ */
+export type CurrentOccurrence = { index: number; run_id: string | null; attempt: number; status: "admitted" | "running" | "backoff"; live?: AutomationLive };
+
+/** `AutomationSummary.section`: where the list draws a row. */
+export type AutomationSection = "active" | "failed" | "paused" | "archived";
 
 export type AutomationSummary = {
   automation_id: string;
@@ -259,11 +284,25 @@ export type AutomationSummary = {
   revision: number | null;
   updated_at: Timestamp;
   /**
-   * Where the list draws it (framework ADR 0048, AbstractGateway 0.20+): `active` (neither paused
-   * nor archived), `paused` (folded under "Paused · N") or `archived`. Absent from older gateways:
-   * draw the rows as served, with no Paused section.
+   * Where the list draws it (framework ADR 0048, AbstractGateway 0.20+), ranked in this order:
+   * `active` (neither failed, paused nor archived; `completed` stays here), `failed` (the
+   * automation itself stopped: folded under "Failed · N"), `paused` (folded under "Paused · N") or
+   * `archived`. Absent from older gateways: draw the rows as served, with no Paused section
+   * (`automationGroups`).
    */
-  section?: "active" | "paused" | "archived";
+  section?: AutomationSection;
+  /**
+   * The automation's pinned flow is not loaded on this gateway (its runs cannot start). The Edit
+   * form shows it as "(not installed)" and requires choosing another one.
+   */
+  flow_missing?: boolean;
+  /** Why a failed automation stopped: one sentence a person can act on (like `paused_reason`). */
+  failed_reason?: string;
+  /** The raw error a failed automation stopped on (technical text): shown under Details only. */
+  failed_detail?: string;
+  /** Why a paused automation is paused, when the gateway paused it (a run could not start, or an
+   * admin made its flow unavailable): one sentence a person can act on. */
+  paused_reason?: string;
   /** The instant the gateway orders the list by (the automation's last change; ADR 0048). */
   last_activity_at?: Timestamp;
   capabilities: string[];
@@ -271,11 +310,13 @@ export type AutomationSummary = {
 };
 
 /**
- * `GET /automations`: one page in the gateway's order (ADR 0048: active first, then paused, each
- * by `last_activity_at`) and the caller's counts, whatever the filter. The `_count` fields come from
- * AbstractGateway 0.20+; `archived_automations` is the same archived count, from every version.
+ * `GET /automations`: one page in the gateway's order (ADR 0048: active first, then failed, then
+ * paused, each by `last_activity_at`) and the caller's counts, whatever the filter. The `_count`
+ * fields come from AbstractGateway 0.20+ (`failed_automations_count` from the gateway that serves
+ * the `failed` section); `archived_automations` is the same archived count, from every version.
  */
 export type AutomationsPage = Page<AutomationSummary> & {
+  failed_automations_count?: number;
   paused_automations_count?: number;
   archived_automations_count?: number;
   archived_automations?: number;
@@ -292,8 +333,14 @@ export type OccurrenceRow = {
   fired_at: Timestamp;
   finished_at?: Timestamp;
   status: string;
-  trigger: { source_id: string; summary: string };
+  /** `source_version`: the trigger source's version the run fired under, when the gateway serves it
+   * (the runtime's frame line names it; without it `automationRunTask` never strips the frame). */
+  trigger: { source_id: string; summary: string; source_version?: number };
+  /** The run's framed input: the runtime's trigger line, then the task. */
   user_turn: string;
+  /** The task as the person wrote it for THIS run, no frame (AbstractGateway serves it from the
+   * runtime's `occurrence_task`; "" when the run had none, absent from an older gateway). */
+  task?: string;
   answer: string;
   notify: Notify | null;
   failure?: OccurrenceFailure;
@@ -332,6 +379,8 @@ export type AutomationDefinition = {
     failure: "continue";
     retry: { max_attempts: number; backoff: { initial: Duration; factor: number; max: Duration } };
     tool_approval: ToolApprovalPolicy;
+    /** Per-tool approvals (`validate_named_tool_policy`): when present the runtime applies it and does not read `tool_approval`. */
+    tool_policy?: AutomationNamedToolPolicy;
     /** Recipients an occurrence may email without an approval wait: "self" and exact addresses (v2; default ["self"]). */
     email_allowed_recipients?: string[];
   };
@@ -361,7 +410,15 @@ export type ToolApprovalPolicy = "auto" | "ask";
  * approval wait; default `["self"]`. Everyone else waits for approval, and the
  * account's own recipient policy (My email) still applies on top.
  */
-export type AutomationPolicyInput = { retry?: RetryPolicy; tool_approval?: ToolApprovalPolicy; email_allowed_recipients?: string[] };
+export type AutomationPolicyInput = {
+  retry?: RetryPolicy;
+  tool_approval?: ToolApprovalPolicy;
+  email_allowed_recipients?: string[];
+  /** A revise merges `policy`: `null` removes the named per-tool policy (back to `tool_approval` alone). */
+  tool_policy?: AutomationNamedToolPolicy | null;
+};
+/** `policy.tool_policy`: the tools that run without asking and those that ask (the rest of the run's tools ask too). */
+export type AutomationNamedToolPolicy = { auto_approve_tools: string[]; require_approval_tools: string[] };
 
 /** Body of `POST /api/gateway/automations`. */
 export type CreateAutomationRequest = {

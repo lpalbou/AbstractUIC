@@ -25,12 +25,14 @@
  *   --accent-subtle
  *   --af-entity-color
  *   --bg-card
- *   --bg-secondary
+ *   --bg-primary   (NO fallback — theme.css required)
+ *   --bg-secondary   (NO fallback — theme.css required)
  *   --border
  *   --error   (NO fallback — theme.css required)
  *   --error-border
  *   --error-subtle
  *   --error-text
+ *   --focus-ring
  *   --font-mono   (NO fallback — theme.css required)
  *   --font-sans   (NO fallback — theme.css required)
  *   --font-size-base
@@ -40,6 +42,7 @@
  *   --info
  *   --info-border
  *   --info-subtle
+ *   --pc-jump-lift
  *   --radius-md
  *   --radius-sm
  *   --reading-max
@@ -52,10 +55,11 @@
  *   --text-secondary   (NO fallback — theme.css required)
  *   --tool-state   (NO fallback — theme.css required)
  *   --ui-border-1   (NO fallback — theme.css required)
- *   --ui-border-2
+ *   --ui-border-2   (NO fallback — theme.css required)
  *   --ui-overlay-bg-hover   (NO fallback — theme.css required)
  *   --ui-pill-bg
  *   --ui-shadow-1
+ *   --ui-surface-0
  *   --ui-surface-1   (NO fallback — theme.css required)
  *   --ui-surface-2
  *   --warning   (NO fallback — theme.css required)
@@ -63,7 +67,7 @@
  *   --warning-subtle
  *   --warning-text
  *
- * CLASS SET (127): pc-author-mark, pc-author-mark--agent, pc-author-mark--orb, pc-author-mark--person, pc-author-mark--plain, pc-chat-attachment-chip, pc-chat-attachment-name, pc-chat-attachment-target, pc-chat-attachment-target--client, pc-chat-attachment-target--repo, pc-chat-attachment-target--server, pc-chat-attachments, pc-chat-author-kind, pc-chat-avatar, pc-chat-body, pc-chat-footer, pc-chat-header, pc-chat-header-actions, pc-chat-header-spacer, pc-chat-hint, pc-chat-hint--error, pc-chat-hint--warn, pc-chat-icon-btn, pc-chat-icon-btn--copied, pc-chat-icon-btn--failed, pc-chat-item, pc-chat-item--assistant, pc-chat-item--error, pc-chat-item--report_bug, pc-chat-item--report_feature, pc-chat-item--status, pc-chat-item--user, pc-chat-item--warn, pc-chat-live-caption, pc-chat-live-dot, pc-chat-live-indicator, pc-chat-media, pc-chat-media__audio, pc-chat-media__caption, pc-chat-media__error, pc-chat-media__file-name, pc-chat-media__file-open, pc-chat-media__file-row, pc-chat-media__file-size, pc-chat-media__image, pc-chat-media__item, pc-chat-media__item--file, pc-chat-media__link, pc-chat-media__transcript, pc-chat-media__transcript-text, pc-chat-media__video, pc-chat-notice, pc-chat-notice--private, pc-chat-notice--staged, pc-chat-notice-pop, pc-chat-notice-pop__close, pc-chat-notice-pop__head, pc-chat-notice-pop__note, pc-chat-notice-pop__text, pc-chat-notice-pop__title, pc-chat-notice__kind, pc-chat-notice__label, pc-chat-notice__staged, pc-chat-notices, pc-chat-notices__row, pc-chat-role, pc-chat-speak-spinner, pc-chat-stat, pc-chat-stat--clickable, pc-chat-stat--detail, pc-chat-stat-icon, pc-chat-stat-label, pc-chat-stats, pc-chat-thinking, pc-chat-thinking-body, pc-chat-thread, pc-chat-time, pc-chat-working, pc-md, pc-stat-detail, pc-stat-detail-foot, pc-stat-detail-head, pc-stat-detail-heading, pc-stat-detail-headline, pc-stat-detail-hint, pc-stat-detail-note, pc-stat-detail-rows, pc-stat-detail-section, pc-stat-detail-table, pc-stat-detail-title, pc-stat-detail-value, pc-stat-detail-value--absent, pc-tool-activity, pc-tool-activity--completed, pc-tool-activity--failed, pc-tool-activity--running, pc-tool-activity--waiting, pc-tool-activity__chevron, pc-tool-activity__detail, pc-tool-activity__detail-heading, pc-tool-activity__duration, pc-tool-activity__error, pc-tool-activity__key, pc-tool-activity__output, pc-tool-activity__parameters, pc-tool-activity__policy, pc-tool-activity__policy-line, pc-tool-activity__preview, pc-tool-activity__state-icon, pc-tool-activity__status, pc-tool-activity__summary, pc-tool-group, pc-tool-group__completed, pc-tool-group__failed, pc-tool-group__heading, pc-tool-group__notes, pc-tool-group__policy, pc-tool-group__running, pc-tool-group__waiting, pc-tool-sandbox, pc-tool-sandbox__builtin, pc-tool-sandbox__line, pc-tool-sandbox__mode, pc-tool-sandbox__rows, pc-tool-stack, pc-working-dots, pc-working-dots__dot
+ * CLASS SET (140): pc-author-mark, pc-author-mark--agent, pc-author-mark--orb, pc-author-mark--person, pc-author-mark--plain, pc-auto-foot, pc-auto-foot--sent, pc-auto-foot__action, pc-auto-foot__new, pc-auto-foot__sent-body, pc-auto-foot__sent-message, pc-automation-chat__empty, pc-chat-attachment-chip, pc-chat-attachment-name, pc-chat-attachment-target, pc-chat-attachment-target--client, pc-chat-attachment-target--repo, pc-chat-attachment-target--server, pc-chat-attachments, pc-chat-author-kind, pc-chat-avatar, pc-chat-body, pc-chat-earlier, pc-chat-earlier__button, pc-chat-footer, pc-chat-header, pc-chat-header-actions, pc-chat-header-spacer, pc-chat-hint, pc-chat-hint--error, pc-chat-hint--warn, pc-chat-icon-btn, pc-chat-icon-btn--copied, pc-chat-icon-btn--failed, pc-chat-item, pc-chat-item--assistant, pc-chat-item--error, pc-chat-item--report_bug, pc-chat-item--report_feature, pc-chat-item--status, pc-chat-item--user, pc-chat-item--warn, pc-chat-jump, pc-chat-jump__button, pc-chat-jump__stack, pc-chat-jump__up, pc-chat-live-caption, pc-chat-live-dot, pc-chat-live-indicator, pc-chat-media, pc-chat-media__audio, pc-chat-media__caption, pc-chat-media__error, pc-chat-media__file-name, pc-chat-media__file-open, pc-chat-media__file-row, pc-chat-media__file-size, pc-chat-media__image, pc-chat-media__item, pc-chat-media__item--file, pc-chat-media__link, pc-chat-media__transcript, pc-chat-media__transcript-text, pc-chat-media__video, pc-chat-notice, pc-chat-notice--private, pc-chat-notice--staged, pc-chat-notice-pop, pc-chat-notice-pop__close, pc-chat-notice-pop__head, pc-chat-notice-pop__note, pc-chat-notice-pop__text, pc-chat-notice-pop__title, pc-chat-notice__kind, pc-chat-notice__label, pc-chat-notice__staged, pc-chat-notices, pc-chat-notices__row, pc-chat-role, pc-chat-speak-spinner, pc-chat-stat, pc-chat-stat--clickable, pc-chat-stat--detail, pc-chat-stat-icon, pc-chat-stat-label, pc-chat-stats, pc-chat-thinking, pc-chat-thinking-body, pc-chat-thread, pc-chat-time, pc-chat-working, pc-md, pc-stat-detail, pc-stat-detail-foot, pc-stat-detail-head, pc-stat-detail-heading, pc-stat-detail-headline, pc-stat-detail-hint, pc-stat-detail-note, pc-stat-detail-rows, pc-stat-detail-section, pc-stat-detail-table, pc-stat-detail-title, pc-stat-detail-value, pc-stat-detail-value--absent, pc-tool-activity, pc-tool-activity--completed, pc-tool-activity--failed, pc-tool-activity--running, pc-tool-activity--waiting, pc-tool-activity__chevron, pc-tool-activity__detail, pc-tool-activity__detail-heading, pc-tool-activity__duration, pc-tool-activity__error, pc-tool-activity__key, pc-tool-activity__output, pc-tool-activity__parameters, pc-tool-activity__policy, pc-tool-activity__policy-line, pc-tool-activity__preview, pc-tool-activity__state-icon, pc-tool-activity__status, pc-tool-activity__summary, pc-tool-group, pc-tool-group__completed, pc-tool-group__failed, pc-tool-group__heading, pc-tool-group__notes, pc-tool-group__policy, pc-tool-group__running, pc-tool-group__waiting, pc-tool-sandbox, pc-tool-sandbox__builtin, pc-tool-sandbox__line, pc-tool-sandbox__mode, pc-tool-sandbox__rows, pc-tool-stack, pc-working-dots, pc-working-dots__dot
  */
 
 .pc-chat-thread {
@@ -679,6 +683,189 @@
 
 .pc-chat-footer {
   margin-top: 6px;
+}
+
+/* The thread's "load earlier" control (an automation's older runs): quiet, centred, at the top. */
+.pc-chat-earlier {
+  display: flex;
+  justify-content: center;
+}
+.pc-chat-earlier__button {
+  border: 1px solid var(--ui-border-1);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-xs, 12px);
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.pc-chat-earlier__button:hover:not(:disabled) { color: var(--text-primary); border-color: var(--ui-border-2, var(--ui-border-1)); }
+.pc-chat-earlier__button:disabled { cursor: progress; opacity: 0.7; }
+
+/* The thread's jump buttons (operator 2026-11-28): two small round buttons at the right edge, above
+ * the composer, shown while the person scrolls and a moment after; lifted above a message's own
+ * actions (copy, speaker) when they would cover them (--pc-jump-lift, measured). They take no room
+ * in the thread: a zero-height sticky row at its end. */
+.pc-chat-jump {
+  position: sticky;
+  bottom: 0;
+  align-self: flex-end;
+  flex: none;
+  width: 0;
+  height: 0;
+  margin-top: -16px;
+  z-index: 2;
+  pointer-events: none;
+}
+.pc-chat-jump__stack {
+  position: absolute;
+  right: 6px;
+  bottom: calc(10px + var(--pc-jump-lift, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+.pc-chat-jump[data-visible="true"] .pc-chat-jump__stack,
+.pc-chat-jump__stack:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+.pc-chat-jump__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--ui-border-2, var(--ui-border-1));
+  border-radius: 50%;
+  background: var(--ui-surface-2, var(--bg-secondary));
+  color: var(--text-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+.pc-chat-jump__button[hidden] { display: none; }
+.pc-chat-jump__button:hover { border-color: var(--accent-border, var(--ui-border-2)); }
+.pc-chat-jump__button:focus-visible { outline: 2px solid var(--focus-ring, var(--accent)); outline-offset: 2px; }
+.pc-chat-jump__up { transform: rotate(180deg); }
+@media (pointer: coarse) {
+  .pc-chat-jump__button { width: 44px; height: 44px; }
+}
+/* Phones: the buttons never sit over a message's text. The row is a real band at the thread's
+ * bottom edge, just above the composer (it takes its own room after the last message): the two
+ * buttons side by side at its right, a smaller circle inside a 44px hit area, the chat's surface
+ * behind them while they show, so text scrolls under the edge, never under a button. The band is
+ * below every message, so no lift is needed. */
+@media (max-width: 479.98px) {
+  .pc-chat-jump {
+    align-self: stretch;
+    width: auto;
+    height: var(--tap-min, 44px);
+    margin-top: -8px;
+  }
+  .pc-chat-jump::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--ui-surface-0, var(--bg-primary));
+    opacity: 0;
+    transition: opacity 0.18s ease;
+  }
+  .pc-chat-jump[data-visible="true"]::before,
+  .pc-chat-jump:focus-within::before { opacity: 1; }
+  .pc-chat-jump[data-visible="true"] { pointer-events: auto; }
+  .pc-chat-jump__stack {
+    right: 0;
+    bottom: 0;
+    flex-direction: row;
+    gap: 2px;
+  }
+  .pc-chat-jump__button {
+    position: relative;
+    isolation: isolate;
+    width: var(--tap-min, 44px);
+    height: var(--tap-min, 44px);
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .pc-chat-jump__button::before {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    z-index: -1;
+    box-sizing: border-box;
+    border: 1px solid var(--ui-border-2, var(--ui-border-1));
+    border-radius: 50%;
+    background: var(--ui-surface-2, var(--bg-secondary));
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  }
+  .pc-chat-jump__button:hover::before { border-color: var(--accent-border, var(--ui-border-2)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pc-chat-jump__stack,
+  .pc-chat-jump::before { transition: none; }
+}
+
+/* An automation run's per-message extras (`AutomationChat`), in the card's footer: one small,
+ * quiet line, never a frame. */
+.pc-auto-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs, 12px);
+  line-height: 1.4;
+}
+.pc-auto-foot--sent:empty { display: none; }
+.pc-auto-foot__action {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.pc-auto-foot__action:hover { color: var(--text-primary); }
+.pc-auto-foot__new {
+  display: inline-flex;
+  flex-direction: column;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--accent-subtle, color-mix(in srgb, var(--accent) 16%, transparent));
+  color: var(--accent);
+  font-weight: 600;
+}
+.pc-auto-foot__sent-message {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs, 12px);
+}
+.pc-auto-foot__sent-message > summary { cursor: pointer; }
+.pc-auto-foot__sent-body { margin-top: 6px; color: var(--text-primary); font-size: var(--font-size-sm, 13px); }
+/* Touch: every clickable thing in a run's footer (Context, the "message sent" disclosure, the host's
+ * links on its line) is a 44px row; the text stays as small as on a mouse. */
+@media (pointer: coarse) {
+  .pc-auto-foot__action,
+  .pc-auto-foot__sent-message > summary,
+  .pc-auto-foot a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min, 44px);
+  }
+}
+.pc-automation-chat__empty {
+  margin: 24px auto;
+  color: var(--text-secondary);
+  text-align: center;
 }
 
 .pc-chat-attachments {

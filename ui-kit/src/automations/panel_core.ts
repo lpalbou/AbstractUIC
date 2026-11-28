@@ -1,4 +1,5 @@
 import { automationToolSelection, withAutomationTools } from "./tool_selection.js";
+import { namedToolPolicyOf } from "./automation_tool_choice.js";
 import { automationTargetValue, retargetAutomationInput } from "./target_selection.js";
 // Pure presentation rules for the automation panel and the schedule dialog
 // (the kit's `*_core.ts` pattern: no React, checked directly by
@@ -6,10 +7,13 @@ import { automationTargetValue, retargetAutomationInput } from "./target_selecti
 // statuses, notify objects, waits, config fields — never model prose.
 import controlsSpec from "./automation_controls.json" with { type: "json" };
 import { randomId } from "../random_id.js";
+import type { SpeculationValue } from "../speculation_control.js";
 import { TRIGGER_WORDS_TEXT, isEventTrigger, triggerWords } from "./trigger_words.js";
+import { AUTOMATION_EDIT_WORDS } from "./automation_words.js";
 import type {
   ApiError,
   AutomationChanges,
+  AutomationNamedToolPolicy,
   AutomationNotify,
   EmailFilter,
   EmailReceivedConfig,
@@ -221,7 +225,7 @@ export function emailTriggerConfigFrom(form: EmailTriggerForm): { config: EmailR
   if (form.every === null) config.every = emailDefaultEvery(form.usesModel);
   else if (!Number.isInteger(form.every.amount) || form.every.amount < 1) errors.push("The check interval must be a whole number of at least 1.");
   else config.every = `${form.every.amount}${form.every.unit}`;
-  if (config.every !== undefined && (durationSeconds(config.every) ?? 0) < EMAIL_MIN_EVERY_SECONDS) errors.push("The check interval is at least 60 seconds.");
+  if (config.every !== undefined && (durationSeconds(config.every) ?? 0) < EMAIL_MIN_EVERY_SECONDS) errors.push(AUTOMATION_EDIT_WORDS.edit.check_interval_min);
   if (form.maxBatch === null) config.max_batch = EMAIL_DEFAULT_MAX_BATCH;
   else if (!Number.isInteger(form.maxBatch) || form.maxBatch < 1 || form.maxBatch > EMAIL_MAX_BATCH) errors.push(`At most this many emails per run: a whole number from 1 to ${EMAIL_MAX_BATCH}.`);
   else config.max_batch = form.maxBatch;
@@ -332,7 +336,8 @@ export function currentOccurrenceLabel(summary: AutomationSummary): string | nul
   const c = summary.current_occurrence;
   if (!c) return null;
   const attempt = c.attempt > 1 ? ` (attempt ${c.attempt})` : "";
-  if (c.status === "backoff") return `Run #${c.index} waiting to retry (attempt ${c.attempt + 1})`;
+  // In backoff the runtime already stores the attempt about to run (controller.py retry_scheduled).
+  if (c.status === "backoff") return `Run #${c.index} waiting to retry (attempt ${c.attempt})`;
   if (c.status === "admitted") return `Run #${c.index} starting${attempt}`;
   return `Run #${c.index} running${attempt}`;
 }
@@ -377,7 +382,9 @@ export function relativeIn(ts: string, nowMs: number): string {
  * Discuss needs the `discuss` capability and is off for legacy rows; it stays
  * available on an archived automation (its history is kept). Unarchive
  * (0.7.0) applies ONLY to an archived automation and needs the `unarchive`
- * capability; the runtime brings it back paused.
+ * capability; the runtime brings it back paused. A FAILED automation (it stopped) accepts Edit,
+ * Archive and Resume exactly as its `capabilities` list them; the Active switch is then off and
+ * enabled and sends resume. Without `resume` listed (an older gateway) it reads as ended.
  */
 export function automationControls(
   summary: AutomationSummary,
@@ -395,6 +402,9 @@ export function automationControls(
     return ok ? { enabled: true } : { enabled: false, reason };
   };
   const live = st === "active" || st === "paused";
+  // A failed automation (it stopped) can be turned back on when the gateway lists `resume` for it
+  // (spec D); an older gateway lists nothing of the kind and the automation reads as ended, as before.
+  const revivable = st === "failed" && caps.has("resume");
   // The "Active" state toggle (operator 2026-09-30: a persistent on/off
   // setting is a pressed/plain toggle, never a Pause/Resume verb swap). It
   // needs the capability of the transition a click would request.
@@ -405,7 +415,7 @@ export function automationControls(
       ? { enabled: false, reason: "Legacy schedule: managed with its existing controls." }
       : st === "archived"
         ? { enabled: false, reason: "Archived: history is kept, nothing runs." }
-        : !live
+        : !live && !revivable
           ? { enabled: false, reason: "The automation has ended." }
           : caps.has(toggleCap)
             ? { enabled: true }
@@ -413,7 +423,7 @@ export function automationControls(
   return {
     active,
     pause: gate("pause", st === "active", st === "paused" ? "Already paused." : "The automation has ended."),
-    resume: gate("resume", st === "paused", st === "active" ? "Already running on schedule." : "The automation has ended."),
+    resume: gate("resume", st === "paused" || st === "failed", st === "active" ? "Already running on schedule." : "The automation has ended."),
     run_now: gate("run_now", live && !running, running ? "An occurrence is in progress." : "The automation has ended."),
     stop_current: gate("stop_current", running, "Nothing is running."),
     revise: gate("revise", true, ""),
@@ -437,7 +447,7 @@ export function automationControls(
   };
 }
 
-/** The command the "Active" toggle sends from this state: pause when active, resume when paused. */
+/** The command the "Active" toggle sends from this state: pause when active, resume when paused or failed. */
 export function activeToggleCommand(summary: Pick<AutomationSummary, "status">): string {
   return summary.status === "active" ? CONTROL_COMMANDS.pause : CONTROL_COMMANDS.resume;
 }
@@ -451,6 +461,7 @@ export type OccurrenceView = {
   /** Failures, waits and explicit notify are notable; everything else is quiet. */
   notable: boolean;
   badge: string | null;
+  /** The status beside the badge; empty for a run in progress (the badge already says it). */
   statusText: string;
   canDiscuss: boolean;
 };
@@ -472,7 +483,9 @@ export function occurrenceViews(rows: OccurrenceRow[]): OccurrenceView[] {
       const attempts = `${row.attempts} ${row.attempts === 1 ? "attempt" : "attempts"}`;
       const badge =
         tone === "failed" ? `Failed after ${attempts}` : tone === "waiting" ? "Waiting for you" : tone === "notified" ? "Notified" : tone === "running" ? "Running" : null;
-      const statusText = row.status === "completed" && row.attempts > 1 ? `completed after ${attempts}` : row.status;
+      // A run in progress: the "Running" badge says it, and a `backoff` one reads as the live line's
+      // retry sentence ("Waiting to retry (attempt 2)"); the raw status is not said again.
+      const statusText = tone === "running" ? "" : row.status === "completed" && row.attempts > 1 ? `completed after ${attempts}` : row.status;
       return { row, tone, notable: tone === "failed" || tone === "waiting" || tone === "notified", badge, statusText, canDiscuss: !IN_PROGRESS.has(row.status) };
     });
 }
@@ -555,18 +568,96 @@ export type ReviseForm = {
   growingMaxTokens?: number;
   prompt?: string | null;
   toolApproval?: ToolApprovalPolicy | null;
+  /**
+   * The named per-tool policy (`policy.tool_policy`): an object = "Choose per tool" with these
+   * lists; `null` = one of the two plain choices (a policy the automation had is removed); absent =
+   * the tools choice was not touched or not offered (only `toolApproval` is compared, as before).
+   */
+  toolPolicy?: AutomationNamedToolPolicy | null;
   tools?: string[] | null;
   /** "Email result" (`notify.channels` has "email"); `null` without a definition. */
   notifyEmail?: boolean | null;
   /** `notify.recipients`; `null` without a definition. */
   emailRecipients?: EmailRecipientsForm | null;
+  /** The model the automation runs on (`automationModelFrom`). Absent = the form did not offer it;
+   * `null` = no definition. */
+  model?: AutomationModelValue | null;
 };
+
+/**
+ * The model an automation runs on, as the provider/model picker holds it (`ProviderModelPickerValue`).
+ * Empty provider and model = nothing chosen: the workflow's own model when it declares one, else the
+ * gateway default (abstractgateway provider_defaults.py, the cascade).
+ */
+export type AutomationModelValue = { provider: string; model: string; reasoning?: string; speculation?: SpeculationValue };
+
+const modelText = (v: unknown): string => (typeof v === "string" ? v : typeof v === "number" ? String(v) : "");
+
+/**
+ * THE one reading of where an automation's model choice is stored (`definition.target.input_data`),
+ * the same keys a conversation turn and AbstractCode's automation settings use
+ * (abstractcode web/src/workspace/automation_settings.ts): provider/model from `provider`/`model`,
+ * else `_runtime.provider`/`_runtime.model`, only as a pair (half a pair reads as nothing chosen);
+ * reasoning from `_runtime.thinking`; MTP from `_runtime.speculation`.
+ */
+export function automationModelFrom(input: JsonObject | null | undefined): AutomationModelValue {
+  const data = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  const rt = data._runtime;
+  const runtime = (rt && typeof rt === "object" && !Array.isArray(rt) ? rt : {}) as JsonObject;
+  const provider = modelText(data.provider) || modelText(runtime.provider);
+  const model = modelText(data.model) || modelText(runtime.model);
+  const pair = Boolean(provider && model);
+  const reasoning = modelText(runtime.thinking);
+  // As stored (AbstractCode reads it the same way); the picker shows it through normalizeSpeculationValue.
+  const speculation = runtime.speculation as SpeculationValue | undefined;
+  return {
+    provider: pair ? provider : "",
+    model: pair ? model : "",
+    ...(reasoning ? { reasoning } : {}),
+    ...(speculation !== undefined ? { speculation } : {}),
+  };
+}
+
+/**
+ * `input` with the model choice written where `automationModelFrom` reads it: the pair at BOTH
+ * `provider`/`model` and `_runtime.provider`/`_runtime.model`, `_runtime.thinking`,
+ * `_runtime.speculation` (false = MTP off), values as given. An unset value (undefined, null, "")
+ * REMOVES its key at both levels, and an emptied `_runtime` is removed: exactly what AbstractCode's
+ * automation settings write (abstractcode web/src/workspace/automation_settings.ts). Half a pair
+ * throws. Never mutates its input.
+ */
+export function withAutomationModel(input: JsonObject, value: AutomationModelValue): JsonObject {
+  if (Boolean(value.provider) !== Boolean(value.model)) throw new Error(HALF_MODEL_ERROR);
+  const out: JsonObject = { ...input };
+  const rt = out._runtime;
+  const runtime: JsonObject = rt && typeof rt === "object" && !Array.isArray(rt) ? { ...(rt as JsonObject) } : {};
+  const put = (target: JsonObject, key: string, v: unknown) => {
+    if (v === undefined || v === null || v === "") delete target[key];
+    else target[key] = v as Json;
+  };
+  put(out, "provider", value.provider);
+  put(out, "model", value.model);
+  put(runtime, "provider", value.provider);
+  put(runtime, "model", value.model);
+  put(runtime, "thinking", value.reasoning);
+  put(runtime, "speculation", value.speculation);
+  if (Object.keys(runtime).length) out._runtime = runtime;
+  else delete out._runtime;
+  return out;
+}
+
+/** The comparable form of a model choice: the values the mapping would write. */
+function modelKey(v: AutomationModelValue): string {
+  return JSON.stringify([v.provider, v.model, v.reasoning || "", v.speculation === undefined ? null : v.speculation]);
+}
+
+const HALF_MODEL_ERROR = AUTOMATION_EDIT_WORDS.edit.model_half_pair;
 
 /** The committed definition fields the Edit form reads (a subset of `AutomationDefinition`). */
 export type ReviseDefinition = {
   context?: { mode: ContextMode; growing?: JsonObject };
   target: { bundle_ref: string; flow_id: string; input_data: JsonObject };
-  policy: { tool_approval: ToolApprovalPolicy; email_allowed_recipients?: string[] };
+  policy: { tool_approval: ToolApprovalPolicy; tool_policy?: AutomationNamedToolPolicy; email_allowed_recipients?: string[] };
   notify?: AutomationNotify;
 };
 
@@ -582,9 +673,11 @@ export function reviseFormFrom(summary: AutomationSummary, definition?: ReviseDe
     growingMaxTokens: Number(definition?.context?.growing?.max_tokens ?? summary.growing_max_tokens ?? DEFAULT_GROWING_MAX_TOKENS),
     prompt: typeof prompt === "string" ? prompt : null,
     toolApproval: definition ? definition.policy.tool_approval : null,
+    toolPolicy: definition ? namedToolPolicyOf(definition) : null,
     tools: automationToolSelection(definition?.target.input_data),
     notifyEmail: definition ? notifyEmails(definition.notify) : null,
     emailRecipients: definition ? emailRecipientsFormFrom(definition.notify?.recipients) : null,
+    model: definition ? automationModelFrom(definition.target.input_data) : null,
   };
 }
 
@@ -604,33 +697,50 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
   const errors: string[] = [];
   const changes: AutomationChanges = {};
   const title = form.title.trim();
-  if (!title) errors.push("Title is required.");
-  else if (title.length > 120) errors.push("Title is at most 120 characters.");
+  if (!title) errors.push(AUTOMATION_EDIT_WORDS.edit.title_required);
   else if (title !== summary.title) changes.title = title;
   const before = reviseFormFrom(summary, definition);
-  if (form.every !== before.every && form.every !== null) {
-    const email = isEmailTrigger(summary.trigger);
-    if (!parseDuration(form.every)) errors.push("Interval must be a whole number of minutes, hours or days.");
-    else if (email && (durationSeconds(form.every) ?? 0) < EMAIL_MIN_EVERY_SECONDS) errors.push("The check interval is at least 60 seconds.");
-    else {
-      const config: JsonObject = { ...summary.trigger.config, every: form.every };
-      if (email) delete config.start_at;
-      changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config };
-    }
-  }
-  if (form.calendar && before.calendar && JSON.stringify(form.calendar) !== JSON.stringify(before.calendar)) {
-    const built = calendarConfigFrom(form.calendar);
-    if (!built.config) errors.push(...built.errors);
-    else {
+  // The schedule. The same kind: the existing rules (a new interval keeps the rest of the config;
+  // a new calendar rule keeps the zone and the limits). A change of kind (Repeat <-> Daily / Weekly /
+  // Monthly, or away from Once) writes `schedule@2` with the new rule plus the kept `time_zone`,
+  // `count` and `until`; `start_at` and `anchor` are never carried (the gateway re-anchors from the
+  // save: one interval after it, or the next calendar occurrence).
+  const prev = summary.trigger.config as { time_zone?: unknown; count?: unknown; until?: unknown };
+  const kept: JsonObject = {
+    ...(typeof prev.time_zone === "string" ? { time_zone: prev.time_zone } : {}),
+    ...(typeof prev.count === "number" ? { count: prev.count } : {}),
+    ...(typeof prev.until === "string" ? { until: prev.until } : {}),
+  };
+  const schedule = summary.trigger.source_id === "schedule";
+  const toCalendar = form.calendar ?? null;
+  const toEvery = !toCalendar && typeof form.every === "string" ? form.every : null;
+  const writeV2 = (config: JsonObject) => {
+    changes.trigger = { source_id: "schedule", source_version: SCHEDULE_VERSION, config };
+  };
+  if (toCalendar && before.calendar) {
+    if (JSON.stringify(toCalendar) !== JSON.stringify(before.calendar)) {
+      const built = calendarConfigFrom(toCalendar);
+      if (!built.config) errors.push(...built.errors);
       // The automation keeps its own time zone (stored on the definition; the form never edits it)
       // and its limits (max runs, stop at); the gateway re-anchors the new rule from now.
-      const prev = summary.trigger.config as { time_zone?: unknown; count?: unknown; until?: unknown };
-      const config: JsonObject = {
-        ...(built.config as JsonObject),
-        ...(typeof prev.time_zone === "string" ? { time_zone: prev.time_zone } : {}),
-        ...(typeof prev.count === "number" ? { count: prev.count } : {}),
-        ...(typeof prev.until === "string" ? { until: prev.until } : {}),
-      };
+      else changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config: { ...(built.config as JsonObject), ...kept } };
+    }
+  } else if (toCalendar && schedule) {
+    // Repeat (or Once) -> a calendar rule.
+    const built = calendarConfigFrom(toCalendar);
+    if (!built.config) errors.push(...built.errors);
+    else writeV2({ ...(built.config as JsonObject), ...kept });
+  } else if (toEvery !== null && schedule && before.every === null) {
+    // A calendar rule (or Once) -> Repeat.
+    if (!parseDuration(toEvery)) errors.push(AUTOMATION_EDIT_WORDS.edit.interval_invalid);
+    else writeV2({ kind: "every", every: toEvery, ...kept });
+  } else if (toEvery !== null && toEvery !== before.every) {
+    const email = isEmailTrigger(summary.trigger);
+    if (!parseDuration(toEvery)) errors.push(AUTOMATION_EDIT_WORDS.edit.interval_invalid);
+    else if (email && (durationSeconds(toEvery) ?? 0) < EMAIL_MIN_EVERY_SECONDS) errors.push(AUTOMATION_EDIT_WORDS.edit.check_interval_min);
+    else {
+      const config: JsonObject = { ...summary.trigger.config, every: toEvery };
+      if (email) delete config.start_at;
       changes.trigger = { source_id: summary.trigger.source_id, source_version: summary.trigger.source_version, config };
     }
   }
@@ -641,14 +751,32 @@ export function reviseChanges(summary: AutomationSummary, form: ReviseForm, defi
   }
   if (definition && typeof before.prompt === "string" && typeof form.prompt === "string" && form.prompt.trim() !== before.prompt.trim()) {
     const prompt = form.prompt.trim();
-    if (!prompt) errors.push("Task is required.");
+    if (!prompt) errors.push(AUTOMATION_EDIT_WORDS.edit.task_required);
     else changes.target = { bundle_ref: definition.target.bundle_ref, flow_id: definition.target.flow_id, input_data: { ...definition.target.input_data, prompt } };
   }
   if (definition && form.tools !== undefined && JSON.stringify(form.tools) !== JSON.stringify(before.tools)) {
     const target = changes.target || { bundle_ref: definition.target.bundle_ref, flow_id: definition.target.flow_id, input_data: definition.target.input_data };
     changes.target = { ...target, input_data: withAutomationTools(target.input_data || {}, form.tools) };
   }
-  if (definition && form.toolApproval && form.toolApproval !== before.toolApproval) changes.policy = { tool_approval: form.toolApproval };
+  if (definition && form.model && before.model && modelKey(form.model) !== modelKey(before.model)) {
+    if (Boolean(form.model.provider) !== Boolean(form.model.model)) errors.push(HALF_MODEL_ERROR);
+    else {
+      const target = changes.target || { bundle_ref: definition.target.bundle_ref, flow_id: definition.target.flow_id, input_data: definition.target.input_data };
+      changes.target = { ...target, input_data: withAutomationModel(target.input_data || {}, form.model) };
+    }
+  }
+  // Tools (spec E): "Run without asking" / "Ask before each" write only `tool_approval` and remove a
+  // named policy the automation had; "Choose per tool" writes the named policy and `tool_approval`
+  // "ask" when any tool asks. Untouched = nothing written.
+  if (definition && form.toolPolicy && typeof form.toolPolicy === "object") {
+    const next = namedToolPolicyOf({ policy: { tool_policy: form.toolPolicy } }) as AutomationNamedToolPolicy;
+    if (JSON.stringify(next) !== JSON.stringify(before.toolPolicy ?? null)) {
+      const approval: ToolApprovalPolicy = next.require_approval_tools.length ? "ask" : "auto";
+      changes.policy = { tool_policy: next, ...(approval !== before.toolApproval ? { tool_approval: approval } : {}) };
+    }
+  } else if (definition && form.toolPolicy === null && before.toolPolicy && form.toolApproval) {
+    changes.policy = { tool_approval: form.toolApproval, tool_policy: null };
+  } else if (definition && form.toolApproval && form.toolApproval !== before.toolApproval) changes.policy = { tool_approval: form.toolApproval };
   if (definition && typeof form.notifyEmail === "boolean") {
     const next = emailAllowedRecipientsFrom(form.notifyEmail ? form.emailRecipients ?? DEFAULT_EMAIL_RECIPIENTS : before.emailRecipients ?? DEFAULT_EMAIL_RECIPIENTS);
     const prev = emailAllowedRecipientsFrom(before.emailRecipients ?? DEFAULT_EMAIL_RECIPIENTS).recipients;
@@ -930,7 +1058,6 @@ export function buildCreateRequest(
   const prompt = form.prompt.trim();
   if (!prompt) errors.push("Write the task to run.");
   const title = (form.title ?? "").trim() || defaultTitle(prompt);
-  if (title.length > 120) errors.push("Title is at most 120 characters.");
   const email = form.trigger === "email";
   const built = email ? emailTriggerConfigFrom(form.email ?? DEFAULT_EMAIL_TRIGGER_FORM) : null;
   const schedule = email ? null : scheduleTriggerFrom(form);
